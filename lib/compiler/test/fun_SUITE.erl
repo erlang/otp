@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
-         external/1,eep37/1,eep37_dup/1,badarity/1,badfun/1]).
+         external/1,eep37/1,eep37_dup/1,badarity/1,badfun/1,
+         duplicated_fun/1,unused_fun/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -32,15 +33,15 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() ->
     [{p,[parallel],
       [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
-       eep37_dup,badarity,badfun]}].
+       eep37_dup,badarity,badfun,duplicated_fun,unused_fun]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -194,6 +195,17 @@ external(Config) when is_list(Config) ->
     ?APPLY2(ListsMod, ListsMap, 2),
     ?APPLY2(ListsMod, ListsMap, ListsArity),
 
+    42 = (fun erlang:abs/1)(-42),
+    42 = (id(fun erlang:abs/1))(-42),
+    42 = apply(fun erlang:abs/1, [-42]),
+    42 = apply(id(fun erlang:abs/1), [-42]),
+    6 = (fun lists:sum/1)([1,2,3]),
+    6 = (id(fun lists:sum/1))([1,2,3]),
+
+    {'EXIT',{{badarity,_},_}} = (catch (fun lists:sum/1)(1, 2, 3)),
+    {'EXIT',{{badarity,_},_}} = (catch (id(fun lists:sum/1))(1, 2, 3)),
+    {'EXIT',{{badarity,_},_}} = (catch apply(fun lists:sum/1, [1,2,3])),
+
     ok.
 
 call_me(I) ->
@@ -238,10 +250,40 @@ badfun(_Config) ->
     expect_badfun(X, catch X(put(?FUNCTION_NAME, of_course))),
     of_course = erase(?FUNCTION_NAME),
 
+    %% A literal as a Fun used to crash the code generator. This only happened
+    %% when type optimization had reduced `Fun` to a literal, hence the match.
+    Literal = fun(literal = Fun) ->
+                      Fun()
+              end,
+    expect_badfun(literal, catch Literal(literal)),
+
     ok.
 
 expect_badfun(Term, Exit) ->
     {'EXIT',{{badfun,Term},_}} = Exit.
+
+duplicated_fun(_Config) ->
+    try
+        %% The following code used to crash the compiler before
+        %% v3_core:is_safe/1 was corrected to consider fun variables
+        %% unsafe.
+        id([print_result_paths_fun = fun duplicated_fun_helper/1]),
+        ct:error(should_fail)
+    catch
+        error:{badmatch,F} when is_function(F, 1) ->
+            ok
+    end.
+
+duplicated_fun_helper(_) ->
+    ok.
+
+%% ERL-1166: beam_kernel_to_ssa would crash if a fun was unused.
+unused_fun(_Config) ->
+    _ = fun() -> ok end,
+    try id(ok) of
+        _ -> fun() -> ok end
+    catch _ -> ok end,
+    ok.
 
 id(I) ->
     I.

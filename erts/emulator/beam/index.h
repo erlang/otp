@@ -88,7 +88,7 @@ ERTS_GLB_INLINE int erts_index_num_entries(IndexTable* t)
      * on tables where entries are never erased.
      * index_put_entry() does matching write barrier.
      */
-    ERTS_SMP_READ_MEMORY_BARRIER;
+    ERTS_THR_READ_MEMORY_BARRIER;
     return ret;
 }
 

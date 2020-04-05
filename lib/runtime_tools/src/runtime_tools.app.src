@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,10 +23,11 @@
     {modules,      [appmon_info, dbg,observer_backend,runtime_tools,
                     runtime_tools_sup,erts_alloc_config,
 		    ttb_autostart,dyntrace,system_information,
+                    scheduler,
                     msacc]},
     {registered,   [runtime_tools_sup]},
     {applications, [kernel, stdlib]},
     {env,          []},
     {mod,          {runtime_tools, []}},
-    {runtime_dependencies, ["stdlib-3.0","mnesia-4.12","kernel-5.0",
-			    "erts-8.0"]}]}.
+    {runtime_dependencies, ["stdlib-@OTP-15251@","mnesia-4.12","kernel-@OTP-15251@",
+			    "erts-@OTP-15251:OTP-16327@"]}]}.

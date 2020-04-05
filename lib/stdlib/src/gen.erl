@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,9 @@
 %%%-----------------------------------------------------------------
 -export([start/5, start/6, debug_options/2, hibernate_after/1,
 	 name/1, unregister_name/1, get_proc_name/1, get_parent/0,
-	 call/3, call/4, reply/2, stop/1, stop/3]).
+	 call/3, call/4, reply/2,
+         send_request/3, wait_response/2, check_response/2,
+         stop/1, stop/3]).
 
 -export([init_it/6, init_it/7]).
 
@@ -38,7 +40,7 @@
 
 %%-----------------------------------------------------------------
 
--type linkage()    :: 'link' | 'nolink'.
+-type linkage()    :: 'monitor' | 'link' | 'nolink'.
 -type emgr_name()  :: {'local', atom()}
                     | {'global', term()}
                     | {'via', Module :: module(), Name :: term()}.
@@ -49,8 +51,14 @@
                     | {'logfile', string()}.
 -type option()     :: {'timeout', timeout()}
 		    | {'debug', [debug_flag()]}
+		    | {'hibernate_after', timeout()}
 		    | {'spawn_opt', [proc_lib:spawn_option()]}.
 -type options()    :: [option()].
+
+-type server_ref() :: pid() | atom() | {atom(), node()}
+                    | {global, term()} | {via, module(), term()}.
+
+-type request_id() :: term().
 
 %%-----------------------------------------------------------------
 %% Starts a generic process.
@@ -94,6 +102,13 @@ do_spawn(GenMod, link, Mod, Args, Options) ->
 			[GenMod, self(), self(), Mod, Args, Options], 
 			Time,
 			spawn_opts(Options));
+do_spawn(GenMod, monitor, Mod, Args, Options) ->
+    Time = timeout(Options),
+    Ret = proc_lib:start_monitor(?MODULE, init_it,
+                                 [GenMod, self(), self(), Mod, Args, Options], 
+                                 Time,
+                                 spawn_opts(Options)),
+    monitor_return(Ret);
 do_spawn(GenMod, _, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
@@ -107,12 +122,39 @@ do_spawn(GenMod, link, Name, Mod, Args, Options) ->
 			[GenMod, self(), self(), Name, Mod, Args, Options],
 			Time,
 			spawn_opts(Options));
+do_spawn(GenMod, monitor, Name, Mod, Args, Options) ->
+    Time = timeout(Options),
+    Ret = proc_lib:start_monitor(?MODULE, init_it,
+                                 [GenMod, self(), self(), Name, Mod, Args, Options],
+                                 Time,
+                                 spawn_opts(Options)),
+    monitor_return(Ret);
 do_spawn(GenMod, _, Name, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
 		   [GenMod, self(), self, Name, Mod, Args, Options], 
 		   Time,
 		   spawn_opts(Options)).
+
+
+%%
+%% Adjust monitor returns for OTP gen behaviours...
+%%
+%% If an OTP behaviour is introduced that 'init_ack's
+%% other results, this has code has to be moved out
+%% into all behaviours as well as adjusted...
+%%
+monitor_return({{ok, Pid}, Mon}) when is_pid(Pid), is_reference(Mon) ->
+    %% Successful start_monitor()...
+    {ok, {Pid, Mon}};
+monitor_return({Error, Mon}) when is_reference(Mon) ->
+    %% Failure; wait for spawned process to terminate
+    %% and release resources, then return the error...
+    receive
+        {'DOWN', Mon, process, _Pid, _Reason} ->
+            ok
+    end,
+    Error.
 
 %%-----------------------------------------------------------------
 %% Initiate the new process.
@@ -138,7 +180,7 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 %%-----------------------------------------------------------------
 %% Makes a synchronous call to a generic process.
 %% Request is sent to the Pid, and the response must be
-%% {Tag, _, Reply}.
+%% {Tag, Reply}.
 %%-----------------------------------------------------------------
 
 %%% New call function which uses the new monitor BIF
@@ -147,57 +189,36 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 call(Process, Label, Request) -> 
     call(Process, Label, Request, ?default_timeout).
 
+%% Optimize a common case.
+call(Process, Label, Request, Timeout) when is_pid(Process),
+  Timeout =:= infinity orelse is_integer(Timeout) andalso Timeout >= 0 ->
+    do_call(Process, Label, Request, Timeout);
 call(Process, Label, Request, Timeout)
   when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0 ->
     Fun = fun(Pid) -> do_call(Pid, Label, Request, Timeout) end,
     do_for_proc(Process, Fun).
 
-do_call(Process, Label, Request, Timeout) ->
-    try erlang:monitor(process, Process) of
-	Mref ->
-	    %% If the monitor/2 call failed to set up a connection to a
-	    %% remote node, we don't want the '!' operator to attempt
-	    %% to set up the connection again. (If the monitor/2 call
-	    %% failed due to an expired timeout, '!' too would probably
-	    %% have to wait for the timeout to expire.) Therefore,
-	    %% use erlang:send/3 with the 'noconnect' option so that it
-	    %% will fail immediately if there is no connection to the
-	    %% remote node.
+do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
+    Mref = erlang:monitor(process, Process),
 
-	    catch erlang:send(Process, {Label, {self(), Mref}, Request},
-		  [noconnect]),
-	    receive
-		{Mref, Reply} ->
-		    erlang:demonitor(Mref, [flush]),
-		    {ok, Reply};
-		{'DOWN', Mref, _, _, noconnection} ->
-		    Node = get_node(Process),
-		    exit({nodedown, Node});
-		{'DOWN', Mref, _, _, Reason} ->
-		    exit(Reason)
-	    after Timeout ->
-		    erlang:demonitor(Mref, [flush]),
-		    exit(timeout)
-	    end
-    catch
-	error:_ ->
-	    %% Node (C/Java?) is not supporting the monitor.
-	    %% The other possible case -- this node is not distributed
-	    %% -- should have been handled earlier.
-	    %% Do the best possible with monitor_node/2.
-	    %% This code may hang indefinitely if the Process 
-	    %% does not exist. It is only used for featureweak remote nodes.
-	    Node = get_node(Process),
-	    monitor_node(Node, true),
-	    receive
-		{nodedown, Node} -> 
-		    monitor_node(Node, false),
-		    exit({nodedown, Node})
-	    after 0 -> 
-		    Tag = make_ref(),
-		    Process ! {Label, {self(), Tag}, Request},
-		    wait_resp(Node, Tag, Timeout)
-	    end
+    %% OTP-21:
+    %% Auto-connect is asynchronous. But we still use 'noconnect' to make sure
+    %% we send on the monitored connection, and not trigger a new auto-connect.
+    %%
+    erlang:send(Process, {Label, {self(), Mref}, Request}, [noconnect]),
+
+    receive
+        {Mref, Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {ok, Reply};
+        {'DOWN', Mref, _, _, noconnection} ->
+            Node = get_node(Process),
+            exit({nodedown, Node});
+        {'DOWN', Mref, _, _, Reason} ->
+            exit(Reason)
+    after Timeout ->
+            erlang:demonitor(Mref, [flush]),
+            exit(timeout)
     end.
 
 get_node(Process) ->
@@ -212,17 +233,54 @@ get_node(Process) ->
 	    node(Process)
     end.
 
-wait_resp(Node, Tag, Timeout) ->
+-spec send_request(Name::server_ref(), Label::term(), Request::term()) -> request_id().
+send_request(Process, Label, Request) when is_pid(Process) ->
+    do_send_request(Process, Label, Request);
+send_request(Process, Label, Request) ->
+    Fun = fun(Pid) -> do_send_request(Pid, Label, Request) end,
+    try do_for_proc(Process, Fun)
+    catch exit:Reason ->
+            %% Make send_request async and fake a down message
+            Mref = erlang:make_ref(),
+            self() ! {'DOWN', Mref, process, Process, Reason},
+            Mref
+    end.
+
+do_send_request(Process, Label, Request) ->
+    Mref = erlang:monitor(process, Process),
+    erlang:send(Process, {Label, {self(), {'$gen_request_id', Mref}}, Request}, [noconnect]),
+    Mref.
+
+%%
+%% Wait for a reply to the client.
+%% Note: if timeout is returned monitors are kept.
+
+-spec wait_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
+wait_response(Mref, Timeout)
+  when is_reference(Mref) ->
     receive
-	{Tag, Reply} ->
-	    monitor_node(Node, false),
-	    {ok, Reply};
-	{nodedown, Node} ->
-	    monitor_node(Node, false),
-	    exit({nodedown, Node})
+        {{'$gen_request_id', Mref}, Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {reply, Reply};
+        {'DOWN', Mref, _, Object, Reason} ->
+            {error, {Reason, Object}}
     after Timeout ->
-	    monitor_node(Node, false),
-	    exit(timeout)
+            timeout
+    end.
+
+-spec check_response(RequestId::term(), Key::request_id()) ->
+        {reply, Reply::term()} | 'no_reply' | {error, {term(), server_ref()}}.
+check_response(Msg, Mref)
+  when is_reference(Mref) ->
+    case Msg of
+        {{'$gen_request_id', Mref}, Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {reply, Reply};
+        {'DOWN', Mref, _, Object, Reason} ->
+            {error, {Reason, Object}};
+        _ ->
+            no_reply
     end.
 
 %%

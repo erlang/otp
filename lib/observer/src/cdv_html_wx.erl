@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,16 +30,21 @@
 
 %% Records
 -record(state,
-	{panel,
+	{parent,
+         panel,
 	 app,         %% which tool is the user
 	 expand_table,
-	 expand_wins=[]}).
+         expand_wins=[],
+         delayed_fetch,
+         trunc_warn=[]}).
 
 start_link(ParentWin, Info) ->
     wx_object:start_link(?MODULE, [ParentWin, Info], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+init([ParentWin, Callback]) when is_atom(Callback) ->
+    init(ParentWin, Callback);
 init([ParentWin, {App, Fun}]) when is_function(Fun) ->
     init([ParentWin, {App, Fun()}]);
 init([ParentWin, {expand,HtmlText,Tab}]) ->
@@ -58,11 +63,34 @@ init(ParentWin, HtmlText, Tab, App) ->
     HtmlWin = observer_lib:html_window(ParentWin),
     wxHtmlWindow:setPage(HtmlWin,HtmlText),
     wx_misc:endBusyCursor(),
-    {HtmlWin, #state{panel=HtmlWin,expand_table=Tab,app=App}}.
+    {HtmlWin, #state{parent=ParentWin, panel=HtmlWin,expand_table=Tab,app=App}}.
+
+init(ParentWin, Callback) ->
+    {HtmlWin, State} = init(ParentWin, "", undefined, cdv),
+    {HtmlWin, State#state{delayed_fetch=Callback}}.
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+handle_info(active, #state{parent=Parent, panel=HtmlWin,delayed_fetch=Callback}=State)
+  when Callback=/=undefined ->
+    observer_lib:display_progress_dialog(HtmlWin,
+                                         "Crashdump Viewer",
+                                         "Reading data"),
+    {{expand,Title,Info,Tab},TW} = Callback:get_info(),
+    Cs = observer_lib:colors(Parent),
+    HtmlText = observer_html_lib:expandable_term(Title,Info,Tab,Cs),
+
+    observer_lib:sync_destroy_progress_dialog(),
+    wx_misc:beginBusyCursor(),
+    wxHtmlWindow:setPage(HtmlWin,HtmlText),
+    cdv_wx_set_status(State, TW),
+    wx_misc:endBusyCursor(),
+    {noreply, State#state{expand_table=Tab,
+                          delayed_fetch=undefined,
+                          trunc_warn=TW}};
+
 handle_info(active, State) ->
+    cdv_wx_set_status(State, State#state.trunc_warn),
     {noreply, State};
 
 handle_info(Info, State) ->
@@ -94,27 +122,28 @@ handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
 	case Target of
 	    "#Binary?" ++ BinSpec ->
 		[{"offset",Off},{"size",Size},{"pos",Pos}] =
-		    httpd:parse_query(BinSpec),
+		    uri_string:dissect_query(BinSpec),
 		Id = {cdv, {list_to_integer(Off),
 			    list_to_integer(Size),
 			    list_to_integer(Pos)}},
 		expand(Id,cdv_bin_cb,State);
 	    "#OBSBinary?" ++ BinSpec ->
 		[{"key1",Preview},{"key2",Size},{"key3",Hash}] =
-		    httpd:parse_query(BinSpec),
+		    uri_string:dissect_query(BinSpec),
 		Id = {obs, {Tab, {list_to_integer(Preview),
 				  list_to_integer(Size),
 				  list_to_integer(Hash)}}},
 		expand(Id,cdv_bin_cb,State);
 	    "#Term?" ++ TermKeys ->
 		[{"key1",Key1},{"key2",Key2},{"key3",Key3}] =
-		    httpd:parse_query(TermKeys),
+		    uri_string:dissect_query(TermKeys),
 		Id = {cdv, {Tab,{list_to_integer(Key1),
 				 list_to_integer(Key2),
 				 list_to_integer(Key3)}}},
 		expand(Id,cdv_term_cb,State);
 	    _ when App =:= obs ->
-		observer ! {open_link, Target};
+		observer ! {open_link, Target},
+                State;
 	    _ ->
 		cdv_virtual_list_wx:start_detail_win(Target),
 		State
@@ -140,3 +169,10 @@ expand(Id,Callback,#state{expand_wins=Opened0, app=App}=State) ->
 		Opened0
 	end,
     State#state{expand_wins=Opened}.
+
+cdv_wx_set_status(#state{app = cdv}, Status) ->
+    %% this module is used by the observer when cdw_wx isn't started
+    %% only try to set status when used by cdv
+    cdv_wx:set_status(Status);
+cdv_wx_set_status(_, _) ->
+    ok.

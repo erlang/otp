@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "5.4.2"},
+  {vsn, "6.5.2"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -32,9 +32,11 @@
 	     code_server,
 	     dist_util,
 	     erl_boot_server,
+	     erl_compile_server,
 	     erl_distribution,
 	     erl_reply,
              erl_signal_handler,
+	     erpc,
 	     error_handler,
 	     error_logger,
 	     file,
@@ -57,8 +59,23 @@
 	     inet_tcp_dist,
 	     kernel,
 	     kernel_config,
+	     kernel_refc,
 	     local_tcp,
 	     local_udp,
+             logger,
+             logger_backend,
+             logger_config,
+             logger_disk_log_h,
+             logger_filters,
+             logger_formatter,
+             logger_h_common,
+             logger_handler_watcher,
+             logger_olp,
+             logger_proxy,
+             logger_server,
+             logger_simple_h,
+             logger_std_h,
+             logger_sup,
 	     net,
 	     net_adm,
 	     net_kernel,
@@ -87,7 +104,15 @@
              inet_tcp,
              inet_udp,
 	     inet_sctp,
+             pg,
              pg2,
+             raw_file_io,
+             raw_file_io_compressed,
+             raw_file_io_deflate,
+             raw_file_io_delayed,
+             raw_file_io_inflate,
+             raw_file_io_list,
+             raw_file_io_raw,
 	     seq_trace,
 	     standard_error,
 	     wrap_log_reader]},
@@ -107,7 +132,11 @@
 		heart,
 		init,
 		kernel_config,
+		kernel_refc,
 		kernel_sup,
+                logger,
+                logger_handler_watcher,
+                logger_sup,
 		net_kernel,
 		net_sup,
 		rex,
@@ -116,10 +145,14 @@
                 ddll_server,
                 erl_epmd,
                 inet_db,
+                pg,
                 pg2]},
   {applications, []},
-  {env, [{error_logger, tty}]},
+  {env, [{logger_level, notice},
+         {logger_sasl_compatible, false},
+         {shell_docs_ansi,auto}
+        ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-9.1", "stdlib-3.4", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-@OTP-15251@", "stdlib-@OTP-15251@", "sasl-3.0"]}
  ]
 }.

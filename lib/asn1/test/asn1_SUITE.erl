@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,8 @@ groups() ->
        constraint_equivalence]},
 
      {ber, Parallel,
-      [ber_choiceinseq,
+      [ber_decode_invalid_length,
+       ber_choiceinseq,
        % Uses 'SOpttest'
        ber_optional,
        tagdefault_automatic]},
@@ -98,6 +99,7 @@ groups() ->
        testChoTypeRefPrim,
        testChoTypeRefSeq,
        testChoTypeRefSet,
+       testDefaultOctetString,
        testMultipleLevels,
        testOpt,
        testSeqDefault,
@@ -117,6 +119,7 @@ groups() ->
        {group, [], [testSeqOf,
                     testSeqOfIndefinite]}, % Uses 'Mvrasn*'
        testSeqOfCho,
+       testSeqOfChoExt,
        testSetDefault,
        testExtensionAdditionGroup,
        testSetOptional,
@@ -132,7 +135,8 @@ groups() ->
        testSeq2738,
        % Uses 'Constructed'
        {group, [], [constructed,
-                    ber_decode_error]},
+                    ber_decode_error,
+                    otp_14440]},
        testSeqSetIndefinite,
        testChoiceIndefinite,
        per_open_type,
@@ -227,10 +231,9 @@ test(Config, TestF, Rules) ->
                   try
                       TestF(C, R, O)
                   catch
-                      Class:Reason ->
+                      Class:Reason:Stk ->
                           NewReason = {Reason, [{rule, R}, {options, O}]},
-                          erlang:raise(Class, NewReason,
-                                       erlang:get_stacktrace())
+                          erlang:raise(Class, NewReason, Stk)
                   end
           end,
     Result = [run_case(Config, Fun, rule(Rule), opts(Rule)) || Rule <- Rules],
@@ -429,6 +432,11 @@ testChoTypeRefSet(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoTypeRefSet", Config, [Rule|Opts]),
     testChoTypeRefSet:set(Rule).
 
+testDefaultOctetString(Config) -> test(Config, fun testDefaultOctetString/3).
+testDefaultOctetString(Config, Rule, Opts) ->
+    asn1_test_lib:compile("DefaultOctetString", Config, [Rule|Opts]),
+    testDefaultOctetString:dos(Rule).
+
 testMultipleLevels(Config) -> test(Config, fun testMultipleLevels/3).
 testMultipleLevels(Config, Rule, Opts) ->
     asn1_test_lib:compile("MultipleLevels", Config, [Rule|Opts]),
@@ -533,6 +541,11 @@ testSeqOfCho(Config) -> test(Config, fun testSeqOfCho/3).
 testSeqOfCho(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqOfCho", Config, [Rule|Opts]),
     testSeqOfCho:main(Rule).
+
+testSeqOfChoExt(Config) -> test(Config, fun testSeqOfChoExt/3).
+testSeqOfChoExt(Config, Rule, Opts) ->
+    asn1_test_lib:compile("SeqOfChoExt", Config, [Rule|Opts]),
+    testSeqOfChoExt:main(Rule).
 
 testSeqOfIndefinite(Config) ->
     test(Config, fun testSeqOfIndefinite/3, [ber]).
@@ -665,6 +678,19 @@ module_test(M0, Config, Rule, Opts) ->
 	    end
     end.
 
+ber_decode_invalid_length(_Config) ->
+    Bin = <<48,129,157,48,0,2,1,2,164,0,48,129,154,49,24,48,22,6,
+            3,85,4,10,19,15,69,120,97,109,112,108,101,32,67,111,
+            109,112,97,110,121,49,29,48,27,6,9,42,134,72,134,247,
+            13,1,9,1,22,14,99,97,64,101,120,97,109,112,108,101,46,
+            99,111,109,49,13,48,11,6,3,85,4,7,19,4,79,117,108,117,
+            49,26,48,24,6,3,85,4,8,19,17,80,111,104,106,111,105,
+            115,45,80,111,104,106,97,110,109,97,97,49,11,48,9,6,3,
+            85,4,6,19,2,70,73,49,19,48,17,6,3,85,4,3,19,10,69,120,
+            97,109,112,108,101,32,67,65,49,11,48,16,6,3,85,4,11,
+            19,9,84,101>>,
+    {'EXIT',{error,{asn1,{invalid_value,12}}}} = (catch asn1rt_nif:decode_ber_tlv(Bin)),
+    ok.
 
 ber_choiceinseq(Config) ->
     test(Config, fun ber_choiceinseq/3, [ber]).
@@ -736,6 +762,36 @@ ber_decode_error(Config) ->
 ber_decode_error(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constructed", Config, [Rule|Opts]),
     ber_decode_error:run(Opts).
+
+otp_14440(_Config) ->
+    Args = " -pa \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
+    {ok,N} = slave:start(hostname(), otp_14440, Args),
+    Result = rpc:call(N, ?MODULE, otp_14440_decode, []),
+    io:format("Decode result = ~p~n", [Result]),
+    case Result of
+        {exit,{error,{asn1,{invalid_value,5}}}} ->
+            ok = slave:stop(N);
+        %% We get this if stack depth limit kicks in:
+        {exit,{error,{asn1,{unknown,_}}}} ->
+            ok = slave:stop(N);
+        _ ->
+            _ = slave:stop(N),
+            ?t:fail(Result)
+    end.
+%%
+otp_14440_decode() ->
+    Data =
+        iolist_to_binary(
+          lists:duplicate(
+            32, list_to_binary(lists:duplicate(1024, 16#7f)))),
+    try asn1rt_nif:decode_ber_tlv(Data) of
+        Result ->
+            {unexpected_return,Result}
+    catch
+        Class:Reason ->
+            {Class,Reason}
+    end.
+
 
 h323test(Config) -> test(Config, fun h323test/3).
 h323test(Config, Rule, Opts) ->
@@ -923,7 +979,8 @@ specialized_decodes(Config, Rule, Opts) ->
                                "PartialDecSeq3.asn",
                                "PartialDecMyHTTP.asn",
                                "MEDIA-GATEWAY-CONTROL.asn",
-                               "P-Record"],
+                               "P-Record",
+                               "PartialDecChoExtension.asn"],
                               Config,
 			      [Rule,legacy_erlang_types,asn1config|Opts]),
     test_partial_incomplete_decode:test(Config),
@@ -1351,7 +1408,7 @@ xref_export_all(_Config) ->
     {ok,_} = xref:q(S, Def),
     {ok,Unused} = xref:q(S, "X - Called - range (closure E | Called)"),
     xref:stop(S),
-    case Unused of
+    case Unused -- [{?MODULE,otp_14440_decode,0}] of
         [] ->
             ok;
         [_|_] ->
@@ -1386,3 +1443,11 @@ all_called_1([F|T]) when is_atom(F) ->
     L ++ all_called_1(T);
 all_called_1([]) ->
     [].
+
+hostname() ->
+    hostname(atom_to_list(node())).
+
+hostname([$@ | Hostname]) ->
+    list_to_atom(Hostname);
+hostname([_C | Cs]) ->
+    hostname(Cs).

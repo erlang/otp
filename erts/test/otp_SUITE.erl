@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,8 +57,14 @@ init_per_suite(Config) ->
         {error,bad_name} ->
             Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
             {ok,_} = xref:add_directory(Server, Erts, []);
-        _ ->
-            ok
+        LibDir ->
+            case file:read_file_info(filename:join([LibDir,"ebin"])) of
+                {error,enoent} ->
+                    Erts = filename:join([LibDir, "preloaded","ebin"]),
+                    {ok,_} = xref:add_directory(Server, Erts, []);
+                _ ->
+                    ok
+            end
     end,
     [{xref_server,Server}|Config].
 
@@ -79,8 +85,7 @@ undefined_functions(Config) when is_list(Config) ->
                       [UndefS,ExcludeFrom]),
     {ok,Undef0} = xref:q(Server, lists:flatten(Q)),
     Undef1 = hipe_filter(Undef0),
-    Undef2 = ssl_crypto_filter(Undef1),
-    Undef3 = edoc_filter(Undef2),
+    Undef3 = ssl_crypto_filter(Undef1),
     Undef4 = eunit_filter(Undef3),
     Undef5 = dialyzer_filter(Undef4),
     Undef6 = wx_filter(Undef5),
@@ -92,9 +97,9 @@ undefined_functions(Config) when is_list(Config) ->
         _ ->
             Fd = open_log(Config, "undefined_functions"),
             foreach(fun ({MFA1,MFA2}) ->
-                            io:format("~s calls undefined ~s",
-                                      [format_mfa(Server, MFA1),
-                                       format_mfa(MFA2)]),
+                            ct:pal("~s calls undefined ~s",
+                                   [format_mfa(Server, MFA1),
+                                    format_mfa(MFA2)]),
                             io:format(Fd, "~s ~s\n",
                                       [format_mfa(Server, MFA1),
                                        format_mfa(MFA2)])
@@ -156,12 +161,6 @@ ssl_crypto_filter(Undef) ->
                    end, Undef);
         {_,_} -> Undef
     end.
-
-edoc_filter(Undef) ->
-    %% Filter away function call that is catched.
-    filter(fun({{edoc_lib,uri_get_http,1},{http,request_sync,2}}) -> false;
-              (_) -> true
-           end, Undef).
 
 eunit_filter(Undef) ->
     filter(fun({{eunit_test,wrapper_test_exported_,0},
@@ -336,7 +335,7 @@ not_recommended_calls(Config, Apps0, MFA) ->
                 _ ->
                     AppStrings = [atom_to_list(A) || A <- SkippedApps],
                     Mess = io_lib:format("Application(s) not present: ~s\n",
-                                         [string:join(AppStrings, ", ")]),
+                                         [lists:join(", ", AppStrings)]),
                     {comment, Mess}
             end;
         _ ->
@@ -463,7 +462,7 @@ runtime_dependencies(Config) ->
 have_rdep(_App, [], _Dep) ->
     false;
 have_rdep(App, [RDep | RDeps], Dep) ->		    
-    [AppStr, _VsnStr] = string:tokens(RDep, "-"),
+    [AppStr, _VsnStr] = string:lexemes(RDep, "-"),
     case Dep == list_to_atom(AppStr) of
         true ->
             io:format("~p -> ~s~n", [App, RDep]),

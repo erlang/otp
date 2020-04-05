@@ -214,10 +214,10 @@ check_line_number(Last,Line,OrigLine) ->
 	    [$>|Rest] = lists:dropwhile(fun($>) -> false; (_) -> true end,Line),
 	    check_line_number(Last,Rest,OrigLine);
 	_ ->
-	    [N |_] = string:tokens(Line,":"),
+	    [N |_] = string:lexemes(Line,":"),
 %	    erlang:display(N),
 	    Num =
-		try list_to_integer(string:strip(N))
+		try list_to_integer(string:trim(N,both,"\s"))
 		catch _:_ -> ct:fail({no_line_number_after,Last,OrigLine})
 		end,
 	    if Num == Last+1 ->

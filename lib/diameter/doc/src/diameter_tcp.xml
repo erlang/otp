@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
-  <!ENTITY start '<seealso marker="#start-3">start/3</seealso>'>
+  <!ENTITY start '<seemfa marker="#start/3">start/3</seemfa>'>
   <!ENTITY gen_tcp_connect3
-  '<seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect/3</seealso>'>
+  '<seemfa marker="kernel:gen_tcp#connect/3">gen_tcp:connect/3</seemfa>'>
   <!ENTITY gen_tcp_listen2
-  '<seealso marker="kernel:gen_tcp#listen-2">gen_tcp:listen/2</seealso>'>
+  '<seemfa marker="kernel:gen_tcp#listen/2">gen_tcp:listen/2</seemfa>'>
   <!ENTITY ip_address
-  '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
+  '<seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>'>
   <!ENTITY ssl_connect2
-  '<seealso marker="ssl:ssl#connect-2">ssl:connect/2</seealso>'>
+  '<seemfa marker="ssl:ssl#connect/2">ssl:connect/2</seemfa>'>
   <!ENTITY ssl_connect3
-  '<seealso marker="ssl:ssl#connect-3">ssl:connect/3</seealso>'>
+  '<seemfa marker="ssl:ssl#connect/3">ssl:connect/3</seemfa>'>
   <!ENTITY ssl_accept2
-  '<seealso marker="ssl:ssl#ssl_accept-2">ssl:ssl_accept/2</seealso>'>
+  '<seemfa marker="ssl:ssl#ssl_accept/2">ssl:ssl_accept/2</seemfa>'>
   <!ENTITY ssl_listen2
-  '<seealso marker="ssl:ssl#listen-2">ssl:listen/2</seealso>'>
-  <!ENTITY gen_tcp '<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>'>
-  <!ENTITY inet '<seealso marker="kernel:inet">inet(3)</seealso>'>
-  <!ENTITY ssl '<seealso marker="ssl:ssl">ssl(3)</seealso>'>
+  '<seemfa marker="ssl:ssl#listen/2">ssl:listen/2</seemfa>'>
+  <!ENTITY gen_tcp '<seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl>'>
+  <!ENTITY inet '<seeerl marker="kernel:inet">inet(3)</seeerl>'>
+  <!ENTITY ssl '<seeerl marker="ssl:ssl">ssl(3)</seeerl>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -28,7 +28,7 @@
 <header>
 <copyright>
 <year>2011</year>
-<year>2017</year>
+<year>2020</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -57,7 +57,7 @@ limitations under the License.
 <file>diameter_tcp.xml</file>
 </header>
 
-<module>diameter_tcp</module>
+<module since="OTP R14B03">diameter_tcp</module>
 <modulesummary>Diameter transport over TCP.</modulesummary>
 
 <description>
@@ -83,7 +83,7 @@ before configuring TLS capability on diameter transports.</p>
 <funcs>
 
 <func>
-<name>start({Type, Ref}, Svc, [Opt])
+<name since="OTP R14B03">start({Type, Ref}, Svc, [Opt])
          -> {ok, Pid}
           | {ok, Pid, [LAddr]}
           | {error, Reason}</name>

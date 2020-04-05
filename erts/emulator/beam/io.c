@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@
 #include "erl_hl_timer.h"
 #include "erl_time.h"
 #include "erl_io_queue.h"
+#include "erl_proc_sig_queue.h"
 
 extern ErlDrvEntry fd_driver_entry;
 extern ErlDrvEntry vanilla_driver_entry;
@@ -60,13 +61,13 @@ extern ErlDrvEntry spawn_driver_entry;
 #ifndef __WIN32__
 extern ErlDrvEntry forker_driver_entry;
 #endif
-extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
+extern ErtsStaticDriver driver_tab[]; /* table of static drivers, only used during initialization */
 
 erts_driver_t *driver_list; /* List of all drivers, static and dynamic. */
-erts_smp_rwmtx_t erts_driver_list_lock; /* Mutex for driver list */
-static erts_smp_tsd_key_t driver_list_lock_status_key; /*stop recursive locks when calling 
+erts_rwmtx_t erts_driver_list_lock; /* Mutex for driver list */
+static erts_tsd_key_t driver_list_lock_status_key; /*stop recursive locks when calling
 							 driver init */
-static erts_smp_tsd_key_t driver_list_last_error_key;  /* Save last DDLL error on a 
+static erts_tsd_key_t driver_list_last_error_key;  /* Save last DDLL error on a
 							  per thread basis (for BC interfaces) */
 
 ErtsPTab erts_port erts_align_attribute(ERTS_CACHE_LINE_SIZE); /* The port table */
@@ -94,17 +95,11 @@ static int init_driver(erts_driver_t *, ErlDrvEntry *, DE_Handle *);
 static void terminate_port(Port *p);
 static void pdl_init(void);
 static int driver_failure_term(ErlDrvPort ix, Eterm term, int eof);
-#ifdef ERTS_SMP
 static void driver_monitor_lock_pdl(Port *p);
 static void driver_monitor_unlock_pdl(Port *p);
 #define DRV_MONITOR_LOOKUP_PORT_LOCK_PDL(Port) erts_thr_drvport2port((Port), 1)
 #define DRV_MONITOR_LOCK_PDL(Port) driver_monitor_lock_pdl(Port)
 #define DRV_MONITOR_UNLOCK_PDL(Port) driver_monitor_unlock_pdl(Port)
-#else
-#define DRV_MONITOR_LOOKUP_PORT_LOCK_PDL(Port) erts_thr_drvport2port((Port), 0)
-#define DRV_MONITOR_LOCK_PDL(Port) /* nothing */
-#define DRV_MONITOR_UNLOCK_PDL(Port) /* nothing */
-#endif
 
 #define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BIN_LIMIT)
 #define SMALL_WRITE_VEC  16
@@ -122,7 +117,7 @@ static ERTS_INLINE int
 is_port_ioq_empty(Port *pp)
 {
     int res;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
     if (!pp->port_data_lock)
 	res = (erts_ioq_size(&pp->ioq) == 0);
     else {
@@ -144,7 +139,7 @@ Uint
 erts_port_ioq_size(Port *pp)
 {
     ErlDrvSizeT res;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
     if (!pp->port_data_lock)
 	res = erts_ioq_size(&pp->ioq);
     else {
@@ -212,14 +207,13 @@ dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
 static ERTS_INLINE void
 kill_port(Port *pp)
 {
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
     ERTS_TRACER_CLEAR(&ERTS_TRACER(pp));
     erts_ptab_delete_element(&erts_port, &pp->common); /* Time of death */
     erts_port_task_free_port(pp);
     /* In non-smp case the port structure may have been deallocated now */
 }
 
-#ifdef ERTS_SMP
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 int
@@ -227,12 +221,11 @@ erts_lc_is_port_locked(Port *prt)
 {
     if (!prt)
 	return 0;
-    ERTS_SMP_LC_ASSERT(prt->lock);
-    return erts_smp_lc_mtx_is_locked(prt->lock);
+    ERTS_LC_ASSERT(prt->lock);
+    return erts_lc_mtx_is_locked(prt->lock);
 }
 #endif
 
-#endif /* #ifdef ERTS_SMP */
 
 static void initq(Port* prt);
 
@@ -256,25 +249,21 @@ static ERTS_INLINE void port_init_instr(Port *prt
      * Stuff that need to be initialized with the port id
      * in the instrumented case, but not in the normal case.
      */
-#ifdef ERTS_SMP
     ASSERT(prt->drv_ptr && prt->lock);
     if (!prt->drv_ptr->lock) {
         erts_mtx_init_locked(prt->lock, "port_lock", id, ERTS_LOCK_FLAGS_CATEGORY_IO);
     }
-#endif
     erts_port_task_init_sched(&prt->sched, id);
 }
 
 #if !ERTS_PORT_INIT_INSTR_NEED_ID
 static ERTS_INLINE void port_init_instr_abort(Port *prt)
 {
-#ifdef ERTS_SMP
     ASSERT(prt->drv_ptr && prt->lock);
     if (!prt->drv_ptr->lock) {
 	erts_mtx_unlock(prt->lock);
 	erts_mtx_destroy(prt->lock);
     }
-#endif
     erts_port_task_fini_sched(&prt->sched);
 }
 #endif
@@ -310,15 +299,12 @@ static Port *create_port(char *name,
     erts_aint32_t state = ERTS_PORT_SFLG_CONNECTED;
     erts_aint32_t x_pts_flgs = 0;
 
-#ifdef ERTS_SMP
-    ErtsRunQueue *runq;
     if (!driver_lock) {
 	/* Align size for mutex following port struct */
 	port_size = size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
 	size += sizeof(erts_mtx_t);
     }
     else
-#endif
 	port_size = size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
 
 #ifdef DEBUG
@@ -352,7 +338,6 @@ static Port *create_port(char *name,
 	p += busy_port_queue_size;
     }
 
-#ifdef ERTS_SMP
     if (driver_lock) {
 	prt->lock = driver_lock;
 	erts_mtx_lock(driver_lock);
@@ -362,17 +347,18 @@ static Port *create_port(char *name,
 	p += sizeof(erts_mtx_t);
 	state |= ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK;
     }
-    if (erts_get_scheduler_data())
-        runq = erts_get_runq_current(NULL);
-    else
-        runq = ERTS_RUNQ_IX(0);
-    erts_smp_atomic_set_nob(&prt->run_queue, (erts_aint_t) runq);
+
+    {
+        ErtsRunQueue *runq;
+        ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        if (esdp)
+            runq = erts_get_runq_current(esdp);
+        else
+            runq = ERTS_RUNQ_IX(0);
+        erts_init_runq_port(prt, runq);
+    }
 
     prt->xports = NULL;
-#else
-    erts_atomic32_init_nob(&prt->refc, 1);
-    prt->cleanup = 0;
-#endif
     
     erts_port_task_pre_init_sched(&prt->sched, busy_port_queue);
 
@@ -381,6 +367,7 @@ static Port *create_port(char *name,
     prt->drv_ptr = driver;
     ERTS_P_LINKS(prt) = NULL;
     ERTS_P_MONITORS(prt) = NULL;
+    ERTS_P_LT_MONITORS(prt) = NULL;
     prt->linebuf = NULL;
     prt->suspended = NULL;
     erts_init_port_data(prt);
@@ -388,12 +375,11 @@ static Port *create_port(char *name,
     prt->control_flags = 0;
     prt->bytes_in = 0;
     prt->bytes_out = 0;
-    prt->dist_entry = NULL;
     ERTS_PORT_INIT_CONNECTED(prt, pid);
     prt->common.u.alive.reg = NULL;
     ERTS_PTMR_INIT(prt);
     erts_port_task_handle_init(&prt->timeout_task);
-    erts_smp_atomic_init_nob(&prt->psd, (erts_aint_t) NULL);
+    erts_atomic_init_nob(&prt->psd, (erts_aint_t) NULL);
     prt->async_open_port = NULL;
     prt->drv_data = (SWord) 0;
     prt->os_pid = -1;
@@ -420,10 +406,8 @@ static Port *create_port(char *name,
 #if !ERTS_PORT_INIT_INSTR_NEED_ID
 	port_init_instr_abort(prt);
 #endif
-#ifdef ERTS_SMP
 	if (driver_lock)
 	    erts_mtx_unlock(driver_lock);
-#endif
 	if (enop)
 	    *enop = 0;
 	erts_free(ERTS_ALC_T_PORT, prt);
@@ -436,7 +420,7 @@ static Port *create_port(char *name,
 
     initq(prt);
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (erts_port_schedule_all_ops)
 	x_pts_flgs |= ERTS_PTS_FLG_FORCE_SCHED;
@@ -445,29 +429,17 @@ static Port *create_port(char *name,
 	x_pts_flgs |= ERTS_PTS_FLG_PARALLELISM;
 
     if (x_pts_flgs)
-	erts_smp_atomic32_read_bor_nob(&prt->sched.flags, x_pts_flgs);
+	erts_atomic32_read_bor_nob(&prt->sched.flags, x_pts_flgs);
 
     erts_atomic32_set_relb(&prt->state, state);
     return prt;
 }
 
-#ifndef ERTS_SMP
-void
-erts_port_cleanup(Port *prt)
-{
-    if (prt->drv_ptr && prt->drv_ptr->handle)
-	erts_ddll_dereference_driver(prt->drv_ptr->handle);
-    prt->drv_ptr = NULL;
-    erts_port_dec_refc(prt);
-}
-#endif
 
 void
 erts_port_free(Port *prt)
 {
-#if defined(ERTS_SMP) || defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
     erts_aint32_t state = erts_atomic32_read_nob(&prt->state);
-#endif
     ERTS_LC_ASSERT(state & (ERTS_PORT_SFLG_INITIALIZING
 			    | ERTS_PORT_SFLG_FREE));
     ASSERT(state & ERTS_PORT_SFLG_PORT_DEBUG);
@@ -481,7 +453,6 @@ erts_port_free(Port *prt)
         prt->async_open_port = NULL;
     }
 
-#ifdef ERTS_SMP
     ASSERT(prt->lock);
     if (state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK)
 	erts_mtx_destroy(prt->lock);
@@ -498,7 +469,6 @@ erts_port_free(Port *prt)
      */
     if (prt->drv_ptr->handle)
 	erts_ddll_dereference_driver(prt->drv_ptr->handle);
-#endif
     erts_free(ERTS_ALC_T_PORT, prt);
 }
 
@@ -533,7 +503,7 @@ erts_save_suspend_process_on_port(Port *prt, Process *process)
     int saved;
     erts_aint32_t flags;
     erts_port_task_sched_lock(&prt->sched);
-    flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+    flags = erts_atomic32_read_nob(&prt->sched.flags);
     saved = (flags & ERTS_PTS_FLGS_BUSY) && !(flags & ERTS_PTS_FLG_EXIT);
     if (saved)
 	erts_proclist_store_last(&prt->suspended, erts_proclist_create(process));
@@ -577,16 +547,16 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     erts_mtx_t *driver_lock = NULL;
     int cprt_flgs = 0;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
-    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+    erts_rwmtx_rlock(&erts_driver_list_lock);
     if (!driver) {
 	for (driver = driver_list; driver; driver = driver->next) {
 	    if (sys_strcmp(driver->name, name) == 0)
 		break;
 	}
 	if (!driver) { 
-	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+	    erts_rwmtx_runlock(&erts_driver_list_lock);
 	    ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
 	}
     }
@@ -619,7 +589,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	     */
 	    
 	    for (d = driver_list; d; d = d->next) {
-		if (strcmp(d->name, name) == 0 && 
+		if (sys_strcmp(d->name, name) == 0 && 
 		    erts_ddll_driver_ok(d->handle)) {
 		    driver = d;
 		    break;
@@ -631,19 +601,30 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     }
 
     if (driver == NULL || (driver != &spawn_driver && opts->exit_status)) {
-	erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+	erts_rwmtx_runlock(&erts_driver_list_lock);
 	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
     }
 
-#ifdef ERTS_SMP
+    if (opts->port_watermarks_set && driver != &spawn_driver
+        && driver != &fd_driver && driver != &vanilla_driver) {
+	erts_rwmtx_runlock(&erts_driver_list_lock);
+	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
+    }
+
+    if (opts->msgq_watermarks_set
+        && (driver->flags & ERL_DRV_FLAG_NO_BUSY_MSGQ)
+        && opts->high_msgq_watermark != ERL_DRV_BUSY_MSGQ_DISABLED) {
+	erts_rwmtx_runlock(&erts_driver_list_lock);
+	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
+    }
+    
     driver_lock = driver->lock;
-#endif
 
     if (driver->handle != NULL) {
 	erts_ddll_increment_port_count(driver->handle);
 	erts_ddll_reference_driver(driver->handle);
     }
-    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+    erts_rwmtx_runlock(&erts_driver_list_lock);
 
     /*
      * We'll set up the port before calling the start function,
@@ -656,9 +637,9 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     port = create_port(name, driver, driver_lock, cprt_flgs, pid, &port_errno);
     if (!port) {
 	if (driver->handle) {
-	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+	    erts_rwmtx_rlock(&erts_driver_list_lock);
 	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+	    erts_rwmtx_runlock(&erts_driver_list_lock);
 	    erts_ddll_dereference_driver(driver->handle);
 	}
 	if (port_errno)
@@ -671,10 +652,15 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	trace_port_open(port,
 			pid,
 			erts_atom_put((byte *) port->name,
-				      strlen(port->name),
+				      sys_strlen(port->name),
 				      ERTS_ATOM_ENC_LATIN1,
 				      1));
     }
+
+    if (opts->msgq_watermarks_set)
+        erl_drv_busy_msgq_limits(ERTS_Port2ErlDrvPort(port),
+                                 &opts->low_msgq_watermark,
+                                 &opts->high_msgq_watermark);
 
     error_number = error_type = 0;
     if (driver->start) {
@@ -726,11 +712,9 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_out, am_open);
 	}
-#ifdef ERTS_SMP
 	if (port->xports)
 	    erts_port_handle_xports(port);
 	ASSERT(!port->xports);
-#endif
     }
 
     if (error_type) {
@@ -745,9 +729,9 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	    port->linebuf = NULL;
 	}
 	if (driver->handle != NULL) {
-	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+	    erts_rwmtx_rlock(&erts_driver_list_lock);
 	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+	    erts_rwmtx_runlock(&erts_driver_list_lock);
 	}
 	kill_port(port);
 	erts_port_release(port);
@@ -759,7 +743,6 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 #undef ERTS_OPEN_DRIVER_RET
 }
 
-#ifdef ERTS_SMP
 
 struct ErtsXPortsList_ {
     ErtsXPortsList *next;
@@ -768,7 +751,6 @@ struct ErtsXPortsList_ {
 
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(xports_list, ErtsXPortsList, 50, ERTS_ALC_T_XPORTS_LIST)
 
-#endif
 
 /*
  * Driver function to create new instances of a driver
@@ -785,10 +767,10 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
     Port *creator_port;
     Port* port;
     erts_driver_t *driver;
-    Process *rp;
     erts_mtx_t *driver_lock = NULL;
+    ErtsLinkData *ldp;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     /* Need to be called from a scheduler thread */
     if (!erts_get_scheduler_id())
@@ -798,17 +780,13 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
     if (creator_port == ERTS_INVALID_ERL_DRV_PORT)
 	return ERTS_INVALID_ERL_DRV_PORT;
 
-    rp = erts_proc_lookup(pid);
-    if (!rp)
-	return ERTS_INVALID_ERL_DRV_PORT;
-
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(creator_port));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(creator_port));
 
     driver = creator_port->drv_ptr;
-    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+    erts_rwmtx_rlock(&erts_driver_list_lock);
     if (!erts_ddll_driver_ok(driver->handle)) {
-	erts_smp_rwmtx_runlock(&erts_driver_list_lock);
-	return ERTS_INVALID_ERL_DRV_PORT;
+	erts_rwmtx_runlock(&erts_driver_list_lock);
+        return ERTS_INVALID_ERL_DRV_PORT;
     }
 
     if (driver->handle != NULL) {
@@ -816,60 +794,57 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
 	erts_ddll_reference_referenced_driver(driver->handle);
     }
 
-#ifdef ERTS_SMP
     driver_lock = driver->lock;
-#endif
 
-    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+    erts_rwmtx_runlock(&erts_driver_list_lock);
 
     /* Inherit parallelism flag from parent */
     if (ERTS_PTS_FLG_PARALLELISM &
-	erts_smp_atomic32_read_nob(&creator_port->sched.flags))
+	erts_atomic32_read_nob(&creator_port->sched.flags))
 	cprt_flgs |= ERTS_CREATE_PORT_FLAG_PARALLELISM;
     port = create_port(name, driver, driver_lock, cprt_flgs, pid, NULL);
     if (!port) {
 	if (driver->handle) {
-	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+	    erts_rwmtx_rlock(&erts_driver_list_lock);
 	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+	    erts_rwmtx_runlock(&erts_driver_list_lock);
 	    erts_ddll_dereference_driver(driver->handle);
 	}
 	return ERTS_INVALID_ERL_DRV_PORT;
     }
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(port));
 
-    erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
-    if (ERTS_PROC_IS_EXITING(rp)) {
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+    ldp = erts_link_create(ERTS_LNK_TYPE_PORT,
+                           port->common.id, pid);
+    ASSERT(ldp->a.other.item == pid);
+    ASSERT(ldp->b.other.item == port->common.id);
+    erts_link_tree_insert(&ERTS_P_LINKS(port), &ldp->a);
+
+    if (!erts_proc_sig_send_link(NULL, pid, &ldp->b)) {
+        erts_link_tree_delete(&ERTS_P_LINKS(port), &ldp->a);
+        erts_link_release_both(ldp);
 	if (driver->handle) {
-	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+	    erts_rwmtx_rlock(&erts_driver_list_lock);
 	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+	    erts_rwmtx_runlock(&erts_driver_list_lock);
 	}
 	kill_port(port);
 	erts_port_release(port);
 	return ERTS_INVALID_ERL_DRV_PORT;
     }
 
-    erts_add_link(&ERTS_P_LINKS(port), LINK_PID, pid);
-    erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, port->common.id);
-    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-
-#ifdef ERTS_SMP
     if (!driver_lock) {
 	ErtsXPortsList *xplp = xports_list_alloc();
 	xplp->port = port;
 	xplp->next = creator_port->xports;
 	creator_port->xports = xplp;
     }
-#endif
 
     port->drv_data = (UWord) drv_data;
 
     return ERTS_Port2ErlDrvPort(port);
 }
 
-#ifdef ERTS_SMP
 int erts_port_handle_xports(Port *prt)
 {
     int reds = 0;
@@ -898,7 +873,6 @@ int erts_port_handle_xports(Port *prt)
     prt->xports = NULL;
     return reds;
 }
-#endif
 
 typedef enum {
     ERTS_TRY_IMM_DRV_CALL_OK,
@@ -945,12 +919,12 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	invalid_sched_flags |= ERTS_PTS_FLG_PARALLELISM;
 
     if (sp->pre_chk_sched_flags) {
-	sp->sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+	sp->sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
 	if (sp->sched_flags & invalid_sched_flags)
 	    return ERTS_TRY_IMM_DRV_CALL_INVALID_SCHED_FLAGS;
     }
 
-    if (erts_smp_port_trylock(prt) == EBUSY)
+    if (erts_port_trylock(prt) == EBUSY)
 	return ERTS_TRY_IMM_DRV_CALL_BUSY_LOCK;
 
     invalid_state = sp->state;
@@ -964,7 +938,7 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
     if (prof_runnable_ports)
 	erts_port_task_sched_lock(&prt->sched);
 
-    act = erts_smp_atomic32_read_nob(&prt->sched.flags);
+    act = erts_atomic32_read_nob(&prt->sched.flags);
 
     do {
 	erts_aint32_t new;
@@ -976,7 +950,7 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	}
 	exp = act;
 	new = act | ERTS_PTS_FLG_EXEC_IMM;
-	act = erts_smp_atomic32_cmpxchg_mb(&prt->sched.flags, new, exp);
+	act = erts_atomic32_cmpxchg_mb(&prt->sched.flags, new, exp);
     } while (act != exp);
     
     sp->sched_flags = act;
@@ -998,14 +972,17 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	    profile_runnable_proc(c_p, am_inactive);
 
 	reds_left_in = ERTS_BIF_REDS_LEFT(c_p);
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+
+        ASSERT((c_p->scheduler_data)->current_port == NULL);
+        (c_p->scheduler_data)->current_port = prt;
     }
 
     ASSERT(0 <= reds_left_in && reds_left_in <= CONTEXT_REDS);
     sp->reds_left_in = reds_left_in;
     prt->reds = CONTEXT_REDS - reds_left_in;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (prof_runnable_ports | IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
 	if (prof_runnable_ports && !(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
@@ -1043,9 +1020,9 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
     if (prof_runnable_ports)
 	erts_port_task_sched_lock(&prt->sched);
 
-    act = erts_smp_atomic32_read_band_mb(&prt->sched.flags,
+    act = erts_atomic32_read_band_mb(&prt->sched.flags,
 					 ~ERTS_PTS_FLG_EXEC_IMM);
-    ERTS_SMP_LC_ASSERT(act & ERTS_PTS_FLG_EXEC_IMM);
+    ERTS_LC_ASSERT(act & ERTS_PTS_FLG_EXEC_IMM);
 
     if (prof_runnable_ports | IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
 	if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
@@ -1060,7 +1037,10 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
     erts_port_release(prt);
 
     if (c_p) {
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+        ASSERT((c_p->scheduler_data)->current_port == prt);
+        (c_p->scheduler_data)->current_port = NULL;
+
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
 	if (reds != (CONTEXT_REDS - sp->reds_left_in)) {
 	    int bump_reds = reds - (CONTEXT_REDS - sp->reds_left_in);
@@ -1171,7 +1151,7 @@ port_sched_op_reply(Eterm to, Uint32 *ref_num, Eterm msg, Port* prt)
 				  prt);
 
 	if (rp_locks)
-	    erts_smp_proc_unlock(rp, rp_locks);
+	    erts_proc_unlock(rp, rp_locks);
     }
 }
 
@@ -1189,7 +1169,7 @@ erts_schedule_proc2port_signal(Process *c_p,
     int sched_res;
     if (!refp) {
 	if (c_p)
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+	    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     }
     else {
 	ASSERT(c_p);
@@ -1210,21 +1190,10 @@ erts_schedule_proc2port_signal(Process *c_p,
 	 *       otherwise, next receive will *not* work
 	 *       as expected!
 	 */
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 
-	if (ERTS_PROC_PENDING_EXIT(c_p)) {
-	    /* need to exit caller instead */
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	    KILL_CATCHES(c_p);
-	    c_p->freason = EXC_EXIT;
-	    return ERTS_PORT_OP_CALLER_EXIT;
-	}
-
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-	c_p->msg.save = c_p->msg.last;
-
-        erts_smp_proc_unlock(c_p, (ERTS_PROC_LOCKS_MSG_RECEIVE
-                                   | ERTS_PROC_LOCK_MAIN));
+        ERTS_RECV_MARK_SAVE(c_p);
+        ERTS_RECV_MARK_SET(c_p);
+        erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     }
 
 
@@ -1239,24 +1208,19 @@ erts_schedule_proc2port_signal(Process *c_p,
 					task_flags);
 
     if (c_p)
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
-    if (sched_res != 0) {
-	if (refp) {
-	    /*
-	     * We need to restore the message queue save
-	     * pointer to the beginning of the message queue
-	     * since the caller now wont wait for a message
-	     * containing the reference created above...
-	     */
-	    ASSERT(c_p);
-	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	    JOIN_MESSAGE(c_p);
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	    *refp = NIL;
-	}
-	return ERTS_PORT_OP_DROPPED;
-    }
+    /*
+     * Only report dropped if the operation fails to schedule
+     * and no message reference has been passed along. If
+     * message reference has been passed along, a message
+     * reply will be sent regardless of successful schedule
+     * or not, i.e. report scheduled. Abortion of port task
+     * will send message in case of failure.
+     */
+    if (sched_res != 0 && !refp)
+        return ERTS_PORT_OP_DROPPED;
+    
     return ERTS_PORT_OP_SCHEDULED;
 }
 
@@ -1282,29 +1246,12 @@ erts_schedule_port2port_signal(Eterm port_num, ErtsProc2PortSigData *sigdp,
 
 static ERTS_INLINE void
 send_badsig(Port *prt) {
-    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-    Process* rp;
     Eterm connected = ERTS_PORT_GET_CONNECTED(prt);
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     ERTS_LC_ASSERT(erts_get_scheduler_id());
-
     ASSERT(is_internal_pid(connected));
-
-    rp = erts_proc_lookup_raw(connected);
-    if (rp) {
-	erts_smp_proc_lock(rp, rp_locks);
-	if (!ERTS_PROC_IS_EXITING(rp))
-	    (void) erts_send_exit_signal(NULL,
-					 prt->common.id,
-					 rp,
-					 &rp_locks, 
-					 am_badsig,
-					 NIL,
-					 NULL,
-					 0);
-	if (rp_locks)
-	    erts_smp_proc_unlock(rp, rp_locks);
-    } /* exit sent */
+    erts_proc_sig_send_exit(NULL, prt->common.id, connected,
+                            am_badsig, NIL, 0);
 } /* send_badsig */
 
 static void
@@ -1426,7 +1373,7 @@ call_driver_outputv(int bang_op,
 	ErlDrvSizeT size = evp->size;
 	ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)	
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt)
 			   || ERTS_IS_CRASH_DUMPING);
 
 
@@ -1483,7 +1430,7 @@ port_sig_outputv(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *s
     case ERTS_PROC2PORT_SIG_EXEC:
 	/* Execution of a scheduled outputv() call */
 
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
 	if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
 	    reply = am_badarg;
@@ -1539,7 +1486,7 @@ call_driver_output(int bang_op,
     else {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
         ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)	
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt)
 			   || ERTS_IS_CRASH_DUMPING);
 
 #ifdef USE_VM_PROBES
@@ -1590,7 +1537,7 @@ port_sig_output(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *si
     case ERTS_PROC2PORT_SIG_EXEC:
 	/* Execution of a scheduled output() call */
 
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
 	if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
 	    reply = am_badarg;
@@ -1805,7 +1752,7 @@ erts_port_output(Process *c_p,
      * Assumes caller have checked that port is valid...
      */
 
-    sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+    sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
     if (sched_flags & (busy_flgs|ERTS_PTS_FLG_EXIT))
 	return ((sched_flags & ERTS_PTS_FLG_EXIT)
 		? ERTS_PORT_OP_DROPPED
@@ -2188,7 +2135,7 @@ erts_port_output(Process *c_p,
     }
 
     if (!(flags & ERTS_PORT_SIG_FLG_FORCE)) {
-	sched_flags = erts_smp_atomic32_read_acqb(&prt->sched.flags);
+	sched_flags = erts_atomic32_read_acqb(&prt->sched.flags);
 	if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT)) {
 	    if (async_nosuspend)
 		erts_port_task_tmp_handle_detach(ns_pthp);
@@ -2237,11 +2184,11 @@ call_deliver_port_exit(int bang_op,
     }
 
     if (broken_link) {
-	ErtsLink *lnk = erts_remove_link(&ERTS_P_LINKS(prt), from);
-	if (lnk)
-	    erts_destroy_link(lnk);
-	else
+	ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(prt), from);
+	if (!lnk) 
 	    return ERTS_PORT_OP_DROPPED;
+        erts_link_tree_delete(&ERTS_P_LINKS(prt), lnk);
+        erts_link_release(lnk);
     }
 
     if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
@@ -2410,27 +2357,45 @@ set_port_connected(int bang_op,
 #endif
     }
     else { /* Port BIF operation */
-	Process *rp = erts_proc_lookup_raw(connect);
-	if (!rp)
-	    return ERTS_PORT_OP_DROPPED;
-	erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
-	if (ERTS_PROC_IS_EXITING(rp)) {
-	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-	    return ERTS_PORT_OP_DROPPED;
+        int created;
+        ErtsLink *lnk;
+
+        if (is_not_internal_pid(connect))
+            return ERTS_PORT_OP_DROPPED;
+
+        lnk = erts_link_tree_lookup_create(&ERTS_P_LINKS(prt), &created,
+                                           ERTS_LNK_TYPE_PORT, prt->common.id,
+                                           connect);
+        if (created) {
+            ErtsLinkData *ldp;
+            ErtsLink *olnk = erts_link_to_other(lnk, &ldp);
+            ASSERT(olnk->other.item == prt->common.id);
+            if (!erts_proc_sig_send_link(NULL, connect, olnk)) {
+                erts_link_tree_delete(&ERTS_P_LINKS(prt), lnk);
+                erts_link_release_both(ldp);
+                return ERTS_PORT_OP_DROPPED;
+            }
+            if (IS_TRACED_FL(prt, F_TRACE_PORTS))
+                trace_port(prt, am_getting_linked, connect);
+        }
+
+#ifdef USE_VM_PROBES
+	if (DTRACE_ENABLED(port_connect)) {
+            Eterm old_connected = ERTS_PORT_GET_CONNECTED(prt);
+            DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
+            DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
+            DTRACE_CHARBUF(newprocess_str, DTRACE_TERM_BUF_SIZE);
+
+            dtrace_pid_str(old_connected, process_str);
+            erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+                          "%T", prt->common.id);
+            dtrace_pid_str(connect, newprocess_str);
+            DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
 	}
-
-	erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, prt->common.id);
-	erts_add_link(&ERTS_P_LINKS(prt), LINK_PID, connect);
-
-        if (IS_TRACED_FL(rp, F_TRACE_PROCS))
-            trace_proc(NULL, 0, rp, am_getting_linked, prt->common.id);
+#endif
 
 	ERTS_PORT_SET_CONNECTED(prt, connect);
 
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-
-        if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_getting_linked, connect);
         if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, from, am_connect, connect);
         if (IS_TRACED_FL(prt, F_TRACE_SEND)) {
@@ -2438,18 +2403,6 @@ set_port_connected(int bang_op,
             trace_port_send(prt, from, TUPLE2(hp, prt->common.id, am_connected), 1);
         }
 
-#ifdef USE_VM_PROBES
-	if (DTRACE_ENABLED(port_connect)) {
-	    DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
-	    DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
-	    DTRACE_CHARBUF(newprocess_str, DTRACE_TERM_BUF_SIZE);
-
-	    dtrace_pid_str(connect, process_str);
-	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", prt->common.id);
-	    dtrace_proc_str(rp, newprocess_str);
-	    DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
-	}
-#endif
     }
 
     return ERTS_PORT_OP_DONE;
@@ -2537,13 +2490,24 @@ erts_port_connect(Process *c_p,
 }
 
 static void
-port_unlink(Port *prt, Eterm from)
+port_unlink(Port *prt, ErtsLink *lnk)
 {
-    ErtsLink *lnk = erts_remove_link(&ERTS_P_LINKS(prt), from);
-    if (lnk) {
+    ErtsLinkData *ldp;
+    ErtsLink *dlnk, *llnk;
+
+    llnk = erts_link_to_other(lnk, &ldp);
+    dlnk = erts_link_tree_key_delete(&ERTS_P_LINKS(prt), llnk);
+    if (!dlnk)
+        erts_link_release(lnk);
+    else {
         if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_getting_unlinked, from);
-	erts_destroy_link(lnk);
+            trace_port(prt, am_getting_unlinked, llnk->other.item);
+        if (dlnk == llnk)
+            erts_link_release_both(ldp);
+        else {
+            erts_link_release(lnk);
+            erts_link_release(dlnk);
+        }
     }
 }
 
@@ -2551,14 +2515,14 @@ static int
 port_sig_unlink(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigdp)
 {
     if (op == ERTS_PROC2PORT_SIG_EXEC)
-	port_unlink(prt, sigdp->u.unlink.from);
+	port_unlink(prt, sigdp->u.unlink.lnk);
     if (sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY)
 	port_sched_op_reply(sigdp->caller, sigdp->ref, am_true, prt);
     return ERTS_PORT_REDS_UNLINK;
 }
 
 ErtsPortOpResult
-erts_port_unlink(Process *c_p, Port *prt, Eterm from, Eterm *refp)
+erts_port_unlink(Process *c_p, Port *prt, ErtsLink *lnk, Eterm *refp)
 {
     ErtsProc2PortSigData *sigdp;
     ErtsTryImmDrvCallState try_call_state
@@ -2571,7 +2535,7 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm from, Eterm *refp)
 
     switch (try_imm_drv_call(&try_call_state)) {
     case ERTS_TRY_IMM_DRV_CALL_OK:
-	port_unlink(prt, from);
+	port_unlink(prt, lnk);
 	finalize_imm_drv_call(&try_call_state);
 	BUMP_REDS(c_p, ERTS_PORT_REDS_UNLINK);
 	return ERTS_PORT_OP_DONE;
@@ -2584,11 +2548,12 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm from, Eterm *refp)
 
     sigdp = erts_port_task_alloc_p2p_sig_data();
     sigdp->flags = ERTS_P2P_SIG_TYPE_UNLINK;
-    sigdp->u.unlink.from = from;
-    
+    sigdp->u.unlink.port_id = prt->common.id;
+    sigdp->u.unlink.lnk = lnk;
+
     return erts_schedule_proc2port_signal(c_p,
 					  prt,
-					  c_p ? c_p->common.id : from,
+					  c_p->common.id,
 					  refp,
 					  sigdp,
 					  0,
@@ -2597,45 +2562,24 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm from, Eterm *refp)
 }
 
 static void
-port_link_failure(Eterm port_id, Eterm linker)
+port_link_failure(Eterm port_id, ErtsLink *lnk)
 {
-    Process *rp;
-    ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCKS_XSIG_SEND;
-    ASSERT(is_internal_pid(linker));
-    rp = erts_pid2proc(NULL, 0, linker, rp_locks);
-    if (rp) {
-	ErtsLink *rlnk = erts_remove_link(&ERTS_P_LINKS(rp), port_id);
-	if (rlnk) {
-	    int xres = erts_send_exit_signal(NULL,
-					     port_id,
-					     rp,
-					     &rp_locks, 
-					     am_noproc,
-					     NIL,
-					     NULL,
-					     0);
-	    if (xres >= 0) {
-		/* We didn't exit the process and it is traced */
-		if (IS_TRACED_FL(rp, F_TRACE_PROCS))
-		    trace_proc(NULL, 0, rp, am_getting_unlinked, port_id);
-	    }
-	    if (rp_locks)
-		erts_smp_proc_unlock(rp, rp_locks);
-	}
-    }
+    erts_proc_sig_send_link_exit(NULL, port_id, lnk, am_noproc, NIL);
 }
 
 static void
-port_link(Port *prt, erts_aint32_t state, Eterm to)
+port_link(Port *prt, erts_aint32_t state, ErtsLink *lnk)
 {
-    if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-        trace_port(prt, am_getting_linked, to);
-    if (!(state & ERTS_PORT_SFLGS_INVALID_LOOKUP)) {
-	erts_add_link(&ERTS_P_LINKS(prt), LINK_PID, to);
-    } else {
-	port_link_failure(prt->common.id, to);
-        if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_unlink, to);
+    if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
+	port_link_failure(prt->common.id, lnk);
+    else {
+        ErtsLink *rlnk;
+        rlnk = erts_link_tree_insert_addr_replace(&ERTS_P_LINKS(prt),
+                                                  lnk);
+        if (rlnk)
+            erts_link_release(rlnk);
+        else if (IS_TRACED_FL(prt, F_TRACE_PORTS))
+            trace_port(prt, am_getting_linked, lnk->other.item);
     }
 }
 
@@ -2643,17 +2587,16 @@ static int
 port_sig_link(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigdp)
 {
     if (op == ERTS_PROC2PORT_SIG_EXEC)
-	port_link(prt, state, sigdp->u.link.to);
-    else {
-	port_link_failure(sigdp->u.link.port, sigdp->u.link.to);
-    }
+	port_link(prt, state, sigdp->u.link.lnk);
+    else
+	port_link_failure(sigdp->u.link.port_id, sigdp->u.link.lnk);
     if (sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY)
 	port_sched_op_reply(sigdp->caller, sigdp->ref, am_true, prt);
     return ERTS_PORT_REDS_LINK;
 }
 
 ErtsPortOpResult
-erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
+erts_port_link(Process *c_p, Port *prt, ErtsLink *lnk, Eterm *refp)
 {
     ErtsProc2PortSigData *sigdp;
     ErtsTryImmDrvCallState try_call_state
@@ -2666,7 +2609,7 @@ erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
 
     switch (try_imm_drv_call(&try_call_state)) {
     case ERTS_TRY_IMM_DRV_CALL_OK:
-	port_link(prt, try_call_state.state, to);
+	port_link(prt, try_call_state.state, lnk);
 	finalize_imm_drv_call(&try_call_state);
 	BUMP_REDS(c_p, ERTS_PORT_REDS_LINK);
 	return ERTS_PORT_OP_DONE;
@@ -2679,12 +2622,12 @@ erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
 
     sigdp = erts_port_task_alloc_p2p_sig_data();
     sigdp->flags = ERTS_P2P_SIG_TYPE_LINK;
-    sigdp->u.link.port = prt->common.id;
-    sigdp->u.link.to = to;
+    sigdp->u.link.port_id = prt->common.id;
+    sigdp->u.link.lnk = lnk;
     
     return erts_schedule_proc2port_signal(c_p,
 					  prt,
-					  c_p ? c_p->common.id : to,
+					  c_p->common.id,
 					  refp,
 					  sigdp,
 					  0,
@@ -2693,51 +2636,23 @@ erts_port_link(Process *c_p, Port *prt, Eterm to, Eterm *refp)
 }
 
 static void
-port_monitor_failure(Eterm port_id, Eterm origin, Eterm ref_DOWN)
+port_monitor_failure(Eterm port_id, ErtsMonitor *mon)
 {
-    Process       *origin_p;
-    ErtsProcLocks p_locks = ERTS_PROC_LOCK_LINK;
-    ASSERT(is_internal_pid(origin));
-
-    origin_p = erts_pid2proc(NULL, 0, origin, p_locks);
-    if (! origin_p) { return; }
-
-    /* Send the DOWN message immediately. Ref is made on the fly because
-     * caller has never seen it yet. */
-    erts_queue_monitor_message(origin_p, &p_locks, ref_DOWN,
-                               am_port, port_id, am_noproc);
-    erts_smp_proc_unlock(origin_p, p_locks);
+    erts_proc_sig_send_monitor_down(mon, am_noproc);
 }
 
 /* Origin wants to monitor port Prt. State contains possible error, which has
  * happened just before. Name is either NIL or an atom, if user monitors
  * a port by name. Ref is premade reference that will be returned to user */
 static void
-port_monitor(Port *prt, erts_aint32_t state, Eterm origin,
-             Eterm name, Eterm ref)
+port_monitor(Port *prt, erts_aint32_t state, ErtsMonitor *mon)
 {
-    Eterm name_or_nil = is_atom(name) ? name : NIL;
-
-    ASSERT(is_pid(origin));
-    ASSERT(is_atom(name) || is_port(name) || name == NIL);
-    ASSERT(is_internal_ordinary_ref(ref));
-
-    if (!(state & ERTS_PORT_SFLGS_INVALID_LOOKUP)) {
-        ErtsProcLocks p_locks = ERTS_PROC_LOCK_LINK;
-
-        Process *origin_p = erts_pid2proc(NULL, 0, origin, p_locks);
-        if (! origin_p) {
-            goto failure;
-        }
-        erts_add_monitor(&ERTS_P_MONITORS(origin_p), MON_ORIGIN, ref,
-                         prt->common.id, name_or_nil);
-        erts_add_monitor(&ERTS_P_MONITORS(prt), MON_TARGET, ref,
-                         origin, name_or_nil);
-
-        erts_smp_proc_unlock(origin_p, p_locks);
-    } else {
-failure:
-        port_monitor_failure(prt->common.id, origin, ref);
+    ASSERT(prt);
+    if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
+        port_monitor_failure(prt->common.id, mon);
+    else {
+        ASSERT(erts_monitor_is_target(mon));
+        erts_monitor_list_insert(&ERTS_P_LT_MONITORS(prt), mon);
     }
 }
 
@@ -2745,24 +2660,11 @@ static int
 port_sig_monitor(Port *prt, erts_aint32_t state, int op,
                  ErtsProc2PortSigData *sigdp)
 {
-    Eterm hp[ERTS_REF_THING_SIZE];
-    Eterm ref = make_internal_ref(&hp);
-    write_ref_thing(hp, sigdp->ref[0], sigdp->ref[1], sigdp->ref[2]);
-
-    if (op == ERTS_PROC2PORT_SIG_EXEC) {
-        /* erts_add_monitor call inside port_monitor will copy ref from hp */
-        port_monitor(prt, state,
-                     sigdp->u.monitor.origin,
-                     sigdp->u.monitor.name,
-                     ref);
-    } else {
-        port_monitor_failure(sigdp->u.monitor.name,
-                             sigdp->u.monitor.origin,
-                             ref);
-    }
-    if (sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY) {
-        port_sched_op_reply(sigdp->caller, sigdp->ref, am_true, prt);
-    }
+    if (op == ERTS_PROC2PORT_SIG_EXEC)
+        port_monitor(prt, state, sigdp->u.monitor.mon);
+    else
+        port_monitor_failure(sigdp->u.monitor.port_id,
+                             sigdp->u.monitor.mon);
     return ERTS_PORT_REDS_MONITOR;
 }
 
@@ -2770,95 +2672,63 @@ port_sig_monitor(Port *prt, erts_aint32_t state, int op,
  * a reference (ref may be rewritten to be used to serve additionally as a
  * signal id). Name is atom if user monitors port by name or NIL */
 ErtsPortOpResult
-erts_port_monitor(Process *origin, Port *port, Eterm name, Eterm *refp)
+erts_port_monitor(Process *c_p, Port *port, ErtsMonitor *mon)
 {
     ErtsProc2PortSigData *sigdp;
     ErtsTryImmDrvCallState try_call_state
         = ERTS_INIT_TRY_IMM_DRV_CALL_STATE(
-                origin, port, ERTS_PORT_SFLGS_INVALID_LOOKUP,
+                c_p,
+                port,
+                ERTS_PORT_SFLGS_INVALID_LOOKUP,
                 0,
-                0, /* trap_ref is always set so !trap_ref always is false */
+                !0,
                 am_monitor);
 
-    ASSERT(origin);
+    ASSERT(c_p);
     ASSERT(port);
-    ASSERT(is_atom(name) || is_port(name));
-    ASSERT(refp);
+    ASSERT(mon);
 
     switch (try_imm_drv_call(&try_call_state)) {
     case ERTS_TRY_IMM_DRV_CALL_OK:
-        port_monitor(port, try_call_state.state, origin->common.id, name, *refp);
+        port_monitor(port, try_call_state.state, mon);
         finalize_imm_drv_call(&try_call_state);
-        BUMP_REDS(origin, ERTS_PORT_REDS_MONITOR);
+        BUMP_REDS(c_p, ERTS_PORT_REDS_MONITOR);
         return ERTS_PORT_OP_DONE;
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
-        return ERTS_PORT_OP_BADARG;
+        return ERTS_PORT_OP_DROPPED;
     default:
         break; /* Schedule call instead... */
     }
 
     sigdp = erts_port_task_alloc_p2p_sig_data();
     sigdp->flags = ERTS_P2P_SIG_TYPE_MONITOR;
-    sigdp->u.monitor.origin = origin->common.id;
-    sigdp->u.monitor.name   = name; /* either named monitor, or port id */
+    sigdp->u.monitor.port_id = port->common.id;
+    sigdp->u.monitor.mon = mon;
 
     /* Ref contents will be initialized here */
-    return erts_schedule_proc2port_signal(origin, port, origin->common.id,
-                                          refp, sigdp, 0, NULL,
+    return erts_schedule_proc2port_signal(c_p,
+                                          port,
+                                          c_p->common.id,
+                                          NULL,
+                                          sigdp,
+                                          0,
+                                          NULL,
                                           port_sig_monitor);
-}
-
-static void
-port_demonitor_failure(Eterm port_id, Eterm origin, Eterm ref)
-{
-    Process       *origin_p;
-    ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
-    ErtsMonitor   *mon1;
-    ASSERT(is_internal_pid(origin));
-
-    origin_p = erts_pid2proc(NULL, 0, origin, rp_locks);
-    if (! origin_p) { return; }
-
-    /* do not send any DOWN messages, drop monitors on process */
-    mon1 = erts_remove_monitor(&ERTS_P_MONITORS(origin_p), ref);
-    if (mon1 != NULL) {
-        erts_destroy_monitor(mon1);
-    }
-
-    erts_smp_proc_unlock(origin_p, rp_locks);
 }
 
 /* Origin wants to demonitor port Prt. State contains possible error, which has
  * happened just before. Ref is reference to monitor */
 static void
-port_demonitor(Port *port, erts_aint32_t state, Eterm origin, Eterm ref)
+port_demonitor(Port *port, erts_aint32_t state, ErtsMonitor *mon)
 {
-    ASSERT(port);
-    ASSERT(is_pid(origin));
-    ASSERT(is_internal_ref(ref));
-
-    if (!(state & ERTS_PORT_SFLGS_INVALID_LOOKUP)) {
-        ErtsProcLocks p_locks = ERTS_PROC_LOCK_LINK;
-        Process *origin_p = erts_pid2proc(NULL, 0, origin, p_locks);
-        if (origin_p) {
-            ErtsMonitor *mon1 = erts_remove_monitor(&ERTS_P_MONITORS(origin_p),
-                                                    ref);
-            if (mon1 != NULL) {
-                erts_destroy_monitor(mon1);
-            }
-        }
-        if (1) {
-            ErtsMonitor *mon2 = erts_remove_monitor(&ERTS_P_MONITORS(port),
-                                                    ref);
-            if (mon2 != NULL) {
-                erts_destroy_monitor(mon2);
-            }
-        }
-        if (origin_p) { /* when origin is dying, it won't be found */
-            erts_smp_proc_unlock(origin_p, p_locks);
-        }
-    } else {
-        port_demonitor_failure(port->common.id, origin, ref);
+    ErtsMonitorData *mdp = erts_monitor_to_data(mon);
+    ASSERT(port && mon);
+    ASSERT(erts_monitor_is_origin(mon));
+    if (!erts_monitor_is_in_table(&mdp->target))
+        erts_monitor_release(mon);
+    else {
+        erts_monitor_list_delete(&ERTS_P_LT_MONITORS(port), &mdp->target);
+        erts_monitor_release_both(mdp);
     }
 }
 
@@ -2866,73 +2736,47 @@ static int
 port_sig_demonitor(Port *prt, erts_aint32_t state, int op,
                    ErtsProc2PortSigData *sigdp)
 {
-    Eterm hp[ERTS_REF_THING_SIZE];
-    Eterm ref = make_internal_ref(&hp);
-    write_ref_thing(hp, sigdp->u.demonitor.ref[0],
-                    sigdp->u.demonitor.ref[1],
-                    sigdp->u.demonitor.ref[2]);
-    if (op == ERTS_PROC2PORT_SIG_EXEC) {
-        port_demonitor(prt, state, sigdp->u.demonitor.origin, ref);
-    } else {
-        port_demonitor_failure(sigdp->u.demonitor.name,
-                               sigdp->u.demonitor.origin,
-                               ref);
-    }
-    if (sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY) {
-        port_sched_op_reply(sigdp->caller, sigdp->ref, am_true, prt);
-    }
+    if (op == ERTS_PROC2PORT_SIG_EXEC)
+        port_demonitor(prt, state, sigdp->u.demonitor.mon);
+    else
+        erts_monitor_release(sigdp->u.demonitor.mon);
     return ERTS_PORT_REDS_DEMONITOR;
 }
 
-/* Removes monitor between origin and target, identified by ref.
- * Mode defines normal or relaxed demonitor rules (process is at death) */
-ErtsPortOpResult erts_port_demonitor(Process *origin, ErtsDemonitorMode mode,
-                                     Port *target, Eterm ref,
-                                     Eterm *trap_ref)
+ErtsPortOpResult
+erts_port_demonitor(Process *c_p, Port *prt, ErtsMonitor *mon)
 {
-    Process *c_p = mode == ERTS_PORT_DEMONITOR_NORMAL ? origin : NULL;
     ErtsProc2PortSigData *sigdp;
     ErtsTryImmDrvCallState try_call_state
         = ERTS_INIT_TRY_IMM_DRV_CALL_STATE(
                 c_p,
-                target, ERTS_PORT_SFLGS_INVALID_LOOKUP,
+                prt, ERTS_PORT_SFLGS_INVALID_LOOKUP,
                 0,
-                !trap_ref,
+                !0,
                 am_demonitor);
 
-    ASSERT(origin);
-    ASSERT(target);
-    ASSERT(is_internal_ref(ref));
+    ASSERT(c_p && prt && mon);
 
     switch (try_imm_drv_call(&try_call_state)) {
     case ERTS_TRY_IMM_DRV_CALL_OK:
-        port_demonitor(target, try_call_state.state, origin->common.id, ref);
+        port_demonitor(prt, try_call_state.state, mon);
         finalize_imm_drv_call(&try_call_state);
-        if (mode == ERTS_PORT_DEMONITOR_NORMAL) {
-            BUMP_REDS(origin, ERTS_PORT_REDS_DEMONITOR);
-        }
+        BUMP_REDS(c_p, ERTS_PORT_REDS_DEMONITOR);
         return ERTS_PORT_OP_DONE;
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
-        return ERTS_PORT_OP_BADARG;
+        return ERTS_PORT_OP_DROPPED;
     default:
         break; /* Schedule call instead... */
     }
 
     sigdp = erts_port_task_alloc_p2p_sig_data();
     sigdp->flags = ERTS_P2P_SIG_TYPE_DEMONITOR;
-    sigdp->u.demonitor.origin = origin->common.id;
-    sigdp->u.demonitor.name = target->common.id;
-    {
-	Uint32 *nums = internal_ref_numbers(ref);
-        /* Start from 1 skip ref arity */
-        sys_memcpy(sigdp->u.demonitor.ref,
-		   nums,
-                   sizeof(sigdp->u.demonitor.ref));
-    }
+    sigdp->u.demonitor.port_id = prt->common.id;
+    sigdp->u.demonitor.mon = mon;
 
     /* Ref contents will be initialized here */
-    return erts_schedule_proc2port_signal(c_p, target, origin->common.id,
-                                          trap_ref, sigdp, 0, NULL,
+    return erts_schedule_proc2port_signal(c_p, prt, c_p->common.id,
+                                          NULL, sigdp, 0, NULL,
                                           port_sig_demonitor);
 }
 
@@ -2941,11 +2785,13 @@ init_ack_send_reply(Port *port, Eterm resp)
 {
 
     if (!is_internal_port(resp)) {
-        Process *rp = erts_proc_lookup_raw(port->async_open_port->to);
-        erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
-        erts_remove_link(&ERTS_P_LINKS(port), port->async_open_port->to);
-        erts_remove_link(&ERTS_P_LINKS(rp), port->common.id);
-        erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+        Eterm proc = port->async_open_port->to;
+        ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(port),
+                                              proc);
+        if (lnk) {
+            erts_link_tree_delete(&ERTS_P_LINKS(port), lnk);
+            erts_proc_sig_send_unlink(NULL, lnk);
+        }
     }
     port_sched_op_reply(port->async_open_port->to,
                         port->async_open_port->ref,
@@ -2972,7 +2818,7 @@ erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res) {
             break;
         case -2: {
             char *str = erl_errno_id(errno);
-            resp = erts_atom_put((byte *) str, strlen(str),
+            resp = erts_atom_put((byte *) str, sys_strlen(str),
                                  ERTS_ATOM_ENC_LATIN1, 1);
             break;
         }
@@ -3007,11 +2853,11 @@ void erts_init_io(int port_tab_size,
 		  int port_tab_size_ignore_files,
 		  int legacy_port_tab)
 {
-    ErlDrvEntry** dp;
+    ErtsStaticDriver* dp;
     UWord common_element_size;
-    erts_smp_rwmtx_opt_t drv_list_rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
-    drv_list_rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
-    drv_list_rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+    erts_rwmtx_opt_t drv_list_rwmtx_opts = ERTS_RWMTX_OPT_DEFAULT_INITER;
+    drv_list_rwmtx_opts.type = ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
+    drv_list_rwmtx_opts.lived = ERTS_RWMTX_LONG_LIVED;
 
     erts_atomic64_init_nob(&bytes_in, 0);
     erts_atomic64_init_nob(&bytes_out, 0);
@@ -3019,11 +2865,9 @@ void erts_init_io(int port_tab_size,
     common_element_size = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(Port));
     common_element_size += ERTS_ALC_DATA_ALIGN_SIZE(sizeof(ErtsPortTaskBusyPortQ));
     common_element_size += 10; /* name */
-#ifdef ERTS_SMP
     common_element_size += sizeof(erts_mtx_t);
 
     init_xports_list_alloc();
-#endif
 
     pdl_init();
 
@@ -3038,12 +2882,12 @@ void erts_init_io(int port_tab_size,
     else if (port_tab_size < ERTS_MIN_PORTS)
 	port_tab_size = ERTS_MIN_PORTS;
 
-    erts_smp_rwmtx_init_opt(&erts_driver_list_lock, &drv_list_rwmtx_opts, "driver_list", NIL,
+    erts_rwmtx_init_opt(&erts_driver_list_lock, &drv_list_rwmtx_opts, "driver_list", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
     driver_list = NULL;
-    erts_smp_tsd_key_create(&driver_list_lock_status_key,
+    erts_tsd_key_create(&driver_list_lock_status_key,
 			    "erts_driver_list_lock_status_key");
-    erts_smp_tsd_key_create(&driver_list_last_error_key,
+    erts_tsd_key_create(&driver_list_last_error_key,
 			    "erts_driver_list_last_error_key");
 
     erts_ptab_init_table(&erts_port,
@@ -3058,8 +2902,8 @@ void erts_init_io(int port_tab_size,
 
     sys_init_io();
 
-    erts_smp_tsd_set(driver_list_lock_status_key, (void *) 1);
-    erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
+    erts_tsd_set(driver_list_lock_status_key, (void *) 1);
+    erts_rwmtx_rwlock(&erts_driver_list_lock);
 
     init_driver(&fd_driver, &fd_driver_entry, NULL);
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
@@ -3068,23 +2912,20 @@ void erts_init_io(int port_tab_size,
     init_driver(&forker_driver, &forker_driver_entry, NULL);
 #endif
     erts_init_static_drivers();
-    for (dp = driver_tab; *dp != NULL; dp++)
-	erts_add_driver_entry(*dp, NULL, 1);
+    for (dp = driver_tab; dp->de != NULL; dp++)
+	erts_add_driver_entry(dp->de, NULL, 1, dp->taint);
 
-    erts_smp_tsd_set(driver_list_lock_status_key, NULL);
-    erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
+    erts_tsd_set(driver_list_lock_status_key, NULL);
+    erts_rwmtx_rwunlock(&erts_driver_list_lock);
 }
 
-#if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_COUNT)
 static void lcnt_enable_driver_lock_count(erts_driver_t *dp, int enable)
 {
     if (dp->lock) {
         if (enable) {
-            Eterm name_as_atom = erts_atom_put((byte*)dp->name, sys_strlen(dp->name),
-                                                ERTS_ATOM_ENC_LATIN1, 1);
-
-            erts_lcnt_install_new_lock_info(&dp->lock->lcnt, "driver_lock", name_as_atom,
-                ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
+            erts_lcnt_install_new_lock_info(&dp->lock->lcnt, "driver_lock",
+                dp->name_atom, ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
         } else {
             erts_lcnt_uninstall(&dp->lock->lcnt);
         }
@@ -3164,7 +3005,8 @@ void erts_lcnt_update_port_locks(int enable) {
     }
 }
 
-#endif /* defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP) */
+#endif /* defined(ERTS_ENABLE_LOCK_COUNT) */
+
 /*
  * Buffering of data when using line oriented I/O on ports
  */
@@ -3343,12 +3185,10 @@ deliver_result(Port *prt, Eterm sender, Eterm pid, Eterm res)
     ErtsProcLocks rp_locks = 0;
     int scheduler = erts_get_scheduler_id() != 0;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     ASSERT(!prt || prt->common.id == sender);
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
-    ASSERT(!prt || erts_lc_is_port_locked(prt));
-#endif
+    ERTS_LC_ASSERT(!prt || erts_lc_is_port_locked(prt));
 
     ASSERT(is_internal_port(sender) && is_internal_pid(pid));
 
@@ -3376,7 +3216,7 @@ deliver_result(Port *prt, Eterm sender, Eterm pid, Eterm res)
 	erts_queue_message(rp, rp_locks, mp, tuple, sender);
 
 	if (rp_locks)
-	    erts_smp_proc_unlock(rp, rp_locks);
+	    erts_proc_unlock(rp, rp_locks);
 	if (!scheduler)
 	    erts_proc_dec_refc(rp);
 
@@ -3407,8 +3247,8 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     int scheduler = erts_get_scheduler_id() != 0;
     int trace_send = IS_TRACED_FL(prt, F_TRACE_SEND);
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));    
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_CHK_NO_PROC_LOCKS;
 
     need = 3 + 3 + 2*hlen;
 
@@ -3416,7 +3256,10 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 	need += 3;
     }
     if ((state & ERTS_PORT_SFLG_BINARY_IO) && buf != NULL) {
-	need += PROC_BIN_SIZE;
+        if (len <= ERL_ONHEAP_BIN_LIMIT)
+            need += heap_bin_size(len);
+        else
+            need += PROC_BIN_SIZE;
     } else {
 	need += 2*len;
     }
@@ -3434,24 +3277,21 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     if ((state & ERTS_PORT_SFLG_BINARY_IO) == 0) {
 	listp = buf_to_intlist(&hp, buf, len, listp);
     } else if (buf != NULL) {
-	ProcBin* pb;
-	Binary* bptr;
+        if (len <= ERL_ONHEAP_BIN_LIMIT) {
+            ErlHeapBin *hbin = (ErlHeapBin *) hp;
+            hbin->thing_word = header_heap_bin(len);
+            hbin->size = (Uint) len;
+            sys_memcpy(hbin->data, buf, len);
+            listp = make_binary(hp);
+            hp += heap_bin_size(len);
+        }
+        else {
+            Binary* bptr = erts_bin_nrml_alloc(len);
+            sys_memcpy(bptr->orig_bytes, buf, len);
 
-	bptr = erts_bin_nrml_alloc(len);
-	sys_memcpy(bptr->orig_bytes, buf, len);
-
-	pb = (ProcBin *) hp;
-	pb->thing_word = HEADER_PROC_BIN;
-	pb->size = len;
-	pb->next = ohp->first;
-	ohp->first = (struct erl_off_heap_header*)pb;
-	pb->val = bptr;
-	pb->bytes = (byte*) bptr->orig_bytes;
-	pb->flags = 0;
-	hp += PROC_BIN_SIZE;
-
-	OH_OVERHEAD(ohp, pb->size / sizeof(Eterm));
-	listp = make_binary(pb);
+            listp = erts_build_proc_bin(ohp, hp, bptr);
+            hp += PROC_BIN_SIZE;
+        }
     }
 
     /* Prepend the header */
@@ -3472,10 +3312,9 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     if (trace_send)
         trace_port_send(prt, to, tuple, 1);
 
-    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
     if (rp_locks)
-	erts_smp_proc_unlock(rp, rp_locks);
+	erts_proc_unlock(rp, rp_locks);
     if (!scheduler)
 	erts_proc_dec_refc(rp);
 }
@@ -3510,7 +3349,7 @@ static void flush_linebuf_messages(Port *prt, erts_aint32_t state)
     LineBufContext lc;
     int ret;
 
-    ERTS_SMP_LC_ASSERT(!prt || erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(!prt || erts_lc_is_port_locked(prt));
 
     if (!prt)
 	return;
@@ -3554,8 +3393,8 @@ deliver_vec_message(Port* prt,			/* Port */
     erts_aint32_t state;
     int trace_send = IS_TRACED_FL(prt, F_TRACE_SEND);
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_CHK_NO_PROC_LOCKS;
 
     /*
      * Check arguments for validity.
@@ -3575,7 +3414,14 @@ deliver_vec_message(Port* prt,			/* Port */
 
     need = 3 + 3;		/* Heap space for two tuples */
     if (state & ERTS_PORT_SFLG_BINARY_IO) {
-	need += (2+PROC_BIN_SIZE)*vsize - 2 + hlen*2;
+        Sint i;
+        for (i = 0; i < vsize; i++) {
+            if (iov[i].iov_len <= ERL_ONHEAP_BIN_LIMIT)
+                need += heap_bin_size(iov[i].iov_len);
+            else
+                need += PROC_BIN_SIZE;
+        }
+	need += (vsize - 1)*2 + hlen*2;
     } else {
 	need += (hlen+csize)*2;
     }
@@ -3595,36 +3441,52 @@ deliver_vec_message(Port* prt,			/* Port */
     } else {
 	binv += vsize;
 	while (vsize--) {
-	    ErlDrvBinary* b;
-	    ProcBin* pb = (ProcBin*) hp;
-	    byte* base;
+            Eterm bin;
+            Uint bin_size;
+            iov--;
+            binv--;
+            bin_size = (Uint) iov->iov_len;
+            
+            if (bin_size <= ERL_ONHEAP_BIN_LIMIT) {
+                ErlHeapBin *hbin = (ErlHeapBin *) hp;
+                hbin->thing_word = header_heap_bin(bin_size);
+                hbin->size = bin_size;
+                sys_memcpy(hbin->data, iov->iov_base, bin_size);
+                bin = make_binary(hp);
+                hp += heap_bin_size(bin_size);
+            }
+            else {
+                ErlDrvBinary* b;
+                ProcBin* pb = (ProcBin*) hp;
+                byte* base;
 
-	    iov--;
-	    binv--;
-	    if ((b = *binv) == NULL) {
-		b = driver_alloc_binary(iov->iov_len);
-		sys_memcpy(b->orig_bytes, iov->iov_base, iov->iov_len);
-		base = (byte*) b->orig_bytes;
-	    } else {
-		/* Must increment reference count, caller calls free */
-		driver_binary_inc_refc(b);
-		base = iov->iov_base;
-	    }
-	    pb->thing_word = HEADER_PROC_BIN;
-	    pb->size = iov->iov_len;
-	    pb->next = ohp->first;
-	    ohp->first = (struct erl_off_heap_header*)pb;
-	    pb->val = ErlDrvBinary2Binary(b);
-	    pb->bytes = base;
-	    pb->flags = 0;
-	    hp += PROC_BIN_SIZE;
+                if ((b = *binv) == NULL) {
+                    b = driver_alloc_binary(bin_size);
+                    sys_memcpy(b->orig_bytes, iov->iov_base, bin_size);
+                    base = (byte*) b->orig_bytes;
+                } else {
+                    /* Must increment reference count, caller calls free */
+                    driver_binary_inc_refc(b);
+                    base = iov->iov_base;
+                }
+                pb->thing_word = HEADER_PROC_BIN;
+                pb->size = bin_size;
+                pb->next = ohp->first;
+                ohp->first = (struct erl_off_heap_header*)pb;
+                pb->val = ErlDrvBinary2Binary(b);
+                pb->bytes = base;
+                pb->flags = 0;
+                hp += PROC_BIN_SIZE;
 	    
-	    OH_OVERHEAD(ohp, iov->iov_len / sizeof(Eterm));
+                OH_OVERHEAD(ohp, bin_size / sizeof(Eterm));
+
+                bin = make_binary(pb);
+            }
 
 	    if (listp == NIL) {  /* compatible with deliver_bin_message */
-		listp = make_binary(pb);
+		listp = bin;
 	    } else {
-		listp = CONS(hp, make_binary(pb), listp);
+		listp = CONS(hp, bin, listp);
 		hp += 2;
 	    }
 	}
@@ -3644,9 +3506,8 @@ deliver_vec_message(Port* prt,			/* Port */
     if (IS_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, to, tuple, 1);
 
-    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
-    erts_smp_proc_unlock(rp, rp_locks);
+    erts_proc_unlock(rp, rp_locks);
     if (!scheduler)
 	erts_proc_dec_refc(rp);
 }
@@ -3681,8 +3542,8 @@ static void flush_port(Port *p)
 {
     int fpe_was_unmasked;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
+    ERTS_CHK_NO_PROC_LOCKS;
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(p));
 
     if (p->drv_ptr->flush != NULL) {
         ERTS_MSACC_PUSH_STATE_M();
@@ -3714,11 +3575,9 @@ static void flush_port(Port *p)
         if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_out, am_flush);
 	}
-#ifdef ERTS_SMP
 	if (p->xports)
 	    erts_port_handle_xports(p);
 	ASSERT(!p->xports);
-#endif
     }
     if ((erts_atomic32_read_nob(&p->state) & ERTS_PORT_SFLGS_DEAD) == 0
 	&& is_port_ioq_empty(p)) {
@@ -3736,11 +3595,12 @@ terminate_port(Port *prt)
     erts_aint32_t state;
     ErtsPrtSD *psd;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_CHK_NO_PROC_LOCKS;
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     ASSERT(!ERTS_P_LINKS(prt));
     ASSERT(!ERTS_P_MONITORS(prt));
+    ASSERT(!ERTS_P_LT_MONITORS(prt));
 
     /* state may be altered by kill_port() below */
     state = erts_atomic32_read_band_nob(&prt->state,
@@ -3779,11 +3639,9 @@ terminate_port(Port *prt)
 	(*drv->stop)((ErlDrvData)prt->drv_data);
 	erts_unblock_fpe(fpe_was_unmasked);
 	ERTS_MSACC_POP_STATE_M();
-#ifdef ERTS_SMP
 	if (prt->xports)
 	    erts_port_handle_xports(prt);
 	ASSERT(!prt->xports);
-#endif
     }
 
     if (is_internal_port(send_closed_port_id)
@@ -3791,9 +3649,9 @@ terminate_port(Port *prt)
         trace_port_send(prt, connected_id, am_closed, 1);
 
     if(drv->handle != NULL) {
-	erts_smp_rwmtx_rlock(&erts_driver_list_lock);
+	erts_rwmtx_rlock(&erts_driver_list_lock);
 	erts_ddll_decrement_port_count(drv->handle); 
-	erts_smp_rwmtx_runlock(&erts_driver_list_lock);
+	erts_rwmtx_runlock(&erts_driver_list_lock);
     }
     stopq(prt);        /* clear queue memory */
     if(prt->linebuf != NULL){
@@ -3803,11 +3661,11 @@ terminate_port(Port *prt)
 
     erts_cleanup_port_data(prt);
 
-    psd = (ErtsPrtSD *) erts_smp_atomic_read_nob(&prt->psd);
+    ASSERT(erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY) == NULL);
+
+    psd = (ErtsPrtSD *) erts_atomic_read_nob(&prt->psd);
     if (psd)
 	erts_free(ERTS_ALC_T_PRTSD, psd);
-
-    ASSERT(prt->dist_entry == NULL);
 
     kill_port(prt);
 
@@ -3816,7 +3674,7 @@ terminate_port(Port *prt)
      * port has been removed from the port table (in kill_port()).
      */
     if ((state & ERTS_PORT_SFLG_HALT)
-	&& (erts_smp_atomic32_dec_read_nob(&erts_halt_progress) == 0)) {
+	&& (erts_atomic32_dec_read_nob(&erts_halt_progress) == 0)) {
 	erts_port_release(prt); /* We will exit and never return */
 	erts_flush_async_exit(erts_halt_code, "");
     }
@@ -3830,145 +3688,27 @@ erts_terminate_port(Port *pp)
     terminate_port(pp);
 }
 
-static void port_fire_one_monitor(ErtsMonitor *mon, void *ctx0);
-static void sweep_one_monitor(ErtsMonitor *mon, void *vpsc)
-{
-    switch (mon->type) {
-    case MON_ORIGIN: {
-        ErtsMonitor *rmon;
-        Process *rp;
-
-        ASSERT(is_internal_pid(mon->u.pid));
-        rp = erts_pid2proc(NULL, 0, mon->u.pid, ERTS_PROC_LOCK_LINK);
-        if (!rp) {
-            goto done;
-        }
-        rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
-        erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-        if (rmon == NULL) {
-            goto done;
-        }
-        erts_destroy_monitor(rmon);
-    } break;
-    case MON_TARGET: {
-        port_fire_one_monitor(mon, vpsc); /* forward call */
-    } break;
-    }
- done:
-    erts_destroy_monitor(mon);
-}
-
-
-
 typedef struct {
-    Port *port;
+    Eterm port_id;
     Eterm reason;
-} SweepContext;
+} ErtsPortExitContext;
 
-static void sweep_one_link(ErtsLink *lnk, void *vpsc)
+static int link_port_exit(ErtsLink *lnk, void *vpectxt, Sint reds)
 {
-    SweepContext *psc = vpsc;
-    DistEntry *dep;
-    Process *rp;
-    Eterm port_id = psc->port->common.id;
-
-    ASSERT(lnk->type == LINK_PID);
-
-    if (IS_TRACED_FL(psc->port, F_TRACE_PORTS))
-        trace_port(psc->port, am_unlink, lnk->pid);
-
-    if (is_external_pid(lnk->pid)) {
-	dep = external_pid_dist_entry(lnk->pid);
-	if(dep != erts_this_dist_entry) {
-	    ErtsDistLinkData dld;
-	    ErtsDSigData dsd;
-	    int code;
-	    code = erts_dsig_prepare(&dsd, dep, NULL, ERTS_DSP_NO_LOCK, 0);
-	    switch (code) {
-	    case ERTS_DSIG_PREP_NOT_ALIVE:
-	    case ERTS_DSIG_PREP_NOT_CONNECTED:
-		break;
-	    case ERTS_DSIG_PREP_CONNECTED:
-		erts_remove_dist_link(&dld, port_id, lnk->pid, dep);
-		erts_destroy_dist_link(&dld);
-		code = erts_dsig_send_exit(&dsd, port_id, lnk->pid,
-					   psc->reason);
-		ASSERT(code == ERTS_DSIG_SEND_OK);
-		break;
-	    default:
-		ASSERT(! "Invalid dsig prepare result");
-		break;
-	    }
-	}
-    } else {
-	ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCKS_XSIG_SEND;
-	ASSERT(is_internal_pid(lnk->pid));
-	rp = erts_pid2proc(NULL, 0, lnk->pid, rp_locks);
-	if (rp) {
-	    ErtsLink *rlnk = erts_remove_link(&ERTS_P_LINKS(rp), port_id);
-
-	    if (rlnk) {
-		int xres = erts_send_exit_signal(NULL,
-						 port_id,
-						 rp,
-						 &rp_locks, 
-						 psc->reason,
-						 NIL,
-						 NULL,
-						 0);
-		if (xres >= 0) {
-                    if (rp_locks & ERTS_PROC_LOCKS_XSIG_SEND) {
-                        erts_smp_proc_unlock(rp, ERTS_PROC_LOCKS_XSIG_SEND);
-                        rp_locks &= ~ERTS_PROC_LOCKS_XSIG_SEND;
-                    }
-		    /* We didn't exit the process and it is traced */
-		    if (IS_TRACED_FL(rp, F_TRACE_PROCS))
-			trace_proc(NULL, 0, rp, am_getting_unlinked, port_id);
-		}
-		erts_destroy_link(rlnk);
-	    }
-
-	    erts_smp_proc_unlock(rp, rp_locks);
-	}
-    }
-    erts_destroy_link(lnk);
+    ErtsPortExitContext *pectxt = vpectxt;
+    erts_proc_sig_send_link_exit(NULL, pectxt->port_id,
+                                 lnk, pectxt->reason, NIL);
+    return 1;
 }
 
-static void
-port_fire_one_monitor(ErtsMonitor *mon, void *ctx0)
+static int monitor_port_exit(ErtsMonitor *mon, void *vpectxt, Sint reds)
 {
-    Process      *origin;
-    ErtsProcLocks origin_locks;
-
-    if (mon->type != MON_TARGET || ! is_pid(mon->u.pid)) {
-        return;
-    }
-    /*
-     * Proceed here if someone monitors us, we (port) are the target and
-     * origin is some process
-     */
-    origin_locks = ERTS_PROC_LOCKS_MSG_SEND | ERTS_PROC_LOCK_LINK;
-
-    origin = erts_pid2proc(NULL, 0, mon->u.pid, origin_locks);
-    if (origin) {
-        DeclareTmpHeapNoproc(lhp,3);
-        SweepContext    *ctx = (SweepContext *)ctx0;
-        ErtsMonitor     *rmon;
-        Eterm           watched = (is_atom(mon->name)
-                       ? TUPLE2(lhp, mon->name, erts_this_dist_entry->sysname)
-                       : ctx->port->common.id);
-
-        erts_queue_monitor_message(origin, &origin_locks, mon->ref, am_port,
-                                   watched, ctx->reason);
-        UnUseTmpHeapNoproc(3);
-
-        rmon = erts_remove_monitor(&ERTS_P_MONITORS(origin), mon->ref);
-        erts_smp_proc_unlock(origin, origin_locks);
-
-        if (rmon) {
-            erts_destroy_monitor(rmon);
-        }
-    }
+    ErtsPortExitContext *pectxt = vpectxt;
+    if (erts_monitor_is_target(mon))
+        erts_proc_sig_send_monitor_down(mon, pectxt->reason);
+    else
+        erts_proc_sig_send_demonitor(mon);
+    return 1;
 }
 
 /* 'from' is sending 'this_port' an exit signal, (this_port must be internal).
@@ -3985,12 +3725,15 @@ int
 erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
                        int drop_normal)
 {
-   ErtsLink *lnk;
+   ErtsLink *links;
+   ErtsMonitor *monitors;
+   ErtsMonitor *lt_monitors;
    Eterm modified_reason;
    erts_aint32_t state, set_state_flags;
+   ErtsPortExitContext pectxt;
 
-   ERTS_SMP_CHK_NO_PROC_LOCKS;
-   ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+   ERTS_CHK_NO_PROC_LOCKS;
+   ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
    modified_reason = (reason == am_kill) ? am_killed : reason;
 
@@ -4035,30 +3778,45 @@ erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
 
    set_busy_port(ERTS_Port2ErlDrvPort(prt), 0);
 
+   links = ERTS_P_LINKS(prt);
+   ERTS_P_LINKS(prt) = NULL;
+   monitors = ERTS_P_MONITORS(prt);
+   ERTS_P_MONITORS(prt) = NULL;
+   lt_monitors = ERTS_P_LT_MONITORS(prt);
+   ERTS_P_LT_MONITORS(prt) = NULL;
+
    if (prt->common.u.alive.reg != NULL)
        (void) erts_unregister_name(NULL, 0, prt, prt->common.u.alive.reg->name);
 
-   {
-       SweepContext sc = {prt, modified_reason};
-       lnk = ERTS_P_LINKS(prt);
-       ERTS_P_LINKS(prt) = NULL;
-       erts_sweep_links(lnk, &sweep_one_link, &sc);
-   }
-   DRV_MONITOR_LOCK_PDL(prt);
-   {
-       SweepContext ctx = {prt, modified_reason};
-       ErtsMonitor *moni = ERTS_P_MONITORS(prt);
-       ERTS_P_MONITORS(prt) = NULL;
-       erts_sweep_monitors(moni, &sweep_one_monitor, &ctx);
-   } 
-   DRV_MONITOR_UNLOCK_PDL(prt);
+   pectxt.port_id = prt->common.id;
+   pectxt.reason = modified_reason;
 
-   if ((state & ERTS_PORT_SFLG_DISTRIBUTION) && prt->dist_entry) {
-       erts_do_net_exits(prt->dist_entry, modified_reason);
-       erts_deref_dist_entry(prt->dist_entry);
-       prt->dist_entry = NULL;
+   if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
+       DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+       ASSERT(dep);
+       erts_do_net_exits(dep, modified_reason);
+       erts_deref_dist_entry(dep);
+       erts_prtsd_set(prt, ERTS_PRTSD_DIST_ENTRY, NULL);
        erts_atomic32_read_band_relb(&prt->state,
 				    ~ERTS_PORT_SFLG_DISTRIBUTION);
+   }
+   
+   if (links)
+       erts_monitor_tree_foreach_delete(&links,
+                                        link_port_exit,
+                                        (void *) &pectxt);
+
+   if (monitors || lt_monitors) {
+       DRV_MONITOR_LOCK_PDL(prt);
+       if (monitors)
+           erts_monitor_tree_foreach_delete(&monitors,
+                                            monitor_port_exit,
+                                            (void *) &pectxt);
+       if (lt_monitors)
+           erts_monitor_list_foreach_delete(&lt_monitors,
+                                            monitor_port_exit,
+                                            (void *) &pectxt);
+       DRV_MONITOR_UNLOCK_PDL(prt);
    }
        
    if ((reason != am_kill) && !is_port_ioq_empty(prt)) {
@@ -4257,17 +4015,9 @@ write_port_control_result(int control_flags,
 	else {
 	    dbin = (ErlDrvBinary *) resp_bufp;
 	    if (dbin->orig_size > ERL_ONHEAP_BIN_LIMIT) {
-		ProcBin* pb = (ProcBin *) *hpp;
+                res = erts_build_proc_bin(ohp, *hpp, ErlDrvBinary2Binary(dbin));
 		*hpp += PROC_BIN_SIZE;
-		pb->thing_word = HEADER_PROC_BIN;
-		pb->size = dbin->orig_size;
-		pb->next = ohp->first;
-		ohp->first = (struct erl_off_heap_header *) pb;
-		pb->val = ErlDrvBinary2Binary(dbin);
-		pb->bytes = (byte*) dbin->orig_bytes;
-		pb->flags = 0;
-		OH_OVERHEAD(ohp, dbin->orig_size / sizeof(Eterm));
-		return make_binary(pb);
+                return res;
 	    }
 	    resp_bufp = dbin->orig_bytes;
 	    resp_size = dbin->orig_size;
@@ -4351,7 +4101,7 @@ port_sig_control(Port *prt,
 				      prt);
 
 	    if (rp_locks)
-		erts_smp_proc_unlock(rp, rp_locks);
+		erts_proc_unlock(rp, rp_locks);
 	    goto done;
 	}
     }
@@ -4374,7 +4124,7 @@ done:
  * to the caller.
  */
 int
-erl_drv_port_control(Eterm port_num, char cmd, char* buff, ErlDrvSizeT size)
+erl_drv_port_control(Eterm port_num, unsigned int cmd, char* buff, ErlDrvSizeT size)
 {
     ErtsProc2PortSigData *sigdp = erts_port_task_alloc_p2p_sig_data();
 
@@ -4404,7 +4154,7 @@ erts_port_control(Process* c_p,
     int copy;
     ErtsProc2PortSigData *sigdp;
 
-    sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+    sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
     if (sched_flags & ERTS_PTS_FLG_EXIT)
 	return ERTS_PORT_OP_BADARG;
 
@@ -4716,11 +4466,11 @@ port_sig_call(Port *prt,
 					      prt);
 
 		    if (rp_locks)
-			erts_smp_proc_unlock(rp, rp_locks);
+			erts_proc_unlock(rp, rp_locks);
 		    goto done;
 		}
 		if (rp_locks)
-		    erts_smp_proc_unlock(rp, rp_locks);
+		    erts_proc_unlock(rp, rp_locks);
 	    }
 	}
     }
@@ -4749,19 +4499,22 @@ erts_port_call(Process* c_p,
     char input_buf[256];
     char *bufp;
     byte *endp;
+    Uint uintsz;
     ErlDrvSizeT size;
     int try_call;
     erts_aint32_t sched_flags;
     ErtsProc2PortSigData *sigdp;
 
-    sched_flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+    sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
     if (sched_flags & ERTS_PTS_FLG_EXIT) {
 	return ERTS_PORT_OP_BADARG;
     }
 
     try_call = !(sched_flags & ERTS_PTS_FLGS_FORCE_SCHEDULE_OP);
 
-    size = erts_encode_ext_size(data);
+    if (erts_encode_ext_size(data, &uintsz) != ERTS_EXT_SZ_OK)
+        return ERTS_PORT_OP_BADARG;
+    size = (ErlDrvSizeT) uintsz;
 
     if (!try_call)
 	bufp = erts_alloc(ERTS_ALC_T_DRV_CALL_DATA, size);
@@ -4972,7 +4725,7 @@ port_sig_info(Port *prt,
 				      prt);
 	}
 	if (rp_locks)
-	    erts_smp_proc_unlock(rp, rp_locks);
+	    erts_proc_unlock(rp, rp_locks);
     }
     return ERTS_PORT_REDS_INFO;
 }
@@ -5041,7 +4794,7 @@ typedef struct {
     Uint sched_id;
     Eterm pid;
     Uint32 refn[ERTS_REF_NUMBERS];
-    erts_smp_atomic32_t refc;
+    erts_atomic32_t refc;
 } ErtsIOBytesReq;
 
 static void
@@ -5091,10 +4844,10 @@ reply_io_bytes(void *vreq)
 	if (req->sched_id == sched_id)
 	    rp_locks &= ~ERTS_PROC_LOCK_MAIN;
 	if (rp_locks)
-	    erts_smp_proc_unlock(rp, rp_locks);
+	    erts_proc_unlock(rp, rp_locks);
     }
 
-    if (erts_smp_atomic32_dec_read_nob(&req->refc) == 0)
+    if (erts_atomic32_dec_read_nob(&req->refc) == 0)
 	erts_free(ERTS_ALC_T_IOB_REQ, req);
 }
 
@@ -5117,16 +4870,14 @@ erts_request_io_bytes(Process *c_p)
     req->refn[0] = refn[0];
     req->refn[1] = refn[1];
     req->refn[2] = refn[2];
-    erts_smp_atomic32_init_nob(&req->refc,
+    erts_atomic32_init_nob(&req->refc,
 			       (erts_aint32_t) erts_no_schedulers);
 
-#ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
 	erts_schedule_multi_misc_aux_work(1,
 					  erts_no_schedulers,
 					  reply_io_bytes,
 					  (void *) req);
-#endif
 
     reply_io_bytes((void *) req);
 
@@ -5139,16 +4890,22 @@ typedef struct {
     void *arg;
 } prt_one_lnk_data;
 
-static void prt_one_monitor(ErtsMonitor *mon, void *vprtd)
+static int prt_one_monitor(ErtsMonitor *mon, void *vprtd, Sint reds)
 {
+    ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
-    erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->u.pid, mon->ref);
+    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+        erts_print(prtd->to, prtd->arg, "(%p,%T)", mon->other.ptr, mdp->ref);
+    else
+        erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->other.item, mdp->ref);
+    return 1;
 }
 
-static void prt_one_lnk(ErtsLink *lnk, void *vprtd)
+static int prt_one_lnk(ErtsLink *lnk, void *vprtd, Sint reds)
 {
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
-    erts_print(prtd->to, prtd->arg, "%T", lnk->pid);
+    erts_print(prtd->to, prtd->arg, "%T", lnk->other.item);
+    return 1;
 }
 
 static void dump_port_state(fmtfn_t to, void *arg, erts_aint32_t state)
@@ -5197,7 +4954,7 @@ static void dump_port_state(fmtfn_t to, void *arg, erts_aint32_t state)
 
 static void dump_port_task_flags(fmtfn_t to, void *arg, Port* p)
 {
-    erts_aint32_t flags = erts_smp_atomic32_read_nob(&p->sched.flags);
+    erts_aint32_t flags = erts_atomic32_read_nob(&p->sched.flags);
     erts_aint32_t unknown = 0;
     char delim = ' ';
 
@@ -5260,15 +5017,18 @@ print_port_info(Port *p, fmtfn_t to, void *arg)
 	prtd.to = to;
 	prtd.arg = arg;
 	erts_print(to, arg, "Links: ");
-	erts_doforall_links(ERTS_P_LINKS(p), &prt_one_lnk, &prtd);
+	erts_link_tree_foreach(ERTS_P_LINKS(p), prt_one_lnk, (void *) &prtd);
 	erts_print(to, arg, "\n");
     }
-    if (ERTS_P_MONITORS(p)) {
+    if (ERTS_P_MONITORS(p) || ERTS_P_LT_MONITORS(p)) {
 	prt_one_lnk_data prtd;
 	prtd.to = to;
 	prtd.arg = arg;
 	erts_print(to, arg, "Monitors: ");
-	erts_doforall_monitors(ERTS_P_MONITORS(p), &prt_one_monitor, &prtd);
+	erts_monitor_tree_foreach(ERTS_P_MONITORS(p), prt_one_monitor,
+                                  (void *) &prtd);
+	erts_monitor_list_foreach(ERTS_P_LT_MONITORS(p), prt_one_monitor,
+                                  (void *) &prtd);
 	erts_print(to, arg, "\n");
     }
     if (p->suspended) {
@@ -5312,14 +5072,14 @@ set_busy_port(ErlDrvPort dprt, int on)
     DTRACE_CHARBUF(port_str, 16);
 #endif
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     prt = erts_drvport2port(dprt);
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return;
 
     if (on) {
-	flags = erts_smp_atomic32_read_bor_acqb(&prt->sched.flags,
+	flags = erts_atomic32_read_bor_acqb(&prt->sched.flags,
 						ERTS_PTS_FLG_BUSY_PORT);
 	if (flags & ERTS_PTS_FLG_BUSY_PORT)
 	    return; /* Already busy */
@@ -5335,7 +5095,7 @@ set_busy_port(ErlDrvPort dprt, int on)
         }
 #endif
     } else {
-	flags = erts_smp_atomic32_read_band_acqb(&prt->sched.flags,
+	flags = erts_atomic32_read_band_acqb(&prt->sched.flags,
 						 ~ERTS_PTS_FLG_BUSY_PORT);
 	if (!(flags & ERTS_PTS_FLG_BUSY_PORT))
 	    return; /* Already non-busy */
@@ -5347,7 +5107,7 @@ set_busy_port(ErlDrvPort dprt, int on)
             DTRACE1(port_not_busy, port_str);
         }
 #endif
-	if (prt->dist_entry) {
+	if (erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY) != NULL) {
 	    /*
 	     * Processes suspended on distribution ports are
 	     * normally queued on the dist entry.
@@ -5396,7 +5156,7 @@ erts_port_resume_procs(Port *prt)
 
 	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", prt->common.id);
 	    while (plp2 != NULL) {
-		erts_snprintf(pid_str, sizeof(DTRACE_CHARBUF_NAME(pid_str)), "%T", plp2->pid);
+		erts_snprintf(pid_str, sizeof(DTRACE_CHARBUF_NAME(pid_str)), "%T", plp2->u.pid);
 		DTRACE2(process_port_unblocked, pid_str, port_str);
 	    }
 	}
@@ -5429,7 +5189,7 @@ int get_port_flags(ErlDrvPort ix)
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return 0;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     flags = 0;
     if (state & ERTS_PORT_SFLG_BINARY_IO)
@@ -5445,8 +5205,8 @@ void erts_raw_port_command(Port* p, byte* buf, Uint len)
     int fpe_was_unmasked;
     ERTS_MSACC_PUSH_STATE_M();
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
+    ERTS_CHK_NO_PROC_LOCKS;
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(p));
 
     if (len > (Uint) INT_MAX)
 	erts_exit(ERTS_ABORT_EXIT,
@@ -5475,10 +5235,10 @@ int async_ready(Port *p, void* data)
 {
     int need_free = 1;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (p) {
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(p));
 	if (p->drv_ptr->ready_async != NULL) {
 	    ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 #ifdef USE_VM_PROBES
@@ -5547,24 +5307,17 @@ erts_stale_drv_select(Eterm port,
     switch (mode) {
     case ERL_DRV_READ | ERL_DRV_WRITE:
 	type = "Input/Output";
-	goto deselect;
     case ERL_DRV_WRITE:
 	type = "Output";
-	goto deselect;
     case ERL_DRV_READ:
 	type = "Input";
-    deselect:
-	if (deselect) {
-	    driver_select(drv_port, hndl,
-			  mode | ERL_DRV_USE_NO_CALLBACK,
-			  0);
-	}
-	break;
     default:
-	type = "Event";
-	if (deselect)
-	    driver_event(drv_port, hndl, NULL);
-	break;
+        type = "";
+    }
+    if (deselect) {
+        driver_select(drv_port, hndl,
+                      mode | ERL_DRV_USE_NO_CALLBACK,
+                      0);
     }
 
     dsbufp = erts_create_logger_dsbuf();
@@ -5594,44 +5347,31 @@ erts_get_port_names(Eterm id, ErlDrvPort drv_port)
 	pnp->driver_name = NULL;
     }
     else {
-	int do_realloc = 1;
-	int len = -1;
-	size_t pnp_len = sizeof(ErtsPortNames);
-#ifndef DEBUG
-	pnp_len += 100; /* In most cases 100 characters will be enough... */
-	ASSERT(prt->common.id == id);
-#endif
-	pnp = erts_alloc(ERTS_ALC_T_PORT_NAMES, pnp_len);
-	do {
-	    int nlen;
-	    char *name, *driver_name;
-	    if (len > 0) {
-		erts_free(ERTS_ALC_T_PORT_NAMES, pnp);
-		pnp_len = sizeof(ErtsPortNames) + len;
-		pnp = erts_alloc(ERTS_ALC_T_PORT_NAMES, pnp_len);
-	    }
-	    name = prt->name;
-	    len = nlen = name ? sys_strlen(name) + 1 : 0;
-	    driver_name = (prt->drv_ptr ? prt->drv_ptr->name : NULL);
-	    len += driver_name ? sys_strlen(driver_name) + 1 : 0;
-	    if (len <= pnp_len - sizeof(ErtsPortNames)) {
-		if (!name)
-		    pnp->name = NULL;
-		else {
-		    pnp->name = ((char *) pnp) + sizeof(ErtsPortNames);
-		    sys_strcpy(pnp->name, name);
-		}
-		if (!driver_name)
-		    pnp->driver_name = NULL;
-		else {
-		    pnp->driver_name = (((char *) pnp)
-					+ sizeof(ErtsPortNames)
-					+ nlen);
-		    sys_strcpy(pnp->driver_name, driver_name);
-		}
-		do_realloc = 0;
-	    }
-	} while (do_realloc);
+	int len;
+        int nlen;
+        char *driver_name;
+
+        len = nlen = prt->name ? sys_strlen(prt->name) + 1 : 0;
+        driver_name = (prt->drv_ptr ? prt->drv_ptr->name : NULL);
+        len += driver_name ? sys_strlen(driver_name) + 1 : 0;
+
+        pnp = erts_alloc(ERTS_ALC_T_PORT_NAMES,
+                         sizeof(ErtsPortNames) + len);
+
+        if (!prt->name)
+            pnp->name = NULL;
+        else {
+            pnp->name = ((char *) pnp) + sizeof(ErtsPortNames);
+            sys_strcpy(pnp->name, prt->name);
+        }
+        if (!driver_name)
+            pnp->driver_name = NULL;
+        else {
+            pnp->driver_name = (((char *) pnp)
+                                + sizeof(ErtsPortNames)
+                                + nlen);
+            sys_strcpy(pnp->driver_name, driver_name);
+        }
     }
     return pnp;
 }
@@ -5663,8 +5403,8 @@ void driver_report_exit(ErlDrvPort ix, int status)
    if (prt == ERTS_INVALID_ERL_DRV_PORT)
        return;
 
-   ERTS_SMP_CHK_NO_PROC_LOCKS;
-   ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+   ERTS_CHK_NO_PROC_LOCKS;
+   ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
    pid = ERTS_PORT_GET_CONNECTED(prt);
    ASSERT(is_internal_pid(pid));
@@ -5684,10 +5424,9 @@ void driver_report_exit(ErlDrvPort ix, int status)
     if (IS_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, pid, tuple, 1);
 
-   ERL_MESSAGE_TOKEN(mp) = am_undefined;
    erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
 
-   erts_smp_proc_unlock(rp, rp_locks);
+   erts_proc_unlock(rp, rp_locks);
    if (!scheduler)
        erts_proc_dec_refc(rp);
 }
@@ -6141,21 +5880,12 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 		mess = make_binary(hbp);
 	    }
 	    else {
-		ProcBin* pbp;
+		Eterm* hp;
 		Binary* bp = erts_bin_nrml_alloc(size);
 		ASSERT(bufp);
 		sys_memcpy((void *) bp->orig_bytes, (void *) bufp, size);
-		pbp = (ProcBin *) erts_produce_heap(&factory,
-						    PROC_BIN_SIZE, HEAP_EXTRA);
-		pbp->thing_word = HEADER_PROC_BIN;
-		pbp->size = size;
-		pbp->next = factory.off_heap->first;
-		factory.off_heap->first = (struct erl_off_heap_header*)pbp;
-		pbp->val = bp;
-		pbp->bytes = (byte*) bp->orig_bytes;
-		pbp->flags = 0;
-		OH_OVERHEAD(factory.off_heap, pbp->size / sizeof(Eterm));
-		mess = make_binary(pbp);
+                hp = erts_produce_heap(&factory, PROC_BIN_SIZE, HEAP_EXTRA);
+                mess = erts_build_proc_bin(factory.off_heap, hp, bp);
 	    }
 	    ptr += 2;
 	    break;
@@ -6299,8 +6029,6 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	    from = prt->common.id;
 	}
 
-	/* send message */
-        ERL_MESSAGE_TOKEN(factory.message) = am_undefined;
 	erts_queue_message(rp, rp_locks, factory.message, mess, from);
     }
     else if (res == -2) {
@@ -6327,7 +6055,7 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
     }
     if (rp) {
 	if (rp_locks)
-	    erts_smp_proc_unlock(rp, rp_locks);
+	    erts_proc_unlock(rp, rp_locks);
 	if (!scheduler)
 	    erts_proc_dec_refc(rp);
     }
@@ -6342,9 +6070,7 @@ static ERTS_INLINE int
 deliver_term_check_port(ErlDrvTermData port_id, Eterm *connected_p,
                         Port **trace_prt)
 {
-#ifdef ERTS_SMP
     ErtsThrPrgrDelayHandle dhndl = erts_thr_progress_unmanaged_delay();
-#endif
     erts_aint32_t state;
     int res = 1;
     Port *prt = erts_port_lookup_raw((Eterm) port_id);
@@ -6362,24 +6088,20 @@ deliver_term_check_port(ErlDrvTermData port_id, Eterm *connected_p,
 	goto done;
     }
     if (connected_p) {
-#ifdef ERTS_SMP
 	if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 	    ETHR_MEMBAR(ETHR_LoadLoad);
-#endif
 	*connected_p = ERTS_PORT_GET_CONNECTED(prt);
     }
 
 done:
 
-#ifdef ERTS_SMP
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED) {
-	ERTS_SMP_LC_ASSERT(!prt || !erts_lc_is_port_locked(prt));
+	ERTS_LC_ASSERT(!prt || !erts_lc_is_port_locked(prt));
 	erts_thr_progress_unmanaged_continue(dhndl);
 	ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
     } else
-#endif
     if (res == 1) {
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
         *trace_prt = prt;
     }
     return res;
@@ -6407,13 +6129,13 @@ driver_output_term(ErlDrvPort drvport, ErlDrvTermData* data, int len)
     erts_aint32_t state;
     Port* prt;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     /* NOTE! It *not* safe to access 'drvport' from unmanaged threads. */
     prt = erts_drvport2port_state(drvport, &state);
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1; /* invalid (dead) */
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_CHK_NO_PROC_LOCKS;
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     if (state & ERTS_PORT_SFLG_CLOSING)
 	return 0;
 
@@ -6450,16 +6172,14 @@ driver_send_term(ErlDrvPort drvport,
      * internal data representation for ErlDrvPort.
      */
     Port* prt = NULL;
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
-#ifdef ERTS_SMP
+    ERTS_CHK_NO_PROC_LOCKS;
     if (erts_thr_progress_is_managed_thread())
-#endif
     {
 	erts_aint32_t state;
 	prt = erts_drvport2port_state(drvport, &state);
 	if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	    return -1; /* invalid (dead) */
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 	if (state & ERTS_PORT_SFLG_CLOSING)
 	    return 0;
     }
@@ -6479,11 +6199,11 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     Port* prt = erts_drvport2port_state(ix, &state);
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     if (state & ERTS_PORT_SFLG_CLOSING)
 	return 0;
 
@@ -6493,9 +6213,14 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     else
 	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + len));
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
+        DistEntry* dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+        Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
+        erts_atomic64_inc_nob(&dep->in);
 	return erts_net_message(prt,
-				prt->dist_entry,
+				dep,
+                                conn_id,
 				(byte*) hbuf, hlen,
+                                ErlDrvBinary2Binary(bin),
 				(byte*) (bin->orig_bytes+offs), len);
     }
     else
@@ -6518,12 +6243,12 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     Port* prt = erts_drvport2port_state(ix, &state);
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     if (state & ERTS_PORT_SFLG_CLOSING)
 	return 0;
     
@@ -6533,15 +6258,22 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     else
 	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + len));
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
+        DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+        Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
+        erts_atomic64_inc_nob(&dep->in);
 	if (len == 0)
 	    return erts_net_message(prt,
-				    prt->dist_entry,
+				    dep,
+                                    conn_id,
 				    NULL, 0,
+                                    NULL,
 				    (byte*) hbuf, hlen);
 	else
 	    return erts_net_message(prt,
-				    prt->dist_entry,
+				    dep,
+                                    conn_id,
 				    (byte*) hbuf, hlen,
+                                    NULL,
 				    (byte*) buf, len);
     }
     else if (state & ERTS_PORT_SFLG_LINEBUF_IO)
@@ -6557,7 +6289,7 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 
 int driver_output(ErlDrvPort ix, char* buf, ErlDrvSizeT len)
 {
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     return driver_output2(ix, NULL, 0, buf, len);
 }
 
@@ -6573,7 +6305,7 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     erts_aint32_t state;
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     ASSERT(vec->size >= skip);
     if (vec->size <= skip)
@@ -6584,7 +6316,7 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (state & ERTS_PORT_SFLG_CLOSING)
 	return 0;
@@ -6798,7 +6530,6 @@ static ERTS_INLINE void pdl_destroy(ErlDrvPDL pdl)
     erts_free(ERTS_ALC_T_PORT_DATA_LOCK, pdl);
 }
 
-#ifdef ERTS_SMP
 
 static void driver_monitor_lock_pdl(Port *p) {
     if (p->port_data_lock) {
@@ -6807,7 +6538,7 @@ static void driver_monitor_lock_pdl(Port *p) {
     /* Now we either have the port lock or the port_data_lock */
     ERTS_LC_ASSERT(!p->port_data_lock
 		   || erts_lc_mtx_is_locked(&(p->port_data_lock->mtx)));
-    ERTS_SMP_LC_ASSERT(p->port_data_lock
+    ERTS_LC_ASSERT(p->port_data_lock
 		       || erts_lc_is_port_locked(p));
 }
 
@@ -6815,14 +6546,13 @@ static void driver_monitor_unlock_pdl(Port *p) {
     /* We should either have the port lock or the port_data_lock */
     ERTS_LC_ASSERT(!p->port_data_lock
 		   || erts_lc_mtx_is_locked(&(p->port_data_lock->mtx)));
-    ERTS_SMP_LC_ASSERT(p->port_data_lock
+    ERTS_LC_ASSERT(p->port_data_lock
 		       || erts_lc_is_port_locked(p));
     if (p->port_data_lock) {
 	driver_pdl_unlock(p->port_data_lock);
     }
 }
 
-#endif
 
 /*
  * exported driver_pdl_* functions ...
@@ -7025,7 +6755,7 @@ int driver_set_timer(ErlDrvPort ix, unsigned long t)
 {
     Port* prt = erts_drvport2port(ix);
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
@@ -7042,7 +6772,7 @@ int driver_cancel_timer(ErlDrvPort ix)
     Port* prt = erts_drvport2port(ix);
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     erts_cancel_port_timer(prt);
     return 0;
 }
@@ -7053,11 +6783,11 @@ driver_read_timer(ErlDrvPort ix, unsigned long* t)
     Port* prt = erts_drvport2port(ix);
     Sint64 left;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     left = erts_read_port_timer(prt);
     if (left < 0)
@@ -7072,7 +6802,7 @@ int
 driver_get_now(ErlDrvNowData *now_data)
 {
     Uint mega,secs,micro;
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (now_data == NULL) {
 	return -1;
@@ -7129,24 +6859,23 @@ static int do_driver_monitor_process(Port *prt,
 				     ErlDrvMonitor *monitor)
 {
     Eterm buf[ERTS_REF_THING_SIZE];
-    Process *rp;
     Eterm ref;
+    ErtsMonitorData *mdp;
 
-    if (prt->drv_ptr->process_exit == NULL) {
+    if (!prt->drv_ptr->process_exit)
 	return -1;
-    }
-    rp = erts_pid2proc_opt(NULL, 0,
-			   (Eterm) process, ERTS_PROC_LOCK_LINK,
-			   ERTS_P2P_FLG_ALLOW_OTHER_X);
-    if (!rp) {
-	return 1;
-    }
 
     ref = erts_make_ref_in_buffer(buf);
-    erts_add_monitor(&ERTS_P_MONITORS(prt), MON_ORIGIN, ref, rp->common.id, NIL);
-    erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, ref, prt->common.id, NIL);
+    mdp = erts_monitor_create(ERTS_MON_TYPE_PORT, ref,
+                              prt->common.id, process, NIL);
 
-    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
+    if (!erts_proc_sig_send_monitor(&mdp->target, process)) {
+        erts_monitor_release_both(mdp);
+        return 1;
+    }
+
+    erts_monitor_tree_insert(&ERTS_P_MONITORS(prt), &mdp->origin);
+
     erts_ref_to_driver_monitor(ref,monitor);
     return 0;
 }
@@ -7160,7 +6889,7 @@ int driver_monitor_process(ErlDrvPort drvport,
 {
     Port *prt;
     int ret;
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -7170,7 +6899,7 @@ int driver_monitor_process(ErlDrvPort drvport,
 
     /* Now (in SMP) we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
-    ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
+    ERTS_LC_ASSERT((sched != NULL || prt->port_data_lock));
     ret = do_driver_monitor_process(prt,process,monitor);
     DRV_MONITOR_UNLOCK_PDL(prt);
     return ret;
@@ -7179,37 +6908,17 @@ int driver_monitor_process(ErlDrvPort drvport,
 static int do_driver_demonitor_process(Port *prt, const ErlDrvMonitor *monitor)
 {
     Eterm heap[ERTS_REF_THING_SIZE];
-    Process *rp;
     Eterm ref;
     ErtsMonitor *mon;
-    Eterm to;
 
     ref = erts_driver_monitor_to_ref(heap, monitor);
 
-    mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
-    if (mon == NULL) {
-	return 1;
-    }
-    ASSERT(mon->type == MON_ORIGIN);
-    to = mon->u.pid;
-    ASSERT(is_internal_pid(to));
-    rp = erts_pid2proc_opt(NULL,
-			   0,
-			   to,
-			   ERTS_PROC_LOCK_LINK,
-			   ERTS_P2P_FLG_ALLOW_OTHER_X);
-    mon = erts_remove_monitor(&ERTS_P_MONITORS(prt), ref);
-    if (mon) {
-	erts_destroy_monitor(mon);
-    }
-    if (rp) {
-	ErtsMonitor *rmon;
-	rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-	if (rmon != NULL) {
-	    erts_destroy_monitor(rmon);
-	}
-    } 
+    mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(prt), ref);
+    if (!mon || !erts_monitor_is_origin(mon))
+        return 1;
+
+    erts_monitor_tree_delete(&ERTS_P_MONITORS(prt), mon);
+    erts_proc_sig_send_demonitor(mon);
     return 0;
 }
 
@@ -7218,7 +6927,7 @@ int driver_demonitor_process(ErlDrvPort drvport,
 {
     Port *prt;
     int ret;
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -7228,7 +6937,7 @@ int driver_demonitor_process(ErlDrvPort drvport,
 
     /* Now we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
-    ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
+    ERTS_LC_ASSERT((sched != NULL || prt->port_data_lock));
     ret = do_driver_demonitor_process(prt,monitor);
     DRV_MONITOR_UNLOCK_PDL(prt);
     return ret;
@@ -7238,19 +6947,16 @@ static ErlDrvTermData do_driver_get_monitored_process(Port *prt,const ErlDrvMoni
 {
     Eterm ref;
     ErtsMonitor *mon;
-    Eterm to;
     Eterm heap[ERTS_REF_THING_SIZE];
 
     ref = erts_driver_monitor_to_ref(heap, monitor);
 
-    mon = erts_lookup_monitor(ERTS_P_MONITORS(prt), ref);
-    if (mon == NULL) {
+    mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(prt), ref);
+    if (!mon || !erts_monitor_is_origin(mon))
 	return driver_term_nil;
-    }
-    ASSERT(mon->type == MON_ORIGIN);
-    to = mon->u.pid;
-    ASSERT(is_internal_pid(to));
-    return (ErlDrvTermData) to;
+
+    ASSERT(is_internal_pid(mon->other.item));
+    return (ErlDrvTermData) mon->other.item;
 }
 
 
@@ -7259,7 +6965,7 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
 {
     Port *prt;
     ErlDrvTermData ret;
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsSchedulerData *sched = erts_get_scheduler_data();
 #endif
 
@@ -7269,7 +6975,7 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort drvport,
 
     /* Now we should have either the port lock (if we have a scheduler) or the port data lock
        (if we're a driver thread) */
-    ERTS_SMP_LC_ASSERT((sched != NULL || prt->port_data_lock));
+    ERTS_LC_ASSERT((sched != NULL || prt->port_data_lock));
     ret = do_driver_get_monitored_process(prt,monitor);
     DRV_MONITOR_UNLOCK_PDL(prt);
     return ret;
@@ -7282,24 +6988,27 @@ int driver_compare_monitors(const ErlDrvMonitor *monitor1,
                       ERTS_REF_THING_SIZE*sizeof(Eterm));
 }
 
-void erts_fire_port_monitor(Port *prt, Eterm ref)
+void erts_fire_port_monitor(Port *prt, ErtsMonitor *tmon)
 {
-    ErtsMonitor *rmon;
+    ErtsMonitorData *mdp;
     void (*callback)(ErlDrvData drv_data, ErlDrvMonitor *monitor);
     ErlDrvMonitor drv_monitor;
     int fpe_was_unmasked;
     ERTS_MSACC_PUSH_STATE_M();
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-    ASSERT(prt->drv_ptr != NULL);    
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ASSERT(prt->drv_ptr != NULL);
+    ASSERT(erts_monitor_is_target(tmon));
+    mdp = erts_monitor_to_data(tmon);
     DRV_MONITOR_LOCK_PDL(prt);
-    if (erts_lookup_monitor(ERTS_P_MONITORS(prt), ref) == NULL) {
+    if (!erts_monitor_is_in_table(&mdp->origin)) {
 	DRV_MONITOR_UNLOCK_PDL(prt);
+        erts_monitor_release(tmon);
 	return;
     }
     callback = prt->drv_ptr->process_exit;
     ASSERT(callback != NULL);
-    erts_ref_to_driver_monitor(ref,&drv_monitor);
+    erts_ref_to_driver_monitor(mdp->ref,&drv_monitor);
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
     DRV_MONITOR_UNLOCK_PDL(prt);
 #ifdef USE_VM_PROBES
@@ -7323,11 +7032,9 @@ void erts_fire_port_monitor(Port *prt, Eterm ref)
     DRV_MONITOR_LOCK_PDL(prt);
     ERTS_MSACC_POP_STATE_M();
     /* remove monitor *after* callback */
-    rmon = erts_remove_monitor(&ERTS_P_MONITORS(prt), ref);
+    erts_monitor_tree_delete(&ERTS_P_MONITORS(prt), &mdp->origin);
     DRV_MONITOR_UNLOCK_PDL(prt);
-    if (rmon) {
-	erts_destroy_monitor(rmon);
-    }
+    erts_monitor_release_both(mdp);
 }
 
 
@@ -7337,11 +7044,11 @@ driver_failure_term(ErlDrvPort ix, Eterm term, int eof)
     erts_aint32_t state;
     Port* prt = erts_drvport2port_state(ix, &state);
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (prt->async_open_port)
         init_ack_send_reply(prt, prt->common.id);
@@ -7372,34 +7079,19 @@ driver_failure_term(ErlDrvPort ix, Eterm term, int eof)
 int driver_exit(ErlDrvPort ix, int err)
 {
     Port* prt = erts_drvport2port(ix);
-    Process* rp;
-    ErtsLink *lnk, *rlnk = NULL;
+    ErtsLink *lnk;
     Eterm connected;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
   
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
         return -1;
 
     connected = ERTS_PORT_GET_CONNECTED(prt);
-    rp = erts_pid2proc(NULL, 0, connected, ERTS_PROC_LOCK_LINK);
-    if (rp) {
-	rlnk = erts_remove_link(&ERTS_P_LINKS(rp),prt->common.id);
-    }
-
-    lnk = erts_remove_link(&ERTS_P_LINKS(prt), connected);
-
-#ifdef ERTS_SMP
-    if (rp)
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-#endif
-
-    if (rlnk != NULL) {
-	erts_destroy_link(rlnk);
-    }
-
-    if (lnk != NULL) {
-	erts_destroy_link(lnk);
+    lnk = erts_link_tree_lookup(ERTS_P_LINKS(prt), connected);
+    if (lnk) {
+        erts_link_tree_delete(&ERTS_P_LINKS(prt), lnk);
+        erts_proc_sig_send_unlink(NULL, lnk);
     }
 
     if (err == 0)
@@ -7422,7 +7114,7 @@ int driver_failure_atom(ErlDrvPort ix, char* string)
 {
     return driver_failure_term(ix,
 			       erts_atom_put((byte *) string,
-					     strlen(string),
+					     sys_strlen(string),
 					     ERTS_ATOM_ENC_LATIN1,
 					     1),
 			       0);
@@ -7446,7 +7138,7 @@ ErlDrvTermData driver_mk_atom(char* string)
 			     sys_strlen(string),
 			     ERTS_ATOM_ENC_LATIN1,
 			     1);
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     return (ErlDrvTermData) am;
 }
 
@@ -7455,27 +7147,27 @@ ErlDrvTermData driver_mk_port(ErlDrvPort ix)
     Port* prt = erts_drvport2port(ix);
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return (ErlDrvTermData) NIL;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     return (ErlDrvTermData) prt->common.id;
 }
 
 ErlDrvTermData driver_connected(ErlDrvPort ix)
 {
     Port* prt = erts_drvport2port(ix);
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return NIL;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     return ERTS_PORT_GET_CONNECTED(prt);
 }
 
 ErlDrvTermData driver_caller(ErlDrvPort ix)
 {
     Port* prt = erts_drvport2port(ix);
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return NIL;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     return prt->caller;
 }
 
@@ -7484,20 +7176,20 @@ int driver_lock_driver(ErlDrvPort ix)
     Port* prt = erts_drvport2port(ix);
     DE_Handle* dh;
 
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
 
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
 
-    erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
+    erts_rwmtx_rwlock(&erts_driver_list_lock);
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     if ((dh = (DE_Handle*)prt->drv_ptr->handle ) == NULL) {
-	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
+	erts_rwmtx_rwunlock(&erts_driver_list_lock);
 	return -1;
     }
     erts_ddll_lock_driver(dh, prt->drv_ptr->name);
-    erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
+    erts_rwmtx_rwunlock(&erts_driver_list_lock);
     return 0;
 }
 
@@ -7505,9 +7197,9 @@ int driver_lock_driver(ErlDrvPort ix)
 static int maybe_lock_driver_list(void) 
 {
     void *rec_lock;
-    rec_lock = erts_smp_tsd_get(driver_list_lock_status_key);
+    rec_lock = erts_tsd_get(driver_list_lock_status_key);
     if (rec_lock == 0) {
-	erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
+	erts_rwmtx_rwlock(&erts_driver_list_lock);
 	return 1;
     }
     return 0;
@@ -7515,7 +7207,7 @@ static int maybe_lock_driver_list(void)
 static void maybe_unlock_driver_list(int doit)
 {
     if (doit) {
-	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
+	erts_rwmtx_rwunlock(&erts_driver_list_lock);
     }
 }
 /* 
@@ -7538,7 +7230,7 @@ void *driver_dl_open(char * path)
 {
     void *ptr;
     int res;
-    int *last_error_p = erts_smp_tsd_get(driver_list_last_error_key);
+    int *last_error_p = erts_tsd_get(driver_list_last_error_key);
     int locked = maybe_lock_driver_list();
     if ((res = erts_sys_ddll_open(path, &ptr, NULL)) == 0) {
 	maybe_unlock_driver_list(locked);
@@ -7546,7 +7238,7 @@ void *driver_dl_open(char * path)
     } else {
 	if (!last_error_p) {
 	    last_error_p = erts_alloc(ERTS_ALC_T_DDLL_ERRCODES, sizeof(int));
-	    erts_smp_tsd_set(driver_list_last_error_key,last_error_p);
+	    erts_tsd_set(driver_list_last_error_key,last_error_p);
 	}
 	*last_error_p = res;
 	maybe_unlock_driver_list(locked);
@@ -7558,7 +7250,7 @@ void *driver_dl_sym(void * handle, char *func_name)
 {
     void *ptr;
     int res;
-    int *last_error_p = erts_smp_tsd_get(driver_list_lock_status_key);
+    int *last_error_p = erts_tsd_get(driver_list_lock_status_key);
     int locked = maybe_lock_driver_list();
     if ((res = erts_sys_ddll_sym(handle, func_name, &ptr)) == 0) {
 	maybe_unlock_driver_list(locked);
@@ -7566,7 +7258,7 @@ void *driver_dl_sym(void * handle, char *func_name)
     } else {
 	if (!last_error_p) {
 	    last_error_p = erts_alloc(ERTS_ALC_T_DDLL_ERRCODES, sizeof(int));
-	    erts_smp_tsd_set(driver_list_lock_status_key,last_error_p);
+	    erts_tsd_set(driver_list_lock_status_key,last_error_p);
 	}
 	*last_error_p = res;
 	maybe_unlock_driver_list(locked);
@@ -7586,7 +7278,7 @@ int driver_dl_close(void *handle)
 char *driver_dl_error(void) 
 {
     char *res;
-    int *last_error_p = erts_smp_tsd_get(driver_list_lock_status_key);
+    int *last_error_p = erts_tsd_get(driver_list_lock_status_key);
     int locked = maybe_lock_driver_list();
     res = erts_ddll_error((last_error_p != NULL) ? (*last_error_p) : ERL_DE_ERROR_UNSPECIFIED); 
     maybe_unlock_driver_list(locked);
@@ -7624,20 +7316,8 @@ driver_system_info(ErlDrvSysInfo *sip, size_t si_size)
 	sip->driver_minor_version = ERL_DRV_EXTENDED_MINOR_VERSION;
 	sip->erts_version = ERLANG_VERSION;
 	sip->otp_release = ERLANG_OTP_RELEASE;
-	sip->thread_support = 
-#ifdef USE_THREADS
-	    1
-#else
-	    0
-#endif
-	    ;
-	sip->smp_support = 
-#ifdef ERTS_SMP
-	    1
-#else
-	    0
-#endif
-	    ;
+	sip->thread_support = 1;
+	sip->smp_support = 1;
 
     }
 
@@ -7663,11 +7343,7 @@ driver_system_info(ErlDrvSysInfo *sip, size_t si_size)
      */
     if (si_size >= ERL_DRV_SYS_INFO_SIZE(dirty_scheduler_support)) {
 	sip->dirty_scheduler_support =
-#ifdef ERTS_DIRTY_SCHEDULERS
 	    1
-#else
-	    0
-#endif
 	    ;
     }
 
@@ -7691,14 +7367,6 @@ static void
 no_output_callback(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
 {
 
-}
-
-static void
-no_event_callback(ErlDrvData drv_data, ErlDrvEvent event, ErlDrvEventData event_data)
-{
-    Port *prt = get_current_port();
-    report_missing_drv_callback(prt, "Event", "event()");
-    driver_event(ERTS_Port2ErlDrvPort(prt), event, NULL);
 }
 
 static void
@@ -7735,31 +7403,31 @@ no_stop_select_callback(ErlDrvEvent event, void* private)
 }
 
 #define IS_DRIVER_VERSION_GE(DE,MAJOR,MINOR) \
-    ((DE)->major_version >= (MAJOR) && (DE)->minor_version >= (MINOR))
+    ((DE)->major_version > (MAJOR) ||        \
+     ((DE)->major_version == (MAJOR) && (DE)->minor_version >= (MINOR)))
 
 static int
 init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 {
+    drv->name_atom = erts_atom_put((byte*)de->driver_name,
+                                   sys_strlen(de->driver_name),
+                                   ERTS_ATOM_ENC_LATIN1, 1);
     drv->name = de->driver_name;
+
     ASSERT(de->extended_marker == ERL_DRV_EXTENDED_MARKER);
     ASSERT(de->major_version >= 2);
     drv->version.major = de->major_version;
     drv->version.minor = de->minor_version;
     drv->flags = de->driver_flags;
     drv->handle = handle;
-#ifdef ERTS_SMP
     if (drv->flags & ERL_DRV_FLAG_USE_PORT_LOCKING) {
         drv->lock = NULL;
     } else {
-        Eterm driver_id = erts_atom_put((byte *) drv->name,
-                                        sys_strlen(drv->name),
-                                        ERTS_ATOM_ENC_LATIN1, 1);
-
         drv->lock = erts_alloc(ERTS_ALC_T_DRIVER_LOCK, sizeof(erts_mtx_t));
 
-        erts_mtx_init(drv->lock, "driver_lock", driver_id, ERTS_LOCK_FLAGS_CATEGORY_IO);
+        erts_mtx_init(drv->lock, "driver_lock", drv->name_atom,
+                      ERTS_LOCK_FLAGS_CATEGORY_IO);
     }
-#endif
     drv->entry = de;
 
     drv->start = de->start;
@@ -7770,7 +7438,6 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
     drv->outputv = de->outputv;
     drv->control = de->control;
     drv->call = de->call;
-    drv->event = de->event ? de->event : no_event_callback;
     drv->ready_input = de->ready_input ? de->ready_input : no_ready_input_callback;
     drv->ready_output = de->ready_output ? de->ready_output : no_ready_output_callback;
     drv->timeout = de->timeout ? de->timeout : no_timeout_callback;
@@ -7802,12 +7469,10 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 void
 erts_destroy_driver(erts_driver_t *drv)
 {
-#ifdef ERTS_SMP
     if (drv->lock) {
-	erts_smp_mtx_destroy(drv->lock);
+	erts_mtx_destroy(drv->lock);
 	erts_free(ERTS_ALC_T_DRIVER_LOCK, drv->lock);
     }
-#endif    
     erts_free(ERTS_ALC_T_DRIVER, drv);
 }
 
@@ -7818,21 +7483,22 @@ erts_destroy_driver(erts_driver_t *drv)
 
 void add_driver_entry(ErlDrvEntry *drv){
     void *rec_lock;
-    rec_lock = erts_smp_tsd_get(driver_list_lock_status_key);
+    rec_lock = erts_tsd_get(driver_list_lock_status_key);
     /* 
      * Ignore result of erts_add_driver_entry, the init is not
      * allowed to fail when drivers are added by drivers.
      */
-    erts_add_driver_entry(drv, NULL, rec_lock != NULL); 
+    erts_add_driver_entry(drv, NULL, rec_lock != NULL, 0);
 }
 
-int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_locked)
+int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle,
+                          int driver_list_locked, int taint)
 {
     erts_driver_t *dp = erts_alloc(ERTS_ALC_T_DRIVER, sizeof(erts_driver_t));
-    int res;
+    int err = 0;
 
     if (!driver_list_locked) {
-	erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
+	erts_rwmtx_rwlock(&erts_driver_list_lock);
     }
 
     dp->next = driver_list;
@@ -7843,12 +7509,18 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_lo
     driver_list = dp;
 
     if (!driver_list_locked) {
-	erts_smp_tsd_set(driver_list_lock_status_key, (void *) 1);
+	erts_tsd_set(driver_list_lock_status_key, (void *) 1);
     }
 
-    res = init_driver(dp, de, handle);
+    if (!err) {
+        err = init_driver(dp, de, handle);
 
-    if (res != 0) {
+        if (taint) {
+            erts_add_taint(dp->name_atom);
+        }
+    }
+
+    if (err) {
 	/* 
 	 * Remove it all again...
 	 */
@@ -7860,10 +7532,10 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_lo
     }
 	
     if (!driver_list_locked) {
-	erts_smp_tsd_set(driver_list_lock_status_key, NULL);
-	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
+	erts_tsd_set(driver_list_lock_status_key, NULL);
+	erts_rwmtx_rwunlock(&erts_driver_list_lock);
     }
-    return res;
+    return err;
 }
 
 /* Not allowed for dynamic drivers */
@@ -7872,9 +7544,9 @@ int remove_driver_entry(ErlDrvEntry *drv)
     erts_driver_t *dp;
     void *rec_lock;
     
-    rec_lock = erts_smp_tsd_get(driver_list_lock_status_key);
+    rec_lock = erts_tsd_get(driver_list_lock_status_key);
     if (rec_lock == NULL) {
-	erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
+	erts_rwmtx_rwlock(&erts_driver_list_lock);
     }
     dp = driver_list;
     while (dp && dp->entry != drv)
@@ -7882,7 +7554,7 @@ int remove_driver_entry(ErlDrvEntry *drv)
     if (dp) {
 	if (dp->handle) {
 	    if (rec_lock == NULL) {
-		erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
+		erts_rwmtx_rwunlock(&erts_driver_list_lock);
 	    }
 	    return -1;
 	}
@@ -7896,12 +7568,12 @@ int remove_driver_entry(ErlDrvEntry *drv)
 	}
 	erts_destroy_driver(dp);
 	if (rec_lock == NULL) {
-	    erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
+	    erts_rwmtx_rwunlock(&erts_driver_list_lock);
 	}
 	return 1;
     }
     if (rec_lock == NULL) {
-	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
+	erts_rwmtx_rwunlock(&erts_driver_list_lock);
     }
     return 0;
 }
@@ -7917,13 +7589,27 @@ int null_func(void)
 int
 erl_drv_putenv(const char *key, char *value)
 {
-    return erts_sys_putenv_raw((char*)key, value);
+    switch (erts_sys_explicit_8bit_putenv((char*)key, value)) {
+    case -1: /* Insufficient buffer space */
+        return 1;
+    case 1: /* Success */
+        return 0;
+    default: /* Not found */
+        return -1;
+    }
 }
 
 int
 erl_drv_getenv(const char *key, char *value, size_t *value_size)
 {
-    return erts_sys_getenv_raw((char*)key, value, value_size);
+    switch (erts_sys_explicit_8bit_getenv((char*)key, value, value_size)) {
+    case -1: /* Insufficient buffer space */
+        return 1;
+    case 1: /* Success */
+        return 0;
+    default: /* Not found */
+        return -1;
+    }
 }
 
 /* get heart_port

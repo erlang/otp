@@ -259,7 +259,7 @@ not_exist_db(_Config)  ->
 
 %%-------------------------------------------------------------------------
 no_c_executable() ->
-    [{doc,"Test what happens if the port-program can not be found"}].
+    [{doc,"Test what happens if the port-program cannot be found"}].
 no_c_executable(_Config) ->
     process_flag(trap_exit, true),
     Dir = filename:nativename(filename:join(code:priv_dir(odbc), 

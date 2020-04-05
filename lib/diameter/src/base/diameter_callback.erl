@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@
 
 -module(diameter_callback).
 
-%% Default callbacks when no aleternate is specified.
+%% Default callbacks when no alternate is specified.
 -export([peer_up/3,
          peer_down/3,
          pick_peer/4,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,6 +74,7 @@
 	 loaded_modules/0,
 	 loaded_mod_details/1,
 	 memory/0,
+         persistent_terms/0,
 	 allocated_areas/0,
 	 allocator_info/0,
 	 hash_tables/0,
@@ -139,6 +140,7 @@
 -define(node,node).
 -define(not_connected,not_connected).
 -define(old_instr_data,old_instr_data).
+-define(persistent_terms,persistent_terms).
 -define(port,port).
 -define(proc,proc).
 -define(proc_dictionary,proc_dictionary).
@@ -293,6 +295,8 @@ loaded_mod_details(Mod) ->
     call({loaded_mod_details,Mod}).
 memory() ->
     call(memory).
+persistent_terms() ->
+    call(persistent_terms).
 allocated_areas() ->
     call(allocated_areas).
 allocator_info() ->
@@ -471,6 +475,11 @@ handle_call(memory,_From,State=#state{file=File}) ->
     Memory=memory(File),
     TW = truncated_warning([?memory]),
     {reply,{ok,Memory,TW},State};
+handle_call(persistent_terms,_From,State=#state{file=File,dump_vsn=DumpVsn}) ->
+    TW = truncated_warning([?persistent_terms,?literals]),
+    DecodeOpts = get_decode_opts(DumpVsn),
+    Terms = persistent_terms(File, DecodeOpts),
+    {reply,{ok,Terms,TW},State};
 handle_call(allocated_areas,_From,State=#state{file=File}) ->
     AllocatedAreas=allocated_areas(File),
     TW = truncated_warning([?allocated_areas]),
@@ -580,9 +589,9 @@ truncated_here(Tag) ->
     case get(truncated) of
 	true ->
 	    case get(last_tag) of
-		Tag -> % Tag == {TagType,Id}
+		{Tag,_Pos} -> % Tag == {TagType,Id}
 		    true;
-		{Tag,_Id} ->
+		{{Tag,_Id},_Pos} ->
 		    true;
 		_LastTag ->
 		    truncated_earlier(Tag)
@@ -837,8 +846,8 @@ do_read_file(File) ->
                             case check_dump_version(Id) of
                                 {ok,DumpVsn} ->
                                     reset_tables(),
-                                    insert_index(Tag,Id,N1+1),
-                                    put_last_tag(Tag,""),
+                                    insert_index(Tag,Id,Pos=N1+1),
+                                    put_last_tag(Tag,"",Pos),
                                     DecodeOpts = get_decode_opts(DumpVsn),
                                     indexify(Fd,DecodeOpts,Rest,N1),
                                     end_progress(),
@@ -877,7 +886,7 @@ do_read_file(File) ->
     end.
 
 check_dump_version(Vsn) ->
-    DumpVsn = [list_to_integer(L) || L<-string:tokens(Vsn,".")],
+    DumpVsn = [list_to_integer(L) || L<-string:lexemes(Vsn,".")],
     if DumpVsn > ?max_dump_version ->
             Info =
                 "This Crashdump Viewer is too old for the given "
@@ -906,23 +915,11 @@ indexify(Fd,DecodeOpts,Bin,N) ->
                 _ ->
                     insert_index(Tag,Id,NewPos)
             end,
-	    case put_last_tag(Tag,Id) of
-                {?proc_heap,LastId} ->
-                    [{_,LastPos}] = lookup_index(?proc_heap,LastId),
+	    case put_last_tag(Tag,Id,NewPos) of
+                {{?proc_heap,LastId},LastPos} ->
                     ets:insert(cdv_heap_file_chars,{LastId,N+Start+1-LastPos});
-                {?literals,[]} ->
-                    case get(truncated_reason) of
-                        undefined ->
-                            [{_,LastPos}] = lookup_index(?literals,[]),
-                            ets:insert(cdv_heap_file_chars,
-                                       {literals,N+Start+1-LastPos});
-                        _ ->
-                            %% Literals are truncated. Make sure we never
-                            %% attempt to read in the literals. (Heaps that
-                            %% references literals will show markers for
-                            %% incomplete heaps, but will otherwise work.)
-                            delete_index(?literals, [])
-                    end;
+                {{?literals,[]},LastPos} ->
+                    ets:insert(cdv_heap_file_chars,{literals,N+Start+1-LastPos});
                 _ -> ok
             end,
 	    indexify(Fd,DecodeOpts,Rest,N1);
@@ -964,10 +961,18 @@ tag(Fd,<<>>,N,Gat,Di,Now) ->
 
 check_if_truncated() ->
     case get(last_tag) of
-	{?ende,_} ->
+	{{?ende,_},_} ->
 	    put(truncated,false),
 	    put(truncated_proc,false);
-	TruncatedTag ->
+        {{?literals,[]},_} ->
+            put(truncated,true),
+            put(truncated_proc,false),
+            %% Literals are truncated. Make sure we never
+            %% attempt to read in the literals. (Heaps that
+            %% references literals will show markers for
+            %% incomplete heaps, but will otherwise work.)
+            delete_index(?literals, []);
+	{TruncatedTag,_} ->
 	    put(truncated,true),
 	    find_truncated_proc(TruncatedTag)
     end.
@@ -975,7 +980,6 @@ check_if_truncated() ->
 find_truncated_proc({Tag,_Id}) when Tag==?atoms;
                                     Tag==?binary;
                                     Tag==?instr_data;
-                                    Tag==?literals;
                                     Tag==?memory_status;
                                     Tag==?memory_map ->
     put(truncated_proc,false);
@@ -1236,7 +1240,10 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	    Bytes = list_to_integer(bytes(Fd))*WS,
 	    get_procinfo(Fd,Fun,Proc#proc{bin_vheap_unused=Bytes},WS);
 	"OldBinVHeap unused" ->
-	    Bytes = list_to_integer(bytes(Fd))*WS,
+            Bytes = case bytes(Fd) of
+                        "overflow" -> -1;
+                        Int -> list_to_integer(Int)*WS
+                    end,
 	    get_procinfo(Fd,Fun,Proc#proc{old_bin_vheap_unused=Bytes},WS);
 	"New heap start" ->
 	    get_procinfo(Fd,Fun,Proc#proc{new_heap_start=bytes(Fd)},WS);
@@ -1444,15 +1451,7 @@ maybe_other_node2(Channel) ->
 expand_memory(Fd,Pid,DumpVsn) ->
     DecodeOpts = get_decode_opts(DumpVsn),
     put(fd,Fd),
-    Dict0 = case get(?literals) of
-                undefined ->
-                    Literals = read_literals(Fd,DecodeOpts),
-                    put(?literals,Literals),
-                    put(fd,Fd),
-                    Literals;
-                Literals ->
-                    Literals
-            end,
+    Dict0 = get_literals(Fd,DecodeOpts),
     Dict = read_heap(Fd,Pid,DecodeOpts,Dict0),
     Expanded = {read_stack_dump(Fd,Pid,DecodeOpts,Dict),
 		read_messages(Fd,Pid,DecodeOpts,Dict),
@@ -1467,6 +1466,18 @@ expand_memory(Fd,Pid,DumpVsn) ->
                  "Some information might be missing."]
         end,
     {Expanded,IncompleteWarning}.
+
+get_literals(Fd,DecodeOpts) ->
+    case get(?literals) of
+        undefined ->
+            OldFd = put(fd,Fd),
+            Literals = read_literals(Fd,DecodeOpts),
+            put(fd,OldFd),
+            put(?literals,Literals),
+            Literals;
+        Literals ->
+            Literals
+    end.
 
 read_literals(Fd,DecodeOpts) ->
     case lookup_index(?literals,[]) of
@@ -1594,31 +1605,92 @@ read_heap(Fd,Pid,DecodeOpts,Dict0) ->
 	    Dict0
     end.
 
-read_heap(DecodeOpts,Dict0) ->
-    %% This function is never called if the dump is truncated in {?proc_heap,Pid}
-    case get(fd) of
-	end_of_heap ->
-            end_progress(),
-	    Dict0;
-	Fd ->
-	    case bytes(Fd) of
-		"=" ++ _next_tag ->
-                    end_progress(),
-		    put(fd, end_of_heap),
-		    Dict0;
-		Line ->
-                    update_progress(length(Line)+1),
-		    Dict = parse(Line,DecodeOpts,Dict0),
-		    read_heap(DecodeOpts,Dict)
-	    end
-    end.
+read_heap(DecodeOpts, Dict0) ->
+    %% This function is never called if the dump is truncated in
+    %% {?proc_heap,Pid}.
+    %%
+    %% It is not always possible to reconstruct the heap terms
+    %% in a single pass, especially if maps are involved.
+    %% See crashdump_helper:literal_map/0 for an example.
+    %%
+    %% Therefore, we need two passes. In the first pass
+    %% we collect all lines without parsing them, and in the
+    %% second pass we parse them.
+    %%
+    %% The first pass follows.
 
-parse(Line0, DecodeOpts, Dict0) ->
-    {Addr,":"++Line1} = get_hex(Line0),
-    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, DecodeOpts, Dict0),
-    [] = skip_blanks(Line),
+    Lines0 = read_heap_lines(),
+
+    %% Save a map of all unprocessed lines so that deref_ptr() can
+    %% access any line when there are references to terms not yet
+    %% built.
+
+    LineMap = maps:from_list(Lines0),
+    put(line_map, LineMap),
+
+    %% Refc binaries (tag "Yc") must be processed before any sub
+    %% binaries (tag "Ys") referencing them, so we make sure to
+    %% process all the refc binaries first.
+    %%
+    %% The other lines can be processed in any order, but processing
+    %% them in the reverse order compared to how they are printed in
+    %% the crash dump seems to minimize the number of references to
+    %% terms that have not yet been built. That happens to be the
+    %% order of the line list as returned by read_heap_lines/0.
+
+    RefcBins = [Refc || {_,<<"Yc",_/binary>>}=Refc <- Lines0],
+    Lines = RefcBins ++ Lines0,
+
+    %% Second pass.
+
+    init_progress("Processing terms", map_size(LineMap)),
+    Dict = parse_heap_terms(Lines, DecodeOpts, Dict0),
+    erase(line_map),
+    end_progress(),
     Dict.
 
+read_heap_lines() ->
+    read_heap_lines_1(get(fd), []).
+
+read_heap_lines_1(Fd, Acc) ->
+    case bytes(Fd) of
+        "=" ++ _next_tag ->
+            end_progress(),
+            put(fd, end_of_heap),
+            Acc;
+        Line0 ->
+            update_progress(length(Line0)+1),
+            {Addr,":"++Line1} = get_hex(Line0),
+
+            %% Reduce the memory consumption by converting the
+            %% line to a binary. Measurements show that it may also
+            %% be benefical for performance, too, because it makes the
+            %% garbage collections cheaper.
+
+            Line = list_to_binary(Line1),
+            read_heap_lines_1(Fd, [{Addr,Line}|Acc])
+    end.
+
+parse_heap_terms([{Addr,Line0}|T], DecodeOpts, Dict0) ->
+    case gb_trees:is_defined(Addr, Dict0) of
+        true ->
+            %% Already parsed (by a recursive call from do_deref_ptr()
+            %% to parse_line()). Nothing to do.
+            parse_heap_terms(T, DecodeOpts, Dict0);
+        false ->
+            %% Parse this previously unparsed term.
+            Dict = parse_line(Addr, Line0, DecodeOpts, Dict0),
+            parse_heap_terms(T, DecodeOpts, Dict)
+    end;
+parse_heap_terms([], _DecodeOpts, Dict) ->
+    Dict.
+
+parse_line(Addr, Line0, DecodeOpts, Dict0) ->
+    update_progress(1),
+    Line1 = binary_to_list(Line0),
+    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, DecodeOpts, Dict0),
+    [] = skip_blanks(Line),                     %Assertion.
+    Dict.
 
 %%-----------------------------------------------------------------
 %% Page with one port
@@ -1643,7 +1715,7 @@ get_ports(File) ->
 %% Converting port string to tuple to secure correct sorting. This is
 %% converted back in cdv_port_cb:format/1.
 port_to_tuple("#Port<"++Port) ->
-    [I1,I2] = string:tokens(Port,".>"),
+    [I1,I2] = string:lexemes(Port,".>"),
     {list_to_integer(I1),list_to_integer(I2)}.
 
 get_portinfo(Fd,Port) ->
@@ -1670,9 +1742,9 @@ get_portinfo(Fd,Port) ->
 	"Registered as" ->
 	    get_portinfo(Fd,Port#port{name=string(Fd)});
 	"Monitors" ->
-	    Monitors0 = string:tokens(bytes(Fd),"()"),
+	    Monitors0 = string:lexemes(bytes(Fd),"()"),
 	    Monitors = [begin
-			    [Pid,Ref] = string:tokens(Mon,","),
+			    [Pid,Ref] = string:lexemes(Mon,","),
 			    {Pid,Pid++" ("++Ref++")"}
 			end || Mon <- Monitors0],
 	    get_portinfo(Fd,Port#port{monitors=Monitors});
@@ -1746,7 +1818,7 @@ get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
 	"Buckets" ->
 	    %% A bug in erl_db_hash.c prints a space after the buckets
 	    %% - need to strip the string to make list_to_integer/1 happy.
-	    Buckets = list_to_integer(string:strip(bytes(Fd))),
+	    Buckets = list_to_integer(string:trim(bytes(Fd),both,"\s")),
 	    get_etsinfo(Fd,EtsTable#ets_table{buckets=Buckets},WS);
 	"Objects" ->
 	    get_etsinfo(Fd,EtsTable#ets_table{size=list_to_integer(bytes(Fd))},WS);
@@ -1764,7 +1836,9 @@ get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
 	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_min=>Val}},WS);
 	"Chain Length Avg" ->
-	    Val = try list_to_float(string:strip(bytes(Fd))) catch _:_ -> "-" end,
+	    Val = try list_to_float(string:trim(bytes(Fd),both,"\s"))
+                  catch _:_ -> "-"
+                  end,
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_avg=>Val}},WS);
 	"Chain Length Max" ->
 	    Val = bytes(Fd),
@@ -1921,7 +1995,7 @@ get_nodeinfo(Fd,Nod) ->
 	    Creations = lists:flatmap(fun(C) -> try [list_to_integer(C)]
 						catch error:badarg -> []
 						end
-				      end, string:tokens(bytes(Fd)," ")),
+				      end, string:lexemes(bytes(Fd)," ")),
 	    get_nodeinfo(Fd,Nod#nod{creation={creations,Creations}});
 	"Remote link" ->
 	    Procs = bytes(Fd), % e.g. "<0.31.0> <4322.54.0>"
@@ -2138,6 +2212,56 @@ get_atom(<<"\'",Atom/binary>>) ->
     {Atom,q}; % quoted
 get_atom(Atom) when is_binary(Atom) ->
     {Atom,nq}. % not quoted
+
+%%-----------------------------------------------------------------
+%% Page with list of all persistent terms
+persistent_terms(File, DecodeOpts) ->
+    case lookup_index(?persistent_terms) of
+	[{_Id,Start}] ->
+	    Fd = open(File),
+	    pos_bof(Fd,Start),
+	    Terms = get_persistent_terms(Fd),
+            Dict = get_literals(Fd,DecodeOpts),
+            parse_persistent_terms(Terms,DecodeOpts,Dict);
+	_ ->
+	    []
+    end.
+
+parse_persistent_terms([[Name0,Val0]|Terms],DecodeOpts,Dict) ->
+    {Name,_,_} = parse_term(binary_to_list(Name0),DecodeOpts,Dict),
+    {Val,_,_} = parse_term(binary_to_list(Val0),DecodeOpts,Dict),
+    [{Name,Val}|parse_persistent_terms(Terms,DecodeOpts,Dict)];
+parse_persistent_terms([],_,_) -> [].
+
+get_persistent_terms(Fd) ->
+    case get_chunk(Fd) of
+	{ok,Bin} ->
+	    get_persistent_terms(Fd,Bin,[]);
+	eof ->
+	    []
+    end.
+
+
+%% Persistent_Terms are written one per line in the crash dump.
+get_persistent_terms(Fd,Bin,PersistentTerms) ->
+    Bins = binary:split(Bin,<<"\n">>,[global]),
+    get_persistent_terms1(Fd,Bins,PersistentTerms).
+
+get_persistent_terms1(_Fd,[<<"=",_/binary>>|_],PersistentTerms) ->
+    PersistentTerms;
+get_persistent_terms1(Fd,[LastBin],PersistentTerms) ->
+    case get_chunk(Fd) of
+	{ok,Bin0} ->
+	    get_persistent_terms(Fd,<<LastBin/binary,Bin0/binary>>,PersistentTerms);
+	eof ->
+	    [get_persistent_term(LastBin)|PersistentTerms]
+    end;
+get_persistent_terms1(Fd,[Bin|Bins],Persistent_Terms) ->
+    get_persistent_terms1(Fd,Bins,[get_persistent_term(Bin)|Persistent_Terms]).
+
+get_persistent_term(Bin) ->
+    binary:split(Bin,<<"|">>).
+
 
 %%-----------------------------------------------------------------
 %% Page with memory information
@@ -2359,7 +2483,7 @@ get_size_value(Key,Data) ->
 %% and Value is the sum over all allocator instances of each type.
 sort_allocator_types([{Name,Data}|Allocators],Acc,DoTotal) ->
     Type =
-	case string:tokens(Name,"[]") of
+	case string:lexemes(Name,"[]") of
 	    [T,_Id] -> T;
 	    [Name] -> Name;
             Other -> Other
@@ -2744,12 +2868,12 @@ parse_heap_term("Yc"++Line0, Addr, DecodeOpts, D0) ->	%Reference-counted binary.
             SymbolicBin = {'#CDVBin',Start},
             Term = cdvbin(Offset, Sz, SymbolicBin),
             D1 = gb_trees:insert(Addr, Term, D0),
-            D = gb_trees:insert(Binp, SymbolicBin, D1),
+            D = gb_trees:enter(Binp, SymbolicBin, D1),
             {Term,Line,D};
         [] ->
             Term = '#CDVNonexistingBinary',
             D1 = gb_trees:insert(Addr, Term, D0),
-            D = gb_trees:insert(Binp, Term, D1),
+            D = gb_trees:enter(Binp, Term, D1),
             {Term,Line,D}
     end;
 parse_heap_term("Ys"++Line0, Addr, DecodeOpts, D0) ->	%Sub binary.
@@ -2761,12 +2885,17 @@ parse_heap_term("Ys"++Line0, Addr, DecodeOpts, D0) ->	%Sub binary.
     {Term,Line,D};
 parse_heap_term("Mf"++Line0, Addr, DecodeOpts, D0) -> %Flatmap.
     {Size,":"++Line1} = get_hex(Line0),
-    {Keys,":"++Line2,D1} = parse_term(Line1, DecodeOpts, D0),
-    {Values,Line,D2} = parse_tuple(Size, Line2, Addr,DecodeOpts, D1, []),
-    Pairs = zip_tuples(tuple_size(Keys), Keys, Values, []),
-    Map = maps:from_list(Pairs),
-    D = gb_trees:update(Addr, Map, D2),
-    {Map,Line,D};
+    case parse_term(Line1, DecodeOpts, D0) of
+        {Keys,":"++Line2,D1} when is_tuple(Keys) ->
+            {Values,Line,D2} = parse_tuple(Size, Line2, Addr,DecodeOpts, D1, []),
+            Pairs = zip_tuples(tuple_size(Keys), Keys, Values, []),
+            Map = maps:from_list(Pairs),
+            D = gb_trees:update(Addr, Map, D2),
+            {Map,Line,D};
+        {Incomplete,_Line,D1} ->
+            D = gb_trees:insert(Addr, Incomplete, D1),
+            {Incomplete,"",D}
+    end;
 parse_heap_term("Mh"++Line0, Addr, DecodeOpts, D0) -> %Head node in a hashmap.
     {MapSize,":"++Line1} = get_hex(Line0),
     {N,":"++Line2} = get_hex(Line1),
@@ -2869,16 +2998,18 @@ parse_atom_translation_table(N, Line0, As) ->
 
 
 deref_ptr(Ptr, Line, DecodeOpts, D) ->
-    Lookup = fun(D0) ->
-                     gb_trees:lookup(Ptr, D0)
-             end,
+    Lookup0 = fun(D0) ->
+                      gb_trees:lookup(Ptr, D0)
+              end,
+    Lookup = wrap_line_map(Ptr, Lookup0),
     do_deref_ptr(Lookup, Line, DecodeOpts, D).
 
 deref_bin(Binp0, Offset, Sz, Line, DecodeOpts, D) ->
     Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
-    Lookup = fun(D0) ->
-                     lookup_binary(Binp, Offset, Sz, D0)
-             end,
+    Lookup0 = fun(D0) ->
+                      lookup_binary(Binp, Offset, Sz, D0)
+              end,
+    Lookup = wrap_line_map(Binp, Lookup0),
     do_deref_ptr(Lookup, Line, DecodeOpts, D).
 
 lookup_binary(Binp, Offset, Sz, D) ->
@@ -2897,26 +3028,36 @@ lookup_binary(Binp, Offset, Sz, D) ->
             end
     end.
 
+wrap_line_map(Ptr, Lookup) ->
+    wrap_line_map_1(get(line_map), Ptr, Lookup).
+
+wrap_line_map_1(#{}=LineMap, Ptr, Lookup) ->
+    fun(D) ->
+            case Lookup(D) of
+                {value,_}=Res ->
+                    Res;
+                none ->
+                    case LineMap of
+                        #{Ptr:=Line} ->
+                            {line,Ptr,Line};
+                        #{} ->
+                            none
+                    end
+            end
+    end;
+wrap_line_map_1(undefined, _Ptr, Lookup) ->
+    Lookup.
+
 do_deref_ptr(Lookup, Line, DecodeOpts, D0) ->
     case Lookup(D0) of
 	{value,Term} ->
 	    {Term,Line,D0};
 	none ->
-	    case get(fd) of
-		end_of_heap ->
-                    put(incomplete_heap,true),
-		    {['#CDVIncompleteHeap'],Line,D0};
-		Fd ->
-		    case bytes(Fd) of
-			"="++_ ->
-			    put(fd, end_of_heap),
-			    do_deref_ptr(Lookup, Line, DecodeOpts, D0);
-			L ->
-                            update_progress(length(L)+1),
-			    D = parse(L, DecodeOpts, D0),
-			    do_deref_ptr(Lookup, Line, DecodeOpts, D)
-		    end
-	    end
+            put(incomplete_heap, true),
+            {'#CDVIncompleteHeap',Line,D0};
+        {line,Addr,NewLine} ->
+            D = parse_line(Addr, NewLine, DecodeOpts, D0),
+            do_deref_ptr(Lookup, Line, DecodeOpts, D)
     end.
 
 get_hex(L) ->
@@ -3117,6 +3258,7 @@ tag_to_atom("literals") -> ?literals;
 tag_to_atom("loaded_modules") -> ?loaded_modules;
 tag_to_atom("memory") -> ?memory;
 tag_to_atom("mod") -> ?mod;
+tag_to_atom("persistent_terms") -> ?persistent_terms;
 tag_to_atom("no_distribution") -> ?no_distribution;
 tag_to_atom("node") -> ?node;
 tag_to_atom("not_connected") -> ?not_connected;
@@ -3136,13 +3278,13 @@ tag_to_atom(UnknownTag) ->
 
 %%%-----------------------------------------------------------------
 %%% Store last tag for use when truncated, and reason if aborted
-put_last_tag(?abort,Reason) ->
-    %% Don't overwrite the real last tag, and make sure to return
-    %% the previous last tag.
-    put(truncated_reason,Reason),
-    get(last_tag);
-put_last_tag(Tag,Id) ->
-    put(last_tag,{Tag,Id}).
+put_last_tag(?abort,Reason,_Pos) ->
+    %% Don't overwrite the real last tag, and don't return it either,
+    %% since that would make the caller of this function believe that
+    %% the tag was complete.
+    put(truncated_reason,Reason);
+put_last_tag(Tag,Id,Pos) ->
+    put(last_tag,{{Tag,Id},Pos}).
 
 %%%-----------------------------------------------------------------
 %%% Fetch next chunk from crashdump file

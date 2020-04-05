@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -124,10 +124,6 @@ file(Config) when is_list(Config) ->
              "Erlang code.\n">>,
     ?line ok = file:write_file(Filename, Mini),
     ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
-        leex:file(Filename, [{scannerfile,"//"} | Ret]),
-    ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
-        leex:file(Filename, [{includefile,"//"} | Ret]),
-    ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
         leex:file(Filename, [{includefile,"/ /"} | Ret]),
 
     LeexPre = filename:join(Dir, "leexinc.hrl"),
@@ -191,7 +187,6 @@ compile(Config) when is_list(Config) ->
              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
              "Erlang code.\n">>,
     ?line ok = file:write_file(Filename, Mini),
-    ?line error = leex:compile(Filename, "//", #options{}),
     ?line ok = leex:compile(Filename, Scannerfile, #options{}),
     file:delete(Scannerfile),
     file:delete(Filename),

@@ -1,5 +1,14 @@
 //  Added 3.0 functionality
 
+enum wxMouseWheelAxis
+    {
+        wxMOUSE_WHEEL_VERTICAL,
+        wxMOUSE_WHEEL_HORIZONTAL
+    };
+
+#define wxMOUSE_BTN_AUX1 4
+#define wxMOUSE_BTN_AUX2 5
+
 class WXDLLIMPEXP_AUI wxAuiTabArt
 {
 public:
@@ -43,4 +52,29 @@ class wxToolBar {
 class wxWindowGTK {
  public:
     double GetContentScaleFactor();
+    wxSize GetDPI();
+
+    wxSize FromDIP(const wxSize& sz);
+    wxSize ToDIP(const wxSize& sz) const { return ToDIP(sz, this); }
+
+};
+
+class wxDisplay {
+    public:
+    // get the resolution of this monitor in pixels per inch
+    wxSize GetPPI() const;
+};
+
+class wxMenuBar {
+ public:
+    // MacSpecific API
+    wxMenu *OSXGetAppleMenu() const { return m_appleMenu; }
+    static void SetAutoWindowMenu( bool enable ) { s_macAutoWindowMenu = enable ; }
+    static bool GetAutoWindowMenu() { return s_macAutoWindowMenu ; }
+};
+
+
+class wxMouseEvent {
+ public:
+    wxMouseWheelAxis GetWheelAxis() const;
 };

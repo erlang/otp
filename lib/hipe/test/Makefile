@@ -7,12 +7,12 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	hipe_SUITE \
-	opt_verify_SUITE
+	opt_verify_SUITE \
+	erl_types_SUITE
 
 # .erl files for these modules are automatically generated
 GEN_MODULES= \
 	basic_SUITE \
-	bs_SUITE \
 	maps_SUITE \
 	sanity_SUITE
 

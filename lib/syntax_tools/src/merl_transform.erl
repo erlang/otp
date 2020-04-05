@@ -196,7 +196,7 @@ var_name(V) -> V.
 
 var_to_tag(V) when is_integer(V) -> V;
 var_to_tag(V) ->
-    list_to_atom(string:to_lower(atom_to_list(V))).
+    list_to_atom(string:lowercase(atom_to_list(V))).
 
 pre_expand_case(Expr, Clauses, Line) ->
     merl:qquote(Line, "merl:switch(_@expr, _@clauses)",

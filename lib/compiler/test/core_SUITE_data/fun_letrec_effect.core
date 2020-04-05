@@ -1,0 +1,25 @@
+module 'fun_letrec_effect' ['fun_letrec_effect'/0, 'wat'/0]
+attributes []
+
+'fun_letrec_effect'/0 =
+  fun () ->
+    do apply 'wat'/0()
+       receive
+         <'bar'> when 'true' -> 'ok'
+         <_0> when 'true' -> 'failed'
+       after 'infinity' ->
+         'true'
+
+%% The return value (bar) of the fun was optimized away because the result of
+%% the `letrec ... in` was unused, despite the fun's return value being
+%% relevant for the side-effect of the expression.
+'wat'/0 =
+  fun () ->
+    let <Self> = call 'erlang':'self'() in
+      do letrec 'f'/0 = fun () ->
+                                do  call 'maps':'put'('foo', 'bar', ~{}~)
+                                    'bar'
+          in call 'erlang':'send'(Self, apply 'f'/0())
+          'undefined'
+
+end

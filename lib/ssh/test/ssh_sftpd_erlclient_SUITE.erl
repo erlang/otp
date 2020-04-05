@@ -58,15 +58,12 @@ init_per_suite(Config) ->
        begin
 	   catch ssh:stop(),
 	   DataDir = proplists:get_value(data_dir, Config),
-	   PrivDir = proplists:get_value(priv_dir, Config),
 	   FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
 	   c:c(FileAlt),
 	   FileName = filename:join(DataDir, "test.txt"),
 	   {ok, FileInfo} = file:read_file_info(FileName),
 	   ok = file:write_file_info(FileName,
 				     FileInfo#file_info{mode = 8#400}),
-	   ssh_test_lib:setup_rsa(DataDir, PrivDir),
-	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
 	   Config
        end).
 
@@ -89,49 +86,41 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    SystemDir = filename:join(PrivDir, system),
+    DataDir = proplists:get_value(data_dir, Config),
 
     Options =
 	case atom_to_list(TestCase) of
 	    "file_cb" ++ _ ->
-		Spec =
-		    ssh_sftpd:subsystem_spec([{file_handler,
-					       ssh_sftpd_file_alt}]),
-		[{system_dir, SystemDir},
-		 {user_dir, PrivDir},
-		 {subsystems, [Spec]}];
+		Spec = ssh_sftpd:subsystem_spec([{file_handler,
+                                                  ssh_sftpd_file_alt}]),
+		[{subsystems, [Spec]}];
 	    "root_dir" ->
-		Privdir = proplists:get_value(priv_dir, Config),
-		Root = filename:join(Privdir, root),
+                PrivDir = proplists:get_value(priv_dir, Config),
+		Root = filename:join(PrivDir, root),
 		file:make_dir(Root),
 		Spec = ssh_sftpd:subsystem_spec([{root,Root}]),
-		[{system_dir, SystemDir},
-		 {user_dir, PrivDir},
-		 {subsystems, [Spec]}];
+		[{subsystems, [Spec]}];
 	    "list_dir_limited" ->
-		Spec =
-		    ssh_sftpd:subsystem_spec([{max_files,1}]),
-		[{system_dir, SystemDir},
-		 {user_dir, PrivDir},
-		 {subsystems, [Spec]}];
+		Spec = ssh_sftpd:subsystem_spec([{max_files,1}]),
+		[{subsystems, [Spec]}];
 	    "ver6_basic" ->
-		Spec =
-		    ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}]),
-		[{system_dir, SystemDir},
-		 {user_dir, PrivDir},
-		 {subsystems, [Spec]}];
+		Spec = ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}]),
+		[{subsystems, [Spec]}];
 	    _ ->
-		[{user_dir, PrivDir},
-		 {system_dir, SystemDir}]
+		[]
 	end,
 
-    {Sftpd, Host, Port} = ssh_test_lib:daemon(Options),
+    {Sftpd, Host, Port} = ssh_test_lib:daemon([{preferred_algorithms, ssh_transport:supported_algorithms()},
+                                               {system_dir, DataDir},
+                                               {user_dir, DataDir},
+                                               {user_passwords, [{?USER,?PASSWD}]}
+                                               | Options]),
 
     {ok, ChannelPid, Connection} =
 	ssh_sftp:start_channel(Host, Port,
 			       [{silently_accept_hosts, true},
-				{user_dir, PrivDir},
+                                {preferred_algorithms, ssh_transport:supported_algorithms()},
+				{user_dir, DataDir},
 				{timeout, 30000}]),
     TmpConfig = lists:keydelete(sftp, 1, Config),
     NewConfig = lists:keydelete(sftpd, 1, TmpConfig),
@@ -189,6 +178,7 @@ quit(Config) when is_list(Config) ->
     timer:sleep(5000),
     {ok, NewSftp, _Conn} = ssh_sftp:start_channel(Host, Port,
 						 [{silently_accept_hosts, true},
+                                                  {preferred_algorithms, ssh_transport:supported_algorithms()},
 						  {user_dir, UserDir},
 						  {user, ?USER}, {password, ?PASSWD}]),
 

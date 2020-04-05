@@ -133,6 +133,15 @@ ErtsCodeIndex erts_staging_code_ix(void);
  */
 int erts_try_seize_code_write_permission(struct process* c_p);
 
+/* Try seize exclusive code write permission for aux work.
+ * System thread progress must not be blocked.
+ * On success return true.
+ * On failure return false and aux work func(arg) will be scheduled when
+ * permission is released.                                                                             .
+ */
+int erts_try_seize_code_write_permission_aux(void (*func)(void *),
+                                             void *arg);
+
 /* Release code write permission.
  * Will resume any suspended waiters.
  */
@@ -176,7 +185,7 @@ int erts_has_code_write_permission(void);
 ERTS_GLB_INLINE
 BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci)
 {
-    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
     ASSERT_MFA(&ci->mfa);
     return (BeamInstr*)(ci + 1);
 }
@@ -185,7 +194,7 @@ ERTS_GLB_INLINE
 ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I)
 {
     ErtsCodeInfo *ci = ((ErtsCodeInfo *)(((char *)(I)) - sizeof(ErtsCodeInfo)));
-    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
     ASSERT_MFA(&ci->mfa);
     return ci;
 }
@@ -205,16 +214,16 @@ ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I)
     return mfa;
 }
 
-extern erts_smp_atomic32_t the_active_code_index;
-extern erts_smp_atomic32_t the_staging_code_index;
+extern erts_atomic32_t the_active_code_index;
+extern erts_atomic32_t the_staging_code_index;
 
 ERTS_GLB_INLINE ErtsCodeIndex erts_active_code_ix(void)
 {
-    return erts_smp_atomic32_read_nob(&the_active_code_index);
+    return erts_atomic32_read_nob(&the_active_code_index);
 }
 ERTS_GLB_INLINE ErtsCodeIndex erts_staging_code_ix(void)
 {
-    return erts_smp_atomic32_read_nob(&the_staging_code_index);
+    return erts_atomic32_read_nob(&the_staging_code_index);
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

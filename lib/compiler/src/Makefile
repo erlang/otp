@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+# Copyright Ericsson AB 1996-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,24 +49,32 @@ MODULES =  \
 	beam_a \
 	beam_asm \
 	beam_block \
-	beam_bs \
-	beam_bsm \
+	beam_call_types \
 	beam_clean \
-	beam_dead \
 	beam_dict \
+	beam_digraph \
 	beam_disasm \
-	beam_except \
 	beam_flatten \
 	beam_jump \
 	beam_listing \
 	beam_opcodes \
 	beam_peep \
-	beam_receive \
-	beam_reorder \
-	beam_record \
-	beam_split \
+	beam_ssa \
+	beam_ssa_bool \
+	beam_ssa_bsm \
+	beam_ssa_codegen \
+	beam_ssa_dead \
+	beam_ssa_funs \
+	beam_ssa_lint \
+	beam_ssa_opt \
+	beam_ssa_pp \
+	beam_ssa_pre_codegen \
+	beam_ssa_recv \
+	beam_ssa_share \
+	beam_ssa_type \
+	beam_kernel_to_ssa \
 	beam_trim \
-	beam_type \
+	beam_types \
 	beam_utils \
 	beam_validator \
         beam_z \
@@ -83,25 +91,26 @@ MODULES =  \
 	core_scan \
 	erl_bifs \
 	rec_env \
+	sys_core_alias \
 	sys_core_bsm \
-	sys_core_dsetel \
 	sys_core_fold \
 	sys_core_fold_lists \
 	sys_core_inline \
+	sys_core_prepare \
 	sys_pre_attributes \
-	v3_codegen \
 	v3_core \
 	v3_kernel \
-	v3_kernel_pp \
-	v3_life
+	v3_kernel_pp
 
 BEAM_H = $(wildcard ../priv/beam_h/*.h)
 
 HRL_FILES= \
 	beam_disasm.hrl \
+	beam_ssa_opt.hrl \
+	beam_ssa.hrl \
+	beam_types.hrl \
 	core_parse.hrl \
-	v3_kernel.hrl \
-	v3_life.hrl
+	v3_kernel.hrl
 
 YRL_FILE = core_parse.yrl
 
@@ -125,9 +134,10 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
 ERL_COMPILE_FLAGS += +native
+else
+ERL_COMPILE_FLAGS += -Werror
 endif
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
- -Werror \
  -I../../stdlib/include -I$(EGEN) -W +warn_missing_spec
 
 # ----------------------------------------------------
@@ -185,21 +195,34 @@ release_docs_spec:
 # Dependencies -- alphabetically, please
 # ---------------------------------------------------- 
 
+$(EBIN)/beam_call_types.beam: beam_types.hrl
 $(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl
-$(EBIN)/beam_listing.beam: v3_life.hrl
-$(EBIN)/beam_validator.beam: beam_disasm.hrl
+$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl
+$(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
+$(EBIN)/beam_ssa.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_dead.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_funs.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_lint.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_opt.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
+$(EBIN)/beam_types.beam: beam_types.hrl
+$(EBIN)/beam_validator.beam: beam_types.hrl
 $(EBIN)/cerl.beam: core_parse.hrl
 $(EBIN)/compile.beam: core_parse.hrl ../../stdlib/include/erl_compile.hrl
 $(EBIN)/core_lib.beam: core_parse.hrl
 $(EBIN)/core_lint.beam: core_parse.hrl
 $(EBIN)/core_parse.beam: core_parse.hrl $(EGEN)/core_parse.erl
 $(EBIN)/core_pp.beam: core_parse.hrl
-$(EBIN)/sys_core_dsetel.beam: core_parse.hrl
+$(EBIN)/sys_core_alias.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
-$(EBIN)/v3_codegen.beam: v3_life.hrl
 $(EBIN)/v3_core.beam: core_parse.hrl
 $(EBIN)/v3_kernel.beam: core_parse.hrl v3_kernel.hrl
 $(EBIN)/v3_kernel_pp.beam: v3_kernel.hrl
-$(EBIN)/v3_life.beam: v3_kernel.hrl v3_life.hrl

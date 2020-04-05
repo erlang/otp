@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>erl_scan.xml</file>
   </header>
-  <module>erl_scan</module>
+  <module since="">erl_scan</module>
   <modulesummary>The Erlang token scanner.</modulesummary>
   <description>
     <p>This module contains functions for tokenizing (scanning) characters into
@@ -74,7 +74,7 @@
  
   <funcs>
     <func>
-      <name name="category" arity="1"/>
+      <name name="category" arity="1" since="OTP 18.0"/>
       <fsummary>Return the category.</fsummary>
       <desc>
         <p>Returns the category of <c><anno>Token</anno></c>.</p>
@@ -82,7 +82,7 @@
     </func>
 
     <func>
-      <name name="column" arity="1"/>
+      <name name="column" arity="1" since="OTP 18.0"/>
       <fsummary>Return the column.</fsummary>
       <desc>
         <p>Returns the column of <c><anno>Token</anno></c>'s
@@ -91,7 +91,7 @@
     </func>
 
     <func>
-      <name name="end_location" arity="1"/>
+      <name name="end_location" arity="1" since="OTP 18.0"/>
       <fsummary>Return the end location of the text.</fsummary>
       <desc>
         <p>Returns the end location of the text of
@@ -101,19 +101,19 @@
     </func>
 
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Format an error descriptor.</fsummary>
       <desc>
         <p>Uses an <c><anno>ErrorDescriptor</anno></c> and returns a string 
           that describes the error or warning. This function is usually
           called implicitly when an <c>ErrorInfo</c> structure is
           processed (see section
-          <seealso marker="#errorinfo">Error Information</seealso>).</p>
+          <seeerl marker="#errorinfo">Error Information</seeerl>).</p>
       </desc>
     </func>
 
     <func>
-      <name name="line" arity="1"/>
+      <name name="line" arity="1" since="OTP 18.0"/>
       <fsummary>Return the line.</fsummary>
       <desc>
         <p>Returns the line of <c><anno>Token</anno></c>'s collection
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name name="location" arity="1"/>
+      <name name="location" arity="1" since="OTP 18.0"/>
       <fsummary>Return the location.</fsummary>
       <desc>
         <p>Returns the location of <c><anno>Token</anno></c>'s
@@ -131,7 +131,7 @@
     </func>
 
     <func>
-      <name name="reserved_word" arity="1"/>
+      <name name="reserved_word" arity="1" since=""/>
       <fsummary>Test for a reserved word.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Atom</anno></c> is an
@@ -140,9 +140,9 @@
     </func>
 
     <func>
-      <name name="string" arity="1"/>
-      <name name="string" arity="2"/>
-      <name name="string" arity="3"/>
+      <name name="string" arity="1" since=""/>
+      <name name="string" arity="2" since=""/>
+      <name name="string" arity="3" since=""/>
       <fsummary>Scan a string and return the Erlang tokens.</fsummary>
       <desc>
         <p>Takes the list of characters <c><anno>String</anno></c> and tries to
@@ -180,10 +180,10 @@
           line where the token begins, as well as the text of the
           token (if option <c>text</c> is specified), all of which can
           be accessed by calling
-          <seealso marker="#column/1"><c>column/1</c></seealso>,
-          <seealso marker="#line/1"><c>line/1</c></seealso>,
-          <seealso marker="#location/1"><c>location/1</c></seealso>, and
-          <seealso marker="#text/1"><c>text/1</c></seealso>.</p>
+          <seemfa marker="#column/1"><c>column/1</c></seemfa>,
+          <seemfa marker="#line/1"><c>line/1</c></seemfa>,
+          <seemfa marker="#location/1"><c>location/1</c></seemfa>, and
+          <seemfa marker="#text/1"><c>text/1</c></seemfa>.</p>
         <p>A <em>token</em> is a tuple containing information about
           syntactic category, the token annotations, and the
           terminal symbol. For punctuation characters (such as <c>;</c> and 
@@ -229,7 +229,7 @@
     </func>
 
     <func>
-      <name name="symbol" arity="1"/>
+      <name name="symbol" arity="1" since="OTP 18.0"/>
       <fsummary>Return the symbol.</fsummary>
       <desc>
         <p>Returns the symbol of <c><anno>Token</anno></c>.</p>
@@ -237,7 +237,7 @@
     </func>
 
     <func>
-      <name name="text" arity="1"/>
+      <name name="text" arity="1" since="OTP 18.0"/>
       <fsummary>Return the text.</fsummary>
       <desc>
         <p>Returns the text of <c><anno>Token</anno></c>'s collection
@@ -247,8 +247,8 @@
     </func>
 
     <func>
-      <name name="tokens" arity="3"/>
-      <name name="tokens" arity="4"/>
+      <name name="tokens" arity="3" since=""/>
+      <name name="tokens" arity="4" since=""/>
       <fsummary>Re-entrant scanner.</fsummary>
       <type name="char_spec"/>
       <type name="return_cont"/>
@@ -296,7 +296,7 @@
           <c>tokens(<anno>Continuation</anno>, <anno>CharSpec</anno>,
           <anno>StartLocation</anno>, [])</c>.</p>
         <p>For a description of the options, see
-          <seealso marker="#string/3"><c>string/3</c></seealso>.</p>
+          <seemfa marker="#string/3"><c>string/3</c></seemfa>.</p>
       </desc>
     </func>
   </funcs>
@@ -323,8 +323,8 @@ Module:format_error(ErrorDescriptor)</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_anno"><c>erl_anno(3)</c></seealso>,
-      <seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
-      <seealso marker="io"><c>io(3)</c></seealso></p>
+    <p><seeerl marker="erl_anno"><c>erl_anno(3)</c></seeerl>,
+      <seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl>,
+      <seeerl marker="io"><c>io(3)</c></seeerl></p>
   </section>
 </erlref>

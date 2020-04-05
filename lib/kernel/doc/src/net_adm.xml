@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1996-09-10</date>
     <rev>A</rev>
   </header>
-  <module>net_adm</module>
+  <module since="">net_adm</module>
   <modulesummary>Various Erlang net administration routines.</modulesummary>
   <description>
     <p>This module contains various network utility functions.</p>
@@ -36,21 +36,21 @@
 
   <funcs>
     <func>
-      <name name="dns_hostname" arity="1"/>
+      <name name="dns_hostname" arity="1" since=""/>
       <fsummary>Official name of a host.</fsummary>
       <desc>
         <p>Returns the official name of <c><anno>Host</anno></c>, or
           <c>{error, <anno>Host</anno>}</c> if no such name is found. See also
-          <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+          <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="host_file" arity="0"/>
+      <name name="host_file" arity="0" since=""/>
       <fsummary>Read file <c>.hosts.erlang</c>.</fsummary>
       <desc>
         <p>Reads file <c>.hosts.erlang</c>, see section
-          <seealso marker="#files">Files</seealso>. Returns the hosts in this
+          <seeerl marker="#files">Files</seeerl>. Returns the hosts in this
           file as a list. Returns <c>{error, <anno>Reason</anno>}</c> if the
           file cannot be read or the Erlang terms on the file cannot be
           interpreted.</p>
@@ -58,7 +58,7 @@
     </func>
 
     <func>
-      <name name="localhost" arity="0"/>
+      <name name="localhost" arity="0" since=""/>
       <fsummary>Name of the local host.</fsummary>
       <desc>
         <p>Returns the name of the local host. If Erlang was started
@@ -68,12 +68,12 @@
     </func>
 
     <func>
-      <name name="names" arity="0"/>
-      <name name="names" arity="1"/>
+      <name name="names" arity="0" since=""/>
+      <name name="names" arity="1" since=""/>
       <fsummary>Names of Erlang nodes at a host.</fsummary>
       <desc>
         <p>Similar to <c>epmd -names</c>, see
-          <seealso marker="erts:epmd"><c>erts:epmd(1)</c></seealso>.
+          <seecom marker="erts:epmd"><c>erts:epmd(1)</c></seecom>.
           <c><anno>Host</anno></c> defaults to the local host. Returns the
           names and associated port numbers of the Erlang nodes that
           <c>epmd</c> registered at the specified host. Returns
@@ -86,7 +86,7 @@
     </func>
 
     <func>
-      <name name="ping" arity="1"/>
+      <name name="ping" arity="1" since=""/>
       <fsummary>Set up a connection to a node.</fsummary>
       <desc>
         <p>Sets up a connection to <c><anno>Node</anno></c>. Returns
@@ -95,8 +95,8 @@
     </func>
 
     <func>
-      <name name="world" arity="0"/>
-      <name name="world" arity="1"/>
+      <name name="world" arity="0" since=""/>
+      <name name="world" arity="1" since=""/>
       <fsummary>Lookup and connect to all nodes at all hosts in
         <c>.hosts.erlang</c>.</fsummary>
       <type name="verbosity"/>
@@ -117,12 +117,12 @@
     </func>
 
     <func>
-      <name name="world_list" arity="1"/>
-      <name name="world_list" arity="2"/>
+      <name name="world_list" arity="1" since=""/>
+      <name name="world_list" arity="2" since=""/>
       <fsummary>Lookup and connect to all nodes at specified hosts.</fsummary>
       <type name="verbosity"/>
       <desc>
-        <p>Same as <seealso marker="#world/1"><c>world/0,1</c></seealso>,
+        <p>Same as <seemfa marker="#world/1"><c>world/0,1</c></seemfa>,
           but the hosts are specified as argument
           instead of being read from <c>.hosts.erlang</c>.</p>
       </desc>

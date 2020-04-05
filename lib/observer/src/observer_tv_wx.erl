@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ init([Notebook, Parent, Config]) ->
 
     Style = ?wxLC_REPORT bor ?wxLC_VIRTUAL bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES,
     Self = self(),
-    Attrs = observer_lib:create_attrs(),
+    Attrs = observer_lib:create_attrs(Panel),
     Holder = spawn_link(fun() -> init_table_holder(Self, Attrs) end),
     CBs = [{onGetItemText, fun(_, Item,Col) -> get_row(Holder, Item, Col) end},
            {onGetItemAttr, fun(_, Item) -> get_attr(Holder, Item) end}],
@@ -87,12 +87,13 @@ init([Notebook, Parent, Config]) ->
 			   wxListCtrl:setColumnWidth(Grid, Col, DefSize),
 			   Col + 1
 		   end,
-    ListItems = [{"Table Name", ?wxLIST_FORMAT_LEFT,  200},
-		 {"Objects",    ?wxLIST_FORMAT_RIGHT, 100},
-		 {"Size (kB)",  ?wxLIST_FORMAT_RIGHT, 100},
-		 {"Owner Pid",  ?wxLIST_FORMAT_CENTER, 150},
-		 {"Owner Name", ?wxLIST_FORMAT_LEFT,  200},
-		 {"Table Id",   ?wxLIST_FORMAT_LEFT, 250}
+    Scale = observer_wx:get_scale(),
+    ListItems = [{"Table Name", ?wxLIST_FORMAT_LEFT,  Scale*200},
+		 {"Objects",    ?wxLIST_FORMAT_RIGHT, Scale*100},
+		 {"Size (kB)",  ?wxLIST_FORMAT_RIGHT, Scale*100},
+		 {"Owner Pid",  ?wxLIST_FORMAT_CENTER, Scale*150},
+		 {"Owner Name", ?wxLIST_FORMAT_LEFT,  Scale*200},
+		 {"Table Id",   ?wxLIST_FORMAT_LEFT, Scale*250}
 		],
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
@@ -147,7 +148,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_activated,
 	     State=#state{holder=Holder, node=Node, opts=#opts{type=Type}, grid=Grid}) ->
     case get_table(Holder, Index) of
         #tab{protection=private} ->
-            self() ! {error, "Table has 'private' protection and can not be read"};
+            self() ! {error, "Table has 'private' protection and cannot be read"};
         #tab{}=Table ->
 	    observer_tv_table:start_link(Grid, [{node,Node}, {type,Type}, {table,Table}]);
         _ -> ignore
@@ -187,7 +188,7 @@ handle_event(#wx{id=?ID_SHOW_TABLE},
 	R when is_integer(R) ->
 	    case get_table(Holder, R) of
 		#tab{protection=private} ->
-		    self() ! {error, "Table has 'private' protection and can not be read"};
+		    self() ! {error, "Table has 'private' protection and cannot be read"};
                 #tab{}=Table ->
 		    observer_tv_table:start_link(Grid, [{node,Node}, {type,Type}, {table,Table}]);
                 _ -> ignore

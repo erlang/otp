@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,30 +38,7 @@
 #include <windows.h>
 #include <winbase.h>
 
-#elif VXWORKS
-#include <vxWorks.h>
-#include <hostLib.h>
-#include <selectLib.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <taskLib.h>
-#include <inetLib.h>
-#include <ioLib.h>
-
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/times.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h> 
-#include <timers.h> 
-
-#define getpid() taskIdSelf()
-extern int h_errno;
-
-#else /* some other unix */
+#else /* some unix */
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/times.h>
@@ -95,18 +72,25 @@ extern int h_errno;
 #endif
 
 /* Distribution capability flags */
-#define DFLAG_PUBLISHED           1
-#define DFLAG_ATOM_CACHE          2
-#define DFLAG_EXTENDED_REFERENCES 4
-#define DFLAG_DIST_MONITOR        8
-#define DFLAG_FUN_TAGS            16
-#define DFLAG_NEW_FUN_TAGS        0x80
-#define DFLAG_EXTENDED_PIDS_PORTS 0x100
-#define DFLAG_NEW_FLOATS          0x800
-#define DFLAG_SMALL_ATOM_TAGS     0x4000
-#define DFLAG_UTF8_ATOMS          0x10000
-#define DFLAG_MAP_TAG             0x20000
-#define DFLAG_BIG_CREATION        0x40000
+typedef EI_ULONGLONG DistFlags;
+
+#define DFLAG_PUBLISHED                   1
+#define DFLAG_ATOM_CACHE                  2
+#define DFLAG_EXTENDED_REFERENCES         4
+#define DFLAG_DIST_MONITOR                8
+#define DFLAG_FUN_TAGS                 0x10
+#define DFLAG_NEW_FUN_TAGS             0x80
+#define DFLAG_EXTENDED_PIDS_PORTS     0x100
+#define DFLAG_EXPORT_PTR_TAG          0x200
+#define DFLAG_BIT_BINARIES            0x400
+#define DFLAG_NEW_FLOATS              0x800
+#define DFLAG_SMALL_ATOM_TAGS        0x4000
+#define DFLAG_UTF8_ATOMS            0x10000
+#define DFLAG_MAP_TAG               0x20000
+#define DFLAG_BIG_CREATION          0x40000
+#define DFLAG_HANDSHAKE_23        0x1000000
+#define DFLAG_RESERVED           0xfe000000
+#define DFLAG_NAME_ME            ((DistFlags)0x2 << 32)
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);

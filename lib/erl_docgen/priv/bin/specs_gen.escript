@@ -48,7 +48,8 @@ main(Args) ->
 parse(["-o"++Dir | Opts], InclFs, _, Module) ->
     parse(Opts, InclFs, Dir, Module);
 parse(["-I"++I | Opts], InclFs, Dir, Module) ->
-    parse(Opts, [I | InclFs], Dir, Module);
+    Is = filelib:wildcard(I),
+    parse(Opts, Is ++ InclFs, Dir, Module);
 parse(["-module", Module | Opts], InclFs, Dir, _) ->
     parse(Opts, InclFs, Dir, Module);
 parse([File], InclFs, Dir, no_module) ->
@@ -131,7 +132,7 @@ write_text(Text, File, Dir) ->
             ok;
         {error, R} ->
             R1 = file:format_error(R),
-            io:format("could not write file '~s': ~s\n", [File, R1]),
+            io:format("could not write file '~s': ~s\n", [OutFile, R1]),
             halt(2)
     end.
 

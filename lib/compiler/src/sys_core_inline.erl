@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@
 
 -export([module/2]).
 
--import(lists, [member/2,map/2,foldl/3,mapfoldl/3,keydelete/3]).
+-import(lists, [member/2,map/2,foldl/3,mapfoldl/3]).
 
 -include("core_parse.hrl").
 
@@ -116,14 +116,11 @@ inline(Fs0, St0) ->
 				  false -> {Fst,Ifs}
 			      end
 		      end, [], Fs1),
-    Is1 = map(fun (#ifun{body=B}=If) ->
-		      If#ifun{body=cerl_trees:map(match_fail_fun(), B)}
-	      end, Is0),
-    Is2 = [inline_inline(If, Is1) || If <- Is1],
+    Is1 = [inline_inline(If, Is0) || If <- Is0],
     %% We would like to remove inlined, non-exported functions here,
     %% but this can be difficult as they may be recursive.
     %% Use fixed inline functions on all functions.
-    Fs = [inline_func(F, Is2) || F <- Fs2],
+    Fs = [inline_func(F, Is1) || F <- Fs2],
     %% Regenerate module body.
     [Def || #fstat{def=Def} <- Fs].
 
@@ -143,7 +140,7 @@ inline_inline(#ifun{body=B,weight=Iw}=If, Is) ->
 		     case find_inl(F, A, Is) of
 			 #ifun{vars=Vs,body=B2,weight=W} when W < Iw ->
 			     #c_let{vars=Vs,
-				     arg=core_lib:make_values(As),
+				     arg=kill_id_anns(core_lib:make_values(As)),
 				    body=kill_id_anns(B2)};
 			 _Other -> Call
 		     end;
@@ -160,7 +157,7 @@ inline_func(#fstat{def={Name,F0}}=Fstat, Is) ->
 		     case find_inl(F, A, Is) of
 			 #ifun{vars=Vs,body=B} ->
 			     {#c_let{vars=Vs,
-				     arg=core_lib:make_values(As),
+				     arg=kill_id_anns(core_lib:make_values(As)),
 				     body=kill_id_anns(B)},
 			      true};			%Have modified
 			 _Other -> {Call,Mod}
@@ -171,17 +168,6 @@ inline_func(#fstat{def={Name,F0}}=Fstat, Is) ->
     Fstat#fstat{def={Name,F1},modified=Mod}.
 
 weight_func(_Core, Acc) -> Acc + 1.
-
-%% match_fail_fun() -> fun/1.
-%% Return a function to use with map to fix inlineable functions
-%% function_clause match_fail (if they have one).
-
-match_fail_fun() ->
-    fun (#c_primop{anno=Anno0,name=#c_literal{val=match_fail}}=P) ->
-	    Anno = keydelete(function_name, 1, Anno0),
-	    P#c_primop{anno=Anno};
-	(Other) -> Other
-    end.
 
 %% find_inl(Func, Arity, [Inline]) -> #ifun{} | no.
 
@@ -195,6 +181,9 @@ kill_id_anns(Body) ->
     cerl_trees:map(fun(#c_fun{anno=A0}=CFun) ->
 			   A = kill_id_anns_1(A0),
 			   CFun#c_fun{anno=A};
+                      (#c_var{anno=A0}=Var) ->
+			   A = kill_id_anns_1(A0),
+			   Var#c_var{anno=A};
 		      (Expr) ->
 			   %% Mark everything as compiler generated to
 			   %% suppress bogus warnings.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,3 +40,23 @@
 -define(DFLAG_UTF8_ATOMS, 16#10000).
 -define(DFLAG_MAP_TAG, 16#20000).
 -define(DFLAG_BIG_CREATION, 16#40000).
+-define(DFLAG_SEND_SENDER, 16#80000).
+-define(DFLAG_BIG_SEQTRACE_LABELS, 16#100000).
+%% -define(DFLAG_NO_MAGIC, 16#200000). %% Used internally only
+-define(DFLAG_EXIT_PAYLOAD, 16#400000).
+-define(DFLAG_FRAGMENTS,    16#00800000).
+-define(DFLAG_HANDSHAKE_23, 16#01000000).
+-define(DFLAG_RESERVED,     16#fe000000).
+-define(DFLAG_SPAWN,       16#100000000).
+-define(DFLAG_NAME_ME,     16#200000000).
+
+%% Also update dflag2str() in ../src/dist_util.erl
+%% when adding flags...
+
+
+-define(ERL_DIST_VER_5, 5).  % OTP-22 or (much) older
+-define(ERL_DIST_VER_6, 6).  % OTP-23 (or maybe newer?)
+
+-define(ERL_DIST_VER_LOW, ?ERL_DIST_VER_5).
+-define(ERL_DIST_VER_HIGH, ?ERL_DIST_VER_6).
+

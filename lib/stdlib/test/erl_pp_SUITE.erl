@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,11 +47,14 @@
 	  hook/1,
 	  neg_indent/1,
 	  maps_syntax/1,
+	  format_options/1,
+          quoted_atom_types/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
-          otp_13662/1, otp_14285/1]).
+          otp_13662/1, otp_14285/1, otp_15592/1, otp_15751/1, otp_15755/1,
+          otp_16435/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -74,14 +77,15 @@ groups() ->
     [{expr, [],
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
-       messages, maps_syntax
+       messages, maps_syntax, quoted_atom_types,
+       format_options
     ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
        otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
-       otp_14285]}].
+       otp_14285, otp_15592, otp_15751, otp_15755, otp_16435]}].
 
 init_per_suite(Config) ->
     Config.
@@ -473,10 +477,10 @@ cond1(Config) when is_list(Config) ->
                     [{tuple,5,[{atom,5,x},{atom,5,y}]}]}]},
     CChars = flat_expr1(C),
     "cond\n"
-          "    {foo,bar} ->\n"
-          "        [a,b];\n"
+          "    {foo, bar} ->\n"
+          "        [a, b];\n"
           "    true ->\n"
-          "        {x,y}\n"
+          "        {x, y}\n"
           "end" = CChars,
     ok.
 
@@ -542,6 +546,36 @@ import_export(Config) when is_list(Config) ->
           ],
     compile(Config, Ts),
     ok.
+
+format_options(Config) when is_list(Config) ->
+    "case 1 of\n"
+    "  2 ->\n"
+    "    3;\n"
+    "  4 ->\n"
+    "    5\n"
+    "end" = flat_parse_and_pp_expr("case 1 of 2 -> 3; 4 -> 5 end", 0, [{indent, 2}]),
+
+    "-spec foo(bar(),\n"
+    "          qux()) ->\n"
+    "           T |\n"
+    "           baz(T)\n"
+    "           when\n"
+    "             T ::\n"
+    "               tuple().\n" =
+	lists:flatten(
+	    parse_and_pp_forms(
+		"-spec foo(bar(), qux()) -> T | baz(T) when T :: tuple().",
+		[{indent, 2}, {linewidth, 20}]
+	    )
+	),
+
+    "-spec foo(bar(), qux()) -> T | baz(T) when T :: tuple().\n" =
+	lists:flatten(
+	    parse_and_pp_forms(
+		"-spec foo(bar(), qux()) -> T | baz(T) when T :: tuple().",
+		[{indent, 2}, {linewidth, 1000}]
+	    )
+	).
 
 misc_attrs(Config) when is_list(Config) ->
     ok = pp_forms(<<"-module(m). ">>),
@@ -711,7 +745,7 @@ otp_6321(Config) when is_list(Config) ->
     Str = "S = hopp, {hej, S}. ",
     {done, {ok, Tokens, _EndLine}, ""} = erl_scan:tokens("", Str, _L=1),
     {ok, Exprs} = erl_parse:parse_exprs(Tokens),
-    "S = hopp, {hej,S}" = lists:flatten(erl_pp:exprs(Exprs)),
+    "S = hopp, {hej, S}" = lists:flatten(erl_pp:exprs(Exprs)),
     ok.
 
 %% OTP_6911. More newlines.
@@ -828,7 +862,7 @@ type_examples() ->
 	     "(t24()) -> D when is_subtype(D, atom()),"
 	     "                      is_subtype(D, t14()),"
 	     "                      is_subtype(D, '\\'t::4'()).">>},
-     {ex32,<<"-spec mod:t2() -> any(). ">>},
+     {ex32,<<"-spec erl_pp_test:t2() -> any(). ">>},
      {ex33,<<"-opaque attributes_data() :: "
        "[{'column', column()} | {'line', info_line()} |"
        " {'text', string()}] |  {line(),column()}. ">>},
@@ -912,6 +946,21 @@ maps_syntax(Config) when is_list(Config) ->
     ok = pp_forms(F),
     ok.
 
+quoted_atom_types(Config) when is_list(Config) ->
+    Q = [{quote_singleton_atom_types, true}],
+    U = [{encoding,unicode}],
+    L = [{encoding,latin1}],
+    F = "-type t() :: a | a().",
+    "-type t() :: 'a' | a().\n" =
+        lists:flatten(parse_and_pp_forms(F, Q ++ L)),
+    "-type t() :: 'a' | a().\n" =
+        lists:flatten(parse_and_pp_forms(F, Q ++ U)),
+    UF = "-type t() :: '\x{400}' | '\x{400}'().",
+    "-type t() :: '\\x{400}' | '\\x{400}'().\n" =
+        lists:flatten(parse_and_pp_forms(UF, Q ++ L)),
+    "-type t() :: '\x{400}' | '\x{400}'().\n" =
+        lists:flatten(parse_and_pp_forms(UF, Q ++ U)),
+    ok.
 
 %% OTP_8567. Avoid duplicated 'undefined' in record field types.
 otp_8567(Config) when is_list(Config) ->
@@ -1096,7 +1145,7 @@ otp_11861(Config) when is_list(Config) ->
     A3 = erl_anno:new(3),
     "-optional_callbacks([bar/0]).\n" =
         pf({attribute,A3,optional_callbacks,[{bar,0}]}),
-    "-optional_callbacks([{bar,1,bad}]).\n" =
+    "-optional_callbacks([{bar, 1, bad}]).\n" =
         pf({attribute,A3,optional_callbacks,[{bar,1,bad}]}),
     ok.
 
@@ -1165,6 +1214,121 @@ otp_14285(_Config) ->
         "{some,'\\x{400}\\''}" =:=
         lists:flatten(erl_pp:expr({value,erl_anno:new(0),{some,'\x{400}\''}},
                                   [{encoding,latin1}])),
+    ok.
+
+otp_15592(_Config) ->
+    ok = pp_expr(<<"long12345678901234567890123456789012345678901234"
+                   "56789012345678901234:f(<<>>)">>),
+    ok.
+
+otp_15751(_Config) ->
+    Check = fun(L) ->
+                    ok = pp_expr(L),
+                    remove_indentation(flat_parse_and_pp_expr(L, 0, []))
+            end,
+    "try foo:bar() catch Reason:Stacktrace -> {Reason, Stacktrace} end" =
+        Check("try foo:bar()
+           catch Reason:Stacktrace -> {Reason, Stacktrace}  end"),
+
+    "try foo:bar() catch throw:Reason:Stacktrace -> {Reason, Stacktrace} end" =
+        Check("try foo:bar()
+           catch throw:Reason:Stacktrace -> {Reason, Stacktrace} end"),
+
+    "try foo:bar() catch Reason:_ -> Reason end" =
+        Check("try foo:bar()
+           catch Reason:_ -> Reason end"),
+
+    "try foo:bar() catch throw:Reason -> Reason end" = % ":_" removed
+        Check("try foo:bar()
+           catch throw:Reason:_-> Reason end"),
+
+    "try foo:bar() catch throw:Reason -> Reason end" = % "throw:" added
+        Check("try foo:bar()
+           catch Reason -> Reason end"),
+
+    "try foo:bar() catch throw:Reason -> Reason end" =
+        Check("try foo:bar()
+           catch throw:Reason -> Reason end"),
+
+    ok.
+
+otp_15755(_Config) ->
+    "[{a, b}, c, {d, e} | t]" =
+        flat_parse_and_pp_expr("[{a, b}, c, {d, e} | t]", 0, []),
+    "[{a, b},\n c, d,\n {d, e},\n 1, 2.0,\n {d, e},\n <<>>, {},\n {d, e},\n"
+    " [], [],\n {d, e} |\n t]" =
+        flat_parse_and_pp_expr("[{a,b},c,d,{d,e},1,2.0,{d,e},<<>>,"
+                               "{},{d,e},[],[],{d,e}|t]", 0, []),
+    "[{a, b},\n c, d,\n {d, e},\n 1, 2.0,\n {d, e},\n <<>>, {},\n {d, e},\n"
+    " [], [], d, e | t]" =
+        flat_parse_and_pp_expr("[{a,b},c,d,{d,e},1,2.0,{d,e},<<>>,"
+                               "{},{d,e},[],[],d,e|t]", 0, []),
+
+    "-type t() ::
+          a | b | c | a | b | a | b | a | b | a | b | a | b | a | b |
+          a | b | a | b | a | b.\n" =
+        lists:flatten(parse_and_pp_forms(
+             "-type t() :: a | b | c| a | b | a | b | a | b | a |"
+             " b | a | b | a | b | a | b | a | b |a | b.", [])),
+
+    "-type t() ::
+          {dict, 0, 16, 16, 8, 80, 48,
+           {[], [], [], [], [], [], [], [], [], [], [], [], [], [], [],
+            []},
+           {{[], [], [], [], [], [], [], [], [], [], [], [], [], [], []}}}.\n" =
+        lists:flatten(parse_and_pp_forms(
+             "-type t() :: {dict,0,16,16,8,80,48,"
+             "{[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]},"
+             "{{[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]}}}.", [])),
+
+    "-type t() ::
+          {{a},
+           0, 16,
+           {16},
+           8, 80, 48, a, b, e, f, 'sf s sdf', [], {},
+           {[]}}.\n" =
+        lists:flatten(parse_and_pp_forms(
+             "-type t() :: {{a}, 0, 16, {16}, 8, 80, 48, a, b, e, f,"
+             " 'sf s sdf', [], {}, {[]}}.", [])),
+    ok.
+
+otp_16435(_Config) ->
+    CheckF = fun(S) -> S = lists:flatten(parse_and_pp_forms(S, [])) end,
+    CheckF("-type t() :: A :: integer().\n"),
+    CheckF("-type t() :: A :: (B :: integer()).\n"),
+    CheckF("-type t() :: {A :: (B :: integer())}.\n"),
+    CheckF("-record(r,{f :: {A :: (B :: integer())}}).\n"),
+    CheckF("-record(r,{f = 3 :: {A :: (B :: integer())}}).\n"),
+    CheckF("-type t() :: #r{f :: A :: (B :: integer())}.\n"),
+    CheckF("-spec t(X) -> X when X :: Y :: (Z :: #r{}).\n"),
+
+    CheckF("f() ->\n    << \n      (catch <<1:4>>) ||\n"
+           "          A <- []\n    >>.\n"),
+    CheckF("f() ->\n    [ \n     (catch foo) ||\n         A <- []\n    ].\n"),
+    CheckF("f() when erlang:float(3.0) ->\n    true.\n"),
+
+    Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
+    Check("5 #r4.f1"),
+    Check("17 #{[] => true}"),
+    Check("0 #r1{f2 = foo}"),
+    Check("fun foo:bar/17 #{}"),
+    Check("fun a/2 #{}"),
+
+    Check("try foo:bar() of\n"
+          "    a ->\n"
+          "        b\n"
+          "after\n"
+          "    d\n"
+          "end"),
+
+    Check("try foo:bar() of\n"
+          "    a ->\n"
+          "        b\n"
+          "catch\n"
+          "    _:_ ->\n"
+          "        c\n"
+          "end"),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1297,6 +1461,9 @@ pp_expr(List, Options) when is_list(List) ->
         true ->
             not_ok
     end.
+
+flat_parse_and_pp_expr(String, Indent, Options) ->
+    lists:flatten(parse_and_pp_expr(String, Indent, Options)).
 
 parse_and_pp_expr(String, Indent, Options) ->
     StringDot = lists:flatten(String) ++ ".",

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,9 +34,10 @@
 
 -include("mnesia.hrl").
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.
 
@@ -66,7 +67,7 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
     EtsOpts = proplists:get_value(ets, StorageProps, []),
     Args = [{keypos, 2}, public, named_table, Type | EtsOpts],
     case Reason of
-	{dumper, _} -> %% Resources already allocated
+	{dumper, DR} when is_atom(DR) -> %% Resources already allocated
 	    ignore;
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),
@@ -90,8 +91,8 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == ram_copies ->
     EtsOpts = proplists:get_value(ets, StorageProps, []),
     Args = [{keypos, 2}, public, named_table, Type | EtsOpts],
     case Reason of
-	{dumper, _} -> %% Resources allready allocated
-	    ignore;
+	{dumper, DR} when is_atom(DR) ->
+            ignore; %% Resources already allocated
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),
 	    Fname = mnesia_lib:tab2dcd(Tab),
@@ -130,7 +131,7 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_only_copies -
 	    {repair, mnesia_monitor:get_env(auto_repair)} 
 	    | DetsOpts],
     case Reason of
-	{dumper, _} ->
+	{dumper, DR} when is_atom(DR) ->
 	    mnesia_index:init_index(Tab, Storage),
 	    snmpify(Tab, Storage),
 	    set({Tab, load_node}, node()),
@@ -535,7 +536,7 @@ init_table(Tab, _, Fun, _DetsInfo,_) ->
     try
 	true = ets:init_table(Tab, Fun),
 	ok
-    catch _:Else -> {Else, erlang:get_stacktrace()}
+    catch _:Else:Stacktrace -> {Else, Stacktrace}
     end.
 
 
@@ -653,8 +654,8 @@ down(Tab, Storage) ->
 	    mnesia_lib:dets_sync_close(Tab),
 	    file:delete(TmpFile);
         {ext, Alias, Mod} ->
-	    catch Mod:close_table(Alias, Tab),
-            catch Mod:delete_table(Alias, Tab)
+	    ?CATCHU(Mod:close_table(Alias, Tab)),
+            ?CATCHU(Mod:delete_table(Alias, Tab))
     end,
     mnesia_checkpoint:tm_del_copy(Tab, node()),
     mnesia_controller:sync_del_table_copy_whereabouts(Tab, node()),
@@ -777,9 +778,9 @@ do_send_table(Pid, Tab, Storage, RemoteS) ->
         throw:receiver_died ->
             cleanup_tab_copier(Pid, Storage, Tab),
             ok;
-        error:Reason -> %% Prepare failed
+        error:Reason:Stacktrace -> %% Prepare failed
             cleanup_tab_copier(Pid, Storage, Tab),
-            {error, {tab_copier, Tab, {Reason, erlang:get_stacktrace()}}}
+            {error, {tab_copier, Tab, {Reason, Stacktrace}}}
     after
         unlink(whereis(mnesia_tm))
     end.

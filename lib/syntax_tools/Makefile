@@ -91,3 +91,5 @@ tar: $(APP_TAR_FILE)
 
 $(APP_TAR_FILE): $(APP_DIR)
 	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
+
+include $(ERL_TOP)/make/app_targets.mk

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,23 +28,23 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>supervisor</module>
+  <module since="">supervisor</module>
   <modulesummary>Generic supervisor behavior.</modulesummary>
   <description>
     <p>This behavior module provides a supervisor, a process that
       supervises other processes called child processes. A child
       process can either be another supervisor or a worker process.
       Worker processes are normally implemented using one of the
-      <seealso marker="gen_event"><c>gen_event</c></seealso>,
-      <seealso marker="gen_server"><c>gen_server</c></seealso>, or
-      <seealso marker="gen_statem"><c>gen_statem</c></seealso>
+      <seeerl marker="gen_event"><c>gen_event</c></seeerl>,
+      <seeerl marker="gen_server"><c>gen_server</c></seeerl>, or
+      <seeerl marker="gen_statem"><c>gen_statem</c></seeerl>
       behaviors. A supervisor implemented using this module has
       a standard set of interface functions and include functionality
       for tracing and error reporting. Supervisors are used to build a
       hierarchical process structure called a supervision tree, a
       nice way to structure a fault-tolerant application. For more
-      information, see <seealso marker="doc/design_principles:sup_princ">
-      Supervisor Behaviour</seealso> in OTP Design Principles.</p>
+      information, see <seeguide marker="system/design_principles:sup_princ">
+      Supervisor Behaviour</seeguide> in OTP Design Principles.</p>
 
     <p>A supervisor expects the definition of which child processes to
       supervise to be specified in a callback module exporting a
@@ -105,13 +105,13 @@ sup_flags() = #{strategy => strategy(),         % optional
           instances of the same process type, that is, running the same
           code.</p>
         <p>Functions
-          <seealso marker="#delete_child/2"><c>delete_child/2</c></seealso> and
-          <seealso marker="#restart_child/2"><c>restart_child/2</c></seealso>
+          <seemfa marker="#delete_child/2"><c>delete_child/2</c></seemfa> and
+          <seemfa marker="#restart_child/2"><c>restart_child/2</c></seemfa>
           are invalid for <c>simple_one_for_one</c> supervisors and return
           <c>{error,simple_one_for_one}</c> if the specified supervisor
           uses this restart strategy.</p>
-        <p>Function <seealso marker="#terminate_child/2">
-          <c>terminate_child/2</c></seealso> can be used for
+        <p>Function <seemfa marker="#terminate_child/2">
+          <c>terminate_child/2</c></seemfa> can be used for
           children under <c>simple_one_for_one</c> supervisors by
           specifying the child's <c>pid()</c> as the second argument. If
           instead the child specification identifier is used,
@@ -149,7 +149,7 @@ child_spec() = #{id => child_id(),       % mandatory
                  modules => modules()}   % optional</pre>
 
     <p>The old tuple format is kept for backwards compatibility,
-      see <seealso marker="#type-child_spec">child_spec()</seealso>,
+      see <seetype marker="#child_spec">child_spec()</seetype>,
       but the map is preferred.</p>
 
     <list type="bulleted">
@@ -208,8 +208,16 @@ child_spec() = #{id => child_id(),       % mandatory
           the child process is unconditionally terminated using
           <c>exit(Child,kill)</c>.</p>
         <p>If the child process is another supervisor, the shutdown time
-          is to be set to <c>infinity</c> to give the subtree ample
-          time to shut down. It is also allowed to set it to <c>infinity</c>,
+          must be set to <c>infinity</c> to give the subtree ample
+          time to shut down.</p>
+	<warning>
+	  <p>Setting the shutdown time to anything other
+	    than <c>infinity</c> for a child of type <c>supervisor</c>
+	    can cause a race condition where the child in question
+	    unlinks its own children, but fails to terminate them
+	    before it is killed.</p>
+	</warning>
+	<p>It is also allowed to set it to <c>infinity</c>,
           if the child process is a worker.</p>
         <warning>
           <p>Be careful when setting the shutdown time to
@@ -243,8 +251,8 @@ child_spec() = #{id => child_id(),       % mandatory
           process is an event manager (<c>gen_event</c>) with a
           dynamic set of callback modules, value <c>dynamic</c>
           must be used. For more information about release handling, see
-          <seealso marker="doc/design_principles:release_handling">
-          Release Handling</seealso>
+          <seeguide marker="system/design_principles:release_handling">
+          Release Handling</seeguide>
 	  in OTP Design Principles.</p>
         <p>The <c>modules</c> key is optional. If it is not specified, it
           defaults to <c>[M]</c>, where <c>M</c> comes from the
@@ -270,7 +278,7 @@ child_spec() = #{id => child_id(),       % mandatory
       <name name="child_spec"/>
       <desc><p>The tuple format is kept for backward compatibility
         only. A map is preferred; see more details
-        <seealso marker="#child_spec">above</seealso>.</p></desc>
+        <seeerl marker="#child_spec">above</seeerl>.</p></desc>
     </datatype>
     <datatype>
       <name name="mfargs"/>
@@ -292,13 +300,25 @@ child_spec() = #{id => child_id(),       % mandatory
       <name name="shutdown"/>
     </datatype>
     <datatype>
+      <name name="startchild_err"/>
+    </datatype>
+    <datatype>
+      <name name="startchild_ret"/>
+    </datatype>
+    <datatype>
+      <name name="startlink_err"/>
+    </datatype>
+    <datatype>
+      <name name="startlink_ret"/>
+    </datatype>
+    <datatype>
       <name name="strategy"/>
     </datatype>
     <datatype>
       <name name="sup_flags"/>
       <desc><p>The tuple format is kept for backward compatibility
         only. A map is preferred; see more details
-        <seealso marker="#sup_flags">above</seealso>.</p></desc>
+        <seeerl marker="#sup_flags">above</seeerl>.</p></desc>
     </datatype>
     <datatype>
       <name name="sup_ref"/>
@@ -310,7 +330,7 @@ child_spec() = #{id => child_id(),       % mandatory
 
   <funcs>
     <func>
-      <name name="check_childspecs" arity="1"/>
+      <name name="check_childspecs" arity="1" since=""/>
       <fsummary>Check if children specifications are syntactically correct.
       </fsummary>
       <desc>
@@ -321,12 +341,12 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="count_children" arity="1"/>
+      <name name="count_children" arity="1" since="OTP R13B04"/>
       <fsummary>Return counts for the number of child specifications,
         active children, supervisors, and workers.</fsummary>
       <desc>
-        <p>Returns a property list (see <seealso marker="proplists">
-          <c>proplists</c></seealso>) containing the
+        <p>Returns a property list (see <seeerl marker="proplists">
+          <c>proplists</c></seeerl>) containing the
           counts for each of the following elements of the supervisor's
           child specifications and managed processes:</p>
         <list type="bulleted">
@@ -353,21 +373,21 @@ child_spec() = #{id => child_id(),       % mandatory
           </item>
         </list>
         <p>For a description of <c><anno>SupRef</anno></c>, see
-          <seealso marker="#SupRef"><c>start_child/2</c></seealso>.</p>
+          <seeerl marker="#SupRef"><c>start_child/2</c></seeerl>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="delete_child" arity="2"/>
+      <name name="delete_child" arity="2" since=""/>
       <fsummary>Delete a child specification from a supervisor.</fsummary>
       <desc>
         <p>Tells supervisor <c><anno>SupRef</anno></c> to delete the child
           specification identified by <c><anno>Id</anno></c>. The corresponding
           child process must not be running. Use
-          <seealso marker="#terminate_child/2">
-          <c>terminate_child/2</c></seealso> to terminate it.</p>
+          <seemfa marker="#terminate_child/2">
+          <c>terminate_child/2</c></seemfa> to terminate it.</p>
         <p>For a description of <c><anno>SupRef</anno></c>, see
-          <seealso marker="#SupRef"><c>start_child/2</c></seealso>.</p>
+          <seeerl marker="#SupRef"><c>start_child/2</c></seeerl>.</p>
         <p>If successful, the function returns <c>ok</c>. If the child
           specification identified by <c><anno>Id</anno></c> exists but the
           corresponding child process is running or is about to be restarted,
@@ -379,7 +399,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="get_childspec" arity="2"/>
+      <name name="get_childspec" arity="2" since="OTP 18.0"/>
       <fsummary>Return the child specification map for the specified
         child.</fsummary>
       <desc>
@@ -387,12 +407,12 @@ child_spec() = #{id => child_id(),       % mandatory
           by <c>Id</c> under supervisor <c>SupRef</c>. The returned
           map contains all keys, both mandatory and optional.</p>
         <p>For a description of <c><anno>SupRef</anno></c>, see
-          <seealso marker="#SupRef"><c>start_child/2</c></seealso>.</p>
+          <seeerl marker="#SupRef"><c>start_child/2</c></seeerl>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="restart_child" arity="2"/>
+      <name name="restart_child" arity="2" since=""/>
       <fsummary>Restart a terminated child process belonging to a supervisor.
       </fsummary>
       <desc>
@@ -405,7 +425,7 @@ child_spec() = #{id => child_id(),       % mandatory
           is automatically deleted when the child terminates; thus,
           it is not possible to restart such children.</p>
         <p>For a description of <c><anno>SupRef</anno></c>, see
-          <seealso marker="#SupRef"><c>start_child/2</c></seealso>.</p>
+          <seeerl marker="#SupRef"><c>start_child/2</c></seeerl>.</p>
         <p>If the child specification identified
           by <c><anno>Id</anno></c> does not exist, the function
           returns <c>{error,not_found}</c>. If the child specification
@@ -428,7 +448,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="start_child" arity="2"/>
+      <name name="start_child" arity="2" since=""/>
       <fsummary>Dynamically add a child process to a supervisor.</fsummary>
       <type name="startchild_ret"/>
       <type name="startchild_err"/>
@@ -495,8 +515,8 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="start_link" arity="2"/>
-      <name name="start_link" arity="3"/>
+      <name name="start_link" arity="2" since=""/>
+      <name name="start_link" arity="3" since=""/>
       <fsummary>Create a supervisor process.</fsummary>
       <type name="startlink_ret"/>
       <type name="startlink_err"/>
@@ -520,8 +540,8 @@ child_spec() = #{id => child_id(),       % mandatory
           <item>
             <p>If <c><anno>SupName</anno>={global,Name}</c>, the supervisor is
               registered globally as <c>Name</c> using
-              <seealso marker="kernel:global#register_name/2">
-              <c>global:register_name/2</c></seealso>.</p>
+              <seemfa marker="kernel:global#register_name/2">
+              <c>global:register_name/2</c></seemfa>.</p>
           </item>
           <item>
             <p>If
@@ -531,7 +551,7 @@ child_spec() = #{id => child_id(),       % mandatory
               export the functions <c>register_name/2</c>,
               <c>unregister_name/1</c>, and <c>send/2</c>, which must behave
               like the corresponding functions in
-              <seealso marker="kernel:global"><c>global</c></seealso>. Thus,
+              <seeerl marker="kernel:global"><c>global</c></seeerl>. Thus,
               <c>{via,global,<anno>Name</anno>}</c> is a valid reference.</p>
           </item>
         </list>
@@ -576,7 +596,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="terminate_child" arity="2"/>
+      <name name="terminate_child" arity="2" since=""/>
       <fsummary>Terminate a child process belonging to a supervisor.</fsummary>
       <desc>
         <p>Tells supervisor <c><anno>SupRef</anno></c> to terminate the
@@ -588,9 +608,9 @@ child_spec() = #{id => child_id(),       % mandatory
           kept by the supervisor. The child process can later be
           restarted by the supervisor. The child process can also be
           restarted explicitly by calling
-          <seealso marker="#restart_child/2"><c>restart_child/2</c></seealso>.
+          <seemfa marker="#restart_child/2"><c>restart_child/2</c></seemfa>.
           Use
-          <seealso marker="#delete_child/2"><c>delete_child/2</c></seealso>
+          <seemfa marker="#delete_child/2"><c>delete_child/2</c></seemfa>
           to remove the child specification.</p>
         <p>If the child is temporary, the child specification is deleted as
           soon as the process terminates. This means
@@ -608,12 +628,12 @@ child_spec() = #{id => child_id(),       % mandatory
           no child specification with the specified <c><anno>Id</anno></c>, the
           function returns <c>{error,not_found}</c>.</p>
         <p>For a description of <c><anno>SupRef</anno></c>, see
-          <seealso marker="#SupRef"><c>start_child/2</c></seealso>.</p>
+          <seeerl marker="#SupRef"><c>start_child/2</c></seeerl>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="which_children" arity="1"/>
+      <name name="which_children" arity="1" since=""/>
       <fsummary>Return information about all children specifications and
         child processes belonging to a supervisor.</fsummary>
       <desc>
@@ -624,7 +644,7 @@ child_spec() = #{id => child_id(),       % mandatory
           childrens under low memory conditions can cause an
           out of memory exception.</p>
         <p>For a description of <c><anno>SupRef</anno></c>, see
-          <seealso marker="#SupRef"><c>start_child/2</c></seealso>.</p>
+          <seeerl marker="#SupRef"><c>start_child/2</c></seeerl>.</p>
         <p>The following information is given for each child
           specification/process:</p>
         <list type="bulleted">
@@ -650,27 +670,28 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following function must be exported from a
-      <c>supervisor</c> callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>The following function must be exported from a
+        <c>supervisor</c> callback module.</p>
+    </fsdescription>
     <func>
-      <name>Module:init(Args) -> Result</name>
+      <name since="">Module:init(Args) -> Result</name>
       <fsummary>Return a supervisor specification.</fsummary>
       <type>
         <v>Args = term()</v>
         <v>Result = {ok,{SupFlags,[ChildSpec]}} | ignore</v>
         <v>&nbsp;SupFlags =
-          <seealso marker="#type-sup_flags"><c>sup_flags()</c></seealso></v>
+          <seetype marker="#sup_flags"><c>sup_flags()</c></seetype></v>
         <v>&nbsp;ChildSpec =
-          <seealso marker="#type-child_spec"><c>child_spec()</c></seealso></v>
+          <seetype marker="#child_spec"><c>child_spec()</c></seetype></v>
       </type>
       <desc>
         <p>Whenever a supervisor is started using
-          <seealso marker="#start_link/2"><c>start_link/2,3</c></seealso>,
+          <seemfa marker="#start_link/2"><c>start_link/2,3</c></seemfa>,
           this function is called by
           the new process to find out about restart strategy, maximum
           restart intensity, and child specifications.</p>
@@ -681,8 +702,8 @@ child_spec() = #{id => child_id(),       % mandatory
           supervisor. <c>[ChildSpec]</c> is a list of valid child
           specifications defining which child processes the supervisor
           must start and monitor. See the discussion in section
-          <seealso marker="#supervision_princ">
-          <c>Supervision Principles</c></seealso> earlier.</p>
+          <seeerl marker="#supervision_princ">
+          <c>Supervision Principles</c></seeerl> earlier.</p>
         <p>Notice that when the restart strategy is
           <c>simple_one_for_one</c>, the list of child specifications
           must be a list with one child specification only.
@@ -690,24 +711,24 @@ child_spec() = #{id => child_id(),       % mandatory
           No child process is then started
           during the initialization phase, but all children are assumed
           to be started dynamically using
-          <seealso marker="#start_child/2"><c>start_child/2</c></seealso>.</p>
+          <seemfa marker="#start_child/2"><c>start_child/2</c></seemfa>.</p>
         <p>The function can also return <c>ignore</c>.</p>
         <p>Notice that this function can also be called as a part of a code
           upgrade procedure. Therefore, the function is not to have any side
           effects. For more information about code upgrade of supervisors, see
           section
-          <seealso marker="doc/design_principles:appup_cookbook#sup">Changing
-          a Supervisor</seealso> in OTP Design Principles.</p>
+          <seeguide marker="system/design_principles:appup_cookbook#sup">Changing
+          a Supervisor</seeguide> in OTP Design Principles.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="gen_event"><c>gen_event(3)</c></seealso>, 
-      <seealso marker="gen_statem"><c>gen_statem(3)</c></seealso>,
-      <seealso marker="gen_server"><c>gen_server(3)</c></seealso>, 
-      <seealso marker="sys"><c>sys(3)</c></seealso></p>
+    <p><seeerl marker="gen_event"><c>gen_event(3)</c></seeerl>, 
+      <seeerl marker="gen_statem"><c>gen_statem(3)</c></seeerl>,
+      <seeerl marker="gen_server"><c>gen_server(3)</c></seeerl>, 
+      <seeerl marker="sys"><c>sys(3)</c></seeerl></p>
   </section>
 </erlref>
 

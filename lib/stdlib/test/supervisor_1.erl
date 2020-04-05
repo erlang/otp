@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,6 +42,8 @@ start_child(error) ->
 	set -> gen_server:start_link(?MODULE, error, [])
     end;
 
+start_child({return, Term}) ->
+    Term;
 
 start_child(Extra) ->
     {ok, Pid} = gen_server:start_link(?MODULE, normal, []),

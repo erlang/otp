@@ -53,8 +53,6 @@
 #include "hipe_literals.h"
 #endif
 
-#define BeamOpCode(Op)	((Uint)BeamOp(Op))
-
 
 int term_to_Sint32(Eterm term, Sint *sp)
 {
@@ -615,7 +613,7 @@ static ErtsCodeInfo* hipe_find_emu_address(Eterm mod, Eterm name, unsigned int a
     n = code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
 	ErtsCodeInfo *ci = code_hdr->functions[i];
-	ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
+	ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 	if (ci->mfa.function == name && ci->mfa.arity == arity)
 	    return ci;
     }
@@ -1000,7 +998,7 @@ BIF_RETTYPE hipe_bifs_set_native_address_in_fe_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
 
     fe->native_address = native_address;
-    if (erts_smp_refc_dectest(&fe->refc, 0) == 0)
+    if (erts_refc_dectest(&fe->refc, 0) == 0)
 	erts_erase_fun_entry(fe);
     BIF_RET(am_true);
 }
@@ -1048,7 +1046,7 @@ static struct {
      * they create a new stub for the mfa, which forces locking.
      * XXX: Redesign apply et al to avoid those updates.
      */
-    erts_smp_rwmtx_t lock;
+    erts_rwmtx_t lock;
 } hipe_mfa_info_table;
 
 Hash mod2mfa_tab; /* map from module atom to list of hipe_mfa_info */
@@ -1114,7 +1112,7 @@ static struct hipe_mfa_info* mod2mfa_put(struct hipe_mfa_info* mfa)
 struct hipe_ref {
     struct hipe_ref_head head;    /* list of refs to same calleee */
     void *address;
-#if defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
     void *trampoline;
 #endif
     unsigned int flags;
@@ -1129,28 +1127,28 @@ struct hipe_ref {
 
 static inline void hipe_mfa_info_table_init_lock(void)
 {
-    erts_smp_rwmtx_init(&hipe_mfa_info_table.lock, "hipe_mfait_lock", NIL,
+    erts_rwmtx_init(&hipe_mfa_info_table.lock, "hipe_mfait_lock", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 }
 
 static inline void hipe_mfa_info_table_rlock(void)
 {
-    erts_smp_rwmtx_rlock(&hipe_mfa_info_table.lock);
+    erts_rwmtx_rlock(&hipe_mfa_info_table.lock);
 }
 
 static inline void hipe_mfa_info_table_runlock(void)
 {
-    erts_smp_rwmtx_runlock(&hipe_mfa_info_table.lock);
+    erts_rwmtx_runlock(&hipe_mfa_info_table.lock);
 }
 
 static inline void hipe_mfa_info_table_rwlock(void)
 {
-    erts_smp_rwmtx_rwlock(&hipe_mfa_info_table.lock);
+    erts_rwmtx_rwlock(&hipe_mfa_info_table.lock);
 }
 
 static inline void hipe_mfa_info_table_rwunlock(void)
 {
-    erts_smp_rwmtx_rwunlock(&hipe_mfa_info_table.lock);
+    erts_rwmtx_rwunlock(&hipe_mfa_info_table.lock);
 }
 
 static ERTS_INLINE
@@ -1545,7 +1543,7 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 
     ref = erts_alloc(ERTS_ALC_T_HIPE_LL, sizeof(struct hipe_ref));
     ref->address = address;
-#if defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
     ref->trampoline = trampoline;
 #endif
     ref->flags = flags;
@@ -1636,7 +1634,7 @@ void hipe_purge_refs(struct hipe_ref* first_ref, Eterm caller_module,
 {
     struct hipe_ref* ref = first_ref;
 
-    ERTS_SMP_LC_ASSERT(is_blocking == erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(is_blocking == erts_thr_progress_is_blocking());
 
     while (ref) {
         struct hipe_ref* free_ref = ref;
@@ -1682,9 +1680,9 @@ void hipe_purge_sdescs(struct hipe_sdesc* first_sdesc, Eterm module,
 {
     struct hipe_sdesc* sdesc = first_sdesc;
 
-    ERTS_SMP_LC_ASSERT(is_blocking == erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(is_blocking == erts_thr_progress_is_blocking());
 
-    ERTS_SMP_LC_ASSERT(is_blocking); /*XXX Fix safe sdesc destruction */
+    ERTS_LC_ASSERT(is_blocking); /*XXX Fix safe sdesc destruction */
 
     while (sdesc) {
         struct hipe_sdesc* free_sdesc = sdesc;
@@ -1702,7 +1700,7 @@ void hipe_purge_module(Module* modp, int is_blocking)
 {
     ASSERT(modp);
 
-    ERTS_SMP_LC_ASSERT(is_blocking == erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(is_blocking == erts_thr_progress_is_blocking());
 
     DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "hipe_purge_module");
 
@@ -1711,7 +1709,7 @@ void hipe_purge_module(Module* modp, int is_blocking)
          * Remove all hipe_ref's (external calls) from the old module instance
          */
         if (modp->old.hipe_code->first_hipe_ref) {
-            ERTS_SMP_LC_ASSERT(is_blocking);
+            ERTS_LC_ASSERT(is_blocking);
 
             hipe_purge_refs(modp->old.hipe_code->first_hipe_ref,
                             make_atom(modp->module), is_blocking);
@@ -1722,7 +1720,7 @@ void hipe_purge_module(Module* modp, int is_blocking)
          * Remove all hipe_sdesc's for the old module instance
          */
         if (modp->old.hipe_code->first_hipe_sdesc) {
-            ERTS_SMP_LC_ASSERT(is_blocking);
+            ERTS_LC_ASSERT(is_blocking);
 
             hipe_purge_sdescs(modp->old.hipe_code->first_hipe_sdesc,
                              make_atom(modp->module), is_blocking);
@@ -1773,8 +1771,8 @@ void hipe_redirect_to_module(Module* modp)
     struct hipe_mfa_info *p;
     struct hipe_ref_head* refh;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking() ||
-                       erts_is_multi_scheduling_blocked());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking() ||
+                   erts_is_multi_scheduling_blocked());
 
     for (p = mod2mfa_get(modp); p; p = p->next_in_mod) {
         if (p->new_address) {
@@ -1821,7 +1819,7 @@ void hipe_redirect_to_module(Module* modp)
 	    if (ref->flags & REF_FLAG_IS_LOAD_MFA)
 		res = hipe_patch_insn(ref->address, (Uint)p->remote_address, am_load_mfa);
 	    else {
-#if defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)
                 void* trampoline = ref->trampoline;
 #else
                 void* trampoline = NULL;

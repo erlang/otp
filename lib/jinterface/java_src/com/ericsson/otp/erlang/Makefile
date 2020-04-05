@@ -3,7 +3,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2000-2016. All Rights Reserved.
+# Copyright Ericsson AB 2000-2018. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,8 +67,11 @@ JARFILE= OtpErlang.jar
 # ----------------------------------------------------
 # Programs and Flags
 # ----------------------------------------------------
-
-JAR= jar
+ifeq ($(TARGET),win32)
+    JAR=jar.exe
+else
+    JAR=jar
+endif
 
 CLASSPATH = $(JAVA_SRC_ROOT)
 

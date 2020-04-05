@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,8 @@ start_link() ->
 init([]) ->    
     PEMCache = pem_cache_child_spec(),
     SessionCertManager = session_and_cert_manager_child_spec(),
-    {ok, {{rest_for_one, 10, 3600}, [PEMCache, SessionCertManager]}}.
+    TicketStore = ticket_store_spec(),
+    {ok, {{rest_for_one, 10, 3600}, [PEMCache, SessionCertManager, TicketStore]}}.
 
 manager_opts() ->
     CbOpts = case application:get_env(ssl, session_cb) of
@@ -86,10 +87,39 @@ session_and_cert_manager_child_spec() ->
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
+ticket_store_spec() ->
+    Name = tls_client_ticket_store,
+    Size = client_session_ticket_store_size(),
+    Lifetime = client_session_ticket_lifetime(),
+    StartFunc = {tls_client_ticket_store, start_link, [Size,Lifetime]},
+    Restart = permanent,
+    Shutdown = 4000,
+    Modules = [tls_client_ticket_store],
+    Type = worker,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
 session_cb_init_args() ->
     case application:get_env(ssl, session_cb_init_args) of
 	{ok, Args} when is_list(Args) ->
 	    Args;
 	_  ->
 	    []
+    end.
+
+client_session_ticket_store_size() ->
+    case application:get_env(ssl, client_session_ticket_store_size) of
+	{ok, Size} when is_integer(Size) andalso
+                        Size > 0 ->
+	    Size;
+	_  ->
+	    1000
+    end.
+
+client_session_ticket_lifetime() ->
+    case application:get_env(ssl, client_session_ticket_lifetime) of
+	{ok, Size} when is_integer(Size) andalso
+                        Size > 0 ->
+	    Size;
+	_  ->
+	    7200
     end.

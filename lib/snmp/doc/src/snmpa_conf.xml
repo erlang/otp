@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_conf.xml</file>
   </header>
-  <module>snmpa_conf</module>
+  <module since="">snmpa_conf</module>
   <modulesummary>Utility functions for handling the agent config files.</modulesummary>
   <description>
     <p>The module <c>snmpa_conf</c> contains various utility functions to 
@@ -82,8 +82,8 @@ word() = 0..65535
     ]]></code>
     <p>For <c>inet:ip4_address()</c>, <c>inet:ip6_address()</c>
     and <c>inet:port_number()</c>, see also
-    <seealso marker="kernel:inet#type-ip_address">
-    <c>inet:ip_address()</c></seealso></p>
+    <seetype marker="kernel:inet#ip_address">
+    <c>inet:ip_address()</c></seetype></p>
 
     <marker id="agent_entry"></marker>
   </section>
@@ -92,7 +92,7 @@ word() = 0..65535
 
   <funcs>
     <func>
-      <name>agent_entry(Tag, Val) -> agent_entry()</name>
+      <name since="">agent_entry(Tag, Val) -> agent_entry()</name>
       <fsummary>Create an agent entry</fsummary>
       <type>
         <v>Tag = intAgentTransports | intAgentUDPPort | intAgentMaxPacketSize | snmpEngineMaxMessageSize | snmpEngineID</v>
@@ -103,7 +103,7 @@ word() = 0..65535
         <p>Create an entry for the agent config file, <c>agent.conf</c>. </p>
         <p>The type of <c>Val</c> depends on the value of <c>Tag</c>, 
           see 
-          <seealso marker="snmp_agent_config_files#agent_information">Agent Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
           for more info. </p>
 
         <marker id="write_agent_config"></marker>
@@ -111,8 +111,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_agent_config(Dir, Conf) -> ok</name>
-      <name>write_agent_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_agent_config(Dir, Conf) -> ok</name>
+      <name since="">write_agent_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -126,7 +126,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#agent_information">Agent Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
           for more info. </p>
 
         <marker id="append_agent_config"></marker>
@@ -134,7 +134,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_agent_config(Dir, Conf) -> ok</name>
+      <name since="">append_agent_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -145,7 +145,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#agent_information">Agent Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
           for more info. </p>
 
         <marker id="read_agent_config"></marker>
@@ -153,7 +153,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_agent_config(Dir) -> Conf</name>
+      <name since="">read_agent_config(Dir) -> Conf</name>
       <fsummary>Read the agent config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -164,7 +164,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#agent_information">Agent Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
           for more info. </p>
 
         <marker id="standard_entry"></marker>
@@ -172,7 +172,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>standard_entry(Tag, Val) -> standard_entry()</name>
+      <name since="">standard_entry(Tag, Val) -> standard_entry()</name>
       <fsummary>Create an standard entry</fsummary>
       <type>
         <v>Tag = sysDescr | sysObjectID | sysContact | sysName | sysLocation | sysServices | snmpEnableAuthenTraps</v>
@@ -184,7 +184,7 @@ word() = 0..65535
           <c>standard.conf</c>. </p>
         <p>The type of <c>Val</c> depends on the value of <c>Tag</c>, 
           see 
-          <seealso marker="snmp_agent_config_files#system_information">System Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
           for more info. </p>
 
         <marker id="write_standard_config"></marker>
@@ -192,8 +192,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_standard_config(Dir, Conf) -> ok</name>
-      <name>write_standard_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_standard_config(Dir, Conf) -> ok</name>
+      <name since="">write_standard_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent standard config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -208,7 +208,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#system_information">System Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
           for more info. </p>
 
         <marker id="append_standard_config"></marker>
@@ -216,7 +216,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_standard_config(Dir, Conf) -> ok</name>
+      <name since="">append_standard_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent standard config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -228,7 +228,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#system_information">System Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
           for more info. </p>
 
         <marker id="read_standard_config"></marker>
@@ -236,7 +236,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_standard_config(Dir) -> Conf</name>
+      <name since="">read_standard_config(Dir) -> Conf</name>
       <fsummary>Read the agent standard config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -247,7 +247,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#system_information">System Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
           for more info. </p>
 
         <marker id="context_entry"></marker>
@@ -255,7 +255,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>context_entry(Context) -> context_entry()</name>
+      <name since="">context_entry(Context) -> context_entry()</name>
       <fsummary>Create an context entry</fsummary>
       <type>
         <v>Context = string()</v>
@@ -265,7 +265,7 @@ word() = 0..65535
         <p>Create an entry for the agent context config file, 
           <c>context.conf</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#context">Contexts</seealso> 
+          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
           for more info. </p>
 
         <marker id="write_context_config"></marker>
@@ -273,8 +273,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_context_config(Dir, Conf) -> ok</name>
-      <name>write_context_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_context_config(Dir, Conf) -> ok</name>
+      <name since="">write_context_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent context(s) to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -289,7 +289,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#context">Contexts</seealso> 
+          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
           for more info. </p>
 
         <marker id="append_context_config"></marker>
@@ -297,7 +297,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_context_config(Dir, Conf) -> ok</name>
+      <name since="">append_context_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent context(s) to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -309,7 +309,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#context">Contexts</seealso> 
+          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
           for more info. </p>
 
         <marker id="read_context_config"></marker>
@@ -317,7 +317,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_context_config(Dir) -> Conf</name>
+      <name since="">read_context_config(Dir) -> Conf</name>
       <fsummary>Read the agent context config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -328,7 +328,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#context">Contexts</seealso> 
+          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
           for more info. </p>
 
         <marker id="community_entry"></marker>
@@ -336,8 +336,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>community_entry(CommunityIndex) -> community_entry()</name>
-      <name>community_entry(CommunityIndex, CommunityName, SecName, ContextName, TransportTag) -> community_entry()</name>
+      <name since="">community_entry(CommunityIndex) -> community_entry()</name>
+      <name since="">community_entry(CommunityIndex, CommunityName, SecName, ContextName, TransportTag) -> community_entry()</name>
       <fsummary>Create an community entry</fsummary>
       <type>
         <v>CommunityIndex = string()</v>
@@ -356,7 +356,7 @@ word() = 0..65535
         <p><c>community_entry("all-rights")</c> translates to the following 
           call: <c>community_entry(CommunityIndex, CommunityIndex, CommunityIndex, "", "")</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#community">Community</seealso> 
+          <seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
           for more info. </p>
 
         <marker id="write_community_config"></marker>
@@ -364,8 +364,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_community_config(Dir, Conf) -> ok</name>
-      <name>write_community_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_community_config(Dir, Conf) -> ok</name>
+      <name since="">write_community_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent community config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -380,7 +380,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#community">Community</seealso> 
+          <seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
           for more info. </p>
 
         <marker id="append_community_config"></marker>
@@ -388,7 +388,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_community_config(Dir, Conf) -> ok</name>
+      <name since="">append_community_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent community config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -400,7 +400,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#community">Community</seealso> 
+          <seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
           for more info. </p>
 
         <marker id="read_community_config"></marker>
@@ -408,7 +408,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_community_config(Dir) -> Conf</name>
+      <name since="">read_community_config(Dir) -> Conf</name>
       <fsummary>Read the agent community config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -419,7 +419,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#community">Communities</seealso> 
+          <seeguide marker="snmp_agent_config_files#community">Communities</seeguide> 
           for more info. </p>
 
         <marker id="target_addr_entry"></marker>
@@ -427,10 +427,10 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
+      <name since="">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -> target_addr_entry()</name>
+      <name since="OTP 17.3">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
+      <name since="">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
+      <name since="">target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
       <fsummary>Create an target_addr entry</fsummary>
       <type>
         <v>Name = string()</v>
@@ -456,7 +456,7 @@ word() = 0..65535
         <p><c>target_addr_entry/8</c> translates to the following call:
           <c>target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
           for more info. </p>
 
         <marker id="write_target_addr_config"></marker>
@@ -464,8 +464,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_target_addr_config(Dir, Conf) -> ok</name>
-      <name>write_target_addr_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_target_addr_config(Dir, Conf) -> ok</name>
+      <name since="">write_target_addr_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent target_addr config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -480,7 +480,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
           for more info. </p>
 
         <marker id="append_target_addr_config"></marker>
@@ -488,7 +488,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_target_addr_config(Dir, Conf) -> ok</name>
+      <name since="">append_target_addr_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent target_addr config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -500,7 +500,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
           for more info. </p>
 
         <marker id="read_target_addr_config"></marker>
@@ -508,7 +508,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_target_addr_config(Dir) -> Conf</name>
+      <name since="">read_target_addr_config(Dir) -> Conf</name>
       <fsummary>Read the agent target_addr config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -519,7 +519,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
           for more info. </p>
 
         <marker id="target_params_entry"></marker>
@@ -527,9 +527,9 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>target_params_entry(Name, Vsn) -> target_params_entry()</name>
-      <name>target_params_entry(Name, Vsn, SecName, SecLevel) -> target_params_entry()</name>
-      <name>target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) -> target_params_entry()</name>
+      <name since="">target_params_entry(Name, Vsn) -> target_params_entry()</name>
+      <name since="">target_params_entry(Name, Vsn, SecName, SecLevel) -> target_params_entry()</name>
+      <name since="">target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) -> target_params_entry()</name>
       <fsummary>Create an target_params entry</fsummary>
       <type>
         <v>Name = string()</v>
@@ -556,7 +556,7 @@ word() = 0..65535
           call: <c>target_params_entry(Name, MPModel, SecModel, SecName, SecLevel)</c> where <c>MPModel</c> and
           <c>SecModel</c> is mapped from <c>Vsn</c>, see above. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
           for more info. </p>
 
         <marker id="write_target_params_config"></marker>
@@ -564,8 +564,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_target_params_config(Dir, Conf) -> ok</name>
-      <name>write_target_params_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_target_params_config(Dir, Conf) -> ok</name>
+      <name since="">write_target_params_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent target_params config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -580,7 +580,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
           for more info. </p>
 
         <marker id="append_target_params_config"></marker>
@@ -588,7 +588,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_target_params_config(Dir, Conf) -> ok</name>
+      <name since="">append_target_params_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent target_params config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -600,7 +600,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
           for more info. </p>
 
         <marker id="read_target_params_config"></marker>
@@ -608,7 +608,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_target_params_config(Dir) -> Conf</name>
+      <name since="">read_target_params_config(Dir) -> Conf</name>
       <fsummary>Read the agent target_params config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -619,7 +619,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
           for more info. </p>
 
         <marker id="vacm_entry"></marker>
@@ -627,10 +627,10 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>vacm_s2g_entry(SecModel, SecName, GroupName) -> vacm_s2g_entry()</name>
-      <name>vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, ReadView, WriteView, NotifyView) -> vacm_acc_entry()</name>
-      <name>vacm_vtf_entry(ViewIndex, ViewSubtree) -> vacm_vtf_entry()</name>
-      <name>vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) -> vacm_vtf_entry()</name>
+      <name since="">vacm_s2g_entry(SecModel, SecName, GroupName) -> vacm_s2g_entry()</name>
+      <name since="">vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, ReadView, WriteView, NotifyView) -> vacm_acc_entry()</name>
+      <name since="">vacm_vtf_entry(ViewIndex, ViewSubtree) -> vacm_vtf_entry()</name>
+      <name since="">vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) -> vacm_vtf_entry()</name>
       <fsummary>Create an vacm entry</fsummary>
       <type>
         <v>SecModel = v1 | v2c | usm</v>
@@ -657,7 +657,7 @@ word() = 0..65535
         <p><c>vacm_vtf_entry/2</c> translates to the following call:
           <c>vacm_vtf_entry(ViewIndex, ViewSubtree, included, null)</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#vacm">MIB Views for VACM</seealso> 
+          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
           for more info. </p>
 
         <marker id="write_vacm_config"></marker>
@@ -665,8 +665,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_vacm_config(Dir, Conf) -> ok</name>
-      <name>write_vacm_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_vacm_config(Dir, Conf) -> ok</name>
+      <name since="">write_vacm_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent vacm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -682,7 +682,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#vacm">MIB Views for VACM</seealso> 
+          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
           for more info. </p>
 
         <marker id="append_vacm_config"></marker>
@@ -690,7 +690,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_vacm_config(Dir, Conf) -> ok</name>
+      <name since="">append_vacm_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent vacm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -702,7 +702,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#vacm">MIB Views for VACM</seealso> 
+          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
           for more info. </p>
 
         <marker id="read_vacm_config"></marker>
@@ -710,7 +710,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_vacm_config(Dir) -> Conf</name>
+      <name since="">read_vacm_config(Dir) -> Conf</name>
       <fsummary>Read the agent vacm config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -721,7 +721,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#vacm">MIB Views for VACM</seealso> 
+          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
           for more info. </p>
 
         <marker id="usm_entry"></marker>
@@ -729,8 +729,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>usm_entry(EngineId) -> usm_entry()</name>
-      <name>usm_entry(EngineID, UserName, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> usm_entry()</name>
+      <name since="">usm_entry(EngineId) -> usm_entry()</name>
+      <name since="">usm_entry(EngineID, UserName, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> usm_entry()</name>
       <fsummary>Create an usm entry</fsummary>
       <type>
         <v>EngineId = string()</v>
@@ -754,7 +754,7 @@ word() = 0..65535
         <p><c>usm_entry/1</c> translates to the following call:
           <c>usm_entry("initial", "initial", zeroDotZero, usmNoAuthProtocol, "", "", usmNoPrivProtocol, "", "", "", "", "")</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#usm">Security data for USM</seealso> 
+          <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
 
         <marker id="write_usm_config"></marker>
@@ -762,8 +762,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_usm_config(Dir, Conf) -> ok</name>
-      <name>write_usm_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_usm_config(Dir, Conf) -> ok</name>
+      <name since="">write_usm_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent usm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -778,7 +778,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#usm">Security data for USM</seealso> 
+          <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
 
         <marker id="append_usm_config"></marker>
@@ -786,7 +786,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_usm_config(Dir, Conf) -> ok</name>
+      <name since="">append_usm_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent usm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -798,14 +798,14 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#usm">Security data for USM</seealso> 
+          <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
         <marker id="read_usm_config"></marker>
       </desc>
     </func>
 
     <func>
-      <name>read_usm_config(Dir) -> Conf</name>
+      <name since="">read_usm_config(Dir) -> Conf</name>
       <fsummary>Read the agent usm config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -816,7 +816,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#usm">Security data for USM</seealso> 
+          <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
 
         <marker id="notify_entry"></marker>
@@ -824,7 +824,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>notify_entry(Name, Tag, Type) -> notify_entry()</name>
+      <name since="">notify_entry(Name, Tag, Type) -> notify_entry()</name>
       <fsummary>Create an notify entry</fsummary>
       <type>
         <v>Name = string()</v>
@@ -837,7 +837,7 @@ word() = 0..65535
           <c>notify.conf</c>. </p>
         <p><c>Name</c> must be a <em>non-empty</em> string. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#notify">Notify Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
           for more info. </p>
 
         <marker id="write_notify_config"></marker>
@@ -845,8 +845,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_notify_config(Dir, Conf) -> ok</name>
-      <name>write_notify_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_notify_config(Dir, Conf) -> ok</name>
+      <name since="">write_notify_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent notify config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -861,7 +861,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#notify">Notify Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
           for more info. </p>
 
         <marker id="append_notify_config"></marker>
@@ -869,7 +869,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_notify_config(Dir, Conf) -> ok</name>
+      <name since="">append_notify_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent notify config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -881,7 +881,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#notify">Notify Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
           for more info. </p>
 
         <marker id="read_notify_config"></marker>
@@ -889,7 +889,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_notify_config(Dir) -> Conf</name>
+      <name since="">read_notify_config(Dir) -> Conf</name>
       <fsummary>Read the agent notify config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -900,7 +900,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#notify">Notify Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
           for more info. </p>
         <marker id="end"></marker>
       </desc>

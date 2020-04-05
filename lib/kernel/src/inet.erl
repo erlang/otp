@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,10 +34,12 @@
 	 ip/1, stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
 	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
-	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1, ntoa/1]).
+	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1,
+         ntoa/1, ipv4_mapped_ipv6_address/1]).
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
 -export([udp_module/1, tcp_module/1, tcp_module/2, sctp_module/1]).
+-export([gen_tcp_module/1]).
 
 -export([i/0, i/1, i/2]).
 
@@ -72,13 +74,16 @@
 %% timer interface
 -export([start_timer/1, timeout/1, timeout/2, stop_timer/1]).
 
--export_type([address_family/0, hostent/0, hostname/0, ip4_address/0,
+-export_type([address_family/0, socket_protocol/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, port_number/0,
-	      local_address/0, socket_address/0, returned_non_ip_address/0,
-	      socket_setopt/0, socket_getopt/0,
+	      family_address/0, local_address/0,
+              socket_address/0, returned_non_ip_address/0,
+	      socket_setopt/0, socket_getopt/0, ancillary_data/0,
 	      posix/0, socket/0, stat_option/0]).
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
+
+-define(DEFAULT_KERNEL_INET_BACKEND, inet). % inet | socket
 
 %% Record Signature
 -define(RS(Record),
@@ -99,12 +104,30 @@
 			0..65535,0..65535,0..65535,0..65535}.
 -type ip_address() :: ip4_address() | ip6_address().
 -type port_number() :: 0..65535.
--type local_address() :: {local, File :: binary() | string()}.
+-type family_address() :: inet_address() | inet6_address() | local_address().
+-type inet_address() ::
+        {'inet', {ip4_address() | 'any' | 'loopback', port_number()}}.
+-type inet6_address() ::
+        {'inet6', {ip6_address() | 'any' | 'loopback', port_number()}}.
+-type local_address() :: {'local', File :: binary() | string()}.
 -type returned_non_ip_address() ::
-	{local, binary()} |
-	{unspec, <<>>} |
-	{undefined, any()}.
--type posix() :: exbadport | exbadseq | file:posix().
+	{'local', binary()} |
+	{'unspec', <<>>} |
+	{'undefined', any()}.
+-type posix() ::
+        'eaddrinuse' | 'eaddrnotavail' | 'eafnosupport' | 'ealready' |
+        'econnaborted' | 'econnrefused' | 'econnreset' |
+        'edestaddrreq' |
+        'ehostdown' | 'ehostunreach' |
+        'einprogress' | 'eisconn' |
+        'emsgsize' |
+        'enetdown' | 'enetunreach' |
+        'enopkg' | 'enoprotoopt' | 'enotconn' | 'enotty' | 'enotsock' |
+        'eproto' | 'eprotonosupport' | 'eprototype' |
+        'esocktnosupport' |
+        'etimedout' |
+        'ewouldblock' |
+        'exbadport' | 'exbadseq' | file:posix().
 -type socket() :: port().
 
 -type socket_setopt() ::
@@ -140,6 +163,15 @@
 		 'running' | 'multicast' | 'loopback']} |
       {'hwaddr', ether_address()}.
 
+-type getifaddrs_ifopts() ::
+        [Ifopt :: {flags, Flags :: [up | broadcast | loopback |
+                                    pointtopoint | running | multicast]} |
+                  {addr, Addr :: ip_address()} |
+                  {netmask, Netmask :: ip_address()} |
+                  {broadaddr, Broadaddr :: ip_address()} |
+                  {dstaddr, Dstaddr :: ip_address()} |
+                  {hwaddr, Hwaddr :: [byte()]}].
+
 -type address_family() :: 'inet' | 'inet6' | 'local'.
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
@@ -148,6 +180,9 @@
 -type stat_option() :: 
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
+
+-type ancillary_data() ::
+        [ {'tos', byte()} | {'tclass', byte()} | {'ttl', byte()} ].
 
 %%% ---------------------------------
 
@@ -176,6 +211,8 @@ close(Socket) ->
 		       returned_non_ip_address()} |
 		      {error, posix()}.
 
+peername({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket);
 peername(Socket) -> 
     prim_inet:peername(Socket).
 
@@ -218,6 +255,8 @@ peernames(Socket, Assoc) ->
 		       returned_non_ip_address()} |
 		      {error, posix()}.
 
+sockname({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket);
 sockname(Socket) -> 
     prim_inet:sockname(Socket).
 
@@ -258,6 +297,11 @@ socknames(Socket, Assoc) ->
       Socket :: socket(),
       Port :: port_number().
 
+port({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+    case GenSocketMod:sockname(Socket) of
+        {ok, {_, Port}} -> {ok, Port};
+        {error, _} = Error -> Error
+    end;
 port(Socket) ->
     case prim_inet:sockname(Socket) of
 	{ok, {_,Port}} -> {ok, Port};
@@ -274,6 +318,8 @@ send(Socket, Packet) ->
       Socket :: socket(),
       Options :: [socket_setopt()].
 
+setopts({'$inet', GenSocketMod, _} = Socket, Opts) when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket, Opts);
 setopts(Socket, Opts) -> 
     SocketOpts =
 	[case Opt of
@@ -288,8 +334,11 @@ setopts(Socket, Opts) ->
 	{'ok', OptionValues} | {'error', posix()} when
       Socket :: socket(),
       Options :: [socket_getopt()],
-      OptionValues :: [socket_setopt()].
+      OptionValues :: [socket_setopt() | gen_tcp:pktoptions_value()].
 
+getopts({'$inet', GenSocketMod, _} = Socket, Opts)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket, Opts);
 getopts(Socket, Opts) ->
     case prim_inet:getopts(Socket, Opts) of
 	{ok,OptionValues} ->
@@ -304,32 +353,32 @@ getopts(Socket, Opts) ->
 	    Other
     end.
 
--spec getifaddrs(Socket :: socket()) ->
-	{'ok', [string()]} | {'error', posix()}.
-
+-spec getifaddrs(
+        [Option :: {netns, Namespace :: file:filename_all()}]
+        | socket()) ->
+                        {'ok', [{Ifname :: string(),
+                                 Ifopts :: getifaddrs_ifopts()}]}
+                            | {'error', posix()}.
+getifaddrs(Opts) when is_list(Opts) ->
+    withsocket(fun(S) -> prim_inet:getifaddrs(S) end, Opts);
 getifaddrs(Socket) ->
     prim_inet:getifaddrs(Socket).
 
--spec getifaddrs() -> {ok, Iflist} | {error, posix()} when
-      Iflist :: [{Ifname,[Ifopt]}],
-      Ifname :: string(),
-      Ifopt :: {flags,[Flag]} | {addr,Addr} | {netmask,Netmask}
-             | {broadaddr,Broadaddr} | {dstaddr,Dstaddr}
-             | {hwaddr,Hwaddr},
-      Flag :: up | broadcast | loopback | pointtopoint
-            | running | multicast,
-      Addr :: ip_address(),
-      Netmask :: ip_address(),
-      Broadaddr :: ip_address(),
-      Dstaddr :: ip_address(),
-      Hwaddr :: [byte()].
-
+-spec getifaddrs() ->
+                        {'ok', [{Ifname :: string(),
+                                 Ifopts :: getifaddrs_ifopts()}]}
+                            | {'error', posix()}.
 getifaddrs() ->
     withsocket(fun(S) -> prim_inet:getifaddrs(S) end).
 
--spec getiflist(Socket :: socket()) ->
-	{'ok', [string()]} | {'error', posix()}.
 
+-spec getiflist(
+        [Option :: {netns, Namespace :: file:filename_all()}]
+        | socket()) ->
+                       {'ok', [string()]} | {'error', posix()}.
+
+getiflist(Opts) when is_list(Opts) ->
+    withsocket(fun(S) -> prim_inet:getiflist(S) end, Opts);
 getiflist(Socket) -> 
     prim_inet:getiflist(Socket).
 
@@ -346,11 +395,19 @@ getiflist() ->
 ifget(Socket, Name, Opts) -> 
     prim_inet:ifget(Socket, Name, Opts).
 
--spec ifget(Name :: string() | atom(), Opts :: [if_getopt()]) ->
+-spec ifget(
+        Name :: string() | atom(),
+        Opts :: [if_getopt() |
+                 {netns, Namespace :: file:filename_all()}]) ->
 	{'ok', [if_getopt_result()]} | {'error', posix()}.
 
 ifget(Name, Opts) ->
-    withsocket(fun(S) -> prim_inet:ifget(S, Name, Opts) end).
+    {NSOpts,IFOpts} =
+        lists:partition(
+          fun ({netns,_}) -> true;
+              (_) -> false
+          end, Opts),
+    withsocket(fun(S) -> prim_inet:ifget(S, Name, IFOpts) end, NSOpts).
 
 -spec ifset(Socket :: socket(),
             Name :: string() | atom(),
@@ -360,11 +417,19 @@ ifget(Name, Opts) ->
 ifset(Socket, Name, Opts) -> 
     prim_inet:ifset(Socket, Name, Opts).
 
--spec ifset(Name :: string() | atom(), Opts :: [if_setopt()]) ->
+-spec ifset(
+        Name :: string() | atom(),
+        Opts :: [if_setopt() |
+                 {netns, Namespace :: file:filename_all()}]) ->
 	'ok' | {'error', posix()}.
 
 ifset(Name, Opts) ->
-    withsocket(fun(S) -> prim_inet:ifset(S, Name, Opts) end).
+    {NSOpts,IFOpts} =
+        lists:partition(
+          fun ({netns,_}) -> true;
+              (_) -> false
+          end, Opts),
+    withsocket(fun(S) -> prim_inet:ifset(S, Name, IFOpts) end, NSOpts).
 
 -spec getif() ->
 	{'ok', [{ip_address(), ip_address() | 'undefined', ip_address()}]} | 
@@ -374,10 +439,14 @@ getif() ->
     withsocket(fun(S) -> getif(S) end).
 
 %% backwards compatible getif
--spec getif(Socket :: socket()) ->
+-spec getif(
+        [Option :: {netns, Namespace :: file:filename_all()}]
+        | socket()) ->
 	{'ok', [{ip_address(), ip_address() | 'undefined', ip_address()}]} | 
 	{'error', posix()}.
 
+getif(Opts) when is_list(Opts) ->
+    withsocket(fun(S) -> getif(S) end, Opts);
 getif(Socket) ->
     case prim_inet:getiflist(Socket) of
 	{ok, IfList} ->
@@ -398,7 +467,10 @@ getif(Socket) ->
     end.
 
 withsocket(Fun) ->
-    case inet_udp:open(0,[]) of
+    withsocket(Fun, []).
+%%
+withsocket(Fun, Opts) ->
+    case inet_udp:open(0, Opts) of
 	{ok,Socket} ->
 	    Res = Fun(Socket),
 	    inet_udp:close(Socket),
@@ -424,6 +496,8 @@ popf(_Socket) ->
 -spec gethostname() -> {'ok', Hostname} when
       Hostname :: string().
 
+%%% XXX gethostname() -> net:gethostname().
+
 gethostname() ->
     case inet_udp:open(0,[]) of
 	{ok,U} ->
@@ -447,7 +521,7 @@ gethostname(Socket) ->
       OptionValues :: [{stat_option(), integer()}].
 
 getstat(Socket) ->
-    prim_inet:getstat(Socket, stats()).
+    getstat(Socket, stats()).
 
 -spec getstat(Socket, Options) ->
 	{ok, OptionValues} | {error, posix()} when
@@ -455,7 +529,10 @@ getstat(Socket) ->
       Options :: [stat_option()],
       OptionValues :: [{stat_option(), integer()}].
 
-getstat(Socket,What) ->
+getstat({'$inet', GenSocketMod, _} = Socket, What)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket, What);
+getstat(Socket, What) ->
     prim_inet:getstat(Socket, What).
 
 -spec gethostbyname(Hostname) -> {ok, Hostent} | {error, posix()} when
@@ -675,6 +752,14 @@ parse_address(Addr) ->
 parse_strict_address(Addr) ->
     inet_parse:strict_address(Addr).
 
+-spec ipv4_mapped_ipv6_address(ip_address()) -> ip_address().
+ipv4_mapped_ipv6_address({D1,D2,D3,D4})
+  when (D1 bor D2 bor D3 bor D4) < 256 ->
+    {0,0,0,0,0,16#ffff,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4};
+ipv4_mapped_ipv6_address({D1,D2,D3,D4,D5,D6,D7,D8})
+  when (D1 bor D2 bor D3 bor D4 bor D5 bor D6 bor D7 bor D8) < 65536 ->
+    {D7 bsr 8,D7 band 255,D8 bsr 8,D8 band 255}.
+
 %% Return a list of available options
 options() ->
     [
@@ -700,6 +785,7 @@ stats() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
     [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+     recvtos, recvtclass, ttl, recvttl,
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
@@ -768,6 +854,7 @@ con_add(Name, Val, #connect_opts{} = R, Opts, AllOpts) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 listen_options() ->
     [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+     recvtos, recvtclass, ttl, recvttl,
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
@@ -843,12 +930,25 @@ tcp_module_1(Opts, Address) ->
       Opts, tcp_module, Address,
       #{inet => inet_tcp, inet6 => inet6_tcp, local => local_tcp}).
 
+gen_tcp_module([{inet_backend, Flag}|Opts]) ->
+    gen_tcp_module(Opts, Flag);
+gen_tcp_module(Opts) ->
+    gen_tcp_module(
+      Opts,
+      persistent_term:get(
+        {kernel, inet_backend}, ?DEFAULT_KERNEL_INET_BACKEND)).
+%%
+gen_tcp_module(Opts, inet) ->
+    {gen_tcp, Opts};
+gen_tcp_module(Opts, socket) ->
+    {gen_tcp_socket, Opts}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Available options for udp:open
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 udp_options() ->
     [tos, tclass, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
-     deliver, ipv6_v6only,
+     recvtos, recvtclass, ttl, recvttl, deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
      add_membership, drop_membership, read_packets,raw,
      high_msgq_watermark, low_msgq_watermark, bind_to_device].
@@ -918,8 +1018,10 @@ udp_module(Opts) ->
 %  (*) passing of open FDs ("fdopen") is not supported.
 sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
-    mode, active, buffer, tos, tclass, priority, dontroute, reuseaddr, linger, sndbuf,
-    recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
+    mode, active, buffer, tos, tclass, ttl,
+    priority, dontroute, reuseaddr, linger,
+    recvtos, recvtclass, recvttl,
+    sndbuf, recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
     bind_to_device,
 
     % Other options are SCTP-specific (though they may be similar to their
@@ -1110,7 +1212,6 @@ mod(Opts, Tag, Address, Map, undefined, Acc, M) ->
 mod(Opts, Tag, Address, Map, Mod, Acc, _M) ->
     mod(Opts, Tag, Address, Map, Mod, Acc).
 
-
 getaddrs_tm({A,B,C,D} = IP, Fam, _)  ->
     %% Only "syntactic" validation and check of family.
     if 
@@ -1244,9 +1345,7 @@ gethostbyname_string(Name, Type)
 	    inet ->
 		inet_parse:ipv4_address(Name);
 	    inet6 ->
-		%% XXX should we really translate IPv4 addresses here
-		%% even if we do not know if this host can do IPv6?
-		inet_parse:ipv6_address(Name)
+		inet_parse:ipv6strict_address(Name)
 	end of
 	{ok,IP} ->
 	    {ok,make_hostent(Name, [IP], [], Type)};
@@ -1452,11 +1551,14 @@ fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
 %%  socket stat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec i() -> ok.
 i() -> i(tcp), i(udp), i(sctp).
 
+-spec i(socket_protocol()) -> ok.
 i(Proto) -> i(Proto, [port, module, recv, sent, owner,
 		      local_address, foreign_address, state, type]).
 
+-spec i(socket_protocol(), [atom()]) -> ok.
 i(tcp, Fs) ->
     ii(tcp_sockets(), Fs, tcp);
 i(udp, Fs) ->
@@ -1553,20 +1655,46 @@ info(S, F, Proto) ->
     end.
 %% Possible flags: (sorted)
 %% [accepting,bound,busy,connected,connecting,listen,listening,open]
-%%
+%% Actually, we no longer gets listening...
 fmt_status(Flags) ->
     case lists:sort(Flags) of
 	[accepting | _]               -> "ACCEPTING";
-	[bound,busy,connected|_]      -> "CONNECTED*";
-	[bound,connected|_]           -> "CONNECTED";
+	[bound,busy,connected|_]      -> "CONNECTED(BB)";
+	[bound,connected|_]           -> "CONNECTED(B)";
 	[bound,listen,listening | _]  -> "LISTENING";
 	[bound,listen | _]            -> "LISTEN";
 	[bound,connecting | _]        -> "CONNECTING";
 	[bound,open]                  -> "BOUND";
+	[connected,open]              -> "CONNECTED(O)";
 	[open]                        -> "IDLE";
 	[]                            -> "CLOSED";
-	_                             -> "????"
+	Sorted                        -> fmt_status2(Sorted)
     end.
+
+fmt_status2([H]) ->
+    fmt_status3(H);
+fmt_status2([H|T]) ->
+    fmt_status3(H) ++ ":"  ++ fmt_status2(T).
+
+fmt_status3(accepting) ->
+    "A";
+fmt_status3(bound) ->
+    "BD";
+fmt_status3(busy) ->
+    "BY";
+fmt_status3(connected) ->
+    "CD";
+fmt_status3(connecting) ->
+    "CG";
+fmt_status3(listen) ->
+    "LN";
+fmt_status3(listening) ->
+    "LG";
+fmt_status3(open) ->
+    "O";
+fmt_status3(X) when is_atom(X) ->
+    string:uppercase(atom_to_list(X)).
+
 
 fmt_addr({error,enotconn}, _) -> "*:*";
 fmt_addr({error,_}, _)        -> " ";
@@ -1577,6 +1705,7 @@ fmt_addr({ok,Addr}, Proto) ->
 	{{0,0,0,0,0,0,0,0},Port} -> "*:" ++ fmt_port(Port, Proto);
 	{{127,0,0,1},Port} -> "localhost:" ++ fmt_port(Port, Proto);
 	{{0,0,0,0,0,0,0,1},Port} -> "localhost:" ++ fmt_port(Port, Proto);
+	{local, Path} -> "local:" ++ binary_to_list(Path);
 	{IP,Port} -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
     end.
 

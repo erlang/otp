@@ -40,8 +40,7 @@ PSFIG_FILES=
 USERS_GUIDE  = users_guide.sgml
 
 EXTRA_GEN_FILES= $(SGML_FILES:.sgml=.html) \
-	users_guide_frame.html users_guide_first.html \
-	  min_head.gif
+	users_guide_frame.html users_guide_first.html
 
 HTML_FILES= $(USERS_GUIDE:.sgml=.html)
 

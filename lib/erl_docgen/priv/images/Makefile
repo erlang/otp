@@ -54,7 +54,9 @@ PNG_FILES = \
 # ----------------------------------------------------
 debug opt: 
 
-docs:
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 clean:
 	$(RM) $(TARGET_FILES)
@@ -70,10 +72,11 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/images"
 	$(INSTALL_DATA) $(GIF_FILES) $(PNG_FILES) "$(RELSYSDIR)/priv/images"
 
-
-release_docs_spec:
+release_html_spec:
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc"
 	$(INSTALL_DATA) $(PNG_FILES) "$(RELEASE_PATH)/doc"
+
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 
 release_tests_spec:
 

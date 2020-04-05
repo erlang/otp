@@ -40,7 +40,7 @@
 
 -import(edoc_report, [report/2, warning/2]).
 
-%% @headerfile "edoc_doclet.hrl"
+%% @headerfile "../include/edoc_doclet.hrl"
 -include("../include/edoc_doclet.hrl").
 
 -define(EDOC_APP, edoc).
@@ -62,7 +62,7 @@
 
 %% @spec (Command::doclet_gen() | doclet_toc(), edoc_context()) -> ok
 %% @doc Main doclet entry point. See the file <a
-%% href="../include/edoc_doclet.hrl">`edoc_doclet.hrl'</a> for the data
+%% href="edoc_doclet.hrl">`edoc_doclet.hrl'</a> for the data
 %% structures used for passing parameters.
 %%
 %% Also see {@link edoc:layout/2} for layout-related options, and
@@ -255,7 +255,7 @@ modules_frame(Dir, Ms, Title, CSS) ->
 	    ?NL,
 	    {table, [{width, "100%"}, {border, 0},
 		     {summary, "list of modules"}],
-	     lists:concat(
+	     lists:append(
 	       [[?NL,
 		 {tr, [{td, [],
 			[{a, [{href, module_ref(M)},
@@ -448,7 +448,7 @@ application_frame(Dir, Apps, Title, CSS) ->
 	    {h2, ["Applications"]},
 	    ?NL,
 	    {table, [{width, "100%"}, {border, 0}],
-	     lists:concat(
+	     lists:append(
 	       [[{tr, [{td, [], [{a, [{href,app_ref(Path,App)},
 				      {target,"_top"}],
 				  [App]}]}]}]

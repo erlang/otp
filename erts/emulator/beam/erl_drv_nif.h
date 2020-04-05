@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,9 @@ typedef enum {
 enum ErlNifSelectFlags {
     ERL_NIF_SELECT_READ      = (1 << 0),
     ERL_NIF_SELECT_WRITE     = (1 << 1),
-    ERL_NIF_SELECT_STOP      = (1 << 2)
+    ERL_NIF_SELECT_STOP      = (1 << 2),
+    ERL_NIF_SELECT_CANCEL    = (1 << 3),
+    ERL_NIF_SELECT_CUSTOM_MSG= (1 << 4)
 };
 
 /*

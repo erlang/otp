@@ -36,8 +36,8 @@
 
     <p>The two main interfaces for running tests with <c>Common Test</c>
       are an executable program named 
-      <seealso marker="ct_run"><c>ct_run</c></seealso> and the
-      Erlang module <seealso marker="ct"><c>ct</c></seealso>. 
+      <seecom marker="ct_run"><c>ct_run</c></seecom> and the
+      Erlang module <seeerl marker="ct"><c>ct</c></seeerl>. 
       <c>ct_run</c> is compiled for the underlying operating system (for example,
       Unix/Linux or Windows) during the build of the Erlang/OTP system, 
       and is installed automatically with other executable programs in
@@ -51,11 +51,3 @@
       and/or the interface functions in the <c>ct</c> module.</p>
     </section>
 </chapter>
-
-
-
-
-
-
-
-

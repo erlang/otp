@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,19 +22,20 @@
 #ifndef _EI_INTERNAL_H
 #define _EI_INTERNAL_H
 
+#ifdef EI_HIDE_REAL_ERRNO
+#  define EI_CONN_SAVE_ERRNO__(E) \
+    ((E) == ETIMEDOUT ? (erl_errno = ETIMEDOUT) : (erl_errno = EIO))
+#else
+#  define EI_CONN_SAVE_ERRNO__(E) \
+    (erl_errno = (E))
+#endif
+
 /* 
  * Some useful stuff not to be exported to users.
  */
 
 #ifdef __WIN32__
 #define MAXPATHLEN 256
-#define writesocket(sock,buf,nbyte) send(sock,buf,nbyte,0)
-#define  readsocket(sock,buf,nbyte) recv(sock,buf,nbyte,0)
-#else /* not __WIN32__ */
-#define writesocket write
-#define readsocket  read
-#define closesocket close
-#define ioctlsocket ioctl
 #endif
 
 /* 
@@ -152,7 +153,12 @@
 
 extern int ei_tracelevel;
 
+int ei_init_connect(void);
+
 void ei_trace_printf(const char *name, int level, const char *format, ...);
 
-int ei_internal_use_r9_pids_ports(void);
+int ei_internal_use_21_bitstr_expfun(void);
+
+int ei_get_cbs_ctx__(ei_socket_callbacks **cbs, void **ctx, int fd);
+
 #endif /* _EI_INTERNAL_H */

@@ -191,15 +191,15 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn</pre>
         <item>
           <p>Use maps instead of records to represent the <c>SEQUENCE</c> and
 	  <c>SET</c> types. No <c>.hrl</c> files will be generated.
-	  See the Section <seealso marker="asn1_getting_started#MAP_SEQ_SET">
-	  Map representation for SEQUENCE and SET</seealso>
+	  See the Section <seeguide marker="asn1_getting_started#MAP_SEQ_SET">
+	  Map representation for SEQUENCE and SET</seeguide>
 	  for more information.</p>
         </item>
         <tag><c>+asn1config</c></tag>
         <item>
           <p>This functionality works together with option
             <c>ber</c>. It enables the specialized decodes, see Section
-            <seealso marker="asn1_spec">Specialized Decode</seealso>.</p>
+            <seeguide marker="asn1_spec">Specialized Decode</seeguide>.</p>
         </item>
         <tag><c>+undec_rest</c></tag>
         <item>
@@ -225,7 +225,7 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn</pre>
         from the Erlang shell. Here follows a brief
         description of the primary functions. For a
         complete description of each function, see module <c>asn1ct</c> in
-        the <seealso marker="asn1ct">ASN.1 Reference Manual</seealso>.</p>
+        the <seeerl marker="asn1ct">ASN.1 Reference Manual</seeerl>.</p>
       <p>The compiler is started by <c>asn1ct:compile/1</c> with
         default options, or <c>asn1ct:compile/2</c> if explicit options
         are given.</p>
@@ -346,47 +346,47 @@ END </pre>
         <cell align="left" valign="middle"><em>Constructed Types</em></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#BOOLEAN">BOOLEAN</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#SEQUENCE">SEQUENCE</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#BOOLEAN">BOOLEAN</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#SEQUENCE">SEQUENCE</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#INTEGER">INTEGER</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#SET">SET</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#INTEGER">INTEGER</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#SET">SET</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#REAL">REAL</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#CHOICE">CHOICE</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#REAL">REAL</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#CHOICE">CHOICE</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#NULL">NULL</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#SOF">SET OF and SEQUENCE OF</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#NULL">NULL</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#SOF">SET OF and SEQUENCE OF</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#ENUMERATED">ENUMERATED</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#ANY">ANY</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#ENUMERATED">ENUMERATED</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#ANY">ANY</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#BIT STRING">BIT STRING</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#ANY">ANY DEFINED BY</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#BIT STRING">BIT STRING</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#ANY">ANY DEFINED BY</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#OCTET STRING">OCTET STRING</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#NegotiationTypes">EXTERNAL</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#OCTET STRING">OCTET STRING</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#NegotiationTypes">EXTERNAL</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#Character Strings">Character Strings</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#NegotiationTypes">EMBEDDED PDV</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#Character Strings">Character Strings</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#NegotiationTypes">EMBEDDED PDV</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#OBJECT IDENTIFIER">OBJECT IDENTIFIER</seealso></cell>
-        <cell align="left" valign="middle"><seealso marker="#NegotiationTypes">CHARACTER STRING</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#OBJECT IDENTIFIER">OBJECT IDENTIFIER</seeguide></cell>
+        <cell align="left" valign="middle"><seeguide marker="#NegotiationTypes">CHARACTER STRING</seeguide></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#Object Descriptor">Object Descriptor</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#Object Descriptor">Object Descriptor</seeguide></cell>
         <cell align="left" valign="middle"></cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><seealso marker="#The TIME types">TIME Types</seealso></cell>
+        <cell align="left" valign="middle"><seeguide marker="#The TIME types">TIME Types</seeguide></cell>
         <cell align="left" valign="middle"></cell>
       </row>
       <tcaption>Supported ASN.1 Types</tcaption>
@@ -689,7 +689,7 @@ ok
 [1052,1086,1081,32,1084,1072,1083,1077,1085,1100,1082,1080,
  1081,32,1043,1085,1086,1084]</pre>
 
-      <p>For details, see the <seealso marker="stdlib:unicode">unicode</seealso>
+      <p>For details, see the <seeerl marker="stdlib:unicode">unicode</seeerl>
       module in STDLIB.</p>
 
       <p>In the following example, this ASN.1 specification is used:</p>
@@ -781,8 +781,8 @@ Pdu ::= SEQUENCE {
       <p>This is a 4-component structure called <c>Pdu</c>. By default,
         a <c>SEQUENCE</c> is represented by a record in Erlang.
 	It can also be represented as a map; see
-	<seealso marker="asn1_getting_started#MAP_SEQ_SET">
-	Map representation for SEQUENCE and SET</seealso>.
+	<seeguide marker="asn1_getting_started#MAP_SEQ_SET">
+	Map representation for SEQUENCE and SET</seeguide>.
         For each <c>SEQUENCE</c> and <c>SET</c> in an ASN.1 module an Erlang
         record declaration is generated. For <c>Pdu</c>, a record
         like the following is defined:</p>
@@ -1012,7 +1012,7 @@ Arr2Val = ["abc",[14,34,54],"Octets"],      </pre>
         <c>TYPE-IDENTIFIER.@Type</c> accomplish the same as the
         deprecated <c>ANY</c>.</p>
       <p>See also
-      <seealso marker="#Information Object">Information object</seealso>.</p>
+      <seeguide marker="#Information Object">Information object</seeguide>.</p>
     </section>
 
     <section>

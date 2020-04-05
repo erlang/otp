@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@
 %% -------------------------------------------------------------------- %%
 
 start()  -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
-stop()   -> gen_server:call(?MODULE, stop, infinity).
+stop()   -> gen_server:stop(?MODULE, normal, infinity).
 init([]) -> {ok, #state{ locks = [], duration = 0 } }.
 
 start_internal() ->
@@ -441,9 +441,6 @@ handle_call({save, Filename}, _From, State) ->
 	Error ->
 	    {reply, {error, Error}, State}
     end;
-
-handle_call(stop, _From, State) ->
-    {stop, normal, ok, State};
 
 handle_call(Command, _From, State) ->
     {reply, {error, {undefined, Command}}, State}.

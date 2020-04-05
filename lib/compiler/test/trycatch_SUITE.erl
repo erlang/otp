@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,14 +26,15 @@
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
-	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1]).
+	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
+         stacktrace/1,nested_stacktrace/1,raise/1,
+         no_return_in_try_block/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -42,10 +43,13 @@ groups() ->
        after_oops,eclectic,rethrow,nested_of,nested_catch,
        nested_after,nested_horrid,last_call_optimization,
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
-       hockey,handle_info,catch_in_catch,grab_bag]}].
+       hockey,handle_info,catch_in_catch,grab_bag,
+       stacktrace,nested_stacktrace,raise,
+       no_return_in_try_block]}].
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -114,6 +118,16 @@ basic(Conf) when is_list(Conf) ->
 	     {a,variable} -> ok
 	 catch nisse -> erro
 	 end,
+
+    %% Unmatchable clauses.
+    try
+        throw(thrown)
+    catch
+        {a,b}={a,b,c} ->                        %Intentionally no match.
+            ok;
+        thrown ->
+            ok
+    end,
 
     ok.
 
@@ -324,11 +338,11 @@ eclectic(Conf) when is_list(Conf) ->
     {{error,{exit,V},{'EXIT',V}},V} =
 	eclectic_1({foo,{error,{exit,V}}}, error, {value,V}),
     {{value,{value,V},V},
-	   {'EXIT',{badarith,[{?MODULE,my_add,2,_}|_]}}} =
+	   {'EXIT',{badarith,[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]}}} =
 	eclectic_1({foo,{value,{value,V}}}, undefined, {'add',{0,a}}),
     {{'EXIT',V},V} =
 	eclectic_1({catch_foo,{exit,V}}, undefined, {throw,V}),
-    {{error,{'div',{1,0}},{'EXIT',{badarith,[{?MODULE,my_div,2,_}|_]}}},
+    {{error,{'div',{1,0}},{'EXIT',{badarith,[{erlang,'div',[1,0],_},{?MODULE,my_div,2,_}|_]}}},
 	   {'EXIT',V}} =
 	eclectic_1({foo,{error,{'div',{1,0}}}}, error, {exit,V}),
     {{{error,V},{'EXIT',{V,[{?MODULE,foo,1,_}|_]}}},
@@ -345,7 +359,7 @@ eclectic(Conf) when is_list(Conf) ->
 	eclectic_2({error,{value,V}}, throw, {error,V}),
     {{caught,{'EXIT',{badarg,[{erlang,abs,[V],_}|_]}}},V} =
 	eclectic_2({value,{'abs',V}}, undefined, {value,V}),
-    {{caught,{'EXIT',{badarith,[{?MODULE,my_add,2,_}|_]}}},V} =
+    {{caught,{'EXIT',{badarith,[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]}}},V} =
 	eclectic_2({exit,{'add',{0,a}}}, exit, {value,V}),
     {{caught,{'EXIT',V}},undefined} =
 	eclectic_2({value,{error,V}}, undefined, {exit,V}),
@@ -1037,7 +1051,324 @@ grab_bag(_Config) ->
     %% Unnecessary catch.
     22 = (catch 22),
 
+    fun() ->
+            F = grab_bag_1(any),
+            true = is_function(F, 1)
+    end(),
+
+    <<>> = grab_bag_2(whatever),
+
     ok.
 
+grab_bag_1(V) ->
+    %% V will be stored in y0.
+    try
+        receive
+        after 0 ->
+                %% y0 will be re-used for the catch tag.
+                %% This is safe, because there are no instructions
+                %% that can raise an exception.
+                catch 22
+        end,
+        %% beam_validator incorrectly assumed that the make_fun2
+        %% instruction could raise an exception and end up at
+        %% the catch part of the try.
+        fun id/1
+    catch
+        %% Never reached, because nothing in the try body raises any
+        %% exception.
+        _:V ->
+            ok
+    end.
+
+grab_bag_2(V) ->
+    try
+        %% y0 will be re-used for the catch tag.
+        %% This is safe, because there are no instructions
+        %% that can raise an exception.
+        catch 22,
+
+        %% beam_validator incorrectly assumed that the bs_init_writable
+        %% instruction could raise an exception and end up at
+        %% the catch part of the try.
+        <<0 || [], #{} <- []>>
+    catch
+        %% Never reached, because nothing in the try body raises any
+        %% exception.
+        error:_ ->
+            V
+    end.
+
+stacktrace(_Config) ->
+    V = [make_ref()|self()],
+    case ?MODULE:module_info(native) of
+        false ->
+            {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]}} =
+                stacktrace_1({'abs',V}, error, {value,V}),
+            {caught2,{error,badarith},[{erlang,'+',[0,a],_},
+                                       {?MODULE,my_add,2,_}|_]} =
+                stacktrace_1({'div',{1,0}}, error, {'add',{0,a}});
+        true ->
+            {value2,{caught1,badarg,[{?MODULE,my_abs,1,_}|_]}} =
+                stacktrace_1({'abs',V}, error, {value,V}),
+            {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]} =
+                stacktrace_1({'div',{1,0}}, error, {'add',{0,a}})
+    end,
+    {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]} =
+        stacktrace_1({value,V}, error, {value,V}),
+    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]} =
+        stacktrace_1({value,V}, error, {throw,V}),
+
+    try
+        stacktrace_2()
+    catch
+        error:{badmatch,_}:Stk2 ->
+            [{?MODULE,stacktrace_2,0,_},
+             {?MODULE,stacktrace,1,_}|_] = Stk2,
+            [] = erlang:get_stacktrace(),
+            ok
+    end,
+
+    try
+        stacktrace_3(a, b)
+    catch
+        error:function_clause:Stk3 ->
+            [] = erlang:get_stacktrace(),
+            case lists:module_info(native) of
+                false ->
+                    [{lists,prefix,[a,b],_}|_] = Stk3;
+                true ->
+                    [{lists,prefix,2,_}|_] = Stk3
+            end
+    end,
+
+    try
+        throw(x)
+    catch
+        throw:x:IntentionallyUnused ->
+            ok
+    end.
+
+stacktrace_1(X, C1, Y) ->
+    try try foo(X) of
+            C1 -> value1
+        catch
+            C1:D1:Stk1 ->
+                [] = erlang:get_stacktrace(),
+                {caught1,D1,Stk1}
+        after
+            foo(Y)
+        end of
+        V2 -> {value2,V2}
+    catch
+        C2:D2:Stk2 ->
+            [] = erlang:get_stacktrace(),
+            {caught2,{C2,D2},Stk2}
+    end.
+
+stacktrace_2() ->
+    ok = erlang:process_info(self(), current_function),
+    ok.
+
+stacktrace_3(A, B) ->
+    {ok,lists:prefix(A, B)}.
+
+nested_stacktrace(_Config) ->
+    V = [{make_ref()}|[self()]],
+    value1 = nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
+                                 {void,void,void}),
+    case ?MODULE:module_info(native) of
+        false ->
+            {caught1,
+             [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
+             value2} =
+                nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                    {{value,{V,x2}},void,{V,x2}}),
+            {caught1,
+             [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
+             {caught2,[{erlang,abs,[V],_}|_]}} =
+                nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                    {{'abs',V},error,badarg});
+        true ->
+            {caught1,
+             [{?MODULE,my_add,2,_}|_],
+             value2} =
+                nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                    {{value,{V,x2}},void,{V,x2}}),
+            {caught1,
+             [{?MODULE,my_add,2,_}|_],
+             {caught2,[{?MODULE,my_abs,1,_}|_]}} =
+                nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                    {{'abs',V},error,badarg})
+    end,
+    ok.
+
+nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
+    try foo(X1) of
+        V1 -> value1
+    catch
+        C1:V1:S1 ->
+            T2 = try foo(X2) of
+                     V2 -> value2
+                 catch
+                     C2:V2:S2 ->
+                         {caught2,S2}
+                 end,
+            {caught1,S1,T2}
+    end.
+
+raise(_Config) ->
+    test_raise(fun() -> exit({exit,tuple}) end),
+    test_raise(fun() -> abs(id(x)) end),
+    test_raise(fun() -> throw({was,thrown}) end),
+
+    badarg = bad_raise(fun() -> abs(id(x)) end),
+
+    error = stk_used_in_bin_size(<<0:42>>),
+    ok.
+
+stk_used_in_bin_size(Bin) ->
+    try
+        throw(fail)
+    catch
+        throw:fail:Stk ->
+            %% The compiler would crash because the building of the
+            %% stacktrack was sunk into each case arm.
+            case Bin of
+                <<0:Stk>> -> ok;
+                _ -> error
+            end
+    end.
+
+bad_raise(Expr) ->
+    try
+        Expr()
+    catch
+        _:E:Stk ->
+            erlang:raise(bad_class, E, Stk)
+    end.
+
+test_raise(Expr) ->
+    test_raise_1(Expr),
+    test_raise_2(Expr),
+    test_raise_3(Expr),
+    test_raise_4(Expr).
+
+test_raise_1(Expr) ->
+    erase(exception),
+    try
+        do_test_raise_1(Expr)
+    catch
+        C:E:Stk ->
+            {C,E,Stk} = erase(exception)
+    end.
+
+do_test_raise_1(Expr) ->
+    try
+        Expr()
+    catch
+        C:E:Stk ->
+            %% Here the stacktrace must be built.
+            put(exception, {C,E,Stk}),
+            erlang:raise(C, E, Stk)
+    end.
+
+test_raise_2(Expr) ->
+    erase(exception),
+    try
+        do_test_raise_2(Expr)
+    catch
+        C:E:Stk ->
+            {C,E} = erase(exception),
+            try
+                Expr()
+            catch
+                _:_:S ->
+                    [StkTop|_] = S,
+                    [StkTop|_] = Stk
+            end
+    end.
+
+do_test_raise_2(Expr) ->
+    try
+        Expr()
+    catch
+        C:E:Stk ->
+            %% Here it is possible to replace erlang:raise/3 with
+            %% the raw_raise/3 instruction since the stacktrace is
+            %% not actually used.
+            put(exception, {C,E}),
+            erlang:raise(C, E, Stk)
+    end.
+
+test_raise_3(Expr) ->
+    try
+        do_test_raise_3(Expr)
+    catch
+        exit:{exception,C,E}:Stk ->
+            try
+                Expr()
+            catch
+                C:E:S ->
+                    [StkTop|_] = S,
+                    [StkTop|_] = Stk
+            end
+    end.
+
+do_test_raise_3(Expr) ->
+    try
+        Expr()
+    catch
+        C:E:Stk ->
+            %% Here it is possible to replace erlang:raise/3 with
+            %% the raw_raise/3 instruction since the stacktrace is
+            %% not actually used.
+            erlang:raise(exit, {exception,C,E}, Stk)
+    end.
+
+test_raise_4(Expr) ->
+    try
+        do_test_raise_4(Expr)
+    catch
+        exit:{exception,C,E,Stk}:Stk ->
+            try
+                Expr()
+            catch
+                C:E:S ->
+                    [StkTop|_] = S,
+                    [StkTop|_] = Stk
+            end
+    end.
+
+do_test_raise_4(Expr) ->
+    try
+        Expr()
+    catch
+        C:E:Stk ->
+            %% Here the stacktrace must be built.
+            erlang:raise(exit, {exception,C,E,Stk}, Stk)
+    end.
+
+no_return_in_try_block(Config) when is_list(Config) ->
+    1.0 = no_return_in_try_block_1(0),
+    1.0 = no_return_in_try_block_1(0.0),
+
+    gurka = no_return_in_try_block_1(gurka),
+    [] = no_return_in_try_block_1([]),
+
+    ok.
+
+no_return_in_try_block_1(H) ->
+    try
+        Float = if
+                    is_number(H) -> float(H);
+                    true -> no_return()
+                end,
+        Float + 1
+    catch
+        throw:no_return -> H
+    end.
+
+no_return() -> throw(no_return).
 
 id(I) -> I.

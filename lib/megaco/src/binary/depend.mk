@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,15 +37,19 @@ endif
 
 BER_V1_FLAGS             = $(ASN1_CT_OPTS) +asn1config
 BER_V2_FLAGS             = $(ASN1_CT_OPTS) +asn1config
+# <DEPRECATED>
 BER_PREV3A_FLAGS         = $(ASN1_CT_OPTS) +asn1config
 BER_PREV3B_FLAGS         = $(ASN1_CT_OPTS) +asn1config
 BER_PREV3C_FLAGS         = $(ASN1_CT_OPTS) +asn1config
+# </DEPRECATED>
 BER_V3_FLAGS             = $(ASN1_CT_OPTS) +asn1config
 PER_V1_FLAGS             = $(ASN1_CT_OPTS)
 PER_V2_FLAGS             = $(ASN1_CT_OPTS)
+# <DEPRECATED>
 PER_PREV3A_FLAGS         = $(ASN1_CT_OPTS)
 PER_PREV3B_FLAGS         = $(ASN1_CT_OPTS)
 PER_PREV3C_FLAGS         = $(ASN1_CT_OPTS)
+# </DEPRECATED>
 PER_V3_FLAGS             = $(ASN1_CT_OPTS)
 
 
@@ -94,6 +98,7 @@ $(EBIN)/$(PER_ASN1_V2_SPEC).$(EMULATOR): \
 
 # -- (prev3a) --
 
+# <DEPRECATED>
 $(BER_ASN1_PREV3A_SPEC).erl: \
 	$(BER_ASN1_PREV3A_SPEC).set.asn \
 	$(ASN1_PREV3A_SPEC).asn
@@ -111,10 +116,12 @@ $(PER_ASN1_PREV3A_SPEC).erl: \
 
 $(EBIN)/$(PER_ASN1_PREV3A_SPEC).$(EMULATOR): \
 	$(PER_ASN1_PREV3A_SPEC).erl
+# </DEPRECATED>
 
 
 # -- (prev3b) --
 
+# <DEPRECATED>
 $(BER_ASN1_PREV3B_SPEC).erl: \
 	$(BER_ASN1_PREV3B_SPEC).set.asn \
 	$(ASN1_PREV3B_SPEC).asn
@@ -132,10 +139,12 @@ $(PER_ASN1_PREV3B_SPEC).erl: \
 
 $(EBIN)/$(PER_ASN1_PREV3B_SPEC).$(EMULATOR): \
 	$(PER_ASN1_PREV3B_SPEC).erl
+# </DEPRECATED>
 
 
 # -- (prev3c) --
 
+# <DEPRECATED>
 $(BER_ASN1_PREV3C_SPEC).erl: \
 	$(BER_ASN1_PREV3C_SPEC).set.asn \
 	$(ASN1_PREV3C_SPEC).asn
@@ -153,6 +162,7 @@ $(PER_ASN1_PREV3C_SPEC).erl: \
 
 $(EBIN)/$(PER_ASN1_PREV3C_SPEC).$(EMULATOR): \
 	$(PER_ASN1_PREV3C_SPEC).erl
+# </DEPRECATED>
 
 
 # -- (v3) --
@@ -198,6 +208,7 @@ $(EBIN)/megaco_binary_name_resolver_v2.$(EMULATOR): \
 	megaco_binary_name_resolver_v2.erl \
 	../app/megaco_internal.hrl
 
+# <DEPRECATED>
 $(EBIN)/megaco_binary_name_resolver_prev3a.$(EMULATOR): \
 	megaco_binary_name_resolver_prev3a.erl \
 	../app/megaco_internal.hrl
@@ -209,6 +220,7 @@ $(EBIN)/megaco_binary_name_resolver_prev3b.$(EMULATOR): \
 $(EBIN)/megaco_binary_name_resolver_prev3c.$(EMULATOR): \
 	megaco_binary_name_resolver_prev3c.erl \
 	../app/megaco_internal.hrl
+# </DEPRECATED>
 
 $(EBIN)/megaco_binary_name_resolver_v3.$(EMULATOR): \
 	megaco_binary_name_resolver_v3.erl
@@ -229,6 +241,7 @@ $(EBIN)/megaco_binary_transformer_v2.$(EMULATOR): \
         $(MEGACO_INCLUDEDIR)/megaco.hrl \
         $(MEGACO_INCLUDEDIR)/megaco_message_v2.hrl
 
+# <DEPRECATED>
 $(EBIN)/megaco_binary_transformer_prev3a.$(EMULATOR): \
 	megaco_binary_transformer_prev3a.erl \
 	../app/megaco_internal.hrl \
@@ -246,6 +259,7 @@ $(EBIN)/megaco_binary_transformer_prev3c.$(EMULATOR): \
 	../app/megaco_internal.hrl \
         $(MEGACO_INCLUDEDIR)/megaco.hrl \
         $(MEGACO_INCLUDEDIR)/megaco_message_prev3c.hrl
+# </DEPRECATED>
 
 $(EBIN)/megaco_binary_transformer_v3.$(EMULATOR): \
 	megaco_binary_transformer_v3.erl \

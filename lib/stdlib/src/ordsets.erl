@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 
 -module(ordsets).
 
--export([new/0,is_set/1,size/1,to_list/1,from_list/1]).
+-export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
 -export([union/2,union/1,intersection/2,intersection/1]).
 -export([is_disjoint/2]).
@@ -59,6 +59,13 @@ is_set([], _) -> true.
       Ordset :: ordset(_).
 
 size(S) -> length(S).
+
+%% is_empty(OrdSet) -> boolean().
+%%  Return 'true' if OrdSet is an empty set, otherwise 'false'.
+-spec is_empty(Ordset) -> boolean() when
+      Ordset :: ordset(_).
+
+is_empty(S) -> S=:=[].
 
 %% to_list(OrdSet) -> [Elem].
 %%  Return the elements in OrdSet as a list.
@@ -143,13 +150,8 @@ union(Es1, []) -> Es1.
       OrdsetList :: [ordset(T)],
       Ordset :: ordset(T).
 
-union([S1,S2|Ss]) ->
-    union1(union(S1, S2), Ss);
-union([S]) -> S;
-union([]) -> [].
-
-union1(S1, [S2|Ss]) -> union1(union(S1, S2), Ss);
-union1(S1, []) -> S1.
+union(OrdsetList) ->
+    lists:umerge(OrdsetList).
 
 %% intersection(OrdSet1, OrdSet2) -> OrdSet.
 %%  Return the intersection of OrdSet1 and OrdSet2.

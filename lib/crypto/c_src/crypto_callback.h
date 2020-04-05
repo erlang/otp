@@ -34,6 +34,7 @@ struct crypto_callbacks
     void (*crypto_free)(void* ptr CCB_FILE_LINE_ARGS);
 
     /* openssl callbacks */
+#if OPENSSL_VERSION_NUMBER < 0x10100000
   #ifdef OPENSSL_THREADS
     void (*locking_function)(int mode, int n, const char *file, int line);
     unsigned long (*id_function)(void);
@@ -44,6 +45,7 @@ struct crypto_callbacks
     void (*dyn_destroy_function)(struct CRYPTO_dynlock_value *ptr,
 				 const char *file, int line);
   #endif /* OPENSSL_THREADS */
+#endif
 };
 
 typedef struct crypto_callbacks* get_crypto_callbacks_t(int nlocks);

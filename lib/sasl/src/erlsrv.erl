@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ erlsrv(EVer) ->
     filename:join([Root, "erts-" ++ EVer, "bin", "erlsrv.exe"]).
 
 current_version() ->
-    hd(string:tokens(erlang:system_info(version),"_ ")).
+    hd(string:lexemes(erlang:system_info(version),"_ ")).
 
 %%% Returns {ok, Output} | failed | {error, Reason}
 run_erlsrv(Command) ->
@@ -107,7 +107,7 @@ get_all_services() ->
 	    [];
 	{ok, [_H|T]} ->
 	    F = fun(X) ->
-			hd(string:tokens(X,"\t "))
+			hd(string:lexemes(X,"\t "))
 		end,
 	    lists:map(F,T);
 	_ ->
@@ -191,8 +191,8 @@ get_service(EVer, ServiceName) ->
 	    %%% have in the environment list...
 	    EnvParts = lists:map(
 			 fun(S) ->
-				 X = string:strip(S,left,$\t),
-				 case hd(string:tokens(X,"=")) of
+				 X = string:trim(S, leading, "$\t"),
+				 case hd(string:lexemes(X,"=")) of
 				     X ->
 					 %% Can this happen?
 					 {X,""};
@@ -371,7 +371,7 @@ split_arglist([H|T]) ->
 parse_arglist(Str) ->
     lists:reverse(parse_arglist(Str,[])).
 parse_arglist(Str,Accum) ->
-    Stripped = string:strip(Str,left),
+    Stripped = string:trim(Str, leading),
     case length(Stripped) of
 	0 ->
 	    Accum;
@@ -432,14 +432,9 @@ split_by_env(Data) ->
 			
 
 splitline(Line) ->
-    case string:chr(Line,$:) of
-	0 ->
+    case string:split(Line, ":") of
+        [_] ->
 	    {Line, ""};
-	N ->
-	    case length(string:substr(Line,N)) of
-		1 ->
-		    {string:substr(Line,1,N-1),""};
-		_ ->
-		    {string:substr(Line,1,N-1),string:substr(Line,N+2)}
-	    end
+        [N, V] ->
+            {N, string:slice(V, 1)}
     end.

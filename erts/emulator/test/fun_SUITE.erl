@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 	 fun_to_port/1,t_phash/1,t_phash2/1,md5/1,
 	 refc/1,refc_ets/1,refc_dist/1,
 	 const_propagation/1,t_arity/1,t_is_function2/1,
-	 t_fun_info/1,t_fun_info_mfa/1]).
+	 t_fun_info/1,t_fun_info_mfa/1,t_fun_to_list/1]).
 
 -export([nothing/0]).
 
@@ -44,7 +44,7 @@ all() ->
      equality, ordering, fun_to_port, t_phash,
      t_phash2, md5, refc, refc_ets, refc_dist,
      const_propagation, t_arity, t_is_function2, t_fun_info,
-     t_fun_info_mfa].
+     t_fun_info_mfa,t_fun_to_list].
 
 %% Test that the correct EXIT code is returned for all types of bad funs.
 bad_apply(Config) when is_list(Config) ->
@@ -513,6 +513,8 @@ refc(Config) when is_list(Config) ->
 	Other -> ct:fail({unexpected,Other})
     end,
     process_flag(trap_exit, false),
+    %% Wait to make sure that the process has terminated completely.
+    receive after 1 -> ok end,
     {refc,3} = erlang:fun_info(F1, refc),
 
     %% Garbage collect. Only the F2 fun will be left.
@@ -576,7 +578,7 @@ refc_dist(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Pid = spawn_link(Node, fun() -> receive
                                         Fun when is_function(Fun) ->
-                                            2 = fun_refc(Fun),
+                                            3 = fun_refc(Fun),
                                             exit({normal,Fun}) end
                            end),
     F = fun() -> 42 end,
@@ -592,13 +594,14 @@ refc_dist(Config) when is_list(Config) ->
     3 = fun_refc(F2),
     true = erlang:garbage_collect(),
     2 = fun_refc(F),
-    refc_dist_send(Node, F).
+    refc_dist_send(Node, F),
+    test_server:stop_node(Node).
 
 refc_dist_send(Node, F) ->
     Pid = spawn_link(Node, fun() -> receive
                                         {To,Fun} when is_function(Fun) ->
                                             wait_until(fun () ->
-                                                               2 =:= fun_refc(Fun)
+                                                               3 =:= fun_refc(Fun)
                                                        end),
                                             To ! Fun
                                     end
@@ -626,7 +629,7 @@ refc_dist_reg_send(Node, F) ->
                                    Me ! Ref,
                                    receive
                                        {Me,Fun} when is_function(Fun) ->
-                                           2 = fun_refc(Fun),
+                                           3 = fun_refc(Fun),
                                            Me ! Fun
                                    end
                            end),
@@ -682,6 +685,7 @@ t_arity(Config) when is_list(Config) ->
     43 = spawn_call(Node, fun(X, Y) -> A+X+Y end),
     1 = spawn_call(Node, fun(X, Y) -> X+Y end),
     45 = spawn_call(Node, fun(X, Y, Z) -> A+X+Y+Z end),
+    test_server:stop_node(Node),
     ok.
 
 t_is_function2(Config) when is_list(Config) ->
@@ -710,6 +714,16 @@ t_is_function2(Config) when is_list(Config) ->
     bad_arity({}),
     bad_arity({a,b}),
     bad_arity(self()),
+
+    %% Bad arity argument in guard test.
+    Fun = fun erlang:abs/1,
+    ok = if
+             is_function(Fun, -1) -> error;
+             is_function(Fun, 256) -> error;
+             is_function(Fun, a) -> error;
+             is_function(Fun, Fun) -> error;
+             true -> ok
+         end,
     ok.
 
 bad_arity(A) ->
@@ -788,6 +802,12 @@ t_fun_info_mfa(Config) when is_list(Config) ->
     {'EXIT',_} = (catch erlang:fun_info_mfa(id(d))),
     ok.
 
+t_fun_to_list(Config) when is_list(Config) ->
+    "fun a:b/1" = erlang:fun_to_list(fun a:b/1),
+    "fun 'a-esc':'b-esc'/1" = erlang:fun_to_list(fun 'a-esc':'b-esc'/1),
+    "fun 'a-esc':b/1" = erlang:fun_to_list(fun 'a-esc':b/1),
+    "fun a:'b-esc'/1" = erlang:fun_to_list(fun a:'b-esc'/1),
+    ok.
 
 bad_info(Term) ->
     try	erlang:fun_info(Term, module) of
@@ -806,11 +826,13 @@ verify_not_undef(Fun, Tag) ->
 	    ct:fail("tag ~w not defined in fun_info", [Tag]);
 	{Tag,_} -> ok
     end.
-	    
+
 id(X) ->
     X.
 
 spawn_call(Node, AFun) ->
+    Parent = self(),
+    Init = erlang:whereis(init),
     Pid = spawn_link(Node,
 		     fun() ->
 			     receive
@@ -821,8 +843,10 @@ spawn_call(Node, AFun) ->
 						_ -> lists:seq(0, Arity-1)
 					    end,
 				     Res = apply(Fun, Args),
-				     {pid,Creator} = erlang:fun_info(Fun, pid),
-				     Creator ! {result,Res}
+                     case erlang:fun_info(Fun, pid) of
+                        {pid,Init} -> Parent ! {result,Res};
+                        {pid,Creator} -> Creator ! {result,Res}
+                     end
 			     end
 		     end),
     Pid ! {AFun,AFun,AFun},

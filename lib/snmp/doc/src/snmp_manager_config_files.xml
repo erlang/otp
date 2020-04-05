@@ -47,7 +47,7 @@
     </p>
   <p>If syntax errors are discovered in these files they are reported with the
     function <c>config_err/2</c> of the 
-    <seealso marker="snmpa_error_report">error report module</seealso>  
+    <seeerl marker="snmpa_error_report">error report module</seeerl>  
     at start-up.
     </p>
 
@@ -81,8 +81,8 @@
 		<p><c>Addr</c> is for the currently supported domains
 		either an <c>IpAddr</c> or an <c>{IpAddr, IpPort}</c>
 		tuple.<c>IpAddr</c> is either a regular Erlang/OTP
-		<seealso marker="kernel:inet#type-ip_address">
-		<c>ip_address()</c></seealso> or a traditional SNMP integer list
+		<seetype marker="kernel:inet#ip_address">
+		<c>ip_address()</c></seetype> or a traditional SNMP integer list
 		and <c>IpPort</c> is an integer.
 		</p>
 		<p>When <c>Addr</c> does not contain a port number,
@@ -138,7 +138,7 @@
     <p>For each <em>manager user</em>, the manager needs some information.
       This information is either added in the <c>users.conf</c> config 
       file or by calling the 
-      <seealso marker="snmpm#register_user">register_user</seealso> 
+      <seeerl marker="snmpm#register_user">register_user</seeerl> 
       function in run-time.
       </p>
     <p>Each row defines a <em>manager user</em> of the manager. 
@@ -174,7 +174,7 @@
     <p>The information needed to handle agents should be stored in a 
       file called <c>agents.conf</c>. It is also possible to add agents
       in run-time by calling the 
-      <seealso marker="snmpm#register_agent">register_agent</seealso>.
+      <seeerl marker="snmpm#register_agent">register_agent</seeerl>.
       </p>
     <p>Each entry is a tuple:
       </p>
@@ -200,7 +200,7 @@
 	either an <c>{IpAddr, IpPort}</c> tuple or a traditional SNMP
 	integer list containing port number. <c>IpAddr</c> is either
 	a regular Erlang/OTP
-	<seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
+	<seetype marker="kernel:inet#ip_address"><c>ip_address()</c></seetype>
 	or a traditional SNMP integer list not containing port number,
 	and <c>IpPort</c> is an integer.</p>
       </item>
@@ -242,7 +242,7 @@
       file called <c>usm.conf</c>, which must be present if the manager
       wishes to use SNMPv3 when communicating with agents. It is also 
       possible to add usm data in run-time by calling the 
-      <seealso marker="snmpm#register_usm_user">register_usm_user</seealso>.
+      <seeerl marker="snmpm#register_usm_user">register_usm_user</seeerl>.
       </p>
     <p>The corresponding table is <c>usmUserTable</c> in the
       SNMP-USER-BASED-SM-MIB.

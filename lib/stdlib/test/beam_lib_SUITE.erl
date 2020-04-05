@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
-	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
+	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, strip_add_chunks/1, otp_6711/1,
          building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -45,7 +45,7 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() -> 
-    [error, normal, cmp, cmp_literals, strip, otp_6711,
+    [error, normal, cmp, cmp_literals, strip, strip_add_chunks, otp_6711,
      building, md5, encrypted_abstr, encrypted_abstr_file].
 
 groups() -> 
@@ -78,7 +78,7 @@ normal(Conf) when is_list(Conf) ->
     BeamFile = Simple ++ ".beam",
     simple_file(Source),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     P0 = pps(),
 
     do_normal(Source, PrivDir, BeamFile, []),
@@ -95,7 +95,7 @@ normal(Conf) when is_list(Conf) ->
 
     file:delete(BeamFile),
     file:delete(Source),
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     true = (P0 == pps()),
     ok.
 
@@ -173,7 +173,7 @@ error(Conf) when is_list(Conf) ->
     WrongFile = Simple ++ "foo.beam",
     simple_file(Source),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     P0 = pps(),
     {ok,_} = compile:file(Source, [{outdir,PrivDir},debug_info]),
     ACopy = filename:join(PrivDir, "a_copy.beam"),
@@ -213,7 +213,7 @@ error(Conf) when is_list(Conf) ->
     %% we have eliminated them.
     ok = file:write_file(BeamFile, <<"FOR1",5:32,"BEAMfel">>),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     true = (P0 == pps()),
     file:delete(Source),
     file:delete(WrongFile),
@@ -273,7 +273,7 @@ cmp(Conf) when is_list(Conf) ->
     {Source2D1, BeamFile2D1} = make_beam(Dir1, simple2, concat),
     {SourceD2, BeamFileD2} = make_beam(Dir2, simple, concat),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     P0 = pps(),
 
     %% cmp
@@ -300,7 +300,7 @@ cmp(Conf) when is_list(Conf) ->
     ver(not_a_directory, beam_lib:diff_dirs(foo, bar)),
 
     true = (P0 == pps()),
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     delete_files([SourceD1, BeamFileD1, Source2D1,
 		  BeamFile2D1, SourceD2, BeamFileD2]),
 
@@ -321,7 +321,7 @@ cmp_literals(Conf) when is_list(Conf) ->
     {SourceD1, BeamFileD1} = make_beam(Dir1, simple, constant),
     {SourceD2, BeamFileD2} = make_beam(Dir2, simple, constant2),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     P0 = pps(),
 
     %% cmp
@@ -334,7 +334,7 @@ cmp_literals(Conf) when is_list(Conf) ->
     ver(chunks_different, beam_lib:cmp(B1, B2)),
 
     true = (P0 == pps()),
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
 
     delete_files([SourceD1, BeamFileD1, SourceD2, BeamFileD2]),
 
@@ -351,7 +351,7 @@ strip(Conf) when is_list(Conf) ->
     {Source4D1, BeamFile4D1} = make_beam(PrivDir, constant, constant),
     {Source5D1, BeamFile5D1} = make_beam(PrivDir, lines, lines),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     P0 = pps(),
 
     %% strip binary
@@ -392,7 +392,7 @@ strip(Conf) when is_list(Conf) ->
 	(catch lines:t(atom)),
 
     true = (P0 == pps()),
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
 
     delete_files([SourceD1, BeamFileD1,
 		  Source2D1, BeamFile2D1,
@@ -401,6 +401,69 @@ strip(Conf) when is_list(Conf) ->
 		  Source5D1, BeamFile5D1]),
     ok.
 
+strip_add_chunks(Conf) when is_list(Conf) ->
+    PrivDir = ?privdir,
+    {SourceD1, BeamFileD1} = make_beam(PrivDir, simple, member),
+    {Source2D1, BeamFile2D1} = make_beam(PrivDir, simple2, concat),
+    {Source3D1, BeamFile3D1} = make_beam(PrivDir, make_fun, make_fun),
+    {Source4D1, BeamFile4D1} = make_beam(PrivDir, constant, constant),
+    {Source5D1, BeamFile5D1} = make_beam(PrivDir, lines, lines),
+
+    NoOfTables = erlang:system_info(ets_count),
+    P0 = pps(),
+
+    %% strip binary
+    verify(not_a_beam_file, beam_lib:strip(<<>>)),
+    {ok, B1} = file:read_file(BeamFileD1),
+    {ok, {simple, NB1}} = beam_lib:strip(B1),
+
+    BId1 = chunk_ids(B1),
+    NBId1 = chunk_ids(NB1),
+    true = length(BId1) > length(NBId1),
+    compare_chunks(B1, NB1, NBId1),
+
+    %% Keep all the extra chunks
+    ExtraChunks = ["Abst" , "Dbgi" , "Attr" , "CInf" , "LocT" , "Atom" ],
+    {ok, {simple, AB1}} = beam_lib:strip(B1, ExtraChunks),
+    ABId1 = chunk_ids(AB1),
+    true = length(BId1) == length(ABId1),
+    compare_chunks(B1, AB1, ABId1),
+
+    %% strip file - Keep extra chunks
+    verify(file_error, beam_lib:strip(foo)),
+    {ok, {simple, _}} = beam_lib:strip(BeamFileD1, ExtraChunks),
+    compare_chunks(B1, BeamFileD1, ABId1),
+
+    %% strip_files
+    {ok, B2} = file:read_file(BeamFile2D1),
+    {ok, [{simple,_},{simple2,_}]} = beam_lib:strip_files([B1, B2], ExtraChunks),
+    {ok, [{simple,_},{simple2,_},{make_fun,_},{constant,_}]} =
+	beam_lib:strip_files([BeamFileD1, BeamFile2D1, BeamFile3D1, BeamFile4D1], ExtraChunks),
+
+    %% check that each module can be loaded.
+    {module, simple} = code:load_abs(filename:rootname(BeamFileD1)),
+    {module, simple2} = code:load_abs(filename:rootname(BeamFile2D1)),
+    {module, make_fun} = code:load_abs(filename:rootname(BeamFile3D1)),
+    {module, constant} = code:load_abs(filename:rootname(BeamFile4D1)),
+
+    %% check that line number information is still present after stripping
+    {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
+    {'EXIT',{badarith,[{lines,t,1,Info}|_]}} = (catch lines:t(atom)),
+    false = code:purge(lines),
+    true = code:delete(lines),
+    {ok, {lines,BeamFile5D1}} = beam_lib:strip(BeamFile5D1),
+    {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
+    {'EXIT',{badarith,[{lines,t,1,Info}|_]}} = (catch lines:t(atom)),
+
+    true = (P0 == pps()),
+    NoOfTables = erlang:system_info(ets_count),
+
+    delete_files([SourceD1, BeamFileD1,
+		  Source2D1, BeamFile2D1,
+		  Source3D1, BeamFile3D1,
+		  Source4D1, BeamFile4D1,
+		  Source5D1, BeamFile5D1]),
+    ok.
 
 otp_6711(Conf) when is_list(Conf) ->
     {'EXIT',{function_clause,_}} = (catch {a, beam_lib:info(3)}),
@@ -457,7 +520,7 @@ building(Conf) when is_list(Conf) ->
 
     {SourceD1, BeamFileD1} = make_beam(Dir1, building, member),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     P0 = pps(),
 
     %% read all chunks
@@ -487,7 +550,7 @@ building(Conf) when is_list(Conf) ->
 		  end, ChunkIds),
 
     true = (P0 == pps()),
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
 
     delete_files([SourceD1, BeamFileD1, BeamFileD2]),
     file:del_dir(Dir1),
@@ -535,7 +598,7 @@ encrypted_abstr_1(Conf) ->
     %% Avoid getting an extra port when crypto starts erl_ddll.
     erl_ddll:start(),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     P0 = pps(),
 
     Key = "#a_crypto_key",
@@ -549,7 +612,7 @@ encrypted_abstr_1(Conf) ->
     ok = crypto:stop(),			%To get rid of extra ets tables.
     file:delete(BeamFile),
     file:delete(Source),
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     true = (P0 == pps()),
     ok.
 
@@ -658,7 +721,7 @@ encrypted_abstr_file_1(Conf) ->
     %% Avoid getting an extra port when crypto starts erl_ddll.
     erl_ddll:start(),
 
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     P0 = pps(),
 
     Key = "Long And niCe 99Krypto Key",
@@ -676,7 +739,7 @@ encrypted_abstr_file_1(Conf) ->
     file:delete(filename:join(PrivDir, ".erlang.crypt")),
     file:delete(BeamFile),
     file:delete(Source),
-    NoOfTables = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
     true = (P0 == pps()),
     ok.
 
@@ -729,6 +792,7 @@ make_beam(Dir, Module, F) ->
     FileBase = filename:join(Dir, atom_to_list(Module)),
     Source = FileBase ++ ".erl",
     BeamFile = FileBase ++ ".beam",
+    file:delete(BeamFile),
     simple_file(Source, Module, F),
     {ok, _} = compile:file(Source, [{outdir,Dir}, debug_info, report]),
     {Source, BeamFile}.
@@ -827,7 +891,7 @@ simple_file(File, Module, F) ->
     ok = file:write_file(File, B).
 
 run_if_crypto_works(Test) ->
-    try	begin crypto:start(), crypto:info(), crypto:stop(), ok end of
+    try	begin crypto:start(), crypto:stop(), ok end of
 	ok ->
 	    Test()
     catch

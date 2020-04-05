@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@
 	 dirty_process_info/1,
 	 dirty_process_register/1,
 	 dirty_process_trace/1,
-	 code_purge/1]).
+	 code_purge/1,
+         otp_15688/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -64,7 +65,8 @@ all() ->
      dirty_process_info,
      dirty_process_register,
      dirty_process_trace,
-     code_purge].
+     code_purge,
+     otp_15688].
 
 init_per_suite(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of
@@ -108,90 +110,80 @@ dirty_bif_exception(Config) when is_list(Config) ->
 			      erts_debug:dirty_cpu(error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty_cpu,[error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk1 ->
+				  [{erts_debug,dirty_cpu,[error, Error],_}|_] = Stk1,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty_cpu,[error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty_cpu,[error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk2 ->
+				  [{erts_debug,dirty_cpu,[error, Error],_}|_] = Stk2,
 				  ok
 			  end,
 			  try
 			      erts_debug:dirty_io(error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty_io,[error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk3 ->
+				  [{erts_debug,dirty_io,[error, Error],_}|_] = Stk3,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty_io,[error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty_io,[error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk4 ->
+				  [{erts_debug,dirty_io,[error, Error],_}|_] = Stk4,
 				  ok
 			  end,
 			  try
 			      erts_debug:dirty(normal, error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[normal, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk5 ->
+				  [{erts_debug,dirty,[normal, error, Error],_}|_] = Stk5,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty,[normal, error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[normal, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk6 ->
+				  [{erts_debug,dirty,[normal, error, Error],_}|_] = Stk6,
 				  ok
 			  end,
 			  try
 			      erts_debug:dirty(dirty_cpu, error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk7 ->
+				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_] = Stk7,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty,[dirty_cpu, error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk8 ->
+				  [{erts_debug,dirty,[dirty_cpu, error, Error],_}|_] = Stk8,
 				  ok
 			  end,
 			  try
 			      erts_debug:dirty(dirty_io, error, Error),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk9 ->
+				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_] = Stk9,
 				  ok
 			  end,
 			  try
 			      apply(erts_debug,dirty,[dirty_io, error, Error]),
 			      ct:fail(expected_exception)
 			  catch
-			      error:ErrorType ->
-				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_]
-				      = erlang:get_stacktrace(),
+			      error:ErrorType:Stk10 ->
+				  [{erts_debug,dirty,[dirty_io, error, Error],_}|_] = Stk10,
 				  ok
 			  end
 		  end,
@@ -204,25 +196,22 @@ dirty_bif_multischedule_exception(Config) when is_list(Config) ->
     try
 	erts_debug:dirty_cpu(reschedule,1001)
     catch
-	error:badarg ->
-	    [{erts_debug,dirty_cpu,[reschedule, 1001],_}|_]
-		= erlang:get_stacktrace(),
+	error:badarg:Stk1 ->
+	    [{erts_debug,dirty_cpu,[reschedule, 1001],_}|_] = Stk1,
 	    ok
     end,
     try
 	erts_debug:dirty_io(reschedule,1001)
     catch
-	error:badarg ->
-	    [{erts_debug,dirty_io,[reschedule, 1001],_}|_]
-		= erlang:get_stacktrace(),
+	error:badarg:Stk2 ->
+	    [{erts_debug,dirty_io,[reschedule, 1001],_}|_] = Stk2,
 	    ok
     end,
     try
 	erts_debug:dirty(normal,reschedule,1001)
     catch
-	error:badarg ->
-	    [{erts_debug,dirty,[normal,reschedule,1001],_}|_]
-		= erlang:get_stacktrace(),
+	error:badarg:Stk3 ->
+	    [{erts_debug,dirty,[normal,reschedule,1001],_}|_] = Stk3,
 	    ok
     end.
 
@@ -230,6 +219,11 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config, "+SDio 1"),
     [ok] = mcall(Node,
                  [fun() ->
+                          %% Perform a dry run to ensure that all required code
+                          %% is loaded. Otherwise the test will fail since code
+                          %% loading is done through dirty IO and it won't make
+                          %% any progress during this test.
+                          _DryRun = test_dirty_scheduler_exit(),
 			  Start = erlang:monotonic_time(millisecond),
                           ok = test_dirty_scheduler_exit(),
 			  End = erlang:monotonic_time(millisecond),
@@ -246,23 +240,22 @@ test_dse(0,Pids) ->
     timer:sleep(100),
     kill_dse(Pids,[]);
 test_dse(N,Pids) ->
-    Pid = spawn_link(fun () -> erts_debug:dirty_io(wait, 5000) end),
+    Pid = spawn_link(fun () -> erts_debug:dirty_io(wait, 1000) end),
     test_dse(N-1,[Pid|Pids]).
 
 kill_dse([],Killed) ->
-    wait_dse(Killed);
+    wait_dse(Killed, ok);
 kill_dse([Pid|Pids],AlreadyKilled) ->
     exit(Pid,kill),
     kill_dse(Pids,[Pid|AlreadyKilled]).
 
-wait_dse([]) ->
-    ok;
-wait_dse([Pid|Pids]) ->
+wait_dse([], Result) ->
+    Result;
+wait_dse([Pid|Pids], Result) ->
     receive
-        {'EXIT',Pid,Reason} ->
-	    killed = Reason
-    end,
-    wait_dse(Pids).
+        {'EXIT', Pid, killed} -> wait_dse(Pids, Result);
+        {'EXIT', Pid, _Other} -> wait_dse(Pids, failed)
+    end.
 
 dirty_call_while_terminated(Config) when is_list(Config) ->
     Me = self(),
@@ -404,7 +397,9 @@ dirty_process_trace(Config) when is_list(Config) ->
     access_dirty_process(
       Config,
       fun() ->
-	      erlang:trace_pattern({erts_debug,dirty_io,2},
+	      %% BIFs can only be traced when their modules are loaded.
+	      code:ensure_loaded(erts_debug),
+	      1 = erlang:trace_pattern({erts_debug,dirty_io,2},
 				   [{'_',[],[{return_trace}]}],
 				   [local,meta]),
 	      ok
@@ -507,9 +502,57 @@ code_purge(Config) when is_list(Config) ->
     true = Time =< 1000,
     ok.
 
+otp_15688(Config) when is_list(Config) ->
+    ImBack = make_ref(),
+    {See, SeeMon} = spawn_monitor(fun () ->
+                                          erts_debug:dirty_io(wait, 2000),
+                                          exit(ImBack)
+                                  end),
+    wait_until(fun () ->
+                       [{current_function, {erts_debug, dirty_io, 2}},
+                        {status, running}]
+                           == process_info(See,
+                                           [current_function, status])
+               end),
+    {Ser1, Ser1Mon} = spawn_monitor(fun () ->
+                                            erlang:suspend_process(See,
+                                                                   [asynchronous])
+                                    end),
+    erlang:suspend_process(See, [asynchronous]),
+    receive {'DOWN', Ser1Mon, process, Ser1, normal} -> ok end,
+
+    %% Verify that we sent the suspend request while it was executing dirty...
+    [{current_function, {erts_debug, dirty_io, 2}},
+     {status, running}] = process_info(See, [current_function, status]),
+
+    wait_until(fun () ->
+                       {status, suspended} == process_info(See, status)
+               end),
+    erlang:resume_process(See),
+
+    receive
+        {'DOWN', SeeMon, process, See, Reason} ->
+            ImBack = Reason
+    after 4000 ->
+            %% Resume bug seems to have hit us...
+            PI = process_info(See),
+            exit(See, kill),
+            ct:fail({suspendee_stuck, PI})
+    end.
+    
+
 %%
 %% Internal...
 %%
+
+wait_until(Fun) ->
+    case Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
 
 access_dirty_process(Config, Start, Test, Finish) ->
     {ok, Node} = start_node(Config, ""),

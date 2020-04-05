@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,51 +44,47 @@
 #include "hipe_bif1.h"
 #endif
 #include "dtrace-wrapper.h"
+#include "erl_proc_sig_queue.h"
 
 /* #define HARDDEBUG 1 */
 
 #if defined(NO_JUMP_TABLE)
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
-#  define OpCode(OpCode)    ((Uint*)op_##OpCode)
-#  define Goto(Rel) {Go = (int)(UWord)(Rel); goto emulator_loop;}
-#  define LabelAddr(Addr) &&##Addr
+#  define IsOpCode(InstrWord, OpCode)  (BeamCodeAddr(InstrWord) == (BeamInstr)op_##OpCode)
+#  define Goto(Rel)         {Go = BeamCodeAddr(Rel); goto emulator_loop;}
+#  define GotoPF(Rel)       Goto(Rel)
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
-#  define Goto(Rel) goto *((void *)Rel)
-#  define LabelAddr(Label) &&Label
-#  define OpCode(OpCode)  (&&lb_##OpCode)
+#  define IsOpCode(InstrWord, OpCode)  (BeamCodeAddr(InstrWord) == (BeamInstr)&&lb_##OpCode)
+#  define Goto(Rel)         goto *((void *)BeamCodeAddr(Rel))
+#  define GotoPF(Rel)       goto *((void *)Rel)
+#  define LabelAddr(Label)  &&Label
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-#  ifdef ERTS_SMP
-#    define PROCESS_MAIN_CHK_LOCKS(P)					\
-do {									\
-    if ((P))								\
-	erts_proc_lc_chk_only_proc_main((P));				\
-    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());		\
+#    define PROCESS_MAIN_CHK_LOCKS(P)                   \
+do {                                                    \
+    if ((P))                                            \
+	erts_proc_lc_chk_only_proc_main((P));           \
+    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());   \
 } while (0)
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)				\
-do {									\
-    if ((P))								\
-	erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,		\
-				  __FILE__, __LINE__);			\
+#    define ERTS_REQ_PROC_MAIN_LOCK(P)				\
+do {                                                            \
+    if ((P))                                                    \
+	erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,     \
+				  __FILE__, __LINE__);          \
 } while (0)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)				\
+#    define ERTS_UNREQ_PROC_MAIN_LOCK(P)				\
 do {									\
     if ((P))								\
 	erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN);		\
 } while (0)
-#  else
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
-#    define PROCESS_MAIN_CHK_LOCKS(P) erts_lc_check_exact(NULL, 0)
-#  endif
 #else
 #  define PROCESS_MAIN_CHK_LOCKS(P)
-#  define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
-#  define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#  define ERTS_REQ_PROC_MAIN_LOCK(P)
+#  define ERTS_UNREQ_PROC_MAIN_LOCK(P)
 #endif
 
 /*
@@ -113,12 +109,9 @@ do {                                     \
 #  define CHECK_ARGS(T)
 #endif
 
-#define GET_BIF_MODULE(p)  (p->info.mfa.module)
-#define GET_BIF_FUNCTION(p)  (p->info.mfa.function)
-#define GET_BIF_ARITY(p)  (p->info.mfa.arity)
-#define GET_BIF_ADDRESS(p) ((BifFunction) (p->beam[1]))
-#define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
-
+#define GET_EXPORT_MODULE(p)  ((p)->info.mfa.module)
+#define GET_EXPORT_FUNCTION(p)  ((p)->info.mfa.function)
+#define GET_EXPORT_ARITY(p)  ((p)->info.mfa.arity)
 
 /*
  * We reuse some of fields in the save area in the process structure.
@@ -136,16 +129,12 @@ do {                                     \
 
 /* We don't check the range if an ordinary switch is used */
 #ifdef NO_JUMP_TABLE
-#define VALID_INSTR(IP) ((UWord)(IP) < (NUMBER_OF_OPCODES*2+10))
+#  define VALID_INSTR(IP) (BeamCodeAddr(IP) < (NUMBER_OF_OPCODES*2+10))
 #else
-#define VALID_INSTR(IP) \
-   ((SWord)LabelAddr(emulator_loop) <= (SWord)(IP) && \
-    (SWord)(IP) < (SWord)LabelAddr(end_emulator_loop))
+#  define VALID_INSTR(IP) \
+    ((BeamInstr)LabelAddr(emulator_loop) <= BeamCodeAddr(IP) && \
+     BeamCodeAddr(IP) < (BeamInstr)LabelAddr(end_emulator_loop))
 #endif /* NO_JUMP_TABLE */
-
-#define SET_CP(p, ip)           \
-   ASSERT(VALID_INSTR(*(ip)));  \
-   (p)->cp = (ip)
 
 #define SET_I(ip) \
    ASSERT(VALID_INSTR(* (Eterm *)(ip))); \
@@ -155,50 +144,7 @@ do {                                     \
  * Register target (X or Y register).
  */
 
-#define REG_TARGET_PTR(Target) (((Target) & 1) ? &yb(Target-1) : &xb(Target))
-#define REG_TARGET(Target) (*REG_TARGET_PTR(Target))
-
-/*
- * Store a result into a register given a destination descriptor.
- */
-
-#define StoreResult(Result, DestDesc)		\
-  do {						\
-    Eterm stb_reg;				\
-    stb_reg = (DestDesc);			\
-    CHECK_TERM(Result);				\
-    REG_TARGET(stb_reg) = (Result);		\
-  } while (0)
-
-/*
- * Store a result into a register and execute the next instruction.
- * Dst points to the word with a destination descriptor, which MUST
- * be just before the next instruction.
- */
- 
-#define StoreBifResult(Dst, Result)		\
-  do {						\
-    BeamInstr* stb_next;			\
-    Eterm stb_reg;				\
-    stb_reg = Arg(Dst);				\
-    I += (Dst) + 2;				\
-    stb_next = (BeamInstr *) *I;		\
-    CHECK_TERM(Result);				\
-    REG_TARGET(stb_reg) = (Result);		\
-    Goto(stb_next);				\
-  } while (0)
-
-#define ClauseFail() goto jump_f
-
-#define SAVE_CP(X)				\
-   do {						\
-      *(X) = make_cp(c_p->cp);			\
-      c_p->cp = 0;				\
-   } while(0)
-
-#define RESTORE_CP(X)		SET_CP(c_p, (BeamInstr *) cp_val(*(X)))
-
-#define ISCATCHEND(instr) ((Eterm *) *(instr) == OpCode(catch_end_y))
+#define REG_TARGET_PTR(Target) (((Target) & 1) ? &yb((Target)-1) : &xb(Target))
 
 /*
  * Special Beam instructions.
@@ -208,14 +154,9 @@ BeamInstr beam_apply[2];
 BeamInstr beam_exit[1];
 BeamInstr beam_continue_exit[1];
 
-BeamInstr* em_call_error_handler;
-BeamInstr* em_apply_bif;
-BeamInstr* em_call_nif;
-BeamInstr* em_call_bif_e;
-
 
 /* NOTE These should be the only variables containing trace instructions.
-**      Sometimes tests are form the instruction value, and sometimes
+**      Sometimes tests are for the instruction value, and sometimes
 **      for the referring variable (one of these), and rouge references
 **      will most likely cause chaos.
 */
@@ -256,8 +197,12 @@ void** beam_ops;
 #ifdef DEBUG
 #  /* The stack pointer is used in an assertion. */
 #  define LIGHT_SWAPOUT SWAPOUT
+#  define DEBUG_SWAPOUT SWAPOUT
+#  define DEBUG_SWAPIN  SWAPIN
 #else
 #  define LIGHT_SWAPOUT HEAP_TOP(c_p) = HTOP
+#  define DEBUG_SWAPOUT
+#  define DEBUG_SWAPIN
 #endif
 
 /*
@@ -281,805 +226,94 @@ void** beam_ops;
      HEAP_TOP((P)) = HTOP;  						\
      (P)->stop = E;  							\
      PROCESS_MAIN_CHK_LOCKS((P));					\
-     ERTS_SMP_UNREQ_PROC_MAIN_LOCK((P))
+     ERTS_UNREQ_PROC_MAIN_LOCK((P))
 
 #define db(N) (N)
+#define fb(N) ((Sint)(Sint32)(N))
+#define jb(N) ((Sint)(Sint32)(N))
 #define tb(N) (N)
-#define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
-#define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))
-#define fb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
+#define xb(N) (*ADD_BYTE_OFFSET(reg, N))
+#define yb(N) (*ADD_BYTE_OFFSET(E, N))
+#define Sb(N) (*REG_TARGET_PTR(N))
+#define lb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
 #define Qb(N) (N)
 #define Ib(N) (N)
+
 #define x(N) reg[N]
 #define y(N) E[N]
 #define r(N) x(N)
-
-/*
- * Makes sure that there are StackNeed + HeapNeed + 1 words available
- * on the combined heap/stack segment, then allocates StackNeed + 1
- * words on the stack and saves CP.
- *
- * M is number of live registers to preserve during garbage collection
- */
-
-#define AH(StackNeed, HeapNeed, M) \
-  do { \
-     int needed; \
-     needed = (StackNeed) + 1; \
-     if (E - HTOP < (needed + (HeapNeed))) { \
-           SWAPOUT; \
-           PROCESS_MAIN_CHK_LOCKS(c_p); \
-           FCALLS -= erts_garbage_collect_nobump(c_p, needed + (HeapNeed), \
-						 reg, (M), FCALLS);	\
-           ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p); \
-           PROCESS_MAIN_CHK_LOCKS(c_p); \
-           SWAPIN; \
-     } \
-     E -= needed; \
-     SAVE_CP(E); \
-  } while (0)
-
-#define Allocate(Ns, Live) AH(Ns, 0, Live)
-
-#define AllocateZero(Ns, Live)             \
- do { Eterm* ptr;                          \
-      int i = (Ns);                        \
-      AH(i, 0, Live);                      \
-      for (ptr = E + i; ptr > E; ptr--) {  \
-	 make_blank(*ptr);                 \
-     }                                     \
-  } while (0)
-
-#define AllocateHeap(Ns, Nh, Live) AH(Ns, Nh, Live)
-
-#define AllocateHeapZero(Ns, Nh, Live)     \
- do { Eterm* ptr;                          \
-      int i = (Ns);                        \
-      AH(i, Nh, Live);                     \
-      for (ptr = E + i; ptr > E; ptr--) {  \
-	 make_blank(*ptr);                 \
-     }                                     \
-  } while (0)
-
-#define AllocateInit(Ns, Live, Y) \
-  do { AH(Ns, 0, Live); make_blank(Y); } while (0)
-
-/*
- * Like the AH macro, but allocates no additional heap space.
- */
-
-#define A(StackNeed, M) AH(StackNeed, 0, M)
-
-#define D(N)             \
-     RESTORE_CP(E);      \
-     E += (N) + 1;
-
-
-
-#define TestBinVHeap(VNh, Nh, Live)                             		\
-  do {                                                          		\
-    unsigned need = (Nh);                                       		\
-    if ((E - HTOP < need) || (MSO(c_p).overhead + (VNh) >= BIN_VHEAP_SZ(c_p))) {\
-       SWAPOUT;                                                 		\
-       PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
-       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live), FCALLS);	\
-       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);					\
-       PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
-       SWAPIN;                                                  		\
-    }                                                           		\
-    HEAP_SPACE_VERIFIED(need);                                                  \
-  } while (0)
-
-
-
-/*
- * Check if Nh words of heap are available; if not, do a garbage collection.
- * Live is number of active argument registers to be preserved.
- */
-
-#define TestHeap(Nh, Live)                                      \
-  do {                                                          \
-    unsigned need = (Nh);                                       \
-    if (E - HTOP < need) {                                      \
-       SWAPOUT;                                                 \
-       PROCESS_MAIN_CHK_LOCKS(c_p);                             \
-       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live), FCALLS); \
-       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);			\
-       PROCESS_MAIN_CHK_LOCKS(c_p);                             \
-       SWAPIN;                                                  \
-    }                                                           \
-    HEAP_SPACE_VERIFIED(need);                             \
-  } while (0)
-
-/*
- * Check if Nh words of heap are available; if not, do a garbage collection.
- * Live is number of active argument registers to be preserved.
- * Takes special care to preserve Extra if a garbage collection occurs.
- */
-
-#define TestHeapPreserve(Nh, Live, Extra)				\
-  do {									\
-    unsigned need = (Nh);						\
-    if (E - HTOP < need) {						\
-       SWAPOUT;								\
-       reg[Live] = Extra;						\
-       PROCESS_MAIN_CHK_LOCKS(c_p);					\
-       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live)+1, FCALLS); \
-       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);				\
-       PROCESS_MAIN_CHK_LOCKS(c_p);					\
-       Extra = reg[Live];						\
-       SWAPIN;								\
-    }									\
-    HEAP_SPACE_VERIFIED(need);                                      \
-  } while (0)
-
-#define TestHeapPutList(Need, Reg)		\
-  do {						\
-     TestHeap((Need), 1);			\
-     PutList(Reg, r(0), r(0));                  \
-     CHECK_TERM(r(0));				\
-  } while (0)
-
-#define Init(N) make_blank(yb(N))
-
-#define Init2(Y1, Y2) do { make_blank(Y1); make_blank(Y2); } while (0)
-#define Init3(Y1, Y2, Y3) \
-   do { make_blank(Y1); make_blank(Y2); make_blank(Y3); } while (0)
-
-#define MakeFun(FunP, NumFree)					\
-  do {								\
-     HEAVY_SWAPOUT;						\
-     r(0) = new_fun(c_p, reg, (ErlFunEntry *) FunP, NumFree);	\
-     HEAVY_SWAPIN;						\
-  } while (0)
-
-#define PutTuple(Dst, Arity)			\
- do {						\
-   Dst = make_tuple(HTOP);			\
-   pt_arity = (Arity);				\
- } while (0)
-
-/*
- * Check that we haven't used the reductions and jump to function pointed to by
- * the I register.  If we are out of reductions, do a context switch.
- */
-
-#define DispatchMacro()				\
-  do {						\
-     BeamInstr* dis_next;				\
-     dis_next = (BeamInstr *) *I;			\
-     CHECK_ARGS(I);				\
-     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
-        Goto(dis_next);				\
-     } else {					\
-	goto context_switch;			\
-     }						\
- } while (0)
-
-#define DispatchMacroFun()			\
-  do {						\
-     BeamInstr* dis_next;				\
-     dis_next = (BeamInstr *) *I;			\
-     CHECK_ARGS(I);				\
-     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
-        Goto(dis_next);				\
-     } else {					\
-	goto context_switch_fun;		\
-     }						\
- } while (0)
-
-#define DispatchMacrox()					\
-  do {								\
-     if (FCALLS > 0) {						\
-        Eterm* dis_next;					\
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
-        dis_next = (Eterm *) *I;				\
-        FCALLS--;						\
-        CHECK_ARGS(I);						\
-        Goto(dis_next);						\
-     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)		\
-		&& FCALLS > neg_o_reds) {			\
-        goto save_calls1;					\
-     } else {							\
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
-        CHECK_ARGS(I);						\
-	goto context_switch;					\
-     }								\
- } while (0)
-
-#ifdef DEBUG
-/*
- * To simplify breakpoint setting, put the code in one place only and jump to it.
- */
-#  define Dispatch() goto do_dispatch
-#  define Dispatchx() goto do_dispatchx
-#  define Dispatchfun() goto do_dispatchfun
-#else
-/*
- * Inline for speed.
- */
-#  define Dispatch() DispatchMacro()
-#  define Dispatchx() DispatchMacrox()
-#  define Dispatchfun() DispatchMacroFun()
-#endif
-
-#define Self(R) R = c_p->common.id
-#define Node(R) R = erts_this_node->sysname
+#define Q(N) (N*sizeof(Eterm *))
+#define l(N) (freg[N].fd)
 
 #define Arg(N)       I[(N)+1]
-#define Next(N)                \
-    I += (N) + 1;              \
-    ASSERT(VALID_INSTR(*I));   \
-    Goto(*I)
 
-#define PreFetch(N, Dst) do { Dst = (BeamInstr *) *(I + N + 1); } while (0)
-#define NextPF(N, Dst)         \
-    I += N + 1;                \
-    ASSERT(VALID_INSTR(Dst));  \
-    Goto(Dst)
-
-#define GetR(pos, tr)				\
+#define GetSource(raw, dst)			\
    do {						\
-     tr = Arg(pos);				\
-     switch (loader_tag(tr)) {			\
+     dst = raw;                                 \
+     switch (loader_tag(dst)) {			\
      case LOADER_X_REG:				\
-        tr = x(loader_x_reg_index(tr));		\
+        dst = x(loader_x_reg_index(dst));       \
         break;					\
      case LOADER_Y_REG:				\
-        ASSERT(loader_y_reg_index(tr) >= 1);	\
-        tr = y(loader_y_reg_index(tr));		\
+        ASSERT(loader_y_reg_index(dst) >= 1);	\
+        dst = y(loader_y_reg_index(dst));       \
         break;					\
      }						\
-     CHECK_TERM(tr);				\
+     CHECK_TERM(dst);				\
    } while (0)
 
-#define GetArg1(N, Dst) GetR((N), Dst)
-
-#define GetArg2(N, Dst1, Dst2)     \
-   do {                            \
-     GetR(N, Dst1);                \
-     GetR((N)+1, Dst2);            \
-   } while (0)
-
-#define PutList(H, T, Dst)                      \
-  do {                                          \
-   HTOP[0] = (H); HTOP[1] = (T);                \
-   Dst = make_list(HTOP);                       \
-   HTOP += 2;                                   \
-  } while (0)
-
-#define Swap(R1, R2)				\
-  do {						\
-    Eterm V = R1;				\
-    R1 = R2;					\
-    R2 = V;					\
-  } while (0)
-
-#define SwapTemp(R1, R2, Tmp)			\
-  do {						\
-    Eterm V = R1;				\
-    R1 = R2;					\
-    R2 = Tmp = V;				\
-  } while (0)
-
-#define Move(Src, Dst) Dst = (Src)
-
-#define Move2Par(S1, D1, S2, D2)		\
-  do {						\
-      Eterm V1, V2;				\
-      V1 = (S1); V2 = (S2); D1 = V1; D2 = V2;	\
-  } while (0)
-
-#define MoveShift(Src, SD, D)			\
-  do {						\
-    Eterm V;					\
-    V = Src; D = SD; SD = V;			\
-  } while (0)
-
-#define MoveDup(Src, D1, D2)			\
-  do {						\
-    D1 = D2 = (Src);				\
-  } while (0)
-
-#define Move3(S1, D1, S2, D2, S3, D3) D1 = (S1); D2 = (S2); D3 = (S3)
-
-#define MoveWindow3(S1, S2, S3, D)		\
-  do {						\
-      Eterm xt0, xt1, xt2;			\
-      Eterm *y = &D;				\
-      xt0  = S1;				\
-      xt1  = S2;				\
-      xt2  = S3;				\
-      y[0] = xt0;				\
-      y[1] = xt1;				\
-      y[2] = xt2;				\
- } while (0)
-
-#define MoveWindow4(S1, S2, S3, S4, D)		\
-  do {						\
-      Eterm xt0, xt1, xt2, xt3;			\
-      Eterm *y = &D;				\
-      xt0  = S1;				\
-      xt1  = S2;				\
-      xt2  = S3;				\
-      xt3  = S4;				\
-      y[0] = xt0;				\
-      y[1] = xt1;				\
-      y[2] = xt2;				\
-      y[3] = xt3;				\
- } while (0)
-
-#define MoveWindow5(S1, S2, S3, S4, S5, D)	\
-  do {						\
-      Eterm xt0, xt1, xt2, xt3, xt4;		\
-      Eterm *y = &D;				\
-      xt0  = S1;				\
-      xt1  = S2;				\
-      xt2  = S3;				\
-      xt3  = S4;				\
-      xt4  = S5;				\
-      y[0] = xt0;				\
-      y[1] = xt1;				\
-      y[2] = xt2;				\
-      y[3] = xt3;				\
-      y[4] = xt4;				\
- } while (0)
-
-#define DispatchReturn                          \
-do {                                            \
-    if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
-        Goto(*I);                               \
-    }                                           \
-    else {					\
-        c_p->current = NULL;                    \
-        c_p->arity = 1;                         \
-        goto context_switch3;			\
+#define PUT_TERM_REG(term, desc)		\
+do {						\
+    switch (loader_tag(desc)) {			\
+    case LOADER_X_REG:				\
+	x(loader_x_reg_index(desc)) = (term);	\
+	break;					\
+    case LOADER_Y_REG:				\
+	y(loader_y_reg_index(desc)) = (term);	\
+	break;					\
+    default:					\
+	ASSERT(0);				\
+	break;					\
     }						\
-} while (0)
-
-#define MoveReturn(Src)				\
-    x(0) = (Src);				\
-    I = c_p->cp;				\
-    ASSERT(VALID_INSTR(*c_p->cp));		\
-    c_p->cp = 0;				\
-    CHECK_TERM(r(0));				\
-    DispatchReturn
-
-#define DeallocateReturn(Deallocate)       \
-  do {                                     \
-    int words_to_pop = (Deallocate);       \
-    SET_I((BeamInstr *) cp_val(*E));       \
-    E = ADD_BYTE_OFFSET(E, words_to_pop);  \
-    CHECK_TERM(r(0));                      \
-    DispatchReturn;                        \
-  } while (0)
-
-#define MoveDeallocateReturn(Src, Deallocate)	\
-    x(0) = (Src);				\
-    DeallocateReturn(Deallocate)
-
-#define MoveCall(Src, CallDest, Size)		\
-    x(0) = (Src);				\
-    SET_CP(c_p, I+Size+1);			\
-    SET_I((BeamInstr *) CallDest);		\
-    Dispatch();
-
-#define MoveCallLast(Src, CallDest, Deallocate)	\
-    x(0) = (Src);				\
-    RESTORE_CP(E);				\
-    E = ADD_BYTE_OFFSET(E, (Deallocate));	\
-    SET_I((BeamInstr *) CallDest);		\
-    Dispatch();
-
-#define MoveCallOnly(Src, CallDest)		\
-    x(0) = (Src);				\
-    SET_I((BeamInstr *) CallDest);		\
-    Dispatch();
-
-#define MoveJump(Src)				\
-     r(0) = (Src);				\
-     SET_I((BeamInstr *) Arg(0));		\
-     Goto(*I);
-
-#define GetList(Src, H, T)			\
-  do {						\
-    Eterm* tmp_ptr = list_val(Src);		\
-    Eterm hd, tl;				\
-    hd = CAR(tmp_ptr);				\
-    tl = CDR(tmp_ptr);				\
-    H = hd; T = tl;				\
-  } while (0)
-
-#define GetTupleElement(Src, Element, Dest)		\
-  do {							\
-    Eterm* src;						\
-    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    (Dest) = *src;					\
-  } while (0)
-
-#define GetTupleElement2(Src, Element, Dest)		\
-  do {							\
-    Eterm* src;						\
-    Eterm* dst;						\
-    Eterm E1, E2;					\
-    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    dst = &(Dest);					\
-    E1 = src[0];					\
-    E2 = src[1];					\
-    dst[0] = E1;					\
-    dst[1] = E2;					\
-  } while (0)
-
-#define GetTupleElement2Y(Src, Element, D1, D2)		\
-  do {							\
-    Eterm* src;						\
-    Eterm E1, E2;					\
-    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    E1 = src[0];					\
-    E2 = src[1];					\
-    D1 = E1;						\
-    D2 = E2;						\
-  } while (0)
-
-#define GetTupleElement3(Src, Element, Dest)		\
-  do {							\
-    Eterm* src;						\
-    Eterm* dst;						\
-    Eterm E1, E2, E3;					\
-    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    dst = &(Dest);					\
-    E1 = src[0];					\
-    E2 = src[1];					\
-    E3 = src[2];					\
-    dst[0] = E1;					\
-    dst[1] = E2;					\
-    dst[2] = E3;					\
-  } while (0)
-
-#define EqualImmed(X, Y, Action) if (X != Y) { Action; }
-#define NotEqualImmed(X, Y, Action) if (X == Y) { Action; }
-#define EqualExact(X, Y, Action) if (!EQ(X,Y)) { Action; }
-#define NotEqualExact(X, Y, Action) if (EQ(X,Y)) { Action; }
-#define Equal(X, Y, Action) CMP_EQ_ACTION(X,Y,Action)
-#define NotEqual(X, Y, Action) CMP_NE_ACTION(X,Y,Action)
-#define IsLessThan(X, Y, Action) CMP_LT_ACTION(X,Y,Action)
-#define IsGreaterEqual(X, Y, Action) CMP_GE_ACTION(X,Y,Action)
-
-#define IsFloat(Src, Fail) if (is_not_float(Src)) { Fail; }
-
-#define IsInteger(Src, Fail) if (is_not_integer(Src)) { Fail; }
-
-#define IsNumber(X, Fail) if (is_not_integer(X) && is_not_float(X)) { Fail; }
-
-#define IsAtom(Src, Fail) if (is_not_atom(Src)) { Fail; }
-
-#define IsIntegerAllocate(Src, Need, Alive, Fail)  \
-    if (is_not_integer(Src)) { Fail; }             \
-    A(Need, Alive)
-
-#define IsNil(Src, Fail) if (is_not_nil(Src)) { Fail; }
-
-#define IsList(Src, Fail) if (is_not_list(Src) && is_not_nil(Src)) { Fail; }
-
-#define IsNonemptyList(Src, Fail) if (is_not_list(Src)) { Fail; }
-
-#define IsNonemptyListAllocate(Src, Need, Alive, Fail)  \
-    if (is_not_list(Src)) { Fail; }                     \
-    A(Need, Alive)
-
-#define IsNonemptyListTestHeap(Need, Alive, Fail)  \
-    if (is_not_list(x(0))) { Fail; }			\
-    TestHeap(Need, Alive)
-
-#define IsNonemptyListGetList(Src, H, T, Fail)	\
-    if (is_not_list(Src)) {			\
-         Fail;					\
-    } else {					\
-       Eterm* tmp_ptr = list_val(Src);		\
-       Eterm hd, tl;				\
-       hd = CAR(tmp_ptr);			\
-       tl = CDR(tmp_ptr);			\
-       H = hd; T = tl;				\
-    }
-
-#define IsTuple(X, Action) if (is_not_tuple(X)) Action
-
-#define IsArity(Pointer, Arity, Fail)		\
-    if (*tuple_val(Pointer) != (Arity)) {	\
-        Fail;					\
-    }
-
-#define IsMap(Src, Fail) if (!is_map(Src)) { Fail; }
-
-#define GetMapElement(Src, Key, Dst, Fail)	\
-  do {						\
-     Eterm _res = get_map_element(Src, Key);	\
-     if (is_non_value(_res)) {			\
-        Fail;					\
-     }						\
-     Dst = _res;				\
-  } while (0)
-
-#define GetMapElementHash(Src, Key, Hx, Dst, Fail)	\
-  do {							\
-     Eterm _res = get_map_element_hash(Src, Key, Hx);	\
-     if (is_non_value(_res)) {				\
-        Fail;						\
-     }							\
-     Dst = _res;					\
-  } while (0)
-
-#define IsFunction(X, Action)			\
-  do {						\
-     if ( !(is_any_fun(X)) ) {			\
-          Action;				\
-     }						\
-  } while (0)
-
-#define IsFunction2(F, A, Action)			\
-  do {							\
-     if (erl_is_function(c_p, F, A) != am_true ) {	\
-          Action;					\
-     }							\
-  } while (0)
+} while(0)
 
 #ifdef DEBUG
-#define IsTupleOfArity(Src, Arityval, Fail)			\
-  do {								\
-    if (!(is_tuple(Src) && *tuple_val(Src) == Arityval)) {	\
-        Fail;							\
-    }								\
-  } while (0)
+/* Better static type testing by the C compiler */
+#  define BEAM_IS_TUPLE(Src) is_tuple(Src)
 #else
-#define IsTupleOfArity(Src, Arityval, Fail)			\
-  do {								\
-    if (!(is_boxed(Src) && *tuple_val(Src) == Arityval)) {	\
-        Fail;							\
-    }								\
-  } while (0)
+/* Better performance */
+# define BEAM_IS_TUPLE(Src) is_boxed(Src)
 #endif
-
-#define IsTaggedTuple(Src,Arityval,Tag,Fail) \
-  do {                                       \
-    if (!(is_tuple(Src) &&                   \
-         (tuple_val(Src))[0] == Arityval &&  \
-         (tuple_val(Src))[1] == Tag)) {      \
-        Fail;                                \
-    }                                        \
-  } while (0)
-
-#define IsBoolean(X, Fail) if ((X) != am_true && (X) != am_false) { Fail; }
-
-#define IsBinary(Src, Fail) \
- if (is_not_binary(Src) || binary_bitsize(Src) != 0) { Fail; }
-
-#define IsBitstring(Src, Fail) \
-  if (is_not_binary(Src)) { Fail; }
-
-#if defined(ARCH_64)
-#define BsSafeMul(A, B, Fail, Target)		\
-   do { Uint64 _res = (A) * (B);		\
-      if (_res / B != A) { Fail; }		\
-      Target = _res;				\
-   } while (0)
-#else
-#define BsSafeMul(A, B, Fail, Target)			\
-   do { Uint64 _res = (Uint64)(A) * (Uint64)(B);	\
-      if ((_res >> (8*sizeof(Uint))) != 0) { Fail; }	\
-      Target = _res;					\
-   } while (0)
-#endif
-
-#define BsGetFieldSize(Bits, Unit, Fail, Target)	\
-   do {							\
-      Sint _signed_size; Uint _uint_size;		\
-      Uint temp_bits;					\
-      if (is_small(Bits)) {				\
-        _signed_size = signed_val(Bits);		\
-         if (_signed_size < 0) { Fail; }		\
-         _uint_size = (Uint) _signed_size;		\
-      } else {						\
-         if (!term_to_Uint(Bits, &temp_bits)) { Fail; }	\
-         _uint_size = temp_bits;			\
-      }							\
-      BsSafeMul(_uint_size, Unit, Fail, Target);	\
-   } while (0)
-
-#define BsGetUncheckedFieldSize(Bits, Unit, Fail, Target)	\
-   do {								\
-      Sint _signed_size; Uint _uint_size;			\
-      Uint temp_bits;						\
-      if (is_small(Bits)) {					\
-        _signed_size = signed_val(Bits);			\
-         if (_signed_size < 0) { Fail; }			\
-         _uint_size = (Uint) _signed_size;			\
-      } else {							\
-         if (!term_to_Uint(Bits, &temp_bits)) { Fail; }		\
-         _uint_size = (Uint) temp_bits;				\
-      }								\
-      Target = _uint_size * Unit;				\
-   } while (0)
-
-#define BsGetFloat2(Ms, Live, Sz, Flags, Dst, Fail)                     \
- do {									\
-   ErlBinMatchBuffer *_mb;						\
-   Eterm _result; Sint _size;						\
-   if (!is_small(Sz) || (_size = unsigned_val(Sz)) > 64) { Fail; }	\
-   _size *= ((Flags) >> 3);						\
-   TestHeap(FLOAT_SIZE_OBJECT, Live);					\
-   _mb = ms_matchbuffer(Ms);						\
-   LIGHT_SWAPOUT;							\
-   _result = erts_bs_get_float_2(c_p, _size, (Flags), _mb);		\
-   LIGHT_SWAPIN;							\
-   HEAP_SPACE_VERIFIED(0);                                              \
-   if (is_non_value(_result)) { Fail; }					\
-   else { Dst = _result; }                                              \
- } while (0)
-
-#define BsGetBinaryImm_2(Ms, Live, Sz, Flags, Dst, Fail)	\
-  do {								\
-    ErlBinMatchBuffer *_mb;					\
-    Eterm _result;						\
-    TestHeap(heap_bin_size(ERL_ONHEAP_BIN_LIMIT), Live);	\
-    _mb = ms_matchbuffer(Ms);					\
-    LIGHT_SWAPOUT;						\
-    _result = erts_bs_get_binary_2(c_p, (Sz), (Flags), _mb);	\
-    LIGHT_SWAPIN;						\
-    HEAP_SPACE_VERIFIED(0);                                     \
-    if (is_non_value(_result)) { Fail; }			\
-    else { Dst = _result; }                                     \
-  } while (0)
-
-#define BsGetBinary_2(Ms, Live, Sz, Flags, Dst, Fail)           \
-  do {								\
-    ErlBinMatchBuffer *_mb;					\
-    Eterm _result; Uint _size;					\
-    BsGetFieldSize(Sz, ((Flags) >> 3), Fail, _size);		\
-    TestHeap(ERL_SUB_BIN_SIZE, Live);				\
-    _mb = ms_matchbuffer(Ms);					\
-    LIGHT_SWAPOUT;						\
-    _result = erts_bs_get_binary_2(c_p, _size, (Flags), _mb);	\
-    LIGHT_SWAPIN;						\
-    HEAP_SPACE_VERIFIED(0);                                     \
-    if (is_non_value(_result)) { Fail; }			\
-    else { Dst = _result; }                                     \
-  } while (0)
-
-#define BsGetBinaryAll_2(Ms, Live, Unit, Dst, Fail)	\
-  do {                                                  \
-    ErlBinMatchBuffer *_mb;                             \
-    Eterm _result;                                      \
-    TestHeap(ERL_SUB_BIN_SIZE, Live);                   \
-    _mb = ms_matchbuffer(Ms);                           \
-    if (((_mb->size - _mb->offset) % Unit) == 0) {      \
-      LIGHT_SWAPOUT;                                    \
-      _result = erts_bs_get_binary_all_2(c_p, _mb);     \
-      LIGHT_SWAPIN;                                     \
-      HEAP_SPACE_VERIFIED(0);                           \
-      ASSERT(is_value(_result));                        \
-      Dst = _result;					\
-    } else {                                            \
-	HEAP_SPACE_VERIFIED(0);                         \
-	Fail; }                                         \
- } while (0)
-
-#define BsSkipBits2(Ms, Bits, Unit, Fail)			\
- do {								\
-   ErlBinMatchBuffer *_mb;					\
-   size_t new_offset;						\
-   Uint _size;							\
-    _mb = ms_matchbuffer(Ms);					\
-   BsGetFieldSize(Bits, Unit, Fail, _size);			\
-   new_offset = _mb->offset + _size;				\
-   if (new_offset <= _mb->size) { _mb->offset = new_offset; }	\
-   else { Fail; }						\
- } while (0)
-
-#define BsSkipBitsAll2(Ms, Unit, Fail)		\
- do {						\
-    ErlBinMatchBuffer *_mb;			\
-   _mb = ms_matchbuffer(Ms);			\
-   if (((_mb->size - _mb->offset) % Unit) == 0) {_mb->offset = _mb->size; } \
-   else { Fail; }					\
- } while (0)
-
-#define BsSkipBitsImm2(Ms, Bits, Fail)				\
- do {								\
-   ErlBinMatchBuffer *_mb;					\
-   size_t new_offset;						\
-   _mb = ms_matchbuffer(Ms);					\
-   new_offset = _mb->offset + (Bits);				\
-   if (new_offset <= _mb->size) { _mb->offset = new_offset; }	\
-   else { Fail; }						\
- } while (0)
-
-#define NewBsPutIntegerImm(Sz, Flags, Src)					\
- do {									\
-    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3((Src), (Sz), (Flags)))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutInteger(Sz, Flags, Src)						\
- do {										\
-    Sint _size;									\
-    BsGetUncheckedFieldSize(Sz, ((Flags) >> 3), goto badarg, _size);		\
-    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3((Src), _size, (Flags))))	\
-       { goto badarg; }								\
- } while (0)
-
-#define NewBsPutFloatImm(Sz, Flags, Src)					\
- do {									\
-    if (!erts_new_bs_put_float(c_p, (Src), (Sz), (Flags))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutFloat(Sz, Flags, Src)						\
- do {										\
-    Sint _size;									\
-    BsGetUncheckedFieldSize(Sz, ((Flags) >> 3), goto badarg, _size);		\
-    if (!erts_new_bs_put_float(c_p, (Src), _size, (Flags))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutBinary(Sz, Flags, Src)							\
- do {											\
-    Sint _size;										\
-    BsGetUncheckedFieldSize(Sz, ((Flags) >> 3), goto badarg, _size);			\
-    if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2((Src), _size))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutBinaryImm(Sz, Src)				        \
- do {							        \
-    if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2((Src), (Sz)))) { goto badarg; }	\
- } while (0)
-
-#define NewBsPutBinaryAll(Src, Unit)							\
- do {											\
-    if (!erts_new_bs_put_binary_all(ERL_BITS_ARGS_2((Src), (Unit)))) { goto badarg; }	\
- } while (0)
-
-
-#define IsPort(Src, Fail) if (is_not_port(Src)) { Fail; }
-#define IsPid(Src, Fail) if (is_not_pid(Src)) { Fail; }
-#define IsRef(Src, Fail) if (is_not_ref(Src)) { Fail; }
 
 /*
  * process_main() is already huge, so we want to avoid inlining
- * into it. Especially functions that are seldom used.
+ * seldom used functions into it.
  */
-#ifdef __GNUC__
-#  define NOINLINE __attribute__((__noinline__))
-#else
-#  define NOINLINE
-#endif
-
-
-/*
- * The following functions are called directly by process_main().
- * Don't inline them.
- */
-static ErtsCodeMFA *ubif2mfa(void* uf) NOINLINE;
-static ErtsCodeMFA *gcbif2mfa(void* gcf) NOINLINE;
+static void init_emulator_finish(void) ERTS_NOINLINE;
+static ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
-			       Eterm* reg, ErtsCodeMFA* bif_mfa) NOINLINE;
+			       Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
-				     Eterm* reg, Eterm func) NOINLINE;
+				     Eterm* reg, Eterm func) ERTS_NOINLINE;
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
-			      BeamInstr *I, Uint offs) NOINLINE;
-static BeamInstr* apply(Process* p, Eterm module, Eterm function,
-			Eterm args, Eterm* reg,
-			BeamInstr *I, Uint offs) NOINLINE;
+			      BeamInstr *I, Uint offs) ERTS_NOINLINE;
+static BeamInstr* apply(Process* p, Eterm* reg,
+                        BeamInstr *I, Uint offs) ERTS_NOINLINE;
 static BeamInstr* call_fun(Process* p, int arity,
-			   Eterm* reg, Eterm args) NOINLINE;
+			   Eterm* reg, Eterm args) ERTS_NOINLINE;
 static BeamInstr* apply_fun(Process* p, Eterm fun,
-			    Eterm args, Eterm* reg) NOINLINE;
+			    Eterm args, Eterm* reg) ERTS_NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
-		     ErlFunEntry* fe, int num_free) NOINLINE;
-static Eterm new_map(Process* p, Eterm* reg, BeamInstr* I) NOINLINE;
-static Eterm update_map_assoc(Process* p, Eterm* reg,
-			      Eterm map, BeamInstr* I) NOINLINE;
-static Eterm update_map_exact(Process* p, Eterm* reg,
-			      Eterm map, BeamInstr* I) NOINLINE;
+		     ErlFunEntry* fe, int num_free) ERTS_NOINLINE;
+static int is_function2(Eterm Term, Uint arity);
+static Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
+                             Uint n, BeamInstr* ptr) ERTS_NOINLINE;
+static Eterm erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
+                               Uint live, BeamInstr* ptr) ERTS_NOINLINE;
+static Eterm erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
+                              Uint n, BeamInstr* new_p) ERTS_NOINLINE;
+static Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
+                              Uint n, Eterm* new_p) ERTS_NOINLINE;
 static Eterm get_map_element(Eterm map, Eterm key);
 static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
 
@@ -1092,6 +326,7 @@ static Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
 static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 			    ErtsCodeMFA *bif_mfa, Eterm args);
 static struct StackTrace * get_trace_from_exc(Eterm exc);
+static Eterm *get_freason_ptr_from_exc(Eterm exc);
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 
 void
@@ -1111,6 +346,12 @@ init_emulator(void)
 #  define REG_stop asm("%l3")
 #  define REG_I asm("%l4")
 #  define REG_fcalls asm("%l5")
+#elif defined(__GNUC__) && defined(__amd64__) && !defined(DEBUG)
+#  define REG_xregs asm("%r12")
+#  define REG_htop
+#  define REG_stop asm("%r13")
+#  define REG_I asm("%rbx")
+#  define REG_fcalls asm("%r14")
 #else
 #  define REG_xregs
 #  define REG_htop
@@ -1192,10 +433,10 @@ init_emulator(void)
         }                                                                                      \
     } while(0)
 
-#define DTRACE_RETURN_FROM_PC(p)                                                        \
+#define DTRACE_RETURN_FROM_PC(p, i)                                                        \
     do {                                                                                \
         ErtsCodeMFA* cmfa;                                                                  \
-        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc((p)->cp))) { \
+        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc(i))) { \
             DTRACE_RETURN((p), cmfa);                               \
         }                                                                               \
     } while(0)
@@ -1205,7 +446,7 @@ init_emulator(void)
 #define DTRACE_GLOBAL_CALL(p, mfa)       do {} while (0)
 #define DTRACE_GLOBAL_CALL_FROM_EXPORT(p, e) do {} while (0)
 #define DTRACE_RETURN(p, mfa)            do {} while (0)
-#define DTRACE_RETURN_FROM_PC(p)             do {} while (0)
+#define DTRACE_RETURN_FROM_PC(p, i)      do {} while (0)
 #define DTRACE_BIF_ENTRY(p, mfa)         do {} while (0)
 #define DTRACE_BIF_RETURN(p, mfa)        do {} while (0)
 #define DTRACE_NIF_ENTRY(p, mfa)         do {} while (0)
@@ -1230,6 +471,13 @@ init_emulator(void)
 #define ERTS_DBG_CHK_REDS(P, FC)
 #endif
 
+#ifdef NO_FPE_SIGNALS
+#  define ERTS_NO_FPE_CHECK_INIT ERTS_FP_CHECK_INIT
+#  define ERTS_NO_FPE_ERROR ERTS_FP_ERROR
+#else
+#  define ERTS_NO_FPE_CHECK_INIT(p)
+#  define ERTS_NO_FPE_ERROR(p, a, b)
+#endif
 
 /*
  * process_main() is called twice:
@@ -1237,6 +485,7 @@ init_emulator(void)
  * the instructions' C labels to the loader.
  * The second call starts execution of BEAM code. This call never returns.
  */
+ERTS_NO_RETPOLINE
 void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 {
     static int init_done = 0;
@@ -1289,11 +538,9 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #ifndef NO_JUMP_TABLE
     static void* opcodes[] = { DEFINE_OPCODES };
 #else
-    int Go;
+    register BeamInstr Go;
 #endif
 #endif
-
-    Eterm pt_arity;		/* Used by do_put_tuple */
 
     Uint64 start_time = 0;          /* Monitor long schedule */
     BeamInstr* start_time_i = NULL;
@@ -1311,7 +558,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      * Note: c_p->arity must be set to reflect the number of useful terms in
      * c_p->arg_reg before calling the scheduler.
      */
-    if (!init_done) {
+    if (ERTS_UNLIKELY(!init_done)) {
        /* This should only be reached during the init phase when only the main
         * process is running. I.e. there is no race for init_done.
         */
@@ -1344,16 +591,16 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     }
 
     PROCESS_MAIN_CHK_LOCKS(c_p);
-    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     c_p = erts_schedule(NULL, c_p, reds_used);
     ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     start_time = 0;
 #ifdef DEBUG
-    pid = c_p->common.id; /* Save for debugging purpouses */
+    pid = c_p->common.id; /* Save for debugging purposes */
 #endif
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
     ERTS_MSACC_UPDATE_CACHE_X();
@@ -1367,7 +614,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     {
 	int reds;
 	Eterm* argp;
-	BeamInstr *next;
+	BeamInstr next;
 	int i;
 
 	argp = c_p->arg_reg;
@@ -1399,7 +646,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
 	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 
-	next = (BeamInstr *) *I;
+	next = *I;
 	SWAPIN;
 	ASSERT(VALID_INSTR(next));
 
@@ -1410,7 +657,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
             dtrace_proc_str(c_p, process_buf);
 
             if (ERTS_PROC_IS_EXITING(c_p)) {
-                strcpy(fun_buf, "<exiting>");
+                sys_strcpy(fun_buf, "<exiting>");
             } else {
                 ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
                 if (cmfa) {
@@ -1435,1944 +682,11 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #ifdef NO_JUMP_TABLE
     switch (Go) {
 #endif
+
 #include "beam_hot.h"
-
-	{
-	    Eterm increment_reg_val;
-	    Eterm increment_val;
-	    Uint live;
-	    Eterm result;
-
-	OpCase(i_increment_rIId):
-	    increment_reg_val = x(0);
-	    I--;
-	    goto do_increment;
-
-	OpCase(i_increment_xIId):
-	    increment_reg_val = xb(Arg(0));
-	    goto do_increment;
-
-	OpCase(i_increment_yIId):
-	    increment_reg_val = yb(Arg(0));
-	    goto do_increment;
-
-	do_increment:
-	    increment_val = Arg(1);
-	    if (is_small(increment_reg_val)) {
-		Sint i = signed_val(increment_reg_val) + increment_val;
-		ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-		if (MY_IS_SSMALL(i)) {
-		    result = make_small(i);
-		    StoreBifResult(3, result);
-		}
-	    }
-
-	    live = Arg(2);
-	    HEAVY_SWAPOUT;
-	    reg[live] = increment_reg_val;
-	    reg[live+1] = make_small(increment_val);
-	    result = erts_gc_mixed_plus(c_p, reg, live);
-	    HEAVY_SWAPIN;
-	    ERTS_HOLE_CHECK(c_p);
-	    if (is_value(result)) {
-		StoreBifResult(3, result);
-	    }
-	    ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
-	    goto find_func_info;
-	}
-
-#define DO_OUTLINED_ARITH_2(name, Op1, Op2)	\
- do {						\
-     Eterm result;				\
-     Uint live = Arg(1);			\
-						\
-     HEAVY_SWAPOUT;				\
-     reg[live] = Op1;				\
-     reg[live+1] = Op2;				\
-     result = erts_gc_##name(c_p, reg, live);	\
-     HEAVY_SWAPIN;				\
-     ERTS_HOLE_CHECK(c_p);			\
-     if (is_value(result)) {			\
-	 StoreBifResult(4, result);		\
-     }						\
-     goto lb_Cl_error;				\
- } while (0)
-
- {
-     Eterm PlusOp1, PlusOp2;
-     Eterm result;
-
- OpCase(i_plus_jIxxd):
-     PlusOp1 = xb(Arg(2));
-     PlusOp2 = xb(Arg(3));
-     goto do_plus;
-
- OpCase(i_plus_jIxyd):
-     PlusOp1 = xb(Arg(2));
-     PlusOp2 = yb(Arg(3));
-     goto do_plus;
-
- OpCase(i_plus_jIssd):
-     GetArg2(2, PlusOp1, PlusOp2);
-     goto do_plus;
-
- do_plus:
-     if (is_both_small(PlusOp1, PlusOp2)) {
-	 Sint i = signed_val(PlusOp1) + signed_val(PlusOp2);
-	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-	 if (MY_IS_SSMALL(i)) {
-	     result = make_small(i);
-             StoreBifResult(4, result);
-	 }
-     }
-     DO_OUTLINED_ARITH_2(mixed_plus, PlusOp1, PlusOp2);
- }
-
- {
-     Eterm MinusOp1, MinusOp2;
-     Eterm result;
-
- OpCase(i_minus_jIxxd):
-     MinusOp1 = xb(Arg(2));
-     MinusOp2 = xb(Arg(3));
-     goto do_minus;
-
- OpCase(i_minus_jIssd):
-     GetArg2(2, MinusOp1, MinusOp2);
-     goto do_minus;
-
- do_minus:
-     if (is_both_small(MinusOp1, MinusOp2)) {
-	 Sint i = signed_val(MinusOp1) - signed_val(MinusOp2);
-	 ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-	 if (MY_IS_SSMALL(i)) {
-	     result = make_small(i);
-             StoreBifResult(4, result);
-	 }
-     }
-     DO_OUTLINED_ARITH_2(mixed_minus, MinusOp1, MinusOp2);
- }
-
-    {
-	Eterm is_eq_exact_lit_val;
-
-    OpCase(i_is_eq_exact_literal_fxc):
-	is_eq_exact_lit_val = xb(Arg(1));
-	goto do_is_eq_exact_literal;
-
-    OpCase(i_is_eq_exact_literal_fyc):
-	is_eq_exact_lit_val = yb(Arg(1));
-	goto do_is_eq_exact_literal;
-
-    do_is_eq_exact_literal:
-	if (!eq(Arg(2), is_eq_exact_lit_val)) {
-	    ClauseFail();
-	}
-	Next(3);
-    }
-
-    {
-	Eterm is_ne_exact_lit_val;
-
-    OpCase(i_is_ne_exact_literal_fxc):
-	is_ne_exact_lit_val = xb(Arg(1));
-	goto do_is_ne_exact_literal;
-
-    OpCase(i_is_ne_exact_literal_fyc):
-	is_ne_exact_lit_val = yb(Arg(1));
-	goto do_is_ne_exact_literal;
-
-    do_is_ne_exact_literal:
-	if (eq(Arg(2), is_ne_exact_lit_val)) {
-	    ClauseFail();
-	}
-	Next(3);
-    }
-
- OpCase(i_move_call_only_fc): {
-     r(0) = Arg(1);
- }
- /* FALL THROUGH */
- OpCase(i_call_only_f): {
-     SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-     Dispatch();
- }
-
- OpCase(i_move_call_last_fPc): {
-     r(0) = Arg(2);
- }
- /* FALL THROUGH */
- OpCase(i_call_last_fP): {
-     RESTORE_CP(E);
-     E = ADD_BYTE_OFFSET(E, Arg(1));
-     SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-     Dispatch();
- }
-
- OpCase(i_move_call_cf): {
-     r(0) = Arg(0);
-     I++;
- }
- /* FALL THROUGH */
- OpCase(i_call_f): {
-     SET_CP(c_p, I+2);
-     SET_I((BeamInstr *) Arg(0));
-     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
-     Dispatch();
- }
-
- OpCase(i_move_call_ext_last_ePc): {
-     r(0) = Arg(2);
- }
- /* FALL THROUGH */
- OpCase(i_call_ext_last_eP):
-    RESTORE_CP(E);
-    E = ADD_BYTE_OFFSET(E, Arg(1));
-
     /*
-     * Note: The pointer to the export entry is never NULL; if the module
-     * is not loaded, it points to code which will invoke the error handler
-     * (see lb_call_error_handler below).
-     */
-    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
-    Dispatchx();
-
- OpCase(i_move_call_ext_ce): {
-     r(0) = Arg(0);
-     I++;
- }
- /* FALL THROUGH */
- OpCase(i_call_ext_e):
-    SET_CP(c_p, I+2);
-    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
-    Dispatchx();
-
- OpCase(i_move_call_ext_only_ec): {
-     r(0) = Arg(1);
- }
- /* FALL THROUGH */
- OpCase(i_call_ext_only_e):
-    DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
-    Dispatchx();
-
- OpCase(init_y): {
-     BeamInstr *next;
-
-     PreFetch(1, next);
-     make_blank(yb(Arg(0)));
-     NextPF(1, next);
- }
-
- OpCase(i_trim_I): {
-     BeamInstr *next;
-     Uint words;
-     Uint cp;
-
-     words = Arg(0);
-     cp = E[0];
-     PreFetch(1, next);
-     E += words;
-     E[0] = cp;
-     NextPF(1, next);
- }
-
- OpCase(move_x1_c): {
-	x(1) = Arg(0);
-	Next(1);
-    }
-
- OpCase(move_x2_c): {
-	x(2) = Arg(0);
-	Next(1);
-    }
-
- OpCase(return): {
-    SET_I(c_p->cp);
-    DTRACE_RETURN_FROM_PC(c_p);
-    /*
-     * We must clear the CP to make sure that a stale value do not
-     * create a false module dependcy preventing code upgrading.
-     * It also means that we can use the CP in stack backtraces.
-     */
-    c_p->cp = 0;
-    CHECK_TERM(r(0));
-    HEAP_SPACE_VERIFIED(0);
-    DispatchReturn;
- }
-
-    /*
-     * Send is almost a standard call-BIF with two arguments, except for:
-     *    1) It cannot be traced.
-     *	  2) There is no pointer to the send_2 function stored in
-     *       the instruction.
-     */
-
- OpCase(send): {
-     BeamInstr *next;
-     Eterm result;
-
-     if (!(FCALLS > 0 || FCALLS > neg_o_reds)) {
-         /* If we have run out of reductions, we do a context
-            switch before calling the bif */
-         c_p->arity = 2;
-         c_p->current = NULL;
-         goto context_switch3;
-     }
-
-     PRE_BIF_SWAPOUT(c_p);
-     c_p->fcalls = FCALLS - 1;
-     result = erl_send(c_p, r(0), x(1));
-     PreFetch(0, next);
-     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-     PROCESS_MAIN_CHK_LOCKS(c_p);
-     HTOP = HEAP_TOP(c_p);
-     FCALLS = c_p->fcalls;
-     if (is_value(result)) {
-	 r(0) = result;
-	 CHECK_TERM(r(0));
-	 NextPF(0, next);
-     } else if (c_p->freason == TRAP) {
-	 SET_CP(c_p, I+1);
-	 SET_I(c_p->i);
-	 SWAPIN;
-	 Dispatch();
-     }
-     goto find_func_info;
- }
-
-    {
-	Eterm element_index;
-	Eterm element_tuple;
-
-    OpCase(i_element_jxsd):
-	element_tuple = xb(Arg(1));
-	goto do_element;
-
-    OpCase(i_element_jysd):
-	element_tuple = yb(Arg(1));
-	goto do_element;
-
-    do_element:
-	GetArg1(2, element_index);
-	if (is_small(element_index) && is_tuple(element_tuple)) {
-	    Eterm* tp = tuple_val(element_tuple);
-
-	    if ((signed_val(element_index) >= 1) &&
-		(signed_val(element_index) <= arityval(*tp))) {
-		Eterm result = tp[signed_val(element_index)];
-		StoreBifResult(3, result);
-	    }
-	}
-    }
- /* Fall through */
-
- OpCase(badarg_j):
- badarg:
-    c_p->freason = BADARG;
-    goto lb_Cl_error;
-
-    {
-	Eterm fast_element_tuple;
-
-    OpCase(i_fast_element_jxId):
-     fast_element_tuple = xb(Arg(1));
-     goto do_fast_element;
-
-    OpCase(i_fast_element_jyId):
-     fast_element_tuple = yb(Arg(1));
-     goto do_fast_element;
-
-    do_fast_element:
-	if (is_tuple(fast_element_tuple)) {
-	    Eterm* tp = tuple_val(fast_element_tuple);
-	    Eterm pos = Arg(2);	/* Untagged integer >= 1 */
-	    if (pos <= arityval(*tp)) {
-		Eterm result = tp[pos];
-		StoreBifResult(3, result);
-	    }
-	}
-     goto badarg;
- }
-
- OpCase(catch_yf):
-     c_p->catches++;
-     yb(Arg(0)) = Arg(1);
-     Next(2);
-
- OpCase(catch_end_y): {
-     c_p->catches--;
-     make_blank(yb(Arg(0)));
-     if (is_non_value(r(0))) {
-         c_p->fvalue = NIL;
-	 if (x(1) == am_throw) {
-	     r(0) = x(2);
-	 } else {
-	     if (x(1) == am_error) {
-	         SWAPOUT;
-		 x(2) = add_stacktrace(c_p, x(2), x(3));
-		 SWAPIN;
-	     }
-	     /* only x(2) is included in the rootset here */
-	     if (E - HTOP < 3) {
-		 SWAPOUT;
-		 PROCESS_MAIN_CHK_LOCKS(c_p);
-		 FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1, FCALLS);
-		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		 PROCESS_MAIN_CHK_LOCKS(c_p);
-		 SWAPIN;
-	     }
-	     r(0) = TUPLE2(HTOP, am_EXIT, x(2));
-	     HTOP += 3;
-	 }
-     }
-     CHECK_TERM(r(0));
-     Next(1);
- }
-
- OpCase(try_end_y): {
-     c_p->catches--;
-     make_blank(yb(Arg(0)));
-     if (is_non_value(r(0))) {
-         c_p->fvalue = NIL;
-	 r(0) = x(1);
-	 x(1) = x(2);
-	 x(2) = x(3);
-     }
-     Next(1);
- }
-
- /*
-  * Skeleton for receive statement:
-  *
-  *             recv_mark L1                     Optional
-  *             call make_ref/monitor            Optional
-  *             ...
-  *             recv_set L1                      Optional
-  *      L1:          <-------------------+
-  *                   <-----------+       |
-  *     	     	       	  |   	  |
-  *             loop_rec L2 ------+---+   |
-  *             ...               |   |   |
-  *             remove_message 	  |   |	  |
-  *             jump L3           |   |   |
-  *		...	          |   |   |
-  *		loop_rec_end L1 --+   |   |
-  *      L2:          <---------------+   |
-  *	   	wait L1  -----------------+      or wait_timeout
-  *		timeout
-  *
-  *	 L3:    Code after receive...
-  *
-  *
-  */
-
- OpCase(recv_mark_f): {
-     /*
-      * Save the current position in message buffer and the
-      * the label for the loop_rec/2 instruction for the
-      * the receive statement.
-      */
-     c_p->msg.mark = (BeamInstr *) Arg(0);
-     c_p->msg.saved_last = c_p->msg.last;
-     Next(1);
- }
-
- OpCase(i_recv_set): {
-     /*
-      * If the mark is valid (points to the loop_rec/2
-      * instruction that follows), we know that the saved
-      * position points to the first message that could
-      * possibly be matched out.
-      *
-      * If the mark is invalid, we do nothing, meaning that
-      * we will look through all messages in the message queue.
-      */
-     if (c_p->msg.mark == (BeamInstr *) (I+1)) {
-	 c_p->msg.save = c_p->msg.saved_last;
-     }
-     I++;
-     /* Fall through to the loop_rec/2 instruction */
- }
-
-    /*
-     * Pick up the next message and place it in x(0).
-     * If no message, jump to a wait or wait_timeout instruction.
-     */
- OpCase(i_loop_rec_f):
- {
-     BeamInstr *next;
-     ErtsMessage* msgp;
-
-     /*
-      * We need to disable GC while matching messages
-      * in the queue. This since messages with data outside
-      * the heap will be corrupted by a GC.
-      */
-     ASSERT(!(c_p->flags & F_DELAY_GC));
-     c_p->flags |= F_DELAY_GC;
-
- loop_rec__:
-
-     PROCESS_MAIN_CHK_LOCKS(c_p);
-
-     msgp = PEEK_MESSAGE(c_p);
-
-     if (!msgp) {
-#ifdef ERTS_SMP
-	 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	 /* Make sure messages wont pass exit signals... */
-	 if (ERTS_PROC_PENDING_EXIT(c_p)) {
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	     SWAPOUT;
-	     c_p->flags &= ~F_DELAY_GC;
-             c_p->arity = 0;
-	     goto do_schedule; /* Will be rescheduled for exit */
-	 }
-	 ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-	 msgp = PEEK_MESSAGE(c_p);
-	 if (msgp)
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	 else
-#endif
-	 {
-	     c_p->flags &= ~F_DELAY_GC;
-	     SET_I((BeamInstr *) Arg(0));
-	     Goto(*I);		/* Jump to a wait or wait_timeout instruction */
-	 }
-     }
-     if (is_non_value(ERL_MESSAGE_TERM(msgp))) {
-	 SWAPOUT; /* erts_decode_dist_message() may write to heap... */
-	 if (!erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
-	     /*
-	      * A corrupt distribution message that we weren't able to decode;
-	      * remove it...
-	      */
-	     /* No swapin should be needed */
-	     ASSERT(HTOP == c_p->htop && E == c_p->stop);
-	     /* TODO: Add DTrace probe for this bad message situation? */
-	     UNLINK_MESSAGE(c_p, msgp);
-	     msgp->next = NULL;
-	     erts_cleanup_messages(msgp);
-	     goto loop_rec__;
-	 }
-	 SWAPIN;
-     }
-     PreFetch(1, next);
-     r(0) = ERL_MESSAGE_TERM(msgp);
-     NextPF(1, next);
- }
-
- /*
-  * Remove a (matched) message from the message queue.
-  */
- OpCase(remove_message): {
-     BeamInstr *next;
-     ErtsMessage* msgp;
-     PROCESS_MAIN_CHK_LOCKS(c_p);
-
-     ERTS_CHK_MBUF_SZ(c_p);
-
-     PreFetch(0, next);
-     msgp = PEEK_MESSAGE(c_p);
-
-     if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
-	 save_calls(c_p, &exp_receive);
-     }
-     if (ERL_MESSAGE_TOKEN(msgp) == NIL) {
-#ifdef USE_VM_PROBES
-	 if (DT_UTAG(c_p) != NIL) {
-	     if (DT_UTAG_FLAGS(c_p) & DT_UTAG_PERMANENT) {
-		 SEQ_TRACE_TOKEN(c_p) = am_have_dt_utag;
-	     } else {
-		 DT_UTAG(c_p) = NIL;
-		 SEQ_TRACE_TOKEN(c_p) = NIL;
-	     }
-	 } else {
-#endif
-	     SEQ_TRACE_TOKEN(c_p) = NIL;
-#ifdef USE_VM_PROBES
-	 }
-	 DT_UTAG_FLAGS(c_p) &= ~DT_UTAG_SPREADING;
-#endif
-     } else if (ERL_MESSAGE_TOKEN(msgp) != am_undefined) {
-	 Eterm msg;
-	 SEQ_TRACE_TOKEN(c_p) = ERL_MESSAGE_TOKEN(msgp);
-#ifdef USE_VM_PROBES
-	 if (ERL_MESSAGE_TOKEN(msgp) == am_have_dt_utag) {
-	     if (DT_UTAG(c_p) == NIL) {
-		 DT_UTAG(c_p) = ERL_MESSAGE_DT_UTAG(msgp);
-	     }
-	     DT_UTAG_FLAGS(c_p) |= DT_UTAG_SPREADING;
-	 } else {
-#endif
-	     ASSERT(is_tuple(SEQ_TRACE_TOKEN(c_p)));
-	     ASSERT(SEQ_TRACE_TOKEN_ARITY(c_p) == 5);
-	     ASSERT(is_small(SEQ_TRACE_TOKEN_SERIAL(c_p)));
-	     ASSERT(is_small(SEQ_TRACE_TOKEN_LASTCNT(c_p)));
-	     ASSERT(is_small(SEQ_TRACE_TOKEN_FLAGS(c_p)));
-	     ASSERT(is_pid(SEQ_TRACE_TOKEN_SENDER(c_p)));
-	     c_p->seq_trace_lastcnt = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
-	     if (c_p->seq_trace_clock < unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p))) {
-		 c_p->seq_trace_clock = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
-	     }
-	     msg = ERL_MESSAGE_TERM(msgp);
-	     seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
-			      c_p->common.id, c_p);
-#ifdef USE_VM_PROBES
-	 }
-#endif
-     }
-#ifdef USE_VM_PROBES
-     if (DTRACE_ENABLED(message_receive)) {
-         Eterm token2 = NIL;
-         DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
-         Sint tok_label = 0;
-         Sint tok_lastcnt = 0;
-         Sint tok_serial = 0;
-
-         dtrace_proc_str(c_p, receiver_name);
-         token2 = SEQ_TRACE_TOKEN(c_p);
-         if (have_seqtrace(token2)) {
-             tok_label = signed_val(SEQ_TRACE_T_LABEL(token2));
-             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token2));
-             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token2));
-         }
-         DTRACE6(message_receive,
-                 receiver_name, size_object(ERL_MESSAGE_TERM(msgp)),
-                 c_p->msg.len - 1, tok_label, tok_lastcnt, tok_serial);
-     }
-#endif
-     UNLINK_MESSAGE(c_p, msgp);
-     JOIN_MESSAGE(c_p);
-     CANCEL_TIMER(c_p);
-
-     erts_save_message_in_proc(c_p, msgp);
-     c_p->flags &= ~F_DELAY_GC;
-
-     if (ERTS_IS_GC_DESIRED_INTERNAL(c_p, HTOP, E)) {
-	 /*
-	  * We want to GC soon but we leave a few
-	  * reductions giving the message some time
-	  * to turn into garbage.
-	  */
-	 ERTS_VBUMP_LEAVE_REDS_INTERNAL(c_p, 5, FCALLS);
-     }
-
-     ERTS_DBG_CHK_REDS(c_p, FCALLS);
-     ERTS_CHK_MBUF_SZ(c_p);
-
-     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-     PROCESS_MAIN_CHK_LOCKS(c_p);
-     NextPF(0, next);
- }
-
-    /*
-     * Advance the save pointer to the next message (the current
-     * message didn't match), then jump to the loop_rec instruction.
-     */
- OpCase(loop_rec_end_f): {
-
-     ASSERT(c_p->flags & F_DELAY_GC);
-
-     SET_I((BeamInstr *) Arg(0));
-     SAVE_MESSAGE(c_p);
-     if (FCALLS > 0 || FCALLS > neg_o_reds) {
-	 FCALLS--;
-	 goto loop_rec__;
-     }
-
-     c_p->flags &= ~F_DELAY_GC;
-     c_p->i = I;
-     SWAPOUT;
-     c_p->arity = 0;
-     c_p->current = NULL;
-     goto do_schedule;
- }
-    /*
-     * Prepare to wait for a message or a timeout, whichever occurs first.
-     *
-     * Note: In order to keep the compatibility between 32 and 64 bits
-     * emulators, only timeout values that can be represented in 32 bits
-     * (unsigned) or less are allowed.
-     */
-
-
- OpCase(i_wait_timeout_fs): {
-     erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-
-     /* Fall through */
- }
- OpCase(i_wait_timeout_locked_fs): {
-     Eterm timeout_value;
-
-     /*
-      * If we have already set the timer, we must NOT set it again.  Therefore,
-      * we must test the F_INSLPQUEUE flag as well as the F_TIMO flag.
-      */
-     if (c_p->flags & (F_INSLPQUEUE | F_TIMO)) {
-	 goto wait2;
-     }
-     GetArg1(1, timeout_value);
-     if (timeout_value != make_small(0)) {
-
-	 if (timeout_value == am_infinity)
-	     c_p->flags |= F_TIMO;
-	 else {
-	     int tres = erts_set_proc_timer_term(c_p, timeout_value);
-	     if (tres == 0) {
-		 /*
-		  * The timer routiner will set c_p->i to the value in
-		  * c_p->def_arg_reg[0].  Note that it is safe to use this
-		  * location because there are no living x registers in
-		  * a receive statement.
-		  */
-		 BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
-		 *pi = I+3;
-	     }
-	     else { /* Wrong time */
-	     OpCase(i_wait_error_locked): {
-		     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-		     /* Fall through */
-		 }
-	     OpCase(i_wait_error): {
-		     c_p->freason = EXC_TIMEOUT_VALUE;
-		     goto find_func_info;
-		 }
-	     }
-	 }
-
-	 /*
-	  * Prepare to wait indefinitely for a new message to arrive
-	  * (or the time set above if falling through from above).
-	  *
-	  * When a new message arrives, control will be transferred
-	  * the loop_rec instruction (at label L1).  In case of
-	  * of timeout, control will be transferred to the timeout
-	  * instruction following the wait_timeout instruction.
-	  */
-
-	 OpCase(wait_locked_f):
-	 OpCase(wait_f):
-
-	 wait2: {
-#ifndef ERTS_SMP
-	     if (ERTS_PROC_IS_EXITING(c_p)) {
-		 /*
-		  * I non smp case:
-		  *
-		  * Currently executing process might be sent an exit
-		  * signal if it is traced by a port that it also is
-		  * linked to, and the port terminates during the
-		  * trace. In this case we do *not* want to clear
-		  * the active flag, which will make the process hang
-		  * in limbo forever.
-		  */
-		 SWAPOUT;
-                 c_p->arity = 0;
-		 goto do_schedule;
-	     }
-#endif
-	     c_p->i = (BeamInstr *) Arg(0); /* L1 */
-	     SWAPOUT;
-	     c_p->arity = 0;
-
-	     if (!ERTS_PTMR_IS_TIMED_OUT(c_p))
-		 erts_smp_atomic32_read_band_relb(&c_p->state,
-						  ~ERTS_PSFLG_ACTIVE);
-	     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	     c_p->current = NULL;
-	     goto do_schedule;
-	 }
-	 OpCase(wait_unlocked_f): {
-	     erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	     goto wait2;
-	 }
-     }
-     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-     Next(2);
- }
-
- OpCase(i_wait_timeout_fI): {
-     erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
- }
-
- OpCase(i_wait_timeout_locked_fI):
- {
-     /*
-      * If we have already set the timer, we must NOT set it again.  Therefore,
-      * we must test the F_INSLPQUEUE flag as well as the F_TIMO flag.
-      */
-     if ((c_p->flags & (F_INSLPQUEUE | F_TIMO)) == 0) {
-	 BeamInstr** p = (BeamInstr **) c_p->def_arg_reg;
-	 *p = I+3;
-	 erts_set_proc_timer_uword(c_p, Arg(1));
-     }
-     goto wait2;
- }
-
-    /*
-     * A timeout has occurred.  Reset the save pointer so that the next
-     * receive statement will examine the first message first.
-     */
- OpCase(timeout_locked): {
-     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
- }
-
- OpCase(timeout): {
-     BeamInstr *next;
-
-     PreFetch(0, next);
-     if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
-	 trace_receive(c_p, am_clock_service, am_timeout, NULL);
-     }
-     if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
-	 save_calls(c_p, &exp_timeout);
-     }
-     c_p->flags &= ~F_TIMO;
-     JOIN_MESSAGE(c_p);
-     NextPF(0, next);
- }
-
- {
-     Eterm select_val2;
-
- OpCase(i_select_tuple_arity2_yfAAff):
-     select_val2 = yb(Arg(0));
-     goto do_select_tuple_arity2;
-
- OpCase(i_select_tuple_arity2_xfAAff):
-     select_val2 = xb(Arg(0));
-     goto do_select_tuple_arity2;
-
- do_select_tuple_arity2:
-     if (is_not_tuple(select_val2)) {
-	 goto select_val2_fail;
-     }
-     select_val2 = *tuple_val(select_val2);
-     goto do_select_val2;
-
- OpCase(i_select_val2_yfccff):
-     select_val2 = yb(Arg(0));
-     goto do_select_val2;
-
- OpCase(i_select_val2_xfccff):
-     select_val2 = xb(Arg(0));
-     goto do_select_val2;
-
- do_select_val2:
-     if (select_val2 == Arg(2)) {
-	 I += 3;
-     } else if (select_val2 == Arg(3)) {
-	 I += 4;
-     }
-
- select_val2_fail:
-     SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
- }
-
- {
-     Eterm select_val;
-
- OpCase(i_select_tuple_arity_xfI):
-     select_val = xb(Arg(0));
-     goto do_select_tuple_arity;
-
- OpCase(i_select_tuple_arity_yfI):
-     select_val = yb(Arg(0));
-     goto do_select_tuple_arity;
-
- do_select_tuple_arity:
-     if (is_tuple(select_val)) {
-	 select_val = *tuple_val(select_val);
-	 goto do_linear_search;
-     }
-     SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
-
- OpCase(i_select_val_lins_xfI):
-     select_val = xb(Arg(0));
-     goto do_linear_search;
-
- OpCase(i_select_val_lins_yfI):
-     select_val = yb(Arg(0));
-     goto do_linear_search;
-
- do_linear_search: {
-     BeamInstr *vs = &Arg(3);
-     int ix = 0;
-
-     for(;;) {
-	 if (vs[ix+0] >= select_val) { ix += 0; break; }
-	 if (vs[ix+1] >= select_val) { ix += 1; break; }
-	 ix += 2;
-     }
-
-     if (vs[ix] == select_val) {
-	 I += ix + Arg(2) + 2;
-     }
-
-     SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
-   }
-
- OpCase(i_select_val_bins_xfI):
-     select_val = xb(Arg(0));
-     goto do_binary_search;
-
- OpCase(i_select_val_bins_yfI):
-     select_val = yb(Arg(0));
-     goto do_binary_search;
-     
- do_binary_search:
- {
-     struct Pairs {
-	 BeamInstr val;
-	 BeamInstr* addr;
-     };
-     struct Pairs* low;
-     struct Pairs* high;
-     struct Pairs* mid;
-     int bdiff; /* int not long because the arrays aren't that large */
-
-     low = (struct Pairs *) &Arg(3);
-     high = low + Arg(2);
-
-     /* The pointer subtraction (high-low) below must produce
-      * a signed result, because high could be < low. That
-      * requires the compiler to insert quite a bit of code.
-      *
-      * However, high will be > low so the result will be
-      * positive. We can use that knowledge to optimise the
-      * entire sequence, from the initial comparison to the
-      * computation of mid.
-      *
-      * -- Mikael Pettersson, Acumem AB
-      *
-      * Original loop control code:
-      *
-      * while (low < high) {
-      *    mid = low + (high-low) / 2;
-      *
-      */
-     while ((bdiff = (int)((char*)high - (char*)low)) > 0) {
-	 unsigned int boffset = ((unsigned int)bdiff >> 1) & ~(sizeof(struct Pairs)-1);
-
-	 mid = (struct Pairs*)((char*)low + boffset);
-	 if (select_val < mid->val) {
-	     high = mid;
-	 } else if (select_val > mid->val) {
-	     low = mid + 1;
-	 } else {
-	     SET_I(mid->addr);
-	     Goto(*I);
-	 }
-     }
-     SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
- }
- }
-
- {
-     Eterm jump_on_val_zero_index;
-     
- OpCase(i_jump_on_val_zero_yfI):
-     jump_on_val_zero_index = yb(Arg(0));
-     goto do_jump_on_val_zero_index;
-
- OpCase(i_jump_on_val_zero_xfI):
-     jump_on_val_zero_index = xb(Arg(0));
-     goto do_jump_on_val_zero_index;
-
- do_jump_on_val_zero_index:
-     if (is_small(jump_on_val_zero_index)) {
-	 jump_on_val_zero_index = signed_val(jump_on_val_zero_index);
-	 if (jump_on_val_zero_index < Arg(2)) {
-	     SET_I((BeamInstr *) (&Arg(3))[jump_on_val_zero_index]);
-	     Goto(*I);
-	 }
-     }
-     SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
- }
-
- {
-     Eterm jump_on_val_index;
-
- 
- OpCase(i_jump_on_val_yfII):
-     jump_on_val_index = yb(Arg(0));
-     goto do_jump_on_val_index;
-
- OpCase(i_jump_on_val_xfII):
-     jump_on_val_index = xb(Arg(0));
-     goto do_jump_on_val_index;
-
- do_jump_on_val_index:
-     if (is_small(jump_on_val_index)) {
-	 jump_on_val_index = (Uint) (signed_val(jump_on_val_index) - Arg(3));
-	 if (jump_on_val_index < Arg(2)) {
-	     SET_I((BeamInstr *) (&Arg(4))[jump_on_val_index]);
-	     Goto(*I);
-	 }
-     }
-     SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
- }
-
- do_put_tuple: {
-     Eterm* hp = HTOP;
-
-     *hp++ = make_arityval(pt_arity);
-
-     do {
-	 Eterm term = *I++;
-	 switch (loader_tag(term)) {
-	 case LOADER_X_REG:
-	     *hp++ = x(loader_x_reg_index(term));
-	     break;
-	 case LOADER_Y_REG:
-	     *hp++ = y(loader_y_reg_index(term));
-	     break;
-	 default:
-	     *hp++ = term;
-	     break;
-	 }
-     } while (--pt_arity != 0);
-     HTOP = hp;
-     Goto(*I);
- }
-
- OpCase(new_map_dII): {
-     Eterm res;
-
-     HEAVY_SWAPOUT;
-     res = new_map(c_p, reg, I-1);
-     HEAVY_SWAPIN;
-     StoreResult(res, Arg(0));
-     Next(3+Arg(2));
- }
-
-#define PUT_TERM_REG(term, desc)		\
-do {						\
-    switch (loader_tag(desc)) {			\
-    case LOADER_X_REG:				\
-	x(loader_x_reg_index(desc)) = (term);	\
-	break;					\
-    case LOADER_Y_REG:				\
-	y(loader_y_reg_index(desc)) = (term);	\
-	break;					\
-    default:					\
-	ASSERT(0);				\
-	break;					\
-    }						\
-} while(0)
-
- OpCase(i_get_map_elements_fsI): {
-    Eterm map;
-    BeamInstr *fs;
-    Uint sz, n;
-
-    GetArg1(1, map);
-
-    /* this instruction assumes Arg1 is a map,
-     * i.e. that it follows a test is_map if needed.
-     */
-
-    n  = (Uint)Arg(2) / 3;
-    fs = &Arg(3); /* pattern fields and target registers */
-
-    if (is_flatmap(map)) {
-	flatmap_t *mp;
-	Eterm *ks;
-	Eterm *vs;
-
-	mp = (flatmap_t *)flatmap_val(map);
-	sz = flatmap_get_size(mp);
-
-	if (sz == 0) {
-	    ClauseFail();
-	}
-
-	ks = flatmap_get_keys(mp);
-	vs = flatmap_get_values(mp);
-
-	while(sz) {
-	    if (EQ((Eterm) fs[0], *ks)) {
-		PUT_TERM_REG(*vs, fs[1]);
-		n--;
-		fs += 3;
-		/* no more values to fetch, we are done */
-		if (n == 0) {
-		    I = fs;
-		    Next(-1);
-		}
-	    }
-	    ks++, sz--, vs++;
-	}
-
-	ClauseFail();
-    } else {
-	const Eterm *v;
-	Uint32 hx;
-	ASSERT(is_hashmap(map));
-	while(n--) {
-	    hx = fs[2];
-	    ASSERT(hx == hashmap_make_hash((Eterm)fs[0]));
-	    if ((v = erts_hashmap_get(hx, (Eterm)fs[0], map)) == NULL) {
-		ClauseFail();
-	    }
-	    PUT_TERM_REG(*v, fs[1]);
-	    fs += 3;
-	}
-	I = fs;
-	Next(-1);
-    }
- }
-#undef PUT_TERM_REG
-
- OpCase(update_map_assoc_jsdII): {
-     Eterm res;
-     Eterm map;
-
-     GetArg1(1, map);
-     HEAVY_SWAPOUT;
-     res = update_map_assoc(c_p, reg, map, I);
-     HEAVY_SWAPIN;
-     if (is_value(res)) {
-	 StoreResult(res, Arg(2));
-	 Next(5+Arg(4));
-     } else {
-	 /*
-	  * This can only happen if the code was compiled
-	  * with the compiler in OTP 17.
-	  */
-	 c_p->freason = BADMAP;
-	 c_p->fvalue = map;
-	 goto lb_Cl_error;
-     }
- }
-
- OpCase(update_map_exact_jsdII): {
-     Eterm res;
-     Eterm map;
-
-     GetArg1(1, map);
-     HEAVY_SWAPOUT;
-     res = update_map_exact(c_p, reg, map, I);
-     HEAVY_SWAPIN;
-     if (is_value(res)) {
-	 StoreResult(res, Arg(2));
-	 Next(5+Arg(4));
-     } else {
-	 goto lb_Cl_error;
-     }
- }
-
-
-    /*
-     * All guards with zero arguments have special instructions:
-     * 	self/0
-     * 	node/0
-     *
-     * All other guard BIFs take one or two arguments.
-     */
-
-    /*
-     * Guard BIF in head.  On failure, ignore the error and jump
-     * to the code for the next clause.  We don't support tracing
-     * of guard BIFs.
-     */
-
- OpCase(bif1_fbsd):
-    {
-	ErtsBifFunc bf;
-	Eterm tmp_reg[1];
-	Eterm result;
-
-	GetArg1(2, tmp_reg[0]);
-	bf = (BifFunction) Arg(1);
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	c_p->fcalls = FCALLS;
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	ERTS_CHK_MBUF_SZ(c_p);
-	result = (*bf)(c_p, tmp_reg, I);
-	ERTS_CHK_MBUF_SZ(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_HOLE_CHECK(c_p);
-	FCALLS = c_p->fcalls;
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	if (is_value(result)) {
-	    StoreBifResult(3, result);
-	}
-	SET_I((BeamInstr *) Arg(0));
-	Goto(*I);
-    }
-
-    /*
-     * Guard BIF in body.  It can fail like any BIF.  No trace support.
-     */
-
- OpCase(bif1_body_bsd):
-    {
-	ErtsBifFunc bf;
-
-	Eterm tmp_reg[1];
-	Eterm result;
-
-	GetArg1(1, tmp_reg[0]);
-	bf = (ErtsBifFunc) Arg(0);
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	c_p->fcalls = FCALLS;
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	ERTS_CHK_MBUF_SZ(c_p);
-	result = (*bf)(c_p, tmp_reg, I);
-	ERTS_CHK_MBUF_SZ(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_HOLE_CHECK(c_p);
-	FCALLS = c_p->fcalls;
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	if (is_value(result)) {
-	    StoreBifResult(2, result);
-	}
-	reg[0] = tmp_reg[0];
-	SWAPOUT;
-	I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
-	goto post_error_handling;
-    }
-
- OpCase(i_gc_bif1_jIsId):
-    {
-	typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
-	GcBifFunction bf;
-	Eterm result;
-	Uint live = (Uint) Arg(3);
-
-	GetArg1(2, x(live));
-	bf = (GcBifFunction) Arg(1);
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	c_p->fcalls = FCALLS;
-	SWAPOUT;
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	ERTS_CHK_MBUF_SZ(c_p);
-	result = (*bf)(c_p, reg, live);
-	ERTS_CHK_MBUF_SZ(c_p);
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	SWAPIN;
-	ERTS_HOLE_CHECK(c_p);
-	FCALLS = c_p->fcalls;
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	if (is_value(result)) {
-	    StoreBifResult(4, result);
-	}
-	if (Arg(0) != 0) {
-	    SET_I((BeamInstr *) Arg(0));
-	    Goto(*I);
-	}
-	x(0) = x(live);
-	I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
-	goto post_error_handling;
-    }
-
- OpCase(i_gc_bif2_jIIssd): /* Note, one less parameter than the i_gc_bif1
-			    and i_gc_bif3 */
-    {
-	typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
-	GcBifFunction bf;
-	Eterm result;
-	Uint live = (Uint) Arg(2);
-
-	GetArg2(3, x(live), x(live+1));
-	/*
-	 * XXX This calling convention does not make sense. 'live'
-	 * should point out the first argument, not the second
-	 * (i.e. 'live' should not be incremented below).
-	 */
-	live++;
-	bf = (GcBifFunction) Arg(1);
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	c_p->fcalls = FCALLS;
-	SWAPOUT;
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	ERTS_CHK_MBUF_SZ(c_p);
-	result = (*bf)(c_p, reg, live);
-	ERTS_CHK_MBUF_SZ(c_p);
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	SWAPIN;
-	ERTS_HOLE_CHECK(c_p);
-	FCALLS = c_p->fcalls;
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	if (is_value(result)) {
-	    StoreBifResult(5, result);
-	}
-	if (Arg(0) != 0) {
-	    SET_I((BeamInstr *) Arg(0));
-	    Goto(*I);
-	}
-	live--;
-	x(0) = x(live);
-	x(1) = x(live+1);
-	I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
-	goto post_error_handling;
-    }
-
- OpCase(i_gc_bif3_jIIssd):
-    {
-	typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
-	GcBifFunction bf;
-	Eterm result;
-	Uint live = (Uint) Arg(2);
-
-	x(live) = x(SCRATCH_X_REG);
-	GetArg2(3, x(live+1), x(live+2));
-	/*
-	 * XXX This calling convention does not make sense. 'live'
-	 * should point out the first argument, not the third
-	 * (i.e. 'live' should not be incremented below).
-	 */
-	live += 2;
-	bf = (GcBifFunction) Arg(1);
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	c_p->fcalls = FCALLS;
-	SWAPOUT;
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	ERTS_CHK_MBUF_SZ(c_p);
-	result = (*bf)(c_p, reg, live);
-	ERTS_CHK_MBUF_SZ(c_p);
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	SWAPIN;
-	ERTS_HOLE_CHECK(c_p);
-	FCALLS = c_p->fcalls;
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	if (is_value(result)) {
-	    StoreBifResult(5, result);
-	}
-	if (Arg(0) != 0) {
-	    SET_I((BeamInstr *) Arg(0));
-	    Goto(*I);
-	}
-	live -= 2;
-	x(0) = x(live);
-	x(1) = x(live+1);
-	x(2) = x(live+2);
-	I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
-	goto post_error_handling;
-    }
-
- /*
-  * Guards bifs and, or, xor in guards.
-  */
- OpCase(i_bif2_fbssd):
-    {
-	Eterm tmp_reg[2];
-	ErtsBifFunc bf;
-	Eterm result;
-
-	GetArg2(2, tmp_reg[0], tmp_reg[1]);
-	bf = (ErtsBifFunc) Arg(1);
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	c_p->fcalls = FCALLS;
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	ERTS_CHK_MBUF_SZ(c_p);
-	result = (*bf)(c_p, tmp_reg, I);
-	ERTS_CHK_MBUF_SZ(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_HOLE_CHECK(c_p);
-	FCALLS = c_p->fcalls;
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	if (is_value(result)) {
-	    StoreBifResult(4, result);
-	}
-	SET_I((BeamInstr *) Arg(0));
-	Goto(*I);
-    }
-
- /*
-  * Guards bifs and, or, xor, relational operators in body.
-  */
- OpCase(i_bif2_body_bssd):
-    {
-	Eterm tmp_reg[2];
-	ErtsBifFunc bf;
-	Eterm result;
-
-	GetArg2(1, tmp_reg[0], tmp_reg[1]);
-	bf = (ErtsBifFunc) Arg(0);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	ERTS_CHK_MBUF_SZ(c_p);
-	result = (*bf)(c_p, tmp_reg, I);
-	ERTS_CHK_MBUF_SZ(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_HOLE_CHECK(c_p);
-	if (is_value(result)) {
-	    ASSERT(!is_CP(result));
-	    StoreBifResult(3, result);
-	}
-	reg[0] = tmp_reg[0];
-	reg[1] = tmp_reg[1];
-	SWAPOUT;
-	I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
-	goto post_error_handling;
-    }
-
-    /*
-     * The most general BIF call.  The BIF may build any amount of data
-     * on the heap.  The result is always returned in r(0).
-     */
- OpCase(call_bif_e):
-    {
-	ErtsBifFunc bf;
-	Eterm result;
-	BeamInstr *next;
-	ErlHeapFragment *live_hf_end;
-        Export *export = (Export*)Arg(0);
-
-
-        if (!((FCALLS - 1) > 0 || (FCALLS-1) > neg_o_reds)) {
-            /* If we have run out of reductions, we do a context
-               switch before calling the bif */
-            c_p->arity = GET_BIF_ARITY(export);
-            c_p->current = &export->info.mfa;
-            goto context_switch3;
-        }
-
-        ERTS_MSACC_SET_BIF_STATE_CACHED_X(
-            GET_BIF_MODULE(export), GET_BIF_ADDRESS(export));
-
-	bf = GET_BIF_ADDRESS(export);
-
-	PRE_BIF_SWAPOUT(c_p);
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	c_p->fcalls = FCALLS - 1;
-	if (FCALLS <= 0) {
-	   save_calls(c_p, export);
-	}
-	PreFetch(1, next);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	live_hf_end = c_p->mbuf;
-	ERTS_CHK_MBUF_SZ(c_p);
-	result = (*bf)(c_p, reg, I);
-	ERTS_CHK_MBUF_SZ(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_HOLE_CHECK(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	if (ERTS_IS_GC_DESIRED(c_p)) {
-	    Uint arity = GET_BIF_ARITY(export);
-	    result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result, reg, arity);
-	    E = c_p->stop;
-	}
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	HTOP = HEAP_TOP(c_p);
-	FCALLS = c_p->fcalls;
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-        /* We have to update the cache if we are enabled in order
-           to make sure no book keeping is done after we disabled
-           msacc. We don't always do this as it is quite expensive. */
-        if (ERTS_MSACC_IS_ENABLED_CACHED_X())
-            ERTS_MSACC_UPDATE_CACHE_X();
-	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-	if (is_value(result)) {
-	    r(0) = result;
-	    CHECK_TERM(r(0));
-	    NextPF(1, next);
-	} else if (c_p->freason == TRAP) {
-	    SET_CP(c_p, I+2);
-	    SET_I(c_p->i);
-	    SWAPIN;
-	    Dispatch();
-	}
-
-	/*
-	 * Error handling.  SWAPOUT is not needed because it was done above.
-	 */
-	ASSERT(c_p->stop == E);
-	I = handle_error(c_p, I, reg, &export->info.mfa);
-	goto post_error_handling;
-    }
-
- /*
-  * Arithmetic operations.
-  */
-
- OpCase(i_times_jIssd):
- {
-     Eterm Op1, Op2;
-     GetArg2(2, Op1, Op2);
-     DO_OUTLINED_ARITH_2(mixed_times, Op1, Op2);
- }
-
- OpCase(i_m_div_jIssd):
- {
-     Eterm Op1, Op2;
-     GetArg2(2, Op1, Op2);
-     DO_OUTLINED_ARITH_2(mixed_div, Op1, Op2);
- }
-
- OpCase(i_int_div_jIssd):
- {
-     Eterm Op1, Op2;
-
-     GetArg2(2, Op1, Op2);
-     if (Op2 == SMALL_ZERO) {
-	 goto badarith;
-     } else if (is_both_small(Op1, Op2)) {
-	 Sint ires = signed_val(Op1) / signed_val(Op2);
-	 if (MY_IS_SSMALL(ires)) {
-	     Eterm result = make_small(ires);
-	     StoreBifResult(4, result);
-	 }
-     }
-     DO_OUTLINED_ARITH_2(int_div, Op1, Op2);
- }
-
- {
-     Eterm RemOp1, RemOp2;
-
- OpCase(i_rem_jIxxd):
-     RemOp1 = xb(Arg(2));
-     RemOp2 = xb(Arg(3));
-     goto do_rem;
-
- OpCase(i_rem_jIssd):
-     GetArg2(2, RemOp1, RemOp2);
-     goto do_rem;
-
- do_rem:
-     if (RemOp2 == SMALL_ZERO) {
-         goto badarith;
-     } else if (is_both_small(RemOp1, RemOp2)) {
-         Eterm result = make_small(signed_val(RemOp1) % signed_val(RemOp2));
-         StoreBifResult(4, result);
-     } else {
-	 DO_OUTLINED_ARITH_2(int_rem, RemOp1, RemOp2);
-     }
- }
-
- {
-     Eterm BandOp1, BandOp2;
-
- OpCase(i_band_jIxcd):
-     BandOp1 = xb(Arg(2));
-     BandOp2 = Arg(3);
-     goto do_band;
-
- OpCase(i_band_jIssd):
-     GetArg2(2, BandOp1, BandOp2);
-     goto do_band;
-
- do_band:
-     if (is_both_small(BandOp1, BandOp2)) {
-         /*
-          * No need to untag -- TAG & TAG == TAG.
-          */
-         Eterm result = BandOp1 & BandOp2;
-         StoreBifResult(4, result);
-     }
-     DO_OUTLINED_ARITH_2(band, BandOp1, BandOp2);
- }
-
- /*
-  * An error occurred in an arithmetic operation or test that could
-  * appear either in a head or in a body.
-  * In a head, execution should continue at failure address in Arg(0).
-  * In a body, Arg(0) == 0 and an exception should be raised.
-  */
- lb_Cl_error: {
-     if (Arg(0) != 0) {
-	 OpCase(jump_f): {
-	 jump_f:
-	     SET_I((BeamInstr *) Arg(0));
-	     Goto(*I);
-	 }
-     }
-     ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
-     goto find_func_info;
- }
-
- OpCase(i_bor_jIssd):
- {
-     Eterm Op1, Op2;
-
-     GetArg2(2, Op1, Op2);
-     if (is_both_small(Op1, Op2)) {
-	 /*
-	  * No need to untag -- TAG | TAG == TAG.
-	  */
-	 Eterm result = Op1 | Op2;
-	 StoreBifResult(4, result);
-     }
-     DO_OUTLINED_ARITH_2(bor, Op1, Op2);
- }
-
- OpCase(i_bxor_jIssd):
- {
-     Eterm Op1, Op2;
-
-     GetArg2(2, Op1, Op2);
-     if (is_both_small(Op1, Op2)) {
-	 /*
-          * TAG ^ TAG == 0.
-          *
-          * Therefore, we perform the XOR operation on the tagged values,
-          * and OR in the tag bits.
-	  */
-	 Eterm result = (Op1 ^ Op2) | make_small(0);
-	 StoreBifResult(4, result);
-     }
-     DO_OUTLINED_ARITH_2(bxor, Op1, Op2);
- }
-
- {
-     Eterm Op1, Op2;
-     Sint i;
-     Sint ires;
-     Eterm* bigp;
-     Eterm tmp_big[2];
-
-     OpCase(i_bsr_jIssd):
-         GetArg2(2, Op1, Op2);
-	 if (is_small(Op2)) {
-	     i = -signed_val(Op2);
-	     if (is_small(Op1)) {
-		 goto small_shift;
-	     } else if (is_big(Op1)) {
-		 if (i == 0) {
-		     StoreBifResult(4, Op1);
-		 }
-		 ires = big_size(Op1);
-		 goto big_shift;
-	     }
-	 } else if (is_big(Op2)) {
-	     /*
-	      * N bsr NegativeBigNum == N bsl MAX_SMALL
-	      * N bsr PositiveBigNum == N bsl MIN_SMALL
-	      */
-	     Op2 = make_small(bignum_header_is_neg(*big_val(Op2)) ?
-				   MAX_SMALL : MIN_SMALL);
-	     goto do_bsl;
-	}
-     goto badarith;
-     
-     OpCase(i_bsl_jIssd):
-         GetArg2(2, Op1, Op2);
- do_bsl:
-	 if (is_small(Op2)) {
-	     i = signed_val(Op2);
-
-	     if (is_small(Op1)) {
-	     small_shift:
-		 ires = signed_val(Op1);
-	     
-		 if (i == 0 || ires == 0) {
-		     StoreBifResult(4, Op1);
-		 } else if (i < 0)  { /* Right shift */
-		     i = -i;
-		     if (i >= SMALL_BITS-1) {
-			 Op1 = (ires < 0) ? SMALL_MINUS_ONE : SMALL_ZERO;
-		     } else {
-			 Op1 = make_small(ires >> i);
-		     }
-		     StoreBifResult(4, Op1);
-		 } else if (i < SMALL_BITS-1) { /* Left shift */
-		     if ((ires > 0 && ((~(Uint)0 << ((SMALL_BITS-1)-i)) & ires) == 0) ||
-			 ((~(Uint)0 << ((SMALL_BITS-1)-i)) & ~ires) == 0) {
-			 Op1 = make_small(ires << i);
-			 StoreBifResult(4, Op1);
-		     }
-		 }
-		 ires = 1; /* big_size(small_to_big(Op1)) */
-
-	     big_shift:
-		 if (i > 0) {	/* Left shift. */
-		     ires += (i / D_EXP);
-		 } else {	/* Right shift. */
-		     if (ires <= (-i / D_EXP))
-			 ires = 3; /* ??? */
-		     else
-			 ires -= (-i / D_EXP);
-		 }
-		 {
-		     ires = BIG_NEED_SIZE(ires+1);
-		     /*
-		      * Slightly conservative check the size to avoid
-		      * allocating huge amounts of memory for bignums that 
-		      * clearly would overflow the arity in the header
-		      * word.
-		      */
-		     if (ires-8 > BIG_ARITY_MAX) {
-			 c_p->freason = SYSTEM_LIMIT;
-			 goto lb_Cl_error;
-		     }
-		     TestHeapPreserve(ires+1, Arg(1), Op1);
-		     if (is_small(Op1)) {
-			 Op1 = small_to_big(signed_val(Op1), tmp_big);
-		     }
-		     bigp = HTOP;
-		     Op1 = big_lshift(Op1, i, bigp);
-		     if (is_big(Op1)) {
-			 HTOP += bignum_header_arity(*HTOP) + 1;
-		     }
-		     HEAP_SPACE_VERIFIED(0);
-		     if (is_nil(Op1)) {
-			 /*
-			  * This result must have been only slight larger
-			  * than allowed since it wasn't caught by the
-			  * previous test.
-			  */
-			 c_p->freason = SYSTEM_LIMIT;
-			 goto lb_Cl_error;
-		     }
-		     ERTS_HOLE_CHECK(c_p);
-		     StoreBifResult(4, Op1);
-		 }
-	     } else if (is_big(Op1)) {
-		 if (i == 0) {
-		     StoreBifResult(4, Op1);
-		 }
-		 ires = big_size(Op1);
-		 goto big_shift;
-	     }
-	 } else if (is_big(Op2)) {
-	     if (bignum_header_is_neg(*big_val(Op2))) {
-		 /*
-		  * N bsl NegativeBigNum is either 0 or -1, depending on
-		  * the sign of N. Since we don't believe this case
-		  * is common, do the calculation with the minimum
-		  * amount of code.
-		  */
-		 Op2 = make_small(MIN_SMALL);
-		 goto do_bsl;
-	     } else if (is_small(Op1) || is_big(Op1)) {
-		 /*
-		  * N bsl PositiveBigNum is too large to represent.
-		  */
-		 c_p->freason = SYSTEM_LIMIT;
-		 goto lb_Cl_error;
-	     }
-	     /* Fall through if the left argument is not an integer. */
-	 }
-     /*
-      * One or more non-integer arguments.
-      */
-     goto badarith;
- }
-
- OpCase(i_int_bnot_jsId):
- {
-     Eterm bnot_val;
-
-     GetArg1(1, bnot_val);
-     if (is_small(bnot_val)) {
-	 bnot_val = make_small(~signed_val(bnot_val));
-     } else {
-	 Uint live = Arg(2);
-	 HEAVY_SWAPOUT;
-	 reg[live] = bnot_val;
-	 bnot_val = erts_gc_bnot(c_p, reg, live);
-	 HEAVY_SWAPIN;
-	 ERTS_HOLE_CHECK(c_p);
-	 if (is_nil(bnot_val)) {
-	     goto lb_Cl_error;
-	 }
-     }
-     StoreBifResult(3, bnot_val);
- }
-
- badarith:
-    c_p->freason = BADARITH;
-    goto lb_Cl_error;
-
- OpCase(i_apply): {
-     BeamInstr *next;
-     HEAVY_SWAPOUT;
-     next = apply(c_p, r(0), x(1), x(2), reg, NULL, 0);
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_CP(c_p, I+1);
-	 SET_I(next);
-	 Dispatch();
-     }
-     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
-     goto post_error_handling;
- }
-
- OpCase(i_apply_last_P): {
-     BeamInstr *next;
-     HEAVY_SWAPOUT;
-     next = apply(c_p, r(0), x(1), x(2), reg, I, Arg(0));
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_CP(c_p, (BeamInstr *) E[0]);
-	 E = ADD_BYTE_OFFSET(E, Arg(0));
-	 SET_I(next);
-	 Dispatch();
-     }
-     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
-     goto post_error_handling;
- }
-
- OpCase(i_apply_only): {
-     BeamInstr *next;
-     HEAVY_SWAPOUT;
-     next = apply(c_p, r(0), x(1), x(2), reg, I, 0);
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_I(next);
-	 Dispatch();
-     }
-     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
-     goto post_error_handling;
- }
-
- OpCase(apply_I): {
-     BeamInstr *next;
-
-     HEAVY_SWAPOUT;
-     next = fixed_apply(c_p, reg, Arg(0), NULL, 0);
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_CP(c_p, I+2);
-	 SET_I(next);
-	 Dispatch();
-     }
-     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
-     goto post_error_handling;
- }
-
- OpCase(apply_last_IP): {
-     BeamInstr *next;
-
-     HEAVY_SWAPOUT;
-     next = fixed_apply(c_p, reg, Arg(0), I, Arg(1));
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_CP(c_p, (BeamInstr *) E[0]);
-	 E = ADD_BYTE_OFFSET(E, Arg(1));
-	 SET_I(next);
-	 Dispatch();
-     }
-     I = handle_error(c_p, I, reg, &bif_export[BIF_apply_3]->info.mfa);
-     goto post_error_handling;
- }
-
- OpCase(i_apply_fun): {
-     BeamInstr *next;
-
-     HEAVY_SWAPOUT;
-     next = apply_fun(c_p, r(0), x(1), reg);
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_CP(c_p, I+1);
-	 SET_I(next);
-	 Dispatchfun();
-     }
-     goto find_func_info;
- }
-
- OpCase(i_apply_fun_last_P): {
-     BeamInstr *next;
-
-     HEAVY_SWAPOUT;
-     next = apply_fun(c_p, r(0), x(1), reg);
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_CP(c_p, (BeamInstr *) E[0]);
-	 E = ADD_BYTE_OFFSET(E, Arg(0));
-	 SET_I(next);
-	 Dispatchfun();
-     }
-     goto find_func_info;
- }
-
- OpCase(i_apply_fun_only): {
-     BeamInstr *next;
-
-     HEAVY_SWAPOUT;
-     next = apply_fun(c_p, r(0), x(1), reg);
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_I(next);
-	 Dispatchfun();
-     }
-     goto find_func_info;
- }
-
- OpCase(i_call_fun_I): {
-     BeamInstr *next;
-
-     HEAVY_SWAPOUT;
-     next = call_fun(c_p, Arg(0), reg, THE_NON_VALUE);
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	 SET_CP(c_p, I+2);
-	 SET_I(next);
-	 Dispatchfun();
-     }
-     goto find_func_info;
- }
-
- OpCase(i_call_fun_last_IP): {
-     BeamInstr *next;
-
-     HEAVY_SWAPOUT;
-     next = call_fun(c_p, Arg(0), reg, THE_NON_VALUE);
-     HEAVY_SWAPIN;
-     if (next != NULL) {
-	SET_CP(c_p, (BeamInstr *) E[0]);
-	E = ADD_BYTE_OFFSET(E, Arg(1));
-	SET_I(next);
-	Dispatchfun();
-     }
-     goto find_func_info;
- }
-
-#ifdef DEBUG
-    /*
-     * Set a breakpoint here to get control just after a call instruction.
-     * I points to the first instruction in the called function.
-     *
-     * In gdb, use 'call dis(I-5, 1)' to show the name of the function.
-     */
- do_dispatch:
-     DispatchMacro();
-
- do_dispatchx:
-     DispatchMacrox();
-
- do_dispatchfun:
-     DispatchMacroFun();
-
-#endif
-
-    /*
-     * Jumped to from the Dispatch() macro when the reductions are used up.
+     * The labels are jumped to from the $DISPATCH() macros when the reductions
+     * are used up.
      *
      * Since the I register points just beyond the FuncBegin instruction, we
      * can get the module, function, and arity for the function being
@@ -3395,7 +709,7 @@ do {						\
      Eterm* argp;
      int i;
 
-     if (erts_smp_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_EXITING) {
+     if (erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_EXITING) {
          c_p->i = beam_exit;
          c_p->arity = 0;
          c_p->current = NULL;
@@ -3452,63 +766,27 @@ do {						\
      goto do_schedule1;
  }
 
- OpCase(set_tuple_element_sdP): {
-     Eterm element;
-     Eterm tuple;
-     BeamInstr *next;
-     Eterm* p;
-     
-     PreFetch(3, next);
-     GetArg1(0, element);
-     tuple = REG_TARGET(Arg(1));
-     ASSERT(is_tuple(tuple));
-     p = (Eterm *) ((unsigned char *) tuple_val(tuple) + Arg(2));
-     *p = element;
-     NextPF(3, next);
- }
+#include "beam_warm.h"
 
  OpCase(normal_exit): {
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      c_p->freason = EXC_NORMAL;
-     c_p->arity = 0;		/* In case this process will never be garbed again. */
-     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+     c_p->arity = 0; /* In case this process will ever be garbed again. */
+     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_do_exit_process(c_p, am_normal);
-     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+     ERTS_REQ_PROC_MAIN_LOCK(c_p);
+     HEAVY_SWAPIN;
      goto do_schedule;
  }
 
  OpCase(continue_exit): {
-     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+     HEAVY_SWAPOUT;
+     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_continue_exit_process(c_p);
-     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+     ERTS_REQ_PROC_MAIN_LOCK(c_p);
+     HEAVY_SWAPIN;
      goto do_schedule;
  }
-
- OpCase(i_raise): {
-     Eterm raise_trace = x(2);
-     Eterm raise_value = x(1);
-     struct StackTrace *s;
-
-     c_p->fvalue = raise_value;
-     c_p->ftrace = raise_trace;
-     s = get_trace_from_exc(raise_trace);
-     if (s == NULL) {
-	 c_p->freason = EXC_ERROR;
-     } else {
-	 c_p->freason = PRIMARY_EXCEPTION(s->freason);
-     }
-     goto find_func_info;
- }
-
-    {
-	Eterm badmatch_val;
-
-    OpCase(badmatch_x):
-	badmatch_val = xb(Arg(0));
-	c_p->fvalue = badmatch_val;
-	c_p->freason = BADMATCH;
-    }
- /* Fall through here */
 
  find_func_info: {
      SWAPOUT;
@@ -3550,194 +828,6 @@ do {						\
      }
  }
 
-    {
-	Eterm nif_bif_result;
-	Eterm bif_nif_arity;
-
-    OpCase(call_nif):
-	{
-	    /*
-	     * call_nif is always first instruction in function:
-	     *
-	     * I[-3]: Module
-	     * I[-2]: Function
-	     * I[-1]: Arity
-	     * I[0]: &&call_nif
-	     * I[1]: Function pointer to NIF function
-	     * I[2]: Pointer to erl_module_nif
-	     * I[3]: Function pointer to dirty NIF
-             *
-             * This layout is determined by the NifExport struct
-	     */
-	    BifFunction vbf;
-	    ErlHeapFragment *live_hf_end;
-            ErtsCodeMFA *codemfa;
-
-	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
-
-	    codemfa = erts_code_to_codemfa(I);
-
-            c_p->current = codemfa; /* current and vbf set to please handle_error */
-
-	    DTRACE_NIF_ENTRY(c_p, codemfa);
-
-	    HEAVY_SWAPOUT;
-
-	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    bif_nif_arity = codemfa->arity;
-	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-
-	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	    {
-		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
-		NifF* fp = vbf = (NifF*) I[1];
-		struct enif_environment_t env;
-#ifdef ERTS_SMP
-		ASSERT(c_p->scheduler_data);
-#endif
-		live_hf_end = c_p->mbuf;
-		ERTS_CHK_MBUF_SZ(c_p);
-		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
-		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
-		if (env.exception_thrown)
-		    nif_bif_result = THE_NON_VALUE;
-		erts_post_nif(&env);
-		ERTS_CHK_MBUF_SZ(c_p);
-
-		PROCESS_MAIN_CHK_LOCKS(c_p);
-		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-		ASSERT(!env.exiting);
-		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	    }
-
-	    DTRACE_NIF_RETURN(c_p, codemfa);
-	    goto apply_bif_or_nif_epilogue;
-	 
-	OpCase(apply_bif):
-	    /*
-	     * At this point, I points to the code[0] in the export entry for
-	     * the BIF:
-	     *
-	     * code[-3]: Module
-	     * code[-2]: Function
-	     * code[-1]: Arity
-	     * code[0]: &&apply_bif
-	     * code[1]: Function pointer to BIF function
-	     */
-
-            if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
-                /* If we have run out of reductions, we do a context
-                   switch before calling the bif */
-                goto context_switch;
-            }
-
-	    codemfa = erts_code_to_codemfa(I);
-
-            ERTS_MSACC_SET_BIF_STATE_CACHED_X(codemfa->module, (BifFunction)Arg(0));
-
-
-            /* In case we apply process_info/1,2 or load_nif/1 */
-	    c_p->current = codemfa;
-	    c_p->i = I;		/* In case we apply check_process_code/2. */
-	    c_p->arity = 0;		/* To allow garbage collection on ourselves
-					 * (check_process_code/2).
-					 */
-	    DTRACE_BIF_ENTRY(c_p, codemfa);
-
-	    SWAPOUT;
-	    ERTS_DBG_CHK_REDS(c_p, FCALLS - 1);
-	    c_p->fcalls = FCALLS - 1;
-	    vbf = (BifFunction) Arg(0);
-	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    bif_nif_arity = codemfa->arity;
-            ASSERT(bif_nif_arity <= 4);
-	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	    {
-		ErtsBifFunc bf = vbf;
-		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-		live_hf_end = c_p->mbuf;
-		ERTS_CHK_MBUF_SZ(c_p);
-		nif_bif_result = (*bf)(c_p, reg, I);
-		ERTS_CHK_MBUF_SZ(c_p);
-		ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
-		       is_non_value(nif_bif_result));
-		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		PROCESS_MAIN_CHK_LOCKS(c_p);
-	    }
-            /* We have to update the cache if we are enabled in order
-               to make sure no book keeping is done after we disabled
-               msacc. We don't always do this as it is quite expensive. */
-            if (ERTS_MSACC_IS_ENABLED_CACHED_X())
-                ERTS_MSACC_UPDATE_CACHE_X();
-	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-	    DTRACE_BIF_RETURN(c_p, codemfa);
-
-	apply_bif_or_nif_epilogue:
-	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	    ERTS_HOLE_CHECK(c_p);
-	    if (ERTS_IS_GC_DESIRED(c_p)) {
-		nif_bif_result = erts_gc_after_bif_call_lhf(c_p, live_hf_end,
-							    nif_bif_result,
-							    reg, bif_nif_arity);
-	    }
-	    SWAPIN;  /* There might have been a garbage collection. */
-	    FCALLS = c_p->fcalls;
-	    ERTS_DBG_CHK_REDS(c_p, FCALLS);
-	    if (is_value(nif_bif_result)) {
-		r(0) = nif_bif_result;
-		CHECK_TERM(r(0));
-		SET_I(c_p->cp);
-		c_p->cp = 0;
-		Goto(*I);
-	    } else if (c_p->freason == TRAP) {
-		SET_I(c_p->i);
-		if (c_p->flags & F_HIBERNATE_SCHED) {
-		    c_p->flags &= ~F_HIBERNATE_SCHED;
-		    goto do_schedule;
-		}
-		Dispatch();
-	    }
-	    I = handle_error(c_p, c_p->cp, reg, c_p->current);
-	    goto post_error_handling;
-	}
-    }
-
- OpCase(i_get_sd):
-    {
-	Eterm arg;
-	Eterm result;
-
-	GetArg1(0, arg);
-	result = erts_pd_hash_get(c_p, arg);
-	StoreBifResult(1, result);
-    }
-
- OpCase(i_get_hash_cId):
-    {
-	Eterm arg;
-	Eterm result;
-
-	GetArg1(0, arg);
-	result = erts_pd_hash_get_with_hx(c_p, Arg(1), arg);
-	StoreBifResult(2, result);
-    }
-
-    {
-	Eterm case_end_val;
-
-    OpCase(case_end_x):
-	case_end_val = xb(Arg(0));
-	c_p->fvalue = case_end_val;
-	c_p->freason = EXC_CASE_CLAUSE;
-	goto find_func_info;
-    }
-
- OpCase(if_end):
-    c_p->freason = EXC_IF_CLAUSE;
-    goto find_func_info;
-
  OpCase(i_func_info_IaaI): {
      ErtsCodeInfo *ci = (ErtsCodeInfo*)I;
      c_p->freason = EXC_FUNCTION_CLAUSE;
@@ -3745,1366 +835,7 @@ do {						\
      goto handle_error;
  }
 
- OpCase(try_case_end_s):
-    {
-	Eterm try_case_end_val;
-	GetArg1(0, try_case_end_val);
-	c_p->fvalue = try_case_end_val;
-	c_p->freason = EXC_TRY_CLAUSE;
-	goto find_func_info;
-    }
-
- /*
-  * Construction of binaries using new instructions.
-  */
- {
-     Eterm new_binary;
-     Eterm num_bits_term;
-     Uint num_bits;
-     Uint alloc;
-     Uint num_bytes;
-
-     OpCase(i_bs_init_bits_heap_IIId): {
-	 num_bits = Arg(0);
-	 alloc = Arg(1);
-	 I++;
-	 goto do_bs_init_bits_known;
-     }
-     
-     OpCase(i_bs_init_bits_IId): {
-	 num_bits = Arg(0);
-	 alloc = 0;
-	 goto do_bs_init_bits_known;
-     }
-
-     OpCase(i_bs_init_bits_fail_heap_sIjId): {
-	 GetArg1(0, num_bits_term);
-	 alloc = Arg(1);
-	 I += 2;
-	 goto do_bs_init_bits;
-     }
-
-     OpCase(i_bs_init_bits_fail_yjId): {
-	 num_bits_term = yb(Arg(0));
-	 I++;
-	 alloc = 0;
-	 goto do_bs_init_bits;
-     }
-     OpCase(i_bs_init_bits_fail_xjId): {
-	 num_bits_term = xb(Arg(0));
-	 I++;
-	 alloc = 0;
-     /* FALL THROUGH */
-     }
-
-     /* num_bits_term = Term for number of bits to build (small/big)
-      * alloc = Number of words to allocate on heap
-      * Operands: Fail Live Dst
-      */
-
- do_bs_init_bits:
-     if (is_small(num_bits_term)) {
-	 Sint size = signed_val(num_bits_term);
-	 if (size < 0) {
-	     goto badarg;
-	 }
-	 num_bits = (Uint) size;
-     } else {
-	 Uint bits;
-
-	 if (!term_to_Uint(num_bits_term, &bits)) {
-	     c_p->freason = bits;
-	     goto lb_Cl_error;
-
-	 }
-	 num_bits = (Eterm) bits;
-     }
-
-     /* num_bits = Number of bits to build
-      * alloc = Number of extra words to allocate on heap
-      * Operands: NotUsed Live Dst
-      */
- do_bs_init_bits_known:
-     num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
-     if (num_bits & 7) {
-	 alloc += ERL_SUB_BIN_SIZE;
-     }
-     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-	 alloc += heap_bin_size(num_bytes);
-     } else {
-	 alloc += PROC_BIN_SIZE;
-     }
-     TestHeap(alloc, Arg(1));
-
-     /* num_bits = Number of bits to build
-      * num_bytes = Number of bytes to allocate in the binary
-      * alloc = Total number of words to allocate on heap
-      * Operands: NotUsed NotUsed Dst
-      */
-     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-	 ErlHeapBin* hb;
-
-	 erts_bin_offset = 0;
-	 erts_writable_bin = 0;
-	 hb = (ErlHeapBin *) HTOP;
-	 HTOP += heap_bin_size(num_bytes);
-	 hb->thing_word = header_heap_bin(num_bytes);
-	 hb->size = num_bytes;
-	 erts_current_bin = (byte *) hb->data;
-	 new_binary = make_binary(hb);
-
-     do_bits_sub_bin:
-	 if (num_bits & 7) {
-	     ErlSubBin* sb;
-
-	     sb = (ErlSubBin *) HTOP;
-	     HTOP += ERL_SUB_BIN_SIZE;
-	     sb->thing_word = HEADER_SUB_BIN;
-	     sb->size = num_bytes - 1;
-	     sb->bitsize = num_bits & 7;
-	     sb->offs = 0;
-	     sb->bitoffs = 0;
-	     sb->is_writable = 0;
-	     sb->orig = new_binary;
-	     new_binary = make_binary(sb);
-	 }
-	 HEAP_SPACE_VERIFIED(0);
-	 StoreBifResult(2, new_binary);
-     } else {
-	 Binary* bptr;
-	 ProcBin* pb;
-
-	 erts_bin_offset = 0;
-	 erts_writable_bin = 0;
-
-	 /*
-	  * Allocate the binary struct itself.
-	  */
-	 bptr = erts_bin_nrml_alloc(num_bytes);
-	 erts_current_bin = (byte *) bptr->orig_bytes;
-
-	 /*
-	  * Now allocate the ProcBin on the heap.
-	  */
-	 pb = (ProcBin *) HTOP;
-	 HTOP += PROC_BIN_SIZE;
-	 pb->thing_word = HEADER_PROC_BIN;
-	 pb->size = num_bytes;
-	 pb->next = MSO(c_p).first;
-	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
-	 pb->val = bptr;
-	 pb->bytes = (byte*) bptr->orig_bytes;
-	 pb->flags = 0;
-	 OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
-	 new_binary = make_binary(pb);
-	 goto do_bits_sub_bin;
-     }
- }
-
- {
-     Eterm BsOp1, BsOp2;
-
-     OpCase(i_bs_init_fail_heap_sIjId): {
-	 GetArg1(0, BsOp1);
-	 BsOp2 = Arg(1);
-	 I += 2;
-	 goto do_bs_init;
-     }
-
-     OpCase(i_bs_init_fail_yjId): {
-	 BsOp1 = yb(Arg(0));
-	 BsOp2 = 0;
-	 I++;
-	 goto do_bs_init;
-     }
-
-     OpCase(i_bs_init_fail_xjId): {
-	 BsOp1 = xb(Arg(0));
-	 BsOp2 = 0;
-	 I++;
-     }
-	 /* FALL THROUGH */
-     do_bs_init:
-         if (is_small(BsOp1)) {
-	     Sint size = signed_val(BsOp1);
-	     if (size < 0) {
-		 goto badarg;
-	     }
-	     BsOp1 = (Eterm) size;
-	 } else {
-	     Uint bytes;
-
-	     if (!term_to_Uint(BsOp1, &bytes)) {
-		 c_p->freason = bytes;
-		 goto lb_Cl_error;
-	     }
-	     if ((bytes >> (8*sizeof(Uint)-3)) != 0) {
-		 goto system_limit;
-	     }
-	     BsOp1 = (Eterm) bytes;
-	 }
-	 if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
-	     goto do_heap_bin_alloc;
-	 } else {
-	     goto do_proc_bin_alloc;
-	 }
-
-
-     OpCase(i_bs_init_heap_IIId): {
-	 BsOp1 = Arg(0);
-	 BsOp2 = Arg(1);
-	 I++;
-	 goto do_proc_bin_alloc;
-     }
-
-     OpCase(i_bs_init_IId): {
-	 BsOp1 = Arg(0);
-	 BsOp2 = 0;
-     }
-     /* FALL THROUGH */
-     do_proc_bin_alloc: {
-	 Binary* bptr;
-	 ProcBin* pb;
-
-	 erts_bin_offset = 0;
-	 erts_writable_bin = 0;
-	 TestBinVHeap(BsOp1 / sizeof(Eterm),
-		      BsOp2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE, Arg(1));
-
-	 /*
-	  * Allocate the binary struct itself.
-	  */
-	 bptr = erts_bin_nrml_alloc(BsOp1);
-	 erts_current_bin = (byte *) bptr->orig_bytes;
-
-	 /*
-	  * Now allocate the ProcBin on the heap.
-	  */
-	 pb = (ProcBin *) HTOP;
-	 HTOP += PROC_BIN_SIZE;
-	 pb->thing_word = HEADER_PROC_BIN;
-	 pb->size = BsOp1;
-	 pb->next = MSO(c_p).first;
-	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
-	 pb->val = bptr;
-	 pb->bytes = (byte*) bptr->orig_bytes;
-	 pb->flags = 0;
-	 
-	 OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
-
-	 StoreBifResult(2, make_binary(pb));
-     }
-
-     OpCase(i_bs_init_heap_bin_heap_IIId): {
-	 BsOp1 = Arg(0);
-	 BsOp2 = Arg(1);
-	 I++;
-	 goto do_heap_bin_alloc;
-     }
-
-     OpCase(i_bs_init_heap_bin_IId): {
-	 BsOp1 = Arg(0);
-	 BsOp2 = 0;
-     }
-     /* Fall through */
-     do_heap_bin_alloc:
-	 {
-	     ErlHeapBin* hb;
-	     Uint bin_need;
-
-	     bin_need = heap_bin_size(BsOp1);
-	     erts_bin_offset = 0;
-	     erts_writable_bin = 0;
-	     TestHeap(bin_need+BsOp2+ERL_SUB_BIN_SIZE, Arg(1));
-	     hb = (ErlHeapBin *) HTOP;
-	     HTOP += bin_need;
-	     hb->thing_word = header_heap_bin(BsOp1);
-	     hb->size = BsOp1;
-	     erts_current_bin = (byte *) hb->data;
-	     BsOp1 = make_binary(hb);
-	     StoreBifResult(2, BsOp1);
-	 }
- }
-
- OpCase(bs_add_jssId): {
-     Eterm Op1, Op2;
-     Uint Unit = Arg(3);
-
-     GetArg2(1, Op1, Op2);
-     if (is_both_small(Op1, Op2)) {
-	 Sint Arg1 = signed_val(Op1);
-	 Sint Arg2 = signed_val(Op2);
-
-	 if (Arg1 >= 0 && Arg2 >= 0) {
-	     BsSafeMul(Arg2, Unit, goto system_limit, Op1);
-	     Op1 += Arg1;
-
-	 store_bs_add_result:
-	     if (Op1 <= MAX_SMALL) {
-		 Op1 = make_small(Op1);
-	     } else {
-		 /*
-		  * May generate a heap fragment, but in this
-		  * particular case it is OK, since the value will be
-		  * stored into an x register (the GC will scan x
-		  * registers for references to heap fragments) and
-		  * there is no risk that value can be stored into a
-		  * location that is not scanned for heap-fragment
-		  * references (such as the heap).
-		  */
-		 SWAPOUT;
-		 Op1 = erts_make_integer(Op1, c_p);
-		 HTOP = HEAP_TOP(c_p);
-	     }
-	     StoreBifResult(4, Op1);
-	 }
-	 goto badarg;
-     } else {
-	 Uint a;
-	 Uint b;
-	 Uint c;
-
-	 /*
-	  * Now we know that one of the arguments is
-	  * not a small. We must convert both arguments
-	  * to Uints and check for errors at the same time.
-	  *
-	  * Error checking is tricky.
-	  *
-	  * If one of the arguments is not numeric or
-	  * not positive, the error reason is BADARG.
-	  *
-	  * Otherwise if both arguments are numeric,
-	  * but at least one argument does not fit in
-	  * an Uint, the reason is SYSTEM_LIMIT.
-	  */
-
-	 if (!term_to_Uint(Op1, &a)) {
-	     if (a == BADARG) {
-		 goto badarg;
-	     }
-	     if (!term_to_Uint(Op2, &b)) {
-		 c_p->freason = b;
-		 goto lb_Cl_error;
-	     }
-	     goto system_limit;
-	 } else if (!term_to_Uint(Op2, &b)) {
-	     c_p->freason = b;
-	     goto lb_Cl_error;
-	 }
-
-	 /*
-	  * The arguments are now correct and stored in a and b.
-	  */
-	 
-	 BsSafeMul(b, Unit, goto system_limit, c);
-	 Op1 = a + c;
-	 if (Op1 < a) {
-	     /*
-	      * If the result is less than one of the
-	      * arguments, there must have been an overflow.
-	      */
-	     goto system_limit;
-	 }
-	 goto store_bs_add_result;
-     }
-     /* No fallthrough */
-     ASSERT(0);
- }
-
- OpCase(bs_put_string_II):
-    {
-	BeamInstr *next;
-	PreFetch(2, next);
-	erts_new_bs_put_string(ERL_BITS_ARGS_2((byte *) Arg(1), Arg(0)));
-	NextPF(2, next);
-    }
-
- /*
-  * x(SCRATCH_X_REG);
-  * Operands: Fail ExtraHeap Live Unit Size Dst
-  */
-
- OpCase(i_bs_append_jIIIsd): {
-     Uint live = Arg(2);
-     Uint res;
-     Eterm Size;
-
-     GetArg1(4, Size);
-     HEAVY_SWAPOUT;
-     reg[live] = x(SCRATCH_X_REG);
-     res = erts_bs_append(c_p, reg, live, Size, Arg(1), Arg(3));
-     HEAVY_SWAPIN;
-     if (is_non_value(res)) {
-	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
-	 goto lb_Cl_error;
-     }
-     StoreBifResult(5, res);
- }
-
- /*
-  * Operands: Fail Size Src Unit Dst
-  */
- OpCase(i_bs_private_append_jIssd): {
-     Eterm res;
-     Eterm Size, Src;
-
-     GetArg2(2, Size, Src);
-     res = erts_bs_private_append(c_p, Src, Size, Arg(1));
-     if (is_non_value(res)) {
-	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
-	 goto lb_Cl_error;
-     }
-     StoreBifResult(4, res);
- }
-
- OpCase(bs_init_writable): {
-     HEAVY_SWAPOUT;
-     r(0) = erts_bs_init_writable(c_p, r(0));
-     HEAVY_SWAPIN;
-     Next(0);
- }
-
- /*
-  * Calculate the number of bytes needed to encode the source
-  * operarand to UTF-8. If the source operand is invalid (e.g. wrong
-  * type or range) we return a nonsense integer result (0 or 4). We
-  * can get away with that because we KNOW that bs_put_utf8 will do
-  * full error checking.
-  */
- OpCase(i_bs_utf8_size_sd): {
-     Eterm arg;
-     Eterm result;
-
-     GetArg1(0, arg);
-     if (arg < make_small(0x80UL)) {
-	 result = make_small(1);
-     } else if (arg < make_small(0x800UL)) {
-	 result = make_small(2);
-     } else if (arg < make_small(0x10000UL)) {
-	 result = make_small(3);
-     } else {
-	 result = make_small(4);
-     }
-     StoreBifResult(1, result);
- }
-
- OpCase(i_bs_put_utf8_js): {
-     Eterm arg;
-
-     GetArg1(1, arg);
-     if (!erts_bs_put_utf8(ERL_BITS_ARGS_1(arg))) {
-	 goto badarg;
-     }
-     Next(2);
- }
-
- /*
-  * Calculate the number of bytes needed to encode the source
-  * operarand to UTF-8. If the source operand is invalid (e.g. wrong
-  * type or range) we return a nonsense integer result (2 or 4). We
-  * can get away with that because we KNOW that bs_put_utf16 will do
-  * full error checking.
-  */
-
- OpCase(i_bs_utf16_size_sd): {
-     Eterm arg;
-     Eterm result = make_small(2);
-
-     GetArg1(0, arg);
-     if (arg >= make_small(0x10000UL)) {
-	 result = make_small(4);
-     }
-     StoreBifResult(1, result);
- }
-
- OpCase(bs_put_utf16_jIs): {
-     Eterm arg;
-
-     GetArg1(2, arg);
-     if (!erts_bs_put_utf16(ERL_BITS_ARGS_2(arg, Arg(1)))) {
-	 goto badarg;
-     }
-     Next(3);
- }
-
- /*
-  * Only used for validating a value about to be stored in a binary.
-  */
- OpCase(i_bs_validate_unicode_js): {
-     Eterm val;
-
-     GetArg1(1, val);
-
-     /*
-      * There is no need to untag the integer, but it IS necessary
-      * to make sure it is small (if the term is a bignum, it could
-      * slip through the test, and there is no further test that
-      * would catch it, since bit syntax construction silently masks
-      * too big numbers).
-      */
-     if (is_not_small(val) || val > make_small(0x10FFFFUL) ||
-	 (make_small(0xD800UL) <= val && val <= make_small(0xDFFFUL))) {
-	 goto badarg;
-     }
-     Next(2);
- }
-
- /*
-  * Only used for validating a value matched out. 
-  */
- OpCase(i_bs_validate_unicode_retract_jss): {
-	Eterm i; 		/* Integer to validate */
-
-	/*
-	 * There is no need to untag the integer, but it IS necessary
-	 * to make sure it is small (a bignum pointer could fall in
-	 * the valid range).
-	 */
-
-	GetArg1(1, i);
-	if (is_not_small(i) || i > make_small(0x10FFFFUL) ||
-	    (make_small(0xD800UL) <= i && i <= make_small(0xDFFFUL))) {
-	    Eterm ms;		/* Match context */
-	    ErlBinMatchBuffer* mb;
-
-	    GetArg1(2, ms);
-	    mb = ms_matchbuffer(ms);
-	    mb->offset -= 32;
-	    goto badarg;
-	}
-	Next(3);
-    }
-
- /*
-  * Matching of binaries.
-  */
-
- {
-     Eterm header;
-     BeamInstr *next;
-     Uint slots;
-     Eterm context;
-
-     do_start_match:
-	 slots = Arg(2);
-	 if (!is_boxed(context)) {
-	     ClauseFail();
-	 }
-	 PreFetch(4, next);
-	 header = *boxed_val(context);
-	 if (header_is_bin_matchstate(header)) {
-	     ErlBinMatchState* ms = (ErlBinMatchState *) boxed_val(context);
-	     Uint actual_slots = HEADER_NUM_SLOTS(header);
-	     ms->save_offset[0] = ms->mb.offset;
-	     if (actual_slots < slots) {
-		 ErlBinMatchState* dst;
-		 Uint live = Arg(1);
-		 Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-
-		 TestHeapPreserve(wordsneeded, live, context);
-		 ms = (ErlBinMatchState *) boxed_val(context);
-		 dst = (ErlBinMatchState *) HTOP;
-		 *dst = *ms;
-		 *HTOP = HEADER_BIN_MATCHSTATE(slots);
-		 HTOP += wordsneeded;
-		 HEAP_SPACE_VERIFIED(0);
-		 StoreResult(make_matchstate(dst), Arg(3));
-	     }
-	 } else if (is_binary_header(header)) {
-	     Eterm result;
-	     Uint live = Arg(1);
-	     Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-	     TestHeapPreserve(wordsneeded, live, context);
-	     HEAP_TOP(c_p) = HTOP;
-#ifdef DEBUG
-	     c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
-#endif
-	     result = erts_bs_start_match_2(c_p, context, slots);
-	     HTOP = HEAP_TOP(c_p);
-	     HEAP_SPACE_VERIFIED(0);
-	     if (is_non_value(result)) {
-		 ClauseFail();
-	     } else {
-		 StoreResult(result, Arg(3));
-	     }
-	 } else {
-	     ClauseFail();
-	 }
-	 NextPF(4, next);
-
-     OpCase(i_bs_start_match2_xfIId): {
-	 context = xb(Arg(0));
-	 I++;
-	 goto do_start_match;
-     }
-     OpCase(i_bs_start_match2_yfIId): {
-	 context = yb(Arg(0));
-	 I++;
-	 goto do_start_match;
-     }
- }
-
- OpCase(bs_test_zero_tail2_fx): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     
-     PreFetch(2, next);
-     _mb = (ErlBinMatchBuffer*) ms_matchbuffer(xb(Arg(1)));
-     if (_mb->size != _mb->offset) {
-	 ClauseFail();
-     }
-     NextPF(2, next);
- }
-
- OpCase(bs_test_tail_imm2_fxI): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     PreFetch(3, next);
-     _mb = ms_matchbuffer(xb(Arg(1)));
-     if (_mb->size - _mb->offset != Arg(2)) {
-	 ClauseFail();
-     }
-     NextPF(3, next);
- }
-
- OpCase(bs_test_unit_fxI): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     PreFetch(3, next);
-     _mb = ms_matchbuffer(xb(Arg(1)));
-     if ((_mb->size - _mb->offset) % Arg(2)) {
-	 ClauseFail();
-     }
-     NextPF(3, next);
- }
-
- OpCase(bs_test_unit8_fx): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     PreFetch(2, next);
-     _mb = ms_matchbuffer(xb(Arg(1)));
-     if ((_mb->size - _mb->offset) & 7) {
-	 ClauseFail();
-     }
-     NextPF(2, next);
- }
-
- {
-     Eterm bs_get_integer8_context;
-
- OpCase(i_bs_get_integer_8_xfd): {
-	 ErlBinMatchBuffer *_mb;
-	 Eterm _result;
-	 bs_get_integer8_context = xb(Arg(0));
-	 I++;
-	 _mb = ms_matchbuffer(bs_get_integer8_context);
-	 if (_mb->size - _mb->offset < 8) {
-	     ClauseFail();
-	 }
-	 if (BIT_OFFSET(_mb->offset) != 0) {
-	     _result = erts_bs_get_integer_2(c_p, 8, 0, _mb);
-	 } else {
-	     _result = make_small(_mb->base[BYTE_OFFSET(_mb->offset)]);
-	     _mb->offset += 8;
-	 }
-	 StoreBifResult(1, _result);
-     }
- }
-
- {
-     Eterm bs_get_integer_16_context;
-
- OpCase(i_bs_get_integer_16_xfd):
-     bs_get_integer_16_context = xb(Arg(0));
-     I++;
-
-     {
-	 ErlBinMatchBuffer *_mb;
-	 Eterm _result;
-	 _mb = ms_matchbuffer(bs_get_integer_16_context);
-	 if (_mb->size - _mb->offset < 16) {
-	     ClauseFail(); 
-	 }
-	 if (BIT_OFFSET(_mb->offset) != 0) {
-	     _result = erts_bs_get_integer_2(c_p, 16, 0, _mb);
-	 } else {
-	     _result = make_small(get_int16(_mb->base+BYTE_OFFSET(_mb->offset)));
-	     _mb->offset += 16;
-	 }
-	 StoreBifResult(1, _result);
-     }
- }
-
- {
-     Eterm bs_get_integer_32_context;
-
- OpCase(i_bs_get_integer_32_xfId):
-     bs_get_integer_32_context = xb(Arg(0));
-     I++;
-
-     {
-	 ErlBinMatchBuffer *_mb;
-	 Uint32 _integer;
-	 Eterm _result;
-	 _mb = ms_matchbuffer(bs_get_integer_32_context);
-	 if (_mb->size - _mb->offset < 32) { ClauseFail(); }
-	 if (BIT_OFFSET(_mb->offset) != 0) {
-	     _integer = erts_bs_get_unaligned_uint32(_mb);
-	 } else {
-	     _integer = get_int32(_mb->base + _mb->offset/8);
-	 }
-	 _mb->offset += 32;
-#if !defined(ARCH_64)
-	 if (IS_USMALL(0, _integer)) {
-#endif
-	     _result = make_small(_integer);
-#if !defined(ARCH_64)
-	 } else {
-	     TestHeap(BIG_UINT_HEAP_SIZE, Arg(1));
-	     _result = uint_to_big((Uint) _integer, HTOP);
-	     HTOP += BIG_UINT_HEAP_SIZE;
-	     HEAP_SPACE_VERIFIED(0);
-	 }
-#endif
-	 StoreBifResult(2, _result);
-     }
- }
-
- {
-     Eterm Ms, Sz;
-
-     /* Operands: x(Reg) Size Live Fail Flags Dst */
- OpCase(i_bs_get_integer_imm_xIIfId): {
-	 Uint wordsneeded;
-	 Ms = xb(Arg(0));
-	 Sz = Arg(1);
-	 wordsneeded = 1+WSIZE(NBYTES(Sz));
-	 TestHeapPreserve(wordsneeded, Arg(2), Ms);
-	 I += 3;
-	 /* Operands: Fail Flags Dst */
-	 goto do_bs_get_integer_imm;
-     }
-
-     /* Operands: x(Reg) Size Fail Flags Dst */
- OpCase(i_bs_get_integer_small_imm_xIfId): {
-	 Ms = xb(Arg(0));
-	 Sz = Arg(1);
-	 I += 2;
-	 /* Operands: Fail Flags Dst */
-	 goto do_bs_get_integer_imm;
-     }
- 
-     /*
-      * Ms = match context
-      * Sz = size of field
-      * Operands: Fail Flags Dst
-      */
- do_bs_get_integer_imm: {
-	 ErlBinMatchBuffer* mb;
-	 Eterm result;
-
-	 mb = ms_matchbuffer(Ms);
-	 LIGHT_SWAPOUT;
-	 result = erts_bs_get_integer_2(c_p, Sz, Arg(1), mb);
-	 LIGHT_SWAPIN;
-	 HEAP_SPACE_VERIFIED(0);
-	 if (is_non_value(result)) {
-	     ClauseFail();
-	 }
-	 StoreBifResult(2, result);
-     }
- }
-
- /*
-  * Operands: Fail Live FlagsAndUnit Ms Sz Dst
-  */
- OpCase(i_bs_get_integer_fIIssd): {
-     Uint flags;
-     Uint size;
-     Eterm Ms;
-     Eterm Sz;
-     ErlBinMatchBuffer* mb;
-     Eterm result;
-
-     flags = Arg(2);
-     GetArg2(3, Ms, Sz);
-     BsGetFieldSize(Sz, (flags >> 3), ClauseFail(), size);
-     if (size >= SMALL_BITS) {
-	 Uint wordsneeded;
-	 /* Check bits size before potential gc.
-	  * We do not want a gc and then realize we don't need
-	  * the allocated space (i.e. if the op fails).
-	  *
-	  * Remember to re-acquire the matchbuffer after gc.
-	  */
-
-	 mb = ms_matchbuffer(Ms);
-	 if (mb->size - mb->offset < size) {
-	     ClauseFail();
-	 }
-	 wordsneeded = 1+WSIZE(NBYTES((Uint) size));
-	 TestHeapPreserve(wordsneeded, Arg(1), Ms);
-     }
-     mb = ms_matchbuffer(Ms);
-     LIGHT_SWAPOUT;
-     result = erts_bs_get_integer_2(c_p, size, flags, mb);
-     LIGHT_SWAPIN;
-     HEAP_SPACE_VERIFIED(0);
-     if (is_non_value(result)) {
-	 ClauseFail();
-     }
-     StoreBifResult(5, result);
- }
-
- {
-     Eterm get_utf8_context;
-
-     /* Operands: MatchContext Fail Dst */
- OpCase(i_bs_get_utf8_xfd): {
-	 get_utf8_context = xb(Arg(0));
-	 I++;
-     }
-
-     /*
-      * get_utf8_context = match_context
-      * Operands: Fail Dst
-      */
-
-     {
-	 Eterm result = erts_bs_get_utf8(ms_matchbuffer(get_utf8_context));
-	 if (is_non_value(result)) {
-	     ClauseFail();
-	 }
-	 StoreBifResult(1, result);
-     }
- }
-
- {
-     Eterm get_utf16_context;
-
-     /* Operands: MatchContext Fail Flags Dst */
-     OpCase(i_bs_get_utf16_xfId): {
-	 get_utf16_context = xb(Arg(0));
-	 I++;
-     }
-
-     /*
-      * get_utf16_context = match_context
-      * Operands: Fail Flags Dst
-      */
-     {
-	 Eterm result = erts_bs_get_utf16(ms_matchbuffer(get_utf16_context),
-					  Arg(1));
-	 if (is_non_value(result)) {
-	     ClauseFail();
-	 }
-	 StoreBifResult(2, result);
-     }
- }
-
- {
-     Eterm context_to_binary_context;
-     ErlBinMatchBuffer* mb;
-     ErlSubBin* sb;
-     Uint size;
-     Uint offs;
-     Uint orig;
-     Uint hole_size;
-
-     OpCase(bs_context_to_binary_x):
-	 context_to_binary_context = xb(Arg(0));
-	 I--;
-
-     if (is_boxed(context_to_binary_context) &&
-	 header_is_bin_matchstate(*boxed_val(context_to_binary_context))) {
-	 ErlBinMatchState* ms;
-	 ms = (ErlBinMatchState *) boxed_val(context_to_binary_context);
-	 mb = &ms->mb;
-	 offs = ms->save_offset[0];
-	 size = mb->size - offs;
-	 goto do_bs_get_binary_all_reuse_common;
-     }
-     Next(2);
-
-     OpCase(i_bs_get_binary_all_reuse_xfI): {
-	 context_to_binary_context = xb(Arg(0));
-	 I++;
-     }
-
-     mb = ms_matchbuffer(context_to_binary_context);
-     size = mb->size - mb->offset;
-     if (size % Arg(1) != 0) {
-	 ClauseFail();
-     }
-     offs = mb->offset;
-
- do_bs_get_binary_all_reuse_common:
-     orig = mb->orig;
-     sb = (ErlSubBin *) boxed_val(context_to_binary_context);
-     hole_size = 1 + header_arity(sb->thing_word) - ERL_SUB_BIN_SIZE;
-     sb->thing_word = HEADER_SUB_BIN;
-     sb->size = BYTE_OFFSET(size);
-     sb->bitsize = BIT_OFFSET(size);
-     sb->offs = BYTE_OFFSET(offs);
-     sb->bitoffs = BIT_OFFSET(offs);
-     sb->is_writable = 0;
-     sb->orig = orig;
-     if (hole_size) {
-	 sb[1].thing_word = make_pos_bignum_header(hole_size-1);
-     }
-     Next(2);
- }
-
- {
-     Eterm match_string_context;
-
-     OpCase(i_bs_match_string_xfII): {
-	 match_string_context = xb(Arg(0));
-	 I++;
-     }
-
-     {
-	 BeamInstr *next;
-	 byte* bytes;
-	 Uint bits;
-	 ErlBinMatchBuffer* mb;
-	 Uint offs;
-
-	 PreFetch(3, next);
-	 bits = Arg(1);
-	 bytes = (byte *) Arg(2);
-	 mb = ms_matchbuffer(match_string_context);
-	 if (mb->size - mb->offset < bits) {
-	     ClauseFail();
-	 }
-	 offs = mb->offset & 7;
-	 if (offs == 0 && (bits & 7) == 0) {
-	     if (sys_memcmp(bytes, mb->base+(mb->offset>>3), bits>>3)) {
-		 ClauseFail();
-	     }
-	 } else if (erts_cmp_bits(bytes, 0, mb->base+(mb->offset>>3), mb->offset & 7, bits)) {
-	     ClauseFail();
-	 }
-	 mb->offset += bits;
-	 NextPF(3, next);
-     }
- }
-
- OpCase(i_bs_save2_xI): {
-     BeamInstr *next;
-     ErlBinMatchState *_ms;
-     PreFetch(2, next);
-     _ms = (ErlBinMatchState*) boxed_val((Eterm) xb(Arg(0)));
-     _ms->save_offset[Arg(1)] = _ms->mb.offset;
-     NextPF(2, next);
- }
-
- OpCase(i_bs_restore2_xI): {
-     BeamInstr *next;
-     ErlBinMatchState *_ms;
-     PreFetch(2, next);
-     _ms = (ErlBinMatchState*) boxed_val((Eterm) xb(Arg(0)));
-     _ms->mb.offset = _ms->save_offset[Arg(1)];
-     NextPF(2, next);
- }
-
 #include "beam_cold.h"
-
-
- /*
-  * This instruction is probably never used (because it is combined with a
-  * a return). However, a future compiler might for some reason emit a
-  * deallocate not followed by a return, and that should work.
-  */
- OpCase(deallocate_I): {
-     BeamInstr *next;
-
-     PreFetch(1, next);
-     D(Arg(0));
-     NextPF(1, next);
- }
-
-    /*
-     * Trace and debugging support.
-     */
-
- OpCase(return_trace): {
-     ErtsCodeMFA* mfa = (ErtsCodeMFA *)(E[0]);
-     
-     SWAPOUT;		/* Needed for shared heap */
-     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-     erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+1)/* tracer */);
-     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-     SWAPIN;
-     c_p->cp = NULL;
-     SET_I((BeamInstr *) cp_val(E[2]));
-     E += 3;
-     Goto(*I);
- }
-
- OpCase(i_generic_breakpoint): {
-     BeamInstr real_I;
-     HEAVY_SWAPOUT;
-     real_I = erts_generic_breakpoint(c_p, erts_code_to_codeinfo(I), reg);
-     HEAVY_SWAPIN;
-     ASSERT(VALID_INSTR(real_I));
-     Goto(real_I);
- }
-
- OpCase(i_return_time_trace): {
-     BeamInstr *pc = (BeamInstr *) (UWord) E[0];
-     SWAPOUT;
-     erts_trace_time_return(c_p, erts_code_to_codeinfo(pc));
-     SWAPIN;
-     c_p->cp = NULL;
-     SET_I((BeamInstr *) cp_val(E[1]));
-     E += 2;
-     Goto(*I);
- }
-
- OpCase(i_return_to_trace): {
-     if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
-	 Uint *cpp = (Uint*) E;
-	 for(;;) {
-	     ASSERT(is_CP(*cpp));
-	     if (*cp_val(*cpp) == (BeamInstr) OpCode(return_trace)) {
-		 do ++cpp; while(is_not_CP(*cpp));
-		 cpp += 2;
-	     } else if (*cp_val(*cpp) == (BeamInstr) OpCode(i_return_to_trace)) {
-		 do ++cpp; while(is_not_CP(*cpp));
-	     } else break;
-	 }
-	 SWAPOUT;		/* Needed for shared heap */
-	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	 erts_trace_return_to(c_p, cp_val(*cpp));
-	 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	 SWAPIN;
-     }
-     c_p->cp = NULL;
-     SET_I((BeamInstr *) cp_val(E[0]));
-     E += 1;
-     Goto(*I);
- }
-
- /*
-  * New floating point instructions.
-  */
-
- OpCase(fmove_ql): {
-     Eterm fr = Arg(1);
-     BeamInstr *next;
-
-     PreFetch(2, next);
-     GET_DOUBLE(Arg(0), *(FloatDef*)ADD_BYTE_OFFSET(freg, fr));
-     NextPF(2, next);
- }
-
- OpCase(fmove_dl): {
-     Eterm targ1;
-     Eterm fr = Arg(1);
-     BeamInstr *next;
-
-     PreFetch(2, next);
-     targ1 = REG_TARGET(Arg(0));
-     /* Arg(0) == HEADER_FLONUM */
-     GET_DOUBLE(targ1, *(FloatDef*)ADD_BYTE_OFFSET(freg, fr));
-     NextPF(2, next);
- }
-
- OpCase(fmove_ld): {
-     Eterm fr = Arg(0);
-     Eterm dest = make_float(HTOP);
-
-     PUT_DOUBLE(*(FloatDef*)ADD_BYTE_OFFSET(freg, fr), HTOP);
-     HTOP += FLOAT_SIZE_OBJECT;
-     StoreBifResult(1, dest);
- }
-
- OpCase(fconv_dl): {
-     Eterm targ1;
-     Eterm fr = Arg(1);
-     BeamInstr *next;
-
-     targ1 = REG_TARGET(Arg(0));
-     PreFetch(2, next);
-     if (is_small(targ1)) {
-	 fb(fr) = (double) signed_val(targ1);
-     } else if (is_big(targ1)) {
-	 if (big_to_double(targ1, &fb(fr)) < 0) {
-	     goto fbadarith;
-	 }
-     } else if (is_float(targ1)) {
-	 GET_DOUBLE(targ1, *(FloatDef*)ADD_BYTE_OFFSET(freg, fr));
-     } else {
-	 goto fbadarith;
-     }
-     NextPF(2, next);
- }
-
-#ifdef NO_FPE_SIGNALS
-     OpCase(fclearerror):
-     OpCase(i_fcheckerror):
-	 erts_exit(ERTS_ERROR_EXIT, "fclearerror/i_fcheckerror without fpe signals (beam_emu)");
-#  define ERTS_NO_FPE_CHECK_INIT ERTS_FP_CHECK_INIT
-#  define ERTS_NO_FPE_ERROR ERTS_FP_ERROR
-#else
-#  define ERTS_NO_FPE_CHECK_INIT(p)
-#  define ERTS_NO_FPE_ERROR(p, a, b)
-
-     OpCase(fclearerror): {
-	 BeamInstr *next;
-
-	 PreFetch(0, next);
-	 ERTS_FP_CHECK_INIT(c_p);
-	 NextPF(0, next);
-     }
-
-     OpCase(i_fcheckerror): {
-	 BeamInstr *next;
-
-	 PreFetch(0, next);
-	 ERTS_FP_ERROR(c_p, freg[0].fd, goto fbadarith);
-	 NextPF(0, next);
-     }
-#endif
-
-
- OpCase(i_fadd_lll): {
-     BeamInstr *next;
-
-     PreFetch(3, next);
-     ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) + fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
-     NextPF(3, next);
- }
- OpCase(i_fsub_lll): {
-     BeamInstr *next;
-
-     PreFetch(3, next);
-     ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) - fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
-     NextPF(3, next);
- }
- OpCase(i_fmul_lll): {
-     BeamInstr *next;
-
-     PreFetch(3, next);
-     ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) * fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
-     NextPF(3, next);
- }
- OpCase(i_fdiv_lll): {
-     BeamInstr *next;
-
-     PreFetch(3, next);
-     ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) / fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
-     NextPF(3, next);
- }
- OpCase(i_fnegate_ll): {
-     BeamInstr *next;
-
-     PreFetch(2, next);
-     ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(1)) = -fb(Arg(0));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(1)), goto fbadarith);
-     NextPF(2, next);
-
- fbadarith:
-     c_p->freason = BADARITH;
-     goto find_func_info;
- }
-
-#ifdef HIPE
- {
-#define HIPE_MODE_SWITCH(Cmd)			\
-     SWAPOUT;					\
-     ERTS_DBG_CHK_REDS(c_p, FCALLS);		\
-     c_p->fcalls = FCALLS;			\
-     c_p->def_arg_reg[4] = -neg_o_reds;		\
-     c_p = hipe_mode_switch(c_p, Cmd, reg);     \
-     goto L_post_hipe_mode_switch
-
-     OpCase(hipe_trap_call): {
-	 /*
-	  * I[-5]: &&lb_i_func_info_IaaI
-	  * I[-4]: Native code callee (inserted by HiPE)
-	  * I[-3]: Module (tagged atom)
-	  * I[-2]: Function (tagged atom)
-	  * I[-1]: Arity (untagged integer)
-	  * I[ 0]: &&lb_hipe_trap_call
-	  * ... remainder of original BEAM code
-	  */
-         ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
-	 ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
-	 c_p->hipe.u.ncallee = ci->u.ncallee;
-	 ++hipe_trap_count;
-	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL | (ci->mfa.arity << 8));
-     }
-     OpCase(hipe_trap_call_closure): {
-       ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
-       ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
-       c_p->hipe.u.ncallee = ci->u.ncallee;
-       ++hipe_trap_count;
-       HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (ci->mfa.arity << 8));
-     }
-     OpCase(hipe_trap_return): {
-	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_RETURN);
-     }
-     OpCase(hipe_trap_throw): {
-	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_THROW);
-     }
-     OpCase(hipe_trap_resume): {
-	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_RESUME);
-     }
-#undef HIPE_MODE_SWITCH
-
- L_post_hipe_mode_switch:
-#ifdef DEBUG
-     pid = c_p->common.id; /* may have switched process... */
-#endif
-     reg = erts_proc_sched_data(c_p)->x_reg_array;
-     freg = erts_proc_sched_data(c_p)->f_reg_array;
-     ERL_BITS_RELOAD_STATEP(c_p);
-     /* XXX: this abuse of def_arg_reg[] is horrid! */
-     neg_o_reds = -c_p->def_arg_reg[4];
-     FCALLS = c_p->fcalls;
-     SWAPIN;
-     ERTS_DBG_CHK_REDS(c_p, FCALLS);
-     switch( c_p->def_arg_reg[3] ) {
-       case HIPE_MODE_SWITCH_RES_RETURN:
-	 ASSERT(is_value(reg[0]));
-	 SET_I(c_p->cp);
-	 c_p->cp = 0;
-	 Goto(*I);
-       case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
-	 c_p->i = c_p->hipe.u.callee_exp->addressv[erts_active_code_ix()];
-	 /*fall through*/
-       case HIPE_MODE_SWITCH_RES_CALL_BEAM:
-	 SET_I(c_p->i);
-	 Dispatch();
-       case HIPE_MODE_SWITCH_RES_CALL_CLOSURE:
-	 /* This can be used to call any function value, but currently it's
-	    only used to call closures referring to unloaded modules. */
-	 {
-	     BeamInstr *next;
-
-	     next = call_fun(c_p, c_p->arity - 1, reg, THE_NON_VALUE);
-	     HEAVY_SWAPIN;
-	     if (next != NULL) {
-		 SET_I(next);
-		 Dispatchfun();
-	     }
-	     goto find_func_info;
-	 }
-       case HIPE_MODE_SWITCH_RES_THROW:
-	 c_p->cp = NULL;
-	 I = handle_error(c_p, I, reg, NULL);
-	 goto post_error_handling;
-       default:
-	 erts_exit(ERTS_ERROR_EXIT, "hipe_mode_switch: result %u\n", c_p->def_arg_reg[3]);
-     }
- }
- OpCase(hipe_call_count): {
-     /*
-      * I[-5]: &&lb_i_func_info_IaaI
-      * I[-4]: pointer to struct hipe_call_count (inserted by HiPE)
-      * I[-3]: Module (tagged atom)
-      * I[-2]: Function (tagged atom)
-      * I[-1]: Arity (untagged integer)
-      * I[ 0]: &&lb_hipe_call_count
-      * ... remainder of original BEAM code
-      */
-     ErtsCodeInfo *ci = erts_code_to_codeinfo(I);
-     struct hipe_call_count *hcc = ci->u.hcc;
-     ASSERT(ci->op == (Uint) OpCode(i_func_info_IaaI));
-     ASSERT(hcc != NULL);
-     ASSERT(VALID_INSTR(hcc->opcode));
-     ++(hcc->count);
-     Goto(hcc->opcode);
- }
-#endif /* HIPE */
-
- OpCase(i_yield):
- {
-     /* This is safe as long as REDS_IN(c_p) is never stored 
-      * in c_p->arg_reg[0]. It is currently stored in c_p->def_arg_reg[5],
-      * which may be c_p->arg_reg[5], which is close, but no banana.
-      */
-     c_p->arg_reg[0] = am_true;
-     c_p->arity = 1; /* One living register (the 'true' return value) */
-     SWAPOUT;
-     c_p->i = I + 1; /* Next instruction */
-     c_p->current = NULL;
-     goto do_schedule;
- }
-
- OpCase(i_hibernate): {
-     HEAVY_SWAPOUT;
-     if (erts_hibernate(c_p, r(0), x(1), x(2), reg)) {
-	 FCALLS = c_p->fcalls;
-	 c_p->flags &= ~F_HIBERNATE_SCHED;
-	 goto do_schedule;
-     } else {
-	 HEAVY_SWAPIN;
-	 I = handle_error(c_p, I, reg, &bif_export[BIF_hibernate_3]->info.mfa);
-	 goto post_error_handling;
-     }
- }
-
- /* This is optimised as an instruction because
-    it has to be very very fast */
- OpCase(i_perf_counter): {
-    BeamInstr* next;
-    ErtsSysPerfCounter ts;
-    PreFetch(0, next);
-
-    ts = erts_sys_perf_counter();
-
-    if (IS_SSMALL(ts)) {
-        r(0) = make_small((Sint)ts);
-    } else {
-        TestHeap(ERTS_SINT64_HEAP_SIZE(ts),0);
-        r(0) = make_big(HTOP);
-#if defined(ARCH_32)
-        if (ts >= (((Uint64) 1) << 32)) {
-            *HTOP = make_pos_bignum_header(2);
-            BIG_DIGIT(HTOP, 0) = (Uint) (ts & ((Uint) 0xffffffff));
-            BIG_DIGIT(HTOP, 1) = (Uint) ((ts >> 32) & ((Uint) 0xffffffff));
-            HTOP += 3;
-        }
-        else
-#endif
-        {
-                *HTOP = make_pos_bignum_header(1);
-                BIG_DIGIT(HTOP, 0) = (Uint) ts;
-                HTOP += 2;
-        }
-    }
-    NextPF(0, next);
- }
-
- OpCase(i_debug_breakpoint): {
-     HEAVY_SWAPOUT;
-     I = call_error_handler(c_p, erts_code_to_codemfa(I), reg, am_breakpoint);
-     HEAVY_SWAPIN;
-     if (I) {
-	 Goto(*I);
-     }
-     goto handle_error;
- }
-
-
- OpCase(system_limit_j):
- system_limit:
-    c_p->freason = SYSTEM_LIMIT;
-    goto lb_Cl_error;
-
 
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
     DEFINE_COUNTING_LABELS;
@@ -5128,9 +859,6 @@ do {						\
 
  init_emulator:
  {
-     int i;
-     Export* ep;
-
 #ifndef NO_JUMP_TABLE
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
 #ifdef DEBUG
@@ -5142,35 +870,8 @@ do {						\
      beam_ops = opcodes;
 #endif /* ERTS_OPCODE_COUNTER_SUPPORT */
 #endif /* NO_JUMP_TABLE */
-     
-     em_call_error_handler = OpCode(call_error_handler);
-     em_apply_bif = OpCode(apply_bif);
-     em_call_nif = OpCode(call_nif);
-     em_call_bif_e = OpCode(call_bif_e);
 
-     beam_apply[0]             = (BeamInstr) OpCode(i_apply);
-     beam_apply[1]             = (BeamInstr) OpCode(normal_exit);
-     beam_exit[0]              = (BeamInstr) OpCode(error_action_code);
-     beam_continue_exit[0]     = (BeamInstr) OpCode(continue_exit);
-     beam_return_to_trace[0]   = (BeamInstr) OpCode(i_return_to_trace);
-     beam_return_trace[0]      = (BeamInstr) OpCode(return_trace);
-     beam_exception_trace[0]   = (BeamInstr) OpCode(return_trace); /* UGLY */
-     beam_return_time_trace[0] = (BeamInstr) OpCode(i_return_time_trace);
-
-     /*
-      * Enter all BIFs into the export table.
-      */
-     for (i = 0; i < BIF_SIZE; i++) {
-	 ep = erts_export_put(bif_table[i].module,
-			      bif_table[i].name,
-			      bif_table[i].arity);
-	 bif_export[i] = ep;
-	 ep->beam[0] = (BeamInstr) OpCode(apply_bif);
-	 ep->beam[1] = (BeamInstr) bif_table[i].f;
-	 /* XXX: set func info for bifs */
-	 ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
-     }
-
+     init_emulator_finish();
      return;
  }
 #ifdef NO_JUMP_TABLE
@@ -5179,19 +880,80 @@ do {						\
   }
 #endif
     return;			/* Never executed */
+}
 
-  save_calls1:
-    {
-	Eterm* dis_next;
+/*
+ * Enter all BIFs into the export table.
+ *
+ * Note that they will all call the error_handler until their modules have been
+ * loaded, which may prevent the system from booting if BIFs from non-preloaded
+ * modules are apply/3'd while loading code. Ordinary BIF calls will work fine
+ * however since they won't go through export entries.
+ */
+static void install_bifs(void) {
+    int i;
 
-	save_calls(c_p, (Export *) Arg(0));
+    for (i = 0; i < BIF_SIZE; i++) {
+        BifEntry *entry;
+        Export *ep;
+        int j;
 
-	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
+        entry = &bif_table[i];
 
-	dis_next = (Eterm *) *I;
-	FCALLS--;
-	Goto(dis_next);
+        ep = erts_export_put(entry->module, entry->name, entry->arity);
+
+        ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+        ep->info.mfa.module = entry->module;
+        ep->info.mfa.function = entry->name;
+        ep->info.mfa.arity = entry->arity;
+        ep->bif_number = i;
+
+        memset(&ep->trampoline, 0, sizeof(ep->trampoline));
+        ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+
+        for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
+            ep->addressv[j] = ep->trampoline.raw;
+        }
+
+        /* Set up a hidden export entry so we can trap to this BIF without
+         * it being seen when tracing. */
+        erts_init_trap_export(&bif_trap_export[i],
+                              entry->module, entry->name, entry->arity,
+                              entry->f);
     }
+}
+
+/*
+ * One-time initialization of emulator. Does not need to be
+ * in process_main().
+ */
+static void
+init_emulator_finish(void)
+{
+#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
+    int i;
+
+    for (i = 0; i < NUMBER_OF_OPCODES; i++) {
+        BeamInstr instr = BeamOpCodeAddr(i);
+        if (instr >= (1ull << 32)) {
+            erts_exit(ERTS_ERROR_EXIT,
+                      "This run-time was supposed be compiled with all code below 2Gb,\n"
+                      "but the instruction '%s' is located at %016lx.\n",
+                      opc[i].name, instr);
+        }
+    }
+#endif
+
+    beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
+    beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
+    beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
+    beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
+    beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
+    beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
+    beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
+    beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
+
+    install_bifs();
 }
 
 /*
@@ -5201,7 +963,6 @@ do {						\
  */
 void erts_dirty_process_main(ErtsSchedulerData *esdp)
 {
-#ifdef ERTS_DIRTY_SCHEDULERS
     Process* c_p = NULL;
     ErtsMonotonicTime start_time;
 #ifdef DEBUG
@@ -5312,8 +1073,11 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	    reds_used = treds > INT_MAX ? INT_MAX : (int) treds;
 	}
 
+        if (c_p && ERTS_PROC_GET_PENDING_SUSPEND(c_p))
+            erts_proc_sig_handle_pending_suspend(c_p);
+
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	c_p = erts_schedule(esdp, c_p, reds_used);
 
@@ -5327,7 +1091,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 #ifdef DEBUG
     pid = c_p->common.id; /* Save for debugging purposes */
 #endif
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
     ASSERT(!(c_p->flags & F_HIPE_MODE));
@@ -5342,7 +1106,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     else
 	c_p->fcalls = CONTEXT_REDS;
 
-    if (erts_smp_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_DIRTY_RUNNING_SYS) {
+    if (erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_DIRTY_RUNNING_SYS) {
 	erts_execute_dirty_system_task(c_p);
 	goto do_dirty_schedule;
     }
@@ -5376,7 +1140,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
             dtrace_proc_str(c_p, process_buf);
 
             if (ERTS_PROC_IS_EXITING(c_p)) {
-                strcpy(fun_buf, "<exiting>");
+                sys_strcpy(fun_buf, "<exiting>");
             } else {
                 ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
                 if (cmfa) {
@@ -5402,7 +1166,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	 * I[2]: Pointer to erl_module_nif
 	 * I[3]: Function pointer to dirty NIF
 	 *
-	 * This layout is determined by the NifExport struct
+	 * This layout is determined by the ErtsNativeFunc struct
 	 */
 
 	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
@@ -5413,21 +1177,21 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	c_p->current = codemfa;
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	if (em_apply_bif == (BeamInstr *) *I) {
+	if (BeamIsOpCode(*I, op_call_bif_W)) {
 	    exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
 	}
 	else {
-	    ASSERT(em_call_nif == (BeamInstr *) *I);
-	    exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
+	    ASSERT(BeamIsOpCode(*I, op_call_nif_WWW));
+            exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
 	}
 
 	ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
 
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
 	if (exiting)
@@ -5440,19 +1204,6 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	I = c_p->i;
 	goto context_switch;
     }
-#endif /* ERTS_DIRTY_SCHEDULERS */
-}
-
-static ErtsCodeMFA *
-gcbif2mfa(void* gcf)
-{
-    int i;
-    for (i = 0; erts_gc_bifs[i].bif; i++) {
-	if (erts_gc_bifs[i].gc_bif == gcf)
-	    return &bif_export[erts_gc_bifs[i].exp_ix]->info.mfa;
-    }
-    erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
-    return NULL;
 }
 
 static ErtsCodeMFA *
@@ -5461,9 +1212,9 @@ ubif2mfa(void* uf)
     int i;
     for (i = 0; erts_u_bifs[i].bif; i++) {
 	if (erts_u_bifs[i].bif == uf)
-	    return &bif_export[erts_u_bifs[i].exp_ix]->info.mfa;
+	    return &bif_trap_export[erts_u_bifs[i].exp_ix].info.mfa;
     }
-    erts_exit(ERTS_ERROR_EXIT, "bad u bif");
+    erts_exit(ERTS_ERROR_EXIT, "bad u bif: %p\n", uf);
     return NULL;
 }
 
@@ -5502,6 +1253,33 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
   am_badkey,		/* 19 */
 };
 
+/* Returns the return address at E[0] in printable form, skipping tracing in
+ * the same manner as gather_stacktrace.
+ *
+ * This is needed to generate correct stacktraces when throwing errors from
+ * instructions that return like an ordinary function, such as call_nif. */
+BeamInstr *erts_printable_return_address(Process* p, Eterm *E) {
+    Eterm *ptr = E;
+
+    ASSERT(is_CP(*ptr));
+
+    while (ptr < STACK_START(p)) {
+        BeamInstr *cp = cp_val(*ptr);
+
+        if (cp == beam_exception_trace || cp == beam_return_trace) {
+            ptr += 3;
+        } else if (cp == beam_return_time_trace) {
+            ptr += 2;
+        } else if (cp == beam_return_to_trace) {
+            ptr += 1;
+        } else {
+            return cp;
+        }
+    }
+
+    ERTS_ASSERT(!"No continuation pointer on stack");
+}
+
 /*
  * To fully understand the error handling, one must keep in mind that
  * when an exception is thrown, the search for a handler can jump back
@@ -5531,14 +1309,14 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 
     ASSERT(c_p->freason != TRAP); /* Should have been handled earlier. */
 
-    if (c_p->freason & EXF_RESTORE_NIF)
-	erts_nif_export_restore_error(c_p, &pc, reg, &bif_mfa);
+    if (c_p->freason & EXF_RESTORE_NFUNC)
+	erts_nfunc_restore_error(c_p, &pc, reg, &bif_mfa);
 
 #ifdef DEBUG
     if (bif_mfa) {
-	/* Verify that bif_mfa does not point into our nif export */
-	NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
-	ASSERT(!nep || !ErtsInArea(bif_mfa, (char *)nep, sizeof(NifExport)));
+	/* Verify that bif_mfa does not point into our native function wrapper */
+	ErtsNativeFunc *nep = ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p);
+	ASSERT(!nep || !ErtsInArea(bif_mfa, (char *)nep, sizeof(ErtsNativeFunc)));
     }
 #endif
 
@@ -5601,14 +1379,15 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 	reg[2] = Value;
 	reg[3] = c_p->ftrace;
         if ((new_pc = next_catch(c_p, reg))) {
-	    c_p->cp = 0;	/* To avoid keeping stale references. */
+            c_p->stop[0] = NIL;  /* To avoid keeping stale references. */
+            ERTS_RECV_MARK_CLEAR(c_p); /* No longer safe to use this position */
 	    return new_pc;
 	}
 	if (c_p->catches > 0) erts_exit(ERTS_ERROR_EXIT, "Catch not found");
     }
-    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     terminate_proc(c_p, Value);
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
     return NULL;
 }
 
@@ -5626,32 +1405,18 @@ next_catch(Process* c_p, Eterm *reg) {
     BeamInstr i_return_time_trace = beam_return_time_trace[0];
 
     ptr = prev = c_p->stop;
-    ASSERT(is_CP(*ptr));
     ASSERT(ptr <= STACK_START(c_p));
-    if (ptr == STACK_START(c_p)) return NULL;
-    if ((is_not_CP(*ptr) || (*cp_val(*ptr) != i_return_trace &&
-			     *cp_val(*ptr) != i_return_to_trace &&
-			     *cp_val(*ptr) != i_return_time_trace ))
-	&& c_p->cp) {
-	/* Can not follow cp here - code may be unloaded */
-	BeamInstr *cpp = c_p->cp;
-	if (cpp == beam_exception_trace) {
-            ErtsCodeMFA *mfa = (ErtsCodeMFA*)cp_val(ptr[0]);
-	    erts_trace_exception(c_p, mfa,
-				 reg[1], reg[2],
-                                 ERTS_TRACER_FROM_ETERM(ptr+1));
-	    /* Skip return_trace parameters */
-	    ptr += 2;
-	} else if (cpp == beam_return_trace) {
-	    /* Skip return_trace parameters */
-	    ptr += 2;
-	} else if (cpp == beam_return_time_trace) {
-	    /* Skip return_trace parameters */
-	    ptr += 1;
-	} else if (cpp == beam_return_to_trace) {
-	    have_return_to_trace = !0; /* Record next cp */
-	}
+
+    /* This function is only called if we have active catch tags or have
+     * previously called a function that was exception-traced. As the exception
+     * trace flag isn't cleared after the traced function returns (and the
+     * catch tag inserted by it is gone), it's possible to land here with an
+     * empty stack, and the process should simply die when that happens. */
+    if (ptr == STACK_START(c_p)) {
+        ASSERT(!active_catches && IS_TRACED_FL(c_p, F_EXCEPTION_TRACE));
+        return NULL;
     }
+
     while (ptr < STACK_START(c_p)) {
 	if (is_catch(*ptr)) {
 	    if (active_catches) goto found_catch;
@@ -5725,6 +1490,8 @@ terminate_proc(Process* c_p, Eterm Value)
     if (GET_EXC_CLASS(c_p->freason) == EXTAG_ERROR) {
         Value = add_stacktrace(c_p, Value, c_p->ftrace);
     }
+    c_p->ftrace = NIL;
+
     /* EXF_LOG is a primary exception flag */
     if (c_p->freason & EXF_LOG) {
 	int alive = erts_is_alive;
@@ -5804,6 +1571,54 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
     ASSERT(Value != am_internal_error);
 #endif
     return Value;
+}
+
+
+static void
+gather_stacktrace(Process* p, struct StackTrace* s, int depth)
+{
+    BeamInstr *prev;
+    Eterm *ptr;
+
+    if (depth == 0) {
+        return;
+    }
+
+    prev = s->depth ? s->trace[s->depth - 1] : s->pc;
+    ptr = p->stop;
+
+    /*
+     * Traverse the stack backwards and add all unique continuation
+     * pointers to the buffer, up to the maximum stack trace size.
+     *
+     * Skip trace stack frames.
+     */
+
+    ASSERT(ptr >= STACK_TOP(p) && ptr <= STACK_START(p));
+
+    while (ptr < STACK_START(p) && depth > 0) {
+        if (is_CP(*ptr)) {
+            BeamInstr *cp = cp_val(*ptr);
+
+            if (cp == beam_exception_trace || cp == beam_return_trace) {
+                ptr += 3;
+            } else if (cp == beam_return_time_trace) {
+                ptr += 2;
+            } else if (cp == beam_return_to_trace) {
+                ptr += 1;
+            } else {
+                if (cp != prev) {
+                    /* Record non-duplicates only */
+                    prev = cp;
+                    s->trace[s->depth++] = cp - 1;
+                    depth--;
+                }
+                ptr++;
+            }
+        } else {
+            ptr++;
+        }
+    }
 }
 
 /*
@@ -5892,11 +1707,6 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 	    s->trace[s->depth++] = pc;
 	    depth--;
 	}
-	/* Save second stack entry if CP is valid and different from pc */
-	if (depth > 0 && c_p->cp != 0 && c_p->cp != pc) {
-	    s->trace[s->depth++] = c_p->cp - 1;
-	    depth--;
-	}
 	s->pc = NULL;
 	args = make_arglist(c_p, reg, bif_mfa->arity); /* Overwrite CAR(c_p->ftrace) */
     } else {
@@ -5904,9 +1714,9 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
     non_bif_stacktrace:
 
 	s->current = c_p->current;
-        /* 
+        /*
 	 * For a function_clause error, the arguments are in the beam
-	 * registers, c_p->cp is valid, and c_p->current is set.
+	 * registers and c_p->current is set.
 	 */
 	if ( (GET_EXC_INDEX(s->freason)) ==
 	     (GET_EXC_INDEX(EXC_FUNCTION_CLAUSE)) ) {
@@ -5914,18 +1724,8 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 	    ASSERT(s->current);
 	    a = s->current->arity;
 	    args = make_arglist(c_p, reg, a); /* Overwrite CAR(c_p->ftrace) */
-	    /* Save first stack entry */
-	    ASSERT(c_p->cp);
-	    if (depth > 0) {
-		s->trace[s->depth++] = c_p->cp - 1;
-		depth--;
-	    }
 	    s->pc = NULL; /* Ignore pc */
 	} else {
-	    if (depth > 0 && c_p->cp != 0 && c_p->cp != pc) {
-		s->trace[s->depth++] = c_p->cp - 1;
-		depth--;
-	    }
 	    s->pc = pc;
 	}
     }
@@ -5938,80 +1738,13 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
     }
 
     /* Save the actual stack trace */
-    erts_save_stacktrace(c_p, s, depth);
+    gather_stacktrace(c_p, s, depth);
 }
 
 void
 erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
 {
-    if (depth > 0) {
-	Eterm *ptr;
-	BeamInstr *prev = s->depth ? s->trace[s->depth-1] : NULL;
-	BeamInstr i_return_trace = beam_return_trace[0];
-	BeamInstr i_return_to_trace = beam_return_to_trace[0];
-
-	/*
-	 * Traverse the stack backwards and add all unique continuation
-	 * pointers to the buffer, up to the maximum stack trace size.
-	 * 
-	 * Skip trace stack frames.
-	 */
-	ptr = p->stop;
-	if (ptr < STACK_START(p) &&
-	    (is_not_CP(*ptr)|| (*cp_val(*ptr) != i_return_trace &&
-				*cp_val(*ptr) != i_return_to_trace)) &&
-	    p->cp) {
-	    /* Cannot follow cp here - code may be unloaded */
-	    BeamInstr *cpp = p->cp;
-	    int trace_cp;
-	    if (cpp == beam_exception_trace || cpp == beam_return_trace) {
-		/* Skip return_trace parameters */
-		ptr += 2;
-		trace_cp = 1;
-	    } else if (cpp == beam_return_to_trace) {
-		/* Skip return_to_trace parameters */
-		ptr += 1;
-		trace_cp = 1;
-	    }
-	    else {
-		trace_cp = 0;
-	    }
-	    if (trace_cp && s->pc == cpp) {
-		/*
-		 * If process 'cp' points to a return/exception trace
-		 * instruction and 'cp' has been saved as 'pc' in
-		 * stacktrace, we need to update 'pc' in stacktrace
-		 * with the actual 'cp' located on the top of the
-		 * stack; otherwise, we will lose the top stackframe
-		 * when building the stack trace.
-		 */
-		ASSERT(is_CP(p->stop[0]));
-		s->pc = cp_val(p->stop[0]);
-	    }
-	}
-	while (ptr < STACK_START(p) && depth > 0) {
-	    if (is_CP(*ptr)) {
-		if (*cp_val(*ptr) == i_return_trace) {
-		    /* Skip stack frame variables */
-		    do ++ptr; while (is_not_CP(*ptr));
-		    /* Skip return_trace parameters */
-		    ptr += 2;
-		} else if (*cp_val(*ptr) == i_return_to_trace) {
-		    /* Skip stack frame variables */
-		    do ++ptr; while (is_not_CP(*ptr));
-		} else {
-		    BeamInstr *cp = cp_val(*ptr);
-		    if (cp != prev) {
-			/* Record non-duplicates only */
-			prev = cp;
-			s->trace[s->depth++] = cp - 1;
-			depth--;
-		    }
-		    ptr++;
-		}
-	    } else ptr++;
-	}
-    }
+    gather_stacktrace(p, s, depth);
 }
 
 /*
@@ -6042,6 +1775,25 @@ static int is_raised_exc(Eterm exc) {
     } else {
         ASSERT(is_list(exc));
         return bignum_header_is_neg(*big_val(CDR(list_val(exc))));
+    }
+}
+
+static Eterm *get_freason_ptr_from_exc(Eterm exc) {
+    static Eterm dummy_freason;
+    struct StackTrace* s;
+
+    if (exc == NIL) {
+        /*
+         * Is is not exactly clear when exc can be NIL. Probably only
+         * when the exception has been generated from native code.
+         * Return a pointer to an Eterm that can be safely written and
+         * ignored.
+         */
+	return &dummy_freason;
+    } else {
+	ASSERT(is_list(exc));
+        s = (struct StackTrace *) big_val(CDR(list_val(exc)));
+        return &s->freason;
     }
 }
 
@@ -6251,106 +2003,78 @@ apply_bif_error_adjustment(Process *p, Export *ep,
 			   Eterm *reg, Uint arity,
 			   BeamInstr *I, Uint stack_offset)
 {
+    int apply_only;
+    Uint need;
+
+    need = stack_offset /* bytes */ / sizeof(Eterm);
+    apply_only = stack_offset == 0;
+
     /*
      * I is only set when the apply is a tail call, i.e.,
      * from the instructions i_apply_only, i_apply_last_P,
      * and apply_last_IP.
      */
-    if (I
-	&& ep->beam[0] == (BeamInstr) em_apply_bif
-	&& (ep == bif_export[BIF_error_1]
-	    || ep == bif_export[BIF_error_2]
-	    || ep == bif_export[BIF_exit_1]
-	    || ep == bif_export[BIF_throw_1])) {
-	/*
-	 * We are about to tail apply one of the BIFs
-	 * erlang:error/1, erlang:error/2, erlang:exit/1,
-	 * or erlang:throw/1. Error handling of these BIFs is
-	 * special!
-	 *
-	 * We need 'p->cp' to point into the calling
-	 * function when handling the error after the BIF has
-	 * been applied. This in order to get the topmost
-	 * stackframe correct. Without the following adjustment,
-	 * 'p->cp' will point into the function that called
-	 * current function when handling the error. We add a
-	 * dummy stackframe in order to achieve this.
-	 *
-	 * Note that these BIFs unconditionally will cause
-	 * an exception to be raised. That is, our modifications
-	 * of 'p->cp' as well as the stack will be corrected by
-	 * the error handling code.
-	 *
-	 * If we find an exception/return-to trace continuation
-	 * pointer as the topmost continuation pointer, we do not
-	 * need to do anything since the information already will
-	 * be available for generation of the stacktrace.
-	 */
-	int apply_only = stack_offset == 0;
-	BeamInstr *cpp;
+    if (!(I && (ep->bif_number == BIF_error_1 ||
+                ep->bif_number == BIF_error_2 ||
+                ep->bif_number == BIF_exit_1 ||
+                ep->bif_number == BIF_throw_1))) {
+        return;
+    }
 
-	if (apply_only) {
-	    ASSERT(p->cp != NULL);
-	    cpp = p->cp;
-	}
-	else {
-	    ASSERT(is_CP(p->stop[0]));
-	    cpp = cp_val(p->stop[0]);
-	}
+    /*
+     * We are about to tail apply one of the BIFs erlang:error/1,
+     * erlang:error/2, erlang:exit/1, or erlang:throw/1. Error handling of
+     * these BIFs is special!
+     *
+     * We need the topmost continuation pointer to point into the calling
+     * function when handling the error after the BIF has been applied. This in
+     * order to get the topmost stackframe correct.
+     *
+     * Note that these BIFs will unconditionally cause an exception to be
+     * raised. That is, our modifications of the stack will be corrected by the
+     * error handling code.
+     */
+    if (need == 0) {
+        need = 1; /* i_apply_only */
+    }
 
-	if (cpp != beam_exception_trace
-	    && cpp != beam_return_trace
-	    && cpp != beam_return_to_trace) {
-	    Uint need = stack_offset /* bytes */ / sizeof(Eterm);
-	    if (need == 0)
-		need = 1; /* i_apply_only */
-	    if (p->stop - p->htop < need)
-		erts_garbage_collect(p, (int) need, reg, arity+1);
-	    p->stop -= need;
+    if (p->stop - p->htop < need) {
+        erts_garbage_collect(p, (int) need, reg, arity+1);
+    }
 
-	    if (apply_only) {
-		/*
-		 * Called from the i_apply_only instruction.
-		 *
-		 * 'p->cp' contains continuation pointer pointing
-		 * into the function that called current function.
-		 * We push that continuation pointer onto the stack,
-		 * and set 'p->cp' to point into current function.
-		 */
-
-		p->stop[0] = make_cp(p->cp);
-		p->cp = I;
-	    }
-	    else {
-		/*
-		 * Called from an i_apply_last_p, or apply_last_IP,
-		 * instruction.
-		 *
-		 * Calling instruction will after we return read
-		 * a continuation pointer from the stack and write
-		 * it to 'p->cp', and then remove the topmost
-		 * stackframe of size 'stack_offset'.
-		 *
-		 * We have sized the dummy-stackframe so that it
-		 * will be removed by the instruction we currently
-		 * are executing, and leave the stackframe that
-		 * normally would have been removed intact.
-		 *
-		 */
-		p->stop[0] = make_cp(I);
-	    }
-	}
+    if (apply_only) {
+        /*
+         * Called from the i_apply_only instruction.
+         *
+         * Push the continuation pointer for the current function to the stack.
+         */
+        p->stop -= need;
+        p->stop[0] = make_cp(I);
+    } else {
+        /*
+         * Called from an i_apply_last_* instruction.
+         *
+         * The calling instruction will deallocate a stack frame of size
+         * 'stack_offset'.
+         *
+         * Push the continuation pointer for the current function to the stack,
+         * and then add a dummy stackframe for the i_apply_last* instruction
+         * to discard.
+         */
+        p->stop[0] = make_cp(I);
+        p->stop -= need;
     }
 }
 
 static BeamInstr*
-apply(
-Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg,
-BeamInstr *I, Uint stack_offset)
+apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 {
     int arity;
     Export* ep;
-    Eterm tmp, this;
+    Eterm tmp;
+    Eterm module = reg[0];
+    Eterm function = reg[1];
+    Eterm args = reg[2];
 
     /*
      * Check the arguments which should be of the form apply(Module,
@@ -6373,20 +2097,8 @@ BeamInstr *I, Uint stack_offset)
 
     while (1) {
 	Eterm m, f, a;
-	/* The module argument may be either an atom or an abstract module
-	 * (currently implemented using tuples, but this might change).
-	 */
-	this = THE_NON_VALUE;
-	if (is_not_atom(module)) {
-	    Eterm* tp;
 
-	    if (is_not_tuple(module)) goto error;
-	    tp = tuple_val(module);
-	    if (arityval(tp[0]) < 1) goto error;
-	    this = module;
-	    module = tp[1];
-	    if (is_not_atom(module)) goto error;
-	}
+	if (is_not_atom(module)) goto error;
 
 	if (module != am_erlang || function != am_apply)
 	    break;
@@ -6421,9 +2133,7 @@ BeamInstr *I, Uint stack_offset)
     }
     /*
      * Walk down the 3rd parameter of apply (the argument list) and copy
-     * the parameters to the x registers (reg[]). If the module argument
-     * was an abstract module, add 1 to the function arity and put the
-     * module argument in the n+1st x register as a THIS reference.
+     * the parameters to the x registers (reg[]).
      */
 
     tmp = args;
@@ -6439,9 +2149,6 @@ BeamInstr *I, Uint stack_offset)
     }
     if (is_not_nil(tmp)) {	/* Must be well-formed list */
 	goto error;
-    }
-    if (this != THE_NON_VALUE) {
-        reg[arity++] = this;
     }
 
     /*
@@ -6473,30 +2180,24 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
     function = reg[arity+1];
 
     if (is_not_atom(function)) {
+        Eterm bad_args;
     error:
-	p->freason = BADARG;
-	reg[0] = module;
-	reg[1] = function;
-	reg[2] = NIL;
-	return 0;
+        bad_args = make_arglist(p, reg, arity);
+
+        p->freason = BADARG;
+        reg[0] = module;
+        reg[1] = function;
+        reg[2] = bad_args;
+
+        return 0;
     }
 
-    /* The module argument may be either an atom or an abstract module
-     * (currently implemented using tuples, but this might change).
-     */
-    if (is_not_atom(module)) {
-	Eterm* tp;
-        if (is_not_tuple(module)) goto error;
-        tp = tuple_val(module);
-        if (arityval(tp[0]) < 1) goto error;
-        module = tp[1];
-        if (is_not_atom(module)) goto error;
-        ++arity;
-    }
+    if (is_not_atom(module)) goto error;
 
     /* Handle apply of apply/3... */
-    if (module == am_erlang && function == am_apply && arity == 3)
-	return apply(p, reg[0], reg[1], reg[2], reg, I, stack_offset);
+    if (module == am_erlang && function == am_apply && arity == 3) {
+	return apply(p, reg, I, stack_offset);
+    }
     
     /*
      * Get the index into the export table, or failing that the export
@@ -6517,27 +2218,13 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
 }
 
 int
-erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg)
+erts_hibernate(Process* c_p, Eterm* reg)
 {
     int arity;
     Eterm tmp;
-
-#ifndef ERTS_SMP
-    if (ERTS_PROC_IS_EXITING(c_p)) {
-	/*
-	 * I non smp case:
-	 *
-	 * Currently executing process might be sent an exit
-	 * signal if it is traced by a port that it also is
-	 * linked to, and the port terminates during the
-	 * trace. In this case we do *not* want to clear
-	 * the active flag, which will make the process hang
-	 * in limbo forever. Get out of here and terminate
-	 * the process...
-	 */
-	return -1;
-    }
-#endif
+    Eterm module = reg[0];
+    Eterm function = reg[1];
+    Eterm args = reg[2];
 
     if (is_not_atom(module) || is_not_atom(function)) {
 	/*
@@ -6596,43 +2283,30 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
     c_p->arg_reg[0] = module;
     c_p->arg_reg[1] = function;
     c_p->arg_reg[2] = args;
-    c_p->stop = STACK_START(c_p);
+    c_p->stop = c_p->hend - 1;  /* Keep first continuation pointer */
+    ASSERT(c_p->stop[0] == make_cp(beam_apply+1));
     c_p->catches = 0;
     c_p->i = beam_apply;
-    c_p->cp = (BeamInstr *) beam_apply+1;
 
     /*
      * If there are no waiting messages, garbage collect and
      * shrink the heap. 
      */
-    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-    if (!c_p->msg.len) {
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+    if (!erts_proc_sig_fetch(c_p)) {
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
 	c_p->fvalue = NIL;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	erts_garbage_collect_hibernate(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-#ifndef ERTS_SMP
-	if (ERTS_PROC_IS_EXITING(c_p)) {
-	    /*
-	     * See comment in the beginning of the function...
-	     *
-	     * This second test is needed since gc might be traced.
-	     */
-	    return -1;
-	}
-#else /* ERTS_SMP */
-        ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-	if (!c_p->msg.len)
-#endif
-	    erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+	if (!erts_proc_sig_fetch(c_p))
+	    erts_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
-    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    c_p->current = &bif_export[BIF_hibernate_3]->info.mfa;
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+    c_p->current = &bif_trap_export[BIF_hibernate_3].info.mfa;
     c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
     return 1;
 }
@@ -6721,7 +2395,7 @@ call_fun(Process* p,		/* Current process. */
 
 		module = fe->module;
 
-		ERTS_SMP_READ_MEMORY_BARRIER;
+		ERTS_THR_READ_MEMORY_BARRIER;
 		if (fe->pend_purge_address) {
 		    /*
 		     * The system is currently trying to purge the
@@ -6852,7 +2526,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     p->htop = hp + needed;
     funp = (ErlFunThing *) hp;
     hp = funp->env;
-    erts_smp_refc_inc(&fe->refc, 2);
+    erts_refc_inc(&fe->refc, 2);
     funp->thing_word = HEADER_FUN;
     funp->next = MSO(p).first;
     MSO(p).first = (struct erl_off_heap_header*) funp;
@@ -6864,6 +2538,19 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 	*hp++ = reg[i];
     }
     return make_fun(funp);
+}
+
+static int
+is_function2(Eterm Term, Uint arity)
+{
+    if (is_fun(Term)) {
+	ErlFunThing* funp = (ErlFunThing *) fun_val(Term);
+	return funp->arity == arity;
+    } else if (is_export(Term)) {
+	Export* exp = (Export *) (export_val(Term)[1]);
+	return exp->info.mfa.arity == arity;
+    }
+    return 0;
 }
 
 static Eterm get_map_element(Eterm map, Eterm key)
@@ -6955,24 +2642,20 @@ do {						\
 
 
 static Eterm
-new_map(Process* p, Eterm* reg, BeamInstr* I)
+erts_gc_new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
 {
-    Uint n = Arg(3);
     Uint i;
     Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
     Eterm keys;
     Eterm *mhp,*thp;
     Eterm *E;
-    BeamInstr *ptr;
     flatmap_t *mp;
     ErtsHeapFactory factory;
-
-    ptr = &Arg(4);
 
     if (n > 2*MAP_SMALL_MAP_LIMIT) {
         Eterm res;
 	if (HeapWordsLeft(p) < n) {
-	    erts_garbage_collect(p, n, reg, Arg(2));
+	    erts_garbage_collect(p, n, reg, live);
 	}
 
 	mhp = p->htop;
@@ -6993,7 +2676,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     }
 
     if (HeapWordsLeft(p) < need) {
-	erts_garbage_collect(p, need, reg, Arg(2));
+	erts_garbage_collect(p, need, reg, live);
     }
 
     thp    = p->htop;
@@ -7016,9 +2699,44 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 }
 
 static Eterm
-update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
+erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
+                          Uint live, BeamInstr* ptr)
 {
-    Uint n;
+    Eterm* keys = tuple_val(keys_literal);
+    Uint n = arityval(*keys);
+    Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
+    Uint i;
+    flatmap_t *mp;
+    Eterm *mhp;
+    Eterm *E;
+
+    ASSERT(n <= MAP_SMALL_MAP_LIMIT);
+
+    if (HeapWordsLeft(p) < need) {
+        erts_garbage_collect(p, need, reg, live);
+    }
+
+    mhp = p->htop;
+    E   = p->stop;
+
+    mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
+    mp->thing_word = MAP_HEADER_FLATMAP;
+    mp->size = n;
+    mp->keys = keys_literal;
+
+    for (i = 0; i < n; i++) {
+        GET_TERM(*ptr++, *mhp++);
+    }
+
+    p->htop = mhp;
+
+    return make_flatmap(mp);
+}
+
+static Eterm
+erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
+                         Uint n, BeamInstr* new_p)
+{
     Uint num_old;
     Uint num_updates;
     Uint need;
@@ -7028,23 +2746,18 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm* E;
     Eterm* old_keys;
     Eterm* old_vals;
-    BeamInstr* new_p;
     Eterm new_key;
     Eterm* kp;
+    Eterm map;
 
-    new_p = &Arg(5);
-    num_updates = Arg(4) / 2;
+    num_updates = n / 2;
+    map = reg[live];
 
     if (is_not_flatmap(map)) {
 	Uint32 hx;
 	Eterm val;
 
-	/* apparently the compiler does not emit is_map instructions,
-	 * bad compiler */
-
-	if (is_not_hashmap(map))
-	    return THE_NON_VALUE;
-
+	ASSERT(is_hashmap(map));
 	res = map;
 	E = p->stop;
 	while(num_updates--) {
@@ -7068,7 +2781,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      */
 
     if (num_old == 0) {
-	return new_map(p, reg, I+1);
+	return erts_gc_new_map(p, reg, live, n, new_p);
     }
 
     /*
@@ -7078,8 +2791,6 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     need = 2*(num_old+num_updates) + 1 + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
-	Uint live = Arg(3);
-	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];
 	old_mp   = (flatmap_t *)flatmap_val(map);
@@ -7226,24 +2937,25 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
  */
 
 static Eterm
-update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
+erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p)
 {
-    Uint n;
     Uint i;
     Uint num_old;
     Uint need;
     flatmap_t *old_mp, *mp;
     Eterm res;
+    Eterm* old_hp;
     Eterm* hp;
     Eterm* E;
     Eterm* old_keys;
     Eterm* old_vals;
-    BeamInstr* new_p;
     Eterm new_key;
+    Eterm map;
+    int changed = 0;
 
-    new_p = &Arg(5);
-    n = Arg(4) / 2;		/* Number of values to be updated */
+    n /= 2;		/* Number of values to be updated */
     ASSERT(n > 0);
+    map = reg[live];
 
     if (is_not_flatmap(map)) {
 	Uint32 hx;
@@ -7297,8 +3009,6 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     need = num_old + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
-	Uint live = Arg(3);
-	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];
 	old_mp   = (flatmap_t *)flatmap_val(map);
@@ -7308,6 +3018,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * Update map, keeping the old key tuple.
      */
 
+    old_hp = p->htop;
     hp = p->htop;
     E = p->stop;
 
@@ -7330,20 +3041,26 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	    /* Not same keys */
 	    *hp++ = *old_vals;
 	} else {
-	    GET_TERM(new_p[1], *hp);
-	    hp++;
-	    n--;
+            GET_TERM(new_p[1], *hp);
+            if(*hp != *old_vals) changed = 1;
+            hp++;
+            n--;
 	    if (n == 0) {
-		/*
-		 * All updates done. Copy remaining values
-		 * and return the result.
-		 */
-		for (i++, old_vals++; i < num_old; i++) {
-		    *hp++ = *old_vals++;
-		}
-		ASSERT(hp == p->htop + need);
-		p->htop = hp;
-		return res;
+                /*
+                * All updates done. Copy remaining values
+                * if any changed or return the original one.
+                */
+                if(changed) {
+		    for (i++, old_vals++; i < num_old; i++) {
+		        *hp++ = *old_vals++;
+		    }
+		    ASSERT(hp == p->htop + need);
+		    p->htop = hp;
+		    return res;
+                } else {
+                    p->htop = old_hp;
+                    return map;
+                }
 	    } else {
 		new_p += 2;
 		GET_TERM(*new_p, new_key);
@@ -7380,13 +3097,16 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     Export e;
     Export* ep;
 
-    if (Mod == am_erlang && Name == am_apply && arity == 3) {
-	/*
-	 * Special case. apply/3 is built-in (implemented in C),
-	 * but implemented in a different way than all other
-	 * BIFs.
-	 */
-	return 1;
+    if (Mod == am_erlang) {
+        /*
+         * Special case for built-in functions that are implemented
+         * as instructions as opposed to SNIFs.
+         */
+        if (Name == am_apply && (arity == 2 || arity == 3)) {
+            return 1;
+        } else if (Name == am_yield && arity == 0) {
+            return 1;
+        }
     }
 
     e.info.mfa.module = Mod;
@@ -7394,28 +3114,31 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     e.info.mfa.arity = arity;
 
     if ((ep = export_get(&e)) == NULL) {
-	return 0;
+        return 0;
     }
-    return ep->addressv[erts_active_code_ix()] == ep->beam
-	&& (ep->beam[0] == (BeamInstr) em_apply_bif);
+
+    return ep->bif_number != -1;
 }
 
 
 /*
- * Return the current number of reductions for the given process.
+ * Return the current number of reductions consumed by the given process.
  * To get the total number of reductions, p->reds must be added.
  */
 
 Uint
-erts_current_reductions(Process *current, Process *p)
+erts_current_reductions(Process *c_p, Process *p)
 {
-    if (current != p) {
+    Sint reds_left;
+    if (c_p != p || !(erts_atomic32_read_nob(&c_p->state)
+                      & ERTS_PSFLG_RUNNING)) {
 	return 0;
-    } else if (current->fcalls < 0 && ERTS_PROC_GET_SAVED_CALLS_BUF(current)) {
-	return current->fcalls + CONTEXT_REDS;
+    } else if (c_p->fcalls < 0 && ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
+	reds_left = c_p->fcalls + CONTEXT_REDS;
     } else {
-	return REDS_IN(current) - current->fcalls;
+        reds_left = c_p->fcalls;
     }
+    return REDS_IN(c_p) - reds_left - erts_proc_sched_data(p)->virtual_reds;
 }
 
 int

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -693,7 +693,7 @@ expr({'try',Line,Es,CaseCs,CatchCs,[]}, Bs0, Ieval0) ->
 	    end
     catch
 	Class:Reason when CatchCs =/= [] ->
-	    catch_clauses({Class,Reason,[]}, CatchCs, Bs0, Ieval)
+	    catch_clauses({Class,Reason,get_stacktrace()}, CatchCs, Bs0, Ieval)
     end;
 expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
@@ -706,7 +706,7 @@ expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
 	    end
     catch
 	Class:Reason when CatchCs =/= [] ->
-	    catch_clauses({Class,Reason,[]}, CatchCs, Bs0, Ieval)
+	    catch_clauses({Class,Reason,get_stacktrace()}, CatchCs, Bs0, Ieval)
     after
             seq(As, Bs0, Ieval#ieval{top=false})
     end;
@@ -905,14 +905,9 @@ expr({dbg,Line,self,[]}, Bs, #ieval{level=Le}) ->
     Self = get(self),
     trace(return, {Le,Self}),
     {value,Self,Bs};
-expr({dbg,Line,get_stacktrace,[]}, Bs, #ieval{level=Le}) ->
-    trace(bif, {Le,Line,erlang,get_stacktrace,[]}),
-    Stacktrace = get_stacktrace(),
-    trace(return, {Le,Stacktrace}),
-    {value,Stacktrace,Bs};
 expr({dbg,Line,raise,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
-    %% Since erlang:get_stacktrace/0 is emulated, we will
-    %% need to emulate erlang:raise/3 too so that we can
+    %% Since stacktraces are emulated, we will
+    %% need to emulate erlang:raise/3 so that we can
     %% capture the stacktrace.
     Ieval = Ieval0#ieval{line=Line},
     {[Class,Reason,Stk0]=As,Bs} = eval_list(As0, Bs0, Ieval),
@@ -924,8 +919,7 @@ expr({dbg,Line,raise,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
 	trace(return, {Le,Error}),
 	{value,Error,Bs}
     catch
-	_:_ ->
-	    Stk = erlang:get_stacktrace(),	%Possibly truncated.
+	_:_:Stk ->                              %Possibly truncated.
 	    StkFun = fun(_) -> Stk end,
 	    do_exception(Class, Reason, StkFun, Bs, Ieval)
     end;
@@ -1034,7 +1028,7 @@ expr({send,Line,To0,Msg0}, Bs0, Ieval0) ->
 
 %% Binary
 expr({bin,Line,Fs}, Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
+    Ieval = Ieval0#ieval{line=Line,top=false},
     try
 	eval_bits:expr_grp(Fs, Bs0,
 			   fun (E, B) -> expr(E, B, Ieval) end,
@@ -1384,7 +1378,7 @@ catch_clauses(Exception, [{clause,_,[P],G,B}|CatchCs], Bs0, Ieval) ->
 	nomatch ->
 	    catch_clauses(Exception, CatchCs, Bs0, Ieval)
     end;
-catch_clauses({Class,Reason,[]}, [], _Bs, _Ieval) ->
+catch_clauses({Class,Reason,_}, [], _Bs, _Ieval) ->
     erlang:Class(Reason).
 
 receive_clauses(Cs, Bs0, [Msg|Msgs]) ->
@@ -1593,12 +1587,17 @@ match_tuple([], _, _, Bs, _BBs) ->
     {match,Bs}.
 
 match_map([{map_field_exact,_,K0,Pat}|Fs], Map, Bs0, BBs) ->
-    {value,K,BBs} = expr(K0, BBs, #ieval{}),
-    case maps:find(K, Map) of
-        {ok,Value} ->
-            {match,Bs} = match1(Pat, Value, Bs0, BBs),
-            match_map(Fs, Map, Bs, BBs);
-        error -> throw(nomatch)
+    try guard_expr(K0, BBs) of
+        {value,K} ->
+            case Map of
+                #{K := Value} ->
+                    {match,Bs} = match1(Pat, Value, Bs0, BBs),
+                    match_map(Fs, Map, Bs, BBs);
+                #{} ->
+                    throw(nomatch)
+            end
+    catch _:_ ->
+            throw(nomatch)
     end;
 match_map([], _, Bs, _BBs) ->
     {match,Bs}.

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2009-2016. All Rights Reserved.
+# Copyright Ericsson AB 2009-2018. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 #
 PROG_EX_CHAPTER_FILES = \
 	bit_syntax.xml \
-	funs.xml \
 	list_comprehensions.xml \
 	records.xml
+
+PROG_EX_CHAPTER_GEN_FILES = \
+	funs.xml

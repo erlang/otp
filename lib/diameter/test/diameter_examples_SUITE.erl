@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@
 -export([suite/0,
          all/0,
          groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
          init_per_group/2,
          end_per_group/2]).
 
@@ -84,6 +86,13 @@ groups() ->
     Tc = tc(),
     [{all, [parallel], [{group, P} || P <- ?PROTS]}
      | [{P, [], Tc} || P <- ?PROTS]].
+
+%% Not used, but a convenient place to enable trace.
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(all, Config) ->
     Config;
@@ -216,12 +225,14 @@ make_name(Dict) ->
 %% Compile example code under examples/code.
 
 code(Config) ->
-    Node = slave(compile, here()),
-    [] = rpc:call(Node,
-                  ?MODULE,
-                  install,
-                  [proplists:get_value(priv_dir, Config)]),
-    {ok, Node} = ct_slave:stop(compile).
+    try
+        [] = rpc:call(slave(compile, here()),
+                      ?MODULE,
+                      install,
+                      [proplists:get_value(priv_dir, Config)])
+    after
+        {ok, _} = ct_slave:stop(compile)
+    end.
 
 %% Compile on another node since the code path may be modified.
 install(PrivDir) ->

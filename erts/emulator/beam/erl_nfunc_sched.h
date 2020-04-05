@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2016. All Rights Reserved.
+ * Copyright Ericsson AB 2016-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,92 +25,78 @@
 #include "bif.h"
 #include "error.h"
 
-typedef struct {
-    int applying;
-    Export* ep;
-    BeamInstr *cp;
-    Uint32 flags;
-    Uint32 flags_meta;
-    BeamInstr* I;
-    ErtsTracer meta_tracer;
-} NifExportTrace;
-
 /*
- * NIF exports need a few more items than the Export struct provides,
- * including the erl_module_nif* and a NIF function pointer, so the
- * NifExport below adds those. The Export member must be first in the
- * struct. A number of values are stored for error handling purposes
- * only.
+ * Native function wrappers are used to schedule native functions on both
+ * normal and dirty schedulers.
  *
- * 'argc' is >= 0 when NifExport is in use, and < 0 when not.
+ * A number of values are only stored for error handling, and the fields
+ * following `current` can be omitted when a wrapper is statically "scheduled"
+ * through placement in a function stub.
+ *
+ * 'argc' is >= 0 when ErtsNativeFunc is in use, and < 0 when not.
  */
 
 typedef struct {
-    Export exp;
+    struct {
+        ErtsCodeInfo info;
+        BeamInstr call_op; /* call_bif || call_nif */
+        BeamInstr dfunc;
+    } trampoline;
+
     struct erl_module_nif* m; /* NIF module, or NULL if BIF */
     void *func;		/* Indirect NIF or BIF to execute (may be unused) */
     ErtsCodeMFA *current;/* Current as set when originally called */
-    NifExportTrace *trace;
     /* --- The following is only used on error --- */
     BeamInstr *pc;	/* Program counter */
-    BeamInstr *cp;	/* Continuation pointer */
     ErtsCodeMFA *mfa;	/* MFA of original call */
     int argc;		/* Number of arguments in original call */
     int argv_size;	/* Allocated size of argv */
     Eterm argv[1];	/* Saved arguments from the original call */
-} NifExport;
+} ErtsNativeFunc;
 
-NifExport *erts_new_proc_nif_export(Process *c_p, int argc);
-void erts_nif_export_save_trace(Process *c_p, NifExport *nep, int applying,
-				Export* ep, BeamInstr *cp, Uint32 flags,
-				Uint32 flags_meta, BeamInstr* I,
-				ErtsTracer meta_tracer);
-void erts_nif_export_restore_trace(Process *c_p, Eterm result, NifExport *nep);
-void erts_destroy_nif_export(Process *p);
-NifExport *erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
-				    ErtsCodeMFA *mfa, BeamInstr *pc,
-				    BeamInstr instr,
-				    void *dfunc, void *ifunc,
-				    Eterm mod, Eterm func,
-				    int argc, const Eterm *argv);
-void erts_nif_export_cleanup_nif_mod(NifExport *ep); /* erl_nif.c */
-ERTS_GLB_INLINE NifExport *erts_get_proc_nif_export(Process *c_p, int extra);
-ERTS_GLB_INLINE int erts_setup_nif_export_rootset(Process* proc, Eterm** objv,
-						  Uint* nobj);
-ERTS_GLB_INLINE int erts_check_nif_export_in_area(Process *p,
-						  char *start, Uint size);
-ERTS_GLB_INLINE void erts_nif_export_restore(Process *c_p, NifExport *ep,
-					     Eterm result);
-ERTS_GLB_INLINE void erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
-						   Eterm *reg, ErtsCodeMFA **nif_mfa);
-ERTS_GLB_INLINE int erts_nif_export_check_save_trace(Process *c_p, Eterm result,
-						     int applying, Export* ep,
-						     BeamInstr *cp, Uint32 flags,
-						     Uint32 flags_meta, BeamInstr* I,
-						     ErtsTracer meta_tracer);
+ErtsNativeFunc *erts_new_proc_nfunc(Process *c_p, int argc);
+void erts_destroy_nfunc(Process *p);
+ErtsNativeFunc *erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
+                               ErtsCodeMFA *mfa, BeamInstr *pc,
+                               BeamInstr instr,
+                               void *dfunc, void *ifunc,
+                               Eterm mod, Eterm func,
+                               int argc, const Eterm *argv);
+void erts_nfunc_cleanup_nif_mod(ErtsNativeFunc *ep); /* erl_nif.c */
+ERTS_GLB_INLINE ErtsNativeFunc *erts_get_proc_nfunc(Process *c_p, int extra);
+ERTS_GLB_INLINE int erts_setup_nfunc_rootset(Process* proc, Eterm** objv,
+                                             Uint* nobj);
+ERTS_GLB_INLINE int erts_check_nfunc_in_area(Process *p,
+                                             char *start, Uint size);
+ERTS_GLB_INLINE void erts_nfunc_restore(Process *c_p, ErtsNativeFunc *ep,
+                                        Eterm result);
+ERTS_GLB_INLINE void erts_nfunc_restore_error(Process* c_p,
+                                              BeamInstr **pc,
+                                              Eterm *reg,
+                                              ErtsCodeMFA **nif_mfa);
 ERTS_GLB_INLINE Process *erts_proc_shadow2real(Process *c_p);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE NifExport *
-erts_get_proc_nif_export(Process *c_p, int argc)
+ERTS_GLB_INLINE ErtsNativeFunc *
+erts_get_proc_nfunc(Process *c_p, int argc)
 {
-    NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
+    ErtsNativeFunc *nep = ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p);
     if (!nep || (nep->argc < 0 && nep->argv_size < argc))
-	return erts_new_proc_nif_export(c_p, argc);
+	return erts_new_proc_nfunc(c_p, argc);
     return nep;
 }
 
 /*
  * If a process has saved arguments, they need to be part of the GC
  * rootset. The function below is called from setup_rootset() in
- * erl_gc.c. Any exception term saved in the NifExport is also made
+ * erl_gc.c. Any exception term saved in the ErtsNativeFunc is also made
  * part of the GC rootset here; it always resides in rootset[0].
  */
 ERTS_GLB_INLINE int
-erts_setup_nif_export_rootset(Process* proc, Eterm** objv, Uint* nobj)
+erts_setup_nfunc_rootset(Process* proc, Eterm** objv, Uint* nobj)
 {
-    NifExport* ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
+    ErtsNativeFunc* ep = (ErtsNativeFunc*) ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(proc);
 
     if (!ep || ep->argc <= 0)
 	return 0;
@@ -121,17 +107,15 @@ erts_setup_nif_export_rootset(Process* proc, Eterm** objv, Uint* nobj)
 }
 
 /*
- * Check if nif export points into code area...
+ * Check if native func wrapper points into code area...
  */
 ERTS_GLB_INLINE int
-erts_check_nif_export_in_area(Process *p, char *start, Uint size)
+erts_check_nfunc_in_area(Process *p, char *start, Uint size)
 {
-    NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(p);
+    ErtsNativeFunc *nep = ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(p);
     if (!nep || nep->argc < 0)
 	return 0;
     if (ErtsInArea(nep->pc, start, size))
-	return 1;
-    if (ErtsInArea(nep->cp, start, size))
 	return 1;
     if (ErtsInArea(nep->mfa, start, size))
 	return 1;
@@ -141,59 +125,36 @@ erts_check_nif_export_in_area(Process *p, char *start, Uint size)
 }
 
 ERTS_GLB_INLINE void
-erts_nif_export_restore(Process *c_p, NifExport *ep, Eterm result)
+erts_nfunc_restore(Process *c_p, ErtsNativeFunc *ep, Eterm result)
 {
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
-    ERTS_SMP_LC_ASSERT(!(c_p->static_flags
+    ERTS_LC_ASSERT(!(c_p->static_flags
 			 & ERTS_STC_FLG_SHADOW_PROC));
-    ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
+    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
 		       & ERTS_PROC_LOCK_MAIN);
 
     c_p->current = ep->current;
     ep->argc = -1; /* Unused nif-export marker... */
-    if (ep->trace)
-	erts_nif_export_restore_trace(c_p, result, ep);
 }
 
 ERTS_GLB_INLINE void
-erts_nif_export_restore_error(Process* c_p, BeamInstr **pc,
+erts_nfunc_restore_error(Process* c_p, BeamInstr **pc,
 			      Eterm *reg, ErtsCodeMFA **nif_mfa)
 {
-    NifExport *nep = (NifExport *) ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
+    ErtsNativeFunc *nep = (ErtsNativeFunc *) ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p);
     int ix;
 
     ASSERT(nep);
     *pc = nep->pc;
-    c_p->cp = nep->cp;
     *nif_mfa = nep->mfa;
     for (ix = 0; ix < nep->argc; ix++)
 	reg[ix] = nep->argv[ix];
-    erts_nif_export_restore(c_p, nep, THE_NON_VALUE);
-}
-
-ERTS_GLB_INLINE int
-erts_nif_export_check_save_trace(Process *c_p, Eterm result,
-				 int applying, Export* ep,
-				 BeamInstr *cp, Uint32 flags,
-				 Uint32 flags_meta, BeamInstr* I,
-				 ErtsTracer meta_tracer)
-{
-    if (is_non_value(result) && c_p->freason == TRAP) {
-	NifExport *nep = ERTS_PROC_GET_NIF_TRAP_EXPORT(c_p);
-	if (nep && nep->argc >= 0) {
-	    erts_nif_export_save_trace(c_p, nep, applying, ep,
-				       cp, flags, flags_meta,
-				       I, meta_tracer);
-	    return 1;
-	}
-    }
-    return 0;
+    erts_nfunc_restore(c_p, nep, THE_NON_VALUE);
 }
 
 ERTS_GLB_INLINE Process *
 erts_proc_shadow2real(Process *c_p)
 {
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (c_p->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
 	Process *real_c_p = c_p->next;
 	ASSERT(ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
@@ -201,7 +162,6 @@ erts_proc_shadow2real(Process *c_p)
 	return real_c_p;
     }
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
-#endif
     return c_p;
 }
 
@@ -212,12 +172,11 @@ erts_proc_shadow2real(Process *c_p)
 #if defined(ERTS_WANT_NFUNC_SCHED_INTERNALS__) && !defined(ERTS_NFUNC_SCHED_INTERNALS__)
 #define ERTS_NFUNC_SCHED_INTERNALS__
 
-#define ERTS_I_BEAM_OP_TO_NIF_EXPORT(I)					\
-    (ASSERT(BeamOp(op_apply_bif) == (BeamInstr *) (*(I))		\
-	    || BeamOp(op_call_nif) == (BeamInstr *) (*(I))),		\
-     ((NifExport *) (((char *) (I)) - offsetof(NifExport, exp.beam[0]))))
+#define ERTS_I_BEAM_OP_TO_NFUNC(I)					\
+    (ASSERT(BeamIsOpCode(*(I), op_call_bif_W) ||                          \
+            BeamIsOpCode(*(I), op_call_nif_WWW)),                           \
+     ((ErtsNativeFunc *) (((char *) (I)) - offsetof(ErtsNativeFunc, trampoline.call_op))))
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 #include "erl_message.h"
 #include <stddef.h>
@@ -235,7 +194,7 @@ erts_flush_dirty_shadow_proc(Process *sproc)
     Process *c_p = sproc->next;
 
     ASSERT(sproc->common.id == c_p->common.id);
-    ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
+    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
 		       & ERTS_PROC_LOCK_MAIN);
 
     ASSERT(c_p->stop == sproc->stop);
@@ -283,7 +242,7 @@ erts_cache_dirty_shadow_proc(Process *sproc)
     Process *c_p = sproc->next;
     ASSERT(c_p);
     ASSERT(sproc->common.id == c_p->common.id);
-    ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
+    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
 		       & ERTS_PROC_LOCK_MAIN);
 
     sproc->htop = c_p->htop;
@@ -311,7 +270,7 @@ erts_make_dirty_shadow_proc(ErtsSchedulerData *esdp, Process *c_p)
     sproc = esdp->dirty_shadow_process;
     ASSERT(sproc);
     ASSERT(sproc->static_flags & ERTS_STC_FLG_SHADOW_PROC);
-    ASSERT(erts_smp_atomic32_read_nob(&sproc->state)
+    ASSERT(erts_atomic32_read_nob(&sproc->state)
 	   == (ERTS_PSFLG_ACTIVE
 	       | ERTS_PSFLG_DIRTY_RUNNING
 	       | ERTS_PSFLG_PROXY));
@@ -326,7 +285,6 @@ erts_make_dirty_shadow_proc(ErtsSchedulerData *esdp, Process *c_p)
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#endif /* ERTS_DIRTY_SCHEDULERS */
 
 #endif /* defined(ERTS_WANT_NFUNC_SCHED_INTERNALS__) && !defined(ERTS_NFUNC_SCHED_INTERNALS__) */
 

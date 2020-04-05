@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,7 +22,7 @@
     
     </legalnotice>
 
-    <title>Using SSL API</title>
+    <title>Using SSL application API</title>
     <prepared></prepared>
     <responsible></responsible>
     <docno></docno>
@@ -33,10 +33,10 @@
     <file>using_ssl.xml</file>
   </header>
   <p>To see relevant version information for ssl, call
-  <seealso marker="ssl:ssl#versions-0"><c>ssl:versions/0</c></seealso>
+  <seemfa marker="ssl:ssl#versions/0"><c>ssl:versions/0</c></seemfa>
   .</p>
     
-  <p>To see all supported cipher suites, call  <seealso marker="ssl:ssl#cipher_suites-1"><c>ssl:cipher_suites(all)</c> </seealso>. 
+  <p>To see all supported cipher suites, call  <seemfa marker="ssl:ssl#cipher_suites/1"><c>ssl:cipher_suites(all)</c> </seemfa>. 
   The available cipher suites for a connection depend on your certificate. 
   Specific cipher suites that you want your connection to use can also be 
   specified. Default is to use the strongest available.</p>
@@ -51,7 +51,7 @@
     <section>
       <title>Minimal Example</title>
       
-      <note><p> The minimal setup is not the most secure setup of SSL.</p>    
+      <note><p> The minimal setup is not the most secure setup of TLS/DTLS.</p>    
       </note>
 
       <p>To set up client/server connections:</p>
@@ -60,27 +60,27 @@
       <code type="erl">1 server> ssl:start().
 ok</code>
       
-      <p><em>Step 2:</em> Create an SSL listen socket:</p>
+      <p><em>Step 2:</em> Create a TLS listen socket: (To run DTLS add the option {protocol, dtls})</p>
       <code type="erl">2 server> {ok, ListenSocket} =
 ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}]).
 {ok,{sslsocket, [...]}}</code>
       
-      <p><em>Step 3:</em> Do a transport accept on the SSL listen socket:</p>
-      <code type="erl">3 server> {ok, Socket} = ssl:transport_accept(ListenSocket).
+      <p><em>Step 3:</em> Do a transport accept on the TLS listen socket:</p>
+      <code type="erl">3 server> {ok, TLSTransportSocket} = ssl:transport_accept(ListenSocket).
 {ok,{sslsocket, [...]}}</code>
 
-      <p><em>Step 4:</em> Start the client side:</p>
+      <p><em>Step 4:</em> Start the client side: </p>
       <code type="erl">1 client> ssl:start().
 ok</code>
-      
+      <p> To run DTLS add the option {protocol, dtls} to third argument.</p>
       <code type="erl">2 client> {ok, Socket} = ssl:connect("localhost", 9999,  [], infinity).
 {ok,{sslsocket, [...]}}</code>
       
-      <p><em>Step 5:</em> Do the SSL handshake:</p>
-      <code type="erl">4 server> ok = ssl:ssl_accept(Socket).
+      <p><em>Step 5:</em> Do the TLS handshake:</p>
+      <code type="erl">4 server> {ok, Socket} = ssl:handshake(TLSTransportSocket).
 ok</code>
       
-      <p><em>Step 6:</em> Send a message over SSL:</p>
+      <p><em>Step 6:</em> Send a message over TLS:</p>
       <code type="erl">5 server> ssl:send(Socket, "foo").
 ok</code>
       
@@ -92,14 +92,14 @@ ok</code>
     </section>
     
     <section>
-      <title>Upgrade Example</title>
+      <title>Upgrade Example - TLS only </title>
       
-      <note><p>To upgrade a TCP/IP connection to an SSL connection, the
+      <note><p>To upgrade a TCP/IP connection to a TLS connection, the
       client and server must agree to do so. The agreement
       can be accomplished by using a protocol, for example, the one used by HTTP
       specified in RFC 2817.</p></note>
 
-      <p>To upgrade to an SSL connection:</p>
+      <p>To upgrade to a TLS connection:</p>
       
       <p><em>Step 1:</em> Start the server side:</p>
       <code type="erl">1 server> ssl:start().
@@ -120,29 +120,29 @@ ok</code>
       <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
       
       <p><em>Step 5:</em> Ensure <c>active</c> is set to <c>false</c> before trying
-      to upgrade a connection to an SSL connection, otherwise
-      SSL handshake messages can be delivered to the wrong process:</p>
+      to upgrade a connection to a TLS connection, otherwise
+      TLS handshake messages can be delivered to the wrong process:</p>
       <code type="erl">4 server> inet:setopts(Socket, [{active, false}]).
 ok</code>
       
-      <p><em>Step 6:</em> Do the SSL handshake:</p>
-      <code type="erl">5 server> {ok, SSLSocket} = ssl:ssl_accept(Socket, [{cacertfile, "cacerts.pem"},
+      <p><em>Step 6:</em> Do the TLS handshake:</p>
+      <code type="erl">5 server> {ok, TLSSocket} = ssl:handshake(Socket, [{cacertfile, "cacerts.pem"},
 {certfile, "cert.pem"}, {keyfile, "key.pem"}]).
 {ok,{sslsocket,[...]}}</code>
       
-      <p><em>Step 7:</em> Upgrade to an SSL connection. The client and server
+      <p><em>Step 7:</em> Upgrade to a TLS connection. The client and server
       must agree upon the upgrade. The server must call
-      <c>ssl:accept/2</c> before the client calls <c>ssl:connect/3.</c></p>
-      <code type="erl">3 client>{ok, SSLSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
+      <c>ssl:handshake/2</c> before the client calls <c>ssl:connect/3.</c></p>
+      <code type="erl">3 client>{ok, TLSSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
 {certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
 {ok,{sslsocket,[...]}}</code>
       
-      <p><em>Step 8:</em> Send a message over SSL:</p>
-      <code type="erl">4 client> ssl:send(SSLSocket, "foo").
+      <p><em>Step 8:</em> Send a message over TLS:</p>
+      <code type="erl">4 client> ssl:send(TLSSocket, "foo").
 ok</code>
       
-      <p><em>Step 9:</em> Set <c>active true</c> on the SSL socket:</p>
-      <code type="erl">4 server> ssl:setopts(SSLSocket, [{active, true}]).
+      <p><em>Step 9:</em> Set <c>active true</c> on the TLS socket:</p>
+      <code type="erl">4 server> ssl:setopts(TLSSocket, [{active, true}]).
 ok</code>
       
       <p><em>Step 10:</em> Flush the shell message queue to see that the message
@@ -156,7 +156,7 @@ ok</code>
   <section>
     <title>Customizing cipher suits</title>
 
-    <p>Fetch default cipher suite list for an TLS/DTLS version. Change default
+    <p>Fetch default cipher suite list for a TLS/DTLS version. Change default
     to all to get all possible cipher suites.</p>
     <code type="erl">1>  Default = ssl:cipher_suites(default, 'tlsv1.2').
     [#{cipher => aes_256_gcm,key_exchange => ecdhe_ecdsa,
@@ -229,8 +229,215 @@ ssl:connect("localhost", 9999,
              {key, PrivKey}], infinity).
     </code>
 
-    <p>See also <seealso marker="crypto:engine_load#engine_load"> crypto documentation</seealso> </p>
+    <p>See also <seeguide marker="crypto:engine_load#engine_load"> crypto documentation</seeguide> </p>
     
-     </section>      
-  
+  </section>
+
+  <section>
+    <title>Session Tickets and Session Resumption in TLS 1.3</title>
+
+    <p>
+    TLS 1.3 introduces a new secure way of resuming sessions by using session tickets.
+    A session ticket is an opaque data structure that is sent in the pre_shared_key extension of
+    a ClientHello, when a client attempts to resume a session with keying material from a
+    previous successful handshake.</p>
+    <p>Session tickets can be stateful or stateless. A stateful session ticket is a database reference
+    (session ticket store) and used with stateful servers, while a stateless ticket
+    is a self-encrypted and self-authenticated data structure with cryptographic keying material and
+    state data, enabling session resumption with stateless servers.</p>
+    <p>The choice between stateful or stateless depends on the server requirements as the session tickets
+    are opaque for the clients. Generally, stateful tickets are smaller and the server can guarantee
+    that tickets are only used once. Stateless tickets contain additional data, require less storage
+    on the server side, but they offer different guarantees against anti-replay. See also
+    <seeguide marker="ssl:using_ssl#anti-replay-protection-in-tls-1.3">
+    Anti-Replay Protection in TLS 1.3</seeguide>
+    </p>
+    <p>Session tickets are sent by servers on newly estalished TLS connections.
+    The number of tickets sent and their lifetime are configurable by application variables. See also
+    <seeapp marker="ssl:ssl_app#configuration"> SSL's configuration</seeapp>.</p>
+    <p>Session tickets are protected by application traffic keys, and in stateless
+    tickets, the opaque data structure itself is self-encrypted.</p>
+
+    <p>An example with automatic and manual session resumption:</p>
+
+    <p><em>Step 1 (server):</em> Start the server:</p>
+    <code type="erl">
+      {ok, _} = application:ensure_all_started(ssl).
+      LOpts = [{certfile, "cert.pem"},
+               {keyfile, "key.pem"},
+               {versions, ['tlsv1.2','tlsv1.3']},
+               {session_tickets, stateless}].
+      {ok, LSock} = ssl:listen(8001, LOpts).
+      {ok, CSock} = ssl:transport_accept(LSock).
+    </code>
+
+    <p><em>Step 2 (client):</em> Start the client and connect to server:</p>
+    <code type="erl">
+      {ok, _} = application:ensure_all_started(ssl).
+      COpts = [{cacertfile, "cert.pem"},
+               {versions, ['tlsv1.2','tlsv1.3']},
+               {log_level, debug},
+               {session_tickets, auto}].
+      ssl:connect("localhost", 8001, COpts).
+    </code>
+
+    <p><em>Step 3 (server):</em> Start the TLS handshake:</p>
+    <code type="erl">
+      ssl:handshake(CSock).
+    </code>
+
+    <p>A connection is established using a full handshake.
+    Below is a summary of the exchanged messages:</p>
+    <code type="erl">
+      <![CDATA[>>>]]> TLS 1.3 Handshake, ClientHello ...
+      <![CDATA[<<<]]> TLS 1.3 Handshake, ServerHello ...
+      <![CDATA[<<<]]> Handshake, EncryptedExtensions ...
+      <![CDATA[<<<]]> Handshake, Certificate ...
+      <![CDATA[<<<]]> Handshake, CertificateVerify ...
+      <![CDATA[<<<]]> Handshake, Finished ...
+      <![CDATA[>>>]]> Handshake, Finished ...
+      <![CDATA[<<<]]> Post-Handshake, NewSessionTicket ...
+    </code>
+
+    <p>At this point the client has stored the received session tickets and ready to use them when
+    establishing new connections to the same server.</p>
+
+    <p><em>Step 4 (server):</em> Accept a new connection on the server:</p>
+    <code type="erl">
+      {ok, CSock2} = ssl:transport_accept(LSock).
+    </code>
+
+    <p><em>Step 5 (client):</em> Make a new connection:</p>
+    <code type="erl">
+      ssl:connect("localhost", 8001, COpts).
+    </code>
+
+    <p><em>Step 6 (server):</em> Start the handshake:</p>
+    <code type="erl">
+      ssl:handshake(CSock2).
+    </code>
+
+    <p>The second connection is a session resumption using keying material
+    from the previous handshake:</p>
+    <code type="erl">
+      <![CDATA[>>>]]> TLS 1.3 Handshake, ClientHello ...
+      <![CDATA[<<<]]> TLS 1.3 Handshake, ServerHello ...
+      <![CDATA[<<<]]> Handshake, EncryptedExtensions ...
+      <![CDATA[<<<]]> Handshake, Finished ...
+      <![CDATA[>>>]]> Handshake, Finished ...
+      <![CDATA[<<<]]> Post-Handshake, NewSessionTicket ...
+    </code>
+
+    <p>Manual handling of session tickets is also supported. In manual mode, it is the
+    responsibility of the client to handle received session tickets.</p>
+
+    <p><em>Step 7 (server):</em> Accept a new connection on the server:</p>
+    <code type="erl">
+      {ok, CSock3} = ssl:transport_accept(LSock).
+    </code>
+
+    <p><em>Step 8 (client):</em> Make a new connection to server:</p>
+    <code type="erl">
+      {ok, _} = application:ensure_all_started(ssl).
+      COpts2 = [{cacertfile, "cert.pem"},
+                {versions, ['tlsv1.2','tlsv1.3']},
+                {log_level, debug},
+                {session_tickets, manual}].
+      ssl:connect("localhost", 8001, COpts).
+    </code>
+
+    <p><em>Step 9 (server):</em> Start the handshake:</p>
+    <code type="erl">
+      ssl:handshake(CSock3).
+    </code>
+
+    <p>After the handshake is performed, the user process receives messages with the tickets
+    sent by the server.</p>
+
+    <p><em>Step 10 (client):</em> Receive a new session ticket:</p>
+    <code type="erl">
+      Ticket = receive {ssl, session_ticket, {_, TicketData}} -> TicketData end.
+    </code>
+
+    <p><em>Step 11 (server):</em> Accept a new connection on the server:</p>
+    <code type="erl">
+      {ok, CSock4} = ssl:transport_accept(LSock).
+    </code>
+
+    <p><em>Step 12 (client):</em> Initiate a new connection to the server with the session ticket
+    received in Step 10:</p>
+    <code type="erl">
+      {ok, _} = application:ensure_all_started(ssl).
+      COpts2 = [{cacertfile, "cert.pem"},
+                {versions, ['tlsv1.2','tlsv1.3']},
+                {log_level, debug},
+                {session_tickets, manual},
+                {use_ticket, [Ticket]}].
+      ssl:connect("localhost", 8001, COpts).
+    </code>
+
+    <p><em>Step 13 (server):</em> Start the handshake:</p>
+    <code type="erl">
+      ssl:handshake(CSock3).
+    </code>
+  </section>
+
+  <section>
+    <title>Anti-Replay Protection in TLS 1.3</title>
+
+    <p>The TLS 1.3 protocol does not provide inherent protection for replay of 0-RTT data but
+    describes mechanisms that SHOULD be implemented by compliant server implementations.
+    The implementation of TLS 1.3 in the SSL application employs all standard methods
+    to prevent potential threats.
+    </p>
+    <p><em>Single-use tickets</em></p>
+    <p>This mechanism is available with stateful session tickets. Session tickets can
+    only be used once, subsequent use of the same ticket results in a full handshake.
+    Stateful servers enforce this rule by maintaining a database of outstanding valid
+    tickets.</p>
+
+    <p><em>Client Hello Recording</em></p>
+    <p>This mechanism is available with stateless session tickets. The server records
+    a unique value derived from the ClientHello (PSK binder) in a given time window. The
+    ticket's age is verified by using both the "obsfuscated_ticket_age" and an additional
+    timestamp encrypted in the ticket data. As the used datastore allows false positives,
+    apparent replays will be answered by doing a full 1-RTT handshake.</p>
+
+    <p><em>Freshness Checks</em></p>
+    <p>This mechanism is available with the stateless session tickets. As the ticket data
+    has an embedded timestamp, the server can determine if a ClientHello was sent reasonably
+    recently and accept the 0-RTT handshake, otherwise if falls back to a full 1-RTT
+    handshake. This mechanism is tightly coupled with the previous one, it prevents storing an
+    unlimited number of ClientHellos.</p>
+
+    <p>The current implementation uses a pair of Bloom filters to implement the last two mechanisms.
+    Bloom filters are fast, memory-efficient, probabilistic data structures that can tell
+    if an element may be in a set or if it is definitely not in the set.</p>
+
+    <p>If the option <seetype marker="ssl:ssl#anti_replay">anti_replay</seetype>
+    is defined in the server, a pair of Bloom filters (<em>current</em> and
+    <em>old</em>) are used to record incoming ClientHello messages (it is the unique
+    binder value that is actually stored).
+    The <em>current</em> Bloom filter is used for <c>WindowSize</c> seconds to store new
+    elements. At the end of the time window the Bloom filters are rotated
+    (the <em>current</em> Bloom filter becomes the <em>old</em> and an empty Bloom filter
+    is set as <em>current</em>.
+    </p>
+
+    <p>The Anti-Replay protection feature in statless servers executes in the following steps
+    when a new ClientHello is received:</p>
+    <list type="bulleted">
+      <item><p>Reported ticket age (obfuscated ticket age) shall be
+      less than ticket lifetime.</p></item>
+      <item><p>Actual ticket age shall be less than the ticket lifetime (statless session
+      tickets contain the servers timestamp when the ticket was issued).</p></item>
+      <item><p>Ticket shall be used within specified time window (freshness checks).</p></item>
+      <item><p>If all above checks passed both <em>current</em> and <em>old</em> Bloom filters
+      are checked to detect if binder was already seen. Being a probabilistic data structure,
+      false positives can occur and they trigger a full handshake.</p></item>
+      <item><p>If the binder is not seen, the binder is validated. If the binder is valid,
+      the server proceeds with the 0-RTT handshake.</p></item>
+    </list>
+
+  </section>
  </chapter>

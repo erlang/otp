@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,27 +23,31 @@
 	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,non_matching_aliases/1,
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
-	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
-	 coverage/1,grab_bag/1,literal_binary/1]).
+	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
+	 coverage/1,grab_bag/1,literal_binary/1,
+         unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1,
+         tuple_size_in_try/1,match_boolean_list/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
     [{p,[parallel],
       [pmatch,mixed,aliases,non_matching_aliases,
        match_in_call,untuplify,
-       shortcut_boolean,letify_guard,selectify,
+       shortcut_boolean,letify_guard,selectify,deselectify,
        underscore,match_map,map_vars_used,coverage,
-       grab_bag,literal_binary]}].
+       grab_bag,literal_binary,unary_op,eq_types,
+       match_after_return,match_right_tuple,
+       tuple_size_in_try,match_boolean_list]}].
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -87,6 +91,7 @@ mixed(Config) when is_list(Config) ->
     {error,blurf} = mixit(5),
     {error,87987987} = mixit(6),
     {error,{a,b,c}} = mixit(7),
+    no_match = mixed_1(),
     ok.
 
 mixit(X) ->
@@ -104,6 +109,17 @@ mixit(X) ->
 	42 -> fnurra;
 	77 -> usch;
 	Other -> {error,Other}
+    end.
+
+mixed_1() ->
+    case 0 of
+        0.0 ->
+            %% This clause must not match.
+            zero;
+        0.5 ->
+            half;
+        _ ->
+            no_match
     end.
 
 aliases(Config) when is_list(Config) ->
@@ -253,7 +269,10 @@ non_matching_aliases(_Config) ->
     none = mixed_aliases([d]),
     none = mixed_aliases({a,42}),
     none = mixed_aliases(42),
+    none = mixed_aliases(<<6789:16>>),
+    none = mixed_aliases(#{key=>value}),
 
+    {'EXIT',{{badmatch,bar},_}} = (catch plus_plus_prefix()),
     {'EXIT',{{badmatch,42},_}} = (catch nomatch_alias(42)),
     {'EXIT',{{badmatch,job},_}} = (catch entirely()),
     {'EXIT',{{badmatch,associates},_}} = (catch printer()),
@@ -272,13 +291,31 @@ non_matching_aliases(_Config) ->
     1 = erase(shark),
 
     {'EXIT',{{badmatch,_},_}} = (catch radio(research)),
+
+    {'EXIT',{{case_clause,whatever},_}} = (catch pike1(whatever)),
+    {'EXIT',{{case_clause,whatever},_}} = (catch pike2(whatever)),
+
     ok.
 
 mixed_aliases(<<X:8>> = x) -> {a,X};
 mixed_aliases([b] = <<X:8>>) -> {b,X};
 mixed_aliases(<<X:8>> = {a,X}) -> {c,X};
 mixed_aliases([X] = <<X:8>>) -> {d,X};
+mixed_aliases(<<X:16>> = X) -> {e,X};
+mixed_aliases(X = <<X:16>>) -> {f,X};
+mixed_aliases(<<X:16,_/binary>> = X) -> {g,X};
+mixed_aliases(X = <<X:16,_/binary>>) -> {h,X};
+mixed_aliases(X = #{key:=X}) -> {i,X};
+mixed_aliases(#{key:=X} = X) -> {j,X};
+mixed_aliases([X] = #{key:=X}) -> {k,X};
+mixed_aliases(#{key:=X} = [X]) -> {l,X};
+mixed_aliases({a,X} = #{key:=X}) -> {m,X};
+mixed_aliases(#{key:=X} = {a,X}) -> {n,X};
+mixed_aliases([] ++ (foo = [])) -> o;
 mixed_aliases(_) -> none.
+
+plus_plus_prefix() ->
+    [] ++ (foo = []) = bar.
 
 nomatch_alias(I) ->
     {ok={A,B}} = id(I),
@@ -319,6 +356,26 @@ radio(research) ->
     (connection = proof) =
 	(catch erlang:trace_pattern(catch mechanisms + assist,
 				    summary = mechanisms)).
+
+pike1(X) ->
+    case id([]) of
+        [] ->
+            case X of
+                [Var] = [] ->
+                    ok
+            end
+    end,
+    Var.
+
+pike2(X) ->
+    case id([]) of
+        [] ->
+            case X of
+                [_] = [] ->
+                    Var = 42
+            end
+    end,
+    Var.
 
 %% OTP-7018.
 
@@ -377,6 +434,13 @@ untuplify(Config) when is_list(Config) ->
     %% We do this to cover sys_core_fold:unalias_pat/1.
     {1,2,3,4,alias,{[1,2],{3,4},alias}} = untuplify_1([1,2], {3,4}, alias),
     error = untuplify_1([1,2], {3,4}, 42),
+
+    %% Test that a previous bug in v3_codegen is gone. (The sinking of
+    %% stack frames into only the case arms that needed them was not always
+    %% safe.)
+    [33, -1, -33, 1] = untuplify_2(32, 65),
+    {33, 1, -33, -1} = untuplify_2(65, 32),
+
     ok.
 
 untuplify_1(A, B, C) ->
@@ -387,6 +451,21 @@ untuplify_1(A, B, C) ->
 	    CantMatch;
 	_ ->
 	    error
+    end.
+
+untuplify_2(V1, V2) ->
+    {D1,D2,D3,D4} =
+        if V1 > V2 ->
+                %% The 1 value was overwritten by the value of V2-V1.
+                {V1-V2,  1,  V2-V1, -1};
+           true ->
+                {V2-V1, -1, V1-V2,  1}
+        end,
+    if
+        D2 > D4 ->
+            {D1, D2, D3, D4};
+        true ->
+            [D1, D2, D3, D4]
     end.
 
 %% Coverage of beam_dead:shortcut_boolean_label/4.
@@ -433,6 +512,7 @@ letify_guard(A, B) ->
 selectify(Config) when is_list(Config) ->
     integer = sel_different_types({r,42}),
     atom = sel_different_types({r,forty_two}),
+    float = sel_different_types({r,100.0}),
     none = sel_different_types({r,18}),
     {'EXIT',_} = (catch sel_different_types([a,b,c])),
 
@@ -443,12 +523,15 @@ selectify(Config) when is_list(Config) ->
     integer42 = sel_same_value2(42),
     integer43 = sel_same_value2(43),
     error = sel_same_value2(44),
+
     ok.
 
 sel_different_types({r,_}=T) when element(2, T) =:= forty_two ->
     atom;
 sel_different_types({r,_}=T) when element(2, T) =:= 42 ->
     integer;
+sel_different_types({r,_}=T) when element(2, T) =:= 100.0 ->
+    float;
 sel_different_types({r,_}) ->
     none.
 
@@ -465,6 +548,122 @@ sel_same_value2(V) when V =:= 42; V =:= 43 ->
     integer43;
 sel_same_value2(_) ->
     error.
+
+%% Test deconstruction of select_val instructions to regular tests
+%% with zero or one values left.
+
+deselectify(Config) when is_list(Config) ->
+    one_or_other = desel_tuple_arity({1}),
+    two = desel_tuple_arity({1,1}),
+    one_or_other = desel_tuple_arity({1,1,1}),
+
+    one_or_other = dsel_integer(1),
+    two = dsel_integer(2),
+    one_or_other = dsel_integer(3),
+
+    one_or_other = dsel_integer_typecheck(1),
+    two = dsel_integer_typecheck(2),
+    one_or_other = dsel_integer_typecheck(3),
+
+    one_or_other = dsel_atom(one),
+    two = dsel_atom(two),
+    one_or_other = dsel_atom(three),
+
+    one_or_other = dsel_atom_typecheck(one),
+    two = dsel_atom_typecheck(two),
+    one_or_other = dsel_atom_typecheck(three),
+
+    %% Cover deconstruction of select_val instructions in
+    %% beam_peep.
+
+    stop = dsel_peek_0(stop),
+    ignore = dsel_peek_0(ignore),
+    Config = dsel_peek_0(Config),
+
+    stop = dsel_peek_1(stop, any),
+    Config = dsel_peek_1(ignore, Config),
+    other = dsel_peek_1(other, ignored),
+
+    0 = dsel_peek_2(0, any),
+    Config = dsel_peek_2(1, Config),
+    2 = dsel_peek_2(2, ignored),
+
+    true = dsel_peek_3(true),
+    false = dsel_peek_3(false),
+    {error,Config} = dsel_peek_3(Config),
+
+    ok.
+
+%% The following will be optimized by the sharing optimizations
+%% in beam_ssa_opt.
+
+desel_tuple_arity(Tuple) when is_tuple(Tuple) ->
+    case Tuple of
+        {_} -> one_or_other;
+        {_,_} -> two;
+        _ -> one_or_other
+    end.
+
+dsel_integer(Val) ->
+    case Val of
+        1 -> one_or_other;
+        2 -> two;
+        _ -> one_or_other
+    end.
+
+dsel_integer_typecheck(Val) when is_integer(Val) ->
+    case Val of
+        1 -> one_or_other;
+        2 -> two;
+        _ -> one_or_other
+    end.
+
+dsel_atom(Val) ->
+    case Val of
+        one -> one_or_other;
+        two -> two;
+        _ -> one_or_other
+    end.
+
+dsel_atom_typecheck(Val) when is_atom(Val) ->
+    case Val of
+        one -> one_or_other;
+        two -> two;
+        _ -> one_or_other
+    end.
+
+%% The following functions are carefully crafted so that the sharing
+%% optimizations in beam_ssa_opt can't be applied. After applying the
+%% beam_jump:eliminate_moves/1 optimization and beam_clean:clean_labels/1
+%% has unified labels, beam_peep is able to optimize these functions.
+
+dsel_peek_0(A0) ->
+    case id(A0) of
+        stop ->   stop;
+        ignore -> ignore;
+        A ->      A
+    end.
+
+dsel_peek_1(A0, B) ->
+    case id(A0) of
+        stop ->   stop;
+        ignore -> B;
+        A ->      A
+    end.
+
+dsel_peek_2(A0, B) ->
+    case id(A0) of
+        0 -> 0;
+        1 -> B;
+        A -> A
+    end.
+
+dsel_peek_3(A0) ->
+    case id(A0) of
+        true ->  true;
+        false -> false;
+        Other -> {error,Other}
+    end.
 
 underscore(Config) when is_list(Config) ->
     case Config of
@@ -508,13 +707,26 @@ do_map_vars_used(X, Y, Map) ->
 	    Val
     end.
 
+-record(coverage_id, {bool=false,id}).
 coverage(Config) when is_list(Config) ->
     %% Cover beam_dead.
     ok = coverage_1(x, a),
     ok = coverage_1(x, b),
 
     %% Cover sys_pre_expand.
-    ok = coverage_3("abc").
+    ok = coverage_3("abc"),
+
+    %% Cover beam_ssa_dead.
+    {expr,key} = coverage_4([literal,get], [[expr,key]]),
+    {expr,key} = coverage_4([expr,key], []),
+
+    a = coverage_5([8,8,8], #coverage_id{bool=true}),
+    b = coverage_5([], #coverage_id{bool=true}),
+
+    %% Cover beam_ssa_opt.
+    ok = coverage_6(),
+
+    ok.
 
 coverage_1(B, Tag) ->
     case Tag of
@@ -526,6 +738,37 @@ coverage_2(1, a, x) -> ok;
 coverage_2(2, b, x) -> ok.
 
 coverage_3([$a]++[]++"bc") -> ok.
+
+%% Cover beam_ssa_dead:eval_type_test_1(is_nonempty_list, Arg).
+coverage_4([literal,get], [Expr]) ->
+    coverage_4(Expr, []);
+coverage_4([Expr,Key], []) ->
+    {Expr,Key}.
+
+%% Cover beam_ssa_dead:eval_type_test_1(is_tagged_tuple, Arg).
+coverage_5(Config, TermId)
+  when TermId =:= #coverage_id{bool=true},
+       Config =:= [8,8,8] ->
+    a;
+coverage_5(_Config, #coverage_id{bool=true}) ->
+    b.
+
+coverage_6() ->
+    X = 17,
+    case
+        case id(1) > 0 of
+            true ->
+                17;
+            false ->
+                42
+        end
+    of
+        X ->
+            ok;
+        V ->
+            %% Cover beam_ssa_opt:make_literal/2.
+            error([error,X,V])
+    end.
 
 grab_bag(_Config) ->
     [_|T] = id([a,b,c]),
@@ -557,6 +800,10 @@ grab_bag(_Config) ->
 	 {bad,16#555555555555555555555555555555555555555555555555555}],
     ok = grab_bag_remove_failure(L, unit, 0),
 
+    {42,<<43,44>>} = grab_bag_single_valued(<<42,43,44>>),
+    empty_list = grab_bag_single_valued([]),
+    empty_tuple = grab_bag_single_valued({}),
+
     ok.
 
 grab_bag_remove_failure([], _Unit, _MaxFailure) ->
@@ -573,6 +820,12 @@ grab_bag_remove_failure([{stretch,_,Mi}=Stretch | Specs], Unit, _MaxFailure) ->
 	{min,_} ->
 	    ok
     end.
+
+%% Cover a line v3_kernel that places binary matching first.
+grab_bag_single_valued(<<H,T/bytes>>) -> {H,T};
+grab_bag_single_valued([]) -> empty_list;
+grab_bag_single_valued({}) -> empty_tuple.
+
 
 %% Regression in 19.0, reported by Alexei Sholik
 literal_binary(_Config) ->
@@ -592,5 +845,152 @@ literal_binary_match(_, <<"x">>) -> 2;
 literal_binary_match(_, <<"y">>) -> 3;
 literal_binary_match(_, _) -> fail.
 
+unary_op(Config) ->
+    %% ERL-514. This test case only verifies that the code
+    %% calculates the correct result, not that the generated
+    %% code is optimial.
+
+    {non_associative,30} = unary_op_1('&'),
+    {non_associative,300} = unary_op_1('^'),
+    {non_associative,300} = unary_op_1('not'),
+    {non_associative,300} = unary_op_1('+'),
+    {non_associative,300} = unary_op_1('-'),
+    {non_associative,300} = unary_op_1('~~~'),
+    {non_associative,300} = unary_op_1('!'),
+    {non_associative,320} = unary_op_1('@'),
+
+    error = unary_op_1(Config),
+    error = unary_op_1(abc),
+    error = unary_op_1(42),
+
+    ok.
+
+unary_op_1(Vop@1) ->
+    %% If all optimizations are working as they should, there should
+    %% be no stack frame and all '=:=' tests should be coalesced into
+    %% a single select_val instruction.
+
+    case Vop@1 =:= '&' of
+        true ->
+            {non_associative,30};
+        false ->
+            case
+                case Vop@1 =:= '^' of
+                    true ->
+                        true;
+                    false ->
+                        case Vop@1 =:= 'not' of
+                            true ->
+                                true;
+                            false ->
+                                case Vop@1 =:= '+' of
+                                    true ->
+                                        true;
+                                    false ->
+                                        case Vop@1 =:= '-' of
+                                            true ->
+                                                true;
+                                            false ->
+                                                case Vop@1 =:= '~~~' of
+                                                    true ->
+                                                        true;
+                                                    false ->
+                                                        Vop@1 =:= '!'
+                                                end
+                                        end
+                                end
+                        end
+                end
+            of
+                true ->
+                    {non_associative,300};
+                false ->
+                    case Vop@1 =:= '@' of
+                        true ->
+                            {non_associative,320};
+                        false ->
+                            error
+                    end
+            end
+    end.
+
+eq_types(_Config) ->
+    Ref = make_ref(),
+    Ref = eq_types(Ref, any),
+    ok.
+
+eq_types(A, B) ->
+    %% {put_tuple2,{y,0},{list,[{x,0},{x,1}]}}.
+    Term0 = {A, B},
+    Term = id(Term0),
+
+    %% {test,is_eq_exact,{f,3},[{y,0},{x,0}]}.
+    %% Here beam_validator must infer that {x,0} has the
+    %% same type as {y,0}.
+    Term = Term0,
+
+    %% {get_tuple_element,{x,0},0,{x,0}}.
+    {Ref22,_} = Term,
+
+    Ref22.
+
+match_after_return(Config) when is_list(Config) ->
+    %% The return type of the following call will never match the 'wont_happen'
+    %% clauses below, and the beam_ssa_type was clever enough to see that but
+    %% didn't remove the blocks, so it crashed when trying to extract A.
+    ok = case mar_test_tuple(erlang:unique_integer()) of
+            {gurka, never_matches, A} -> {wont_happen, A};
+            _ -> ok
+         end.
+
+mar_test_tuple(I) -> {gurka, I}.
+
+match_right_tuple(Config) when is_list(Config) ->
+    %% The loader wrongly coalesced certain get_tuple_element sequences, fusing
+    %% the code below into a single i_get_tuple_element2 operating on {x,0}
+    %% even though the first one overwrites it.
+    %%
+    %%    {get_tuple_element,{x,0},0,{x,0}}.
+    %%    {get_tuple_element,{x,0},1,{x,1}}.
+
+    Inner = {id(wrong_element), id(ok)},
+    Outer = {Inner, id(wrong_tuple)},
+    ok = match_right_tuple_1(Outer).
+
+match_right_tuple_1(T) ->
+    {A, _} = T,
+    {_, B} = A,
+    %% The call ensures that A is in {x,0} and B is in {x,1}
+    id(force_succ_regs(A, B)).
+
+force_succ_regs(_A, B) -> B.
+
+tuple_size_in_try(Config) when is_list(Config) ->
+    %% The tuple_size optimization was applied outside of guards, causing
+    %% either the emulator or compiler to crash.
+    ok = tsit(gurka),
+    ok = tsit(gaffel).
+
+tsit(A) ->
+    try
+        id(ignored),
+        1 = tuple_size(A),
+        error
+    catch
+        _:_ -> ok
+    end.
+
+match_boolean_list(Config) when is_list(Config) ->
+    BoolList = [N rem 2 =:= 0 || N <- lists:seq(1, 8)],
+    %% The compiler knows that all list elements are booleans, so it translates
+    %% the expression below to a #b_br{} on the list head.
+    %%
+    %% This is fine, but since the value was only used in that branch,
+    %% reserve_zregs/3 (pre_codegen) would place the variable in a z register,
+    %% crashing the compiler in a later pass.
+    ok = case BoolList of
+             [true | _] -> error;
+             [false | _] -> ok
+         end.
 
 id(I) -> I.

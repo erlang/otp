@@ -1152,7 +1152,7 @@ FilteringCriteria ::= CHOICE {
 
 --  In case calledAddressValue is specified, the numbers to be filtered are from calledAddressValue
 --  up to and including calledAddressValue + maximumNumberOfCounters-1.
---  The last two digits of calledAddressvalue can not exceed 100-maximumNumberOfCounters.
+--  The last two digits of calledAddressvalue cannot exceed 100-maximumNumberOfCounters.
 FilteringTimeOut ::= CHOICE {
   duration  [0]  Duration,
   stopTime  [1]  DateAndTime

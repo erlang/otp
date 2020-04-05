@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2017. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,11 +28,27 @@ EBIN = .
 # Target Specs
 # ----------------------------------------------------
 
+SOCKET_MODULES = \
+	socket_test_lib \
+	socket_test_logger \
+	socket_test_evaluator \
+	socket_test_ttest_lib \
+	socket_test_ttest_tcp_gen \
+	socket_test_ttest_tcp_socket \
+	socket_test_ttest_tcp_client \
+	socket_test_ttest_tcp_client_gen \
+	socket_test_ttest_tcp_client_socket \
+	socket_test_ttest_tcp_server \
+	socket_test_ttest_tcp_server_gen \
+	socket_test_ttest_tcp_server_socket \
+	socket_SUITE
+
 MODULES= \
 	a_SUITE \
 	after_SUITE \
 	alloc_SUITE \
 	async_ports_SUITE \
+	atomics_SUITE \
 	beam_SUITE \
 	beam_literals_SUITE \
 	bif_SUITE \
@@ -50,6 +66,7 @@ MODULES= \
 	call_trace_SUITE \
 	code_SUITE \
 	code_parallel_load_SUITE \
+	counters_SUITE \
 	crypto_SUITE \
 	ddll_SUITE \
 	decode_packet_SUITE \
@@ -57,6 +74,7 @@ MODULES= \
 	dirty_nif_SUITE \
 	distribution_SUITE \
 	driver_SUITE \
+	dump_SUITE \
 	efile_SUITE \
 	erts_debug_SUITE \
 	estone_SUITE \
@@ -69,6 +87,7 @@ MODULES= \
 	gc_SUITE \
 	guard_SUITE \
 	hash_SUITE \
+	hash_property_test_SUITE \
 	hibernate_SUITE \
 	hipe_SUITE \
 	iovec_SUITE \
@@ -91,6 +110,7 @@ MODULES= \
 	port_SUITE \
 	port_bif_SUITE \
 	prim_eval_SUITE \
+	persistent_term_SUITE \
 	process_SUITE \
 	pseudoknot_SUITE \
 	receive_SUITE \
@@ -101,7 +121,9 @@ MODULES= \
 	send_term_SUITE \
 	sensitive_SUITE \
 	signal_SUITE \
+	small_SUITE \
 	smoke_test_SUITE \
+	$(SOCKET_MODULES) \
 	statistics_SUITE \
 	system_info_SUITE \
 	system_profile_SUITE \
@@ -126,7 +148,10 @@ MODULES= \
 	ignore_cores \
 	dgawd_handler \
 	random_iolist \
-	crypto_reference
+	erts_test_utils \
+	erts_test_destructor \
+	crypto_reference \
+	literal_area_collector_test
 
 NO_OPT= bs_bincomp \
 	bs_bit_binaries \
@@ -148,8 +173,13 @@ NATIVE_MODULES= $(NATIVE:%=%_native_SUITE)
 NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
+HRL_FILES= \
+	socket_test_evaluator.hrl \
+	socket_test_ttest.hrl \
+	socket_test_ttest_client.hrl
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 EMAKEFILE=Emakefile
 
@@ -175,14 +205,10 @@ ERL_COMPILE_FLAGS +=
 # ----------------------------------------------------
 
 make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES)
-	# This special rule can be removed when communication with R7B nodes 
-	# is no longer supported.
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
-	'*_SUITE_make' > $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
 	$(MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt $(ERL_COMPILE_FLAGS) \
-	-o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
+        $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +native $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
 
@@ -195,6 +221,9 @@ clean:
 	rm -f core *~
 
 docs:
+
+targets: $(TARGET_FILES)
+socket_targets: $(SOCKET_TARGETS)
 
 # ----------------------------------------------------
 # Special targets
@@ -216,11 +245,11 @@ release_spec:
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
-		$(ERL_FILES) "$(RELSYSDIR)"
+		$(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
 

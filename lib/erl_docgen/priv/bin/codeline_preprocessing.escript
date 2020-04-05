@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 %% Function: main/1
 %% Description:
 %%----------------------------------------------------------------------
-main([InFile, OutFile]) ->
+main([CPath, InFile, OutFile]) ->
     InDev = 
 	case file:open(InFile, [read]) of
 	    {ok,ID} ->
@@ -38,7 +38,6 @@ main([InFile, OutFile]) ->
 	    _ ->
 		halt(5)
 	end,
-    CPath=filename:dirname(InFile),
     OutDev = 
 	case file:open(OutFile, [write]) of
 	    {ok,OD} ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(gen_server).
+
+%%%
+%%% NOTE: If init_ack() return values are modified, see comment
+%%%       above monitor_return() in gen.erl!
+%%%
 
 %%% ---------------------------------------------------
 %%%
@@ -89,8 +94,10 @@
 %% API
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
+         start_monitor/3, start_monitor/4,
 	 stop/1, stop/3,
 	 call/2, call/3,
+         send_request/2, wait_response/2, check_response/2,
 	 cast/2, reply/2,
 	 abcast/2, abcast/3,
 	 multi_call/2, multi_call/3, multi_call/4,
@@ -104,35 +111,54 @@
 	 system_replace_state/2,
 	 format_status/2]).
 
+%% logger callback
+-export([format_log/1, format_log/2]).
+
 %% Internal exports
 -export([init_it/6]).
 
+-include("logger.hrl").
+
 -define(
    STACKTRACE(),
-   try throw(ok) catch _ -> erlang:get_stacktrace() end).
+   element(2, erlang:process_info(self(), current_stacktrace))).
+
+
+-type server_ref() ::
+        pid()
+      | (LocalName :: atom())
+      | {Name :: atom(), Node :: atom()}
+      | {'global', GlobalName :: term()}
+      | {'via', RegMod :: module(), ViaName :: term()}.
+
+-type request_id() :: term().
 
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
 
 -callback init(Args :: term()) ->
-    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
+    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term()} | ignore.
 -callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
-    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
     {stop, Reason :: term(), NewState :: term()}.
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_continue(Info :: term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 -callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
                                term()),
@@ -149,7 +175,7 @@
       Status :: term().
 
 -optional_callbacks(
-    [handle_info/2, terminate/2, code_change/3, format_status/2]).
+    [handle_info/2, handle_continue/2, terminate/2, code_change/3, format_status/2]).
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -157,7 +183,7 @@
 %%% start(Name, Mod, Args, Options)
 %%% start_link(Mod, Args, Options)
 %%% start_link(Name, Mod, Args, Options) where:
-%%%    Name ::= {local, atom()} | {global, atom()} | {via, atom(), term()}
+%%%    Name ::= {local, atom()} | {global, term()} | {via, atom(), term()}
 %%%    Mod  ::= atom(), callback module implementing the 'real' server
 %%%    Args ::= term(), init arguments (to Mod:init/1)
 %%%    Options ::= [{timeout, Timeout} | {debug, [Flag]}]
@@ -178,6 +204,12 @@ start_link(Mod, Args, Options) ->
 
 start_link(Name, Mod, Args, Options) ->
     gen:start(?MODULE, link, Name, Mod, Args, Options).
+
+start_monitor(Mod, Args, Options) ->
+    gen:start(?MODULE, monitor, Mod, Args, Options).
+
+start_monitor(Name, Mod, Args, Options) ->
+    gen:start(?MODULE, monitor, Name, Mod, Args, Options).
 
 
 %% -----------------------------------------------------------------
@@ -215,6 +247,25 @@ call(Name, Request, Timeout) ->
     end.
 
 %% -----------------------------------------------------------------
+%% Send a request to a generic server and return a Key which should be
+%% used with wait_response/2 or check_response/2 to fetch the
+%% result of the request.
+
+-spec send_request(Name::server_ref(), Request::term()) -> request_id().
+send_request(Name, Request) ->
+    gen:send_request(Name, '$gen_call', Request).
+
+-spec wait_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), server_ref()}}.
+wait_response(RequestId, Timeout) ->
+    gen:wait_response(RequestId, Timeout).
+
+-spec check_response(Msg::term(), RequestId::request_id()) ->
+        {reply, Reply::term()} | 'no_reply' | {error, {Reason::term(), server_ref()}}.
+check_response(Msg, RequestId) ->
+    gen:check_response(Msg, RequestId).
+
+%% -----------------------------------------------------------------
 %% Make a cast to a generic server.
 %% -----------------------------------------------------------------
 cast({global,Name}, Request) ->
@@ -240,7 +291,8 @@ cast_msg(Request) -> {'$gen_cast',Request}.
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
 reply({To, Tag}, Reply) ->
-    catch To ! {Tag, Reply}.
+    catch To ! {Tag, Reply},
+    ok.
 
 %% ----------------------------------------------------------------- 
 %% Asynchronous broadcast, returns nothing, it's just send 'n' pray
@@ -309,7 +361,7 @@ enter_loop(Mod, Options, State, ServerName, Timeout) ->
     Name = gen:get_proc_name(ServerName),
     Parent = gen:get_parent(),
     Debug = gen:debug_options(Name, Options),
-	HibernateAfterTimeout = gen:hibernate_after(Options),
+    HibernateAfterTimeout = gen:hibernate_after(Options),
     loop(Parent, Name, State, Mod, Timeout, HibernateAfterTimeout, Debug).
 
 %%%========================================================================
@@ -365,7 +417,7 @@ init_it(Mod, Args) ->
 	{ok, Mod:init(Args)}
     catch
 	throw:R -> {ok, R};
-	Class:R -> {'EXIT', Class, R, erlang:get_stacktrace()}
+	Class:R:S -> {'EXIT', Class, R, S}
     end.
 
 %%%========================================================================
@@ -374,6 +426,19 @@ init_it(Mod, Args) ->
 %%% ---------------------------------------------------
 %%% The MAIN loop.
 %%% ---------------------------------------------------
+
+loop(Parent, Name, State, Mod, {continue, Continue} = Msg, HibernateAfterTimeout, Debug) ->
+    Reply = try_dispatch(Mod, handle_continue, Continue, State),
+    case Debug of
+	[] ->
+	    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod,
+				HibernateAfterTimeout, State);
+	_ ->
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, Msg),
+	    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod,
+				HibernateAfterTimeout, State, Debug1)
+    end;
+
 loop(Parent, Name, State, Mod, hibernate, HibernateAfterTimeout, Debug) ->
     proc_lib:hibernate(?MODULE,wake_hib,[Parent, Name, State, Mod, HibernateAfterTimeout, Debug]);
 
@@ -420,12 +485,11 @@ decode_msg(Msg, Parent, Name, State, Mod, Time, HibernateAfterTimeout, Debug, Hi
 %%% Send/receive functions
 %%% ---------------------------------------------------
 do_send(Dest, Msg) ->
-    case catch erlang:send(Dest, Msg, [noconnect]) of
-	noconnect ->
-	    spawn(erlang, send, [Dest,Msg]);
-	Other ->
-	    Other
-    end.
+    try erlang:send(Dest, Msg)
+    catch
+        error:_ -> ok
+    end,
+    ok.
 
 do_multi_call(Nodes, Name, Req, infinity) ->
     Tag = make_ref(),
@@ -617,18 +681,24 @@ try_dispatch(Mod, Func, Msg, State) ->
     catch
 	throw:R ->
 	    {ok, R};
-        error:undef = R when Func == handle_info ->
+        error:undef = R:Stacktrace when Func == handle_info ->
             case erlang:function_exported(Mod, handle_info, 2) of
                 false ->
-                    error_logger:warning_msg("** Undefined handle_info in ~p~n"
-                                             "** Unhandled message: ~tp~n",
-                                             [Mod, Msg]),
+                    ?LOG_WARNING(
+                       #{label=>{gen_server,no_handle_info},
+                         module=>Mod,
+                         message=>Msg},
+                       #{domain=>[otp],
+                         report_cb=>fun gen_server:format_log/2,
+                         error_logger=>
+                             #{tag=>warning_msg,
+                               report_cb=>fun gen_server:format_log/1}}),
                     {ok, {noreply, State}};
                 true ->
-                    {'EXIT', error, R, erlang:get_stacktrace()}
+                    {'EXIT', error, R, Stacktrace}
             end;
-	Class:R ->
-	    {'EXIT', Class, R, erlang:get_stacktrace()}
+	Class:R:Stacktrace ->
+	    {'EXIT', Class, R, Stacktrace}
     end.
 
 try_handle_call(Mod, Msg, From, State) ->
@@ -637,8 +707,8 @@ try_handle_call(Mod, Msg, From, State) ->
     catch
 	throw:R ->
 	    {ok, R};
-	Class:R ->
-	    {'EXIT', Class, R, erlang:get_stacktrace()}
+	Class:R:Stacktrace ->
+	    {'EXIT', Class, R, Stacktrace}
     end.
 
 try_terminate(Mod, Reason, State) ->
@@ -649,8 +719,8 @@ try_terminate(Mod, Reason, State) ->
 	    catch
 		throw:R ->
 		    {ok, R};
-		Class:R ->
-		    {'EXIT', Class, R, erlang:get_stacktrace()}
+		Class:R:Stacktrace ->
+		    {'EXIT', Class, R, Stacktrace}
 	   end;
 	false ->
 	    {ok, ok}
@@ -748,10 +818,10 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, 
 	    terminate({bad_return_value, BadReply}, ?STACKTRACE(), Name, From, Msg, Mod, State, Debug)
     end.
 
-reply(Name, {To, Tag}, Reply, State, Debug) ->
-    reply({To, Tag}, Reply),
+reply(Name, From, Reply, State, Debug) ->
+    reply(From, Reply),
     sys:handle_debug(Debug, fun print_event/3, Name,
-		     {out, Reply, To, State} ).
+		     {out, Reply, From, State} ).
 
 
 %%-----------------------------------------------------------------
@@ -785,7 +855,7 @@ system_replace_state(StateFun, [Name, State, Mod, Time, HibernateAfterTimeout]) 
 print_event(Dev, {in, Msg}, Name) ->
     case Msg of
 	{'$gen_call', {From, _Tag}, Call} ->
-	    io:format(Dev, "*DBG* ~tp got call ~tp from ~w~n",
+	    io:format(Dev, "*DBG* ~tp got call ~tp from ~tw~n",
 		      [Name, Call, From]);
 	{'$gen_cast', Cast} ->
 	    io:format(Dev, "*DBG* ~tp got cast ~tp~n",
@@ -793,8 +863,8 @@ print_event(Dev, {in, Msg}, Name) ->
 	_ ->
 	    io:format(Dev, "*DBG* ~tp got ~tp~n", [Name, Msg])
     end;
-print_event(Dev, {out, Msg, To, State}, Name) ->
-    io:format(Dev, "*DBG* ~tp sent ~tp to ~w, new state ~tp~n",
+print_event(Dev, {out, Msg, {To,_Tag}, State}, Name) ->
+    io:format(Dev, "*DBG* ~tp sent ~tp to ~tw, new state ~tp~n",
 	      [Name, Msg, To, State]);
 print_event(Dev, {noreply, State}, Name) ->
     io:format(Dev, "*DBG* ~tp new state ~tp~n", [Name, State]);
@@ -833,8 +903,7 @@ terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, 
     Reply = try_terminate(Mod, terminate_reason(Class, Reason, Stacktrace), State),
     case Reply of
 	{'EXIT', C, R, S} ->
-	    FmtState = format_status(terminate, Mod, get(), State),
-	    error_info({R, S}, Name, From, Msg, FmtState, Debug),
+	    error_info({R, S}, Name, From, Msg, Mod, State, Debug),
 	    erlang:raise(C, R, S);
 	_ ->
 	    case {Class, Reason} of
@@ -842,8 +911,7 @@ terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, 
 		{exit, shutdown} -> ok;
 		{exit, {shutdown,_}} -> ok;
 		_ ->
-		    FmtState = format_status(terminate, Mod, get(), State),
-		    error_info(ReportReason, Name, From, Msg, FmtState, Debug)
+		    error_info(ReportReason, Name, From, Msg, Mod, State, Debug)
 	    end
     end,
     case Stacktrace of
@@ -856,57 +924,272 @@ terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, 
 terminate_reason(error, Reason, Stacktrace) -> {Reason, Stacktrace};
 terminate_reason(exit, Reason, _Stacktrace) -> Reason.
 
-error_info(_Reason, application_controller, _From, _Msg, _State, _Debug) ->
+error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) ->
     %% OTP-5811 Don't send an error report if it's the system process
     %% application_controller which is terminating - let init take care
     %% of it instead
     ok;
-error_info(Reason, Name, From, Msg, State, Debug) ->
-    Reason1 = 
-	case Reason of
-	    {undef,[{M,F,A,L}|MFAs]} ->
-		case code:is_loaded(M) of
-		    false ->
-			{'module could not be loaded',[{M,F,A,L}|MFAs]};
-		    _ ->
-			case erlang:function_exported(M, F, length(A)) of
-			    true ->
-				Reason;
-			    false ->
-				{'function not exported',[{M,F,A,L}|MFAs]}
-			end
-		end;
-	    _ ->
-		error_logger:limit_term(Reason)
-	end,    
-    {ClientFmt, ClientArgs} = client_stacktrace(From),
-    LimitedState = error_logger:limit_term(State),
-    error_logger:format("** Generic server ~tp terminating \n"
-                        "** Last message in was ~tp~n"
-                        "** When Server state == ~tp~n"
-                        "** Reason for termination == ~n** ~tp~n" ++ ClientFmt,
-                        [Name, Msg, LimitedState, Reason1] ++ ClientArgs),
-    sys:print_log(Debug),
+error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
+    Log = sys:get_log(Debug),
+    ?LOG_ERROR(#{label=>{gen_server,terminate},
+                 name=>Name,
+                 last_message=>Msg,
+                 state=>format_status(terminate, Mod, get(), State),
+                 log=>format_log_state(Mod, Log),
+                 reason=>Reason,
+                 client_info=>client_stacktrace(From)},
+               #{domain=>[otp],
+                 report_cb=>fun gen_server:format_log/2,
+                 error_logger=>#{tag=>error,
+                                 report_cb=>fun gen_server:format_log/1}}),
     ok.
+
 client_stacktrace(undefined) ->
-    {"", []};
-client_stacktrace({From, _Tag}) ->
+    undefined;
+client_stacktrace({From,_Tag}) ->
     client_stacktrace(From);
 client_stacktrace(From) when is_pid(From), node(From) =:= node() ->
     case process_info(From, [current_stacktrace, registered_name]) of
         undefined ->
-            {"** Client ~p is dead~n", [From]};
+            {From,dead};
         [{current_stacktrace, Stacktrace}, {registered_name, []}]  ->
-            {"** Client ~p stacktrace~n"
-             "** ~tp~n",
-             [From, Stacktrace]};
+            {From,{From,Stacktrace}};
         [{current_stacktrace, Stacktrace}, {registered_name, Name}]  ->
-            {"** Client ~tp stacktrace~n"
-             "** ~tp~n",
-             [Name, Stacktrace]}
+            {From,{Name,Stacktrace}}
     end;
 client_stacktrace(From) when is_pid(From) ->
-    {"** Client ~p is remote on node ~p~n", [From, node(From)]}.
+    {From,remote}.
+
+
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(Report) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(Report,Depth),FormatOpts).
+
+limit_report(Report,unlimited) ->
+    Report;
+limit_report(#{label:={gen_server,terminate},
+               last_message:=Msg,
+               state:=State,
+               log:=Log,
+               reason:=Reason,
+               client_info:=Client}=Report,
+            Depth) ->
+    Report#{last_message=>io_lib:limit_term(Msg,Depth),
+            state=>io_lib:limit_term(State,Depth),
+            log=>[io_lib:limit_term(L,Depth)||L<-Log],
+            reason=>io_lib:limit_term(Reason,Depth),
+            client_info=>limit_client_report(Client,Depth)};
+limit_report(#{label:={gen_server,no_handle_info},
+               message:=Msg}=Report,Depth) ->
+    Report#{message=>io_lib:limit_term(Msg,Depth)}.
+
+limit_client_report({From,{Name,Stacktrace}},Depth) ->
+    {From,{Name,io_lib:limit_term(Stacktrace,Depth)}};
+limit_client_report(Client,_) ->
+    Client.
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default,FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={gen_server,terminate},
+                    name:=Name,
+                    last_message:=Msg,
+                    state:=State,
+                    log:=Log,
+                    reason:=Reason,
+                    client_info:=Client},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format1 = lists:append(["Generic server ",P," terminating. Reason: ",P,
+                            ". Last message: ", P, ". State: ",P,"."]),
+    {ServerLogFormat,ServerLogArgs} = format_server_log_single(Log,FormatOpts),
+    {ClientLogFormat,ClientLogArgs} = format_client_log_single(Client,FormatOpts),
+
+    Args1 =
+        case Depth of
+            unlimited ->
+                [Name,fix_reason(Reason),Msg,State];
+            _ ->
+                [Name,Depth,fix_reason(Reason),Depth,Msg,Depth,State,Depth]
+        end,
+    {Format1++ServerLogFormat++ClientLogFormat,
+     Args1++ServerLogArgs++ClientLogArgs};
+format_log_single(#{label:={gen_server,no_handle_info},
+                    module:=Mod,
+                    message:=Msg},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["Undefined handle_info in ",P,
+                           ". Unhandled message: ",P,"."]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Mod,Msg];
+            _ ->
+                [Mod,Depth,Msg,Depth]
+        end,
+    {Format,Args};
+format_log_single(Report,FormatOpts) ->
+    format_log_multi(Report,FormatOpts).
+
+format_log_multi(#{label:={gen_server,terminate},
+                   name:=Name,
+                   last_message:=Msg,
+                   state:=State,
+                   log:=Log,
+                   reason:=Reason,
+                   client_info:=Client},
+                 #{depth:=Depth}=FormatOpts) ->
+    Reason1 = fix_reason(Reason),
+    {ClientFmt,ClientArgs} = format_client_log(Client,FormatOpts),
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["** Generic server ",P," terminating \n"
+           "** Last message in was ",P,"~n"
+           "** When Server state == ",P,"~n"
+           "** Reason for termination ==~n** ",P,"~n"] ++
+               case Log of
+                   [] -> [];
+                   _ -> ["** Log ==~n** ["|
+                         lists:join(",~n    ",lists:duplicate(length(Log),P))]++
+                            ["]~n"]
+               end) ++ ClientFmt,
+    Args =
+        case Depth of
+            unlimited ->
+                [Name, Msg, State, Reason1] ++
+                    case Log of
+                        [] -> [];
+                        _ -> Log
+                    end ++ ClientArgs;
+            _ ->
+                [Name, Depth, Msg, Depth, State, Depth, Reason1, Depth] ++
+                    case Log of
+                        [] -> [];
+                        _ -> lists:flatmap(fun(L) -> [L, Depth] end, Log)
+                    end ++ ClientArgs
+        end,
+    {Format,Args};
+format_log_multi(#{label:={gen_server,no_handle_info},
+                   module:=Mod,
+                   message:=Msg},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        "** Undefined handle_info in ~p~n"
+        "** Unhandled message: "++P++"~n",
+    Args =
+        case Depth of
+            unlimited ->
+                [Mod,Msg];
+            _ ->
+                [Mod,Msg,Depth]
+                    end,
+    {Format,Args}.
+
+fix_reason({undef,[{M,F,A,L}|MFAs]}=Reason) ->
+    case code:is_loaded(M) of
+        false ->
+            {'module could not be loaded',[{M,F,A,L}|MFAs]};
+        _ ->
+            case erlang:function_exported(M, F, length(A)) of
+                true ->
+                    Reason;
+                false ->
+                    {'function not exported',[{M,F,A,L}|MFAs]}
+            end
+    end;
+fix_reason(Reason) ->
+    Reason.
+
+format_server_log_single([],_) ->
+    {"",[]};
+format_server_log_single(Log,FormatOpts) ->
+    Args =
+        case maps:get(depth,FormatOpts) of
+            unlimited ->
+                [Log];
+            Depth ->
+                [Log, Depth]
+        end,
+     {" Log: "++p(FormatOpts),Args}.
+
+format_client_log_single(undefined,_) ->
+    {"",[]};
+format_client_log_single({From,dead},_) ->
+    {" Client ~0p is dead.",[From]};
+format_client_log_single({From,remote},_) ->
+    {" Client ~0p is remote on node ~0p.", [From, node(From)]};
+format_client_log_single({_From,{Name,Stacktrace0}},FormatOpts) ->
+    P = p(FormatOpts),
+    %% Minimize the stacktrace a bit for single line reports. This is
+    %% hopefully enough to point out the position.
+    Stacktrace = lists:sublist(Stacktrace0,4),
+    Args =
+        case maps:get(depth,FormatOpts) of
+            unlimited ->
+                [Name, Stacktrace];
+            Depth ->
+                [Name, Depth, Stacktrace, Depth]
+        end,
+    {" Client "++P++" stacktrace: "++P++".", Args}.
+
+format_client_log(undefined,_) ->
+    {"", []};
+format_client_log({From,dead},_) ->
+    {"** Client ~p is dead~n", [From]};
+format_client_log({From,remote},_) ->
+    {"** Client ~p is remote on node ~p~n", [From, node(From)]};
+format_client_log({_From,{Name,Stacktrace}},FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["** Client ",P," stacktrace~n",
+                           "** ",P,"~n"]),
+    Args =
+        case maps:get(depth,FormatOpts) of
+            unlimited ->
+                [Name, Stacktrace];
+            Depth ->
+                [Name, Depth, Stacktrace, Depth]
+        end,
+    {Format,Args}.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 %%-----------------------------------------------------------------
 %% Status information
@@ -914,16 +1197,25 @@ client_stacktrace(From) when is_pid(From) ->
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
-    Log = sys:get_debug(log, Debug, []),
-    Specfic = case format_status(Opt, Mod, PDict, State) of
+    Log = sys:get_log(Debug),
+    Specific = case format_status(Opt, Mod, PDict, State) of
 		  S when is_list(S) -> S;
 		  S -> [S]
 	      end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
-	     {"Logged events", Log}]} |
-     Specfic].
+	     {"Logged events", format_log_state(Mod, Log)}]} |
+     Specific].
+
+format_log_state(Mod, Log) ->
+    [case Event of
+         {out,Msg,From,State} ->
+             {out,Msg,From,format_status(terminate, Mod, get(), State)};
+         {noreply,State} ->
+             {noreply,format_status(terminate, Mod, get(), State)};
+         _ -> Event
+     end || Event <- Log].
 
 format_status(Opt, Mod, PDict, State) ->
     DefStatus = case Opt of

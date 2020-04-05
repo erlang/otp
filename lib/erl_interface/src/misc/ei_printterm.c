@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,6 @@
  * Function:
  * ei_print_term to print out a binary coded term
  */
-
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -121,8 +117,10 @@ static int print_term(FILE* fp, ei_x_buff* x,
     erlang_pid pid;
     erlang_port port;
     erlang_ref ref;
+    erlang_fun fun;
     double d;
     long l;
+    const char* delim;
 
     int tindex = *index;
 
@@ -131,7 +129,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
     if (fp == NULL && x == NULL) return -1;
 
     doquote = 0;
-    ei_get_type_internal(buf, index, &ty, &n);
+    ei_get_type(buf, index, &ty, &n);
     switch (ty) {
     case ERL_ATOM_EXT:   
     case ERL_ATOM_UTF8_EXT:
@@ -189,7 +187,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
 		xputs(", ", fp, x); ch_written += 2;
 	    }
 	}
-	if (ei_get_type_internal(buf, &tindex, &ty, &n) < 0) goto err;
+	if (ei_get_type(buf, &tindex, &ty, &n) < 0) goto err;
 	if (ty != ERL_NIL_EXT) {
 	    xputs(" | ", fp, x); ch_written += 3;
 	    r = print_term(fp, x, buf, &tindex);
@@ -239,16 +237,50 @@ static int print_term(FILE* fp, ei_x_buff* x,
 	    m = BINPRINTSIZE;
 	else
 	    m = l;
-	--m;
+        delim = "";
 	for (i = 0; i < m; ++i) {
-	    ch_written += xprintf(fp, x, "%d,", p[i]);
+	    ch_written += xprintf(fp, x, "%s%u", delim, (unsigned char)p[i]);
+            delim = ",";
 	}
-	ch_written += xprintf(fp, x, "%d", p[i]);
 	if (l > BINPRINTSIZE)
 	    ch_written += xprintf(fp, x, ",...");
 	xputc('>', fp, x); ++ch_written;
 	ei_free(p);
 	break;
+    case ERL_BIT_BINARY_EXT: {
+        const unsigned char* cp;
+        size_t bits;
+        unsigned int bitoffs;
+        int trunc = 0;
+
+        if (ei_decode_bitstring(buf, index, (const char**)&cp, &bitoffs, &bits) < 0
+            || bitoffs != 0) {
+            goto err;
+        }
+        ch_written += xprintf(fp, x, "#Bits<");
+        if ((bits+7) / 8 > BINPRINTSIZE) {
+            m = BINPRINTSIZE;
+            trunc = 1;
+        }
+        else
+            m = bits / 8;
+
+        delim = "";
+        for (i = 0; i < m; ++i) {
+            ch_written += xprintf(fp, x, "%s%u", delim, cp[i]);
+            delim = ",";
+        }
+        if (trunc)
+            ch_written += xprintf(fp, x, ",...");
+        else {
+            bits %= 8;
+            if (bits)
+                ch_written += xprintf(fp, x, "%s%u:%u", delim,
+                                      (cp[i] >> (8-bits)), bits);
+        }
+        xputc('>', fp, x); ++ch_written;
+        break;
+    }
     case ERL_SMALL_INTEGER_EXT:
     case ERL_INTEGER_EXT:
 	if (ei_decode_long(buf, index, &l) < 0) goto err;
@@ -278,11 +310,45 @@ static int print_term(FILE* fp, ei_x_buff* x,
             
         }
         break;
-
     case ERL_FLOAT_EXT:
     case NEW_FLOAT_EXT:
 	if (ei_decode_double(buf, index, &d) < 0) goto err;
 	ch_written += xprintf(fp, x, "%f", d);
+	break;
+    case ERL_MAP_EXT:
+	if (ei_decode_map_header(buf, &tindex, &n) < 0) goto err;
+        ch_written += xprintf(fp, x, "#{");
+	for (i = 0; i < n; ++i) {
+	    r = print_term(fp, x, buf, &tindex);
+	    if (r < 0) goto err;
+	    ch_written += r;
+            ch_written += xprintf(fp, x, " => ");
+	    r = print_term(fp, x, buf, &tindex);
+	    if (r < 0) goto err;
+	    ch_written += r;
+	    if (i < n-1) {
+		xputs(", ", fp, x); ch_written += 2;
+	    }
+	}
+	*index = tindex;
+	xputc('}', fp, x); ch_written++;
+	break;
+    case ERL_FUN_EXT:
+    case ERL_NEW_FUN_EXT:
+    case ERL_EXPORT_EXT:
+	if (ei_decode_fun(buf, &tindex, &fun) < 0) goto err;
+        if (fun.type == EI_FUN_EXPORT) {
+            ch_written += xprintf(fp, x, "fun %s:%s/%ld",
+                                  fun.module,
+                                  fun.u.exprt.func,
+                                  fun.arity);
+        } else {
+            ch_written += xprintf(fp, x, "#Fun{%s.%ld.%lu}",
+                                  fun.module,
+                                  fun.u.closure.index,
+                                  fun.u.closure.uniq);
+        }
+	*index = tindex;
 	break;
     default:
 	goto err;

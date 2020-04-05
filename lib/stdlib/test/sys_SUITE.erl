@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ stats(Config) when is_list(Config) ->
     {ok,-44} = public_call(44),
     {ok,Stats} = sys:statistics(?server,get),
     true = lists:member({messages_in,1}, Stats),
-    true = lists:member({messages_out,0}, Stats),
+    true = lists:member({messages_out,1}, Stats),
     ok = sys:statistics(?server,false),
     {status,_Pid,{module,_Mod},[_PDict,running,Self,_,_]} =
 	sys:get_status(?server),
@@ -133,7 +133,8 @@ install(Config) when is_list(Config) ->
 			Master ! {spy_got,{request,Arg},ProcState};
 		    Other ->
 			io:format("Trigged other=~p\n",[Other])
-		end
+		end,
+                func_state
 	end,
     sys:install(?server,{SpyFun,func_state}),
     {ok,-1} = (catch public_call(1)),
@@ -142,10 +143,27 @@ install(Config) when is_list(Config) ->
     sys:install(?server,{SpyFun,func_state}),
     sys:install(?server,{SpyFun,func_state}),
     {ok,-3} = (catch public_call(3)),
-    sys:remove(?server,SpyFun),
     {ok,-4} = (catch public_call(4)),
+    sys:remove(?server,SpyFun),
+    {ok,-5} = (catch public_call(5)),
     [{spy_got,{request,1},sys_SUITE_server},
-     {spy_got,{request,3},sys_SUITE_server}] = get_messages(),
+     {spy_got,{request,3},sys_SUITE_server},
+     {spy_got,{request,4},sys_SUITE_server}] = get_messages(),
+
+    sys:install(?server,{id1, SpyFun, func_state}),
+    sys:install(?server,{id1, SpyFun, func_state}), %% should not be installed
+    sys:install(?server,{id2, SpyFun, func_state}),    
+    {ok,-1} = (catch public_call(1)),
+    %% We have two SpyFun installed:
+    [{spy_got,{request,1},sys_SUITE_server},
+     {spy_got,{request,1},sys_SUITE_server}] = get_messages(),
+    sys:remove(?server, id1),
+    {ok,-1} = (catch public_call(1)),
+    %% We have one SpyFun installed:
+    [{spy_got,{request,1},sys_SUITE_server}] = get_messages(),
+    sys:no_debug(?server),
+    {ok,-1} = (catch public_call(1)),
+    [] = get_messages(),
     stop(),
     ok.
 
@@ -201,7 +219,7 @@ spec_proc(Mod) ->
 		       {Mod,system_get_state},{throw,fail}},_}} ->
 		 ok
 	 end,
-    ok = sys:terminate(Mod, normal),
+    ok = sync_terminate(Mod),
     {ok,_} = Mod:start_link(4),
     ok = case catch sys:replace_state(Mod, fun(_) -> {} end) of
 	     {} ->
@@ -210,7 +228,7 @@ spec_proc(Mod) ->
 		       {Mod,system_replace_state},{throw,fail}},_}} ->
 		 ok
 	 end,
-    ok = sys:terminate(Mod, normal),
+    ok = sync_terminate(Mod),
     {ok,_} = Mod:start_link(4),
     StateFun = fun(_) -> error(fail) end,
     ok = case catch sys:replace_state(Mod, StateFun) of
@@ -222,7 +240,18 @@ spec_proc(Mod) ->
 	     {'EXIT',{{callback_failed,StateFun,{error,fail}},_}} ->
 		 ok
 	 end,
-    ok = sys:terminate(Mod, normal).
+    ok = sync_terminate(Mod).
+
+sync_terminate(Mod) ->
+    P = whereis(Mod),
+    MRef = erlang:monitor(process,P),
+    ok = sys:terminate(Mod, normal),
+    receive
+        {'DOWN',MRef,_,_,normal} ->
+            ok
+    end,
+    undefined = whereis(Mod),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%
 %% Dummy server

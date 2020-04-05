@@ -25,7 +25,6 @@
 %% do
 
 do(Info) ->
-    ?DEBUG("do -> entry",[]),
     case Info#mod.method of
 	"GET" ->
 	    case proplists:get_value(status, Info#mod.data) of
@@ -66,7 +65,6 @@ do(Info) ->
     end.
 
 do_get_range(Info,Ranges) ->
-    ?DEBUG("do_get_range -> Request URI: ~p",[Info#mod.request_uri]), 
      Path = mod_alias:path(Info#mod.data, Info#mod.config_db, 
 			  Info#mod.request_uri),
     {FileInfo, LastModified} = get_modification_date(Path),
@@ -76,7 +74,6 @@ do_get_range(Info,Ranges) ->
 send_range_response(Path, Info, Ranges, FileInfo, LastModified)->
     case parse_ranges(Ranges) of
 	error->
-	    ?ERROR("send_range_response-> Unparsable range request",[]),
 	    {proceed,Info#mod.data};
 	{multipart,RangeList}->
 	    send_multi_range_response(Path, Info, RangeList);
@@ -110,15 +107,12 @@ send_multi_range_response(Path,Info,RangeList)->
     case file:open(Path, [raw,binary]) of
 	{ok, FileDescriptor} ->
 	    file:close(FileDescriptor),
-	    ?DEBUG("send_multi_range_response -> FileDescriptor: ~p",
-		   [FileDescriptor]),
 	    Suffix = httpd_util:suffix(Path),
 	    PartMimeType = httpd_util:lookup_mime_default(Info#mod.config_db,
 							  Suffix,"text/plain"),
 	    {FileInfo,  LastModified} = get_modification_date(Path),
 	    case valid_ranges(RangeList,Path,FileInfo) of
 		{ValidRanges,true}->
-		    ?DEBUG("send_multi_range_response ->Ranges are valid:",[]),
 		    %Apache breaks the standard by sending the size
 		    %field in the Header.
 		    Header = 
@@ -127,8 +121,6 @@ send_multi_range_response(Path,Info,RangeList)->
 			  "=RangeBoundarySeparator"}, 
 			 {etag, httpd_util:create_etag(FileInfo)} | 
 			 LastModified],
-		    ?DEBUG("send_multi_range_response -> Valid Ranges: ~p",
-			   [RagneList]),
 		    Body = {fun send_multiranges/4,
 			    [ValidRanges, Info, PartMimeType, Path]},
 		    {proceed,[{response,
@@ -138,12 +130,10 @@ send_multi_range_response(Path,Info,RangeList)->
 					 bad_range_boundaries }}]}
 	    end;
 	{error, _Reason} ->
-	    ?ERROR("do_get -> failed open file: ~p",[_Reason]),
 	    {proceed,Info#mod.data}
     end.
 
 send_multiranges(ValidRanges,Info,PartMimeType,Path)->    
-    ?DEBUG("send_multiranges -> Start sending the ranges",[]),
     case file:open(Path, [raw,binary]) of
 	{ok,FileDescriptor} ->
 	    lists:foreach(fun(Range)->
@@ -195,8 +185,6 @@ send_range_response(Path, Info, Start, Stop, FileInfo, LastModified)->
     case file:open(Path, [raw,binary]) of
 	{ok, FileDescriptor} ->
 	    file:close(FileDescriptor),
-	    ?DEBUG("send_range_response -> FileDescriptor: ~p",
-		   [FileDescriptor]),
 	    Suffix = httpd_util:suffix(Path),
 	    MimeType = httpd_util:lookup_mime_default(Info#mod.config_db,
 						      Suffix,"text/plain"),
@@ -219,13 +207,11 @@ send_range_response(Path, Info, Start, Stop, FileInfo, LastModified)->
 		    {proceed, [{status, {416, Reason, bad_range_boundaries }}]}
 	    end;
 	{error, _Reason} ->
-	    ?ERROR("send_range_response -> failed open file: ~p",[_Reason]),
 	    {proceed,Info#mod.data}
     end.
 
 
 send_range_body(SocketType,Socket,Path,Start,End) ->
-    ?DEBUG("mod_range -> send_range_body",[]),
     case file:open(Path, [raw,binary]) of
 	{ok,FileDescriptor} ->
 	    send_part_start(SocketType,Socket,FileDescriptor,Start,End),
@@ -268,8 +254,6 @@ send_part(SocketType,Socket,FileDescriptor,End)->
 			   case httpd_socket:deliver(SocketType,Socket,
 						     Binary) of
 			       socket_closed ->
-				   ?LOG("send_range of body -> socket "   
-					"closed while sending",[]),
 				   socket_close;
 			       _ ->
 				   send_part(SocketType,Socket,
@@ -406,15 +390,12 @@ split_range([N|Rest],Current,End) ->
 send_body(SocketType,Socket,FileDescriptor) ->
     case file:read(FileDescriptor,?FILE_CHUNK_SIZE) of
 	{ok,Binary} ->
-	    ?DEBUG("send_body -> send another chunk: ~p",[size(Binary)]),
 	    case httpd_socket:deliver(SocketType,Socket,Binary) of
 		socket_closed ->
-		    ?LOG("send_body -> socket closed while sending",[]),
 		    socket_close;
 		_ ->
 		    send_body(SocketType,Socket,FileDescriptor)
 	    end;
 	eof ->
-	    ?DEBUG("send_body -> done with this file",[]),
 	    eof
     end.

@@ -164,9 +164,9 @@ get_type_info(#analysis{callgraph = CallGraph,
                                                      CodeServer),
     Analysis#analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
   catch
-    error:What ->
+    error:What:Stacktrace ->
       fatal_error(io_lib:format("Analysis failed with message: ~tp",
-				[{What, erlang:get_stacktrace()}]));
+				[{What, Stacktrace}]));
     throw:{dialyzer_succ_typing_error, Msg} ->
       fatal_error(io_lib:format("Analysis failed with message: ~ts", [Msg]))
   end.
@@ -401,7 +401,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
       Sig = erl_types:t_fun(Arg, Range),
       case dialyzer_contracts:check_contract(Contract, Sig) of
 	ok -> {{F, A}, {contract, Contract}};
-	{error, {extra_range, _, _}} ->
+        {range_warnings, _} ->
 	  {{F, A}, {contract, Contract}};
 	{error, {overlapping_contract, []}} ->
 	  {{F, A}, {contract, Contract}};
@@ -980,7 +980,7 @@ fatal_error(Slogan) ->
 
 mode_error(OldMode, NewMode) ->
   Msg = io_lib:format("Mode was previously set to '~s'; "
-		      "can not set it to '~s' now",
+		      "cannot set it to '~s' now",
 		      [OldMode, NewMode]),
   fatal_error(Msg).
 

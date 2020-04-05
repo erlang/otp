@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,12 +132,8 @@
 /* File descriptors are numbers anc consecutively allocated on Unix */
 #define  ERTS_SYS_CONTINOUS_FD_NUMBERS
 
-#ifndef ERTS_SMP
-#  undef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#  define ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#endif
 
-typedef void *GETENV_STATE;
+void erts_sys_env_init(void);
 
 /*
 ** For the erl_timer_sup module.
@@ -268,7 +264,7 @@ erts_os_monotonic_time(void)
 ERTS_GLB_INLINE void
 erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 {
-    return (*erts_sys_time_data__.r.o.os_times)(mtimep, stimep);
+    (*erts_sys_time_data__.r.o.os_times)(mtimep, stimep);
 }
 
 #endif /* ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__ */
@@ -296,6 +292,8 @@ erts_sys_perf_counter()
 
 /*
  * Functions for measuring CPU time
+ *
+ * Note that gethrvtime is time per process and clock_gettime is per thread.
  */
 
 #if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
@@ -304,15 +302,15 @@ typedef struct timespec SysTimespec;
 
 #if defined(HAVE_GETHRVTIME)
 #define sys_gethrvtime() gethrvtime()
-#define sys_get_proc_cputime(t,tp) (t) = sys_gethrvtime(), \
-                                   (tp).tv_sec = (time_t)((t)/1000000000LL), \
-                                   (tp).tv_nsec = (long)((t)%1000000000LL)
+#define sys_get_cputime(t,tp) (t) = sys_gethrvtime(), \
+        (tp).tv_sec = (time_t)((t)/1000000000LL),     \
+        (tp).tv_nsec = (long)((t)%1000000000LL)
 int sys_start_hrvtime(void);
 int sys_stop_hrvtime(void);
 
 #elif defined(HAVE_CLOCK_GETTIME_CPU_TIME)
 #define sys_clock_gettime(cid,tp) clock_gettime((cid),&(tp))
-#define sys_get_proc_cputime(t,tp) sys_clock_gettime(CLOCK_PROCESS_CPUTIME_ID,(tp))
+#define sys_get_cputime(t,tp) sys_clock_gettime(CLOCK_THREAD_CPUTIME_ID,(tp))
 
 #endif
 #endif
@@ -358,9 +356,7 @@ extern void erts_sys_unix_later_init(void);
 #ifdef NO_FPE_SIGNALS
 
 #define erts_get_current_fp_exception() NULL
-#ifdef ERTS_SMP
 #define erts_thread_init_fp_exception() do{}while(0)
-#endif
 #  define __ERTS_FP_CHECK_INIT(fpexnp) do {} while (0)
 #  define __ERTS_FP_ERROR(fpexnp, f, Action) if (!isfinite(f)) { Action; } else {}
 #  define __ERTS_FP_ERROR_THOROUGH(fpexnp, f, Action) __ERTS_FP_ERROR(fpexnp, f, Action)
@@ -373,9 +369,7 @@ extern void erts_sys_unix_later_init(void);
 #else /* !NO_FPE_SIGNALS */
 
 extern volatile unsigned long *erts_get_current_fp_exception(void);
-#ifdef ERTS_SMP
 extern void erts_thread_init_fp_exception(void);
-#endif
 #  if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 #    define erts_fwait(fpexnp,f) \
 	__asm__ __volatile__("fwait" : "=m"(*(fpexnp)) : "m"(f))
@@ -442,10 +436,8 @@ void erts_sys_unblock_fpe(int);
 
 
 /* Threads */
-#ifdef USE_THREADS
 extern int init_async(int);
 extern int exit_async(void);
-#endif
 
 #define ERTS_EXIT_AFTER_DUMP _exit
 

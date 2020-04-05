@@ -103,6 +103,10 @@
 ;;  
 ;;
 
+(defvar appwiz-erlang-modulename "foo")
+(defvar appwiz-erlang-ext "_work")
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Erlang application wizard
@@ -245,13 +249,6 @@ creating the root directory and for naming application files."
     (insert "Application specification file for " name ".")
     (save-buffer)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; These are setq:ed 
-;;
-
-(defvar appwiz-erlang-modulename "foo")
-(defvar appwiz-erlang-ext "_work")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -468,7 +465,7 @@ Call the function `erlang-menu-init' after modifying this variable.")
 The first character of DD is *not* space if the value is less than 10."
   (let ((date (current-time-string)))
     (format "%d %s %s"
-	    (string-to-int (substring date 8 10))
+	    (string-to-number (substring date 8 10))
 	    (substring date 4 7)
 	    (substring date -4))))
 

@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@
 %% Created : 15 February 2010
 %%----------------------------------------------------------------------
 -module(ct_config).
+-compile([{nowarn_deprecated_function,{crypto,block_decrypt,4}},
+          {nowarn_deprecated_function,{crypto,block_encrypt,4}}]).
 
 -export([start/1, stop/0]).
 
@@ -592,7 +594,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {file,KeyFile}) ->
 
 encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
     _ = crypto:start(),
-    {Key,IVec} = make_crypto_key(Key),
+    {CryptoKey,IVec} = make_crypto_key(Key),
     case file:read_file(SrcFileName) of
 	{ok,Bin0} ->
 	    Bin1 = term_to_binary({SrcFileName,Bin0}),
@@ -600,7 +602,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
 		       0 -> Bin1;
 		       N -> list_to_binary([Bin1,random_bytes(8-N)])
 		   end,
-	    EncBin = crypto:block_encrypt(des3_cbc, Key, IVec, Bin2),
+	    EncBin = crypto:crypto_one_time(des_ede3_cbc, CryptoKey, IVec, Bin2, true),
 	    case file:write_file(EncryptFileName, EncBin) of
 		ok ->
 		    io:format("~ts --(encrypt)--> ~ts~n",
@@ -631,10 +633,10 @@ decrypt_config_file(EncryptFileName, TargetFileName, {file,KeyFile}) ->
 
 decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
     _ = crypto:start(),
-    {Key,IVec} = make_crypto_key(Key),
+    {CryptoKey,IVec} = make_crypto_key(Key),
     case file:read_file(EncryptFileName) of
 	{ok,Bin} ->
-	    DecBin = crypto:block_decrypt(des3_cbc, Key, IVec, Bin),
+	    DecBin = crypto:crypto_one_time(des_ede3_cbc, CryptoKey, IVec, Bin, false),
 	    case catch binary_to_term(DecBin) of
 		{'EXIT',_} ->
 		    {error,bad_file};
@@ -660,7 +662,7 @@ decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
 get_crypt_key_from_file(File) ->
     case file:read_file(File) of
 	{ok,Bin} ->
-	    case catch string:tokens(binary_to_list(Bin), [$\n,$\r]) of
+	    case catch string:lexemes(binary_to_list(Bin), [$\n, [$\r,$\n]]) of
 		[Key] ->
 		    Key;
 		_ ->
@@ -694,7 +696,7 @@ get_crypt_key_from_file() ->
 	noent ->
 	    Result;
 	_ ->
-	    case catch string:tokens(binary_to_list(Result), [$\n,$\r]) of
+	    case catch string:lexemes(binary_to_list(Result), [$\n, [$\r,$\n]]) of
 		[Key] ->
 		    io:format("~nCrypt key file: ~ts~n", [FullName]),
 		    Key;
@@ -706,7 +708,8 @@ get_crypt_key_from_file() ->
 make_crypto_key(String) ->
     <<K1:8/binary,K2:8/binary>> = First = erlang:md5(String),
     <<K3:8/binary,IVec:8/binary>> = erlang:md5([First|lists:reverse(String)]),
-    {[K1,K2,K3],IVec}.
+    Key = <<K1/binary,K2/binary,K3/binary>>,
+    {Key,IVec}.
 
 random_bytes(N) ->
     random_bytes_1(N, []).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -594,10 +594,13 @@ unused_ip() ->
     io:format("we = ~p, unused_ip = ~p~n", [Hent, IP]),
     IP.
 
-unused_ip(_, _, _, 255) -> error;
+unused_ip(255, 255, 255, 255) -> error;
+unused_ip(255, B, C, D) -> unused_ip(1, B + 1, C, D);
+unused_ip(A, 255, C, D) -> unused_ip(A, 1, C + 1, D);
+unused_ip(A, B, 255, D) -> unused_ip(A, B, 1, D + 1);
 unused_ip(A, B, C, D) ->
     case inet:gethostbyaddr({A, B, C, D}) of
-	{ok, _} -> unused_ip(A, B, C, D+1);
+	{ok, _} -> unused_ip(A + 1, B, C, D);
 	{error, _} -> {ok, {A, B, C, D}}
     end.
 
@@ -605,9 +608,9 @@ ok({ok,V}) -> V;
 ok(NotOk) ->
     try throw(not_ok)
     catch
-	Thrown ->
+	throw:Thrown:Stacktrace ->
 	    erlang:raise(
-	      error, {Thrown, NotOk}, tl(erlang:get_stacktrace()))
+	      error, {Thrown, NotOk}, tl(Stacktrace))
     end.
 
 get_localaddr() ->

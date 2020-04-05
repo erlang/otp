@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2017. All Rights Reserved.
+# Copyright Ericsson AB 2001-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,7 +70,10 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += -Werror +inline +warn_export_vars #+warn_missing_spec
+ERL_COMPILE_FLAGS += +inline +warn_export_vars #+warn_missing_spec
+ifneq ($(NATIVE_LIBS_ENABLED),yes)
+ERL_COMPILE_FLAGS += -Werror
+endif
 
 # if in 32 bit backend define BIT32 symbol
 ifneq ($(BITS64),yes)

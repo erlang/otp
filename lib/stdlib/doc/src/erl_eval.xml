@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,13 +32,13 @@
     <rev>B</rev>
     <file>erl_eval.xml</file>
   </header>
-  <module>erl_eval</module>
+  <module since="">erl_eval</module>
   <modulesummary>The Erlang meta interpreter.</modulesummary>
   <description>
     <p>This module provides an interpreter for Erlang expressions. The
       expressions are in the abstract syntax as returned by
-      <seealso marker="erl_parse"><c>erl_parse</c></seealso>,
-      the Erlang parser, or <seealso marker="io"><c>io</c></seealso>.</p>
+      <seeerl marker="erl_parse"><c>erl_parse</c></seeerl>,
+      the Erlang parser, or <seeerl marker="io"><c>io</c></seeerl>.</p>
   </description>
 
   <datatypes>
@@ -54,10 +54,10 @@
     </datatype>
     <datatype>
       <name name="expressions"/>
-      <desc><p>As returned by <seealso marker="erl_parse#parse_exprs/1">
-        <c>erl_parse:parse_exprs/1</c></seealso> or
-        <seealso marker="io#parse_erl_exprs/2">
-        <c>io:parse_erl_exprs/2</c></seealso>.</p></desc>
+      <desc><p>As returned by <seemfa marker="erl_parse#parse_exprs/1">
+        <c>erl_parse:parse_exprs/1</c></seemfa> or
+        <seemfa marker="io#parse_erl_exprs/2">
+        <c>io:parse_erl_exprs/2</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name name="expression_list"/>
@@ -74,8 +74,8 @@
     <datatype>
       <name name="local_function_handler"/>
       <desc><p>Further described in section
-        <seealso marker="#local_function_handler">
-        Local Function Handler</seealso> in this module</p></desc>
+        <seeerl marker="#local_function_handler">
+        Local Function Handler</seeerl> in this module</p></desc>
     </datatype>
     <datatype>
       <name name="name"/>
@@ -86,8 +86,8 @@
     <datatype>
       <name name="non_local_function_handler"/>
       <desc><p>Further described in section
-        <seealso marker="#non_local_function_handler">
-        Non-Local Function Handler</seealso> in this module.</p></desc>
+        <seeerl marker="#non_local_function_handler">
+        Non-Local Function Handler</seeerl> in this module.</p></desc>
     </datatype>
     <datatype>
       <name name="value"/>
@@ -96,7 +96,7 @@
 
   <funcs>
     <func>
-      <name name="add_binding" arity="3"/>
+      <name name="add_binding" arity="3" since=""/>
       <fsummary>Add a binding.</fsummary>
       <desc>
         <p>Adds binding <c><anno>Name</anno>=<anno>Value</anno></c>
@@ -106,7 +106,7 @@
     </func>
 
     <func>
-      <name name="binding" arity="2"/>
+      <name name="binding" arity="2" since=""/>
       <fsummary>Return bindings.</fsummary>
       <desc>
         <p>Returns the binding of <c><anno>Name</anno></c>
@@ -115,7 +115,7 @@
     </func>
 
     <func>
-      <name name="bindings" arity="1"/>
+      <name name="bindings" arity="1" since=""/>
       <fsummary>Return bindings.</fsummary>
       <desc>
         <p>Returns the list of bindings contained in the binding
@@ -124,7 +124,7 @@
     </func>
 
     <func>
-      <name name="del_binding" arity="2"/>
+      <name name="del_binding" arity="2" since=""/>
       <fsummary>Delete a binding.</fsummary>
       <desc>
         <p>Removes the binding of <c><anno>Name</anno></c>
@@ -134,10 +134,10 @@
     </func>
 
     <func>
-      <name name="expr" arity="2"/>
-      <name name="expr" arity="3"/>
-      <name name="expr" arity="4"/>
-      <name name="expr" arity="5"/>
+      <name name="expr" arity="2" since=""/>
+      <name name="expr" arity="3" since=""/>
+      <name name="expr" arity="4" since=""/>
+      <name name="expr" arity="5" since=""/>
       <fsummary>Evaluate expression.</fsummary>
       <desc>
         <p>Evaluates <c><anno>Expression</anno></c> with the set of bindings
@@ -146,10 +146,10 @@
           For an explanation of when and how to use arguments
           <c><anno>LocalFunctionHandler</anno></c> and
           <c><anno>NonLocalFunctionHandler</anno></c>, see sections
-          <seealso marker="#local_function_handler">
-          Local Function Handler</seealso> and
-          <seealso marker="#non_local_function_handler">
-          Non-Local Function Handler</seealso> in this module.</p>
+          <seeerl marker="#local_function_handler">
+          Local Function Handler</seeerl> and
+          <seeerl marker="#non_local_function_handler">
+          Non-Local Function Handler</seeerl> in this module.</p>
         <p>Returns <c>{value, <anno>Value</anno>, <anno>NewBindings</anno>}</c>
           by default. If <c><anno>ReturnFormat</anno></c> is <c>value</c>,
           only <c><anno>Value</anno></c> is returned.</p>
@@ -157,47 +157,47 @@
     </func>
 
     <func>
-      <name name="expr_list" arity="2"/>
-      <name name="expr_list" arity="3"/>
-      <name name="expr_list" arity="4"/>
+      <name name="expr_list" arity="2" since=""/>
+      <name name="expr_list" arity="3" since=""/>
+      <name name="expr_list" arity="4" since=""/>
       <fsummary>Evaluate a list of expressions.</fsummary>
       <desc>
         <p>Evaluates a list of expressions in parallel, using the same
           initial bindings for each expression. Attempts are made to
           merge the bindings returned from each evaluation. This
           function is useful in <c>LocalFunctionHandler</c>, see section
-          <seealso marker="#local_function_handler">
-          Local Function Handler</seealso> in this module.</p>
+          <seeerl marker="#local_function_handler">
+          Local Function Handler</seeerl> in this module.</p>
         <p>Returns <c>{<anno>ValueList</anno>, <anno>NewBindings</anno>}</c>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name name="exprs" arity="2"/>
-      <name name="exprs" arity="3"/>
-      <name name="exprs" arity="4"/>
+      <name name="exprs" arity="2" since=""/>
+      <name name="exprs" arity="3" since=""/>
+      <name name="exprs" arity="4" since=""/>
       <fsummary>Evaluate expressions.</fsummary>
       <desc>
         <p>Evaluates <c><anno>Expressions</anno></c> with the set of bindings
           <c><anno>Bindings</anno></c>, where <c><anno>Expressions</anno></c>
           is a sequence of expressions (in abstract syntax) of a type that can
-          be returned by <seealso marker="io#parse_erl_exprs/2">
-          <c>io:parse_erl_exprs/2</c></seealso>.
+          be returned by <seemfa marker="io#parse_erl_exprs/2">
+          <c>io:parse_erl_exprs/2</c></seemfa>.
           For an explanation of when and how to use arguments
           <c><anno>LocalFunctionHandler</anno></c> and
           <c><anno>NonLocalFunctionHandler</anno></c>, see sections
-          <seealso marker="#local_function_handler">
-          Local Function Handler</seealso> and
-          <seealso marker="#non_local_function_handler">
-          Non-Local Function Handler</seealso> in this module.</p>
+          <seeerl marker="#local_function_handler">
+          Local Function Handler</seeerl> and
+          <seeerl marker="#non_local_function_handler">
+          Non-Local Function Handler</seeerl> in this module.</p>
         <p>Returns <c>{value, <anno>Value</anno>, <anno>NewBindings</anno>}</c>
         </p>
       </desc>
     </func>
 
     <func>
-      <name name="new_bindings" arity="0"/>
+      <name name="new_bindings" arity="0" since=""/>
       <fsummary>Return a bindings structure.</fsummary>
       <desc>
         <p>Returns an empty binding structure.</p>

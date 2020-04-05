@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ init_stack_page(Parent, Info) ->
 init_memory_page(Parent, Info0, Tag, Heading) ->
     Info = proplists:get_value(Tag,Info0),
     Tab = proplists:get_value(expand_table,Info0),
-    Html = observer_html_lib:expandable_term(Heading,Info,Tab),
+    Html = observer_html_lib:expandable_term(Heading,Info,Tab, observer_lib:colors(Parent)),
     cdv_html_wx:start_link(Parent,{expand,Html,Tab}).
 
 init_ets_page(Parent, Info) ->

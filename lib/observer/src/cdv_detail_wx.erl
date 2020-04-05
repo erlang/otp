@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,8 +84,9 @@ destroy_progress(_) ->
     ok.
 
 init(Id,ParentFrame,Callback,App,Parent,{Title,Info,TW}) ->
+    Scale = observer_wx:get_scale(),
     Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [Title],
-		      [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {850,600}}]),
+		      [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {Scale*850,Scale*600}}]),
     MenuBar = wxMenuBar:new(),
     create_menus(MenuBar),
     wxFrame:setMenuBar(Frame, MenuBar),

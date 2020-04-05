@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +21,11 @@
 -module(exception_SUITE).
 
 -export([all/0, suite/0,
-         badmatch/1, pending_errors/1, nil_arith/1,
+         badmatch/1, pending_errors/1, nil_arith/1, top_of_stacktrace/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
-         exception_with_heap_frag/1, line_numbers/1]).
+         change_exception_class/1,
+         exception_with_heap_frag/1, backtrace_depth/1,
+         line_numbers/1]).
 
 -export([bad_guy/2]).
 -export([crash/1]).
@@ -31,14 +33,24 @@
 -include_lib("common_test/include/ct.hrl").
 -import(lists, [foreach/2]).
 
+%% The range analysis of the HiPE compiler results in a system limit error
+%% during compilation instead of at runtime, so do not perform this analysis.
+-compile([{hipe, [no_icode_range]}]).
+
+%% Module-level type optimization propagates the constants used when testing
+%% increment1/1 and increment2/1, which makes it test something completely
+%% different, so we're turning it off.
+-compile(no_module_opt).
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
 all() -> 
-    [badmatch, pending_errors, nil_arith, stacktrace,
-     nested_stacktrace, raise, gunilla, per,
-     exception_with_heap_frag, line_numbers].
+    [badmatch, pending_errors, nil_arith, top_of_stacktrace,
+     stacktrace, nested_stacktrace, raise, gunilla, per,
+     change_exception_class,
+     exception_with_heap_frag, backtrace_depth, line_numbers].
 
 -define(try_match(E),
         catch ?MODULE:bar(),
@@ -241,60 +253,92 @@ ba_bnot(A) ->
     io:format("bnot ~p", [A]),
     {'EXIT', {badarith, _}} = (catch bnot A).
 
+%% Test that BIFs are added to the top of the stacktrace.
 
+top_of_stacktrace(Conf) when is_list(Conf) ->
+    %% Arithmetic operators
+    {'EXIT', {badarith, [{erlang, '+', [1, ok], _} | _]}} = (catch my_add(1, ok)),
+    {'EXIT', {badarith, [{erlang, '-', [1, ok], _} | _]}} = (catch my_minus(1, ok)),
+    {'EXIT', {badarith, [{erlang, '*', [1, ok], _} | _]}} = (catch my_times(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'div', [1, ok], _} | _]}} = (catch my_div(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'div', [1, 0], _} | _]}} = (catch my_div(1, 0)),
+    {'EXIT', {badarith, [{erlang, 'rem', [1, ok], _} | _]}} = (catch my_rem(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'rem', [1, 0], _} | _]}} = (catch my_rem(1, 0)),
+
+    %% Bit operators
+    {'EXIT', {badarith, [{erlang, 'band', [1, ok], _} | _]}} = (catch my_band(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bor', [1, ok], _} | _]}} = (catch my_bor(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bsl', [1, ok], _} | _]}} = (catch my_bsl(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bsr', [1, ok], _} | _]}} = (catch my_bsr(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bxor', [1, ok], _} | _]}} = (catch my_bxor(1, ok)),
+    {'EXIT', {badarith, [{erlang, 'bnot', [ok], _} | _]}} = (catch my_bnot(ok)),
+
+    %% Tuples
+    {'EXIT', {badarg, [{erlang, element, [1, ok], _} | _]}} = (catch my_element(1, ok)),
+    {'EXIT', {badarg, [{erlang, element, [ok, {}], _} | _]}} = (catch my_element(ok, {})),
+    {'EXIT', {badarg, [{erlang, element, [1, {}], _} | _]}} = (catch my_element(1, {})),
+    {'EXIT', {badarg, [{erlang, element, [1, {}], _} | _]}} = (catch element(1, erlang:make_tuple(0, ok))),
+
+    %% System limits
+    Maxbig = maxbig(),
+    MinusMaxbig = -Maxbig,
+    {'EXIT', {system_limit, [{erlang, '+', [Maxbig, 1], _} | _]}} = (catch my_add(Maxbig, 1)),
+    {'EXIT', {system_limit, [{erlang, '+', [Maxbig, 1], _} | _]}} = (catch my_add(maxbig_gc(), 1)),
+    {'EXIT', {system_limit, [{erlang, '-', [MinusMaxbig, 1], _} | _]}} = (catch my_minus(-Maxbig, 1)),
+    {'EXIT', {system_limit, [{erlang, '-', [MinusMaxbig, 1], _} | _]}} = (catch my_minus(-maxbig_gc(), 1)),
+    {'EXIT', {system_limit, [{erlang, '*', [Maxbig, 2], _} | _]}} = (catch my_times(Maxbig, 2)),
+    {'EXIT', {system_limit, [{erlang, '*', [Maxbig, 2], _} | _]}} = (catch my_times(maxbig_gc(), 2)),
+    {'EXIT', {system_limit, [{erlang, 'bnot', [Maxbig], _} | _]}} = (catch my_bnot(Maxbig)),
+    {'EXIT', {system_limit, [{erlang, 'bnot', [Maxbig], _} | _]}} = (catch my_bnot(maxbig_gc())),
+    ok.
+
+maxbig() ->
+    %% We assume that the maximum arity is (1 bsl 19) - 1.
+    Ws = erlang:system_info(wordsize),
+    (((1 bsl ((16777184 * (Ws div 4))-1)) - 1) bsl 1) + 1.
+
+maxbig_gc() ->
+    Maxbig = maxbig(),
+    erlang:garbage_collect(),
+    Maxbig.
 
 stacktrace(Conf) when is_list(Conf) ->
-    Tag = make_ref(),
-    {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
-    {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
     V = [make_ref()|self()],
-    {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]=St1}} =
-    stacktrace_1({'abs',V}, error, {value,V}),
-    St1 = erase(stacktrace1),
-    St1 = erase(stacktrace2),
-    St1 = erlang:get_stacktrace(),
-    {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]=St2} =
-    stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
-    [{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
-    St2 = erase(stacktrace2),
-    St2 = erlang:get_stacktrace(),
-    {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
-    stacktrace_1({value,V}, error, {value,V}),
-    St3 = erase(stacktrace1),
-    St3 = erase(stacktrace2),
-    St3 = erlang:get_stacktrace(),
-    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]=St4} =
-    stacktrace_1({value,V}, error, {throw,V}),
-    [{?MODULE,stacktrace_1,3,_}|_] = erase(stacktrace1),
-    St4 = erase(stacktrace2),
-    St4 = erlang:get_stacktrace(),
+    {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]}} =
+        stacktrace_1({'abs',V}, error, {value,V}),
+    {caught2,{error,badarith},[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]} =
+        stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
+    {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]} =
+        stacktrace_1({value,V}, error, {value,V}),
+    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]} =
+        stacktrace_1({value,V}, error, {throw,V}),
 
     try
         stacktrace_2()
     catch
-        error:{badmatch,_} ->
+        error:{badmatch,_}:Stk ->
             [{?MODULE,stacktrace_2,0,_},
-             {?MODULE,stacktrace,1,_}|_] =
-            erlang:get_stacktrace(),
+             {?MODULE,stacktrace,1,_}|_] = Stk,
             ok
     end.
 
 stacktrace_1(X, C1, Y) ->
-    erase(stacktrace1),
-    erase(stacktrace2),
     try try foo(X) of
             C1 -> value1
         catch
-            C1:D1 -> {caught1,D1,erlang:get_stacktrace()}
+            C1:D1:Stk1 ->
+                [] = erlang:get_stacktrace(),
+                {caught1,D1,Stk1}
         after
-            put(stacktrace1, erlang:get_stacktrace()),
             foo(Y)
         end of
         V2 -> {value2,V2}
     catch
-        C2:D2 -> {caught2,{C2,D2},erlang:get_stacktrace()}
+        C2:D2:Stk2 ->
+            [] = erlang:get_stacktrace(),
+            {caught2,{C2,D2},Stk2}
     after
-        put(stacktrace2, erlang:get_stacktrace())
+        ok
     end.
 
 stacktrace_2() ->
@@ -305,76 +349,71 @@ stacktrace_2() ->
 nested_stacktrace(Conf) when is_list(Conf) ->
     V = [{make_ref()}|[self()]],
     value1 =
-    nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
-                        {void,void,void}),
+        nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
+                            {void,void,void}),
     {caught1,
-     [{?MODULE,my_add,2,_}|_],
-     value2,
-     [{?MODULE,my_add,2,_}|_]} =
-    nested_stacktrace_1({{'add',{V,x1}},error,badarith},
-                        {{value,{V,x2}},void,{V,x2}}),
+     [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
+     value2} =
+        nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                            {{value,{V,x2}},void,{V,x2}}),
     {caught1,
-     [{?MODULE,my_add,2,_}|_],
-     {caught2,[{erlang,abs,[V],_}|_]},
-     [{erlang,abs,[V],_}|_]} =
-    nested_stacktrace_1({{'add',{V,x1}},error,badarith},
-                        {{'abs',V},error,badarg}),
+     [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
+     {caught2,[{erlang,abs,[V],_}|_]}} =
+        nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                            {{'abs',V},error,badarg}),
     ok.
 
 nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
     try foo(X1) of
         V1 -> value1
     catch
-        C1:V1 ->
-            S1 = erlang:get_stacktrace(),
-            T2 =
-            try foo(X2) of
-                V2 -> value2
-            catch
-                C2:V2 -> {caught2,erlang:get_stacktrace()}
+        C1:V1:S1 ->
+            T2 = try foo(X2) of
+                     V2 -> value2
+                 catch
+                     C2:V2:S2 -> {caught2,S2}
             end,
-            {caught1,S1,T2,erlang:get_stacktrace()}
+            {caught1,S1,T2}
     end.
 
 
 
 raise(Conf) when is_list(Conf) ->
     erase(raise),
-    A = 
-    try 
-        try foo({'div',{1,0}}) 
+    A =
+        try
+            try foo({'div',{1,0}})
+            catch
+                error:badarith:A0 ->
+                    put(raise, A0),
+                    erlang:raise(error, badarith, A0)
+            end
         catch
-            error:badarith ->
-                put(raise, A0 = erlang:get_stacktrace()),
-                erlang:raise(error, badarith, A0)
-        end
-    catch
-        error:badarith ->
-            A1 = erlang:get_stacktrace(),
-            A1 = get(raise)
-    end,
-    A = erlang:get_stacktrace(),
+            error:badarith:A1 ->
+                A1 = get(raise)
+        end,
     A = get(raise),
-    [{?MODULE,my_div,2,_}|_] = A,
+    [{erlang,'div',[1, 0], _},{?MODULE,my_div,2,_}|_] = A,
     %%
     N = 8, % Must be even
     N = erlang:system_flag(backtrace_depth, N),
-    B = odd_even(N, []),
-    try even(N) 
-    catch error:function_clause -> ok
+    try
+        even(N)
+    catch
+        error:function_clause -> ok
     end,
-    B = erlang:get_stacktrace(),
     %%
-    C0 = odd_even(N+1, []),
-    C = lists:sublist(C0, N),
-    try odd(N+1) 
-    catch error:function_clause -> ok
+    C = odd_even(N+1, []),
+    try
+        odd(N+1)
+    catch
+        error:function_clause -> ok
     end,
-    C = erlang:get_stacktrace(),
-    try erlang:raise(error, function_clause, C0)
-    catch error:function_clause -> ok
+    try
+        erlang:raise(error, function_clause, C)
+    catch
+        error:function_clause -> ok
     end,
-    C = erlang:get_stacktrace(),
     ok.
 
 odd_even(N, R) when is_integer(N), N > 1 ->
@@ -404,11 +443,20 @@ foo({raise,{Class,Reason,Stacktrace}}) ->
     erlang:raise(Class, Reason, Stacktrace).
 %%foo(function_clause) -> % must not be defined!
 
-my_div(A, B) ->
-    A div B.
+my_add(A, B) -> A + B.
+my_minus(A, B) -> A - B.
+my_times(A, B) -> A * B.
+my_div(A, B) -> A div B.
+my_rem(A, B) -> A rem B.
 
-my_add(A, B) ->
-    A + B.
+my_band(A, B) -> A band B.
+my_bor(A, B) -> A bor B.
+my_bsl(A, B) -> A bsl B.
+my_bsr(A, B) -> A bsr B.
+my_bxor(A, B) -> A bxor B.
+my_bnot(A) -> bnot A.
+
+my_element(A, B) -> element(A, B).
 
 my_abs(X) -> abs(X).
 
@@ -445,6 +493,38 @@ t1(_,X,_) ->
 
 t2(_,X,_) ->
     (X bsl 1) + 1.
+
+change_exception_class(_Config) ->
+    try
+        change_exception_class_1(fun() -> throw(arne) end)
+    catch
+        error:arne ->
+            ok;
+        Class:arne ->
+            ct:fail({wrong_exception_class,Class})
+    end.
+
+change_exception_class_1(F) ->
+    try
+        change_exception_class_2(F)
+    after
+        %% The exception would be caught and rethrown using
+        %% an i_raise instruction. Before the correction
+        %% of the raw_raise instruction, the change of class
+        %% would not stick.
+        io:put_chars("Exception automatically rethrown here\n")
+    end.
+
+change_exception_class_2(F) ->
+    try
+        F()
+    catch
+        throw:Reason:Stack ->
+            %% Translated to a raw_raise instruction.
+            %% The change of exception class would not stick
+            %% if the i_raise instruction was later executed.
+            erlang:raise(error, Reason, Stack)
+    end.
 
 %%
 %% Make sure that even if a BIF builds an heap fragment, then causes an exception,
@@ -501,16 +581,67 @@ do_exception_with_heap_frag(Bin, [Sz|Sizes]) ->
                   try
                       binary_to_term(Bin)
                   catch
-                      _:_ ->
+                      _:_:Stk ->
                           %% term_to_binary/1 is an easy way to traverse the
                           %% entire stacktrace term to make sure that every part
                           %% of it is OK.
-                          term_to_binary(erlang:get_stacktrace())
+                          term_to_binary(Stk)
                   end,
                   id(Filler)
           end),
     do_exception_with_heap_frag(Bin, Sizes);
 do_exception_with_heap_frag(_, []) -> ok.
+
+backtrace_depth(Config) when is_list(Config) ->
+    _ = [do_backtrace_depth(D) || D <- lists:seq(0, 8)],
+    ok.
+
+do_backtrace_depth(D) ->
+    Old = erlang:system_flag(backtrace_depth, D),
+    try
+        Expected = max(1, D),
+        do_backtrace_depth_1(Expected)
+    after
+        _ = erlang:system_flag(backtrace_depth, Old)
+    end.
+
+do_backtrace_depth_1(D) ->
+    Exit = fun() ->
+                   error(reason)
+           end,
+    HandCrafted = fun() ->
+                          {'EXIT',{_,Stk0}} = (catch error(get_stacktrace)),
+                          %% Fool the compiler to force a hand-crafted
+                          %% stacktrace.
+                          Stk = [hd(Stk0)|tl(Stk0)],
+                          erlang:raise(error, reason, Stk)
+                  end,
+    PassedOn = fun() ->
+                       try error(get_stacktrace)
+                       catch error:_:Stk ->
+                               %% Just pass on the given stacktrace.
+                               erlang:raise(error, reason, Stk)
+                       end
+               end,
+    do_backtrace_depth_2(D, Exit),
+    do_backtrace_depth_2(D, HandCrafted),
+    do_backtrace_depth_2(D, PassedOn),
+    ok.
+
+do_backtrace_depth_2(D, Exc) ->
+    try
+        Exc()
+    catch
+        error:reason:Stk ->
+            if
+                length(Stk) =/= D ->
+                    io:format("Expected depth: ~p\n", [D]),
+                    io:format("~p\n", [Stk]),
+                    error(bad_depth);
+                true ->
+                    ok
+            end
+    end.
 
 line_numbers(Config) when is_list(Config) ->
     {'EXIT',{{case_clause,bad_tag},
@@ -606,6 +737,15 @@ line_numbers(Config) when is_list(Config) ->
               {?MODULE,line_numbers,1,_}|_]}} =
     (catch applied_bif_2()),
 
+    {'EXIT',{badarith,
+             [{?MODULE,increment1,1,[{file,"increment.erl"},{line,45}]},
+              {?MODULE,line_numbers,1,_}|_]}} =
+        (catch increment1(x)),
+    {'EXIT',{badarith,
+             [{?MODULE,increment2,1,[{file,"increment.erl"},{line,48}]},
+              {?MODULE,line_numbers,1,_}|_]}} =
+        (catch increment2(x)),
+
     ok.
 
 id(I) -> I.
@@ -651,8 +791,8 @@ close_calls(Where) ->				%Line 2
         call2(),				%Line 6
         call3(),				%Line 7
         no_crash				%Line 8
-    catch error:crash ->
-              erlang:get_stacktrace()		%Line 10
+    catch error:crash:Stk ->
+            Stk                                 %Line 10
     end.					%Line 11
 
 call1() ->					%Line 13
@@ -706,3 +846,15 @@ applied_bif_2() ->				%Line 8
     R = process_info(self(), current_location),	%Line 9
     fail = R,					%Line 10
     ok.						%Line 11
+
+%% The increment instruction used to decrement the instruction
+%% pointer, which would cause the line number in a stack trace to
+%% be the previous line number.
+
+-file("increment.erl", 42).
+increment1(Arg) ->                              %Line 43
+    Res = id(Arg),                              %Line 44
+    Res + 1.                                    %Line 45
+increment2(Arg) ->                              %Line 46
+    _ = id(Arg),                                %Line 47
+    Arg + 1.                                    %Line 48

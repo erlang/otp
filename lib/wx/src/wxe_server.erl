@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -283,10 +283,10 @@ invoke_callback(Pid, Ev, Ref) ->
 				 Return -> exit({bad_return, Return})
 			     end
 		     end
-		 catch _:Reason ->
+		 catch _:Reason:Stacktrace ->
 			 wxEvent:skip(Ref),
 			 ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
-			      [Reason, erlang:get_stacktrace()])
+			      [Reason, Stacktrace])
 		 end,
 		 wxe_util:cast(?WXE_CB_RETURN, <<>>)
 	 end,
@@ -299,9 +299,9 @@ invoke_callback_fun(Fun) ->
 	      Return = Fun(),
 	      true = is_binary(Return),
 	      Return
-	  catch _:Reason ->
+	  catch _:Reason:Stacktrace ->
 		  ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
-		       [Reason, erlang:get_stacktrace()]),
+		       [Reason, Stacktrace]),
 		  <<>>
 	  end,
     wxe_util:cast(?WXE_CB_RETURN, Res).

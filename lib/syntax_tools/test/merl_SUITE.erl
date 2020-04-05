@@ -30,13 +30,14 @@
 
 %% Test cases
 -export([merl_smoke_test/1,
-         transform_parse_error_test/1]).
+         transform_parse_error_test/1, otp_15291/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [merl_smoke_test,
-     transform_parse_error_test].
+     transform_parse_error_test,
+     otp_15291].
 
 groups() -> 
     [].
@@ -99,6 +100,16 @@ transform_parse_error_test(_Config) ->
     ?assertEqual("merl:qquote(2, \"{\", [{var, V}])",
                  f(merl_transform:parse_transform(
                      [?Q("merl:qquote(2, \"{\", [{var, V}])")], []))),
+    ok.
+
+otp_15291(_Config) ->
+    C0 = merl:quote("() -> ok"),
+    A1 = erl_anno:new(1),
+    {clause,A1,[],[],[{atom,A1,ok}]} = C0,
+    C2 = merl:quote("(_,_) -> ok"),
+    {clause,A1,[{var,A1,'_'},{var,A1,'_'}],[],[{atom,A1,ok}]} = C2,
+    C1 = merl:quote("(_) -> ok"),
+    {clause,A1,[{var,A1,'_'}],[],[{atom,A1,ok}]} = C1,
     ok.
 
 %% utilities

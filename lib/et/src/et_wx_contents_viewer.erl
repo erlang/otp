@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,8 +93,8 @@ start_link(Options) ->
 		end,
 		{ok, Pid}
 	    catch
-		error:Reason ->
-		    {error, {'EXIT', Reason, erlang:get_stacktrace()}}
+		error:Reason:Stacktrace ->
+		    {error, {'EXIT', Reason, Stacktrace}}
 	    end;
 	{error, Reason} ->
 	    {error, Reason}

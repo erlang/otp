@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2017</year>
+      <year>2002</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>proplists.xml</file>
   </header>
-  <module>proplists</module>
+  <module since="">proplists</module>
   <modulesummary>Support functions for property lists.</modulesummary>
   <description>
     <p>Property lists are ordinary lists containing entries in the form
@@ -57,15 +57,20 @@
     <datatype>
       <name name="property"/>
     </datatype>
+
+    <datatype>
+      <name name="proplist"/>
+    </datatype>
+
   </datatypes>
 
   <funcs>
     <func>
-      <name name="append_values" arity="2"/>
+      <name name="append_values" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Similar to
-          <seealso marker="#get_all_values/2"><c>get_all_values/2</c></seealso>,
+          <seemfa marker="#get_all_values/2"><c>get_all_values/2</c></seemfa>,
           but each value is wrapped in a list unless it is already itself a
           list. The resulting list of lists is concatenated. This is often
           useful for "incremental" options.</p>
@@ -79,19 +84,19 @@ append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
     </func>
 
     <func>
-      <name name="compact" arity="1"/>
+      <name name="compact" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Minimizes the representation of all entries in the list. This is
           equivalent to <c><![CDATA[[property(P) || P <- ListIn]]]></c>.</p>
         <p>See also
-          <seealso marker="#property/1"><c>property/1</c></seealso>,
-          <seealso marker="#unfold/1"><c>unfold/1</c></seealso>.</p>
+          <seemfa marker="#property/1"><c>property/1</c></seemfa>,
+          <seemfa marker="#unfold/1"><c>unfold/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="delete" arity="2"/>
+      <name name="delete" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Deletes all entries associated with <c><anno>Key</anno></c> from
@@ -100,7 +105,7 @@ append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
     </func>
 
     <func>
-      <name name="expand" arity="2"/>
+      <name name="expand" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Expands particular properties to corresponding sets of
@@ -128,16 +133,16 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c><anno>Expansions</anno></c> contains more than one property with
           the same key, only the first occurrence is used.</p>
         <p>See also
-          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>.</p>
+          <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="get_all_values" arity="2"/>
+      <name name="get_all_values" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Similar to 
-          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
+          <seemfa marker="#get_value/2"><c>get_value/2</c></seemfa>,
           but returns the list of values for <em>all</em> entries
           <c>{Key, Value}</c> in <c><anno>List</anno></c>. If no such entry
           exists, the result is the empty list.</p>
@@ -145,7 +150,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="get_bool" arity="2"/>
+      <name name="get_bool" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the value of a boolean key/value option. If
@@ -153,13 +158,13 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c>{<anno>Key</anno>, true}</c>, this function returns <c>true</c>,
           otherwise <c>false</c>.</p>
         <p>See also
-          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+          <seemfa marker="#get_value/2"><c>get_value/2</c></seemfa>,
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="get_keys" arity="1"/>
+      <name name="get_keys" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns an unordered list of the keys used in
@@ -168,7 +173,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="get_value" arity="2"/>
+      <name name="get_value" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Equivalent to
@@ -177,7 +182,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="get_value" arity="3"/>
+      <name name="get_value" arity="3" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the value of a simple key/value property in
@@ -186,15 +191,15 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           this function returns the corresponding <c>Value</c>, otherwise
           <c><anno>Default</anno></c>.</p>
         <p>See also
-          <seealso marker="#get_all_values/2"><c>get_all_values/2</c></seealso>,
-          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
-          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+          <seemfa marker="#get_all_values/2"><c>get_all_values/2</c></seemfa>,
+          <seemfa marker="#get_bool/2"><c>get_bool/2</c></seemfa>,
+          <seemfa marker="#get_value/2"><c>get_value/2</c></seemfa>,
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="is_defined" arity="2"/>
+      <name name="is_defined" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>List</anno></c> contains at least
@@ -204,7 +209,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="lookup" arity="2"/>
+      <name name="lookup" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the first entry associated with <c><anno>Key</anno></c> in
@@ -212,32 +217,32 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c>none</c>. For an atom <c>A</c> in the list, the tuple
           <c>{A, true}</c> is the entry associated with <c>A</c>.</p>
         <p>See also
-          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
-          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
-          <seealso marker="#lookup_all/2"><c>lookup_all/2</c></seealso>.</p>
+          <seemfa marker="#get_bool/2"><c>get_bool/2</c></seemfa>,
+          <seemfa marker="#get_value/2"><c>get_value/2</c></seemfa>,
+          <seemfa marker="#lookup_all/2"><c>lookup_all/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="lookup_all" arity="2"/>
+      <name name="lookup_all" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the list of all entries associated with
           <c><anno>Key</anno></c> in <c><anno>List</anno></c>. If no such entry
           exists, the result is the empty list.</p>
         <p>See also
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="normalize" arity="2"/>
+      <name name="normalize" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Passes <c><anno>ListIn</anno></c> through a sequence of
           substitution/expansion stages. For an <c>aliases</c> operation,
-          function <seealso marker="#substitute_aliases/2">
-          <c>substitute_aliases/2</c></seealso> is applied using the
+          function <seemfa marker="#substitute_aliases/2">
+          <c>substitute_aliases/2</c></seemfa> is applied using the
           specified list of aliases:</p>
         <list type="bulleted">
           <item>
@@ -246,24 +251,24 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           </item>
           <item>
             <p>For an <c>expand</c> operation, function
-              <seealso marker="#expand/2"><c>expand/2</c></seealso>
+              <seemfa marker="#expand/2"><c>expand/2</c></seemfa>
               is applied using the specified list of expansions.</p>
           </item>
         </list>
         <p>The final result is automatically compacted (compare
-          <seealso marker="#compact/1"><c>compact/1</c></seealso>).</p>
+          <seemfa marker="#compact/1"><c>compact/1</c></seemfa>).</p>
         <p>Typically you want to substitute negations first, then aliases,
           then perform one or more expansions (sometimes you want to pre-expand
           particular entries before doing the main expansion). You might want
           to substitute negations and/or aliases repeatedly, to allow such
           forms in the right-hand side of aliases and expansion lists.</p>
-        <p>See also <seealso marker="#substitute_negations/2">
-          <c>substitute_negations/2</c></seealso>.</p>
+        <p>See also <seemfa marker="#substitute_negations/2">
+          <c>substitute_negations/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="property" arity="1"/>
+      <name name="property" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Creates a normal form (minimal) representation of a property. If
@@ -271,12 +276,12 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c>Key</c> is an atom, <c>Key</c> is returned, otherwise
           the whole term <c><anno>PropertyIn</anno></c> is returned.</p>
         <p>See also
-          <seealso marker="#property/2"><c>property/2</c></seealso>.</p>
+          <seemfa marker="#property/2"><c>property/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="property" arity="2"/>
+      <name name="property" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Creates a normal form (minimal) representation of a simple key/value
@@ -284,12 +289,12 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           is <c>true</c> and <c><anno>Key</anno></c> is an atom, otherwise a
           tuple <c>{<anno>Key</anno>, <anno>Value</anno>}</c> is returned.</p>
         <p>See also
-          <seealso marker="#property/1"><c>property/1</c></seealso>.</p>
+          <seemfa marker="#property/1"><c>property/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="split" arity="2"/>
+      <name name="split" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Partitions <c><anno>List</anno></c> into a list of sublists and a
@@ -310,7 +315,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
     </func>
 
     <func>
-      <name name="substitute_aliases" arity="2"/>
+      <name name="substitute_aliases" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Substitutes keys of properties. For each entry in
@@ -325,14 +330,14 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           with <c>{colour, ...}</c>, and all atoms <c>color</c>
           with <c>colour</c>.</p>
         <p>See also
-          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>,
-          <seealso marker="#substitute_negations/2">
-          <c>substitute_negations/2</c></seealso>.</p>
+          <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>,
+          <seemfa marker="#substitute_negations/2">
+          <c>substitute_negations/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="substitute_negations" arity="2"/>
+      <name name="substitute_negations" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Substitutes keys of boolean-valued properties and
@@ -341,26 +346,26 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           <c>K1</c> such that <c>{K1, K2}</c> occurs in
           <c><anno>Negations</anno></c>: if the entry was
           <c>{K1, true}</c>, it is replaced with <c>{K2, false}</c>, otherwise
-          with <c>{K2, true}</c>, thus changing the name of the option and
+          with <c>K2</c>, thus changing the name of the option and
           simultaneously negating the value specified by
-          <seealso marker="#get_bool/2">
-          <c>get_bool(Key, <anno>ListIn</anno>)</c></seealso>.
+          <seemfa marker="#get_bool/2">
+          <c>get_bool(Key, <anno>ListIn</anno>)</c></seemfa>.
           If the same <c>K1</c> occurs more than once in
           <c><anno>Negations</anno></c>, only the first occurrence is used.</p>
         <p>For example, <c>substitute_negations([{no_foo, foo}], L)</c>
           replaces any atom <c>no_foo</c> or tuple
           <c>{no_foo, true}</c> in <c>L</c> with <c>{foo, false}</c>,
-          and any other tuple <c>{no_foo, ...}</c> with <c>{foo, true}</c>.</p>
+          and any other tuple <c>{no_foo, ...}</c> with <c>foo</c>.</p>
         <p>See also
-          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
-          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>,
-          <seealso marker="#substitute_aliases/2">
-          <c>substitute_aliases/2</c></seealso>.</p>
+          <seemfa marker="#get_bool/2"><c>get_bool/2</c></seemfa>,
+          <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>,
+          <seemfa marker="#substitute_aliases/2">
+          <c>substitute_aliases/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="unfold" arity="1"/>
+      <name name="unfold" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Unfolds all occurrences of atoms in <c><anno>ListIn</anno></c> to

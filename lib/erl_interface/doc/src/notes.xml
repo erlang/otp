@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,389 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
+
+<section><title>Erl_Interface 3.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix link error "multiple definition of
+	    `ei_default_socket_callbacks'" for gcc version 10 or when
+	    built with gcc option -fno-common. Error exists since
+	    OTP-21.3.</p>
+          <p>
+	    Own Id: OTP-16412 Aux Id: PR-2503 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix user supplied socket implementation for Windows and
+	    other platforms without gcc atomics.</p>
+          <p>
+	    Own Id: OTP-16308</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bugs in <c>ei_print_term</c> for binaries and bit
+	    strings causing incorrect output.</p>
+          <p>
+	    Own Id: OTP-15917</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ei_decode_fun</c> for very old fun
+	    encoding format. Bug exist since OTP 22.0.</p>
+          <p>
+	    Own Id: OTP-15996</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p><c>ei_print_term()</c> now supports printing of maps
+	    and funs.</p>
+          <p>
+	    Own Id: OTP-15814</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The vxworks configure has been updated to respect the
+	    environment CFLAGS.</p>
+          <p>
+	    Own Id: OTP-15773</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor adjustments made to build system for parallel
+	    configure.</p>
+          <p>
+	    Own Id: OTP-15340 Aux Id: OTP-14625 </p>
+        </item>
+        <item>
+          <p>
+	    The limited support for VxWorks is deprecated as of OTP
+	    22, and will be removed in OTP 23.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15621</p>
+        </item>
+        <item>
+	    <p>The old legacy <c>erl_interface</c> library (functions
+	    with prefix <c>erl_</c>) is deprecated as of OTP 22, and
+	    will be removed in OTP 23. This does not apply to the
+	    <c>ei</c> library. Reasonably new <c>gcc</c> compilers
+	    will issue deprecation warnings. In order to disable
+	    these warnings, define the macro
+	    <c>EI_NO_DEPR_WARN</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15622</p>
+        </item>
+        <item>
+	    <p>Added support to receive, decode, encode and send both
+	    bit strings and export funs (<c>fun M:F/A</c>).</p>
+	    <p>New functions <c>ei_decode_bitstring</c> and
+	    <c>ei_encode_bitstring</c> have been added in order to
+	    decode and encode bit strings where the number of bits is
+	    not necessary divisible by 8 (a whole number of bytes).
+	    The existing functions <c>ei_decode_fun</c> and
+	    <c>ei_encode_fun</c> can now also handle export funs.</p>
+	    <p>Before this change, bit strings and export funs sent
+	    to an erl_interface c-node were encoded using an
+	    undocumented fallback tuple format. For bit strings
+	    <c>{Binary,BitsInLastByte}</c> and for export funs
+	    <c>{M,F}</c>. Existing c-node implementations expecting
+	    these tuples must be changed to instead use
+	    <c>ei_decode_bitstring</c> and <c>ei_decode_fun</c>. As a
+	    temporary solution you can also build erl_interface with
+	    macro <c>EI_COMPAT=21</c> or call
+	    <c>ei_set_compat_rel(21)</c> to receive the old fallback
+	    tuples.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15712 Aux Id: OTP-15774 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.11.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>erl_interface</c>/<c>ei</c> refused to use node names
+	    with an alive name (the part of the node name preceding
+	    the @ sign) longer than 63 characters and a host name
+	    longer than 64 characters. The total amount of characters
+	    allowed in a node name (alivename@hostname) was thus
+	    limited to 128 characters. These limits applied both to
+	    the own node name as well as node names of other nodes.
+	    Ordinary Erlang nodes limit the node name length to 256
+	    characters, which meant that you could not communicate
+	    with certain Erlang nodes due to their node name used.</p>
+          <p>
+	    <c>erl_interface</c>/<c>ei</c> now allow the total amount
+	    of characters in a node name to be up to 256 characters.
+	    These characters may be distributed between alive name
+	    and host name in whatever way needed. That is, the
+	    maximum amount of characters in the alive name may be 254
+	    and the maximum amount of characters in the host name may
+	    be 254, but in total the node name must not exceed 256
+	    characters.</p>
+          <p>
+	    Own Id: OTP-15781 Aux Id: ERIERL-356 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.11.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>erl_interface</c>/<c>ei</c> refused to use node names
+	    with an alive name (the part of the node name preceding
+	    the @ sign) longer than 63 characters and a host name
+	    longer than 64 characters. The total amount of characters
+	    allowed in a node name (alivename@hostname) was thus
+	    limited to 128 characters. These limits applied both to
+	    the own node name as well as node names of other nodes.
+	    Ordinary Erlang nodes limit the node name length to 256
+	    characters, which meant that you could not communicate
+	    with certain Erlang nodes due to their node name used.</p>
+          <p>
+	    <c>erl_interface</c>/<c>ei</c> now allow the total amount
+	    of characters in a node name to be up to 256 characters.
+	    These characters may be distributed between alive name
+	    and host name in whatever way needed. That is, the
+	    maximum amount of characters in the alive name may be 254
+	    and the maximum amount of characters in the host name may
+	    be 254, but in total the node name must not exceed 256
+	    characters.</p>
+          <p>
+	    Own Id: OTP-15781 Aux Id: ERIERL-356 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of Makefile dependencies so that parallel
+	    make works properly.</p>
+          <p>
+	    Own Id: OTP-15757</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed two bugs in the <c>erl_call</c> program. A missing
+	    initialization (introduced in <c>erl_interface-3.11</c>)
+	    which either caused a crash or failure to connect to or
+	    start a node, and an incorrectly calculated timeout which
+	    could cause failure to start an erlang node. These bugs
+	    only caused failures on some platforms.</p>
+          <p>
+	    Own Id: OTP-15676 Aux Id: OTP-15442, ERL-881 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for plugin of a <seecref
+	    marker="ei_connect#ussi">user supplied socket
+	    implementation</seecref> has been added.</p>
+          <p>
+	    Own Id: OTP-15442 Aux Id: ERIERL-258 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>ei_connect</c> and friends also accept state
+	    <c>ok_simultaneous</c> during handshake, which means the
+	    other node has initiated a connection setup that will be
+	    cancelled in favor of this connection.</p>
+          <p>
+	    Own Id: OTP-15161 Aux Id: ERIERL-191 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ei_receive_msg</c>,
+	    <c>ei_xreceive_msg</c>, <c>ei_receive_msg_tmo</c> and
+	    <c>ei_xreceive_msg_tmo</c>. The <c>x-&gt;index</c> was
+	    set to entire buffer size instead of the number of bytes
+	    actually received.</p>
+          <p>
+	    Own Id: OTP-15171</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ei_connect_init</c> which could be
+	    provoked if called by concurrent threads.
+	    <c>ei_connect_init</c> called posix interface
+	    <c>gethostbyname</c> which is documented as not thread
+	    safe.</p>
+          <p>
+	    Own Id: OTP-15191</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in erl_compare_ext() ignoring the tail of lists
+	    of otherwise equal content. Example: <c>[a | b]</c> and
+	    <c>[a | c]</c> compared equal and <c>{[a], b}</c> and
+	    <c>{[a], c}</c> compared equal.</p>
+          <p>
+	    Own Id: OTP-15277 Aux Id: PR-1929 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where calling erl_init on certain platforms could
+	    result in a buffer overflow bug.</p>
+          <p>
+	    Own Id: OTP-15033</p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>erl_call -m</c> to not deallocate module source
+	    binary before it has been read.</p>
+          <p>
+	    Own Id: OTP-15105 Aux Id: ERL-629 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The program <c>erl_call</c> calls
+	    <c>erl_eval:eval_str/1</c> when it used to call
+	    <c>lib:eval_str/1</c>. This means that <c>erl_call</c>
+	    will fail when trying interact with an Erlang node
+	    running Erlang/OTP 20 or earlier. </p>
+          <p>
+	    Own Id: OTP-15114 Aux Id: OTP-15072, ERL-634 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of Makefile dependencies so that parallel
+	    make works properly.</p>
+          <p>
+	    Own Id: OTP-15757</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>ei_connect</c> and friends also accept state
+	    <c>ok_simultaneous</c> during handshake, which means the
+	    other node has initiated a connection setup that will be
+	    cancelled in favor of this connection.</p>
+          <p>
+	    Own Id: OTP-15161 Aux Id: ERIERL-191 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erl_Interface 3.10.2</title>
 
@@ -98,8 +481,8 @@
 	    by <c>term_to_binary()</c> using latin1 encoding. Note
 	    that all atoms will by default be encoded using utf8 in a
 	    future Erlang/OTP release. For more information see the
-	    documentation of <seealso
-	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seealso>.</p>
+	    documentation of <seemfa
+	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-14337</p>
         </item>
@@ -1463,4 +1846,3 @@
     </section>
   </section>
 </chapter>
-

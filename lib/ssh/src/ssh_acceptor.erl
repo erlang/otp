@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,9 @@
 
 %% spawn export  
 -export([acceptor_init/5, acceptor_loop/6]).
+
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
 -define(SLEEP_TIME, 200).
 
@@ -86,7 +89,8 @@ acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
                     acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout);
 
                 {error,_} -> % Not open, a restart
-                    {ok,NewLSock} = listen(Port, Opts),
+                    %% Allow gen_tcp:listen to fail 4 times if eaddrinuse:
+                    {ok,NewLSock} = try_listen(Port, Opts, 4),
                     proc_lib:init_ack(Parent, {ok, self()}),
                     Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
                     {_, Callback, _} =  ?GET_OPT(transport, Opts1),
@@ -95,6 +99,19 @@ acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
     catch
         _:_ ->
             {error,use_existing_socket_failed}
+    end.
+
+
+try_listen(Port, Opts, NtriesLeft) ->
+    try_listen(Port, Opts, 1, NtriesLeft).
+
+try_listen(Port, Opts, N, Nmax) ->
+    case listen(Port, Opts) of
+        {error,eaddrinuse} when N<Nmax ->
+            timer:sleep(10*N), % Sleep 10, 20, 30,... ms
+            try_listen(Port, Opts, N+1, Nmax);
+        Other ->
+            Other
     end.
 
 
@@ -181,3 +198,36 @@ handle_error(Reason) ->
     error_logger:error_report(String),
     exit({accept_failed, String}).    
 
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+ssh_dbg_trace_points() -> [connections].
+
+ssh_dbg_flags(connections) -> [c].
+
+ssh_dbg_on(connections) -> dbg:tp(?MODULE,  acceptor_init, 5, x),
+                           dbg:tpl(?MODULE, handle_connection, 5, x).
+
+ssh_dbg_off(connections) -> dbg:ctp(?MODULE, acceptor_init, 5),
+                            dbg:ctp(?MODULE, handle_connection, 5).
+
+ssh_dbg_format(connections, {call, {?MODULE,acceptor_init,
+                                    [_Parent, Port, Address, _Opts, _AcceptTimeout]}}) ->
+    [io_lib:format("Starting LISTENER on ~s:~p\n", [ntoa(Address),Port])
+    ];
+ssh_dbg_format(connections, {return_from, {?MODULE,handle_connection,5}, {error,Error}}) ->
+    ["Starting connection to server failed:\n",
+     io_lib:format("Error = ~p", [Error])
+    ].
+
+
+
+ntoa(A) ->
+    try inet:ntoa(A)
+    catch
+        _:_ when is_list(A) -> A;
+        _:_ -> io_lib:format('~p',[A])
+    end.
+            

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>D</rev>
     <file>timer.xml</file>
   </header>
-  <module>timer</module>
+  <module since="">timer</module>
   <modulesummary>Timer functions.</modulesummary>
   <description>
     <p>This module provides useful functions related to time. Unless otherwise
@@ -41,7 +41,7 @@
       process.</p>
     <p>Successful evaluations of the timer functions give return values
       containing a timer reference, denoted <c>TRef</c>. By using
-      <seealso marker="#cancel/1"><c>cancel/1</c></seealso>,
+      <seemfa marker="#cancel/1"><c>cancel/1</c></seemfa>,
       the returned reference can be used to cancel any
       requested action. A <c>TRef</c> is an Erlang term, which contents
       must not be changed.</p>
@@ -62,7 +62,7 @@
 
   <funcs>
     <func>
-      <name name="apply_after" arity="4"/>
+      <name name="apply_after" arity="4" since=""/>
       <fsummary>Apply <c>Module:Function(Arguments)</c> after a specified
         <c>Time</c>.</fsummary>
       <desc>
@@ -75,7 +75,7 @@
     </func>
 
     <func>
-      <name name="apply_interval" arity="4"/>
+      <name name="apply_interval" arity="4" since=""/>
       <fsummary>Evaluate <c>Module:Function(Arguments)</c> repeatedly at
         intervals of <c>Time</c>.</fsummary>
       <desc>
@@ -88,7 +88,7 @@
     </func>
 
     <func>
-      <name name="cancel" arity="1"/>
+      <name name="cancel" arity="1" since=""/>
       <fsummary>Cancel a previously requested time-out identified by
         <c>TRef</c>.</fsummary>
       <desc>
@@ -101,8 +101,8 @@
     </func>
 
     <func>
-      <name name="exit_after" arity="2"/>
-      <name name="exit_after" arity="3"/>
+      <name name="exit_after" arity="2" since=""/>
+      <name name="exit_after" arity="3" since=""/>
       <fsummary>Send an exit signal with <c>Reason</c> after a specified
         <c>Time</c>.</fsummary>
       <desc>
@@ -117,7 +117,7 @@
     </func>
 
     <func>
-      <name name="hms" arity="3"/>
+      <name name="hms" arity="3" since=""/>
       <fsummary>Convert <c>Hours</c>+<c>Minutes</c>+<c>Seconds</c> to
         <c>Milliseconds</c>.</fsummary>
       <desc>
@@ -127,7 +127,7 @@
     </func>
 
     <func>
-      <name name="hours" arity="1"/>
+      <name name="hours" arity="1" since=""/>
       <fsummary>Convert <c>Hours</c> to <c>Milliseconds</c>.</fsummary>
       <desc>
         <p>Returns the number of milliseconds in <c><anno>Hours</anno></c>.</p>
@@ -135,8 +135,8 @@
     </func>
 
     <func>
-      <name name="kill_after" arity="1"/>
-      <name name="kill_after" arity="2"/>
+      <name name="kill_after" arity="1" since=""/>
+      <name name="kill_after" arity="2" since=""/>
       <fsummary>Send an exit signal with <c>Reason</c> after a specified
         <c>Time</c>.</fsummary>
       <desc>
@@ -148,7 +148,7 @@
     </func>
 
     <func>
-      <name name="minutes" arity="1"/>
+      <name name="minutes" arity="1" since=""/>
       <fsummary>Converts <c>Minutes</c> to <c>Milliseconds</c>.</fsummary>
       <desc>
         <p>Returns the number of milliseconds in
@@ -157,7 +157,7 @@
     </func>
 
     <func>
-      <name name="now_diff" arity="2"/>
+      <name name="now_diff" arity="2" since=""/>
       <fsummary>Calculate time difference between time stamps.</fsummary>
       <type_desc variable="Tdiff">In microseconds</type_desc>
       <desc>
@@ -165,15 +165,15 @@
           <anno>T2</anno> - <anno>T1</anno></c> in <em>microseconds</em>,
           where <c><anno>T1</anno></c> and <c><anno>T2</anno></c>
           are time-stamp tuples on the same format as returned from
-          <seealso marker="erts:erlang#timestamp/0">
-          <c>erlang:timestamp/0</c></seealso> or
-          <seealso marker="kernel:os#timestamp/0">
-          <c>os:timestamp/0</c></seealso>.</p>
+          <seemfa marker="erts:erlang#timestamp/0">
+          <c>erlang:timestamp/0</c></seemfa> or
+          <seemfa marker="kernel:os#timestamp/0">
+          <c>os:timestamp/0</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="seconds" arity="1"/>
+      <name name="seconds" arity="1" since=""/>
       <fsummary>Convert <c>Seconds</c> to <c>Milliseconds</c>.</fsummary>
       <desc>
         <p>Returns the number of milliseconds in
@@ -182,8 +182,8 @@
     </func>
 
     <func>
-      <name name="send_after" arity="2"/>
-      <name name="send_after" arity="3"/>
+      <name name="send_after" arity="2" since=""/>
+      <name name="send_after" arity="3" since=""/>
       <fsummary>Send <c>Message</c> to <c>Pid</c> after a specified
         <c>Time</c>.</fsummary>
       <desc>
@@ -206,8 +206,8 @@
     </func>
 
     <func>
-      <name name="send_interval" arity="2"/>
-      <name name="send_interval" arity="3"/>
+      <name name="send_interval" arity="2" since=""/>
+      <name name="send_interval" arity="3" since=""/>
       <fsummary>Send <c>Message</c> repeatedly at intervals of <c>Time</c>.
       </fsummary>
       <desc>
@@ -231,7 +231,7 @@
     </func>
 
     <func>
-      <name name="sleep" arity="1"/>
+      <name name="sleep" arity="1" since=""/>
       <fsummary>Suspend the calling process for <c>Time</c> milliseconds.
       </fsummary>
       <desc>
@@ -244,7 +244,7 @@
     </func>
 
     <func>
-      <name name="start" arity="0"/>
+      <name name="start" arity="0" since=""/>
       <fsummary>Start a global timer server (named <c>timer_server</c>).
       </fsummary>
       <desc>
@@ -253,14 +253,14 @@
           is needed. This is useful during development, but in a
           target system the server is to be started explicitly. Use
           configuration parameters for
-          <seealso marker="kernel:index">Kernel</seealso> for this.</p>
+          <seeapp marker="kernel:index">Kernel</seeapp> for this.</p>
       </desc>
     </func>
 
     <func>
-      <name name="tc" arity="1"/>
-      <name name="tc" arity="2"/>
-      <name name="tc" arity="3"/>
+      <name name="tc" arity="1" since="OTP R14B03"/>
+      <name name="tc" arity="2" since="OTP R14B"/>
+      <name name="tc" arity="3" since=""/>
       <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
         Function, Arguments)</c> or <c>apply(Fun, Arguments)</c>.</fsummary>
       <type_desc variable="Time">In microseconds</type_desc>
@@ -270,8 +270,8 @@
           <item>
             <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
               <anno>Arguments</anno>)</c> and measures the elapsed real time as 
-              reported by <seealso marker="kernel:os#timestamp/0">
-              <c>os:timestamp/0</c></seealso>.</p>
+              reported by <seemfa marker="erts:erlang#monotonic_time/0">
+              <c>erlang:monotonic_time/0</c></seemfa>.</p>
             <p>Returns <c>{<anno>Time</anno>, <anno>Value</anno>}</c>, where
               <c><anno>Time</anno></c> is the elapsed real time in
               <em>microseconds</em>, and <c><anno>Value</anno></c> is what is
@@ -318,27 +318,27 @@ timer:cancel(R),
   <section>
     <title>Notes</title>
     <p>A timer can always be removed by calling
-      <seealso marker="#cancel/1"><c>cancel/1</c></seealso>.</p>
+      <seemfa marker="#cancel/1"><c>cancel/1</c></seemfa>.</p>
 
     <p>An interval timer, that is, a timer created by evaluating any of the
       functions
-      <seealso marker="#apply_interval/4"><c>apply_interval/4</c></seealso>,
-      <seealso marker="#send_interval/3"><c>send_interval/3</c></seealso>, and
-      <seealso marker="#send_interval/2"><c>send_interval/2</c></seealso>
+      <seemfa marker="#apply_interval/4"><c>apply_interval/4</c></seemfa>,
+      <seemfa marker="#send_interval/3"><c>send_interval/3</c></seemfa>, and
+      <seemfa marker="#send_interval/2"><c>send_interval/2</c></seemfa>
       is linked to the process to which the timer performs its task.</p>
 
     <p>A one-shot timer, that is, a timer created by evaluating any of the
       functions
-      <seealso marker="#apply_after/4"><c>apply_after/4</c></seealso>,
-      <seealso marker="#send_after/3"><c>send_after/3</c></seealso>,
-      <seealso marker="#send_after/2"><c>send_after/2</c></seealso>,
-      <seealso marker="#exit_after/3"><c>exit_after/3</c></seealso>,
-      <seealso marker="#exit_after/2"><c>exit_after/2</c></seealso>,
-      <seealso marker="#kill_after/2"><c>kill_after/2</c></seealso>, and
-      <seealso marker="#kill_after/1"><c>kill_after/1</c></seealso>
+      <seemfa marker="#apply_after/4"><c>apply_after/4</c></seemfa>,
+      <seemfa marker="#send_after/3"><c>send_after/3</c></seemfa>,
+      <seemfa marker="#send_after/2"><c>send_after/2</c></seemfa>,
+      <seemfa marker="#exit_after/3"><c>exit_after/3</c></seemfa>,
+      <seemfa marker="#exit_after/2"><c>exit_after/2</c></seemfa>,
+      <seemfa marker="#kill_after/2"><c>kill_after/2</c></seemfa>, and
+      <seemfa marker="#kill_after/1"><c>kill_after/1</c></seemfa>
       is not linked to any process. Hence, such a timer is removed only
       when it reaches its time-out, or if it is explicitly removed by a call to
-      <seealso marker="#cancel/1"><c>cancel/1</c></seealso>.</p>
+      <seemfa marker="#cancel/1"><c>cancel/1</c></seemfa>.</p>
   </section>
 </erlref>
 

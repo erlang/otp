@@ -85,13 +85,13 @@ following:
 3.  Depending on use, issue appropriate memory barrier.
 
     A common barrier used is a barrier with acquire semantics. On
-    x86/x86_64 this maps to a compiler barrier preventing the compiler
+    x86/x86\_64 this maps to a compiler barrier preventing the compiler
     to reorder instructions, but on other hardware often some kind of
     light weight hardware memory barrier is also needed.
 
     When comparing with a locked approach, at least one heavy weight
     memory barrier will be issued when locking the lock on most, if
-    not all, hardware architectures (including x86/x86_64), and often
+    not all, hardware architectures (including x86/x86\_64), and often
     some kind of light weight memory barrier will be issued when
     unlocking the lock. 
 

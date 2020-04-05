@@ -16,7 +16,8 @@ MISC_DRVS =		outputv_drv@dll@ \
 			thr_free_drv@dll@ \
 			async_blast_drv@dll@ \
 			thr_msg_blast_drv@dll@ \
-			consume_timeslice_drv@dll@
+			consume_timeslice_drv@dll@ \
+			env_drv@dll@
 
 SYS_INFO_DRVS = 	sys_info_base_drv@dll@ \
 			sys_info_prev_drv@dll@ \

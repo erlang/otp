@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2017</year>
+      <year>2001</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,6 +35,9 @@
   <lib>ei</lib>
   <libsummary>Routines for handling the Erlang binary term format.</libsummary>
   <description>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    
     <p>The library <c>ei</c> contains macros and functions to encode
       and decode the Erlang binary term format.</p>
 
@@ -46,14 +49,9 @@
 
     <p><c>ei</c> also handles C-nodes, C-programs that talks Erlang
       distribution with Erlang nodes (or other C-nodes) using the
-      Erlang distribution format. The difference between <c>ei</c>
-      and <c>erl_interface</c> is that <c>ei</c> uses
-      the binary format directly when sending and receiving terms. It is also
+      Erlang distribution format.The <c>ei</c> library is
       thread safe, and using threads, one process can handle multiple
-      C-nodes. The <c>erl_interface</c> library is built on top of
-      <c>ei</c>, but of legacy reasons, it does not allow for
-      multiple C-nodes. In general, <c>ei</c> is the preferred way
-      of doing C-nodes.</p>
+      C-nodes.</p>
 
     <p>The decode and encode functions use a buffer and an index into the
       buffer, which points at the point where to encode and
@@ -124,7 +122,7 @@ typedef enum {
 
   <funcs>
       <func>
-          <name><ret>int</ret><nametext>ei_decode_atom(const char *buf, int *index, char *p)</nametext></name>
+          <name since=""><ret>int</ret><nametext>ei_decode_atom(const char *buf, int *index, char *p)</nametext></name>
           <fsummary>Decode an atom.</fsummary>
           <desc>
               <p>Decodes an atom from the binary format. The <c>NULL</c>-terminated
@@ -134,14 +132,14 @@ typedef enum {
       </func>
 
       <func>
-          <name><ret>int</ret><nametext>ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result)</nametext></name>
+          <name since="OTP R16B"><ret>int</ret><nametext>ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result)</nametext></name>
           <fsummary>Decode an atom.</fsummary>
           <desc>
               <p>Decodes an atom from the binary format. The <c>NULL</c>-terminated
                   name of the atom is placed in buffer at <c>p</c> of length <c>plen</c>
                   bytes.</p>
               <p>The wanted string encoding is specified by
-                  <seealso marker="#erlang_char_encoding"><c>want</c></seealso>.
+                  <seecref marker="#erlang_char_encoding"><c>want</c></seecref>.
                   The original encoding used in the binary format (Latin-1 or UTF-8) can
                   be obtained from <c>*was</c>. The encoding of the resulting string
                   (7-bit ASCII, Latin-1, or UTF-8) can be obtained from <c>*result</c>.
@@ -158,7 +156,7 @@ typedef enum {
       </func>
 
       <func>
-          <name><ret>int</ret><nametext>ei_decode_bignum(const char *buf, int *index, mpz_t obj)</nametext></name>
+          <name since=""><ret>int</ret><nametext>ei_decode_bignum(const char *buf, int *index, mpz_t obj)</nametext></name>
           <fsummary>Decode a GMP arbitrary precision integer.</fsummary>
           <desc>
               <p>Decodes an integer in the binary format to a GMP
@@ -168,7 +166,7 @@ typedef enum {
       </func>
 
       <func>
-          <name><ret>int</ret><nametext>ei_decode_binary(const char *buf, int *index, void *p, long *len)</nametext></name>
+          <name since=""><ret>int</ret><nametext>ei_decode_binary(const char *buf, int *index, void *p, long *len)</nametext></name>
           <fsummary>Decode a binary.</fsummary>
           <desc>
               <p>Decodes a binary from the binary format. Parameter
@@ -180,7 +178,44 @@ typedef enum {
       </func>
 
       <func>
-          <name><ret>int</ret><nametext>ei_decode_boolean(const char *buf, int *index, int *p)</nametext></name>
+          <name since="OTP 22.0"><ret>int</ret><nametext>ei_decode_bitstring(const char *buf, int *index, const char **pp, unsigned int *bitoffsp, size_t *nbitsp)</nametext></name>
+          <fsummary>Decode a bitstring.</fsummary>
+          <desc>
+            <p>Decodes a bit string from the binary format.</p>
+	    <taglist>
+	      <tag><c>pp</c></tag>
+	      <item><p>Either <c>NULL</c> or <c>*pp</c> returns a pointer to
+	       the first byte of the bit string. The returned bit string is
+	       readable as long as the buffer pointed to by <c>buf</c> is
+	       readable and not written to.</p>
+	      </item>
+	      <tag><c>bitoffsp</c></tag>
+	      <item><p>Either <c>NULL</c> or <c>*bitoffsp</c> returns the
+	       number of unused bits in the first byte pointed to by
+	       <c>*pp</c>. The value of <c>*bitoffsp</c> is between 0 and 7.
+	       Unused bits in the first byte are the most significant bits.</p>
+	      </item>
+	      <tag><c>nbitsp</c></tag>
+	      <item><p>Either <c>NULL</c> or <c>*nbitsp</c> returns the length
+	       of the bit string in <em>bits</em>.</p>
+	      </item>
+	    </taglist>
+	    <p>Returns <c>0</c> if it was a bit string term.</p>
+	    <p>The number of <em>bytes</em> pointed to by <c>*pp</c>, which are
+	      part of the bit string, is <c>(*bitoffsp + *nbitsp + 7)/8</c>. If
+	      <c>(*bitoffsp + *bitsp)%8 > 0</c> then only <c>(*bitoffsp +
+	      *bitsp)%8</c> bits of the last byte are used. Unused bits in
+	      the last byte are the least significant bits.</p>
+	    <p>The values of unused bits in the first and last byte are undefined
+	      and cannot be relied on.</p>
+	    <p>Number of bits may be divisible by 8, which means a binary
+	      decodable by <c>ei_decode_binary</c> is also decodable by
+	      <c>ei_decode_bitstring</c>.</p>
+          </desc>
+      </func>
+
+      <func>
+          <name since=""><ret>int</ret><nametext>ei_decode_boolean(const char *buf, int *index, int *p)</nametext></name>
           <fsummary>Decode a boolean.</fsummary>
           <desc>
               <p>Decodes a boolean value from the binary format.
@@ -190,7 +225,7 @@ typedef enum {
       </func>
 
       <func>
-          <name><ret>int</ret><nametext>ei_decode_char(const char *buf, int *index, char *p)</nametext></name>
+          <name since=""><ret>int</ret><nametext>ei_decode_char(const char *buf, int *index, char *p)</nametext></name>
           <fsummary>Decode an 8-bit integer between 0-255.</fsummary>
           <desc>
               <p>Decodes a char (8-bit) integer between 0-255 from the binary format.
@@ -203,7 +238,7 @@ typedef enum {
       </func>
 
       <func>
-          <name><ret>int</ret><nametext>ei_decode_double(const char *buf, int *index, double *p)</nametext></name>
+          <name since=""><ret>int</ret><nametext>ei_decode_double(const char *buf, int *index, double *p)</nametext></name>
           <fsummary>Decode a double.</fsummary>
           <desc>
               <p>Decodes a double-precision (64-bit) floating
@@ -212,7 +247,7 @@ typedef enum {
       </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_ei_term(const char* buf, int* index, ei_term* term)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_ei_term(const char* buf, int* index, ei_term* term)</nametext></name>
       <fsummary>Decode a term, without previous knowledge of type.</fsummary>
       <desc>
         <p>Decodes any term, or at least tries to. If the term
@@ -233,8 +268,8 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_fun(const char *buf, int *index, erlang_fun *p)</nametext></name>
-      <name><ret>void</ret><nametext>free_fun(erlang_fun* f)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_fun(const char *buf, int *index, erlang_fun *p)</nametext></name>
+      <name since=""><ret>void</ret><nametext>free_fun(erlang_fun* f)</nametext></name>
       <fsummary>Decode a fun.</fsummary>
       <desc>
         <p>Decodes a fun from the binary format. Parameter
@@ -248,7 +283,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_list_header(const char *buf, int *index, int *arity)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_list_header(const char *buf, int *index, int *arity)</nametext></name>
       <fsummary>Decode a list.</fsummary>
       <desc>
         <p>Decodes a list header from the binary
@@ -265,7 +300,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_long(const char *buf, int *index, long *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_long(const char *buf, int *index, long *p)</nametext></name>
       <fsummary>Decode integer.</fsummary>
       <desc>
         <p>Decodes a long integer from the binary format.
@@ -275,7 +310,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_longlong(const char *buf, int *index, long long *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_longlong(const char *buf, int *index, long long *p)</nametext></name>
       <fsummary>Decode integer.</fsummary>
       <desc>
         <p>Decodes a GCC <c>long long</c> or Visual C++
@@ -286,7 +321,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_map_header(const char *buf, int *index, int *arity)</nametext></name>
+      <name since="OTP 17.0"><ret>int</ret><nametext>ei_decode_map_header(const char *buf, int *index, int *arity)</nametext></name>
       <fsummary>Decode a map.</fsummary>
       <desc>
         <p>Decodes a map header from the binary
@@ -299,7 +334,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_pid(const char *buf, int *index, erlang_pid *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_pid(const char *buf, int *index, erlang_pid *p)</nametext></name>
       <fsummary>Decode a <c>pid</c>.</fsummary>
       <desc>
         <p>Decodes a process identifier (pid) from the binary format.</p>
@@ -307,7 +342,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_port(const char *buf, int *index, erlang_port *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_port(const char *buf, int *index, erlang_port *p)</nametext></name>
       <fsummary>Decode a port.</fsummary>
       <desc>
         <p>Decodes a port identifier from the binary format.</p>
@@ -315,7 +350,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_ref(const char *buf, int *index, erlang_ref *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_ref(const char *buf, int *index, erlang_ref *p)</nametext></name>
       <fsummary>Decode a reference.</fsummary>
       <desc>
         <p>Decodes a reference from the binary format.</p>
@@ -323,7 +358,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_string(const char *buf, int *index, char *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_string(const char *buf, int *index, char *p)</nametext></name>
       <fsummary>Decode a string.</fsummary>
       <desc>
         <p>Decodes a string from the binary format. A
@@ -338,21 +373,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_term(const char *buf, int *index, void *t)</nametext></name>
-      <fsummary>Decode a <c>ETERM</c>.</fsummary>
-      <desc>
-        <p>Decodes a term from the binary format. The term
-          is return in <c>t</c> as a <c>ETERM*</c>, so
-          <c>t</c> is actually an <c>ETERM**</c> (see
-          <seealso marker="erl_eterm"><c>erl_eterm</c></seealso>).
-          The term is later to be deallocated.</p>
-        <p>Notice that this function is located in the <c>Erl_Interface</c>
-          library.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>int</ret><nametext>ei_decode_trace(const char *buf, int *index, erlang_trace *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_trace(const char *buf, int *index, erlang_trace *p)</nametext></name>
       <fsummary>Decode a trace token.</fsummary>
       <desc>
         <p>Decodes an Erlang trace token from the binary format.</p>
@@ -360,7 +381,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_tuple_header(const char *buf, int *index, int *arity)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_tuple_header(const char *buf, int *index, int *arity)</nametext></name>
       <fsummary>Decode a tuple.</fsummary>
       <desc>
         <p>Decodes a tuple header, the number of elements
@@ -370,7 +391,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_ulong(const char *buf, int *index, unsigned long *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_ulong(const char *buf, int *index, unsigned long *p)</nametext></name>
       <fsummary>Decode unsigned integer.</fsummary>
       <desc>
         <p>Decodes an unsigned long integer from the binary format.
@@ -380,7 +401,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_ulonglong(const char *buf, int *index, unsigned long long *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_ulonglong(const char *buf, int *index, unsigned long long *p)</nametext></name>
       <fsummary>Decode unsigned integer.</fsummary>
       <desc>
         <p>Decodes a GCC <c>unsigned long long</c> or Visual C++
@@ -390,7 +411,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_version(const char *buf, int *index, int *version)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_decode_version(const char *buf, int *index, int *version)</nametext></name>
       <fsummary>Decode an empty list (<c>nil</c>).</fsummary>
       <desc>
         <p>Decodes the version magic number for the
@@ -400,10 +421,10 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_atom(char *buf, int *index, const char *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_encode_atom_len(char *buf, int *index, const char *p, int len)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_atom(ei_x_buff* x, const char *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_atom_len(ei_x_buff* x, const char *p, int len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_atom(char *buf, int *index, const char *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_atom_len(char *buf, int *index, const char *p, int len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_atom(ei_x_buff* x, const char *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_atom_len(ei_x_buff* x, const char *p, int len)</nametext></name>
       <fsummary>Encode an atom.</fsummary>
       <desc>
         <p>Encodes an atom in the binary format. Parameter <c>p</c>
@@ -415,15 +436,15 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name since="OTP R16B"><ret>int</ret><nametext>ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name since="OTP R16B"><ret>int</ret><nametext>ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name since="OTP R16B"><ret>int</ret><nametext>ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name since="OTP R16B"><ret>int</ret><nametext>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
       <fsummary>Encode an atom.</fsummary>
       <desc>
         <p>Encodes an atom in the binary format. Parameter <c>p</c> is the name of the atom with
           character encoding
-          <seealso marker="#erlang_char_encoding"><c>from_enc</c></seealso>
+          <seecref marker="#erlang_char_encoding"><c>from_enc</c></seecref>
           (ASCII, Latin-1, or UTF-8). The name must either be <c>NULL</c>-terminated or
           a function variant with a <c>len</c> parameter must be used.</p>
 	<p>The encoding fails if <c>p</c> is not a valid string in encoding
@@ -435,8 +456,8 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_bignum(char *buf, int *index, mpz_t obj)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_bignum(ei_x_buff *x, mpz_t obj)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_bignum(char *buf, int *index, mpz_t obj)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_bignum(ei_x_buff *x, mpz_t obj)</nametext></name>
       <fsummary>Encode an arbitrary precision integer.</fsummary>
       <desc>
         <p>Encodes a GMP <c>mpz_t</c> integer to binary format.
@@ -446,8 +467,8 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_binary(char *buf, int *index, const void *p, long len)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_binary(ei_x_buff* x, const void *p, long len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_binary(char *buf, int *index, const void *p, long len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_binary(ei_x_buff* x, const void *p, long len)</nametext></name>
       <fsummary>Encode a binary.</fsummary>
       <desc>
         <p>Encodes a binary in the binary format. The data is at
@@ -456,8 +477,30 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_boolean(char *buf, int *index, int p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_boolean(ei_x_buff* x, int p)</nametext></name>
+      <name since="OTP 22.0"><ret>int</ret>
+      <nametext>ei_encode_bitstring(char *buf, int *index, const char *p, size_t bitoffs, size_t nbits)</nametext></name>
+      <name since="OTP 22.0"><ret>int</ret>
+      <nametext>ei_x_encode_bitstring(ei_x_buff* x, const char *p, size_t bitoffs, size_t nbits)</nametext></name>
+      <fsummary>Encode a bitstring.</fsummary>
+      <desc>
+        <p>Encodes a bit string in the binary format.</p>
+	<p>The data is at <c>p</c>. The length of the bit string is <c>nbits</c>
+	  bits. The first <c>bitoffs</c> bits of the data at <c>p</c> are unused.
+	  The first byte which is part of the bit string is
+	  <c>p[bitoffs/8]</c>. The <c>bitoffs%8</c> most significant bits of
+	  the first byte <c>p[bitoffs/8]</c> are unused.</p>
+	<p>The number of bytes which is part of the bit string is <c>(bitoffs +
+	  nbits + 7)/8</c>. If <c>(bitoffs + nbits)%8 > 0</c> then only <c>(bitoffs +
+	  nbits)%8</c> bits of the last byte are used. Unused bits in
+	  the last byte are the least significant bits.</p>
+	<p>The values of unused bits are disregarded and does not need to be
+	  cleared.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>int</ret><nametext>ei_encode_boolean(char *buf, int *index, int p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_boolean(ei_x_buff* x, int p)</nametext></name>
       <fsummary>Encode a boolean.</fsummary>
       <desc>
         <p>Encodes a boolean value as the atom <c>true</c> if
@@ -467,8 +510,8 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_char(char *buf, int *index, char p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_char(ei_x_buff* x, char p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_char(char *buf, int *index, char p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_char(ei_x_buff* x, char p)</nametext></name>
       <fsummary>Encode an 8-bit integer between 0-255.</fsummary>
       <desc>
         <p>Encodes a char (8-bit) as an integer between 0-255 in the binary
@@ -481,8 +524,8 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_double(char *buf, int *index, double p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_double(ei_x_buff* x, double p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_double(char *buf, int *index, double p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_double(ei_x_buff* x, double p)</nametext></name>
       <fsummary>Encode a double float.</fsummary>
       <desc>
         <p>Encodes a double-precision (64-bit) floating point number in
@@ -493,8 +536,8 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_empty_list(char* buf, int* index)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_empty_list(ei_x_buff* x)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_empty_list(char* buf, int* index)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_empty_list(ei_x_buff* x)</nametext></name>
       <fsummary>Encode an empty list (<c>nil</c>).</fsummary>
       <desc>
         <p>Encodes an empty list. It is often used at the tail of a list.</p>
@@ -502,8 +545,8 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_fun(char *buf, int *index, const erlang_fun *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_fun(ei_x_buff* x, const erlang_fun* fun)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_fun(char *buf, int *index, const erlang_fun *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_fun(ei_x_buff* x, const erlang_fun* fun)</nametext></name>
       <fsummary>Encode a fun.</fsummary>
       <desc>
         <p>Encodes a fun in the binary format. Parameter <c>p</c>
@@ -515,8 +558,8 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_list_header(char *buf, int *index, int arity)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_list_header(ei_x_buff* x, int arity)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_list_header(char *buf, int *index, int arity)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_list_header(ei_x_buff* x, int arity)</nametext></name>
       <fsummary>Encode a list.</fsummary>
       <desc>
         <p>Encodes a list header, with a specified
@@ -552,8 +595,8 @@ ei_x_encode_empty_list(&amp;x);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_long(char *buf, int *index, long p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_long(ei_x_buff* x, long p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_long(char *buf, int *index, long p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_long(ei_x_buff* x, long p)</nametext></name>
       <fsummary>Encode integer.</fsummary>
       <desc>
         <p>Encodes a long integer in the binary format.
@@ -563,8 +606,8 @@ ei_x_encode_empty_list(&amp;x);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_longlong(char *buf, int *index, long long p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_longlong(ei_x_buff* x, long long p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_longlong(char *buf, int *index, long long p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_longlong(ei_x_buff* x, long long p)</nametext></name>
       <fsummary>Encode integer.</fsummary>
       <desc>
         <p>Encodes a GCC <c>long long</c> or Visual C++
@@ -574,8 +617,8 @@ ei_x_encode_empty_list(&amp;x);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_map_header(char *buf, int *index, int arity)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_map_header(ei_x_buff* x, int arity)</nametext></name>
+      <name since="OTP 17.0"><ret>int</ret><nametext>ei_encode_map_header(char *buf, int *index, int arity)</nametext></name>
+      <name since="OTP 17.0"><ret>int</ret><nametext>ei_x_encode_map_header(ei_x_buff* x, int arity)</nametext></name>
       <fsummary>Encode a map.</fsummary>
       <desc>
         <p>Encodes a map header, with a specified arity. The next
@@ -595,8 +638,8 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_pid(char *buf, int *index, const erlang_pid *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_pid(ei_x_buff* x, const erlang_pid *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_pid(char *buf, int *index, const erlang_pid *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_pid(ei_x_buff* x, const erlang_pid *p)</nametext></name>
       <fsummary>Encode a pid.</fsummary>
       <desc>
         <p>Encodes an Erlang process identifier (pid) in the binary
@@ -607,8 +650,8 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_port(char *buf, int *index, const erlang_port *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_port(ei_x_buff* x, const erlang_port *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_port(char *buf, int *index, const erlang_port *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_port(ei_x_buff* x, const erlang_port *p)</nametext></name>
       <fsummary>Encode a port.</fsummary>
       <desc>
         <p>Encodes an Erlang port in the binary format. Parameter
@@ -619,8 +662,8 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_ref(char *buf, int *index, const erlang_ref *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_ref(ei_x_buff* x, const erlang_ref *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_ref(char *buf, int *index, const erlang_ref *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_ref(ei_x_buff* x, const erlang_ref *p)</nametext></name>
       <fsummary>Encode a ref.</fsummary>
       <desc>
         <p>Encodes an Erlang reference in the binary format. Parameter
@@ -631,10 +674,10 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_string(char *buf, int *index, const char *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_encode_string_len(char *buf, int *index, const char *p, int len)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_string(ei_x_buff* x, const char *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_string_len(ei_x_buff* x, const char* s, int len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_string(char *buf, int *index, const char *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_string_len(char *buf, int *index, const char *p, int len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_string(ei_x_buff* x, const char *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_string_len(ei_x_buff* x, const char* s, int len)</nametext></name>
       <fsummary>Encode a string.</fsummary>
       <desc>
         <p>Encodes a string in the binary format. (A string in Erlang
@@ -643,21 +686,9 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
           the <c>ei_x_encode_string_len()</c> function.</p>
       </desc>
     </func>
-
     <func>
-      <name><ret>int</ret><nametext>ei_encode_term(char *buf, int *index, void *t)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_term(ei_x_buff* x, void *t)</nametext></name>
-      <fsummary>Encode an <c>erl_interface</c> term.</fsummary>
-      <desc>
-        <p>Encodes an <c>ETERM</c>, as obtained from
-          <c>erl_interface</c>. Parameter <c>t</c> is
-          actually an <c>ETERM</c> pointer. This function
-          does not free the <c>ETERM</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>ei_encode_trace(char *buf, int *index, const erlang_trace *p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_trace(char *buf, int *index, const erlang_trace *p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p)</nametext></name>
       <fsummary>Encode a trace token.</fsummary>
       <desc>
         <p>Encodes an Erlang trace token in the binary format.
@@ -668,8 +699,8 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_tuple_header(char *buf, int *index, int arity)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_tuple_header(ei_x_buff* x, int arity)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_tuple_header(char *buf, int *index, int arity)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_tuple_header(ei_x_buff* x, int arity)</nametext></name>
       <fsummary>Encode a tuple.</fsummary>
       <desc>
         <p>Encodes a tuple header, with a specified
@@ -687,8 +718,8 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_ulong(char *buf, int *index, unsigned long p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_ulong(ei_x_buff* x, unsigned long p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_ulong(char *buf, int *index, unsigned long p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_ulong(ei_x_buff* x, unsigned long p)</nametext></name>
       <fsummary>Encode unsigned integer.</fsummary>
       <desc>
         <p>Encodes an unsigned long integer in the binary format.
@@ -698,8 +729,8 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_ulonglong(char *buf, int *index, unsigned long long p)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_ulonglong(ei_x_buff* x, unsigned long long p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_ulonglong(char *buf, int *index, unsigned long long p)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_ulonglong(ei_x_buff* x, unsigned long long p)</nametext></name>
       <fsummary>Encode unsigned integer.</fsummary>
       <desc>
         <p>Encodes a GCC <c>unsigned long long</c> or Visual C++
@@ -709,8 +740,8 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_version(char *buf, int *index)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_version(ei_x_buff* x)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_encode_version(char *buf, int *index)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_encode_version(ei_x_buff* x)</nametext></name>
       <fsummary>Encode version.</fsummary>
       <desc>
         <p>Encodes a version magic number for the binary format. Must
@@ -719,22 +750,33 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_get_type(const char *buf, const int *index, int *type, int *size)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_get_type(const char *buf, const int *index, int *type, int *size)</nametext></name>
       <fsummary>Fetch the type and size of an encoded term.</fsummary>
       <desc>
-        <p>Returns the type in <c>type</c> and size in
-          <c>size</c> of the encoded term. For strings and atoms,
+        <p>Returns the type in <c>*type</c> and size in
+          <c>*size</c> of the encoded term. For strings and atoms,
           size is the number of characters <em>not</em> including the
-          terminating <c>NULL</c>. For binaries, <c>size</c> is the number of
-          bytes. For lists and tuples, <c>size</c> is the arity of
-          the object. For other types, <c>size</c> is 0. In all
+          terminating <c>NULL</c>. For binaries and bitstrings, <c>*size</c> is
+	  the number of bytes. For lists, tuples and maps, <c>*size</c> is the
+	  arity of the object. For other types, <c>*size</c> is 0. In all
           cases, <c>index</c> is left unchanged.</p>
       </desc>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_print_term(FILE* fp, const char* buf, int* index)</nametext></name>
-      <name><ret>int</ret><nametext>ei_s_print_term(char** s, const char* buf, int* index)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_init(void)</nametext></name>
+      <fsummary>Initialize the ei library.</fsummary>
+      <desc>
+        <p>Initialize the <c>ei</c> library. This function should be called once
+	(and only once) before calling any other functionality in the <c>ei</c>
+	library.</p>
+	<p>On success zero is returned. On failure a posix error code is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since=""><ret>int</ret><nametext>ei_print_term(FILE* fp, const char* buf, int* index)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_s_print_term(char** s, const char* buf, int* index)</nametext></name>
       <fsummary>Print a term in clear text.</fsummary>
       <desc>
         <p>Prints a term, in clear text, to the file
@@ -759,42 +801,60 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>ei_set_compat_rel(release_number)</nametext></name>
+      <name since=""><ret>void</ret><nametext>ei_set_compat_rel(release_number)</nametext></name>
       <fsummary>Set the ei library in compatibility mode.</fsummary>
       <type>
         <v>unsigned release_number;</v>
       </type>
       <desc>
         <marker id="ei_set_compat_rel"></marker>
-        <p>By default, the <c>ei</c> library is only guaranteed
-          to be compatible with other Erlang/OTP components from the same
-          release as the <c>ei</c> library itself. For example,
-          <c>ei</c> from
-          Erlang/OTP R10 is not compatible with an Erlang emulator
-          from Erlang/OTP R9 by default.</p>
-        <p>A call to <c>ei_set_compat_rel(release_number)</c> sets
-          the <c>ei</c> library in compatibility mode of release
-          <c>release_number</c>. Valid range of
-          <c>release_number</c>
-          is <c>[7, current release]</c>. This makes it possible to
-          communicate with Erlang/OTP components from earlier releases.</p>
+        <p>In general, the <c>ei</c> library is guaranteed
+          to be compatible with other Erlang/OTP components that are 2 major
+	  releases older or newer than the <c>ei</c> library itself.</p>
+        <p>Sometimes an exception to the above rule has to be made to make new
+	  features (or even bug fixes) possible. A call to
+	  <c>ei_set_compat_rel(release_number)</c> sets
+          the <c>ei</c> library in compatibility mode of OTP release
+          <c>release_number</c>.</p>
+	<p>The only useful value for <c>release_number</c> is currently
+	  <c>21</c>. This will only be useful and have an effect if <em>bit
+	  strings</em> or <em>export funs</em> are received from a connected
+	  node. Before OTP 22, bit strings and export funs were not supported by
+	  <c>ei</c>. They were instead encoded using an undocumented fallback
+	  tuple format when sent from the emulator to <c>ei</c>:</p>
+	<taglist>
+	  <tag><c>Bit string</c></tag>
+	  <item><p>The term <c>&lt;&lt;42, 1:1>></c> was encoded as
+	    <c>{&lt;&lt;42, 128>>, 1}</c>. The first element of the tuple is a
+	    binary and the second element denotes how many bits of the last bytes
+	    are part of the bit string. In this example only the most significant
+	    bit of the last byte (128) is part of the bit string.</p>
+	  </item>
+	  <tag><c>Export fun</c></tag>
+	  <item><p>The term <c>fun lists:map/2</c> was encoded as
+	    <c>{lists,map}</c>. A tuple with the module, function and a missing
+	    arity.</p>
+	  </item>
+	</taglist>
+	<p>If <c>ei_set_compat_rel(21)</c> is <em>not</em> called then a connected
+	  emulator will send bit strings and export funs correctly encoded. The
+	  functions <seecref marker="#ei_decode_bitstring"><c>ei_decode_bitstring</c></seecref>
+	  and <seecref marker="#ei_decode_fun"><c>ei_decode_fun</c></seecref>
+	  has to be used to decode such terms. Calling
+	  <c>ei_set_compat_rel(21)</c> should only be done as a workaround to
+	  keep an old implementation alive, which expects to receive the
+	  undocumented tuple formats for bit strings and/or export funs.
+	</p>
         <note>
           <p>If this function is called, it can only be called once
             and must be called before any other functions in the
             <c>ei</c> library are called.</p>
         </note>
-        <warning>
-          <p>You can run into trouble if this feature is used
-            carelessly. Always ensure that all communicating
-            components are either from the same Erlang/OTP release, or
-            from release X and release Y where all components
-            from release Y are in compatibility mode of release X.</p>
-        </warning>
       </desc>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_skip_term(const char* buf, int* index)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_skip_term(const char* buf, int* index)</nametext></name>
       <fsummary>Skip a term.</fsummary>
       <desc>
         <p>Skips a term in the specified buffer;
@@ -815,8 +875,8 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_x_append(ei_x_buff* x, const ei_x_buff* x2)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_append_buf(ei_x_buff* x, const char* buf, int len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_append(ei_x_buff* x, const ei_x_buff* x2)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_append_buf(ei_x_buff* x, const char* buf, int len)</nametext></name>
       <fsummary>Append a buffer at the end.</fsummary>
       <desc>
         <p>Appends data at the end of buffer <c>x</c>.</p>
@@ -824,8 +884,8 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_x_format(ei_x_buff* x, const char* fmt, ...)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_format_wo_ver(ei_x_buff* x, const char *fmt, ... )</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_format(ei_x_buff* x, const char* fmt, ...)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_format_wo_ver(ei_x_buff* x, const char *fmt, ... )</nametext></name>
       <fsummary>Format a term from a format string and parameters.</fsummary>
       <desc>
         <p>Formats a term, given as a string, to a buffer.
@@ -853,7 +913,7 @@ encodes the tuple {numbers,12,3.14159}</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_x_free(ei_x_buff* x)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_free(ei_x_buff* x)</nametext></name>
       <fsummary>Free a buffer.</fsummary>
       <desc>
         <p>Frees an <c>ei_x_buff</c> buffer.
@@ -862,8 +922,8 @@ encodes the tuple {numbers,12,3.14159}</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_x_new(ei_x_buff* x)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_new_with_version(ei_x_buff* x)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_new(ei_x_buff* x)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_x_new_with_version(ei_x_buff* x)</nametext></name>
       <fsummary>Allocate a new buffer.</fsummary>
       <desc>
         <p>Allocates a new <c>ei_x_buff</c> buffer. The
@@ -889,8 +949,4 @@ encodes the tuple {numbers,12,3.14159}</pre>
     </list>
   </section>
 
-  <section>
-    <title>See Also</title>
-    <p><seealso marker="erl_eterm"><c>erl_eterm</c></seealso></p>
-  </section>
 </cref>

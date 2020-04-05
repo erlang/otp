@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,14 +33,15 @@
 
 #define IS_MOVED_BOXED(x)	(!is_header((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
-void erts_sub_binary_to_heap_binary(Eterm **pp, Eterm **hpp, Eterm *orig);
+Eterm* erts_sub_binary_to_heap_binary(Eterm *ptr, Eterm **hpp, Eterm *orig);
 
-ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig);
+ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
+                               Eterm *orig);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig)
+ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
+                               Eterm *orig)
 {
-    Eterm *ptr  = *pp;
-    Eterm *htop = *hpp;
+    Eterm *ERTS_RESTRICT htop = *hpp;
     Eterm gval;
 
     htop[0] = car;               /* copy car */
@@ -53,14 +54,15 @@ ERTS_GLB_INLINE void move_cons(Eterm **pp, Eterm car, Eterm **hpp, Eterm *orig)
 }
 #endif
 
-ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig);
+ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
+                                  Eterm *orig);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig)
+ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
+                                  Eterm *orig)
 {
     Eterm gval;
     Sint nelts;
-    Eterm *ptr = *pp;
-    Eterm *htop = *hpp;
+    Eterm *ERTS_RESTRICT htop = *hpp;
 
     ASSERT(is_header(hdr));
     nelts = header_arity(hdr);
@@ -71,8 +73,7 @@ ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig)
             /* convert sub-binary to heap-binary if applicable */
             if (sb->bitsize == 0 && sb->bitoffs == 0 &&
                 sb->is_writable == 0 && sb->size <= sizeof(Eterm) * 3) {
-                erts_sub_binary_to_heap_binary(pp, hpp, orig);
-                return;
+                return erts_sub_binary_to_heap_binary(ptr, hpp, orig);
             }
         }
         nelts++;
@@ -90,7 +91,7 @@ ERTS_GLB_INLINE void move_boxed(Eterm **pp, Eterm hdr, Eterm **hpp, Eterm *orig)
     while (nelts--) *htop++ = *ptr++;
 
     *hpp = htop;
-    *pp  = ptr;
+    return ptr;
 }
 #endif
 
@@ -153,6 +154,8 @@ typedef struct {
   Uint64 garbage_cols;
 } ErtsGCInfo;
 
+#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*3 + 1 + MAP_HEADER_FLATMAP_SZ)
+
 #define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
 #define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \
     (ERTS_PROCESS_GC_INFO_MAX_TERMS * (2/*cons*/ + 3/*2-tuple*/ + BIG_UINT_HEAP_SIZE))
@@ -180,6 +183,8 @@ void erts_free_heap_frags(struct process* p);
 Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
 void erts_deallocate_young_generation(Process *c_p);
+void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
+                        ErlHeapFragment *bp, Eterm *refs, int nrefs);
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 int erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm* real_htop);
 #endif

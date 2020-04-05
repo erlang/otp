@@ -95,7 +95,7 @@ hosts(Fname,File) ->
 		 %% interface with a %if suffix. These kind of
 		 %% addresses maybe need to be gracefully handled
 		 %% throughout inet* and inet_drv.
-		 case string:tokens(Address, "%") of
+		 case string:lexemes(Address, "%") of
 		     [Addr,_] ->
 			 {ok,_} = address(Addr),
 			 skip;
@@ -407,7 +407,7 @@ is_dom1([C | Cs]) when C >= $a, C =< $z -> is_dom_ldh(Cs);
 is_dom1([C | Cs]) when C >= $A, C =< $Z -> is_dom_ldh(Cs);
 is_dom1([C | Cs]) when C >= $0, C =< $9 -> 
     case is_dom_ldh(Cs) of
-	true  -> is_dom2(string:tokens([C | Cs],"."));
+	true  -> is_dom2(string:lexemes([C | Cs],"."));
 	false -> false
     end;
 is_dom1(_) -> false.

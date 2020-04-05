@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,11 +58,10 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        begin
-	   Port = ssh_test_lib:inet_port(node()),
 	   PrivDir = proplists:get_value(priv_dir, Config),
 	   UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
 	   file:make_dir(UserDir),
-	   [{userdir, UserDir},{port, Port}, {host, "localhost"}, {host_ip, any} | Config]
+	   [{userdir, UserDir} | Config]
        end).
 
 end_per_suite(_) ->
@@ -116,18 +115,21 @@ sshc_subtree(Config) when is_list(Config) ->
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
 
-    ?wait_match([{_, _,worker,[ssh_connection_handler]}],
-		supervisor:which_children(sshc_sup)),
+    ?wait_match([{{client,ssh_system_sup, LocalIP, LocalPort, ?DEFAULT_PROFILE},
+                  SysSup, supervisor,[ssh_system_sup]}],
+		supervisor:which_children(sshc_sup),
+                [SysSup, LocalIP, LocalPort]),
+    check_sshc_system_tree(SysSup, Pid1, LocalIP, LocalPort, Config),
 
     {ok, Pid2} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD}, {user_dir, UserDir}]),
-    ?wait_match([{_,_,worker,[ssh_connection_handler]}, 
-		 {_,_,worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]},
+                 {_, _,supervisor,[ssh_system_sup]}],
 		supervisor:which_children(sshc_sup)),
 
     ssh:close(Pid1),
-    ?wait_match([{_,_,worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]}],
 		supervisor:which_children(sshc_sup)),
     ssh:close(Pid2),
     ?wait_match([], supervisor:which_children(sshc_sup)).
@@ -136,13 +138,11 @@ sshc_subtree(Config) when is_list(Config) ->
 sshd_subtree() ->
     [{doc, "Make sure the sshd subtree is correct"}].
 sshd_subtree(Config) when is_list(Config) ->
-    HostIP = proplists:get_value(host_ip, Config),
-    Port = proplists:get_value(port, Config),
     SystemDir = proplists:get_value(data_dir, Config),
-    {ok,Daemon} = ssh:daemon(HostIP, Port, [{system_dir, SystemDir},
-                                            {failfun, fun ssh_test_lib:failfun/2},
-                                            {user_passwords,
-                                             [{?USER, ?PASSWD}]}]),
+    {Daemon, HostIP, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                                  {failfun, fun ssh_test_lib:failfun/2},
+                                                  {user_passwords,
+                                                   [{?USER, ?PASSWD}]}]),
 
     ct:log("Expect HostIP=~p, Port=~p, Daemon=~p",[HostIP,Port,Daemon]),
     ?wait_match([{{server,ssh_system_sup, ListenIP, Port, ?DEFAULT_PROFILE},
@@ -151,7 +151,7 @@ sshd_subtree(Config) when is_list(Config) ->
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
-    check_sshd_system_tree(Daemon, Config),
+    check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
     ?wait_match([], supervisor:which_children(sshd_sup)).
@@ -160,16 +160,14 @@ sshd_subtree(Config) when is_list(Config) ->
 sshd_subtree_profile() ->
     [{doc, "Make sure the sshd subtree using profile option is correct"}].	
 sshd_subtree_profile(Config) when is_list(Config) ->
-    HostIP = proplists:get_value(host_ip, Config),
-    Port = proplists:get_value(port, Config),
     Profile = proplists:get_value(profile, Config), 
     SystemDir = proplists:get_value(data_dir, Config),
 
-    {ok, Daemon} = ssh:daemon(HostIP, Port, [{system_dir, SystemDir},
-                                             {failfun, fun ssh_test_lib:failfun/2},
-                                             {user_passwords,
-                                              [{?USER, ?PASSWD}]},
-                                             {profile, Profile}]),
+    {Daemon, HostIP, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                                  {failfun, fun ssh_test_lib:failfun/2},
+                                                  {user_passwords,
+                                                   [{?USER, ?PASSWD}]},
+                                                  {profile, Profile}]),
     ct:log("Expect HostIP=~p, Port=~p, Profile=~p, Daemon=~p",[HostIP,Port,Profile,Daemon]),
     ?wait_match([{{server,ssh_system_sup, ListenIP,Port,Profile},
 		  Daemon, supervisor,
@@ -177,7 +175,7 @@ sshd_subtree_profile(Config) when is_list(Config) ->
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
-    check_sshd_system_tree(Daemon, Config),
+    check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port, Profile),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
     ?wait_match([], supervisor:which_children(sshd_sup)).
@@ -201,8 +199,6 @@ killed_acceptor_restarts(Config) ->
     Port2 = ssh_test_lib:daemon_port(DaemonPid2),
     true = (Port /= Port2),
 
-    ct:log("~s",[lists:flatten(ssh_info:string())]),
-
     {ok,[{AccPid,ListenAddr,Port}]} = acceptor_pid(DaemonPid),
     {ok,[{AccPid2,ListenAddr,Port2}]} = acceptor_pid(DaemonPid2),
 
@@ -216,23 +212,37 @@ killed_acceptor_restarts(Config) ->
                                               {user_dir, UserDir}]),
     [{client_version,_}] = ssh:connection_info(C1,[client_version]),
 
+    ct:log("~s",[lists:flatten(ssh_info:string())]),
+
     %% Make acceptor restart:
+    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [AccPid]),
     exit(AccPid, kill),
     ?wait_match(undefined, process_info(AccPid)),
 
-    %% Check it is a new acceptor:
+    %% Check it is a new acceptor and wait if it is not:
     ?wait_match({ok,[{AccPid1,ListenAddr,Port}]}, AccPid1=/=AccPid,
                 acceptor_pid(DaemonPid),
                 AccPid1,
                 500, 30),
-    AccPid1 =/= AccPid2,
+
+    ct:pal("... now there should not be any SUPERVISOR REPORT.~n", []),
+
+    true = (AccPid1 =/= AccPid2),
 
     %% Connect second client and check it is alive:
-    {ok,C2} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
-                                              {user_interaction, false},
-                                              {user, ?USER},
-                                              {password, ?PASSWD},
-                                              {user_dir, UserDir}]),
+    C2 =
+        case ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+                                             {user_interaction, false},
+                                             {user, ?USER},
+                                             {password, ?PASSWD},
+                                             {user_dir, UserDir}]) of
+            {ok,_C2} ->
+                _C2;
+            _Other ->
+                ct:log("new connect failed: ~p~n~n~s",[_Other,lists:flatten(ssh_info:string())]),
+                ct:fail("Re-connect failed!", [])
+        end,
+
     [{client_version,_}] = ssh:connection_info(C2,[client_version]),
     
     ct:log("~s",[lists:flatten(ssh_info:string())]),
@@ -247,8 +257,8 @@ killed_acceptor_restarts(Config) ->
     
     ok = ssh:stop_daemon(DaemonPid),
     ?wait_match(undefined, process_info(DaemonPid), 1000, 30),
-    {error,closed} = ssh:connection_info(C1,[client_version]),
-    {error,closed} = ssh:connection_info(C2,[client_version]).
+    ?wait_match({error,closed}, ssh:connection_info(C1,[client_version]), 1000, 5),
+    ?wait_match({error,closed}, ssh:connection_info(C2,[client_version]), 1000, 5).
 
 %%-------------------------------------------------------------------------
 shell_channel_tree(Config) ->
@@ -281,7 +291,7 @@ shell_channel_tree(Config) ->
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh_connection:shell(ConnectionRef,ChannelId0),
 
-    ?wait_match([{_, GroupPid,worker,[ssh_channel]}],
+    ?wait_match([{_, GroupPid,worker,[ssh_server_channel]}],
 		supervisor:which_children(ChannelSup),
                [GroupPid]),
     {links,GroupLinks} = erlang:process_info(GroupPid, links),
@@ -327,7 +337,9 @@ chk_empty_con_daemon(Daemon) ->
 		 {{ssh_acceptor_sup,_,_,_}, AccSup, supervisor,[ssh_acceptor_sup]}],
 		supervisor:which_children(Daemon),
                 [SubSysSup,AccSup]),
-    ?wait_match([{{server,ssh_connection_sup, _,_},
+    ?wait_match([{_,_, supervisor,
+                  [ssh_tcpip_forward_acceptor_sup]},
+                 {{server,ssh_connection_sup, _,_},
 		  ConnectionSup, supervisor,
 		  [ssh_connection_sup]},
 		 {{server,ssh_channel_sup,_ ,_},
@@ -345,9 +357,7 @@ chk_empty_con_daemon(Daemon) ->
 %%-------------------------------------------------------------------------
 %% Help functions
 %%-------------------------------------------------------------------------
-check_sshd_system_tree(Daemon, Config) -> 
-    Host = proplists:get_value(host, Config),
-    Port = proplists:get_value(port, Config),
+check_sshd_system_tree(Daemon, Host, Port, Config) -> 
     UserDir = proplists:get_value(userdir, Config),
     {ok, Client} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
                                             {user_interaction, false},
@@ -360,7 +370,10 @@ check_sshd_system_tree(Daemon, Config) ->
 		supervisor:which_children(Daemon),
                 [SubSysSup,AccSup]),
     
-    ?wait_match([{{server,ssh_connection_sup, _,_},
+    ?wait_match([{_,
+                  _AcceptorSup, supervisor,
+                  [ssh_tcpip_forward_acceptor_sup]},
+                 {{server,ssh_connection_sup, _,_},
 		  ConnectionSup, supervisor,
 		  [ssh_connection_sup]},
 		 {{server,ssh_channel_sup,_ ,_},
@@ -377,11 +390,57 @@ check_sshd_system_tree(Daemon, Config) ->
     
     ?wait_match([], supervisor:which_children(ChannelSup)),
     
-    ssh_sftp:start_channel(Client),
+    {ok,PidC} = ssh_sftp:start_channel(Client),
 
-    ?wait_match([{_, _,worker,[ssh_channel]}],
-		supervisor:which_children(ChannelSup)),
+    ?wait_match([{_, PidS,worker,[ssh_server_channel]}],
+		supervisor:which_children(ChannelSup),
+                [PidS]),
+    true = (PidS =/= PidC),
+
     ssh:close(Client).
+
+
+check_sshc_system_tree(SysSup, Connection, LocalIP, LocalPort, _Config) ->
+    ?wait_match([{_,SubSysSup,supervisor,[ssh_subsystem_sup]}],
+                supervisor:which_children(SysSup),
+                [SubSysSup]),
+    ?wait_match([{_,FwdAccSup, supervisor,
+                  [ssh_tcpip_forward_acceptor_sup]},
+                 {{client,ssh_connection_sup, LocalIP, LocalPort},
+		  ConnectionSup, supervisor,
+		  [ssh_connection_sup]},
+		 {{client,ssh_channel_sup, LocalIP, LocalPort},
+		  ChannelSup,supervisor,
+		  [ssh_channel_sup]}],
+		supervisor:which_children(SubSysSup),
+		[ConnectionSup,ChannelSup,FwdAccSup]),
+    ?wait_match([{_, Connection, worker,[ssh_connection_handler]}],
+		supervisor:which_children(ConnectionSup)),
+    ?wait_match([], supervisor:which_children(ChannelSup)),
+    ?wait_match([], supervisor:which_children(FwdAccSup)),
+
+    {ok,ChPid1} = ssh_sftp:start_channel(Connection),
+    ?wait_match([{_,ChPid1,worker,[ssh_client_channel]}],
+                supervisor:which_children(ChannelSup)),
+
+    {ok,ChPid2} = ssh_sftp:start_channel(Connection),
+    ?wait_match([{_,ChPidA,worker,[ssh_client_channel]},
+                 {_,ChPidB,worker,[ssh_client_channel]}],
+                supervisor:which_children(ChannelSup),
+               [ChPidA, ChPidB]),
+    true = (lists:sort([ChPidA, ChPidB]) == lists:sort([ChPid1, ChPid2])),
+
+    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid1]),
+    exit(ChPid1, kill),
+    ?wait_match([{_,ChPid2,worker,[ssh_client_channel]}],
+                supervisor:which_children(ChannelSup)),
+
+    ct:pal("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid2]),
+    exit(ChPid2, kill),
+    ?wait_match([], supervisor:which_children(ChannelSup)),
+    ct:pal("... now there should not be any SUPERVISOR REPORT.~n", []).
+
+
 
 acceptor_pid(DaemonPid) ->
     Parent = self(),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,17 +22,21 @@
 
 -module(ssh_shell).
 
+-include("ssh.hrl").
 -include("ssh_connect.hrl").
 
 %%% As this is an user interactive client it behaves like a daemon
 %%% channel inspite of it being a client. 
--behaviour(ssh_daemon_channel).
+-behaviour(ssh_server_channel).
 
-%% ssh_channel callbacks
+%% ssh_server_channel callbacks
 -export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 
 %% Spawn export
 -export([input_loop/2]).
+
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
 -record(state, 
 	{
@@ -43,23 +47,8 @@
        ).
 
 %%====================================================================
-%% ssh_channel callbacks
+%% ssh_server_channel callbacks
 %%====================================================================
--spec init(Args :: term()) ->
-    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
-    {stop, Reason :: term()} | ignore.
-
--spec terminate(Reason :: (normal | shutdown | {shutdown, term()} |
-                               term()),
-                    State :: term()) ->
-    term().
-
--spec handle_msg(Msg ::term(), State :: term()) ->
-    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
--spec handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()},
-			 State::term()) -> {ok, State::term()} |
-					   {stop, ChannelId::integer(),
-					    State::term()}.
 
 %%--------------------------------------------------------------------
 %% Function: init(Args) -> {ok, State} 
@@ -194,3 +183,23 @@ get_ancestors() ->
 	A when is_list(A) -> A;
 	_              -> []
     end.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+ssh_dbg_trace_points() -> [terminate].
+
+ssh_dbg_flags(terminate) -> [c].
+
+ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 2, x).
+
+ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2).
+
+ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
+    ["Shell Terminating:\n",
+     io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
+    ].
+
+?wr_record(state).

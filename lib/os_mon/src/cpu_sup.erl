@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@
 
 -type util_cpus() :: 'all' | integer() | [integer()].
 -type util_state() :: 'user' | 'nice_user' | 'kernel' | 'wait' | 'idle'.
--type util_value() :: [{util_state(), float()}] | float().
+-type util_value() :: [{util_state(), number()}] | number().
 -type util_desc() :: {util_cpus(), util_value(), util_value(), []}.
 
 %%----------------------------------------------------------------------
@@ -122,7 +122,7 @@ util(Args) when is_list (Args) ->
 util(_) ->
     erlang:error(badarg).
 
--spec util() -> float() | {'error', any()}.
+-spec util() -> number() | {'error', any()}.
 
 util() ->
     case util([]) of
@@ -220,17 +220,21 @@ code_change(_OldVsn, State, _Extra) ->
 %% internal functions 
 %%----------------------------------------------------------------------
 
-get_uint32_measurement(Request, #internal{os_type = {unix, linux}}) ->
-    {ok,F} = file:open("/proc/loadavg",[read,raw]),
-    {ok,D} = file:read_line(F),
-    ok = file:close(F),
-    {ok,[Load1,Load5,Load15,_PRun,PTotal],_} = io_lib:fread("~f ~f ~f ~d/~d", D),
-    case Request of
-	?avg1  -> sunify(Load1);
-	?avg5  -> sunify(Load5);
-	?avg15 -> sunify(Load15);
-	?ping -> 4711;
-	?nprocs -> PTotal
+get_uint32_measurement(Request, #internal{port = P, os_type = {unix, linux}}) ->
+    case file:open("/proc/loadavg",[read,raw]) of
+        {ok,F} ->
+            {ok,D} = file:read_line(F),
+            ok = file:close(F),
+            {ok,[Load1,Load5,Load15,_PRun,PTotal],_} = io_lib:fread("~f ~f ~f ~d/~d", D),
+            case Request of
+                ?avg1  -> sunify(Load1);
+                ?avg5  -> sunify(Load5);
+                ?avg15 -> sunify(Load15);
+                ?ping -> 4711;
+                ?nprocs -> PTotal
+            end;
+        {error,_} ->
+            port_server_call(P, Request)
     end;
 get_uint32_measurement(Request, #internal{port = P, os_type = {unix, Sys}}) when
 								Sys == sunos;
@@ -244,7 +248,7 @@ get_uint32_measurement(Request, #internal{os_type = {unix, Sys}}) when Sys == ir
     %% Get the load average using uptime.
     %% "8:01pm  up 2 days, 22:12,  4 users,  load average: 0.70, 0.58, 0.43"
     D = os:cmd("uptime") -- "\n",
-    Avg = lists:reverse(hd(string:tokens(lists:reverse(D), ":"))),
+    Avg = lists:reverse(hd(string:lexemes(lists:reverse(D), ":"))),
     {ok, [L1, L5, L15], _} = io_lib:fread("~f, ~f, ~f", Avg),
     case Request of
 	?avg1  -> sunify(L1);

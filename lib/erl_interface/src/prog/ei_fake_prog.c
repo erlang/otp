@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,11 +54,7 @@
 /* #include <netdb.h> now included by ei.h */
 #include "ei.h"
 
-#ifdef VXWORKS
-int ei_fake_prog_main(void)
-#else
 int main(void)
-#endif
 {
   ErlConnect conp;
   Erl_IpAddr thisipaddr = (Erl_IpAddr)0;
@@ -91,18 +87,23 @@ int main(void)
   unsigned long *ulongp = NULL;
   unsigned long ulongx = 0;
   void *voidp = NULL;
-#ifndef VXWORKS
   EI_LONGLONG *longlongp = (EI_LONGLONG*)NULL;
   EI_LONGLONG longlongx = 0;
   EI_ULONGLONG *ulonglongp = (EI_ULONGLONG*)NULL;
   EI_ULONGLONG ulonglongx = 0;
-#endif
   erlang_char_encoding enc;
+  ei_socket_callbacks cbs;
 
   intx = erl_errno;
 
+  ei_init();
+
+  ei_close_connection(intx);
+  
   ei_connect_init(&xec, charp, charp, creation);
+  ei_connect_init_ussi(&xec, charp, charp, creation, &cbs, sizeof(cbs), NULL);
   ei_connect_xinit (&xec, charp, charp, charp, thisipaddr, charp, creation);
+  ei_connect_xinit_ussi(&xec, charp, charp, charp, thisipaddr, charp, creation, &cbs, sizeof(cbs), NULL);
 
   ei_connect(&xec, charp);
   ei_xconnect (&xec, thisipaddr, charp);
@@ -121,6 +122,8 @@ int main(void)
   ei_publish(&xec, intx);
   ei_accept(&xec, intx, &conp);
   ei_unpublish(&xec);
+  ei_listen(&xec, intp, intx);
+  ei_xlisten(&xec, thisipaddr, intp, intx);
 
   ei_thisnodename(&xec);
   ei_thishostname(&xec);
@@ -177,7 +180,6 @@ int main(void)
   ei_x_encode_empty_list(&eix);
 
   ei_get_type(charp, intp, intp, intp);
-  ei_get_type_internal(charp, intp, intp, intp);
 
   ei_decode_version(charp, intp, intp);
   ei_decode_long(charp, intp, longp);
@@ -187,7 +189,7 @@ int main(void)
   ei_decode_char(charp, intp, charp);
   ei_decode_string(charp, intp, charp);
   ei_decode_atom(charp, intp, charp);
-  ei_decode_atom_as(charp, intp, charp, MAXATOMLEN_UTF8, ERLANG_WHATEVER, &enc, &enc);
+  ei_decode_atom_as(charp, intp, charp, MAXATOMLEN_UTF8, ERLANG_UTF8, &enc, &enc);
   ei_decode_binary(charp, intp, (void *)0, longp);
   ei_decode_fun(charp, intp, &efun);
   free_fun(&efun);
@@ -252,16 +254,12 @@ int main(void)
   }
 #endif /* HAVE_GMP_H && HAVE_LIBGMP */
 
-#ifndef VXWORKS
-
   ei_decode_longlong(charp, intp, longlongp);
   ei_decode_ulonglong(charp, intp, ulonglongp);
   ei_encode_longlong(charp, intp, longlongx);
   ei_encode_ulonglong(charp, intp, ulonglongx);
   ei_x_encode_longlong(&eix, longlongx);
   ei_x_encode_ulonglong(&eix, ulonglongx);
-
-#endif
 
 #ifdef USE_EI_UNDOCUMENTED
 

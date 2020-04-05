@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,8 +21,9 @@
 %%
 -module(runner).
 
--export([test/1, test/2,
-	 start/1, send_term/2, finish/1, send_eot/1, recv_eot/1,
+-export([test/2, test/3,
+         init_per_testcase/3,
+	 start/2, send_term/2, finish/1, send_eot/1, recv_eot/1,
 	 get_term/1, get_term/2]).
 
 -define(default_timeout, 5000).
@@ -32,11 +33,11 @@
 %% This function is useful for test cases written in C which requires
 %% no further input, and only returns a result by calling report().
 
-test(Tc) ->
-    test(Tc, ?default_timeout).
+test(Config, Tc) ->
+    test(Config, Tc, ?default_timeout).
 
-test(Tc, Timeout) ->
-    Port = start(Tc),
+test(Config, Tc, Timeout) ->
+    Port = start(Config, Tc),
     
     case get_term(Port, Timeout) of
 	eot ->
@@ -54,11 +55,50 @@ test(Tc, Timeout) ->
 %%
 %% Returns: {ok, Port}
 
-start({Prog, Tc}) when is_list(Prog), is_integer(Tc) ->
-    Port = open_port({spawn, Prog}, [{packet, 4}, exit_status]),
+start(Config, {Prog, Tc}) when is_list(Prog), is_integer(Tc) ->
+    Port = open_port({spawn, prog_cmd(Config, Prog)},
+                     [{packet, 4}, exit_status]),
     Command = [Tc div 256, Tc rem 256],
     Port ! {self(), {command, Command}},
     Port.
+
+prog_cmd(Config, Prog) ->
+    case proplists:get_value(valgrind_cmd_fun, Config) of
+        undefined ->
+            Prog;
+        Fun when is_function(Fun) ->
+            Fun(Prog)
+    end.
+
+init_per_testcase(Suite, Case, Config) ->
+    case os:getenv("VALGRIND_LOG_DIR") of
+        false ->
+            Config;
+        LogDir ->
+            Valgrind = case os:find_executable("valgrind") of
+                           false ->
+                               ct:fail("VALGRIND_LOG_DIR set, "
+                                       "but no valgrind executable found");
+                           VG -> VG
+                       end,
+
+            LogFileOpt = case os:getenv("VALGRIND_LOG_XML") of
+                             false ->
+                                 " --log-file=";
+                             "yes" ->
+                                 " --xml=yes --xml-file="
+                         end,
+            Fun = fun(Prog) ->
+                          LogFile = io_lib:format("erl_interface-~w.~w-~s.log.%p",
+                                                  [Suite, Case, filename:basename(Prog)]),
+                          Valgrind
+                              ++ LogFileOpt ++ filename:join(LogDir,LogFile)
+                              ++ " " ++ os:getenv("VALGRIND_MISC_FLAGS","")
+                              ++ " " ++ Prog
+                  end,
+            [{valgrind_cmd_fun, Fun} | Config]
+    end.
+
 
 %% Finishes a test case by send an 'eot' message to the C program
 %% and waiting for an 'eot'.
@@ -67,7 +107,12 @@ start({Prog, Tc}) when is_list(Prog), is_integer(Tc) ->
 
 finish(Port) when is_port(Port) ->
     send_eot(Port),
-    recv_eot(Port).
+    ok = recv_eot(Port),
+    0 = receive
+            {Port,{exit_status,Status}} ->
+                Status
+        end,
+    ok.
 
 %% Sends an Erlang term to a C program.
 

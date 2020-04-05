@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,22 +26,24 @@
 	 init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
-	 nomatch/1,sizes/1,general_expressions/1]).
+	 nomatch/1,sizes/1,general_expressions/1,matched_out_size/1,
+         no_generator/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
-     nomatch, sizes, general_expressions].
+     nomatch, sizes, general_expressions, matched_out_size,
+     no_generator].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -191,7 +193,13 @@ coverage_trimmer(Params) ->
 coverage_summer(A, B, C, D) -> A+B+C+D.
 
 nomatch(Config) when is_list(Config) ->
+    Bin = id(<<1,2,3,4,5>>),
     <<>> = << <<X:8>> || X = {_,_} = [_|_] <- [1,2,3] >>,
+    [] = [X || <<X:all/binary>> <= Bin],
+    [] = [X || <<X:bad/binary>> <= Bin],
+    <<>> = << <<X:32>> || <<X:all/binary>> <= Bin >>,
+    <<>> = << <<X:32>> || <<X:bad/binary>> <= Bin >>,
+
     ok.
 
 sizes(Config) when is_list(Config) ->
@@ -337,6 +345,22 @@ general_expressions(_) ->
     ok.
 
 -undef(BAD).
+
+matched_out_size(Config) when is_list(Config) ->
+    <<1, 2>> = matched_out_size_1(<<4, 1:4, 4, 2:4>>),
+    ok.
+
+matched_out_size_1(Binary) ->
+    << <<X>> || <<S, X:S>> <= Binary>>.
+
+no_generator(Config) ->
+    [<<"abc">>] = [<<(id(<<"abc">>)) || true >>],
+    {<<>>} = {<<(id(<<"abc">>)) || false >>},
+
+    %% Would crash the compiler when compiled with +no_type_opt.
+    {'EXIT',{badarg,_}} = (catch << (catch "\001") || true >>),
+
+    ok.
 
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),

@@ -36,7 +36,7 @@ CC = $(DED_CC)
 CFLAGS = $(DED_CFLAGS) -I./
 LD = $(DED_LD)
 SHELL = /bin/sh
-LIBS = $(DED_LIBS)
+LIBS = $(DED_LIBS) @LIBS@
 LDFLAGS += $(DED_LDFLAGS)
 
 TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv
@@ -58,7 +58,7 @@ TYPE_FLAGS = $(CFLAGS)
 endif
 endif
 
-ALL_CFLAGS = @DEFS@ $(TYPE_FLAGS) $(TRACE_DRV_INCLUDES) \
+ALL_CFLAGS = @DEFS@ @ERTS_CONFIG_H_IDIR@ $(TYPE_FLAGS) $(TRACE_DRV_INCLUDES) \
 	-I$(OBJDIR) -I$(ERL_TOP)/erts/emulator/$(TARGET)
 
 ROOTDIR = $(ERL_TOP)/lib
@@ -75,7 +75,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/runtime_tools-$(VSN)
 # Misc Macros
 # ----------------------------------------------------
 
-TRACE_LIBS = $(foreach LIB, $(TRACE_LIBNAME), $(LIBDIR)/$(LIB)$(TYPEMARKER).@DED_EXT@)
+TRACE_LIBS = $(foreach LIB, $(TRACE_LIBNAME), $(LIBDIR)/$(LIB)$(TYPEMARKER).$(DED_EXT))
 
 # ----------------------------------------------------
 # Targets
@@ -94,7 +94,7 @@ $(LIBDIR):
 $(OBJDIR)/%$(TYPEMARKER).o: %.c dyntrace_lttng.h
 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
 
-$(LIBDIR)/%$(TYPEMARKER).@DED_EXT@: $(OBJDIR)/%$(TYPEMARKER).o
+$(LIBDIR)/%$(TYPEMARKER).$(DED_EXT): $(OBJDIR)/%$(TYPEMARKER).o
 	$(V_LD) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean:

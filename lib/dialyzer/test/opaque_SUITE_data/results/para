@@ -29,5 +29,6 @@ para4.erl:74: Attempt to test for equality between a term of type para4_adt:int(
 para4.erl:79: Attempt to test for equality between a term of type para4_adt:int(2 | 3 | 4) and a term of opaque type para4_adt:int(5 | 6 | 7)
 para4.erl:84: Attempt to test for equality between a term of type para4_adt:un(3 | 4) and a term of opaque type para4_adt:un(1 | 2)
 para4.erl:89: Attempt to test for equality between a term of type para4_adt:tup({_,_}) and a term of opaque type para4_adt:tup(tuple())
+para4.erl:94: Attempt to test for equality between a term of type para4_adt:t(#{1=>'a'}) and a term of opaque type para4_adt:t(#{2=>'b'})
 para5.erl:13: Attempt to test for inequality between a term of type para5_adt:dd(atom()) and a term of opaque type para5_adt:d()
 para5.erl:8: The test para5_adt:d() =:= para5_adt:d() can never evaluate to 'true'

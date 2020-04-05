@@ -554,16 +554,6 @@ erts_lock_flags_t erts_lcnt_get_category_mask() {
     return lcnt_category_mask__;
 }
 
-#ifdef ERTS_ENABLE_KERNEL_POLL
-/* erl_poll/erl_check_io only exports one of these variants at a time, and we
- * may need to use either one depending on emulator startup flags. */
-void erts_lcnt_update_pollset_locks_nkp(int);
-void erts_lcnt_update_pollset_locks_kp(int);
-
-void erts_lcnt_update_cio_locks_nkp(int);
-void erts_lcnt_update_cio_locks_kp(int);
-#endif
-
 void erts_lcnt_set_category_mask(erts_lock_flags_t mask) {
     erts_lock_flags_t changed_categories;
 
@@ -590,19 +580,7 @@ void erts_lcnt_set_category_mask(erts_lock_flags_t mask) {
     }
 
     if(changed_categories & ERTS_LOCK_FLAGS_CATEGORY_IO) {
-#ifdef ERTS_ENABLE_KERNEL_POLL
-        if(erts_use_kernel_poll) {
-            erts_lcnt_update_pollset_locks_kp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
-            erts_lcnt_update_cio_locks_kp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
-        } else {
-            erts_lcnt_update_pollset_locks_nkp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
-            erts_lcnt_update_cio_locks_nkp(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
-        }
-#else
-        erts_lcnt_update_pollset_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
         erts_lcnt_update_cio_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
-#endif
-
         erts_lcnt_update_driver_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
         erts_lcnt_update_port_locks(mask & ERTS_LOCK_FLAGS_CATEGORY_IO);
     }

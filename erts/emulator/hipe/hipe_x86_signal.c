@@ -2,7 +2,7 @@
  * %CopyrightBegin%
 
  *
- * Copyright Ericsson AB 2001-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,10 +45,8 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef ERTS_SMP
 #include "sys.h"
 #include "erl_alloc.h"
-#endif
 #include "hipe_signal.h"
 
 #if defined(__GLIBC__) && __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
@@ -161,19 +159,9 @@
 
 #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
 /*
- * Unknown libc -- assume musl.  Note: musl deliberately does not provide a musl-specific
- * feature test macro, so we cannot check for it.
- *
- * sigaction is a weak alias for __sigaction, which is a wrapper for __libc_sigaction.
- * There are libc-internal calls to __libc_sigaction which install handlers, so we must
- * override __libc_sigaction rather than __sigaction.
+ * Unknown libc -- assume musl, which does not allow safe signals
  */
-#define NEXT_SIGACTION "__libc_sigaction"
-#define LIBC_SIGACTION __libc_sigaction
-#define OVERRIDE_SIGACTION
-#ifndef _NSIG
-#define _NSIG NSIG
-#endif
+#error "HiPE does not work without a libc that can guarantee that sigaltstack works"
 #endif	/* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ || __sun__) */
 
 #if defined(NEXT_SIGACTION)
@@ -259,7 +247,6 @@ static void hipe_sigaltstack(void *ss_sp)
     }
 }
 
-#ifdef ERTS_SMP
 /*
  * Set up alternate signal stack for an Erlang process scheduler thread.
  */
@@ -269,7 +256,6 @@ void hipe_thread_signal_init(void)
        We use it to suppress false leak report from valgrind */
     hipe_sigaltstack(erts_alloc_permanent_cache_aligned(ERTS_ALC_T_HIPE_LL, SIGSTKSZ));
 }
-#endif
 
 /*
  * Set up alternate signal stack for the main thread,
@@ -277,10 +263,6 @@ void hipe_thread_signal_init(void)
  */
 static void hipe_sigaltstack_init(void)
 {
-#if !defined(ERTS_SMP)
-    static unsigned long my_sigstack[SIGSTKSZ/sizeof(long)];
-    hipe_sigaltstack(my_sigstack);
-#endif
 }
 
 /*

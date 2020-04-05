@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -246,8 +246,8 @@ gen_types(Where) ->
 
 gen_export(F) ->
     try gen_export_1(F)
-    catch E:R ->
-	    io:format("Crash ~p:~p in ~p ~n",[E,R, erlang:get_stacktrace()]),
+    catch E:R:S ->
+	    io:format("Crash ~p:~p in ~p ~n",[E,R,S]),
 	    io:format("Func = ~p~n  ~p", [F, get(F)])
     end.
 
@@ -489,8 +489,8 @@ doc_return_types2(T, Ps) ->
 doc_arg_type(#arg{name=Name,type=T}) ->
     try
 	erl_arg_name(Name) ++ " :: " ++ doc_arg_type2(T)
-    catch _:Error ->
-	    io:format("Error spec: ~p ~p~n~p~n",[Name, Error, erlang:get_stacktrace()]),
+    catch _:Error:Stacktrace ->
+	    io:format("Error spec: ~p ~p~n~p~n",[Name, Error, Stacktrace]),
 	    exit(error)
     end.
 

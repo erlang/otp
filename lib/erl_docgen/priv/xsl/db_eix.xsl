@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      # 
-     # Copyright Ericsson AB 2009-2016. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2018. All Rights Reserved.
      # 
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -199,11 +199,34 @@
   <xsl:template name="name">
     <xsl:param name="lastfuncsblock"/>
 
-    <xsl:variable name="tmpstring">
-      <xsl:value-of select="substring-before(substring-after(., '('), '->')"/>
+    <xsl:variable name="signature">
+      <xsl:variable name="signature1">
+	<xsl:choose>
+	  <xsl:when test="ancestor::cref">
+	    <xsl:value-of
+		select="normalize-space(nametext)"/>
+	  </xsl:when>
+	  <xsl:otherwise>
+	    <xsl:value-of
+		select="normalize-space(substring-before(., '->'))"/>
+	  </xsl:otherwise>
+	</xsl:choose>
+      </xsl:variable>
+      <xsl:choose>
+	<xsl:when test="string-length($signature1) > 0">
+	  <xsl:value-of select="$signature1"/>
+	</xsl:when>
+	<xsl:otherwise>
+	  <xsl:value-of select="normalize-space(.)"/>
+	</xsl:otherwise>
+      </xsl:choose>
     </xsl:variable>
 
-    <xsl:variable name="ustring">
+    <xsl:variable name="tmpstring">
+      <xsl:value-of select="substring-after($signature, '(')"/>
+    </xsl:variable>
+
+    <xsl:variable name="argstring">
       <xsl:choose>
 	<xsl:when test="string-length($tmpstring) > 0">
 	  <xsl:call-template name="remove-paren">
@@ -219,10 +242,19 @@
     </xsl:variable>
 
     <xsl:variable name="arity">
-      <xsl:call-template name="calc-arity">
-	<xsl:with-param name="string" select="substring-before($ustring, ')')"/>
-	<xsl:with-param name="no-of-pars" select="0"/>
-      </xsl:call-template>
+      <xsl:choose>
+	<xsl:when
+	    test="string-length(substring-before(., '->')) > 0">
+	  <xsl:call-template name="calc-arity">
+	    <xsl:with-param
+		name="string"
+		select="substring-before($argstring, ')')"/>
+	    <xsl:with-param name="no-of-pars" select="0"/>
+	  </xsl:call-template>
+	</xsl:when>
+	<xsl:otherwise/>
+      </xsl:choose>
+
     </xsl:variable>
 
     <xsl:variable name="fname">
@@ -250,10 +282,18 @@
     </xsl:variable>
     
     <xsl:text>  {"</xsl:text><xsl:value-of select="$fname"/>
+    <xsl:text>", "</xsl:text>
+    <xsl:call-template name="escape-doublequotes">
+      <xsl:with-param name="string" select="$signature"/>
+    </xsl:call-template>
     <xsl:text>", "</xsl:text><xsl:value-of select="$fname"/>
-    <xsl:text>(</xsl:text><xsl:value-of select="normalize-space($tmpstring)"/>
-    <xsl:text>", "</xsl:text><xsl:value-of select="$fname"/>
-    <xsl:text>-</xsl:text><xsl:value-of select="$arity"/><xsl:text>"}</xsl:text>
+    <xsl:choose>
+      <xsl:when test="string-length($arity) > 0">
+	<xsl:text>-</xsl:text><xsl:value-of select="$arity"/>
+      </xsl:when>
+      <xsl:otherwise/>
+    </xsl:choose>
+    <xsl:text>"}</xsl:text>
     
     <xsl:choose>
       <xsl:when test="($lastfuncsblock = 'true') and (position() = last())">
@@ -343,6 +383,27 @@
       </xsl:otherwise>
     </xsl:choose>
 
+  </xsl:template>
+
+  <xsl:template name="escape-doublequotes">
+    <xsl:param name="string"/>
+    <xsl:param name="pPat">"</xsl:param>
+    <xsl:param name="pRep">\"</xsl:param>
+
+    <xsl:choose>
+      <xsl:when test="not(contains($string, $pPat))">
+	<xsl:copy-of select="$string"/>
+      </xsl:when>
+      <xsl:otherwise>
+	<xsl:copy-of select="substring-before($string, $pPat)"/>
+	<xsl:copy-of select="$pRep"/>
+	<xsl:call-template name="escape-doublequotes">
+	  <xsl:with-param
+	      name="string"
+	      select="substring-after($string, $pPat)"/>
+	</xsl:call-template>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- default content handling -->

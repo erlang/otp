@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ specialized_specs(Dir,PostFix) ->
     sort_tests([begin
 		    DirPart = filename:dirname(Name),
 		    AppTest = hd(lists:reverse(filename:split(DirPart))),
-		    list_to_atom(string:substr(AppTest, 1, length(AppTest)-5))
+		    list_to_atom(string:slice(AppTest, 0, string:length(AppTest)-5))
 		end || Name <- Specs]).
 
 specs(Dir) ->
@@ -111,9 +111,9 @@ specs(Dir) ->
 			      [Spec,TestDir|_] =
 				  lists:reverse(filename:split(FullName)),
 			      [_TestSuffix|TDParts] = 
-				  lists:reverse(string:tokens(TestDir,[$_,$.])),
+				  lists:reverse(string:lexemes(TestDir,[$_,$.])),
 			      [_SpecSuffix|SParts] = 
-				  lists:reverse(string:tokens(Spec,[$_,$.])),
+				  lists:reverse(string:lexemes(Spec,[$_,$.])),
 			      if TDParts == SParts ->
 				      [filename_to_atom(FullName)];	  
 				 true ->
@@ -273,7 +273,7 @@ do_test(Rest, Vars, Test) ->
 get_arg([$(|Rest], Vars, Stop, _) ->		
     get_arg(Rest, Vars, Stop, []); 
 get_arg([Stop|Rest], Vars, Stop, Acc) ->
-    Arg = string:strip(lists:reverse(Acc)),
+    Arg = string:trim(lists:reverse(Acc),both,[$\s]),
     Subst = subst(Arg, Vars),
     {Subst,Rest};
 get_arg([C|Rest], Vars, Stop, Acc) ->

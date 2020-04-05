@@ -135,23 +135,18 @@ child_spec(HttpdService) ->
     httpd_child_spec(Config, AcceptTimeout, Debug).
 
 httpd_config([Value| _] = Config) when is_tuple(Value) ->
-    case proplists:get_value(file, Config) of
-	undefined -> 
-	    case proplists:get_value(proplist_file, Config) of
-		undefined ->
-		    httpd_conf:validate_properties(Config);
-		File ->
-		   try file:consult(File) of
-		       {ok, [PropList]} ->
-			   httpd_conf:validate_properties(PropList)
-		   catch 
-		       exit:_ ->
-			   throw({error, 
-				  {could_not_consult_proplist_file, File}})  
-		   end
-	    end;
-	File -> 
-	    {ok, File}
+    case proplists:get_value(proplist_file, Config) of
+        undefined ->
+            httpd_conf:validate_properties(Config);
+        File ->
+            try file:consult(File) of
+                {ok, [PropList]} ->
+                    httpd_conf:validate_properties(PropList)
+            catch 
+                exit:_ ->
+                    throw({error, 
+                           {could_not_consult_proplist_file, File}})  
+            end
     end.
 
 httpd_child_spec([Value| _] = Config, AcceptTimeout, Debug)  
@@ -159,30 +154,8 @@ httpd_child_spec([Value| _] = Config, AcceptTimeout, Debug)
     Address = proplists:get_value(bind_address, Config, any),
     Port    = proplists:get_value(port, Config, 80),
     Profile =  proplists:get_value(profile, Config, ?DEFAULT_PROFILE),
-    httpd_child_spec(Config, AcceptTimeout, Debug, Address, Port, Profile);
+    httpd_child_spec(Config, AcceptTimeout, Debug, Address, Port, Profile).
 
-%% In this case the AcceptTimeout and Debug will only have default values...
-httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
-    case httpd_conf:load(ConfigFile) of
-	{ok, ConfigList} ->
-	    case (catch httpd_conf:validate_properties(ConfigList)) of
-		{ok, Config} ->
-		    Address = proplists:get_value(bind_address, Config, any), 
-		    Port    = proplists:get_value(port, Config, 80),
-		    Profile = proplists:get_value(profile, Config, ?DEFAULT_PROFILE),
-		    AcceptTimeout = 
-			proplists:get_value(accept_timeout, Config, 
-					    AcceptTimeoutDef),
-		    Debug   = 
-			proplists:get_value(debug, Config, DebugDef),
-		    httpd_child_spec([{file, ConfigFile} | Config], 
-				     AcceptTimeout, Debug, Address, Port, Profile);
-		Error ->
-		    Error
-	    end;
-	Error ->
-	    Error
-    end.
 
 httpd_child_spec(Config, AcceptTimeout, Debug, Addr, Port, Profile) ->
     case get_fd(Port) of

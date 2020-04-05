@@ -1,7 +1,7 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,10 +49,7 @@
 	     ct_telnet,
 	     ct_testspec,
 	     ct_util,
-	     ct_webtool,
-	     ct_webtool_sup,
 	     unix_telnet,
-	     vts,
 	     ct_config,
 	     ct_config_plain,
 	     ct_config_xml,
@@ -72,7 +69,6 @@
 		ct_util_server,
 		ct_config_server,
 		ct_make_ref,
-		vts,
 		ct_master,
 		ct_master_logs,
 		test_server_ctrl,
@@ -85,6 +81,7 @@
     "crypto-3.6",
     "debugger-4.1",
     "erts-7.0",
+    "ftp-1.0.0",
     "inets-6.0",
     "kernel-4.0",
     "observer-2.1",
@@ -92,7 +89,7 @@
     "sasl-2.4.2",
     "snmp-5.1.2",
     "ssh-4.0",
-    "stdlib-3.4",
+    "stdlib-3.5",
     "syntax_tools-1.7",
     "tools-2.8",
     "xmerl-1.3.8"

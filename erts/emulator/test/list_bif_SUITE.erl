@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 
 -export([all/0, suite/0]).
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
+         t_list_to_ref/1, t_list_to_ext_pidportref/1,
          t_list_to_port/1,t_list_to_float/1,t_list_to_integer/1]).
 
 
@@ -33,6 +34,7 @@ suite() ->
 
 all() -> 
     [hd_test, tl_test, t_length, t_list_to_pid, t_list_to_port,
+     t_list_to_ref, t_list_to_ext_pidportref,
      t_list_to_float, t_list_to_integer].
 
 %% Tests list_to_integer and string:to_integer
@@ -125,6 +127,105 @@ t_list_to_port(Config) when is_list(Config) ->
                     "Result: ~p", [Res])
     end,
     ok.
+
+t_list_to_ref(Config) when is_list(Config) ->
+    Ref = make_ref(),
+    RefStr = ref_to_list(Ref),
+    Ref = list_to_ref(RefStr),
+    case catch list_to_ref(id("Incorrect list")) of
+        {'EXIT', {badarg, _}} ->
+            ok;
+        Res ->
+            ct:fail("list_to_ref/1 with incorrect arg succeeded.~n"
+                    "Result: ~p", [Res])
+    end,
+    ok.
+
+%% Test list_to_pid/port/ref for external pids/ports/refs.
+t_list_to_ext_pidportref(Config) when is_list(Config) ->
+    {ok, Node} = slave:start(net_adm:localhost(), t_list_to_ext_pidportref),
+    Pid = rpc:call(Node, erlang, self, []),
+    Port = hd(rpc:call(Node, erlang, ports, [])),
+    Ref = rpc:call(Node, erlang, make_ref, []),
+
+    PidStr  = pid_to_list(Pid),
+    PortStr = port_to_list(Port),
+    RefStr  = ref_to_list(Ref),
+
+    Pid2  = list_to_pid(PidStr),
+    Port2 = list_to_port(PortStr),
+    Ref2  = list_to_ref(RefStr),
+
+    %% Local roundtrips of externals work from OTP-23
+    %% as even though 'creation' is missing in the string formats
+    %% we know the 'creation' of the connected node and list_to_* use that.
+    true = (Pid =:= Pid2),
+    true = (Port =:= Port2),
+    true = (Ref =:= Ref2),
+    true = (Pid == Pid2),
+    true = (Port == Port2),
+    true = (Ref == Ref2),
+
+    %% And it works when sent back to the same node instance,
+    %% which was connected when list_to_* were called.
+    true = rpc:call(Node, erlang, '=:=', [Pid, Pid2]),
+    true = rpc:call(Node, erlang, '==',  [Pid, Pid2]),
+    true = rpc:call(Node, erlang, '=:=', [Port, Port2]),
+    true = rpc:call(Node, erlang, '==',  [Port, Port2]),
+    true = rpc:call(Node, erlang, '=:=', [Ref, Ref2]),
+    true = rpc:call(Node, erlang, '==',  [Ref, Ref2]),
+
+    %% Make sure no ugly comparison with 0-creation as wildcard is done.
+    Pid0 = make_0_creation(Pid),
+    Port0 = make_0_creation(Port),
+    Ref0 = make_0_creation(Ref),
+    false = (Pid =:= Pid0),
+    false = (Port =:= Port0),
+    false = (Ref =:= Ref0),
+    false = (Pid == Pid0),
+    false = (Port == Port0),
+    false = (Ref == Ref0),
+
+    %% Check 0-creations are converted to local node creations
+    %% when sent to matching node name.
+    true = rpc:call(Node, erlang, '=:=', [Pid, Pid0]),
+    true = rpc:call(Node, erlang, '==',  [Pid, Pid0]),
+    true = rpc:call(Node, erlang, '=:=', [Port, Port0]),
+    true = rpc:call(Node, erlang, '==',  [Port, Port0]),
+    true = rpc:call(Node, erlang, '=:=', [Ref, Ref0]),
+    true = rpc:call(Node, erlang, '==',  [Ref, Ref0]),
+
+    slave:stop(Node),
+    ok.
+
+-define(NEW_PID_EXT, 88).
+-define(NEW_PORT_EXT, 89).
+-define(NEWER_REFERENCE_EXT, 90).
+
+%% Copy pid/port/ref but set creation=0
+make_0_creation(X) when is_pid(X); is_port(X); is_reference(X) ->
+    B = term_to_binary(X),
+    Sz = byte_size(B),
+    B2 = case B of
+             <<131, ?NEW_PID_EXT, _/binary>> ->
+                 PreSz = Sz - 4,
+                 <<_:PreSz/binary, Cr:32>> = B,
+                 true = (Cr =/= 0),
+                 <<B:PreSz/binary, 0:32>>;
+             <<131, ?NEW_PORT_EXT, _/binary>> ->
+                 PreSz = Sz - 4,
+                 <<_:PreSz/binary, Cr:32>> = B,
+                 true = (Cr =/= 0),
+                 <<B:PreSz/binary, 0:32>>;
+             <<131, ?NEWER_REFERENCE_EXT, Len:16, _/binary>> ->
+                 PostSz = Len*4,
+                 PreSz = Sz - (4 + PostSz),
+                 <<_:PreSz/binary, Cr:32, PostFix:PostSz/binary>> = B,
+                 true = (Cr =/= 0),
+                 <<B:PreSz/binary, 0:32, PostFix/binary>>
+         end,
+    binary_to_term(B2).
+
 
 %% Test list_to_float/1 with correct and incorrect arguments.
 

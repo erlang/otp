@@ -102,6 +102,8 @@
                                       | 'undefined', % race
                 fun_homes            :: dict:dict(label(), mfa())
                                       | 'undefined', % race
+                reachable_funs       :: sets:set(label())
+                                      | 'undefined', % race
 		plt		     :: dialyzer_plt:plt()
                                       | 'undefined', % race
 		opaques              :: [type()]
@@ -269,9 +271,11 @@ traverse(Tree, Map, State) ->
       case state__warning_mode(State) of
         true -> {State, Map, Type};
         false ->
-          State2 = state__add_work(get_label(Tree), State),
+          FunLbl = get_label(Tree),
+          State2 = state__add_work(FunLbl, State),
           State3 = state__update_fun_env(Tree, Map, State2),
-          {State3, Map, Type}
+          State4 = state__add_reachable(FunLbl, State3),
+          {State4, Map, Type}
       end;
     'let' ->
       handle_let(Tree, Map, State);
@@ -294,14 +298,36 @@ traverse(Tree, Map, State) ->
     module ->
       handle_module(Tree, Map, State);
     primop ->
-      Type =
-	case cerl:atom_val(cerl:primop_name(Tree)) of
-	  match_fail -> t_none();
-	  raise -> t_none();
-	  bs_init_writable -> t_from_term(<<>>);
-	  Other -> erlang:error({'Unsupported primop', Other})
-	end,
-      {State, Map, Type};
+      case cerl:atom_val(cerl:primop_name(Tree)) of
+        match_fail ->
+          {State, Map, t_none()};
+        raise ->
+          {State, Map, t_none()};
+        bs_init_writable ->
+          {State, Map, t_from_term(<<>>)};
+        build_stacktrace ->
+          {State, Map, erl_bif_types:type(erlang, build_stacktrace, 0)};
+        dialyzer_unknown ->
+          {State, Map, t_any()};
+        recv_peek_message ->
+          {State, Map, t_product([t_boolean(), t_any()])};
+        recv_wait_timeout ->
+          [Arg] = cerl:primop_args(Tree),
+          {State1, Map1, TimeoutType} = traverse(Arg, Map, State),
+          Opaques = State1#state.opaques,
+          case t_is_atom(TimeoutType, Opaques) andalso
+            t_atom_vals(TimeoutType, Opaques) =:= ['infinity'] of
+            true ->
+              {State1, Map1, t_boolean()};
+            false ->
+              {State1, Map1, t_boolean()}
+          end;
+        remove_message ->
+          {State, Map, t_any()};
+        timeout ->
+          {State, Map, t_any()};
+        Other -> erlang:error({'Unsupported primop', Other})
+      end;
     'receive' ->
       handle_receive(Tree, Map, State);
     seq ->
@@ -400,8 +426,13 @@ handle_apply(Tree, Map, State) ->
                                     t_fun_args(OpType1, 'universe')),
 	      case any_none(NewArgs) of
 		true ->
+                  EnumNewArgs = lists:zip(lists:seq(1, length(NewArgs)),
+                                          NewArgs),
+                  ArgNs = [Arg ||
+                            {Arg, Type} <- EnumNewArgs, t_is_none(Type)],
 		  Msg = {fun_app_args,
-			 [format_args(Args, ArgTypes, State),
+			 [ArgNs,
+			  format_args(Args, ArgTypes, State),
 			  format_type(OpType, State)]},
 		  State3 = state__add_warning(State2, ?WARN_FAILING_CALL,
 					      Tree, Msg),
@@ -957,7 +988,7 @@ handle_call(Tree, Map, State) ->
 
 handle_case(Tree, Map, State) ->
   Arg = cerl:case_arg(Tree),
-  Clauses = filter_match_fail(cerl:case_clauses(Tree)),
+  Clauses = cerl:case_clauses(Tree),
   {State1, Map1, ArgType} = SMA = traverse(Arg, Map, State),
   case t_is_none_or_unit(ArgType) of
     true -> SMA;
@@ -1074,7 +1105,7 @@ handle_module(Tree, Map, State) ->
 %%----------------------------------------
 
 handle_receive(Tree, Map, State) ->
-  Clauses = filter_match_fail(cerl:receive_clauses(Tree)),
+  Clauses = cerl:receive_clauses(Tree),
   Timeout = cerl:receive_timeout(Tree),
   State1 =
     case is_race_analysis_enabled(State) of
@@ -3009,24 +3040,6 @@ is_lc_simple_list(Tree, TreeType, State) ->
     andalso t_is_list(TreeType)
     andalso t_is_simple(t_list_elements(TreeType, Opaques), State).
 
-filter_match_fail([Clause] = Cls) ->
-  Body = cerl:clause_body(Clause),
-  case cerl:type(Body) of
-    primop ->
-      case cerl:atom_val(cerl:primop_name(Body)) of
-	match_fail -> [];
-	raise -> [];
-	_ -> Cls
-      end;
-    _ -> Cls
-  end;
-filter_match_fail([H|T]) ->
-  [H|filter_match_fail(T)];
-filter_match_fail([]) ->
-  %% This can actually happen, for example in
-  %%      receive after 1 -> ok end
-  [].
-
 %%% ===========================================================================
 %%%
 %%%  The State.
@@ -3038,25 +3051,35 @@ state__new(Callgraph, Codeserver, Tree, Plt, Module, Records) ->
   {TreeMap, FunHomes} = build_tree_map(Tree, Callgraph),
   Funs = dict:fetch_keys(TreeMap),
   FunTab = init_fun_tab(Funs, dict:new(), TreeMap, Callgraph, Plt),
-  ExportedFuns =
-    [Fun || Fun <- Funs--[top], dialyzer_callgraph:is_escaping(Fun, Callgraph)],
-  Work = init_work(ExportedFuns),
+  ExportedFunctions =
+    [Fun ||
+      Fun <- Funs--[top],
+      dialyzer_callgraph:is_escaping(Fun, Callgraph),
+      dialyzer_callgraph:lookup_name(Fun, Callgraph) =/= error
+    ],
+  Work = init_work(ExportedFunctions),
   Env = lists:foldl(fun(Fun, Env) -> dict:store(Fun, map__new(), Env) end,
 		    dict:new(), Funs),
   #state{callgraph = Callgraph, codeserver = Codeserver,
          envs = Env, fun_tab = FunTab, fun_homes = FunHomes, opaques = Opaques,
 	 plt = Plt, races = dialyzer_races:new(), records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
-	 module = Module}.
+	 module = Module, reachable_funs = sets:new()}.
 
 state__warning_mode(#state{warning_mode = WM}) ->
   WM.
 
 state__set_warning_mode(#state{tree_map = TreeMap, fun_tab = FunTab,
-                               races = Races} = State) ->
+                               races = Races, callgraph = Callgraph,
+                               reachable_funs = ReachableFuns} = State) ->
   ?debug("==========\nStarting warning pass\n==========\n", []),
   Funs = dict:fetch_keys(TreeMap),
-  State#state{work = init_work([top|Funs--[top]]),
+  Work =
+    [Fun ||
+      Fun <- Funs--[top],
+      dialyzer_callgraph:lookup_name(Fun, Callgraph) =/= error orelse
+        sets:is_element(Fun, ReachableFuns)],
+  State#state{work = init_work(Work),
 	      fun_tab = FunTab, warning_mode = true,
               races = dialyzer_races:put_race_analysis(true, Races)}.
 
@@ -3148,7 +3171,8 @@ state__get_race_warnings(#state{races = Races} = State) ->
   State1#state{races = Races1}.
 
 state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
-			   callgraph = Callgraph, plt = Plt} = State) ->
+			   callgraph = Callgraph, plt = Plt,
+                           reachable_funs = ReachableFuns} = State) ->
   FoldFun =
     fun({top, _}, AccState) -> AccState;
        ({FunLbl, Fun}, AccState) ->
@@ -3183,7 +3207,12 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 		      GenRet = dialyzer_contracts:get_contract_return(C),
 		      not t_is_unit(GenRet)
 		  end,
-		case Warn of
+                %% Do not output warnings for unreachable funs.
+		case
+                  Warn andalso
+                  (dialyzer_callgraph:lookup_name(FunLbl, Callgraph) =/= error
+                   orelse sets:is_element(FunLbl, ReachableFuns))
+                of
 		  true ->
 		    case classify_returns(Fun) of
 		      no_match ->
@@ -3253,6 +3282,10 @@ state__get_args_and_status(Tree, #state{fun_tab = FunTab}) ->
     {ok, {not_handled, {ArgTypes, _}}} -> {ArgTypes, false};
     {ok, {ArgTypes, _}} -> {ArgTypes, true}
   end.
+
+state__add_reachable(FunLbl, #state{reachable_funs = ReachableFuns}=State) ->
+  NewReachableFuns = sets:add_element(FunLbl, ReachableFuns),
+  State#state{reachable_funs = NewReachableFuns}.
 
 build_tree_map(Tree, Callgraph) ->
   Fun =
@@ -3614,14 +3647,15 @@ format_args(ArgList0, TypeList, State) ->
   "(" ++ format_args_1(ArgList, TypeList, State) ++ ")".
 
 format_args_1([Arg], [Type], State) ->
-  format_arg(Arg) ++ format_type(Type, State);
+  format_arg_1(Arg, Type, State);
 format_args_1([Arg|Args], [Type|Types], State) ->
-  String =
-    case cerl:is_literal(Arg) of
-      true -> format_cerl(Arg);
-      false -> format_arg(Arg) ++ format_type(Type, State)
-    end,
-  String ++ "," ++ format_args_1(Args, Types, State).
+  format_arg_1(Arg, Type, State) ++ "," ++ format_args_1(Args, Types, State).
+
+format_arg_1(Arg, Type, State) ->
+  case cerl:is_literal(Arg) of
+    true -> format_cerl(Arg);
+    false -> format_arg(Arg) ++ format_type(Type, State)
+  end.
 
 format_arg(Arg) ->
   Default = "",
@@ -3788,7 +3822,20 @@ find_terminals(Tree) ->
 	  %% We cannot make assumptions. Say that both are true.
 	  {true, true}
       end;
-    'case' -> find_terminals_list(cerl:case_clauses(Tree));
+    'case' ->
+      case cerl:case_clauses(Tree) of
+        [] ->
+          case lists:member(receive_timeout, cerl:get_ann(Tree)) of
+            true ->
+              %% Handle a never ending receive without any
+              %% clauses specially. (Not sure why.)
+              {false, true};
+            false ->
+              {false, false}
+          end;
+        [_|_] ->
+          find_terminals_list(cerl:case_clauses(Tree))
+      end;
     'catch' -> find_terminals(cerl:catch_body(Tree));
     clause -> find_terminals(cerl:clause_body(Tree));
     cons -> {false, true};

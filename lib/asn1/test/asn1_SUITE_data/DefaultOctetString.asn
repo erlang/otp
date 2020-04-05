@@ -1,0 +1,15 @@
+DefaultOctetString
+DEFINITIONS
+AUTOMATIC TAGS
+ ::=
+BEGIN
+Dos ::= SEQUENCE {
+	opt [2] OCTET STRING (SIZE(2..4)) OPTIONAL,
+	def [10] OCTET STRING (SIZE (1)) DEFAULT '05'H
+}
+
+dos Dos ::= {
+	opt '1234'H
+}
+
+END

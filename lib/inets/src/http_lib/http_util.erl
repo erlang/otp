@@ -27,7 +27,8 @@
 	 convert_month/1, 
 	 is_hostname/1,
 	 timestamp/0, timeout/2,
-	 html_encode/1
+	 html_encode/1,
+	 maybe_add_brackets/2
 	]).
 
 
@@ -194,6 +195,24 @@ html_encode(Chars) ->
     lists:append([char_to_html_entity(Char, Reserved) || Char <- Chars]).
 
 
+maybe_add_brackets(Addr, false) ->
+    Addr;
+maybe_add_brackets(Addr, true) when is_list(Addr) ->
+    case is_ipv6_address(Addr) of
+        true ->
+            [$[|Addr] ++ "]";
+        false ->
+            Addr
+    end;
+maybe_add_brackets(Addr, true) when is_binary(Addr) ->
+    case is_ipv6_address(Addr) of
+        true ->
+            <<$[,Addr/binary,$]>>;
+        false ->
+            Addr
+    end.
+
+
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
@@ -204,4 +223,15 @@ char_to_html_entity(Char, Reserved) ->
 	    "&#" ++ integer_to_list(Char) ++ ";";
 	false ->
 	    [Char]
+    end.
+
+is_ipv6_address(Addr) when is_binary(Addr) ->
+    B = binary_to_list(Addr),
+    is_ipv6_address(B);
+is_ipv6_address(Addr) when is_list(Addr) ->
+    case inet:parse_ipv6strict_address(Addr) of
+        {ok, _ } ->
+            true;
+        {error, _} ->
+            false
     end.

@@ -487,4 +487,4 @@ negotiate({essl, _}, Socket, Timeout) ->
     negotiate_ssl(Socket, Timeout).
 
 negotiate_ssl(Socket, Timeout) ->
-    ssl:ssl_accept(Socket, Timeout). 
+    ssl:handshake(Socket, Timeout). 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,6 @@ typedef struct {
     Uint nos;
     ErtsMMapInit dflt_mmap;
     ErtsMMapInit literal_mmap;
-    ErtsMMapInit exec_mmap;
 } ErtsMsegInit_t;
 
 #define ERTS_MSEG_INIT_DEFAULT_INITIALIZER				\
@@ -72,7 +71,6 @@ typedef struct {
     1000,		/* cci:   Cache check interval		*/	\
     ERTS_MMAP_INIT_DEFAULT_INITER,					\
     ERTS_MMAP_INIT_LITERAL_INITER,                                      \
-    ERTS_MMAP_INIT_HIPE_EXEC_INITER                                     \
 }
 
 typedef struct {

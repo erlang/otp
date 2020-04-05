@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -646,10 +646,12 @@ get_des_salt() ->
 		ets:insert(snmp_agent_table, {usm_des_salt, 0}),
 		0;
 	    _ -> % it doesn't exist, initialize
-                random:seed(erlang:phash2([node()]),
-                            erlang:monotonic_time(),
-                            erlang:unique_integer()),
-		R = random:uniform(4294967295),
+                ?SNMP_RAND_SEED(),
+                %% rand:seed(exrop,
+                %%           {erlang:phash2([node()]),
+                %%            erlang:monotonic_time(),
+                %%            erlang:unique_integer()}),
+		R = rand:uniform(4294967295),
 		ets:insert(snmp_agent_table, {usm_des_salt, R}),
 		R
 	end,
@@ -679,10 +681,12 @@ get_aes_salt() ->
 		ets:insert(snmp_agent_table, {usm_aes_salt, 0}),
 		0;
 	    _ -> % it doesn't exist, initialize
-                random:seed(erlang:phash2([node()]),
-                            erlang:monotonic_time(),
-                            erlang:unique_integer()),
-		R = random:uniform(36893488147419103231),
+                ?SNMP_RAND_SEED(),
+                %% rand:seed(exrop,
+                %%           {erlang:phash2([node()]),
+                %%            erlang:monotonic_time(),
+                %%            erlang:unique_integer()}),
+		R = rand:uniform(36893488147419103231),
 		ets:insert(snmp_agent_table, {usm_aes_salt, R}),
 		R
 	end,

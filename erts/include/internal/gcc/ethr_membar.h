@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@
  *          issue an aquire memory barrier and an __atomic
  *          builtin memory acess with the __ATOMIC_RELEASE
  *          memory model must at least issue a release memory
- *          barrier. Otherwise the two can not be paired.
+ *          barrier. Otherwise the two cannot be paired.
  *       4. All __atomic builtins accessing memory using the
  *          __ATOMIC_CONSUME builtin can be used for the same
  *          reason __ATOMIC_ACQUIRE can be used. The ethread

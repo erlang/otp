@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -164,6 +164,14 @@ no_filter(X) -> X.
 %% An ordering function (A, B) shall return true iff
 %% A is less than or equal to B i.e shall return
 %% false iff A is to be ordered after B.
+
+-spec keyorder(N, A, B, Keys) ->
+                      boolean() when
+      N    :: integer(),
+      A    :: tuple(),
+      B    :: tuple(),
+      Keys :: maybe_improper_list().
+
 keyorder(N, A, B, _) when element(N, A) == element(N, B) ->
     true;
 keyorder(N, A, B, [Key | _])
@@ -236,15 +244,16 @@ read_check(File, Check, [{StartLine, Row, EndLine}|Lines], State, Res) ->
 		    "   NewRow: ~p~n", [NewRow]),
 	    read_check(File, Check, Lines, NewState, [NewRow | Res])
     catch
-	{error, Reason} ->
-	    ?vtrace("read_check -> error:~n"
-		    "   Reason: ~p", [Reason]),
+	throw:{error, Reason} ->
+	    ?vtrace("read_check -> error:"
+		    "~n   Reason: ~p", [Reason]),
 	    error({failed_check, File, StartLine, EndLine, Reason});
-	Class:Reason ->
-	    Error = {Class,Reason,erlang:get_stacktrace()},
-	    ?vtrace("read_check -> failure:~n"
-		    "   Error: ~p", [Error]),
-	    error({failed_check, File, StartLine, EndLine, Error})
+	C:E:S ->
+	    ?vtrace("read_check -> failure:"
+                    "~n   Class: ~p"
+		    "~n   Error: ~p"
+		    "~n   Stack: ~p", [C, E, S]),
+	    error({failed_check, File, StartLine, EndLine, {C, E, S}})
     end.
 
 open_file(File) ->
@@ -256,7 +265,8 @@ open_file(File) ->
     end.
 
 do_read(Io, Prompt, StartLine) ->
-    case io:request(Io, {get_until,Prompt,erl_scan,tokens,[StartLine]}) of
+    Enc = latin1,
+    case io:request(Io, {get_until,Enc,Prompt,erl_scan,tokens,[StartLine]}) of
 	{ok, Toks, EndLine} ->
 	    case erl_parse:parse_term(Toks) of
 		{ok, Term} ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Event handler module
+%%% Event handler module
 %%%
-%%% <p>This is an event handler module used for testing that 
-%%%    Common Test generates events as expected.</p>
+%%% This is an event handler module used for testing that
+%%% Common Test generates events as expected.
 %%%
 -module(eh_A).
 

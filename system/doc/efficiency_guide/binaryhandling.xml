@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2017</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -165,12 +165,12 @@ Bin4 = <<Bin1/binary,17>>,       %% 5 !!!
 
   <list type="bulleted">
     <item>Line 1 (marked with the <c>%% 1</c> comment), assigns
-    a <seealso marker="#heap_binary">heap binary</seealso> to
+    a <seeguide marker="#heap_binary">heap binary</seeguide> to
     the <c>Bin0</c> variable.</item>
 
     <item>Line 2 is an append operation. As <c>Bin0</c>
     has not been involved in an append operation,
-    a new <seealso marker="#refc_binary">refc binary</seealso>
+    a new <seeguide marker="#refc_binary">refc binary</seeguide>
     is created and the contents of <c>Bin0</c> is copied
     into it. The <em>ProcBin</em> part of the refc binary has
     its size set to the size of the data stored in the binary, while
@@ -248,7 +248,7 @@ Bin = <<Bin1,...>>  %% Bin1 will be COPIED
       <p>The same happens if you insert a binary into an Ets
       table, send it to a port using <c>erlang:port_command/2</c>, or
       pass it to
-      <seealso marker="erts:erl_nif#enif_inspect_binary">enif_inspect_binary</seealso>
+      <seecref marker="erts:erl_nif#enif_inspect_binary">enif_inspect_binary</seecref>
       in a NIF.</p>
 
       <p>Matching a binary will also cause it to shrink and the next append
@@ -261,7 +261,7 @@ Bin = <<Bin1,...>>  %% Bin1 will be COPIED
 ]]></code>
 
       <p>The reason is that a
-      <seealso marker="#match_context">match context</seealso>
+      <seeguide marker="#match_context">match context</seeguide>
       contains a direct pointer to the binary data.</p>
 
       <p>If a process simply keeps binaries (either in "loop data" or in the
@@ -285,13 +285,13 @@ my_binary_to_list(<<H,T/binary>>) ->
 my_binary_to_list(<<>>) -> [].]]></code>  
 
   <p>The first time <c>my_binary_to_list/1</c> is called,
-  a <seealso marker="#match_context">match context</seealso>
+  a <seeguide marker="#match_context">match context</seeguide>
   is created. The match context points to the first
   byte of the binary. 1 byte is matched out and the match context
   is updated to point to the second byte in the binary.</p>
 
   <p>At this point it would make sense to create a
-  <seealso marker="#sub_binary">sub binary</seealso>,
+  <seeguide marker="#sub_binary">sub binary</seeguide>,
   but in this particular example the compiler sees that
   there will soon be a call to a function (in this case,
   to <c>my_binary_to_list/1</c> itself) that immediately will
@@ -357,25 +357,8 @@ all_but_zeroes_to_list(<<Byte,T/binary>>, Acc, Remaining) ->
   <c>Buffer</c> from a match context to a sub binary (or do nothing if
   <c>Buffer</c> is a binary already).</p>
 
-  <p>Before you begin to think that the compiler can optimize any binary
-  patterns, the following function cannot be optimized by the compiler
-  (currently, at least):</p>
-
-  <code type="erl"><![CDATA[
-non_opt_eq([H|T1], <<H,T2/binary>>) ->
-    non_opt_eq(T1, T2);
-non_opt_eq([_|_], <<_,_/binary>>) ->
-    false;
-non_opt_eq([], <<>>) ->
-    true.]]></code>
-
-  <p>It was mentioned earlier that the compiler can only delay creation of
-  sub binaries if it knows that the binary will not be shared. In this case,
-  the compiler cannot know.</p>
-
-  <p>Soon it is shown how to rewrite <c>non_opt_eq/2</c> so that the delayed
-  sub binary optimization can be applied, and more importantly, it is shown
-  how you can find out whether your code can be optimized.</p>
+  <p>But in more complicated code, how can one know whether the
+  optimization is applied or not?</p>
 
   <section>
     <marker id="bin_opt_info"></marker>
@@ -401,8 +384,8 @@ export ERL_COMPILER_OPTIONS=bin_opt_info]]></code>
     <p>The warnings look as follows:</p>
 
   <code type="erl"><![CDATA[
-./efficiency_guide.erl:60: Warning: NOT OPTIMIZED: sub binary is used or returned
-./efficiency_guide.erl:62: Warning: OPTIMIZED: creation of sub binary delayed]]></code>
+./efficiency_guide.erl:60: Warning: NOT OPTIMIZED: binary is returned from the function
+./efficiency_guide.erl:62: Warning: OPTIMIZED: match context reused]]></code>
 
     <p>To make it clearer exactly what code the warnings refer to, the
     warnings in the following examples are inserted as comments
@@ -410,10 +393,10 @@ export ERL_COMPILER_OPTIONS=bin_opt_info]]></code>
 
   <code type="erl"><![CDATA[
 after_zero(<<0,T/binary>>) ->
-         %% NOT OPTIMIZED: sub binary is used or returned
+         %% BINARY CREATED: binary is returned from the function
     T;
 after_zero(<<_,T/binary>>) ->
-         %% OPTIMIZED: creation of sub binary delayed
+         %% OPTIMIZED: match context reused
     after_zero(T);
 after_zero(<<>>) ->
     <<>>.]]></code>
@@ -422,67 +405,6 @@ after_zero(<<>>) ->
     binary cannot be delayed, because it will be returned.
     The warning for the second clause says that a sub binary will not be
     created (yet).</p>
-
-    <p>Let us revisit the earlier example of the code that could not
-    be optimized and find out why:</p>
-
-  <code type="erl"><![CDATA[
-non_opt_eq([H|T1], <<H,T2/binary>>) ->
-        %% INFO: matching anything else but a plain variable to
-	%%    the left of binary pattern will prevent delayed 
-	%%    sub binary optimization;
-	%%    SUGGEST changing argument order
-        %% NOT OPTIMIZED: called function non_opt_eq/2 does not
-	%%    begin with a suitable binary matching instruction
-    non_opt_eq(T1, T2);
-non_opt_eq([_|_], <<_,_/binary>>) ->
-    false;
-non_opt_eq([], <<>>) ->
-    true.]]></code>
-
-    <p>The compiler emitted two warnings. The <c>INFO</c> warning refers
-    to the function <c>non_opt_eq/2</c> as a callee, indicating that any
-    function that call <c>non_opt_eq/2</c> cannot make delayed sub binary
-    optimization. There is also a suggestion to change argument order.
-    The second warning (that happens to refer to the same line) refers to
-    the construction of the sub binary itself.</p>
-    
-    <p>Soon another example will show the difference between the
-    <c>INFO</c> and <c>NOT OPTIMIZED</c> warnings somewhat clearer, but
-    let us first follow the suggestion to change argument order:</p>
-
-  <code type="erl"><![CDATA[
-opt_eq(<<H,T1/binary>>, [H|T2]) ->
-        %% OPTIMIZED: creation of sub binary delayed
-    opt_eq(T1, T2);
-opt_eq(<<_,_/binary>>, [_|_]) ->
-    false;
-opt_eq(<<>>, []) ->
-    true.]]></code>
-
-    <p>The compiler gives a warning for the following code fragment:</p>
-
-  <code type="erl"><![CDATA[
-match_body([0|_], <<H,_/binary>>) ->
-        %% INFO: matching anything else but a plain variable to
-	%%    the left of binary pattern will prevent delayed 
-	%%    sub binary optimization;
-	%%    SUGGEST changing argument order
-    done;
-...]]></code>
-
-    <p>The warning means that <em>if</em> there is a call to <c>match_body/2</c>
-    (from another clause in <c>match_body/2</c> or another function), the
-    delayed sub binary optimization will not be possible. More warnings will
-    occur for any place where a sub binary is matched out at the end of and
-    passed as the second argument to <c>match_body/2</c>, for example:</p>
-
-  <code type="erl"><![CDATA[
-match_head(List, <<_:10,Data/binary>>) ->
-        %% NOT OPTIMIZED: called function match_body/2 does not
-	%%     begin with a suitable binary matching instruction
-    match_body(List, Data).]]></code>
-
   </section>
 
   <section>

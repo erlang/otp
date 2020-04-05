@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -219,6 +219,9 @@
 %% error codes
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(DISCONNECT(Code, DetailedText),
+        ssh_connection_handler:disconnect(Code, DetailedText, ?MODULE, ?LINE)).
 
 -define(SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT,   1).
 -define(SSH_DISCONNECT_PROTOCOL_ERROR,   2).

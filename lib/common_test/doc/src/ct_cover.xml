@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_cover.xml</file>
   </header>
-  <module>ct_cover</module>
+  <module since="">ct_cover</module>
   <modulesummary>Common Test framework code coverage support module.
   </modulesummary>
 
@@ -47,7 +47,7 @@
 
   <funcs>
     <func>
-    <name>add_nodes(Nodes) -&gt; {ok, StartedNodes} | {error, Reason}</name>
+    <name since="">add_nodes(Nodes) -&gt; {ok, StartedNodes} | {error, Reason}</name>
     <fsummary>Adds nodes to current cover test (only works if cover support
       is active).</fsummary>
       <type>
@@ -61,13 +61,13 @@
 
         <p>To have effect, this function is to be called from
           <c>init_per_suite/1</c> (see
-          <seealso marker="common_test"><c>common_test</c></seealso>)
+          <seeerl marker="common_test"><c>common_test</c></seeerl>)
           before any tests are performed.</p>
       </desc>
     </func>
 
     <func>
-    <name>cross_cover_analyse(Level, Tests) -&gt; ok</name>
+    <name since="OTP R16B">cross_cover_analyse(Level, Tests) -&gt; ok</name>
     <fsummary>Accumulates cover results over multiple tests.</fsummary>
       <type>
         <v>Level = overview | details</v>
@@ -77,13 +77,13 @@
       </type>
       <desc><marker id="cross_cover_analyse-2"/>
         <p>Accumulates cover results over multiple tests. See section
-          <seealso marker="cover_chapter#cross_cover">Cross Cover
-          Analysis</seealso> in the Users's Guide.</p>
+          <seeguide marker="cover_chapter#cross_cover">Cross Cover
+          Analysis</seeguide> in the Users's Guide.</p>
       </desc>
     </func>
 
     <func>
-    <name>remove_nodes(Nodes) -&gt; ok | {error, Reason}</name>
+    <name since="">remove_nodes(Nodes) -&gt; ok | {error, Reason}</name>
     <fsummary>Removes nodes from the current cover test.</fsummary>
       <type>
         <v>Nodes = [atom()]</v>
@@ -94,7 +94,7 @@
 
         <p>Call this function to stop cover test on nodes previously
           added with
-          <seealso marker="#add_nodes-1"><c>ct_cover:add_nodes/1</c></seealso>.
+          <seemfa marker="#add_nodes/1"><c>ct_cover:add_nodes/1</c></seemfa>.
           Results on the remote node are transferred to the <c>Common Test</c>
           node.</p>
       </desc>

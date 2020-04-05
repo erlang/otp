@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,15 +39,15 @@ start() ->
 
     %% Accept
     {ok, ASock} = ssl:transport_accept(LSock),
-    ok = ssl:ssl_accept(ASock),
+    {ok, SslSocket} = ssl:handshake(ASock),
     io:fwrite("Accept: accepted.~n"),
-    {ok, Cert} = ssl:peercert(ASock),
+    {ok, Cert} = ssl:peercert(SslSocket),
     io:fwrite("Accept: peer cert:~n~p~n", [public_key:pkix_decode_cert(Cert, otp)]),
     io:fwrite("Accept: sending \"hello\".~n"),
-    ssl:send(ASock, "hello"),
-    {error, closed} = ssl:recv(ASock, 0),
+    ssl:send(SslSocket, "hello"),
+    {error, closed} = ssl:recv(SslSocket, 0),
     io:fwrite("Accept: detected closed.~n"),
-    ssl:close(ASock),
+    ssl:close(SslSocket),
     io:fwrite("Listen: closing and terminating.~n"),
     ssl:close(LSock),
 
@@ -75,7 +75,7 @@ mk_opts(Role) ->
     [{active, false}, 
      {verify, 2},
      {depth, 2},
+     {server_name_indication, disable},
      {cacertfile, filename:join([Dir, Role, "cacerts.pem"])}, 
      {certfile, filename:join([Dir, Role, "cert.pem"])}, 
      {keyfile, filename:join([Dir, Role, "key.pem"])}].
-

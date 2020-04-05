@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,8 +76,7 @@ encode_avps(Name, Vals, #{module := Mod} = Opts) ->
                              ?LINE,
                              {Reason, Name, Vals, Mod}),
             erlang:error(list_to_tuple(Reason ++ [Name]));
-        error: Reason ->
-            Stack = erlang:get_stacktrace(),
+        error: Reason: Stack ->
             diameter_lib:log({encode, failure},
                              ?MODULE,
                              ?LINE,
@@ -555,8 +554,8 @@ dec(Data, Name, AvpName, Type, Mod, Dict, Fmt, Failed, Opts, Avp) ->
     catch
         throw: {?MODULE, T} ->
             decode_error(Failed, Fmt, T, Avp);
-        error: Reason ->
-            decode_error(Failed, Reason, Name, Mod, Opts, Avp)
+        error: Reason: Stack ->
+            decode_error(Failed, Reason, Stack, Name, Mod, Opts, Avp)
     end.
 
 %% dec_AVP/7
@@ -623,19 +622,19 @@ set(none, Avp, _Name) ->
 set(_, Avp, Rec) ->
     Avp#diameter_avp{value = Rec}.
 
-%% decode_error/6
+%% decode_error/7
 %%
 %% Error when decoding a non-grouped AVP.
 
-decode_error(true, _, _, _, _, Avp) ->
+decode_error(true, _, _, _, _, _, Avp) ->
     Avp;
 
-decode_error(false, Reason, Name, Mod, Opts, Avp) ->
-    Stack = diameter_lib:get_stacktrace(),
+decode_error(false, Reason, Stack, Name, Mod, Opts, Avp) ->
+    Z = diameter_lib:stacktrace(Stack),
     diameter_lib:log(decode_error,
                      ?MODULE,
                      ?LINE,
-                     {Reason, Name, Avp#diameter_avp.name, Mod, Stack}),
+                     {Reason, Name, Avp#diameter_avp.name, Mod, Z}),
     case Reason of
         {'DIAMETER', 5014 = RC, _} ->
             %% Length error communicated from diameter_types or a

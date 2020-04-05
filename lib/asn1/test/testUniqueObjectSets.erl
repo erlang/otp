@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,8 +30,7 @@ seq_roundtrip(I, D0) ->
         asn1_test_lib:map_roundtrip(M, 'Seq', Enc),
 	{ok,{'Seq',I,D}} = M:decode('Seq', Enc),
 	D
-    catch C:E ->
-	    Stk = erlang:get_stacktrace(),
+    catch C:E:Stk ->
 	    io:format("FAILED: ~p ~p\n", [I,D0]),
 	    erlang:raise(C, E, Stk)
     end.

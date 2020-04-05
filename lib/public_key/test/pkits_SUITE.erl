@@ -691,8 +691,7 @@ run({Chap, Test, Result}, TA) ->
 	{ok, _OK} when Result =/= ok ->
 	    ?error(" ~p ~p~n  Expected ~p got ~p ~n", [Chap, Test, Result, ok]),
 	    fail
-    catch Type:Reason ->
-	    Stack = erlang:get_stacktrace(),
+    catch Type:Reason:Stack ->
 	    io:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack]),
 	    io:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result]),
             exit(crash)

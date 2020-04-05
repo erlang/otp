@@ -39,6 +39,9 @@ new(Mod, Eq) ->
     end.
 
 empty(Mod) ->
+    %% The dict module might not be loaded since it not used by
+    %% anything in the core parts of Erlang/OTP.
+    {module,Mod} = code:ensure_loaded(Mod),
     case erlang:function_exported(Mod, new, 0) of
 	false -> Mod:empty();
 	true -> Mod:new()
@@ -48,6 +51,7 @@ to_list(Mod, D) ->
     Mod:to_list(D).
 
 from_list(Mod, L) ->
+    {module,Mod} = code:ensure_loaded(Mod),
     case erlang:function_exported(Mod, from_orddict, 1) of
 	false ->
 	    Mod:from_list(L);
@@ -63,6 +67,7 @@ from_list(Mod, L) ->
 
 %% Store new value into dictionary or update previous value in dictionary.
 enter(Mod, Key, Val, Dict) ->
+    {module,Mod} = code:ensure_loaded(Mod),
     case erlang:function_exported(Mod, store, 3) of
 	false ->
 	    Mod:enter(Key, Val, Dict);

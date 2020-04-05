@@ -1,7 +1,7 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2009-2016. All Rights Reserved.
+;; Copyright Ericsson AB 2009-2020. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 ;;; Author: Klas Johansson
 
 (eval-when-compile
-  (require 'cl))
+  (require 'cl-lib))
+(require 'erlang)
 
 (defvar erlang-eunit-src-candidate-dirs '("../src" ".")
   "*Name of directories which to search for source files matching
@@ -318,7 +319,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
     ;; instead of possibly several: one for each file to compile,
     ;; for instance for both x.erl and x_tests.erl.
     (save-some-buffers erlang-eunit-autosave)
-    (flet ((save-some-buffers (&optional any) nil))
+    (cl-letf (((symbol-function 'save-some-buffers) #'ignore))
 
       ;; Compilation of the source file is mandatory (the file must
       ;; exist, otherwise the procedure is aborted).  Compilation of the
@@ -331,8 +332,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
              t)
            (apply test-fun test-args)
            (if under-cover
-               (save-excursion
-                 (set-buffer (find-file-noselect src-filename))
+               (with-current-buffer (find-file-noselect src-filename)
                  (erlang-eunit-analyze-coverage)))))))
 
 (defun erlang-eunit-compile-and-run-module-tests-under-cover ()
@@ -348,8 +348,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 
 (defun erlang-eunit-compile-file (file-path &optional under-cover)
   (if (file-readable-p file-path)
-      (save-excursion
-        (set-buffer (find-file-noselect file-path))
+      (with-current-buffer (find-file-noselect file-path)
         ;; In order to run a code coverage analysis on a
         ;; module, we have two options:
         ;;
@@ -376,8 +375,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
       (error msg))))
 
 (defun erlang-eunit-last-compilation-successful-p ()
-  (save-excursion
-    (set-buffer inferior-erlang-buffer)
+  (with-current-buffer inferior-erlang-buffer
     (goto-char compilation-parsing-end)
     (erlang-eunit-all-list-elems-fulfill-p
      (lambda (re) (let ((continue t)

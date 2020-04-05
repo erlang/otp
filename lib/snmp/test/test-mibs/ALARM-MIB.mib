@@ -330,7 +330,7 @@ alarmModelRowStatus OBJECT-TYPE
     cannot be used as an alarm suppression mechanism.  Entries
     that are notInService will disappear as described in RFC2579.
 
-    This row can not be modified while it is being
+    This row cannot be modified while it is being
     referenced by a value of alarmActiveModelPointer.  In these
     cases, an error of `inconsistentValue' will be returned to
     the manager.

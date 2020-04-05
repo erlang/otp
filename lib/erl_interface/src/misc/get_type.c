@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,16 +27,7 @@
 /* for types with meaningful length attributes, return the length too.
    In other cases, return length 0 */
 
-/* FIXME working on this one.... */
-
 int ei_get_type(const char *buf, const int *index, int *type, int *len)
-{
-    return ei_get_type_internal(buf, index, type, len);
-}
-
-   
-int ei_get_type_internal(const char *buf, const int *index,
-			 int *type, int *len)
 {
   const char *s = buf + *index;
 
@@ -64,7 +55,9 @@ int ei_get_type_internal(const char *buf, const int *index,
 
   case ERL_LARGE_TUPLE_EXT:
   case ERL_LIST_EXT:
+  case ERL_MAP_EXT:
   case ERL_BINARY_EXT:
+  case ERL_BIT_BINARY_EXT:
     *len = get32be(s);
     break;
     

@@ -1,0 +1,190 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+i_select_val_bins := select_val_bins.fetch.select;
+
+select_val_bins.head() {
+    Eterm select_val;
+}
+
+select_val_bins.fetch(Src) {
+    select_val = $Src;
+}
+
+select_val_bins.select(Fail, NumElements) {
+    struct Singleton {
+        BeamInstr val;
+    };
+    struct Singleton* low;
+    struct Singleton* high;
+    struct Singleton* mid;
+    int bdiff; /* int not long because the arrays aren't that large */
+
+    low = (struct Singleton *) ($NEXT_INSTRUCTION);
+    high = low + $NumElements;
+
+    /* The pointer subtraction (high-low) below must produce
+     * a signed result, because high could be < low. That
+     * requires the compiler to insert quite a bit of code.
+     *
+     * However, high will be > low so the result will be
+     * positive. We can use that knowledge to optimise the
+     * entire sequence, from the initial comparison to the
+     * computation of mid.
+     *
+     * -- Mikael Pettersson, Acumem AB
+     *
+     * Original loop control code:
+     *
+     * while (low < high) {
+     *    mid = low + (high-low) / 2;
+     *
+     */
+    while ((bdiff = (int)((char*)high - (char*)low)) > 0) {
+        unsigned int boffset = ((unsigned int)bdiff >> 1) & ~(sizeof(struct Singleton)-1);
+
+        mid = (struct Singleton*)((char*)low + boffset);
+        if (select_val < mid->val) {
+            high = mid;
+        } else if (select_val > mid->val) {
+            low = mid + 1;
+        } else {
+            Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION + $NumElements);
+            Sint32 offset = jump_tab[mid - (struct Singleton *)($NEXT_INSTRUCTION)];
+            $JUMP(offset);
+        }
+    }
+    $JUMP($Fail);
+}
+
+i_select_tuple_arity2 := select_val2.src.get_arity.execute;
+i_select_val2 := select_val2.src.execute;
+
+select_val2.head() {
+    Eterm select_val2;
+}
+
+select_val2.src(Src) {
+    select_val2 = $Src;
+}
+
+select_val2.get_arity() {
+    if (ERTS_LIKELY(is_tuple(select_val2))) {
+        select_val2 = *tuple_val(select_val2);
+    } else {
+        select_val2 = NIL;
+    }
+}
+
+select_val2.execute(Fail, T1, T2) {
+    Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION);
+
+    if (select_val2 == $T1) {
+        $JUMP(jump_tab[0]);
+    } else if (select_val2 == $T2) {
+        $JUMP(jump_tab[1]);
+    } else {
+        $FAIL($Fail);
+    }
+}
+
+i_select_tuple_arity := select_val_lin.fetch.get_arity.execute;
+i_select_val_lins := select_val_lin.fetch.execute;
+
+select_val_lin.head() {
+    Eterm select_val;
+}
+
+select_val_lin.fetch(Src) {
+    select_val = $Src;
+}
+
+select_val_lin.get_arity() {
+    if (ERTS_LIKELY(is_tuple(select_val))) {
+        select_val = *tuple_val(select_val);
+    } else {
+        select_val = NIL;
+    }
+}
+
+select_val_lin.execute(Fail, N) {
+    BeamInstr* vs = $NEXT_INSTRUCTION;
+    int ix = 0;
+
+    for (;;) {
+        if (vs[ix+0] >= select_val) {
+            ix += 0;
+            break;
+        }
+        if (vs[ix+1] >= select_val) {
+            ix += 1;
+            break;
+        }
+        ix += 2;
+    }
+
+    if (vs[ix] == select_val) {
+        Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION + $N);
+        Eterm offset = jump_tab[ix];
+        $JUMP(offset);
+    } else {
+        $JUMP($Fail);
+    }
+}
+
+JUMP_ON_VAL(Fail, Index, N, Base) {
+    if (is_small($Index)) {
+        $Index = (Uint) (signed_val($Index) - $Base);
+        if ($Index < $N) {
+            Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION);
+            $JUMP(jump_tab[$Index]);
+        }
+    }
+    $FAIL($Fail);
+}
+
+i_jump_on_val_zero := jump_on_val_zero.fetch.execute;
+
+jump_on_val_zero.head() {
+    Eterm index;
+}
+
+jump_on_val_zero.fetch(Src) {
+    index = $Src;
+}
+
+jump_on_val_zero.execute(Fail, N) {
+    $JUMP_ON_VAL($Fail, index, $N, 0);
+}
+
+i_jump_on_val := jump_on_val.fetch.execute;
+
+jump_on_val.head() {
+    Eterm index;
+}
+
+jump_on_val.fetch(Src) {
+    index = $Src;
+}
+
+jump_on_val.execute(Fail, N, Base) {
+    $JUMP_ON_VAL($Fail, index, $N, $Base);
+}

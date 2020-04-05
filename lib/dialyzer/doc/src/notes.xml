@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2017</year>
+      <year>2006</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,247 @@
   </header>
   <p>This document describes the changes made to the Dialyzer
     application.</p>
+
+<section><title>Dialyzer 4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug where warnings about overspecified
+	    functions were erroneously emitted. Only overloaded
+	    functions were affected by the bug. </p>
+          <p>
+	    Own Id: OTP-16292</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove test data with GNU license. </p>
+          <p>
+	    Own Id: OTP-16146</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Allow native compilation when using Dialyzer from
+	    Erlang. The options <c>native</c> (defaults to
+	    <c>false</c>) and <c>native_cache</c> have been added.
+	    </p>
+          <p>
+	    Own Id: OTP-15880 Aux Id: PR-2283 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The HiPE compiler would badly miscompile certain
+	    try/catch expressions, so it will now refuse to compile
+	    modules containing try or catch.</p> <p>As a consequence
+	    of this, <c>dialyzer</c> will no longer compile key
+	    modules to native code.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15949</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Make sure Dialyzer does not crash if the formatting
+	    of results fails. Instead of crashing, an unformatted
+	    version of the results is returned. </p>
+          <p>
+	    Own Id: OTP-15922 Aux Id: PR-2240, ERL-949 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that caused a crash when indenting a
+	    Dialyzer warning mentioning more than one record field.
+	    </p>
+          <p>
+	    Own Id: OTP-15861 Aux Id: ERL-953 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> By default Dialyzer inserts line breaks in types,
+	    contracts, and Erlang Code when formatting results. Use
+	    the new <c>--no_indentation</c> option to get the old
+	    behavior of not inserting line breaks. </p>
+          <p>
+	    Own Id: OTP-15135</p>
+        </item>
+        <item>
+	    <p> Use bit syntax in warnings instead of Core Erlang
+	    syntax, for readability. </p>
+          <p>
+	    Own Id: OTP-15752</p>
+        </item>
+        <item>
+	    <p> The format of the raw analysis result tagged with
+	    <c>fun_app_args</c> is changed to <c>{fun_app_args,
+	    [ArgNs, Args, Type]}</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15779</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that caused Dialyzer to crash when
+	    analyzing a contract with a module name differing from
+	    the analyzed module's name. The bug was introduced in
+	    Erlang/OTP 18. </p>
+          <p>
+	    Own Id: OTP-15562 Aux Id: ERL-845 </p>
+        </item>
+        <item>
+	    <p> Fix a bug in the handling of the <c>Key</c> argument
+	    of <c>lists:{keysearch, keyfind, keymember}</c>. </p>
+          <p>
+	    Own Id: OTP-15570</p>
+        </item>
+        <item>
+	    <p>Optimize (again) Dialyzer's handling of
+	    left-associative use of <c>andalso</c> and <c>orelse</c>
+	    in guards.</p>
+          <p>
+	    Own Id: OTP-15577 Aux Id: ERL-851, PR-2141, PR-1944 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Optimize Dialyzer's handling of left-associative use
+	    of <c>andalso</c> and <c>orelse</c> in guards. </p>
+          <p>
+	    Own Id: OTP-15268 Aux Id: ERL-680 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Changed the default behaviour of <c>.erlang</c>
+	    loading: <c>.erlang</c> is no longer loaded from the
+	    current directory. <c>c:erlangrc(PathList)</c> can be
+	    used to search and load an <c>.erlang</c> file from user
+	    specified directories.</p> <p><c>escript</c>,
+	    <c>erlc</c>, <c>dialyzer</c> and <c>typer</c> no longer
+	    load an <c>.erlang</c> at all.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14439</p>
+        </item>
+        <item>
+	    <p> Dialyzer can no longer read BEAM files created with
+	    OTP 19 or earlier. </p>
+          <p>
+	    Own Id: OTP-14493 Aux Id: PR-1434 </p>
+        </item>
+        <item>
+	    <p> Speed up the computation of MD5 sums. </p>
+          <p>
+	    Own Id: OTP-14937 Aux Id: PR-1719 </p>
+        </item>
+        <item>
+	    <p> Fix a situation where Dialyzer unnecessarily
+	    discarded contract information, resulting in missed
+	    warnings. </p>
+          <p>
+	    Own Id: OTP-14970 Aux Id: PR-1722 </p>
+        </item>
+        <item>
+	    <p> The (not recommended) option <c>-Woverspecs</c> is
+	    somewhat refined, and generates warnings in a few more
+	    cases. </p>
+          <p>
+	    Own Id: OTP-14982 Aux Id: OTP-14970, PR-1722 </p>
+        </item>
+        <item>
+	    <p> Do not emit warnings for fun expressions residing in
+	    code that cannot be run. This is consistent with how
+	    Dialyzer treats other code that cannot be run. </p>
+          <p>
+	    Own Id: OTP-15079 Aux Id: ERL-593 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Dialyzer 3.2.4</title>
 
@@ -909,8 +1150,8 @@
           </taglist>
           <p>
 	    For information on how to use Maps please see Map Expressions in the
-		<seealso marker="doc/reference_manual:expressions#map_expressions">
-			Reference Manual</seealso>.</p>
+		<seeguide marker="system/reference_manual:expressions#map_expressions">
+			Reference Manual</seeguide>.</p>
           <p>
 	    The current implementation is without the following
 	    features:</p>

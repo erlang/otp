@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -164,6 +164,10 @@ erl</pre>
       <row>
         <cell align="left" valign="middle">C-y</cell>
         <cell align="left" valign="middle">Insert previously killed text</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-]</cell>
+        <cell align="left" valign="middle">Insert matching closing bracket</cell>
       </row>
       <tcaption>tty Text Editing</tcaption>
     </table>

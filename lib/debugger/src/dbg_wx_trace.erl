@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,9 +95,9 @@ start(Pid, Env, Parent, TraceWin, BackTrace, Strings) ->
 	    catch 
 		_:stop ->
 		    exit(stop);
-		E:R ->
+		E:R:S ->
 		    io:format("TraceWin Crashed ~p~n",[E]),
-		    io:format(" ~p in ~p~n",[R, erlang:get_stacktrace()]),
+		    io:format(" ~p in ~p~n",[R, S]),
 		    exit(R)
 	    end;
 	error ->
@@ -518,8 +518,8 @@ gui_cmd({user_command, Cmd}, State) ->
 gui_cmd({edit, {Var, Value}}, State) ->
     Window = dbg_wx_trace_win:get_window(State#state.win),
     Val = case State#state.strings of
-              []        -> dbg_wx_win:to_string("~999999lp",[Value]);
-              [str_on]  -> dbg_wx_win:to_string("~999999tp",[Value])
+              []        -> dbg_wx_win:to_string("~0ltp",[Value]);
+              [str_on]  -> dbg_wx_win:to_string("~0tp",[Value])
           end,
     case dbg_wx_win:entry(Window, "Edit variable", Var, {term, Val}) of
 	cancel ->
@@ -813,7 +813,7 @@ map(?STRNAME)            -> str_on;            % Strings
 map(str_on)              -> ?STRNAME.
 
 p(#state{strings=[str_on]}) -> "~tp";
-p(#state{strings=[]}) ->       "~lp".
+p(#state{strings=[]}) ->       "~ltp".
 
 %% gui_show_module(Win, Mod, Line, Cm, Pid, How) -> Win
 %% gui_show_module(Win, {Mod,Line}, _Reason, Cm, Pid, How) -> Win

@@ -1,7 +1,8 @@
+
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+# Copyright Ericsson AB 1996-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,10 +29,23 @@ HIPE_ENABLED=@HIPE_ENABLED@
 DTRACE_ENABLED=@DTRACE_ENABLED@
 DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
 USE_VM_PROBES=@USE_VM_PROBES@
+FPE=@FPE@
 LIBS = @LIBS@
 Z_LIB=@Z_LIB@
+CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
-OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab beam/ops.tab
+OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab \
+beam/ops.tab \
+beam/macros.tab \
+beam/instrs.tab \
+beam/arith_instrs.tab \
+beam/bif_instrs.tab \
+beam/bs_instrs.tab \
+beam/float_instrs.tab \
+beam/map_instrs.tab \
+beam/msg_instrs.tab \
+beam/select_instrs.tab \
+beam/trace_instrs.tab
 
 DEBUG_CFLAGS = @DEBUG_CFLAGS@
 CONFIGURE_CFLAGS = @CFLAGS@
@@ -51,7 +65,27 @@ ARFLAGS=rc
 OMIT_OMIT_FP=no
 TYPE_LIBS=
 
-DIRTY_SCHEDULER_SUPPORT=@DIRTY_SCHEDULER_SUPPORT@
+PROFILE_COMPILER=@PROFILE_COMPILER@
+PROFILE_MARKER=
+ifeq ($(PROFILE),generate)
+PROFILE_MARKER=_pg
+else
+ifeq ($(PROFILE),use)
+PROFILE_MARKER=_pu
+endif
+endif
+
+ifeq ($(PROFILE_COMPILER), gcc)
+PROFILE_GENERATE=-fprofile-generate
+PROFILE_USE=-fprofile-use -fprofile-correction
+PROFILE_USE_DEPS=$(OBJDIR)/%_pu.gcda
+endif
+ifeq ($(PROFILE_COMPILER), clang)
+PROFILE_GENERATE=-fprofile-instr-generate
+PROFILE_USE=-fprofile-instr-use=$(OBJDIR)/default.profdata
+PROFILE_USE_DEPS=$(OBJDIR)/default.profdata
+endif
+
 DIRTY_SCHEDULER_TEST=@DIRTY_SCHEDULER_TEST@
 
 ifeq ($(TYPE),debug)
@@ -178,44 +212,16 @@ endif
 # NOTE: When adding a new type update ERL_BUILD_TYPE_MARKER in sys/unix/sys.c
 #
 
-FLAVOR=$(DEFAULT_FLAVOR)
-
-ifeq ($(FLAVOR),plain)
-
-DS_SUPPORT=no
-DS_TEST=no
-
-FLAVOR_MARKER=
-FLAVOR_FLAGS=
-ENABLE_ALLOC_TYPE_VARS += nofrag
-M4FLAGS +=
-
-else # FLAVOR
-
-# If flavor isn't one of the above, it *is* smp flavor...
 override FLAVOR=smp
 
 FLAVOR_MARKER=.smp
-FLAVOR_FLAGS=-DERTS_SMP
-ENABLE_ALLOC_TYPE_VARS += smp nofrag
-M4FLAGS += -DERTS_SMP=1
-ifeq ($(DIRTY_SCHEDULER_SUPPORT),yes)
-THR_DEFS += -DERTS_DIRTY_SCHEDULERS
-DS_SUPPORT=yes
-
+ENABLE_ALLOC_TYPE_VARS += nofrag
 ifeq ($(DIRTY_SCHEDULER_TEST),yes)
 DS_TEST=yes
 THR_DEFS += -DERTS_DIRTY_SCHEDULERS_TEST
 else # DIRTY_SCHEDULER_TEST
 DS_TEST=no
 endif # DIRTY_SCHEDULER_TEST
-
-else # DIRTY_SCHEDULER_SUPPORT
-DS_SUPPORT=no
-DS_TEST=no
-endif # DIRTY_SCHEDULER_SUPPORT
-
-endif # FLAVOR
 
 TF_MARKER=$(TYPEMARKER)$(FLAVOR_MARKER)
 
@@ -235,18 +241,9 @@ ARCH=@ARCH@
 ultrasparcCFLAGS=-Wa,-xarch=v8plusa
 ARCHCFLAGS=$($(ARCH)CFLAGS)
 
-ifdef HIPE_ENABLED
-ifeq ($(OPSYS),linux)
-ppcBEAMLDFLAGS=-Wl,-m,elf32ppc
-ppc64BEAMLDFLAGS=-Wl,-m,elf64ppc,-T,hipe/elf64ppc.x
-endif
-ifeq ($(OPSYS),darwin)
-amd64BEAMLDFLAGS=-pagezero_size 0x10000000
-endif
-HIPEBEAMLDFLAGS=$($(ARCH)BEAMLDFLAGS)
-endif
+HIPEBEAMLDFLAGS=@HIPEBEAMLDFLAGS@
 
-ERTS_ENABLE_KERNEL_POLL=@ERTS_ENABLE_KERNEL_POLL@
+ERTS_BUILD_FALLBACK_POLL=@ERTS_BUILD_FALLBACK_POLL@
 
 #
 #
@@ -271,18 +268,18 @@ DEXPORT = @DEXPORT@
 RANLIB  = @RANLIB@
 STRIP   = strip
 PERL    = @PERL@
-RM	= @RM@
 MKDIR	= @MKDIR@
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
-MIXED_MSYS=@MIXED_MSYS@
+USING_MINGW=@MIXED_MINGW@
 
 ifeq ($(TARGET),win32)
 LIB_PREFIX=
 LIB_SUFFIX=.lib
+EXE_SUFFIX=.exe
 else
 LIB_PREFIX=lib
 LIB_SUFFIX=.a
+EXE_SUFFIX=
 endif
 
 ifeq (@EMU_LOCK_CHECKING@,yes)
@@ -313,9 +310,6 @@ ifeq ($(TARGET), win32)
 GEN_OPT_FLGS = $(OPT_LEVEL)
 UNROLL_FLG = 
 RC=rc.sh
-ifeq ($(MIXED_MSYS), yes)
-MAKE_PRELOAD_EXTRA = -msys
-endif
 ifeq ($(USING_MINGW), yes)
 RES_EXT = @OBJEXT@
 MAKE_PRELOAD_EXTRA += " -windres"
@@ -425,8 +419,19 @@ ifeq ($(TARGET), win32)
 EMULATOR_EXECUTABLE = beam$(TF_MARKER).dll
 else
 EMULATOR_EXECUTABLE = beam$(TF_MARKER)
+PROFILE_EXECUTABLE = beam.prof$(TF_MARKER)
 endif
 CS_EXECUTABLE = erl_child_setup$(TYPEMARKER)
+
+ifeq ($(PROFILE), generate)
+EMULATOR_EXECUTABLE = $(PROFILE_EXECUTABLE)
+ifeq ($(PROFILE_COMPILER), gcc)
+PROFILE_LDFLAGS = -fprofile-generate
+endif
+ifeq ($(PROFILE_COMPILER), clang)
+PROFILE_LDFLAGS = -fprofile-instr-generate
+endif
+endif
 
 # ----------------------------------------------------------------------
 
@@ -461,13 +466,13 @@ $(ERTS_LIB):
 
 .PHONY: clean
 clean:
-	$(RM) -f $(GENERATE)
-	$(RM) -rf $(TARGET)/*.c $(TARGET)/*.h $(TARGET)/*-GENERATED
-	$(RM) -rf $(TARGET)/*/*
-	$(RM) -rf obj/$(TARGET)
-	$(RM) -rf pcre/obj/$(TARGET) $(PCRE_GENINC)
-	$(RM) -rf zlib/obj/$(TARGET)
-	$(RM) -rf bin/$(TARGET)
+	$(RM) $(GENERATE)
+	$(RM) -r $(TARGET)/*.c $(TARGET)/*.h $(TARGET)/*-GENERATED
+	$(RM) -r $(TARGET)/*/*
+	$(RM) -r obj/$(TARGET)
+	$(RM) -r pcre/obj/$(TARGET) $(PCRE_GENINC)
+	$(RM) -r zlib/obj/$(TARGET)
+	$(RM) -r bin/$(TARGET)
 	cd $(ERTS_LIB_DIR) && $(MAKE) clean
 
 .PHONY: docs
@@ -482,7 +487,6 @@ RELEASE_INCLUDES = beam/erl_driver.h sys/$(ERLANG_OSTYPE)/driver_int.h beam/erl_
 ifeq ($(TARGET),win32)
 RELEASE_INCLUDES += sys/$(ERLANG_OSTYPE)/erl_win_dyn_driver.h
 endif
-
 
 .PHONY: release_spec
 ifdef VOID_EMULATOR
@@ -512,7 +516,9 @@ release_docs_spec:
 # Generated source code. Put in $(TARGET) directory
 #
 
+ifneq ($(strip $(CREATE_DIRS)),)
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+endif
 
 
 # has to be run after _create_dirs
@@ -548,10 +554,11 @@ DTRACE_HEADERS =
 endif
 
 ifdef HIPE_ENABLED
-OPCODE_TABLES += hipe/hipe_ops.tab
+OPCODE_TABLES += hipe/hipe_ops.tab hipe/hipe_instrs.tab
 endif
 
 $(TTF_DIR)/beam_cold.h \
+$(TTF_DIR)/beam_warm.h \
 $(TTF_DIR)/beam_hot.h \
 $(TTF_DIR)/beam_opcodes.c \
 $(TTF_DIR)/beam_opcodes.h \
@@ -561,8 +568,10 @@ $(TTF_DIR)/beam_tr_funcs.h \
 $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 	$(gen_verbose)LANG=C $(PERL) utils/beam_makeops \
 		-wordsize @EXTERNAL_WORD_SIZE@ \
+		-code-model @CODE_MODEL@ \
 		-outdir $(TTF_DIR) \
 		-DUSE_VM_PROBES=$(if $(USE_VM_PROBES),1,0) \
+		-DNO_FPE_SIGNALS=$(if $(filter unreliable,$(FPE)),1,0) \
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
 
@@ -589,7 +598,6 @@ endif
 
 $(TTF_DIR)/erl_bif_table.c \
 $(TTF_DIR)/erl_bif_table.h \
-$(TTF_DIR)/erl_bif_wrap.c \
 $(TTF_DIR)/erl_bif_list.h \
 $(TTF_DIR)/erl_atom_table.c \
 $(TTF_DIR)/erl_atom_table.h \
@@ -599,7 +607,7 @@ $(HIPE_NBIF_FILES) \
 	: $(TTF_DIR)/TABLES-GENERATED
 $(TTF_DIR)/TABLES-GENERATED: $(ATOMS) $(DIRTY_BIFS) $(BIFS) utils/make_tables
 	$(gen_verbose)LANG=C $(PERL) utils/make_tables -src $(TTF_DIR) -include $(TTF_DIR)\
-		-ds $(DS_SUPPORT) -dst $(DS_TEST) -hipe $(HIPE) $(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
+		-dst $(DS_TEST) -hipe $(HIPE) $(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
 GENERATE += $(TTF_DIR)/TABLES-GENERATED
 
 $(TTF_DIR)/erl_alloc_types.h: beam/erl_alloc.types utils/make_alloc_types
@@ -616,27 +624,69 @@ $(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
 	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(NIF_OBJS) $(STATIC_NIF_LIBS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
 GENERATE += $(TTF_DIR)/driver_tab.c
 
+DB_INSERT_LIST_YCF_FLAGS=-yield \
+		-static_aux_funs \
+		-only_yielding_funs \
+		-f ets_insert_2_list_check \
+		-f ets_insert_new_2_list_has_member \
+		-f ets_insert_2_list_from_p_heap \
+		-f ets_insert_2_list_destroy_copied_dbterms \
+		-f ets_insert_2_list_copy_term_list \
+		-f ets_insert_new_2_dbterm_list_has_member \
+		-f ets_insert_2_list_insert_db_term_list \
+		-f ets_insert_2_list \
+		-fnoauto ets_insert_2_list_lock_tbl
 
+ifeq ($(CROSS_COMPILING),no)
+$(TARGET)/erl_db_insert_list.ycf.h: beam/erl_db.c $(ERTS_LIB)
+	$(gen_verbose)$(ERL_TOP)/erts/lib_src/yielding_c_fun/bin/$(TARGET)/yielding_c_fun$(EXE_SUFFIX) \
+		$(DB_INSERT_LIST_YCF_FLAGS) \
+		-output_file_name $@ $<
+else
+## We cannot build a 'yielding_c_fun' that can be executed since we are
+## cross compiling. A working bootstrap system of valid version *should*
+## be in the path. Find 'yielding_c_fun' in the bootstrap system...
+$(TARGET)/erl_db_insert_list.ycf.h: beam/erl_db.c
+	$(gen_verbose)CROSS_YCF=`utils/find_cross_ycf` && \
+		"$$CROSS_YCF" $(DB_INSERT_LIST_YCF_FLAGS) \
+		-output_file_name $@ $<
+endif
+
+GENERATE += $(TARGET)/erl_db_insert_list.ycf.h
 
 # Preloaded code.
 # 
 # This list must be consistent with PRE_LOADED_MODULES in
 # erts/preloaded/src/Makefile.
 
-PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_code_checker.beam
+ifeq ($(USE_ESOCK), yes)
+ESOCK_PRELOAD_BEAM = \
+	$(ERL_TOP)/erts/preloaded/ebin/socket_registry.beam \
+	$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
+	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
+else
+ESOCK_PRELOAD_BEAM =
+endif
+
+PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/init.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
+		$(ESOCK_PRELOAD_BEAM) \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_signal_handler.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/atomics.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/counters.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/persistent_term.beam
 
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.
@@ -693,17 +743,66 @@ $(OBJDIR)/beams.$(RES_EXT): $(TARGET)/beams.rc
 
 endif
 
-ifneq ($(filter tile-%,$(TARGET)),)
-$(OBJDIR)/beam_emu.o: beam/beam_emu.c
-	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) \
-         $(INCLUDES) -c $< -o $@
-else
+# We disable the implicit rule of .S -> .o so that the verbose asm
+# generate is not used for compiling erts. This is only a problem on
+# old solaris make
+%.o : %.S
+
 # Usually the same as the default rule, but certain platforms (e.g. win32) mix
 # different compilers
 $(OBJDIR)/beam_emu.o: beam/beam_emu.c
 	$(V_EMU_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/beam_emu.S: beam/beam_emu.c
+	$(V_EMU_CC) -S -fverbose-asm $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/%_pg.o: beam/%.c
+	$(V_CC) $(PROFILE_GENERATE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/%_pu.o: beam/%.c $(PROFILE_USE_DEPS)
+	$(V_CC) $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/%_pu.S: beam/%.c $(PROFILE_USE_DEPS)
+	$(V_CC) -S -fverbose-asm $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/PROFILE: $(BINDIR)/$(PROFILE_EXECUTABLE)
+	$(V_at)echo " PROFILE ${PROFILE_EXECUTABLE}"
+	$(V_at)rm -f $(OBJDIR)/erl*.profraw
+	$(V_at)set -e; LLVM_PROFILE_FILE="$(OBJDIR)/erlc-%m.profraw" \
+          ERL_FLAGS="-emu_type prof${TYPEMARKER} +S 1" $(ERLC) -no-server \
+          -DPGO -o $(OBJDIR) test/estone_SUITE.erl > $(OBJDIR)/PROFILE_LOG
+	$(V_at)set -e; LLVM_PROFILE_FILE="$(OBJDIR)/erl-%m.profraw" \
+	  ERL_FLAGS="-emu_type prof${TYPEMARKER} +S 1" $(ERL) -pa $(OBJDIR) \
+	  -noshell -s estone_SUITE pgo -s init stop >> $(OBJDIR)/PROFILE_LOG
+	$(V_at)touch $@
+
+.SECONDARY: $(patsubst %.o,%_pu.gcda,$(PROFILE_OBJS))
+
+$(OBJDIR)/%_pu.gcda: $(OBJDIR)/PROFILE
+	$(V_at)mv $(OBJDIR)/$*_pg.gcda $@
+	$(V_at)touch $@
+
+$(OBJDIR)/default.profdata: $(OBJDIR)/PROFILE
+	$(V_LLVM_PROFDATA) merge -output $@ $(OBJDIR)/*.profraw
+
+ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
+# Have to treat erl_poll differently as the same .c file is used
+# twice for kernel poll builds.
+$(OBJDIR)/erl_poll.o: sys/common/erl_poll.c
+	$(V_CC) -DERTS_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+# Do a copy in order to make debuggers less confused
+$(TTF_DIR)/erl_poll.flbk.c: sys/common/erl_poll.c
+	$(V_at) cp $< $@
+	@touch $@
+
+$(OBJDIR)/erl_poll.flbk.o: $(TTF_DIR)/erl_poll.flbk.c
+	$(V_CC) -DERTS_NO_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 endif
 
+
+# ----------------------------------------------------------------------
+# General targets
+#
 $(OBJDIR)/%.o: beam/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
@@ -728,6 +827,9 @@ $(OBJDIR)/%.o: drivers/$(ERLANG_OSTYPE)/%.c
 $(OBJDIR)/%.o: nifs/common/%.c
 	$(V_CC) $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -c $< -o $@
 
+$(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
+	$(V_CC) $(CFLAGS) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
+
 # ----------------------------------------------------------------------
 # Specials
 #
@@ -736,12 +838,6 @@ CS_OBJ = $(OBJDIR)/erl_child_setup.o $(OBJDIR)/sys_uds.o $(OBJDIR)/hash.o
 $(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_OBJ) $(ERTS_LIB)
 	$(ld_verbose)$(CS_PURIFY) $(LD) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
                $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_OBJ) $(CS_LIBS)
-
-$(OBJDIR)/%.kp.o: sys/common/%.c
-	$(V_CC) -DERTS_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
-
-$(OBJDIR)/%.nkp.o: sys/common/%.c
-	$(V_CC) -DERTS_NO_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 ifeq ($(GCC),yes)
 
@@ -764,31 +860,64 @@ $(ERL_TOP)/lib/%.beam:
 
 INIT_OBJS = $(OBJDIR)/erl_main.o	$(PRELOAD_OBJ)
 
+PROFILE_OBJS = $(OBJDIR)/beam_emu.o	$(OBJDIR)/erl_process.o
+
 EMU_OBJS = \
-	$(OBJDIR)/beam_emu.o		$(OBJDIR)/beam_opcodes.o \
+	$(OBJDIR)/beam_opcodes.o \
 	$(OBJDIR)/beam_load.o		$(OBJDIR)/beam_bif_load.o \
 	$(OBJDIR)/beam_debug.o		$(OBJDIR)/beam_bp.o \
-	$(OBJDIR)/beam_catches.o \
-	$(OBJDIR)/code_ix.o \
+	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \
 	$(OBJDIR)/beam_ranges.o
 
-RUN_OBJS = \
+
+ifeq ($(USE_ESOCK), yes)
+
+# WE ARE USING ESOCK
+
+ESOCK_NIF_OBJS = \
+	$(OBJDIR)/socket_nif.o \
+	$(OBJDIR)/prim_net_nif.o
+
+ifneq ($(TARGET), win32)
+# These are *currently* only needed for non-win32,
+# since the nif-functions for socket and net are basically
+# stubbed with notsup in the win32 case.
+ESOCK_RUN_OBJS = \
+	$(OBJDIR)/socket_dbg.o \
+	$(OBJDIR)/socket_tarray.o \
+	$(OBJDIR)/socket_util.o
+else
+ESOCK_RUN_OBJS =
+endif
+
+else
+
+# WE ARE *NOT* USING ESOCK
+
+ESOCK_NIF_OBJS =
+ESOCK_RUN_OBJS =
+
+endif
+
+
+RUN_OBJS += \
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
 	$(OBJDIR)/erl_bestfit_alloc.o	$(OBJDIR)/erl_afit_alloc.o \
-	$(OBJDIR)/erl_instrument.o	$(OBJDIR)/erl_init.o \
+	$(OBJDIR)/erl_init.o \
 	$(OBJDIR)/erl_atom_table.o	$(OBJDIR)/erl_bif_table.o \
 	$(OBJDIR)/erl_bif_ddll.o  	$(OBJDIR)/erl_bif_guard.o \
 	$(OBJDIR)/erl_bif_info.o	$(OBJDIR)/erl_bif_op.o \
 	$(OBJDIR)/erl_bif_os.o		$(OBJDIR)/erl_bif_lists.o \
+	$(OBJDIR)/erl_bif_persistent.o \
+	$(OBJDIR)/erl_bif_atomics.o    	$(OBJDIR)/erl_bif_counters.o \
 	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_unique.o \
-	$(OBJDIR)/erl_bif_wrap.o	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_guard_bifs.o 	$(OBJDIR)/erl_dirty_bif_wrap.o \
 	$(OBJDIR)/erl_trace.o		$(OBJDIR)/copy.o \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
 	$(OBJDIR)/io.o 			$(OBJDIR)/erl_printf_term.o\
 	$(OBJDIR)/erl_debug.o		$(OBJDIR)/erl_md5.o \
-	$(OBJDIR)/erl_message.o		$(OBJDIR)/erl_process.o \
+	$(OBJDIR)/erl_message.o		$(OBJDIR)/erl_proc_sig_queue.o \
 	$(OBJDIR)/erl_process_dict.o	$(OBJDIR)/erl_process_lock.o \
 	$(OBJDIR)/erl_port_task.o	$(OBJDIR)/erl_arith.o \
 	$(OBJDIR)/time.o		$(OBJDIR)/erl_time_sup.o  \
@@ -801,12 +930,13 @@ RUN_OBJS = \
 	$(OBJDIR)/module.o		$(OBJDIR)/export.o \
 	$(OBJDIR)/register.o		$(OBJDIR)/break.o \
 	$(OBJDIR)/erl_async.o		$(OBJDIR)/erl_lock_check.o \
+	$(OBJDIR)/erl_dyn_lock_check.o \
 	$(OBJDIR)/erl_gc.o 		$(OBJDIR)/erl_lock_count.o \
-	$(OBJDIR)/erl_posix_str.o \
+	$(OBJDIR)/erl_posix_str.o	\
 	$(OBJDIR)/erl_bits.o 		$(OBJDIR)/erl_math.o \
 	$(OBJDIR)/erl_fun.o             $(OBJDIR)/erl_bif_port.o \
 	$(OBJDIR)/erl_term.o 		$(OBJDIR)/erl_node_tables.o \
-	$(OBJDIR)/erl_monitors.o	$(OBJDIR)/erl_process_dump.o \
+	$(OBJDIR)/erl_monitor_link.o	$(OBJDIR)/erl_process_dump.o \
 	$(OBJDIR)/erl_hl_timer.o	$(OBJDIR)/erl_cpu_topology.o \
 	$(OBJDIR)/erl_drv_thread.o      $(OBJDIR)/erl_bif_chksum.o \
 	$(OBJDIR)/erl_bif_re.o		$(OBJDIR)/erl_unicode.o \
@@ -816,22 +946,26 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
-	$(OBJDIR)/erl_io_queue.o
+	$(OBJDIR)/erl_io_queue.o	$(OBJDIR)/erl_db_catree.o \
+	$(ESOCK_RUN_OBJS)		$(OBJDIR)/erl_flxctr.o \
+	$(OBJDIR)/erl_nfunc_sched.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
+
 NIF_OBJS = \
-	   $(OBJDIR)/erl_tracer_nif.o \
-	   $(OBJDIR)/zlib_nif.o
+	$(OBJDIR)/erl_tracer_nif.o \
+	$(OBJDIR)/prim_buffer_nif.o \
+	$(OBJDIR)/prim_file_nif.o \
+	$(OBJDIR)/zlib_nif.o \
+	$(ESOCK_NIF_OBJS)
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \
 	$(OBJDIR)/registry_drv.o \
-	$(OBJDIR)/efile_drv.o \
 	$(OBJDIR)/inet_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
 	$(OBJDIR)/ttsl_drv.o
 OS_OBJS = \
-	$(OBJDIR)/win_efile.o \
 	$(OBJDIR)/win_con.o \
 	$(OBJDIR)/dll_sys.o \
 	$(OBJDIR)/driver_tab.o \
@@ -840,22 +974,23 @@ OS_OBJS = \
 	$(OBJDIR)/sys_time.o \
 	$(OBJDIR)/sys_interrupt.o \
 	$(OBJDIR)/sys_env.o \
-	$(OBJDIR)/dosmap.o
+	$(OBJDIR)/dosmap.o \
+	$(OBJDIR)/win_prim_file.o
 
 else
 OS_OBJS = \
 	$(OBJDIR)/sys.o \
 	$(OBJDIR)/sys_drivers.o \
+	$(OBJDIR)/sys_env.o \
 	$(OBJDIR)/sys_uds.o \
 	$(OBJDIR)/driver_tab.o \
-	$(OBJDIR)/unix_efile.o \
+	$(OBJDIR)/elib_memmove.o \
 	$(OBJDIR)/gzio.o \
-	$(OBJDIR)/elib_memmove.o
+	$(OBJDIR)/unix_prim_file.o
 
 	OS_OBJS += $(OBJDIR)/sys_float.o \
                    $(OBJDIR)/sys_time.o
 DRV_OBJS = \
-	$(OBJDIR)/efile_drv.o \
 	$(OBJDIR)/inet_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
 	$(OBJDIR)/ttsl_drv.o
@@ -885,22 +1020,19 @@ $(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS):
 	echo "=== Leaving lib after making static libs"
 endif
 
-ifeq ($(ERTS_ENABLE_KERNEL_POLL),yes)
-OS_OBJS += 	$(OBJDIR)/erl_poll.kp.o \
-		$(OBJDIR)/erl_check_io.kp.o \
-		$(OBJDIR)/erl_poll.nkp.o \
-		$(OBJDIR)/erl_check_io.nkp.o
-else
 OS_OBJS +=	$(OBJDIR)/erl_poll.o \
-		$(OBJDIR)/erl_check_io.o
-endif
-
-OS_OBJS +=	$(OBJDIR)/erl_mseg.o \
-		$(OBJDIR)/erl_mmap.o \
+		$(OBJDIR)/erl_check_io.o \
+		$(OBJDIR)/erl_mseg.o \
+		$(OBJDIR)/erl_mmap.o  \
+		$(OBJDIR)/erl_osenv.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
 		$(OBJDIR)/erl_mtrace_sys_wrap.o \
 		$(OBJDIR)/erl_sys_common_misc.o \
 		$(OBJDIR)/erl_os_monotonic_time_extender.o
+
+ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
+OS_OBJS += 	$(OBJDIR)/erl_poll.flbk.o
+endif
 
 HIPE_ARCH64_OBJS=$(OBJDIR)/hipe_bif64.o
 
@@ -930,20 +1062,22 @@ ifdef HIPE_ENABLED
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
-BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) $(LTTNG_OBJS)
+BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) \
+	$(LTTNG_OBJS) $(DRV_OBJS) $(NIF_OBJS)
 
-before_DTrace_OBJS =	$(BASE_OBJS) $(DRV_OBJS) $(NIF_OBJS)
+PROF_OBJS = $(patsubst %.o,%$(PROFILE_MARKER).o,$(PROFILE_OBJS)) $(BASE_OBJS)
 
-DTRACE_OBJS =
+OBJS = $(PROF_OBJS)
+
 ifdef DTRACE_ENABLED_2STEP
-DTRACE_OBJS = $(OBJDIR)/erlang_dtrace.o
-$(OBJDIR)/erlang_dtrace.o: $(before_DTrace_OBJS) $(TARGET)/erlang_dtrace.h
+# The $(PROFILE_MARKER) is placed in the object file name in order to
+# make sure we re-compile with the new object files for the profiled emulator
+OBJS += $(OBJDIR)/erlang$(PROFILE_MARKER)_dtrace.o
+$(OBJDIR)/erlang$(PROFILE_MARKER)_dtrace.o: $(PROF_OBJS) $(TARGET)/erlang_dtrace.h
 	dtrace -G -C -Ibeam \
 	  -s beam/erlang_dtrace.d \
-	  -o $@ $(before_DTrace_OBJS)
+	  -o $@ $(PROF_OBJS)
 endif
-
-OBJS = $(before_DTrace_OBJS) $(DTRACE_OBJS)
 
 $(INIT_OBJS): $(TTF_DIR)/GENERATED
 $(OBJS): $(TTF_DIR)/GENERATED
@@ -1036,8 +1170,8 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 
 else
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
-	$(ld_verbose)$(PURIFY) $(LD) -o $(BINDIR)/$(EMULATOR_EXECUTABLE) \
-	$(HIPEBEAMLDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
+	$(ld_verbose)$(PURIFY) $(LD) -o $@ \
+	$(HIPEBEAMLDFLAGS) $(PROFILE_LDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
 	$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS) $(LIBS)
 
 endif
@@ -1056,8 +1190,7 @@ SED_REPL_O=s|^\([^:]*:\)|$$(OBJDIR)/\1|g
 SED_REPL_O_ZLIB=s|^\([^:]*:\)|$$(ZLIB_OBJDIR)/\1|g
 SED_REPL_TTF_DIR=s|$(TTF_DIR)/|$$(TTF_DIR)/|g
 SED_REPL_ERL_TOP=s|\([ 	]\)$(ERL_TOP)/|\1$$(ERL_TOP)/|g;s|^$(ERL_TOP)/|$$(ERL_TOP)/|g
-SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.kp.o $$(OBJDIR)/erl_poll.nkp.o|g
-SED_REPL_CHK_IO=s|$$(OBJDIR)/erl_check_io.o|$$(OBJDIR)/erl_check_io.kp.o $$(OBJDIR)/erl_check_io.nkp.o|g
+SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.o $$(OBJDIR)/erl_poll.flbk.o|g
 SED_REPL_TTF_COMP_FLAGS=s|\([^/]\)erl_compile_flags\.h|\1$$(TTF_DIR)/erl_compile_flags\.h|g
 
 ifeq ($(TARGET),win32)
@@ -1067,8 +1200,8 @@ else
 SED_PREFIX=
 endif
 
-ifeq ($(ERTS_ENABLE_KERNEL_POLL),yes)
-SED_SUFFIX=;$(SED_REPL_POLL);$(SED_REPL_CHK_IO)
+ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
+SED_SUFFIX=;$(SED_REPL_POLL)
 else
 SED_SUFFIX=
 endif
@@ -1085,7 +1218,16 @@ endif
 BEAM_SRC=$(wildcard beam/*.c)
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
+ifeq ($(TARGET), win32)
+# These are *currently* only needed for non-win32,
+# since the nif-functions for socket and net are basically
+# stubbed with badarg in the win32 case.
+NIF_SOCKET_UTILS_SRC=$(filter-out nifs/common/socket_nif.c, $(wildcard nifs/common/socket_*.c))
+NIF_COMMON_SRC=$(filter-out $(NIF_SOCKET_UTILS_SRC), $(wildcard nifs/common/*.c))
+else
 NIF_COMMON_SRC=$(wildcard nifs/common/*.c)
+endif
+NIF_OSTYPE_SRC=$(wildcard nifs/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
 # We use $(shell ls) here instead of wildcard as $(wildcard ) resolved at
 # loadtime of the makefile and at that time these files are not generated yet.
@@ -1098,8 +1240,11 @@ ifeq ($(TARGET),win32)
 
 #DEP_CC=$(EMU_CC)
 DEP_CC=$(CC)
-DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 -Idrivers/common -Idrivers/$(ERLANG_OSTYPE)
-# ifeq (@MIXED_CYGWIN_VC@,yes)
+DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 \
+	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
+	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
+
+# ifeq (@MIXED_VC@,yes)
 # VC++ used for compiling. If __GNUC__ is defined we will include
 # other headers then when compiling which will result in faulty
 # dependencies.
@@ -1118,9 +1263,15 @@ MG_FLAG=-MG
 endif
 
 DEP_CC=$(CC)
-DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Inifs/common -Idrivers/common -Idrivers/$(ERLANG_OSTYPE)
+DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) \
+	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
+	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
 SYS_SRC=$(ALL_SYS_SRC)
 endif
+
+.PHONY: check_emu_registers
+check_emu_registers: $(OBJDIR)/beam_emu$(PROFILE_MARKER).S
+	utils/beam_emu_vars -vars 'c_p E HTOP FCALLS I reg' $^
 
 .PHONY: $(TARGET)/gen_git_version.mk
 $(TARGET)/gen_git_version.mk:
@@ -1145,6 +1296,8 @@ $(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(NIF_COMMON_SRC) \
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) \
+		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(SYS_SRC) \
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(TARGET_SRC) \
@@ -1158,6 +1311,7 @@ endif
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
 
+ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(MAKECMDGOALS),generate)
 ifndef VOID_EMULATOR
@@ -1165,3 +1319,6 @@ ifndef VOID_EMULATOR
 endif
 endif
 endif
+endif
+
+include $(ERL_TOP)/make/app_targets.mk

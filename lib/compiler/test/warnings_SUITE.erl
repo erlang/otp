@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 	 comprehensions/1,maps/1,maps_bin_opt_info/1,
          redundant_boolean_clauses/1,
 	 latin1_fallback/1,underscore/1,no_warnings/1,
-	 bit_syntax/1,inlining/1]).
+	 bit_syntax/1,inlining/1,tuple_calls/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -55,7 +55,6 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -65,9 +64,11 @@ groups() ->
        bin_opt_info,bin_construction,comprehensions,maps,
        maps_bin_opt_info,
        redundant_boolean_clauses,latin1_fallback,
-       underscore,no_warnings,bit_syntax,inlining]}].
+       underscore,no_warnings,bit_syntax,inlining,
+       tuple_calls]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -120,7 +121,7 @@ pattern2(Config) when is_list(Config) ->
     Ts = [{pattern2,
 	   Source,
 	   [nowarn_unused_vars],
-	   {warnings,[{2,sys_core_fold,{nomatch_shadow,1}},
+	   {warnings,[{2,sys_core_fold,{nomatch_shadow,1,{f,1}}},
 		      {4,sys_core_fold,no_clause_match},
 		      {5,sys_core_fold,nomatch_clause_type},
 		      {6,sys_core_fold,nomatch_clause_type}]}}],
@@ -239,19 +240,7 @@ guard(Config) when is_list(Config) ->
 	     {4,sys_core_fold,nomatch_guard},
 	     {6,sys_core_fold,no_clause_match},
 	     {6,sys_core_fold,nomatch_guard},
-	     {6,sys_core_fold,{eval_failure,badarg}},
-	     {8,sys_core_fold,no_clause_match},
-	     {8,sys_core_fold,nomatch_guard},
-	     {8,sys_core_fold,{eval_failure,badarg}},
-	     {9,sys_core_fold,no_clause_match},
-	     {9,sys_core_fold,nomatch_guard},
-	     {9,sys_core_fold,{eval_failure,badarg}},
-	     {10,sys_core_fold,no_clause_match},
-	     {10,sys_core_fold,nomatch_guard},
-	     {10,sys_core_fold,{eval_failure,badarg}},
-	     {11,sys_core_fold,no_clause_match},
-	     {11,sys_core_fold,nomatch_guard},
-	     {11,sys_core_fold,{eval_failure,badarg}}
+	     {6,sys_core_fold,{eval_failure,badarg}}
 	    ]}}],
     [] = run(Config, Ts),
 
@@ -522,25 +511,43 @@ bin_opt_info(Config) when is_list(Config) ->
 	         <<>> -> ok
              end.
 
+             %% We use a tail in a BIF instruction, remote call, function
+             %% return, and an optimizable tail call for better coverage.
+             t2(<<A,B,T/bytes>>) ->
+                 if
+                     A > B -> t2(T);
+                     A =< B -> T
+                 end;
+             t2(<<_,T/bytes>>) when byte_size(T) < 4 ->
+                 foo;
              t2(<<_,T/bytes>>) ->
-               split_binary(T, 4).
+                 split_binary(T, 4).
            ">>,
-    Ts1 = [{bsm1,
-	    Code,
-	    [bin_opt_info],
-	    {warnings,
-	     [{4,sys_core_bsm,orig_bin_var_used_in_guard},
-	      {5,beam_bsm,{no_bin_opt,{{t1,1},no_suitable_bs_start_match}}},
-	      {9,beam_bsm,{no_bin_opt,
-			   {binary_used_in,{extfunc,erlang,split_binary,2}}}} ]}}],
-    [] = run(Config, Ts1),
+
+    Ws = (catch run_test(Config, Code, [bin_opt_info])),
+
+    %% This is an inexact match since the pass reports exact instructions as
+    %% part of the warnings, which may include annotations that vary from run
+    %% to run.
+    {warnings,
+     [{5,beam_ssa_bsm,{unsuitable_call,
+                        {{b_local,{b_literal,t1},1},
+                         {used_before_match,
+                            {b_set,_,_,{bif,byte_size},[_]}}}}},
+      {5,beam_ssa_bsm,{binary_created,_,_}},
+      {11,beam_ssa_bsm,{binary_created,_,_}}, %% A =< B -> T
+      {13,beam_ssa_bsm,context_reused},       %% A > B -> t2(T);
+      {16,beam_ssa_bsm,{binary_created,_,_}}, %% when byte_size(T) < 4 ->
+      {19,beam_ssa_bsm,{remote_call,
+                         {b_remote,
+                          {b_literal,erlang},
+                           {b_literal,split_binary},2}}},
+      {19,beam_ssa_bsm,{binary_created,_,_}}  %% split_binary(T, 4)
+     ]} = Ws,
 
     %% For coverage: don't give the bin_opt_info option.
-    Ts2 = [{bsm2,
-	    Code,
-	    [],
-	    []}],
-    [] = run(Config, Ts2),
+    [] = (catch run_test(Config, Code, [])),
+
     ok.
 
 bin_construction(Config) when is_list(Config) ->
@@ -614,8 +621,8 @@ maps(Config) when is_list(Config) ->
 		 ok.
            ">>,
            [],
-	   {warnings,[{3,v3_core,badmap}]}},
-	   {ok_map_literal_key,
+	   {warnings,[{3,sys_core_fold,{eval_failure,badmap}}]}},
+           {ok_map_literal_key,
            <<"
              t() ->
 		 V = id(1),
@@ -746,7 +753,7 @@ maps_bin_opt_info(Config) when is_list(Config) ->
                  M.
            ">>,
            [bin_opt_info],
-           {warnings,[{2,beam_bsm,bin_opt}]}}],
+           {warnings,[{3,beam_ssa_bsm,context_reused}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -779,7 +786,7 @@ latin1_fallback(Conf) when is_list(Conf) ->
               ">>,
 	    [],
 	    {warnings,[{1,compile,reparsing_invalid_unicode},
-		       {3,sys_core_fold,{nomatch_shadow,2}}]}}],
+		       {3,sys_core_fold,{nomatch_shadow,2,{t,1}}}]}}],
     [] = run(Conf, Ts1),
 
     Ts2 = [{latin1_fallback2,
@@ -952,6 +959,20 @@ inlining(Config) ->
     run(Config, Ts),
     ok.
 
+tuple_calls(Config) ->
+    %% Make sure that no spurious warnings are generated.
+    Ts = [{inlining_1,
+           <<"-compile(tuple_calls).
+              dispatch(X) ->
+                (list_to_atom(\"prefix_\" ++
+                atom_to_list(suffix))):doit(X).
+           ">>,
+           [],
+           []}
+	 ],
+    run(Config, Ts),
+    ok.
+
 %%%
 %%% End of test cases.
 %%%
@@ -968,7 +989,6 @@ run(Config, Tests) ->
                 end
         end,
     lists:foldl(F, [], Tests).
-
 
 %% Compiles a test module and returns the list of errors and warnings.
 

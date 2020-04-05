@@ -26,7 +26,6 @@ public class OtpErlangPort extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = 4037115468007644704L;
 
-    private final int tag;
     private final String node;
     private final int id;
     private final int creation;
@@ -43,7 +42,6 @@ public class OtpErlangPort extends OtpErlangObject {
     private OtpErlangPort(final OtpSelf self) {
         final OtpErlangPort p = self.createPort();
 
-	tag = p.tag;
         id = p.id;
         creation = p.creation;
         node = p.node;
@@ -64,7 +62,6 @@ public class OtpErlangPort extends OtpErlangObject {
             throws OtpErlangDecodeException {
         final OtpErlangPort p = buf.read_port();
 
-	tag = p.tag;
         node = p.node();
         id = p.id();
         creation = p.creation();
@@ -105,7 +102,6 @@ public class OtpErlangPort extends OtpErlangObject {
      */
     public OtpErlangPort(final int tag, final String node, final int id,
 			 final int creation) {
-	this.tag = tag;
 	this.node = node;
 	if (tag == OtpExternal.portTag) {
 	    this.id = id & 0xfffffff; // 28 bits
@@ -118,7 +114,7 @@ public class OtpErlangPort extends OtpErlangObject {
     }
 
     protected int tag() {
-        return tag;
+        return OtpExternal.newPortTag;
     }
 
     /**

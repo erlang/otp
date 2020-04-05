@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
-	 delete/1, purge/1, purge_many_exits/1, soft_purge/1, is_loaded/1,
-	 all_loaded/1,
+	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
+         soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
-	 upgrade/1,
+	 upgrade/0, upgrade/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
@@ -41,7 +41,7 @@
 	 big_boot_embedded/1,
          module_status/1,
 	 native_early_modules/1, get_mode/1,
-	 normalized_paths/1]).
+	 normalized_paths/1, mult_embedded_flags/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1]).
@@ -55,13 +55,13 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,5}}].
+     {timetrap,{seconds,30}}].
 
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
      replace_path, load_file, load_abs, ensure_loaded,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
-     load_binary, dir_req, object_code, set_path_file,
+     all_available, load_binary, dir_req, object_code, set_path_file,
      upgrade,
      sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
@@ -72,7 +72,8 @@ all() ->
      on_load_purge, on_load_self_call, on_load_pending,
      on_load_deleted,
      module_status,
-     big_boot_embedded, native_early_modules, get_mode, normalized_paths].
+     big_boot_embedded, native_early_modules, get_mode, normalized_paths,
+     mult_embedded_flags].
 
 %% These need to run in order
 groups() -> [{sequence, [sequence], [on_load_update,
@@ -139,6 +140,11 @@ end_per_testcase(TC, Config) when TC == mult_lib_roots;
 end_per_testcase(on_load_embedded, Config) ->
     LinkName = proplists:get_value(link_name, Config),
     _ = del_link(LinkName),
+    end_per_testcase(Config);
+end_per_testcase(upgrade, Config) ->
+    %% Make sure tracing is turned off even if the test times out.
+    erlang:trace_pattern({error_handler,undefined_function,3}, false, [global]),
+    erlang:trace(self(), false, [call]),
     end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
     end_per_testcase(Config).
@@ -349,7 +355,7 @@ load_abs(Config) when is_list(Config) ->
 ensure_loaded(Config) when is_list(Config) ->
     {module, lists} = code:ensure_loaded(lists),
     case init:get_argument(mode) of
-	{ok, [["embedded"]]} ->
+	{ok, [["embedded"] | _]} ->
 	    {error, embedded} = code:ensure_loaded(code_b_test),
 	    {error, badarg} = code:ensure_loaded(34),
 	    ok;
@@ -390,6 +396,9 @@ purge(Config) when is_list(Config) ->
     true = code_b_test:check_exit(Pid),
     process_flag(trap_exit, OldFlag),
     ok.
+
+purge_many_exits() ->
+    [{timetrap, {minutes, 2}}].
 
 purge_many_exits(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
@@ -498,6 +507,47 @@ all_unique([]) -> ok;
 all_unique([_]) -> ok;
 all_unique([{X,_}|[{Y,_}|_]=T]) when X < Y -> all_unique(T).
 
+all_available(Config) when is_list(Config) ->
+    case test_server:is_cover() of
+	true -> {skip,"Cover is running"};
+	false -> all_available_1(Config)
+    end.
+
+all_available_1(Config) ->
+
+    %% Add an ez dir to make sure the modules in there are found
+    DDir = proplists:get_value(data_dir,Config)++"clash/",
+    true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
+
+    Available = code:all_available(),
+
+    %% Test that baz and blarg that are part of the .ez archive are found
+    {value, _} =
+        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "baz" end, Available),
+    {value, _} =
+        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "blarg" end, Available),
+
+    %% Test that all loaded are part of all available
+    Loaded = [{atom_to_list(M),P,true} || {M,P} <- code:all_loaded()],
+    [] = Loaded -- Available,
+
+    {value, {ModStr,_Path,false} = NotLoaded} =
+        lists:search(fun({Name,_,Loaded}) -> not is_atom(Name) end, Available),
+    ct:log("Testing with ~p",[NotLoaded]),
+
+    Mod = list_to_atom(ModStr),
+
+    %% Test that the module is actually not loaded
+    false = code:is_loaded(Mod),
+
+    %% Load it
+    Mod:module_info(),
+
+    {value, {ModStr,_Path,true}} =
+        lists:search(fun({Name,_,_}) -> Name =:= ModStr end, code:all_available()),
+
+    ok.
+
 load_binary(Config) when is_list(Config) ->
     TestDir = test_dir(),
     File = TestDir ++ "/code_b_test" ++ code:objfile_extension(),
@@ -514,6 +564,9 @@ load_binary(Config) when is_list(Config) ->
     ok.
 
 
+upgrade() ->
+    [{timetrap,{minutes,2}}].
+
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
@@ -525,7 +578,7 @@ upgrade(Config) ->
             T = [beam, hipe],
             [upgrade_do(DataDir, Client, T) || Client <- T],
 
-            case hipe:llvm_support_available() of
+            case hipe:erllvm_is_supported() of
                 false -> ok;
                 true  ->
                     T2 = [beam, hipe_llvm],
@@ -931,37 +984,34 @@ purge_stacktrace(Config) when is_list(Config) ->
     code:purge(code_b_test),
     try code_b_test:call(fun(b) -> ok end, a)
     catch
-	error:function_clause ->
+	error:function_clause:Stacktrace ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace of
 		      [{?MODULE,_,[a],_},
 		       {code_b_test,call,2,_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     try code_b_test:call(nofun, 2)
     catch
-	error:function_clause ->
+	error:function_clause:Stacktrace2 ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace2 of
 		      [{code_b_test,call,[nofun,2],_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     Args = [erlang,error,[badarg]],
     try code_b_test:call(erlang, error, [badarg,Args])
     catch
-	error:badarg ->
+	error:badarg:Stacktrace3 ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace3 of
 		      [{code_b_test,call,Args,_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     ok.
@@ -1024,6 +1074,13 @@ mult_lib_remove_prefix([H|T1], [H|T2]) ->
 mult_lib_remove_prefix([$/|T], []) -> T.
 
 bad_erl_libs(Config) when is_list(Config) ->
+    %% Preserve ERL_LIBS if set.
+    BadLibs0 = "/no/such/dir",
+    BadLibs =
+         case os:getenv("ERL_LIBS") of
+             false -> BadLibs0;
+             Libs -> BadLibs0 ++ ":" ++ Libs
+         end,
     {ok,Node} =
 	test_server:start_node(bad_erl_libs, slave, []),
     Code = rpc:call(Node,code,get_path,[]),
@@ -1031,10 +1088,9 @@ bad_erl_libs(Config) when is_list(Config) ->
 
     {ok,Node2} =
 	test_server:start_node(bad_erl_libs, slave,
-			       [{args,"-env ERL_LIBS /no/such/dir"}]),
+			       [{args,"-env ERL_LIBS " ++ BadLibs}]),
     Code2 = rpc:call(Node,code,get_path,[]),
     test_server:stop_node(Node2),
-
     %% Test that code path is not affected by the faulty ERL_LIBS
     Code = Code2,
 
@@ -1553,6 +1609,11 @@ on_load_update_code_1(3, Mod) ->
 
 %% Test -on_load while trace feature 'on_load' is enabled (OTP-14612)
 on_load_trace_on_load(Config) ->
+    %% 'on_load' enables tracing for all newly loaded modules, so we make a dry
+    %% run to ensure that ancillary modules like 'merl' won't be loaded during
+    %% the actual test.
+    on_load_update(Config),
+
     Papa = self(),
     Tracer = spawn_link(fun F() -> receive M -> Papa ! M end, F() end),
     {tracer,[]} = erlang:trace_info(self(),tracer),
@@ -1820,6 +1881,28 @@ do_normalized_paths([M|Ms]) ->
 do_normalized_paths([]) ->
     ok.
 
+%% Make sure that the extra -mode flags are ignored
+mult_embedded_flags(_Config) ->
+    Modes = [{" -mode embedded", embedded},
+	     {" -mode interactive", interactive},
+	     {" -mode invalid", interactive}],
+
+    [ begin
+	  {ArgMode, ExpectedMode} = Mode,
+	  {ok, Node} = start_node(mode_test, ArgMode),
+	  ExpectedMode = rpc:call(Node, code, get_mode, []),
+	  true = stop_node(Node)
+      end || Mode <- Modes],
+
+    [ begin
+	  {ArgIgnoredMode, _} = IgnoredMode,
+	  {ArgRelevantMode, ExpectedMode} = RelevantMode,
+	  {ok, Node} = start_node(mode_test, ArgRelevantMode ++ ArgIgnoredMode),
+	  ExpectedMode = rpc:call(Node, code, get_mode, []),
+	  true = stop_node(Node)
+      end || IgnoredMode <- Modes, RelevantMode <- Modes],
+    ok.
+
 %% Test that module_status/1 behaves as expected
 module_status(_Config) ->
     case test_server:is_cover() of
@@ -1841,6 +1924,11 @@ module_status() ->
     loaded = code:module_status(erlang),        % preloaded
     loaded = code:module_status(?MODULE),       % normal known loaded
 
+    %% module_status/0 returns status for each loaded module
+    true = (lists:sort([{M, code:module_status(M)}
+                        || {M, _} <- code:all_loaded()])
+            =:= lists:sort(code:module_status())),
+
     non_existing = code:which(?TESTMOD), % verify dummy name not in path
     code:purge(?TESTMOD), % ensure no previous version in memory
     code:delete(?TESTMOD),
@@ -1852,6 +1940,11 @@ module_status() ->
     ok = ?TESTMOD:f(),
     "" = code:which(?TESTMOD), % verify empty string for source file
     loaded = code:module_status(?TESTMOD),
+
+    %% module_status/1 also accepts a list of modules
+    [] = code:module_status([]),
+    [{erlang, loaded},{?MODULE,loaded},{?TESTMOD,loaded}] =
+        code:module_status([erlang, ?MODULE, ?TESTMOD]),
 
     %% deleting generated code
     true = code:delete(?TESTMOD),

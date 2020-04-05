@@ -200,7 +200,7 @@
   <section>
     <title>Tags</title>
     <p>For the tag commands to work it requires that you have
-      generated a tag file. See <seealso marker="erlang_mode_chapter#tags">Erlang mode users guide</seealso></p>
+      generated a tag file. See <seeguide marker="erlang_mode_chapter#tags">Erlang mode users guide</seeguide></p>
     <p></p>
     <list type="bulleted">
       <item><em><c>M-. </c></em> (<c>find-tag</c>) -

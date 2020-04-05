@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,9 +135,9 @@ init(Options) ->
     try
 	do_init(Options)
     catch
-	error:Reason ->
-	    io:format("~tp: ~tp~n",[Reason, erlang:get_stacktrace()]),
-	    exit({Reason, erlang:get_stacktrace()})
+	error:Reason:Stacktrace ->
+	    io:format("~tp: ~tp~n",[Reason, Stacktrace]),
+	    exit({Reason, Stacktrace})
     end.
 
 do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->

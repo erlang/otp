@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@
 %%
 -module(apply_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,mfa/1,fun_apply/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+         mfa/1,fun_apply/1,involved/1]).
 
 -export([foo/0,bar/1,baz/2]).
 
@@ -28,14 +29,18 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    test_lib:recompile(?MODULE),
-    [mfa, fun_apply].
+all() ->
+    [{group,p}].
 
-groups() -> 
-    [].
+groups() ->
+    [{p,test_lib:parallel(),
+      [mfa,
+       fun_apply,
+       involved
+      ]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -73,6 +78,7 @@ mfa(Config) when is_list(Config) ->
     {'EXIT',_} = (catch ?APPLY2(Mod, (id(bazzzzzz)), a, b)),
     {'EXIT',_} = (catch ?APPLY2({}, baz, a, b)),
     {'EXIT',_} = (catch ?APPLY2(?MODULE, [], a, b)),
+    {'EXIT',_} = (catch bad_literal_call(1)),
 
     ok = apply(Mod, foo, id([])),
     {[a,b|c]} = apply(Mod, bar, id([[a,b|c]])),
@@ -91,6 +97,13 @@ mfa(Config) when is_list(Config) ->
     false = ?APPLY2(Erlang, is_function, blurf, 0),
 
     apply(Mod, foo, []).
+
+%% The single call to this function with a literal argument caused type
+%% optimization to swap out the 'mod' field of a #b_remote{}, which was
+%% mishandled during code generation as it assumed that the module would always
+%% be an atom.
+bad_literal_call(I) ->
+    I:foo().
 
 foo() ->
     ok.
@@ -123,5 +136,41 @@ fun_apply(Config) when is_list(Config) ->
     {42,{a}} = ?FUNAPPLY2((id(fun ?MODULE:baz/2)), 42, {a}),
 
     ok.
+
+involved(_Config) ->
+    self() ! message,
+    ok = involved_1(),
+
+    self() ! message,
+    error = involved_2(),
+    ok.
+
+involved_1() ->
+    try
+        receive
+            _ ->
+                fun erlang:atom_to_list/1('')
+        end
+    of
+        [] ->
+            ok
+    catch
+        _:_ ->
+            error
+    end.
+
+involved_2() ->
+    try
+        receive
+            _ ->
+                fun erlang:atom_to_list/1()
+        end
+    of
+        [] ->
+            ok
+    catch
+        _:_ ->
+            error
+    end.
 
 id(I) -> I.

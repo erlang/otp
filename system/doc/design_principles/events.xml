@@ -208,7 +208,7 @@ terminate(_Args, Fd) ->
         function is needed. The event manager is automatically
         terminated by its supervisor. Exactly how this is done is
         defined by a
-        <seealso marker="sup_princ#shutdown">shutdown strategy</seealso>
+        <seeguide marker="sup_princ#shutdown">shutdown strategy</seeguide>
         set in the supervisor.</p>
     </section>
 

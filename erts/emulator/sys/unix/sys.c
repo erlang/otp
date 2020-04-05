@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,14 +58,9 @@
 #define __DARWIN__ 1
 #endif
 
-#ifdef USE_THREADS
 #include "erl_threads.h"
-#endif
 
 #include "erl_mseg.h"
-
-extern char **environ;
-erts_smp_rwmtx_t environ_rwmtx;
 
 #define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
 				 * vector sock_sendv().
@@ -79,7 +74,8 @@ erts_smp_rwmtx_t environ_rwmtx;
 
 #include "erl_check_io.h"
 #include "erl_cpu_topology.h"
-
+#include "erl_osenv.h"
+#include "erl_dyn_lock_check.h"
 extern int  driver_interrupt(int, int);
 extern void do_break(void);
 
@@ -94,19 +90,12 @@ extern void erts_sys_init_float(void);
 static int debug_log = 0;
 #endif
 
-#ifdef ERTS_SMP
-static erts_smp_atomic32_t have_prepared_crash_dump;
+static erts_atomic32_t have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
-  ((int) erts_smp_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
-#else
-static volatile int have_prepared_crash_dump;
-#define ERTS_PREPARED_CRASH_DUMP \
-  (have_prepared_crash_dump++)
-#endif
+  ((int) erts_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
 
-erts_smp_atomic_t sys_misc_mem_sz;
+erts_atomic_t sys_misc_mem_sz;
 
-#if defined(ERTS_SMP)
 static void smp_sig_notify(int signum);
 static int sig_notify_fds[2] = {-1, -1};
 
@@ -114,7 +103,6 @@ static int sig_notify_fds[2] = {-1, -1};
 static int sig_suspend_fds[2] = {-1, -1};
 #endif
 
-#endif
 
 jmp_buf erts_sys_sigsegv_jmp;
 
@@ -128,175 +116,18 @@ static int max_files = -1;
 /* 
  * a few variables used by the break handler 
  */
-#ifdef ERTS_SMP
-erts_smp_atomic32_t erts_break_requested;
+erts_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
-#else
-volatile int erts_break_requested = 0;
-#define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
-#define ERTS_UNSET_BREAK_REQUESTED (erts_break_requested = 0)
-#endif
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 
-#ifndef ERTS_SMP
-static Eterm signalstate_sigterm[] = {
-    am_sigint,   /* 0 */
-    am_sighup,   /* 1 */
-    am_sigquit,  /* 2 */
-    am_sigabrt,  /* 3 */
-    am_sigalrm,  /* 4 */
-    am_sigterm,  /* 5 */
-    am_sigusr1,  /* 6 */
-    am_sigusr2,  /* 7 */
-    am_sigchld,  /* 8 */
-    am_sigstop,  /* 9 */
-    am_sigtstp   /* 10 */
-};
-
-volatile Uint erts_signal_state = 0;
-#define ERTS_SET_SIGNAL_STATE(S) (erts_signal_state |= signum_to_signalstate(S))
-#define ERTS_CLEAR_SIGNAL_STATE (erts_signal_state = 0)
-static ERTS_INLINE Uint signum_to_signalstate(int signum);
-#endif
 
 /* set early so the break handler has access to initial mode */
 static struct termios initial_tty_mode;
 static int replace_intr = 0;
 /* assume yes initially, ttsl_init will clear it */
 int using_oldshell = 1;
-
-#ifdef ERTS_ENABLE_KERNEL_POLL
-
-int erts_use_kernel_poll = 0;
-
-struct {
-    int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
-    int (*enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
-    int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
-    void (*check_io_as_interrupt)(void);
-    void (*check_io_interrupt)(int);
-    void (*check_io_interrupt_tmd)(int, ErtsMonotonicTime);
-    void (*check_io)(int);
-    Uint (*size)(void);
-    Eterm (*info)(void *);
-    int (*check_io_debug)(ErtsCheckIoDebugInfo *);
-} io_func = {0};
-
-
-int
-driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on)
-{
-    return (*io_func.select)(port, event, mode, on);
-}
-
-int
-driver_event(ErlDrvPort port, ErlDrvEvent event, ErlDrvEventData event_data)
-{
-    return (*io_func.event)(port, event, event_data);
-}
-
-int enif_select(ErlNifEnv* env, ErlNifEvent event,
-                enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, Eterm ref)
-{
-    return (*io_func.enif_select)(env, event, flags, obj, pid, ref);
-}
-
-
-Eterm erts_check_io_info(void *p)
-{
-    return (*io_func.info)(p);
-}
-
-int
-erts_check_io_debug(ErtsCheckIoDebugInfo *ip)
-{
-    return (*io_func.check_io_debug)(ip);
-}
-
-
-static void
-init_check_io(void)
-{
-    if (erts_use_kernel_poll) {
-	io_func.select			= driver_select_kp;
-        io_func.enif_select		= enif_select_kp;
-	io_func.event			= driver_event_kp;
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_kp;
-#endif
-	io_func.check_io_interrupt	= erts_check_io_interrupt_kp;
-	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_kp;
-	io_func.check_io		= erts_check_io_kp;
-	io_func.size			= erts_check_io_size_kp;
-	io_func.info			= erts_check_io_info_kp;
-	io_func.check_io_debug		= erts_check_io_debug_kp;
-	erts_init_check_io_kp();
-	max_files = erts_check_io_max_files_kp();
-    }
-    else {
-	io_func.select			= driver_select_nkp;
-        io_func.enif_select		= enif_select_nkp;
-	io_func.event			= driver_event_nkp;
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_nkp;
-#endif
-	io_func.check_io_interrupt	= erts_check_io_interrupt_nkp;
-	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_nkp;
-	io_func.check_io		= erts_check_io_nkp;
-	io_func.size			= erts_check_io_size_nkp;
-	io_func.info			= erts_check_io_info_nkp;
-	io_func.check_io_debug		= erts_check_io_debug_nkp;
-	erts_init_check_io_nkp();
-	max_files = erts_check_io_max_files_nkp();
-    }
-}
-
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_as_interrupt)()
-#else
-#define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_interrupt)(1)
-#endif
-#define ERTS_CHK_IO_INTR	(*io_func.check_io_interrupt)
-#define ERTS_CHK_IO_INTR_TMD	(*io_func.check_io_interrupt_tmd)
-#define ERTS_CHK_IO		(*io_func.check_io)
-#define ERTS_CHK_IO_SZ		(*io_func.size)
-
-#else /* !ERTS_ENABLE_KERNEL_POLL */
-
-static void
-init_check_io(void)
-{
-    erts_init_check_io();
-    max_files = erts_check_io_max_files();
-}
-
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#define ERTS_CHK_IO_AS_INTR()	erts_check_io_async_sig_interrupt()
-#else
-#define ERTS_CHK_IO_AS_INTR()	erts_check_io_interrupt(1)
-#endif
-#define ERTS_CHK_IO_INTR	erts_check_io_interrupt
-#define ERTS_CHK_IO_INTR_TMD	erts_check_io_interrupt_timed
-#define ERTS_CHK_IO		erts_check_io
-#define ERTS_CHK_IO_SZ		erts_check_io_size
-
-#endif
-
-void
-erts_sys_schedule_interrupt(int set)
-{
-    ERTS_CHK_IO_INTR(set);
-}
-
-#ifdef ERTS_SMP
-void
-erts_sys_schedule_interrupt_timed(int set, ErtsMonotonicTime timeout_time)
-{
-    ERTS_CHK_IO_INTR_TMD(set, timeout_time);
-}
-#endif
 
 UWord
 erts_sys_get_page_size(void)
@@ -313,8 +144,8 @@ erts_sys_get_page_size(void)
 Uint
 erts_sys_misc_mem_sz(void)
 {
-    Uint res = ERTS_CHK_IO_SZ();
-    res += erts_smp_atomic_read_mb(&sys_misc_mem_sz);
+    Uint res = erts_check_io_size();
+    res += erts_atomic_read_mb(&sys_misc_mem_sz);
     return res;
 }
 
@@ -339,7 +170,6 @@ MALLOC_USE_HASH(1);
 #endif
 #endif
 
-#ifdef USE_THREADS
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
 
@@ -418,19 +248,15 @@ thr_create_prepare_child(void *vtcdp)
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
-#endif /* #ifdef USE_THREADS */
 
 void
 erts_sys_pre_init(void)
 {
-#ifdef USE_THREADS
     erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
-#endif
 
     erts_printf_add_cr_to_stdout = 1;
     erts_printf_add_cr_to_stderr = 1;
 
-#ifdef USE_THREADS
 
     eid.thread_create_child_func = thr_create_prepare_child;
     /* Before creation in parent */
@@ -451,24 +277,18 @@ erts_sys_pre_init(void)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_init();
 #endif
-
-#endif /* USE_THREADS */
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_init();
+#endif
 
     erts_init_sys_time_sup();
 
-#ifdef USE_THREADS
 
-#ifdef ERTS_SMP
-    erts_smp_atomic32_init_nob(&erts_break_requested, 0);
-    erts_smp_atomic32_init_nob(&have_prepared_crash_dump, 0);
-#else
-    erts_break_requested = 0;
-    have_prepared_crash_dump = 0;
-#endif
+    erts_atomic32_init_nob(&erts_break_requested, 0);
+    erts_atomic32_init_nob(&have_prepared_crash_dump, 0);
 
-#endif /* USE_THREADS */
 
-    erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
+    erts_atomic_init_nob(&sys_misc_mem_sz, 0);
 
     {
       /*
@@ -531,10 +351,8 @@ SIGFUNC sys_signal(int sig, SIGFUNC func)
     return(oact.sa_handler);
 }
 
-#ifdef USE_THREADS
 #undef  sigprocmask
 #define sigprocmask erts_thr_sigmask
-#endif
 
 void sys_sigblock(int sig)
 {
@@ -636,10 +454,10 @@ prepare_crash_dump(int secs)
     close(crashdump_companion_cube_fd);
 
     envsz = sizeof(env);
-    i = erts_sys_getenv__("ERL_CRASH_DUMP_NICE", env, &envsz);
-    if (i >= 0) {
+    i = erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP_NICE", env, &envsz);
+    if (i != 0) {
 	int nice_val;
-	nice_val = i != 0 ? 0 : atoi(env);
+	nice_val = (i != 1) ? 0 : atoi(env);
 	if (nice_val > 39) {
 	    nice_val = 39;
 	}
@@ -672,7 +490,7 @@ static void signal_notify_requested(Eterm type) {
         erts_queue_message(p, locks, msgp, msg, am_system);
 
         if (locks)
-            erts_smp_proc_unlock(p, locks);
+            erts_proc_unlock(p, locks);
         erts_proc_dec_refc(p);
     }
 }
@@ -685,23 +503,17 @@ break_requested(void)
    * just set a flag - checked for and handled by
    * scheduler threads erts_check_io() (not signal handler).
    */
-#ifdef DEBUG			
-  fprintf(stderr,"break!\n");
-#endif
   if (ERTS_BREAK_REQUESTED)
       erts_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
-  ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
+  /* Wake aux thread to get handle break */
+  erts_aux_thread_poke();
 }
 
 static RETSIGTYPE request_break(int signum)
 {
-#ifdef ERTS_SMP
     smp_sig_notify(signum);
-#else
-    break_requested();
-#endif
 }
 
 #ifdef ETHR_UNUSABLE_SIGUSRX
@@ -789,8 +601,6 @@ signalterm_to_signum(Eterm signal)
     }
 }
 
-#ifdef ERTS_SMP
-
 static ERTS_INLINE Eterm
 signum_to_signalterm(int signum)
 {
@@ -812,37 +622,9 @@ signum_to_signalterm(int signum)
     }
 }
 
-#endif
-
-#ifndef ERTS_SMP
-static ERTS_INLINE Uint
-signum_to_signalstate(int signum)
-{
-    switch (signum) {
-    case SIGINT:  return (1 <<  0);
-    case SIGHUP:  return (1 <<  1);
-    case SIGQUIT: return (1 <<  2);
-    case SIGABRT: return (1 <<  3);
-    case SIGALRM: return (1 <<  4);
-    case SIGTERM: return (1 <<  5);
-    case SIGUSR1: return (1 <<  6);
-    case SIGUSR2: return (1 <<  7);
-    case SIGCHLD: return (1 <<  8);
-    case SIGSTOP: return (1 <<  9);
-    case SIGTSTP: return (1 << 10);
-    default:      return 0;
-    }
-}
-#endif
-
 static RETSIGTYPE generic_signal_handler(int signum)
 {
-#ifdef ERTS_SMP
     smp_sig_notify(signum);
-#else
-    ERTS_SET_SIGNAL_STATE(signum);
-    ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
-#endif
 }
 
 int erts_set_signal(Eterm signal, Eterm type) {
@@ -910,11 +692,15 @@ void
 erts_sys_unix_later_init(void)
 {
     sys_signal(SIGTERM, generic_signal_handler);
+
+    /* Ignore SIGCHLD to ensure orphaned processes don't turn into zombies on
+     * death when we're pid 1. */
+    sys_signal(SIGCHLD, SIG_IGN);
 }
 
 int sys_max_files(void)
 {
-   return(max_files);
+   return max_files;
 }
 
 /************************** OS info *******************************/
@@ -961,38 +747,17 @@ void os_version(int *pMajor, int *pMinor, int *pBuild) {
 				 * X.Y or X.Y.Z.  */
 
     (void) uname(&uts);
+#ifdef _AIX
+    /* AIX stores the major in version and minor in release */
+    *pMajor = atoi(uts.version);
+    *pMinor = atoi(uts.release);
+    *pBuild = 0; /* XXX: get oslevel for AIX or TR on i */
+#else
     release = uts.release;
     *pMajor = get_number(&release); /* Pointer to major version. */
     *pMinor = get_number(&release); /* Pointer to minor version. */
     *pBuild = get_number(&release); /* Pointer to build number. */
-}
-
-void init_getenv_state(GETENV_STATE *state)
-{
-   erts_smp_rwmtx_rlock(&environ_rwmtx);
-   *state = NULL;
-}
-
-char *getenv_string(GETENV_STATE *state0)
-{
-   char **state = (char **) *state0;
-   char *cp;
-
-   ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rlocked(&environ_rwmtx));
-
-   if (state == NULL)
-      state = environ;
-
-   cp = *state++;
-   *state0 = (GETENV_STATE) state;
-
-   return cp;
-}
-
-void fini_getenv_state(GETENV_STATE *state)
-{
-   *state = NULL;
-   erts_smp_rwmtx_runlock(&environ_rwmtx);
+#endif
 }
 
 void erts_do_break_handling(void)
@@ -1005,7 +770,7 @@ void erts_do_break_handling(void)
      * therefore, make sure that all threads but this one are blocked before
      * proceeding!
      */
-    erts_smp_thr_progress_block();
+    erts_thr_progress_block();
 
     /* during break we revert to initial settings */
     /* this is done differently for oldshell */
@@ -1033,25 +798,9 @@ void erts_do_break_handling(void)
       tcsetattr(0,TCSANOW,&temp_mode);
     }
 
-    erts_smp_thr_progress_unblock();
+    erts_thr_progress_unblock();
 }
 
-#ifdef ERTS_SIGNAL_STATE
-void erts_handle_signal_state(void) {
-    Uint signal_state = ERTS_SIGNAL_STATE;
-    Uint i = 0;
-
-    ERTS_CLEAR_SIGNAL_STATE;
-
-    while (signal_state) {
-        if (signal_state & 0x1) {
-            signal_notify_requested(signalstate_sigterm[i]);
-        }
-        i++;
-        signal_state = signal_state >> 1;
-    }
-}
-#endif
 
 /* Fills in the systems representation of the jam/beam process identifier.
 ** The Pid is put in STRING representation in the supplied buffer,
@@ -1064,90 +813,6 @@ void sys_get_pid(char *buffer, size_t buffer_size){
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
 
-int
-erts_sys_putenv_raw(char *key, char *value) {
-    return erts_sys_putenv(key, value);
-}
-int
-erts_sys_putenv(char *key, char *value)
-{
-    int res;
-    char *env;
-    Uint need = strlen(key) + strlen(value) + 2;
-
-#ifdef HAVE_COPYING_PUTENV
-    env = erts_alloc(ERTS_ALC_T_TMP, need);
-#else
-    env = erts_alloc(ERTS_ALC_T_PUTENV_STR, need);
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, need);
-#endif
-    strcpy(env,key);
-    strcat(env,"=");
-    strcat(env,value);
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
-    res = putenv(env);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
-#ifdef HAVE_COPYING_PUTENV
-    erts_free(ERTS_ALC_T_TMP, env);
-#endif
-    return res;
-}
-
-int
-erts_sys_getenv__(char *key, char *value, size_t *size)
-{
-    int res;
-    char *orig_value = getenv(key);
-    if (!orig_value)
-	res = -1;
-    else {
-	size_t len = sys_strlen(orig_value);
-	if (len >= *size) {
-	    *size = len + 1;
-	    res = 1;
-	}
-	else {
-	    *size = len;
-	    sys_memcpy((void *) value, (void *) orig_value, len+1);
-	    res = 0;
-	}
-    }
-    return res;
-}
-
-int
-erts_sys_getenv_raw(char *key, char *value, size_t *size) {
-    return erts_sys_getenv(key, value, size);
-}
-
-/*
- * erts_sys_getenv
- * returns:
- *  -1, if environment key is not set with a value
- *   0, if environment key is set and value fits into buffer size
- *   1, if environment key is set but does not fit into buffer size
- *      size is set with the needed buffer size value
- */
-
-int
-erts_sys_getenv(char *key, char *value, size_t *size)
-{
-    int res;
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
-    res = erts_sys_getenv__(key, value, size);
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
-    return res;
-}
-
-int
-erts_sys_unsetenv(char *key)
-{
-    int res;
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
-    res = unsetenv(key);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
-    return res;
-}
 
 void sys_init_io(void) { }
 void erts_sys_alloc_init(void) { }
@@ -1286,16 +951,6 @@ erl_assert_error(const char* expr, const char* func, const char* file, int line)
     fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
             file, line, func, expr);
     fflush(stderr);
-#if !defined(ERTS_SMP) && 0
-    /* Writing a crashdump from a failed assertion when smp support
-     * is enabled almost a guaranteed deadlocking, don't even bother.
-     *
-     * It could maybe be useful (but I'm not convinced) to write the
-     * crashdump if smp support is disabled...
-     */
-    if (erts_initialized)
-	erl_crash_dump(file, line, "Assertion failed: %s\n", expr);
-#endif
     abort();
 }
 
@@ -1317,22 +972,7 @@ erl_debug(char* fmt, ...)
 
 #endif /* DEBUG */
 
-/*
- * Called from schedule() when it runs out of runnable processes,
- * or when Erlang code has performed INPUT_REDUCTIONS reduction
- * steps. runnable == 0 iff there are no runnable Erlang processes.
- */
-void
-erl_sys_schedule(int runnable)
-{
-    ERTS_CHK_IO(!runnable);
-    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
-}
-
-
-#ifdef ERTS_SMP
-
-static erts_smp_tid_t sig_dispatcher_tid;
+static erts_tid_t sig_dispatcher_tid;
 
 static void
 smp_sig_notify(int signum)
@@ -1406,7 +1046,7 @@ signal_dispatcher_thread_func(void *unused)
                 }
                 signal_notify_requested(signal);
         }
-        ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+        ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
     }
     return NULL;
 }
@@ -1414,7 +1054,7 @@ signal_dispatcher_thread_func(void *unused)
 static void
 init_smp_sig_notify(void)
 {
-    erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
     thr_opts.name = "sys_sig_dispatcher";
 
@@ -1426,7 +1066,7 @@ init_smp_sig_notify(void)
     }
 
     /* Start signal handler thread */
-    erts_smp_thr_create(&sig_dispatcher_tid,
+    erts_thr_create(&sig_dispatcher_tid,
 			signal_dispatcher_thread_func,
 			NULL,
 			&thr_opts);
@@ -1519,103 +1159,15 @@ erts_sys_main_thread(void)
     }
 }
 
-#endif /* ERTS_SMP */
-
-#ifdef ERTS_ENABLE_KERNEL_POLL /* get_value() is currently only used when
-				  kernel-poll is enabled */
-
-/* Get arg marks argument as handled by
-   putting NULL in argv */
-static char *
-get_value(char* rest, char** argv, int* ip)
-{
-    char *param = argv[*ip]+1;
-    argv[*ip] = NULL;
-    if (*rest == '\0') {
-	char *next = argv[*ip + 1];
-	if (next[0] == '-'
-	    && next[1] == '-'
-	    &&  next[2] == '\0') {
-	    erts_fprintf(stderr, "bad \"%s\" value: \n", param);
-	    erts_usage();
-	}
-	(*ip)++;
-	argv[*ip] = NULL;
-	return next;
-    }
-    return rest;
-}
-
-#endif /* ERTS_ENABLE_KERNEL_POLL */
-
 void
 erl_sys_args(int* argc, char** argv)
 {
-    int i, j;
-
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-
-    i = 1;
-
     ASSERT(argc && argv);
 
-    while (i < *argc) {
-	if(argv[i][0] == '-') {
-	    switch (argv[i][1]) {
-#ifdef ERTS_ENABLE_KERNEL_POLL
-	    case 'K': {
-		char *arg = get_value(argv[i] + 2, argv, &i);
-		if (strcmp("true", arg) == 0) {
-		    erts_use_kernel_poll = 1;
-		}
-		else if (strcmp("false", arg) == 0) {
-		    erts_use_kernel_poll = 0;
-		}
-		else {
-		    erts_fprintf(stderr, "bad \"K\" value: %s\n", arg);
-		    erts_usage();
-		}
-		break;
-	    }
-#endif
-	    case '-':
-		goto done_parsing;
-	    default:
-		break;
-	    }
-	}
-	i++;
-    }
+    max_files = erts_check_io_max_files();
 
- done_parsing:
-
-#ifdef ERTS_ENABLE_KERNEL_POLL
-    if (erts_use_kernel_poll) {
-	char no_kp[10];
-	size_t no_kp_sz = sizeof(no_kp);
-	int res = erts_sys_getenv_raw("ERL_NO_KERNEL_POLL", no_kp, &no_kp_sz);
-	if (res > 0
-	    || (res == 0
-		&& sys_strcmp("false", no_kp) != 0
-		&& sys_strcmp("FALSE", no_kp) != 0)) {
-	    erts_use_kernel_poll = 0;
-	}
-    }
-#endif
-
-    init_check_io();
-
-#ifdef ERTS_SMP
     init_smp_sig_notify();
     init_smp_sig_suspend();
-#endif
 
-    /* Handled arguments have been marked with NULL. Slide arguments
-       not handled towards the beginning of argv. */
-    for (i = 0, j = 0; i < *argc; i++) {
-	if (argv[i])
-	    argv[j++] = argv[i];
-    }
-    *argc = j;
+    erts_sys_env_init();
 }

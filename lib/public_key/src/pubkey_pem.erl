@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,10 +101,10 @@ encode_pem_entry({'PrivateKeyInfo', Der, EncParams}) ->
     EncDer = encode_encrypted_private_keyinfo(Der, EncParams),
     StartStr = pem_start('EncryptedPrivateKeyInfo'),
     [StartStr, "\n", b64encode_and_split(EncDer), "\n", pem_end(StartStr) ,"\n\n"];
-encode_pem_entry({Type, Der, {Cipher, Salt}}) ->
+encode_pem_entry({Type, Decrypted, {Cipher, Salt}}) ->
     StartStr = pem_start(Type),
     [StartStr,"\n", pem_decrypt(),"\n", pem_decrypt_info(Cipher, Salt),"\n\n",
-     b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"].
+     b64encode_and_split(Decrypted), "\n", pem_end(StartStr) ,"\n\n"].
 
 decode_pem_entries([], Entries) ->
     lists:reverse(Entries);
@@ -209,6 +209,8 @@ pem_start('DSAPrivateKey') ->
     <<"-----BEGIN DSA PRIVATE KEY-----">>;
 pem_start('DHParameter') ->
     <<"-----BEGIN DH PARAMETERS-----">>;
+pem_start('PrivateKeyInfo') ->
+    <<"-----BEGIN PRIVATE KEY-----">>;
 pem_start('EncryptedPrivateKeyInfo') ->
     <<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>;
 pem_start('CertificationRequest') ->
@@ -220,7 +222,9 @@ pem_start('CertificateList') ->
 pem_start('EcpkParameters') ->
     <<"-----BEGIN EC PARAMETERS-----">>;
 pem_start('ECPrivateKey') ->
-    <<"-----BEGIN EC PRIVATE KEY-----">>.
+    <<"-----BEGIN EC PRIVATE KEY-----">>;
+pem_start({no_asn1, new_openssh}) ->  %% Temporarily in the prototype of this format
+    <<"-----BEGIN OPENSSH PRIVATE KEY-----">>.
 
 pem_end(<<"-----BEGIN CERTIFICATE-----">>) ->
     <<"-----END CERTIFICATE-----">>;
@@ -248,6 +252,8 @@ pem_end(<<"-----BEGIN EC PARAMETERS-----">>) ->
     <<"-----END EC PARAMETERS-----">>;
 pem_end(<<"-----BEGIN EC PRIVATE KEY-----">>) ->
     <<"-----END EC PRIVATE KEY-----">>;
+pem_end(<<"-----BEGIN OPENSSH PRIVATE KEY-----">>) ->
+    <<"-----END OPENSSH PRIVATE KEY-----">>;
 pem_end(_) ->
     undefined.
 
@@ -276,7 +282,10 @@ asn1_type(<<"-----BEGIN X509 CRL-----">>) ->
 asn1_type(<<"-----BEGIN EC PARAMETERS-----">>) ->
     'EcpkParameters';
 asn1_type(<<"-----BEGIN EC PRIVATE KEY-----">>) ->
-    'ECPrivateKey'.
+    'ECPrivateKey';
+asn1_type(<<"-----BEGIN OPENSSH PRIVATE KEY-----">>) ->
+    {no_asn1, new_openssh}. %% Temporarily in the prototype of this format
+
 
 pem_decrypt() ->
     <<"Proc-Type: 4,ENCRYPTED">>.

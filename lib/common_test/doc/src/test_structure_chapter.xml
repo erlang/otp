@@ -56,12 +56,12 @@
 
       <item>Using <c>skip_suites</c> and <c>skip_cases</c>
       terms in 
-      <seealso marker="run_test_chapter#test_specifications">test specifications</seealso>.
+      <seeguide marker="run_test_chapter#test_specifications">test specifications</seeguide>.
       </item>
 
       <item>Returning <c>{skip,Reason}</c> from function
-      <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso> or 
-      <seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>.</item>
+      <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa> or 
+      <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>.</item>
 
       <item>Returning <c>{skip,Reason}</c> from the execution clause
       of the test case. The execution clause is called, so the author 
@@ -190,7 +190,7 @@
       <item>
         <p>The status of a test case explicitly skipped in any of 
 	the ways described in section
-	<seealso marker="#skipping_test_cases">Skipping Test Cases</seealso>.
+	<seeguide marker="#skipping_test_cases">Skipping Test Cases</seeguide>.
 	</p>
       </item>
 

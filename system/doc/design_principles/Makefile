@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 # %CopyrightEnd%
 #
 #
+
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -27,6 +28,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include $(ERL_TOP)/erts/vsn.mk
 
 APPLICATION=otp-system-documentation
+XMLDIR := $(XMLDIR)/design_principles
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -57,11 +60,11 @@ GIF_FILES = \
 	sup5.gif \
 	sup6.gif
 
-PNG_FILES = \
-	code_lock.png \
-	code_lock_2.png
+SVG_FILES = \
+	code_lock.svg \
+	code_lock_2.svg
 
-IMAGE_FILES = $(GIF_FILES) $(PNG_FILES)
+IMAGE_FILES = $(GIF_FILES) $(SVG_FILES)
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
@@ -85,15 +88,16 @@ DVIPS_FLAGS +=
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-_create_dirs := $(shell mkdir -p $(HTMLDIR))
 
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
-$(HTMLDIR)/%.png: %.png
+$(HTMLDIR)/%.svg: %.svg
 	$(INSTALL_DATA) $< $@
 
-docs: html
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 local_docs: PDFDIR=../../pdf
 
@@ -104,7 +108,8 @@ images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 debug opt:
 
 clean clean_docs:
-	rm -rf $(HTMLDIR)
+	rm -f $(XMLDIR)/*.xml
+	rm -f $(HTMLDIR)/*.gif $(HTMLDIR)/*.html
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
 
@@ -113,12 +118,11 @@ clean clean_docs:
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_docs_spec: docs
-#	$(INSTALL_DIR) "$(RELEASE_PATH)/pdf"
-#	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELEASE_PATH)/pdf"
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(IMAGE_FILES) $(HTMLDIR)/*.html \
+release_html_spec: html
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(IMAGE_FILES) $(EXTRA_FILES) $(HTMLDIR)/*.html \
 		$(RELSYSDIR)
 
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 
 release_spec:

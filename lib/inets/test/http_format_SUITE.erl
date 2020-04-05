@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -414,6 +414,19 @@ http_request(Config) when is_list(Config) ->
 				      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
 				     ]], HttpHead2),
 
+    %% If ?CR is is missing RFC2616 section-19.3
+    HttpHead3 = ["GET http://www.erlang.org HTTP/1.1", [?LF],
+                 "Accept: text/html", [?LF, ?LF]],
+    {"GET",
+     "http://www.erlang.org",
+     "HTTP/1.1",
+     {#http_request_h{}, [{"accept","text/html"}]}, <<>>} =
+	parse(httpd_request, parse, [[{max_header, ?HTTP_MAX_HEADER_SIZE},
+				      {max_version, ?HTTP_MAX_VERSION_STRING},
+				      {max_method, ?HTTP_MAX_METHOD_STRING},
+				      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
+				     ]], HttpHead3),
+
     %% Note the following body is not related to the headers above
     HttpBody = ["<HTML>\n<HEAD>\n<TITLE> dummy </TITLE>\n</HEAD>\n<BODY>\n",
 		"<H1>dummy</H1>\n</BODY>\n</HTML>\n"],
@@ -435,13 +448,13 @@ http_request(Config) when is_list(Config) ->
 			[<<>>, Length1], HttpBody1)).
 %%-------------------------------------------------------------------------
 validate_request_line() ->
-    [{doc, "Test httpd_request:validate/3. Makes sure you can not get past"
+    [{doc, "Test httpd_request:validate/3. Makes sure you cannot get past"
      " the server_root and that the request is recognized by the server"
      " and protcol version."}].
 validate_request_line(Config) when is_list(Config) ->
 
     %% HTTP/0.9 only has GET requests
-    ok = 
+    {ok, "http://www.erlang/org"} = 
 	httpd_request:validate("GET", "http://www.erlang/org", "HTTP/0.9"),
     {error, {not_supported, 
 	     {"HEAD", "http://www.erlang/org", "HTTP/0.9"}}} =
@@ -454,43 +467,37 @@ validate_request_line(Config) when is_list(Config) ->
 	httpd_request:validate("POST", "http://www.erlang/org", "HTTP/0.9"),
 
     %% HTTP/1.* 
-    ok = httpd_request:validate("HEAD", "http://www.erlang/org", 
+    {ok, "http://www.erlang/org"} = httpd_request:validate("HEAD", "http://www.erlang/org", 
 			       "HTTP/1.1"),
-    ok = httpd_request:validate("GET", "http://www.erlang/org", 
+    {ok, "http://www.erlang/org"} = httpd_request:validate("GET", "http://www.erlang/org", 
 			       "HTTP/1.1"),  
-    ok = httpd_request:validate("POST","http://www.erlang/org", 
+    {ok, "http://www.erlang/org"} = httpd_request:validate("POST","http://www.erlang/org", 
 			       "HTTP/1.1"),
-    ok = httpd_request:validate("TRACE","http://www.erlang/org",
-			       "HTTP/1.1"),
+    {ok, "http://www.erlang/org"} = httpd_request:validate("TRACE","http://www.erlang/org",
+                                                           "HTTP/1.1"),
     {error, {not_supported, 
 	     {"FOOBAR", "http://www.erlang/org", "HTTP/1.1"}}} =
 	httpd_request:validate("FOOBAR", "http://www.erlang/org", 
 			       "HTTP/1.1"),
+    %%% Will work after normalization
+    Uri = "http://127.0.0.1:8888/../../../../../etc/passwd",
+    {ok, "http://127.0.0.1:8888/etc/passwd"} = httpd_request:validate("GET", Uri, "HTTP/1.1"),
 
-    %% Attempts to get outside of server_root directory by relative links 
-    ForbiddenUri = "http://127.0.0.1:8888/../../../../../etc/passwd",
-    {error, {bad_request, {forbidden, ForbiddenUri}}} = 
-	httpd_request:validate("GET", ForbiddenUri, "HTTP/1.1"),
-
-    ForbiddenUri2 = 
+    Uri2 = 
 	"http://127.0.0.1:8888/././././././../../../../../etc/passwd",
-    {error, {bad_request, {forbidden, ForbiddenUri2}}} = 
-	httpd_request:validate("GET", ForbiddenUri2, "HTTP/1.1"),
+    {ok, "http://127.0.0.1:8888/etc/passwd"} = httpd_request:validate("GET", Uri2, "HTTP/1.1"),
 
-    HexForbiddenUri = "http://127.0.0.1:8888/%2e%2e/%2e%2e/%2e%2e/" 
-	"home/ingela/test.html",
-    {error, {bad_request, {forbidden, HexForbiddenUri}}} = 
-	httpd_request:validate("GET", HexForbiddenUri, "HTTP/1.1"),
+    HexUri = "http://127.0.0.1:8888/%2e%2e/%2e%2e/%2e%2e/" 
+	"home/foobar/test.html",
+    {ok, "http://127.0.0.1:8888/home/foobar/test.html"}  = httpd_request:validate("GET", HexUri, "HTTP/1.1"),
 
-    NewForbiddenUri = 
-	"http://127.0.0.1:8888/foobar/../../../home/ingela/test.html",
-    {error, {bad_request, {forbidden, NewForbiddenUri}}} = 
-	httpd_request:validate("GET", NewForbiddenUri, "HTTP/1.1"),
-
-    NewForbiddenUri1 = 
-	"http://127.0.0.1:8888/../home/ingela/test.html",
-    {error, {bad_request, {forbidden, NewForbiddenUri1}}} = 
-	httpd_request:validate("GET", NewForbiddenUri1, "HTTP/1.1").
+    NewUri = 
+	"http://127.0.0.1:8888/foobar/../../../home/foobar/test.html",
+    {ok,"http://127.0.0.1:8888/home/foobar/test.html"} = httpd_request:validate("GET", NewUri, "HTTP/1.1"),
+    
+    Uri1 = 
+	"http://127.0.0.1:8888/../home/foobar/test.html",
+    {ok,"http://127.0.0.1:8888/home/foobar/test.html"}  = httpd_request:validate("GET", Uri1, "HTTP/1.1").
 
 %%-------------------------------------------------------------------------
 check_content_length_encoding() ->

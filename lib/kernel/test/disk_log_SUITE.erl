@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,8 +89,6 @@
 	 dist_terminate/1, dist_accessible/1, dist_deadlock/1,
          dist_open2/1, other_groups/1,
 
-         evil/1,
-
          otp_6278/1, otp_10131/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
@@ -123,7 +121,7 @@
 	[halt_int, wrap_int, halt_ext, wrap_ext, read_mode, head,
 	 notif, new_idx_vsn, reopen, block, unblock, open, close,
 	 error, chunk, truncate, many_users, info, change_size,
-	 change_attribute, distribution, evil, otp_6278, otp_10131]).
+	 change_attribute, distribution, otp_6278, otp_10131]).
 
 %% These test cases should be skipped if the VxWorks card is 
 %% configured without NFS cache.
@@ -149,7 +147,7 @@ all() ->
      {group, open}, {group, close}, {group, error}, chunk,
      truncate, many_users, {group, info},
      {group, change_size}, change_attribute,
-     {group, distribution}, evil, otp_6278, otp_10131].
+     {group, distribution}, otp_6278, otp_10131].
 
 groups() -> 
     [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
@@ -1752,7 +1750,7 @@ block_queue(Conf) when is_list(Conf) ->
     true = [{1,a},{2,b},{3,c},{4,d},{5,e},{6,f},{7,g},{8,h}] == Terms,
     del(File, 2),
     Q = qlen(),
-    true = (P0 == pps()),
+    check_pps(P0),
     ok.
 
 %% OTP-4880. Blocked processes did not get disk_log_stopped message.
@@ -1778,13 +1776,14 @@ block_queue2(Conf) when is_list(Conf) ->
                 Parent ! disk_log_stopped_ok
         end,
     spawn(Fun),
+    timer:sleep(500),
     ok = sync_do(Pid, close),
     receive disk_log_stopped_ok -> ok end,
     sync_do(Pid, terminate),
     {ok,<<>>} = file:read_file(File ++ ".1"),
     del(File, No),
     Q = qlen(),
-    true = (P0 == pps()),
+    check_pps(P0),
     ok.
 
 
@@ -2121,7 +2120,7 @@ close_block(Conf) when is_list(Conf) ->
     0 = sync_do(Pid2, users),
     sync_do(Pid2, terminate),
     {error, no_such_log} = disk_log:info(n),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Users terminate (no link...).
     Pid3 = spawn_link(?MODULE, lserv, [n]),
@@ -2139,7 +2138,7 @@ close_block(Conf) when is_list(Conf) ->
     disk_log:close(n),
     disk_log:close(n),
     {error, no_such_log} = disk_log:info(n),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Blocking owner terminates.
     Pid5 = spawn_link(?MODULE, lserv, [n]),
@@ -2156,7 +2155,7 @@ close_block(Conf) when is_list(Conf) ->
     1 = users(n),
     ok = disk_log:close(n),
     {error, no_such_log} = disk_log:info(n),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Blocking user terminates.
     Pid6 = spawn_link(?MODULE, lserv, [n]),
@@ -2176,7 +2175,7 @@ close_block(Conf) when is_list(Conf) ->
     1 = users(n),
     ok = disk_log:close(n),
     {error, no_such_log} = disk_log:info(n),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Blocking owner terminates.
     Pid7 = spawn_link(?MODULE, lserv, [n]),
@@ -2194,7 +2193,7 @@ close_block(Conf) when is_list(Conf) ->
     1 = users(n),
     ok = disk_log:close(n),
     {error, no_such_log} = disk_log:info(n),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Two owners, the blocking one terminates.
     Pid8 = spawn_link(?MODULE, lserv, [n]),
@@ -2209,7 +2208,7 @@ close_block(Conf) when is_list(Conf) ->
     0 = sync_do(Pid9, users),
     sync_do(Pid9, terminate),
     {error, no_such_log} = disk_log:info(n),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Blocking user closes.
     Pid10 = spawn_link(?MODULE, lserv, [n]),
@@ -2227,7 +2226,7 @@ close_block(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     sync_do(Pid10, terminate),
     {error, no_such_log} = disk_log:info(n),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Blocking user unblocks and closes.
     Pid11 = spawn_link(?MODULE, lserv, [n]),
@@ -2246,7 +2245,7 @@ close_block(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     {error, no_such_log} = disk_log:info(n),
     sync_do(Pid11, terminate),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Blocking owner closes.
     Pid12 = spawn_link(?MODULE, lserv, [n]),
@@ -2265,7 +2264,7 @@ close_block(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     {error, no_such_log} = disk_log:info(n),
     sync_do(Pid12, terminate),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% Blocking owner unblocks and closes.
     Pid13 = spawn_link(?MODULE, lserv, [n]),
@@ -2285,7 +2284,7 @@ close_block(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     {error, no_such_log} = disk_log:info(n),
     sync_do(Pid13, terminate),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     del(File, No),	% cleanup
     ok.
@@ -2489,7 +2488,7 @@ error_repair(Conf) when is_list(Conf) ->
     P0 = pps(),
     {error, {file_error, _, _}} =
 	disk_log:open([{name, n}, {file, File}, {type, wrap}, {size,{40,4}}]),
-    true = (P0 == pps()),
+    check_pps(P0),
     del(File, No),
     ok = file:del_dir(Dir),
 
@@ -2508,7 +2507,7 @@ error_repair(Conf) when is_list(Conf) ->
 	disk_log:open([{name, n}, {file, File}, {type, wrap},
 		       {format, internal}, {size, {40,No}}]),
     ok = disk_log:close(n),
-    true = (P1 == pps()),
+    check_pps(P1),
     del(File, No),
     receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
     after 1000 -> ct:fail(failed) end,
@@ -2526,7 +2525,7 @@ error_repair(Conf) when is_list(Conf) ->
 	disk_log:open([{name, n}, {file, File}, {type, wrap},
 		       {format, internal}, {size, {4000,No}}]),
     ok = disk_log:close(n),
-    true = (P2 == pps()),
+    check_pps(P2),
     del(File, No),
     receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
     after 1000 -> ct:fail(failed) end,
@@ -2635,7 +2634,7 @@ error_log(Conf) when is_list(Conf) ->
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {format, external},{size, {100, No}}]),
     {error, {file_error, _, _}} = disk_log:truncate(n),
-    true = (P0 == pps()),
+    check_pps(P0),
     del(File, No),
 
     %% OTP-4880.
@@ -2643,7 +2642,7 @@ error_log(Conf) when is_list(Conf) ->
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, halt},
 			     {format, external},{size, 100000}]),
     {error, {file_error, _, eisdir}} = disk_log:reopen(n, LDir),
-    true = (P0 == pps()),
+    check_pps(P0),
     file:delete(File),
 
     B = mk_bytes(60),
@@ -3005,7 +3004,7 @@ error_index(Conf) when is_list(Conf) ->
     {error, {invalid_index_file, _}} = disk_log:open(Args),
 
     del(File, No),
-    true = (P0 == pps()),
+    check_pps(P0),
     true = (Q == qlen()),
     ok.
 
@@ -4438,7 +4437,7 @@ dist_open2(Conf) when is_list(Conf) ->
 
     timer:sleep(500),
     file:delete(File),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     %% This time the first process has a naughty head_func. This test
     %% does not add very much. Perhaps it should be removed. However,
@@ -4484,7 +4483,7 @@ dist_open2(Conf) when is_list(Conf) ->
     timer:sleep(100),
     {error, no_such_log} = disk_log:close(Log),
     file:delete(File),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     No = 2,
     Log2 = n2,
@@ -4513,7 +4512,7 @@ dist_open2(Conf) when is_list(Conf) ->
 
     file:delete(File2),
     del(File, No),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     R.
     
@@ -4558,7 +4557,7 @@ dist_open2_1(Conf, Delay) ->
     {error, no_such_log} = disk_log:info(Log),
 
     file:delete(File),
-    true = (P0 == pps()),
+    check_pps(P0),
 
     ok.
 
@@ -4615,7 +4614,7 @@ dist_open2_2(Conf, Delay) ->
 	       {[{Node1,{repaired,_,_,_}}],[]}} -> ok
 	  end,
 
-    true = (P0 == pps()),
+    check_pps(P0),
     stop_node(Node1),
     file:delete(File),
     ok.
@@ -4674,119 +4673,6 @@ other_groups(Conf) when is_list(Conf) ->
     {[],[]} = disk_log:accessible_logs(),
     file:delete(File),
 
-    ok.
-
--define(MAX, ?MAX_FWRITE_CACHE). % as in disk_log_1.erl
-%% Evil cases such as closed file descriptor port.
-evil(Conf) when is_list(Conf) ->
-    Dir = ?privdir(Conf),
-    File = filename:join(Dir, "n.LOG"),
-    Log = n,
-
-    %% Not a very thorough test.
-
-    ok = setup_evil_filled_cache_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:log(Log, apa),
-    ok = disk_log:close(Log),
-
-    ok = setup_evil_filled_cache_halt(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:truncate(Log, apa),
-    ok = stop_evil(Log),
-
-    %% White box test. 
-    file:delete(File),
-    Ports0 = erlang:ports(),
-    {ok, Log} = disk_log:open([{name,Log},{file,File},{type,halt},
-                                     {size,?MAX+50},{format,external}]),
-    [Fd] = erlang:ports() -- Ports0,
-    {B,_} = x_mk_bytes(30),
-    ok = disk_log:blog(Log, <<0:(?MAX-1)/unit:8>>),
-    exit(Fd, kill),
-    {error, {file_error,_,einval}} = disk_log:blog_terms(Log, [B,B]),
-    ok= disk_log:close(Log),
-    file:delete(File),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:close(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:log(Log, apa),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_halt(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:log(Log, apa),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:reopen(Log, apa),
-    {error, {file_error,_,einval}} = disk_log:reopen(Log, apa),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:reopen(Log, apa),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:inc_wrap_file(Log),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:chunk(Log, start),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:truncate(Log),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:chunk_step(Log, start, 1),
-    ok = stop_evil(Log),
-
-    io:format("messages: ~p~n", [erlang:process_info(self(), messages)]),
-    del(File, 2),
-    file:delete(File),
-    ok.
-
-setup_evil_wrap(Log, Dir) ->
-    setup_evil(Log, [{type,wrap},{size,{100,2}}], Dir).
-
-setup_evil_halt(Log, Dir) ->
-    setup_evil(Log, [{type,halt},{size,10000}], Dir).
-
-setup_evil(Log, Args, Dir) ->
-    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
-    file:delete(File),
-    del(File, 2),
-    ok = disk_log:start(),
-    Ports0 = erlang:ports(),
-    {ok, Log} = disk_log:open([{name,Log},{file,File} | Args]),
-    [Fd] = erlang:ports() -- Ports0,
-    exit(Fd, kill),
-    ok = disk_log:log_terms(n, [<<0:10/unit:8>>]),
-    timer:sleep(2500), % TIMEOUT in disk_log_1.erl is 2000
-    ok.
-
-stop_evil(Log) ->
-    {error, _} = disk_log:close(Log),
-    ok.
-
-setup_evil_filled_cache_wrap(Log, Dir) ->
-    setup_evil_filled_cache(Log, [{type,wrap},{size,{?MAX,2}}], Dir).
-
-setup_evil_filled_cache_halt(Log, Dir) ->
-    setup_evil_filled_cache(Log, [{type,halt},{size,infinity}], Dir).
-
-%% The cache is filled, and the file descriptor port gone.
-setup_evil_filled_cache(Log, Args, Dir) ->
-    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
-    file:delete(File),
-    del(File, 2),
-    ok = disk_log:start(),
-    Ports0 = erlang:ports(),
-    {ok, Log} = disk_log:open([{name,Log},{file,File} | Args]),
-    [Fd] = erlang:ports() -- Ports0,
-    ok = disk_log:log_terms(n, [<<0:?MAX/unit:8>>]),
-    exit(Fd, kill),
     ok.
 
 %% OTP-6278. open/1 creates no status or crash report.
@@ -4906,10 +4792,59 @@ log(Name, N) ->
 format_error(E) ->
     lists:flatten(disk_log:format_error(E)).
 
+check_pps({Ports0,Procs0} = P0) ->
+    case pps() of
+        P0 ->
+            ok;
+        _ ->
+            timer:sleep(500),
+            case pps() of
+                P0 ->
+                    ok;
+                {Ports1,Procs1} = P1 ->
+		    case {Ports1 -- Ports0, Procs1 -- Procs0} of
+			{[], []} -> ok;
+			{PortsDiff,ProcsDiff} ->
+			    io:format("failure, got ~p~n, expected ~p\n", [P1, P0]),
+			    show("Old port", Ports0 -- Ports1),
+			    show("New port", PortsDiff),
+			    show("Old proc", Procs0 -- Procs1),
+			    show("New proc", ProcsDiff),
+			    ct:fail(failed)
+		    end
+	    end
+    end.
+
+show(_S, []) ->
+    ok;
+show(S, [{Pid, Name, InitCall}|Pids]) when is_pid(Pid) ->
+    io:format("~s: ~w (~w), ~w: ~p~n",
+              [S, Pid, proc_reg_name(Name), InitCall,
+               erlang:process_info(Pid)]),
+    show(S, Pids);
+show(S, [{Port, _}|Ports]) when is_port(Port)->
+    io:format("~s: ~w: ~p~n", [S, Port, erlang:port_info(Port)]),
+    show(S, Ports).
+
 pps() ->
     timer:sleep(100),
-    {erlang:ports(), lists:filter(fun(P) -> erlang:is_process_alive(P) end,
-				  processes())}.
+    {port_list(), process_list()}.
+
+port_list() ->
+    [{P,safe_second_element(erlang:port_info(P, name))} ||
+        P <- erlang:ports()].
+
+process_list() ->
+    [{P,process_info(P, registered_name),
+      safe_second_element(process_info(P, initial_call))} ||
+        P <- processes(), erlang:is_process_alive(P)].
+
+proc_reg_name({registered_name, Name}) -> Name;
+proc_reg_name([]) -> no_reg_name.
+
+safe_second_element({_,Info}) -> Info;
+safe_second_element(Other) -> Other.
+
 
 qlen() ->
     {_, {_, N}} = lists:keysearch(message_queue_len, 1, process_info(self())),

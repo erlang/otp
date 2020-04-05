@@ -73,7 +73,7 @@ release_spec:
 
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELEPMDDIR)"
-	$(INSTALL_DATA) epmd.spec epmd.spec.vxworks $(ERL_FILES) \
+	$(INSTALL_DATA) epmd.spec $(ERL_FILES) \
 		$(EMAKEFILE) "$(RELEPMDDIR)"
 	chmod -R u+w "$(RELEPMDDIR)"
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,9 +55,9 @@
 -type fa()       :: {atom(), arity()}.
 
 -type err_desc() :: 'invalid_attributes' | 'invalid_exports'
-                  | {'arg_mismatch', fa()} | {'bittype_unit', fa()}
+                  | {'arg_mismatch', fa()}
                   | {'illegal_expr', fa()} | {'illegal_guard', fa()}
-                  | {'illegal_pattern', fa()} | {'illegal_try', fa()}
+                  | {'illegal_try', fa()}
                   | {'not_bs_pattern', fa()} | {'not_pattern', fa()}
                   | {'not_var', fa()} | {'pattern_mismatch', fa()}
                   | {'return_mismatch', fa()} | {'undefined_function', fa()}
@@ -88,14 +88,10 @@ format_error(invalid_attributes) -> "invalid attributes";
 format_error(invalid_exports) -> "invalid exports";
 format_error({arg_mismatch,{F,A}}) ->
     io_lib:format("argument count mismatch in ~w/~w", [F,A]);
-format_error({bittype_unit,{F,A}}) ->
-    io_lib:format("unit without size in bit syntax pattern/expression in ~w/~w", [F,A]);
 format_error({illegal_expr,{F,A}}) ->
     io_lib:format("illegal expression in ~w/~w", [F,A]);
 format_error({illegal_guard,{F,A}}) ->
     io_lib:format("illegal guard expression in ~w/~w", [F,A]);
-format_error({illegal_pattern,{F,A}}) ->
-    io_lib:format("illegal pattern in ~w/~w", [F,A]);
 format_error({illegal_try,{F,A}}) ->
     io_lib:format("illegal try expression in ~w/~w", [F,A]);
 format_error({not_bs_pattern,{F,A}}) ->
@@ -111,9 +107,9 @@ format_error({return_mismatch,{F,A}}) ->
 format_error({undefined_function,{F,A}}) ->
     io_lib:format("function ~w/~w undefined", [F,A]);
 format_error({duplicate_var,N,{F,A}}) ->
-    io_lib:format("duplicate variable ~s in ~w/~w", [N,F,A]);
+    io_lib:format("duplicate variable ~p in ~w/~w", [N,F,A]);
 format_error({unbound_var,N,{F,A}}) ->
-    io_lib:format("unbound variable ~s in ~w/~w", [N,F,A]);
+    io_lib:format("unbound variable ~p in ~w/~w", [N,F,A]);
 format_error({undefined_function,{F1,A1},{F2,A2}}) ->
     io_lib:format("undefined function ~w/~w in ~w/~w", [F1,A1,F2,A2]);
 format_error({tail_segment_not_at_end,{F,A}}) ->
@@ -201,8 +197,13 @@ module_defs(B, Def, St) ->
 
 %% functions([Fdef], Defined, State) -> State.
 
-functions(Fs, Def, St0) ->
-    foldl(fun (F, St) -> function(F, Def, St) end, St0, Fs).
+functions(Fs, Def, Rt, St0) ->
+    foldl(fun ({_Name,#c_fun{vars=Vs,body=B}}, Sti0) ->
+                  {Vvs,St} = variable_list(Vs, Sti0),
+                  body(B, union(Vvs, Def), Rt, St);
+              (_, St) ->
+                  add_error({illegal_expr,St#lint.func}, St)
+          end, St0, Fs).
 
 %% function(CoreFunc, Defined, State) -> State.
 
@@ -276,11 +277,17 @@ gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=is_record}},
 gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
       Def, Rt, St0) when is_atom(Name) ->
     St1 = return_match(Rt, 1, St0),
-    case is_guard_bif(Name, length(As)) of
+    Arity = length(As),
+    case is_guard_bif(Name, Arity) of
         true ->
             gexpr_list(As, Def, St1);
         false ->
-            add_error({illegal_guard,St1#lint.func}, St1)
+            case {Name,Arity} of
+                {error,1} ->
+                    gexpr_list(As, Def, St1);
+                _ ->
+                    add_error({illegal_guard,St1#lint.func}, St1)
+            end
     end;
 gexpr(#c_primop{name=#c_literal{val=A},args=As}, Def, _Rt, St0) when is_atom(A) ->
     gexpr_list(As, Def, St0);
@@ -347,25 +354,19 @@ expr(#c_let{vars=Vs,arg=Arg,body=B}, Def, Rt, St0) ->
     body(B, union(Lvs, Def), Rt, St2);
 expr(#c_letrec{defs=Fs,body=B}, Def0, Rt, St0) ->
     Def1 = union(defined_funcs(Fs), Def0),	%All defined stuff
-    St1 = functions(Fs, Def1, St0),
+    St1 = functions(Fs, Def1, Rt, St0),
     body(B, Def1, Rt, St1#lint{func=St0#lint.func});
 expr(#c_case{arg=Arg,clauses=Cs}, Def, Rt, St0) ->
     Pc = case_patcount(Cs),
     St1 = body(Arg, Def, Pc, St0),
     clauses(Cs, Def, Pc, Rt, St1);
-expr(#c_receive{clauses=Cs,timeout=#c_literal{val=infinity},
-		action=#c_literal{}},
-     Def, Rt, St) ->
-    %% If the timeout is 'infinity', the after code can never
-    %% be reached. We don't care if the return count is wrong.
-    clauses(Cs, Def, 1, Rt, St);
 expr(#c_receive{clauses=Cs,timeout=T,action=A}, Def, Rt, St0) ->
     St1 = expr(T, Def, 1, St0),
     St2 = body(A, Def, Rt, St1),
     clauses(Cs, Def, 1, Rt, St2);
-expr(#c_apply{op=Op,args=As}, Def, Rt, St0) ->
+expr(#c_apply{op=Op,args=As}, Def, _Rt, St0) ->
     St1 = apply_op(Op, Def, length(As), St0),
-    return_match(Rt, 1, expr_list(As, Def, St1));
+    return_match(any, 1, expr_list(As, Def, St1));
 expr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
      Def, Rt, St0) when is_atom(Name) ->
     St1 = expr_list(As, Def, St0),
@@ -381,6 +382,7 @@ expr(#c_primop{name=#c_literal{val=A},args=As}, Def, Rt, St0) when is_atom(A) ->
     St1 = expr_list(As, Def, St0),
     case A of
         match_fail -> St1;
+        recv_peek_message -> return_match(Rt, 2, St1);
         _ -> return_match(Rt, 1, St1)
     end;
 expr(#c_catch{body=B}, Def, Rt, St) ->
@@ -497,8 +499,10 @@ pattern(#c_tuple{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
 pattern(#c_map{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
-pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V},Def,Ps,St) ->
-    pattern_list([K,V],Def,Ps,St);
+pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V}, Def, Ps, St) ->
+    %% The key is an input.
+    pat_map_expr(K, Def, St),
+    pattern_list([V],Def,Ps,St);
 pattern(#c_binary{segments=Ss}, Def, Ps, St0) ->
     St = pat_bin_tail_check(Ss, St0),
     pat_bin(Ss, Def, Ps, St);
@@ -517,22 +521,16 @@ pat_var(N, _Def, Ps, St) ->
 
 %% pat_bin_list([Elem], Defined, [PatVar], State) -> {[PatVar],State}.
 
-pat_bin(Es, Def0, Ps0, St0) ->
-    {Ps,_,St} = foldl(fun (E, {Ps,Def,St}) ->
-			      pat_segment(E, Def, Ps, St)
-		      end, {Ps0,Def0,St0}, Es),
-    {Ps,St}.
+pat_bin(Es, Def, Ps0, St0) ->
+    foldl(fun (E, {Ps,St}) ->
+                  pat_segment(E, Def, Ps, St)
+          end, {Ps0,St0}, Es).
 
-pat_segment(#c_bitstr{val=V,size=S,type=T}, Def0, Ps0, St0) ->
-    St1 = pat_bit_expr(S, T, Def0, St0),
-    {Ps,St2} = pattern(V, Def0, Ps0, St1),
-    Def = case V of
-	      #c_var{name=Name} -> add_element(Name, Def0);
-	      _ -> Def0
-	  end,
-    {Ps,Def,St2};
-pat_segment(_, Def, Ps, St) ->
-    {Ps,Def,add_error({not_bs_pattern,St#lint.func}, St)}.
+pat_segment(#c_bitstr{val=V,size=S,type=T}, Def, Ps0, St0) ->
+    St1 = pat_bit_expr(S, T, Def, St0),
+    pattern(V, Def, Ps0, St1);
+pat_segment(_, _, Ps, St) ->
+    {Ps,add_error({not_bs_pattern,St#lint.func}, St)}.
 
 %% pat_bin_tail_check([Elem], State) -> State.
 %%  There must be at most one tail segment (a size-less segment of
@@ -560,6 +558,10 @@ pat_bit_expr(#c_binary{}, _, _Def, St) ->
     St;
 pat_bit_expr(_, _, _, St) ->
     add_error({illegal_expr,St#lint.func}, St).
+
+pat_map_expr(#c_var{name=N}, Def, St) -> expr_var(N, Def, St);
+pat_map_expr(#c_literal{}, _Def, St) -> St;
+pat_map_expr(_, _, St) -> add_error({illegal_expr,St#lint.func}, St).
 
 %% pattern_list([Var], Defined, State) -> {[PatVar],State}.
 %% pattern_list([Var], Defined, [PatVar], State) -> {[PatVar],State}.

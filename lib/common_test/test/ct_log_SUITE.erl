@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -174,7 +174,7 @@ verify(Config) ->
     TcLogFile = proplists:get_value(the_logfile, SavedCfg),
     Pid = proplists:get_value(the_pid, SavedCfg),
     StrPid = lists:flatten(io_lib:format("~p",[Pid])),
-    EscPid = "&lt;" ++ string:substr(StrPid, 2, length(StrPid)-2) ++ "&gt;", 
+    EscPid = "&lt;" ++ string:slice(StrPid, 1, length(StrPid)-2) ++ "&gt;", 
     String = proplists:get_value(the_string, SavedCfg),
     ct:log("Read from prev testcase: ~p & ~p", [TcLogFile,Pid]),
     {ok,Dev} = file:open(TcLogFile, [read]),

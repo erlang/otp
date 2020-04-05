@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -301,11 +301,11 @@ eval(QH, Options) ->
                             post_funs(Post)
                         end
                 end
-            catch Term ->
-                case erlang:get_stacktrace() of
+            catch throw:Term:Stacktrace ->
+                case Stacktrace of
                     [?THROWN_ERROR | _] ->
                         Term;
-                    Stacktrace ->
+                    _ ->
                         erlang:raise(throw, Term, Stacktrace)
                 end
             end
@@ -359,11 +359,11 @@ fold(Fun, Acc0, QH, Options) ->
                             post_funs(Post)
                         end
                 end
-            catch Term ->
-                case erlang:get_stacktrace() of
+            catch throw:Term:Stacktrace ->
+                case Stacktrace of
                     [?THROWN_ERROR | _] ->
                         Term;
-                    Stacktrace ->
+                    _ ->
                         erlang:raise(throw, Term, Stacktrace)
                 end
             end
@@ -457,11 +457,11 @@ info(QH, Options) ->
                     debug -> % Not documented. Intended for testing only.
                         Info
                 end
-            catch Term ->
-                case erlang:get_stacktrace() of
+            catch throw:Term:Stacktrace ->
+                case Stacktrace of
                     [?THROWN_ERROR | _] ->
                         Term;
-                    Stacktrace ->
+                    _ ->
                         erlang:raise(throw, Term, Stacktrace)
                 end
             end
@@ -638,7 +638,7 @@ string_to_handle(Str, Options, Bindings) when is_list(Str) ->
             case erl_scan:string(Str, 1, [text]) of
                 {ok, Tokens, _} ->
                     ScanRes =
-                        case lib:extended_parse_exprs(Tokens) of
+                        case erl_eval:extended_parse_exprs(Tokens) of
                             {ok, [Expr0], SBs} ->
                                 {ok, Expr0, SBs};
                             {ok, _ExprList, _SBs} ->
@@ -785,7 +785,7 @@ merge_binding_structs(Bs1, Bs2) ->
 
 aux_name1(Name, N, AllNames) ->
     SN = name_suffix(Name, N),
-    case sets:is_element(SN, AllNames) of
+    case gb_sets:is_member(SN, AllNames) of
         true -> aux_name1(Name, N + 1, AllNames);
         false -> {SN, N}
     end.
@@ -1056,9 +1056,9 @@ cursor_process(H, GUnique, GCache, TmpDir, SpawnOptions, MaxList, TmpUsage) ->
                          Prep = prepare_qlc(H, not_a_list, GUnique, GCache, 
                                             TmpDir, MaxList, TmpUsage),
                          setup_qlc(Prep, Setup)
-                     catch Class:Reason ->
-                           Parent ! {self(), {caught, Class, Reason, 
-                                     erlang:get_stacktrace()}},
+                     catch Class:Reason:Stacktrace ->
+                           Parent ! {self(),
+                                     {caught, Class, Reason, Stacktrace}},
                            exit(normal)
                      end,
                  Parent ! {self(), ok},
@@ -1075,8 +1075,8 @@ parent_fun(Pid, Parent) ->
         {TPid, {parent_fun, Fun}} ->
             V = try 
                     {value, Fun()}
-                catch Class:Reason ->
-                    {parent_fun_caught, Class, Reason, erlang:get_stacktrace()}
+                catch Class:Reason:Stacktrace ->
+                    {parent_fun_caught, Class, Reason, Stacktrace}
             end,
             TPid ! {Parent, V},
             parent_fun(Pid, Parent);
@@ -1101,9 +1101,9 @@ reply(Parent, MonRef, Post, Cont) ->
                         throw_error(Cont)
                 end
             catch 
-                Class:Reason ->
+                Class:Reason:Stacktrace ->
                    post_funs(Post),
-                   Message = {caught, Class, Reason, erlang:get_stacktrace()},
+                   Message = {caught, Class, Reason, Stacktrace},
                    Parent ! {self(), Message},
                    exit(normal)
             end,
@@ -1196,8 +1196,8 @@ abstract1({table, TableDesc}, _NElements, _Depth, _A) ->
             {ok, Tokens, _} =
                 erl_scan:string(lists:flatten(TableDesc++"."), 1, [text]),
             {ok, Es, Bs} =
-                lib:extended_parse_exprs(Tokens),
-            [Expr] = lib:subst_values_for_vars(Es, Bs),
+                erl_eval:extended_parse_exprs(Tokens),
+            [Expr] = erl_eval:subst_values_for_vars(Es, Bs),
             special(Expr);
         false -> % abstract expression
             TableDesc
@@ -1357,7 +1357,7 @@ flatten_abstr(E, VN, _Vars, Body) ->
     {VN, Body, E}.
 
 abstract_vars(Abstract) ->
-    sets:from_list(ordsets:to_list(vars(Abstract))).
+    gb_sets:from_list(ordsets:to_list(vars(Abstract))).
 
 collect([]=L) ->
     L;
@@ -1392,9 +1392,8 @@ next_loop(Pid, L, N) when N =/= 0 ->
         {caught, throw, Error, [?THROWN_ERROR | _]} ->
             Error;
         {caught, Class, Reason, Stacktrace} ->
-            CurrentStacktrace = try erlang:error(foo)
-                                catch error:_ -> erlang:get_stacktrace()
-                                end,
+            {current_stacktrace, CurrentStacktrace} =
+                erlang:process_info(self(), current_stacktrace),
             erlang:raise(Class, Reason, Stacktrace ++ CurrentStacktrace);
         error ->
             erlang:error({qlc_cursor_pid_no_longer_exists, Pid})
@@ -2627,9 +2626,9 @@ table_handle(#qlc_table{trav_fun = TraverseFun, trav_MS = TravMS,
             Parent =:= self() ->
                 try
                     ParentFun() 
-                catch Class:Reason ->
+                catch Class:Reason:Stacktrace ->
                     post_funs(Post),
-                    erlang:raise(Class, Reason, erlang:get_stacktrace())
+                    erlang:raise(Class, Reason, Stacktrace)
                 end;
             true ->
                 case monitor_request(Parent, {parent_fun, ParentFun}) of
@@ -3033,9 +3032,9 @@ file_sort_handle(H, Kp, SortOptions, TmpDir, Compressed, Post, LocalPost) ->
         {terms, BTerms} ->
             try 
                 {[binary_to_term(B) || B <- BTerms], Post, LocalPost}
-            catch Class:Reason ->
+            catch Class:Reason:Stacktrace ->
                 post_funs(Post),
-                erlang:raise(Class, Reason, erlang:get_stacktrace())
+                erlang:raise(Class, Reason, Stacktrace)
             end
     end.
 
@@ -3045,9 +3044,9 @@ do_sort(In, Out, Sort, SortOptions, Post) ->
             {error, Reason} -> throw_reason(Reason);
             Reply -> Reply
         end
-    catch Class:Term ->
+    catch Class:Term:Stacktrace ->
         post_funs(Post),
-        erlang:raise(Class, Term, erlang:get_stacktrace())
+        erlang:raise(Class, Term, Stacktrace)
     end.
 
 do_sort(In, Out, sort, SortOptions) ->
@@ -3750,7 +3749,7 @@ maybe_error_logger(Name, Why) ->
 	expand_stacktrace(),
     Trimmer = fun(M, _F, _A) -> M =:= erl_eval end,
     Formater = fun(Term, I) -> io_lib:print(Term, I, 80, -1) end,
-    X = lib:format_stacktrace(1, Stacktrace, Trimmer, Formater),
+    X = erl_error:format_stacktrace(1, Stacktrace, Trimmer, Formater),
     error_logger:Name("qlc: temporary file was needed for ~w\n~ts\n",
                       [Why, lists:flatten(X)]).
 
@@ -3797,9 +3796,9 @@ call(undefined, _Arg, Default, _Post) ->
 call(Fun, Arg, _Default, Post) ->
     try
         Fun(Arg) 
-    catch Class:Reason ->
+    catch Class:Reason:Stacktrace ->
         post_funs(Post),
-        erlang:raise(Class, Reason, erlang:get_stacktrace())
+        erlang:raise(Class, Reason, Stacktrace)
     end.
 
 grd(undefined, _Arg) ->

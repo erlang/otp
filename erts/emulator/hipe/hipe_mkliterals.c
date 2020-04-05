@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -441,9 +441,7 @@ static const struct rts_param rts_params[] = {
     { 11, "ERL_FUN_SIZE", 1, ERL_FUN_SIZE },
 
     { 12, "P_SCHED_DATA",
-#ifdef ERTS_SMP
       1, offsetof(struct process, scheduler_data)
-#endif
     },
     { 14, "P_FP_EXCEPTION",
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
@@ -453,11 +451,7 @@ static const struct rts_param rts_params[] = {
     /* This flag is always defined, but its value is configuration-dependent. */
     { 15, "ERTS_IS_SMP",
       1,
-#if defined(ERTS_SMP)
       1
-#else
-      0
-#endif
     },
     /* This flag is always defined, but its value is configuration-dependent. */
     { 16, "ERTS_NO_FPE_SIGNALS",
@@ -468,7 +462,15 @@ static const struct rts_param rts_params[] = {
       0
 #endif
     },
-    /* This parameter is always defined, but its value depends on ERTS_SMP. */
+    /* This flag is always defined, but its value is configuration-dependent. */
+    { 17, "ERTS_USE_LITERAL_TAG",
+      1,
+#if defined(TAG_LITERAL_PTR)
+      1
+#else
+      0
+#endif
+    },
     { 19, "MSG_MESSAGE",
       1, offsetof(struct erl_mesg, m[0])
     },
@@ -513,12 +515,12 @@ static const struct rts_param rts_params[] = {
 #endif
     },
     { 48, "P_BIF_CALLEE",
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 	1, offsetof(struct process, hipe.bif_callee)
 #endif
     },
-    { 49, "P_MSG_FIRST", 1, offsetof(struct process, msg.first) },
-    { 50, "P_MSG_SAVE", 1, offsetof(struct process, msg.save) },
+    { 49, "P_MSG_FIRST", 1, offsetof(struct process, sig_qs.first) },
+    { 50, "P_MSG_SAVE", 1, offsetof(struct process, sig_qs.save) },
     { 51, "P_CALLEE_EXP", 1, offsetof(struct process, hipe.u.callee_exp) },
 
     { 52, "THE_NON_VALUE", 1, (int)THE_NON_VALUE },
@@ -528,6 +530,9 @@ static const struct rts_param rts_params[] = {
       1, offsetof(struct process, hipe.gc_is_unsafe)
 #endif
     },
+
+    { 54, "P_MSG_LAST", 1, offsetof(struct process, sig_qs.last) },
+    { 55, "P_MSG_SAVED_LAST", 1, offsetof(struct process, sig_qs.saved_last) },
 };
 
 #define NR_PARAMS	ARRAY_SIZE(rts_params)

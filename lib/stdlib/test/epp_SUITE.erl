@@ -28,7 +28,8 @@
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
-	 test_error/1, test_warning/1, otp_14285/1]).
+	 test_error/1, test_warning/1, otp_14285/1,
+	 test_if/1,source_name/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -69,7 +70,7 @@ all() ->
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
-     otp_14285].
+     otp_14285, test_if, source_name].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -799,7 +800,8 @@ otp_8130(Config) when is_list(Config) ->
     PreDefMacs = macs(Epp),
     ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE',
      'FUNCTION_ARITY','FUNCTION_NAME',
-     'LINE','MACHINE','MODULE','MODULE_STRING'] = PreDefMacs,
+     'LINE','MACHINE','MODULE','MODULE_STRING',
+     'OTP_RELEASE'] = PreDefMacs,
     {ok,[{'-',_},{atom,_,file}|_]} = epp:scan_erl_form(Epp),
     {ok,[{'-',_},{atom,_,module}|_]} = epp:scan_erl_form(Epp),
     {ok,[{atom,_,t}|_]} = epp:scan_erl_form(Epp),
@@ -952,27 +954,7 @@ ifdef(Config) ->
 
           {define_c5,
            <<"-\ndefine a.\n">>,
-           {errors,[{{2,1},epp,{bad,define}}],[]}},
-
-          {define_c6,
-           <<"\n-if.\n"
-             "-endif.\n">>,
-           {errors,[{{2,2},epp,{'NYI','if'}}],[]}},
-
-          {define_c7,
-           <<"-ifndef(a).\n"
-             "-elif.\n"
-             "-endif.\n">>,
-           {errors,[{{2,2},epp,{'NYI',elif}}],[]}},
-
-          {define_c7,
-           <<"-ifndef(a).\n"
-             "-if.\n"
-             "-elif.\n"
-             "-endif.\n"
-             "-endif.\n"
-             "t() -> a.\n">>,
-           {errors,[{{2,2},epp,{'NYI','if'}}],[]}}
+           {errors,[{{2,1},epp,{bad,define}}],[]}}
           ],
     [] = compile(Config, Cs),
 
@@ -1117,6 +1099,147 @@ test_warning(Config) ->
     [] = compile(Config, Cs),
     ok.
 
+%% OTP-12847: Test the -if and -elif directives and the built-in
+%% function defined(Symbol).
+test_if(Config) ->
+    Cs = [{if_1c,
+	   <<"-if.\n"
+	     "-endif.\n"
+	     "-if no_parentheses.\n"
+	     "-endif.\n"
+	     "-if(syntax error.\n"
+	     "-endif.\n"
+	     "-if(true).\n"
+	     "-if(a+3).\n"
+	     "syntax error not triggered here.\n"
+	     "-endif.\n">>,
+           {errors,[{1,epp,{bad,'if'}},
+		    {3,epp,{bad,'if'}},
+		    {5,erl_parse,["syntax error before: ","error"]},
+		    {11,epp,{illegal,"unterminated",'if'}}],
+	    []}},
+
+	  {if_2c,			       	%Bad guard expressions.
+	   <<"-if(is_list(integer_to_list(42))).\n" %Not guard BIF.
+	     "-endif.\n"
+	     "-if(begin true end).\n"
+	     "-endif.\n">>,
+	   {errors,[{1,epp,{bad,'if'}},
+		    {3,epp,{bad,'if'}}],
+	    []}},
+
+	  {if_3c,			       	%Invalid use of defined/1.
+	   <<"-if defined(42).\n"
+	     "-endif.\n">>,
+	   {errors,[{1,epp,{bad,'if'}}],[]}},
+
+	  {if_4c,
+	   <<"-elif OTP_RELEASE > 18.\n">>,
+	   {errors,[{1,epp,{illegal,"unbalanced",'elif'}}],[]}},
+
+	  {if_5c,
+	   <<"-ifdef(not_defined_today).\n"
+	     "-else.\n"
+	     "-elif OTP_RELEASE > 18.\n"
+	     "-endif.\n">>,
+	   {errors,[{3,epp,{illegal,"unbalanced",'elif'}}],[]}},
+
+	  {if_6c,
+	   <<"-if(defined(OTP_RELEASE)).\n"
+	     "-else.\n"
+	     "-elif(true).\n"
+	     "-endif.\n">>,
+	   {errors,[{3,epp,elif_after_else}],[]}},
+
+	  {if_7c,
+	   <<"-if(begin true end).\n"		%Not a guard expression.
+	     "-endif.\n">>,
+	   {errors,[{1,epp,{bad,'if'}}],[]}}
+
+	 ],
+    [] = compile(Config, Cs),
+
+    Ts = [{if_1,
+	   <<"-if(?OTP_RELEASE > 18).\n"
+	     "t() -> ok.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_2,
+	   <<"-if(false).\n"
+	     "a bug.\n"
+	     "-elif(?OTP_RELEASE > 18).\n"
+	     "t() -> ok.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_3,
+	   <<"-if(true).\n"
+	     "t() -> ok.\n"
+	     "-elif(?OTP_RELEASE > 18).\n"
+	     "a bug.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_4,
+	   <<"-define(a, 1).\n"
+	     "-if(defined(a) andalso defined(OTP_RELEASE)).\n"
+	     "t() -> ok.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_5,
+	   <<"-if(defined(a)).\n"
+	     "a bug.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_6,
+	   <<"-if(defined(not_defined_today)).\n"
+	     " -if(true).\n"
+	     "  bug1.\n"
+	     " -elif(true).\n"
+	     "  bug2.\n"
+	     " -elif(true).\n"
+	     "  bug3.\n"
+	     " -else.\n"
+	     "  bug4.\n"
+	     " -endif.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_7,
+	   <<"-if(not_builtin()).\n"
+	     "a bug.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_8,
+	   <<"-if(42).\n"			%Not boolean.
+	     "a bug.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+	   ok}
+	 ],
+    [] = run(Config, Ts),
+
+    ok.
+
 %% Advanced test on overloading macros.
 overload_mac(Config) when is_list(Config) ->
     Cs = [
@@ -1249,7 +1372,7 @@ otp_8562(Config) when is_list(Config) ->
 otp_8911(Config) when is_list(Config) ->
     case test_server:is_cover() of
 	true ->
-	    {skip, "Testing cover, so can not run when cover is already running"};
+	    {skip, "Testing cover, so cannot run when cover is already running"};
 	false ->
 	    do_otp_8911(Config)
     end.
@@ -1579,6 +1702,18 @@ function_macro(Config) ->
 
     ok.
 
+source_name(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "source_name.erl"),
+
+    source_name_1(File, "/test/gurka.erl"),
+    source_name_1(File, "gaffel.erl"),
+
+    ok.
+
+source_name_1(File, Expected) ->
+    Res = epp:parse_file(File, [{source_name, Expected}]),
+    {ok, [{attribute,_,file,{Expected,_}} | _Forms]} = Res.
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).

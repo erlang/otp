@@ -511,7 +511,7 @@ used_genvar_check(FormsNoShadows, State) ->
     Acc0 = {State#state.intro_vars, [{atom, anno0(), true}]},
     {_, {[], Exprs}} = qual_fold(F, Acc0, [], FormsNoShadows, State),
     FunctionNames = [Name || {function, _, Name, _, _} <- FormsNoShadows],
-    UniqueFName = qlc:aux_name(used_genvar, 1, sets:from_list(FunctionNames)),
+    UniqueFName = qlc:aux_name(used_genvar, 1, gb_sets:from_list(FunctionNames)),
     A = anno0(),
     {function,A,UniqueFName,0,[{clause,A,[],[],lists:reverse(Exprs)}]}.
     
@@ -613,8 +613,8 @@ q_intro_vars(QId, [{QId, IVs} | QsIVs], IVsSoFar) -> {QsIVs, IVs ++ IVsSoFar}.
 transform(FormsNoShadows, State) ->
     _ = erlang:system_flag(backtrace_depth, 500),
     IntroVars = State#state.intro_vars,
-    AllVars = sets:from_list(ordsets:to_list(qlc:vars(FormsNoShadows))),
-    ?DEBUG("AllVars = ~p~n", [sets:to_list(AllVars)]),
+    AllVars = gb_sets:from_list(ordsets:to_list(qlc:vars(FormsNoShadows))),
+    ?DEBUG("AllVars = ~p~n", [gb_sets:to_list(AllVars)]),
     F1 = fun(QId, {generate,_,P,LE}, Foo, {GoI,SI}) ->
                  {{QId,GoI,SI,{gen,P,LE}},Foo,{GoI + 3, SI + 2}};
             (QId, F, Foo, {GoI,SI}) ->
@@ -632,10 +632,10 @@ transform(FormsNoShadows, State) ->
     {_,Source0} = qual_fold(fun(_QId, {generate,_,_P,_E}=Q, Dict, Foo) -> 
                                     {Q,Dict,Foo};
                                (QId, F, Dict, Foo) ->
-                                    {F,dict:store(QId, F, Dict),Foo}
-                            end, dict:new(), [], FormsNoShadows, State),
+                                    {F,maps:put(QId, F, Dict),Foo}
+                            end, maps:new(), [], FormsNoShadows, State),
     {_,Source} = qlc_mapfold(fun(Id, {lc,_L,E,_Qs}=LC, Dict) ->
-                                     {LC,dict:store(Id, E, Dict)}
+                                     {LC,maps:put(Id, E, Dict)}
                              end, Source0, FormsNoShadows, State),
 
 
@@ -685,7 +685,7 @@ transform(FormsNoShadows, State) ->
                  FunW = {'fun',L,{clauses,[{clause,L,AsW,[],
                                             [{match,L,{var,L,Fun},FunC},
                                              {call,L,{var,L,Fun},As0}]}]}},
-                 {ok, OrigE0} = dict:find(Id, Source),
+                 OrigE0 = map_get(Id, Source),
                  OrigE = undo_no_shadows(OrigE0, State),
                  QCode = qcode(OrigE, XQCs, Source, L, State),
                  Qdata = qdata(XQCs, L),
@@ -2361,7 +2361,7 @@ qcode(E, QCs, Source, L, State) ->
 qcode([{_QId, {_QIvs, {{gen,P,_LE,_GV}, GoI, _SI}}} | QCs], Source, State) ->
     [{GoI,undo_no_shadows(P, State)} | qcode(QCs, Source, State)];
 qcode([{QId, {_QIVs, {{fil,_F}, GoI, _SI}}} | QCs], Source, State) ->
-    {ok,OrigF} = dict:find(QId, Source),
+    OrigF = map_get(QId, Source),
     [{GoI,undo_no_shadows(OrigF, State)} | qcode(QCs, Source, State)];
 qcode([], _Source, _State) ->
     [].
@@ -2666,12 +2666,12 @@ no_shadows(Forms0, State) ->
     %%
     %% The original names of variables are kept in a table in State.
     %% undo_no_shadows/2 re-creates the original code.
-    AllVars = sets:from_list(ordsets:to_list(qlc:vars(Forms0))),
-    ?DEBUG("nos AllVars = ~p~n", [sets:to_list(AllVars)]),
+    AllVars = gb_sets:from_list(ordsets:to_list(qlc:vars(Forms0))),
+    ?DEBUG("nos AllVars = ~p~n", [gb_sets:to_list(AllVars)]),
     VFun = fun(_Id, LC, Vs) -> nos(LC, Vs) end,
     LI = ets:new(?APIMOD,[]),
     UV = ets:new(?APIMOD,[]),
-    D0 = dict:new(),
+    D0 = maps:new(),
     S1 = {LI, D0, UV, AllVars, [], State},
     _ = qlc_mapfold(VFun, S1, Forms0, State),
     ?DEBUG("UsedIntroVars = ~p~n", [ets:match_object(UV, '_')]),
@@ -2781,7 +2781,7 @@ nos_var(Anno, Name, State) ->
     end.
 
 used_var(V, Vs, UV) ->
-    case dict:find(V, Vs) of
+    case maps:find(V, Vs) of
         {ok,Value} ->
             VN = qlc:name_suffix(V, Value),
             _ = ets:update_counter(UV, VN, 1),
@@ -2796,10 +2796,10 @@ next_var(V, Vs, AllVars, LI, UV) ->
              end,
     true = ets:insert(LI, {V, NValue}),
     VN = qlc:name_suffix(V, NValue),
-    case sets:is_element(VN, AllVars) of
+    case gb_sets:is_member(VN, AllVars) of
         true -> next_var(V, Vs, AllVars, LI, UV);
         false -> true = ets:insert(UV, {VN, 0}),
-                 NVs = dict:store(V, NValue, Vs),
+                 NVs = maps:put(V, NValue, Vs),
                  {VN, NVs}
     end.
 

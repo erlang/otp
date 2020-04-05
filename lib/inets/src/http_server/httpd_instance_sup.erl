@@ -53,22 +53,7 @@ start_link([{_, _}| _] = Config, AcceptTimeout, Debug)  ->
 	{error, Reason} ->
 	    error_logger:error_report(Reason),
 	    {stop, Reason}
-    end;
-
-start_link(ConfigFile, AcceptTimeout, Debug) ->
-    case file_2_config(ConfigFile) of
-	{ok, ConfigList, Address, Port} ->
-	    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE), 
-	    Name    = make_name(Address, Port, Profile),
-	    SupName = {local, Name},
-	    supervisor:start_link(SupName, ?MODULE, 
-				  [ConfigFile, ConfigList, AcceptTimeout,
-				   Debug, Address, Port]);	
-	{error, Reason} ->
-	    error_logger:error_report(Reason),
-	    {stop, Reason}
     end.
-
 
 start_link([{_, _}| _] = Config, AcceptTimeout, ListenInfo, Debug) ->
     case (catch httpd_conf:validate_properties(Config)) of
@@ -84,22 +69,7 @@ start_link([{_, _}| _] = Config, AcceptTimeout, ListenInfo, Debug) ->
 	{error, Reason} ->
 	    error_logger:error_report(Reason),
 	    {stop, Reason}
-    end;
-
-start_link(ConfigFile, AcceptTimeout, ListenInfo, Debug) ->
-    case file_2_config(ConfigFile) of
-	{ok, ConfigList, Address, Port} ->
-	    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE), 
-	    Name    = make_name(Address, Port, Profile),
-	    SupName = {local, Name},
-	    supervisor:start_link(SupName, ?MODULE, 
-				  [ConfigFile, ConfigList, AcceptTimeout,
-				   Debug, Address, Port, ListenInfo]);	
-	{error, Reason} ->
-	    error_logger:error_report(Reason),
-	    {stop, Reason}
     end.
-
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -183,18 +153,3 @@ worker_spec(WorkerModule, Address, Port, Profile, ListenInfo, ConfigFile,
 make_name(Address, Port, Profile) ->
     httpd_util:make_name("httpd_instance_sup", Address, Port, Profile).
 
-
-file_2_config(ConfigFile) ->
-    case httpd_conf:load(ConfigFile) of
-	{ok, ConfigList} ->
-	    case (catch httpd_conf:validate_properties(ConfigList)) of
-		{ok, Config} ->
-		    Address = proplists:get_value(bind_address, ConfigList),
-		    Port    = proplists:get_value(port, ConfigList),
-		    {ok, Config, Address, Port};
-		Error ->
-		    Error
-	    end;
-	Error ->
-	    Error
-    end.

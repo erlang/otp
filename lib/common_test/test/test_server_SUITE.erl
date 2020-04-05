@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,12 +18,7 @@
 %% %CopyrightEnd%
 %%
 %%%-------------------------------------------------------------------
-%%% @author Lukas Larsson <lukas@erlang-solutions.com>
-%%% @copyright (C) 2011, Erlang Solutions Ltd.
-%%% @doc
-%%%
-%%% @end
-%%% Created : 15 Feb 2011 by Lukas Larsson <lukas@erlang-solutions.com>
+%%% Author: Lukas Larsson <lukas@erlang-solutions.com>
 %%%-------------------------------------------------------------------
 -module(test_server_SUITE).
 
@@ -71,7 +66,7 @@ init_per_testcase(_TestCase, Config) ->
 %% @spec end_per_testcase(TestCase, Config0) ->
 %%               void() | {save_config,Config1} | {fail,Reason}
 end_per_testcase(test_server_unicode, _Config) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     N1 = list_to_atom("test_server_tester_latin1" ++ "@" ++ Host),
     N2 = list_to_atom("test_server_tester_utf8" ++ "@" ++ Host),
     test_server:stop_node(N1),
@@ -265,7 +260,7 @@ translate_filename(Filename,EncodingOnTestNode) ->
     end.
 
 get_latest_run_dir(Dir) ->
-    %% For the time being, filelib:wildcard can not take a binary
+    %% For the time being, filelib:wildcard cannot take a binary
     %% argument, so we avoid using this here.
     case file:list_dir(Dir) of
 	{ok,Files} ->
@@ -320,7 +315,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
     DataDir = ?config(data_dir,Config0),
     Suite = create_unicode_test_suite(DataDir,Encoding),
 
-    %% We can not run this test on default node since it must be
+    %% We cannot run this test on default node since it must be
     %% started with correct file name mode (+fnu/+fnl).
     %% OBS: the node are stopped by end_per_testcase/2
     Config1 = lists:keydelete(node,1,Config0),
@@ -347,7 +342,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
     RunDir = get_latest_run_dir(LogDir),
     true = filelib:is_dir(RunDir),
 
-    LowerModStr = string:to_lower(ModStr),
+    LowerModStr = string:lowercase(ModStr),
     SuiteHtml = translate_filename(LowerModStr++".src.html",Encoding),
     true = filelib:is_regular(filename:join(RunDir,SuiteHtml)),
 
@@ -362,7 +357,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
 %% remote file system on master - i.e. they will use same file name
 %% mode as the master.
 start_node(Config,Name,Args) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     ct:log("Trying to start ~w@~s~n",[Name,Host]),
     case test_server:start_node(Name, peer, [{args,Args}]) of
 	{error,Reason} ->

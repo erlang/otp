@@ -4,6 +4,8 @@
 
 **OTP** is a set of Erlang libraries, which consists of the Erlang runtime system, a number of ready-to-use components mainly written in Erlang, and a set of design principles for Erlang programs. [Learn more about Erlang and OTP](http://erlang.org/doc/system_architecture_intro/sys_arch_intro.html).
 
+[Release notes](http://erlang.org/download/otp_versions_tree.html) for all OTP versions.
+
 [Learn how to program in Erlang](http://learnyousomeerlang.com/content).
 
 ## Examples

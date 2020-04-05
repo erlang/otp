@@ -72,7 +72,7 @@
     </p>
   <p>The following sections show some examples of how to profile with
     Fprof. See also the reference manual 
-    <seealso marker="fprof">fprof(3)</seealso>.
+    <seeerl marker="fprof">fprof(3)</seeerl>.
     </p>
 
   <section>
@@ -95,12 +95,12 @@
       <c>fprof:analyse([{dest, "my_fprof.analysis"}, {cols, 120}])</c>
       for a wider listing on non-default filename.
       </p>
-    <p>See the <seealso marker="fprof">fprof(3)</seealso> manual page
+    <p>See the <seeerl marker="fprof">fprof(3)</seeerl> manual page
       for more options and arguments to the functions
-      <seealso marker="fprof#trace">trace</seealso>,
-      <seealso marker="fprof#profile">profile</seealso>
+      <seeerl marker="fprof#trace">trace</seeerl>,
+      <seeerl marker="fprof#profile">profile</seeerl>
       and 
-      <seealso marker="fprof#analyse">analyse</seealso>.
+      <seeerl marker="fprof#analyse">analyse</seeerl>.
       </p>
   </section>
 

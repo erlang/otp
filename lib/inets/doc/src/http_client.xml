@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -54,7 +54,7 @@
     <pre>
       [{inets, [{services, [{httpc, PropertyList}]}]}]</pre>
     <p>For valid properties, see 
-    <seealso marker="httpc">httpc(3)</seealso>. </p>
+    <seeerl marker="httpc">httpc(3)</seeerl>. </p>
   </section>
 
   <section>

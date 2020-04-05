@@ -2,7 +2,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2009-2017. All Rights Reserved.
+Copyright Ericsson AB 2009-2020. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@ limitations under the License.
 <ul class="section-links">
  <li><a href="applications.html">Applications</a></li>
  <li><a href="man_index.html" class="modules">Modules</a></li>
+ <li><a href="general_info/deprecations.html" class="modules">Deprecations</a></li>
+ <li><a href="general_info/scheduled_for_removal.html" class="modules">Scheduled for Removal</a></li>
 </ul>
 
 <ul class="expand-collapse-items">

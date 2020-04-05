@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,16 +96,14 @@
 	]).
 
 
--export_type([void/0,
-	      order_config_entry_function/0,
+-export_type([
+              order_config_entry_function/0,
 	      check_config_entry_function/0,
-	      write_config_function/0]).
+	      write_config_function/0
+             ]).
 
 
 %%----------------------------------------------------------------------
-
--type void() :: term(). % Any value - ignored
-
 
 %%----------------------------------------------------------------------
 %% Handy SNMP configuration
@@ -1106,6 +1104,7 @@ verify_sec_type(ST)         -> {error, "invalid security type: " ++ ST}.
 verify_address(A) ->
     verify_address(A, snmpUDPDomain).
 
+-dialyzer({nowarn_function, verify_address/2}). % Future compat
 verify_address(A, snmpUDPDomain = _Domain) ->
     do_verify_address(A, inet);
 verify_address(A, transportDomainUdpIpv4 = _Domain) ->
@@ -2573,15 +2572,17 @@ write_config_file(Dir, FileName, Order, Check, Write, Entries)
 		    Error
 	    end
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	throw:E:S ->
+	    d("File write of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
+	    E;
+	C:E:S ->
+	    d("File write of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
 
@@ -2590,16 +2591,18 @@ write_config_file(Dir, FileName, Write, Entries, Fd) ->
 	ok ->
 	    close_config_file(Dir, FileName, Fd)
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
+	throw:E:S ->
+	    d("File write of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
 	    close_config_file(Dir, FileName, Fd),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	    E;
+	C:E:S ->
+	    d("File write of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    close_config_file(Dir, FileName, Fd),
 	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
@@ -2661,16 +2664,18 @@ append_config_file(Dir, FileName, Order, Check, Write, Entries, Fd) ->
 	ok ->
 	    close_config_file(Dir, FileName, Fd)
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File append of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
+	throw:E:S ->
+	    d("File append of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
 	    close_config_file(Dir, FileName, Fd),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File append of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	    E;
+	C:E:S ->
+	    d("File append of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    close_config_file(Dir, FileName, Fd),
 	    {error, {failed_append, Dir, FileName, {C, E, S}}}
     end.
@@ -2702,16 +2707,18 @@ read_config_file(Dir, FileName, Order, Check)
 		SortedLines = sort_lines(Lines, Order),
 		{ok, verify_lines(SortedLines, Check, undefined, [])}
 	    catch
-		Error ->
-		    S = erlang:get_stacktrace(),
-		    d("File read of ~s throwed: ~p~n    ~p~n",
-		      [FileName, Error, S]),
-		    {error, Error};
-		T:E ->
-		    S = erlang:get_stacktrace(),
-		    d("File read of ~s exception: ~p:~p~n    ~p~n",
-		      [FileName,T,E,S]),
-		    {error, {failed_read, Dir, FileName, {T, E, S}}}
+		throw:E:S ->
+		    d("File read of ~s throwed: "
+                      "~n   ~p"
+                      "~n   ~p"
+                      "~n", [FileName, E, S]),
+		    {error, E};
+		C:E:S ->
+		    d("File read of ~s exception: "
+                      "~n   ~p:~p"
+                      "~n    ~p"
+                      "~n", [FileName, C, E, S]),
+		    {error, {failed_read, Dir, FileName, {C, E, S}}}
 	    after
 		file:close(Fd)
 	    end;
@@ -2730,7 +2737,8 @@ read_lines(Fd, Acc, StartLine) ->
     end.
 
 read_and_parse_term(Fd, StartLine) ->
-    case io:request(Fd, {get_until, "", erl_scan, tokens, [StartLine]}) of
+    Enc = latin1,
+    case io:request(Fd, {get_until, Enc, "", erl_scan, tokens, [StartLine]}) of
 	{ok, Tokens, EndLine} ->
 	    case erl_parse:parse_term(Tokens) of
                 {ok, Term} ->
@@ -2760,11 +2768,10 @@ verify_lines(
 	{{ok, NewTerm}, NewState} ->
 	    verify_lines(Lines, Check, NewState, [NewTerm|Acc])
     catch
-	{error, Reason} ->
+	throw:{error, Reason}:_ ->
 	    throw({failed_check, StartLine, EndLine, Reason});
-	C:R ->
-	    S = erlang:get_stacktrace(),
-	    throw({failed_check, StartLine, EndLine, {C, R, S}})
+	C:E:S ->
+	    throw({failed_check, StartLine, EndLine, {C, E, S}})
     end.
 
 

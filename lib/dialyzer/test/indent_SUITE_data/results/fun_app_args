@@ -1,0 +1,5 @@
+
+fun_app_args.erl:12: Fun application with arguments 
+         ('b',
+          []) will fail since the function has type 
+          'c' | fun(('a', []) -> any()), which differs in the 1st argument

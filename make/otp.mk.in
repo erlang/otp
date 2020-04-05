@@ -4,7 +4,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,9 +47,11 @@ CROSS_COMPILING = @CROSS_COMPILING@
 # ----------------------------------------------------
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
-DEFAULT_FLAVOR=@DEFAULT_FLAVOR@
-FLAVORS=@FLAVORS@
-TYPES=@TYPES@
+TYPES = @TYPES@
+
+USE_PGO = @USE_PGO@
+
+USE_ESOCK = @USE_ESOCK@
 
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.
@@ -62,8 +64,8 @@ DUBIOUS_ORIGINS = /undefined/environment/
 #	HiPE
 # ----------------------------------------------------
 
-HIPE_ENABLED=@HIPE_ENABLED@
-NATIVE_LIBS_ENABLED=@NATIVE_LIBS_ENABLED@
+HIPE_ENABLED = @HIPE_ENABLED@
+NATIVE_LIBS_ENABLED = @NATIVE_LIBS_ENABLED@
 
 # ----------------------------------------------------
 #	Command macros
@@ -73,6 +75,7 @@ INSTALL_DIR     = @INSTALL_DIR@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT  = @INSTALL_SCRIPT@
 INSTALL_DATA    = @INSTALL_DATA@
+INSTALL_DIR_DATA = $(ERL_TOP)/make/install_dir_data.sh
 
 CC = @CC@
 GCC = @GCC@
@@ -85,6 +88,10 @@ LD = @LD@
 RANLIB = @RANLIB@
 AR = @AR@
 PERL = @PERL@
+LLVM_PROFDATA = @LLVM_PROFDATA@
+
+MIXED_VC = @MIXED_VC@
+MIXED_MINGW = @MIXED_MINGW@
 
 BITS64 = @BITS64@
 
@@ -99,6 +106,10 @@ ifdef BOOTSTRAP
 else
   ERL_COMPILE_FLAGS += +debug_info
 endif
+ifeq ($(USE_ESOCK),yes)
+ERL_COMPILE_FLAGS += -DUSE_ESOCK=true
+endif
+
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)
 ERL = erl -boot start_clean
@@ -215,12 +226,16 @@ MAN1DIR = $(DOCDIR)/man1
 MAN2DIR = $(DOCDIR)/man2
 MAN3DIR = $(DOCDIR)/man3
 MAN4DIR = $(DOCDIR)/man4
+MAN5DIR = $(DOCDIR)/man5
 MAN6DIR = $(DOCDIR)/man6
+MAN7DIR = $(DOCDIR)/man7
 MAN9DIR = $(DOCDIR)/man9
 
 TEXDIR = .
 
 SPECDIR = $(DOCDIR)/specs
+XMLDIR = $(DOCDIR)/xml
+CHUNKSDIR = $(DOCDIR)/chunks
 
 ifeq ($(CSS_FILE),)
 CSS_FILE = otp_doc.css
@@ -256,7 +271,7 @@ DEFAULT_HTML_FILES = \
 	$(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.kwc) \
 	$(HTMLDIR)/index.html
 
-DEFAULT_GIF_FILES = $(HTMLDIR)/min_head.gif
+DEFAULT_GIF_FILES =
 
 #
 # Flags & Commands
@@ -265,8 +280,9 @@ XSLTPROC = @XSLTPROC@
 FOP = @FOP@
 XMLLINT = @XMLLINT@
 CP = @CP@
+MKDIR = @MKDIR@
 
-DOCGEN=$(ERL_TOP)/lib/erl_docgen
+DOCGEN?=$(ERL_TOP)/lib/erl_docgen
 FOP_CONFIG = $(DOCGEN)/priv/fop.xconf
 
 ifneq (,$(findstring $(origin SPECS_ESRC),$(DUBIOUS_ORIGINS)))
@@ -274,56 +290,48 @@ SPECS_ESRC = ../../src
 endif
 SPECS_EXTRACTOR=$(DOCGEN)/priv/bin/specs_gen.escript
 # Extract specifications and types from Erlang source files (-spec, -type)
-$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
-$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 
+MANXSLTARGS=--stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities -path .
 
-$(MAN1DIR)/%.1: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+$(MAN1DIR)/%.1: $(XMLDIR)/%_cmd.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 
-$(MAN2DIR)/%.2: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+$(MAN2DIR)/%.2 $(MAN4DIR)/%.4 $(MAN4DIR)/%.5 $(MAN9DIR)/%.9: $(XMLDIR)/%.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 
 ifneq ($(wildcard $(SPECDIR)),)
-$(MAN3DIR)/%.3: %.xml $(SPECDIR)/specs_%.xml
-	date=`date +"%B %e, %Y"`; \
+$(MAN3DIR)/%.3: $(XMLDIR)/%.xml $(SPECDIR)/specs_%.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	specs_file=`pwd`/$(SPECDIR)/specs_$*.xml; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --stringparam specs_file "$$specs_file" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+	xsltproc --output "$@" $(MANXSLTARGS) --stringparam specs_file "$$specs_file" $(DOCGEN)/priv/xsl/db_man.xsl $<
 else
-$(MAN3DIR)/%.3: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+$(MAN3DIR)/%.3: $(XMLDIR)/%.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 endif
 
 # left for compatibility
-$(MAN4DIR)/%.4: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+$(MAN6DIR)/%.6 $(MAN6DIR)/%.7: $(XMLDIR)/%_app.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 
-$(MAN4DIR)/%.5: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+$(XMLDIR)/%.xml: $(XMLDIR)/%.xmlsrc
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $(shell pwd) $< $@
 
-# left for compatibility
-$(MAN6DIR)/%.6: %_app.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-$(MAN6DIR)/%.7: %_app.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-$(MAN9DIR)/%.9: %.xml
-	date=`date +"%B %e, %Y"`; \
-	xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
-
-
-.xmlsrc.xml:
-	 escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
-
-.fo.pdf:
+$(PDFDIR)/%.pdf: %.fo
 	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@
+
+$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
+
+$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../preloaded/ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
+
+$(CHUNKSDIR)/%.chunk: ../../ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@

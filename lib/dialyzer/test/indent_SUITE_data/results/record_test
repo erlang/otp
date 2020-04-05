@@ -1,0 +1,6 @@
+
+record_test.erl:19: Matching of pattern 
+          {'foo', _} tagged with a record name violates the declared type of 
+          'foo'
+record_test.erl:21: The variable _ can never match since previous clauses completely covered the type 
+          'foo'

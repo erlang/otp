@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework test execution control module.
-%%%
-%%% <p>This module is a proxy for calling and handling common test hooks.</p>
-
 -module(ct_hooks).
 
 %% API Exports
 -export([init/1]).
+-export([groups/2]).
+-export([all/2]).
 -export([init_tc/3]).
 -export([end_tc/5]).
 -export([terminate/1]).
@@ -41,20 +39,61 @@
 					opts = [],
 					prio = ctfirst }]).
 
--record(ct_hook_config, {id, module, prio, scope, opts = [], state = []}).
+-record(ct_hook_config, {id, module, prio, scope, opts = [],
+                         state = [], groups = []}).
 
 %% -------------------------------------------------------------------------
 %% API Functions
 %% -------------------------------------------------------------------------
 
-%% @doc Called before any suites are started
 -spec init(State :: term()) -> ok |
 			       {fail, Reason :: term()}.
 init(Opts) ->
     call(get_builtin_hooks(Opts) ++ get_new_hooks(Opts, undefined),
 	 ok, init, []).
 
-%% @doc Called after all suites are done.
+%% Call the post_groups/2 hook callback
+groups(Mod, Groups) ->
+    Info = try proplists:get_value(ct_hooks, Mod:suite(), []) of
+               CTHooks when is_list(CTHooks) ->
+                   [{?config_name,CTHooks}];
+               CTHook when is_atom(CTHook) ->
+                   [{?config_name,[CTHook]}]
+           catch _:_ ->
+                   %% since this might be the first time Mod:suite()
+                   %% is called, and it might just fail or return
+                   %% something bad, we allow any failure here - it
+                   %% will be catched later if there is something
+                   %% really wrong.
+                   [{?config_name,[]}]
+           end,
+    case call(fun call_generic/3, Info ++ [{'$ct_groups',Groups}], [post_groups, Mod]) of
+        [{'$ct_groups',NewGroups}] ->
+            NewGroups;
+        Other ->
+            Other
+    end.
+
+%% Call the post_all/3 hook callback
+all(Mod, Tests) ->
+    Info = try proplists:get_value(ct_hooks, Mod:suite(), []) of
+               CTHooks when is_list(CTHooks) ->
+                   [{?config_name,CTHooks}];
+               CTHook when is_atom(CTHook) ->
+                   [{?config_name,[CTHook]}]
+           catch _:_ ->
+                   %% just allow any failure here - it will be catched
+                   %% later if there is something really wrong.
+                   [{?config_name,[]}]
+           end,
+    case call(fun call_generic/3, Info ++ [{'$ct_all',Tests}], [post_all, Mod]) of
+        [{'$ct_all',NewTests}] ->
+            NewTests;
+        Other ->
+            Other
+    end.
+
+%% Called after all suites are done.
 -spec terminate(Hooks :: term()) ->
     ok.
 terminate(Hooks) ->
@@ -63,8 +102,6 @@ terminate(Hooks) ->
 	 ct_hooks_terminate_dummy, terminate, Hooks),
     ok.
 
-%% @doc Called as each test case is started. This includes all configuration
-%% tests.
 -spec init_tc(Mod :: atom(),
 	      FuncSpec :: atom() | 
 			  {ConfigFunc :: init_per_testcase | end_per_testcase,
@@ -88,6 +125,7 @@ init_tc(Mod, init_per_suite, Config) ->
 		   [{?config_name,[]}]
 	   end,
     call(fun call_generic/3, Config ++ Info, [pre_init_per_suite, Mod]);
+
 init_tc(Mod, end_per_suite, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_suite, Mod]);
 init_tc(Mod, {init_per_group, GroupName, Properties}, Config) ->
@@ -104,8 +142,6 @@ init_tc(Mod, {end_per_testcase,TC}, Config) ->
 init_tc(Mod, TC = error_in_suite, Config) ->
     call(fun call_generic_fallback/3, Config, [pre_init_per_testcase, Mod, TC]).
 
-%% @doc Called as each test case is completed. This includes all configuration
-%% tests.
 -spec end_tc(Mod :: atom(),
 	     FuncSpec :: atom() |  
 			 {ConfigFunc :: init_per_testcase | end_per_testcase,
@@ -163,7 +199,7 @@ call_id(#ct_hook_config{ module = Mod, opts = Opts} = Hook, Config, Scope) ->
     {Config, Hook#ct_hook_config{ id = Id, scope = scope(Scope)}}.
 	
 call_init(#ct_hook_config{ module = Mod, opts = Opts, id = Id, prio = P} = Hook,
-	  Config,_Meta) ->
+	  Config, _Meta) ->
     case Mod:init(Id, Opts) of
 	{ok, NewState} when P =:= undefined ->
 	    {Config, Hook#ct_hook_config{ state = NewState, prio = 0 } };
@@ -193,6 +229,18 @@ call_generic(Hook, Value, Meta) ->
 
 call_generic_fallback(Hook, Value, Meta) ->
     do_call_generic(Hook, Value, Meta, true).
+
+do_call_generic(#ct_hook_config{ module = Mod} = Hook,
+                [{'$ct_groups',Groups}], [post_groups | Args], Fallback) ->
+    NewGroups = catch_apply(Mod, post_groups, Args ++ [Groups],
+                            Groups, Fallback),
+    {[{'$ct_groups',NewGroups}], Hook#ct_hook_config{ groups = NewGroups } };
+
+do_call_generic(#ct_hook_config{ module = Mod, groups = Groups} = Hook,
+                [{'$ct_all',Tests}], [post_all | Args], Fallback) ->
+    NewTests = catch_apply(Mod, post_all, Args ++ [Tests, Groups],
+                           Tests, Fallback),
+    {[{'$ct_all',NewTests}], Hook};
 
 do_call_generic(#ct_hook_config{ module = Mod, state = State} = Hook,
                 Value, [Function | Args], Fallback) ->
@@ -228,17 +276,22 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 		     Rest ++ [{NewId, call_init}]};
 		ExistingHook when is_tuple(ExistingHook) ->
 		    {Hooks, Rest};
+                _ when hd(Meta)=:=post_groups; hd(Meta)=:=post_all ->
+                    %% If CTH is started because of a call from
+                    %% groups/2 or all/2, CTH:init/1 must not be
+                    %% called (the suite scope should be used).
+                    {Hooks ++ [NewHook],
+		     Rest ++ [{NewId,NextFun}]};
 		_ ->
 		    {Hooks ++ [NewHook],
 		     Rest ++ [{NewId, call_init}, {NewId,NextFun}]}
 	    end,
 	call(resort(NewRest,NewHooks,Meta), Config, Meta, NewHooks)
-    catch Error:Reason ->
-	    Trace = erlang:get_stacktrace(),
+    catch Error:Reason:Trace ->
 	    ct_logs:log("Suite Hook","Failed to start a CTH: ~tp:~tp",
 			[Error,{Reason,Trace}]),
-	    call([], {fail,"Failed to start CTH"
-		      ", see the CT Log for details"}, Meta, Hooks)
+	    call([], {fail,"Failed to start CTH, "
+		      "see the CT Log for details"}, Meta, Hooks)
     end;
 call([{HookId, call_init} | Rest], Config, Meta, Hooks) ->
     call([{HookId, fun call_init/3} | Rest], Config, Meta, Hooks);
@@ -278,6 +331,10 @@ scope([pre_init_per_suite, SuiteName|_]) ->
     [post_end_per_suite, SuiteName];
 scope([post_init_per_suite, SuiteName|_]) ->
     [post_end_per_suite, SuiteName];
+scope([post_groups, SuiteName|_]) ->
+    [post_groups, SuiteName];
+scope([post_all, SuiteName|_]) ->
+    [post_all, SuiteName];
 scope(init) ->
     none.
 
@@ -306,7 +363,16 @@ terminate_if_scope_ends(HookId, Function0, Hooks) ->
     Function = strip_config(Function0),
     case lists:keyfind(HookId, #ct_hook_config.id, Hooks) of
         #ct_hook_config{ id = HookId, scope = Function} = Hook ->
-            terminate([Hook]),
+            case Function of
+                [AllOrGroup,_] when AllOrGroup=:=post_all;
+                                    AllOrGroup=:=post_groups ->
+                    %% The scope only contains one function (post_all
+                    %% or post_groups), and init has not been called,
+                    %% so skip terminate as well.
+                    ok;
+                _ ->
+                    terminate([Hook])
+            end,
             lists:keydelete(HookId, #ct_hook_config.id, Hooks);
         _ ->
             Hooks
@@ -364,6 +430,7 @@ resort(Calls,Hooks,[F|_R]) when F == pre_end_per_testcase;
 				F == pre_end_per_suite;
 				F == post_end_per_suite ->
     lists:reverse(resort(Calls,Hooks));
+
 resort(Calls,Hooks,_Meta) ->
     resort(Calls,Hooks).
     
@@ -422,8 +489,7 @@ catch_apply(M,F,A, Default, Fallback) ->
 catch_apply(M,F,A) ->
     try
         erlang:apply(M,F,A)
-    catch _:Reason ->
-            Trace = erlang:get_stacktrace(),
+    catch _:Reason:Trace ->
             ct_logs:log("Suite Hook","Call to CTH failed: ~w:~tp",
                             [error,{Reason,Trace}]),
             throw({error_in_cth_call,

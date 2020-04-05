@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -384,8 +384,8 @@ run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,TimetrapData}) ->
     {Result,DetFail,ProcBef,ProcAft}.
 
 -type tc_status() :: 'starting' | 'running' | 'init_per_testcase' |
-		     'end_per_testcase' | {'framework',atom(),atom()} |
-		     'tc'.
+		     'end_per_testcase' | {'framework',{atom(),atom(),list}} |
+                     'tc'.
 -record(st,
 	{
 	  ref :: reference(),
@@ -463,11 +463,12 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 			 %% it as a comment, potentially replacing user data
 			 Error = lists:flatten(io_lib:format("Aborted: ~tp",
 							     [Reason])),
-			 Error1 = lists:flatten([string:strip(S,left) ||
-						    S <- string:tokens(Error,
-								       [$\n])]),
-			 Comment = if length(Error1) > 63 ->
-					   string:substr(Error1,1,60) ++ "...";
+			 Error1 = lists:flatten([string:trim(S,leading,"\s") ||
+						    S <- string:lexemes(Error,
+                                                                        [$\n])]),
+                         ErrorLength = string:length(Error1),
+			 Comment = if ErrorLength > 63 ->
+					   string:slice(Error1,0,60) ++ "...";
 				      true ->
 					   Error1
 				   end,
@@ -652,8 +653,8 @@ handle_tc_exit({testcase_aborted,{user_timetrap_error,_}=Msg,_}, St) ->
     #st{config=Config,mf={Mod,Func},pid=Pid} = St,
     spawn_fw_call(Mod, Func, Config, Pid, Msg, unknown, self()),
     St;
-handle_tc_exit(Reason, #st{status={framework,FwMod,FwFunc},
-			   config=Config,pid=Pid}=St) ->
+handle_tc_exit(Reason, #st{status={framework,{FwMod,FwFunc,_}=FwMFA},
+			   config=Config,mf={Mod,Func},pid=Pid}=St) ->
     R = case Reason of
 	    {timetrap_timeout,TVal,_} ->
 		{timetrap,TVal};
@@ -665,7 +666,7 @@ handle_tc_exit(Reason, #st{status={framework,FwMod,FwFunc},
 		Other
 	end,
     Error = {framework_error,R},
-    spawn_fw_call(FwMod, FwFunc, Config, Pid, Error, unknown, self()),
+    spawn_fw_call(Mod, Func, Config, Pid, {Error,FwMFA}, unknown, self()),
     St;
 handle_tc_exit(Reason, #st{status=tc,config=Config0,mf={Mod,Func},pid=Pid}=St)
   when is_list(Config0) ->
@@ -849,36 +850,68 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 				"WARNING: end_per_testcase failed!</font>",
 			    {died,W}
 		    end,
-		try do_end_tc_call(Mod,EPTC,{Pid,Report,[EndConf]}, Why) of
-		    _ -> ok
-		catch
-		    _:FwEndTCErr ->
-			exit({fw_notify_done,end_tc,FwEndTCErr})
-		end,
-		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
+                FailLoc0 = proplists:get_value(tc_fail_loc, EndConf),
+                {RetVal1,FailLoc} =
+                    try do_end_tc_call(Mod,EPTC,{Pid,Report,[EndConf]}, Why) of
+                        Why ->
+                            {RetVal,FailLoc0};
+                        {failed,_} = R ->
+                            {R,[{Mod,Func}]};
+                        R ->
+                            {R,FailLoc0}
+                    catch
+                        _:FwEndTCErr ->
+                            exit({fw_notify_done,end_tc,FwEndTCErr})
+                    end,
 		%% finished, report back (if end_per_testcase fails, a warning
 		%% should be printed as part of the comment)
 		SendTo ! {self(),fw_notify_done,
-			  {Time,RetVal,FailLoc,[],Warn}}
+			  {Time,RetVal1,FailLoc,[],Warn}}
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
+spawn_fw_call(Mod,Func,Conf,Pid,{{framework_error,FwError},
+                                 {FwMod,FwFunc,[A1,A2|_]}=FwMFA},_,SendTo) ->
     FwCall =
 	fun() ->
                 ct_util:mark_process(),
-		test_server_sup:framework_call(report, [framework_error,
-							{{FwMod,FwFunc},
-							 FwError}]),
+                Time =
+                    case FwError of
+                        {timetrap,TVal} ->
+                            TVal/1000;
+                        _ ->
+                            died
+                    end,
+                {Ret,Loc,WarnOrError} =
+                    cleanup_after_fw_error(Mod,Func,Conf,Pid,FwError,FwMFA),
 		Comment =
-		    lists:flatten(
-		      io_lib:format("<font color=\"red\">"
-				    "WARNING! ~w:~tw failed!</font>",
-				    [FwMod,FwFunc])),
+                    case WarnOrError of
+                        warn ->
+			    group_leader() !
+				{printout,12,
+                                 "WARNING! ~w:~tw(~w,~tw,...) failed!\n"
+                                 "    Reason: ~tp\n",
+                                 [FwMod,FwFunc,A1,A2,FwError]},
+                            lists:flatten(
+                              io_lib:format("<font color=\"red\">"
+                                            "WARNING! ~w:~tw(~w,~tw,...) "
+                                            "failed!</font>",
+                                            [FwMod,FwFunc,A1,A2]));
+                        error ->
+			    group_leader() !
+				{printout,12,
+                                 "Error! ~w:~tw(~w,~tw,...) failed!\n"
+                                 "    Reason: ~tp\n",
+                                 [FwMod,FwFunc,A1,A2,FwError]},
+                            lists:flatten(
+                              io_lib:format("<font color=\"red\">"
+                                            "ERROR! ~w:~tw(~w,~tw,...) "
+                                            "failed!</font>",
+                                            [FwMod,FwFunc,A1,A2]))
+                    end,
 	    %% finished, report back
 	    SendTo ! {self(),fw_notify_done,
-		      {died,{error,{FwMod,FwFunc,FwError}},
-		       {FwMod,FwFunc},[],Comment}}
+		      {Time,Ret,Loc,[],Comment}}
 	end,
     spawn_link(FwCall);
 
@@ -901,16 +934,184 @@ spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
 			      FwErrorNotifyErr})
 		end,
 		Conf = [{tc_status,{failed,Error}}|CurrConf],
-		try do_end_tc_call(Mod,EndTCFunc,{Pid,Error,[Conf]},Error) of
-		    _ -> ok
-		catch
-		    _:FwEndTCErr ->
-			exit({fw_notify_done,end_tc,FwEndTCErr})
-		end,
+                {Time,RetVal,Loc1} =
+                    try do_end_tc_call(Mod,EndTCFunc,{Pid,Error,[Conf]},Error) of
+                        Error ->
+                            {died, Error, Loc};
+                        {failed,Reason} = NewReturn ->
+                            fw_error_notify(Mod,Func1,Conf,Reason),
+                            {died, NewReturn, [{Mod,Func}]};
+                        NewReturn ->
+                            T = case Error of
+                                    {timetrap_timeout,TT} -> TT;
+                                    _ -> 0
+                                end,
+                            {T, NewReturn, Loc}
+                    catch
+                        _:FwEndTCErr ->
+                            exit({fw_notify_done,end_tc,FwEndTCErr})
+                    end,
 		%% finished, report back
-		SendTo ! {self(),fw_notify_done,{died,Error,Loc,[],undefined}}
+		SendTo ! {self(),fw_notify_done,{Time,RetVal,Loc1,[],undefined}}
 	end,
     spawn_link(FwCall).
+
+cleanup_after_fw_error(_Mod,_Func,Conf,Pid,FwError,
+                       {FwMod,FwFunc=init_tc,
+                        [Mod,{init_per_testcase,Func}=IPTC|_]}) ->
+    %% Failed during pre_init_per_testcase, the test must be skipped
+    Skip = {auto_skip,{failed,{FwMod,FwFunc,FwError}}},
+    try begin do_end_tc_call(Mod,IPTC, {Pid,Skip,[Conf]}, FwError),
+              do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
+                              [Conf],{ok,[Conf]}),
+              do_end_tc_call(Mod,{end_per_testcase_not_run,Func},
+                             {Pid,Skip,[Conf]}, FwError) end of
+        _ -> ok
+    catch
+        _:FwEndTCErr ->
+            exit({fw_notify_done,end_tc,FwEndTCErr})
+    end,
+    {Skip,{FwMod,FwFunc},error};
+cleanup_after_fw_error(_Mod,_Func,Conf,Pid,FwError,
+                       {FwMod,FwFunc=end_tc,[Mod,{init_per_testcase,Func}|_]}) ->
+    %% Failed during post_init_per_testcase, the test must be skipped
+    Skip = {auto_skip,{failed,{FwMod,FwFunc,FwError}}},
+    try begin do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
+                              [Conf],{ok,[Conf]}),
+              do_end_tc_call(Mod,{end_per_testcase_not_run,Func},
+                             {Pid,Skip,[Conf]}, FwError) end of
+        _ -> ok
+    catch
+        _:FwEndTCErr ->
+            exit({fw_notify_done,end_tc,FwEndTCErr})
+    end,
+    {Skip,{FwMod,FwFunc},error};
+cleanup_after_fw_error(_Mod,_Func,Conf,Pid,FwError,
+                       {FwMod,FwFunc=init_tc,[Mod,{end_per_testcase,Func}|_]}) ->
+    %% Failed during pre_end_per_testcase. Warn about it.
+    {RetVal,Loc} =
+        case {proplists:get_value(tc_status, Conf),
+              proplists:get_value(tc_fail_loc, Conf, unknown)} of
+            {undefined,_} ->
+                {{failed,{FwMod,FwFunc,FwError}},{FwMod,FwFunc}};
+            {E = {failed,_Reason},unknown} ->
+                {E,[{Mod,Func}]};
+            {Result,FailLoc} ->
+                {Result,FailLoc}
+        end,
+    try begin do_end_tc_call(Mod,{end_per_testcase_not_run,Func},
+                             {Pid,RetVal,[Conf]}, FwError) end of
+        _ -> ok
+    catch
+        _:FwEndTCErr ->
+            exit({fw_notify_done,end_tc,FwEndTCErr})
+    end,
+    {RetVal,Loc,warn};
+cleanup_after_fw_error(Mod,Func,Conf,Pid,FwError,
+                       {FwMod,FwFunc=end_tc,[Mod,{end_per_testcase,Func}|_]}) ->
+    %% Failed during post_end_per_testcase. Warn about it.
+    {RetVal,Report,Loc} =
+        case {proplists:get_value(tc_status, Conf),
+              proplists:get_value(tc_fail_loc, Conf, unknown)} of
+            {undefined,_} ->
+                {{failed,{FwMod,FwFunc,FwError}},
+                 {{FwMod,FwError},FwError},
+                 {FwMod,FwFunc}};
+            {E = {failed,_Reason},unknown} ->
+                {E,{Mod,Func,E},[{Mod,Func}]};
+            {Result,FailLoc} ->
+                {Result,{Mod,Func,Result},FailLoc}
+        end,
+    try begin do_end_tc_call(Mod,{cleanup,{end_per_testcase_not_run,Func}},
+                             {Pid,RetVal,[Conf]}, FwError) end of
+        _ -> ok
+    catch
+        _:FwEndTCErr ->
+            exit({fw_notify_done,end_tc,FwEndTCErr})
+    end,
+    test_server_sup:framework_call(report,[framework_error,Report]),
+    {RetVal,Loc,warn};
+cleanup_after_fw_error(Mod,Func,Conf,Pid,FwError,{FwMod,FwFunc=init_tc,_})
+  when Func =:= init_per_suite; Func =:=init_per_group ->
+    %% Failed during pre_init_per_suite or pre_init_per_group
+    RetVal = {failed,{FwMod,FwFunc,FwError}},
+    try do_end_tc_call(Mod,Func,{Pid,RetVal,[Conf]},FwError) of
+        _ -> ok
+    catch
+        _:FwEndTCErr ->
+            exit({fw_notify_done,end_tc,FwEndTCErr})
+    end,
+    {RetVal,{FwMod,FwFunc},error};
+cleanup_after_fw_error(Mod,Func,Conf,Pid,FwError,{FwMod,FwFunc=end_tc,_})
+  when Func =:= init_per_suite; Func =:=init_per_group ->
+    %% Failed during post_init_per_suite or post_init_per_group
+    RetVal = {failed,{FwMod,FwFunc,FwError}},
+    try do_end_tc_call(Mod,{cleanup,Func},{Pid,RetVal,[Conf]},FwError) of
+        _ -> ok
+    catch
+        _:FwEndTCErr ->
+            exit({fw_notify_done,end_tc,FwEndTCErr})
+    end,
+    ReportFunc =
+        case Func of
+            init_per_group ->
+                case proplists:get_value(tc_group_properties,Conf) of
+                    undefined ->
+                        {Func,unknown,[]};
+                    GProps ->
+                        Name = proplists:get_value(name,GProps),
+                        {Func,Name,proplists:delete(name,GProps)}
+                end;
+            _ ->
+                Func
+        end,
+    test_server_sup:framework_call(report,[framework_error,
+                                           {Mod,ReportFunc,RetVal}]),
+    {RetVal,{FwMod,FwFunc},error};
+cleanup_after_fw_error(Mod,Func,Conf,Pid,FwError,{FwMod,FwFunc=init_tc,_})
+  when Func =:= end_per_suite; Func =:=end_per_group ->
+    %% Failed during pre_end_per_suite or pre_end_per_group
+    RetVal = {failed,{FwMod,FwFunc,FwError}},
+    try do_end_tc_call(Mod,Func,{Pid,RetVal,[Conf]},FwError) of
+        _ -> ok
+    catch
+        _:FwEndTCErr ->
+            exit({fw_notify_done,end_tc,FwEndTCErr})
+    end,
+    {RetVal,{FwMod,FwFunc},error};
+cleanup_after_fw_error(Mod,Func,Conf,Pid,FwError,{FwMod,FwFunc=end_tc,_})
+  when Func =:= end_per_suite; Func =:=end_per_group ->
+    %% Failed during post_end_per_suite or post_end_per_group
+    RetVal = {failed,{FwMod,FwFunc,FwError}},
+    try do_end_tc_call(Mod,{cleanup,Func},{Pid,RetVal,[Conf]},FwError) of
+        _ -> ok
+    catch
+        _:FwEndTCErr ->
+            exit({fw_notify_done,end_tc,FwEndTCErr})
+    end,
+    ReportFunc =
+        case Func of
+            end_per_group ->
+                case proplists:get_value(tc_group_properties,Conf) of
+                    undefined ->
+                        {Func,unknown,[]};
+                    GProps ->
+                        Name = proplists:get_value(name,GProps),
+                        {Func,Name,proplists:delete(name,GProps)}
+                end;
+            _ ->
+                Func
+        end,
+    test_server_sup:framework_call(report,[framework_error,
+                                           {Mod,ReportFunc,RetVal}]),
+    {RetVal,{FwMod,FwFunc},error};
+cleanup_after_fw_error(_Mod,_Func,_Conf,_Pid,FwError,{FwMod,FwFunc,_}) ->
+    %% This is unexpected
+    test_server_sup:framework_call(report,
+                                   [framework_error,
+                                    {{FwMod,FwFunc},
+                                     FwError}]),
+    {FwError,{FwMod,FwFunc},error}.
 
 %% The job proxy process forwards messages between the test case
 %% process on a shielded node (and its descendants) and the job process.
@@ -1087,6 +1288,9 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    EndConf1 =
 			user_callback(TCCallback, Mod, Func, 'end', EndConf),
 
+                    %% save updated config in controller loop
+                    set_tc_state(tc, EndConf1),
+
 		    %% We can't handle fails or skips here
 		    EndConf2 =
 			case do_init_tc_call(Mod,{end_per_testcase,Func},
@@ -1160,23 +1364,29 @@ do_end_tc_call(Mod, IPTC={init_per_testcase,Func}, Res, Return) ->
 	 {NOk,_} when NOk == auto_skip; NOk == fail;
 		      NOk == skip ; NOk == skipped ->
 	     {_,Args} = Res,
-	     IPTCEndRes =
+	     {NewConfig,IPTCEndRes} =
 		 case do_end_tc_call1(Mod, IPTC, Res, Return) of
 		     IPTCEndConfig when is_list(IPTCEndConfig) ->
-			 IPTCEndConfig;
+			 {IPTCEndConfig,IPTCEndConfig};
+                     {failed,RetReason} when Return=:={fail,RetReason} ->
+                         %% Fail reason not changed by framework or hook
+                         {Args,Return};
+                     {SF,_} = IPTCEndResult when SF=:=skip; SF=:=skipped;
+                                                 SF=:=fail; SF=:=failed ->
+                         {Args,IPTCEndResult};
 		     _ ->
-			 Args
+			 {Args,Return}
 		 end,
 	     EPTCInitRes =
 		 case do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
-				      IPTCEndRes,Return) of
+				      NewConfig,IPTCEndRes) of
 		     {ok,EPTCInitConfig} when is_list(EPTCInitConfig) ->
-			 {Return,EPTCInitConfig};
+			 {IPTCEndRes,EPTCInitConfig};
 		     _ ->
-                         {Return,IPTCEndRes}
+                         {IPTCEndRes,NewConfig}
 		 end,
 	     do_end_tc_call1(Mod, {end_per_testcase_not_run,Func},
-			     EPTCInitRes, Return);
+			     EPTCInitRes, IPTCEndRes);
 	 _Ok ->
 	     do_end_tc_call1(Mod, IPTC, Res, Return)
      end;
@@ -1339,13 +1549,12 @@ do_init_per_testcase(Mod, Args) ->
 	    {skip,Reason};
 	exit:{Skip,Reason} when Skip =:= skip; Skip =:= skipped ->
 	    {skip,Reason};
-	throw:Other ->
-	    set_loc(erlang:get_stacktrace()),
+	throw:Other:Stk ->
+	    set_loc(Stk),
 	    Line = get_loc(),
 	    print_init_conf_result(Line,"thrown",Other),
 	    {skip,{failed,{Mod,init_per_testcase,Other}}};
-	_:Reason0 ->
-	    Stk = erlang:get_stacktrace(),
+	_:Reason0:Stk ->
 	    Reason = {Reason0,Stk},
 	    set_loc(Stk),
 	    Line = get_loc(),
@@ -1394,20 +1603,19 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	_ ->
 	    ok
     catch
-	throw:Other ->
+	throw:Other:Stk ->
 	    Comment0 = case read_comment() of
 			   ""  -> "";
 			   Cmt -> Cmt ++ test_server_ctrl:xhtml("<br>",
 								"<br />")
 		       end,
-	    set_loc(erlang:get_stacktrace()),
+	    set_loc(Stk),
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w thrown!"
 				  "</font>\n",[Comment0,EndFunc])),
 	    print_end_tc_warning(EndFunc,Other,"thrown",get_loc()),
 	    {failed,{Mod,end_per_testcase,Other}};
-	  Class:Reason ->
-	    Stk = erlang:get_stacktrace(),
+	  Class:Reason:Stk ->
 	    set_loc(Stk),
 	    Why = case Class of
 		      exit -> {'EXIT',Reason};
@@ -1549,8 +1757,7 @@ ts_tc(M, F, A) ->
 		 throw:{skipped, Reason} -> {skip, Reason};
 		 exit:{skip, Reason} -> {skip, Reason};
 		 exit:{skipped, Reason} -> {skip, Reason};
-		 Type:Reason ->
-		     Stk = erlang:get_stacktrace(),
+		 Type:Reason:Stk ->
 		     set_loc(Stk),
 		     case Type of
 			 throw ->
@@ -1739,8 +1946,8 @@ fail(Reason) ->
     try
 	exit({suite_failed,Reason})
     catch
-	Class:R ->
-	    case erlang:get_stacktrace() of
+	Class:R:Stacktrace ->
+	    case Stacktrace of
 		[{?MODULE,fail,1,_}|Stk] -> ok;
 		Stk -> ok
 	    end,
@@ -1762,8 +1969,8 @@ fail() ->
     try
 	exit(suite_failed)
     catch
-	Class:R ->
-	    case erlang:get_stacktrace() of
+	Class:R:Stacktrace ->
+	    case Stacktrace of
 		[{?MODULE,fail,0,_}|Stk] -> ok;
 		Stk -> ok
 	    end,
@@ -2042,15 +2249,15 @@ call_user_timetrap(Func, Sup) when is_function(Func) ->
     try Func() of
 	Result -> 
 	    Sup ! {self(),Result}
-    catch _:Error ->
-	    exit({Error,erlang:get_stacktrace()})
+    catch _:Error:Stk ->
+	    exit({Error,Stk})
     end;
 call_user_timetrap({M,F,A}, Sup) ->
     try apply(M,F,A) of
 	Result -> 
 	    Sup ! {self(),Result}
-    catch _:Error ->
-	    exit({Error,erlang:get_stacktrace()})
+    catch _:Error:Stk ->
+	    exit({Error,Stk})
     end.
 
 save_user_timetrap(TCPid, UserTTSup, StartTime) ->
@@ -2707,9 +2914,9 @@ is_cover() ->
 is_debug() ->
     case catch erlang:system_info(debug_compiled) of
 	{'EXIT', _} ->
-	    case string:str(erlang:system_info(system_version), "debug") of
-		Int when is_integer(Int), Int > 0 -> true;
-		_ -> false
+	    case string:find(erlang:system_info(system_version), "debug") of
+                nomatch -> false;
+		_ -> true
 	    end;
 	Res ->
 	    Res
@@ -2745,9 +2952,9 @@ has_superfluous_schedulers() ->
 %% We might want to do more tests on a commercial platform, for instance
 %% ensuring that all applications have documentation).
 is_commercial() ->
-    case string:str(erlang:system_info(system_version), "source") of
-	Int when is_integer(Int), Int > 0 -> false;
-	_ -> true
+    case string:find(erlang:system_info(system_version), "source") of
+        nomatch -> true;
+	_ -> false
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

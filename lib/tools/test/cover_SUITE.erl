@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
@@ -35,7 +36,8 @@ all() ->
                  distribution, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
                  export_import, otp_5031, otp_6115,
-                 otp_8270, otp_10979_hanging_node, otp_14817],
+                 otp_8270, otp_10979_hanging_node, otp_14817,
+                 local_only, startup_race, otp_16476],
     case whereis(cover_server) of
         undefined ->
             [coverage,StartStop ++ NoStartStop];
@@ -1740,6 +1742,76 @@ otp_13289(Config) ->
     File = cc_mod(t, Test, Config),
     <<1,2,3>> = t:t(),
     ok = file:delete(File),
+    ok.
+
+local_only(Config) ->
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
+
+    %% Trying restricting to local nodes too late.
+    cover:start(),
+    {ok,a} = cover:compile(a),
+    [a] = cover:modules(),
+    {error,too_late} = cover:local_only(),
+    cover:stop(),
+
+    %% Now test local only mode.
+    cover:start(),
+    ok = cover:local_only(),
+    [] = cover:modules(),
+    {ok,a} = cover:compile(a),
+    [a] = cover:modules(),
+    done = a:start(5),
+    {ok, {a,{17,2}}} = cover:analyse(a, coverage, module),
+    {ok, [{{a,exit_kalle,0},{1,0}},
+          {{a,loop,3},{5,1}},
+          {{a,pong,1},{1,0}},
+          {{a,start,1},{6,0}},
+          {{a,stop,1},{0,1}},
+          {{a,trycatch,1},{4,0}}]} =
+        cover:analyse(a, coverage, function),
+
+    %% Make sure that it is not possible to run cover on
+    %% slave nodes.
+    {ok,Name} = test_server:start_node(?FUNCTION_NAME, slave, []),
+    {error,local_only} = cover:start([Name]),
+    test_server:stop_node(Name),
+    ok.
+
+%% ERL-943; We should not crash on startup when multiple servers race to
+%% register the server name.
+startup_race(Config) when is_list(Config) ->
+    PidRefs = [spawn_monitor(fun() ->
+                                     case cover:start() of
+                                         {error, {already_started, _Pid}} ->
+                                             ok;
+                                         {ok, _Pid} ->
+                                             ok
+                                     end
+                             end) || _<- lists:seq(1,8)],
+    startup_race_1(PidRefs).
+
+startup_race_1([{Pid, Ref} | PidRefs]) ->
+    receive
+        {'DOWN', Ref, process, Pid, normal} ->
+            startup_race_1(PidRefs);
+        {'DOWN', Ref, process, Pid, _Other} ->
+            ct:fail("Cover server crashed on startup.")
+    after 5000 ->
+            ct:fail("Timed out.")
+    end;
+startup_race_1([]) ->
+    cover:stop(),
+    ok.
+
+otp_16476(Config) when is_list(Config) ->
+    Mod = obvious_booleans,
+    Dir = filename:join(proplists:get_value(data_dir, Config),
+                        ?FUNCTION_NAME),
+    ok = file:set_cwd(Dir),
+    {ok, Mod} = compile:file(Mod, [debug_info]),
+    {ok, Mod} = cover:compile(Mod),
+    ok = Mod:Mod(),
+    ok = cover:stop(),
     ok.
 
 %%--Auxiliary------------------------------------------------------------

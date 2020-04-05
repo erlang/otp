@@ -20,16 +20,8 @@
 /*
  * Purpose: Typer front-end.
  */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
 
-#include "sys.h"
-#ifdef __WIN32__
-#include <winbase.h>
-#endif
-
-#include <ctype.h>
+#include "etc_common.h"
 
 #define NO 0
 #define YES 1
@@ -185,7 +177,7 @@ main(int argc, char** argv)
     }
 
     PUSH("+B");
-    PUSH2("-boot", "start_clean");
+    PUSH2("-boot", "no_dot_erlang");
     PUSH3("-run", "typer", "start");
     PUSH("-extra");
 

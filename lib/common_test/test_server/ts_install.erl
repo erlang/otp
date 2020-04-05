@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -112,12 +112,6 @@ get_vars([], name, [], Result) ->
 get_vars(_, _, _, _) ->
     {error, fatal_bad_conf_vars}.
 
-config_flags() ->
-    case os:getenv("CONFIG_FLAGS") of
-	false -> [];
-	CF -> string:tokens(CF, " \t\n")
-    end.
-
 unix_autoconf(XConf) ->
     Configure = filename:absname("configure"),
     Flags = proplists:get_value(crossflags,XConf,[]),
@@ -127,8 +121,8 @@ unix_autoconf(XConf) ->
     Threads = [" --enable-shlib-thread-safety" ||
 		  erlang:system_info(threads) /= false],
     Debug = [" --enable-debug-mode" ||
-		string:str(erlang:system_info(system_version),"debug") > 0],
-    MXX_Build = [Y || Y <- config_flags(),
+		string:find(erlang:system_info(system_version),"debug") =/= nomatch],
+    MXX_Build = [Y || Y <- string:lexemes(os:getenv("CONFIG_FLAGS", ""), " \t\n"),
 		      Y == "--enable-m64-build"
 			  orelse Y == "--enable-m32-build"],
     Args = Host ++ Build ++ Threads ++ Debug ++ " " ++ MXX_Build,
@@ -159,14 +153,12 @@ assign_vars([]) ->
 assign_vars([{VAR,FlagsStr} | VARs]) ->
     [{VAR,assign_vars(FlagsStr)} | assign_vars(VARs)];
 assign_vars(FlagsStr) ->
-    Flags = [assign_all_vars(Str,[]) || Str <- string:tokens(FlagsStr, [$ ])],
-    string:strip(lists:flatten(lists:map(fun(Flag) ->
-						 Flag ++ " "
-					 end, Flags)), right).
+    Flags = [assign_all_vars(Str,[]) || Str <- string:lexemes(FlagsStr, [$\s])],
+    lists:flatten(lists:join(" ", Flags)).
 
 assign_all_vars([$$ | Rest], FlagSoFar) ->
     {VarName,Rest1} = get_var_name(Rest, []),
-    assign_all_vars(Rest1, FlagSoFar ++ assign_var(VarName));
+    assign_all_vars(Rest1, FlagSoFar ++ os:getenv(VarName, ""));
 assign_all_vars([Char | Rest], FlagSoFar) ->
     assign_all_vars(Rest, FlagSoFar ++ [Char]);
 assign_all_vars([], Flag) ->
@@ -179,12 +171,6 @@ get_var_name([Ch | Rest] = Str, VarR) ->
     end;
 get_var_name([], VarR) ->
     {lists:reverse(VarR),[]}.
-	    
-assign_var(VarName) ->
-    case os:getenv(VarName) of
-	false -> "";
-	Val   -> Val
-    end.
 
 valid_char(Ch) when Ch >= $a, Ch =< $z -> true;
 valid_char(Ch) when Ch >= $A, Ch =< $Z -> true;
@@ -282,7 +268,7 @@ add_vars(Vars0, Opts0) ->
     {Opts, [{longnames, LongNames},
 	    {platform_id, PlatformId},
 	    {platform_filename, PlatformFilename},
-	    {rsh_name, get_rsh_name()},
+	    {rsh_name, os:getenv("ERL_RSH", "ssh")},
 	    {platform_label, PlatformLabel},
 	    {ts_net_dir, Mounted},
 	    {erl_flags, []},
@@ -292,7 +278,7 @@ add_vars(Vars0, Opts0) ->
 get_testcase_callback() ->
     case os:getenv("TS_TESTCASE_CALLBACK") of
 	ModFunc when is_list(ModFunc), ModFunc /= "" ->
-	    case string:tokens(ModFunc, " ") of
+	    case string:lexemes(ModFunc, " ") of
 		[_Mod,_Func] -> ModFunc;
 		_ -> ""
 	    end;
@@ -303,16 +289,10 @@ get_testcase_callback() ->
 	    end
     end.
 
-get_rsh_name() ->
-    case os:getenv("ERL_RSH") of
-	false -> "rsh";
-	Str -> Str
-    end.
-
 platform_id(Vars) ->
     {Id,_,_,_} = platform(Vars),
     Id.
-    
+
 platform(Vars) ->
     Hostname = hostname(),
 
@@ -408,17 +388,13 @@ off_heap_msgq() ->
     end.
 
 schedulers() ->
-    case catch erlang:system_info(smp_support) of
-	true ->
-	    case {erlang:system_info(schedulers),
-		  erlang:system_info(schedulers_online)} of
-		{S,S} ->
-		    "/S"++integer_to_list(S);
-		{S,O} ->
-		    "/S"++integer_to_list(S) ++ ":" ++
-			integer_to_list(O)
-	    end;
-	_ -> ""
+    case {erlang:system_info(schedulers),
+          erlang:system_info(schedulers_online)} of
+        {S,S} ->
+            "/S"++integer_to_list(S);
+        {S,O} ->
+            "/S"++integer_to_list(S) ++ ":" ++
+                integer_to_list(O)
     end.
 
 bind_type() ->
@@ -434,8 +410,8 @@ bind_type() ->
 					
 
 debug() ->
-    case string:str(erlang:system_info(system_version), "debug") of
-	0 -> "";
+    case string:find(erlang:system_info(system_version), "debug") of
+	nomatch -> "";
 	_ -> "/Debug"
     end.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@
 %%-----------------------------------------------------------------
 construct_trap(Trap, Varbinds) ->
     ?vdebug("construct_trap -> entry with"
-	"~n   Trap: ~p", [Trap]),
+            "~n   Trap: ~p", [Trap]),
     case snmpa_symbolic_store:get_notification(Trap) of
 	undefined -> 
 	    user_err("construct_trap got undef Trap: ~w" , [Trap]),
@@ -155,25 +155,56 @@ construct_trap(Trap, Varbinds) ->
 	    {ok, NRec, InitiatedVars}
     end.
 
+%% Variable value (without oid processing)
 alias_to_oid({Alias, Val}) when is_atom(Alias) ->
-    case snmpa_symbolic_store:aliasname_to_oid(Alias) of
-	{value, Oid} -> {lists:append(Oid, [0]), {value, Val}};
-	_ ->   	     {Alias, {value, Val}}
+    case alias2oid(Alias) of
+	Alias ->
+            {{keep, Alias}, {value, Val}};
+	Oid ->
+            {{keep, Oid}, {value, Val}}
     end;
+alias_to_oid({Oid, Val}) when is_list(Oid) ->
+    {{keep, Oid}, {value, Val}};
+
+%% Variable value (with oid processing)
+alias_to_oid({{Process, Alias}, Val}) when is_atom(Alias) ->
+    case alias2oid(Alias) of
+	Alias ->
+            {{Process, Alias}, {value, Val}};
+	Oid ->
+            {{Process, Oid}, {value, Val}}
+    end;
+alias_to_oid({{Process, Oid}, Val}) when is_list(Oid) ->
+    {{Process, Oid}, {value, Val}};
+
+%% Table Column value
 alias_to_oid({Alias, RowIndex, Val}) when is_atom(Alias) ->
+    case alias2oid(Alias, RowIndex) of
+        Alias ->
+            {Alias, RowIndex, {value, Val}};
+	Oid ->
+            {{keep, Oid}, {value, Val}}
+
+    end.
+
+alias2oid(Alias) ->
+    alias2oid(Alias, [0]).
+
+alias2oid(Alias, Append) ->
     case snmpa_symbolic_store:aliasname_to_oid(Alias) of
-	{value, Oid} -> {lists:append(Oid, RowIndex), {value, Val}};
-	_ ->   	     {Alias, RowIndex, {value, Val}}
-    end;
-alias_to_oid({Oid, Val}) -> {Oid, {value, Val}}.
+	{value, Oid} ->
+            lists:append(Oid, Append);
+	_ ->
+            Alias
+    end.
 
 
 %%-----------------------------------------------------------------
 %% Func: initiate_vars/2
 %% Args: ListOfVars is a list of {Oid, #asn1_type}
 %%       Varbinds is a list of 
-%%          {VariableOid, Value} | 
-%%          {VariableAtom, Value} |
+%%          {{Process, VariableOid}, Value} | 
+%%          {{Process, VariableAtom}, Value} |
 %%          {TableColAtom, RowIndex, Value}
 %% Purpose: For each variable specified in the TRAP-TYPE macro
 %%          (each in ListOfVars), check if it's got a value given
@@ -182,35 +213,40 @@ alias_to_oid({Oid, Val}) -> {Oid, {value, Val}}.
 %%            1) It has corresponding VariableOid. Use Value.
 %%            2) No corresponding VariableOid. No value.
 %% Returns: A list of
-%%            {VariableOid, #asn1_type, Value} |
-%%            {VariableOid, #asn1_type} |
-%%            {VariableOid, Value} |
-%%            {VariableAtom, Value} |
+%%            {{Process, VariableOid}, #asn1_type, Value} |
+%%            {{Process, VariableOid}, #asn1_type} |
+%%            {{Process, VariableOid}, Value} |
+%%            {{Process, VariableAtom}, Value} |
 %%            {TableColAtom, RowIndex, Value}
 %% NOTE: Executed at the inital SA
 %%-----------------------------------------------------------------
 initiate_vars([{Oid, Asn1Type} | T], Varbinds) ->
     case delete_oid_from_varbinds(Oid, Varbinds) of
 	{undefined, _, _} ->
-	    [{Oid, Asn1Type} | initiate_vars(T, Varbinds)];
+	    [{{keep, Oid}, Asn1Type} | initiate_vars(T, Varbinds)];
+        %% Skip this oid!
+	{{value, ?NOTIFICATION_IGNORE_VB_VALUE}, _VarOid, RestOfVarbinds} ->
+	    initiate_vars(T, RestOfVarbinds);
 	{Value, VarOid, RestOfVarbinds} ->
 	    [{VarOid, Asn1Type, Value} | initiate_vars(T, RestOfVarbinds)]
     end;
 initiate_vars([], Varbinds) ->
     Varbinds.
     
-delete_oid_from_varbinds(Oid, [{VarOid, Value} | T]) ->
+delete_oid_from_varbinds(Oid, [{{_Process, VarOid} = VOid, Value} | T]) ->
     case lists:prefix(Oid, VarOid) of
 	true -> 
-	    {Value, VarOid, T};
+	    {Value, VOid, T};
 	_ -> 
-	    {Value2, VarOid2, T2} = delete_oid_from_varbinds(Oid, T),
-	    {Value2, VarOid2, [{VarOid, Value} | T2]}
+	    {Value2, VOid2, T2} = delete_oid_from_varbinds(Oid, T),
+	    {Value2, VOid2, [{VOid, Value} | T2]}
     end;
 delete_oid_from_varbinds(Oid, [H | T]) ->
-    {Value, VarOid, T2} = delete_oid_from_varbinds(Oid, T),
-    {Value, VarOid, [H | T2]};
-delete_oid_from_varbinds(_Oid, []) -> {undefined, undefined, []}.
+    {Value, VOid, T2} = delete_oid_from_varbinds(Oid, T),
+    {Value, VOid, [H | T2]};
+delete_oid_from_varbinds(_Oid, []) ->
+    {undefined, undefined, []}.
+
 
 %%-----------------------------------------------------------------
 %% Func: try_initialise_vars(Mib, Varbinds)
@@ -224,6 +260,7 @@ try_initialise_vars(Mib, Varbinds) ->
     V = try_map_symbolic(Varbinds),
     try_find_type(V, Mib).
 
+
 %%-----------------------------------------------------------------
 %% Func: try_map_symbolic/1
 %% Args: Varbinds is a list returned from initiate_vars.
@@ -236,11 +273,13 @@ try_map_symbolic([Varbind | Varbinds]) ->
     [localise_oid(Varbind) | try_map_symbolic(Varbinds)];
 try_map_symbolic([]) -> [].
 
-localise_oid({VariableName, Value}) when is_atom(VariableName) ->
-    alias_to_oid({VariableName, Value});
-localise_oid({VariableName, RowIndex, Value}) when is_atom(VariableName) ->
-    alias_to_oid({VariableName, RowIndex, Value});
-localise_oid(X) -> X.
+localise_oid({{_Process, Alias}, _Value} = VB) when is_atom(Alias) ->
+    alias_to_oid(VB);
+localise_oid({Alias, _RowIndex, _Value} = VB) when is_atom(Alias) ->
+    alias_to_oid(VB);
+localise_oid(X) ->
+    X.
+
 
 %%-----------------------------------------------------------------
 %% Func: try_find_type/2
@@ -252,23 +291,40 @@ localise_oid(X) -> X.
 %% Returns: see initiate_vars.
 %% NOTE: Executed at the intermediate SAs
 %%-----------------------------------------------------------------
-try_find_type([Varbind | Varbinds], Mib) ->
-    [localise_type(Varbind, Mib) | try_find_type(Varbinds, Mib)];
-try_find_type([], _) -> [].
+try_find_type(Varbinds, Mib) ->
+    [localise_type(Varbind, Mib) || Varbind <- Varbinds].
 
+%% We add the 'process oid' value of 'keep' for all variables
+%% that does not already have a (process) value (and tables 
+%% although those will never have any other value).
 localise_type({VariableOid, Type}, _Mib) 
   when is_list(VariableOid) andalso is_record(Type, asn1_type) ->
-    {VariableOid, Type};
+    {{keep, VariableOid}, Type};
+localise_type({{_Process, VariableOid} = VOid, Type}, _Mib) 
+  when is_list(VariableOid) andalso is_record(Type, asn1_type) ->
+    {VOid, Type};
 localise_type({VariableOid, Value}, Mib) when is_list(VariableOid) ->
     case snmpa_mib:lookup(Mib, VariableOid) of
 	{variable, ME} ->
-	    {VariableOid, ME#me.asn1_type, Value};
+	    {{keep, VariableOid}, ME#me.asn1_type, Value};
 	{table_column, ME, _} ->
-	    {VariableOid, ME#me.asn1_type, Value};
+	    {{keep, VariableOid}, ME#me.asn1_type, Value};
 	_ ->
-	    {VariableOid, Value}
+	    {{keep, VariableOid}, Value}
     end;
-localise_type(X, _) -> X.
+localise_type({{_Process, VariableOid} = VOid, Value}, Mib)
+  when is_list(VariableOid) ->
+    case snmpa_mib:lookup(Mib, VariableOid) of
+	{variable, ME} ->
+	    {VOid, ME#me.asn1_type, Value};
+	{table_column, ME, _} ->
+	    {VOid, ME#me.asn1_type, Value};
+	_ ->
+	    {VOid, Value}
+    end;
+localise_type(X, _) ->
+    X.
+
 
 %%-----------------------------------------------------------------
 %% Func: make_v1_trap_pdu/5
@@ -316,8 +372,8 @@ make_v2_notif_pdu(Vbs, Type) ->
 	 varbinds     = Vbs}.
 
 make_varbind_list(Varbinds) ->
-    {VariablesWithValueAndType, VariablesWithType} =
-	split_variables( order(Varbinds) ),
+    OVarbinds = order(Varbinds),
+    {VariablesWithValueAndType, VariablesWithType} = split_variables(OVarbinds),
     V    = get_values(VariablesWithType),
     Vars = lists:append([V, VariablesWithValueAndType]),
     [make_varbind(Var) || Var <- unorder(lists:keysort(1, Vars))].
@@ -358,19 +414,20 @@ send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, ExtraInfo, NetIf) ->
 %% some info when we fail to send the trap(s).
 send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID, 
 	  ExtraInfo, NetIf) ->
-    try 
+    try
 	begin
 	    do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
 			 LocalEngineID, ExtraInfo, NetIf)
 	end
     catch
-	T:E ->
-	    Info = [{args, [TrapRec, NotifyName, ContextName, 
-			    Recv, Vbs, LocalEngineID, ExtraInfo, NetIf]},
-		    {tag,  T},
-		    {err,  E},
-		    {stacktrace, erlang:get_stacktrace()}],
-	    ?vlog("snmpa_trap:send_trap exception: ~p", [Info]),
+	C:E:S ->
+	    Info = [{args,  [TrapRec, NotifyName, ContextName, 
+                             Recv, Vbs, LocalEngineID, ExtraInfo, NetIf]},
+		    {class, C},
+		    {err,   E},
+		    {stacktrace, S}],
+	    ?vlog("snmpa_trap:send_trap exception: "
+                  "~n   ~p", [Info]),
 	    {error, {failed_sending_trap, Info}}
     end.
      
@@ -387,7 +444,8 @@ send_discovery(TargetName, Record, ContextName, Vbs, NetIf) ->
 send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo) ->
     case find_dest(TargetName) of
 	{ok, Dest} ->
-	    send_discovery_pdu(Dest, Record, ContextName, Vbs, NetIf, 
+            Vbs2 = make_varbind_list(Vbs), % OTP-16207
+	    send_discovery_pdu(Dest, Record, ContextName, Vbs2, NetIf, 
 			       ExtraInfo);
 	Error ->
 	    Error
@@ -416,13 +474,15 @@ get_values(VariablesWithType) ->
 		     [ErrorStatus, ErrorIndex, Varbinds]),
 	    throw(error)
     end.
-    
-make_varbind(Varbind) when is_record(Varbind, varbind) ->
-    Varbind;
-make_varbind({VarOid, ASN1Type, Value}) ->
+
+make_varbind({Process, #varbind{oid = Oid} = VB}) ->
+    VB#varbind{oid = process_oid(Process, Oid)};
+make_varbind({Process, {VarOid, ASN1Type, Value}}) ->
     case snmpa_agent:make_value_a_correct_value(Value, ASN1Type, undef) of
 	{value, Type, Val} ->
-	    #varbind{oid = VarOid, variabletype = Type, value = Val};
+	    #varbind{oid          = process_oid(Process, VarOid),
+                     variabletype = Type,
+                     value        = Val};
 	{error, Reason} -> 
 	    user_err("snmpa_trap: Invalid value: ~w"
 		     "~n   Oid:  ~w"
@@ -432,24 +492,58 @@ make_varbind({VarOid, ASN1Type, Value}) ->
 	    throw(error)
     end.
 
+process_oid(truncate, Oid) ->
+    case lists:reverse(Oid) of
+        [0 | RevRestOid] ->
+            lists:reverse(RevRestOid);
+        _ ->
+            Oid
+    end;
+process_oid(_, Oid) ->
+    Oid.
+
+
+
+%% Order does two things:
+%% 1) Add an index to each element indicating where in the 
+%%    list it was found.
+%% 2) Extract the 'process oid' information (and add it to the index => ID)
+%% We can add whatever we want to the second element since the first,
+%% the integer (No) is unique.
+
 order(Varbinds) -> 
     order(Varbinds, 1).
 
-order([H | T], No) -> [{No, H} | order(T, No + 1)];
-order([], _) -> [].
+order([{{Process, OidOrAlias}, Type, Value} | T], No) ->
+    VB = {OidOrAlias, Type, Value},
+    ID = {No, Process},
+    [{ID, VB} | order(T, No + 1)];
+order([{{Process, OidOrAlias}, Type} | T], No) ->
+    VB = {OidOrAlias, Type},
+    ID = {No, Process},
+    [{ID, VB} | order(T, No + 1)];
+order([H | T], No) ->
+    ID = {No, keep},
+    [{ID, H} | order(T, No + 1)];
+order([], _) ->
+    [].
 
-unorder([{_No, H} | T]) -> [H | unorder(T)];
-unorder([]) -> [].
+
+unorder(OVbs) ->
+    [{Process, VB} || {{_No, Process}, VB} <- OVbs].
+
 
 extract_order([{No, {VarOid, _Type}} | T], Index) ->
     {Order, V} = extract_order(T, Index+1),
     {[No | Order], [#varbind{oid = VarOid, org_index = Index} | V]};
-extract_order([], _) -> {[], []}.
+extract_order([], _) ->
+    {[], []}.
 
 contract_order([No | Order], [Varbind | T]) ->
     [{No, Varbind} | contract_order(Order, T)];
 contract_order([], []) -> 
     [].
+
 
 split_variables([{No, {VarOid, Type, Val}} | T]) when is_list(VarOid) ->
     {A, B} = split_variables(T),
@@ -458,6 +552,7 @@ split_variables([{No, {VarOid, Type}} | T])
   when is_list(VarOid) andalso is_record(Type, asn1_type) ->
     {A, B} = split_variables(T),
     {A, [{No, {VarOid, Type}} | B]};
+
 split_variables([{_No, {VarName, Value}} | _T]) ->
     user_err("snmpa_trap: Undefined variable ~w (~w)", [VarName, Value]),
     throw(error);
@@ -465,7 +560,9 @@ split_variables([{_No, {VarName, RowIndex, Value}} | _T]) ->
     user_err("snmpa_trap: Undefined variable ~w ~w (~w)",
 	     [VarName, RowIndex, Value]),
     throw(error);
-split_variables([]) -> {[], []}.
+
+split_variables([]) ->
+    {[], []}.
 
 
 %%-----------------------------------------------------------------
@@ -830,11 +927,11 @@ do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
 		case lists:keyfind(transportDomainUdpIpv4, 1, Transports) of
 		    false ->
 			?vtrace(
-			   "snmpa_trap: can not send v1 trap "
+			   "snmpa_trap: cannot send v1 trap "
 			   "without IPv4 domain: ~p",
 			   [Transports]),
 			user_err(
-			   "snmpa_trap: can not send v1 trap "
+			   "snmpa_trap: cannot send v1 trap "
 			   "without IPv4 domain: ~p",
 			   [Transports]);
 		    DomainAddr ->
@@ -917,7 +1014,7 @@ do_send_v2_trap(Recvs, Vbs, ExtraInfo, NetIf) ->
     TrapPdu = make_v2_notif_pdu(Vbs, 'snmpv2-trap'),
     AddrCommunities = mk_addr_communities(Recvs),
     lists:foreach(fun({Community, Addrs}) ->
-			  ?vtrace("~n   send v2 trap to ~p",[Addrs]),
+			  ?vtrace("send v2 trap to ~p",[Addrs]),
 			  NetIf ! {send_pdu, 'version-2', TrapPdu,
 				   {community, Community}, Addrs, ExtraInfo}
 		  end, AddrCommunities),
@@ -1114,7 +1211,7 @@ transform_taddrs(TAddrs) ->
 
 %% v2
 transform_taddr({?snmpUDPDomain, Addr}) ->
-    transform_taddr(transportDomainIdpIpv4, Addr);
+    transform_taddr(transportDomainUdpIpv4, Addr);
 transform_taddr({?transportDomainUdpIpv4, Addr}) ->
     transform_taddr(transportDomainUdpIpv4, Addr);
 transform_taddr({?transportDomainUdpIpv6, Addr}) ->

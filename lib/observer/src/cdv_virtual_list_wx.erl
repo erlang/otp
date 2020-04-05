@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,8 +96,9 @@ start_detail_win_2(Callback,Id) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init([ParentWin, Callback, Owner]) ->
-    {Holder,TW} = spawn_table_holder(Callback, Owner),
     Panel = wxPanel:new(ParentWin),
+    Attrs = observer_lib:create_attrs(Panel),
+    {Holder,TW} = spawn_table_holder(Callback, Owner, Attrs),
     {Grid,MenuCols}  = create_list_box(Panel, Holder, Callback, Owner),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxALL},
@@ -132,11 +133,12 @@ create_list_box(Panel, Holder, Callback, Owner) ->
 				       end}
 				     ]),
     Li = wxListItem:new(),
+    Scale = observer_wx:get_scale(),
     AddListEntry = fun({Name, Align, DefSize}, Col) ->
 			   wxListItem:setText(Li, Name),
 			   wxListItem:setAlign(Li, Align),
 			   wxListCtrl:insertColumn(ListCtrl, Col, Li),
-			   wxListCtrl:setColumnWidth(ListCtrl, Col, DefSize),
+			   wxListCtrl:setColumnWidth(ListCtrl, Col, DefSize*Scale),
 			   Col + 1
 		   end,
     ListItems = Callback:col_spec(),
@@ -232,7 +234,8 @@ handle_call(new_dump, _From,
     Ref = erlang:monitor(process,Holder),
     Holder ! stop,
     receive {'DOWN',Ref,_,_,_} -> ok end,
-    {NewHolder,TW} = spawn_table_holder(Callback, all),
+    Attrs = observer_lib:create_attrs(Grid),
+    {NewHolder,TW} = spawn_table_holder(Callback, all, Attrs),
     {reply, ok, State#state{detail_wins=[],holder=NewHolder,trunc_warn=TW}};
 
 handle_call(Msg, _From, State) ->
@@ -328,9 +331,8 @@ handle_event(Event, State) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-spawn_table_holder(Callback, Owner) ->
+spawn_table_holder(Callback, Owner, Attrs) ->
     {Info,TW} = Callback:get_info(Owner),
-    Attrs = observer_lib:create_attrs(),
     Parent = self(),
     Holder =
 	case Owner of

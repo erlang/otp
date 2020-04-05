@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -231,8 +231,7 @@ data_for_channel(CM, Ch, Data, State) ->
 		    {ok, NewState}
 	    end
     catch
-	Class:Reason ->
-	    Stacktrace = erlang:get_stacktrace(),
+	Class:Reason:Stacktrace ->
 	    error_logger:error_report([{?MODULE, data_for_channel},
 				       {request, Data},
 				       {buffer, State#session.buffer},

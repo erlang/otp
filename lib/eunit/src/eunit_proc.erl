@@ -29,7 +29,7 @@
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
 
--export([start/4]).
+-export([start/4, get_output/0]).
 
 %% This must be exported; see new_group_leader/1 for details.
 -export([group_leader_process/1]).
@@ -52,6 +52,18 @@ start(Tests, Order, Super, Reference)
 		    order = Order},
     spawn_group(local, #group{tests = Tests}, St).
 
+%% Fetches the output captured by the eunit group leader. This is
+%% provided to allow test cases to check the captured output.
+
+-spec get_output() -> string().
+get_output() ->
+    group_leader() ! {get_output, self()},
+    receive
+        {output, Output} -> Output
+    after 100 ->
+        %% The group leader is not an eunit_proc
+        abort_task(get_output)
+    end.
 
 %% Status messages sent to the supervisor process. (A supervisor does
 %% not have to act on these messages - it can e.g. just log them, or
@@ -594,6 +606,9 @@ group_leader_loop(Runner, Wait, Buf) ->
 	    receive after 2 -> ok end,
 	    process_flag(priority, low),
 	    group_leader_loop(Runner, 0, Buf);
+	{get_output, From} ->
+	    From ! {output, lists:flatten(lists:reverse(Buf))},
+	    group_leader_loop(Runner, Wait, Buf);
 	_ ->
 	    %% discard any other messages
 	    group_leader_loop(Runner, Wait, Buf)
@@ -628,7 +643,7 @@ io_request({put_chars, M, F, As}, Buf) ->
     try apply(M, F, As) of
 	Chars -> {ok, [Chars | Buf]}
     catch
-	C:T -> {{error, {C,T,erlang:get_stacktrace()}}, Buf}
+	C:T:S -> {{error, {C,T,S}}, Buf}
     end;
 io_request({put_chars, _Enc, Chars}, Buf) ->
     io_request({put_chars, Chars}, Buf);
@@ -643,6 +658,8 @@ io_request({get_line, _Prompt}, Buf) ->
 io_request({get_line, _Enc, _Prompt}, Buf) ->
     {eof, Buf};
 io_request({get_until, _Prompt, _M, _F, _As}, Buf) ->
+    {eof, Buf};
+io_request({get_until, _Enc, _Prompt, _M, _F, _As}, Buf) ->
     {eof, Buf};
 io_request({setopts, _Opts}, Buf) ->
     {ok, Buf};
@@ -667,4 +684,9 @@ io_error_test_() ->
     [?_assertMatch({error, enotsup}, io:getopts()),
      ?_assertMatch({error, enotsup}, io:columns()),
      ?_assertMatch({error, enotsup}, io:rows())].
+
+get_output_test() ->
+    io:format("Hello"),
+    Output = get_output(),
+    ?assertEqual("Hello", Output).
 -endif.

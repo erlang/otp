@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,17 +39,15 @@
 
 static IndexTable module_tables[ERTS_NUM_CODE_IX];
 
-erts_smp_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
+erts_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
 
-static erts_smp_atomic_t tot_module_bytes;
+static erts_atomic_t tot_module_bytes;
 
 /* SMP note: Active module table lookup and current module instance can be
  *           read without any locks. Old module instances are protected by
  *           "the_old_code_rwlocks" as purging is done on active module table.
  *           Staging table is protected by the "code_ix lock". 
  */
-
-#include "erl_smp.h"
 
 void module_info(fmtfn_t to, void *to_arg)
 {
@@ -84,7 +82,7 @@ void erts_module_instance_init(struct erl_module_instance* modi)
 static Module* module_alloc(Module* tmpl)
 {
     Module* obj = (Module*) erts_alloc(ERTS_ALC_T_MODULE, sizeof(Module));
-    erts_smp_atomic_add_nob(&tot_module_bytes, sizeof(Module));
+    erts_atomic_add_nob(&tot_module_bytes, sizeof(Module));
 
     obj->module = tmpl->module;
     obj->slot.index = -1;
@@ -98,7 +96,7 @@ static Module* module_alloc(Module* tmpl)
 static void module_free(Module* mod)
 {
     erts_free(ERTS_ALC_T_MODULE, mod);
-    erts_smp_atomic_add_nob(&tot_module_bytes, -sizeof(Module));
+    erts_atomic_add_nob(&tot_module_bytes, -sizeof(Module));
 }
 
 void init_module_table(void)
@@ -120,10 +118,10 @@ void init_module_table(void)
     }
 
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-        erts_smp_rwmtx_init(&the_old_code_rwlocks[i], "old_code", make_small(i),
+        erts_rwmtx_init(&the_old_code_rwlocks[i], "old_code", make_small(i),
             ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     }
-    erts_smp_atomic_init_nob(&tot_module_bytes, 0);
+    erts_atomic_init_nob(&tot_module_bytes, 0);
 }
 
 
@@ -159,14 +157,14 @@ static Module* put_module(Eterm mod, IndexTable* mod_tab)
     oldsz = index_table_sz(mod_tab);
     res = (Module*) index_put_entry(mod_tab, (void*) &e);
     newsz = index_table_sz(mod_tab);
-    erts_smp_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
+    erts_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
     return res;
 }
 
 Module*
 erts_put_module(Eterm mod)
 {
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0
+    ERTS_LC_ASSERT(erts_initialized == 0
 		       || erts_has_code_write_permission());
 
     return put_module(mod, &module_tables[erts_staging_code_ix()]);
@@ -184,7 +182,7 @@ int module_code_size(ErtsCodeIndex code_ix)
 
 int module_table_sz(void)
 {
-    return erts_smp_atomic_read_nob(&tot_module_bytes);
+    return erts_atomic_read_nob(&tot_module_bytes);
 }
 
 #ifdef DEBUG
@@ -233,7 +231,7 @@ void module_start_staging(void)
         copy_module(dst_mod, src_mod);
     }
     newsz = index_table_sz(dst);
-    erts_smp_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
+    erts_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
 
     entries_at_start_staging = dst->entries;
     IF_DEBUG(dbg_load_code_ix = erts_staging_code_ix());
@@ -251,7 +249,7 @@ void module_end_staging(int commit)
 	oldsz = index_table_sz(tab);
 	index_erase_latest_from(tab, entries_at_start_staging);
 	newsz = index_table_sz(tab);
-	erts_smp_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
+	erts_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
     }
 
     IF_DEBUG(dbg_load_code_ix = -1);

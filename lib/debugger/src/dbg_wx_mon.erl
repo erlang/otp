@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,9 +119,9 @@ init(CallingPid, Mode, SFile) ->
 		init2(CallingPid, Mode, SFile, GS)
 	    catch 
 		exit:stop -> stop;
-		Error:Reason ->
+		Error:Reason:Stacktrace ->
 		    io:format("~p: Crashed {~p,~p} in~n  ~p",
-			      [?MODULE, Error, Reason, erlang:get_stacktrace()])
+			      [?MODULE, Error, Reason, Stacktrace])
 	    end
     end.
 

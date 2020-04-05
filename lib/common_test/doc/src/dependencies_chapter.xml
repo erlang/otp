@@ -87,8 +87,8 @@
       <p>To avoid this, we can consider starting and stopping the server for every test.
       We can thus implement the start and stop action as common functions to be 
       called from 
-      <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso> and 
-      <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso>. 
+      <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa> and 
+      <seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>. 
       (Remember to test the start and stop functionality separately.) 
       The configuration can also be implemented as a common function, maybe grouped 
       with the start function. Finally, the testing of connecting and disconnecting a 
@@ -194,9 +194,9 @@
 
       <p>To pass data from one test suite to another, the same mechanism is used. The data
 	is to be saved by finction
-	<seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso> 
+	<seemfa marker="common_test#Module:end_per_suite/1"><c>end_per_suite</c></seemfa> 
 	and read by function
-	<seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso>
+	<seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
 	in the suite that follows. When passing data between suites, <c>Saver</c> carries the 
 	name of the test suite.</p>
 
@@ -264,7 +264,7 @@
       <p>A sequence of test cases is defined as a test case group
         with a <c>sequence</c> property. Test case groups are defined
 	through function <c>groups/0</c> in the test suite (for details, see section
-	<seealso marker="write_test_chapter#test_case_groups">Test Case Groups</seealso>.</p>
+	<seeguide marker="write_test_chapter#test_case_groups">Test Case Groups</seeguide>.</p>
 
       <p>For example, to ensure that if <c>allocate</c>
 	in <c>server_b_SUITE</c> crashes, <c>deallocate</c> is skipped,
@@ -306,9 +306,9 @@
         any property, that is, they are not required to also be sequences. If you want the 
 	status of the subgroup to affect the sequence on the level above, return 
 	<c>{return_group_result,Status}</c> from 
-	<seealso marker="common_test#Module:end_per_group-2"><c>end_per_group/2</c></seealso>, 
+	<seemfa marker="common_test#Module:end_per_group/2"><c>end_per_group/2</c></seemfa>, 
 	as described in section
-	<seealso marker="write_test_chapter#repeated_groups">Repeated Groups</seealso>
+	<seeguide marker="write_test_chapter#repeated_groups">Repeated Groups</seeguide>
 	in Writing Test Suites.
 	A failed subgroup (<c>Status == failed</c>) causes the execution of a 
 	sequence to fail in the	same way a test case does.</p>

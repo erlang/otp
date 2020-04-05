@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 -export([parse_suite/1]).
 -export([init/2, pre_init_per_testcase/3, post_end_per_testcase/4]).
 
-%% for test_server_SUITE when node can not be started as slave
+%% for test_server_SUITE when node cannot be started as slave
 -export([prepare_tester_node/2]).
 
 -include("test_server_test_lib.hrl").
@@ -43,7 +43,7 @@ pre_init_per_testcase(_TC,Config,State) ->
     {start_slave(Config, 50),State}.
 
 start_slave(Config,_Level) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     
     ct:log("Trying to start ~s~n", 
 	   ["test_server_tester@"++Host]),
@@ -121,7 +121,7 @@ parse_suite(FileName) ->
     end.
 
 fline(Fd) ->
-    case prim_file:read_line(Fd) of
+    case file:read_line(Fd) of
 	eof -> eof;
 	{ok, Line} -> Line
     end.

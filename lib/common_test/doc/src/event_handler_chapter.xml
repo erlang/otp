@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,9 +50,9 @@
     pass the information on. The event handlers are Erlang modules
     implemented by the <c>Common Test</c> user according to the <c>gen_event</c> 
     behavior (for details, see module
-    <seealso marker="stdlib:gen_event"><c>gen_event</c></seealso> and
+    <seeerl marker="stdlib:gen_event"><c>gen_event</c></seeerl> and
     section
-    <seealso marker="doc/design_principles:events"><c>gen_event Behaviour</c></seealso>
+    <seeguide marker="system/design_principles:events"><c>gen_event Behaviour</c></seeguide>
     in OTP Design Principles in the System Documentation).
     </p>
 
@@ -69,20 +69,20 @@
     manager, either by telling <c>Common Test</c> to install them before the test
     run (described later), or by adding the handlers dynamically during the test
     run using
-    <seealso marker="stdlib:gen_event#add_handler-3"><c>gen_event:add_handler/3</c></seealso> or
-    <seealso marker="stdlib:gen_event#add_sup_handler-3"><c>gen_event:add_sup_handler/3</c></seealso>.
+    <seemfa marker="stdlib:gen_event#add_handler/3"><c>gen_event:add_handler/3</c></seemfa> or
+    <seemfa marker="stdlib:gen_event#add_sup_handler/3"><c>gen_event:add_sup_handler/3</c></seemfa>.
     In the latter scenario, the reference of the <c>Common Test</c> event manager is
     required. To get it, call 
-    <seealso marker="ct#get_event_mgr_ref-0"><c>ct:get_event_mgr_ref/0</c></seealso> 
+    <seemfa marker="ct#get_event_mgr_ref/0"><c>ct:get_event_mgr_ref/0</c></seemfa> 
     or (on the <c>Common Test</c> Master node) 
-    <seealso marker="ct_master#get_event_mgr_ref-0"><c>ct_master:get_event_mgr_ref/0</c></seealso>.</p>
+    <seemfa marker="ct_master#get_event_mgr_ref/0"><c>ct_master:get_event_mgr_ref/0</c></seemfa>.</p>
   </section>
   <section>
     <marker id="usage"></marker>
     <title>Use</title>
     <p>Event handlers can be installed by an <c>event_handler</c> start flag 
-    (<seealso marker="ct_run"><c>ct_run</c></seealso>) or option 
-    <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, where the
+    (<seecom marker="ct_run"><c>ct_run</c></seecom>) or option 
+    <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa>, where the
     argument specifies the names of one or more event handler modules.</p>
 
     <p><em>Example:</em></p>
@@ -99,7 +99,7 @@
     example).</p></note>
 
     <p>An event_handler tuple in argument <c>Opts</c> has the following definition 
-    (see <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>):</p>
+    (see <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa>):</p>
 
     <pre>
  {event_handler,EventHandlers}
@@ -115,7 +115,7 @@
     Event handler <c>my_evh2</c> is started with the name of the current node in the init argument list.</p>
 
     <p>Event handlers can also be plugged in using one of the following
-    <seealso marker="run_test_chapter#test_specifications">test specification</seealso> 
+    <seeguide marker="run_test_chapter#test_specifications">test specification</seeguide> 
     terms:</p>
     <list type="bulleted">
     <item><c>{event_handler, EventHandlers}</c></item>
@@ -377,8 +377,8 @@
     manager can look like.</p>
 
     <note><p>To ensure that printouts to <c>stdout</c> (or printouts made with
-    <seealso marker="ct#log-2"><c>ct:log/2,3</c></seealso> or 
-    <seealso marker="ct:pal-2"><c>ct:pal,2,3</c></seealso>) get written to the test case log
+    <seemfa marker="ct#log/2"><c>ct:log/2,3</c></seemfa> or 
+    <seemfa marker="ct#pal/2"><c>ct:pal,2,3</c></seemfa>) get written to the test case log
     file, and not to the <c>Common Test</c> framework log, you can synchronize
     with the <c>Common Test</c> server by matching on evvents <c>tc_start</c> and <c>tc_done</c>.
     In the period between these events, all I/O is directed to the

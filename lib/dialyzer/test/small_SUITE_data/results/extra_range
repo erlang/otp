@@ -1,0 +1,4 @@
+
+extra_range.erl:29: The pattern 'ok' can never match the type 'error'
+extra_range.erl:43: The pattern 'no' can never match the type 'maybe' | 'yes'
+extra_range.erl:58: The pattern 'maybe' can never match the type 'no' | 'yes'

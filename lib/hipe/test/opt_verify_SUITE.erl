@@ -59,7 +59,7 @@ call_elim_test_file(Config, FileName, Option) ->
 substring_count(Icode, Substring) ->
     substring_count(Icode, Substring, 0).
 substring_count(Icode, Substring, N) ->
-    case string:str(Icode, Substring) of
-        0 -> N;
-        I -> substring_count(lists:nthtail(I, Icode), Substring, N+1)
+    case string:find(Icode, Substring) of
+        nomatch -> N;
+        Prefix -> substring_count(string:prefix(Prefix, Substring), Substring, N+1)
     end.

@@ -2,7 +2,7 @@ changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ define(HANDLE_GOT_MBUF,`
 3:	call nbif_$1_gc_after_bif	/* `HANDLE_GOT_MBUF' */
 	jmp 2b')
 
-`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+`#if defined(ERTS_ENABLE_LOCK_CHECK)
 #  define CALL_BIF(F) \
 		movq CSYM(nbif_impl_##F)@GOTPCREL(%rip), %r11; \
 		movq %r11, P_BIF_CALLEE(P); \
@@ -458,42 +458,6 @@ ASYM($1):
 
 	/* return */
 	NBIF_RET(5)
-	SET_SIZE(ASYM($1))
-	TYPE_FUNCTION(ASYM($1))
-#endif')
-
-/*
- * nogc_bif_interface_1(nbif_name, cbif_name)
- *
- * Generate native interface for a bif with implicit P
- * The bif can fail but cannot do GC.
- */
-
-define(nogc_bif_interface_1,
-`
-#ifndef HAVE_$1
-#`define' HAVE_$1
-	TEXT
-	.align	4
-	GLOBAL(ASYM($1))
-ASYM($1):
-	/* set up the parameters */
-	movq	P, %rdi
-	NBIF_ARG(%rsi,1,0)
-
-	/* make the call on the C stack */
-	SWITCH_ERLANG_TO_C
-	pushq	%rsi
-	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
-	sub	$(8), %rsp	/* stack frame 16-byte alignment */
-	CALL_BIF($2)
-	add	$(1*8 + 8), %rsp
-	SWITCH_C_TO_ERLANG
-
-	/* throw exception if failure, otherwise return */
-	TEST_GOT_EXN
-	jz	nbif_1_simple_exception
-	NBIF_RET(1)
 	SET_SIZE(ASYM($1))
 	TYPE_FUNCTION(ASYM($1))
 #endif')

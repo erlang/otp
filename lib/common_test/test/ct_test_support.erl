@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Test support functions
+%%% Test support functions
 %%%
-%%% <p>This is a support module for testing the Common Test Framework.</p>
+%%% This is a support module for testing the Common Test Framework.
 %%%
 -module(ct_test_support).
 
@@ -88,7 +88,7 @@ start_slave(Config, Level) ->
     start_slave(ct, Config, Level).
 
 start_slave(NodeName, Config, Level) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     test_server:format(0, "Trying to start ~s~n",
 		       [atom_to_list(NodeName)++"@"++Host]),
     PR = proplists:get_value(printable_range,Config,io:printable_range()),
@@ -219,17 +219,8 @@ get_opts(Config) ->
 	      end,
     LogDir =
 	case os:getenv("CT_USE_TMP_DIR") of
-	    false ->
-		case os:type() of
-		    {win32,_} ->		
-			if TempDir == undefined -> PrivDir;
-			   true -> TempDir
-			end;
-		    _ ->
-			PrivDir
-		end;
-	    _ ->
-		TempDir
+	    false -> PrivDir;
+            _ -> TempDir
 	end,
 
     %% Copy test variables to app environment on new node
@@ -1088,8 +1079,8 @@ locate({TEH,Name,{'DEF','RUNDIR'}}, Node, [Ev|Evs], Config) ->
 	{TEH,#event{name=Name, node=Node, data=EvData}} ->
 	    {_,{_,LogDir}} = lists:keysearch(logdir, 1, get_opts(Config)),
 	    D = filename:join(LogDir, "ct_run." ++ atom_to_list(Node)),
-	    case string:str(EvData, D) of
-		0 -> exit({badmatch,EvData});
+	    case string:find(EvData, D) of
+		nomatch -> exit({badmatch,EvData});
 		_ -> ok	    
 	    end,
 	    {Config,Evs};
@@ -1104,8 +1095,8 @@ locate({TEH,Name,{'DEF',{'START_TIME','LOGDIR'}}}, Node, [Ev|Evs], Config) ->
 		{DT={{_,_,_},{_,_,_}},Dir} when is_list(Dir) ->
 		    {_,{_,LogDir}} = lists:keysearch(logdir, 1, get_opts(Config)),
 		    D = filename:join(LogDir, "ct_run." ++ atom_to_list(Node)),
-		    case string:str(Dir, D) of
-			0 -> exit({badmatch,Dir});
+		    case string:find(Dir, D) of
+			nomatch -> exit({badmatch,Dir});
 			_ -> ok	    
 		    end,
 		    {[{start_time,DT}|Config],Evs};
@@ -1373,7 +1364,7 @@ delete_dirs(LogDir) ->
     Dirs2Del =
 	lists:foldl(fun(Dir, Del) ->
 			    [S,Mi,H,D,Mo,Y|_] = 
-				lists:reverse(string:tokens(Dir, [$.,$-,$_])),
+				lists:reverse(string:lexemes(Dir, [$.,$-,$_])),
 			    S2I = fun(Str) -> list_to_integer(Str) end,
 			    DT = {{S2I(Y),S2I(Mo),S2I(D)}, {S2I(H),S2I(Mi),S2I(S)}},
 			    Then = calendar:datetime_to_gregorian_seconds(DT),

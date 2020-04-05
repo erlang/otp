@@ -1,5 +1,12 @@
-{suites,"../ssl_test",all}.
-{skip_cases, "../ssl_test",
-    ssl_bench_SUITE, [setup_sequential, setup_concurrent, payload_simple,
-	use_pem_cache, bypass_pem_cache],
-    "Benchmarks run separately"}.
+% {merge_tests,false}.
+{alias,dir,"../ssl_test"}.
+
+{suites,dir,all}.
+{skip_groups,dir,ssl_bench_SUITE,setup,"Benchmarks run separately"}.
+{skip_groups,dir,ssl_bench_SUITE,payload,"Benchmarks run separately"}.
+{skip_groups,dir,ssl_bench_SUITE,pem_cache,"Benchmarks run separately"}.
+{skip_groups,dir,ssl_dist_bench_SUITE,setup,"Benchmarks run separately"}.
+{skip_groups,dir,ssl_dist_bench_SUITE,roundtrip,"Benchmarks run separately"}.
+{skip_groups,dir,ssl_dist_bench_SUITE,throughput,"Benchmarks run separately"}.
+{skip_groups,dir,ssl_dist_bench_SUITE,sched_utilization,"Benchmarks run separately"}.
+

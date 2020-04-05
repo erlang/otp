@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,10 +35,10 @@
 -export([altDown/1,button/2,buttonDClick/1,buttonDClick/2,buttonDown/1,buttonDown/2,
   buttonUp/1,buttonUp/2,cmdDown/1,controlDown/1,dragging/1,entering/1,
   getButton/1,getLinesPerAction/1,getLogicalPosition/2,getPosition/1,
-  getWheelDelta/1,getWheelRotation/1,getX/1,getY/1,isButton/1,isPageScroll/1,
-  leaving/1,leftDClick/1,leftDown/1,leftIsDown/1,leftUp/1,metaDown/1,
-  middleDClick/1,middleDown/1,middleIsDown/1,middleUp/1,moving/1,rightDClick/1,
-  rightDown/1,rightIsDown/1,rightUp/1,shiftDown/1]).
+  getWheelAxis/1,getWheelDelta/1,getWheelRotation/1,getX/1,getY/1,isButton/1,
+  isPageScroll/1,leaving/1,leftDClick/1,leftDown/1,leftIsDown/1,leftUp/1,
+  metaDown/1,middleDClick/1,middleDown/1,middleIsDown/1,middleUp/1,moving/1,
+  rightDClick/1,rightDown/1,rightIsDown/1,rightUp/1,shiftDown/1]).
 
 %% inherited exports
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
@@ -369,6 +369,15 @@ rightUp(#wx_ref{type=ThisT,ref=ThisRef}) ->
 shiftDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMouseEvent),
   wxe_util:call(?wxMouseEvent_ShiftDown,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventgetwheelaxis">external documentation</a>.
+%%<br /> Res = ?wxMOUSE_WHEEL_VERTICAL | ?wxMOUSE_WHEEL_HORIZONTAL
+-spec getWheelAxis(This) -> wx:wx_enum() when
+	This::wxMouseEvent().
+getWheelAxis(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxMouseEvent),
+  wxe_util:call(?wxMouseEvent_GetWheelAxis,
   <<ThisRef:32/?UI>>).
 
  %% From wxEvent

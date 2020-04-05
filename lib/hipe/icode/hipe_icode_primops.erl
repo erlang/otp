@@ -67,6 +67,8 @@ is_safe(fp_mul) -> false;
 is_safe(fp_sub) -> false;
 is_safe(mktuple) -> true;
 is_safe(next_msg) -> false;
+is_safe(recv_mark) -> false;
+is_safe(recv_set) -> false;
 is_safe(redtest) -> false;
 is_safe(select_msg) -> false;
 is_safe(self) -> true;
@@ -130,6 +132,8 @@ is_safe({hipe_bs_primop, {bs_match_string, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_append, _, _, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_private_append, _, _}}) -> false;
 is_safe({hipe_bs_primop, bs_init_writable}) -> true;
+is_safe(build_stacktrace) -> true;
+is_safe(raw_raise) -> false;
 is_safe(#mkfun{}) -> true;
 is_safe(#unsafe_element{}) -> true;
 is_safe(#unsafe_update_element{}) -> true;
@@ -165,6 +169,8 @@ fails(fp_mul) -> false;
 fails(fp_sub) -> false;
 fails(mktuple) -> false;
 fails(next_msg) -> false;
+fails(recv_mark) -> false;
+fails(recv_set) -> false;
 fails(redtest) -> false;
 fails(select_msg) -> false;
 fails(self) -> false;
@@ -230,6 +236,8 @@ fails({hipe_bs_primop, bs_final}) -> false;
 fails({hipe_bs_primop, {bs_append, _, _, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_private_append, _, _}}) -> true;
 fails({hipe_bs_primop, bs_init_writable}) -> true;
+fails(build_stacktrace) -> false;
+fails(raw_raise) -> true;
 fails(#mkfun{}) -> false;
 fails(#unsafe_element{}) -> false;
 fails(#unsafe_update_element{}) -> false;
@@ -428,14 +436,8 @@ type(Primop, Args) ->
     #element{} ->
       erl_bif_types:type(erlang, element, 2, Args);
     #unsafe_element{index = N} ->
-      [Type] = Args,
-      case erl_types:t_is_tuple(Type) of
-	false ->
-	  erl_types:t_none();
-	true ->
-	  Index = erl_types:t_from_term(N),
-	  erl_bif_types:type(erlang, element, 2, [Index|Args])
-      end;
+      Index = erl_types:t_from_term(N),
+      erl_bif_types:type(erlang, element, 2, [Index | Args]);
     #unsafe_update_element{index = N} ->
       %% Same, same
       erl_bif_types:type(erlang, setelement, 3, [erl_types:t_integer(N)|Args]);
@@ -709,6 +711,10 @@ type(Primop, Args) ->
       erl_types:t_any();
     next_msg ->
       erl_types:t_any();
+    recv_mark ->
+      erl_types:t_any();
+    recv_set ->
+      erl_types:t_any();
     select_msg ->
       erl_types:t_any();
     set_timeout ->
@@ -723,6 +729,10 @@ type(Primop, Args) ->
       erl_types:t_any();
     debug_native_called ->
       erl_types:t_any();
+    build_stacktrace ->
+      erl_types:t_list();
+    raw_raise ->
+      erl_types:t_atom();
     {M, F, A} ->
       erl_bif_types:type(M, F, A, Args)
   end.
@@ -883,6 +893,10 @@ type(Primop) ->
       erl_types:t_any();
     next_msg ->
       erl_types:t_any();
+    recv_mark ->
+      erl_types:t_any();
+    recv_set ->
+      erl_types:t_any();
     select_msg ->
       erl_types:t_any();
     set_timeout ->
@@ -891,6 +905,10 @@ type(Primop) ->
       erl_types:t_any();
 %%% -----------------------------------------------------
 %%% Other
+    build_stacktrace ->
+      erl_types:t_any();
+    raw_raise ->
+      erl_types:t_any();
     #closure_element{} ->
       erl_types:t_any();
     redtest ->

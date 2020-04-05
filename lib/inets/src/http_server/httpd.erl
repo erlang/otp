@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,25 +36,37 @@
 	]).
 
 %% API
--export([parse_query/1, reload_config/2, info/1, info/2, info/3]).
+-export([
+         parse_query/1,
+         reload_config/2,
+         info/1,
+         info/2,
+         info/3,
+         info/4
+        ]).
+
+-deprecated({parse_query, 1,
+            "use uri_string:dissect_query/1 instead"}).
 
 %%%========================================================================
 %%% API
 %%%========================================================================
 
 parse_query(String) ->
-  SplitString = re:split(String,"[&;]", [{return, list}]),
-  foreach(SplitString).
+    uri_string:dissect_query(String).
 
 reload_config(Config = [Value| _], Mode) when is_tuple(Value) ->
     do_reload_config(Config, Mode);
 reload_config(ConfigFile, Mode) ->
-    case httpd_conf:load(ConfigFile) of
-	{ok, ConfigList} ->
-	    do_reload_config(ConfigList, Mode);
-	Error ->
-	    Error
+    try file:consult(ConfigFile) of
+        {ok, [PropList]} ->
+            %% Erlang terms format
+            do_reload_config(PropList, Mode)
+    catch
+        exit:_ ->
+            throw({error, {could_not_consult_proplist_file, ConfigFile}})
     end.
+
 
 info(Pid) when is_pid(Pid) ->
     info(Pid, []).
@@ -241,18 +253,6 @@ unblock(Addr, Port, Profile) when is_integer(Port) ->
 	    httpd_manager:unblock(Pid);
 	_ ->
 	    {error,not_started}
-    end.
-
-foreach([]) ->
-  [];
-foreach([KeyValue|Rest]) ->
-    Plus2Space = re:replace(KeyValue,"[\+]"," ", [{return,list}, global]),
-    case re:split(Plus2Space,"=", [{return, list}]) of
-	[Key|Value] ->
-	    [{http_uri:decode(Key),
-	      http_uri:decode(lists:flatten(Value))}|foreach(Rest)];
-	_ ->
-	    foreach(Rest)
     end.
 
 

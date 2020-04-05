@@ -1,0 +1,4 @@
+
+record_creation_diffs.erl:11: Record construction 
+          #bar{some_list :: {'this', 'is', 'a', 'tuple'}} violates the declared type of field some_list ::
+          [any()]

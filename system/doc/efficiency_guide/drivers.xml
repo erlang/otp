@@ -74,7 +74,7 @@ client_port() ->
 
     <list type="bulleted">
       <item><p>If the <c>Data</c> argument for
-      <seealso marker="erts:erlang#port_control/3">port_control/3</seealso>
+      <seemfa marker="erts:erlang#port_control/3">port_control/3</seemfa>
       is a binary, the driver will be passed a pointer to the contents of
       the binary and the binary will not be copied. If the <c>Data</c>
       argument is an iolist (list of binaries and lists), all binaries in
@@ -91,7 +91,7 @@ client_port() ->
       <c>output</c> callback) in the driver. If a driver has an
       <c>outputv</c> callback, refc binaries passed in an iolist
       in the <c>Data</c> argument for
-      <seealso marker="erts:erlang#port_command/2">port_command/2</seealso>
+      <seemfa marker="erts:erlang#port_command/2">port_command/2</seemfa>
       will be passed as references to the driver.</p></item>
     </list>
   </section>
@@ -107,9 +107,9 @@ client_port() ->
     <p>If you know that the binaries you return are always small, you
     are advised to use driver API calls that do not require a pre-allocated
     binary, for example,
-    <seealso marker="erts:erl_driver#driver_output">driver_output()</seealso>
+    <seecref marker="erts:erl_driver#driver_output">driver_output()</seecref>
     or
-    <seealso marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seealso>,
+    <seecref marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seecref>,
     using the <c>ERL_DRV_BUF2BINARY</c> format,
     to allow the runtime to construct a heap binary.</p>
 
@@ -123,7 +123,7 @@ client_port() ->
     binary and then send it to an Erlang process in some way.</p>
     
     <p>Use
-    <seealso marker="erts:erl_driver#driver_alloc_binary">driver_alloc_binary()</seealso>
+    <seecref marker="erts:erl_driver#driver_alloc_binary">driver_alloc_binary()</seecref>
     to allocate a binary.</p>
 
     <p>There are several ways to send a binary created with
@@ -131,16 +131,16 @@ client_port() ->
 
     <list type="bulleted">
     <item>From the <c>control</c> callback, a binary can be returned if
-    <seealso marker="erts:erl_driver#set_port_control_flags">set_port_control_flags()</seealso>
+    <seecref marker="erts:erl_driver#set_port_control_flags">set_port_control_flags()</seecref>
     has been called with the flag value <c>PORT_CONTROL_FLAG_BINARY</c>.</item>
 
     <item>A single binary can be sent with
-    <seealso marker="erts:erl_driver#driver_output_binary">driver_output_binary()</seealso>.</item>
+    <seecref marker="erts:erl_driver#driver_output_binary">driver_output_binary()</seecref>.</item>
 
     <item>Using
-    <seealso marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seealso>
+    <seecref marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seecref>
     or
-    <seealso marker="erts:erl_driver#erl_drv_send_term">erl_drv_send_term()</seealso>,
+    <seecref marker="erts:erl_driver#erl_drv_send_term">erl_drv_send_term()</seecref>,
     a binary can be included in an Erlang term.</item>
     </list>
 

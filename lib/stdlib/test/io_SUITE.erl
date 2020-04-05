@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,9 +31,10 @@
          otp_10836/1, io_lib_width_too_small/1,
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
-         otp_14285/1, limit_term/1]).
+         otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
+         otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1]).
 
--export([pretty/2]).
+-export([pretty/2, trf/3]).
 
 %%-define(debug, true).
 
@@ -63,7 +64,8 @@ all() ->
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
-     otp_14285, limit_term].
+     otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
+     otp_15639, otp_15705, otp_15847, otp_15875].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -1750,7 +1752,7 @@ printable_range(Suite) when is_list(Suite) ->
     PrettyOptions = [{column,1},
 		     {line_length,109},
 		     {depth,30},
-		     {max_chars,60},
+		     {line_max_chars,60},
 		     {record_print_fun,
 		      fun(_,_) -> no end},
 		     {encoding,unicode}],
@@ -1808,7 +1810,7 @@ rpc_call_max(Node, M, F, Args) ->
 
 %% Make sure that a bad specification for a printable range is rejected.
 bad_printable_range(Config) when is_list(Config) ->
-    Cmd = lists:concat([lib:progname()," +pcunnnnnicode -run erlang halt"]),
+    Cmd = ct:get_progname() ++ " +pcunnnnnicode -run erlang halt",
     P = open_port({spawn, Cmd}, [stderr_to_stdout, {line, 200}]),
     ok = receive
              {P, {data, {eol , "bad range of printable characters" ++ _}}} ->
@@ -1886,7 +1888,7 @@ otp_10302(Suite) when is_list(Suite) ->
 
 pretty(Term, Depth) when is_integer(Depth) ->
     Opts = [{column, 1}, {line_length, 20},
-            {depth, Depth}, {max_chars, 60},
+            {depth, Depth}, {line_max_chars, 60},
             {record_print_fun, fun rfd/2},
             {encoding, unicode}],
     pretty(Term, Opts);
@@ -1905,29 +1907,61 @@ otp_10836(Suite) when is_list(Suite) ->
 
 %% OTP-10755. The 'l' modifier
 otp_10755(Suite) when is_list(Suite) ->
+    %% printing plain ascii characters
     S = "string",
     "\"string\"" = fmt("~p", [S]),
     "[115,116,114,105,110,103]" = fmt("~lp", [S]),
     "\"string\"" = fmt("~P", [S, 2]),
     "[115|...]" = fmt("~lP", [S, 2]),
-    {'EXIT',{badarg,_}} = (catch fmt("~ltp", [S])),
-    {'EXIT',{badarg,_}} = (catch fmt("~tlp", [S])),
-    {'EXIT',{badarg,_}} = (catch fmt("~ltP", [S])),
-    {'EXIT',{badarg,_}} = (catch fmt("~tlP", [S])),
+    %% printing latin1 chars, with and without modifiers
+    T = {[255],list_to_atom([255]),[a,b,c]},
+    "{\"ÿ\",ÿ,[a,b,c]}" = fmt("~p", [T]),
+    "{\"ÿ\",ÿ,[a,b,c]}" = fmt("~tp", [T]),
+    "{[255],ÿ,[a,b,c]}" = fmt("~lp", [T]),
+    "{[255],ÿ,[a,b,c]}" = fmt("~ltp", [T]),
+    "{[255],ÿ,[a,b,c]}" = fmt("~tlp", [T]),
+    "{\"ÿ\",ÿ,...}" = fmt("~P", [T,3]),
+    "{\"ÿ\",ÿ,...}" = fmt("~tP", [T,3]),
+    "{[255],ÿ,...}" = fmt("~lP", [T,3]),
+    "{[255],ÿ,...}" = fmt("~ltP", [T,3]),
+    "{[255],ÿ,...}" = fmt("~tlP", [T,3]),
+    %% printing unicode chars, with and without modifiers
+    U = {[666],list_to_atom([666]),[a,b,c]},
+    "{[666],'\\x{29A}',[a,b,c]}" = fmt("~p", [U]),
+    case io:printable_range() of
+        unicode ->
+            "{\"ʚ\",'ʚ',[a,b,c]}" = fmt("~tp", [U]),
+            "{\"ʚ\",'ʚ',...}" = fmt("~tP", [U,3]);
+        latin1 ->
+            "{[666],'ʚ',[a,b,c]}" = fmt("~tp", [U]),
+            "{[666],'ʚ',...}" = fmt("~tP", [U,3])
+    end,
+    "{[666],'\\x{29A}',[a,b,c]}" = fmt("~lp", [U]),
+    "{[666],'ʚ',[a,b,c]}" = fmt("~ltp", [U]),
+    "{[666],'ʚ',[a,b,c]}" = fmt("~tlp", [U]),
+    "{[666],'\\x{29A}',...}" = fmt("~P", [U,3]),
+    "{[666],'\\x{29A}',...}" = fmt("~lP", [U,3]),
+    "{[666],'ʚ',...}" = fmt("~ltP", [U,3]),
+    "{[666],'ʚ',...}" = fmt("~tlP", [U,3]),
+    %% the compiler should catch uses of ~l with other than pP
     Text =
         "-module(l_mod).\n"
         "-export([t/0]).\n"
         "t() ->\n"
         "    S = \"string\",\n"
-        "    io:format(\"~ltp\", [S]),\n"
-        "    io:format(\"~tlp\", [S]),\n"
-        "    io:format(\"~ltP\", [S, 1]),\n"
-        "    io:format(\"~tlP\", [S, 1]).\n",
+        "    io:format(\"~lw\", [S]),\n"
+        "    io:format(\"~lW\", [S, 1]),\n"
+        "    io:format(\"~ltw\", [S]),\n"
+        "    io:format(\"~tlw\", [S]),\n"
+        "    io:format(\"~ltW\", [S, 1]),\n"
+        "    io:format(\"~tlW\", [S, 1]).\n",
     {ok,l_mod,[{_File,Ws}]} = compile_file("l_mod.erl", Text, Suite),
-    ["format string invalid (invalid control ~lt)",
-     "format string invalid (invalid control ~tl)",
-     "format string invalid (invalid control ~lt)",
-     "format string invalid (invalid control ~tl)"] =
+    ["format string invalid (invalid control ~lw)",
+     "format string invalid (invalid control ~lW)",
+     "format string invalid (invalid control ~ltw)",
+     "format string invalid (invalid control ~ltw)",
+     "format string invalid (invalid control ~ltW)",
+     "format string invalid (invalid control ~ltW)"] =
         [lists:flatten(M:format_error(E)) || {_L,M,E} <- Ws],
     ok.
 
@@ -2005,6 +2039,7 @@ writes(N, F1) ->
 
 format_string(_Config) ->
     %% All but padding is tested by fmt/2.
+    "xxxxxxxsss" = fmt("~10..xs", ["sss"]),
     "xxxxxxsssx" = fmt("~10.4.xs", ["sss"]),
     "xxxxxxsssx" = fmt("~10.4.*s", [$x, "sss"]),
     ok.
@@ -2020,19 +2055,19 @@ maps(_Config) ->
     %% in a map with more than one element.
 
     "#{}" = fmt("~w", [#{}]),
-    "#{a=>b}" = fmt("~w", [#{a=>b}]),
-    re_fmt(<<"#\\{(a=>b|c=>d),[.][.][.]=>[.][.][.]\\}">>,
-	     "~W", [#{a=>b,c=>d},2]),
-    re_fmt(<<"#\\{(a=>b|c=>d|e=>f),[.][.][.]=>[.][.][.],[.][.][.]\\}">>,
-	   "~W", [#{a=>b,c=>d,e=>f},2]),
+    "#{a => b}" = fmt("~w", [#{a=>b}]),
+    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
+	     "~W", [#{a => b,c => d},2]),
+    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
+	   "~W", [#{a => b,c => d,e => f},2]),
 
     "#{}" = fmt("~p", [#{}]),
-    "#{a => b}" = fmt("~p", [#{a=>b}]),
-    "#{...}" = fmt("~P", [#{a=>b},1]),
+    "#{a => b}" = fmt("~p", [#{a => b}]),
+    "#{...}" = fmt("~P", [#{a => b},1]),
     re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
-	   "~P", [#{a=>b,c=>d},2]),
+	   "~P", [#{a => b,c => d},2]),
     re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
-	   "~P", [#{a=>b,c=>d,e=>f},2]),
+	   "~P", [#{a => b,c => d,e => f},2]),
 
     List = [{I,I*I} || I <- lists:seq(1, 20)],
     Map = maps:from_list(List),
@@ -2140,8 +2175,8 @@ otp_14175(_Config) ->
     "#{}" = p(#{}, 1),
     "#{...}" = p(#{a => 1}, 1),
     "#{#{} => a}" = p(#{#{} => a}, 2),
-    "#{a => 1,...}" = p(#{a => 1, b => 2}, 2),
-    "#{a => 1,b => 2}" = p(#{a => 1, b => 2}, -1),
+    mt("#{a => 1,...}", p(#{a => 1, b => 2}, 2)),
+    mt("#{a => 1,b => 2}", p(#{a => 1, b => 2}, -1)),
 
     M = #{kaaaaaaaaaaaaaaaaaaa => v1,kbbbbbbbbbbbbbbbbbbb => v2,
           kccccccccccccccccccc => v3,kddddddddddddddddddd => v4,
@@ -2384,19 +2419,36 @@ limit_term(_Config) ->
     {_, 2} = limt({a,b,c,[d,e]}, 2),
     {_, 2} = limt({a,b,c,[d,e]}, 3),
     {_, 2} = limt({a,b,c,[d,e]}, 4),
+    T0 = [1|{a,b,c}],
+    {_, 2} = limt(T0, 2),
+    {_, 2} = limt(T0, 3),
+    {_, 2} = limt(T0, 4),
     {_, 1} = limt(<<"foo">>, 18),
+    {_, 2} = limt({"",[1,2]}, 3),
+    {_, 2} = limt({"",{1,2}}, 3),
+    true = limt_pp({"123456789012345678901234567890",{1,2}}, 3),
     ok = blimt(<<"123456789012345678901234567890">>),
+    true = limt_pp(<<"123456789012345678901234567890">>, 3),
+    {_, 2} = limt({<<"kljlkjsl">>,[1,2,3,4]}, 4),
     {_, 1} = limt(<<7:3>>, 2),
     {_, 1} = limt(<<7:21>>, 2),
     {_, 1} = limt([], 2),
     {_, 1} = limt({}, 2),
+    {_, 1} = limt({"", ""}, 4),
     {_, 1} = limt(#{}, 2),
-    {_, 1} = limt(#{[] => {}}, 2),
+    {_, 2} = limt(#{[] => {}}, 1),
+    {_, 2} = limt(#{[] => {}}, 2),
     {_, 1} = limt(#{[] => {}}, 3),
     T = #{[] => {},[a] => [b]},
-    {_, 1} = limt(T, 2),
-    {_, 1} = limt(T, 3),
+    {_, 1} = limt(T, 0),
+    {_, 2} = limt(T, 1),
+    {_, 2} = limt(T, 2),
+    {_, 2} = limt(T, 3),
     {_, 1} = limt(T, 4),
+    T2 = #{[] => {},{} => []},
+    {_, 2} = limt(T2, 1),
+    {_, 2} = limt(T2, 2),
+    {_, 1} = limt(T2, 3),
     ok.
 
 blimt(Binary) ->
@@ -2430,3 +2482,239 @@ limt(Term, Depth) when is_integer(Depth) ->
 
 form(Term, Depth) ->
     lists:flatten(io_lib:format("~W", [Term, Depth])).
+
+limt_pp(Term, Depth) when is_integer(Depth) ->
+    T1 = io_lib:limit_term(Term, Depth),
+    S = pp(Term, Depth),
+    S1 = pp(T1, Depth),
+    S1 =:= S.
+
+pp(Term, Depth) ->
+    lists:flatten(io_lib:format("~P", [Term, Depth])).
+
+otp_14983(_Config) ->
+    trunc_depth(-1, fun trp/3),
+    trunc_depth(10, fun trp/3),
+    trunc_depth(-1, fun trw/3),
+    trunc_depth(10, fun trw/3),
+    trunc_depth_p(-1),
+    trunc_depth_p(10),
+    trunc_string(),
+    ok.
+
+trunc_string() ->
+    "str " = trf("str ", [], 10),
+    "str str" = trf("str ~s", ["str"], 6),
+    "str ..." = trf("str ~s", ["str1"], 6),
+    "str str" = trf("str ~s", ["str"], 7),
+    "str str" = trf("str ~8s", ["str"], 6),
+    "str ..." = trf("str ~8s", ["str1"], 6),
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
+					 [{args, " +pc unicode -pa " ++ Pa}]),
+    U = "кирилли́ческий атом",
+    UFun = fun(Format, Args, CharsLimit) ->
+                   rpc:call(UNode,
+                            ?MODULE, trf, [Format, Args, CharsLimit])
+           end,
+    "str кир" = UFun("str ~3ts", [U], 7),
+    "str ..." = UFun("str ~3ts", [U], 6),
+    "str ..." = UFun("str ~30ts", [U], 6),
+    "str кир..." = UFun("str ~30ts", [U], 10),
+    "str кирилл..." = UFun("str ~30ts", [U], 13),
+    "str кирилли́..." = UFun("str ~30ts", [U], 14),
+    "str кирилли́ч..." = UFun("str ~30ts", [U], 15),
+    "\"кирилли́ческ\"..." = UFun("~tp", [U], 13),
+    BU = <<"кирилли́ческий атом"/utf8>>,
+    "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 20),
+    "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 21),
+    "<<\"кирилли́ческ\"/utf8...>>" = UFun("~tp", [BU], 22),
+    test_server:stop_node(UNode).
+
+trunc_depth(D, Fun) ->
+    "..." = Fun("", D, 0),
+    "[]" = Fun("", D, 1),
+
+    "#{}" = Fun(#{}, D, 1),
+    "#{a => 1}" = Fun(#{a => 1}, D, 7),
+    "#{...}" = Fun(#{a => 1}, D, 5),
+    "#{a => 1}" = Fun(#{a => 1}, D, 6),
+    A = lists:seq(1, 1000),
+    M = #{A => A, {A,A} => {A,A}},
+    "#{...}" = Fun(M, D, 6),
+    "#{{...} => {...},...}" = Fun(M, D, 7),
+    "#{{[...],...} => {[...],...},...}" = Fun(M, D, 22),
+    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 31),
+    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 33),
+    "#{{[1|...],[...]} => {[1|...],[...]},[1,2|...] => [...]}" =
+        Fun(M, D, 50),
+
+    "..." = Fun({c, 1, 2}, D, 0),
+    "{...}" = Fun({c, 1, 2}, D, 1),
+
+    "..." = Fun({}, D, 0),
+    "{}" = Fun({}, D, 1),
+    T = {A, A, A},
+    "{...}" = Fun(T, D, 5),
+    "{[...],...}" = Fun(T, D, 6),
+    "{[1|...],[...],...}" = Fun(T, D, 12),
+    "{[1,2|...],[1|...],...}" = Fun(T, D, 20),
+    "{[1,2|...],[1|...],[...]}" = Fun(T, D, 21),
+    "{[1,2,3|...],[1,2|...],[1|...]}" = Fun(T, D, 28),
+
+    "{[1],[1,2|...]}" = Fun({[1],[1,2,3,4]}, D, 14).
+
+trunc_depth_p(D) ->
+    UOpts = [{record_print_fun, fun rfd/2},
+             {encoding, unicode}],
+    LOpts = [{record_print_fun, fun rfd/2},
+             {encoding, latin1}],
+    trunc_depth_p(D, UOpts),
+    trunc_depth_p(D, LOpts).
+
+trunc_depth_p(D, Opts) ->
+    "[...]" = trp("abcdefg", D, 4, Opts),
+    "\"abc\"..." = trp("abcdefg", D, 5, Opts),
+    "\"abcdef\"..." = trp("abcdefg", D, 8, Opts),
+    "\"abcdefg\"" = trp("abcdefg", D, 9, Opts),
+    "\"abcdefghijkl\"" = trp("abcdefghijkl", D, -1, Opts),
+    AZ = lists:seq($A, $Z),
+    AZb = list_to_binary(AZ),
+    AZbS = "<<\"" ++ AZ ++ "\">>",
+    AZbS = trp(AZb, D, -1),
+    "<<\"ABCDEFGH\"...>>" = trp(AZb, D, 17, Opts), % 4 chars even if D = -1...
+    "<<\"ABCDEFGHIJKL\"...>>" = trp(AZb, D, 18, Opts),
+    B1 = <<"abcdef",0:8>>,
+    "<<\"ab\"...>>" = trp(B1, D, 8, Opts),
+    "<<\"abcdef\"...>>" = trp(B1, D, 14, Opts),
+    "<<97,98,99,100,...>>" = trp(B1, D, 16, Opts),
+    "<<97,98,99,100,101,102,0>>" = trp(B1, D, -1, Opts),
+    B2 = <<AZb/binary,0:8>>,
+    "<<\"AB\"...>>" = trp(B2, D, 8, Opts),
+    "<<\"ABCDEFGH\"...>>" = trp(B2, D, 14, Opts),
+    "<<65,66,67,68,69,70,71,72,0>>" = trp(<<"ABCDEFGH",0:8>>, D, -1, Opts),
+    "<<97,0,107,108,...>>" = trp(<<"a",0:8,"kllkjlksdjfsj">>, D, 20, Opts),
+
+    A = lists:seq(1, 1000),
+    "#c{...}" = trp({c, 1, 2}, D, 6),
+    "#c{...}" = trp({c, 1, 2}, D, 7),
+    "#c{f1 = [...],...}" = trp({c, A, A}, D, 18),
+    "#c{f1 = [1|...],f2 = [...]}" = trp({c, A, A}, D, 19),
+    "#c{f1 = [1,2|...],f2 = [1|...]}" = trp({c, A, A}, D, 31),
+    "#c{f1 = [1,2,3|...],f2 = [1,2|...]}" = trp({c, A, A}, D, 32).
+
+trp(Term, D, T) ->
+    trp(Term, D, T, [{record_print_fun, fun rfd/2}]).
+
+trp(Term, D, T, Opts) ->
+    R = io_lib_pretty:print(Term, [{depth, D},
+                                   {chars_limit, T}|Opts]),
+    lists:flatten(io_lib:format("~s", [R])).
+
+trw(Term, D, T) ->
+    lists:flatten(io_lib:format("~W", [Term, D], [{chars_limit, T}])).
+
+trf(Format, Args, T) ->
+    trf(Format, Args, T, [{record_print_fun, fun rfd/2}]).
+
+trf(Format, Args, T, Opts) ->
+    lists:flatten(io_lib:format(Format, Args, [{chars_limit, T}|Opts])).
+
+otp_15103(_Config) ->
+    T = lists:duplicate(5, {a,b,c}),
+
+    S1 = io_lib:format("~0p", [T]),
+    "[{a,b,c},{a,b,c},{a,b,c},{a,b,c},{a,b,c}]" = lists:flatten(S1),
+    S2 = io_lib:format("~-0p", [T]),
+    "[{a,b,c},{a,b,c},{a,b,c},{a,b,c},{a,b,c}]" = lists:flatten(S2),
+    S3 = io_lib:format("~1p", [T]),
+    "[{a,\n  b,\n  c},\n {a,\n  b,\n  c},\n {a,\n  b,\n  c},\n {a,\n  b,\n"
+    "  c},\n {a,\n  b,\n  c}]" = lists:flatten(S3),
+
+    S4 = io_lib:format("~0P", [T, 5]),
+    "[{a,b,c},{a,b,...},{a,...},{...}|...]" = lists:flatten(S4),
+    S5 = io_lib:format("~1P", [T, 5]),
+    "[{a,\n  b,\n  c},\n {a,\n  b,...},\n {a,...},\n {...}|...]" =
+        lists:flatten(S5),
+    ok.
+
+otp_15159(_Config) ->
+    "[atom]" =
+        lists:flatten(io_lib:format("~p", [[atom]], [{chars_limit,5}])),
+    ok.
+
+otp_15076(_Config) ->
+    {'EXIT', {badarg, _}} = (catch io_lib:format("~c", [a])),
+    L = io_lib:scan_format("~c", [a]),
+    {"~c", [a]} = io_lib:unscan_format(L),
+    {'EXIT', {badarg, _}} = (catch io_lib:build_text(L)),
+    {'EXIT', {badarg, _}} = (catch io_lib:build_text(L, [])),
+    ok.
+
+otp_15639(_Config) ->
+    L = lists:duplicate(10, "a"),
+    LOpts = [{encoding, latin1},  {chars_limit, 10}],
+    UOpts = [{encoding, unicode}, {chars_limit, 10}],
+    "[[...]|...]" = pretty(L, LOpts),
+    "[[...]|...]" = pretty(L, UOpts),
+    "[\"a\",[...]|...]" =
+        pretty(L, [{chars_limit, 12}, {encoding, latin1}]),
+    "[\"a\",[...]|...]" =
+        pretty(L, [{chars_limit, 12}, {encoding, unicode}]),
+
+    %% Latin-1
+    "\"12345678\"" = pretty("12345678", LOpts),
+    "\"12345678\"..." = pretty("123456789", LOpts),
+    "\"\\r\\n123456\"..." = pretty("\r\n1234567", LOpts),
+    "\"\\r1234567\"..." = pretty("\r12345678", LOpts),
+    "\"\\r\\n123456\"..." = pretty("\r\n12345678", LOpts),
+    "\"12345678\"..." = pretty("12345678"++[x], LOpts),
+    "[49,50|...]" = pretty("1234567"++[x], LOpts),
+    "[49,x]" = pretty("1"++[x], LOpts),
+    "[[...]|...]" = pretty(["1","2","3","4","5","6","7","8"], LOpts),
+    %% Unicode
+    "\"12345678\"" = pretty("12345678", UOpts),
+    "\"12345678\"..." = pretty("123456789", UOpts),
+    "\"\\r\\n1234567\"" = pretty("\r\n1234567", UOpts),
+    "\"\\r1234567\"..." = pretty("\r12345678", UOpts),
+    "\"\\r\\n1234567\"..." = pretty("\r\n12345678", UOpts),
+    "[49,50|...]" = pretty("12345678"++[x], UOpts),
+    "\"12345678\"..." = pretty("123456789"++[x], UOpts),
+    "[[...]|...]" = pretty(["1","2","3","4","5","6","7","8"], UOpts),
+    ok.
+
+otp_15705(_Config) ->
+    L = [<<"an">>,["at"],[["om"]]],
+    "..." = trf("~s", [L], 0),
+    "..." = trf("~s", [L], 1),
+    "..." = trf("~s", [L], 2),
+    "..." = trf("~s", [L], 3),
+    "a..." = trf("~s", [L], 4),
+    "an..." = trf("~s", [L], 5),
+    "anatom" = trf("~s", [L], 6),
+    L2 = ["a",[<<"na">>],[["tom"]]],
+    "..." = trf("~s", [L2], 3),
+    "a..." = trf("~s", [L2], 4),
+    "an..." = trf("~s", [L2], 5),
+    "anatom" = trf("~s", [L2], 6),
+
+    A = [[<<"äpple"/utf8>>, "plus", <<"äpple">>]],
+    "äp..." = trf("~ts", [A], 5),
+    "äppleplusäpple" = trf("~ts", [A], 14),
+    U = [["ки"],"рилл","и́ческий атом"],
+    "ки..." = trf("~ts", [U], 5),
+    "кирилли́ческий..." = trf("~ts", [U], 16),
+    "кирилли́ческий атом" = trf("~ts", [U], 20),
+
+    "|кирилли́чес|" = trf("|~10ts|", [U], -1),
+    ok.
+
+otp_15847(_Config) ->
+    T = {someRecord,<<"1234567890">>,some,more},
+    "{someRecord,<<...>>,...}" =
+        pretty(T, [{chars_limit,20}, {encoding,latin1}]),
+    ok.
+
+otp_15875(_Config) ->
+    S = io_lib:format("~tp", [[{0, [<<"00">>]}]], [{chars_limit, 18}]),
+    "[{0,[<<48,...>>]}]" = lists:flatten(S).

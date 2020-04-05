@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,10 +67,10 @@ get_log_writes() ->
 incr_log_writes() ->
     Left = mnesia_lib:incr_counter(trans_log_writes_left, -1),
     if
-	Left > 0 ->
-	    ignore;
+	Left =:= 0 ->
+	    adjust_log_writes(true);
 	true ->
-	    adjust_log_writes(true)
+	    ignore
     end.
 
 adjust_log_writes(DoCast) ->
@@ -191,8 +191,7 @@ do_perform_dump(Cont, InPlace, InitBy, Regulator, OldVersion) ->
 	    try insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
 		Version ->
 		    do_perform_dump(C2, InPlace, InitBy, Regulator, Version)
-	    catch _:R when R =/= fatal ->
-		    ST = erlang:get_stacktrace(),
+	    catch _:R:ST when R =/= fatal ->
 		    Reason = {"Transaction log dump error: ~tp~n", [{R, ST}]},
 		    close_files(InPlace, {error, Reason}, InitBy),
 		    exit(Reason)
@@ -273,17 +272,12 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 	    end
     end,
     D = Rec#commit.disc_copies,
-    ExtOps = commit_ext(Rec),
     insert_ops(Tid, disc_copies, D, InPlace, InitBy, LogV),
-    [insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV) ||
-	{Ext, Ops} <- ExtOps,
-	storage_semantics(Ext) == disc_copies],
+    insert_ext_ops(Tid, commit_ext(Rec), InPlace, InitBy),
     case InitBy of
 	startup ->
 	    DO = Rec#commit.disc_only_copies,
-	    insert_ops(Tid, disc_only_copies, DO, InPlace, InitBy, LogV),
-	    [insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV) ||
-		{Ext, Ops} <- ExtOps, storage_semantics(Ext) == disc_only_copies];
+	    insert_ops(Tid, disc_only_copies, DO, InPlace, InitBy, LogV);
 	_ ->
 	    ignore
     end.
@@ -291,11 +285,8 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 commit_ext(#commit{ext = []}) -> [];
 commit_ext(#commit{ext = Ext}) ->
     case lists:keyfind(ext_copies, 1, Ext) of
-	{_, C} ->
-	    lists:foldl(fun({Ext0, Op}, D) ->
-				orddict:append(Ext0, Op, D)
-			end, orddict:new(), C);
-	false -> []
+        {_, C} -> C;
+        false -> []
     end.
 
 update(_Tid, [], _DumperMode) ->
@@ -325,12 +316,26 @@ perform_update(Tid, SchemaOps, _DumperMode, _UseDir) ->
 	 ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
 	 close_files(InPlace, ok, InitBy),
 	 ok
-    catch _:Reason when Reason =/= fatal ->
-	    ST = erlang:get_stacktrace(),
+    catch _:Reason:ST when Reason =/= fatal ->
 	    Error = {error, {"Schema update error", {Reason, ST}}},
 	    close_files(InPlace, Error, InitBy),
             fatal("Schema update error ~tp ~tp", [{Reason,ST}, SchemaOps])
     end.
+
+insert_ext_ops(Tid, ExtOps, InPlace, InitBy) ->
+  %% Note: ext ops cannot be part of pre-4.3 logs, so there's no need
+  %% to support the old operation order, as in `insert_ops'
+  lists:foreach(
+    fun ({Ext, Op}) ->
+        case storage_semantics(Ext) of
+          Semantics when Semantics == disc_copies;
+                         Semantics == disc_only_copies, InitBy == startup ->
+            insert_op(Tid, Ext, Op, InPlace, InitBy);
+          _Other ->
+            ok
+        end
+    end,
+    ExtOps).
 
 insert_ops(_Tid, _Storage, [], _InPlace, _InitBy, _) ->    ok;
 insert_ops(Tid, Storage, [Op], InPlace, InitBy, Ver)  when Ver >= "4.3"->
@@ -1471,8 +1476,9 @@ regulate(RegulatorPid) ->
 	{regulated, RegulatorPid} -> ok
     end.
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.

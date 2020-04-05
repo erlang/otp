@@ -53,6 +53,8 @@ module 'lfe_guard_SUITE' ['$handle_undefined_function'/2,
 'init_per_suite'/1 =
     %% Line 62
     fun (_config) ->
+      do
+        call 'test_lib':'recompile_core'('lfe_guard_SUITE')
 	_config
 'end_per_suite'/1 =
     %% Line 64

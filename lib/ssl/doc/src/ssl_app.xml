@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,44 +35,14 @@
 
   <description>
     <p>
-      The ssl application is an implementation of the SSL/TLS protocol in Erlang.
+      The ssl application is an implementation of the SSL, TLS and DTLS protocols in Erlang.
     </p>
-    <list type="bulleted">
-      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
-      TLS-1.1, and TLS-1.2.</item>
-      <item>For security reasons SSL-2.0 is not supported.</item>
-      <item>For security reasons SSL-3.0 is no longer supported by default,
-      but can be configured.</item>
-      <item>For security reasons DES cipher suites are no longer supported by default,
-      but can be configured.</item>
-      <item> Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
-      </item>
-      <item>Ephemeral Diffie-Hellman cipher suites are supported,
-      but not Diffie Hellman Certificates cipher suites.</item>
-      <item>Elliptic Curve cipher suites are supported if the Crypto 
-      application supports it and named curves are used.
-      </item>
-      <item>Export cipher suites are not supported as the
-      U.S. lifted its export restrictions in early 2000.</item>
-      <item>IDEA cipher suites are not supported as they have
-      become deprecated by the latest TLS specification so it is not 
-      motivated to implement them.</item>
-      <item>Compression is not supported.</item>
-      <item>CRL validation is supported.</item>
-      <item>Policy certificate extensions are not supported.</item>
-      <item>'Server Name Indication' extension
-      (<url href="http://www.ietf.org/rfc/rfc6066.txt">RFC 6066</url>) is supported.</item>
-      <item>Application Layer Protocol Negotiation (ALPN) and its successor Next Protocol Negotiation (NPN)
-      are supported. </item>
-      <item>It is possible to use Pre-Shared Key (PSK) and Secure Remote Password (SRP)
-      cipher suites, but they are not enabled by default.
-      </item>
-    </list>
-   </description>
+    <p>For current statement of standards compliance see the <seeguide marker="standards_compliance">User's Guide</seeguide>.</p>
+  </description>
 
   <section>
     <title>DEPENDENCIES</title>
-    <p>The SSL application uses the <c>public_key</c> and
+    <p>The SSL application uses the <c>public_key</c>, <c>asn1</c> and
     Crypto application to handle public keys and encryption, hence
     these applications must be loaded for the SSL application to work. 
     In an embedded environment this means they must be started with
@@ -82,10 +52,11 @@
 
   <section>
     <title>CONFIGURATION</title>
-    <p>The application environment configuration parameters in this section 
+    <p>
+    The application environment configuration parameters in this section
     are defined for the SSL application. For more information 
     about configuration parameters, see the 
-    <seealso marker="kernel:application">application(3)</seealso>
+    <seeerl marker="kernel:application">application(3)</seeerl>
     manual page in Kernel.</p>
 
     <p>The environment parameters can be set on the command line,
@@ -94,13 +65,20 @@
     <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <tag><c>protocol_version = </c><seetype marker="ssl#protocol">ssl:ssl_tls_protocol()</seetype><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
-      protocols currently supported by the SSL application.
+      TLS protocols currently supported, more might be configurable, by the SSL application.
       This option can be overridden by the version option
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
+      <tag><c>dtls_protocol_version = </c><seetype marker="ssl#protocol">ssl:dtls_protocol()</seetype><c><![CDATA[<optional>]]></c></tag>
+      <item><p>Protocol supported by started clients and
+      servers. If this option is not set, it defaults to all
+      DTLS protocols currently supported, more might be configurable, by the SSL application.
+      This option can be overridden by the version option
+      to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
+      
       <tag><c><![CDATA[session_lifetime = integer() <optional>]]></c></tag>
       <item><p>Maximum lifetime of the session data in seconds. Defaults to 24 hours which is the maximum
       recommended lifetime by <url href="http://www.ietf.org/rfc/5246rfc.txt">RFC 5246</url>. However
@@ -123,31 +101,30 @@
       new client connections.  If the maximum number of sessions is
       reached, the current cache entries will be invalidated
       regardless of their remaining lifetime. Defaults to
-      1000.</p></item>
+      1000. Recommended ssl-8.2.1 or later for this option to work as intended.</p></item>
 
       <tag> <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
       <item><p>Limits the growth of the servers session cache, that is
       how many client sessions are cached by the server. If the
       maximum number of sessions is reached, the current cache entries
       will be invalidated regardless of their remaining
-      lifetime. Defaults to 1000.</p></item>
+      lifetime. Defaults to 1000. Recommended ssl-8.2.1 or later for this option to work as intended.</p></item>
       
       <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
       <item>
 	<p>
 	  Number of milliseconds between PEM cache validations. Defaults to 2 minutes.
 	</p>
-	<seealso
-	    marker="ssl#clear_pem_cache-0">ssl:clear_pem_cache/0</seealso>
+	<seemfa
+	    marker="ssl#clear_pem_cache/0">ssl:clear_pem_cache/0</seemfa>
 	
       </item>
 
       <tag><c><![CDATA[bypass_pem_cache = boolean() <optional>]]></c></tag>
       <item>
 	<p>Introduced in ssl-8.0.2. Disables the PEM-cache.
-	The PEM cache has proven to be a bottleneck, until the
-	implementation has been improved this can be used as
-	a workaround. Defaults to false.
+	Can be used as a workaround for the PEM-cache bottleneck
+	before ssl-8.1.1. Defaults to false.
 	</p>
       </item>
       
@@ -160,20 +137,82 @@
 	  shutdown gracefully. Defaults to 5000 milliseconds.   
 	</p>
       </item>
+
+      <tag><c><![CDATA[internal_active_n = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  For TLS connections this value is used to handle the
+	  internal socket. As the implementation was changed from an
+	  active once to an active N behavior (N = 100), for
+	  performance reasons, this option exist for possible tweaking
+	  or restoring of the old behavior (internal_active_n = 1) in
+	  unforeseen scenarios.  The option will not affect erlang
+	  distribution over TLS that will always run in active N mode.
+	  Added in ssl-9.1 (OTP-21.2).
+	</p>
+      </item>
+
+      <tag><c><![CDATA[server_session_tickets_amount = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Number of session tickets sent by the server. It must be greater than 0.
+	  Defaults to 3.
+	</p>
+      </item>
+
+      <tag><c><![CDATA[server_session_ticket_lifetime = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Lifetime of session tickets sent by the server. Servers must not use
+	  any value greater than 604800 seconds (7 days). Expired tickets are automatically removed.
+	  Defaults to 7200 seconds (2 hours).
+	</p>
+      </item>
+
+      <tag><c><![CDATA[server_session_ticket_store_size = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Sets the maximum size of the server session ticket store (stateful tickets).
+	  Defaults to 1000. Size limit is enforced by dropping old tickets.
+	</p>
+      </item>
+
+      <tag><c><![CDATA[client_session_ticket_lifetime = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Lifetime of session tickets in the client ticket store. Expired tickets are
+	  automatically removed. Defaults to 7200 seconds (2 hours).
+	</p>
+      </item>
+
+      <tag><c><![CDATA[client_session_ticket_store_size = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Sets the maximum size of the client session ticket store.
+	  Defaults to 1000. Size limit is enforced by dropping old tickets.
+	</p>
+      </item>
     </taglist>
   </section>
 
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
-    <p>The SSL application uses the default <seealso
-    marker="kernel:error_logger">OTP error logger</seealso> to log
-    unexpected errors and TLS alerts. The logging of TLS alerts may be
-    turned off with the <c>log_alert</c> option. </p>
+
+    <p>The SSL application uses <seeerl
+    marker="kernel:logger">OTP logger</seeerl>.
+    TLS/DTLS alerts are logged on notice level. Unexpected
+    errors are logged on error level. These log entries
+    will by default end up in the default Erlang log.
+    The option <c>log_level</c> may be used to in run-time to set
+    the log level of a specific TLS connection, which is
+    handy when you want to use level debug to inspect the
+    TLS handshake setup.    
+    </p>
   </section>
 
   <section>
     <title>SEE ALSO</title>
-	<p><seealso marker="kernel:application">application(3)</seealso></p>
+	<p><seeerl marker="kernel:application">application(3)</seeerl></p>
   </section>
   
 </appref>

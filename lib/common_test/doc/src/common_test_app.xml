@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>common_test_app.sgml</file>
   </header>
-  <module>common_test</module> 
+  <module since="">common_test</module> 
   <modulesummary>A framework for automated testing of any target nodes.</modulesummary>
 
   <description>
@@ -55,31 +55,33 @@
     <p>The following section describes the mandatory and optional test suite
       functions that <c>Common Test</c> calls during test execution.
       For more details, see section
-      <seealso marker="write_test_chapter">Writing Test Suites</seealso>
+      <seeguide marker="write_test_chapter">Writing Test Suites</seeguide>
       in the User's Guide.</p>
 
   </description>
 
-  <section>
-    <title>Test Case Callback Functions</title>
-    <p>The following functions define the callback interface
-      for a test suite.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Test Case Callback Functions</title>
+      <p>The following functions define the callback interface
+        for a test suite.</p>
+    </fsdescription>
     <func>
-      <name>Module:all() -> Tests | {skip,Reason} </name>
+      <name since="">Module:all() -> Tests | {skip,Reason} </name>
       <fsummary>Returns the list of all test case groups and test cases
 	in the module.</fsummary>
       <type>
-	<v>Tests = [TestCase | {group,GroupName} | {group,GroupName,Properties} | {group,GroupName,Properties,SubGroups}]</v>
+	<v>Tests = [TestCase | {testcase,TestCase,TCRepeatProps} | {group,GroupName} | {group,GroupName,Properties} | {group,GroupName,Properties,SubGroups}]</v>
 	<v>TestCase = atom()</v>
+	<v>TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</v>
 	<v>GroupName = atom()</v>
-	<v>Properties = [parallel | sequence | Shuffle | {RepeatType,N}] | default</v>
+	<v>Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}] | default</v>
 	<v>SubGroups = [{GroupName,Properties} | {GroupName,Properties,SubGroups}]</v>
 	<v>Shuffle = shuffle | {shuffle,Seed}</v>
 	<v>Seed = {integer(),integer(),integer()}</v>
-	<v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+	<v>GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
 	<v>N = integer() | forever</v>
 	<v>Reason = term()</v>
       </type>
@@ -91,15 +93,16 @@
           test suite module to be executed. This list also specifies the
           order the cases and groups are executed by <c>Common Test</c>.
           A test case is represented by an atom,
-	  the name of the test case function. A test case group is
+	  the name of the test case function, or a <c>testcase</c> tuple
+	  indicating that the test case shall be repeated. A test case group is
 	  represented by a <c>group</c> tuple, where <c>GroupName</c>,
 	  an atom, is the name of the group (defined in
-	  <seealso marker="#Module:groups-0"><c>groups/0</c></seealso>).
+	  <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
 	  Execution properties for groups can also be specified, both
 	  for a top-level group and for any of its subgroups.
 	  Group execution properties specified here override
 	  properties in the group definition (see
-	  <seealso marker="#Module:groups-0"><c>groups/0</c></seealso>).
+	  <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
 	  (With value <c>default</c>, the group definition properties
 	  are used).</p>
 
@@ -108,25 +111,26 @@
           is printed on the HTML result page.</p>
 
 	<p>For details on groups, see section
-	  <seealso marker="write_test_chapter#test_case_groups">Test Case
-	  Groups</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#test_case_groups">Test Case
+	  Groups</seeguide> in the User's Guide.</p>
 
     </desc>
     </func>
 
     <func>
-      <name>Module:groups() -> GroupDefs</name>
+      <name since="">Module:groups() -> GroupDefs</name>
       <fsummary>Returns a list of test case group definitions.</fsummary>
       <type>
         <v>GroupDefs = [Group]</v>
         <v>Group = {GroupName,Properties,GroupsAndTestCases}</v>
         <v>GroupName = atom()</v>
-        <v>Properties = [parallel | sequence | Shuffle | {RepeatType,N}]</v>
-        <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase]</v>
+        <v>Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]</v>
+        <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase | {testcase,TestCase,TCRepeatProps}]</v>
         <v>TestCase = atom()</v>
+	<v>TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</v>
         <v>Shuffle = shuffle | {shuffle,Seed}</v>
         <v>Seed = {integer(),integer(),integer()}</v>
-        <v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+        <v>GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
         <v>N = integer() | forever</v>
       </type>
 
@@ -134,13 +138,13 @@
 	<p>OPTIONAL</p>
 
 	<p>Defines test case groups. For details, see section
-	  <seealso marker="write_test_chapter#test_case_groups">Test Case 
-	  Groups</seealso> in the User's Guide.</p>      
+	  <seeguide marker="write_test_chapter#test_case_groups">Test Case 
+	  Groups</seeguide> in the User's Guide.</p>      
       </desc>
     </func>
 
       <func>
-	<name>Module:suite() -> [Info] </name>
+	<name since="">Module:suite() -> [Info] </name>
 	<fsummary>Test suite info function (providing default data
 	  for the suite).</fsummary>
 	<type>
@@ -177,15 +181,15 @@
 
 	<p>Tag <c>timetrap</c> sets the maximum time that each
 	  test case is allowed to execute (including
-	  <seealso marker="#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
 	  and
-	  <seealso marker="#Module:end_per_testcase-2"><c>end_per_testcase/2</c></seealso>).
+	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>).
 	  If the timetrap time is exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It can also be
 	  used to trigger a timetrap time-out by, at some point, returning a
 	  value other than a <c>TimeVal</c>. For details, see section
-	  <seealso marker="write_test_chapter#timetraps">Timetrap Time-Outs</seealso>
+	  <seeguide marker="write_test_chapter#timetraps">Timetrap Time-Outs</seeguide>
 	  in the User's Guide.</p>
 
 	<p>Tag <c>require</c> specifies configuration variables
@@ -193,27 +197,27 @@
 	  in the suite. If the required configuration variables are not found
 	  in any of the configuration files, all test cases are skipped.
 	  For details about the <c>require</c> functionality, see funtion
-	  <seealso marker="ct#require-1"><c>ct:require/1,2</c></seealso>.</p>
+	  <seemfa marker="ct#require/1"><c>ct:require/1,2</c></seemfa>.</p>
 
 	<p>With <c>userdata</c>, the user can
 	  specify any test suite-related information, which can be
 	  read by calling
-	  <seealso marker="ct#userdata-2"><c>ct:userdata/2</c></seealso>.</p>
+	  <seemfa marker="ct#userdata/2"><c>ct:userdata/2</c></seemfa>.</p>
 
 	<p>Tag <c>ct_hooks</c> specifies the
-	  <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso>
+	  <seeguide marker="ct_hooks_chapter">Common Test Hooks</seeguide>
 	  to be run with this suite.</p>
 
 	<p>Other tuples than the ones defined are ignored.</p>
 
 	<p>For details about the test suite information function, see section
-	  <seealso marker="write_test_chapter#suite">Test
-	  Suite Information Function</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#suite">Test
+	  Suite Information Function</seeguide> in the User's Guide.</p>
     </desc>      
     </func>
 
       <func>
-	<name>Module:init_per_suite(Config) -> NewConfig | {skip,Reason} |
+	<name since="">Module:init_per_suite(Config) -> NewConfig | {skip,Reason} |
 	  {skip_and_save,Reason,SaveConfig}</name>
 	<fsummary>Test suite initializations.</fsummary>
 	<type>
@@ -224,8 +228,8 @@
 	</type>
 	<desc>	
 
-	  <p>OPTIONAL; if this function is defined, then <seealso
-	  marker="#Module:end_per_suite-1"><c>end_per_suite/1</c></seealso>
+	  <p>OPTIONAL; if this function is defined, then <seemfa
+	  marker="#Module:end_per_suite/1"><c>end_per_suite/1</c></seemfa>
 	  must also be defined.</p>
 
 	  <p>This configuration function is called as the first function in the
@@ -242,13 +246,13 @@
 
 	  <p>For information on <c>save_config</c> and <c>skip_and_save</c>,
 	  see section
-	  <seealso marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seealso> in the User's Guide.</p>
+	  <seeguide marker="dependencies_chapter#save_config">Saving
+	  Configuration Data</seeguide> in the User's Guide.</p>
     </desc>
     </func>
 
     <func>
-      <name>Module:end_per_suite(Config) -> term() | 
+      <name since="">Module:end_per_suite(Config) -> term() | 
 	{save_config,SaveConfig}</name>
       <fsummary>Test suite finalization.</fsummary>
       <type>
@@ -258,21 +262,21 @@
       </type>
 
       <desc>	
-	<p>OPTIONAL; if this function is defined, then <seealso
-	  marker="#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>
+	<p>OPTIONAL; if this function is defined, then <seemfa
+	  marker="#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
 	  must also be defined.</p>
 	
 	<p>This function is called as the last test case in the
 	  suite. It is meant to be used for cleaning up after
-	  <seealso marker="#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>.</p>
+	  <seemfa marker="#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>.</p>
 	<p>For information on <c>save_config</c>, see section
-	  <seealso marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seealso> in the User's Guide.</p>
+	  <seeguide marker="dependencies_chapter#save_config">Saving
+	  Configuration Data</seeguide> in the User's Guide.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:group(GroupName) -> [Info] </name>
+      <name since="OTP R15B">Module:group(GroupName) -> [Info] </name>
       <fsummary>Test case group information function (providing default data
         for a test case group, that is, its test cases and
         subgroups).</fsummary>
@@ -308,23 +312,23 @@
 	  return a list of tagged tuples that specify various properties
 	  related to the execution of a test case group (that is, its test
 	  cases and subgroups). Properties set by
-	  <seealso marker="#Module:group-1"><c>group/1</c></seealso> override
+	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa> override
 	  properties with the same key that have been set previously by
-	  <seealso marker="#Module:suite-0"><c>suite/0</c></seealso>.</p>
+	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa>.</p>
 	  
 	<p>Tag <c>timetrap</c> sets the maximum time that each
 	  test case is allowed to execute (including
-	  <seealso marker="#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
 	  and
-	  <seealso marker="#Module:end_per_testcase-2"><c>end_per_testcase/2</c></seealso>).
+	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>).
 	  If the timetrap time is
 	  exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It can also be
 	  used to trigger a timetrap time-out by, at some point, returning a
 	  value other than a <c>TimeVal</c>. For details, see section
-	  <seealso marker="write_test_chapter#timetraps">Timetrap
-	  Time-Outs</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#timetraps">Timetrap
+	  Time-Outs</seeguide> in the User's Guide.</p>
 	
 	<p>Tag <c>require</c> specifies configuration variables
 	  required by test cases (or configuration functions)
@@ -332,27 +336,27 @@
 	  in any of the configuration files, all test cases in this group are
 	  skipped. For details about the <c>require</c> functionality, see
 	  function
-	  <seealso marker="ct#require-1"><c>ct:require/1,2</c></seealso>.</p>
+	  <seemfa marker="ct#require/1"><c>ct:require/1,2</c></seemfa>.</p>
 
 	<p>With <c>userdata</c>, the user can
 	  specify any test case group related information that can be 
 	  read by calling
-	  <seealso marker="ct#userdata-2"><c>ct:userdata/2</c></seealso>.</p>
+	  <seemfa marker="ct#userdata/2"><c>ct:userdata/2</c></seemfa>.</p>
 
 	<p>Tag <c>ct_hooks</c> specifies the
-	  <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso>
+	  <seeguide marker="ct_hooks_chapter">Common Test Hooks</seeguide>
 	  to be run with this suite.</p>
 
 	<p>Other tuples than the ones defined are ignored.</p>
 
 	<p>For details about the test case group information function,
-	  see section <seealso marker="write_test_chapter#group_info">Group
-	  Information Function</seealso> in the User's Guide.</p>
+	  see section <seeguide marker="write_test_chapter#group_info">Group
+	  Information Function</seeguide> in the User's Guide.</p>
     </desc>      
     </func>
 
       <func>
-	<name>Module:init_per_group(GroupName, Config) -> NewConfig |
+	<name since="">Module:init_per_group(GroupName, Config) -> NewConfig |
 	  {skip,Reason}</name>
 	<fsummary>Test case group initializations.</fsummary>
 	<type>
@@ -364,8 +368,8 @@
 	</type>
 	<desc>	
 
-	  <p>OPTIONAL; if this function is defined, then <seealso
-	    marker="#Module:end_per_group-2"><c>end_per_group/2</c></seealso>
+	  <p>OPTIONAL; if this function is defined, then <seemfa
+	    marker="#Module:end_per_group/2"><c>end_per_group/2</c></seemfa>
 	    must also be defined.</p>
 
 	  <p>This configuration function is called before execution of a
@@ -373,7 +377,7 @@
 	    common for all test cases and subgroups in the group, and that
 	    must only be performed once. <c>GroupName</c> is the name of the
 	    group, as specified in the group definition (see
-	    <seealso marker="#Module:groups-0"><c>groups/0</c></seealso>).
+	    <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
 	    Parameter <c>Config</c> is the configuration data that can be
 	    modified.
 	    The return value of this function is given as <c>Config</c>
@@ -384,13 +388,13 @@
 	    <c>Reason</c> is printed in the overview log for the group.</p>
 
 	  <p>For information about test case groups, see section 
-	    <seealso marker="write_test_chapter#test_case_groups">Test Case 
-	    Groups</seealso> in the User's Guide.</p> 
+	    <seeguide marker="write_test_chapter#test_case_groups">Test Case 
+	    Groups</seeguide> in the User's Guide.</p> 
     </desc>      
     </func>
 
       <func>
-	<name>Module:end_per_group(GroupName, Config) -> term() |
+	<name since="">Module:end_per_group(GroupName, Config) -> term() |
 	  {return_group_result,Status}</name>
 	<fsummary>Test case group finalization.</fsummary>
 	<type>
@@ -402,29 +406,29 @@
 	</type>
 
 	<desc>	
-	  <p>OPTIONAL; if this function is defined, then <seealso
-	    marker="#Module:init_per_group-2"><c>init_per_group/2</c></seealso>
+	  <p>OPTIONAL; if this function is defined, then <seemfa
+	    marker="#Module:init_per_group/2"><c>init_per_group/2</c></seemfa>
 	    must also be defined.</p>
 
 	  <p>This function is called after the execution of a test case group
 	    is finished. It is meant to be used for cleaning up after
-	    <seealso marker="#Module:init_per_group-2"><c>init_per_group/2</c></seealso>.
+	    <seemfa marker="#Module:init_per_group/2"><c>init_per_group/2</c></seemfa>.
 	    A status value for a nested subgroup can be returned with
 	    <c>{return_group_result,Status}</c>. The status can be retrieved in
-	    <seealso marker="#Module:end_per_group-2"><c>end_per_group/2</c></seealso>
+	    <seemfa marker="#Module:end_per_group/2"><c>end_per_group/2</c></seemfa>
 	    for the group on the level above. The status is also used by
 	    <c>Common Test</c> for deciding if execution of a group is to
 	    proceed if property <c>sequence</c> or <c>repeat_until_*</c>
 	    is set.</p>
 
 	  <p>For details about test case groups, see section 
-	    <seealso marker="write_test_chapter#test_case_groups">Test Case
-	    Groups</seealso> in the User's Guide.</p> 
+	    <seeguide marker="write_test_chapter#test_case_groups">Test Case
+	    Groups</seeguide> in the User's Guide.</p> 
        </desc>
     </func>
 
       <func>
-	<name>Module:init_per_testcase(TestCase, Config) -> NewConfig | {fail,Reason} | {skip,Reason}</name>
+	<name since="">Module:init_per_testcase(TestCase, Config) -> NewConfig | {fail,Reason} | {skip,Reason}</name>
 	<fsummary>Test case initializations.</fsummary>
 	<type>
 	  <v> TestCase = atom()</v>
@@ -436,8 +440,8 @@
 	<desc>
 
 	  <p>OPTIONAL; if this function is defined,
-	    then <seealso marker="#Module:end_per_testcase-2">
-	      <c>end_per_testcase/2</c></seealso> must also be
+	    then <seemfa marker="#Module:end_per_testcase/2">
+	      <c>end_per_testcase/2</c></seemfa> must also be
 	    defined.</p>
 
 	  <p>This function is called before each test case. Argument
@@ -454,7 +458,7 @@
     </func>
 
       <func>
-	<name>Module:end_per_testcase(TestCase, Config) -> term() | {fail,Reason} | {save_config,SaveConfig}</name>
+	<name since="">Module:end_per_testcase(TestCase, Config) -> term() | {fail,Reason} | {save_config,SaveConfig}</name>
 	<fsummary>Test case finalization.</fsummary>
 	<type>
 	  <v>TestCase = atom()</v>
@@ -466,13 +470,13 @@
 	<desc>	
 
 	  <p>OPTIONAL; if this function is defined,
-	    then <seealso marker="#Module:init_per_testcase-2">
-	      <c>init_per_testcase/2</c></seealso> must also be
+	    then <seemfa marker="#Module:init_per_testcase/2">
+	      <c>init_per_testcase/2</c></seemfa> must also be
 	    defined.</p>
 
 	  <p>This function is called after each test case, and can be used
 	    to clean up after
-	    <seealso marker="#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso>
+	    <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
 	    and the test case. Any return value (besides <c>{fail,Reason}</c>
 	    and <c>{save_config,SaveConfig}</c>) is ignored. By returning
 	    <c>{fail,Reason}</c>, <c>TestCase</c> is marked as faulty (even
@@ -480,13 +484,13 @@
 	    a value instead of terminating).</p>
 
 	<p>For information on <c>save_config</c>, see section
-	  <seealso marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seealso> in the User's Guide.</p>
+	  <seeguide marker="dependencies_chapter#save_config">Saving
+	  Configuration Data</seeguide> in the User's Guide.</p>
 	</desc>
       </func>
 
     <func>
-      <name>Module:Testcase() -> [Info] </name>
+      <name since="OTP R14B">Module:Testcase() -> [Info] </name>
       <fsummary>Test case information function.</fsummary>
       <type>
 	<v>Info = {timetrap,Time} | {require,Required} | {require,Name,Required} | {userdata,UserData} | {silent_connections,Conns}</v>
@@ -515,24 +519,24 @@
 	  return a list of tagged tuples that specify various properties
 	  related to the execution of this particular test case.
 	  Properties set by
-	  <seealso marker="#Module:Testcase-0"><c>Testcase/0</c></seealso>
+	  <seemfa marker="#Module:Testcase/0"><c>Testcase/0</c></seemfa>
 	  override properties set previously for the test case by
-	  <seealso marker="#Module:group-1"><c>group/1</c></seealso> or
-	  <seealso marker="#Module:suite-0"><c>suite/0</c></seealso>.</p>
+	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa> or
+	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa>.</p>
 
 	<p>Tag <c>timetrap</c> sets the maximum time that the
 	  test case is allowed to execute. If the timetrap time is
 	  exceeded, the test case fails with reason <c>timetrap_timeout</c>.
-	  <seealso marker="#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
 	  and
-	  <seealso marker="#Module:end_per_testcase-2"><c>end_per_testcase/2</c></seealso>
+	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>
 	  are included in the timetrap time.
 	  A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It can also be
 	  used to trigger a timetrap time-out by, at some point, returning a
 	  value other than a <c>TimeVal</c>. For details, see section
-	  <seealso marker="write_test_chapter#timetraps">Timetrap
-	  Time-Outs</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#timetraps">Timetrap
+	  Time-Outs</seeguide> in the User's Guide.</p>
 	
 	<p>Tag <c>require</c> specifies configuration variables
 	  that are required by the test case (or <c>init_per_testcase/2</c>
@@ -540,27 +544,27 @@
 	  If the required configuration variables are not found in any of the
 	  configuration files, the test case is skipped. For details about
 	  the <c>require</c> functionality, see function
-	  <seealso marker="ct#require-1"><c>ct:require/1,2</c></seealso>.</p>
+	  <seemfa marker="ct#require/1"><c>ct:require/1,2</c></seemfa>.</p>
 
 	<p>If <c>timetrap</c> or <c>require</c> is not set, the
 	  default values specified by
-	  <seealso marker="#Module:suite-0"><c>suite/0</c></seealso> (or
-	  <seealso marker="#Module:group-1"><c>group/1</c></seealso>) are used.</p>
+	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa> (or
+	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa>) are used.</p>
 
 	<p>With <c>userdata</c>, the user can specify any test case-related
 	  information that can be read by calling
-	  <seealso marker="ct#userdata-3"><c>ct:userdata/3</c></seealso>.</p>
+	  <seemfa marker="ct#userdata/3"><c>ct:userdata/3</c></seemfa>.</p>
 
 	<p>Other tuples than the ones defined are ignored.</p>
 
 	<p>For details about the test case information function, see section
-	  <seealso marker="write_test_chapter#info_function">Test
-	  Case Information Function</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#info_function">Test
+	  Case Information Function</seeguide> in the User's Guide.</p>
       </desc>
     </func>
 
     <func>
-	<name>Module:Testcase(Config) ->  term() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
+	<name since="OTP R14B">Module:Testcase(Config) ->  term() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
       <fsummary>A test case.</fsummary>
       <type>
 	<v>Config = SaveConfig = [{Key,Value}]</v>
@@ -576,7 +580,7 @@
 	<p>The implementation of a test case. Call the functions to test and
 	  check the result. If something fails, ensure the
 	  function causes a runtime error or call
-	  <seealso marker="ct#fail-1"><c>ct:fail/1,2</c></seealso>
+	  <seemfa marker="ct#fail/1"><c>ct:fail/1,2</c></seemfa>
 	  (which also causes the test case process to terminate).</p>
 
 	<p>Elements from the <c>Config</c> list can, for example, be read
@@ -595,13 +599,13 @@
 	  in the test case log file.</p>
 
 	<p>For details about test case implementation, see section
-	  <seealso marker="write_test_chapter#test_cases">Test Cases</seealso>
+	  <seeguide marker="write_test_chapter#test_cases">Test Cases</seeguide>
 	  in the User's Guide.</p>
 
 	<p>For information on <c>save_config</c> and <c>skip_and_save</c>,
 	  see section
-	  <seealso marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seealso> in the User's Guide.</p>
+	  <seeguide marker="dependencies_chapter#save_config">Saving
+	  Configuration Data</seeguide> in the User's Guide.</p>
       </desc>
     </func>
 

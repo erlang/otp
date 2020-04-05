@@ -1,0 +1,23 @@
+
+my_callbacks_wrong.erl:26: The return type 
+          #state{parent :: pid(),
+                 status :: 'closed' | 'init' | 'open',
+                 subscribe :: [{pid(), integer()}],
+                 counter :: integer()} in the specification of callback_init/1 is not a subtype of 
+          {'ok', _}, which is the expected return type for the callback of the my_behaviour behaviour
+my_callbacks_wrong.erl:28: The inferred return type of callback_init/1 
+         (#state{parent :: pid(),
+                 status :: 'init',
+                 subscribe :: [],
+                 counter :: 1}) has nothing in common with 
+          {'ok', _}, which is the expected return type for the callback of the my_behaviour behaviour
+my_callbacks_wrong.erl:30: The return type 
+          {'reply',
+           #state{parent :: pid(),
+                  status :: 'closed' | 'init' | 'open',
+                  subscribe :: [{pid(), integer()}],
+                  counter :: integer()}} in the specification of callback_cast/3 is not a subtype of 
+          {'noreply', _}, which is the expected return type for the callback of the my_behaviour behaviour
+my_callbacks_wrong.erl:39: The specified type for the 2nd argument of callback_call/3 (
+          atom()) is not a supertype of 
+          pid(), which is expected type for this argument in the callback of the my_behaviour behaviour

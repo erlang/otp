@@ -21,7 +21,7 @@
 #ifndef __ERLFUNTABLE_H__
 #define __ERLFUNTABLE_H__
 
-#include "erl_smp.h"
+#include "erl_threads.h"
 
 /*
  * Fun entry.
@@ -42,7 +42,7 @@ typedef struct erl_fun_entry {
 
     Uint arity;			/* The arity of the fun. */
     Eterm module;		/* Tagged atom for module. */
-    erts_smp_refc_t refc;		/* Reference count: One for code + one for each
+    erts_refc_t refc;		/* Reference count: One for code + one for each
 				   fun object in each process. */
     BeamInstr *pend_purge_address; /* address stored during a pending purge */
 #ifdef HIPE
@@ -74,7 +74,6 @@ void erts_init_fun_table(void);
 void erts_fun_info(fmtfn_t, void *);
 int erts_fun_table_sz(void);
 
-ErlFunEntry* erts_put_fun_entry(Eterm mod, int uniq, int index);
 ErlFunEntry* erts_get_fun_entry(Eterm mod, int uniq, int index);
 
 ErlFunEntry* erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,

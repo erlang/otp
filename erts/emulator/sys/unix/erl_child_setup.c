@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,14 +56,19 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #define WANT_NONBLOCKING
 
 #include "erl_driver.h"
 #include "sys_uds.h"
-#include "hash.h"
 #include "erl_term.h"
 #include "erl_child_setup.h"
+
+#undef ERTS_GLB_INLINE_INCL_FUNC_DEF
+#define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
+#include "hash.h"
 
 #define SET_CLOEXEC(fd) fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC)
 
@@ -72,6 +77,10 @@
 #else
 #define SHELL "/bin/sh"
 #endif /* __ANDROID__ */
+
+#if !defined(MSG_DONTWAIT) && defined(MSG_NONBLOCK)
+#define MSG_DONTWAIT MSG_NONBLOCK
+#endif
 
 //#define HARD_DEBUG
 #ifdef HARD_DEBUG
@@ -131,6 +140,7 @@ static int sigchld_pipe[2];
 static int
 start_new_child(int pipes[])
 {
+    struct sigaction sa;
     int errln = -1;
     int size, res, i, pos = 0;
     char *buff, *o_buff;
@@ -141,6 +151,16 @@ start_new_child(int pipes[])
 
     /* only child executes here */
 
+    /* Restore default handling of sigterm... */
+    sa.sa_handler = SIG_DFL;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGTERM, &sa, 0) == -1) {
+        perror(NULL);
+        exit(1);
+    }
+    
     do {
         res = read(pipes[0], (char*)&size, sizeof(size));
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
@@ -398,6 +418,7 @@ main(int argc, char *argv[])
     int uds_fd = 3, max_fd = 3;
 #ifndef HAVE_CLOSEFROM
     int i;
+    DIR *dir;
 #endif
     struct sigaction sa;
 
@@ -413,11 +434,29 @@ main(int argc, char *argv[])
 #if defined(HAVE_CLOSEFROM)
     closefrom(4);
 #else
-    for (i = 4; i < max_files; i++)
+    dir = opendir("/dev/fd");
+    if (dir == NULL) { /* /dev/fd not available */
+        for (i = 4; i < max_files; i++)
 #if defined(__ANDROID__)
-        if (i != system_properties_fd())
+            if (i != system_properties_fd())
 #endif
-        (void) close(i);
+            (void) close(i);
+    } else {
+        /* Iterate over fds obtained from /dev/fd */
+        struct dirent *entry;
+        int dir_fd = dirfd(dir);
+
+        while ((entry = readdir(dir)) != NULL) {
+            i = atoi(entry->d_name);
+#if defined(__ANDROID__)
+            if (i != system_properties_fd())
+#endif
+            if (i >= 4 && i != dir_fd)
+                (void) close(i);
+        }
+
+        closedir(dir);
+    }
 #endif
 
     if (pipe(sigchld_pipe) < 0) {
@@ -433,6 +472,21 @@ main(int argc, char *argv[])
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
     if (sigaction(SIGCHLD, &sa, 0) == -1) {
+        perror(NULL);
+        exit(1);
+    }
+
+    /* Ignore SIGTERM.
+       Some container environments send SIGTERM to all processes
+       when terminating. We don't want erl_child_setup to terminate
+       in these cases as that will prevent beam from properly
+       cleaning up.
+    */
+    sa.sa_handler = SIG_IGN;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGTERM, &sa, 0) == -1) {
         perror(NULL);
         exit(1);
     }

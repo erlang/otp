@@ -18,5 +18,7 @@
      $Id$
 -->
 <!ELEMENT image	              (icaption) >
-<!ATTLIST image		      file CDATA #REQUIRED >
+<!ATTLIST image
+	  file CDATA #REQUIRED
+	  width CDATA #IMPLIED >
 <!ELEMENT icaption            (#PCDATA) >

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,9 +47,9 @@ safe(What, QuitOnErr) ->
 	What(),
 	io:format("Completed successfully~n~n", []),
 	QuitOnErr andalso gen_util:halt(0)
-    catch Err:Reason ->
+    catch Err:Reason:Stacktrace ->
 	    io:format("Error ~p: ~p:~p~n  ~p~n", 
-		      [get(current_func),Err,Reason,erlang:get_stacktrace()]),
+		      [get(current_func),Err,Reason,Stacktrace]),
 	    (catch gen_util:close()),
 	    timer:sleep(1999),
 	    QuitOnErr andalso gen_util:halt(1)

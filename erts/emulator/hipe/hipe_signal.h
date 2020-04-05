@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,13 +27,9 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 extern void hipe_signal_init(void);
-#else
-static __inline__ void hipe_signal_init(void) { }
-#endif
-
-#if defined(ERTS_SMP) && (defined(__i386__) || defined(__x86_64__))
 extern void hipe_thread_signal_init(void);
 #else
+static __inline__ void hipe_signal_init(void) { }
 static __inline__ void hipe_thread_signal_init(void) { }
 #endif
 

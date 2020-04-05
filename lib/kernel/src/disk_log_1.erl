@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -630,7 +630,7 @@ is_head(Bin) when is_binary(Bin) ->
 %%          Writes MaxB bytes on each file.  
 %%          Creates a file called Name.idx in the Dir.  This
 %%          file contains the last written FileName as one byte, and
-%%          follwing that, the sizes of each file (size 0 number of items).
+%%          following that, the sizes of each file (size 0 number of items).
 %%          On startup, this file is read, and the next available
 %%          filename is used as first log file.
 %%          Reports can be browsed with Report Browser Tool (rb), or

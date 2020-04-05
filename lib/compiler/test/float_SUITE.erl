@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,21 +20,24 @@
 -module(float_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1]).
+	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1,
+         subtract_number_type/1,float_followed_by_guard/1,
+         fconv_line_numbers/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    test_lib:recompile(?MODULE),
+all() ->
     [pending, bif_calls, math_functions,
-     mixed_float_and_int].
+     mixed_float_and_int, subtract_number_type,
+     float_followed_by_guard,fconv_line_numbers].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -175,6 +178,47 @@ mixed_float_and_int(Config) when is_list(Config) ->
 
 pc(Cov, NotCov, X) ->
     round(Cov/(Cov+NotCov)*100) + 42 + 2.0*X.
+
+subtract_number_type(Config) when is_list(Config) ->
+    120 = fact(5).
+
+fact(N) ->
+    fact(N, 1).
+
+fact(0, P) -> P;
+fact(1, P) -> P;
+fact(N, P) -> fact(N-1, P*N).
+
+float_followed_by_guard(Config) when is_list(Config) ->
+    true = ffbg_1(5, 1),
+    false = ffbg_1(1, 5),
+    ok.
+
+ffbg_1(A, B0) ->
+    %% This is a non-guard block followed by a *guard block* that starts with a
+    %% floating point operation, and the compiler erroneously assumed that it
+    %% was safe to skip fcheckerror because the next block started with a float
+    %% op.
+    B = id(B0) / 1.0,
+    if
+        A - B > 0.0 -> true;
+        A - B =< 0.0 -> false
+    end.
+
+%% ERL-1178: fconv instructions didn't inherit line numbers from their
+%% respective BIF calls.
+fconv_line_numbers(Config) when is_list(Config) ->
+    fconv_line_numbers_1(id(gurka)),
+    ok.
+
+fconv_line_numbers_1(A) ->
+    %% The ?LINE macro must be on the same line as the division.
+    {'EXIT',{badarith, Stacktrace}} = (catch 10 / A), Line = ?LINE,
+    true = lists:any(fun({?MODULE,?FUNCTION_NAME,1,[{file,_},{line,L}]}) ->
+                             L =:= Line;
+                        (_) ->
+                             false
+                     end, Stacktrace).
 
 id(I) -> I.
 

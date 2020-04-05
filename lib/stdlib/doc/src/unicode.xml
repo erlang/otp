@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2017</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>unicode</module>
+  <module since="">unicode</module>
   <modulesummary>Functions for converting Unicode characters.</modulesummary>
   <description>
   <p>This module contains functions for converting between different character 
@@ -56,23 +56,23 @@
   canonical-equivalent Unicode characters as equal. All characters
   should thus be normalized to one form once on the system borders.
   One of the following functions can convert characters to their
-  normalized forms <seealso marker="#characters_to_nfc_list/1">
-  <c>characters_to_nfc_list/1</c></seealso>,
-  <seealso marker="#characters_to_nfc_binary/1">
-    <c>characters_to_nfc_binary/1</c></seealso>,
-    <seealso marker="#characters_to_nfd_list/1">
-    <c>characters_to_nfd_list/1</c></seealso> or
-    <seealso marker="#characters_to_nfd_binary/1">
-      <c>characters_to_nfd_binary/1</c></seealso>.
+  normalized forms <seemfa marker="#characters_to_nfc_list/1">
+  <c>characters_to_nfc_list/1</c></seemfa>,
+  <seemfa marker="#characters_to_nfc_binary/1">
+    <c>characters_to_nfc_binary/1</c></seemfa>,
+    <seemfa marker="#characters_to_nfd_list/1">
+    <c>characters_to_nfd_list/1</c></seemfa> or
+    <seemfa marker="#characters_to_nfd_binary/1">
+      <c>characters_to_nfd_binary/1</c></seemfa>.
   For general text
-  <seealso marker="#characters_to_nfc_list/1">
-    <c>characters_to_nfc_list/1</c></seealso> or
-    <seealso marker="#characters_to_nfc_binary/1">
-      <c>characters_to_nfc_binary/1</c></seealso> is preferred, and
+  <seemfa marker="#characters_to_nfc_list/1">
+    <c>characters_to_nfc_list/1</c></seemfa> or
+    <seemfa marker="#characters_to_nfc_binary/1">
+      <c>characters_to_nfc_binary/1</c></seemfa> is preferred, and
       for identifiers one of the compatibility normalization
       functions, such as
-      <seealso marker="#characters_to_nfkc_list/1">
-      <c>characters_to_nfkc_list/1</c></seealso>,
+      <seemfa marker="#characters_to_nfkc_list/1">
+      <c>characters_to_nfkc_list/1</c></seemfa>,
       is preferred for security reasons.
       The normalization functions where introduced in OTP 20.
       Additional information on normalization can be found in the
@@ -139,7 +139,7 @@
 
   <funcs>
     <func>
-      <name name="bom_to_encoding" arity="1"/>
+      <name name="bom_to_encoding" arity="1" since=""/>
       <fsummary>Identify UTF byte order marks in a binary.</fsummary>
       <type name="endian"/>
       <type_desc variable="Bin">
@@ -156,7 +156,7 @@
     </func>
 
     <func>
-     <name name="characters_to_binary" arity="1"/>
+     <name name="characters_to_binary" arity="1" since=""/>
       <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
         <p>Same as <c>characters_to_binary(<anno>Data</anno>, unicode,
@@ -165,7 +165,7 @@
     </func>
 
     <func>    
-     <name name="characters_to_binary" arity="2"/>
+     <name name="characters_to_binary" arity="2" since=""/>
       <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
         <p>Same as <c>characters_to_binary(<anno>Data</anno>, 
@@ -174,11 +174,11 @@
     </func>
 
     <func>
-      <name name="characters_to_binary" arity="3"/>
+      <name name="characters_to_binary" arity="3" since=""/>
       <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
-        <p>Behaves as <seealso marker="#characters_to_list/2">
-          <c>characters_to_list/2</c></seealso>, but produces a binary
+        <p>Behaves as <seemfa marker="#characters_to_list/2">
+          <c>characters_to_list/2</c></seemfa>, but produces a binary
           instead of a Unicode list.</p>
         <p><c><anno>InEncoding</anno></c> defines how input is to be interpreted
           if binaries are present in <c>Data</c></p>
@@ -203,15 +203,15 @@
         <p>The atoms <c>big</c> and <c>little</c> denote big- or little-endian
           encoding.</p>
         <p>Errors and exceptions occur as in
-          <seealso marker="#characters_to_list/2">
-          <c>characters_to_list/2</c></seealso>, but the second element
+          <seemfa marker="#characters_to_list/2">
+          <c>characters_to_list/2</c></seemfa>, but the second element
           in tuple <c>error</c> or <c>incomplete</c> is a <c>binary()</c>
           and not a <c>list()</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="characters_to_list" arity="1"/>
+      <name name="characters_to_list" arity="1" since=""/>
       <fsummary>Convert a collection of characters to a list of Unicode
         characters.</fsummary>
       <desc>
@@ -220,7 +220,7 @@
     </func>
 
     <func>
-      <name name="characters_to_list" arity="2"/>
+      <name name="characters_to_list" arity="2" since=""/>
       <fsummary>Convert a collection of characters to a list of Unicode
         characters.</fsummary>
       <desc>
@@ -256,8 +256,8 @@
           combinations of Unicode characters into a pure Unicode
           string in list representation for further processing. For
           writing the data to an external entity, the reverse function
-          <seealso marker="#characters_to_binary/3">
-          <c>characters_to_binary/3</c></seealso>
+          <seemfa marker="#characters_to_binary/3">
+          <c>characters_to_binary/3</c></seemfa>
           comes in handy.</p>
         <p>Option <c>unicode</c> is an alias for <c>utf8</c>, as this is the
           preferred encoding for Unicode characters in
@@ -367,7 +367,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="characters_to_nfc_list" arity="1"/>
+      <name name="characters_to_nfc_list" arity="1" since="OTP 20.0"/>
       <fsummary>Normalize characters to a list of canonical equivalent
       composed Unicode characters.</fsummary>
       <desc>
@@ -386,7 +386,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="characters_to_nfc_binary" arity="1"/>
+      <name name="characters_to_nfc_binary" arity="1" since="OTP 20.0"/>
       <fsummary>Normalize characters to a utf8 binary of canonical equivalent
       composed Unicode characters.</fsummary>
       <desc>
@@ -404,7 +404,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="characters_to_nfd_list" arity="1"/>
+      <name name="characters_to_nfd_list" arity="1" since="OTP 20.0"/>
       <fsummary>Normalize characters to a list of canonical equivalent
       decomposed Unicode characters.</fsummary>
       <desc>
@@ -423,7 +423,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="characters_to_nfd_binary" arity="1"/>
+      <name name="characters_to_nfd_binary" arity="1" since="OTP 20.0"/>
       <fsummary>Normalize characters to a utf8 binary of canonical equivalent
       decomposed Unicode characters.</fsummary>
       <desc>
@@ -441,7 +441,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="characters_to_nfkc_list" arity="1"/>
+      <name name="characters_to_nfkc_list" arity="1" since="OTP 20.0"/>
       <fsummary>Normalize characters to a list of canonical equivalent
       composed Unicode characters.</fsummary>
       <desc>
@@ -460,7 +460,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="characters_to_nfkc_binary" arity="1"/>
+      <name name="characters_to_nfkc_binary" arity="1" since="OTP 20.0"/>
       <fsummary>Normalize characters to a utf8 binary of compatibly equivalent
       composed Unicode characters.</fsummary>
       <desc>
@@ -478,7 +478,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="characters_to_nfkd_list" arity="1"/>
+      <name name="characters_to_nfkd_list" arity="1" since="OTP 20.0"/>
       <fsummary>Normalize characters to a list of compatibly equivalent
       decomposed Unicode characters.</fsummary>
       <desc>
@@ -497,7 +497,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="characters_to_nfkd_binary" arity="1"/>
+      <name name="characters_to_nfkd_binary" arity="1" since="OTP 20.0"/>
       <fsummary>Normalize characters to a utf8 binary of compatibly equivalent
       decomposed Unicode characters.</fsummary>
       <desc>
@@ -515,7 +515,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="encoding_to_bom" arity="1"/>
+      <name name="encoding_to_bom" arity="1" since=""/>
       <fsummary>Create a binary UTF byte order mark from encoding.</fsummary>
       <type_desc variable="Bin">
         A <c>binary()</c> such that <c>byte_size(<anno>Bin</anno>) >= 4</c>.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,9 @@ tests() ->
      {"for C compiler", fun c_compiler/1},
      {"for make program", fun make/1},
      {"for location of SSL libraries", fun ssl/1},
-     {"for location of Java compiler", fun javac/1}].
+     {"for location of Java compiler", fun javac/1},
+     {"if wsl is to used as shell", fun wsl/1}
+    ].
 
 system_type(Vars) ->
     Os = case os:type() of
@@ -168,7 +170,7 @@ visual_cxx(Vars) ->
 			  {'DEFS', common_c_defs()},
 			  {'SHLIB_SUFFIX', ".dll"},
 			  {'ERTS_LIBS', ERTS_THR_LIB ++ LIBS},
-			  {'LIBS', DEFAULT_THR_LIB ++ DBG_LINK ++ LIBS},
+			  {'LIBS', DBG_LINK ++ LIBS},
 			  {obj,".obj"},
 			  {exe, ".exe"},
 			  {test_c_compiler, "{msc, undefined}"}
@@ -228,7 +230,7 @@ make(Vars) ->
     end.
 
 find_make(MakeCmd, Vars) ->
-    [Make|_] = string:tokens(MakeCmd, " \t"),
+    [Make|_] = string:lexemes(MakeCmd, " \t"),
     case os:find_executable(Make) of
 	false ->
 	    {no, Vars};
@@ -247,10 +249,18 @@ javac(Vars) ->
 	    {Path, [{'JAVAC', "javac"} | Vars]}
     end.
 
+wsl(Vars) ->
+    case os:getenv("WSLENV") of
+        false ->
+            {no, [{'wsl', ""} | Vars]};
+        _ ->
+            {"wsl.exe", [{'wsl', "wsl.exe"} | Vars]}
+    end.
+
 is_debug_build() ->
-    case catch string:str(erlang:system_info(system_version), "debug") of
-	Int when is_integer(Int), Int > 0 ->
-	    true;
-	_ ->
-	    false
+    case catch string:find(erlang:system_info(system_version), "debug") of
+        nomatch ->
+            false;
+	_Else ->
+	    true
     end.

@@ -38,7 +38,7 @@
 -type epp_handle() :: pid().
 -type source_encoding() :: latin1 | utf8.
 
--type ifdef() :: 'ifdef' | 'ifndef' | 'else'.
+-type ifdef() :: 'ifdef' | 'ifndef' | 'if' | 'else'.
 
 -type name() :: atom().
 -type argspec() :: 'none'                       %No arguments
@@ -117,6 +117,7 @@ open(Name, File, StartLocation, Path, Pdm) ->
 		  {'ok', Epp} | {'ok', Epp, Extra} | {'error', ErrorDescriptor} when
       Options :: [{'default_encoding', DefEncoding :: source_encoding()} |
 		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
+		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
 		  'extra'],
@@ -221,6 +222,8 @@ format_error({illegal_function,Macro}) ->
     io_lib:format("?~s can only be used within a function", [Macro]);
 format_error({illegal_function_usage,Macro}) ->
     io_lib:format("?~s must not begin a form", [Macro]);
+format_error(elif_after_else) ->
+    "'elif' following 'else'";
 format_error({'NYI',What}) ->
     io_lib:format("not yet implemented '~s'", [What]);
 format_error({error,Term}) ->
@@ -246,6 +249,7 @@ parse_file(Ifile, Path, Predefs) ->
         {'ok', [Form]} | {'ok', [Form], Extra} | {error, OpenError} when
       FileName :: file:name(),
       Options :: [{'includes', IncludePath :: [DirectoryName :: file:name()]} |
+		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
 		  'extra'],
@@ -479,7 +483,7 @@ com_enc(_B, _Fun, _N, L, Ps) ->
     com_enc_end([L | Ps]).
 
 com_enc_end(Ps0) ->
-    Ps = lists:reverse([lists:reverse(string:to_lower(P)) || P <- Ps0]),
+    Ps = lists:reverse([lists:reverse(lowercase(P)) || P <- Ps0]),
     com_encoding(Ps).
 
 com_encoding(["latin","1"|_]) ->
@@ -488,6 +492,9 @@ com_encoding(["utf","8"|_]) ->
     utf8;
 com_encoding(_) ->
     throw(no). % Don't try any further
+
+lowercase(S) ->
+    unicode:characters_to_list(string:lowercase(S)).
 
 normalize_typed_record_fields([]) ->
     {typed, []};
@@ -535,9 +542,10 @@ server(Pid, Name, Options, #epp{pre_opened=PreOpened}=St) ->
             init_server(Pid, Name, Options, St)
     end.
 
-init_server(Pid, Name, Options, St0) ->
+init_server(Pid, FileName, Options, St0) ->
+    SourceName = proplists:get_value(source_name, Options, FileName),
     Pdm = proplists:get_value(macros, Options, []),
-    Ms0 = predef_macros(Name),
+    Ms0 = predef_macros(FileName),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
 	    #epp{file = File, location = AtLocation} = St0,
@@ -547,14 +555,14 @@ init_server(Pid, Name, Options, St0) ->
             epp_reply(Pid, {ok,self(),Encoding}),
             %% ensure directory of current source file is
             %% first in path
-            Path = [filename:dirname(Name) |
+            Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
-            St = St0#epp{delta=0, name=Name, name2=Name,
+            St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, macs=Ms1,
 			 default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
-            enter_file_reply(From, file_name(Name), Anno,
+            enter_file_reply(From, file_name(SourceName), Anno,
 			     AtLocation, code),
             wait_req_scan(St);
 	{error,E} ->
@@ -568,6 +576,7 @@ init_server(Pid, Name, Options, St0) ->
 predef_macros(File) ->
     Machine = list_to_atom(erlang:system_info(machine)),
     Anno = line1(),
+    OtpVersion = list_to_integer(erlang:system_info(otp_release)),
     Defs = [{'FILE', 	           {none,[{string,Anno,File}]}},
 	    {'FUNCTION_NAME',      undefined},
 	    {'FUNCTION_ARITY',     undefined},
@@ -577,7 +586,8 @@ predef_macros(File) ->
 	    {'BASE_MODULE',	   undefined},
 	    {'BASE_MODULE_STRING', undefined},
 	    {'MACHINE',	           {none,[{atom,Anno,Machine}]}},
-	    {Machine,	           {none,[{atom,Anno,true}]}}
+	    {Machine,	           {none,[{atom,Anno,true}]}},
+	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}}
 	   ],
     maps:from_list(Defs).
 
@@ -1082,21 +1092,118 @@ scan_else(_Toks, Else, From, St) ->
     epp_reply(From, {error,{loc(Else),epp,{bad,'else'}}}),
     wait_req_scan(St).
 
-%% scan_if(Tokens, EndifToken, From, EppState)
+%% scan_if(Tokens, IfToken, From, EppState)
 %%  Handle the conditional parsing of a file.
-%%  Report a badly formed if test and then treat as false macro.
 
+scan_if([{'(',_}|_]=Toks, If, From, St) ->
+    try eval_if(Toks, St) of
+	true ->
+	    scan_toks(From, St#epp{istk=['if'|St#epp.istk]});
+	_ ->
+	    skip_toks(From, St, ['if'])
+    catch
+	throw:Error0 ->
+	    Error = case Error0 of
+			{_,erl_parse,_} ->
+			    {error,Error0};
+			_ ->
+			    {error,{loc(If),epp,Error0}}
+		    end,
+	    epp_reply(From, Error),
+	    wait_req_skip(St, ['if'])
+    end;
 scan_if(_Toks, If, From, St) ->
-    epp_reply(From, {error,{loc(If),epp,{'NYI','if'}}}),
+    epp_reply(From, {error,{loc(If),epp,{bad,'if'}}}),
     wait_req_skip(St, ['if']).
+
+eval_if(Toks0, St) ->
+    Toks = expand_macros(Toks0, St),
+    Es1 = case erl_parse:parse_exprs(Toks) of
+	      {ok,Es0} -> Es0;
+	      {error,E} -> throw(E)
+	  end,
+    Es = rewrite_expr(Es1, St),
+    assert_guard_expr(Es),
+    Bs = erl_eval:new_bindings(),
+    LocalFun = fun(_Name, _Args) ->
+		       error(badarg)
+	       end,
+    try erl_eval:exprs(Es, Bs, {value,LocalFun}) of
+	{value,Res,_} ->
+	    Res
+    catch
+	_:_ ->
+	    false
+    end.
+
+assert_guard_expr([E0]) ->
+    E = rewrite_expr(E0, none),
+    case erl_lint:is_guard_expr(E) of
+	false ->
+	    throw({bad,'if'});
+	true ->
+	    ok
+    end;
+assert_guard_expr(_) ->
+    throw({bad,'if'}).
+
+%% Dual-purpose rewriting function. When the second argument is
+%% an #epp{} record, calls to defined(Symbol) will be evaluated.
+%% When the second argument is 'none', legal calls to our built-in
+%% functions are eliminated in order to turn the expression into
+%% a legal guard expression.
+
+rewrite_expr({call,_,{atom,_,defined},[N0]}, #epp{macs=Macs}) ->
+    %% Evaluate defined(Symbol).
+    N = case N0 of
+	    {var,_,N1} -> N1;
+	    {atom,_,N1} -> N1;
+	    _ -> throw({bad,'if'})
+	end,
+    {atom,0,maps:is_key(N, Macs)};
+rewrite_expr({call,_,{atom,_,Name},As0}, none) ->
+    As = rewrite_expr(As0, none),
+    Arity = length(As),
+    case erl_internal:bif(Name, Arity) andalso
+	not erl_internal:guard_bif(Name, Arity) of
+	false ->
+	    %% A guard BIF, an -if built-in, or an unknown function.
+	    %% Eliminate the call so that erl_lint will not complain.
+	    %% The call might fail later at evaluation time.
+	    to_conses(As);
+	true ->
+	    %% An auto-imported BIF (not guard BIF). Not allowed.
+	    throw({bad,'if'})
+    end;
+rewrite_expr([H|T], St) ->
+    [rewrite_expr(H, St)|rewrite_expr(T, St)];
+rewrite_expr(Tuple, St) when is_tuple(Tuple) ->
+    list_to_tuple(rewrite_expr(tuple_to_list(Tuple), St));
+rewrite_expr(Other, _) ->
+    Other.
+
+to_conses([H|T]) ->
+    {cons,0,H,to_conses(T)};
+to_conses([]) ->
+    {nil,0}.
 
 %% scan_elif(Tokens, EndifToken, From, EppState)
 %%  Handle the conditional parsing of a file.
 %%  Report a badly formed if test and then treat as false macro.
 
 scan_elif(_Toks, Elif, From, St) ->
-    epp_reply(From, {error,{loc(Elif),epp,{'NYI','elif'}}}),
-    wait_req_scan(St).
+    case St#epp.istk of
+	['else'|Cis] ->
+	    epp_reply(From, {error,{loc(Elif),
+                                    epp,{illegal,"unbalanced",'elif'}}}),
+	    wait_req_skip(St#epp{istk=Cis}, ['else']);
+	[_I|Cis] ->
+	    skip_toks(From, St#epp{istk=Cis}, ['elif']);
+	[] ->
+	    epp_reply(From, {error,{loc(Elif),epp,
+                                    {illegal,"unbalanced",elif}}}),
+	    wait_req_scan(St)
+    end.
 
 %% scan_endif(Tokens, EndifToken, From, EppState)
 %%  If we are in an if body then exit it, else report an error.
@@ -1155,6 +1262,8 @@ skip_toks(From, St, [I|Sis]) ->
 	    skip_toks(From, St#epp{location=Cl}, ['if',I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Le,'else'}=Else|_Toks],Cl}->
 	    skip_else(Else, From, St#epp{location=Cl}, [I|Sis]);
+	{ok,[{'-',_Lh},{atom,_Le,'elif'}=Elif|Toks],Cl}->
+	    skip_elif(Toks, Elif, From, St#epp{location=Cl}, [I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Le,endif}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, Sis);
 	{ok,_Toks,Cl} ->
@@ -1185,9 +1294,19 @@ skip_toks(From, St, []) ->
 skip_else(Else, From, St, ['else'|Sis]) ->
     epp_reply(From, {error,{loc(Else),epp,{illegal,"repeated",'else'}}}),
     wait_req_skip(St, ['else'|Sis]);
+skip_else(_Else, From, St, ['elif'|Sis]) ->
+    skip_toks(From, St, ['else'|Sis]);
 skip_else(_Else, From, St, [_I]) ->
     scan_toks(From, St#epp{istk=['else'|St#epp.istk]});
 skip_else(_Else, From, St, Sis) ->
+    skip_toks(From, St, Sis).
+
+skip_elif(_Toks, Elif, From, St, ['else'|_]=Sis) ->
+    epp_reply(From, {error,{loc(Elif),epp,elif_after_else}}),
+    wait_req_skip(St, Sis);
+skip_elif(Toks, Elif, From, St, [_I]) ->
+    scan_if(Toks, Elif, From, St);
+skip_elif(_Toks, _Elif, From, St, Sis) ->
     skip_toks(From, St, Sis).
 
 %% macro_pars(Tokens, ArgStack)

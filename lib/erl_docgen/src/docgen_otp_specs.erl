@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -252,10 +252,10 @@ diaf(L, St, " "++O, R, Opts) ->
 diaf(L, St, "\n"++O, R, Opts) ->
     Ss = lists:takewhile(fun(C) -> C =:= $\s end, O),
     diaf(L, St, lists:nthtail(length(Ss), O), ["\n"++Ss | R], Opts);
-diaf([{seealso, HRef0, S0} | L], St, O0, R, Opts) ->
+diaf([{seetype, HRef0, S0} | L], St, O0, R, Opts) ->
     {S, O} = diaf(S0, app_fix(O0), Opts),
     HRef = fix_mod_ref(HRef0, Opts),
-    diaf(L, St, O, [{seealso, HRef, S} | R], Opts);
+    diaf(L, St, O, [{seetype, HRef, S} | R], Opts);
 diaf("="++L, St, "::"++O, R, Opts) ->
     %% EDoc uses "=" for record field types; Dialyzer uses "::". Maybe
     %% there should be an option for this, possibly affecting other
@@ -297,7 +297,7 @@ indent(L) ->
 app_fix(L) ->
     try
         {"//" ++ R1,L2} = app_fix(L, 1),
-        [App, Mod] = string:tokens(R1, "/"),
+        [App, Mod] = string:lexemes(R1, "/"),
         "//" ++ atom(App) ++ "/" ++ atom(Mod) ++ L2
     catch _:_ -> L
     end.
@@ -329,8 +329,8 @@ fix_mod_ref([{marker, S}]=HRef0, #opts{file_suffix = FS}) ->
 see(E, Es) ->
     case href(E) of
 	[] -> Es;
-	Ref ->
-	    [{seealso, Ref, Es}]
+        [{marker,Ref}] ->
+	    [{seetype, [{marker,lists:flatten(string:replace(Ref,"#type-","#"))}], Es}]
     end.
 
 href(E) ->
@@ -585,13 +585,13 @@ ot_integer(E) ->
     {integer,0,list_to_integer(get_attrval(value, E))}.
 
 ot_range(E) ->
-    [I1, I2] = string:tokens(get_attrval(value, E), "."),
+    [I1, I2] = string:lexemes(get_attrval(value, E), "."),
     {type,0,range,[{integer,0,list_to_integer(I1)},
                    {integer,0,list_to_integer(I2)}]}.
 
 ot_binary(E) ->
     {Base, Unit} =
-        case string:tokens(get_attrval(value, E), ",:*><") of
+        case string:lexemes(get_attrval(value, E), ",:*><") of
             [] ->
                 {0, 0};
             ["_",B] ->
@@ -658,6 +658,8 @@ ot_name(Es, T) ->
                             {atom,0,list_to_atom(Atom)},T]};
         "tuple" when T =:= [] ->
             {type,0,tuple,any};
+        "map" when T =:= [] ->
+            {type,0,map,any};
         Atom ->
             {type,0,list_to_atom(Atom),T}
     end.

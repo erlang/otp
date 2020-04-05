@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1996-11-05</date>
     <rev>B</rev>
   </header>
-  <module>calendar</module>
+  <module since="">calendar</module>
   <modulesummary>Local and universal time, day of the week, date and time
     conversions.</modulesummary>
   <description>
@@ -41,7 +41,7 @@
       Greenwich Mean Time (GMT).</p>
     <p>The time functions <c>local_time/0</c> and
       <c>universal_time/0</c> in this module both return date
-      and time. The is because separate functions for date
+      and time. This is because separate functions for date
       and time can result in a date/time combination that is displaced
       by 24 hours. This occurs if one of the functions is called
       before midnight, and the other after midnight. This problem also
@@ -128,8 +128,8 @@
 
   <funcs>
     <func>
-      <name name="date_to_gregorian_days" arity="1"/>
-      <name name="date_to_gregorian_days" arity="3"/>
+      <name name="date_to_gregorian_days" arity="1" since=""/>
+      <name name="date_to_gregorian_days" arity="3" since=""/>
       <fsummary>Compute the number of days from year 0 up to the specified
         date.</fsummary>
       <type variable="Date" name_i="1"/>
@@ -143,7 +143,7 @@
     </func>
 
     <func>
-      <name name="datetime_to_gregorian_seconds" arity="1"/>
+      <name name="datetime_to_gregorian_seconds" arity="1" since=""/>
       <fsummary>Compute the number of seconds from year 0 up to the specified
         date and time.</fsummary>
       <desc>
@@ -153,8 +153,8 @@
     </func>
 
     <func>
-      <name name="day_of_the_week" arity="1"/>
-      <name name="day_of_the_week" arity="3"/>
+      <name name="day_of_the_week" arity="1" since=""/>
+      <name name="day_of_the_week" arity="3" since=""/>
       <fsummary>Compute the day of the week.</fsummary>
       <type variable="Date" name_i="1"/>
       <type variable="Year"/>
@@ -169,7 +169,7 @@
     </func>
 
     <func>
-      <name name="gregorian_days_to_date" arity="1"/>
+      <name name="gregorian_days_to_date" arity="1" since=""/>
       <fsummary>Compute the date from the number of gregorian days.</fsummary>
       <desc>
         <p>Computes the date from the specified number of gregorian days.</p>
@@ -177,7 +177,7 @@
     </func>
 
     <func>
-      <name name="gregorian_seconds_to_datetime" arity="1"/>
+      <name name="gregorian_seconds_to_datetime" arity="1" since=""/>
       <fsummary>Compute the date and time from the number of gregorian seconds.
       </fsummary>
       <desc>
@@ -187,7 +187,7 @@
     </func>
 
     <func>
-      <name name="is_leap_year" arity="1"/>
+      <name name="is_leap_year" arity="1" since=""/>
       <fsummary>Check if the year is a leap year.</fsummary>
       <desc>
         <p>Checks if the specified year is a leap year.</p>
@@ -195,18 +195,18 @@
     </func>
 
     <func>
-      <name name="iso_week_number" arity="0"/>
+      <name name="iso_week_number" arity="0" since="OTP R14B02"/>
       <fsummary>Compute the ISO week number for the actual date.</fsummary>
       <desc>
         <p>Returns tuple <c>{Year, WeekNum}</c> representing
           the ISO week number for the actual date. To determine the
           actual date, use function
-          <seealso marker="#local_time/0"><c>local_time/0</c></seealso>.</p>
+          <seemfa marker="#local_time/0"><c>local_time/0</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="iso_week_number" arity="1"/>
+      <name name="iso_week_number" arity="1" since="OTP R14B02"/>
       <fsummary>Compute the ISO week number for the specified date.</fsummary>
       <desc>
         <p>Returns tuple <c>{Year, WeekNum}</c> representing
@@ -215,7 +215,7 @@
     </func>
 
     <func>
-      <name name="last_day_of_the_month" arity="2"/>
+      <name name="last_day_of_the_month" arity="2" since=""/>
       <fsummary>Compute the number of days in a month.</fsummary>
       <desc>
         <p>Computes the number of days in a month.</p>
@@ -223,7 +223,7 @@
     </func>
 
     <func>
-      <name name="local_time" arity="0"/>
+      <name name="local_time" arity="0" since=""/>
       <fsummary>Compute local time.</fsummary>
       <desc>
         <p>Returns the local time reported by
@@ -232,7 +232,7 @@
     </func>
 
     <func>
-      <name name="local_time_to_universal_time" arity="1"/>
+      <name name="local_time_to_universal_time" arity="1" since=""/>
       <fsummary>Convert from local time to universal time (deprecated).
       </fsummary>
       <desc>
@@ -241,8 +241,8 @@
           date after Jan 1, 1970.</p>
         <warning>
           <p>This function is deprecated. Use
-            <seealso marker="#local_time_to_universal_time_dst/1">
-            <c>local_time_to_universal_time_dst/1</c></seealso>
+            <seemfa marker="#local_time_to_universal_time_dst/1">
+            <c>local_time_to_universal_time_dst/1</c></seemfa>
             instead, as it gives a more correct and complete result.
             Especially for
             the period that does not exist, as it is skipped during
@@ -253,7 +253,7 @@
     </func>
 
     <func>
-      <name name="local_time_to_universal_time_dst" arity="1"/>
+      <name name="local_time_to_universal_time_dst" arity="1" since=""/>
       <fsummary>Convert from local time to universal time(s).</fsummary>
       <desc>
         <p>Converts from local time to Universal Coordinated Time (UTC).
@@ -285,39 +285,65 @@
     </func>
 
     <func>
-      <name name="now_to_datetime" arity="1"/>
+      <name name="now_to_datetime" arity="1" since=""/>
       <fsummary>Convert now to date and time.</fsummary>
       <desc>
         <p>Returns Universal Coordinated Time (UTC)
           converted from the return value from
-          <seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
+          <seemfa marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seemfa>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name name="now_to_local_time" arity="1"/>
+      <name name="now_to_local_time" arity="1" since=""/>
       <fsummary>Convert now to local date and time.</fsummary>
       <desc>
         <p>Returns local date and time converted from the return value from
-        <seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
+        <seemfa marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seemfa>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name name="now_to_universal_time" arity="1"/>
+      <name name="now_to_universal_time" arity="1" since=""/>
       <fsummary>Convert now to date and time.</fsummary>
       <desc>
         <p>Returns Universal Coordinated Time (UTC)
           converted from the return value from
-          <seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
+          <seemfa marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seemfa>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name name="seconds_to_daystime" arity="1"/>
+      <name name="rfc3339_to_system_time" arity="1" since="OTP 21.0"/>
+      <name name="rfc3339_to_system_time" arity="2" since="OTP 21.0"/>
+      <fsummary>Convert from RFC 3339 timestamp to system time.</fsummary>
+      <type name="rfc3339_string"/>
+      <type name="rfc3339_time_unit"/>
+      <desc>
+        <p>Converts an RFC 3339 timestamp into system time. The data format
+          of RFC 3339 timestamps is described by
+          <url href="https://www.ietf.org/rfc/rfc3339.txt">RFC 3339</url>.</p>
+	<p>Valid option:</p>
+	<taglist>
+	  <tag><c>{unit, Unit}</c></tag>
+	  <item><p>The time unit of the return value.
+	    The default is <c>second</c>.</p>
+	  </item>
+	</taglist>
+        <pre>
+1> <input>calendar:rfc3339_to_system_time("2018-02-01T16:17:58+01:00").</input>
+1517498278
+2> <input>calendar:rfc3339_to_system_time("2018-02-01 15:18:02.088Z",
+   [{unit, nanosecond}]).</input>
+1517498282088000000</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="seconds_to_daystime" arity="1" since=""/>
       <fsummary>Compute days and time from seconds.</fsummary>
       <desc>
         <p>Converts a specified number of seconds into days, hours, minutes,
@@ -328,7 +354,7 @@
     </func>
 
     <func>
-      <name name="seconds_to_time" arity="1"/>
+      <name name="seconds_to_time" arity="1" since=""/>
       <fsummary>Compute time from seconds.</fsummary>
       <type name="secs_per_day"/>
       <desc>
@@ -339,7 +365,76 @@
     </func>
 
     <func>
-      <name name="time_difference" arity="2"/>
+      <name name="system_time_to_local_time" arity="2" since="OTP 21.0"/>
+      <fsummary>Convert system time to local date and time.</fsummary>
+      <desc>
+	<p>Converts a specified system time into local date and time.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_time_to_rfc3339" arity="1" since="OTP 21.0"/>
+      <name name="system_time_to_rfc3339" arity="2" since="OTP 21.0"/>
+      <fsummary>Convert from system to RFC 3339 timestamp.</fsummary>
+      <type name="offset"/>
+      <type name="rfc3339_string"/>
+      <type name="rfc3339_time_unit"/>
+      <desc>
+        <p>Converts a system time into an RFC 3339 timestamp. The data format
+          of RFC 3339 timestamps is described by
+          <url href="https://www.ietf.org/rfc/rfc3339.txt">RFC 3339</url>.
+	  The data format of offsets is also described by RFC 3339.</p>
+	<p>Valid options:</p>
+	<taglist>
+	  <tag><c>{offset, Offset}</c></tag>
+	  <item><p>The offset, either a string or an integer, to be
+	    included in the formatted string.
+	    An empty string, which is the default, is interpreted
+	    as local time. A non-empty string is included as is.
+	    The time unit of the integer is the same as the one
+	    of <c><anno>Time</anno></c>.</p>
+	  </item>
+	  <tag><c>{time_designator, Character}</c></tag>
+	  <item><p>The character used as time designator, that is,
+	    the date and time separator. The default is <c>$T</c>.</p>
+	  </item>
+	  <tag><c>{unit, Unit}</c></tag>
+	  <item><p>The time unit of <c><anno>Time</anno></c>. The
+	    default is <c>second</c>. If some other unit is given
+	    (<c>millisecond</c>, <c>microsecond</c>, or
+	    <c>nanosecond</c>), the formatted string includes a
+	    fraction of a second. The number of fractional second
+	    digits is three, six, or nine depending on what time unit
+	    is chosen. Notice that trailing zeros are not removed from
+	    the fraction.
+            </p>
+	  </item>
+	</taglist>
+        <pre>
+1> <input>calendar:system_time_to_rfc3339(erlang:system_time(second)).</input>
+"2018-04-23T14:56:28+02:00"
+2> <input>calendar:system_time_to_rfc3339(erlang:system_time(second),
+   [{offset, "-02:00"}]).</input>
+"2018-04-23T10:56:52-02:00"
+3> <input>calendar:system_time_to_rfc3339(erlang:system_time(second),
+   [{offset, -7200}]).</input>
+"2018-04-23T10:57:05-02:00"
+4> <input>calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
+   [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}]).</input>
+"2018-04-23 12:57:20.482Z"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_time_to_universal_time" arity="2" since="OTP 21.0"/>
+      <fsummary>Convert system time to universal date and time.</fsummary>
+      <desc>
+	<p>Converts a specified system time into universal date and time.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="time_difference" arity="2" since=""/>
       <fsummary>Compute the difference between two times (deprecated).
       </fsummary>
       <desc>
@@ -354,7 +449,7 @@
     </func>
 
     <func>
-      <name name="time_to_seconds" arity="1"/>
+      <name name="time_to_seconds" arity="1" since=""/>
       <fsummary>Compute the number of seconds since midnight up to the
         specified time.</fsummary>
       <type name="secs_per_day"/>
@@ -365,7 +460,7 @@
     </func>
 
     <func>
-      <name name="universal_time" arity="0"/>
+      <name name="universal_time" arity="0" since=""/>
       <fsummary>Compute universal time.</fsummary>
       <desc>
         <p>Returns the Universal Coordinated Time (UTC)
@@ -375,7 +470,7 @@
     </func>
 
     <func>
-      <name name="universal_time_to_local_time" arity="1"/>
+      <name name="universal_time_to_local_time" arity="1" since=""/>
       <fsummary>Convert from universal time to local time.</fsummary>
       <desc>
         <p>Converts from Universal Coordinated Time (UTC) to local time.
@@ -385,8 +480,8 @@
     </func>
 
     <func>
-      <name name="valid_date" arity="1"/>
-      <name name="valid_date" arity="3"/>
+      <name name="valid_date" arity="1" since=""/>
+      <name name="valid_date" arity="3" since=""/>
       <fsummary>Check if a date is valid</fsummary>
       <type variable="Date" name_i="1"/>
       <type variable="Year"/>
@@ -418,7 +513,7 @@
     <title>Date and Time Source</title>
     <p>Local time is obtained from the Erlang BIF <c>localtime/0</c>.
       Universal time is computed from the BIF <c>universaltime/0</c>.</p>
-    <p>The following fapply:</p>
+    <p>The following apply:</p>
     <list type="bulleted">
       <item>There are 86400 seconds in a day.</item>
       <item>There are 365 days in an ordinary year.</item>

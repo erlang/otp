@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 -export([module/2]).
 
--import(lists, [reverse/1,member/2]).
+-import(lists, [reverse/1,member/2,usort/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -41,8 +41,7 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	Is = beam_jump:remove_unused_labels(Is1),
 	{function,Name,Arity,CLabel,Is}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
@@ -78,6 +77,12 @@ peep([{bif,tuple_size,_,[_]=Ops,Dst}=I|Is], SeenTests0, Acc) ->
     %% Kill all remembered tests that depend on the destination register.
     SeenTests = kill_seen(Dst, SeenTests1),
     peep(Is, SeenTests, [I|Acc]);
+peep([{bif,map_get,_,[Key,Map],Dst}=I|Is], SeenTests0, Acc) ->
+    %% Pretend that we have seen {test,has_map_fields,_,[Map,Key]}
+    SeenTests1 = gb_sets:add({has_map_fields,[Map,Key]}, SeenTests0),
+    %% Kill all remembered tests that depend on the destination register.
+    SeenTests = kill_seen(Dst, SeenTests1),
+    peep(Is, SeenTests, [I|Acc]);
 peep([{bif,_,_,_,Dst}=I|Is], SeenTests0, Acc) ->
     %% Kill all remembered tests that depend on the destination register.
     SeenTests = kill_seen(Dst, SeenTests0),
@@ -89,15 +94,42 @@ peep([{gc_bif,_,_,_,_,Dst}=I|Is], SeenTests0, Acc) ->
 peep([{jump,{f,L}},{label,L}=I|Is], _, Acc) ->
     %% Sometimes beam_jump has missed this optimization.
     peep(Is, gb_sets:empty(), [I|Acc]);
-peep([{select,Op,R,F,Vls0}|Is], _, Acc) ->
+peep([{select,select_val,R,F,Vls0}|Is], SeenTests0, Acc0) ->
     case prune_redundant_values(Vls0, F) of
 	[] ->
 	    %% No values left. Must convert to plain jump.
 	    I = {jump,F},
-	    peep(Is, gb_sets:empty(), [I|Acc]);
+	    peep([I|Is], gb_sets:empty(), Acc0);
+        [{atom,_}=Value,Lbl] ->
+            %% Single value left. Convert to regular test.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            peep(Is1, SeenTests0, Acc0);
+        [{integer,_}=Value,Lbl] ->
+            %% Single value left. Convert to regular test.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            peep(Is1, SeenTests0, Acc0);
+	[{atom,B1},Lbl,{atom,B2},Lbl] when B1 =:= not B2 ->
+            %% Replace with is_boolean test.
+            Is1 = [{test,is_boolean,F,[R]},{jump,Lbl}|Is],
+            peep(Is1, SeenTests0, Acc0);
 	[_|_]=Vls ->
-	    I = {select,Op,R,F,Vls},
-	    peep(Is, gb_sets:empty(), [I|Acc])
+	    I = {select,select_val,R,F,Vls},
+	    peep(Is, gb_sets:empty(), [I|Acc0])
+    end;
+peep([{get_map_elements,Fail,Src,List}=I|Is], _SeenTests, Acc0) ->
+    SeenTests = gb_sets:empty(),
+    case simplify_get_map_elements(Fail, Src, List, Acc0) of
+        {ok,Acc} ->
+            peep(Is, SeenTests, Acc);
+        error ->
+            peep(Is, SeenTests, [I|Acc0])
+    end;
+peep([{test,has_map_fields,Fail,Ops}=I|Is], SeenTests, Acc0) ->
+    case simplify_has_map_fields(Fail, Ops, Acc0) of
+        {ok,Acc} ->
+            peep(Is, SeenTests, Acc);
+        error ->
+            peep(Is, SeenTests, [I|Acc0])
     end;
 peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
     case beam_utils:is_pure_test(I) of
@@ -149,3 +181,39 @@ prune_redundant_values([_Val,F|Vls], F) ->
 prune_redundant_values([Val,Lbl|Vls], F) ->
     [Val,Lbl|prune_redundant_values(Vls, F)];
 prune_redundant_values([], _) -> [].
+
+simplify_get_map_elements(Fail, Src, {list,[Key,Dst]},
+                          [{get_map_elements,Fail,Src,{list,List1}}|Acc]) ->
+    case are_keys_literals([Key]) andalso are_keys_literals(List1) of
+        true ->
+            case member(Key, List1) of
+                true ->
+                    %% The key is already in the other list. That is
+                    %% very unusual, because there are optimizations to get
+                    %% rid of duplicate keys. Therefore, don't try to
+                    %% do anything smart here; just keep the
+                    %% get_map_elements instructions separate.
+                    error;
+                false ->
+                    List = [Key,Dst|List1],
+                    {ok,[{get_map_elements,Fail,Src,{list,List}}|Acc]}
+            end;
+        false ->
+            error
+    end;
+simplify_get_map_elements(_, _, _, _) -> error.
+
+simplify_has_map_fields(Fail, [Src|Keys0],
+                        [{test,has_map_fields,Fail,[Src|Keys1]}|Acc]) ->
+    case are_keys_literals(Keys0) andalso are_keys_literals(Keys1) of
+        true ->
+            Keys = usort(Keys0 ++ Keys1),
+            {ok,[{test,has_map_fields,Fail,[Src|Keys]}|Acc]};
+        false ->
+            error
+    end;
+simplify_has_map_fields(_, _, _) -> error.
+
+are_keys_literals([{x,_}|_]) -> false;
+are_keys_literals([{y,_}|_]) -> false;
+are_keys_literals([_|_]) -> true.

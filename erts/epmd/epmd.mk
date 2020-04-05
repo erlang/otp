@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1998-2016. All Rights Reserved.
+# Copyright Ericsson AB 1998-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,5 +67,5 @@ EPMD_NODE_TYPE=110
 # Distribution format 5 contains the new md5 based handshake.
 
 EPMD_DIST_LOW=5
-EPMD_DIST_HIGH=5
+EPMD_DIST_HIGH=6
 

@@ -285,7 +285,7 @@ eval(Info,"GET",CGIBody,Modules) ->
 	    "~n   Modules: ~p",[Modules]),
     case auth(CGIBody,Modules) of
 	true ->
-	    case lib:eval_str(string:concat(CGIBody,". ")) of
+	    case erl_eval:eval_str(string:concat(CGIBody,". ")) of
 		{error,Reason} ->
 		    ?vlog("eval -> error:"
 			  "~n   Reason: ~p",[Reason]),

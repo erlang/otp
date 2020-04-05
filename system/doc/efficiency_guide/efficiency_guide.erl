@@ -1,5 +1,5 @@
 -module(efficiency_guide).
--compile(export_all).
+-compile([export_all,nowarn_export_all).
 
 %% DO NOT
 naive_reverse([H|T]) ->
@@ -70,28 +70,6 @@ all_but_zeroes_to_list(<<0,T/binary>>, Acc, Remaining) ->
     all_but_zeroes_to_list(T, Acc, Remaining-1);
 all_but_zeroes_to_list(<<Byte,T/binary>>, Acc, Remaining) ->
     all_but_zeroes_to_list(T, [Byte|Acc], Remaining-1).
-
-non_opt_eq([H|T1], <<H,T2/binary>>) ->
-    non_opt_eq(T1, T2);
-non_opt_eq([_|_], <<_,_/binary>>) ->
-    false;
-non_opt_eq([], <<>>) ->
-    true.
-
-opt_eq(<<H,T1/binary>>, [H|T2]) ->
-    opt_eq(T1, T2);
-opt_eq(<<_,_/binary>>, [_|_]) ->
-    false;
-opt_eq(<<>>, []) ->
-    true.
-
-match_head(List, <<_:10,Data/binary>>) ->
-    match_body(List, Data).
-
-match_body([0|_], <<H,_/binary>>) ->
-    done;
-match_body([H|T1], <<H,T2/binary>>) ->
-    {T1,T2}.
 
 count1(<<_,T/binary>>, Count) -> count1(T, Count+1);
 count1(<<>>, Count) -> Count.

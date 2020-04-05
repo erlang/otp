@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,10 +44,8 @@
 %%%  Internal application API
 %%%=========================================================================
 parse([Bin, Options]) ->
-    ?hdrt("parse", [{bin, Bin}, {max_sizes, Options}]),    
     parse_method(Bin, [], 0, proplists:get_value(max_method, Options), Options, []);
 parse(Unknown) ->
-    ?hdrt("parse", [{unknown, Unknown}]),
     exit({bad_args, Unknown}).
 
 %% Functions that may be returned during the decoding process
@@ -196,9 +194,9 @@ parse_headers(<<?CR,?LF,?LF,Body/binary>>, [], [], Current, Max, Options, Result
     parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max,  
 		  Options, Result);
 
-parse_headers(<<?LF,?LF,Body/binary>>, [], [], Current, Max,  Options, Result) ->
+parse_headers(<<?LF,?LF,Body/binary>>, Header, Headers, Current, Max,  Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max, 
+    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, Current, Max, 
 		  Options, Result);
 
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _, _,  _, Result) ->
@@ -209,7 +207,7 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
 	      Options, Result) ->
     Customize = proplists:get_value(customize, Options),
     case http_request:key_value(lists:reverse(Header)) of
-	undefined -> %% Skip headers with missing :
+	undefined -> %% Skip invalid headers
 	    FinalHeaders = lists:filtermap(fun(H) ->
 						   httpd_custom:customize_headers(Customize, request_header, H)
 					   end,
@@ -342,31 +340,13 @@ whole_body(Body, Length) ->
 %% Prevent people from trying to access directories/files
 %% relative to the ServerRoot.
 validate_uri(RequestURI) ->
-    UriNoQueryNoHex = 
-	case string:str(RequestURI, "?") of
-	    0 ->
-		(catch http_uri:decode(RequestURI));
-	    Ndx ->
-		(catch http_uri:decode(string:left(RequestURI, Ndx)))
-	end,
-    case UriNoQueryNoHex of
-	{'EXIT', _Reason} ->
-	    {error, {bad_request, {malformed_syntax, RequestURI}}};
-	_ ->
-	    Path  = format_request_uri(UriNoQueryNoHex),
-	    Path2 = [X||X<-string:tokens(Path, "/"),X=/="."], %% OTP-5938
-	    validate_path(Path2, 0, RequestURI)
+    case uri_string:normalize(RequestURI) of
+        {error, _, _} ->
+            {error, {bad_request, {malformed_syntax, RequestURI}}};
+        URI ->
+            {ok, URI}
     end.
-
-validate_path([], _, _) ->
-    ok;
-validate_path([".." | _], 0, RequestURI) ->
-    {error, {bad_request, {forbidden, RequestURI}}};
-validate_path([".." | Rest], N, RequestURI) ->
-    validate_path(Rest, N - 1, RequestURI);
-validate_path([_ | Rest], N, RequestURI) ->
-    validate_path(Rest, N + 1, RequestURI).
-
+   
 validate_version("HTTP/1.1") ->
     true;
 validate_version("HTTP/1.0") ->
@@ -436,19 +416,13 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
 			%%older http/1.1 might be older Clients that
 			%%use it.
 			"keep-alive" when hd(NList) >= 49 ->
-			    ?DEBUG("CONNECTION MODE: ~p",[true]),  
 			    true;
 			"close" ->
-			    ?DEBUG("CONNECTION MODE: ~p",[false]),  
-			    false;
+                            false;
 			_Connect ->
-  			    ?DEBUG("CONNECTION MODE: ~p VALUE: ~p",
-				   [false, _Connect]),  
-			    false
+                            false
 		    end; 
 		_ ->
-		    ?DEBUG("CONNECTION MODE: ~p VERSION: ~p",
-			   [false, HTTPVersion]),  
 		    false
 	    end;
 	_ ->

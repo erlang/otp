@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,10 +25,12 @@
 -include_lib("kernel/include/inet.hrl").
 -include("ei_tmo_SUITE_data/ei_tmo_test_cases.hrl").
 
--export([all/0, suite/0,
+-export([all/0, groups/0, suite/0,
          init_per_testcase/2, end_per_testcase/2,
-         framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1, ei_send_tmo/1,
-	 ei_connect_tmo/0,
+         framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1,
+         ei_send_tmo/1,
+         ei_send_failure_tmo/1,
+	 ei_connect_unreachable_tmo/0, ei_connect_unreachable_tmo/1,
          ei_recv_tmo/1]).
 
 suite() ->
@@ -36,17 +38,25 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() -> 
-    [framework_check, ei_accept_tmo, ei_connect_tmo,
-     ei_send_tmo, ei_recv_tmo].
+    [framework_check,
+     ei_connect_unreachable_tmo,
+     ei_send_failure_tmo,
+     {group, default},
+     {group, ussi}].
 
-init_per_testcase(_Case, Config) ->
-    % test if platform is vxworks_simso
-    {_,Host} = split(node()),
-    Bool = case atom_to_list(Host) of
-               [$v,$x,$s,$i,$m | _] -> true;
-               _ -> false
-           end,
-    [{vxsim,Bool}|Config].
+groups() ->
+    Members = [ei_recv_tmo,
+               ei_accept_tmo,
+               ei_connect_tmo,
+               ei_send_tmo],
+    [{default, [], Members},
+     {ussi, [], Members}].
+
+get_group(Config) ->
+    proplists:get_value(name, proplists:get_value(tc_group_properties,Config)).
+
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
 
 end_per_testcase(_Case, _Config) ->
     ok.
@@ -55,7 +65,7 @@ end_per_testcase(_Case, _Config) ->
 framework_check(Config) when is_list(Config) ->
     %%dbg:tracer(),
     %%dbg:p(self()),
-    P = runner:start(?framework_check),
+    P = runner:start(Config, ?framework_check),
     runner:send_term(P,{hello,world}),
     {term, {hello,world}} = runner:get_term(P),
     runner:recv_eot(P),
@@ -71,10 +81,11 @@ ei_recv_tmo(Config) when is_list(Config) ->
 
 do_one_recv(Config,CNode) ->
     {_,Host} = split(node()),
-    P1 = runner:start(?recv_tmo),
+    P1 = runner:start(Config, ?recv_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
-                         node()}),
+                         node(),
+                         get_group(Config)}),
     {term, X} = runner:get_term(P1, 10000),
     true = is_integer(X),
     CNode1 = join(CNode,Host),
@@ -84,36 +95,35 @@ do_one_recv(Config,CNode) ->
     runner:recv_eot(P1).
 
 do_one_recv_failure(Config,CNode) ->
-    P1 = runner:start(?recv_tmo),
+    P1 = runner:start(Config, ?recv_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
-                         node()}),
+                         node(),
+                         get_group(Config)}),
     {term, X} = runner:get_term(P1, 10000),
     true = is_integer(X),
     {term, {Ret,ETimedout,ETimedout}} = runner:get_term(P1, 10000),
     true = (Ret < 0),
     runner:recv_eot(P1).
 
+-define(EI_DIST_LOW, 5).
+-define(EI_DIST_HIGH, 6).
 
 %% Check send with timeouts.
 ei_send_tmo(Config) when is_list(Config) ->
-    %dbg:tracer(),
-    %dbg:p(self()),
-    VxSim = proplists:get_value(vxsim, Config),
     register(ei_send_tmo_1,self()),
     do_one_send(Config,self(),c_node_send_tmo_1),
     do_one_send(Config,ei_send_tmo_1,c_node_send_tmo_2),
-    do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3,VxSim),
-    do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4,VxSim),
     ok.
 
 
 do_one_send(Config,From,CNode) ->
     {_,Host} = split(node()),
-    P1 = runner:start(?send_tmo),
+    P1 = runner:start(Config, ?send_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
-                         node()}),
+                         node(),
+                         get_group(Config)}),
     {term, X} = runner:get_term(P1, 10000),
     true = is_integer(X),
     CNode1 = join(CNode,Host),
@@ -128,7 +138,17 @@ do_one_send(Config,From,CNode) ->
     {term, 0} = runner:get_term(P1, 10000),
     runner:recv_eot(P1).
 
-do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
+ei_send_failure_tmo(Config) when is_list(Config) ->
+    register(ei_send_tmo_1,self()),
+    [begin
+         io:format("Test dist version ~p\n", [Ver]),
+         do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3, Ver),
+         do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4, Ver)
+     end
+     || Ver <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH)],
+    ok.
+
+do_one_send_failure(Config,From,FakeName,CName, OurVer) ->
     {_,Host} = split(node()),
     OurName = join(FakeName,Host),
     Node = join(CName,Host),
@@ -138,22 +158,23 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
                   Else ->
                       exit(Else)
               end,
-    EpmdSocket = register(OurName, LSocket, 1, 5),
-    P3 = runner:start(?send_tmo),
+    EpmdSocket = epmd_register(OurName, LSocket, OurVer),
+    P3 = runner:start(Config, ?send_tmo),
     Cookie = kaksmula_som_ingen_bryr_sig_om,
     runner:send_term(P3,{CName,
                          Cookie,
-                         OurName}),
+                         OurName,
+                         default}),
     SocketB = case gen_tcp:accept(LSocket) of
                   {ok, Socket1} ->
                       Socket1;
                   Else2 ->
                       exit(Else2)
               end,
-    {hidden,Node,5} = recv_name(SocketB),  % See 1)
+    {hidden,Node} = recv_name(SocketB, OurVer),  % See 1)
     send_status(SocketB, ok),
     MyChallengeB = gen_challenge(),
-    send_challenge(SocketB, OurName, MyChallengeB, 5),
+    send_challenge(SocketB, OurName, MyChallengeB, OurVer),
     HisChallengeB = recv_challenge_reply(SocketB,
                                          MyChallengeB,
                                          Cookie),
@@ -176,53 +197,43 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     %% must be large enough so there's time for the select() to time out and
     %% the test program to return the error tuple (below).
 
-    Res0 = if VxSim == false ->
-                  {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
-                  Res;
-              true ->   % relax the test for vxsim
-                  case runner:get_term(P3, 20000) of
-                      {term,{Res,ETO,Iters,ETO}} ->
-                          Res;
-                      {term,{Res,_,Iters,_ETO}} -> % EIO?
-                          Res
-                  end
-           end,
+    {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
     runner:recv_eot(P3),
-    true = ((Res0 < 0) and (Iters > 0)),
+    true = ((Res < 0) and (Iters > 0)),
     gen_tcp:close(SocketB),
     gen_tcp:close(EpmdSocket),
     ok.
 
 
 %% Check accept with timeouts.
-ei_connect_tmo() -> [{require, test_host_not_reachable}].
+ei_connect_unreachable_tmo() -> [{require, test_host_not_reachable}].
 
-ei_connect_tmo(Config) when is_list(Config) ->
-    %dbg:tracer(),
-    %dbg:p(self()),
-    VxSim = proplists:get_value(vxsim, Config),
+ei_connect_unreachable_tmo(Config) when is_list(Config) ->
     DummyNode = make_and_check_dummy(),
-    P = runner:start(?connect_tmo),
+    P = runner:start(Config, ?connect_tmo),
     runner:send_term(P,{c_nod_connect_tmo_1,
                         kaksmula_som_ingen_bryr_sig_om,
-                        DummyNode}),
-    ETimedout =
-    if VxSim == false ->
-           {term,{-3,ETO,ETO}} = runner:get_term(P, 10000),
-           ETO;
-       true ->				% relax the test for vxsim
-           case runner:get_term(P, 10000) of
-               {term,{-3,ETO,ETO}} ->
-                   ETO;
-               {term,{-1,_,ETO}} ->	% EHOSTUNREACH = ok
-                   ETO
-           end
-    end,
+                        DummyNode,
+                        default}),
+    {term,{-3,ETimedout,ETimedout}} = runner:get_term(P, 10000),
     runner:recv_eot(P),
-    P2 = runner:start(?connect_tmo),
+    ok.
+
+ei_connect_tmo(Config) when is_list(Config) ->
+    [begin
+         io:format("Test dist version ~p published as ~p\n", [OurVer,OurEpmdVer]),
+         do_ei_connect_tmo(Config, OurVer, OurEpmdVer)
+     end
+     || OurVer <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH),
+        OurEpmdVer <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH),
+        OurVer >= OurEpmdVer].
+
+do_ei_connect_tmo(Config, OurVer, OurEpmdVer) ->
+    P2 = runner:start(Config, ?connect_tmo),
     runner:send_term(P2,{c_nod_connect_tmo_2,
                          erlang:get_cookie(),
-                         node()}),
+                         node(),
+                         get_group(Config)}),
     {term, X} = runner:get_term(P2, 10000),
     runner:recv_eot(P2),
     true = is_integer(X),
@@ -236,22 +247,24 @@ ei_connect_tmo(Config) when is_list(Config) ->
                   Else ->
                       exit(Else)
               end,
-    EpmdSocket = register(OurName, LSocket, 1, 5),
-    P3 = runner:start(?connect_tmo),
+    EpmdSocket = epmd_register(OurName, LSocket, OurEpmdVer),
+    P3 = runner:start(Config, ?connect_tmo),
     Cookie = kaksmula_som_ingen_bryr_sig_om,
     runner:send_term(P3,{c_nod_connect_tmo_3,
                          Cookie,
-                         OurName}),
+                         OurName,
+                         get_group(Config)}),
     SocketB = case gen_tcp:accept(LSocket) of
                   {ok, Socket1} ->
                       Socket1;
                   Else2 ->
                       exit(Else2)
               end,
-    {hidden,Node,5} = recv_name(SocketB),  % See 1)
+    {hidden,Node} = recv_name(SocketB, OurEpmdVer),  % See 1)
     send_status(SocketB, ok),
     MyChallengeB = gen_challenge(),
-    send_challenge(SocketB, OurName, MyChallengeB, 5),
+    send_challenge(SocketB, OurName, MyChallengeB, OurVer),
+    recv_complement(SocketB, OurVer, OurEpmdVer),
     _HisChallengeB = recv_challenge_reply(SocketB,
                                           MyChallengeB,
                                           Cookie),
@@ -264,37 +277,49 @@ ei_connect_tmo(Config) when is_list(Config) ->
 
 %% Check accept with timeouts.
 ei_accept_tmo(Config) when is_list(Config) ->
-    %%dbg:tracer(),
-    %%dbg:p(self()),
-    P = runner:start(?accept_tmo),
+    [begin
+         io:format("Test our dist ver=~p and assumed ver=~p\n",
+                   [OurVer, AssumedVer]),
+         do_ei_accept_tmo(Config, OurVer, AssumedVer)
+     end
+     || OurVer <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH),
+        AssumedVer <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH),
+        OurVer >= AssumedVer],
+    ok.
+
+do_ei_accept_tmo(Config, OurVer, AssumedVer) ->
+    P = runner:start(Config, ?accept_tmo),
     runner:send_term(P,{c_nod_som_ingen_kontaktar_1,
-                        kaksmula_som_ingen_bryr_sig_om}),
+                        kaksmula_som_ingen_bryr_sig_om,
+                        get_group(Config)}),
     {term,{-1,ETimedout,ETimedout}} = runner:get_term(P, 10000),
     runner:recv_eot(P),
-    P2 = runner:start(?accept_tmo),
+    P2 = runner:start(Config, ?accept_tmo),
     runner:send_term(P2,{c_nod_som_vi_kontaktar_1,
-                         erlang:get_cookie()}),
+                         erlang:get_cookie(),
+                         get_group(Config)}),
     receive after 1000 -> ok end,
     CNode1 = make_node(c_nod_som_vi_kontaktar_1),
     {ignored,CNode1} ! tjenare,
     {term, X} = runner:get_term(P2, 10000),
     runner:recv_eot(P2),
     true = is_integer(X),
-    P3 = runner:start(?accept_tmo),
+    P3 = runner:start(Config, ?accept_tmo),
     runner:send_term(P3,{c_nod_som_vi_kontaktar_2,
-                         erlang:get_cookie()}),
+                         erlang:get_cookie(),
+                         get_group(Config)}),
     receive after 1000 -> ok end,
     CNode2 = make_node(c_nod_som_vi_kontaktar_2),
     {NA,NB} = split(CNode2),
     {_,Host} = split(node()),
     OurName = join(ccc,Host),
-    {port,PortNo,_} = erl_epmd:port_please(NA,NB),
+    {port,PortNo,?EI_DIST_HIGH} = erl_epmd:port_please(NA,NB),
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
                                     [{active,false},
                                      {packet,2}]),
-    send_name(SocketA,OurName,5),
+    send_name(SocketA,OurName,OurVer,AssumedVer),
     ok = recv_status(SocketA),
-    {hidden,_Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
+    {hidden,_Node,HisChallengeA} = recv_challenge(SocketA,OurVer), % See 1)
     _OurChallengeA = gen_challenge(),
     _OurDigestA = gen_digest(HisChallengeA, erlang:get_cookie()),
     %% Dont do the last two steps of the connection setup...
@@ -340,6 +365,7 @@ make_and_check_dummy() ->
 -define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
 -define(DFLAG_NEW_FLOATS,16#800).
 -define(DFLAG_DIST_MONITOR,8).
+-define(DFLAG_HANDSHAKE_23,16#1000000).
 
 %% From R9 and forward extended references is compulsory
 %% From 14 and forward new float is compulsory
@@ -403,29 +429,59 @@ recv_status(Socket) ->
             exit(Bad)
     end.
 
-send_challenge(Socket, Node, Challenge, Version) ->
-    send_challenge(Socket, Node, Challenge, Version, ?COMPULSORY_DFLAGS).
-send_challenge(Socket, Node, Challenge, Version, Flags) ->
-    {ok, {{_Ip1,_Ip2,_Ip3,_Ip4}, _}} = inet:sockname(Socket),
-    ?to_port(Socket, [$n,?int16(Version),?int32(Flags),
-                      ?int32(Challenge), atom_to_list(Node)]).
+send_challenge(Socket, Node, Challenge, OurVer) ->
+    send_challenge(Socket, Node, Challenge, OurVer, ?COMPULSORY_DFLAGS).
 
-recv_challenge(Socket) ->
+send_challenge(Socket, Node, Challenge, OurVer, Flags) ->
+    if OurVer =:= 5 ->
+            ?to_port(Socket, [$n, ?int16(OurVer), ?int32(Flags),
+                              ?int32(Challenge), atom_to_list(Node)]);
+       OurVer >= 6 ->
+            NodeName = atom_to_binary(Node, latin1),
+            NameLen = byte_size(NodeName),
+            Creation = erts_internal:get_creation(),
+            ?to_port(Socket, [$N,
+                              <<(Flags bor ?DFLAG_HANDSHAKE_23):64,
+                                Challenge:32,
+                                Creation:32,
+                                NameLen:16>>,
+                              NodeName])
+    end.       
+
+recv_challenge(Socket, OurVer) ->
     case gen_tcp:recv(Socket, 0) of
         {ok,[$n,V1,V0,Fl1,Fl2,Fl3,Fl4,CA3,CA2,CA1,CA0 | Ns]} ->
+            5 = OurVer,
             Flags = ?u32(Fl1,Fl2,Fl3,Fl4),
-            Type = case Flags band ?DFLAG_PUBLISHED of
-                       0 ->
-                           hidden;
-                       _ ->
-                           normal
-                   end,
+            Type = flags_to_type(Flags),
             Node =list_to_atom(Ns),
-            Version = ?u16(V1,V0),
+            OurVer = ?u16(V1,V0),  % echoed back
             Challenge = ?u32(CA3,CA2,CA1,CA0),
-            {Type,Node,Version,Challenge};
+            {Type,Node,Challenge};
+
+        {ok,[$N, F7,F6,F5,F4,F3,F2,F1,F0, CA3,CA2,CA1,CA0,
+             _Cr3,_Cr2,_Cr1,_Cr0, NL1,NL0 | Rest]} ->
+            true = (OurVer >= 6),
+            <<Flags:64>> = <<F7,F6,F5,F4,F3,F2,F1,F0>>,
+            Type = flags_to_type(Flags),
+            NameLen = ?u16(NL1,NL0),
+            {NodeName,_} = lists:split(NameLen, Rest),
+            Node = list_to_atom(NodeName),
+            Challenge = ?u32(CA3,CA2,CA1,CA0),
+            %%Creation = ?u32(Cr3,Cr2,Cr1,Cr0),
+            %%true = (Creation =/= 0),
+            {Type,Node,Challenge};
+
         _ ->
             ?shutdown(no_node)
+    end.
+
+flags_to_type(Flags) ->
+    case Flags band ?DFLAG_PUBLISHED of
+        0 ->
+            hidden;
+        _ ->
+            normal
     end.
 
 %send_challenge_reply(Socket, Challenge, Digest) ->
@@ -441,8 +497,8 @@ recv_challenge_reply(Socket, ChallengeA, Cookie) ->
                true ->
                    ?shutdown(bad_challenge_reply)
             end;
-        _ ->
-            ?shutdown(no_node)
+        Other ->
+            ?shutdown({recv_challenge_reply,Other})
     end.
 
 send_challenge_ack(Socket, Digest) ->
@@ -461,37 +517,53 @@ send_challenge_ack(Socket, Digest) ->
 %            ?shutdown(bad_challenge_ack)
 %    end.
 
-send_name(Socket, MyNode0, Version) ->
-    send_name(Socket, MyNode0, Version, ?COMPULSORY_DFLAGS).
-send_name(Socket, MyNode0, Version, Flags) ->
-    MyNode = atom_to_list(MyNode0),
-    ?to_port(Socket, [$n,?int16(Version),?int32(Flags)] ++ 
-             MyNode).
+send_name(Socket, MyNode, OurVer, AssumedVer) ->
+    Flags = ?COMPULSORY_DFLAGS bor (case OurVer of
+                                        5 -> 0;
+                                        6 -> ?DFLAG_HANDSHAKE_23
+                                    end),
+    send_name(Socket, MyNode, OurVer, AssumedVer, Flags).
 
-%%
-%% recv_name is common for both old and new handshake.
-%%
-recv_name(Socket) ->
+send_name(Socket, MyNode, OurVer, AssumedVer, Flags) ->
+    NodeName = atom_to_binary(MyNode, latin1),
+    if AssumedVer =:= 5 ->
+            ?to_port(Socket, [$n,?int16(OurVer),?int32(Flags),NodeName]);
+       AssumedVer >= 6 ->
+            Creation = erts_internal:get_creation(),
+            ?to_port(Socket, [$N,
+                              <<Flags:64,
+                                Creation:32,
+                                (byte_size(NodeName)):16>>,
+                              NodeName])
+    end.
+
+recv_name(Socket, OurEpmdVer) ->
     case gen_tcp:recv(Socket, 0) of
-        {ok,Data} ->
-            get_name(Data);
+        {ok,[$n, V1,V0, F3,F2,F1,F0 | OtherNode]} ->
+            5 = OurEpmdVer,
+            5 = ?u16(V1,V0),
+            Type = flags_to_type(?u32(F3,F2,F1,F0)),
+            {Type, list_to_atom(OtherNode)};
+        {ok,[$N, F7,F6,F5,F4,F3,F2,F1,F0, _Cr3,_Cr2,_Cr1,_Cr0, NL1, NL0 | Rest]} ->
+            true = (OurEpmdVer >= 6),
+            {OtherNode, _Residue} = lists:split(?u16(NL1,NL0), Rest),
+            <<Flags:64>> = <<F7,F6,F5,F4,F3,F2,F1,F0>>,
+            Type = flags_to_type(Flags),
+            {Type, list_to_atom(OtherNode)};
         Res ->
             ?shutdown({no_node,Res})
     end.
 
-get_name([$m,VersionA,VersionB,_Ip1,_Ip2,_Ip3,_Ip4|OtherNode]) ->
-    {normal, list_to_atom(OtherNode), ?u16(VersionA,VersionB)};
-get_name([$h,VersionA,VersionB,_Ip1,_Ip2,_Ip3,_Ip4|OtherNode]) ->
-    {hidden, list_to_atom(OtherNode), ?u16(VersionA,VersionB)};
-get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode]) ->
-    Type = case ?u32(Flag1, Flag2, Flag3, Flag4) band ?DFLAG_PUBLISHED of
-               0 -> hidden;
-               _ -> normal
-           end,
-    {Type, list_to_atom(OtherNode), 
-     ?u16(VersionA,VersionB)};
-get_name(Data) ->
-    ?shutdown(Data).
+recv_complement(Socket, OurVer, 5) when OurVer > 5 ->
+    case gen_tcp:recv(Socket, 0) of
+        {ok,[$c, _F7,_F6,_F5,_F4, _Cr3,_Cr2,_Cr1,_Cr0]} ->
+            ok;
+        Res ->
+            ?shutdown({no_node,Res})
+    end;
+recv_complement(_, _OurVer, _OurEpmdVer) ->
+    ok.
+
 
 %%
 %% tell_name is for old handshake
@@ -536,13 +608,10 @@ wait_for_reg_reply(Socket, SoFar) ->
     receive
         {tcp, Socket, Data0} ->
             case SoFar ++ Data0 of
-                [$y, Result, A, B] ->
-                    case Result of
-                        0 ->
-                            {alive, Socket, ?u16(A, B)};
-                        _ ->
-                            {error, duplicate_name}
-                    end;
+                [$y, 0, Cr1,Cr0] ->
+                    {alive, Socket, ?u16(Cr1,Cr0)};
+                [$v, 0, Cr3,Cr2,Cr1,Cr0] ->
+                    {alive, Socket, ?u32(Cr3,Cr2,Cr1,Cr0)};
                 Data when length(Data) < 4 ->
                     wait_for_reg_reply(Socket, Data);
                 Garbage ->
@@ -556,9 +625,9 @@ wait_for_reg_reply(Socket, SoFar) ->
     end.
 
 
-register(NodeName, ListenSocket, VLow, VHigh) ->
+epmd_register(NodeName, ListenSocket, OurVer) ->
     {ok,{_,TcpPort}} = inet:sockname(ListenSocket),
-    case do_register_node(NodeName, TcpPort, VLow, VHigh) of
+    case do_register_node(NodeName, TcpPort, ?EI_DIST_LOW, OurVer) of
         {alive, Socket, _Creation} ->
             Socket;
         Other ->

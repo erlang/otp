@@ -49,7 +49,7 @@
     with a module check and a predefined analysis. Then follow
     examples that can be skipped on the first reading; not all of
     the concepts used are explained, and it is assumed that the
-    <seealso marker="xref">reference manual</seealso> has been at
+    <seeerl marker="xref">reference manual</seeerl> has been at
     least skimmed.
     </p>
 
@@ -78,7 +78,7 @@
       contains debug information, which makes it possible to find
       unused local functions.
       </p>
-    <p>The module can now be checked for calls to <seealso marker="xref#deprecated_function">deprecated functions</seealso>, calls to <seealso marker="xref#undefined_function">undefined functions</seealso>,
+    <p>The module can now be checked for calls to <seeerl marker="xref#deprecated_function">deprecated functions</seeerl>, calls to <seeerl marker="xref#undefined_function">undefined functions</seeerl>,
       and for unused local functions:
       </p>
     <pre>
@@ -92,7 +92,7 @@
       either case, the code path of the code server (see the module
       <c>code</c>) is used for finding modules that export externally
       called functions not exported by the checked module itself, so
-      called <seealso marker="xref#library_module">library modules</seealso>.
+      called <seeerl marker="xref#library_module">library modules</seeerl>.
       </p>
   </section>
 
@@ -100,7 +100,7 @@
     <title>Predefined Analysis</title>
     <p>In the last example the module to analyze was given as an
       argument to <c>m/1</c>, and the code path was (implicitly)
-      used as <seealso marker="xref#library_path">library path</seealso>. In this example an <seealso marker="xref#xref_server">xref server</seealso> will be used,
+      used as <seeerl marker="xref#library_path">library path</seeerl>. In this example an <seeerl marker="xref#xref_server">xref server</seeerl> will be used,
       which makes it possible to analyze applications and releases,
       and also to select the library path explicitly.
       </p>
@@ -115,7 +115,7 @@
       Otherwise, when analyzing a system that uses OTP, the OTP
       modules are typically made library modules by
       setting the library path to the default OTP code path (or to
-      <c>code_path</c>, see the <seealso marker="xref#code_path">reference manual</seealso>). By
+      <c>code_path</c>, see the <seeerl marker="xref#code_path">reference manual</seeerl>). By
       default, the names of read BEAM files and warnings are output
       when adding analyzed modules, but these messages can be avoided
       by setting default values of some options:
@@ -145,12 +145,12 @@
       predefined analysis, probably the most useful one. Other
       examples are the analyses that find unused local
       functions, or functions that call some given functions. See
-      the <seealso marker="xref#analyze">analyze/2,3</seealso>
+      the <seeerl marker="xref#analyze">analyze/2,3</seeerl>
       functions for a complete list of predefined analyses.
       </p>
-    <p>Each predefined analysis is a shorthand for a <seealso marker="xref#query">query</seealso>, a sentence of a tiny
+    <p>Each predefined analysis is a shorthand for a <seeerl marker="xref#query">query</seeerl>, a sentence of a tiny
       language providing cross reference data as
-      values of <seealso marker="xref#predefined_variable">predefined variables</seealso>.
+      values of <seeerl marker="xref#predefined_variable">predefined variables</seeerl>.
       The check for calls to undefined functions can thus be stated as
       a query:
       </p>
@@ -173,7 +173,7 @@
       <c>X&nbsp;+&nbsp;L&nbsp;+&nbsp;B&nbsp;+&nbsp;U</c>, and one
       that focuses on how they are used:
       <c>UU&nbsp;+&nbsp;LU&nbsp;+&nbsp;XU</c>. 
-      The reference also mentions some <seealso marker="xref#simple_facts">facts</seealso> about the
+      The reference also mentions some <seeerl marker="xref#simple_facts">facts</seeerl> about the
       variables:
       </p>
     <list type="bulleted">
@@ -296,7 +296,7 @@
 
   <section>
     <title>Graph Analysis</title>
-    <p>The list <seealso marker="xref#representation">representation of graphs</seealso> is used analyzing direct calls,
+    <p>The list <seeerl marker="xref#representation">representation of graphs</seeerl> is used analyzing direct calls,
       while the <c>digraph</c> representation is suited for analyzing
       indirect calls. The restriction operators (<c>|</c>, <c>||</c>
       and <c>|||</c>) are the only operators that accept both
@@ -308,12 +308,12 @@
     <p>As an example of analyzing indirect calls, the following Erlang
       function tries to answer the question:
       if we want to know which modules are used indirectly by some
-      module(s), is it worth while using the <seealso marker="xref#call_graph">function graph</seealso> rather
+      module(s), is it worth while using the <seeerl marker="xref#call_graph">function graph</seeerl> rather
       than the module graph? Recall that a module M1 is said to call
       a module M2 if there is some function in M1 that calls some
       function in M2. It would be nice if we could use the much
       smaller module graph, since it is available also in the light
-      weight <c>modules</c><seealso marker="xref#mode">mode</seealso> of Xref servers.
+      weight <c>modules</c><seeerl marker="xref#mode">mode</seeerl> of Xref servers.
       </p>
     <code type="erl">
     t(S) ->

@@ -58,7 +58,8 @@ all() ->
      server_speaks,
      server_disconnects,
      newline_ayt,
-     newline_break
+     newline_break,
+     newline_string
     ].
 
 groups() ->
@@ -391,5 +392,13 @@ newline_break(_) ->
     {ok,["# "]} = ct_telnet:expect(Handle, ["# "], [no_prompt_check]),
     {ok,R} = ct_telnet:cmd(Handle, "q", [{newline,false}]),
     "> " = lists:flatten(R),
+    ok = ct_telnet:close(Handle),
+    ok.
+
+%% Test option {newline,String} to specify an own newline, e.g. "\r\n"
+newline_string(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    ok = ct_telnet:send(Handle, "echo hello-", [{newline,"own_nl\n"}]),
+    {ok,["hello-own_nl"]} = ct_telnet:expect(Handle, ["hello-own_nl"]),
     ok = ct_telnet:close(Handle),
     ok.

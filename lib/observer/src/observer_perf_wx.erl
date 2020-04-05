@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@
 
 -define(wxGC, wxGraphicsContext).
 
--record(paint, {font, small, pen, pen2, pens, dot_pens, usegc = false}).
+-record(paint, {font, small, fg, pen, pen2, pens, dot_pens, usegc = false}).
 
 start_link(Notebook, Parent, Config) ->
     wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
@@ -86,8 +86,8 @@ init([Notebook, Parent, Config]) ->
                                  secs=maps:get(secs, Config, ?DISP_SECONDS)}
 		       },
 	{Panel, State0}
-    catch _:Err ->
-	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, erlang:get_stacktrace()]),
+    catch _:Err:Stacktrace ->
+	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, Stacktrace]),
 	    {stop, Err}
     end.
 
@@ -110,31 +110,42 @@ setup_graph_drawing(Panels) ->
     _ = [Do(Panel) || Panel <- Panels],
     UseGC = haveGC(),
     Version28 = ?wxMAJOR_VERSION =:= 2 andalso ?wxMINOR_VERSION =:= 8,
+    Scale = observer_wx:get_scale(),
     {Font, SmallFont}
 	= if UseGC, Version28 ->
 		  %% Def font is really small when using Graphics contexts in 2.8
 		  %% Hardcode it
-		  F = wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD),
-		  SF = wxFont:new(10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+		  F = wxFont:new(Scale * 12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD),
+		  SF = wxFont:new(Scale * 10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
 		  {F, SF};
 	     true ->
 		  DefFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
 		  DefSize = wxFont:getPointSize(DefFont),
 		  DefFamily = wxFont:getFamily(DefFont),
-		  F = wxFont:new(DefSize-1, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD),
-		  SF = wxFont:new(DefSize-2, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+		  F = wxFont:new(Scale * (DefSize-1), DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD),
+		  SF = wxFont:new(Scale * (DefSize-2), DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
 		  {F, SF}
 	  end,
-    BlackPen = wxPen:new({0,0,0}, [{width, 1}]),
-    Pens = [wxPen:new(Col, [{width, 1}, {style, ?wxSOLID}])
+    BG = wxWindow:getBackgroundColour((hd(Panels))#win.panel),
+    Fg = case observer_lib:is_darkmode(BG) of
+             false -> {0,0,0};
+             true  -> wxSystemSettings:getColour(?wxSYS_COLOUR_BTNTEXT)
+         end,
+
+    PenColor = case observer_lib:is_darkmode(BG) of
+                   false -> {0,0,0};
+                   true  -> {0,0,0}
+               end,
+    Pens = [wxPen:new(Col, [{width, Scale}, {style, ?wxSOLID}])
             || Col <- tuple_to_list(colors())],
-    DotPens = [wxPen:new(Col, [{width, 1}, {style, ?wxDOT}])
+    DotPens = [wxPen:new(Col, [{width, Scale}, {style, ?wxDOT}])
                || Col <- tuple_to_list(colors())],
     #paint{usegc = UseGC,
 	   font  = Font,
 	   small = SmallFont,
-	   pen   = ?wxGREY_PEN,
-	   pen2  = BlackPen,
+           fg    = Fg,  %% Text color
+	   pen   = wxPen:new(PenColor),
+	   pen2  = wxPen:new(PenColor, [{width, Scale}]),
 	   pens  = list_to_tuple(Pens),
            dot_pens = list_to_tuple(DotPens)
 	  }.
@@ -524,7 +535,7 @@ draw_win(DC, #win{name=Name, no_samples=Samples, geom=#{scale:={WS,HS}},
     DrawBs(),
     ok;
 
-draw_win(DC, #win{no_samples=Samples} = Win,Ti, #paint{small=Small}=Paint) ->
+draw_win(DC, #win{no_samples=Samples} = Win,Ti, #paint{fg=Fg, small=Small}=Paint) ->
     %% Draw Error Msg
     try draw_borders(DC, Ti, Win, Paint) of
 	{X0,_Y0,DrawBs} ->
@@ -532,7 +543,7 @@ draw_win(DC, #win{no_samples=Samples} = Win,Ti, #paint{small=Small}=Paint) ->
 		       true  -> "Waiting for data";
 		       false -> "Information not available"
 		   end,
-	    setFont(DC, Small, {0,0,0}),
+	    setFont(DC, Small, Fg),
 	    {_,WW} = getSize(DC),
 	    drawText(DC, Text, X0 + 100, WW div 2),
 	    DrawBs(),
@@ -627,7 +638,7 @@ spline_tan(Y0, Y1, Y2, Y3) ->
 
 draw_borders(DC, #ti{secs=Secs, fetch=FetchFreq},
 	     #win{name=Type, geom=Geom, info=Info, max={_,_,Unit,_}},
-	     #paint{pen=Pen, pen2=Pen2, font=Font, small=Small}) ->
+	     #paint{pen=Pen, pen2=Pen2, fg=Fg, font=Font, small=Small}) ->
     #{p0:={GraphX0, GraphY0}, p1:={GraphX1,GraphY1}, scale:={ScaleW0,_},
       txsz:={TW,TH,SpaceW}, txt:={BottomTextY, MaxTextY}, strs:={Str1,Str2,Str3}} = Geom,
 
@@ -639,7 +650,7 @@ draw_borders(DC, #ti{secs=Secs, fetch=FetchFreq},
     GraphY50 = GraphY0 + (GraphY1 - GraphY0) / 2,
     GraphY75 = GraphY0 + 3*(GraphY1 - GraphY0) / 4,
 
-    setFont(DC, Small, {0,0,0}),
+    setFont(DC, Small, Fg),
     Align = fun(Str, Y) ->
 		    {StrW, _} = getTextExtent(DC, Str),
 		    drawText(DC, Str, GraphX0 - StrW - ?BW, Y)
@@ -669,11 +680,11 @@ draw_borders(DC, #ti{secs=Secs, fetch=FetchFreq},
     strokeLine(DC, GraphX0-3, GraphY50, GraphX1, GraphY50),
     strokeLine(DC, GraphX0-3, GraphY75, GraphX1, GraphY75),
 
-    setFont(DC, Font, {0,0,0}),
+    setFont(DC, Font, Fg),
 
     Text = fun(X,Y, Str, PenId) ->
 		   if PenId == 0 ->
-			   setFont(DC, Font, {0,0,0});
+			   setFont(DC, Font, Fg);
 		      PenId > 0 ->
 			   Id = 1 + ((PenId-1) rem tuple_size(colors())),
 			   setFont(DC, Font, element(Id, colors()))

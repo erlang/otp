@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,13 +27,14 @@
 -export([deliver/2]).
 
 %% Callback API
--export([do/1, load/2, store/2]).
+-export([do/1, store/2]).
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(VMODULE,"ESI").
--define(DEFAULT_ERL_TIMEOUT,15000).
+-define(DEFAULT_ERL_TIMEOUT,15).
 
 
 %%%=========================================================================
@@ -82,61 +83,6 @@ do(ModData) ->
 
 
 %%--------------------------------------------------------------------------
-%% load(Line, Context) ->  eof | ok | {ok, NewContext} | 
-%%                     {ok, NewContext, Directive} | 
-%%                     {ok, NewContext, DirectiveList} | {error, Reason}
-%% Line = string()
-%% Context = NewContext = DirectiveList = [Directive]
-%% Directive = {DirectiveKey , DirectiveValue}
-%% DirectiveKey = DirectiveValue = term()
-%% Reason = term() 
-%%
-%% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
-%%-------------------------------------------------------------------------
-load("ErlScriptAlias " ++ ErlScriptAlias, []) ->
-    try re:split(ErlScriptAlias," ", [{return, list}]) of
-	[ErlName | StrModules] ->
-	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(string:strip(Str)) 
-				end, StrModules),
-	    {ok, [], {erl_script_alias, {ErlName, Modules}}}
-    catch _:_ ->
-	    {error, ?NICE(string:strip(ErlScriptAlias) ++
-			      " is an invalid ErlScriptAlias")}
-    end;
-load("EvalScriptAlias " ++ EvalScriptAlias, []) ->
-    try re:split(EvalScriptAlias, " ",  [{return, list}]) of
-	[EvalName | StrModules] ->
-	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(string:strip(Str)) 
-				end, StrModules),
-	    {ok, [], {eval_script_alias, {EvalName, Modules}}}
-    catch 
-	_:_ ->
-	    {error, ?NICE(string:strip(EvalScriptAlias) ++
-			      " is an invalid EvalScriptAlias")}
-    end;
-load("ErlScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(string:strip(Timeout)) of
-	TimeoutSec when is_integer(TimeoutSec)  ->
-	   {ok, [], {erl_script_timeout, TimeoutSec * 1000}};
-	_ ->
-	   {error, ?NICE(string:strip(Timeout) ++
-			 " is an invalid ErlScriptTimeout")}
-    end;
-load("ErlScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(string:strip(CacheArg)) of
-        true ->
-	    {ok, [], {erl_script_nocache, true}};
-	false ->
-	   {ok, [], {erl_script_nocache, false}};
-	_ ->
-	   {error, ?NICE(string:strip(CacheArg)++
-			 " is an invalid ErlScriptNoCache directive")}
-    end.
-
-
-%%--------------------------------------------------------------------------
 %% store(Directive, DirectiveList) -> {ok, NewDirective} | 
 %%                                    {ok, [NewDirective]} |
 %%                                    {error, Reason} 
@@ -160,21 +106,11 @@ store({erl_script_alias, {Name, Modules}} = Conf, _)
    	    {error, {wrong_type, {erl_script_alias, Error}}}
     end;
 
-store({eval_script_alias, {Name, Modules}} = Conf, _)  
-  when is_list(Name)->
-    try httpd_util:modules_validate(Modules) of
-  	ok ->
-   	    {ok, Conf}
-    catch
-   	throw:Error ->
-   	    {error, {wrong_type, {eval_script_alias, Error}}}
-    end;
-
 store({erl_script_alias, Value}, _) ->
     {error, {wrong_type, {erl_script_alias, Value}}};
 store({erl_script_timeout, TimeoutSec}, _) 
   when is_integer(TimeoutSec) andalso (TimeoutSec >= 0) ->
-    {ok, {erl_script_timeout, TimeoutSec * 1000}};
+    {ok, {erl_script_timeout, TimeoutSec}};
 store({erl_script_timeout, Value}, _) ->
     {error, {wrong_type, {erl_script_timeout, Value}}};
 store({erl_script_nocache, Value} = Conf, _) 
@@ -189,8 +125,6 @@ store({erl_script_nocache, Value}, _) ->
 %%%========================================================================   
 generate_response(ModData) ->
     case scheme(ModData#mod.request_uri, ModData#mod.config_db) of
-	{eval, ESIBody, Modules} ->
-	    eval(ModData, ESIBody, Modules);
 	{erl, ESIBody, Modules} ->
 	    erl(ModData, ESIBody, Modules);
 	no_scheme ->
@@ -200,12 +134,7 @@ generate_response(ModData) ->
 scheme(RequestURI, ConfigDB) ->
     case match_script(RequestURI, ConfigDB, erl_script_alias) of
 	no_match ->
-	    case match_script(RequestURI, ConfigDB, eval_script_alias) of
-		no_match ->
-		    no_scheme;
-		{EsiBody, ScriptModules} ->
-		    {eval, EsiBody, ScriptModules}
-	    end;
+            no_scheme;
 	{EsiBody, ScriptModules} ->
 	    {erl, EsiBody, ScriptModules}
     end.
@@ -230,10 +159,7 @@ match_esi_script(RequestURI, [{Alias,Modules} | Rest], AliasType) ->
     end.
 
 alias_match_str(Alias, erl_script_alias) ->
-    "^" ++ Alias ++ "/";
-alias_match_str(Alias, eval_script_alias) ->
-    "^" ++ Alias ++ "\\?".
-
+    "^" ++ Alias ++ "/".
 
 %%------------------------ Erl mechanism --------------------------------
 
@@ -314,8 +240,8 @@ generate_webpage(ModData, ESIBody, Modules, Module, FunctionName,
 	    case erl_scheme_webpage_chunk(Module, Function, 
 					  Env, Input, ModData) of
 		{error, erl_scheme_webpage_chunk_undefined} ->
-		    erl_scheme_webpage_whole(Module, Function, Env, Input,
-					     ModData);
+                    {proceed, [{status, {404, ModData#mod.request_uri, "Not found"}}
+                               | ModData#mod.data]};
 		ResponseResult ->
 		    ResponseResult
 	    end;
@@ -325,38 +251,7 @@ generate_webpage(ModData, ESIBody, Modules, Module, FunctionName,
 				       ++  ESIBody)}} | ModData#mod.data]}
     end.
 
-%% Old API that waits for the dymnamic webpage to be totally generated
-%% before anythig is sent back to the client.
-erl_scheme_webpage_whole(Mod, Func, Env, Input, ModData) ->
-    case (catch Mod:Func(Env, Input)) of
-	{'EXIT',{undef, _}} ->
-	    {proceed, [{status, {404, ModData#mod.request_uri, "Not found"}}
-		       | ModData#mod.data]};
-	{'EXIT',Reason} ->
-	    {proceed, [{status, {500, none, Reason}} |
-		       ModData#mod.data]};
-	Response ->
-	    {Headers, Body} = 
-		httpd_esi:parse_headers(lists:flatten(Response)),
-	    Length =  httpd_util:flatlength(Body),
-            {ok, NewHeaders, StatusCode} = httpd_esi:handle_headers(Headers), 
-            send_headers(ModData, StatusCode, 
-                         [{"content-length", 
-                           integer_to_list(Length)}| NewHeaders]),
-            case ModData#mod.method of
-                "HEAD" ->
-                    {proceed, [{response, {already_sent, 200, 0}} | 
-                               ModData#mod.data]};
-                _ ->
-                    httpd_response:send_body(ModData, 
-                                             StatusCode, Body),
-                    {proceed, [{response, {already_sent, 200, 
-                                           Length}} | 
-                               ModData#mod.data]}
-            end
-    end.
-
-%% New API that allows the dynamic wepage to be sent back to the client 
+%% API that allows the dynamic wepage to be sent back to the client 
 %% in small chunks at the time during generation.
 erl_scheme_webpage_chunk(Mod, Func, Env, Input, ModData) -> 
     process_flag(trap_exit, true),
@@ -368,7 +263,6 @@ erl_scheme_webpage_chunk(Mod, Func, Env, Input, ModData) ->
 	    fun() ->
 		    case catch Mod:Func(Self, Env, Input) of
 			{'EXIT', {undef,_}} ->
-			    %% Will force fallback on the old API
 			    exit(erl_scheme_webpage_chunk_undefined);
 			{continue, _} = Continue ->
                             exit(Continue);
@@ -394,7 +288,16 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
             Continue;
 	{Headers, Body} ->
             {ok, NewHeaders, StatusCode} = httpd_esi:handle_headers(Headers),
-                IsDisableChunkedSend = httpd_response:is_disable_chunked_send(Db),
+            %% All 1xx (informational), 204 (no content), and 304 (not modified)
+            %% responses MUST NOT include a message-body, and thus are always
+            %% terminated by the first empty line after the header fields.
+            %% This implies that chunked encoding MUST NOT be used for these
+            %% status codes.
+            IsDisableChunkedSend =
+                httpd_response:is_disable_chunked_send(Db) orelse
+                StatusCode =:= 204 orelse                      %% No Content
+                StatusCode =:= 304 orelse                      %% Not Modified
+                (100 =< StatusCode andalso StatusCode =< 199), %% Informational
             case (ModData#mod.http_version =/= "HTTP/1.1") or
                 (IsDisableChunkedSend) of
                 true ->
@@ -405,13 +308,13 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
                     send_headers(ModData, StatusCode, 
                                  [{"transfer-encoding", 
                                    "chunked"} | NewHeaders])
-            end,    
-            handle_body(Pid, ModData, Body, Timeout, length(Body), 
+            end,
+            handle_body(Pid, ModData, Body, Timeout, length(Body), StatusCode,
                         IsDisableChunkedSend);
         timeout ->
             send_headers(ModData, 504, [{"connection", "close"}]),
 	    httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket),
-	    {proceed,[{response, {already_sent, 200, 0}} | ModData#mod.data]}
+	    {proceed,[{response, {already_sent, 504, 0}} | ModData#mod.data]}
     end.
 
 receive_headers(Timeout) ->
@@ -435,28 +338,29 @@ send_headers(ModData, StatusCode, HTTPHeaders) ->
     httpd_response:send_header(ModData, StatusCode, 
 			       ExtraHeaders ++ HTTPHeaders).
 
-handle_body(_, #mod{method = "HEAD"} = ModData, _, _, Size, _) ->
-    {proceed, [{response, {already_sent, 200, Size}} | ModData#mod.data]};
+handle_body(_, #mod{method = "HEAD"} = ModData, _, _, Size, StatusCode, _) ->
+    {proceed, [{response, {already_sent, StatusCode, Size}} | ModData#mod.data]};
 
-handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
+handle_body(Pid, ModData, Body, Timeout, Size, StatusCode, IsDisableChunkedSend) ->
     httpd_response:send_chunk(ModData, Body, IsDisableChunkedSend),
     receive 
 	{esi_data, Data} when is_binary(Data) ->
-	    handle_body(Pid, ModData, Data, Timeout, Size + byte_size(Data),
+	    handle_body(Pid, ModData, Data, Timeout, Size + byte_size(Data), StatusCode,
 			IsDisableChunkedSend);
 	{esi_data, Data} ->
-	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
+	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data), StatusCode,
 			IsDisableChunkedSend);
 	{ok, Data} ->
-	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
+	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data), StatusCode,
 			IsDisableChunkedSend);
 	{'EXIT', Pid, normal} when is_pid(Pid) ->
 	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
-	    {proceed, [{response, {already_sent, 200, Size}} | 
+	    {proceed, [{response, {already_sent, StatusCode, Size}} | 
 		       ModData#mod.data]};
 	{'EXIT', Pid, Reason} when is_pid(Pid) ->
-	    Error = lists:flatten(io_lib:format("mod_esi process failed with reason ~p", [Reason])),
-	    httpd_util:error_log(ModData#mod.config_db, Error),
+	    httpd_util:error_log(ModData#mod.config_db,  
+                                 httpd_logger:error_report('HTTP', 
+                                                           [{mod_esi, Reason}], ModData, ?LOCATION)),
 	    httpd_response:send_final_chunk(ModData, 
 					    [{"Warning", "199 inets server - body maybe incomplete, "
 					      "internal server error"}],
@@ -491,7 +395,7 @@ kill_esi_delivery_process(Pid) ->
 	
 
 erl_script_timeout(Db) ->
-    httpd_util:lookup(Db, erl_script_timeout, ?DEFAULT_ERL_TIMEOUT).
+    httpd_util:lookup(Db, erl_script_timeout, ?DEFAULT_ERL_TIMEOUT) * 1000.
 
 script_elements(FuncAndInput, Input) ->
     case input_type(FuncAndInput) of
@@ -512,64 +416,3 @@ input_type([$?|_Rest]) ->
 input_type([_First|Rest]) ->
     input_type(Rest).
 
-%%------------------------ Eval mechanism --------------------------------
-
-eval(#mod{request_uri  = ReqUri, 
-	  method       = "PUT",
-	  http_version = Version, 
-	  data         = Data}, _ESIBody, _Modules) ->
-    {proceed,[{status,{501,{"PUT", ReqUri, Version},
-		       ?NICE("Eval mechanism doesn't support method PUT")}}|
-	      Data]};
-
-eval(#mod{request_uri  = ReqUri, 
-	  method       = "DELETE",
-	  http_version = Version, 
-	  data         = Data}, _ESIBody, _Modules) ->
-    {proceed,[{status,{501,{"DELETE", ReqUri, Version},
-		       ?NICE("Eval mechanism doesn't support method DELETE")}}|
-	      Data]};
-
-eval(#mod{request_uri  = ReqUri, 
-	  method       = "POST",
-	  http_version = Version, 
-	  data         = Data}, _ESIBody, _Modules) ->
-    {proceed,[{status,{501,{"POST", ReqUri, Version},
-		       ?NICE("Eval mechanism doesn't support method POST")}}|
-	      Data]};
-
-eval(#mod{method = Method} = ModData, ESIBody, Modules) 
-  when (Method =:= "GET") orelse (Method =:= "HEAD") ->
-    case is_authorized(ESIBody, Modules) of
-	true ->
-	    case generate_webpage(ESIBody) of
-		{error, Reason} ->
-		    {proceed, [{status, {500, none, Reason}} | 
-			       ModData#mod.data]};
-		{ok, Response} ->
-		    {Headers, _} = 
-			httpd_esi:parse_headers(lists:flatten(Response)),
-                    {ok, _, StatusCode} =httpd_esi:handle_headers(Headers), 
-                    {proceed,[{response, {StatusCode, Response}} | 
-                              ModData#mod.data]}
-            end;
-	false ->
-	    {proceed,[{status,
-		       {403, ModData#mod.request_uri,
-			?NICE("Client not authorized to evaluate: "
-			      ++ ESIBody)}} | ModData#mod.data]}
-    end.
-
-generate_webpage(ESIBody) ->
-    (catch lib:eval_str(string:concat(ESIBody,". "))).
-
-is_authorized(_ESIBody, [all]) ->
-    true;
-is_authorized(ESIBody, Modules) ->
-    case re:run(ESIBody, "^[^\:(%3A)]*", [{capture, first}]) of
-	{match, [{Start, Length}]} ->
-	    lists:member(list_to_atom(string:substr(ESIBody, Start+1, Length)),
-			 Modules);
-	nomatch ->
-	    false
-    end.

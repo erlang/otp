@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -601,7 +601,7 @@ otp_5327(Config) when is_list(Config) ->
         comm_err(<<"<<103133:64/binary>> = <<103133:64/float>>.">>),
     "exception error: interpreted function with arity 1 called with two arguments" =
         comm_err(<<"(fun(X) -> X end)(a,b).">>),
-    {'EXIT', {{illegal_pattern,_}, _}} =
+    {'EXIT', {{badmatch,<<17:32>>}, _}} =
         (catch evaluate("<<A:a>> = <<17:32>>.", [])),
     C = <<"
          <<A:4,B:4,C:4,D:4,E:4,F:4>> = <<\"hej\">>,
@@ -614,6 +614,9 @@ otp_5327(Config) when is_list(Config) ->
     %% unbound_var would be nicer...
     {'EXIT',{{illegal_pattern,_},_}} =
         (catch evaluate(<<"<<A:B>> = <<17:32>>.">>, [])),
+    %% A badarith exception is turned into badmatch.
+    {'EXIT', {{badmatch,<<1777:32>>}, _}} =
+        (catch evaluate(<<"<<A:(1/0)>> = <<1777:32>>.">>, [])),
     %% undefined_bittype is turned into badmatch:
     {'EXIT',{{badmatch,<<17:32>>},_}} =
         (catch evaluate(<<"<<A/apa>> = <<17:32>>.">>, [])),
@@ -2591,7 +2594,7 @@ otp_7184(Config) when is_list(Config) ->
 otp_7232(Config) when is_list(Config) ->
     Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [55296,56296]]), "
              "{order, fun(A,B)-> A>B end})).">>,
-    "qlc:sort([55296,56296],\n"
+    "qlc:sort([55296, 56296],\n"
     "         [{order,\n"
     "           fun(A, B) ->\n"
     "                  A > B\n"
@@ -2752,7 +2755,7 @@ otp_10302(Config) when is_list(Config) ->
            h().">>,
 
     "ok.\n\"\x{400}\"\nA = \"\x{400}\".\nok.\n"
-    "1: io:setopts([{encoding,utf8}])\n-> ok.\n"
+    "1: io:setopts([{encoding, utf8}])\n-> ok.\n"
     "2: A = [1024] = \"\x{400}\"\n-> \"\x{400}\"\n"
     "3: b()\n-> ok.\nok.\n" = t({Node,Test4}),
 
@@ -2780,7 +2783,7 @@ otp_10302(Config) when is_list(Config) ->
     rpc:call(Node,shell, prompt_func, [default]),
     _ = shell:prompt_func(default),
 
-    %% Test lib:format_exception() (cf. OTP-6554)
+    %% Test erl_error:format_exception() (cf. OTP-6554)
     Test6 =
         <<"begin
                A = <<\"\\xaa\">>,
@@ -2941,7 +2944,7 @@ otp_14296(Config) when is_list(Config) ->
     end(),
 
     fun() ->
-            Port = open_port({spawn, "ls"}, [{line,1}]),
+            Port = open_port({spawn, "erl"}, [{line,1}]),
             KnownPort = erlang:port_to_list(Port),
             S = KnownPort ++ ".",
             R = KnownPort ++ ".\n",
@@ -2967,10 +2970,10 @@ otp_14296(Config) when is_list(Config) ->
             R = t(S)
     end(),
 
-    %% Test lib:extended_parse_term/1
+    %% Test erl_eval:extended_parse_term/1
     TF = fun(S) ->
                  {ok, Ts, _} = erl_scan:string(S++".", 1, [text]),
-                 case lib:extended_parse_term(Ts) of
+                 case erl_eval:extended_parse_term(Ts) of
                      {ok, Term} -> Term;
                      {error, _}=Error -> Error
                  end
@@ -3141,25 +3144,16 @@ io_request({get_geometry,columns}, S) ->
     {ok,80,S};
 io_request({get_geometry,rows}, S) ->
     {ok,24,S};
-io_request({put_chars,Chars}, S) ->
-    {ok,ok,S#state{reply = [S#state.reply | Chars]}};
 io_request({put_chars,latin1,Chars}, S) ->
     {ok,ok,S#state{reply = [S#state.reply | Chars]}};
 io_request({put_chars,unicode,Chars0}, S) ->
     Chars = unicode:characters_to_list(Chars0),
     {ok,ok,S#state{reply = [S#state.reply | Chars]}};
-io_request({put_chars,Mod,Func,Args}, S) ->
-    case catch apply(Mod, Func, Args) of
-        Chars when is_list(Chars) -> 
-            io_request({put_chars,Chars}, S)
-    end;
 io_request({put_chars,Enc,Mod,Func,Args}, S) ->
     case catch apply(Mod, Func, Args) of
         Chars when is_list(Chars) -> 
             io_request({put_chars,Enc,Chars}, S)
     end;
-io_request({get_until,_Prompt,Mod,Func,ExtraArgs}, S) ->
-    get_until(Mod, Func, ExtraArgs, S, latin1);
 io_request({get_until,Enc,_Prompt,Mod,Func,ExtraArgs}, S) ->
     get_until(Mod, Func, ExtraArgs, S, Enc).
 

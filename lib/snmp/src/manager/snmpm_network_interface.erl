@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,19 +20,61 @@
 
 -module(snmpm_network_interface).
 
--export([behaviour_info/1]).
+-callback start_link(Server, NoteStore) ->
+    {ok, Pid} | {error, Reason} when
+      Server    :: pid(),
+      NoteStore :: pid(),
+      Pid       :: pid(),
+      Reason    :: term().
 
-behaviour_info(callbacks) ->
-    [{start_link,          2}, 
-     {stop,                1},
-     {send_pdu,            7},
-     {inform_response,     4},
-     {note_store,          2},
-     {info,                1},
-     {verbosity,           2},
-     %% {system_info_updated, 2},
-     {get_log_type,        1},
-     {set_log_type,        2}];
-behaviour_info(_) ->
-    undefined.
+-callback stop(Pid) ->
+    snmp:void() when
+      Pid :: pid().
+
+-callback send_pdu(Pid, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo) ->
+    snmp:void() when
+      Pid       :: pid(),
+      Pdu       :: snmp:pdu(),
+      Vsn       :: 'version-1' | 'version-2' | 'version-3',
+      MsgData   :: term(),
+      Domain    :: snmp:tdomain(),
+      Addr      :: {inet:ip_address(), inet:port_number()},
+      ExtraInfo :: term().
+
+-callback inform_response(Pid, Ref, Addr, Port) ->
+    snmp:void() when
+      Pid  :: pid(),
+      Ref  :: term(),
+      Addr :: inet:ip_address(),
+      Port :: inet:port_number().
+
+-callback note_store(Pid, NoteStore) ->
+    snmp:void() when
+      Pid       :: pid(),
+      NoteStore :: pid().
+
+-callback info(Pid) ->
+    Info when
+      Pid   :: pid(),
+      Info  :: [{Key, Value}],
+      Key   :: term(),
+      Value :: term().
+
+-callback verbosity(Pid, Verbosity) ->
+    snmp:void() when
+      Pid       :: pid(),
+      Verbosity :: snmp:verbosity().
+
+-callback get_log_type(Pid) ->
+    {ok, LogType} | {error, Reason} when
+      Pid     :: pid(),
+      LogType :: snmp:atl_type(),
+      Reason  :: term().
+
+-callback set_log_type(Pid, NewType) ->
+    {ok, OldType} | {error, Reason} when
+      Pid     :: pid(),
+      NewType :: snmp:atl_type(),
+      OldType :: snmp:atl_type(),
+      Reason  :: term().
 

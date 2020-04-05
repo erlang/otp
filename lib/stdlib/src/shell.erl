@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -230,7 +230,7 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
     {Res,Eval0} = get_command(Prompt, Eval_1, Bs0, RT, Ds0),
     case Res of 
 	{ok,Es0,XBs} ->
-            Es1 = lib:subst_values_for_vars(Es0, XBs),
+            Es1 = erl_eval:subst_values_for_vars(Es0, XBs),
             case expand_hist(Es1, N) of
                 {ok,Es} ->
                     {V,Eval,Bs,Ds} = shell_cmd(Es, Eval0, Bs0, RT, Ds0, cmd),
@@ -280,7 +280,7 @@ get_command(Prompt, Eval, Bs, RT, Ds) ->
                       io:scan_erl_exprs(group_leader(), Prompt, 1, [text])
                   of
                       {ok,Toks,_EndPos} ->
-                          lib:extended_parse_exprs(Toks);
+                          erl_eval:extended_parse_exprs(Toks);
                       {eof,_EndPos} ->
                           eof;
                       {error,ErrorInfo,_EndPos} ->
@@ -589,7 +589,7 @@ report_exception(Class, Severity, {Reason,Stacktrace}, RT) ->
     PF = fun(Term, I1) -> pp(Term, I1, RT) end,
     SF = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
     Enc = encoding(),
-    Str = lib:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
+    Str = erl_error:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
     io:requests([{put_chars, latin1, Tag},
                  {put_chars, unicode, Str},
                  nl]).
@@ -645,8 +645,7 @@ eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W) ->
     catch 
         exit:normal ->
             exit(normal);
-        Class:Reason ->
-            Stacktrace = erlang:get_stacktrace(),
+        Class:Reason:Stacktrace ->
             M = {self(),Class,{Reason,Stacktrace}},
             case do_catch(Class, Reason) of
                 true ->
@@ -807,8 +806,8 @@ restrict_handlers(RShMod, Shell, RT) ->
 
 -define(BAD_RETURN(M, F, V),
         try erlang:error(reason)
-        catch _:_ -> erlang:raise(exit, {restricted_shell_bad_return,V}, 
-                                  [{M,F,3} | erlang:get_stacktrace()])
+        catch _:_:S -> erlang:raise(exit, {restricted_shell_bad_return,V}, 
+                                    [{M,F,3} | S])
         end).
 
 local_allowed(F, As, RShMod, Bs, Shell, RT) when is_atom(F) ->
@@ -1417,7 +1416,7 @@ pp(V, I, D, RT) ->
                 true
         end,
     io_lib_pretty:print(V, ([{column, I}, {line_length, columns()},
-                             {depth, D}, {max_chars, ?CHAR_MAX},
+                             {depth, D}, {line_max_chars, ?CHAR_MAX},
                              {strings, Strings},
                              {record_print_fun, record_print_fun(RT)}]
                             ++ enc())).
@@ -1497,8 +1496,8 @@ catch_exception(Bool) ->
       PromptFunc :: 'default' | {module(),atom()},
       PromptFunc2 :: 'default' | {module(),atom()}.
 
-prompt_func(String) ->
-    set_env(stdlib, shell_prompt_func, String, ?DEF_PROMPT_FUNC).
+prompt_func(PromptFunc) ->
+    set_env(stdlib, shell_prompt_func, PromptFunc, ?DEF_PROMPT_FUNC).
 
 -spec strings(Strings) -> Strings2 when
       Strings :: boolean(),

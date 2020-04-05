@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1674,8 +1674,7 @@ format_error(Message) ->
 yeccpars0(Tokens, MFA) ->
     try yeccpars1(Tokens, MFA, 0, [], [])
     catch 
-        error: Error ->
-            Stacktrace = erlang:get_stacktrace(),
+        error: Error : Stacktrace ->
             try yecc_error_type(Error, Stacktrace) of
                 {syntax_error, Token} ->
                     yeccerror(Token);

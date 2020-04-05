@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2013</year><year>2016</year>
+      <year>2013</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
     <file>snmpa_mib_data.xml</file>
   </header>
 
-  <module>snmpa_mib_data</module>
+  <module since="OTP R16B01">snmpa_mib_data</module>
   <modulesummary>Behaviour module for the SNMP agent mib-server 
   data module.</modulesummary>
   <description>
@@ -39,52 +39,52 @@
     must export the following functions: </p>
     <list type="bulleted">
       <item>
-	<seealso marker="#new">new/1</seealso>
+	<seeerl marker="#new">new/1</seeerl>
       </item>
       <item>
-	<seealso marker="#close">close/1</seealso>
+	<seeerl marker="#close">close/1</seeerl>
       </item>
       <item>
-	<seealso marker="#sync">sync/1</seealso>
+	<seeerl marker="#sync">sync/1</seeerl>
       </item>
       <item>
-	<seealso marker="#load_mib">load_mib/4</seealso>
+	<seeerl marker="#load_mib">load_mib/4</seeerl>
       </item>
       <item>
-	<seealso marker="#unload_mib">unload_mib/4</seealso>
+	<seeerl marker="#unload_mib">unload_mib/4</seeerl>
       </item>
       <item>
-	<seealso marker="#lookup">lookup/2</seealso>
+	<seeerl marker="#lookup">lookup/2</seeerl>
       </item>
       <item>
-	<seealso marker="#next">next/3</seealso>
+	<seeerl marker="#next">next/3</seeerl>
       </item>
       <item>
-	<seealso marker="#register_subagent">register_subagent/3</seealso>
+	<seeerl marker="#register_subagent">register_subagent/3</seeerl>
       </item>
       <item>
-	<seealso marker="#unregister_subagent">unregister_subagent/2</seealso>
+	<seeerl marker="#unregister_subagent">unregister_subagent/2</seeerl>
       </item>
       <item>
-	<seealso marker="#which_mib">which_mib/2</seealso>
+	<seeerl marker="#which_mib">which_mib/2</seeerl>
       </item>
       <item>
-	<seealso marker="#which_mibs">which_mibs/1</seealso>
+	<seeerl marker="#which_mibs">which_mibs/1</seeerl>
       </item>
       <item>
-	<seealso marker="#whereis_mib">whereis_mib/2</seealso>
+	<seeerl marker="#whereis_mib">whereis_mib/2</seeerl>
       </item>
       <item>
-	<seealso marker="#dump">dump/2</seealso>
+	<seeerl marker="#dump">dump/2</seeerl>
       </item>
       <item>
-	<seealso marker="#info">info/1</seealso>
+	<seeerl marker="#info">info/1</seeerl>
       </item>
       <item>
-	<seealso marker="#backup">backup/2</seealso>
+	<seeerl marker="#backup">backup/2</seeerl>
       </item>
       <item>
-	<seealso marker="#code_change">code_change/4</seealso>
+	<seeerl marker="#code_change">code_change/4</seeerl>
       </item>
     </list>
 
@@ -98,17 +98,18 @@
 
   </description>
 
-  <section>
-    <title>CALLBACK FUNCTIONS</title>
-    <p>The following functions must be exported from a 
-    <c>mib-server</c> data callback module: </p>
-
-    <marker id="new"></marker>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>CALLBACK FUNCTIONS</title>
+      <p>The following functions must be exported from a 
+      <c>mib-server</c> data callback module: </p>
+  
+      <marker id="new"></marker>
+    </fsdescription>
     <func>
-      <name>Module:new(Storage) -> State</name>
+      <name since="OTP R16B01">Module:new(Storage) -> State</name>
       <fsummary>Create new (mib-server) data instance</fsummary>
       <type>
         <v>Storage = mib_storage()</v>
@@ -122,7 +123,7 @@
     </func>
 
     <func>
-      <name>Module:close(State) -> void()</name>
+      <name since="OTP R16B01">Module:close(State) -> void()</name>
       <fsummary>Close the mib-server data instance</fsummary>
       <type>
         <v>State = term()</v>
@@ -135,7 +136,7 @@
     </func>
 
     <func>
-      <name>Module:sync(State) -> void()</name>
+      <name since="OTP R16B01">Module:sync(State) -> void()</name>
       <fsummary>Synchronize to disc</fsummary>
       <type>
         <v>State = term()</v>
@@ -151,7 +152,7 @@
     </func>
 
     <func>
-      <name>Module:load_mib(State, Filename, MeOverride, TeOverride) -> {ok, NewState} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:load_mib(State, Filename, MeOverride, TeOverride) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Load a mib into the mib-server</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -172,7 +173,7 @@
     </func>
 
     <func>
-      <name>Module:unload_mib(State, Filename) -> {ok, NewState} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:unload_mib(State, Filename) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Unload mib from the mib-server</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -188,7 +189,7 @@
     </func>
 
     <func>
-      <name>Module:lookup(State, Oid) -> Reply</name>
+      <name since="OTP R16B01">Module:lookup(State, Oid) -> Reply</name>
       <fsummary>Find the mib-entry corresponding to the Oid</fsummary>
       <type>
         <v>State = term()</v>
@@ -210,7 +211,7 @@
     </func>
 
     <func>
-      <name>Module:next(State, Oid, MibView) -> Reply</name>
+      <name since="OTP R16B01">Module:next(State, Oid, MibView) -> Reply</name>
       <fsummary>Finds the lexicographically next oid</fsummary>
       <type>
         <v>State = term()</v>
@@ -227,7 +228,7 @@
     </func>
 
     <func>
-      <name>Module:register_subagent(State, Oid, Pid) -> Reply</name>
+      <name since="OTP R16B01">Module:register_subagent(State, Oid, Pid) -> Reply</name>
       <fsummary>Register the subagent</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -245,7 +246,7 @@
     </func>
 
     <func>
-      <name>Module:unregister_subagent(State, PidOrOid) -> Reply</name>
+      <name since="OTP R16B01">Module:unregister_subagent(State, PidOrOid) -> Reply</name>
       <fsummary>Unregister the subagent</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -266,7 +267,7 @@
     </func>
 
     <func>
-      <name>Module:dump(State, Destination) -> Reply</name>
+      <name since="OTP R16B01">Module:dump(State, Destination) -> Reply</name>
       <fsummary>Unregister the subagent</fsummary>
       <type>
         <v>State = term()</v>
@@ -284,7 +285,7 @@
     </func>
 
     <func>
-      <name>Module:which_mib(State, Oid) -> Reply</name>
+      <name since="OTP R16B01">Module:which_mib(State, Oid) -> Reply</name>
       <fsummary>Retrieve the mib file for an oid()</fsummary>
       <type>
         <v>State = term()</v>
@@ -301,7 +302,7 @@
     </func>
 
     <func>
-      <name>Module:which_mibs(State) -> Reply</name>
+      <name since="OTP R16B01">Module:which_mibs(State) -> Reply</name>
       <fsummary>Retrieve all loaded mib files</fsummary>
       <type>
         <v>State = term()</v>
@@ -317,7 +318,7 @@
     </func>
 
     <func>
-      <name>Module:whereis_mib(State, MibName) -> Reply</name>
+      <name since="OTP R16B01">Module:whereis_mib(State, MibName) -> Reply</name>
       <fsummary>Retrieve the mib file for the mib</fsummary>
       <type>
         <v>State = term()</v>
@@ -334,7 +335,7 @@
     </func>
 
     <func>
-      <name>Module:info(State) -> Reply</name>
+      <name since="OTP R16B01">Module:info(State) -> Reply</name>
       <fsummary>Retrieve misc info for the mib data</fsummary>
       <type>
         <v>State = term()</v>
@@ -352,7 +353,7 @@
     </func>
 
     <func>
-      <name>Module:backup(State, BackupDir) -> Reply</name>
+      <name since="OTP R16B01">Module:backup(State, BackupDir) -> Reply</name>
       <fsummary>Perform a backup of the mib-server data</fsummary>
       <type>
         <v>State = term()</v>
@@ -370,7 +371,7 @@
     </func>
 
     <func>
-      <name>Module:code_change(Destination, Vsn, Extra, State) -> NewState</name>
+      <name since="OTP R16B01">Module:code_change(Destination, Vsn, Extra, State) -> NewState</name>
       <fsummary>Perform a code-change</fsummary>
       <type>
         <v>Destination = up | down</v>
@@ -381,7 +382,7 @@
       <desc>
         <p>Perform a code-change (upgrade or downgrade). </p>
         <p>See 
-	<seealso marker="stdlib:gen_server">gen_server</seealso>
+	<seeerl marker="stdlib:gen_server">gen_server</seeerl>
 	for more info regarding the <c>Vsn</c> and <c>Extra</c> arguments. </p>
 
       </desc>

@@ -1,0 +1,3 @@
+
+contract3.erl:17: Overloaded contract for contract3:t1/1 has overlapping domains; such contracts are currently unsupported and are simply ignored
+contract3.erl:29: Overloaded contract for contract3:t3/3 has overlapping domains; such contracts are currently unsupported and are simply ignored

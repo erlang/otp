@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,25 +25,86 @@
 #include "erl_node_tables.h"
 #include "zlib.h"
 
-#define DFLAG_PUBLISHED           0x01
-#define DFLAG_ATOM_CACHE          0x02
-#define DFLAG_EXTENDED_REFERENCES 0x04
-#define DFLAG_DIST_MONITOR        0x08
-#define DFLAG_FUN_TAGS            0x10
-#define DFLAG_DIST_MONITOR_NAME   0x20
-#define DFLAG_HIDDEN_ATOM_CACHE   0x40
-#define DFLAG_NEW_FUN_TAGS        0x80
-#define DFLAG_EXTENDED_PIDS_PORTS 0x100
-#define DFLAG_EXPORT_PTR_TAG      0x200
-#define DFLAG_BIT_BINARIES        0x400
-#define DFLAG_NEW_FLOATS          0x800
-#define DFLAG_UNICODE_IO          0x1000
-#define DFLAG_DIST_HDR_ATOM_CACHE 0x2000
-#define DFLAG_SMALL_ATOM_TAGS     0x4000
-#define DFLAG_INTERNAL_TAGS       0x8000
-#define DFLAG_UTF8_ATOMS          0x10000
-#define DFLAG_MAP_TAG             0x20000
-#define DFLAG_BIG_CREATION        0x40000
+#define DFLAG_PUBLISHED               ((Uint64)0x01)
+#define DFLAG_ATOM_CACHE              ((Uint64)0x02)
+#define DFLAG_EXTENDED_REFERENCES     ((Uint64)0x04)
+#define DFLAG_DIST_MONITOR            ((Uint64)0x08)
+#define DFLAG_FUN_TAGS                ((Uint64)0x10)
+#define DFLAG_DIST_MONITOR_NAME       ((Uint64)0x20)
+#define DFLAG_HIDDEN_ATOM_CACHE       ((Uint64)0x40)
+#define DFLAG_NEW_FUN_TAGS            ((Uint64)0x80)
+#define DFLAG_EXTENDED_PIDS_PORTS    ((Uint64)0x100)
+#define DFLAG_EXPORT_PTR_TAG         ((Uint64)0x200)
+#define DFLAG_BIT_BINARIES           ((Uint64)0x400)
+#define DFLAG_NEW_FLOATS             ((Uint64)0x800)
+#define DFLAG_UNICODE_IO            ((Uint64)0x1000)
+#define DFLAG_DIST_HDR_ATOM_CACHE   ((Uint64)0x2000)
+#define DFLAG_SMALL_ATOM_TAGS       ((Uint64)0x4000)
+#define DFLAG_ETS_COMPRESSED        ((Uint64)0x8000) /* internal */
+#define DFLAG_UTF8_ATOMS           ((Uint64)0x10000)
+#define DFLAG_MAP_TAG              ((Uint64)0x20000)
+#define DFLAG_BIG_CREATION         ((Uint64)0x40000)
+#define DFLAG_SEND_SENDER          ((Uint64)0x80000)
+#define DFLAG_BIG_SEQTRACE_LABELS ((Uint64)0x100000)
+#define DFLAG_PENDING_CONNECT     ((Uint64)0x200000) /* internal */
+#define DFLAG_EXIT_PAYLOAD        ((Uint64)0x400000)
+#define DFLAG_FRAGMENTS           ((Uint64)0x800000)
+#define DFLAG_HANDSHAKE_23       ((Uint64)0x1000000)
+#define DFLAG_RESERVED                   0xfe000000
+/*
+ * As the old handshake only support 32 flag bits, we reserve the remaining
+ * bits in the lower 32 for changes in the handshake protocol or potentially
+ * new capabilities that we also want to backport to OTP-22 or older.
+ */
+#define DFLAG_SPAWN            (((Uint64)0x1) << 32)
+#define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
+
+
+/* Mandatory flags for distribution */
+#define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
+                              | DFLAG_EXTENDED_PIDS_PORTS       \
+			      | DFLAG_UTF8_ATOMS                \
+			      | DFLAG_NEW_FUN_TAGS              \
+                              | DFLAG_BIG_CREATION)
+
+/*
+ * Additional optimistic flags when encoding toward pending connection.
+ * If remote node (erl_interface) does not support these then we may need
+ * to transcode messages enqueued before connection setup was finished.
+ */
+#define DFLAG_DIST_HOPEFULLY (DFLAG_EXPORT_PTR_TAG              \
+                              | DFLAG_BIT_BINARIES              \
+                              | DFLAG_DIST_MONITOR              \
+                              | DFLAG_DIST_MONITOR_NAME         \
+                              | DFLAG_SPAWN)
+
+/* Our preferred set of flags. Used for connection setup handshake */
+#define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
+                            | DFLAG_FUN_TAGS                  \
+                            | DFLAG_NEW_FLOATS                \
+                            | DFLAG_UNICODE_IO                \
+                            | DFLAG_DIST_HDR_ATOM_CACHE       \
+                            | DFLAG_SMALL_ATOM_TAGS           \
+                            | DFLAG_UTF8_ATOMS                \
+                            | DFLAG_MAP_TAG                   \
+                            | DFLAG_SEND_SENDER               \
+                            | DFLAG_BIG_SEQTRACE_LABELS       \
+                            | DFLAG_EXIT_PAYLOAD              \
+                            | DFLAG_FRAGMENTS                 \
+                            | DFLAG_HANDSHAKE_23              \
+                            | DFLAG_SPAWN)
+
+/* Flags addable by local distr implementations */
+#define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
+
+/* Flags rejectable by local distr implementation */
+#define DFLAG_DIST_REJECTABLE (DFLAG_DIST_HDR_ATOM_CACHE         \
+                               | DFLAG_HIDDEN_ATOM_CACHE         \
+                               | DFLAG_FRAGMENTS                 \
+                               | DFLAG_ATOM_CACHE)
+
+/* Flags for all features needing strict order delivery */
+#define DFLAG_DIST_STRICT_ORDER DFLAG_DIST_HDR_ATOM_CACHE
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
@@ -56,56 +117,62 @@
                                | DFLAG_BIG_CREATION)
 
 /* opcodes used in distribution messages */
-#define DOP_LINK		1
-#define DOP_SEND		2
-#define DOP_EXIT		3
-#define DOP_UNLINK		4
+enum dop {
+    DOP_LINK                = 1,
+    DOP_SEND                = 2,
+    DOP_EXIT                = 3,
+    DOP_UNLINK              = 4,
 /* Ancient DOP_NODE_LINK (5) was here, can be reused */
-#define DOP_REG_SEND		6
-#define DOP_GROUP_LEADER	7
-#define DOP_EXIT2		8
+    DOP_REG_SEND            = 6,
+    DOP_GROUP_LEADER        = 7,
+    DOP_EXIT2               = 8,
 
-#define DOP_SEND_TT		12
-#define DOP_EXIT_TT		13
-#define DOP_REG_SEND_TT		16
-#define DOP_EXIT2_TT		18
+    DOP_SEND_TT             = 12,
+    DOP_EXIT_TT             = 13,
+    DOP_REG_SEND_TT         = 16,
+    DOP_EXIT2_TT            = 18,
 
-#define DOP_MONITOR_P		19
-#define DOP_DEMONITOR_P		20
-#define DOP_MONITOR_P_EXIT	21
+    DOP_MONITOR_P           = 19,
+    DOP_DEMONITOR_P         = 20,
+    DOP_MONITOR_P_EXIT      = 21,
+
+    DOP_SEND_SENDER         = 22,
+    DOP_SEND_SENDER_TT      = 23,
+
+    /* These are used when DFLAG_EXIT_PAYLOAD is detected */
+    DOP_PAYLOAD_EXIT           = 24,
+    DOP_PAYLOAD_EXIT_TT        = 25,
+    DOP_PAYLOAD_EXIT2          = 26,
+    DOP_PAYLOAD_EXIT2_TT       = 27,
+    DOP_PAYLOAD_MONITOR_P_EXIT = 28,
+
+    DOP_SPAWN_REQUEST       = 29,
+    DOP_SPAWN_REQUEST_TT    = 30,
+    DOP_SPAWN_REPLY         = 31,
+    DOP_SPAWN_REPLY_TT      = 32
+};
+
+#define ERTS_DIST_SPAWN_FLAG_LINK       (1 << 0)
+#define ERTS_DIST_SPAWN_FLAG_MONITOR    (1 << 1)
 
 /* distribution trap functions */
-extern Export* dsend2_trap;
-extern Export* dsend3_trap;
-extern Export* dlink_trap;
-extern Export* dunlink_trap;
 extern Export* dmonitor_node_trap;
-extern Export* dgroup_leader_trap;
-extern Export* dexit_trap;
-extern Export* dmonitor_p_trap;
 
 typedef enum {
     ERTS_DSP_NO_LOCK,
-    ERTS_DSP_RLOCK,
-    ERTS_DSP_RWLOCK
+    ERTS_DSP_RLOCK
 } ErtsDSigPrepLock;
 
 
-typedef struct {
-    Process *proc;
-    DistEntry *dep;
-    Eterm cid;
-    Eterm connection_id;
-    int no_suspend;
-} ErtsDSigData;
+/* Must be larger or equal to 16 */
+#ifdef DEBUG
+#define ERTS_DIST_FRAGMENT_SIZE 1024
+#else
+/* This should be made configurable */
+#define ERTS_DIST_FRAGMENT_SIZE (64 * 1024)
+#endif
 
-#define ERTS_DE_IS_NOT_CONNECTED(DEP) \
-  (ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&(DEP)->rwmtx) \
-		      || erts_lc_rwmtx_is_rwlocked(&(DEP)->rwmtx)), \
-   (is_nil((DEP)->cid) || ((DEP)->status & ERTS_DE_SFLG_EXITING)))
-
-#define ERTS_DE_IS_CONNECTED(DEP) \
-  (!ERTS_DE_IS_NOT_CONNECTED((DEP)))
+#define ERTS_DIST_FRAGMENT_HEADER_SIZE (1 + 1 + 8 + 8) /* magic, header, seq id, frag id*/
 
 #define ERTS_DE_BUSY_LIMIT (1024*1024)
 extern int erts_dist_buf_busy_limit;
@@ -113,14 +180,10 @@ extern int erts_is_alive;
 
 /*
  * erts_dsig_prepare() prepares a send of a distributed signal.
- * One of the values defined below are returned. If the returned
- * value is another than ERTS_DSIG_PREP_CONNECTED, the
- * distributed signal cannot be sent before appropriate actions
- * have been taken. Appropriate actions would typically be setting
- * up the connection.
+ * One of the values defined below are returned.
  */
 
-/* Connected; signal can be sent. */
+/* Connected; signals can be enqueued and sent. */
 #define ERTS_DSIG_PREP_CONNECTED	0
 /* Not connected; connection needs to be set up. */
 #define ERTS_DSIG_PREP_NOT_CONNECTED	1
@@ -128,147 +191,21 @@ extern int erts_is_alive;
 #define ERTS_DSIG_PREP_WOULD_SUSPEND	2
 /* System not alive (distributed) */
 #define ERTS_DSIG_PREP_NOT_ALIVE	3
+/* Pending connection; signals can be enqueued */
+#define ERTS_DSIG_PREP_PENDING	        4
 
-ERTS_GLB_INLINE int erts_dsig_prepare(ErtsDSigData *,
-				      DistEntry *,
-				      Process *,
-				      ErtsDSigPrepLock,
-				      int);
+/* dist_ctrl_{g,s}et_option/2 */
+#define ERTS_DIST_CTRL_OPT_GET_SIZE     ((Uint32) (1 << 0))
 
-ERTS_GLB_INLINE
-void erts_schedule_dist_command(Port *, DistEntry *);
+/* for emulator internal testing... */
+extern int erts_dflags_test_remove_hopefull_flags;
 
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE int 
-erts_dsig_prepare(ErtsDSigData *dsdp,
-		  DistEntry *dep,
-		  Process *proc,
-		  ErtsDSigPrepLock dspl,
-		  int no_suspend)
-{
-    int failure;
-    if (!erts_is_alive)
-	return ERTS_DSIG_PREP_NOT_ALIVE;
-    if (!dep)
-	return ERTS_DSIG_PREP_NOT_CONNECTED;
-    if (dspl == ERTS_DSP_RWLOCK)
-	erts_smp_de_rwlock(dep);
-    else
-	erts_smp_de_rlock(dep);
-    if (ERTS_DE_IS_NOT_CONNECTED(dep)) {
-	failure = ERTS_DSIG_PREP_NOT_CONNECTED;
-	goto fail;
-    }
-    if (no_suspend) {
-	failure = ERTS_DSIG_PREP_CONNECTED;
-	erts_smp_mtx_lock(&dep->qlock);
-	if (dep->qflgs & ERTS_DE_QFLG_BUSY)
-	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
-	erts_smp_mtx_unlock(&dep->qlock);
-	if (failure == ERTS_DSIG_PREP_WOULD_SUSPEND)
-	    goto fail;
-    }
-    dsdp->proc = proc;
-    dsdp->dep = dep;
-    dsdp->cid = dep->cid;
-    dsdp->connection_id = dep->connection_id;
-    dsdp->no_suspend = no_suspend;
-    if (dspl == ERTS_DSP_NO_LOCK)
-	erts_smp_de_runlock(dep);
-    return ERTS_DSIG_PREP_CONNECTED;
-
- fail:
-    if (dspl == ERTS_DSP_RWLOCK)
-	erts_smp_de_rwunlock(dep);
-    else
-	erts_smp_de_runlock(dep);
-    return failure;
-
-}
-
-ERTS_GLB_INLINE
-void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
-{
-    DistEntry *dep;
-    Eterm id;
-
-    if (prt) {
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-	ASSERT((erts_atomic32_read_nob(&prt->state)
-		& ERTS_PORT_SFLGS_DEAD) == 0);
-	ASSERT(prt->dist_entry);
-
-	dep = prt->dist_entry;
-	id = prt->common.id;
-    }
-    else {
-	ASSERT(dist_entry);
-	ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&dist_entry->rwmtx)
-			   || erts_lc_rwmtx_is_rwlocked(&dist_entry->rwmtx));
-	ASSERT(is_internal_port(dist_entry->cid));
-
- 	dep = dist_entry;
-	id = dep->cid;
-    }
-
-    if (!erts_smp_atomic_xchg_mb(&dep->dist_cmd_scheduled, 1))
-	erts_port_task_schedule(id, &dep->dist_cmd, ERTS_PORT_TASK_DIST_CMD);
-}
-
+#ifdef DEBUG
+#define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L) \
+    erts_dbg_chk_no_dist_proc_link((D), (R), (L))
+#else
+#define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L)
 #endif
-
-typedef struct {
-    ErtsLink *d_lnk;
-    ErtsLink *d_sub_lnk;
-} ErtsDistLinkData;
-
-ERTS_GLB_INLINE void erts_remove_dist_link(ErtsDistLinkData *,
-					   Eterm,
-					   Eterm,
-					   DistEntry *);
-ERTS_GLB_INLINE int erts_was_dist_link_removed(ErtsDistLinkData *);
-ERTS_GLB_INLINE void erts_destroy_dist_link(ErtsDistLinkData *);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE void
-erts_remove_dist_link(ErtsDistLinkData *dldp,
-		      Eterm lid,
-		      Eterm rid,
-		      DistEntry *dep)
-{
-    erts_smp_de_links_lock(dep);
-    dldp->d_lnk = erts_lookup_link(dep->nlinks, lid);
-    if (!dldp->d_lnk)
-	dldp->d_sub_lnk = NULL;
-    else {
-	dldp->d_sub_lnk = erts_remove_link(&ERTS_LINK_ROOT(dldp->d_lnk), rid);
-	dldp->d_lnk = (ERTS_LINK_ROOT(dldp->d_lnk)
-		       ? NULL
-		       : erts_remove_link(&dep->nlinks, lid));
-    }
-    erts_smp_de_links_unlock(dep);
-}
-
-ERTS_GLB_INLINE int
-erts_was_dist_link_removed(ErtsDistLinkData *dldp)
-{
-    return dldp->d_sub_lnk != NULL;
-}
-
-ERTS_GLB_INLINE void
-erts_destroy_dist_link(ErtsDistLinkData *dldp)
-{
-    if (dldp->d_lnk)
-	erts_destroy_link(dldp->d_lnk);
-    if (dldp->d_sub_lnk)
-	erts_destroy_link(dldp->d_sub_lnk);	
-}
-
-#endif
-
-
 
 /* Define for testing */
 /* #define EXTREME_TTB_TRAPPING 1 */
@@ -281,21 +218,74 @@ erts_destroy_dist_link(ErtsDistLinkData *dldp)
 
 typedef enum { TTBSize, TTBEncode, TTBCompress } TTBState;
 typedef struct TTBSizeContext_ {
-    Uint flags;
+    Uint64 dflags;
     int level;
+    Sint vlen;
+    int iovec;
+    Uint fragment_size;
+    Uint last_result;
+    Uint extra_size;
     Uint result;
     Eterm obj;
     ErtsWStack wstack;
 } TTBSizeContext;
 
+#define ERTS_INIT_TTBSizeContext(Ctx, Flags)                    \
+    do {                                                        \
+        (Ctx)->wstack.wstart = NULL;                            \
+        (Ctx)->dflags = (Flags);                                 \
+        (Ctx)->level = 0;                                       \
+        (Ctx)->vlen = -1;                                       \
+        (Ctx)->fragment_size = ~((Uint) 0);                     \
+        (Ctx)->extra_size = 0;                                  \
+        (Ctx)->last_result = 0;                                 \
+    } while (0)
+
 typedef struct TTBEncodeContext_ {
-    Uint flags;
+    Uint64 dflags;
+    Uint64 hopefull_flags;
+    byte *hopefull_flagsp;
     int level;
     byte* ep;
     Eterm obj;
     ErtsWStack wstack;
     Binary *result_bin;
+    byte *cptr;
+    Sint vlen;
+    Uint size;
+    byte *payload_ixp;
+    byte *hopefull_ixp;
+    SysIOVec* iov;
+    ErlDrvBinary** binv;
+    Eterm *termv;
+    int iovec;
+    Uint fragment_size;
+    Sint frag_ix;
+    ErlIOVec **fragment_eiovs;
+#ifdef DEBUG
+    int debug_fragments;
+    int debug_vlen;
+#endif
 } TTBEncodeContext;
+
+#define ERTS_INIT_TTBEncodeContext(Ctx, Flags)                  \
+    do {                                                        \
+        (Ctx)->wstack.wstart = NULL;                            \
+        (Ctx)->dflags = (Flags);                                 \
+        (Ctx)->level = 0;                                       \
+        (Ctx)->vlen = 0;                                        \
+        (Ctx)->size = 0;                                        \
+        (Ctx)->termv = NULL;                                    \
+        (Ctx)->iov = NULL;                                      \
+        (Ctx)->binv = NULL;                                     \
+        (Ctx)->fragment_size = ~((Uint) 0);                     \
+        if ((Flags) & DFLAG_PENDING_CONNECT) {                  \
+            (Ctx)->hopefull_flags = 0;                          \
+            (Ctx)->hopefull_flagsp = NULL;                      \
+            (Ctx)->hopefull_ixp = NULL;                         \
+            (Ctx)->payload_ixp = NULL;                          \
+        }                                                       \
+    } while (0)
 
 typedef struct {
     Uint real_size;
@@ -321,39 +311,58 @@ enum erts_dsig_send_phase {
     ERTS_DSIG_SEND_PHASE_MSG_SIZE,
     ERTS_DSIG_SEND_PHASE_ALLOC,
     ERTS_DSIG_SEND_PHASE_MSG_ENCODE,
-    ERTS_DSIG_SEND_PHASE_FIN
+    ERTS_DSIG_SEND_PHASE_FIN,
+    ERTS_DSIG_SEND_PHASE_SEND
 };
 
-struct erts_dsig_send_context {
-    enum erts_dsig_send_phase phase;
-    Sint reds;
+typedef struct erts_dsig_send_context {
+    int connect;
+    int no_suspend;
+    int no_trap;
 
     Eterm ctl;
     Eterm msg;
-    int force_busy;
-    Uint32 pass_through_size;
+    Eterm from;
+    Eterm ctl_heap[8]; /* 7-tuple (SPAWN_REQUEST_TT) */
+    Eterm return_term;
+
+    DistEntry *dep;
+    Eterm node;   /* used if dep == NULL */
+    Eterm cid;
+    Eterm connection_id;
+    int deref_dep;
+
+    enum erts_dsig_send_phase phase;
+    Sint reds;
+
     Uint data_size, dhdr_ext_size;
+    byte *dhdrp, *extp;
     ErtsAtomCacheMap *acmp;
     ErtsDistOutputBuf *obuf;
-    Uint32 flags;
+    Uint alloced_fragments, fragments;
+    Sint vlen;
+    Uint64 dflags;
     Process *c_p;
     union {
 	TTBSizeContext sc;
 	TTBEncodeContext ec;
     }u;
+
+} ErtsDSigSendContext;
+
+typedef struct dist_sequences DistSeqNode;
+
+struct dist_sequences {
+    ErlHeapFragment hfrag;
+    struct dist_sequences *parent;
+    struct dist_sequences *left;
+    struct dist_sequences *right;
+    char is_red;
+
+    Uint64 seq_id;
+    int cnt;
+    Sint ctl_len;
 };
-
-typedef struct {
-    int suspend;
-
-    Eterm ctl_heap[6];
-    ErtsDSigData dsd;
-    DistEntry* dep_to_deref;
-    struct erts_dsig_send_context dss;
-
-    Eterm return_term;
-}ErtsSendContext;
-
 
 /*
  * erts_dsig_send_* return values.
@@ -361,22 +370,24 @@ typedef struct {
 #define ERTS_DSIG_SEND_OK	0
 #define ERTS_DSIG_SEND_YIELD	1
 #define ERTS_DSIG_SEND_CONTINUE 2
+#define ERTS_DSIG_SEND_TOO_LRG  3
 
-extern int erts_dsig_send_link(ErtsDSigData *, Eterm, Eterm);
-extern int erts_dsig_send_msg(Eterm, Eterm, ErtsSendContext*);
-extern int erts_dsig_send_exit_tt(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_unlink(ErtsDSigData *, Eterm, Eterm);
-extern int erts_dsig_send_reg_msg(Eterm, Eterm, ErtsSendContext*);
-extern int erts_dsig_send_group_leader(ErtsDSigData *, Eterm, Eterm);
-extern int erts_dsig_send_exit(ErtsDSigData *, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_exit2(ErtsDSigData *, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_demonitor(ErtsDSigData *, Eterm, Eterm, Eterm, int);
-extern int erts_dsig_send_monitor(ErtsDSigData *, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_m_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm);
+extern int erts_dsig_send_reg_msg(ErtsDSigSendContext*, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_link(ErtsDSigSendContext *, Eterm, Eterm);
+extern int erts_dsig_send_exit_tt(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_unlink(ErtsDSigSendContext *, Eterm, Eterm);
+extern int erts_dsig_send_group_leader(ErtsDSigSendContext *, Eterm, Eterm);
+extern int erts_dsig_send_exit(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_exit2(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_demonitor(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_monitor(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_m_exit(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_spawn_reply(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm, Eterm);
 
-extern int erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx);
+extern int erts_dsig_send(ErtsDSigSendContext *dsdp);
 extern int erts_dsend_context_dtor(Binary*);
-extern Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx);
+extern Eterm erts_dsend_export_trap_context(Process* p, ErtsDSigSendContext* ctx);
 
 extern int erts_dist_command(Port *prt, int reds);
 extern void erts_dist_port_not_busy(Port *prt);
@@ -384,5 +395,25 @@ extern void erts_kill_dist_connection(DistEntry *dep, Uint32);
 
 extern Uint erts_dist_cache_size(void);
 
+extern Sint erts_abort_pending_connection_rwunlock(DistEntry *dep, int *);
 
+extern void erts_debug_dist_seq_tree_foreach(
+    DistEntry *dep,
+    int (*func)(DistSeqNode *, void*, Sint), void *args);
+
+extern int erts_dsig_prepare(ErtsDSigSendContext *,
+                             DistEntry*,
+                             Process *,
+                             ErtsProcLocks,
+                             ErtsDSigPrepLock,
+                             int,
+                             int,
+                             int);
+
+void erts_dist_print_procs_suspended_on_de(fmtfn_t to, void *to_arg);
+int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
+
+Uint erts_ttb_iov_size(int use_termv, Sint vlen, Uint fragments);
+ErlIOVec **erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
+                             Sint vlen, Uint fragments, Uint fragments_size);
 #endif

@@ -34,11 +34,11 @@
     Record expressions are translated to tuple expressions during
     compilation. Therefore, record expressions are not understood by
     the shell unless special actions are taken. For details, see the
-    <seealso marker="stdlib:shell">shell(3)</seealso>
+    <seeerl marker="stdlib:shell">shell(3)</seeerl>
     manual page in STDLIB.</p>
   <p>More examples are provided in
-    <seealso marker="doc/programming_examples:records">
-    Programming Examples</seealso>.</p>
+    <seeguide marker="system/programming_examples:records">
+    Programming Examples</seeguide>.</p>
 
   <section>
     <title>Defining Records</title>

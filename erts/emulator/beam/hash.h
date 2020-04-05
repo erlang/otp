@@ -18,16 +18,16 @@
  * %CopyrightEnd%
  */
 
-/*
-** General hash functions
-**
-*/
+/**
+ * General hash functions
+ *
+ **/
 #ifndef __HASH_H__
 #define __HASH_H__
 
 #include "sys.h"
 
-typedef unsigned long HashValue;
+typedef UWord HashValue;
 typedef struct hash Hash;
 
 typedef int (*HCMP_FUN)(void*, void*);
@@ -38,6 +38,7 @@ typedef void (*HFREE_FUN)(void*);
 typedef void* (*HMALLOC_FUN)(int,size_t);
 typedef void (*HMFREE_FUN)(int,void*);
 typedef int (*HMPRINT_FUN)(fmtfn_t,void*,char*, ...);
+typedef void (*HFOREACH_FUN)(void *, void *);
 
 /*
 ** This bucket must be placed in top of 
@@ -75,11 +76,10 @@ struct hash
     int is_allocated;    /* 0 iff hash structure is on stack or is static */
     int meta_alloc_type; /* argument to pass to meta_alloc and meta_free */
     char* name;          /* Table name (static string, for debugging) */
-    int size;		 /* Number of slots */
+    int shift;		 /* How much to shift the hash value */
+    int max_shift;       /* Never shift more than this value */
     int shrink_threshold;
     int grow_threshold;
-    int size_ix;         /* Size index in size table */
-    int min_size_ix;     /* Never shrink table smaller than this */
     int nobjs;		 /* Number of objects in table */
     HashBucket** bucket; /* Vector of bucket pointers (objects) */
 };
@@ -96,6 +96,54 @@ void* hash_get(Hash*, void*);
 void* hash_put(Hash*, void*);
 void* hash_erase(Hash*, void*);
 void* hash_remove(Hash*, void*);
-void  hash_foreach(Hash*, void (*func)(void *, void *), void *);
+void  hash_foreach(Hash*, HFOREACH_FUN, void *);
+
+ERTS_GLB_INLINE Uint hash_get_slot(Hash *h, HashValue hv);
+ERTS_GLB_INLINE void* hash_fetch(Hash *, void*, H_FUN, HCMP_FUN);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Uint
+hash_get_slot(Hash *h, HashValue hv)
+{
+    /* This slot mapping function uses fibonacci hashing in order to
+     * protect itself against a very bad hash function. This is not
+     * a hash function, so the user of hash.h should still spend time
+     * to figure out a good hash function for its data.
+     *
+     * See https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
+     * for some thoughts and ideas about fibonacci hashing.
+     */
+
+    /* This is not strictly part of the fibonacci hashing algorithm
+     * but it does help to spread the values of the mapping function better.
+     */
+    hv ^= hv >> h->shift;
+#ifdef ARCH_64
+    /* 2^64 / 1.61803398875 = 11400714819323198485.... */
+    return (UWORD_CONSTANT(11400714819323198485) * hv) >> h->shift;
+#else
+    /* 2^32 / 1.61803398875 = 2654435769.... */
+    return (UWORD_CONSTANT(2654435769) * hv) >> h->shift;
+#endif
+}
+
+ERTS_GLB_INLINE void* hash_fetch(Hash *h, void* tmpl, H_FUN hash, HCMP_FUN cmp)
+{
+    HashValue hval = hash(tmpl);
+    Uint ix = hash_get_slot(h, hval);
+    HashBucket* b = h->bucket[ix];
+    ASSERT(h->fun.hash == hash);
+    ASSERT(h->fun.cmp == cmp);
+
+    while(b != (HashBucket*) 0) {
+	if ((b->hvalue == hval) && (cmp(tmpl, (void*)b) == 0))
+	    return (void*) b;
+	b = b->next;
+    }
+    return (void*) 0;
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif

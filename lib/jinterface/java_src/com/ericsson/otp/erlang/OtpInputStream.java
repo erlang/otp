@@ -239,6 +239,20 @@ public class OtpInputStream extends ByteArrayInputStream {
     }
 
     /**
+     * Read a eight byte big endian integer from the stream.
+     *
+     * @return the bytes read, converted from big endian to a long integer.
+     *
+     * @exception OtpErlangDecodeException
+     *                if the next byte cannot be read.
+     */
+    public long read8BE() throws OtpErlangDecodeException {
+        long high = read4BE();
+        long low = read4BE();
+        return (high << 32) | (low & 0xffffffff);
+    }
+
+    /**
      * Read a two byte little endian integer from the stream.
      *
      * @return the bytes read, converted from little endian to an integer.
@@ -601,7 +615,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @return the integer value.
      *
      * @exception OtpErlangDecodeException
-     *                if the next term in the stream can not be represented as a
+     *                if the next term in the stream cannot be represented as a
      *                positive integer.
      */
     public int read_uint() throws OtpErlangDecodeException {
@@ -622,7 +636,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @return the integer value.
      *
      * @exception OtpErlangDecodeException
-     *                if the next term in the stream can not be represented as
+     *                if the next term in the stream cannot be represented as
      *                an integer.
      */
     public int read_int() throws OtpErlangDecodeException {
@@ -643,7 +657,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @return the short value.
      *
      * @exception OtpErlangDecodeException
-     *                if the next term in the stream can not be represented as a
+     *                if the next term in the stream cannot be represented as a
      *                positive short.
      */
     public short read_ushort() throws OtpErlangDecodeException {
@@ -664,7 +678,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @return the short value.
      *
      * @exception OtpErlangDecodeException
-     *                if the next term in the stream can not be represented as a
+     *                if the next term in the stream cannot be represented as a
      *                short.
      */
     public short read_short() throws OtpErlangDecodeException {
@@ -685,7 +699,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @return the long value.
      *
      * @exception OtpErlangDecodeException
-     *                if the next term in the stream can not be represented as a
+     *                if the next term in the stream cannot be represented as a
      *                positive long.
      */
     public long read_ulong() throws OtpErlangDecodeException {
@@ -698,7 +712,7 @@ public class OtpInputStream extends ByteArrayInputStream {
      * @return the long value.
      *
      * @exception OtpErlangDecodeException
-     *                if the next term in the stream can not be represented as a
+     *                if the next term in the stream cannot be represented as a
      *                long.
      */
     public long read_long() throws OtpErlangDecodeException {

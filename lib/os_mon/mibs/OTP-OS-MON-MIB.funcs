@@ -1,5 +1,0 @@
-{loadMemorySystemWatermark, {os_mon_mib, mem_sys_mark, []}}.
-{loadMemoryErlProcWatermark, {os_mon_mib, mem_proc_mark, []}}.
-{loadTable, {os_mon_mib, load_table, []}}.
-{diskAlmostFullThreshold, {os_mon_mib, disk_threshold, []}}.
-{diskTable, {os_mon_mib, disk_table, []}}.

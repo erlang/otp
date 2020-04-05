@@ -28,7 +28,7 @@
     <date>2000-06-20</date>
     <rev>B</rev>
   </header>
-  <module>eldap</module>
+  <module since="OTP R15B01">eldap</module>
   <modulesummary>LDAP Client</modulesummary>
   <description>
     <p>This module provides a client api to the Lightweight Directory Access Protocol (LDAP).
@@ -55,38 +55,38 @@
 
       <tag><c>modify_op()</c></tag>
       <item><p>See 
-        <seealso marker="#mod_add/2">mod_add/2</seealso>, 
-        <seealso marker="#mod_delete/2">mod_delete/2</seealso>,
-        <seealso marker="#mod_replace/2">mod_replace/2</seealso>
+        <seemfa marker="#mod_add/2">mod_add/2</seemfa>, 
+        <seemfa marker="#mod_delete/2">mod_delete/2</seemfa>,
+        <seemfa marker="#mod_replace/2">mod_replace/2</seemfa>
       </p></item>
 
       <tag><c>scope()</c></tag>
       <item><p>See 
-        <seealso marker="#baseObject/0">baseObject/0</seealso>, 
-        <seealso marker="#singleLevel/0">singleLevel/0</seealso>, 
-        <seealso marker="#wholeSubtree/0">wholeSubtree/0</seealso>
+        <seemfa marker="#baseObject/0">baseObject/0</seemfa>, 
+        <seemfa marker="#singleLevel/0">singleLevel/0</seemfa>, 
+        <seemfa marker="#wholeSubtree/0">wholeSubtree/0</seemfa>
       </p></item>
 
       <tag><c>dereference()</c></tag>
       <item><p>See 
-        <seealso marker="#neverDerefAliases/0">neverDerefAliases/0</seealso>, 
-        <seealso marker="#derefInSearching/0">derefInSearching/0</seealso>, 
-        <seealso marker="#derefFindingBaseObj/0">derefFindingBaseObj/0</seealso>, 
-        <seealso marker="#derefAlways/0">derefAlways/0</seealso>
+        <seemfa marker="#neverDerefAliases/0">neverDerefAliases/0</seemfa>, 
+        <seemfa marker="#derefInSearching/0">derefInSearching/0</seemfa>, 
+        <seemfa marker="#derefFindingBaseObj/0">derefFindingBaseObj/0</seemfa>, 
+        <seemfa marker="#derefAlways/0">derefAlways/0</seemfa>
       </p></item>
 
       <tag><c>filter()</c></tag>
       <item><p>See 
-        <seealso marker="#present/1">present/1</seealso>, 
-        <seealso marker="#substrings/2">substrings/2</seealso>, 
-        <seealso marker="#equalityMatch/2">equalityMatch/2</seealso>, 
-        <seealso marker="#greaterOrEqual/2">greaterOrEqual/2</seealso>, 
-        <seealso marker="#lessOrEqual/2">lessOrEqual/2</seealso>, 
-        <seealso marker="#approxMatch/2">approxMatch/2</seealso>, 
-        <seealso marker="#extensibleMatch/2">extensibleMatch/2</seealso>, 
-        <seealso marker="#'and'/1">'and'/1</seealso>, 
-        <seealso marker="#'or'/1">'or'/1</seealso>, 
-        <seealso marker="#'not'/1">'not'/1</seealso>
+        <seemfa marker="#present/1">present/1</seemfa>, 
+        <seemfa marker="#substrings/2">substrings/2</seemfa>, 
+        <seemfa marker="#equalityMatch/2">equalityMatch/2</seemfa>, 
+        <seemfa marker="#greaterOrEqual/2">greaterOrEqual/2</seemfa>, 
+        <seemfa marker="#lessOrEqual/2">lessOrEqual/2</seemfa>, 
+        <seemfa marker="#approxMatch/2">approxMatch/2</seemfa>, 
+        <seemfa marker="#extensibleMatch/2">extensibleMatch/2</seemfa>, 
+        <seemfa marker="#'and'/1">'and'/1</seemfa>, 
+        <seemfa marker="#'or'/1">'or'/1</seemfa>, 
+        <seemfa marker="#'not'/1">'not'/1</seemfa>
       </p></item>
 
       <tag><c>return_value() = </c></tag>
@@ -103,7 +103,7 @@
 
   <funcs>
     <func>
-      <name>open([Host]) -> {ok, Handle} | {error, Reason}</name>
+      <name since="OTP R15B01">open([Host]) -> {ok, Handle} | {error, Reason}</name>
       <fsummary>Open a connection to an LDAP server.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -113,7 +113,7 @@
       </desc>
     </func>
     <func>
-      <name>open([Host], [Option]) -> {ok, Handle} | {error, Reason}</name>
+      <name since="OTP R15B01">open([Host], [Option]) -> {ok, Handle} | {error, Reason}</name>
       <fsummary>Open a connection to an LDAP server.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -129,7 +129,7 @@
       </desc>
     </func>
     <func>
-      <name>close(Handle) -> ok</name>
+      <name since="OTP R15B01">close(Handle) -> ok</name>
       <fsummary>Shutdown the connection.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -140,14 +140,14 @@
       </desc>
     </func>
     <func>
-      <name>start_tls(Handle, Options) -> return_value()</name>
+      <name since="OTP R16B03">start_tls(Handle, Options) -> return_value()</name>
       <fsummary>Upgrade a connection to TLS.</fsummary>
       <desc>
         <p>Same as start_tls(Handle, Options, infinity)</p>
       </desc>
     </func>
     <func>
-      <name>start_tls(Handle, Options, Timeout) -> return_value()</name>
+      <name since="OTP R16B03">start_tls(Handle, Options, Timeout) -> return_value()</name>
       <fsummary>Upgrade a connection to TLS.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -170,13 +170,13 @@
 	  <item>Any error responded from ssl:connect/3</item>
 	</taglist>
 	<p>The <c>Timeout</c> parameter is for the actual tls upgrade (phase 2) while the timeout in
-	<seealso marker="#open/2">eldap:open/2</seealso> is used for the initial negotiation about
+	<seemfa marker="#open/2">eldap:open/2</seemfa> is used for the initial negotiation about
 	upgrade (phase 1).
 	</p>
       </desc>
     </func>
     <func>
-      <name>simple_bind(Handle, Dn, Password) -> return_value()</name>
+      <name since="OTP R15B01">simple_bind(Handle, Dn, Password) -> return_value()</name>
       <fsummary>Authenticate the connection.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -188,7 +188,7 @@
       </desc>
     </func>
     <func>
-      <name>add(Handle, Dn, [Attribute]) -> return_value()</name>
+      <name since="OTP R15B01">add(Handle, Dn, [Attribute]) -> return_value()</name>
       <fsummary>Add an entry.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -209,7 +209,7 @@
       </desc>
     </func>
     <func>
-      <name>delete(Handle, Dn) -> return_value()</name>
+      <name since="OTP R15B01">delete(Handle, Dn) -> return_value()</name>
       <fsummary>Delete an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -223,7 +223,7 @@
     </func>
 
     <func>
-      <name>mod_add(Type, [Value]) -> modify_op()</name>
+      <name since="OTP R15B01">mod_add(Type, [Value]) -> modify_op()</name>
       <fsummary>Create a modification operation.</fsummary>
       <type>
         <v>Type = string()</v>
@@ -232,7 +232,7 @@
       <desc> <p> Create an add modification operation.</p> </desc>
     </func>
     <func>
-      <name>mod_delete(Type, [Value]) -> modify_op()</name>
+      <name since="OTP R15B01">mod_delete(Type, [Value]) -> modify_op()</name>
       <fsummary>Create a modification operation.</fsummary>
       <type>
         <v>Type = string()</v>
@@ -241,7 +241,7 @@
       <desc> <p> Create a delete modification operation.</p> </desc>
     </func>
     <func>
-      <name>mod_replace(Type, [Value]) -> modify_op()</name>
+      <name since="OTP R15B01">mod_replace(Type, [Value]) -> modify_op()</name>
       <fsummary>Create a modification operation.</fsummary>
       <type>
         <v>Type = string()</v>
@@ -251,7 +251,7 @@
     </func>
 
     <func>
-      <name>modify(Handle, Dn, [ModifyOp]) -> return_value()</name>
+      <name since="OTP R15B01">modify(Handle, Dn, [ModifyOp]) -> return_value()</name>
       <fsummary>Modify an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -267,18 +267,18 @@
       </desc>
     </func>
     <func>
-      <name>modify_password(Handle, Dn, NewPasswd) -> return_value() | {ok, GenPasswd}</name>
+      <name since="OTP 18.0">modify_password(Handle, Dn, NewPasswd) -> return_value() | {ok, GenPasswd}</name>
       <fsummary>Modify the password of a user.</fsummary>
       <type>
         <v>Dn = string()</v>
         <v>NewPasswd = string()</v>
       </type>
       <desc>
-	<p>Modify the password of a user. See <seealso marker="#modify_password/4">modify_password/4</seealso>.</p>
+	<p>Modify the password of a user. See <seemfa marker="#modify_password/4">modify_password/4</seemfa>.</p>
       </desc>
     </func>
     <func>
-      <name>modify_password(Handle, Dn, NewPasswd, OldPasswd) -> return_value() | {ok, GenPasswd}</name>
+      <name since="OTP 18.0">modify_password(Handle, Dn, NewPasswd, OldPasswd) -> return_value() | {ok, GenPasswd}</name>
       <fsummary>Modify the password of a user.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -301,13 +301,13 @@
           <item>
             <p><c>OldPasswd</c>. Sometimes required by server policy
             for a user to change their password. If not required, use
-            <seealso marker="#modify_password/3">modify_password/3</seealso>.</p>
+            <seemfa marker="#modify_password/3">modify_password/3</seemfa>.</p>
           </item>
         </list>
       </desc>
     </func>
     <func>
-      <name>modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> return_value()</name>
+      <name since="OTP R15B01">modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> return_value()</name>
       <fsummary>Modify the DN of an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -317,7 +317,7 @@
       </type>
       <desc>
 	<p> Modify the DN of an entry. <c>DeleteOldRDN</c> indicates
-	whether the current RDN should be removed from the attribute list after the after operation.
+	whether the current RDN should be removed from the attribute list after the operation.
 	<c>NewSupDN</c> is the new parent that the RDN shall be moved to.  If the old parent should
 	remain as parent, <c>NewSupDN</c> shall be "".</p>
 	<code>
@@ -327,7 +327,7 @@
       </desc>
     </func>
     <func>
-      <name>search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {ok, {referral,referrals()}} | {error, Reason}</name>
+      <name since="OTP R15B01">search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {ok, {referral,referrals()}} | {error, Reason}</name>
       <fsummary>Search the Directory</fsummary>
       <type>
         <v>SearchOptions = #eldap_search{} | [SearchOption]</v>
@@ -347,51 +347,51 @@
   search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
 	</code>
 	<p>The <c>timeout</c> option in the <c>SearchOptions</c> is for the ldap server, while
-	the timeout in <seealso marker="#open/2">eldap:open/2</seealso> is used for each
+	the timeout in <seemfa marker="#open/2">eldap:open/2</seemfa> is used for each
 	individual request in the search operation.
 	</p>
       </desc>
     </func>
 
     <func>
-      <name>baseObject() -> scope()</name>
+      <name since="OTP R15B01">baseObject() -> scope()</name>
       <fsummary>Create search scope.</fsummary>
       <desc> <p> Search baseobject only.</p> </desc>
     </func>
     <func>
-      <name>singleLevel() -> scope()</name>
+      <name since="OTP R15B01">singleLevel() -> scope()</name>
       <fsummary>Create search scope.</fsummary>
       <desc> <p> Search the specified level only, i.e. do not recurse.</p> </desc>
     </func>
     <func>
-      <name>wholeSubtree() -> scope()</name>
+      <name since="OTP R15B01">wholeSubtree() -> scope()</name>
       <fsummary>Create search scope.</fsummary>
       <desc> <p> Search the entire subtree.</p> </desc>
     </func>
 
     <func>
-      <name>neverDerefAliases() -> dereference()</name>
+      <name since="OTP R15B01">neverDerefAliases() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Never derefrence aliases, treat aliases as entries.</p> </desc>
     </func>
     <func>
-      <name>derefAlways() -> dereference()</name>
+      <name since="OTP R15B01">derefAlways() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Always derefrence aliases.</p> </desc>
     </func>
     <func>
-      <name>derefInSearching() -> dereference()</name>
+      <name since="OTP R15B01">derefInSearching() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Derefrence aliases only when searching.</p> </desc>
     </func>
     <func>
-      <name>derefFindingBaseObj() -> dereference()</name>
+      <name since="OTP R15B01">derefFindingBaseObj() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Derefrence aliases only in finding the base.</p> </desc>
     </func>
 
     <func>
-      <name>present(Type) -> filter()</name>
+      <name since="OTP R15B01">present(Type) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -399,7 +399,7 @@
       <desc> <p>Create a filter which filters on attribute type presence.</p> </desc>
     </func>
     <func>
-      <name>substrings(Type, [SubString]) -> filter()</name>
+      <name since="OTP R15B01">substrings(Type, [SubString]) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -409,7 +409,7 @@
       <desc> <p>Create a filter which filters on substrings.</p> </desc>
     </func>
     <func>
-      <name>equalityMatch(Type, Value) -> filter()</name>
+      <name since="OTP R15B01">equalityMatch(Type, Value) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -418,7 +418,7 @@
       <desc> <p>Create a equality filter.</p> </desc>
     </func>
     <func>
-      <name>greaterOrEqual(Type, Value) -> filter()</name>
+      <name since="OTP R15B01">greaterOrEqual(Type, Value) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -427,7 +427,7 @@
       <desc> <p>Create a greater or equal filter.</p> </desc>
     </func>
     <func>
-      <name>lessOrEqual(Type, Value) -> filter()</name>
+      <name since="OTP R15B01">lessOrEqual(Type, Value) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -436,7 +436,7 @@
       <desc> <p>Create a less or equal filter.</p> </desc>
     </func>
     <func>
-      <name>approxMatch(Type, Value) -> filter()</name>
+      <name since="OTP R15B01">approxMatch(Type, Value) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -445,7 +445,7 @@
       <desc> <p>Create a approximation match filter.</p> </desc>
     </func>
     <func>
-      <name>extensibleMatch(MatchValue, OptionalAttrs) -> filter()</name>
+      <name since="OTP 17.4">extensibleMatch(MatchValue, OptionalAttrs) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>MatchValue = string()</v>
@@ -459,7 +459,7 @@
       <p>creates a filter which performs a <c>caseExactMatch</c> on the attribute <c>sn</c> and matches with the value <c>"Bar"</c>. The default value of <c>dnAttributes</c> is <c>false</c>.</p> </desc>
     </func>
     <func>
-      <name>'and'([Filter]) -> filter()</name>
+      <name since="OTP R15B01">'and'([Filter]) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Filter = filter()</v>
@@ -467,7 +467,7 @@
       <desc> <p>Creates a filter where all <c>Filter</c> must be true.</p> </desc>
     </func>
     <func>
-      <name>'or'([Filter]) -> filter()</name>
+      <name since="OTP R15B01">'or'([Filter]) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Filter = filter()</v>
@@ -475,7 +475,7 @@
       <desc> <p>Create a filter where at least one of the <c>Filter</c> must be true.</p> </desc>
     </func>
     <func>
-      <name>'not'(Filter) -> filter()</name>
+      <name since="OTP R15B01">'not'(Filter) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Filter = filter()</v>

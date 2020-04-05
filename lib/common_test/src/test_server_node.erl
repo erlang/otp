@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r16).
+-compile(r20).
 
 %%%
 %%% The same compiled code for this module must be possible to load
@@ -315,9 +315,11 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     Prog0 = start_node_get_option_value(erl, OptList, default),
     Prog = quote_progname(pick_erl_program(Prog0)),
     Args = 
-	case string:str(SuppliedArgs,"-setcookie") of
-	    0 -> "-setcookie " ++ TI#target_info.cookie ++ " " ++ SuppliedArgs;
-	    _ -> SuppliedArgs
+	case string:find(SuppliedArgs,"-setcookie") of
+	    nomatch ->
+                "-setcookie " ++ TI#target_info.cookie ++ " " ++ SuppliedArgs;
+	    _ ->
+                SuppliedArgs
 	end,
     Cmd = lists:concat([Prog,
 			" -detached ",
@@ -589,17 +591,26 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~tw", [X])).
 %%%  this
 %%%
 pick_erl_program(default) ->
-    cast_to_list(lib:progname());
+    ct:get_progname();
 pick_erl_program(L) ->
     P = random_element(L),
     case P of
 	{prog, S} ->
 	    S;
 	{release, S} ->
+            clear_erl_aflags(),
 	    find_release(S);
 	this ->
-	    cast_to_list(lib:progname())
+	    ct:get_progname()
     end.
+
+clear_erl_aflags() ->
+    %% When starting a node with a previous release, options in
+    %% ERL_AFLAGS could prevent the node from starting. For example,
+    %% if ERL_AFLAGS is set to "-emu_type lcnt", the node will only
+    %% start if the previous release happens to also have a lock
+    %% counter emulator installed (unlikely).
+    os:unsetenv("ERL_AFLAGS").
 
 %% This is an attempt to distinguish between spaces in the program
 %% path and spaces that separate arguments. The program is quoted to
@@ -609,10 +620,10 @@ pick_erl_program(L) ->
 %% ({prog,String}) or if the -program switch to beam is used and
 %% includes arguments (typically done by cerl in OTP test environment
 %% in order to ensure that slave/peer nodes are started with the same
-%% emulator and flags as the test node. The return from lib:progname()
-%% could then typically be '/<full_path_to>/cerl -gcov').
+%% emulator and flags as the test node. The return from ct:get_progname()
+%% could then typically be "/<full_path_to>/cerl -gcov").
 quote_progname(Progname) ->
-    do_quote_progname(string:tokens(Progname," ")).
+    do_quote_progname(string:lexemes(Progname," ")).
 
 do_quote_progname([Prog]) ->
     "\""++Prog++"\"";
@@ -654,9 +665,19 @@ find_release({unix,linux}, Rel) ->
 find_release(_, _) -> none.
 
 find_rel_linux(Rel) ->
-    case suse_release() of
-	none -> [];
-	SuseRel -> find_rel_suse(Rel, SuseRel)
+    try
+        case ubuntu_release() of
+            none -> none;
+            [UbuntuRel |_] -> throw(find_rel_ubuntu(Rel, UbuntuRel))
+        end,
+        case suse_release() of
+            none -> none;
+            SuseRel -> throw(find_rel_suse(Rel, SuseRel))
+        end,
+        []
+    catch
+        throw:Result ->
+            Result
     end.
 
 find_rel_suse(Rel, SuseRel) ->
@@ -732,6 +753,93 @@ suse_release(Fd) ->
 		    Version
 	    end
     end.
+
+find_rel_ubuntu(_Rel, UbuntuRel) when is_integer(UbuntuRel), UbuntuRel < 16 ->
+    [];
+find_rel_ubuntu(Rel, UbuntuRel) when is_integer(UbuntuRel) ->
+    Root = "/usr/local/otp/releases/ubuntu",
+    lists:foldl(fun (ChkUbuntuRel, Acc) ->
+                        find_rel_ubuntu_aux1(Rel, Root++integer_to_list(ChkUbuntuRel))
+                            ++ Acc
+                end,
+                [],
+                lists:seq(16, UbuntuRel)).
+
+find_rel_ubuntu_aux1(Rel, RootWc) ->
+    case erlang:system_info(wordsize) of
+	4 ->
+	    find_rel_ubuntu_aux2(Rel, RootWc++"_32");
+	8 ->
+	    find_rel_ubuntu_aux2(Rel, RootWc++"_64") ++
+		find_rel_ubuntu_aux2(Rel, RootWc++"_32")
+    end.
+
+find_rel_ubuntu_aux2(Rel, RootWc) ->
+    RelDir = filename:dirname(RootWc),
+    Pat = filename:basename(RootWc ++ "_" ++ Rel) ++ ".*",
+    case file:list_dir(RelDir) of
+	{ok,Dirs} ->
+	    case lists:filter(fun(Dir) ->
+				      case re:run(Dir, Pat, [unicode]) of
+					  nomatch -> false;
+					  _       -> true
+				      end
+			      end, Dirs) of
+		[] ->
+		    [];
+		[R|_] ->
+		    [filename:join([RelDir,R,"bin","erl"])]
+	    end;
+	_ ->
+	    []
+    end.
+
+ubuntu_release() ->
+    case file:open("/etc/lsb-release", [read]) of
+	{ok,Fd} ->
+	    try
+		ubuntu_release(Fd, undefined, undefined)
+	    after
+		file:close(Fd)
+	    end;
+	{error,_} -> none
+    end.
+
+ubuntu_release(_Fd, DistrId, Rel) when DistrId /= undefined,
+                                      Rel /= undefined ->
+    Ubuntu = case DistrId of
+                 "Ubuntu" -> true;
+                 "ubuntu" -> true;
+                 _ -> false
+             end,
+    case Ubuntu of
+        false -> none;
+        true -> Rel
+    end;
+ubuntu_release(Fd, DistroId, Rel) ->
+    case io:get_line(Fd, '') of
+	eof ->
+            none;
+	Line when is_list(Line) ->
+	    case re:run(Line, "^DISTRIB_ID=(\\w+)$",
+                        [{capture,all_but_first,list}]) of
+		{match,[NewDistroId]} ->
+                    ubuntu_release(Fd, NewDistroId, Rel);
+                nomatch ->
+                    case re:run(Line, "^DISTRIB_RELEASE=(\\d+(?:\\.\\d+)*)$",
+                                [{capture,all_but_first,list}]) of
+                        {match,[RelList]} ->
+                            NewRel = lists:map(fun (N) ->
+                                                       list_to_integer(N)
+                                               end,
+                                               string:lexemes(RelList, ".")),
+                            ubuntu_release(Fd, DistroId, NewRel);
+                        nomatch ->
+                            ubuntu_release(Fd, DistroId, Rel)
+                    end
+            end
+    end.
+
 
 unpack(Bin) ->
     {One,Term} = split_binary(Bin, 1),

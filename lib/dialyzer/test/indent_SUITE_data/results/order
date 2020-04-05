@@ -1,0 +1,23 @@
+
+order.erl:14: Guard test is_integer
+         (Int :: 'b') can never succeed
+order.erl:16: The variable _Else can never match since previous clauses completely covered the type 
+          'b'
+order.erl:21: Guard test is_integer
+         (Int :: 'b') can never succeed
+order.erl:23: The variable _Else can never match since previous clauses completely covered the type 
+          'b'
+order.erl:30: The variable _Else can never match since previous clauses completely covered the type 
+          'b' | 1
+order.erl:36: The variable Atom can never match since previous clauses completely covered the type 
+          1
+order.erl:37: The variable _Else can never match since previous clauses completely covered the type 
+          1
+order.erl:42: Guard test is_integer
+         (Int :: 'b') can never succeed
+order.erl:44: The variable _Else can never match since previous clauses completely covered the type 
+          'b'
+order.erl:7: Guard test is_integer
+         (Int :: 'b') can never succeed
+order.erl:9: The variable _Else can never match since previous clauses completely covered the type 
+          'b'

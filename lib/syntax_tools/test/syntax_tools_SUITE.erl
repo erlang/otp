@@ -24,15 +24,17 @@
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
-	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1,
-	t_comment_scan/1,t_igor/1,t_erl_tidy/1]).
+         revert_map_type/1,wrapped_subtrees/1,
+	t_abstract_type/1,t_erl_parse_type/1,t_type/1, t_epp_dodger/1,
+	t_comment_scan/1,t_igor/1,t_erl_tidy/1,t_prettypr/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test,appup_test,smoke_test,revert,revert_map,
-    t_abstract_type,t_erl_parse_type,t_epp_dodger,
-    t_comment_scan,t_igor,t_erl_tidy].
+    [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
+     wrapped_subtrees,
+    t_abstract_type,t_erl_parse_type,t_type,t_epp_dodger,
+    t_comment_scan,t_igor,t_erl_tidy,t_prettypr].
 
 groups() -> 
     [].
@@ -73,7 +75,7 @@ smoke_test_file(File) ->
 	    [print_error_markers(F, File) || F <- Forms],
 	    ok;
 	{error,Reason} ->
-	    io:format("~s: ~p\n", [File,Reason]),
+	    io:format("~ts: ~p\n", [File,Reason]),
 	    error
     end.
 
@@ -81,7 +83,7 @@ print_error_markers(F, File) ->
     case erl_syntax:type(F) of
 	error_marker ->
 	    {L,M,Info} = erl_syntax:error_marker_info(F),
-	    io:format("~ts:~p: ~s", [File,L,M:format_error(Info)]);
+	    io:format("~ts:~p: ~ts", [File,L,M:format_error(Info)]);
 	_ ->
 	    ok
     end.
@@ -121,9 +123,131 @@ revert_map(Config) when is_list(Config) ->
 			     {map_field_assoc,{atom,17,name},{var,18,'Value'}}}]),
     ?t:timetrap_cancel(Dog).
 
+%% Testing bug fix for reverting map_field_assoc in types
+revert_map_type(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(1)),
+    Form1 = {attribute,4,record,
+             {state,
+              [{typed_record_field,
+                {record_field,5,{atom,5,x}},
+                {type,5,map,
+                 [{type,5,map_field_exact,[{atom,5,y},{atom,5,z}]}]}}]}},
+    Mapped1 = erl_syntax_lib:map(fun(X) -> X end, Form1),
+    Form1 = erl_syntax:revert(Mapped1),
+    Form2 = {attribute,4,record,
+             {state,
+              [{typed_record_field,
+                {record_field,5,{atom,5,x}},
+                {type,5,map,
+                 [{type,5,map_field_assoc,[{atom,5,y},{atom,5,z}]}]}}]}},
+    Mapped2 = erl_syntax_lib:map(fun(X) -> X end, Form2),
+    Form2 = erl_syntax:revert(Mapped2),
+    ?t:timetrap_cancel(Dog).
 
+%% Read with erl_parse, wrap each tree node with erl_syntax and check that
+%% erl_syntax:subtrees can access the wrapped node.
+wrapped_subtrees(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(2)),
+    Wc = filename:join([code:lib_dir(stdlib),"src","*.erl"]),
+    Fs = filelib:wildcard(Wc) ++ test_files(Config),
+    Path = [filename:join(code:lib_dir(stdlib), "include"),
+            filename:join(code:lib_dir(kernel), "include")],
+    io:format("~p files\n", [length(Fs)]),
+    Map = fun (File) -> wrapped_subtrees_file(File, Path) end,
+    case p_run(Map, Fs) of
+        0 -> ok;
+        N -> ?t:fail({N,errors})
+    end,
+    ?t:timetrap_cancel(Dog).
+
+wrapped_subtrees_file(File, Path) ->
+    case epp:parse_file(File, Path, []) of
+        {ok,Fs0} ->
+            lists:foreach(fun wrap_each/1, Fs0)
+    end.
+
+wrap_each(Tree) ->
+    % only `wrap` top-level erl_parse node
+    Tree1 = erl_syntax:set_pos(Tree, erl_syntax:get_pos(Tree)),
+    % assert ability to access subtrees of wrapped node with erl_syntax:subtrees/1
+    case erl_syntax:subtrees(Tree1) of
+        [] -> ok;
+        List ->
+            GrpsF = fun(Group) ->
+                          lists:foreach(fun wrap_each/1, Group)
+                    end,
+            lists:foreach(GrpsF, List)
+    end.
 
 %% api tests
+
+t_type(Config) when is_list(Config) ->
+    F0 = fun validate_basic_type/1,
+    Appl0 = fun(Name) ->
+                    Atom = erl_syntax:atom(Name),
+                    erl_syntax:type_application(none, Atom, [])
+            end,
+    User0 = fun(Name) ->
+                    Atom = erl_syntax:atom(Name),
+                    erl_syntax:user_type_application(Atom, [])
+            end,
+    ok = validate(F0,[{"tuple()", erl_syntax:tuple_type()}
+                     ,{"{}", erl_syntax:tuple_type([])}
+                     ,{"integer()", Appl0(integer)}
+                     ,{"foo()", User0(foo)}
+                     ,{"map()", erl_syntax:map_type()}
+                     ,{"#{}", erl_syntax:map_type([])}
+                     ,{"1..2", erl_syntax:integer_range_type
+                          (erl_syntax:integer(1), erl_syntax:integer(2))}
+                     ,{"<<_:1,_:_*2>>", erl_syntax:bitstring_type
+                          (erl_syntax:integer(1), erl_syntax:integer(2))}
+                     ,{"fun()", erl_syntax:fun_type()}
+                     ]),
+
+    F = fun validate_type/1,
+    ok = validate(F,[{"{}", tuple_type, false}
+                    ,{"tuple()", tuple_type, true}
+                    ,{"{atom()}", tuple_type, false}
+                    ,{"{atom(),integer()}", tuple_type, false}
+                    ,{"integer()", type_application, false}
+                    ,{"foo()", user_type_application, false}
+                    ,{"foo(integer())", user_type_application, false}
+                    ,{"module:function()", type_application, false}
+                    ,{"map()", map_type, true}
+                    ,{"#{}", map_type, false}
+                    ,{"#{atom() => integer()}", map_type, false}
+                    ,{"#{atom() := integer()}", map_type, false}
+                    ,{"#r{}", record_type, false}
+                    ,{"#r{a :: integer()}", record_type, false}
+                    ,{"[]", type_application, false}
+                    ,{"nil()", type_application, false}
+                    ,{"[atom()]", type_application, false}
+                    ,{"1..2", integer_range_type, false}
+                    ,{"<<_:1,_:_*2>>", bitstring_type, false}
+                    ,{"fun()", fun_type, true}
+                    ,{"integer() | atom()", type_union, false}
+                    ,{"A :: fun()", annotated_type, false}
+                    ,{"fun((...) -> atom())", function_type, false}
+                    ,{"fun((integer()) -> atom())", function_type, false}
+                    ,{"V", variable, true}
+                    ]),
+    ok.
+
+validate_basic_type({String, Tree}) ->
+    ErlT = string_to_type(String),
+    ErlT = erl_syntax:revert(Tree),
+    ok.
+
+validate_type({String, Type, Leaf}) ->
+    ErlT = string_to_type(String),
+    Type = erl_syntax:type(ErlT),
+    Leaf = erl_syntax:is_leaf(ErlT),
+    Tree = erl_syntax_lib:map(fun(Node) -> Node end, ErlT),
+    Type = erl_syntax:type(Tree),
+    _    = erl_syntax:meta(Tree),
+    RevT = erl_syntax:revert(Tree),
+    Type = erl_syntax:type(RevT),
+    ok.
 
 t_abstract_type(Config) when is_list(Config) ->
     F = fun validate_abstract_type/1,
@@ -137,6 +261,7 @@ t_abstract_type(Config) when is_list(Config) ->
 		     {[$a,$b,$c],string},
 		     {"hello world",string},
 		     {<<1,2,3>>,binary},
+                     {<<1,2,3:4>>,binary},
 		     {#{a=>1,"b"=>2},map_expr},
 		     {#{#{i=>1}=>1,"b"=>#{v=>2}},map_expr},
 		     {{a,b,c},tuple}]),
@@ -211,6 +336,14 @@ t_comment_scan(Config) when is_list(Config) ->
     ok = test_comment_scan(Filenames,DataDir),
     ok.
 
+t_prettypr(Config) when is_list(Config) ->
+    DataDir   = ?config(data_dir, Config),
+    PrivDir   = ?config(priv_dir, Config),
+    Filenames = ["type_specs.erl",
+                 "specs_and_funs.erl"],
+    ok = test_prettypr(Filenames,DataDir,PrivDir),
+    ok.
+
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),
     [ filename:join(DataDir,Filename) || Filename <- test_files() ].
@@ -218,7 +351,8 @@ test_files(Config) ->
 test_files() ->
     ["syntax_tools_SUITE_test_module.erl",
      "syntax_tools_test.erl",
-     "type_specs.erl"].
+     "type_specs.erl",
+     "specs_and_funs.erl"].
 
 t_igor(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
@@ -264,10 +398,31 @@ test_comment_scan([File|Files],DataDir) ->
 	  end,
     Fs1 = erl_recomment:recomment_forms(Fs0, Comments),
     Fs2 = erl_syntax_lib:map(Fun, Fs1),
-    io:format("File: ~s~n", [Filename]),
+    io:format("File: ~ts~n", [Filename]),
     io:put_chars(erl_prettypr:format(Fs2, [{paper,  120},
 					   {ribbon, 110}])),
     test_comment_scan(Files,DataDir).
+
+
+test_prettypr([],_,_) -> ok;
+test_prettypr([File|Files],DataDir,PrivDir) ->
+    Filename  = filename:join(DataDir,File),
+    io:format("Parsing ~p~n", [Filename]),
+    {ok, Fs0} = epp:parse_file(Filename, [], []),
+    Fs = erl_syntax:form_list(Fs0),
+    PP = erl_prettypr:format(Fs, [{paper,  120}, {ribbon, 110}]),
+    io:put_chars(PP),
+    OutFile = filename:join(PrivDir, File),
+    ok = file:write_file(OutFile,unicode:characters_to_binary(PP)),
+    io:format("Parsing OutFile: ~ts~n", [OutFile]),
+    {ok, Fs2} = epp:parse_file(OutFile, [], []),
+    case [Error || {error, _} = Error <- Fs2] of
+        [] ->
+            ok;
+        Errors ->
+            ?t:fail(Errors)
+    end,
+    test_prettypr(Files,DataDir,PrivDir).
 
 
 test_epp_dodger([], _, _) -> ok;
@@ -326,7 +481,7 @@ pretty_print_parse_forms([{Fs0,Type}|FsForms],PrivDir,Filename) ->
     {Fs2,{CC,CT}} = erl_syntax_lib:mapfold(Comment,{0,0}, Fs1),
     io:format("Commented on ~w cases and ~w tries~n", [CC,CT]),
     PP  = erl_prettypr:format(Fs2),
-    ok  = file:write_file(OutFile,iolist_to_binary(PP)),
+    ok  = file:write_file(OutFile,unicode:characters_to_binary(PP)),
     pretty_print_parse_forms(FsForms,PrivDir,Filename).
 
 
@@ -429,6 +584,13 @@ string_to_expr(String) ->
     {ok, Ts, _} = erl_scan:string(String++"."),
     {ok,[Expr]} = erl_parse:parse_exprs(Ts),
     Expr.
+
+string_to_type(String) ->
+    io:format("Str: ~p~n", [String]),
+    {ok,Ts,_} = erl_scan:string("-type foo() :: "++String++".", 0),
+    {ok,Form} = erl_parse:parse_form(Ts),
+    {attribute,_,type,{foo,Type,_NoParms=[]}} = Form,
+    Type.
 
 
 p_run(Test, List) ->

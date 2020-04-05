@@ -22,7 +22,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start/0]).
+-export([start/0, start/1]).
 
 %% gen_server callbacks
 -export([init/1]).
@@ -30,8 +30,12 @@
 -record(state, {}).
 
 start() ->
-    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+    gen_server:start(?MODULE, ok, []).
 
-init([]) ->
-    {ok, #state{}}.
+start(continue) ->
+    gen_server:start(?MODULE, continue, []).
 
+init(ok) ->
+    {ok, #state{}};
+init(continue) ->
+    {ok, #state{}, {continue, continue}}.

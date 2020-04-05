@@ -1,0 +1,92 @@
+#!/bin/sh
+
+# 
+#  %CopyrightBegin%
+#  
+#  Copyright Ericsson AB 2019-2019. All Rights Reserved.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#  
+#  %CopyrightEnd%
+# 
+
+#
+# This is just a simple convenience wrapper to the esock-ttest.
+# That means that there are some options not available here.
+#
+
+EMU=$ERL_TOP/erts/emulator
+EMU_TEST=$EMU/test
+ESOCK_TTEST=$EMU_TEST/esock_ttest
+
+RUNTIME=30
+# RUNTIME=60
+# RUNTIME=600
+
+if [ $# = 3 ]; then
+    MSGID=$1
+    SERVER_INFO=$2:$3
+
+    ITERATIONS="\
+       gen  false $MSGID
+       gen  true  $MSGID
+       gen  once  $MSGID
+       sock false $MSGID --async
+       sock true  $MSGID --async
+       sock once  $MSGID --async"
+
+else
+    if [ $# = 2 ]; then
+	MSGID=$1
+	SERVER_INFO=$2
+
+	ITERATIONS="\
+           sock false $MSGID --async
+           sock true  $MSGID --async
+           sock once  $MSGID --async"
+
+    else
+	echo "Invalid number of args"
+	exit 1;
+    fi
+fi
+
+
+# ---------------------------------------------------------------------------
+
+# For when we have figured out how to configure local for gen_tcp...
+
+#ITERATIONS="\
+#   gen  false  $MSGID
+#   gen  true   $MSGID
+#   gen  once   $MSGID
+#   sock false  $MSGID
+#   sock true   $MSGID
+#   sock once   $MSGID"
+
+# ---------------------------------------------------------------------------
+
+echo "$ITERATIONS" |
+  while read TRANSPORT ACTIVE MSG_ID ASYNC; do
+
+      echo ""
+      echo "=========== transport = $TRANSPORT, active = $ACTIVE, msg-id = $MSG_ID ==========="
+      # The /dev/null at the end is necessary because erlang "does things" with stdin
+      # and this case would cause the 'while read' to "fail" so that we only would
+      # loop one time
+      $ESOCK_TTEST/esock-ttest --client --transport $TRANSPORT $ASYNC --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_INFO --runtime $RUNTIME </dev/null
+      echo ""
+
+  done
+
+

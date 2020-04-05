@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%% @doc Interface module for XML Schema vlidation. 
+%% @doc Interface module for XML Schema validation. 
 %% It handles the W3.org 
 %% <a href="http://www.w3.org/XML/Schema#dev">specifications</a>
 %% of XML Schema second edition 28 october 2004. For an introduction to

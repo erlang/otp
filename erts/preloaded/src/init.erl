@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@
 %%                         (Optional - default efile)
 %%        -hosts [Node]  : List of hosts from which we can boot.
 %%                         (Mandatory if -loader inet)
-%%        -mode embedded : Load all modules at startup, no automatic loading
-%%        -mode interactive : Auto load modules (default system behaviour).
+%%        -mode interactive : Auto load modules not needed at startup (default system behaviour).
+%%        -mode embedded : Load all modules in the boot script, disable auto loading.
 %%        -path          : Override path in bootfile.
 %%        -pa Path+      : Add my own paths first.
 %%        -pz Path+      : Add my own paths last.
@@ -48,7 +48,7 @@
 
 -module(init).
 
--export([restart/0,reboot/0,stop/0,stop/1,
+-export([restart/1,restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
 
@@ -63,6 +63,7 @@
 -include_lib("kernel/include/file.hrl").
 
 -type internal_status() :: 'starting' | 'started' | 'stopping'.
+-type mode() :: 'embedded' | 'interactive'.
 
 -record(state, {flags = [],
 		args = [],
@@ -164,7 +165,15 @@ request(Req) ->
     end.
 
 -spec restart() -> 'ok'.
-restart() -> init ! {stop,restart}, ok.
+restart() -> restart([]).
+
+-spec restart([{mode, mode()}]) -> 'ok'.
+restart([]) ->
+    init ! {stop,restart}, ok;
+restart([{mode, Mode}]) when Mode =:= embedded; Mode =:= interactive ->
+    init ! {stop,{restart,Mode}}, ok;
+restart(Opts) when is_list(Opts) ->
+    erlang:error(badarg, [Opts]).
 
 -spec reboot() -> 'ok'.
 reboot() -> init ! {stop,reboot}, ok.
@@ -199,11 +208,6 @@ stop_1(Status) -> init ! {stop,{stop,Status}}, ok.
 boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
-
-    %% Load the zlib nif
-    zlib:on_load(),
-    %% Load the tracer nif
-    erl_tracer:on_load(),
 
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs
@@ -482,9 +486,17 @@ do_handle_msg(Msg,State) ->
 	{From, {ensure_loaded, _}} ->
 	    From ! {init, not_allowed};
 	X ->
+            %% This is equal to calling logger:info/3 which we don't
+            %% want to do from the init process, at least not during
+            %% system boot. We don't want to call logger:timestamp()
+            %% either.
 	    case whereis(user) of
 		undefined ->
-		    catch error_logger ! {info, self(), {self(), X, []}};
+                    catch logger ! {log, info, "init got unexpected: ~p", [X],
+                                    #{pid=>self(),
+                                      gl=>self(),
+                                      time=>os:system_time(microsecond),
+                                      error_logger=>#{tag=>info_msg}}};
 		User ->
 		    User ! X,
 		    ok
@@ -543,8 +555,11 @@ stop(Reason,State) ->
     clear_system(BootPid,State1),
     do_stop(Reason,State1).
 
-do_stop(restart,#state{start = Start, flags = Flags, args = Args}) ->
-    boot(Start,Flags,Args);
+do_stop({restart,Mode},#state{start=Start, flags=Flags0, args=Args}) ->
+    Flags = update_flag(mode, Flags0, atom_to_binary(Mode)),
+    do_restart(Start,Flags,Args);
+do_stop(restart,#state{start=Start, flags=Flags, args=Args}) ->
+    do_restart(Start,Flags,Args);
 do_stop(reboot,_) ->
     halt();
 do_stop(stop,State) ->
@@ -554,10 +569,25 @@ do_stop({stop,Status},State) ->
     stop_heart(State),
     halt(Status).
 
+do_restart(Start,Flags,Args) ->
+    flush(),
+    erts_internal:erase_persistent_terms(),
+    boot(Start,Flags,Args).
+
 clear_system(BootPid,State) ->
     Heart = get_heart(State#state.kernel),
-    shutdown_pids(Heart,BootPid,State),
-    unload(Heart).
+    Logger = get_logger(State#state.kernel),
+    shutdown_pids(Heart,Logger,BootPid,State),
+    unload(Heart),
+    kill_em([Logger]),
+    do_unload([logger_server]).
+
+flush() ->
+    receive
+        _M -> flush()
+    after 0 ->
+            ok
+    end.
 
 stop_heart(State) ->
     case get_heart(State#state.kernel) of
@@ -570,19 +600,26 @@ stop_heart(State) ->
 	    shutdown_kernel_pid(Pid, BootPid, self(), State) 
     end.
 
-shutdown_pids(Heart,BootPid,State) ->
+shutdown_pids(Heart,Logger,BootPid,State) ->
     Timer = shutdown_timer(State#state.flags),
     catch shutdown(State#state.kernel,BootPid,Timer,State),
-    kill_all_pids(Heart), % Even the shutdown timer.
-    kill_all_ports(Heart),
+    kill_all_pids(Heart,Logger), % Even the shutdown timer.
+    kill_all_ports(Heart), % Logger has no ports
     flush_timout(Timer).
 
-get_heart([{heart,Pid}|_Kernel]) -> Pid;
-get_heart([_|Kernel])           -> get_heart(Kernel);
-get_heart(_)                    -> false.
+get_heart(Kernel) ->
+    get_kernelpid(heart,Kernel).
+
+get_logger(Kernel) ->
+    get_kernelpid(logger,Kernel).
+
+get_kernelpid(Name,[{Name,Pid}|_Kernel]) -> Pid;
+get_kernelpid(Name,[_|Kernel])           -> get_kernelpid(Name,Kernel);
+get_kernelpid(_,_)                    -> false.
 
 
-shutdown([{heart,_Pid}|Kernel],BootPid,Timer,State) ->
+shutdown([{Except,_Pid}|Kernel],BootPid,Timer,State)
+  when Except==heart; Except==logger ->
     shutdown(Kernel, BootPid, Timer, State);
 shutdown([{_Name,Pid}|Kernel],BootPid,Timer,State) ->
     shutdown_kernel_pid(Pid, BootPid, Timer, State),
@@ -634,24 +671,25 @@ resend(_) ->
 
 %%
 %% Kill all existing pids in the system (except init and heart).
-kill_all_pids(Heart) ->
-    case get_pids(Heart) of
+kill_all_pids(Heart,Logger) ->
+    case get_pids(Heart,Logger) of
 	[] ->
 	    ok;
 	Pids ->
 	    kill_em(Pids),
-	    kill_all_pids(Heart)  % Continue until all are really killed.
+	    kill_all_pids(Heart,Logger)  % Continue until all are really killed.
     end.
     
 %% All except system processes.
-get_pids(Heart) ->
+get_pids(Heart,Logger) ->
     Pids = [P || P <- processes(), not erts_internal:is_system_process(P)],
-    delete(Heart,self(),Pids).
+    delete(Heart,Logger,self(),Pids).
 
-delete(Heart,Init,[Heart|Pids]) -> delete(Heart,Init,Pids);
-delete(Heart,Init,[Init|Pids])  -> delete(Heart,Init,Pids);
-delete(Heart,Init,[Pid|Pids])   -> [Pid|delete(Heart,Init,Pids)];
-delete(_,_,[])                  -> [].
+delete(Heart,Logger,Init,[Heart|Pids]) -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Logger|Pids])  -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Init|Pids])  -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Pid|Pids])   -> [Pid|delete(Heart,Logger,Init,Pids)];
+delete(_,_,_,[])                  -> [].
     
 kill_em([Pid|Pids]) ->
     exit(Pid,kill),
@@ -681,9 +719,9 @@ kill_all_ports(_,_) ->
     ok.
 
 unload(false) ->
-    do_unload(sub(erlang:pre_loaded(),erlang:loaded()));
+    do_unload(sub([logger_server|erlang:pre_loaded()],erlang:loaded()));
 unload(_) ->
-    do_unload(sub([heart|erlang:pre_loaded()],erlang:loaded())).
+    do_unload(sub([heart,logger_server|erlang:pre_loaded()],erlang:loaded())).
 
 do_unload([M|Mods]) ->
     catch erlang:purge_module(M),
@@ -774,7 +812,7 @@ do_boot(Init,Flags,Start) ->
     start_prim_loader(Init, bs2ss(Path), PathFls),
     BootFile = bootfile(Flags,Root),
     BootList = get_boot(BootFile,Root),
-    LoadMode = b2a(get_flag(mode, Flags, false)),
+    LoadMode = b2a(get_flag(mode, Flags, interactive)),
     Deb = b2a(get_flag(init_debug, Flags, false)),
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_boot_vars(Root, Flags),
@@ -1208,6 +1246,13 @@ get_args([B|Bs], As) ->
 	    get_args(Bs, [B|As])
     end;
 get_args([], As) -> {reverse(As),[]}.
+
+update_flag(Flag, [{Flag, _} | Flags], Value) ->
+    [{Flag, [Value]} | Flags];
+update_flag(Flag, [Head | Flags], Value) ->
+    [Head | update_flag(Flag, Flags, Value)];
+update_flag(Flag, [], Value) ->
+    [{Flag, [Value]}].
 
 %%
 %% Internal get_flag function, with default value.

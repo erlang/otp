@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -136,6 +136,11 @@ format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
 			  key=#c_literal{val=K},
 			  val=#c_literal{val=V}} || {K,V} <- Pairs],
     format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
+format_1(#c_literal{val=F},_Ctxt) when is_function(F) ->
+    {module,M} = erlang:fun_info(F, module),
+    {name,N} = erlang:fun_info(F, name),
+    {arity,A} = erlang:fun_info(F, arity),
+    ["fun ",core_atom(M),$:,core_atom(N),$/,integer_to_list(A)];
 format_1(#c_var{name={I,A}}, _) ->
     [core_atom(I),$/,integer_to_list(A)];
 format_1(#c_var{name=V}, _) ->
@@ -209,7 +214,7 @@ format_1(#c_let{anno=Anno0,vars=Vs0,arg=A0,body=B}, #ctxt{clean=Clean}=Ctxt) ->
 			  {Vs0,A0,Anno0};
 		      true ->
 			  {[cerl:set_ann(V, []) || V <- Vs0],
-			   cerl:set_ann(A0, []),
+			   clean_anno_carefully(A0),
 			   []}
 		  end,
     case is_simple_term(A) andalso Anno =:= [] of
@@ -464,7 +469,7 @@ indent(#ctxt{indent=N}) ->
 	N =< 0 ->
 	    "";
 	true ->
-	    string:chars($\t, N div ?TAB_WIDTH, spaces(N rem ?TAB_WIDTH))
+           lists:duplicate(N div ?TAB_WIDTH, $\t) ++ spaces(N rem ?TAB_WIDTH)
     end.
 
 nl_indent(Ctxt) -> [$\n|indent(Ctxt)].
@@ -542,3 +547,12 @@ segs_from_bitstring(Bitstring) ->
 	      type=#c_literal{val=integer},
 	      flags=#c_literal{val=[unsigned,big]}}].
 
+clean_anno_carefully(Node) ->
+    Anno = clean_anno_carefully_1(cerl:get_ann(Node)),
+    cerl:set_ann(Node, Anno).
+
+clean_anno_carefully_1([letrec_goto=Keep|Annos]) ->
+    [Keep|clean_anno_carefully_1(Annos)];
+clean_anno_carefully_1([_|Annos]) ->
+    clean_anno_carefully_1(Annos);
+clean_anno_carefully_1([]) -> [].

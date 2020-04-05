@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2017</year>
+      <year>2001</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,27 +35,27 @@
   <p>This section describes the standard representation of parse trees for Erlang
     programs as Erlang terms. This representation is known as the <em>abstract
     format</em>. Functions dealing with such parse trees are
-    <seealso marker="compiler:compile#forms/1">
-    <c>compile:forms/1,2</c></seealso> and functions in the following
+    <seemfa marker="compiler:compile#forms/1">
+    <c>compile:forms/1,2</c></seemfa> and functions in the following
     modules:</p>
 
   <list type="bulleted">
-    <item><seealso marker="stdlib:epp">
-      <c>epp(3)</c></seealso></item>
-    <item><seealso marker="stdlib:erl_eval">
-      <c>erl_eval(3)</c></seealso></item>
-    <item><seealso marker="stdlib:erl_lint">
-      <c>erl_lint(3)</c></seealso></item>
-    <item><seealso marker="stdlib:erl_parse">
-      <c>erl_parse(3)</c></seealso></item>
-    <item><seealso marker="stdlib:erl_pp">
-      <c>erl_pp(3)</c></seealso></item>
-    <item><seealso marker="stdlib:io">
-      <c>io(3)</c></seealso></item>
+    <item><seeerl marker="stdlib:epp">
+      <c>epp(3)</c></seeerl></item>
+    <item><seeerl marker="stdlib:erl_eval">
+      <c>erl_eval(3)</c></seeerl></item>
+    <item><seeerl marker="stdlib:erl_lint">
+      <c>erl_lint(3)</c></seeerl></item>
+    <item><seeerl marker="stdlib:erl_parse">
+      <c>erl_parse(3)</c></seeerl></item>
+    <item><seeerl marker="stdlib:erl_pp">
+      <c>erl_pp(3)</c></seeerl></item>
+    <item><seeerl marker="stdlib:io">
+      <c>io(3)</c></seeerl></item>
   </list>
 
   <p>The functions are also used as input and output for parse transforms, see
-    the <seealso marker="compiler:compile"><c>compile(3)</c></seealso>
+    the <seeerl marker="compiler:compile"><c>compile(3)</c></seeerl>
     module.</p>
 
   <p>We use the function <c>Rep</c> to denote the mapping from an Erlang source
@@ -134,7 +134,7 @@
       <item>
         <p>If F is a type declaration <c>-Type Name(V_1, ..., V_k) :: T</c>,
           where <c>Type</c> is either the atom <c>type</c> or the atom
-          <c>opaque</c>, each <c>V_i</c> is a variable, and <c>T</c> is a type,
+          <c>opaque</c>, each <c>V_i</c> is a type variable, and <c>T</c> is a type,
           then Rep(F) =
           <c>{attribute,LINE,Type,{Name,Rep(T),[Rep(V_1), ...,
           Rep(V_k)]}}</c>.</p>
@@ -177,8 +177,8 @@
       <title>Representation of Parse Errors and End-of-File</title>
       <p>In addition to the representations of forms, the list that represents
         a module declaration (as returned by functions in
-        <seealso marker="stdlib:epp"><c>epp(3)</c></seealso> and
-        <seealso marker="stdlib:erl_parse"><c>erl_parse(3)</c></seealso>)
+        <seeerl marker="stdlib:epp"><c>epp(3)</c></seeerl> and
+        <seeerl marker="stdlib:erl_parse"><c>erl_parse(3)</c></seeerl>)
         can contain the following:</p>
 
       <list type="bulleted">
@@ -407,9 +407,8 @@
       </item>
       <item>
         <p>If E is a map creation <c>#{A_1, ..., A_k}</c>,
-          where each <c>A_i</c> is an association <c>E_i_1 => E_i_2</c>
-          or <c>E_i_1 := E_i_2</c>, then Rep(E) =
-          <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
+          where each <c>A_i</c> is an association <c>E_i_1 => E_i_2</c>,
+	  then Rep(E) = <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see below.</p>
       </item>
       <item>
@@ -614,26 +613,58 @@
       <item>
         <p>If C is a catch clause <c>P -> B</c>,
           where <c>P</c> is a pattern and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],[],Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],[],Rep(B)}</c>,
+	  that is, a catch clause with an explicit exception class
+	  <c>throw</c> and with or without an explicit stacktrace
+	  variable <c>_</c> cannot be distinguished from a catch clause
+	  without an explicit exception class and without an explicit
+	  stacktrace variable.</p>
       </item>
       <item>
         <p>If C is a catch clause <c>X : P -> B</c>,
           where <c>X</c> is an atomic literal or a variable pattern,
           <c>P</c> is a pattern, and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],[],Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],[],Rep(B)}</c>,
+	  that is, a catch clause with an explicit exception class and
+	  with an explicit stacktrace variable <c>_</c> cannot be
+	  distinguished from a catch clause with an explicit exception
+	  class and without an explicit stacktrace variable.</p>
+      </item>
+      <item>
+        <p>If C is a catch clause <c>X : P : S -> B</c>,
+          where <c>X</c> is an atomic literal or a variable pattern,
+          <c>P</c> is a pattern, <c>S</c> is a variable, and <c>B</c>
+	  is a body, then
+          Rep(C) = <c>{clause,LINE,[Rep({X,P,S})],[],Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a catch clause <c>P when Gs -> B</c>,
           where <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
           and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],Rep(Gs),Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],Rep(Gs),Rep(B)}</c>,
+	  that is, a catch clause with an explicit exception class
+	  <c>throw</c> and with or without an explicit stacktrace
+	  variable <c>_</c> cannot be distinguished from a catch clause
+	  without an explicit exception class and without an explicit
+	  stacktrace variable.</p>
       </item>
       <item>
         <p>If C is a catch clause <c>X : P when Gs -> B</c>,
           where <c>X</c> is an atomic literal or a variable pattern,
           <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
           and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],Rep(Gs),Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],Rep(Gs),Rep(B)}</c>,
+	  that is, a catch clause with an explicit exception class and
+	  with an explicit stacktrace variable <c>_</c> cannot be
+	  distinguished from a catch clause with an explicit exception
+	  class and without an explicit stacktrace variable.</p>
+      </item>
+      <item>
+        <p>If C is a catch clause <c>X : P : S when Gs -> B</c>,
+          where <c>X</c> is an atomic literal or a variable pattern,
+          <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
+          <c>S</c> is a variable, and <c>B</c> is a body, then
+          Rep(C) = <c>{clause,LINE,[Rep({X,P,S})],Rep(Gs),Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a function clause <c>( Ps ) -> B</c>,
@@ -699,9 +730,8 @@
       </item>
       <item>
         <p>If Gt is a map creation <c>#{A_1, ..., A_k}</c>,
-          where each <c>A_i</c> is an association <c>Gt_i_1 => Gt_i_2</c>
-          or <c>Gt_i_1 := Gt_i_2</c>, then Rep(Gt) =
-          <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
+          where each <c>A_i</c> is an association <c>Gt_i_1 => Gt_i_2</c>,
+	  then Rep(Gt) = <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see above.</p>
       </item>
       <item>
@@ -771,7 +801,8 @@
           <c>{ann_type,LINE,[Rep(A),Rep(T_0)]}</c>.</p>
       </item>
       <item>
-        <p>If T is an atom or integer literal L, then Rep(T) = Rep(L).</p>
+        <p>If T is an atom, a character, or an integer literal L,
+	  then Rep(T) = Rep(L).</p>
       </item>
       <item>
         <p>If T is a bitstring type <c>&lt;&lt;_:M,_:_*N>></c>,
@@ -780,7 +811,9 @@
       </item>
       <item>
         <p>If T is the empty list type <c>[]</c>, then Rep(T) =
-          <c>{type,Line,nil,[]}</c>.</p>
+          <c>{type,Line,nil,[]}</c>, that is, the empty list type
+          <c>[]</c> cannot be distinguished from the predefined type
+          <c>nil()</c>.</p>
       </item>
       <item>
         <p>If T is a fun type <c>fun()</c>, then Rep(T) =

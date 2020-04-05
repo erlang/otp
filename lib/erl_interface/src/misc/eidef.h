@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,11 +26,6 @@
 /* Common definitions used in ei user interface */
 
 #include "config.h"		/* Central include of config.h */
-
-/* vxWorks.h needs to be before stddef.h */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
 
 #include <stddef.h>		/* We want to get definition of NULL */
 

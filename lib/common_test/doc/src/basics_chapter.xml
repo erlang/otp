@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -125,7 +125,7 @@
       The test case is the smallest unit that the <c>Common Test</c> test server deals with.
     </p>
     <p>
-      Subsets of test cases, called test case groups, can also be defined. A test case 
+      Sets of test cases, called test case groups, can also be defined. A test case
       group can have execution properties associated with it. Execution properties 
       specify if the test cases in the group are to be executed in
       random order, in parallel, or in sequence, and if the execution of the group 
@@ -143,9 +143,9 @@
     </p>
     <p>
       The test suite module must conform to a
-      <seealso marker="common_test">callback interface</seealso>
+      <seeerl marker="common_test">callback interface</seeerl>
       specified by the <c>Common Test</c> test server. For details, see section
-      <seealso marker="write_test_chapter#intro">Writing Test Suites</seealso>.
+      <seeguide marker="write_test_chapter#intro">Writing Test Suites</seeguide>.
     </p>
 
     <p>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,11 +32,16 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
+    [{group,with_server},{group,without_server}].
+
+groups() ->
+    Tests = tests(),
+    [{with_server,[],Tests},
+     {without_server,[],Tests}].
+
+tests() ->
     [compile_erl, compile_yecc, compile_script, compile_mib,
      good_citizen, deep_cwd, arg_overflow, make_dep_options].
-
-groups() -> 
-    [].
 
 init_per_suite(Config) ->
     Config.
@@ -44,10 +49,17 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_group(_GroupName, Config) ->
+init_per_group(with_server, Config) ->
+    os:putenv("ERLC_USE_SERVER", "yes"),
+    Config;
+init_per_group(without_server, Config) ->
+    os:putenv("ERLC_USE_SERVER", "no"),
+    Config;
+init_per_group(_, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
+    os:unsetenv("ERLC_USE_SERVER"),
     Config.
 
 %% Copy from erlc_SUITE_data/include/erl_test.hrl.
@@ -199,8 +211,7 @@ deep_cwd(Config) when is_list(Config) ->
 deep_cwd_1(PrivDir) ->
     DeepDir0 = filename:join(PrivDir, lists:duplicate(128, $a)),
     DeepDir = filename:join(DeepDir0, lists:duplicate(128, $b)),
-    ok = file:make_dir(DeepDir0),
-    ok = file:make_dir(DeepDir),
+    ok = filelib:ensure_dir(filename:join(DeepDir,"any_file")),
     ok = file:set_cwd(DeepDir),
     ok = file:write_file("test.erl", "-module(test).\n\n"),
     io:format("~s\n", [os:cmd("erlc test.erl")]),
@@ -257,7 +268,7 @@ erlc() ->
 make_dep_options(Config) ->
     {SrcDir,OutDir,Cmd} = get_cmd(Config),
     FileName = filename:join(SrcDir, "erl_test_ok.erl"),
-
+    BeamFileName = filename:join(OutDir, "erl_test_ok.beam"),
 
     DepRE = ["/erl_test_ok[.]beam: \\\\$",
              "/system_test/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
@@ -285,22 +296,29 @@ make_dep_options(Config) ->
      "missing.hrl$",
      "_OK_"],
 
+    file:delete(BeamFileName),
+
     %% Test plain -M
     run(Config, Cmd, FileName, "-M", DepRE),
+    false = exists(BeamFileName),
 
     %% Test -MF File
     DepFile = filename:join(OutDir, "my.deps"),
     run(Config, Cmd, FileName, "-MF "++DepFile, ["_OK_"]),
     {ok,MFBin} = file:read_file(DepFile),
     verify_result(binary_to_list(MFBin)++["_OK_"], DepRE),
+    false = exists(BeamFileName),
 
     %% Test -MD
     run(Config, Cmd, FileName, "-MD", ["_OK_"]),
     MDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
     {ok,MFBin} = file:read_file(MDFile),
+    file:delete(MDFile), %% used further down!
+    false = exists(BeamFileName),
 
     %% Test -M -MT Target
     run(Config, Cmd, FileName, "-M -MT target", DepRETarget),
+    false = exists(BeamFileName),
 
     %% Test -MF File -MT Target
     TargetDepFile = filename:join(OutDir, "target.deps"),
@@ -308,23 +326,110 @@ make_dep_options(Config) ->
         ["_OK_"]),
     {ok,TargetBin} = file:read_file(TargetDepFile),
     verify_result(binary_to_list(TargetBin)++["_OK_"], DepRETarget),
+    file:delete(TargetDepFile),
+    false = exists(BeamFileName),
 
     %% Test -MD -MT Target
     run(Config, Cmd, FileName, "-MD -MT target", ["_OK_"]),
     TargetMDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
     {ok,TargetBin} = file:read_file(TargetMDFile),
+    file:delete(TargetDepFile),
+    false = exists(BeamFileName),
 
     %% Test -M -MQ Target. (Note: Passing a $ on the command line
     %% portably for Unix and Windows is tricky, so we will just test
     %% that MQ works at all.)
     run(Config, Cmd, FileName, "-M -MQ target", DepRETarget),
+    false = exists(BeamFileName),
 
     %% Test -M -MP
     run(Config, Cmd, FileName, "-M -MP", DepREMP),
+    false = exists(BeamFileName),
 
     %% Test -M -MG
     MissingHeader = filename:join(SrcDir, "erl_test_missing_header.erl"),
     run(Config, Cmd, MissingHeader, "-M -MG", DepREMissing),
+    false = exists(BeamFileName),
+
+    %%
+    %% check the above variants with side-effect -MMD
+    %%
+
+    %% since compiler is run on the erlang code a warning will be
+    %% issued by the compiler, match that.
+    WarningRE = "/system_test/erlc_SUITE_data/src/erl_test_ok.erl:[0-9]+: "
+        "Warning: function foo/0 is unused$",
+    ErrorRE = "/system_test/erlc_SUITE_data/src/erl_test_missing_header.erl:"
+        "[0-9]+: can't find include file \"missing.hrl\"$",
+
+    DepRE_MMD = insert_before("_OK_", WarningRE, DepRE),
+    DepRETarget_MMD = insert_before("_OK_", WarningRE, DepRETarget),
+    DepREMP_MMD = insert_before("_OK_",WarningRE,DepREMP),
+    DepREMissing_MMD = (insert_before("_OK_",ErrorRE,DepREMissing)--
+                            ["_OK_"]) ++ ["_ERROR_"],
+    CompRE = [WarningRE,"_OK_"],
+
+
+    %% Test plain -MMD -M
+    run(Config, Cmd, FileName, "-MMD -M", DepRE_MMD),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -MF File
+    DepFile = filename:join(OutDir, "my.deps"),
+    run(Config, Cmd, FileName, "-MMD -MF "++DepFile, CompRE),
+    {ok,MFBin} = file:read_file(DepFile),
+    verify_result(binary_to_list(MFBin)++["_OK_"], DepRE),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -MD
+    run(Config, Cmd, FileName, "-MMD -MD", CompRE),
+    MDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
+    {ok,MFBin} = file:read_file(MDFile),
+    file:delete(MDFile), %% used further down!
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -M -MT Target
+    run(Config, Cmd, FileName, "-MMD -M -MT target", DepRETarget_MMD),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -MF File -MT Target
+    TargetDepFile = filename:join(OutDir, "target.deps"),
+    run(Config, Cmd, FileName, "-MMD -MF "++TargetDepFile++" -MT target",
+        CompRE),
+    {ok,TargetBin} = file:read_file(TargetDepFile),
+    verify_result(binary_to_list(TargetBin)++["_OK_"], DepRETarget),
+    file:delete(TargetDepFile),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -MD -MT Target
+    run(Config, Cmd, FileName, "-MMD -MD -MT target", CompRE),
+    TargetMDFile = filename:join(OutDir, "erl_test_ok.Pbeam"),
+    {ok,TargetBin} = file:read_file(TargetMDFile),
+    file:delete(TargetDepFile),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -M -MQ Target. (Note: Passing a $ on the command line
+    %% portably for Unix and Windows is tricky, so we will just test
+    %% that MQ works at all.)
+    run(Config, Cmd, FileName, "-MMD -M -MQ target", DepRETarget_MMD),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -M -MP
+    run(Config, Cmd, FileName, "-MMD -M -MP", DepREMP_MMD),
+    true = exists(BeamFileName),
+    file:delete(BeamFileName),
+
+    %% Test -MMD -M -MG
+    MissingHeader = filename:join(SrcDir, "erl_test_missing_header.erl"),
+    run(Config, Cmd, MissingHeader, "-MMD -M -MG", DepREMissing_MMD),
+    false = exists(BeamFileName),
     ok.
 
 %% Runs a command.
@@ -340,6 +445,12 @@ verify_result(Result, Expect) ->
     io:format("Result: ~p", [Messages]),
     io:format("Expected: ~p", [Expect]),
     match_messages(Messages, Expect).
+
+%% insert What before Item, crash if Item is not found
+insert_before(Item, What, [Item|List]) ->
+    [What,Item|List];
+insert_before(Item, What, [Other|List]) ->
+    [Other|insert_before(Item, What, List)].
 
 split([$\n|Rest], Current, Lines) ->
     split(Rest, [], [lists:reverse(Current)|Lines]);
@@ -405,7 +516,7 @@ run_command(Dir, {win32, _}, Cmd) ->
     {BatchFile,
      Run,
      ["@echo off\r\n",
-      "set ERLC_EMULATOR=", atom_to_list(lib:progname()), "\r\n",
+      "set ERLC_EMULATOR=", ct:get_progname(), "\r\n",
       Cmd, "\r\n",
       "if errorlevel 1 echo _ERROR_\r\n",
       "if not errorlevel 1 echo _OK_\r\n"]};
@@ -414,7 +525,7 @@ run_command(Dir, {unix, _}, Cmd) ->
     {Name,
      "/bin/sh " ++ Name,
      ["#!/bin/sh\n",
-      "ERLC_EMULATOR='", atom_to_list(lib:progname()), "'\n",
+      "ERLC_EMULATOR='", ct:get_progname(), "'\n",
       "export ERLC_EMULATOR\n",
       Cmd, "\n",
       "case $? in\n",

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -153,9 +153,9 @@
         <cell>The maximum number of simultaneously alive Erlang processes
 	is by default 262,144. This limit can be configured at startup.
 	For more information, see the
-	<seealso marker="erts:erl#max_processes"><c>+P</c></seealso>
+	<seecom marker="erts:erl#max_processes"><c>+P</c></seecom>
 	command-line flag in the
-	<seealso marker="erts:erl"><c>erl(1)</c></seealso>
+	<seecom marker="erts:erl"><c>erl(1)</c></seecom>
 	manual page in ERTS.</cell>
       </row>
       <row>
@@ -164,7 +164,7 @@
 	any pids, ports, references, or funs (Erlang data types) from Y
 	on X, or if X and Y are connected. The maximum number of remote
 	nodes simultaneously/ever known to a node is limited by the
-	<seealso marker="#atoms">maximum number of atoms</seealso>
+	<seeguide marker="#atoms">maximum number of atoms</seeguide>
 	available for node names. All data concerning remote nodes,
 	except for the node name atom, are garbage-collected.</cell>
       </row>
@@ -173,9 +173,9 @@
 	<cell>The maximum number of simultaneously connected nodes is
 	limited by either the maximum number of simultaneously known
 	remote nodes,
-	<seealso marker="#ports">the maximum number of (Erlang) ports</seealso>
+	<seeguide marker="#ports">the maximum number of (Erlang) ports</seeguide>
 	available, or
-	<seealso marker="#files_sockets">the maximum number of sockets</seealso>
+	<seeguide marker="#files_sockets">the maximum number of sockets</seeguide>
 	available.</cell>
       </row>
       <row>
@@ -188,16 +188,9 @@
 	limit can be raised or lowered using the <c>+t</c> option.</cell>
       </row>
       <row>
-	<cell>Ets tables</cell>
-	<cell>Default is 1400. It can be changed with the environment
-	variable <c>ERL_MAX_ETS_TABLES</c>.</cell>
-      </row>
-      <row>
 	<cell>Elements in a tuple</cell>
-	<cell>The maximum number of elements in a tuple is 67,108,863
-	(26-bit unsigned integer). Clearly, other factors such as the
-	available memory can make it difficult to create a tuple of
-	that size.</cell>
+	<cell>The maximum number of elements in a tuple is 16,777,215
+	(24-bit unsigned integer).</cell>
       </row>
       <row>
 	<cell>Size of binary</cell>
@@ -233,9 +226,9 @@
 	<cell>The maximum number of simultaneously open Erlang ports is
 	often by default 16,384. This limit can be configured at startup.
 	For more information, see the
-	<seealso marker="erts:erl#max_ports"><c>+Q</c></seealso>
+	<seecom marker="erts:erl#max_ports"><c>+Q</c></seecom>
 	command-line flag in the
-	<seealso marker="erts:erl"><c>erl(1)</c></seealso> manual page
+	<seecom marker="erts:erl"><c>erl(1)</c></seecom> manual page
 	in ERTS.</cell>
       </row>
       <row>
@@ -243,7 +236,7 @@
 	sockets</cell>
 	<cell>The maximum number of simultaneously open files and
 	sockets depends on
-	<seealso marker="#ports">the maximum number of Erlang ports</seealso>
+	<seeguide marker="#ports">the maximum number of Erlang ports</seeguide>
 	available, as well as on operating system-specific settings
 	and limits.</cell>
       </row>
@@ -255,10 +248,11 @@
         <cell><marker id="unique_references"/>Unique References on a Runtime System Instance</cell>
         <cell>Each scheduler thread has its own set of references, and all
         other threads have a shared set of references. Each set of references
-        consist of <c>2⁶⁴ - 1</c> unique references. That is the total
+        consist of <c>2⁶⁴ - 1</c> unique references. That is, the total
         amount of unique references that can be produced on a runtime
-        system instance is <c>(NoSchedulers + 1) * (2⁶⁴ - 1)</c>. If a
-        scheduler thread create a new reference each nano second,
+        system instance is <c>(NoSchedulers + 1) × (2⁶⁴ - 1)</c>.
+	<br/><br/>
+	If a scheduler thread create a new reference each nano second,
         references will at earliest be reused after more than 584 years.
 	That is, for the foreseeable future they are unique enough.</cell>
       </row>
@@ -266,7 +260,7 @@
         <cell><marker id="unique_integers"/>Unique Integers on a Runtime System Instance</cell>
         <cell>
 	    There are two types of unique integers both created using the
-            <seealso marker="erts:erlang#unique_integer/1">erlang:unique_integer()</seealso>
+            <seemfa marker="erts:erlang#unique_integer/1">erlang:unique_integer()</seemfa>
             BIF:
 	    <br/><br/>
 	    <em>1.</em> Unique integers created <em>with</em> the

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -211,16 +211,10 @@ reformat_events(Events, EH) ->
 %%% Test related to 'localtime' will often fail if the test host is
 %%% time warping, so let's just skip the 'dynamic' tests then.
 skip_dynamic() ->
-    case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
-	TSExtraPlatformLabel when is_list(TSExtraPlatformLabel) ->
-	    case string:str(TSExtraPlatformLabel,"TimeWarpingOS") of
-		0 -> false;
-		_ -> true
-	    end;
-	_ ->
-	    false
+    case string:find(os:getenv("TS_EXTRA_PLATFORM_LABEL", ""), "TimeWarpingOS") of
+	nomatch -> false;
+	_ -> true
     end.
-
 
 
 %%%-----------------------------------------------------------------

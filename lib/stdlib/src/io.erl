@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,7 +86,16 @@ put_chars(Chars) ->
       CharData :: unicode:chardata().
 
 put_chars(Io, Chars) ->
-    o_request(Io, {put_chars,unicode,Chars}, put_chars).
+    put_chars(Io, unicode, Chars).
+
+%% This function is here to make the erlang:raise in o_request actually raise to
+%% a valid function.
+-spec put_chars(IoDevice, Encoding, CharData) -> 'ok' when
+      IoDevice :: device(),
+      Encoding :: unicode,
+      CharData :: unicode:chardata().
+put_chars(Io, Encoding, Chars) ->
+    o_request(Io, {put_chars,Encoding,Chars}, put_chars).
 
 -spec nl() -> 'ok'.
 
@@ -97,7 +106,6 @@ nl() ->
       IoDevice :: device().
 
 nl(Io) ->
-%    o_request(Io, {put_chars,io_lib:nl()}).
     o_request(Io, nl, nl).
 
 -spec columns() -> {'ok', pos_integer()} | {'error', 'enotsup'}.
@@ -246,8 +254,6 @@ read(Io, Prompt) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[1]}) of
 	{ok,Toks,_EndLine} ->
 	    erl_parse:parse_term(Toks);
-%	{error, Reason} when atom(Reason) ->
-%	    erlang:error(conv_reason(read, Reason), [Io, Prompt]);
 	{error,E,_EndLine} ->
 	    {error,E};
 	{eof,_EndLine} ->
@@ -343,12 +349,7 @@ fread(Prompt, Format) ->
               | server_no_data().
 
 fread(Io, Prompt, Format) ->
-    case request(Io, {fread,Prompt,Format}) of
-%	{error, Reason} when atom(Reason) ->
-%	    erlang:error(conv_reason(fread, Reason), [Io, Prompt, Format]);
-	Other ->
-	    Other
-    end.
+    request(Io, {fread,Prompt,Format}).
 
 -spec format(Format) -> 'ok' when
       Format :: format().

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 -export([format_error/1]).
 %% File system and metadata.
 -export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, rename/2,
-	 make_dir/1, del_dir/1, list_dir/1, list_dir_all/1,
+	 make_dir/1, del_dir/1, del_dir_r/1, list_dir/1, list_dir_all/1,
 	 read_file_info/1, read_file_info/2,
 	 write_file_info/2, write_file_info/3,
 	 altname/1,
@@ -69,10 +69,10 @@
 
 %% Types that can be used from other modules -- alphabetically ordered.
 -export_type([date_time/0, fd/0, file_info/0, filename/0, filename_all/0,
-              io_device/0, name/0, name_all/0, posix/0]).
+              io_device/0, mode/0, name/0, name_all/0, posix/0]).
 
 %%% Includes and defines
--include("file.hrl").
+-include("file_int.hrl").
 
 -define(FILE_IO_SERVER_TABLE, file_io_servers).
 
@@ -101,14 +101,25 @@
 -type deep_list() :: [char() | atom() | deep_list()].
 -type name()      :: string() | atom() | deep_list().
 -type name_all()  :: string() | atom() | deep_list() | (RawFilename :: binary()).
--type posix()     :: 'eacces'  | 'eagain'  | 'ebadf'   | 'ebusy'  | 'edquot'
-		   | 'eexist'  | 'efault'  | 'efbig'   | 'eintr'  | 'einval'
-		   | 'eio'     | 'eisdir'  | 'eloop'   | 'emfile' | 'emlink'
-		   | 'enametoolong'
-		   | 'enfile'  | 'enodev'  | 'enoent'  | 'enomem' | 'enospc'
-		   | 'enotblk' | 'enotdir' | 'enotsup' | 'enxio'  | 'eperm'
-		   | 'epipe'   | 'erofs'   | 'espipe'  | 'esrch'  | 'estale'
-		   | 'exdev'.
+-type posix() ::
+        'eacces' | 'eagain' |
+        'ebadf' | 'ebadmsg' | 'ebusy' |
+        'edeadlk' | 'edeadlock' | 'edquot' |
+        'eexist' |
+        'efault' | 'efbig' | 'eftype' |
+        'eintr' | 'einval' | 'eio' | 'eisdir' |
+        'eloop' |
+        'emfile' | 'emlink' | 'emultihop' |
+        'enametoolong' | 'enfile' |
+        'enobufs' | 'enodev' | 'enolck' | 'enolink' | 'enoent' |
+        'enomem' | 'enospc' | 'enosr' | 'enostr' | 'enosys' |
+        'enotblk' | 'enotdir' | 'enotsup' | 'enxio' |
+        'eopnotsupp' | 'eoverflow' |
+        'eperm' | 'epipe' |
+        'erange' | 'erofs' |
+        'espipe'  | 'esrch'  | 'estale' |
+        'etxtbsy' |
+        'exdev'.
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
@@ -228,19 +239,48 @@ make_dir(Name) ->
 del_dir(Name) ->
     check_and_call(del_dir, [file_name(Name)]).
 
--spec read_file_info(Filename) -> {ok, FileInfo} | {error, Reason} when
-      Filename :: name_all(),
+-spec del_dir_r(File) -> ok | {error, Reason} when
+      File :: name_all(),
+      Reason :: posix() | badarg.
+
+del_dir_r(File) -> % rm -rf File
+    case read_link_info(File) of
+	{ok, #file_info{type = directory}} ->
+	    case list_dir_all(File) of
+		{ok, Names} ->
+		    lists:foreach(fun(Name) ->
+				      del_dir_r(filename:join(File, Name))
+				  end, Names);
+		{error, _Reason} -> ok
+	    end,
+	    del_dir(File);
+	{ok, _FileInfo} -> delete(File);
+	{error, _Reason} = Error -> Error
+    end.
+
+-spec read_file_info(File) -> {ok, FileInfo} | {error, Reason} when
+      File :: name_all() | io_device(),
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
+
+read_file_info(IoDevice)
+  when is_pid(IoDevice); is_record(IoDevice, file_descriptor) ->
+    read_file_info(IoDevice, []);
 
 read_file_info(Name) ->
     check_and_call(read_file_info, [file_name(Name)]).
 
--spec read_file_info(Filename, Opts) -> {ok, FileInfo} | {error, Reason} when
-      Filename :: name_all(),
+-spec read_file_info(File, Opts) -> {ok, FileInfo} | {error, Reason} when
+      File :: name_all() | io_device(),
       Opts :: [file_info_option()],
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
+
+read_file_info(IoDevice, Opts) when is_pid(IoDevice), is_list(Opts) ->
+    file_request(IoDevice, {read_handle_info, Opts});
+
+read_file_info(#file_descriptor{module = Module} = Handle, Opts) when is_list(Opts) ->
+    Module:read_handle_info(Handle, Opts);
 
 read_file_info(Name, Opts) when is_list(Opts) ->
     Args = [file_name(Name), Opts],
@@ -449,46 +489,28 @@ raw_write_file_info(Name, #file_info{} = Info) ->
 -spec open(File, Modes) -> {ok, IoDevice} | {error, Reason} when
       File :: Filename | iodata(),
       Filename :: name_all(),
-      Modes :: [mode() | ram],
+      Modes :: [mode() | ram | directory],
       IoDevice :: io_device(),
       Reason :: posix() | badarg | system_limit.
 
 open(Item, ModeList) when is_list(ModeList) ->
-    case lists:member(raw, ModeList) of
-	%% Raw file, use ?PRIM_FILE to handle this file
-	true ->
+    case {lists:member(raw, ModeList), lists:member(ram, ModeList)} of
+        {false, false} ->
+            %% File server file
             Args = [file_name(Item) | ModeList],
             case check_args(Args) of
                 ok ->
                     [FileName | _] = Args,
-                    %% We rely on the returned Handle (in {ok, Handle})
-                    %% being a pid() or a #file_descriptor{}
-                    ?PRIM_FILE:open(FileName, ModeList);
+                    call(open, [FileName, ModeList]);
                 Error ->
                     Error
-	    end;
-	false ->
-	    case lists:member(ram, ModeList) of
-		%% RAM file, use ?RAM_FILE to handle this file
-		true ->
-		    case check_args(ModeList) of
-			ok ->
-			    ?RAM_FILE:open(Item, ModeList);
-			Error ->
-			    Error
-		    end;
-		%% File server file
-		false ->
-		    Args = [file_name(Item) | ModeList],
-		    case check_args(Args) of 
-			ok ->
-			    [FileName | _] = Args,
-			    call(open, [FileName, ModeList]);
-			Error ->
-			    Error
-		    end
-	    end
+            end;
+        {true, _Either} ->
+            raw_file_io:open(file_name(Item), ModeList);
+        {false, true} ->
+            ram_file:open(Item, ModeList)
     end;
+
 %% Old obsolete mode specification in atom or 2-tuple format
 open(Item, Mode) ->
     open(Item, mode_list(Mode)).
@@ -552,7 +574,7 @@ allocate(#file_descriptor{module = Module} = Handle, Offset, Length) ->
               | {no_translation, unicode, latin1}.
 
 read(File, Sz) when (is_pid(File) orelse is_atom(File)), is_integer(Sz), Sz >= 0 ->
-    case io:request(File, {get_chars, '', Sz}) of
+    case io:request(File, {get_chars, latin1, '', Sz}) of
 	Data when is_list(Data); is_binary(Data) ->
 	    {ok, Data};
 	Other ->
@@ -573,7 +595,7 @@ read(_, _) ->
               | {no_translation, unicode, latin1}.
 
 read_line(File) when (is_pid(File) orelse is_atom(File)) ->
-    case io:request(File, {get_line, ''}) of
+    case io:request(File, {get_line, latin1, ''}) of
 	Data when is_list(Data); is_binary(Data) ->
 	    {ok, Data};
 	Other ->
@@ -1150,7 +1172,7 @@ path_script(Path, File, Bs) ->
              {ok, IoDevice, FullName} | {error, Reason} when
       Path :: [Dir :: name_all()],
       Filename :: name_all(),
-      Modes :: [mode()],
+      Modes :: [mode() | directory],
       IoDevice :: io_device(),
       FullName :: filename_all(),
       Reason :: posix() | badarg | system_limit.
@@ -1254,15 +1276,18 @@ sendfile(File, _Sock, _Offet, _Bytes, _Opts) when is_pid(File) ->
 sendfile(File, Sock, Offset, Bytes, []) ->
     sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, [], [], []);
 sendfile(File, Sock, Offset, Bytes, Opts) ->
-    ChunkSize0 = proplists:get_value(chunk_size, Opts, ?MAX_CHUNK_SIZE),
-    ChunkSize = if ChunkSize0 > ?MAX_CHUNK_SIZE ->
-			?MAX_CHUNK_SIZE;
-		   true -> ChunkSize0
-		end,
-    %% Support for headers, trailers and options has been removed because the
-    %% Darwin and BSD API for using it does not play nice with
-    %% non-blocking sockets. See unix_efile.c for more info.
-    sendfile(File, Sock, Offset, Bytes, ChunkSize, [], [], Opts).
+    try proplists:get_value(chunk_size, Opts, ?MAX_CHUNK_SIZE) of
+        ChunkSize0 when is_integer(ChunkSize0) ->
+            ChunkSize = erlang:min(ChunkSize0, ?MAX_CHUNK_SIZE),
+            %% Support for headers, trailers and options has been removed
+            %% because the Darwin and BSD API for using it does not play nice
+            %% with non-blocking sockets. See unix_efile.c for more info.
+            sendfile(File, Sock, Offset, Bytes, ChunkSize, [], [], Opts);
+        _Other ->
+            {error, badarg}
+    catch
+        error:_ -> {error, badarg}
+    end.
 
 %% sendfile/2
 -spec sendfile(Filename, Socket) ->
@@ -1397,8 +1422,8 @@ eval_stream2({ok,Form,EndLine}, Fd, H, Last, E, Bs0) ->
     try erl_eval:exprs(Form, Bs0) of
 	{value,V,Bs} ->
 	    eval_stream(Fd, H, EndLine, {V}, E, Bs)
-    catch Class:Reason ->
-            Error = {EndLine,?MODULE,{Class,Reason,erlang:get_stacktrace()}},
+    catch Class:Reason:StackTrace ->
+            Error = {EndLine,?MODULE,{Class,Reason,StackTrace}},
 	    eval_stream(Fd, H, EndLine, Last, [Error|E], Bs0)
     end;
 eval_stream2({error,What,EndLine}, Fd, H, Last, E, Bs) ->

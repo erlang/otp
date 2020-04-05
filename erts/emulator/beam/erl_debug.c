@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -404,15 +404,16 @@ void verify_process(Process *p)
         erts_exit(ERTS_ERROR_EXIT,"Wild pointer found in " name " of %T!\n",p->common.id); }
 
 
-    ErtsMessage* mp = p->msg.first;
-
     VERBOSE(DEBUG_MEMORY,("Verify process: %T...\n",p->common.id));
 
-    while (mp != NULL) {
-        VERIFY_ETERM("message term",ERL_MESSAGE_TERM(mp));
-        VERIFY_ETERM("message token",ERL_MESSAGE_TOKEN(mp));
-        mp = mp->next;
-    }
+    ERTS_FOREACH_SIG_PRIVQS(
+        p, mp,
+        {
+            if (ERTS_SIG_IS_MSG(mp)) {
+                VERIFY_ETERM("message term",ERL_MESSAGE_TERM(mp));
+                VERIFY_ETERM("message token",ERL_MESSAGE_TOKEN(mp));
+            }
+        });
 
     erts_check_stack(p);
     erts_check_heap(p);
@@ -532,16 +533,15 @@ static void print_process_memory(Process *p)
     erts_printf("-- %-*s ---%s-%s-%s-%s--\n",
                 PTR_SIZE, "PCB", dashes, dashes, dashes, dashes);
 
-    if (p->msg.first != NULL) {
-        ErtsMessage* mp;
-        erts_printf("  Message Queue:\n");
-        mp = p->msg.first;
-        while (mp != NULL) {
-            erts_printf("| 0x%0*lx | 0x%0*lx |\n",PTR_SIZE,
-                        ERL_MESSAGE_TERM(mp),PTR_SIZE,ERL_MESSAGE_TOKEN(mp));
-            mp = mp->next;
-        }
-    }
+
+    erts_printf("  Message Queue:\n");
+    ERTS_FOREACH_SIG_PRIVQS(
+        p, mp,
+        {
+            if (ERTS_SIG_IS_MSG(mp))
+                erts_printf("| 0x%0*lx | 0x%0*lx |\n",PTR_SIZE,
+                            ERL_MESSAGE_TERM(mp),PTR_SIZE,ERL_MESSAGE_TOKEN(mp));
+        });
 
     if (p->dictionary != NULL) {
         int n = ERTS_PD_SIZE(p->dictionary);

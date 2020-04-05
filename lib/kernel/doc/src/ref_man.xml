@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,14 +32,18 @@
 
   </description>
   <xi:include href="kernel_app.xml"/>
+  <xi:include href="app.xml"/>
   <xi:include href="application.xml"/>
   <xi:include href="auth.xml"/>
   <xi:include href="code.xml"/>
+  <xi:include href="config.xml"/>
   <xi:include href="disk_log.xml"/>
   <xi:include href="erl_boot_server.xml"/>
   <xi:include href="erl_ddll.xml"/>
+  <xi:include href="erl_epmd.xml"/>
   <xi:include href="erl_prim_loader_stub.xml"/>
   <xi:include href="erlang_stub.xml"/>
+  <xi:include href="erpc.xml"/>
   <xi:include href="error_handler.xml"/>
   <xi:include href="error_logger.xml"/>
   <xi:include href="file.xml"/>
@@ -52,15 +56,20 @@
   <xi:include href="inet.xml"/>
   <xi:include href="inet_res.xml"/>
   <xi:include href="init_stub.xml"/>
+  <xi:include href="logger.xml"/>
+  <xi:include href="logger_filters.xml"/>
+  <xi:include href="logger_formatter.xml"/>
+  <xi:include href="logger_std_h.xml"/>
+  <xi:include href="logger_disk_log_h.xml"/>
+  <xi:include href="net.xml"/>
   <xi:include href="net_adm.xml"/>
   <xi:include href="net_kernel.xml"/>
   <xi:include href="os.xml"/>
+  <xi:include href="pg.xml"/>
   <xi:include href="pg2.xml"/>
   <xi:include href="rpc.xml"/>
   <xi:include href="seq_trace.xml"/>
   <xi:include href="user.xml"/>
   <xi:include href="wrap_log_reader.xml"/>
   <xi:include href="zlib_stub.xml"/>
-  <xi:include href="app.xml"/>
-  <xi:include href="config.xml"/>
 </application>

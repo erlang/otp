@@ -101,9 +101,9 @@ loop() ->
       <p>In a system that use comparatively few processes, performance
       <em>might</em> be improved by increasing the minimum heap size
       using either the <c>+h</c> option for
-      <seealso marker="erts:erl">erl</seealso> or on a process-per-process
+      <seecom marker="erts:erl">erl</seecom> or on a process-per-process
       basis using the <c>min_heap_size</c> option for
-      <seealso marker="erts:erlang#spawn_opt/4">spawn_opt/4</seealso>.</p>
+      <seemfa marker="erts:erlang#spawn_opt/4">spawn_opt/4</seemfa>.</p>
 
       <p>The gain is twofold:</p>
       <list type="bulleted">
@@ -135,7 +135,7 @@ loop() ->
 
     <p>All data in messages between Erlang processes is copied,
       except for
-      <seealso marker="binaryhandling#refc_binary">refc binaries</seealso>
+      <seeguide marker="binaryhandling#refc_binary">refc binaries</seeguide>
       on the same Erlang node.</p>
 
     <p>When a message is sent to a process on another Erlang node,

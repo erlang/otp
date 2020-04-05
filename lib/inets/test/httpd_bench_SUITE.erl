@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() -> 
-    [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
+    [{timetrap, {minutes, 1}},
+     {ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> 
     [
@@ -86,7 +87,8 @@ init_per_suite(Config) ->
 	{Node, Host} = setup(Config, node()),
 	init_ssl(Config),
 	[{iter, 10}, {server_node, Node}, {server_host, Host} | Config]
-    catch _:_ ->
+    catch E:R:ST ->
+            ct:pal("~p:~p:~p",[E,R,ST]),
 	    {skipped, "Benchmark machines only"}
     end.
 
@@ -499,8 +501,8 @@ start_dummy("http"= Protocol, Config) ->
     Conf = [
 	    %%{big, filename:join(DataDir, "1M_file")},
 	    %%{small, filename:join(DataDir, "1k_file")},
-	    {big, {gen,  crypto:rand_bytes(1000000)}},
-	    {small, {gen,  crypto:rand_bytes(1000)}},
+	    {big, {gen,  crypto:strong_rand_bytes(1000000)}},
+	    {small, {gen,  crypto:strong_rand_bytes(1000)}},
 	    {http_version, HTTPVersion},
 	    {keep_alive,  ?config(keep_alive, Config)}
 	   ],
@@ -519,8 +521,8 @@ start_dummy("https" = Protocol, Config) ->
     Opts = [{active, true}, {nodelay, true}, {reuseaddr, true} | SSLOpts],
     Conf = [%%{big, filename:join(DataDir, "1M_file")},
 	    %%{small, filename:join(DataDir, "1k_file")},
-	    {big, {gen, crypto:rand_bytes(1000000)}},
-	    {small, {gen, crypto:rand_bytes(1000)}},
+	    {big, {gen, crypto:strong_rand_bytes(1000000)}},
+	    {small, {gen, crypto:strong_rand_bytes(1000)}},
 	    {http_version, HTTPVersion},
 	    {keep_alive, ?config(keep_alive, Config)}
 	   ],

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,6 +107,7 @@
 	megaco_udp,
 	megaco_udp_server,
 	megaco_udp_sup,
+	megaco_user,
 	megaco_user_default
        ]},
   {registered, [megaco_config, megaco_monitor, 

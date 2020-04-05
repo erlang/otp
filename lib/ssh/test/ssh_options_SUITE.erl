@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@
 	 server_userpassword_option/1, 
 	 server_pwdfun_option/1,
 	 server_pwdfun_4_option/1,
-	 server_pwdfun_4_option_repeat/1,
+	 server_keyboard_interactive/1,
 	 ssh_connect_arg4_timeout/1, 
 	 ssh_connect_negtimeout_parallel/1, 
 	 ssh_connect_negtimeout_sequential/1, 
@@ -71,7 +71,9 @@
 	 hostkey_fingerprint_check_sha384/1,
 	 hostkey_fingerprint_check_sha512/1,
 	 hostkey_fingerprint_check_list/1,
-         save_accepted_host_option/1
+         save_accepted_host_option/1,
+         config_file/1,
+         config_file_modify_algorithms_order/1
 	]).
 
 %%% Common test callbacks
@@ -80,7 +82,7 @@
 	 init_per_group/2, end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2
 	]).
-
+-compile(export_all).
 
 -define(NEWLINE, <<"\r\n">>).
 
@@ -99,7 +101,7 @@ all() ->
      server_userpassword_option,
      server_pwdfun_option,
      server_pwdfun_4_option,
-     server_pwdfun_4_option_repeat,
+     server_keyboard_interactive,
      {group, dir_options},
      ssh_connect_timeout,
      ssh_connect_arg4_timeout,
@@ -126,7 +128,9 @@ all() ->
      id_string_own_string_server_trail_space,
      id_string_random_server,
      save_accepted_host_option,
-     {group, hardening_tests}
+     {group, hardening_tests},
+     config_file,
+     config_file_modify_algorithms_order
     ].
 
 groups() ->
@@ -214,7 +218,7 @@ init_per_testcase(_TestCase, Config) ->
     file:make_dir(UserDir),
     [{user_dir,UserDir}|Config].
 
-end_per_testcase(_TestCase, Config) ->
+end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
     ok.
 
@@ -381,7 +385,7 @@ server_pwdfun_4_option(Config) ->
 
     
 %%--------------------------------------------------------------------
-server_pwdfun_4_option_repeat(Config) ->
+server_keyboard_interactive(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
     SysDir = proplists:get_value(data_dir, Config),	  
     %% Test that the state works
@@ -396,19 +400,28 @@ server_pwdfun_4_option_repeat(Config) ->
 					     {pwdfun,PWDFUN}]),
 
     %% Try with passwords "incorrect", "Bad again" and finally "bar"
-    KIFFUN = fun(_,_,_) -> 
+    KIFFUN = fun(_Name, _Instr, _PromptInfos) ->
 		     K={k,self()},
-		     case get(K) of 
-			 undefined -> 
-			     put(K,1),
-			     ["incorrect"]; 
-			 2 ->
-			     put(K,3),
-			     ["bar"];
-			 S->
-			     put(K,S+1),
-			     ["Bad again"]
-		     end
+                     Answer =
+                         case get(K) of
+                             undefined ->
+                                 put(K,1),
+                                 ["incorrect"];
+                             2 ->
+                                 put(K,3),
+                                 ["bar"];
+                             S->
+                                 put(K,S+1),
+                                 ["Bad again"]
+                         end,
+                     ct:log("keyboard_interact_fun:~n"
+                            " Name        = ~p~n"
+                            " Instruction = ~p~n"
+                            " Prompts     = ~p~n"
+                            "~nAnswer:~n  ~p~n",
+                            [_Name, _Instr, _PromptInfos, Answer]),
+
+                     Answer
 	     end,
     
     ConnectionRef2 = 
@@ -796,11 +809,14 @@ do_hostkey_fingerprint_check(Config, HashAlg) ->
     case supported_hash(HashAlg) of
 	true ->
 	    really_do_hostkey_fingerprint_check(Config, HashAlg);
+	false when HashAlg == old ->
+	    {skip,{unsupported_hash,md5}};% Happen to know that public_key:ssh_hostkey_fingerprint/1 uses md5...
 	false ->
 	    {skip,{unsupported_hash,HashAlg}}
     end.
 
-supported_hash(old) -> true;
+supported_hash(old) ->
+    supported_hash(md5); % Happen to know that public_key:ssh_hostkey_fingerprint/1 uses md5...
 supported_hash(HashAlg) ->
     Hs = if is_atom(HashAlg) -> [HashAlg];
             is_list(HashAlg) -> HashAlg
@@ -1227,7 +1243,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    [_|_] = Connections,
 
 	    %% Now try one more than alowed:
-	    ct:log("Info Report might come here...",[]),
+	    ct:pal("Info Report expected here (if not disabled) ...",[]),
 	    try Connect(Host,Port)
 	    of
 		_ConnectionRef1 ->
@@ -1235,8 +1251,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 		    {fail,"Too many connections accepted"}
 	    catch
 		error:{badmatch,{error,"Connection closed"}} ->
-		    %% Step 2 ok: could not set up max_sessions+1 connections
-		    %% This is expected
+                    ct:log("Step 2 ok: could not set up too many connections. Good.",[]),
 		    %% Now stop one connection and try to open one more
 		    ok = ssh:close(hd(Connections)),
 		    try_to_connect(Connect, Host, Port, Pid)
@@ -1249,16 +1264,15 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 
 
 try_to_connect(Connect, Host, Port, Pid) ->
-    {ok,Tref} = timer:send_after(3000, timeout_no_connection), % give the supervisors some time...
+    {ok,Tref} = timer:send_after(30000, timeout_no_connection), % give the supervisors some time...
     try_to_connect(Connect, Host, Port, Pid, Tref, 1). % will take max 3300 ms after 11 tries
 
 try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
      try Connect(Host,Port)
      of
 	 _ConnectionRef1 ->
-	     %% Step 3 ok: could set up one more connection after killing one
-	     %% Thats good.
 	     timer:cancel(Tref),
+             ct:log("Step 3 ok: could set up one more connection after killing one. Thats good.",[]),
 	     ssh:stop_daemon(Pid),
 	     receive % flush. 
 		 timeout_no_connection -> ok
@@ -1304,8 +1318,201 @@ save_accepted_host_option(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
+config_file(Config) ->
+    %% First find common algs:
+    ServerAlgs = ssh_test_lib:default_algorithms(sshd),
+    OurAlgs = ssh_transport:supported_algorithms(), % Incl disabled but supported
+    CommonAlgs = ssh_test_lib:intersection(ServerAlgs, OurAlgs),
+    ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),
+    Nkex = length(proplists:get_value(kex, CommonAlgs, [])),
+
+    case {ServerAlgs, ssh_test_lib:some_empty(CommonAlgs)} of
+        {[],_} ->
+            {skip, "No server algorithms found"};
+        {_,true} ->
+            {fail, "Missing common algorithms"};
+        _ when Nkex<3 ->
+            {skip, "Not enough number of common kex"};
+        _ ->
+            %% Then find three common kex and one common cipher:
+            [K1a,K1b,K2a|_] = proplists:get_value(kex, CommonAlgs),
+            [{_,[Ch1|_]}|_] = proplists:get_value(cipher, CommonAlgs),
+
+            %% Make config file:
+            Contents = 
+                [{ssh, [{preferred_algorithms,
+                         [{cipher, [Ch1]},
+                          {kex,    [K1a]}
+                         ]},
+                        {client_options,
+                         [{modify_algorithms,
+                           [{rm,     [{kex, [K1a]}]},
+                            {append, [{kex, [K1b]}]}
+                           ]}
+                         ]}
+                       ]}
+                ],          
+            %% write the file:
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ConfFile = filename:join(PrivDir,"c2.config"),
+            {ok,D} = file:open(ConfFile, [write]),
+            io:format(D, "~p.~n", [Contents]),
+            file:close(D),
+            {ok,Cnfs} = file:read_file(ConfFile),
+            ct:log("c2.config:~n~s", [Cnfs]),
+
+            %% Start the slave node with the configuration just made:
+            {ok,Node} = start_node(random_node_name(?MODULE), ConfFile),
+
+            R0 = rpc:call(Node, ssh, default_algorithms, []),
+            ct:log("R0 = ~p",[R0]),
+            R0 = ssh:default_algorithms(),
+
+            %% Start ssh on the slave. This should apply the ConfFile:
+            rpc:call(Node, ssh, start, []),
+
+            R1 = rpc:call(Node, ssh, default_algorithms, []),
+            ct:log("R1 = ~p",[R1]),
+            [{kex,[K1a]},
+             {public_key,_},
+             {cipher,[{_,[Ch1]},
+                      {_,[Ch1]}]} | _] = R1,
+
+            %% First connection. The client_options should be applied:
+            {ok,C1} = rpc:call(Node, ssh, connect, [loopback, 22, []]),
+            {algorithms,As1} = rpc:call(Node, ssh, connection_info, [C1, algorithms]),
+            K1b = proplists:get_value(kex, As1),
+            Ch1 = proplists:get_value(encrypt, As1),
+            Ch1 = proplists:get_value(decrypt, As1),
+            {options,Os1} = rpc:call(Node, ssh, connection_info, [C1, options]),
+            ct:log("C1 algorithms:~n~p~n~noptions:~n~p", [As1,Os1]),
+
+            %% Second connection, the Options take precedence:
+            C2_Opts = [{modify_algorithms,[{rm,[{kex,[K1b]}]}, % N.B.
+                                           {append, [{kex,[K2a]}]}]}],
+            {ok,C2} = rpc:call(Node, ssh, connect, [loopback, 22, C2_Opts]),
+            {algorithms,As2} = rpc:call(Node, ssh, connection_info, [C2, algorithms]),
+            K2a = proplists:get_value(kex, As2),
+            Ch1 = proplists:get_value(encrypt, As2),
+            Ch1 = proplists:get_value(decrypt, As2),
+            {options,Os2} = rpc:call(Node, ssh, connection_info, [C2, options]),
+            ct:log("C2 opts:~n~p~n~nalgorithms:~n~p~n~noptions:~n~p", [C2_Opts,As2,Os2]),
+
+            stop_node_nice(Node)
+    end.
+    
+%%%----------------------------------------------------------------
+config_file_modify_algorithms_order(Config) ->
+    %% First find common algs:
+    ServerAlgs = ssh_test_lib:default_algorithms(sshd),
+    OurAlgs = ssh_transport:supported_algorithms(), % Incl disabled but supported
+    CommonAlgs = ssh_test_lib:intersection(ServerAlgs, OurAlgs),
+    ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),
+    Nkex = length(proplists:get_value(kex, CommonAlgs, [])),
+    case {ServerAlgs, ssh_test_lib:some_empty(CommonAlgs)} of
+        {[],_} ->
+            {skip, "No server algorithms found"};
+        {_,true} ->
+            {fail, "Missing common algorithms"};
+        _ when Nkex<3 ->
+            {skip, "Not enough number of common kex"};
+        _ ->
+            %% Then find three common kex and one common cipher:
+            [K1,K2,K3|_] = proplists:get_value(kex, CommonAlgs),
+            [{_,[Ch1|_]}|_] = proplists:get_value(cipher, CommonAlgs),
+
+            %% Make config file:
+            Contents = 
+                [{ssh, [{preferred_algorithms,
+                         [{cipher, [Ch1]},
+                          {kex,    [K1]}
+                         ]},
+                        {server_options,
+                         [{modify_algorithms,
+                           [{rm,     [{kex, [K1]}]},
+                            {append, [{kex, [K2]}]}
+                           ]}
+                         ]},
+                        {client_options,
+                         [{modify_algorithms,
+                           [{rm,     [{kex, [K1]}]},
+                            {append, [{kex, [K3]}]}
+                           ]}
+                         ]}
+                       ]}
+                ],          
+            %% write the file:
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ConfFile = filename:join(PrivDir,"c3.config"),
+            {ok,D} = file:open(ConfFile, [write]),
+            io:format(D, "~p.~n", [Contents]),
+            file:close(D),
+            {ok,Cnfs} = file:read_file(ConfFile),
+            ct:log("c3.config:~n~s", [Cnfs]),
+
+            %% Start the slave node with the configuration just made:
+            {ok,Node} = start_node(random_node_name(?MODULE), ConfFile),
+    
+            R0 = rpc:call(Node, ssh, default_algorithms, []),
+            ct:log("R0 = ~p",[R0]),
+            R0 = ssh:default_algorithms(),
+
+            %% Start ssh on the slave. This should apply the ConfFile:
+            ok = rpc:call(Node, ssh, start, []),
+            R1 = rpc:call(Node, ssh, default_algorithms, []),
+            ct:log("R1 = ~p",[R1]),
+            [{kex,[K1]} | _] = R1,
+
+            %% Start a daemon
+            {Server, Host, Port} = rpc:call(Node, ssh_test_lib, std_daemon, [Config, []]),
+            {ok,ServerInfo} = rpc:call(Node, ssh, daemon_info, [Server]),
+            ct:log("ServerInfo =~n~p", [ServerInfo]),
+
+            %% Test that the server_options env key works:
+            [K2] = proplists:get_value(kex,
+                   proplists:get_value(preferred_algorithms,
+                   proplists:get_value(options, ServerInfo))),
+            
+            {badrpc, {'EXIT', {{badmatch,ExpectedError}, _}}} =
+                %% No common kex algorithms expected. 
+                rpc:call(Node, ssh_test_lib, std_connect, [Config, Host, Port, []]), 
+            {error,"Key exchange failed"} = ExpectedError,
+
+            C = rpc:call(Node, ssh_test_lib, std_connect,
+                         [Config, Host, Port, 
+                          [{modify_algorithms,[{append,[{kex,[K2]}]}]}]]),
+            ConnInfo = rpc:call(Node, ssh, connection_info, [C]),
+            ct:log("ConnInfo =~n~p", [ConnInfo]),
+            Algs = proplists:get_value(algorithms, ConnInfo),
+            ct:log("Algs =~n~p", [Algs]),
+            ConnOptions = proplists:get_value(options, ConnInfo),
+            ConnPrefAlgs = proplists:get_value(preferred_algorithms, ConnOptions),
+
+            %% And now, are all levels appied in right order:
+            [K3,K2] = proplists:get_value(kex, ConnPrefAlgs),
+
+            stop_node_nice(Node)
+    end.
+
+    
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+
+start_node(Name, ConfigFile) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, slave, [{args, 
+                                          " -pa " ++ Pa ++ 
+                                          " -config " ++ ConfigFile}]).
+
+stop_node_nice(Node) when is_atom(Node) ->
+    test_server:stop_node(Node).
+
+random_node_name(BaseName) ->
+    L = integer_to_list(erlang:unique_integer([positive])),
+    lists:concat([BaseName,"___",L]).
+
+%%%----
   
 expected_ssh_vsn(Str) ->
     try

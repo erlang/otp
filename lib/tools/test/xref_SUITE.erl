@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1098,10 +1098,8 @@ read_expected(Version) ->
           {POS4+5,{FF,{spm,spf,2}}},
           {POS4+6,{FF,{dist,func,2}}},
           {POS4+6,{FF,{erlang,spawn_link,4}}},
-          {POS4+7,{FF,{erlang,spawn_opt,4}}},
           {POS4+7,{FF,{read,bi,0}}},
           {POS4+7,{FF,{spm,spf,2}}},
-          {POS4+8,{FF,{erlang,spawn_opt,4}}},
           {POS4+8,{FF,{read,bi,0}}},
           {POS5+1,{FF,{erlang,spawn,1}}},
           {POS5+2,{FF,{erlang,spawn,1}}},
@@ -1109,30 +1107,18 @@ read_expected(Version) ->
           {POS6+1,{FF,{erlang,spawn,2}}},
           {POS6+2,{FF,{erlang,spawn_link,2}}},
           {POS7+1,{FF,{erlang,spawn,4}}},
-          {POS7+2,{FF,{erlang,spawn_opt,4}}},
           {POS8+1,{FF,{hej,san,1}}},
           {POS8+4,{FF,{a,b,1}}},
-          {POS8+4,{FF,{erlang,apply,2}}},
-          {POS8+5,{FF,{erlang,apply,2}}},
           {POS8+6,{FF,{m,f,1}}},
           {POS9+1,{FF,{read,bi,0}}},
           {POS9+2,{FF,{a,b,1}}},
-          {POS9+2,{FF,{erlang,apply,2}}},
-          {POS9+3,{FF,{erlang,apply,2}}},
-          {POS9+4,{FF,{erlang,apply,2}}},
           {POS9+4,{FF,{erlang,not_a_function,1}}},
           {POS9+5,{FF,{mod,func,2}}},
           {POS9+6,{FF,{erlang,apply,1}}},
-          {POS9+7,{FF,{erlang,apply,2}}},
           {POS9+7,{FF,{math,add3,1}}},
           {POS9+8,{FF,{q,f,1}}},
-          {POS10+4,{FF,{erlang,apply,2}}},
           {POS10+5,{FF,{mod1,fun1,1}}},
-          {POS11+6,{FF,{erlang,apply,2}}},
-          {POS12+1,{FF,{erlang,apply,2}}},
-          {POS12+4,{FF,{erlang,apply,2}}},
           {POS12+5,{FF,{m3,f3,2}}},
-          {POS12+7,{FF,{erlang,apply,2}}},
           {POS13+1,{FF,{dm,df,1}}},
           {POS13+6,{{read,bi,0},{foo,module_info,0}}},
           {POS13+7,{{read,bi,0},{read,module_info,0}}},
@@ -1161,16 +1147,30 @@ read_expected(Version) ->
             {POS3+2, {FF,{erlang,spawn,3}}},
             {POS3+3,  {FF,{erlang,spawn_link,3}}},
             {POS3+4, {FF,{erlang,spawn_link,3}}},
+            {POS4+7, {FF,{erlang,spawn_opt,4}}},
+            {POS4+8, {FF,{erlang,spawn_opt,4}}},
             {POS6+4, {FF,{erlang,spawn,3}}},
+            {POS7+2, {FF,{erlang,spawn_opt,4}}},
+            {POS8+4,{FF,{erlang,apply,2}}},
+            {POS8+5,{FF,{erlang,apply,2}}},
             {POS8+6,{FF,{erlang,apply,3}}},
             {POS8+7,{FF,{erlang,apply,3}}},
             {POS9+1,{FF,{erlang,apply,3}}},
+            {POS9+2,{FF,{erlang,apply,2}}},
+            {POS9+3,{FF,{erlang,apply,2}}},
+            {POS9+4,{FF,{erlang,apply,2}}},
             {POS9+5,{FF,{erlang,apply,3}}},
+            {POS9+7,{FF,{erlang,apply,2}}},
+            {POS10+4,{FF,{erlang,apply,2}}},
             {POS11+1,{FF,{erlang,apply,3}}},
             {POS11+2,{FF,{erlang,apply,3}}},
             {POS11+3,{FF,{erlang,apply,3}}},
             {POS11+4,{FF,{erlang,apply,3}}},
+            {POS11+6,{FF,{erlang,apply,2}}},
+            {POS12+1,{FF,{erlang,apply,2}}},
+            {POS12+4,{FF,{erlang,apply,2}}},
             {POS12+5,{FF,{erlang,apply,3}}},
+            {POS12+7,{FF,{erlang,apply,2}}},
             {POS12+8,{FF,{erlang,apply,3}}},
             {POS13+5, {{read,bi,0},{erlang,length,1}}},
             {POS14+3, {{read,bi,0},{erlang,length,1}}}],
@@ -1479,12 +1479,13 @@ deprecated(Conf) when is_list(Conf) ->
 
     Test2= <<"-module(depr).
 
-              -export([t/0,f/1,bar/2,f/2,g/3]).
+              -export([t/0,f/1,bar/2,f/2,g/3,string/0]).
 
               -deprecated([{'_','_',eventually}]).            % DF_3
               -deprecated([{f,'_',next_major_release}]).      % DF_2
               -deprecated([{g,'_',next_version}]).            % DF_1
               -deprecated([{bar,2}]).                         % DF
+              -deprecated([{string,0,\"hello\"}]).            % DF
 
               t() ->
                   g(1,2, 3),
@@ -1499,6 +1500,9 @@ deprecated(Conf) when is_list(Conf) ->
               g(F, G, H) ->
                   ?MODULE:bar(F, {G,H}).
 
+              string() ->
+                  ?MODULE:string().
+
               bar(_, _) ->
                   ?MODULE:t().
              ">>,
@@ -1512,7 +1516,8 @@ deprecated(Conf) when is_list(Conf) ->
     M = depr,
     DFa_1 = usort([{{M,f,2},{M,g,3}}]),
     DFa_2 = usort(DFa_1++[{{M,f,1},{M,f,2}},{{M,t,0},{M,f,1}}]),
-    DFa_3 = usort(DFa_2++[{{M,bar,2},{M,t,0}},{{M,g,3},{M,bar,2}}]),
+    DFa_3 = usort(DFa_2++[{{M,bar,2},{M,t,0}},{{M,g,3},{M,bar,2}},
+                          {{M,string,0},{M,string,0}}]),
     DFa = DFa_3,
 
     {ok,DFa} = xref:analyze(s, deprecated_function_calls),
@@ -2233,18 +2238,18 @@ variables(Conf) when is_list(Conf) ->
     {{error, _, _}, _} = xref_base:variables(S108, [{verbose,false}]),
     {ok, S109} = xref_base:set_library_path(S108, [], [{verbose,false}]),
 
-    Tabs = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
 
     {ok, S110} = eval("Eplus := closure E, TT := Eplus",
                       'closure()', S109),
     {{ok, [{user, ['Eplus','TT']}]}, S111} = xref_base:variables(S110),
     {ok, S112} = xref_base:forget(S111, ['TT','Eplus']),
-    true = Tabs =:= length(ets:all()),
+    true = NoOfTables =:= erlang:system_info(ets_count),
 
     {ok, NS0} = eval("Eplus := closure E", 'closure()', S112),
     {{ok, [{user, ['Eplus']}]}, NS} = xref_base:variables(NS0),
     ok = xref_base:delete(NS),
-    true = Tabs =:= length(ets:all()),
+    true = NoOfTables =:= erlang:system_info(ets_count),
 
     ok = file:delete(Beam),
     ok.
