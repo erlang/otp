@@ -205,12 +205,12 @@
       <icaption>MIB Compiler Principles</icaption>
     </image>
     <p>The compiler parses the SMI file and associates each table or
-      variable with an instrumentation function (see the figure <seealso marker="#image-1">MIB Compiler Principles</seealso>). The actual
-      instrumentation functions are not needed at MIB compile time, only
+      variable with an instrumentation function (see the figure <seeguide marker="#image-1">MIB Compiler Principles</seeguide>).
+      The actual instrumentation functions are not needed at MIB compile time, only
       their names.
       </p>
     <p>The binary output file produced by the compiler is read by the
-      agent at MIB load time (see the figure <seealso marker="#image-2">Starting the Agent</seealso>). The instrumentation is ordinary Erlang code which
+      agent at MIB load time (see the figure <seeguide marker="#image-2">Starting the Agent</seeguide>). The instrumentation is ordinary Erlang code which
       is loaded explicitly or automatically the first time it is called.</p>
     <marker id="image-2"></marker>
     <image file="snmp-um-1-image-2.gif">
@@ -303,7 +303,7 @@
       <item>to provide interaction with other SNMP agent toolkits.</item>
     </list>
     <p>Refer to the chapter 
-      <seealso marker="snmp_advanced_agent">Advanced Agent Topics</seealso> 
+      <seeguide marker="snmp_advanced_agent">Advanced Agent Topics</seeguide> 
       in this User's Guide for more information about these topics.
       </p>
     <p>The communication protocol between sub-agents is the normal
@@ -374,7 +374,7 @@
       than the default context, <c>""</c>.  If it is to support more
       contexts, these must be explicitly added, by using an appropriate
       configuration file 
-      <seealso marker="snmp_agent_config_files">Agent Configuration Files</seealso>.
+      <seeguide marker="snmp_agent_config_files">Agent Configuration Files</seeguide>.
       </p>
   </section>
 
@@ -457,7 +457,7 @@
     </code>
     <p>The initial values for the managed objects defined in these
       tables, are read at start-up from a set of configuration files.
-      These are described in <seealso marker="snmp_config">Configuration Files</seealso>.
+      These are described in <seeguide marker="snmp_config">Configuration Files</seeguide>.
       </p>
 
     <section>
@@ -478,7 +478,7 @@
         The new compiled MIB
         must have the same name as the original MIB (i.e. STANDARD-MIB
         or SNMPv2-MIB), and be located in the SNMP configuration
-        directory (see <seealso marker="snmp_config">Configuration Files</seealso>.) 
+        directory (see <seeguide marker="snmp_config">Configuration Files</seeguide>.) 
         </p>
       <p>One of these MIBs is always loaded.  If only SNMPv1 is used,
         STANDARD-MIB is loaded, otherwise SNMPv2-MIB is loaded.
@@ -891,9 +891,9 @@ snmpa:send_trap(Agent, Notification, Community [, Receiver, Varbinds])
         sent. Their purpose is to allow modification, suppression or 
         other type of actions.</p>
       <p>A notification filter is a module implementing the 
-        <seealso marker="snmpa_notification_filter">snmpa_notification_filter</seealso> behaviour. A filter is added/deleted using the functions:
-        <seealso marker="snmpa#register_notification_filter">snmpa:register_notification_filter</seealso> and 
-        <seealso marker="snmpa#unregister_notification_filter">snmpa:unregister_notification_filter</seealso>.</p>
+        <seeerl marker="snmpa_notification_filter">snmpa_notification_filter</seeerl> behaviour. A filter is added/deleted using the functions:
+        <seeerl marker="snmpa#register_notification_filter">snmpa:register_notification_filter</seeerl> and 
+        <seeerl marker="snmpa#unregister_notification_filter">snmpa:unregister_notification_filter</seeerl>.</p>
       <p>Unless otherwise specified, the order of the registered filters
         will be the order in which they are registered.</p>
     </section>
@@ -935,9 +935,9 @@ snmpa:send_trap(Agent, Notification, Community [, Receiver, Varbinds])
     <p>The agent responds to discovery autonomously, without interaction
       by the user. </p> 
     <p>Initiating discovery towards a manager is done by calling the 
-      <seealso marker="snmpa#discovery">discovery</seealso> function. 
+      <seeerl marker="snmpa#discovery">discovery</seeerl> function. 
       The <c>EngineId</c> field of the target (manager) entry in the 
-      <seealso marker="snmp_agent_config_files#target_addr">target_addr.conf</seealso> file has to have the value <c>discovery</c>. 
+      <seeguide marker="snmp_agent_config_files#target_addr">target_addr.conf</seeguide> file has to have the value <c>discovery</c>. 
       Note that if the manager does not respond, the <c>Timeout</c> and 
       <c>RetryCount</c> 
       fields decide how long the function will hang before it returns. </p>

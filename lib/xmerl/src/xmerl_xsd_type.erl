@@ -1261,9 +1261,9 @@ compare_dateTime(_P,_Q) ->
     indefinite.
     
 fQuotient(A,B) when is_float(A) ->
-    fQuotient(floor(A),B);
+    fQuotient(erlang:floor(A),B);
 fQuotient(A,B) when is_float(B) ->
-    fQuotient(A,floor(B));
+    fQuotient(A,erlang:floor(B));
 fQuotient(A,B) when A >= 0, B >= 0 ->
     A div B;
 fQuotient(A,B) when A < 0, B < 0 ->
@@ -1278,13 +1278,6 @@ fQuotient(A,B) ->
 
 fQuotient(A, Low, High) ->
     fQuotient(A - Low, High - Low).
-
-floor(A) ->
-    case round(A) of
-	I when I > A ->
-	    I - 1;
-	I -> I
-    end.
 
 modulo(A,B) ->
     A - (fQuotient(A,B) * B).

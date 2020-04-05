@@ -2,7 +2,7 @@
 %% %CopyrightBegin%
 %%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ file_fetch(Config) when is_list(Config) ->
     ?line ?t:capture_stop(),
     ?line [StoreString] = ?t:capture_get(),
     ?line UploadDir =
-	lists:last(string:tokens(lists:flatten(StoreString),"$ \n")),
+	lists:last(string:lexemes(lists:flatten(StoreString),"$ \n")),
 
     %% check that files are no longer in original directories...
     ?line ok = check_gone(ThisDir,atom_to_list(Node)++"-file_fetch"),
@@ -658,11 +658,29 @@ seq_trace(Config) when is_list(Config) ->
     ?line ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-seq_trace")]),
     ?line [{trace_ts,StartProc,call,{?MODULE,seq,[]},{_,_,_}},
-	   {seq_trace,0,{send,{0,1},StartProc,P1Proc,{Start,P2}}},
-	   {seq_trace,0,{send,{1,2},P1Proc,P2Proc,{P1,Start}}},
-	   {seq_trace,0,{send,{2,3},P2Proc,StartProc,{P2,P1}}},
+           {seq_trace,0,{send,{First, Seq0},StartProc,P1Proc,SpawnRequest1}},
+           {seq_trace,0,{send,{Seq0, Seq1},P1Proc,StartProc,SpawnReply1}},
+           {seq_trace,0,{send,{Seq2, Seq3},StartProc,P2Proc,SpawnRequest2}},
+           {seq_trace,0,{send,{Seq3, Seq4},P2Proc,StartProc,SpawnReply2}},
+	   {seq_trace,0,{send,{Seq5, Seq6},StartProc,P1Proc,{Start,P2}}},
+	   {seq_trace,0,{send,{Seq6,  Seq7},P1Proc,P2Proc,{P1,Start}}},
+	   {seq_trace,0,{send,{Seq7,  Last},P2Proc,StartProc,{P2,P1}}},
 	   end_of_trace] = flush(),
-
+    spawn_request = element(1, SpawnRequest1),
+    SReq1 = element(2, SpawnRequest1),
+    spawn_reply = element(1, SpawnReply1),
+    SReq1 = element(2, SpawnReply1),
+    spawn_request = element(1, SpawnRequest2),
+    SReq2 = element(2, SpawnRequest2),
+    spawn_reply = element(1, SpawnReply2),
+    SReq2 = element(2, SpawnReply2),
+    true = First < Seq0,
+    true = Seq0 < Seq1,
+    true = Seq1 < Seq2,
+    true = Seq2 < Seq3,
+    true = Seq4 < Seq5,
+    true = Seq6 < Seq7,
+    true = Seq7 < Last,
    %% Additional test for metatrace
     case StartProc of
 	{Start,_,_} -> ok;
@@ -1035,8 +1053,8 @@ logfile_name_in_fetch_dir(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
     ?line {_,Dir} = ttb:stop([return_fetch_dir]),
-    ?line P1 = lists:nth(3, string:tokens(filename:basename(Dir), "_")),
-    ?line P2 = hd(string:tokens(P1, "-")),
+    ?line P1 = lists:nth(3, string:lexemes(filename:basename(Dir), "_")),
+    ?line P2 = hd(string:lexemes(P1, "-")),
     ?line _File = P2.
 logfile_name_in_fetch_dir(cleanup,_Config) ->
     ?line stop_client_and_server().

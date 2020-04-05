@@ -4,7 +4,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,13 +48,18 @@ main(_) ->
     ok = file:close(ExclF),
 
     %%  GraphemeBreakProperty table
+    {ok, Emoji} = file:open("../uc_spec/emoji-data.txt", [read, raw, {read_ahead, 1000000}]),
+    Props00 = foldl(fun parse_properties/2, [], Emoji),
+    %% Filter Extended_Pictographic class which we are interested in.
+    Props0 = [EP || {extended_pictographic, _} = EP <- Props00],
+    ok = file:close(Emoji),
     {ok, GBPF} = file:open("../uc_spec/GraphemeBreakProperty.txt", [read, raw, {read_ahead, 1000000}]),
-    Props0 = foldl(fun parse_properties/2, [], GBPF),
+    Props1 = foldl(fun parse_properties/2, Props0, GBPF),
     ok = file:close(GBPF),
     {ok, PropF} = file:open("../uc_spec/PropList.txt", [read, raw, {read_ahead, 1000000}]),
-    Props1 = foldl(fun parse_properties/2, Props0, PropF),
+    Props2 = foldl(fun parse_properties/2, Props1, PropF),
     ok = file:close(PropF),
-    Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props1))),
+    Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props2))),
 
     %% Make module
     {ok, Out} = file:open(?MOD++".erl", [write]),
@@ -65,7 +70,7 @@ main(_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 parse_unicode_data(Line0, Acc) ->
-    Line = string:strip(Line0, right, $\n),
+    Line = string:chomp(Line0),
     [CodePoint,Name,_Cat,Class,_BiDi,Decomp,
      _N1,_N2,_N3,_BDMirror,_Uni1,_Iso|Case] = tokens(Line, ";"),
     {Dec,Comp} = case to_decomp(Decomp) of
@@ -78,14 +83,14 @@ parse_unicode_data(Line0, Acc) ->
      |Acc].
 
 to_class(String) ->
-    list_to_integer(string:strip(String, both)).
+    list_to_integer(string:trim(String, both)).
 
 to_decomp("") -> [];
 to_decomp("<" ++ Str) ->
-    [Tag,Rest]  = string:tokens(Str, ">"),
+    [Tag,Rest]  = string:lexemes(Str, ">"),
     {list_to_atom(Tag), to_decomp(Rest)};
 to_decomp(CodePoints) ->
-    CPL = string:tokens(CodePoints, " "),
+    CPL = string:lexemes(CodePoints, " "),
     [hex_to_int(CP) || CP <- CPL].
 
 to_case(["","",""]) -> [];
@@ -105,20 +110,20 @@ parse_special_casing(Line, Table) ->
     array:set(CP, Entry#cp{cs=Case}, Table).
 
 to_scase([Lower,Title,Upper|_]) ->
-    {unlist([hex_to_int(CP) || CP <- string:strip(string:tokens(Upper, " "), both)]),
-     unlist([hex_to_int(CP) || CP <- string:strip(string:tokens(Lower, " "), both)]),
-     unlist([hex_to_int(CP) || CP <- string:strip(string:tokens(Title, " "), both)]),
+    {unlist([hex_to_int(CP) || CP <- string:lexemes(Upper, " ")]),
+     unlist([hex_to_int(CP) || CP <- string:lexemes(Lower, " ")]),
+     unlist([hex_to_int(CP) || CP <- string:lexemes(Title, " ")]),
      []}.
 
 parse_case_folding(Line, Table) ->
     [CodePoint, Class0, CaseStr |_Comments] = tokens(Line, ";"),
-    Class = string:strip(Class0, both),
+    Class = string:trim(Class0, both),
     if Class =:= "T" -> Table; %% Do not support localization yet
        Class =:= "S" -> Table; %% Ignore simple
        true ->
             CP = hex_to_int(CodePoint),
             Case = unlist([hex_to_int(CPC) ||
-                              CPC <- string:strip(string:tokens(CaseStr, " "), both)]),
+                              CPC <- string:lexemes(CaseStr, " ")]),
             #cp{cs={U,L,T,_}} = Entry = array:get(CP, Table),
             array:set(CP, Entry#cp{cs={U,L,T,Case}}, Table)
     end.
@@ -170,7 +175,7 @@ gen_header(Fd) ->
     io:put_chars(Fd, "-export([spec_version/0, lookup/1, get_case/1]).\n"),
     io:put_chars(Fd, "-inline([class/1]).\n"),
     io:put_chars(Fd, "-compile(nowarn_unused_vars).\n"),
-    io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2, gc_e_cont/2]}).\n"),
+    io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).\n"),
     io:put_chars(Fd, "-type gc() :: char()|[char()].\n\n\n"),
     ok.
 
@@ -186,7 +191,7 @@ gen_static(Fd) ->
                  "        {U,L} -> #{upper=>U,lower=>L,title=>U,fold=>L};\n"
                  "        {U,L,T,F} -> #{upper=>U,lower=>L,title=>T,fold=>F}\n"
                  "    end.\n\n"),
-    io:put_chars(Fd, "spec_version() -> {9,0}.\n\n\n"),
+    io:put_chars(Fd, "spec_version() -> {12,1}.\n\n\n"),
     io:put_chars(Fd, "class(Codepoint) -> {CCC,_,_} = unicode_table(Codepoint),\n    CCC.\n\n"),
     io:put_chars(Fd, "-spec uppercase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
@@ -197,7 +202,8 @@ gen_static(Fd) ->
     io:put_chars(Fd, "                {Upper,_} -> [Upper|Str];\n"),
     io:put_chars(Fd, "                {Upper,_,_,_} -> [Upper|Str]\n"),
     io:put_chars(Fd, "            end;\n"),
-    io:put_chars(Fd, "        [] -> []\n"),
+    io:put_chars(Fd, "        [] -> [];\n"),
+    io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
     io:put_chars(Fd, "-spec lowercase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
@@ -208,7 +214,8 @@ gen_static(Fd) ->
     io:put_chars(Fd, "                {_,Lower} -> [Lower|Str];\n"),
     io:put_chars(Fd, "                {_,Lower,_,_} -> [Lower|Str]\n"),
     io:put_chars(Fd, "            end;\n"),
-    io:put_chars(Fd, "        [] -> []\n"),
+    io:put_chars(Fd, "        [] -> [];\n"),
+    io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
     io:put_chars(Fd, "-spec titlecase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
@@ -219,7 +226,8 @@ gen_static(Fd) ->
     io:put_chars(Fd, "                {_,_,Title,_} -> [Title|Str];\n"),
     io:put_chars(Fd, "                {Upper,_} -> [Upper|Str]\n"),
     io:put_chars(Fd, "            end;\n"),
-    io:put_chars(Fd, "        [] -> []\n"),
+    io:put_chars(Fd, "        [] -> [];\n"),
+    io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
     io:put_chars(Fd, "-spec casefold(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
@@ -230,7 +238,8 @@ gen_static(Fd) ->
     io:put_chars(Fd, "                {_,_,_,Fold} -> [Fold|Str];\n"),
     io:put_chars(Fd, "                {_,Lower} -> [Lower|Str]\n"),
     io:put_chars(Fd, "            end;\n"),
-    io:put_chars(Fd, "        [] -> []\n"),
+    io:put_chars(Fd, "        [] -> [];\n"),
+    io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
 
     ok.
@@ -455,17 +464,73 @@ gen_cp(Fd) ->
                  " maybe_improper_list() | {error, unicode:chardata()}.\n"),
     io:put_chars(Fd, "cp([C|_]=L) when is_integer(C) -> L;\n"),
     io:put_chars(Fd, "cp([List]) -> cp(List);\n"),
-    io:put_chars(Fd, "cp([List|R]) ->\n"),
-    io:put_chars(Fd, "    case cp(List) of\n"),
-    io:put_chars(Fd, "        [] -> cp(R);\n"),
-    io:put_chars(Fd, "        [CP] -> [CP|R];\n"),
-    io:put_chars(Fd, "        [C|R0] -> [C|[R0|R]];\n"),
-    io:put_chars(Fd, "        {error,Error} -> {error,[Error|R]}\n"),
-    io:put_chars(Fd, "    end;\n"),
+    io:put_chars(Fd, "cp([List|R]) -> cpl(List, R);\n"),
     io:put_chars(Fd, "cp([]) -> [];\n"),
     io:put_chars(Fd, "cp(<<C/utf8, R/binary>>) -> [C|R];\n"),
     io:put_chars(Fd, "cp(<<>>) -> [];\n"),
-    io:put_chars(Fd, "cp(<<R/binary>>) -> {error,R}.\n\n"),
+    io:put_chars(Fd, "cp(<<R/binary>>) -> {error,R}.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl([C], R) when is_integer(C) -> [C|cpl_1_cont(R)];\n"),
+    io:put_chars(Fd, "cpl([C|T], R) when is_integer(C) -> [C|cpl_cont(T, R)];\n"),
+    io:put_chars(Fd, "cpl([List], R) -> cpl(List, R);\n"),
+    io:put_chars(Fd, "cpl([List|T], R) -> cpl(List, [T|R]);\n"),
+    io:put_chars(Fd, "cpl([], R) -> cp(R);\n"),
+    io:put_chars(Fd, "cpl(<<C/utf8, T/binary>>, R) -> [C,T|R];\n"),
+    io:put_chars(Fd, "cpl(<<>>, R) -> cp(R);\n"),
+    io:put_chars(Fd, "cpl(<<B/binary>>, R) -> {error,[B|R]}.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "%%%\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_cont([C|T], R) when is_integer(C) -> [C|cpl_cont2(T, R)];\n"),
+    io:put_chars(Fd, "cpl_cont([L], R) -> cpl_cont(L, R);\n"),
+    io:put_chars(Fd, "cpl_cont([L|T], R) -> cpl_cont(L, [T|R]);\n"),
+    io:put_chars(Fd, "cpl_cont([], R) -> cpl_1_cont(R);\n"),
+    io:put_chars(Fd, "cpl_cont(T, R) -> [T|R].\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_cont2([C|T], R) when is_integer(C) -> [C|cpl_cont3(T, R)];\n"),
+    io:put_chars(Fd, "cpl_cont2([L], R) -> cpl_cont2(L, R);\n"),
+    io:put_chars(Fd, "cpl_cont2([L|T], R) -> cpl_cont2(L, [T|R]);\n"),
+    io:put_chars(Fd, "cpl_cont2([], R) -> cpl_1_cont2(R);\n"),
+    io:put_chars(Fd, "cpl_cont2(T, R) -> [T|R].\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_cont3([C], R) when is_integer(C) -> [C|R];\n"),
+    io:put_chars(Fd, "cpl_cont3([C|T], R) when is_integer(C) -> [C,T|R];\n"),
+    io:put_chars(Fd, "cpl_cont3([L], R) -> cpl_cont3(L, R);\n"),
+    io:put_chars(Fd, "cpl_cont3([L|T], R) -> cpl_cont3(L, [T|R]);\n"),
+    io:put_chars(Fd, "cpl_cont3([], R) -> cpl_1_cont3(R);\n"),
+    io:put_chars(Fd, "cpl_cont3(T, R) -> [T|R].\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "%%%\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_1_cont([C|T]) when is_integer(C) -> [C|cpl_1_cont2(T)];\n"),
+    io:put_chars(Fd, "cpl_1_cont([L]) -> cpl_1_cont(L);\n"),
+    io:put_chars(Fd, "cpl_1_cont([L|T]) -> cpl_cont(L, T);\n"),
+    io:put_chars(Fd, "cpl_1_cont(T) -> T.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_1_cont2([C|T]) when is_integer(C) -> [C|cpl_1_cont3(T)];\n"),
+    io:put_chars(Fd, "cpl_1_cont2([L]) -> cpl_1_cont2(L);\n"),
+    io:put_chars(Fd, "cpl_1_cont2([L|T]) -> cpl_cont2(L, T);\n"),
+    io:put_chars(Fd, "cpl_1_cont2(T) -> T.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_1_cont3([C|_]=T) when is_integer(C) -> T;\n"),
+    io:put_chars(Fd, "cpl_1_cont3([L]) -> cpl_1_cont3(L);\n"),
+    io:put_chars(Fd, "cpl_1_cont3([L|T]) -> cpl_cont3(L, T);\n"),
+    io:put_chars(Fd, "cpl_1_cont3(T) -> T.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "%%%\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cp_no_bin([C|_]=L) when is_integer(C) -> L;\n"),
+    io:put_chars(Fd, "cp_no_bin([List]) -> cp_no_bin(List);\n"),
+    io:put_chars(Fd, "cp_no_bin([List|R]) -> cp_no_binl(List, R);\n"),
+    io:put_chars(Fd, "cp_no_bin([]) -> [];\n"),
+    io:put_chars(Fd, "cp_no_bin(_) -> binary_found.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cp_no_binl([C], R) when is_integer(C) -> [C|cpl_1_cont(R)];\n"),
+    io:put_chars(Fd, "cp_no_binl([C|T], R) when is_integer(C) -> [C|cpl_cont(T, R)];\n"),
+    io:put_chars(Fd, "cp_no_binl([List], R) -> cp_no_binl(List, R);\n"),
+    io:put_chars(Fd, "cp_no_binl([List|T], R) -> cp_no_binl(List, [T|R]);\n"),
+    io:put_chars(Fd, "cp_no_binl([], R) -> cp_no_bin(R);\n"),
+    io:put_chars(Fd, "cp_no_binl(_, _) -> binary_found.\n\n"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -476,11 +541,26 @@ gen_gc(Fd, GBP) ->
                  "-spec gc(String::unicode:chardata()) ->"
                  " maybe_improper_list() | {error, unicode:chardata()}.\n"),
     io:put_chars(Fd,
-                 "gc([CP1, CP2|_]=T)\n"
-                 "  when CP1 < 256, CP2 < 256, CP1 =/= $\r -> %% Ascii Fast path\n"
-                 "       T;\n"
+                 "gc([]=R) -> R;\n"
+                 "gc([CP]=R) when is_integer(CP) -> R;\n"
+                 "gc([$\\r=CP|R0]) ->\n"
+                 "    case cp(R0) of % Don't break CRLF\n"
+                 "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
+                 "        T -> [CP|T]\n"
+                 "    end;\n"
+                 "gc([CP1|T1]=T) when CP1 < 256 ->\n"
+                 "    case T1 of\n"
+                 "        [CP2|_] when CP2 < 256 -> T; %% Ascii Fast path\n"
+                 "        _ -> %% Keep the tail binary.\n"
+                 "            case cp_no_bin(T1) of\n"
+                 "                [CP2|_]=T3 when CP2 < 256 -> [CP1|T3]; %% Asciii Fast path\n"
+                 "                binary_found -> gc_1(T);\n"
+                 "                T4 -> gc_1([CP1|T4])\n"
+                 "            end\n"
+                 "    end;\n"
+                 "gc(<<>>) -> [];\n"
                  "gc(<<CP1/utf8, Rest/binary>>) ->\n"
-                 "    if CP1 < 256, CP1 =/= $\r ->\n"
+                 "    if CP1 < 256, CP1 =/= $\\r ->\n"
                  "           case Rest of\n"
                  "               <<CP2/utf8, _/binary>> when CP2 < 256 -> %% Ascii Fast path\n"
                  "                   [CP1|Rest];\n"
@@ -488,40 +568,52 @@ gen_gc(Fd, GBP) ->
                  "           end;\n"
                  "      true -> gc_1([CP1|Rest])\n"
                  "    end;\n"
+                 "gc([CP|_]=T) when is_integer(CP) -> gc_1(T);\n"
                  "gc(Str) ->\n"
-                 "    gc_1(cp(Str)).\n\n"
-                 "gc_1([$\\r|R0] = R) ->\n"
+                 "    case cp(Str) of\n"
+                 "        {error,_}=Error -> Error;\n"
+                 "        CPs -> gc(CPs)\n"
+                 "    end.\n"
+                ),
+
+    GenExtP = fun(Range) -> io:format(Fd, "gc_1~s gc_ext_pict(R1,[CP]);\n", [gen_clause(Range)]) end,
+    ExtendedPictographic0 = merge_ranges(maps:get(extended_pictographic,GBP)),
+    %% Pick codepoints below 256 (some data knowledge here)
+    {ExtendedPictographicLow,ExtendedPictographicHigh} =
+        lists:splitwith(fun({Start,undefined}) -> Start < 256 end,ExtendedPictographic0),
+    io:put_chars(Fd,
+                 "\ngc_1([$\\r|R0] = R) ->\n"
                  "    case cp(R0) of % Don't break CRLF\n"
                  "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
                  "        _ -> R\n"
-                 "    end;\n"
-                 %% "gc_1([CP1, CP2|_]=T) when CP1 < 256, CP2 < 256 ->\n"
-                 %% "    T;  %% Fast path\n"
-                 %% "gc_1([CP1|<<CP2/utf8, _/binary>>]=T) when CP1 < 256, CP2 < 256 ->\n"
-                 %% "    T;  %% Fast path\n"
-                ),
-
-    io:put_chars(Fd, "%% Handle control\n"),
+                 "    end;\n"),
+    io:put_chars(Fd, "\n%% Handle control\n"),
     GenControl = fun(Range) -> io:format(Fd, "gc_1~s R0;\n", [gen_clause(Range)]) end,
     CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP), false),
     [R1,R2,R3|Crs] = CRs0,
     [GenControl(CP) || CP <- merge_ranges([R1,R2,R3], split), CP =/= {$\r, undefined}],
     %%GenControl(R1),GenControl(R2),GenControl(R3),
-    io:format(Fd, "gc_1([CP|R]) when CP < 256 -> gc_extend(R,CP);\n", []),
+    io:put_chars(Fd, "\n%% Optimize Latin-1\n"),
+    [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicLow)],
+
+    io:format(Fd,
+              "gc_1([CP|R]=R0) when CP < 256 ->\n"
+              "    case R of\n"
+              "        [CP2|_] when CP2 < 256 -> R0;\n"
+              "        _ -> gc_extend(cp(R), R, CP)\n"
+              "    end;\n",
+              []),
+    io:put_chars(Fd, "\n%% Continue control\n"),
     [GenControl(CP) || CP <- Crs],
     %% One clause per CP
     %% CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP)),
     %% [GenControl(CP) || CP <- CRs0, CP =/= {$\r, undefined}],
 
-    io:put_chars(Fd, "%% Handle ZWJ\n"),
-    GenZWJ = fun(Range) -> io:format(Fd, "gc_1~s gc_zwj(R1, [CP]);\n", [gen_clause(Range)]) end,
-    [GenZWJ(CP) || CP <- merge_ranges(maps:get(zwj,GBP))],
-
-    io:put_chars(Fd, "%% Handle prepend\n"),
+    io:put_chars(Fd, "\n%% Handle prepend\n"),
     GenPrepend = fun(Range) -> io:format(Fd, "gc_1~s gc_prepend(R1, CP);\n", [gen_clause(Range)]) end,
     [GenPrepend(CP) || CP <- merge_ranges(maps:get(prepend,GBP))],
 
-    io:put_chars(Fd, "%% Handle Hangul L\n"),
+    io:put_chars(Fd, "\n%% Handle Hangul L\n"),
     GenHangulL = fun(Range) -> io:format(Fd, "gc_1~s gc_h_L(R1,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulL(CP) || CP <- merge_ranges(maps:get(l,GBP))],
     io:put_chars(Fd, "%% Handle Hangul V\n"),
@@ -531,21 +623,22 @@ gen_gc(Fd, GBP) ->
     GenHangulT = fun(Range) -> io:format(Fd, "gc_1~s gc_h_T(R1,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulT(CP) || CP <- merge_ranges(maps:get(t,GBP))],
     io:put_chars(Fd, "%% Handle Hangul LV and LVT special, since they are large\n"),
-    io:put_chars(Fd, "gc_1([CP|_]=R0) when 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, []);\n"),
+    io:put_chars(Fd, "gc_1([CP|_]=R0) when 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, R0, []);\n"),
 
-    io:put_chars(Fd, "%% Handle Regional\n"),
-    GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,[CP]);\n", [gen_clause(Range)]) end,
+    io:put_chars(Fd, "\n%% Handle Regional\n"),
+    GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,CP);\n", [gen_clause(Range)]) end,
     [GenRegional(CP) || CP <- merge_ranges(maps:get(regional_indicator,GBP))],
-    io:put_chars(Fd, "%% Handle E_Base\n"),
-    GenEBase = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
-    [GenEBase(CP) || CP <- merge_ranges(maps:get(e_base,GBP))],
-    io:put_chars(Fd, "%% Handle EBG\n"),
-    GenEBG = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
-    [GenEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
+    %% io:put_chars(Fd, "%% Handle E_Base\n"),
+    %% GenEBase = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
+    %% [GenEBase(CP) || CP <- merge_ranges(maps:get(e_base,GBP))],
+    %% io:put_chars(Fd, "%% Handle EBG\n"),
+    %% GenEBG = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
+    %% [GenEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
 
-    io:put_chars(Fd, "gc_1([CP|R]) -> gc_extend(R, CP);\n"),
-    io:put_chars(Fd, "gc_1([]) -> [];\n"),
-    io:put_chars(Fd, "gc_1({error,_}=Error) -> Error.\n\n"),
+    io:put_chars(Fd, "%% Handle extended_pictographic\n"),
+    [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
+    io:put_chars(Fd, "\n%% default clauses\n"),
+    io:put_chars(Fd, "gc_1([CP|R]) -> gc_extend(cp(R), R, CP).\n\n"),
 
     io:put_chars(Fd, "%% Handle Prepend\n"),
     io:put_chars(Fd,
@@ -572,36 +665,24 @@ gen_gc(Fd, GBP) ->
                  "%% To simplify binary handling in libraries the tail should be kept binary\n"
                  "%% and not a lookahead CP\n"
                 ),
-    io:put_chars(Fd, "gc_extend(T, Acc) ->\n"
-                 "    gc_extend(cp(T), T, Acc).\n\n"),
     io:put_chars(Fd,
-                 "gc_extend([CP|T], T0, Acc0) ->\n"
+                 "gc_extend([CP|T], T0, CP0) ->\n"
                  "    case is_extend(CP) of\n"
-                 "        zwj ->\n"
-                 "            case Acc0 of\n"
-                 "                [_|_] -> gc_zwj(T, [CP|Acc0]);\n"
-                 "                Acc -> gc_zwj(T, [CP,Acc])\n"
-                 "            end;\n"
-                 "        true ->\n"
-                 "            case Acc0 of\n"
-                 "                [_|_] -> gc_extend(T, [CP|Acc0]);\n"
-                 "                Acc -> gc_extend(T, [CP,Acc])\n"
-                 "            end;\n"
-                 "        false ->\n"
-                 "            case Acc0 of\n"
-                 "                [Acc] -> [Acc|T0];\n"
-                 "                [_|_]=Acc -> [lists:reverse(Acc)|T0];\n"
-                 "                Acc -> [Acc|T0]\n"
-                 "            end\n"
+                 "        false -> [CP0|T0]; % losing work done on T\n"
+                 "        _TrueOrZWJ -> gc_extend2(cp(T), T, [CP,CP0])\n"
                  "    end;\n"
-                 "gc_extend([], _, Acc0) ->\n"
-                 "    case Acc0 of\n"
-                 "        [_]=Acc -> Acc;\n"
-                 "        [_|_]=Acc -> [lists:reverse(Acc)];\n"
-                 "        Acc -> [Acc]\n"
+                 "gc_extend([], _, CP) -> [CP];\n"
+                 "gc_extend({error,R}, _, CP) -> [CP|R].\n\n"),
+    io:put_chars(Fd,
+                 "gc_extend2([CP|T], T0, Acc) ->\n"
+                 "    case is_extend(CP) of\n"
+                 "        false -> [lists:reverse(Acc)|T0]; % losing work done on T\n"
+                 "        _TrueOrZWJ -> gc_extend2(cp(T), T, [CP|Acc])\n"
                  "    end;\n"
-                 "gc_extend({error,R}, T, Acc0) ->\n"
-                 "    gc_extend([], T, Acc0) ++ [R].\n\n"
+                 "gc_extend2([], _, Acc) ->\n"
+                 "    [lists:reverse(Acc)];\n"
+                 "gc_extend2({error,R}, _, Acc) ->\n"
+                 "    [lists:reverse(Acc)] ++ [R].\n\n"
                  ),
     [ZWJ] = maps:get(zwj, GBP),
     GenExtend = fun(R) when R =:= ZWJ -> io:format(Fd, "is_extend~s zwj;\n", [gen_single_clause(ZWJ)]);
@@ -612,57 +693,54 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "is_extend(_) -> false.\n\n"),
 
     io:put_chars(Fd,
-                 "gc_e_cont(R0, Acc) ->\n"
-                 "    case cp(R0) of\n"
-                 "        [CP|R1] ->\n"
-                 "            case is_extend(CP) of\n"
-                 "                zwj -> gc_zwj(R1, [CP|Acc]);\n"
-                 "                true -> gc_e_cont(R1, [CP|Acc]);\n"
-                 "                false ->\n"
-                 "                    case is_emodifier(CP) of\n"
-                 "                        true -> [lists:reverse([CP|Acc])|R1];\n"
-                 "                        false ->\n"
-                 "                            case Acc of\n"
-                 "                                [A] -> [A|R0];\n"
-                 "                                _ -> [lists:reverse(Acc)|R0]\n"
-                 "                            end\n"
-                 "                    end\n"
-                 "              end;\n"
-                 "        [] ->\n"
+                 "gc_ext_pict(T, Acc) ->\n"
+                 "    gc_ext_pict(cp(T), T, Acc).\n\n"
+                 "gc_ext_pict([CP|R1], T0, Acc) ->\n"
+                 "    case is_extend(CP) of\n"
+                 "        zwj -> gc_ext_pict_zwj(cp(R1), R1, [CP|Acc]);\n"
+                 "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
+                 "        false ->\n"
                  "            case Acc of\n"
-                 "                [A] -> [A];\n"
-                 "                _ -> [lists:reverse(Acc)]\n"
-                 "            end;\n"
-                 "        {error,R} ->\n"
-                 "            case Acc of\n"
-                 "                [A] -> [A|R];\n"
-                 "                _ -> [lists:reverse(Acc)|R]\n"
+                 "                [A] -> [A|T0];\n"
+                 "                _ -> [lists:reverse(Acc)|T0]\n"
                  "            end\n"
-                 "    end.\n\n"),
+                 "    end;\n"
+                 "gc_ext_pict([], _T0, Acc) ->\n"
+                 "    case Acc of\n"
+                 "        [A] -> [A];\n"
+                 "        _ -> [lists:reverse(Acc)]\n"
+                 "    end;\n"
+                 "gc_ext_pict({error,R}, T, Acc) ->\n"
+                 "    gc_ext_pict([], T, Acc) ++ [R].\n\n"),
+    io:put_chars(Fd,
+                 "gc_ext_pict_zwj([CP|R1], T0, Acc) ->\n"
+                 "    case is_ext_pict(CP) of\n"
+                 "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
+                 "        false ->\n"
+                 "            case Acc of\n"
+                 "                [A] -> [A|T0];\n"
+                 "                _ -> [lists:reverse(Acc)|T0]\n"
+                 "            end\n"
+                 "    end;\n"
+                 "gc_ext_pict_zwj([], _, Acc) ->\n"
+                 "    case Acc of\n"
+                 "        [A] -> [A];\n"
+                 "        _ -> [lists:reverse(Acc)]\n"
+                 "    end;\n"
+                 "gc_ext_pict_zwj({error,R}, T, Acc) ->\n"
+                 "    gc_ext_pict_zwj([], T, Acc) ++ [R].\n\n"),
 
-    GenEMod = fun(Range) -> io:format(Fd, "is_emodifier~s true;\n", [gen_single_clause(Range)]) end,
-    EMods = merge_ranges(maps:get(e_modifier, GBP), split),
-    [GenEMod(CP) || CP <- EMods],
-    io:put_chars(Fd, "is_emodifier(_) -> false.\n\n"),
-
-    io:put_chars(Fd, "gc_zwj(R0, Acc) ->\n    case cp(R0) of\n"),
-    GenZWJGlue = fun(Range) -> io:format(Fd, "~8c~s gc_extend(R1, R0, [CP|Acc]);\n",
-                                         [$\s,gen_case_clause(Range)]) end,
-    [GenZWJGlue(CP) || CP <- merge_ranges(maps:get(glue_after_zwj,GBP))],
-    GenZWJEBG = fun(Range) -> io:format(Fd, "~8c~s gc_e_cont(R1, [CP|Acc]);\n",
-                                        [$\s,gen_case_clause(Range)]) end,
-    [GenZWJEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
-    io:put_chars(Fd,"        R1 -> gc_extend(R1, R0, Acc)\n"
-                 "    end.\n\n"),
-
+    GenExtPict = fun(Range) -> io:format(Fd, "is_ext_pict~s true;\n", [gen_single_clause(Range)]) end,
+    [GenExtPict(CP) || CP <- ExtendedPictographic0],
+    io:put_chars(Fd, "is_ext_pict(_) -> false.\n\n"),
 
     %% --------------------
     io:put_chars(Fd, "%% Handle Regional\n"),
     [{RLess,RLarge}] = merge_ranges(maps:get(regional_indicator,GBP)),
-    io:put_chars(Fd,"gc_regional(R0, Acc) ->\n"
+    io:put_chars(Fd,"gc_regional(R0, CP0) ->\n"
                  "    case cp(R0) of\n"),
-    io:format(Fd,   "        [CP|R1] when ~w =< CP,CP =< ~w-> gc_extend(R1,[CP|Acc]);~n",[RLess, RLarge]),
-    io:put_chars(Fd,"        R1 -> gc_extend(R1, R0, Acc)\n"
+    io:format(Fd,   "        [CP|R1] when ~w =< CP,CP =< ~w-> gc_extend2(cp(R1),R1,[CP,CP0]);~n",[RLess, RLarge]),
+    io:put_chars(Fd,"        R1 -> gc_extend(R1, R0, CP0)\n"
                  "    end.\n\n"),
 
     %% Special hangul
@@ -674,7 +752,7 @@ gen_gc(Fd, GBP) ->
     GenHangulL_2 = fun(Range) -> io:format(Fd, "~8c~s gc_h_V(R1,[CP|Acc]);\n",
                                            [$\s,gen_case_clause(Range)]) end,
     [GenHangulL_2(CP) || CP <- merge_ranges(maps:get(v,GBP))],
-    io:put_chars(Fd, "        R1 -> gc_h_lv_lvt(R1, Acc)\n    end.\n\n"),
+    io:put_chars(Fd, "        R1 -> gc_h_lv_lvt(R1, R0, Acc)\n    end.\n\n"),
 
     io:put_chars(Fd, "%% Handle Hangul V\n"),
     io:put_chars(Fd, "gc_h_V(R0, Acc) ->\n    case cp(R0) of\n"),
@@ -684,16 +762,23 @@ gen_gc(Fd, GBP) ->
     GenHangulV_2 = fun(Range) -> io:format(Fd, "~8c~s gc_h_T(R1,[CP|Acc]);\n",
                                            [$\s,gen_case_clause(Range)]) end,
     [GenHangulV_2(CP) || CP <- merge_ranges(maps:get(t,GBP))],
-    io:put_chars(Fd, "        R1 -> gc_extend(R1, R0, Acc)\n    end.\n\n"),
-
+    io:put_chars(Fd,
+                 "        R1 ->\n"
+                 "            case Acc of\n"
+                 "                [CP] -> gc_extend(R1, R0, CP);\n"
+                 "                _ -> gc_extend2(R1, R0, Acc)\n"
+                 "            end\n    end.\n\n"),
     io:put_chars(Fd, "%% Handle Hangul T\n"),
     io:put_chars(Fd, "gc_h_T(R0, Acc) ->\n    case cp(R0) of\n"),
     GenHangulT_1 = fun(Range) -> io:format(Fd, "~8c~s gc_h_T(R1,[CP|Acc]);\n",
                                            [$\s,gen_case_clause(Range)]) end,
     [GenHangulT_1(CP) || CP <- merge_ranges(maps:get(t,GBP))],
-    io:put_chars(Fd, "        R1 -> gc_extend(R1, R0, Acc)\n    end.\n\n"),
-
-    io:put_chars(Fd, "gc_h_lv_lvt({error,_}=Error, Acc) -> gc_extend(Error, [], Acc);\n"),
+    io:put_chars(Fd,
+                 "        R1 ->\n"
+                 "            case Acc of\n"
+                 "                [CP] -> gc_extend(R1, R0, CP);\n"
+                 "                _ -> gc_extend2(R1, R0, Acc)\n"
+                 "            end\n    end.\n\n"),
     io:put_chars(Fd, "%% Handle Hangul LV\n"),
     GenHangulLV = fun(Range) -> io:format(Fd, "gc_h_lv_lvt~s gc_h_V(R1,[CP|Acc]);\n",
                                           [gen_clause2(Range)]) end,
@@ -702,8 +787,10 @@ gen_gc(Fd, GBP) ->
     GenHangulLVT = fun(Range) -> io:format(Fd, "gc_h_lv_lvt~s gc_h_T(R1,[CP|Acc]);\n",
                                            [gen_clause2(Range)]) end,
     [GenHangulLVT(CP) || CP <- merge_ranges(maps:get(lvt,GBP))],
-    io:put_chars(Fd, "gc_h_lv_lvt([CP|R], []) -> gc_extend(R, CP);\n"), %% From gc_1/1
-    io:put_chars(Fd, "gc_h_lv_lvt(R, Acc) -> gc_extend(R, Acc).\n\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt([CP|R1], _, []) -> gc_extend(cp(R1), R1, CP);\n"), %% From gc_1/1
+    io:put_chars(Fd, "%% Also handles error tuples\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, [CP]) -> gc_extend(R1, R0, CP);\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, Acc) -> gc_extend2(R1, R0, Acc).\n\n"),
     ok.
 
 gen_compose_pairs(Fd, ExclData, Data) ->
@@ -804,9 +891,9 @@ gen_clause({R0, R1}) ->
     io_lib:format("([CP|R1]=R0) when ~w =< CP, CP =< ~w ->", [R0,R1]).
 
 gen_clause2({R0, undefined}) ->
-    io_lib:format("([~w=CP|R1], Acc) ->", [R0]);
+    io_lib:format("([~w=CP|R1], R0, Acc) ->", [R0]);
 gen_clause2({R0, R1}) ->
-    io_lib:format("([CP|R1], Acc) when ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("([CP|R1], R0, Acc) when ~w =< CP, CP =< ~w ->", [R0,R1]).
 
 gen_case_clause({R0, undefined}) ->
     io_lib:format("[~w=CP|R1] ->", [R0]);
@@ -886,10 +973,10 @@ optimize_ranges_1(Rs) ->
 
 hex_to_int([]) -> [];
 hex_to_int(HexStr) ->
-    list_to_integer(string:strip(HexStr, both), 16).
+    list_to_integer(string:trim(HexStr, both), 16).
 
 to_atom(Str) ->
-    list_to_atom(string:to_lower(string:strip(Str, both))).
+    list_to_atom(string:lowercase(string:trim(Str, both))).
 
 foldl(Fun, Acc, Fd) ->
     Get = fun() -> file:read_line(Fd) end,
@@ -909,7 +996,7 @@ foldl_1(Fun, Acc, Get) ->
 
 
 
-%% Differs from string:tokens, it returns empty string as token between two delimiters
+%% Differs from string:lexemes, it returns empty string as token between two delimiters
 tokens(S, [C]) ->
     tokens(lists:reverse(S), C, []).
 

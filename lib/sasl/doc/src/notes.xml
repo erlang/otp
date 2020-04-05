@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,169 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SASL application.</p>
+
+<section><title>SASL 3.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A socket "registry" has been added making it possible to
+	    list current open sockets.</p>
+          <p>
+	    Own Id: OTP-16309</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The net module has been split into 'net' (kernel) and
+	    prim_net (preloaded).</p>
+          <p>
+	    Own Id: OTP-15765</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change the first module called by erts to be named
+	    erl_init instead of otp_ring0. systools in sasl have been
+	    updated to reflect this change.</p>
+          <p>
+	    Own Id: OTP-15336 Aux Id: PR-1825 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New <c>counters</c> and <c>atomics</c> modules supplies
+	    access to highly efficient operations on mutable fixed
+	    word sized variables.</p>
+          <p>
+	    Own Id: OTP-13468</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SASL 3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>A new logging API is added to Erlang/OTP, see the
+	    <seeerl
+	    marker="kernel:logger"><c>logger(3)</c></seeerl> manual
+	    page, and section <seeguide
+	    marker="kernel:logger_chapter">Logging</seeguide> in the
+	    Kernel User's Guide.</p>
+	    <p>Calls to <c>error_logger</c> are automatically
+	    redirected to the new API, and legacy error logger event
+	    handlers can still be used. It is, however, recommended
+	    to use the Logger API directly when writing new code.</p>
+	    <p>Notice the following potential incompatibilities:</p>
+	    <list> <item><p>Kernel configuration parameters
+	    <c>error_logger</c> still works, but is overruled if the
+	    default handler's output destination is configured with
+	    Kernel configuration parameter <c>logger</c>.</p> <p>In
+	    general, parameters for configuring error logger are
+	    overwritten by new parameters for configuring
+	    Logger.</p></item> <item><p>The concept of SASL error
+	    logging is deprecated, meaning that by default the SASL
+	    application does not affect which log events are
+	    logged.</p> <p>By default, supervisor reports and crash
+	    reports are logged by the default Logger handler started
+	    by Kernel, and end up at the same destination (terminal
+	    or file) as other standard log event from Erlang/OTP.</p>
+	    <p>Progress reports are not logged by default, but can be
+	    enabled by setting the primary log level to info, for
+	    example with the Kernel configuration parameter
+	    <c>logger_level</c>.</p> <p>To obtain backwards
+	    compatibility with the SASL error logging functionality
+	    from earlier releases, set Kernel configuration parameter
+	    <c>logger_sasl_compatible</c> to <c>true</c>. This
+	    prevents the default Logger handler from logging any
+	    supervisor-, crash-, or progress reports. Instead, SASL
+	    adds a separate Logger handler during application start,
+	    which takes care of these log events. The SASL
+	    configuration parameters <c>sasl_error_logger</c> and
+	    <c>sasl_errlog_type</c> specify the destination (terminal
+	    or file) and severity level to log for these
+	    events.</p></item></list>
+          <p>
+	    Since Logger is new in Erlang/OTP 21.0, we do reserve the
+	    right to introduce changes to the Logger API and
+	    functionality in patches following this release. These
+	    changes might or might not be backwards compatible with
+	    the initial version.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13295</p>
+        </item>
+        <item>
+          <p>
+	    The old and outdated "Status Inspection" tool (modules
+	    <c>si</c> and <c>si_sasl_sup</c>) is removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14469</p>
+        </item>
+        <item>
+          <p>
+	    When creating the release tar file, systools now includes
+	    sys.config.src if it exists in the
+	    $ROOT/releases/&lt;vsn&gt;/ directory. This is to allow
+	    adjustments, e.g. resolving environment variables, after
+	    unpacking the release, but before installing it. This
+	    functionality requires a custom tool which uses
+	    sys.config.src as input and creates a correct sys.config
+	    file.</p>
+          <p>
+	    Own Id: OTP-14950 Aux Id: PR-1560 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SASL 3.1.2</title>
 
@@ -189,8 +352,8 @@
 	    new purge strategy will as of ERTS version 8.1 be
 	    enabled. This new strategy is not fully backwards
 	    compatible with the strategy used by default. For more
-	    information see the documentation of <seealso
-	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+	    information see the documentation of <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-13808 Aux Id: OTP-13833 </p>
         </item>
@@ -218,8 +381,8 @@
 	    the runtime system is built with support for dirty
 	    schedulers.</p>
           <p>
-	    For more information see the documentation of <seealso
-	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+	    For more information see the documentation of <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-13833</p>
         </item>

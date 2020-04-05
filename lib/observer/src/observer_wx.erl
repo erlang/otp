@@ -22,7 +22,7 @@
 
 -export([start/0, stop/0]).
 -export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0, get_menubar/0,
-	 set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
+     get_scale/0, set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -91,14 +91,24 @@ get_active_node() ->
 get_menubar() ->
     wx_object:call(observer, get_menubar).
 
+get_scale() ->
+    ScaleStr = os:getenv("OBSERVER_SCALE", "1"),
+    try list_to_integer(ScaleStr) of
+        Scale when Scale < 1 -> 1;
+        Scale -> Scale
+    catch _:_ ->
+        1
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(_Args) ->
     register(observer, self()),
     wx:new(),
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
+    Scale = get_scale(),
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Observer",
-			[{size, {850, 600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
+			[{size, {Scale * 850, Scale * 600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
     IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
     Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
     wxFrame:setIcon(Frame, Icon),
@@ -732,7 +742,7 @@ get_nodes() ->
     {Nodes, lists:reverse(Menues)}.
 
 epmd_nodes(Names) ->
-    [_, Host] = string:tokens(atom_to_list(node()),"@"),
+    [_, Host] = string:lexemes(atom_to_list(node()),"@"),
     [list_to_atom(Name ++ [$@|Host]) || {Name, _} <- Names].
 
 update_node_list(State = #state{menubar=MenuBar}) ->
@@ -771,7 +781,11 @@ ensure_sasl_started(Node) ->
 
 ensure_mf_h_handler_used(Node) ->
    %% is log_mf_h used ?
-   Handlers = rpc:block_call(Node, gen_event, which_handlers, [error_logger]),
+   Handlers =
+        case rpc:block_call(Node, gen_event, which_handlers, [error_logger]) of
+            {badrpc,{'EXIT',noproc}} -> []; % OTP-21+ and no event handler exists
+            Hs -> Hs
+        end,
    case lists:any(fun(L)-> L == log_mf_h end, Handlers) of
        false -> throw("Error: log_mf_h handler not used in sasl."),
                 error;
@@ -806,7 +820,7 @@ is_rb_compatible(Node) ->
 
 is_rb_server_running(Node, LogState) ->
    %% If already started, somebody else may use it.
-   %% We can not use it too, as far log file would be overriden. Not fair.
+   %% We cannot use it too, as far log file would be overriden. Not fair.
    case rpc:block_call(Node, erlang, whereis, [rb_server]) of
        Pid when is_pid(Pid), (LogState == false) ->
 	   throw("Error: rb_server is already started and maybe used by someone.");

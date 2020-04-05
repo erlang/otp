@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@
 -module(application_controller).
 
 %% External exports
--export([start/1,
-	 load_application/1, unload_application/1,
+-export([start/1, 
+	 load_application/1, unload_application/1, 
 	 start_application/2, start_boot_application/2, stop_application/1,
 	 control_application/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
-	 loaded_applications/0, info/0,
+	 loaded_applications/0, info/0, set_env/2,
 	 get_pid_env/2, get_env/2, get_pid_all_env/1, get_all_env/1,
 	 get_pid_key/2, get_key/2, get_pid_all_key/1, get_all_key/1,
 	 get_master/1, get_application/1, get_application_module/1,
@@ -34,8 +34,11 @@
 	 set_env/3, set_env/4, unset_env/2, unset_env/3]).
 
 %% Internal exports
--export([handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+-export([handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
 	 code_change/3, init_starter/4, get_loaded/1]).
+
+%% logger callback
+-export([format_log/1, format_log/2]).
 
 %% Test exports, only to be used from the test suites
 -export([test_change_apps/2]).
@@ -44,6 +47,7 @@
 		keyfind/3, keydelete/3, keyreplace/4]).
 
 -include("application_master.hrl").
+-include("logger.hrl").
 
 -define(AC, ?MODULE). % Name of process
 
@@ -59,7 +63,7 @@
 %%% may be running on one node at the time.
 %%%
 %%% The external API to this module is in the module 'application'.
-%%%
+%%% 
 %%% The process that controls distributed applications (called dist
 %%% ac).  calls application_controller:control_application(Name) to
 %%% take responsibility for an application.  The interface between AC
@@ -195,7 +199,7 @@ start(KernelApp) ->
 	{'EXIT', _Pid, Reason} ->
 	    to_string(Reason)
     end.
-
+	
 %%-----------------------------------------------------------------
 %% Func: load_application/1
 %% Args: Application = appl_descr() | atom()
@@ -237,7 +241,7 @@ start_application(AppName, RestartType) ->
 %% Func: start_boot_application/2
 %% The same as start_application/2 expect that this function is
 %% called from the boot script file. It mustnot be used by the operator.
-%% This function will cause a node crash if a permanent application
+%% This function will cause a node crash if a permanent application 
 %% fails to boot start
 %%-----------------------------------------------------------------
 start_boot_application(Application, RestartType) ->
@@ -262,7 +266,7 @@ stop_application(AppName) ->
 %% Returns: [{Name, Descr, Vsn}]
 %%-----------------------------------------------------------------
 which_applications() ->
-    gen_server:call(?AC, which_applications).
+    gen_server:call(?AC, which_applications).    
 which_applications(Timeout) ->
     gen_server:call(?AC, which_applications, Timeout).
 
@@ -277,7 +281,7 @@ loaded_applications() ->
 
 %% Returns some debug info
 info() ->
-    gen_server:call(?AC, info).
+    gen_server:call(?AC, info).    
 
 control_application(AppName) ->
     gen_server:call(?AC, {control_application, AppName}, infinity).
@@ -305,18 +309,18 @@ control_application(AppName) ->
 %%          some applicatation may have got new config data.
 %%-----------------------------------------------------------------
 change_application_data(Applications, Config) ->
-    gen_server:call(?AC,
+    gen_server:call(?AC, 
 		    {change_application_data, Applications, Config},
 		    infinity).
 
 prep_config_change() ->
-    gen_server:call(?AC,
+    gen_server:call(?AC, 
 		    prep_config_change,
 		    infinity).
 
 
 config_change(EnvPrev) ->
-    gen_server:call(?AC,
+    gen_server:call(?AC, 
 		    {config_change, EnvPrev},
 		    infinity).
 
@@ -344,9 +348,6 @@ get_all_env(AppName) ->
     map(fun([Key, Val]) -> {Key, Val} end,
 	ets:match(ac_tab, {{env, AppName, '$1'}, '$2'})).
 
-
-
-
 get_pid_key(Master, Key) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
 	[[AppName]] -> get_key(AppName, Key);
@@ -356,7 +357,7 @@ get_pid_key(Master, Key) ->
 get_key(AppName, Key) ->
     case ets:lookup(ac_tab, {loaded, AppName}) of
 	[{_, Appl}] ->
-	    case Key of
+	    case Key of 
 		description ->
 		    {ok, Appl#appl.descr};
 		id ->
@@ -386,7 +387,7 @@ get_key(AppName, Key) ->
 	_ ->
 	    undefined
     end.
-
+	    
 get_pid_all_key(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
 	[[AppName]] -> get_all_key(AppName);
@@ -409,16 +410,16 @@ get_all_key(AppName) ->
 		  {mod, (Appl#appl.appl_data)#appl_data.mod},
 		  {start_phases, (Appl#appl.appl_data)#appl_data.phases}
 		 ]};
-	_ ->
+	_ -> 
 	    undefined
     end.
 
 
 start_type(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
-	[[AppName]] ->
+	[[AppName]] -> 
 	    gen_server:call(?AC, {start_type, AppName}, infinity);
-	_X ->
+	_X -> 
 	    undefined
     end.
 
@@ -456,10 +457,19 @@ get_application_module(_Module, []) ->
     undefined.
 
 permit_application(ApplName, Flag) ->
-    gen_server:call(?AC,
+    gen_server:call(?AC, 
 		    {permit_application, ApplName, Flag},
 		    infinity).
 
+set_env(Config, Opts) ->
+    case check_conf_data(Config) of
+	ok ->
+	    Timeout = proplists:get_value(timeout, Opts, 5000),
+	    gen_server:call(?AC, {set_env, Config, Opts}, Timeout);
+
+	{error, _} = Error ->
+	    Error
+    end.
 
 set_env(AppName, Key, Val) ->
     gen_server:call(?AC, {set_env, AppName, Key, Val, []}).
@@ -527,19 +537,15 @@ check_conf_data([]) ->
 check_conf_data(ConfData) when is_list(ConfData) ->
     [Application | ConfDataRem] = ConfData,
     case Application of
-	{kernel, List} when is_list(List) ->
-	    case check_para_kernel(List) of
-		ok ->
-		    check_conf_data(ConfDataRem);
-		Error1 ->
-		    Error1
-	    end;
 	{AppName, List} when is_atom(AppName), is_list(List) ->
-	    case check_para(List, atom_to_list(AppName)) of
-		ok ->
-		    check_conf_data(ConfDataRem);
-		Error2 ->
-		    Error2
+	    case lists:keymember(AppName, 1, ConfDataRem) of
+		true ->
+		    {error, "duplicate application config: " ++ atom_to_list(AppName)};
+		false ->
+		    case check_para(List, AppName) of
+			ok -> check_conf_data(ConfDataRem);
+			Error -> Error
+		    end
 	    end;
 	{AppName, List} when is_list(List)  ->
 	    ErrMsg = "application: "
@@ -552,36 +558,39 @@ check_conf_data(ConfData) when is_list(ConfData) ->
 		++ "; parameters must be a list",
 	    {error, ErrMsg};
 	Else ->
-	    ErrMsg = "invalid application name: " ++
-		lists:flatten(io_lib:format(" ~tp",[Else])),
+	    ErrMsg = "invalid application config: "
+		++ lists:flatten(io_lib:format("~tp",[Else])),
 	    {error, ErrMsg}
     end;
 check_conf_data(_ConfData) ->
-    {error, 'configuration must be a list ended by <dot><whitespace>'}.
+    {error, "configuration must be a list ended by <dot><whitespace>"}.
 
 
-%% Special check of distributed parameter for kernel
-check_para_kernel([]) ->
+check_para([], _AppName) ->
     ok;
-check_para_kernel([{distributed, Apps} | ParaList]) when is_list(Apps) ->
-    case check_distributed(Apps) of
-	{error, _ErrorMsg} = Error ->
-	    Error;
-	_ ->
-	    check_para_kernel(ParaList)
+check_para([{Para, Val} | ParaList], AppName) when is_atom(Para) ->
+    case lists:keymember(Para, 1, ParaList) of
+	true ->
+	    ErrMsg =  "application: " ++ atom_to_list(AppName)
+		++ "; duplicate parameter: " ++ atom_to_list(Para),
+	    {error, ErrMsg};
+	false ->
+	    case check_para_value(Para, Val, AppName) of
+		ok -> check_para(ParaList, AppName);
+		{error, _} = Error -> Error
+	    end
     end;
-check_para_kernel([{distributed, _Apps} | _ParaList]) ->
-    {error, "application: kernel; erroneous parameter: distributed"};
-check_para_kernel([{Para, _Val} | ParaList]) when is_atom(Para) ->
-    check_para_kernel(ParaList);
-check_para_kernel([{Para, _Val} | _ParaList]) ->
-    {error, "application: kernel; invalid parameter: " ++
+check_para([{Para, _Val} | _ParaList], AppName) ->
+    {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter name: " ++
      lists:flatten(io_lib:format("~tp",[Para]))};
-check_para_kernel(Else) ->
-    {error, "application: kernel; invalid parameter list: " ++
+check_para([Else | _ParaList], AppName) ->
+    {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter: " ++
      lists:flatten(io_lib:format("~tp",[Else]))}.
 
+check_para_value(distributed, Apps, kernel) -> check_distributed(Apps);
+check_para_value(_Para, _Val, _AppName) -> ok.
 
+%% Special check of distributed parameter for kernel
 check_distributed([]) ->
     ok;
 check_distributed([{App, List} | Apps]) when is_atom(App), is_list(List) ->
@@ -592,18 +601,6 @@ check_distributed([{App, Time, List} | Apps]) when is_atom(App), is_integer(Time
     check_distributed(Apps);
 check_distributed(_Else) ->
     {error, "application: kernel; erroneous parameter: distributed"}.
-
-
-check_para([], _AppName) ->
-    ok;
-check_para([{Para, _Val} | ParaList], AppName) when is_atom(Para) ->
-    check_para(ParaList, AppName);
-check_para([{Para, _Val} | _ParaList], AppName) ->
-    {error, "application: " ++ AppName ++ "; invalid parameter: " ++
-     lists:flatten(io_lib:format("~tp",[Para]))};
-check_para([Else | _ParaList], AppName) ->
-    {error, "application: " ++ AppName ++ "; invalid parameter: " ++
-     lists:flatten(io_lib:format("~tp",[Else]))}.
 
 
 -type calls() :: 'info' | 'prep_config_change' | 'which_applications'
@@ -651,7 +648,7 @@ handle_call({unload_application, AppName}, _From, S) ->
     end;
 
 handle_call({start_application, AppName, RestartType}, From, S) ->
-    #state{running = Running, starting = Starting, start_p_false = SPF,
+    #state{running = Running, starting = Starting, start_p_false = SPF, 
 	   started = Started, start_req = Start_req} = S,
     %% Check if the commandline environment variables are OK.
     %% Incase of erroneous variables do not start the application,
@@ -741,7 +738,7 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		%% only loaded
 		{true, {true, _Appl}, false, false, false, false} ->
 		    update_permissions(AppName, Bool),
-                    {reply, ok, S};
+                    {reply, ok, S}; 
 		%% starting
 		{true, {true, _Appl}, {value, _Tuple}, false, false, false} ->
 		    update_permissions(AppName, Bool),
@@ -751,7 +748,7 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		    update_permissions(AppName, Bool),
 		    {_AppName2, RestartType, normal, _From} = Tuple,
 		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
 				 start_p_false = keydelete(AppName, 1, SPF),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
@@ -759,7 +756,7 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		{true, {true, Appl}, _, _, {value, {AppName, RestartType}}, false} ->
 		    update_permissions(AppName, Bool),
 		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
 				 started = keydelete(AppName, 1, Started),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
@@ -779,7 +776,7 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		%% only loaded
 		{false, {true, _Appl}, false, false, false, false} ->
 		    update_permissions(AppName, Bool),
-                    {reply, ok, S};
+                    {reply, ok, S}; 
 		%% starting
 		{false, {true, _Appl}, {value, _Tuple}, false, false, false} ->
 		    update_permissions(AppName, Bool),
@@ -862,6 +859,16 @@ handle_call(which_applications, _From, S) ->
 	       end, S#state.running),
     {reply, Reply, S};
 
+handle_call({set_env, Config, Opts}, _From, S) ->
+    _ = [add_env(AppName, Env) || {AppName, Env} <- Config],
+
+    case proplists:get_value(persistent, Opts, false) of
+	true ->
+	    {reply, ok, S#state{conf_data = merge_env(S#state.conf_data, Config)}};
+	false ->
+	    {reply, ok, S}
+    end;
+
 handle_call({set_env, AppName, Key, Val, Opts}, _From, S) ->
     ets:insert(ac_tab, {{env, AppName, Key}, Val}),
     case proplists:get_value(persistent, Opts, false) of
@@ -918,7 +925,7 @@ handle_cast({application_started, AppName, Res}, S) ->
     handle_application_started(AppName, Res, S).
 
 handle_application_started(AppName, Res, S) ->
-    #state{starting = Starting, running = Running, started = Started,
+    #state{starting = Starting, running = Running, started = Started, 
 	   start_req = Start_req} = S,
     Start_reqN = reply_to_requester(AppName, Start_req, Res),
     {_AppName, RestartType, _Type, _From} = lists:keyfind(AppName, 1, Starting),
@@ -953,7 +960,7 @@ handle_application_started(AppName, Res, S) ->
 				    stop_appl(AppName, Id, Type),
 				    NStopRunning = keydelete(AppName, 1, StopRunning),
 				    cntrl(AppName, NewS, {ac_application_stopped, AppName}),
-				    {noreply, NewS#state{running = NStopRunning,
+				    {noreply, NewS#state{running = NStopRunning, 
 							started = StopStarted}};
 				false ->
 				    {noreply, NewS}
@@ -1029,14 +1036,14 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 		    spawn_starter(From, Appl, S, Type),
 		    {noreply, S};
 		{started, Node} ->
-		    handle_application_started(AppName,
-					       {ok, {distributed, Node}},
+		    handle_application_started(AppName, 
+					       {ok, {distributed, Node}}, 
 					       S);
 		not_started ->
 		    Started = S#state.started,
 		    Start_reqN =
 			reply_to_requester(AppName, Start_req, ok),
-		    {noreply,
+		    {noreply, 
 		     S#state{starting = keydelete(AppName, 1, Starting),
 			     started = [{AppName, RestartType} | Started],
 			     start_req = Start_reqN}};
@@ -1084,7 +1091,7 @@ handle_info({ac_change_application_req, AppName, Msg}, S) ->
 		    case application:get_key(AppName, start_phases) of
 			{ok, undefined} ->
 			    %% to be backwards compatible the application
-			    %% is not started as failover if start_phases
+			    %% is not started as failover if start_phases  
 			    %% is not defined in the .app file
 			    NewS = do_start(AppName, RT, normal, undefined, S),
 			    {noreply, NewS};
@@ -1095,7 +1102,7 @@ handle_info({ac_change_application_req, AppName, Msg}, S) ->
 		stop_it ->
 		    stop_appl(AppName, Id, Type),
 		    cntrl(AppName, S, {ac_application_not_run, AppName}),
-		    NRunning = keyreplace(AppName, 1, Running,
+		    NRunning = keyreplace(AppName, 1, Running, 
 					 {AppName, {distributed, []}}),
 		    {noreply, S#state{running = NRunning}};
 		%% We should not try to start a running application!
@@ -1174,7 +1181,7 @@ handle_info({'EXIT', Pid, Reason}, S) ->
 	false ->
 	    {noreply, S#state{control = del_cntrl(S#state.control, Pid)}}
     end;
-
+    
 handle_info(_, S) ->
     {noreply, S}.
 
@@ -1192,7 +1199,7 @@ terminate(Reason, S) ->
 	    undefined -> infinity;
 	    {ok,T} -> T
 	end,
-    foreach(fun({_AppName, Id}) when is_pid(Id) ->
+    foreach(fun({_AppName, Id}) when is_pid(Id) -> 
 		    Ref = erlang:monitor(process, Id),
 		    unlink(Id),
 		    exit(Id, shutdown),
@@ -1229,7 +1236,7 @@ cntrl(AppName, #state{control = Control}, Msg) ->
 	{_AppName, Pid} ->
 	    Pid ! Msg,
 	    true;
-	false ->
+	false -> 
 	    false
     end.
 
@@ -1237,7 +1244,7 @@ notify_cntrl_started(_AppName, {distributed, _Node}, _S, _Res) ->
     ok;
 notify_cntrl_started(AppName, _Id, S, Res) ->
     cntrl(AppName, S, {ac_application_run, AppName, Res}).
-
+    
 del_cntrl([{_, Pid}|T], Pid) ->
     del_cntrl(T, Pid);
 del_cntrl([H|T], Pid) ->
@@ -1247,11 +1254,11 @@ del_cntrl([], _Pid) ->
 
 get_loaded(App) ->
     AppName = get_appl_name(App),
-    case ets:lookup(ac_tab, {loaded, AppName}) of
+    case ets:lookup(ac_tab, {loaded, AppName}) of 
 	[{_Key, Appl}] -> {true, Appl};
 	_  -> false
     end.
-
+    
 do_load_application(Application, S) ->
     case get_loaded(Application) of
 	{true, _} ->
@@ -1289,7 +1296,7 @@ load(S, {ApplData, ApplEnv, IncApps, Descr, Id, Vsn, Apps}) ->
     {ok, NewS}.
 
 unload(AppName, S) ->
-    {ok, IncApps} = get_env(AppName, included_applications),
+    {ok, IncApps} = get_key(AppName, included_applications),
     del_env(AppName),
     ets:delete(ac_tab, {loaded, AppName}),
     foldl(fun(App, S1) ->
@@ -1330,7 +1337,7 @@ do_start(AppName, RT, Type, From, S) ->
 		      false ->
 			  RT
 		  end,
-    %% UW 990913: We check start_req instead of starting, because starting
+    %% UW 990913: We check start_req instead of starting, because starting 
     %% has already been checked.
     case lists:keymember(AppName, 1, S#state.start_req) of
 	false ->
@@ -1340,27 +1347,27 @@ do_start(AppName, RT, Type, From, S) ->
 	    Starting = case lists:keymember(AppName, 1, S#state.starting) of
 			   false ->
 			       %% UW: don't know if this is necessary
-			       [{AppName, RestartType, Type, From} |
+			       [{AppName, RestartType, Type, From} | 
 				S#state.starting];
 			   true ->
 			       S#state.starting
 		       end,
-	    S#state{starting = Starting,
+	    S#state{starting = Starting, 
 		    start_req = [{AppName, From} | Start_req]};
 	true -> % otherwise we're already starting the app...
 	    S
     end.
-
+    
 spawn_starter(From, Appl, S, Type) ->
     spawn_link(?MODULE, init_starter, [From, Appl, S, Type]).
 
 init_starter(_From, Appl, S, Type) ->
     process_flag(trap_exit, true),
     AppName = Appl#appl.name,
-    gen_server:cast(?AC, {application_started, AppName,
+    gen_server:cast(?AC, {application_started, AppName, 
 			  catch start_appl(Appl, S, Type)}).
 
-reply(undefined, _Reply) ->
+reply(undefined, _Reply) -> 
     ok;
 reply(From, Reply) -> gen_server:reply(From, Reply).
 
@@ -1389,7 +1396,7 @@ start_appl(Appl, S, Type) ->
 	    end
     end.
 
-
+    
 %%-----------------------------------------------------------------
 %% Stop application locally.
 %%-----------------------------------------------------------------
@@ -1403,7 +1410,7 @@ stop_appl(AppName, undefined, Type) ->
     info_exited(AppName, stopped, Type);
 stop_appl(_AppName, _Id, _Type) ->
     %% Distributed application stopped
-    ok.
+    ok. 
 
 keysearchdelete(Key, Pos, List) ->
     ksd(Key, Pos, List, []).
@@ -1414,7 +1421,7 @@ ksd(Key, Pos, [H | T], Rest) ->
     ksd(Key, Pos, T, [H | Rest]);
 ksd(_Key, _Pos, [], _Rest) ->
     false.
-
+    
 keyreplaceadd(Key, Pos, List, New) ->
     %% Maintains the order!
     case lists:keymember(Key, Pos, List) of
@@ -1430,7 +1437,7 @@ validRestartType(RestartType) ->
 
 nd({distributed, Node}) -> Node;
 nd(_) -> node().
-
+	  
 get_restart_type(undefined, OldRT) ->
     OldRT;
 get_restart_type(RT, _OldRT) ->
@@ -1449,7 +1456,7 @@ make_appl(Name) when is_atom(Name) ->
 	    case prim_consult(FullName) of
 		{ok, [Application]} ->
 		    {ok, make_appl_i(Application)};
-		{error, Reason} ->
+		{error, Reason} -> 
 		    {error, {file:format_error(Reason), FName}};
                 error ->
                     {error, "bad encoding"}
@@ -1525,7 +1532,7 @@ make_appl_i(Appl) -> throw({error, {bad_application, Appl}}).
 
 
 %%-----------------------------------------------------------------
-%% Merge current applications with changes.
+%% Merge current applications with changes.  
 %%-----------------------------------------------------------------
 
 %% do_change_apps(Applications, Config, OldAppls) -> NewAppls
@@ -1544,9 +1551,8 @@ do_change_apps(Applications, Config, OldAppls) ->
     %% Report errors, but do not terminate
     %% (backwards compatible behaviour)
     lists:foreach(fun({error, {SysFName, Line, Str}}) ->
-			  Str2 = lists:flatten(io_lib:format("~tp: ~w: ~ts~n",
-							     [SysFName, Line, Str])),
-			  error_logger:format(Str2, [])
+			  ?LOG_ERROR("~tp: ~w: ~ts~n",[SysFName, Line, Str],
+                                     #{error_logger=>#{tag=>error}})
 		  end,
 		  Errors),
 
@@ -1581,13 +1587,9 @@ do_change_appl({ok, {ApplData, Env, IncApps, Descr, Id, Vsn, Apps}},
     CmdLineEnv = get_cmd_env(AppName),
     NewEnv2 = merge_app_env(NewEnv1, CmdLineEnv),
 
-    %% included_apps is made into an env parameter as well
-    NewEnv3 = keyreplaceadd(included_applications, 1, NewEnv2,
-			    {included_applications, IncApps}),
-
     %% Update ets table with new application env
     del_env(AppName),
-    add_env(AppName, NewEnv3),
+    add_env(AppName, NewEnv2),
 
     OldAppl#appl{appl_data=ApplData,
 		 descr=Descr,
@@ -1615,9 +1617,9 @@ conv([Key, Val | T]) ->
     [{make_term(Key), make_term(Val)} | conv(T)];
 conv(_) -> [].
 
-make_term(Str) ->
+make_term(Str) -> 
     case erl_scan:string(Str) of
-	{ok, Tokens, _} ->
+	{ok, Tokens, _} ->		  
 	    case erl_parse:parse_term(Tokens ++ [{dot, erl_anno:new(1)}]) of
 		{ok, Term} ->
 		    Term;
@@ -1629,8 +1631,9 @@ make_term(Str) ->
     end.
 
 handle_make_term_error(Mod, Reason, Str) ->
-    error_logger:format("application_controller: ~ts: ~ts~n",
-        [Mod:format_error(Reason), Str]),
+    ?LOG_ERROR("application_controller: ~ts: ~ts~n",
+               [Mod:format_error(Reason), Str],
+               #{error_logger=>#{tag=>error}}),
     throw({error, {bad_environment_value, Str}}).
 
 get_env_i(Name, #state{conf_data = ConfData}) when is_list(ConfData) ->
@@ -1713,7 +1716,7 @@ do_prep_config_change([], EnvBefore) ->
 do_prep_config_change([{App, _Id} | Apps], EnvBefore) ->
     Env = application:get_all_env(App),
     do_prep_config_change(Apps, [{App, Env} | EnvBefore]).
-
+    
 
 
 %%-----------------------------------------------------------------
@@ -1734,7 +1737,7 @@ do_config_change([{App, _Id} | Apps], EnvBefore, Errors) ->
 		       {App, AppEnvBeforeT} ->
 			   lists:sort(AppEnvBeforeT)
 		   end,
-    Res =
+    Res = 
 	case AppEnvNow of
 	    AppEnvBefore ->
 		ok;
@@ -1745,12 +1748,12 @@ do_config_change([{App, _Id} | Apps], EnvBefore, Errors) ->
 		    {Changed, New, Removed} ->
 			case application:get_key(App, mod) of
 			    {ok, {Mod, _Para}} ->
-				case catch Mod:config_change(Changed, New,
+				case catch Mod:config_change(Changed, New, 
 							     Removed) of
 				    ok ->
 					ok;
 				    %% It is not considered as an error
-				    %% if the cb-function is not defined
+				    %% if the cb-function is not defined 
 				    {'EXIT', {undef, _}} ->
 					ok;
 				    {error, _} = Error ->
@@ -1765,7 +1768,7 @@ do_config_change([{App, _Id} | Apps], EnvBefore, Errors) ->
 			end
 		end
 	end,
-
+    
     case Res of
 	ok ->
 	    do_config_change(Apps, EnvBefore, Errors);
@@ -1790,7 +1793,7 @@ do_config_diff([{Env, Value} | AppEnvNow], AppEnvBefore, {Changed, New}) ->
 	{Env, Value} ->
 	    do_config_diff(AppEnvNow, lists:keydelete(Env,1,AppEnvBefore), {Changed, New});
 	{Env, _OtherValue} ->
-	    do_config_diff(AppEnvNow, lists:keydelete(Env,1,AppEnvBefore),
+	    do_config_diff(AppEnvNow, lists:keydelete(Env,1,AppEnvBefore), 
 			   {[{Env, Value} | Changed], New});
 	false ->
 	    do_config_diff(AppEnvNow, AppEnvBefore, {Changed, [{Env, Value}|New]})
@@ -1804,7 +1807,7 @@ check_conf() ->
     case init:get_argument(config) of
 	{ok, Files} ->
 	    {ok, lists:foldl(
-		   fun([File], Env) ->
+		   fun(File, Env) ->
 			   BFName = filename:basename(File,".config"),
 			   FName = filename:join(filename:dirname(File),
 						 BFName ++ ".config"),
@@ -1836,7 +1839,7 @@ check_conf() ->
 			       {error, {Line, _Mod, Str}} ->
 				   throw({error, {FName, Line, Str}})
 			   end
-		   end, [], Files)};
+		   end, [], lists:append(Files))};
 	_ -> {ok, []}
     end.
 
@@ -1912,7 +1915,7 @@ only_ws([C|Cs]) when C =< $\s -> only_ws(Cs);
 only_ws([$%|Cs]) -> only_ws(strip_comment(Cs));   % handle comment
 only_ws([_|_]) -> false;
 only_ws([]) -> true.
-
+    
 strip_comment([$\n|Cs]) -> Cs;
 strip_comment([_|Cs]) -> strip_comment(Cs);
 strip_comment([]) -> [].
@@ -1923,22 +1926,163 @@ config_error() ->
       "configuration file must contain ONE list ended by <dot>"}}.
 
 %%-----------------------------------------------------------------
-%% Info messages sent to error_logger
+%% Info messages sent to logger
 %%-----------------------------------------------------------------
 info_started(Name, Node) ->
-    Rep = [{application, Name},
-	   {started_at, Node}],
-    error_logger:info_report(progress, Rep).
+    ?LOG_INFO(#{label=>{application_controller,progress},
+                report=>[{application, Name},
+                         {started_at, Node}]},
+              #{domain=>[otp,sasl],
+                report_cb=>fun application_controller:format_log/2,
+                logger_formatter=>#{title=>"PROGRESS REPORT"},
+                error_logger=>#{tag=>info_report,
+                                type=>progress,
+                                report_cb=>
+                                    fun application_controller:format_log/1}}).
 
 info_exited(Name, Reason, Type) ->
-    Rep = [{application, Name},
-	   {exited, Reason},
-	   {type, Type}],
-    error_logger:info_report(Rep).
+    ?LOG_NOTICE(#{label=>{application_controller,exit},
+                  report=>[{application, Name},
+                           {exited, Reason},
+                           {type, Type}]},
+                #{domain=>[otp],
+                  report_cb=>fun application_controller:format_log/2,
+                error_logger=>#{tag=>info_report,
+                                type=>std_info,
+                                report_cb=>
+                                    fun application_controller:format_log/1}}).
 
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(LogReport) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(LogReport, Depth), FormatOpts).
+
+limit_report(LogReport, unlimited) ->
+    LogReport;
+limit_report(#{label:={application_controller,progress},
+               report:=[{application,_}=Application,
+                        {started_at,Node}]}=LogReport,
+             Depth) ->
+    LogReport#{report=>[Application,
+                        {started_at,io_lib:limit_term(Node, Depth)}]};
+limit_report(#{label:={application_controller,exit},
+               report:=[{application,_}=Application,
+                        {exited,Reason},{type,Type}]}=LogReport,
+             Depth) ->
+    LogReport#{report=>[Application,
+                        {exited,io_lib:limit_term(Reason, Depth)},
+                        {type,io_lib:limit_term(Type, Depth)}]}.
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default, FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={application_controller,progress},
+                    report:=[{application,Name},{started_at,Node}]},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = "Application: "++P++". Started at: "++P++".",
+    Args =
+        case Depth of
+            unlimited ->
+                [Name,Node];
+            _ ->
+                [Name,Depth,Node,Depth]
+        end,
+    {Format,Args};
+format_log_single(#{label:={application_controller,exit},
+                    report:=[{application,Name},
+                             {exited,Reason},
+                             {type,Type}]},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["Application: ",P,". Exited: ",P,
+                            ". Type: ",P,"."]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Name,Reason,Type];
+            _ ->
+                [Name,Depth,Reason,Depth,Type,Depth]
+        end,
+    {Format,Args};
+format_log_single(Report,FormatOpts) ->
+    format_log_multi(Report,FormatOpts).
+
+format_log_multi(#{label:={application_controller,progress},
+                   report:=[{application,Name},
+                            {started_at,Node}]},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["    application: ",P,"~n",
+           "    started_at: ",P,"~n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Name,Node];
+            _ ->
+                [Name,Depth,Node,Depth]
+        end,
+    {Format,Args};
+format_log_multi(#{label:={application_controller,exit},
+                   report:=[{application,Name},
+                            {exited,Reason},
+                            {type,Type}]},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["    application: ",P,"~n",
+           "    exited: ",P,"~n",
+           "    type: ",P,"~n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Name,Reason,Type];
+            _ ->
+                [Name,Depth,Reason,Depth,Type,Depth]
+        end,
+    {Format,Args}.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 %%-----------------------------------------------------------------
-%% Reply to all processes waiting this application to be started.
+%% Reply to all processes waiting this application to be started.  
 %%-----------------------------------------------------------------
 reply_to_requester(AppName, Start_req, Res) ->
     R = case Res of
@@ -1961,10 +2105,10 @@ reply_to_requester(AppName, Start_req, Res) ->
 		end,
 		[],
 		Start_req).
-
+    
 
 %%-----------------------------------------------------------------
-%% Update the environment variable permission for an application.
+%% Update the environment variable permission for an application.  
 %%-----------------------------------------------------------------
 update_permissions(AppName, Bool) ->
     T = {env, kernel, permissions},
@@ -1977,7 +2121,7 @@ update_permissions(AppName, Bool) ->
     end.
 
 %%-----------------------------------------------------------------
-%% These functions are only to be used from testsuites.
+%% These functions are only to be used from testsuites.  
 %%-----------------------------------------------------------------
 test_change_apps(Apps, Conf) ->
     Res = test_make_apps(Apps, []),
@@ -2022,5 +2166,5 @@ to_string(Term) ->
 	true ->
 	    Term;
 	false ->
-	    lists:flatten(io_lib:format("~134217728p", [Term]))
+	    lists:flatten(io_lib:format("~0p", [Term]))
     end.

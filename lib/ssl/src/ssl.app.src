@@ -4,13 +4,20 @@
     {modules, [
 	       %% TLS/SSL 
 	       tls_connection,
+	       tls_connection_1_3,
 	       tls_handshake,
+	       tls_handshake_1_3,
 	       tls_record,
+	       tls_record_1_3,
 	       tls_socket,
 	       tls_v1,
-	       ssl_v3,
-	       ssl_v2,
 	       tls_connection_sup,
+	       tls_sender,
+               tls_server_sup,
+               tls_server_session_ticket_sup,
+               tls_server_session_ticket,
+               tls_sup,
+	       ssl_dh_groups,
 	       %% DTLS
 	       dtls_connection,
 	       dtls_handshake,
@@ -18,12 +25,11 @@
 	       dtls_socket,
 	       dtls_v1,
 	       dtls_connection_sup,
-	       dtls_udp_listener,
-	       dtls_udp_sup,
+	       dtls_packet_demux,
+	       dtls_listener_sup,
+               dtls_sup,
 	       %% API
 	       ssl,  %% Main API		  
-	       tls,  %% TLS specific
-	       dtls, %% DTLS specific 
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
 	       ssl_config,
@@ -31,13 +37,15 @@
 	       ssl_handshake,
 	       ssl_record,
 	       ssl_cipher,
+               ssl_cipher_format,
 	       ssl_srp_primes,
 	       ssl_alert,
 	       ssl_listen_tracker_sup, %% may be used by DTLS over SCTP	
+	       tls_bloom_filter,
+	       tls_client_ticket_store,
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
 	       inet6_tls_dist,
-	       ssl_tls_dist_proxy,
 	       ssl_dist_sup,
                ssl_dist_connection_sup,
                ssl_dist_admin_sup,
@@ -53,6 +61,8 @@
 	       ssl_crl_cache, 
 	       ssl_crl_cache_api,
 	       ssl_crl_hash_dir,
+	       %% Logging
+	       ssl_logger,
 	       %% App structure
 	       ssl_app,
 	       ssl_sup,
@@ -63,7 +73,5 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-3.2","public_key-1.5","kernel-3.0",
-			    "erts-7.0","crypto-4.2", "inets-5.10.7"]}]}.
-
-
+    {runtime_dependencies, ["stdlib-3.5","public_key-1.7.2","kernel-6.0",
+			    "erts-10.0","crypto-4.2", "inets-5.10.7"]}]}.

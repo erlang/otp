@@ -51,7 +51,7 @@ stated as test suite configuration parameters, but by default
 the extra node names are generated. In this example the names
 will be: a, a1 and a2. It is enough to start the first node
 manually, the extra nodes will automatically be started if
-neccessary.
+necessary.
 
 The attached UNIX shell script mt, does not work on all
 platforms, but it may be used as a source for inspiration. It
@@ -63,7 +63,7 @@ test cases (i.e. test cases that encountered an error).
 During development we want to be able to run the test cases
 in the debugger. This demands a little bit of preparations:
 
-  - Start the neccessary number of nodes (normally 3).
+  - Start the necessary number of nodes (normally 3).
     This may either be done by running the mt script or
     by starting the main node and then invoke mt:start_nodes()
     to start the extra nodes with slave.
@@ -73,7 +73,7 @@ in the debugger. This demands a little bit of preparations:
 
   - Load all files that needs to be interpreted. This is typically
     all Mnesia files plus the test case. By invoking mnesia:ni()
-    and mnesia:ni([TestModule]) the neccessary modules will be
+    and mnesia:ni([TestModule]) the necessary modules will be
     loaded on all CONNECTED nodes.
 
 The test case execution is supervised in order to ensure that no test

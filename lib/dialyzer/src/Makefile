@@ -53,6 +53,7 @@ MODULES =  \
 	dialyzer_callgraph \
 	dialyzer_cl \
 	dialyzer_cl_parse \
+	dialyzer_clean_core \
 	dialyzer_codeserver \
 	dialyzer_contracts \
 	dialyzer_dataflow \
@@ -90,8 +91,10 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
 ERL_COMPILE_FLAGS += +native
+else
+ERL_COMPILE_FLAGS += -Werror
 endif
-ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_untyped_record +warn_missing_spec +warnings_as_errors
+ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_untyped_record +warn_missing_spec
 
 # ----------------------------------------------------
 # Targets

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ void erts_init_bif_chksum(void)
 {
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&chksum_md5_2_exp,
-			  am_erlang, am_atom_put("md5_trap",8), 2,
+			  am_erlang, ERTS_MAKE_AM("md5_trap"), 2,
 			  &md5_2);
 }
     
@@ -327,7 +327,7 @@ crc32_1(BIF_ALIST_1)
     res_sum = erts_make_integer(chksum,BIF_P);
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(bif_export[BIF_crc32_2], BIF_P, res_sum, rest);
+	BIF_TRAP2(&bif_trap_export[BIF_crc32_2], BIF_P, res_sum, rest);
     }
     BIF_RET(res_sum);
 }
@@ -354,7 +354,7 @@ crc32_2(BIF_ALIST_2)
     res_sum = erts_make_integer(chksum,BIF_P);
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(bif_export[BIF_crc32_2], BIF_P, res_sum, rest);
+	BIF_TRAP2(&bif_trap_export[BIF_crc32_2], BIF_P, res_sum, rest);
     }
     BIF_RET(res_sum);
 }
@@ -407,7 +407,7 @@ adler32_1(BIF_ALIST_1)
     res_sum = erts_make_integer(chksum,BIF_P);
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(bif_export[BIF_adler32_2], BIF_P, res_sum, rest);
+	BIF_TRAP2(&bif_trap_export[BIF_adler32_2], BIF_P, res_sum, rest);
     }
     BIF_RET(res_sum);
 }
@@ -434,7 +434,7 @@ adler32_2(BIF_ALIST_2)
     res_sum = erts_make_integer(chksum,BIF_P);
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(bif_export[BIF_adler32_2], BIF_P, res_sum, rest);
+	BIF_TRAP2(&bif_trap_export[BIF_adler32_2], BIF_P, res_sum, rest);
     }
     BIF_RET(res_sum);
 }
@@ -516,7 +516,7 @@ md5_2(BIF_ALIST_2)
     /* No need to check context, this function cannot be called with unaligned
        or badly sized context as it's always trapped to. */
     bytes = binary_bytes(BIF_ARG_1);
-    memcpy(&context,bytes,sizeof(MD5_CTX));
+    sys_memcpy(&context,bytes,sizeof(MD5_CTX));
     rest = do_chksum(&md5_wrap,BIF_P,BIF_ARG_2,100,(void *) &context,&res,
 		     &err);
     if (err != 0) {
@@ -564,7 +564,7 @@ md5_update_2(BIF_ALIST_2)
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_ERROR(BIF_P, BADARG);
     }
-    memcpy(&context,bytes,sizeof(MD5_CTX));
+    sys_memcpy(&context,bytes,sizeof(MD5_CTX));
     erts_free_aligned_binary_bytes(temp_alloc);
     rest = do_chksum(&md5_wrap,BIF_P,BIF_ARG_2,100,(void *) &context,&res,
 		     &err);
@@ -575,7 +575,7 @@ md5_update_2(BIF_ALIST_2)
     bin = new_binary(BIF_P, (byte *) &context, sizeof(MD5_CTX));
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(bif_export[BIF_md5_update_2], BIF_P, bin, rest);
+	BIF_TRAP2(&bif_trap_export[BIF_md5_update_2], BIF_P, bin, rest);
     }
     BUMP_REDS(BIF_P,res);
     BIF_RET(bin);
@@ -599,7 +599,7 @@ md5_final_1(BIF_ALIST_1)
 	goto error;
     }
     bin = erts_new_heap_binary(BIF_P, (byte *)NULL, 16, &result);
-    memcpy(&ctx_copy, context, sizeof(MD5_CTX));
+    sys_memcpy(&ctx_copy, context, sizeof(MD5_CTX));
     erts_free_aligned_binary_bytes(temp_alloc);
     MD5Final(result, &ctx_copy);
     BIF_RET(bin);

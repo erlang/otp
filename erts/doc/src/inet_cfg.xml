@@ -68,7 +68,7 @@
       <c>/etc/host.conf</c> and <c>/etc/nsswitch.conf</c>) in these modes,
       except for <c>/etc/resolv.conf</c> and <c>/etc/hosts</c> that is read and
       monitored for changes on Unix platforms for the internal DNS client
-      <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.</p>
+      <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>.</p>
 
     <p>If Erlang is started in long name distributed mode, it needs to
       get the domain name from somewhere and reads system <c>inet</c>
@@ -138,7 +138,7 @@
         <p><c><![CDATA[File = string()]]></c></p>
         <p>Specify a system file that Erlang is to read resolver
           configuration from for the internal DNS client
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>,
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>,
           and monitor for changes, even if it does not exist.
           The path must be absolute.</p>
         <p>This can override the configuration parameters
@@ -200,7 +200,7 @@
         <p><c><![CDATA[Port = integer()]]></c></p>
         <p>Add address (and port, if other than default) of the primary
           nameserver to use for
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>.
         </p>
       </item>
       <tag><c><![CDATA[{alt_nameserver, IP [,Port]}.]]></c></tag>
@@ -209,14 +209,14 @@
         <p><c><![CDATA[Port = integer()]]></c></p>
         <p>Add address (and port, if other than default) of the secondary
           nameserver for
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>.
         </p>
       </item>
       <tag><c><![CDATA[{search, Domains}.]]></c></tag>
       <item>
         <p><c><![CDATA[Domains = [string()]]]></c></p>
         <p>Add search domains for
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>.
         </p>
       </item>
       <tag><c><![CDATA[{lookup, Methods}.]]></c></tag>
@@ -229,7 +229,7 @@
           <item><c><![CDATA[file]]></c> (use host data retrieved from system
             configuration files and/or the user configuration file)</item>
           <item><c><![CDATA[dns]]></c> (use the Erlang DNS client
-            <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+            <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>
             for nameserver queries)</item>
         </list>
 	<p>The lookup method <c><![CDATA[string]]></c> tries to
@@ -249,7 +249,7 @@
         <item>
         <p><c><![CDATA[Time = integer()]]></c></p>
         <p>Set how often (in milliseconds) the resolver cache for
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>
           is refreshed (that is, expired DNS records are deleted).
           Defaults to 1 hour.</p>
       </item>
@@ -258,28 +258,28 @@
         <p><c><![CDATA[Time = integer()]]></c></p>
         <p>Set the time to wait until retry (in milliseconds) for DNS queries
           made by
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>.
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>.
           Defaults to 2 seconds.</p>
       </item>
       <tag><c><![CDATA[{retry, N}.]]></c></tag>
       <item>
         <p><c><![CDATA[N = integer()]]></c></p>
         <p>Set the number of DNS queries
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>
           will try before giving up. Defaults to 3.</p>
       </item>
       <tag><c><![CDATA[{inet6, Bool}.]]></c></tag>
       <item>
         <p><c><![CDATA[Bool = true | false]]></c></p>
         <p>Tells the DNS client
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>
           to look up IPv6 addresses. Defaults to <c>false</c>.</p>
       </item>
       <tag><c><![CDATA[{usevc, Bool}.]]></c></tag>
       <item>
         <p><c><![CDATA[Bool = true | false]]></c></p>
         <p>Tells the DNS client
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>
           to use TCP (Virtual Circuit) instead of UDP. Defaults to
           <c>false</c>.</p>
       </item>
@@ -287,7 +287,7 @@
       <item>
         <p><c><![CDATA[Version = false | 0]]></c></p>
         <p>Sets the EDNS version that
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>
           will use. The only allowed version is zero. Defaults to <c>false</c>,
           which means not to use EDNS.</p>
       </item>
@@ -295,7 +295,7 @@
       <item>
         <p><c><![CDATA[N = integer()]]></c></p>
         <p>Sets the allowed UDP payload size
-          <seealso marker="kernel:inet_res"><c>inet_res(3)</c></seealso>
+          <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>
           will advertise in EDNS queries. Also sets the limit
           when the DNS query will be deemed too large for UDP
           forcing a TCP query instead; this  is not entirely

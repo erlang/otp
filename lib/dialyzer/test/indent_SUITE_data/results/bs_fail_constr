@@ -1,0 +1,9 @@
+
+bs_fail_constr.erl:12: Binary construction will fail since the size field S in segment 42:S has type 
+          neg_integer()
+bs_fail_constr.erl:15: Binary construction will fail since the value field V in segment V/utf32 has type 
+          float()
+bs_fail_constr.erl:6: Binary construction will fail since the value field V in segment V has type 
+          float()
+bs_fail_constr.erl:9: Binary construction will fail since the value field V in segment V/binary has type 
+          atom()

@@ -220,7 +220,7 @@ get_value(Key, [P | Ps], Default) ->
 		{_, Value} ->
 		    Value;
 		_ ->
-		    %% Don</code>t continue the search!
+		    %% Don't continue the search!
 		    Default
 	    end;
        true ->
@@ -410,8 +410,8 @@ substitute_aliases_1([], P) ->
 %% associated with some key <code>K1</code> such that <code>{K1,
 %% K2}</code> occurs in <code>Negations</code>, then if the entry was
 %% <code>{K1, true}</code> it will be replaced with <code>{K2,
-%% false}</code>, otherwise it will be replaced with <code>{K2,
-%% true}</code>, thus changing the name of the option and simultaneously
+%% false}</code>, otherwise it will be replaced with <code>K2</code>,
+%% thus changing the name of the option and simultaneously
 %% negating the value given by <code>get_bool(ListIn)</code>. If the same
 %% <code>K1</code> occurs more than once in <code>Negations</code>, only
 %% the first occurrence is used.
@@ -419,8 +419,7 @@ substitute_aliases_1([], P) ->
 %% <p>Example: <code>substitute_negations([{no_foo, foo}], L)</code>
 %% will replace any atom <code>no_foo</code> or tuple <code>{no_foo,
 %% true}</code> in <code>L</code> with <code>{foo, false}</code>, and
-%% any other tuple <code>{no_foo, ...}</code> with <code>{foo,
-%% true}</code>.</p>
+%% any other tuple <code>{no_foo, ...}</code> with <code>foo</code>.</p>
 %%
 %% @see get_bool/2
 %% @see substitute_aliases/2
@@ -640,24 +639,24 @@ normalize(L, []) ->
       Rest :: [term()].
 
 split(List, Keys) ->
-    {Store, Rest} = split(List, dict:from_list([{K, []} || K <- Keys]), []),
-    {[lists:reverse(dict:fetch(K, Store)) || K <- Keys],
+    {Store, Rest} = split(List, maps:from_list([{K, []} || K <- Keys]), []),
+    {[lists:reverse(map_get(K, Store)) || K <- Keys],
      lists:reverse(Rest)}.
 
 split([P | Ps], Store, Rest) ->
     if is_atom(P) ->
-	    case dict:is_key(P, Store) of
+	    case is_map_key(P, Store) of
 		true ->
-		    split(Ps, dict_prepend(P, P, Store), Rest);
+		    split(Ps, maps_prepend(P, P, Store), Rest);
 		false ->
 		    split(Ps, Store, [P | Rest])
 	    end;
        tuple_size(P) >= 1 ->
 	    %% Note that Key does not have to be an atom in this case.
 	    Key = element(1, P),
-	    case dict:is_key(Key, Store) of
+	    case is_map_key(Key, Store) of
 		true ->
-		    split(Ps, dict_prepend(Key, P, Store), Rest);
+		    split(Ps, maps_prepend(Key, P, Store), Rest);
 		false ->
 		    split(Ps, Store, [P | Rest])
 	    end;
@@ -667,5 +666,5 @@ split([P | Ps], Store, Rest) ->
 split([], Store, Rest) ->
     {Store, Rest}.
 
-dict_prepend(Key, Val, Dict) ->
-    dict:store(Key, [Val | dict:fetch(Key, Dict)], Dict).
+maps_prepend(Key, Val, Dict) ->
+    Dict#{Key := [Val | map_get(Key, Dict)]}.

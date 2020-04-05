@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -159,7 +159,13 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("-export_type([~s/0]).~n", [Name]),
 	    case lists:filter(fun({_F,Depr}) -> Depr end, ExportList) of
 		[] -> ok;
-		Depr -> w("-deprecated([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", Depr, 60)])
+		Depr ->
+                    DepStr = "not available in wxWidgets-2.9 and later",
+                    w("-deprecated([~s]).~n~n",
+                      [args(fun({EF,_}) ->
+                                    [DFun,DArgs] = string:split(EF, "/"),
+                                    io_lib:format("{~s,~s,\"~s\"}", [DFun,DArgs,DepStr])
+                            end, ",\n             ", Depr, 60)])
 	    end,
 	    case lists:filter(fun({_,_,Depr}) -> Depr end, InExported) of
 		[] -> ok;
@@ -1106,7 +1112,7 @@ gen_enums_ints() ->
     w("-define(wxDefaultSize, {-1,-1}).~n", []),
     w("-define(wxDefaultPosition, {-1,-1}).~n", []),
     w("~n%% Global Variables~n", []),
-    [w("-define(~s,  wxe_util:get_const(~s)).~n", [Gvar, Gvar]) ||
+    [w("-define(~s,  wxe_util:get_const(~s)).~n", [qoute_atom(Gvar), qoute_atom(Gvar)]) ||
 	{Gvar,_,_Id} <- get(gvars)],
     w("~n%% Enum and defines~n", []),
     foldl(fun(Enum= #enum{vals=Vals}, Done) when Vals =/= [] ->
@@ -1114,6 +1120,11 @@ gen_enums_ints() ->
 	     (_,Done) -> Done
 	  end, gb_sets:empty(), lists:sort(Enums)),
     close().
+
+qoute_atom([Char|_]=Str) when Char < $a ->
+    "'" ++ Str ++ "'";
+qoute_atom(Str) ->
+    Str.
 
 build_enum_ints(#enum{from=From, vals=Vals},Done) ->
     case From of

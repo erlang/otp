@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,10 +21,6 @@
 %%
 
 %%% Description : SSH connection protocol 
-
--type channel_id()         :: pos_integer().
--type connection_ref()     :: pid().
-
 
 -define(DEFAULT_PACKET_SIZE, 65536).
 -define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
@@ -267,11 +263,8 @@
 -record(connection, {
 	  requests = [], %% [{ChannelId, Pid}...] awaiting reply on request,
 	  channel_cache,
-	  port_bindings,
 	  channel_id_seed,
 	  cli_spec,
-	  address, 
-	  port,
 	  options,
 	  exec,
 	  system_supervisor,

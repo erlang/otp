@@ -59,7 +59,7 @@
       <item>global_group - Grouping nodes to global name registration groups.</item>
       <item>net_adm - Various net administration routines.</item>
       <item>net_kernel - Networking kernel.</item>
-      <item>pg2 - Distributed named process groups.</item>
+      <item>pg - Distributed named process groups.</item>
       <item>pool - Load distribution facility.</item>
       <item>slave - Functions for starting and controlling slave nodes.</item>
     </list>

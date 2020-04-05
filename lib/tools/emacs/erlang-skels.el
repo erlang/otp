@@ -1,7 +1,7 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010-2017. All Rights Reserved.
+;; Copyright Ericsson AB 2010-2020. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -1985,7 +1985,7 @@ configured off."
 The first character of DD is space if the value is less than 10."
   (let ((date (current-time-string)))
     (format "%2d %s %s"
-            (string-to-int (substring date 8 10))
+            (string-to-number (substring date 8 10))
             (substring date 4 7)
             (substring date -4))))
 

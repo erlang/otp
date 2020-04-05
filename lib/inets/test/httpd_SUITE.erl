@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("inets/include/httpd.hrl").
 -include("inets_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
@@ -58,6 +59,7 @@ all() ->
      {group, https_limit},
      {group, http_custom},
      {group, https_custom},
+     {group, https_custom},
      {group, http_basic_auth},
      {group, https_basic_auth},
      {group, http_auth_api},
@@ -66,8 +68,6 @@ all() ->
      {group, https_auth_api_dets},
      {group, http_auth_api_mnesia},
      {group, https_auth_api_mnesia},
-     {group, http_htaccess}, 
-     {group, https_htaccess},
      {group, http_security}, 
      {group, https_security},
      {group, http_reload},
@@ -75,7 +75,14 @@ all() ->
      {group, http_mime_types},
      {group, http_logging},
      {group, http_post},
-     mime_types_format
+     {group, http_rel_path_script_alias},
+     {group, http_not_sup},
+     {group, https_alert},
+     {group, https_not_sup},
+     mime_types_format,
+     erl_script_timeout_default,
+     erl_script_timeout_option,
+     erl_script_timeout_proplist
     ].
 
 groups() ->
@@ -94,27 +101,29 @@ groups() ->
      {https_auth_api_dets, [], [{group, auth_api_dets}]},
      {http_auth_api_mnesia, [], [{group, auth_api_mnesia}]}, 
      {https_auth_api_mnesia, [], [{group, auth_api_mnesia}]},
-     {http_htaccess, [], [{group, htaccess}]},
-     {https_htaccess, [], [{group, htaccess}]},
      {http_security, [], [{group, security}]},
      {https_security, [], [{group, security}]},
      {http_logging, [], [{group, logging}]},
      {http_reload, [], [{group, reload}]},
      {https_reload, [], [{group, reload}]},
      {http_post, [], [{group, post}]},
+     {http_not_sup, [], [{group, not_sup}]},
+     {https_not_sup, [], [{group, not_sup}]},
+     {https_alert, [], [tls_alert]},
      {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
-     {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
+     {limit, [],  [content_length, max_clients_1_1]},  
      {custom, [],  [customize, add_default]},  
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
 		   non_disturbing_1_1, 
 		   non_disturbing_1_0, 
 		   non_disturbing_0_9,
-		   disturbing_1_1,
-		   disturbing_1_0, 
-		   disturbing_0_9
+                   disturbing_1_1,
+                   disturbing_1_0, 
+                   disturbing_0_9,
+		   reload_config_file
 		  ]},
-     {post, [], [chunked_post, chunked_chunked_encoded_post]},
+     {post, [], [chunked_post, chunked_chunked_encoded_post, post_204]},
      {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, basic_auth_0_9]},
      {auth_api, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
 		    ]},
@@ -122,16 +131,17 @@ groups() ->
 			 ]},
      {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
 			   ]},
-     {htaccess, [], [htaccess_1_1, htaccess_1_0, htaccess_0_9]},
      {security, [], [security_1_1, security_1_0]}, %% Skip 0.9 as causes timing issus in test code
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
      {http_1_1, [],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put, esi_post] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_post, esi_proagate] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
-     {http_0_9, [], http_head() ++ http_get() ++ load()}
+     {http_0_9, [], http_head() ++ http_get() ++ load()},
+     {http_rel_path_script_alias, [], [cgi]},
+     {not_sup, [], [put_not_sup]}
     ].
 
 basic_groups ()->
@@ -147,11 +157,11 @@ http_get() ->
      get, 
      %%actions, Add configuration so that this test mod_action
      esi, 
-     content_length, 
      bad_hex, 
      missing_CR,
      max_header,
      max_content_length,
+     ignore_invalid_header,
      ipv6
     ].
 
@@ -168,8 +178,12 @@ init_per_suite(Config) ->
     ServerRoot = filename:join(PrivDir, "server_root"),
     inets_test_lib:del_dirs(ServerRoot),
     DocRoot = filename:join(ServerRoot, "htdocs"),
+    setup_tmp_dir(PrivDir),
     setup_server_dirs(ServerRoot, DocRoot, DataDir),
     {ok, Hostname0} = inet:gethostname(),
+    logger:add_handler_filter(default, inets_httpd, {fun logger_filters:domain/2,
+                                                     {log, equal,[otp,inets, httpd, httpd_test, error]}}),
+    %%logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
     Inet = 
 	case (catch ct:get_config(ipv6_hosts)) of
 	    undefined ->
@@ -203,12 +217,14 @@ init_per_group(Group, Config0) when Group == https_basic;
 				    Group == https_auth_api_dets;
 				    Group == https_auth_api_mnesia;
 				    Group == https_security;
-				    Group == https_reload
+				    Group == https_reload;
+                                    Group == https_not_sup;
+                                    Group == https_alert
 				    ->
     catch crypto:stop(),
     try crypto:start() of
         ok ->
-            init_ssl(Group, Config0)
+            init_ssl(Group,  [{http_version, "HTTP/1.0"} | Config0])
     catch
         _:_ ->
             {skip, "Crypto did not start"}
@@ -222,11 +238,12 @@ init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_auth_api_mnesia;
 				      Group == http_security;
 				      Group == http_reload;
+                                      Group == http_not_sup;
                                       Group == http_post;
                                       Group == http_mime_types
 				      ->
     ok = start_apps(Group),
-    init_httpd(Group, [{type, ip_comm} | Config0]);
+    init_httpd(Group, [{http_version, "HTTP/1.0"}, {type, ip_comm} | Config0]);
 init_per_group(http_1_1, Config) ->
     [{http_version, "HTTP/1.1"} | Config];
 init_per_group(http_1_0, Config) ->
@@ -238,24 +255,6 @@ init_per_group(http_0_9, Config) ->
 	_ ->
 	    [{http_version, "HTTP/0.9"} | Config]
     end;
-init_per_group(http_htaccess = Group, Config) ->
-    Path = proplists:get_value(doc_root, Config),
-    catch remove_htaccess(Path),
-    create_htaccess_data(Path, proplists:get_value(address, Config)),
-    ok = start_apps(Group),
-    init_httpd(Group, [{type, ip_comm} | Config]);
-init_per_group(https_htaccess = Group, Config) ->
-    Path = proplists:get_value(doc_root, Config),
-    catch remove_htaccess(Path),
-    create_htaccess_data(Path, proplists:get_value(address, Config)),
-    catch crypto:stop(),
-    try crypto:start() of
-        ok ->
-            init_ssl(Group, Config)
-    catch
-        _:_ ->
-            {skip, "Crypto did not start"}
-    end; 
 init_per_group(auth_api, Config) -> 
     [{auth_prefix, ""} | Config];
 init_per_group(auth_api_dets, Config) -> 
@@ -268,6 +267,11 @@ init_per_group(http_logging, Config) ->
     ServerRoot = proplists:get_value(server_root, Config1),
     Path = ServerRoot ++ "/httpd_log_transfer",
     [{transfer_log, Path} | Config1];
+init_per_group(http_rel_path_script_alias = Group, Config) ->
+    ok = start_apps(Group),
+    init_httpd(Group, [{type, ip_comm},{http_version, "HTTP/1.1"}| Config]);
+init_per_group(not_sup, Config) ->
+    [{http_version, "HTTP/1.1"} | Config];
 init_per_group(_, Config) ->
     Config.
 
@@ -277,7 +281,6 @@ end_per_group(Group, _Config)  when  Group == http_basic;
 				     Group == http_auth_api;
 				     Group == http_auth_api_dets;
 				     Group == http_auth_api_mnesia;
-				     Group == http_htaccess;
 				     Group == http_security;
 				     Group == http_reload;
                                      Group == http_post;
@@ -290,7 +293,6 @@ end_per_group(Group, _Config) when  Group == https_basic;
 				    Group == https_auth_api;
 				    Group == https_auth_api_dets;
 				    Group == https_auth_api_mnesia;
-				    Group == https_htaccess;
 				    Group == https_security;
 				    Group == https_reload
 				    ->
@@ -367,6 +369,10 @@ init_per_testcase(disk_log_bad_file, Config0) ->
     ct:timetrap({seconds, 20}),
     dbg(disk_log_internal, Config1, init);
 
+init_per_testcase(erl_script_timeout_default, Config) ->
+    ct:timetrap({seconds, 60}),
+    dbg(erl_script_timeout_default, Config, init);
+
 init_per_testcase(Case, Config) ->
     ct:timetrap({seconds, 20}),
     dbg(Case, Config, init).
@@ -420,7 +426,8 @@ head(Config) when is_list(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host = proplists:get_value(host, Config),
     ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host, 
-				       proplists:get_value(port, Config),  proplists:get_value(node, Config),
+				       proplists:get_value(port, Config),  
+                                       proplists:get_value(node, Config),
 				       http_request("HEAD /index.html ", Version, Host),
 				       [{statuscode, head_status(Version)},
 					{version, Version}]).
@@ -441,8 +448,19 @@ get(Config) when is_list(Config) ->
 					{header, "Content-Type", "text/html"},
 					{header, "Date"},
 					{header, "Server"},
+					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host, 
+				       proplists:get_value(port, Config),  
+				       transport_opts(Type, Config),
+				       proplists:get_value(node, Config),
+				       http_request("GET /open/ ", Version, Host),
+				       [{statuscode, 403},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
 					{version, Version}]).
-
+    
 basic_auth_1_1(Config) when is_list(Config) -> 
     basic_auth([{http_version, "HTTP/1.1"} | Config]).
 
@@ -726,130 +744,42 @@ chunked_chunked_encoded_post(Config) when is_list(Config) ->
                      [{http_version, "HTTP/1.1"} | Config], 
                      [{statuscode, 200}]).
 
-
 %%-------------------------------------------------------------------------
-htaccess_1_1(Config) when is_list(Config) -> 
-    htaccess([{http_version, "HTTP/1.1"} | Config]).
-
-htaccess_1_0(Config) when is_list(Config) -> 
-    htaccess([{http_version, "HTTP/1.0"} | Config]).
-
-htaccess_0_9(Config) when is_list(Config) -> 
-    htaccess([{http_version, "HTTP/0.9"} | Config]).
-
-htaccess() ->
-    [{doc, "Test mod_auth API"}].
-
-htaccess(Config) when is_list(Config) -> 
-    Version = proplists:get_value(http_version, Config),
+post_204() ->
+    [{doc,"Test that 204 responses are not chunk encoded"}].
+post_204(Config) ->
     Host = proplists:get_value(host, Config),
-    Type = proplists:get_value(type, Config),
-    Port = proplists:get_value(port, Config),
-    Node = proplists:get_value(node, Config),
-    %% Control that authentication required!
-    %% Control that the pages that shall be 
-    %% authenticated really need authenticatin
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
-				       http_request("GET /ht/open/ ", Version, Host),
-				       [{statuscode, 401},
-					{version, Version}, 
-					{header, "WWW-Authenticate"}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
-				       http_request("GET /ht/secret/ ", Version, Host),
-				       [{statuscode, 401},
-					{version, Version}, 
-					{header, "WWW-Authenticate"}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
-				         http_request("GET /ht/secret/top_secret/ ",
-						      Version, Host),
-				       [{statuscode, 401},
-					{version, Version}, 
-					{header, "WWW-Authenticate"}]),
+    Port =  proplists:get_value(port, Config),
+    SockType = proplists:get_value(type, Config),
+    TranspOpts = transport_opts(SockType, Config),
+    Request = "POST /cgi-bin/erl/httpd_example:post_204 ",
 
-    %% Make sure Authenticate header is received even the second time
-    %% we try a incorrect password! Otherwise a browser client will hang!
-    ok = auth_status(auth_request("/ht/open/",
-				  "dummy", "WrongPassword", Version, Host), Config,
-		     [{statuscode, 401},
-		      {header, "WWW-Authenticate"}]),
-    ok = auth_status(auth_request("/ht/open/",
-				  "dummy", "WrongPassword", Version, Host), Config,
-		     [{statuscode, 401},		
-		      {header, "WWW-Authenticate"}]),
-    
-    %% Control that not just the first user in the list is valid
-    %% Control the first user
-    %% Authennticating ["one:OnePassword" user first in user list]
-    ok = auth_status(auth_request("/ht/open/dummy.html", "one",  "OnePassword",
-				  Version, Host), Config, 
-		     [{statuscode, 200}]),
-    
-    %% Control the second user
-    %% Authentication OK and a directory listing is supplied! 
-    %% ["Aladdin:open sesame" user second in user list]
-    ok = auth_status(auth_request("/ht/open/","Aladdin", 
-				  "AladdinPassword", Version, Host), Config, 
-		     [{statuscode, 200}]),
-    
-    %% Contro that bad passwords and userids get a good denial
-    %% User correct but wrong password! ["one:one" user first in user list]
-    ok = auth_status(auth_request("/ht/open/", "one", "one", Version, Host), Config, 
-		     [{statuscode, 401}]),
-    %% Neither user or password correct! ["dummy:dummy"]
-    ok = auth_status(auth_request("/ht/open/", "dummy", "dummy", Version, Host), Config,
-		     [{statuscode, 401}]),
-    
-    %% Control that authetication still works, even if its a member in a group
-    %% Authentication OK! ["two:TwoPassword" user in first group]
-    ok = auth_status(auth_request("/ht/secret/dummy.html", "two", 
-				  "TwoPassword",  Version, Host), Config, 
-		     [{statuscode, 200}]),
-    
-    %% Authentication OK and a directory listing is supplied! 
-    %% ["three:ThreePassword" user in second group]
-    ok = auth_status(auth_request("/ht/secret/", "three",
-				  "ThreePassword", Version, Host), Config, 
-		     [{statuscode, 200}]),
-    
-    %% Deny users with bad passwords even if the user is a group member
-    %% User correct but wrong password! ["two:two" user in first group]
-    ok = auth_status(auth_request("/ht/secret/", "two", "two", Version, Host), Config, 
-		     [{statuscode, 401}]),
-    %% Neither user or password correct! ["dummy:dummy"]
-    ok = auth_status(auth_request("/ht/secret/", "dummy", "dummy", Version, Host), Config, 
-		     [{statuscode, 401}]),
-    
-    %% control that we deny the users that are in subnet above the allowed
-     ok = auth_status(auth_request("/ht/blocknet/dummy.html", "four",
-				   "FourPassword", Version, Host), Config, 
-		      [{statuscode, 403}]),
-    %% Control that we only applies the rules to the right methods
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-      				       http_request("HEAD /ht/blocknet/dummy.html ", Version, Host),
-      				       [{statuscode, head_status(Version)},
-      					{version, Version}]),
-    
-    %% Control that the rerquire directive can be overrideen
-    ok = auth_status(auth_request("/ht/secret/top_secret/ ", "Aladdin", "AladdinPassword", 
-				  Version, Host), Config, 
-		     [{statuscode, 401}]),
-    
-    %% Authentication still required!
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-				       http_request("GET /ht/open/ ", Version, Host),
-				       [{statuscode, 401},
-					{version, Version}, 
-					{header, "WWW-Authenticate"}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-				        http_request("GET /ht/secret/ ", Version, Host),
-				       [{statuscode, 401},
-					{version, Version},    
-					{header, "WWW-Authenticate"}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-				        http_request("GET /ht/secret/top_secret/ ", Version, Host),
-				       [{statuscode, 401},
-					{version, Version}, 
-					{header, "WWW-Authenticate"}]).
+    try inets_test_lib:connect_bin(SockType, Host, Port, TranspOpts) of
+	{ok, Socket} ->
+            RequestStr = http_request(Request, "HTTP/1.1", Host),
+	    ok = inets_test_lib:send(SockType, Socket, RequestStr),
+            receive
+                {tcp, Socket, Data} ->
+                    case binary:match(Data, <<"chunked">>,[]) of
+                        nomatch ->
+                            ok;
+                        {_, _} ->
+                            ct:fail("Chunked encoding detected.")
+                    end
+            after 2000 ->
+                    ct:fail(connection_timed_out)
+            end;
+	ConnectError ->
+	    ct:fail({connect_error, ConnectError,
+		     [SockType, Host, Port, TranspOpts]})
+    catch
+	T:E:Stk ->
+	    ct:fail({connect_failure,
+		     [{type,       T},
+		      {error,      E},
+		      {stacktrace, Stk},
+		      {args,       [SockType, Host, Port, TranspOpts]}]})
+    end.
 
 %%-------------------------------------------------------------------------
 host() ->
@@ -880,28 +810,36 @@ max_clients_1_1() ->
 max_clients_1_1(Config) when is_list(Config) -> 
     do_max_clients([{http_version, "HTTP/1.1"} | Config]).
 
-max_clients_1_0() ->
-    [{doc, "Test max clients limit"}].
+%%-------------------------------------------------------------------------
+put_not_sup() ->
+    [{doc, "Test unhandled request"}].
 
-max_clients_1_0(Config) when is_list(Config) -> 
-    do_max_clients([{http_version, "HTTP/1.0"} | Config]).
-
-max_clients_0_9() ->
-    [{doc, "Test max clients limit"}].
-
-max_clients_0_9(Config) when is_list(Config) -> 
-    do_max_clients([{http_version, "HTTP/0.9"} | Config]).
+put_not_sup(Config) when is_list(Config) ->
+    ok = http_status("PUT /index.html ",
+                     {"Content-Length:100 \r\n",
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+     		      "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"},
+		     Config, [{statuscode, 501}]).
 %%-------------------------------------------------------------------------
 esi() ->
     [{doc, "Test mod_esi"}].
 
 esi(Config) when is_list(Config) -> 
-    ok = http_status("GET /eval?httpd_example:print(\"Hi!\") ",
-		     Config, [{statuscode, 200}]),
-    ok = http_status("GET /eval?not_allowed:print(\"Hi!\") ",
-		     Config, [{statuscode, 403}]),
-    ok = http_status("GET /eval?httpd_example:undef(\"Hi!\") ",
-		      Config, [{statuscode, 500}]),
     ok = http_status("GET /cgi-bin/erl/httpd_example ", 
 		     Config, [{statuscode, 400}]),
     ok = http_status("GET /cgi-bin/erl/httpd_example:get ",
@@ -955,6 +893,17 @@ mod_esi_chunk_timeout(Config) when is_list(Config) ->
 					 proplists:get_value(port, Config),
 					 proplists:get_value(host, Config),
 					 proplists:get_value(node, Config)).
+%%-------------------------------------------------------------------------
+esi_proagate(Config)  when is_list(Config) -> 
+    register(propagate_test, self()),
+    ok = http_status("GET /cgi-bin/erl/httpd_example:new_status_and_location ",
+                  Config, [{statuscode, 201}]),
+    receive
+        {status, 201} ->
+            ok;
+        Err ->
+            ct:fail(Err)
+    end.        
 
 %%-------------------------------------------------------------------------
 cgi() ->
@@ -1245,6 +1194,25 @@ max_content_length(Config) when is_list(Config) ->
 			   proplists:get_value(node, Config), Version).
 
 %%-------------------------------------------------------------------------
+ignore_invalid_header() ->
+    ["RFC 7230 - 3.2.4 ... No whitespace is allowed between the header field-name and colon"].
+ignore_invalid_header(Config) when is_list(Config) ->
+     Host =  proplists:get_value(host, Config),
+     Port =  proplists:get_value(port, Config),
+    {Url, Header, Opts} =
+        case proplists:get_value(type, Config) of
+            ip_comm ->
+                {"http://"  ++ Host ++  ":" ++ integer_to_list(Port) ++ "/cgi-bin/erl/httpd_example:ignore_invalid_header",
+                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], []};
+            ssl ->
+                Conf = proplists:get_value(client_config, proplists:get_value(ssl_conf, Config)),
+                {"https://"  ++ Host ++  ":" ++ integer_to_list(Port) ++ "/cgi-bin/erl/httpd_example:ignore_invalid_header",
+                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, Conf}]}
+        end,
+    {ok,{{_,204,_}, _, _}}
+        = httpc:request(get, {Url, Header}, [{timeout, 45000} | Opts], [{headers_as_is, true}]).
+
+%%-------------------------------------------------------------------------
 security_1_1(Config) when is_list(Config) -> 
     security([{http_version, "HTTP/1.1"} | Config]).
 
@@ -1453,20 +1421,20 @@ do_reconfiger_dies(Config, DisturbingType) ->
     Type = proplists:get_value(type, Config),
 
     HttpdConfig = httpd:info(Server), 
-    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    BlockRequest = http_request("GET /cgi-bin/erl/httpd_example:delay ", Version, Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
     ct:sleep(100), %% Avoid possible timing issues
     Pid = spawn(fun() -> httpd:reload_config([{server_name, "httpd_kill_" ++ Version}, 
-					      {port, Port}|
-					      proplists:delete(server_name, HttpdConfig)], DisturbingType) 
-	  end),
+                                              {port, Port}|
+                                              proplists:delete(server_name, HttpdConfig)], DisturbingType) 
+                end),
     
     monitor(process, Pid),
     exit(Pid, kill),
     receive 
-	{'DOWN', _, _, _, _} ->
-	    ok
+        {'DOWN', _, _, _, _} ->
+            ok
     end,
     inets_test_lib:close(Type, Socket),
     [{server_name, "httpd_test"}] =  httpd:info(Server, [server_name]).
@@ -1487,7 +1455,8 @@ disturbing(Config) when is_list(Config)->
     Port = proplists:get_value(port, Config),
     Type = proplists:get_value(type, Config),
     HttpdConfig = httpd:info(Server), 
-    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version,  Host),
+
+    BlockRequest = http_request("GET /cgi-bin/erl/httpd_example:delay ", Version,  Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
     ct:sleep(100), %% Avoid possible timing issues
@@ -1520,7 +1489,7 @@ non_disturbing(Config) when is_list(Config)->
     Type = proplists:get_value(type, Config),
 
     HttpdConfig = httpd:info(Server), 
-    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    BlockRequest = http_request("GET /cgi-bin/erl/httpd_example:delay ", Version, Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
     ct:sleep(100), %% Avoid possible timing issues
@@ -1536,6 +1505,34 @@ non_disturbing(Config) when is_list(Config)->
     end,
     inets_test_lib:close(Type, Socket),
     [{server_name, "httpd_non_disturbing_" ++ Version}] =  httpd:info(Server, [server_name]).
+%%-------------------------------------------------------------------------
+reload_config_file(Config) when is_list(Config) ->
+    ServerRoot = proplists:get_value(server_root, Config),
+    HttpdConf = filename:join(get_tmp_dir(Config), "inets_httpd_server.conf"),
+    ServerConfig =
+        "[\n" ++
+        "{bind_address, \"localhost\"}," ++
+        "{port,0}," ++
+        "{server_name,\"httpd_test\"}," ++
+        "{server_root,\"" ++ ServerRoot ++  "\"}," ++
+        "{document_root,\"" ++ proplists:get_value(doc_root, Config) ++ "\"}" ++
+        "].",
+    ok = file:write_file(HttpdConf, ServerConfig),
+    {ok, Server} = inets:start(httpd, [{proplist_file, HttpdConf}]),
+    Port = proplists:get_value(port, httpd:info(Server)),
+    NewConfig =
+        "[\n" ++
+        "{bind_address, \"localhost\"}," ++
+        "{port," ++ integer_to_list(Port) ++ "}," ++
+        "{server_name,\"httpd_test_new\"}," ++
+        "{server_root,\"" ++ ServerRoot ++  "\"}," ++
+        "{document_root,\"" ++ proplists:get_value(doc_root, Config) ++ "\"}" ++
+        "].",
+    
+    %% Test Erlang term format
+    ok = file:write_file(HttpdConf, NewConfig),
+    ok = httpd:reload_config(HttpdConf, non_disturbing),
+    "httpd_test_new" = proplists:get_value(server_name, httpd:info(Server)).
 
 %%-------------------------------------------------------------------------
 mime_types_format(Config) when is_list(Config) -> 
@@ -1647,6 +1644,94 @@ mime_types_format(Config) when is_list(Config) ->
      {"cpt","application/mac-compactpro"},
      {"hqx","application/mac-binhex40"}]} = httpd_conf:load_mime_types(MimeTypes).
 
+erl_script_timeout_default(Config) when is_list(Config) ->
+    inets:start(),
+    {ok, Pid} =	inets:start(httpd,
+                            [{port, 0},
+                             {server_name,"localhost"},
+                             {server_root,"./"},
+                             {document_root,"./"},
+                             {bind_address, any},
+                             {mimetypes, [{"html", "text/html"}]},
+                             {modules,[mod_esi]},
+                             {erl_script_alias, {"/erl", [httpd_example]}}
+                            ]),
+    Info = httpd:info(Pid),
+
+    Port = proplists:get_value(port, Info),
+
+    %% Default erl_script_timeout is 15.
+    %% Verify:  13 =< erl_script_timeout =< 17
+    Url = http_get_url(Port, 500, 13000, 4000),
+
+    {ok, {_, _, Body}} = httpc:request(get, {Url, []}, [{timeout, 45000}], []),
+    ct:log("Response: ~p~n", [Body]),
+    verify_body(Body, 13000),
+    inets:stop().
+
+erl_script_timeout_option(Config) when is_list(Config) ->
+    inets:start(),
+    {ok, Pid} =	inets:start(httpd,
+                            [{port, 0},
+                             {server_name,"localhost"},
+                             {server_root,"./"},
+                             {document_root,"./"},
+                             {bind_address, any},
+                             {mimetypes, [{"html", "text/html"}]},
+                             {modules,[mod_esi]},
+                             {erl_script_timeout, 2},
+                             {erl_script_alias, {"/erl", [httpd_example]}}
+                            ]),
+    Info = httpd:info(Pid),
+    verify_timeout(Info, 2),
+
+    Port = proplists:get_value(port, Info),
+
+    %% Verify:  1 =< erl_script_timeout =< 3
+    Url = http_get_url(Port, 500, 1000, 2000),
+
+    {ok, {_, _, Body}} = httpc:request(Url),
+    ct:log("Response: ~p~n", [Body]),
+    verify_body(Body, 1000),
+    inets:stop().
+
+erl_script_timeout_proplist(Config) when is_list(Config) ->
+    HttpdConf = filename:join(get_tmp_dir(Config),
+                              "httpd_erl_script_timeout_proplist.conf"),
+    ServerConfig =
+        "[{port, 0},\n" ++
+        " {server_name,\"localhost\"},\n" ++
+        " {server_root,\"./\"},\n" ++
+        " {document_root,\"./\"},\n" ++
+        " {bind_address, any},\n" ++
+        " {mimetypes, [{\"html\", \"text/html\"}]},\n" ++
+        " {modules,[mod_esi]},\n" ++
+        " {erl_script_timeout, 5},\n" ++
+        " {erl_script_alias, {\"/erl\", [httpd_example]}}\n" ++
+        "].",
+    ok = file:write_file(HttpdConf, ServerConfig),
+
+    inets:start(),
+    {ok, Pid} =	inets:start(httpd,
+                            [{proplist_file, HttpdConf}]),
+    Info = httpd:info(Pid),
+    verify_timeout(Info, 5),
+
+    Port = proplists:get_value(port, Info),
+
+    %% Verify:  3 =< erl_script_timeout =< 7
+    Url = http_get_url(Port, 500, 3000, 4000),
+
+    {ok, {_, _, Body}} = httpc:request(Url),
+    ct:log("Response: ~p~n", [Body]),
+    verify_body(Body, 3000),
+    inets:stop().
+
+tls_alert(Config) when is_list(Config) ->
+    SSLOpts = proplists:get_value(client_alert_conf, Config),    
+    Port = proplists:get_value(port, Config),    
+    {error, {tls_alert, _}} = ssl:connect("localhost", Port, [{verify, verify_peer} | SSLOpts]).
+
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -1655,6 +1740,38 @@ url(http, End, Config) ->
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
 
+http_get_url(Port0, HeaderDelay, ChunkDelay, BadChunkDelay) ->
+    {ok, Host} = inet:gethostname(),
+    Port = integer_to_list(Port0),
+    HD = integer_to_list(HeaderDelay),
+    CD = integer_to_list(ChunkDelay),
+    BD = integer_to_list(BadChunkDelay),
+    "http://" ++ Host ++ ":" ++ Port ++
+        "/erl/httpd_example/get_chunks?header_delay=" ++ HD ++
+        "&chunk_delay=" ++ CD ++
+        "&bad_chunk_delay=" ++ BD.
+
+verify_body(Body, Timeout0) ->
+    Timeout = integer_to_list(Timeout0),
+    Res = string:find(Body, Timeout),
+    ct:log("Result: ~p~n", [Res]),
+    %% Fail if BAD chunk is found.
+    case Res =:= Timeout ++ " ms\r\n" of
+        true ->
+            ok;
+        false ->
+            ct:fail("Unexpected chunk received!")
+    end.
+
+verify_timeout(Info, Expected) ->
+    Timeout = proplists:get_value(erl_script_timeout, Info),
+    case Timeout =:= Expected of
+        true ->
+            ok;
+        false ->
+            ct:fail("Bad Timeout - Expected: ~p Got: ~p", [Expected, Timeout])
+    end.
+
 do_max_clients(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host    = proplists:get_value(host, Config),
@@ -1662,10 +1779,9 @@ do_max_clients(Config) ->
     Type    = proplists:get_value(type, Config),
     
     Request = http_request("GET /index.html ", Version, Host),
-    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    BlockRequest = http_request("GET /cgi_bin/erl/httpd_example:delay ", Version, Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
-    ct:sleep(100), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
@@ -1728,7 +1844,15 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     {ok, FileInfo1} = file:read_file_info(EnvCGI),
     ok = file:write_file_info(EnvCGI, 
 			      FileInfo1#file_info{mode = 8#00755}).
-    
+
+setup_tmp_dir(PrivDir) ->
+    TmpDir =  filename:join(PrivDir, "tmp"),
+    ok = file:make_dir(TmpDir).
+
+get_tmp_dir(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    filename:join(PrivDir, "tmp").
+
 start_apps(Group) when  Group == https_basic;
 			Group == https_limit;
 			Group == https_custom;
@@ -1736,9 +1860,10 @@ start_apps(Group) when  Group == https_basic;
 			Group == https_auth_api;
 			Group == https_auth_api_dets;
 			Group == https_auth_api_mnesia;
-			Group == https_htaccess;
 			Group == https_security;
-			Group == https_reload
+			Group == https_reload;
+                        Group == https_not_sup;
+                        Group == https_alert
 			->
     inets_test_lib:start_apps([inets, asn1, crypto, public_key, ssl]);
 start_apps(Group) when  Group == http_basic;
@@ -1748,11 +1873,13 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_auth_api;
 			Group == http_auth_api_dets;
 			Group == http_auth_api_mnesia;			
-			Group == http_htaccess;
 			Group == http_security;
 			Group == http_logging;
 			Group == http_reload;
                         Group == http_post;
+                        Group == http_mime_types;
+                        Group == http_rel_path_script_alias;
+                        Group == http_not_sup;
                         Group == http_mime_types->
     inets_test_lib:start_apps([inets]).
 
@@ -1763,32 +1890,24 @@ server_start(_, HttpdConfig) ->
     {Pid, proplists:get_value(port, Info)}.
 
 init_ssl(Group, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CaKey = {_Trusted,_} = 
-	erl_make_certs:make_cert([{key, dsa},
-				  {subject, 
-				   [{name, "Public Key"},
-				    {?'id-at-name', 
-				     {printableString, "public_key"}},
-				    {?'id-at-pseudonym', 
-				     {printableString, "pubkey"}},
-				    {city, "Stockholm"},
-				    {country, "SE"},
-				    {org, "erlang"},
-				    {org_unit, "testing dep"}
-				   ]}
-				 ]),
-    ok = erl_make_certs:write_pem(PrivDir, "public_key_cacert", CaKey),
-    
-    CertK1 = {_Cert1, _} = erl_make_certs:make_cert([{issuer, CaKey}]),
-    CertK2 = {_Cert2,_} = erl_make_certs:make_cert([{issuer, CertK1}, 
-						   {digest, md5}, 
-						   {extensions, false}]),
-    ok = erl_make_certs:write_pem(PrivDir, "public_key_cert", CertK2),
-
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
+    GenCertData = #{client_config := CConf} =
+        public_key:pkix_test_data(#{server_chain => 
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}
+                                                  ]},
+                                    client_chain => 
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}]}}),
+    [_ | CAs] = proplists:get_value(cacerts, CConf),
+    AlertConf = [{cacerts, CAs} |  proplists:delete(cacerts, CConf)],                 
+    Conf = inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),                               
     case start_apps(Group) of
 	ok ->
-	    init_httpd(Group, [{type, ssl} | Config]);
+	    init_httpd(Group, [{client_alert_conf, AlertConf}, {type, ssl}, {ssl_conf, Conf} | Config]);
 	_ ->
 	    {skip, "Could not start https apps"}
     end.
@@ -1797,6 +1916,10 @@ server_config(http_basic, Config) ->
     basic_conf() ++ server_config(http, Config);
 server_config(https_basic, Config) ->
     basic_conf() ++ server_config(https, Config);
+server_config(http_not_sup, Config) ->
+    not_sup_conf() ++ server_config(http, Config);
+server_config(https_not_sup, Config) ->
+    not_sup_conf() ++ server_config(https, Config);
 server_config(http_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(http, Config);
 server_config(http_post, Config) ->
@@ -1805,6 +1928,7 @@ server_config(https_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(https, Config);
 server_config(http_limit, Config) ->
     Conf = [{max_clients, 1},
+            {disable_chunked_transfer_encoding_send, true},
 	    %% Make sure option checking code is run
 	    {max_content_length, 100000002}]  ++ server_config(http, Config),
     ct:pal("Received message ~p~n", [Conf]),
@@ -1814,7 +1938,9 @@ server_config(http_custom, Config) ->
 server_config(https_custom, Config) ->
     [{customize, ?MODULE}]  ++ server_config(https, Config);
 server_config(https_limit, Config) ->
-    [{max_clients, 1}]  ++ server_config(https, Config);
+    [{max_clients, 1},
+     {disable_chunked_transfer_encoding_send, true}
+    ]  ++ server_config(https, Config);
 server_config(http_basic_auth, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
     auth_conf(ServerRoot)  ++  server_config(http, Config);
@@ -1839,10 +1965,6 @@ server_config(http_auth_api_mnesia, Config) ->
 server_config(https_auth_api_mnesia, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
     auth_api_conf(ServerRoot, mnesia)  ++  server_config(https, Config);
-server_config(http_htaccess, Config) ->
-    auth_access_conf() ++ server_config(http, Config);
-server_config(https_htaccess, Config) ->
-    auth_access_conf() ++ server_config(https, Config);
 server_config(http_security, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
     tl(auth_conf(ServerRoot)) ++ security_conf(ServerRoot) ++ server_config(http, Config);
@@ -1856,7 +1978,8 @@ server_config(http_mime_types, Config0) ->
     ServerRoot = proplists:get_value(server_root, Config0),
     MimeTypesFile = filename:join([ServerRoot,"config", "mime.types"]),
     [{mime_types, MimeTypesFile} | proplists:delete(mime_types, Config1)];
-
+server_config(https_alert, Config) ->
+    basic_conf() ++ server_config(https, Config);
 server_config(http, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
     [{port, 0},
@@ -1875,21 +1998,34 @@ server_config(http, Config) ->
      {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
      {script_alias, {"/cgi-bin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}},
      {script_alias, {"/htbin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}},
-     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}},
-     {eval_script_alias, {"/eval", [httpd_example, io]}}
+     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}}
     ];
-
+server_config(http_rel_path_script_alias, Config) ->
+    ServerRoot = proplists:get_value(server_root, Config),
+    [{port, 0},
+     {socket_type, {ip_comm, [{nodelay, true}]}},
+     {server_name,"httpd_test"},
+     {server_root, ServerRoot},
+     {document_root, proplists:get_value(doc_root, Config)},
+     {bind_address, any},
+     {ipfamily, proplists:get_value(ipfamily, Config)},
+     {max_header_size, 256},
+     {max_header_action, close},
+     {directory_index, ["index.html", "welcome.html"]},
+     {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
+		   {"gif", "image/gif"}]},
+     {alias, {"/icons/", filename:join(ServerRoot,"icons") ++ "/"}},
+     {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
+     {script_alias, {"/cgi-bin/", "./cgi-bin/"}},
+     {script_alias, {"/htbin/", "./cgi-bin/"}},
+     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}}
+    ];
 server_config(https, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
+    SSLConf = proplists:get_value(ssl_conf, Config),
+    ServerConf = proplists:get_value(server_config, SSLConf),
     [{socket_type, {essl,
-		    [{nodelay, true},
-		     {cacertfile, 
-		      filename:join(PrivDir, "public_key_cacert.pem")},
-		     {certfile, 
-		      filename:join(PrivDir, "public_key_cert.pem")},
-		     {keyfile,
-		      filename:join(PrivDir, "public_key_cert_key.pem")}
-		    ]}}] ++ proplists:delete(socket_type, server_config(http, Config)).
+		    [{nodelay, true} | ServerConf]}}]
+        ++ proplists:delete(socket_type, server_config(http, Config)).
 
 init_httpd(Group, Config0) ->
     Config1 = proplists:delete(port, Config0),
@@ -1930,11 +2066,24 @@ head_status(_) ->
 
 basic_conf() ->
     [{modules, [mod_alias, mod_range, mod_responsecontrol,
-		mod_trace, mod_esi, mod_cgi, mod_dir, mod_get, mod_head]}].
+		mod_trace, mod_esi, ?MODULE, mod_cgi, mod_get, mod_head]},
+     {logger, [{error, httpd_test}]}].
+
+do(ModData) ->
+    case whereis(propagate_test) of
+        undefined ->
+            ok;
+        _ ->
+            {already_sent, Status, _Size} = proplists:get_value(response, ModData#mod.data),
+            propagate_test ! {status, Status}              
+    end,
+    {proceed, ModData#mod.data}.
+
+not_sup_conf() ->
+    [{modules, [mod_get]}].
 
 auth_access_conf() ->
-    [{modules, [mod_alias, mod_htaccess, mod_dir, mod_get, mod_head]},
-     {access_files, [".htaccess"]}].
+    [{modules, [mod_alias, mod_dir, mod_get, mod_head]}].
 
 auth_conf(Root) ->
     [{modules, [mod_alias, mod_auth, mod_dir, mod_get, mod_head]},
@@ -2144,9 +2293,9 @@ cleanup_mnesia() ->
     ok.
 
 transport_opts(ssl, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    [proplists:get_value(ipfamily, Config),
-     {cacertfile, filename:join(PrivDir, "public_key_cacert.pem")}];
+    SSLConf = proplists:get_value(ssl_conf, Config),
+    ClientConf = proplists:get_value(client_config, SSLConf),
+    [proplists:get_value(ipfamily, Config) | ClientConf];
 transport_opts(_, Config) ->
     [proplists:get_value(ipfamily, Config)].
 
@@ -2164,103 +2313,6 @@ create_range_data(Path) ->
 	_ ->
 	    ok
     end.
-
-%%% mod_htaccess
-create_htaccess_data(Path, IpAddress)->
-    create_htaccess_dirs(Path),
-    
-    create_html_file(filename:join([Path,"ht/open/dummy.html"])),
-    create_html_file(filename:join([Path,"ht/blocknet/dummy.html"])),
-    create_html_file(filename:join([Path,"ht/secret/dummy.html"])),
-    create_html_file(filename:join([Path,"ht/secret/top_secret/dummy.html"])),
-    
-    create_htaccess_file(filename:join([Path,"ht/open/.htaccess"]),
-			 Path, "user one Aladdin"),
-    create_htaccess_file(filename:join([Path,"ht/secret/.htaccess"]),
-			 Path, "group group1 group2"),
-    create_htaccess_file(filename:join([Path,
-				       "ht/secret/top_secret/.htaccess"]),
-			Path, "user four"),
-    create_htaccess_file(filename:join([Path,"ht/blocknet/.htaccess"]),
-			Path, nouser, IpAddress),
-   
-    create_user_group_file(filename:join([Path,"ht","users.file"]),
-			   "one:OnePassword\ntwo:TwoPassword\nthree:"
-			   "ThreePassword\nfour:FourPassword\nAladdin:"
-			   "AladdinPassword"),
-    create_user_group_file(filename:join([Path,"ht","groups.file"]),
-			   "group1: two one\ngroup2: two three").
-
-create_html_file(PathAndFileName)->
-    file:write_file(PathAndFileName,list_to_binary(
-	 "<html><head><title>test</title></head>
-         <body>testar</body></html>")).
-
-create_htaccess_file(PathAndFileName, BaseDir, RequireData)->
-    file:write_file(PathAndFileName,
-		    list_to_binary(
-		      "AuthUserFile "++ BaseDir ++
-		      "/ht/users.file\nAuthGroupFile "++ BaseDir
-		      ++ "/ht/groups.file\nAuthName Test\nAuthType"
-		      " Basic\n<Limit>\nrequire " ++ RequireData ++
-		      "\n</Limit>")).
-
-create_htaccess_file(PathAndFileName, BaseDir, nouser, IpAddress)->
-    file:write_file(PathAndFileName,list_to_binary(
-				      "AuthUserFile "++ BaseDir ++
-				      "/ht/users.file\nAuthGroupFile " ++ 
-				      BaseDir ++ "/ht/groups.file\nAuthName"
-				      " Test\nAuthType"
-				      " Basic\n<Limit GET>\n\tallow from " ++ 
-				      format_ip(IpAddress,
-						string:rchr(IpAddress,$.)) ++ 
-				      "\n</Limit>")).
-
-create_user_group_file(PathAndFileName, Data)->
-    file:write_file(PathAndFileName, list_to_binary(Data)).
-
-create_htaccess_dirs(Path)->
-    ok = file:make_dir(filename:join([Path,"ht"])),
-    ok = file:make_dir(filename:join([Path,"ht/open"])),
-    ok = file:make_dir(filename:join([Path,"ht/blocknet"])),
-    ok = file:make_dir(filename:join([Path,"ht/secret"])),
-    ok = file:make_dir(filename:join([Path,"ht/secret/top_secret"])).
-
-remove_htaccess_dirs(Path)->
-    file:del_dir(filename:join([Path,"ht/secret/top_secret"])),
-    file:del_dir(filename:join([Path,"ht/secret"])),
-    file:del_dir(filename:join([Path,"ht/blocknet"])),
-    file:del_dir(filename:join([Path,"ht/open"])),
-    file:del_dir(filename:join([Path,"ht"])).
-
-format_ip(IpAddress,Pos)when Pos > 0->
-    case lists:nth(Pos,IpAddress) of
-	$.->
-	    case lists:nth(Pos-2,IpAddress) of
-		$.->
-		   format_ip(IpAddress,Pos-3);
-		_->
-		    lists:sublist(IpAddress,Pos-2) ++ "."
-	    end;
-	_ ->
-	    format_ip(IpAddress,Pos-1)
-    end;
-
-format_ip(IpAddress, _Pos)->
-    "1" ++ IpAddress.
-
-remove_htaccess(Path)->
-    file:delete(filename:join([Path,"ht/open/dummy.html"])),
-    file:delete(filename:join([Path,"ht/secret/dummy.html"])),
-    file:delete(filename:join([Path,"ht/secret/top_secret/dummy.html"])),
-    file:delete(filename:join([Path,"ht/blocknet/dummy.html"])),
-    file:delete(filename:join([Path,"ht/blocknet/.htaccess"])),
-    file:delete(filename:join([Path,"ht/open/.htaccess"])),
-    file:delete(filename:join([Path,"ht/secret/.htaccess"])),
-    file:delete(filename:join([Path,"ht/secret/top_secret/.htaccess"])),
-    file:delete(filename:join([Path,"ht","users.file"])),
-    file:delete(filename:join([Path,"ht","groups.file"])),
-    remove_htaccess_dirs(Path).
 
 dos_hostname(Type, Port, Host, Node, Version, Max) ->    
     TooLongHeader = lists:append(lists:duplicate(Max + 1, "a")),

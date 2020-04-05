@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1997</year>
-      <year>2017</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -34,7 +34,7 @@
     <rev>D</rev>
     <file>disk_log.sgml</file>
   </header>
-  <module>disk_log</module>
+  <module since="">disk_log</module>
   <modulesummary>A disk-based term logging facility.</modulesummary>
   <description>
     <p><c>disk_log</c> is a disk-based term logger that enables
@@ -68,7 +68,7 @@
 
     <p>For each open disk log, one process handles requests
       made to the disk log. This process is created when
-      <seealso marker="#open/1"><c>open/1</c></seealso>
+      <seemfa marker="#open/1"><c>open/1</c></seemfa>
       is called, provided there exists no process handling the disk log.
       A process that opens a disk log can be an <em>owner</em>
       or an anonymous <em>user</em> of the disk log. Each owner is 
@@ -79,7 +79,7 @@
       messages of the form <c>{disk_log, Node, Log, Info}</c>, which are sent
       from the disk log process when certain events occur, see 
       the functions and in particular the <c>open/1</c> option
-      <seealso marker="#notify"><c>notify</c></seealso>.
+      <seeerl marker="#notify"><c>notify</c></seeerl>.
       A log can have many owners, but a process cannot own a
       log more than once. However, the same process can open the log
       as a user more than once.</p>
@@ -89,10 +89,10 @@
       and there must not be any users left when the disk log process terminates.
       </p>
     <p>Items can be logged <em>synchronously</em> by using functions
-      <seealso marker="#log/2"><c>log/2</c></seealso>,
-      <seealso marker="#blog/2"><c>blog/2</c></seealso>,
-      <seealso marker="#log_terms/2"><c>log_terms/2</c></seealso>, and
-      <seealso marker="#blog_terms/2"><c>blog_terms/2</c></seealso>.
+      <seemfa marker="#log/2"><c>log/2</c></seemfa>,
+      <seemfa marker="#blog/2"><c>blog/2</c></seemfa>,
+      <seemfa marker="#log_terms/2"><c>log_terms/2</c></seemfa>, and
+      <seemfa marker="#blog_terms/2"><c>blog_terms/2</c></seemfa>.
       For each of these functions, the caller is put
       on hold until the items are logged (but not necessarily
       written, use <c>sync/1</c> to ensure that). By adding an <c>a</c>
@@ -102,10 +102,10 @@
       return the control to the caller more or less immediately.
       </p>
     <p>When using the internal format for logs, use functions
-      <seealso marker="#log/2"><c>log/2</c></seealso>,
-      <seealso marker="#log_terms/2"><c>log_terms/2</c></seealso>,
-      <seealso marker="#alog/2"><c>alog/2</c></seealso>, and
-      <seealso marker="#alog_terms/2"><c>alog_terms/2</c></seealso>.
+      <seemfa marker="#log/2"><c>log/2</c></seemfa>,
+      <seemfa marker="#log_terms/2"><c>log_terms/2</c></seemfa>,
+      <seemfa marker="#alog/2"><c>alog/2</c></seemfa>, and
+      <seemfa marker="#alog_terms/2"><c>alog_terms/2</c></seemfa>.
       These functions log one or more Erlang terms.
       By prefixing each of the functions with a <c>b</c> (for "binary"),
       we get the corresponding <c>blog()</c> functions for the external format.
@@ -117,16 +117,20 @@
       <p>The <c>blog()</c> functions can also be used for internally formatted
       logs, but in this case they must be called with binaries constructed
       with calls to
-      <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+      <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
       There is no check to ensure
       this, it is entirely the responsibility of the caller. If these
       functions are called with binaries that do not correspond to
       Erlang terms, the
-      <seealso marker="#chunk/2"><c>chunk/2,3</c></seealso>
+      <seemfa marker="#chunk/2"><c>chunk/2,3</c></seemfa>
       and automatic repair
       functions fail. The corresponding terms (not the binaries)
       are returned when <c>chunk/2,3</c> is called.
       </p>
+      <note><p>
+	The distributed disk log feature has been deprecated. This
+	feature has also been scheduled for removal in OTP 24.
+      </p></note>
     <p>A collection of open disk logs with the same name running on
       different nodes is said to be a <em>distributed disk log</em>
       if requests made to any of the logs are automatically made to
@@ -138,11 +142,11 @@
       request was made before written to the other nodes. However,
       a few functions do not make requests to all
       members of distributed disk logs, namely
-      <seealso marker="#info/1"><c>info/1</c></seealso>,
-      <seealso marker="#chunk/2"><c>chunk/2,3</c></seealso>,
-      <seealso marker="#bchunk/2"><c>bchunk/2,3</c></seealso>,
-      <seealso marker="#chunk_step/3"><c>chunk_step/3</c></seealso>, and
-      <seealso marker="#lclose/1"><c>lclose/1,2</c></seealso>.</p>
+      <seemfa marker="#info/1"><c>info/1</c></seemfa>,
+      <seemfa marker="#chunk/2"><c>chunk/2,3</c></seemfa>,
+      <seemfa marker="#bchunk/2"><c>bchunk/2,3</c></seemfa>,
+      <seemfa marker="#chunk_step/3"><c>chunk_step/3</c></seemfa>, and
+      <seemfa marker="#lclose/1"><c>lclose/1,2</c></seemfa>.</p>
      <p>An open disk log that is not a distributed disk
       log is said to be a <em>local disk log</em>. A local disk log is
       only accessible from the node where the disk log process runs,
@@ -177,10 +181,10 @@
       receive an <c>error_status</c> message. 
       </p>
     <p>The <c>disk_log</c> module does not report errors to the
-      <seealso marker="error_logger"><c>error_logger</c></seealso>
+      <seeerl marker="error_logger"><c>error_logger</c></seeerl>
       module. It is up to the caller to decide
       whether to employ the error logger. Function
-      <seealso marker="#format_error/1"><c>format_error/1</c></seealso>
+      <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>
       can be used to produce readable messages from error replies.
       However, information events are sent to the error logger in two
       situations, namely when a log is repaired, or when a file is missing
@@ -192,12 +196,12 @@
       </p>
     <note>
       <p>If an attempt to reopen or truncate a log fails (see
-        <seealso marker="#reopen/2"><c>reopen/2,3</c></seealso>
+        <seemfa marker="#reopen/2"><c>reopen/2,3</c></seemfa>
 	and
-	<seealso marker ="#truncate/1"><c>truncate/1,2</c></seealso>)
+	<seemfa marker="#truncate/1"><c>truncate/1,2</c></seemfa>)
 	the disk log process terminates immediately. Before the process
 	terminates, links to owners and blocking processes (see
-	<seealso marker="#block/1"><c>block/1,2</c></seealso>) are removed.
+	<seemfa marker="#block/1"><c>block/1,2</c></seemfa>) are removed.
         The effect is that the links work in one direction only. Any
         process using a disk log must check for error message
         <c>no_such_log</c> if some other process truncates or
@@ -238,7 +242,7 @@
   </datatypes>
   <funcs>
     <func>
-      <name name="accessible_logs" arity="0"/>
+      <name name="accessible_logs" arity="0" since=""/>
       <fsummary>Return the accessible disk logs on the current node.</fsummary>
       <desc>
         <p>Returns the names of the disk logs accessible on the current node.
@@ -248,8 +252,8 @@
       </desc>
     </func>
     <func>
-      <name name="alog" arity="2"/>
-      <name name="balog" arity="2"/>
+      <name name="alog" arity="2" since=""/>
+      <name name="balog" arity="2" since=""/>
       <fsummary>Asynchronously log an item on to a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Term" name_i="1"/>
@@ -261,7 +265,7 @@
           for externally formatted logs. <c>balog/2</c> can also be used
           for internally formatted logs if the binary is
           constructed with a call to
-	  <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+	  <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
           </p>
         <p>Owners subscribing to notifications receive
           message <c>read_only</c>, <c>blocked_log</c>,
@@ -275,8 +279,8 @@
       </desc>
     </func>
     <func>
-      <name name="alog_terms" arity="2"/>
-      <name name="balog_terms" arity="2"/>
+      <name name="alog_terms" arity="2" since=""/>
+      <name name="balog_terms" arity="2" since=""/>
       <fsummary>Asynchronously log many items on to a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="TermList" name_i="1"/>
@@ -289,7 +293,7 @@
           for externally formatted logs. <c>balog_terms/2</c> can also be used
           for internally formatted logs if the binaries are
           constructed with calls to
-	  <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+	  <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
           </p>
         <p>Owners subscribing to notifications receive
           message <c>read_only</c>, <c>blocked_log</c>,
@@ -303,8 +307,8 @@
       </desc>
     </func>
     <func>
-      <name name="block" arity="1"/>
-      <name name="block" arity="2"/>
+      <name name="block" arity="1" since=""/>
+      <name name="block" arity="2" since=""/>
       <fsummary>Block a disk log.</fsummary>
       <type name="block_error_rsn"/>
       <desc>
@@ -330,21 +334,21 @@
       </desc>
     </func>
     <func>
-      <name name="change_header" arity="2"/>
+      <name name="change_header" arity="2" since=""/>
       <fsummary>Change option head or head_func for an owner of a disk log.</fsummary>
       <desc>
         <p>Changes the value of option <c>head</c> or <c>head_func</c> for an owner of a disk log.</p>
       </desc>
     </func>
     <func>
-      <name name="change_notify" arity="3"/>
+      <name name="change_notify" arity="3" since=""/>
       <fsummary>Change option notify for an owner of a disk log.</fsummary>
       <desc>
         <p>Changes the value of option <c>notify</c> for an owner of a disk log. </p>
       </desc>
     </func>
     <func>
-      <name name="change_size" arity="2"/>
+      <name name="change_size" arity="2" since=""/>
       <fsummary>Change the size of an open disk log.</fsummary>
       <desc>
         <p>Changes the size of an open log.
@@ -378,16 +382,16 @@
           </p>
         <p>If the log size is decreased, for example, to save space,
           function
-	  <seealso marker="#inc_wrap_file/1"><c>inc_wrap_file/1</c></seealso>
+	  <seemfa marker="#inc_wrap_file/1"><c>inc_wrap_file/1</c></seemfa>
 	  can be used to force the log to wrap.
           </p>
       </desc>
     </func>
     <func>
-      <name name="chunk" arity="2"/>
-      <name name="chunk" arity="3"/>
-      <name name="bchunk" arity="2"/>
-      <name name="bchunk" arity="3"/>
+      <name name="chunk" arity="2" since=""/>
+      <name name="chunk" arity="3" since=""/>
+      <name name="bchunk" arity="2" since=""/>
+      <name name="bchunk" arity="3" since=""/>
       <fsummary>Read a chunk of items written to a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Continuation"/>
@@ -447,7 +451,7 @@
       </desc>
     </func>
     <func>
-      <name name="chunk_info" arity="1"/>
+      <name name="chunk_info" arity="1" since=""/>
       <fsummary>Return information about a chunk continuation of a disk log.</fsummary>
       <desc>
         <p>Returns the pair <c>{node, <anno>Node</anno>}</c>,
@@ -457,7 +461,7 @@
       </desc>
     </func>
     <func>
-      <name name="chunk_step" arity="3"/>
+      <name name="chunk_step" arity="3" since=""/>
       <fsummary>Step forward or backward among the wrap log files of a disk log.</fsummary>
       <desc>
         <p>Can be used with <c>chunk/2,3</c> and <c>bchunk/2,3</c>
@@ -480,7 +484,7 @@
       </desc>
     </func>
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a disk log.</fsummary>
       <type name="close_error_rsn"/>
       <desc>
@@ -505,19 +509,19 @@
       </desc>
     </func>
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Return an English description of a disk log error reply.</fsummary>
       <desc>
         <p>Given the error returned by any function in this module, 
           this function returns a descriptive string
           of the error in English. For file errors, function
           <c>format_error/1</c> in module
-	  <seealso marker="file#format_error/1"><c>file</c></seealso>
+	  <seemfa marker="file#format_error/1"><c>file</c></seemfa>
 	  is called.</p>
       </desc>
     </func>
     <func>
-      <name name="inc_wrap_file" arity="1"/>
+      <name name="inc_wrap_file" arity="1" since=""/>
       <fsummary>Change to the next wrap log file of a disk log.</fsummary>
       <type name="inc_wrap_error_rsn"/>
       <type name="invalid_header"/>
@@ -534,7 +538,7 @@
       </desc>
     </func>
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since=""/>
       <fsummary>Return information about a disk log.</fsummary>
       <type name="dlog_info"/>
       <desc>
@@ -589,7 +593,7 @@
           <item>
             <p><c><anno>Users</anno></c> is the number
               of anonymous users of the log, see the <c>open/1</c> option
-              <seealso marker="#linkto"><c>linkto</c></seealso>.</p>
+              <seeerl marker="#linkto"><c>linkto</c></seeerl>.</p>
           </item>
 	  <tag><c>{status, <anno>Status</anno>}</c></tag>
           <item>
@@ -609,6 +613,10 @@
               the current node, <c><anno>Dist</anno></c> has the value <c>local</c>,
               otherwise all nodes where the log is distributed
               are returned as a list.</p>
+	    <warning><p>
+	      The distributed disk log feature has been deprecated. This
+	      feature has also been scheduled for removal in OTP 24.
+	    </p></warning>
           </item>
         </taglist>
         <p>The following pairs are returned for all logs opened in 
@@ -685,8 +693,8 @@
       </desc>
     </func>
     <func>
-      <name name="lclose" arity="1"/>
-      <name name="lclose" arity="2"/>
+      <name name="lclose" arity="1" since=""/>
+      <name name="lclose" arity="2" since=""/>
       <fsummary>Close a disk log on one node.</fsummary>
       <type name="lclose_error_rsn"/>
       <desc>
@@ -696,7 +704,7 @@
 	specified node if the node is not the current one.</p>
         <p><c>lclose(<anno>Log</anno>)</c> is equivalent to
           <c>lclose(<anno>Log</anno>,&nbsp;node())</c>.
-          See also <seealso marker="#close_1"><c>close/1</c></seealso>.
+          See also <seeerl marker="#close_1"><c>close/1</c></seeerl>.
           </p>
         <p>If no log with the specified name exist on the specified node,
 	<c>no_such_log</c> is returned.
@@ -704,8 +712,8 @@
       </desc>
     </func>
     <func>
-      <name name="log" arity="2"/>
-      <name name="blog" arity="2"/>
+      <name name="log" arity="2" since=""/>
+      <name name="blog" arity="2" since=""/>
       <fsummary>Log an item onto a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Term" name_i="1"/>
@@ -722,7 +730,7 @@
           is written to disk, it can linger in
           the operating system kernel for a while. To ensure that the
           item is written to disk, function
-	  <seealso marker="#sync/1"><c>sync/1</c></seealso>
+	  <seemfa marker="#sync/1"><c>sync/1</c></seemfa>
           must be called.
           </p>
         <p><c>log/2</c> is used for internally formatted logs,
@@ -730,8 +738,8 @@
           <c>blog/2</c> can also be used
           for internally formatted logs if the binary is
           constructed with a call to
-	  <seealso marker="erts:erlang#term_to_binary/1">
-	  <c>term_to_binary/1</c></seealso>.</p>
+	  <seemfa marker="erts:erlang#term_to_binary/1">
+	  <c>term_to_binary/1</c></seemfa>.</p>
         <p>Owners subscribing to notifications are notified
           of an error with an <c>error_status</c> message if the error 
           reason tag is <c>invalid_header</c> or <c>file_error</c>.
@@ -739,8 +747,8 @@
       </desc>
     </func>
     <func>
-      <name name="log_terms" arity="2"/>
-      <name name="blog_terms" arity="2"/>
+      <name name="log_terms" arity="2" since=""/>
+      <name name="blog_terms" arity="2" since=""/>
       <fsummary>Log many items onto a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="TermList" name_i="1"/>
@@ -759,8 +767,8 @@
           <c>blog_terms/2</c> can also be used
           for internally formatted logs if the binaries are
           constructed with calls to
-	  <seealso marker="erts:erlang#term_to_binary/1">
-	  <c>term_to_binary/1</c></seealso>.</p>
+	  <seemfa marker="erts:erlang#term_to_binary/1">
+	  <c>term_to_binary/1</c></seemfa>.</p>
         <p>Owners subscribing to notifications are notified
           of an error with an <c>error_status</c> message if the error 
           reason tag is <c>invalid_header</c> or <c>file_error</c>.
@@ -768,7 +776,7 @@
       </desc>
     </func>
     <func>
-      <name name="open" arity="1"/>
+      <name name="open" arity="1" since=""/>
       <fsummary>Open a disk log file.</fsummary>
       <type name="dlog_options"/>
       <type name="dlog_option"/>
@@ -871,7 +879,11 @@
               adding members to a distributed disk log.
               Defaults to <c>[]</c>, which means that
               the log is local on the current node.
-              </p>
+            </p>
+	    <warning><p>
+	      The distributed disk log feature has been deprecated. This
+	      feature has also been scheduled for removal in OTP 24.
+	    </p></warning>
           </item>
 	  <tag><c>{notify, boolean()}</c><marker id="notify"></marker></tag>
           <item>
@@ -1041,7 +1053,7 @@
       </desc>
     </func>
     <func>
-      <name name="pid2name" arity="1"/>
+      <name name="pid2name" arity="1" since=""/>
       <fsummary>Return the name of the disk log handled by a pid.</fsummary>
       <desc>
         <p>Returns the log name
@@ -1053,9 +1065,9 @@
       </desc>
     </func>
     <func>
-      <name name="reopen" arity="2"/>
-      <name name="reopen" arity="3"/>
-      <name name="breopen" arity="3"/>
+      <name name="reopen" arity="2" since=""/>
+      <name name="reopen" arity="3" since=""/>
+      <name name="breopen" arity="3" since=""/>
       <fsummary>Reopen a disk log and save the old log.</fsummary>
       <type variable="Log"/>
       <type variable="File" name_i="1"/>
@@ -1087,7 +1099,7 @@
       </desc>
     </func>
     <func>
-      <name name="sync" arity="1"/>
+      <name name="sync" arity="1" since=""/>
       <fsummary>Flush the contents of a disk log to the disk.</fsummary>
       <type name="sync_error_rsn"/>
       <desc>
@@ -1097,9 +1109,9 @@
       </desc>
     </func>
     <func>
-      <name name="truncate" arity="1"/>
-      <name name="truncate" arity="2"/>
-      <name name="btruncate" arity="2"/>
+      <name name="truncate" arity="1" since=""/>
+      <name name="truncate" arity="2" since=""/>
+      <name name="btruncate" arity="2" since=""/>
       <fsummary>Truncate a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Head" name_i="2"/>
@@ -1129,7 +1141,7 @@
       </desc>
     </func>
     <func>
-      <name name="unblock" arity="1"/>
+      <name name="unblock" arity="1" since=""/>
       <fsummary>Unblock a disk log.</fsummary>
       <type name="unblock_error_rsn"/>
       <desc>
@@ -1142,8 +1154,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="file"><c>file(3)</c></seealso>,
-      <seealso marker="pg2"><c>pg2(3)</c></seealso>,
-      <seealso marker="wrap_log_reader"><c>wrap_log_reader(3)</c></seealso></p>
+    <p><seeerl marker="file"><c>file(3)</c></seeerl>,
+      <seeerl marker="pg2"><c>pg2(3)</c></seeerl>,
+      <seeerl marker="wrap_log_reader"><c>wrap_log_reader(3)</c></seeerl></p>
   </section>
 </erlref>

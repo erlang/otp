@@ -1,7 +1,7 @@
 %%%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1157,9 +1157,10 @@ remove_node(Node, Cs) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Helpers
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.
 

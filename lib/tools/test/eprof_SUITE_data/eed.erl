@@ -54,7 +54,7 @@ edit(Name) ->
 
 loop(St0) ->
     {ok, St1, Cmd} = get_line(St0),
-    case catch command(lib:nonl(Cmd), St1) of
+    case catch command(nonl(Cmd), St1) of
 	{'EXIT', Reason} ->
 	    %% XXX Should clear outstanding global command here.
 	    loop(print_error({'EXIT', Reason}, St1));
@@ -65,6 +65,10 @@ loop(St0) ->
 	St2 when is_record(St2, state) ->
 	    loop(St2)
     end.
+
+nonl([$\n]) -> [];
+nonl([]) -> [];
+nonl([H|T]) -> [H|nonl(T)].
 
 command(Cmd, St) ->
     case parse_command(Cmd, St) of

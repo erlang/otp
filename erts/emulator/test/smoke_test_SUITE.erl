@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%%
 
 boot_combo(Config) when is_list(Config) ->
-    ZFlags = os:getenv("ERL_ZFLAGS"),
+    ZFlags = os:getenv("ERL_ZFLAGS", ""),
     NOOP = fun () -> ok end,
     A42 = fun () ->
 		  case erlang:system_info(threads) of
@@ -70,13 +70,24 @@ boot_combo(Config) when is_list(Config) ->
 	chk_boot(Config, "+Ktrue", NOOP),
 	chk_boot(Config, "+A42", A42),
 	chk_boot(Config, "+Ktrue +A42", A42),
+
+        WBTArgs = ["very_short", "short", "medium", "long", "very_long"],
+        WTArgs = ["very_low", "low", "medium", "high", "very_high"],
+        [chk_boot(Config,
+                 " +sbwt " ++ WBT ++
+                 " +sbwtdcpu " ++ WBT ++
+                 " +sbwtdio " ++ WBT ++
+                 " +swt " ++ WT ++
+                 " +swtdcpu " ++ WT ++
+                 " +swtdio " ++ WT, NOOP) || WBT <- WBTArgs,  WT <- WTArgs],
+
+        WSArgs = ["legacy", "default"],
+        [chk_boot(Config, " +sws " ++ WS, NOOP) || WS <- WSArgs],
+
 	%% A lot more combos could be implemented...
 	ok
     after
-	os:putenv("ERL_ZFLAGS", case ZFlags of
-				    false -> "";
-				    _ -> ZFlags
-				end)
+	os:putenv("ERL_ZFLAGS", ZFlags)
     end.
 
 native_atomics(Config) when is_list(Config) ->
@@ -88,11 +99,9 @@ native_atomics(Config) when is_list(Config) ->
     {value,{NA32Key, NA32, _}} = lists:keysearch(NA32Key, 1, EthreadInfo),
     {value,{NA64Key, NA64, _}} = lists:keysearch(NA64Key, 1, EthreadInfo),
     {value,{DWNAKey, DWNA, _}} = lists:keysearch(DWNAKey, 1, EthreadInfo),
-    case {erlang:system_info(build_type), erlang:system_info(smp_support), NA32, NA64, DWNA} of
-	{opt, true, "no", "no", _} ->
+    case {erlang:system_info(build_type), NA32, NA64, DWNA} of
+	{opt, "no", "no", _} ->
 	    ct:fail(optimized_smp_runtime_without_native_atomics);
-	{_, false, "no", "no", _} ->
-	    {comment, "No native atomics"};
 	_ ->
 	    {comment,
 	     NA32 ++ " 32-bit, "

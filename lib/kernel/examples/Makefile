@@ -45,7 +45,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/kernel-$(KERNEL_VSN)/examples
 # Pack and install the complete directory structure from 
 # here (CWD) and down, for all examples.
 
-EXAMPLES  = uds_dist
+EXAMPLES  = uds_dist gen_tcp_dist
 
 release_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)"

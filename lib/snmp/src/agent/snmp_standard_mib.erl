@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 -include("snmp_types.hrl").
 -include("STANDARD-MIB.hrl").
 
+-include("snmpa_internal.hrl").
 -define(VMODULE,"STANDARD-MIB").
 -include("snmp_verbosity.hrl").
 
@@ -547,10 +548,12 @@ dummy(_Op) -> ok.
 %%-----------------------------------------------------------------
 snmp_set_serial_no(new) ->
     snmp_generic:variable_func(new, {snmpSetSerialNo, volatile}),
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
-    Val = random:uniform(2147483648) - 1,
+    ?SNMP_RAND_SEED(),
+    %% rand:seed(exrop,
+    %%           {erlang:phash2([node()]),
+    %%            erlang:monotonic_time(),
+    %%            erlang:unique_integer()}),
+    Val = rand:uniform(2147483648) - 1,
     snmp_generic:variable_func(set, Val, {snmpSetSerialNo, volatile});
 
 snmp_set_serial_no(delete) ->

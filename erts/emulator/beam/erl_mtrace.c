@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -314,7 +314,7 @@ disable_trace(int error, char *reason, int eno)
 	erts_fprintf(stderr, "%s: %s\n", mt_dis, reason);
     else {
 	eno_str = erl_errno_id(eno);
-	if (strcmp(eno_str, "unknown") == 0)
+	if (sys_strcmp(eno_str, "unknown") == 0)
 	    erts_fprintf(stderr, "%s: %s: %d\n", mt_dis, reason, eno);
 	else
 	    erts_fprintf(stderr, "%s: %s: %s\n", mt_dis, reason, eno_str);
@@ -401,9 +401,9 @@ write_trace_header(char *nodename, char *pid, char *hostname)
     PUT_UI32(tracep, ERTS_MT_MAJOR_VSN);
     PUT_UI32(tracep, ERTS_MT_MINOR_VSN);
 
-    n_len = strlen(nodename);
-    h_len = strlen(hostname);
-    p_len = strlen(pid);
+    n_len = sys_strlen(nodename);
+    h_len = sys_strlen(hostname);
+    p_len = sys_strlen(pid);
     hdr_prolog_len = (2*UI32_SZ
 		      + 3*UI16_SZ
 		      + 3*UI32_SZ
@@ -436,15 +436,15 @@ write_trace_header(char *nodename, char *pid, char *hostname)
     PUT_UI32(tracep, start_time.usec);
 
     PUT_UI8(tracep, (byte) n_len);
-    memcpy((void *) tracep, (void *) nodename, n_len);
+    sys_memcpy((void *) tracep, (void *) nodename, n_len);
     tracep += n_len;
 
     PUT_UI8(tracep, (byte) h_len);
-    memcpy((void *) tracep, (void *) hostname, h_len);
+    sys_memcpy((void *) tracep, (void *) hostname, h_len);
     tracep += h_len;
 
     PUT_UI8(tracep, (byte) p_len);
-    memcpy((void *) tracep, (void *) pid, p_len);
+    sys_memcpy((void *) tracep, (void *) pid, p_len);
     tracep += p_len;
 
     ASSERT(startp + hdr_prolog_len == tracep);
@@ -472,7 +472,7 @@ write_trace_header(char *nodename, char *pid, char *hostname)
 
 	str = ERTS_ALC_A2AD(i);
 	ASSERT(str);
-	str_len = strlen(str);
+	str_len = sys_strlen(str);
 	if (str_len >= (1 << 8)) {
 	    disable_trace(1, "Excessively large allocator string", 0);
 	    return 0;
@@ -493,7 +493,7 @@ write_trace_header(char *nodename, char *pid, char *hostname)
 	PUT_UI16(tracep, aflags);
 	PUT_UI16(tracep, (Uint16) i);
 	PUT_UI8( tracep, (byte) str_len);
-	memcpy((void *) tracep, (void *) str, str_len);
+	sys_memcpy((void *) tracep, (void *) str, str_len);
 	tracep += str_len;
 	if (erts_allctrs_info[i].alloc_util) {
 	    PUT_UI8(tracep, 2);
@@ -519,7 +519,7 @@ write_trace_header(char *nodename, char *pid, char *hostname)
 	str = ERTS_ALC_N2TD(i);
 	ASSERT(str);
 
-	str_len = strlen(str);
+	str_len = sys_strlen(str);
 	if (str_len >= (1 << 8)) {
 	    disable_trace(1, "Excessively large type string", 0);
 	    return 0;
@@ -543,7 +543,7 @@ write_trace_header(char *nodename, char *pid, char *hostname)
 	PUT_UI16(tracep, nflags);
 	PUT_UI16(tracep, (Uint16) i);
 	PUT_UI8(tracep, (byte) str_len);
-	memcpy((void *) tracep, (void *) str, str_len);
+	sys_memcpy((void *) tracep, (void *) str, str_len);
 	tracep += str_len;
 	PUT_UI16(tracep, no);
 	ASSERT(startp + entry_sz == tracep);

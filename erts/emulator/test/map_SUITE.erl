@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 %%
 -module(map_SUITE).
--export([all/0, suite/0]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
+         groups/0]).
 
 -export([t_build_and_match_literals/1, t_build_and_match_literals_large/1,
          t_update_literals/1, t_update_literals_large/1,
@@ -36,7 +37,9 @@
          t_map_equal/1,
          t_map_compare/1,
          t_map_size/1,
+         t_map_get/1,
          t_is_map/1,
+         t_is_map_key/1,
 
          %% Specific Map BIFs
          t_bif_map_get/1,
@@ -52,7 +55,7 @@
          t_bif_map_values/1,
          t_bif_map_to_list/1,
          t_bif_map_from_list/1,
-         t_bif_erts_internal_maps_to_list/1,
+         t_bif_map_next/1,
 
          %% erlang
          t_erlang_hash/1,
@@ -82,7 +85,10 @@
          %% instruction-level tests
          t_has_map_fields/1,
          y_regs/1,
-         badmap_17/1]).
+         badmap_17/1,
+
+         %%Bugs
+         t_large_unequal_bins_same_hash_bug/1]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -95,59 +101,93 @@
 
 suite() -> [].
 
-all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
-          t_update_literals, t_update_literals_large,
-          t_match_and_update_literals, t_match_and_update_literals_large,
-          t_update_map_expressions,
-          t_update_assoc, t_update_assoc_large,
-          t_update_exact, t_update_exact_large,
-          t_guard_bifs,
-          t_guard_sequence, t_guard_sequence_large,
-          t_guard_update, t_guard_update_large,
-          t_guard_receive, t_guard_receive_large,
-          t_guard_fun, t_list_comprehension,
-          t_update_deep,
-          t_map_equal, t_map_compare,
-          t_map_sort_literals,
+all() ->
+    run_once() ++ [{group,main}].
 
-          %% Specific Map BIFs
-          t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
-          t_bif_map_keys, t_bif_map_merge, t_bif_map_new,
-          t_bif_map_put,
-          t_bif_map_remove,
-          t_bif_map_take, t_bif_map_take_large,
-          t_bif_map_update,
-          t_bif_map_values,
-          t_bif_map_to_list, t_bif_map_from_list,
-          t_bif_erts_internal_maps_to_list,
+groups() ->
+    [{main,[],
+      [t_build_and_match_literals, t_build_and_match_literals_large,
+       t_update_literals, t_update_literals_large,
+       t_match_and_update_literals, t_match_and_update_literals_large,
+       t_update_map_expressions,
+       t_update_assoc, t_update_assoc_large,
+       t_update_exact, t_update_exact_large,
+       t_guard_bifs,
+       t_guard_sequence, t_guard_sequence_large,
+       t_guard_update, t_guard_update_large,
+       t_guard_receive, t_guard_receive_large,
+       t_guard_fun, t_list_comprehension,
+       t_update_deep,
+       t_map_equal, t_map_compare,
+       t_map_sort_literals,
 
-          %% erlang
-          t_erlang_hash, t_map_encode_decode,
-          t_gc_rare_map_overflow,
-          t_map_size, t_is_map,
+       %% Specific Map BIFs
+       t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
+       t_bif_map_keys, t_bif_map_merge, t_bif_map_new,
+       t_bif_map_put,
+       t_bif_map_remove,
+       t_bif_map_take, t_bif_map_take_large,
+       t_bif_map_update,
+       t_bif_map_values,
+       t_bif_map_to_list, t_bif_map_from_list,
+       t_bif_map_next,
 
-          %% non specific BIF related
-          t_bif_build_and_check,
-          t_bif_merge_and_check,
+       %% erlang
+       t_erlang_hash, t_map_encode_decode,
+       t_gc_rare_map_overflow,
+       t_map_size, t_map_get, t_is_map,
 
-          %% maps module
-          t_maps_fold, t_maps_map,
-          t_maps_size, t_maps_without,
+       %% non specific BIF related
+       t_bif_build_and_check,
+       t_bif_merge_and_check,
+
+       %% maps module
+       t_maps_fold, t_maps_map,
+       t_maps_size, t_maps_without,
 
 
-          %% Other functions
-          t_hashmap_balance,
-          t_erts_internal_order,
-          t_erts_internal_hash,
-          t_pdict,
-          t_ets,
-          t_tracing,
-          t_hash_entropy,
+       %% Other functions
+       t_hashmap_balance,
+       t_erts_internal_order,
+       t_erts_internal_hash,
+       t_pdict,
+       t_ets,
+       t_tracing,
+       t_hash_entropy,
 
-          %% instruction-level tests
-          t_has_map_fields,
-          y_regs,
-          badmap_17].
+       %% instruction-level tests
+       t_has_map_fields,
+       y_regs,
+
+       %% Bugs
+       t_large_unequal_bins_same_hash_bug]},
+     {once,[],[badmap_17]}].
+
+run_once() ->
+    case ?MODULE of
+	map_SUITE ->
+            %% Canononical module name. Run these cases.
+            [{group,once}];
+        _ ->
+            %% Cloned module. Don't run.
+            []
+    end.
+
+init_per_suite(Config) ->
+    A0 = case application:start(sasl) of
+	     ok -> [sasl];
+	     _ -> []
+	 end,
+    A = case application:start(os_mon) of
+	     ok -> [os_mon|A0];
+	     _ -> A0
+	 end,
+    [{started_apps, A}|Config].
+
+end_per_suite(Config) ->
+    As = proplists:get_value(started_apps, Config),
+    lists:foreach(fun (A) -> application:stop(A) end, As),
+    Config.
 
 %% tests
 
@@ -678,6 +718,88 @@ t_map_size(Config) when is_list(Config) ->
                     {'EXIT',{{badmap,T},_}} =
                       (catch map_size(T))
               end),
+    ok.
+
+t_map_get(Config) when is_list(Config) ->
+    %% small map
+    1    = map_get(a, id(#{a=>1})),
+    2    = map_get(b, id(#{a=>1, b=>2})),
+    "hi" = map_get("hello", id(#{a=>1, "hello"=>"hi"})),
+    "tuple hi" = map_get({1,1.0}, id(#{a=>a, {1,1.0}=>"tuple hi"})),
+
+    M0    = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    "v4" = map_get(<<"k2">>, M0#{<<"k2">> => "v4"}),
+
+    %% large map
+    M1   = maps:from_list([{I,I}||I<-lists:seq(1,100)] ++
+			  [{a,1},{b,2},{"hello","hi"},{{1,1.0},"tuple hi"},
+			   {k1,"v1"},{<<"k2">>,"v3"}]),
+    1    = map_get(a, M1),
+    2    = map_get(b, M1),
+    "hi" = map_get("hello", M1),
+    "tuple hi" = map_get({1,1.0}, M1),
+    "v3" = map_get(<<"k2">>, M1),
+
+    %% error cases
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{erlang,map_get,_,_}|_]}} =
+			  (catch map_get(a, T))
+	      end),
+
+    {'EXIT',{{badkey,{1,1}},[{erlang,map_get,_,_}|_]}} =
+	(catch map_get({1,1}, id(#{{1,1.0}=>"tuple"}))),
+    {'EXIT',{{badkey,a},[{erlang,map_get,_,_}|_]}} = (catch map_get(a, id(#{}))),
+    {'EXIT',{{badkey,a},[{erlang,map_get,_,_}|_]}} =
+	(catch map_get(a, id(#{b=>1, c=>2}))),
+
+    %% in guards
+    M2 = id(#{a=>1}),
+    true = if map_get(a, M2) =:= 1 -> true; true -> false end,
+    false = if map_get(x, M2) =:= 1 -> true; true -> false end,
+    do_badmap(fun
+        (T) when map_get(x, T) =:= 1 -> ok;
+        (T) -> false = is_map(T)
+    end),
+    ok.
+
+t_is_map_key(Config) when is_list(Config) ->
+    %% small map
+    true = is_map_key(a, id(#{a=>1})),
+    true = is_map_key(b, id(#{a=>1, b=>2})),
+    true = is_map_key("hello", id(#{a=>1, "hello"=>"hi"})),
+    true = is_map_key({1,1.0}, id(#{a=>a, {1,1.0}=>"tuple hi"})),
+
+    M0   = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    true = is_map_key(<<"k2">>, M0#{<<"k2">> => "v4"}),
+
+    %% large map
+    M1   = maps:from_list([{I,I}||I<-lists:seq(1,100)] ++
+			  [{a,1},{b,2},{"hello","hi"},{{1,1.0},"tuple hi"},
+			   {k1,"v1"},{<<"k2">>,"v3"}]),
+    true = is_map_key(a, M1),
+    true = is_map_key(b, M1),
+    true = is_map_key("hello", M1),
+    true = is_map_key({1,1.0}, M1),
+    true = is_map_key(<<"k2">>, M1),
+
+    %% error cases
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{erlang,is_map_key,_,_}|_]}} =
+			  (catch is_map_key(a, T))
+	      end),
+
+    false = is_map_key({1,1}, id(#{{1,1.0}=>"tuple"})),
+    false = is_map_key(a, id(#{})),
+    false = is_map_key(a, id(#{b=>1, c=>2})),
+
+    %% in guards
+    M2 = id(#{a=>1}),
+    true = if is_map_key(a, M2) -> true; true -> false end,
+    false = if is_map_key(x, M2) -> true; true -> false end,
+    do_badmap(fun
+        (T) when is_map_key(T, x) =:= 1 -> ok;
+        (T) -> false = is_map(T)
+    end),
     ok.
 
 build_and_check_size([K|Ks],N,M0) ->
@@ -1750,15 +1872,18 @@ t_bif_map_get(Config) when is_list(Config) ->
     "v3" = maps:get(<<"k2">>, M1),
 
     %% error cases
+    %%
+    %% Note that the stack trace is ignored because the compiler may have
+    %% rewritten maps:get/2 to map_get.
     do_badmap(fun(T) ->
-		      {'EXIT',{{badmap,T},[{maps,get,_,_}|_]}} =
+		      {'EXIT',{{badmap,T},_}} =
 			  (catch maps:get(a, T))
 	      end),
 
-    {'EXIT',{{badkey,{1,1}},[{maps,get,_,_}|_]}} =
+    {'EXIT',{{badkey,{1,1}},_}} =
 	(catch maps:get({1,1}, #{{1,1.0} => "tuple"})),
-    {'EXIT',{{badkey,a},[{maps,get,_,_}|_]}} = (catch maps:get(a, #{})),
-    {'EXIT',{{badkey,a},[{maps,get,_,_}|_]}} =
+    {'EXIT',{{badkey,a},_}} = (catch maps:get(a, #{})),
+    {'EXIT',{{badkey,a},_}} =
 	(catch maps:get(a, #{b=>1, c=>2})),
     ok.
 
@@ -1820,8 +1945,11 @@ t_bif_map_is_key(Config) when is_list(Config) ->
     false = maps:is_key(1.0, maps:put(1, "number", M1)),
 
     %% error case
+    %%
+    %% Note that the stack trace is ignored because the compiler may have
+    %% rewritten maps:is_key/2 to is_map_key.
     do_badmap(fun(T) ->
-		      {'EXIT',{{badmap,T},[{maps,is_key,_,_}|_]}} =
+		      {'EXIT',{{badmap,T},_}} =
 			  (catch maps:is_key(a, T))
 	      end),
     ok.
@@ -2364,40 +2492,70 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(42))),
     ok.
 
-t_bif_erts_internal_maps_to_list(Config) when is_list(Config) ->
-    %% small maps
-    [] = erts_internal:maps_to_list(#{},-1),
-    [] = erts_internal:maps_to_list(#{},-2),
-    [] = erts_internal:maps_to_list(#{},10),
-    [{a,1},{b,2}] = lists:sort(erts_internal:maps_to_list(#{a=>1,b=>2}, 2)),
-    [{a,1},{b,2}] = lists:sort(erts_internal:maps_to_list(#{a=>1,b=>2}, -1)),
-    [{_,_}] = erts_internal:maps_to_list(#{a=>1,b=>2}, 1),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},-2)),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},3)),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},5)),
-    [{_,_},{_,_}] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},2),
-    [{_,_}] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},1),
-    [] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},0),
+t_bif_map_next(Config) when is_list(Config) ->
 
-    %% big maps
-    M = maps:from_list([{I,ok}||I <- lists:seq(1,500)]),
-    [] = erts_internal:maps_to_list(M,0),
-    [{_,_}] = erts_internal:maps_to_list(M,1),
-    [{_,_},{_,_}] = erts_internal:maps_to_list(M,2),
-    Ls1 = erts_internal:maps_to_list(M,10),
-    10 = length(Ls1),
-    Ls2 = erts_internal:maps_to_list(M,20),
-    20 = length(Ls2),
-    Ls3 = erts_internal:maps_to_list(M,120),
-    120 = length(Ls3),
-    Ls4 = erts_internal:maps_to_list(M,-1),
-    500 = length(Ls4),
+    erts_debug:set_internal_state(available_internal_state, true),
 
-    %% error cases
-    {'EXIT', {{badmap,[{a,b},b]},_}} = (catch erts_internal:maps_to_list(id([{a,b},b]),id(1))),
-    {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{}),id(a))),
-    {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{1=>2}),id(<<>>))),
+    try
+
+        none = maps:next(maps:iterator(id(#{}))),
+
+        verify_iterator(#{}),
+        verify_iterator(#{a => 1, b => 2, c => 3}),
+
+        %% Use fatmap in order to test iterating in very deep maps
+        FM = fatmap(43),
+        verify_iterator(FM),
+
+        {'EXIT', {{badmap,[{a,b},b]},_}} = (catch maps:iterator(id([{a,b},b]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id(a))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([a|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([1|#{}]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-1|#{}]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-1|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([16#FFFFFFFFFFFFFFFF|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-16#FFFFFFFFFFFFFFFF|FM]))),
+
+        %% This us a whitebox test that the error code works correctly.
+        %% It uses a path for a tree of depth 4 and tries to do next on
+        %% each of those paths.
+        (fun F(0) -> ok;
+             F(N) ->
+                 try maps:next([N|FM]) of
+                     none ->
+                         F(N-1);
+                     {_K,_V,_I} ->
+                         F(N-1)
+                 catch error:badarg ->
+                         F(N-1)
+                 end
+         end)(16#FFFF),
+
+        ok
+    after
+            erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+verify_iterator(Map) ->
+    KVs = t_fold(fun(K, V, A) -> [{K, V} | A] end, [], Map),
+
+    %% Verify that KVs created by iterating Map is of
+    %% correct size and contains all elements
+    true = length(KVs) == maps:size(Map),
+    [maps:get(K, Map) || {K, _} <- KVs],
     ok.
+
+
+t_fold(Fun, Init, Map) ->
+    t_fold_1(Fun, Init, maps:iterator(Map)).
+
+t_fold_1(Fun, Acc, Iter) ->
+    case maps:next(Iter) of
+        {K, V, NextIter} ->
+            t_fold_1(Fun, Fun(K,V,Acc), NextIter);
+        none ->
+            Acc
+    end.
 
 t_bif_build_and_check(Config) when is_list(Config) ->
     ok = check_build_and_remove(750,[fun(K) -> [K,K] end,
@@ -2966,7 +3124,18 @@ y_regs(Config) when is_list(Config) ->
 
     true = is_map(Map2) andalso is_map(Map4),
 
+    gurka = y_regs_literal(0),
+    gaffel = y_regs_literal(1),
+
     ok.
+
+y_regs_literal(Key) when is_integer(Key) ->
+    %% Forces the key to be placed in a Y register.
+    lists:seq(1, 2),
+    case is_map_key(Key, #{ 0 => 0 }) of
+        true -> gurka;
+        false -> gaffel
+    end.
 
 y_regs_update(Map0, Val0) ->
     Val1 = {t,Val0},
@@ -3016,12 +3185,6 @@ do_badmap(Test) ->
 %% Test that a module compiled with the OTP 17 compiler will
 %% generate the correct 'badmap' exception.
 badmap_17(Config) ->
-    case ?MODULE of
-	map_SUITE -> do_badmap_17(Config);
-	_ -> {skip,"Run in map_SUITE"}
-    end.
-
-do_badmap_17(Config) ->
     Mod = badmap_17,
     DataDir = test_server:lookup_config(data_dir, Config),
     Beam = filename:join(DataDir, Mod),
@@ -3249,3 +3412,67 @@ fannerl() ->
       104,2,97,9,97,16,70,63,184,100,97,32,0,0,0,104,2,97,10,97,16,70,63,169,174,
       254,64,0,0,0,104,2,97,11,97,16,70,191,119,121,234,0,0,0,0,104,2,97,12,97,
       16,70,63,149,12,170,128,0,0,0,104,2,97,13,97,16,70,191,144,193,191,0,0,0,0>>.
+
+%% This test case checks that the bug with ticket number OTP-15707 is
+%% fixed. The bug could cause a crash or memory usage to grow until
+%% the machine ran out of memory.
+t_large_unequal_bins_same_hash_bug(Config) when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              K1 = get_4GB_bin(1),
+              K2 = get_4GB_bin(2),
+              Map = make_map(500),
+              Map2 = maps:put(K1, 42, Map),
+              %% The map needed to contain at least 32 key-value pairs
+              %% at this point to get the crash or out of memory
+              %% problem on the next line
+              Map3 = maps:put(K2, 43, Map2),
+              %% The following line should avoid that the compiler
+              %% optimizes away the above
+              io:format("~p ~p~n", [erlang:phash2(Map3), maps:size(Map3)])
+      end).
+
+make_map(0) -> 
+    #{};
+make_map(Size) ->
+    maps:put(Size, Size, make_map(Size-1)).
+
+get_4GB_bin(Value) ->
+    List = lists:duplicate(65536, Value),
+    Bin = erlang:iolist_to_binary(List),
+    IOList4GB = duplicate_iolist(Bin, 16),
+    Bin4GB = erlang:iolist_to_binary(IOList4GB),
+    4294967296 = size(Bin4GB),
+    Bin4GB.
+
+duplicate_iolist(IOList, 0) ->
+    IOList;
+duplicate_iolist(IOList, NrOfTimes) ->
+    duplicate_iolist([IOList, IOList], NrOfTimes - 1).
+
+run_when_enough_resources(Fun) ->
+    case {total_memory(), erlang:system_info(wordsize)} of
+        {Mem, 8} when is_integer(Mem) andalso Mem >= 31 ->
+            Fun();
+        {Mem, WordSize} ->
+            {skipped, 
+             io_lib:format("Not enough resources (System Memory >= ~p, Word Size = ~p)",
+                           [Mem, WordSize])}
+    end.
+
+total_memory() ->
+    %% Total memory in GB.
+    try
+	MemoryData = memsup:get_system_memory_data(),
+	case lists:keysearch(total_memory, 1, MemoryData) of
+	    {value, {total_memory, TM}} ->
+		TM div (1024*1024*1024);
+	    false ->
+		{value, {system_total_memory, STM}} =
+		    lists:keysearch(system_total_memory, 1, MemoryData),
+		STM div (1024*1024*1024)
+	end
+    catch
+	_ : _ ->
+	    undefined
+    end.

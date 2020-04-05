@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 
 #ifndef ERL_TIME_H__
 #define ERL_TIME_H__
+
+#include "erl_monitor_link.h"
 
 #if 0
 #  define ERTS_TW_DEBUG
@@ -79,8 +81,8 @@ typedef ErtsMonotonicTime * ErtsNextTimeoutRef;
 extern SysTimeval erts_first_emu_time;
 
 
-void erts_monitor_time_offset(Eterm id, Eterm ref);
-int erts_demonitor_time_offset(Eterm ref);
+void erts_monitor_time_offset(ErtsMonitor *mon);
+void erts_demonitor_time_offset(ErtsMonitor *mon);
 
 int erts_init_time_sup(int, ErtsTimeWarpMode);
 void erts_late_init_time_sup(void);
@@ -106,9 +108,6 @@ void erts_p_slpq(void);
 #  endif
 void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec);
 #endif
-
-typedef UWord erts_approx_time_t;
-erts_approx_time_t erts_get_approx_time(void);
 
 int erts_has_time_correction(void);
 int erts_check_time_adj_support(int time_correction,

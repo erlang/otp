@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 %% with the least load !!!!
 %% This function is callable from any node including the master
 %% That is part of the pool
-%% nodes are scheduled on a per usgae basis and per load basis,
+%% nodes are scheduled on a per usage basis and per load basis,
 %% Whenever we use a node, we put at the end of the queue, and whenever
 %% a node report a change in load, we insert it accordingly
 
@@ -101,9 +101,7 @@ pspawn(M, F, A) ->
       Fun :: atom(),
       Args :: [term()].
 pspawn_link(M, F, A) ->
-    P = pspawn(M, F, A),
-    link(P),
-    P.
+    spawn_link(get_node(), M, F, A).
 
 start_nodes([], _, _) -> [];
 start_nodes([Host|Tail], Name, Args) -> 
@@ -149,9 +147,9 @@ handle_call({attach, Node}, _From, Nodes) ->
 	    {reply, attached, Nodes++[{999999,Node}]}
     end;
 handle_call({spawn, Gl, M, F, A}, _From, Nodes) ->
-    [{Load,N}|Tail] = Nodes,
+    {reply, N, NewNodes} = handle_call(get_node, _From, Nodes),
     Pid = spawn(N, pool, do_spawn, [Gl, M, F, A]),
-    {reply, Pid, Tail++[{Load+1, N}]};
+    {reply, Pid, NewNodes};
 handle_call(stop, _From, Nodes) ->
     %% clean up in terminate/2
     {stop, normal, stopped, Nodes}.
@@ -197,7 +195,7 @@ pure_insert({Load,Node},[{L,N}|Tail]) when Load < L ->
 pure_insert(L,[H|T]) -> [H|pure_insert(L,T)].
 
 %% Really should not measure the contributions from
-%% the back ground processes here .... which we do :-(
+%% the background processes here .... which we do :-(
 %% We don't have to monitor the master, since we're slaves anyway
 
 statistic_collector() ->
@@ -205,7 +203,7 @@ statistic_collector() ->
 
 statistic_collector(0) -> exit(normal);
 statistic_collector(I) ->
-    sleep(300),  
+    timer:sleep(300),
     case global:whereis_name(pool_master) of
 	undefined ->
 	    statistic_collector(I-1);
@@ -213,10 +211,10 @@ statistic_collector(I) ->
 	    stat_loop(M, 999999)
     end.
 
-%% Do not tell the master about our load if it has not  changed
+%% Do not tell the master about our load if it has not changed
 
 stat_loop(M, Old) ->
-    sleep(2000),
+    timer:sleep(2000),
     case statistics(run_queue) of
 	Old ->
 	    stat_loop(M, Old);
@@ -224,5 +222,3 @@ stat_loop(M, Old) ->
 	    M ! {node(), load, NewLoad}, %% async 
 	    stat_loop(M, NewLoad)
     end.
-
-sleep(I) -> receive after I -> ok end.

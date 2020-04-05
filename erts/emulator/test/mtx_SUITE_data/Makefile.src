@@ -28,8 +28,10 @@ LIBS = @ERTS_LIBS@
 
 all: $(NIF_LIBS)
 
+WSL=@WSL@
+
 mtx_SUITE.c: force_rebuild
-	touch mtx_SUITE.c
+	$(WSL) touch mtx_SUITE.c
 
 force_rebuild:
 	echo "Force rebuild to compensate for emulator type dependencies"

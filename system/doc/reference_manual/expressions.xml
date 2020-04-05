@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,8 +37,8 @@
     separate sections:
    </p>
   <list type="bulleted">
-    <item><p><seealso marker="macros">Preprocessor</seealso></p></item>
-    <item><p><seealso marker="records">Records</seealso></p></item>
+    <item><p><seeguide marker="macros">Preprocessor</seeguide></p></item>
+    <item><p><seeguide marker="records">Records</seeguide></p></item>
   </list>
 
   <section>
@@ -82,7 +82,7 @@ Phone_number
 _
 _Height</pre>
     <p>Variables are bound to values using
-      <seealso marker="patterns">pattern matching</seealso>. Erlang
+      <seeguide marker="patterns">pattern matching</seeguide>. Erlang
       uses <em>single assignment</em>, that is, a variable can only be bound
       once.</p>
     <p>The <em>anonymous variable</em> is denoted by underscore (_) and
@@ -254,9 +254,9 @@ spawn(m, init, [])</code>
     <p>Notice that when calling a local function, there is a difference
     between using the implicitly or fully qualified function name.
     The latter always refers to the latest version of the module.
-    See <seealso marker="code_loading">Compilation and Code Loading
-    </seealso> and <seealso marker="functions#eval">
-    Function Evaluation</seealso>.</p>
+    See <seeguide marker="code_loading">Compilation and Code Loading
+    </seeguide> and <seeguide marker="functions#eval">
+    Function Evaluation</seeguide>.</p>
 
     <section>
       <title>Local Function Names Clashing With  Auto-Imported BIFs</title>
@@ -567,6 +567,10 @@ Expr1 <input>op</input> Expr2</pre>
       order is defined:</p>
     <pre>
 number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map &lt; nil &lt; list &lt; bit string</pre>
+    <p><c>nil</c> in the previous expression represents the empty list
+      (<c>[]</c>), which is regarded as a separate type from
+      <c>list/0</c>. That is why <c>nil &lt; list</c>.
+    </p>
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
@@ -574,6 +578,7 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
         ascending term order and then by values in key order.
         In maps key order integers types are considered less than floats types.
     </p>
+    <p>Atoms are compared using their string value, codepoint by codepoint.</p>
       <p>When comparing an integer to a float, the term with the lesser
       precision is converted into the type of the other term, unless the
       operator is one of <c>=:=</c> or <c>=/=</c>. A float is more precise than
@@ -939,7 +944,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  Here <c>M0</c> is any map. It follows that <c>M1 .. M4</c> are maps as well.
 	  </p>
 	  <p>
-		  More <em>Examples:</em>
+		  <em>More examples:</em>
 	  </p>
 <pre>
 1> <input>M = #{1 => a}.</input>
@@ -968,15 +973,20 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 
 	  <code>#{ K := V } = M</code>
 	  <p>
-		  Here <c>M</c> is any map. The key <c>K</c> must be an expression with bound
-		  variables or literals. <c>V</c> can be any pattern with either bound or
-		  unbound variables.
+	    Here <c>M</c> is any map. The key <c>K</c> must be a
+	    <seeguide marker="#guard_expressions">guard
+	    expression</seeguide>, with all variables already bound.
+	    <c>V</c> can be any pattern with either bound or unbound
+	    variables.
 	  </p>
 	  <p>
 		  If the variable <c>V</c> is unbound, it becomes bound to the value associated
 		  with the key <c>K</c>, which must exist in the map <c>M</c>. If the variable
 		  <c>V</c> is bound, it must match the value associated with <c>K</c> in <c>M</c>.
 	  </p>
+	  <note><p>Before OTP 23, the expression defining the key
+	  <c>K</c> was restricted to be either a single variable or a
+	  literal.</p></note>
 	  <p><em>Example:</em></p>
 <pre>
 1> <input>M = #{"tuple" => {1,2}}.</input>
@@ -993,9 +1003,12 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  </p>
 	  <code>#{ K1 := V1, .., Kn := Vn } = M</code>
 	  <p>
-		  Here keys <c>K1 .. Kn</c> are any expressions with literals or bound variables. If all
-		  keys exist in map <c>M</c>, all variables in <c>V1 .. Vn</c> is  matched to the
-		  associated values of their respective keys.
+		  Here keys <c>K1 .. Kn</c> are any expressions with
+		  literals or bound variables. If all key expressions
+		  evalute successfully and all keys exist in map
+		  <c>M</c>, all variables in <c>V1 .. Vn</c> is
+		  matched to the associated values of their respective
+		  keys.
 	  </p>
 	  <p>
 		  If the matching conditions are not met, the match fails, either with:
@@ -1029,6 +1042,9 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  This expression matches if the expression <c>Expr</c> is of type map, otherwise
 		  it fails with an exception <c>badmatch</c>.
 	  </p>
+	  <p>Here the key to be retrieved is constructed from an expression:</p>
+	  <code>#{{tag,length(List)} := V} = Map</code>
+	  <p><c>List</c> must be an already bound variable.</p>
 	  <section>
 		  <title>Matching Syntax</title>
 		  <p>
@@ -1052,15 +1068,19 @@ handle_call(change, From, #{ state := start } = S) ->
 		  Maps are allowed in guards as long as all subexpressions are valid guard expressions.
 	  </p>
 	  <p>
-		  Two guard BIFs handle maps:
+		  The following guard BIFs handle maps:
 	  </p>
 	  <list>
 		  <item>
-			  <seealso marker="erts:erlang#is_map/1">is_map/1</seealso>
+			  <seemfa marker="erts:erlang#is_map/1">is_map/1</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 		  <item>
-			  <seealso marker="erts:erlang#map_size/1">map_size/1</seealso>
+			  <seemfa marker="erts:erlang#map_get/2">map_get/2</seemfa>
+			   in the <c>erlang</c> module
+		  </item>
+		  <item>
+			  <seemfa marker="erts:erlang#map_size/1">map_size/1</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 	  </list>
@@ -1095,8 +1115,13 @@ Ei = Value |
     <p>Used in a bit string construction, <c>Size</c> is an expression
     that is to evaluate to an integer.</p>
     
-    <p>Used in a bit string matching, <c>Size</c> must be an integer, or a
-    variable bound to an integer.</p>
+    <p>Used in a bit string matching, <c>Size</c> must be a
+    <seeguide marker="#guard_expressions">guard expression</seeguide>
+    that evaluates to an integer. All variables in the guard expression
+    must be already bound.</p>
+
+    <note><p>Before OTP 23, <c>Size</c> was restricted to be an
+    integer or a variable bound to an integer.</p></note>
 
     <p>The value of <c>Size</c> specifies the size of the segment in
     units (see below). The default value depends on the type (see
@@ -1148,7 +1173,8 @@ Ei = Value |
     </taglist>
     <p>The value of <c>Size</c> multiplied with the unit gives
       the number of bits. A segment of type <c>binary</c> must have 
-      a size that is evenly divisible by 8.</p>
+      a size that is evenly divisible by 8. For a segment of type <c>float</c>
+      the size must be either 64 or 32.</p>
 
     <note><p>When constructing binaries, if the size <c>N</c> of an integer
     segment is too small to contain the given integer, the most significant
@@ -1216,10 +1242,10 @@ Ei = Value |
 &lt;&lt;1,17,0,42&gt;&gt;
 10> <input>H.</input>
 &lt;&lt;17,0,42&gt;&gt;
-11> <input>&lt;&lt;G,H/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
-&lt;&lt;1,17,1,10:4&gt;&gt;
-12> <input>H.</input>
-&lt;&lt;17,1,10:4&gt;&gt;
+11> <input>&lt;&lt;G,J/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
+&lt;&lt;1,17,2,10:4&gt;&gt;
+12> <input>J.</input>
+&lt;&lt;17,2,10:4&gt;&gt;
 13> <input>&lt;&lt;1024/utf8&gt;&gt;.</input>
 &lt;&lt;208,128&gt;&gt;
 </pre>
@@ -1228,8 +1254,8 @@ Ei = Value |
       "<c><![CDATA[B =<<1>>]]></c>" which is a syntax error. The correct way is
       to write a space after '=': "<c><![CDATA[B= <<1>>]]></c>.</p>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:bit_syntax">
-    Programming Examples</seealso>.</p>
+    <seeguide marker="system/programming_examples:bit_syntax">
+    Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -1246,7 +1272,7 @@ end</pre>
     <p>A fun expression begins with the keyword <c>fun</c> and ends
       with the keyword <c>end</c>. Between them is to be a function
       declaration, similar to a
-      <seealso marker="functions#syntax">regular function declaration</seealso>,
+      <seeguide marker="functions#syntax">regular function declaration</seeguide>,
       except that the function name is optional and is to be a variable, if
       any.</p>
     <p>Variables in a fun head shadow the function name and both shadow
@@ -1285,8 +1311,8 @@ fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
       the code for the module in which it is defined.
       </p>
     <p>More examples are provided in
-      <seealso marker="doc/programming_examples:funs">
-      Programming Examples</seealso>.</p>
+      <seeguide marker="system/programming_examples:funs">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -1308,7 +1334,7 @@ catch Expr</code>
       <c>Term</c> is returned.</p>
     <p><c>Reason</c> depends on the type of error that occurred, and
       <c>Stack</c> is the stack of recent function calls, see
-      <seealso marker="errors#exit_reasons">Exit Reasons</seealso>.</p>
+      <seeguide marker="errors#exit_reasons">Exit Reasons</seeguide>.</p>
     <p><em>Examples:</em></p>
     <pre>
 1> <input>catch 1+2.</input>
@@ -1340,13 +1366,13 @@ hello</pre>
     <code type="none">
 try Exprs
 catch
-    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] ->
         ExceptionBody1;
-    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] ->
         ExceptionBodyN
 end</code>
     <p>This is an enhancement of
-      <seealso marker="#catch">catch</seealso>.
+      <seeguide marker="#catch">catch</seeguide>.
       It gives the possibility to:</p>
     <list type="bulleted">
       <item>Distinguish between different exception classes.</item>
@@ -1362,10 +1388,12 @@ end</code>
       the evaluation. In that case the exception is caught and
       the patterns <c>ExceptionPattern</c> with the right exception
       class <c>Class</c> are sequentially matched against the caught
-      exception. An omitted <c>Class</c> is shorthand for <c>throw</c>.
-      If a match succeeds and the optional guard sequence
+      exception. If a match succeeds and the optional guard sequence
       <c>ExceptionGuardSeq</c> is true, the corresponding
       <c>ExceptionBody</c> is evaluated to become the return value.</p>
+    <p><c>Stacktrace</c>, if specified, must be the name of a variable
+      (not a pattern). The stack trace is bound to the variable when
+      the corresponding <c>ExceptionPattern</c> matches.</p>
     <p>If an exception occurs during evaluation of <c>Exprs</c> but
       there is no matching <c>ExceptionPattern</c> of the right
       <c>Class</c> with a true guard sequence, the exception is passed
@@ -1373,6 +1401,18 @@ end</code>
       expression.</p>
     <p>If an exception occurs during evaluation of <c>ExceptionBody</c>,
       it is not caught.</p>
+    <p>It is allowed to omit <c>Class</c> and <c>Stacktrace</c>.
+      An omitted <c>Class</c> is shorthand for <c>throw</c>:</p>
+
+    <code type="none">
+try Exprs
+catch
+    ExceptionPattern1 [when ExceptionGuardSeq1] ->
+        ExceptionBody1;
+    ExceptionPatternN [when ExceptionGuardSeqN] ->
+        ExceptionBodyN
+end</code>
+
     <p>The <c>try</c> expression can have an <c>of</c>
       section:
       </p>
@@ -1384,19 +1424,21 @@ try Exprs of
     PatternN [when GuardSeqN] ->
         BodyN
 catch
-    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] ->
         ExceptionBody1;
     ...;
-    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] ->
         ExceptionBodyN
 end</code>
     <p>If the evaluation of <c>Exprs</c> succeeds without an exception,
       the patterns <c>Pattern</c> are sequentially matched against
       the result in the same way as for a
-      <seealso marker="#case">case</seealso> expression, except that if
-      the matching fails, a <c>try_clause</c> run-time error occurs.</p>
-    <p>An exception occurring during the evaluation of <c>Body</c> is
-      not caught.</p>
+      <seeguide marker="#case">case</seeguide> expression, except that if
+      the matching fails, a <c>try_clause</c> run-time error occurs instead of a
+      <c>case_clause</c>.</p>
+    <p>Only exceptions occurring during the evaluation of <c>Exprs</c> can be
+      caught by the <c>catch</c> section. Exceptions occurring in a <c>Body</c>
+      or due to a failed match are not caught.</p>
     <p>The <c>try</c> expression can also be augmented with an
       <c>after</c> section, intended to be used for cleanup with side
       effects:</p>
@@ -1408,10 +1450,10 @@ try Exprs of
     PatternN [when GuardSeqN] ->
         BodyN
 catch
-    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] ->
         ExceptionBody1;
     ...;
-    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] ->
         ExceptionBodyN
 after
     AfterBody
@@ -1470,7 +1512,7 @@ try Expr
 catch
     throw:Term -> Term;
     exit:Reason -> {'EXIT',Reason}
-    error:Reason -> {'EXIT',{Reason,erlang:get_stacktrace()}}
+    error:Reason:Stk -> {'EXIT',{Reason,Stk}}
 end</code>
   </section>
 
@@ -1479,7 +1521,7 @@ end</code>
     <pre>
 (Expr)</pre>
     <p>Parenthesized expressions are useful to override
-      <seealso marker="#prec">operator precedences</seealso>,
+      <seeguide marker="#prec">operator precedences</seeguide>,
       for example, in arithmetic expressions:</p>
     <pre>
 1> <input>1 + 2 * 3.</input>
@@ -1549,8 +1591,8 @@ end</pre>
 2> <input>[x || is_integer(x)].</input>
 []</pre>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:list_comprehensions">
-    Programming Examples.</seealso></p>
+    <seeguide marker="system/programming_examples:list_comprehensions">
+    Programming Examples.</seeguide></p>
 
   </section>
 
@@ -1593,8 +1635,8 @@ end</pre>
 &lt;&lt;X&gt;&gt; &lt;= &lt;&lt; 1,2,3 &gt;&gt; &gt;&gt;.</input>
 &lt;&lt;2,4,6&gt;&gt;</pre>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:bit_syntax">
-    Programming Examples.</seealso></p>
+    <seeguide marker="system/programming_examples:bit_syntax">
+    Programming Examples.</seeguide></p>
   </section>
 
   <section>
@@ -1610,16 +1652,26 @@ end</pre>
       by comma (,). The guard is true if all guard expressions
       evaluate to <c>true</c>.</p>
     <p><c>GuardExpr1,...,GuardExprN</c></p>
-    <p>The set of valid <em>guard expressions</em> (sometimes called
-      guard tests) is a subset of the set of valid Erlang expressions.
-      The reason for restricting the set of valid expressions is that
-      evaluation of a guard expression must be guaranteed to be free
-      of side effects. Valid guard expressions are the following:</p>
+  </section>
+
+  <section>
+    <marker id="guard_expressions"></marker>
+    <title>Guard Expressions</title>
+    <p>The set of valid <em>guard expressions</em> is a subset of the
+    set of valid Erlang expressions.  The reason for restricting the
+    set of valid expressions is that evaluation of a guard expression
+    must be guaranteed to be free of side effects. Valid guard
+    expressions are the following:</p>
     <list type="bulleted">
-      <item>The atom <c>true</c></item>
-      <item>Other constants (terms and bound variables), all regarded
-       as false</item>
-      <item>Calls to the BIFs specified in table <c>Type Test BIFs</c></item>
+      <item>Variables</item>
+      <item>Constants (atoms, integer, floats, lists, tuples, records,
+      binaries, and maps)</item>
+      <item>Expressions that construct atoms, integer, floats, lists,
+      tuples, records, binaries, and maps</item>
+      <item>Expressions that update a map</item>
+      <item>The record epxressions <c>Expr#Name.Field</c> and <c>#Name.Field</c></item>
+      <item>Calls to the BIFs specified in tables <em>Type Test BIFs</em> and
+      <em>Other BIFs Allowed in Guard Expressions</em></item>
       <item>Term comparisons</item>
       <item>Arithmetic expressions</item>
       <item>Boolean expressions</item>
@@ -1705,6 +1757,9 @@ end</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>length(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>map_get(Key, Map)</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>map_size(Map)</c></cell>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,8 +74,10 @@ guard_bif(element, 2) -> true;
 guard_bif(float, 1) -> true;
 guard_bif(floor, 1) -> true;
 guard_bif(hd, 1) -> true;
+guard_bif(is_map_key, 2) -> true;
 guard_bif(length, 1) -> true;
 guard_bif(map_size, 1) -> true;
+guard_bif(map_get, 2) -> true;
 guard_bif(node, 0) -> true;
 guard_bif(node, 1) -> true;
 guard_bif(round, 1) -> true;
@@ -243,11 +245,14 @@ bif(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> false.
 bif(abs, 1) -> true;
 bif(apply, 2) -> true;
 bif(apply, 3) -> true;
+bif(atom_to_binary, 1) -> true;
 bif(atom_to_binary, 2) -> true;
 bif(atom_to_list, 1) -> true;
 bif(binary_part, 2) -> true;
 bif(binary_part, 3) -> true;
+bif(binary_to_atom, 1) -> true;
 bif(binary_to_atom, 2) -> true;
+bif(binary_to_existing_atom, 1) -> true;
 bif(binary_to_existing_atom, 2) -> true;
 bif(binary_to_integer, 1) -> true;
 bif(binary_to_integer, 2) -> true;
@@ -314,6 +319,7 @@ bif(is_function, 2) -> true;
 bif(is_integer, 1) -> true;
 bif(is_list, 1) -> true;
 bif(is_map, 1) -> true;
+bif(is_map_key, 2) -> true;
 bif(is_number, 1) -> true;
 bif(is_pid, 1) -> true;
 bif(is_port, 1) -> true;
@@ -337,6 +343,7 @@ bif(list_to_tuple, 1) -> true;
 bif(load_module, 2) -> true;
 bif(make_ref, 0) -> true;
 bif(map_size,1) -> true;
+bif(map_get,2) -> true;
 bif(max,2) -> true;
 bif(min,2) -> true;
 bif(module_loaded, 1) -> true;
@@ -379,8 +386,16 @@ bif(spawn_link, 1) -> true;
 bif(spawn_link, 2) -> true;
 bif(spawn_link, 3) -> true;
 bif(spawn_link, 4) -> true;
+bif(spawn_request, 1) -> true;
+bif(spawn_request, 2) -> true;
+bif(spawn_request, 3) -> true;
+bif(spawn_request, 4) -> true;
+bif(spawn_request, 5) -> true;
+bif(spawn_request_abandon, 1) -> true;
 bif(spawn_monitor, 1) -> true;
+bif(spawn_monitor, 2) -> true;
 bif(spawn_monitor, 3) -> true;
+bif(spawn_monitor, 4) -> true;
 bif(spawn_opt, 2) -> true;
 bif(spawn_opt, 3) -> true;
 bif(spawn_opt, 4) -> true;
@@ -389,6 +404,8 @@ bif(split_binary, 2) -> true;
 bif(statistics, 1) -> true;
 bif(term_to_binary, 1) -> true;
 bif(term_to_binary, 2) -> true;
+bif(term_to_iovec, 1) -> true;
+bif(term_to_iovec, 2) -> true;
 bif(throw, 1) -> true;
 bif(time, 0) -> true;
 bif(tl, 1) -> true;

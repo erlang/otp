@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2017</year>
+      <year>2010</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct.xml</file>
   </header>
-  <module>ct</module>
+  <module since="">ct</module>
   <modulesummary>Main user interface for the Common Test framework.</modulesummary>
 
   <description>
@@ -57,89 +57,62 @@
       <item><p><c>data_dir</c> - Data file directory</p></item>
       <item><p><c>priv_dir</c> - Scratch file directory</p></item>
       <item><p>Whatever added by
-      <seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>
+      <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
       or
-      <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso>
+      <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
       in the test suite.</p></item>
     </list>
 
   </description>
 
-  <section>
-    <title>Data Types</title>
-    <marker id="types"/>
-    <taglist>
-
-      <tag>
-	<marker id="type-handle"/>
-	<c>handle() = pid()</c>
-      </tag>
-      <item>
+  <datatypes>
+    <datatype>
+      <name>handle() = pid()</name>
+      <desc>
         <p>The identity (handle) of a connection.</p>
-      </item>
+      </desc>
+    </datatype>
 
-      <tag>
-	<marker id="type-config_key"/>
-	<c>config_key() = atom()</c>
-      </tag>
-      <item>
+    <datatype>
+      <name>config_key() = atom()</name>
+      <desc>
 	<p>A configuration key which exists in a configuration file</p>
-      </item>
-
-      <tag>
-	<marker id="type-target_name"/><c>target_name() = atom()</c>
-      </tag>
-      <item>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>target_name() = atom()</name>
+      <desc>
         <p>A name and association to configuration data introduced
-          through a require statement, or a call to
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>,
-          for example,
-          <c>ct:require(mynodename,{node,[telnet]})</c>.</p>
-      </item>
-
-      <tag>
-	<marker id="type-key_or_name"/>
-	<c>key_or_name() = config_key() | target_name()</c>
-      </tag>
-      <item/>
-
-      <tag>
-	<marker id="type-conn_log_options"/>
-	<c>conn_log_options() = [conn_log_option()]</c>
-      </tag>
-      <item>
+        through a require statement, or a call to
+        <seemfa marker="#require/2"><c>ct:require/2</c></seemfa>,
+        for example,
+        <c>ct:require(mynodename,{node,[telnet]})</c>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>key_or_name() = config_key() | target_name()</name>
+      <name>conn_log_options() = [conn_log_option()]</name>
+      <desc>
 	<p>Options that can be given to the <c>cth_conn_log</c> hook,
-	  which is used for logging of NETCONF and Telnet
-	  connections. See
-	  <seealso marker="ct_netconfc#Logging">ct_netconfc</seealso>
-	  or <seealso marker="ct_telnet#Logging">ct_telnet</seealso>
-	  for description and examples of how to use this hook.</p>
-      </item>
+	which is used for logging of NETCONF and Telnet
+	connections. See
+	<seeerl marker="ct_netconfc#Logging">ct_netconfc</seeerl>
+	or <seeerl marker="ct_telnet#Logging">ct_telnet</seeerl>
+	for description and examples of how to use this hook.</p>
+      </desc>
+    </datatype>
 
-      <tag>
-	<marker id="type-conn_log_option"/>
-	<c>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</c>
-      </tag>
-      <item/>
+    <datatype>
+      <name>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</name>
+      <name>conn_log_type() = raw | pretty | html | silent</name>
+      <name>conn_log_mod() = ct_netconfc | ct_telnet</name>
+    </datatype>
 
-      <tag>
-	<marker id="type-conn_log_type"/>
-	<c>conn_log_type() = raw | pretty | html | silent</c>
-      </tag>
-      <item/>
-
-      <tag>
-	<marker id="type-conn_log_mod"/>
-	<c>conn_log_mod() = ct_netconfc | ct_telnet</c>
-      </tag>
-      <item/>
-
-    </taglist>
-  </section>
+  </datatypes>
 
   <funcs>
     <func>
-      <name>abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</name>
+      <name since="">abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</name>
       <fsummary>Aborts the currently executing test case.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -157,7 +130,7 @@
     </func>
 
     <func>
-      <name>add_config(Callback, Config) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R14B">add_config(Callback, Config) -&gt; ok | {error, Reason}</name>
       <fsummary>Loads configuration variables using the specified callback
         module and configuration string.</fsummary>
       <type>
@@ -170,13 +143,13 @@
           configuration string. The callback module is to be either loaded or
           present in the code part. Loaded configuration variables can later
           be removed using function
-          <seealso marker="#remove_config-2"><c>ct:remove_config/2</c></seealso>.
+          <seemfa marker="#remove_config/2"><c>ct:remove_config/2</c></seemfa>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name>break(Comment) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B02">break(Comment) -&gt; ok | {error, Reason}</name>
       <fsummary>Cancels any active timetrap and pause the execution of the
         current test case until the user calls function continue/0.</fsummary>
       <type>
@@ -190,23 +163,23 @@
           The user can then interact with the Erlang node running the tests,
           for example, for debugging purposes or for manually executing a
           part of the test case. If a parallel group is executing,
-          <seealso marker="#break-2"><c>ct:break/2</c></seealso> is to be
+          <seemfa marker="#break/2"><c>ct:break/2</c></seemfa> is to be
           called instead.</p>
        <p>A cancelled timetrap is not automatically reactivated after the
          break, but must be started exlicitly with
-         <seealso marker="#timetrap-1"><c>ct:timetrap/1</c></seealso>.</p>
+         <seemfa marker="#timetrap/1"><c>ct:timetrap/1</c></seemfa>.</p>
        <p>In order for the break/continue functionality to work, <c>Common
          Test</c> must release the shell process controlling <c>stdin</c>.
          This is done by setting start option <c>release_shell</c>
          to <c>true</c>. For details, see section
-         <seealso marker="run_test_chapter#erlang_shell_or_program">Running
-         Tests from the Erlang Shell or from an Erlang Program</seealso>
+         <seeguide marker="run_test_chapter#erlang_shell_or_program">Running
+         Tests from the Erlang Shell or from an Erlang Program</seeguide>
          in the User's Guide.</p>
       </desc>
     </func>
 
     <func>
-      <name>break(TestCase, Comment) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B02">break(TestCase, Comment) -&gt; ok | {error, Reason}</name>
       <fsummary>Works the same way as break/1, only argument TestCase makes it
         possible to pause a test case executing in a parallel group.</fsummary>
       <type>
@@ -216,31 +189,31 @@
       </type>
       <desc><marker id="break-2"/>
         <p>Works the same way as
-          <seealso marker="#break-1"><c>ct:break/1</c></seealso>, only
+          <seemfa marker="#break/1"><c>ct:break/1</c></seemfa>, only
           argument <c>TestCase</c> makes it possible to pause a test case
           executing in a parallel group. Function
-          <seealso marker="#continue-1"><c>ct:continue/1</c></seealso> is to
+          <seemfa marker="#continue/1"><c>ct:continue/1</c></seemfa> is to
           be used to resume execution of <c>TestCase</c>.</p>
 
         <p>For details, see
-          <seealso marker="#break/1"><c>ct:break/1</c></seealso>.</p>
+          <seemfa marker="#break/1"><c>ct:break/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>capture_get() -&gt; ListOfStrings</name>
+      <name since="OTP R15B">capture_get() -&gt; ListOfStrings</name>
       <fsummary>Equivalent to capture_get([default]).</fsummary>
       <type>
         <v>ListOfStrings = [string()]</v>
       </type>
       <desc><marker id="capture_get-0"/>
         <p>Equivalent to
-          <seealso marker="#capture_get-1">ct:capture_get([default])</seealso>.</p>
+          <seemfa marker="#capture_get/1">ct:capture_get([default])</seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>capture_get(ExclCategories) -&gt; ListOfStrings</name>
+      <name since="OTP R15B">capture_get(ExclCategories) -&gt; ListOfStrings</name>
       <fsummary>Returns and purges the list of text strings buffered during
         the latest session of capturing printouts to stdout.</fsummary>
       <type>
@@ -255,14 +228,14 @@
           If <c>ExclCategories = []</c>, no filtering takes place.</p>
 
         <p>See also
-          <seealso marker="#capture_start-0"><c>ct:capture_start/0</c></seealso>,
-          <seealso marker="#capture_stop-0"><c>ct:capture_stop/0</c></seealso>,
-          <seealso marker="#log-3"><c>ct:log/3</c></seealso>.</p>
+          <seemfa marker="#capture_start/0"><c>ct:capture_start/0</c></seemfa>,
+          <seemfa marker="#capture_stop/0"><c>ct:capture_stop/0</c></seemfa>,
+          <seemfa marker="#log/3"><c>ct:log/3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>capture_start() -&gt; ok</name>
+      <name since="OTP R15B">capture_start() -&gt; ok</name>
       <fsummary>Starts capturing all text strings printed to stdout
         during execution of the test case.</fsummary>
         <desc><marker id="capture_start-0"/>
@@ -270,13 +243,13 @@
           during execution of the test case.</p>
 
         <p>See also
-          <seealso marker="#capture_get-1"><c>ct:capture_get/1</c></seealso>,
-          <seealso marker="#capture_stop-0"><c>ct:capture_stop/0</c></seealso>.</p>
+          <seemfa marker="#capture_get/1"><c>ct:capture_get/1</c></seemfa>,
+          <seemfa marker="#capture_stop/0"><c>ct:capture_stop/0</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>capture_stop() -&gt; ok</name>
+      <name since="OTP R15B">capture_stop() -&gt; ok</name>
       <fsummary>Stops capturing text strings (a session started with
         capture_start/0).</fsummary>
       <desc><marker id="capture_stop-0"/>
@@ -284,13 +257,13 @@
           <c>capture_start/0</c>).</p>
 
         <p>See also
-          <seealso marker="#capture_get-1"><c>ct:capture_get/1</c></seealso>,
-          <seealso marker="#capture_start-0"><c>ct:capture_start/0</c></seealso>.</p>
+          <seemfa marker="#capture_get/1"><c>ct:capture_get/1</c></seemfa>,
+          <seemfa marker="#capture_start/0"><c>ct:capture_start/0</c></seemfa>.</p>
        </desc>
     </func>
 
     <func>
-      <name>comment(Comment) -&gt; ok</name>
+      <name since="">comment(Comment) -&gt; ok</name>
       <fsummary>Prints the specified Comment in the comment field in the
         table on the test suite result page.</fsummary>
       <type>
@@ -307,7 +280,7 @@
     </func>
 
     <func>
-      <name>comment(Format, Args) -&gt; ok</name>
+      <name since="OTP R15B">comment(Format, Args) -&gt; ok</name>
       <fsummary>Prints the formatted string in the comment field in the
         table on the test suite result page.</fsummary>
       <type>
@@ -321,23 +294,23 @@
         <p>Arguments <c>Format</c> and <c>Args</c> are used in a call to
           <c>io_lib:format/2</c> to create the comment string. The behavior
           of <c>comment/2</c> is otherwise the same as function
-          <seealso marker="#comment-1"><c>ct:comment/1</c></seealso>.</p>
+          <seemfa marker="#comment/1"><c>ct:comment/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>continue() -&gt; ok</name>
+      <name since="OTP R15B02">continue() -&gt; ok</name>
       <fsummary>This function must be called to continue after a test
         case (not executing in a parallel group) has called break/1.</fsummary>
       <desc><marker id="continue-0"/>
         <p>This function must be called to continue after a test case
           (not executing in a parallel group) has called function
-          <seealso marker="#break-1"><c>ct:break/1</c></seealso>.</p>
+          <seemfa marker="#break/1"><c>ct:break/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>continue(TestCase) -&gt; ok</name>
+      <name since="OTP R15B02">continue(TestCase) -&gt; ok</name>
       <fsummary>This function must be called to continue after a test case
         has called break/2.</fsummary>
       <type>
@@ -345,7 +318,7 @@
       </type>
       <desc><marker id="continue-1"/>
         <p>This function must be called to continue after a test case has
-          called <seealso marker="#break-2"><c>ct:break/2</c></seealso>.
+          called <seemfa marker="#break/2"><c>ct:break/2</c></seemfa>.
           If the paused test case, <c>TestCase</c>, executes in a parallel
           group, this function, rather than <c>continue/0</c>, must be used
           to let the test case proceed.</p>
@@ -353,7 +326,7 @@
     </func>
 
     <func>
-      <name>decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</name>
+      <name since="">decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</name>
       <fsummary>Decrypts EncryptFileName, previously generated with
         encrypt_config_file/2,3.</fsummary>
       <type>
@@ -363,7 +336,7 @@
       </type>
       <desc><marker id="decrypt_config_file-2"/>
         <p>Decrypts <c>EncryptFileName</c>, previously generated with
-          <seealso marker="#encrypt_config_file-2"><c>ct:encrypt_config_file/2,3</c></seealso>.
+          <seemfa marker="#encrypt_config_file/2"><c>ct:encrypt_config_file/2,3</c></seemfa>.
           The original file contents is saved in the target file. The
           encryption key, a string, must be available in a text file named
           <c>.ct_config.crypt</c>, either in the current directory, or the
@@ -372,7 +345,7 @@
     </func>
 
     <func>
-      <name>decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <name since="">decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Decrypts EncryptFileName, previously generated with
         encrypt_config_file/2,3.</fsummary>
       <type>
@@ -383,14 +356,14 @@
       </type>
       <desc><marker id="decrypt_config_file-3"/>
         <p>Decrypts <c>EncryptFileName</c>, previously generated with
-          <seealso marker="#encrypt_config_file-2"><c>ct:encrypt_config_file/2,3</c></seealso>.
+          <seemfa marker="#encrypt_config_file/2"><c>ct:encrypt_config_file/2,3</c></seemfa>.
           The original file contents is saved in the target file. The key
           must have the same value as that used for encryption.</p>
       </desc>
     </func>
 
     <func>
-      <name>encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</name>
+      <name since="">encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</name>
       <fsummary>Encrypts the source configuration file with DES3 and saves the
         result in file EncryptFileName.</fsummary>
       <type>
@@ -407,16 +380,16 @@
 
         <p>For information about using encrypted configuration files when
           running tests, see section
-          <seealso marker="config_file_chapter#encrypted_config_files">Encrypted
-          Configuration Files</seealso> in the User's Guide.</p>
+          <seeguide marker="config_file_chapter#encrypted_config_files">Encrypted
+          Configuration Files</seeguide> in the User's Guide.</p>
 
         <p>For details on DES3 encryption/decryption, see application
-          <seealso marker="crypto:index"><c>Crypto</c></seealso>.</p>
+          <seeapp marker="crypto:index"><c>Crypto</c></seeapp>.</p>
       </desc>
     </func>
 
     <func>
-      <name>encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <name since="">encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Encrypts the source configuration file with DES3 and saves the
        result in the target file EncryptFileName.</fsummary>
       <type>
@@ -433,16 +406,16 @@
 
         <p>For information about using encrypted configuration files when
           running tests, see section
-          <seealso marker="config_file_chapter#encrypted_config_files">Encrypted
-          Configuration Files</seealso> in the User's Guide.</p>
+          <seeguide marker="config_file_chapter#encrypted_config_files">Encrypted
+          Configuration Files</seeguide> in the User's Guide.</p>
 
         <p>For details on DES3 encryption/decryption, see application
-          <seealso marker="crypto:index"><c>Crypto</c></seealso>.</p>
+          <seeapp marker="crypto:index"><c>Crypto</c></seeapp>.</p>
       </desc>
     </func>
 
     <func>
-      <name>fail(Reason) -&gt; ok</name>
+      <name since="">fail(Reason) -&gt; ok</name>
       <fsummary>Terminates a test case with the specified error
         Reason.</fsummary>
       <type>
@@ -454,7 +427,7 @@
     </func>
 
     <func>
-      <name>fail(Format, Args) -&gt; ok</name>
+      <name since="OTP R15B">fail(Format, Args) -&gt; ok</name>
       <fsummary>Terminates a test case with an error message specified by
         a format string and a list of values (used as arguments to
         io_lib:format/2).</fsummary>
@@ -470,25 +443,25 @@
     </func>
 
     <func>
-      <name>get_config(Required) -&gt; Value</name>
+      <name since="">get_config(Required) -&gt; Value</name>
       <fsummary>Equivalent to get_config(Required, undefined, []).</fsummary>
       <desc><marker id="get_config-1"/>
-        <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
-          undefined, [])</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#get_config/3"><c>ct:get_config(Required,
+          undefined, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>get_config(Required, Default) -&gt; Value</name>
+      <name since="">get_config(Required, Default) -&gt; Value</name>
       <fsummary>Equivalent to get_config(Required, Default, []).</fsummary>
       <desc><marker id="get_config-2"/>
-        <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
-          Default, [])</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#get_config/3"><c>ct:get_config(Required,
+          Default, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>get_config(Required, Default, Opts) -&gt; ValueOrElement</name>
+      <name since="">get_config(Required, Default, Opts) -&gt; ValueOrElement</name>
       <fsummary>Reads configuration data values.</fsummary>
       <type>
         <v>Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</v>
@@ -505,7 +478,7 @@
         <p>Returns the matching values or configuration elements, given a
           configuration variable key or its associated name (if one has been
           specified with
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>
+          <seemfa marker="#require/2"><c>ct:require/2</c></seemfa>
           or a <c>require</c> statement).</p>
 
         <p><em>Example:</em></p>
@@ -528,7 +501,7 @@
  ct:get_config(unknownkey,Default) -&gt; Default</pre>
 
         <p>If a configuration variable key has been associated with a name (by
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>
+          <seemfa marker="#require/2"><c>ct:require/2</c></seemfa>
           or a <c>require</c> statement), the name can be used instead
           of the key to read the value:</p>
 
@@ -546,15 +519,15 @@
           returned elements are then on the form <c>{Required,Value}</c>.</p>
 
         <p>See also
-          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
-          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
-          <seealso marker="#require-1"><c>ct:require/1</c></seealso>,
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seemfa marker="#get_config/1"><c>ct:get_config/1</c></seemfa>,
+          <seemfa marker="#get_config/2"><c>ct:get_config/2</c></seemfa>,
+          <seemfa marker="#require/1"><c>ct:require/1</c></seemfa>,
+          <seemfa marker="#require/2"><c>ct:require/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>get_event_mgr_ref() -&gt; EvMgrRef</name>
+      <name since="OTP 17.5">get_event_mgr_ref() -&gt; EvMgrRef</name>
       <fsummary>Gets a reference to the <c>Common Test</c> event manager.</fsummary>
         <type>
           <v>EvMgrRef = atom()</v>
@@ -572,7 +545,17 @@
     </func>
 
     <func>
-      <name>get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
+      <name since="OTP 21.0">get_progname() -&gt; string()</name>
+      <fsummary>Returns the command used to start this Erlang instance.</fsummary>
+      <desc><marker id="get_progname-0"/>
+        <p>Returns the command used to start this Erlang instance.
+           If this information could not be found, the string
+           <c>"no_prog_name"</c> is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
       <fsummary>Returns status of ongoing test.</fsummary>
       <type>
         <v>TestStatus = [StatusElem]</v>
@@ -598,7 +581,7 @@
     </func>
 
     <func>
-      <name>get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</name>
+      <name since="">get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</name>
       <fsummary>Returns the name of the target that the specified connection
         belongs to.</fsummary>
       <type>
@@ -612,7 +595,7 @@
     </func>
 
     <func>
-      <name>get_testspec_terms() -&gt; TestSpecTerms | undefined</name>
+      <name since="OTP 18.0">get_testspec_terms() -&gt; TestSpecTerms | undefined</name>
       <fsummary>Gets a list of all test specification terms used to
         configure and run this test.</fsummary>
       <type>
@@ -626,7 +609,7 @@
     </func>
 
     <func>
-      <name>get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</name>
+      <name since="OTP 18.0">get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</name>
       <fsummary>Reads one or more terms from the test specification used to
         configure and run this test.</fsummary>
       <type>
@@ -653,7 +636,7 @@
     </func>
 
     <func>
-      <name>get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
+      <name since="OTP R15B">get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
       <fsummary>Reads information about the timetrap set for the current
         test case.</fsummary>
       <type>
@@ -672,7 +655,7 @@
     </func>
 
     <func>
-      <name>get_verbosity(Category) -&gt; Level | undefined</name>
+      <name since="OTP 19.1">get_verbosity(Category) -&gt; Level | undefined</name>
       <fsummary>Read the verbosity level for a logging category.</fsummary>
       <type>
         <v>Category = default | atom()</v>
@@ -680,14 +663,14 @@
       </type>
       <desc><marker id="get_verbosity-1"/>
         <p>This function returns the verbosity level for the specified logging
-	category. See the <seealso marker="write_test_chapter#logging">
-	User's Guide</seealso> for details. Use the value <c>default</c> to read
+	category. See the <seeguide marker="write_test_chapter#logging">
+	User's Guide</seeguide> for details. Use the value <c>default</c> to read
 	the general verbosity level.</p>
       </desc>
     </func>
 
     <func>
-      <name>install(Opts) -&gt; ok | {error, Reason}</name>
+      <name since="">install(Opts) -&gt; ok | {error, Reason}</name>
       <fsummary>Installs configuration files and event handlers.</fsummary>
       <type>
         <v>Opts = [Opt]</v>
@@ -714,7 +697,7 @@
     </func>
 
     <func>
-      <name>listenv(Telnet) -&gt; [Env]</name>
+      <name since="">listenv(Telnet) -&gt; [Env]</name>
       <fsummary>Performs command listenv on the specified Telnet connection
         and returns the result as a list of key-value pairs.</fsummary>
       <type>
@@ -730,16 +713,16 @@
     </func>
 
     <func>
-      <name>log(Format) -&gt; ok</name>
+      <name since="">log(Format) -&gt; ok</name>
       <fsummary>Equivalent to log(default, 50, Format, [], []).</fsummary>
       <desc><marker id="log-1"/>
         <p>Equivalent to
-          <seealso marker="#log-5"><c>ct:log(default, 50, Format, [], [])</c></seealso>.</p>
+          <seemfa marker="#log/5"><c>ct:log(default, 50, Format, [], [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>log(X1, X2) -&gt; ok</name>
+      <name since="">log(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -747,13 +730,13 @@
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="log-2"/>
-        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
-          Importance, Format, FormatArgs, [])</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#log/5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>log(X1, X2, X3) -&gt; ok</name>
+      <name since="">log(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -762,13 +745,13 @@
         <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="log-3"/>
-        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
-          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#log/5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>log(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">log(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -778,13 +761,13 @@
 	<v>X4 = FormatArgs | Opts</v>
       </type>
       <desc><marker id="log-4"/>
-        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
-          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#log/5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 18.3">log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the log file.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -805,8 +788,8 @@
           and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
 
         <p>For details on <c>Category</c>, <c>Importance</c> and the <c>no_css</c>
-	option, see section <seealso marker="write_test_chapter#logging">
-	Logging - Categories and Verbosity Levels</seealso> in the User's Guide.</p>
+	option, see section <seeguide marker="write_test_chapter#logging">
+	Logging - Categories and Verbosity Levels</seeguide> in the User's Guide.</p>
 
 	<p>Common Test will not escape special HTML characters (&lt;, &gt; and &amp;)
 	   in the text printed with this function, unless the <c>esc_chars</c>
@@ -815,7 +798,7 @@
     </func>
 
     <func>
-      <name>make_priv_dir() -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B01">make_priv_dir() -&gt; ok | {error, Reason}</name>
       <fsummary>If the test has been started with option create_priv_dir
         set to manual_per_tc, in order for the test case to use the private
         directory, it must first create it by calling this function.</fsummary>
@@ -831,7 +814,7 @@
     </func>
 
     <func>
-      <name>notify(Name, Data) -&gt; ok</name>
+      <name since="OTP R15B02">notify(Name, Data) -&gt; ok</name>
       <fsummary>Sends an asynchronous notification of type Name with Data
         to the <c>Common Test</c> event manager.</fsummary>
       <type>
@@ -844,22 +827,22 @@
           caught by any installed event manager.</p>
 
         <p>See also
-          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.</p>
+          <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>.</p>
       </desc>
     </func>
 
     <func>
-      <name>pal(Format) -&gt; ok</name>
+      <name since="">pal(Format) -&gt; ok</name>
       <fsummary>Equivalent to pal(default, 50, Format, [], []).</fsummary>
       <desc><marker id="pal-1"/>
         <p>Equivalent to
-          <seealso marker="#pal-5"><c>ct:pal(default, 50, Format,
-            [], [])</c></seealso>.</p>
+          <seemfa marker="#pal/5"><c>ct:pal(default, 50, Format,
+            [], [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>pal(X1, X2) -&gt; ok</name>
+      <name since="">pal(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -867,13 +850,13 @@
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="pal-2"/>
-        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
-          Importance, Format, FormatArgs, [])</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#pal/5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>pal(X1, X2, X3) -&gt; ok</name>
+      <name since="">pal(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -882,13 +865,13 @@
         <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="pal-3"/>
-        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
-          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#pal/5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>pal(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">pal(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -898,13 +881,13 @@
 	<v>X4 = FormatArgs | Opts</v>
       </type>
       <desc><marker id="pal-4"/>
-        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
-          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#pal/5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 19.2">pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints and logs from a test case.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -925,8 +908,8 @@
           and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
 
         <p>For details on <c>Category</c> and <c>Importance</c>, see section
-          <seealso marker="write_test_chapter#logging">Logging - Categories
-          and Verbosity Levels</seealso> in the User's Guide.</p>
+          <seeguide marker="write_test_chapter#logging">Logging - Categories
+          and Verbosity Levels</seeguide> in the User's Guide.</p>
 
 	<p>Note that special characters in the text (&lt;, &gt; and &amp;) will
 	   be escaped by Common Test before the text is printed to the log
@@ -935,7 +918,7 @@
     </func>
 
     <func>
-      <name>parse_table(Data) -&gt; {Heading, Table}</name>
+      <name since="">parse_table(Data) -&gt; {Heading, Table}</name>
       <fsummary>Parses the printout from an SQL table and returns a list of
         tuples.</fsummary>
       <type>
@@ -957,16 +940,16 @@
     </func>
 
     <func>
-      <name>print(Format) -&gt; ok</name>
+      <name since="">print(Format) -&gt; ok</name>
       <fsummary>Equivalent to print(default, 50, Format, [], []).</fsummary>
       <desc><marker id="print-1"/>
-        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(default,
-        50, Format, [], [])</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#print/5"><c>ct:print(default,
+        50, Format, [], [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>print(X1, X2) -&gt; ok</name>
+      <name since="OTP R15B02">print(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -974,13 +957,13 @@
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="print-2"/>
-        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
-          Importance, Format, FormatArgs, [])</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#print/5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>print(X1, X2, X3) -&gt; ok</name>
+      <name since="">print(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -989,13 +972,13 @@
         <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="print-3"/>
-        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
-          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#print/5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>print(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">print(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -1005,13 +988,13 @@
 	<v>X4 = FormatArgs | Opts</v>
       </type>
       <desc><marker id="print-4"/>
-        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
-          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#print/5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 19.2">print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the console.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -1032,13 +1015,13 @@
           and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
 
         <p>For details on <c>Category</c> and <c>Importance</c>, see section
-          <seealso marker="write_test_chapter#logging">Logging - Categories
-          and Verbosity Levels</seealso> in the User's Guide.</p>
+          <seeguide marker="write_test_chapter#logging">Logging - Categories
+          and Verbosity Levels</seeguide> in the User's Guide.</p>
       </desc>
     </func>
 
     <func>
-      <name>reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
+      <name since="OTP R14B">reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
       <fsummary>Reloads configuration file containing specified configuration
         key.</fsummary>
       <type>
@@ -1061,7 +1044,7 @@
     </func>
 
      <func>
-      <name>remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
+      <name since="OTP 20.2">remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
       <fsummary>>This function will return the identity of test- and group
        leader processes that are still running at the time of this call.</fsummary>
       <type>
@@ -1097,7 +1080,7 @@
     </func>   
 
     <func>
-      <name>remove_config(Callback, Config) -&gt; ok</name>
+      <name since="OTP R14B">remove_config(Callback, Config) -&gt; ok</name>
       <fsummary>Removes configuration variables (together with
         their aliases) that were loaded with specified callback module and
         configuration string.</fsummary>
@@ -1114,7 +1097,7 @@
     </func>
 
     <func>
-      <name>require(Required) -&gt; ok | {error, Reason}</name>
+      <name since="">require(Required) -&gt; ok | {error, Reason}</name>
       <fsummary>Checks if the required configuration is available.</fsummary>
       <type>
         <v>Required = Key | {Key, SubKeys} | {Key, SubKey, SubKeys}</v>
@@ -1160,15 +1143,15 @@
  {myvar,[{sub1,[{sub2,Value}]}]}.</pre>
 
         <p>See also
-          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
-          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
-          <seealso marker="#get_config-3"><c>ct:get_config/3</c></seealso>,
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seemfa marker="#get_config/1"><c>ct:get_config/1</c></seemfa>,
+          <seemfa marker="#get_config/2"><c>ct:get_config/2</c></seemfa>,
+          <seemfa marker="#get_config/3"><c>ct:get_config/3</c></seemfa>,
+          <seemfa marker="#require/2"><c>ct:require/2</c></seemfa>.</p>
         </desc>
     </func>
 
     <func>
-      <name>require(Name, Required) -&gt; ok | {error, Reason}</name>
+      <name since="">require(Name, Required) -&gt; ok | {error, Reason}</name>
       <fsummary>Checks if the required configuration is available and gives
         it a name.</fsummary>
       <type>
@@ -1180,12 +1163,12 @@
       <desc><marker id="require-2"/>
         <p>Checks if the required configuration is available and gives it a
           name. The semantics for <c>Required</c> is the same as in
-          <seealso marker="#require-1"><c>ct:require/1</c></seealso> except
+          <seemfa marker="#require/1"><c>ct:require/1</c></seemfa> except
           that a list of <c>SubKey</c>s cannot be specified.</p>
 
        <p>If the requested data is available, the subentry is associated
          with <c>Name</c> so that the value of the element can be read with
-         <seealso marker="#get_config-1"><c>ct:get_config/1,2</c></seealso>
+         <seemfa marker="#get_config/1"><c>ct:get_config/1,2</c></seemfa>
          provided <c>Name</c> is used instead of the whole <c>Required</c>
          term.</p>
 
@@ -1219,15 +1202,15 @@
         </note>
 
         <p>See also
-          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
-          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
-          <seealso marker="#get_config-3"><c>ct:get_config/3</c></seealso>,
-          <seealso marker="#require-1"><c>ct:require/1</c></seealso>.</p>
+          <seemfa marker="#get_config/1"><c>ct:get_config/1</c></seemfa>,
+          <seemfa marker="#get_config/2"><c>ct:get_config/2</c></seemfa>,
+          <seemfa marker="#get_config/3"><c>ct:get_config/3</c></seemfa>,
+          <seemfa marker="#require/1"><c>ct:require/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>run(TestDirs) -&gt; Result</name>
+      <name since="">run(TestDirs) -&gt; Result</name>
       <fsummary>Runs all test cases in all suites in the specified
         directories.</fsummary>
       <type>
@@ -1236,22 +1219,22 @@
       <desc><marker id="run-1"/>
         <p>Runs all test cases in all suites in the specified directories.</p>
 
-        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#run/3"><c>ct:run/3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>run(TestDir, Suite) -&gt; Result</name>
+      <name since="">run(TestDir, Suite) -&gt; Result</name>
       <fsummary>Runs all test cases in the specified suite.</fsummary>
       <desc><marker id="run-2"/>
         <p>Runs all test cases in the specified suite.</p>
 
-        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#run/3"><c>ct:run/3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>run(TestDir, Suite, Cases) -&gt; Result</name>
+      <name since="">run(TestDir, Suite, Cases) -&gt; Result</name>
       <fsummary>Runs the specified test cases.</fsummary>
       <type>
         <v>TestDir = string()</v>
@@ -1263,7 +1246,7 @@
         <p>Runs the specified test cases.</p>
 
         <p>Requires that
-          <seealso marker="#install-1"><c>ct:install/1</c></seealso> has been
+          <seemfa marker="#install/1"><c>ct:install/1</c></seemfa> has been
             run first.</p>
 
         <p>Suites (<c>*_SUITE.erl</c>) files must be stored in <c>TestDir</c>
@@ -1273,7 +1256,7 @@
     </func>
 
     <func>
-      <name>run_test(Opts) -&gt; Result</name>
+      <name since="">run_test(Opts) -&gt; Result</name>
       <fsummary>Runs tests as specified by the combination of options in
         Opts.</fsummary>
       <type>
@@ -1329,8 +1312,8 @@
       <desc><marker id="run_test-1"/>
         <p>Runs tests as specified by the combination of options in
           <c>Opts</c>. The options are the same as those used with program
-          <c>ct_run</c>, see <seealso marker="ct_run#ct_run">Run Tests from
-          Command Line</seealso> in the <c>ct_run</c> manual page.</p>
+          <c>ct_run</c>, see <seecom marker="ct_run#ct_run">Run Tests from
+          Command Line</seecom> in the <c>ct_run</c> manual page.</p>
         <p>Here a <c>TestDir</c> can be used to point out the path to a
           <c>Suite</c>. Option <c>testcase</c> corresponds to option
           <c>-case</c> in program <c>ct_run</c>. Configuration files
@@ -1338,14 +1321,14 @@
 
         <p><c>TestRunnerPid</c> is returned if <c>release_shell == true</c>.
           For details, see
-          <seealso marker="#break-1"><c>ct:break/1</c></seealso>.</p>
+          <seemfa marker="#break/1"><c>ct:break/1</c></seemfa>.</p>
 
         <p><c>Reason</c> indicates the type of error encountered.</p>
       </desc>
     </func>
 
     <func>
-      <name>run_testspec(TestSpec) -&gt; Result</name>
+      <name since="">run_testspec(TestSpec) -&gt; Result</name>
       <fsummary>Runs a test specified by TestSpec.</fsummary>
       <type>
         <v>TestSpec = [term()]</v>
@@ -1365,7 +1348,7 @@
     </func>
 
     <func>
-      <name>set_verbosity(Category, Level) -&gt; ok</name>
+      <name since="OTP 19.1">set_verbosity(Category, Level) -&gt; ok</name>
       <fsummary>Set the verbosity level for a logging category.</fsummary>
       <type>
         <v>Category = default | atom()</v>
@@ -1373,14 +1356,14 @@
       </type>
       <desc><marker id="set_verbosity-2"/>
         <p>Use this function to set, or modify, the verbosity level for a logging
-	category. See the <seealso marker="write_test_chapter#logging">
-	User's Guide</seealso> for details. Use the value <c>default</c> to set the
+	category. See the <seeguide marker="write_test_chapter#logging">
+	User's Guide</seeguide> for details. Use the value <c>default</c> to set the
 	general verbosity level.</p>
       </desc>
     </func>
 
     <func>
-      <name>sleep(Time) -&gt; ok</name>
+      <name since="OTP R14B">sleep(Time) -&gt; ok</name>
       <fsummary>This function, similar to timer:sleep/1, suspends the
         test case for a specified time.</fsummary>
       <type>
@@ -1402,7 +1385,7 @@
     </func>
 
     <func>
-      <name>start_interactive() -&gt; ok</name>
+      <name since="">start_interactive() -&gt; ok</name>
       <fsummary>Starts <c>Common Test</c> in interactive mode.</fsummary>
       <desc><marker id="start_interactive-0"/>
         <p>Starts <c>Common Test</c> in interactive mode.</p>
@@ -1415,7 +1398,7 @@
         <p>If any functions (for example, Telnet or FTP) using
           "required configuration data" are to be called from the Erlang shell,
           configuration data must first be required with
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seemfa marker="#require/2"><c>ct:require/2</c></seemfa>.</p>
 
         <p><em>Example:</em></p>
 
@@ -1430,7 +1413,7 @@
     </func>
 
     <func>
-      <name>step(TestDir, Suite, Case) -&gt; Result</name>
+      <name since="">step(TestDir, Suite, Case) -&gt; Result</name>
       <fsummary>Steps through a test case with the debugger.</fsummary>
       <type>
         <v>Case = atom()</v>
@@ -1438,12 +1421,12 @@
       <desc><marker id="step-3"/>
         <p>Steps through a test case with the debugger.</p>
 
-        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#run/3"><c>ct:run/3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>step(TestDir, Suite, Case, Opts) -&gt; Result</name>
+      <name since="">step(TestDir, Suite, Case, Opts) -&gt; Result</name>
       <fsummary>Steps through a test case with the debugger.</fsummary>
       <type>
         <v>Case = atom()</v>
@@ -1455,24 +1438,24 @@
           <c>config</c> has been specifed, breakpoints are also set on
           the configuration functions in <c>Suite</c>.</p>
 
-        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#run/3"><c>ct:run/3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>stop_interactive() -&gt; ok</name>
+      <name since="">stop_interactive() -&gt; ok</name>
       <fsummary>Exits the interactive mode.</fsummary>
       <desc><marker id="stop_interactive-0"/>
         <p>Exits the interactive mode.</p>
 
         <p>See also
-          <seealso marker="#start_interactive-0"><c>ct:start_interactive/0</c></seealso>.
+          <seemfa marker="#start_interactive/0"><c>ct:start_interactive/0</c></seemfa>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name>sync_notify(Name, Data) -&gt; ok</name>
+      <name since="OTP R15B02">sync_notify(Name, Data) -&gt; ok</name>
       <fsummary>Sends a synchronous notification of type Name with Data to
         the <c>Common Test</c> event manager.</fsummary>
       <type>
@@ -1485,13 +1468,13 @@
           caught by any installed event manager.</p>
 
         <p>See also
-          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.
+          <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name>testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</name>
+      <name since="">testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</name>
       <fsummary>Returns all test cases in the specified suite.</fsummary>
       <type>
         <v>TestDir = string()</v>
@@ -1505,14 +1488,14 @@
     </func>
 
     <func>
-      <name>timetrap(Time) -&gt; ok</name>
+      <name since="OTP R14B">timetrap(Time) -&gt; ok</name>
       <fsummary>Sets a new timetrap for the running test case.</fsummary>
       <type>
         <v>Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func</v>
         <v>Hours = integer()</v>
         <v>Mins = integer()</v>
         <v>Secs = integer()</v>
-        <v>Millisecs = integer() | float()</v>
+        <v>Millisecs = integer()</v>
         <v>Func = {M, F, A} | function()</v>
         <v>M = atom()</v>
         <v>F = atom()</v>
@@ -1529,7 +1512,7 @@
     </func>
 
     <func>
-      <name>userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</name>
+      <name since="">userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</name>
       <fsummary>Returns any data specified with tag userdata in the list of
         tuples returned from Suite:suite/0.</fsummary>
       <type>
@@ -1541,12 +1524,12 @@
       <desc><marker id="userdata-2"/>
         <p>Returns any data specified with tag <c>userdata</c> in the list
           of tuples returned from
-          <seealso marker="common_test#Module:suite-0"><c>suite/0</c></seealso>.</p>
+          <seemfa marker="common_test#Module:suite/0"><c>suite/0</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</name>
+      <name since="">userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</name>
       <fsummary>Returns any data specified with tag userdata in the list of
         tuples returned from Suite:group(GroupName) or Suite:Case().</fsummary>
       <type>

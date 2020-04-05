@@ -6,8 +6,10 @@
   <xi:include href="../specs/specs_disk_log.xml"/>
   <xi:include href="../specs/specs_erl_boot_server.xml"/>
   <xi:include href="../specs/specs_erl_ddll.xml"/>
+  <xi:include href="../specs/specs_erl_epmd.xml"/>
   <xi:include href="../specs/specs_erl_prim_loader_stub.xml"/>
   <xi:include href="../specs/specs_erlang_stub.xml"/>
+  <xi:include href="../specs/specs_erpc.xml"/>
   <xi:include href="../specs/specs_error_handler.xml"/>
   <xi:include href="../specs/specs_error_logger.xml"/>
   <xi:include href="../specs/specs_file.xml"/>
@@ -20,9 +22,16 @@
   <xi:include href="../specs/specs_inet.xml"/>
   <xi:include href="../specs/specs_inet_res.xml"/>
   <xi:include href="../specs/specs_init_stub.xml"/>
+  <xi:include href="../specs/specs_logger.xml"/>
+  <xi:include href="../specs/specs_logger_filters.xml"/>
+  <xi:include href="../specs/specs_logger_formatter.xml"/>
+  <xi:include href="../specs/specs_logger_std_h.xml"/>
+  <xi:include href="../specs/specs_logger_disk_log_h.xml"/>
+  <xi:include href="../specs/specs_net.xml"/>
   <xi:include href="../specs/specs_net_adm.xml"/>
   <xi:include href="../specs/specs_net_kernel.xml"/>
   <xi:include href="../specs/specs_os.xml"/>
+  <xi:include href="../specs/specs_pg.xml"/>
   <xi:include href="../specs/specs_pg2.xml"/>
   <xi:include href="../specs/specs_rpc.xml"/>
   <xi:include href="../specs/specs_seq_trace.xml"/>

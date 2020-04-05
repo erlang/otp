@@ -4,7 +4,7 @@
 <book xmlns:xi="http://www.w3.org/2001/XInclude">
   <header titlestyle="normal">
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,6 +38,9 @@
   <applications>
     <xi:include href="ref_man.xml"/>
   </applications>
+  <internals>
+    <xi:include href="internal.xml"/>
+  </internals>
   <releasenotes>
     <xi:include href="notes.xml"/>
   </releasenotes>

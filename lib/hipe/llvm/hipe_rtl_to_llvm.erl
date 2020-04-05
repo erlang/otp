@@ -1537,7 +1537,7 @@ declare_switch_table({Name, {switch, {TableType, Labels, _, _}, _}}, FunName) ->
   LabelList = [mk_jump_label(L) || L <- Labels],
   Fun1 = fun(X) -> "i8* blockaddress(@" ++ FunName ++ ", " ++ X ++ ")" end,
   List2 = lists:map(Fun1, LabelList),
-  List3 = string:join(List2, ",\n"),
+  List3 = lists:flatten(lists:join(",\n", List2)),
   List4 = "[\n" ++ List3 ++ "\n]\n",
   hipe_llvm:mk_const_decl("@" ++ Name, "constant", TableType, List4).
 
@@ -1553,7 +1553,7 @@ declare_closure_labels(ClosureLabels, Relocs, Fun) ->
   Relocs1 = relocs_store("table_closures", {table_closures, ArityList}, Relocs),
   List2 =
     ["i8* blockaddress(@" ++ FunName ++ ", " ++ L ++ ")" || L <- LabelList],
-  List3 = string:join(List2, ",\n"),
+  List3 = lists:flatten(lists:join(",\n", List2)),
   List4 = "[\n" ++ List3 ++ "\n]\n",
   NrLabels = length(LabelList),
   ByteTyPtr = hipe_llvm:mk_pointer(hipe_llvm:mk_int(?BITS_IN_BYTE)),

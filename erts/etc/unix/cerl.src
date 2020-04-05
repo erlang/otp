@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,15 +69,6 @@ cxargs_add() {
     done
 }
 
-eeargs=
-eeargs_add() {
-    while [ $# -gt 0 ]; do
-	cargs="$cargs $1"
-	eeargs="$eeargs $1"
-	shift
-    done
-}
-
 core=
 
 GDB=
@@ -96,8 +87,6 @@ TARGET=%TARGET%
 #BINDIR="$ROOTDIR/bin/%TARGET%"
 PROGNAME=$ROOTDIR/bin/cerl
 EMU=beam
-
-PRELOADED=$ROOTDIR/erts/preloaded/ebin
 
 
 while [ $# -gt 0 ]; do
@@ -142,29 +131,6 @@ while [ $# -gt 0 ]; do
 	"-nox")
 	    shift
 	    unset DISPLAY
-	    ;;
-	"-smp")
-	    shift
-	    if [ $# -le 0 ]; then
-		eeargs_add -smp
-	    else
-		case $1 in
-		    disable)
-			shift
-			eeargs_add -smpdisable
-			;;
-		    enable)
-			shift
-			eeargs_add -smp
-			;;
-		    *)
-			eeargs_add -smp
-		esac
-	    fi
-	    ;;
-	"-smpdisable")
-	    shift
-	    eeargs_add -smpdisable
 	    ;;
 	"-lcnt")
 	    shift
@@ -254,11 +220,23 @@ while [ $# -gt 0 ]; do
 	    run_valgrind=yes
 	    skip_erlexec=yes
 	    ;;
+        "-emu_type")
+            shift
+            cargs="$cargs -$1"
+            TYPE=.$1
+            shift
+            ;;
 	"-rr")
 	    shift
 	    cargs="$cargs -rr"
 	    run_rr=yes
-	    skip_erlexec=yes
+            case "$1" in
+                "replay"|"ps")
+                    ;;
+                *)
+	            skip_erlexec=yes
+                    ;;
+            esac
 	    ;;
 	*)
 	    break
@@ -278,7 +256,7 @@ EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
-EMU_NAME=`$EXEC -emu_name_exit $eeargs`
+EMU_NAME=`$EXEC -emu_name_exit`
 
 if [ $skip_erlexec = yes ]; then
     emu_xargs=`echo $xargs | sed "s|+|-|g"`
@@ -292,21 +270,20 @@ if [ $skip_erlexec = yes ]; then
 '
     set -- $beam_args
     IFS="$SAVE_IFS"
-else
-    xargs="$xargs -pz $PRELOADED --"
 fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
 	valversion=`valgrind --version`
 	valmajor=`echo $valversion | sed 's,[a-z]*\-\([0-9]*\).*,\1,'`
         valminor=`echo $valversion | sed 's,[a-z]*\-[0-9]*.\([0-9]*\).*,\1,'`
+	valint=`echo "$valmajor * 1000 + $valminor" | bc`
 	if [ "x$VALGRIND_LOG_XML" = "x" ]; then
 	    valgrind_xml=
 	    log_file_prefix="--log-file="
 	else
 	    export VALGRIND_LOG_XML
 	    valgrind_xml="--xml=yes"
-	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+	    if [ $valint -gt 3004 ]; then
 		log_file_prefix="--xml-file="
 	    else
 		log_file_prefix="--log-file="
@@ -315,36 +292,69 @@ if [ "x$GDB" = "x" ]; then
 	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
 	    valgrind_log=
 	else
-	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+	    if [ $valint -gt 3004 ]; then
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
 	    else
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
 	    fi
 	fi
-	if [ "x$VALGRIND_MISC_FLAGS" = "x" ]; then
-	    valgrind_misc_flags=
-	else
-	    valgrind_misc_flags="$VALGRIND_MISC_FLAGS"
+	# Add default flags
+	vgflags=$VALGRIND_MISC_FLAGS
+	if [ "x${vgflags#*--show-possibly-lost}" = "x$vgflags" ]; then
+	    vgflags="$vgflags --show-possibly-lost=no"
+	fi
+	if [ "x${vgflags#*--child-silent-after-fork}" = "x$vgflags" ]; then
+	    vgflags="$vgflags --child-silent-after-fork=yes"
+	fi
+	if [ "x${vgflags#*--suppressions}" = "x$vgflags" ]; then
+	    if [ "x$ERL_TOP" != "x" ]; then
+		vgflags="$vgflags --suppressions=$ERL_TOP/erts/emulator/valgrind/suppress.standard"
+	    else
+		echo "No valgrind suppression file found in \$VALGRIND_MISC_FLAGS and \$ERL_TOP not set."
+	    fi
 	fi
 	if which taskset > /dev/null && test -e /proc/cpuinfo; then
 	    # We only let valgrind utilize one core with "taskset 1" as it can be very slow
 	    # on multiple cores (especially with async threads). Valgrind only run one pthread
 	    # at a time anyway so there is no point letting it utilize more than one core.
 	    # Use $sched_arg to force all schedulers online to emulate multicore.
-	    taskset1="taskset 1"
 	    ncpu=`cat /proc/cpuinfo | grep -w processor | wc -l`
-	    sched_arg="-S$ncpu:$ncpu"
+            # Choose a random core in order to not collide with any other valgrind
+            # run on the same machine.
+	    cpu=`shuf -i 1-$ncpu -n 1`
+	    cpu=`expr $cpu - 1`
+	    taskset1="taskset --cpu-list $cpu"
+	    sched_arg="-S $ncpu:$ncpu -SDcpu $ncpu:$ncpu"
 	else
 	    taskset1=
 	    sched_arg=
 	fi
 
-	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" -pz $PRELOADED
+	exec $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
 
     elif [ $run_rr = yes ]; then
-	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
+        if [ $1 = replay ]; then
+            shift
+            cmdfile="/tmp/.cerlgdb.$$"
+            echo "set \$etp_beam_executable = \"$BINDIR/$EMU_NAME\"" > $cmdfile
+            if [ "$1" = "-p" ]; then
+                echo 'set $etp_rr_run_until_beam = 1' >> $cmdfile
+            fi
+            cat $ROOTDIR/erts/etc/unix/etp-commands >> $cmdfile
+            exec rr replay -x $cmdfile $*
+        elif [ $1 = ps ]; then
+            shift
+            rr ps $* | head -1
+            ChildSetup=`rr ps $* | grep 'erl_child_setup' | awk '{ print $2 }'`
+            for CS in $ChildSetup; do
+                rr ps $* | grep -E "^$CS"
+            done
+            exit 0
+        else
+	    exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@"
+        fi
     else
-	exec $EXEC $eeargs $xargs ${1+"$@"}
+	exec $EXEC $xargs ${1+"$@"}
     fi
 elif [ "x$GDB" = "xgdb" ]; then
     case "x$core" in

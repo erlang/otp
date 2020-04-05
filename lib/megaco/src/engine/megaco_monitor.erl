@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -193,7 +193,7 @@ cancel_apply_after({apply_after, Ref}) ->
 	TimeLeft when is_integer(TimeLeft) ->
 	    {ok, TimeLeft};
 	_ ->
-	    {ok, 0}
+	    {error, {already_expired, Ref}}
     end;
 cancel_apply_after(apply_after_infinity) ->
     ok;

@@ -37,7 +37,6 @@
 -import(lists, [member/2,reverse/1,sort/1,delete/2,
                 keysort/2,keydelete/3,
                 map/2,foldl/3,foreach/2,flatmap/2]).
--import(string, [substr/2,substr/3,span/2]).
 -import(ordsets, [is_element/2,add_element/2,union/2]).
 -import(orddict, [store/3]).
 
@@ -251,10 +250,10 @@ is_filename(T) ->
 
 shorten_filename(Name0) ->
     {ok,Cwd} = file:get_cwd(),
-    case lists:prefix(Cwd, Name0) of
-        false -> Name0;
-        true ->
-            case lists:nthtail(length(Cwd), Name0) of
+    case string:prefix(Name0, Cwd) of
+        nomatch -> Name0;
+        Rest ->
+            case unicode:characters_to_list(Rest) of
                 "/"++N -> N;
                 N -> N
             end
@@ -490,12 +489,9 @@ parse_rules_end(_, NextLine, REAs, As, St) ->
 %% action has been read. Keep track of line number.
 
 collect_rule(Ifile, Chars, L0) ->
-    %% Erlang strings are 1 based, but re 0 :-(
-    {match,[{St0,Len}|_]} = re:run(Chars, "[^ \t\r\n]+", [unicode]),
-    St = St0 + 1,
-    %%io:fwrite("RE = ~p~n", [substr(Chars, St, Len)]),
-    case collect_action(Ifile, substr(Chars, St+Len), L0, []) of
-        {ok,[{':',_}|Toks],L1} -> {ok,substr(Chars, St, Len),Toks,L1};
+    {RegExp,Rest} = string:take(Chars, " \t\r\n", true),
+    case collect_action(Ifile, Rest, L0, []) of
+        {ok,[{':',_}|Toks],L1} -> {ok,RegExp,Toks,L1};
         {ok,_,_} -> {error,{L0,leex,bad_rule}};
         {eof,L1} -> {error,{L1,leex,bad_rule}};
         {error,E,_} -> {error,E}
@@ -549,7 +545,7 @@ var_used(Name, Toks) ->
 
 parse_rule_regexp(RE0, [{M,Exp}|Ms], St) ->
     Split= re:split(RE0, "\\{" ++ M ++ "\\}", [{return,list},unicode]),
-    RE1 = string:join(Split, Exp),
+    RE1 = lists:append(lists:join(Exp, Split)),
     parse_rule_regexp(RE1, Ms, St);
 parse_rule_regexp(RE, [], St) ->
     %%io:fwrite("RE = ~p~n", [RE]),
@@ -589,9 +585,9 @@ nextline(Ifile, L, St) ->
         eof -> {eof,L};
         {error, _} -> add_error({L+1, leex, cannot_parse}, St);
         Chars ->
-            case substr(Chars, span(Chars, " \t\n")+1) of
-                [$%|_Rest] -> nextline(Ifile, L+1, St);
-                [] -> nextline(Ifile, L+1, St);
+            case string:take(Chars, " \t\n") of
+                {_, [$%|_Rest]} -> nextline(Ifile, L+1, St);
+                {_, []} -> nextline(Ifile, L+1, St);
                 _Other -> {ok,Chars,L+1}
             end
     end.
@@ -824,7 +820,7 @@ re_char_class(Cs, Cc, _) -> {reverse(Cc),Cs}.   % Preserve order
 %% posix_cc("space" ++ Cs) -> {space,Cs};
 %% posix_cc("upper" ++ Cs) -> {upper,Cs};
 %% posix_cc("xdigit" ++ Cs) -> {xdigit,Cs};
-%% posix_cc(Cs) -> parse_error({posix_cc,substr(Cs, 1, 5)}).
+%% posix_cc(Cs) -> parse_error({posix_cc,string:slice(Cs, 0, 5)}).
 
 escape_char($n) -> $\n;                         % \n = LF
 escape_char($r) -> $\r;                         % \r = CR
@@ -863,7 +859,7 @@ escape_char(C) -> C.                            % Pass it straight through
 %% re_number(Cs, Acc) -> {Acc,Cs}.
 
 string_between(Cs1, Cs2) ->
-    substr(Cs1, 1, length(Cs1)-length(Cs2)).
+    string:slice(Cs1, 0, string:length(Cs1)-string:length(Cs2)).
 
 %% We use standard methods, Thompson's construction and subset
 %% construction, to create first an NFA and then a DFA from the
@@ -1343,7 +1339,7 @@ out_file(Ifile, Ofile, St, DFA, DF, Actions, Code, L) ->
         eof -> output_file_directive(Ofile, St#leex.ifile, L);
         {error, _} -> add_error(St#leex.ifile, {L, leex, cannot_parse}, St);
         Line ->
-            case substr(Line, 1, 5) of
+            case string:slice(Line, 0, 5) of
                 "##mod" -> out_module(Ofile, St);
                 "##cod" -> out_erlang_code(Ofile, St, Code, L);
                 "##dfa" -> out_dfa(Ofile, St, DFA, Code, DF, L);
@@ -1523,7 +1519,7 @@ prep_out_actions(As) ->
                 Name = list_to_atom(lists:concat([yyaction_,A])),
                 [Chars,Len,Line,_,_] = Vars,
                 Args = [V || V <- [Chars,Len,Line], V =/= "_"],
-                ArgsChars = string:join(Args, ", "),
+                ArgsChars = lists:join(", ", Args),
                 {A,Code,Vars,Name,Args,ArgsChars}
         end, As).
 

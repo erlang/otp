@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -508,7 +508,7 @@ subst_app(App, [{VSN,_Path,Link,Text} | VerInfos]) ->
      "            <a href=\"",Link,"\" target=\"_top\">",uc(App),
      "</a>\n",
      "            <a href=\"",Link,"\" target=\"_top\">",VSN,"</a>\n",
-     "                <td class=appnums>\n",
+     "                <br/>\n",
      subst_vsn(VerInfos),
      "    </td>\n",
      "    <td>\n",
@@ -522,7 +522,7 @@ subst_vsn([{VSN,_Path,Link,_Text} | VSNs]) ->
     [
      "      <font size=\"2\"><a class=anum href=\"",Link,"\" target=\"_top\">",
      VSN,
-     "</a></font><br>\n",
+     "</a></font><br/>\n",
      subst_vsn(VSNs)
     ];
 subst_vsn([]) ->

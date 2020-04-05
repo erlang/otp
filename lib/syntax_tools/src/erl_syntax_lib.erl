@@ -528,8 +528,6 @@ vann(Tree, Env) ->
             vann_case_expr(Tree, Env);
         if_expr ->
             vann_if_expr(Tree, Env);
-        cond_expr ->
-            vann_cond_expr(Tree, Env);
         receive_expr ->
             vann_receive_expr(Tree, Env);
         catch_expr ->
@@ -612,9 +610,6 @@ vann_if_expr(Tree, Env) ->
     {Cs1, {Bound, Free}} = vann_clauses(Cs, Env),
     Tree1 = rewrite(Tree, erl_syntax:if_expr(Cs1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
-
-vann_cond_expr(_Tree, _Env) ->
-    erlang:error({not_implemented,cond_expr}).
 
 vann_catch_expr(Tree, Env) ->
     E = erl_syntax:catch_expr_body(Tree),
@@ -1317,6 +1312,8 @@ analyze_attribute(Node) ->
                 include_lib -> preprocessor;
                 ifdef -> preprocessor;
                 ifndef -> preprocessor;
+                'if' -> preprocessor;
+                elif -> preprocessor;
                 else -> preprocessor;
                 endif -> preprocessor;
                 A ->
@@ -1979,7 +1976,7 @@ analyze_application(Node) ->
 %%
 %% @see analyze_type_name/1
 
--type typeName() :: atom() | {module(), atom(), arity()} | {atom(), arity()}.
+-type typeName() :: atom() | {module(), {atom(), arity()}} | {atom(), arity()}.
 
 -spec analyze_type_application(erl_syntax:syntaxTree()) -> typeName().
 

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2017. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ MODULES =  \
 	make_SUITE \
 	tools_SUITE \
 	xref_SUITE \
+	prof_bench_SUITE \
 	ignore_cores
 
 ERL_FILES= $(MODULES:%=%.erl)
@@ -41,7 +42,7 @@ INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
 
-SPEC_FILES= tools.spec
+SPEC_FILES= tools.spec tools_bench.spec
 COVER_FILE = tools.cover
 
 # ----------------------------------------------------

@@ -90,8 +90,8 @@ close_calls(Where) ->				%Line 86
 	call2(),				%Line 90
 	call3(),				%Line 91
 	no_crash				%Line 92
-    catch error:crash ->
-	    erlang:get_stacktrace()		%Line 94
+    catch error:crash:Stk ->
+	    Stk                                 %Line 94
     end.					%Line 95
 
 call1() ->					%Line 97

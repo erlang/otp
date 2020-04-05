@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2017. All Rights Reserved.
+# Copyright Ericsson AB 2001-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ HIPE_MODULES = hipe_rtl hipe_rtl_cfg \
 	  hipe_rtl_ssa hipe_rtl_ssa_const_prop \
 	  hipe_rtl_cleanup_const hipe_rtl_symbolic hipe_rtl_lcm \
 	  hipe_rtl_ssapre hipe_rtl_binary hipe_rtl_ssa_avail_expr \
-	  hipe_rtl_arch hipe_tagscheme
+	  hipe_rtl_arch hipe_tagscheme hipe_rtl_verify_gcsafe
 else
 HIPE_MODULES =
 endif
@@ -75,7 +75,10 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += -Werror +inline +warn_unused_import +warn_export_vars
+ERL_COMPILE_FLAGS += +inline +warn_unused_import +warn_export_vars
+ifneq ($(NATIVE_LIBS_ENABLED),yes)
+ERL_COMPILE_FLAGS += -Werror
+endif
 
 # ----------------------------------------------------
 # Targets

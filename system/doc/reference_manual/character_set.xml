@@ -105,9 +105,9 @@
        handle Unicode. The support was limited to
        string literals and comments.
        More about the usage of Unicode in Erlang source files
-       can be found in <seealso
+       can be found in <seeguide
        marker="stdlib:unicode_usage#unicode_in_erlang">STDLIB's User's
-       Guide</seealso>.</p>
+       Guide</seeguide>.</p>
        <p>From Erlang/OTP 20, atoms and function names are also allowed
        to contain Unicode characters outside the ISO-Latin-1 range.
        Module names, application names, and node names are still

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -232,7 +232,6 @@ void hipe_print_pcb(Process *p)
     U("intial.fun ", u.initial.function);
     U("intial.ari ", u.initial.arity);
     U("current    ", current);
-    P("cp         ", cp);
     P("i          ", i);
     U("catches    ", catches);
     U("arity      ", arity);

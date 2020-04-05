@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script for Erlang.
 dnl
 dnl %CopyrightBegin%
 dnl 
-dnl Copyright Ericsson AB 1997-2016. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2020. All Rights Reserved.
 dnl 
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -171,35 +171,12 @@ case $system in
 	fi
 	SHLIB_EXTRACT_ALL=""
 	;;
-    *-openbsd*)
+    *-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*)
 	# Not available on all versions:  check for include file.
 	AC_CHECK_HEADER(dlfcn.h, [
 	    SHLIB_CFLAGS="-fpic"
 	    SHLIB_LD="${CC}"
 	    SHLIB_LDFLAGS="$LDFLAGS -shared"
-	    SHLIB_SUFFIX=".so"
-	    if test X${enable_m64_build} = Xyes; then
-	        AC_MSG_ERROR(don't know how to link 64-bit dynamic drivers)
-	    fi
-	    if test X${enable_m32_build} = Xyes; then
-	        AC_MSG_ERROR(don't know how to link 32-bit dynamic drivers)
-	    fi
-	], [
-	    # No dynamic loading.
-	    SHLIB_CFLAGS=""
-	    SHLIB_LD="ld"
-	    SHLIB_LDFLAGS=""
-	    SHLIB_SUFFIX=""
-	    AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
-	])
-	SHLIB_EXTRACT_ALL=""
-	;;
-    *-netbsd*|*-freebsd*|*-dragonfly*)
-	# Not available on all versions:  check for include file.
-	AC_CHECK_HEADER(dlfcn.h, [
-	    SHLIB_CFLAGS="-fpic"
-	    SHLIB_LD="ld"
-	    SHLIB_LDFLAGS="$LDFLAGS -Bshareable -x"
 	    SHLIB_SUFFIX=".so"
 	    if test X${enable_m64_build} = Xyes; then
 	        AC_MSG_ERROR(don't know how to link 64-bit dynamic drivers)
@@ -394,7 +371,7 @@ HCC='$(CC)'
 AC_SUBST(HCC)
 
 #--------------------------------------------------------------------
-# ld is used for linking on vxworks
+# ld
 #--------------------------------------------------------------------
 LD='$(CC) $(CFLAGS)'
 AC_SUBST(LD)
@@ -410,6 +387,12 @@ AC_SUBST(obj)
 #--------------------------------------------------------------------
 exe=''
 AC_SUBST(exe)
+
+#--------------------------------------------------------------------
+# wsl command (if on windows using wsl)
+#--------------------------------------------------------------------
+wsl=''
+AC_SUBST(wsl)
 
 #--------------------------------------------------------------------
 # flags when linking for cross platform targets (yet 'tis useful with
@@ -459,11 +442,11 @@ dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a
 dnl AC_LANG_JAVA instead...)
 AC_DEFUN(ERL_TRY_LINK_JAVA,
 [java_link='$JAVAC conftest.java 1>&AC_FD_CC'
-changequote(«, »)dnl
+changequote(, )dnl
 cat > conftest.java <<EOF
-«$1»
+$1
 class conftest { public static void main(String[] args) {
-   «$2»
+   $2
    ; return; }}
 EOF
 changequote([, ])dnl

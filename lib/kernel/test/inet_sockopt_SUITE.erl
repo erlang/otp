@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,9 +110,14 @@ simple(Config) when is_list(Config) ->
     {S1,S2} = create_socketpair(Opt, Opt),
     {ok,Opt} = inet:getopts(S1,OptTags),
     {ok,Opt} = inet:getopts(S2,OptTags),
-    COpt = [{X,case X of nodelay -> false;_ -> Y end} || {X,Y} <- Opt],
+    NoPushOpt = case os:type() of
+                    {unix, Osname} when Osname =:= linux; Osname =:= freebsd -> {nopush, true};
+                    {_,_} -> {nopush, false}
+                end,
+    COpt = [{X,case X of nodelay -> false;_ -> Y end} || {X,Y} <- [NoPushOpt|Opt]],
+    COptTags = [X || {X,_} <- COpt],
     inet:setopts(S1,COpt),
-    {ok,COpt} = inet:getopts(S1,OptTags),
+    {ok,COpt} = inet:getopts(S1,COptTags),
     {ok,Opt} = inet:getopts(S2,OptTags),
     gen_tcp:close(S1),
     gen_tcp:close(S2),

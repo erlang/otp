@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
 	 dirty_heap_access/1, dirty_process_info/1,
 	 dirty_process_register/1, dirty_process_trace/1,
-	 code_purge/1, dirty_nif_send_traced/1,
+	 code_purge/1, literal_area/1, dirty_nif_send_traced/1,
 	 nif_whereis/1, nif_whereis_parallel/1, nif_whereis_proxy/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
@@ -52,6 +52,7 @@ all() ->
      dirty_process_register,
      dirty_process_trace,
      code_purge,
+     literal_area,
      dirty_nif_send_traced,
      nif_whereis,
      nif_whereis_parallel].
@@ -109,9 +110,8 @@ dirty_nif_exception(Config) when is_list(Config) ->
 	call_dirty_nif_exception(1),
 	ct:fail(expected_badarg)
     catch
-	error:badarg ->
-	    [{?MODULE,call_dirty_nif_exception,[1],_}|_] =
-		erlang:get_stacktrace(),
+	error:badarg:Stk1 ->
+	    [{?MODULE,call_dirty_nif_exception,[1],_}|_] = Stk1,
 	    ok
     end,
     try
@@ -121,9 +121,8 @@ dirty_nif_exception(Config) when is_list(Config) ->
 	call_dirty_nif_exception(0),
 	ct:fail(expected_badarg)
     catch
-	error:badarg ->
-	    [{?MODULE,call_dirty_nif_exception,[0],_}|_] =
-		erlang:get_stacktrace(),
+	error:badarg:Stk2 ->
+	    [{?MODULE,call_dirty_nif_exception,[0],_}|_] = Stk2,
 	    ok
     end,
     %% this checks that a dirty NIF can raise various terms as
@@ -138,8 +137,8 @@ nif_raise_exceptions(NifFunc) ->
                             erlang:apply(?MODULE,NifFunc,[Term]),
                             ct:fail({expected,Term})
                         catch
-                            error:Term ->
-                                [{?MODULE,NifFunc,[Term],_}|_] = erlang:get_stacktrace(),
+                            error:Term:Stk ->
+                                [{?MODULE,NifFunc,[Term],_}|_] = Stk,
                                 ok
                         end
                 end, ok, ExcTerms).
@@ -151,6 +150,11 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
     [ok] = mcall(Node,
                  [fun() ->
                           ok = erlang:load_nif(NifLib, []),
+                          %% Perform a dry run to ensure that all required code
+                          %% is loaded. Otherwise the test will fail since code
+                          %% loading is done through dirty IO and it won't make
+                          %% any progress during this test.
+                          _DryRun = test_dirty_scheduler_exit(),
 			  Start = erlang:monotonic_time(millisecond),
                           ok = test_dirty_scheduler_exit(),
 			  End = erlang:monotonic_time(millisecond),
@@ -171,19 +175,18 @@ test_dse(N,Pids) ->
     test_dse(N-1,[Pid|Pids]).
 
 kill_dse([],Killed) ->
-    wait_dse(Killed);
+    wait_dse(Killed, ok);
 kill_dse([Pid|Pids],AlreadyKilled) ->
     exit(Pid,kill),
     kill_dse(Pids,[Pid|AlreadyKilled]).
 
-wait_dse([]) ->
-    ok;
-wait_dse([Pid|Pids]) ->
+wait_dse([], Result) ->
+    Result;
+wait_dse([Pid|Pids], Result) ->
     receive
-        {'EXIT',Pid,Reason} ->
-	    killed = Reason
-    end,
-    wait_dse(Pids).
+        {'EXIT', Pid, killed} -> wait_dse(Pids, Result);
+        {'EXIT', Pid, _Other} -> wait_dse(Pids, failed)
+    end.
 
 dirty_call_while_terminated(Config) when is_list(Config) ->
     Me = self(),
@@ -223,18 +226,21 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
 						  element(2,
 							  process_info(self(),
 								       binary))),
-    receive after 2000 -> ok end,
     receive
 	Msg ->
 	    ct:fail({unexpected_message, Msg})
     after
-	0 ->
+	1000 ->
 	    ok
     end,
-    {value, {BinAddr, 4711, 1}} = lists:keysearch(4711, 2,
-						  element(2,
-							  process_info(self(),
-								       binary))),
+    ok = wait_until(fun() ->
+                       {value, {BinAddr, 4711, 1}} ==
+                           lists:keysearch(4711, 2,
+                                           element(2,
+                                                   process_info(self(),
+                                                                binary)))
+               end,
+               10000),
     process_flag(trap_exit, OT),
     try
 	blipp:blupp(Bin)
@@ -287,9 +293,9 @@ access_dirty_heap(Dirty, RGL, N, R) ->
 %% dirty NIF where the main lock is needed for that access do not get
 %% blocked. Each test passes its pid to dirty_sleeper, which sends a
 %% 'ready' message when it's running on a dirty scheduler and just before
-%% it starts a 6 second sleep. When it receives the message, it verifies
+%% it starts a 2 second sleep. When it receives the message, it verifies
 %% that access to the dirty process is as it expects.  After the dirty
-%% process finishes its 6 second sleep but before it returns from the dirty
+%% process finishes its 2 second sleep but before it returns from the dirty
 %% scheduler, it sends a 'done' message. If the tester already received
 %% that message, the test fails because it means attempting to access the
 %% dirty process waited for that process to return to a regular scheduler,
@@ -353,7 +359,7 @@ dirty_process_trace(Config) when is_list(Config) ->
 			      error(missing_trace_return_message)
 		      end
 	      after
-		  6500 ->
+		  2500 ->
 		      error(missing_done_message)
 	      end,
 	      ok
@@ -380,7 +386,7 @@ code_purge(Config) when is_list(Config) ->
     Start = erlang:monotonic_time(),
     {Pid1, Mon1} = spawn_monitor(fun () ->
 				       dirty_code_test:func(fun () ->
-								    %% Sleep for 6 seconds
+								    %% Sleep for 2 seconds
 								    %% in dirty nif...
 								    dirty_sleeper()
 							    end)
@@ -388,7 +394,7 @@ code_purge(Config) when is_list(Config) ->
     {module, dirty_code_test} = erlang:load_module(dirty_code_test, Bin),
     {Pid2, Mon2} = spawn_monitor(fun () ->
 				       dirty_code_test:func(fun () ->
-								    %% Sleep for 6 seconds
+								    %% Sleep for 2 seconds
 								    %% in dirty nif...
 								    dirty_sleeper()
 							    end)
@@ -426,6 +432,7 @@ code_purge(Config) when is_list(Config) ->
     Time = erlang:convert_time_unit(End-Start, native, milli_seconds),
     io:format("Time=~p~n", [Time]),
     true = Time =< 1000,
+    literal_area_collector_test:check_idle(5000),
     ok.
 
 dirty_nif_send_traced(Config) when is_list(Config) ->
@@ -455,6 +462,51 @@ dirty_nif_send_traced(Config) when is_list(Config) ->
     io:format("Time2: ~p milliseconds~n", [Time2]),
     true = Time2 >= 1900,
     ok.
+
+dirty_literal_test_code() ->
+    "
+-module(dirty_literal_code_test).
+
+-export([get_literal/0]).
+
+get_literal() ->
+    {0,1,2,3,4,5,6,7,8,9}.
+
+".
+
+literal_area(Config) when is_list(Config) ->
+    NifTMO = 3000,
+    ExtraTMO = 1000,
+    TotTMO = NifTMO+ExtraTMO,
+    Path = ?config(data_dir, Config),
+    File = filename:join(Path, "dirty_literal_code_test.erl"),
+    ok = file:write_file(File, dirty_literal_test_code()),
+    {ok, dirty_literal_code_test, Bin} = compile:file(File, [binary]),
+    {module, dirty_literal_code_test} = erlang:load_module(dirty_literal_code_test, Bin),
+    Me = self(),
+    Fun = fun () ->
+                  dirty_terminating_literal_access( 
+                    Me,
+                    dirty_literal_code_test:get_literal())
+          end,
+    {Pid, Mon} = spawn_monitor(Fun),
+    receive {dirty_alive, Pid} -> ok end,
+    exit(Pid, kill),
+    Start = erlang:monotonic_time(millisecond),
+    receive {'DOWN', Mon, process, Pid, killed} -> ok end,
+    true = erlang:delete_module(dirty_literal_code_test),
+    true = erlang:purge_module(dirty_literal_code_test),
+    End = erlang:monotonic_time(millisecond),
+    %% Wait for dirty_nif to do its access...
+    TMO = case End - Start of
+              T when T < TotTMO ->
+                  TotTMO-T;
+              _ ->
+                  0
+          end,
+    receive after TMO -> ok end,
+    literal_area_collector_test:check_idle(100),
+    {comment, "Waited "++integer_to_list(TMO)++" milliseconds after purge"}.
 
 %%
 %% Internal...
@@ -490,7 +542,7 @@ test_dirty_process_access(Start, Test, Finish) ->
 			 ok
 		 end
 	 after
-	     3000 ->
+	     1000 ->
 		 error(timeout)
 	 end,
     ok = Finish(NifPid).
@@ -665,6 +717,39 @@ nif_whereis_proxy(Ref) ->
             ok
     end.
 
+wait_until(Fun, infinity) ->
+    wait_until_aux(Fun, infinity);
+wait_until(Fun, MaxTime) ->
+    End = erlang:monotonic_time(millisecond) + MaxTime,
+    wait_until_aux(Fun, End).
+
+wait_until_aux(Fun, End) ->
+    case Fun() of
+        true ->
+            ok;
+        _ ->
+            if End == infinity ->
+                    receive after 100 -> ok end,
+                    wait_until_aux(Fun, infinity);
+               true ->
+                    Now = erlang:monotonic_time(millisecond),
+                    case End =< Now of
+                        true ->
+                            timeout;
+                        _ ->
+                            Wait = case End - Now of
+                                       Short when End - Now < 100 ->
+                                           Short;
+                                       _ ->
+                                           100
+                                   end,
+                            receive after Wait -> ok end,
+                            wait_until_aux(Fun, End)
+                    end
+            end
+    end.
+
+
 %% The NIFs:
 lib_loaded() -> false.
 call_dirty_nif(_,_,_) -> ?nif_stub.
@@ -678,6 +763,7 @@ dirty_sleeper(_) -> ?nif_stub.
 dirty_heap_access_nif(_) -> ?nif_stub.
 whereis_term(_Type,_Name) -> ?nif_stub.
 whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
+dirty_terminating_literal_access(_Me, _Literal) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

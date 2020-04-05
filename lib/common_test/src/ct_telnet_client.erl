@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,9 +101,11 @@ close(Pid) ->
     end.	    
 
 send_data(Pid, Data) ->
-    send_data(Pid, Data, true).
+    send_data(Pid, Data, "\n").
 send_data(Pid, Data, true) ->
-    send_data(Pid, Data++"\n", false);
+    send_data(Pid, Data, "\n");
+send_data(Pid, Data, Newline) when is_list(Newline) ->
+    send_data(Pid, Data++Newline, false);
 send_data(Pid, Data, false) ->
     Pid ! {send_data, Data},
     ok.

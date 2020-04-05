@@ -1,0 +1,11 @@
+
+suppress_request.erl:21: Expression produces a value of type 
+          {'a', 'b'}, but this value is unmatched
+suppress_request.erl:25: Expression produces a value of type 
+          {'a', 'b'}, but this value is unmatched
+suppress_request.erl:39: Guard test 
+          2 =:= 
+          A :: fun((none()) -> no_return()) can never succeed
+suppress_request.erl:7: Type specification suppress_request:test1
+          ('a' | 'b') -> 'ok' is a subtype of the success typing: suppress_request:test1
+          ('a' | 'b' | 'c') -> 'ok'

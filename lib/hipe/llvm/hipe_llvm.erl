@@ -1005,11 +1005,12 @@ pp_ins(Dev, Ver, I) ->
       write(Dev, [" ", adj_stack_offset(I),")\n"]);
     #llvm_meta{} ->
       write(Dev, ["!", meta_id(I), " = !{ "]),
-      write(Dev, string:join([if is_list(Op) -> ["!\"", Op, "\""];
-				 is_integer(Op) -> ["i32 ", integer_to_list(Op)];
-				 is_record(Op, llvm_meta) ->
-				  ["!", meta_id(Op)]
-			      end || Op <- meta_operands(I)], ", ")),
+      write(Dev, lists:join(", ",
+                            [if is_list(Op) -> ["!\"", Op, "\""];
+                                is_integer(Op) -> ["i32 ", integer_to_list(Op)];
+                                is_record(Op, llvm_meta) ->
+                                 ["!", meta_id(Op)]
+                             end || Op <- meta_operands(I)])),
       write(Dev, " }\n");
     Other ->
       exit({?MODULE, pp_ins, {"Unknown LLVM instruction", Other}})

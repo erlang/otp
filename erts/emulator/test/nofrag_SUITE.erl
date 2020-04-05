@@ -22,6 +22,11 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+%% This suite alters the return values of functions which breaks certain
+%% assumptions made by the compiler, so we have to turn off module-level type
+%% optimization to be safe.
+-compile(no_module_opt).
+
 -export([all/0, suite/0,
          error_handler/1,error_handler_apply/1,
          error_handler_fixed_apply/1,error_handler_fun/1,

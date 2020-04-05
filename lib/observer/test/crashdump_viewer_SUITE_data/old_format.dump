@@ -10,7 +10,7 @@ Compiled on Wed Dec  4 11:11:21 2002
 Process Information
 --------------------------------------------------
 <0.0.0> Waiting. Registered as: init
-Spawned as: otp_ring0:start/2
+Spawned as: erl_init:start/2
 Message buffer data: 4 words
 Link list: [<0.5.0>,<0.4.0>,<0.2.0>]
 Reductions 3125 stack+heap 610 old_heap_sz=233 
@@ -68,7 +68,7 @@ y(3)     [gen_event,<0.1.0>,<0.1.0>,{local,error_logger},[],[],[]]
 Spawned as: proc_lib:init_p/5
 Message buffer data: 4 words
 Link list: [<0.7.0>,<0.0.0>]
-Dictionary: [{'$initial_call',{gen,init_it,[gen_server,<0.1.0>,<0.1.0>,{local,application_controller},application_controller,{application,kernel,[{description,"ERTS  CXC 138 10"},{vsn,"2.6.3.15"},{id,[]},{modules,[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,otp_ring0]},{registered,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2]},{applications,[]},{included_applications,[]},{env,[{error_logger,tty}]},{start_phases,undefined},{maxT,infinity},{maxP,infinity},{mod,{kernel,[]}}]},[]]}},{'$ancestors',[<0.1.0>]}]
+Dictionary: [{'$initial_call',{gen,init_it,[gen_server,<0.1.0>,<0.1.0>,{local,application_controller},application_controller,{application,kernel,[{description,"ERTS  CXC 138 10"},{vsn,"2.6.3.15"},{id,[]},{modules,[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,erl_init]},{registered,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2]},{applications,[]},{included_applications,[]},{env,[{error_logger,tty}]},{start_phases,undefined},{maxT,infinity},{maxP,infinity},{mod,{kernel,[]}}]},[]]}},{'$ancestors',[<0.1.0>]}]
 Reductions 527 stack+heap 1597 old_heap_sz=0 
 Heap unused=833 OldHeap unused=0
 Stack dump:
@@ -88,13 +88,13 @@ y(5)     <0.1.0>
 y(0)     Catch 0x33480C (proc_lib:init_p/5 + 164)
 y(1)     gen
 y(2)     init_it
-y(3)     [gen_server,<0.1.0>,<0.1.0>,{local,application_controller},application_controller,{application,kernel,[{description,"ERTS  CXC 138 10"},{vsn,"2.6.3.15"},{id,[]},{modules,[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,otp_ring0]},{registered,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2]},{applications,[]},{included_applications,[]},{env,[{error_logger,tty}]},{start_phases,undefined},{maxT,infinity},{maxP,infinity},{mod,{kernel,[]}}]},[]]
+y(3)     [gen_server,<0.1.0>,<0.1.0>,{local,application_controller},application_controller,{application,kernel,[{description,"ERTS  CXC 138 10"},{vsn,"2.6.3.15"},{id,[]},{modules,[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,erl_init]},{registered,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2]},{applications,[]},{included_applications,[]},{env,[{error_logger,tty}]},{start_phases,undefined},{maxT,infinity},{maxP,infinity},{mod,{kernel,[]}}]},[]]
 --------------------------------------------------
 <0.7.0> Waiting.
 Spawned as: proc_lib:init_p/5
 Message buffer data: 0 words
 Link list: [<0.8.0>,<0.5.0>]
-Dictionary: [{'$initial_call',{application_master,init,[<0.5.0>,<0.6.0>,{appl_data,kernel,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2],undefined,{kernel,[]},[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,otp_ring0],[],infinity,infinity},normal]}},{'$ancestors',[<0.6.0>]}]
+Dictionary: [{'$initial_call',{application_master,init,[<0.5.0>,<0.6.0>,{appl_data,kernel,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2],undefined,{kernel,[]},[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,erl_init],[],infinity,infinity},normal]}},{'$ancestors',[<0.6.0>]}]
 Reductions 45 stack+heap 377 old_heap_sz=377 
 Heap unused=306 OldHeap unused=377
 Stack dump:
@@ -103,14 +103,14 @@ cp = 0x33480c (proc_lib:init_p/5 + 164)
 arity = 0
 
 347174   Return addr 0x33480C (proc_lib:init_p/5 + 164)
-y(0)     {state,<0.8.0>,{appl_data,kernel,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2],undefined,{kernel,[]},[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,otp_ring0],[],infinity,infinity},[],0,<0.0.0>}
+y(0)     {state,<0.8.0>,{appl_data,kernel,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2],undefined,{kernel,[]},[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,erl_init],[],infinity,infinity},[],0,<0.0.0>}
 y(1)     <0.5.0>
 
 347180   Return addr 0xFCEC8 (<terminate process normally>)
 y(0)     Catch 0x33480C (proc_lib:init_p/5 + 164)
 y(1)     application_master
 y(2)     init
-y(3)     [<0.5.0>,<0.6.0>,{appl_data,kernel,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2],undefined,{kernel,[]},[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,otp_ring0],[],infinity,infinity},normal]
+y(3)     [<0.5.0>,<0.6.0>,{appl_data,kernel,[application_controller,erl_reply,auth,boot_server,code_server,disk_log_server,disk_log_sup,erl_prim_loader,error_logger,file_server,fixtable_server,global_group,global_name_server,heart,init,kernel_config,kernel_sup,net_kernel,net_sup,rex,user,os_server,ddll_server,erl_epmd,inet_db,pg2],undefined,{kernel,[]},[application,application_controller,application_master,application_starter,auth,code,code_aux,code_server,code_server_int,dist_util,erl_boot_server,erl_distribution,erl_open_port,erl_prim_loader,erl_reply,erlang,error_handler,error_logger,file,global,global_group,global_search,group,heart,inet6_tcp,inet6_tcp_dist,inet6_udp,inet_config,inet_hosts,inet_gethost_native,inet_tcp_dist,otp_pre_init,init,kernel,kernel_config,net,net_adm,net_kernel,os,ram_file,rpc,user,user_drv,user_sup,disk_log,disk_log_1,disk_log_server,disk_log_sup,dist_ac,erl_atom_cache,erl_ddll,erl_epmd,erl_external,erts_debug,fixtable_server,gen_tcp,gen_udp,prim_inet,inet,inet_db,inet_dns,inet_parse,inet_res,inet_tcp,inet_udp,pg2,seq_trace,socks5,socks5_auth,socks5_tcp,socks5_udp,wrap_log_reader,erl_init],[],infinity,infinity},normal]
 --------------------------------------------------
 <0.8.0> Waiting.
 Spawned as: application_master:start_it/4
@@ -652,7 +652,7 @@ Not alive
 
 Loaded Modules Information
 --------------------------------------------------
-otp_ring0 448
+erl_init 448
 init 28000
 prim_inet 34800
 erl_prim_loader 14187
@@ -1202,7 +1202,7 @@ udp_error
 inet_async
 inet_reply
 empty_out_q
-otp_ring0
+erl_init
 boot
 init
 run
@@ -1285,7 +1285,7 @@ sleep
 start_prim_loader
 erl_prim_loader
 set_path
-'can not start loader'
+'cannot start loader'
 add_to_kernel
 prim_load_flags
 '-loader'
@@ -1304,7 +1304,7 @@ path_flags
 '-pz'
 get_boot
 not_found
-'can not get bootfile'
+'cannot get bootfile'
 'bootfile format error'
 get_file
 script
@@ -1349,7 +1349,7 @@ extension
 '-boot/1-fun-0-'
 '-bs2ss/1-fun-0-'
 '-bs2as/1-fun-0-'
-'can not load'
+'cannot load'
 'unexpected command in bootfile'
 prim_inet
 open
@@ -3071,7 +3071,7 @@ change_group
 change_time
 master
 start_slave
-'can not get remote filer '
+'cannot get remote filer '
 start_relay
 relay
 'Port controlling ~w terminated in file_server'

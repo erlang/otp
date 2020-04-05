@@ -147,7 +147,8 @@ check(TestCase, Opts, Dir, OutDir) ->
     try dialyzer:run([{files, Files},{from, src_code},{init_plt, PltFilename},
 		      {check_plt, false}|ProperOpts]) of
 	RawWarns ->
-	    Warns = lists:sort([dialyzer:format_warning(W) || W <- RawWarns]),
+	    Warns = lists:sort([dialyzer:format_warning(W, ProperOpts) ||
+                                   W <- RawWarns]),
 	    case Warns of
 		[] -> ok;
 		_  ->
@@ -221,13 +222,9 @@ get_suites(Dir) ->
     end.
 
 suffix(String, Suffix) ->
-    case string:rstr(String, Suffix) of
-	0 -> no;
-	Index ->
-	    case string:substr(String, Index) =:= Suffix of
-		true -> {yes, string:sub_string(String,1,Index-1)};
-		false -> no
-	    end
+    case string:split(String, Suffix, trailing) of
+	[Prefix,[]] -> {yes, Prefix};
+        _ -> no
     end.
 
 -spec create_suite(string()) -> 'ok'.

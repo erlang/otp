@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,6 +87,14 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
     case ERL_BINARY_EXT:
 	term->size = get32be(s);
 	return 0;
+    case ERL_BIT_BINARY_EXT: {
+        int bytes = get32be(s);
+        int last_bits = get8(s);
+        if (((last_bits==0) != (bytes==0)) || last_bits > 8)
+            return -1;
+        term->size = bytes;
+        return 0;
+    }
     case ERL_SMALL_BIG_EXT:
 	if ((term->arity = get8(s)) != 4) return -1;
 	sign = get8(s);

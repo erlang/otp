@@ -50,7 +50,7 @@
        and paths to appropriate values. This may differ a lot
        between different os's, databases and ODBC drivers. This
        is a configuration problem related to the third party product
-       and hence we can not give you a standard solution in this guide.</item>
+       and hence we cannot give you a standard solution in this guide.</item>
       <item>The Erlang ODBC application consists of both <c>Erlang</c>
        and <c>C</c> code. The <c>C</c> code is delivered as a
        precompiled executable for windows, solaris and linux (SLES10) in the commercial

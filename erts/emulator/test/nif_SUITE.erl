@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,27 +25,32 @@
 %%-define(CHECK(Exp,Got), Exp = Got).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
-         select/1,
+         load_traced_nif/1,
+         select/1, select_steal/1,
          monitor_process_a/1,
          monitor_process_b/1,
          monitor_process_c/1,
          monitor_process_d/1,
+         monitor_process_purge/1,
          demonitor_process/1,
          monitor_frenzy/1,
          hipe/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
 	 api_macros/1,
-	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, 
+	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1,
 	 resource_takeover/1,
-	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
-	 is_checks/1,
+	 threading/1, send/1, send2/1, send3/1, send_threaded/1,
+         send_trace/1, send_seq_trace/1,
+         neg/1, is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
 	 otp_9828/1,
 	 otp_9668/1, consume_timeslice/1, nif_schedule/1,
@@ -62,7 +67,10 @@
          nif_phash2/1,
          nif_whereis/1, nif_whereis_parallel/1,
          nif_whereis_threaded/1, nif_whereis_proxy/1,
-         nif_ioq/1
+         nif_ioq/1,
+         pid/1,
+         id/1,
+         nif_term_type/1
 	]).
 
 -export([many_args_100/100]).
@@ -70,6 +78,9 @@
 -define(nif_stub,nif_stub_error(?LINE)).
 
 -define(is_resource, is_reference).
+
+-define(RT_CREATE,1).
+-define(RT_TAKEOVER,2).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -79,10 +90,11 @@ all() ->
     [{group, G} || G <- api_groups()]
         ++
     [reload_error, heap_frag, types, many_args,
-     select,
+     select, select_steal,
      {group, monitor},
      monitor_frenzy,
      hipe,
+     load_traced_nif,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
      threading, send, send2, send3,
@@ -101,7 +113,17 @@ all() ->
      nif_internal_hash_salted,
      nif_phash2,
      nif_whereis, nif_whereis_parallel, nif_whereis_threaded,
-     nif_ioq].
+     nif_ioq,
+     pid,
+     nif_term_type].
+
+init_per_suite(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    Config.
+
+end_per_suite(_Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    ok.
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
@@ -110,8 +132,8 @@ groups() ->
                     monitor_process_b,
                     monitor_process_c,
                     monitor_process_d,
+                    monitor_process_purge,
                     demonitor_process]}].
-
 
 api_groups() -> [api_latest, api_2_4, api_2_0].
 
@@ -144,7 +166,8 @@ init_per_testcase(nif_whereis_threaded, Config) ->
         true -> Config;
         false -> {skip, "No thread support"}
     end;
-init_per_testcase(select, Config) ->
+init_per_testcase(Select, Config) when Select =:= select;
+                                       Select =:= select_steal ->
     case os:type() of
         {win32,_} ->
             {skip, "Test not yet implemented for windows"};
@@ -152,6 +175,9 @@ init_per_testcase(select, Config) ->
             Config
     end;
 init_per_testcase(_Case, Config) ->
+    %% Clear any resource dtor data before test starts in case another tc
+    %% left it in a bad state
+    catch last_resource_dtor_call(),
     Config.
 
 end_per_testcase(t_on_load, _Config) ->
@@ -476,94 +502,162 @@ t_on_load(Config) when is_list(Config) ->
     verify_tmpmem(TmpMem),
     ok.
 
+%% Test load of module where a NIF stub is already traced.
+load_traced_nif(Config) when is_list(Config) ->
+    TmpMem = tmpmem(),
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
+    {module,nif_mod} = erlang:load_module(nif_mod,Bin),
+
+    Tracee = spawn_link(fun Loop() -> receive {lib_version,ExpRet} ->
+                                              ExpRet = nif_mod:lib_version()
+                                      end,
+                                      Loop()
+                        end),
+    1 = erlang:trace_pattern({nif_mod,lib_version,0}, true, [local]),
+    1 = erlang:trace(Tracee, true, [call]),
+
+    Tracee ! {lib_version, undefined},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    ok = nif_mod:load_nif_lib(Config, 1),
+
+    Tracee ! {lib_version, 1},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    %% Wait for NIF loading to finish and write final call_nif instruction
+    timer:sleep(500),
+
+    Tracee ! {lib_version, 1},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+
+    unlink(Tracee),
+    exit(Tracee, kill),
+
+    verify_tmpmem(TmpMem),
+    ok.
+
+
 -define(ERL_NIF_SELECT_READ, (1 bsl 0)).
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
 -define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
+-define(ERL_NIF_SELECT_CANCEL, (1 bsl 3)).
+-define(ERL_NIF_SELECT_CUSTOM_MSG, (1 bsl 4)).
 
 -define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 0)).
 -define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 1)).
 -define(ERL_NIF_SELECT_INVALID_EVENT, (1 bsl 2)).
 -define(ERL_NIF_SELECT_FAILED, (1 bsl 3)).
-
+-define(ERL_NIF_SELECT_READ_CANCELLED, (1 bsl 4)).
+-define(ERL_NIF_SELECT_WRITE_CANCELLED, (1 bsl 5)).
 
 select(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
+    select_do(0, make_ref(), make_ref(), null),
 
-    Ref = make_ref(),
-    Ref2 = make_ref(),
+    RefBin = list_to_binary(lists:duplicate(100, $x)),
+    [select_do(?ERL_NIF_SELECT_CUSTOM_MSG,
+               small, {a, tuple, with, "some", RefBin}, MSG_ENV)
+     || MSG_ENV <- [null, alloc_env]],
+    ok.
+
+select_do(Flag, Ref, Ref2, MSG_ENV) ->
+    io:format("select_do(~p, ~p, ~p)\n", [Ref, Ref2, MSG_ENV]),
+
     {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
     ok = write_nif(W, <<"hej">>),
     <<"hej">> = read_nif(R, 3),
 
     %% Wait for read
     eagain = read_nif(R, 3),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag, R,null,Ref,MSG_ENV),
     [] = flush(0),
     ok = write_nif(W, <<"hej">>),
-    [{select, R, Ref, ready_input}] = flush(),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
-    [{select, R, Ref2, ready_input}] = flush(),
+    receive_ready(R, Ref, ready_input),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag,R,self(),Ref2,MSG_ENV),
+    receive_ready(R, Ref2, ready_input),
     Papa = self(),
     Pid = spawn_link(fun() ->
-                             [{select, R, Ref, ready_input}] = flush(),
+                             receive_ready(R, Ref, ready_input),
                              Papa ! {self(), done}
                      end),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Pid,Ref),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, Pid, Ref,MSG_ENV),
     {Pid, done} = receive_any(1000),
+
+    %% Cancel read
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref,null),
     <<"hej">> = read_nif(R, 3),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref, MSG_ENV),
+    ?ERL_NIF_SELECT_READ_CANCELLED =
+        select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref,null),
+    ok = write_nif(W, <<"hej again">>),
+    [] = flush(0),
+    <<"hej again">> = read_nif(R, 9),
 
     %% Wait for write
     Written = write_full(W, $a),
-    0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,self(),Ref),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, self(), Ref, MSG_ENV),
     [] = flush(0),
     Written = read_nif(R,byte_size(Written)),
-    [{select, W, Ref, ready_output}] = flush(),
+    receive_ready(W, Ref, ready_output),
+
+    %% Cancel write
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref, null),
+    Written2 = write_full(W, $b),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, null, Ref, MSG_ENV),
+    ?ERL_NIF_SELECT_WRITE_CANCELLED =
+        select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref, null),
+    Written2 = read_nif(R,byte_size(Written2)),
+    [] = flush(0),
 
     %% Close write and wait for EOF
     eagain = read_nif(R, 1),
-    check_stop_ret(select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref)),
+    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref, null)),
     [{fd_resource_stop, W_ptr, _}] = flush(),
     {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
     [] = flush(0),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref),
-    [{select, R, Ref, ready_input}] = flush(),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref, MSG_ENV),
+    receive_ready(R, Ref, ready_input),
     eof = read_nif(R,1),
 
-    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref)),
+    check_stop_ret(select_nif(R, ?ERL_NIF_SELECT_STOP, R, null, Ref, null)),
     [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
-    select_2(Config).
+    select_2(Flag, Ref, Ref2, MSG_ENV).
 
-select_2(Config) ->
+select_2(Flag, Ref1, Ref2, MSG_ENV) ->
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
 
-    Ref1 = make_ref(),
-    Ref2 = make_ref(),
     {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
 
     %% Change ref
     eagain = read_nif(R, 1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref2, MSG_ENV),
 
     [] = flush(0),
     ok = write_nif(W, <<"hej">>),
-    [{select, R, Ref2, ready_input}] = flush(),
+    receive_ready(R, Ref2, ready_input),
     <<"hej">> = read_nif(R, 3),
 
     %% Change pid
     eagain = read_nif(R, 1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
     Papa = self(),
     spawn_link(fun() ->
-                       0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+                       0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
                        [] = flush(0),
                        Papa ! sync,
-                       [{select, R, Ref1, ready_input}] = flush(),
+                       receive_ready(R, Ref1, ready_input),
                        <<"hej">> = read_nif(R, 3),
                        Papa ! done
                end),
@@ -572,25 +666,95 @@ select_2(Config) ->
     done = receive_any(),
     [] = flush(0),
 
-    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref1)),
+    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref1, null)),
     [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
     %% Stop without previous read/write select
-    ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref1),
+    ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref1,null),
     [{fd_resource_stop, W_ptr, 1}] = flush(),
     {1, {W_ptr,1}} = last_fd_stop_call(),
     true = is_closed_nif(W),
 
-    select_3(Config).
+    select_3().
 
-select_3(_Config) ->
+select_3() ->
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
     ok.
 
-check_stop_ret(?ERL_NIF_SELECT_STOP_CALLED) -> ok;    
+receive_ready(R, Ref, IOatom) when is_reference(Ref) ->
+    [{select, R, Ref, IOatom}] = flush();
+receive_ready(_, Msg, _) ->
+    [Got] = flush(),
+    {true,_,_} = {Got=:=Msg, Got, Msg}.
+
+%% @doc The stealing child process for the select_steal test. Duplicates given
+%% W/RFds and runs select on them to steal
+select_steal_child_process(Parent, RFd) ->
+    %% Duplicate the resource with the same FD
+    {R2Fd, _R2Ptr} = dupe_resource_nif(RFd),
+    Ref2 = make_ref(),
+
+    %% Try to select from the child pid (steal from parent)
+    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2, null)),
+    ?assertEqual([], flush(0)),
+    ?assertEqual(eagain, read_nif(R2Fd, 1)),
+
+    %% Check that now events arrive to this temporary process
+    Parent ! {self(), stage1}, % signal parent to send the <<"stolen1">>
+
+    %% Receive <<"stolen1">> via enif_select
+    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2, null)),
+    ?assertMatch([{select, R2Fd, Ref2, ready_input}], flush()),
+    ?assertEqual(<<"stolen1">>, read_nif(R2Fd, 7)),
+
+    clear_select_nif(R2Fd),
+
+    % do not do this here - stop_selecting(R2Fd, R2Rsrc, Ref2),
+    Parent ! {self(), done}.
+
+%% @doc Similar to select/1 test, make a double ended pipe. Then try to steal
+%% the socket, see what happens.
+select_steal(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Ref = make_ref(),
+    {{RFd, RPtr}, {WFd, WPtr}} = pipe_nif(),
+
+    %% Bind the socket to current pid in enif_select
+    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, null, Ref, null)),
+    ?assertEqual([], flush(0)),
+
+    %% Spawn a process and do some stealing
+    Parent = self(),
+    Pid = spawn_link(fun() -> select_steal_child_process(Parent, RFd) end),
+
+    %% Signal from the child to send the first message
+    {Pid, stage1} = receive_any(),
+    ?assertEqual(ok, write_nif(WFd, <<"stolen1">>)),
+
+    ?assertMatch([{Pid, done}], flush(1)),  % synchronize with the child
+
+    %% Try to select from the parent pid (steal back)
+    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, Pid, Ref, null)),
+
+    %% Ensure that no data is hanging and close.
+    %% Rfd is stolen at this point.
+    check_stop_ret(select_nif(WFd, ?ERL_NIF_SELECT_STOP, WFd, null, Ref, null)),
+    ?assertMatch([{fd_resource_stop, WPtr, _}], flush()),
+    {1, {WPtr, 1}} = last_fd_stop_call(),
+
+    check_stop_ret(select_nif(RFd, ?ERL_NIF_SELECT_STOP, RFd, null, Ref, null)),
+    ?assertMatch([{fd_resource_stop, RPtr, _}], flush()),
+    {1, {RPtr, _DirectCall}} = last_fd_stop_call(),
+
+    ?assert(is_closed_nif(WFd)),
+
+    ok.
+
+check_stop_ret(?ERL_NIF_SELECT_STOP_CALLED) -> ok;
 check_stop_ret(?ERL_NIF_SELECT_STOP_SCHEDULED) -> ok.
 
 write_full(W, C) ->
@@ -708,6 +872,57 @@ monitor_process_d(Config) ->
 
     ok.
 
+%% OTP-16399: Test fire resource monitor after the NIF module been purged.
+monitor_process_purge(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,NifModBin} = compile:file(File, [binary,return_errors]),
+
+    monitor_process_purge_do(Config, NifModBin, resource_dtor_A),
+    erlang:garbage_collect(),
+    receive after 10 -> ok end,
+    [{{resource_dtor_A_v1,_},1,4,104},
+     {unload,1,5,105}] = nif_mod_call_history(),
+
+    %% This used to crash VM as only resources with destructor
+    %% prevented NIF lib from being unloaded.
+    monitor_process_purge_do(Config, NifModBin, null),
+    erlang:garbage_collect(),
+    receive after 10 -> ok end,
+    [{unload,1,4,104}] = nif_mod_call_history(),
+    ok.
+
+monitor_process_purge_do(Config, NifModBin, Dtor) ->
+    io:format("Test with destructor = ~p\n", [Dtor]),
+
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+
+    ok = nif_mod:load_nif_lib(Config, 1, [{resource_type, 0, ?RT_CREATE,
+                                           "monitor_process_purge", Dtor,
+                                           ?RT_CREATE, resource_down_D}
+                                         ]),
+    hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    [{load,1,1,101},
+     {get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    {Pid,MRef} = spawn_opt(fun() ->
+                                receive
+                                    return -> ok
+                                end
+                        end,
+                        [link, monitor]),
+    RBin = <<"blahblah">>,
+    R = nif_mod:make_new_resource(0, RBin),
+    0 = nif_mod:monitor_process(0, R, Pid),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    Pid ! return,
+    [{'DOWN', MRef, process, Pid, normal}] = flush(),
+    [{{resource_down_D_v1,RBin},1,3,103}] = nif_mod_call_history(),
+    keep_alive(R),
+    ok.
+
+
 %% Test basic demonitoring
 demonitor_process(Config) ->
     ensure_lib_loaded(Config),
@@ -719,8 +934,11 @@ demonitor_process(Config) ->
                      end),
     R_ptr = alloc_monitor_resource_nif(),
     {0,MonBin1} = monitor_process_nif(R_ptr, Pid, true, self()),
+    MonTerm1 = make_monitor_term_nif(MonBin1),
     [R_ptr] = monitored_by(Pid),
     {0,MonBin2} = monitor_process_nif(R_ptr, Pid, true, self()),
+    MonTerm2 = make_monitor_term_nif(MonBin2),
+    true = (MonTerm1 =/= MonTerm2),
     [R_ptr, R_ptr] = monitored_by(Pid),
     0 = demonitor_process_nif(R_ptr, MonBin1),
     [R_ptr] = monitored_by(Pid),
@@ -734,6 +952,10 @@ demonitor_process(Config) ->
     {R_ptr, _, 1} = last_resource_dtor_call(),
     [] = monitored_by(Pid),
     Pid ! return,
+
+    erlang:garbage_collect(),
+    true = (MonTerm1 =/= MonTerm2),
+    io:format("MonTerm1 = ~p\nMonTerm2 = ~p\n", [MonTerm1, MonTerm2]),
     ok.
 
 
@@ -1101,6 +1323,21 @@ maps(Config) when is_list(Config) ->
     {1, M2} = make_map_remove_nif(M2, "key3"),
     {0, undefined} = make_map_remove_nif(self(), key),
 
+    M1 = maps_from_list_nif(maps:to_list(M1)),
+    M2 = maps_from_list_nif(maps:to_list(M2)),
+    M3 = maps_from_list_nif(maps:to_list(M3)),
+
+    %% Test different map sizes (OTP-15567)
+    repeat_while(fun({35,_}) -> false;
+                    ({K,Map}) ->
+                         Map = maps_from_list_nif(maps:to_list(Map)),
+                         Map = maps:filter(fun(K2,V) -> V =:= K2*100 end, Map),
+                         {K+1, maps:put(K,K*100,Map)}
+                 end,
+                 {1,#{}}),
+
+    has_duplicate_keys = maps_from_list_nif([{1,1},{1,1}]),
+
     verify_tmpmem(TmpMem),
     ok.
  
@@ -1165,23 +1402,28 @@ resource_hugo_do(Type) ->
     release_resource(HugoPtr),
     erlang:garbage_collect(),
     {HugoPtr,HugoBin} = get_resource(Type,Hugo),
-    Pid = spawn_link(fun() -> 			     
-                             receive {Pid, Type, Resource, Ptr, Bin} ->
-                                         Pid ! {self(), got_it},
-                                         receive {Pid, check_it} ->
-                                                     {Ptr,Bin} = get_resource(Type,Resource),
-                                                     Pid ! {self(), ok}
-                                         end
-                             end
-                     end),
+    {Pid,_} =
+        spawn_monitor(fun() ->
+                              receive {Pid, Type, Resource, Ptr, Bin} ->
+                                      Pid ! {self(), got_it},
+                                      receive {Pid, check_it} ->
+                                              {Ptr,Bin} = get_resource(Type,Resource)
+                                      end
+                              end,
+                              gc_and_exit(ok)
+                      end),
     Pid ! {self(), Type, Hugo, HugoPtr, HugoBin},
     {Pid, got_it} = receive_any(),
     erlang:garbage_collect(),   % just to make our ProcBin move in memory
     Pid ! {self(), check_it},
-    {Pid, ok} = receive_any(),
+    {'DOWN', _, process, Pid, ok} = receive_any(),
     [] = last_resource_dtor_call(),
     {HugoPtr,HugoBin} = get_resource(Type,Hugo),
     {HugoPtr, HugoBin, 1}.
+
+gc_and_exit(Reason) ->
+    erlang:garbage_collect(),
+    exit(Reason).
 
 resource_otto(Type) ->
     {OttoPtr, OttoBin} = resource_otto_do(Type),
@@ -1259,22 +1501,18 @@ resource_binary_do() ->
     ResInfo = {Ptr,_} = get_resource(binary_resource_type,ResBin1),
 
     Papa = self(),
-    Forwarder = spawn_link(fun() -> forwarder(Papa) end),
+    {Forwarder,_} = spawn_monitor(fun() -> forwarder(Papa) end),
     io:format("sending to forwarder pid=~p\n",[Forwarder]),  
     Forwarder ! ResBin1,
     ResBin2 = receive_any(),
     ResBin2 = ResBin1,
     ResInfo = get_resource(binary_resource_type,ResBin2),
     Forwarder ! terminate,
-    {Forwarder, 1} = receive_any(),
+    {'DOWN', _, process, Forwarder, 1} = receive_any(),
     erlang:garbage_collect(),
     ResInfo = get_resource(binary_resource_type,ResBin1),
     ResInfo = get_resource(binary_resource_type,ResBin2),
     ResInfo.
-
-    
--define(RT_CREATE,1).
--define(RT_TAKEOVER,2).
 
 %% Test resource takeover by module upgrade
 resource_takeover(Config) when is_list(Config) ->    
@@ -1626,6 +1864,7 @@ read_resource(Type, {Holder,Id}) ->
 forget_resource({Holder,Id}) ->
     Holder ! {self(), forget, Id},
     {Holder, forget_ok, Id} = receive_any(),
+    erts_debug:set_internal_state(wait, aux_work),
     ok.
 
 
@@ -1714,6 +1953,59 @@ send(Config) when is_list(Config) ->
     {ok,0} = send_list_seq(7, DeadPid),
     ok.
 
+
+%% Test tracing of enif_send
+send_trace(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Papa = self(),
+    N = 1500,
+    List = lists:seq(1,N),
+
+    Tracer = spawn_link(fun F() -> receive get -> Papa ! receive_any(), F() end end),
+
+    erlang:trace(self(), true, [send,'receive',{tracer,Tracer}]),
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+    Tracer ! get,
+    {trace,Papa,send,List,Papa} = receive_any(),
+    Tracer ! get,
+    {trace,Papa,'receive',List} = receive_any().
+
+%% Test that seq_trace works with nif trace
+send_seq_trace(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Papa = self(),
+    N = 1500,
+    List = lists:seq(1,N),
+    Label = make_ref(),
+
+    Tracer = spawn_link(fun F() -> receive get -> Papa ! receive_any(), F() end end),
+
+    seq_trace:set_system_tracer(Tracer),
+    seq_trace:set_token(label,Label),
+    seq_trace:set_token(send,true),
+    seq_trace:set_token('receive',true),
+
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+
+    Tracer ! get,
+    {seq_trace,Label,{send,{0,1},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{'receive',{0,1},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{send,{1,2},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{'receive',{1,2},Papa,Papa,List}} = receive_any().
+
+
 %% More NIF message sending
 send2(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
@@ -1723,14 +2015,9 @@ send2(Config) when is_list(Config) ->
 
 %% Send msg from user thread
 send_threaded(Config) when is_list(Config) ->
-    case erlang:system_info(smp_support) of
-	true ->
-	    send2_do1(fun(ME,To) -> send_blob_thread_dbg(ME,To,join) end),
-	    send2_do1(fun(ME,To) -> send_blob_thread_and_join(ME,To) end),
-	    ok;
-	false ->
-	    {skipped,"No threaded send on non-SMP"}
-    end.
+    send2_do1(fun(ME,To) -> send_blob_thread_dbg(ME,To,join) end),
+    send2_do1(fun(ME,To) -> send_blob_thread_and_join(ME,To) end),
+    ok.
 
 
 send2_do1(SendBlobF) ->
@@ -1738,11 +2025,11 @@ send2_do1(SendBlobF) ->
     send2_do2(SendBlobF, self()),
 
     Papa = self(),
-    Forwarder = spawn_link(fun() -> forwarder(Papa) end),
+    {Forwarder,_} = spawn_monitor(fun() -> forwarder(Papa) end),
     io:format("sending to forwarder pid=~p\n",[Forwarder]),
     send2_do2(SendBlobF, Forwarder),
     Forwarder ! terminate,
-    {Forwarder, 4} = receive_any(),
+    {'DOWN', _, process, Forwarder, 4} = receive_any(),
     ok.
 
 send2_do2(SendBlobF, To) ->   
@@ -1798,7 +2085,7 @@ forwarder(To) ->
 forwarder(To, N) ->
     case receive_any() of
 	terminate ->
-	    To ! {self(), N};
+            gc_and_exit(N);
 	Msg ->	    
 	    To ! Msg,	   
 	    forwarder(To, N+1)
@@ -2193,9 +2480,8 @@ nif_schedule(Config) when is_list(Config) ->
     {B,A} = call_nif_schedule(A, B),
     ok = try call_nif_schedule(1, 2)
 	 catch
-	     error:badarg ->
-		 [{?MODULE,call_nif_schedule,[1,2],_}|_] =
-		     erlang:get_stacktrace(),
+	     error:badarg:Stk ->
+		 [{?MODULE,call_nif_schedule,[1,2],_}|_] = Stk,
 		 ok
 	 end,
     ok.
@@ -2277,26 +2563,7 @@ dummy_call(_) ->
     ok.
 
 tmpmem() ->
-    case erlang:system_info({allocator,temp_alloc}) of
-	false -> undefined;
-	MemInfo ->
-	    MSBCS = lists:foldl(
-		      fun ({instance, 0, _}, Acc) ->
-			      Acc; % Ignore instance 0
-			  ({instance, _, L}, Acc) ->
-			      {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
-			      {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-			      [MBCS,SBCS | Acc]
-		      end,
-		      [],
-		      MemInfo),
-	    lists:foldl(
-	      fun(L, {Bl0,BlSz0}) ->
-		      {value,{_,Bl,_,_}} = lists:keysearch(blocks, 1, L),
-		      {value,{_,BlSz,_,_}} = lists:keysearch(blocks_size, 1, L),
-		      {Bl0+Bl,BlSz0+BlSz}
-	      end, {0,0}, MSBCS)
-    end.
+    erts_debug:alloc_blocks_size(temp_alloc).
 
 verify_tmpmem(MemInfo) ->
     %%wait_for_test_procs(),
@@ -2348,6 +2615,13 @@ repeat(0, _, Arg) ->
 repeat(N, Fun, Arg0) ->
     repeat(N-1, Fun, Fun(Arg0)).
 
+repeat_while(Fun, Acc0) ->
+    case Fun(Acc0) of
+        false -> ok;
+        Acc1 ->
+            repeat_while(Fun, Acc1)
+    end.
+
 check(Exp,Got,Line) ->
     case Got of
  	Exp -> Exp;	    
@@ -2365,8 +2639,8 @@ nif_raise_exceptions(NifFunc) ->
                             erlang:apply(?MODULE,NifFunc,[Term]),
                             ct:fail({expected,Term})
                         catch
-                            error:Term ->
-                                [{?MODULE,NifFunc,[Term],_}|_] = erlang:get_stacktrace(),
+                            error:Term:Stk ->
+                                [{?MODULE,NifFunc,[Term],_}|_] = Stk,
                                 ok
                         end
                 end, ok, ExcTerms).
@@ -2917,21 +3191,30 @@ nif_whereis_threaded(Config) when is_list(Config) ->
     RegName = nif_whereis_test_threaded,
     undefined = erlang:whereis(RegName),
 
-    Ref = make_ref(),
-    {Pid, Mon} = spawn_monitor(?MODULE, nif_whereis_proxy, [Ref]),
-    true = register(RegName, Pid),
+    Self = self(),
+    true = register(RegName, Self),
 
-    {ok, ProcThr} = whereis_thd_lookup(pid, RegName),
-    {ok, Pid} = whereis_thd_result(ProcThr),
+    {ok, ProcThr} = whereis_thd_lookup(pid, RegName, "dtor to proc"),
+    {ok, Self} = whereis_thd_result(ProcThr),
 
-    Pid ! {Ref, quit},
-    ok = receive {'DOWN', Mon, process, Pid, normal} -> ok end,
+    nif_whereis_threaded_2(RegName).
+
+nif_whereis_threaded_2(RegName) ->
+    erlang:garbage_collect(),
+    "dtor to proc" = receive_any(1000),
+    true = unregister(RegName),
 
     Port = open_port({spawn, echo_drv}, [eof]),
     true = register(RegName, Port),
 
-    {ok, PortThr} = whereis_thd_lookup(port, RegName),
+    {ok, PortThr} = whereis_thd_lookup(port, RegName, "dtor to port"),
     {ok, Port} = whereis_thd_result(PortThr),
+
+    nif_whereis_threaded_3(Port).
+
+nif_whereis_threaded_3(Port) ->
+    erlang:garbage_collect(),
+    {Port, {data, "dtor to port"}} = receive_any(1000),
 
     port_close(Port),
     ok.
@@ -2980,14 +3263,17 @@ nif_ioq(Config) ->
          {enqbraw,a},
          {enqbraw,a, 5},
          {peek,   a},
+         {peek_head,  a},
          {deq,    a, 42},
 
          %% Test enqv
          {enqv,   a, 2, 100},
+         {peek_head,  a},
          {deq,    a, all},
 
          %% This skips all elements but one in the iolist
          {enqv,   a, 5, iolist_size(nif_ioq_payload(5)) - 1},
+         {peek_head,  a},
          {peek,   a},
 
          %% Ensure that enqueued refc binaries are intact after a roundtrip.
@@ -3033,8 +3319,12 @@ nif_ioq(Config) ->
 
     Q = ioq_nif(create),
 
+    false = ioq_nif(peek_head, Q),
+
     {'EXIT', {badarg, _}} = (catch ioq_nif(deq, Q, 1)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, 1, 1234)),
+
+    false = ioq_nif(peek_head, Q),
 
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [atom_in_list], 0)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [make_ref()], 0)),
@@ -3043,6 +3333,8 @@ nif_ioq(Config) ->
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [#{}], 0)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [1 bsl 64], 0)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [{tuple}], 0)),
+
+    false = ioq_nif(peek_head, Q),
 
     {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [atom_in_list], use_stack)),
     {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [make_ref()], no_stack)),
@@ -3103,6 +3395,20 @@ nif_ioq_run([{peek, Name} = H|T], State) ->
     Data = ioq_nif(peek, IOQ, ioq_nif(size, IOQ)),
 
     true = iolist_to_binary(B) == iolist_to_binary(Data),
+    nif_ioq_run(T, State);
+nif_ioq_run([{peek_head, Name} = H|T], State) ->
+    #{ q := IOQ, b := B } = maps:get(Name, State),
+    RefData = iolist_to_binary(B),
+
+    ct:log("~p", [H]),
+
+    {true, QueueHead} = ioq_nif(peek_head, IOQ),
+    true = byte_size(QueueHead) > 0,
+
+    {RefHead, _Tail} = split_binary(RefData, byte_size(QueueHead)),
+
+    true = QueueHead =:= RefHead,
+
     nif_ioq_run(T, State);
 nif_ioq_run([{deq, Name, all}|T], State) ->
     #{ q := IOQ, b := B } = maps:get(Name, State),
@@ -3165,7 +3471,71 @@ make_unaligned_binary(Bin0) ->
     <<0:3,Bin:Size/binary,31:5>> = id(<<0:3,Bin0/binary,31:5>>),
     Bin.
 
+pid(Config) ->
+    ensure_lib_loaded(Config),
+    Self = self(),
+    {true, ErlNifPid} = get_local_pid_nif(Self),
+    false = is_pid_undefined_nif(ErlNifPid),
+    Self = make_pid_nif(ErlNifPid),
+
+    UndefPid = set_pid_undefined_nif(),
+    true = is_pid_undefined_nif(UndefPid),
+    undefined = make_pid_nif(UndefPid),
+    0 = send_term(UndefPid, message),
+
+    Other = spawn(fun() -> ok end),
+    {true,OtherNifPid} = get_local_pid_nif(Other),
+    Cmp = compare_pids_nif(ErlNifPid, OtherNifPid),
+    true = if Cmp < 0 -> Self < Other;
+              Cmp > 0 -> Self > Other
+           end,
+    0 = compare_pids_nif(ErlNifPid, ErlNifPid),
+
+    {false, _} = get_local_pid_nif(undefined),
+    ok.
+
+nif_term_type(Config) ->
+    ensure_lib_loaded(Config),
+
+    atom = term_type_nif(atom),
+
+    bitstring = term_type_nif(<<1:1>>),
+    bitstring = term_type_nif(<<1:8>>),
+
+    float = term_type_nif(0.0),
+
+    'fun' = term_type_nif(fun external:function/1),
+    'fun' = term_type_nif(fun(A) -> A end),
+    'fun' = term_type_nif(fun id/1),
+
+    integer = term_type_nif(1 bsl 1024),        %Bignum.
+    integer = term_type_nif(1),
+
+    list = term_type_nif([list]),
+    list = term_type_nif([]),
+
+    LargeMap = maps:from_list([{N, N} || N <- lists:seq(1, 256)]),
+    map = term_type_nif(LargeMap),
+    map = term_type_nif(#{ small => map }),
+
+    pid = term_type_nif(self()),
+
+    Port = open_port({spawn,echo_drv},[eof]),
+    port = term_type_nif(Port),
+    port_close(Port),
+
+    reference = term_type_nif(make_ref()),
+
+    tuple = term_type_nif({}),
+
+    ok.
+
+last_resource_dtor_call() ->
+    erts_debug:set_internal_state(wait, aux_work),
+    last_resource_dtor_call_nif().
+
 id(I) -> I.
+keep_alive(Term) -> ?MODULE:id(Term).
 
 %% The NIFs:
 lib_version() -> undefined.
@@ -3192,7 +3562,7 @@ make_resource(_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
 release_resource(_) -> ?nif_stub.
 release_resource_from_thread(_) -> ?nif_stub.
-last_resource_dtor_call() -> ?nif_stub.
+last_resource_dtor_call_nif() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 check_is_exception() -> ?nif_stub.
@@ -3230,16 +3600,19 @@ term_to_binary_nif(_, _) -> ?nif_stub.
 binary_to_term_nif(_, _, _) -> ?nif_stub.
 port_command_nif(_, _) -> ?nif_stub.
 format_term_nif(_,_) -> ?nif_stub.
-select_nif(_,_,_,_,_) -> ?nif_stub.
+select_nif(_,_,_,_,_,_) -> ?nif_stub.
+dupe_resource_nif(_) -> ?nif_stub.
 pipe_nif() -> ?nif_stub.
 write_nif(_,_) -> ?nif_stub.
 read_nif(_,_) -> ?nif_stub.
 is_closed_nif(_) -> ?nif_stub.
+clear_select_nif(_) -> ?nif_stub.
 last_fd_stop_call() -> ?nif_stub.
 alloc_monitor_resource_nif() -> ?nif_stub.
 monitor_process_nif(_,_,_,_) -> ?nif_stub.
 demonitor_process_nif(_,_) -> ?nif_stub.
 compare_monitors_nif(_,_) -> ?nif_stub.
+make_monitor_term_nif(_) -> ?nif_stub.
 monitor_frenzy_nif(_,_,_,_) -> ?nif_stub.
 ioq_nif(_) -> ?nif_stub.
 ioq_nif(_,_) -> ?nif_stub.
@@ -3249,7 +3622,7 @@ ioq_nif(_,_,_,_) -> ?nif_stub.
 %% whereis
 whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
 whereis_term(_Type,_Name) -> ?nif_stub.
-whereis_thd_lookup(_Type,_Name) -> ?nif_stub.
+whereis_thd_lookup(_Type,_Name, _Msg) -> ?nif_stub.
 whereis_thd_result(_Thd) -> ?nif_stub.
 
 %% maps
@@ -3269,6 +3642,14 @@ time_offset(_) -> ?nif_stub.
 convert_time_unit(_,_,_) -> ?nif_stub.
 now_time() -> ?nif_stub.
 cpu_time() -> ?nif_stub.
+
+get_local_pid_nif(_) -> ?nif_stub.
+make_pid_nif(_) -> ?nif_stub.
+set_pid_undefined_nif() -> ?nif_stub.
+is_pid_undefined_nif(_) -> ?nif_stub.
+compare_pids_nif(_, _) -> ?nif_stub.
+
+term_type_nif(_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

@@ -44,7 +44,7 @@ load() ->
     wait_for_kernel_safe_sup(),
     case history_status() of
         enabled ->
-            case open_log() of
+            try open_log() of
                 {ok, ?LOG_NAME} ->
                     read_full_log(?LOG_NAME);
                 {repaired, ?LOG_NAME, {recovered, Good}, {badbytes, Bad}} ->
@@ -68,6 +68,10 @@ load() ->
                     handle_open_error(Reason),
                     disable_history(),
                     []
+            catch
+                % disk_log shut down abruptly, possibly because
+                % the node is shutting down. Ignore it.
+                exit:_ -> []
             end;
         _ ->
             []
@@ -127,11 +131,15 @@ repair_log(Name) ->
 %% Return whether the shell history is enabled or not
 -spec history_status() -> enabled | disabled.
 history_status() ->
-    case is_user() orelse application:get_env(kernel, shell_history) of
-        true -> disabled; % don't run for user proc
-        {ok, enabled} -> enabled;
-        undefined -> ?DEFAULT_STATUS;
-        _ -> disabled
+    %% Don't run for user proc or if the emulator's tearing down
+    Skip = is_user() orelse not init_running(),
+    case application:get_env(kernel, shell_history) of
+        {ok, enabled} when not Skip ->
+            enabled;
+        undefined when not Skip ->
+            ?DEFAULT_STATUS;
+        _ ->
+            disabled
     end.
 
 %% Return whether the user process is running this
@@ -140,6 +148,14 @@ is_user() ->
     case process_info(self(), registered_name) of
         {registered_name, user} -> true;
         _ -> false
+    end.
+
+%% Return if the system is running (not stopping)
+-spec init_running() -> boolean().
+init_running() ->
+    case init:get_status() of
+        {stopping, _} -> false;
+        _ -> true
     end.
 
 %% Open a disk_log file while ensuring the required path is there.
@@ -322,7 +338,7 @@ show_unexpected_warning({M,F,A}, Term) ->
 
 show_unexpected_close_warning() ->
     show('$#erlang-history-unexpected-close',
-         "The shell log file has mysteriousy closed. Ignoring "
+         "The shell log file has mysteriously closed. Ignoring "
          "currently unread history.~n", []).
 
 show_size_warning(_Current, _New) ->

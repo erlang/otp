@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
-  <!ENTITY spawn_opt
-  '<seealso marker="erts:erlang#spawn_opt-2">erlang:spawn_opt/2</seealso>'>
+  <!ENTITY spawn_opt2
+  '<seemfa marker="erts:erlang#spawn_opt/2">erlang:spawn_opt/2</seemfa>'>
+  <!ENTITY spawn_opt5
+  '<seemfa marker="erts:erlang#spawn_opt/5">erlang:spawn_opt/5</seemfa>'>
   <!ENTITY nodes
-  '<seealso marker="erts:erlang#nodes-0">erlang:nodes/0</seealso>'>
+  '<seemfa marker="erts:erlang#nodes/0">erlang:nodes/0</seemfa>'>
   <!ENTITY make_ref
-  '<seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>'>
+  '<seemfa marker="erts:erlang#make_ref/0">erlang:make_ref/0</seemfa>'>
   <!ENTITY transport_module
-  '<seealso marker="diameter_transport">transport module</seealso>'>
+  '<seeerl marker="diameter_transport">transport module</seeerl>'>
   <!ENTITY dictionary
-  '<seealso marker="diameter_dict">dictionary</seealso>'>
+  '<seefile marker="diameter_dict">dictionary</seefile>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -21,7 +23,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2017</year>
+<year>2020</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -55,7 +57,7 @@ limitations under the License.
 <!-- ===================================================================== -->
 <!-- ===================================================================== -->
 
-<module>diameter</module>
+<module since="OTP R14B03">diameter</module>
 <modulesummary>Main API of the diameter application.</modulesummary>
 
 <description>
@@ -135,7 +137,7 @@ along with any
 extra arguments to be appended to those documented.
 Note that extra arguments specific to an outgoing request can be
 specified to &call;, in which case
-those are are appended to any module-specific extra arguments.</p>
+those are appended to any module-specific extra arguments.</p>
 
 <p>
 Specifying a <c>#diameter_callback{}</c> record allows individual
@@ -150,7 +152,7 @@ See <c>diameter_callback.erl</c> for details.</p>
 
 <p>
 Options defining a Diameter application.
-Has one the following types.</p>
+Has one of the following types.</p>
 
 <taglist>
 
@@ -1044,8 +1046,9 @@ each node from which requests are sent.</p>
 <tag><c>&transport_opt;</c></tag>
 <item>
 <p>
-Any transport option except <c>applications</c> or
-<c>capabilities</c>.
+Any transport option except <c>applications</c>,
+<c>capabilities</c>, <c>transport_config</c>, and
+<c>transport_module</c>.
 Used as defaults for transport configuration, values passed to
 &add_transport; overriding values configured on the service.</p>
 </item>
@@ -1384,12 +1387,23 @@ the same peer.</p>
 </item>
 
 <tag>
-<marker id="spawn_opt"/><c>{spawn_opt, [term()]}</c></tag>
+<marker id="spawn_opt"/><c>{spawn_opt, [term()] | {M,F,A}}</c></tag>
 <item>
 <p>
-Options passed to &spawn_opt; when spawning a process for an
-incoming Diameter request.
-Options <c>monitor</c> and <c>link</c> are ignored.</p>
+An options list passed to &spawn_opt2; to spawn a handler process for an
+incoming Diameter request on the local node, or an MFA that returns
+the pid of a handler process.</p>
+
+<p>
+Options <c>monitor</c> and <c>link</c> are ignored in the list-valued
+case.
+An MFA is applied with an additional term prepended to its argument
+list, and should return either the pid of the handler process that
+invokes <c>diameter_traffic:request/1</c> on the argument in order to
+process the request, or the atom <c>discard</c>.
+The handler process need not be local, and diameter need not be
+started on the remote node, but diameter and relevant application
+callbacks must be on the code path.</p>
 
 <p>
 Defaults to the empty list.</p>
@@ -1574,7 +1588,7 @@ identifies the configuration.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>add_transport(SvcName, {connect|listen, [Opt]})
+<name since="OTP R14B03">add_transport(SvcName, {connect|listen, [Opt]})
         -> {ok, Ref} | {error, Reason}</name>
 <fsummary>Add transport capability to a service.</fsummary>
 <type>
@@ -1624,7 +1638,7 @@ its transports.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>call(SvcName, App, Request, [Opt]) -> Answer | ok | {error, Reason}</name>
+<name since="OTP R14B03">call(SvcName, App, Request, [Opt]) -> Answer | ok | {error, Reason}</name>
 <fsummary>Send a Diameter request message.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -1730,7 +1744,7 @@ transport connection.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>origin_state_id() -> &dict_Unsigned32;</name>
+<name since="OTP R14B03">origin_state_id() -> &dict_Unsigned32;</name>
 <fsummary>Returns a reasonable Origin-State-Id.</fsummary>
 <desc>
 <p>
@@ -1748,7 +1762,7 @@ at the time the diameter application was started.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>remove_transport(SvcName, Pred) -> ok | {error, Reason}</name>
+<name since="OTP R14B03">remove_transport(SvcName, Pred) -> ok | {error, Reason}</name>
 <fsummary>Remove previously added transports.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -1795,7 +1809,7 @@ configured on the transport.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>service_info(SvcName, Info) -> term()</name>
+<name since="OTP R14B03">service_info(SvcName, Info) -> term()</name>
 <fsummary>Return information about a started service.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2114,7 +2128,7 @@ For example:</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>services() -> [SvcName]</name>
+<name since="OTP R14B03">services() -> [SvcName]</name>
 <fsummary>Return the list of started services.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2129,7 +2143,7 @@ Return the list of started services.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>session_id(Ident) -> &dict_OctetString;</name>
+<name since="OTP R14B03">session_id(Ident) -> &dict_OctetString;</name>
 <fsummary>Return a value for a Session-Id AVP.</fsummary>
 <type>
 <v>Ident = &dict_DiameterIdentity;</v>
@@ -2148,7 +2162,7 @@ the message containing the returned value will be sent.</p>
 
 <!-- ===================================================================== -->
 <func>
-<name>start() -> ok | {error, Reason}</name>
+<name since="OTP R14B03">start() -> ok | {error, Reason}</name>
 <fsummary>Start the diameter application.</fsummary>
 <desc>
 <p>
@@ -2164,7 +2178,7 @@ file, not by calling <c>start/0</c> explicitly.</p>
 
 <!-- ===================================================================== -->
 <func>
-<name>start_service(SvcName, Options) -> ok | {error, Reason}</name>
+<name since="OTP R14B03">start_service(SvcName, Options) -> ok | {error, Reason}</name>
 <fsummary>Start a Diameter service.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2194,7 +2208,7 @@ necessarily the case.</p>
 
 <!-- ===================================================================== -->
 <func>
-<name>stop() -> ok | {error, Reason}</name>
+<name since="OTP R14B03">stop() -> ok | {error, Reason}</name>
 <fsummary>Stop the diameter application.</fsummary>
 <desc>
 <p>
@@ -2208,7 +2222,7 @@ Stop the diameter application.</p>
 
 <!-- ===================================================================== -->
 <func>
-<name>stop_service(SvcName) -> ok | {error, Reason}</name>
+<name since="OTP R14B03">stop_service(SvcName) -> ok | {error, Reason}</name>
 <fsummary>Stop a Diameter service.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2221,7 +2235,7 @@ Stop a diameter service.</p>
 <p>
 Stopping a service causes all associated transport connections to be
 broken.
-A DPR message with be sent as in the case of &remove_transport;.</p>
+A DPR message will be sent as in the case of &remove_transport;.</p>
 
 <note>
 <p>
@@ -2236,7 +2250,7 @@ be called to remove transport configuration.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>subscribe(SvcName) -> true</name>
+<name since="OTP R14B03">subscribe(SvcName) -> true</name>
 <fsummary>Subscribe to event messages.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2258,7 +2272,7 @@ reception of all transport-related events.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>unsubscribe(SvcName) -> true</name>
+<name since="OTP R14B03">unsubscribe(SvcName) -> true</name>
 <fsummary>Unsubscribe to event messages.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>

@@ -40,5 +40,6 @@
   <xi:include href="block_tags.xml"/>
   <xi:include href="inline_tags.xml"/>
   <xi:include href="character_entities.xml"/>
+  <xi:include href="doc_storage.xml"/>
 </part>
 

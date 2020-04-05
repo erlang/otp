@@ -23,11 +23,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 #
 # Macros
 #
-ifeq ($(findstring win32,$(TARGET)),win32)
-SUB_DIRECTORIES = src c_src mibs doc/src
-else
-SUB_DIRECTORIES = src c_src mibs doc/src
-endif
+SUB_DIRECTORIES = src c_src doc/src
 
 include vsn.mk
 VSN = $(OS_MON_VSN)
@@ -39,3 +35,4 @@ SPECIAL_TARGETS =
 #
 include $(ERL_TOP)/make/otp_subdir.mk
 
+include $(ERL_TOP)/make/app_targets.mk

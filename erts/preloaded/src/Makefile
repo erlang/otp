@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,20 +33,34 @@ STATIC_EBIN=../ebin
 include $(ERL_TOP)/erts/vsn.mk
 include $(ERL_TOP)/lib/kernel/vsn.mk
 
+ifeq ($(USE_ESOCK), yes)
+PRE_LOADED_ERL_ESOCK_MODULES = \
+	socket_registry \
+	socket \
+	prim_net
+else
+PRE_LOADED_ERL_ESOCK_MODULES =
+endif
+
 PRE_LOADED_ERL_MODULES = \
 	erl_prim_loader \
 	init \
+	prim_buffer \
 	prim_file \
 	prim_inet \
+	$(PRE_LOADED_ERL_ESOCK_MODULES) \
 	zlib \
 	prim_zip \
-	otp_ring0 \
+	erl_init \
 	erts_code_purger \
 	erlang \
 	erts_internal \
 	erl_tracer \
 	erts_literal_area_collector \
-	erts_dirty_process_code_checker
+	erts_dirty_process_signal_handler \
+	atomics \
+	counters \
+        persistent_term
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval
@@ -67,6 +81,11 @@ STATIC_TARGET_FILES = $(PRE_LOADED_MODULES:%=$(STATIC_EBIN)/%.$(EMULATOR))
 APP_FILE= erts.app
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(STATIC_EBIN)/$(APP_FILE)
+ifeq ($(USE_ESOCK), yes)
+APP_ESOCK_MODS= prim_net, socket, socket_registry
+else
+APP_ESOCK_MODS=
+endif
 
 
 KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
@@ -74,6 +93,19 @@ KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
 STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
 ERL_COMPILE_FLAGS += +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
+
+DIA_PLT      = erts-preloaded.plt
+DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
+ifeq ($(DIAW_EH),true)
+DIA_WARNINGS += -Werror_handling
+endif
+ifeq ($(DIAW_US),true)
+DIA_WARNINGS += -Wunderspecs
+endif
+ifeq ($(DIAW_UR),true)
+DIA_WARNINGS += -Wunmatched_returns
+endif
+
 
 debug opt: $(TARGET_FILES) 
 
@@ -84,8 +116,7 @@ copy:
 	cp *.beam $(STATIC_EBIN)
 
 $(APP_TARGET): $(APP_SRC) $(ERL_TOP)/erts/vsn.mk
-	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
-
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' -e 's;%ESOCK_MODS%;$(APP_ESOCK_MODS);' $< > $@
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
@@ -100,6 +131,31 @@ release_docs_spec:
 
 list_preloaded:
 	@echo $(PRE_LOADED_MODULES)
+
+dclean:
+	rm -f $(DIA_PLT)
+	rm -f $(DIA_ANALYSIS)
+
+dialyzer_plt: $(DIA_PLT)
+
+$(DIA_PLT): $(ERL_FILES)
+	@echo "Building ($(basename $(DIA_PLT))) plt file"
+	@dialyzer --build_plt \
+                  --output_plt $@ \
+                  -r ../ebin \
+                     ../../../lib/kernel/ebin \
+                     ../../../lib/stdlib/ebin \
+                     ../../../lib/crypto/ebin \
+                     ../../../lib/compiler/ebin \
+                  --output $(DIA_ANALYSIS) \
+                  --verbose
+
+dialyzer: $(DIA_PLT)
+	@echo "Running dialyzer on $(basename $(DIA_PLT))"
+	@dialyzer --plt $< \
+                  ../ebin \
+                  $(DIA_WARNINGS) \
+                  --verbose
 
 #
 # Combine a BEAM assembly script file a stub Erlang file into a BEAM file.
@@ -116,7 +172,7 @@ prim_eval.beam: prim_eval.S prim_eval.abstr
 
 # Include dependencies -- list below added by PaN
 $(EBIN)/erl_prim_loader.beam: $(KERNEL_SRC)/inet_boot.hrl $(KERNEL_INCLUDE)/file.hrl
-$(EBIN)/prim_file.beam: $(KERNEL_INCLUDE)/file.hrl
+$(EBIN)/prim_file.beam: $(KERNEL_SRC)/file_int.hrl $(KERNEL_INCLUDE)/file.hrl
 $(EBIN)/prim_inet.beam: $(KERNEL_SRC)/inet_int.hrl $(KERNEL_INCLUDE)/inet_sctp.hrl
 $(EBIN)/prim_zip.beam: zip_internal.hrl $(KERNEL_INCLUDE)/file.hrl $(STDLIB_INCLUDE)/zip.hrl
 $(EBIN)/init.erl: $(KERNEL_INCLUDE)/file.hrl

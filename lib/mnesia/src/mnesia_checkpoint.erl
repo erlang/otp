@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017
+%% Copyright Ericsson AB 1996-2018
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1269,9 +1269,9 @@ system_code_change(Cp, _Module, _OldVsn, _Extra) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
-	_VaLuE_ -> _VaLuE_
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
+	Value -> Value
     end.
-

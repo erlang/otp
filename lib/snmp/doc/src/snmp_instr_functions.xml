@@ -63,7 +63,7 @@
       values for the table, and <c>Column</c> is a column number.
       </p>
     <p>These functions are described in detail in 
-      <seealso marker="snmp_def_instr_functions">Definition of Instrumentation Functions</seealso>.
+      <seeguide marker="snmp_def_instr_functions">Definition of Instrumentation Functions</seeguide>.
       </p>
 
     <section>

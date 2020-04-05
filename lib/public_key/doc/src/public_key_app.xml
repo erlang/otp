@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>2016</year><year>2016</year>
+      <year>2016</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -51,6 +51,9 @@
       Diffie-Hellman Key Agreement Standard </item>
       <item>Supports <url href="http://www.ietf.org/rfc/rfc2898.txt"> PKCS-5</url> - 
       Password-Based Cryptography Standard </item>
+      <item>Supports <url href="http://www.ietf.org/rfc/fc3565.txt"> AES </url> -
+      Use of the Advanced Encryption Standard (AES) Algorithm in Cryptographic Message Syntax (CMS)
+      </item>
       <item>Supports <url href="http://www.ietf.org/rfc/rfc5208.txt"> PKCS-8</url> - 
       Private-Key Information Syntax Standard</item>
       <item>Supports <url href="http://www.ietf.org/rfc/rfc5967.txt"> PKCS-10</url> - 
@@ -79,7 +82,7 @@
 
   <section>
     <title>SEE ALSO</title>
-	<p><seealso marker="kernel:application">application(3)</seealso></p>
+	<p><seeerl marker="kernel:application">application(3)</seeerl></p>
   </section>
   
 </appref>

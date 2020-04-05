@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+# Copyright Ericsson AB 1996-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ include $(ERL_TOP)/make/target.mk
 
 ERTS_LIB_TYPEMARKER=.$(TYPE)
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
 USING_VC=@MIXED_VC@
 
 ifeq ($(TYPE),debug)
@@ -54,9 +53,11 @@ ERTS_INCL = -I$(ERL_TOP)/erts/include \
             -I$(ERL_TOP)/erts/include/internal \
             -I$(ERL_TOP)/erts/include/internal/$(TARGET)
 
+EI_INCL   = -I$(ERL_TOP)/lib/erl_interface/include
+
 CC        = @CC@
 WFLAGS    = @WFLAGS@
-CFLAGS    = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSDIR) -I$(EMUDIR) \
+CFLAGS    = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSOSDIR) -I$(EMUDIR) -I. \
             -I$(COMSYSDIR) $(ERTS_INCL) -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\"
 LD        = @LD@
 LIBS      = @LIBS@
@@ -69,9 +70,9 @@ endif
 
 ifeq ($(TARGET),win32)
 ifeq ($(TYPE),debug)
-CFLAGS = $(subst -O2,-g,@CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSDIR) \
-            -I$(EMUDIR) -I$(COMSYSDIR) $(ERTS_INCL) \
-            -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\")
+CFLAGS = $(subst -O2,-g,@CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSOSDIR) \
+	-I$(EMUDIR) -I$(COMSYSDIR) $(ERTS_INCL) \
+	-DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\")
 LDFLAGS += -g
 endif
 endif
@@ -81,10 +82,15 @@ OBJDIR    = $(ERL_TOP)/erts/obj$(TYPEMARKER)/$(TARGET)
 EMUDIR    = $(ERL_TOP)/erts/emulator/beam
 COMSYSDIR = $(ERL_TOP)/erts/emulator/sys/common
 EMUOSDIR  = $(ERL_TOP)/erts/emulator/@ERLANG_OSTYPE@
-SYSDIR    = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
+SYSDIR    = $(ERL_TOP)/erts/emulator/sys/common
+SYSOSDIR  = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
 DRVDIR    = $(ERL_TOP)/erts/emulator/drivers/@ERLANG_OSTYPE@
 UXETC     = ../unix
 WINETC	  = ../win32
+
+# Threads flags and libs
+THR_DEFS=@THR_DEFS@
+THR_LIBS=@THR_LIBS@
 
 ifeq ($(TARGET), win32)
 ETC       = $(WINETC)
@@ -106,6 +112,8 @@ ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPE
 endif
 
 ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
+
+EI_LIB = -L$(ERL_TOP)/lib/erl_interface/obj/$(TARGET) -lei $(THR_LIBS)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -425,10 +433,10 @@ $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c $(RC_GENERATED)
 endif
 
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS) $(EI_LIB)
 
 $(OBJDIR)/erlc.o: erlc.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c erlc.c
+	$(V_CC) $(CFLAGS) $(THR_DEFS) $(EI_INCL) $(MT_FLAG) -o $@ -c erlc.c
 
 $(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
@@ -482,9 +490,7 @@ ifneq ($(INSTALL_OBJS),)
 endif
 	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 ifneq ($(TARGET), win32)
-ifneq ($(findstring vxworks,$(TARGET)), vxworks)
 	$(INSTALL_SCRIPT) erl.src "$(RELEASE_PATH)/erts-$(VSN)/bin"
-endif
 endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"

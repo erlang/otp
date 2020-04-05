@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/hipe-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 MODULES = cerl_cconv cerl_closurean cerl_hipeify cerl_lib \
-	  cerl_messagean cerl_pmatch cerl_prettypr cerl_to_icode \
+	  cerl_pmatch cerl_prettypr cerl_to_icode \
 	  cerl_typean erl_bif_types erl_types 
 
 HRL_FILES= cerl_hipe_primops.hrl
@@ -66,7 +66,10 @@ DOC_FILES= $(MODULES:%=$(DOCS)/%.html)
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +inline -Werror +warn_export_vars +warn_unused_import +warn_missing_spec #+warn_untyped_record
+ERL_COMPILE_FLAGS += +inline +warn_export_vars +warn_unused_import +warn_missing_spec #+warn_untyped_record
+ifneq ($(NATIVE_LIBS_ENABLED),yes)
+ERL_COMPILE_FLAGS += -Werror
+endif
 
 # ----------------------------------------------------
 # Targets

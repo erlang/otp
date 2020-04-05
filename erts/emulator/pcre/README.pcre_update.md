@@ -2,7 +2,7 @@
 
 ## The basic changes to the PCRE library
 
-To work with the Erlang VM, PCRE has been changed in two important ways:
+To work with the Erlang VM, PCRE has been changed in three important ways:
 
 1. The main execution machine in pcre\_exec has been modified so that
 matching can be interrupted and restarted. This functionality utilizes
@@ -722,6 +722,12 @@ are converted to their Erlang counterpart. Really awesome work that
 requires thorough reading of all new text.  For the upgrade from 7.6
 to 8.33, the update of the pcrepattern part of our manual page took
 about eight hours.
+
+## Update Licence
+
+Copy the LICENCE file to `erts/emulator/pcre/LICENCE` and update
+the `[PCRE]` section in `system/COPYRIGHT` with the content of
+the `LICENCE` file.
 
 ## Add new relevant options to re
 

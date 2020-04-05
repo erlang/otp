@@ -17,5 +17,3 @@ function run_smoke_tests {
 }
 
 run_smoke_tests
-ERL_FLAGS="-smp disable" run_smoke_tests
-

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<specs xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../specs/specs_crypto.xml"/>
+</specs>

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
     <rev></rev>
   </header>
 
-  <module>httpc</module>
+  <module since="OTP R13B04">httpc</module>
   <modulesummary>An HTTP/1.1 client</modulesummary>
 
   <description>
@@ -57,8 +57,8 @@
       pipelining are used. That is, the client always waits for
       the previous response before sending the next request.</p>
     </note>
-    <p>Some examples are provided in the <seealso
-    marker="http_client">Inets User's Guide</seealso>.</p>
+    <p>Some examples are provided in the <seeguide
+    marker="http_client">Inets User's Guide</seeguide>.</p>
   </description>
   
   <section>
@@ -72,10 +72,10 @@
     <p><c>profile() = atom()</c></p>
     <p><c>path() = string()</c> representing a file path or directory path</p>
     <p><c>ip_address()</c> = See the
-    <seealso marker="kernel:inet">inet(3)</seealso> manual page in Kernel.</p>
+    <seeerl marker="kernel:inet">inet(3)</seeerl> manual page in Kernel.</p>
     <p><c>socket_opt()</c> = See the options used by
-    <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> <c>gen_tcp(3)</c> and 
-    <seealso marker="ssl:ssl">ssl(3)</seealso> connect(s)</p>
+    <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl> <c>gen_tcp(3)</c> and 
+    <seeerl marker="ssl:ssl">ssl(3)</seeerl> connect(s)</p>
   
   </section>
   
@@ -120,7 +120,7 @@
   
   <section>
     <title>SSL DATA TYPES</title>
-    <p>See <seealso marker="ssl:ssl">ssl(3)</seealso> for information
+    <p>See <seeerl marker="ssl:ssl">ssl(3)</seeerl> for information
     about <c>SSL</c> options (<c>ssloptions()</c>). </p>
   </section>
 
@@ -131,12 +131,12 @@
       application or started dynamically in runtime by calling the
       <c>Inets</c> application API <c>inets:start(httpc, ServiceConfig)</c>
       or <c>inets:start(httpc,  ServiceConfig, How)</c>,
-      see <seealso marker="inets">inets(3)</seealso>.
+      see <seeerl marker="inets">inets(3)</seeerl>.
       The configuration options are as follows:</p>
     <taglist>
       <tag>{profile, profile()}</tag>
       <item><p>Name of the profile, see
-	<seealso marker="#DATA_TYPES">DATA TYPES</seealso>.
+	<seeerl marker="#DATA_TYPES">DATA TYPES</seeerl>.
       This option is mandatory.</p></item>
       <tag>{data_dir, path()}</tag>
       <item><p>Directory where the profile
@@ -151,8 +151,8 @@
   <funcs>
    
     <func>
-      <name>cancel_request(RequestId) -></name>
-      <name>cancel_request(RequestId, Profile) -> ok</name>
+      <name since="OTP R13B04">cancel_request(RequestId) -></name>
+      <name since="OTP R13B04">cancel_request(RequestId, Profile) -> ok</name>
       <fsummary>Cancels an asynchronous HTTP request.</fsummary>
       <type>
         <v>RequestId = request_id() - A unique identifier as returned
@@ -169,9 +169,9 @@
     </func>
 
     <func>
-      <name>cookie_header(Url) -> </name>
-      <name>cookie_header(Url, Profile | Opts) -> header() | {error, Reason}</name>
-      <name>cookie_header(Url, Opts, Profile) -> header() | {error, Reason}</name>
+      <name since="OTP R13B04">cookie_header(Url) -> </name>
+      <name since="OTP R13B04">cookie_header(Url, Profile | Opts) -> header() | {error, Reason}</name>
+      <name since="OTP R15B">cookie_header(Url, Opts, Profile) -> header() | {error, Reason}</name>
       <fsummary>Returns the cookie header that would have been sent when
       making a request to URL using the profile <c>Profile</c>.</fsummary>
       <type>
@@ -188,13 +188,13 @@
 	<p>Option <c>ipv6_host_with_bracket</c> deals with how to 
 	parse IPv6 addresses. For details,
 	see argument <c>Options</c> of
-	<seealso marker="#request-4">request/[4,5]</seealso>.</p>
+	<seemfa marker="#request/4">request/[4,5]</seemfa>.</p>
       </desc>
     </func>
 
      <func>
-      <name>get_options(OptionItems) -> {ok, Values} | {error, Reason}</name>
-      <name>get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}</name>
+      <name since="OTP R15B01">get_options(OptionItems) -> {ok, Values} | {error, Reason}</name>
+      <name since="OTP R15B01">get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}</name>
       <fsummary>Gets the currently used options.</fsummary>
       <type>
         <v>OptionItems = all | [option_item()]</v>
@@ -223,8 +223,8 @@
     </func>
 
     <func>
-      <name>info() -> list()</name>
-      <name>info(Profile) -> list()</name>
+      <name since="OTP R15B02">info() -> list()</name>
+      <name since="OTP R15B02">info(Profile) -> list()</name>
       <fsummary>Produces a list of miscellaneous information.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
@@ -239,8 +239,8 @@
 
     
     <func>
-      <name>reset_cookies() -> void()</name>
-      <name>reset_cookies(Profile) -> void()</name>
+      <name since="OTP R13B04">reset_cookies() -> void()</name>
+      <name since="OTP R13B04">reset_cookies(Profile) -> void()</name>
       <fsummary>Resets the cookie database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
@@ -254,8 +254,8 @@
     </func>
     
     <func>
-      <name>request(Url) -> </name>
-      <name>request(Url, Profile) -> {ok, Result} | {error, Reason}</name>
+      <name since="OTP R13B04">request(Url) -> </name>
+      <name since="OTP R13B04">request(Url, Profile) -> {ok, Result} | {error, Reason}</name>
       <fsummary>Sends a get HTTP request.</fsummary>
       <type>
         <v>Url = url()</v> 
@@ -272,8 +272,8 @@
     </func>
 
     <func>
-      <name>request(Method, Request, HTTPOptions, Options) -></name>
-      <name>request(Method, Request, HTTPOptions, Options, Profile) -> {ok, Result} | {ok, saved_to_file} | {error, Reason}</name>
+      <name since="OTP R13B04">request(Method, Request, HTTPOptions, Options) -></name>
+      <name since="OTP R13B04">request(Method, Request, HTTPOptions, Options, Profile) -> {ok, Result} | {ok, saved_to_file} | {error, Reason}</name>
       
       <fsummary>Sends an HTTP request.</fsummary>
       <type>
@@ -288,8 +288,7 @@
                            {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
-                           {relaxed,         boolean()} |
-	                   {url_encode,      boolean()}</v>
+                           {relaxed,         boolean()}</v>
         <v>timeout() = integer() >= 0 | infinity</v>
         <v>Options = options()</v>
         <v>options() = [option()]</v>
@@ -313,8 +312,7 @@
         <v>Body = string() | binary()</v>
         <v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
-        <v>Reason = {connect_failed, term()} | 
-                    {send_failed, term()} | term()</v>
+        <v>Reason = term()</v>
       </type>
 
       <desc>
@@ -345,7 +343,7 @@
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
-            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2,3,4]</seealso>  for available options.</p>
+            <p>Defaults to <c>[]</c>. See <seeerl marker="ssl:ssl">ssl:connect/[2,3,4]</seeerl>  for available options.</p>
 	  </item>
 
           <tag><c><![CDATA[autoredirect]]></c></tag>
@@ -379,13 +377,6 @@
             <p>If set to <c>true</c>, workarounds for known server deviations 
 	    from the HTTP-standard are enabled.</p>
             <p>Default is <c>false</c>.</p>
-	  </item>
-
-	  <tag><c><![CDATA[url_encode]]></c></tag>
-          <item>
-            <p>Applies Percent-encoding, also known as URL encoding on the 
-	    URL.</p>
-	    <p>Default is <c>false</c>.</p>
 	  </item>
         </taglist>
 
@@ -452,7 +443,7 @@
           <item>
             <p>Socket options to be used for this request.</p>
 	    <p>Overrides any value set by function
-	    <seealso marker="#set_options-1">set_options</seealso>.</p>
+	    <seemfa marker="#set_options/1">set_options</seemfa>.</p>
             <p>The validity of the options is <em>not</em> checked by
             the HTTP client they are assumed to be correct and passed
             on to ssl application and inet driver, which may reject
@@ -468,7 +459,7 @@
 	    </note>
 	    
             <p>By default the socket options set by function
-	    <seealso marker="#set_options-1">set_options/[1,2]</seealso> 
+	    <seemfa marker="#set_options/1">set_options/[1,2]</seemfa> 
 	     are used when establishing a connection.</p>
 	  </item>
 
@@ -530,8 +521,8 @@
 
   
     <func>
-      <name>set_options(Options) -> </name>
-      <name>set_options(Options, Profile) -> ok | {error, Reason}</name>
+      <name since="OTP R13B04">set_options(Options) -> </name>
+      <name since="OTP R13B04">set_options(Options, Profile) -> ok | {error, Reason}</name>
       <fsummary>Sets options to be used for subsequent requests.</fsummary>
       <type>
         <v>Options = [Option]</v>
@@ -596,11 +587,11 @@
 	<v>IpAddress = ip_address()</v>
 	<d>If the host has several network interfaces, this option specifies 
 	which one to use. 
-	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> 
+	See <seeerl marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seeerl> 
 	for details.</d>
 	<v>Port = integer()</v>
 	<d>Local port number to use. 
-	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> 
+	See <seeerl marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seeerl> 
 	for details.</d>
 	<v>socket_opts() = [socket_opt()]</v>
 	<d>The options are appended to the socket options used by the 
@@ -648,8 +639,8 @@
     </func>
      
     <func>
-      <name>store_cookies(SetCookieHeaders, Url) -> </name>
-      <name>store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
+      <name since="OTP R14B02">store_cookies(SetCookieHeaders, Url) -> </name>
+      <name since="OTP R14B02">store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
       <fsummary>Saves the cookies defined in <c>SetCookieHeaders</c> in the 
       client profile cookie database.</fsummary>
       <type>
@@ -667,7 +658,7 @@
     </func>
 
     <func>
-      <name>stream_next(Pid) -> ok</name>
+      <name since="OTP R13B04">stream_next(Pid) -> ok</name>
       <fsummary>Triggers the next message to be streamed, that is,
 	the same behavior as active one for sockets.
       </fsummary>
@@ -685,8 +676,8 @@
     </func>
     
     <func>
-      <name>which_cookies() -> cookies()</name>
-      <name>which_cookies(Profile) -> cookies()</name>
+      <name since="OTP R13B04">which_cookies() -> cookies()</name>
+      <name since="OTP R13B04">which_cookies(Profile) -> cookies()</name>
       <fsummary>Dumps the entire cookie database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
@@ -704,21 +695,23 @@
     </func>
 
     <func>
-      <name>which_sessions() -> session_info()</name>
-      <name>which_sessions(Profile) -> session_info()</name>
+      <name since="OTP R15B02">which_sessions() -> session_info()</name>
+      <name since="OTP R15B02">which_sessions(Profile) -> session_info()</name>
       <fsummary>Produces a slightly processed dump of the sessions database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
-	<v>session_info() = {GoodSessions, BadSessions, NonSessions}</v>
-	<v>GoodSessions = session()</v>
-	<v>BadSessions = tuple()</v>
-	<v>NonSessions = term()</v>
+	<v>session_info() = {[session()], [term()],  [term()]}</v>
+	<v>session() = term() - Internal representation of a session</v>
       </type>
       <desc>
-        <p>Produces a slightly processed dump of the session 
-	database. It is intended for debugging. 
-	If no profile is specified, the default profile is used.</p>
+        <p> This function is intended for debugging only. It produces
+        a slightly processed dump of the session database. The first
+        list of the session information tuple will contain session
+        information on an internal format. The last two lists of the
+        session information tuple should always be empty if the code
+        is working as intended. If no profile is specified, the default
+        profile is used.</p>
       </desc>
     </func>
 
@@ -728,9 +721,9 @@
   <section>
     <title>SEE ALSO</title>
     <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
-    <seealso marker="inets">inets(3)</seealso>,
-    <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
-    <seealso marker="ssl:ssl">ssl(3)</seealso>
+    <seeerl marker="inets">inets(3)</seeerl>,
+    <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl>, 
+    <seeerl marker="ssl:ssl">ssl(3)</seeerl>
     </p>
   </section>
   

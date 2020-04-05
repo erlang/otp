@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh_transport.hrl").
+-include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
 
 %%%----------------------------------------------------------------
@@ -163,7 +164,7 @@ std_simple_exec(Host, Port, Config, Opts) ->
     ct:log("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
     case ExecResult of
 	success ->
-	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42\n">>}},
+	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42">>}},
 	    case receive_exec_result(Expected) of
 		expected ->
 		    ok;
@@ -290,22 +291,38 @@ rcv_lingering(Timeout) ->
     end.
 
 
-receive_exec_result(Msg) ->
-    ct:log("Expect data! ~p", [Msg]),
+receive_exec_result([]) ->
+    expected;
+receive_exec_result(Msgs) when is_list(Msgs) ->
+    ct:log("Expect data! ~p", [Msgs]),
     receive
-	{ssh_cm,_,{data,_,1, Data}} ->
-	    ct:log("StdErr: ~p~n", [Data]),
-	    receive_exec_result(Msg);
-	Msg ->
-	    ct:log("1: Collected data ~p", [Msg]),
-	    expected;
-	Other ->
-	    ct:log("Other ~p", [Other]),
-	    {unexpected_msg, Other}
+        Msg ->
+            case lists:member(Msg, Msgs) of
+                true ->
+                    ct:log("Collected data ~p", [Msg]),
+                    receive_exec_result(Msgs--[Msg]);
+                false ->
+                    case Msg of
+                        {ssh_cm,_,{data,_,1, Data}} ->
+                            ct:log("StdErr: ~p~n", [Data]),
+                            receive_exec_result(Msgs);
+                        Other ->
+                            ct:log("Other ~p", [Other]),
+                            {unexpected_msg, Other}
+                    end
+            end
     after 
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+    end;
+receive_exec_result(Msg) ->
+    receive_exec_result([Msg]).
 
+
+receive_exec_result_or_fail(Msg) ->
+    case receive_exec_result(Msg) of
+        expected -> expected;
+        Other -> ct:fail(Other)
+    end.
 
 receive_exec_end(ConnectionRef, ChannelId) ->
     Eof = {ssh_cm, ConnectionRef, {eof, ChannelId}},
@@ -336,12 +353,6 @@ receive_exec_result(Data, ConnectionRef, ChannelId) ->
     expected = receive_exec_result(Eof),
     expected = receive_exec_result(Closed).
 
-
-inet_port()->
-    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
-    {ok, Port} = inet:port(Socket),
-    gen_tcp:close(Socket),
-    Port.
 
 setup_ssh_auth_keys(RSAFile, DSAFile, Dir) ->
     Entries = ssh_file_entry(RSAFile) ++ ssh_file_entry(DSAFile),
@@ -408,6 +419,21 @@ ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file
     setup_ecdsa_known_host(Size, System, UserDir),
     setup_ecdsa_auth_keys(Size, DataDir, UserDir).
 
+setup_eddsa(Alg, DataDir, UserDir) ->
+    {IdPriv, _IdPub, HostPriv, HostPub} =
+        case Alg of
+            ed25519 -> {"id_ed25519", "id_ed25519.pub", "ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"};
+            ed448   -> {"id_ed448",   "id_ed448.pub",   "ssh_host_ed448_key",   "ssh_host_ed448_key.pub"}
+        end,
+    file:copy(filename:join(DataDir, IdPriv), filename:join(UserDir, IdPriv)),
+    System = filename:join(UserDir, "system"),
+    file:make_dir(System),
+    file:copy(filename:join(DataDir, HostPriv), filename:join(System, HostPriv)),
+    file:copy(filename:join(DataDir, HostPub), filename:join(System, HostPub)),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+    setup_eddsa_known_host(HostPub, DataDir, UserDir),
+    setup_eddsa_auth_keys(Alg, DataDir, UserDir).
+
 clean_dsa(UserDir) ->
     del_dirs(filename:join(UserDir, "system")),
     file:delete(filename:join(UserDir,"id_dsa")),
@@ -420,25 +446,37 @@ clean_rsa(UserDir) ->
     file:delete(filename:join(UserDir,"known_hosts")),
     file:delete(filename:join(UserDir,"authorized_keys")).
 
-setup_dsa_pass_pharse(DataDir, UserDir, Phrase) ->
-    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
-    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-    setup_dsa_known_host(DataDir, UserDir),
-    setup_dsa_auth_keys(DataDir, UserDir).
+setup_dsa_pass_phrase(DataDir, UserDir, Phrase) ->
+    try
+        {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
+        System = filename:join(UserDir, "system"),
+        file:make_dir(System),
+        file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
+        file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
+        setup_dsa_known_host(DataDir, UserDir),
+        setup_dsa_auth_keys(DataDir, UserDir)
+    of 
+        _ -> true
+    catch
+        _:_ -> false
+    end.
 
-setup_rsa_pass_pharse(DataDir, UserDir, Phrase) ->
-    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
-    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-    setup_rsa_known_host(DataDir, UserDir),
-    setup_rsa_auth_keys(DataDir, UserDir).
+setup_rsa_pass_phrase(DataDir, UserDir, Phrase) ->
+    try
+        {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
+        System = filename:join(UserDir, "system"),
+        file:make_dir(System),
+        file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
+        file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
+        setup_rsa_known_host(DataDir, UserDir),
+        setup_rsa_auth_keys(DataDir, UserDir)
+    of 
+        _ -> true
+    catch
+        _:_ -> false
+    end.
 
 setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
     try
@@ -450,7 +488,7 @@ setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
                 Other ->
                     Other
             end,
-        setup_pass_pharse(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
         System = filename:join(UserDir, "system"),
         file:make_dir(System),
         file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
@@ -463,7 +501,7 @@ setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
         _:_ -> false
     end.
 
-setup_pass_pharse(KeyBin, OutFile, Phrase) ->
+setup_pass_phrase(KeyBin, OutFile, Phrase) ->
     [{KeyType, _,_} = Entry0] = public_key:pem_decode(KeyBin),
     Key =  public_key:pem_entry_decode(Entry0),
     Salt = crypto:strong_rand_bytes(8),
@@ -484,6 +522,11 @@ setup_rsa_known_host(SystemDir, UserDir) ->
 
 setup_ecdsa_known_host(_Size, SystemDir, UserDir) ->
     {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_ecdsa_key.pub")),
+    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
+    setup_known_hosts(Key, UserDir).
+
+setup_eddsa_known_host(HostPub, SystemDir, UserDir) ->
+    {ok, SshBin} = file:read_file(filename:join(SystemDir, HostPub)),
     [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
     setup_known_hosts(Key, UserDir).
 
@@ -529,6 +572,14 @@ setup_ecdsa_auth_keys(Size, Dir, UserDir) ->
     PKey = #'ECPoint'{point = Q},
     setup_auth_keys([{ {PKey,Param}, [{comment, "Test"}]}], UserDir).
 
+setup_eddsa_auth_keys(Alg, Dir, UserDir) ->
+    SshAlg = case Alg of
+                 ed25519 -> 'ssh-ed25519';
+                 ed448 -> 'ssh-ed448'
+             end,
+    {ok, {ed_pri,Alg,Pub,_}} = ssh_file:user_key(SshAlg, [{user_dir,Dir}]),
+    setup_auth_keys([{{ed_pub,Alg,Pub}, [{comment, "Test"}]}], UserDir).
+
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),
     AuthKeysFile = filename:join(Dir, "authorized_keys"),
@@ -558,19 +609,12 @@ del_dirs(Dir) ->
 	    ok
     end.
 
-inet_port(Node) ->
-    {Port, Socket} = do_inet_port(Node),
-     rpc:call(Node, gen_tcp, close, [Socket]),
-     Port.
-
-do_inet_port(Node) ->
-    {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
-    {ok, Port} = rpc:call(Node, inet, port, [Socket]),
-    {Port, Socket}.
-
 openssh_sanity_check(Config) ->
     ssh:start(),
-    case ssh:connect("localhost", 22, [{password,""}]) of
+    case ssh:connect("localhost", 22, [{password,""},
+                                       {silently_accept_hosts, true},
+                                       {user_interaction, false}
+                                      ]) of
 	{ok, Pid} ->
 	    ssh:close(Pid),
 	    ssh:stop(),
@@ -735,6 +779,15 @@ intersect_bi_dir([H={_,[A|_]}|T]) when is_atom(A) ->
 intersect_bi_dir([]) ->
     [].
     
+some_empty([]) ->
+    false;
+some_empty([{_,[]}|_]) ->
+    true;
+some_empty([{_,L}|T]) when is_atom(hd(L)) ->
+    some_empty(T);
+some_empty([{_,L}|T]) when is_tuple(hd(L)) ->
+    some_empty(L) orelse some_empty(T).
+
 
 sort_spec(L = [{_,_}|_] ) ->  [{Tag,sort_spec(Es)} || {Tag,Es} <- L];
 sort_spec(L) -> lists:usort(L).
@@ -926,7 +979,7 @@ get_kex_init(Conn, Ref, TRef) ->
 	    end;
 
 	false ->
-	    ct:log("Not in 'connected' state: ~p",[State]),
+	    ct:log("~p:~p Not in 'connected' state: ~p",[?MODULE,?LINE,State]),
 	    receive
 		{reneg_timeout,Ref} -> 
 		    ct:log("S = ~p", [S]),
@@ -945,7 +998,7 @@ expected_state(_) -> false.
 %%%----------------------------------------------------------------
 %%% Return a string with N random characters
 %%%
-random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+random_chars(N) -> [($a-1)+rand:uniform($z-$a) || _<-lists:duplicate(N,x)].
 
 
 create_random_dir(Config) ->
@@ -1029,3 +1082,110 @@ ntoa(A) ->
         _:_ when is_list(A) -> A
     end.
     
+%%%----------------------------------------------------------------
+try_enable_fips_mode() ->
+    case crypto:info_fips() of
+        enabled ->
+            report("FIPS mode already enabled", ?LINE),
+            ok;
+        not_enabled ->
+            %% Erlang/crypto configured with --enable-fips
+            case crypto:enable_fips_mode(true) of
+		true ->
+                    %% and also the cryptolib is fips enabled
+                    report("FIPS mode enabled", ?LINE),
+		    enabled = crypto:info_fips(),
+		    ok;
+		false ->
+                    case is_cryptolib_fips_capable() of
+                        false ->
+                            report("No FIPS mode in cryptolib", ?LINE),
+                            {skip, "FIPS mode not supported in cryptolib"};
+                        true ->
+                            ct:fail("Failed to enable FIPS mode", [])
+                    end
+	    end;
+        not_supported ->
+            report("FIPS mode not supported by Erlang/OTP", ?LINE),
+            {skip, "FIPS mode not supported"}
+    end.
+
+is_cryptolib_fips_capable() ->
+    [{_,_,Inf}] = crypto:info_lib(),
+    nomatch =/= re:run(Inf, "(F|f)(I|i)(P|p)(S|s)").
+
+report(Comment, Line) ->
+    ct:comment(Comment),
+    ct:log("~p:~p  try_enable_fips_mode~n"
+           "crypto:info_lib() = ~p~n"
+           "crypto:info_fips() = ~p~n"
+           "crypto:supports() =~n~p~n", 
+           [?MODULE, Line,
+            crypto:info_lib(),
+            crypto:info_fips(),
+            crypto:supports()]).
+
+%%%----------------------------------------------------------------
+lc_name_in(Names) ->
+    case inet:gethostname() of
+        {ok,Name} ->
+            lists:member(string:to_lower(Name), Names);
+        Other ->
+            ct:log("~p:~p  inet:gethostname() returned ~p", [?MODULE,?LINE,Other]),
+            false
+    end.
+
+ptty_supported() -> not lc_name_in([]). %%["fobi"]).
+
+%%%----------------------------------------------------------------
+has_WSL() ->
+    os:getenv("WSLENV") =/= false. % " =/= false" =/= "== true" :)
+
+winpath_to_linuxpath(Path) ->
+    case {has_WSL(), Path} of
+        {true, [_,$:|WithoutWinInit]} ->
+            "/mnt/c" ++ WithoutWinInit;
+        _ ->
+            Path
+    end.
+    
+%%%----------------------------------------------------------------
+copy_recursive(Src, Dst) ->
+    {ok,S} = file:read_file_info(Src),
+    case S#file_info.type of
+        directory ->
+            %%ct:log("~p:~p copy dir  ~ts -> ~ts", [?MODULE,?LINE,Src,Dst]),
+            {ok,Names} = file:list_dir(Src),
+            mk_dir_path(Dst),
+            %%ct:log("~p:~p Names = ~p", [?MODULE,?LINE,Names]),
+            lists:foreach(fun(Name) ->
+                                  copy_recursive(filename:join(Src, Name),
+                                                 filename:join(Dst, Name))
+                          end, Names);
+        _ ->
+            %%ct:log("~p:~p copy file ~ts -> ~ts", [?MODULE,?LINE,Src,Dst]),
+            {ok,_NumBytesCopied} = file:copy(Src, Dst)
+    end.
+
+%%%----------------------------------------------------------------
+%% Make a directory even if parts of the path does not exist
+
+mk_dir_path(DirPath) ->
+    case file:make_dir(DirPath) of
+        {error,eexist} ->
+            %%ct:log("~p:~p dir exists ~ts", [?MODULE,?LINE,DirPath]),
+            ok;
+        {error,enoent} ->
+            %%ct:log("~p:~p try make dirname of ~ts", [?MODULE,?LINE,DirPath]),
+            case mk_dir_path( filename:dirname(DirPath) ) of
+                ok ->
+                    %%ct:log("~p:~p redo ~ts", [?MODULE,?LINE,DirPath]),
+                    file:make_dir(DirPath);
+                Error ->
+                    %%ct:log("~p:~p return Error ~p ~ts", [?MODULE,?LINE,Error,DirPath]),
+                    Error
+            end;
+        Other ->
+            %%ct:log("~p:~p return Other ~p ~ts", [?MODULE,?LINE,Other,DirPath]),
+            Other
+    end.

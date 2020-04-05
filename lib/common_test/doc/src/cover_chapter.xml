@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -62,7 +62,7 @@
       is running on. If so, you must specify these other nodes in the 
       cover specification file or add them dynamically to the code coverage 
       set of nodes. For details on the latter, see module 
-      <seealso marker="ct_cover"><c>ct_cover</c></seealso>.</p>
+      <seeerl marker="ct_cover"><c>ct_cover</c></seeerl>.</p>
 
     <p>In the cover specification file you can also specify your
       required level of the code coverage analysis; <c>details</c> or
@@ -85,16 +85,16 @@
     <p>To activate the code coverage support, specify the name of the cover 
       specification file as you start <c>Common Test</c>.
       Do this by using flag <c>-cover</c> with 
-      <seealso marker="ct_run"><c>ct_run</c></seealso>, 
+      <seecom marker="ct_run"><c>ct_run</c></seecom>, 
       for example:</p>
       <pre>
  $ ct_run -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec</pre>
     
     <p>You can also pass the cover specification file name in a
-      call to <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, 
+      call to <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa>, 
       by adding a <c>{cover,CoverSpec}</c> tuple to argument <c>Opts</c>.</p>
       <p>You can also enable code coverage in your test specifications (see section 
-      <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+      <seeguide marker="run_test_chapter#test_specifications">Test Specifications</seeguide>
       in section Running Tests and Analyzing Results).</p>
   </section>
 
@@ -116,17 +116,21 @@
     <p>The option can be set by using flag <c>-cover_stop</c> with
       <c>ct_run</c>, by adding <c>{cover_stop,true|false}</c> to argument
       <c>Opts</c> to 
-      <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, 
+      <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa>, 
       or by adding a <c>cover_stop</c> term in the test specification (see section
-      <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+      <seeguide marker="run_test_chapter#test_specifications">Test Specifications</seeguide>
       in section Running Tests and Analyzing Results).</p>
 
   </section>
 
   <section>
     <title>The Cover Specification File</title>
-    <p>The following terms are allowed in a cover specification file:</p>
 
+    <section> 
+       <title>General Config</title>
+
+   <p>Here follows the general configuration terms that are allowed in a cover specification file:</p>
+   
     <pre>
  %% List of Nodes on which cover will be active during test.
  %% Nodes = [atom()]
@@ -143,7 +147,7 @@
  %% Cover analysis level.
  %% Level = details | overview
  {level, Level}.       
-
+ 
  %% Directories to include in cover.
  %% Dirs = [string()]
  {incl_dirs, Dirs}.
@@ -169,19 +173,37 @@
  %% Mod = [atom()], modules to compile for accumulated analysis
  {cross,[{Tag,Mods}]}.</pre>
 
-    <p>The terms <c>incl_dirs_r</c> and <c>excl_dirs_r</c> tell <c>Common
-      Test</c> to search the specified directories recursively and include 
-      or exclude any module found during the search. The terms
-      <c>incl_dirs</c> and <c>excl_dirs</c> result in a
-      non-recursive search for modules (that is, only modules found in 
-      the specified directories are included or excluded).</p>
-    <note><p>Directories containing Erlang modules to be included in a code 
-      coverage test must exist in the code server path. Otherwise, 
-      the Cover tool fails to recompile the modules. It is not sufficient to 
-      specify these directories in the cover specification file for 
-      <c>Common Test</c>.</p></note>
-  </section>
+	<p>The terms <c>incl_dirs_r</c> and <c>excl_dirs_r</c> tell <c>Common
+	Test</c> to search the specified directories recursively and include 
+	or exclude any module found during the search. The terms
+	<c>incl_dirs</c> and <c>excl_dirs</c> result in a
+	non-recursive search for modules (that is, only modules found in 
+	the specified directories are included or excluded).</p>
+	<note><p>Directories containing Erlang modules to be included in a code 
+	coverage test must exist in the code server path. Otherwise, 
+	the Cover tool fails to recompile the modules. It is not sufficient to 
+	specify these directories in the cover specification file for 
+	<c>Common Test</c>.</p></note>
+    </section>
 
+    <section> 
+       <title>OTP application Config</title>
+ 
+       <p>When using a cover specification in the testing of an OTP
+	application itself, there is a special incl_app directive that
+	includes the applications modules for the cover compilation.</p>
+
+ <pre>
+{incl_app, AppName, Cover:: overview | details}.
+</pre>
+
+	<note><p>If you desire to also use some other general cover configuration
+	together with this option you should insert the AppName in between
+	the option and its value creating a three tuple.
+	</p></note>
+    </section>
+  </section>
+  
   <section>
   <marker id="cross_cover"/>
     <title>Cross Cover Analysis</title>
@@ -235,7 +257,7 @@
 
     <p>Then <c>m1</c> is cover compiled in test run <c>s2</c>,
     but not shown in the coverage log. Instead, if
-    <seealso marker="ct_cover#cross_cover_analyse-2"><c>ct_cover:cross_cover_analyse/2</c></seealso> 
+    <seemfa marker="ct_cover#cross_cover_analyse/2"><c>ct_cover:cross_cover_analyse/2</c></seemfa> 
     is called after both <c>s1</c> and <c>s2</c> test runs are completed, 
     the accumulated result for <c>m1</c> is available in the cross cover 
     log for test run <c>s1</c>.</p>

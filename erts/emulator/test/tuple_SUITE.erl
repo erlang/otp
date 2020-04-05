@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,6 +133,13 @@ t_element(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch element(1, id([a,b]))),
     {'EXIT', {badarg, _}} = (catch element(1, id(42))),
     {'EXIT', {badarg, _}} = (catch element(id(1.5), id({a,b}))),
+
+    %% Make sure that the loader does not reject the module when
+    %% huge literal index values are used.
+    {'EXIT', {badarg, _}} = (catch element((1 bsl 24)-1, id({a,b,c}))),
+    {'EXIT', {badarg, _}} = (catch element(1 bsl 24, id({a,b,c}))),
+    {'EXIT', {badarg, _}} = (catch element(1 bsl 32, id({a,b,c}))),
+    {'EXIT', {badarg, _}} = (catch element(1 bsl 64, id({a,b,c}))),
 
     ok.
 

@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "3.4.3"},
+  {vsn, "3.12"},
   {modules, [array,
 	     base64,
 	     beam_lib,
@@ -43,6 +43,7 @@
              erl_anno,
 	     erl_bits,
 	     erl_compile,
+	     erl_error,
 	     erl_eval,
              erl_expand_records,
 	     erl_internal,
@@ -71,7 +72,6 @@
 	     io_lib_format,
 	     io_lib_fread,
 	     io_lib_pretty,
-	     lib,
 	     lists,
 	     log_mf_h,
 	     maps,
@@ -92,6 +92,7 @@
 	     sets,
 	     shell,
 	     shell_default,
+	     shell_docs,
 	     slave,
 	     sofs,
 	     string,
@@ -101,13 +102,13 @@
 	     timer,
 	     unicode,
              unicode_util,
+	     uri_string,
 	     win32reg,
 	     zip]},
   {registered,[timer_server,rsh_starter,take_over_monitor,pool_master,
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-5.0","erts-9.0","crypto-3.3",
+  {runtime_dependencies, ["sasl-3.0","kernel-@OTP-15251@","erts-@OTP-15251:OTP-16431:OTP-16553@","crypto-3.3",
 			  "compiler-5.0"]}
 ]}.
-

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,12 @@
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
          heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
-         atom_count/1]).
+         procs_bug/1,
+         ets_count/1, atom_count/1, system_logger/1]).
+
+-export([init/1, handle_event/2, handle_call/2]).
+
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -45,7 +50,20 @@ suite() ->
 
 all() -> 
     [process_count, system_version, misc_smoke_tests,
-     heap_size, wordsize, memory, ets_limit, atom_limit, atom_count].
+     ets_count, heap_size, wordsize, memory, ets_limit, atom_limit, atom_count,
+     procs_bug,
+     system_logger].
+
+
+init_per_testcase(procs_bug, Config) ->
+    procs_bug(init_per_testcase, Config);
+init_per_testcase(_, Config) ->
+    Config.
+
+end_per_testcase(procs_bug, Config) ->
+    procs_bug(end_per_testcase, Config);
+end_per_testcase(_, _) ->
+    ok.
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -308,9 +326,9 @@ memory_test(_Config) ->
 
     mem_workers_call(MWs,
 		     fun () ->
-			     list_to_atom("an ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
-			     list_to_atom("another ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
-			     list_to_atom("yet another ugly atom "++integer_to_list(erlang:system_info(scheduler_id)))
+			     _ = list_to_atom("an ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
+			     _ = list_to_atom("another ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
+			     _ = list_to_atom("yet another ugly atom "++integer_to_list(erlang:system_info(scheduler_id)))
 		     end, []),
     cmp_memory(MWs, "new atoms"),
 
@@ -455,11 +473,16 @@ cmp_memory(MWs, Str) ->
     %% Total, processes, processes_used, and system will seldom
     %% give us exactly the same result since the two readings
     %% aren't taken atomically.
+    %%
+    %% Torerance is scaled according to the number of schedulers
+    %% to match spawn_mem_workers.
 
-    cmp_memory(total, EM, EDM, 1.05),
-    cmp_memory(processes, EM, EDM, 1.05),
-    cmp_memory(processes_used, EM, EDM, 1.05),
-    cmp_memory(system, EM, EDM, 1.05),
+    Tolerance = 1.05 + 0.01 * erlang:system_info(schedulers_online),
+
+    cmp_memory(total, EM, EDM, Tolerance),
+    cmp_memory(processes, EM, EDM, Tolerance),
+    cmp_memory(processes_used, EM, EDM, Tolerance),
+    cmp_memory(system, EM, EDM, Tolerance),
 
     ok.
     
@@ -477,6 +500,21 @@ get_node_name(Config) ->
 		 ++ integer_to_list(erlang:system_time(second))
 		 ++ "-"
 		 ++ integer_to_list(erlang:unique_integer([positive]))).
+
+ets_count(Config) when is_list(Config) ->
+    [ets_count_do([Type | Named])
+     || Type <- [set, bag, duplicate_bag, ordered_set],
+        Named <- [[named_table], []]
+    ],
+    ok.
+
+ets_count_do(Opts) ->
+    Before = erlang:system_info(ets_count),
+    T = ets:new(?MODULE, Opts),
+    After = erlang:system_info(ets_count),
+    After = Before + 1,
+    ets:delete(T),
+    Before = erlang:system_info(ets_count).
 
 
 %% Verify system_info(ets_limit) reflects max ETS table settings.
@@ -555,4 +593,117 @@ atom_count(Config) when is_list(Config) ->
     Count2 = erlang:system_info(atom_count),
     true = Limit >= Count2,
     true = Count2 > Count1,
+    ok.
+
+
+system_logger(Config) when is_list(Config) ->
+
+    TC = self(),
+
+    ok = error_logger:add_report_handler(?MODULE, [TC]),
+
+    generate_log_event(),
+
+    flush(1, report_handler),
+
+    Initial = erlang:system_info(system_logger),
+
+    {Logger,_} = spawn_monitor(fun F() -> receive M -> TC ! {system_logger,M}, F() end end),
+
+    Initial = erlang:system_flag(system_logger, Logger),
+    Logger = erlang:system_info(system_logger),
+
+    generate_log_event(),
+    flush(1, system_logger),
+
+    Logger = erlang:system_flag(system_logger, Logger),
+
+    generate_log_event(),
+    flush(1, system_logger),
+
+    exit(Logger, die),
+    receive {'DOWN',_,_,_,_} -> ok end,
+
+    generate_log_event(),
+    flush(1, report_handler),
+
+    logger = erlang:system_info(system_logger),
+
+    logger = erlang:system_flag(system_logger, undefined),
+    generate_log_event(),
+    flush(),
+
+    undefined = erlang:system_flag(system_logger, Initial),
+
+    ok.
+
+flush() ->
+    receive
+        M ->
+            ct:fail({unexpected_message, M})
+    after 0 ->
+            ok
+    end.
+
+flush(0, _Pat) ->
+    flush();
+flush(Cnt, Pat) ->
+    receive
+        M when element(1,M) =:= Pat ->
+            ct:log("~p",[M]),
+            flush(Cnt-1, Pat)
+    after 500 ->
+            ct:fail({missing, Cnt, Pat})
+    end.
+
+generate_log_event() ->
+    {_Pid, Ref} = spawn_monitor(fun() -> ok = nok end),
+    receive {'DOWN', Ref, _, _, _} -> ok end.
+
+init([To]) ->
+    {ok, To}.
+
+handle_call(Msg, State) ->
+    {ok, Msg, State}.
+
+handle_event(Event, State) ->
+    State ! {report_handler, Event},
+    {ok, State}.
+
+
+%% OTP-15909: Provoke bug that would cause VM crash
+%% if doing system_info(procs) when process have queued exit/down signals.
+procs_bug(init_per_testcase, Config) ->
+    %% Use single scheduler and process prio to starve monitoring processes
+    %% from handling their received DOWN signals.
+    OldSchedOnline = erlang:system_flag(schedulers_online,1),
+    [{schedulers_online, OldSchedOnline} | Config];
+procs_bug(end_per_testcase, Config) ->
+    erlang:system_flag(schedulers_online,
+                       proplists:get_value(schedulers_online, Config)),
+    ok.
+
+procs_bug(Config) when is_list(Config) ->
+    {Monee,_} = spawn_opt(fun () -> receive die -> ok end end,
+                         [monitor,{priority,max}]),
+    Papa = self(),
+    Pids = [begin
+                P = spawn_opt(fun () ->
+                                      erlang:monitor(process, Monee),
+                                      Papa ! {self(),ready},
+                                      receive "nada" -> no end
+                              end,
+                              [link, {priority,normal}]),
+                {P, ready} = receive M -> M end,
+                P
+            end
+            || _ <- lists:seq(1,10)],
+    process_flag(priority,high),
+    Monee ! die,
+    {'DOWN',_,process,Monee,normal} = receive M -> M end,
+
+    %% This call did crash VM as Pids have pending DOWN signals.
+    erlang:system_info(procs),
+    process_flag(priority,normal),
+    [begin unlink(P), exit(P, kill) end || P <- Pids],
     ok.

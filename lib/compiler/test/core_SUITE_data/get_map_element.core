@@ -1,0 +1,18 @@
+module 'get_map_element' ['get_map_element'/0]
+attributes []
+
+'get_map_element'/0 =
+    fun () ->
+      apply 'match_map'/1(~{'foo'=>'bar'}~)
+
+'match_map'/1 =
+    fun (_0) ->
+	case _0 of
+	  <~{'foo':='bar'}~> when 'true' ->
+	    'ok'
+	  %% It will be undefined behaviour at runtime if no
+	  %% clause of the case can be selected. That can't
+	  %% happen for this module, because match_map/1 is
+	  %% always called with a matching map argument.
+    end
+end

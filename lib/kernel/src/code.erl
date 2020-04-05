@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@
 %% %CopyrightEnd%
 %%
 -module(code).
+
+-include_lib("kernel/include/logger.hrl").
+-include("eep48.hrl").
 
 %% This is the interface module to the code server. It also contains
 %% some implementation details.  See also related modules: code_*.erl
@@ -42,6 +45,7 @@
 	 soft_purge/1,
 	 is_loaded/1,
 	 all_loaded/0,
+         all_available/0,
 	 stop/0,
 	 root_dir/0,
 	 lib_dir/0,
@@ -66,18 +70,21 @@
 	 rehash/0,
 	 start_link/0,
 	 which/1,
+         get_doc/1,
 	 where_is_file/1,
 	 where_is_file/2,
 	 set_primary_archive/4,
 	 clash/0,
+         module_status/0,
          module_status/1,
          modified_modules/0,
          get_mode/0]).
 
--deprecated({rehash,0,next_major_release}).
+-deprecated({rehash,0,"the code path cache feature has been removed"}).
 
 -export_type([load_error_rsn/0, load_ret/0]).
 -export_type([prepared_code/0]).
+-export_type([module_status/0]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -149,8 +156,11 @@ load_file(Mod) when is_atom(Mod) ->
 -spec ensure_loaded(Module) -> {module, Module} | {error, What} when
       Module :: module(),
       What :: embedded | badfile | nofile | on_load_failure.
-ensure_loaded(Mod) when is_atom(Mod) -> 
-    call({ensure_loaded,Mod}).
+ensure_loaded(Mod) when is_atom(Mod) ->
+    case erlang:module_loaded(Mod) of
+        true -> {module, Mod};
+        false -> call({ensure_loaded,Mod})
+    end.
 
 %% XXX File as an atom is allowed only for backwards compatibility.
 -spec load_abs(Filename) -> load_ret() when
@@ -212,6 +222,53 @@ get_object_code(Mod) when is_atom(Mod) -> call({get_object_code, Mod}).
       Module :: module(),
       Loaded :: loaded_filename().
 all_loaded() -> call(all_loaded).
+
+-spec all_available() -> [{Module, Filename, Loaded}] when
+      Module :: string(),
+      Filename :: loaded_filename(),
+      Loaded :: boolean().
+all_available() ->
+    case code:get_mode() of
+        interactive ->
+            all_available(get_path(), #{});
+        embedded ->
+            all_available([], #{})
+    end.
+all_available([Path|Tail], Acc) ->
+    case erl_prim_loader:list_dir(Path) of
+        {ok, Files} ->
+            all_available(Tail, all_available(Path, Files, Acc));
+        _Error ->
+            all_available(Tail, Acc)
+    end;
+all_available([], AllModules) ->
+    AllLoaded = [{atom_to_list(M),Path,true} || {M,Path} <- all_loaded()],
+    AllAvailable =
+        maps:fold(
+          fun(File, Path, Acc) ->
+                  [{filename:rootname(File), filename:append(Path, File), false} | Acc]
+          end, [], AllModules),
+    OrderFun = fun F({A,_,_},{B,_,_}) ->
+                       F(A,B);
+                   F(A,B) ->
+                       A =< B
+               end,
+    lists:umerge(OrderFun, lists:sort(OrderFun, AllLoaded), lists:sort(OrderFun, AllAvailable)).
+
+all_available(Path, [File | T], Acc) ->
+    case filename:extension(File) of
+        ".beam" ->
+            case maps:is_key(File, Acc) of
+                false ->
+                    all_available(Path, T, Acc#{ File => Path });
+                true ->
+                    all_available(Path, T, Acc)
+            end;
+        _Else ->
+                    all_available(Path, T, Acc)
+    end;
+all_available(_Path, [], Acc) ->
+    Acc.
 
 -spec stop() -> no_return().
 stop() -> call(stop).
@@ -627,7 +684,7 @@ do_par_recv(N, Good, Bad) ->
 call(Req) ->
     code_server:call(Req).
 
--spec start_link() -> {'ok', pid()} | {'error', 'crash'}.
+-spec start_link() -> {'ok', pid()}.
 start_link() ->
     do_start().
     
@@ -704,8 +761,20 @@ do_s(Lib) ->
 
 start_get_mode() ->
     case init:get_argument(mode) of
-	{ok,[["embedded"]]} ->
-	    embedded;
+	{ok, [FirstMode | Rest]} ->
+	    case Rest of
+		[] ->
+		    ok;
+		_ ->
+		    ?LOG_WARNING("Multiple -mode given to erl, using the first, ~p",
+				 [FirstMode])
+	    end,
+	    case FirstMode of
+		["embedded"] ->
+		    embedded;
+		_ ->
+		    interactive
+	    end;
 	_ ->
 	    interactive
     end.
@@ -717,7 +786,7 @@ start_get_mode() ->
 
 -spec which(Module) -> Which when
       Module :: module(),
-      Which :: file:filename() | loaded_ret_atoms() | non_existing.
+      Which :: loaded_filename() | non_existing.
 which(Module) when is_atom(Module) ->
     case is_loaded(Module) of
 	false ->
@@ -766,6 +835,93 @@ where_is_file(Tail, File, Path, Files) ->
             where_is_file(Tail, File)
     end.
 
+-spec get_doc(Mod) -> {ok, Res} | {error, Reason} when
+      Mod :: module(),
+      Res :: #docs_v1{},
+      Reason :: non_existing | missing | file:posix().
+get_doc(Mod) when is_atom(Mod) ->
+    case which(Mod) of
+        preloaded ->
+            Fn = filename:join([code:lib_dir(erts),"ebin",atom_to_list(Mod) ++ ".beam"]),
+            get_doc_chunk(Fn, Mod);
+        Error when is_atom(Error) ->
+            {error, Error};
+        Fn ->
+            get_doc_chunk(Fn, Mod)
+    end.
+
+get_doc_chunk(Filename, Mod) when is_atom(Mod) ->
+    case beam_lib:chunks(Filename, ["Docs"]) of
+        {error,beam_lib,{missing_chunk,_,_}} ->
+            case get_doc_chunk(Filename, atom_to_list(Mod)) of
+                {error,missing} ->
+                    get_doc_chunk_from_ast(Filename);
+                Error ->
+                    Error
+            end;
+        {error,beam_lib,{file_error,_Filename,enoent}} ->
+            get_doc_chunk(Filename, atom_to_list(Mod));
+        {ok, {Mod, [{"Docs",Bin}]}} ->
+            binary_to_term(Bin)
+    end;
+get_doc_chunk(Filename, Mod) ->
+    case filename:dirname(Filename) of
+        Filename ->
+            {error,missing};
+        Dir ->
+            ChunkFile = filename:join([Dir,"doc","chunks",Mod ++ ".chunk"]),
+            case file:read_file(ChunkFile) of
+                {ok, Bin} ->
+                    {ok, binary_to_term(Bin)};
+                {error,enoent} ->
+                    get_doc_chunk(Dir, Mod);
+                {error,Reason} ->
+                    {error,Reason}
+            end
+    end.
+
+get_doc_chunk_from_ast(Filename) ->
+    case beam_lib:chunks(Filename, [abstract_code]) of
+        {error,beam_lib,{missing_chunk,_,_}} ->
+            {error,missing};
+        {ok, {_Mod, [{abstract_code,
+                      {raw_abstract_v1, AST}}]}} ->
+            Docs = get_function_docs_from_ast(AST),
+            {ok, #docs_v1{ anno = 0, beam_language = erlang,
+                           module_doc = none,
+                           metadata = #{ generated => true, otp_doc_vsn => ?CURR_DOC_VERSION },
+                           docs = Docs }};
+        {ok, {_Mod, [{abstract_code,no_abstract_code}]}} ->
+            {error,missing};
+        Error ->
+            Error
+    end.
+
+get_function_docs_from_ast(AST) ->
+    lists:flatmap(fun(E) -> get_function_docs_from_ast(E, AST) end, AST).
+get_function_docs_from_ast({function,Anno,Name,Arity,_Code}, AST) ->
+    Signature = io_lib:format("~p/~p",[Name,Arity]),
+    Specs =  lists:filter(fun({attribute,_Ln,spec,{FA,_}}) ->
+                                  case FA of
+                                      {F,A} ->
+                                          F =:= Name andalso A =:= Arity;
+                                      {_, F, A} ->
+                                          F =:= Name andalso A =:= Arity
+                                  end;
+                             (_) -> false
+                          end, AST),
+    SpecMd = case Specs of
+                 [S] -> #{ spec => [S] };
+                 [] -> #{}
+             end,
+    FnDocs = [],
+    Md = SpecMd#{},
+    [{{function, Name, Arity}, Anno, [unicode:characters_to_binary(Signature)],
+     #{ <<"en">> => FnDocs },
+      Md#{}}];
+get_function_docs_from_ast(_, _) ->
+    [].
+
 -spec set_primary_archive(ArchiveFile :: file:filename(),
 			  ArchiveBin :: binary(),
 			  FileInfo :: file:file_info(),
@@ -787,7 +943,7 @@ set_primary_archive(ArchiveFile0, ArchiveBin, #file_info{} = FileInfo,
 	{error, _Reason} = Error ->
 	    Error
     end.
-    
+
 %% Search the entire path system looking for name clashes
 
 -spec clash() -> 'ok'.
@@ -898,8 +1054,19 @@ load_all_native_1([{Mod,BeamFilename}|T], ChunkTag) ->
 load_all_native_1([], _) ->
     ok.
 
+-type module_status() :: not_loaded | loaded | modified | removed.
+
+%% Returns the list of all loaded modules and their current status
+-spec module_status() -> [{module(), module_status()}].
+module_status() ->
+    module_status([M || {M, _} <- all_loaded()]).
+
 %% Returns the status of the module in relation to object file on disk.
--spec module_status(Module :: module()) -> not_loaded | loaded | modified | removed.
+-spec module_status (Module :: module() | [module()]) ->
+          module_status() | [{module(), module_status()}].
+module_status(Modules) when is_list(Modules) ->
+    PathFiles = path_files(),
+    [{M, module_status(M, PathFiles)} || M <- Modules];
 module_status(Module) ->
     module_status(Module, code:get_path()).
 
@@ -974,9 +1141,7 @@ get_beam_chunk(Path, Chunk) ->
 %% Returns a list of all modules modified on disk.
 -spec modified_modules() -> [module()].
 modified_modules() ->
-    PathFiles = path_files(),
-    [M || {M, _} <- code:all_loaded(),
-          module_status(M, PathFiles) =:= modified].
+    [M || {M, modified} <- module_status()].
 
 %% prefetch the directory contents of code path directories
 path_files() ->

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2017</year>
+      <year>2010</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,56 +32,69 @@
     <rev>A</rev>
     <file>ct_netconfc.xml</file>
   </header>
-  <module>ct_netconfc</module>
+  <module since="OTP R15B02">ct_netconfc</module>
   <modulesummary>NETCONF client module.</modulesummary>
 
   <description>
 
-    <p>NETCONF client module.</p>
-
-    <p>The NETCONF client is compliant with RFC 4741 NETCONF Configuration
-      Protocol and RFC 4742 Using the NETCONF Configuration Protocol over
-      Secure SHell (SSH).</p>
+    <p>NETCONF client module compliant with RFC 6241, NETCONF Configuration
+      Protocol, and RFC 6242, Using the NETCONF Configuration Protocol over
+      Secure SHell (SSH), and with support for RFC 5277, NETCONF Event
+      Notifications.</p>
 
     <marker id="Connecting"/>
     <p><em>Connecting to a NETCONF server</em></p>
 
-    <p>NETCONF sessions can either be opened by a single call
-      to <seealso marker="#open-1"><c>open/1,2</c></seealso> or by a call
-      to <seealso marker="#connect-1"><c>connect/1,2</c></seealso> followed
-      by one or more calls to
-      <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
+    <p>Call <seemfa marker="#connect/1"><c>connect/1,2</c></seemfa>
+    to establish a connection to a server, then pass the returned
+    handle to <seemfa marker="#session/1"><c>session/1-3</c></seemfa> to
+    establish a NETCONF session on a new SSH channel.
+    Each call to
+    <seemfa marker="#session/1"><c>session/1-3</c></seemfa> establishes a
+    new session on the same connection, and results in a hello message
+    to the server.</p>
 
-    <p>The properties of the sessions will be exactly the same, except
-      that when
-      using <seealso marker="#connect-1"><c>connect/1,2</c></seealso>, you
-      may start multiple sessions over the same SSH connection. Each
-      session is implemented as an SSH channel.</p>
+    <p>Alternately,
+    <seemfa marker="#open/1"><c>open/1,2</c></seemfa> can be used to
+    establish a single session on a dedicated connection.
+    (Or, equivalently,
+    <seemfa marker="#only_open/1"><c>only_open/1,2</c></seemfa>
+    followed by <seemfa marker="#hello/1"><c>hello/1-3</c></seemfa>.)</p>
 
-    <p><seealso marker="#open-1"><c>open/1,2</c></seealso> will establish one
-      SSH connection with one SSH channel implementing one NETCONF
-      session. You may start mutiple sessions by
-      calling <seealso marker="#open-1"><c>open/1,2</c></seealso> multiple
-      times, but then a new SSH connection will be established for each
-      session.</p>
-
-    <p>For each server to test against, the following entry can be added to a
-      configuration file:</p>
+    <p>Connect/session options can be specified in a configuration
+    file with entries like the following.</p>
 
     <pre>
- {server_id(),options()}.</pre>
+ {server_id(), [option()]}.</pre>
 
-    <p>The <seealso marker="#type-server_id"><c>server_id()</c></seealso>
-      or an associated
-      <seealso marker="ct#type-target_name"><c>ct:target_name()</c></seealso>
-      must then be used in calls to
-      <seealso marker="#connect-2"><c>connect/2</c></seealso>
-      or <seealso marker="#open-2"><c>open/2</c></seealso>.</p>
+    <p>The <seetype marker="#server_id"><c>server_id()</c></seetype>
+    or an associated
+    <seetype marker="ct#target_name"><c>ct:target_name()</c></seetype>
+    can then be passed to the aforementioned functions to use the
+    referenced configuration.</p>
 
-    <p>If no configuration exists for a server,
-      use <seealso marker="#connect-1"><c>connect/1</c></seealso>
-      or <seealso marker="#open-1"><c>open/1</c></seealso> instead,
-      and specify all necessary options in the <c>Options</c> parameter.</p>
+    <marker id="Signaling"/>
+    <p><em>Signaling</em></p>
+
+    <p>Protocol operations in the NETCONF protocol are realized as remote
+    procedure calls (RPCs) from client to server and a corresponding
+    reply from server to client.
+    RPCs are sent using like-named functions (eg.
+    <seemfa marker="#edit_config/3"><c>edit_config/3-5</c></seemfa>
+    to send an edit-config RPC), with the server reply
+    as return value.
+    There are functions for each RPC defined in RFC 6241 and
+    the create-subscription RPC from RFC 5277, all of which are
+    wrappers on <seemfa marker="#send_rpc/2"><c>send_rpc/2,3</c></seemfa>,
+    that can be used to send an arbitrary RPC
+    not defined in RFC 6241 or RFC 5277.</p>
+
+    <p>All of the signaling functions have one variant with a
+    <c>Timeout</c> argument and one without, corresponding to an
+    infinite timeout.
+    The latter is inappropriate in most cases since a non-response by
+    the server or a missing message-id causes the call to hang
+    indefinitely.</p>
 
     <marker id="Logging"/>
     <p><em>Logging</em></p>
@@ -93,7 +106,7 @@
 
     <pre>
  suite() -&gt;
-    [{ct_hooks, [{cth_conn_log, [{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>,<seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}]}].</pre>
+    [{ct_hooks, [{cth_conn_log, [{<seetype marker="ct#conn_log_mod"><c>ct:conn_log_mod()</c></seetype>, <seetype marker="ct#conn_log_options"><c>ct:conn_log_options()</c></seetype>}]}]}].</pre>
 
     <p><c>conn_log_mod()</c> is the name of the <c>Common Test</c> module
       implementing the connection protocol, for example, <c>ct_netconfc</c>.</p>
@@ -124,7 +137,7 @@
       To do this, use hook option <c>hosts</c> and list the names of the
       servers/connections to be used in the suite. The connections
       must be named for this to work, that is, they must be opened with
-      <seealso marker="#open-2"><c>open/2</c></seealso>.</p>
+      <seemfa marker="#open/2"><c>open/2</c></seemfa>.</p>
 
     <p>Option <c>hosts</c> has no effect if <c>log_type</c> is set to
       <c>html</c> or <c>silent</c>.</p>
@@ -133,13 +146,13 @@
       configuration variable <c>ct_conn_log</c>:</p>
 
     <pre>
- {ct_conn_log,[{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>,<seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}.</pre>
+ {ct_conn_log,[{<seetype marker="ct#conn_log_mod"><c>ct:conn_log_mod()</c></seetype>, <seetype marker="ct#conn_log_options"><c>ct:conn_log_options()</c></seetype>}]}.</pre>
 
     <p>For example:</p>
 
     <pre>
  {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
-                             {hosts,[<seealso marker="ct#type-key_or_name"><c>ct:key_or_name()</c></seealso>]}]}]}</pre>
+                             {hosts,[<seetype marker="ct#key_or_name"><c>ct:key_or_name()</c></seetype>]}]}]}</pre>
 
     <note>
       <p>Hook options specified in a configuration file overwrite the
@@ -185,100 +198,111 @@
       would cause HTML logging of all NETCONF connections in to the test
       case HTML log.</p>
 
-    <marker id="Notifications"/>
-    <p><em>Notifications</em></p>
-
-    <p>The NETCONF client is also compliant with RFC 5277 NETCONF Event
-      Notifications, which defines a mechanism for an asynchronous message 
-      notification delivery service for the NETCONF protocol.</p>
-
-    <p>Specific functions to support this are
-      <seealso marker="#create_subscription-1"><c>create_subscription/1-6</c></seealso>
-      and
-      <seealso marker="#get_event_streams-1"><c>get_event_streams/1-3</c></seealso>.</p>
-
-    <marker id="Default_timeout"/>
-    <p><em>Default Timeout</em></p>
-
-    <p>Most of the functions in this module have one variant with
-      a <c>Timeout</c> parameter, and one without. If nothing else is
-      specified, the default value <c>infinity</c> is used when
-      the <c>Timeout</c> parameter is not given.</p>
-
   </description>
+
+  <!-- ====================================================================== -->
 
   <datatypes>
     <datatype>
       <name name="client"/>
+      <desc>
+        <p>Handle to a NETCONF session, as required by signaling
+        functions.</p>
+      </desc>
     </datatype>
     <datatype>
-      <name name="error_reason"/>
+      <name name="handle"/>
+      <desc>
+        <p>Handle to a connection to a NETCONF server as
+        returned by
+        <seemfa marker="#connect/1"><c>connect/1,2</c></seemfa>,
+        or to a session as returned by
+        <seemfa marker="#session/1"><c>session/1-3</c></seemfa>,
+        <seemfa marker="#open/1"><c>open/1,2</c></seemfa>,
+        or <seemfa marker="#only_open/1"><c>only_open/1,2</c></seemfa>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="xs_datetime"/>
+      <desc>
+	<p>Date and time of a startTime/stopTime element in an RFC
+        5277 create-subscription request. Of XML primitive type
+        <c>dateTime</c>, which has the (informal) form</p>
+        <pre>
+ [-]YYYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]</pre>
+        <p>where <c>T</c> and <c>Z</c> are literal and <c>.s</c> is
+        one or more fractional seconds.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="event_time"/>
     </datatype>
     <datatype>
-      <name name="handle"/>
-      <desc>
-	<p>Opaque reference for a connection to a NETCONF server or a
-	  NETCONF session.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="host"/>
-    </datatype>
-    <datatype>
-      <name name="netconf_db"/>
+      <name name="notification_content"/>
     </datatype>
     <datatype>
       <name name="notification"/>
-    </datatype>
-    <datatype>
-      <name name="notification_content"/>
+      <desc>
+        <p>Event notification messages sent as a result of calls to
+        <seemfa marker="#create_subscription/2"><c>create_subscription/2,3</c></seemfa>.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="option"/>
       <desc>
-        <p><c>SshConnectOption</c> is any valid option to
-          <seealso marker="ssh:ssh#connect-3"><c>ssh:connect/3,4</c></seealso>.
-	  Common options used are <c>user</c>, <c>password</c>
-	  and <c>user_dir</c>. The <c>SshConnectOptions</c> are
-	  verfied by the SSH application.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="options"/>
-      <desc>
-	<p>Options used for setting up an SSH connection to a NETCONF
-          server.</p>
+        <p>Options <c>host</c> and <c>port</c> specify the
+        server endpoint to which to connect, and are passed directly
+        to <seemfa
+        marker="ssh:ssh#connect/3"><c>ssh:connect/4</c></seemfa>,
+        as are arbitrary ssh options. Common options are <c>user</c>,
+        <c>password</c> and <c>user_dir</c>.</p>
+
+        <p>Option <c>timeout</c> specifies the number of
+        milliseconds to allow for connection establishment and, if the
+        function in question results in an outgoing hello message,
+        reception of the server hello. The timeout applies to
+        connection and hello independently;
+        one timeout for connection establishment, another for hello
+        reception.</p>
+
+        <p>Option <c>capability</c> specifies the content of a
+        corresponding element in an outgoing hello message, each
+        option specifying the content of a single element.
+        If no base NETCONF capability is configured then the RFC 4741
+        1.0 capability, "urn:ietf:params:netconf:base:1.0", is added,
+        otherwise not.
+        In particular, the RFC 6241 1.1 capability must be explicitly
+        configured.
+        NETCONF capabilities can be specified using the shorthand notation
+        defined in RFC 6241, any capability string starting with a
+        colon being prefixed by either "urn:ietf:params:netconf" or
+        "urn:ietf:params:netconf:capability", as appropriate.</p>
+
+        <p>Capability options are ignored by connect/1-3 and only_open/1-2,
+        which don't result in an outgoing hello message.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="server_id"/>
       <desc>
-        <p>The identity of a server, specified in a configuration
-          file.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="simple_xml"/>
-      <desc>
-	<p>This type is further described in application
-          <seealso marker="xmerl:index"><c>xmerl</c></seealso>.</p>
+        <p>Identity of connection or session configuration in a
+        configuration file.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="stream_data"/>
-      <desc>
-	<p>For details about the data format for the string values, see
-          "XML Schema for Event Notifications" in RFC 5277.</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="stream_name"/>
     </datatype>
     <datatype>
       <name name="streams"/>
+      <desc>
+        <p>Stream information as returned by
+        <seemfa marker="#get_event_streams/1"><c>get_event_streams/1-3</c></seemfa>.
+        See RFC 5277, "XML Schema for Event Notifications", for detail
+        on the format of the string values.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="xml_attribute_tag"/>
@@ -296,24 +320,32 @@
       <name name="xml_tag"/>
     </datatype>
     <datatype>
+      <name name="simple_xml"/>
+      <desc>
+	<p>Representation of XML, as described in application
+        <seeapp marker="xmerl:index"><c>xmerl</c></seeapp>.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="xpath"/>
     </datatype>
     <datatype>
-      <name name="xs_datetime"/>
-      <desc>
-	<p>This date and time identifier has the same format as the XML type
-          <c>dateTime</c> and is compliant with RFC 3339 Date and Time on
-          the Internet Timestamps. The format is as follows:</p>
-	<pre>
- [-]CCYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]</pre>
-      </desc>
+      <name name="error_reason"/>
+    </datatype>
+    <datatype>
+      <name name="host"/>
+    </datatype>
+    <datatype>
+      <name name="netconf_db"/>
     </datatype>
   </datatypes>
 
+  <!-- ====================================================================== -->
+
   <funcs>
     <func>
-      <name name="action" arity="2"/>
-      <name name="action" arity="3"/>
+      <name name="action" arity="2" since="OTP R15B02"/>
+      <name name="action" arity="3" since="OTP R15B02"/>
       <fsummary>Executes an action.</fsummary>
       <desc>
         <p>Executes an action. If the return type is void, <c>ok</c> is
@@ -322,8 +354,8 @@
     </func>
 
     <func>
-      <name name="close_session" arity="1"/>
-      <name name="close_session" arity="2"/>
+      <name name="close_session" arity="1" since="OTP R15B02"/>
+      <name name="close_session" arity="2" since="OTP R15B02"/>
       <fsummary>Requests graceful termination of the session associated with
         the client.</fsummary>
       <desc>
@@ -339,29 +371,25 @@
     </func>
 
     <func>
-      <name name="connect" arity="1"/>
+      <name name="connect" arity="1" since="OTP 20.0"/>
       <fsummary>Opens an SSH connection to a NETCONF server.</fsummary>
       <desc>
         <p>Opens an SSH connection to a NETCONF server.</p>
 
         <p>If the server options are specified in a configuration file, use
-          <seealso marker="#connect-2"><c>connect/2</c></seealso>
+          <seemfa marker="#connect/2"><c>connect/2</c></seemfa>
           instead.</p>
 
-        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+        <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	  reference returned from this
           function is required as connection identifier when opening
           sessions over this connection, see
-          <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
-
-        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
-          SSH connection. It is not used for any other purposes during the
-          lifetime of the connection.</p>
+          <seemfa marker="#session/1"><c>session/1-3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="connect" arity="2"/>
+      <name name="connect" arity="2" since="OTP 20.0"/>
       <fsummary>Opens an SSH connection to a named NETCONF server.</fsummary>
       <desc>
         <p>Open an SSH connection to a named NETCONF server.</p>
@@ -371,36 +399,31 @@
           <c>target_name()</c> associated with such an Id, then the options
           for this server are fetched from the configuration file.</p>
 
-        <p>Argument <c><anno>ExtraOptions</anno></c> is added to the
-          options found in the configuration file. If the same options
-          are specified, the values from the configuration file
-          overwrite <c><anno>ExtraOptions</anno></c>.</p>
+        <p>The options list is added to those of the
+          configuration file. If an option is specified in both lists,
+          the configuration file takes precedence.</p>
 
         <p>If the server is not specified in a configuration file, use
-          <seealso marker="#connect-1"><c>connect/1</c></seealso>
+          <seemfa marker="#connect/1"><c>connect/1</c></seemfa>
           instead.</p>
 
-        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+        <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	  reference returned from this
           function can be used as connection identifier when opening
           sessions over this connection, see
-          <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.
+          <seemfa marker="#session/1"><c>session/1-3</c></seemfa>.
           However, if <c><anno>KeyOrName</anno></c> is a
           <c>target_name()</c>, that is, if the server is named through a
-          call to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+          call to <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>
           or a <c>require</c> statement in the test suite, then this name can
           be used instead of
-	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
-
-        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
-          SSH connection. It is not used for any other purposes during the
-          lifetime of the connection.</p>
+	  <seetype marker="#handle"><c>handle()</c></seetype>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="copy_config" arity="3"/>
-      <name name="copy_config" arity="4"/>
+      <name name="copy_config" arity="3" since="OTP R15B02"/>
+      <name name="copy_config" arity="4" since="OTP R15B02"/>
       <fsummary>Copies configuration data.</fsummary>
       <desc>
         <p>Copies configuration data.</p>
@@ -412,86 +435,67 @@
     </func>
 
     <func>
-      <name>create_subscription(Client) -> Result</name>
-      <name>create_subscription(Client, Stream) -> Result</name>
-      <name>create_subscription(Client, Stream, Filter) -> Result</name>
-      <name>create_subscription(Client, Stream, Filter, Timeout) -> Result</name>
-      <name name="create_subscription" arity="5" clause_i="2"/>
-      <name name="create_subscription" arity="6"/>
+      <name name="create_subscription" arity="2" clause_i="1" since="OTP 22.1"/>
+      <name name="create_subscription" arity="3" clause_i="1" since="OTP 22.1"/>
       <fsummary>Creates a subscription for event notifications.</fsummary>
       <desc>
-        <p>Creates a subscription for event notifications.</p>
+        <p>Creates a subscription for event notifications by sending
+           an RFC 5277 create-subscription RPC to the server.
+           The calling process receives events as messages of
+           type <seetype marker="#notification"><c>notification()</c></seetype>.</p>
 
-        <p>This function sets up a subscription for NETCONF event
-          notifications of the specified stream type, matching the specified
-          filter. The calling process receives notifications as messages of
-          type <seealso marker="#type-notification"><c>notification()</c></seealso>.</p>
-
-	<p>Only a subset of the function clauses are show above. The
-	  full set of valid combinations of input parameters is as
-	  follows:</p>
-
-<pre>create_subscription(Client)
-
-create_subscription(Client, Timeout)
-create_subscription(Client, Stream)
-create_subscription(Client, Filter)
-
-create_subscription(Client, Stream, Timeout)
-create_subscription(Client, Filter, Timeout)
-create_subscription(Client, Stream, Filter)
-create_subscription(Client, StartTime, StopTime)
-
-create_subscription(Client, Stream, Filter, Timeout)
-create_subscription(Client, StartTime, StopTime, Timeout)
-create_subscription(Client, Stream, StartTime, StopTime)
-create_subscription(Client, Filter, StartTime, StopTime)
-
-create_subscription(Client, Stream, StartTime, StopTime, Timeout)
-create_subscription(Client, Stream, Filter, StartTime, StopTime)
-create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
+	<p>From RFC 5722, 2.1 Subscribing to Receive Event Notifications:</p>
 
         <taglist>
           <tag><c><anno>Stream</anno></c></tag>
-          <item><p>Optional parameter that indicates which stream of event
+          <item><p>Indicates which stream of event
             is of interest. If not present, events in the default NETCONF
             stream are sent.</p></item>
           <tag><c><anno>Filter</anno></c></tag>
-          <item><p>Optional parameter that indicates which subset of all
+          <item><p>Indicates which subset of all
             possible events is of interest. The parameter format is the
             same as that of the filter parameter in the NETCONF protocol
             operations. If not present, all events not precluded by other
             parameters are sent.</p></item>
           <tag><c><anno>StartTime</anno></c></tag>
-          <item><p>Optional parameter used to trigger the replay feature and
+          <item><p>Used to trigger the replay feature and
               indicate that the replay is to start at the time specified.
               If <c><anno>StartTime</anno></c> is not present, this is not a
-	      replay subscription.</p>
-            <p>It is not valid to specify start times that are later than
+	      replay subscription.
+              It is not valid to specify start times that are later than
               the current time. If <c><anno>StartTime</anno></c> is specified
 	      earlier than the log can support, the replay begins with the
-	      earliest available notification.</p>
-            <p>This parameter is of type <c>dateTime</c> and compliant to
+	      earliest available notification.
+              This parameter is of type <c>dateTime</c> and compliant to
               RFC 3339. Implementations must support time zones.</p></item>
           <tag><c><anno>StopTime</anno></c></tag>
-          <item><p>Optional parameter used with the optional replay feature
+          <item><p>Used with the optional replay feature
               to indicate the newest notifications of interest. If
               <c><anno>StopTime</anno></c> is not present, the notifications
-	      continues until the subscription is terminated.</p>
-            <p>Must be used with and be later than <c>StartTime</c>. Values
+	      continues until the subscription is terminated.
+              Must be used with and be later than <c>StartTime</c>. Values
               of <c><anno>StopTime</anno></c> in the future are valid. This
 	      parameter is of type <c>dateTime</c> and compliant to RFC 3339.
               Implementations must support time zones.</p></item>
         </taglist>
 
-        <p>For more details about the event notification mechanism, see
-          RFC 5277.</p>
+        <p>See RFC 5277 for more details. The requirement that
+        <c>StopTime</c> must only be used with <c>StartTime</c> is not
+           enforced, to allow an invalid request to be sent to the
+           server.</p>
+
+        <p>Prior to OTP 22.1, this function was documented as having
+        15 variants in 6 arities. These are still exported for
+        backwards compatibility, but no longer documented.
+        The map-based variants documented above provide the same
+        functionality with simpler arguments.</p>
+
       </desc>
     </func>
 
     <func>
-      <name name="delete_config" arity="2"/>
-      <name name="delete_config" arity="3"/>
+      <name name="delete_config" arity="2" since="OTP R15B02"/>
+      <name name="delete_config" arity="3" since="OTP R15B02"/>
       <fsummary>Deletes configuration data.</fsummary>
       <desc>
         <p>Deletes configuration data.</p>
@@ -502,22 +506,22 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
      <func>
-      <name name="disconnect" arity="1"/>
+      <name name="disconnect" arity="1" since="OTP 20.0"/>
       <fsummary>Closes the given SSH connection.</fsummary>
       <desc>
 	<p>Closes the given SSH connection.</p>
 
 	<p>If there are open NETCONF sessions on the connection, these
 	  will be brutally aborted. To avoid this, close each session
-	  with <seealso marker="#close_session-1"><c>close_session/1,2</c></seealso></p>
+	  with <seemfa marker="#close_session/1"><c>close_session/1,2</c></seemfa></p>
       </desc>
     </func>
 
     <func>
-      <name name="edit_config" arity="3"/>
-      <name name="edit_config" arity="4" clause_i="1"/>
-      <name name="edit_config" arity="4" clause_i="2"/>
-      <name name="edit_config" arity="5"/>
+      <name name="edit_config" arity="3" since="OTP R15B02"/>
+      <name name="edit_config" arity="4" clause_i="1" since="OTP 18.0"/>
+      <name name="edit_config" arity="4" clause_i="2" since="OTP R15B02"/>
+      <name name="edit_config" arity="5" since="OTP 18.0"/>
       <fsummary>Edits configuration data.</fsummary>
       <desc>
         <p>Edits configuration data.</p>
@@ -542,8 +546,8 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
     <func>
-      <name name="get" arity="2"/>
-      <name name="get" arity="3"/>
+      <name name="get" arity="2" since="OTP R15B02"/>
+      <name name="get" arity="3" since="OTP R15B02"/>
       <fsummary>Gets data.</fsummary>
       <desc>
         <p>Gets data.</p>
@@ -557,33 +561,17 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
     <func>
-      <name name="get_capabilities" arity="1"/>
-      <name name="get_capabilities" arity="2"/>
+      <name name="get_capabilities" arity="1" since="OTP R15B02"/>
+      <name name="get_capabilities" arity="2" since="OTP R15B02"/>
       <fsummary>Returns the server side capabilities.</fsummary>
       <desc>
-        <p>Returns the server side capabilities.</p>
-
-        <p>The following capability identifiers, defined in RFC 4741 NETCONF
-          Configuration Protocol, can be returned:</p>
-
-        <list>
-          <item><p><c>"urn:ietf:params:netconf:base:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:writable-running:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:candidate:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:confirmed-commit:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:rollback-on-error:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:startup:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:url:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:xpath:1.0"</c></p></item>
-        </list>
- 
-        <p>More identifiers can exist, for example, server-side namespace.</p>
+        <p>Returns the server capabilities as received in its hello message.</p>
       </desc>
     </func>
 
     <func>
-      <name name="get_config" arity="3"/>
-      <name name="get_config" arity="4"/>
+      <name name="get_config" arity="3" since="OTP R15B02"/>
+      <name name="get_config" arity="4" since="OTP R15B02"/>
       <fsummary>Gets configuration data.</fsummary>
       <desc>
         <p>Gets configuration data.</p>
@@ -597,10 +585,10 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
     <func>
-      <name name="get_event_streams" arity="1"/>
-      <name name="get_event_streams" arity="2" clause_i="1"/>
-      <name name="get_event_streams" arity="2" clause_i="2"/>
-      <name name="get_event_streams" arity="3"/>
+      <name name="get_event_streams" arity="1" since="OTP 20.0"/>
+      <name name="get_event_streams" arity="2" clause_i="1" since="OTP R15B02"/>
+      <name name="get_event_streams" arity="2" clause_i="2" since="OTP 20.0"/>
+      <name name="get_event_streams" arity="3" since="OTP R15B02"/>
       <fsummary>Sends a request to get the specified event streams.</fsummary>
       <desc>
         <p>Sends a request to get the specified event streams.</p>
@@ -630,15 +618,15 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
  &lt;/netconf&gt;</pre>
 
         <p>If more complex filtering is needed, use
-          <seealso marker="#get-2"><c>ct_netconfc:get/2,3</c></seealso> and
+          <seemfa marker="#get/2"><c>ct_netconfc:get/2,3</c></seemfa> and
           specify the exact filter according to "XML Schema for Event
           Notifications" in RFC 5277.</p>
       </desc>
     </func>
 
     <func>
-      <name name="get_session_id" arity="1"/>
-      <name name="get_session_id" arity="2"/>
+      <name name="get_session_id" arity="1" since="OTP R15B02"/>
+      <name name="get_session_id" arity="2" since="OTP R15B02"/>
       <fsummary>Returns the session Id associated with the specified
         client.</fsummary>
       <desc>
@@ -647,21 +635,23 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
     <func>
-      <name name="hello" arity="1"/>
-      <name name="hello" arity="2"/>
-      <name name="hello" arity="3"/>
+      <name name="hello" arity="1" since="OTP R15B02"/>
+      <name name="hello" arity="2" since="OTP R15B02"/>
+      <name name="hello" arity="3" since="OTP 17.5.3"/>
       <fsummary>Exchanges hello messages with the server.</fsummary>
       <desc>
-        <p>Exchanges <c>hello</c> messages with the server.</p>
+        <p>Exchanges <c>hello</c> messages with the server. Returns
+        when the server hello has been received or after the
+        specified timeout.</p>
 
-        <p>Adds optional capabilities and sends a <c>hello</c> message to the
-          server and waits for the return.</p>
+        <p>Note that capabilities for an outgoing hello can be passed
+        directly to <seemfa marker="#open/2"><c>open/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="kill_session" arity="2"/>
-      <name name="kill_session" arity="3"/>
+      <name name="kill_session" arity="2" since="OTP R15B02"/>
+      <name name="kill_session" arity="3" since="OTP R15B02"/>
       <fsummary>Forces termination of the session associated with the supplied
         session Id.</fsummary>
       <desc>
@@ -682,8 +672,8 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
     <func>
-      <name name="lock" arity="2"/>
-      <name name="lock" arity="3"/>
+      <name name="lock" arity="2" since="OTP R15B02"/>
+      <name name="lock" arity="3" since="OTP R15B02"/>
       <fsummary>Locks the configuration target.</fsummary>
       <desc>
         <p>Locks the configuration target.</p>
@@ -695,7 +685,7 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
           Locks are intended to be short-lived.</p>
 
          <p>Operation
-           <seealso marker="#kill_session-2"><c>kill_session/2,3</c></seealso>
+           <seemfa marker="#kill_session/2"><c>kill_session/2,3</c></seemfa>
            can be used to force the release of a lock owned by another NETCONF
            session. How this is achieved by the server side is
            implementation-specific.</p>
@@ -703,53 +693,48 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
     <func>
-      <name name="only_open" arity="1"/>
+      <name name="only_open" arity="1" since="OTP R15B02"/>
       <fsummary>Opens a NETCONF session, but does not send hello.</fsummary>
       <desc>
         <p>Opens a NETCONF session, but does not send <c>hello</c>.</p>
 
-        <p>As <seealso marker="#open-1"><c>open/1</c></seealso>, but
+        <p>As <seemfa marker="#open/1"><c>open/1</c></seemfa>, but
           does not send a <c>hello</c> message.</p>
       </desc>
     </func>
 
     <func>
-      <name name="only_open" arity="2"/>
+      <name name="only_open" arity="2" since="OTP R15B02"/>
       <fsummary>Opens a named NETCONF session, but does not send hello.</fsummary>
       <desc>
         <p>Opens a named NETCONF session, but does not send <c>hello</c>.</p>
 
-        <p>As <seealso marker="#open-2"><c>open/2</c></seealso>, but
+        <p>As <seemfa marker="#open/2"><c>open/2</c></seemfa>, but
           does not send a <c>hello</c> message.</p>
       </desc>
     </func>
 
     <func>
-      <name name="open" arity="1"/>
+      <name name="open" arity="1" since="OTP R15B02"/>
       <fsummary>Opens a NETCONF session and exchanges hello messages.</fsummary>
       <desc>
         <p>Opens a NETCONF session and exchanges <c>hello</c> messages.</p>
 
         <p>If the server options are specified in a configuration file,
           or if a named client is needed for logging purposes (see section
-          <seealso marker="#Logging">Logging</seealso> in this module), use
-          <seealso marker="#open-2"><c>open/2</c></seealso>
+          <seeerl marker="#Logging">Logging</seeerl> in this module), use
+          <seemfa marker="#open/2"><c>open/2</c></seemfa>
           instead.</p>
 
-        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+        <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	  reference returned from this
           function is required as client identifier when calling any other
           function in this module.</p>
-
-        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
-          SSH connection and when waiting for the <c>hello</c> message from
-          the server. It is not used for any other purposes during the
-          lifetime of the connection.</p>
       </desc>
     </func>
 
     <func>
-      <name name="open" arity="2"/>
+      <name name="open" arity="2" since="OTP R15B02"/>
       <fsummary>Opens a named NETCONF session and exchanges hello
         messages.</fsummary>
       <desc>
@@ -761,38 +746,32 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
            <c>target_name()</c> associated with such an Id, then the options
            for this server are fetched from the configuration file.</p>
 
-         <p>Argument <c><anno>ExtraOptions</anno></c> is added to the
-           options found in the configuration file. If the same
-           options are specified, the values from the configuration
-           file overwrite <c><anno>ExtraOptions</anno></c>.</p>
+        <p>The options list is added to those of the
+          configuration file. If an option is specified in both lists,
+          the configuration file take precedence.</p>
 
          <p>If the server is not specified in a configuration file, use
-           <seealso marker="#open-1"><c>open/1</c></seealso>
+           <seemfa marker="#open/1"><c>open/1</c></seemfa>
            instead.</p>
 
-         <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+         <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	   reference returned from this
            function can be used as client identifier when calling any other
            function in this module. However, if <c><anno>KeyOrName</anno></c> is a
            <c>target_name()</c>, that is, if the server is named through a
-           call to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+           call to <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>
            or a <c>require</c> statement in the test suite, then this name can
            be used instead of
-	   <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
-
-        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
-          SSH connection and when waiting for the <c>hello</c> message from
-          the server. It is not used for any other purposes during the
-          lifetime of the connection.</p>
+	   <seetype marker="#handle"><c>handle()</c></seetype>.</p>
 
          <p>See also
-           <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+           <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="send" arity="2"/>
-      <name name="send" arity="3"/>
+      <name name="send" arity="2" since="OTP R16B02"/>
+      <name name="send" arity="3" since="OTP R16B02"/>
       <fsummary>Sends an XML document to the server.</fsummary>
       <desc>
         <p>Sends an XML document to the server.</p>
@@ -804,8 +783,8 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
     <func>
-      <name name="send_rpc" arity="2"/>
-      <name name="send_rpc" arity="3"/>
+      <name name="send_rpc" arity="2" since="OTP R16B02"/>
+      <name name="send_rpc" arity="3" since="OTP R16B02"/>
       <fsummary>Sends a NETCONF rpc request to the server.</fsummary>
       <desc>
         <p>Sends a NETCONF <c>rpc</c> request to the server.</p>
@@ -820,42 +799,41 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     </func>
 
     <func>
-      <name name="session" arity="1"/>
-      <name name="session" arity="2" clause_i="1"/>
-      <name name="session" arity="2" clause_i="2"/>
-      <name name="session" arity="3"/>
+      <name name="session" arity="1" since="OTP 20.0"/>
+      <name name="session" arity="2" clause_i="1" since="OTP 20.0"/>
+      <name name="session" arity="2" clause_i="2" since="OTP 20.0"/>
+      <name name="session" arity="3" since="OTP 20.0"/>
       <fsummary>Opens a NETCONF session as a channel on the given SSH
 	connection, and exchanges hello messages with the
 	server.</fsummary>
-      <type name="session_options"/>
       <type name="session_option"/>
       <desc>
 	<p>Opens a NETCONF session as a channel on the given SSH
           connection, and exchanges hello messages with the server.</p>
 
-        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+        <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	  reference returned from this
           function can be used as client identifier when calling any
           other function in this module. However, if <c><anno>KeyOrName</anno></c>
           is used and it is a <c>target_name()</c>, that is, if the
           server is named through a call
-          to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+          to <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>
           or a <c>require</c> statement in the test suite, then this
           name can be used instead of
-	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+	  <seetype marker="#handle"><c>handle()</c></seetype>.</p>
 
       </desc>
     </func>
 
     <func>
-      <name name="unlock" arity="2"/>
-      <name name="unlock" arity="3"/>
+      <name name="unlock" arity="2" since="OTP R15B02"/>
+      <name name="unlock" arity="3" since="OTP R15B02"/>
       <fsummary>Unlocks the configuration target.</fsummary>
       <desc>
         <p>Unlocks the configuration target.</p>
 
         <p>If the client earlier has acquired a lock through
-          <seealso marker="#lock-2"><c>lock/2,3</c></seealso>, this
+          <seemfa marker="#lock/2"><c>lock/2,3</c></seemfa>, this
           operation releases the associated lock. To access another target
           than <c>running</c>, the server must support <c>:candidate</c>
           and/or <c>:startup</c>.</p>

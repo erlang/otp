@@ -115,6 +115,7 @@
 		    t_map_is_key/3,
 		    t_map_entries/2,
 		    t_map_put/3,
+		    t_map_remove/3,
 		    t_map_update/3,
 		    t_map_pairwise_merge/4
 		   ]).
@@ -585,6 +586,13 @@ type(erlang, float, 1, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, floor, 1, Xs, Opaques) ->
   strict(erlang, floor, 1, Xs, fun (_) -> t_integer() end, Opaques);
+%% Primop, needs to be somewhere.
+type(erlang, build_stacktrace, 0, _, _Opaques) ->
+  t_list(t_tuple([t_module(),
+                  t_atom(),
+                  t_sup([t_arity(),t_list()]),
+                  t_list(t_sup([t_tuple([t_atom('file'),t_string()]),
+                                t_tuple([t_atom('line'),t_pos_integer()])]))]));
 %% Guard bif, needs to be here.
 type(erlang, hd, 1, Xs, Opaques) ->
   strict(erlang, hd, 1, Xs, fun ([X]) -> t_cons_hd(X) end, Opaques);
@@ -658,6 +666,8 @@ type(erlang, is_map, 1, Xs, Opaques) ->
 	    check_guard(X, fun (Y) -> t_is_map(Y, Opaques) end,
 	    t_map(), Opaques) end,
   strict(erlang, is_map, 1, Xs, Fun, Opaques);
+type(erlang, is_map_key, 2, Xs, Opaques) ->
+  type(maps, is_key, 2, Xs, Opaques);
 type(erlang, is_number, 1, Xs, Opaques) ->
   Fun = fun (X) ->
 	    check_guard(X, fun (Y) -> t_is_number(Y, Opaques) end,
@@ -763,6 +773,9 @@ type(erlang, length, 1, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, map_size, 1, Xs, Opaques) ->
   type(maps, size, 1, Xs, Opaques);
+%% Guard bif, needs to be here.
+type(erlang, map_get, 2, Xs, Opaques) ->
+  type(maps, get, 2, Xs, Opaques);
 type(erlang, make_fun, 3, Xs, Opaques) ->
   strict(erlang, make_fun, 3, Xs,
          fun ([_, _, Arity]) ->
@@ -1688,6 +1701,11 @@ type(maps, put, 3, Xs, Opaques) ->
 	 fun ([Key, Value, Map]) ->
 	     t_map_put({Key, Value}, Map, Opaques)
 	 end, Opaques);
+type(maps, remove, 2, Xs, Opaques) ->
+  strict(maps, remove, 2, Xs,
+         fun ([Key, Map]) ->
+             t_map_remove(Key, Map, Opaques)
+         end, Opaques);
 type(maps, size, 1, Xs, Opaques) ->
   strict(maps, size, 1, Xs,
 	 fun ([Map]) ->
@@ -1699,24 +1717,6 @@ type(maps, size, 1, Xs, Opaques) ->
 		 Opt = [E || E={_,optional,_} <- t_map_entries(Map, Opaques)],
 		 UpperBound = LowerBound + length(Opt),
 		 t_from_range(LowerBound, UpperBound)
-	     end
-	 end, Opaques);
-type(maps, to_list, 1, Xs, Opaques) ->
-  strict(maps, to_list, 1, Xs,
-	 fun ([Map]) ->
-	     DefK = t_map_def_key(Map, Opaques),
-	     DefV = t_map_def_val(Map, Opaques),
-	     Pairs = t_map_entries(Map, Opaques),
-	     EType = lists:foldl(
-		       fun({K,_,V},EType0) ->
-			   case t_is_none(V) of
-			     true -> t_subtract(EType0, t_tuple([K,t_any()]));
-			     false -> t_sup(EType0, t_tuple([K,V]))
-			   end
-		       end, t_tuple([DefK, DefV]), Pairs),
-	     case t_is_none(EType) of
-	       true -> t_nil();
-	       false -> t_list(EType)
 	     end
 	 end, Opaques);
 type(maps, update, 3, Xs, Opaques) ->
@@ -2231,10 +2231,7 @@ type_order() ->
    t_map(), t_list(), t_bitstr()].
 
 key_comparisons_fail(X0, KeyPos, TupleList, Opaques) ->
-  X = case t_is_number(t_inf(X0, t_number(), Opaques), Opaques) of
-	false -> X0;
-	true -> t_number()
-      end,
+  X = erl_types:t_widen_to_number(X0),
   lists:all(fun(Tuple) ->
 		Key = type(erlang, element, 2, [KeyPos, Tuple]),
 		t_is_none(t_inf(Key, X, Opaques))
@@ -2354,6 +2351,9 @@ arg_types(erlang, float, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, floor, 1) ->
   [t_number()];
+%% Primop, needs to be somewhere.
+arg_types(erlang, build_stacktrace, 0) ->
+  [];
 %% Guard bif, needs to be here.
 arg_types(erlang, hd, 1) ->
   [t_cons()];
@@ -2379,6 +2379,8 @@ arg_types(erlang, is_list, 1) ->
   [t_any()];
 arg_types(erlang, is_map, 1) ->
   [t_any()];
+arg_types(erlang, is_map_key, 2) ->
+  [t_any(), t_map()];
 arg_types(erlang, is_number, 1) ->
   [t_any()];
 arg_types(erlang, is_pid, 1) ->
@@ -2388,7 +2390,7 @@ arg_types(erlang, is_port, 1) ->
 arg_types(erlang, is_record, 2) ->
   [t_any(), t_atom()];
 arg_types(erlang, is_record, 3) ->
-  [t_any(), t_atom(), t_pos_fixnum()];
+  [t_any(), t_atom(), t_non_neg_fixnum()];
 arg_types(erlang, is_reference, 1) ->
   [t_any()];
 arg_types(erlang, is_tuple, 1) ->
@@ -2399,6 +2401,9 @@ arg_types(erlang, length, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, map_size, 1) ->
   [t_map()];
+%% Guard bif, needs to be here.
+arg_types(erlang, map_get, 2) ->
+  [t_any(), t_map()];
 arg_types(erlang, make_fun, 3) ->
   [t_atom(), t_atom(), t_arity()];
 arg_types(erlang, make_tuple, 2) ->
@@ -2649,9 +2654,9 @@ arg_types(maps, merge, 2) ->
   [t_map(), t_map()];
 arg_types(maps, put, 3) ->
   [t_any(), t_any(), t_map()];
+arg_types(maps, remove, 2) ->
+  [t_any(), t_map()];
 arg_types(maps, size, 1) ->
-  [t_map()];
-arg_types(maps, to_list, 1) ->
   [t_map()];
 arg_types(maps, update, 3) ->
   [t_any(), t_any(), t_map()];

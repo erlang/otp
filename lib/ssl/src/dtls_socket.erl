@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,38 +22,69 @@
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
--export([send/3, listen/3, accept/3, connect/4, socket/4, setopts/3, getopts/3, getstat/3, 
-	 peername/2, sockname/2, port/2, close/2]).
--export([emulated_options/0, emulated_options/1, internal_inet_values/0, default_inet_values/0, default_cb_info/0]).
+-export([send/3,
+         listen/2,
+         accept/3,
+         connect/4,
+         socket/4,
+         setopts/3,
+         getopts/3,
+         getstat/3,
+	 peername/2,
+         sockname/2,
+         port/2,
+         close/2,
+         close/1
+        ]).
+
+-export([emulated_options/0,
+         emulated_options/1,
+         internal_inet_values/0,
+         default_inet_values/0,
+         default_cb_info/0]).
 
 send(Transport, {{IP,Port},Socket}, Data) ->
     Transport:send(Socket, IP, Port, Data).
 
-listen(gen_udp = Transport, Port, #config{transport_info = {Transport, _, _, _},
-					  ssl = SslOpts, 
-					  emulated = EmOpts,
-					  inet_user = Options} = Config) ->
+listen(Port, #config{transport_info = TransportInfo,
+                           ssl = SslOpts, 
+                           emulated = EmOpts0,
+                           inet_user = Options} = Config) ->
     
-    
-    case dtls_udp_sup:start_child([Port, emulated_socket_options(EmOpts, #socket_options{}), 
-				   Options ++ internal_inet_values(), SslOpts]) of
-	{ok, Pid} ->
-	    {ok, #sslsocket{pid = {udp, Config#config{udp_handler = {Pid, Port}}}}};
-	Err = {error, _} ->
-	    Err
+    Result = case dtls_listener_sup:lookup_listner(Port) of
+                 undefined ->
+                     Result0 = {ok, Listner0} = dtls_listener_sup:start_child([Port, TransportInfo, emulated_socket_options(EmOpts0, #socket_options{}), 
+                                                                          Options ++ internal_inet_values(), SslOpts]),
+                     dtls_listener_sup:register_listner({self(), Listner0}, Port),
+                     Result0;
+                 {ok, Listner0} = Result0 ->
+                     dtls_packet_demux:new_owner(Listner0),
+                     dtls_packet_demux:set_all_opts(Listner0, {Options, emulated_socket_options(EmOpts0, #socket_options{}), SslOpts}),
+                     dtls_listener_sup:register_listner({self(), Listner0}, Port),
+                     Result0;
+                 Result0 ->
+                     Result0
+             end,
+    case Result of
+        {ok, Listner} ->
+            Socket = #sslsocket{pid = {dtls, Config#config{dtls_handler = {Listner, Port}}}},
+            check_active_n(EmOpts0, Socket),
+	    {ok, Socket};
+        Err ->
+            Err
     end.
 
-accept(udp, #config{transport_info = {Transport = gen_udp,_,_,_},
-		    connection_cb = ConnectionCb,
-		    udp_handler = {Listner, _}}, _Timeout) -> 
-    case dtls_udp_listener:accept(Listner, self()) of
+accept(dtls, #config{transport_info = {Transport,_,_,_,_},
+                     connection_cb = ConnectionCb,
+                     dtls_handler = {Listner, _}}, _Timeout) -> 
+    case dtls_packet_demux:accept(Listner, self()) of
 	{ok, Pid, Socket} ->
-	    {ok, socket(Pid, Transport, {Listner, Socket}, ConnectionCb)};
+	    {ok, socket([Pid], Transport, {Listner, Socket}, ConnectionCb)};
 	{error, Reason} ->
 	    {error, Reason}
     end.
 
-connect(Address, Port, #config{transport_info = {Transport, _, _, _} = CbInfo,
+connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo,
 				connection_cb = ConnectionCb,
 				ssl = SslOpts,
 				emulated = EmOpts,
@@ -68,29 +99,64 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _} = CbInfo,
 	    Error
     end.
 
-close(gen_udp, {_Client, _Socket}) ->
-    ok.
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port}}}}) ->
+    dtls_listener_sup:register_listner({undefined, Pid}, Port),
+    dtls_packet_demux:close(Pid).   
 
-socket(Pid, gen_udp = Transport, {{_, _}, Socket}, ConnectionCb) ->
-    #sslsocket{pid = Pid, 
+close(_, dtls) ->
+    ok;
+close(gen_udp, {_Client, _Socket}) ->
+    ok;
+close(Transport, {_Client, Socket}) ->
+    Transport:close(Socket).
+
+socket(Pids, gen_udp = Transport, {{_, _}, Socket}, ConnectionCb) ->
+    #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}};
-socket(Pid, Transport, Socket, ConnectionCb) ->
-    #sslsocket{pid = Pid, 
+socket(Pids, Transport, Socket, ConnectionCb) ->
+    #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}}.
-setopts(_, #sslsocket{pid = {udp, #config{udp_handler = {ListenPid, _}}}}, Options) ->
-    SplitOpts = tls_socket:split_options(Options),
-    dtls_udp_listener:set_sock_opts(ListenPid, SplitOpts);
+setopts(_, Socket = #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
+    SplitOpts = {_, EmOpts} = tls_socket:split_options(Options),
+    check_active_n(EmOpts, Socket),
+    dtls_packet_demux:set_sock_opts(ListenPid, SplitOpts);
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
 setopts(gen_udp, Socket, Options) ->
     inet:setopts(Socket, Options);
 setopts(Transport, Socket, Options) ->
     Transport:setopts(Socket, Options).
 
-getopts(_, #sslsocket{pid = {udp, #config{udp_handler = {ListenPid, _}}}}, Options) ->
+check_active_n(EmulatedOpts, Socket = #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}) ->
+    %% We check the resulting options to send an ssl_passive message if necessary.
+    case proplists:lookup(active, EmulatedOpts) of
+        %% The provided value is out of bound.
+        {_, N} when is_integer(N), N < -32768 ->
+            throw(einval);
+        {_, N} when is_integer(N), N > 32767 ->
+            throw(einval);
+        {_, N} when is_integer(N) ->
+            {ok, #socket_options{active = Active}, _} = dtls_packet_demux:get_all_opts(ListenPid),
+            case Active of
+                Atom when is_atom(Atom), N =< 0 ->
+                    self() ! {ssl_passive, Socket};
+                %% The result of the addition is out of bound.
+                %% We do not need to check < -32768 because Active can't be below 1.
+                A when is_integer(A), A + N > 32767 ->
+                    throw(einval);
+                A when is_integer(A), A + N =< 0 ->
+                    self() ! {ssl_passive, Socket};
+                _ ->
+                    ok
+            end;
+        _ ->
+            ok
+    end.
+
+getopts(_, #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
     SplitOpts = tls_socket:split_options(Options),
-    dtls_udp_listener:get_sock_opts(ListenPid, SplitOpts);
+    dtls_packet_demux:get_sock_opts(ListenPid, SplitOpts);
 getopts(gen_udp,  #sslsocket{pid = {Socket, #config{emulated = EmOpts}}}, Options) ->
     {SockOptNames, EmulatedOptNames} = tls_socket:split_options(Options),
     EmulatedOpts = get_emulated_opts(EmOpts, EmulatedOptNames),
@@ -108,11 +174,15 @@ getopts(gen_udp, {_,Socket}, Options) ->
     inet:getopts(Socket, Options);
 getopts(Transport, Socket, Options) ->
     Transport:getopts(Socket, Options).
-getstat(gen_udp, {_,Socket}, Options) ->
-	inet:getstat(Socket, Options);
+getstat(gen_udp, Pid, Options) when is_pid(Pid) ->
+    dtls_packet_demux:getstat(Pid, Options);
+getstat(gen_udp, {_,{_, Socket}}, Options) ->
+    inet:getstat(Socket, Options);
+getstat(gen_udp, Socket, Options) ->
+    inet:getstat(Socket, Options);
 getstat(Transport, Socket, Options) ->
 	Transport:getstat(Socket, Options).
-peername(udp, _) ->
+peername(_, undefined) ->
     {error, enotconn};
 peername(gen_udp, {_, {Client, _Socket}}) ->
     {ok, Client};
@@ -143,7 +213,7 @@ default_inet_values() ->
     [{active, true}, {mode, list}, {packet, 0}, {packet_size, 0}].
 
 default_cb_info() ->
-    {gen_udp, udp, udp_closed, udp_error}.
+    {gen_udp, udp, udp_closed, udp_error, udp_passive}.
 
 get_emulated_opts(EmOpts, EmOptNames) -> 
     lists:map(fun(Name) -> {value, Value} = lists:keysearch(Name, 1, EmOpts),
@@ -159,8 +229,17 @@ emulated_socket_options(InetValues, #socket_options{
        mode   = proplists:get_value(mode, InetValues, Mode),
        packet = proplists:get_value(packet, InetValues, Packet),
        packet_size = proplists:get_value(packet_size, InetValues, PacketSize),
-       active = proplists:get_value(active, InetValues, Active)
+       active = emulated_active_option(InetValues, Active)
       }.
+
+emulated_active_option([], Active) ->
+    Active;
+emulated_active_option([{active, Active} | _], _) when Active =< 0 ->
+    false;
+emulated_active_option([{active, Active} | _], _) ->
+    Active;
+emulated_active_option([_|Tail], Active) ->
+    emulated_active_option(Tail, Active).
 
 emulated_options([{mode, Value} = Opt |Opts], Inet, Emulated) ->
     validate_inet_option(mode, Value),
@@ -182,6 +261,9 @@ emulated_options([], Inet,Emulated) ->
 validate_inet_option(mode, Value)
   when Value =/= list, Value =/= binary ->
     throw({error, {options, {mode,Value}}});
+validate_inet_option(active, Value)
+  when Value >= -32768, Value =< 32767 ->
+    ok;
 validate_inet_option(active, Value)
   when Value =/= true, Value =/= false, Value =/= once ->
     throw({error, {options, {active,Value}}});

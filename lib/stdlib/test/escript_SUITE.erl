@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@
 	 foldl/1,
 	 overflow/1,
 	 verify_sections/3,
-         unicode/1
+         unicode/1,
+         bad_io_server/1
 	]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -53,7 +54,7 @@ all() ->
      emulator_flags_no_shebang, two_lines,
      module_script, beam_script, archive_script, epp,
      create_and_extract, foldl, overflow,
-     archive_script_file_access, unicode].
+     archive_script_file_access, unicode, bad_io_server].
 
 groups() -> 
     [].
@@ -950,6 +951,16 @@ overflow(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% OTP-16006, ERL-992
+bad_io_server(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    Dir = filename:absname(Data),		%Get rid of trailing slash.
+    run(Dir, "bad_io_server",
+        [<<"\"escript: exception error: an error occurred when evaluating"
+           " an arithmetic expression\\n  in operator  '/'/2\\n     "
+           "called as '\\x{400}' / 0\\n\"\r\nExitCode:127">>]),
+    ok.
+
 run(Dir, Cmd0, Expected0) ->
     Expected = iolist_to_binary(expected_output(Expected0, Dir)),
     Cmd = case os:type() of
@@ -969,7 +980,8 @@ do_run(Dir, Cmd, Expected0) ->
     io:format("Run: ~p\n", [Cmd]),
     Expected = iolist_to_binary(expected_output(Expected0, Dir)),
 
-    Env = [{"PATH",Dir++":"++os:getenv("PATH")}],
+    Env = [{"PATH",Dir++":"++os:getenv("PATH")},
+           {"ERL_FLAGS",false},{"ERL_AFLAGS",false}],
     Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env}]),
     Res = get_data(Port, []),
     receive

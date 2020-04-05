@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,9 @@
          get/1,
          count/1]).
 
--export([debug/0, id/1, bin_split/1, uc_loaded_size/0]).
+-export([debug/0, id/1, bin_split/1, uc_loaded_size/0,
+        time_count/4  %% Used by stdlib_bench_SUITE
+        ]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -124,20 +126,33 @@ verify_gc(Line0, N, Acc) ->
 
     %io:format("Line: ~s~n",[Line]),
     [Data|_Comments] = string:tokens(Line, "#"),
-    %io:format("Data: ~w~n",[string:tokens(Data, " \t")]),
+    %% io:format("Data: ~w~n",[string:tokens(Data, " \t")]),
     {Str,Res} = gc_test_data(string:tokens(Data, " \t"), [], [[]]),
-    try
-        Res = fetch(Str, fun unicode_util:gc/1),
-        Acc
-    catch _Cl:{badmatch, Other} ->
+    %% io:format("InputStr: ~w ~w~n",[Str,unicode:characters_to_binary(Str)]),
+    case verify_gc(Str, Res, N, Line) andalso
+        verify_gc(unicode:characters_to_binary(Str), Res, N, Line0) of
+        true -> Acc;
+        false -> Acc+1
+    end.
+
+verify_gc({error,_,[CP|_]}=Err, _Res, N, Line) ->
+    IsSurrogate = 16#D800 =< CP andalso CP =< 16#DFFF,
+    %% Surrogat is not valid in utf8 encoding only utf16
+    IsSurrogate orelse
+        io:format("~w: ~ts~n Error in unicode:characters_to_binary ~w~n", [N, Line, Err]),
+    IsSurrogate;
+verify_gc(Str, Res, N, Line) ->
+    try fetch(Str, fun unicode_util:gc/1) of
+        Res -> true;
+        Other ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[N, Line, Str, Str]),
             io:format("Expected: ~p~n", [Res]),
             io:format("Got: ~w~n", [Other]),
-            Acc+1;
-          Cl:R ->
+            false
+    catch Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[N, Line, Str]),
             io:format("Expected: ~p~n", [Res]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end.
 
 gc_test_data([[247]|Rest], Str, [First|GCs]) ->
@@ -173,29 +188,29 @@ verify_nfd(Data0, LineNo, _Acc) ->
         C3GC = fetch(C1, fun unicode_util:nfd/1),
         C3GC = fetch(C2, fun unicode_util:nfd/1),
         C3GC = fetch(C3, fun unicode_util:nfd/1)
-    catch  _Cl:{badmatch, Other} = _R->
+    catch  _Cl:{badmatch, Other} = _R: Stacktrace ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
             io:format("Expected: ~ts ~w~n", [C3GC, C3GC]),
             io:format("Got: ~ts ~w~n", [Other, Other]),
-            erlang:raise(_Cl,_R,erlang:get_stacktrace());
-           Cl:R ->
+            erlang:raise(_Cl,_R,Stacktrace);
+           Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C3]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end,
     C5GC = fetch(C5, fun unicode_util:gc/1),
     try
         C5GC = fetch(C4, fun unicode_util:nfd/1),
         C5GC = fetch(C5, fun unicode_util:nfd/1)
-    catch  _Cl2:{badmatch, Other2} = _R2->
+    catch  _Cl2:{badmatch, Other2} = _R2:Stacktrace2 ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
             io:format("Expected: ~ts ~w~n", [C5GC, C5GC]),
             io:format("Got:      ~ts ~w~n", [Other2, Other2]),
-            erlang:raise(_Cl2,_R2,erlang:get_stacktrace());
-           Cl2:R2 ->
+            erlang:raise(_Cl2,_R2,Stacktrace2);
+           Cl2:R2:Stacktrace2 ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C5]),
-            erlang:raise(Cl2,R2,erlang:get_stacktrace())
+            erlang:raise(Cl2,R2,Stacktrace2)
     end,
     ok.
 
@@ -216,29 +231,29 @@ verify_nfc(Data0, LineNo, _Acc) ->
         C2GC = fetch(C1, fun unicode_util:nfc/1),
         C2GC = fetch(C2, fun unicode_util:nfc/1),
         C2GC = fetch(C3, fun unicode_util:nfc/1)
-    catch  _Cl:{badmatch, Other} = _R->
+    catch  _Cl:{badmatch, Other} = _R:Stacktrace ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
             io:format("Expected: ~ts ~w~n", [C2GC, C2GC]),
             io:format("Got:      ~ts ~w~n", [Other, Other]),
-            erlang:raise(_Cl,_R,erlang:get_stacktrace());
-           Cl:R ->
+            erlang:raise(_Cl,_R,Stacktrace);
+           Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C3]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end,
     C4GC = fetch(C4, fun unicode_util:gc/1),
     try
         C4GC = fetch(C4, fun unicode_util:nfc/1),
         C4GC = fetch(C5, fun unicode_util:nfc/1)
-    catch  _Cl2:{badmatch, Other2} = _R2->
+    catch  _Cl2:{badmatch, Other2} = _R2:Stacktrace2 ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
             io:format("Expected: ~ts ~w~n", [C4GC, C4GC]),
             io:format("Got: ~ts ~w~n", [Other2, Other2]),
-            erlang:raise(_Cl2,_R2,erlang:get_stacktrace());
-           Cl2:R2 ->
+            erlang:raise(_Cl2,_R2,Stacktrace2);
+           Cl2:R2:Stacktrace2 ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C5]),
-            erlang:raise(Cl2,R2,erlang:get_stacktrace())
+            erlang:raise(Cl2,R2,Stacktrace2)
     end,
     ok.
 
@@ -261,15 +276,15 @@ verify_nfkd(Data0, LineNo, _Acc) ->
         C5GC = lists:flatten(fetch(C3, fun unicode_util:nfkd/1)),
         C5GC = lists:flatten(fetch(C4, fun unicode_util:nfkd/1)),
         C5GC = lists:flatten(fetch(C5, fun unicode_util:nfkd/1))
-    catch  _Cl:{badmatch, Other} = _R->
+    catch  _Cl:{badmatch, Other} = _R:Stacktrace ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C5, C5]),
             io:format("Expected: ~ts ~w~n", [C5GC, C5GC]),
             io:format("Got: ~ts ~w~n", [Other, Other]),
-            erlang:raise(_Cl,_R,erlang:get_stacktrace());
-           Cl:R ->
+            erlang:raise(_Cl,_R,Stacktrace);
+           Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C3]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end,
     ok.
 
@@ -294,15 +309,15 @@ verify_nfkc(Data0, LineNo, _Acc) ->
         C4GC = lists:flatten(fetch(C4, fun unicode_util:nfkc/1)),
         C4GC = lists:flatten(fetch(C5, fun unicode_util:nfkc/1))
 
-    catch  _Cl:{badmatch, Other} = _R->
+    catch  _Cl:{badmatch, Other} = _R:Stacktrace ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C4, C4]),
             io:format("Expected: ~ts ~w~n", [C4GC, C4GC]),
             io:format("Got:      ~ts ~w~n", [Other, Other]),
-            erlang:raise(_Cl,_R,erlang:get_stacktrace());
-           Cl:R ->
+            erlang:raise(_Cl,_R,Stacktrace);
+           Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[LineNo, Data1, C1]),
             io:format("Expected: ~p~n", [C3]),
-            erlang:raise(Cl,R,erlang:get_stacktrace())
+            erlang:raise(Cl,R,Stacktrace)
     end,
     ok.
 
@@ -334,7 +349,7 @@ do_measure(Config) ->
     File =  DataDir ++ "/NormalizationTest.txt",
     {ok, Bin} = file:read_file(File),
     Do = fun(Func, Mode) ->
-                 {N, Mean, Stddev, Res} = time_count(Func, Mode, Bin),
+                 {N, Mean, Stddev, Res} = time_count(Func, Mode, Bin, 10),
                  io:format("~4w ~6w ~.10w ~.6wms ±~.2wms #~.2w~n",
                            [Func, Mode, Res, Mean div 1000, Stddev div 1000, N])
          end,
@@ -356,19 +371,19 @@ uc_loaded_size([_|Rest]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-time_count(Fun, Mode, Bin) ->
+time_count(Fun, Mode, Bin, Repeat) ->
     timer:sleep(100), %% Let emulator catch up and clean things before test runs
     Self = self(),
     Pid = spawn_link(fun() ->
                              Str = mode(Mode, Bin),
-                             Self ! {self(),do_count(0,0,0, Fun, Str, undefined)}
+                             Self ! {self(),do_count(0,0,0, Fun, Str, undefined, Repeat)}
                      end),
     receive {Pid,Msg} -> Msg end.
 
-do_count(N,Sum,SumSq, Fun, Str, _) when N < 10 ->
+do_count(N,Sum,SumSq, Fun, Str, _, Repeat) when N < Repeat ->
     {Time, Res} = do_count(Fun, Str),
-    do_count(N+1,Sum+Time,SumSq+Time*Time, Fun, Str, Res);
-do_count(N,Sum,SumSq, _, _, Res) ->
+    do_count(N+1,Sum+Time,SumSq+Time*Time, Fun, Str, Res, Repeat);
+do_count(N,Sum,SumSq, _, _, Res, _) ->
     Mean = round(Sum / N),
     Stdev = round(math:sqrt((SumSq - (Sum*Sum/N))/(N - 1))),
     {N, Mean, Stdev, Res}.
@@ -413,7 +428,15 @@ mode(deep_l, Bin) -> [unicode:characters_to_list(Bin)].
 fetch(Str, F) ->
     case F(Str) of
         [] -> [];
-        [CP|R] -> [CP|fetch(R,F)]
+        [CP|R] ->
+            %% If input is a binary R should be binary
+            if is_binary(Str) == false -> ok;
+               is_binary(R); R =:= [] -> ok;
+               true ->
+                    io:format("Char: ~tc Tail:~tP~n", [CP,R,10]),
+                    exit({bug, F})
+            end,
+            [CP|fetch(R,F)]
     end.
 
 %% *Test.txt file helpers

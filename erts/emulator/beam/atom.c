@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,20 +34,18 @@
 
 IndexTable erts_atom_table;	/* The index table */
 
-#include "erl_smp.h"
+static erts_rwmtx_t atom_table_lock;
 
-static erts_smp_rwmtx_t atom_table_lock;
-
-#define atom_read_lock()	erts_smp_rwmtx_rlock(&atom_table_lock)
-#define atom_read_unlock()	erts_smp_rwmtx_runlock(&atom_table_lock)
-#define atom_write_lock()	erts_smp_rwmtx_rwlock(&atom_table_lock)
-#define atom_write_unlock()	erts_smp_rwmtx_rwunlock(&atom_table_lock)
+#define atom_read_lock()	erts_rwmtx_rlock(&atom_table_lock)
+#define atom_read_unlock()	erts_rwmtx_runlock(&atom_table_lock)
+#define atom_write_lock()	erts_rwmtx_rwlock(&atom_table_lock)
+#define atom_write_unlock()	erts_rwmtx_rwunlock(&atom_table_lock)
 
 #if 0
 #define ERTS_ATOM_PUT_OPS_STAT
 #endif
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-static erts_smp_atomic_t atom_put_ops;
+static erts_atomic_t atom_put_ops;
 #endif
 
 /* Functions for allocating space for the ext of atoms. We do not
@@ -76,7 +74,7 @@ void atom_info(fmtfn_t to, void *to_arg)
     index_info(to, to_arg, &erts_atom_table);
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_print(to, to_arg, "atom_put_ops: %ld\n",
-	       erts_smp_atomic_read_nob(&atom_put_ops));
+	       erts_atomic_read_nob(&atom_put_ops));
 #endif
 
     if (lock)
@@ -176,7 +174,7 @@ atom_alloc(Atom* tmpl)
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
-     * This is used by utils.c:erts_cmp_atoms().
+     * This is used by erl_utils.h:erts_cmp_atoms().
      * We cannot use the full 32 bits of the first 4 bytes,
      * since we use the sign of the difference between two
      * ordinal values to represent their relative order.
@@ -202,11 +200,15 @@ atom_free(Atom* obj)
     ASSERT(obj->slot.index == atom_val(am_ErtsSecretAtom));
 }
 
-static void latin1_to_utf8(byte* conv_buf, const byte** srcp, int* lenp)
+static void latin1_to_utf8(byte* conv_buf, Uint buf_sz,
+                           const byte** srcp, Uint* lenp)
 {
     byte* dst;
     const byte* src = *srcp;
-    int i, len = *lenp;
+    Uint i, len = *lenp;
+
+    ASSERT(len <= MAX_ATOM_CHARACTERS);
+    ASSERT(buf_sz >= MAX_ATOM_SZ_FROM_LATIN1);
 
     for (i=0 ; i < len; ++i) {
 	if (src[i] & 0x80) {
@@ -236,25 +238,28 @@ need_convertion:
  * erts_atom_put_index() may fail. Returns negative indexes for errors.
  */
 int
-erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     const byte *text = name;
-    int tlen = len;
+    Uint tlen;
     Sint no_latin1_chars;
     Atom a;
     int aix;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-    erts_smp_atomic_inc_nob(&atom_put_ops);
+    erts_atomic_inc_nob(&atom_put_ops);
 #endif
 
-    if (tlen < 0) {
-	if (trunc)
-	    tlen = 0;
-	else
-	    return ATOM_MAX_CHARS_ERROR;
+    if (len < 0) {
+        if (trunc) {
+            len = 0;
+        } else {
+            return ATOM_MAX_CHARS_ERROR;
+        }
     }
+
+    tlen = len;
 
     switch (enc) {
     case ERTS_ATOM_ENC_7BIT_ASCII:
@@ -279,7 +284,7 @@ erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 		return ATOM_MAX_CHARS_ERROR;
 	}
 	no_latin1_chars = tlen;
-	latin1_to_utf8(utf8_copy, &text, &tlen);
+	latin1_to_utf8(utf8_copy, sizeof(utf8_copy), &text, &tlen);
 	break;
     case ERTS_ATOM_ENC_UTF8:
 	/* First sanity check; need to verify later */
@@ -340,7 +345,7 @@ erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
  * erts_atom_put() may fail. If it fails THE_NON_VALUE is returned!
  */
 Eterm
-erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+erts_atom_put(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 {
     int aix = erts_atom_put_index(name, len, enc, trunc);
     if (aix >= 0)
@@ -350,7 +355,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 }
 
 Eterm
-am_atom_put(const char* name, int len)
+am_atom_put(const char* name, Sint len)
 {
     /* Assumes 7-bit ascii; use erts_atom_put() for other encodings... */
     return erts_atom_put((byte *) name, len, ERTS_ATOM_ENC_7BIT_ASCII, 1);
@@ -359,72 +364,94 @@ am_atom_put(const char* name, int len)
 int atom_table_size(void)
 {
     int ret;
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     ret = erts_atom_table.entries;
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
     return ret;
 }
 
 int atom_table_sz(void)
 {
     int ret;
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     ret = index_table_sz(&erts_atom_table);
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
     return ret;
 }
 
 int
-erts_atom_get(const char *name, int len, Eterm* ap, ErtsAtomEncoding enc)
+erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     Atom a;
     int i;
     int res;
 
-    a.len = (Sint16) len;
-    a.name = (byte *)name;
-    if (enc == ERTS_ATOM_ENC_LATIN1) {
-	latin1_to_utf8(utf8_copy, (const byte**)&a.name, &len);
-	a.len = (Sint16) len;
+    switch (enc) {
+    case ERTS_ATOM_ENC_LATIN1:
+        if (len > MAX_ATOM_CHARACTERS) {
+            return 0;
+        }
+
+        latin1_to_utf8(utf8_copy, sizeof(utf8_copy), (const byte**)&name, &len);
+
+        a.name = (byte*)name;
+        a.len = (Sint16)len;
+        break;
+    case ERTS_ATOM_ENC_7BIT_ASCII:
+        if (len > MAX_ATOM_CHARACTERS) {
+            return 0;
+        }
+
+        for (i = 0; i < len; i++) {
+            if (name[i] & 0x80) {
+                return 0;
+            }
+        }
+
+        a.len = (Sint16)len;
+        a.name = (byte*)name;
+        break;
+    case ERTS_ATOM_ENC_UTF8:
+        if (len > MAX_ATOM_SZ_LIMIT) {
+            return 0;
+        }
+
+        /* We don't need to check whether the encoding is legal as all atom
+         * names are stored as UTF-8 and we know a lookup with a badly encoded
+         * name will fail. */
+
+        a.len = (Sint16)len;
+        a.name = (byte*)name;
+        break;
     }
+
     atom_read_lock();
     i = index_get(&erts_atom_table, (void*) &a);
     res = i < 0 ? 0 : (*ap = make_atom(i), 1);
     atom_read_unlock();
+
     return res;
 }
 
 void
 erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
 {
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     if (reserved)
 	*reserved = reserved_atom_space;
     if (used)
 	*used = atom_space;
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
 }
 
 void
@@ -433,16 +460,16 @@ init_atom_table(void)
     HashFunctions f;
     int i;
     Atom a;
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 
-    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_RWMTX_LONG_LIVED;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-    erts_smp_atomic_init_nob(&atom_put_ops, 0);
+    erts_atomic_init_nob(&atom_put_ops, 0);
 #endif
 
-    erts_smp_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab", NIL,
+    erts_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     f.hash = (H_FUN) atom_hash;
@@ -466,7 +493,7 @@ init_atom_table(void)
     /* Ordinary atoms */
     for (i = 0; erl_atom_names[i] != 0; i++) {
 	int ix;
-	a.len = strlen(erl_atom_names[i]);
+	a.len = sys_strlen(erl_atom_names[i]);
 	a.latin1_chars = a.len;
 	a.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;

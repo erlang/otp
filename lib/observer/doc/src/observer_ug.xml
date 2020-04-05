@@ -105,7 +105,7 @@
     <p>Tab <em>Memory Allocators</em> displays detailed information of the carrier 
     size and current memory carriers. For details about memory carriers, 
     see module
-    <seealso marker="erts:erts_alloc"><c>erts_alloc</c></seealso>
+    <seecref marker="erts:erts_alloc"><c>erts_alloc</c></seecref>
     in application ERTS.</p>
     <p>The <c>Max Carrier size</c> column shows the maximum value seen by observer
     since the last node change or since the start of the application, i.e. switching
@@ -226,7 +226,7 @@
       <tag>Name</tag>
       <item><p>The registered name of the port, if any.</p></item>
       <tag>Controls</tag>
-      <item><p>The name of the command set by <seealso marker="erts:erlang#open_port-2"><c>erlang:open_port/2</c></seealso>.</p></item>
+      <item><p>The name of the command set by <seemfa marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>.</p></item>
       <tag>Slot</tag>
       <item><p>The internal index of the port.</p></item>
     </taglist>
@@ -245,7 +245,7 @@
       that name are then traced on all traced nodes.</p>
 
     <p>Option <em>Close</em>
-      executes <seealso marker="erts:erlang#port_close-1"><c>erlang:port_close/1</c></seealso>
+      executes <seemfa marker="erts:erlang#port_close/1"><c>erlang:port_close/1</c></seemfa>
       on the port under the mouse pointer.</p>
 
   </section>
@@ -262,8 +262,8 @@
     information, select the table and activate menu <em>View &gt;
     Table information</em>, or right-click and select option <em>Table
     info</em>.</p>
-    <p>You can use <seealso marker="stdlib:re">regular
-    expressions</seealso> and search for objects, and edit or delete them.
+    <p>You can use <seeerl marker="stdlib:re">regular
+    expressions</seeerl> and search for objects, and edit or delete them.
     </p>
   </section>
 
@@ -331,11 +331,11 @@
     <p>
       A few basic match specifications are provided in the tool, and
       you can provide your own match specifications. The syntax of match
-      specifications is described in the <seealso
-      marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>. To simplify
+      specifications is described in the <seeguide
+      marker="erts:match_spec"><c>ERTS User's Guide</c></seeguide>. To simplify
       the writing of a match specification, they can also be written as
       <c>fun/1</c>. For details, see module
-      <seealso marker="stdlib:ms_transform">ms_transform</seealso>
+      <seeerl marker="stdlib:ms_transform">ms_transform</seeerl>
       in application STDLIB.
     </p>
 
@@ -346,12 +346,12 @@
     The trace settings, including match specifications, can be saved to, 
     or loaded from, a file.
     </p>
-    <p>For details about tracing, see module <seealso
-    marker="runtime_tools:dbg">dbg</seealso> in application Runtime_Tools
+    <p>For details about tracing, see module <seeerl
+    marker="runtime_tools:dbg">dbg</seeerl> in application Runtime_Tools
     and in section "Match specifications in Erlang" in 
-    <seealso marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>
+    <seeguide marker="erts:match_spec"><c>ERTS User's Guide</c></seeguide>
     and in module
-    <seealso marker="stdlib:ms_transform"><c>ms_transform</c></seealso>
+    <seeerl marker="stdlib:ms_transform"><c>ms_transform</c></seeerl>
     in application STDLIB.
     </p>
   </section>

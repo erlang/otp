@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -126,12 +126,12 @@ default(Config) ->
 
 auto_per_tc(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ["log_private",_] = string:tokens(filename:basename(PrivDir), "."),
+    ["log_private",_] = string:lexemes(filename:basename(PrivDir), "."),
     {ok,_} = file:list_dir(PrivDir).
 
 manual_per_tc(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ["log_private",_] = string:tokens(filename:basename(PrivDir), "."),
+    ["log_private",_] = string:lexemes(filename:basename(PrivDir), "."),
     {error,_} = file:list_dir(PrivDir),
     ok = ct:make_priv_dir(),
     {ok,_} = file:list_dir(PrivDir).

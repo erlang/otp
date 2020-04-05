@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ static int mn_start_dump(int fd, const erlang_pid *self,
 	    || (arity != 2) 
 	    || ei_decode_atom(buf,&index,tmpbuf) 
 	    || strcmp(tmpbuf,"rex")
-	    || ei_get_type_internal(buf,&index,&type,&arity) 
+	    || ei_get_type(buf,&index,&type,&arity)
 	    || (type != ERL_PID_EXT))
 	  return -1; /* bad response from other side */
       

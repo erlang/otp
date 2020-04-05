@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,10 @@
 
 -behaviour(ssl_crl_cache_api).
 
+-export_type([crl_src/0, uri/0]).
+-type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
+-type uri()     :: uri_string:uri_string().
+
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
 
@@ -42,6 +46,12 @@ lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
 lookup(_,_,_) ->
     not_available.
 
+select(GenNames, CRLDbHandle) when is_list(GenNames) ->
+    lists:flatmap(fun({directoryName, Issuer}) ->
+                          select(Issuer, CRLDbHandle);
+                     (_) ->
+                          []
+                  end, GenNames);
 select(Issuer, {{_Cache, Mapping},_}) ->
     case ssl_pkix_db:lookup(Issuer, Mapping) of
 	undefined ->
@@ -92,8 +102,8 @@ delete({der, CRLs}) ->
     ssl_manager:delete_crls({?NO_DIST_POINT, CRLs});
 
 delete(URI) ->
-    case http_uri:parse(URI) of
-	{ok, {http, _, _ , _, Path,_}} -> 
+    case uri_string:normalize(URI, [return_map]) of
+	#{scheme := "http", path := Path} ->
 	    ssl_manager:delete_crls(string:trim(Path, leading, "/"));
 	_ ->
 	    {error, {only_http_distribution_points_supported, URI}}
@@ -103,8 +113,8 @@ delete(URI) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 do_insert(URI, CRLs) ->
-    case http_uri:parse(URI) of
-	{ok, {http, _, _ , _, Path,_}} -> 
+    case uri_string:normalize(URI, [return_map]) of
+	#{scheme := "http", path := Path} ->
 	    ssl_manager:insert_crls(string:trim(Path, leading, "/"), CRLs);
 	_ ->
 	    {error, {only_http_distribution_points_supported, URI}}
@@ -161,7 +171,7 @@ http_get(URL, Rest, CRLDbInfo, Timeout) ->
 cache_lookup(_, undefined) ->
     [];
 cache_lookup(URL, {{Cache, _}, _}) ->
-    {ok, {_, _, _ , _, Path,_}} = http_uri:parse(URL), 
+    #{path :=  Path} = uri_string:normalize(URL, [return_map]),
     case ssl_pkix_db:lookup(string:trim(Path, leading, "/"), Cache) of
 	undefined ->
 	    [];

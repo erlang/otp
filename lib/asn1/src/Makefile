@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -190,7 +190,8 @@ asn1rtt_%.$(EMULATOR): asn1rtt_%.erl
 	$(V_ERLC) +debug_info $<
 
 $(EVAL_CT_MODULES:%=%.erl): prepare_templates.$(EMULATOR) \
-			    $(EBIN)/asn1ct_rtt.$(EMULATOR)
+			    $(EBIN)/asn1ct_rtt.$(EMULATOR) \
+			    $(EBIN)/asn1ct_func.$(EMULATOR) \
 
 #
 # Dependencies

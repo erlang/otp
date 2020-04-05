@@ -26,7 +26,7 @@ library module {@link prettypr}: this is a powerful and flexible generic
 pretty printing library, which is also distributed separately.
 
 For a short demonstration of parsing and pretty-printing, simply
-compile the included module <a href="../examples/demo.erl">`demo.erl'</a>,
+compile the included module <a href="demo.erl">`demo.erl'</a>,
 and execute `demo:run()' from the Erlang shell. It will compile the
 remaining modules and give you further instructions.
 

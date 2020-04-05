@@ -87,7 +87,8 @@ traverse(Tree, Out, State, CurrentFun) ->
 	true ->
 	  %% Op is a variable and should not be marked as escaping
 	  %% based on its use.
-	  OpFuns = case map__lookup(cerl_trees:get_label(Op), Out) of
+          OpLabel = cerl_trees:get_label(Op),
+	  OpFuns = case map__lookup(OpLabel, Out) of
 		     none -> output(none);
 		     {value, OF} -> OF
 		   end,
@@ -96,7 +97,13 @@ traverse(Tree, Out, State, CurrentFun) ->
 	  State4 = state__add_deps(CurrentFun, OpFuns, State3),
 	  State5 = state__store_callsite(cerl_trees:get_label(Tree),
 					 OpFuns, length(Args), State4),
-	  {output(set__singleton(external)), State5}
+          case state__get_rvals(OpLabel, State5) of
+            1 ->
+              {output(set__singleton(external)), State5};
+            NumRvals ->
+              List = lists:duplicate(NumRvals, output(set__singleton(external))),
+              {output(List), State5}
+          end
       end;
     binary ->
       {output(none), State};
@@ -137,9 +144,12 @@ traverse(Tree, Out, State, CurrentFun) ->
       Vars = cerl:let_vars(Tree),
       Arg = cerl:let_arg(Tree),
       Body = cerl:let_body(Tree),
-      {ArgFuns, State1} = traverse(Arg, Out, State, CurrentFun),
+      OldNumRvals = state__num_rvals(State),
+      State1 = state__store_num_rvals(length(Vars), State),
+      {ArgFuns, State2} = traverse(Arg, Out, State1, CurrentFun),
       Out1 = bind_list(Vars, ArgFuns, Out),
-      traverse(Body, Out1, State1, CurrentFun);
+      State3 = state__store_num_rvals(OldNumRvals, State2),
+      traverse(Body, Out1, State3, CurrentFun);
     letrec ->
       Defs = cerl:letrec_defs(Tree),
       Body = cerl:letrec_body(Tree),
@@ -147,14 +157,15 @@ traverse(Tree, Out, State, CurrentFun) ->
 	state__add_letrecs(cerl_trees:get_label(Var), cerl_trees:get_label(Fun), Acc)
       end, State, Defs),
       Out1 = bind_defs(Defs, Out),
-      State2 = traverse_defs(Defs, Out1, State1, CurrentFun),
+      NumRvals = state__num_rvals(State1),
+      State2 = traverse_defs(Defs, Out1, State1, CurrentFun, NumRvals),
       traverse(Body, Out1, State2, CurrentFun);
     literal ->
       {output(none), State};
     module ->
       Defs = cerl:module_defs(Tree),
       Out1 = bind_defs(Defs, Out),
-      State1 = traverse_defs(Defs, Out1, State, CurrentFun),
+      State1 = traverse_defs(Defs, Out1, State, CurrentFun, 1),
       {output(none), State1};
     primop ->
       Args = cerl:primop_args(Tree),
@@ -223,14 +234,15 @@ traverse_list([Tree|Left], Out, State, CurrentFun, Acc) ->
 traverse_list([], _Out, State, _CurrentFun, Acc) ->
   {output(lists:reverse(Acc)), State}.
 
-traverse_defs([{_, Fun}|Left], Out, State, CurrentFun) ->
-  {_, State1} = traverse(Fun, Out, State, CurrentFun),
-  traverse_defs(Left, Out, State1, CurrentFun);
-traverse_defs([], _Out, State, _CurrentFun) ->
+traverse_defs([{_, Fun}|Left], Out, State, CurrentFun, NumRvals) ->
+  State1 = state__store_num_rvals(NumRvals, State),
+  {_, State2} = traverse(Fun, Out, State1, CurrentFun),
+  traverse_defs(Left, Out, State2, CurrentFun, NumRvals);
+traverse_defs([], _Out, State, _CurrentFun, _NumRvals) ->
   State.
 
 traverse_clauses(Clauses, ArgFuns, Out, State, CurrentFun) ->
-  case filter_match_fail(Clauses) of
+  case Clauses of
     [] ->
       %% Can happen for example with receives used as timouts.
       {output(none), State};
@@ -248,24 +260,6 @@ traverse_clauses([Clause|Left], ArgFuns, Out, State, CurrentFun, Acc) ->
   traverse_clauses(Left, ArgFuns, Out, State3, CurrentFun, [BodyFuns|Acc]);
 traverse_clauses([], _ArgFuns, _Out, State, _CurrentFun, Acc) ->
   {merge_outs(Acc), State}.
-
-filter_match_fail([Clause]) ->
-  Body = cerl:clause_body(Clause),
-  case cerl:type(Body) of
-    primop ->
-      case cerl:atom_val(cerl:primop_name(Body)) of
-	match_fail -> [];
-	raise -> [];
-	_ -> [Clause]
-      end;
-    _ -> [Clause]
-  end;
-filter_match_fail([H|T]) ->
-  [H|filter_match_fail(T)];
-filter_match_fail([]) ->
-  %% This can actually happen, for example in 
-  %%      receive after 1 -> ok end
-  [].
 
 remote_call(Tree, ArgFuns, State) ->  
   M = cerl:call_module(Tree),
@@ -483,12 +477,16 @@ all_vars(Tree, AccIn) ->
 %%
 
 -type local_set() :: 'none' | #set{}.
+-type rvals() :: #{label() => non_neg_integer()}.
 
 -record(state, {deps    :: deps(),
 		esc     :: local_set(), 
 		calls   :: calls(),
 		arities :: dict:dict(label() | 'top', arity()),
-		letrecs :: letrecs()}).
+		letrecs :: letrecs(),
+                num_rvals = 1 :: non_neg_integer(),
+                rvals = #{} :: rvals()
+               }).
 
 state__new(Tree) ->
   Exports = set__from_list([X || X <- cerl:module_exports(Tree)]),
@@ -526,8 +524,11 @@ state__add_deps(From, #output{type = single, content = To},
   %% io:format("Adding deps from ~w to ~w\n", [From, set__to_ordsets(To)]),
   State#state{deps = map__add(From, To, Map)}.
 
-state__add_letrecs(Var, Fun, #state{letrecs = Map} = State) ->
-  State#state{letrecs = map__store(Var, Fun, Map)}.
+state__add_letrecs(Var, Fun, #state{letrecs = Map,
+                                    num_rvals = NumRvals,
+                                    rvals = Rvals} = State) ->
+  State#state{letrecs = map__store(Var, Fun, Map),
+              rvals = Rvals#{Var => NumRvals}}.
 
 state__deps(#state{deps = Deps}) ->
   Deps.
@@ -539,6 +540,10 @@ state__add_esc(#output{content = none}, State) ->
   State;
 state__add_esc(#output{type = single, content = Set},
 	       #state{esc = Esc} = State) ->
+  State#state{esc = set__union(Set, Esc)};
+state__add_esc(#output{type = list, content = [H|T]},
+	       #state{esc = Esc} = State) ->
+  #output{type = single, content = Set} = merge_outs(T, H),
   State#state{esc = set__union(Set, Esc)}.
 
 state__esc(#state{esc = Esc}) ->
@@ -558,6 +563,19 @@ state__store_callsite(From, To, CallArity,
 
 state__calls(#state{calls = Calls}) ->
   Calls.
+
+state__store_num_rvals(NumRval, State) ->
+  State#state{num_rvals = NumRval}.
+
+state__num_rvals(#state{num_rvals = NumRvals}) ->
+  NumRvals.
+
+state__get_rvals(FunLabel, #state{rvals = Rvals}) ->
+  case Rvals of
+    #{FunLabel := NumRvals} -> NumRvals;
+    #{} -> 1
+  end.
+
 
 %%------------------------------------------------------------
 %% A test function. Not part of the intended interface.

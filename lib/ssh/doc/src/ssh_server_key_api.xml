@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
-      <year>2015</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_server_key_api</module>
+  <module since="OTP R16B">ssh_server_key_api</module>
   <modulesummary>
     -behaviour(ssh_server_key_api).
   </modulesummary>
@@ -38,17 +38,17 @@
     the callbacks defined in this behavior, the public key handling of an SSH server can
     be customized. By default the SSH application implements this behavior
     with help of the standard OpenSSH files,
-    see the <seealso marker="SSH_app"> ssh(6)</seealso> application manual.</p>
+    see the <seeapp marker="SSH_app"> ssh(6)</seeapp> application manual.</p>
   </description>
 
-  <section>
+  <!-- section>
     <title>DATA TYPES</title>
 
     <p>Type definitions that are used more than once in this module,
     or abstractions to indicate the intended use of the data
     type, or both. For more details on public key data types,
     refer to Section 2 Public Key Records in the
-    <seealso marker="public_key:public_key_records"> public_key user's guide</seealso>.
+    <seeguide marker="public_key:public_key_records"> public_key user's guide</seeguide>.
     </p>
 
     <taglist>
@@ -69,22 +69,40 @@
       | 'rsa-sha2-256' | 'rsa-sha2-384' | 'rsa-sha2-512'
       | 'ecdsa-sha2-nistp256' | 'ecdsa-sha2-nistp384' | 'ecdsa-sha2-nistp521' </c></p></item>
     </taglist>
-  </section>
+  </section -->
   
+  <datatypes>
+    <datatype>
+      <name name="daemon_key_cb_options"/>
+      <desc>
+	<p>Options provided to <seemfa marker="ssh#daemon/2">ssh:daemon/2,3</seemfa>.
+	</p>
+	<p>The option list given in the
+	<seetype marker="ssh#key_cb_common_option"><c>key_cb</c></seetype>
+	option is available with the key <c>key_cb_private</c>.
+	</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name>Module:host_key(Algorithm, DaemonOptions) ->
+      <name since="OTP R16B">Module:host_key(Algorithm, DaemonOptions) ->
       {ok, Key} | {error, Reason}</name>
       <fsummary>Fetches the host’s private key.</fsummary>
       <type>
-	<v>Algorithm = public_key_algorithm()</v>
+	<v>Algorithm = <seetype marker="ssh#pubkey_alg">ssh:pubkey_alg()</seetype></v>
 	<d>Host key algorithm.</d>
-	<v>DaemonOptions = proplists:proplist()</v>
-	<d>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>. The option list given in
-	the <c>key_cb</c> option is available with the key <c>key_cb_private</c>.</d>
-	<v>Key = private_key() | crypto:engine_key_ref()</v>
+
+	<v>DaemonOptions =  <seetype marker="#daemon_key_cb_options">daemon_key_cb_options()</seetype></v>
+
+	<v>PrivateKey = <seetype marker="public_key:public_key#private_key">public_key:private_key()</seetype>
+	   | <seetype marker="crypto:crypto#engine_key_ref">crypto:engine_key_ref()</seetype>
+	</v>
+
 	<d>Private key of the host matching the <c>Algorithm</c>.
 	It may be a reference to a 'ssh-rsa', rsa-sha2-* or 'ssh-dss' (NOT ecdsa) key stored in a loaded Engine.</d>
+
 	<v>Reason = term()</v>
       </type>
       <desc>
@@ -93,16 +111,17 @@
     </func>
 
     <func>
-      <name>Module:is_auth_key(Key, User, DaemonOptions) -> Result</name>
+      <name since="OTP R16B">Module:is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
       <fsummary>Checks if the user key is authorized.</fsummary>
       <type>
-	<v>Key = public_key()</v>
+	<v>PublicUserKey = <seetype marker="public_key:public_key#public_key">public_key:public_key()</seetype></v>
 	<d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added</d>
+
 	<v>User = string()</v>
 	<d>User owning the public key.</d>
-	<v>DaemonOptions = proplists:proplist()</v>
-	<d>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>. The option list given in
-	the <c>key_cb</c> option is available with the key <c>key_cb_private</c>.</d>
+
+	<v>DaemonOptions =  <seetype marker="#daemon_key_cb_options">daemon_key_cb_options()</seetype></v>
+
 	<v>Result = boolean()</v>
       </type>
       <desc>

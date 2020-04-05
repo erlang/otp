@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -371,23 +371,23 @@ match_name(directoryName, DirName,  [PermittedName | Rest]) ->
     match_name(fun is_rdnSeq/2, DirName, PermittedName, Rest);
 
 match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
-    case split_uri(URI) of
-	incomplete ->
-	    false;
-	{_, _, Host, _, _} ->
-	    PN = case split_uri(PermittedName) of
-		     {_, _, PNhost, _, _} -> PNhost;
+    case uri_string:normalize(URI, [return_map]) of
+	#{host := Host} ->
+	    PN = case uri_string:normalize(PermittedName, [return_map]) of
+		     #{host := PNhost} -> PNhost;
 		     _X -> PermittedName
 		 end,
-	    match_name(fun is_valid_host_or_domain/2, Host, PN, Rest)
+	    match_name(fun is_valid_host_or_domain/2, Host, PN, Rest);
+        _ ->
+            false
     end;
 
 match_name(emailAddress, Name, [PermittedName | Rest]) ->
     Fun = fun(Email, PermittedEmail) ->
-		  is_valid_email_address(Email, PermittedEmail,
-				   string:tokens(PermittedEmail,"@"))
-	  end,
-     match_name(Fun, Name, PermittedName, Rest);
+                  is_valid_email_address(Email, PermittedEmail,
+                                         string:tokens(PermittedEmail,"@"))
+          end,
+    match_name(Fun, Name, PermittedName, Rest);
 
 match_name(dNSName, Name, [PermittedName | Rest]) ->
     Fun = fun(Domain, [$.|Domain]) -> true;
@@ -868,75 +868,12 @@ is_valid_subject_alt_name({otherName, #'AnotherName'{}}) ->
 is_valid_subject_alt_name({_, _}) ->
     false.
 
-is_ip_address(Address) ->
-    case inet_parse:address(Address) of
-	{ok, _} ->
-	    true;
-	_ ->
-	    false
-    end.
-
-is_fully_qualified_name(_Name) ->
-    true.
-
 is_valid_uri(AbsURI) -> 
-    case split_uri(AbsURI) of
-	incomplete ->
-	    false;
-	{StrScheme, _, Host, _, _} ->
-	    case string:to_lower(StrScheme) of
-		Scheme when Scheme =:= "http"; Scheme =:= "ftp" ->
-		    is_valid_host(Host);
-		_ ->
-		    false
-	    end
-    end.
-
-is_valid_host(Host) ->
-    case is_ip_address(Host) of
-	true ->
-	    true;   
-	false -> 
-	    is_fully_qualified_name(Host)
-    end.
-
-%% Could have a more general split URI in stdlib? Maybe when
-%% regexs are improved. Needed also in inets!
-split_uri(Uri) ->
-    case split_uri(Uri, ":", {error, no_scheme}, 1, 1) of
-	{error, no_scheme} ->
-	    incomplete;
-	{StrScheme, "//" ++ URIPart} ->
-	    {Authority, PathQuery} = 
-		split_auth_path(URIPart),
-	    {UserInfo, HostPort} = 
-		split_uri(Authority, "@", {"", Authority}, 1, 1),
-	    {Host, Port} = 
-		split_uri(HostPort, ":", {HostPort, dummy_port}, 1, 1),
-	    {StrScheme, UserInfo, Host, Port, PathQuery}
-    end.
-
-split_auth_path(URIPart) ->
-    case split_uri(URIPart, "/", URIPart, 1, 0) of
-	Split = {_, _} ->
-	    Split;
-	URIPart ->
-	    case split_uri(URIPart, "\\?", URIPart, 1, 0) of
-		Split = {_, _} ->
-		    Split;
-		URIPart ->
-		    {URIPart,""}
-	    end
-    end.
-
-split_uri(UriPart, SplitChar, NoMatchResult, SkipLeft, SkipRight) ->
-    case re:run(UriPart, SplitChar) of
-	{match,[{Start, _}]} ->
-	    StrPos = Start + 1,
-	    {string:substr(UriPart, 1, StrPos - SkipLeft),
-	     string:substr(UriPart, StrPos + SkipRight, length(UriPart))}; 
-	nomatch ->
-	    NoMatchResult
+    case uri_string:normalize(AbsURI, [return_map]) of
+        #{scheme := _} ->
+            true;
+        _ ->
+            false
     end.
 
 is_rdnSeq({rdnSequence,[]}, {rdnSequence,[none]}) -> 
@@ -1232,7 +1169,7 @@ validity(Opts) ->
     Format =
         fun({Y,M,D}) ->
                 lists:flatten(
-                  io_lib:format("~4..0w~2..0w~2..0w000000Z",[Y,M,D]))
+                  io_lib:format("~4..0w~2..0w~2..0w130000Z",[Y,M,D]))
         end,
     #'Validity'{notBefore={generalTime, Format(DefFrom)},
 		notAfter ={generalTime, Format(DefTo)}}.
@@ -1250,6 +1187,8 @@ sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
                           parameters = Parms}.
 rsa_digest_oid(sha1) ->
     ?'sha1WithRSAEncryption';
+rsa_digest_oid(sha) ->
+    ?'sha1WithRSAEncryption';
 rsa_digest_oid(sha512) ->
     ?'sha512WithRSAEncryption';
 rsa_digest_oid(sha384) ->
@@ -1260,6 +1199,8 @@ rsa_digest_oid(md5) ->
    ?'md5WithRSAEncryption'.
 
 ecdsa_digest_oid(sha1) ->
+    ?'ecdsa-with-SHA1';
+ecdsa_digest_oid(sha) ->
     ?'ecdsa-with-SHA1';
 ecdsa_digest_oid(sha512) ->
     ?'ecdsa-with-SHA512';

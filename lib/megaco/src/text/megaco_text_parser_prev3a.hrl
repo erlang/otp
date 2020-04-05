@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,11 @@
 %%
 %%----------------------------------------------------------------------
 %% Purpose : Define semantic text parser actions
+%%
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%
 %%----------------------------------------------------------------------
 
 
@@ -28,6 +33,7 @@
 -include_lib("megaco/include/megaco_message_prev3a.hrl").
 -define(encoder_version_pre_prev3c,true).
 -include("megaco_text_tokens.hrl").
+
 
 -ifdef(megaco_parser_inline).
 -compile({inline,[{make_safe_token,1}]}).
@@ -1589,6 +1595,7 @@ ensure_uint(Token, Min, Max) ->
 -ifdef(megaco_parser_inline).
 -compile({inline,[{ensure_uint,4}]}).
 -endif.
+-dialyzer({nowarn_function, ensure_uint/4}). % Future compat
 ensure_uint(Val, Min, Max, Line) ->
     if 
 	is_integer(Min) andalso (Val >= Min) ->

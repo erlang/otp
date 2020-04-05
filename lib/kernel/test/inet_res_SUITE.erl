@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1,
-	 last_ms_answer/1]).
+	 last_ms_answer/1, intermediate_error/1]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
 	 gethostbyaddr_v6/0, gethostbyaddr_v6/1,
@@ -46,15 +46,16 @@
 %% a temporary local nameserver BIND 8 or 9 that must be installed
 %% on your machine.
 %%
-%% For example, on Ubuntu 14.04, as root:
+%% For example, on Ubuntu 16.04 / 18.04, as root:
 %%     apt-get install bind9
 %% Now, that is not enough since Apparmor will not allow
 %% the nameserver daemon /usr/sbin/named to read from the test directory.
 %% Assuming that you run tests in /ldisk/daily_build, and still on
-%% Ubuntu 14.04, make /usr/apparmor.d/local/usr.sbin.named contain:
+%% Ubuntu 14.04, make /etc/apparmor.d/local/usr.sbin.named contain:
 %%     /ldisk/daily_build/** r,
 %% And yes; the trailing comma must be there...
-
+%% And yes; create the file if it does not exist.
+%% And yes; restart the apparmor daemon using "service apparmor restart"
 
 
 suite() ->
@@ -63,7 +64,7 @@ suite() ->
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
-     last_ms_answer,
+     last_ms_answer, intermediate_error,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -90,6 +91,9 @@ zone_dir(TC) ->
 	edns0 -> otptest;
 	files_monitor -> otptest;
 	last_ms_answer -> otptest;
+        intermediate_error ->
+            {internal,
+             #{rcode => ?REFUSED}};
 	_ -> undefined
     end.
 
@@ -105,6 +109,9 @@ init_per_testcase(Func, Config) ->
 		    inet_db:ins_alt_ns(IP, Port);
 		_ -> ok
 	    end,
+            %% dbg:tracer(),
+            %% dbg:p(all, c),
+            %% dbg:tpl(inet_res, query_nss_res, cx),
 	    [{nameserver,NsSpec},{res_lookup,Lookup}|Config]
     catch
 	SkipReason ->
@@ -119,6 +126,7 @@ end_per_testcase(_Func, Config) ->
 	    inet_db:del_alt_ns(IP, Port);
 	_ -> ok
     end,
+    %% dbg:stop(),
     ns_end(NsSpec, proplists:get_value(priv_dir, Config)).
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -129,15 +137,18 @@ ns(Config) ->
     NS.
 
 ns_init(ZoneDir, PrivDir, DataDir) ->
-    case os:type() of
-	{unix,_} when ZoneDir =:= undefined -> undefined;
-	{unix,_} ->
+    case {os:type(),ZoneDir} of
+        {_,{internal,ServerSpec}} ->
+            ns_start_internal(ServerSpec);
+	{{unix,_},undefined} ->
+            undefined;
+	{{unix,_},otptest} ->
 	    PortNum = case {os:type(),os:version()} of
 			  {{unix,solaris},{M,V,_}} when M =< 5, V < 10 ->
 			      11895 + rand:uniform(100);
 			  _ ->
-			      {ok,S} = gen_udp:open(0, [{reuseaddr,true}]),
-			      {ok,PNum} = inet:port(S),
+			      S = ok(gen_udp:open(0, [{reuseaddr,true}])),
+			      PNum = ok(inet:port(S)),
 			      gen_udp:close(S),
 			      PNum
 		      end,
@@ -169,12 +180,43 @@ ns_start(ZoneDir, PrivDir, NS, P) ->
 	    ns_start(ZoneDir, PrivDir, NS, P)
     end.
 
+ns_start_internal(ServerSpec) ->
+    Parent = self(),
+    Tag = make_ref(),
+    {P,Mref} =
+        spawn_monitor(
+          fun () ->
+                  _ = process_flag(trap_exit, true),
+                  IP = {127,0,0,1},
+                  SocketOpts = [{ip,IP},binary,{active,once}],
+                  S = ok(gen_udp:open(0, SocketOpts)),
+                  Port = ok(inet:port(S)),
+                  ParentMref = monitor(process, Parent),
+                  Parent ! {Tag,{IP,Port},self()},
+                  ns_internal(ServerSpec, ParentMref, Tag, S)
+          end),
+    receive
+        {Tag,_NS,P} = NsSpec ->
+            demonitor(Mref, [flush]),
+            NsSpec;
+        {'DOWN',Mref,_,_,Reason} ->
+            exit({ns_start_internal,Reason})
+    end.
+
 ns_end(undefined, _PrivDir) -> undefined;
-ns_end({ZoneDir,_NS,P}, PrivDir) ->
+ns_end({ZoneDir,_NS,P}, PrivDir) when is_port(P) ->
     port_command(P, ["quit",io_lib:nl()]),
     ns_stop(P),
     ns_printlog(filename:join([PrivDir,ZoneDir,"named.log"])),
-    ok.
+    ok;
+ns_end({Tag,_NS,P}, _PrivDir) when is_pid(P) ->
+    Mref = erlang:monitor(process, P),
+    P ! Tag,
+    receive
+        {'DOWN',Mref,_,_,Reason} ->
+            Reason = normal,
+            ok
+    end.
 
 ns_stop(P) ->
     case ns_collect(P) of
@@ -208,6 +250,44 @@ ns_printlog(Fname) ->
     end.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Internal name server
+
+ns_internal(ServerSpec, Mref, Tag, S) ->
+    receive
+        {'DOWN',Mref,_,_,Reason} ->
+            exit(Reason);
+        Tag ->
+            ok;
+        {udp,S,IP,Port,Data} ->
+            Req = ok(inet_dns:decode(Data)),
+            Resp = ns_internal(ServerSpec, Req),
+            RespData = inet_dns:encode(Resp),
+            _ = ok(gen_udp:send(S, IP, Port, RespData)),
+            _ = ok(inet:setopts(S, [{active,once}])),
+            ns_internal(ServerSpec, Mref, Tag, S)
+    end.
+
+ns_internal(#{rcode := Rcode}, Req) ->
+    Hdr = inet_dns:msg(Req, header),
+    Opcode = inet_dns:header(Hdr, opcode),
+    Id = inet_dns:header(Hdr, id),
+    Rd = inet_dns:header(Hdr, rd),
+    %%
+    Qdlist = inet_dns:msg(Req, qdlist),
+    inet_dns:make_msg(
+       [{header,
+         inet_dns:make_header(
+           [{id,Id},
+            {qr,true},
+            {opcode,Opcode},
+            {aa,true},
+            {tc,false},
+            {rd,Rd},
+            {ra,false},
+            {rcode,Rcode}])},
+         {qdlist,Qdlist}]).
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Behaviour modifying nameserver proxy
 
 proxy_start(TC, {NS,P}) ->
@@ -217,10 +297,10 @@ proxy_start(TC, {NS,P}) ->
 	spawn_link(
 	  fun () ->
 		  try proxy_start(TC, NS, P, Parent, Tag)
-		  catch C:X ->
+		  catch C:X:Stacktrace ->
 			  io:format(
 			    "~w: ~w:~p ~p~n",
-			    [self(),C,X,erlang:get_stacktrace()])
+			    [self(),C,X,Stacktrace])
 		  end
 	  end),
     receive {started,Tag,Port} ->
@@ -531,7 +611,7 @@ edns0(Config) when is_list(Config) ->
 		    case os:version() of
 			{M,V,_} when M < 5;  M == 5, V =< 8 ->
 			    %% In our test park only known platform
-			    %% with an DNS resolver that can not do
+			    %% with an DNS resolver that cannot do
 			    %% EDNS0.
 			    {comment,"No EDNS0"}
 		    end
@@ -671,6 +751,23 @@ last_ms_answer(Config) when is_list(Config) ->
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% First name server answers ?REFUSED, second does not answer.
+%% Check that we get the error code from the first server.
+
+intermediate_error(Config) when is_list(Config) ->
+    NS = ns(Config),
+    Name = "ns.otptest",
+    IP = {127,0,0,1},
+    %% A "name server" that does not respond
+    S = ok(gen_udp:open(0, [{ip,IP},{active,false}])),
+    Port = ok(inet:port(S)),
+    NSs = [NS,{IP,Port}],
+    {error,{refused,_}} =
+        inet_res:resolve(Name, in, a, [{nameservers,NSs},verbose], 500),
+    _ = gen_udp:close(S),
+    ok.
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Compatibility tests. Call the inet_SUITE tests, but with
 %% lookup = [file,dns] instead of [native]
 
@@ -728,3 +825,8 @@ tolower([C|Cs]) when is_integer(C) ->
     end;
 tolower([]) ->
     [].
+
+-compile({inline,[ok/1]}).
+ok(ok) -> ok;
+ok({ok,X}) -> X;
+ok({error,Reason}) -> error(Reason).

@@ -71,7 +71,7 @@ do_responsecontrol(Info) ->
 
 
 %% If a client sends more then one of the if-XXXX fields in a request
-%% The standard says it does not specify the behaviuor so I specified it :-)
+%% The standard says it does not specify the behaviour so I specified it :-)
 %% The priority between the fields is
 %% 1.If-modified
 %% 2.If-Unmodified

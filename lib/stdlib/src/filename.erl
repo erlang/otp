@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 %%
 -module(filename).
 
--deprecated({find_src,1,next_major_release}).
--deprecated({find_src,2,next_major_release}).
+-deprecated([{find_src,'_',"use filelib:find_source/1,3 instead"}]).
+-deprecated([{safe_relative_path,1,"use filelib:safe_relative_path/2 instead"}]).
 
 %% Purpose: Provides generic manipulation of filenames.
 %%
@@ -34,6 +34,38 @@
 %% we flatten the arguments immediately on function entry as that makes
 %% it easier to ensure that the code works.
 
+%%
+%% *** Requirements on Raw Filename Format ***
+%%
+%% These requirements are due to the 'filename' module
+%% in stdlib. This since it is documented that it
+%% should be able to operate on raw filenames as well
+%% as ordinary filenames.
+%%
+%% A raw filename *must* be a byte sequence where:
+%% 1. Codepoints 0-127 (7-bit ascii) *must* be encoded
+%%    as a byte with the corresponding value. That is,
+%%    the most significant bit in the byte encoding the
+%%    codepoint is never set.
+%% 2. Codepoints greater than 127 *must* be encoded
+%%    with the most significant bit set in *every* byte
+%%    encoding it.
+%%
+%% Latin1 and UTF-8 meet these requirements while
+%% UTF-16 and UTF-32 don't.
+%%
+%% On Windows filenames are natively stored as malformed
+%% UTF-16LE (lonely surrogates may appear). A more correct
+%% description than UTF-16 would be an array of 16-bit
+%% words... In order to meet the requirements of the
+%% raw file format we convert the malformed UTF-16LE to
+%% malformed UTF-8 which meet the requirements.
+%%
+%% Note that these requirements are today only OTP
+%% internal (erts-stdlib internal) requirements that
+%% could be changed.
+%%
+
 -export([absname/1, absname/2, absname_join/2, 
 	 basename/1, basename/2, dirname/1,
 	 extension/1, join/1, join/2, pathtype/1,
@@ -41,6 +73,7 @@
          safe_relative_path/1]).
 -export([find_src/1, find_src/2]). % deprecated
 -export([basedir/2, basedir/3]).
+-export([validate/1]).
 
 %% Undocumented and unsupported exports.
 -export([append/2]).
@@ -979,24 +1012,33 @@ filename_string_to_binary(List) ->
 %% basedir
 %% http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
 
--type basedir_type() :: 'user_cache' | 'user_config' | 'user_data'
-                      | 'user_log'
-                      | 'site_config' | 'site_data'.
+-type basedir_path_type() :: 'user_cache' | 'user_config' | 'user_data'
+                           | 'user_log'.
+-type basedir_paths_type() :: 'site_config' | 'site_data'.
 
--spec basedir(Type,Application) -> file:filename_all() when
-      Type :: basedir_type(),
+-type basedir_opts() :: #{author => string() | binary(),
+                          os => 'windows' | 'darwin' | 'linux',
+                          version => string() | binary()}.
+
+-spec basedir(PathType,Application) -> file:filename_all() when
+      PathType :: basedir_path_type(),
+      Application :: string() | binary();
+             (PathsType,Application) -> [file:filename_all()] when
+      PathsType :: basedir_paths_type(),
       Application :: string() | binary().
 
 basedir(Type,Application) when is_atom(Type), is_list(Application) orelse
                                               is_binary(Application) ->
     basedir(Type, Application, #{}).
 
--spec basedir(Type,Application,Opts) -> file:filename_all() when
-      Type :: basedir_type(),
+-spec basedir(PathType,Application,Opts) -> file:filename_all() when
+      PathType :: basedir_path_type(),
       Application :: string() | binary(),
-      Opts :: #{author => string() | binary(),
-                os => 'windows' | 'darwin' | 'linux',
-                version => string() | binary()}.
+      Opts :: basedir_opts();
+             (PathsType,Application,Opts) -> [file:filename_all()] when
+      PathsType :: basedir_paths_type(),
+      Application :: string() | binary(),
+      Opts :: basedir_opts().
 
 basedir(Type,Application,Opts) when is_atom(Type), is_map(Opts),
                                     is_list(Application) orelse
@@ -1053,10 +1095,10 @@ basedir_linux(Type) ->
         user_log    -> getenv("XDG_CACHE_HOME", ?basedir_linux_user_log,   true);
         site_data   ->
             Base = getenv("XDG_DATA_DIRS",?basedir_linux_site_data,false),
-            string:tokens(Base,":");
+            string:lexemes(Base, ":");
         site_config ->
             Base = getenv("XDG_CONFIG_DIRS",?basedir_linux_site_config,false),
-            string:tokens(Base,":")
+            string:lexemes(Base, ":")
     end.
 
 -define(basedir_darwin_user_data,   "Library/Application Support").
@@ -1152,3 +1194,72 @@ basedir_os_type() ->
         {win32,_}     -> windows;
         _             -> linux
     end.
+
+%%
+%% validate/1
+%%
+
+-spec validate(FileName) -> boolean() when
+      FileName :: file:name_all().
+
+validate(FileName) when is_binary(FileName) ->
+    %% Raw filename...
+    validate_bin(FileName);
+validate(FileName) when is_list(FileName);
+                        is_atom(FileName) ->
+    validate_list(FileName,
+                  file:native_name_encoding(),
+                  os:type()).
+
+validate_list(FileName, Enc, Os) ->
+    try
+        true = validate_list(FileName, Enc, Os, 0) > 0
+    catch
+        _ : _ -> false
+    end.
+
+validate_list([], _Enc, _Os, Chars) ->
+    Chars;
+validate_list(C, Enc, Os, Chars) when is_integer(C) ->
+    validate_char(C, Enc, Os),
+    Chars+1;
+validate_list(A, Enc, Os, Chars) when is_atom(A) ->
+    validate_list(atom_to_list(A), Enc, Os, Chars);
+validate_list([H|T], Enc, Os, Chars) ->
+    NewChars = validate_list(H, Enc, Os, Chars),
+    validate_list(T, Enc, Os, NewChars).
+
+%% C is always an integer...
+% validate_char(C, _, _) when not is_integer(C) ->
+%     throw(invalid);
+validate_char(C, _, _) when C < 1 ->
+    throw(invalid); %% No negative or null characters...
+validate_char(C, latin1, _) when C > 255 ->
+    throw(invalid);
+validate_char(C, utf8, _) when C >= 16#110000 ->
+    throw(invalid);
+validate_char(C, utf8, {win32, _}) when C > 16#ffff ->
+    throw(invalid); %% invalid win wchar...
+validate_char(_C, utf8, {win32, _}) ->
+    ok; %% Range below is accepted on windows...
+validate_char(C, utf8, _) when 16#D800 =< C, C =< 16#DFFF ->
+    throw(invalid); %% invalid unicode range...
+validate_char(_, _, _) ->
+    ok.
+
+validate_bin(Bin) ->
+    %% Raw filename. That is, we do not interpret
+    %% the encoding, but we still do not accept
+    %% null characters...
+    try
+        true = validate_bin(Bin, 0) > 0
+    catch
+        _ : _ -> false
+    end.
+
+validate_bin(<<>>, Bs) ->
+    Bs;
+validate_bin(<<0, _Rest/binary>>, _Bs) ->
+    throw(invalid); %% No null characters allowed...
+validate_bin(<<_B, Rest/binary>>, Bs) ->
+    validate_bin(Rest, Bs+1).

@@ -45,12 +45,12 @@
       <fsummary>Compile MIBs</fsummary>
       <desc>
         <p><c><![CDATA[snmpc]]></c> compile a SNMP MIB file, 
-	see <seealso marker="snmpc#compile">compile/1,2</seealso> for 
+	see <seeerl marker="snmpc#compile">compile/1,2</seeerl> for 
 	more info. </p>
 	<p>It can also be used to generate a header file (.hrl) 
 	with definitions of Erlang constants for the objects in 
 	the MIB, see 
-	<seealso marker="snmpc#mib_to_hrl">mib_to_hrl/1</seealso>. </p>
+	<seeerl marker="snmpc#mib_to_hrl">mib_to_hrl/1</seeerl>. </p>
 
 	<marker id="options"></marker>
       </desc>
@@ -214,9 +214,9 @@
 
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="erts:erlc">erlc(1)</seealso>,
-    <seealso marker="compiler:compile">compile(3)</seealso>,
-    <seealso marker="snmp:snmpc">snmpc(3)</seealso></p>
+    <p><seecom marker="erts:erlc">erlc(1)</seecom>,
+    <seeerl marker="compiler:compile">compile(3)</seeerl>,
+    <seeerl marker="snmp:snmpc">snmpc(3)</seeerl></p>
   </section>
 </comref>
 

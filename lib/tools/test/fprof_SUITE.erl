@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
          imm_tail_seq/1, imm_create_file_slow/1, imm_compile/1,
-         cpu_create_file_slow/1, unicode/1]).
+         cpu_create_file_slow/1, unicode/1, parsify_maps/1]).
 
 %% Other exports
 -export([create_file_slow/2]).
@@ -51,7 +51,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,60}}].
+     {timetrap,{seconds,240}}].
 
 all() -> 
     case test_server:is_native(fprof_SUITE) of
@@ -59,7 +59,7 @@ all() ->
         false ->
             [stack_seq, tail_seq, create_file_slow, spawn_simple,
              imm_tail_seq, imm_create_file_slow, imm_compile,
-             cpu_create_file_slow, unicode]
+             cpu_create_file_slow, unicode, parsify_maps]
     end.
 
 
@@ -544,6 +544,35 @@ unicode(Config) when is_list(Config) ->
     ok = fprof:profile(dump, AnalysisFile),
     ok = fprof:analyse(dest, AnalysisFile).
 
+parsify_maps(Config) when is_list(Config) ->
+    Pid = self(),
+    Ref = make_ref(),
+    Port = hd(erlang:ports()),
+    Fun = fun () -> ok end,
+    M = #{pid => Pid, Pid => pid,
+          ref => Ref, Ref => ref,
+          port => Port, Port => port,
+          a_fun => Fun, Fun => a_fun},
+    io:format("M = ~p~n", [M]),
+    L = [{tuple, M}, M, #{my_map => M, M => my_map}],
+    PL = fprof:parsify(L),
+    [{tuple, PM}, PM, PMap] = PL,
+    #{my_map := PM, PM := my_map} = PMap,
+    io:format("PM = ~p~n", [PM]),
+    LPid = pid_to_list(Pid),
+    LRef = ref_to_list(Ref),
+    LPort = port_to_list(Port),
+    LFun = erlang:fun_to_list(Fun),
+    LPid = maps:get(pid, PM),
+    pid = maps:get(LPid, PM),
+    LRef = maps:get(ref, PM),
+    ref = maps:get(LRef, PM),
+    LPort = maps:get(port, PM),
+    port = maps:get(LPort, PM),
+    LFun = maps:get(a_fun, PM),
+    a_fun = maps:get(LFun, PM),
+    ok.
+
 %%%---------------------------------------------------------------------
 %%% Functions to test
 %%%---------------------------------------------------------------------
@@ -571,7 +600,7 @@ seq_r(Start, Stop, Succ, R) ->
 
 create_file_slow(Name, N) when is_integer(N), N >= 0 ->
     {ok, FD} = 
-    file:open(Name, [raw, write, delayed_write, binary]),
+    file:open(Name, [raw, write, binary]),
     if N > 256 ->
            ok = file:write(FD,
                            lists:map(fun (X) -> <<X:32/unsigned>> end,

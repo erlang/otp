@@ -1,7 +1,7 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,29 +19,37 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "7.1.4"},
+  {vsn, "7.5.3"},
   {modules, [
 	     beam_a,
 	     beam_asm,
 	     beam_block,
-	     beam_bs,
-	     beam_bsm,
+             beam_call_types,
 	     beam_clean,
-	     beam_dead,
 	     beam_dict,
+	     beam_digraph,
 	     beam_disasm,
-	     beam_except,
 	     beam_flatten,
 	     beam_jump,
+             beam_kernel_to_ssa,
 	     beam_listing,
 	     beam_opcodes,
 	     beam_peep,
-	     beam_receive,
-	     beam_reorder,
-	     beam_record,
-	     beam_split,
+             beam_ssa,
+             beam_ssa_bool,
+             beam_ssa_bsm,
+             beam_ssa_codegen,
+             beam_ssa_dead,
+             beam_ssa_funs,
+             beam_ssa_lint,
+             beam_ssa_opt,
+             beam_ssa_pp,
+             beam_ssa_pre_codegen,
+             beam_ssa_recv,
+             beam_ssa_share,
+             beam_ssa_type,
 	     beam_trim,
-	     beam_type,
+             beam_types,
 	     beam_utils,
 	     beam_validator,
 	     beam_z,
@@ -58,20 +66,19 @@
 	     core_lib,
 	     erl_bifs,
 	     rec_env,
+	     sys_core_alias,
 	     sys_core_bsm,
-	     sys_core_dsetel,
 	     sys_core_fold,
 	     sys_core_fold_lists,
 	     sys_core_inline,
+	     sys_core_prepare,
 	     sys_pre_attributes,
-	     v3_codegen,
 	     v3_core,
 	     v3_kernel,
-	     v3_kernel_pp,
-	     v3_life
+	     v3_kernel_pp
 	    ]},
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-2.5","kernel-4.0","hipe-3.12","erts-9.0",
+  {runtime_dependencies, ["stdlib-@OTP-15251@","kernel-@OTP-15251@","hipe-3.12","erts-@OTP-15251@",
 			  "crypto-3.6"]}]}.

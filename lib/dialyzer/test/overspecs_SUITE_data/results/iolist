@@ -1,0 +1,2 @@
+
+iolist.erl:7: The success typing for iolist:encode/2 implies that the function might also return integer() but the specification return is maybe_improper_list(binary() | maybe_improper_list(any(),binary() | []) | byte(),binary() | [])

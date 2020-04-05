@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -146,7 +146,7 @@ t_float_to_string(Config) when is_list(Config) ->
 				     123456789012345678.0, [{decimals, 237}])),
     {'EXIT', {badarg, _}} = (catch float_to_binary(
 				     123456789012345678.0, [{decimals, 237}])),
-    test_fts("1." ++ string:copies("0", 249) ++ "e+00",
+    test_fts("1." ++ lists:duplicate(249, $0) ++ "e+00",
 	     1.0,  [{scientific, 249}, compact]),
 
     X1 = float_to_list(1.0),
@@ -161,6 +161,7 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.000",1.0,   [{decimals,   3}]),
     test_fts("1.0",1.0, [{decimals, 1}]),
     test_fts("1.0",1.0, [{decimals, 3}, compact]),
+    test_fts("10",10.0, [{decimals, 0}, compact]),
     test_fts("1.12",1.123, [{decimals, 2}]),
     test_fts("1.123",1.123, [{decimals, 3}]),
     test_fts("1.123",1.123, [{decimals, 3}, compact]),
@@ -213,6 +214,20 @@ fts_rand_float_decimals(N) ->
     [begin
          F0 = rand_float_reasonable(),
          L0 = float_to_list(F0, [{decimals, D}]),
+         case conform_with_io_lib_format_os(F0,D) of
+             false -> ok;
+             true ->
+                 IOL = lists:flatten(io_lib:format("~.*f", [D, F0])),
+                 true = case L0 =:= IOL of
+                            true -> true;
+                            false ->
+                                io:format("F0 = ~w ~w\n",  [F0, <<F0/float>>]),
+                                io:format("decimals = ~w\n",  [D]),
+                                io:format("float_to_list = ~s\n",  [L0]),
+                                io:format("io_lib:format = ~s\n",  [IOL]),
+                                false
+                        end
+         end,
          L1 = case D of
                   0 -> L0 ++ ".0";
                   _ -> L0
@@ -233,6 +248,26 @@ fts_rand_float_decimals(N) ->
      || D <- lists:seq(0,15)],
 
     fts_rand_float_decimals(N-1).
+
+conform_with_io_lib_format_os(F, D) ->
+    case os:type() of
+        {win32,_} ->
+            %% io_lib:format("~.*f") buggy on windows? OTP-15010
+            false;
+        _ ->
+            conform_with_io_lib_format(F, D)
+    end.
+
+conform_with_io_lib_format(_, 0) ->
+    %% io_lib:format("~.*f") does not support zero decimals
+    false;
+conform_with_io_lib_format(_, D) when D > 10 ->
+    %% Seems float_to_list gets it slightly wrong sometimes for many decimals
+    false;
+conform_with_io_lib_format(F, D) ->
+    %% io_lib:format prints '0' for input bits beyond mantissa precision
+    %% float_to_list treats those unknown input bits as if they were zeros.
+    math:log2(abs(F) * math:pow(10,D)) < 54.
 
 max_diff_decimals(F, D) ->
     IntBits = floor(math:log2(abs(F))) + 1,
@@ -469,6 +504,10 @@ t_integer_to_string(Config) when is_list(Config) ->
     test_its("A", 10, 16),
     test_its("D4BE", 54462, 16),
     test_its("-D4BE", -54462, 16),
+    test_its("FFFFFFFFFF", 1099511627775, 16),
+    test_its("123456789ABCDEF123456789ABCDEF123456789ABCDEF",
+             108977460683796539709587792812439445667270661579197935,
+             16),
 
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
@@ -480,12 +519,14 @@ t_integer_to_string(Config) when is_list(Config) ->
     ok.
 
 test_its(List,Int) ->
-    Int = list_to_integer(List),
-    Int = binary_to_integer(list_to_binary(List)).
+    List = integer_to_list(Int),
+    Binary = list_to_binary(List),
+    Binary = integer_to_binary(Int).
 
 test_its(List,Int,Base) ->
-    Int = list_to_integer(List, Base),
-    Int = binary_to_integer(list_to_binary(List), Base).
+    List = integer_to_list(Int, Base),
+    Binary = list_to_binary(List),
+    Binary = integer_to_binary(Int, Base).
 
 %% Tests binary_to_integer/1.
 

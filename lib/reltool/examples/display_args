@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
-%%! -emuarg emuvalue
+%%! -emu_type opt -emuarg emuvalue
 
 main(Args) ->
     {ok,[Emuvalue]} = init:get_argument(emuarg),

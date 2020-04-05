@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -356,14 +356,23 @@ save_scenario(AlcList) ->
     process_flag(priority, OP),
     Res.
     
-save_ai2(Alc, AI) ->
-    Alc1 = chk_sbct(Alc, AI),
-    case ai_value(mbcs, blocks_size, AI) of
-	{blocks_size, MinBS, _, MaxBS} ->
-	    set_alloc_util(chk_mbcs_blocks_size(Alc1, MinBS, MaxBS), true);
-	_ ->
-	    set_alloc_util(Alc, false)
-    end.
+save_ai2(#alloc{name=Name}=Alc0, AI) ->
+    Alc1 = chk_sbct(Alc0, AI),
+
+    {Alc, IsAUtil} =
+        case ai_value(mbcs, blocks, AI) of
+            {blocks, Bs} ->
+                case ai_value(Name, size, Bs) of
+                    {size, MinBS, _, MaxBS} ->
+                        {chk_mbcs_blocks_size(Alc1, MinBS, MaxBS), true};
+                    _ ->
+                        {Alc1, false}
+                end;
+            _ ->
+                {Alc1, false}
+        end,
+
+    set_alloc_util(Alc, IsAUtil).
 
 save_ai(Alc, [{instance, 0, AI}]) ->
     save_ai2(Alc, AI);
@@ -627,7 +636,7 @@ format_header(FTO) ->
 	[Y, Mo, D, H, Mi, S]),
     fcp(FTO,
 	"~s was used when generating the configuration.",
-	[string:strip(erlang:system_info(system_version), both, $\n)]),
+	[string:trim(erlang:system_info(system_version), both, "$\n")]),
     case erlang:system_info(schedulers) of
 	1 -> ok;
 	Schdlrs ->
@@ -704,28 +713,32 @@ fc(IODev, Frmt, Args) ->
     fc(IODev, lists:flatten(io_lib:format(Frmt, Args))).
 
 fc(IODev, String) ->
-    fc_aux(IODev, string:tokens(String, " "), 0).
+    fc_aux(IODev, string:lexemes(String, " "), 0).
 
 fc_aux(_IODev, [], 0) ->
     ok;
 fc_aux(IODev, [], _Len) ->
     format(IODev, "~n");
 fc_aux(IODev, [T|Ts], 0) ->
-    Len = 2 + length(T),
+    Len = 2 + string:length(T),
     format(IODev, "# ~s", [T]),
     fc_aux(IODev, Ts, Len);
-fc_aux(IODev, [T|_Ts] = ATs, Len) when (length(T) + Len) >= ?PRINT_WITDH ->
-    format(IODev, "~n"),
-    fc_aux(IODev, ATs, 0);
-fc_aux(IODev, [T|Ts], Len) ->
-    NewLen = Len + 1 + length(T),
-    format(IODev, " ~s", [T]),
-    fc_aux(IODev, Ts, NewLen).
+fc_aux(IODev, [T|Ts] = ATs, Len) ->
+    TLength = string:length(T),
+    case (TLength + Len) >= ?PRINT_WITDH of
+        true ->
+            format(IODev, "~n"),
+            fc_aux(IODev, ATs, 0);
+        false ->
+            NewLen = Len + 1 + TLength,
+            format(IODev, " ~s", [T]),
+            fc_aux(IODev, Ts, NewLen)
+    end.
 
 %% fcl: format comment line
 fcl(FTO) ->
     EndStr = "# ",
-    Precision = length(EndStr),
+    Precision = string:length(EndStr),
     FieldWidth = -1*(?PRINT_WITDH),
     format(FTO, "~*.*.*s~n", [FieldWidth, Precision, $-, EndStr]).
 
@@ -733,6 +746,6 @@ fcl(FTO, A) when is_atom(A) ->
     fcl(FTO, atom_to_list(A));
 fcl(FTO, Str) when is_list(Str) ->
     Str2 = "# --- " ++ Str ++ " ",
-    Precision = length(Str2),
+    Precision = string:length(Str2),
     FieldWidth = -1*(?PRINT_WITDH),
     format(FTO, "~*.*.*s~n", [FieldWidth, Precision, $-, Str2]).

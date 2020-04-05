@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "erl_map.h"
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
+#include "erl_proc_sig_queue.h"
 
 #define PTR_FMT "%bpX"
 #define ETERM_FMT "%beX"
@@ -57,6 +58,7 @@ static void dump_externally(fmtfn_t to, void *to_arg, Eterm term);
 static void mark_literal(Eterm* ptr);
 static void init_literal_areas(void);
 static void dump_literals(fmtfn_t to, void *to_arg);
+static void dump_persistent_terms(fmtfn_t to, void *to_arg);
 static void dump_module_literals(fmtfn_t to, void *to_arg,
                                  ErtsLiteralArea* lit_area);
 
@@ -73,11 +75,12 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
 
     all_binaries = NULL;
     init_literal_areas();
+    erts_init_persistent_dumping();
 
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
-	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
+	    erts_aint32_t state = erts_atomic32_read_acqb(&p->state);
 	    if (state & ERTS_PSFLG_EXITING)
                 continue;
             if (state & ERTS_PSFLG_GC) {
@@ -92,76 +95,142 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
        }
     }
 
+    dump_persistent_terms(to, to_arg);
     dump_literals(to, to_arg);
     dump_binaries(to, to_arg, all_binaries);
 }
 
-Uint erts_process_memory(Process *p, int incl_msg_inq) {
-  ErtsMessage *mp;
-  Uint size = 0;
-  struct saved_calls *scb;
-  size += sizeof(Process);
+static int
+monitor_size(ErtsMonitor *mon, void *vsize, Sint reds)
+{
+    *((Uint *) vsize) += erts_monitor_size(mon);
+    return 1;
+}
 
-  if (incl_msg_inq)
-      ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+static int
+link_size(ErtsMonitor *lnk, void *vsize, Sint reds)
+{
+    *((Uint *) vsize) += erts_link_size(lnk);
+    return 1;
+}
 
-  erts_doforall_links(ERTS_P_LINKS(p), &erts_one_link_size, &size);
-  erts_doforall_monitors(ERTS_P_MONITORS(p), &erts_one_mon_size, &size);
-  size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
-  if (p->abandoned_heap)
-      size += (p->hend - p->heap) * sizeof(Eterm);
-  if (p->old_hend && p->old_heap)
-    size += (p->old_hend - p->old_heap) * sizeof(Eterm);
+Uint erts_process_memory(Process *p, int include_sigs_in_transit)
+{
+    Uint size = 0;
+    struct saved_calls *scb;
 
+    size += sizeof(Process);
 
-  size += p->msg.len * sizeof(ErtsMessage);
+    if ((erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING) == 0) {
+        erts_link_tree_foreach(ERTS_P_LINKS(p),
+                               link_size, (void *) &size);
+        erts_monitor_tree_foreach(ERTS_P_MONITORS(p),
+                                  monitor_size, (void *) &size);
+        erts_monitor_list_foreach(ERTS_P_LT_MONITORS(p),
+                                  monitor_size, (void *) &size);
+    }
+    size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
+    if (p->abandoned_heap)
+        size += (p->hend - p->heap) * sizeof(Eterm);
+    if (p->old_hend && p->old_heap)
+        size += (p->old_hend - p->old_heap) * sizeof(Eterm);
 
-  for (mp = p->msg.first; mp; mp = mp->next)
-    if (mp->data.attached)
-      size += erts_msg_attached_data_size(mp)*sizeof(Eterm);
+    if (!include_sigs_in_transit) {
+        /*
+         * Size of message queue!
+         *
+         * Note that this assumes that any part of message
+         * queue located in middle queue have been moved
+         * into the inner queue prior to this call.
+         * process_info() management ensures this is done-
+         */
+        ErtsMessage *mp;
+        for (mp = p->sig_qs.first; mp; mp = mp->next) {
+            ASSERT(ERTS_SIG_IS_MSG((ErtsSignal *) mp));
+            size += sizeof(ErtsMessage);
+            if (mp->data.attached)
+                size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
+        }
+    }
+    else {
+        /*
+         * Size of message queue plus size of all signals
+         * in transit to the process!
+         */
+        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_fetch(p);
+        erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
 
-  if (p->arg_reg != p->def_arg_reg) {
-    size += p->arity * sizeof(p->arg_reg[0]);
-  }
+        ERTS_FOREACH_SIG_PRIVQS(
+            p, mp,
+            {
+                size += sizeof(ErtsMessage);
+                if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
+                    size += erts_proc_sig_signal_size((ErtsSignal *) mp);
+                else if (mp->data.attached)
+                    size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
+            });
+    }
 
-  if (erts_smp_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
-    size += sizeof(ErtsPSD);
+    if (p->arg_reg != p->def_arg_reg) {
+        size += p->arity * sizeof(p->arg_reg[0]);
+    }
 
-  scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
-  if (scb) {
-    size += (sizeof(struct saved_calls)
-	     + (scb->len-1) * sizeof(scb->ct[0]));
-  }
+    if (erts_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
+        size += sizeof(ErtsPSD);
 
-  size += erts_dicts_mem_size(p);
-  return size;
+    scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
+    if (scb) {
+        size += (sizeof(struct saved_calls)
+                 + (scb->len-1) * sizeof(scb->ct[0]));
+    }
+
+    size += erts_dicts_mem_size(p);
+    return size;
+}
+
+static ERTS_INLINE void
+dump_msg(fmtfn_t to, void *to_arg, ErtsMessage *mp)
+{
+    if (ERTS_SIG_IS_MSG((ErtsSignal *) mp)) {
+        Eterm mesg;
+        if (ERTS_SIG_IS_INTERNAL_MSG(mp))
+            dump_element(to, to_arg, ERL_MESSAGE_TERM(mp));
+        else
+            dump_dist_ext(to, to_arg, erts_get_dist_ext(mp->data.heap_frag));
+        mesg = ERL_MESSAGE_TOKEN(mp);
+        erts_print(to, to_arg, ":");
+        dump_element(to, to_arg, mesg);
+        erts_print(to, to_arg, "\n");
+    }
+}
+
+static ERTS_INLINE void
+heap_dump_msg(fmtfn_t to, void *to_arg, ErtsMessage *mp)
+{
+    if (ERTS_SIG_IS_MSG((ErtsSignal *) mp)) {
+        Eterm mesg = ERL_MESSAGE_TERM(mp);
+        if (is_value(mesg))
+            heap_dump(to, to_arg, mesg);
+        mesg = ERL_MESSAGE_TOKEN(mp);
+        heap_dump(to, to_arg, mesg);
+    }
 }
 
 static void
 dump_process_info(fmtfn_t to, void *to_arg, Process *p)
 {
     Eterm* sp;
-    ErtsMessage* mp;
     int yreg = -1;
 
     if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE)
         return;
 
-    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+    erts_proc_sig_fetch(p);
 
-    if (p->msg.first) {
+    if (p->sig_qs.first || p->sig_qs.cont) {
 	erts_print(to, to_arg, "=proc_messages:%T\n", p->common.id);
-	for (mp = p->msg.first; mp != NULL; mp = mp->next) {
-	    Eterm mesg = ERL_MESSAGE_TERM(mp);
-	    if (is_value(mesg))
-		dump_element(to, to_arg, mesg);
-	    else
-		dump_dist_ext(to, to_arg, mp->data.dist_ext);
-	    mesg = ERL_MESSAGE_TOKEN(mp);
-	    erts_print(to, to_arg, ":");
-	    dump_element(to, to_arg, mesg);
-	    erts_print(to, to_arg, "\n");
-	}
+        ERTS_FOREACH_SIG_PRIVQS(p, mp, dump_msg(to, to_arg, mp));
     }
 
     if (p->dictionary) {
@@ -183,13 +252,10 @@ dump_process_info(fmtfn_t to, void *to_arg, Process *p)
             heap_dump(to, to_arg, term);
         }
     }
-    for (mp = p->msg.first; mp != NULL; mp = mp->next) {
-        Eterm mesg = ERL_MESSAGE_TERM(mp);
-        if (is_value(mesg))
-            heap_dump(to, to_arg, mesg);
-        mesg = ERL_MESSAGE_TOKEN(mp);
-        heap_dump(to, to_arg, mesg);
-    }
+
+    if (p->sig_qs.first || p->sig_qs.cont)
+        ERTS_FOREACH_SIG_PRIVQS(p, mp, heap_dump_msg(to, to_arg, mp));
+
     if (p->dictionary) {
         erts_deep_dictionary_dump(to, to_arg, p->dictionary, heap_dump);
     }
@@ -203,6 +269,7 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
     else {
 	byte *e;
 	size_t sz;
+        int i;
 
 	if (!(edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB))
 	    erts_print(to, to_arg, "D0:");
@@ -212,8 +279,8 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
 	    for (i = 0; i < edep->attab.size; i++)
 		dump_element(to, to_arg, edep->attab.atom[i]);
 	}
-	sz = edep->ext_endp - edep->extp;
-	e = edep->extp;
+	sz = edep->data->ext_endp - edep->data->extp;
+	e = edep->data->extp;
 	if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR) {
 	    ASSERT(*e != VERSION_MAGIC);
 	    sz++;
@@ -224,15 +291,19 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
 	erts_print(to, to_arg, "E%X:", sz);
         if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR) {
             byte sbuf[3];
-            int i = 0;
+
+            i = 0;
 
             sbuf[i++] = VERSION_MAGIC;
-            while (i < sizeof(sbuf) && e < edep->ext_endp) {
+            while (i < sizeof(sbuf) && e < edep->data->ext_endp) {
                 sbuf[i++] = *e++;
             }
             erts_print_base64(to, to_arg, sbuf, i);
         }
-        erts_print_base64(to, to_arg, e, edep->ext_endp - e);
+        erts_print_base64(to, to_arg, e, edep->data->ext_endp - e);
+        for (i = 1; i < edep->data->frag_id; i++)
+            erts_print_base64(to, to_arg, edep->data[i].extp,
+                              edep->data[i].ext_endp - edep->data[i].extp);
     }
 }
 
@@ -716,6 +787,9 @@ init_literal_areas(void)
     qsort(lit_areas, num_lit_areas, sizeof(ErtsLiteralArea *),
           compare_areas);
 
+    qsort(erts_persistent_areas, erts_num_persistent_areas,
+          sizeof(ErtsLiteralArea *), compare_areas);
+
     erts_runlock_old_code(code_ix);
 }
 
@@ -737,6 +811,13 @@ static void mark_literal(Eterm* ptr)
 
     ap = bsearch(ptr, lit_areas, num_lit_areas, sizeof(ErtsLiteralArea*),
                  search_areas);
+    if (ap == 0) {
+        ap = bsearch(ptr, erts_persistent_areas,
+                     erts_num_persistent_areas,
+                     sizeof(ErtsLiteralArea*),
+                     search_areas);
+    }
+
 
     /*
      * If the literal was created by native code, this search will not
@@ -748,12 +829,12 @@ static void mark_literal(Eterm* ptr)
     }
 }
 
-
 static void
 dump_literals(fmtfn_t to, void *to_arg)
 {
     ErtsCodeIndex code_ix;
     int i;
+    Uint idx;
 
     code_ix = erts_active_code_ix();
     erts_rlock_old_code(code_ix);
@@ -766,6 +847,28 @@ dump_literals(fmtfn_t to, void *to_arg)
     }
 
     erts_runlock_old_code(code_ix);
+
+    for (idx = 0; idx < erts_num_persistent_areas; idx++) {
+        dump_module_literals(to, to_arg, erts_persistent_areas[idx]);
+    }
+}
+
+static void
+dump_persistent_terms(fmtfn_t to, void *to_arg)
+{
+    Uint idx;
+
+    erts_print(to, to_arg, "=persistent_terms\n");
+
+    for (idx = 0; idx < erts_num_persistent_areas; idx++) {
+        ErtsLiteralArea* ap = erts_persistent_areas[idx];
+        Eterm tuple = make_tuple(ap->start);
+        Eterm* tup_val = tuple_val(tuple);
+
+	dump_element(to, to_arg, tup_val[1]);
+        erts_putc(to, to_arg, '|');
+	dump_element_nl(to, to_arg, tup_val[2]);
+    }
 }
 
 static void
@@ -904,9 +1007,17 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                     }
                     erts_putc(to, to_arg, '\n');
                 }
+            } else {
+                /* Dump everything else in the external format */
+                dump_externally(to, to_arg, term);
+                erts_putc(to, to_arg, '\n');
             }
             size = 1 + header_arity(w);
             switch (w & _HEADER_SUBTAG_MASK) {
+            case FUN_SUBTAG:
+                ASSERT(((ErlFunThing*)(htop))->num_free == 0);
+                size += 1;
+                break;
             case MAP_SUBTAG:
                 if (is_flatmap_header(w)) {
                     size += 1 + flatmap_get_size(htop);
@@ -997,8 +1108,8 @@ erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg) 
                 erts_print(to, to_arg, "FREE"); break;
             case ERTS_PSFLG_EXITING:
                 erts_print(to, to_arg, "EXITING"); break;
-            case ERTS_PSFLG_PENDING_EXIT:
-                erts_print(to, to_arg, "PENDING_EXIT"); break;
+            case ERTS_PSFLG_UNUSED:
+                erts_print(to, to_arg, "UNUSED"); break;
             case ERTS_PSFLG_ACTIVE:
                 erts_print(to, to_arg, "ACTIVE"); break;
             case ERTS_PSFLG_IN_RUNQ:
@@ -1009,10 +1120,10 @@ erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg) 
                 erts_print(to, to_arg, "SUSPENDED"); break;
             case ERTS_PSFLG_GC:
                 erts_print(to, to_arg, "GC"); break;
-            case ERTS_PSFLG_BOUND:
-                erts_print(to, to_arg, "BOUND"); break;
-            case ERTS_PSFLG_TRAP_EXIT:
-                erts_print(to, to_arg, "TRAP_EXIT"); break;
+            case ERTS_PSFLG_SYS_TASKS:
+                erts_print(to, to_arg, "SYS_TASKS"); break;
+            case ERTS_PSFLG_SIG_IN_Q:
+                erts_print(to, to_arg, "SIG_IN_Q"); break;
             case ERTS_PSFLG_ACTIVE_SYS:
                 erts_print(to, to_arg, "ACTIVE_SYS"); break;
             case ERTS_PSFLG_RUNNING_SYS:
@@ -1023,8 +1134,8 @@ erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg) 
                 erts_print(to, to_arg, "DELAYED_SYS"); break;
             case ERTS_PSFLG_OFF_HEAP_MSGQ:
                 erts_print(to, to_arg, "OFF_HEAP_MSGQ"); break;
-            case ERTS_PSFLG_ON_HEAP_MSGQ:
-                erts_print(to, to_arg, "ON_HEAP_MSGQ"); break;
+            case ERTS_PSFLG_SIG_Q:
+                erts_print(to, to_arg, "SIG_Q"); break;
             case ERTS_PSFLG_DIRTY_CPU_PROC:
                 erts_print(to, to_arg, "DIRTY_CPU_PROC"); break;
             case ERTS_PSFLG_DIRTY_IO_PROC:

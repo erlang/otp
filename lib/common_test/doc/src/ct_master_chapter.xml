@@ -52,7 +52,7 @@
       log files written by each independent <c>Common Test</c> server.</p>
 
     <p>The <c>Common Test</c> Master API is exported by module 
-    <seealso marker="ct_master"><c>ct_master</c></seealso>.</p>
+    <seeerl marker="ct_master"><c>ct_master</c></seeerl>.</p>
   </section>
   <section>
     <title>Use</title>
@@ -62,8 +62,8 @@
       able to start test sessions on them.</p>
       
     <p>Tests are started by calling 
-     <seealso marker="ct_master#run-1"><c>ct_master:run(TestSpecs)</c></seealso> or 
-     <seealso marker="ct_master#run-3"><c>ct_master:run(TestSpecs, InclNodes, ExclNodes)</c></seealso></p>
+     <seemfa marker="ct_master#run/1"><c>ct_master:run(TestSpecs)</c></seemfa> or 
+     <seemfa marker="ct_master#run/3"><c>ct_master:run(TestSpecs, InclNodes, ExclNodes)</c></seemfa></p>
     
     <p><c>TestSpecs</c> is either the name of a test specification file (string) or a list 
       of test specifications. If it is a list, the specifications are handled (and
@@ -101,21 +101,21 @@
       does not attempt to re-establish contact with the failing node.</p>
 
       <p>At any time, to get the current status of the test nodes, call function 
-      <seealso marker="ct_master#progress-0"><c>ct_master:progress()</c></seealso>.</p>
+      <seemfa marker="ct_master#progress/0"><c>ct_master:progress()</c></seemfa>.</p>
 
       <p>To stop one or more tests, use function
-      <seealso marker="ct_master#abort-0"><c>ct_master:abort()</c></seealso> (to stop all) or
-      <seealso marker="ct_master#abort-1"><c>ct_master:abort(Nodes)</c></seealso>.</p>
+      <seemfa marker="ct_master#abort/0"><c>ct_master:abort()</c></seemfa> (to stop all) or
+      <seemfa marker="ct_master#abort/1"><c>ct_master:abort(Nodes)</c></seemfa>.</p>
 
       <p>For details about the <c>Common Test</c> Master API, see module
-      <seealso marker="ct_master"><c>ct_master</c></seealso>.</p>
+      <seeerl marker="ct_master"><c>ct_master</c></seeerl>.</p>
   </section>
   <section>
     <marker id="test_specifications"></marker>
     <title>Test Specifications</title>
     <p>The test specifications used as input to <c>Common Test</c> Master are fully compatible with the
     specifications used as input to the regular <c>Common Test</c> server. The syntax is described in section 
-    <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+    <seeguide marker="run_test_chapter#test_specifications">Test Specifications</seeguide>
     in section Running Tests and Analyzing Results.</p>
 
     <p>All test specification terms can have a <c>NodeRefs</c> element. This element
@@ -140,7 +140,7 @@
     the log directory or install an event handler).</p>
 
     <p>Consider the example in section 
-    <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+    <seeguide marker="run_test_chapter#test_specifications">Test Specifications</seeguide>
     in section Running Tests and Analysing Results,
      now extended with node information and intended to be executed by
     <c>Common Test</c> Master:</p>
@@ -192,7 +192,7 @@
     <p>A nice feature is that a test specification that includes node 
       information can still be used as input to the regular <c>Common Test</c> server 
       (as described in section
-    <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>). 
+    <seeguide marker="run_test_chapter#test_specifications">Test Specifications</seeguide>). 
     The result is that any test specified to run on a node with the same
     name as the <c>Common Test</c> node in question (typically <c>ct@somehost</c> if started
     with the <c>ct_run</c> program), is performed. Tests without explicit
@@ -222,7 +222,7 @@
       host <c>host2</c>. Also, function <c>module:function/0</c> is evaluated on
       <c>node1@host3</c>, and the result of this call is printed to the log.</p>
 
-    <p>The default callback module <seealso marker="ct_slave">ct_slave</seealso>,
+    <p>The default callback module <seeerl marker="ct_slave">ct_slave</seeerl>,
        has the following features:
     </p>
     <list type="bulleted">

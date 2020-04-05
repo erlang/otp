@@ -1,0 +1,17 @@
+%% -*- erlang -*-
+{incl_mods,[error_logger,
+            logger,
+            logger_backend,
+            logger_config,
+            logger_disk_log_h,
+            logger_filters,
+            logger_formatter,
+            logger_handler_watcher,
+            logger_h_common,
+            logger_olp,
+            logger_proxy,
+            logger_server,
+            logger_simple_h,
+            logger_std_h,
+            logger_sup]}.
+

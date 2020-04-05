@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,6 @@
 #ifndef _ERL_UNIX_UDS_H
 #define _ERL_UNIX_UDS_H
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
-#if defined(__sun__) && !defined(_XOPEN_SOURCE)
-#define _XOPEN_SOURCE 500
-#endif
-
-#include <limits.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/uio.h>
 
 #if defined IOV_MAX
@@ -42,8 +30,6 @@
 #else
 #define MAXIOV 16
 #endif
-
-#include "sys.h"
 
 int sys_uds_readv(int fd, struct iovec *iov, size_t iov_len,
                   int *fds, int fd_count, int flags);

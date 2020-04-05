@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,81 +29,82 @@
 
 %% The record definitions appear alphabetically
 
--record(c_alias, {anno=[], var,		% var :: Tree,
-		  pat}).		% pat :: Tree
+-record(c_alias, {anno=[] :: list(), var :: cerl:cerl(),
+		  pat :: cerl:cerl()}).
 
--record(c_apply, {anno=[], op,		% op :: Tree,
-		  args}).		% args :: [Tree]
+-record(c_apply, {anno=[] :: list(), op :: cerl:cerl(),
+		  args :: [cerl:cerl()]}).
 
--record(c_binary, {anno=[], segments :: [cerl:c_bitstr()]}).
+-record(c_binary, {anno=[] :: list(), segments :: [cerl:c_bitstr()]}).
 
--record(c_bitstr, {anno=[], val,        % val :: Tree,
-		   size,		% size :: Tree,
-		   unit,		% unit :: Tree,
-		   type,		% type :: Tree,
-		   flags}).		% flags :: Tree
+-record(c_bitstr, {anno=[] :: list(), val :: cerl:cerl(),
+		   size :: cerl:cerl(),
+		   unit :: cerl:cerl(),
+		   type :: cerl:cerl(),
+		   flags :: cerl:cerl()}).
 
--record(c_call, {anno=[], module,	% module :: Tree,
-		 name,			% name :: Tree,
-		 args}).		% args :: [Tree]
+-record(c_call, {anno=[] :: list(), module :: cerl:cerl(),
+		 name :: cerl:cerl(),
+		 args :: [cerl:cerl()]}).
 
--record(c_case, {anno=[], arg,		% arg :: Tree,
-		 clauses}).		% clauses :: [Tree]
+-record(c_case, {anno=[] :: list(), arg :: cerl:cerl(),
+		 clauses :: [cerl:cerl()]}).
 
--record(c_catch, {anno=[], body}).	% body :: Tree
+-record(c_catch, {anno=[] :: list(), body :: cerl:cerl()}).
 
--record(c_clause, {anno=[], pats,	% pats :: [Tree],
-		   guard,		% guard :: Tree,
-		   body}).		% body :: Tree
+-record(c_clause, {anno=[] :: list(), pats :: [cerl:cerl()],
+		   guard :: cerl:cerl(),
+		   body :: cerl:cerl() | any()}). % TODO
 
--record(c_cons, {anno=[], hd,		% hd :: Tree,
-		 tl}).			% tl :: Tree
+-record(c_cons, {anno=[] :: list(), hd :: cerl:cerl(),
+		 tl :: cerl:cerl()}).
 
--record(c_fun, {anno=[], vars,		% vars :: [Tree],
-		body}).			% body :: Tree
+-record(c_fun, {anno=[] :: list(), vars :: [cerl:cerl()],
+		body :: cerl:cerl()}).
 
--record(c_let, {anno=[], vars,		% vars :: [Tree],
-		arg,			% arg :: Tree,
-		body}).			% body :: Tree
+-record(c_let, {anno=[] :: list(), vars :: [cerl:cerl()],
+		arg :: cerl:cerl(),
+		body :: cerl:cerl()}).
 
--record(c_letrec, {anno=[], defs,	% defs :: [#c_def{}],
-		   body}).		% body :: Tree
+-record(c_letrec, {anno=[] :: list(),
+                   defs :: [{cerl:cerl(), cerl:cerl()}],
+		   body :: cerl:cerl()}).
 
--record(c_literal, {anno=[], val}).	% val :: literal()
+-record(c_literal, {anno=[] :: list(), val :: any()}).
 
--record(c_map, {anno=[],
+-record(c_map, {anno=[] :: list(),
 		arg=#c_literal{val=#{}} :: cerl:c_var() | cerl:c_literal(),
 		es :: [cerl:c_map_pair()],
 		is_pat=false :: boolean()}).
 
--record(c_map_pair, {anno=[],
+-record(c_map_pair, {anno=[] :: list(),
 	             op :: #c_literal{val::'assoc'} | #c_literal{val::'exact'},
-		     key,
-		     val}).
+		     key :: any(),              % TODO
+		     val :: any()}).            % TODO
 
--record(c_module, {anno=[], name,	% name :: Tree,
-		   exports,		% exports :: [Tree],
-		   attrs,		% attrs :: [#c_def{}],
-		   defs}).		% defs :: [#c_def{}]
+-record(c_module, {anno=[] :: list(), name :: cerl:cerl(),
+		   exports :: [cerl:cerl()],
+		   attrs :: [{cerl:cerl(), cerl:cerl()}],
+		   defs :: [{cerl:cerl(), cerl:cerl()}]}).
 
--record(c_primop, {anno=[], name,	% name :: Tree,
-		   args}).		% args :: [Tree]
+-record(c_primop, {anno=[] :: list(), name :: cerl:cerl(),
+		   args :: [cerl:cerl()]}).
 
--record(c_receive, {anno=[], clauses,	% clauses :: [Tree],
-		    timeout,		% timeout :: Tree,
-		    action}).		% action :: Tree
+-record(c_receive, {anno=[] :: list(), clauses :: [cerl:cerl()],
+		    timeout :: cerl:cerl(),
+		    action :: cerl:cerl()}).
 
--record(c_seq, {anno=[], arg,		% arg :: Tree,
-		body}).			% body :: Tree
+-record(c_seq, {anno=[] :: list(), arg :: cerl:cerl() | any(), % TODO
+		body :: cerl:cerl()}).
 
--record(c_try, {anno=[], arg,		% arg :: Tree,
-		vars,			% vars :: [Tree],
-		body,			% body :: Tree
-		evars,			% evars :: [Tree],
-		handler}).		% handler :: Tree
+-record(c_try, {anno=[] :: list(), arg :: cerl:cerl(),
+		vars :: [cerl:cerl()],
+		body :: cerl:cerl(),
+		evars :: [cerl:cerl()],
+		handler :: cerl:cerl()}).
 
--record(c_tuple, {anno=[], es}).	% es :: [Tree]
+-record(c_tuple, {anno=[] :: list(), es :: [cerl:cerl()]}).
 
--record(c_values, {anno=[], es}).	% es :: [Tree]
+-record(c_values, {anno=[] :: list(), es :: [cerl:cerl()]}).
 
--record(c_var, {anno=[], name :: cerl:var_name()}).
+-record(c_var, {anno=[] :: list(), name :: cerl:var_name()}).

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2016</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -34,11 +34,11 @@
     <rev>A</rev>
     <file>alarm_handler.sgml.t1</file>
   </header>
-  <module>alarm_handler</module>
+  <module since="">alarm_handler</module>
   <modulesummary>An Alarm Handling Process</modulesummary>
   <description>
     <p>The alarm handler process is a 
-      <seealso marker="stdlib:gen_event"><c>gen_event</c></seealso> 
+      <seeerl marker="stdlib:gen_event"><c>gen_event</c></seeerl> 
       event manager process that receives alarms in the system. 
       This process is not intended to be a complete alarm handler. 
       It defines a place to which alarms can be sent. One simple event 
@@ -71,17 +71,17 @@
     </taglist>
     <p>The default simple handler is called <c>alarm_handler</c> and
       it can be exchanged by calling 
-      <seealso marker="stdlib:gen_event#swap_handler/3"><c>gen_event:swap_handler/3</c></seealso>
+      <seemfa marker="stdlib:gen_event#swap_handler/3"><c>gen_event:swap_handler/3</c></seemfa>
       as <c>gen_event:swap_handler(alarm_handler, {alarm_handler, swap},
       {NewHandler, Args})</c>. <c>NewHandler:init({Args, {alarm_handler,
       Alarms}})</c> is called. For more details, see
-      <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>
+      <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>
       in STDLIB.</p>
   </description>
 
   <funcs>
     <func>
-      <name>clear_alarm(AlarmId) -> void()</name>
+      <name since="">clear_alarm(AlarmId) -> void()</name>
       <fsummary>Clears the specified alarms.</fsummary>
       <type>
         <v>AlarmId = term()</v>
@@ -94,7 +94,7 @@
     </func>
 
     <func>
-      <name>get_alarms() -> [alarm()]</name>
+      <name since="">get_alarms() -> [alarm()]</name>
       <fsummary>Gets all active alarms.</fsummary>
       <desc>
         <p>Returns a list of all active alarms. This function can only
@@ -103,7 +103,7 @@
     </func>
 
     <func>
-      <name>set_alarm(alarm())</name>
+      <name since="">set_alarm(alarm())</name>
       <fsummary>Sets an alarm with an id.</fsummary>
       <type>
         <v>alarm() = {AlarmId, AlarmDescription}</v>
@@ -121,8 +121,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel:error_logger"><c>error_logger(3)</c></seealso>,
-      <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso></p>
+    <p><seeerl marker="kernel:error_logger"><c>error_logger(3)</c></seeerl>,
+      <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl></p>
   </section>
 </erlref>
 

@@ -233,6 +233,7 @@ foreach my $a (@a_order) {
 $a_no--;
 
 print DST "\n#define ERTS_ALC_A_MAX ($a_no)\n";
+print DST "\n#define ERTS_ALC_A_COUNT (ERTS_ALC_A_MAX - ERTS_ALC_A_MIN + 1)\n";
 
 # Print class numbers -----------------------------------------------------
 
@@ -254,6 +255,7 @@ foreach my $c (sort keys(%c_tab)) {
 }
 $c_no--;
 print DST "\n#define ERTS_ALC_C_MAX ($c_no)\n";
+print DST "\n#define ERTS_ALC_C_COUNT (ERTS_ALC_C_MAX - ERTS_ALC_C_MIN + 1)\n";
 
 # Print type number intervals ---------------------------------------------
 
@@ -291,6 +293,7 @@ foreach my $a (@a_order) {
 }
 $t_no--;
 print DST "#define ERTS_ALC_N_MAX ($t_no)\n";
+print DST "\n#define ERTS_ALC_N_COUNT (ERTS_ALC_N_MAX - ERTS_ALC_N_MIN + 1)\n";
 
 # Print multi thread use of allocators -------------------------------------
 

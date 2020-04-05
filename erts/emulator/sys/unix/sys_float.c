@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@ erts_sys_init_float(void)
 
 #else  /* !NO_FPE_SIGNALS */
 
-#ifdef ERTS_SMP
 static erts_tsd_key_t fpe_key;
 
 /* once-only initialisation early in the main thread (via erts_sys_init_float()) */
@@ -61,11 +60,6 @@ static ERTS_INLINE volatile unsigned long *erts_thread_get_fp_exception(void)
 {
     return (volatile unsigned long*)erts_tsd_get(fpe_key);
 }
-#else /* !SMP */
-#define erts_init_fp_exception()	/*empty*/
-static volatile unsigned long fp_exception;
-#define erts_thread_get_fp_exception()	(&fp_exception)
-#endif /* SMP */
 
 volatile unsigned long *erts_get_current_fp_exception(void)
 {
@@ -659,11 +653,9 @@ void erts_sys_init_float(void)
 
 void erts_thread_init_float(void)
 {
-#ifdef ERTS_SMP
     /* This allows Erlang schedulers to leave Erlang-process context
        and still have working FP exceptions. XXX: is this needed? */
     erts_thread_init_fp_exception();
-#endif
 
 #ifndef NO_FPE_SIGNALS
     /* NOTE:

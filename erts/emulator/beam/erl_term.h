@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,9 +55,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #if defined(ARCH_64)
 #  define TAG_PTR_MASK__	0x7
 #  if !defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
-#    ifdef HIPE
-#      error Hipe on 64-bit needs a real mmap as it does not support the literal tag
-#    endif
 #    define TAG_LITERAL_PTR	0x4
 #  else
 #    undef TAG_LITERAL_PTR
@@ -270,7 +267,6 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define is_byte(x)	(((x) & ((~(Uint)0 << (_TAG_IMMED1_SIZE+8)) + _TAG_IMMED1_MASK)) == _TAG_IMMED1_SMALL)
 #define is_valid_bit_size(x) (((Sint)(x)) >= 0 && ((x) & 0x7F) == _TAG_IMMED1_SMALL)
 #define is_not_valid_bit_size(x) (!is_valid_bit_size((x)))
-#define MY_IS_SSMALL(x) (((Uint) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
 #define _unchecked_unsigned_val(x)	((x) >> _TAG_IMMED1_SIZE)
 _ET_DECLARE_CHECKED(Uint,unsigned_val,Eterm)
 #define unsigned_val(x)	_ET_APPLY(unsigned_val,(x))
@@ -317,7 +313,8 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define MAX_ARITYVAL            ((((Uint)1) << 24) - 1)
 #define ERTS_MAX_TUPLE_SIZE     MAX_ARITYVAL
 
-#define make_arityval(sz)	_make_header((sz),_TAG_HEADER_ARITYVAL)
+#define make_arityval(sz)	(ASSERT((sz) <= MAX_ARITYVAL), \
+                                 _make_header((sz),_TAG_HEADER_ARITYVAL))
 #define is_arity_value(x)	(((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL)
 #define is_sane_arity_value(x)	((((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL) && \
 				 (((x) >> _HEADER_ARITY_OFFS) <= MAX_ARITYVAL))
@@ -348,6 +345,9 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
  *
  * To help find code which makes unwarranted assumptions about zero,
  * we now use a non-zero bit-pattern in debug mode.
+ *
+ * In order to be able to differentiata against values, the non-value
+ * needs to be tagged as a header of some sort.
  */
 #if ET_DEBUG
 # ifdef HIPE
@@ -358,7 +358,7 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
 #  define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
 # endif
 #else
-#define THE_NON_VALUE	(0)
+#define THE_NON_VALUE	(TAG_PRIMARY_HEADER)
 #endif
 #define is_non_value(x)	((x) == THE_NON_VALUE)
 #define is_value(x)	((x) != THE_NON_VALUE)
@@ -863,7 +863,7 @@ do {									\
   ((ErtsMRefThing *) (Hp))->mb = (Binp);				\
   ((ErtsMRefThing *) (Hp))->next = (Ohp)->first;			\
   (Ohp)->first = (struct erl_off_heap_header*) (Hp);			\
-  ASSERT(erts_is_ref_numbers_magic(&(Binp)->refn));			\
+  ASSERT(erts_is_ref_numbers_magic((Binp)->refn));			\
 } while (0)
 
 #endif /* ARCH_32 */
@@ -1183,6 +1183,54 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define is_map_header(x)       (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_MAP)
 #define is_map(x)              (is_boxed((x)) && is_map_header(*boxed_val(x)))
 #define is_not_map(x)          (!is_map(x))
+
+#define MAP_HEADER(hp, sz, keys)                \
+    ((hp)[0] = MAP_HEADER_FLATMAP,              \
+     (hp)[1] = sz,                              \
+     (hp)[2] = keys)
+
+#define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + 1)
+
+#define MAP0_SZ MAP_SZ(0)
+#define MAP1_SZ MAP_SZ(1)
+#define MAP2_SZ MAP_SZ(2)
+#define MAP3_SZ MAP_SZ(3)
+#define MAP4_SZ MAP_SZ(4)
+#define MAP5_SZ MAP_SZ(5)
+#define MAP0(hp)                                                \
+    (MAP_HEADER(hp, 0, TUPLE0(hp+MAP_HEADER_FLATMAP_SZ)),       \
+     make_flatmap(hp))
+#define MAP1(hp, k1, v1)                                                \
+    (MAP_HEADER(hp, 1, TUPLE1(hp+1+MAP_HEADER_FLATMAP_SZ, k1)),         \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     make_flatmap(hp))
+#define MAP2(hp, k1, v1, k2, v2)                                        \
+    (MAP_HEADER(hp, 2, TUPLE2(hp+2+MAP_HEADER_FLATMAP_SZ, k1, k2)),     \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
+     make_flatmap(hp))
+#define MAP3(hp, k1, v1, k2, v2, k3, v3)                \
+    (MAP_HEADER(hp, 3, TUPLE3(hp+3+MAP_HEADER_FLATMAP_SZ, k1, k2, k3)), \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
+     make_flatmap(hp))
+#define MAP4(hp, k1, v1, k2, v2, k3, v3, k4, v4)                \
+    (MAP_HEADER(hp, 4, TUPLE4(hp+4+MAP_HEADER_FLATMAP_SZ, k1, k2, k3, k4)), \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+3] = v4,                                \
+     make_flatmap(hp))
+#define MAP5(hp, k1, v1, k2, v2, k3, v3, k4, v4, k5, v5)                \
+    (MAP_HEADER(hp, 5, TUPLE5(hp+5+MAP_HEADER_FLATMAP_SZ, k1, k2, k3, k4, k5)), \
+     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+3] = v4,                                \
+     (hp)[MAP_HEADER_FLATMAP_SZ+4] = v5,                                \
+     make_flatmap(hp))
+
 
 /* number tests */
 

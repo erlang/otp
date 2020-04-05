@@ -37,11 +37,6 @@ typedef struct gen_op_entry {
 
 extern const GenOpEntry gen_opc[];
 
-extern BeamInstr beam_debug_apply[];
-extern BeamInstr* em_call_error_handler;
-extern BeamInstr* em_apply_bif;
-extern BeamInstr* em_call_nif;
-
 struct ErtsLiteralArea_;
 
 /*
@@ -111,11 +106,7 @@ typedef struct beam_code_header {
 
 }BeamCodeHeader;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-#  define BEAM_NIF_MIN_FUNC_SZ 4
-#else
-#  define BEAM_NIF_MIN_FUNC_SZ 3
-#endif
+#  define BEAM_NATIVE_MIN_FUNC_SZ 4
 
 void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
 int erts_is_module_native(BeamCodeHeader* code);

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,12 +32,12 @@
     <rev>A</rev>
     <file>string.xml</file>
   </header>
-  <module>string</module>
+  <module since="">string</module>
   <modulesummary>String processing functions.</modulesummary>
   <description>
     <p>This module provides functions for string processing.</p>
-    <p>A string in this module is represented by <seealso marker="unicode#type-chardata">
-    <c>unicode:chardata()</c></seealso>, that is, a list of codepoints,
+    <p>A string in this module is represented by <seetype marker="unicode#chardata">
+    <c>unicode:chardata()</c></seetype>, that is, a list of codepoints,
     binaries with UTF-8-encoded codepoints
     (<em>UTF-8 binaries</em>), or a mix of the two.</p>
     <code>
@@ -66,11 +66,11 @@
       Grapheme clusters for codepoints of class <c>prepend</c>
       and non-modern (or decomposed) Hangul is not handled for performance
       reasons in
-      <seealso marker="#find/3"><c>find/3</c></seealso>,
-      <seealso marker="#replace/3"><c>replace/3</c></seealso>,
-      <seealso marker="#split/2"><c>split/2</c></seealso>,
-      <seealso marker="#lexemes/2"><c>split/2</c></seealso> and
-      <seealso marker="#trim/3"><c>trim/3</c></seealso>.
+      <seemfa marker="#find/3"><c>find/3</c></seemfa>,
+      <seemfa marker="#replace/3"><c>replace/3</c></seemfa>,
+      <seemfa marker="#split/2"><c>split/2</c></seemfa>,
+      <seemfa marker="#lexemes/2"><c>split/2</c></seemfa> and
+      <seemfa marker="#trim/3"><c>trim/3</c></seemfa>.
     </p>
     <p>
       Splitting and appending strings is to be done on grapheme clusters
@@ -80,8 +80,8 @@
     </p>
     <p>
       Most of the functions expect all input to be normalized to one form,
-      see for example <seealso marker="unicode#characters_to_nfc_list/1">
-      <c>unicode:characters_to_nfc_list/1</c></seealso>.
+      see for example <seemfa marker="unicode#characters_to_nfc_list/1">
+      <c>unicode:characters_to_nfc_list/1</c></seemfa>.
     </p>
     <p>
       Language or locale specific handling of input is not considered
@@ -107,12 +107,12 @@
 4> string:lexemes(&lt;&lt;"foo bar">>, " ").
 [&lt;&lt;"foo">>,&lt;&lt;"bar">>]</code>
     <p>This module has been reworked in Erlang/OTP 20 to
-    handle <seealso marker="unicode#type-chardata">
-    <c>unicode:chardata()</c></seealso> and operate on grapheme
-    clusters. The <seealso marker="#oldapi"> <c>old
-    functions</c></seealso> that only work on Latin-1 lists as input
-    are still available but should not be
-    used. They will be deprecated in Erlang/OTP 21.
+    handle <seetype marker="unicode#chardata">
+    <c>unicode:chardata()</c></seetype> and operate on grapheme
+    clusters. The <seeerl marker="#oldapi"> <c>old
+    functions</c></seeerl> that only work on Latin-1 lists as input
+    are still available but should not be used, they will be
+    deprecated in a future release.
     </p>
   </description>
 
@@ -130,14 +130,14 @@
   <funcs>
 
     <func>
-      <name name="casefold" arity="1"/>
+      <name name="casefold" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to a comparable string.</fsummary>
       <desc>
         <p>
 	  Converts <c><anno>String</anno></c> to a case-agnostic
 	  comparable string. Function <c>casefold/1</c> is preferred
 	  over <c>lowercase/1</c> when two strings are to be compared
-	  for equality. See also <seealso marker="#equal/4"><c>equal/4</c></seealso>.
+	  for equality. See also <seemfa marker="#equal/4"><c>equal/4</c></seemfa>.
 	</p>
 	<p><em>Example:</em></p>
 	<pre>
@@ -147,7 +147,7 @@
     </func>
 
     <func>
-      <name name="chomp" arity="1"/>
+      <name name="chomp" arity="1" since="OTP 20.0"/>
       <fsummary>Remove trailing end of line control characters.</fsummary>
       <desc>
         <p>
@@ -164,9 +164,9 @@
     </func>
 
     <func>
-      <name name="equal" arity="2"/>
-      <name name="equal" arity="3"/>
-      <name name="equal" arity="4"/>
+      <name name="equal" arity="2" since=""/>
+      <name name="equal" arity="3" since="OTP 20.0"/>
+      <name name="equal" arity="4" since="OTP 20.0"/>
       <fsummary>Test string equality.</fsummary>
       <desc>
         <p>
@@ -175,16 +175,16 @@
 	</p>
 	<p>
 	  If <c><anno>IgnoreCase</anno></c> is <c>true</c>
-	  the function does <seealso marker="#casefold/1">
-	  <c>casefold</c>ing</seealso> on the fly before the equality test.
+	  the function does <seemfa marker="#casefold/1">
+	  <c>casefold</c>ing</seemfa> on the fly before the equality test.
 	</p>
 	<p>If <c><anno>Norm</anno></c> is not <c>none</c>
 	the function applies normalization on the fly before the equality test.
 	There are four available normalization forms:
-	<seealso marker="unicode#characters_to_nfc_list/1"> <c>nfc</c></seealso>,
-	<seealso marker="unicode#characters_to_nfd_list/1"> <c>nfd</c></seealso>,
-	<seealso marker="unicode#characters_to_nfkc_list/1"> <c>nfkc</c></seealso>, and
-	<seealso marker="unicode#characters_to_nfkd_list/1"> <c>nfkd</c></seealso>.
+	<seemfa marker="unicode#characters_to_nfc_list/1"> <c>nfc</c></seemfa>,
+	<seemfa marker="unicode#characters_to_nfd_list/1"> <c>nfd</c></seemfa>,
+	<seemfa marker="unicode#characters_to_nfkc_list/1"> <c>nfkc</c></seemfa>, and
+	<seemfa marker="unicode#characters_to_nfkd_list/1"> <c>nfkd</c></seemfa>.
 	</p>
 	<p>By default,
 	<c><anno>IgnoreCase</anno></c> is <c>false</c> and
@@ -201,8 +201,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="find" arity="2"/>
-      <name name="find" arity="3"/>
+      <name name="find" arity="2" since="OTP 20.0"/>
+      <name name="find" arity="3" since="OTP 20.0"/>
       <fsummary>Find start of substring.</fsummary>
       <desc>
         <p>
@@ -230,7 +230,7 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="is_empty" arity="1"/>
+      <name name="is_empty" arity="1" since="OTP 20.0"/>
       <fsummary>Check if the string is empty.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>String</anno></c> is the
@@ -245,7 +245,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="length" arity="1"/>
+      <name name="length" arity="1" since="OTP 20.0"/>
       <fsummary>Calculate length of the string.</fsummary>
       <desc>
         <p>
@@ -261,7 +261,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="lexemes" arity="2"/>
+      <name name="lexemes" arity="2" since="OTP 20.0"/>
       <fsummary>Split string into lexemes.</fsummary>
       <desc>
 	<p>
@@ -273,7 +273,7 @@ true</pre>
           adjacent separator graphemes clusters in <c><anno>String</anno></c>
           are treated as one. That is, there are no empty
           strings in the resulting list of lexemes.
-	  See also <seealso marker="#split/3"><c>split/3</c></seealso> which returns
+	  See also <seemfa marker="#split/3"><c>split/3</c></seemfa> which returns
 	  empty strings.
 	</p>
 	<p>Notice that <c>[$\r,$\n]</c> is one grapheme cluster.</p>
@@ -287,14 +287,14 @@ true</pre>
     </func>
 
     <func>
-      <name name="lowercase" arity="1"/>
+      <name name="lowercase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to lowercase</fsummary>
       <desc>
         <p>
 	  Converts <c><anno>String</anno></c> to lowercase.
 	</p>
 	<p>
-	  Notice that function <seealso marker="#casefold/1"><c>casefold/1</c></seealso>
+	  Notice that function <seemfa marker="#casefold/1"><c>casefold/1</c></seemfa>
 	  should be used when converting a string to
 	  be tested for equality.
 	</p>
@@ -306,7 +306,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="next_codepoint" arity="1"/>
+      <name name="next_codepoint" arity="1" since="OTP 20.0"/>
       <fsummary>Pick the first codepoint.</fsummary>
       <desc>
         <p>
@@ -323,7 +323,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="next_grapheme" arity="1"/>
+      <name name="next_grapheme" arity="1" since="OTP 20.0"/>
       <fsummary>Pick the first grapheme cluster.</fsummary>
       <desc>
         <p>
@@ -340,7 +340,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="nth_lexeme" arity="3"/>
+      <name name="nth_lexeme" arity="3" since="OTP 20.0"/>
       <fsummary>Pick the nth lexeme.</fsummary>
       <desc>
 	<p>Returns lexeme number <c><anno>N</anno></c> in
@@ -355,9 +355,9 @@ true</pre>
     </func>
 
     <func>
-      <name name="pad" arity="2"/>
-      <name name="pad" arity="3"/>
-      <name name="pad" arity="4"/>
+      <name name="pad" arity="2" since="OTP 20.0"/>
+      <name name="pad" arity="3" since="OTP 20.0"/>
+      <name name="pad" arity="4" since="OTP 20.0"/>
       <fsummary>Pad a string to given length.</fsummary>
       <desc>
         <p>
@@ -381,7 +381,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="prefix" arity="2"/>
+      <name name="prefix" arity="2" since="OTP 20.0"/>
       <fsummary>Remove prefix from string.</fsummary>
       <desc>
         <p>
@@ -400,8 +400,8 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="replace" arity="3"/>
-      <name name="replace" arity="4"/>
+      <name name="replace" arity="3" since="OTP 20.0"/>
+      <name name="replace" arity="4" since="OTP 20.0"/>
       <fsummary>Replace a pattern in string.</fsummary>
       <desc>
         <p>
@@ -423,7 +423,7 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="reverse" arity="1"/>
+      <name name="reverse" arity="1" since="OTP 20.0"/>
       <fsummary>Reverses a string</fsummary>
       <desc>
         <p>
@@ -439,8 +439,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="slice" arity="2"/>
-      <name name="slice" arity="3"/>
+      <name name="slice" arity="2" since="OTP 20.0"/>
+      <name name="slice" arity="3" since="OTP 20.0"/>
       <fsummary>Extract a part of string</fsummary>
       <desc>
 	<p>Returns a substring of <c><anno>String</anno></c> of
@@ -459,8 +459,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="split" arity="2"/>
-      <name name="split" arity="3"/>
+      <name name="split" arity="2" since="OTP 20.0"/>
+      <name name="split" arity="3" since="OTP 20.0"/>
       <fsummary>Split a string into substrings.</fsummary>
       <desc>
         <p>
@@ -482,9 +482,9 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="take" arity="2"/>
-      <name name="take" arity="3"/>
-      <name name="take" arity="4"/>
+      <name name="take" arity="2" since="OTP 20.0"/>
+      <name name="take" arity="3" since="OTP 20.0"/>
+      <name name="take" arity="4" since="OTP 20.0"/>
       <fsummary>Take leading or trailing parts.</fsummary>
       <desc>
         <p>Takes characters from <c><anno>String</anno></c> as long as
@@ -508,7 +508,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="titlecase" arity="1"/>
+      <name name="titlecase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to titlecase.</fsummary>
       <desc>
         <p>
@@ -522,7 +522,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="to_float" arity="1"/>
+      <name name="to_float" arity="1" since=""/>
       <fsummary>Return a float whose text representation is the integers
         (ASCII values) of a string.</fsummary>
       <desc>
@@ -544,7 +544,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="to_integer" arity="1"/>
+      <name name="to_integer" arity="1" since=""/>
       <fsummary>Return an integer whose text representation is the integers
         (ASCII values) of a string.</fsummary>
       <desc>
@@ -566,7 +566,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="to_graphemes" arity="1"/>
+      <name name="to_graphemes" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to a list of grapheme clusters.</fsummary>
       <desc>
         <p>
@@ -582,9 +582,9 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="trim" arity="1"/>
-      <name name="trim" arity="2"/>
-      <name name="trim" arity="3"/>
+      <name name="trim" arity="1" since="OTP 20.0"/>
+      <name name="trim" arity="2" since="OTP 20.0"/>
+      <name name="trim" arity="3" since="OTP 20.0"/>
       <fsummary>Trim leading or trailing, or both, characters.</fsummary>
       <desc>
 	<p>
@@ -594,7 +594,7 @@ ÖÄÅ</pre>
 	  or <c>both</c>, indicates from which direction characters
 	  are to be removed.
 	</p>
-	<p> Default <c><anno>Characters</anno></c> are the set of
+	<p> Default <c><anno>Characters</anno></c> is the set of
 	nonbreakable whitespace codepoints, defined as
 	Pattern_White_Space in
 	<url href="http://unicode.org/reports/tr31/">Unicode Standard Annex #31</url>.
@@ -616,13 +616,13 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="uppercase" arity="1"/>
+      <name name="uppercase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to uppercase.</fsummary>
       <desc>
         <p>
 	  Converts <c><anno>String</anno></c> to uppercase.
 	</p>
-	<p>See also <seealso marker="#titlecase/1"><c>titlecase/1</c></seealso>.</p>
+	<p>See also <seemfa marker="#titlecase/1"><c>titlecase/1</c></seemfa>.</p>
 	<p><em>Example:</em></p>
 	<pre>
 1> <input>string:uppercase("Michał").</input>
@@ -632,107 +632,108 @@ ÖÄÅ</pre>
 
   </funcs>
 
-  <section>
-    <marker id="oldapi"/>
-    <title>Obsolete API functions</title>
-    <p>Here follows the function of the old API.
-    These functions only work on a list of Latin-1 characters.
-    </p>
-    <note><p>
-      The functions are kept for backward compatibility, but are
-      not recommended.
-      They will be deprecated in Erlang/OTP 21.
-    </p>
-    <p>Any undocumented functions in <c>string</c> are not to be used.</p>
-    </note>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <marker id="oldapi"/>
+      <title>Obsolete API functions</title>
+      <p>Here follows the function of the old API.
+      These functions only work on a list of Latin-1 characters.
+      </p>
+      <note><p>
+        The functions are kept for backward compatibility, but are
+        not recommended.
+        They will be deprecated in a future release.
+      </p>
+      <p>Any undocumented functions in <c>string</c> are not to be used.</p>
+      </note>
+    </fsdescription>
     <func>
-      <name name="centre" arity="2"/>
-      <name name="centre" arity="3"/>
+      <name name="centre" arity="2" since=""/>
+      <name name="centre" arity="3" since=""/>
       <fsummary>Center a string.</fsummary>
       <desc>
         <p>Returns a string, where <c><anno>String</anno></c> is centered in the
           string and surrounded by blanks or <c><anno>Character</anno></c>.
 	  The resulting string has length <c><anno>Number</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#pad/3"><c>pad/3</c></seealso>.
+	<seemfa marker="#pad/3"><c>pad/3</c></seemfa>.
 	</p>
       </desc>
     </func>
 
     <func>
-      <name name="chars" arity="2"/>
-      <name name="chars" arity="3"/>
+      <name name="chars" arity="2" since=""/>
+      <name name="chars" arity="3" since=""/>
       <fsummary>Return a string consisting of numbers of characters.</fsummary>
       <desc>
         <p>Returns a string consisting of <c><anno>Number</anno></c> characters
           <c><anno>Character</anno></c>. Optionally, the string can end with
           string <c><anno>Tail</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="lists#duplicate/2"><c>lists:duplicate/2</c></seealso>.</p>
+	<seemfa marker="lists#duplicate/2"><c>lists:duplicate/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="chr" arity="2"/>
+      <name name="chr" arity="2" since=""/>
       <fsummary>Return the index of the first occurrence of
         a character in a string.</fsummary>
       <desc>
         <p>Returns the index of the first occurrence of
           <c><anno>Character</anno></c> in <c><anno>String</anno></c>. Returns
           <c>0</c> if <c><anno>Character</anno></c> does not occur.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#find/2"><c>find/2</c></seealso>.</p>
+	<seemfa marker="#find/2"><c>find/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="concat" arity="2"/>
+      <name name="concat" arity="2" since=""/>
       <fsummary>Concatenate two strings.</fsummary>
       <desc>
         <p>Concatenates <c><anno>String1</anno></c> and
           <c><anno>String2</anno></c> to form a new string
           <c><anno>String3</anno></c>, which is returned.</p>
 	<p>
-	  This function is <seealso marker="#oldapi">obsolete</seealso>.
+	  This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	  Use <c>[<anno>String1</anno>, <anno>String2</anno>]</c> as
 	  <c>Data</c> argument, and call
-	  <seealso marker="unicode#characters_to_list/2">
-	  <c>unicode:characters_to_list/2</c></seealso> or
-	  <seealso marker="unicode#characters_to_binary/2">
-	  <c>unicode:characters_to_binary/2</c></seealso>
+	  <seemfa marker="unicode#characters_to_list/2">
+	  <c>unicode:characters_to_list/2</c></seemfa> or
+	  <seemfa marker="unicode#characters_to_binary/2">
+	  <c>unicode:characters_to_binary/2</c></seemfa>
 	  to flatten the output.
 	</p>
       </desc>
     </func>
 
     <func>
-      <name name="copies" arity="2"/>
+      <name name="copies" arity="2" since=""/>
       <fsummary>Copy a string.</fsummary>
       <desc>
         <p>Returns a string containing <c><anno>String</anno></c> repeated
           <c><anno>Number</anno></c> times.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="lists#duplicate/2"><c>lists:duplicate/2</c></seealso>.</p>
+	<seemfa marker="lists#duplicate/2"><c>lists:duplicate/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="cspan" arity="2"/>
+      <name name="cspan" arity="2" since=""/>
       <fsummary>Span characters at start of a string.</fsummary>
       <desc>
         <p>Returns the length of the maximum initial segment of
           <c><anno>String</anno></c>, which consists entirely of characters
           not from <c><anno>Chars</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#take/3"><c>take/3</c></seealso>.</p>
+	<seemfa marker="#take/3"><c>take/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:cspan("\t    abcdef", " \t").
@@ -741,14 +742,14 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="join" arity="2"/>
+      <name name="join" arity="2" since=""/>
       <fsummary>Join a list of strings with separator.</fsummary>
       <desc>
         <p>Returns a string with the elements of <c><anno>StringList</anno></c>
           separated by the string in <c><anno>Separator</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="lists#join/2"><c>lists:join/2</c></seealso>.</p>
+	<seemfa marker="lists#join/2"><c>lists:join/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > join(["one", "two", "three"], ", ").
@@ -757,8 +758,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="left" arity="2"/>
-      <name name="left" arity="3"/>
+      <name name="left" arity="2" since=""/>
+      <name name="left" arity="3" since=""/>
       <fsummary>Adjust left end of a string.</fsummary>
       <desc>
         <p>Returns <c><anno>String</anno></c> with the length adjusted in
@@ -766,10 +767,10 @@ ÖÄÅ</pre>
           fixed. If <c>length(<anno>String</anno>)</c> &lt;
           <c><anno>Number</anno></c>, then <c><anno>String</anno></c> is padded
           with blanks or <c><anno>Character</anno></c>s.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#pad/2"><c>pad/2</c></seealso> or
-	<seealso marker="#pad/3"><c>pad/3</c></seealso>.</p>
+	<seemfa marker="#pad/2"><c>pad/2</c></seemfa> or
+	<seemfa marker="#pad/3"><c>pad/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:left("Hello",10,$.).
@@ -778,33 +779,33 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="len" arity="1"/>
+      <name name="len" arity="1" since=""/>
       <fsummary>Return the length of a string.</fsummary>
       <desc>
         <p>Returns the number of characters in <c><anno>String</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#length/1"><c>length/1</c></seealso>.</p>
+	<seemfa marker="#length/1"><c>length/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="rchr" arity="2"/>
+      <name name="rchr" arity="2" since=""/>
       <fsummary>Return the index of the last occurrence of
         a character in a string.</fsummary>
       <desc>
         <p>Returns the index of the last occurrence of
           <c><anno>Character</anno></c> in <c><anno>String</anno></c>. Returns
           <c>0</c> if <c><anno>Character</anno></c> does not occur.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#find/3"><c>find/3</c></seealso>.</p>
+	<seemfa marker="#find/3"><c>find/3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="right" arity="2"/>
-      <name name="right" arity="3"/>
+      <name name="right" arity="2" since=""/>
+      <name name="right" arity="3" since=""/>
       <fsummary>Adjust right end of a string.</fsummary>
       <desc>
         <p>Returns <c><anno>String</anno></c> with the length adjusted in
@@ -812,9 +813,9 @@ ÖÄÅ</pre>
           fixed. If the length of <c>(<anno>String</anno>)</c> &lt;
           <c><anno>Number</anno></c>, then <c><anno>String</anno></c> is padded
           with blanks or <c><anno>Character</anno></c>s.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#pad/3"><c>pad/3</c></seealso>.</p>
+	<seemfa marker="#pad/3"><c>pad/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:right("Hello", 10, $.).
@@ -823,16 +824,16 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="rstr" arity="2"/>
+      <name name="rstr" arity="2" since=""/>
       <fsummary>Find the index of a substring.</fsummary>
       <desc>
         <p>Returns the position where the last occurrence of
           <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>.
           Returns <c>0</c> if <c><anno>SubString</anno></c>
           does not exist in <c><anno>String</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#find/3"><c>find/3</c></seealso>.</p>
+	<seemfa marker="#find/3"><c>find/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:rstr(" Hello Hello World World ", "Hello World").
@@ -841,15 +842,15 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="span" arity="2"/>
+      <name name="span" arity="2" since=""/>
       <fsummary>Span characters at start of a string.</fsummary>
       <desc>
         <p>Returns the length of the maximum initial segment of
           <c><anno>String</anno></c>, which consists entirely of characters
           from <c><anno>Chars</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#take/2"><c>take/2</c></seealso>.</p>
+	<seemfa marker="#take/2"><c>take/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:span("\t    abcdef", " \t").
@@ -858,16 +859,16 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="str" arity="2"/>
+      <name name="str" arity="2" since=""/>
       <fsummary>Find the index of a substring.</fsummary>
       <desc>
         <p>Returns the position where the first occurrence of
           <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>.
           Returns <c>0</c> if <c><anno>SubString</anno></c>
           does not exist in <c><anno>String</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#find/2"><c>find/2</c></seealso>.</p>
+	<seemfa marker="#find/2"><c>find/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:str(" Hello Hello World World ", "Hello World").
@@ -876,9 +877,9 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="strip" arity="1"/>
-      <name name="strip" arity="2"/>
-      <name name="strip" arity="3"/>
+      <name name="strip" arity="1" since=""/>
+      <name name="strip" arity="2" since=""/>
+      <name name="strip" arity="3" since=""/>
       <fsummary>Strip leading or trailing characters.</fsummary>
       <desc>
         <p>Returns a string, where leading or trailing, or both, blanks or a
@@ -887,9 +888,9 @@ ÖÄÅ</pre>
           or <c>both</c>, indicates from which direction blanks are to be
           removed. <c>strip/1</c> is equivalent to
           <c>strip(String, both)</c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#trim/3"><c>trim/3</c></seealso>.</p>
+	<seemfa marker="#trim/3"><c>trim/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:strip("...Hello.....", both, $.).
@@ -898,16 +899,16 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="sub_string" arity="2"/>
-      <name name="sub_string" arity="3"/>
+      <name name="sub_string" arity="2" since=""/>
+      <name name="sub_string" arity="3" since=""/>
       <fsummary>Extract a substring.</fsummary>
       <desc>
         <p>Returns a substring of <c><anno>String</anno></c>, starting at
           position <c><anno>Start</anno></c> to the end of the string, or to
           and including position <c><anno>Stop</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#slice/3"><c>slice/3</c></seealso>.</p>
+	<seemfa marker="#slice/3"><c>slice/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 sub_string("Hello World", 4, 8).
@@ -916,16 +917,16 @@ sub_string("Hello World", 4, 8).
     </func>
 
     <func>
-      <name name="substr" arity="2"/>
-      <name name="substr" arity="3"/>
+      <name name="substr" arity="2" since=""/>
+      <name name="substr" arity="3" since=""/>
       <fsummary>Return a substring of a string.</fsummary>
       <desc>
         <p>Returns a substring of <c><anno>String</anno></c>, starting at
           position <c><anno>Start</anno></c>, and ending at the end of the
           string or at length <c><anno>Length</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#slice/3"><c>slice/3</c></seealso>.</p>
+	<seemfa marker="#slice/3"><c>slice/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > substr("Hello World", 4, 5).
@@ -934,16 +935,16 @@ sub_string("Hello World", 4, 8).
     </func>
 
     <func>
-      <name name="sub_word" arity="2"/>
-      <name name="sub_word" arity="3"/>
+      <name name="sub_word" arity="2" since=""/>
+      <name name="sub_word" arity="3" since=""/>
       <fsummary>Extract subword.</fsummary>
       <desc>
         <p>Returns the word in position <c><anno>Number</anno></c> of
           <c><anno>String</anno></c>. Words are separated by blanks or
           <c><anno>Character</anno></c>s.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#nth_lexeme/3"><c>nth_lexeme/3</c></seealso>.</p>
+	<seemfa marker="#nth_lexeme/3"><c>nth_lexeme/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > string:sub_word(" Hello old boy !",3,$o).
@@ -952,10 +953,10 @@ sub_string("Hello World", 4, 8).
     </func>
 
     <func>
-      <name name="to_lower" arity="1" clause_i="1"/>
-      <name name="to_lower" arity="1" clause_i="2"/>
-      <name name="to_upper" arity="1" clause_i="1"/>
-      <name name="to_upper" arity="1" clause_i="2"/>
+      <name name="to_lower" arity="1" clause_i="1" since=""/>
+      <name name="to_lower" arity="1" clause_i="2" since=""/>
+      <name name="to_upper" arity="1" clause_i="1" since=""/>
+      <name name="to_upper" arity="1" clause_i="2" since=""/>
       <fsummary>Convert case of string (ISO/IEC 8859-1).</fsummary>
       <type variable="String" name_i="1"/>
       <type variable="Result" name_i="1"/>
@@ -965,16 +966,16 @@ sub_string("Hello World", 4, 8).
         <p>The specified string or character is case-converted. Notice that
           the supported character set is ISO/IEC 8859-1 (also called Latin 1);
           all values outside this set are unchanged</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso> use
-	<seealso marker="#lowercase/1"><c>lowercase/1</c></seealso>,
-	<seealso marker="#uppercase/1"><c>uppercase/1</c></seealso>,
-	<seealso marker="#titlecase/1"><c>titlecase/1</c></seealso> or
-	<seealso marker="#casefold/1"><c>casefold/1</c></seealso>.</p>
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl> use
+	<seemfa marker="#lowercase/1"><c>lowercase/1</c></seemfa>,
+	<seemfa marker="#uppercase/1"><c>uppercase/1</c></seemfa>,
+	<seemfa marker="#titlecase/1"><c>titlecase/1</c></seemfa> or
+	<seemfa marker="#casefold/1"><c>casefold/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="tokens" arity="2"/>
+      <name name="tokens" arity="2" since=""/>
       <fsummary>Split string into tokens.</fsummary>
       <desc>
         <p>Returns a list of tokens in <c><anno>String</anno></c>, separated
@@ -987,22 +988,22 @@ sub_string("Hello World", 4, 8).
           adjacent separator characters in <c><anno>String</anno></c>
           are treated as one. That is, there are no empty
           strings in the resulting list of tokens.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#lexemes/2"><c>lexemes/2</c></seealso>.</p>
+	<seemfa marker="#lexemes/2"><c>lexemes/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="words" arity="1"/>
-      <name name="words" arity="2"/>
+      <name name="words" arity="1" since=""/>
+      <name name="words" arity="2" since=""/>
       <fsummary>Count blank separated words.</fsummary>
       <desc>
         <p>Returns the number of words in <c><anno>String</anno></c>, separated
           by blanks or <c><anno>Character</anno></c>.</p>
-	<p>This function is <seealso marker="#oldapi">obsolete</seealso>.
+	<p>This function is <seeerl marker="#oldapi">obsolete</seeerl>.
 	Use
-	<seealso marker="#lexemes/2"><c>lexemes/2</c></seealso>.</p>
+	<seemfa marker="#lexemes/2"><c>lexemes/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > words(" Hello old boy!", $o).

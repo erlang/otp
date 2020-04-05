@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssh_test_lib.hrl").
+
 
 all() -> [{group, messages},
 	  client_sends_info_timing,
@@ -46,23 +48,26 @@ groups() ->
     [{messages, [], [decode,
 		     decode_encode]},
      {client_server, [], [client_server_sequential,
-			  client_server_parallel,
-			  client_server_parallel_multi]}
+                          client_server_parallel
+			  %% client_server_parallel_multi
+                         ]}
     ].
 
 
 %%% First prepare Config and compile the property tests for the found tool:
 init_per_suite(Config) ->
-    ct_property_test:init_per_suite(Config).
+    ?CHECK_CRYPTO(
+       ct_property_test:init_per_suite(Config)
+      ).
 
-end_per_suite(Config) ->
-    Config.
+end_per_suite(_Config) ->
+    ok.
 
 %%% One group in this suite happens to support only QuickCheck, so skip it
 %%% if we run proper.
 init_per_group(client_server, Config) ->
     case proplists:get_value(property_test_tool,Config) of
-	eqc -> Config;
+	proper -> Config;
 	X -> {skip, lists:concat([X," is not supported"])}
     end;
 init_per_group(_, Config) ->

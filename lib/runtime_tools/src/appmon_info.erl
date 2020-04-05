@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -690,7 +690,7 @@ find_avoid() ->
 			       [P|Accu];
 			   _ -> Accu end end,
 		[undefined],
-		[application_controller, init, error_logger, gs, 
+		[application_controller, init, gs,
 		 node_serv, appmon, appmon_a, appmon_info]).
 
 

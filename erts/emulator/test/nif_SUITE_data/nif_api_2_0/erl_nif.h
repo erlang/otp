@@ -164,11 +164,7 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #else 
 #  define ERL_NIF_INIT_GLOB
 #  define ERL_NIF_INIT_BODY
-#  if defined(VXWORKS)
-#    define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* MODNAME  ## _init(void)
-#  else
 #    define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* nif_init(void)
-#  endif
 #endif
 
 

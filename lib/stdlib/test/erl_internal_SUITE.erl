@@ -80,7 +80,7 @@ callbacks(application) ->
 callbacks(gen_server) ->
     [{init,1}, {handle_call,3}, {handle_cast,2},
      {handle_info,2}, {terminate,2}, {code_change,3},
-     {format_status,2}];
+     {format_status,2}, {handle_continue, 2}];
 callbacks(gen_fsm) ->
     [{init,1}, {handle_event,3}, {handle_sync_event,4},
      {handle_info,3}, {terminate,3}, {code_change,4},
@@ -101,7 +101,7 @@ callbacks(supervisor) ->
 optional_callbacks(application) ->
     [];
 optional_callbacks(gen_server) ->
-    [{handle_info, 2}, {terminate, 2}, {code_change, 3}, {format_status, 2}];
+    [{handle_info, 2}, {handle_continue, 2}, {terminate, 2}, {code_change, 3}, {format_status, 2}];
 optional_callbacks(gen_fsm) ->
     [{handle_info, 3}, {terminate, 3}, {code_change, 4}, {format_status, 2}];
 optional_callbacks(gen_event) ->

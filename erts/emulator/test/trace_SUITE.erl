@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
          receive_trace/1, link_receive_call_correlation/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1, procs_new_trace/1,
-	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
+	 suspend/1, suspend_exit/1, suspender_exit/1,
 	 suspend_system_limit/1, suspend_opts/1, suspend_waiting/1,
 	 new_clear/1, existing_clear/1, tracer_die/1,
 	 set_on_spawn/1, set_on_first_spawn/1, cpu_timestamp/1,
@@ -38,7 +38,8 @@
 	 system_monitor_long_gc_1/1, system_monitor_long_gc_2/1, 
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
 	 system_monitor_long_schedule/1,
-	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1]).
+	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1,
+         trace_info_badarg/1, erl_704/1, ms_excessive_nesting/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -53,7 +54,7 @@ all() ->
     [cpu_timestamp, receive_trace, link_receive_call_correlation,
      self_send, timeout_trace,
      send_trace, procs_trace, dist_procs_trace, suspend,
-     mutual_suspend, suspend_exit, suspender_exit,
+     suspend_exit, suspender_exit,
      suspend_system_limit, suspend_opts, suspend_waiting,
      new_clear, existing_clear, tracer_die, set_on_spawn,
      set_on_first_spawn, set_on_link, set_on_first_link,
@@ -62,7 +63,8 @@ all() ->
      system_monitor_long_gc_2, system_monitor_large_heap_1,
      system_monitor_long_schedule,
      system_monitor_large_heap_2, bad_flag, trace_delivered,
-     trap_exit_self_receive].
+     trap_exit_self_receive, trace_info_badarg, erl_704,
+     ms_excessive_nesting].
 
 init_per_testcase(_Case, Config) ->
     [{receiver,spawn(fun receiver/0)}|Config].
@@ -235,7 +237,7 @@ link_receive_call_correlation(Config) when is_list(Config) ->
     1 = erlang:trace(Receiver, true, ['receive', procs, call, timestamp, scheduler_id]),
     1 = erlang:trace_pattern({?MODULE, receive_msg, '_'}, [], [local]),
 
-    Num = 100000,
+    Num = 100,
 
     (fun F(0) -> [];
          F(N) ->
@@ -255,7 +257,7 @@ link_receive_call_correlation(Config) when is_list(Config) ->
 
     Msgs = (fun F() -> receive M -> [M | F()] after 1 -> [] end end)(),
 
-    case check_consistent(Receiver, Num, Num, Num, Msgs) of
+    case check_consistent(Receiver, Num, Num, Num, Msgs, false, undefined) of
         ok ->
             ok;
         {error, Reason} ->
@@ -265,20 +267,63 @@ link_receive_call_correlation(Config) when is_list(Config) ->
 
 -define(schedid, , _).
 
-check_consistent(_Pid, Recv, Call, _LU, [Msg | _]) when Recv > Call ->
+check_consistent(_Pid, Recv, Call, _LU, [Msg | _], _Received, _LinkedN) when Recv > Call ->
     {error, Msg};
-check_consistent(Pid, Recv, Call, LU, [Msg | Msgs]) ->
+check_consistent(Pid, Recv, Call, LU, [Msg | Msgs], false, undefined) ->
 
     case Msg of
         {trace, Pid, 'receive', Recv ?schedid} ->
-            check_consistent(Pid,Recv - 1, Call, LU, Msgs);
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs, true, undefined);
         {trace_ts, Pid, 'receive', Recv ?schedid, _} ->
-            check_consistent(Pid,Recv - 1, Call, LU, Msgs);
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs, true, undefined);
 
         {trace, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid} ->
-            check_consistent(Pid,Recv, Call - 1, LU, Msgs);
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, false, undefined);
         {trace_ts, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid, _} ->
-            check_consistent(Pid,Recv, Call - 1, LU, Msgs);
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, false, undefined);
+
+        {trace, Pid, _, _Self ?schedid} ->
+            check_consistent(Pid, Recv, Call, LU, Msgs, false, undefined);
+        {trace_ts, Pid, _, _Self ?schedid, _} ->
+            check_consistent(Pid, Recv, Call, LU, Msgs, false, undefined);
+
+        Msg ->
+            {error, Msg}
+    end;
+check_consistent(Pid, Recv, Call, LU, [Msg | Msgs], true, undefined) ->
+
+    case Msg of
+        {trace, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, true, undefined);
+        {trace_ts, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid, _} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, true, undefined);
+
+        {trace, Pid, getting_linked, _Self ?schedid} ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, Recv rem 2);
+        {trace_ts, Pid, getting_linked, _Self ?schedid, _} ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, Recv rem 2);
+
+        {trace, Pid, getting_unlinked, _Self ?schedid} ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, (Recv+1) rem 2);
+        {trace_ts, Pid, getting_unlinked, _Self ?schedid, _} ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, (Recv+1) rem 2);
+
+        Msg ->
+            {error, Msg}
+    end;
+check_consistent(Pid, Recv, Call, LU, [Msg | Msgs], true, LinkedN) ->
+    UnlinkedN = (LinkedN + 1) rem 2,
+
+    case Msg of
+        {trace, Pid, 'receive', Recv ?schedid} when Recv == LU ->
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs, true, LinkedN);
+        {trace_ts, Pid, 'receive', Recv ?schedid, _} when Recv == LU ->
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs, true, LinkedN);
+
+        {trace, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, true, LinkedN);
+        {trace_ts, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid, _} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs, true, LinkedN);
 
         %% We check that for each receive we have gotten a
         %% getting_linked or getting_unlinked message. Also
@@ -286,38 +331,38 @@ check_consistent(Pid, Recv, Call, LU, [Msg | Msgs]) ->
         %% message we expect to receive is an even number
         %% and odd number for getting_unlinked.
         {trace, Pid, getting_linked, _Self ?schedid}
-          when Recv rem 2 == 0, Recv == LU ->
-            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+          when Recv rem 2 == LinkedN ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, LinkedN);
         {trace_ts, Pid, getting_linked, _Self ?schedid, _}
-          when Recv rem 2 == 0, Recv == LU ->
-            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+          when Recv rem 2 == LinkedN ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, LinkedN);
 
         {trace, Pid, getting_unlinked, _Self ?schedid}
-          when Recv rem 2 == 1, Recv == LU ->
-            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+          when Recv rem 2 == UnlinkedN ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, LinkedN);
         {trace_ts, Pid, getting_unlinked, _Self ?schedid, _}
-          when Recv rem 2 == 1, Recv == LU ->
-            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+          when Recv rem 2 == UnlinkedN ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs, true, LinkedN);
 
         {trace,Pid,'receive',Ignore ?schedid}
           when Ignore == stop; Ignore == timeout ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
         {trace_ts,Pid,'receive',Ignore ?schedid,_}
           when Ignore == stop; Ignore == timeout ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
 
         {trace, Pid, exit, normal ?schedid} ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
         {trace_ts, Pid, exit, normal  ?schedid, _} ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
         {'EXIT', Pid, normal} ->
-            check_consistent(Pid, Recv, Call, LU, Msgs);
+            check_consistent(Pid, Recv, Call, LU, Msgs, true, LinkedN);
         Msg ->
             {error, Msg}
     end;
-check_consistent(_, 0, 0, 0, []) ->
+check_consistent(_, 0, 0, 1, [], true, _) ->
     ok;
-check_consistent(_, Recv, Call, LU, []) ->
+check_consistent(_, Recv, Call, LU, [], _, _) ->
     {error,{Recv, Call, LU}}.
 
 receive_msg(M) ->
@@ -620,7 +665,7 @@ dist_procs_trace(Config) when is_list(Config) ->
     Proc1 ! {trap_exit_please, true},
     Proc3 = receive {spawned, Proc1, P3} -> P3 end,
     io:format("Proc3 = ~p ~n", [Proc3]),
-    {trace, Proc1, getting_linked, Proc3} = receive_first_trace(),
+    {trace, Proc1, link, Proc3} = receive_first_trace(),
     Reason3 = make_ref(),
     Proc1 ! {send_please, Proc3, {exit_please, Reason3}},
     receive {Proc1, {'EXIT', Proc3, Reason3}} -> ok end,
@@ -914,15 +959,14 @@ do_system_monitor_long_schedule() ->
         {Self,L} when is_list(L) ->
             ok
     after 1000 ->
-              ct:fail(no_trace_of_pid)
+            ct:fail(no_trace_of_pid)
     end,
     "ok" = erlang:port_control(Port,1,[]),
-    "ok" = erlang:port_control(Port,2,[]),
     receive
         {Port,LL} when is_list(LL) ->
             ok
     after 1000 ->
-              ct:fail(no_trace_of_port)
+            ct:fail(no_trace_of_port)
     end,
     port_close(Port),
     erlang:system_monitor(undefined),
@@ -1191,55 +1235,6 @@ do_suspend(Pid, N) ->
     erlang:yield(),
     do_suspend(Pid, N-1).
 
-
-
-mutual_suspend(Config) when is_list(Config) ->
-    TimeoutSecs = 5*60,
-    ct:timetrap({seconds, TimeoutSecs}),
-    Parent = self(),
-    Fun = fun () ->
-                  receive
-                      {go, Pid} ->
-                          do_mutual_suspend(Pid, 100000)
-                  end,
-                  Parent ! {done, self()},
-                  receive after infinity -> ok end
-          end,
-    P1 = spawn_link(Fun),
-    P2 = spawn_link(Fun),
-    T1 = erlang:start_timer((TimeoutSecs - 5)*1000, self(), oops),
-    T2 = erlang:start_timer((TimeoutSecs - 5)*1000, self(), oops),
-    P1 ! {go, P2},
-    P2 ! {go, P1},
-    Res1 = receive
-               {done, P1} -> done;
-               {timeout,T1,_} -> timeout
-           end,
-    Res2 = receive
-               {done, P2} -> done;
-               {timeout,T2,_} -> timeout
-           end,
-    P1S = process_info(P1, status),
-    P2S = process_info(P2, status),
-    io:format("P1S=~p P2S=~p", [P1S, P2S]),
-    false = {status, suspended} == P1S,
-    false = {status, suspended} == P2S,
-    unlink(P1), exit(P1, bang),
-    unlink(P2), exit(P2, bang),
-    done = Res1,
-    done = Res2,
-    ok.
-
-do_mutual_suspend(_Pid, 0) ->
-    ok;
-do_mutual_suspend(Pid, N) ->
-    %% Suspend a process and test that it is suspended.
-    true = erlang:suspend_process(Pid),
-    {status, suspended} = process_info(Pid, status),
-    %% Unsuspend the process.
-    true = erlang:resume_process(Pid),
-    do_mutual_suspend(Pid, N-1).		
-
 suspend_exit(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     rand:seed(exsplus, {4711,17,4711}),
@@ -1470,7 +1465,8 @@ suspend_opts(Config) when is_list(Config) ->
                              dbl_async = AA,
                              synced = S,
                              async_once = AO} = Acc) ->
-                 erlang:suspend_process(Tok, [asynchronous]),
+                 Tag = {make_ref(), self()},
+                 erlang:suspend_process(Tok, [{asynchronous, Tag}]),
                  Res = case {suspend_count(Tok), N rem 4} of
                            {0, 2} ->
                                erlang:suspend_process(Tok,
@@ -1506,7 +1502,11 @@ suspend_opts(Config) when is_list(Config) ->
                            _ ->
                                Acc
                        end,
-                 erlang:resume_process(Tok),
+                 receive
+                     {Tag, Result} ->
+                         suspended = Result,
+                         erlang:resume_process(Tok)
+                 end,
                  erlang:yield(),
                  Res
          end,
@@ -1734,6 +1734,52 @@ trap_exit_self_receive(Config) ->
     {trace, Proc, 'receive', {exit_please, Reason2}} = receive_first_trace(),
     receive_nothing(),
     ok.
+
+trace_info_badarg(Config) when is_list(Config) ->
+    catch erlang:trace_info({a,b,c},d),
+    ok.
+
+%% An incoming suspend monitor down wasn't handled
+%% correct when the local monitor half had been
+%% removed with an emulator crash as result.
+erl_704(Config) ->
+    erl_704_test(100).
+
+erl_704_test(0) ->
+    ok;
+erl_704_test(N) ->
+    P = spawn(fun () -> receive infinity -> ok end end),
+    erlang:suspend_process(P),
+    exit(P, kill),
+    (catch erlang:resume_process(P)),
+    erl_704_test(N-1).
+
+ms_excessive_nesting(Config) when is_list(Config) ->
+    MkMSCond = fun (_Fun, N) when N < 0 -> true;
+                   (Fun, N) -> {'or', {'=:=', N, '$1'}, Fun(Fun, N-1)}
+               end,
+    %% Ensure it compiles with substantial but reasonable
+    %% (hmm...) nesting
+    MS = [{['$1'], [MkMSCond(MkMSCond, 100)], []}],
+    io:format("~p~n", [erlang:match_spec_test([1], MS, trace)]),
+    _ = erlang:trace_pattern({?MODULE, '_', '_'}, MS, []),
+    %% Now test a match spec using excessive nesting. This
+    %% used to seg-fault the emulator due to recursion
+    %% beyond the end of the C-stack.
+    %%
+    %% We expect to get a system_limit error, but don't
+    %% fail if it compiles (someone must have rewritten
+    %% compilation of match specs to use an explicit
+    %% stack instead of using recursion).
+    ENMS = [{['$1'], [MkMSCond(MkMSCond, 1000000)], []}],
+    io:format("~p~n", [erlang:match_spec_test([1], ENMS, trace)]),
+    try
+        _ = erlang:trace_pattern({?MODULE, '_', '_'}, ENMS, []),
+        {comment, "compiled"}
+    catch
+        error:system_limit ->
+            {comment, "got system_limit"}
+    end.
 
 drop_trace_until_down(Proc, Mon) ->
     drop_trace_until_down(Proc, Mon, false, 0, 0).

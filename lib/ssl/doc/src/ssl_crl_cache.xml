@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2015</year><year>2015</year>
+      <year>2015</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -24,42 +24,53 @@
     <file>ssl_crl_cache.xml</file>
   </header>
   
-  <module>ssl_crl_cache</module>
+  <module since="OTP 18.0">ssl_crl_cache</module>
   <modulesummary>CRL cache </modulesummary>
   <description>
     <p>
       Implements an internal CRL (Certificate Revocation List) cache.
-      In addition to implementing the <seealso
-      marker="ssl_crl_cache_api"> ssl_crl_cache_api</seealso> behaviour
+      In addition to implementing the <seeerl
+      marker="ssl_crl_cache_api"> ssl_crl_cache_api</seeerl> behaviour
       the following functions are available.
     </p>
   </description>
+
+    <datatypes>
+    <datatype_title>DATA TYPES</datatype_title>
+
+      <datatype>
+	<name name="crl_src"/>
+      </datatype>
+
+      <datatype>
+	<name name="uri"/>
+      </datatype>
+
+    </datatypes>
   
     <funcs>
       <func>
-	<name>delete(Entries) -> ok |  {error, Reason} </name>
+	<name since="OTP 18.0">delete(Entries) -> ok |  {error, Reason} </name>
 	<fsummary> </fsummary>
 	<type>
-	  <v> Entries =  <seealso marker="inets:http_uri">http_uri:uri() </seealso> | {file, string()} | {der, [<seealso
-	  marker="public_key:public_key"> public_key:der_encoded() </seealso>]}</v>
-	  <v> Reason = term()</v>
+	  <v> Entries =  <seetype marker="#crl_src">crl_src()</seetype>]}</v>
+	  <v> Reason = crl_reason()</v>
 	</type>
 	<desc>
 	  <p>Delete CRLs from the ssl applications local cache. </p>
 	</desc>
       </func>     
       <func>
-	<name>insert(CRLSrc) -> ok | {error, Reason}</name>
-	<name>insert(URI, CRLSrc) -> ok | {error, Reason}</name>
+	<name since="OTP 18.0">insert(CRLSrc) -> ok | {error, Reason}</name>
+	<name since="OTP 18.0">insert(URI, CRLSrc) -> ok | {error, Reason}</name>
 	<fsummary> </fsummary>
 	<type>
-	  <v> CRLSrc = {file, string()} | {der, [ <seealso
-	marker="public_key:public_key"> public_key:der_encoded() </seealso> ]}</v>
-	  <v> URI = <seealso marker="inets:http_uri">http_uri:uri() </seealso> </v>
+	  <v> CRLSrc = <seetype marker="#crl_src">crl_src()</seetype>]}</v>
+	  <v> URI = <seetype marker="#uri">uri()</seetype> </v>
 	  <v> Reason = term()</v>
 	</type>
 	<desc>
-	 <p>Insert CRLs into the ssl applications local cache. </p>
+	 <p>Insert CRLs, available to fetch on DER format from <c>URI</c>, into the ssl applications local cache. </p>
 	</desc>
       </func>
     </funcs>

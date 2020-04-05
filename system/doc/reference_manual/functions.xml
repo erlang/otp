@@ -61,7 +61,7 @@ Expr1,
 ...,
 ExprN</pre>
     <p>Valid Erlang expressions and guard sequences are described in
-      <seealso marker="expressions">Expressions</seealso>.</p>
+      <seeguide marker="expressions">Expressions</seeguide>.</p>
     <p><em>Example:</em></p>
     <pre>
 fact(N) when N>0 ->  % first clause head
@@ -155,7 +155,7 @@ loop(N) ->
     <p>The most commonly used BIFs belonging to <c>erlang(3)</c> are
       <em>auto-imported</em>. They do not need to be prefixed with
       the module name. Which BIFs that are auto-imported is specified in the
-      <seealso marker="erts:erlang">erlang(3)</seealso> module in ERTS.
+      <seeerl marker="erts:erlang">erlang(3)</seeerl> module in ERTS.
       For example, standard-type conversion BIFs like
       <c>atom_to_list</c> and BIFs allowed in guards can be called
       without specifying the module name.</p>

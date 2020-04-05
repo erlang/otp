@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,10 +19,12 @@
 %%
 -module(snmpa_error_report).
 
--export([behaviour_info/1]).
+-callback config_err(Format, Args) ->
+    snmp:void() when
+      Format :: string(),
+      Args   :: [term()].
 
-behaviour_info(callbacks) ->
-    [{user_err,   2},
-     {config_err, 2}];
-behaviour_info(_) ->
-    undefined.
+-callback user_err(Format, Args) ->
+    snmp:void() when
+      Format :: string(),
+      Args   :: [term()].

@@ -105,7 +105,7 @@ icode_var2rtl_var(Var, Map) ->
 	{reg, IsGcSafe} ->
 	  NewVar =
 	    case IsGcSafe of
-	      %% true -> hipe_rtl:mk_new_reg_gcsafe();
+              true -> hipe_rtl:mk_new_reg_gcsafe();
 	      false -> hipe_rtl:mk_new_reg()
 	    end,
 	  {NewVar, insert(Var, NewVar, Map)}

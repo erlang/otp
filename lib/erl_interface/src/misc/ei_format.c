@@ -24,10 +24,6 @@
  * ei_format to build binary format terms a bit like printf
  */
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>

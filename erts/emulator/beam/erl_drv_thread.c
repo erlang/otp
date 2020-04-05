@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #endif
 
 #include "global.h"
+#include "erl_dyn_lock_check.h"
 #include <string.h>
 
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
@@ -50,7 +51,6 @@ fatal_error(int err, char *func)
 #define ERL_DRV_TSD_EXTRA 10
 #define ERL_DRV_INVALID_TSD_KEY INT_MAX
 
-#ifdef USE_THREADS
 
 struct ErlDrvMutex_ {
     ethr_mutex mtx;
@@ -58,6 +58,9 @@ struct ErlDrvMutex_ {
     erts_lcnt_ref_t lcnt;
 #endif
     char *name;
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_t dlc;
+#endif
 };
 
 struct ErlDrvCond_ {
@@ -85,10 +88,6 @@ struct ErlDrvTid_ {
 
 static ethr_tsd_key tid_key;
 
-#else /* USE_THREADS */
-static Uint tsd_len;
-static void **tsd;
-#endif
 
 static ErlDrvTSDKey next_tsd_key;
 static ErlDrvTSDKey max_used_tsd_key;
@@ -97,7 +96,6 @@ static char **used_tsd_keys;
 static erts_mtx_t tsd_mtx;
 static char *no_name;
 
-#ifdef USE_THREADS
 
 static void
 thread_exit_handler(void)
@@ -122,21 +120,15 @@ erl_drv_thread_wrapper(void *vdtid)
     return (*dtid->func)(dtid->arg);
 }
 
-#endif
 
 void erl_drv_thr_init(void)
 {
     int i;
-#ifdef USE_THREADS
     int res = ethr_tsd_key_create(&tid_key,"erts_tid_key");
     if (res == 0)
 	res = ethr_install_exit_handler(thread_exit_handler);
     if (res != 0)
 	fatal_error(res, "erl_drv_thr_init()");
-#else
-    tsd_len = 0;
-    tsd = NULL;
-#endif
 
     no_name = "unknown";
     next_tsd_key = 0;
@@ -153,13 +145,12 @@ void erl_drv_thr_init(void)
 /*
  * These functions implement the driver thread interface in erl_driver.h.
  * NOTE: Only use this interface from drivers. From within the emulator use
- * either the erl_threads.h, the erl_smp.h or the ethread.h interface.
+ * either the erl_threads.h or the ethread.h interface.
  */
 
 ErlDrvMutex *
 erl_drv_mutex_create(char *name)
 {
-#ifdef USE_THREADS
     ErlDrvMutex *dmtx = erts_alloc_fnf(ERTS_ALC_T_DRV_MTX,
 				       (sizeof(ErlDrvMutex)
 					+ (name ? sys_strlen(name) + 1 : 0)));
@@ -176,21 +167,20 @@ erl_drv_mutex_create(char *name)
         } else {
 	    dmtx->name = no_name;
 	}
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_create_lock(&dmtx->dlc, name);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init_ref_x(&dmtx->lcnt, dmtx->name, NIL,
         ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
 #endif
     }
     return dmtx;
-#else
-    return (ErlDrvMutex *) NULL;
-#endif
 }
 
 void
 erl_drv_mutex_destroy(ErlDrvMutex *dmtx)
 {
-#ifdef USE_THREADS
     int res;
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_uninstall(&dmtx->lcnt);
@@ -199,48 +189,43 @@ erl_drv_mutex_destroy(ErlDrvMutex *dmtx)
     if (res != 0)
 	fatal_error(res, "erl_drv_mutex_destroy()");
     erts_free(ERTS_ALC_T_DRV_MTX, (void *) dmtx);
-#endif
 }
 
 
 char *
 erl_drv_mutex_name(ErlDrvMutex *dmtx)
 {
-#ifdef USE_THREADS
     return dmtx ? dmtx->name : NULL;
-#else
-    return NULL;
-#endif
 }
 
 int
 erl_drv_mutex_trylock(ErlDrvMutex *dmtx)
 {
-#ifdef USE_THREADS
     int res;
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_trylock()");
     res = ethr_mutex_trylock(&dmtx->mtx);
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_trylock(&dmtx->dlc, res != EBUSY);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_trylock(&dmtx->lcnt, res);
 #endif
     return res;
-#else
-    return 0;
-#endif
 }
 
 void
 erl_drv_mutex_lock(ErlDrvMutex *dmtx)
 {
-#ifdef USE_THREADS
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_lock()");
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_lock(&dmtx->dlc);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock(&dmtx->lcnt);
 #endif
     ethr_mutex_lock(&dmtx->mtx);
-#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock_post(&dmtx->lcnt);
 #endif
@@ -249,20 +234,20 @@ erl_drv_mutex_lock(ErlDrvMutex *dmtx)
 void
 erl_drv_mutex_unlock(ErlDrvMutex *dmtx)
 {
-#ifdef USE_THREADS
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_unlock()");
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_unlock(&dmtx->dlc);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock(&dmtx->lcnt);
 #endif
     ethr_mutex_unlock(&dmtx->mtx);
-#endif
 }
 
 ErlDrvCond *
 erl_drv_cond_create(char *name)
 {
-#ifdef USE_THREADS
     ErlDrvCond *dcnd = erts_alloc_fnf(ERTS_ALC_T_DRV_CND,
 				      (sizeof(ErlDrvCond)
 				       + (name ? sys_strlen(name) + 1 : 0)));
@@ -281,57 +266,43 @@ erl_drv_cond_create(char *name)
 	}
     }
     return dcnd;
-#else
-    return (ErlDrvCond *) NULL;
-#endif
 }
 
 void
 erl_drv_cond_destroy(ErlDrvCond *dcnd)
 {
-#ifdef USE_THREADS
     int res = dcnd ? ethr_cond_destroy(&dcnd->cnd) : EINVAL;
     if (res != 0)
 	fatal_error(res, "erl_drv_cond_destroy()");
     erts_free(ERTS_ALC_T_DRV_CND, (void *) dcnd);
-#endif
 }
 
 char *
 erl_drv_cond_name(ErlDrvCond *dcnd)
 {
-#ifdef USE_THREADS
     return dcnd ? dcnd->name : NULL;
-#else
-    return NULL;
-#endif
 }
 
 void
 erl_drv_cond_signal(ErlDrvCond *dcnd)
 {
-#ifdef USE_THREADS
     if (!dcnd)
 	fatal_error(EINVAL, "erl_drv_cond_signal()");
     ethr_cond_signal(&dcnd->cnd);
-#endif
 }
 
 void
 erl_drv_cond_broadcast(ErlDrvCond *dcnd)
 {
-#ifdef USE_THREADS
     if (!dcnd)
 	fatal_error(EINVAL, "erl_drv_cond_broadcast()");
     ethr_cond_broadcast(&dcnd->cnd);
-#endif
 }
 
 
 void
 erl_drv_cond_wait(ErlDrvCond *dcnd, ErlDrvMutex *dmtx)
 {
-#ifdef USE_THREADS
     if (!dcnd || !dmtx) {
 	fatal_error(EINVAL, "erl_drv_cond_wait()");
     }
@@ -348,13 +319,11 @@ erl_drv_cond_wait(ErlDrvCond *dcnd, ErlDrvMutex *dmtx)
 	    break;
         }
     }
-#endif
 }
 
 ErlDrvRWLock *
 erl_drv_rwlock_create(char *name)
 {
-#ifdef USE_THREADS
     ErlDrvRWLock *drwlck = erts_alloc_fnf(ERTS_ALC_T_DRV_RWLCK,
 					  (sizeof(ErlDrvRWLock)
 					   + (name ? sys_strlen(name) + 1 : 0)));
@@ -375,15 +344,11 @@ erl_drv_rwlock_create(char *name)
 #endif
     }
     return drwlck;
-#else
-    return (ErlDrvRWLock *) NULL;
-#endif
 }
 
 void
 erl_drv_rwlock_destroy(ErlDrvRWLock *drwlck)
 {
-#ifdef USE_THREADS
     int res;
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_uninstall(&drwlck->lcnt);
@@ -392,23 +357,17 @@ erl_drv_rwlock_destroy(ErlDrvRWLock *drwlck)
     if (res != 0)
 	fatal_error(res, "erl_drv_rwlock_destroy()");
     erts_free(ERTS_ALC_T_DRV_RWLCK, (void *) drwlck);
-#endif
 }
 
 char *
 erl_drv_rwlock_name(ErlDrvRWLock *drwlck)
 {
-#ifdef USE_THREADS
     return drwlck ? drwlck->name : NULL;
-#else
-    return NULL;
-#endif
 }
 
 int
 erl_drv_rwlock_tryrlock(ErlDrvRWLock *drwlck)
 {
-#ifdef USE_THREADS
     int res;
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_tryrlock()");
@@ -417,15 +376,11 @@ erl_drv_rwlock_tryrlock(ErlDrvRWLock *drwlck)
     erts_lcnt_trylock_opt(&drwlck->lcnt, res, ERTS_LOCK_OPTIONS_READ);
 #endif
     return res;
-#else
-    return 0;
-#endif
 }
 
 void
 erl_drv_rwlock_rlock(ErlDrvRWLock *drwlck)
 {
-#ifdef USE_THREADS
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rlock()");
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -435,26 +390,22 @@ erl_drv_rwlock_rlock(ErlDrvRWLock *drwlck)
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock_post(&drwlck->lcnt);
 #endif
-#endif
 }
 
 void
 erl_drv_rwlock_runlock(ErlDrvRWLock *drwlck)
 {
-#ifdef USE_THREADS
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_runlock()");
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock_opt(&drwlck->lcnt, ERTS_LOCK_OPTIONS_READ);
 #endif
     ethr_rwmutex_runlock(&drwlck->rwmtx);
-#endif
 }
 
 int
 erl_drv_rwlock_tryrwlock(ErlDrvRWLock *drwlck)
 {
-#ifdef USE_THREADS
     int res;
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_tryrwlock()");
@@ -463,15 +414,11 @@ erl_drv_rwlock_tryrwlock(ErlDrvRWLock *drwlck)
     erts_lcnt_trylock_opt(&drwlck->lcnt, res, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     return res;
-#else
-    return 0;
-#endif
 }
 
 void
 erl_drv_rwlock_rwlock(ErlDrvRWLock *drwlck)
 {
-#ifdef USE_THREADS
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rwlock()");
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -481,20 +428,17 @@ erl_drv_rwlock_rwlock(ErlDrvRWLock *drwlck)
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock_post(&drwlck->lcnt);
 #endif
-#endif
 }
 
 void
 erl_drv_rwlock_rwunlock(ErlDrvRWLock *drwlck)
 {
-#ifdef USE_THREADS
     if (!drwlck)
 	fatal_error(EINVAL, "erl_drv_rwlock_rwunlock()");
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock_opt(&drwlck->lcnt, ERTS_LOCK_OPTIONS_RDWR);
 #endif
     ethr_rwmutex_rwunlock(&drwlck->rwmtx);
-#endif
 }
 
 int
@@ -511,7 +455,7 @@ erl_drv_tsd_key_create(char *name, ErlDrvTSDKey *key)
 	name_copy = no_name;
     else {
 	name_copy = erts_alloc_fnf(ERTS_ALC_T_DRV_TSD,
-				   sizeof(char)*(strlen(name) + 1));
+				   sizeof(char)*(sys_strlen(name) + 1));
 	if (!name_copy) {
 	    *key = -1;
 	    return ENOMEM;
@@ -588,20 +532,13 @@ erl_drv_tsd_key_destroy(ErlDrvTSDKey key)
 }
 
 
-#ifdef USE_THREADS
 #define ERL_DRV_TSD__ (dtid->tsd)
 #define ERL_DRV_TSD_LEN__ (dtid->tsd_len)
-#else
-#define ERL_DRV_TSD__ (tsd)
-#define ERL_DRV_TSD_LEN__ (tsd_len)
-#endif
 
 void
 erl_drv_tsd_set(ErlDrvTSDKey key, void *data)
 {
-#ifdef USE_THREADS
     struct ErlDrvTid_ *dtid = (struct ErlDrvTid_ *) erl_drv_thread_self();
-#endif
 
     if (key < 0 || max_used_tsd_key < key || !used_tsd_keys[key])
 	fatal_error(EINVAL, "erl_drv_tsd_set()");
@@ -629,15 +566,11 @@ erl_drv_tsd_set(ErlDrvTSDKey key, void *data)
 void *
 erl_drv_tsd_get(ErlDrvTSDKey key)
 {
-#ifdef USE_THREADS
     struct ErlDrvTid_ *dtid = ethr_tsd_get(tid_key);
-#endif
     if (key < 0 || max_used_tsd_key < key || !used_tsd_keys[key])
 	fatal_error(EINVAL, "erl_drv_tsd_get()");
-#ifdef USE_THREADS
     if (!dtid)
 	return NULL;
-#endif
     if (ERL_DRV_TSD_LEN__ <= key)
 	return NULL;
     return ERL_DRV_TSD__[key];
@@ -672,7 +605,6 @@ erl_drv_thread_create(char *name,
 		      void* arg,
 		      ErlDrvThreadOpts *opts)
 {
-#ifdef USE_THREADS
     int res;
     struct ErlDrvTid_ *dtid;
     ethr_thr_opts ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
@@ -714,27 +646,19 @@ erl_drv_thread_create(char *name,
 
     *tid = (ErlDrvTid) dtid;
     return 0;
-#else
-    return ENOTSUP;
-#endif
 }
 
 char *
 erl_drv_thread_name(ErlDrvTid tid)
 {
-#ifdef USE_THREADS
     struct ErlDrvTid_ *dtid = (struct ErlDrvTid_ *) tid;
     return dtid ? dtid->name : NULL;
-#else
-    return NULL;
-#endif
 }
 
 
 ErlDrvTid
 erl_drv_thread_self(void)
 {
-#ifdef USE_THREADS
     struct ErlDrvTid_ *dtid = ethr_tsd_get(tid_key);
     if (!dtid) {
 	int res;
@@ -753,15 +677,11 @@ erl_drv_thread_self(void)
 	    fatal_error(res, "erl_drv_thread_self()");
     }
     return (ErlDrvTid) dtid;
-#else
-    return (ErlDrvTid) NULL;
-#endif
 }
 
 int
 erl_drv_equal_tids(ErlDrvTid tid1, ErlDrvTid tid2)
 {   
-#ifdef USE_THREADS
     int res;
     struct ErlDrvTid_ *dtid1 = (struct ErlDrvTid_ *) tid1;
     struct ErlDrvTid_ *dtid2 = (struct ErlDrvTid_ *) tid2;
@@ -775,28 +695,22 @@ erl_drv_equal_tids(ErlDrvTid tid1, ErlDrvTid tid2)
 	   : !ethr_equal_tids(dtid1->tid, dtid2->tid));
 
     return res;
-#else
-    return 1;
-#endif
 }
 
 void
 erl_drv_thread_exit(void *res)
 {
-#ifdef USE_THREADS
     struct ErlDrvTid_ *dtid = ethr_tsd_get(tid_key);
     if (dtid && dtid->drv_thr) {
 	ethr_thr_exit(res);
 	fatal_error(0, "erl_drv_thread_exit()");
     }
-#endif
     fatal_error(EACCES, "erl_drv_thread_exit()");
 }
 
 int
 erl_drv_thread_join(ErlDrvTid tid, void **respp)
 {
-#ifdef USE_THREADS
     int res;
     struct ErlDrvTid_ *dtid = (struct ErlDrvTid_ *) tid;
 
@@ -809,12 +723,9 @@ erl_drv_thread_join(ErlDrvTid tid, void **respp)
     if (res == 0)
 	erts_free(ERTS_ALC_T_DRV_TID, dtid);
     return res;
-#else
-    return ENOTSUP;
-#endif
 }
 
-#if defined(__DARWIN__) && defined(USE_THREADS) && defined(ERTS_SMP)
+#if defined(__DARWIN__)
 extern int erts_darwin_main_thread_pipe[2];
 extern int erts_darwin_main_thread_result_pipe[2];
 
@@ -855,7 +766,7 @@ erl_drv_steal_main_thread(char *name,
 			   + (name ? sys_strlen(name) + 1 : 0)));
     if (!dtid)
 	return ENOMEM;
-    memset(dtid,0,sizeof(ErlDrvTid_));
+    sys_memset(dtid,0,sizeof(ErlDrvTid_));
     dtid->tid = (void * ) -1;
     dtid->drv_thr = 1;
     dtid->func = func;
@@ -868,8 +779,8 @@ erl_drv_steal_main_thread(char *name,
     *tid = NULL;
     /* Ignore options and name... */
     
-    memcpy(buff,&func,sizeof(void* (*)(void*)));
-    memcpy(buff + sizeof(void* (*)(void*)),&arg,sizeof(void *));
+    sys_memcpy(buff,&func,sizeof(void* (*)(void*)));
+    sys_memcpy(buff + sizeof(void* (*)(void*)),&arg,sizeof(void *));
     write(erts_darwin_main_thread_pipe[1],buff,buff_sz);
     return 0;
 }

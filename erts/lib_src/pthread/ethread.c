@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -208,9 +208,9 @@ ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx)
              "popl %%eax\n\t"
              "movl $0x0, %0\n\t"
              "xorl %%ecx, %%eax\n\t"
-             "jz no_cpuid\n\t"
+             "jz 1f\n\t"
 	     "movl $0x1, %0\n\t"
-             "no_cpuid:\n\t"
+             "1:\n\t"
              : "=r"(have_cpuid)
              :
              : "%eax", "%ecx", "cc");

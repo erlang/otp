@@ -32,10 +32,9 @@
 #include "big.h"
 #include "error.h"
 #include "beam_load.h"
+#include "erl_vm.h"
 #include "hipe_bif0.h"
 #include "hipe_bif1.h"
-
-#define BeamOpCode(Op)	((Uint)BeamOp(Op))
 
 BIF_RETTYPE hipe_bifs_call_count_on_1(BIF_ALIST_1)
 {
@@ -46,17 +45,17 @@ BIF_RETTYPE hipe_bifs_call_count_on_1(BIF_ALIST_1)
     ci = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
     if (!ci)
 	BIF_ERROR(BIF_P, BADARG);
-    ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
     pc = erts_codeinfo_to_code(ci);
-    if (pc[0] == BeamOpCode(op_hipe_trap_call))
+    if (BeamIsOpCode(pc[0], op_hipe_trap_call))
 	BIF_ERROR(BIF_P, BADARG);
-    if (pc[0] == BeamOpCode(op_hipe_call_count))
+    if (BeamIsOpCode(pc[0], op_hipe_call_count))
 	BIF_RET(NIL);
     hcc = erts_alloc(ERTS_ALC_T_HIPE_SL, sizeof(*hcc));
     hcc->count = 0;
     hcc->opcode = pc[0];
     ci->u.hcc = hcc;
-    pc[0] = BeamOpCode(op_hipe_call_count);
+    pc[0] = BeamOpCodeAddr(op_hipe_call_count);
     BIF_RET(am_true);
 }
 
@@ -70,9 +69,9 @@ BIF_RETTYPE hipe_bifs_call_count_off_1(BIF_ALIST_1)
     ci = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
     if (!ci)
 	BIF_ERROR(BIF_P, BADARG);
-    ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
     pc = erts_codeinfo_to_code(ci);
-    if (pc[0] != BeamOpCode(op_hipe_call_count))
+    if (! BeamIsOpCode(pc[0], op_hipe_call_count))
 	BIF_RET(am_false);
     hcc = ci->u.hcc;
     count = hcc->count;
@@ -91,9 +90,9 @@ BIF_RETTYPE hipe_bifs_call_count_get_1(BIF_ALIST_1)
     ci = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
     if (!ci)
 	BIF_ERROR(BIF_P, BADARG);
-    ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
     pc = erts_codeinfo_to_code(ci);
-    if (pc[0] != BeamOpCode(op_hipe_call_count))
+    if (! BeamIsOpCode(pc[0], op_hipe_call_count))
 	BIF_RET(am_false);
     hcc = ci->u.hcc;
     BIF_RET(make_small(hcc->count));
@@ -109,9 +108,9 @@ BIF_RETTYPE hipe_bifs_call_count_clear_1(BIF_ALIST_1)
     ci = hipe_bifs_find_pc_from_mfa(BIF_ARG_1);
     if (!ci)
 	BIF_ERROR(BIF_P, BADARG);
-    ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
     pc = erts_codeinfo_to_code(ci);
-    if (pc[0] != BeamOpCode(op_hipe_call_count))
+    if (! BeamIsOpCode(pc[0], op_hipe_call_count))
 	BIF_RET(am_false);
     hcc = ci->u.hcc;
     count = hcc->count;

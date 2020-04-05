@@ -33,7 +33,7 @@
     <rev>PA1</rev>
     <file>ttb.xml</file>
   </header>
-  <module>ttb</module>
+  <module since="">ttb</module>
   <modulesummary>A base for building trace tools for distributed systems.</modulesummary>
   <description>
     <p>The Trace Tool Builder, <c>ttb</c>, is a base for building trace
@@ -44,7 +44,7 @@
   </description>
   <funcs>
     <func>
-      <name>start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result</name>
+      <name since="OTP R15B">start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result</name>
       <fsummary>Start a trace port on each specified node.</fsummary>
       <type>
         <v>Result = see p/2</v>
@@ -76,7 +76,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tracer() -> Result</name>
+      <name since="">tracer() -> Result</name>
       <fsummary>Equivalent to tracer(node()).</fsummary>
       <desc>
         <p>Equivalent to <c>tracer(node())</c>.</p>
@@ -84,7 +84,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tracer(Shortcut) -> Result</name>
+      <name since="">tracer(Shortcut) -> Result</name>
       <fsummary>Handy shortcuts for common tracing settings.</fsummary>
       <type>
         <v>Shortcut = shell | dbg</v>
@@ -97,7 +97,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tracer(Nodes) -> Result</name>
+      <name since="">tracer(Nodes) -> Result</name>
       <fsummary>Equivalent to tracer(Nodes,[]).</fsummary>
       <desc>
         <p>Equivalent to <c>tracer(Nodes,[])</c>.</p>
@@ -105,7 +105,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tracer(Nodes,Opts) -> Result</name>
+      <name since="">tracer(Nodes,Opts) -> Result</name>
       <fsummary>Start a trace port on each specified node.</fsummary>
       <type>
         <v>Result = {ok, ActivatedNodes} | {error,Reason}</v>
@@ -159,7 +159,7 @@ ttb:p(all, call).</input></pre>
 	  only useful if many <c>{drop,N}</c> trace messages are
 	  received by the trace handler. It has no meaning if shell
 	  or <c>{local,File}</c> is not used. See
-	  <seealso marker="runtime_tools:dbg#trace_port/2">dbg:trace_port/2</seealso>
+	  <seemfa marker="runtime_tools:dbg#trace_port/2">dbg:trace_port/2</seemfa>
 	  for more information about the ip trace driver.</p></item>
        <tag><c>process_info</c></tag>
        <item><p>Indicates if process
@@ -199,8 +199,8 @@ ttb:p(all, call).</input></pre>
        <tag><c>flush</c></tag>
        <item><p>Periodically flushes all file trace
           port clients (see
-	  <seealso marker="runtime_tools:dbg#flush_trace_port/1">
-	  <c>dbg:flush_trace_port/1</c></seealso>). When enabled,
+	  <seemfa marker="runtime_tools:dbg#flush_trace_port/1">
+	  <c>dbg:flush_trace_port/1</c></seemfa>). When enabled,
           the buffers are freed each <c>MSec</c> millisecond. This option is
           not allowed with <c>{file, {local, File}}</c> tracing.</p></item>
        <tag><c>{resume, FetchTimeout}</c></tag>
@@ -211,7 +211,7 @@ ttb:p(all, call).</input></pre>
           scripts if the traced nodes run with embedded Erlang). If this is
           not possible, resume can be performed manually by starting
           <c>Runtime_Tools</c> remotely using 
-	  <seealso marker="kernel:rpc#call/4"><c>rpc:call/4</c></seealso>.</p>
+	  <seemfa marker="kernel:rpc#call/4"><c>rpc:call/4</c></seemfa>.</p>
           <p><c>ttb</c> tries to fetch all logs from a reconnecting node before
           reinitializing the trace. This must finish within <c>FetchTimeout</c> 
 	  milliseconds or is aborted.</p>
@@ -243,7 +243,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>p(Item,Flags) -> Return</name>
+      <name since="">p(Item,Flags) -> Return</name>
       <fsummary>Set the specified trace flags on the specified processes or ports.</fsummary>
       <type>
         <v>Return  = {ok,[{Item,MatchDesc}]}</v>
@@ -261,7 +261,7 @@ ttb:p(all, call).</input></pre>
           or ports. Flag <c>timestamp</c> is always turned on.
           </p>
         <p>See the Reference Manual for module 
-	<seealso marker="runtime_tools:dbg"><c>dbg</c></seealso>
+	<seeerl marker="runtime_tools:dbg"><c>dbg</c></seeerl>
           for the possible trace flags. Parameter
           <c>MatchDesc</c> is the same as returned from 
 	<c>dbg:p/2</c>.</p>
@@ -277,7 +277,21 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tp, tpl, tpe, ctp, ctpl, ctpg, ctpe</name>
+      <name since="">tp(Module [, Function [, Arity]], MatchSpec)</name>
+      <name since="">tp({Module, Function , Arity}, MatchSpec)</name>
+      <name since="">tpl(Module [, Function [, Arity]], MatchSpec)</name>
+      <name since="">tpl({Module, Function , Arity}, MatchSpec)</name>
+      <name since="">ctp()</name>
+      <name since="">ctp(Module [, Function [, Arity]])</name>
+      <name since="">ctp({Module, Function, Arity})</name>
+      <name since="">ctpl()</name>
+      <name since="">ctpl(Module [, Function [, Arity]])</name>
+      <name since="">ctpl({Module, Function, Arity})</name>
+      <name since="">ctpg()</name>
+      <name since="">ctpg(Module [, Function [, Arity]])</name>
+      <name since="">ctpg({Module, Function, Arity})</name>
+      <name since="OTP 19.0">tpe(Event,MatchSpec)</name>
+      <name since="OTP 19.0">ctpe(Event)</name>
       <fsummary>Set and clear trace patterns.</fsummary>
       <desc>
         <p>These functions are to be used with trace
@@ -293,11 +307,11 @@ ttb:p(all, call).</input></pre>
 	<p>Trace patterns specify how to trace a function or a message
           by using match specifications. Match specifications are
           described in the
-          <seealso marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>.
+          <seeguide marker="erts:match_spec"><c>ERTS User's Guide</c></seeguide>.
           </p>
         <p>These functions are equivalent to the corresponding
           functions in module
-	  <seealso marker="runtime_tools:dbg">dbg</seealso>,
+	  <seeerl marker="runtime_tools:dbg">dbg</seeerl>,
 	  but all calls are stored in the
           history. The history buffer makes it easy to create configuration
           files; the same trace environment can be set up many
@@ -338,7 +352,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>list_history() -> History</name>
+      <name since="">list_history() -> History</name>
       <fsummary>Return all calls stored in history.</fsummary>
       <type>
         <v>History = [{N,Func,Args}]</v>
@@ -352,7 +366,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>run_history(N) -> ok | {error, Reason}</name>
+      <name since="">run_history(N) -> ok | {error, Reason}</name>
       <fsummary>Execute one entry of the history.</fsummary>
       <type>
         <v>N = integer() | [integer()]</v>
@@ -364,7 +378,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>write_config(ConfigFile,Config)</name>
+      <name since="">write_config(ConfigFile,Config)</name>
       <fsummary>Equivalent to write_config(ConfigFile,Config,[]).</fsummary>
       <desc>
         <p>Equivalent to <c>write_config(ConfigFile,Config,[])</c>.</p>
@@ -372,7 +386,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>write_config(ConfigFile,Config,Opts) -> ok | {error,Reason}</name>
+      <name since="">write_config(ConfigFile,Config,Opts) -> ok | {error,Reason}</name>
       <fsummary>Create a configuration file.</fsummary>
       <type>
         <v>ConfigFile = string()</v>
@@ -405,7 +419,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>run_config(ConfigFile) -> ok | {error,Reason}</name>
+      <name since="">run_config(ConfigFile) -> ok | {error,Reason}</name>
       <fsummary>Execute all entries in a configuration file.</fsummary>
       <type>
         <v>ConfigFile = string()</v>
@@ -418,7 +432,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>run_config(ConfigFile,NumList) -> ok | {error,Reason}</name>
+      <name since="">run_config(ConfigFile,NumList) -> ok | {error,Reason}</name>
       <fsummary>Execute selected entries from a configuration file.</fsummary>
       <type>
         <v>ConfigFile = string()</v>
@@ -437,7 +451,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>list_config(ConfigFile) -> Config | {error,Reason}</name>
+      <name since="">list_config(ConfigFile) -> Config | {error,Reason}</name>
       <fsummary>List all entries in a configuration file.</fsummary>
       <type>
         <v>ConfigFile = string()</v>
@@ -449,7 +463,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>write_trace_info(Key,Info) -> ok</name>
+      <name since="">write_trace_info(Key,Info) -> ok</name>
       <fsummary>Write any information to file <c>.ti</c>.</fsummary>
       <type>
         <v>Key = term()</v>
@@ -465,7 +479,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>seq_trigger_ms() -> MatchSpec</name>
+      <name since="">seq_trigger_ms() -> MatchSpec</name>
       <fsummary>Equivalent to seq_trigger_ms(all).</fsummary>
       <desc>
         <p>Equivalent to <c>seq_trigger_ms(all)</c>.</p>
@@ -473,7 +487,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>seq_trigger_ms(Flags) -> MatchSpec</name>
+      <name since="">seq_trigger_ms(Flags) -> MatchSpec</name>
       <fsummary>Return a match_spec() which starts sequential tracing.</fsummary>
       <type>
         <v>MatchSpec = match_spec()</v>
@@ -495,10 +509,10 @@ ttb:p(all, call).</input></pre>
         <p>If <c>Flags = all</c>, all possible flags are set.
           </p>
         <p>The possible values for <c>SeqTraceFlag</c> are available in
-	<seealso marker="kernel:seq_trace"><c>seq_trace</c></seealso>.</p>
+	<seeerl marker="kernel:seq_trace"><c>seq_trace</c></seeerl>.</p>
 	 <p>For a description of the <c>match_spec()</c> syntax, 
 	   see section
-	   <seealso marker="erts:match_spec"><c>Match Specifications in Erlang</c></seealso>
+	   <seeguide marker="erts:match_spec"><c>Match Specifications in Erlang</c></seeguide>
 	   in ERTS, which explains the general match specification "language".
           </p>
         <note>
@@ -521,7 +535,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>stop()</name>
+      <name since="">stop()</name>
       <fsummary>Equivalent to stop([]).</fsummary>
       <desc>
         <p>Equivalent to <c>stop([])</c>.</p>
@@ -529,7 +543,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>stop(Opts) -> stopped | {stopped, Dir}</name>
+      <name since="">stop(Opts) -> stopped | {stopped, Dir}</name>
       <fsummary>Stop tracing and fetch/format logs from all nodes.</fsummary>
       <type>
         <v>Opts = Opt | [Opt]</v>
@@ -573,7 +587,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>get_et_handler()</name>
+      <name since="OTP R15B">get_et_handler()</name>
       <fsummary>Return the <c>et</c> handler.</fsummary>
       <desc>
         <p>Returns the <c>et</c> handler, which can be used with <c>format/2</c>
@@ -583,7 +597,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>format(File)</name>
+      <name since="">format(File)</name>
       <fsummary>Equivalent to <c>format(File,[])</c>.</fsummary>
       <desc>
         <p>Equivalent to <c>format(File,[])</c>.</p>
@@ -591,7 +605,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>format(File,Options) -> ok | {error, Reason}</name>
+      <name since="">format(File,Options) -> ok | {error, Reason}</name>
       <fsummary>Format a binary trace log.</fsummary>
       <type>
         <v>File = string() | [string()]</v>
@@ -642,7 +656,7 @@ ttb:p(all, call).</input></pre>
           format one of the wrap logs in a set, specify the exact file name.
           To format the whole set of wrap logs, specify the name
           with <c>*</c> instead of the wrap count. For examples, see the
-          <seealso marker="ttb_ug#format"><c>User's Guide</c></seealso>.
+          <seeguide marker="ttb_ug#format"><c>User's Guide</c></seeguide>.
 	  </p>
       </desc>
     </func>

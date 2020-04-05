@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,6 +118,10 @@ init(Parent, Starter, ApplData, Type) ->
     link(Parent),
     process_flag(trap_exit, true),
     OldGleader = group_leader(),
+    %% We become the group leader, but forward all I/O to OldGleader.
+    %% This is just a way to identify processes that belong to the
+    %% application. Used for example to find ourselves from any
+    %% process, or, reciprocally, to kill them all when we terminate.
     group_leader(self(), self()),
     %% Insert ourselves as master for the process.  This ensures that
     %% the processes in the application can use get_env/1 at startup.
@@ -361,10 +365,10 @@ loop_it(Parent, Child, Mod, AppState) ->
 	    NewAppState = prep_stop(Mod, AppState),
 	    exit(Child, Reason),
 	    receive
-		{'EXIT', Child, Reason2} ->
-		    exit(Reason2)
+		{'EXIT', Child, _} -> ok
 	    end,
-	    catch Mod:stop(NewAppState);
+	    catch Mod:stop(NewAppState),
+	    exit(Reason);
 	{'EXIT', Child, Reason} -> % forward *all* exit reasons (inc. normal)
 	    NewAppState = prep_stop(Mod, AppState),
 	    catch Mod:stop(NewAppState),

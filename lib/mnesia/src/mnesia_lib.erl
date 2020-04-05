@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@
 	 lock_table/1,
 	 mkcore/1,
 	 not_active_here/1,
-         other_val/1,
+         other_val/2,
          overload_read/0,
          overload_read/1,
          overload_set/2,
@@ -435,8 +435,8 @@ validate_record(Tab, Obj) ->
 %%
 
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> other_val(Var, Stacktrace);
 	_VaLuE_ -> _VaLuE_
     end.
 
@@ -446,9 +446,9 @@ set(Var, Val) ->
 unset(Var) ->
     ?ets_delete(mnesia_gvar, Var).
 
-other_val(Var) ->
+other_val(Var, Stacktrace) ->
     case other_val_1(Var) of
-        error -> pr_other(Var);
+        error -> pr_other(Var, Stacktrace);
         Val -> Val
     end.
 
@@ -460,8 +460,8 @@ other_val_1(Var) ->
 	_ -> error
     end.
 
--spec pr_other(_) -> no_return().
-pr_other(Var) ->
+-spec pr_other(_, _) -> no_return().
+pr_other(Var, Stacktrace) ->
     Why =
 	case is_running() of
 	    no -> {node_not_running, node()};
@@ -469,7 +469,7 @@ pr_other(Var) ->
 	end,
     verbose("~p (~tp) val(mnesia_gvar, ~tw) -> ~p ~tp ~n",
 	    [self(), process_info(self(), registered_name),
-	     Var, Why, erlang:get_stacktrace()]),
+	     Var, Why, Stacktrace]),
     mnesia:abort(Why).
 
 %% Some functions for list valued variables
@@ -675,41 +675,41 @@ mkcore(CrashInfo) ->
 %   dbg_out("Making a Mnesia core dump...~p~n", [CrashInfo]),
     Nodes = [node() |nodes()],
     %%TidLocks = (catch ets:tab2list(mnesia_tid_locks)),
-    HeldLocks = (catch mnesia:system_info(held_locks)),
+    HeldLocks = ?CATCHU(mnesia:system_info(held_locks)),
     Core = [
 	    CrashInfo,
 	    {time, {date(), time()}},
 	    {self, proc_dbg_info(self())},
-	    {nodes, catch rpc:multicall(Nodes, ?MODULE, get_node_number, [])},
-	    {applications, catch lists:sort(application:loaded_applications())},
-	    {flags, catch init:get_arguments()},
-	    {code_path, catch code:get_path()},
-	    {code_loaded, catch lists:sort(code:all_loaded())},
-	    {etsinfo, catch ets_info(ets:all())},
+	    {nodes, ?CATCHU(rpc:multicall(Nodes, ?MODULE, get_node_number, []))},
+	    {applications, ?CATCHU(lists:sort(application:loaded_applications()))},
+	    {flags, ?CATCHU(init:get_arguments())},
+	    {code_path, ?CATCHU(code:get_path())},
+	    {code_loaded, ?CATCHU(lists:sort(code:all_loaded()))},
+	    {etsinfo, ?CATCHU(ets_info(ets:all()))},
 
-	    {version, catch mnesia:system_info(version)},
-	    {schema, catch ets:tab2list(schema)},
-	    {gvar, catch ets:tab2list(mnesia_gvar)},
-	    {master_nodes, catch mnesia_recover:get_master_node_info()},
+	    {version, ?CATCHU(mnesia:system_info(version))},
+	    {schema, ?CATCHU(ets:tab2list(schema))},
+	    {gvar, ?CATCHU(ets:tab2list(mnesia_gvar))},
+	    {master_nodes, ?CATCHU(mnesia_recover:get_master_node_info())},
 
-	    {processes, catch procs()},
-	    {relatives, catch relatives()},
-	    {workers, catch workers(mnesia_controller:get_workers(2000))},
-	    {locking_procs, catch locking_procs(HeldLocks)},
+	    {processes, ?CATCHU(procs())},
+	    {relatives, ?CATCHU(relatives())},
+	    {workers, ?CATCHU(workers(mnesia_controller:get_workers(2000)))},
+	    {locking_procs, ?CATCHU(locking_procs(HeldLocks))},
 
 	    {held_locks, HeldLocks},
-	    {lock_queue, catch mnesia:system_info(lock_queue)},
-	    {load_info, catch mnesia_controller:get_info(2000)},
-	    {trans_info, catch mnesia_tm:get_info(2000)},
+	    {lock_queue, ?CATCHU(mnesia:system_info(lock_queue))},
+	    {load_info, ?CATCHU(mnesia_controller:get_info(2000))},
+	    {trans_info, ?CATCHU(mnesia_tm:get_info(2000))},
 	    	    
-	    {schema_file, catch file:read_file(tab2dat(schema))},
-	    {dir_info, catch dir_info()},
-	    {logfile, catch {ok, read_log_files()}}
+	    {schema_file, ?CATCHU(file:read_file(tab2dat(schema)))},
+	    {dir_info, ?CATCHU(dir_info())},
+	    {logfile, ?CATCHU({ok, read_log_files()})}
 	   ],
     term_to_binary(Core).
 
 procs() ->
-    Fun = fun(P) -> {P, (catch lists:zf(fun proc_info/1, process_info(P)))} end,
+    Fun = fun(P) -> {P, (?CATCH(lists:zf(fun proc_info/1, process_info(P))))} end,
     lists:map(Fun, processes()).
 
 proc_info({registered_name, Val}) -> {true, Val};
@@ -730,7 +730,7 @@ have_majority(_Tab, AllNodes, HaveNodes) ->
     length(Present) > length(Missing).
 
 read_log_files() ->
-    [{F, catch file:read_file(F)} || F <- mnesia_log:log_files()].
+    [{F, ?CATCH(file:read_file(F))} || F <- mnesia_log:log_files()].
 
 dir_info() ->
     {ok, Cwd} = file:get_cwd(),
@@ -739,7 +739,7 @@ dir_info() ->
      {mnesia_dir, Dir, file:read_file_info(Dir)}] ++
     case file:list_dir(Dir) of
 	{ok, Files} ->
-	    [{mnesia_file, F, catch file:read_file_info(dir(F))} || F <- Files];
+	    [{mnesia_file, F, ?CATCH(file:read_file_info(dir(F)))} || F <- Files];
 	Other ->
 	    [Other]
     end.
@@ -854,7 +854,7 @@ vcore(Bin) when is_binary(Bin) ->
     Core = binary_to_term(Bin),
     Fun = fun({Item, Info}) ->
 		  show("***** ~tp *****~n", [Item]),
-		  case catch vcore_elem({Item, Info}) of
+		  case ?CATCHU(vcore_elem({Item, Info})) of
 		      {'EXIT', Reason} ->
 			  show("{'EXIT', ~tp}~n", [Reason]);
 		      _ -> ok
@@ -929,7 +929,7 @@ error_desc(no_transaction) -> "Operation not allowed outside transactions";
 error_desc(combine_error)  -> "Table options were ilegally combined";
 error_desc(bad_index)  -> "Index already exists or was out of bounds";
 error_desc(already_exists) -> "Some schema option we try to set is already on";
-error_desc(index_exists)-> "Some ops can not  be performed on tabs with index";
+error_desc(index_exists)-> "Some ops cannot  be performed on tabs with index";
 error_desc(no_exists)-> "Tried to perform op on non-existing (non alive) item";
 error_desc(system_limit) -> "Some system_limit was exhausted";
 error_desc(mnesia_down) -> "A transaction involving objects at some remote "
@@ -1446,7 +1446,7 @@ eval_debug_fun(FunId, EvalContext, EvalFile, EvalLine) ->
 			ok
 		end
 	end
-    catch error ->
+    catch _:_ ->
 	    ok
     end.
 	

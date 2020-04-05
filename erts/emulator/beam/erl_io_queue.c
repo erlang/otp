@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2017. All Rights Reserved.
+ * Copyright Ericsson AB 2017-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -658,7 +658,7 @@ io_list_vec_count(Eterm obj, Uint *v_size,
 int
 erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
                         Uint* pvsize, Uint* pcsize,
-                        Uint* total_size, Uint blimit)
+                        size_t* total_size, Uint blimit)
 {
     DECLARE_ESTACK(s);
     Eterm* objp;
@@ -669,7 +669,7 @@ erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
     Uint p_v_size = 0;
     Uint p_c_size = 0;
     Uint p_in_clist = 0;
-    Uint total;
+    size_t total;
 
     goto L_jump_start;  /* avoid a push */
 
@@ -816,24 +816,15 @@ static Eterm iol2v_make_sub_bin(iol2v_state_t *state, Eterm bin_term,
 }
 
 static Eterm iol2v_promote_acc(iol2v_state_t *state) {
-    ProcBin *pb;
+    Eterm bin;
 
-    state->acc = erts_bin_realloc(state->acc, state->acc_size);
-
-    pb = (ProcBin*)HAlloc(state->process, PROC_BIN_SIZE);
-    pb->thing_word = HEADER_PROC_BIN;
-    pb->size = state->acc_size;
-    pb->val = state->acc;
-    pb->bytes = (byte*)(state->acc)->orig_bytes;
-    pb->flags = 0;
-    pb->next = MSO(state->process).first;
-    OH_OVERHEAD(&(MSO(state->process)), pb->size / sizeof(Eterm));
-    MSO(state->process).first = (struct erl_off_heap_header*)pb;
-
+    bin = erts_build_proc_bin(&MSO(state->process),
+                              HAlloc(state->process, PROC_BIN_SIZE),
+                              erts_bin_realloc(state->acc, state->acc_size));
     state->acc_size = 0;
     state->acc = NULL;
 
-    return make_binary(pb);
+    return bin;
 }
 
 /* Destructively enqueues a term to the result list, saving us the hassle of
@@ -1087,7 +1078,7 @@ static BIF_RETTYPE iol2v_yield(iol2v_state_t *state) {
         state = boxed_state;
     }
 
-    ERTS_BIF_YIELD1(bif_export[BIF_iolist_to_iovec_1],
+    ERTS_BIF_YIELD1(&bif_trap_export[BIF_iolist_to_iovec_1],
         state->process, state->magic_reference);
 }
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,11 +29,7 @@
 %%
 %% 3. Pattern matching (in cases and receives) has been compiled.
 %%
-%% 4. The annotations contain variable usages.  Seeing we have to work
-%% this out anyway for funs we might as well pass it on for free to
-%% later passes.
-%%
-%% 5. All remote-calls are to statically named m:f/a. Meta-calls are
+%% 4. All remote-calls are to statically named m:f/a. Meta-calls are
 %% passed via erlang:apply/3.
 %%
 %% The translation is done in two passes:
@@ -81,13 +77,17 @@
 
 -export([module/2,format_error/1]).
 
--import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
-		keymember/3,keyfind/3,partition/2,droplast/1,last/1,sort/1]).
--import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
--import(cerl, [c_tuple/1]).
+-import(lists, [all/2,droplast/1,flatten/1,foldl/3,foldr/3,
+                map/2,mapfoldl/3,member/2,
+		keyfind/3,keyreplace/4,
+                last/1,partition/2,reverse/1,
+                sort/1,sort/2,splitwith/2]).
+-import(ordsets, [add_element/2,intersection/2,
+                  subtract/2,union/2,union/1]).
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
+-define(EXPAND_MAX_SIZE_SEGMENT, 1024).
 
 %% These are not defined in v3_kernel.hrl.
 get_kanno(Kthing) -> element(2, Kthing).
@@ -105,32 +105,34 @@ copy_anno(Kdst, Ksrc) ->
 -record(iletrec, {anno=[],defs}).
 -record(ialias, {anno=[],vars,pat}).
 -record(iclause, {anno=[],isub,osub,pats,guard,body}).
--record(ireceive_accept, {anno=[],arg}).
--record(ireceive_next, {anno=[],arg}).
 
 -type warning() :: term().	% XXX: REFINE
 
 %% State record for kernel translator.
 -record(kern, {func,				%Current host function
-	       ff,				%Current function
+               fargs=[] :: [#k_var{}],          %Arguments for current function
 	       vcount=0,			%Variable counter
 	       fcount=0,			%Fun counter
                ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
 	       funs=[],				%Fun functions
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
-	       guard_refc=0}).			%> 0 means in guard
+               no_shared_fun_wrappers=false :: boolean(),
+               labels=cerl_sets:new()
+              }).
 
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', #k_mdef{}, [warning()]}.
 
-module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
+module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, Options) ->
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
-    St0 = #kern{},
+    NoSharedFunWrappers = proplists:get_bool(no_shared_fun_wrappers,
+                                             Options),
+    St0 = #kern{no_shared_fun_wrappers=NoSharedFunWrappers},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
-		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
+                body=Kfs ++ St#kern.funs},sort(St#kern.ws)}.
 
 attributes([{#c_literal{val=Name},#c_literal{val=Val}}|As]) ->
     case include_attribute(Name) of
@@ -155,19 +157,22 @@ include_attribute(_) -> true.
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
     %%io:format("~w/~w~n", [F,Arity]),
     try
-	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=cerl_sets:new()},
+        %% Find a suitable starting value for the variable counter. Note
+        %% that this pass assumes that new_var_name/1 returns a variable
+        %% name distinct from any variable used in the entire body of
+        %% the function. We use integers as variable names to avoid
+        %% filling up the atom table when compiling huge functions.
+        Count = cerl_trees:next_free_variable_name(Body),
+	St1 = St0#kern{func=FA,vcount=Count,fcount=0,ds=cerl_sets:new()},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
-	{#k_fdef{anno=#k{us=[],ns=[],a=Ab},
-		 func=F,arity=Arity,vars=Kvs,body=B1},St3}
+        {make_fdef(Ab, F, Arity, Kvs, B1),St3}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
-
 
 %% body(Cexpr, Sub, State) -> {Kexpr,[PreKepxr],State}.
 %%  Do the main sequence of a body.  A body ends in an atomic value or
@@ -176,512 +181,27 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 body(#c_values{anno=A,es=Ces}, Sub, St0) ->
     %% Do this here even if only in bodies.
     {Kes,Pe,St1} = atomic_list(Ces, Sub, St0),
-    %%{Kes,Pe,St1} = expr_list(Ces, Sub, St0),
     {#ivalues{anno=A,args=Kes},Pe,St1};
-body(#ireceive_next{anno=A}, _, St) ->
-    {#k_receive_next{anno=A},[],St};
 body(Ce, Sub, St0) ->
     expr(Ce, Sub, St0).
 
 %% guard(Cexpr, Sub, State) -> {Kexpr,State}.
 %%  We handle guards almost as bodies. The only special thing we
 %%  must do is to make the final Kexpr a #k_test{}.
-%%  Also, we wrap the entire guard in a try/catch which is
-%%  not strictly needed, but makes sure that every 'bif' instruction
-%%  will get a proper failure label.
 
 guard(G0, Sub, St0) ->
-    {G1,St1} = wrap_guard(G0, St0),
-    {Ge0,Pre,St2} = expr(G1, Sub, St1),
-    {Ge1,St3} = gexpr_test(Ge0, St2),
-    {Ge,St} = guard_opt(Ge1, St3),
+    {Ge0,Pre,St1} = expr(G0, Sub, St0),
+    {Ge,St} = gexpr_test(Ge0, St1),
     {pre_seq(Pre, Ge),St}.
 
-%% guard_opt(Kexpr, State) -> {Kexpr,State}.
-%%  Optimize the Kexpr for the guard.  Instead of evaluating a boolean
-%%  expression comparing it to 'true' in a final #k_test{},
-%%  replace BIF calls with #k_test{} in the expression.
-%%
-%%  As an example, take the guard:
-%%
-%%     when is_integer(V0), is_atom(V1) ->
-%%
-%%  The unoptimized Kexpr translated to pseudo BEAM assembly
-%%  code would look like:
-%%
-%%     bif is_integer V0 => Bool0
-%%     bif is_atom V1    => Bool1
-%%     bif and Bool0 Bool1 => Bool
-%%     test Bool =:= true else goto Fail
-%%     ...
-%%   Fail:
-%%     ...
-%%
-%%  The optimized code would look like:
-%%
-%%     test is_integer V0 else goto Fail
-%%     test is_atom V1    else goto Fail
-%%     ...
-%%   Fail:
-%%     ...
-%%
-%%  An 'or' operation is only slightly more complicated:
-%%
-%%     test is_integer V0 else goto NotFailedYet
-%%     goto Success
-%%
-%%   NotFailedYet:
-%%     test is_atom V1 else goto Fail
-%%
-%%   Success:
-%%     ...
-%%   Fail:
-%%     ...
-
-guard_opt(G, St0) ->
-    {Root,Forest0,St1} = make_forest(G, St0),
-    {Exprs,Forest,St} = rewrite_bool(Root, Forest0, false, St1),
-    E = forest_pre_seq(Exprs, Forest),
-    {G#k_try{arg=E},St}.
-
-%% rewrite_bool(Kexpr, Forest, Inv, St) -> {[Kexpr],Forest,St}.
-%%  Rewrite Kexpr to use #k_test{} operations instead of comparison
-%%  and type test BIFs.
-%%
-%%  If Kexpr is a #k_test{} operation, the call will always
-%%  succeed. Otherwise, a 'not_possible' exception will be
-%%  thrown if Kexpr cannot be rewritten.
-
-rewrite_bool(#k_test{op=#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val='=:='}},
-		args=[#k_var{}=V,#k_atom{val=true}]}=Test, Forest0, Inv, St0) ->
-    try rewrite_bool_var(V, Forest0, Inv, St0) of
-	{_,_,_}=Res ->
-	    Res
-    catch
-	throw:not_possible ->
-	    {[Test],Forest0,St0}
-    end;
-rewrite_bool(#k_test{op=#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val='=:='}},
-		args=[#k_var{}=V,#k_atom{val=false}]}=Test, Forest0, Inv, St0) ->
-    try rewrite_bool_var(V, Forest0, not Inv, St0) of
-	{_,_,_}=Res ->
-	    Res
-    catch
-	throw:not_possible ->
-	    {[Test],Forest0,St0}
-    end;
-rewrite_bool(#k_test{op=#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val='=:='}},
-		args=[#k_atom{val=V1},#k_atom{val=V2}]}, Forest0, false, St0) ->
-    case V1 =:= V2 of
-	true ->
-	    {[make_test(is_boolean, [#k_atom{val=true}])],Forest0,St0};
-	false ->
-	    {[make_failing_test()],Forest0,St0}
-    end;
-rewrite_bool(#k_test{}=Test, Forest, false, St) ->
-    {[Test],Forest,St};
-rewrite_bool(#k_try{vars=[#k_var{name=X}],body=#k_var{name=X},
-			    handler=#k_atom{val=false},ret=[]}=Prot,
-		     Forest0, Inv, St0) ->
-    {Root,Forest1,St1} = make_forest(Prot, Forest0, St0),
-    {Exprs,Forest2,St} = rewrite_bool(Root, Forest1, Inv, St1),
-    InnerForest = maps:without(maps:keys(Forest0), Forest2),
-    Forest = maps:without(maps:keys(InnerForest), Forest2),
-    E = forest_pre_seq(Exprs, InnerForest),
-    {[Prot#k_try{arg=E}],Forest,St};
-rewrite_bool(#k_match{body=Body,ret=[]}, Forest, Inv, St) ->
-    rewrite_match(Body, Forest, Inv, St);
-rewrite_bool(Other, Forest, Inv, St) ->
-    case extract_bif(Other) of
-	{Name,Args} ->
-	    rewrite_bif(Name, Args, Forest, Inv, St);
-	error ->
-	    throw(not_possible)
-    end.
-
-%% rewrite_bool_var(Var, Forest, Inv, St) -> {[Kexpr],Forest,St}.
-%%  Rewrite the boolean expression whose key in Forest is
-%%  given by Var. Throw a 'not_possible' expression if something
-%%  prevents the rewriting.
-
-rewrite_bool_var(Arg, Forest0, Inv, St) ->
-    {Expr,Forest} = forest_take_expr(Arg, Forest0),
-    rewrite_bool(Expr, Forest, Inv, St).
-
-%% rewrite_bool_args([Kexpr], Forest, Inv, St) -> {[[Kexpr]],Forest,St}.
-%%  Rewrite each Kexpr in the list. The input Kexpr should be variables
-%%  or boolean values. Throw a 'not_possible' expression if something
-%%  prevents the rewriting.
-%%
-%%  This function is suitable for handling the arguments for both
-%%  'and' and 'or'.
-
-rewrite_bool_args([#k_atom{val=B}=A|Vs], Forest0, false=Inv, St0) when is_boolean(B) ->
-    {Tail,Forest1,St1} = rewrite_bool_args(Vs, Forest0, Inv, St0),
-    Bif = make_bif('=:=', [A,#k_atom{val=true}]),
-    {Exprs,Forest,St} = rewrite_bool(Bif, Forest1, Inv, St1),
-    {[Exprs|Tail],Forest,St};
-rewrite_bool_args([#k_var{}=Var|Vs], Forest0, false=Inv, St0) ->
-    {Tail,Forest1,St1} = rewrite_bool_args(Vs, Forest0, Inv, St0),
-    {Exprs,Forest,St} =
-	case is_bool_expr(Var, Forest0) of
-	    true ->
-		rewrite_bool_var(Var, Forest1, Inv, St1);
-	    false ->
-		Bif = make_bif('=:=', [Var,#k_atom{val=true}]),
-		rewrite_bool(Bif, Forest1, Inv, St1)
-	end,
-    {[Exprs|Tail],Forest,St};
-rewrite_bool_args([_|_], _Forest, _Inv, _St) ->
-    throw(not_possible);
-rewrite_bool_args([], Forest, _Inv, St) ->
-    {[],Forest,St}.
-
-%% rewrite_bif(Name, [Kexpr], Forest, Inv, St) -> {[Kexpr],Forest,St}.
-%%  Rewrite a BIF. Throw a 'not_possible' expression if something
-%%  prevents the rewriting.
-
-rewrite_bif('or', Args, Forest, true, St) ->
-    rewrite_not_args('and', Args, Forest, St);
-rewrite_bif('and', Args, Forest, true, St) ->
-    rewrite_not_args('or', Args, Forest, St);
-rewrite_bif('and', [#k_atom{val=Val},Arg], Forest0, Inv, St0) ->
-    false = Inv,				%Assertion.
-    case Val of
-	true ->
-	    %% The result only depends on Arg.
-	    rewrite_bool_var(Arg, Forest0, Inv, St0);
-	_ ->
-	    %% Will fail. There is no need to evalute the expression
-	    %% represented by Arg. Take it out from the forest and
-	    %% discard the expression.
-	    Failing = make_failing_test(),
-	    try rewrite_bool_var(Arg, Forest0, Inv, St0) of
-		{_,Forest,St} ->
-		    {[Failing],Forest,St}
-	    catch
-		throw:not_possible ->
-		    try forest_take_expr(Arg, Forest0) of
-			{_,Forest} ->
-			    {[Failing],Forest,St0}
-		    catch
-			throw:not_possible ->
-			    %% Arg is probably a variable bound in an
-			    %% outer scope.
-			    {[Failing],Forest0,St0}
-		    end
-	    end
-    end;
-rewrite_bif('and', [Arg,#k_atom{}=Atom], Forest, Inv, St) ->
-    false = Inv,				%Assertion.
-    rewrite_bif('and', [Atom,Arg], Forest, Inv, St);
-rewrite_bif('and', Args, Forest0, Inv, St0) ->
-    false = Inv,				%Assertion.
-    {[Es1,Es2],Forest,St} = rewrite_bool_args(Args, Forest0, Inv, St0),
-    {Es1 ++ Es2,Forest,St};
-rewrite_bif('or', Args, Forest0, Inv, St0) ->
-    false = Inv,				%Assertion.
-    {[First,Then],Forest,St} = rewrite_bool_args(Args, Forest0, Inv, St0),
-    Alt = make_alt(First, Then),
-    {[Alt],Forest,St};
-rewrite_bif('xor', [_,_], _Forest, _Inv, _St) ->
-    %% Rewriting 'xor' is not practical. Fortunately, 'xor' is
-    %% almost never used in practice.
-    throw(not_possible);
-rewrite_bif('not', [Arg], Forest0, Inv, St) ->
-    {Expr,Forest} = forest_take_expr(Arg, Forest0),
-    rewrite_bool(Expr, Forest, not Inv, St);
-rewrite_bif(Op, Args, Forest, Inv, St) ->
-    case is_test(Op, Args) of
-	true ->
-	    rewrite_bool(make_test(Op, Args, Inv), Forest, false, St);
-	false ->
-	    throw(not_possible)
-    end.
-
-rewrite_not_args(Op, [A0,B0], Forest0, St0) ->
-    {A,Forest1,St1} = rewrite_not_args_1(A0, Forest0, St0),
-    {B,Forest2,St2} = rewrite_not_args_1(B0, Forest1, St1),
-    rewrite_bif(Op, [A,B], Forest2, false, St2).
-
-rewrite_not_args_1(Arg, Forest, St) ->
-    Not = make_bif('not', [Arg]),
-    forest_add_expr(Not, Forest, St).
-
-%% rewrite_match(Kvar, TypeClause, Forest, Inv, St) ->
-%%       {[Kexpr],Forest,St}.
-%%  Try to rewrite a #k_match{} originating from an 'andalso' or an 'orelse'.
-
-rewrite_match(#k_alt{first=First,then=Then}, Forest, Inv, St) ->
-    case {First,Then} of
-	{#k_select{var=#k_var{name=V}=Var,types=[TypeClause]},#k_var{name=V}} ->
-	    rewrite_match_1(Var, TypeClause, Forest, Inv, St);
-	{_,_} ->
-	    throw(not_possible)
-    end.
-
-rewrite_match_1(Var, #k_type_clause{values=Cs0}, Forest0, Inv, St0) ->
-    Cs = sort([{Val,B} || #k_val_clause{val=#k_atom{val=Val},body=B} <- Cs0]),
-    case Cs of
-	[{false,False},{true,True}] ->
-	    rewrite_match_2(Var, False, True, Forest0, Inv, St0);
-	_ ->
-	    throw(not_possible)
-    end.
-
-rewrite_match_2(Var, False, #k_atom{val=true}, Forest0, Inv, St0) ->
-    %% Originates from an 'orelse'.
-    case False of
-	#k_atom{val=NotBool} when not is_boolean(NotBool) ->
-	    rewrite_bool(Var, Forest0, Inv, St0);
-	_ ->
-	    {CodeVar,Forest1,St1} = add_protected_expr(False, Forest0, St0),
-	    rewrite_bif('or', [Var,CodeVar], Forest1, Inv, St1)
-    end;
-rewrite_match_2(Var, #k_atom{val=false}, True, Forest0, Inv, St0) ->
-    %% Originates from an 'andalso'.
-    {CodeVar,Forest1,St1} = add_protected_expr(True, Forest0, St0),
-    rewrite_bif('and', [Var,CodeVar], Forest1, Inv, St1);
-rewrite_match_2(_V, _, _, _Forest, _Inv, _St) ->
-    throw(not_possible).
-
-%% is_bool_expr(#k_var{}, Forest) -> true|false.
-%%  Return true if the variable refers to a boolean expression
-%%  that does not need an explicit '=:= true' test.
-
-is_bool_expr(V, Forest) ->
-    case forest_peek_expr(V, Forest) of
-	error ->
-	    %% Defined outside of the guard. We can't know.
-	    false;
-	Expr ->
-	    case extract_bif(Expr) of
-		{Name,Args} ->
-		    is_test(Name, Args) orelse
-			erl_internal:bool_op(Name, length(Args));
-		error ->
-		    %% Not a BIF. Should be possible to rewrite
-		    %% to a boolean. Definitely does not need
-		    %% a '=:= true' test.
-		    true
-	    end
-    end.
-
-make_bif(Op, Args) ->
-    #k_bif{op=#k_remote{mod=#k_atom{val=erlang},
-			name=#k_atom{val=Op},
-			arity=length(Args)},
-	   args=Args}.
-
-extract_bif(#k_bif{op=#k_remote{mod=#k_atom{val=erlang},
-				 name=#k_atom{val=Name}},
-		    args=Args}) ->
-    {Name,Args};
-extract_bif(_) ->
-    error.
-
-%% make_alt(First, Then) -> KMatch.
-%%  Make a #k_alt{} within a #k_match{} to implement
-%%  'or' or 'orelse'.
-
-make_alt(First0, Then0) ->
-    First1 = pre_seq(droplast(First0), last(First0)),
-    Then1 = pre_seq(droplast(Then0), last(Then0)),
-    First2 = make_protected(First1),
-    Then2 = make_protected(Then1),
-    Body = #k_atom{val=ignored},
-    First3 = #k_guard_clause{guard=First2,body=Body},
-    Then3 = #k_guard_clause{guard=Then2,body=Body},
-    First = #k_guard{clauses=[First3]},
-    Then = #k_guard{clauses=[Then3]},
-    Alt = #k_alt{first=First,then=Then},
-    #k_match{vars=[],body=Alt}.
-
-add_protected_expr(#k_atom{}=Atom, Forest, St) ->
-    {Atom,Forest,St};
-add_protected_expr(#k_var{}=Var, Forest, St) ->
-    {Var,Forest,St};
-add_protected_expr(E0, Forest, St) ->
-    E = make_protected(E0),
-    forest_add_expr(E, Forest, St).
-
-make_protected(#k_try{}=Try) ->
-    Try;
-make_protected(B) ->
-    #k_try{arg=B,vars=[#k_var{name=''}],body=#k_var{name=''},
-	   handler=#k_atom{val=false}}.
-
-make_failing_test() ->
-    make_test(is_boolean, [#k_atom{val=fail}]).
-
-make_test(Op, Args) ->
-    make_test(Op, Args, false).
-
-make_test(Op, Args, Inv) ->
-    Remote = #k_remote{mod=#k_atom{val=erlang},
-		       name=#k_atom{val=Op},
-		       arity=length(Args)},
-    #k_test{op=Remote,args=Args,inverted=Inv}.
-
-is_test(Op, Args) ->
-    A = length(Args),
-    erl_internal:new_type_test(Op, A) orelse erl_internal:comp_op(Op, A).
-
-%% make_forest(Kexpr, St) -> {RootKexpr,Forest,St}.
-%%  Build a forest out of Kexpr. RootKexpr is the final expression
-%%  nested inside Kexpr.
-
-make_forest(G, St) ->
-    make_forest_1(G, #{}, 0, St).
-
-%% make_forest(Kexpr, St) -> {RootKexpr,Forest,St}.
-%%  Add to Forest from Kexpr. RootKexpr is the final expression
-%%  nested inside Kexpr.
-
-make_forest(G, Forest0, St) ->
-    N = forest_next_index(Forest0),
-    make_forest_1(G, Forest0, N, St).
-
-make_forest_1(#k_try{arg=B}, Forest, I, St) ->
-    make_forest_1(B, Forest, I, St);
-make_forest_1(#iset{vars=[]}=Iset0, Forest, I, St0) ->
-    {UnrefVar,St} = new_var(St0),
-    Iset = Iset0#iset{vars=[UnrefVar]},
-    make_forest_1(Iset, Forest, I, St);
-make_forest_1(#iset{vars=[#k_var{name=V}],arg=Arg,body=B}, Forest0, I, St) ->
-    Forest = Forest0#{V => {I,Arg}, {untaken,V} => true},
-    make_forest_1(B, Forest, I+1, St);
-make_forest_1(Innermost, Forest, _I, St) ->
-    {Innermost,Forest,St}.
-
-%% forest_take_expr(Kexpr, Forest) -> {Expr,Forest}.
-%%  If Kexpr is a variable, take out the expression corresponding
-%%  to variable in Forest. Expressions that have been taken out
-%%  of the forest will not be included the Kexpr returned
-%%  by forest_pre_seq/2.
-%%
-%%  Throw a 'not_possible' exception if Kexpr is not a variable or
-%%  if the name of the variable is not a key in Forest.
-
-forest_take_expr(#k_var{name=V}, Forest0) ->
-    %% v3_core currently always generates guard expressions that can
-    %% be represented as a tree.  Other code generators (such as LFE)
-    %% could generate guard expressions that can only be represented
-    %% as a DAG (i.e. some nodes are referenced more than once). To
-    %% handle DAGs, we must never remove a node from the forest, but
-    %% just remove the {untaken,V} marker. That will effectively convert
-    %% the DAG to a tree by duplicating the shared nodes and their
-    %% descendants.
-
-    case maps:find(V, Forest0) of
-	{ok,{_,Expr}} ->
-	    Forest = maps:remove({untaken,V}, Forest0),
-	    {Expr,Forest};
-	error ->
-	    throw(not_possible)
-    end;
-forest_take_expr(_, _) ->
-    throw(not_possible).
-
-%% forest_peek_expr(Kvar, Forest) -> Kexpr | error.
-%%  Return the expression corresponding to Kvar in Forest or
-%%  return 'error' if there is a corresponding expression.
-
-forest_peek_expr(#k_var{name=V}, Forest0) ->
-    case maps:find(V, Forest0) of
-	{ok,{_,Expr}} -> Expr;
-	error -> error
-    end.
-
-%% forest_add_expr(Kexpr, Forest, St) -> {Kvar,Forest,St}.
-%%  Add a new expression to Forest.
-
-forest_add_expr(Expr, Forest0, St0) ->
-    {#k_var{name=V}=Var,St} = new_var(St0),
-    N = forest_next_index(Forest0),
-    Forest = Forest0#{V => {N,Expr}},
-    {Var,Forest,St}.
-
-forest_next_index(Forest) ->
-    1 + lists:max([N || {N,_} <- maps:values(Forest),
-			is_integer(N)] ++ [0]).
-
-%% forest_pre_seq([Kexpr], Forest) -> Kexpr.
-%%  Package the list of Kexprs into a nested Kexpr, prepending all
-%%  expressions in Forest that have not been taken out using
-%%  forest_take_expr/2.
-
-forest_pre_seq(Exprs, Forest) ->
-    Es0 = [#k_var{name=V} || {untaken,V} <- maps:keys(Forest)],
-    Es = Es0 ++ Exprs,
-    Vs = extract_all_vars(Es, Forest, []),
-    Pre0 = sort([{maps:get(V, Forest),V} || V <- Vs]),
-    Pre = [#iset{vars=[#k_var{name=V}],arg=A} ||
-	      {{_,A},V} <- Pre0],
-    pre_seq(Pre++droplast(Exprs), last(Exprs)).
-
-extract_all_vars(Es, Forest, Acc0) ->
-    case extract_var_list(Es) of
-	[] ->
-	    Acc0;
-	[_|_]=Vs0 ->
-	    Vs = [V || V <- Vs0, maps:is_key(V, Forest)],
-	    NewVs = ordsets:subtract(Vs, Acc0),
-	    NewEs = [begin
-		      {_,E} = maps:get(V, Forest),
-		      E
-		  end || V <- NewVs],
-	    Acc = union(NewVs, Acc0),
-	    extract_all_vars(NewEs, Forest, Acc)
-    end.
-
-extract_vars(#iset{arg=A,body=B}) ->
-    union(extract_vars(A), extract_vars(B));
-extract_vars(#k_bif{args=Args}) ->
-    ordsets:from_list(lit_list_vars(Args));
-extract_vars(#k_call{}) ->
-    [];
-extract_vars(#k_test{args=Args}) ->
-    ordsets:from_list(lit_list_vars(Args));
-extract_vars(#k_match{body=Body}) ->
-    extract_vars(Body);
-extract_vars(#k_alt{first=First,then=Then}) ->
-    union(extract_vars(First), extract_vars(Then));
-extract_vars(#k_guard{clauses=Cs}) ->
-    extract_var_list(Cs);
-extract_vars(#k_guard_clause{guard=G}) ->
-    extract_vars(G);
-extract_vars(#k_select{var=Var,types=Types}) ->
-    union(ordsets:from_list(lit_vars(Var)),
-	  extract_var_list(Types));
-extract_vars(#k_type_clause{values=Values}) ->
-    extract_var_list(Values);
-extract_vars(#k_val_clause{body=Body}) ->
-    extract_vars(Body);
-extract_vars(#k_try{arg=Arg}) ->
-    extract_vars(Arg);
-extract_vars(Lit) ->
-    ordsets:from_list(lit_vars(Lit)).
-
-extract_var_list(L) ->
-    union([extract_vars(E) || E <- L]).
-
-%% Wrap the entire guard in a try/catch if needed.
-
-wrap_guard(#c_try{}=Try, St) -> {Try,St};
-wrap_guard(Core, St0) ->
-    {VarName,St} = new_var_name(St0),
-    Var = #c_var{name=VarName},
-    Try = #c_try{arg=Core,vars=[Var],body=Var,evars=[],handler=#c_literal{val=false}},
-    {Try,St}.
-    
 %% gexpr_test(Kexpr, State) -> {Kexpr,State}.
 %%  Builds the final boolean test from the last Kexpr in a guard test.
 %%  Must enter try blocks and isets and find the last Kexpr in them.
 %%  This must end in a recognised BEAM test!
 
-gexpr_test(#k_bif{anno=A,op=#k_remote{mod=#k_atom{val=erlang},
-				      name=#k_atom{val=F},arity=Ar}=Op,
+gexpr_test(#k_bif{anno=A,
+                  op=#k_remote{mod=#k_literal{val=erlang},
+                               name=#k_literal{val=F},arity=Ar}=Op,
 		  args=Kargs}=Ke, St) ->
     %% Either convert to test if ok, or add test.
     %% At this stage, erlang:float/1 is not a type test. (It should
@@ -692,7 +212,7 @@ gexpr_test(#k_bif{anno=A,op=#k_remote{mod=#k_atom{val=erlang},
 	false -> gexpr_test_add(Ke, St)		%Add equality test
     end;
 gexpr_test(#k_try{arg=B0,vars=[#k_var{name=X}],body=#k_var{name=X},
-		  handler=#k_atom{val=false}}=Try, St0) ->
+		  handler=#k_literal{val=false}}=Try, St0) ->
     {B,St} = gexpr_test(B0, St0),
     %%ok = io:fwrite("~w: ~p~n", [?LINE,{B0,B}]),
     {Try#k_try{arg=B},St};
@@ -702,42 +222,41 @@ gexpr_test(#iset{body=B0}=Iset, St0) ->
 gexpr_test(Ke, St) -> gexpr_test_add(Ke, St).	%Add equality test
 
 gexpr_test_add(Ke, St0) ->
-    Test = #k_remote{mod=#k_atom{val='erlang'},
-		     name=#k_atom{val='=:='},
+    Test = #k_remote{mod=#k_literal{val='erlang'},
+		     name=#k_literal{val='=:='},
 		     arity=2},
     {Ae,Ap,St1} = force_atomic(Ke, St0),
     {pre_seq(Ap, #k_test{anno=get_kanno(Ke),
-			 op=Test,args=[Ae,#k_atom{val='true'}]}),St1}.
+			 op=Test,args=[Ae,#k_literal{val='true'}]}),St1}.
 
 %% expr(Cexpr, Sub, State) -> {Kexpr,[PreKexpr],State}.
 %%  Convert a Core expression, flattening it at the same time.
 
-expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
-    %% A local in an expression.
-    %% For now, these are wrapped into a fun by reverse
-    %% eta-conversion, but really, there should be exactly one
-    %% such "lambda function" for each escaping local name,
-    %% instead of one for each occurrence as done now.
+expr(#c_var{anno=A0,name={Name,Arity}}=Fname, Sub, St) ->
     Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
-	     V <- integers(1, Arity)],
-    Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
-    expr(Fun, Sub, St);
+             V <- integers(1, Arity)],
+    case St#kern.no_shared_fun_wrappers of
+        false ->
+            %% Generate a (possibly shared) wrapper function for calling
+            %% this function.
+            Wrapper0 = ["-fun.",atom_to_list(Name),"/",integer_to_list(Arity),"-"],
+            Wrapper = list_to_atom(flatten(Wrapper0)),
+            Id = {id,{0,0,Wrapper}},
+            A = keyreplace(id, 1, A0, Id),
+            Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
+            expr(Fun, Sub, St);
+        true ->
+            %% For backward compatibility with OTP 22 and earlier,
+            %% use the pre-generated name for the fun wrapper.
+            %% There will be one wrapper function for each occurrence
+            %% of `fun F/A`.
+            Fun = #c_fun{anno=A0,vars=Vs,body=#c_apply{anno=A0,op=Fname,args=Vs}},
+            expr(Fun, Sub, St)
+    end;
 expr(#c_var{anno=A,name=V}, Sub, St) ->
     {#k_var{anno=A,name=get_vsub(V, Sub)},[],St};
 expr(#c_literal{anno=A,val=V}, _Sub, St) ->
-    Klit = case V of
-	       [] ->
-		   #k_nil{anno=A};
-	       V when is_integer(V) ->
-		   #k_int{anno=A,val=V};
-	       V when is_float(V) ->
-		   #k_float{anno=A,val=V};
-	       V when is_atom(V) ->
-		   #k_atom{anno=A,val=V};
-	       _ ->
-		   #k_literal{anno=A,val=V}
-	   end,
-    {Klit,[],St};
+    {#k_literal{anno=A,val=V},[],St};
 expr(#c_cons{anno=A,hd=Ch,tl=Ct}, Sub, St0) ->
     %% Do cons in two steps, first the expressions left to right, then
     %% any remaining literals right to left.
@@ -764,24 +283,12 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
 	    Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
 	    expr(Error, Sub, St1)
     end;
-expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0, #kern{ff=OldFF,func=Func}=St0) ->
-    FA = case OldFF of
-	     undefined ->
-		 Func;
-	     _ ->
-		 case lists:keyfind(id, 1, A) of
-		     {id,{_,_,Name}} -> Name;
-		     _ ->
-			 case lists:keyfind(letrec_name, 1, A) of
-			     {letrec_name,Name} -> Name;
-			     _ -> unknown_fun
-			 end
-		 end
-	 end,
-    {Kvs,Sub1,St1} = pattern_list(Cvs, Sub0, St0#kern{ff=FA}),
+expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0,
+     #kern{fargs=OldFargs}=St0) ->
+    {Kvs,Sub1,St1} = pattern_list(Cvs, Sub0, St0),
     %%ok = io:fwrite("~w: ~p~n", [?LINE,{{Cvs,Sub0,St0},{Kvs,Sub1,St1}}]),
-    {Kb,Pb,St2} = body(Cb, Sub1, St1#kern{ff=FA}),
-    {#ifun{anno=A,vars=Kvs,body=pre_seq(Pb, Kb)},[],St2#kern{ff=OldFF}};
+    {Kb,Pb,St2} = body(Cb, Sub1, St1#kern{fargs=Kvs}),
+    {#ifun{anno=A,vars=Kvs,body=pre_seq(Pb, Kb)},[],St2#kern{fargs=OldFargs}};
 expr(#c_seq{arg=Ca,body=Cb}, Sub, St0) ->
     {Ka,Pa,St1} = body(Ca, Sub, St0),
     {Kb,Pb,St2} = body(Cb, Sub, St1),
@@ -802,104 +309,42 @@ expr(#c_let{anno=A,vars=Cvs,arg=Ca,body=Cb}, Sub0, St0) ->
 	   end,
     {Kb,Pb,St3} = body(Cb, Sub1, St2),
     {Kb,Pa ++ Sets ++ Pb,St3};
-expr(#c_letrec{anno=A,defs=Cfs,body=Cb}, Sub0, St0) ->
-    %% Make new function names and store substitution.
-    {Fs0,{Sub1,St1}} =
-	mapfoldl(fun ({#c_var{name={F,Ar}},B0}, {Sub,S0}) ->
-			 {N,St1} = new_fun_name(atom_to_list(F)
-						++ "/" ++
-						integer_to_list(Ar),
-						S0),
-			 B = set_kanno(B0, [{letrec_name,N}]),
-			 {{N,B},{set_fsub(F, Ar, N, Sub),St1}}
-		 end, {Sub0,St0}, Cfs),
-    %% Run translation on functions and body.
-    {Fs1,St2} = mapfoldl(fun ({N,Fd0}, S1) ->
-				 {Fd1,[],St2} = expr(Fd0, Sub1, S1#kern{ff=N}),
-				 Fd = set_kanno(Fd1, A),
-				 {{N,Fd},St2}
-			 end, St1, Fs0),
-    {Kb,Pb,St3} = body(Cb, Sub1, St2#kern{ff=St1#kern.ff}),
-    {Kb,[#iletrec{anno=A,defs=Fs1}|Pb],St3};
+expr(#c_letrec{anno=A,defs=Cfs,body=Cb}, Sub, St) ->
+    case member(letrec_goto, A) of
+        true ->
+            letrec_goto(Cfs, Cb, Sub, St);
+        false ->
+            letrec_local_function(A, Cfs, Cb, Sub, St)
+    end;
 expr(#c_case{arg=Ca,clauses=Ccs}, Sub, St0) ->
     {Ka,Pa,St1} = body(Ca, Sub, St0),		%This is a body!
     {Kvs,Pv,St2} = match_vars(Ka, St1),		%Must have variables here!
     {Km,St3} = kmatch(Kvs, Ccs, Sub, St2),
-    Match = flatten_seq(build_match(Kvs, Km)),
+    Match = flatten_seq(build_match(Km)),
     {last(Match),Pa ++ Pv ++ droplast(Match),St3};
-expr(#c_receive{anno=A,clauses=Ccs0,timeout=Ce,action=Ca}, Sub, St0) ->
-    {Ke,Pe,St1} = atomic(Ce, Sub, St0),		%Force this to be atomic!
-    {Rvar,St2} = new_var(St1),
-    %% Need to massage accept clauses and add reject clause before matching.
-    Ccs1 = map(fun (#c_clause{anno=Banno,body=B0}=C) ->
-		       B1 = #c_seq{arg=#ireceive_accept{anno=A},body=B0},
-		       C#c_clause{anno=Banno,body=B1}
-	       end, Ccs0),
-    {Mpat,St3} = new_var_name(St2),
-    Rc = #c_clause{anno=[compiler_generated|A],
-		   pats=[#c_var{name=Mpat}],guard=#c_literal{anno=A,val=true},
-		   body=#ireceive_next{anno=A}},
-    {Km,St4} = kmatch([Rvar], Ccs1 ++ [Rc], Sub, add_var_def(Rvar, St3)),
-    {Ka,Pa,St5} = body(Ca, Sub, St4),
-    {#k_receive{anno=A,var=Rvar,body=Km,timeout=Ke,action=pre_seq(Pa, Ka)},
-     Pe,St5};
 expr(#c_apply{anno=A,op=Cop,args=Cargs}, Sub, St) ->
     c_apply(A, Cop, Cargs, Sub, St);
-expr(#c_call{anno=A,module=#c_literal{val=erlang},name=#c_literal{val=is_record},
-	     args=[_,Tag,Sz]=Args0}, Sub, St0) ->
-    {Args,Ap,St} = atomic_list(Args0, Sub, St0),
-    Remote = #k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=is_record},arity=3},
-    case {Tag,Sz} of
-	{#c_literal{val=Atom},#c_literal{val=Int}}
-	when is_atom(Atom), is_integer(Int) ->
-	    %% Tag and size are literals. Make it a BIF, which will actually
-	    %% be expanded out in a later pass.
-	    {#k_bif{anno=A,op=Remote,args=Args},Ap,St};
-	{_,_} ->
-	    %% (Only in bodies.) Make it into an actual call to the BIF.
-	    {#k_call{anno=A,op=Remote,args=Args},Ap,St}
-    end;
 expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
     Ar = length(Cargs),
-    {Type,St1} = case call_type(M0, F0, Ar) of
-		     error ->
-			 %% Invalid call (e.g. M:42/3). Issue a warning,
-			 %% and let the generated code use the old explict apply.
-			 {old_apply,add_warning(get_line(A), bad_call, A, St0)};
-		     Type0 ->
-			 {Type0,St0}
-		 end,
-
-    case Type of
-	old_apply ->
+    {[M,F|Kargs],Ap,St1} = atomic_list([M0,F0|Cargs], Sub, St0),
+    Remote = #k_remote{mod=M,name=F,arity=Ar},
+    case call_type(M0, F0, Cargs) of
+        bif ->
+            {#k_bif{anno=A,op=Remote,args=Kargs},Ap,St1};
+        call ->
+            {#k_call{anno=A,op=Remote,args=Kargs},Ap,St1};
+        error ->
+            %% Invalid call (e.g. M:42/3). Issue a warning, and let
+            %% the generated code use the old explict apply.
+            St = add_warning(get_line(A), bad_call, A, St0),
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
 			   name=#c_literal{val=apply},
 			   args=[M0,F0,cerl:make_list(Cargs)]},
-	    expr(Call, Sub, St1);
-	_ ->
-	    {[M1,F1|Kargs],Ap,St} = atomic_list([M0,F0|Cargs], Sub, St1),
-	    Call = case Type of
-		       bif ->
-			   #k_bif{anno=A,op=#k_remote{mod=M1,name=F1,arity=Ar},
-				  args=Kargs};
-		       call ->
-			   #k_call{anno=A,op=#k_remote{mod=M1,name=F1,arity=Ar},
-				   args=Kargs};
-		       apply ->
-			   #k_call{anno=A,op=#k_remote{mod=M1,name=F1,arity=Ar},
-				   args=Kargs}
-		   end,
-	    {Call,Ap,St}
+	    expr(Call, Sub, St)
     end;
-expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=Cargs0}, Sub, St0) ->
-    Cargs = translate_match_fail(Cargs0, Sub, A, St0),
-    {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
-    Ar = length(Cargs),
-    Call = #k_call{anno=A,op=#k_remote{mod=#k_atom{val=erlang},
-				       name=#k_atom{val=error},
-				       arity=Ar},args=Kargs},
-    {Call,Ap,St};
+expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=[Arg]}, Sub, St) ->
+    translate_match_fail(Arg, Sub, A, St);
 expr(#c_primop{anno=A,name=#c_literal{val=N},args=Cargs}, Sub, St0) ->
     {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
     Ar = length(Cargs),
@@ -917,60 +362,90 @@ expr(#c_try{anno=A,arg=Ca,vars=Cvs,body=Cb,evars=Evs,handler=Ch}, Sub0, St0) ->
 	    evars=Kevs,handler=pre_seq(Ph, Kh)},[],St5};
 expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
     {Kb,Pb,St1} = body(Cb, Sub, St0),
-    {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1};
-%% Handle internal expressions.
-expr(#ireceive_accept{anno=A}, _Sub, St) -> {#k_receive_accept{anno=A},[],St}.
+    {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1}.
 
-%% Translate a function_clause exception to a case_clause exception if
-%% it has been moved into another function. (A function_clause exception
-%% will not work correctly if it is moved into another function, or
-%% even if it is invoked not from the top level in the correct function.)
-translate_match_fail(Args, Sub, Anno, St) ->
-    case Args of
-	[#c_tuple{es=[#c_literal{val=function_clause}|As]}] ->
-	    translate_match_fail_1(Anno, As, Sub, St);
-	[#c_literal{val=Tuple}] when is_tuple(Tuple) ->
-	    %% The inliner may have created a literal out of
-	    %% the original #c_tuple{}.
-	    case tuple_to_list(Tuple) of
-		[function_clause|As0] ->
-		    As = [#c_literal{val=E} || E <- As0],
-		    translate_match_fail_1(Anno, As, Sub, St);
-		_ ->
-		    Args
-	    end;
-	_ ->
-	    %% Not a function_clause exception.
-	    Args
+%% Implement letrec in the traditional way as a local
+%% function for each definition in the letrec.
+
+letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
+    %% Make new function names and store substitution.
+    {Fs0,{Sub1,St1}} =
+	mapfoldl(fun ({#c_var{name={F,Ar}},B0}, {Sub,S0}) ->
+			 {N,St1} = new_fun_name(atom_to_list(F)
+						++ "/" ++
+						integer_to_list(Ar),
+						S0),
+			 B = set_kanno(B0, [{letrec_name,N}]),
+			 {{N,B},{set_fsub(F, Ar, N, Sub),St1}}
+		 end, {Sub0,St0}, Cfs),
+    %% Run translation on functions and body.
+    {Fs1,St2} = mapfoldl(fun ({N,Fd0}, S1) ->
+				 {Fd1,[],St2} = expr(Fd0, Sub1, S1),
+				 Fd = set_kanno(Fd1, A),
+				 {{N,Fd},St2}
+			 end, St1, Fs0),
+    {Kb,Pb,St3} = body(Cb, Sub1, St2),
+    {Kb,[#iletrec{anno=A,defs=Fs1}|Pb],St3}.
+
+%% Implement letrec with the single definition as a label and each
+%% apply of it as a goto.
+
+letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
+            #kern{labels=Labels0}=St0) ->
+    Labels = cerl_sets:add_element(Label, Labels0),
+    {Kb,Pb,St1} = body(Cb, Sub0, St0#kern{labels=Labels}),
+    #c_fun{body=FailBody} = Cfail,
+    {Kfail,Fb,St2} = body(FailBody, Sub0, St1),
+    case {Kb,Kfail,Fb} of
+        {#k_goto{label=Label},#k_goto{}=InnerGoto,[]} ->
+            {InnerGoto,Pb,St2};
+        {_,_,_} ->
+            St3 = St2#kern{labels=Labels0},
+            Alt = #k_letrec_goto{label=Label,first=Kb,then=pre_seq(Fb, Kfail)},
+            {Alt,Pb,St3}
     end.
 
-translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
-    AnnoFunc = case keyfind(function_name, 1, Anno) of
-		   false ->
-		       none;			%Force rewrite.
-		   {function_name,{Name,Arity}} ->
-		       {get_fsub(Name, Arity, Sub),Arity}
-	       end,
-    case {AnnoFunc,FF} of
-	{Same,Same} ->
-	    %% Still in the correct function.
-	    translate_fc(As);
-	{{F,_},F} ->
-	    %% Still in the correct function.
-	    translate_fc(As);
-	_ ->
-	    %% Wrong function or no function_name annotation.
-	    %%
-	    %% The inliner has copied the match_fail(function_clause)
-	    %% primop from another function (or from another instance of
-	    %% the current function). match_fail(function_clause) will
-	    %% only work at the top level of the function it was originally
-	    %% defined in, so we will need to rewrite it to a case_clause.
-	    [c_tuple([#c_literal{val=case_clause},c_tuple(As)])]
+%% translate_match_fail(Arg, Sub, Anno, St) -> {Kexpr,[PreKexpr],State}.
+%%  Translate a match_fail primop to a call erlang:error/1 or
+%%  erlang:error/2.
+
+translate_match_fail(Arg, Sub, Anno, St0) ->
+    Cargs = case {cerl:data_type(Arg),cerl:data_es(Arg)} of
+                {tuple,[#c_literal{val=function_clause}|As]} ->
+                    translate_fc_args(As, Sub, St0);
+                {_,_} ->
+                    [Arg]
+            end,
+    {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
+    Ar = length(Cargs),
+    Call = #k_call{anno=Anno,
+                   op=#k_remote{mod=#k_literal{val=erlang},
+                                name=#k_literal{val=error},
+                                arity=Ar},args=Kargs},
+    {Call,Ap,St}.
+
+translate_fc_args(As, Sub, #kern{fargs=Fargs}) ->
+    case same_args(As, Fargs, Sub) of
+        true ->
+            %% The arguments for the `function_clause` exception are
+            %% the arguments for the current function in the correct
+            %% order.
+            [#c_literal{val=function_clause},cerl:make_list(As)];
+        false ->
+            %% The arguments in the `function_clause` exception don't
+            %% match the arguments for the current function because
+            %% of inlining. Keeping the `function_clause`
+            %% exception reason would be confusing. Rewrite it to
+            %% a `case_clause` exception with the arguments in a
+            %% tuple.
+	    [cerl:c_tuple([#c_literal{val=case_clause},
+                           cerl:c_tuple(As)])]
     end.
 
-translate_fc(Args) ->
-    [#c_literal{val=function_clause},cerl:make_list(Args)].
+same_args([#c_var{name=Cv}|Vs], [#k_var{name=Kv}|As], Sub) ->
+    get_vsub(Cv, Sub) =:= Kv andalso same_args(Vs, As, Sub);
+same_args([], [], _Sub) -> true;
+same_args(_, _, _) -> false.
 
 expr_map(A,Var0,Ces,Sub,St0) ->
     {Var,Mps,St1} = expr(Var0, Sub, St0),
@@ -1027,45 +502,43 @@ map_group_pairs(A, Var, Pairs0, Esp, St0) ->
     end.
 
 map_remove_dup_keys(Es) ->
-    dict:to_list(map_remove_dup_keys(Es, dict:new())).
+    map_remove_dup_keys(Es, #{}).
 
-map_remove_dup_keys([{assoc,K0,V}|Es0],Used0) ->
+map_remove_dup_keys([{assoc,K0,V}|Es0], Used0) ->
     K = map_key_clean(K0),
-    Op = case dict:find(K, Used0) of
-	     {ok,{exact,_,_}} -> exact;
-	     _                -> assoc
-	 end,
-    Used1 = dict:store(K, {Op,K0,V}, Used0),
+    Op = case Used0 of
+             #{K:={exact,_,_}} -> exact;
+             #{} -> assoc
+         end,
+    Used1 = Used0#{K=>{Op,K0,V}},
     map_remove_dup_keys(Es0, Used1);
-map_remove_dup_keys([{exact,K0,V}|Es0],Used0) ->
+map_remove_dup_keys([{exact,K0,V}|Es0], Used0) ->
     K = map_key_clean(K0),
-    Op = case dict:find(K, Used0) of
-	     {ok,{assoc,_,_}} -> assoc;
-	     _                -> exact
-	 end,
-    Used1 = dict:store(K, {Op,K0,V}, Used0),
+    Op = case Used0 of
+             #{K:={assoc,_,_}} -> assoc;
+             #{} -> exact
+         end,
+    Used1 = Used0#{K=>{Op,K0,V}},
     map_remove_dup_keys(Es0, Used1);
-map_remove_dup_keys([], Used) -> Used.
+map_remove_dup_keys([], Used) ->
+    %% We must sort the map entries to ensure consistent
+    %% order from compilation to compilation.
+    sort(maps:to_list(Used)).
 
-%% Be explicit instead of using set_kanno(K, []).
+%% Clean a map key from annotations.
 map_key_clean(#k_var{name=V})    -> {var,V};
-map_key_clean(#k_literal{val=V}) -> {lit,V};
-map_key_clean(#k_int{val=V})     -> {lit,V};
-map_key_clean(#k_float{val=V})   -> {lit,V};
-map_key_clean(#k_atom{val=V})    -> {lit,V};
-map_key_clean(#k_nil{})          -> {lit,[]}.
+map_key_clean(#k_literal{val=V}) -> {lit,V}.
 
-
-%% call_type(Module, Function, Arity) -> call | bif | apply | error.
+%% call_type(Module, Function, Arity) -> call | bif | error.
 %%  Classify the call.
-call_type(#c_literal{val=M}, #c_literal{val=F}, Ar) when is_atom(M), is_atom(F) ->
-    case is_remote_bif(M, F, Ar) of
+call_type(#c_literal{val=M}, #c_literal{val=F}, As) when is_atom(M), is_atom(F) ->
+    case is_remote_bif(M, F, As) of
 	false -> call;
 	true -> bif
     end;
-call_type(#c_var{}, #c_literal{val=A}, _) when is_atom(A) -> apply;
-call_type(#c_literal{val=A}, #c_var{}, _) when is_atom(A) -> apply;
-call_type(#c_var{}, #c_var{}, _) -> apply;
+call_type(#c_var{}, #c_literal{val=A}, _) when is_atom(A) -> call;
+call_type(#c_literal{val=A}, #c_var{}, _) when is_atom(A) -> call;
+call_type(#c_var{}, #c_var{}, _) -> call;
 call_type(_, _, _) -> error.
 
 %% match_vars(Kexpr, State) -> {[Kvar],[PreKexpr],State}.
@@ -1081,13 +554,19 @@ match_vars(Ka, St0) ->
     {[V],Vp,St1}.
 
 %% c_apply(A, Op, [Carg], Sub, State) -> {Kexpr,[PreKexpr],State}.
-%%  Transform application, detect which are guaranteed to be bifs.
+%%  Transform application.
 
-c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, St0) ->
-    {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
-    F1 = get_fsub(F0, Ar, Sub),			%Has it been rewritten
-    {#k_call{anno=A,op=#k_local{anno=Ra,name=F1,arity=Ar},args=Kargs},
-     Ap,St1};
+c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, #kern{labels=Labels}=St0) ->
+    case Ar =:= 0 andalso cerl_sets:is_element(F0, Labels) of
+        true ->
+            %% This is a goto to a label in a letrec_goto construct.
+            {#k_goto{label=F0},[],St0};
+        false ->
+            {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
+            F1 = get_fsub(F0, Ar, Sub),         %Has it been rewritten
+            {#k_call{anno=A,op=#k_local{anno=Ra,name=F1,arity=Ar},args=Kargs},
+             Ap,St1}
+    end;
 c_apply(A, Cop, Cargs, Sub, St0) ->
     {Kop,Op,St1} = variable(Cop, Sub, St0),
     {Kargs,Ap,St2} = atomic_list(Cargs, Sub, St1),
@@ -1121,12 +600,6 @@ force_atomic(Ke, St0) ->
 	    {V,[#iset{vars=[V],arg=Ke}],St1}
     end.
 
-% force_atomic_list(Kes, St) ->
-%     foldr(fun (Ka, {As,Asp,St0}) ->
-% 		  {A,Ap,St1} = force_atomic(Ka, St0),
-% 		  {[A|As],Ap ++ Asp,St1}
-% 	  end, {[],[],St}, Kes).
-
 atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
 	   Sub, St0) ->
     {E,Ap1,St1} = atomic(E0, Sub, St0),
@@ -1144,11 +617,14 @@ atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
 atomic_bin([], _Sub, St) -> {#k_bin_end{},[],St}.
 
 validate_bin_element_size(#k_var{}) -> ok;
-validate_bin_element_size(#k_int{val=V}) when V >= 0 -> ok;
-validate_bin_element_size(#k_atom{val=all}) -> ok;
-validate_bin_element_size(#k_atom{val=undefined}) -> ok;
-validate_bin_element_size(_) -> throw(bad_element_size).
-    
+validate_bin_element_size(#k_literal{val=Val}) ->
+    case Val of
+        all -> ok;
+        undefined -> ok;
+        _ when is_integer(Val), Val >= 0 -> ok;
+        _ -> throw(bad_element_size)
+    end.
+
 %% atomic_list([Cexpr], Sub, State) -> {[Kexpr],[PreKexpr],State}.
 
 atomic_list(Ces, Sub, St) ->
@@ -1158,15 +634,11 @@ atomic_list(Ces, Sub, St) ->
 	  end, {[],[],St}, Ces).
 
 %% is_atomic(Kexpr) -> boolean().
-%%  Is a Kexpr atomic?  Strings are NOT considered atomic!
+%%  Is a Kexpr atomic?
 
 is_atomic(#k_literal{}) -> true;
-is_atomic(#k_int{}) -> true;
-is_atomic(#k_float{}) -> true;
-is_atomic(#k_atom{}) -> true;
-%%is_atomic(#k_char{}) -> true;			%No characters
-is_atomic(#k_nil{}) -> true;
 is_atomic(#k_var{}) -> true;
+%%is_atomic(#k_char{}) -> true;			%No characters
 is_atomic(_) -> false.
 
 %% variable(Cexpr, Sub, State) -> {Kvar,[PreKexpr],State}.
@@ -1230,7 +702,7 @@ flatten_alias(Pat) -> {[],Pat}.
 
 pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
     %% pattern the pair keys and values as normal
-    {Kes,{Osub1,St1}} = lists:mapfoldl(fun
+    {Kes,{Osub1,St1}} = mapfoldl(fun
 	    (#c_map_pair{anno=A,key=Ck,val=Cv},{Osubi0,Sti0}) ->
 		{Kk,[],Sti1} = expr(Ck, Isub, Sti0),
 		{Kv,Osubi2,Sti2} = pattern(Cv, Isub, Osubi0, Sti1),
@@ -1238,7 +710,7 @@ pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
 	end, {Osub0, St0}, Ces0),
     %% It is later assumed that these keys are term sorted
     %% so we need to sort them here
-    Kes1 = lists:sort(fun
+    Kes1 = sort(fun
 	    (#k_map_pair{key=KkA},#k_map_pair{key=KkB}) ->
 		A = map_key_clean(KkA),
 		B = map_key_clean(KkB),
@@ -1246,41 +718,85 @@ pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
 	end, Kes),
     {Kes1,Osub1,St1}.
 
-pattern_bin(Es, Isub, Osub0, St0) ->
-    {Kbin,{_,Osub},St} = pattern_bin_1(Es, Isub, Osub0, St0),
-    {Kbin,Osub,St}.
+pattern_bin(Es, Isub, Osub0, St) ->
+    pattern_bin_1(Es, Isub, Osub0, St).
 
-pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0], 
-	    Isub0, Osub0, St0) ->
-    {S1,[],St1} = expr(S0, Isub0, St0),
+pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
+              Isub, Osub0, St0) ->
+    {S1,[],St1} = expr(S0, Isub, St0),
     S = case S1 of
-	    #k_int{} -> S1;
 	    #k_var{} -> S1;
-	    #k_atom{} -> S1;
+            #k_literal{val=Val} when is_integer(Val); is_atom(Val) -> S1;
 	    _ ->
 		%% Bad size (coming from an optimization or Core Erlang
 		%% source code) - replace it with a known atom because
 		%% a literal or bit syntax construction can cause further
 		%% problems.
-		#k_atom{val=bad_size}
+		#k_literal{val=bad_size}
 	end,
-    U0 = cerl:concrete(U),
-    Fs0 = cerl:concrete(Fs),
-    %%ok= io:fwrite("~w: ~p~n", [?LINE,{B0,S,U0,Fs0}]),
-    {E,Osub1,St2} = pattern(E0, Isub0, Osub0, St1),
-    Isub1 = case E0 of
-		#c_var{name=V} ->
-		    set_vsub(V, E#k_var.name, Isub0);
-		_ -> Isub0
-	    end,
-    {Es,{Isub,Osub},St3} = pattern_bin_1(Es0, Isub1, Osub1, St2),
-    {#k_bin_seg{anno=A,size=S,
-		unit=U0,
-		type=cerl:concrete(T),
-		flags=Fs0,
-		seg=E,next=Es},
-     {Isub,Osub},St3};
-pattern_bin_1([], Isub, Osub, St) -> {#k_bin_end{},{Isub,Osub},St}.
+    U = cerl:concrete(U0),
+    Fs = cerl:concrete(Fs0),
+    {E,Osub1,St2} = pattern(E0, Isub, Osub0, St1),
+    {Es,Osub,St3} = pattern_bin_1(Es0, Isub, Osub1, St2),
+    {build_bin_seg(A, S, U, cerl:concrete(T), Fs, E, Es),Osub,St3};
+pattern_bin_1([], _Isub, Osub, St) ->
+    {#k_bin_end{},Osub,St}.
+
+%% build_bin_seg(Anno, Size, Unit, Type, Flags, Seg, Next) -> #k_bin_seg{}.
+%%  This function normalizes literal integers with size > 8 and literal
+%%  utf8 segments into integers with size = 8 (and potentially an integer
+%%  with size less than 8 at the end). This is so further optimizations
+%%  have a normalized view of literal integers, allowing us to generate
+%%  more literals and group more clauses. Those integers may be "squeezed"
+%%  later into the largest integer possible.
+%%
+build_bin_seg(A, #k_literal{val=Bits} = Sz, U, integer=Type,
+              [unsigned,big]=Flags, #k_literal{val=Int}=Seg, Next) when is_integer(Bits) ->
+    Size = Bits * U,
+    case integer_fits_and_is_expandable(Int, Size) of
+	true -> build_bin_seg_integer_recur(A, Size, Int, Next);
+	false -> #k_bin_seg{anno=A,size=Sz,unit=U,type=Type,flags=Flags,seg=Seg,next=Next}
+    end;
+build_bin_seg(A, Sz, U, utf8=Type, [unsigned,big]=Flags, #k_literal{val=Utf8} = Seg, Next) ->
+    case utf8_fits(Utf8) of
+      {Int, Bits} -> build_bin_seg_integer_recur(A, Bits, Int, Next);
+      error -> #k_bin_seg{anno=A,size=Sz,unit=U,type=Type,flags=Flags,seg=Seg,next=Next}
+    end;
+build_bin_seg(A, Sz, U, Type, Flags, Seg, Next) ->
+    #k_bin_seg{anno=A,size=Sz,unit=U,type=Type,flags=Flags,seg=Seg,next=Next}.
+
+build_bin_seg_integer_recur(A, Bits, Val, Next) when Bits > 8 ->
+    NextBits = Bits - 8,
+    NextVal = Val band ((1 bsl NextBits) - 1),
+    Last = build_bin_seg_integer_recur(A, NextBits, NextVal, Next),
+    build_bin_seg_integer(A, 8, Val bsr NextBits, Last);
+
+build_bin_seg_integer_recur(A, Bits, Val, Next) ->
+    build_bin_seg_integer(A, Bits, Val, Next).
+
+build_bin_seg_integer(A, Bits, Val, Next) ->
+    Sz = #k_literal{anno=A,val=Bits},
+    Seg = #k_literal{anno=A,val=Val},
+    #k_bin_seg{anno=A,size=Sz,unit=1,type=integer,flags=[unsigned,big],seg=Seg,next=Next}.
+
+integer_fits_and_is_expandable(Int, Size) when is_integer(Int), is_integer(Size),
+                                               0 < Size, Size =< ?EXPAND_MAX_SIZE_SEGMENT ->
+    case <<Int:Size>> of
+	<<Int:Size>> -> true;
+	_ -> false
+    end;
+integer_fits_and_is_expandable(_Int, _Size) ->
+    false.
+
+utf8_fits(Utf8) ->
+    try
+	Bin = <<Utf8/utf8>>,
+	Bits = bit_size(Bin),
+	<<Int:Bits>> = Bin,
+	{Int, Bits}
+    catch
+	_:_ -> error
+    end.
 
 %% pattern_list([Cexpr], Sub, State) -> {[Kexpr],Sub,State}.
 
@@ -1297,51 +813,82 @@ pattern_list(Ces, Isub, Osub, St) ->
 %% set_vsub(Name, Sub, Subs) -> Subs.
 %% subst_vsub(Name, Sub, Subs) -> Subs.
 %% get_vsub(Name, Subs) -> SubName.
-%%  Add/get substitute Sub for Name to VarSub.  Use orddict so we know
-%%  the format is a list {Name,Sub} pairs.  When adding a new
-%%  substitute we fold substitute chains so we never have to search
-%%  more than once.
+%%  Add/get substitute Sub for Name to VarSub.
+%%
+%%  We're using a many-to-one bimap so we can rename all references to a
+%%  variable without having to scan through all of them, which can cause
+%%  compile times to explode (see record_SUITE:slow_compilation/1).
 
-new_sub() -> orddict:new().
+new_sub() -> {#{}, #{}}.
 
-get_vsub(V, Vsub) ->
-    case orddict:find(V, Vsub) of
-	{ok,Val} -> Val;
-	error -> V
+get_vsub(Key, Subs) ->
+    bimap_get(Key, Subs, Key).
+
+get_fsub(Name, Arity, Subs) ->
+    bimap_get({Name, Arity}, Subs, Name).
+
+set_vsub(Same, Same, Subs) ->
+    Subs;
+set_vsub(Key, Val, Subs) ->
+    bimap_set(Key, Val, Subs).
+
+set_fsub(Name, Arity, Val, Subs) ->
+    set_vsub({Name, Arity}, Val, Subs).
+
+subst_vsub(Key, Val, Subs) ->
+    bimap_rename(Key, Val, Subs).
+
+bimap_get(Key, {Map, _InvMap}, Default) ->
+    case Map of
+        #{ Key := Val } -> Val;
+        _ -> Default
     end.
 
-set_vsub(V, S, Vsub) ->
-    orddict:store(V, S, Vsub).
+%% Maps Key to Val without touching existing references to Key.
+bimap_set(Key, Val, {Map0, InvMap0}) ->
+    InvMap = bm_update_inv_lookup(Key, Val, Map0, InvMap0),
+    Map = Map0#{ Key => Val },
+    {Map, InvMap}.
 
-subst_vsub(Key, New, Vsub) ->
-    orddict:from_list(subst_vsub_1(Key, New, Vsub)).
-
-subst_vsub_1(Key, New, [{K,Key}|Dict]) ->
-    %% Fold chained substitution.
-    [{K,New}|subst_vsub_1(Key, New, Dict)];
-subst_vsub_1(Key, New, [{K,_}|_]=Dict) when Key < K ->
-    %% Insert the new substitution here, and continue
-    %% look for chained substitutions.
-    [{Key,New}|subst_vsub_2(Key, New, Dict)];
-subst_vsub_1(Key, New, [{K,_}=E|Dict]) when Key > K ->
-    [E|subst_vsub_1(Key, New, Dict)];
-subst_vsub_1(Key, New, []) -> [{Key,New}].
-
-subst_vsub_2(V, S, [{K,V}|Dict]) ->
-    %% Fold chained substitution.
-    [{K,S}|subst_vsub_2(V, S, Dict)];
-subst_vsub_2(V, S, [E|Dict]) ->
-    [E|subst_vsub_2(V, S, Dict)];
-subst_vsub_2(_, _, []) -> [].
-
-get_fsub(F, A, Fsub) ->
-    case orddict:find({F,A}, Fsub) of
-	{ok,Val} -> Val;
-	error -> F
+bm_update_inv_lookup(Key, Val, Map, InvMap0) ->
+    InvMap = bm_cleanup_inv_lookup(Key, Map, InvMap0),
+    case InvMap of
+        #{ Val := Keys } ->
+            %% Other keys map to the same value, add ours to the set.
+            InvMap#{ Val := ordsets:add_element(Key, Keys) };
+        #{} ->
+            InvMap#{ Val => [Key] }
     end.
 
-set_fsub(F, A, S, Fsub) ->
-    orddict:store({F,A}, S, Fsub).
+bm_cleanup_inv_lookup(Key, Map, InvMap) when is_map_key(Key, Map) ->
+    #{ Key := Old } = Map,
+    case InvMap of
+        #{ Old := [Key] } ->
+            maps:remove(Old, InvMap);
+        #{ Old := [_|_]=Keys } ->
+            InvMap#{ Old := ordsets:del_element(Key, Keys) }
+    end;
+bm_cleanup_inv_lookup(_Key, _Map, InvMap) ->
+    InvMap.
+
+%% Maps Key to Val, and replaces all existing references to Key with Val.
+bimap_rename(Key, Val, {Map0, InvMap0}) when is_map_key(Key, InvMap0) ->
+    Keys = map_get(Key, InvMap0),
+
+    Map1 = Map0#{ Key => Val },
+    Map = bimap_update_lookup(Keys, Val, Map1),
+
+    InvMap1 = maps:remove(Key, InvMap0),
+    InvMap = InvMap1#{ Val => ordsets:add_element(Key, Keys) },
+
+    {Map, InvMap};
+bimap_rename(Key, Val, Subs) ->
+    bimap_set(Key, Val, Subs).
+
+bimap_update_lookup([Key | Keys], Val, Map) ->
+    bimap_update_lookup(Keys, Val, Map#{ Key := Val });
+bimap_update_lookup([], _Val, Map) ->
+    Map.
 
 new_fun_name(St) ->
     new_fun_name("anonymous", St).
@@ -1356,7 +903,7 @@ new_fun_name(Type, #kern{func={F,Arity},fcount=C}=St) ->
 %% new_var_name(State) -> {VarName,State}.
 
 new_var_name(#kern{vcount=C}=St) ->
-    {list_to_atom("@k" ++ integer_to_list(C)),St#kern{vcount=C+1}}.
+    {C,St#kern{vcount=C+1}}.
 
 %% new_var(State) -> {#k_var{},State}.
 
@@ -1376,23 +923,25 @@ new_vars(0, St, Vs) -> {Vs,St}.
 
 make_vars(Vs) -> [ #k_var{name=V} || V <- Vs ].
 
-add_var_def(V, St) ->
-    St#kern{ds=cerl_sets:add_element(V#k_var.name, St#kern.ds)}.
-
-%%add_vars_def(Vs, St) ->
-%%    Ds = foldl(fun (#k_var{name=V}, Ds) -> add_element(V, Ds) end,
-%%	       St#kern.ds, Vs),
-%%    St#kern{ds=Ds}.
-
 %% is_remote_bif(Mod, Name, Arity) -> true | false.
 %%  Test if function is really a BIF.
 
-is_remote_bif(erlang, get, 1) -> true;
-is_remote_bif(erlang, N, A) ->
-    case erl_internal:guard_bif(N, A) of
+is_remote_bif(erlang, get, [_]) -> true;
+is_remote_bif(erlang, is_record, [_,Tag,Sz]) ->
+    case {Tag,Sz} of
+	{#c_literal{val=Atom},#c_literal{val=Int}}
+          when is_atom(Atom), is_integer(Int) ->
+	    %% Tag and size are literals. This is a guard BIF.
+            true;
+        {_,_} ->
+            false
+    end;
+is_remote_bif(erlang, N, As) ->
+    Arity = length(As),
+    case erl_internal:guard_bif(N, Arity) of
 	true -> true;
 	false ->
-	    try erl_internal:op_type(N, A) of
+	    try erl_internal:op_type(N, Arity) of
 		arith -> true;
 		bool -> true;
 		comp -> true;
@@ -1410,8 +959,7 @@ is_remote_bif(_, _, _) -> false.
 %%  return multiple values.  Only used in bodies where a BIF may be
 %%  called for effect only.
 
-bif_vals(dsetelement, 3) -> 0;
-bif_vals(bs_context_to_binary, 1) -> 0;
+bif_vals(recv_peek_message, 0) -> 2;
 bif_vals(_, _) -> 1.
 
 bif_vals(_, _, _) -> 1.
@@ -1455,11 +1003,6 @@ foldr2(_, Acc, [], []) -> Acc.
 kmatch(Us, Ccs, Sub, St0) ->
     {Cs,St1} = match_pre(Ccs, Sub, St0),	%Convert clauses
     Def = fail,
-%%     Def = #k_call{anno=[compiler_generated],
-%% 		  op=#k_remote{mod=#k_atom{val=erlang},
-%%  			       name=#k_atom{val=exit},
-%%  			       arity=1},
-%%  		  args=[#k_atom{val=kernel_match_error}]},
     match(Us, Cs, Def, St1).		%Do the match.
 
 %% match_pre([Cclause], Sub, State) -> {[Clause],State}.
@@ -1533,7 +1076,7 @@ maybe_add_warning(Ke, MatchAnno, St) ->
 get_line([Line|_]) when is_integer(Line) -> Line;
 get_line([_|T]) -> get_line(T);
 get_line([]) -> none.
-    
+
 get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);
 get_file([]) -> "no_file". % should not happen
@@ -1588,24 +1131,12 @@ match_var([U|Us], Cs0, Def, St) ->
 %%  constructor/constant as first argument.  Group the constructors
 %%  according to type, the order is really irrelevant but tries to be
 %%  smart.
-
-match_con(Us, [C], Def, St) ->
-    %% There is only one clause. We can keep literal tuples and
-    %% lists, but we must convert []/integer/float/atom literals
-    %% to the proper record (#k_nil{} and so on).
-    Cs = [expand_pat_lit_clause(C, false)],
-    match_con_1(Us, Cs, Def, St);
-match_con(Us, Cs0, Def, St) ->
-    %% More than one clause. Remove literals at the top level.
-    Cs = [expand_pat_lit_clause(C, true) || C <- Cs0],
-    match_con_1(Us, Cs, Def, St).
-
-match_con_1([U|_Us] = L, Cs, Def, St0) ->
+match_con([U|_Us] = L, Cs, Def, St0) ->
     %% Extract clauses for different constructors (types).
     %%ok = io:format("match_con ~p~n", [Cs]),
-    Ttcs = select_types([k_binary], Cs) ++ select_bin_con(Cs) ++
-	select_types([k_cons,k_tuple,k_map,k_atom,k_float,k_int,
-		      k_nil,k_literal], Cs),
+    Ttcs0 = select_types(Cs, [], [], [], [], [], [], [], [], []),
+    Ttcs1 = [{T, Types} || {T, [_ | _] = Types} <- Ttcs0],
+    Ttcs = opt_single_valued(Ttcs1),
     %%ok = io:format("ttcs = ~p~n", [Ttcs]),
     {Scs,St1} =
 	mapfoldl(fun ({T,Tcs}, St) ->
@@ -1616,63 +1147,141 @@ match_con_1([U|_Us] = L, Cs, Def, St0) ->
 		 St0, Ttcs),
     {build_alt_1st_no_fail(build_select(U, Scs), Def),St1}.
 
-select_types(Types, Cs) ->
-    [{T,Tcs} || T <- Types, begin Tcs = select(T, Cs), Tcs =/= [] end].
-    
-expand_pat_lit_clause(#iclause{pats=[#ialias{pat=#k_literal{anno=A,val=Val}}=Alias|Ps]}=C, B) ->
-    P = case B of
-	    true -> expand_pat_lit(Val, A);
-	    false -> literal(Val, A)
-	end,
-    C#iclause{pats=[Alias#ialias{pat=P}|Ps]};
-expand_pat_lit_clause(#iclause{pats=[#k_literal{anno=A,val=Val}|Ps]}=C, B) ->
-    P = case B of
-	    true -> expand_pat_lit(Val, A);
-	    false -> literal(Val, A)
-	end,
-    C#iclause{pats=[P|Ps]};
-expand_pat_lit_clause(#iclause{pats=[#k_binary{anno=A,segs=#k_bin_end{}}|Ps]}=C, B) ->
-    case B of
-	true ->
-	    C;
-	false ->
-	    P = #k_literal{anno=A,val = <<>>},
-	    C#iclause{pats=[P|Ps]}
+select_types([NoExpC | Cs], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil) ->
+    C = expand_pat_lit_clause(NoExpC),
+    case clause_con(C) of
+	k_binary ->
+	    select_types(Cs, [C |Bin], BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil);
+	k_bin_seg ->
+	    select_types(Cs, Bin, [C | BinCon], Cons, Tuple, Map, Atom, Float, Int, Nil);
+	k_bin_end ->
+	    select_types(Cs, Bin, [C | BinCon], Cons, Tuple, Map, Atom, Float, Int, Nil);
+	k_cons ->
+	    select_types(Cs, Bin, BinCon, [C | Cons], Tuple, Map, Atom, Float, Int, Nil);
+	k_tuple ->
+	    select_types(Cs, Bin, BinCon, Cons, [C | Tuple], Map, Atom, Float, Int, Nil);
+	k_map ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, [C | Map], Atom, Float, Int, Nil);
+	k_atom ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, Map, [C | Atom], Float, Int, Nil);
+	k_float ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, [C | Float], Int, Nil);
+	k_int ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, [C | Int], Nil);
+	k_nil ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, [C | Nil])
     end;
-expand_pat_lit_clause(C, _) -> C.
+select_types([], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil) ->
+    [{k_binary, reverse(Bin)}] ++ handle_bin_con(reverse(BinCon)) ++
+	[
+	    {k_cons, reverse(Cons)},
+	    {k_tuple, reverse(Tuple)},
+	    {k_map, reverse(Map)},
+	    {k_atom, reverse(Atom)},
+	    {k_float, reverse(Float)},
+	    {k_int, reverse(Int)},
+	    {k_nil, reverse(Nil)}
+	].
+
+expand_pat_lit_clause(#iclause{pats=[#ialias{pat=#k_literal{anno=A,val=Val}}=Alias|Ps]}=C) ->
+    P = expand_pat_lit(Val, A),
+    C#iclause{pats=[Alias#ialias{pat=P}|Ps]};
+expand_pat_lit_clause(#iclause{pats=[#k_literal{anno=A,val=Val}|Ps]}=C) ->
+    P = expand_pat_lit(Val, A),
+    C#iclause{pats=[P|Ps]};
+expand_pat_lit_clause(C) -> C.
 
 expand_pat_lit([H|T], A) ->
-    #k_cons{anno=A,hd=literal(H, A),tl=literal(T, A)};
+    #k_cons{anno=A,hd=#k_literal{anno=A,val=H},tl=#k_literal{anno=A,val=T}};
 expand_pat_lit(Tuple, A) when is_tuple(Tuple) ->
-    #k_tuple{anno=A,es=[literal(E, A) || E <- tuple_to_list(Tuple)]};
+    #k_tuple{anno=A,es=[#k_literal{anno=A,val=E} || E <- tuple_to_list(Tuple)]};
 expand_pat_lit(Lit, A) ->
-    literal(Lit, A).
+    #k_literal{anno=A,val=Lit}.
 
-literal([], A) ->
-    #k_nil{anno=A};
-literal(Val, A) when is_integer(Val) ->
-    #k_int{anno=A,val=Val};
-literal(Val, A) when is_float(Val) ->
-    #k_float{anno=A,val=Val};
-literal(Val, A) when is_atom(Val) ->
-    #k_atom{anno=A,val=Val};
-literal(Val, A) when is_list(Val); is_tuple(Val) ->
-    #k_literal{anno=A,val=Val}.
+%% opt_singled_valued([{Type,Clauses}]) -> [{Type,Clauses}].
+%%  If a type only has one clause and if the pattern is a complex
+%%  literal, the matching can be done more efficiently by directly
+%%  comparing with the literal (that is especially true for binaries).
+%%
+%%  It is important not to do this transformation for atomic literals
+%%  (such as `[]`), since that would cause the test for an emtpy list
+%%  to be executed before the test for a nonempty list.
 
-%% select_bin_con([Clause]) -> [{Type,[Clause]}].
-%%  Extract clauses for the k_bin_seg constructor.  As k_bin_seg
+opt_single_valued(Ttcs) ->
+    opt_single_valued(Ttcs, [], []).
+
+opt_single_valued([{_,[#iclause{pats=[#k_literal{}|_]}]}=Ttc|Ttcs], TtcAcc, LitAcc) ->
+    %% This is an atomic literal.
+    opt_single_valued(Ttcs, [Ttc|TtcAcc], LitAcc);
+opt_single_valued([{_,[#iclause{pats=[P0|Ps]}=Tc]}=Ttc|Ttcs], TtcAcc, LitAcc) ->
+    try combine_lit_pat(P0) of
+        P ->
+            LitTtc = Tc#iclause{pats=[P|Ps]},
+            opt_single_valued(Ttcs, TtcAcc, [LitTtc|LitAcc])
+    catch
+        not_possible ->
+            opt_single_valued(Ttcs, [Ttc|TtcAcc], LitAcc)
+    end;
+opt_single_valued([Ttc|Ttcs], TtcAcc, LitAcc) ->
+    opt_single_valued(Ttcs, [Ttc|TtcAcc], LitAcc);
+opt_single_valued([], TtcAcc, []) ->
+    reverse(TtcAcc);
+opt_single_valued([], TtcAcc, LitAcc) ->
+    Literals = {k_literal,reverse(LitAcc)},
+    %% Test the literals as early as possible.
+    case reverse(TtcAcc) of
+        [{k_binary,_}=Bin|Ttcs] ->
+            %% The delayed creation of sub binaries requires
+            %% bs_start_match2 to be the first instruction in the
+            %% function.
+            [Bin,Literals|Ttcs];
+        Ttcs ->
+            [Literals|Ttcs]
+    end.
+
+combine_lit_pat(#ialias{pat=Pat0}=Alias) ->
+    Pat = combine_lit_pat(Pat0),
+    Alias#ialias{pat=Pat};
+combine_lit_pat(#k_literal{}) ->
+    %% This is an atomic literal. Rewriting would be a pessimization,
+    %% especially for `[]`.
+    throw(not_possible);
+combine_lit_pat(Pat) ->
+    do_combine_lit_pat(Pat).
+
+do_combine_lit_pat(#k_binary{anno=A,segs=Segs}) ->
+    Bin = combine_bin_segs(Segs),
+    #k_literal{anno=A,val=Bin};
+do_combine_lit_pat(#k_cons{anno=A,hd=Hd0,tl=Tl0}) ->
+    #k_literal{val=Hd} = do_combine_lit_pat(Hd0),
+    #k_literal{val=Tl} = do_combine_lit_pat(Tl0),
+    #k_literal{anno=A,val=[Hd|Tl]};
+do_combine_lit_pat(#k_literal{}=Lit) ->
+    Lit;
+do_combine_lit_pat(#k_tuple{anno=A,es=Es0}) ->
+    Es = [begin
+              #k_literal{val=Lit} = do_combine_lit_pat(El),
+              Lit
+          end || El <- Es0],
+    #k_literal{anno=A,val=list_to_tuple(Es)};
+do_combine_lit_pat(_) ->
+    throw(not_possible).
+
+combine_bin_segs(#k_bin_seg{size=#k_literal{val=8},unit=1,type=integer,
+                            flags=[unsigned,big],seg=#k_literal{val=Int},next=Next})
+	when is_integer(Int), 0 =< Int, Int =< 255 ->
+    <<Int,(combine_bin_segs(Next))/bits>>;
+combine_bin_segs(#k_bin_end{}) ->
+    <<>>;
+combine_bin_segs(_) ->
+    throw(not_possible).
+
+%% handle_bin_con([Clause]) -> [{Type,[Clause]}].
+%%  Handle clauses for the k_bin_seg constructor.  As k_bin_seg
 %%  matching can overlap, the k_bin_seg constructors cannot be
 %%  reordered, only grouped.
 
-select_bin_con(Cs0) ->
-    Cs1 = lists:filter(fun (C) ->
-			       Con = clause_con(C),
-			       (Con =:= k_bin_seg) or (Con =:= k_bin_end)
-		       end, Cs0),
-    select_bin_con_1(Cs1).
-
-
-select_bin_con_1(Cs) ->
+handle_bin_con(Cs) ->
     try
 	%% The usual way to match literals is to first extract the
 	%% value to a register, and then compare the register to the
@@ -1711,14 +1320,14 @@ select_bin_con_1(Cs) ->
 	end
     catch
 	throw:not_possible ->
-	    select_bin_con_2(Cs)
+	    handle_bin_con_not_possible(Cs)
     end.
 
-select_bin_con_2([C1|Cs]) ->
+handle_bin_con_not_possible([C1|Cs]) ->
     Con = clause_con(C1),
     {More,Rest} = splitwith(fun (C) -> clause_con(C) =:= Con end, Cs),
-    [{Con,[C1|More]}|select_bin_con_2(Rest)];
-select_bin_con_2([]) -> [].
+    [{Con,[C1|More]}|handle_bin_con_not_possible(Rest)];
+handle_bin_con_not_possible([]) -> [].
 
 %% select_bin_int([Clause]) -> {k_bin_int,[Clause]}
 %%  If the first pattern in each clause selects the same integer,
@@ -1729,13 +1338,12 @@ select_bin_con_2([]) -> [].
 %%  exception is thrown.
 
 select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
- 					  size=#k_int{val=Bits0}=Sz,unit=U,
- 					  flags=Fl,seg=#k_literal{val=Val},
-					  next=N}|Ps]}=C|Cs0])
-  when is_integer(Val) ->
+                                          size=#k_literal{val=Bits0}=Sz,unit=U,
+                                          flags=Fl,seg=#k_literal{val=Val},
+                                          next=N}|Ps]}=C|Cs0]) when is_integer(Bits0) ->
     Bits = U * Bits0,
     if
-	Bits > 1024 -> throw(not_possible); %Expands the code too much.
+	Bits > ?EXPAND_MAX_SIZE_SEGMENT -> throw(not_possible); %Expands the code too much.
 	true -> ok
     end,
     select_assert_match_possible(Bits, Val, Fl),
@@ -1746,20 +1354,10 @@ select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
     end,
     Cs = select_bin_int_1(Cs0, Bits, Fl, Val),
     [{k_bin_int,[C#iclause{pats=[P|Ps]}|Cs]}];
-select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=utf8,
- 					  flags=[unsigned,big]=Fl,
-					  seg=#k_literal{val=Val0},
-					  next=N}|Ps]}=C|Cs0])
-  when is_integer(Val0) ->
-    {Val,Bits} = select_utf8(Val0),
-    P = #k_bin_int{anno=A,size=#k_int{val=Bits},unit=1,
-		   flags=Fl,val=Val,next=N},
-    Cs = select_bin_int_1(Cs0, Bits, Fl, Val),
-    [{k_bin_int,[C#iclause{pats=[P|Ps]}|Cs]}];
 select_bin_int(_) -> throw(not_possible).
 
 select_bin_int_1([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
-					    size=#k_int{val=Bits0}=Sz,
+					    size=#k_literal{val=Bits0}=Sz,
 					    unit=U,
 					    flags=Fl,seg=#k_literal{val=Val},
 					    next=N}|Ps]}=C|Cs],
@@ -1770,22 +1368,11 @@ select_bin_int_1([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
     end,
     P = #k_bin_int{anno=A,size=Sz,unit=U,flags=Fl,val=Val,next=N},
     [C#iclause{pats=[P|Ps]}|select_bin_int_1(Cs, Bits, Fl, Val)];
-select_bin_int_1([#iclause{pats=[#k_bin_seg{anno=A,type=utf8,
-					    flags=Fl,
-					    seg=#k_literal{val=Val0},
-					    next=N}|Ps]}=C|Cs],
-		 Bits, Fl, Val) when is_integer(Val0) ->
-    case select_utf8(Val0) of
-	{Val,Bits} -> ok;
-	{_,_} -> throw(not_possible)
-    end,
-    P = #k_bin_int{anno=A,size=#k_int{val=Bits},unit=1,
-		   flags=[unsigned,big],val=Val,next=N},
-    [C#iclause{pats=[P|Ps]}|select_bin_int_1(Cs, Bits, Fl, Val)];
 select_bin_int_1([], _, _, _) -> [];
 select_bin_int_1(_, _, _, _) -> throw(not_possible).
 
-select_assert_match_possible(Sz, Val, Fs) ->
+select_assert_match_possible(Sz, Val, Fs)
+  when is_integer(Sz), Sz >= 0, is_integer(Val) ->
     EmptyBindings = erl_eval:new_bindings(),
     MatchFun = match_fun(Val),
     EvalFun = fun({integer,_,S}, B) -> {value,S,B} end,
@@ -1800,27 +1387,14 @@ select_assert_match_possible(Sz, Val, Fs) ->
     catch
 	throw:nomatch ->
 	    throw(not_possible)
-    end.
+    end;
+select_assert_match_possible(_, _, _) ->
+    throw(not_possible).
 
 match_fun(Val) ->
     fun(match, {{integer,_,_},NewV,Bs}) when NewV =:= Val ->
 	    {match,Bs}
     end.
-
-select_utf8(Val0) ->
-    try
-	Bin = <<Val0/utf8>>,
-	Size = bit_size(Bin),
-	<<Val:Size>> = Bin,
-	{Val,Size}
-    catch
-	error:_ ->
-	    throw(not_possible)
-    end.
-
-%% select(Con, [Clause]) -> [Clause].
-
-select(T, Cs) -> [ C || C <- Cs, clause_con(C) =:= T ].
 
 %% match_value([Var], Con, [Clause], Default, State) -> {SelectExpr,State}.
 %%  At this point all the clauses have the same constructor, we must
@@ -1832,104 +1406,108 @@ match_value(Us0, T, Cs0, Def, St0) ->
     %%ok = io:format("match_value ~p ~p~n", [T, Css]),
     mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St1, UCss).
 
-%% partition_intersection
-%%  Partitions a map into two maps with the most common keys to the first map.
+%% partition_intersection(Type, Us, [Clause], State) -> {Us,Cs,State}.
+%%  Partitions a map into two maps with the most common keys to the
+%%  first map.
+%%
 %%      case <M> of
-%%          <#{a}>
 %%          <#{a,b}>
 %%          <#{a,c}>
-%%          <#{c}>
+%%          <#{a}>
 %%      end
+%%
 %%  becomes
+%%
 %%      case <M,M> of
-%%          <#{a}, #{ }>
 %%          <#{a}, #{b}>
-%%          <#{ }, #{c}>
 %%          <#{a}, #{c}>
+%%          <#{a}, #{ }>
 %%      end
-%% The intention is to group as many keys together as possible and thus
-%% reduce the number of lookups to that key.
-partition_intersection(k_map, [U|_]=Us0, [_,_|_]=Cs0,St0) ->
+%%
+%%  The intention is to group as many keys together as possible and
+%%  thus reduce the number of lookups to that key.
+
+partition_intersection(k_map, [U|_]=Us, [_,_|_]=Cs0, St0) ->
     Ps = [clause_val(C) || C <- Cs0],
-    case find_key_partition(Ps) of
-        no_partition ->
-            {Us0,Cs0,St0};
+    case find_key_intersection(Ps) of
+        none ->
+            {Us,Cs0,St0};
         Ks ->
-            {Cs1,St1} = mapfoldl(fun(#iclause{pats=[Arg|Args]}=C, Sti) ->
-                                         {{Arg1,Arg2},St} = partition_key_intersection(Arg, Ks, Sti),
-                                         {C#iclause{pats=[Arg1,Arg2|Args]}, St}
-                                 end, St0, Cs0),
-            {[U|Us0],Cs1,St1}
+            Cs1 = map(fun(#iclause{pats=[Arg|Args]}=C) ->
+                              {Arg1,Arg2} = partition_keys(Arg, Ks),
+                              C#iclause{pats=[Arg1,Arg2|Args]}
+                      end, Cs0),
+            {[U|Us],Cs1,St0}
     end;
 partition_intersection(_, Us, Cs, St) ->
     {Us,Cs,St}.
 
-partition_key_intersection(#k_map{es=Pairs}=Map,Ks,St0) ->
-    F = fun(#k_map_pair{key=Key}) -> member(map_key_clean(Key), Ks) end,
+partition_keys(#k_map{es=Pairs}=Map, Ks) ->
+    F = fun(#k_map_pair{key=Key}) ->
+                cerl_sets:is_element(map_key_clean(Key), Ks)
+        end,
     {Ps1,Ps2} = partition(F, Pairs),
-    {{Map#k_map{es=Ps1},Map#k_map{es=Ps2}},St0};
-partition_key_intersection(#ialias{pat=Map}=Alias,Ks,St0) ->
-    %% only alias one of them
-    {{Map1,Map2},St1} = partition_key_intersection(Map, Ks, St0),
-    {{Map1,Alias#ialias{pat=Map2}},St1}.
+    {Map#k_map{es=Ps1},Map#k_map{es=Ps2}};
+partition_keys(#ialias{pat=Map}=Alias, Ks) ->
+    %% Only alias one of them.
+    {Map1,Map2} = partition_keys(Map, Ks),
+    {Map1,Alias#ialias{pat=Map2}}.
 
-% Only check for the complete intersection of keys and not commonality
-find_key_partition(Ps) ->
-    Sets = [sets:from_list(Ks)||Ks <- Ps],
-    Is   = sets:intersection(Sets),
-    case sets:to_list(Is) of
-        [] -> no_partition;
-        KeyIntersection ->
-            %% Check if the intersection are all keys in all clauses.
-            %% Don't split if they are since this will only
-            %% infer extra is_map instructions with no gain.
-            All = foldl(fun (Kset, Bool) ->
-                                Bool andalso sets:is_subset(Kset, Is)
-                        end, true, Sets),
-            if All  -> no_partition;
-               true -> KeyIntersection
+find_key_intersection(Ps) ->
+    Sets = [cerl_sets:from_list(Ks) || Ks <- Ps],
+    Intersection = cerl_sets:intersection(Sets),
+    case cerl_sets:size(Intersection) of
+        0 ->
+            none;
+        _ ->
+            All = all(fun (Kset) -> Kset =:= Intersection end, Sets),
+            case All of
+                true ->
+                    %% All clauses test the same keys. Partitioning
+                    %% the keys could only make the code worse.
+                    none;
+                false ->
+                    Intersection
             end
     end.
 
 %% group_value([Clause]) -> [[Clause]].
 %%  Group clauses according to value.  Here we know that
 %%  1. Some types are singled valued
-%%  2. The clauses in bin_segs cannot be reordered only grouped
+%%  2. The clauses in maps and bin_segs cannot be reordered,
+%%     only grouped
 %%  3. Other types are disjoint and can be reordered
 
-group_value(k_cons, Us, Cs)    -> [{Us,Cs}];               %These are single valued
+group_value(k_cons, Us, Cs)    -> [{Us,Cs}];  %These are single valued
 group_value(k_nil, Us, Cs)     -> [{Us,Cs}];
 group_value(k_binary, Us, Cs)  -> [{Us,Cs}];
 group_value(k_bin_end, Us, Cs) -> [{Us,Cs}];
-group_value(k_bin_seg, Us, Cs) -> group_bin_seg(Us,Cs);
+group_value(k_bin_seg, Us, Cs) -> group_keeping_order(Us, Cs);
 group_value(k_bin_int, Us, Cs) -> [{Us,Cs}];
-group_value(k_map, Us, Cs)     -> group_map(Us,Cs);
+group_value(k_map, Us, Cs)     -> group_keeping_order(Us, Cs);
 group_value(_, Us, Cs) ->
-    %% group_value(Cs).
-    Cd = foldl(fun (C, Gcs0) -> dict:append(clause_val(C), C, Gcs0) end,
-	       dict:new(), Cs),
-    dict:fold(fun (_, Vcs, Css) -> [{Us,Vcs}|Css] end, [], Cd).
+    Map = group_values(Cs, #{}),
+    %% We must sort the grouped values to ensure consistent
+    %% order from compilation to compilation.
+    sort(maps:fold(fun (_, Vcs, Css) ->
+                           [{Us,reverse(Vcs)}|Css]
+                   end, [], Map)).
 
-group_bin_seg(Us, [C1|Cs]) ->
-    V1 = clause_val(C1),
-    {More,Rest} = splitwith(fun (C) -> clause_val(C) == V1 end, Cs),
-    [{Us,[C1|More]}|group_bin_seg(Us,Rest)];
-group_bin_seg(_, []) -> [].
+group_values([C|Cs], Acc) ->
+    Val = clause_val(C),
+    case Acc of
+        #{Val:=Gcs} ->
+            group_values(Cs, Acc#{Val:=[C|Gcs]});
+        #{} ->
+            group_values(Cs, Acc#{Val=>[C]})
+    end;
+group_values([], Acc) -> Acc.
 
-group_map(Us, [C1|Cs]) ->
+group_keeping_order(Us, [C1|Cs]) ->
     V1 = clause_val(C1),
     {More,Rest} = splitwith(fun (C) -> clause_val(C) =:= V1 end, Cs),
-    [{Us,[C1|More]}|group_map(Us,Rest)];
-group_map(_, []) -> [].
-
-%% Profiling shows that this quadratic implementation account for a big amount
-%% of the execution time if there are many values.
-% group_value([C|Cs]) ->
-%     V = clause_val(C),
-%     Same = [ Cv || Cv <- Cs, clause_val(Cv) == V ], %Same value
-%     Rest = [ Cv || Cv <- Cs, clause_val(Cv) /= V ], % and all the rest
-%     [[C|Same]|group_value(Rest)];
-% group_value([]) -> [].
+    [{Us,[C1|More]}|group_keeping_order(Us, Rest)];
+group_keeping_order(_, []) -> [].
 
 %% match_clause([Var], [Clause], Default, State) -> {Clause,State}.
 %%  At this point all the clauses have the same "value".  Build one
@@ -1941,7 +1519,8 @@ match_clause([U|Us], [C|_]=Cs0, Def, St0) ->
     {Match0,Vs,St1} = get_match(get_con(Cs0), St0),
     Match = sub_size_var(Match0, Cs0),
     {Cs1,St2} = new_clauses(Cs0, U, St1),
-    {B,St3} = match(Vs ++ Us, Cs1, Def, St2),
+    Cs2 = squeeze_clauses_by_bin_integer_count(Cs1, []),
+    {B,St3} = match(Vs ++ Us, Cs2, Def, St2),
     {#k_val_clause{anno=Anno,val=Match,body=B},St3}.
 
 sub_size_var(#k_bin_seg{size=#k_var{name=Name}=Kvar}=BinSeg, [#iclause{isub=Sub}|_]) ->
@@ -1956,16 +1535,14 @@ get_match(#k_cons{}, St0) ->
 get_match(#k_binary{}, St0) ->
     {[V]=Mes,St1} = new_vars(1, St0),
     {#k_binary{segs=V},Mes,St1};
-get_match(#k_bin_seg{size=#k_atom{val=all},next={k_bin_end,[]}}=Seg, St0) ->
-    {[S]=Vars,St1} = new_vars(1, St0),
-    {Seg#k_bin_seg{seg=S,next=[]},Vars,St1};
+get_match(#k_bin_seg{size=#k_literal{val=all},next={k_bin_end,[]}}=Seg, St0) ->
+    {[S,N],St1} = new_vars(2, St0),
+    {Seg#k_bin_seg{seg=S,next=N},[S],St1};
 get_match(#k_bin_seg{}=Seg, St0) ->
-    {[S,N0],St1} = new_vars(2, St0),
-    N = set_kanno(N0, [no_usage]),
+    {[S,N],St1} = new_vars(2, St0),
     {Seg#k_bin_seg{seg=S,next=N},[S,N],St1};
 get_match(#k_bin_int{}=BinInt, St0) ->
-    {N0,St1} = new_var(St0),
-    N = set_kanno(N0, [no_usage]),
+    {N,St1} = new_var(St0),
     {BinInt#k_bin_int{next=N},[N],St1};
 get_match(#k_tuple{es=Es}, St0) ->
     {Mes,St1} = new_vars(length(Es), St0),
@@ -1986,7 +1563,7 @@ new_clauses(Cs0, U, St) ->
 				 #k_cons{hd=H,tl=T} -> [H,T|As];
 				 #k_tuple{es=Es} -> Es ++ As;
 				 #k_binary{segs=E}  -> [E|As];
-				 #k_bin_seg{size=#k_atom{val=all},
+				 #k_bin_seg{size=#k_literal{val=all},
 					    seg=S,next={k_bin_end,[]}} ->
 				     [S|As];
 				 #k_bin_seg{seg=S,next=N} ->
@@ -2010,6 +1587,108 @@ new_clauses(Cs0, U, St) ->
 	      end, Cs0),
     {Cs1,St}.
 
+%% group and squeeze
+%%  The goal of those functions is to group subsequent integer k_bin_seg
+%%  literals by count so we can leverage bs_get_integer_16 whenever possible.
+%%
+%%  The priority is to create large groups. So if we have three clauses matching
+%%  on 16-bits/16-bits/8-bits, we will first have a single 8-bits match for all
+%%  three clauses instead of clauses (one with 16 and another with 8). But note
+%%  the algorithm is recursive, so the remaining 8-bits for the first two clauses
+%%  will be grouped next.
+%%
+%%  We also try to not create too large groups. If we have too many clauses,
+%%  it is preferrable to match on 8-bits, select a branch, then match on the
+%%  next 8-bits, rather than match on 16-bits which would force us to have
+%%  to select to many values at the same time, which would not be efficient.
+%%
+%%  Another restriction is that we create groups only if the end of the
+%%  group is a variadic clause or the end of the binary. That's because
+%%  if we have 16-bits/16-bits/catch-all, breaking it into a 16-bits lookup
+%%  will make the catch-all more expensive.
+%%
+%%  Clauses are grouped in reverse when squeezing and then flattened and
+%%  re-reversed at the end.
+squeeze_clauses_by_bin_integer_count([Clause | Clauses], Acc) ->
+    case clause_count_bin_integer_segments(Clause) of
+	{literal, N} -> squeeze_clauses_by_bin_integer_count(Clauses, N, 1, [Clause], Acc);
+	_ -> squeeze_clauses_by_bin_integer_count(Clauses, [[Clause] | Acc])
+    end;
+squeeze_clauses_by_bin_integer_count(_, Acc) ->
+    flat_reverse(Acc, []).
+
+squeeze_clauses_by_bin_integer_count([], N, Count, GroupAcc, Acc) ->
+    Squeezed = squeeze_clauses(GroupAcc, fix_count_without_variadic_segment(N), Count),
+    flat_reverse([Squeezed | Acc], []);
+squeeze_clauses_by_bin_integer_count([#iclause{pats=[#k_bin_end{} | _]} = Clause], N, Count, GroupAcc, Acc) ->
+    Squeezed = squeeze_clauses(GroupAcc, fix_count_without_variadic_segment(N), Count),
+    flat_reverse([[Clause | Squeezed] | Acc], []);
+squeeze_clauses_by_bin_integer_count([Clause | Clauses], N, Count, GroupAcc, Acc) ->
+    case clause_count_bin_integer_segments(Clause) of
+	{literal, NewN} ->
+	    squeeze_clauses_by_bin_integer_count(Clauses, min(N, NewN), Count + 1, [Clause | GroupAcc], Acc);
+
+	{variadic, NewN} when NewN =< N ->
+	    Squeezed = squeeze_clauses(GroupAcc, NewN, Count),
+	    squeeze_clauses_by_bin_integer_count(Clauses, [[Clause | Squeezed] | Acc]);
+
+	_ ->
+	    squeeze_clauses_by_bin_integer_count(Clauses, [[Clause | GroupAcc] | Acc])
+    end.
+
+clause_count_bin_integer_segments(#iclause{pats=[#k_bin_seg{seg=#k_literal{}} = BinSeg | _]}) ->
+    count_bin_integer_segments(BinSeg, 0);
+clause_count_bin_integer_segments(#iclause{pats=[#k_bin_seg{size=#k_literal{val=Size},unit=Unit,
+                                                            type=integer,flags=[unsigned,big],
+                                                            seg=#k_var{}} | _]})
+  when ((Size * Unit) rem 8) =:= 0 ->
+    {variadic, (Size * Unit) div 8};
+clause_count_bin_integer_segments(_) ->
+    error.
+
+count_bin_integer_segments(#k_bin_seg{size=#k_literal{val=8},unit=1,type=integer,flags=[unsigned,big],
+                                      seg=#k_literal{val=Int},next=Next}, Count)
+  when is_integer(Int), 0 =< Int, Int =< 255 ->
+    count_bin_integer_segments(Next, Count + 1);
+count_bin_integer_segments(_, Count) when Count > 0 ->
+    {literal, Count};
+count_bin_integer_segments(_, _Count) ->
+    error.
+
+%% Since 4 bytes in on 32-bits systems are bignums, we convert
+%% anything more than 3 into 2 bytes lookup. The goal is to convert
+%% any multi-clause segment into 2-byte lookups with a potential
+%% 3 byte lookup at the end.
+fix_count_without_variadic_segment(N) when N > 3 -> 2;
+fix_count_without_variadic_segment(N) -> N.
+
+%% If we have more than 16 clauses, then it is better
+%% to branch multiple times than getting a large integer.
+%% We also abort if we have nothing to squeeze.
+squeeze_clauses(Clauses, Size, Count) when Count >= 16; Size =< 1 -> Clauses;
+squeeze_clauses(Clauses, Size, _Count) ->
+    squeeze_clauses(Clauses, Size).
+
+squeeze_clauses([#iclause{pats=[#k_bin_seg{seg=#k_literal{}} = BinSeg | Pats]} = Clause | Clauses], Size) ->
+    [Clause#iclause{pats=[squeeze_segments(BinSeg, 0, 0, Size) | Pats]} |
+     squeeze_clauses(Clauses, Size)];
+squeeze_clauses([], _Size) ->
+    [].
+
+squeeze_segments(#k_bin_seg{size=Sz, seg=#k_literal{val=Val}=Lit} = BinSeg, Acc, Size, 1) ->
+    BinSeg#k_bin_seg{size=Sz#k_literal{val=Size + 8}, seg=Lit#k_literal{val=(Acc bsl 8) bor Val}};
+squeeze_segments(#k_bin_seg{seg=#k_literal{val=Val},next=Next}, Acc, Size, Count) ->
+    squeeze_segments(Next, (Acc bsl 8) bor Val, Size + 8, Count - 1);
+squeeze_segments(#k_bin_end{}, Acc, Size, Count) ->
+    error({Acc,Size,Count}).
+
+
+flat_reverse([Head | Tail], Acc) -> flat_reverse(Tail, flat_reverse_1(Head, Acc));
+flat_reverse([], Acc) -> Acc.
+
+flat_reverse_1([Head | Tail], Acc) -> flat_reverse_1(Tail, [Head | Acc]);
+flat_reverse_1([], Acc) -> Acc.
+
 %% build_guard([GuardClause]) -> GuardExpr.
 
 build_guard([]) -> fail;
@@ -2030,13 +1709,13 @@ build_alt_1st_no_fail(First, fail) -> First;
 build_alt_1st_no_fail(First, Then) ->
     copy_anno(#k_alt{first=First,then=Then}, First).
 
-%% build_match([MatchVar], MatchExpr) -> Kexpr.
+%% build_match(MatchExpr) -> Kexpr.
 %%  Build a match expr if there is a match.
 
-build_match(Us, #k_alt{}=Km) -> copy_anno(#k_match{vars=Us,body=Km}, Km);
-build_match(Us, #k_select{}=Km) -> copy_anno(#k_match{vars=Us,body=Km}, Km);
-build_match(Us, #k_guard{}=Km) -> copy_anno(#k_match{vars=Us,body=Km}, Km);
-build_match(_, Km) -> Km.
+build_match(#k_alt{}=Km) -> copy_anno(#k_match{body=Km}, Km);
+build_match(#k_select{}=Km) -> copy_anno(#k_match{body=Km}, Km);
+build_match(#k_guard{}=Km) -> copy_anno(#k_match{body=Km}, Km);
+build_match(Km) -> Km.
 
 %% clause_arg(Clause) -> FirstArg.
 %% clause_con(Clause) -> Constructor.
@@ -2065,26 +1744,26 @@ arg_alias(_Con) -> [].
 
 arg_con(Arg) ->
     case arg_arg(Arg) of
-	#k_literal{} -> k_literal;
-	#k_int{} -> k_int;
-	#k_float{} -> k_float;
-	#k_atom{} -> k_atom;
-	#k_nil{} -> k_nil;
-	#k_cons{} -> k_cons; 
+	#k_cons{} -> k_cons;
 	#k_tuple{} -> k_tuple;
 	#k_map{} -> k_map;
 	#k_binary{} -> k_binary;
 	#k_bin_end{} -> k_bin_end;
 	#k_bin_seg{} -> k_bin_seg;
-	#k_var{} -> k_var
+	#k_var{} -> k_var;
+	#k_literal{val=[]} -> k_nil;
+	#k_literal{val=Val} ->
+            if
+                is_atom(Val) -> k_atom;
+                is_integer(Val) -> k_int;
+                is_float(Val) -> k_float;
+                true -> k_literal
+            end
     end.
 
 arg_val(Arg, C) ->
     case arg_arg(Arg) of
 	#k_literal{val=Lit} -> Lit;
-	#k_int{val=I} -> I;
-	#k_float{val=F} -> F;
-	#k_atom{val=A} -> A;
 	#k_tuple{es=Es} -> length(Es);
 	#k_bin_seg{size=S,unit=U,type=T,flags=Fs} ->
 	    case S of
@@ -2095,7 +1774,7 @@ arg_val(Arg, C) ->
 		    {set_kanno(S, []),U,T,Fs}
 	    end;
 	#k_map{op=exact,es=Es} ->
-	    lists:sort(fun(A,B) ->
+            sort(fun(A,B) ->
 			%% on the form K :: {'lit' | 'var', term()}
 			%% lit < var as intended
 			erts_internal:cmp_term(A,B) < 0
@@ -2118,23 +1797,22 @@ ubody(#iset{vars=[],arg=#iletrec{}=Let,body=B0}, Br, St0) ->
     %% An iletrec{} should never be last.
     St = iletrec_funs(Let, St0),
     ubody(B0, Br, St);
+ubody(#iset{vars=[],arg=#k_literal{},body=B0}, Br, St0) ->
+    ubody(B0, Br, St0);
 ubody(#iset{anno=A,vars=Vs,arg=E0,body=B0}, Br, St0) ->
     {E1,Eu,St1} = uexpr(E0, {break,Vs}, St0),
     {B1,Bu,St2} = ubody(B0, Br, St1),
     Ns = lit_list_vars(Vs),
     Used = union(Eu, subtract(Bu, Ns)),		%Used external vars
-    {#k_seq{anno=#k{us=Used,ns=Ns,a=A},arg=E1,body=B1},Used,St2};
+    {#k_seq{anno=A,arg=E1,body=B1},Used,St2};
 ubody(#ivalues{anno=A,args=As}, return, St) ->
     Au = lit_list_vars(As),
-    {#k_return{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
+    {#k_return{anno=A,args=As},Au,St};
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
-    case is_in_guard(St) of
-	true ->
-	    {#k_guard_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
-	false ->
-	    {#k_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St}
-    end;
+    {#k_break{anno=A,args=As},Au,St};
+ubody(#k_goto{}=Goto, _Br, St) ->
+    {Goto,[],St};
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
     case is_enter_expr(E) of
@@ -2143,15 +1821,14 @@ ubody(E, return, St0) ->
 	    {Ea,Pa,St1} = force_atomic(E, St0),
 	    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), return, St1)
     end;
-ubody(E, {break,_Rs} = Break, St0) ->
-    %%ok = io:fwrite("ubody ~w:~p~n", [?LINE,{E,Br}]),
-    %% Exiting expressions need no trailing break.
-    case is_exit_expr(E) of
-	true -> uexpr(E, return, St0);
-	false ->
-	    {Ea,Pa,St1} = force_atomic(E, St0),
-	    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), Break, St1)
-    end.
+ubody(E, {break,[_]} = Break, St0) ->
+    {Ea,Pa,St1} = force_atomic(E, St0),
+    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), Break, St1);
+ubody(E, {break,Rs}=Break, St0) ->
+    {Vs,St1} = new_vars(length(Rs), St0),
+    Iset = #iset{vars=Vs,arg=E},
+    PreSeq = pre_seq([Iset], #ivalues{args=Vs}),
+    ubody(PreSeq, Break, St1).
 
 iletrec_funs(#iletrec{defs=Fs}, St0) ->
     %% Use union of all free variables.
@@ -2177,20 +1854,12 @@ iletrec_funs_gen(_, _, #kern{funs=ignore}=St) ->
 iletrec_funs_gen(Fs, FreeVs, St) ->
     foldl(fun ({N,#ifun{anno=Fa,vars=Vs,body=Fb0}}, Lst0) ->
 		  Arity0 = length(Vs),
-		  {Fb1,_,Lst1} = ubody(Fb0, return, Lst0#kern{ff={N,Arity0}}),
+		  {Fb1,_,Lst1} = ubody(Fb0, return, Lst0),
 		  Arity = Arity0 + length(FreeVs),
-		  Fun = #k_fdef{anno=#k{us=[],ns=[],a=Fa},
-				func=N,arity=Arity,
-				vars=Vs ++ FreeVs,body=Fb1},
+                  Fun = make_fdef(Fa, N, Arity, Vs++FreeVs, Fb1),
 		  Lst1#kern{funs=[Fun|Lst1#kern.funs]}
 	  end, St, Fs).
 
-
-%% is_exit_expr(Kexpr) -> boolean().
-%%  Test whether Kexpr always exits and never returns.
-
-is_exit_expr(#k_receive_next{}) -> true;
-is_exit_expr(_) -> false.
 
 %% is_enter_expr(Kexpr) -> boolean().
 %%  Test whether Kexpr is "enterable", i.e. can handle return from
@@ -2199,97 +1868,78 @@ is_exit_expr(_) -> false.
 is_enter_expr(#k_try{}) -> true;
 is_enter_expr(#k_call{}) -> true;
 is_enter_expr(#k_match{}) -> true;
-is_enter_expr(#k_receive{}) -> true;
-is_enter_expr(#k_receive_next{}) -> true;
+is_enter_expr(#k_letrec_goto{}) -> true;
 is_enter_expr(_) -> false.
 
 %% uexpr(Expr, Break, State) -> {Expr,[UsedVar],State}.
-%%  Tag an expression with its used variables.
+%%  Calculate the used variables for an expression.
 %%  Break = return | {break,[RetVar]}.
 
 uexpr(#k_test{anno=A,op=Op,args=As}=Test, {break,Rs}, St) ->
     [] = Rs,					%Sanity check
     Used = union(op_vars(Op), lit_list_vars(As)),
-    {Test#k_test{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A}},
-     Used,St};
+    {Test#k_test{anno=A},Used,St};
 uexpr(#iset{anno=A,vars=Vs,arg=E0,body=B0}, {break,_}=Br, St0) ->
     Ns = lit_list_vars(Vs),
     {E1,Eu,St1} = uexpr(E0, {break,Vs}, St0),
     {B1,Bu,St2} = uexpr(B0, Br, St1),
     Used = union(Eu, subtract(Bu, Ns)),
-    {#k_seq{anno=#k{us=Used,ns=Ns,a=A},arg=E1,body=B1},Used,St2};
+    {#k_seq{anno=A,arg=E1,body=B1},Used,St2};
 uexpr(#k_call{anno=A,op=#k_local{name=F,arity=Ar}=Op,args=As0}=Call, Br, St) ->
     Free = get_free(F, Ar, St),
     As1 = As0 ++ Free,				%Add free variables LAST!
     Used = lit_list_vars(As1),
     {case Br of
 	 {break,Rs} ->
-	     Call#k_call{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A},
+	     Call#k_call{anno=A,
 			 op=Op#k_local{arity=Ar + length(Free)},
 			 args=As1,ret=Rs};
 	 return ->
-	     #k_enter{anno=#k{us=Used,ns=[],a=A},
+	     #k_enter{anno=A,
 		      op=Op#k_local{arity=Ar + length(Free)},
 		      args=As1}
      end,Used,St};
 uexpr(#k_call{anno=A,op=Op,args=As}=Call, {break,Rs}, St) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
-    {Call#k_call{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A},ret=Rs},
-     Used,St};
+    {Call#k_call{anno=A,ret=Rs},Used,St};
 uexpr(#k_call{anno=A,op=Op,args=As}, return, St) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
-    {#k_enter{anno=#k{us=Used,ns=[],a=A},op=Op,args=As},
-     Used,St};
+    {#k_enter{anno=A,op=Op,args=As},Used,St};
 uexpr(#k_bif{anno=A,op=Op,args=As}=Bif, {break,Rs}, St0) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
     {Brs,St1} = bif_returns(Op, Rs, St0),
-    {Bif#k_bif{anno=#k{us=Used,ns=lit_list_vars(Brs),a=A},ret=Brs},
-     Used,St1};
-uexpr(#k_match{anno=A,vars=Vs0,body=B0}, Br, St0) ->
-    Vs = handle_reuse_annos(Vs0, St0),
+    {Bif#k_bif{anno=A,ret=Brs},Used,St1};
+uexpr(#k_match{anno=A,body=B0}, Br, St0) ->
     Rs = break_rets(Br),
     {B1,Bu,St1} = umatch(B0, Br, St0),
-    case is_in_guard(St1) of
-	true ->
-	    {#k_guard_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
-			    vars=Vs,body=B1,ret=Rs},Bu,St1};
-	false ->
-	    {#k_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
-		      vars=Vs,body=B1,ret=Rs},Bu,St1}
-    end;
-uexpr(#k_receive{anno=A,var=V,body=B0,timeout=T,action=A0}, Br, St0) ->
-    Rs = break_rets(Br),
-    Tu = lit_vars(T),				%Timeout is atomic
-    {B1,Bu,St1} = umatch(B0, Br, St0),
-    {A1,Au,St2} = ubody(A0, Br, St1),
-    Used = del_element(V#k_var.name, union(Bu, union(Tu, Au))),
-    {#k_receive{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A},
-		var=V,body=B1,timeout=T,action=A1,ret=Rs},
-     Used,St2};
-uexpr(#k_receive_accept{anno=A}, _, St) ->
-    {#k_receive_accept{anno=#k{us=[],ns=[],a=A}},[],St};
-uexpr(#k_receive_next{anno=A}, _, St) ->
-    {#k_receive_next{anno=#k{us=[],ns=[],a=A}},[],St};
+    {#k_match{anno=A,body=B1,ret=Rs},Bu,St1};
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       {break,Rs0}=Br, St0) ->
-    case is_in_guard(St0) of
-	true ->
-	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
-	    #k_atom{val=false} = H0,		%Assertion.
-	    {A1,Bu,St1} = uexpr(A0, Br, St0),
-	    {#k_protected{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
-			  arg=A1,ret=Rs0},Bu,St1};
-	false ->
+    case {Vs,B0,H0,Rs0} of
+	{[#k_var{name=X}],#k_var{name=X},#k_literal{},[]} ->
+            %% This is a simple try/catch whose return value is
+            %% ignored:
+            %%
+            %%   try E of V -> V when _:_:_ -> ignored_literal end, ...
+            %%
+            %% This is most probably a try/catch in a guard. To
+            %% correctly handle the #k_test{} that ends the body of
+            %% the guard, we MUST pass an empty list of break
+            %% variables when processing the body.
+	    {A1,Bu,St} = ubody(A0, {break,[]}, St0),
+	    {#k_try{anno=A,arg=A1,vars=[],body=#k_break{},
+                    evars=[],handler=#k_break{},ret=Rs0},
+	     Bu,St};
+	{_,_,_,_} ->
+            %% The general try/catch (in a guard or in body).
 	    {Avs,St1} = new_vars(length(Vs), St0),
 	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
 	    {B1,Bu,St3} = ubody(B0, Br, St2),
 	    {H1,Hu,St4} = ubody(H0, Br, St3),
-	    {Rs1,St5} = ensure_return_vars(Rs0, St4),
 	    Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
 			  subtract(Hu, lit_list_vars(Evs))]),
-	    {#k_try{anno=#k{us=Used,ns=lit_list_vars(Rs1),a=A},
-		    arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs1},
-	     Used,St5}
+	    {#k_try{anno=A,arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs0},
+	     Used,St4}
     end;
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       return, St0) ->
@@ -2297,20 +1947,17 @@ uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
     {A1,Au,St2} = ubody(A0, {break,Avs}, St1),	%Must break to clean up here!
     {B1,Bu,St3} = ubody(B0, return, St2),
     {H1,Hu,St4} = ubody(H0, return, St3),
-    NumNew = 1,
-    {Ns,St5} = new_vars(NumNew, St4),
     Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
 		  subtract(Hu, lit_list_vars(Evs))]),
-    {#k_try_enter{anno=#k{us=Used,ns=Ns,a=A},
-		  arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1},
-     Used,St5};
+    {#k_try_enter{anno=A,arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1},
+     Used,St4};
 uexpr(#k_catch{anno=A,body=B0}, {break,Rs0}, St0) ->
     {Rb,St1} = new_var(St0),
     {B1,Bu,St2} = ubody(B0, {break,[Rb]}, St1),
     %% Guarantee ONE return variable.
     {Ns,St3} = new_vars(1 - length(Rs0), St2),
     Rs1 = Rs0 ++ Ns,
-    {#k_catch{anno=#k{us=Bu,ns=lit_list_vars(Rs1),a=A},body=B1,ret=Rs1},Bu,St3};
+    {#k_catch{anno=A,body=B1,ret=Rs1},Bu,St3};
 uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
     {B1,Bu,St1} = ubody(B0, return, St0),	%Return out of new function
     Ns = lit_list_vars(Vs),
@@ -2318,56 +1965,56 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
     Fvs = make_vars(Free),
     Arity = length(Vs) + length(Free),
     {Fname,St} =
-	case lists:keyfind(id, 1, A) of 
+        case keyfind(id, 1, A) of 
 	    {id,{_,_,Fname0}} ->
 		{Fname0,St1};
 	    false ->
 		%% No id annotation. Must invent a fun name.
 		new_fun_name(St1)
 	end,
-    Fun = #k_fdef{anno=#k{us=[],ns=[],a=A},func=Fname,arity=Arity,
-		  vars=Vs ++ Fvs,body=B1},
-    {#k_bif{anno=#k{us=Free,ns=lit_list_vars(Rs),a=A},
+    Fun = make_fdef(A, Fname, Arity, Vs++Fvs, B1),
+    Local = #k_local{name=Fname,arity=Arity},
+    {#k_bif{anno=A,
 	    op=#k_internal{name=make_fun,arity=length(Free)+2},
-	    args=[#k_atom{val=Fname},#k_int{val=Arity}|Fvs],
+	    args=[Local|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
+uexpr(#k_letrec_goto{anno=A,first=F0,then=T0}=MatchAlt, Br, St0) ->
+    Rs = break_rets(Br),
+    {F1,Fu,St1} = ubody(F0, Br, St0),
+    {T1,Tu,St2} = ubody(T0, Br, St1),
+    Used = union(Fu, Tu),
+    {MatchAlt#k_letrec_goto{anno=A,first=F1,then=T1,ret=Rs},Used,St2};
 uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
     Used = lit_vars(Lit),
     {Rs,St1} = ensure_return_vars(Rs0, St0),
-    {#k_put{anno=#k{us=Used,ns=lit_list_vars(Rs),a=get_kanno(Lit)},
-	    arg=Lit,ret=Rs},Used,St1}.
+    {#k_put{anno=get_kanno(Lit),arg=Lit,ret=Rs},Used,St1}.
 
-add_local_function(_, #kern{funs=ignore}=St) -> St;
-add_local_function(F, #kern{funs=Funs}=St) -> St#kern{funs=[F|Funs]}.
-
-%% handle_reuse_annos([#k_var{}], State) -> State.
-%%  In general, it is only safe to reuse a variable for a match context
-%%  if the original value of the variable will no longer be needed.
-%%
-%%  If a variable has been bound in an outer letrec and is therefore
-%%  free in the current function, the variable may still be used.
-%%  We don't bother to check whether the variable is actually used,
-%%  but simply clears the 'reuse_for_context' annotation for any variable
-%%  that is free.
-handle_reuse_annos(Vs, St) ->
-    [handle_reuse_anno(V, St) || V <- Vs].
-
-handle_reuse_anno(#k_var{anno=A}=V, St) ->
-    case member(reuse_for_context, A) of
-	false -> V;
-	true -> handle_reuse_anno_1(V, St)
+add_local_function(_, #kern{funs=ignore}=St) ->
+    St;
+add_local_function(#k_fdef{func=Name,arity=Arity}=F, #kern{funs=Funs}=St) ->
+    case is_defined(Name, Arity, Funs) of
+        false ->
+            St#kern{funs=[F|Funs]};
+        true ->
+            St
     end.
 
-handle_reuse_anno_1(#k_var{anno=Anno,name=Vname}=V, #kern{ff={F,A}}=St) ->
-    FreeVs = get_free(F, A, St),
-    case keymember(Vname, #k_var.name, FreeVs) of
-	true -> V#k_var{anno=Anno--[reuse_for_context]};
-	false -> V
-    end;
-handle_reuse_anno_1(V, _St) -> V.
+is_defined(Name, Arity, [#k_fdef{func=Name,arity=Arity}|_]) ->
+    true;
+is_defined(Name, Arity, [#k_fdef{}|T]) ->
+    is_defined(Name, Arity, T);
+is_defined(_, _, []) -> false.
+
+%% Make a #k_fdef{}, making sure that the body is always a #k_match{}.
+make_fdef(Anno, Name, Arity, Vs, #k_match{}=Body) ->
+    #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Body};
+make_fdef(Anno, Name, Arity, Vs, Body) ->
+    Ka = get_kanno(Body),
+    Match = #k_match{anno=Ka,body=Body,ret=[]},
+    #k_fdef{anno=Anno,func=Name,arity=Arity,vars=Vs,body=Match}.
 
 %% get_free(Name, Arity, State) -> [Free].
 %% store_free(Name, Arity, [Free], State) -> State.
@@ -2404,43 +2051,34 @@ ensure_return_vars([], St) -> new_vars(1, St);
 ensure_return_vars([_]=Rs, St) -> {Rs,St}.
 
 %% umatch(Match, Break, State) -> {Match,[UsedVar],State}.
-%%  Tag a match expression with its used variables.
+%%  Calculate the used variables for a match expression.
 
 umatch(#k_alt{anno=A,first=F0,then=T0}, Br, St0) ->
     {F1,Fu,St1} = umatch(F0, Br, St0),
     {T1,Tu,St2} = umatch(T0, Br, St1),
     Used = union(Fu, Tu),
-    {#k_alt{anno=#k{us=Used,ns=[],a=A},first=F1,then=T1},
-     Used,St2};
-umatch(#k_select{anno=A,var=V0,types=Ts0}, Br, St0) ->
-    V = handle_reuse_anno(V0, St0),
+    {#k_alt{anno=A,first=F1,then=T1},Used,St2};
+umatch(#k_select{anno=A,var=V,types=Ts0}, Br, St0) ->
     {Ts1,Tus,St1} = umatch_list(Ts0, Br, St0),
-    Used = case member(no_usage, get_kanno(V)) of
-	       true -> Tus;
-	       false -> add_element(V#k_var.name, Tus)
-	   end,
-    {#k_select{anno=#k{us=Used,ns=[],a=A},var=V,types=Ts1},Used,St1};
+    Used = add_element(V#k_var.name, Tus),
+    {#k_select{anno=A,var=V,types=Ts1},Used,St1};
 umatch(#k_type_clause{anno=A,type=T,values=Vs0}, Br, St0) ->
     {Vs1,Vus,St1} = umatch_list(Vs0, Br, St0),
-    {#k_type_clause{anno=#k{us=Vus,ns=[],a=A},type=T,values=Vs1},Vus,St1};
+    {#k_type_clause{anno=A,type=T,values=Vs1},Vus,St1};
 umatch(#k_val_clause{anno=A,val=P0,body=B0}, Br, St0) ->
     {U0,Ps} = pat_vars(P0),
-    P = set_kanno(P0, #k{us=U0,ns=Ps,a=get_kanno(P0)}),
     {B1,Bu,St1} = umatch(B0, Br, St0),
+    P = pat_anno_unused(P0, Bu, Ps),
     Used = union(U0, subtract(Bu, Ps)),
-    {#k_val_clause{anno=#k{us=Used,ns=[],a=A},val=P,body=B1},
-     Used,St1};
+    {#k_val_clause{anno=A,val=P,body=B1},Used,St1};
 umatch(#k_guard{anno=A,clauses=Gs0}, Br, St0) ->
     {Gs1,Gus,St1} = umatch_list(Gs0, Br, St0),
-    {#k_guard{anno=#k{us=Gus,ns=[],a=A},clauses=Gs1},Gus,St1};
+    {#k_guard{anno=A,clauses=Gs1},Gus,St1};
 umatch(#k_guard_clause{anno=A,guard=G0,body=B0}, Br, St0) ->
-    %%ok = io:fwrite("~w: ~p~n", [?LINE,G0]),
-    {G1,Gu,St1} = uexpr(G0, {break,[]},
-			St0#kern{guard_refc=St0#kern.guard_refc+1}),
-    %%ok = io:fwrite("~w: ~p~n", [?LINE,G1]),
-    {B1,Bu,St2} = umatch(B0, Br, St1#kern{guard_refc=St1#kern.guard_refc-1}),
+    {G1,Gu,St1} = uexpr(G0, {break,[]}, St0),
+    {B1,Bu,St2} = umatch(B0, Br, St1),
     Used = union(Gu, Bu),
-    {#k_guard_clause{anno=#k{us=Used,ns=[],a=A},guard=G1,body=B1},Used,St2};
+    {#k_guard_clause{anno=A,guard=G1,body=B1},Used,St2};
 umatch(B0, Br, St0) -> ubody(B0, Br, St0).
 
 umatch_list(Ms0, Br, St) ->
@@ -2448,6 +2086,19 @@ umatch_list(Ms0, Br, St) ->
 		  {M1,Mu,Stb} = umatch(M0, Br, Sta),
 		  {[M1|Ms1],union(Mu, Us),Stb}
 	  end, {[],[],St}, Ms0).
+
+pat_anno_unused(#k_tuple{es=Es0}=P, Used0, Ps) ->
+    %% Not extracting unused tuple elements is an optimization for
+    %% compile time and memory use during compilation. It is probably
+    %% worthwhile because it is common to extract only a few elements
+    %% from a huge record.
+    Used = intersection(Used0, Ps),
+    Es = [case member(V, Used) of
+              true -> Var;
+              false -> set_kanno(Var, [unused|get_kanno(Var)])
+          end || #k_var{name=V}=Var <- Es0],
+    P#k_tuple{es=Es};
+pat_anno_unused(P, _Used, _Ps) -> P.
 
 %% op_vars(Op) -> [VarName].
 
@@ -2460,11 +2111,7 @@ op_vars(Atomic) -> lit_vars(Atomic).
 %%  Return the variables in a literal.
 
 lit_vars(#k_var{name=N}) -> [N];
-lit_vars(#k_int{}) -> [];
-lit_vars(#k_float{}) -> [];
-lit_vars(#k_atom{}) -> [];
 %%lit_vars(#k_char{}) -> [];
-lit_vars(#k_nil{}) -> [];
 lit_vars(#k_cons{hd=H,tl=T}) ->
     union(lit_vars(H), lit_vars(T));
 lit_vars(#k_map{var=Var,es=Es}) ->
@@ -2484,27 +2131,24 @@ lit_list_vars(Ps) ->
 
 %% pat_vars(Pattern) -> {[UsedVarName],[NewVarName]}.
 %%  Return variables in a pattern.  All variables are new variables
-%%  except those in the size field of binary segments.
-%%  and map_pair keys
+%%  except those in the size field of binary segments and the key
+%%  field in map_pairs.
 
 pat_vars(#k_var{name=N}) -> {[],[N]};
 %%pat_vars(#k_char{}) -> {[],[]};
 pat_vars(#k_literal{}) -> {[],[]};
-pat_vars(#k_int{}) -> {[],[]};
-pat_vars(#k_float{}) -> {[],[]};
-pat_vars(#k_atom{}) -> {[],[]};
-pat_vars(#k_nil{}) -> {[],[]};
 pat_vars(#k_cons{hd=H,tl=T}) ->
     pat_list_vars([H,T]);
 pat_vars(#k_binary{segs=V}) ->
     pat_vars(V);
-pat_vars(#k_bin_seg{size=Size,seg=S}) ->
-    {U1,New} = pat_list_vars([S]),
+pat_vars(#k_bin_seg{size=Size,seg=S,next=N}) ->
+    {U1,New} = pat_list_vars([S,N]),
     {[],U2} = pat_vars(Size),
     {union(U1, U2),New};
-pat_vars(#k_bin_int{size=Size}) ->
+pat_vars(#k_bin_int{size=Size,next=N}) ->
+    {[],New} = pat_vars(N),
     {[],U} = pat_vars(Size),
-    {U,[]};
+    {U,New};
 pat_vars(#k_bin_end{}) -> {[],[]};
 pat_vars(#k_tuple{es=Es}) ->
     pat_list_vars(Es);
@@ -2527,11 +2171,6 @@ integers(N, M) when N =< M ->
     [N|integers(N + 1, M)];
 integers(_, _) -> [].
 
-%% is_in_guard(State) -> true|false.
-
-is_in_guard(#kern{guard_refc=Refc}) ->
-    Refc > 0.
-
 %%%
 %%% Handling of errors and warnings.
 %%%
@@ -2543,7 +2182,7 @@ is_in_guard(#kern{guard_refc=Refc}) ->
 format_error({nomatch_shadow,Line}) ->
     M = io_lib:format("this clause cannot match because a previous clause at line ~p "
 		      "always matches", [Line]),
-    lists:flatten(M);
+    flatten(M);
 format_error(nomatch_shadow) ->
     "this clause cannot match because a previous clause always matches";
 format_error(bad_call) ->

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2017. All Rights Reserved.
+# Copyright Ericsson AB 2004-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,54 +39,69 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 
 # Behaviour (api) modules are first so they are compiled when
 # the compiler reaches a callback module using them.
-BEHAVIOUR_MODULES= \
-	ssh_sftpd_file_api \
-        ssh_channel \
-	ssh_daemon_channel \
+# The $(BEHAVIOUR_MODULES_1) has a behaviour used in one or more
+# of the $(BEHAVIOUR_MODULES_2)
+
+BEHAVIOUR_MODULES_1= \
+	ssh_dbg
+
+BEHAVIOUR_MODULES_2= \
 	ssh_client_key_api \
-	ssh_server_key_api
+	ssh_daemon_channel \
+	ssh_server_channel \
+	ssh_server_key_api \
+	ssh_sftpd_file_api \
+        ssh_channel        \
+        ssh_client_channel
 
 MODULES= \
 	ssh \
-	ssh_sup \
-	sshc_sup \
-	sshd_sup \
-	ssh_options \
-	ssh_connection_sup \
-	ssh_connection \
-	ssh_connection_handler \
-	ssh_dbg \
-	ssh_shell \
-	ssh_system_sup \
-	ssh_subsystem_sup \
-	ssh_channel_sup \
-	ssh_acceptor_sup \
 	ssh_acceptor \
+	ssh_acceptor_sup \
+	ssh_agent \
 	ssh_app \
 	ssh_auth\
 	ssh_bits \
+	ssh_channel_sup \
 	ssh_cli \
+	ssh_connection \
+	ssh_connection_handler \
+	ssh_connection_sup \
 	ssh_file \
-	ssh_io \
 	ssh_info \
+	ssh_io \
 	ssh_message \
 	ssh_no_io \
+	ssh_options \
 	ssh_sftp \
 	ssh_sftpd \
 	ssh_sftpd_file\
+	ssh_shell \
+	ssh_subsystem_sup \
+	ssh_sup \
+	ssh_system_sup \
+	ssh_tcpip_forward_srv \
+	ssh_tcpip_forward_client \
+	ssh_tcpip_forward_acceptor_sup \
+	ssh_tcpip_forward_acceptor \
 	ssh_transport \
-	ssh_xfer
+	ssh_xfer \
+	sshc_sup \
+	sshd_sup
 
 HRL_FILES =
 
 ERL_FILES= \
 	$(MODULES:%=%.erl) \
-	$(BEHAVIOUR_MODULES:%=%.erl)
+	$(BEHAVIOUR_MODULES_1:%=%.erl) \
+	$(BEHAVIOUR_MODULES_2:%=%.erl)
 
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES_1= $(BEHAVIOUR_MODULES_1:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES_2= $(BEHAVIOUR_MODULES_2:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_TARGET_FILES_1) $(BEHAVIOUR_TARGET_FILES_2)
 
 APP_FILE= ssh.app
 APPUP_FILE= ssh.appup
@@ -97,7 +112,7 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_userauth.hrl ssh_xfer.hrl ssh_dbg.hrl
+INTERNAL_HRL_FILES = ssh_agent.hrl ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_xfer.hrl
 
 # ----------------------------------------------------
 # FLAGS
@@ -113,7 +128,8 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 # Targets
 # ----------------------------------------------------
 
-$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
+$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES_2)
+$(BEHAVIOUR_TARGET_FILES_2): $(BEHAVIOUR_TARGET_FILES_1)
 
 debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
@@ -169,9 +185,10 @@ $(EBIN)/ssh_connection_handler.$(EMULATOR): ssh_connection_handler.erl ssh.hrl \
 $(EBIN)/ssh_shell.$(EMULATOR): ssh_shell.erl ssh_connect.hrl
 $(EBIN)/ssh_system_sup.$(EMULATOR): ssh_system_sup.erl ssh.hrl
 $(EBIN)/ssh_subsystem_sup.$(EMULATOR): ssh_subsystem_sup.erl
-$(EBIN)/ssh_channel_sup.$(EMULATOR): ssh_channel_sup.erl
+$(EBIN)/ssh_channel_sup.$(EMULATOR): ssh_channel_sup.erl ssh.hrl
 $(EBIN)/ssh_acceptor_sup.$(EMULATOR): ssh_acceptor_sup.erl ssh.hrl
 $(EBIN)/ssh_acceptor.$(EMULATOR): ssh_acceptor.erl ssh.hrl
+$(EBIN)/ssh_agent.$(EMULATOR): ssh_agent.erl ssh.hrl ssh_agent.hrl
 $(EBIN)/ssh_app.$(EMULATOR): ssh_app.erl
 $(EBIN)/ssh_auth.$(EMULATOR): ssh_auth.erl \
   ../../public_key/include/public_key.hrl \
@@ -208,8 +225,10 @@ $(EBIN)/ssh_transport.$(EMULATOR): ssh_transport.erl \
   ssh_transport.hrl ssh.hrl
 $(EBIN)/ssh_xfer.$(EMULATOR): ssh_xfer.erl ssh.hrl ssh_xfer.hrl
 $(EBIN)/ssh_sftpd_file_api.$(EMULATOR): ssh_sftpd_file_api.erl
+$(EBIN)/ssh_client_channel.$(EMULATOR): ssh_client_channel.erl ssh_connect.hrl
 $(EBIN)/ssh_channel.$(EMULATOR): ssh_channel.erl ssh_connect.hrl
 $(EBIN)/ssh_daemon_channel.$(EMULATOR): ssh_daemon_channel.erl
+$(EBIN)/ssh_server_channel.$(EMULATOR): ssh_server_channel.erl
 $(EBIN)/ssh_client_key_api.$(EMULATOR): ssh_client_key_api.erl \
   ../../public_key/include/public_key.hrl \
   ../../public_key/include/OTP-PUB-KEY.hrl \

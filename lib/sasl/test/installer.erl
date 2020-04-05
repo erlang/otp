@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -903,9 +903,9 @@ start_client(TestNode,Client,Sname) ->
     receive
         {nodeup, Node} ->
             wait_started(TestNode,Node)
-    after 30000 ->
+    after 60000 ->
 	    ?print([{start_client,failed,Node},net_adm:ping(Node)]),
-            ?fail({"can not start", Node})
+            ?fail({"cannot start", Node})
     end.
 
 start_client_unix(TestNode,Sname,Node) ->
@@ -1063,7 +1063,7 @@ permanent_p1h(TestNode) ->
 
 reg_proc(Name) ->
     catch unregister(Name),
-    Pid = spawn_link(?MODULE, registered_loop, [Name]),
+    Pid = spawn(?MODULE, registered_loop, [Name]),
     global:register_name(Name, Pid),
     ok.
 

@@ -11,7 +11,7 @@
 <header>
 <copyright>
 <year>2011</year>
-<year>2017</year>
+<year>2020</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -42,6 +42,179 @@ Releases are listed in reverse chronological order, most recent
 first.</p>
 
 <!-- ===================================================================== -->
+
+<section><title>diameter 2.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add the 'first' tuple to type diameter:peer_filter/0. The
+	    filter was added in OTP-17.5.6.8 and OTP-18.3, but
+	    neither release updated the type specification.</p>
+          <p>
+	    Own Id: OTP-16548 Aux Id: ERL-1191 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The possibility of choosing a handler process for an
+	    incoming Diameter request with a configured MFA was
+	    documented in OTP 20.0, but counters (with
+	    {traffic_counters, true}) were not incremented when this
+	    process was on a remote node. Counters are now
+	    incremented on the node that configures the transport in
+	    question.</p>
+          <p>
+	    Introduced in OTP 21.3.</p>
+          <p>
+	    Own Id: OTP-16457</p>
+        </item>
+        <item>
+          <p>
+	    Transport options differing from those passed to
+	    diameter:add_transport/2 were used in several situations:
+	    when starting a transport process after connect_timer
+	    expiry after an initial connection attempt has failed,
+	    when starting a transport process after a connection has
+	    been accepted, when sending events, when returning
+	    options in diameter:service_info/2, and possibly more. In
+	    particular, the following configuration options to
+	    diameter:add_transport/2 were dropped: avp_dictionaries,
+	    incoming_maxlen, spawn_opt, strict_mbit.</p>
+          <p>
+	    Moreover, any service options mistakenly passed to
+	    diameter:add_transport/2 were interpreted as such,
+	    instead of being ignored as the documentation states,
+	    with the consequence that outgoing and incoming requests
+	    saw different values of some options, some were always
+	    taken from transport options, and others from service
+	    options.</p>
+          <p>
+	    diameter:add_transport/2 must be called in new code for
+	    the fix to have effect.</p>
+          <p>
+	    Introduced in OTP 20.1.</p>
+          <p>
+	    Own Id: OTP-16459</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix inadvertently broad monitor that resulted in
+	    gen_server cast messages to hidden nodes from module
+	    diameter_dist.</p>
+          <p>
+	    Own Id: OTP-15768</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix failure of incoming answer message with faulty
+	    Experimental-Result-Code. Failure to decode the AVP
+	    resulted in an uncaught exception, with no no
+	    handle_answer/error callback as a consequence.</p>
+          <p>
+	    Own Id: OTP-15569 Aux Id: ERIERL-302 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add spawn_opt MFA configuration to allow a callback to
+	    spawn a handler process for an incoming Diameter request
+	    on an an arbitrary node. Module diameter_dist provides a
+	    route_session/2 that can be used to distribute requests
+	    based on Session-Id, although this module is currently
+	    only documented in the module itself and may change.</p>
+          <p>
+	    Own Id: OTP-15398</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix function_clause when sending an outgoing request
+	    after DPA has been sent in response to an incoming DPR.
+	    The caused the diameter_peer_fsm gen_server associated
+	    with the peer connection to fail, which could then result
+	    in the transport connection being reset before the peer
+	    closed it upon reception of DPA.</p>
+          <p>
+	    Own Id: OTP-15198 Aux Id: ERIERL-213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix documentation typos.</p>
+          <p>
+	    Own Id: OTP-15045</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix failure of incoming answer message with faulty
+	    Experimental-Result-Code. Failure to decode the AVP
+	    resulted in an uncaught exception, with no no
+	    handle_answer/error callback as a consequence.</p>
+          <p>
+	    Own Id: OTP-15569 Aux Id: ERIERL-302 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>diameter 2.1.4</title>
 
@@ -75,7 +248,7 @@ first.</p>
       <list>
         <item>
           <p>
-	    Fix documentation typo: peer_down/3 was written where
+	    Fix documentation typo: peer_up/3 was written where
 	    peer_down/3 was intended.</p>
           <p>
 	    Own Id: OTP-14805</p>
@@ -2521,7 +2694,7 @@ in the next release.</p>
 </list>
 
 <p>
-See <seealso marker="diameter_soc">Standards Compliance</seealso> for
+See <seeguide marker="diameter_soc">Standards Compliance</seeguide> for
 standards-related issues.</p>
 </section>
 

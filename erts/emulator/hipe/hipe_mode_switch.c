@@ -2,7 +2,7 @@
  * %CopyrightBegin%
 
  *
- * Copyright Ericsson AB 2001-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,15 +36,15 @@
 #include "hipe_stack.h"
 #include "hipe_bif0.h"	/* hipe_mfa_info_table_init() */
 
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+#if defined(ERTS_ENABLE_LOCK_CHECK)
+#    define ERTS_REQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,	\
 					   __FILE__, __LINE__)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+#    define ERTS_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #else
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#    define ERTS_REQ_PROC_MAIN_LOCK(P)
+#    define ERTS_UNREQ_PROC_MAIN_LOCK(P)
 #endif
 
 
@@ -155,8 +155,6 @@ void hipe_check_pcb(Process *p, const char *file, unsigned line)
 #include "hipe_arm_glue.h"
 #endif
 
-#define BeamOpCode(Op)		((Uint)BeamOp(Op))
-
 Uint hipe_beam_pc_return[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_throw[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_resume[1];	/* needed by hipe_set_timeout() */
@@ -166,9 +164,9 @@ void hipe_mode_switch_init(void)
 {
     hipe_arch_glue_init();
 
-    hipe_beam_pc_return[0] = BeamOpCode(op_hipe_trap_return);
-    hipe_beam_pc_throw[0] = BeamOpCode(op_hipe_trap_throw);
-    hipe_beam_pc_resume[0] = BeamOpCode(op_hipe_trap_resume);
+    hipe_beam_pc_return[0] = BeamOpCodeAddr(op_hipe_trap_return);
+    hipe_beam_pc_throw[0] = BeamOpCodeAddr(op_hipe_trap_throw);
+    hipe_beam_pc_resume[0] = BeamOpCodeAddr(op_hipe_trap_resume);
 
     hipe_beam_catch_throw =
 	make_catch(beam_catches_cons(hipe_beam_pc_throw, BEAM_CATCHES_NIL));
@@ -182,8 +180,8 @@ void hipe_set_call_trap(ErtsCodeInfo* ci, void *nfun, int is_closure)
     HIPE_ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
     bfun[0] =
 	is_closure
-	? BeamOpCode(op_hipe_trap_call_closure)
-	: BeamOpCode(op_hipe_trap_call);
+	? BeamOpCodeAddr(op_hipe_trap_call_closure)
+	: BeamOpCodeAddr(op_hipe_trap_call);
     ci->u.ncallee = (void (*)(void)) nfun;
 }
 
@@ -204,15 +202,13 @@ hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 	p->stop -= 2;
 	p->stop[1] = hipe_beam_catch_throw;
     }
-    p->stop[0] = make_cp(p->cp);
+    p->stop[0] = (BeamInstr) hipe_beam_pc_return;
     ++p->catches;
-    p->cp = hipe_beam_pc_return;
 }
 
 static __inline__ void hipe_pop_beam_trap_frame(Process *p)
 {
     ASSERT(p->stop[1] == hipe_beam_catch_throw);
-    p->cp = cp_val(p->stop[0]);
     --p->catches;
     p->stop += 2;
 }
@@ -265,7 +261,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  unsigned arity = cmd >> 8;
 
 	  /* p->hipe.u.ncallee set in beam_emu */
-	  if (p->cp == hipe_beam_pc_return) {
+	  if (cp_val(p->stop[0]) == hipe_beam_pc_return) {
 	    /* Native called BEAM, which now tailcalls native. */
 	    hipe_pop_beam_trap_frame(p);
 	    result = hipe_tailcall_to_native(p, arity, reg);
@@ -294,7 +290,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  /* just like a normal call from now on */
 
 	  /* p->hipe.u.ncallee set in beam_emu */
-	  if (p->cp == hipe_beam_pc_return) {
+	  if (cp_val(p->stop[0]) == hipe_beam_pc_return) {
 	      /* Native called BEAM, which now tailcalls native. */
 	      hipe_pop_beam_trap_frame(p);
 	      result = hipe_tailcall_to_native(p, arity, reg);
@@ -394,7 +390,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      goto do_schedule;
 	  }
 
-	  if (!(erts_smp_atomic32_read_acqb(&p->state) & ERTS_PSFLG_ACTIVE)) {
+	  if (!(erts_atomic32_read_acqb(&p->state) & ERTS_PSFLG_ACTIVE)) {
 	      for (i = 0; i < p->arity; ++i)
 		  p->arg_reg[i] = reg[i]; 	      
 	      goto do_schedule;
@@ -490,19 +486,24 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
       case HIPE_MODE_SWITCH_RES_WAIT:
       case HIPE_MODE_SWITCH_RES_WAIT_TIMEOUT: {
 	  /* same semantics, different debug trace messages */
-#ifdef ERTS_SMP
 	  /* XXX: BEAM has different entries for the locked and unlocked
 	     cases. HiPE doesn't, so we must check dynamically. */
-	  if (p->hipe_smp.have_receive_locks)
-	      p->hipe_smp.have_receive_locks = 0;
+	  if (p->sig_qs.flags & FS_HIPE_RECV_LOCKED)
+	      p->sig_qs.flags &= ~FS_HIPE_RECV_LOCKED;
 	  else
-	      erts_smp_proc_lock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-#endif
+	      erts_proc_lock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	  p->i = hipe_beam_pc_resume;
 	  p->arity = 0;
-	  erts_smp_atomic32_read_band_relb(&p->state,
-					   ~ERTS_PSFLG_ACTIVE);
-	  erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+          if (erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
+              ASSERT(erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_ACTIVE);
+          else if (!(p->sig_qs.flags & FS_HIPE_RECV_YIELD))
+              erts_atomic32_read_band_relb(&p->state, ~ERTS_PSFLG_ACTIVE);
+          else {
+              /* Yielded from receive */
+              ERTS_VBUMP_ALL_REDS(p);
+              p->sig_qs.flags &= ~FS_HIPE_RECV_YIELD;
+          }
+	  erts_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
       do_schedule:
 	  {
 	      struct saved_calls *scb;
@@ -513,21 +514,19 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 
               /* The process may have died while it was executing,
                  if so we return out from native code to the interpreter */
-              if (erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
+              if (erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
                   p->i = beam_exit;
 #ifdef DEBUG
 	      ASSERT(p->debug_reds_in == reds_in);
 #endif
 	      p->flags &= ~F_HIPE_MODE;
 
-	      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(p);
+	      ERTS_UNREQ_PROC_MAIN_LOCK(p);
 	      p = erts_schedule(NULL, p, reds_in - p->fcalls);
-	      ERTS_SMP_REQ_PROC_MAIN_LOCK(p);
+	      ERTS_REQ_PROC_MAIN_LOCK(p);
 	      ASSERT(!(p->flags & F_HIPE_MODE));
-#ifdef ERTS_SMP
-	      p->hipe_smp.have_receive_locks = 0;
+	      p->sig_qs.flags &= ~FS_HIPE_RECV_LOCKED;
 	      reg = p->scheduler_data->x_reg_array;
-#endif
 	  }
 	  {
 	      Eterm *argp;
@@ -651,10 +650,10 @@ void hipe_inc_nstack(Process *p)
 	p->hipe.nsp = new_nstack + (p->hipe.nsp - old_nstack);
 	p->hipe.nstack = new_nstack;
 	if (p->hipe.nstgraylim)
-	    p->hipe.nstgraylim = 
+	    p->hipe.nstgraylim =
 		new_nstack + (p->hipe.nstgraylim - old_nstack);
 	if (p->hipe.nstblacklim)
-	    p->hipe.nstblacklim = 
+	    p->hipe.nstblacklim =
 		new_nstack + (p->hipe.nstblacklim - old_nstack);
     }
 }
@@ -668,7 +667,8 @@ void hipe_inc_nstack(Process *p)
     Eterm *new_nstack = erts_alloc(ERTS_ALC_T_HIPE_STK, new_size*sizeof(Eterm));
     unsigned used_size = p->hipe.nstend - p->hipe.nsp;
 
-    sys_memcpy(new_nstack+new_size-used_size, p->hipe.nsp, used_size*sizeof(Eterm));
+    if (used_size)
+        sys_memcpy(new_nstack+new_size-used_size, p->hipe.nsp, used_size*sizeof(Eterm));
     if (p->hipe.nstgraylim)
 	p->hipe.nstgraylim = new_nstack + new_size - (p->hipe.nstend - p->hipe.nstgraylim);
     if (p->hipe.nstblacklim)

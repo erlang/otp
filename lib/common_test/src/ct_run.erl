@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework test execution control module.
-%%%
-%%% <p>This module exports functions for installing and running tests
-%%% withing the Common Test Framework.</p>
-
 -module(ct_run).
 
 %% Script interface
@@ -32,13 +27,8 @@
 -export([install/1,install/2,run/1,run/2,run/3,run_test/1,
 	 run_testspec/1,step/3,step/4,refresh_logs/1]).
 
-
-%% Exported for VTS
--export([run_make/3,do_run/4,tests/1,tests/2,tests/3]).
-
-
-%% Misc internal functions
--export([variables_file_name/1,script_start1/2,run_test2/1]).
+%% Misc internal API functions
+-export([variables_file_name/1,script_start1/2,run_test2/1, run_make/3]).
 
 -include("ct.hrl").
 -include("ct_event.hrl").
@@ -56,7 +46,6 @@
 
 -record(opts, {label,
 	       profile,
-	       vts,
 	       shell,
 	       cover,
 	       cover_stop,
@@ -84,17 +73,6 @@
 	       tests,
 	       starter}).
 
-%%%-----------------------------------------------------------------
-%%% @spec script_start() -> term()
-%%%
-%%% @doc Start tests via the ct_run program or script.
-%%%
-%%% <p>Example:<br/><code>./ct_run -config config.ctc -dir
-%%% $TEST_DIR</code></p>
-%%%
-%%% <p>Example:<br/><code>./ct_run -config config.ctc -suite
-%%% $SUITE_PATH/$SUITE_NAME [-case $CASE_NAME]</code></p>
-%%%
 script_start() ->
     process_flag(trap_exit, true),
     Init = init:get_arguments(),
@@ -147,7 +125,7 @@ script_start(Args) ->
 	    CTVsn =
 		case filename:basename(code:lib_dir(common_test)) of
 		    CTBase when is_list(CTBase) ->
-			case string:tokens(CTBase, "-") of
+			case string:lexemes(CTBase, "-") of
 			    ["common_test",Vsn] -> " v"++Vsn;
 			    _ -> ""
 			end
@@ -228,25 +206,19 @@ finish(Tracing, ExitStatus, Args) ->
     if ExitStatus == interactive_mode ->
 	    interactive_mode;
        true ->
-	    case get_start_opt(vts, true, Args) of
-		true ->
-		    %% VTS mode, don't halt the node
-		    ok;
-		_ ->
-		    %% it's possible to tell CT to finish execution with a call
-		    %% to a different function than the normal halt/1 BIF
-		    %% (meant to be used mainly for reading the CT exit status)
-		    case get_start_opt(halt_with,
-				       fun([HaltMod,HaltFunc]) -> 
-					       {list_to_atom(HaltMod),
-						list_to_atom(HaltFunc)} end,
-				       Args) of
-			undefined ->
-			    halt(ExitStatus);
-			{M,F} ->
-			    apply(M, F, [ExitStatus])
-		    end
-	    end
+            %% it's possible to tell CT to finish execution with a call
+            %% to a different function than the normal halt/1 BIF
+            %% (meant to be used mainly for reading the CT exit status)
+            case get_start_opt(halt_with,
+                               fun([HaltMod,HaltFunc]) -> 
+                                       {list_to_atom(HaltMod),
+                                        list_to_atom(HaltFunc)} end,
+                               Args) of
+                undefined ->
+                    halt(ExitStatus);
+                {M,F} ->
+                    apply(M, F, [ExitStatus])
+            end
     end.
 
 script_start1(Parent, Args) ->
@@ -255,7 +227,6 @@ script_start1(Parent, Args) ->
     %% read general start flags
     Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
     Profile = get_start_opt(profile, fun([Prof]) -> Prof end, Args),
-    Vts = get_start_opt(vts, true, undefined, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
     CoverStop = get_start_opt(cover_stop, 
@@ -317,7 +288,7 @@ script_start1(Parent, Args) ->
 			{undefined,InclDirs};
 		    CtInclPath ->
 			AllInclDirs =
-			    string:tokens(CtInclPath,[$:,$ ,$,]) ++ InclDirs,
+			    string:lexemes(CtInclPath,[$:,$ ,$,]) ++ InclDirs,
 			application:set_env(common_test, include, AllInclDirs),
 			{undefined,AllInclDirs}
 		end;
@@ -341,8 +312,8 @@ script_start1(Parent, Args) ->
     Stylesheet = get_start_opt(stylesheet,
 			       fun([SS]) -> ?abs(SS) end, Args),
     %% basic_html - used by ct_logs
-    BasicHtml = case {Vts,proplists:get_value(basic_html, Args)} of
-		    {undefined,undefined} ->
+    BasicHtml = case proplists:get_value(basic_html, Args) of
+		    undefined ->
 			application:set_env(common_test, basic_html, false),
 			undefined;
 		    _ ->
@@ -373,7 +344,7 @@ script_start1(Parent, Args) ->
     application:set_env(common_test, keep_logs, KeepLogs),
 
     Opts = #opts{label = Label, profile = Profile,
-		 vts = Vts, shell = Shell,
+		 shell = Shell,
 		 cover = Cover, cover_stop = CoverStop,
 		 logdir = LogDir, logopts = LogOpts,
 		 basic_html = BasicHtml,
@@ -431,8 +402,7 @@ run_or_refresh(Opts = #opts{logdir = LogDir}, Args) ->
 	    end
     end.
 
-script_start2(Opts = #opts{vts = undefined,
-			   shell = undefined}, Args) ->
+script_start2(Opts = #opts{shell = undefined}, Args) ->
     case proplists:get_value(spec, Args) of
 	Specs when Specs =/= [], Specs =/= undefined ->
 	    Specs1 = get_start_opt(join_specs, [Specs], Specs, Args),
@@ -442,11 +412,9 @@ script_start2(Opts = #opts{vts = undefined,
                 TestSpecData ->
 		    execute_all_specs(TestSpecData, Opts, Args, [])
             catch
-                throw:{error,Reason} ->
-		    StackTrace = erlang:get_stacktrace(),
+                throw:{error,Reason}:StackTrace ->
 		    {error,{invalid_testspec,{Reason,StackTrace}}};
-                _:Reason ->
-		    StackTrace = erlang:get_stacktrace(),
+                _:Reason:StackTrace ->
 		    {error,{invalid_testspec,{Reason,StackTrace}}}
             end;
 	[] ->
@@ -720,7 +688,7 @@ script_start3(Opts, Args) ->
 	    {error,incorrect_start_options};
 
 	{undefined,undefined,_} ->
-	    if Opts#opts.vts ; Opts#opts.shell ->
+	    if Opts#opts.shell ->
 		    script_start4(Opts#opts{tests = []}, Args);
 	       true ->
 		    %% no start options, use default "-dir ./"
@@ -729,20 +697,6 @@ script_start3(Opts, Args) ->
 		    script_start4(Opts#opts{tests = tests([Dir])}, Args)
 	    end
     end.
-
-script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
-		    tests = Tests, logdir = LogDir, logopts = LogOpts}, _Args) ->
-    ConfigFiles =
-	lists:foldl(fun({ct_config_plain,CfgFiles}, AllFiles) when
-			      is_list(hd(CfgFiles)) ->
-			    AllFiles ++ CfgFiles;
-		       ({ct_config_plain,CfgFile}, AllFiles) when
-			      is_integer(hd(CfgFile)) ->
-			    AllFiles ++ [CfgFile];
-		       (_, AllFiles) ->
-			    AllFiles
-		    end, [], Config),
-    vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), LogOpts, Tests);
 
 script_start4(#opts{label = Label, profile = Profile,
 		    shell = true, config = Config,
@@ -777,33 +731,9 @@ script_start4(#opts{label = Label, profile = Profile,
 	Error ->
 	    Error
     end;
-
-script_start4(#opts{vts = true, cover = Cover}, _) ->
-    case Cover of
-	undefined ->
-	    script_usage();
-	_ ->
-	    %% Add support later (maybe).
-	    io:format("\nCan't run cover in vts mode.\n\n", [])
-    end,
-    {error,no_cover_in_vts_mode};
-
-script_start4(#opts{shell = true, cover = Cover}, _) ->
-    case Cover of
-	undefined ->
-	    script_usage();
-	_ ->
-	    %% Add support later (maybe).
-	    io:format("\nCan't run cover in interactive mode.\n\n", [])
-    end,
-    {error,no_cover_in_interactive_mode};
-
 script_start4(Opts = #opts{tests = Tests}, Args) ->
     do_run(Tests, [], Opts, Args).
 
-%%%-----------------------------------------------------------------
-%%% @spec script_usage() -> ok
-%%% @doc Print usage information for <code>ct_run</code>.
 script_usage() ->
     io:format("\nUsage:\n\n"),
     io:format("Run tests from command line:\n\n"
@@ -871,7 +801,6 @@ script_usage() ->
 	      "\n\t [-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]\n\n"),
     io:format("Run tests in web based GUI:\n\n"
-	      "\tct_run -vts [-browser Browser]"
 	      "\n\t [-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t [-dir TestDir1 TestDir2 .. TestDirN] |"
@@ -887,9 +816,6 @@ script_usage() ->
 	      "\n\t [-basic_html]"
 	      "\n\t [-no_esc_chars]\n\n").
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:install/1
 install(Opts) ->
     install(Opts, ".").
 
@@ -932,15 +858,6 @@ install(Opts, LogDir) ->
 
 variables_file_name(Dir) ->
     filename:join(Dir, "variables-"++atom_to_list(node())).
-
-%%%-----------------------------------------------------------------
-%%% @spec run_test(Opts) -> Result
-%%%   Opts = [tuple()]
-%%%   Result = [TestResult] | {error,Reason}
-%%%
-%%% @doc Start tests from the erlang shell or from an erlang program.
-%%% @equiv ct:run_test/1
-%%%-----------------------------------------------------------------
 
 run_test(StartOpt) when is_tuple(StartOpt) ->
     run_test([StartOpt]);
@@ -1101,7 +1018,7 @@ run_test2(StartOpts) ->
 			application:set_env(common_test, include, InclDirs),
 			{undefined,InclDirs};
 		    CtInclPath ->
-			InclDirs1 = string:tokens(CtInclPath, [$:,$ ,$,]),
+			InclDirs1 = string:lexemes(CtInclPath, [$:,$ ,$,]),
 			AllInclDirs = InclDirs1++InclDirs,
 			application:set_env(common_test, include, AllInclDirs),
 			{undefined,AllInclDirs}
@@ -1211,11 +1128,9 @@ run_spec_file(Relaxed,
 	TestSpecData ->
 	    run_all_specs(TestSpecData, Opts, StartOpts, [])
     catch
-	throw:{error,CTReason} ->
-	    StackTrace = erlang:get_stacktrace(),
+	throw:{error,CTReason}:StackTrace ->
 	    exit({error,{invalid_testspec,{CTReason,StackTrace}}});
-	_:CTReason ->
-	    StackTrace = erlang:get_stacktrace(),
+	_:CTReason:StackTrace ->
 	    exit({error,{invalid_testspec,{CTReason,StackTrace}}})
     end.
 
@@ -1431,14 +1346,6 @@ run_dir(Opts = #opts{logdir = LogDir,
 	    exit({error,{incorrect_start_options,{Dir,Suite,GsAndCs}}})
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec run_testspec(TestSpec) -> Result
-%%%   TestSpec = [term()]
-%%%
-%%% @doc Run test specified by <code>TestSpec</code>. The terms are
-%%% the same as those used in test specification files.
-%%% @equiv ct:run_testspec/1
-%%%-----------------------------------------------------------------
 run_testspec(TestSpec) ->
     CTPid = spawn(run_testspec1_fun(TestSpec)),
     Ref = monitor(process, CTPid),
@@ -1490,7 +1397,7 @@ run_testspec2(TestSpec) ->
 		    false ->
 			Opts#opts.include;
 		    CtInclPath ->
-			EnvInclude = string:tokens(CtInclPath, [$:,$ ,$,]),
+			EnvInclude = string:lexemes(CtInclPath, [$:,$ ,$,]),
 			EnvInclude++Opts#opts.include
 		end,
 	    application:set_env(common_test, include, AllInclude),
@@ -1638,9 +1545,6 @@ delistify([E]) -> E;
 delistify(E)   -> E.
 
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/3
 run(TestDir, Suite, Cases) ->
     case install([]) of
 	ok ->
@@ -1649,9 +1553,6 @@ run(TestDir, Suite, Cases) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/2
 run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
     case install([]) of
 	ok ->
@@ -1660,9 +1561,6 @@ run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/1
 run(TestDirs) ->
     case install([]) of
 	ok ->
@@ -1961,7 +1859,8 @@ auto_compile(TestSuites) ->
     SuiteMakeErrors =
 	lists:flatmap(fun({TestDir,Suite} = TS) ->
 			      case run_make(suites, TestDir, 
-					    Suite, UserInclude) of
+					    Suite, UserInclude,
+                                            [nowarn_export_all]) of
 				  {error,{make_failed,Bad}} ->
 				      [{TS,Bad}];
 				  {error,_} ->
@@ -1979,7 +1878,7 @@ auto_compile(TestSuites) ->
 		  case lists:member(Dir, Done) of
 		      false ->
 			  Failed1 =
-			      case run_make(helpmods, Dir, Suite, UserInclude) of
+			      case run_make(helpmods, Dir, Suite, UserInclude, []) of
 				  {error,{make_failed,BadMods}} ->
 				      [{{Dir,all},BadMods}|Failed];
 				  {error,_} ->
@@ -2072,16 +1971,9 @@ get_bad_suites([], BadSuites) ->
     BadSuites.
 
 
-
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:step/3
 step(TestDir, Suite, Case) ->
     step(TestDir, Suite, Case, []).
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:step/4
 step(TestDir, Suite, Case, Opts) when is_list(TestDir),
 				      is_atom(Suite), is_atom(Case),
 				      Suite =/= all, Case =/= all ->
@@ -2403,18 +2295,24 @@ start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
      CovImport,
      _CovExport,
      #cover{app        = CovApp,
+            local_only = LocalOnly,
 	    level      = CovLevel,
 	    excl_mods  = CovExcl,
 	    incl_mods  = CovIncl,
 	    cross      = CovCross,
 	    src        = _CovSrc}} = CovData,
+    case LocalOnly of
+        true -> cover:local_only();
+        false -> ok
+    end,
     ct_logs:log("COVER INFO",
 		"Using cover specification file: ~ts~n"
 		"App: ~w~n"
+                "Local only: ~w~n"
 		"Cross cover: ~w~n"
 		"Including ~w modules~n"
 		"Excluding ~w modules",
-		[CovFile,CovApp,CovCross,
+		[CovFile,CovApp,LocalOnly,CovCross,
 		 length(CovIncl),length(CovExcl)]),
 
     %% Tell test_server to print a link in its coverlog
@@ -2726,14 +2624,13 @@ get_name(Dir) ->
 	    TopDir ++ "." ++ Base
     end.
 
-
 run_make(TestDir, Mod, UserInclude) ->
-    run_make(suites, TestDir, Mod, UserInclude).
+    run_make(suites, TestDir, Mod, UserInclude, [nowarn_export_all]).
 
-run_make(Targets, TestDir0, Mod, UserInclude) when is_list(Mod) ->
-    run_make(Targets, TestDir0, list_to_atom(Mod), UserInclude);
+run_make(Targets, TestDir0, Mod, UserInclude, COpts) when is_list(Mod) ->
+    run_make(Targets, TestDir0, list_to_atom(Mod), UserInclude, COpts);
 
-run_make(Targets, TestDir0, Mod, UserInclude) ->
+run_make(Targets, TestDir0, Mod, UserInclude, COpts) ->
     case locate_test_dir(TestDir0, Mod) of
 	{ok,TestDir} ->
 	    %% send a start_make notification which may suspend
@@ -2748,7 +2645,7 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 	    XmerlInclude = get_dir(xmerl, "include"),
 	    ErlFlags = UserInclude ++ [{i,CtInclude},
 				       {i,XmerlInclude},
-				       debug_info],
+				       debug_info] ++ COpts,
 	    Result =
 		if Mod == all ; Targets == helpmods ->
 			case (catch ct_make:all([noexec|ErlFlags])) of

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,12 +41,10 @@ gethostbyname(_) -> {error, formerr}.
 gethostbyname(Name, Type) when is_list(Name), is_atom(Type) ->
     %% Byname has lowercased names while Byaddr keep the name casing.
     %% This is to be able to reconstruct the original /etc/hosts entry.
-    N = inet_db:tolower(Name),
-    case gethostbyname(N, Type, inet_hosts_byname, inet_hosts_byaddr) of
+    Nm = inet_db:tolower(Name),
+    case gethostbyname(Nm, Type, inet_hosts_byname) of
 	false ->
-	    case gethostbyname(N, Type,
-			       inet_hosts_file_byname,
-			       inet_hosts_file_byaddr) of
+	    case gethostbyname(Nm, Type, inet_hosts_file_byname) of
 		false -> {error,nxdomain};
 		Hostent -> {ok,Hostent}
 	    end;
@@ -56,15 +54,12 @@ gethostbyname(Name, Type) when is_atom(Name), is_atom(Type) ->
     gethostbyname(atom_to_list(Name), Type);
 gethostbyname(_, _) -> {error, formerr}.
 
-gethostbyname(Name, Type, Byname, Byaddr) ->
+gethostbyname(Nm, Type, Byname) ->
     inet_db:res_update_hosts(),
-    case [I || [I] <- ets:match(Byname, {Name,Type,'$1'})] of
+    case ets:lookup(Byname, {Type, Nm}) of
 	[] -> false;
-	[IP|_]=IPs ->
-	    %% Use the primary IP address to generate aliases
-	    [Nm|As] = [N || [N] <- ets:match(Byaddr,
-					     {'$1',Type,IP})],
-	    make_hostent(Nm, IPs, As, Type)
+	[{_, IPs, [Primary | Aliases]}] ->
+            make_hostent(Primary, IPs, Aliases, Type)
     end.
 
 
@@ -72,9 +67,6 @@ gethostbyname(Name, Type, Byname, Byaddr) ->
 
 gethostbyaddr({A,B,C,D}=IP) when ?ip(A,B,C,D) ->
     gethostbyaddr(IP, inet);
-%% ipv4  only ipv6 address
-gethostbyaddr({0,0,0,0,0,16#ffff=F,G,H}) when ?ip6(0,0,0,0,0,F,G,H) ->
-    gethostbyaddr({G bsr 8, G band 255, H bsr 8, H band 255});
 gethostbyaddr({A,B,C,D,E,F,G,H}=IP) when ?ip6(A,B,C,D,E,F,G,H) ->
     gethostbyaddr(IP, inet6);
 gethostbyaddr(Addr) when is_list(Addr) ->
@@ -100,11 +92,10 @@ gethostbyaddr(IP, Type) ->
 
 gethostbyaddr(IP, Type, Byaddr) ->
     inet_db:res_update_hosts(),
-    case [N || [N] <- ets:match(Byaddr, {'$1',Type,IP})] of
+    case ets:lookup(Byaddr, {Type, IP}) of
 	[] -> false;
-	[Nm|As] -> make_hostent(Nm, [IP], As, Type)
+	[{_, [Primary | Aliases]}] -> make_hostent(Primary, [IP], Aliases, Type)
     end.
-
 
 
 make_hostent(Name, Addrs, Aliases, inet) ->

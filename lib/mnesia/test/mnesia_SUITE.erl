@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,12 +69,13 @@ groups() ->
     %% covered.
     [{light, [],
       [{group, install}, {group, nice}, {group, evil},
-       {group, mnesia_frag_test, light}, {group, qlc},
+       {group, mnesia_frag_test, light}, {group, qlc}, {group, index_plugins},
        {group, registry}, {group, config}, {group, examples}]},
      {install, [], [{mnesia_install_test, all}]},
      {nice, [], [{mnesia_nice_coverage_test, all}]},
      {evil, [], [{mnesia_evil_coverage_test, all}]},
      {qlc, [], [{mnesia_qlc_test, all}]},
+     {index_plugins, [], [{mnesia_index_plugin_test, all}]},
      {registry, [], [{mnesia_registry_test, all}]},
      {config, [], [{mnesia_config_test, all}]},
      {examples, [], [{mnesia_examples_test, all}]},

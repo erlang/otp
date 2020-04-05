@@ -124,7 +124,7 @@ SignerInfoAuthenticatedAttributes ::= CHOICE {
 
 -- Also defined in X.509
 -- Redeclared here as a parameterized type
-AlgorithmIdentifierPKSC-7 {ALGORITHM:IOSet} ::= SEQUENCE {
+AlgorithmIdentifierPKCS-7 {ALGORITHM:IOSet} ::= SEQUENCE {
    algorithm   ALGORITHM.&id({IOSet}),
    parameters  ALGORITHM.&Type({IOSet}{@algorithm}) OPTIONAL
 }
@@ -146,21 +146,21 @@ CRLSequence ::=
   SEQUENCE OF CertificateList
 
 ContentEncryptionAlgorithmIdentifier ::=
-  AlgorithmIdentifierPKSC-7 {{ContentEncryptionAlgorithms}}
+  AlgorithmIdentifierPKCS-7 {{ContentEncryptionAlgorithms}}
 
 ContentEncryptionAlgorithms ALGORITHM ::= {
   ...  -- add any application-specific algorithms here
 }
 
 DigestAlgorithmIdentifier ::=
-  AlgorithmIdentifierPKSC-7 {{DigestAlgorithms}}
+  AlgorithmIdentifierPKCS-7 {{DigestAlgorithms}}
 
 DigestAlgorithms ALGORITHM ::= {
    ...  -- add any application-specific algorithms here
 }
 
 DigestEncryptionAlgorithmIdentifier ::=
-  AlgorithmIdentifierPKSC-7 {{DigestEncryptionAlgorithms}}
+  AlgorithmIdentifierPKCS-7 {{DigestEncryptionAlgorithms}}
 
 DigestEncryptionAlgorithms ALGORITHM ::= {
   ...  -- add any application-specific algorithms here
@@ -182,7 +182,7 @@ IssuerAndSerialNumber ::= SEQUENCE {
 }
 
 KeyEncryptionAlgorithmIdentifier ::=
-  AlgorithmIdentifierPKSC-7 {{KeyEncryptionAlgorithms}}
+  AlgorithmIdentifierPKCS-7 {{KeyEncryptionAlgorithms}}
 
 KeyEncryptionAlgorithms ALGORITHM ::= {
   ...  -- add any application-specific algorithms here

@@ -1,0 +1,122 @@
+#!/usr/bin/perl -w
+use strict;
+
+# Analyse beam_emu.s and try to find out the registers
+# used for the important variables in process_main().
+#
+# Works for .s files from clang or gcc. For gcc, the -fverbose-asm
+# option must be used.
+#
+# Example:
+#
+# $ beam-emu-vars -vars 'c_p E HTOP FCALLS I reg freg' beam_emu.s
+# E: %r13
+# FCALLS: %rcx:98 %rax:88 16(%rsp):50 %rdi:6
+# HTOP: %r10:382 64(%rsp):88 72(%rsp):9 24(%rsp):7 %rcx:6 %r15:6 80(%rsp):3 88(%rsp):2
+# I: %rbx
+# c_p: %rbp
+# freg: 48(%rsp):11 %rcx:8 %rdi:5 %rax:4
+# reg: %r12
+#
+# That means that E, I, c_p, reg seems to be assigned to permanent registers.
+# HTOP seems to be assigned %r10, but it is saved to a scratch location
+# before any function calls. FCALLS and freg seems to be saved in a location on
+# the stack and loaded into a register when used.
+#
+# The exit status will be 0 if all variables are assigned to registers (most of
+# the time), and 1 if one or more variables are assigned to a stack location.
+
+my $vars = 'c_p E FCALLS freg HTOP I reg';
+
+while (@ARGV and $ARGV[0] =~ /^-(.*)/) {
+    $_ = $1;
+    shift;
+    ($vars = shift), next if /^vars/;
+    die "$0: Bad option: -$_\n";
+}
+
+my @vars = split(" ", $vars);
+my %vars;
+@vars{@vars} = @vars;
+
+my $inside;
+my %count;
+
+if (@ARGV != 1) {
+    usage();
+}
+
+while (<>) {
+    if (!$inside && /[.]globl\s*_?process_main/) {
+	$inside = 1;
+    } elsif ($inside && /[.]globl/) {
+	last;
+    }
+    if ($inside) {
+	if (/##DEBUG_VALUE:\s*process_main:([A-Za-z]*)\s*<-\s*(.*)/) {
+	    # clang
+	    my($var,$reg) = ($1,$2);
+	    next if $reg =~ /^[-\d]+$/; # Ignore if number.
+	    $count{$var}->{$reg}++ if $vars{$var};
+	    next;
+	}
+
+	# Parse gcc verbose arguments. Comments are marked with
+	# one '#' (clang marks its comments with two '#').
+	my($src,$dst,$comment) = /movq\s+([^#]+), ([^#]+)#(?!#)\s*(.*)/;
+	next unless $comment;
+	$dst =~ s/\s*$//;
+	my($vsrc,$vdst) = split /,/, $comment, 2;
+	$vdst =~ s/^\s//;
+	update_count(\%count, $vsrc, $src);
+	update_count(\%count, $vdst, $dst);
+	if ($vars{$vdst} and $vsrc eq '%sfp') {
+	    $count{$vdst}->{$src}++;
+	}
+    }
+}
+
+my @first;
+
+OUTER:
+for my $var (sort keys %count) {
+    my $total = 0;
+
+    foreach my $reg (keys %{$count{$var}}) {
+	$total += $count{$var}->{$reg}++;
+    }
+
+    foreach my $reg (keys %{$count{$var}}) {
+	if ($count{$var}->{$reg} > 0.9*$total) {
+	    print "$var: $reg\n";
+	    push @first, $var;
+	    next OUTER;
+	}
+    }
+
+    my @r;
+    foreach my $reg (keys %{$count{$var}}) {
+	push @r, $reg;
+    }
+    @r = sort { $count{$var}->{$b} <=> $count{$var}->{$a} } @r;
+    @r = map { "$_:$count{$var}->{$_}" } @r;
+    push @first, $r[0];
+    print "$var: ", join(' ', @r), "\n";
+}
+
+foreach (@first) {
+    exit 1 if /%rsp/;
+}
+exit 0;
+
+sub update_count {
+    my($count_ref,$var,$reg) = @_;
+    return unless $vars{$var};
+    ${${$count_ref}{$var}}{$reg}++;
+}
+
+sub usage {
+    die qq[usage: beam_emu_vars [ -vars "var1 var2..." ] <filename>.s\n\n] .
+	"The exit status is 0 if all variables are assigned to registers,\n" .
+	"and 1 if one or more variables are allocated to a stack location.\n";
+}

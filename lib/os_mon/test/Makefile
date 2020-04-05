@@ -30,7 +30,6 @@ MODULES= \
 	disksup_SUITE \
 	memsup_SUITE \
 	cpu_sup_SUITE \
-	os_mon_mib_SUITE \
 	os_sup_SUITE \
 	os_mon_conf
 
@@ -87,7 +86,6 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) os_mon.spec os_mon.cover os_mon_smoke.spec \
 		$(EMAKEFILE) $(SOURCE) "$(RELSYSDIR)"
-	$(INSTALL_DATA) os_mon_mib_SUITE.cfg "$(RELSYSDIR)"
 
 ##	tar chf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 

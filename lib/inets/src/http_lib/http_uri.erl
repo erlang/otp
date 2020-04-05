@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,6 +60,14 @@
 -export([parse/1, parse/2, 
 	 scheme_defaults/0, 
 	 encode/1, decode/1]).
+
+
+-deprecated({parse, 1, "use uri_string functions instead"}).
+-deprecated({parse, 2, "use uri_string functions instead"}).
+-deprecated({encode, 1, "use uri_string functions instead"}).
+-deprecated({decode, 1, "use uri_string functions instead"}).
+-deprecated({scheme_defaults, 0, "use uri_string functions instead"}).
+ 
 
 -export_type([uri/0,
               user_info/0,
@@ -197,7 +205,7 @@ extract_scheme(Str, Opts) ->
 	{value, {scheme_validation_fun, Fun}} when is_function(Fun) ->
 	    case Fun(Str) of
 		valid ->
-		    {ok, list_to_atom(http_util:to_lower(Str))};
+		    {ok, to_atom(http_util:to_lower(Str))};
 		{error, Error} ->
 		    {error, Error}
 	    end;

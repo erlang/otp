@@ -52,8 +52,14 @@ module 'bs_shadowed_size_var'
                       case T of
 			%% Variable 'Sz' repeated here. Should work.
 			<#{#<Sz>(32,1,'integer',['unsigned','big']),
-			    #<Data>(Sz,8,'binary',['unsigned','big'])}#> when 'true' ->
-			    Data
+			   #<Tail>('all',1,'binary',['unsigned','big'])}#> when 'true' ->
+			   case Tail of
+			       <#{#<Data>(Sz,8,'binary',['unsigned','big'])}#> when 'true' ->
+			         Data
+			       <_cor5> when 'true' ->
+			           primop 'match_fail'
+				      ({'case_clause',{_cor5}})
+		           end
 			<_cor5> when 'true' ->
 			    primop 'match_fail'
 				({'case_clause',{_cor5}})

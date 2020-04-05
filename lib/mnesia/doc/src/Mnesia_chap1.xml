@@ -45,24 +45,24 @@
         Mnesia.</p>
       <p>This User's Guide is organized as follows:</p>
       <list type="bulleted">
-        <item><seealso marker="Mnesia_overview">Mnesia</seealso>
+        <item><seeguide marker="Mnesia_overview">Mnesia</seeguide>
 	provides an introduction to
 	Mnesia.
         </item>
-        <item><seealso marker="Mnesia_chap2">Getting Started</seealso>
+        <item><seeguide marker="Mnesia_chap2">Getting Started</seeguide>
         introduces Mnesia with an example database. Examples
         are included how to start an Erlang session, specify a
         Mnesia database directory, initialize a database
         schema, start Mnesia, and create tables. Initial
         prototyping of record definitions is also discussed.
         </item>
-        <item><seealso marker="Mnesia_chap3">Build a Mnesia
-        Database</seealso> more formally describes the steps
+        <item><seeguide marker="Mnesia_chap3">Build a Mnesia
+        Database</seeguide> more formally describes the steps
         introduced in the previous section, namely the Mnesia
         functions that define a database schema, start Mnesia,
         and create the required tables.
         </item>
-        <item><seealso marker="Mnesia_chap4">Transactions and Other Access Contexts</seealso>
+        <item><seeguide marker="Mnesia_chap4">Transactions and Other Access Contexts</seeguide>
          describes the transactions properties that make Mnesia into
          a fault tolerant, real-time distributed database management
          system. This section also describes the concept of locking
@@ -70,34 +70,34 @@
          operations", or short cuts, which bypass the transaction system
          to improve speed and reduce overheads.
         </item>
-        <item><seealso marker="Mnesia_chap5">Miscellaneous Mnesia
-        Features</seealso> describes features that enable the
+        <item><seeguide marker="Mnesia_chap5">Miscellaneous Mnesia
+        Features</seeguide> describes features that enable the
         construction of more complex database applications. These
         features include indexing, checkpoints, distribution and fault
         tolerance, disc-less nodes, replication manipulation, local
         content tables, concurrency, and object-based programming in
         Mnesia.
         </item>
-        <item><seealso marker="Mnesia_chap7">Mnesia System
-        Information</seealso> describes the files contained in the
+        <item><seeguide marker="Mnesia_chap7">Mnesia System
+        Information</seeguide> describes the files contained in the
         Mnesia database directory, database configuration data,
         core and table dumps, as well as the important subject of
         backup, fall-back, and disaster recovery principles.
         </item>
-        <item><seealso marker="Mnesia_chap8">Combine Mnesia with
-        SNMP</seealso> is a short section that outlines Mnesia
+        <item><seeguide marker="Mnesia_chap8">Combine Mnesia with
+        SNMP</seeguide> is a short section that outlines Mnesia
         integrated with SNMP.
         </item>
-        <item><seealso marker="Mnesia_App_A">Appendix A: Backup
-        Callback Interface</seealso> is a program listing of the
+        <item><seeguide marker="Mnesia_App_A">Appendix A: Backup
+        Callback Interface</seeguide> is a program listing of the
         default implementation of this facility.
         </item>
-        <item><seealso marker="Mnesia_App_B">Appendix B: Activity
-        Access Callback Interface</seealso> is a program outlining
+        <item><seeguide marker="Mnesia_App_B">Appendix B: Activity
+        Access Callback Interface</seeguide> is a program outlining
         one possible implementation of this facility.
         </item>
-        <item><seealso marker="Mnesia_App_C">Appendix C: Fragmented
-        Table Hashing Callback Interface</seealso> is a program
+        <item><seeguide marker="Mnesia_App_C">Appendix C: Fragmented
+        Table Hashing Callback Interface</seeguide> is a program
         outlining one possible implementation of this facility.
         </item>
       </list>

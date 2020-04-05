@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2017</year>
+      <year>2006</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <rev></rev>
     <file>dialyzer.xml</file>
   </header>
-  <module>dialyzer</module>
+  <module since="">dialyzer</module>
   <modulesummary>Dialyzer, a DIscrepancy AnaLYZer for ERlang programs.
   </modulesummary>
   <description>
@@ -57,8 +57,8 @@
 dialyzer --help</code>
 
     <p>For more details about the operation of Dialyzer, see section
-      <seealso marker="dialyzer_chapter#dialyzer_gui">
-      Using Dialyzer from the GUI</seealso> in the User's Guide.</p>
+      <seeguide marker="dialyzer_chapter#dialyzer_gui">
+      Using Dialyzer from the GUI</seeguide> in the User's Guide.</p>
 
     <p><em>Exit status of the command-line version:</em></p>
 
@@ -85,7 +85,7 @@ dialyzer --help</code>
 dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname] [--dump_callgraph file]
          [files_or_dirs] [--fullpath] [--get_warnings] [--gui] [--help]
-         [-I include_dir]* [--no_check_plt] [--no_native]
+         [-I include_dir]* [--no_check_plt] [--no_indentation] [--no_native]
          [--no_native_cache] [-o outfile] [--output_plt file] [-pa dir]*
          [--plt plt] [--plt_info] [--plts plt*] [--quiet] [-r dirs]
          [--raw] [--remove_from_plt] [--shell] [--src] [--statistics]
@@ -180,6 +180,11 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
       <item>
         <p>Skip the PLT check when running Dialyzer. This is useful when
           working with installed PLTs that never change.</p>
+      </item>
+      <tag><c>--no_indentation</c></tag>
+      <item>
+	<p>Do not insert line breaks in types, contracts, and Erlang
+	  Code when formatting warnings.</p>
       </item>
       <tag><c>--no_native</c> (or <c>-nn</c>)</tag>
       <item>
@@ -295,9 +300,9 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
           (For help on the names of warnings, use
           <c>dialyzer -Whelp</c>.)
           Notice that the options can also be specified in the file with a
-          <c>-dialyzer()</c> attribute. For details, see section <seealso
+          <c>-dialyzer()</c> attribute. For details, see section <seeerl
           marker="#suppression">Requesting or Suppressing Warnings in
-          Source Files</seealso>.</p>
+          Source Files</seeerl>.</p>
       </item>
     </taglist>
 
@@ -305,7 +310,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <p>** options <c>-D</c> and <c>-I</c> work both
         from the command line and in the Dialyzer GUI; the syntax of
         defines and includes is the same as that used by
-        <seealso marker="erts:erlc">erlc(1)</seealso>.</p>
+        <seecom marker="erts:erlc">erlc(1)</seecom>.</p>
     </note>
 
     <p><em>Warning options:</em></p>
@@ -417,8 +422,8 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     <p>Dialyzer can be used directly from Erlang. Both the GUI and the
       command-line versions are also available. The options are similar to the
       ones given from the command line, see section
-      <seealso marker="#command_line">
-      Using Dialyzer from the Command Line</seealso>.</p>
+      <seeerl marker="#command_line">
+      Using Dialyzer from the Command Line</seeerl>.</p>
   </section>
 
   <section>
@@ -453,8 +458,8 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
 -dialyzer({[no_return, no_match], [g/0, h/0]}).</code>
 
     <p>For help on the warning options, use <c>dialyzer -Whelp</c>. The
-      options are also enumerated, see function <seealso marker="#gui/1">
-      <c>gui/1</c></seealso> below (<c>WarnOpts</c>).</p>
+      options are also enumerated, see function <seemfa marker="#gui/1">
+      <c>gui/1</c></seemfa> below (<c>WarnOpts</c>).</p>
 
     <note>
       <p>Warning option <c>-Wrace_conditions</c> has no effect when
@@ -472,7 +477,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
 
   <funcs>
     <func>
-      <name>format_warning(Msg) -> string()</name>
+      <name since="">format_warning(Msg) -> string()</name>
       <fsummary>Get the string version of a warning message.</fsummary>
       <type>
         <v>Msg = {Tag, Id, msg()}</v>
@@ -480,13 +485,30 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       </type>
       <desc>
         <p>Get a string from warnings as returned by
-          <seealso marker="#run/1"><c>run/1</c></seealso>.</p>
+          <seemfa marker="#run/1"><c>run/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>gui() -> ok | {error, Msg}</name>
-      <name>gui(OptList) -> ok | {error, Msg}</name>
+      <name since="">format_warning(Msg, Options) -> string()</name>
+      <fsummary>Get the string version of a warning message.</fsummary>
+      <type>
+        <v>Msg = {Tag, Id, msg()}</v>
+        <d>See <c>run/1</c>.</d>
+        <v>Options = [{indent_opt, boolean()}]</v>
+      </type>
+      <desc>
+        <p>Get a string from warnings as returned by
+          <seemfa marker="#run/1"><c>run/1</c></seemfa>.</p>
+	<p>If <c>indent_opt</c> is set to <c>true</c> (default),
+          line breaks are inserted in types, contracts, and Erlang
+	  code to improve readability.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">gui() -> ok | {error, Msg}</name>
+      <name since="">gui(OptList) -> ok | {error, Msg}</name>
       <fsummary>Dialyzer GUI version.</fsummary>
       <type>
         <v>OptList</v>
@@ -515,7 +537,10 @@ Option   :: {files,          [Filename :: string()]}
                              'plt_check' |
                              'plt_remove'}
           | {warnings,       [WarnOpts]}
-          | {get_warnings,   bool()}
+          | {get_warnings,   boolean()}
+          | {native,         boolean()}
+                               %% Defaults to false when invoked from Erlang
+          | {native_cache,   boolean()}
 
 WarnOpts :: error_handling
           | no_behaviours
@@ -539,7 +564,7 @@ WarnOpts :: error_handling
     </func>
 
     <func>
-      <name>plt_info(string()) -> {'ok', [{atom(), any()}]} | {'error', atom()}</name>
+      <name since="">plt_info(string()) -> {'ok', [{atom(), any()}]} | {'error', atom()}</name>
       <fsummary>Return information about the specified PLT.</fsummary>
       <desc>
         <p>Returns information about the specified PLT.</p>
@@ -547,7 +572,7 @@ WarnOpts :: error_handling
     </func>
 
     <func>
-      <name>run(OptList) -> Warnings</name>
+      <name since="">run(OptList) -> Warnings</name>
       <fsummary>Dialyzer command-line version.</fsummary>
       <type>
         <v>OptList</v>

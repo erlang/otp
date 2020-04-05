@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@
 %% ===========================================================================
 
 %% Fraction of shuffle/parallel groups to randomly skip.
--define(SKIP, 0.25).
+-define(SKIP, 0.90).
 
 %% Positive number of testcases from which to select (randomly) from
 %% tc(), the list of testcases to run, or [] to run all. The random
@@ -305,7 +305,8 @@ names() ->
                              S  <- ?STRING_DECODES,
                              ST <- ?CALLBACKS,
                              SS <- ?SENDERS,
-                             CS <- ?SENDERS].
+                             CS <- ?SENDERS,
+                             ?SKIP =< rand:uniform()].
 
 names(Names, []) ->
     [N || N <- Names,
@@ -336,14 +337,9 @@ init_per_group(_) ->
 init_per_group(Name, Config)
   when Name == shuffle;
        Name == parallel ->
-    case rand:uniform() < ?SKIP of
-        true ->
-            {skip, random};
-        false ->
-            start_services(Config),
-            add_transports(Config),
-            replace({sleep, Name == parallel}, Config)
-    end;
+    start_services(Config),
+    add_transports(Config),
+    replace({sleep, Name == parallel}, Config);
 
 init_per_group(sctp = Name, Config) ->
     {_, Sctp} = lists:keyfind(Name, 1, Config),
@@ -539,8 +535,7 @@ add_transports(Config) ->
                         ++ [{unordered, unordered()} || T == sctp],
                         [{capabilities_cb, fun capx/2},
                          {pool_size, 8}
-                         | server_apps()]
-                        ++ [{spawn_opt, {erlang, spawn, []}} || CS]),
+                         | server_apps()]),
     Cs = [?util:connect(CN,
                         [T, {sender, CS} | client_opts(T)],
                         LRef,
@@ -1924,8 +1919,8 @@ compile_and_load() ->
         {module, nas4005} = code:load_binary(nas4005, "nas4005", Bin),
         true
     catch
-        E:R ->
-            {E, R, erlang:get_stacktrace()}
+        E:R:Stack ->
+            {E, R, Stack}
     end.
 
 here() ->

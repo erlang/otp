@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
 #include "erl_nfunc_sched.h"
+#include "erl_proc_sig_queue.h"
 #ifdef HIPE
 #  include "hipe_bif0.h"
 #  define IF_HIPE(X) (X)
@@ -50,7 +51,7 @@
 
 static struct {
     Eterm module;
-    erts_smp_mtx_t mtx;
+    erts_mtx_t mtx;
     Export *pending_purge_lambda;
     Eterm *sprocs;
     Eterm def_sprocs[10];
@@ -65,27 +66,6 @@ static struct {
 
 Process *erts_code_purger = NULL;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-Process *erts_dirty_process_code_checker;
-#endif
-erts_smp_atomic_t erts_copy_literal_area__;
-#define ERTS_SET_COPY_LITERAL_AREA(LA)			\
-    erts_smp_atomic_set_nob(&erts_copy_literal_area__,	\
-			    (erts_aint_t) (LA))
-Process *erts_literal_area_collector = NULL;
-
-typedef struct ErtsLiteralAreaRef_ ErtsLiteralAreaRef;
-struct ErtsLiteralAreaRef_ {
-    ErtsLiteralAreaRef *next;
-    ErtsLiteralArea *literal_area;
-};
-
-struct {
-    erts_smp_mtx_t mtx;
-    ErtsLiteralAreaRef *first;
-    ErtsLiteralAreaRef *last;
-} release_literal_areas;
-
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, int *redsp, int fcalls);
 static void delete_code(Module* modp);
@@ -97,7 +77,7 @@ init_purge_state(void)
 {
     purge_state.module = THE_NON_VALUE;
 
-    erts_smp_mtx_init(&purge_state.mtx, "purge_state", NIL,
+    erts_mtx_init(&purge_state.mtx, "purge_state", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     purge_state.pending_purge_lambda =
@@ -116,17 +96,13 @@ init_purge_state(void)
     purge_state.saved_old.code_hdr = 0;
 }
 
+static void
+init_release_literal_areas(void);
+
 void
 erts_beam_bif_load_init(void)
 {
-    erts_smp_mtx_init(&release_literal_areas.mtx, "release_literal_areas", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-
-    release_literal_areas.first = NULL;
-    release_literal_areas.last = NULL;
-    erts_smp_atomic_init_nob(&erts_copy_literal_area__,
-			     (erts_aint_t) NULL);
-
+    init_release_literal_areas();
     init_purge_state();
 }
 
@@ -168,12 +144,12 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 	BIF_ERROR(BIF_P, BADARG);
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD3(bif_export[BIF_code_make_stub_module_3],
+	ERTS_BIF_YIELD3(&bif_trap_export[BIF_code_make_stub_module_3],
 			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_thr_progress_block();
 
     modp = erts_get_module(mod, erts_active_code_ix());
 
@@ -197,8 +173,8 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     else {
 	erts_abort_staging_code_ix();
     }
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_thr_progress_unblock();
+    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_release_code_write_permission();
     return res;
 #endif
@@ -265,7 +241,6 @@ struct m {
 };
 
 static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int, int);
-#ifdef ERTS_SMP
 static void smp_code_ix_commiter(void*);
 
 static struct /* Protected by code_write_permission */
@@ -273,7 +248,6 @@ static struct /* Protected by code_write_permission */
     Process* stager;
     ErtsThrPrgrLaterOp lop;
 } committer_state;
-#endif
 
 static Eterm
 exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
@@ -305,7 +279,7 @@ finish_loading_1(BIF_ALIST_1)
     int do_commit = 0;
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(bif_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(&bif_trap_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
     }
 
     /*
@@ -401,8 +375,9 @@ finish_loading_1(BIF_ALIST_1)
 	    erts_is_default_trace_enabled() ||
 	    IF_HIPE(hipe_need_blocking(p[i].modp))) {
 	    /* tracing or hipe need thread blocking */
-	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	    erts_smp_thr_progress_block();
+	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    erts_thr_progress_block();
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    is_blocking = 1;
 	    break;
 	}
@@ -465,9 +440,7 @@ static Eterm
 staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 		 struct m* mods, int nmods, int free_mods)
 {    
-#ifdef ERTS_SMP
     if (is_blocking || !commit)
-#endif
     {
 	if (commit) {
 	    int i;
@@ -491,13 +464,11 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	    erts_free(ERTS_ALC_T_LOADER_TMP, mods);
 	}
 	if (is_blocking) {
-	    erts_smp_thr_progress_unblock();
-	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	    erts_thr_progress_unblock();
 	}
 	erts_release_code_write_permission();
 	return res;
     }
-#ifdef ERTS_SMP
     else {
 	ASSERT(is_value(res));
 
@@ -522,11 +493,9 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	 */
 	ERTS_BIF_YIELD_RETURN(c_p, res);
     }
-#endif
 }
 
 
-#ifdef ERTS_SMP
 static void smp_code_ix_commiter(void* null)
 {
     Process* p = committer_state.stager;
@@ -536,14 +505,13 @@ static void smp_code_ix_commiter(void* null)
     committer_state.stager = NULL;
 #endif
     erts_release_code_write_permission();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     if (!ERTS_PROC_IS_EXITING(p)) {
 	erts_resume(p, ERTS_PROC_LOCK_STATUS);
     }
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     erts_proc_dec_refc(p);
 }
-#endif /* ERTS_SMP */
 
 
 
@@ -613,14 +581,14 @@ badarg:
 
 BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
 {
-#if !defined(ERTS_DIRTY_SCHEDULERS)
-    BIF_ERROR(BIF_P, EXC_NOTSUP);
-#else
+    erts_aint32_t state;
     Process *rp;
-    int reds = 0;
+    int dirty, busy, reds = 0;
     Eterm res;
 
-    if (BIF_P != erts_dirty_process_code_checker)
+    if (BIF_P != erts_dirty_process_signal_handler
+        && BIF_P != erts_dirty_process_signal_handler_high
+        && BIF_P != erts_dirty_process_signal_handler_max)
 	BIF_ERROR(BIF_P, EXC_NOTSUP);
 
     if (is_not_internal_pid(BIF_ARG_1))
@@ -629,23 +597,35 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
     if (is_not_atom(BIF_ARG_2))
 	BIF_ERROR(BIF_P, BADARG);
 
-    rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
-				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-    if (rp == ERTS_PROC_LOCK_BUSY)
-	ERTS_BIF_YIELD2(bif_export[BIF_erts_internal_check_dirty_process_code_2],
-			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    if (BIF_ARG_1 == BIF_P->common.id)
+        BIF_RET(am_normal);
+
+    rp = erts_proc_lookup_raw(BIF_ARG_1);
     if (!rp)
-	BIF_RET(am_false);
-	
+        BIF_RET(am_false);
+
+    state = erts_atomic32_read_nob(&rp->state);
+    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
+    /*
+     * Ignore ERTS_PSFLG_DIRTY_RUNNING_SYS (see
+     * comment in erts_execute_dirty_system_task()
+     * in erl_process.c).
+     */
+    if (!dirty)
+        BIF_RET(am_normal);
+
+    busy = erts_proc_trylock(rp, ERTS_PROC_LOCK_MAIN) == EBUSY;
+
+    if (busy)
+        BIF_RET(am_busy);
+
     res = erts_check_process_code(rp, BIF_ARG_2, &reds, BIF_P->fcalls);
 
-    if (BIF_P != rp)
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+    erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 
-    ASSERT(is_value(res));
+    ASSERT(res == am_true || res == am_false);
 
     BIF_RET2(res, reds);
-#endif
 }
 
 BIF_RETTYPE delete_module_1(BIF_ALIST_1)
@@ -661,7 +641,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(bif_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(&bif_trap_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
     }
 
     {
@@ -683,8 +663,9 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 		modp->curr.num_traced_exports > 0 ||
 		IF_HIPE(hipe_need_blocking(modp))) {
 		/* tracing or hipe need to go single threaded */
-		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		erts_smp_thr_progress_block();
+		erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_thr_progress_block();
+                erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		is_blocking = 1;
 		if (modp->curr.num_breakpoints) {
 		    erts_clear_module_break(modp);
@@ -782,35 +763,45 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     ErtsCodeIndex code_ix;
     Module* modp;
 
-    if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(bif_export[BIF_finish_after_on_load_2],
-			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    if (BIF_ARG_2 != am_false && BIF_ARG_2 != am_true) {
+	BIF_ERROR(BIF_P, BADARG);
     }
 
-    /* ToDo: Use code_ix staging instead of thread blocking */
-
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD2(&bif_trap_export[BIF_finish_after_on_load_2],
+			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
 
     code_ix = erts_active_code_ix();
     modp = erts_get_module(BIF_ARG_1, code_ix);
 
-    if (!modp || !modp->on_load || !modp->on_load->code_hdr) {
-    error:
-	erts_smp_thr_progress_unblock();
-        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    if (!modp || !modp->on_load || !modp->on_load->code_hdr
+	|| !modp->on_load->code_hdr->on_load_function_ptr) {
+
 	erts_release_code_write_permission();
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (modp->on_load->code_hdr->on_load_function_ptr == NULL) {
-	goto error;
-    }
-    if (BIF_ARG_2 != am_false && BIF_ARG_2 != am_true) {
-	goto error;
-    }
 
     if (BIF_ARG_2 == am_true) {
+	struct m mods[1];
+	int is_blocking = 0;
 	int i, num_exps;
+
+	erts_start_staging_code_ix(0);
+	code_ix = erts_staging_code_ix();
+	modp = erts_get_module(BIF_ARG_1, code_ix);
+
+	ASSERT(modp && modp->on_load && modp->on_load->code_hdr
+	       && modp->on_load->code_hdr->on_load_function_ptr);
+
+        if (erts_is_default_trace_enabled()
+	    || IF_HIPE(hipe_need_blocking(modp))) {
+
+            erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            erts_thr_progress_block();
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            is_blocking = 1;
+	}
 
 	/*
 	 * Make the code with the on_load function current.
@@ -828,28 +819,34 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	 */
 	num_exps = export_list_size(code_ix);
 	for (i = 0; i < num_exps; i++) {
-	    Export *ep = export_list(i,code_ix);
-	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
-		continue;
-	    }
-	    if (ep->beam[1] != 0) {
-		ep->addressv[code_ix] = (void *) ep->beam[1];
-		ep->beam[1] = 0;
-	    } else {
-		if (ep->addressv[code_ix] == ep->beam &&
-		    ep->beam[0] == (BeamInstr) em_apply_bif) {
-		    continue;
-		}
-		ep->addressv[code_ix] = ep->beam;
-		ep->beam[0] = (BeamInstr) em_call_error_handler;
-	    }
+            Export *ep = export_list(i, code_ix);
+
+            if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
+                continue;
+            }
+
+            DBG_CHECK_EXPORT(ep, code_ix);
+
+            if (ep->trampoline.not_loaded.deferred != 0) {
+                    ep->addressv[code_ix] = (void*)ep->trampoline.not_loaded.deferred;
+                    ep->trampoline.not_loaded.deferred = 0;
+            } else {
+                if (ep->bif_number != -1) {
+                    continue;
+                }
+
+                ep->addressv[code_ix] = ep->trampoline.raw;
+                ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+            }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
-	set_default_trace_pattern(BIF_ARG_1);
-      #ifdef HIPE
-        hipe_redirect_to_module(modp);
-      #endif
-    } else if (BIF_ARG_2 == am_false) {
+
+	mods[0].modp = modp;
+	mods[0].module = BIF_ARG_1;
+        mods[0].exception = THE_NON_VALUE;
+	return staging_epilogue(BIF_P, 1, am_true, is_blocking, mods, 1, 0);
+    }
+    else if (BIF_ARG_2 == am_false) {
 	int i, num_exps;
 
 	/*
@@ -863,14 +860,13 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->beam[0] == (BeamInstr) em_apply_bif) {
+	    if (ep->bif_number != -1) {
 		continue;
 	    }
-	    ep->beam[1] = 0;
+
+            ep->trampoline.not_loaded.deferred = 0;
 	}
     }
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_release_code_write_permission();
     BIF_RET(am_true);
 }
@@ -906,19 +902,71 @@ static void hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
                                Eterm *start, Eterm *end,
                                char *lit_start, Uint lit_size);
 
+static ERTS_INLINE void
+msg_copy_literal_area(ErtsMessage *msgp, int *redsp,
+                      char *literals, Uint lit_bsize)
+{
+    ErlHeapFragment *hfrag, *hf;
+    Uint lit_sz = 0;
+
+    *redsp += 1;
+
+    if (!ERTS_SIG_IS_INTERNAL_MSG(msgp) || !msgp->data.attached)
+        return;
+
+    if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
+        hfrag = &msgp->hfrag;
+    else
+        hfrag = msgp->data.heap_frag;
+
+    for (hf = hfrag; hf; hf = hf->next) {
+        lit_sz += hfrag_literal_size(&hf->mem[0],
+                                     &hf->mem[hf->used_size],
+                                     literals, lit_bsize);
+        *redsp += 1;
+    }
+
+    *redsp += lit_sz / 16; /* Better value needed... */
+    if (lit_sz > 0) {
+        ErlHeapFragment *bp = new_message_buffer(lit_sz);
+        Eterm *hp = bp->mem;
+
+        for (hf = hfrag; hf; hf = hf->next) {
+            hfrag_literal_copy(&hp, &bp->off_heap,
+                               &hf->mem[0],
+                               &hf->mem[hf->used_size],
+                               literals, lit_bsize);
+            hfrag = hf;
+        }
+
+        /* link new hfrag last */
+        ASSERT(hfrag->next == NULL);
+        hfrag->next = bp;
+        bp->next = NULL;
+    }
+}
+
 Eterm
 erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed)
 {
     ErtsLiteralArea *la;
-    ErtsMessage *msgp;
     struct erl_off_heap_header* oh;
     char *literals;
     Uint lit_bsize;
     ErlHeapFragment *hfrag;
+    ErtsMessage *mfp;
 
     la = ERTS_COPY_LITERAL_AREA();
     if (!la)
         goto return_ok;
+
+    /* The heap may be in an inconsistent state when the GC is disabled, for
+     * example when we're in the middle of building a record in
+     * binary_to_term/1, so we have to delay scanning until the GC is enabled
+     * again. */
+    if (c_p->flags & F_DISABLE_GC) {
+        return THE_NON_VALUE;
+    }
 
     oh = la->off_heap;
     literals = (char *) &la->start[0];
@@ -931,47 +979,14 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
      * any other heap than the message it self.
      */
 
-    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_sig_fetch(c_p);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
-    for (msgp = c_p->msg.first; msgp; msgp = msgp->next) {
-	ErlHeapFragment *hf;
-	Uint lit_sz = 0;
-
-	*redsp += 1;
-
-	if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-	    hfrag = &msgp->hfrag;
-	else if (is_value(ERL_MESSAGE_TERM(msgp)) && msgp->data.heap_frag)
-	    hfrag = msgp->data.heap_frag;
-	else
-	    continue; /* Content on heap or in external term format... */
-
-	for (hf = hfrag; hf; hf = hf->next) {
-	    lit_sz += hfrag_literal_size(&hf->mem[0], &hf->mem[hf->used_size],
-					literals, lit_bsize);
-	    *redsp += 1;
-	}
-
-	*redsp += lit_sz / 16; /* Better value needed... */
-	if (lit_sz > 0) {
-	    ErlHeapFragment *bp = new_message_buffer(lit_sz);
-	    Eterm *hp = bp->mem;
-
-	    for (hf = hfrag; hf; hf = hf->next) {
-		hfrag_literal_copy(&hp, &bp->off_heap,
-				   &hf->mem[0], &hf->mem[hf->used_size],
-				   literals, lit_bsize);
-		hfrag = hf;
-	    }
-
-	    /* link new hfrag last */
-	    ASSERT(hfrag->next == NULL);
-	    hfrag->next = bp;
-	    bp->next = NULL;
-        }
-    }
+    ERTS_FOREACH_SIG_PRIVQS(c_p, msgp, msg_copy_literal_area(msgp,
+                                                             redsp,
+                                                             literals,
+                                                             lit_bsize));
 
     if (gc_allowed) {
 	/*
@@ -1046,8 +1061,8 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
      *    process off heap structure.
      *  - Check for literals
      */
-    for (msgp = c_p->msg_frag; msgp; msgp = msgp->next) {
-	hfrag = erts_message_to_heap_frag(msgp);
+    for (mfp = c_p->msg_frag; mfp; mfp = mfp->next) {
+	hfrag = erts_message_to_heap_frag(mfp);
 	for (; hfrag; hfrag = hfrag->next) {
 	    Eterm *hp, *hp_end;
 
@@ -1063,10 +1078,8 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
 
 return_ok:
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(c_p)))
 	c_p->flags &= ~F_DIRTY_CLA;
-#endif
 
     return am_ok;
 
@@ -1075,16 +1088,11 @@ literal_gc:
     if (!gc_allowed)
         return am_need_gc;
 
-    if (c_p->flags & F_DISABLE_GC)
-        return THE_NON_VALUE;
-
     *redsp += erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize,
 					    oh, fcalls);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (c_p->flags & F_DIRTY_CLA)
 	return THE_NON_VALUE;
-#endif
 
     return am_ok;
 }
@@ -1111,16 +1119,15 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
     mod_size = modp->old.code_length;
 
     /*
-     * Check if current instruction or continuation pointer points into module.
+     * Check if the instruction pointer points into module.
      */
-    if (ErtsInArea(rp->i, mod_start, mod_size)
-	|| ErtsInArea(rp->cp, mod_start, mod_size)) {
+    if (ErtsInArea(rp->i, mod_start, mod_size)) {
 	return am_true;
     }
- 
+
     *redsp += 1;
 
-    if (erts_check_nif_export_in_area(rp, mod_start, mod_size))
+    if (erts_check_nfunc_in_area(rp, mod_start, mod_size))
 	return am_true;
 
     *redsp += (STACK_START(rp) - rp->stop) / 32;
@@ -1314,7 +1321,67 @@ hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
     }
 }
 
-#ifdef ERTS_SMP
+/*
+ * Release of literal areas...
+ *
+ * Overview over how literal areas are released.
+ *
+ * - A literal area to remove is placed in the release_literal_areas.first
+ *   queue.
+ * - The erts_literal_area_collector process is woken and calls
+ *   erts_internal:release_literal_area_switch() which publishes the
+ *   area to release available to the emulator
+ *   (ERTS_COPY_LITERAL_AREA()).
+ * - The literal area collector process gets suspended waiting thread
+ *   progress in order to ensure all schedulers see the newly published
+ *   area to release.
+ * - When the literal area collector process is resumed after thread
+ *   progress has completed, erts_internal:release_literal_area_switch()
+ *   returns 'true'.
+ * - The literal area collector process sends copy-literals requests
+ *   to all processes in the system.
+ * - Processes inspects their heap for literals in the area, if
+ *   such are found do a literal-gc to make copies on the heap
+ *   of all those literals, and then send replies to the
+ *   literal area collector process.
+ * - Processes that terminates replies even though they might need to
+ *   access literal areas. When a process that might need to access a
+ *   literal area terminates, it blocks release of literal areas
+ *   by incrementing a counter, and later when termination has
+ *   completed decrements that counter. The increment is performed
+ *   before replying to the copy-literals request.
+ * - When all processes has responded, the literal area collector
+ *   process calls erts_internal:release_literal_area_switch() again
+ *   in order to switch to the next area.
+ * - erts_internal:release_literal_area_switch() changes the set of
+ *   counters that blocks release of literal areas
+ * - The literal area collector process gets suspended waiting thread
+ *   progress in order to ensure that the change of counters is visable
+ *   by all schedulers.
+ * - When the literal area collector process is resumed after thread
+ *   progress has completed, erts_internal:release_literal_area_switch()
+ *   inspects all counters in previously used set ensuring that no
+ *   terminating processes (which began termination before the change
+ *   of counters) are lingering. If needed the literal area collector
+ *   process will be blocked in
+ *   erts_internal:release_literal_area_switch() waiting for all
+ *   terminating processes to complete.
+ * - When counter inspection is complete
+ *   erts_internal:release_literal_area_switch() returns 'true' if
+ *   a new area was set for release and 'false' if no more areas have
+ *   been scheduled for release.
+ *
+ * When multiple literal areas have been queued for release,
+ * erts_internal:release_literal_area_switch() will time the thread
+ * progress waits so each wait period will be utilized both for
+ * ensuring that a new area is seen by all schedulers, and ensuring
+ * that a change of counters is seen by all schedulers. By this only
+ * one thread progress wait will be done per literal area collected
+ * until the last literal area which will need two thread progress
+ * wait periods.
+ */
+
+static Export *wait_release_literal_area_switch;
 
 ErtsThrPrgrLaterOp later_literal_area_switch;
 
@@ -1323,37 +1390,204 @@ typedef struct {
     ErtsLiteralArea *la;
 } ErtsLaterReleasLiteralArea;
 
+erts_atomic_t erts_copy_literal_area__;
+#define ERTS_SET_COPY_LITERAL_AREA(LA)			\
+    erts_atomic_set_nob(&erts_copy_literal_area__,	\
+			    (erts_aint_t) (LA))
+Process *erts_literal_area_collector = NULL;
+
+typedef struct ErtsLiteralAreaRef_ ErtsLiteralAreaRef;
+struct ErtsLiteralAreaRef_ {
+    ErtsLiteralAreaRef *next;
+    ErtsLiteralArea *literal_area;
+};
+
+typedef struct {
+    erts_atomic_t counter[2];
+} ErtsReleaseLiteralAreaBlockCounters;
+
+typedef struct {
+    union {
+        ErtsReleaseLiteralAreaBlockCounters block;
+        char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsReleaseLiteralAreaBlockCounters))];
+    } u;
+} ErtsAlignedReleaseLiteralAreaBlockCounters;
+
+typedef enum {
+    ERTS_RLA_BLOCK_STATE_NONE,
+    ERTS_RLA_BLOCK_STATE_SWITCHED_IX,
+    ERTS_RLA_BLOCK_STATE_WAITING
+} ErtsReleaseLiteralAreaBlockState;
+
+static struct {
+    erts_mtx_t mtx;
+    ErtsLiteralAreaRef *first;
+    ErtsLiteralAreaRef *last;
+    ErtsAlignedReleaseLiteralAreaBlockCounters *bc;
+    erts_atomic32_t block_ix;
+    int wait_sched_ix;
+    ErtsReleaseLiteralAreaBlockState block_state;
+    ErtsLiteralArea *block_area;
+} release_literal_areas;
+
 static void
-later_release_literal_area(void *vlrlap)
+init_release_literal_areas(void)
 {
-    ErtsLaterReleasLiteralArea *lrlap;
-    lrlap = (ErtsLaterReleasLiteralArea *) vlrlap;
-    erts_release_literal_area(lrlap->la);
-    erts_free(ERTS_ALC_T_RELEASE_LAREA, vlrlap);
+    int i;
+    erts_mtx_init(&release_literal_areas.mtx, "release_literal_areas", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+
+    release_literal_areas.first = NULL;
+    release_literal_areas.last = NULL;
+    erts_atomic_init_nob(&erts_copy_literal_area__,
+                         (erts_aint_t) NULL);
+
+    erts_atomic32_init_nob(&release_literal_areas.block_ix, 0);
+    release_literal_areas.wait_sched_ix = 0;
+    release_literal_areas.block_state = ERTS_RLA_BLOCK_STATE_NONE;
+    release_literal_areas.block_area = NULL;
+
+    release_literal_areas.bc =
+        erts_alloc_permanent_cache_aligned(ERTS_ALC_T_RLA_BLOCK_CNTRS,
+                                           sizeof(ErtsAlignedReleaseLiteralAreaBlockCounters)
+                                           * erts_no_schedulers);
+    /*
+     * The literal-area-collector has an increment in all block counters
+     * which it only removes when waiting for other increments to disappear.
+     */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        erts_atomic_init_nob(&release_literal_areas.bc[i].u.block.counter[0], 1);
+        erts_atomic_init_nob(&release_literal_areas.bc[i].u.block.counter[1], 1);
+    }
+
+    wait_release_literal_area_switch = erts_export_put(am_erts_internal,
+                                                       am_wait_release_literal_area_switch,
+                                                       1);
 }
 
 static void
-complete_literal_area_switch(void *literal_area)
+rla_resume(void *literal_area)
 {
-    Process *p = erts_literal_area_collector;
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    erts_resume(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    if (literal_area)
-	erts_release_literal_area((ErtsLiteralArea *) literal_area);
+    erts_resume(erts_literal_area_collector, 0);
+}
+
+
+#ifdef DEBUG
+static ERTS_INLINE Sint
+rla_bc_read(int sched_ix, int block_ix)
+{
+    return (Sint) erts_atomic_read_nob(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
 }
 #endif
 
-BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
+static ERTS_INLINE Sint
+rla_bc_read_acqb(int sched_ix, int block_ix)
 {
-    ErtsLiteralArea *unused_la;
+    return (Sint) erts_atomic_read_acqb(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+static ERTS_INLINE Sint
+rla_bc_dec_read_acqb(int sched_ix, int block_ix)
+{
+    return (Sint) erts_atomic_dec_read_acqb(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+static ERTS_INLINE Sint
+rla_bc_dec_read_relb(int sched_ix, int block_ix)
+{
+    return (Sint) erts_atomic_dec_read_relb(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+static ERTS_INLINE void
+rla_bc_inc(int sched_ix, int block_ix)
+{
+    erts_atomic_inc_nob(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+
+Uint32
+erts_block_release_literal_area(void)
+{
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    int sched_ix;
+    int block_ix;
+    
+    ASSERT(esdp->type == ERTS_SCHED_NORMAL);
+
+    sched_ix = ((int) esdp->no) - 1;
+    ASSERT((sched_ix & ~0xffff) == 0);
+    
+    ASSERT(0 <= sched_ix && sched_ix <= erts_no_schedulers);
+
+    block_ix = (int) erts_atomic32_read_nob(&release_literal_areas.block_ix);
+    ASSERT(block_ix == 0 || block_ix == 1);
+    
+    rla_bc_inc(sched_ix, block_ix);
+
+    /*
+     * The returned value needs to be non-zero, so the user can
+     * use zero as a marker for not having blocked.
+     *
+     * Both block_ix and sched_ix can be zero so we set
+     * the highest (unused) bits to 0xfed00000
+     */
+    return (Uint32) 0xfed00000 | ((block_ix << 16) | sched_ix);
+}
+
+static void
+wakeup_literal_area_collector(void *unused)
+{        
+    erts_queue_message(erts_literal_area_collector,
+                       0,
+                       erts_alloc_message(0, NULL),
+                       am_copy_literals,
+                       am_system);
+}
+
+void
+erts_unblock_release_literal_area(Uint32 sched_block_ix)
+{
+    Sint block_count;
+    int block_ix = (int) ((sched_block_ix >> 16) & 0xf);
+    int sched_ix = (int) (sched_block_ix & 0xffff);
+
+    ASSERT((sched_block_ix & ((Uint32) 0xfff00000))
+           == (Uint32) 0xfed00000);
+    
+    ASSERT(block_ix == 0 || block_ix == 1);
+
+    block_count = rla_bc_dec_read_relb(sched_ix, block_ix);
+
+    ASSERT(block_count >= 0);
+
+    if (!block_count) {
+        /*
+         * Wakeup literal collector so it can continue...
+         *
+         * We don't know what locks we have here, so schedule
+         * the operation...
+         */
+        int sid = 1;
+        ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        if (esdp && esdp->type == ERTS_SCHED_NORMAL)
+            sid = (int) esdp->no;
+        erts_schedule_misc_aux_work(sid,
+                                    wakeup_literal_area_collector,
+                                    NULL);
+    }
+}
+
+static void
+rla_switch_area(void)
+{
     ErtsLiteralAreaRef *la_ref;
-
-    if (BIF_P != erts_literal_area_collector)
-	BIF_ERROR(BIF_P, EXC_NOTSUP);
-
-    erts_smp_mtx_lock(&release_literal_areas.mtx);
-
+    
+    erts_mtx_lock(&release_literal_areas.mtx);
     la_ref = release_literal_areas.first;
     if (la_ref) {
 	release_literal_areas.first = la_ref->next;
@@ -1361,49 +1595,173 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 	    release_literal_areas.last = NULL;
     }
 
-    erts_smp_mtx_unlock(&release_literal_areas.mtx);
+    erts_mtx_unlock(&release_literal_areas.mtx);
 
-    unused_la = ERTS_COPY_LITERAL_AREA();
-
-    if (!la_ref) {
-	ERTS_SET_COPY_LITERAL_AREA(NULL);
-	if (unused_la) {
-#ifdef ERTS_SMP
-	    ErtsLaterReleasLiteralArea *lrlap;
-	    lrlap = erts_alloc(ERTS_ALC_T_RELEASE_LAREA,
-			       sizeof(ErtsLaterReleasLiteralArea));
-	    lrlap->la = unused_la;
-	    erts_schedule_thr_prgr_later_cleanup_op(
-		later_release_literal_area,
-		(void *) lrlap,
-		&lrlap->lop,
-		(sizeof(ErtsLaterReleasLiteralArea)
-		 + sizeof(ErtsLiteralArea)
-		 + ((unused_la->end
-		     - &unused_la->start[0])
-		    - 1)*(sizeof(Eterm))));
-#else
-	    erts_release_literal_area(unused_la);
-#endif
-	}
-	BIF_RET(am_false);
+    if (!la_ref)
+        ERTS_SET_COPY_LITERAL_AREA(NULL);
+    else {
+        ERTS_SET_COPY_LITERAL_AREA(la_ref->literal_area);
+        erts_free(ERTS_ALC_T_LITERAL_REF, la_ref);
     }
+}
 
-    ERTS_SET_COPY_LITERAL_AREA(la_ref->literal_area);
+BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
+{
+    ErtsLiteralArea *new_area, *old_area;
+    int wait_ix = 0;
+    int sched_ix = 0;
 
-    erts_free(ERTS_ALC_T_LITERAL_REF, la_ref);
+    if (BIF_P != erts_literal_area_collector)
+       	BIF_ERROR(BIF_P, EXC_NOTSUP);
+   
+    while (1) {
+        int six;
 
-#ifdef ERTS_SMP
-    erts_schedule_thr_prgr_later_op(complete_literal_area_switch,
-				    unused_la,
-				    &later_literal_area_switch);
-    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-#else
-    erts_release_literal_area(unused_la);
-    BIF_RET(am_true);
+        switch (release_literal_areas.block_state) {
+        case ERTS_RLA_BLOCK_STATE_NONE: {
+
+            old_area = ERTS_COPY_LITERAL_AREA();
+            
+            rla_switch_area();
+    
+            if (old_area) {
+                int block_ix;
+                /*
+                 * Switch block index.
+                 */
+                block_ix = (int) erts_atomic32_read_nob(&release_literal_areas.block_ix);
+                erts_atomic32_set_nob(&release_literal_areas.block_ix,
+                                      (erts_aint32_t) !block_ix);
+                release_literal_areas.block_state = ERTS_RLA_BLOCK_STATE_SWITCHED_IX;
+                ASSERT(!release_literal_areas.block_area);
+                release_literal_areas.block_area = old_area;
+            }
+        
+            new_area = ERTS_COPY_LITERAL_AREA();
+
+            if (!old_area && !new_area)
+                BIF_RET(am_false);
+
+        publish_new_info:
+            
+            /*
+             * Waiting 'thread progress' will ensure that all schedulers are
+             * guaranteed to see the new block index and the new area before
+             * we continue...
+             */
+            erts_schedule_thr_prgr_later_op(rla_resume,
+                                            NULL,
+                                            &later_literal_area_switch);
+            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+            if (new_area) {
+                /*
+                 * If we also got a new block_area, we will
+                 * take care of that the next time we come back
+                 * after all processes has responded on
+                 * copy-literals requests...
+                 */
+                ERTS_BIF_YIELD_RETURN(BIF_P,
+                                      am_true);
+            }
+
+            ASSERT(old_area);
+            ERTS_VBUMP_ALL_REDS(BIF_P);
+            BIF_TRAP0(&bif_trap_export[BIF_erts_internal_release_literal_area_switch_0],
+                      BIF_P);
+        }
+
+        case ERTS_RLA_BLOCK_STATE_SWITCHED_IX:
+            wait_ix = !erts_atomic32_read_nob(&release_literal_areas.block_ix);
+            /*
+             * Now all counters in the old index will monotonically
+             * decrease towards 1 (our own increment). Check that we
+             * have no other increments, than our own, in all counters
+             * of the old block index. Wait for other increments to
+             * be decremented if necessary...
+             */
+            sched_ix = 0;
+            break;
+            
+        case ERTS_RLA_BLOCK_STATE_WAITING:
+            wait_ix = !erts_atomic32_read_nob(&release_literal_areas.block_ix);
+            /*
+             * Woken after being waiting for a counter to reach zero...
+             */
+            sched_ix = release_literal_areas.wait_sched_ix;
+            /* restore "our own increment" */
+            rla_bc_inc(sched_ix, wait_ix);
+            break;
+        }
+
+        ASSERT(0 <= sched_ix && sched_ix < erts_no_schedulers);
+
+#ifdef DEBUG
+        for (six = 0; six < sched_ix; six++) {
+            ASSERT(1 == rla_bc_read(six, wait_ix));
+        }
 #endif
 
+        for (six = sched_ix; six < erts_no_schedulers; six++) {
+            Sint block_count = rla_bc_read_acqb(six, wait_ix);
+            ASSERT(block_count >= 1);
+            if (block_count == 1)
+                continue;
+            
+            block_count = rla_bc_dec_read_acqb(six, wait_ix);
+            if (!block_count) {
+                /* 
+                 * We brought it down to zero ourselves, so no need to wait.
+                 * Since the counter is guaranteed to be monotonically
+                 * decreasing (disregarding our own operations) it is safe
+                 * to continue. Restore "our increment" in preparation for
+                 * next switch.
+                 */
+                rla_bc_inc(six, wait_ix);
+                continue;
+            }
+
+            /*
+             * Wait for counter to be brought down to zero. The one bringing
+             * the counter down to zero will wake us up. We might also be
+             * woken later in erts_internal:wait_release_literal_area_switch()
+             * if a new area appears (handled here below).
+             */
+            release_literal_areas.wait_sched_ix = six;
+            release_literal_areas.block_state = ERTS_RLA_BLOCK_STATE_WAITING;
+            if (!ERTS_COPY_LITERAL_AREA()) {
+                rla_switch_area();
+                new_area = ERTS_COPY_LITERAL_AREA();
+                if (new_area) {
+                    /*
+                     * A new area showed up. Start the work with that area
+                     * and come back and check block counters when that has
+                     * been handled.
+                     */
+                    old_area = release_literal_areas.block_area;
+                    goto publish_new_info;
+                }
+            }
+
+            /*
+             * Wait for block_counter to reach zero or a new literal area
+             * to handle...
+             */
+            BIF_TRAP1(wait_release_literal_area_switch, BIF_P, am_copy_literals);
+        }
+
+        /* Done checking all block counters, release the literal area... */
+
+        release_literal_areas.block_state = ERTS_RLA_BLOCK_STATE_NONE;
+        erts_release_literal_area(release_literal_areas.block_area);
+        release_literal_areas.block_area = NULL;
+
+#ifdef DEBUG
+        /* All counters should be at 1; ready for next switch... */
+        for (six = 0; six < erts_no_schedulers; six++) {
+            ASSERT(1 == rla_bc_read(six, wait_ix));
+        }
+#endif
+    }
 }
 
 void
@@ -1428,7 +1786,7 @@ erts_purge_state_add_fun(ErlFunEntry *fe)
 Export *
 erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
 {
-    erts_smp_mtx_lock(&purge_state.mtx);
+    erts_mtx_lock(&purge_state.mtx);
     if (purge_state.module == fe->module) {
 	/*
 	 * The process c_p is about to call a fun in the code
@@ -1454,7 +1812,7 @@ erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	ERTS_VBUMP_ALL_REDS(c_p);
     }
-    erts_smp_mtx_unlock(&purge_state.mtx);
+    erts_mtx_unlock(&purge_state.mtx);
     return purge_state.pending_purge_lambda;
 }
 
@@ -1464,9 +1822,9 @@ finalize_purge_operation(Process *c_p, int succeded)
     Uint ix;
 
     if (c_p)
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 
-    erts_smp_mtx_lock(&purge_state.mtx);
+    erts_mtx_lock(&purge_state.mtx);
 
     ASSERT(purge_state.module != THE_NON_VALUE);
 
@@ -1482,14 +1840,14 @@ finalize_purge_operation(Process *c_p, int succeded)
 				    ERTS_PROC_LOCK_STATUS);
 	if (rp) {
 	    erts_resume(rp, ERTS_PROC_LOCK_STATUS);
-	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
+	    erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
 	}
     }
 
-    erts_smp_mtx_unlock(&purge_state.mtx);
+    erts_mtx_unlock(&purge_state.mtx);
 
     if (c_p)
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     if (purge_state.sprocs != &purge_state.def_sprocs[0]) {
 	erts_free(ERTS_ALC_T_PURGE_DATA, purge_state.sprocs);
@@ -1508,7 +1866,6 @@ finalize_purge_operation(Process *c_p, int succeded)
     purge_state.fe_ix = 0;
 }
 
-#ifdef ERTS_SMP
 
 static ErtsThrPrgrLaterOp purger_lop_data;
 
@@ -1516,9 +1873,9 @@ static void
 resume_purger(void *unused)
 {
     Process *p = erts_code_purger;
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     erts_resume(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 }
 
 static void
@@ -1531,7 +1888,6 @@ finalize_purge_abort(void *unused)
     resume_purger(NULL);
 }
 
-#endif /* ERTS_SMP */
 
 BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 {
@@ -1590,9 +1946,9 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    else {
 		BeamInstr* code;
 		BeamInstr* end;
-		erts_smp_mtx_lock(&purge_state.mtx);
+		erts_mtx_lock(&purge_state.mtx);
 		purge_state.module = BIF_ARG_1;
-		erts_smp_mtx_unlock(&purge_state.mtx);
+		erts_mtx_unlock(&purge_state.mtx);
 		res = am_true;
 		code = (BeamInstr*) modp->old.code_hdr;
 		end = (BeamInstr *)((char *)code + modp->old.code_length);
@@ -1606,9 +1962,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    }
 	}
 	
-#ifndef ERTS_SMP
-	BIF_RET(res);
-#else
 	if (res != am_true)
 	    BIF_RET(res);
 	else {
@@ -1627,7 +1980,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 	    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
 	}
-#endif
     }
 
     case am_abort: {
@@ -1641,11 +1993,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
 	erts_fun_purge_abort_prepare(purge_state.funs, purge_state.fe_ix);
 
-#ifndef ERTS_SMP
-	erts_fun_purge_abort_finalize(purge_state.funs, purge_state.fe_ix);
-	finalize_purge_operation(BIF_P, 0);
-	BIF_RET(am_false);
-#else
 	/*
 	 * We need to restore the code addresses of the funs in
 	 * two stages in order to ensure that we do not get any
@@ -1661,7 +2008,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 					&purger_lop_data);
 	erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 	ERTS_BIF_YIELD_RETURN(BIF_P, am_false);
-#endif
     }
 
     case am_complete: {
@@ -1682,7 +2028,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    BIF_ERROR(BIF_P, BADARG);
 
 	if (!erts_try_seize_code_write_permission(BIF_P)) {
-	    ERTS_BIF_YIELD2(bif_export[BIF_erts_internal_purge_module_2],
+	    ERTS_BIF_YIELD2(&bif_trap_export[BIF_erts_internal_purge_module_2],
 			    BIF_P, BIF_ARG_1, BIF_ARG_2);
 	}
 
@@ -1706,22 +2052,21 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		ERTS_BIF_PREP_RET(ret, am_false);
 	    }
 	    else {
-		/*
-		 * Unload any NIF library
-		 */
-		if (modp->old.nif != NULL
-		    || IF_HIPE(hipe_purge_need_blocking(modp))) {
-		    /* ToDo: Do unload nif without blocking */
+		if (IF_HIPE(hipe_purge_need_blocking(modp))) {
 		    erts_rwunlock_old_code(code_ix);
-		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_smp_thr_progress_block();
+		    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		    erts_thr_progress_block();
 		    is_blocking = 1;
 		    erts_rwlock_old_code(code_ix);
-		    if (modp->old.nif) {
-		      erts_unload_nif(modp->old.nif);
-		      modp->old.nif = NULL;
-		    }
 		}
+
+                /*
+                 * Unload any NIF library
+                 */
+                if (modp->old.nif) {
+                  erts_unload_nif(modp->old.nif);
+                  modp->old.nif = NULL;
+                }
 
 		/*
 		 * Remove the old code.
@@ -1752,8 +2097,8 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    erts_rwunlock_old_code(code_ix);
 	}
 	if (is_blocking) {
-	    erts_smp_thr_progress_unblock();
-	    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    erts_thr_progress_unblock();
+	    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	}
 
 	erts_release_code_write_permission();
@@ -1761,26 +2106,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	finalize_purge_operation(BIF_P, ret == am_true);
 
 	if (literals) {
-	    ErtsLiteralAreaRef *ref;
-	    ref = erts_alloc(ERTS_ALC_T_LITERAL_REF,
-			     sizeof(ErtsLiteralAreaRef));
-	    ref->literal_area = literals;
-	    ref->next = NULL;
-	    erts_smp_mtx_lock(&release_literal_areas.mtx);
-	    if (release_literal_areas.last) {
-		release_literal_areas.last->next = ref;
-		release_literal_areas.last = ref;
-	    }
-	    else {
-		release_literal_areas.first = ref;
-		release_literal_areas.last = ref;
-	    }
-	    erts_smp_mtx_unlock(&release_literal_areas.mtx);
-	    erts_queue_message(erts_literal_area_collector,
-			       0,
-			       erts_alloc_message(0, NULL),
-			       am_copy_literals,
-			       BIF_P->common.id);
+            erts_queue_release_literals(BIF_P, literals);
 	}
 
 	return ret;
@@ -1789,6 +2115,73 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
     default:
 	BIF_ERROR(BIF_P, BADARG);
 
+    }
+}
+
+void
+erts_queue_release_literals(Process* c_p, ErtsLiteralArea* literals)
+{
+    ErtsLiteralAreaRef *ref;
+    ErtsMessage *mp;
+    ref = erts_alloc(ERTS_ALC_T_LITERAL_REF,
+                     sizeof(ErtsLiteralAreaRef));
+    ref->literal_area = literals;
+    ref->next = NULL;
+    erts_mtx_lock(&release_literal_areas.mtx);
+    if (release_literal_areas.last) {
+        release_literal_areas.last->next = ref;
+        release_literal_areas.last = ref;
+    } else {
+        release_literal_areas.first = ref;
+        release_literal_areas.last = ref;
+    }
+    erts_mtx_unlock(&release_literal_areas.mtx);
+    mp = erts_alloc_message(0, NULL);
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
+    if (c_p == NULL) {
+        erts_queue_message(erts_literal_area_collector,
+                           0,
+                           mp,
+                           am_copy_literals,
+                           am_system);
+    } else {
+        erts_queue_proc_message(c_p,
+                                erts_literal_area_collector,
+                                0,
+                                mp,
+                                am_copy_literals);
+    }
+}
+
+void
+erts_debug_foreach_release_literal_area_off_heap(void (*func)(ErlOffHeap *, void *), void *arg)
+{
+    int i;
+    ErtsLiteralArea *lareas[2];
+    ErtsLiteralArea *lap;
+    ErlOffHeap oh;
+    ErtsLiteralAreaRef *ref;
+    erts_mtx_lock(&release_literal_areas.mtx);
+    for (ref = release_literal_areas.first; ref; ref = ref->next) {
+        lap = ref->literal_area;
+        if (!erts_debug_have_accessed_literal_area(lap)) {
+            ERTS_INIT_OFF_HEAP(&oh);
+            oh.first = lap->off_heap;
+            (*func)(&oh, arg);
+            erts_debug_save_accessed_literal_area(lap);
+        }
+    }
+    erts_mtx_unlock(&release_literal_areas.mtx);
+    lareas[0] = ERTS_COPY_LITERAL_AREA();
+    lareas[1] = release_literal_areas.block_area;
+    for (i = 0; i < sizeof(lareas)/sizeof(lareas[0]); i++) {
+        lap = lareas[i];
+        if (lap && !erts_debug_have_accessed_literal_area(lap)) {
+           ERTS_INIT_OFF_HEAP(&oh);
+            oh.first = lap->off_heap;
+            (*func)(&oh, arg);
+            erts_debug_save_accessed_literal_area(lap);
+        }
     }
 }
 
@@ -1806,24 +2199,28 @@ delete_code(Module* modp)
     for (i = 0; i < num_exps; i++) {
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->info.mfa.module == module)) {
-	    if (ep->addressv[code_ix] == ep->beam) {
-		if (ep->beam[0] == (BeamInstr) em_apply_bif) {
-		    continue;
-		}
-		else if (ep->beam[0] ==
-			 (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
-		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
+                if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
+		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    DBG_TRACE_MFA_P(&ep->info.mfa,
 				  "export trace cleared, code_ix=%d", code_ix);
-		    erts_clear_export_break(modp, &ep->info);
+		    erts_clear_export_break(modp, ep);
 		}
-		else ASSERT(ep->beam[0] == (BeamInstr) em_call_error_handler
-			    || !erts_initialized);
-	    }
-	    ep->addressv[code_ix] = ep->beam;
-	    ep->beam[0] = (BeamInstr) em_call_error_handler;
-	    ep->beam[1] = 0;
+		else {
+                    ASSERT(BeamIsOpCode(ep->trampoline.op, op_call_error_handler) ||
+                           !erts_initialized);
+                }
+            }
+
+            if (ep->bif_number != -1 && ep->is_bif_traced) {
+                /* Code unloading kills both global and local call tracing. */
+                ep->is_bif_traced = 0;
+            }
+
+	    ep->addressv[code_ix] = ep->trampoline.raw;
+	    ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+	    ep->trampoline.not_loaded.deferred = 0;
 	    DBG_TRACE_MFA_P(&ep->info.mfa,
 			    "export invalidation, code_ix=%d", code_ix);
 	}

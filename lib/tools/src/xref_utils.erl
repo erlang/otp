@@ -557,12 +557,9 @@ subdir(Dir, SubDir, true) ->
 
 %% Avoid "App-01.01" - the zeroes will be lost.
 filename2appl(File) ->
-    Pos = string:rstr(File, "-"),
-    true = Pos > 1,
-    V = string:sub_string(File, Pos+1),
-    true = string:len(V) > 0,
-    VsnT = string:tokens(V, "."),
-    ApplName = string:sub_string(File, 1, Pos-1),
+    [ApplName, V] = string:split(File, "-", trailing),
+    true = string:length(V) > 0,
+    VsnT = string:lexemes(V, "."),
     Vsn = [list_to_integer(Vsn) || Vsn <- VsnT],
     {list_to_atom(ApplName),Vsn}.
 

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -555,8 +555,8 @@ ping finished</pre>
         <p>This sort of problem can be solved easier by use of
           the facilities in OTP, which also provide methods for
           updating code on the fly and so on (see
-	  <seealso marker="doc/design_principles:des_princ#otp design principles">
-          OTP Design Principles</seealso>).</p>
+	  <seeguide marker="system/design_principles:des_princ#otp design principles">
+          OTP Design Principles</seeguide>).</p>
       </item>
       <item>
         <p>The first program contains some inadequacies
@@ -627,7 +627,7 @@ ping finished</pre>
 %%% Change the function below to return the name of the node where the
 %%% messenger server runs
 server_node() ->
-    messenger@bill.
+    messenger@super.
 
 %%% This is the server process for the "messenger"
 %%% the user list has the format [{ClientPid1, Name1},{ClientPid22, Name2},...]

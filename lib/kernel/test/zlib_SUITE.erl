@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1061,32 +1061,27 @@ sub_heap_binaries(Config) when is_list(Config) ->
 
 %% Check concurrent access to zlib driver.
 smp(Config) ->
-    case erlang:system_info(smp_support) of
-        true ->
-            NumOfProcs = lists:min([8,erlang:system_info(schedulers)]),
-            io:format("smp starting ~p workers\n",[NumOfProcs]),
+    NumOfProcs = lists:min([8,erlang:system_info(schedulers)]),
+    io:format("smp starting ~p workers\n",[NumOfProcs]),
 
-            %% Tests to run in parallel.
-            Funcs =
-                [zip_usage, gz_usage, compress_usage, dictionary_usage,
-                 crc, adler],
+    %% Tests to run in parallel.
+    Funcs =
+        [zip_usage, gz_usage, compress_usage, dictionary_usage,
+            crc, adler],
 
-            %% We get all function arguments here to avoid repeated parallel
-            %% file read access.
-            UsageArgs =
-                list_to_tuple([{F, ?MODULE:F({get_arg,Config})} || F <- Funcs]),
-            Parent = self(),
+    %% We get all function arguments here to avoid repeated parallel
+    %% file read access.
+    UsageArgs =
+        list_to_tuple([{F, ?MODULE:F({get_arg,Config})} || F <- Funcs]),
+    Parent = self(),
 
-            WorkerFun =
-                fun() ->
-                    worker(rand:uniform(9999), UsageArgs, Parent)
-                end,
+    WorkerFun =
+        fun() ->
+            worker(rand:uniform(9999), UsageArgs, Parent)
+        end,
 
-            Pids = [spawn_link(WorkerFun) || _ <- lists:seq(1, NumOfProcs)],
-            wait_pids(Pids);
-        false ->
-            {skipped,"No smp support"}
-    end.
+    Pids = [spawn_link(WorkerFun) || _ <- lists:seq(1, NumOfProcs)],
+    wait_pids(Pids).
 
 worker(Seed, FnATpl, Parent) ->
     io:format("smp worker ~p, seed=~p~n",[self(),Seed]),

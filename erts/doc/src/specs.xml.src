@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<specs xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../specs/specs_erl_prim_loader.xml"/>
+  <xi:include href="../specs/specs_erlang.xml"/>
+  <xi:include href="../specs/specs_erl_tracer.xml"/>
+  <xi:include href="../specs/specs_init.xml"/>
+  <xi:include href="../specs/specs_persistent_term.xml"/>
+  %ESOCK_USE_SOCKET_SPECS_XML%
+  <xi:include href="../specs/specs_zlib.xml"/>
+  <xi:include href="../specs/specs_atomics.xml"/>
+  <xi:include href="../specs/specs_counters.xml"/>
+</specs>

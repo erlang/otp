@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,6 +59,8 @@ PARSER_TARGET = $(PARSER_MODULE).$(EMULATOR)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin
+
 ifeq ($(WARN_UNUSED_VARS),true)
 ERL_COMPILE_FLAGS += +warn_unused_vars
 endif

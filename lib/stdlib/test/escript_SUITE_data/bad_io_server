@@ -1,0 +1,11 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+-export([main/1]).
+
+main(_) ->
+    ok = io:setopts([{encoding,unicode}]),
+    _D = erlang:system_flag(backtrace_depth, 0),
+    group_leader(spawn(fun() -> ok end), self()),
+    _ = '\x{400}'/0,
+    ok.

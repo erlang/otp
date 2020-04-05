@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,9 +52,24 @@
 ** 2.11: 19.0 enif_snprintf 
 ** 2.12: 20.0 add enif_select, enif_open_resource_type_x
 ** 2.13: 20.1 add enif_ioq
+** 2.14: 21.0 add enif_ioq_peek_head, enif_(mutex|cond|rwlock|thread)_name
+**                enif_vfprintf, enif_vsnprintf, enif_make_map_from_arrays
+** 2.15: 22.0 ERL_NIF_SELECT_CANCEL, enif_select_(read|write)
+**            enif_term_type
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 13
+#define ERL_NIF_MINOR_VERSION 15
+
+/*
+ * WHEN CHANGING INTERFACE VERSION, also replace erts version below with
+ * a ticket number e.g. "erts-@OTP-12345@". The syntax is the same as for
+ * runtime dependencies so multiple tickets should be separated with ":", e.g.
+ * "erts-@OTP-12345:OTP-54321@".
+ *
+ * If you're not on the OTP team, you should use a placeholder like
+ * erts-@MyName@ instead.
+ */
+#define ERL_NIF_MIN_ERTS_VERSION "erts-10.4"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -69,6 +84,8 @@
 #define ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD 2
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -127,6 +144,9 @@ typedef struct enif_entry_t
 
     /* Added in 2.12 */
     size_t sizeof_ErlNifResourceTypeInit;
+
+    /* Added in 2.14 */
+    const char* min_erts;
 }ErlNifEntry;
 
 
@@ -136,8 +156,9 @@ typedef struct
     unsigned char* data;
 
     /* Internals (avert your eyes) */
-    ERL_NIF_TERM bin_term;
     void* ref_bin;
+    /* for future additions to be ABI compatible (same struct size) */
+    void* __spare__[2];
 }ErlNifBinary;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
@@ -151,6 +172,8 @@ typedef int ErlNifEvent;
 #define ERL_NIF_SELECT_STOP_SCHEDULED (1 << 1)
 #define ERL_NIF_SELECT_INVALID_EVENT  (1 << 2)
 #define ERL_NIF_SELECT_FAILED         (1 << 3)
+#define ERL_NIF_SELECT_READ_CANCELLED (1 << 4)
+#define ERL_NIF_SELECT_WRITE_CANCELLED (1 << 5)
 
 typedef enum
 {
@@ -265,6 +288,26 @@ typedef enum {
     ERL_NIF_IOQ_NORMAL = 1
 } ErlNifIOQueueOpts;
 
+typedef enum {
+    ERL_NIF_TERM_TYPE_ATOM = 1,
+    ERL_NIF_TERM_TYPE_BITSTRING = 2,
+    ERL_NIF_TERM_TYPE_FLOAT = 3,
+    ERL_NIF_TERM_TYPE_FUN = 4,
+    ERL_NIF_TERM_TYPE_INTEGER = 5,
+    ERL_NIF_TERM_TYPE_LIST = 6,
+    ERL_NIF_TERM_TYPE_MAP = 7,
+    ERL_NIF_TERM_TYPE_PID = 8,
+    ERL_NIF_TERM_TYPE_PORT = 9,
+    ERL_NIF_TERM_TYPE_REFERENCE = 10,
+    ERL_NIF_TERM_TYPE_TUPLE = 11,
+
+    /* This is a dummy value intended to coax the compiler into warning about
+     * unhandled values in a switch even if all the above values have been
+     * handled. We can add new entries at any time so the user must always
+     * have a default case. */
+    ERL_NIF_TERM_TYPE__MISSING_DEFAULT_CASE__READ_THE_MANUAL = -1
+} ErlNifTermType;
+
 /*
  * Return values from enif_thread_type(). Negative values
  * reserved for specific types of non-scheduler threads.
@@ -348,7 +391,8 @@ ERL_NIF_INIT_DECL(NAME)			\
 	LOAD, RELOAD, UPGRADE, UNLOAD,	\
 	ERL_NIF_VM_VARIANT,		\
         1,                              \
-        sizeof(ErlNifResourceTypeInit)  \
+        sizeof(ErlNifResourceTypeInit), \
+        ERL_NIF_MIN_ERTS_VERSION        \
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\

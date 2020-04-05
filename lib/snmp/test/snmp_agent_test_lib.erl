@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@
 	]).
 
 %% Internal exports
--export([wait/5, run/4]).
+-export([tc_wait/5, tc_run/4]).
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -122,8 +122,8 @@
 
 init_all(Config) when is_list(Config) ->
 
-    ?LOG("init_all -> entry with"
-	 "~n   Config: ~p",[Config]),
+    ?IPRINT("init_all -> entry with"
+            "~n   Config: ~p",[Config]),
 
     %% -- 
     %% Start nodes
@@ -276,117 +276,263 @@ init_case(Config) when is_list(Config) ->
 %%% configuration.
 %%%--------------------------------------------------
 
-try_test(Mod, Func) ->
-    call(get(mgr_node), ?MODULE, run, [Mod, Func, [], []]).
+try_test(TcRunMod, TcRunFunc) ->
+    try_test(TcRunMod, TcRunFunc, []).
 
-try_test(Mod, Func, A) ->
-    call(get(mgr_node), ?MODULE, run, [Mod, Func, A, []]).
+try_test(TcRunMod, TcRunFunc, TcRunArgs) ->
+    try_test(TcRunMod, TcRunFunc, TcRunArgs, []).
 
-try_test(Mod, Func, A, Opts) ->
-    call(get(mgr_node), ?MODULE, run, [Mod, Func, A, Opts]).
+try_test(TcRunMod, TcRunFunc, TcRunArgs, TcRunOpts) ->
+    Node      = get(mgr_node),
+    Mod       = ?MODULE,
+    Func      = tc_run,
+    Args      = [TcRunMod, TcRunFunc, TcRunArgs, TcRunOpts],
+    tc_try(Node, Mod, Func, Args).
 
-call(N,M,F,A) ->
-    ?DBG("call -> entry with~n"
-	   "    N:     ~p~n"
-	   "    M:     ~p~n"
-	   "    F:     ~p~n"
-	   "    A:     ~p~n"
-	   "  when~n"
-	   "    get(): ~p",
-	   [N,M,F,A,get()]),
-    spawn(N, ?MODULE, wait, [self(),get(),M,F,A]),
+%% We spawn a test case runner process on the manager node.
+%% The assumption is that the manager shall do something, but
+%% not all test cases have the manager perform actions.
+%% In some cases we make a rpc call back to the agent node directly
+%% and call something in the agent... (for example the info_test
+%% test case).
+%% We should use link (instead of monitor) in order for the test case
+%% timeout cleanup (kills) should have effect on the test case runner
+%% process as well.
+
+tc_try(N, M, F, A) ->
+    ?IPRINT("tc_try -> entry with"
+            "~n      N:     ~p"
+            "~n      M:     ~p"
+            "~n      F:     ~p"
+            "~n      A:     ~p"
+            "~n   when"
+            "~n      get(): ~p"
+            "~n", [N,
+                   M, F, A,
+                   get()]),
+    case net_adm:ping(N) of
+        pong ->
+            ?IPRINT("tc_try -> ~p still running - start runner~n", [N]),
+            OldFlag = trap_exit(true), % Make sure we catch it
+            Runner  = spawn_link(N, ?MODULE, tc_wait, [self(), get(), M, F, A]),
+            await_tc_runner_started(Runner, OldFlag),
+            await_tc_runner_done(Runner, OldFlag);
+        pang ->
+            ?WPRINT("tc_try -> ~p *not* running~n", [N]),
+            skip({node_not_running, N})
+    end.
+
+await_tc_runner_started(Runner, OldFlag) ->
+    ?IPRINT("await tc-runner (~p) start ack~n", [Runner]),
     receive
-	{done, {'EXIT', Rn}, Loc} ->
-	    ?DBG("call -> done with exit: "
-		 "~n   Rn:  ~p"
-		 "~n   Loc: ~p", [Rn, Loc]),
+        {'EXIT', Runner, Reason} ->
+            ?EPRINT("TC runner start failed: "
+                    "~n   ~p~n", [Reason]),
+            exit({tc_runner_start_failed, Reason});
+        {tc_runner_started, Runner} ->
+            ?IPRINT("TC runner start acknowledged~n"),
+            ok
+    after 10000 -> %% We should *really* not have to wait this long, but...
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
+            RunnerInfo = ?PINFO(Runner),
+            ?EPRINT("TC runner start timeout: "
+                    "~n   ~p", [RunnerInfo]),
+            %% If we don't get a start ack within 10 seconds, we are f*ed
+            exit(Runner, kill),
+            exit({tc_runner_start, timeout, RunnerInfo})
+    end.
+
+await_tc_runner_done(Runner, OldFlag) ->
+    receive
+        {'EXIT', Runner, {udp_error, _} = Reason} ->
+	    ?EPRINT("TC runner failed with an udp error: "
+		    "~n   Reason: ~p"
+		    "~n", [Reason]),
+	    skip([{reason, Reason}]);
+	    
+	{'EXIT', Runner, Reason} ->
+            %% This is not a normal (tc) failure (that is the clause below).
+            %% Instead the tc runner process crashed, for some reason. So
+            %% check if have got any system events, and if so, skip.
+            SysEvs = snmp_test_global_sys_monitor:events(),
+            if
+                (SysEvs =:= []) ->
+                    ?EPRINT("TC runner failed: "
+                            "~n   ~p"
+			    "~n", [Reason]),
+                    exit({tc_runner_failed, Reason});
+                true ->
+                    ?WPRINT("TC runner failed when we got system events: "
+                            "~n   Reason:     ~p"
+                            "~n   Sys Events: ~p"
+                            "~n", [Reason, SysEvs]),
+                    skip([{reason, Reason}, {system_events, SysEvs}])
+            end;
+	{tc_runner_done, Runner, {'EXIT', {skip, Reason}}, Loc} ->
+	    ?WPRINT("call -> done with skip: "
+                    "~n   Reason: ~p"
+                    "~n   Loc:    ~p"
+                    "~n", [Reason, Loc]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
+	    put(test_server_loc, Loc),
+	    skip(Reason);
+	{tc_runner_done, Runner, {'EXIT', Rn}, Loc} ->
+	    ?EPRINT("call -> done with exit: "
+                    "~n   Rn:  ~p"
+                    "~n   Loc: ~p"
+                    "~n", [Rn, Loc]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
 	    put(test_server_loc, Loc),
 	    exit(Rn);
-	{done, Ret, _Zed} -> 
-	    ?DBG("call -> done:"
-		 "~n   Ret: ~p"
-		 "~n   Zed: ~p", [Ret, _Zed]),
+	{tc_runner_done, Runner, Ret, _Loc} -> 
+	    ?IPRINT("call -> done:"
+                    "~n   Ret: ~p"
+                    "~n   Loc: ~p", [Ret, _Loc]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
 	    case Ret of
 		{error, Reason} ->
 		    exit(Reason);
+		{skip, Reason} ->
+		    skip(Reason);
 		OK ->
 		    OK
 	    end
     end.
 
-wait(From, Env, M, F, A) ->
-    ?DBG("wait -> entry with"
-	 "~n   From: ~p"
-	 "~n   Env:  ~p"
-	 "~n   M:    ~p"
-	 "~n   F:    ~p"
-	 "~n   A:    ~p", [From, Env, M, F, A]),
-    lists:foreach(fun({K,V}) -> put(K,V) end, Env),
-    Rn = (catch apply(M, F, A)),
-    ?DBG("wait -> Rn: ~n~p", [Rn]),
-    From ! {done, Rn, get(test_server_loc)},
-    exit(Rn).
+trap_exit(Flag) when is_boolean(Flag) ->    
+    erlang:process_flag(trap_exit, Flag).
 
-run(Mod, Func, Args, Opts) ->
-    ?DBG("run -> entry with"
-	 "~n   Mod:  ~p"
-	 "~n   Func: ~p"
-	 "~n   Args: ~p"
-	 "~n   Opts: ~p", [Mod, Func, Args, Opts]),
-    M = get(mib_dir),
-    Dir = get(mgr_dir),
-    User = snmp_misc:get_option(user, Opts, "all-rights"),
-    SecLevel = snmp_misc:get_option(sec_level, Opts, noAuthNoPriv),
-    EngineID = snmp_misc:get_option(engine_id, Opts, "agentEngine"),
+unlink_and_flush_exit(Pid) ->
+    unlink(Pid),
+    receive
+        {'EXIT', Pid, _} ->
+            ok
+    after 0 ->
+            ok
+    end.
+
+tc_wait(From, Env, M, F, A) ->
+    ?IPRINT("tc_wait -> entry with"
+            "~n   From: ~p"
+            "~n   Env:  ~p"
+            "~n   M:    ~p"
+            "~n   F:    ~p"
+            "~n   A:    ~p", [From, Env, M, F, A]),
+    From ! {tc_runner_started, self()},
+    lists:foreach(fun({K,V}) -> put(K,V) end, Env),
+    ?IPRINT("tc_wait -> env set - now run tc~n"),
+    Res = (catch apply(M, F, A)),
+    ?IPRINT("tc_wait -> tc run done: "
+            "~n   ~p"
+            "~n", [Res]),
+    From ! {tc_runner_done, self(), Res, get(test_server_loc)},
+    %% The point of this is that in some cases we have seen that the 
+    %% exit signal having been "passed on" to the CT, which consider any
+    %% exit a fail (even if its {'EXIT', ok}).
+    %% So, just to be on the safe side, convert an 'ok' to a 'normal'.
+    case Res of
+        ok ->
+            exit(normal);
+        {ok, _} ->
+            exit(normal);
+        _ ->
+            exit(Res)
+    end.
+
+tc_run(Mod, Func, Args, Opts) ->
+    ?IPRINT("tc_run -> entry with"
+            "~n   Mod:  ~p"
+            "~n   Func: ~p"
+            "~n   Args: ~p"
+            "~n   Opts: ~p"
+            "~n", [Mod, Func, Args, Opts]),
+    (catch snmp_test_mgr:stop()), % If we had a running mgr from a failed case
+    M           = get(mib_dir),
+    Dir         = get(mgr_dir),
+    User        = snmp_misc:get_option(user, Opts, "all-rights"),
+    SecLevel    = snmp_misc:get_option(sec_level, Opts, noAuthNoPriv),
+    EngineID    = snmp_misc:get_option(engine_id, Opts, "agentEngine"),
     CtxEngineID = snmp_misc:get_option(context_engine_id, Opts, EngineID),
-    Community = snmp_misc:get_option(community, Opts, "all-rights"),
-    ?DBG("run -> start crypto app",[]),
-    _CryptoRes = ?CRYPTO_START(),
-    ?DBG("run -> Crypto: ~p", [_CryptoRes]),
-    catch snmp_test_mgr:stop(), % If we had a running mgr from a failed case
-    StdM = join(code:priv_dir(snmp), "mibs") ++ "/",
-    Vsn = get(vsn), 
-    ?DBG("run -> config:"
-	   "~n   M:           ~p"
-	   "~n   Vsn:         ~p"
-	   "~n   Dir:         ~p"
-	   "~n   User:        ~p"
-	   "~n   SecLevel:    ~p"
-	   "~n   EngineID:    ~p"
-	   "~n   CtxEngineID: ~p"
-	   "~n   Community:   ~p"
-	   "~n   StdM:        ~p",
-	   [M,Vsn,Dir,User,SecLevel,EngineID,CtxEngineID,Community,StdM]),
-    case snmp_test_mgr:start([%% {agent, snmp_test_lib:hostname()},
-			      {packet_server_debug,true},
-			      {debug,true},
-			      {agent, get(master_host)}, 
-			      {ipfamily, get(ipfamily)},
-			      {agent_udp, 4000},
-			      {trap_udp, 5000},
-			      {recbuf,65535},
+    Community   = snmp_misc:get_option(community, Opts, "all-rights"),
+    ?DBG("tc_run -> start crypto app",[]),
+    _CryptoRes  = ?CRYPTO_START(),
+    ?DBG("tc_run -> Crypto: ~p", [_CryptoRes]),
+    StdM        = join(code:priv_dir(snmp), "mibs") ++ "/",
+    Vsn         = get(vsn), 
+    ?IPRINT("tc_run -> config:"
+            "~n   M:           ~p"
+            "~n   Vsn:         ~p"
+            "~n   Dir:         ~p"
+            "~n   User:        ~p"
+            "~n   SecLevel:    ~p"
+            "~n   EngineID:    ~p"
+            "~n   CtxEngineID: ~p"
+            "~n   Community:   ~p"
+            "~n   StdM:        ~p"
+            "~n", [M,Vsn,Dir,User,SecLevel,EngineID,CtxEngineID,Community,StdM]),
+    case snmp_test_mgr:start_link([%% {agent, snmp_test_lib:hostname()},
+			      {packet_server_debug, true},
+			      {debug,               false},
+			      {agent,               get(master_host)}, 
+			      {ipfamily,            get(ipfamily)},
+			      {agent_udp,           4000},
+			      {trap_udp,            5000},
+			      {recbuf,              65535},
 			      quiet,
 			      Vsn, 
-			      {community, Community},
-			      {user, User},
-			      {sec_level, SecLevel},
-			      {engine_id, EngineID},
-			      {context_engine_id, CtxEngineID},
-			      {dir, Dir},
-			      {mibs, mibs(StdM, M)}]) of
+			      {community,           Community},
+			      {user,                User},
+			      {sec_level,           SecLevel},
+			      {engine_id,           EngineID},
+			      {context_engine_id,   CtxEngineID},
+			      {dir,                 Dir},
+			      {mibs,                mibs(StdM, M)}]) of
 	{ok, _Pid} ->
 	    case (catch apply(Mod, Func, Args)) of
+		{'EXIT', {skip, Reason}} ->
+                    ?WPRINT("apply skip detected: "
+                             "~n   ~p", [Reason]),
+		    (catch snmp_test_mgr:stop()),
+		    ?SKIP(Reason);
 		{'EXIT', Reason} ->
-		    catch snmp_test_mgr:stop(),
-		    ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
+                    %% We have hosts (mostly *very* slooow VMs) that
+                    %% can timeout anything. Since we are basically
+                    %% testing communication, we therefor must check
+                    %% for system events at every failure. Grrr!
+                    SysEvs = snmp_test_global_sys_monitor:events(),
+		    (catch snmp_test_mgr:stop()),
+                    if
+                        (SysEvs =:= []) ->
+                            ?EPRINT("TC runner failed: "
+                                    "~n   ~p~n", [Reason]),
+                            ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
+                        true ->
+                            ?WPRINT("apply exit catched when we got system events: "
+                                     "~n   Reason:     ~p"
+                                     "~n   Sys Events: ~p"
+                                     "~n", [Reason, SysEvs]),
+                            ?SKIP([{reason, Reason}, {system_events, SysEvs}])
+                    end;
 		Res ->
-		    catch snmp_test_mgr:stop(),
+		    (catch snmp_test_mgr:stop()),
 		    Res
 	    end;
+
+	{error, Reason} ->
+	    ?EPRINT("Failed starting (test) manager: "
+                    "~n   ~p", [Reason]),
+	    (catch snmp_test_mgr:stop()),
+	    ?line ?FAIL({mgr_start_error, Reason});
+
 	Err ->
-	    io:format("Error starting manager: ~p\n", [Err]),
-	    catch snmp_test_mgr:stop(),
-	    ?line ?FAIL({mgr_start, Err})
+	    ?EPRINT("Failed starting (test) manager: "
+                    "~n   ~p", [Err]),
+	    (catch snmp_test_mgr:stop()),
+	    ?line ?FAIL({mgr_start_failure, Err})
     end.
 
 
@@ -431,10 +577,10 @@ start_agent(Config, Vsns) ->
     start_agent(Config, Vsns, []).
 start_agent(Config, Vsns, Opts) -> 
 
-    ?LOG("start_agent -> entry (~p) with"
-	"~n   Config: ~p"
-	"~n   Vsns:   ~p"
-	"~n   Opts:   ~p", [node(), Config, Vsns, Opts]),
+    ?IPRINT("start_agent -> entry (~p) with"
+            "~n   Config: ~p"
+            "~n   Vsns:   ~p"
+            "~n   Opts:   ~p", [node(), Config, Vsns, Opts]),
     
     ?line AgentLogDir  = ?config(agent_log_dir,  Config),
     ?line AgentConfDir = ?config(agent_conf_dir, Config),
@@ -445,6 +591,7 @@ start_agent(Config, Vsns, Opts) ->
 	    [{versions,         Vsns}, 
 	     {agent_type,       master},
 	     {agent_verbosity,  trace},
+             {get_mechanism,    snmp_agent_test_get},
 	     {db_dir,           AgentDbDir},
 	     {audit_trail_log,  [{type, read_write},
 				 {dir,  AgentLogDir},
@@ -463,20 +610,24 @@ start_agent(Config, Vsns, Opts) ->
 
     process_flag(trap_exit,true),
 
+    ?IPRINT("start_agent -> try start snmp app supervisor", []),
     {ok, AppSup} = snmp_app_sup:start_link(),
     unlink(AppSup),
     ?DBG("start_agent -> snmp app supervisor: ~p", [AppSup]),
 
-    ?DBG("start_agent -> start master agent",[]),
+    ?IPRINT("start_agent -> try start master agent",[]),
     ?line Sup = start_sup(Env), 
-
-    ?DBG("start_agent -> unlink from supervisor", []),
     ?line unlink(Sup),
+    ?DBG("start_agent -> snmp supervisor: ~p", [Sup]),
+
+    ?IPRINT("start_agent -> try (rpc) start sub agent on ~p", [SaNode]),
     ?line SaDir = ?config(sa_dir, Config),
-    ?DBG("start_agent -> (rpc) start sub on ~p", [SaNode]),
     ?line {ok, Sub} = start_sub_sup(SaNode, SaDir),
-    ?DBG("start_agent -> done",[]),
-    ?line [{snmp_sup, {Sup, self()}}, {snmp_sub, Sub} | Config].
+    ?DBG("start_agent -> done", []),
+
+    ?line [{snmp_app_sup, AppSup}, 
+           {snmp_sup,     {Sup, self()}}, 
+           {snmp_sub,     Sub} | Config].
 
 
 app_agent_env_init(Env0, Opts) ->
@@ -669,45 +820,58 @@ merge_agent_options([{Key, _Value} = Opt|Opts], Options) ->
 
 
 stop_agent(Config) when is_list(Config) ->
-    ?LOG("stop_agent -> entry with"
-	 "~n   Config: ~p",[Config]),
+    ?IPRINT("stop_agent -> entry with"
+            "~n   Config: ~p",[Config]),
 
-    {Sup, Par} = ?config(snmp_sup, Config),
-    ?DBG("stop_agent -> attempt to stop (sup) ~p"
-	"~n   Sup: ~p"
-	"~n   Par: ~p",
-	[Sup, 
-	(catch process_info(Sup)),
-	(catch process_info(Par))]),
-    
-    _Info = agent_info(Sup),
-    ?DBG("stop_agent -> Agent info: "
-	 "~n   ~p", [_Info]),
-    
-    stop_sup(Sup, Par),
 
-    {Sup2, Par2} = ?config(snmp_sub, Config),
-    ?DBG("stop_agent -> attempt to stop (sub) ~p"
-	"~n   Sup2: ~p"
-	"~n   Par2: ~p",
-	[Sup2,
-	(catch process_info(Sup2)),
-	(catch process_info(Par2))]),
-    stop_sup(Sup2, Par2),
+    %% Stop the sub-agent (the agent supervisor)
+    {SubSup, SubPar} = ?config(snmp_sub, Config),
+    ?IPRINT("stop_agent -> attempt to stop sub agent (~p)"
+            "~n   Sub Sup info: "
+            "~n      ~p"
+            "~n   Sub Par info: "
+            "~n      ~p",
+            [SubSup, ?PINFO(SubSup), ?PINFO(SubPar)]),
+    stop_sup(SubSup, SubPar),
+    Config2 = lists:keydelete(snmp_sub, 1, Config),
 
-    ?DBG("stop_agent -> done - now cleanup config", []),
-    C1 = lists:keydelete(snmp_sup, 1, Config),
-    lists:keydelete(snmp_sub, 1, C1).
+
+    %% Stop the master-agent (the top agent supervisor)
+    {MasterSup, MasterPar} = ?config(snmp_sup, Config),
+    ?IPRINT("stop_agent -> attempt to stop master agent (~p)"
+            "~n   Master Sup: "
+            "~n      ~p"
+            "~n   Master Par: "
+            "~n      ~p"
+            "~n   Agent Info: "
+            "~n      ~p",
+            [MasterSup,
+             ?PINFO(MasterSup), ?PINFO(MasterPar),
+             agent_info(MasterSup)]),
+    stop_sup(MasterSup, MasterPar),
+    Config3 = lists:keydelete(snmp_sup, 1, Config2),
+
+
+    %% Stop the top supervisor (of the snmp app)
+    AppSup = ?config(snmp_app_sup, Config),
+    ?IPRINT("stop_agent -> attempt to app sup ~p"
+            "~n   App Sup: ~p",
+            [AppSup, ?PINFO(AppSup)]),
+    Config4 = lists:keydelete(snmp_app_sup, 1, Config3),
+
+
+    ?IPRINT("stop_agent -> done", []),
+    Config4.
 
 
 start_sup(Env) ->
     case (catch snmp_app_sup:start_agent(normal, Env)) of
 	{ok, S} ->
-	    ?DBG("start_agent -> started, Sup: ~p",[S]),
+	    ?DBG("start_agent -> started, Sup: ~p", [S]),
 	    S;
 	
 	Else ->
-	    ?DBG("start_agent -> unknown result: ~n~p",[Else]),
+	    ?EPRINT("start_agent -> unknown result: ~n~p", [Else]),
 	    %% Get info about the apps we depend on
 	    ?FAIL({start_failed, Else, ?IS_MNESIA_RUNNING()})
     end.
@@ -715,19 +879,18 @@ start_sup(Env) ->
 stop_sup(Pid, _) when (node(Pid) =:= node()) ->
     case (catch process_info(Pid)) of
 	PI when is_list(PI) ->
-	    ?LOG("stop_sup -> attempt to stop ~p", [Pid]),
+	    ?IPRINT("stop_sup -> attempt to stop ~p", [Pid]),
 	    Ref = erlang:monitor(process, Pid),
 	    exit(Pid, kill),
 	    await_stopped(Pid, Ref);
 	{'EXIT', _Reason} ->
-	    ?LOG("stop_sup -> ~p not running", [Pid]),
+	    ?IPRINT("stop_sup -> ~p not running", [Pid]),
 	    ok
     end;
 stop_sup(Pid, _) ->
-    ?LOG("stop_sup -> attempt to stop ~p", [Pid]),
+    ?IPRINT("stop_sup -> attempt to stop ~p", [Pid]),
     Ref = erlang:monitor(process, Pid),
-    ?LOG("stop_sup -> Ref: ~p", [Ref]),
-    %% Pid ! {'EXIT', Parent, shutdown}, % usch
+    ?IPRINT("stop_sup -> Ref: ~p", [Ref]),
     exit(Pid, kill), 
     await_stopped(Pid, Ref).
 
@@ -737,7 +900,7 @@ await_stopped(Pid, Ref) ->
             ?DBG("received down message for ~p", [Pid]),
             ok
     after 10000 ->
-	    ?INF("await_stopped -> timeout for ~p",[Pid]),
+	    ?EPRINT("await_stopped -> timeout for ~p",[Pid]),
 	    erlang:demonitor(Ref),
 	    ?FAIL({failed_stop,Pid})
     end.
@@ -863,23 +1026,37 @@ expect(Mod, Line, Type, Enterp, Generic, Specific, ExpVBs) ->
     expect2(Mod, Line, Fun).
 
 expect2(Mod, Line, F) ->
-    io:format("EXPECT for ~w:~w~n", [Mod, Line]),
+    io_format_expect("for ~w:~w", [Mod, Line]),
     case F() of
 	{error, Reason} ->
-	    io:format("EXPECT failed at ~w:~w => ~n~p~n", [Mod, Line, Reason]),
+	    io_format_expect("failed at ~w:~w => "
+                             "~n      ~p", [Mod, Line, Reason]),
 	    throw({error, {expect, Mod, Line, Reason}});
 	Else ->
-	    io:format("EXPECT result for ~w:~w => ~n~p~n", [Mod, Line, Else]),
+	    io_format_expect("result for ~w:~w => "
+                             "~n      ~p", [Mod, Line, Else]),
 	    Else
     end.
 
 	
 %% ----------------------------------------------------------------------
 
-get_timeout() ->
-    get_timeout(os:type()).
+-define(BASE_REQ_TIMEOUT, 3500).
 
-get_timeout(_)       -> 3500.
+get_timeout() ->
+    %% Try to figure out how "fast" a machine is.
+    %% We assume that the number of schedulers
+    %% (which depends on the number of core:s)
+    %% effect the performance of the host...
+    %% This is obviously not enough. The network
+    %% also matterns, clock freq or the CPU, ...
+    %% But its better than what we had before...
+    case erlang:system_info(schedulers) of
+        N when is_integer(N) ->
+            ?BASE_REQ_TIMEOUT + timer:seconds(10 div N);
+        _ ->
+            ?BASE_REQ_TIMEOUT
+    end.
 
 receive_pdu(To) ->
     receive
@@ -898,20 +1075,27 @@ receive_trap(To) ->
     end.
 
 
+io_format_expect(F) ->
+    io_format_expect(F, []).
+
+io_format_expect(F, A) ->
+    ?IPRINT("EXPECT " ++ F, A).
+    
+
 do_expect(Expect) when is_atom(Expect) ->
     do_expect({Expect, get_timeout()});
 
 do_expect({any_pdu, To}) 
   when is_integer(To) orelse (To =:= infinity) ->
-    io:format("EXPECT any PDU~n", []),
+    io_format_expect("any PDU"),
     receive_pdu(To);
 
 do_expect({any_trap, To}) ->
-    io:format("EXPECT any TRAP within ~w~n", [To]),
+    io_format_expect("any TRAP within ~w", [To]),
     receive_trap(To);
 
 do_expect({timeout, To}) ->
-    io:format("EXPECT nothing within ~w~n", [To]),
+    io_format_expect("nothing within ~w", [To]),
     receive
 	X ->
 	    {error, {unexpected, X}}
@@ -923,16 +1107,16 @@ do_expect({timeout, To}) ->
 do_expect({Err, To}) 
   when (is_atom(Err) andalso 
 	((is_integer(To) andalso To > 0) orelse (To =:= infinity))) ->
-    io:format("EXPECT error ~w within ~w~n", [Err, To]),
+    io_format_expect("error ~w within ~w", [Err, To]),
     do_expect({{error, Err}, To});
 
 do_expect({error, Err}) when is_atom(Err) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT error ~w~n", [Err]),
+    io_format_expect("error ~w", [Err]),
     do_expect2(Check, any, Err, any, any, get_timeout());
 do_expect({{error, Err}, To}) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT error ~w within ~w~n", [Err, To]),
+    io_format_expect("error ~w within ~w", [Err, To]),
     do_expect2(Check, any, Err, any, any, To);
 
 %% exp_varbinds() -> [exp_varbind()]
@@ -942,25 +1126,23 @@ do_expect({{error, Err}, To}) ->
 %% ExpVBs         -> exp_varbinds() | {VbsCondition, exp_varbinds()}
 do_expect(ExpVBs) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'get-response'"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'get-response'"
+                     "~n   with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'get-response', noError, 0, ExpVBs, get_timeout()).
 
 
 do_expect(v2trap, ExpVBs) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'snmpv2-trap'"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'snmpv2-trap' with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'snmpv2-trap', noError, 0, ExpVBs, get_timeout());
 
 
 do_expect(report, ExpVBs) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'report'"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'report' with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'report', noError, 0, ExpVBs, get_timeout());
 
 
@@ -969,9 +1151,8 @@ do_expect(inform, ExpVBs) ->
 
 do_expect({inform, false}, ExpVBs) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'inform-request' (false)"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'inform-request' (false) with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'inform-request', noError, 0, ExpVBs, get_timeout());
 
 do_expect({inform, true}, ExpVBs) ->
@@ -985,9 +1166,8 @@ do_expect({inform, true}, ExpVBs) ->
 	   (_, Err) ->
 		Err
 	end,
-    io:format("EXPECT 'inform-request' (true)"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'inform-request' (true) with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'inform-request', noError, 0, ExpVBs, get_timeout());
 
 do_expect({inform, {error, EStat, EIdx}}, ExpVBs) 
@@ -1002,11 +1182,10 @@ do_expect({inform, {error, EStat, EIdx}}, ExpVBs)
 	   (_, Err) ->
 		Err
 	end,
-    io:format("EXPECT 'inform-request' (error)"
-	      "~n   with"
-	      "~n      Error Status: ~p"
-	      "~n      Error Index:  ~p"
-	      "~n      Varbinds:     ~p~n", [EStat, EIdx, ExpVBs]),
+    io_format_expect("'inform-request' (error) with"
+                     "~n      Error Status: ~p"
+                     "~n      Error Index:  ~p"
+                     "~n      Varbinds:     ~p", [EStat, EIdx, ExpVBs]),
     do_expect2(Check, 'inform-request', noError, 0, ExpVBs, get_timeout()).
 
 
@@ -1017,26 +1196,23 @@ do_expect(Err, Idx, ExpVBs, To)
   when is_atom(Err) andalso 
        (is_integer(Idx) orelse is_list(Idx) orelse (Idx == any)) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'get-response'"
-	      "~n   with"
-	      "~n      Error:    ~p"
-	      "~n      Index:    ~p"
-	      "~n      Varbinds: ~p"
-	      "~n   within ~w~n", [Err, Idx, ExpVBs, To]),
+    io_format_expect("'get-response' withing ~w ms with"
+                     "~n      Error:    ~p"
+                     "~n      Index:    ~p"
+                     "~n      Varbinds: ~p", [To, Err, Idx, ExpVBs]),
     do_expect2(Check, 'get-response', Err, Idx, ExpVBs, To).
 
 
 do_expect(Type, Enterp, Generic, Specific, ExpVBs) ->
-    do_expect(Type, Enterp, Generic, Specific, ExpVBs, 3500).
+    do_expect(Type, Enterp, Generic, Specific, ExpVBs, get_timeout()).
 
 do_expect(trap, Enterp, Generic, Specific, ExpVBs, To) ->
-    io:format("EXPECT trap"
-	      "~n   with"
-	      "~n      Enterp:   ~w"
-	      "~n      Generic:  ~w"
-	      "~n      Specific: ~w"
-	      "~n      Varbinds: ~w"
-	      "~n   within ~w~n", [Enterp, Generic, Specific, ExpVBs, To]),
+    io_format_expect("trap within ~w ms with"
+                     "~n      Enterp:   ~w"
+                     "~n      Generic:  ~w"
+                     "~n      Specific: ~w"
+                     "~n      Varbinds: ~w",
+                     [To, Enterp, Generic, Specific, ExpVBs]),
     PureE = purify_oid(Enterp),
     case receive_trap(To) of
 	#trappdu{enterprise    = PureE, 
@@ -1052,6 +1228,18 @@ do_expect(trap, Enterp, Generic, Specific, ExpVBs, To) ->
 	    {error, {unexpected_trap, 
 		     {PureE, Generic, Specific, ExpVBs}, 
 		     {Ent2, G2, Spec2, VBs}}};
+
+	{error, timeout} = Error ->
+            SysEvs = snmp_test_global_sys_monitor:events(),
+	    io_format_expect("[expecting trap] got timeout when system events:"
+                             "~n   ~p", [SysEvs]),
+            if
+                (SysEvs =:= []) ->
+                    Error;
+                true ->
+                    skip({system_events, SysEvs})
+            end;
+
 
 	Error ->
 	    Error
@@ -1071,46 +1259,46 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	#pdu{type         = Type, 
 	     error_status = Err,
 	     error_index  = Idx} when ExpVBs =:= any -> 
-	    io:format("EXPECT received expected pdu (1)~n", []),
+	    io_format_expect("received expected pdu (1)"),
 	    ok;
 
 	#pdu{type         = Type, 
 	     request_id   = ReqId, 
 	     error_status = Err2,
 	     error_index  = Idx} when ExpVBs =:= any -> 
-	    io:format("EXPECT received expected pdu with "
-		      "unexpected error status (2): "
-		      "~n   Error Status: ~p~n", [Err2]),
+	    io_format_expect("received expected pdu with "
+                             "unexpected error status (2): "
+                             "~n   Error Status: ~p", [Err2]),
 	    {error, {unexpected_error_status, Err, Err2, ReqId}};
 
 	#pdu{error_status = Err} when (Type   =:= any) andalso 
 				      (Idx    =:= any) andalso 
 				      (ExpVBs =:= any) -> 
-	    io:format("EXPECT received expected pdu (3)~n", []),
+	    io_format_expect("received expected pdu (3)"),
 	    ok;
 
 	#pdu{request_id   = ReqId, 
 	     error_status = Err2} when (Type   =:= any) andalso 
 				       (Idx    =:= any) andalso 
 				       (ExpVBs =:= any) -> 
-	    io:format("EXPECT received expected pdu with "
-		      "unexpected error status (4): "
-		      "~n   Error Status: ~p~n", [Err2]),
+	    io_format_expect("received expected pdu with "
+                             "unexpected error status (4): "
+                             "~n   Error Status: ~p", [Err2]),
 	    {error, {unexpected_error_status, Err, Err2, ReqId}};
 
 	#pdu{type         = Type, 
 	     error_status = Err} when (Idx =:= any) andalso 
 				      (ExpVBs =:= any) -> 
-	    io:format("EXPECT received expected pdu (5)~n", []),
+	    io_format_expect("received expected pdu (5)", []),
 	    ok;
 
 	#pdu{type         = Type, 
 	     request_id   = ReqId, 
 	     error_status = Err2} when (Idx =:= any) andalso 
 				       (ExpVBs =:= any) -> 
-	    io:format("EXPECT received expected pdu with "
-		      "unexpected error status (6): "
-		      "~n   Error Status: ~p~n", [Err2]),
+	    io_format_expect("received expected pdu with "
+                             "unexpected error status (6): "
+                             "~n   Error Status: ~p", [Err2]),
 	    {error, {unexpected_error_status, Err, Err2, ReqId}};
 
 	#pdu{type         = Type, 
@@ -1119,13 +1307,13 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_index  = EI} when is_list(Idx) andalso (ExpVBs =:= any) -> 
 	    case lists:member(EI, Idx) of
 		true ->
-		    io:format("EXPECT received expected pdu with "
-			      "expected error index (7)~n", []),
+		    io_format_expect("received expected pdu with "
+                                     "expected error index (7)"),
 		    ok;
 		false ->
-		    io:format("EXPECT received expected pdu with "
-			      "unexpected error index (8): "
-			      "~n   Error Index: ~p~n", [EI]),
+		    io_format_expect("received expected pdu with "
+                                     "unexpected error index (8): "
+                                     "~n   Error Index: ~p", [EI]),
 		    {error, {unexpected_error_index, EI, Idx, ReqId}}
 	    end;
 
@@ -1135,15 +1323,15 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_index  = EI} when is_list(Idx) andalso (ExpVBs =:= any) -> 
 	    case lists:member(EI, Idx) of
 		true ->
-		    io:format("EXPECT received expected pdu with "
-			      "unexpected error status (9): "
-			      "~n   Error Status: ~p~n", [Err2]),
+		    io_format_expect("received expected pdu with "
+                                     "unexpected error status (9): "
+                                     "~n   Error Status: ~p", [Err2]),
 		    {error, {unexpected_error_status, Err, Err2, ReqId}};
 		false ->
-		    io:format("EXPECT received expected pdu with "
-			      "unexpected error (10): "
-			      "~n   Error Status: ~p"
-			      "~n   Error index:  ~p~n", [Err2, EI]),
+		    io_format_expect("received expected pdu with "
+                                     "unexpected error (10): "
+                                     "~n   Error Status: ~p"
+                                     "~n   Error index:  ~p", [Err2, EI]),
 		    {error, {unexpected_error, {Err, Idx}, {Err2, EI}, ReqId}}
 	    end;
 
@@ -1151,12 +1339,12 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     request_id   = ReqId, 
 	     error_status = Err2, 
 	     error_index  = Idx2} when ExpVBs =:= any ->
-	    io:format("EXPECT received unexpected pdu with (11) "
-		      "~n   Type:         ~p"
-		      "~n   ReqId:        ~p"
-		      "~n   Errot status: ~p"
-		      "~n   Error index:  ~p"
-		      "~n", [Type2, ReqId, Err2, Idx2]),
+	    io_format_expect("received unexpected pdu with (11) "
+                             "~n   Type:         ~p"
+                             "~n   ReqId:        ~p"
+                             "~n   Error status: ~p"
+                             "~n   Error index:  ~p",
+                             [Type2, ReqId, Err2, Idx2]),
 	    {error, 
 	     {unexpected_pdu, 
 	      {Type, Err, Idx}, {Type2, Err2, Idx2}, ReqId}};
@@ -1165,26 +1353,26 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_status = Err, 
 	     error_index  = Idx,
 	     varbinds     = VBs} = PDU ->
-	    io:format("EXPECT received pdu (12): "
-		      "~n   [exp] Type:         ~p"
-		      "~n   [exp] Error Status: ~p"
-		      "~n   [exp] Error Index:  ~p"
-		      "~n   VBs:                ~p"
-		      "~nwhen"
-		      "~n   ExpVBs:             ~p"
-		      "~n", [Type, Err, Idx, VBs, ExpVBs]),
+	    io_format_expect("received pdu (12): "
+                             "~n   [exp] Type:         ~p"
+                             "~n   [exp] Error Status: ~p"
+                             "~n   [exp] Error Index:  ~p"
+                             "~n   VBs:                ~p"
+                             "~nwhen"
+                             "~n   ExpVBs:             ~p",
+                             [Type, Err, Idx, VBs, ExpVBs]),
 	    Check(PDU, check_vbs(purify_oids(ExpVBs), VBs));
 
 	#pdu{type         = Type, 
 	     error_status = Err, 
 	     varbinds     = VBs} = PDU when Idx =:= any ->
-	    io:format("EXPECT received pdu (13): "
-		      "~n   [exp] Type:         ~p"
-		      "~n   [exp] Error Status: ~p"
-		      "~n   VBs:                ~p"
-		      "~nwhen"
-		      "~n   ExpVBs:             ~p"
-		      "~n", [Type, Err, VBs, ExpVBs]),
+	    io_format_expect("received pdu (13): "
+                             "~n   [exp] Type:         ~p"
+                             "~n   [exp] Error Status: ~p"
+                             "~n   VBs:                ~p"
+                             "~nwhen"
+                             "~n   ExpVBs:             ~p",
+                             [Type, Err, VBs, ExpVBs]),
 	    Check(PDU, check_vbs(purify_oids(ExpVBs), VBs));
 
 	#pdu{type         = Type, 
@@ -1192,15 +1380,15 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_status = Err, 
 	     error_index  = EI,
 	     varbinds     = VBs} = PDU when is_list(Idx) ->
-	    io:format("EXPECT received pdu (14): "
-		      "~n   [exp] Type:         ~p"
-		      "~n   ReqId:              ~p"
-		      "~n   [exp] Error Status: ~p"
-		      "~n   [exp] Error Index:  ~p"
-		      "~n   VBs:                ~p"
-		      "~nwhen"
-		      "~n   ExpVBs:             ~p"
-		      "~n", [Type, ReqId, Err, EI, VBs, ExpVBs]),
+	    io_format_expect("received pdu (14): "
+                             "~n   [exp] Type:         ~p"
+                             "~n   ReqId:              ~p"
+                             "~n   [exp] Error Status: ~p"
+                             "~n   [exp] Error Index:  ~p"
+                             "~n   VBs:                ~p"
+                             "~nwhen"
+                             "~n   ExpVBs:             ~p",
+                             [Type, ReqId, Err, EI, VBs, ExpVBs]),
 	    PureVBs = purify_oids(ExpVBs), 
 	    case lists:member(EI, Idx) of
 		true ->
@@ -1214,24 +1402,36 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_status = Err2, 
 	     error_index  = Idx2,
 	     varbinds     = VBs2} ->
-	    io:format("EXPECT received unexpected pdu with (15) "
-		      "~n   Type:         ~p"
-		      "~n   ReqId:        ~p"
-		      "~n   Errot status: ~p"
-		      "~n   Error index:  ~p"
-		      "~n   Varbinds:     ~p"
-		      "~n", [Type2, ReqId, Err2, Idx2, VBs2]),
+	    io_format_expect("received unexpected pdu with (15) "
+                             "~n   Type:         ~p"
+                             "~n   ReqId:        ~p"
+                             "~n   Error status: ~p"
+                             "~n   Error index:  ~p"
+                             "~n   Varbinds:     ~p",
+                             [Type2, ReqId, Err2, Idx2, VBs2]),
 	    {error, 
 	     {unexpected_pdu, 
 	      {Type,  Err,  Idx, purify_oids(ExpVBs)}, 
 	      {Type2, Err2, Idx2, VBs2}, 
 	      ReqId}};
 	
-	Error ->
-	    io:format("EXPECT received error (16):  "
-		      "~n   Error: ~p"
-		      "~n", [Error]),
-	    Error
+
+	{error, timeout} = Error ->
+            SysEvs = snmp_test_global_sys_monitor:events(),
+	    io_format_expect("got timeout (16) when system events:"
+                             "~n   ~p", [SysEvs]),
+            if
+                (SysEvs =:= []) ->
+                    Error;
+                true ->
+                    skip({system_events, SysEvs})
+            end;
+
+
+        Error ->
+            io_format_expect("received error (17):  "
+                             "~n   Error: ~p", [Error]),
+            Error
     end.
 
 
@@ -1321,7 +1521,7 @@ get_req(Id, Vars) ->
 
 get_next_req(Vars) ->
     ?DBG("get_next_req -> entry with"
-	 "~n   Vars: ~p",[Vars]),
+	 "~n   Vars: ~p", [Vars]),
     snmp_test_mgr:gn(Vars),
     ?DBG("get_next_req -> await response",[]),
     Response = snmp_test_mgr:receive_response(),
@@ -1332,39 +1532,37 @@ get_next_req(Vars) ->
 %% --- start and stop nodes ---
 
 start_node(Name) ->
-    ?LOG("start_node -> entry with"
-	 "~n   Name: ~p"
-	 "~n when"
-	 "~n   hostname of this node: ~p",
-	 [Name, list_to_atom(?HOSTNAME(node()))]),
-    Pa = filename:dirname(code:which(?MODULE)),
-    ?DBG("start_node -> Pa: ~p",[Pa]),
+    ?IPRINT("start_node -> entry with"
+            "~n   Name: ~p"
+            "~n when"
+            "~n   hostname of this node: ~p",
+            [Name, list_to_atom(?HOSTNAME(node()))]),
 
-    Args = case init:get_argument('CC_TEST') of
-	       {ok, [[]]} ->
-		   " -pa /clearcase/otp/libraries/snmp/ebin ";
-	       {ok, [[Path]]} ->
-		   " -pa " ++ Path;
-	       error ->
-		      ""
-	      end,
-    %% Do not use start_link!!! (the proc that calls this one is tmp)
-    ?DBG("start_node -> Args: ~p~n",[Args]),
-    A = Args ++ " -pa " ++ Pa,
-    case (catch ?START_NODE(Name, A)) of
+    Pa = filename:dirname(code:which(?MODULE)),
+    ?DBG("start_node -> Pa: ~p", [Pa]),
+
+    A = " -pa " ++ Pa ++ 
+        " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
+        " -s global sync",
+    case ?START_NODE(Name, A) of
 	{ok, Node} ->
-	    %% Tell the test_server to not clean up things it never started.
-	    ?DBG("start_node -> Node: ~p",[Node]),
+	    ?DBG("start_node -> Node: ~p", [Node]),
+            global:sync(),
 	    {ok, Node};
+	{error, Reason}  -> 
+	    ?WPRINT("start_node -> failed starting node ~p:"
+                    "~n      Reason: ~p", [Name, Reason]),
+	    ?line ?SKIP({failed_start_node, Reason});
 	Else  -> 
-	    ?ERR("start_node -> failed with(other): Else: ~p",[Else]),
+	    ?EPRINT("start_node -> failed starting node ~p:"
+                    "~n      ~p", [Name, Else]),
 	    ?line ?FAIL(Else)
     end.
 
 
 stop_node(Node) ->
-    ?LOG("stop_node -> Node: ~p",[Node]),
-    rpc:cast(Node, erlang, halt, []).
+    ?IPRINT("stop_node -> Node: ~p", [Node]),
+    ?STOP_NODE(Node).
 
 
 %%%-----------------------------------------------------------------
@@ -1375,14 +1573,14 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
     config(Vsns, MgrDir, AgentConfDir, MIp, AIp, inet).
 
 config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
-    ?LOG("config -> entry with"
-	 "~n   Vsns:         ~p"
-	 "~n   MgrDir:       ~p"
-	 "~n   AgentConfDir: ~p"
-	 "~n   MIp:          ~p"
-	 "~n   AIp:          ~p"
-	 "~n   IpFamily:     ~p",
-	 [Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily]),
+    ?IPRINT("config -> entry with"
+            "~n   Vsns:         ~p"
+            "~n   MgrDir:       ~p"
+            "~n   AgentConfDir: ~p"
+            "~n   MIp:          ~p"
+            "~n   AIp:          ~p"
+            "~n   IpFamily:     ~p",
+            [Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily]),
     ?line {Domain, ManagerAddr} =
 	case IpFamily of
 	    inet6 ->
@@ -1553,8 +1751,8 @@ rewrite_target_addr_conf(Dir, NewPort) ->
 	{ok, _} -> 
 	    ok;
 	{error, _R} -> 
-	    ?ERR("failure reading file info of "
-		 "target address config file: ~p", [_R]),
+	    ?WPRINT("failure reading file info of "
+                    "target address config file: ~p", [_R]),
 	    ok  
     end,
 
@@ -1578,10 +1776,10 @@ rewrite_target_addr_conf_check(O) ->
 rewrite_target_addr_conf2(NewPort,
 			  {Name, Ip, _Port, Timeout, Retry,
 			   "std_trap", EngineId}) -> 
-    ?LOG("rewrite_target_addr_conf2 -> entry with std_trap",[]),
+    ?IPRINT("rewrite_target_addr_conf2 -> entry with std_trap",[]),
     {Name,Ip,NewPort,Timeout,Retry,"std_trap",EngineId};
 rewrite_target_addr_conf2(_NewPort,O) -> 
-    ?LOG("rewrite_target_addr_conf2 -> entry with "
+    ?IPRINT("rewrite_target_addr_conf2 -> entry with "
 	 "~n   O: ~p",[O]),
     O.
 
@@ -1635,12 +1833,12 @@ display_memory_usage() ->
     MibDbSize  = key1search([db_memory,mib],  Info),
     NodeDbSize = key1search([db_memory,node], Info),
     TreeDbSize = key1search([db_memory,tree], Info),
-    ?INF("Memory usage: "
-	"~n   Tree size:           ~p"
-	"~n   Process memory size: ~p"
-	"~n   Mib db size:         ~p"
-	"~n   Node db size:        ~p"
-	"~n   Tree db size:        ~p", 
+    ?IPRINT("Memory usage: "
+            "~n   Tree size:           ~p"
+            "~n   Process memory size: ~p"
+            "~n   Mib db size:         ~p"
+            "~n   Node db size:        ~p"
+            "~n   Tree db size:        ~p", 
     [TreeSize, ProcMem, MibDbSize, NodeDbSize, TreeDbSize]).
     
 key1search([], Res) ->
@@ -1672,51 +1870,7 @@ rpc(Node, F, A) ->
 join(Dir, File) ->
     filename:join(Dir, File).
 
-%% await_pdu(To) ->
-%%     await_response(To, pdu).
-%% 
-%% await_trap(To) ->
-%%     await_response(To, trap).
-%% 
-%% await_any(To) ->
-%%     await_response(To, any).
-%% 
-%% 
-%% await_response(To, What) ->
-%%     await_response(To, What, []).
-%% 
-%% await_response(To, What, Stuff) when is_integer(To) andalso (To >= 0) ->
-%%     T = t(),
-%%     receive
-%% 	{snmp_pdu, PDU} when is_record(Trap, pdu) andalso (What =:= pdu) ->
-%% 	    {ok, PDU};
-%% 	{snmp_pdu, Trap} is_when record(Trap, trappdu) andalso (What =:= trap) ->
-%% 	    {ok, Trap};
-%% 	Any when What =:= any ->
-%% 	    {ok, Any};
-%% 	Any ->
-%% 	    %% Recalc time
-%% 	    NewTo = To - (t() - T)
-%% 	    await_reponse(NewTo, What, [{NewTo, Any}|Stuff])
-%%     after To ->
-%% 	    {error, {timeout, Stuff}}
-%%     end;
-%% await_response(_, Stuff) ->
-%%     {error, {timeout, Stuff}}.
-%% 
-%% 
-%% t() ->
-%%     {A,B,C} = os:timestamp(),
-%%     A*1000000000+B*1000+(C div 1000).
-%% 
-%% 
-%% timeout() ->
-%%     timeout(os:type()).
-%% 
-%% timeout(_)       -> 3500.
-    
 
-%% Time in milli seconds
-%% t() ->
-%%     {A,B,C} = os:timestamp(),
-%%     A*1000000000+B*1000+(C div 1000).
+skip(R) ->
+    exit({skip, R}).
+

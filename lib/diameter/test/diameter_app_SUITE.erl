@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -208,9 +208,9 @@ xref(Config) ->
     CTmods = CTmods -- Mods,
 
     %% Ensure that runtime modules only call other runtime modules, or
-    %% applications declared as in runtime_dependencies in the app
-    %% file. Note that the declared application versions are ignored
-    %% since we only know what we can see now.
+    %% applications declared in runtime_dependencies in the app file.
+    %% The declared application versions are ignored since we only
+    %% know what we see now.
     [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
                       RTdeps -- Mods).
 
@@ -261,8 +261,12 @@ app(Mod) ->
     case code:which(Mod) of
         preloaded ->
             "erts";
+        Reason when is_atom(Reason) ->
+            error({Reason, Mod});
         Path ->
-            unversion(lists:nth(3, lists:reverse(filename:split(Path))))
+            %% match to identify an unexpectedly short path
+            {_, _, [_,_,_|_] = Split} = {Mod, Path, filename:split(Path)},
+            unversion(lists:nth(3, lists:reverse(Split)))
     end.
 
 add_application(XRef, App) ->

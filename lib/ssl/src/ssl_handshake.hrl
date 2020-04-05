@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,14 +47,15 @@
 	  srp_username,
 	  is_resumable,
 	  time_stamp,
-	  ecc
+	  ecc,                   %% TLS 1.3 Group
+	  sign_alg,              %% TLS 1.3 Signature Algorithm
+	  dh_public_value        %% TLS 1.3 DH Public Value from peer
 	  }).
 
 -define(NUM_OF_SESSION_ID_BYTES, 32).  % TSL 1.1 & SSL 3
 -define(NUM_OF_PREMASTERSECRET_BYTES, 48).
--define(DEFAULT_DIFFIE_HELLMAN_GENERATOR, 2).
--define(DEFAULT_DIFFIE_HELLMAN_PRIME,
-	16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF).
+-define(DEFAULT_DIFFIE_HELLMAN_GENERATOR, ssl_dh_groups:modp2048_generator()).
+-define(DEFAULT_DIFFIE_HELLMAN_PRIME, ssl_dh_groups:modp2048_prime()).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Handsake protocol - RFC 4346 section 7.4
@@ -105,7 +106,11 @@
 	  srp,
 	  ec_point_formats,
 	  elliptic_curves,
-	  sni
+	  sni,
+          client_hello_versions,
+          server_hello_selected_version,
+          signature_algs_cert,
+          key_share
 	 }).
 
 -record(server_hello, {
@@ -133,6 +138,7 @@
 -define(KEY_EXCHANGE_DIFFIE_HELLMAN, 1).
 -define(KEY_EXCHANGE_EC_DIFFIE_HELLMAN, 6).
 -define(KEY_EXCHANGE_PSK, 2).
+-define(KEY_EXCHANGE_EC_DIFFIE_HELLMAN_PSK, 7).
 -define(KEY_EXCHANGE_DHE_PSK, 3).
 -define(KEY_EXCHANGE_RSA_PSK, 4).
 -define(KEY_EXCHANGE_SRP, 5).
@@ -158,6 +164,11 @@
 	 }).
 
 -record(server_dhe_psk_params, {
+	  hint,
+	  dh_params
+	 }).
+
+-record(server_ecdhe_psk_params, {
 	  hint,
 	  dh_params
 	 }).
@@ -254,6 +265,11 @@
 	  dh_public
 	 }).
 
+-record(client_ecdhe_psk_identity, {
+	  identity,
+	  dh_public
+	 }).
+
 -record(client_rsa_psk_identity, {
 	  identity,
 	  exchange_keys
@@ -302,12 +318,12 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(SIGNATURE_ALGORITHMS_EXT, 13).
 
--record(hash_sign_algos, {
-	  hash_sign_algos
-	 }).
+-record(hash_sign_algos, {hash_sign_algos}).
+%% RFC 8446 (TLS 1.3)
+-record(signature_algorithms, {signature_scheme_list}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Application-Layer Protocol Negotiation  RFC 7301
+%% RFC 7301 Application-Layer Protocol Negotiation  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(ALPN_EXT, 16).
@@ -327,9 +343,8 @@
 -record(next_protocol, {selected_protocol}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% ECC Extensions RFC 4492 section 4 and 5
+%% ECC Extensions RFC 8422  section 4 and 5
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 -define(ELLIPTIC_CURVES_EXT, 10).
 -define(EC_POINT_FORMATS_EXT, 11).
 
@@ -337,11 +352,18 @@
 	  elliptic_curve_list
 	 }).
 
+%% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
+-record(supported_groups, {
+	  supported_groups
+	 }).
+
 -record(ec_point_formats, {
 	  ec_point_format_list
 	 }).
 
 -define(ECPOINT_UNCOMPRESSED, 0).
+%% Defined in RFC 4492, deprecated by RFC 8422
+%% RFC 8422 compliant implementations MUST not support the two formats below
 -define(ECPOINT_ANSIX962_COMPRESSED_PRIME, 1).
 -define(ECPOINT_ANSIX962_COMPRESSED_CHAR2, 2).
 
@@ -354,10 +376,11 @@
 -define(NAMED_CURVE, 3).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Server name indication RFC 6066 section 3
+%% RFC 6066 Server name indication 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(SNI_EXT, 16#0000).
+%% section 3
+-define(SNI_EXT, 0).
 
 %% enum { host_name(0), (255) } NameType;
 -define(SNI_NAMETYPE_HOST_NAME, 0).
@@ -365,5 +388,57 @@
 -record(sni, {
           hostname = undefined
         }).
+
+%% Other possible values from RFC 6066, not supported
+-define(MAX_FRAGMENT_LENGTH, 1).
+-define(CLIENT_CERTIFICATE_URL, 2).
+-define(TRUSTED_CA_KEYS, 3).
+-define(TRUNCATED_HMAC, 4).
+-define(STATUS_REQUEST, 5).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 7250 Using Raw Public Keys in Transport Layer Security (TLS)
+%% and Datagram Transport Layer Security (DTLS)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(CLIENT_CERTIFICATE_TYPE, 19).            
+-define(SERVER_CERTIFICATE_TYPE, 20).         
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 6520 Transport Layer Security (TLS) and
+%% Datagram Transport Layer Security (DTLS) Heartbeat Extension
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(HS_HEARTBEAT, 15).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 6962 Certificate Transparency     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(SIGNED_CERTIFICATE_TIMESTAMP, 18).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 7685  A Transport Layer Security (TLS) ClientHello Padding Extension
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(PADDING, 21).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Supported Versions RFC 8446 (TLS 1.3) section 4.2.1 also affects TLS-1.2
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(SUPPORTED_VERSIONS_EXT, 43).
+
+-record(client_hello_versions, {versions}).
+-record(server_hello_selected_version, {selected_version}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Signature Algorithms RFC 8446 (TLS 1.3) section 4.2.3 also affects TLS-1.2
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(SIGNATURE_ALGORITHMS_CERT_EXT, 50).
+
+-record(signature_algorithms_cert, {signature_scheme_list}).
 
 -endif. % -ifdef(ssl_handshake).

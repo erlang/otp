@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,6 +47,9 @@
 
 	 call/2, cast/2, reply/3]).
 
+%% For testing
+-export([erl_libs/2]).
+
 -include_lib("kernel/include/file.hrl").
 -include_lib("wx/include/wx.hrl").
 -include("reltool.hrl").
@@ -55,7 +58,15 @@ root_dir() ->
     code:root_dir().
 
 erl_libs() ->
-    string:lexemes(os:getenv("ERL_LIBS", ""), ":;").
+    erl_libs(os:getenv("ERL_LIBS", ""), os:type()).
+
+erl_libs(ErlLibs, OsType) when is_list(ErlLibs) ->
+  Sep =
+    case OsType of
+      {win32, _} -> ";";
+      _          -> ":"
+    end,
+  string:lexemes(ErlLibs, Sep).
 
 lib_dirs(Dir) ->
     case erl_prim_loader:list_dir(Dir) of
@@ -154,7 +165,12 @@ default_rels() ->
 	  rel_apps = []},
      #rel{name = "start_sasl",
 	  vsn = "1.0",
-	  rel_apps = [#rel_app{name = sasl}]}
+          rel_apps = [#rel_app{name = sasl}]},
+     #rel{name = "no_dot_erlang", %% Needed by escript and erlc
+          vsn = "1.0",
+          rel_apps = [],
+          load_dot_erlang = false
+         }
     ].
 
 choose_default(Tag, Profile, InclDefs)

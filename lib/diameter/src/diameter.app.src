@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,14 +28,21 @@
       ]},
   {registered, [%REGISTERED%]},
   {applications, [
-      {stdlib, "2.4"}, {kernel, "3.2"}%, {erts, "6.4"}
-      %% {syntax-tools, "1.6,18"}
-      %% {runtime-tools, "1.8.16"}
-      %, {ssl, "6.0"}
+      stdlib,
+      kernel
+      %, ssl
+      %, syntax-tools
+      %, runtime-tools
       ]},
   {env, []},
   {mod, {diameter_app, []}},
   {runtime_dependencies, [
+      "erts-10.0",
+      "stdlib-2.4",
+      "kernel-3.2",
+      "ssl-9.0"
+      %, "syntax-tools-1.6.18"
+      %, "runtime-tools-1.8.16"
       ]}
   %%
   %% Note that ssl is only required if configured on TCP transports,

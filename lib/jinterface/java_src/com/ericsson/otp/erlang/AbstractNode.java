@@ -74,10 +74,7 @@ public class AbstractNode implements OtpTransportFactory {
     static String defaultCookie = null;
     final OtpTransportFactory transportFactory;
 
-    // Node types
     static final int NTYPE_R6 = 110; // 'n' post-r5, all nodes
-    static final int NTYPE_R4_ERLANG = 109; // 'm' Only for source compatibility
-    static final int NTYPE_R4_HIDDEN = 104; // 'h' Only for source compatibility
 
     // Node capability flags
     static final int dFlagPublished = 1;
@@ -89,23 +86,26 @@ public class AbstractNode implements OtpTransportFactory {
     static final int dFlagHiddenAtomCache = 0x40; // NOT SUPPORTED
     static final int dflagNewFunTags = 0x80;
     static final int dFlagExtendedPidsPorts = 0x100;
-    static final int dFlagExportPtrTag = 0x200; // NOT SUPPORTED
+    static final int dFlagExportPtrTag = 0x200;
     static final int dFlagBitBinaries = 0x400;
     static final int dFlagNewFloats = 0x800;
     static final int dFlagUnicodeIo = 0x1000;
     static final int dFlagUtf8Atoms = 0x10000;
     static final int dFlagMapTag = 0x20000;
     static final int dFlagBigCreation = 0x40000;
+    static final int dFlagHandshake23 = 0x1000000;
 
     int ntype = NTYPE_R6;
     int proto = 0; // tcp/ip
-    int distHigh = 5; // Cannot talk to nodes before R6
+    int distHigh = 6;
     int distLow = 5; // Cannot talk to nodes before R6
     int creation = 0;
-    int flags = dFlagExtendedReferences | dFlagExtendedPidsPorts
+    long flags = dFlagExtendedReferences | dFlagExtendedPidsPorts
             | dFlagBitBinaries | dFlagNewFloats | dFlagFunTags
             | dflagNewFunTags | dFlagUtf8Atoms | dFlagMapTag
-	    | dFlagBigCreation;
+            | dFlagExportPtrTag
+	    | dFlagBigCreation
+            | dFlagHandshake23;
 
     /* initialize hostname and default cookie */
     static {

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
 	 memory/1,unicode/1,read_other_implementations/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
-         roundtrip_metadata/1]).
+         roundtrip_metadata/1, apply_file_info_opts/1,
+         incompatible_options/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -42,7 +43,8 @@ all() ->
      extract_filtered,
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations,
-     sparse,init,leading_slash,dotdot,roundtrip_metadata].
+     sparse,init,leading_slash,dotdot,roundtrip_metadata,
+     apply_file_info_opts,incompatible_options].
 
 groups() -> 
     [].
@@ -573,23 +575,49 @@ extract_from_open_file(Config) when is_list(Config) ->
 
     verify_ports(Config).
 
+%% Make sure incompatible options are rejected when opening archives with file
+%% descriptors.
+incompatible_options(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Long = filename:join(DataDir, "no_fancy_stuff.tar"),
+
+    {ok, File} = file:open(Long, [read]),
+    Handle = {file, File},
+
+    {error, {Handle, {incompatible_option, compressed}}}
+        = erl_tar:open(Handle, [read, compressed]),
+    {error, {Handle, {incompatible_option, cooked}}}
+        = erl_tar:open(Handle, [read, cooked]),
+
+    {error, {Handle, {incompatible_option, compressed}}}
+        = erl_tar:extract(Handle, [compressed]),
+    {error, {Handle, {incompatible_option, cooked}}}
+        = erl_tar:extract(Handle, [cooked]),
+
+    ok = file:close(File),
+
+    verify_ports(Config).
+
 %% Test that archives containing symlinks can be created and extracted.
 symlinks(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "symlinks"),
+    VulnerableDir = filename:join(PrivDir, "vulnerable_symlinks"),
     ok = file:make_dir(Dir),
+    ok = file:make_dir(VulnerableDir),
     ABadSymlink = filename:join(Dir, "bad_symlink"),
-    PointsTo = "/a/definitely/non_existing/path",
-    Res = case make_symlink("/a/definitely/non_existing/path", ABadSymlink) of
+    PointsTo = "a/definitely/non_existing/path",
+    Res = case make_symlink("a/definitely/non_existing/path", ABadSymlink) of
 	      {error, enotsup} ->
 		  {skip, "Symbolic links not supported on this platform"};
 	      ok ->
 		  symlinks(Dir, "bad_symlink", PointsTo),
-		  long_symlink(Dir)
+		  long_symlink(Dir),
+                  symlink_vulnerability(VulnerableDir)
 	  end,
 
     %% Clean up.
-    delete_files([Dir]),
+    delete_files([Dir,VulnerableDir]),
     verify_ports(Config),
     Res.
 
@@ -677,7 +705,7 @@ long_symlink(Dir) ->
     ok = file:set_cwd(Dir),
 
     AFile = "long_symlink",
-    RequiresPAX = "/tmp/aarrghh/this/path/is/far/longer/than/one/hundred/characters/which/is/the/maximum/number/of/characters/allowed",
+    RequiresPAX = "tmp/aarrghh/this/path/is/far/longer/than/one/hundred/characters/which/is/the/maximum/number/of/characters/allowed",
     ok = file:make_symlink(RequiresPAX, AFile),
     ok = erl_tar:create(Tar, [AFile], [verbose]),
     false = is_ustar(Tar),
@@ -687,6 +715,23 @@ long_symlink(Dir) ->
     ok = file:set_cwd(NewDir),
     {ok, #file_info{type=symlink}} = file:read_link_info(AFile),
     {ok, RequiresPAX} = file:read_link(AFile),
+    ok.
+
+symlink_vulnerability(Dir) ->
+    ok = file:set_cwd(Dir),
+    ok = file:make_dir("tar"),
+    ok = file:set_cwd("tar"),
+    ok = file:make_symlink("..", "link"),
+    ok = file:write_file("../file", <<>>),
+    ok = erl_tar:create("../my.tar", ["link","link/file"]),
+    ok = erl_tar:tt("../my.tar"),
+
+    ok = file:set_cwd(Dir),
+    delete_files(["file","tar"]),
+    ok = file:make_dir("tar"),
+    ok = file:set_cwd("tar"),
+    {error,{"..",unsafe_symlink}} = erl_tar:extract("../my.tar"),
+
     ok.
 
 init(Config) when is_list(Config) ->
@@ -989,6 +1034,31 @@ do_roundtrip_metadata(Dir, File) ->
             ok
     end.
 
+apply_file_info_opts(Config) when is_list(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+
+    ok = file:make_dir("empty_directory"),
+    ok = file:write_file("file", "contents"),
+
+    Opts = [{atime, 0}, {mtime, 0}, {ctime, 0}, {uid, 0}, {gid, 0}],
+    TarFile = "reproducible.tar",
+    {ok, Tar} = erl_tar:open(TarFile, [write]),
+    ok = erl_tar:add(Tar, "file", Opts),
+    ok = erl_tar:add(Tar, "empty_directory", Opts),
+    ok = erl_tar:add(Tar, <<"contents">>, "memory_file", Opts),
+    erl_tar:close(Tar),
+
+    ok = file:make_dir("extracted"),
+    erl_tar:extract(TarFile, [{cwd, "extracted"}]),
+
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/empty_directory", [{time, posix}]),
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/file", [{time, posix}]),
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/memory_file", [{time, posix}]),
+
+    ok.
 
 %% Delete the given list of files.
 delete_files([]) -> ok;

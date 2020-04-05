@@ -35,3 +35,7 @@ SPECIAL_TARGETS =
 # Default Subdir Targets
 #
 include $(ERL_TOP)/make/otp_subdir.mk
+
+DIA_PLT_APPS=compiler crypto
+
+include $(ERL_TOP)/make/app_targets.mk

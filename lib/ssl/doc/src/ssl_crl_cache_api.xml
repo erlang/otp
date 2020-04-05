@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2015</year><year>2016</year>
+      <year>2015</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -24,11 +24,11 @@
     <file>ssl_crl_cache_api.xml</file>
   </header>
   
-  <module>ssl_crl_cache_api</module>
-  <modulesummary>API for a SSL/TLS CRL (Certificate Revocation List) cache.</modulesummary>
+  <module since="OTP 18.0">ssl_crl_cache_api</module>
+  <modulesummary>API for a TLS CRL (Certificate Revocation List) cache.</modulesummary>
   <description>
     <p>
-      When SSL/TLS performs certificate path validation according to
+      When TLS performs certificate path validation according to
       <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url>
       it should also perform CRL validation checks. To enable the CRL
       checks the application needs access to CRLs. A database of CRLs
@@ -39,53 +39,80 @@
       a CRL cache.
     </p>
   </description>
+
+
+  <!--
+      ================================================================
+      =  Data types                                                  =
+      ================================================================
+  -->
+
+  <datatypes>
+    
+     <datatype>
+	<name name="crl_cache_ref"/>
+	<desc>
+	  <p>Reference to the CRL cache.</p>
+	</desc>
+      </datatype>
+
+     <datatype>
+	<name name="dist_point"/>
+	<desc>
+	  <p>For description see <seeguide 
+	  marker="public_key:public_key_records"> X509 certificates records</seeguide></p>
+	</desc>
+     </datatype>
+
+     <datatype>
+     	<name name="logger_info"/>
+	<desc>
+	  <p>Information for ssl applications use of <seeerl 
+	  marker="kernel:logger"> Logger(3)</seeerl></p>
+	</desc>
+     </datatype>
+
+     
+   </datatypes>
   
-  <section>
-    <title>DATA TYPES</title>
-    
-    <p>The following data types are used in the functions below:
-    </p>
-    
-    <taglist>
-      
-    <tag><c>cache_ref() =</c></tag> 
-    <item>opaque()</item>
-    <tag><c>dist_point() =</c></tag>
-    <item><p>#'DistributionPoint'{} see <seealso
-    marker="public_key:public_key_records"> X509 certificates records</seealso></p></item>
-    
-    </taglist>
-    
-  </section>
   <funcs>
-      <func>
-      <name>fresh_crl(DistributionPoint, CRL) -> FreshCRL</name>
+    <func>
+      <name since="@maint@">fresh_crl(DistributionPoint, CRL) -> FreshCRL </name>
+      <name since="OTP 18.0">fresh_crl(DistributionPoint, CRL) -> FreshCRL |   {LoggerInfo, FreshCRL}</name>
       <fsummary> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
       public_key:pkix_crls_validate/3 </fsummary>
       <type>
-	<v> DistributionPoint = dist_point() </v>
-	<v> CRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
-	<v> FreshCRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+	<v> DistributionPoint = <seetype marker="#dist_point"> dist_point() </seetype> </v>
+	<v> CRL = [<seetype
+	marker="public_key:public_key#der_encoded">public_key:der_encoded()</seetype>] </v>
+	<v> FreshCRL = [<seetype
+	marker="public_key:public_key#der_encoded">public_key:der_encoded()</seetype>] </v>
+	<v> LoggerInfo = {logger,  <seetype marker="#logger_info"> logger_info() </seetype>}} </v>
       </type>
       <desc>
 	<p> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
-	<seealso marker="public_key:public_key#pkix_crls_validate-3">public_key:pkix_crls_validate/3 </seealso> </p>
+	<seemfa marker="public_key:public_key#pkix_crls_validate/3">public_key:pkix_crls_validate/3 </seemfa> </p>
+	
+	<p>It is possible to return logger info that will be used by the TLS connection
+	to produce log events.
+	</p>
       </desc>
     </func>
     
     <func>
-      <name>lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs </name>
-      <name>lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
+      <name since="@maint@">lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs |
+      {LoggerInfo, CRLs} </name>
+      <name since="OTP 19.0">lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs </name>
+      <name since="OTP 18.0">lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
       <fsummary> </fsummary>
       <type>
-        <v> DistributionPoint = dist_point() </v>
-        <v> Issuer = <seealso
-	marker="public_key:public_key">public_key:issuer_name()</seealso> </v>
-	<v> DbHandle  = cache_ref() </v>
-	<v> CRLs = [<seealso
-	   marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+	<v> DistributionPoint = <seetype marker="#dist_point"> dist_point() </seetype> </v>
+        <v> Issuer = <seetype
+	marker="public_key:public_key#issuer_name">public_key:issuer_name()</seetype> </v>
+	<v> DbHandle = <seetype marker="#crl_cache_ref"> crl_cache_ref() </seetype></v>
+	<v> CRLs = [<seetype
+	marker="public_key:public_key#der_encoded">public_key:der_encoded()</seetype>]</v>
+	<v> LoggerInfo = {logger,  <seetype marker="#logger_info"> logger_info() </seetype>}} </v>
 	</type>
 	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint</c>.
 	This function may choose to only look in the cache or to follow distribution point
@@ -102,19 +129,35 @@
 	compatibility, this is still supported: if there is no
 	<c>lookup/3</c> function in the callback module,
 	<c>lookup/2</c> is called instead.</p>
+
+	<p>It is possible to return logger info that will be used by the TLS connection
+	to produce log events.
+	</p>
 	</desc>
     </func>
     
     <func>
-      <name>select(Issuer, DbHandle) -> CRLs </name>
+      <name since="@maint@">select(Issuer, DbHandle) -> CRLs | {LoggerInfo, CRLs} </name>
+      <name since="OTP 18.0">select(Issuer, DbHandle) -> CRLs </name>
       <fsummary>Select the CRLs in the cache that are issued by <c>Issuer</c></fsummary>
       <type>
-	<v> Issuer = <seealso
-	marker="public_key:public_key">public_key:issuer_name()</seealso></v>
-	<v> DbHandle  = cache_ref() </v>
-	</type>
+	<v> Issuer = <seetype
+	marker="public_key:public_key#issuer_name">public_key:issuer_name()</seetype> | list() </v>
+	<v> DbHandle = <seetype marker="#crl_cache_ref"> cache_ref() </seetype></v>
+	<v> LoggerInfo = {logger, <seetype marker="#logger_info"> logger_info() </seetype>} </v>
+      </type>
 	<desc>
-	  <p>Select the CRLs in the cache that are issued by <c>Issuer</c> </p>
+	  <p>Select the CRLs in the cache that are issued by <c>Issuer</c> unless
+	  the value is a list of so called general names, see <seeguide 
+	  marker="public_key:public_key_records"> X509 certificates records</seeguide>,
+	  originating form <c>#'DistributionPoint'.cRLissuer</c> and  
+	  representing different mechanism to obtain the CRLs. The cache
+	  callback needs to use the appropriate entry to retrive the CRLs or
+	  return an empty list if it does not exist.
+	  </p>
+
+	  <p>It is possible to return logger info that will be used by the TLS connection
+	  to produce log events.</p>
 	</desc>
     </func>
   </funcs>

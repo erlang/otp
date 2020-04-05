@@ -43,9 +43,9 @@ POSSIBILITY OF SUCH DAMAGE.
 /* The current PCRE version information. */
 
 #define PCRE_MAJOR          8
-#define PCRE_MINOR          41
+#define PCRE_MINOR          43
 #define PCRE_PRERELEASE     
-#define PCRE_DATE           2017-07-05
+#define PCRE_DATE           2019-02-23
 
 /* When an application links to a PCRE DLL in Windows, the symbols that are
 imported have to be identified as such. When building PCRE, the appropriate
@@ -240,6 +240,9 @@ with J. */
 #define PCRE_UTF8_ERR20             20
 #define PCRE_UTF8_ERR21             21
 #define PCRE_UTF8_ERR22             22  /* Unused (was non-character) */
+#if defined(ERLANG_INTEGRATION)
+#define PCRE_UTF8_YIELD             23
+#endif
 
 /* Specific error codes for UTF-16 validity checks */
 
@@ -328,11 +331,11 @@ these bits, just add new ones on the end, in order to remain compatible. */
 
 /* Types */
 
-struct real_pcre;                 /* declaration; the definition is private  */
-typedef struct real_pcre pcre;
+struct real_pcre8_or_16;          /* declaration; the definition is private  */
+typedef struct real_pcre8_or_16 pcre;
 
-struct real_pcre16;               /* declaration; the definition is private  */
-typedef struct real_pcre16 pcre16;
+struct real_pcre8_or_16;          /* declaration; the definition is private  */
+typedef struct real_pcre8_or_16 pcre16;
 
 struct real_pcre32;               /* declaration; the definition is private  */
 typedef struct real_pcre32 pcre32;

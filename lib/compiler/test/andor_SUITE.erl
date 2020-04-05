@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -38,6 +37,7 @@ groups() ->
        combined,in_case,slow_compilation]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -65,6 +65,17 @@ t_case(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch t_case_d(x, y, blurf)),
     true = (catch t_case_e({a,b}, {a,b})),
     false = (catch t_case_e({a,b}, 42)),
+
+    {true,false} = t_case_f1(true, pos),
+    {false,true} = t_case_f1(true, whatever),
+    {false,true} = t_case_f1(false, pos),
+    {false,true} = t_case_f1(false, whatever),
+    {false,false} = t_case_f1(not_boolean, pos),
+    {false,false} = t_case_f1(not_boolean, whatever),
+
+    false = t_case_f2(true),
+    true = t_case_f2(false),
+    false = t_case_f2(whatever),
 
     true = t_case_xy(42, 100, 700),
     true = t_case_xy(42, 100, whatever),
@@ -108,6 +119,25 @@ t_case_e(A, B) ->
     case A =:= B of
 	Bool when is_tuple(A) -> id(Bool)
     end.
+
+t_case_f1(IsInt, Eval) ->
+    B = case IsInt of
+            true -> Eval =:= pos;
+            false -> false;
+            _ -> IsInt
+        end,
+
+    %% The above is the same as `IsInt andalso Eval =:= pos` in a guard.
+    %% In a real guard, variable `B` will only be used once.
+    {B =:= true, B =:= false}.
+
+t_case_f2(IsInt) ->
+    B = case IsInt of
+            true -> false;
+            false -> true;
+            _ -> IsInt
+        end,
+    B =:= true.
 
 t_case_xy(X, Y, Z) ->
     Res = t_case_x(X, Y, Z),

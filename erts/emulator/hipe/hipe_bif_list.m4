@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -186,6 +186,7 @@ gc_bif_interface_1(nbif_erase_1, erase_1)
 gc_bif_interface_1(nbif_erts_internal_garbage_collect_1, erts_internal_garbage_collect_1)
 gc_nofail_primop_interface_1(nbif_gc_1, hipe_gc)
 gc_bif_interface_2(nbif_put_2, put_2)
+gc_bif_interface_2(nbif_hipe_bifs_build_stacktrace, hipe_bifs_build_stacktrace_1)
 
 /*
  * Debug BIFs that need read access to the full state.
@@ -219,10 +220,11 @@ standard_bif_interface_1(nbif_bnot_1, bnot_1)
 standard_bif_interface_1(nbif_set_timeout, hipe_set_timeout)
 standard_bif_interface_1(nbif_conv_big_to_float, hipe_conv_big_to_float)
 standard_bif_interface_2(nbif_rethrow, hipe_rethrow)
+standard_bif_interface_3(nbif_raw_raise, hipe_raw_raise)
 standard_bif_interface_3(nbif_find_na_or_make_stub, hipe_find_na_or_make_stub)
 standard_bif_interface_2(nbif_nonclosure_address, hipe_nonclosure_address)
 nocons_nofail_primop_interface_0(nbif_fclearerror_error, hipe_fclearerror_error)
-standard_bif_interface_2(nbif_is_divisible, hipe_is_divisible)
+noproc_primop_interface_2(nbif_is_divisible, hipe_is_divisible)
 noproc_primop_interface_1(nbif_is_unicode, hipe_is_unicode)
 
 /*
@@ -248,11 +250,6 @@ nofail_primop_interface_3(nbif_bs_get_float_2, erts_bs_get_float_2)
 nocons_nofail_primop_interface_3(nbif_bs_put_utf8, hipe_bs_put_utf8)
 standard_bif_interface_3(nbif_bs_put_utf16be, hipe_bs_put_utf16be)
 standard_bif_interface_3(nbif_bs_put_utf16le, hipe_bs_put_utf16le)
-ifdef(`nogc_bif_interface_1',`
-nogc_bif_interface_1(nbif_bs_validate_unicode, hipe_bs_validate_unicode)
-',`
-standard_bif_interface_1(nbif_bs_validate_unicode, hipe_bs_validate_unicode)
-')
 
 /*
  * Bit-syntax primops without any P parameter.
@@ -267,18 +264,12 @@ noproc_primop_interface_2(nbif_bs_get_utf16, erts_bs_get_utf16)
 noproc_primop_interface_2(nbif_bs_validate_unicode_retract, hipe_bs_validate_unicode_retract)
 
 /*
- * Bit-syntax primops. The ERTS_SMP runtime system requires P,
+ * Bit-syntax primops. The runtime system requires P,
  * hence the use of nocons_nofail_primop_interface_N().
- * When ERTS_SMP is disabled, noproc_primop_interface_N()
- * should be used instead.
  */
 nocons_nofail_primop_interface_5(nbif_bs_put_small_float, hipe_bs_put_small_float)
 noproc_primop_interface_5(nbif_bs_put_bits, hipe_bs_put_bits)
-ifelse(ERTS_SMP,1,`
 nocons_nofail_primop_interface_5(nbif_bs_put_big_integer, hipe_bs_put_big_integer)
-',`
-noproc_primop_interface_5(nbif_bs_put_big_integer, hipe_bs_put_big_integer)
-')dnl
 
 nofail_primop_interface_0(nbif_check_get_msg, hipe_check_get_msg)
 
@@ -288,13 +279,8 @@ nocons_nofail_primop_interface_0(nbif_emulate_fpe, hipe_emulate_fpe)
 
 noproc_primop_interface_1(nbif_emasculate_binary, hipe_emasculate_binary)
 
-/*
- * SMP-specific stuff
- */
-ifelse(ERTS_SMP,1,`
 nocons_nofail_primop_interface_0(nbif_clear_timeout, hipe_clear_timeout)
 noproc_primop_interface_1(nbif_atomic_inc, hipe_atomic_inc)
-',)dnl
 
 /*
  * BIFs that disable GC while trapping are called via a wrapper
@@ -304,6 +290,8 @@ noproc_primop_interface_1(nbif_atomic_inc, hipe_atomic_inc)
  */
 gc_bif_interface_1(nbif_term_to_binary_1, hipe_wrapper_term_to_binary_1)
 gc_bif_interface_2(nbif_term_to_binary_2, hipe_wrapper_term_to_binary_2)
+gc_bif_interface_1(nbif_term_to_iovec_1, hipe_wrapper_term_to_iovec_1)
+gc_bif_interface_2(nbif_term_to_iovec_2, hipe_wrapper_term_to_iovec_2)
 gc_bif_interface_1(nbif_binary_to_term_1, hipe_wrapper_binary_to_term_1)
 gc_bif_interface_2(nbif_binary_to_term_2, hipe_wrapper_binary_to_term_2)
 gc_bif_interface_1(nbif_binary_to_list_1, hipe_wrapper_binary_to_list_1)

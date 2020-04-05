@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,9 @@
 -compile({no_auto_import,[error/1]}).
 -export([expr_grp/3,expr_grp/5,match_bits/6, 
 	 match_bits/7,bin_gen/6]).
+
+-define(STACKTRACE,
+        element(2, erlang:process_info(self(), current_stacktrace))).
 
 %% Types used in this module:
 %% @type bindings(). An abstract structure for bindings between
@@ -78,8 +81,15 @@ eval_field({bin_element, Line, {string, _, S}, Size0, Options0}, Bs0, Fun) ->
         make_bit_type(Line, Size0, Options0),
     {value,Size,Bs1} = Fun(Size1, Bs0),
     Res = << <<(eval_exp_field1(C, Size, Unit,
-				Type, Endian, Sign))/binary>> ||
+				Type, Endian, Sign))/bitstring>> ||
 	      C <- S >>,
+    case S of
+        "" -> % find errors also when the string is empty
+            _ = eval_exp_field1(0, Size, Unit, Type, Endian, Sign),
+            ok;
+        _ ->
+            ok
+    end,
     {Res,Bs1};
 eval_field({bin_element,Line,E,Size0,Options0}, Bs0, Fun) ->
     {value,V,Bs1} = Fun(E, Bs0),
@@ -93,9 +103,9 @@ eval_exp_field1(V, Size, Unit, Type, Endian, Sign) ->
 	eval_exp_field(V, Size, Unit, Type, Endian, Sign)
     catch
 	error:system_limit ->
-	    error(system_limit);
+	    erlang:raise(error, system_limit, ?STACKTRACE);
 	error:_ ->
-	    error(badarg)
+	    erlang:raise(error, badarg, ?STACKTRACE)
     end.
 
 eval_exp_field(Val, Size, Unit, integer, little, signed) ->
@@ -116,10 +126,14 @@ eval_exp_field(Val, _Size, _Unit, utf16, big, _) ->
     <<Val/big-utf16>>;
 eval_exp_field(Val, _Size, _Unit, utf16, little, _) ->
     <<Val/little-utf16>>;
+eval_exp_field(Val, _Size, _Unit, utf16, native, _) ->
+    <<Val/native-utf16>>;
 eval_exp_field(Val, _Size, _Unit, utf32, big, _) ->
     <<Val/big-utf32>>;
 eval_exp_field(Val, _Size, _Unit, utf32, little, _) ->
     <<Val/little-utf32>>;
+eval_exp_field(Val, _Size, _Unit, utf32, native, _) ->
+    <<Val/native-utf32>>;
 eval_exp_field(Val, Size, Unit, float, little, _) ->
     <<Val:(Size*Unit)/float-little>>;
 eval_exp_field(Val, Size, Unit, float, native, _) ->
@@ -131,7 +145,7 @@ eval_exp_field(Val, all, Unit, binary, _, _) ->
 	Size when Size rem Unit =:= 0 ->
 	    <<Val:Size/binary-unit:1>>;
 	_ ->
-	    error(badarg)
+	    erlang:raise(error, badarg, ?STACKTRACE)
     end;
 eval_exp_field(Val, Size, Unit, binary, _, _) ->
     <<Val:(Size*Unit)/binary-unit:1>>.
@@ -184,7 +198,6 @@ bin_gen_field({bin_element,Line,{string,SLine,S},Size0,Options0},
               Bin0, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
         make_bit_type(Line, Size0, Options0),
-    match_check_size(Mfun, Size1, BBs0),
     {value, Size, _BBs} = Efun(Size1, BBs0),
     F = fun(C, Bin, Bs, BBs) ->
                 bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
@@ -197,7 +210,6 @@ bin_gen_field({bin_element,Line,VE,Size0,Options0},
         make_bit_type(Line, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
-    match_check_size(Mfun, Size1, BBs0, false),
     {value, Size, _BBs} = Efun(Size1, BBs0),
     bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun).
 
@@ -266,7 +278,6 @@ match_field_1({bin_element,Line,{string,SLine,S},Size0,Options0},
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
         make_bit_type(Line, Size0, Options0),
     Size2 = erl_eval:partial_eval(Size1),
-    match_check_size(Mfun, Size2, BBs0),
     {value, Size, _BBs} = Efun(Size2, BBs0),
     F = fun(C, Bin, Bs, BBs) ->
                 match_field(Bin, Type, Size, Unit, Sign, Endian,
@@ -280,7 +291,6 @@ match_field_1({bin_element,Line,VE,Size0,Options0},
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
     Size2 = erl_eval:partial_eval(Size1),
-    match_check_size(Mfun, Size2, BBs0),
     {value, Size, _BBs} = Efun(Size2, BBs0),
     match_field(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun).
 
@@ -328,11 +338,17 @@ get_value(Bin, utf16, undefined, _Unit, _Sign, big) ->
 get_value(Bin, utf16, undefined, _Unit, _Sign, little) ->
     <<I/little-utf16,Rest/bits>> = Bin,
     {I,Rest};
+get_value(Bin, utf16, undefined, _Unit, _Sign, native) ->
+    <<I/native-utf16,Rest/bits>> = Bin,
+    {I,Rest};
 get_value(Bin, utf32, undefined, _Unit, _Sign, big) ->
     <<Val/big-utf32,Rest/bits>> = Bin,
     {Val,Rest};
 get_value(Bin, utf32, undefined, _Unit, _Sign, little) ->
     <<Val/little-utf32,Rest/bits>> = Bin,
+    {Val,Rest};
+get_value(Bin, utf32, undefined, _Unit, _Sign, native) ->
+    <<Val/native-utf32,Rest/bits>> = Bin,
     {Val,Rest};
 get_value(Bin, binary, all, Unit, _Sign, _Endian) ->
     0 = (bit_size(Bin) rem Unit),
@@ -377,37 +393,10 @@ make_bit_type(Line, default, Type0) ->
         {ok,all,Bt} -> {{atom,Line,all},erl_bits:as_list(Bt)};
 	{ok,undefined,Bt} -> {{atom,Line,undefined},erl_bits:as_list(Bt)};
         {ok,Size,Bt} -> {{integer,Line,Size},erl_bits:as_list(Bt)};
-        {error,Reason} -> error(Reason)
+        {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)
     end;
 make_bit_type(_Line, Size, Type0) -> %Size evaluates to an integer or 'all'
     case erl_bits:set_bit_type(Size, Type0) of
         {ok,Size,Bt} -> {Size,erl_bits:as_list(Bt)};
-        {error,Reason} -> error(Reason)
+        {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)
     end.
-
-match_check_size(Mfun, Size, Bs) ->
-    match_check_size(Mfun, Size, Bs, true).
-
-match_check_size(Mfun, {var,_,V}, Bs, _AllowAll) ->
-    case Mfun(binding, {V,Bs}) of
-        {value,_} -> ok;
-	unbound -> throw(invalid) % or, rather, error({unbound,V})
-    end;
-match_check_size(_, {atom,_,all}, _Bs, true) ->
-    ok;
-match_check_size(_, {atom,_,all}, _Bs, false) ->
-    throw(invalid);
-match_check_size(_, {atom,_,undefined}, _Bs, _AllowAll) ->
-    ok;
-match_check_size(_, {integer,_,_}, _Bs, _AllowAll) ->
-    ok;
-match_check_size(_, {value,_,_}, _Bs, _AllowAll) ->
-    ok;	%From the debugger.
-match_check_size(_, _, _Bs, _AllowAll) ->
-    throw(invalid).
-
-%% error(Reason) -> exception thrown
-%%  Throw a nice-looking exception, similar to exceptions from erl_eval.
-error(Reason) ->
-    erlang:raise(error, Reason, [{erl_eval,expr,3}]).
-

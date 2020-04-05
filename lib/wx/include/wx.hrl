@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -373,6 +373,24 @@
 -define(wxDefaultPosition, {-1,-1}).
 
 %% Global Variables
+-define('WX_GL_CORE_PROFILE',  wxe_util:get_const('WX_GL_CORE_PROFILE')).
+-define('WX_GL_DEBUG',  wxe_util:get_const('WX_GL_DEBUG')).
+-define('WX_GL_ES2',  wxe_util:get_const('WX_GL_ES2')).
+-define('WX_GL_FORWARD_COMPAT',  wxe_util:get_const('WX_GL_FORWARD_COMPAT')).
+-define('WX_GL_FRAMEBUFFER_SRGB',  wxe_util:get_const('WX_GL_FRAMEBUFFER_SRGB')).
+-define('WX_GL_LOSE_ON_RESET',  wxe_util:get_const('WX_GL_LOSE_ON_RESET')).
+-define('WX_GL_MAJOR_VERSION',  wxe_util:get_const('WX_GL_MAJOR_VERSION')).
+-define('WX_GL_MINOR_VERSION',  wxe_util:get_const('WX_GL_MINOR_VERSION')).
+-define('WX_GL_NO_RESET_NOTIFY',  wxe_util:get_const('WX_GL_NO_RESET_NOTIFY')).
+-define('WX_GL_RELEASE_FLUSH',  wxe_util:get_const('WX_GL_RELEASE_FLUSH')).
+-define('WX_GL_RELEASE_NONE',  wxe_util:get_const('WX_GL_RELEASE_NONE')).
+-define('WX_GL_RESET_ISOLATION',  wxe_util:get_const('WX_GL_RESET_ISOLATION')).
+-define('WX_GL_ROBUST_ACCESS',  wxe_util:get_const('WX_GL_ROBUST_ACCESS')).
+-define('WX_GL_SAMPLES',  wxe_util:get_const('WX_GL_SAMPLES')).
+-define('WX_GL_SAMPLE_BUFFERS',  wxe_util:get_const('WX_GL_SAMPLE_BUFFERS')).
+-define(wxBG_STYLE_ERASE,  wxe_util:get_const(wxBG_STYLE_ERASE)).
+-define(wxBG_STYLE_PAINT,  wxe_util:get_const(wxBG_STYLE_PAINT)).
+-define(wxBG_STYLE_TRANSPARENT,  wxe_util:get_const(wxBG_STYLE_TRANSPARENT)).
 -define(wxBLACK,  wxe_util:get_const(wxBLACK)).
 -define(wxBLACK_BRUSH,  wxe_util:get_const(wxBLACK_BRUSH)).
 -define(wxBLACK_DASHED_PEN,  wxe_util:get_const(wxBLACK_DASHED_PEN)).
@@ -383,12 +401,24 @@
 -define(wxCYAN,  wxe_util:get_const(wxCYAN)).
 -define(wxCYAN_BRUSH,  wxe_util:get_const(wxCYAN_BRUSH)).
 -define(wxCYAN_PEN,  wxe_util:get_const(wxCYAN_PEN)).
+-define(wxFONTWEIGHT_EXTRABOLD,  wxe_util:get_const(wxFONTWEIGHT_EXTRABOLD)).
+-define(wxFONTWEIGHT_EXTRAHEAVY,  wxe_util:get_const(wxFONTWEIGHT_EXTRAHEAVY)).
+-define(wxFONTWEIGHT_EXTRALIGHT,  wxe_util:get_const(wxFONTWEIGHT_EXTRALIGHT)).
+-define(wxFONTWEIGHT_HEAVY,  wxe_util:get_const(wxFONTWEIGHT_HEAVY)).
+-define(wxFONTWEIGHT_INVALID,  wxe_util:get_const(wxFONTWEIGHT_INVALID)).
+-define(wxFONTWEIGHT_MEDIUM,  wxe_util:get_const(wxFONTWEIGHT_MEDIUM)).
+-define(wxFONTWEIGHT_SEMIBOLD,  wxe_util:get_const(wxFONTWEIGHT_SEMIBOLD)).
+-define(wxFONTWEIGHT_THIN,  wxe_util:get_const(wxFONTWEIGHT_THIN)).
 -define(wxGREEN,  wxe_util:get_const(wxGREEN)).
 -define(wxGREEN_BRUSH,  wxe_util:get_const(wxGREEN_BRUSH)).
 -define(wxGREEN_PEN,  wxe_util:get_const(wxGREEN_PEN)).
 -define(wxGREY_BRUSH,  wxe_util:get_const(wxGREY_BRUSH)).
 -define(wxGREY_PEN,  wxe_util:get_const(wxGREY_PEN)).
 -define(wxHOURGLASS_CURSOR,  wxe_util:get_const(wxHOURGLASS_CURSOR)).
+-define(wxIMAGE_QUALITY_BICUBIC,  wxe_util:get_const(wxIMAGE_QUALITY_BICUBIC)).
+-define(wxIMAGE_QUALITY_BILINEAR,  wxe_util:get_const(wxIMAGE_QUALITY_BILINEAR)).
+-define(wxIMAGE_QUALITY_BOX_AVERAGE,  wxe_util:get_const(wxIMAGE_QUALITY_BOX_AVERAGE)).
+-define(wxIMAGE_QUALITY_NEAREST,  wxe_util:get_const(wxIMAGE_QUALITY_NEAREST)).
 -define(wxITALIC_FONT,  wxe_util:get_const(wxITALIC_FONT)).
 -define(wxLIGHT_GREY,  wxe_util:get_const(wxLIGHT_GREY)).
 -define(wxLIGHT_GREY_BRUSH,  wxe_util:get_const(wxLIGHT_GREY_BRUSH)).
@@ -414,6 +444,7 @@
 -define(wxWHITE,  wxe_util:get_const(wxWHITE)).
 -define(wxWHITE_BRUSH,  wxe_util:get_const(wxWHITE_BRUSH)).
 -define(wxWHITE_PEN,  wxe_util:get_const(wxWHITE_PEN)).
+-define(wx_GL_COMPAT_PROFILE,  wxe_util:get_const(wx_GL_COMPAT_PROFILE)).
 
 %% Enum and defines
 % From class wxAuiManager
@@ -712,6 +743,12 @@
 -define(wxACCEL_CTRL, 2).
 -define(wxACCEL_SHIFT, 4).
 -define(wxACCEL_CMD, ?wxACCEL_CTRL).
+% From "added__func.h"
+-define(wxMOUSE_BTN_AUX2, 5).
+-define(wxMOUSE_BTN_AUX1, 4).
+% From "added__func.h": wxMouseWheelAxis
+-define(wxMOUSE_WHEEL_VERTICAL, 0).
+-define(wxMOUSE_WHEEL_HORIZONTAL, 1).
 % From "app.h"
 -define(wxPRINT_WINDOWS, 1).
 -define(wxPRINT_POSTSCRIPT, 2).
@@ -1201,9 +1238,9 @@
 -define(wxALIGN_CENTRE, ?wxALIGN_CENTER).
 -define(wxALIGN_MASK, 3840).
 % From "defs.h": wxBackgroundStyle
--define(wxBG_STYLE_SYSTEM, 0).
--define(wxBG_STYLE_COLOUR, 1).
--define(wxBG_STYLE_CUSTOM, 2).
+-define(wxBG_STYLE_SYSTEM, wxe_util:get_const(wxBG_STYLE_SYSTEM)).
+-define(wxBG_STYLE_COLOUR, wxe_util:get_const(wxBG_STYLE_COLOUR)).
+-define(wxBG_STYLE_CUSTOM, wxe_util:get_const(wxBG_STYLE_CUSTOM)).
 % From "defs.h": wxBorder
 -define(wxBORDER_DEFAULT, 0).
 -define(wxBORDER_NONE, 2097152).
@@ -1669,10 +1706,10 @@
 -define(wxFONTSTYLE_SLANT, ?wxSLANT).
 -define(wxFONTSTYLE_MAX, (?wxSLANT+1)).
 % From "font.h": wxFontWeight
--define(wxFONTWEIGHT_NORMAL, ?wxNORMAL).
--define(wxFONTWEIGHT_LIGHT, ?wxLIGHT).
--define(wxFONTWEIGHT_BOLD, ?wxBOLD).
--define(wxFONTWEIGHT_MAX, (?wxBOLD+1)).
+-define(wxFONTWEIGHT_NORMAL, wxe_util:get_const(wxFONTWEIGHT_NORMAL)).
+-define(wxFONTWEIGHT_LIGHT, wxe_util:get_const(wxFONTWEIGHT_LIGHT)).
+-define(wxFONTWEIGHT_BOLD, wxe_util:get_const(wxFONTWEIGHT_BOLD)).
+-define(wxFONTWEIGHT_MAX, wxe_util:get_const(wxFONTWEIGHT_MAX)).
 % From "fontenc.h": wxFontEncoding
 -define(wxFONTENCODING_SYSTEM, -1).
 -define(wxFONTENCODING_DEFAULT, 0).
@@ -2008,8 +2045,8 @@
 -define(wxIMAGE_RESOLUTION_INCHES, 1).
 -define(wxIMAGE_RESOLUTION_CM, 2).
 % From "image.h"
--define(wxIMAGE_QUALITY_NORMAL, 0).
--define(wxIMAGE_QUALITY_HIGH, 1).
+-define(wxIMAGE_QUALITY_NORMAL, wxe_util:get_const(wxIMAGE_QUALITY_NORMAL)).
+-define(wxIMAGE_QUALITY_HIGH, wxe_util:get_const(wxIMAGE_QUALITY_HIGH)).
 % From "imaglist.h"
 -define(wxIMAGE_LIST_NORMAL, 0).
 -define(wxIMAGE_LIST_SMALL, 1).

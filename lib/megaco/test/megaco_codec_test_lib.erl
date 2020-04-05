@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -993,15 +993,15 @@ expect_exec([#expect_instruction{description = Desc,
 
 skip({What, Why}) when is_atom(What) andalso is_list(Why) ->
     Reason = lists:flatten(io_lib:format("~p: ~s", [What, Why])),
-    exit({skipped, Reason});
+    ?SKIP(Reason);
 skip({What, Why}) ->
     Reason = lists:flatten(io_lib:format("~p: ~p", [What, Why])),
-    exit({skipped, Reason});
+    ?SKIP(Reason);
 skip(Reason) when is_list(Reason) ->
-    exit({skipped, Reason});
+    ?SKIP(Reason);
 skip(Reason1) ->
     Reason2 = lists:flatten(io_lib:format("~p", [Reason1])),
-    exit({skipped, Reason2}).
+    ?SKIP(Reason2).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -191,7 +191,7 @@ check_logs(Dirs) ->
         [] ->
             ok;
         Match ->
-            MatchStr = string:join(Match,"\n"),
+            MatchStr = lists:join("\n",Match),
             ct:log("ERROR: Escaped unicode characters found in:~n~ts",[MatchStr]),
             ct:fail(escaped_unicode_characters_found)
     end.

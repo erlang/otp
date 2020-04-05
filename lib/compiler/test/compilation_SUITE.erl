@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,8 @@
 	 string_table/1,
 	 vsn_1/1,
 	 vsn_2/1,
-	 vsn_3/1]).
+         vsn_3/1,
+         infinite_loop/0,infinite_loop/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -66,7 +67,6 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [self_compile_old_inliner,self_compile,
      {group,p}].
 
@@ -85,9 +85,11 @@ groups() ->
        opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
        otp_7202,on_load,on_load_inline,
-       string_table,otp_8949_a,split_cases]}].
+       string_table,otp_8949_a,split_cases,
+       infinite_loop]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -136,6 +138,9 @@ end_per_group(_GroupName, Config) ->
 ?comp(on_load).
 ?comp(on_load_inline).
 
+infinite_loop() -> [{timetrap,{minutes,1}}].
+?comp(infinite_loop).
+
 %% Code snippet submitted from Ulf Wiger which fails in R3 Beam.
 beam_compiler_7(Config) when is_list(Config) ->
     done = empty(2, false).
@@ -170,7 +175,7 @@ try_it(Module, Conf) ->
 			atom_to_list(Module)),
     Out = proplists:get_value(priv_dir,Conf),
     io:format("Compiling: ~s\n", [Src]),
-    CompRc0 = compile:file(Src, [clint0,clint,{outdir,Out},report,
+    CompRc0 = compile:file(Src, [clint0,clint,ssalint,{outdir,Out},report,
 				 bin_opt_info|OtherOpts]),
     io:format("Result: ~p\n",[CompRc0]),
     {ok,_Mod} = CompRc0,
@@ -189,7 +194,7 @@ try_it(Module, Conf) ->
 
     ct:timetrap(Timetrap),
     io:format("Compiling (with old inliner): ~s\n", [Src]),
-    CompRc2 = compile:file(Src, [clint,
+    CompRc2 = compile:file(Src, [clint,ssalint,
 				 {outdir,Out},report,bin_opt_info,
 				 {inline,1000}|OtherOpts]),
     io:format("Result: ~p\n",[CompRc2]),
@@ -355,7 +360,7 @@ compile_compiler(Files, OutDir, Version, InlineOpts) ->
     io:format("~ts", [code:which(compile)]),
     io:format("Compiling ~s into ~ts", [Version,OutDir]),
     Opts = [report,
-	    clint0,clint,
+	    clint0,clint,ssalint,
 	    bin_opt_info,
 	    {outdir,OutDir},
 	    {d,'COMPILER_VSN',"\""++Version++"\""},

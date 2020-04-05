@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,8 +107,8 @@ init(Parent, WxEnv, Xref, RelPid, C, ModName) ->
     try
 	do_init(Parent, WxEnv, Xref, RelPid, C, ModName)
     catch
-	error:Reason ->
-	    exit({Reason, erlang:get_stacktrace()})
+	error:Reason:Stacktrace ->
+	    exit({Reason, Stacktrace})
     end.
 
 do_init(Parent, WxEnv, Xref, RelPid, C, ModName) ->
@@ -833,7 +833,7 @@ load_code(Ed, Code) when is_binary(Code) ->
 
 keyWords() ->
     L = ["after","begin","case","try","cond","catch","andalso","orelse",
-	 "end","fun","if","let","of","query","receive","when","bnot","not",
+	 "end","fun","if","let","of","receive","when","bnot","not",
 	 "div","rem","band","and","bor","bxor","bsl","bsr","or","xor"],
     lists:flatten([K ++ " " || K <- L] ++ [0]).
 

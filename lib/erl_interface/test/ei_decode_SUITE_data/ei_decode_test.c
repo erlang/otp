@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,6 @@
 
 #include <string.h>
 
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
-
 #include "ei_runner.h"
 
 /*
@@ -31,15 +27,9 @@
  * Author:  Kent
  */
 
-#ifdef VXWORKS
-#define MESSAGE_BACK(SIZE) \
-    message("err = %d, size2 = %d, expected size = %d", \
-             err, size1, SIZE); 
-#else
 #define MESSAGE_BACK(SIZE) \
     message("err = %d, size2 = %d, expected size = %d, long long val = %lld", \
              err, size1, SIZE, (EI_LONGLONG)p); 
-#endif
 
 #define ERLANG_ANY (ERLANG_ASCII|ERLANG_LATIN1|ERLANG_UTF8)
 
@@ -105,6 +95,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
         fail1("size of encoded data (%d) is incorrect", size1);    \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define EI_DECODE_2_FAIL(FUNC,SIZE,TYPE,VAL) \
@@ -148,6 +139,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data should be 0"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define dump(arr, num) {	    \
@@ -205,6 +197,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data is incorrect"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define EI_DECODE_STRING(FUNC,SIZE,VAL) \
@@ -248,74 +241,146 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data should be 0"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 //#define EI_DECODE_UTF8_STRING(FUNC,SIZE,VAL) 
 
-#define EI_DECODE_BIN(FUNC,SIZE,VAL,LEN) \
-  { \
-    char p[1024]; \
-    char *buf; \
-    long len; \
-    int size1 = 0; \
-    int size2 = 0; \
-    int err; \
-    message("ei_" #FUNC " should be " #VAL); \
-    buf = read_packet(NULL); \
-    err = ei_ ## FUNC(buf+1, &size1, NULL, &len); \
+static void decode_bin(int exp_size, const char* val, int exp_len)
+{
+    char p[1024];
+    char *buf;
+    long len;
+    int size1 = 0;
+    int size2 = 0;
+    int err;
+    message("ei_decode_binary should be %s", val);
+    buf = read_packet(NULL);
+    err = ei_decode_binary(buf+1, &size1, NULL, &len);
     message("err = %d, size = %d, len = %d, expected size = %d, expected len = %d\n",\
-            err,size1,len,SIZE,LEN); \
-    if (err != 0) { \
-      if (err != -1) { \
-	fail("returned non zero but not -1 if NULL pointer"); \
-      } else { \
-	fail("returned non zero"); \
-      } \
-      return; \
-    } \
-\
-    if (len != LEN) { \
-      fail("size is not correct"); \
-      return; \
-    } \
-\
-    err = ei_ ## FUNC(buf+1, &size2, p, &len); \
+            err,size1,len, exp_size, exp_len);
+    if (err != 0) {
+      if (err != -1) {
+	fail("returned non zero but not -1 if NULL pointer");
+      } else {
+	fail("returned non zero");
+      }
+      return;
+    }
+
+    if (len != exp_len) {
+      fail("size is not correct");
+      return;
+    }
+
+    err = ei_decode_binary(buf+1, &size2, p, &len);
     message("err = %d, size = %d, len = %d, expected size = %d, expected len = %d\n",\
-            err,size2,len,SIZE,LEN); \
-    if (err != 0) { \
-      if (err != -1) { \
-	fail("returned non zero but not -1 if NULL pointer"); \
-      } else { \
-	fail("returned non zero"); \
-      } \
-      return; \
-    } \
-\
-    if (len != LEN) { \
-      fail("size is not correct"); \
-      return; \
-    } \
-\
-    if (strncmp(p,VAL,LEN) != 0) { \
-      fail("value is not correct"); \
-      return; \
-    } \
-\
-    if (size1 != size2) { \
-      fail("size with and without pointer differs"); \
-      return; \
-    } \
-\
-    if (size1 != SIZE) { \
-      fail("size of encoded data is incorrect"); \
-      return; \
-    } \
-  } \
+            err,size2,len, exp_size, exp_len);
+    if (err != 0) {
+      if (err != -1) {
+	fail("returned non zero but not -1 if NULL pointer");
+      } else {
+	fail("returned non zero");
+      }
+      return;
+    }
+
+    if (len != exp_len) {
+      fail("size is not correct");
+      return;
+    }
+
+    if (strncmp(p,val,exp_len) != 0) {
+      fail("value is not correct");
+      return;
+    }
+
+    if (size1 != size2) {
+      fail("size with and without pointer differs");
+      return;
+    }
+
+    if (size1 != exp_size) {
+      fail("size of encoded data is incorrect");
+      return;
+    }
+    free_packet(buf);
+}
+
+static void decode_bits(int exp_size, const char* val, size_t exp_bits)
+{
+    const char* p;
+    char *buf;
+    size_t bits;
+    int bitoffs;
+    int size1 = 0;
+    int size2 = 0;
+    int err;
+    message("ei_decode_bitstring should be %d bits", (int)exp_bits);
+    buf = read_packet(NULL);
+    err = ei_decode_bitstring(buf+1, &size1, NULL, &bitoffs, &bits);
+    message("err = %d, size = %d, bitoffs = %d, bits = %d, expected size = %d, expected bits = %d\n",\
+            err,size1, bitoffs, (int)bits, exp_size, (int)exp_bits);
+
+    if (err != 0) {
+        if (err != -1) {
+            fail("returned non zero but not -1 if NULL pointer");
+        } else {
+            fail("returned non zero");
+        }
+        return;
+    }
+
+    if (bits != exp_bits) {
+        fail("number of bits is not correct");
+        return;
+    }
+    if (bitoffs != 0) {
+        fail("non zero bit offset");
+        return;
+    }
+
+    err = ei_decode_bitstring(buf+1, &size2, &p, NULL, &bits);
+    message("err = %d, size = %d, len = %d, expected size = %d, expected len = %d\n",\
+            err,size2, (int)bits, exp_size, (int)exp_bits);
+    if (err != 0) {
+        if (err != -1) {
+            fail("returned non zero but not -1 if NULL pointer");
+        } else {
+            fail("returned non zero");
+        }
+        return;
+    }
+
+    if (bits != exp_bits) {
+        fail("bits is not correct");
+        return;
+    }
+
+    if (memcmp(p, val, (exp_bits+7)/8) != 0) {
+        fail("value is not correct");
+        return;
+    }
+
+    if (size1 != size2) {
+        fail("size with and without pointer differs");
+        return;
+    }
+
+    if (size1 != exp_size) {
+        fail2("size of encoded data is incorrect %d != %d", size1, exp_size);
+        return;
+    }
+    free_packet(buf);
+}
+
 
 /* ******************************************************************** */
 
 TESTCASE(test_ei_decode_long)
 {
+    ei_init();
+
     EI_DECODE_2     (decode_long,  2, long, 0);
     EI_DECODE_2     (decode_long,  2, long, 255);
     EI_DECODE_2     (decode_long,  5, long, 256);
@@ -358,6 +423,8 @@ TESTCASE(test_ei_decode_long)
 
 TESTCASE(test_ei_decode_ulong)
 {
+    ei_init();
+
     EI_DECODE_2     (decode_ulong,  2, unsigned long, 0);
     EI_DECODE_2     (decode_ulong,  2, unsigned long, 255);
     EI_DECODE_2     (decode_ulong,  5, unsigned long, 256);
@@ -404,7 +471,8 @@ TESTCASE(test_ei_decode_ulong)
 
 TESTCASE(test_ei_decode_longlong)
 {
-#ifndef VXWORKS
+    ei_init();
+
     EI_DECODE_2     (decode_longlong,  2, EI_LONGLONG, 0);
     EI_DECODE_2     (decode_longlong,  2, EI_LONGLONG, 255);
     EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, 256);
@@ -430,7 +498,6 @@ TESTCASE(test_ei_decode_longlong)
     EI_DECODE_2_FAIL(decode_longlong, 11, EI_LONGLONG,  ll(0xffffffffffffffff));
 
     EI_DECODE_2_FAIL(decode_longlong,  1, EI_LONGLONG,  0); /* Illegal type */
-#endif
     report(1);
 }
 
@@ -438,7 +505,8 @@ TESTCASE(test_ei_decode_longlong)
 
 TESTCASE(test_ei_decode_ulonglong)
 {
-#ifndef VXWORKS
+    ei_init();
+
     EI_DECODE_2     (decode_ulonglong, 2, EI_ULONGLONG, 0);
     EI_DECODE_2     (decode_ulonglong, 2, EI_ULONGLONG, 255);
     EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG, 256);
@@ -464,7 +532,6 @@ TESTCASE(test_ei_decode_ulonglong)
     EI_DECODE_2     (decode_ulonglong,11, EI_ULONGLONG,  ll(0xffffffffffffffff));
 
     EI_DECODE_2_FAIL(decode_ulonglong, 1, EI_ULONGLONG, 0); /* Illegal type */
-#endif
     report(1);
 }
 
@@ -473,6 +540,8 @@ TESTCASE(test_ei_decode_ulonglong)
 
 TESTCASE(test_ei_decode_char)
 {
+    ei_init();
+
     EI_DECODE_2(decode_char, 2, char, 0);
     EI_DECODE_2(decode_char, 2, char, 0x7f);
     EI_DECODE_2(decode_char, 2, char, 0xff);
@@ -486,6 +555,8 @@ TESTCASE(test_ei_decode_char)
 
 TESTCASE(test_ei_decode_nonoptimal)
 {
+    ei_init();
+
     EI_DECODE_2(decode_char,  2, char, 42);
     EI_DECODE_2(decode_char,  5, char, 42);
     EI_DECODE_2(decode_char,  4, char, 42);
@@ -552,8 +623,6 @@ TESTCASE(test_ei_decode_nonoptimal)
 
     /* ---------------------------------------------------------------- */
 
-#ifndef VXWORKS
-
     EI_DECODE_2(decode_longlong,  2, EI_LONGLONG, 42);
     EI_DECODE_2(decode_longlong,  5, EI_LONGLONG, 42);
     EI_DECODE_2(decode_longlong,  4, EI_LONGLONG, 42);
@@ -596,8 +665,6 @@ TESTCASE(test_ei_decode_nonoptimal)
 /*  EI_DECODE_2(decode_ulonglong, EI_ULONGLONG, -42); */
 /*  EI_DECODE_2(decode_ulonglong, EI_ULONGLONG, -42); */
 
-#endif /* !VXWORKS */
-
     /* ---------------------------------------------------------------- */
 
     report(1);
@@ -607,6 +674,8 @@ TESTCASE(test_ei_decode_nonoptimal)
 
 TESTCASE(test_ei_decode_misc)
 {
+    ei_init();
+
 /*
     EI_DECODE_0(decode_version);
 */
@@ -625,9 +694,17 @@ TESTCASE(test_ei_decode_misc)
     EI_DECODE_STRING(decode_my_string, 1, "");
     EI_DECODE_STRING(decode_my_string, 9, "≈ƒ÷Â‰ˆ");
 
-    EI_DECODE_BIN(decode_binary,  8, "foo", 3);
-    EI_DECODE_BIN(decode_binary,  5, "", 0);
-    EI_DECODE_BIN(decode_binary, 11, "≈ƒ÷Â‰ˆ", 6);
+    decode_bin(8, "foo", 3);
+    decode_bin(5, "", 0);
+    decode_bin(11, "≈ƒ÷Â‰ˆ", 6);
+
+#define LAST_BYTE(V, BITS) ((V) << (8-(BITS)))
+    {
+        unsigned char bits1[] = {1, 2, LAST_BYTE(3,5) };
+        unsigned char bits2[] = {LAST_BYTE(1,1) };
+        decode_bits(9, bits1, 21);
+        decode_bits(7, bits2, 1);
+    }
 
     /* FIXME check \0 in strings and atoms? */
 /*
@@ -642,6 +719,7 @@ TESTCASE(test_ei_decode_misc)
 
 TESTCASE(test_ei_decode_utf8_atom)
 {
+    ei_init();
 
   EI_DECODE_STRING_4(decode_my_atom_as, 4, P99({229,0}), /* LATIN1 "Â" */
 		   P99({ERLANG_ANY,ERLANG_LATIN1,ERLANG_LATIN1}));

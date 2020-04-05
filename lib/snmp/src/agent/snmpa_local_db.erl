@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,12 +147,13 @@ init([Prio, DbDir, DbInitError, Opts]) ->
 do_init(Prio, DbDir, DbInitError, Opts) ->
     process_flag(priority, Prio),
     process_flag(trap_exit, true),
-    put(sname,ldb),
-    put(verbosity,get_opt(verbosity, Opts, ?default_verbosity)),
+    put(sname,     get_opt(sname, Opts, ldb)),
+    put(verbosity, get_opt(verbosity, Opts, ?default_verbosity)),
     ?vlog("starting",[]),
     Dets = dets_open(DbDir, DbInitError, Opts),
     Ets  = ets:new(?ETS_TAB, [set, protected]),
     ?vdebug("started",[]),
+    put(started,   snmp_misc:formated_timestamp()),
     {ok, #state{dets = Dets, ets = Ets}}.
 
 dets_open(DbDir, DbInitError, Opts) ->
@@ -625,7 +626,7 @@ handle_info(Info, State) ->
 
 
 terminate(Reason, State) ->
-    ?vlog("terminate: ~p",[Reason]),
+    ?vlog("terminate: ~p", [Reason]),
     close(State).
 
 
@@ -732,16 +733,16 @@ dets_backup(close, _Cont, _D, B) ->
     ok;
 dets_backup(read, Cont1, D, B) ->
     case dets:bchunk(D, Cont1) of
+	{error, _} = ERROR ->
+	    ERROR;
+	'$end_of_table' ->
+	    dets:close(B),
+	    end_of_input;
 	{Cont2, Data} ->
 	    F = fun(Arg) ->
 			dets_backup(Arg, Cont2, D, B)
 		end,
-	    {Data, F};
-	'$end_of_table' ->
-	    dets:close(B),
-	    end_of_input;
-	Error ->
-	    Error
+	    {Data, F}
     end.
 
 

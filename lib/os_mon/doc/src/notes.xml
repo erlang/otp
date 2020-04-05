@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,107 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
+
+<section><title>Os_Mon 2.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>disk_sup</c> to ignore squashfs on Linux when
+	    determining if a mounted filesystem is full or not.</p>
+          <p>
+	    Own Id: OTP-15778</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where <c>cpu_sup:util()</c> always returned 100%
+	    on systems not using gnu libc, for example Alpine OS.</p>
+          <p>
+	    Own Id: OTP-15974 Aux Id: ERL-1012 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix typespec of <c>cpu_sup:util()</c>.</p>
+          <p>
+	    Own Id: OTP-15770 Aux Id: PR-2208 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The application otp_mibs has been removed from OTP. Some
+	    of its components (mibs) have been moved to other apps
+	    (snmp), or removed completely (os_mon).</p>
+          <p>
+	    Own Id: OTP-14984 Aux Id: OTP-15329 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Due to <c>/proc</c> restrictions in newer Android
+	    releases enforced by SELinux, cpu_sup is fixed so that it
+	    gets some basic CPU stats using the <c>sysinfo</c>
+	    syscall rather than reading <c>/proc/loadavg</c>.</p>
+          <p>
+	    Own Id: OTP-15387 Aux Id: PR-1966 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>disksup</c> to handle mount paths with spaces in
+	    them.</p>
+          <p>
+	    Own Id: OTP-14513</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Os_Mon 2.4.4</title>
 

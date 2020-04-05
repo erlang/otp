@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 %% %CopyrightEnd%
 %%--------------------------------------------------------------------
 
-%%% @doc Common Test Framework functions handling test specifications.
+%%% Common Test Framework functions handling test specifications.
 %%%
-%%% <p>This module creates a junit report of the test run if plugged in
-%%% as a suite_callback.</p>
+%%% This module creates a junit report of the test run if plugged in
+%%% as a suite_callback.
 
 -module(cth_surefire).
 
@@ -184,15 +184,14 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
     Log =
 	case Log0 of
 	    "" ->
-		LowerSuiteName = string:to_lower(atom_to_list(Suite)),
+		LowerSuiteName = string:lowercase(atom_to_list(Suite)),
 		filename:join(CurrLogDir,LowerSuiteName++"."++Name++".html");
 	    _ ->
 		Log0
 	end,
     Url = make_url(UrlBase,Log),
     ClassName = atom_to_list(Suite),
-    PGroup = string:join([ atom_to_list(Group)||
-			     Group <- lists:reverse(Groups)],"."),
+    PGroup = lists:concat(lists:join(".",lists:reverse(Groups))),
     TimeTakes = io_lib:format("~f",[timer:now_diff(?now,TS) / 1000000]),
     State#state{ test_cases = [#testcase{ log = Log,
 					  url = Url,
@@ -236,7 +235,7 @@ close_suite(#state{ test_cases = TCs, url_base = UrlBase } = State) ->
 terminate(State = #state{ test_cases = [] }) ->
     {ok,D} = file:open(State#state.filepath,[write,{encoding,utf8}]),
     io:format(D, "<?xml version=\"1.0\" encoding= \"UTF-8\" ?>", []),
-    io:format(D, to_xml(State), []),
+    io:format(D, "~ts", [to_xml(State)]),
     catch file:sync(D),
     catch file:close(D);
 terminate(State) ->
@@ -317,9 +316,9 @@ make_url(undefined,_) ->
 make_url(_,[]) ->
     undefined;
 make_url(UrlBase0,Log) ->
-    UrlBase = string:strip(UrlBase0,right,$/),
+    UrlBase = string:trim(UrlBase0,trailing,[$/]),
     RelativeLog = get_relative_log_url(Log),
-    string:join([UrlBase,RelativeLog],"/").
+    lists:flatten(lists:join($/,[UrlBase,RelativeLog])).
 
 get_test_root(Log) ->
     LogParts = filename:split(Log),
@@ -329,7 +328,7 @@ get_relative_log_url(Log) ->
     LogParts = filename:split(Log),
     Start = length(LogParts)-?log_depth,
     Length = ?log_depth+1,
-    string:join(lists:sublist(LogParts,Start,Length),"/").
+    lists:flatten(lists:join($/,lists:sublist(LogParts,Start,Length))).
 
 count_tcs([#testcase{name=ConfCase}|TCs],Ok,F,S)
   when ConfCase=="init_per_suite";

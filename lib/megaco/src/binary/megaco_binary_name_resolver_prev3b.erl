@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,11 @@
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Handle meta data about packages
+%%
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%
 %%----------------------------------------------------------------------
 
 -module(megaco_binary_name_resolver_prev3b).
@@ -1715,7 +1720,7 @@ decode_nt({event_parameter, Item}, SubItem) ->
                 [16#00, 16#01] -> "cs"
             end;
         [16#00, 16#06] -> % Event qualert
-            case Item of
+            case SubItem of
                 [16#00, 16#01] -> "th"
             end
 	end;

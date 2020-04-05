@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1038,8 +1038,7 @@ do_from_other_process(Fun) ->
 			  Result ->
 			      Parent ! {Ref,Result}
 		      catch
-			  Class:Reason ->
-			      Stacktrace = erlang:get_stacktrace(),
+			  Class:Reason:Stacktrace ->
 			      Parent ! {Ref,Class,Reason,Stacktrace}
 		      end
 	      end),
@@ -1460,11 +1459,11 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo) ->
     do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun).
 %%
 do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
-    ServerFamily = get_family_by_addrs(ServerAddresses),
+    {ServerFamily, ServerOpts} = get_family_by_addrs(ServerAddresses),
     io:format("Serving ~p addresses: ~p~n",
 	      [ServerFamily, ServerAddresses]),
     S1 = ok(gen_sctp:open(0, [{ip,Addr} || Addr <- ServerAddresses] ++
-			      [ServerFamily])),
+			      [ServerFamily|ServerOpts])),
     ok = gen_sctp:listen(S1, true),
     P1 = ok(inet:port(S1)),
     ClientFamily = get_family_by_addr(AddressToConnectTo),
@@ -1494,9 +1493,9 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
 %% If at least one of the addresses is an ipv6 address, return inet6, else inet.
 get_family_by_addrs(Addresses) ->
     case lists:usort([get_family_by_addr(Addr) || Addr <- Addresses]) of
-	[inet, inet6] -> inet6;
-	[inet]        -> inet;
-	[inet6]       -> inet6
+	[inet, inet6] -> {inet6, [{ipv6_v6only, false}]};
+	[inet]        -> {inet,  []};
+	[inet6]       -> {inet6, []}
     end.
 
 get_family_by_addr(Addr) when tuple_size(Addr) =:= 4 -> inet;
@@ -1617,8 +1616,7 @@ s_start(Socket, Timeout, Parent) ->
     try
 	s_loop(Socket, Timeout, Parent, Handler, gb_trees:empty())
     catch
-	Class:Reason ->
-	    Stacktrace = erlang:get_stacktrace(),
+	Class:Reason:Stacktrace ->
 	    io:format(?MODULE_STRING":socket exception ~w:~w at~n"
 		      "~p.~n", [Class,Reason,Stacktrace]),
 	    erlang:raise(Class, Reason, Stacktrace)

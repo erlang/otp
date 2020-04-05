@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,8 +59,9 @@ init([Pid, ParentFrame, Parent]) ->
 		  {registered_name, Registered} -> io_lib:format("~tp (~p)",[Registered, Pid]);
 		  undefined -> throw(process_undefined)
 	      end,
+    Scale = observer_wx:get_scale(),
 	Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [atom_to_list(node(Pid)), $:, Title],
-			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {850,600}}]),
+			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {Scale * 850, Scale * 600}}]),
 	MenuBar = wxMenuBar:new(),
 	create_menus(MenuBar),
 	wxFrame:setMenuBar(Frame, MenuBar),
@@ -148,7 +149,7 @@ handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
 	    observer ! {open_link, Href},
 	    {noreply, State};
 	Callback ->
-	    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = httpd:parse_query(Rest),
+	    [{"key1",Key1},{"key2",Key2},{"key3",Key3}] = uri_string:dissect_query(Rest),
 	    Id = {obs, {T,{list_to_integer(Key1),
 			   list_to_integer(Key2),
 			   list_to_integer(Key3)}}},
@@ -213,12 +214,14 @@ init_process_page(Panel, Pid) ->
 
 init_message_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
+    Cs = observer_lib:colors(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
 					      [Pid, messages])
 		     of
 			 {messages, Messages} ->
-			     Html = observer_html_lib:expandable_term("Message Queue", Messages, Table),
+			     Html = observer_html_lib:expandable_term("Message Queue", Messages,
+                                                                      Table, Cs),
 			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
@@ -229,11 +232,12 @@ init_message_page(Parent, Pid, Table) ->
 
 init_dict_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
+    Cs = observer_lib:colors(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary])
 		     of
 			 {dictionary,Dict} ->
-			     Html = observer_html_lib:expandable_term("Dictionary", Dict, Table),
+			     Html = observer_html_lib:expandable_term("Dictionary", Dict, Table, Cs),
 			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
@@ -245,13 +249,16 @@ init_dict_page(Parent, Pid, Table) ->
 init_stack_page(Parent, Pid) ->
     LCtrl = wxListCtrl:new(Parent, [{style, ?wxLC_REPORT bor ?wxLC_HRULES}]),
     Li = wxListItem:new(),
+    Scale = observer_wx:get_scale(),
     wxListItem:setText(Li, "Module:Function/Arg"),
     wxListCtrl:insertColumn(LCtrl, 0, Li),
-    wxListCtrl:setColumnWidth(LCtrl, 0, 300),
+    wxListCtrl:setColumnWidth(LCtrl, 0, Scale * 300),
     wxListItem:setText(Li, "File:LineNumber"),
     wxListCtrl:insertColumn(LCtrl, 1, Li),
-    wxListCtrl:setColumnWidth(LCtrl, 1, 300),
+    wxListCtrl:setColumnWidth(LCtrl, 1, Scale * 300),
     wxListItem:destroy(Li),
+    Even = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOX),
+    Odd = observer_lib:mix(Even, wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT), 0.8),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
 					      [Pid, current_stacktrace])
@@ -260,8 +267,8 @@ init_stack_page(Parent, Pid) ->
 			     wxListCtrl:deleteAllItems(LCtrl),
 			     wx:foldl(fun({M, F, A, Info}, Row) ->
 					      _Item = wxListCtrl:insertItem(LCtrl, Row, ""),
-					      ?EVEN(Row) andalso
-						  wxListCtrl:setItemBackgroundColour(LCtrl, Row, ?BG_EVEN),
+					      ?EVEN(Row) orelse
+						  wxListCtrl:setItemBackgroundColour(LCtrl, Row, Odd),
 					      wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str({M,F,A})),
 					      FileLine = case Info of
 							     [{file,File},{line,Line}] ->
@@ -286,9 +293,10 @@ init_stack_page(Parent, Pid) ->
 
 init_state_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
+    Cs = observer_lib:colors(Parent),
     Update = fun() ->
 		     StateInfo = fetch_state_info(Pid),
-		     Html = observer_html_lib:expandable_term("ProcState", StateInfo, Table),
+		     Html = observer_html_lib:expandable_term("ProcState", StateInfo, Table, Cs),
 		     wxHtmlWindow:setPage(Win, Html)
 	     end,
     Update(),
@@ -339,6 +347,7 @@ fetch_state_info2(Pid, M) ->
 
 init_log_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
+    Cs = observer_lib:colors(Parent),
     Update = fun() ->
 		     Fd = spawn_link(fun() -> io_server() end),
 		     rpc:call(node(Pid), rb, rescan, [[{start_log, Fd}]]),
@@ -351,7 +360,7 @@ init_log_page(Parent, Pid, Table) ->
 		     NbBlanks = length(Pref) - 1,
 		     Re = "(<" ++ Pref ++ "\.[^>]{1,}>)[ ]{"++ integer_to_list(NbBlanks) ++ "}",
 		     Look = re:replace(ExpPid, Re, "\\1", [global, {return, list}]),
-		     Html = observer_html_lib:expandable_term("SaslLog", Look, Table),
+		     Html = observer_html_lib:expandable_term("SaslLog", Look, Table, Cs),
 		     wxHtmlWindow:setPage(Win, Html)
 	     end,
     Update(),
@@ -456,7 +465,8 @@ local_pid_str(Pid) ->
 
 global_pid_node_pref(Pid) ->
     %% Global PID node prefix : X of <X.Y.Z>
-    string:strip(string:sub_word(pid_to_list(Pid),1,$.),left,$<).
+    [NodePrefix|_] = string:lexemes(pid_to_list(Pid),"<."),
+    NodePrefix.
 
 io_get_data(Pid) ->
     Pid ! {self(), get_data_and_close},

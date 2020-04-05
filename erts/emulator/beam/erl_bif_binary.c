@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,8 +61,6 @@ static Export binary_longest_prefix_trap_export;
 static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_3);
 static Export binary_longest_suffix_trap_export;
 static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_3);
-static Export binary_bin_to_list_trap_export;
-static BIF_RETTYPE binary_bin_to_list_trap(BIF_ALIST_3);
 static Export binary_copy_trap_export;
 static BIF_RETTYPE binary_copy_trap(BIF_ALIST_2);
 static Uint max_loop_limit;
@@ -85,10 +83,6 @@ void erts_init_bif_binary(void)
     erts_init_trap_export(&binary_longest_suffix_trap_export,
 			  am_erlang, am_binary_longest_suffix_trap, 3,
 			  &binary_longest_suffix_trap);
-
-    erts_init_trap_export(&binary_bin_to_list_trap_export,
-			  am_erlang, am_binary_bin_to_list_trap, 3,
-			  &binary_bin_to_list_trap);
 
     erts_init_trap_export(&binary_copy_trap_export,
 			  am_erlang, am_binary_copy_trap, 2,
@@ -171,6 +165,16 @@ static void *my_alloc(MyAllocator *my, Uint size)
 
 #define ALPHABET_SIZE 256
 
+typedef struct _findall_data {
+    Uint pos;
+    Uint len;
+#ifdef HARDDEBUG
+    Uint id;
+#endif
+    Eterm epos;
+    Eterm elen;
+} FindallData;
+
 typedef struct _ac_node {
 #ifdef HARDDEBUG
     Uint32 id;                        /* To identify h pointer targets when
@@ -204,9 +208,106 @@ typedef struct _ac_trie {
 typedef struct _bm_data {
     byte *x;
     Sint len;
+    Sint *badshift;
     Sint *goodshift;
-    Sint badshift[ALPHABET_SIZE];
 } BMData;
+
+typedef struct _ac_find_all_state {
+    ACNode *q;
+    Uint pos;
+    Uint len;
+    Uint m;
+    Uint allocated;
+    FindallData *out;
+} ACFindAllState;
+
+typedef struct _ac_find_first_state {
+    ACNode *q;
+    Uint pos;
+    Uint len;
+    ACNode *candidate;
+    Uint candidate_start;
+} ACFindFirstState;
+
+typedef struct _bm_find_all_state {
+    Sint pos;
+    Sint len;
+    Uint m;
+    Uint allocated;
+    FindallData *out;
+} BMFindAllState;
+
+typedef struct _bm_find_first_state {
+    Sint pos;
+    Sint len;
+} BMFindFirstState;
+
+typedef enum _bf_return {
+    BF_RESTART = -3,
+    BF_NOT_FOUND,
+    BF_BADARG,
+    BF_OK
+} BFReturn;
+
+typedef struct _binary_find_all_context {
+    ErtsHeapFactory factory;
+    Eterm term;
+    Sint head;
+    Sint tail;
+    Uint end_pos;
+    Uint size;
+    FindallData *data;
+    union {
+	ACFindAllState ac;
+	BMFindAllState bm;
+    } d;
+} BinaryFindAllContext;
+
+typedef struct _binary_find_first_context {
+    Uint pos;
+    Uint len;
+    union {
+	ACFindFirstState ac;
+	BMFindFirstState bm;
+    } d;
+} BinaryFindFirstContext;
+
+typedef struct _binary_find_context BinaryFindContext;
+
+typedef struct _binary_find_search {
+    void (*init) (BinaryFindContext *);
+    BFReturn (*find) (BinaryFindContext *, byte *);
+    void (*done) (BinaryFindContext *);
+} BinaryFindSearch;
+
+typedef Eterm (*BinaryFindResult)(Process *, Eterm, BinaryFindContext **);
+
+typedef enum _binary_find_state {
+    BFSearch,
+    BFResult,
+    BFDone
+} BinaryFindState;
+
+struct _binary_find_context {
+    Eterm pat_type;
+    Eterm pat_term;
+    Binary *pat_bin;
+    Uint flags;
+    Uint hsstart;
+    Uint hsend;
+    int loop_factor;
+    int exported;
+    Uint reds;
+    BinaryFindState state;
+    Eterm trap_term;
+    BinaryFindSearch *search;
+    BinaryFindResult not_found;
+    BinaryFindResult found;
+    union {
+	BinaryFindAllContext fa;
+	BinaryFindFirstContext ff;
+    } u;
+};
 
 #ifdef HARDDEBUG
 static void dump_bm_data(BMData *bm);
@@ -218,439 +319,20 @@ static void dump_ac_node(ACNode *node, int indent, int ch);
  * The needed size of binary data for a search structure - given the
  * accumulated string lengths.
  */
-#define BM_SIZE(StrLen) 	      /* StrLen: length of searchstring */ \
-((MYALIGN(sizeof(Sint) * (StrLen))) + /* goodshift array */                \
- MYALIGN(StrLen) +                    /* searchstring saved */             \
- (MYALIGN(sizeof(BMData))))           /* Structure */
+#define BM_SIZE_SINGLE()    /* Single byte search string */ \
+(MYALIGN(1) +               /* searchstring saved */        \
+ (MYALIGN(sizeof(BMData)))) /* Structure */
+
+#define BM_SIZE_MULTI(StrLen) 	           /* StrLen: length of searchstring */ \
+((MYALIGN(sizeof(Uint) * (StrLen))) +      /* goodshift array */                \
+ (MYALIGN(sizeof(Uint) * ALPHABET_SIZE)) + /* badshift array */                 \
+ MYALIGN(StrLen) +                         /* searchstring saved */             \
+ (MYALIGN(sizeof(BMData))))                /* Structure */
 
 #define AC_SIZE(StrLens)       /* StrLens: sum of all searchstring lengths */ \
 ((MYALIGN(sizeof(ACNode)) *                                                   \
 ((StrLens)+1)) + 	       /* The actual nodes (including rootnode) */    \
  MYALIGN(sizeof(ACTrie)))      /* Structure */
-
-
-/*
- * Callback for the magic binary
- */
-static int cleanup_my_data_ac(Binary *bp)
-{
-    return 1;
-}
-static int cleanup_my_data_bm(Binary *bp)
-{
-    return 1;
-}
-
-/*
- * Initiate a (allocated) micro allocator and fill in the base
- * for an Aho-Corasick search trie, given the accumulated length of the search
- * strings.
- */
-static ACTrie *create_acdata(MyAllocator *my, Uint len,
-			     ACNode ***qbuff /* out */,
-			     Binary **the_bin /* out */)
-{
-    Uint datasize = AC_SIZE(len);
-    ACTrie *act;
-    ACNode *acn;
-    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data_ac);
-    byte *data = ERTS_MAGIC_BIN_DATA(mb);
-
-    init_my_allocator(my, datasize, data);
-    act = my_alloc(my, sizeof(ACTrie)); /* Important that this is the first
-					   allocation */
-    act->counter = 0;
-    act->root = acn = my_alloc(my, sizeof(ACNode));
-    acn->d = 0;
-    acn->final = 0;
-    acn->h = NULL;
-    memset(acn->g, 0, sizeof(ACNode *) * ALPHABET_SIZE);
-#ifdef HARDDEBUG
-    act->idc = 0;
-    acn->id = 0;
-#endif
-    *qbuff = erts_alloc(ERTS_ALC_T_TMP, sizeof(ACNode *) * len);
-    *the_bin = mb;
-    return act;
-}
-
-/*
- * The same initialization of allocator and basic data for Boyer-Moore.
- */
-static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
-			     Binary **the_bin /* out */)
-{
-    Uint datasize = BM_SIZE(len);
-    BMData *bmd;
-    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data_bm);
-    byte *data = ERTS_MAGIC_BIN_DATA(mb);
-    init_my_allocator(my, datasize, data);
-    bmd = my_alloc(my, sizeof(BMData));
-    bmd->x = my_alloc(my,len);
-    memcpy(bmd->x,x,len);
-    bmd->len = len;
-    bmd->goodshift = my_alloc(my,sizeof(Uint) * len);
-    *the_bin = mb;
-    return bmd;
-}
-
-/*
- * Compilation of search structures
- */
-
-/*
- * Aho Corasick - Build a Trie and fill in the failure functions
- * when all strings are added.
- * The algorithm is nicely described by Dieter Bühler of University of
- * Tübingen:
- * http://www-sr.informatik.uni-tuebingen.de/~buehler/AC/AC.html
- */
-
-/*
- * Helper called once for each search pattern
- */
-static void ac_add_one_pattern(MyAllocator *my, ACTrie *act, byte *x, Uint len)
-{
-    ACNode *acn = act->root;
-    Uint32 n = ++act->counter; /* Always increase counter, even if it's a
-				  duplicate as this may identify the pattern
-				  in the final set (not in current interface
-				  though) */
-    Uint i = 0;
-
-    while(i < len) {
-	if (acn->g[x[i]] != NULL) {
-	    /* node exists, continue */
-	    acn = acn->g[x[i]];
-	    ++i;
-	} else {
-	    /* allocate a new node */
-	    ACNode *nn = my_alloc(my,sizeof(ACNode));
-#ifdef HARDDEBUG
-	    nn->id = ++(act->idc);
-#endif
-	    nn->d = i+1;
-	    nn->h = act->root;
-	    nn->final = 0;
-	    memset(nn->g, 0, sizeof(ACNode *) * ALPHABET_SIZE);
-	    acn->g[x[i]] = nn;
-	    ++i;
-	    acn = nn;
-	}
-    }
-    if (acn->final == 0) { /* New pattern, add to final set */
-	acn->final = n;
-    }
-}
-
-/*
- * Called when all search patterns are added.
- */
-static void ac_compute_failure_functions(ACTrie *act, ACNode **qbuff)
-{
-    ACNode *root = act->root;
-    ACNode *parent;
-    int i;
-    int qh = 0,qt = 0;
-    ACNode *child, *r;
-
-    /* Set all children of the root to have the root as failure function */
-    for (i = 0; i < ALPHABET_SIZE; ++i) {
-	if (root->g[i] != NULL) {
-	    root->g[i]->h = root;
-	    /* Add to que for later traversal */
-	    qbuff[qt++] = root->g[i];
-	}
-    }
-
-    /* So, now we've handled children of the root state, traverse the
-       rest of the trie BF... */
-    while (qh < qt) {
-	parent = qbuff[qh++];
-	for (i = 0; i < ALPHABET_SIZE; ++ i) {
-	    if ((child = parent->g[i]) != NULL) {
-		/* Visit this node to */
-		qbuff[qt++] = child;
-		/* Search for correct failure function, follow the parent's
-		   failure function until you find a similar transition
-		   function to this child's */
-		r =  parent->h;
-		while (r != NULL && r->g[i] == NULL) {
-		    r = r->h;
-		}
-		if (r == NULL) {
-		    /* Replace NULL failures with the root as we go */
-		    child->h = (root->g[i] == NULL) ? root : root->g[i];
-		} else {
-		    child->h = r->g[i];
-		    /*
-		     * The "final" set is scattered among the nodes. When
-		     * the failure function points to a member of the final
-		     * set, we have a match, but we might not see it in the
-		     * current node if we dont mark it as a special type of
-		     * final, i.e. foolow the failure function and you will
-		     * find a real member of final set. This is marked with
-		     * a negative string id and only done if this node does
-		     * not represent a member in the final set.
-		     */
-		    if (!(child->final) && (child->h->final)) {
-			child->final = -1;
-		    }
-		}
-	    }
-	}
-    }
-    /* Finally the failure function of the root should point to itself */
-    root->h = root;
-}
-
-
-/*
- * The actual searching for needles in the haystack...
- * Find first match using Aho-Coracick Trie
- * return pattern number and fill in mpos + mlen if found, otherwise return 0
- * Return the matching pattern that *starts* first, and ends
- * last (difference when overlapping), hence the candidate thing.
- * Basic AC finds the first end before the first start...
- *
- */
-typedef struct {
-    ACNode *q;
-    Uint pos;
-    Uint len;
-    ACNode *candidate;
-    Uint candidate_start;
-} ACFindFirstState;
-
-
-static void ac_init_find_first_match(ACFindFirstState *state, ACTrie *act, Sint startpos, Uint len)
-{
-    state->q = act->root;
-    state->pos = startpos;
-    state->len = len;
-    state->candidate = NULL;
-    state->candidate_start = 0;
-}
-#define AC_OK 0
-#define AC_NOT_FOUND -1
-#define AC_RESTART -2
-
-#define AC_LOOP_FACTOR 10
-
-static int ac_find_first_match(ACFindFirstState *state, byte *haystack,
-				Uint *mpos, Uint *mlen, Uint *reductions)
-{
-    ACNode *q = state->q;
-    Uint i = state->pos;
-    ACNode *candidate = state->candidate, *r;
-    Uint len = state->len;
-    Uint candidate_start = state->candidate_start;
-    Uint rstart;
-    register Uint reds = *reductions;
-
-    while (i < len) {
-	if (--reds == 0) {
-	    state->q = q;
-	    state->pos = i;
-	    state->len = len;
-	    state->candidate = candidate;
-	    state->candidate_start = candidate_start;
-	    return AC_RESTART;
-	}
-
-	while (q->g[haystack[i]] == NULL && q->h != q) {
-	    q = q->h;
-	}
-	if (q->g[haystack[i]] != NULL) {
-	    q = q->g[haystack[i]];
-	}
-#ifdef HARDDEBUG
-	erts_printf("ch = %c, Current: %u\n", (int) haystack[i], (unsigned) q->id);
-#endif
-	++i;
-	if (candidate != NULL && (i - q->d) > candidate_start) {
-	    break;
-	}
-	if (q->final) {
-	    r = q;
-	    while (r->final < 0)
-		r = r->h;
-	    rstart = i - r->d;
-	    if (candidate == NULL || rstart < candidate_start ||
-		(rstart == candidate_start && candidate->d < q->d)) {
-		candidate_start = rstart;
-		candidate = r;
-	    }
-	}
-    }
-    *reductions = reds;
-    if (!candidate) {
-	return AC_NOT_FOUND;
-    }
-#ifdef HARDDEBUG
-    dump_ac_node(candidate,0,'?');
-#endif
-    *mpos = candidate_start;
-    *mlen = candidate->d;
-    return AC_OK;
-}
-
-typedef struct _findall_data {
-    Uint pos;
-    Uint len;
-#ifdef HARDDEBUG
-    Uint id;
-#endif
-    Eterm epos;
-    Eterm elen;
-} FindallData;
-
-typedef struct {
-    ACNode *q;
-    Uint pos;
-    Uint len;
-    Uint m;
-    Uint allocated;
-    FindallData *out;
-} ACFindAllState;
-
-static void ac_init_find_all(ACFindAllState *state, ACTrie *act, Sint startpos, Uint len)
-{
-    state->q = act->root;
-    state->pos = startpos;
-    state->len = len;
-    state->m = 0;
-    state->allocated = 0;
-    state->out = NULL;
-}
-
-static void ac_restore_find_all(ACFindAllState *state,
-                                const ACFindAllState *src)
-{
-    memcpy(state, src, sizeof(ACFindAllState));
-    if (state->allocated > 0) {
-	state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) * (state->allocated));
-	memcpy(state->out, src+1, sizeof(FindallData)*state->m);
-    } else {
-	state->out = NULL;
-    }
-}
-
-static void ac_serialize_find_all(const ACFindAllState *state,
-                                  ACFindAllState *dst)
-{
-    memcpy(dst, state, sizeof(ACFindAllState));
-    memcpy(dst+1, state->out, sizeof(FindallData)*state->m);
-}
-
-static void ac_clean_find_all(ACFindAllState *state)
-{
-    if (state->out != NULL) {
-	erts_free(ERTS_ALC_T_TMP, state->out);
-    }
-#ifdef HARDDEBUG
-    state->out = NULL;
-    state->allocated = 0;
-#endif
-}
-
-/*
- * Differs to the find_first function in that it stores all matches and the values
- * arte returned only in the state.
- */
-static int ac_find_all_non_overlapping(ACFindAllState *state, byte *haystack,
-				       Uint *reductions)
-{
-    ACNode *q = state->q;
-    Uint i = state->pos;
-    Uint rstart;
-    ACNode *r;
-    Uint len = state->len;
-    Uint m = state->m, save_m;
-    Uint allocated = state->allocated;
-    FindallData *out = state->out;
-    register Uint reds = *reductions;
-
-
-    while (i < len) {
-	if (--reds == 0) {
-	    state->q = q;
-	    state->pos = i;
-	    state->len = len;
-	    state->m = m;
-	    state->allocated = allocated;
-	    state->out = out;
-	    return AC_RESTART;
-	}
-	while (q->g[haystack[i]] == NULL && q->h != q) {
-	    q = q->h;
-	}
-	if (q->g[haystack[i]] != NULL) {
-	    q = q->g[haystack[i]];
-	}
-	++i;
-	if (q->final) {
-	    r = q;
-	    while (r->final) {
-		while (r->final < 0)
-		    r = r->h;
-#ifdef HARDDEBUG
-		erts_printf("Trying to add %u\n",(unsigned) r->final);
-#endif
-		rstart = i - r->d;
-		save_m = m;
-		while (m > 0 && (out[m-1].pos > rstart ||
-				 (out[m-1].pos == rstart &&
-				  out[m-1].len < r->d))) {
-#ifdef HARDDEBUG
-		    erts_printf("Popping %u\n",(unsigned) out[m-1].id);
-#endif
-		    --m;
-		}
-#ifdef HARDDEBUG
-		if (m > 0) {
-		    erts_printf("Pos %u\n",out[m-1].pos);
-		    erts_printf("Len %u\n",out[m-1].len);
-		}
-		erts_printf("Rstart %u\n",rstart);
-#endif
-		if (m == 0 ||  out[m-1].pos + out[m-1].len <= rstart) {
-		    if (m >= allocated) {
-			if (!allocated) {
-			    allocated = 10;
-			    out = erts_alloc(ERTS_ALC_T_TMP,
-					     sizeof(FindallData) * allocated);
-			} else {
-			    allocated *= 2;
-			    out = erts_realloc(ERTS_ALC_T_TMP, out,
-					       sizeof(FindallData) *
-					       allocated);
-			}
-		    }
-		    out[m].pos = rstart;
-		    out[m].len = r->d;
-#ifdef HARDDEBUG
-		    out[m].id = r->final;
-#endif
-		    ++m;
-#ifdef HARDDEBUG
-		    erts_printf("Pushing %u\n",(unsigned) out[m-1].id);
-#endif
-		} else {
-#ifdef HARDDEBUG
-		    erts_printf("Backtracking %d steps\n",save_m - m);
-#endif
-		    m = save_m;
-		}
-		r = r->h;
-	    }
-	}
-    }
-    *reductions = reds;
-    state->m = m;
-    state->out = out;
-    return (m == 0) ? AC_NOT_FOUND : AC_OK;
-}
 
 /*
  * Boyer Moore - most obviously implemented more or less exactly as
@@ -736,27 +418,421 @@ static void compute_goodshifts(BMData *bmd)
     erts_free(ERTS_ALC_T_TMP, suffixes);
 }
 
-typedef struct {
-    Sint pos;
-    Sint len;
-} BMFindFirstState;
-
-#define BM_OK 0 /* used only for find_all */
-#define BM_NOT_FOUND -1
-#define BM_RESTART -2
-#define BM_LOOP_FACTOR 10 /* Should we have a higher value? */
-
-static void bm_init_find_first_match(BMFindFirstState *state, Sint startpos,
-				     Uint len)
+/*
+ * Callback for the magic binary
+ */
+static int cleanup_my_data_ac(Binary *bp)
 {
-    state->pos = startpos;
-    state->len = (Sint) len;
+    return 1;
+}
+static int cleanup_my_data_bm(Binary *bp)
+{
+    return 1;
+}
+
+/*
+ * Initiate a (allocated) micro allocator and fill in the base
+ * for an Aho-Corasick search trie, given the accumulated length of the search
+ * strings.
+ */
+static ACTrie *create_acdata(MyAllocator *my, Uint len,
+			     ACNode ***qbuff /* out */,
+			     Binary **the_bin /* out */)
+{
+    Uint datasize = AC_SIZE(len);
+    ACTrie *act;
+    ACNode *acn;
+    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data_ac);
+    byte *data = ERTS_MAGIC_BIN_DATA(mb);
+
+    init_my_allocator(my, datasize, data);
+    act = my_alloc(my, sizeof(ACTrie)); /* Important that this is the first
+					   allocation */
+    act->counter = 0;
+    act->root = acn = my_alloc(my, sizeof(ACNode));
+    acn->d = 0;
+    acn->final = 0;
+    acn->h = NULL;
+    sys_memset(acn->g, 0, sizeof(ACNode *) * ALPHABET_SIZE);
+#ifdef HARDDEBUG
+    act->idc = 0;
+    acn->id = 0;
+#endif
+    *qbuff = erts_alloc(ERTS_ALC_T_TMP, sizeof(ACNode *) * len);
+    *the_bin = mb;
+    return act;
+}
+
+/*
+ * The same initialization of allocator and basic data for Boyer-Moore.
+ * For single byte, we don't use goodshift and badshift, only memchr.
+ */
+static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
+			     Binary **the_bin /* out */)
+{
+    Uint datasize;
+    BMData *bmd;
+    Binary *mb;
+    byte *data;
+
+    if(len > 1) {
+	datasize = BM_SIZE_MULTI(len);
+    } else {
+	datasize = BM_SIZE_SINGLE();
+    }
+
+    mb = erts_create_magic_binary(datasize,cleanup_my_data_bm);
+    data = ERTS_MAGIC_BIN_DATA(mb);
+    init_my_allocator(my, datasize, data);
+    bmd = my_alloc(my, sizeof(BMData));
+    bmd->x = my_alloc(my,len);
+    sys_memcpy(bmd->x,x,len);
+    bmd->len = len;
+
+    if(len > 1) {
+	bmd->goodshift = my_alloc(my, sizeof(Uint) * len);
+	bmd->badshift = my_alloc(my, sizeof(Uint) * ALPHABET_SIZE);
+	compute_badshifts(bmd);
+	compute_goodshifts(bmd);
+    }
+
+    *the_bin = mb;
+    return bmd;
+}
+
+/*
+ * Compilation of search structures
+ */
+
+/*
+ * Aho Corasick - Build a Trie and fill in the failure functions
+ * when all strings are added.
+ * The algorithm is nicely described by Dieter Bühler of University of
+ * Tübingen:
+ * http://www-sr.informatik.uni-tuebingen.de/~buehler/AC/AC.html
+ */
+
+/*
+ * Helper called once for each search pattern
+ */
+static void ac_add_one_pattern(MyAllocator *my, ACTrie *act, byte *x, Uint len)
+{
+    ACNode *acn = act->root;
+    Uint32 n = ++act->counter; /* Always increase counter, even if it's a
+				  duplicate as this may identify the pattern
+				  in the final set (not in current interface
+				  though) */
+    Uint i = 0;
+
+    while(i < len) {
+	if (acn->g[x[i]] != NULL) {
+	    /* node exists, continue */
+	    acn = acn->g[x[i]];
+	    ++i;
+	} else {
+	    /* allocate a new node */
+	    ACNode *nn = my_alloc(my,sizeof(ACNode));
+#ifdef HARDDEBUG
+	    nn->id = ++(act->idc);
+#endif
+	    nn->d = i+1;
+	    nn->h = act->root;
+	    nn->final = 0;
+	    sys_memset(nn->g, 0, sizeof(ACNode *) * ALPHABET_SIZE);
+	    acn->g[x[i]] = nn;
+	    ++i;
+	    acn = nn;
+	}
+    }
+    if (acn->final == 0) { /* New pattern, add to final set */
+	acn->final = n;
+    }
+}
+
+/*
+ * Called when all search patterns are added.
+ */
+static void ac_compute_failure_functions(ACTrie *act, ACNode **qbuff)
+{
+    ACNode *root = act->root;
+    ACNode *parent;
+    int i;
+    int qh = 0,qt = 0;
+    ACNode *child, *r;
+
+    /* Set all children of the root to have the root as failure function */
+    for (i = 0; i < ALPHABET_SIZE; ++i) {
+	if (root->g[i] != NULL) {
+	    root->g[i]->h = root;
+	    /* Add to que for later traversal */
+	    qbuff[qt++] = root->g[i];
+	}
+    }
+
+    /* So, now we've handled children of the root state, traverse the
+       rest of the trie BF... */
+    while (qh < qt) {
+	parent = qbuff[qh++];
+	for (i = 0; i < ALPHABET_SIZE; ++ i) {
+	    if ((child = parent->g[i]) != NULL) {
+		/* Visit this node to */
+		qbuff[qt++] = child;
+		/* Search for correct failure function, follow the parent's
+		   failure function until you find a similar transition
+		   function to this child's */
+		r =  parent->h;
+		while (r != NULL && r->g[i] == NULL) {
+		    r = r->h;
+		}
+		if (r == NULL) {
+		    /* Replace NULL failures with the root as we go */
+		    child->h = (root->g[i] == NULL) ? root : root->g[i];
+		} else {
+		    child->h = r->g[i];
+		    /*
+		     * The "final" set is scattered among the nodes. When
+		     * the failure function points to a member of the final
+		     * set, we have a match, but we might not see it in the
+		     * current node if we dont mark it as a special type of
+		     * final, i.e. foolow the failure function and you will
+		     * find a real member of final set. This is marked with
+		     * a negative string id and only done if this node does
+		     * not represent a member in the final set.
+		     */
+		    if (!(child->final) && (child->h->final)) {
+			child->final = -1;
+		    }
+		}
+	    }
+	}
+    }
+    /* Finally the failure function of the root should point to itself */
+    root->h = root;
 }
 
 
-static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd,
-				byte *haystack, Uint *reductions)
+/*
+ * The actual searching for needles in the haystack...
+ * Find first match using Aho-Coracick Trie
+ * return pattern number and fill in mpos + mlen if found, otherwise return 0
+ * Return the matching pattern that *starts* first, and ends
+ * last (difference when overlapping), hence the candidate thing.
+ * Basic AC finds the first end before the first start...
+ *
+ */
+static void ac_init_find_first_match(BinaryFindContext *ctx)
 {
+    ACFindFirstState *state = &(ctx->u.ff.d.ac);
+    ACTrie *act = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
+    state->q = act->root;
+    state->pos = ctx->hsstart;
+    state->len = ctx->hsend;
+    state->candidate = NULL;
+    state->candidate_start = 0;
+}
+
+#define AC_LOOP_FACTOR 10
+
+static BFReturn ac_find_first_match(BinaryFindContext *ctx, byte *haystack)
+{
+    ACFindFirstState *state = &(ctx->u.ff.d.ac);
+    Uint *mpos = &(ctx->u.ff.pos);
+    Uint *mlen = &(ctx->u.ff.len);
+    Uint *reductions = &(ctx->reds);
+    ACNode *q = state->q;
+    Uint i = state->pos;
+    ACNode *candidate = state->candidate, *r;
+    Uint len = state->len;
+    Uint candidate_start = state->candidate_start;
+    Uint rstart;
+    register Uint reds = *reductions;
+
+    while (i < len) {
+	if (--reds == 0) {
+	    state->q = q;
+	    state->pos = i;
+	    state->len = len;
+	    state->candidate = candidate;
+	    state->candidate_start = candidate_start;
+	    return BF_RESTART;
+	}
+
+	while (q->g[haystack[i]] == NULL && q->h != q) {
+	    q = q->h;
+	}
+	if (q->g[haystack[i]] != NULL) {
+	    q = q->g[haystack[i]];
+	}
+#ifdef HARDDEBUG
+	erts_printf("ch = %c, Current: %u\n", (int) haystack[i], (unsigned) q->id);
+#endif
+	++i;
+	if (candidate != NULL && (i - q->d) > candidate_start) {
+	    break;
+	}
+	if (q->final) {
+	    r = q;
+	    while (r->final < 0)
+		r = r->h;
+	    rstart = i - r->d;
+	    if (candidate == NULL || rstart < candidate_start ||
+		(rstart == candidate_start && candidate->d < q->d)) {
+		candidate_start = rstart;
+		candidate = r;
+	    }
+	}
+    }
+    *reductions = reds;
+    if (!candidate) {
+	return BF_NOT_FOUND;
+    }
+#ifdef HARDDEBUG
+    dump_ac_node(candidate,0,'?');
+#endif
+    *mpos = candidate_start;
+    *mlen = candidate->d;
+    return BF_OK;
+}
+
+static void ac_init_find_all(BinaryFindContext *ctx)
+{
+    ACFindAllState *state = &(ctx->u.fa.d.ac);
+    ACTrie *act = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
+    state->q = act->root;
+    state->pos = ctx->hsstart;
+    state->len = ctx->hsend;
+    state->m = 0;
+    state->allocated = 0;
+    state->out = NULL;
+}
+
+static void ac_clean_find_all(BinaryFindContext *ctx)
+{
+    ACFindAllState *state = &(ctx->u.fa.d.ac);
+    if (state->out != NULL) {
+	erts_free(ERTS_ALC_T_BINARY_FIND, state->out);
+    }
+#ifdef HARDDEBUG
+    state->out = NULL;
+    state->allocated = 0;
+#endif
+}
+
+/*
+ * Differs to the find_first function in that it stores all matches and the values
+ * arte returned only in the state.
+ */
+static BFReturn ac_find_all_non_overlapping(BinaryFindContext *ctx, byte *haystack)
+{
+    ACFindAllState *state = &(ctx->u.fa.d.ac);
+    Uint *reductions = &(ctx->reds);
+    ACNode *q = state->q;
+    Uint i = state->pos;
+    Uint rstart;
+    ACNode *r;
+    Uint len = state->len;
+    Uint m = state->m, save_m;
+    Uint allocated = state->allocated;
+    FindallData *out = state->out;
+    register Uint reds = *reductions;
+
+    while (i < len) {
+	if (--reds == 0) {
+	    state->q = q;
+	    state->pos = i;
+	    state->len = len;
+	    state->m = m;
+	    state->allocated = allocated;
+	    state->out = out;
+	    return BF_RESTART;
+	}
+	while (q->g[haystack[i]] == NULL && q->h != q) {
+	    q = q->h;
+	}
+	if (q->g[haystack[i]] != NULL) {
+	    q = q->g[haystack[i]];
+	}
+	++i;
+	if (q->final) {
+	    r = q;
+	    while (r->final) {
+		while (r->final < 0)
+		    r = r->h;
+#ifdef HARDDEBUG
+		erts_printf("Trying to add %u\n",(unsigned) r->final);
+#endif
+		rstart = i - r->d;
+		save_m = m;
+		while (m > 0 && (out[m-1].pos > rstart ||
+				 (out[m-1].pos == rstart &&
+				  out[m-1].len < r->d))) {
+#ifdef HARDDEBUG
+		    erts_printf("Popping %u\n",(unsigned) out[m-1].id);
+#endif
+		    --m;
+		}
+#ifdef HARDDEBUG
+		if (m > 0) {
+		    erts_printf("Pos %u\n",out[m-1].pos);
+		    erts_printf("Len %u\n",out[m-1].len);
+		}
+		erts_printf("Rstart %u\n",rstart);
+#endif
+		if (m == 0 ||  out[m-1].pos + out[m-1].len <= rstart) {
+		    if (m >= allocated) {
+			if (!allocated) {
+			    allocated = 10;
+			    out = erts_alloc(ERTS_ALC_T_BINARY_FIND,
+					     sizeof(FindallData) * allocated);
+			} else {
+			    allocated *= 2;
+			    out = erts_realloc(ERTS_ALC_T_BINARY_FIND, out,
+					       sizeof(FindallData) *
+					       allocated);
+			}
+		    }
+		    out[m].pos = rstart;
+		    out[m].len = r->d;
+#ifdef HARDDEBUG
+		    out[m].id = r->final;
+#endif
+		    ++m;
+#ifdef HARDDEBUG
+		    erts_printf("Pushing %u\n",(unsigned) out[m-1].id);
+#endif
+		} else {
+#ifdef HARDDEBUG
+		    erts_printf("Backtracking %d steps\n",save_m - m);
+#endif
+		    m = save_m;
+		}
+		r = r->h;
+	    }
+	}
+    }
+    *reductions = reds;
+    state->m = m;
+    state->out = out;
+    return (m == 0) ? BF_NOT_FOUND : BF_OK;
+}
+
+#define BM_LOOP_FACTOR 10 /* Should we have a higher value? */
+#define MC_LOOP_FACTOR 8
+
+static void bm_init_find_first_match(BinaryFindContext *ctx)
+{
+    BMFindFirstState *state = &(ctx->u.ff.d.bm);
+    state->pos = ctx->hsstart;
+    state->len = ctx->hsend;
+}
+
+static BFReturn bm_find_first_match(BinaryFindContext *ctx, byte *haystack)
+{
+    BMFindFirstState *state = &(ctx->u.ff.d.bm);
+    BMData *bmd = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
+    Uint *mpos = &(ctx->u.ff.pos);
+    Uint *mlen = &(ctx->u.ff.len);
+    Uint *reductions = &(ctx->reds);
     Sint blen = bmd->len;
     Sint len = state->len;
     Sint *gs = bmd->goodshift;
@@ -765,65 +841,64 @@ static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd,
     Sint i;
     Sint j = state->pos;
     register Uint reds = *reductions;
+    byte *pos_pointer;
+    Sint needle_last = blen - 1;
+    Sint mem_read = len - needle_last - j;
 
-    while (j <= len - blen) {
+    if (mem_read <= 0) {
+	return BF_NOT_FOUND;
+    }
+    mem_read = MIN(mem_read, reds * MC_LOOP_FACTOR);
+    ASSERT(mem_read > 0);
+
+    pos_pointer = memchr(&haystack[j + needle_last], needle[needle_last], mem_read);
+    if (pos_pointer == NULL) {
+	reds -= mem_read / MC_LOOP_FACTOR;
+	j += mem_read;
+    } else {
+	reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
+	j = pos_pointer - haystack - needle_last;
+    }
+
+    // Ensure we have at least one reduction before entering the loop
+    ++reds;
+
+    for(;;) {
+	if (j > len - blen) {
+	    *reductions = reds;
+	    return BF_NOT_FOUND;
+	}
 	if (--reds == 0) {
 	    state->pos = j;
-	    return BM_RESTART;
+	    return BF_RESTART;
 	}
-	for (i = blen - 1; i >= 0 && needle[i] == haystack[i + j]; --i)
+	for (i = needle_last; i >= 0 && needle[i] == haystack[i + j]; --i)
 	    ;
 	if (i < 0) { /* found */
 	    *reductions = reds;
-	    return j;
+	    *mpos = (Uint) j;
+	    *mlen = (Uint) blen;
+	    return BF_OK;
 	}
 	j += MAX(gs[i],bs[haystack[i+j]] - blen + 1 + i);
     }
-    *reductions = reds;
-    return BM_NOT_FOUND;
 }
 
-typedef struct {
-    Sint pos;
-    Sint len;
-    Uint m;
-    Uint allocated;
-    FindallData *out;
-} BMFindAllState;
-
-static void bm_init_find_all(BMFindAllState *state, Sint startpos, Uint len)
+static void bm_init_find_all(BinaryFindContext *ctx)
 {
-    state->pos = startpos;
-    state->len = (Sint) len;
+    BMFindAllState *state = &(ctx->u.fa.d.bm);
+    state->pos = ctx->hsstart;
+    state->len = ctx->hsend;
     state->m = 0;
     state->allocated = 0;
     state->out = NULL;
 }
 
-static void bm_restore_find_all(BMFindAllState *state,
-                                const BMFindAllState *src)
+static void bm_clean_find_all(BinaryFindContext *ctx)
 {
-    memcpy(state, src, sizeof(BMFindAllState));
-    if (state->allocated > 0) {
-	state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) *
-				(state->allocated));
-	memcpy(state->out, src+1, sizeof(FindallData)*state->m);
-    } else {
-	state->out = NULL;
-    }
-}
-
-static void bm_serialize_find_all(const BMFindAllState *state,
-                                  BMFindAllState *dst)
-{
-    memcpy(dst, state, sizeof(BMFindAllState));
-    memcpy(dst+1, state->out, sizeof(FindallData)*state->m);
-}
-
-static void bm_clean_find_all(BMFindAllState *state)
-{
+    BMFindAllState *state = &(ctx->u.fa.d.bm);
     if (state->out != NULL) {
-	erts_free(ERTS_ALC_T_TMP, state->out);
+	erts_free(ERTS_ALC_T_BINARY_FIND, state->out);
     }
 #ifdef HARDDEBUG
     state->out = NULL;
@@ -835,40 +910,66 @@ static void bm_clean_find_all(BMFindAllState *state)
  * Differs to the find_first function in that it stores all matches and the
  * values are returned only in the state.
  */
-static Sint bm_find_all_non_overlapping(BMFindAllState *state,
-					BMData *bmd, byte *haystack,
-					Uint *reductions)
+static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haystack)
 {
+    BMFindAllState *state = &(ctx->u.fa.d.bm);
+    BMData *bmd = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
+    Uint *reductions = &(ctx->reds);
     Sint blen = bmd->len;
     Sint len = state->len;
     Sint *gs = bmd->goodshift;
     Sint *bs = bmd->badshift;
     byte *needle = bmd->x;
-    Sint i;
+    Sint i = -1; /* Use memchr on start and on every match */
     Sint j = state->pos;
     Uint m = state->m;
     Uint allocated = state->allocated;
     FindallData *out = state->out;
     register Uint reds = *reductions;
+    byte *pos_pointer;
+    Sint needle_last = blen - 1;
+    Sint mem_read;
 
-    while (j <= len - blen) {
+    for(;;) {
+	if (i < 0) {
+	    mem_read = len - needle_last - j;
+	    if(mem_read <= 0) {
+		goto done;
+	    }
+	    mem_read = MIN(mem_read, reds * MC_LOOP_FACTOR);
+	    ASSERT(mem_read > 0);
+	    pos_pointer = memchr(&haystack[j + needle_last], needle[needle_last], mem_read);
+	    if (pos_pointer == NULL) {
+		reds -= mem_read / MC_LOOP_FACTOR;
+		j += mem_read;
+	    } else {
+		reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
+		j = pos_pointer - haystack - needle_last;
+	    }
+	    // Ensure we have at least one reduction when resuming the loop
+	    ++reds;
+	}
+	if (j > len - blen) {
+	    goto done;
+	}
 	if (--reds == 0) {
 	    state->pos = j;
 	    state->m = m;
 	    state->allocated = allocated;
 	    state->out = out;
-	    return BM_RESTART;
+	    return BF_RESTART;
 	}
-	for (i = blen - 1; i >= 0 && needle[i] == haystack[i + j]; --i)
+	for (i = needle_last; i >= 0 && needle[i] == haystack[i + j]; --i)
 	    ;
 	if (i < 0) { /* found */
 	    if (m >= allocated) {
 		if (!allocated) {
 		    allocated = 10;
-		    out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) * allocated);
+		    out = erts_alloc(ERTS_ALC_T_BINARY_FIND,
+				     sizeof(FindallData) * allocated);
 		} else {
 		    allocated *= 2;
-		    out = erts_realloc(ERTS_ALC_T_TMP, out,
+		    out = erts_realloc(ERTS_ALC_T_BINARY_FIND, out,
 				       sizeof(FindallData) * allocated);
 		}
 	    }
@@ -880,10 +981,11 @@ static Sint bm_find_all_non_overlapping(BMFindAllState *state,
 	    j += MAX(gs[i],bs[haystack[i+j]] - blen + 1 + i);
 	}
     }
+ done:
     state->m = m;
     state->out = out;
     *reductions = reds;
-    return (m == 0) ? BM_NOT_FOUND : BM_OK;
+    return (m == 0) ? BF_NOT_FOUND : BF_OK;
 }
 
 /*
@@ -899,6 +1001,7 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     Eterm t, b, comp_term = NIL;
     Uint characters;
     Uint words;
+    Uint size;
 
     characters = 0;
     words = 0;
@@ -914,11 +1017,12 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	    if (binary_bitsize(b) != 0) {
 		goto badarg;
 	    }
-	    if (binary_size(b) == 0) {
+	    size = binary_size(b);
+	    if (size == 0) {
 		goto badarg;
 	    }
 	    ++words;
-	    characters += binary_size(b);
+	    characters += size;
 	}
 	if (is_not_nil(t)) {
 	    goto badarg;
@@ -947,16 +1051,13 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	Uint bitoffs, bitsize;
 	byte *temp_alloc = NULL;
 	MyAllocator my;
-	BMData *bmd;
 	Binary *bin;
 
 	ERTS_GET_BINARY_BYTES(comp_term, bytes, bitoffs, bitsize);
 	if (bitoffs != 0) {
 	    bytes = erts_get_aligned_binary_bytes(comp_term, &temp_alloc);
 	}
-	bmd = create_bmdata(&my, bytes, characters, &bin);
-	compute_badshifts(bmd);
-	compute_goodshifts(bmd);
+        create_bmdata(&my, bytes, characters, &bin);
 	erts_free_aligned_binary_bytes(temp_alloc);
 	CHECK_ALLOCATOR(my);
 	*tag = am_bm;
@@ -1009,51 +1110,160 @@ BIF_RETTYPE binary_compile_pattern_1(BIF_ALIST_1)
     BIF_RET(ret);
 }
 
-#define DO_BIN_MATCH_OK 0
-#define DO_BIN_MATCH_BADARG -1
-#define DO_BIN_MATCH_RESTART -2
+#define BF_FLAG_GLOBAL		0x01
+#define BF_FLAG_SPLIT_TRIM	0x02
+#define BF_FLAG_SPLIT_TRIM_ALL	0x04
 
-#define BINARY_FIND_ALL		0x01
-#define BINARY_SPLIT_TRIM	0x02
-#define BINARY_SPLIT_TRIM_ALL	0x04
+static void bf_context_init(BinaryFindContext *ctx, BinaryFindResult not_found,
+			    BinaryFindResult single, BinaryFindResult global,
+			    Binary *pat_bin);
+static BinaryFindContext *bf_context_export(Process *p, BinaryFindContext *src);
+static int bf_context_destructor(Binary *ctx_bin);
+#ifdef HARDDEBUG
+static void bf_context_dump(BinaryFindContext *ctx);
+#endif
 
-typedef struct BinaryFindState {
-    Eterm type;
-    Uint  flags;
-    Uint  hsstart;
-    Uint  hsend;
-    Eterm (*not_found_result) (Process *, Eterm, struct BinaryFindState *);
-    Eterm (*single_result)    (Process *, Eterm, struct BinaryFindState *, Sint, Sint);
-    Eterm (*global_result)    (Process *, Eterm, struct BinaryFindState *, FindallData *, Uint);
-} BinaryFindState;
+static BinaryFindSearch bf_search_ac_global = {
+    ac_init_find_all,
+    ac_find_all_non_overlapping,
+    ac_clean_find_all
+};
 
-typedef struct BinaryFindState_bignum {
-    Eterm           bignum_hdr;
-    BinaryFindState bfs;
-    union {
-	BMFindFirstState bmffs;
-	BMFindAllState   bmfas;
-	ACFindFirstState acffs;
-	ACFindAllState   acfas;
-    } data;
-} BinaryFindState_bignum;
+static BinaryFindSearch bf_search_ac_single = {
+    ac_init_find_first_match,
+    ac_find_first_match,
+    NULL
+};
 
-#define SIZEOF_BINARY_FIND_STATE(S) \
-	  (sizeof(BinaryFindState)+sizeof(S))
+static BinaryFindSearch bf_search_bm_global = {
+    bm_init_find_all,
+    bm_find_all_non_overlapping,
+    bm_clean_find_all
+};
 
-#define SIZEOF_BINARY_FIND_ALL_STATE(S) \
-	  (sizeof(BinaryFindState)+sizeof(S)+(sizeof(FindallData)*(S).m))
+static BinaryFindSearch bf_search_bm_single = {
+    bm_init_find_first_match,
+    bm_find_first_match,
+    NULL
+};
 
-static Eterm do_match_not_found_result(Process *p, Eterm subject, BinaryFindState *bfs);
-static Eterm do_match_single_result(Process *p, Eterm subject, BinaryFindState *bfs,
-				    Sint pos, Sint len);
-static Eterm do_match_global_result(Process *p, Eterm subject, BinaryFindState *bfs,
-				    FindallData *fad, Uint fad_sz);
-static Eterm do_split_not_found_result(Process *p, Eterm subject, BinaryFindState *bfs);
-static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindState *bfs,
-				    Sint pos, Sint len);
-static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindState *bfs,
-				    FindallData *fad, Uint fad_sz);
+static void bf_context_init(BinaryFindContext *ctx, BinaryFindResult not_found,
+			    BinaryFindResult single, BinaryFindResult global,
+			    Binary *pat_bin)
+{
+    ctx->exported = 0;
+    ctx->state = BFSearch;
+    ctx->not_found = not_found;
+    if (ctx->flags & BF_FLAG_GLOBAL) {
+	ctx->found = global;
+	if (ctx->pat_type == am_bm) {
+	    ctx->search = &bf_search_bm_global;
+	    ctx->loop_factor = BM_LOOP_FACTOR;
+	} else if (ctx->pat_type == am_ac) {
+	    ctx->search = &bf_search_ac_global;
+	    ctx->loop_factor = AC_LOOP_FACTOR;
+	}
+    } else {
+	ctx->found = single;
+	if (ctx->pat_type == am_bm) {
+	    ctx->search = &bf_search_bm_single;
+	    ctx->loop_factor = BM_LOOP_FACTOR;
+	} else if (ctx->pat_type == am_ac) {
+	    ctx->search = &bf_search_ac_single;
+	    ctx->loop_factor = AC_LOOP_FACTOR;
+	}
+    }
+    ctx->trap_term = THE_NON_VALUE;
+    ctx->pat_bin = pat_bin;
+    ctx->search->init(ctx);
+}
+
+static BinaryFindContext *bf_context_export(Process *p, BinaryFindContext *src)
+{
+    Binary *ctx_bin;
+    BinaryFindContext *ctx;
+    Eterm *hp;
+
+    ASSERT(src->exported == 0);
+    ctx_bin = erts_create_magic_binary(sizeof(BinaryFindContext),
+				       bf_context_destructor);
+    ctx = ERTS_MAGIC_BIN_DATA(ctx_bin);
+    sys_memcpy(ctx, src, sizeof(BinaryFindContext));
+    if (ctx->pat_bin != NULL && ctx->pat_term == THE_NON_VALUE) {
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE * 2);
+	ctx->pat_term = erts_mk_magic_ref(&hp, &MSO(p), ctx->pat_bin);
+    } else {
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    }
+    ctx->trap_term = erts_mk_magic_ref(&hp, &MSO(p), ctx_bin);
+    ctx->exported = 1;
+    return ctx;
+}
+
+static int bf_context_destructor(Binary *ctx_bin)
+{
+    BinaryFindContext *ctx;
+
+    ctx = ERTS_MAGIC_BIN_DATA(ctx_bin);
+    if (ctx->state != BFDone) {
+	if (ctx->search->done != NULL) {
+	    ctx->search->done(ctx);
+	}
+	ctx->state = BFDone;
+    }
+    return 1;
+}
+
+#ifdef HARDDEBUG
+static void bf_context_dump(BinaryFindContext *ctx)
+{
+    if (ctx->pat_type == am_bm) {
+	BMData *bm;
+	bm = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
+	dump_bm_data(bm);
+    } else {
+	ACTrie *act;
+	act = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
+	dump_ac_trie(act);
+    }
+}
+#endif
+
+static Eterm do_match_not_found_result(Process *p, Eterm subject, BinaryFindContext **ctxp);
+static Eterm do_match_single_result(Process *p, Eterm subject, BinaryFindContext **ctxp);
+static Eterm do_match_global_result(Process *p, Eterm subject, BinaryFindContext **ctxp);
+static Eterm do_split_not_found_result(Process *p, Eterm subject, BinaryFindContext **ctxp);
+static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindContext **ctxp);
+static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext **ctxp);
+
+static BFReturn maybe_binary_match_compile(BinaryFindContext *ctx, Eterm arg, Binary **pat_bin)
+{
+    Eterm *tp;
+    ctx->pat_term = THE_NON_VALUE;
+    if (is_tuple(arg)) {
+	tp = tuple_val(arg);
+	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
+	    return BF_BADARG;
+	}
+	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
+	    !is_internal_magic_ref(tp[2])) {
+	    return BF_BADARG;
+	}
+	*pat_bin = erts_magic_ref2bin(tp[2]);
+	if ((tp[1] == am_bm &&
+	     ERTS_MAGIC_BIN_DESTRUCTOR(*pat_bin) != cleanup_my_data_bm) ||
+	    (tp[1] == am_ac &&
+	     ERTS_MAGIC_BIN_DESTRUCTOR(*pat_bin) != cleanup_my_data_ac)) {
+	    *pat_bin = NULL;
+	    return BF_BADARG;
+	}
+	ctx->pat_type = tp[1];
+	ctx->pat_term = tp[2];
+    } else if (do_binary_match_compile(arg, &(ctx->pat_type), pat_bin) != 0) {
+	return BF_BADARG;
+    }
+    return BF_OK;
+}
 
 static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 {
@@ -1134,17 +1344,17 @@ static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uin
 	    Uint orig_size;
 	    if (is_atom(t)) {
 		if (t == am_global) {
-		    *optp |= BINARY_FIND_ALL;
+		    *optp |= BF_FLAG_GLOBAL;
 		    l = CDR(list_val(l));
 		    continue;
 		}
 		if (t == am_trim) {
-		    *optp |= BINARY_SPLIT_TRIM;
+		    *optp |= BF_FLAG_SPLIT_TRIM;
 		    l = CDR(list_val(l));
 		    continue;
 		}
 		if (t == am_trim_all) {
-		    *optp |= BINARY_SPLIT_TRIM_ALL;
+		    *optp |= BF_FLAG_SPLIT_TRIM_ALL;
 		    l = CDR(list_val(l));
 		    continue;
 		}
@@ -1197,266 +1407,160 @@ static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uin
     }
 }
 
-static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binary *bin,
-			  Eterm state_term, Eterm *res_term)
+static BFReturn do_binary_find(Process *p, Eterm subject, BinaryFindContext **ctxp,
+			       Binary *pat_bin, Binary *ctx_bin, Eterm *res_term)
 {
-    byte *bytes;
-    Uint bitoffs, bitsize;
-    byte *temp_alloc = NULL;
-    BinaryFindState_bignum *state_ptr = NULL;
+    BinaryFindContext *ctx;
+    int is_first_call;
+    Uint initial_reds;
+    BFReturn runres;
 
-    ERTS_GET_BINARY_BYTES(subject, bytes, bitoffs, bitsize);
-    if (bitsize != 0) {
-	goto badarg;
-    }
-    if (bitoffs != 0) {
-	bytes = erts_get_aligned_binary_bytes(subject, &temp_alloc);
-    }
-    if (state_term != NIL) {
-	state_ptr = (BinaryFindState_bignum *)(big_val(state_term));
-	bfs = &(state_ptr->bfs);
-    }
-
-    if (bfs->flags & BINARY_FIND_ALL) {
-	if (bfs->type == am_bm) {
-	    BMData *bm;
-	    Sint pos;
-	    BMFindAllState state;
-	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
-	    Uint save_reds = reds;
-
-	    bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
-#ifdef HARDDEBUG
-	    dump_bm_data(bm);
-#endif
-	    if (state_term == NIL) {
-		bm_init_find_all(&state, bfs->hsstart, bfs->hsend);
-	    } else {
-		bm_restore_find_all(&state, &(state_ptr->data.bmfas));
-	    }
-
-	    pos = bm_find_all_non_overlapping(&state, bm, bytes, &reds);
-	    if (pos == BM_NOT_FOUND) {
-		*res_term = bfs->not_found_result(p, subject, bfs);
-	    } else if (pos == BM_RESTART) {
-		int x =
-		    (SIZEOF_BINARY_FIND_ALL_STATE(state) / sizeof(Eterm)) +
-		    !!(SIZEOF_BINARY_FIND_ALL_STATE(state) % sizeof(Eterm));
-#ifdef HARDDEBUG
-		erts_printf("Trap bm!\n");
-#endif
-		state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
-		state_ptr->bignum_hdr = make_pos_bignum_header(x);
-		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
-		bm_serialize_find_all(&state, &state_ptr->data.bmfas);
-		*res_term = make_big(&state_ptr->bignum_hdr);
-		erts_free_aligned_binary_bytes(temp_alloc);
-		bm_clean_find_all(&state);
-		return DO_BIN_MATCH_RESTART;
-	    } else {
-		*res_term = bfs->global_result(p, subject, bfs, state.out, state.m);
-	    }
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    bm_clean_find_all(&state);
-	    BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
-	    return DO_BIN_MATCH_OK;
-	} else if (bfs->type == am_ac) {
-	    ACTrie *act;
-	    int acr;
-	    ACFindAllState state;
-	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
-	    Uint save_reds = reds;
-
-	    act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
-#ifdef HARDDEBUG
-	    dump_ac_trie(act);
-#endif
-	    if (state_term == NIL) {
-		ac_init_find_all(&state, act, bfs->hsstart, bfs->hsend);
-	    } else {
-		ac_restore_find_all(&state, &(state_ptr->data.acfas));
-	    }
-	    acr = ac_find_all_non_overlapping(&state, bytes, &reds);
-	    if (acr == AC_NOT_FOUND) {
-		*res_term = bfs->not_found_result(p, subject, bfs);
-	    } else if (acr == AC_RESTART) {
-		int x =
-		    (SIZEOF_BINARY_FIND_ALL_STATE(state) / sizeof(Eterm)) +
-		    !!(SIZEOF_BINARY_FIND_ALL_STATE(state) % sizeof(Eterm));
-#ifdef HARDDEBUG
-		erts_printf("Trap ac!\n");
-#endif
-                state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
-		state_ptr->bignum_hdr = make_pos_bignum_header(x);
-		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
-		ac_serialize_find_all(&state, &state_ptr->data.acfas);
-		*res_term = make_big(&state_ptr->bignum_hdr);
-		erts_free_aligned_binary_bytes(temp_alloc);
-		ac_clean_find_all(&state);
-		return DO_BIN_MATCH_RESTART;
-	    } else {
-		*res_term = bfs->global_result(p, subject, bfs, state.out, state.m);
-	    }
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    ac_clean_find_all(&state);
-	    BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
-	    return DO_BIN_MATCH_OK;
-	}
+    if (ctx_bin == NULL) {
+	is_first_call = 1;
+	ctx = *ctxp;
     } else {
-	if (bfs->type == am_bm) {
-	    BMData *bm;
-	    Sint pos;
-	    BMFindFirstState state;
-	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
-	    Uint save_reds = reds;
-
-	    bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
-#ifdef HARDDEBUG
-	    dump_bm_data(bm);
-#endif
-	    if (state_term == NIL) {
-		bm_init_find_first_match(&state, bfs->hsstart, bfs->hsend);
-	    } else {
-		memcpy(&state, &state_ptr->data.bmffs, sizeof(BMFindFirstState));
-	    }
-
-#ifdef HARDDEBUG
-	    erts_printf("(bm) state->pos = %ld, state->len = %lu\n",state.pos,
-			state.len);
-#endif
-	    pos = bm_find_first_match(&state, bm, bytes, &reds);
-	    if (pos == BM_NOT_FOUND) {
-		*res_term = bfs->not_found_result(p, subject, bfs);
-	    } else if (pos == BM_RESTART) {
-		int x =
-		    (SIZEOF_BINARY_FIND_STATE(state) / sizeof(Eterm)) +
-		    !!(SIZEOF_BINARY_FIND_STATE(state) % sizeof(Eterm));
-#ifdef HARDDEBUG
-		erts_printf("Trap bm!\n");
-#endif
-                state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
-                state_ptr->bignum_hdr = make_pos_bignum_header(x);
-		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
-		memcpy(&state_ptr->data.acffs, &state, sizeof(BMFindFirstState));
-		*res_term = make_big(&state_ptr->bignum_hdr);
-		erts_free_aligned_binary_bytes(temp_alloc);
-		return DO_BIN_MATCH_RESTART;
-	    } else {
-		*res_term = bfs->single_result(p, subject, bfs, pos, bm->len);
-	    }
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
-	    return DO_BIN_MATCH_OK;
-	} else if (bfs->type == am_ac) {
-	    ACTrie *act;
-	    Uint pos, rlen;
-	    int acr;
-	    ACFindFirstState state;
-	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
-	    Uint save_reds = reds;
-
-	    act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
-#ifdef HARDDEBUG
-	    dump_ac_trie(act);
-#endif
-	    if (state_term == NIL) {
-		ac_init_find_first_match(&state, act, bfs->hsstart, bfs->hsend);
-	    } else {
-		memcpy(&state, &state_ptr->data.acffs, sizeof(ACFindFirstState));
-	    }
-	    acr = ac_find_first_match(&state, bytes, &pos, &rlen, &reds);
-	    if (acr == AC_NOT_FOUND) {
-		*res_term = bfs->not_found_result(p, subject, bfs);
-	    } else if (acr == AC_RESTART) {
-		int x =
-		    (SIZEOF_BINARY_FIND_STATE(state) / sizeof(Eterm)) +
-		    !!(SIZEOF_BINARY_FIND_STATE(state) % sizeof(Eterm));
-#ifdef HARDDEBUG
-		erts_printf("Trap ac!\n");
-#endif
-		state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
-		state_ptr->bignum_hdr = make_pos_bignum_header(x);
-		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
-		memcpy(&state_ptr->data.acffs, &state, sizeof(ACFindFirstState));
-		*res_term = make_big(&state_ptr->bignum_hdr);
-		erts_free_aligned_binary_bytes(temp_alloc);
-		return DO_BIN_MATCH_RESTART;
-	    } else {
-		*res_term = bfs->single_result(p, subject, bfs, pos, rlen);
-	    }
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
-	    return DO_BIN_MATCH_OK;
-	}
+	is_first_call = 0;
+	ctx = ERTS_MAGIC_BIN_DATA(ctx_bin);
+	ctx->pat_bin = pat_bin;
+	*ctxp = ctx;
     }
- badarg:
-    return DO_BIN_MATCH_BADARG;
+
+    initial_reds = ctx->reds = get_reds(p, ctx->loop_factor);
+
+    switch (ctx->state) {
+    case BFSearch: {
+	byte *bytes;
+	Uint bitoffs, bitsize;
+	byte *temp_alloc = NULL;
+
+	ERTS_GET_BINARY_BYTES(subject, bytes, bitoffs, bitsize);
+	if (bitsize != 0) {
+	    goto badarg;
+	}
+	if (bitoffs != 0) {
+	    bytes = erts_get_aligned_binary_bytes(subject, &temp_alloc);
+	}
+#ifdef HARDDEBUG
+	bf_context_dump(ctx);
+#endif
+	runres = ctx->search->find(ctx, bytes);
+	if (runres == BF_NOT_FOUND) {
+	    *res_term = ctx->not_found(p, subject, &ctx);
+	    *ctxp = ctx;
+	} else if (runres == BF_RESTART) {
+#ifdef HARDDEBUG
+	    if (ctx->pat_type == am_ac) {
+		erts_printf("Trap ac!\n");
+	    } else {
+		erts_printf("Trap bm!\n");
+	    }
+#endif
+	    if (is_first_call) {
+		ctx = bf_context_export(p, ctx);
+		*ctxp = ctx;
+		erts_set_gc_state(p, 0);
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    *res_term = THE_NON_VALUE;
+	    BUMP_ALL_REDS(p);
+	    return BF_RESTART;
+	} else {
+	    *res_term = ctx->found(p, subject, &ctx);
+	    *ctxp = ctx;
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+	if (*res_term == THE_NON_VALUE) {
+	    if (is_first_call) {
+		erts_set_gc_state(p, 0);
+	    }
+	    BUMP_ALL_REDS(p);
+	    return BF_RESTART;
+	}
+	if (ctx->search->done != NULL) {
+	    ctx->search->done(ctx);
+	}
+	ctx->state = BFDone;
+	if (!is_first_call) {
+	    erts_set_gc_state(p, 1);
+	}
+	BUMP_REDS(p, (initial_reds - ctx->reds) / ctx->loop_factor);
+	return BF_OK;
+    }
+    case BFResult: {
+	*res_term = ctx->found(p, subject, &ctx);
+	*ctxp = ctx;
+	if (*res_term == THE_NON_VALUE) {
+	    if (is_first_call) {
+		erts_set_gc_state(p, 0);
+	    }
+	    BUMP_ALL_REDS(p);
+	    return BF_RESTART;
+	}
+	if (ctx->search->done != NULL) {
+	    ctx->search->done(ctx);
+	}
+	ctx->state = BFDone;
+	if (!is_first_call) {
+	    erts_set_gc_state(p, 1);
+	}
+	BUMP_REDS(p, (initial_reds - ctx->reds) / ctx->loop_factor);
+	return BF_OK;
+    }
+    default:
+	ASSERT(!"Unknown state in do_binary_find");
+    }
+
+badarg:
+    if (!is_first_call) {
+	if (ctx->search->done != NULL) {
+	    ctx->search->done(ctx);
+	}
+	ctx->state = BFDone;
+	erts_set_gc_state(p, 1);
+    }
+    return BF_BADARG;
 }
 
 static BIF_RETTYPE
 binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
 {
-    BinaryFindState bfs;
-    Eterm *tp;
-    Binary *bin;
-    Eterm bin_term = NIL;
+    BinaryFindContext c_buff;
+    BinaryFindContext *ctx = &c_buff;
+    Binary *pat_bin;
     int runres;
     Eterm result;
 
-    if (is_not_binary(arg1)) {
+    if (is_not_binary(arg1) || binary_bitsize(arg1) != 0) {
 	goto badarg;
     }
-    bfs.flags = flags;
-    if (parse_match_opts_list(arg3, arg1, &(bfs.hsstart), &(bfs.hsend))) {
+    ctx->flags = flags;
+    if (parse_match_opts_list(arg3, arg1, &(ctx->hsstart), &(ctx->hsend))) {
 	goto badarg;
     }
-    if (bfs.hsend == 0) {
-	BIF_RET(do_match_not_found_result(p, arg1, &bfs));
+    if (ctx->hsend == 0) {
+	result = do_match_not_found_result(p, arg1, &ctx);
+	BIF_RET(result);
     }
-    if (is_tuple(arg2)) {
-	tp = tuple_val(arg2);
-	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
-	    goto badarg;
-	}
-	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
-	    !is_internal_magic_ref(tp[2])) {
-	    goto badarg;
-	}
-	bfs.type = tp[1];
-	bin = erts_magic_ref2bin(tp[2]);
-	if (bfs.type == am_bm &&
-	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
-	    goto badarg;
-	}
-	if (bfs.type == am_ac &&
-	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_ac) {
-	    goto badarg;
-	}
-	bin_term = tp[2];
-    } else if (do_binary_match_compile(arg2, &(bfs.type), &bin)) {
+    if (maybe_binary_match_compile(ctx, arg2, &pat_bin) != BF_OK) {
 	goto badarg;
     }
-    bfs.not_found_result = &do_match_not_found_result;
-    bfs.single_result = &do_match_single_result;
-    bfs.global_result = &do_match_global_result;
-    runres = do_binary_find(p, arg1, &bfs, bin, NIL, &result);
-    if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
-	Eterm *hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
-	bin_term = erts_mk_magic_ref(&hp, &MSO(p), bin);
-    } else if (bin_term == NIL) {
-	erts_bin_free(bin);
+    bf_context_init(ctx, do_match_not_found_result, do_match_single_result,
+		    do_match_global_result, pat_bin);
+    runres = do_binary_find(p, arg1, &ctx, pat_bin, NULL, &result);
+    if (runres == BF_OK && ctx->pat_term == THE_NON_VALUE) {
+	erts_bin_free(pat_bin);
     }
     switch (runres) {
-    case DO_BIN_MATCH_OK:
+    case BF_OK:
 	BIF_RET(result);
-    case DO_BIN_MATCH_RESTART:
-	BUMP_ALL_REDS(p);
-	BIF_TRAP3(&binary_find_trap_export, p, arg1, result, bin_term);
+    case BF_RESTART:
+	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
+	BIF_TRAP3(&binary_find_trap_export, p, arg1, ctx->trap_term, ctx->pat_term);
     default:
 	goto badarg;
     }
- badarg:
-    BIF_ERROR(p,BADARG);
+badarg:
+    BIF_ERROR(p, BADARG);
 }
 
 BIF_RETTYPE binary_match_2(BIF_ALIST_2)
@@ -1471,76 +1575,52 @@ BIF_RETTYPE binary_match_3(BIF_ALIST_3)
 
 BIF_RETTYPE binary_matches_2(BIF_ALIST_2)
 {
-    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, THE_NON_VALUE, BINARY_FIND_ALL);
+    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, THE_NON_VALUE, BF_FLAG_GLOBAL);
 }
 
 BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
 {
-    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BINARY_FIND_ALL);
+    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BF_FLAG_GLOBAL);
 }
 
 static BIF_RETTYPE
 binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 {
-    BinaryFindState bfs;
-    Eterm *tp;
-    Binary *bin;
-    Eterm bin_term = NIL;
+    BinaryFindContext c_buff;
+    BinaryFindContext *ctx = &c_buff;
+    Binary *pat_bin;
     int runres;
     Eterm result;
 
-    if (is_not_binary(arg1)) {
+    if (is_not_binary(arg1) || binary_bitsize(arg1) != 0) {
 	goto badarg;
     }
-    if (parse_split_opts_list(arg3, arg1, &(bfs.hsstart), &(bfs.hsend), &(bfs.flags))) {
+    if (parse_split_opts_list(arg3, arg1, &(ctx->hsstart), &(ctx->hsend), &(ctx->flags))) {
 	goto badarg;
     }
-    if (bfs.hsend == 0) {
-	result = do_split_not_found_result(p, arg1, &bfs);
+    if (ctx->hsend == 0) {
+	result = do_split_not_found_result(p, arg1, &ctx);
 	BIF_RET(result);
     }
-    if (is_tuple(arg2)) {
-	tp = tuple_val(arg2);
-	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
-	    goto badarg;
-	}
-	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
-	    !is_internal_magic_ref(tp[2])) {
-	    goto badarg;
-	}
-	bfs.type = tp[1];
-	bin = erts_magic_ref2bin(tp[2]);
-	if (bfs.type == am_bm &&
-	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
-	    goto badarg;
-	}
-	if (bfs.type == am_ac &&
-	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_ac) {
-	    goto badarg;
-	}
-	bin_term = tp[2];
-    } else if (do_binary_match_compile(arg2, &(bfs.type), &bin)) {
+    if (maybe_binary_match_compile(ctx, arg2, &pat_bin) != BF_OK) {
 	goto badarg;
     }
-    bfs.not_found_result = &do_split_not_found_result;
-    bfs.single_result = &do_split_single_result;
-    bfs.global_result = &do_split_global_result;
-    runres = do_binary_find(p, arg1, &bfs, bin, NIL, &result);
-    if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
-	Eterm *hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
-	bin_term = erts_mk_magic_ref(&hp, &MSO(p), bin);
-    } else if (bin_term == NIL) {
-	erts_bin_free(bin);
+    bf_context_init(ctx, do_split_not_found_result, do_split_single_result,
+		    do_split_global_result, pat_bin);
+    runres = do_binary_find(p, arg1, &ctx, pat_bin, NULL, &result);
+    if (runres == BF_OK && ctx->pat_term == THE_NON_VALUE) {
+	erts_bin_free(pat_bin);
     }
-    switch(runres) {
-    case DO_BIN_MATCH_OK:
+    switch (runres) {
+    case BF_OK:
 	BIF_RET(result);
-    case DO_BIN_MATCH_RESTART:
-	BIF_TRAP3(&binary_find_trap_export, p, arg1, result, bin_term);
+    case BF_RESTART:
+	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
+	BIF_TRAP3(&binary_find_trap_export, p, arg1, ctx->trap_term, ctx->pat_term);
     default:
 	goto badarg;
     }
- badarg:
+badarg:
     BIF_ERROR(p, BADARG);
 }
 
@@ -1554,220 +1634,300 @@ BIF_RETTYPE binary_split_3(BIF_ALIST_3)
     return binary_split(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 }
 
-static Eterm do_match_not_found_result(Process *p, Eterm subject, BinaryFindState *bfs)
+static Eterm do_match_not_found_result(Process *p, Eterm subject, BinaryFindContext **ctxp)
 {
-    if (bfs->flags & BINARY_FIND_ALL) {
+    if ((*ctxp)->flags & BF_FLAG_GLOBAL) {
 	return NIL;
     } else {
 	return am_nomatch;
     }
 }
 
-static Eterm do_match_single_result(Process *p, Eterm subject, BinaryFindState *bfs,
-				    Sint pos, Sint len)
+static Eterm do_match_single_result(Process *p, Eterm subject, BinaryFindContext **ctxp)
 {
+    BinaryFindContext *ctx = (*ctxp);
+    BinaryFindFirstContext *ff = &(ctx->u.ff);
     Eterm erlen;
     Eterm *hp;
     Eterm ret;
 
-    erlen = erts_make_integer((Uint)(len), p);
-    ret = erts_make_integer(pos, p);
+    erlen = erts_make_integer((Uint)(ff->len), p);
+    ret = erts_make_integer(ff->pos, p);
     hp = HAlloc(p, 3);
     ret = TUPLE2(hp, ret, erlen);
 
     return ret;
 }
 
-static Eterm do_match_global_result(Process *p, Eterm subject, BinaryFindState *bfs,
-				    FindallData *fad, Uint fad_sz)
+static Eterm do_match_global_result(Process *p, Eterm subject, BinaryFindContext **ctxp)
 {
-    Sint i;
+    BinaryFindContext *ctx = (*ctxp);
+    BinaryFindAllContext *fa = &(ctx->u.fa);
+    FindallData *fad;
     Eterm tpl;
-    Eterm *hp;
-    Eterm ret;
+    Sint i;
+    register Uint reds = ctx->reds;
 
-    for (i = 0; i < fad_sz; ++i) {
-	fad[i].epos = erts_make_integer(fad[i].pos, p);
-	fad[i].elen = erts_make_integer(fad[i].len, p);
-    }
-    hp = HAlloc(p, fad_sz * (3 + 2));
-    ret = NIL;
-    for (i = fad_sz - 1; i >= 0; --i) {
-	tpl = TUPLE2(hp, fad[i].epos, fad[i].elen);
-	hp += 3;
-	ret = CONS(hp, tpl, ret);
-	hp += 2;
+    if (ctx->state == BFSearch) {
+	if (ctx->pat_type == am_ac) {
+	    fa->data = fa->d.ac.out;
+	    fa->size = fa->d.ac.m;
+	} else {
+	    fa->data = fa->d.bm.out;
+	    fa->size = fa->d.bm.m;
+	}
+	fa->tail = fa->size - 1;
+	fa->head = 0;
+	fa->end_pos = 0;
+	fa->term = NIL;
+	if (ctx->exported == 0 && ((fa->size * 2) >= reds)) {
+	    ctx = bf_context_export(p, ctx);
+	    *ctxp = ctx;
+	    fa = &(ctx->u.fa);
+	}
+	erts_factory_proc_prealloc_init(&(fa->factory), p, fa->size * (3 + 2));
+	ctx->state = BFResult;
     }
 
-    return ret;
+    fad = fa->data;
+
+    if (fa->end_pos == 0) {
+	for (i = fa->head; i < fa->size; ++i) {
+	    if (--reds == 0) {
+		ASSERT(ctx->exported == 1);
+		fa->head = i;
+		ctx->reds = reds;
+		return THE_NON_VALUE;
+	    }
+	    fad[i].epos = erts_make_integer(fad[i].pos, p);
+	    fad[i].elen = erts_make_integer(fad[i].len, p);
+	}
+	fa->end_pos = 1;
+	fa->head = fa->tail;
+    }
+
+    for (i = fa->head; i >= 0; --i) {
+	if (--reds == 0) {
+	    ASSERT(ctx->exported == 1);
+	    fa->head = i;
+	    ctx->reds = reds;
+	    return THE_NON_VALUE;
+	}
+	tpl = TUPLE2(fa->factory.hp, fad[i].epos, fad[i].elen);
+	fa->factory.hp += 3;
+	fa->term = CONS(fa->factory.hp, tpl, fa->term);
+	fa->factory.hp += 2;
+    }
+    ctx->reds = reds;
+    erts_factory_close(&(fa->factory));
+
+    return fa->term;
 }
 
-static Eterm do_split_not_found_result(Process *p, Eterm subject, BinaryFindState *bfs)
+static Eterm do_split_not_found_result(Process *p, Eterm subject, BinaryFindContext **ctxp)
 {
+    BinaryFindContext *ctx = (*ctxp);
     Eterm *hp;
     Eterm ret;
 
-    if (bfs->flags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)
+    if (ctx->flags & (BF_FLAG_SPLIT_TRIM | BF_FLAG_SPLIT_TRIM_ALL)
         && binary_size(subject) == 0) {
-        return NIL;
+	return NIL;
     }
     hp = HAlloc(p, 2);
     ret = CONS(hp, subject, NIL);
-
     return ret;
 }
 
-static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindState *bfs,
-				    Sint pos, Sint len)
+static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindContext **ctxp)
 {
+    BinaryFindContext *ctx = (*ctxp);
+    BinaryFindFirstContext *ff = &(ctx->u.ff);
+    Sint pos;
+    Sint len;
     size_t orig_size;
     Eterm orig;
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    ErlSubBin *sb1;
-    ErlSubBin *sb2;
-    Eterm *hp;
+    Uint hp_need;
+    Eterm *hp, *hp_end;
     Eterm ret;
+
+    pos = ff->pos;
+    len = ff->len;
 
     orig_size = binary_size(subject);
 
-    if ((bfs->flags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)) &&
+    if ((ctx->flags & (BF_FLAG_SPLIT_TRIM | BF_FLAG_SPLIT_TRIM_ALL)) &&
 	(orig_size - pos - len) == 0) {
 	if (pos == 0) {
 	    ret = NIL;
 	} else {
-	    hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = (ErlSubBin *) hp;
-	    sb1->thing_word = HEADER_SUB_BIN;
-	    sb1->size = pos;
-	    sb1->offs = offset;
-	    sb1->orig = orig;
-	    sb1->bitoffs = bit_offset;
-	    sb1->bitsize = bit_size;
-	    sb1->is_writable = 0;
-	    hp += ERL_SUB_BIN_SIZE;
+	    Eterm extracted;
 
-	    ret = CONS(hp, make_binary(sb1), NIL);
+	    hp_need = EXTRACT_SUB_BIN_HEAP_NEED + 2;
+
+	    hp = HAlloc(p, hp_need);
+	    hp_end = hp + hp_need;
+
+	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+	    extracted = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+	                                        offset * 8 + bit_offset,
+	                                        pos * 8 + bit_size);
+
+	    ret = CONS(hp, extracted, NIL);
 	    hp += 2;
+
+	    HRelease(p, hp_end, hp);
+
+	    return ret;
 	}
     } else {
-	if ((bfs->flags & BINARY_SPLIT_TRIM_ALL) && (pos == 0)) {
-	    hp = HAlloc(p, 1 * (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = NULL;
-	} else {
-	    hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = (ErlSubBin *) hp;
-	    sb1->thing_word = HEADER_SUB_BIN;
-	    sb1->size = pos;
-	    sb1->offs = offset;
-	    sb1->orig = orig;
-	    sb1->bitoffs = bit_offset;
-	    sb1->bitsize = 0;
-	    sb1->is_writable = 0;
-	    hp += ERL_SUB_BIN_SIZE;
-	}
+        Eterm first, rest;
 
-	sb2 = (ErlSubBin *) hp;
-	sb2->thing_word = HEADER_SUB_BIN;
-	sb2->size = orig_size - pos - len;
-	sb2->offs = offset + pos + len;
-	sb2->orig = orig;
-	sb2->bitoffs = bit_offset;
-	sb2->bitsize = bit_size;
-	sb2->is_writable = 0;
-	hp += ERL_SUB_BIN_SIZE;
+        hp_need = (EXTRACT_SUB_BIN_HEAP_NEED + 2) * 2;
 
-	ret = CONS(hp, make_binary(sb2), NIL);
-	hp += 2;
-	if (sb1 != NULL) {
-	    ret = CONS(hp, make_binary(sb1), ret);
-	    hp += 2;
-	}
+        hp = HAlloc(p, hp_need);
+        hp_end = hp + hp_need;
+
+        ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+        if ((ctx->flags & BF_FLAG_SPLIT_TRIM_ALL) && (pos == 0)) {
+            first = NIL;
+        } else {
+            first = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                            offset * 8 + bit_offset,
+                                            pos * 8);
+        }
+
+        rest = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                       (offset + pos + len) * 8 + bit_offset,
+                                       (orig_size - pos - len) * 8 + bit_size);
+
+        ret = CONS(hp, rest, NIL);
+        hp += 2;
+
+        if (first != NIL) {
+            ret = CONS(hp, first, ret);
+            hp += 2;
+        }
+
+        HRelease(p, hp_end, hp);
     }
+
     return ret;
 }
 
-static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindState *bfs,
-				    FindallData *fad, Uint fad_sz)
+static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext **ctxp)
 {
-    size_t orig_size;
+    BinaryFindContext *ctx = (*ctxp);
+    BinaryFindAllContext *fa = &(ctx->u.fa);
+    FindallData *fad;
     Eterm orig;
+    size_t orig_size;
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    ErlSubBin *sb;
+    Uint extracted_offset;
+    Uint extracted_size;
+    Eterm extracted;
+    Uint do_trim;
     Sint i;
-    Sint tail;
-    Uint list_size;
-    Uint end_pos;
-    Uint do_trim = bfs->flags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL);
-    Eterm *hp;
-    Eterm *hendp;
-    Eterm ret;
+    register Uint reds = ctx->reds;
 
-    tail = fad_sz - 1;
-    list_size = fad_sz + 1;
-    orig_size = binary_size(subject);
-    end_pos = (Uint)(orig_size);
+    if (ctx->state == BFSearch) {
+	if (ctx->pat_type == am_ac) {
+	    fa->data = fa->d.ac.out;
+	    fa->size = fa->d.ac.m;
+	} else {
+	    fa->data = fa->d.bm.out;
+	    fa->size = fa->d.bm.m;
+	}
+	fa->tail = fa->size - 1;
+	fa->head = fa->tail;
+	orig_size = binary_size(subject);
+	fa->end_pos = (Uint)(orig_size);
+	fa->term = NIL;
+	if (ctx->exported == 0 && ((fa->head + 1) >= reds)) {
+	    ctx = bf_context_export(p, ctx);
+	    *ctxp = ctx;
+	    fa = &(ctx->u.fa);
+	}
+	erts_factory_proc_prealloc_init(&(fa->factory), p, (fa->size + 1) *
+	                                (EXTRACT_SUB_BIN_HEAP_NEED + 2));
+	ctx->state = BFResult;
+    }
 
-    hp = HAlloc(p, list_size * (ERL_SUB_BIN_SIZE + 2));
-    hendp = hp + list_size * (ERL_SUB_BIN_SIZE + 2);
     ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
     ASSERT(bit_size == 0);
+    fad = fa->data;
+    do_trim = ctx->flags & (BF_FLAG_SPLIT_TRIM | BF_FLAG_SPLIT_TRIM_ALL);
 
-    ret = NIL;
-
-    for (i = tail; i >= 0; --i) {
-	sb = (ErlSubBin *)(hp);
-	sb->size = end_pos - (fad[i].pos + fad[i].len);
-	if (!(sb->size == 0 && do_trim)) {
-	    sb->thing_word = HEADER_SUB_BIN;
-	    sb->offs = offset + fad[i].pos + fad[i].len;
-	    sb->orig = orig;
-	    sb->bitoffs = bit_offset;
-	    sb->bitsize = 0;
-	    sb->is_writable = 0;
-	    hp += ERL_SUB_BIN_SIZE;
-	    ret = CONS(hp, make_binary(sb), ret);
-	    hp += 2;
-	    do_trim &= ~BINARY_SPLIT_TRIM;
+    for (i = fa->head; i >= 0; --i) {
+	if (--reds == 0) {
+	    ASSERT(ctx->exported == 1);
+	    fa->head = i;
+	    ctx->reds = reds;
+	    if (!do_trim && (ctx->flags & BF_FLAG_SPLIT_TRIM)) {
+		ctx->flags &= ~BF_FLAG_SPLIT_TRIM;
+	    }
+	    return THE_NON_VALUE;
 	}
-	end_pos = fad[i].pos;
+
+        extracted_offset = (offset + fad[i].pos + fad[i].len) * 8 + bit_offset;
+        extracted_size = (fa->end_pos - (fad[i].pos + fad[i].len)) * 8;
+
+        if (!(extracted_size == 0 && do_trim)) {
+            extracted = erts_extract_sub_binary(&fa->factory.hp, orig,
+                                                binary_bytes(orig),
+                                                extracted_offset,
+                                                extracted_size);
+            fa->term = CONS(fa->factory.hp, extracted, fa->term);
+            fa->factory.hp += 2;
+
+            do_trim &= ~BF_FLAG_SPLIT_TRIM;
+        }
+
+        fa->end_pos = fad[i].pos;
     }
 
-    sb = (ErlSubBin *)(hp);
-    sb->size = fad[0].pos;
-    if (!(sb->size == 0 && do_trim)) {
-	sb->thing_word = HEADER_SUB_BIN;
-	sb->offs = offset;
-	sb->orig = orig;
-	sb->bitoffs = bit_offset;
-	sb->bitsize = 0;
-	sb->is_writable = 0;
-	hp += ERL_SUB_BIN_SIZE;
-	ret = CONS(hp, make_binary(sb), ret);
-	hp += 2;
+    fa->head = i;
+    ctx->reds = reds;
+
+    extracted_offset = offset * 8 + bit_offset;
+    extracted_size = fad[0].pos * 8;
+
+    if (!(extracted_size == 0 && do_trim)) {
+        extracted = erts_extract_sub_binary(&fa->factory.hp, orig,
+                                            binary_bytes(orig),
+                                            extracted_offset,
+                                            extracted_size);
+        fa->term = CONS(fa->factory.hp, extracted, fa->term);
+        fa->factory.hp += 2;
     }
-    HRelease(p, hendp, hp);
-    return ret;
+
+    erts_factory_close(&(fa->factory));
+
+    return fa->term;
 }
 
 static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
 {
     int runres;
     Eterm result;
-    Binary *bin = erts_magic_ref2bin(BIF_ARG_3);
+    Binary *ctx_bin = erts_magic_ref2bin(BIF_ARG_2);
+    Binary *pat_bin = erts_magic_ref2bin(BIF_ARG_3);
+    BinaryFindContext *ctx = NULL;
 
-    runres = do_binary_find(BIF_P, BIF_ARG_1, NULL, bin, BIF_ARG_2, &result);
-    if (runres == DO_BIN_MATCH_OK) {
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(ctx_bin) == bf_context_destructor);
+    runres = do_binary_find(BIF_P, BIF_ARG_1, &ctx, pat_bin, ctx_bin, &result);
+    if (runres == BF_OK) {
+	ASSERT(result != THE_NON_VALUE);
 	BIF_RET(result);
     } else {
-	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP3(&binary_find_trap_export, BIF_P, BIF_ARG_1, result, BIF_ARG_3);
+	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
+	BIF_TRAP3(&binary_find_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 }
 
@@ -1780,8 +1940,8 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    Eterm* hp;
-    ErlSubBin* sb;
+    Eterm *hp, *hp_end;
+    Eterm result;
 
     if (is_not_binary(binary)) {
 	goto badarg;
@@ -1813,120 +1973,23 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 	goto badarg;
     }
 
-
-
-    hp = HAlloc(p, ERL_SUB_BIN_SIZE);
+    hp = HeapFragOnlyAlloc(p, EXTRACT_SUB_BIN_HEAP_NEED);
+    hp_end = hp + EXTRACT_SUB_BIN_HEAP_NEED;
 
     ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
-    sb = (ErlSubBin *) hp;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = len;
-    sb->offs = offset + pos;
-    sb->orig = orig;
-    sb->bitoffs = bit_offset;
-    sb->bitsize = 0;
-    sb->is_writable = 0;
 
-    BIF_RET(make_binary(sb));
+    result = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                     (offset + pos) * 8 + bit_offset,
+                                     len * 8);
+
+    HRelease(p, hp_end, hp);
+
+    BIF_RET(result);
 
  badarg:
     BIF_ERROR(p, BADARG);
 }
 
-#define ERTS_NEED_GC(p, need) ((HEAP_LIMIT((p)) - HEAP_TOP((p))) <= (need))
-
-BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple)
-{
-    Uint pos;
-    Sint len;
-    size_t orig_size;
-    Eterm orig;
-    Uint offset;
-    Uint bit_offset;
-    Uint bit_size;
-    Eterm* hp;
-    ErlSubBin* sb;
-    Eterm binary;
-    Eterm *tp;
-    Eterm epos, elen;
-    int extra_args;
-
-
-    if (range_is_tuple) {
-	Eterm tpl = reg[live];
-	extra_args = 1;
-	if (is_not_tuple(tpl)) {
-	    goto badarg;
-	}
-	tp = tuple_val(tpl);
-	if (arityval(*tp) != 2) {
-	    goto badarg;
-	}
-
-	epos = tp[1];
-	elen = tp[2];
-    } else {
-	extra_args = 2;
-	epos = reg[live-1];
-	elen = reg[live];
-    }
-    binary = reg[live-extra_args];
-
-    if (is_not_binary(binary)) {
-	goto badarg;
-    }
-    if (!term_to_Uint(epos, &pos)) {
-	goto badarg;
-    }
-    if (!term_to_Sint(elen, &len)) {
-	goto badarg;
-    }
-    if (len < 0) {
-	Uint lentmp = -(Uint)len;
-	/* overflow */
-	if ((Sint)lentmp < 0) {
-	    goto badarg;
-	}
-	len = lentmp;
-	if (len > pos) {
-	    goto badarg;
-	}
-	pos -= len;
-    }
-    /* overflow */
-    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
-	goto badarg;
-    }
-    if ((orig_size = binary_size(binary)) < pos ||
-	orig_size < (pos + len)) {
-	goto badarg;
-    }
-
-    if (ERTS_NEED_GC(p, ERL_SUB_BIN_SIZE)) {
-	erts_garbage_collect(p, ERL_SUB_BIN_SIZE, reg, live+1-extra_args); /* I don't need the tuple
-									      or indices any more */
-	binary = reg[live-extra_args];
-    }
-
-    hp = p->htop;
-    p->htop += ERL_SUB_BIN_SIZE;
-
-    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
-
-    sb = (ErlSubBin *) hp;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = len;
-    sb->offs = offset + pos;
-    sb->orig = orig;
-    sb->bitoffs = bit_offset;
-    sb->bitsize = 0;
-    sb->is_writable = 0;
-
-    BIF_RET(make_binary(sb));
-
- badarg:
-    BIF_ERROR(p, BADARG);
-}
 /*************************************************************
  * The actual guard BIFs are in erl_bif_guard.c
  * but the implementation of both the non-gc and the gc
@@ -2176,7 +2239,7 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 	    if (cd[i].type == CL_TYPE_HEAP_NOALLOC) {
 		unsigned char *tmp = cd[i].buff;
 		cd[i].buff = erts_alloc(ERTS_ALC_T_BINARY_BUFFER, cd[i].bufflen);
-		memcpy(cd[i].buff,tmp,cd[i].bufflen);
+		sys_memcpy(cd[i].buff,tmp,cd[i].bufflen);
 		cd[i].type = CL_TYPE_HEAP;
 	    }
 	}
@@ -2346,196 +2409,11 @@ BIF_RETTYPE binary_at_2(BIF_ALIST_2)
     BIF_ERROR(BIF_P,BADARG);
 }
 
-#define BIN_TO_LIST_OK 0
-#define BIN_TO_LIST_TRAP 1
-/* No badarg, checked before call */
-
-#define BIN_TO_LIST_LOOP_FACTOR 10
-
-static int do_bin_to_list(Process *p, byte *bytes, Uint bit_offs,
-			  Uint start, Sint *lenp, Eterm *termp)
-{
-    Uint reds = get_reds(p, BIN_TO_LIST_LOOP_FACTOR); /* reds can never be 0 */
-    Uint len = *lenp;
-    Uint loops;
-    Eterm *hp;
-    Eterm term = *termp;
-    Uint n;
-
-    ASSERT(reds > 0);
-
-    loops = MIN(reds,len);
-
-    BUMP_REDS(p, loops / BIN_TO_LIST_LOOP_FACTOR);
-
-    hp = HAlloc(p,2*loops);
-    while (loops--) {
-	--len;
-	if (bit_offs) {
-	    n = ((((Uint) bytes[start+len]) << bit_offs) |
-		 (((Uint) bytes[start+len+1]) >> (8-bit_offs))) & 0xFF;
-	} else {
-	    n = bytes[start+len];
-	}
-
-	term = CONS(hp,make_small(n),term);
-	hp +=2;
-    }
-    *termp = term;
-    *lenp = len;
-    if (len) {
-	BUMP_ALL_REDS(p);
-	return BIN_TO_LIST_TRAP;
-    }
-    return BIN_TO_LIST_OK;
-}
-
-
-static BIF_RETTYPE do_trap_bin_to_list(Process *p, Eterm binary,
-				       Uint start, Sint len, Eterm sofar)
-{
-    Eterm *hp;
-    Eterm blob;
-
-    hp = HAlloc(p,3);
-    hp[0] = make_pos_bignum_header(2);
-    hp[1] = start;
-    hp[2] = (Uint) len;
-    blob = make_big(hp);
-    BIF_TRAP3(&binary_bin_to_list_trap_export, p, binary, blob, sofar);
-}
-
-static BIF_RETTYPE binary_bin_to_list_trap(BIF_ALIST_3)
-{
-    Eterm *ptr;
-    Uint start;
-    Sint len;
-    byte *bytes;
-    Uint bit_offs;
-    Uint bit_size;
-    Eterm res = BIF_ARG_3;
-
-    ptr  = big_val(BIF_ARG_2);
-    start = ptr[1];
-    len = (Sint) ptr[2];
-
-    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
-    if (do_bin_to_list(BIF_P, bytes, bit_offs, start, &len, &res) ==
-	BIN_TO_LIST_OK) {
-	BIF_RET(res);
-    }
-    return do_trap_bin_to_list(BIF_P,BIF_ARG_1,start,len,res);
-}
-
-static BIF_RETTYPE binary_bin_to_list_common(Process *p,
-					     Eterm bin,
-					     Eterm epos,
-					     Eterm elen)
-{
-    Uint pos;
-    Sint len;
-    size_t sz;
-    byte *bytes;
-    Uint bit_offs;
-    Uint bit_size;
-    Eterm res = NIL;
-
-    if (is_not_binary(bin)) {
-	goto badarg;
-    }
-    if (!term_to_Uint(epos, &pos)) {
-	goto badarg;
-    }
-    if (!term_to_Sint(elen, &len)) {
-	goto badarg;
-    }
-    if (len < 0) {
-	Uint lentmp = -(Uint)len;
-	/* overflow */
-	if ((Sint)lentmp < 0) {
-	    goto badarg;
-	}
-	len = lentmp;
-	if (len > pos) {
-	    goto badarg;
-	}
-	pos -= len;
-    }
-    /* overflow */
-    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
-	goto badarg;
-    }
-    sz = binary_size(bin);
-
-    if (pos+len > sz) {
-	goto badarg;
-    }
-    ERTS_GET_BINARY_BYTES(bin,bytes,bit_offs,bit_size);
-    if (bit_size != 0) {
-	goto badarg;
-    }
-    if(do_bin_to_list(p, bytes, bit_offs, pos, &len, &res) ==
-       BIN_TO_LIST_OK) {
-	BIF_RET(res);
-    }
-    return do_trap_bin_to_list(p,bin,pos,len,res);
-
- badarg:
-    BIF_ERROR(p,BADARG);
-}
-
-BIF_RETTYPE binary_bin_to_list_3(BIF_ALIST_3)
-{
-    return binary_bin_to_list_common(BIF_P,BIF_ARG_1,BIF_ARG_2,BIF_ARG_3);
-}
-
-BIF_RETTYPE binary_bin_to_list_2(BIF_ALIST_2)
-{
-    Eterm *tp;
-
-    if (is_not_tuple(BIF_ARG_2)) {
-	goto badarg;
-    }
-    tp = tuple_val(BIF_ARG_2);
-    if (arityval(*tp) != 2) {
-	goto badarg;
-    }
-    return binary_bin_to_list_common(BIF_P,BIF_ARG_1,tp[1],tp[2]);
- badarg:
-    BIF_ERROR(BIF_P,BADARG);
-}
-
-BIF_RETTYPE binary_bin_to_list_1(BIF_ALIST_1)
-{
-    Uint pos = 0;
-    Sint len;
-    byte *bytes;
-    Uint bit_offs;
-    Uint bit_size;
-    Eterm res = NIL;
-
-    if (is_not_binary(BIF_ARG_1)) {
-	goto badarg;
-    }
-    len = binary_size(BIF_ARG_1);
-    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
-    if (bit_size != 0) {
-	goto badarg;
-    }
-    if(do_bin_to_list(BIF_P, bytes, bit_offs, pos, &len, &res) ==
-       BIN_TO_LIST_OK) {
-	BIF_RET(res);
-    }
-    return do_trap_bin_to_list(BIF_P,BIF_ARG_1,pos,len,res);
- badarg:
-    BIF_ERROR(BIF_P,BADARG);
-}
-
 HIPE_WRAPPER_BIF_DISABLE_GC(binary_list_to_bin, 1)
 
 BIF_RETTYPE binary_list_to_bin_1(BIF_ALIST_1)
 {
-    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, bif_export[BIF_binary_list_to_bin_1]);
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, &bif_trap_export[BIF_binary_list_to_bin_1]);
 }
 
 typedef struct {
@@ -2653,7 +2531,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 						    0);
 	    if (!(cbs->temp_alloc)) { /* alignment not needed, need to copy */
 		byte *tmp = erts_alloc(ERTS_ALC_T_BINARY_BUFFER,size);
-		memcpy(tmp,cbs->source,size);
+		sys_memcpy(tmp,cbs->source,size);
 		cbs->source = tmp;
 		cbs->source_type = BC_TYPE_HEAP;
 	    } else {
@@ -2666,7 +2544,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	pos = 0;
 	i = 0;
 	while (pos < reds) {
-	    memcpy(t+pos,cbs->source, size);
+	    sys_memcpy(t+pos,cbs->source, size);
 	    pos += size;
 	    ++i;
 	}
@@ -2691,7 +2569,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	}
 	pos = 0;
 	while (pos < target_size) {
-	    memcpy(t+pos,source, size);
+	    sys_memcpy(t+pos,source, size);
 	    pos += size;
 	}
 	erts_free_aligned_binary_bytes(temp_alloc);
@@ -2721,7 +2599,7 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
     if ((n-1) * size >= reds) {
 	Uint i = 0;
 	while ((pos - opos) < reds) {
-	    memcpy(t+pos,cbs->source, size);
+	    sys_memcpy(t+pos,cbs->source, size);
 	    pos += size;
 	    ++i;
 	}
@@ -2731,28 +2609,21 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
 	BIF_TRAP2(&binary_copy_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
     } else {
 	Binary *save;
-	ProcBin* pb;
+        Eterm resbin;
 	Uint target_size = cbs->result->orig_size;
 	while (pos < target_size) {
-	    memcpy(t+pos,cbs->source, size);
+	    sys_memcpy(t+pos,cbs->source, size);
 	    pos += size;
 	}
-	save =  cbs->result;
+	save = cbs->result;
 	cbs->result = NULL;
 	cleanup_copy_bin_state(mb); /* now cbs is dead */
-	pb = (ProcBin *) HAlloc(BIF_P, PROC_BIN_SIZE);
-	pb->thing_word = HEADER_PROC_BIN;
-	pb->size = target_size;
-	pb->next = MSO(BIF_P).first;
-	MSO(BIF_P).first = (struct erl_off_heap_header*) pb;
-	pb->val = save;
-	pb->bytes = t;
-	pb->flags = 0;
 
-	OH_OVERHEAD(&(MSO(BIF_P)), target_size / sizeof(Eterm));
-	BUMP_REDS(BIF_P,(pos - opos) / BINARY_COPY_LOOP_FACTOR);
-
-	BIF_RET(make_binary(pb));
+        resbin = erts_build_proc_bin(&MSO(BIF_P),
+                                     HAlloc(BIF_P, PROC_BIN_SIZE),
+                                     save);
+        BUMP_REDS(BIF_P,(pos - opos) / BINARY_COPY_LOOP_FACTOR);
+	BIF_RET(resbin);
     }
 }
 
@@ -2866,7 +2737,7 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	dsize_t num_parts = BIG_SIZE(bigp);
 	Eterm res;
 	byte *b;
-	ErtsDigit d;
+	ErtsDigit d = 0;
 
 	if(BIG_SIGN(bigp)) {
 	    goto badarg;
@@ -2882,26 +2753,22 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	if (endianess == am_big) {
 	    Sint i,j;
 	    j = 0;
-	    d = BIG_DIGIT(bigp,0);
 	    for (i=n-1;i>=0;--i) {
-		b[i] = d & 0xFF;
-		if (!((++j) % sizeof(ErtsDigit))) {
+                if (!((j++) % sizeof(ErtsDigit))) {
 		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
-		} else {
-		    d >>= 8;
 		}
+                b[i] = d & 0xFF;
+                d >>= 8;
 	    }
 	} else {
 	    Sint i,j;
 	    j = 0;
-	    d = BIG_DIGIT(bigp,0);
 	    for (i=0;i<n;++i) {
-		b[i] = d & 0xFF;
-		if (!((++j) % sizeof(ErtsDigit))) {
+                if (!((j++) % sizeof(ErtsDigit))) {
 		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
-		} else {
-		    d >>= 8;
 		}
+                b[i] = d & 0xFF;
+                d >>= 8;
 	    }
 
 	}
@@ -3116,24 +2983,26 @@ static void dump_bm_data(BMData *bm)
 	}
     }
     erts_printf(">>\n");
-    erts_printf("GoodShift array:\n");
-    for (i = 0; i < bm->len; ++i) {
-	erts_printf("GoodShift[%d]: %ld\n", i, bm->goodshift[i]);
-    }
-    erts_printf("BadShift array:\n");
-    j = 0;
-    for (i = 0; i < ALPHABET_SIZE; i += j) {
-	for (j = 0; i + j < ALPHABET_SIZE && j < 6; ++j) {
-	    erts_printf("BS[%03d]:%02ld, ", i+j, bm->badshift[i+j]);
+    if(bm->len > 1) {
+	erts_printf("GoodShift array:\n");
+	for (i = 0; i < bm->len; ++i) {
+	    erts_printf("GoodShift[%d]: %ld\n", i, bm->goodshift[i]);
 	}
-	erts_printf("\n");
+	erts_printf("BadShift array:\n");
+	j = 0;
+	for (i = 0; i < ALPHABET_SIZE; i += j) {
+	    for (j = 0; i + j < ALPHABET_SIZE && j < 6; ++j) {
+		erts_printf("BS[%03d]:%02ld, ", i+j, bm->badshift[i+j]);
+	    }
+	    erts_printf("\n");
+	}
     }
 }
 
 static void dump_ac_node(ACNode *node, int indent, int ch) {
     int i;
     char *spaces = erts_alloc(ERTS_ALC_T_TMP, 10 * indent + 1);
-    memset(spaces,' ',10*indent);
+    sys_memset(spaces,' ',10*indent);
     spaces[10*indent] = '\0';
     erts_printf("%s-> %c\n",spaces,ch);
     erts_printf("%sId: %u\n",spaces,(unsigned) node->id);

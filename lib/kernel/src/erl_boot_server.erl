@@ -252,9 +252,9 @@ handle_info({udp, U, IP, Port, Data}, S0) ->
 				   "~w is not a valid address ** ~n", [IP]),
 	    {noreply,S0};
 	{true,_,_} ->
-	    case catch string:substr(Data, 1, length(?EBOOT_REQUEST)) of
+	    case catch string:slice(Data, 0, length(?EBOOT_REQUEST)) of
 		?EBOOT_REQUEST ->
-		    Vsn = string:substr(Data, length(?EBOOT_REQUEST)+1, length(Data)),
+		    Vsn = string:slice(Data, length(?EBOOT_REQUEST), length(Data)),
 		    error_logger:error_msg("** Illegal boot server connection attempt: "
 					   "client version is ~s ** ~n", [Vsn]);
 		_ ->

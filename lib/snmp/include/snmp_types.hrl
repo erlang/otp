@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,14 @@
 %%----------------------------------------------------------------------
 %% Note: All internal representations may be changed without notice.
 %%----------------------------------------------------------------------
+
+%%----------------------------------------------------------------------
+%% Use this 'value' when sending a notification if wanting to exclude
+%% a varbind form the (notification) message.
+%%----------------------------------------------------------------------
+
+-define(NOTIFICATION_IGNORE_VB_VALUE, '$ignore-oid').
+
 
 %%----------------------------------------------------------------------
 %% Variablebinding
@@ -348,6 +356,9 @@
 %%-----------------------------------------------------------------
 -define(view_included, 1).
 -define(view_excluded, 2).
+
+-define(view_wildcard, 0).
+-define(view_exact,    1).
 
 
 %%-----------------------------------------------------------------

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 -export([all/0, suite/0,
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
-	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
+	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
+         check_no_invalid_read_bug/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -36,7 +37,7 @@ all() ->
     [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
-     longest_common_trap].
+     longest_common_trap, check_no_invalid_read_bug].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
@@ -715,22 +716,22 @@ referenced(Config) when is_list(Config) ->
     badarg = ?MASK_ERROR(binary:referenced_byte_size(apa)),
     badarg = ?MASK_ERROR(binary:referenced_byte_size({})),
     badarg = ?MASK_ERROR(binary:referenced_byte_size(1)),
-    A = <<1,2,3>>,
-    B = binary:copy(A,1000),
-    3 = binary:referenced_byte_size(A),
-    3000 = binary:referenced_byte_size(B),
-    <<_:8,C:2/binary>> = A,
-    3 = binary:referenced_byte_size(C),
-    2 = binary:referenced_byte_size(binary:copy(C)),
-    <<_:7,D:2/binary,_:1>> = A,
-    2 = binary:referenced_byte_size(binary:copy(D)),
-    3 = binary:referenced_byte_size(D),
-    <<_:8,E:2/binary,_/binary>> = B,
-    3000 = binary:referenced_byte_size(E),
-    2 = binary:referenced_byte_size(binary:copy(E)),
-    <<_:7,F:2/binary,_:1,_/binary>> = B,
-    2 = binary:referenced_byte_size(binary:copy(F)),
-    3000 = binary:referenced_byte_size(F),
+    A = <<0:(1024 * 8)>>,
+    B = binary:copy(A, 1000),
+    1024 = binary:referenced_byte_size(A),
+    1024000 = binary:referenced_byte_size(B),
+    <<_:8,C:1023/binary>> = A,
+    1024 = binary:referenced_byte_size(C),
+    1023 = binary:referenced_byte_size(binary:copy(C)),
+    <<_:7,D:1023/binary,_:1>> = A,
+    1023 = binary:referenced_byte_size(binary:copy(D)),
+    1024 = binary:referenced_byte_size(D),
+    <<_:8,E:128/binary,_/binary>> = B,
+    1024000 = binary:referenced_byte_size(E),
+    128 = binary:referenced_byte_size(binary:copy(E)),
+    <<_:7,F:128/binary,_:1,_/binary>> = B,
+    128 = binary:referenced_byte_size(binary:copy(F)),
+    1024000 = binary:referenced_byte_size(F),
     ok.
 
 
@@ -754,8 +755,9 @@ list_to_bin(Config) when is_list(Config) ->
 copy(Config) when is_list(Config) ->
     <<1,2,3>> = binary:copy(<<1,2,3>>),
     RS = random_string({1,10000}),
-    RS = RS2 = binary:copy(RS),
-    false = erts_debug:same(RS,RS2),
+    RS2 = binary:copy(RS),
+    true = RS =:= RS2,
+    false = erts_debug:same(RS, RS2),
     <<>> = ?MASK_ERROR(binary:copy(<<1,2,3>>,0)),
     badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,2)),
     badarg = ?MASK_ERROR(binary:copy([],0)),
@@ -1361,3 +1363,13 @@ make_unaligned2(Bin0) when is_binary(Bin0) ->
     Bin.
 
 id(I) -> I.
+
+check_no_invalid_read_bug(Config) when is_list(Config) ->
+    check_no_invalid_read_bug(24);
+check_no_invalid_read_bug(60) ->
+    ok;
+check_no_invalid_read_bug(I) ->
+    N = 1 bsl I,
+    binary:encode_unsigned(N+N),
+    binary:encode_unsigned(N+N, little),
+    check_no_invalid_read_bug(I+1).

@@ -25,12 +25,15 @@
 <!ELEMENT erlref              (header,module,modulesummary,description, 
 			       (section|funcs|datatypes)*,authors?) >
 <!ELEMENT module              (#PCDATA) >
+<!ATTLIST module               since CDATA #IMPLIED>
 <!ELEMENT modulesummary       (#PCDATA) >
 
 <!-- `name' is used in common.refs.dtd and must therefore 
       be defined in each *ref. dtd -->
-<!ELEMENT name                (#PCDATA|seealso)* >
+<!ELEMENT name                (#PCDATA|%refs;)* >
 <!ATTLIST name                 name CDATA #IMPLIED
                                arity CDATA #IMPLIED
 	                       clause_i CDATA #IMPLIED
+                               anchor CDATA #IMPLIED
+	                       since CDATA #IMPLIED
                                n_vars CDATA #IMPLIED>

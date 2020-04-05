@@ -1,15 +1,15 @@
 
-contracts_with_subtypes.erl:106: The call contracts_with_subtypes:rec_arg({'a','b'}) breaks the contract (Arg) -> 'ok' when Arg :: {'a',A} | {'b',B}, A :: 'a' | {'b',B}, B :: 'b' | {'a',A}
-contracts_with_subtypes.erl:107: The call contracts_with_subtypes:rec_arg({'b','a'}) breaks the contract (Arg) -> 'ok' when Arg :: {'a',A} | {'b',B}, A :: 'a' | {'b',B}, B :: 'b' | {'a',A}
-contracts_with_subtypes.erl:109: The call contracts_with_subtypes:rec_arg({'b',{'a','b'}}) breaks the contract (Arg) -> 'ok' when Arg :: {'a',A} | {'b',B}, A :: 'a' | {'b',B}, B :: 'b' | {'a',A}
-contracts_with_subtypes.erl:135: The call contracts_with_subtypes:rec2({'a','b'}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
-contracts_with_subtypes.erl:136: The call contracts_with_subtypes:rec2({'b','a'}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
-contracts_with_subtypes.erl:137: The call contracts_with_subtypes:rec2({'a',{'b','a'}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
-contracts_with_subtypes.erl:138: The call contracts_with_subtypes:rec2({'b',{'a','b'}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
-contracts_with_subtypes.erl:139: The call contracts_with_subtypes:rec2({'a',{'b',{'a','b'}}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
-contracts_with_subtypes.erl:140: The call contracts_with_subtypes:rec2({'b',{'a',{'b','a'}}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
-contracts_with_subtypes.erl:141: The call contracts_with_subtypes:rec2({'a',{'b',{'a',{'b','a'}}}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
-contracts_with_subtypes.erl:142: The call contracts_with_subtypes:rec2({'b',{'a',{'b',{'a','b'}}}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:106: The call contracts_with_subtypes:rec_arg({'a', 'b'}) breaks the contract (Arg) -> 'ok' when Arg :: {'a',A} | {'b',B}, A :: 'a' | {'b',B}, B :: 'b' | {'a',A}
+contracts_with_subtypes.erl:107: The call contracts_with_subtypes:rec_arg({'b', 'a'}) breaks the contract (Arg) -> 'ok' when Arg :: {'a',A} | {'b',B}, A :: 'a' | {'b',B}, B :: 'b' | {'a',A}
+contracts_with_subtypes.erl:109: The call contracts_with_subtypes:rec_arg({'b', {'a', 'b'}}) breaks the contract (Arg) -> 'ok' when Arg :: {'a',A} | {'b',B}, A :: 'a' | {'b',B}, B :: 'b' | {'a',A}
+contracts_with_subtypes.erl:135: The call contracts_with_subtypes:rec2({'a', 'b'}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:136: The call contracts_with_subtypes:rec2({'b', 'a'}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:137: The call contracts_with_subtypes:rec2({'a', {'b', 'a'}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:138: The call contracts_with_subtypes:rec2({'b', {'a', 'b'}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:139: The call contracts_with_subtypes:rec2({'a', {'b', {'a', 'b'}}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:140: The call contracts_with_subtypes:rec2({'b', {'a', {'b', 'a'}}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:141: The call contracts_with_subtypes:rec2({'a', {'b', {'a', {'b', 'a'}}}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:142: The call contracts_with_subtypes:rec2({'b', {'a', {'b', {'a', 'b'}}}}) breaks the contract (Arg) -> 'ok' when Arg :: ab()
 contracts_with_subtypes.erl:175: The pattern 1 can never match the type string()
 contracts_with_subtypes.erl:178: The pattern 'alpha' can never match the type {'ok',_} | {'ok',_,string()}
 contracts_with_subtypes.erl:180: The pattern 42 can never match the type {'ok',_} | {'ok',_,string()}

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,17 +19,25 @@
 %%
 -module(snmpa_set_mechanism).
 
--export([behaviour_info/1]).
+%% -export([behaviour_info/1]).
  
-behaviour_info(callbacks) ->
-    [{do_set, 2}, {do_subagent_set, 1}];
-behaviour_info(_) ->
-    undefined.
- 
+%% behaviour_info(callbacks) ->
+%%     [{do_set, 2}, {do_subagent_set, 1}];
+%% behaviour_info(_) ->
+%%     undefined.
+
 
 %%-----------------------------------------------------------------
 %% do_set(MibView, UnsortedVarbinds) 
 %%-----------------------------------------------------------------
+
+-callback do_set(MibView, UnsortedVBs) ->
+    {noError, 0} | {ErrStatus, ErrIndex} when
+      MibView     :: snmp_view_based_acm_mib:mibview(),
+      UnsortedVBs :: [snmp:varbind()],
+      ErrStatus   :: snmp:error_status(),
+      ErrIndex    :: snmp:error_index().
+
 
 %%-----------------------------------------------------------------
 %% do_subagent_set(Args)
@@ -41,3 +49,18 @@ behaviour_info(_) ->
 %%   [phase_two, set, UnsortedVarbinds]
 %%   [phase_two, undo, UnsortedVarbinds]
 %%-----------------------------------------------------------------
+
+%% -callback do_subagent_set(Args) ->
+%%     {noError, 0} | {ErrStatus, ErrIndex} when
+%%       Args        :: [phase_one, UnsortedVBs] |
+%%                      [phase_two, set, UnsortedVBs] |
+%%                      [phase_two, undo, UnsortedVBs],
+%%       ErrStatus   :: snmp:error_status(),
+%%       ErrIndex    :: snmp:error_index(),
+%%       UnsortedVBs :: [snmp:varbind()].
+
+-callback do_subagent_set(Args) ->
+    {noError, 0} | {ErrStatus, ErrIndex} when
+      Args      :: list(),
+      ErrStatus :: snmp:error_status(),
+      ErrIndex  :: snmp:error_index().

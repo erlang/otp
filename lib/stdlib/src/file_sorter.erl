@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1314,9 +1314,9 @@ infun(W) ->
             {cont, W#w{in = NFun}, Objs};
         Error ->
             error(Error, W1)
-    catch Class:Reason ->
+    catch Class:Reason:Stacktrace ->
         cleanup(W1),
-        erlang:raise(Class, Reason, erlang:get_stacktrace())
+        erlang:raise(Class, Reason, Stacktrace)
     end.
 
 outfun(A, #w{inout_value = Val} = W) when Val =/= no_value ->
@@ -1336,9 +1336,9 @@ outfun(A, W) ->
             W#w{out = NF};
         Error ->
             error(Error, W1)
-    catch Class:Reason ->
+    catch Class:Reason:Stacktrace ->
         cleanup(W1),
-        erlang:raise(Class, Reason, erlang:get_stacktrace())
+        erlang:raise(Class, Reason, Stacktrace)
     end.
 
 is_keypos(Keypos) when is_integer(Keypos), Keypos > 0 ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -255,7 +255,7 @@ do_run_erl(Config, Case, Opt) ->
     
     net_kernel:monitor_nodes(true),
     open_port({spawn,Cmd}, []),
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     Node = list_to_atom(NodeName++"@"++Host),
 
     receive

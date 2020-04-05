@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2017</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>make</module>
+  <module since="">make</module>
   <modulesummary>A Make Utility for Erlang</modulesummary>
   <description>
     <p>The module <c>make</c> provides a set of functions similar to
@@ -38,8 +38,8 @@
   </description>
   <funcs>
     <func>
-      <name>all() -> up_to_date | error</name>
-      <name>all(Options) -> up_to_date | error</name>
+      <name since="">all() -> up_to_date | error</name>
+      <name since="">all(Options) -> up_to_date | error</name>
       <fsummary>Compile a set of modules.</fsummary>
       <type>
         <v>Options = [Option]</v>
@@ -87,8 +87,8 @@
       </desc>
     </func>
     <func>
-      <name>files(ModFiles) -> up_to_date | error</name>
-      <name>files(ModFiles, Options) -> up_to_date | error</name>
+      <name since="">files(ModFiles) -> up_to_date | error</name>
+      <name since="">files(ModFiles, Options) -> up_to_date | error</name>
       <fsummary>Compile a set of modules.</fsummary>
       <type>
         <v>ModFiles = [Module | File]</v>
@@ -144,6 +144,11 @@ Modules.
 {'file1',[debug_info,{i,"../foo"}]}.
 {'*',[debug_info]}.    </code>
     <p></p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seeerl marker="compiler:compile"><c>compile(3)</c></seeerl></p>
   </section>
 </erlref>
 

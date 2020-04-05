@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,8 +56,11 @@ encode_message(Config,
 	       #'MegacoMessage'{mess = #'Message'{version = V}} = MegaMsg) ->
     encode_message(Config, V, MegaMsg).
 
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_message([{version3, _}|EC], Vsn, MegaMsg) ->
     encode_message(EC, Vsn, MegaMsg);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_message([megaco_compressed|Config], Vsn, MegaMsg) 
   when is_record(MegaMsg, 'MegacoMessage') ->
     {ok, erlang:term_to_binary(?MC_MOD:encode(MegaMsg, Vsn), Config)};
@@ -76,8 +79,11 @@ encode_message(_Config, _Vsn, _MegaMsg) ->
 %% Return {ok, Bin} | {error, Reason}
 %%----------------------------------------------------------------------
 
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_transaction([{version3, _}|EC], Vsn, Trans) ->
     encode_transaction(EC, Vsn, Trans);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_transaction([megaco_compressed|Config], _Vsn, Trans) ->
     {ok, erlang:term_to_binary(?MC_MOD:encode(Trans), Config)};
 encode_transaction([{megaco_compressed, Mod}|Config], _Vsn, Trans) ->
@@ -90,8 +96,12 @@ encode_transaction(Config, _Vsn, Trans) ->
 %% Convert a list of ActionRequest record's into a binary
 %% Return {ok, Binary} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_requests([{version3, _}|EC], Vsn, ActReqs) ->
     encode_action_requests(EC, Vsn, ActReqs);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_requests([megaco_compressed|Config], Vsn, ActReqs0) 
   when is_list(ActReqs0) ->
     ActReqs = [?MC_MOD:encode(AR, Vsn) || AR <- ActReqs0],
@@ -110,8 +120,12 @@ encode_action_requests(Config, _Vsn, ActReqs)
 %% Convert a ActionRequest record into a binary
 %% Return {ok, Binary} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_request([{version3, _}|EC], Vsn, ActReq) ->
     encode_action_request(EC, Vsn, ActReq);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_request([megaco_compressed|Config], Vsn, ActReq) 
   when is_tuple(ActReq) ->
     {ok, erlang:term_to_binary(?MC_MOD:encode(ActReq, Vsn), Config)};
@@ -128,8 +142,12 @@ encode_action_request(Config, _Vsn, ActReq)
 %% Convert a CommandRequest record into a binary
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_command_request([{version3, _}|EC], Vsn, CmdReq) ->
     encode_command_request(EC, Vsn, CmdReq);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_command_request([megaco_compressed|Config], Vsn, CmdReq)
   when is_tuple(CmdReq) ->
     {ok, erlang:term_to_binary(?MC_MOD:encode(CmdReq, Vsn), Config)};
@@ -145,8 +163,12 @@ encode_command_request(Config, _Vsn, CmdReq)
 %% Convert a action reply into a binary
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_reply([{version3, _}|EC], Vsn, ActRep) ->
     encode_action_reply(EC, Vsn, ActRep);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_reply([megaco_compressed|Config], Vsn, ActRep) 
   when is_tuple(ActRep) ->
     {ok, erlang:term_to_binary(?MC_MOD:encode(ActRep, Vsn), Config)};
@@ -175,8 +197,11 @@ version_of(Config, Bin) when is_binary(Bin) ->
 decode_message(Config, Bin) ->
     decode_message(Config, 1, Bin).
 				   
+%% <BACKWARD-COMPAT-CLAUSE>
 decode_message([{version3, _}|EC], V, Bin) ->
     decode_message(EC, V, Bin);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 decode_message([megaco_compressed = MC|_Config], Vsn, Bin) ->
     case catch erlang:binary_to_term(Bin) of
 	Msg when is_tuple(Msg) ->

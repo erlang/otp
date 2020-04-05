@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,14 +24,41 @@
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
--export([send/3, listen/3, accept/3, socket/5, connect/4, upgrade/3,
-	 setopts/3, getopts/3, getstat/3, peername/2, sockname/2, port/2]).
--export([split_options/1, get_socket_opts/3]).
--export([emulated_options/0, emulated_options/1, internal_inet_values/0, default_inet_values/0,
-	 init/1, start_link/3, terminate/2, inherit_tracker/3, 
-	 emulated_socket_options/2, get_emulated_opts/1, 
-	 set_emulated_opts/2, get_all_opts/1, handle_call/3, handle_cast/2,
-	 handle_info/2, code_change/3]).
+-export([send/3, 
+         listen/3, 
+         accept/3, 
+         socket/5, 
+         connect/4, 
+         upgrade/3,
+	 setopts/3, 
+         getopts/3, 
+         getstat/3, 
+         peername/2, 
+         sockname/2, 
+         port/2,
+         close/2]).
+
+-export([split_options/1, 
+         get_socket_opts/3]).
+
+-export([emulated_options/0, 
+         emulated_options/1, 
+         internal_inet_values/0, 
+         default_inet_values/0,
+	 init/1, 
+         start_link/3, 
+         terminate/2, 
+         inherit_tracker/3, 
+	 emulated_socket_options/2, 
+         get_emulated_opts/1, 
+	 set_emulated_opts/2, 
+         get_all_opts/1, 
+         handle_call/3, 
+         handle_cast/2,
+	 handle_info/2, 
+         code_change/3]).
+
+-export([update_active_n/2]).
 
 -record(state, {
 	  emulated_opts,
@@ -45,30 +72,38 @@
 send(Transport, Socket, Data) ->
     Transport:send(Socket, Data).
 
-listen(Transport, Port, #config{transport_info = {Transport, _, _, _}, 
+listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _}, 
 				inet_user = Options, 
 				ssl = SslOpts, emulated = EmOpts} = Config) ->
     case Transport:listen(Port, Options ++ internal_inet_values()) of
 	{ok, ListenSocket} ->
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
-	    {ok, #sslsocket{pid = {ListenSocket, Config#config{emulated = Tracker}}}};
+            LifeTime = get_ticket_lifetime(),
+            TicketStoreSize = get_ticket_store_size(),
+            {ok, SessionHandler} = session_tickets_tracker(LifeTime, TicketStoreSize, SslOpts),
+            Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler}],
+            Socket = #sslsocket{pid = {ListenSocket, Config#config{trackers = Trackers}}},
+            check_active_n(EmOpts, Socket),
+	    {ok, Socket};
 	Err = {error, _} ->
 	    Err
     end.
 
-accept(ListenSocket, #config{transport_info = {Transport,_,_,_} = CbInfo,
+accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
 			     connection_cb = ConnectionCb,
 			     ssl = SslOpts,
-			     emulated = Tracker}, Timeout) -> 
+			     trackers = Trackers}, Timeout) -> 
     case Transport:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
-	    {ok, EmOpts} = get_emulated_opts(Tracker),
+            Tracker = proplists:get_value(option_tracker, Trackers),
+            {ok, EmOpts} = get_emulated_opts(Tracker),
 	    {ok, Port} = tls_socket:port(Transport, Socket),
-	    ConnArgs = [server, "localhost", Port, Socket,
-			{SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Tracker}, self(), CbInfo],
+            {ok, Sender} = tls_sender:start(),
+            ConnArgs = [server, Sender, "localhost", Port, Socket,
+			{SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Trackers}, self(), CbInfo],
 	    case tls_connection_sup:start_child(ConnArgs) of
 		{ok, Pid} ->
-		    ssl_connection:socket_control(ConnectionCb, Socket, Pid, Transport, Tracker);
+		    ssl_connection:socket_control(ConnectionCb, Socket, [Pid, Sender], Transport, Trackers);
 		{error, Reason} ->
 		    {error, Reason}
 	    end;
@@ -76,7 +111,7 @@ accept(ListenSocket, #config{transport_info = {Transport,_,_,_} = CbInfo,
 	    {error, Reason}
     end.
 
-upgrade(Socket, #config{transport_info = {Transport,_,_,_}= CbInfo,
+upgrade(Socket, #config{transport_info = {Transport,_,_,_,_}= CbInfo,
 			ssl = SslOptions,
 			emulated = EmOpts, connection_cb = ConnectionCb}, Timeout) ->
     ok = setopts(Transport, Socket, tls_socket:internal_inet_values()),
@@ -94,7 +129,7 @@ connect(Address, Port,
 	#config{transport_info = CbInfo, inet_user = UserOpts, ssl = SslOpts,
 		emulated = EmOpts, inet_ssl = SocketOpts, connection_cb = ConnetionCb},
 	Timeout) ->
-    {Transport, _, _, _} = CbInfo,
+    {Transport, _, _, _, _} = CbInfo,
     try Transport:connect(Address, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
 	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, 
@@ -112,18 +147,22 @@ connect(Address, Port,
 	    {error, {options, {socket_options, UserOpts}}}
     end.
 
-socket(Pid, Transport, Socket, ConnectionCb, Tracker) ->
-    #sslsocket{pid = Pid, 
+socket(Pids, Transport, Socket, ConnectionCb, Trackers) ->
+    #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
-	       fd = {Transport, Socket, ConnectionCb, Tracker}}.
-setopts(gen_tcp, #sslsocket{pid = {ListenSocket, #config{emulated = Tracker}}}, Options) ->
+	       fd = {Transport, Socket, ConnectionCb, Trackers}}.
+setopts(gen_tcp, Socket = #sslsocket{pid = {ListenSocket, #config{trackers = Trackers}}}, Options) ->
+    Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOpts, EmulatedOpts} = split_options(Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
+    check_active_n(EmulatedOpts, Socket),
     inet:setopts(ListenSocket, SockOpts);
-setopts(_, #sslsocket{pid = {ListenSocket, #config{transport_info = {Transport,_,_,_},
-						  emulated = Tracker}}}, Options) ->
+setopts(_, Socket = #sslsocket{pid = {ListenSocket, #config{transport_info = {Transport,_,_,_,_},
+                                                            trackers = Trackers}}}, Options) ->
+    Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOpts, EmulatedOpts} = split_options(Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
+    check_active_n(EmulatedOpts, Socket),
     Transport:setopts(ListenSocket, SockOpts);
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
 setopts(gen_tcp, Socket, Options) ->
@@ -131,12 +170,40 @@ setopts(gen_tcp, Socket, Options) ->
 setopts(Transport, Socket, Options) ->
     Transport:setopts(Socket, Options).
 
-getopts(gen_tcp,  #sslsocket{pid = {ListenSocket, #config{emulated = Tracker}}}, Options) ->
+check_active_n(EmulatedOpts, Socket = #sslsocket{pid = {_, #config{trackers = Trackers}}}) ->
+    Tracker = proplists:get_value(option_tracker, Trackers),
+    %% We check the resulting options to send an ssl_passive message if necessary.
+    case proplists:lookup(active, EmulatedOpts) of
+        %% The provided value is out of bound.
+        {_, N} when is_integer(N), N < -32768 ->
+            throw(einval);
+        {_, N} when is_integer(N), N > 32767 ->
+            throw(einval);
+        {_, N} when is_integer(N) ->
+            case get_emulated_opts(Tracker, [active]) of
+                [{_, false}] ->
+                    self() ! {ssl_passive, Socket},
+                    ok;
+                %% The result of the addition is out of bound.
+                [{_, A}] when is_integer(A), A < -32768 ->
+                    throw(einval);
+                [{_, A}] when is_integer(A), A > 32767 ->
+                    throw(einval);
+                _ ->
+                    ok
+            end;
+        _ ->
+            ok
+    end.
+
+getopts(gen_tcp,  #sslsocket{pid = {ListenSocket, #config{trackers = Trackers}}}, Options) ->
+    Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOptNames, EmulatedOptNames} = split_options(Options),
     EmulatedOpts = get_emulated_opts(Tracker, EmulatedOptNames),
     SocketOpts = get_socket_opts(ListenSocket, SockOptNames, inet),
     {ok, EmulatedOpts ++ SocketOpts}; 
-getopts(Transport,  #sslsocket{pid = {ListenSocket, #config{emulated = Tracker}}}, Options) ->
+getopts(Transport,  #sslsocket{pid = {ListenSocket, #config{trackers = Trackers}}}, Options) ->
+    Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOptNames, EmulatedOptNames} = split_options(Options),
     EmulatedOpts = get_emulated_opts(Tracker, EmulatedOptNames),
     SocketOpts = get_socket_opts(ListenSocket, SockOptNames, Transport),
@@ -167,6 +234,11 @@ port(gen_tcp, Socket) ->
 port(Transport, Socket) ->
     Transport:port(Socket).
 
+close(gen_tcp, Socket) ->
+    inet:close(Socket);
+close(Transport, Socket) ->
+    Transport:close(Socket).
+
 emulated_options() ->
     [mode, packet, active, header, packet_size].
 
@@ -179,10 +251,22 @@ internal_inet_values() ->
 default_inet_values() ->
     [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
 
-inherit_tracker(ListenSocket, EmOpts, #ssl_options{erl_dist = false} = SslOpts) ->
+inherit_tracker(ListenSocket, EmOpts, #{erl_dist := false} = SslOpts) ->
     ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts]);
-inherit_tracker(ListenSocket, EmOpts, #ssl_options{erl_dist = true} = SslOpts) ->
+inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
+
+session_tickets_tracker(_, _, #{erl_dist := false,
+                                session_tickets := disabled}) ->
+    {ok, disabled};
+session_tickets_tracker(Lifetime, TicketStoreSize, #{erl_dist := false,
+                                    session_tickets := Mode,
+                                    anti_replay := AntiReplay}) ->
+    tls_server_session_ticket_sup:start_child([Mode, Lifetime, TicketStoreSize, AntiReplay]);
+session_tickets_tracker(Lifetime, TicketStoreSize, #{erl_dist := true,
+                                                     session_tickets := Mode}) ->
+    tls_server_session_ticket_sup:start_child_dist([Mode, Lifetime, TicketStoreSize]).
+
 
 get_emulated_opts(TrackerPid) -> 
     call(TrackerPid, get_emulated_opts).
@@ -208,7 +292,7 @@ start_link(Port, SockOpts, SslOpts) ->
 init([Port, Opts, SslOpts]) ->
     process_flag(trap_exit, true),
     true = link(Port),
-    {ok, #state{emulated_opts = Opts, port = Port, ssl_opts = SslOpts}}.
+    {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), port = Port, ssl_opts = SslOpts}}.
 
 %%--------------------------------------------------------------------
 -spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
@@ -303,8 +387,23 @@ split_options([Name | Opts], Emu, SocketOptNames, EmuOptNames) ->
 
 do_set_emulated_opts([], Opts) ->
     Opts;
+do_set_emulated_opts([{active, N0} | Rest], Opts) when is_integer(N0) ->
+    N = update_active_n(N0, proplists:get_value(active, Opts, false)),
+    do_set_emulated_opts(Rest, [{active, N} | proplists:delete(active, Opts)]);
 do_set_emulated_opts([{Name,_} = Opt | Rest], Opts) ->
     do_set_emulated_opts(Rest, [Opt | proplists:delete(Name, Opts)]).
+
+update_active_n(New, Current) ->
+    if
+        is_integer(Current), New + Current =< 0 ->
+            false;
+        is_integer(Current) ->
+            New + Current;
+        New =< 0 ->
+            false;
+        true ->
+            New
+    end.
 
 get_socket_opts(_, [], _) ->
     [];
@@ -365,7 +464,27 @@ validate_inet_option(header, Value)
   when not is_integer(Value) ->
     throw({error, {options, {header,Value}}});
 validate_inet_option(active, Value)
+  when Value >= -32768, Value =< 32767 ->
+    ok;
+validate_inet_option(active, Value)
   when Value =/= true, Value =/= false, Value =/= once ->
     throw({error, {options, {active,Value}}});
 validate_inet_option(_, _) ->
     ok.
+
+get_ticket_lifetime() ->
+    case application:get_env(ssl, server_session_ticket_lifetime) of
+	{ok, Seconds} when is_integer(Seconds) andalso
+                           Seconds =< 604800 ->  %% MUST be less than 7 days
+	    Seconds;
+	_  ->
+	    7200 %% Default 2 hours
+    end.
+
+get_ticket_store_size() ->
+    case application:get_env(ssl, server_session_ticket_store_size) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_  ->
+	    1000
+    end.

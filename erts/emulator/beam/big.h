@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint32   ErtsHalfDigit;
 #else
-#error "can not determine machine size"
+#error "cannot determine machine size"
 #endif
 
 typedef Uint  dsize_t;	 /* Vector size type */
@@ -70,7 +70,24 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 /* Check for small */
 #define IS_USMALL(sgn,x)  ((sgn) ? ((x) <= MAX_SMALL+1) : ((x) <= MAX_SMALL))
-#define IS_SSMALL(x)      (((x) >= MIN_SMALL) && ((x) <= MAX_SMALL))
+
+/*
+ * It seems that both clang and gcc will generate sub-optimal code
+ * for the more obvious way to write the range check:
+ *
+ *    #define IS_SSMALL(x)  (((x) >= MIN_SMALL) && ((x) <= MAX_SMALL))
+ *
+ * Note that IS_SSMALL() may be used in the 32-bit emulator with
+ * a Uint64 argument. Therefore, we must test the size of the argument
+ * to ensure that the cast does not discard the high-order 32 bits.
+ */
+#if defined(ARCH_32)
+#  define _IS_SSMALL32(x) (((Uint32) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#else
+#  define _IS_SSMALL32(x) (1)
+#endif
+#define _IS_SSMALL64(x) (((Uint64) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#define IS_SSMALL(x) (sizeof(x) == sizeof(Uint32) ? _IS_SSMALL32(x) : _IS_SSMALL64(x))
 
 /* The heap size needed for a bignum */
 #define BIG_NEED_SIZE(x)  ((x) + 1)
@@ -106,10 +123,10 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #endif
 
-int big_decimal_estimate(Wterm);
-Eterm erts_big_to_list(Eterm, Eterm**);
-char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz);
-Uint erts_big_to_binary_bytes(Eterm x, char *buf, Uint buf_sz);
+int big_integer_estimate(Wterm, Uint base);
+Eterm erts_big_to_list(Eterm, int base, Eterm**);
+char *erts_big_to_string(Wterm x, int base, char *buf, Uint buf_sz);
+Uint erts_big_to_binary_bytes(Eterm x, int base, char *buf, Uint buf_sz);
 
 Eterm small_times(Sint, Sint, Eterm*);
 
@@ -151,6 +168,8 @@ Eterm erts_uint64_array_to_big(Uint **, int, int, Uint64 *);
 int term_to_Uint64(Eterm, Uint64*);
 int term_to_Sint64(Eterm, Sint64*);
 #endif
+int term_to_Uint32(Eterm, Uint32*);
+
 
 Uint32 big_to_uint32(Eterm b);
 int term_equals_2pow32(Eterm);

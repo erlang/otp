@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@
 -export([c/1, c/2, is_consistent/1, mib_to_hrl/1, 
 	 compile/3]).
 
-%% Agent exports (Dont use these, they will be removed eventually)
+%% Agent exports (Dont use these, they will be removed in OTP 24)
 -export([current_request_id/0, current_community/0, current_address/0,
 	 current_context/0, current_net_if_data/0, 
 
@@ -95,6 +95,9 @@
 	      dir/0, 
 	      snmp_timer/0, 
 
+              atl_type/0,
+              verbosity/0,
+
 	      engine_id/0, 
 	      tdomain/0, 
 	      community/0, 
@@ -116,60 +119,66 @@
 	      pdu/0, 
 	      trappdu/0, 
 	      mib/0, 
-	      mib_name/0, 
+	      mib_name/0,
+
+              error_status/0,
+              error_index/0,
  
 	      void/0
 	     ]).
 
 
 %% This is for XREF
--deprecated([{c,                     1, eventually},
-	     {c,                     2, eventually},
-	     {compile,               3, eventually},
-	     {is_consistent,         1, eventually},
-	     {mib_to_hrl,            1, eventually},
+-deprecated(
+   [
+    {c,                     1, "use snmpa:c/1 instead."},
+    {c,                     2, "use snmpa:c/2 instead."},
+    {compile,               3, "use snmpa:compile/3 instead."},
+    {is_consistent,         1, "use snmpa:is_consistent/1 instead."},
+    {mib_to_hrl,            1, "use snmpa:mib_to_hrl/1 instead."},
 
-	     {change_log_size,       1, eventually},
-	     {log_to_txt,            2, eventually},
-	     {log_to_txt,            3, eventually},
-	     {log_to_txt,            4, eventually},
+    {change_log_size,       1, "use snmpa:change_log_size/1 instead."},
+    {log_to_txt,            2, "use snmpa:log_to_txt/2 instead."},
+    {log_to_txt,            3, "use snmpa:log_to_txt/3 instead."},
+    {log_to_txt,            4, "use snmpa:log_to_txt/4 instead."},
 
-	     {current_request_id,    0, eventually},
-	     {current_community,     0, eventually},
-	     {current_address,       0, eventually},
-	     {current_context,       0, eventually},
-	     {current_net_if_data,   0, eventually},
+    {current_request_id,    0, "use snmpa:current_request_id/0 instead."},
+    {current_community,     0, "use snmpa:current_community/0 instead."},
+    {current_address,       0, "use snmpa:current_address/0 instead."},
+    {current_context,       0, "use snmpa:current_context/0 instead."},
+    {current_net_if_data,   0, "use snmpa:current_net_if_data/0 instead."},
 
-	     {get_symbolic_store_db, 0, eventually},
-	     {name_to_oid,           1, eventually},
-	     {name_to_oid,           2, eventually},
-	     {oid_to_name,           1, eventually},
-	     {oid_to_name,           2, eventually},
-	     {int_to_enum,           2, eventually},
-	     {int_to_enum,           3, eventually},
-	     {enum_to_int,           2, eventually},
-	     {enum_to_int,           3, eventually},
+    {get_symbolic_store_db, 0, "use snmpa:get_symbolic_store_db/0 instead."},
+    {name_to_oid,           1, "use snmpa:name_to_oid/1 instead."},
+    {name_to_oid,           2, "use snmpa:name_to_oid/2 instead."},
+    {oid_to_name,           1, "use snmpa:oid_to_name/1 instead."},
+    {oid_to_name,           2, "use snmpa:oid_to_name/2 instead."},
+    {int_to_enum,           2, "use snmpa:int_to_enum/2 instead."},
+    {int_to_enum,           3, "use snmpa:int_to_enum/3 instead."},
+    {enum_to_int,           2, "use snmpa:enum_to_int/2 instead."},
+    {enum_to_int,           3, "use snmpa:enum_to_int/3 instead."},
 
-	     {get,                   2, eventually},
-	     {info,                  1, eventually},
-	     {load_mibs,             2, eventually},
-	     {unload_mibs,           2, eventually},
-	     {dump_mibs,             0, eventually},
-	     {dump_mibs,             1, eventually},
+    {get,                   2, "use snmpa:get/2 instead."},
+    {info,                  1, "use snmpa:info/1 instead."},
+    {load_mibs,             2, "use snmpa:load_mibs/2 instead."},
+    {unload_mibs,           2, "use snmpa:unload_mibs/2 instead."},
+    {dump_mibs,             0, "use snmpa:dump_mibs/0 instead."},
+    {dump_mibs,             1, "use snmpa:dump_mibs/1 instead."},
 
-	     {register_subagent,     3, eventually},
-	     {unregister_subagent,   2, eventually},
+    {register_subagent,     3, "use snmpa:register_subagent/3 instead."},
+    {unregister_subagent,   2, "use snmpa:unregister_subagent/2 instead."},
 
-	     {send_notification,     3, eventually},
-	     {send_notification,     4, eventually},
-	     {send_notification,     5, eventually},
-	     {send_notification,     6, eventually},
-	     {send_trap,             3, eventually},
-	     {send_trap,             4, eventually},
+    {send_notification,     3, "use snmpa:send_notification/3 instead."},
+    {send_notification,     4, "use snmpa:send_notification/4 instead."},
+    {send_notification,     5, "use snmpa:send_notification/5 instead."},
+    {send_notification,     6, "use snmpa:send_notification/6 instead."},
+    {send_trap,             3, "use snmpa:send_trap/3 instead."},
+    {send_trap,             4, "use snmpa:send_trap/4 instead."},
 
-	     {add_agent_caps,        2, eventually},
-	     {del_agent_caps,        1, eventually},
-	     {get_agent_caps,        0, eventually}]).
+    {add_agent_caps,        2, "use snmpa:add_agent_caps/2 instead."},
+    {del_agent_caps,        1, "use snmpa:del_agent_caps/1 instead."},
+    {get_agent_caps,        0, "use snmpa:get_agent_caps/0 instead."}
+   ]).
  
 
 -define(APPLICATION, snmp).
@@ -184,6 +193,9 @@
 
 -type dir()           :: string().
 -type snmp_timer()    :: #snmp_incr_timer{}.
+
+-type atl_type()      :: read | write | read_write.
+-type verbosity()     :: info | log | debug | trace | silence.
 
 -type engine_id()     :: string().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
@@ -207,6 +219,23 @@
 -type mib_name()      :: string().
 -type pdu()           :: #pdu{}.
 -type trappdu()       :: #trappdu{}.
+
+%% We should really specify all of these, but they are so numerous...
+%% See the validate_err/1 function in the snmpa_agent.
+%% Here are a number of them:
+%% badValue |
+%% commitFailed |
+%% genErr |
+%% inconsistentName | inconsistentValue |
+%% noAccess | noCreation |
+%% noSuchInstance | noSuchName | noSuchObject |
+%% notWritable |
+%% resourceUnavailable |
+%% undoFailed |
+%% wrongValue
+
+-type error_status()  :: atom().
+-type error_index()   :: pos_integer().
 
 -type void()          :: term().
 
@@ -570,15 +599,6 @@ print_mod_info(Prefix, {Module, Info}) ->
             _ ->
                 "Not found"
         end,
-    CompDate =
-        case key1search(compile_time, Info) of
-            {value, {Year, Month, Day, Hour, Min, Sec}} ->
-                io_lib:format(
-		  "~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w",
-		  [Year, Month, Day, Hour, Min, Sec]);
-            _ ->
-                "Not found"
-        end,
     Digest =
         case key1search(md5, Info) of
             {value, MD5} when is_binary(MD5) ->
@@ -590,13 +610,11 @@ print_mod_info(Prefix, {Module, Info}) ->
               "~s      Vsn:          ~s~n"
               "~s      App vsn:      ~s~n"
               "~s      Compiler ver: ~s~n"
-	      "~s      Compile time: ~s~n"
               "~s      MD5 digest:   ~s~n",
               [Prefix, Module, 
 	       Prefix, Vsn, 
 	       Prefix, AppVsn, 
 	       Prefix, CompVer,
-	       Prefix, CompDate,
 	       Prefix, Digest]),
     ok.
 
@@ -691,13 +709,8 @@ sys_info() ->
     [{arch, SysArch}, {ver, SysVer}].
  
 os_info() ->
-    V = os:version(),
-    case os:type() of
-        {OsFam, OsName} ->
-            [{fam, OsFam}, {name, OsName}, {ver, V}];
-        OsFam ->
-            [{fam, OsFam}, {ver, V}]
-    end.
+    {OsFam, OsName} = os:type(),
+    [{fam, OsFam}, {name, OsName}, {ver, os:version()}].
 
 ms1() ->
     App    = ?APPLICATION,

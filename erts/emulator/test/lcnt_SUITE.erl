@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@
 
 -export(
     [all/0, suite/0,
-     init_per_suite/1, end_per_suite/1,
-     init_per_testcase/2, end_per_testcase/2]).
+     init_per_suite/1, end_per_suite/1]).
 
 -export(
     [toggle_lock_counting/1, error_on_invalid_category/1, preserve_locks/1,
@@ -63,13 +62,6 @@ end_per_suite(Config) ->
     erts_debug:lcnt_clear(),
     ok.
 
-init_per_testcase(_Case, Config) ->
-    disable_lock_counting(),
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
-
 disable_lock_counting() ->
     ok = erts_debug:lcnt_control(copy_save, false),
     ok = erts_debug:lcnt_control(mask, []),
@@ -87,15 +79,19 @@ wait_for_empty_lock_list() ->
     wait_for_empty_lock_list(10).
 wait_for_empty_lock_list(Tries) when Tries > 0 ->
     try_flush_cleanup_ops(),
-    case erts_debug:lcnt_collect() of
-        [{duration, _}, {locks, []}] ->
+    [{duration, _}, {locks, Locks}] = erts_debug:lcnt_collect(),
+    case remove_untoggleable_locks(Locks) of
+        [] ->
             ok;
         _ ->
             timer:sleep(50),
             wait_for_empty_lock_list(Tries - 1)
     end;
 wait_for_empty_lock_list(0) ->
-    ct:fail("Lock list failed to clear after disabling lock counting.").
+    [{duration, _}, {locks, Locks0}] = erts_debug:lcnt_collect(),
+    Locks = remove_untoggleable_locks(Locks0),
+    ct:fail("Lock list failed to clear after disabling lock counting.~n\t~p",
+            [Locks]).
 
 %% Queue up a lot of thread progress cleanup ops in a vain attempt to
 %% flush the lock list.
@@ -108,6 +104,8 @@ try_flush_cleanup_ops() ->
 %%
 
 toggle_lock_counting(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     Categories =
         [allocator, db, debug, distribution, generic, io, process, scheduler],
     lists:foreach(
@@ -124,12 +122,14 @@ toggle_lock_counting(Config) when is_list(Config) ->
 get_lock_info_for(Categories) when is_list(Categories) ->
     ok = erts_debug:lcnt_control(mask, Categories),
     [{duration, _}, {locks, Locks}] = erts_debug:lcnt_collect(),
-    Locks;
+    remove_untoggleable_locks(Locks);
 
 get_lock_info_for(Category) when is_atom(Category) ->
     get_lock_info_for([Category]).
 
 preserve_locks(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     erts_debug:lcnt_control(mask, [process]),
 
     erts_debug:lcnt_control(copy_save, true),
@@ -154,10 +154,14 @@ preserve_locks(Config) when is_list(Config) ->
     end.
 
 error_on_invalid_category(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     {error, badarg, q_invalid} = erts_debug:lcnt_control(mask, [q_invalid]),
     ok.
 
 registered_processes(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     %% There ought to be at least one registered process (init/code_server)
     erts_debug:lcnt_control(mask, [process]),
     [_, {locks, ProcLocks}] = erts_debug:lcnt_collect(),
@@ -169,6 +173,8 @@ registered_processes(Config) when is_list(Config) ->
     ok.
 
 registered_db_tables(Config) when is_list(Config) ->
+    ok = disable_lock_counting(),
+
     %% There ought to be at least one registered table (code)
     erts_debug:lcnt_control(mask, [db]),
     [_, {locks, DbLocks}] = erts_debug:lcnt_collect(),
@@ -178,3 +184,16 @@ registered_db_tables(Config) when is_list(Config) ->
             (_Lock) -> false
         end, DbLocks),
     ok.
+
+%% Not all locks can be toggled on or off due to technical limitations, so we
+%% need to filter them out when checking whether we successfully disabled lock
+%% counting.
+remove_untoggleable_locks([]) ->
+    [];
+remove_untoggleable_locks([{resource_monitors, _, _, _} | T]) ->
+    remove_untoggleable_locks(T);
+remove_untoggleable_locks([{'esock[gcnt]', _, _, _} | T]) ->
+    %% Global lock used by socket NIF
+    remove_untoggleable_locks(T);
+remove_untoggleable_locks([H | T]) ->
+    [H | remove_untoggleable_locks(T)].

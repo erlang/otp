@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -130,8 +130,10 @@ union1(S1, []) -> S1.
       Set2 :: set(Element),
       Set3 :: set(Element).
 
+intersection(S1, S2) when map_size(S1) >= map_size(S2) ->
+    filter(fun (E) -> is_element(E, S1) end, S2);
 intersection(S1, S2) ->
-    filter(fun (E) -> is_element(E, S1) end, S2).
+    intersection(S2, S1).
 
 %% intersection([Set]) -> Set.
 %%  Return the intersection of the list of sets.
@@ -153,14 +155,21 @@ intersection1(S1, []) -> S1.
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-is_disjoint(S1, S2) when map_size(S1) < map_size(S2) ->
-    fold(fun (_, false) -> false;
-	     (E, true) -> not is_element(E, S2)
-	 end, true, S1);
+is_disjoint(S1, S2) when map_size(S1) > map_size(S2) ->
+    is_disjoint_1(S1, maps:iterator(S2));
 is_disjoint(S1, S2) ->
-    fold(fun (_, false) -> false;
-	     (E, true) -> not is_element(E, S1)
-	 end, true, S2).
+    is_disjoint_1(S2, maps:iterator(S1)).
+
+is_disjoint_1(Set, Iter) ->
+    case maps:next(Iter) of
+        {K, _, NextIter} ->
+            case Set of
+                #{K := _} -> false;
+                #{} -> is_disjoint_1(Set, NextIter)
+            end;
+        none ->
+            true
+    end.
 
 %% subtract(Set1, Set2) -> Set.
 %%  Return all and only the elements of Set1 which are not also in
@@ -180,8 +189,21 @@ subtract(S1, S2) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 
+is_subset(S1, S2) when map_size(S1) > map_size(S2) ->
+    false;
 is_subset(S1, S2) ->
-    fold(fun (E, Sub) -> Sub andalso is_element(E, S2) end, true, S1).
+    is_subset_1(S2, maps:iterator(S1)).
+
+is_subset_1(Set, Iter) ->
+    case maps:next(Iter) of
+        {K, _, NextIter} ->
+            case Set of
+                #{K := _} -> is_subset_1(Set, NextIter);
+                #{} -> false
+            end;
+        none ->
+            true
+    end.
 
 %% fold(Fun, Accumulator, Set) -> Accumulator.
 %%  Fold function Fun over all elements in Set and return Accumulator.
@@ -193,8 +215,16 @@ is_subset(S1, S2) ->
       AccIn :: Acc,
       AccOut :: Acc.
 
-fold(F, Init, D) ->
-    lists:foldl(fun(E,Acc) -> F(E,Acc) end,Init,maps:keys(D)).
+fold(Fun, Init, Set) ->
+    fold_1(Fun, Init, maps:iterator(Set)).
+
+fold_1(Fun, Acc, Iter) ->
+    case maps:next(Iter) of
+        {K, _, NextIter} ->
+            fold_1(Fun, Fun(K,Acc), NextIter);
+        none ->
+            Acc
+    end.
 
 %% filter(Fun, Set) -> Set.
 %%  Filter Set with Fun.
@@ -203,5 +233,18 @@ fold(F, Init, D) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-filter(F, D) ->
-    maps:from_list(lists:filter(fun({K,_}) -> F(K) end, maps:to_list(D))).
+filter(Fun, Set) ->
+    maps:from_list(filter_1(Fun, maps:iterator(Set))).
+
+filter_1(Fun, Iter) ->
+    case maps:next(Iter) of
+        {K, _, NextIter} ->
+            case Fun(K) of
+                true ->
+                    [{K,ok} | filter_1(Fun, NextIter)];
+                false ->
+                    filter_1(Fun, NextIter)
+            end;
+        none ->
+            []
+    end.

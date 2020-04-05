@@ -31,7 +31,7 @@
     <rev></rev>
   </header>
 
-  <module>xmerl_sax_parser</module>
+  <module since="">xmerl_sax_parser</module>
   <modulesummary>XML SAX parser API</modulesummary>
 
   <description>
@@ -56,7 +56,7 @@
        <taglist>
          <tag><c>{continuation_fun, ContinuationFun}</c></tag>
          <item>
-           <seealso marker="#ContinuationFun/1">ContinuationFun</seealso> is a call back function to decide what to do if 
+           <seemfa marker="#Module:ContinuationFun/1">ContinuationFun</seemfa> is a call back function to decide what to do if
            the parser runs into EOF before the document is complete. 
          </item>
          <tag><c>{continuation_state, term()}</c></tag>
@@ -65,7 +65,7 @@
          </item>
          <tag><c>{event_fun, EventFun}</c></tag>
          <item>
-           <seealso marker="#EventFun/3">EventFun</seealso> is the call back function for parser events. 
+           <seemfa marker="#Module:EventFun/3">EventFun</seemfa> is the call back function for parser events.
          </item>
          <tag><c>{event_state, term()}</c></tag>
          <item>
@@ -325,7 +325,7 @@
   <funcs>
 
     <func>
-      <name>file(Filename, Options) -> Result</name>
+      <name since="">file(Filename, Options) -> Result</name>
       <fsummary>Parse file containing an XML document.</fsummary>
       <type>
         <v>Filename = string()</v>
@@ -347,7 +347,7 @@
     </func>
 
     <func>
-      <name>stream(Xml, Options) -> Result</name>
+      <name since="">stream(Xml, Options) -> Result</name>
       <fsummary>Parse a stream containing an XML document.</fsummary>
       <type>
         <v>Xml = unicode_binary() | latin1_binary() | [unicode_char()]</v>
@@ -370,18 +370,19 @@
 
    </funcs>
 
-  <section>
-    <title>CALLBACK FUNCTIONS</title>
-    <p>
-      The callback interface is based on that the user sends a fun with the 
-      correct signature to the parser.
-   </p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>CALLBACK FUNCTIONS</title>
+      <p>
+        The callback interface is based on that the user sends a fun with the 
+        correct signature to the parser.
+     </p>
+    </fsdescription>
 
     <func>
-      <name>ContinuationFun(State) -> {NewBytes, NewState}</name>
+      <name since="">Module:ContinuationFun(State) -> {NewBytes, NewState}</name>
       <fsummary>Continuation call back function.</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -402,7 +403,7 @@
     </func>
 
     <func>
-      <name>EventFun(Event, Location, State) -> NewState</name>
+      <name since="">Module:EventFun(Event, Location, State) -> NewState</name>
       <fsummary>Event call back function.</fsummary>
       <type>
         <v>Event = event()</v>

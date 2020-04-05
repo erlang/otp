@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,14 +22,18 @@ include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 include ../include/internal/$(TARGET)/ethread.mk
 
-OMIT_OMIT_FP=no
+ifeq ($(TARGET),win32)
+EXE_SUFFIX=.exe
+else
+EXE_SUFFIX=
+endif
 
+OMIT_OMIT_FP=no
 
 CC=@CC@
 LD=@LD@
 AR=@AR@
 RANLIB=@RANLIB@
-RM=@RM@
 MKDIR=@MKDIR@
 INSTALL=@INSTALL@
 INSTALL_DIR=@INSTALL_DIR@
@@ -153,7 +157,6 @@ ERTS_INCL_INT=../include/internal
 INCLUDES=-I$(ERTS_INCL) -I$(ERTS_INCL)/$(TARGET) -I$(ERTS_INCL_INT) -I$(ERTS_INCL_INT)/$(TARGET)
 INCLUDES += -I../emulator/beam -I../emulator/sys/$(ERLANG_OSTYPE)
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
 USING_VC=@MIXED_VC@
 
 ifeq ($(USING_VC),yes)
@@ -334,14 +337,21 @@ ETHREAD_LIB=
 
 endif
 
+ifneq ($(strip $(CREATE_DIRS)),)
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+endif
+
 #
 # Everything to build
 #
 .PHONY: all
 all: $(OBJ_DIR)/MADE
 
-$(OBJ_DIR)/MADE: $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
+YCF_SOURCE_DIR=$(ERL_TOP)/erts/lib_src/yielding_c_fun
+
+include $(YCF_SOURCE_DIR)/main_target.mk
+
+$(OBJ_DIR)/MADE: $(YCF_EXECUTABLE) $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
 	$(gen_verbose)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -494,6 +504,7 @@ INTERNAL_RELEASE_LIBS= \
 
 .PHONY: release_spec
 release_spec: all
+	$(INSTALL_PROGRAM) $(YCF_EXECUTABLE) "$(RELSYSDIR)/bin"
 ifneq ($(strip $(RELEASE_INCLUDES)),)
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
@@ -533,9 +544,11 @@ release_docs_spec:
 #
 .PHONY: clean
 clean:
-	$(RM) -rf ../lib/internal/$(TARGET)/*
-	$(RM) -rf ../lib/$(TARGET)/*
-	$(RM) -rf obj/$(TARGET)/*
+	$(RM) -r ../lib/internal/$(TARGET)/*
+	$(RM) -r ../lib/$(TARGET)/*
+	$(RM) -r obj/$(TARGET)/*
+	$(RM) yielding_c_fun/bin/$(TARGET)/*
+	$(RM) yielding_c_fun/$(TARGET)/*
 
 #
 # Make dependencies
@@ -655,8 +668,10 @@ endif
 endif
 	@echo "# EOF" >> $(DEPEND_MK);
 
+ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPEND_MK)
+endif
 endif
 
 # eof

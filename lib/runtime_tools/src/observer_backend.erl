@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ sys_info() ->
      {port_limit, erlang:system_info(port_limit)},
      {port_count, erlang:system_info(port_count)},
      {ets_limit,  erlang:system_info(ets_limit)},
-     {ets_count, length(ets:all())},
+     {ets_count, erlang:system_info(ets_count)},
      {dist_buf_busy_limit, erlang:system_info(dist_buf_busy_limit)}
      | MemInfo].
 
@@ -279,7 +279,7 @@ get_table_list(mnesia, Opts) ->
 			     end,
 		       [Tab|Acc]
 		   catch _:_What ->
-			   %% io:format("Skipped ~p: ~p ~p ~n",[Id, _What, erlang:get_stacktrace()]),
+			   %% io:format("Skipped ~p: ~p ~p ~n",[Id, _What, Stacktrace]),
 			   Acc
 		   end
 	   end,
@@ -293,7 +293,7 @@ fetch_stats_loop(Parent, Time) ->
     erlang:system_flag(scheduler_wall_time, true),
     receive
 	_Msg ->
-	    %% erlang:system_flag(scheduler_wall_time, false)
+	    erlang:system_flag(scheduler_wall_time, false),
 	    ok
     after Time ->
 	    _M = Parent ! {stats, 1,
@@ -340,7 +340,6 @@ etop_collect(Collector) ->
 
     case SchedulerWallTime of
 	undefined ->
-            erlang:system_flag(scheduler_wall_time,true),
             spawn(fun() -> flag_holder_proc(Collector) end),
             ok;
 	_ ->
@@ -348,10 +347,11 @@ etop_collect(Collector) ->
     end.
 
 flag_holder_proc(Collector) ->
+    erlang:system_flag(scheduler_wall_time,true),
     Ref = erlang:monitor(process,Collector),
     receive
 	{'DOWN',Ref,_,_,_} ->
-	    %% erlang:system_flag(scheduler_wall_time,false)
+	    erlang:system_flag(scheduler_wall_time,false),
 	    ok
     end.
 
@@ -433,7 +433,9 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
 	    ReturnMS = [{'_',[],[{return_trace}]}],
 	    erlang:trace_pattern({erlang,spawn,3},ReturnMS,[meta]),
 	    erlang:trace_pattern({erlang,spawn_link,3},ReturnMS,[meta]),
-	    erlang:trace_pattern({erlang,spawn_opt,1},ReturnMS,[meta]),
+	    erlang:trace_pattern({erlang,spawn_opt,4},ReturnMS,[meta]),
+	    erlang:trace_pattern({erts_internal,spawn_init,1},[],[meta]),
+	    erlang:trace_pattern({erts_internal,dist_spawn_init,1},[],[meta]),
 	    erlang:trace_pattern({erlang,register,2},[],[meta]),
 	    erlang:trace_pattern({global,register_name,2},[],[meta]),
             ok;
@@ -459,7 +461,7 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 	{trace_ts,_,call,{global,register_name,[Name,Pid]},_} ->
 	    ok = ttb_store_meta({pid,{Pid,{global,Name}}},MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
-	{trace_ts,CallingPid,call,{erlang,spawn_opt,[{M,F,Args,_}]},_} ->
+	{trace_ts,CallingPid,call,{erlang,spawn_opt,[M,F,Args,_]},_} ->
 	    MFA = {M,F,length(Args)},
 	    NewAcc = dict:update(CallingPid,
 				 fun(Old) -> [MFA|Old] end, [MFA], 
@@ -497,6 +499,16 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 			    Acc),
 	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 
+	{trace_ts,CallingPid,call,{erts_internal,spawn_init,[{M,F,Args}]},_} ->
+            %% Local spawn_request()...
+            ok = ttb_store_meta({pid,{CallingPid,{M,F,length(Args)}}},MetaFile),
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
+
+	{trace_ts,CallingPid,call,{erts_internal, dist_spawn_init, [MFnoA]},_} ->
+            %% Distributed spawn_request()...
+            ok = ttb_store_meta({pid,{CallingPid,MFnoA}},MetaFile),
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
+
 	{metadata,Data} when is_list(Data) ->
 	    ok = ttb_store_meta(Data,MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
@@ -530,7 +542,9 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
             try_stop_overload_check(State),
             erlang:trace_pattern({erlang,spawn,3},false,[meta]),
 	    erlang:trace_pattern({erlang,spawn_link,3},false,[meta]),
-	    erlang:trace_pattern({erlang,spawn_opt,1},false,[meta]),
+	    erlang:trace_pattern({erlang,spawn_opt,4},false,[meta]),
+	    erlang:trace_pattern({erts_internal,spawn_init,1},false,[meta]),
+	    erlang:trace_pattern({erts_internal,dist_spawn_init,1},false,[meta]),
 	    erlang:trace_pattern({erlang,register,2},false,[meta]),
 	    erlang:trace_pattern({global,register_name,2},false,[meta]);
 	stop ->
@@ -752,6 +766,7 @@ sys_tables() ->
      mnesia_gvar, mnesia_stats,
 						%     mnesia_transient_decision,
      pg2_table,
+     pg,
      queue,
      schema,
      shell_records,
@@ -763,7 +778,7 @@ sys_tables() ->
 
 sys_processes() ->
     [auth, code_server, global_name_server, inet_db,
-     mnesia_recover, net_kernel, timer_server, wxe_master].
+     mnesia_recover, net_kernel, pg, timer_server, wxe_master].
 
 mnesia_tables() ->
     [ir_AliasDef, ir_ArrayDef, ir_AttributeDef, ir_ConstantDef,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 %%
 -module(inet6_tls_dist).
 
--export([childspecs/0, listen/1, accept/1, accept_connection/5,
+-export([childspecs/0]).
+-export([listen/2, accept/1, accept_connection/5,
 	 setup/5, close/1, select/1]).
 
 childspecs() ->
@@ -30,8 +31,8 @@ childspecs() ->
 select(Node) ->
     inet_tls_dist:gen_select(inet6_tcp, Node).
 
-listen(Name) ->
-    inet_tls_dist:gen_listen(inet6_tcp, Name).
+listen(Name, Host) ->
+    inet_tls_dist:gen_listen(inet6_tcp, Name, Host).
 
 accept(Listen) ->
     inet_tls_dist:gen_accept(inet6_tcp, Listen).
@@ -43,4 +44,4 @@ setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     inet_tls_dist:gen_setup(inet6_tcp, Node, Type, MyNode, LongOrShortNames,SetupTime).
 
 close(Socket) ->
-    inet_tls_dist:close(Socket).
+    inet_tls_dist:gen_close(inet6_tcp, Socket).

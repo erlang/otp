@@ -5,7 +5,7 @@ A super carrier is large memory area, allocated at VM start, which can
 be used during runtime to allocate normal carriers from.
 
 The super carrier feature was introduced in OTP R16B03. It is
-enabled with command line option +MMscs <size in Mb>
+enabled with command line option +MMscs &lt;size in Mb&gt;
 and can be configured with other options.
 
 Problem
@@ -65,7 +65,7 @@ carrier is full.
 
 ### Implementation ###
 
-The entire super carrier implementation is kept in erl_mmap.c. The
+The entire super carrier implementation is kept in erl\_mmap.c. The
 name suggest that it can be viewed as our own mmap implementation.
 
 A super carrier needs to satisfy two slightly different kinds of
@@ -98,8 +98,8 @@ other.
 
 ### Data structures ###
 
-The MBC area is called **sa** as in super aligned and the SBC area is
-called **sua** as in super un-aligned.
+The MBC area is called *sa* as in super aligned and the SBC area is
+called *sua* as in super un-aligned.
 
 Note that the "super" in super alignment and the "super" in super
 carrier has nothing to do with each other. We could have choosen
@@ -128,7 +128,7 @@ down or up.
 We need to keep track of all the free segments in order to reuse them
 for new carrier allocations. One initial idea was to use the same
 mechanism that is used to keep track of free blocks within MBCs
-(alloc_util and the different strategies). However, that would not be
+(alloc\_util and the different strategies). However, that would not be
 as straight forward as one can think and can also waste quite a lot of
 memory as it uses prepended block headers. The granularity of the
 super carrier is one memory page (usually 4kb). We want to allocate

@@ -93,7 +93,7 @@ spawn(Module, Name, Args) -> pid()
       execute terminates normally.</p>
     <p>A process terminates with an exit reason <c>{Reason,Stack}</c>
       when a run-time error occurs. See
-      <seealso marker="errors#exit_reasons">Exit Reasons</seealso>.</p>
+      <seeguide marker="errors#exit_reasons">Exit Reasons</seeguide>.</p>
     <p>A process can terminate itself by calling one of the
        following BIFs:</p>
     <list type="bulleted">
@@ -105,16 +105,16 @@ spawn(Module, Name, Args) -> pid()
       <c>exit/1</c> or <c>{Reason,Stack}</c> for the others.</p>
     <p>A process can also be terminated if it receives an exit signal
       with another exit reason than <c>normal</c>, see
-      <seealso marker="#errors">Error Handling</seealso>.</p>
+      <seeguide marker="#errors">Error Handling</seeguide>.</p>
   </section>
 
   <section>
     <title>Message Sending</title>
     <p>Processes communicate by sending and receiving messages.
       Messages are sent by using
-      the <seealso marker="expressions#send">send operator !</seealso>
+      the <seeguide marker="expressions#send">send operator !</seeguide>
       and received by calling
-      <seealso marker="expressions#receive">receive</seealso>.</p>
+      <seeguide marker="expressions#receive">receive</seeguide>.</p>
     <p>Message sending is asynchronous and safe, the message is
       guaranteed to eventually reach the recipient, provided that
       the recipient exists.</p>
@@ -131,7 +131,7 @@ spawn(Module, Name, Args) -> pid()
       two processes. Repeated calls to <c>link(Pid)</c> have no effect.</p>
     <p>A link can be removed by calling the BIF <c>unlink(Pid)</c>.</p>
     <p>Links are used to monitor the behaviour of other processes, see
-      <seealso marker="#errors">Error Handling</seealso>.</p>
+      <seeguide marker="#errors">Error Handling</seeguide>.</p>
   </section>
 
   <section>
@@ -144,16 +144,15 @@ spawn(Module, Name, Args) -> pid()
       program structures where some processes are supervising other
       processes, for example, restarting them if they terminate
       abnormally.</p>
-    <p>See <seealso marker=
-      "doc/design_principles:des_princ#otp design principles">
-      OTP Design Principles</seealso> for more information about
+    <p>See <seeguide marker="system/design_principles:des_princ#otp design principles">
+      OTP Design Principles</seeguide> for more information about
       OTP supervision trees, which use this feature.</p>
 
     <section>
       <title>Emitting Exit Signals</title>
       <p>When a process terminates, it terminates with an
-        <em>exit reason</em> as explained in <seealso marker="#term">
-        Process Termination</seealso>. This exit reason is emitted in
+        <em>exit reason</em> as explained in <seeguide marker="#term">
+        Process Termination</seeguide>. This exit reason is emitted in
         an <em>exit signal</em> to all linked processes.</p>
       <p>A process can also call the function <c>exit(Pid,Reason)</c>.
         This results in an exit signal with exit reason

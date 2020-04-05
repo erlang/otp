@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 -module(gen_udp).
 
 -export([open/1, open/2, close/1]).
--export([send/2, send/4, recv/2, recv/3, connect/3]).
+-export([send/2, send/3, send/4, send/5, recv/2, recv/3, connect/3]).
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
@@ -51,6 +51,11 @@
         {reuseaddr,       boolean()} |
         {sndbuf,          non_neg_integer()} |
         {tos,             non_neg_integer()} |
+        {tclass,          non_neg_integer()} |
+        {ttl,             non_neg_integer()} |
+	{recvtos,         boolean()} |
+	{recvtclass,      boolean()} |
+	{recvttl,         boolean()} |
 	{ipv6_v6only,     boolean()}.
 -type option_name() ::
         active |
@@ -76,6 +81,12 @@
         reuseaddr |
         sndbuf |
         tos |
+        tclass |
+        ttl |
+        recvtos |
+        recvtclass |
+        recvttl |
+        pktoptions |
 	ipv6_v6only.
 -type socket() :: port().
 
@@ -84,7 +95,7 @@
 -spec open(Port) -> {ok, Socket} | {error, Reason} when
       Port :: inet:port_number(),
       Socket :: socket(),
-      Reason :: inet:posix().
+      Reason :: system_limit | inet:posix().
 
 open(Port) -> 
     open(Port, []).
@@ -97,9 +108,11 @@ open(Port) ->
               | {ifaddr, inet:socket_address()}
               | inet:address_family()
               | {port, inet:port_number()}
+              | {netns, file:filename_all()}
+              | {bind_to_device, binary()}
               | option(),
       Socket :: socket(),
-      Reason :: inet:posix().
+      Reason :: system_limit | inet:posix().
 
 open(Port, Opts0) ->
     {Mod, Opts} = inet:udp_module(Opts0),
@@ -112,20 +125,80 @@ open(Port, Opts0) ->
 close(S) ->
     inet:udp_close(S).
 
--spec send(Socket, Address, Port, Packet) -> ok | {error, Reason} when
+-spec send(Socket, Destination, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
-      Address :: inet:socket_address() | inet:hostname(),
-      Port :: inet:port_number(),
+      Destination :: {inet:ip_address(), inet:port_number()} |
+                     inet:family_address(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix().
+%%%
+send(Socket, Destination, Packet) ->
+    send(Socket, Destination, [], Packet).
 
-send(S, Address, Port, Packet) when is_port(S) ->
+-spec send(Socket, Host, Port, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Host :: inet:hostname() | inet:ip_address(),
+      Port :: inet:port_number() | atom(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix();
+%%%
+          (Socket, Destination, AncData, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Destination :: {inet:ip_address(), inet:port_number()} |
+                     inet:family_address(),
+      AncData :: inet:ancillary_data(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix();
+%%%
+          (Socket, Destination, PortZero, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Destination :: {inet:ip_address(), inet:port_number()} |
+                     inet:family_address(),
+      PortZero :: inet:port_number(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix().
+%%%
+send(S, {_,_} = Destination, PortZero = AncData, Packet) when is_port(S) ->
+    %% Destination is {Family,Addr} | {IP,Port},
+    %% so it is complete - argument PortZero is redundant
+    if
+        PortZero =:= 0 ->
+            case inet_db:lookup_socket(S) of
+                {ok, Mod} ->
+                    Mod:send(S, Destination, [], Packet);
+                Error ->
+                    Error
+            end;
+        is_integer(PortZero) ->
+            %% Redundant PortZero; must be 0
+            {error, einval};
+        is_list(AncData) ->
+            case inet_db:lookup_socket(S) of
+                {ok, Mod} ->
+                    Mod:send(S, Destination, AncData, Packet);
+                Error ->
+                    Error
+            end
+    end;
+send(S, Host, Port, Packet) when is_port(S) ->
+    send(S, Host, Port, [], Packet).
+
+-spec send(Socket, Host, Port, AncData, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Host :: inet:hostname() | inet:ip_address() | inet:local_address(),
+      Port :: inet:port_number() | atom(),
+      AncData :: inet:ancillary_data(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix().
+%%%
+send(S, Host, Port, AncData, Packet)
+  when is_port(S), is_list(AncData) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
-	    case Mod:getaddr(Address) of
+	    case Mod:getaddr(Host) of
 		{ok,IP} ->
 		    case Mod:getserv(Port) of
-			{ok,UP} -> Mod:send(S, IP, UP, Packet);
+			{ok,P} -> Mod:send(S, {IP,P}, AncData, Packet);
 			{error,einval} -> exit(badarg);
 			Error -> Error
 		    end;
@@ -136,6 +209,7 @@ send(S, Address, Port, Packet) when is_port(S) ->
 	    Error
     end.
 
+%% Connected send
 send(S, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -145,11 +219,13 @@ send(S, Packet) when is_port(S) ->
     end.
 
 -spec recv(Socket, Length) ->
-                  {ok, {Address, Port, Packet}} | {error, Reason} when
+                  {ok, RecvData} | {error, Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
+      RecvData :: {Address, Port, Packet} | {Address, Port, AncData, Packet},
       Address :: inet:ip_address() | inet:returned_non_ip_address(),
       Port :: inet:port_number(),
+      AncData :: inet:ancillary_data(),
       Packet :: string() | binary(),
       Reason :: not_owner | inet:posix().
 
@@ -162,14 +238,16 @@ recv(S,Len) when is_port(S), is_integer(Len) ->
     end.
 
 -spec recv(Socket, Length, Timeout) ->
-                  {ok, {Address, Port, Packet}} | {error, Reason} when
+                  {ok, RecvData} | {error, Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
       Timeout :: timeout(),
+      RecvData :: {Address, Port, Packet} | {Address, Port, AncData, Packet},
       Address :: inet:ip_address() | inet:returned_non_ip_address(),
       Port :: inet:port_number(),
+      AncData :: inet:ancillary_data(),
       Packet :: string() | binary(),
-      Reason :: not_owner | inet:posix().
+      Reason :: not_owner | timeout | inet:posix().
 
 recv(S,Len,Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of

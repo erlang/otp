@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ all() ->
 
 'fail_αβ_4'(_Config) ->
     ct:log("This is test case ~tw",[?FUNCTION_NAME]),
-    S = try throw(ok) catch throw:ok -> erlang:get_stacktrace() end,
+    S = try throw(ok) catch throw:ok:Stacktrace -> Stacktrace end,
     erlang:raise(error,{error,testcase,?FUNCTION_NAME},S),
     ok.
 

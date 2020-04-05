@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,13 +30,6 @@
 #define NO_DAEMON
 #endif
 
-#ifdef VXWORKS
-#define NO_SYSCONF
-#define NO_DAEMON
-#define NO_FCNTL
-#define DONT_USE_MAIN
-#endif
-
 /* ************************************************************************ */
 /* Standard includes                                                        */
 
@@ -56,16 +49,6 @@
 #include <sys/types.h>
 #include <fcntl.h>
 
-#ifdef VXWORKS
-#  include <sys/times.h>
-#  include <time.h>
-#  include <selectLib.h>
-#  include <sysLib.h>
-#  include <sockLib.h>
-#  include <ioLib.h>
-#  include <taskLib.h>
-#  include <rpc/rpc.h>
-#else /* ! VXWORKS */
 #ifndef __WIN32__
 #  ifdef TIME_WITH_SYS_TIME
 #    include <sys/time.h>
@@ -78,7 +61,6 @@
 #    endif
 #  endif
 #endif
-#endif /* ! VXWORKS */
 
 #if !defined(__WIN32__)
 #  include <netinet/in.h>
@@ -129,10 +111,6 @@
 #  define sleep(s) Sleep((s) * 1000)
 #  define ioctl(s,r,o) ioctlsocket((s),(r),(o))
 #endif /* WIN32 */
-
-#ifdef VXWORKS
-#define sleep(n) taskDelay((n) * sysClkRateGet())
-#endif /* VXWORKS */
 
 #ifdef USE_BCOPY
 #  define memcpy(a, b, c) bcopy((b), (a), (c))
@@ -277,6 +255,12 @@ static const struct in6_addr in6addr_loopback =
 #define put_int16(i, s) {((unsigned char*)(s))[0] = ((i) >> 8) & 0xff; \
                         ((unsigned char*)(s))[1] = (i)         & 0xff;}
 
+#define put_int32(i, s) do {((char*)(s))[0] = (char)((i) >> 24) & 0xff;   \
+                            ((char*)(s))[1] = (char)((i) >> 16) & 0xff;   \
+                            ((char*)(s))[2] = (char)((i) >> 8)  & 0xff;   \
+                            ((char*)(s))[3] = (char)(i)         & 0xff;} \
+                        while (0)
+
 #if defined(__GNUC__)
 #  define EPMD_INLINE __inline__
 #elif defined(__WIN32__)
@@ -287,7 +271,7 @@ static const struct in6_addr in6addr_loopback =
 
 /* ************************************************************************ */
 
-/* Stuctures used by server */
+/* Structures used by server */
 
 typedef struct {
   int fd;			/* File descriptor */
@@ -307,10 +291,10 @@ struct enode {
   int fd;			/* The socket in use */
   unsigned short port;		/* Port number of Erlang node */
   char symname[MAXSYMLEN+1];	/* Name of the Erlang node */
-  short creation;		/* Started as a random number 1..3 */
+  unsigned int cr_counter;	/* Used to generate 'creation' numbers */
   char nodetype;                /* 77 = normal erlang node 72 = hidden (c-node */
   char protocol;                /* 0 = tcp/ipv4 */
-  unsigned short highvsn;       /* 0 = OTP-R3 erts-4.6.x, 1 = OTP-R4 erts-4.7.x*/
+  unsigned short highvsn;       /* 5: creation=1..3, 6: creation=1..(2^32-1)*/
   unsigned short lowvsn;
   int extralen;
   char extra[MAXSYMLEN+1];

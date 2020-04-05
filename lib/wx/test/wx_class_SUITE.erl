@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -618,7 +618,7 @@ lang_env() ->
     Env0 = os:getenv(),
     Env = [[R,"\n"]||R <- Env0],
     %%io:format("~p~n",[lists:sort(Env)]),
-    Opts = [global, multiline, {capture, all, list}],
+    Opts = [global, multiline, {capture, all, list}, unicode],
     format_env(re:run(Env, "LC_ALL.*", Opts)),
     format_env(re:run(Env, "^LANG.*=.*$", Opts)),
     ok.

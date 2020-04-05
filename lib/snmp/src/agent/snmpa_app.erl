@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,6 +67,7 @@ convert_config(Opts) ->
 	    SaVerb = get_sub_agent_verbosity(Opts),
 	    [{agent_type,             AgentType}, 
 	     {agent_verbosity,        SaVerb}, 
+	     {get_mechanism,          snmpa_get},
 	     {set_mechanism,          SetModule},
 	     {authentication_service, AuthModule},
 	     {priority,               Prio},
@@ -97,6 +98,7 @@ convert_config(Opts) ->
 			 {verbosity,  ConfVerb}],
 	    [{agent_type,             AgentType}, 
 	     {agent_verbosity,        MaVerb}, 
+	     {get_mechanism,          snmpa_get},
 	     {set_mechanism,          SetModule},
 	     {authentication_service, AuthModule},
 	     {db_dir,                 DbDir},

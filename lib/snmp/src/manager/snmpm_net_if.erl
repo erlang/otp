@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,6 +58,14 @@
 %% -define(VMODULE,"NET_IF").
 -include("snmp_verbosity.hrl").
 
+%% This is for debugging!!
+-ifdef(snmp_debug).
+-define(allow_exec, true).
+-else.
+-define(allow_exec, false).
+-endif.
+
+
 -record(state,
 	{
 	  server,
@@ -67,7 +75,8 @@
 	  log,
 	  irb = auto, % auto | {user, integer()}
 	  irgc,
-	  filter
+          filter,
+          allow_exec = ?allow_exec
 	 }).
 
 -record(transport,
@@ -90,6 +99,7 @@
 
 -define(ATL_SEQNO_INITIAL, 1).
 -define(ATL_SEQNO_MAX,     2147483647).
+
 
 
 %%%-------------------------------------------------------------------
@@ -182,11 +192,9 @@ worker(Worker, Failer, #state{log = Log} = State) ->
 		      %% Winds up in handle_info {'DOWN', ...}
 		      erlang:exit({net_if_worker, Result})
 	      catch
-		  Class:Reason ->
+		  C:E:S ->
 		      %% Winds up in handle_info {'DOWN', ...}
-		      erlang:exit(
-			{net_if_worker, Failer,
-			 Class, Reason, erlang:get_stacktrace()})
+		      erlang:exit({net_if_worker, Failer, C, E, S})
 	      end
       end,
       [monitor]).
@@ -374,7 +382,15 @@ common_socket_opts(Opts) ->
 		 [{reuseaddr, true}];
 	     _ ->
 		 []
-	 end].
+	 end ++
+         case get_opt(Opts, extra_sock_opts, []) of
+             ESO when is_list(ESO) ->
+                 ESO;
+             BadESO ->
+                 error_msg("Invalid 'extra socket options' (=> ignored):"
+                           "~n   ~p", [BadESO]),
+                 []
+         end].
 
 
 create_filter(Opts) when is_list(Opts) ->
@@ -514,6 +530,13 @@ handle_call(info, _From, State) ->
     Reply = get_info(State),
     {reply, Reply, State};
 
+%% This is for debugging!!
+handle_call({exec, F}, _From, #state{allow_exec = true} = State)
+  when is_function(F, 0) ->
+    ?vlog("[call] exec", []),
+    {reply, F(), State};
+
+
 handle_call(Req, From, State) ->
     warning_msg("received unknown request (from ~p): ~n~p", [Req, From]),
     {reply, {error, {invalid_request, Req}}, State}.
@@ -549,6 +572,13 @@ handle_cast(filter_reset, State) ->
     ?vlog("received filter_reset message", []),
     reset_counters(),
     {noreply, State};
+
+%% This is for debugging!!
+handle_cast({exec, F}, #state{allow_exec = true} = State) when is_function(F, 0) ->
+    ?vlog("[cast] exec", []),
+    F(),
+    {noreply, State};
+
 
 handle_cast(Msg, State) ->
     warning_msg("received unknown message: ~n~p", [Msg]),
@@ -590,6 +620,20 @@ handle_info({disk_log, _Node, Log, Info}, State) ->
 
 handle_info({'DOWN', _, _, _, _} = Info, State) ->
     handle_info_down(Info, State);
+
+
+handle_info({ping, Pid}, State) ->
+    ?vdebug("received ping message from ~p", [Pid]),
+    Pid ! {pong, self()},
+    {noreply, State};
+
+
+%% This is for debugging!!
+handle_info({exec, F}, #state{allow_exec = true} = State) when is_function(F, 0) ->
+    ?vlog("[info] exec", []),
+    F(),
+    {noreply, State};
+
 
 handle_info(Info, State) ->
     handle_info_unknown(Info, State).
@@ -983,11 +1027,10 @@ udp_send(Sock, To, Msg) ->
 	    error_msg("failed sending message to ~p:~p:~n"
 		      "   ~p",[IpAddr, IpPort, Reason])
     catch
-	error:Error ->
-	    error_msg("failed sending message to ~p:~p:~n"
-		      "   error:~p~n"
-		      "   ~p",
-		      [IpAddr, IpPort, Error, erlang:get_stacktrace()])
+	error:E:S ->
+	    error_msg("failed sending message to ~p:~p:"
+		      "~n   ~p"
+		      "~n   ~p", [IpAddr, IpPort, E, S])
     end.
 
 sz(B) when is_binary(B) ->

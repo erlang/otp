@@ -65,7 +65,7 @@
 	       map_pair_op/1, map_pair_key/1, map_pair_val/1
 	   ]).
 
--import(lists, [foldl/3, foldr/3, mapfoldl/3, reverse/1]).
+-import(lists, [foldl/3, foldr/3, member/2, mapfoldl/3, reverse/1]).
 
 %%
 %% Constants
@@ -142,7 +142,7 @@ weight(module) -> 1.    % Like a letrec with a constant body
 %% environment, the state location, and the effort counter at the call
 %% site (cf. `visit').
 
--record(opnd, {expr, ren, env, loc, effort}).
+-record(opnd, {expr, ren, env, loc, effort, no_inline}).
 
 %% Since expressions are only visited in `effect' context when they are
 %% not bound to a referenced variable, only expressions visited in
@@ -903,10 +903,14 @@ i_fun(E, Ctxt, Ren, Env, S) ->
 %% side of each definition.
 
 i_letrec(E, Ctxt, Ren, Env, S) ->
+    %% We must turn off inlining if this `letrec' is specially
+    %% implemented.
+    NoInline = member(letrec_goto, get_ann(E)),
+
     %% Note that we pass an empty list for the auto-referenced
     %% (exported) functions here.
     {Es, B, _, S1} = i_letrec(letrec_defs(E), letrec_body(E), [], Ctxt,
-			      Ren, Env, S),
+			      Ren, Env, NoInline, S),
 
     %% If no bindings remain, only the body is returned.
     case Es of
@@ -920,12 +924,13 @@ i_letrec(E, Ctxt, Ren, Env, S) ->
 %% The major part of this is shared by letrec-expressions and module
 %% definitions alike.
 
-i_letrec(Es, B, Xs, Ctxt, Ren, Env, S) ->
+i_letrec(Es, B, Xs, Ctxt, Ren, Env, NoInline, S) ->
     %% First, we create operands with dummy renamings and environments,
     %% and with fresh store locations for cached expressions and operand
     %% info.
     {Opnds, S1} = mapfoldl(fun ({_, E}, S) ->
-                                   make_opnd(E, undefined, undefined, S)
+                                   make_opnd(E, undefined, undefined,
+                                             NoInline, S)
                            end,
                            S, Es),
 
@@ -1277,7 +1282,7 @@ i_module(E, Ctxt, Ren, Env, S) ->
     %% "body" parameter.
     Exps = i_module_exports(E),
     {Es, _, Xs1, S1} = i_letrec(module_defs(E), void(),
-                                Exps, Ctxt, Ren, Env, S),
+                                Exps, Ctxt, Ren, Env, false, S),
     %% Sanity check:
     case Es of
         [] ->
@@ -1500,23 +1505,15 @@ inline(E, #app{opnds = Opnds, ctxt = Ctxt, loc = L}, Ren, Env, S) ->
 	    %% respective operand structures from the app-structure.
 	    {Rs, Ren1, Env1, S1} = bind_locals(Vs, Opnds, Ren, Env, S),
 
-	    %% function_clause exceptions that have been inlined
-	    %% into another function (or even into the same function)
-	    %% will not work properly. The v3_kernel pass will
-	    %% take care of it, but we will need to help it by
-	    %% removing any function_name annotations on match_fail
-	    %% primops that we inline.
-	    E1 = kill_function_name_anns(fun_body(E)),
-
 	    %% Visit the body in the context saved in the structure.
-	    {E2, S2} = i(E1, Ctxt, Ren1, Env1, S1),
+	    {E1, S2} = i(fun_body(E), Ctxt, Ren1, Env1, S1),
 
 	    %% Create necessary bindings and/or set flags.
-	    {E3, S3} = make_let_bindings(Rs, E2, S2),
+	    {E2, S3} = make_let_bindings(Rs, E1, S2),
 
 	    %% Lastly, flag the application as inlined, since the inlining
 	    %% attempt was not aborted before we reached this point.
-	    {E3, st__set_app_inlined(L, S3)}
+	    {E2, st__set_app_inlined(L, S3)}
     end.
 
 %% For the (possibly renamed) argument variables to an inlined call,
@@ -1674,6 +1671,8 @@ copy_var(R, Ctxt, Env, S) ->
             end
     end.
 
+copy_1(R, #opnd{no_inline = true}, _E, _Ctxt, _Env, S) ->
+    residualize_var(R, S);
 copy_1(R, Opnd, E, Ctxt, Env, S) ->
     case type(E) of
         'fun' ->
@@ -1820,6 +1819,14 @@ reset_nested_apps(_, S) ->
 
 new_var(Env) ->
     Name = env__new_vname(Env),
+    c_var(Name).
+
+%% The way a template variable is used makes it necessary
+%% to make sure that it is unique in the entire function.
+%% Therefore, template variables are atoms with the prefix "@i".
+
+new_template_var(Env) ->
+    Name = env__new_tname(Env),
     c_var(Name).
 
 residualize_var(R, S) ->
@@ -2067,9 +2074,13 @@ ref_to_var(#ref{name = Name}) ->
 %% passive, the operands will also be processed with a passive counter.
 
 make_opnd(E, Ren, Env, S) ->
+    make_opnd(E, Ren, Env, false, S).
+
+make_opnd(E, Ren, Env, NoInline, S) ->
     {L, S1} = st__new_opnd_loc(S),
     C = st__get_effort(S1),
-    Opnd = #opnd{expr = E, ren = Ren, env = Env, loc = L, effort = C},
+    Opnd = #opnd{expr = E, ren = Ren, env = Env, loc = L,
+                 effort = C, no_inline = NoInline},
     {Opnd, S1}.
 
 keep_referenced(Rs, S) ->
@@ -2183,7 +2194,7 @@ make_template(E, Vs0, Env0) ->
 	    T = make_data_skel(data_type(E), Ts),
 	    E1 = update_data(E, data_type(E),
 			     [hd(get_ann(T)) || T <- Ts]),
-	    V = new_var(Env1),
+	    V = new_template_var(Env1),
 	    Env2 = env__bind(var_name(V), E1, Env1),
 	    {set_ann(T, [V]), [V | Vs1], Env2};
 	false ->
@@ -2198,7 +2209,7 @@ make_template(E, Vs0, Env0) ->
 		    Env2 = env__bind(V, E1, Env1),
 		    {T, Vs1, Env2};
 		_ ->
-		    V = new_var(Env0),
+		    V = new_template_var(Env0),
 		    Env1 = env__bind(var_name(V), E, Env0),
 		    {set_ann(V, [V]), [V | Vs0], Env1}
 	    end
@@ -2461,19 +2472,6 @@ kill_id_anns([A | As]) ->
 kill_id_anns([]) ->
     [].
 
-kill_function_name_anns(Body) ->
-    F = fun(P) ->
-		case type(P) of
-		    primop ->
-			Ann = get_ann(P),
-			Ann1 = lists:keydelete(function_name, 1, Ann),
-			set_ann(P, Ann1);
-		    _ ->
-			P
-		end
-	end,
-    cerl_trees:map(F, Body).
-
 
 %% =====================================================================
 %% General utilities
@@ -2518,21 +2516,19 @@ set_clause_bodies([], _) ->
 %% Abstract datatype: renaming()
 
 ren__identity() ->
-    dict:new().
+    #{}.
 
 ren__add(X, Y, Ren) ->
-    dict:store(X, Y, Ren).
+    Ren#{X=>Y}.
 
 ren__map(X, Ren) ->
-    case dict:find(X, Ren) of
-	{ok, Y} ->
-	    Y;
-	error ->
-	    X
+    case Ren of
+        #{X:=Y} -> Y;
+        #{} -> X
     end.
 
 ren__add_identity(X, Ren) ->
-    dict:erase(X, Ren).
+    maps:remove(X, Ren).
 
 
 %% =====================================================================
@@ -2563,6 +2559,11 @@ env__is_defined(Key, Env) ->
 
 env__new_vname(Env) ->
     rec_env:new_key(Env).
+
+env__new_tname(Env) ->
+    rec_env:new_key(fun(I) ->
+                            list_to_atom("@i"++integer_to_list(I))
+                    end, Env).
 
 env__new_fname(A, N, Env) ->
     rec_env:new_key(fun (X) ->
@@ -2620,7 +2621,7 @@ st__new(Effort, Size, Unroll) ->
 	   size = counter__new_passive(Size),
 	   effort = counter__new_passive(Effort),
 	   unroll = Unroll,
-	   cache = dict:new(),
+	   cache = maps:new(),
  	   var_flags = ets:new(var, EtsOpts),
 	   opnd_flags = ets:new(opnd, EtsOpts),
 	   app_flags = ets:new(app, EtsOpts)}.
@@ -2651,12 +2652,12 @@ st__get_var_referenced(L, S) ->
     ets:lookup_element(S#state.var_flags, L, #var_flags.referenced).
 
 st__lookup_opnd_cache(L, S) ->
-    dict:find(L, S#state.cache).
+    maps:find(L, S#state.cache).
 
 %% Note that setting the cache should only be done once.
 
 st__set_opnd_cache(L, C, S) ->
-    S#state{cache = dict:store(L, C, S#state.cache)}.
+    S#state{cache = maps:put(L, C, S#state.cache)}.
 
 st__set_opnd_effect(L, S) ->
     T = S#state.opnd_flags,

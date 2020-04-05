@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,21 +29,6 @@
 #define __ERLANG_LTTNG_H__
 
 #include <lttng/tracepoint.h>
-
-/* Schedulers */
-
-TRACEPOINT_EVENT(
-    org_erlang_otp,
-    scheduler_poll,
-    TP_ARGS(
-        int, id,
-        int, runnable
-    ),
-    TP_FIELDS(
-        ctf_integer(int, scheduler, id)
-        ctf_integer(int, runnable, runnable)
-    )
-)
 
 #ifndef LTTNG_CARRIER_STATS
 #define LTTNG_CARRIER_STATS
@@ -145,21 +130,6 @@ TRACEPOINT_EVENT(
 TRACEPOINT_EVENT(
     org_erlang_otp,
     driver_ready_output,
-    TP_ARGS(
-        char*, pid,
-        char*, port,
-        char*, driver
-    ),
-    TP_FIELDS(
-        ctf_string(pid, pid)
-        ctf_string(port, port)
-        ctf_string(driver, driver)
-    )
-)
-
-TRACEPOINT_EVENT(
-    org_erlang_otp,
-    driver_event,
     TP_ARGS(
         char*, pid,
         char*, port,
@@ -306,35 +276,6 @@ TRACEPOINT_EVENT(
         ctf_integer(size_t, bytes, bytes)
     )
 )
-
-/* Async pool */
-
-TRACEPOINT_EVENT(
-    org_erlang_otp,
-    aio_pool_get,
-    TP_ARGS(
-        char*, port,
-        int, length
-    ),
-    TP_FIELDS(
-        ctf_string(port, port)
-        ctf_integer(int, length, length)
-    )
-)
-
-TRACEPOINT_EVENT(
-    org_erlang_otp,
-    aio_pool_put,
-    TP_ARGS(
-        char*, port,
-        int, length
-    ),
-    TP_FIELDS(
-        ctf_string(port, port)
-        ctf_integer(int, length, length)
-    )
-)
-
 
 /* Memory Allocator */
 

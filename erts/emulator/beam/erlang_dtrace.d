@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Dustin Sallings, Michal Ptaszek, Scott Lystig Fritchie 2011-2016.
+ * Copyright Dustin Sallings, Michal Ptaszek, Scott Lystig Fritchie 2011-2018.
  * All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,7 +55,8 @@ provider erlang {
      * @param sender the PID (string form) of the sender
      * @param receiver the PID (string form) of the receiver
      * @param size the size of the message being delivered (words)
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -73,7 +74,8 @@ provider erlang {
      * @param node_name the Erlang node name (string form) of the receiver
      * @param receiver the PID/name (string form) of the receiver
      * @param size the size of the message being delivered (words)
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -98,7 +100,8 @@ provider erlang {
      * @param receiver the PID (string form) of the receiver
      * @param size the size of the message being delivered (words)
      * @param queue_len length of the queue of the receiving process
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -122,7 +125,8 @@ provider erlang {
      * @param receiver the PID (string form) of the receiver
      * @param size the size of the message being delivered (words)
      * @param queue_len length of the queue of the receiving process
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -172,7 +176,7 @@ provider erlang {
      * Fired whenever a user function returns.
      *
      * @param p the PID (string form) of the process
-     * @param mfa the m:f/a of the function
+     * @param mfa the m:f/a of the function being returned from
      * @param depth the stack depth
      */
     probe function__return(char *p, char *mfa, int depth);
@@ -189,7 +193,7 @@ provider erlang {
      * Fired whenever a Built In Function returns.
      *
      * @param p the PID (string form) of the process
-     * @param mfa the m:f/a of the function
+     * @param mfa the m:f/a of the function being returned from
      */
     probe bif__return(char *p, char *mfa);
 
@@ -205,7 +209,7 @@ provider erlang {
      * Fired whenever a Native Function returns.
      *
      * @param p the PID (string form) of the process
-     * @param mfa the m:f/a of the function
+     * @param mfa the m:f/a of the function being returned from
      */
     probe nif__return(char *p, char *mfa);
 
@@ -273,7 +277,8 @@ provider erlang {
      * @param node_name the Erlang node name (string form) of the receiver
      * @param receiver the PID (string form) of the process receiving EXIT signal
      * @param reason the reason for the exit (may be truncated)
-     * @param token_label for the sender's sequential trace token
+     * @param token_label for the sender's sequential trace token. This will be
+     *        INT_MIN if the label does not fit into a 32-bit integer.
      * @param token_previous count for the sender's sequential trace token
      * @param token_current count for the sender's sequential trace token
      */
@@ -612,95 +617,6 @@ provider erlang {
     probe driver__stop_select(char *name);
 
 
-    /* Async driver pool */
-
-    /**
-     * Show the post-add length of the async driver thread pool member's queue.
-     *
-     * NOTE: The port name is not available: additional lock(s) must
-     *       be acquired in order to get the port name safely in an SMP
-     *       environment.  The same is true for the aio__pool_get probe.
-     *
-     * @param port the Port (string form)
-     * @param new queue length
-     */
-    probe aio_pool__add(char *, int);
-
-    /**
-     * Show the post-get length of the async driver thread pool member's queue.
-     *
-     * @param port the Port (string form)
-     * @param new queue length
-     */
-    probe aio_pool__get(char *, int);
-
-    /* Probes for efile_drv.c */
-
-    /**
-     * Entry into the efile_drv.c file I/O driver
-     *
-     * For a list of command numbers used by this driver, see the section
-     * "Guide to efile_drv.c probe arguments" in ../../../HOWTO/DTRACE.md.
-     * That section also contains explanation of the various integer and
-     * string arguments that may be present when any particular probe fires.
-     *
-     * NOTE: Not all Linux platforms (using SystemTap) can support
-     *       arguments beyond arg9.
-     *
-     *
-     * TODO: Adding the port string, args[10], is a pain.  Making that
-     *       port string available to all the other efile_drv.c probes
-     *       will be more pain.  Is the pain worth it?  If yes, then
-     *       add them everywhere else and grit our teeth.  If no, then
-     *       rip it out.
-     *
-     * @param thread-id number of the scheduler Pthread                   arg0
-     * @param tag number: {thread-id, tag} uniquely names a driver operation
-     * @param user-tag string                                             arg2
-     * @param command number                                              arg3
-     * @param string argument 1                                           arg4
-     * @param string argument 2                                           arg5
-     * @param integer argument 1                                          arg6
-     * @param integer argument 2                                          arg7
-     * @param integer argument 3                                          arg8
-     * @param integer argument 4                                          arg9
-     * @param port the port ID of the busy port                       args[10]
-     */
-    probe efile_drv__entry(int, int, char *, int, char *, char *,
-                           int64_t, int64_t, int64_t, int64_t, char *);
-
-    /**
-     * Entry into the driver's internal work function.  Computation here
-     * is performed by a async worker pool Pthread.
-     *
-     * @param thread-id number
-     * @param tag number
-     * @param command number
-     */
-    probe efile_drv__int_entry(int, int, int);
-
-    /**
-     * Return from the driver's internal work function.
-     *
-     * @param thread-id number
-     * @param tag number
-     * @param command number
-     */
-    probe efile_drv__int_return(int, int, int);
-
-    /**
-     * Return from the efile_drv.c file I/O driver
-     *
-     * @param thread-id number                                            arg0
-     * @param tag number                                                  arg1
-     * @param user-tag string                                             arg2
-     * @param command number                                              arg3
-     * @param Success? 1 is success, 0 is failure                         arg4
-     * @param If failure, the errno of the error.                         arg5
-     */
-    probe efile_drv__return(int, int, char *, int, int, int);
-
-
 /*
  * The set of probes called by the erlang tracer nif backend. In order
  * to receive events on these you both have to enable tracing in erlang
@@ -736,16 +652,6 @@ provider erlang {
  *   http://mail.opensolaris.org/pipermail/dtrace-discuss/2006-November/002830.html
  *   Summary:
  *       "1) you don't need the 'l' printf() modifiers with DTrace ever"
- */
-
-/*
- * NOTE: For file_drv_return + SMP + R14B03 (and perhaps other
- *       releases), the sched-thread-id will be the same as the
- *       work-thread-id: erl_async.c's async_main() function
- *       will call the asynchronous invoke function and then
- *       immediately call the drivers ready_async function while
- *       inside the same I/O worker pool thread.
- *       For R14B03's source, see erl_async.c lines 302-317.
  */
 
 /*

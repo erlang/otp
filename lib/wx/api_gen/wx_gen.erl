@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,9 +47,9 @@ safe(What, QuitOnErr) ->
 	What(),
 	io:format("Completed successfully~n~n", []),
 	QuitOnErr andalso gen_util:halt(0)
-    catch Err:Reason ->
+    catch Err:Reason:Stacktrace ->
 	    io:format("Error in ~p ~p~n", [get(current_class),get(current_func)]),
-	    erlang:display({Err,Reason, erlang:get_stacktrace()}),
+	    erlang:display({Err,Reason,Stacktrace}),
 	    catch gen_util:close(),
 	    QuitOnErr andalso gen_util:halt(1)
     end.
@@ -93,9 +93,10 @@ mangle_info(E={not_const,List}) ->
     put(not_const,  [atom_to_list(M) || M <- List]),
     E;
 mangle_info(E={gvars,List}) ->
-    A2L = fun({N,{T,C}}) -> {atom_to_list(N), {T,atom_to_list(C)}};
+    A2L = fun({N,{test_if,C}}) -> {atom_to_list(N), {test_if,C}};
+             ({N,{T,C}}) -> {atom_to_list(N), {T,atom_to_list(C)}};
 	     ({N,C}) ->     {atom_to_list(N), atom_to_list(C)}
-	  end,    
+	  end,
     put(gvars, map(A2L,List)),
     E;
 mangle_info({class,CN,P,O,FL}) ->
@@ -700,8 +701,13 @@ parse_type2(["wxe_cb"|R],Info,Opts, T) ->
     parse_type2(R,Info,Opts,T#type{name=int,base=wxe_cb});
 parse_type2([const|R],Info,Opts,T=#type{mod=Mod}) -> 
     parse_type2(R,Info,Opts,T#type{mod=[const|Mod]});
-parse_type2(["unsigned"|R],Info,Opts,T=#type{mod=Mod}) -> 
-    parse_type2(R,Info,Opts,T#type{mod=[unsigned|Mod]});
+parse_type2(["unsigned"|R],Info,Opts,T=#type{mod=Mod}) ->
+    case T#type.base of
+        undefined ->
+            parse_type2(R,Info,Opts,T#type{name=int, base=int, mod=[unsigned|Mod]});
+        _ ->
+            parse_type2(R,Info,Opts,T#type{mod=[unsigned|Mod]})
+    end;
 parse_type2(["int"|R],Info,Opts,  T) -> 
     parse_type2(R,Info,Opts,T#type{name=int,base=int});
 parse_type2(["wxByte"|R],Info,Opts,  T) ->
@@ -1278,7 +1284,7 @@ parse_enums(Files) ->
     DontSearch = ["wxchar","filefn", "platform", "strconv", "filename", 
 		  "buffer", "string", "debug", "platinfo"],
     %% Arg need to patch some specials, atleast for wx-2.6
-    ExtraSearch = ["gtk_2glcanvas", "generic_2splash"],
+    ExtraSearch = ["gtk_2glcanvas", "generic_2splash", "added__func"],
     parse_enums(Files ++ ExtraSearch,gb_sets:from_list(DontSearch)).
 
 parse_enums([File|Files], Parsed) ->

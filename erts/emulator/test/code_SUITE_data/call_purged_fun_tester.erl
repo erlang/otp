@@ -8,8 +8,7 @@
 do(Priv, Data, Type, Opts) ->
     try do_it(Priv, Data, Type, Opts)
     catch
-        C:E ->
-            ST = erlang:get_stacktrace(),
+        C:E:ST ->
             io:format("Caught exception from line ~p:\n~p\n",
                       [get(the_line), ST]),
             io:format("Message queue: ~p\n", [process_info(self(), messages)]),

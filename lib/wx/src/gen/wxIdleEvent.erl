@@ -39,7 +39,7 @@
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
 -export_type([wxIdleEvent/0]).
--deprecated([canSend/1]).
+-deprecated([{canSend,1,"not available in wxWidgets-2.9 and later"}]).
 
 %% @hidden
 parent_class(wxEvent) -> true;

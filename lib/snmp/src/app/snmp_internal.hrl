@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,12 @@
 -define(APPLICATION, snmp).
 -endif.
 
--define(STACK(), erlang:get_stacktrace()).
+
+-define(SNMP_RAND_SEED_ALG,    exrop).
+-define(SNMP_RAND_SEED(),      rand:seed(?SNMP_RAND_SEED_ALG,
+                                         {erlang:phash2([node()]),
+                                          erlang:monotonic_time(),
+                                          erlang:unique_integer()})).
 
 -define(snmp_info(C, F, A),    ?snmp_msg(info_msg, C, F, A)).
 -define(snmp_warning(C, F, A), ?snmp_msg(warning_msg, C, F, A)).
@@ -38,6 +43,4 @@
 		[?APPLICATION, Component, ?MODULE, self() | Args]))).
 
 -endif. % -ifdef(snmp_internal).
-
-
 

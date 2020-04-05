@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include("test_lib.hrl").
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
+-export([scheduler_wall_time/0, garbage_collect/0]). %% rpc'ed
 
 % Default timetrap timeout (set in init_per_testcase).
 %-define(default_timeout, ?t:minutes(40)).
@@ -1085,8 +1086,9 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     Rel2Dir = filename:dirname(Rel2),
 
     %% Start a slave node
+    PA = filename:dirname(code:which(?MODULE)),
     {ok, Node} = t_start_node(otp_9395_update_many_mods, Rel1,
-			      filename:join(Rel1Dir,"sys.config")),
+			      filename:join(Rel1Dir,"sys.config"), "-pa " ++ PA),
 
     %% Start a lot of processes on the new node, all with refs to each
     %% module that will be updated
@@ -1109,8 +1111,8 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% First, install release directly and check how much time it takes
-    rpc:call(Node,erlang,garbage_collect,[]),
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
+    rpc:call(Node,?MODULE,garbage_collect,[]),
+    SWTFlag0 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
     {TInst0,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT0 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
@@ -1135,9 +1137,9 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
 
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,false]),
-    rpc:call(Node,erlang,garbage_collect,[]),
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
+    SWTFlag0 ! die,
+    rpc:call(Node,?MODULE,garbage_collect,[]),
+    _SWTFlag1 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
     {TInst2,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
@@ -1160,6 +1162,15 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     true = (X2 =< X0),  % disregarding wait time for file access etc.
 
     ok.
+
+scheduler_wall_time() ->
+    erlang:system_flag(scheduler_wall_time,true),
+    receive _Msg -> normal end.
+
+garbage_collect() ->
+    Pids = processes(),
+    [erlang:garbage_collect(Pid) || Pid <- Pids].
+
 
 otp_9395_update_many_mods(cleanup,_Conf) ->
     stop_node(node_name(otp_9395_update_many_mods)).
@@ -1190,8 +1201,9 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     Rel2Dir = filename:dirname(Rel2),
 
     %% Start a slave node
+    PA = filename:dirname(code:which(?MODULE)),
     {ok, Node} = t_start_node(otp_9395_rm_many_mods, Rel1,
-			      filename:join(Rel1Dir,"sys.config")),
+			      filename:join(Rel1Dir,"sys.config"), "-pa " ++ PA),
 
     %% Start a lot of processes on the new node, all with refs to each
     %% module that will be updated
@@ -1214,8 +1226,8 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% First, install release directly and check how much time it takes
-    rpc:call(Node,erlang,garbage_collect,[]),
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
+    rpc:call(Node,?MODULE,garbage_collect,[]),
+    SWTFlag0 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
     {TInst0,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT0 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
@@ -1240,9 +1252,9 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
 
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,false]),
-    rpc:call(Node,erlang,garbage_collect,[]),
-    rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
+    SWTFlag0 ! die,
+    rpc:call(Node,?MODULE,garbage_collect,[]),
+    _SWTFlag1 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
     {TInst2,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
@@ -1384,9 +1396,9 @@ upgrade_supervisor(Conf) when is_list(Conf) ->
     %% Check that the restart strategy and child spec is updated
     {status, _, {module, _}, [_, _, _, _, [_,_,{data,[{"State",State}]}|_]]} =
 	rpc:call(Node,sys,get_status,[a_sup]),
-    {state,_,RestartStrategy,[Child],_,_,_,_,_,_,_} = State,
+    {state,_,RestartStrategy,{[a],Db},_,_,_,_,_,_,_} = State,
     one_for_all = RestartStrategy, % changed from one_for_one
-    {child,_,_,_,_,brutal_kill,_,_} = Child, % changed from timeout 2000
+    {child,_,_,_,_,brutal_kill,_,_} = maps:get(a,Db), % changed from timeout 2000
 
     ok.
 
@@ -1835,24 +1847,32 @@ otp_10463_upgrade_script_regexp(cleanup,Config) ->
     code:del_path(filename:join([DataDir,regexp_appup,app1,ebin])),
     ok.
 
-no_dot_erlang(Conf) ->
-    PrivDir = ?config(data_dir,Conf),
-    {ok, OrigWd} = file:get_cwd(),
+no_dot_erlang(_Conf) ->
+    case init:get_argument(home) of
+        {ok,[[Home]]} when is_list(Home) ->
+            no_dot_erlang_1(Home);
+        _ -> ok
+    end.
+
+no_dot_erlang_1(Home) ->
+    DotErlang = filename:join(Home, ".erlang"),
+    BupErlang = filename:join(Home, ".erlang_testbup"),
     try
-	ok = file:set_cwd(PrivDir),
-
-	{ok, Wd} = file:get_cwd(),
-	io:format("Dir ~ts~n", [Wd]),
-
+        {ok, Wd} = file:get_cwd(),
+        case filelib:is_file(DotErlang) of
+            true -> {ok, _} = file:copy(DotErlang, BupErlang);
+            false -> ok
+        end,
 	Erl0 =  filename:join([code:root_dir(),"bin","erl"]),
 	Erl = filename:nativename(Erl0),
 	Quote = "\"",
 	Args = " -noinput -run c pwd -run erlang halt",
-	ok = file:write_file(".erlang", <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
+	ok = file:write_file(DotErlang, <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
 
 	CMD1 = Quote ++ Erl ++ Quote ++ Args ,
 	case os:cmd(CMD1) of
-	    "DOT_ERLANG_READ" ++ _ -> ok;
+	    "DOT_ERLANG_READ" ++ _ ->
+                io:format("~p: Success~n", [?LINE]);
 	    Other1 ->
 		io:format("Failed: ~ts~n",[CMD1]),
 		io:format("Expected: ~s ++ _~n",["DOT_ERLANG_READ "]),
@@ -1862,7 +1882,7 @@ no_dot_erlang(Conf) ->
 	NO_DOT_ERL = " -boot no_dot_erlang",
 	CMD2 = Quote ++ Erl ++ Quote ++ NO_DOT_ERL ++ Args,
 	case lists:prefix(Wd, Other2 = os:cmd(CMD2)) of
-	    true -> ok;
+	    true -> io:format("~p: Success~n", [?LINE]);
 	    false ->
 		io:format("Failed: ~ts~n",[CMD2]),
 		io:format("Expected: ~s~n",["TESTOK"]),
@@ -1870,9 +1890,13 @@ no_dot_erlang(Conf) ->
 		exit({failed_to_start, no_dot_erlang})
 	end
     after
-	_ = file:delete(".erlang"),
-	ok = file:set_cwd(OrigWd),
-	ok
+        case filelib:is_file(BupErlang) of
+            true ->
+                {ok, _} = file:copy(BupErlang, DotErlang),
+                _ = file:delete(BupErlang);
+            false ->
+                _ = file:delete(DotErlang)
+        end
     end.
 
 %%%-----------------------------------------------------------------
@@ -2307,7 +2331,7 @@ reg_print_proc() ->
 rh_print() ->
     receive
 	{print, {Module,Line}, [H|T]} ->
-	    ?t:format("=== ~p:~p - ~p",[Module,Line,H]),
+	    ?t:format("=== ~p:~p - ~tp",[Module,Line,H]),
 	    lists:foreach(fun(Term) -> ?t:format("    ~tp",[Term]) end, T),
 	    ?t:format("",[]),
 	    rh_print();
@@ -2556,15 +2580,15 @@ check_gg_info(Node,OtherAlive,OtherDead,Synced,N) ->
     GGI = rpc:call(Node, global_group, info, []),
     GI = rpc:call(Node, global, info,[]),
     try do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) 
-    catch _:E when N==0 ->
+    catch _:E:Stacktrace when N==0 ->
 	    ?t:format("~nERROR: check_gg_info failed for ~p:~n~p~n"
 		      "when GGI was: ~p~nand GI was: ~p~n",
-		      [Node,{E,erlang:get_stacktrace()},GGI,GI]),
+		      [Node,{E,Stacktrace},GGI,GI]),
 	    ?t:fail("check_gg_info failed");
-	  _:E ->
+	  _:E:Stacktrace ->
 	    ?t:format("~nWARNING: check_gg_info failed for ~p:~n~p~n"
 		      "when GGI was: ~p~nand GI was: ~p~n",
-		      [Node,{E,erlang:get_stacktrace()},GGI,GI]),
+		      [Node,{E,Stacktrace},GGI,GI]),
 	    timer:sleep(1000),
 	    check_gg_info(Node,OtherAlive,OtherDead,Synced,N-1)
     end.

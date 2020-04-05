@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ test_events(ac_flag) ->
      {?eh,start_info,{1,1,3}},
      {?eh,tc_start,{ct_framework,error_in_suite}},
      {?eh,tc_done,{ct_framework,error_in_suite,
-       {failed,{error,'bad_SUITE can not be compiled or loaded'}}}},
+       {failed,{error,'bad_SUITE cannot be compiled or loaded'}}}},
      {?eh,tc_start,{dummy_SUITE,init_per_suite}},
      {?eh,tc_done,{dummy_SUITE,init_per_suite,ok}},
      {?eh,test_stats,{1,1,{1,0}}},
@@ -186,7 +186,7 @@ test_events(ac_spec) ->
      {?eh,start_info,{1,1,3}},
      {?eh,tc_start,{ct_framework,error_in_suite}},
      {?eh,tc_done,{ct_framework,error_in_suite,
-       {failed,{error,'bad_SUITE can not be compiled or loaded'}}}},
+       {failed,{error,'bad_SUITE cannot be compiled or loaded'}}}},
      {?eh,tc_start,{dummy_SUITE,init_per_suite}},
      {?eh,tc_done,{dummy_SUITE,init_per_suite,ok}},
      {?eh,test_stats,{1,1,{1,0}}},

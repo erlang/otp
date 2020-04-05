@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -188,7 +188,6 @@ typedef union {
 static int no_mseg_allocators;
 static ErtsAlgndMsegAllctr_t *aligned_mseg_allctr;
 
-#ifdef ERTS_SMP
 
 #define ERTS_MSEG_ALLCTR_IX(IX) \
   (&aligned_mseg_allctr[(IX)].mseg_alloc)
@@ -199,18 +198,6 @@ static ErtsAlgndMsegAllctr_t *aligned_mseg_allctr;
 #define ERTS_MSEG_ALLCTR_OPT(OPT) \
   ((OPT)->sched_spec ? ERTS_MSEG_ALLCTR_SS() : ERTS_MSEG_ALLCTR_IX(0))
 
-#else
-
-#define ERTS_MSEG_ALLCTR_IX(IX) \
-  (&aligned_mseg_allctr[0].mseg_alloc)
-
-#define ERTS_MSEG_ALLCTR_SS() \
-  (&aligned_mseg_allctr[0].mseg_alloc)
-
-#define ERTS_MSEG_ALLCTR_OPT(OPT) \
-  (&aligned_mseg_allctr[0].mseg_alloc)
-
-#endif
 
 #define ERTS_MSEG_LOCK(MA)		\
 do {					\
@@ -352,11 +339,11 @@ mseg_recreate(ErtsMsegAllctr_t *ma, Uint flags, void *old_seg, UWord old_size, U
 do {									\
     if ((MA)->is_thread_safe)						\
 	ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&(MA)->mtx)		\
-		       || erts_smp_thr_progress_is_blocking()		\
+		       || erts_thr_progress_is_blocking()		\
 		       || ERTS_IS_CRASH_DUMPING);			\
     else								\
 	ERTS_LC_ASSERT((MA)->ix == (int) erts_get_scheduler_id()	\
-		       || erts_smp_thr_progress_is_blocking()		\
+		       || erts_thr_progress_is_blocking()		\
 		       || ERTS_IS_CRASH_DUMPING);			\
 } while (0)
 #else
@@ -1404,11 +1391,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
     int i;
     UWord x;
 
-#ifdef ERTS_SMP
     no_mseg_allocators = init->nos + 1;
-#else
-    no_mseg_allocators = 1;
-#endif
 
     x = (UWord) malloc(sizeof(ErtsAlgndMsegAllctr_t)
 		       *no_mseg_allocators
@@ -1423,15 +1406,9 @@ erts_mseg_init(ErtsMsegInit_t *init)
     erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
-#ifdef ERTS_HAVE_EXEC_MMAPPER
-    /* Initialize erts_exec_mapper *FIRST*, to increase probability
-     * of getting low memory for HiPE AMD64's small code model.
-     */
-    erts_mmap_init(&erts_exec_mmapper, &init->exec_mmap, 1);
-#endif
-    erts_mmap_init(&erts_dflt_mmapper, &init->dflt_mmap, 0);
+    erts_mmap_init(&erts_dflt_mmapper, &init->dflt_mmap);
 #if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
-    erts_mmap_init(&erts_literal_mmapper, &init->literal_mmap, 0);
+    erts_mmap_init(&erts_literal_mmapper, &init->literal_mmap);
 #endif
 
     if (!IS_2POW(GET_PAGE_SIZE))

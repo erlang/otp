@@ -32,7 +32,13 @@ start(_Type, {_AppN, Low, High}) ->
 				    lists:seq(Low, High)),
     {ok, P, []}.
 
-stop(_) -> ok.
+stop(State) ->
+    case whereis(test_application_stop_called) of
+        undefined ->
+            ok;
+        Pid ->
+            Pid ! {stop_called, State}
+    end.
  
 start_phase(_Phase, _Type, _Args) ->
     ok.

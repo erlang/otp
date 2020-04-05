@@ -50,8 +50,8 @@
     <p>The implementation of the statistic counters is
       lightweight. I.e.  the statistic counters are handled
       separately by different entities of the application. For
-      instance our two transport module(s) (see <seealso marker="megaco_tcp#stats">megaco_tcp</seealso> and <seealso marker="megaco_udp#stats">megaco_udp</seealso>) maintain their
-      own counters and the application engine (see <seealso marker="megaco#stats">megaco</seealso>) maintain its own
+      instance our two transport module(s) (see <seeerl marker="megaco_tcp#stats">megaco_tcp</seeerl> and <seeerl marker="megaco_udp#stats">megaco_udp</seeerl>) maintain their
+      own counters and the application engine (see <seeerl marker="megaco#stats">megaco</seeerl>) maintain its own
       counters.</p>
     <p>This also means that if a user implement their own transport
       service then it has to maintain its own statistics.</p>

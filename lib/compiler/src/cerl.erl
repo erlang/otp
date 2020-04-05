@@ -263,7 +263,7 @@
 %% @see subtrees/1
 %% @see meta/1
 
--type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitrst' | 'call' | 'case'
+-type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitstr' | 'call' | 'case'
                | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'  | 'letrec'
                | 'literal' | 'map'  | 'map_pair' | 'module' | 'primop'
                | 'receive' | 'seq'    | 'try'    | 'tuple'  | 'values' | 'var'.
@@ -433,6 +433,8 @@ is_literal_term(T) when is_tuple(T) ->
 is_literal_term(B) when is_bitstring(B) -> true;
 is_literal_term(M) when is_map(M) ->
     is_literal_term_list(maps:to_list(M));
+is_literal_term(F) when is_function(F) ->
+    erlang:fun_info(F, type) =:= {type,external};
 is_literal_term(_) ->
     false.
 
@@ -2155,12 +2157,16 @@ values_arity(Node) ->
 
 %% @spec c_binary(Segments::[cerl()]) -> cerl()
 %%
-%% @doc Creates an abstract binary-template. A binary object is a
-%% sequence of 8-bit bytes. It is specified by zero or more bit-string
-%% template <em>segments</em> of arbitrary lengths (in number of bits),
-%% such that the sum of the lengths is evenly divisible by 8. If
-%% <code>Segments</code> is <code>[S1, ..., Sn]</code>, the result
-%% represents "<code>#{<em>S1</em>, ..., <em>Sn</em>}#</code>". All the
+
+%% @doc Creates an abstract binary-template. A binary object is in
+%% this context a sequence of an arbitrary number of bits. (The number
+%% of bits used to be evenly divisible by 8, but after the
+%% introduction of bit strings in the Erlang language, the choice was
+%% made to use the binary template for all bit strings.) It is
+%% specified by zero or more bit-string template <em>segments</em> of
+%% arbitrary lengths (in number of bits). If <code>Segments</code> is
+%% <code>[S1, ..., Sn]</code>, the result represents
+%% "<code>#{<em>S1</em>, ..., <em>Sn</em>}#</code>". All the
 %% <code>Si</code> must have type <code>bitstr</code>.
 %%
 %% @see ann_c_binary/2

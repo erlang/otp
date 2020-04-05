@@ -118,12 +118,12 @@ Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Func
 % <input>etop -node tiger@durin -setcookie mycookie -lines 15</input></pre>
     
     <p>A list of all valid Erlang Top configuration parameters is available in
-      module <seealso marker="etop"><c>etop</c></seealso>.
+      module <seeerl marker="etop"><c>etop</c></seeerl>.
       </p>
 
       <p>The parameters <c>lines</c>, <c>interval</c>, <c>accumulate</c>,
       and <c>sort</c> can be changed during runtime with function 
-      <seealso marker="etop#config/2"><c>etop:config/2</c></seealso>.
+      <seemfa marker="etop#config/2"><c>etop:config/2</c></seemfa>.
       </p>
       <p><em>Example:</em></p>
       <p>Change configuration parameter <c>lines</c> with text-based presentation. 
@@ -179,14 +179,14 @@ Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Func
     <title>Print to File</title>
     <p>At any time, the current Erlang Top display can be dumped to a
       text file with function 
-      <seealso marker="etop#dump/1"><c>etop:dump/1</c></seealso>.
+      <seemfa marker="etop#dump/1"><c>etop:dump/1</c></seemfa>.
       </p>
   </section>
 
   <section>
     <title>Stop</title>
     <p>To stop Erlang Top, use function 
-    <seealso marker="etop#stop/0"><c>etop:stop/0</c></seealso>.
+    <seemfa marker="etop#stop/0"><c>etop:stop/0</c></seemfa>.
     </p>
   </section>
 </chapter>

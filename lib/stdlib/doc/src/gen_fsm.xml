@@ -32,14 +32,14 @@
   <modulesummary>Deprecated and replaced by gen_statem </modulesummary>
 
   <description>
-    <p> Deprecated and replaced by  <seealso marker="gen_statem"><c>gen_statem</c></seealso> </p>
+    <p> Deprecated and replaced by  <seeerl marker="gen_statem"><c>gen_statem</c></seeerl> </p>
   </description>
   <section>
     <marker id="Migration to gen_statem"/>
     <title>Migration to gen_statem</title>
     
     <p>Here follows a simple example of turning a gen_fsm into
-    a <seealso marker="gen_statem"><c>gen_statem</c></seealso>. The example comes
+    a <seeerl marker="gen_statem"><c>gen_statem</c></seeerl>. The example comes
     from the previous Users Guide for <c>gen_fsm</c> </p>
   
     <code type="erl">

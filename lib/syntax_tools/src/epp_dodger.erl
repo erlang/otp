@@ -502,6 +502,10 @@ quickscan_form([{'-', _L}, {atom, La, ifdef} | _Ts]) ->
     kill_form(La);
 quickscan_form([{'-', _L}, {atom, La, ifndef} | _Ts]) ->
     kill_form(La);
+quickscan_form([{'-', _L}, {'if', La} | _Ts]) ->
+    kill_form(La);
+quickscan_form([{'-', _L}, {atom, La, elif} | _Ts]) ->
+    kill_form(La);
 quickscan_form([{'-', _L}, {atom, La, else} | _Ts]) ->
     kill_form(La);
 quickscan_form([{'-', _L}, {atom, La, endif} | _Ts]) ->
@@ -594,8 +598,6 @@ skip_macro_args([{'receive',_}=T | Ts], Es, As) ->
     skip_macro_args(Ts, ['end' | Es], [T | As]);
 skip_macro_args([{'try',_}=T | Ts], Es, As) ->
     skip_macro_args(Ts, ['end' | Es], [T | As]);
-skip_macro_args([{'cond',_}=T | Ts], Es, As) ->
-    skip_macro_args(Ts, ['end' | Es], [T | As]);
 skip_macro_args([{E,_}=T | Ts], [E], As) ->		%final close
     {lists:reverse([T | As]), Ts};
 skip_macro_args([{E,_}=T | Ts], [E | Es], As) ->	%matching close
@@ -615,8 +617,13 @@ filter_form(T) ->
 %% ---------------------------------------------------------------------
 %% Normal parsing - try to preserve all information
 
-normal_parser(Ts, Opt) ->
-    rewrite_form(parse_tokens(scan_form(Ts, Opt))).
+normal_parser(Ts0, Opt) ->
+    case scan_form(Ts0, Opt) of
+	Ts when is_list(Ts) ->
+	    rewrite_form(parse_tokens(Ts));
+	Node ->
+	    Node
+    end.
 
 scan_form([{'-', _L}, {atom, La, define} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
@@ -636,12 +643,26 @@ scan_form([{'-', _L}, {atom, La, ifdef} | Ts], Opt) ->
 scan_form([{'-', _L}, {atom, La, ifndef} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, ifndef} | scan_macros(Ts, Opt)];
+scan_form([{'-', _L}, {'if', La} | Ts], Opt) ->
+    [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
+     {atom, La, 'if'} | scan_macros(Ts, Opt)];
+scan_form([{'-', _L}, {atom, La, elif} | Ts], Opt) ->
+    [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
+     {atom, La, 'elif'} | scan_macros(Ts, Opt)];
 scan_form([{'-', _L}, {atom, La, else} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, else} | scan_macros(Ts, Opt)];
 scan_form([{'-', _L}, {atom, La, endif} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, endif} | scan_macros(Ts, Opt)];
+scan_form([{'-', _L}, {atom, La, error} | Ts], _Opt) ->
+    Desc = build_info_string("-error", Ts),
+    ErrorInfo = {La, ?MODULE, {error, Desc}},
+    erl_syntax:error_marker(ErrorInfo);
+scan_form([{'-', _L}, {atom, La, warning} | Ts], _Opt) ->
+    Desc = build_info_string("-warning", Ts),
+    ErrorInfo = {La, ?MODULE, {warning, Desc}},
+    erl_syntax:error_marker(ErrorInfo);
 scan_form([{'-', L}, {'?', L1}, {Type, _, _}=N | [{'(', _} | _]=Ts], Opt)
   when Type =:= atom; Type =:= var ->
     %% minus, macro and open parenthesis at start of form - assume that
@@ -656,6 +677,11 @@ scan_form([{'?', L}, {Type, _, _}=N | [{'(', _} | _]=Ts], Opt)
     macro(L, N, Ts, [], Opt);
 scan_form(Ts, Opt) ->
     scan_macros(Ts, Opt).
+
+build_info_string(Prefix, Ts0) ->
+    Ts = lists:droplast(Ts0),
+    String = lists:droplast(tokens_to_string(Ts)),
+    Prefix ++ " " ++ String ++ ".".
 
 scan_macros(Ts, Opt) ->
     scan_macros(Ts, [], Opt).
@@ -865,6 +891,10 @@ tokens_to_string([]) ->
 
 format_error(macro_args) ->
     errormsg("macro call missing end parenthesis");
+format_error({error, Error}) ->
+    Error;
+format_error({warning, Error}) ->
+    Error;
 format_error({unknown, Reason}) ->
     errormsg(io_lib:format("unknown error: ~tP", [Reason, 15])).
 

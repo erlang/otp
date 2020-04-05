@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,23 +79,23 @@ void erts_init_unicode(void)
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
     /* Non visual BIFs to trap to. */
     erts_init_trap_export(&characters_to_utf8_trap_exp,
-			  am_erlang, am_atom_put("characters_to_utf8_trap",23), 3,
+			  am_erlang, ERTS_MAKE_AM("characters_to_utf8_trap"), 3,
 			  &characters_to_utf8_trap);
 
     erts_init_trap_export(&characters_to_list_trap_1_exp,
-			  am_erlang, am_atom_put("characters_to_list_trap_1",25), 3,
+			  am_erlang, ERTS_MAKE_AM("characters_to_list_trap_1"), 3,
 			  &characters_to_list_trap_1);
 
     erts_init_trap_export(&characters_to_list_trap_2_exp,
-			  am_erlang, am_atom_put("characters_to_list_trap_2",25), 3,
+			  am_erlang, ERTS_MAKE_AM("characters_to_list_trap_2"), 3,
 			  &characters_to_list_trap_2);
 
     erts_init_trap_export(&characters_to_list_trap_3_exp,
-			  am_erlang, am_atom_put("characters_to_list_trap_3",25), 3,
+			  am_erlang, ERTS_MAKE_AM("characters_to_list_trap_3"), 3,
 			  &characters_to_list_trap_3);
 
     erts_init_trap_export(&characters_to_list_trap_4_exp,
-			  am_erlang, am_atom_put("characters_to_list_trap_4",25), 1,
+			  am_erlang, ERTS_MAKE_AM("characters_to_list_trap_4"), 1,
 			  &characters_to_list_trap_4);
 
     c_to_b_int_trap_exportp =  erts_export_put(am_unicode,am_characters_to_binary_int,2);
@@ -144,7 +144,7 @@ static Eterm make_magic_bin_for_restart(Process *p, RestartContext *rc)
 					   cleanup_restart_context_bin);
     RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
     Eterm *hp;
-    memcpy(restartp,rc,sizeof(RestartContext));
+    sys_memcpy(restartp,rc,sizeof(RestartContext));
     hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
     return erts_mk_magic_ref(&hp, &MSO(p), mbp);
 }
@@ -254,12 +254,12 @@ static Uint copy_utf8_bin(byte *target, byte *source, Uint size,
 	ASSERT(need > 0);
 	ASSERT(from_source > 0);
 	if (size < from_source) {
-	    memcpy(leftover + (*num_leftovers), source, size);
+	    sys_memcpy(leftover + (*num_leftovers), source, size);
 	    *num_leftovers += size;
 	    return 0;
 	}
 	/* leftover has room for four bytes (see bif) */
-	memcpy(leftover + (*num_leftovers),source,from_source);
+	sys_memcpy(leftover + (*num_leftovers),source,from_source);
 	c = copy_utf8_bin(target, leftover, need, NULL, NULL, &tmp_err_pos, characters);
 	if (tmp_err_pos != 0) {
 	    *err_pos = source;
@@ -291,7 +291,7 @@ static Uint copy_utf8_bin(byte *target, byte *source, Uint size,
 	    size -= 2; copied += 2;
 	} else if (((*source) & ((byte) 0xF0)) == 0xE0) {
 	    if (leftover && size < 3) {
-		memcpy(leftover, source, (int) size);
+		sys_memcpy(leftover, source, (int) size);
 		*num_leftovers = (int) size;
 		break;
 	    }
@@ -313,7 +313,7 @@ static Uint copy_utf8_bin(byte *target, byte *source, Uint size,
 	    size -= 3; copied += 3;
 	} else if (((*source) & ((byte) 0xF8)) == 0xF0) {
 	    if (leftover && size < 4) {
-		memcpy(leftover, source, (int) size);
+		sys_memcpy(leftover, source, (int) size);
 		*num_leftovers = (int) size;
 		break;
 	    }
@@ -455,6 +455,17 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			objp = list_val(ioterm);
 			obj = CAR(objp);
 		    }
+                } else if (is_big(obj)) {
+                    /*
+                     * This is obviously an error, but we
+                     * need do_build_utf8() to produce the
+                     * error; otherwise, we will generate
+                     * a badarg instead of the informative
+                     * error tuple.
+                     */
+		    DESTROY_ESTACK(stack);
+                    *costp = cost;
+                    return need;
 		} else {
 		    DESTROY_ESTACK(stack);
 		    *costp = cost;
@@ -800,7 +811,29 @@ static int check_leftovers(byte *source, int size)
     }
     return -1;
 }
-	
+
+
+static Eterm
+mk_utf8_result_bin(Process *p, Eterm bin)
+{
+    /*
+     * Don't let small refc-binaries escape out in the system
+     * when done. That is, convert such to heap binaries.
+     */
+    Uint size = binary_size(bin);
+
+    ASSERT(*binary_val(bin) == HEADER_PROC_BIN);
+    
+    if (size <= ERL_ONHEAP_BIN_LIMIT) {
+	ErlHeapBin* hb = (ErlHeapBin *) HAlloc(p, heap_bin_size(size));
+	hb->thing_word = header_heap_bin(size);
+	hb->size = size;
+        sys_memcpy(hb->data, binary_bytes(bin), size);
+	return make_binary(hb);
+    }
+    
+    return bin;
+}
 	 
 
 static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
@@ -822,15 +855,15 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 	} else {
 	   hp = HAlloc(p,4);
 	} 
-	ret = TUPLE3(hp,am_error,bin,rest_term);
+	ret = TUPLE3(hp,am_error,mk_utf8_result_bin(p,bin),rest_term);
     } else if (rest_term == NIL && num_leftovers != 0) {
 	Eterm leftover_bin = new_binary(p, leftover, num_leftovers);
 	if (check_leftovers(leftover,num_leftovers) != 0) {
 	    hp = HAlloc(p,4);
-	    ret = TUPLE3(hp,am_error,bin,leftover_bin);
+	    ret = TUPLE3(hp,am_error,mk_utf8_result_bin(p,bin),leftover_bin);
 	} else {
 	    hp = HAlloc(p,4);
-	    ret = TUPLE3(hp,am_incomplete,bin,leftover_bin);
+	    ret = TUPLE3(hp,am_incomplete,mk_utf8_result_bin(p,bin),leftover_bin);
 	}
     } else { /* All OK */	    
 	if (rest_term != NIL) { /* Trap */
@@ -843,8 +876,8 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 	    BIF_TRAP3(&characters_to_utf8_trap_exp, p, bin, rest_term, latin1);
 	} else { /* Success */
 	    /*hp = HAlloc(p,5);
-	      ret = TUPLE4(hp,bin,rest_term,make_small(pos),make_small(err));*/
-	    ret = bin;
+	      ret = TUPLE4(hp,mk_utf8_result_bin(p,bin),rest_term,make_small(pos),make_small(err));*/
+	    ret = mk_utf8_result_bin(p,bin);
 	}
     }
     BIF_RET(ret);
@@ -1358,11 +1391,9 @@ Uint erts_atom_to_string_length(Eterm atom)
     else {
         byte* err_pos;
         Uint num_chars;
-#ifdef DEBUG
         int ares =
-#endif
             erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
-        ASSERT(ares == ERTS_UTF8_OK);
+        ASSERT(ares == ERTS_UTF8_OK); (void)ares;
 
         return num_chars;
     }
@@ -2070,7 +2101,7 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
 	is_list(name) || 
 	(allow_empty && is_nil(name))) {
 	Sint need;
-	if ((need = erts_native_filename_need(name,encoding)) < 0) {
+	if ((need = erts_native_filename_need(name, encoding)) < 0) {
 	    return NULL;
 	}
 	if (encoding == ERL_FILENAME_WIN_WCHAR) {
@@ -2108,7 +2139,7 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
 	    } else {
 		name_buf = statbuf;
 	    }
-	    memcpy(name_buf,bytes,size);
+	    sys_memcpy(name_buf,bytes,size);
 	    name_buf[size]=0;
 	} else {
             name_buf = erts_convert_filename_to_wchar(bytes, size,
@@ -2165,18 +2196,9 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
     return name_buf;
 }
 
-
-static int filename_len_16bit(byte *str) 
+Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes)
 {
-    byte *p = str;
-    while(*p != '\0' || p[1] != '\0') {
-	p += 2;
-    }
-    return (p - str);
-}
-Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
-{
-    Uint size,num_chars;
+    Uint num_chars;
     Eterm *hp;
     byte *err_pos;
     Uint num_built; /* characters */
@@ -2190,7 +2212,6 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
     case ERL_FILENAME_UTF8_MAC:
 	mac = 1;
     case ERL_FILENAME_UTF8:
-	size = strlen((char *) bytes);
 	if (size == 0)
 	    return NIL;
 	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
@@ -2205,7 +2226,6 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
 	} 
 	return ret;
     case ERL_FILENAME_WIN_WCHAR:
-	size=filename_len_16bit(bytes);
 	if ((size % 2) != 0) { /* Panic fixup to avoid crashing the emulator */
 	    size--;
 	    hp = HAlloc(p, size+2);
@@ -2228,13 +2248,12 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
 	goto noconvert;
     }
  noconvert:
-    size = strlen((char *) bytes);
     hp = HAlloc(p, 2 * size);
     return erts_bin_bytes_to_list(NIL, hp, bytes, size, 0);
 }
 
 
-Sint erts_native_filename_need(Eterm ioterm, int encoding) 
+Sint erts_native_filename_need(Eterm ioterm, int encoding)
 {
     Eterm *objp;
     Eterm obj;
@@ -2276,6 +2295,20 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
 	default:
 	    need = -1;
 	}
+        /*
+         * Do not allow null in
+         * the middle of filenames
+         */
+        if (need > 0) {
+            byte *name = ap->name;
+            int len = ap->len;
+            for (i = 0; i < len; i++) {
+                if (name[i] == 0) {
+                    need = -1;
+                    break;
+                }
+            }
+        }
 	DESTROY_ESTACK(stack);
 	return need;
     }
@@ -2306,6 +2339,14 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 		if (is_small(obj)) { /* Always small */
 		    for(;;) {
 			Uint x = unsigned_val(obj);
+                        /*
+                         * Do not allow null in
+                         * the middle of filenames
+                         */
+                        if (x == 0) {
+                            DESTROY_ESTACK(stack);
+                            return ((Sint) -1);
+                        }
 			switch (encoding) {
 			case ERL_FILENAME_LATIN1:
 			    if (x > 255) {
@@ -2579,6 +2620,38 @@ void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars)
 }
 
 /*
+ * *** Requirements on Raw Filename Format ***
+ *
+ * These requirements are due to the 'filename' module
+ * in stdlib. This since it is documented that it
+ * should be able to operate on raw filenames as well
+ * as ordinary filenames.
+ *
+ * A raw filename *must* be a byte sequence where:
+ * 1. Codepoints 0-127 (7-bit ascii) *must* be encoded
+ *    as a byte with the corresponding value. That is,
+ *    the most significant bit in the byte encoding the
+ *    codepoint is never set.
+ * 2. Codepoints greater than 127 *must* be encoded
+ *    with the most significant bit set in *every* byte
+ *    encoding it.
+ *
+ * Latin1 and UTF-8 meet these requirements while
+ * UTF-16 and UTF-32 don't.
+ *
+ * On Windows filenames are natively stored as malformed
+ * UTF-16LE (lonely surrogates may appear). A more correct
+ * description than UTF-16 would be an array of 16-bit
+ * words... In order to meet the requirements of the
+ * raw file format we convert the malformed UTF-16LE to
+ * malformed UTF-8 which meet the requirements.
+ *
+ * Note that these requirements are today only OTP
+ * internal (erts-stdlib internal) requirements that
+ * could be changed.
+ */
+
+/*
  * This internal bif converts a filename to whatever format is suitable for the file driver
  * It also adds zero termination so that prim_file needn't bother with the character encoding
  * of the file driver 
@@ -2589,6 +2662,12 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
     Sint need;
     Eterm bin_term;
     byte* bin_p;
+
+    /*
+     * See comment on "Requirements on Raw Filename Format"
+     * above.
+     */
+
     /* Prim file explicitly does not allow atoms, although we could 
        very well cope with it. Instead of letting 'file' handle them,
        it would probably be more efficient to handle them here. Subject to 
@@ -2606,10 +2685,16 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	size = binary_size(BIF_ARG_1);
 	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
 	if (encoding != ERL_FILENAME_WIN_WCHAR) {
+            Uint i;
 	    /*Add 0 termination only*/
 	    bin_term = new_binary(BIF_P, NULL, size+1);
 	    bin_p = binary_bytes(bin_term);
-	    memcpy(bin_p,bytes,size);
+            for (i = 0; i < size; i++) {
+                /* Don't allow null in the middle of filenames... */
+                if (bytes[i] == 0)
+                    goto bin_name_error;
+                bin_p[i] = bytes[i];
+            }
 	    bin_p[size]=0;
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_RET(bin_term);
@@ -2623,6 +2708,9 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	    bin_term = new_binary(BIF_P, 0, (size+1)*2);
 	    bin_p = binary_bytes(bin_term);
 	    while (size--) {
+                /* Don't allow null in the middle of filenames... */
+                if (*bytes == 0)
+                    goto bin_name_error;
 		*bin_p++ = *bytes++;
 		*bin_p++ = 0;
 	    }
@@ -2640,11 +2728,14 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	bin_p[num_chars*2+1] = 0;
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(bin_term);
+    bin_name_error:
+        erts_free_aligned_binary_bytes(temp_alloc);
+        BIF_ERROR(BIF_P,BADARG);
     } /* binary */   
 	    
 
-    if ((need = erts_native_filename_need(BIF_ARG_1,encoding)) < 0) {
-	BIF_ERROR(BIF_P,BADARG);
+    if ((need = erts_native_filename_need(BIF_ARG_1, encoding)) < 0) {
+        BIF_ERROR(BIF_P,BADARG);
     }
     if (encoding == ERL_FILENAME_WIN_WCHAR) {
 	need += 2;
@@ -2677,6 +2768,11 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
     Uint num_eaten; /* bytes */
     Eterm ret;
     int mac = 0;
+
+    /*
+     * See comment on "Requirements on Raw Filename Format"
+     * above.
+     */
 
     if (is_not_binary(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P,BADARG);

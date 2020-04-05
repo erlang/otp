@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,14 +30,15 @@
     <file>usersguide.sgml</file>
   </header>
   <description>
-    <p>The Secure Socket Layer (SSL) application provides secure communication over
-      sockets.
+    <p>The SSL application implements Transport Layer Security (TLS), formerly known as the Secure Socket Layer (SSL), that is
+    it provides secure communication over sockets.
       </p>
   </description>
   <xi:include href="ssl_introduction.xml"/>
   <xi:include href="ssl_protocol.xml"/>
   <xi:include href="using_ssl.xml"/>
   <xi:include href="ssl_distribution.xml"/>
+  <xi:include href="standards_compliance.xml"/>
 </part>
 
 

@@ -92,7 +92,7 @@ person</pre>
     <p>This is because record definitions are only available
       at compile time, not at runtime. For details on records
       in the shell, see the
-      <seealso marker="stdlib:shell">shell(3)</seealso>
+      <seeerl marker="stdlib:shell">shell(3)</seeerl>
       manual page in STDLIB.</p>
   </section>
 

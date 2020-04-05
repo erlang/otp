@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -281,6 +281,8 @@ basic_ets(Config) when is_list(Config) ->
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> {B,A} end)">>),
     [{{'$1','$2'},[],[['$2','$1']]}] =
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> [B,A] end)">>),
+    [{{"foo" ++ '_','$1'},[],['$1']}] =
+        compile_and_run(<<"ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)">>),
     ok.
 
 %% Tests basic ets:fun2ms.
@@ -313,6 +315,8 @@ from_shell(Config) when is_list(Config) ->
     [{[a,b],[],[{message,banan},{return_trace}]}] =
 	do_eval(
 	  "dbg:fun2ms(fun([a,b]) -> message(banan), return_trace() end)"),
+    [{{"foo" ++ '_','$1'},[],['$1']}] =
+        do_eval("ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)"),
     ok.
 
 %% Tests expansion of records in fun2ms.

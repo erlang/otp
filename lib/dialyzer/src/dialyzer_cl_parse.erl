@@ -41,8 +41,8 @@ start() ->
     Ret
   catch
     throw:{dialyzer_cl_parse_error, Msg} -> {error, Msg};
-    _:R ->
-      Msg = io_lib:format("~tp\n~tp\n", [R, erlang:get_stacktrace()]),
+    _:R:S ->
+      Msg = io_lib:format("~tp\n~tp\n", [R, S]),
       {error, lists:flatten(Msg)}
   end.
 
@@ -133,6 +133,9 @@ cl(["--raw"|T]) ->
   cl(T);
 cl(["--fullpath"|T]) ->
   put(dialyzer_filename_opt, fullpath),
+  cl(T);
+cl(["--no_indentation"|T]) ->
+  put(dialyzer_indent_opt, false),
   cl(T);
 cl(["-pa", Path|T]) ->
   case code:add_patha(Path) of
@@ -254,6 +257,7 @@ init() ->
   put(dialyzer_options_files,     DefaultOpts#options.files),
   put(dialyzer_output_format,     formatted),
   put(dialyzer_filename_opt,      basename),
+  put(dialyzer_indent_opt,        ?INDENT_OPT),
   put(dialyzer_options_check_plt, DefaultOpts#options.check_plt),
   put(dialyzer_timing,            DefaultOpts#options.timing),
   put(dialyzer_solvers,           DefaultOpts#options.solvers),
@@ -295,6 +299,7 @@ cl_options() ->
    {output_file, get(dialyzer_output)},
    {output_format, get(dialyzer_output_format)},
    {filename_opt, get(dialyzer_filename_opt)},
+   {indent_opt, get(dialyzer_indent_opt)},
    {analysis_type, get(dialyzer_options_analysis_type)},
    {get_warnings, get(dialyzer_options_get_warnings)},
    {timing, get(dialyzer_timing)},
@@ -311,7 +316,9 @@ common_options() ->
    {use_spec, get(dialyzer_options_use_contracts)},
    {warnings, get(dialyzer_warnings)},
    {check_plt, get(dialyzer_options_check_plt)},
-   {solvers, get(dialyzer_solvers)}].
+   {solvers, get(dialyzer_solvers)},
+   {native, get(dialyzer_options_native)},
+   {native_cache, get(dialyzer_options_native_cache)}].
 
 %%-----------------------------------------------------------------------
 
@@ -323,12 +330,16 @@ get_lib_dir(Apps) ->
 get_lib_dir([H|T], Acc) ->
   NewElem =
     case code:lib_dir(list_to_atom(H)) of
-      {error, bad_name} ->
-	case H =:= "erts" of % hack for including erts in an un-installed system
-	  true -> filename:join(code:root_dir(), "erts/preloaded/ebin");
-	  false -> H
-	end;
-      LibDir -> LibDir ++ "/ebin"
+      {error, bad_name} -> H;
+      LibDir when H =:= "erts" -> % hack for including erts in an un-installed system
+        EbinDir = filename:join([LibDir,"ebin"]),
+        case file:read_file_info(EbinDir) of
+          {error,enoent} ->
+            filename:join([LibDir,"preloaded","ebin"]);
+          _ ->
+            EbinDir
+        end;
+      LibDir -> filename:join(LibDir,"ebin")
     end,
   get_lib_dir(T, [NewElem|Acc]);
 get_lib_dir([], Acc) ->
@@ -361,7 +372,7 @@ help_message() ->
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--dump_callgraph file] [--no_native] [--fullpath]
-                [--statistics] [--no_native_cache]
+                [--no_indentation] [--statistics] [--no_native_cache]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -473,6 +484,9 @@ Options:
       caching.
   --fullpath
       Display the full path names of files for which warnings are emitted.
+  --no_indentation
+      Do not indent contracts and success typings. Note that this option has
+      no effect when combined with the --raw option.
   --gui
       Use the GUI.
 

@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,7 +42,6 @@
       <item>Start, stop, supervision, configuration, and distribution of applications</item>
       <item>Code loading</item>
       <item>Logging</item>
-      <item>Error logging</item>
       <item>Global name service</item>
       <item>Supervision of Erlang/OTP</item>
       <item>Communication with sockets</item>
@@ -51,18 +50,21 @@
   </description>
 
   <section>
-    <title>Error Logger Event Handlers</title>
-    <p>Two standard error logger event handlers are defined in
-      the Kernel application. These are described in
-      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>.</p>
+    <title>Logger Handlers</title>
+    <p>Two standard logger handlers are defined in
+      the Kernel application. These are described in the
+      <seeguide marker="logger_chapter">Kernel User's Guide</seeguide>,
+      and in the <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>
+      and <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c>
+      </seeerl> manual pages.</p>
   </section>
 
   <section>
       <marker id="erl_signal_server"/>
       <title>OS Signal Event Handler</title>
       <p>Asynchronous OS signals may be subscribed to via the Kernel applications event manager
-          (see <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso> and
-          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>) registered as <c>erl_signal_server</c>.
+          (see <seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide> and
+          <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>) registered as <c>erl_signal_server</c>.
           A default signal handler is installed which handles the following signals:</p>
           <taglist>
               <tag><c>sigusr1</c></tag>
@@ -108,31 +110,17 @@
                   <item><p>Stop typed at terminal</p></item>
               </taglist>
 
-              <p>Setting OS signals are described in <seealso marker="os#set_signal/2"><c>os:set_signal/2</c></seealso>.</p>
+              <p>Setting OS signals are described in <seemfa marker="os#set_signal/2"><c>os:set_signal/2</c></seemfa>.</p>
           </section>
   </section>
 
   <section>
+    <marker id="configuration"/>
     <title>Configuration</title>
     <p>The following configuration parameters are defined for the Kernel
       application. For more information about configuration parameters,
-    see file <seealso marker="app"><c>app(4)</c></seealso>.</p>
+    see file <seefile marker="app"><c>app(4)</c></seefile>.</p>
     <taglist>
-      <tag><c>browser_cmd = string() | {M,F,A}</c></tag>
-      <item>
-        <p>When pressing the <em>Help</em> button in a tool such as Debugger,
-          the help text (an HTML file <c>File</c>) is by default
-          displayed in a Netscape browser, which is required to be
-          operational. This parameter can be used to change the command for
-          how to display the help text if another browser than Netscape
-          is preferred, or if another platform than Unix or Windows is
-          used.</p>
-        <p>If set to a string <c>Command</c>, the command
-          <c>"Command File"</c> is evaluated using
-	<seealso marker="os#cmd/1"><c>os:cmd/1</c></seealso>.</p>
-        <p>If set to a module-function-args tuple, <c>{M,F,A}</c>,
-          the call <c>apply(M,F,[File|A])</c> is evaluated.</p>
-      </item>
       <tag><c>distributed = [Distrib]</c></tag>
       <item>
         <p>Specifies which applications that are distributed and on which
@@ -144,7 +132,7 @@
           <item><c>Nodes = [node() | {node(),...,node()}]</c></item>
         </list>
         <p>The parameter is described in
-	  <seealso marker="application#load/2"><c>application:load/2</c></seealso>.</p>
+	  <seemfa marker="application#load/2"><c>application:load/2</c></seemfa>.</p>
       </item>
       <tag><c>dist_auto_connect = Value</c></tag>
       <item>
@@ -156,12 +144,12 @@
           <tag><c>never</c></tag>
           <item><p>Connections are never automatically established, they
            must be explicitly connected. See
-	   <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso>.</p></item>
+	   <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl>.</p></item>
           <tag><c>once</c></tag>
           <item><p>Connections are established automatically, but only
            once per node. If a node goes down, it must thereafter be
            explicitly connected. See
-	   <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso>.</p></item>
+	   <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl>.</p></item>
         </taglist>
       </item>
       <tag><c>permissions = [Perm]</c></tag>
@@ -174,72 +162,81 @@
           <item><c>Bool = boolean()</c></item>
         </list>
         <p>Permissions are described in
-	  <seealso marker="application#permit/2"><c>application:permit/2</c></seealso>.</p>
+	  <seemfa marker="application#permit/2"><c>application:permit/2</c></seemfa>.</p>
       </item>
-      <tag><c>error_logger = Value</c></tag>
+      <tag><marker id="logger"/><c>logger = [Config]</c></tag>
       <item>
-        <p><c>Value</c> is one of:</p>
-        <taglist>
-          <tag><c>tty</c></tag>
-          <item><p>Installs the standard event handler, which prints error
-           reports to <c>stdio</c>. This is the default option.</p></item>
-          <tag><c>{file, FileName}</c></tag>
-          <item><p>Installs the standard event handler, which prints error
-           reports to file <c>FileName</c>, where <c>FileName</c>
-           is a string. The file is opened with encoding UTF-8.</p></item>
-          <tag><c>false</c></tag>
-          <item>
-            <p>No standard event handler is installed, but
-              the initial, primitive event handler is kept, printing
-              raw event messages to <c>tty</c>.</p>
-          </item>
-          <tag><c>silent</c></tag>
-          <item>
-            <p>Error logging is turned off.</p>
-          </item>
-        </taglist>
+        <p>Specifies the configuration
+	  for <seeerl marker="logger">Logger</seeerl>, except the
+	  primary log level, which is specified
+	  with <seeapp marker="#logger_level"><c>logger_level</c></seeapp>,
+	  and the compatibility
+	  with <seeguide marker="sasl:error_logging">SASL Error
+	  Logging</seeguide>, which is specified
+	  with <seeapp marker="#logger_sasl_compatible">
+	    <c>logger_sasl_compatible</c></seeapp>.</p>
+        <p>The <c>logger </c> parameter is described in
+          section <seeguide marker="logger_chapter#logger_parameter">
+	    Logging</seeguide> in the Kernel User's Guide.</p>
       </item>
-      <tag><c>error_logger_format_depth = Depth</c></tag>
+      <tag><marker id="logger_level"/><c>logger_level = Level</c></tag>
       <item>
-        <marker id="error_logger_format_depth"></marker>
-	<p>Can be used to limit the size of the
-	formatted output from the error logger event handlers.</p>
-
-	<note><p>This configuration parameter was introduced in OTP 18.1
-	and is experimental. Based on user feedback, it
-	can be changed or improved in future releases, for example,
-	to gain better control over how to limit the size of the
-	formatted output. We have no plans to remove this
-	new feature entirely, unless it turns out to be
-	useless.</p></note>
-
-        <p><c>Depth</c> is a positive integer representing the maximum
-        depth to which terms are printed by the error logger event
-        handlers included in OTP. This
-        configuration parameter is used by the two event handlers
-        defined by the Kernel application and the two event
-        handlers in the SASL application.
-	(If you have implemented your own error handlers, this configuration
-	parameter has no effect on them.)</p>
-
-	<p><c>Depth</c> is used as follows: Format strings
-	passed to the event handlers are rewritten.
-	The format controls <c>~p</c> and <c>~w</c> are replaced with
-	<c>~P</c> and <c>~W</c>, respectively, and <c>Depth</c> is
-	used as the depth parameter. For details, see
-	<seealso marker="stdlib:io#format/2"><c>io:format/2</c></seealso>
-	in STDLIB.</p>
-
-	<note><p>A reasonable starting value for <c>Depth</c> is
-	<c>30</c>. We recommend to test crashing various processes in your
-	application, examine the logs from the crashes, and then
-	increase or decrease the value.</p></note>
-     </item>
+	<p>Specifies the primary log level for Logger. Log events with
+	  the same, or a more severe level, pass through the primary
+	  log level check. See
+	  section <seeguide marker="logger_chapter">Logging</seeguide>
+	  in the Kernel User's Guide for more information about Logger
+	  and log levels.</p>
+	<p><c>Level = emergency | alert | critical | error | warning |
+	    notice | info | debug | all | none</c></p>
+	<p>To change the primary log level at runtime, use
+          <seemfa marker="logger#set_primary_config/2">
+            <c>logger:set_primary_config(level, Level)</c></seemfa>.</p>
+	<p>Defaults to <c>notice</c>.</p>
+      </item>
+      <tag><marker id="logger_sasl_compatible"/>
+	<c>logger_sasl_compatible = true | false</c></tag>
+      <item>
+	<p>Specifies if Logger behaves backwards compatible with the
+	  SASL error logging functionality from releases prior to
+	  Erlang/OTP 21.0.</p>
+	<p>If this parameter is set to <c>true</c>, the default Logger
+	  handler does not log any progress-, crash-, or supervisor
+	  reports. If the SASL application is then started, it adds a
+	  Logger handler named <c>sasl</c>, which logs these events
+	  according to values of the SASL configuration
+	  parameter <c>sasl_error_logger</c>
+	  and <c>sasl_errlog_type</c>.</p>
+	<p>See section
+	  <seeapp marker="sasl:sasl_app#deprecated_error_logger_config">
+	    Deprecated Error Logger Event Handlers and
+	 Configuration</seeapp> in the sasl(6) manual page for
+	 information about the SASL configuration parameters.</p>
+	<p>See section <seeguide marker="sasl:error_logging">SASL Error
+	  Logging</seeguide> in the SASL User's Guide, and
+	  section <seeguide marker="logger_chapter#compatibility">Backwards
+	  Compatibility with error_logger</seeguide> in the Kernel
+	  User's Guide for information about the SASL error logging
+	  functionality, and how Logger can be backwards compatible
+	  with this.</p>
+	<p>Defaults to <c>false</c>.</p>
+	<note>
+	  <p>If this parameter is set to <c>true</c>,
+	    <c>sasl_errlog_type</c> indicates that progress reports
+	    shall be logged, and the configured primary log level
+	    is <c>notice</c> or more severe, then SASL automatically
+	    sets the primary log level to <c>info</c>. That is, this
+	    setting can potentially overwrite the value of the Kernel
+	    configuration parameter <c>logger_level</c>. This is to
+	    allow progress reports, which have log level <c>info</c>,
+	    to be forwarded to the handlers.</p>
+	</note>
+      </item>
       <tag><c>global_groups = [GroupTuple]</c></tag>
       <item>
         <marker id="global_groups"></marker>
         <p>Defines global groups, see
-	  <seealso marker="global_group"><c>global_group(3)</c></seealso>.
+	  <seeerl marker="global_group"><c>global_group(3)</c></seeerl>.
 	In this parameter:</p>
         <list type="bulleted">
           <item><p><c>GroupTuple = {GroupName, [Node]} | {GroupName, PublishType, [Node]}</c></p></item>
@@ -251,19 +248,19 @@
       <tag><c>inet_default_connect_options = [{Opt, Val}]</c></tag>
       <item>
         <p>Specifies default options for <c>connect</c> sockets,
-          see <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+          see <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
       </item>
       <tag><c>inet_default_listen_options = [{Opt, Val}]</c></tag>
       <item>
         <p>Specifies default options for <c>listen</c> (and
-          <c>accept</c>) sockets, see <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+          <c>accept</c>) sockets, see <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
       </item>
       <tag><c>{inet_dist_use_interface, ip_address()}</c></tag>
       <item>
         <p>If the host of an Erlang node has many network interfaces,
           this parameter specifies which one to listen on. For the type definition
 	  of <c>ip_address()</c>,
-	  see <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+	  see <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
       </item>
       <tag><c>{inet_dist_listen_min, First}</c> and <c>{inet_dist_listen_max, Last}</c></tag>
       <item>
@@ -275,27 +272,26 @@
 	<marker id="inet_dist_listen_options"></marker>
         <p>Defines a list of extra socket options to be used when opening the
 	  listening socket for a distributed Erlang node.
-	  See <seealso marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seealso>.</p>
+	  See <seemfa marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seemfa>.</p>
       </item>
       <tag><c>{inet_dist_connect_options, Opts}</c></tag>
       <item>
 	<marker id="inet_dist_connect_options"></marker>
         <p>Defines a list of extra socket options to be used when connecting to
 	  other distributed Erlang nodes.
-	  See <seealso marker="gen_tcp#connect/4"><c>gen_tcp:connect/4</c></seealso>.</p>
+	  See <seemfa marker="gen_tcp#connect/4"><c>gen_tcp:connect/4</c></seemfa>.</p>
       </item>
       <tag><c>inet_parse_error_log = silent</c></tag>
       <item>
-        <p>If set, no
-          <c>error_logger</c> messages are generated when erroneous
-          lines are found and skipped in the various Inet configuration
+        <p>If set, no log events are issued when erroneous lines are
+          found and skipped in the various Inet configuration
           files.</p>
       </item>
       <tag><c>inetrc = Filename</c></tag>
       <item>
         <p>The name (string) of an Inet user configuration file. For details,
 	see section
-	<seealso marker="erts:inet_cfg"><c>Inet Configuration</c></seealso>
+	<seeguide marker="erts:inet_cfg"><c>Inet Configuration</c></seeguide>
 	in the ERTS User's Guide.</p>
       </item>
       <tag><c>net_setuptime = SetupTime</c></tag>
@@ -314,24 +310,31 @@
       <tag><c>net_ticktime = TickTime</c></tag>
       <item>
         <marker id="net_ticktime"></marker>
-        <p>Specifies the <c>net_kernel</c> tick time. <c>TickTime</c>
-          is specified in seconds. Once every <c>TickTime/4</c> second, all
-          connected nodes are ticked (if anything else is written
-          to a node). If nothing is received from another node
-          within the last four tick times, that node is considered
-          to be down. This ensures that nodes that are not responding,
-          for reasons such as hardware errors, are considered to be
-          down.</p>
-        <p>The time <c>T</c>, in which a node that is not responding is
-          detected, is calculated as <c><![CDATA[MinT < T < MaxT]]></c>, where:</p>
+        <p>Specifies the <c>net_kernel</c> tick time in seconds. This is the
+	approximate time a connected node may be unresponsive until it is
+	considered down and thereby disconnected.</p>
+	<p>Once every <c>TickTime/4</c> seconds, each connected node is ticked
+	if nothing has been sent to it during that last <c>TickTime/4</c>
+	interval. A tick is a small package sent on the connection. A connected
+	node is considered to be down if no ticks or payload packages have been
+	received during the last four <c>TickTime/4</c> intervals. This ensures
+	that nodes that are not responding, for reasons such as hardware errors,
+	are considered to be down.</p>
+        <p>As the availability is only checked every <c>TickTime/4</c> seconds,
+	the actual time <c>T</c> a node have been unresponsive when
+	detected may vary between <c>MinT</c> and <c>MaxT</c>,
+	where:</p>
         <code type="none">
 MinT = TickTime - TickTime / 4
 MaxT = TickTime + TickTime / 4</code>
-        <p><c>TickTime</c> defaults to <c>60</c> (seconds). Thus,
-          <c><![CDATA[45 < T < 75]]></c> seconds.</p>
-        <p>Notice that <em>all</em> communicating nodes are to have the <em>same</em>
-          <c>TickTime</c> value specified.</p>
-        <p>Normally, a terminating node is detected immediately.</p>
+        <p><c>TickTime</c> defaults to <c>60</c> seconds. Thus,
+        <c><![CDATA[45 < T < 75]]></c> seconds.</p>
+        <p>Notice that <em>all</em> communicating nodes are to have the
+	<em>same</em> <c>TickTime</c> value specified, as it determines both the
+	frequency of outgoing ticks and the expected frequency of incominging
+	ticks.</p>
+        <p>Normally, a terminating node is detected immediately by the transport
+	protocol (like TCP/IP).</p>
       </item>
       <tag><c>shutdown_timeout = integer() | infinity</c></tag>
       <item>
@@ -366,6 +369,14 @@ MaxT = TickTime + TickTime / 4</code>
           performed. This option ensures that <c>global</c> is
           synchronized.</p>
       </item>
+      <tag><c>start_distribution = true | false</c></tag>
+      <item>
+        <p>Starts all distribution services, such as <c>rpc</c>,
+          <c>global</c>, and <c>net_kernel</c> if the parameter is
+          <c>true</c>. This parameter is to be set to <c>false</c>
+          for systems who want to disable all distribution functionality.</p>
+        <p>Defaults to <c>true</c>.</p>
+      </item>
       <tag><c>start_dist_ac = true | false</c></tag>
       <item>
         <p>Starts the <c>dist_ac</c> server if the parameter is
@@ -378,7 +389,7 @@ MaxT = TickTime + TickTime / 4</code>
       <tag><c>start_boot_server = true | false</c></tag>
       <item>
         <p>Starts the <c>boot_server</c> if the parameter is <c>true</c>
-          (see <seealso marker="erl_boot_server"><c>erl_boot_server(3)</c></seealso>).
+          (see <seeerl marker="erl_boot_server"><c>erl_boot_server(3)</c></seeerl>).
 	  This parameter is to be set to <c>true</c> in an embedded system
 	  using this service.</p>
         <p>Defaults to <c>false</c>.</p>
@@ -398,16 +409,25 @@ MaxT = TickTime + TickTime / 4</code>
       <tag><c>start_disk_log = true | false</c></tag>
       <item>
         <p>Starts the <c>disk_log_server</c> if the parameter is
-          <c>true</c> (see <seealso marker="disk_log"><c>disk_log(3)</c></seealso>).
+          <c>true</c> (see <seeerl marker="disk_log"><c>disk_log(3)</c></seeerl>).
 	  This parameter is to be set to <c>true</c> in an embedded system
 	  using this service.</p>
+        <p>Defaults to <c>false</c>.</p>
+      </item>
+      <tag><c>start_pg = true | false</c></tag>
+      <item>
+        <marker id="start_pg"></marker>
+        <p>Starts the default <c>pg</c> scope server (see
+          <seeerl marker="pg"><c>pg(3)</c></seeerl>) if
+          the parameter is <c>true</c>. This parameter is to be set to
+          <c>true</c> in an embedded system that uses this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
       <tag><c>start_pg2 = true | false</c></tag>
       <item>
         <marker id="start_pg2"></marker>
         <p>Starts the <c>pg2</c> server (see
-	  <seealso marker="pg2"><c>pg2(3)</c></seealso>) if
+	  <seeerl marker="pg2"><c>pg2(3)</c></seeerl>) if
           the parameter is <c>true</c>. This parameter is to be set to
           <c>true</c> in an embedded system that uses this service.</p>
         <p>Defaults to <c>false</c>.</p>
@@ -415,7 +435,7 @@ MaxT = TickTime + TickTime / 4</code>
       <tag><c>start_timer = true | false</c></tag>
       <item>
         <p>Starts the <c>timer_server</c> if the parameter is
-          <c>true</c> (see <seealso marker="stdlib:timer"><c>timer(3)</c></seealso>).
+          <c>true</c> (see <seeerl marker="stdlib:timer"><c>timer(3)</c></seeerl>).
 	  This parameter is to be set to <c>true</c> in an embedded system
 	  using this service.</p>
         <p>Defaults to <c>false</c>.</p>
@@ -470,10 +490,10 @@ MaxT = TickTime + TickTime / 4</code>
           <item><c>SrcSuffix = string()</c></item>
         </list>
         <p>Specifies a list of rules for use by
-	  <seealso marker="stdlib:filelib#find_file/2">
-	  <c>filelib:find_file/2</c></seealso>
-	  <seealso marker="stdlib:filelib#find_source/2">
-	  <c>filelib:find_source/2</c></seealso>
+	  <seemfa marker="stdlib:filelib#find_file/2">
+	  <c>filelib:find_file/2</c></seemfa>
+	  <seemfa marker="stdlib:filelib#find_source/2">
+	  <c>filelib:find_source/2</c></seemfa>
           If this is set to some other value
           than the empty list, it replaces the default rules. Rules can be
           simple pairs of directory suffixes, such as <c>{"ebin",
@@ -487,8 +507,8 @@ MaxT = TickTime + TickTime / 4</code>
 	  object is located matches <c>ObjDirSuffix</c>, then the
 	  name created by replacing <c>ObjDirSuffix</c> with
 	  <c>SrcDirSuffix</c> is expanded by calling
-	  <seealso marker="stdlib:filelib#wildcard/1">
-	  <c>filelib:wildcard/1</c></seealso>, and the first regular
+	  <seemfa marker="stdlib:filelib#wildcard/1">
+	  <c>filelib:wildcard/1</c></seemfa>, and the first regular
 	  file found among the matches is the source file.
 	</p>
 
@@ -497,25 +517,59 @@ MaxT = TickTime + TickTime / 4</code>
   </section>
 
   <section>
+    <title>Deprecated Configuration Parameters</title>
+    <p>In Erlang/OTP 21.0, a new API for logging was added. The
+      old <c>error_logger</c> event manager, and event handlers
+      running on this manager, still work, but they are no longer used
+      by default.</p>
+    <p>The following application configuration parameters can still be
+      set, but they are only used if the corresponding configuration
+      parameters for Logger are not set.</p>
+    <taglist>
+      <tag><c>error_logger</c></tag>
+      <item>Replaced by setting the <seeerl
+      marker="logger_std_h#type"><c>type</c></seeerl>, and possibly
+      <seeerl marker="logger_std_h#file"><c>file</c></seeerl> and
+      <seeerl marker="logger_std_h#modes"><c>modes</c></seeerl>
+      parameters of the default <c>logger_std_h</c> handler. Example:
+      <code type="none">
+erl -kernel logger '[{handler,default,logger_std_h,#{config=>#{file=>"/tmp/erlang.log"}}}]'
+      </code>
+      </item>
+      <tag><c>error_logger_format_depth</c></tag>
+      <item>Replaced by setting the <seeerl marker="logger_formatter#depth"><c>depth</c></seeerl>
+      parameter of the default handlers formatter. Example:
+      <code type="none">
+erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatter,#{legacy_header=>true,template=>[{logger_formatter,header},"\n",msg,"\n"],depth=>10}}}]'
+      </code>
+      </item>
+    </taglist>
+    <p>See <seeguide marker="logger_chapter#compatibility">Backwards
+	compatibility with error_logger</seeguide> for more
+      information.</p>
+  </section>
+
+  <section>
     <title>See Also</title>
-    <p><seealso marker="app"><c>app(4)</c></seealso>,
-      <seealso marker="application"><c>application(3)</c></seealso>,
-      <seealso marker="code"><c>code(3)</c></seealso>,
-      <seealso marker="disk_log"><c>disk_log(3)</c></seealso>,
-      <seealso marker="erl_boot_server"><c>erl_boot_server(3)</c></seealso>,
-      <seealso marker="erl_ddll"><c>erl_ddll(3)</c></seealso>,
-      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
-      <seealso marker="file"><c>file(3)</c></seealso>,
-      <seealso marker="global"><c>global(3)</c></seealso>,
-      <seealso marker="global_group"><c>global_group(3)</c></seealso>,
-      <seealso marker="heart"><c>heart(3)</c></seealso>,
-      <seealso marker="inet"><c>inet(3)</c></seealso>,
-      <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso>,
-      <seealso marker="os"><c>os(3)</c></seealso>,
-      <seealso marker="pg2"><c>pg2(3)</c></seealso>,
-      <seealso marker="rpc"><c>rpc(3)</c></seealso>,
-      <seealso marker="seq_trace"><c>seq_trace(3)</c></seealso>,
-      <seealso marker="user"><c>user(3)</c></seealso>,
-      <seealso marker="stdlib:timer"><c>timer(3)</c></seealso></p>
+    <p><seefile marker="app"><c>app(4)</c></seefile>,
+      <seeerl marker="application"><c>application(3)</c></seeerl>,
+      <seeerl marker="code"><c>code(3)</c></seeerl>,
+      <seeerl marker="disk_log"><c>disk_log(3)</c></seeerl>,
+      <seeerl marker="erl_boot_server"><c>erl_boot_server(3)</c></seeerl>,
+      <seeerl marker="erl_ddll"><c>erl_ddll(3)</c></seeerl>,
+      <seeerl marker="file"><c>file(3)</c></seeerl>,
+      <seeerl marker="global"><c>global(3)</c></seeerl>,
+      <seeerl marker="global_group"><c>global_group(3)</c></seeerl>,
+      <seeerl marker="heart"><c>heart(3)</c></seeerl>,
+      <seeerl marker="inet"><c>inet(3)</c></seeerl>,
+      <seeerl marker="logger"><c>logger(3)</c></seeerl>,
+      <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl>,
+      <seeerl marker="os"><c>os(3)</c></seeerl>,
+      <seeerl marker="pg"><c>pg(3)</c></seeerl>,
+      <seeerl marker="pg2"><c>pg2(3)</c></seeerl>,
+      <seeerl marker="rpc"><c>rpc(3)</c></seeerl>,
+      <seeerl marker="seq_trace"><c>seq_trace(3)</c></seeerl>,
+      <seeerl marker="user"><c>user(3)</c></seeerl>,
+      <seeerl marker="stdlib:timer"><c>timer(3)</c></seeerl></p>
   </section>
 </appref>

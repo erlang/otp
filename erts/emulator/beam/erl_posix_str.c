@@ -156,6 +156,9 @@ erl_errno_id(error)
 #ifdef EFAULT
     case EFAULT: return "efault";
 #endif
+#ifdef EFTYPE
+    case EFTYPE: return "eftype";
+#endif
 #ifdef EFBIG
     case EFBIG: return "efbig";
 #endif
@@ -167,6 +170,9 @@ erl_errno_id(error)
 #endif
 #if defined(EIDRM) && (!defined(EINPROGRESS) || (EIDRM != EINPROGRESS))
     case EIDRM: return "eidrm";
+#endif
+#ifdef EILSEQ
+    case EILSEQ: return "eilseq";
 #endif
 #ifdef EINIT
     case EINIT: return "einit";
@@ -350,6 +356,9 @@ erl_errno_id(error)
 #endif
 #if defined(EOPNOTSUPP) && (!defined(ENOTSUP) || (EOPNOTSUPP != ENOTSUP))
     case EOPNOTSUPP: return "eopnotsupp";
+#endif
+#ifdef EOVERFLOW
+    case EOVERFLOW: return "eoverflow";
 #endif
 #ifdef EPERM
     case EPERM: return "eperm";

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -167,9 +167,10 @@ select_nodes(Parent, Nodes) ->
     check_selector(Parent, Choices).
 
 module_selector(Parent, Node) ->
+    Scale = observer_wx:get_scale(),
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Select Module or Event",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
-			   {size, {400, 400}}]),
+			   {size, {400*Scale, 400*Scale}}]),
     Panel = wxPanel:new(Dialog),
     PanelSz = wxBoxSizer:new(?wxVERTICAL),
     MainSz  = wxBoxSizer:new(?wxVERTICAL),
@@ -237,9 +238,10 @@ function_selector(Parent, Node, Module) ->
     end.
 
 check_selector(Parent, ParsedChoices) ->
+    Scale = observer_wx:get_scale(),
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Trace Functions",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
-			   {size, {400, 400}}]),
+			   {size, {400*Scale, 400*Scale}}]),
 
     Panel = wxPanel:new(Dialog),
     PanelSz = wxBoxSizer:new(?wxVERTICAL),
@@ -331,9 +333,10 @@ select_matchspec(Pid, Parent, AllMatchSpecs, Key) ->
 	    {value,{Key,MSs0},Rest} -> {MSs0,Rest};
 	    false -> {[],AllMatchSpecs}
 	end,
+    Scale = observer_wx:get_scale(),
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Trace Match Specifications",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
-			   {size, {400, 400}}]),
+			   {size, {400*Scale, 400*Scale}}]),
 
     Panel = wxPanel:new(Dialog),
     PanelSz = wxBoxSizer:new(?wxVERTICAL),
@@ -536,7 +539,7 @@ ms_from_string(Str) ->
 	    {error, List} -> throw([[Error, $\n] || {_, Error} <- List])
 	end
     catch error:_Reason ->
-	    %% io:format("Bad term: ~ts~n ~tp in ~tp~n", [Str, _Reason, erlang:get_stacktrace()]),
+	    %% io:format("Bad term: ~ts~n ~tp in ~tp~n", [Str, _Reason, Stacktrace]),
 	    throw("Invalid term")
     end.
 
@@ -619,7 +622,7 @@ create_styled_txtctrl(Parent) ->
 
 keyWords() ->
     L = ["after","begin","case","try","cond","catch","andalso","orelse",
-	 "end","fun","if","let","of","query","receive","when","bnot","not",
+	 "end","fun","if","let","of","receive","when","bnot","not",
 	 "div","rem","band","and","bor","bxor","bsl","bsr","or","xor"],
     lists:flatten([K ++ " " || K <- L] ++ [0]).
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -237,7 +237,8 @@ wait_for_close() ->
 	    wait_for_close()
     end.
 
-
+erl_libs() ->
+    lists:sort([filename:absname(P) || P<-reltool_utils:erl_libs()]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A small test server, which can be run standalone in a shell

@@ -102,13 +102,13 @@ print_newlines(Device, N) when N > 0 ->
 print_one_line(Device, Line, Key, Value) ->
     Modifier = misc_supp:modifier(Device),
     StrKey = term_to_string(Key,Modifier),
-    KeyLen = lists:min([length(StrKey), Line]),
+    KeyLen = lists:min([string:length(StrKey), Line]),
     ValueLen = Line - KeyLen,
     Format1 = lists:concat(["~-", KeyLen, Modifier, "s"]),
     Format2 = lists:concat(["~", ValueLen, Modifier, "s~n"]),
     io:format(Device, Format1, [StrKey]),
     Try = term_to_string(Value,Modifier),
-    Length = length(Try),
+    Length = string:length(Try),
     if
 	Length < ValueLen ->
 	    io:format(Device, Format2, [Try]);
@@ -119,7 +119,7 @@ print_one_line(Device, Line, Key, Value) ->
     end.
 
 term_to_string(Value,Modifier) ->
-    lists:flatten(io_lib:format(get_format(Value,Modifier), [Value])).
+    io_lib:format(get_format(Value,Modifier), [Value]).
 
 get_format([],_) ->
     "~p";

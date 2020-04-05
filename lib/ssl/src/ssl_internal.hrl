@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,16 +25,15 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
+-define(VSN, "8.2.6").
 -define(SECRET_PRINTOUT, "***").
 
--type reason()            :: term().
--type reply()             :: term().
--type msg()               :: term().
--type from()              :: term().
--type host()		  :: inet:ip_address() | inet:hostname().
--type session_id()        :: 0 | binary().
+-type reason()            :: any().
+-type reply()             :: any().
+-type msg()               :: any().
+-type from()              :: any().
 -type certdb_ref()        :: reference().
--type db_handle()         :: term().
+-type db_handle()         :: any().
 -type der_cert()          :: binary().
 -type issuer()            :: tuple().
 -type serialnumber()      :: integer().
@@ -60,6 +59,8 @@
 
 -define(CDR_MAGIC, "GIOP").
 -define(CDR_HDR_SIZE, 12).
+-define(INTERNAL_ACTIVE_N, 100).
+-define(DEPTH, 20).
 
 -define(DEFAULT_TIMEOUT, 5000).
 -define(NO_DIST_POINT, "http://dummy/no_distribution_point").
@@ -71,80 +72,136 @@
 -define(FALSE, 1).
 
 %% sslv3 is considered insecure due to lack of padding check (Poodle attack)
-%% Keep as interop with legacy software but do not support as default 
--define(ALL_AVAILABLE_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
--define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
--define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1]).
--define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
+%% Keep as interop with legacy software but do not support as default
+%% tlsv1.0 and tlsv1.1 is now also considered legacy
+%% tlsv1.3 is under development (experimental).
+-define(ALL_AVAILABLE_VERSIONS, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', tlsv1]).
+-define(ALL_AVAILABLE_DATAGRAM_VERSIONS, ['dtlsv1.2', dtlsv1]).
+%% Defines the default versions when not specified by an ssl option.
+-define(ALL_SUPPORTED_VERSIONS, ['tlsv1.3', 'tlsv1.2']).
+-define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1']).
+
+%% Versions allowed in TLSCiphertext.version (TLS 1.2 and prior) and
+%% TLSCiphertext.legacy_record_version (TLS 1.3).
+%% TLS 1.3 sets TLSCiphertext.legacy_record_version to 0x0303 for all records
+%% generated other than an than an initial ClientHello, where it MAY also be 0x0301.
+%% Thus, the allowed range is limited to 0x0300 - 0x0303.
+-define(ALL_TLS_RECORD_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
+
+-define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2']).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, [dtlsv1]).
+
+%% TLS 1.3 - Section 4.1.3
+%%
+%% If negotiating TLS 1.2, TLS 1.3 servers MUST set the last eight bytes
+%% of their Random value to the bytes:
+%%
+%%   44 4F 57 4E 47 52 44 01
+%%
+%% If negotiating TLS 1.1 or below, TLS 1.3 servers MUST and TLS 1.2
+%% servers SHOULD set the last eight bytes of their Random value to the
+%% bytes:
+%%
+%%   44 4F 57 4E 47 52 44 00
+-define(RANDOM_OVERRIDE_TLS12, <<16#44,16#4F,16#57,16#4E,16#47,16#52,16#44,16#01>>).
+-define(RANDOM_OVERRIDE_TLS11, <<16#44,16#4F,16#57,16#4E,16#47,16#52,16#44,16#00>>).
 
 -define('24H_in_msec', 86400000).
 -define('24H_in_sec', 86400).
 
--record(ssl_options, {
-	  protocol    :: tls | dtls,
-	  versions    :: [ssl_record:ssl_version()], %% ssl_record:atom_version() in API
-	  verify      :: verify_none | verify_peer,
-	  verify_fun,  %%:: fun(CertVerifyErrors::term()) -> boolean(),
-	  partial_chain       :: fun(),
-	  fail_if_no_peer_cert ::  boolean(),
-	  verify_client_once   ::  boolean(),
-	  %% fun(Extensions, State, Verify, AccError) ->  {Extensions, State, AccError}
-	  validate_extensions_fun, 
-	  depth                :: integer(),
-	  certfile             :: binary(),
-	  cert                 :: public_key:der_encoded() | secret_printout() | 'undefined',
-	  keyfile              :: binary(),
-	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', 
-                                   public_key:der_encoded()} | key_map() | secret_printout() | 'undefined',
-	  password	       :: string() | secret_printout() | 'undefined',
-	  cacerts              :: [public_key:der_encoded()] | secret_printout() | 'undefined',
-	  cacertfile           :: binary(),
-	  dh                   :: public_key:der_encoded() | secret_printout(),
-	  dhfile               :: binary() | secret_printout() | 'undefined',
-	  user_lookup_fun,  % server option, fun to lookup the user
-	  psk_identity         :: binary() | secret_printout() | 'undefined',
-	  srp_identity,  % client option {User, Password}
-	  ciphers,    % 
-	  %% Local policy for the server if it want's to reuse the session
-	  %% or not. Defaluts to allways returning true.
-	  %% fun(SessionId, PeerCert, Compression, CipherSuite) -> boolean()
-	  reuse_session,  
-	  %% If false sessions will never be reused, if true they
-	  %% will be reused if possible.
-	  reuse_sessions       :: boolean(),
-	  renegotiate_at,
-	  secure_renegotiate,
-	  client_renegotiation,
-	  %% undefined if not hibernating, or number of ms of
-	  %% inactivity after which ssl_connection will go into
-	  %% hibernation
-	  hibernate_after      :: timeout(),
-	  %% This option should only be set to true by inet_tls_dist
-	  erl_dist = false     :: boolean(),
-          alpn_advertised_protocols = undefined :: [binary()] | undefined ,
-          alpn_preferred_protocols = undefined  :: [binary()] | undefined,
-	  next_protocols_advertised = undefined :: [binary()] | undefined,
-	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
-	  log_alert             :: boolean(),
-	  server_name_indication = undefined,
-	  sni_hosts  :: [{inet:hostname(), [tuple()]}],
-	  sni_fun :: function() | undefined,
-	  %% Should the server prefer its own cipher order over the one provided by
-	  %% the client?
-	  honor_cipher_order = false :: boolean(),
-	  padding_check = true       :: boolean(),
-	  %%Should we use 1/n-1 or 0/n splitting to mitigate BEAST, or disable
-	  %%mitigation entirely?
-	  beast_mitigation = one_n_minus_one :: one_n_minus_one | zero_n | disabled,
-	  fallback = false           :: boolean(),
-	  crl_check                  :: boolean() | peer | best_effort, 
-	  crl_cache,
-	  signature_algs,
-	  eccs,
-	  honor_ecc_order            :: boolean(),
-	  v2_hello_compatible        :: boolean(),
-          max_handshake_size         :: integer()
+%% https://tools.ietf.org/html/rfc8446#section-5.5
+%% Limits on Key Usage
+%% http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf
+%% Number of records * Record length
+%% 2^24.5 * 2^14 = 2^38.5
+-define(KEY_USAGE_LIMIT_AES_GCM, 388736063997).
+
+%% This map stores all supported options with default values and
+%% list of dependencies:
+%%   #{<option> => {<default_value>, [<option>]},
+%%     ...}
+-define(RULES,
+        #{
+          alpn_advertised_protocols  => {undefined, [versions]},
+          alpn_preferred_protocols   => {undefined, [versions]},
+          anti_replay                => {undefined, [versions, session_tickets]},
+          beast_mitigation           => {one_n_minus_one, [versions]},
+          cacertfile                 => {undefined, [versions,
+                                                     verify_fun,
+                                                     cacerts]},
+          cacerts                    => {undefined, [versions]},
+          cert                       => {undefined, [versions]},
+          certfile                   => {<<>>,      [versions]},
+          ciphers                    => {[],        [versions]},
+          client_renegotiation       => {undefined, [versions]},
+          crl_cache                  => {{ssl_crl_cache, {internal, []}}, [versions]},
+          crl_check                  => {false,     [versions]},
+          customize_hostname_check   => {[],        [versions]},
+          depth                      => {1,         [versions]},
+          dh                         => {undefined, [versions]},
+          dhfile                     => {undefined, [versions]},
+          eccs                       => {undefined, [versions]},
+          erl_dist                   => {false,     [versions]},
+          fail_if_no_peer_cert       => {false,     [versions]},
+          fallback                   => {false,     [versions]},
+          handshake                  => {full,      [versions]},
+          hibernate_after            => {infinity,  [versions]},
+          honor_cipher_order         => {false,     [versions]},
+          honor_ecc_order            => {undefined, [versions]},
+          key                        => {undefined, [versions]},
+          keyfile                    => {undefined, [versions,
+                                                     certfile]},
+          key_update_at              => {?KEY_USAGE_LIMIT_AES_GCM, [versions]},
+          log_level                  => {notice,    [versions]},
+          max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
+          middlebox_comp_mode        => {true, [versions]},
+          next_protocol_selector     => {undefined, [versions]},
+          next_protocols_advertised  => {undefined, [versions]},
+          padding_check              => {true,      [versions]},
+          partial_chain              => {fun(_) -> unknown_ca end, [versions]},
+          password                   => {"",        [versions]},
+          protocol                   => {tls,       []},
+          psk_identity               => {undefined, [versions]},
+          renegotiate_at             => {?DEFAULT_RENEGOTIATE_AT, [versions]},
+          reuse_session              => {undefined, [versions]},
+          reuse_sessions             => {true,      [versions]},
+          secure_renegotiate         => {true,      [versions]},
+          server_name_indication     => {undefined, [versions]},
+          session_tickets            => {disabled,     [versions]},
+          signature_algs             => {undefined, [versions]},
+          signature_algs_cert        => {undefined, [versions]},
+          sni_fun                    => {undefined, [versions,
+                                                     sni_hosts]},
+          sni_hosts                  => {[],        [versions]},
+          srp_identity               => {undefined, [versions]},
+          supported_groups           => {undefined, [versions]},
+          use_ticket                 => {undefined, [versions]},
+          user_lookup_fun            => {undefined, [versions]},
+          validate_extensions_fun    => {undefined, [versions]},
+          verify                     => {verify_none, [versions,
+                                                       fail_if_no_peer_cert,
+                                                       partial_chain,
+                                                       verify_client_once]},
+          verify_client_once         => {false,     [versions]},
+          verify_fun                 =>
+              {
+               {fun(_,{bad_cert, _}, UserState) ->
+                        {valid, UserState};
+                   (_,{extension, #'Extension'{critical = true}}, UserState) ->
+                        %% This extension is marked as critical, so
+                        %% certificate verification should fail if we don't
+                        %% understand the extension.  However, this is
+                        %% `verify_none', so let's accept it anyway.
+                        {valid, UserState};
+                   (_,{extension, _}, UserState) ->
+                        {unknown, UserState};
+                   (_, valid, UserState) ->
+                        {valid, UserState};
+                   (_, valid_peer, UserState) ->
+                        {valid, UserState}
+                end, []},
+               [versions, verify]},
+          versions                   => {[], [protocol]}
          }).
 
 -record(socket_options,
@@ -158,26 +215,20 @@
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
-		 emulated,          %% Emulated option list or "inherit_tracker" pid
-		 udp_handler,
+		 emulated,          %% Emulated option list or 
+                 trackers, 
+		 dtls_handler,
 		 inet_ssl,          %% inet options for internal ssl socket
 		 transport_info,                 %% Callback info
 		 connection_cb
 		}).
 
--type key_map()              :: #{algorithm := rsa | dss | ecdsa,
-                                  %% engine and key_id ought to 
-                                  %% be :=, but putting it in
-                                  %% the spec gives dialyzer warning
-                                  %% of correct code!
-                                  engine => crypto:engine_ref(),
-                                  key_id => crypto:key_id(),
-                                  password => crypto:password()
-                                 }.
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.
--type gen_fsm_state_return() :: {next_state, state_name(), term()} |
-				{next_state, state_name(), term(), timeout()} |
-				{stop, term(), term()}.
+-type gen_fsm_state_return() :: {next_state, state_name(), any()} |
+				{next_state, state_name(), any(), timeout()} |
+				{stop, any(), any()}.
+-type ssl_options()          :: map().
+
 -endif. % -ifdef(ssl_internal).
 
 

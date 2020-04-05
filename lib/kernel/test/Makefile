@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 MODULES= \
+	erpc_SUITE \
 	rpc_SUITE \
 	pdict_SUITE \
 	bif_SUITE \
@@ -57,6 +58,7 @@ MODULES= \
 	prim_file_SUITE \
 	ram_file_SUITE \
 	gen_tcp_api_SUITE \
+	gen_tcp_dist \
 	gen_tcp_echo_SUITE \
 	gen_tcp_misc_SUITE \
 	gen_udp_SUITE \
@@ -70,7 +72,21 @@ MODULES= \
 	interactive_shell_SUITE \
 	init_SUITE \
 	kernel_config_SUITE \
+	logger_SUITE \
+	logger_disk_log_h_SUITE \
+	logger_env_var_SUITE \
+	logger_filters_SUITE \
+	logger_formatter_SUITE \
+	logger_legacy_SUITE \
+	logger_olp_SUITE \
+	logger_proxy_SUITE \
+	logger_simple_h_SUITE \
+	logger_std_h_SUITE \
+	logger_stress_SUITE \
+	logger_test_lib \
+	net_SUITE \
 	os_SUITE \
+	pg_SUITE \
 	pg2_SUITE \
 	seq_trace_SUITE \
 	wrap_log_reader_SUITE \
@@ -80,7 +96,8 @@ MODULES= \
 	loose_node \
 	sendfile_SUITE \
 	standard_error_SUITE \
-	multi_load_SUITE
+	multi_load_SUITE \
+	zzz_SUITE
 
 APP_FILES = \
 	appinc.app \
@@ -101,7 +118,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
-COVERFILE=kernel.cover
+COVERFILE=kernel.cover logger.cover
 
 # ----------------------------------------------------
 # Release directory specification
@@ -117,11 +134,17 @@ ERL_COMPILE_FLAGS +=
 
 EBIN = .
 
+TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-make_emakefile:
+gen_tcp_dist.erl: ../examples/gen_tcp_dist/src/gen_tcp_dist.erl
+	cp $< $@
+
+make_emakefile: $(ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' \
 	> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
@@ -137,6 +160,9 @@ clean:
 
 docs:
 
+targets: $(TARGETS)
+
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -148,7 +174,8 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(APP_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) kernel.spec kernel_smoke.spec kernel_bench.spec \
+	$(INSTALL_DATA) \
+		kernel.spec kernel_smoke.spec kernel_bench.spec logger.spec \
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

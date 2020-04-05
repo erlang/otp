@@ -5,7 +5,7 @@ Introduction
 ------------
 
 SystemTap is DTrace for Linux. In fact Erlang's SystemTap support
-is build using SystemTap's DTrace compatibility's layer. For an
+is built using SystemTap's DTrace compatibility's layer. For an
 introduction to Erlang DTrace support read [$ERL_TOP/HOWTO/DTRACE.md][].
 
 Requisites

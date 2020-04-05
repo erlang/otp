@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,9 @@
 	 scheduler_suspend_basic/1,
 	 scheduler_suspend/1,
 	 dirty_scheduler_threads/1,
-	 reader_groups/1]).
+         poll_threads/1,
+	 reader_groups/1,
+         otp_16446/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -72,7 +74,9 @@ all() ->
      {group, scheduler_bind}, scheduler_threads,
      scheduler_suspend_basic, scheduler_suspend,
      dirty_scheduler_threads,
-     reader_groups].
+     poll_threads,
+     reader_groups,
+     otp_16446].
 
 groups() -> 
     [{scheduler_bind, [],
@@ -892,11 +896,9 @@ adjust_schedulers_online() ->
 
 read_affinity(Data) ->
     Exp = "pid " ++ os:getpid() ++ "'s current affinity mask",
-    case string:tokens(Data, ":") of
+    case string:lexemes(Data, ":") of
 	[Exp, DirtyAffinityStr] ->
-	    AffinityStr = string:strip(string:strip(DirtyAffinityStr,
-						    both, $ ),
-				       both, $\n),
+	    AffinityStr = string:trim(DirtyAffinityStr),
 	    case catch erlang:list_to_integer(AffinityStr, 16) of
 		Affinity when is_integer(Affinity) ->
 		    Affinity;
@@ -993,62 +995,81 @@ sct_cmd(Config) when is_list(Config) ->
 	 {"db", thread_no_node_processor_spread}]).
 
 sbt_cmd(Config) when is_list(Config) ->
-    Bind = try
-	      OldVal = erlang:system_flag(scheduler_bind_type, default_bind),
-	      erlang:system_flag(scheduler_bind_type, OldVal),
-	      go_for_it
-	  catch
-	      error:notsup -> notsup;
-		error:_ -> go_for_it
-	  end,
-    case Bind of
-	notsup ->
-	    {skipped, "Binding of schedulers not supported"};
-	go_for_it ->
-	    CpuTCmd = case erlang:system_info({cpu_topology,detected}) of
-			  undefined ->
-			      case os:type() of
-				  linux ->
-				      case erlang:system_info(logical_processors) of
-					  1 ->
-					      "+sctL0";
-					  N when is_integer(N) ->
-					      NS = integer_to_list(N-1),
-					      "+sctL0-"++NS++"p0-"++NS;
-					  _ ->
-					      false
-				      end;
-				  _ ->
-				      false
-			      end;
-			  _ ->
-			      ""
-		      end,
-	    case CpuTCmd of
-		false ->
-		    {skipped, "Don't know how to create cpu topology"};
-		_ ->
-		    case erlang:system_info(logical_processors) of
-			LP when is_integer(LP) ->
-			    OldRelFlags = clear_erl_rel_flags(),
-			    try
-				lists:foreach(fun ({ClBt, Bt}) ->
-						      sbt_test(Config,
-								     CpuTCmd,
-								     ClBt,
-								     Bt,
-								     LP)
-					      end,
-					      ?BIND_TYPES)
-			    after
-				restore_erl_rel_flags(OldRelFlags)
-			    end,
-			    ok;
-			_ ->
-			    {skipped,
-				   "Don't know the amount of logical processors"}
-		    end
-	    end
+    case sbt_check_prereqs() of
+        {skipped, _Reason}=Skipped ->
+            Skipped;
+        ok ->
+            case sbt_make_topology_args() of
+                false ->
+                    {skipped, "Don't know how to create cpu topology"};
+                CpuTCmd ->
+                    LP = erlang:system_info(logical_processors),
+                    OldRelFlags = clear_erl_rel_flags(),
+                    try
+                        lists:foreach(fun ({ClBt, Bt}) ->
+                                              sbt_test(Config, CpuTCmd,
+                                                       ClBt, Bt, LP)
+                                      end,
+                                      ?BIND_TYPES)
+                    after
+                        restore_erl_rel_flags(OldRelFlags)
+                    end,
+                    ok
+            end
+    end.
+
+sbt_make_topology_args() ->
+    case erlang:system_info({cpu_topology,detected}) of
+        undefined ->
+            case os:type() of
+                linux ->
+                    case erlang:system_info(logical_processors) of
+                        1 ->
+                            "+sctL0";
+                        N ->
+                            NS = integer_to_list(N - 1),
+                            "+sctL0-"++NS++"p0-"++NS
+                    end;
+                _ ->
+                    false
+            end;
+        _ ->
+            ""
+    end.
+
+sbt_check_prereqs() ->
+    try
+        Available = erlang:system_info(logical_processors_available),
+        Quota = erlang:system_info(cpu_quota),
+        if
+            Quota =:= unknown; Quota >= Available ->
+                ok;
+            Quota < Available ->
+                throw({skipped, "Test requires that CPU quota is greater than "
+                                "the number of available processors."})
+        end,
+
+        try
+            OldVal = erlang:system_flag(scheduler_bind_type, default_bind),
+            erlang:system_flag(scheduler_bind_type, OldVal)
+        catch
+            error:notsup ->
+                throw({skipped, "Scheduler binding not supported."});
+            error:_ ->
+                %% ?!
+                ok
+        end,
+
+        case erlang:system_info(logical_processors) of
+            Count when is_integer(Count) ->
+                ok;
+            unknown ->
+                throw({skipped, "Can't detect number of logical processors."})
+        end,
+
+        ok
+    catch
+        throw:{skip,_Reason}=Skip -> Skip
     end.
 
 sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
@@ -1083,7 +1104,6 @@ sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
     ok.
 
 scheduler_threads(Config) when is_list(Config) ->
-    SmpSupport = erlang:system_info(smp_support),
     {Sched, SchedOnln, _} = get_sstate(Config, ""),
     %% Configure half the number of both the scheduler threads and
     %% the scheduler threads online.
@@ -1095,10 +1115,7 @@ scheduler_threads(Config) when is_list(Config) ->
     %% setting using +SP to 50% scheduler threads and 25% scheduler
     %% threads online. The result should be 2x scheduler threads and
     %% 1x scheduler threads online.
-    TwiceSched = case SmpSupport of
-                     false -> 1;
-                     true -> Sched*2
-                 end,
+    TwiceSched = Sched*2,
     FourSched = integer_to_list(Sched*4),
     FourSchedOnln = integer_to_list(SchedOnln*4),
     CombinedCmd1 = "+S "++FourSched++":"++FourSchedOnln++" +SP50:25",
@@ -1114,27 +1131,47 @@ scheduler_threads(Config) when is_list(Config) ->
     {Sched, HalfSchedOnln, _} = get_sstate(Config, "+SP:50"),
     %% Configure 2x scheduler threads only
     {TwiceSched, SchedOnln, _} = get_sstate(Config, "+SP 200"),
-    case {erlang:system_info(logical_processors),
-	  erlang:system_info(logical_processors_available)} of
-	{LProc, LProcAvail} when is_integer(LProc), is_integer(LProcAvail) ->
-	    %% Test resetting the scheduler counts
-	    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
-	    {LProc, LProcAvail, _} = get_sstate(Config, ResetCmd),
-	    %% Test negative +S settings, but only for SMP-enabled emulators
-	    case {SmpSupport, LProc > 1, LProcAvail > 1} of
-		{true, true, true} ->
-		    SchedMinus1 = LProc-1,
-		    SchedOnlnMinus1 = LProcAvail-1,
-		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
-		    {LProc, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
-		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1"),
-		    ok;
-		_ ->
-		    {comment, "Skipped reduced amount of schedulers test due to too few logical processors"}
-	    end;
-	_ -> %% Skipped when missing info about logical processors...
-	    {comment, "Skipped reset amount of schedulers test, and reduced amount of schedulers test due to too unknown amount of logical processors"}
+
+    LProc = erlang:system_info(logical_processors),
+    LProcAvail = erlang:system_info(logical_processors_available),
+    Quota = erlang:system_info(cpu_quota),
+
+    if
+        not is_integer(LProc); not is_integer(LProcAvail) ->
+            {comment, "Skipped reset amount of schedulers test, and reduced "
+                      "amount of schedulers test due to too unknown amount of "
+                      "logical processors"};
+        is_integer(LProc); is_integer(LProcAvail) ->
+            ExpectedOnln = st_expected_onln(LProcAvail, Quota),
+
+            st_reset(Config, LProc, ExpectedOnln, FourSched, FourSchedOnln),
+
+            if
+                LProc =:= 1; LProcAvail =:= 1 ->
+                    {comment, "Skipped reduced amount of schedulers test due "
+                              "to too few logical processors"};
+                LProc > 1, LProcAvail > 1 ->
+                    st_reduced(Config, LProc, ExpectedOnln)
+            end
     end.
+
+st_reset(Config, LProc, ExpectedOnln, FourSched, FourSchedOnln) ->
+    %% Test resetting # of schedulers.
+    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
+    {LProc, ExpectedOnln, _} = get_sstate(Config, ResetCmd),
+    ok.
+
+st_reduced(Config, LProc, ExpectedOnln) ->
+    %% Test negative +S settings
+    SchedMinus1 = LProc-1,
+    SchedOnlnMinus1 = ExpectedOnln-1,
+    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
+    {LProc, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
+    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1"),
+    ok.
+
+st_expected_onln(LProcAvail, unknown) -> LProcAvail;
+st_expected_onln(LProcAvail, Quota) -> min(LProcAvail, Quota).
 
 dirty_scheduler_threads(Config) when is_list(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of
@@ -1157,9 +1194,6 @@ dirty_scheduler_threads_test(Config) ->
     ok.
 
 dirty_schedulers_online_test() ->
-    dirty_schedulers_online_test(erlang:system_info(smp_support)).
-dirty_schedulers_online_test(false) -> ok;
-dirty_schedulers_online_test(true) ->
     dirty_schedulers_online_smp_test(erlang:system_info(schedulers_online)).
 dirty_schedulers_online_smp_test(SchedOnln) when SchedOnln < 4 -> ok;
 dirty_schedulers_online_smp_test(SchedOnln) ->
@@ -1453,6 +1487,81 @@ sst5_loop(N) ->
     erlang:system_flag(multi_scheduling, unblock_normal),
     sst5_loop(N-1).
 
+poll_threads(Config) when is_list(Config) ->
+    {Conc, PollType, KP} = get_ioconfig(Config),
+    {Sched, SchedOnln, _} = get_sstate(Config, ""),
+
+    [1, 1] = get_ionum(Config,"+IOt 2 +IOp 2"),
+    [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 5"),
+    [1, 1] = get_ionum(Config, "+S 2 +IOPt 100 +IOPp 100"),
+
+    if
+        Conc ->
+
+            [5] = get_ionum(Config,"+IOt 5 +IOp 1"),
+            [3, 2] = get_ionum(Config,"+IOt 5 +IOp 2"),
+            [2, 2, 2, 2, 2] = get_ionum(Config,"+IOt 10 +IOPp 50"),
+
+            [2] = get_ionum(Config, "+S 2 +IOPt 100"),
+            [4] = get_ionum(Config, "+S 4 +IOPt 100"),
+            [4] = get_ionum(Config, "+S 4:2 +IOPt 100"),
+            [4, 4] = get_ionum(Config, "+S 8 +IOPt 100 +IOPp 25"),
+
+            fail = get_ionum(Config, "+IOt 1 +IOp 2"),
+
+            ok;
+        not Conc ->
+
+            [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 1"),
+            [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 2"),
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 10 +IOPp 50"),
+
+            [1, 1] = get_ionum(Config, "+S 2 +IOPt 100"),
+            [1, 1, 1, 1] = get_ionum(Config, "+S 4 +IOPt 100"),
+            [1, 1, 1, 1] = get_ionum(Config, "+S 4:2 +IOPt 100"),
+            [1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(Config, "+S 8 +IOPt 100 +IOPp 25"),
+
+            [1] = get_ionum(Config, "+IOt 1 +IOp 2"),
+
+            ok
+    end,
+
+    fail = get_ionum(Config, "+IOt 1 +IOPp 101"),
+    fail = get_ionum(Config, "+IOt 0"),
+    fail = get_ionum(Config, "+IOPt 101"),
+
+    ok.
+
+get_ioconfig(Config) ->
+    [PS | _] = get_iostate(Config, ""),
+    {proplists:get_value(concurrent_updates, PS),
+     proplists:get_value(primary, PS),
+     proplists:get_value(kernel_poll, PS)}.
+
+get_ionum(Config, Cmd) ->
+    case get_iostate(Config, Cmd) of
+        fail -> fail;
+        PSs ->
+            lists:reverse(
+              lists:sort(
+                [proplists:get_value(poll_threads, PS) || PS <- PSs]))
+    end.
+
+get_iostate(Config, Cmd)->
+    case start_node(Config, Cmd) of
+        {ok, Node} ->
+            [IOStates] = mcall(Node,[fun () ->
+                                             erlang:system_info(check_io)
+                                     end]),
+            IO = [IOState || IOState <- IOStates,
+                             proplists:get_value(fallback, IOState) == false,
+                             proplists:get_value(poll_threads, IOState) /= 0],
+            stop_node(Node),
+            IO;
+        {error,timeout} ->
+            fail
+    end.
+
 reader_groups(Config) when is_list(Config) ->
     %% White box testing. These results are correct, but other results
     %% could be too...
@@ -1726,6 +1835,77 @@ reader_groups_map(CPUT, Groups) ->
     erlang:system_flag(cpu_topology, Old),
     lists:sort(Res).
 
+otp_16446(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 1}),
+    
+    process_flag(priority, high),
+
+    DIO = erlang:system_info(dirty_io_schedulers),
+    NoPrioProcs = 10*DIO,
+    io:format("DIO = ~p~nNoPrioProcs = ~p~n", [DIO, NoPrioProcs]),
+
+    DirtyLoop = fun Loop(P, N) ->
+                        erts_debug:dirty_io(wait,1),
+                        receive {get, From} -> From ! {P, N}
+                        after 0 -> Loop(P,N+1)
+                        end
+                end,
+
+    Spawn = fun SpawnLoop(_Prio, 0, Acc) ->
+                    Acc;
+                SpawnLoop(Prio, N, Acc) ->
+                    Pid = spawn_opt(fun () -> DirtyLoop(Prio, 0) end,
+                                    [link, {priority, Prio}]),
+                    SpawnLoop(Prio, N-1, [Pid|Acc])
+            end,
+
+    Ns = Spawn(normal, NoPrioProcs, []),
+    Ls = Spawn(low, NoPrioProcs, []),
+
+    receive after 10000 -> ok end,
+    
+    RequestInfo = fun (P) -> P ! {get, self()} end,
+    lists:foreach(RequestInfo, Ns),
+    lists:foreach(RequestInfo, Ls),
+    
+    Collect = fun CollectFun(0, LLs, NLs) ->
+                      {LLs, NLs};
+                  CollectFun(N, LLs, NLs) ->
+                      receive
+                          {low, Calls} ->
+                              CollectFun(N-1, LLs+Calls, NLs);
+                          {normal, Calls} ->
+                              CollectFun(N-1, LLs, NLs+Calls)
+                      end
+              end,
+    
+    {LLs, NLs} = Collect(2*NoPrioProcs, 0, 0),
+    
+    %% expected ratio 0.125, but this is not especially exact...
+    Ratio = LLs / NLs,
+
+    io:format("LLs = ~p~nNLs = ~p~nRatio = ~p~n", [LLs, NLs, Ratio]),
+    
+    true = Ratio > 0.05,
+    true = Ratio < 0.5,
+    
+    WaitUntilDead = fun (P) ->
+                            case is_process_alive(P) of
+                                false ->
+                                    ok;
+                                true ->
+                                    unlink(P),
+                                    exit(P, kill),
+                                    false = is_process_alive(P)
+                            end
+                    end,
+
+    lists:foreach(WaitUntilDead, Ns),
+    lists:foreach(WaitUntilDead, Ls),
+    Comment = "low/normal ratio: " ++ erlang:float_to_list(Ratio,[{decimals,4}]),
+    erlang:display(Comment),
+    {comment, Comment}.
+
 %%
 %% Utils
 %%
@@ -1777,18 +1957,24 @@ mcall(Node, Funs) ->
     Parent = self(),
     Refs = lists:map(fun (Fun) ->
                              Ref = make_ref(),
-                             spawn_link(Node,
-                                        fun () ->
-                                                Res = Fun(),
-                                                unlink(Parent),
-                                                Parent ! {Ref, Res}
-                                        end),
-                             Ref
+                             Pid = spawn(Node,
+                                         fun () ->
+                                                 Res = Fun(),
+                                                 unlink(Parent),
+                                                 Parent ! {Ref, Res}
+                                         end),
+                             MRef = erlang:monitor(process, Pid),
+                             {Ref, MRef}
                      end, Funs),
-    lists:map(fun (Ref) ->
+    lists:map(fun ({Ref, MRef}) ->
                       receive
                           {Ref, Res} ->
-                              Res
+                              receive
+                                  {'DOWN',MRef,_,_,_} ->
+                                      Res
+                              end;
+                          {'DOWN',MRef,_,_,Reason} ->
+                              Reason
                       end
               end, Refs).
 
@@ -2083,13 +2269,15 @@ workers_exit([Ps|Pss])  ->
     workers_exit(Pss).
 
 do_work(PartTime) ->
-    lists:reverse(lists:seq(1, 50)),
+    _ = id(lists:seq(1, 50)),
     receive stop_work -> receive after infinity -> ok end after 0 -> ok end,
     case PartTime of
 	true -> receive after 1 -> ok end;
 	false -> ok
     end,
     do_work(PartTime).
+
+id(I) -> I.
 
 workers(N, _Prio, _PartTime) when N =< 0 ->
     [];

@@ -363,7 +363,8 @@ not_writable_code(Bin, SizeReg, Dst, Base, Offset, Unit,
 allocate_writable(Dst, Base, UsedBytes, TotBytes, TotSize) ->
   Zero = hipe_rtl:mk_imm(0),
   [NextLbl] = create_lbls(1),
-  [EndSubSize, EndSubBitSize, ProcBin] = create_regs(3),
+  [EndSubSize, EndSubBitSize] = create_regs(2),
+  [ProcBin] = create_unsafe_regs(1),
   [hipe_rtl:mk_call([Base], bs_allocate, [UsedBytes],
 		    hipe_rtl:label_name(NextLbl), [], not_remote),
    NextLbl,
@@ -590,12 +591,12 @@ const_init2(Size, Dst, Base, Offset, TrueLblName) ->
     false ->
       ByteSize = hipe_rtl:mk_new_reg(),
       [hipe_rtl:mk_gctest(?PROC_BIN_WORDSIZE+?SUB_BIN_WORDSIZE),
-       hipe_rtl:mk_move(Offset, hipe_rtl:mk_imm(0)),
        hipe_rtl:mk_move(ByteSize, hipe_rtl:mk_imm(Size)),
        hipe_rtl:mk_call([Base], bs_allocate, [ByteSize],
 			hipe_rtl:label_name(NextLbl), [], not_remote),
        NextLbl,
        hipe_tagscheme:create_refc_binary(Base, ByteSize, Dst),
+       hipe_rtl:mk_move(Offset, hipe_rtl:mk_imm(0)),
        hipe_rtl:mk_goto(TrueLblName)]
   end.
 
@@ -638,13 +639,12 @@ var_init2(Size, Dst, Base, Offset, TrueLblName, SystemLimitLblName, FalseLblName
   Log2WordSize = hipe_rtl_arch:log2_word_size(),
   WordSize = hipe_rtl_arch:word_size(),
   [ContLbl, HeapLbl, REFCLbl, NextLbl] = create_lbls(4),
-  [USize, Tmp] = create_unsafe_regs(2),
+  [USize, Tmp] = create_regs(2),
   [get_word_integer(Size, USize, SystemLimitLblName, FalseLblName),
    hipe_rtl:mk_branch(USize, leu, hipe_rtl:mk_imm(?MAX_BINSIZE),
 		      hipe_rtl:label_name(ContLbl),
 		      SystemLimitLblName),
    ContLbl,
-   hipe_rtl:mk_move(Offset, hipe_rtl:mk_imm(0)),
    hipe_rtl:mk_branch(USize, leu, hipe_rtl:mk_imm(?MAX_HEAP_BIN_SIZE),
 		      hipe_rtl:label_name(HeapLbl),
 		      hipe_rtl:label_name(REFCLbl)),
@@ -654,6 +654,7 @@ var_init2(Size, Dst, Base, Offset, TrueLblName, SystemLimitLblName, FalseLblName
    hipe_rtl:mk_alu(Tmp, Tmp, add, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE)),
    hipe_rtl:mk_gctest(Tmp),
    hipe_tagscheme:create_heap_binary(Base, USize, Dst),
+   hipe_rtl:mk_move(Offset, hipe_rtl:mk_imm(0)),
    hipe_rtl:mk_goto(TrueLblName),
    REFCLbl,
    hipe_rtl:mk_gctest(?PROC_BIN_WORDSIZE+?SUB_BIN_WORDSIZE),
@@ -661,6 +662,7 @@ var_init2(Size, Dst, Base, Offset, TrueLblName, SystemLimitLblName, FalseLblName
 		    hipe_rtl:label_name(NextLbl), [], not_remote),
    NextLbl,
    hipe_tagscheme:create_refc_binary(Base, USize, Dst),
+   hipe_rtl:mk_move(Offset, hipe_rtl:mk_imm(0)),
    hipe_rtl:mk_goto(TrueLblName)].
 
 var_init_bits(Size, Dst, Base, Offset, TrueLblName, SystemLimitLblName, FalseLblName) ->
@@ -867,7 +869,7 @@ get_base_offset_size(Binary, SrcBase, SrcOffset, SrcSize, FLName) ->
    JoinLbl,
    hipe_tagscheme:test_heap_binary(Orig, HeapLblName, REFCLblName),
    HeapLbl,
-   hipe_rtl:mk_alu(SrcBase, Orig, add, hipe_rtl:mk_imm(?HEAP_BIN_DATA-2)),
+   hipe_tagscheme:get_field_addr_from_term({heap_bin, {data, 0}}, Orig, SrcBase),
    hipe_rtl:mk_goto(EndLblName),
    REFCLbl,
    hipe_tagscheme:get_field_from_term({proc_bin,bytes}, Orig, SrcBase),
@@ -1214,6 +1216,12 @@ is_divisible(Dividend, Divisor, SuccLbl, FailLbl) ->
       [hipe_rtl:mk_branch(Dividend, 'and', Mask, eq, SuccLbl, FailLbl, 0.99)];
     false ->
       %% We need division, fall back to a primop
-      [hipe_rtl:mk_call([], is_divisible, [Dividend, hipe_rtl:mk_imm(Divisor)],
-			SuccLbl, FailLbl, not_remote)]
+      [Tmp] = create_regs(1),
+      RetLbl = hipe_rtl:mk_new_label(),
+      [hipe_rtl:mk_call([Tmp], is_divisible,
+                        [Dividend, hipe_rtl:mk_imm(Divisor)],
+                        hipe_rtl:label_name(RetLbl), [], not_remote),
+       RetLbl,
+       hipe_rtl:mk_branch(Tmp, ne, hipe_rtl:mk_imm(0),
+                          SuccLbl, FailLbl, 0.99)]
   end.

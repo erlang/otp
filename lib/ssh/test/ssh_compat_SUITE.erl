@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,8 +41,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [%%{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,40}}].
+    [{timetrap,{seconds,60}}].
 
 all() ->
 %%    [check_docker_present] ++
@@ -87,13 +86,13 @@ init_per_suite(Config) ->
                Config
        end).
 
-end_per_suite(Config) ->
+end_per_suite(_Config) ->
     %% Remove all containers that are not running:
 %%%    os:cmd("docker rm $(docker ps -aq -f status=exited)"),
     %% Remove dangling images:
 %%%    os:cmd("docker rmi $(docker images -f dangling=true -q)"),
     catch ssh:stop(),
-    Config.
+    ok.
 
 
 init_per_group(otp_server, Config) ->
@@ -151,8 +150,7 @@ init_per_group(G, Config0) ->
                             stop_docker(ID),
                             {fail, "Can't contact docker sshd"}
                     catch
-                        Class:Exc ->
-                            ST = erlang:get_stacktrace(),
+                        Class:Exc:ST ->
                             ct:log("common_algs: ~p:~p~n~p",[Class,Exc,ST]),
                             stop_docker(ID),
                             {fail, "Failed during setup"}
@@ -161,8 +159,7 @@ init_per_group(G, Config0) ->
                 cant_start_docker ->
                     {skip, "Can't start docker"};
 
-                C:E ->
-                    ST = erlang:get_stacktrace(),
+                C:E:ST ->
                     ct:log("No ~p~n~p:~p~n~p",[G,C,E,ST]),
                     {skip, "Can't start docker"}
             end;
@@ -199,17 +196,19 @@ login_otp_is_client(Config) ->
                                             [' ']
                                     end
         ],
-                                        
+
     chk_all_algos(?FUNCTION_NAME, CommonAuths, Config,
                   fun(AuthMethod,Alg) ->
                           {Opts,Dir} =
                               case AuthMethod of
                                   publickey ->
-                                      {[], setup_remote_auth_keys_and_local_priv(Alg, Config)};
+                                      {[{pref_public_key_algs, [Alg]}],
+                                       setup_remote_auth_keys_and_local_priv(Alg, Config)};
                                   _ ->
                                       {[{password,?PASSWD}], new_dir(Config)}
                               end,
                           ssh:connect(IP, Port, [{auth_methods, atom_to_list(AuthMethod)},
+                                                 {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                  {user,?USER},
                                                  {user_dir, Dir},
                                                  {silently_accept_hosts,true},
@@ -237,7 +236,9 @@ login_otp_is_server(Config) ->
                           {Opts,UsrDir} =
                               case AuthMethod of
                                   publickey ->
-                                      {[{user_passwords, [{?USER,?BAD_PASSWD}]}],
+                                      {[{user_passwords, [{?USER,?BAD_PASSWD}]},
+                                        {pref_public_key_algs, [Alg]}
+                                       ],
                                        setup_remote_priv_and_local_auth_keys(Alg, Config)
                                       };
                                   _ ->
@@ -248,6 +249,7 @@ login_otp_is_server(Config) ->
                           {Server, Host, HostPort} =
                               ssh_test_lib:daemon(0,
                                                   [{auth_methods, atom_to_list(AuthMethod)},
+                                                   {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {system_dir, SysDir},
                                                    {user_dir, UsrDir},
                                                    {failfun, fun ssh_test_lib:failfun/2}
@@ -267,13 +269,16 @@ all_algorithms_sftp_exec_reneg_otp_is_client(Config) ->
     {IP,Port} = ip_port(Config),
     chk_all_algos(?FUNCTION_NAME, CommonAlgs, Config,
                   fun(Tag, Alg) ->
+                          PrefAlgs =
+                              [{T,L} || {T,L} <- ssh_transport:supported_algorithms(),
+                                        T =/= Tag],
                           ConnRes =
                               ssh:connect(IP, Port, 
                                           [{user,?USER},
                                            {password,?PASSWD},
                                            {auth_methods, "password"},
                                            {user_dir, new_dir(Config)},
-                                           {preferred_algorithms, [{Tag,[Alg]}]},
+                                           {preferred_algorithms, [{Tag,[Alg]} | PrefAlgs]},
                                            {silently_accept_hosts,true},
                                            {user_interaction,false}
                                           ])  ,
@@ -296,11 +301,14 @@ all_algorithms_sftp_exec_reneg_otp_is_server(Config) ->
                                            public_key -> Alg;
                                            _ -> 'ssh-rsa'
                                        end,
+                          PrefAlgs =
+                              [{T,L} || {T,L} <- ssh_transport:supported_algorithms(),
+                                        T =/= Tag],
                           SftpRootDir = new_dir(Config),
                           %% ct:log("Rootdir = ~p",[SftpRootDir]),
                           {Server, Host, HostPort} =
                               ssh_test_lib:daemon(0,
-                                                  [{preferred_algorithms, [{Tag,[Alg]}]},
+                                                  [{preferred_algorithms, [{Tag,[Alg]} | PrefAlgs]},
                                                    {system_dir, setup_local_hostdir(HostKeyAlg, Config)},
                                                    {user_dir, UserDir},
                                                    {user_passwords, [{?USER,?PASSWD}]},
@@ -333,6 +341,7 @@ send_recv_big_with_renegotiate_otp_is_client(Config) ->
                                     {password,?PASSWD},
                                     {user_dir, setup_remote_auth_keys_and_local_priv('ssh-rsa', Config)},
                                     {silently_accept_hosts,true},
+                                    {preferred_algorithms, ssh_transport:supported_algorithms()},
                                     {user_interaction,false}
                                    ]),
 
@@ -441,6 +450,7 @@ exec_from_docker(Config, HostIP, HostPort, Command, Expects, ExtraSshArg) when i
                          [{user,?USER},
                           {password,?PASSWD},
                           {user_dir, new_dir(Config)},
+                          {preferred_algorithms, ssh_transport:supported_algorithms()},
                           {silently_accept_hosts,true},
                           {user_interaction,false}
                          ]),
@@ -615,6 +625,7 @@ setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, UserDir, Config) ->
                                                    {password, ?PASSWD   },
                                                    {auth_methods, "password"},
                                                    {silently_accept_hosts,true},
+                                                   {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {user_interaction,false}
                                                   ]),
     _ = ssh_sftp:make_dir(Ch, ".ssh"),
@@ -646,9 +657,11 @@ setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config) ->
     {ok,Ch,Cc} = ssh_sftp:start_channel(IP, Port, [{user,     ?USER  },
                                                    {password, ?PASSWD   },
                                                    {auth_methods, "password"},
+                                                   {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {silently_accept_hosts,true},
                                                    {user_interaction,false}
                                                   ]),
+    rm_id_in_remote_dir(Ch, ".ssh"),
     _ = ssh_sftp:make_dir(Ch, ".ssh"),
     DstFile = filename:join(".ssh", dst_filename(user,KeyAlg)),
     ok = ssh_sftp:write_file(Ch, DstFile, Priv),
@@ -658,6 +671,18 @@ setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config) ->
     ok = ssh_sftp:stop_channel(Ch),
     ok = ssh:close(Cc),
     UserDir.
+
+rm_id_in_remote_dir(Ch, Dir) ->
+    case ssh_sftp:list_dir(Ch, Dir) of
+        {error,_Error} ->
+            ok;
+        {ok,FileNames} ->
+            lists:foreach(fun("id_"++_ = F) ->
+                                  ok = ssh_sftp:delete(Ch, filename:join(Dir,F));
+                             (_) ->
+                                  leave
+                          end, FileNames)
+    end.
 
 user_priv_pub_keys(Config, KeyAlg) -> priv_pub_keys("users_keys", user, Config, KeyAlg).
 host_priv_pub_keys(Config, KeyAlg) -> priv_pub_keys("host_keys",  host, Config, KeyAlg).
@@ -674,6 +699,8 @@ src_filename(user, 'ssh-rsa'            ) -> "id_rsa";
 src_filename(user, 'rsa-sha2-256'       ) -> "id_rsa";
 src_filename(user, 'rsa-sha2-512'       ) -> "id_rsa";
 src_filename(user, 'ssh-dss'            ) -> "id_dsa";
+src_filename(user, 'ssh-ed25519'        ) -> "id_ed25519";
+src_filename(user, 'ssh-ed448'          ) -> "id_ed448";
 src_filename(user, 'ecdsa-sha2-nistp256') -> "id_ecdsa256";
 src_filename(user, 'ecdsa-sha2-nistp384') -> "id_ecdsa384";
 src_filename(user, 'ecdsa-sha2-nistp521') -> "id_ecdsa521";
@@ -681,6 +708,8 @@ src_filename(host, 'ssh-rsa'            ) -> "ssh_host_rsa_key";
 src_filename(host, 'rsa-sha2-256'       ) -> "ssh_host_rsa_key";
 src_filename(host, 'rsa-sha2-512'       ) -> "ssh_host_rsa_key";
 src_filename(host, 'ssh-dss'            ) -> "ssh_host_dsa_key";
+src_filename(host, 'ssh-ed25519'        ) -> "ssh_host_ed25519_key";
+src_filename(host, 'ssh-ed448'          ) -> "ssh_host_ed448_key";
 src_filename(host, 'ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key256";
 src_filename(host, 'ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key384";
 src_filename(host, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key521".
@@ -689,6 +718,8 @@ dst_filename(user, 'ssh-rsa'            ) -> "id_rsa";
 dst_filename(user, 'rsa-sha2-256'       ) -> "id_rsa";
 dst_filename(user, 'rsa-sha2-512'       ) -> "id_rsa";
 dst_filename(user, 'ssh-dss'            ) -> "id_dsa";
+dst_filename(user, 'ssh-ed25519'        ) -> "id_ed25519";
+dst_filename(user, 'ssh-ed448'          ) -> "id_ed448";
 dst_filename(user, 'ecdsa-sha2-nistp256') -> "id_ecdsa";
 dst_filename(user, 'ecdsa-sha2-nistp384') -> "id_ecdsa";
 dst_filename(user, 'ecdsa-sha2-nistp521') -> "id_ecdsa";
@@ -696,6 +727,8 @@ dst_filename(host, 'ssh-rsa'            ) -> "ssh_host_rsa_key";
 dst_filename(host, 'rsa-sha2-256'       ) -> "ssh_host_rsa_key";
 dst_filename(host, 'rsa-sha2-512'       ) -> "ssh_host_rsa_key";
 dst_filename(host, 'ssh-dss'            ) -> "ssh_host_dsa_key";
+dst_filename(host, 'ssh-ed25519'        ) -> "ssh_host_ed25519_key";
+dst_filename(host, 'ssh-ed448'          ) -> "ssh_host_ed448_key";
 dst_filename(host, 'ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key";
 dst_filename(host, 'ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key";
 dst_filename(host, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key".
@@ -794,7 +827,7 @@ iptoa(IP) -> inet_parse:ntoa(IP).
 
 host_ip() ->
     {ok,Name} = inet:gethostname(),
-    {ok,#hostent{h_addr_list = [IP|_]}} = inet_res:gethostbyname(Name),
+    {ok,IP} = inet:ip(Name),
     IP.
 
 %%--------------------------------------------------------------------
@@ -902,13 +935,28 @@ find_common_algs(Remote, Local) ->
 use_algorithms(RemoteHelloBin) ->
     MyAlgos = ssh:chk_algos_opts(
                 [{modify_algorithms,
-                  [{append,
-                    [{kex,['diffie-hellman-group1-sha1']}
-                    ]}
+                  [{append, alg_diff()}
                   ]}
                 ]),
     ssh_transport:adjust_algs_for_peer_version(binary_to_list(RemoteHelloBin)++"\r\n",
                                                MyAlgos).
+
+
+alg_class_diff(Tag) ->
+    alg_diff(proplists:get_value(Tag, ssh:default_algorithms()),
+             proplists:get_value(Tag, ssh_transport:supported_algorithms())).
+
+alg_diff() ->
+    alg_diff(ssh:default_algorithms(), ssh_transport:supported_algorithms()).
+
+alg_diff(L1, L2) when is_atom(hd(L1)) ; is_atom(hd(L2))  ->
+    (L2--L1)--['AEAD_AES_256_GCM','AEAD_AES_128_GCM'];
+alg_diff(L1, L2) ->
+    [{T, Diff} || {{T,EL1},{T,EL2}} <- lists:zip(L1,L2),
+                  Diff <- [alg_diff(EL1,EL2)],
+                  Diff =/= []
+    ].
+
 
 kexint_msg2default_algorithms(#ssh_msg_kexinit{kex_algorithms = Kex,
                                                server_host_key_algorithms = PubKey,
@@ -1006,8 +1054,7 @@ receive_hello(S) ->
         Result ->
             Result
     catch
-        Class:Error ->
-            ST = erlang:get_stacktrace(),
+        Class:Error:ST ->
             {error, {Class,Error,ST}}
     end.
         
@@ -1084,8 +1131,7 @@ sftp_tests_erl_server(Config, ServerIP, ServerPort, ServerRootDir, UserDir) ->
         call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir),
         check_local_directory(ServerRootDir)
     catch
-        Class:Error ->
-            ST = erlang:get_stacktrace(),
+        Class:Error:ST ->
             {error, {Class,Error,ST}}
     end.
 
@@ -1106,7 +1152,24 @@ prepare_local_directory(ServerRootDir) ->
      "chmod 222 unreadable_file",
      "exit"].
 
+
 check_local_directory(ServerRootDir) ->
+    TimesToTry = 3,  % sleep 0.5, 1, 2 and then 4 secs (7.5s in total)
+    check_local_directory(ServerRootDir, 500, TimesToTry-1).
+
+check_local_directory(ServerRootDir, SleepTime, N) ->
+    case do_check_local_directory(ServerRootDir) of
+        {error,_Error} when N>0 ->
+            %% Could be that the erlang side is faster and the docker's operations
+            %% are not yet finalized.
+            %% Sleep for a while and retry a few times:
+            timer:sleep(SleepTime),
+            check_local_directory(ServerRootDir, 2*SleepTime, N-1);
+        Other ->
+            Other
+    end.
+
+do_check_local_directory(ServerRootDir) ->
     case lists:sort(ok(file:list_dir(ServerRootDir)) -- [".",".."]) of
         ["ex_tst1","mydir","tst2"] ->
             {ok,Expect} = file:read_file(filename:join(ServerRootDir,"ex_tst1")),
@@ -1141,12 +1204,14 @@ check_local_directory(ServerRootDir) ->
             {error,{bad_dir_contents,"/"}}
     end.
 
+
 call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir) ->
     {DockerIP,DockerPort} = ip_port(Config),
     {ok,C} = ssh:connect(DockerIP, DockerPort,
                          [{user,?USER},
                           {password,?PASSWD},
                           {user_dir, UserDir},
+                          {preferred_algorithms, ssh_transport:supported_algorithms()},
                           {silently_accept_hosts,true},
                           {user_interaction,false}
                          ]),
@@ -1309,8 +1374,7 @@ one_test_erl_client(SFTP, Id, C) when SFTP==sftp ; SFTP==sftp_async ->
         catch ssh_sftp:stop_channel(Ch),
         R
     catch
-        Class:Error ->
-            ST = erlang:get_stacktrace(),
+        Class:Error:ST ->
             {error, {SFTP,Id,Class,Error,ST}}
     end.
 

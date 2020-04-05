@@ -140,7 +140,7 @@
 -endif.
 
 %% This is mostly a convenience which gives more detailed reports.
-%% Note: Guard is a guarded pattern, and can not be used for value.
+%% Note: Guard is a guarded pattern, and cannot be used for value.
 -ifdef(NOASSERT).
 -define(assertMatch(Guard, Expr), ok).
 -define(assertMatch(Guard, Expr, Comment), ok).
@@ -289,7 +289,7 @@
         end).
 -endif.
 
-%% Note: Class and Term are patterns, and can not be used for value.
+%% Note: Class and Term are patterns, and cannot be used for value.
 %% Term can be a guarded pattern, but Class cannot.
 -ifdef(NOASSERT).
 -define(assertException(Class, Term, Expr), ok).
@@ -309,7 +309,7 @@
                                        {unexpected_success, __V}]})
             catch
                 Class:Term -> ok;
-                __C:__T ->
+                __C:__T:__S ->
                     erlang:error({assertException,
                                   [{module, ?MODULE},
                                    {line, ?LINE},
@@ -318,8 +318,7 @@
                                     "{ "++(??Class)++" , "++(??Term)
                                     ++" , [...] }"},
                                    {unexpected_exception,
-                                    {__C, __T,
-                                     erlang:get_stacktrace()}}]})
+                                    {__C, __T, __S}}]})
             end
           end)())
         end).
@@ -338,7 +337,7 @@
                                        {unexpected_success, __V}]})
             catch
                 Class:Term -> ok;
-                __C:__T ->
+                __C:__T:__S ->
                     erlang:error({assertException,
                                   [{module, ?MODULE},
                                    {line, ?LINE},
@@ -348,8 +347,7 @@
                                     "{ "++(??Class)++" , "++(??Term)
                                     ++" , [...] }"},
                                    {unexpected_exception,
-                                    {__C, __T,
-                                     erlang:get_stacktrace()}}]})
+                                    {__C, __T, __S}}]})
             end
           end)())
         end).
@@ -366,7 +364,7 @@
         ?assertException(throw, Term, Expr, Comment)).
 
 %% This is the inverse case of assertException, for convenience.
-%% Note: Class and Term are patterns, and can not be used for value.
+%% Note: Class and Term are patterns, and cannot be used for value.
 %% Both Class and Term can be guarded patterns.
 -ifdef(NOASSERT).
 -define(assertNotException(Class, Term, Expr), ok).
@@ -378,7 +376,7 @@
             try (Expr) of
                 _ -> ok
             catch
-                __C:__T ->
+                __C:__T:__S ->
                     case __C of
                         Class ->
                             case __T of
@@ -391,9 +389,7 @@
                                                     "{ "++(??Class)++" , "
                                                     ++(??Term)++" , [...] }"},
                                                    {unexpected_exception,
-                                                    {__C, __T,
-                                                     erlang:get_stacktrace()
-                                                    }}]});
+                                                    {__C, __T, __S}}]});
                                 _ -> ok
                             end;
                         _ -> ok
@@ -407,7 +403,7 @@
             try (Expr) of
                 _ -> ok
             catch
-                __C:__T ->
+                __C:__T:__S ->
                     case __C of
                         Class ->
                             case __T of
@@ -421,9 +417,7 @@
                                                     "{ "++(??Class)++" , "
                                                     ++(??Term)++" , [...] }"},
                                                    {unexpected_exception,
-                                                    {__C, __T,
-                                                     erlang:get_stacktrace()
-                                                    }}]});
+                                                    {__C, __T, __S}}]});
                                 _ -> ok
                             end;
                         _ -> ok

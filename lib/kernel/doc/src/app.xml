@@ -159,14 +159,14 @@ ApplicationVersion = string()</code>
           of a configuration parameter is retrieved by calling
           <c>application:get_env/1,2</c>. The values in the application
           resource file can be overridden by values in a configuration
-          file (see <seealso marker="config"><c>config(4)</c></seealso>)
+          file (see <seefile marker="config"><c>config(4)</c></seefile>)
           or by command-line flags (see
-          <seealso marker="erts:erl"><c>erts:erl(1)</c></seealso>).</p>
+          <seecom marker="erts:erl"><c>erts:erl(1)</c></seecom>).</p>
       </item>
       <tag><c>mod</c></tag>
       <item>
         <p>Specifies the application callback module and a start argument, see
-          <seealso marker="application"><c>application(3)</c></seealso>.</p>
+          <seeerl marker="application"><c>application(3)</c></seeerl>.</p>
         <p>Key <c>mod</c> is necessary for an application
           implemented as a supervision tree, otherwise the application
           controller does not know how to start it. <c>mod</c>
@@ -197,7 +197,7 @@ ApplicationVersion = string()</code>
         <p>This implies that for an included application, the set of
           start phases must be a subset of the set of phases defined
           for the primary application. For more information, see
-          <seealso marker="doc/design_principles:applications">OTP Design Principles</seealso>.
+          <seeguide marker="system/design_principles:applications">OTP Design Principles</seeguide>.
         </p>
       </item>
       <tag>
@@ -211,7 +211,7 @@ ApplicationVersion = string()</code>
           application version than the one specified in the
           dependency satisfies the requirement. For information about
           how to compare application versions, see section
-          <seealso marker="doc/system_principles:versions">Versions</seealso>
+          <seeguide marker="system/system_principles:versions">Versions</seeguide>
           in the System Principles User's Guide.</p>
         <p>Notice that the application version
           specifies a source code version. One more, indirect,
@@ -235,8 +235,8 @@ ApplicationVersion = string()</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="application"><c>application(3)</c></seealso>,
-      <seealso marker="sasl:systools"><c>systools(3)</c></seealso></p>
+    <p><seeerl marker="application"><c>application(3)</c></seeerl>,
+      <seeerl marker="sasl:systools"><c>systools(3)</c></seeerl></p>
   </section>
 </fileref>
 

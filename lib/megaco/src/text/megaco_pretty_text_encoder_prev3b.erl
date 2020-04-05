@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,12 @@
 
 %%
 %%----------------------------------------------------------------------
-%%% Purpose: Encode PRETTY Megaco/H.248 text messages from internal form
+%% Purpose: Encode PRETTY Megaco/H.248 text messages from internal form
+%%
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%
 %%----------------------------------------------------------------------
 
 -module(megaco_pretty_text_encoder_prev3b).

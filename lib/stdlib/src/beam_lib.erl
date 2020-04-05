@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +32,12 @@
 	 all_chunks/1,
 	 diff_dirs/2,
 	 strip/1,
+	 strip/2,
 	 strip_files/1,
+	 strip_files/2,
 	 strip_release/1,
+	 strip_release/2,
+	 significant_chunks/0,
 	 build_module/1,
 	 version/1,
 	 md5/1,
@@ -53,7 +57,7 @@
 
 %%-------------------------------------------------------------------------
 
--type beam() :: module() | file:filename() | binary().
+-type beam() :: file:filename() | binary().
 -type debug_info() :: {DbgiVersion :: atom(), Backend :: module(), Data :: term()} | 'no_debug_info'.
 
 -type forms()     :: [erl_parse:abstract_form() | erl_parse:form_info()].
@@ -148,7 +152,8 @@ chunks(File, Chunks, Options) ->
     try read_chunk_data(File, Chunks, Options)
     catch Error -> Error end.
 
--spec all_chunks(beam()) -> {'ok', 'beam_lib', [{chunkid(), dataB()}]}.
+-spec all_chunks(beam()) ->
+           {'ok', 'beam_lib', [{chunkid(), dataB()}]} | {'error', 'beam_lib', info_rsn()}.
 
 all_chunks(File) ->
     read_all_chunks(File).
@@ -187,7 +192,16 @@ diff_dirs(Dir1, Dir2) ->
       Beam2 :: beam().
 
 strip(FileName) ->
-    try strip_file(FileName)
+    strip(FileName, []).
+
+-spec strip(Beam1, AdditionalChunks) ->
+        {'ok', {module(), Beam2}} | {'error', 'beam_lib', info_rsn()} when
+      Beam1 :: beam(),
+      AdditionalChunks :: [chunkid()],
+      Beam2 :: beam().
+
+strip(FileName, AdditionalChunks) ->
+    try strip_file(FileName, AdditionalChunks)
     catch Error -> Error end.
     
 -spec strip_files(Files) ->
@@ -195,8 +209,17 @@ strip(FileName) ->
       Files :: [beam()],
       Beam :: beam().
 
-strip_files(Files) when is_list(Files) ->
-    try strip_fils(Files)
+strip_files(Files) ->
+    strip_files(Files, []).
+
+-spec strip_files(Files, AdditionalChunks) ->
+        {'ok', [{module(), Beam}]} | {'error', 'beam_lib', info_rsn()} when
+      Files :: [beam()],
+      AdditionalChunks :: [chunkid()],
+      Beam :: beam().
+
+strip_files(Files, AdditionalChunks) when is_list(Files) ->
+    try strip_fils(Files, AdditionalChunks)
     catch Error -> Error end.
 
 -spec strip_release(Dir) ->
@@ -206,7 +229,17 @@ strip_files(Files) when is_list(Files) ->
       Reason :: {'not_a_directory', term()} | info_rsn().
 
 strip_release(Root) ->
-    catch strip_rel(Root).
+    strip_release(Root, []).
+
+-spec strip_release(Dir, AdditionalChunks) ->
+        {'ok', [{module(), file:filename()}]}
+      | {'error', 'beam_lib', Reason} when
+      Dir :: atom() | file:filename(),
+      AdditionalChunks :: [chunkid()],
+      Reason :: {'not_a_directory', term()} | info_rsn().
+
+strip_release(Root, AdditionalChunks) ->
+    catch strip_rel(Root, AdditionalChunks).
 
 -spec version(Beam) ->
                      {'ok', {module(), [Version :: term()]}} |
@@ -400,17 +433,17 @@ cmp_lists([{Id, C1} | R1], [{Id, C2} | R2]) ->
 cmp_lists(_, _) ->
     error(different_chunks).
     
-strip_rel(Root) ->
+strip_rel(Root, AdditionalChunks) ->
     ok = assert_directory(Root),
-    strip_fils(filelib:wildcard(filename:join(Root, "lib/*/ebin/*.beam"))).
+    strip_fils(filelib:wildcard(filename:join(Root, "lib/*/ebin/*.beam")), AdditionalChunks).
 
 %% -> {ok, [{Mod, BinaryOrFileName}]} | throw(Error)
-strip_fils(Files) ->
-    {ok, [begin {ok, Reply} = strip_file(F), Reply end || F <- Files]}.
+strip_fils(Files, AdditionalChunks) ->
+    {ok, [begin {ok, Reply} = strip_file(F, AdditionalChunks), Reply end || F <- Files]}.
 
 %% -> {ok, {Mod, FileName}} | {ok, {Mod, binary()}} | throw(Error)
-strip_file(File) ->
-    {ok, {Mod, Chunks}} = read_significant_chunks(File, significant_chunks()),
+strip_file(File, AdditionalChunks) ->
+    {ok, {Mod, Chunks}} = read_significant_chunks(File, AdditionalChunks ++ significant_chunks()),
     {ok, Stripped0} = build_module(Chunks),
     Stripped = compress(Stripped0),
     case File of
@@ -689,30 +722,31 @@ chunk_to_data(debug_info=Id, Chunk, File, _Cs, AtomTable, Mod) ->
 	<<0:8,N:8,Mode0:N/binary,Rest/binary>> ->
 	    Mode = binary_to_atom(Mode0, utf8),
 	    Term = decrypt_chunk(Mode, Mod, File, Id, Rest),
-	    {AtomTable, {Id, Term}};
-	_ ->
-	    case catch binary_to_term(Chunk) of
-		{'EXIT', _} ->
-		    error({invalid_chunk, File, chunk_name_to_id(Id, File)});
-		Term ->
-                    {AtomTable, {Id, Term}}
-	    end
-    end;
-chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
-    case Chunk of
-	<<>> ->
-	    {AtomTable, {Id, no_abstract_code}};
-	<<0:8,N:8,Mode0:N/binary,Rest/binary>> ->
-	    Mode = binary_to_atom(Mode0, utf8),
-	    Term = decrypt_chunk(Mode, Mod, File, Id, Rest),
 	    {AtomTable, {Id, anno_from_term(Term)}};
 	_ ->
 	    case catch binary_to_term(Chunk) of
 		{'EXIT', _} ->
 		    error({invalid_chunk, File, chunk_name_to_id(Id, File)});
 		Term ->
+                    {AtomTable, {Id, anno_from_term(Term)}}
+	    end
+    end;
+chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
+    %% Before Erlang/OTP 20.0.
+    case Chunk of
+	<<>> ->
+	    {AtomTable, {Id, no_abstract_code}};
+	<<0:8,N:8,Mode0:N/binary,Rest/binary>> ->
+	    Mode = binary_to_atom(Mode0, utf8),
+	    Term = decrypt_chunk(Mode, Mod, File, Id, Rest),
+	    {AtomTable, {Id, old_anno_from_term(Term)}};
+	_ ->
+	    case catch binary_to_term(Chunk) of
+		{'EXIT', _} ->
+		    error({invalid_chunk, File, chunk_name_to_id(Id, File)});
+		Term ->
                     try
-                        {AtomTable, {Id, anno_from_term(Term)}}
+                        {AtomTable, {Id, old_anno_from_term(Term)}}
                     catch
                         _:_ ->
                             error({invalid_chunk, File,
@@ -939,20 +973,30 @@ decrypt_chunk(Type, Module, File, Id, Bin) ->
 	KeyString = get_crypto_key({debug_info, Type, Module, File}),
 	{Type,Key,IVec,_BlockSize} = make_crypto_key(Type, KeyString),
 	ok = start_crypto(),
-	NewBin = crypto:block_decrypt(Type, Key, IVec, Bin),
+	NewBin = crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin, false),
 	binary_to_term(NewBin)
     catch
 	_:_ ->
 	    error({key_missing_or_invalid, File, Id})
     end.
 
-anno_from_term({raw_abstract_v1, Forms}) ->
+old_anno_from_term({raw_abstract_v1, Forms}) ->
     {raw_abstract_v1, anno_from_forms(Forms)};
-anno_from_term({Tag, Forms}) when Tag =:= abstract_v1; Tag =:= abstract_v2 ->
+old_anno_from_term({Tag, Forms}) when Tag =:= abstract_v1;
+                                      Tag =:= abstract_v2 ->
     try {Tag, anno_from_forms(Forms)}
     catch
         _:_ ->
             {Tag, Forms}
+    end;
+old_anno_from_term(T) ->
+    T.
+
+anno_from_term({debug_info_v1=Tag1, erl_abstract_code=Tag2, {Forms, Opts}}) ->
+    try {Tag1, Tag2, {anno_from_forms(Forms), Opts}}
+    catch
+        _:_ ->
+            {Tag1, Tag2, {Forms, Opts}}
     end;
 anno_from_term(T) ->
     T.

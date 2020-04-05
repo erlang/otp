@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,25 +93,34 @@ wall_clock_zero_diff1(0) ->
 %% statistics(wall_clock) are compatible, and are within a small number
 %% of ms of the amount of real time we waited for.
 wall_clock_update(Config) when is_list(Config) ->
-    wall_clock_update1(6).
+    N = 10,
+    Inc = 200,
+    TotalTime = wall_clock_update1(N, Inc, 0),
+    Overhead = TotalTime - N * Inc,
+    IsDebug = test_server:is_debug(),
 
-wall_clock_update1(N) when N > 0 ->
-    {T1_wc_time, _} = statistics(wall_clock),
-    receive after 1000 -> ok end,
-    {T2_wc_time, Wc_Diff} = statistics(wall_clock),
-
-    Wc_Diff = T2_wc_time - T1_wc_time,
-    io:format("Wall clock diff = ~p; should be  = 1000..1040~n", [Wc_Diff]),
-    case test_server:is_debug() of
-        false ->
-            true = Wc_Diff =< 1040;
+    %% Check that the average overhead is reasonable.
+    if
+        Overhead < N * 100 ->
+            ok;
+        IsDebug, Overhead < N * 1000 ->
+            ok;
         true ->
-            true = Wc_Diff =< 2000	%Be more tolerant in debug-compiled emulator.
-    end,
-    true = Wc_Diff >= 1000,
-    wall_clock_update1(N-1);
-wall_clock_update1(0) ->
-    ok.
+            io:format("There was an overhead of ~p ms during ~p rounds.",
+                      [Overhead,N]),
+            ct:fail(too_much_overhead)
+    end.
+
+wall_clock_update1(N, Inc, Total) when N > 0 ->
+    {Time1, _} = statistics(wall_clock),
+    receive after Inc -> ok end,
+    {Time2, WcDiff} = statistics(wall_clock),
+    WcDiff = Time2 - Time1,
+    io:format("Wall clock diff = ~p (expected at least ~p)\n", [WcDiff,Inc]),
+    true = WcDiff >= Inc,
+    wall_clock_update1(N-1, Inc, Total + WcDiff);
+wall_clock_update1(0, _, Total) ->
+    Total.
 
 
 %%% Test statistics(runtime).
@@ -310,6 +319,13 @@ scheduler_wall_time_all(Config) when is_list(Config) ->
     scheduler_wall_time_test(scheduler_wall_time_all).
 
 scheduler_wall_time_test(Type) ->
+    case string:find(erlang:system_info(system_version),
+                     "dirty-schedulers-TEST") == nomatch of
+        true -> run_scheduler_wall_time_test(Type);
+        false -> {skip, "Cannot be run with dirty-schedulers-TEST build"}
+    end.
+
+run_scheduler_wall_time_test(Type) ->
     %% Should return undefined if system_flag is not turned on yet
     undefined = statistics(Type),
     %% Turn on statistics
@@ -638,9 +654,7 @@ msacc(Config) ->
                         (aux, 0) ->
                              %% aux will be zero if we do not have smp support
                              %% or no async threads
-                             case erlang:system_info(smp_support) orelse
-                                  erlang:system_info(thread_pool_size) > 0
-                             of
+                             case erlang:system_info(thread_pool_size) > 0 of
                                  false ->
                                      ok;
                                  true ->
@@ -675,6 +689,16 @@ msacc_test(TmpFile) ->
     Tid = ets:new(table, []),
     ets:insert(Tid, {1, hello}),
     ets:delete(Tid),
+
+    %% Check some IO
+    {ok, L} = gen_tcp:listen(0, [{active, true},{reuseaddr,true}]),
+    {ok, Port} = inet:port(L),
+    Pid = spawn(fun() ->
+                        {ok, S} = gen_tcp:accept(L),
+                        (fun F() -> receive M -> F() end end)()
+                end),
+    {ok, C} = gen_tcp:connect("localhost", Port, []),
+    [begin gen_tcp:send(C,"hello"),timer:sleep(1) end || _ <- lists:seq(1,100)],
 
     %% Collect some garbage
     [erlang:garbage_collect() || _ <- lists:seq(1,100)],

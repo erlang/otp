@@ -1,7 +1,7 @@
 %% This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,10 +30,7 @@
             inets_lib,
 
             %% FTP
-            ftp,
-	    ftp_progress,	
-	    ftp_response,		
-            ftp_sup,
+            inets_ftp_wrapper,
             
             %% HTTP client:
             httpc, 
@@ -46,14 +43,14 @@
             httpc_sup,
             httpc_cookie,                
 
-	    http_uri, %% Proably will by used by server also in the future
-
             %% HTTP used by both client and server 
             http_chunk,
             http_request,
             http_response,      
             http_transport,
             http_util,  
+
+            http_uri, %% Deprecated
             
             %% HTTP server:
             httpd,
@@ -69,6 +66,7 @@
 	    httpd_file,
             httpd_instance_sup,
 	    httpd_log,
+            httpd_logger,
             httpd_manager,
             httpd_misc_sup,
             httpd_request,
@@ -85,14 +83,12 @@
             mod_auth_mnesia,
             mod_auth_plain,
             mod_auth_server,
-            mod_browser,
             mod_cgi,
             mod_dir,
             mod_disk_log,
             mod_esi,
             mod_get,
             mod_head,
-            mod_htaccess,
             mod_log,
             mod_range,
             mod_responsecontrol,
@@ -101,17 +97,11 @@
             mod_trace,
             
             %% TFTP
-            tftp,
-            tftp_binary,
-            tftp_engine,
-            tftp_file,
-            tftp_lib,
-            tftp_logger,
-            tftp_sup
+            inets_tftp_wrapper
         ]},
   {registered,[inets_sup, httpc_manager]},
   %% If the "new" ssl is used then 'crypto' must be started before inets.
   {applications,[kernel,stdlib]},
   {mod,{inets_app,[]}},
-  {runtime_dependencies, ["stdlib-2.0","ssl-5.3.4","runtime_tools-1.8.14",
+  {runtime_dependencies, ["stdlib-3.5","ssl-5.3.4","runtime_tools-1.8.14",
 			  "mnesia-4.12","kernel-3.0","erts-6.0"]}]}.

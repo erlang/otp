@@ -1,0 +1,3 @@
+
+record_update.erl:7: Invalid type specification for function record_update:quux/2. The success typing is 
+          (#foo{bar :: atom()}, atom()) -> #foo{bar :: atom()}

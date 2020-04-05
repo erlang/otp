@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,8 +79,8 @@ init([Notebook, Parent, Config]) ->
                       max   = #{}
 		     }
 	}
-    catch _:Err ->
-	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, erlang:get_stacktrace()]),
+    catch _:Err:Stacktrace ->
+	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, Stacktrace]),
 	    {stop, Err}
     end.
 
@@ -261,19 +261,30 @@ sum_alloc_instances([{_,_,Data}|Instances],BS,CS,TotalBS,TotalCS) ->
 sum_alloc_instances([],BS,CS,TotalBS,TotalCS) ->
     {BS,CS,TotalBS,TotalCS,true}.
 
-sum_alloc_one_instance([{sbmbcs,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
+sum_alloc_one_instance([{_,[{blocks,TypedBlocks},{carriers_size,CS,_,_}]}|
 			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS,TotalCS);
+    %% OTP 23 and later.
+    BS = sum_alloc_block_list(TypedBlocks, 0),
+    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
 sum_alloc_one_instance([{_,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
 			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
-sum_alloc_one_instance([{_,[{blocks_size,BS},{carriers_size,CS}]}|
-			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
+    %% OTP 22 and earlier.
     sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
 sum_alloc_one_instance([_|Rest],BS,CS,TotalBS,TotalCS) ->
     sum_alloc_one_instance(Rest,BS,CS,TotalBS,TotalCS);
 sum_alloc_one_instance([],BS,CS,TotalBS,TotalCS) ->
     {BS,CS,TotalBS,TotalCS}.
+
+sum_alloc_block_list([{_Type, [{size, Current, _, _}]} | Rest], Acc) ->
+    %% We ignore the type since we're returning a summary of all blocks in the
+    %% carriers employed by a certain instance.
+    sum_alloc_block_list(Rest, Current + Acc);
+sum_alloc_block_list([{_Type, [{size, Current}]} | Rest], Acc) ->
+    sum_alloc_block_list(Rest, Current + Acc);
+sum_alloc_block_list([_ | Rest], Acc) ->
+    sum_alloc_block_list(Rest, Acc);
+sum_alloc_block_list([], Acc) ->
+    Acc.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -282,11 +293,12 @@ create_mem_info(Parent) ->
     Grid = wxListCtrl:new(Parent, [{style, Style}]),
 
     Li = wxListItem:new(),
+    Scale = observer_wx:get_scale(),
     AddListEntry = fun({Name, Align, DefSize}, Col) ->
 			   wxListItem:setText(Li, Name),
 			   wxListItem:setAlign(Li, Align),
 			   wxListCtrl:insertColumn(Grid, Col, Li),
-			   wxListCtrl:setColumnWidth(Grid, Col, DefSize),
+			   wxListCtrl:setColumnWidth(Grid, Col, DefSize*Scale),
 			   Col + 1
 		   end,
     ListItems = [{"Allocator Type",  ?wxLIST_FORMAT_LEFT,  200},

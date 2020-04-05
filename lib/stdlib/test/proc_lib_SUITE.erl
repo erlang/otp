@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,8 +27,12 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 crash/1, stacktrace/1, sync_start_nolink/1, sync_start_link/1,
-         spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1, '\x{447}'/0,
-	 hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
+         sync_start_monitor/1, sync_start_monitor_link/1,
+         sync_start_timeout/1, sync_start_link_timeout/1,
+         sync_start_monitor_link_timeout/1,
+         spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1, sp6/1, sp7/1,
+         sp8/1, sp9/1, sp10/1,
+         '\x{447}'/0, hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
 -export([hib_loop/1, awaken/1]).
@@ -38,6 +42,8 @@
 	 terminate/2]).
 
 -export([otp_6345_init/1, init_dont_hang_init/1]).
+
+-export([report_cb/1, report_cb_chars_limit/1, log/2, rcb_tester/0]).
 
 -export([system_terminate/4]).
 
@@ -51,11 +57,14 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [crash, stacktrace, {group, sync_start}, spawn_opt, hibernate,
-     {group, tickets}, stop, t_format, t_format_arbitrary].
+     {group, tickets}, stop, t_format, t_format_arbitrary, report_cb].
 
 groups() -> 
     [{tickets, [], [otp_6345, init_dont_hang]},
-     {sync_start, [], [sync_start_nolink, sync_start_link]}].
+     {sync_start, [], [sync_start_nolink, sync_start_link,
+                       sync_start_monitor, sync_start_monitor_link,
+                       sync_start_timeout, sync_start_link_timeout,
+                       sync_start_monitor_link_timeout]}].
 
 init_per_suite(Config) ->
     Config.
@@ -275,6 +284,84 @@ sync_start_link(Config) when is_list(Config) ->
     end,
     ok.
 
+sync_start_monitor(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp6, [self()]),
+    receive
+	{sync_started, _} -> ct:fail(async_start)
+    after 1000 -> ok
+    end,
+    receive
+	{Pid2, init} ->
+	    Pid2 ! go_on
+    end,
+    receive
+	{sync_started, _} -> ok
+    after 1000 -> ct:fail(no_sync_start)
+    end,
+    receive received_down -> ok
+    after 2000 -> ct:fail(no_down)
+    end,
+    ok.
+
+sync_start_monitor_link(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp7, [self()]),
+    receive
+	{sync_started, _} -> ct:fail(async_start)
+    after 1000 -> ok
+    end,
+    receive
+	{Pid2, init} ->
+	    Pid2 ! go_on
+    end,
+    receive
+	{sync_started, _} -> ok
+    after 1000 -> ct:fail(no_sync_start)
+    end,
+    receive received_down -> ok
+    after 1000 -> ct:fail(no_down)
+    end,
+    receive received_exit -> ok
+    after 1000 -> ct:fail(no_exit)
+    end,
+    ok.
+
+sync_start_timeout(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp8, [self()]),
+    receive done -> ok end,
+    receive {received_exit, _} = M1 -> ct:fail(M1)
+    after 0 -> ok
+    end,
+    receive {received_down, _} = M2 -> ct:fail(M2)
+    after 0 -> ok
+    end,
+    ok.
+
+sync_start_link_timeout(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp9, [self()]),
+    receive done -> ok end,
+    receive {received_exit, _} = M1 -> ct:fail(M1)
+    after 0 -> ok
+    end,
+    receive {received_down, _} = M2 -> ct:fail(M2)
+    after 0 -> ok
+    end,
+    ok.
+    
+sync_start_monitor_link_timeout(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp10, [self()]),
+    receive done -> ok end,
+    receive {received_exit, _} = M1 -> ct:fail(M1)
+    after 0 -> ok
+    end,
+    receive
+        {received_down, R} ->
+            killed = R,
+            ok
+    after 0 -> ct:fail(no_down)
+    end,
+    ok.
+    
+
 spawn_opt(Config) when is_list(Config) ->
     F = fun sp1/0,
     {name,Fname} = erlang:fun_info(F, name),
@@ -312,6 +399,89 @@ sp3(Tester) ->
 sp5(Tester) ->
     Pid = proc_lib:start(?MODULE, sp4, [self(), Tester]),
     Tester ! {sync_started, Pid}.
+
+sp6(Tester) ->
+    process_flag(trap_exit, true),
+    {Pid, Mon} = proc_lib:start_monitor(?MODULE, sp4, [self(), Tester]),
+    Tester ! {sync_started, Pid},
+    receive
+        {'EXIT', Pid, normal} ->
+            exit(received_exit)
+    after 1000 ->
+            ok
+    end,
+    receive
+        {'DOWN', Mon, process, Pid, normal} ->
+            Tester ! received_down
+    end.
+
+sp7(Tester) ->
+    process_flag(trap_exit, true),
+    {Pid, Mon} = proc_lib:start_monitor(?MODULE, sp4, [self(), Tester], infinity, [link]),
+    Tester ! {sync_started, Pid},
+    receive
+        {'EXIT', Pid, normal} ->
+            Tester ! received_exit
+    end,
+    receive
+        {'DOWN', Mon, process, Pid, normal} ->
+            Tester ! received_down
+    end.
+
+sp8(Tester) ->
+    process_flag(trap_exit, true),
+    {error,timeout} = proc_lib:start(?MODULE, sp4, [self(), Tester], 500, [link]),
+    receive after 500 -> ok end,
+    receive
+        {'EXIT', _Pid1, Reason1} ->
+            Tester ! {received_exit, Reason1}
+    after 0 ->
+            ok
+    end,
+    receive
+        {'DOWN', _Mon2, process, _Pid2, Reason2} ->
+            Tester ! {received_down, Reason2}
+    after 0 ->
+            ok
+    end,
+    Tester ! done.
+
+sp9(Tester) ->
+    process_flag(trap_exit, true),
+    {error,timeout} = proc_lib:start_link(?MODULE, sp4, [self(), Tester], 500),
+    receive after 500 -> ok end,
+    receive
+        {'EXIT', _Pid1, Reason1} ->
+            Tester ! {received_exit, Reason1}
+    after 0 ->
+            ok
+    end,
+    receive
+        {'DOWN', _Mon, process, _Pid2, Reason2} ->
+            Tester ! {received_down, Reason2}
+    after 0 ->
+            ok
+    end,
+    Tester ! done.
+    
+
+sp10(Tester) ->
+    process_flag(trap_exit, true),
+    {{error,timeout}, Mon} = proc_lib:start_monitor(?MODULE, sp4, [self(), Tester], 500, [link]),
+    receive after 500 -> ok end,
+    receive
+        {'EXIT', _Pid1, Reason1} ->
+            Tester ! {received_exit, Reason1}
+    after 0 ->
+            ok
+    end,
+    receive
+        {'DOWN', Mon, process, _Pid2, Reason2} ->
+            Tester ! {received_down, Reason2}
+    after 0 ->
+            ok
+    end,
+    Tester ! done.
 
 sp4(Parent, Tester) ->
     Tester ! {self(), init},
@@ -421,10 +591,12 @@ hib_receive_messages(N) ->
 %% 'monitor' spawn_opt option.
 otp_6345(Config) when is_list(Config) ->
     Opts = [link,monitor],
-    {'EXIT', {badarg,[{proc_lib,check_for_monitor,_,_}|_Stack]}} =
-	(catch proc_lib:start(?MODULE, otp_6345_init, [self()],
-			      1000, Opts)),
-    ok.
+    try
+        blupp = proc_lib:start(?MODULE, otp_6345_init, [self()],
+                               1000, Opts)
+    catch
+        error:badarg -> ok
+    end.
 
 otp_6345_init(Parent) ->
     proc_lib:init_ack(Parent, {ok, self()}),
@@ -446,8 +618,8 @@ init_dont_hang(Config) when is_list(Config) ->
 	StartLinkRes = proc_lib:start(?MODULE, init_dont_hang_init, [self()], 1000),
 	StartLinkRes = proc_lib:start(?MODULE, init_dont_hang_init, [self()], 1000, []),
 	ok
-    catch _:Error ->
-	    io:format("Error ~p /= ~p ~n",[erlang:get_stacktrace(), StartLinkRes]),
+    catch _:Error:Stacktrace ->
+	    io:format("Error ~p /= ~p ~n",[Stacktrace, StartLinkRes]),
 	    exit(Error)
     end.
 
@@ -542,16 +714,18 @@ system_terminate(Reason,_Parent,_Deb,_State) ->
 
 
 t_format(_Config) ->
-    error_logger:tty(false),
+    {ok,#{level:=Level}} = logger:get_handler_config(default),
+    logger:set_handler_config(default,level,none),
+    error_logger:add_report_handler(?MODULE, self()),
     try
 	t_format()
     after
-	error_logger:tty(true)
+        error_logger:delete_report_handler(?MODULE),
+        logger:set_handler_config(default,level,Level)
     end,
     ok.
 
 t_format() ->
-    error_logger:add_report_handler(?MODULE, self()),
     Pid = proc_lib:spawn(fun '\x{aaa}t_format_looper'/0),
     HugeData = gb_sets:from_list(lists:seq(1, 100)),
     SomeData1 = list_to_atom([246]),
@@ -584,11 +758,12 @@ t_format() ->
     ok.
 
 t_format_arbitrary(_Config) ->
-    error_logger:tty(false),
+    {ok,#{level:=Level}} = logger:get_handler_config(default),
+    logger:set_handler_config(default,level,none),
     try
         t_format_arbitrary()
     after
-        error_logger:tty(true)
+        logger:set_handler_config(default,level,Level)
     end,
     ok.
 
@@ -625,6 +800,180 @@ do_test_format(Report, Encoding, Depth) ->
 	    '\x{aaa}t_format_looper'()
     end.
 
+%% Test report callback for any Logger handler
+report_cb(_Config) ->
+    ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
+    Pid = proc_lib:spawn(?MODULE, sp2, []),
+    ct:sleep(100),
+    {links,[NPid]} = process_info(Pid,links),
+    NPidStr = pid_to_list(NPid),
+    Pid ! die,
+    Report =
+        receive
+            {report,R} ->
+                R
+        after 5000 ->
+                ct:fail(no_report_received)
+        end,
+
+    Str1 = flatten_report_cb(Report,#{}),
+    L1 = length(Str1),
+    Expected1 = "  crasher:\n    initial call: proc_lib_SUITE:sp2/0\n",
+    ct:log("Str1: ~p",[Str1]),
+    ct:log("length(Str1): ~p",[L1]),
+    true = lists:prefix(Expected1,Str1),
+
+    FormatOpts1 = #{},
+    Str1 = flatten_report_cb(Report,FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "  crasher:\n    initial call: proc_lib_SUITE:sp2/0\n",
+    ct:log("Str1: ~p",[Str1]),
+    ct:log("length(Str1): ~p",[L1]),
+    true = lists:prefix(Expected1,Str1),
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_report_cb(Report,FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "  crasher:\n    initial call: proc_lib_SUITE:sp2/0\n",
+    ct:log("Str2: ~p",[Str2]),
+    ct:log("length(Str2): ~p",[L2]),
+    true = lists:prefix(Expected2,Str2),
+    true = L2<L1,
+
+    FormatOpts3 = #{chars_limit=>500},
+    Str3 = flatten_report_cb(Report,FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "  crasher:\n    initial call: proc_lib_SUITE:sp2/0\n",
+    ct:log("Str3: ~p",[Str3]),
+    ct:log("length(Str3): ~p",[L3]),
+    true = lists:prefix(Expected3,Str3),
+    true = L3<L1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_report_cb(Report,FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "crasher: initial call: proc_lib_SUITE:sp2/0,",
+    ct:log("Str4: ~p",[Str4]),
+    ct:log("length(Str4): ~p",[L4]),
+    true = lists:prefix(Expected4,Str4),
+    true = L4<L1,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_report_cb(Report,FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "crasher: initial call: proc_lib_SUITE:sp2/0,",
+    ct:log("Str5: ~p",[Str5]),
+    ct:log("length(Str5): ~p",[L5]),
+    true = lists:prefix(Expected5,Str5),
+    true = L5<L4,
+    %% Check that neighbour information is printed
+    SplitFun = fun($;) -> false; (_) -> true end,
+    ExpectedNeighbours5 = "; neighbours: neighbour: pid: "++NPidStr++
+        ", registered_name: []",
+    true = lists:prefix(ExpectedNeighbours5,lists:dropwhile(SplitFun, Str5)),
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>500},
+    Str6 = flatten_report_cb(Report,FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "crasher: initial call: proc_lib_SUITE:sp2/0,",
+    ct:log("Str6: ~p",[Str6]),
+    ct:log("length(Str6): ~p",[L6]),
+    true = lists:prefix(Expected6,Str6),
+    true = L6<L4,
+    %% Check that only pid is printed for neighbour, due to chars_limit
+    ExpectedNeighbours6 = "; neighbours: ["++NPidStr++"]",
+    ExpectedNeighbours6 = lists:dropwhile(SplitFun, Str6),
+
+    ok = logger:remove_handler(?MODULE),
+    ok.
+
+report_cb_chars_limit(_Config) ->
+    %% This test does not really test anything, it just formats the
+    %% crash reports with different settings and prints the result. It
+    %% could be used as an example if report_cb was to be modified
+    %% for better utilization of the available number of characters
+    %% according to the chars_limit setting.
+    %%
+    %% Currently, multi-line formatting with chars_limit=1024 gives
+    %% a final report of 1696 character. The excess is due to the fact
+    %% that io_lib_pretty counts non-white characters--the indentation
+    %% of the formatted exception is not counted.
+    %%
+    %% Single-line formatting with chars_limit=1024 gives a final
+    %% report of 1104 characters.
+    %%
+    %% Single-line formatting a fake report with chars_limit=1024 gives
+    %% a final report of 1024 characters.
+
+    ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
+    Pid = proc_lib:spawn(?MODULE, rcb_tester, []),
+    ct:sleep(500),
+    Pid ! die,
+    Report =
+        receive
+            {report,R} ->
+                R
+        after 5000 ->
+                ct:fail(no_report_received)
+        end,
+
+    ct:sleep(500), % To separate debug calls to erlang:display(), if any.
+    Str1 = flatten_report_cb(Report,#{}),
+    L1 = length(Str1),
+    ct:log("Multi-line, no size limit:~n~s",[Str1]),
+    ct:log("Length, multi-line, no size limit: ~p",[L1]),
+
+    ct:sleep(500),
+    FormatOpts2 = #{chars_limit=>1024},
+    Str2 = flatten_report_cb(Report,FormatOpts2),
+    L2 = length(Str2),
+    ct:log("Multi-line, chars_limit=1024:~n~s",[Str2]),
+    ct:log("Length, multi-line, chars_limit=1024: ~p",[L2]),
+
+    ct:sleep(500),
+    FormatOpts3 = #{single_line=>true, chars_limit=>1024},
+    Str3 = flatten_report_cb(Report,FormatOpts3),
+    L3 = length(Str3),
+    ct:log("Single-line, chars_limit=1024:~n~s",[Str3]),
+    ct:log("Length, single-line, chars_limit=1024: ~p",[L3]),
+
+    ct:sleep(500),
+    Seq = lists:seq(1, 1000),
+    FakeReport = [[{fake_tag,Seq}],Seq],
+    FReport = #{label=>{proc_lib,crash}, report=>FakeReport},
+    Str4 = flatten_report_cb(FReport,FormatOpts3),
+    L4 = length(Str4),
+    ct:log("Fake: Single-line, chars_limit=1024:~n~s",[Str4]),
+    ct:log("Fake: Length, single-line, chars_limit=1024: ~p",[L4]),
+
+    ok = logger:remove_handler(?MODULE),
+    ok.
+
+rcb_tester() ->
+    L = lists:seq(1,255),
+    Term = [{some_data,#{pids=>processes(),
+                         info=>process_info(self())}},
+            {tabs,lists:sort(ets:all())},
+            {bin,list_to_binary(L)},
+            {list,L}],
+
+    %% Put something in process dictionary
+    [put(K,V) ||{K,V} <- Term],
+
+    %% Add some messages
+    [self() ! {some_message,T} || T <- Term],
+
+    %% Create some neighbours
+    [_ = proc_lib:spawn_link(?MODULE,sp1,[]) || _ <- lists:seq(1,5)],
+
+    receive
+	die -> error({badmatch,Term})
+    end.
+
+flatten_report_cb(Report, Format) ->
+    lists:flatten(proc_lib:report_cb(Report, Format)).
+
 %%-----------------------------------------------------------------
 %% The error_logger handler used.
 %%-----------------------------------------------------------------
@@ -645,3 +994,11 @@ handle_call(_Query, State) -> {ok, {error, bad_query}, State}.
 
 terminate(_Reason, State) ->
     State.
+
+%%-----------------------------------------------------------------
+%% The Logger handler used.
+%%-----------------------------------------------------------------
+log(#{msg:={report,Report}},#{config:=Pid}) ->
+    Pid ! {report,Report};
+log(_,_) ->
+    ok.

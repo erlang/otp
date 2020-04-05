@@ -1,0 +1,4 @@
+
+record_match.erl:17: Matching of pattern 
+          {'b_literal', 'undefined'} tagged with a record name violates the declared type of 
+          #b_local{} | #b_remote{}

@@ -30,7 +30,7 @@
     <file>c_port.xml</file>
   </header>
   <p>This section outlines an example of how to solve the example
-    problem in the <seealso marker="example">previous section</seealso>
+    problem in the <seeguide marker="example">previous section</seeguide>
     by using a port.</p>
   <p>The scenario is illustrated in the following figure:</p>
   <image file="../tutorial/port.gif">

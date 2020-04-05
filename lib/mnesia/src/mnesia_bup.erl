@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -90,9 +90,9 @@ iterate(Mod, Fun, Opaque, Acc) ->
 	    catch throw:Err ->
 		    close_read(R2),
 		    Err;
-		  _:Reason ->
+		  _:Reason:Stacktrace ->
 		    close_read(R2),
-		    {error, {Reason, erlang:get_stacktrace()}}
+		    {error, {Reason, Stacktrace}}
 	    end
     catch throw:{error,_} = Err ->
 	    Err
@@ -198,9 +198,9 @@ do_read_schema_section(R) ->
     try
 	{R3, RawSchema} = safe_apply(R2, read, [R2#restore.bup_data]),
 	do_read_schema_section(R3, verify_header(RawSchema), [])
-    catch T:E ->
+    catch T:E:S ->
 	    close_read(R2),
-	    erlang:raise(T,E,erlang:get_stacktrace())
+	    erlang:raise(T,E,S)
     end.
 
 do_read_schema_section(R, {ok, B, C, []}, Acc) ->
@@ -1121,6 +1121,7 @@ local_uninstall_fallback(Master, FA) ->
             Bup = FA2#fallback_args.fallback_bup,
             file:delete(Tmp),
             Res = file:delete(Bup),
+            unregister(mnesia_fallback),
             ?eval_debug_fun({?MODULE, uninstall_fallback2, post_delete}, []),
             Master ! {self(), Res},
             unlink(Master),

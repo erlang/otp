@@ -259,10 +259,9 @@ opt_negations() ->
 %%  </dd>
 %%  <dt>{@type {doc_path, [string()]@}}
 %%  </dt>
-%%  <dd>Specifies a list of URI:s pointing to directories that contain
-%%      EDoc-generated documentation. URI without a `scheme://' part are
-%%      taken as relative to `file://'. (Note that such paths must use
-%%      `/' as separator, regardless of the host operating system.)
+%%  <dd>Specifies a list of file system paths pointing to directories that
+%%      contain EDoc-generated documentation. All paths for applications
+%%      in the code path are automatically added.
 %%  </dd>
 %%  <dt>{@type {doclet, Module::atom()@}}
 %%  </dt>
@@ -578,7 +577,7 @@ read_source(Name, Opts0) ->
     Opts = expand_opts(Opts0),
     case read_source_1(Name, Opts) of
 	{ok, Forms} ->
-	    check_forms(Forms, Name),
+	    check_forms(Forms, Name, Opts),
 	    Forms;
 	{error, R} ->
 	    edoc_report:error({"error reading file '~ts'.",
@@ -692,13 +691,19 @@ fll([T | L], LastLine, Ts) ->
 fll(L, _LastLine, Ts) ->
     lists:reverse(L, Ts).
 
-check_forms(Fs, Name) ->
+check_forms(Fs, Name, Opts) ->
     Fun = fun (F) ->
 	     case erl_syntax:type(F) of
 		 error_marker ->
 		     case erl_syntax:error_marker_info(F) of
 			 {L, M, D} ->
-			     edoc_report:error(L, Name, {format_error, M, D});
+                             edoc_report:error(L, Name, {format_error, M, D}),
+                             case proplists:get_bool(preprocess, Opts) of
+                                 true ->
+                                     ok;
+                                 false ->
+                                     helpful_message(Name)
+                             end;
 			 Other ->
 			     edoc_report:report(Name, "unknown error in "
                                                 "source code: ~w.", [Other])
@@ -710,6 +715,11 @@ check_forms(Fs, Name) ->
 	  end,
     lists:foreach(Fun, Fs).
 
+helpful_message(Name) ->
+    Ms = ["If the error is caused by too exotic macro",
+          "definitions or uses of macros, adding option",
+          "{preprocess, true} can help. See also edoc(3)."],
+    lists:foreach(fun(M) -> edoc_report:report(Name, M, []) end, Ms).
 
 %% @spec get_doc(File::filename()) -> {ModuleName, edoc_module()}
 %% @equiv get_doc(File, [])
@@ -723,7 +733,7 @@ get_doc(File) ->
 %%
 %% @type edoc_module(). The EDoc documentation data for a module,
 %% expressed as an XML document in {@link //xmerl. XMerL} format. See
-%% the file <a href="../priv/edoc.dtd">`edoc.dtd'</a> for details.
+%% the file <a href="edoc.dtd">`edoc.dtd'</a> for details.
 %%
 %% @doc Reads a source code file and extracts EDoc documentation data.
 %% Note that without an environment parameter (see {@link get_doc/3}),

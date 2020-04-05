@@ -1160,6 +1160,8 @@ basic_type(#gc_test{}) -> not_analysed;
 %% Message handling
 basic_type(check_get_msg) -> not_analysed;
 basic_type(next_msg) -> not_analysed;
+basic_type(recv_mark) -> not_analysed;
+basic_type(recv_set) -> not_analysed;
 basic_type(select_msg) -> not_analysed;
 basic_type(suspend_msg) -> not_analysed;
 %% Functions
@@ -1184,7 +1186,9 @@ basic_type(unsafe_hd) -> not_analysed;
 basic_type(unsafe_tl) -> not_int;
 basic_type(#element{}) -> not_analysed;
 basic_type(#unsafe_element{}) -> not_analysed;
-basic_type(#unsafe_update_element{}) -> not_analysed.
+basic_type(#unsafe_update_element{}) -> not_analysed;
+basic_type(build_stacktrace) -> not_int;
+basic_type(raw_raise) -> not_int.
 
 -spec analyse_bs_get_integer(integer(), integer(), boolean()) -> range_tuple().
 
@@ -1629,7 +1633,7 @@ inf_bsl(_, pos_inf) -> neg_inf;
 inf_bsl(Number, neg_inf) when is_integer(Number), Number >= 0 -> 0;
 inf_bsl(_Number, neg_inf) -> -1;
 inf_bsl(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
-  %% We can not shift left with a number which is not a fixnum. We
+  %% We cannot shift left with a number which is not a fixnum. We
   %% don't have enough memory.
   Bits = ?BITS,
   if Number2 > (Bits bsl 1) -> inf_bsl(Number1, pos_inf);

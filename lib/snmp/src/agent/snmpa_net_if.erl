@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -137,11 +137,10 @@ init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 	    proc_lib:init_ack({ok, self()}),
 	    try loop(State)
 	    catch
-		C:E when C =/= exit, E =/= shutdown ->
+		C:E:S when C =/= exit, E =/= shutdown ->
 		    Fmt =
 			"loop/1 EXCEPTION ~w:~w~n"
 			"   ~p",
-		    S = erlang:get_stacktrace(),
 		    case C of
 			exit ->
 			    %% Externally killed, root cause is elsewhere
@@ -647,10 +646,10 @@ maybe_handle_recv(
     case
 	try FilterMod:accept_recv(From_1, From_2)
 	catch
-	    Class:Exception ->
+	    Class:Exception:StackTrace ->
 		error_msg(
 		  "FilterMod:accept_recv(~p, ~p) crashed: ~w:~w~n    ~p",
-		  [From_1,From_2,Class,Exception,erlang:get_stacktrace()]),
+		  [From_1, From_2, Class, Exception, StackTrace]),
 		true
 	end
     of
@@ -737,8 +736,28 @@ handle_discovery_response(
 	    %% XXX Strange... Reqs from this Pid should be reaped
 	    %% at process exit by clear_reqs/2 so the following
 	    %% should be redundant.
-	    NReqs = lists:keydelete(ReqId, 1, Reqs),
+            NReqs = lists:keydelete(ReqId, 1, Reqs -- [{0, Pid}]), % ERIERL-427
 	    S#state{reqs = NReqs};
+
+        %% <OTP-16207>
+        %% For some reason 'snmptrapd' response in stage 2 with request-id
+        %% of zero.
+        false when (ReqId =:= 0) ->
+            DiscoReqs = [X|| {0, From1}     <- S#state.reqs,
+                             {_, From2} = X <- S#state.reqs, From1 =:= From2],
+            case (length(DiscoReqs) =:= 2) of
+                true ->
+                    [{_, Pid}, _] = DiscoReqs,
+                    active_once(Socket),
+                    Pid ! {snmp_discovery_response_received, Pdu,
+                           ManagerEngineId},
+                    NReqs = S#state.reqs -- DiscoReqs,
+                    S#state{reqs = NReqs};
+                false ->
+                    S
+            end;
+        %% </OTP-16207>
+
 	false ->
 	    %% Ouch, timeout? resend?
 	    S
@@ -753,12 +772,11 @@ maybe_handle_recv_pdu(
     case
 	try FilterMod:accept_recv_pdu(From_1, From_2, Type)
 	catch
-	    Class:Exception ->
+	    Class:Exception:StackTrace ->
 		error_msg(
 		  "FilterMod:accept_recv_pdu(~p, ~p, ~p) crashed: ~w:~w~n"
 		  "    ~p",
-		  [From_1,From_2,Type,Class,Exception,
-		   erlang:get_stacktrace()]),
+		  [From_1, From_2, Type, Class, Exception, StackTrace]),
 		true
 	end
     of
@@ -834,11 +852,10 @@ maybe_handle_reply_pdu(
 	try
 	    FilterMod:accept_send_pdu(Addresses, Type)
 	catch
-	    Class:Exception ->
+	    Class:Exception:StackTrace ->
 		error_msg(
 		  "FilterMod:accept_send_pdu(~p, ~p) crashed: ~w:~w~n    ~p",
-		  [Addresses, Type, Class, Exception,
-		   erlang:get_stacktrace()]),
+		  [Addresses, Type, Class, Exception, StackTrace]),
 		true
 	end
     of
@@ -872,7 +889,7 @@ handle_reply_pdu(
 						ACMData, LogF)) of
 	{ok, Packet} ->
 	    ?vinfo("time in agent: ~w mysec", [time_in_agent()]),
-	    try maybe_udp_send(S, Transport, To, Packet)
+	    try maybe_udp_send_wo_log(S, Transport, To, Packet)
 	    catch
 		{Reason, Sz} ->
 		    error_msg("Cannot send message "
@@ -917,11 +934,10 @@ maybe_handle_send_pdu(
     case
 	try FilterMod:accept_send_pdu(AddressesToFilter, Type)
 	catch
-	    Class:Exception ->
+	    Class:Exception:StackTrace ->
 		error_msg(
 		  "FilterMod:accept_send_pdu(~p, ~p) crashed: ~w:~w~n    ~p",
-		  [AddressesToFilter,Type,
-		   Class,Exception,erlang:get_stacktrace()]),
+		  [AddressesToFilter, Type, Class, Exception, StackTrace]),
 		true
 	end
     of
@@ -1017,8 +1033,10 @@ handle_send_discovery(
 		    log(Log, Type, Packet, {Domain, Address}),
 		    udp_send(Socket, {Domain, Address}, Packet),
 		    ?vtrace("handle_send_discovery -> sent (~w)", [ReqId]),
-		    NReqs = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
-		    S#state{reqs = NReqs}
+                    link(From),
+		    NReqs  = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
+                    NReqs2 = (NReqs -- [{0, From}]) ++ [{0, From}], % OTP-16207
+		    S#state{reqs = NReqs2}
 	    end;
 	{discarded, Reason} ->
 	    ?vlog("handle_send_discovery -> "
@@ -1049,46 +1067,36 @@ do_handle_send_pdu(S, Type, Pdu, Addresses) ->
 	      [Sz, Reason, Pdu])
     end.
 
-do_handle_send_pdu1(
-  #state{transports = Transports} = S,
-  Type, Addresses) ->
+do_handle_send_pdu1(S, Type, Addresses) ->
     lists:foreach(
-      fun ({Domain, Address, Packet}) when is_binary(Packet) ->
-	      ?vdebug(
-		 "[~w] sending packet:~n"
-		 "   size: ~p~n"
-		 "   to:   ~p", [Domain, sz(Packet), Address]),
-	      To = {Domain, Address},
-	      case select_transport_from_domain(Domain, Transports) of
-		  false ->
-		      error_msg(
-			"Can not find transport~n"
-			"   size:   ~p~n"
-			"   to:     ~s",
-			[sz(Packet), format_address(To)]);
-		  Transport ->
-		      maybe_udp_send(S, Transport, To, Packet)
-	      end;
-	  ({Domain, Address, {Packet, LogData}}) when is_binary(Packet) ->
-	      ?vdebug(
-		 "[~w] sending encrypted packet:~n"
-		 "   size: ~p~n"
-		 "   to:   ~p", [Domain, sz(Packet), Address]),
-	      To = {Domain, Address},
-	      case select_transport_from_domain(Domain, Transports) of
-		  false ->
-		      error_msg(
-			"Can not find transport~n"
-			"   size:   ~p~n"
-			"   to:     ~s",
-			[sz(Packet), format_address(To)]);
-		  Transport ->
-		      maybe_udp_send(S, Transport, To, Packet, Type, LogData)
-	      end
+      fun ({Domain, Address, Pkg}) when is_binary(Pkg) ->
+	      do_handle_send_pdu2(S, Type, Domain, Address,
+                                  Pkg, Pkg, "");
+	  ({Domain, Address, {Pkg, LogPkg}}) when is_binary(Pkg) ->
+	      do_handle_send_pdu2(S, Type, Domain, Address,
+                                  Pkg, LogPkg, " encrypted")
       end,
       Addresses).
 
-maybe_udp_send(
+do_handle_send_pdu2(#state{transports = Transports} = S,
+                    Type, Domain, Address, Pkg, LogPkg, EncrStr) ->
+    ?vdebug("[~w] sending~s packet:"
+            "~n   size: ~p"
+            "~n   to:   ~p", [Domain, EncrStr, sz(Pkg), Address]),
+    To = {Domain, Address},
+    case select_transport_from_domain(Domain, Transports) of
+	false ->
+	    error_msg("Can not find transport: "
+                      "~n   size: ~p"
+                      "~n   to:   ~s",
+                      [sz(Pkg), format_address(To)]);
+	Transport ->
+	    maybe_udp_send_w_log(S, Transport, To, Pkg, LogPkg, Type)
+    end.
+
+
+%% This function is used when logging has already been done!
+maybe_udp_send_wo_log(
   #state{filter = FilterMod, transports = Transports},
   #transport{socket = Socket},
   To, Packet) ->
@@ -1096,10 +1104,10 @@ maybe_udp_send(
     case
 	try FilterMod:accept_send(To_1, To_2)
 	catch
-	    Class:Exception ->
+	    Class:Exception:StackTrace ->
 		error_msg(
 		  "FilterMod:accept_send(~p, ~p) crashed: ~w:~w~n    ~p",
-		  [To_1,To_2,Class,Exception,erlang:get_stacktrace()]),
+		  [To_1, To_2, Class, Exception, StackTrace]),
 		true
 	end
     of
@@ -1118,18 +1126,18 @@ maybe_udp_send(
 	    udp_send(Socket, To, Packet)
     end.
 
-maybe_udp_send(
+maybe_udp_send_w_log(
   #state{log = Log, filter = FilterMod, transports = Transports},
   #transport{socket = Socket},
-  To, Packet, Type, _LogData) ->
+  To, Pkg, LogPkg, Type) ->
     {To_1, To_2} = fix_filter_address(Transports, To),
     case
 	try FilterMod:accept_send(To_1, To_2)
 	catch
-	    Class:Exception ->
+	    Class:Exception:StackTrace ->
 		error_msg(
 		  "FilterMod:accept_send(~p, ~p) crashed for: ~w:~w~n    ~p",
-		  [To_1, To_2, Class, Exception, erlang:get_stacktrace()]),
+		  [To_1, To_2, Class, Exception, StackTrace]),
 		true
 	end
     of
@@ -1143,10 +1151,10 @@ maybe_udp_send(
 		_ ->
 		    error_msg(
 		      "FilterMod:accept_send(~p, ~p) returned: ~p",
-		      [To_1,To_2,Other])
+		      [To_1, To_2, Other])
 	    end,
-	    log(Log, Type, Packet, To),
-	    udp_send(Socket, To, Packet)
+	    log(Log, Type, LogPkg, To),
+	    udp_send(Socket, To, Pkg)
     end.
 
 udp_send(Socket, To, B) ->
@@ -1168,11 +1176,10 @@ udp_send(Socket, To, B) ->
 	ok ->
 	    ok
     catch
-	error:ExitReason ->
+	error:ExitReason:StackTrace ->
 	    error_msg("[exit] cannot send message "
 		      "(destination: ~p:~p, size: ~p, reason: ~p, at: ~p)",
-		      [IpAddr, IpPort, sz(B), ExitReason,
-		       erlang:get_stacktrace()])
+		      [IpAddr, IpPort, sz(B), ExitReason, StackTrace])
     end.
 
 sz(L) when is_list(L) -> length(L);
@@ -1202,8 +1209,9 @@ handle_disk_log(_Log, _Info, State) ->
 
 
 clear_reqs(Pid, S) ->
-    NReqs = lists:keydelete(Pid, 2, S#state.reqs),
-    S#state{reqs = NReqs}.
+    NReqs  = lists:keydelete(Pid, 2, S#state.reqs),
+    NReqs2 = NReqs -- [{0, Pid}], % ERIERL-427
+    S#state{reqs = NReqs2}.
 
 
 toname(P) when is_pid(P) ->
@@ -1471,7 +1479,15 @@ socket_opts(Domain, {IpAddr, IpPort}, Opts) ->
 		 [];
 	     Sz ->
 		 [{sndbuf, Sz}]
-	 end].
+	 end] ++
+        case get_extra_sock_opts(Opts) of
+            ESO when is_list(ESO) ->
+                ESO;
+            BadESO ->
+                error_msg("Invalid 'extra socket options' (=> ignored):"
+                          "~n   ~p", [BadESO]),
+                []
+        end.
 
 
 %% ----------------------------------------------------------------
@@ -1524,6 +1540,9 @@ get_no_reuse_address(Opts) ->
 
 get_bind_to_ip_address(Opts) ->
     snmp_misc:get_option(bind_to, Opts, false).
+
+get_extra_sock_opts(Opts) ->
+    snmp_misc:get_option(extra_sock_opts, Opts, []).
 
 
 %% ----------------------------------------------------------------

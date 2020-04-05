@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -811,12 +811,11 @@ result_line(NoOkWrapper, Items) ->
 result_line_1([SingleItem]) ->
     SingleItem;
 result_line_1(Items) ->
-    ["{",string:join(Items, ","),"}"].
+    ["{",lists:join(",",Items),"}"].
 
 try_catch() ->
     ["  catch",nl,
-     "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
-     "      Stk = erlang:get_stacktrace(),",nl,
+     "    Class:Exception:Stk when Class =:= error; Class =:= exit ->",nl,
      "      case Exception of",nl,
      "        {error,{asn1,Reason}} ->",nl,
      "          {error,{asn1,{Reason,Stk}}};",nl,
@@ -958,7 +957,7 @@ open_hrl(OutFile,Module) ->
 
 hrl_protector(OutFile) ->
     BaseName = filename:basename(OutFile),
-    P = "_" ++ string:to_upper(BaseName) ++ "_HRL_",
+    P = "_" ++ string:uppercase(BaseName) ++ "_HRL_",
     [if
 	 $A =< C, C =< $Z -> C;
 	 $a =< C, C =< $a -> C;

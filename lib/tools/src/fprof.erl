@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1242,8 +1242,7 @@ spawn_3step(Spawn, FunPrelude, FunAck, FunBody)
 		    catch Child ! {Parent, Ref, Go},
 		    Result
 	    catch
-		Class:Reason ->
-		    Stacktrace = erlang:get_stacktrace(),
+		Class:Reason:Stacktrace ->
 		    catch exit(Child, kill),
 		    erlang:raise(Class, Reason, Stacktrace)
 	    end;
@@ -2783,6 +2782,8 @@ parsify({A, B, C}) ->
     {parsify(A), parsify(B), parsify(C)};
 parsify(Tuple) when is_tuple(Tuple) ->
     list_to_tuple(parsify(tuple_to_list(Tuple)));
+parsify(Map) when is_map(Map) ->
+    maps:from_list(parsify(maps:to_list(Map)));
 parsify(Pid) when is_pid(Pid) ->
     erlang:pid_to_list(Pid);
 parsify(Port) when is_port(Port) ->

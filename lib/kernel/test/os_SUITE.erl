@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
--export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
+-export([space_in_cwd/1, quoting/1, cmd_unicode/1, 
+         null_in_command/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
@@ -35,7 +36,8 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
+    [space_in_cwd, quoting, cmd_unicode, null_in_command,
+     space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, max_size_command, perf_counter_api].
@@ -126,6 +128,14 @@ cmd_unicode(Config) when is_list(Config) ->
     [] = receive_all(),
     ok.
 
+null_in_command(Config) ->
+    {Ok, Error} = case os:type() of
+                      {win32,_} -> {"dir", "di\0r"};
+                      _ -> {"ls", "l\0s"}
+                  end,
+    true = is_list(try os:cmd(Ok) catch Class0:_ -> Class0 end),
+    error = try os:cmd(Error) catch Class1:_ -> Class1 end,
+    ok.
 
 %% Test that program with a space in its name can be executed.
 space_in_name(Config) when is_list(Config) ->
@@ -217,8 +227,8 @@ find_executable(Config) when is_list(Config) ->
 	    DataDir = proplists:get_value(data_dir, Config),
 
 	    %% Smoke test.
-	    case lib:progname() of
-		erl ->
+	    case ct:get_progname() of
+		"erl" ->
 		    ErlPath = os:find_executable("erl"),
 		    true = is_list(ErlPath),
 		    true = filelib:is_regular(ErlPath);
@@ -314,14 +324,18 @@ close_stdin(Config) ->
     "-1" = os:cmd(Fds).
 
 max_size_command(_Config) ->
+    WSL = case os:getenv("WSLENV") of
+              false -> "";
+              _ -> "wsl "
+          end,
 
-    Res20 = os:cmd("cat /dev/zero", #{ max_size => 20 }),
+    Res20 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 20 }),
     20 = length(Res20),
 
-    Res0 = os:cmd("cat /dev/zero", #{ max_size => 0 }),
+    Res0 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 0 }),
     0 = length(Res0),
 
-    Res32768 = os:cmd("cat /dev/zero", #{ max_size => 32768 }),
+    Res32768 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 32768 }),
     32768 = length(Res32768),
 
     ResHello = string:trim(os:cmd("echo hello", #{ max_size => 20 })),
@@ -378,7 +392,7 @@ comp(Expected, Got) ->
 	    ct:fail(failed)
     end.
 
-%% Like lib:nonl/1, but strips \r as well as \n.
+%% strips \n and \r\n from end of string
 
 strip_nl([$\r, $\n]) -> [];
 strip_nl([$\n])      -> [];

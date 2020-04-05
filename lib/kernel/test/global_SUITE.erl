@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@
 -export([global_load/3, lock_global/2, lock_global2/2]).
 
 -export([]).
--export([mass_spawn/1]).
+-export([init_mass_spawn/1]).
 
 -export([start_tracer/0, stop_tracer/0, get_trace/0]).
 
@@ -1383,7 +1383,7 @@ ring(Config) when is_list(Config) ->
     rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
 
     %% sleep to make the partitioned net ready
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
 
     pong = net_adm:ping(Cp0),
     pong = net_adm:ping(Cp1),
@@ -1466,7 +1466,7 @@ simple_ring(Config) when is_list(Config) ->
     rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
 
     %% sleep to make the partitioned net ready
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
 
     pong = net_adm:ping(Cp0),
     pong = net_adm:ping(Cp1),
@@ -1542,7 +1542,7 @@ line(Config) when is_list(Config) ->
     rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
 
     %% Sleep to make the partitioned net ready
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
 
     pong = net_adm:ping(Cp0),
     pong = net_adm:ping(Cp1),
@@ -1626,7 +1626,7 @@ simple_line(Config) when is_list(Config) ->
     rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
 
     %% sleep to make the partitioned net ready
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
 
     pong = net_adm:ping(Cp0),
     pong = net_adm:ping(Cp1),
@@ -2512,8 +2512,10 @@ re_register_name(Config) when is_list(Config) ->
     Me = self(),
     Pid1 = spawn(fun() -> proc(Me) end),
     yes = global:register_name(name, Pid1),
+    wait_for_monitor(Pid1),
     Pid2 = spawn(fun() -> proc(Me) end),
     _ = global:re_register_name(name, Pid2),
+    wait_for_monitor(Pid2),
     Pid2 ! die,
     Pid1 ! die,
     receive {Pid1, MonitoredBy1} -> [] = MonitoredBy1 end,
@@ -2521,6 +2523,15 @@ re_register_name(Config) when is_list(Config) ->
     _ = global:unregister_name(name),
     init_condition(Config),
     ok.
+
+wait_for_monitor(Pid) ->
+    case process_info(Pid, monitored_by) of
+        {monitored_by, []} ->
+            timer:sleep(1),
+            wait_for_monitor(Pid);
+        {monitored_by, [_]} ->
+            ok
+    end.
 
 proc(Parent) ->
     receive die -> ok end,
@@ -3555,7 +3566,7 @@ single_node(Time, Node, Config) ->
     lists:foreach(fun(N) -> _ = erlang:disconnect_node(N) end, nodes()),
     ?UNTIL(get_known(node()) =:= [node()]),
     spawn(?MODULE, init_2, []),
-    ct:sleep(Time - msec()),
+    sleep(Time - msec()),
     net_adm:ping(Node).
 
 init_2() ->
@@ -3876,7 +3887,7 @@ mass_death(Config) when is_list(Config) ->
     io:format("Nodes: ~p~n", [Nodes]),
     Ns = lists:seq(1, 40),
     %% Start processes with globally registered names on the nodes
-    {Pids,[]} = rpc:multicall(Nodes, ?MODULE, mass_spawn, [Ns]),
+    {Pids,[]} = rpc:multicall(Nodes, ?MODULE, init_mass_spawn, [Ns]),
     io:format("Pids: ~p~n", [Pids]),
     %% Wait...
     ct:sleep(10000),
@@ -3913,6 +3924,11 @@ wait_mass_death(Nodes, OrigNames, Then, Config) ->
 	    wait_mass_death(Nodes, OrigNames, Then, Config)
     end.
 
+init_mass_spawn(N) ->
+    Pid = mass_spawn(N),
+    unlink(Pid),
+    Pid.
+
 mass_spawn([]) ->
     ok;
 mass_spawn([N|T]) ->
@@ -3926,7 +3942,10 @@ mass_spawn([N|T]) ->
 		  Parent ! self(),
 		  loop()
 	  end),
-    receive Pid -> Pid end.
+    receive
+        Pid ->
+            Pid
+    end.
 
 mass_names([], _) ->
     [];
@@ -4009,13 +4028,6 @@ collect_nodes(N, Max) ->
             [Node | collect_nodes(N+1, Max)]
     end.
 
-only_element(_E, []) ->
-    true;
-only_element(E, [E|R]) ->
-    only_element(E, R);
-only_element(_E, _) ->
-    false.
-
 exit_p(Pid) ->
     Ref = erlang:monitor(process, Pid),
     Pid ! die,
@@ -4037,6 +4049,11 @@ wait_for_exit_fast(Pid) ->
 	{'DOWN', Ref, process, Pid, _Reason} ->
 	    ok
     end.
+
+sleep(Time) when Time > 0 ->
+    ct:sleep(Time);
+sleep(_Time) ->
+    ok.
 
 check_everywhere(Nodes, Name, Config) ->
     ?UNTIL(begin
@@ -4162,10 +4179,10 @@ rpc_cast(Node, Module, Function, Args, File) ->
 
 %% The emulator now ensures that the node has been removed from
 %% nodes().
-rpc_disconnect_node(Node, DisconnectedNode, _Config) ->
-    True = rpc:call(Node, erlang, disconnect_node, [DisconnectedNode]),
-    False = lists:member(DisconnectedNode, rpc:call(Node, erlang, nodes, [])),
-    {true, false} = {True, False}.
+rpc_disconnect_node(Node, DisconnectedNode, Config) ->
+    true = rpc:call(Node, erlang, disconnect_node, [DisconnectedNode]),
+    ?UNTIL
+      (not lists:member(DisconnectedNode, rpc:call(Node, erlang, nodes, []))).
 
 %%%
 %%% Utility

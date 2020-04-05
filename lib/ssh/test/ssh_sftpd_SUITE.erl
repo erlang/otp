@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@
 
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
--define(XFER_PACKET_SIZE, 32768).
--define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
+%% -define(XFER_PACKET_SIZE, 32768).
+%% -define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
 -define(SSH_TIMEOUT, 10000).
 -define(REG_ATTERS, <<0,0,0,0,1>>).
 -define(UNIX_EPOCH,  62167219200).
@@ -841,7 +841,7 @@ reply(Cm, Channel, RBuf) ->
 	{ssh_cm, Cm, Msg} ->
 	    ct:fail(Msg)
     after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+	90000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 open_file(File, Cm, Channel, ReqId, Access, Flags) ->

@@ -111,10 +111,10 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk Makefile
 
 # Rules
 $(EBIN)/%.beam: $(ESRC)/%.erl $(HEADER_FILES)
-	$(V_ERLC) -W -bbeam $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) -W -bbeam $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 $(EBIN)/%.beam: $(EGEN)/%.erl $(HEADER_FILES)
-	$(V_ERLC) -W -bbeam $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) -W -bbeam $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 # ----------------------------------------------------
 # Release Target

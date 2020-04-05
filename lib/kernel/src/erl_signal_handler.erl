@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,11 +19,20 @@
 
 -module(erl_signal_handler).
 -behaviour(gen_event).
--export([init/1, format_status/2,
+-export([start/0, init/1, format_status/2,
          handle_event/2, handle_call/2, handle_info/2,
          terminate/2, code_change/3]).
 
 -record(state,{}).
+
+start() ->
+    %% add signal handler
+    case whereis(erl_signal_server) of
+        %% in case of minimal mode
+        undefined -> ok;
+        _ ->
+            gen_event:add_handler(erl_signal_server, erl_signal_handler, [])
+    end.
 
 init(_Args) ->
     {ok, #state{}}.

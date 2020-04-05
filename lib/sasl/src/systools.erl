@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ make_tar(RelName, Opt) ->
 script2boot(File) ->
     case systools_lib:file_term2binary(File ++ ".script", File ++ ".boot") of
 	{error,Error} ->
-	    io:format(systools_make:format_error(Error)),
+	    io:format("~ts", [systools_make:format_error(Error)]),
 	    error;
 	_ ->
 	    ok
@@ -84,7 +84,7 @@ script2boot(File, Output0, _Opt) ->
     Output = Output0++".boot",
     case systools_lib:file_term2binary(Input, Output) of
 	{error,Error} ->
-	    io:format(systools_make:format_error(Error)),
+	    io:format("~ts", [systools_make:format_error(Error)]),
 	    error;
 	_ ->
 	    ok

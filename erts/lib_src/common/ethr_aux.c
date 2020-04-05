@@ -109,7 +109,8 @@ x86_init(void)
 
     if (eax > 0
 	&& (ETHR_IS_X86_VENDOR("GenuineIntel", ebx, ecx, edx)
-	    || ETHR_IS_X86_VENDOR("AuthenticAMD", ebx, ecx, edx))) {
+	    || ETHR_IS_X86_VENDOR("AuthenticAMD", ebx, ecx, edx)
+	    || ETHR_IS_X86_VENDOR("HygonGenuine", ebx, ecx, edx))) {
 	eax = 1;
 	ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
     }

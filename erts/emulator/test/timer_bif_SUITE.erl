@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 	 cleanup/1, evil_timers/1, registered_process/1, same_time_yielding/1,
 	 same_time_yielding_with_cancel/1, same_time_yielding_with_cancel_other/1,
 %	 same_time_yielding_with_cancel_other_accessor/1,
-	 auto_cancel_yielding/1]).
+	 auto_cancel_yielding/1,
+         suspended_scheduler_timeout/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -68,7 +69,8 @@ all() ->
      same_time_yielding, same_time_yielding_with_cancel,
      same_time_yielding_with_cancel_other,
 %     same_time_yielding_with_cancel_other_accessor,
-     auto_cancel_yielding].
+     auto_cancel_yielding,
+     suspended_scheduler_timeout].
 
 
 %% Basic start_timer/3 functionality
@@ -361,7 +363,7 @@ evil_timers(Config) when is_list(Config) ->
     %%
     %% 1. A timer started with erlang:start_timer(Time, Receiver, Msg),
     %%    where Msg is a composite term, expires, and the receivers main
-    %%    lock *can not* be acquired immediately (typically when the
+    %%    lock *cannot* be acquired immediately (typically when the
     %%    receiver *is* running).
     %%
     %%    The wrap tuple ({timeout, TRef, Msg}) will in this case
@@ -372,7 +374,7 @@ evil_timers(Config) when is_list(Config) ->
     RecvTimeOutMsgs0 = evil_recv_timeouts(200),
     %% 2. A timer started with erlang:start_timer(Time, Receiver, Msg),
     %%    where Msg is an immediate term, expires, and the receivers main
-    %%    lock *can not* be acquired immediately (typically when the
+    %%    lock *cannot* be acquired immediately (typically when the
     %%    receiver *is* running).
     %%
     %%    The wrap tuple will in this case be allocated in a new
@@ -628,6 +630,31 @@ auto_cancel_yielding(Config) when is_list(Config) ->
     exit(P, bang),
     wait_until(fun () -> process_is_cleaned_up(P) end),
     Mem = mem(),
+    ok.
+
+suspended_scheduler_timeout(Config) when is_list(Config) ->
+    Ref = make_ref(),
+    SchdlrsOnln = erlang:system_info(schedulers_online),
+    lists:foreach(fun (Sched) ->
+                          process_flag(scheduler, Sched),
+                          erlang:send_after(1000, self(), {Ref, Sched})
+                  end,
+                  lists:seq(1, SchdlrsOnln)),
+    process_flag(scheduler, 0),
+    erlang:system_flag(schedulers_online, 1),
+    try
+        lists:foreach(fun (Sched) ->
+                              receive
+                                  {Ref, Sched} ->
+                                      ok
+                              after 2000 ->
+                                      ct:fail({missing_timeout, Sched})
+                              end
+                      end,
+                      lists:seq(1, SchdlrsOnln))
+    after
+        erlang:system_flag(schedulers_online, SchdlrsOnln)
+    end,
     ok.
 
 process_is_cleaned_up(P) when is_pid(P) ->

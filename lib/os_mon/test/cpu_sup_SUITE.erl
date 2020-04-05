@@ -122,19 +122,19 @@ util_api(Config) when is_list(Config) ->
 
     %% util([])
     {all, Busy1, NonBusy1, []} = cpu_sup:util([]),
-    100.00 = Busy1 + NonBusy1,
+    true = tiny_diff(100.00, Busy1 + NonBusy1),
 
     %% util([detailed])
     {Cpus2, Busy2, NonBusy2, []} = cpu_sup:util([detailed]),
     true = lists:all(fun(X) -> is_integer(X) end, Cpus2),
     true = lists:all(BusyP, Busy2),
     true = lists:all(NonBusyP, NonBusy2),
-    100.00 = lists:foldl(Sum,0,Busy2)+lists:foldl(Sum,0,NonBusy2),
+    true = tiny_diff(100.00, lists:foldl(Sum,0,Busy2)+lists:foldl(Sum,0,NonBusy2)),
 
     %% util([per_cpu])
     [{Cpu3, Busy3, NonBusy3, []}|_] = cpu_sup:util([per_cpu]),
     true = is_integer(Cpu3),
-    100.00 = Busy3 + NonBusy3,
+    true = tiny_diff(100.00, Busy3 + NonBusy3),
 
     %% util([detailed, per_cpu])
     [{Cpu4, Busy4, NonBusy4, []}|_] =
@@ -142,7 +142,7 @@ util_api(Config) when is_list(Config) ->
     true = is_integer(Cpu4),
     true = lists:all(BusyP, Busy2),
     true = lists:all(NonBusyP, NonBusy2),
-    100.00 = lists:foldl(Sum,0,Busy4)+lists:foldl(Sum,0,NonBusy4),
+    true = tiny_diff(100.00, lists:foldl(Sum,0,Busy4)+lists:foldl(Sum,0,NonBusy4)),
 
     %% bad util/1 calls
     {'EXIT',{badarg,_}} = (catch cpu_sup:util(detailed)),
@@ -150,48 +150,77 @@ util_api(Config) when is_list(Config) ->
 
     ok.
 
+tiny_diff(A, B) ->
+    (abs(A - B) < 1.0e-11).
+
 -define(SPIN_TIME, 1000).
+
+spinner(Parent) ->
+    receive
+        stop -> Parent ! stopped
+    after 0 -> spinner(Parent)
+    end.
 
 %% Test utilization values
 util_values(Config) when is_list(Config) ->
-
+    NrOfProcessors =
+        case erlang:system_info(logical_processors_available) of
+            unknown -> 2;
+            X -> X
+        end,
     Tester = self(),
     Ref = make_ref(),
-    Loop = fun (L) -> L(L) end,
     Spinner = fun () ->
-                      Looper = spawn_link(fun () -> Loop(Loop) end),
+                      Spinner = self(),
+                      NrOfProcesses = NrOfProcessors,
+                      Loopers =
+                          [spawn_link(fun () -> spinner(Spinner) end)
+                           || _ <- lists:seq(1,NrOfProcesses)],
                       receive after ?SPIN_TIME -> ok end,
-                      unlink(Looper),
-                      exit(Looper, kill),
+                      [begin
+                           Looper ! stop,
+                           receive stopped -> ok end
+                       end
+                       || Looper <- Loopers],
                       Tester ! Ref
               end,
-
+    Spin = fun () ->
+                   spawn_link(Spinner),
+                   receive Ref -> ok end
+           end,
     cpu_sup:util(),
-
-    spawn_link(Spinner),
-    receive Ref -> ok end,
-    HighUtil1 = cpu_sup:util(),
-
     receive after ?SPIN_TIME -> ok end,
-    LowUtil1 = cpu_sup:util(),
+    LowUtil0 = cpu_sup:util(),
+    case LowUtil0 of
+        U when U > ((100.0 / NrOfProcessors) * 0.33) ->
+            %% We cannot run this test if the system is doing other
+            %% work at the same time as the result will be unreliable
+            {skip, io_lib:format("CPU utilization was too high (~f%)", [LowUtil0])};
+        _ ->
+            cpu_sup:util(),
+            Spin(),
+            HighUtil1 = cpu_sup:util(),
 
-    spawn_link(Spinner),
-    receive Ref -> ok end,
-    HighUtil2 = cpu_sup:util(),
+            receive after ?SPIN_TIME -> ok end,
+            LowUtil1 = cpu_sup:util(),
 
-    receive after ?SPIN_TIME -> ok end,
-    LowUtil2 = cpu_sup:util(),
+            Spin(),
+            HighUtil2 = cpu_sup:util(),
 
-    Utils = [{high1,HighUtil1}, {low1,LowUtil1},
-             {high2,HighUtil2}, {low2,LowUtil2}],
-    io:format("Utils: ~p~n", [Utils]),
+            receive after ?SPIN_TIME -> ok end,
+            LowUtil2 = cpu_sup:util(),
 
-    false = LowUtil1 > HighUtil1,
-    false = LowUtil1 > HighUtil2,
-    false = LowUtil2 > HighUtil1,
-    false = LowUtil2 > HighUtil2,
+            Utils = [{high1,HighUtil1}, {low1,LowUtil1},
+                     {high2,HighUtil2}, {low2,LowUtil2}],
+            io:format("Utils: ~p~n", [Utils]),
 
-    ok.
+            false = LowUtil1 > HighUtil1,
+            false = LowUtil1 > HighUtil2,
+            false = LowUtil2 > HighUtil1,
+            false = LowUtil2 > HighUtil2,
+
+            ok
+    end.
 
 
 % Outdated

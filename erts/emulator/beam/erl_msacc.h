@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -159,25 +159,16 @@ struct erl_msacc_t_ {
 
 #ifdef ERTS_ENABLE_MSACC
 
-#ifdef USE_THREADS
-extern erts_tsd_key_t erts_msacc_key;
-#else
-extern ErtsMsAcc *erts_msacc;
-#endif
+extern erts_tsd_key_t ERTS_WRITE_UNLIKELY(erts_msacc_key);
 
 #ifdef ERTS_MSACC_ALWAYS_ON
 #define erts_msacc_enabled 1
 #else
-extern int erts_msacc_enabled;
+extern int ERTS_WRITE_UNLIKELY(erts_msacc_enabled);
 #endif
 
-#ifdef USE_THREADS
 #define ERTS_MSACC_TSD_GET() erts_tsd_get(erts_msacc_key)
 #define ERTS_MSACC_TSD_SET(tsd) erts_tsd_set(erts_msacc_key,tsd)
-#else
-#define ERTS_MSACC_TSD_GET() erts_msacc
-#define ERTS_MSACC_TSD_SET(tsd) erts_msacc = tsd
-#endif
 
 void erts_msacc_early_init(void);
 void erts_msacc_init(void);
@@ -341,8 +332,8 @@ ERTS_GLB_INLINE
 void erts_msacc_set_state_um__(ErtsMsAcc *msacc, Uint new_state, int increment) {
     if (ERTS_UNLIKELY(msacc->unmanaged)) {
         erts_mtx_lock(&msacc->mtx);
-        msacc->state = new_state;
         if (ERTS_LIKELY(!msacc->perf_counter)) {
+            msacc->state = new_state;
             erts_mtx_unlock(&msacc->mtx);
             return;
         }

@@ -100,6 +100,7 @@ os-holder-1 OS-HOLDER ::= { ID 1 OS '4041FF'H }
 OctetStringSeq ::= ParamSeq{OCTET STRING}
 
 someOctetString OCTET STRING ::= '404142'H
+someOctetStringWhiteSpace OCTET STRING ::= '40 41 42'H
 
 octetStringSeq1 OctetStringSeq ::= { a someOctetString }
 octetStringSeq2 OctetStringSeq ::= { a otherOctetString }
@@ -128,6 +129,7 @@ BsSeq ::= SEQUENCE {
 }
 
 someBitString BIT STRING ::= '101101'B
+someBitStringWhiteSpace BIT STRING ::= '101 101'B
 
 bsSeq1 BsSeq ::= { a someBitString, b someNamedBs }
 bsSeq2 BsSeq ::= { a otherBitString, b someOtherNamedBs }

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -113,8 +113,8 @@
         | Erlang_Atom           %% 'foo', 'bar', ...
 
   Bitstring :: <<>>
-             | <<_:M>>          %% M is a positive integer
-             | <<_:_*N>>        %% N is a positive integer
+             | <<_:M>>          %% M is an Integer_Value that evaluates to a positive integer
+             | <<_:_*N>>        %% N is an Integer_Value that evaluates to a positive integer
              | <<_:M, _:_*N>>
 
   Fun :: fun()                  %% any function
@@ -123,16 +123,24 @@
        | fun((TList) -> Type)
 
   Integer :: integer()
-           | Erlang_Integer                    %% ..., -1, 0, 1, ... 42 ...
-           | Erlang_Integer..Erlang_Integer    %% specifies an integer range
+           | Integer_Value
+           | Integer_Value..Integer_Value      %% specifies an integer range
+
+  Integer_Value :: Erlang_Integer              %% ..., -1, 0, 1, ... 42 ...
+                 | Erlang_Character            %% $a, $b ...
+                 | Integer_Value BinaryOp Integer_Value
+                 | UnaryOp Integer_Value
+
+  BinaryOp :: '*' | 'div' | 'rem' | 'band' | '+' | '-' | 'bor' | 'bxor' | 'bsl' | 'bsr'
+
+  UnaryOp :: '+' | '-' | 'bnot'
 
   List :: list(Type)                           %% Proper list ([]-terminated)
         | maybe_improper_list(Type1, Type2)    %% Type1=contents, Type2=termination
         | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
         | nonempty_list(Type)                  %% Proper non-empty list
 
-  Map :: map()                                 %% denotes a map of any size
-       | #{}                                   %% denotes the empty map
+  Map :: #{}                                   %% denotes the empty map
        | #{AssociationList}
 
   Tuple :: tuple()                             %% denotes a tuple of any size
@@ -151,8 +159,13 @@
   Union :: Type1 | Type2
 ]]></pre>
   <p>
+    Integer values are either integer or character literals or expressions
+    consisting of possibily nested unary or binary operations that evaluate to
+    an integer. Such expressions can also be used in bit strings and ranges.
+  </p>
+  <p>
     The general form of bit strings is <c>&lt;&lt;_:M, _:_*N&gt;&gt;</c>,
-    where <c>M</c> and <c>N</c> are positive integers. It denotes a
+    where <c>M</c> and <c>N</c> must evaluate to positive integers. It denotes a
     bit string that is <c>M + (k*N)</c> bits long (that is, a bit string that
     starts with <c>M</c> bits and continues with <c>k</c> segments of
     <c>N</c> bits each, where <c>k</c> is also a positive integer).
@@ -178,17 +191,16 @@
     <c>AssociationList</c> are allowed to overlap, and if they do, the
     leftmost association takes precedence. A map association has a key in
     <c>AssociationList</c> if it belongs to this type.
-    <c>AssociationList</c> can contain both mandatory and optional
-    association types.
+    <c>AssociationList</c> can contain both mandatory <c>(:=)</c> and
+    optional <c>(=&gt;)</c> association types.
     If an association type is mandatory, an association with that type
-    is to be present.
+    needs to be present.
     In the case of an optional association type it is not required for
     the key type to be present.
   </p>
   <p>
-    Notice that the syntactic representation of <c>map()</c> is
-    <c>#{any() =&gt; any()}</c> (or <c>#{_ =&gt; _}</c>), not <c>#{}</c>.
     The notation <c>#{}</c> specifies the singleton type for the empty map.
+    Note that this notation is not a shorthand for the <c>map()</c> type.
   </p>
   <p>
     For convenience, the following types are also built-in.
@@ -243,6 +255,9 @@
     </row>
     <row>
       <cell><c>iolist()</c></cell><cell><c>maybe_improper_list(byte() | binary() | iolist(), binary() | [])</c></cell>
+    </row>
+    <row>
+      <cell><c>map()</c></cell><cell><c>#{any() =&gt; any()}</c></cell>
     </row>
     <row>
       <cell><c>function()</c></cell><cell><c>fun()</c></cell>
@@ -320,8 +335,8 @@
           | #Erlang_Atom{Fields}</pre>
   <p>
     Records are extended to possibly contain type information.
-    This is described in <seealso marker="#typeinrecords">
-    Type Information in Record Declarations</seealso>.
+    This is described in <seeguide marker="#typeinrecords">
+    Type Information in Record Declarations</seeguide>.
   </p>
   </section>
 

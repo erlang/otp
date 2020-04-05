@@ -43,7 +43,7 @@
 %% @type no_app().
 %%    A value used to mark absence of an Erlang application
 %%    context. Use the macro `NO_APP' defined in
-%%    <a href="../include/edoc_doclet.hrl">`edoc_doclet.hrl'</a>
+%%    <a href="edoc_doclet.hrl">`edoc_doclet.hrl'</a>
 %%    to produce this value.
 
 %% @type doclet_gen() = #doclet_gen{sources = [string()],

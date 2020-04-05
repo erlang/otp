@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -148,9 +148,8 @@ do_runnable_ports({TsType, TsTypeFlag}, Config) ->
 
 %% Tests system_profiling with scheduler.
 scheduler(Config) when is_list(Config) ->
-    case {erlang:system_info(smp_support), erlang:system_info(schedulers_online)} of
-	{false,_} -> {skipped, "No need for scheduler test when smp support is disabled."};
-	{_,    1} -> {skipped, "No need for scheduler test when only one scheduler online."};
+    case erlang:system_info(schedulers_online) of
+	1 -> {skipped, "No need for scheduler test when only one scheduler online."};
 	_ ->
 	    Nodes = 10,
 	    lists:foreach(fun (TsType) ->

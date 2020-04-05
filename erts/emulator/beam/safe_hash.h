@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,11 +73,11 @@ typedef struct
     int size_mask;	      /* (RW) Number of slots - 1 */
     SafeHashBucket** tab;     /* (RW) Vector of bucket pointers (objects) */
     int grow_limit;           /* (RW) Threshold for growing table */
-    erts_smp_atomic_t nitems;       /* (A) Number of items in table */
-    erts_smp_atomic_t is_rehashing; /* (A) Table rehashing in progress */
+    erts_atomic_t nitems;       /* (A) Number of items in table */
+    erts_atomic_t is_rehashing; /* (A) Table rehashing in progress */
 
     union {
-	erts_smp_mtx_t mtx;
+	erts_mtx_t mtx;
 	byte __cache_line__[64];
     }lock_vec[SAFE_HASH_LOCK_CNT];
 
@@ -95,7 +95,7 @@ void* safe_hash_get(SafeHash*, void*);
 void* safe_hash_put(SafeHash*, void*);
 void* safe_hash_erase(SafeHash*, void*);
 
-void  safe_hash_for_each(SafeHash*, void (*func)(void *, void *), void *);
+void  safe_hash_for_each(SafeHash*, void (*func)(void *, void *, void *), void *, void *);
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_enable_hash_lock_count(SafeHash*, erts_lock_flags_t, int);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,round(1.5*?TIMEOUT/1000)}}].
+     {timetrap,{seconds,60}}].
 
 all() -> 
     %% [{group,kex},{group,cipher}... etc
@@ -43,7 +43,7 @@ all() ->
 
 
 groups() ->
-    ErlAlgos = extract_algos(ssh:default_algorithms()),
+    ErlAlgos = extract_algos(ssh_transport:supported_algorithms()),
     SshcAlgos = extract_algos(ssh_test_lib:default_algorithms(sshc)),
     SshdAlgos = extract_algos(ssh_test_lib:default_algorithms(sshd)),
     
@@ -100,7 +100,7 @@ init_per_suite(Config) ->
 	   ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
 	   ssh:start(),
 	   [{std_simple_sftp_size,25000} % Sftp transferred data size
-	    | setup_pubkey(Config)]
+	    | Config]
        end
       ).
 
@@ -126,8 +126,9 @@ init_per_group(Group, Config) ->
 
 
 init_per_group(public_key=Tag, Alg, Config) ->
-    ct:log("Init tests for public_key ~p",[Alg]),
-    PrefAlgs = {preferred_algorithms,[{Tag,[Alg]}]},
+    OtherAlgs = [{T,L} || {T,L} <- ssh_transport:supported_algorithms(), T=/=Tag],
+    ct:log("Init tests for public_key ~p~nOtherAlgs=~p",[Alg,OtherAlgs]),
+    PrefAlgs = {preferred_algorithms,[{Tag,[Alg]}|OtherAlgs]},
     %% Daemon started later in init_per_testcase
     try
         setup_pubkey(Alg,
@@ -147,8 +148,9 @@ init_per_group(Tag, Alg, Config) ->
                 [{client2server,[A1]},
                  {server2client,[A2]}]
         end,
-    ct:log("Init tests for tag=~p alg=~p",[Tag,PA]),
-    PrefAlgs = {preferred_algorithms,[{Tag,PA}]},
+    OtherAlgs = [{T,L} || {T,L} <- ssh_transport:supported_algorithms(), T=/=Tag],
+    ct:log("Init tests for tag=~p alg=~p~nOtherAlgs=~p",[Tag,PA,OtherAlgs]),
+    PrefAlgs = {preferred_algorithms,[{Tag,PA}|OtherAlgs]},
     start_std_daemon([PrefAlgs],
                      [{pref_algs,PrefAlgs},
                       {tag_alg,{Tag,Alg}}
@@ -184,12 +186,15 @@ init_per_testcase(TC, {public_key,Alg}, Config) ->
                                 | ExtraOpts],
                                 [{extra_daemon,true}|Config]);
         {{ok,_}, {error,Err}} ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, io_lib:format("No host key: ~p",[Err])};
         
         {{error,Err}, {ok,_}} ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, io_lib:format("No user key: ~p",[Err])};
         
         _ ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, "Neither host nor user key"}
     end;
 
@@ -222,24 +227,35 @@ end_per_testcase(_TC, Config) ->
 %% A simple sftp transfer
 simple_sftp(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
-    ssh_test_lib:std_simple_sftp(Host, Port, Config).
+    {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
+    ssh_test_lib:std_simple_sftp(Host, Port, Config,
+                                 [{modify_algorithms,[{append,AlgEntries}]}]
+                                ).
 
 %%--------------------------------------------------------------------
 %% A simple exec call
 simple_exec(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
-    ssh_test_lib:std_simple_exec(Host, Port, Config).
+    {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
+    ssh_test_lib:std_simple_exec(Host, Port, Config,
+                                 [{modify_algorithms,[{append,AlgEntries}]}]
+                                ).
 
 %%--------------------------------------------------------------------
 %% A simple exec call
 simple_connect(Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
+    {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
     Opts =
         case proplists:get_value(tag_alg, Config) of
-            {public_key,Alg} -> [{pref_public_key_algs,[Alg]}];
-            _ -> []
+            {public_key,Alg} -> [{pref_public_key_algs,[Alg]},
+                                 {preferred_algorithms,AlgEntries}];
+            _ -> [{modify_algorithms,[{append,AlgEntries}]}]
         end,
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, 
+                                             [{silently_accept_hosts, true},
+					      {user_interaction, false} |
+                                              Opts]),
     ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
     ssh:close(ConnectionRef).
 
@@ -257,15 +273,14 @@ try_exec_simple_group(Group, Config) ->
     of
 	_ -> ct:fail("Exec though no group available")
     catch
-	error:{badmatch,{error,"No possible diffie-hellman-group-exchange group found"}} -> ok;
-	error:{badmatch,{error,"Connection closed"}} -> ok
+        error:{badmatch,{error,"Key exchange failed"}} -> ok
     end.
 
 %%--------------------------------------------------------------------
 %% Testing all default groups
 
 simple_exec_groups() ->
-    [{timetrap,{seconds,120}}].
+    [{timetrap,{seconds,180}}].
     
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
@@ -460,17 +475,6 @@ pubkey_opts(Config) ->
      {system_dir, SystemDir}].
 
 
-setup_pubkey(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    UserDir = proplists:get_value(priv_dir, Config),
-    Keys =
-        [ssh_test_lib:setup_dsa(DataDir, UserDir),
-         ssh_test_lib:setup_rsa(DataDir, UserDir),
-         ssh_test_lib:setup_ecdsa("256", DataDir, UserDir)
-        ],
-    ssh_test_lib:write_auth_keys(Keys, UserDir), % 'authorized_keys' shall contain ALL pub keys
-    Config.
-
 setup_pubkey(Alg, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
@@ -482,7 +486,9 @@ setup_pubkey(Alg, Config) ->
         'rsa-sha2-512' -> ssh_test_lib:setup_rsa(DataDir, UserDir);
         'ecdsa-sha2-nistp256' -> ssh_test_lib:setup_ecdsa("256", DataDir, UserDir);
         'ecdsa-sha2-nistp384' -> ssh_test_lib:setup_ecdsa("384", DataDir, UserDir);
-        'ecdsa-sha2-nistp521' -> ssh_test_lib:setup_ecdsa("521", DataDir, UserDir)
+        'ecdsa-sha2-nistp521' -> ssh_test_lib:setup_ecdsa("521", DataDir, UserDir);
+        'ssh-ed25519' -> ssh_test_lib:setup_eddsa(ed25519, DataDir, UserDir);
+        'ssh-ed448'   -> ssh_test_lib:setup_eddsa(ed448, DataDir, UserDir)
     end,
     Config.
 
@@ -492,5 +498,6 @@ simple_exec_group(I, Config) when is_integer(I) ->
 simple_exec_group({Min,I,Max}, Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
     ssh_test_lib:std_simple_exec(Host, Port, Config,
-				 [{dh_gex_limits,{Min,I,Max}}]).
+				 [proplists:get_value(pref_algs,Config),
+                                  {dh_gex_limits,{Min,I,Max}}]).
 

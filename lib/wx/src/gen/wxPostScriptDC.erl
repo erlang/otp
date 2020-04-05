@@ -54,7 +54,8 @@
   startPage/1]).
 
 -export_type([wxPostScriptDC/0]).
--deprecated([getResolution/0,setResolution/1]).
+-deprecated([{getResolution,0,"not available in wxWidgets-2.9 and later"},
+             {setResolution,1,"not available in wxWidgets-2.9 and later"}]).
 
 -compile([{nowarn_deprecated_function, {wxDC,computeScaleAndOrigin,1}}]).
 

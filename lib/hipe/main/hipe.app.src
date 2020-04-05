@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@
 	     cerl_closurean,
 	     cerl_hipeify,
 	     cerl_lib,
-	     cerl_messagean,
 	     cerl_pmatch,
 	     cerl_prettypr,
 	     cerl_to_icode,
@@ -179,6 +178,7 @@
 	     hipe_rtl_to_sparc,
 	     hipe_rtl_to_x86,
 	     hipe_rtl_varmap,
+	     hipe_rtl_verify_gcsafe,
 	     hipe_segment_trees,
 	     hipe_sdi,
 	     hipe_sparc,

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 #include "error.h"
 #include "bif.h"
 #include "erl_cpu_topology.h"
+#include "erl_flxctr.h"
 
 #define ERTS_MAX_READER_GROUPS 64
 
@@ -58,9 +59,10 @@ static erts_cpu_info_t *cpuinfo;
 
 static int max_main_threads;
 static int reader_groups;
+static int decentralized_counter_groups;
 
 static ErtsCpuBindData *scheduler2cpu_map;
-static erts_smp_rwmtx_t cpuinfo_rwmtx;
+static erts_rwmtx_t cpuinfo_rwmtx;
 
 typedef enum {
     ERTS_CPU_BIND_UNDEFINED,
@@ -127,19 +129,20 @@ static erts_cpu_groups_map_t *cpu_groups_maps;
 
 static erts_cpu_groups_map_t *reader_groups_map;
 
+static erts_cpu_groups_map_t *decentralized_counter_groups_map;
+
 #define ERTS_TOPOLOGY_CG ERTS_TOPOLOGY_MAX_DEPTH
 
 #define ERTS_MAX_CPU_TOPOLOGY_ID ((int) 0xffff)
 
-#ifdef ERTS_SMP
 static void cpu_bind_order_sort(erts_cpu_topology_t *cpudata,
 				int size,
 				ErtsCpuBindOrder bind_order,
 				int mk_seq);
 static void write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size);
-#endif
 
 static void reader_groups_callback(int, ErtsSchedulerData *, int, void *);
+static void flxctr_groups_callback(int, ErtsSchedulerData *, int, void *);
 static erts_cpu_groups_map_t *add_cpu_groups(int groups,
 					     erts_cpu_groups_callback_t callback,
 					     void *arg);
@@ -434,7 +437,6 @@ processor_order_cmp(const void *vx, const void *vy)
     return 0;
 }
 
-#ifdef ERTS_SMP
 void
 erts_sched_check_cpu_bind_prep_suspend(ErtsSchedulerData *esdp)
 {
@@ -444,7 +446,7 @@ erts_sched_check_cpu_bind_prep_suspend(ErtsSchedulerData *esdp)
     int cgcc_ix;
 
     /* Unbind from cpu */
-    erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwlock(&cpuinfo_rwmtx);
     if (scheduler2cpu_map[esdp->no].bound_id >= 0
 	&& erts_unbind_from_cpu(cpuinfo) == 0) {
 	esdp->cpu_id = scheduler2cpu_map[esdp->no].bound_id = -1;
@@ -463,7 +465,7 @@ erts_sched_check_cpu_bind_prep_suspend(ErtsSchedulerData *esdp)
 	}
     }
     ASSERT(no_cpu_groups_callbacks == cgcc_ix);
-    erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
 
     for (cgcc_ix = 0; cgcc_ix < no_cpu_groups_callbacks; cgcc_ix++)
 	cgcc[cgcc_ix].callback(1,
@@ -481,7 +483,7 @@ erts_sched_check_cpu_bind_prep_suspend(ErtsSchedulerData *esdp)
 void
 erts_sched_check_cpu_bind_post_suspend(ErtsSchedulerData *esdp)
 {
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(esdp->run_queue));
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(esdp->run_queue));
 
     if (esdp->no <= max_main_threads)
 	erts_thr_set_main_status(1, (int) esdp->no);
@@ -490,7 +492,6 @@ erts_sched_check_cpu_bind_post_suspend(ErtsSchedulerData *esdp)
     (void) ERTS_RUNQ_FLGS_SET(esdp->run_queue, ERTS_RUNQ_FLG_CHK_CPU_BIND);
 }
 
-#endif
 
 void
 erts_sched_check_cpu_bind(ErtsSchedulerData *esdp)
@@ -499,8 +500,8 @@ erts_sched_check_cpu_bind(ErtsSchedulerData *esdp)
     erts_cpu_groups_map_t *cgm;
     erts_cpu_groups_callback_list_t *cgcl;
     erts_cpu_groups_callback_call_t *cgcc;
-    erts_smp_runq_unlock(esdp->run_queue);
-    erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
+    erts_runq_unlock(esdp->run_queue);
+    erts_rwmtx_rwlock(&cpuinfo_rwmtx);
     cpu_id = scheduler2cpu_map[esdp->no].bind_id;
     if (cpu_id >= 0 && cpu_id != scheduler2cpu_map[esdp->no].bound_id) {
 	res = erts_bind_to_cpu(cpuinfo, cpu_id);
@@ -543,7 +544,7 @@ erts_sched_check_cpu_bind(ErtsSchedulerData *esdp)
     }
 
     ASSERT(no_cpu_groups_callbacks == cgcc_ix);
-    erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
 
     for (cgcc_ix = 0; cgcc_ix < no_cpu_groups_callbacks; cgcc_ix++)
 	cgcc[cgcc_ix].callback(0,
@@ -553,10 +554,9 @@ erts_sched_check_cpu_bind(ErtsSchedulerData *esdp)
 
     erts_free(ERTS_ALC_T_TMP, cgcc);
 
-    erts_smp_runq_lock(esdp->run_queue);
+    erts_runq_lock(esdp->run_queue);
 }
 
-#ifdef ERTS_SMP
 void
 erts_sched_init_check_cpu_bind(ErtsSchedulerData *esdp)
 {
@@ -565,7 +565,7 @@ erts_sched_init_check_cpu_bind(ErtsSchedulerData *esdp)
     erts_cpu_groups_callback_list_t *cgcl;
     erts_cpu_groups_callback_call_t *cgcc;
 
-    erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
 
     cgcc = erts_alloc(ERTS_ALC_T_TMP,
 		      (no_cpu_groups_callbacks
@@ -581,7 +581,7 @@ erts_sched_init_check_cpu_bind(ErtsSchedulerData *esdp)
     }
 
     ASSERT(no_cpu_groups_callbacks == cgcc_ix);
-    erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
 
     for (cgcc_ix = 0; cgcc_ix < no_cpu_groups_callbacks; cgcc_ix++)
 	cgcc[cgcc_ix].callback(0,
@@ -594,7 +594,6 @@ erts_sched_init_check_cpu_bind(ErtsSchedulerData *esdp)
     if (esdp->no <= max_main_threads)
 	erts_thr_set_main_status(1, (int) esdp->no);
 }
-#endif
 
 static void
 write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size)
@@ -602,7 +601,7 @@ write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size)
     int s_ix = 1;
     int cpu_ix;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
 
     if (cpu_bind_order != ERTS_CPU_BIND_NONE && size) {
 
@@ -702,9 +701,9 @@ Eterm
 erts_bound_schedulers_term(Process *c_p)
 {
     ErtsCpuBindOrder order;
-    erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
     order = cpu_bind_order;
-    erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
     return bound_schedulers_term(order);
 }
 
@@ -717,7 +716,7 @@ erts_bind_schedulers(Process *c_p, Eterm how)
     int cpudata_size;
     ErtsCpuBindOrder old_cpu_bind_order;
 
-    erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwlock(&cpuinfo_rwmtx);
 
     if (erts_bind_to_cpu(cpuinfo, -1) == -ENOTSUP) {
 	if (cpu_bind_order == ERTS_CPU_BIND_NONE
@@ -773,7 +772,7 @@ erts_bind_schedulers(Process *c_p, Eterm how)
 
  done:
 
-    erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
 
     if (notify)
 	erts_sched_notify_check_cpu_bind();
@@ -793,9 +792,9 @@ erts_sched_bind_atthrcreate_child(int unbind)
 {
     int res = 0;
     if (unbind) {
-	erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
+	erts_rwmtx_rlock(&cpuinfo_rwmtx);
 	res = erts_unbind_from_cpu(cpuinfo);
-	erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+	erts_rwmtx_runlock(&cpuinfo_rwmtx);
     }
     return res;
 }
@@ -812,7 +811,7 @@ erts_sched_bind_atfork_prepare(void)
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
     int unbind = esdp != NULL && erts_is_scheduler_bound(esdp);
     if (unbind)
-	erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
+	erts_rwmtx_rlock(&cpuinfo_rwmtx);
     return unbind;
 }
 
@@ -820,7 +819,7 @@ int
 erts_sched_bind_atfork_child(int unbind)
 {
     if (unbind) {
-	ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&cpuinfo_rwmtx)
+	ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&cpuinfo_rwmtx)
 			   || erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
 	return erts_unbind_from_cpu(cpuinfo);
     }
@@ -831,7 +830,7 @@ void
 erts_sched_bind_atfork_parent(int unbind)
 {
     if (unbind)
-	erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+	erts_rwmtx_runlock(&cpuinfo_rwmtx);
 }
 
 Eterm
@@ -865,9 +864,9 @@ erts_fake_scheduler_bindings(Process *p, Eterm how)
 	return res;
     }
 
-    erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
     create_tmp_cpu_topology_copy(&cpudata, &cpudata_size);
-    erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
 
     if (!cpudata || fake_cpu_bind_order == ERTS_CPU_BIND_NONE)
 	ERTS_BIF_PREP_RET(res, am_false);
@@ -930,12 +929,12 @@ erts_get_schedulers_binds(Process *c_p)
     Eterm res = make_tuple(hp);
 
     *(hp++) = make_arityval(erts_no_schedulers);
-    erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
     for (ix = 1; ix <= erts_no_schedulers; ix++)
 	*(hp++) = (scheduler2cpu_map[ix].bound_id >= 0
 		   ? make_small(scheduler2cpu_map[ix].bound_id)
 		   : AM_unbound);
-    erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
     return res;
 }
 
@@ -1346,7 +1345,7 @@ erts_set_cpu_topology(Process *c_p, Eterm term)
     int cpudata_size = 0;
     Eterm res;
 
-    erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwlock(&cpuinfo_rwmtx);
     res = get_cpu_topology_term(c_p, ERTS_GET_USED_CPU_TOPOLOGY);
     if (term == am_undefined) {
 	if (user_cpudata)
@@ -1367,7 +1366,7 @@ erts_set_cpu_topology(Process *c_p, Eterm term)
     }
     else if (is_not_list(term)) {
     error:
-	erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
+	erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
 	res = THE_NON_VALUE;
 	goto done;
     }
@@ -1461,7 +1460,7 @@ erts_set_cpu_topology(Process *c_p, Eterm term)
 
     write_schedulers_bind_change(cpudata, cpudata_size);
 
-    erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
     erts_sched_notify_check_cpu_bind();
 
  done:
@@ -1615,7 +1614,7 @@ erts_get_cpu_topology_term(Process *c_p, Eterm which)
 {
     Eterm res;
     int type;
-    erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
     if (ERTS_IS_ATOM_STR("used", which))
 	type = ERTS_GET_USED_CPU_TOPOLOGY;
     else if (ERTS_IS_ATOM_STR("detected", which))
@@ -1628,12 +1627,12 @@ erts_get_cpu_topology_term(Process *c_p, Eterm which)
 	res = THE_NON_VALUE;
     else
 	res = get_cpu_topology_term(c_p, type);
-    erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
     return res;
 }
 
 static void
-get_logical_processors(int *conf, int *onln, int *avail)
+get_logical_processors(int *conf, int *onln, int *avail, int *quota)
 {
     if (conf)
 	*conf = erts_get_cpu_configured(cpuinfo);
@@ -1641,34 +1640,41 @@ get_logical_processors(int *conf, int *onln, int *avail)
 	*onln = erts_get_cpu_online(cpuinfo);
     if (avail)
 	*avail = erts_get_cpu_available(cpuinfo);
+    if (quota)
+	*quota = erts_get_cpu_quota(cpuinfo);
 }
 
 void
-erts_get_logical_processors(int *conf, int *onln, int *avail)
+erts_get_logical_processors(int *conf, int *onln, int *avail, int *quota)
 {
-    erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
-    get_logical_processors(conf, onln, avail);
-    erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
+    get_logical_processors(conf, onln, avail, quota);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
 }
 
 void
-erts_pre_early_init_cpu_topology(int *max_rg_p,
+erts_pre_early_init_cpu_topology(int *max_dcg_p,
+                                 int *max_rg_p,
 				 int *conf_p,
 				 int *onln_p,
-				 int *avail_p)
+				 int *avail_p,
+				 int *quota_p)
 {
     cpu_groups_maps = NULL;
     no_cpu_groups_callbacks = 0;
     *max_rg_p = ERTS_MAX_READER_GROUPS;
+    *max_dcg_p = ERTS_MAX_FLXCTR_GROUPS;
     cpuinfo = erts_cpu_info_create();
-    get_logical_processors(conf_p, onln_p, avail_p);
+    get_logical_processors(conf_p, onln_p, avail_p, quota_p);
 }
 
 void
 erts_early_init_cpu_topology(int no_schedulers,
 			     int *max_main_threads_p,
 			     int max_reader_groups,
-			     int *reader_groups_p)
+			     int *reader_groups_p,
+                             int max_decentralized_counter_groups,
+                             int *decentralized_counter_groups_p)
 {
     user_cpudata = NULL;
     user_cpudata_size = 0;
@@ -1693,6 +1699,12 @@ erts_early_init_cpu_topology(int no_schedulers,
 	max_main_threads = no_schedulers;
     *max_main_threads_p = max_main_threads;
 
+    decentralized_counter_groups = max_main_threads;
+    if (decentralized_counter_groups <= 1 || max_decentralized_counter_groups <= 1)
+	decentralized_counter_groups = 1;
+    if (decentralized_counter_groups > max_decentralized_counter_groups)
+	decentralized_counter_groups = max_decentralized_counter_groups;
+    *decentralized_counter_groups_p = decentralized_counter_groups;
     reader_groups = max_main_threads;
     if (reader_groups <= 1 || max_reader_groups <= 1)
 	reader_groups = 0;
@@ -1706,9 +1718,9 @@ erts_init_cpu_topology(void)
 {
     int ix;
 
-    erts_smp_rwmtx_init(&cpuinfo_rwmtx, "cpu_info", NIL,
+    erts_rwmtx_init(&cpuinfo_rwmtx, "cpu_info", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-    erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwlock(&cpuinfo_rwmtx);
 
     scheduler2cpu_map = erts_alloc(ERTS_ALC_T_CPUDATA,
 				   (sizeof(ErtsCpuBindData)
@@ -1724,15 +1736,18 @@ erts_init_cpu_topology(void)
     reader_groups_map = add_cpu_groups(reader_groups,
 				       reader_groups_callback,
 				       NULL);
+    decentralized_counter_groups_map = add_cpu_groups(decentralized_counter_groups,
+                                                      flxctr_groups_callback,
+                                                      NULL);
 
     if (cpu_bind_order == ERTS_CPU_BIND_NONE)
-	erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
+	erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
     else {
 	erts_cpu_topology_t *cpudata;
 	int cpudata_size;
 	create_tmp_cpu_topology_copy(&cpudata, &cpudata_size);
 	write_schedulers_bind_change(cpudata, cpudata_size);
-	erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
+	erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
 	erts_sched_notify_check_cpu_bind();
 	destroy_tmp_cpu_topology_copy(cpudata);
     }
@@ -1742,7 +1757,7 @@ int
 erts_update_cpu_info(void)
 {
     int changed;
-    erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwlock(&cpuinfo_rwmtx);
     changed = erts_cpu_info_update(cpuinfo);
     if (changed) {
 	erts_cpu_topology_t *cpudata;
@@ -1775,7 +1790,7 @@ erts_update_cpu_info(void)
 	write_schedulers_bind_change(cpudata, cpudata_size);
 	destroy_tmp_cpu_topology_copy(cpudata);
     }
-    erts_smp_rwmtx_rwunlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
     if (changed)
 	erts_sched_notify_check_cpu_bind();
     return changed;
@@ -1792,7 +1807,16 @@ reader_groups_callback(int suspending,
 		       void *unused)
 {
     if (reader_groups && esdp->no <= max_main_threads)
-	erts_smp_rwmtx_set_reader_group(suspending ? 0 : group+1);
+	erts_rwmtx_set_reader_group(suspending ? 0 : group+1);
+}
+
+void
+flxctr_groups_callback(int suspending,
+		       ErtsSchedulerData *esdp,
+		       int group,
+		       void *unused)
+{
+    erts_flxctr_set_slot(suspending ? 0 : group+1);
 }
 
 static Eterm get_cpu_groups_map(Process *c_p,
@@ -1821,9 +1845,19 @@ Eterm
 erts_get_reader_groups_map(Process *c_p)
 {
     Eterm res;
-    erts_smp_rwmtx_rlock(&cpuinfo_rwmtx);
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
     res = get_cpu_groups_map(c_p, reader_groups_map, 1);
-    erts_smp_rwmtx_runlock(&cpuinfo_rwmtx);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
+    return res;
+}
+
+Eterm
+erts_get_decentralized_counter_groups_map(Process *c_p)
+{
+    Eterm res;
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
+    res = get_cpu_groups_map(c_p, decentralized_counter_groups_map, 1);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
     return res;
 }
 
@@ -2203,7 +2237,7 @@ add_cpu_groups(int groups,
     erts_cpu_groups_callback_list_t *cgcl;
     erts_cpu_groups_map_t *cgm;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
 
     if (use_groups > max_main_threads)
 	use_groups = max_main_threads;
@@ -2250,7 +2284,7 @@ cpu_groups_lookup(erts_cpu_groups_map_t *map,
 {
     int start, logical, ix;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&cpuinfo_rwmtx)
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&cpuinfo_rwmtx)
 		       || erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
 
     if (esdp->cpu_id < 0)
@@ -2278,7 +2312,7 @@ static void
 update_cpu_groups_maps(void)
 {
     erts_cpu_groups_map_t *cgm;
-    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&cpuinfo_rwmtx));
 
     for (cgm = cpu_groups_maps; cgm; cgm = cgm->next)
 	make_cpu_groups_map(cgm, 0);

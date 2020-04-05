@@ -534,7 +534,7 @@ init_local_proxy(Config) ->
 		    ct:fail({local_proxy_start_failed,Error})
 	    end;
 	_ ->
-	    {skip,"Platform can not run local proxy start script"}
+	    {skip,"Platform cannot run local proxy start script"}
     end.
 
 init_local_proxy_string(String, Config) ->

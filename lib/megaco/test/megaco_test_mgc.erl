@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,7 +75,10 @@
 	      abort_info  = undefined,
 	      req_info    = undefined,
 	      mg          = [],
-	      dsi_timer}).
+	      dsi_timer,
+              evs         = []}).
+
+-define(EVS_MAX, 10).
 
 
 %%% ------------------------------------------------------------------
@@ -87,7 +90,9 @@ start(Node, Mid, ET, Verbosity) ->
     start(Node, Mid, ET, Conf, Verbosity).
 
 start(Node, Mid, ET, Conf, Verbosity) ->
-    d("start mgc[~p]: ~p", [Node, Mid]),
+    d("start mgc[~p]: ~p"
+      "~n      ET:   ~p"
+      "~n      Conf: ~p", [Node, Mid, ET, Conf]),
     RI = {receive_info, mk_recv_info(ET)},
     Config = [{local_mid, Mid}, RI] ++ Conf,
     Pid = spawn_link(Node, ?MODULE, mgc, [self(), Verbosity, Config]),
@@ -157,13 +162,13 @@ await_started(Pid) ->
 	    {ok, Pid};
 	{'EXIT', Pid, 
 	 {failed_starting_tcp_listen, {could_not_start_listener, {gen_tcp_listen, eaddrinuse}}}} ->
-	    i("await_started ~p: address already in use", [Pid]),
+	    e("await_started ~p: address already in use", [Pid]),
 	    ?SKIP(eaddrinuse);
 	{'EXIT', Pid, Reason} ->
-	    i("await_started ~p: received exit signal: ~p", [Pid, Reason]),
+	    e("await_started ~p: received exit signal: ~p", [Pid, Reason]),
 	    exit({failed_starting, Pid, Reason})
     after 10000 ->
-	    i("await_started ~p: timeout", [Pid]),
+	    e("await_started ~p: timeout", [Pid]),
 	    exit({error, timeout})
     end.
 
@@ -297,7 +302,7 @@ mgc(Parent, Verbosity, Config) ->
 		     dsi_timer = DSITimer},
 	    i("mgc -> started"),
 	    display_system_info("at start "),
-	    loop(S)
+	    loop(evs(S, started))
     end.
 
 init(Config) ->
@@ -359,42 +364,42 @@ loop(S) ->
 	{display_system_info, Time} ->
 	    display_system_info(S#mgc.mid),
 	    NewTimer = create_timer(Time, display_system_info),
-	    loop(S#mgc{dsi_timer = NewTimer});
+	    loop(evs(S#mgc{dsi_timer = NewTimer}, {dsi, Time}));
 
 	{stop, Parent} when S#mgc.parent =:= Parent ->
-	    i("loop -> stopping", []),
+	    i("loop -> stopping"),
 	    display_system_info(S#mgc.mid, "at finish "),
 	    cancel_timer(S#mgc.dsi_timer),
   	    Mid = S#mgc.mid,
 	    (catch close_conns(Mid)),
 	    megaco:stop_user(Mid),
 	    application:stop(megaco),
-	    i("loop -> stopped", []),
+	    i("loop -> stopped"),
 	    server_reply(Parent, stopped, ok),
-	    exit(normal);
+	    done(evs(S, stop), normal);
 
 	{{disconnect, Reason}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> disconnecting", []),
+	    i("loop -> disconnecting"),
   	    Mid = S#mgc.mid,
 	    [Conn|_] = megaco:user_info(Mid, connections),
 	    Res = megaco:disconnect(Conn, {self(), Reason}),
 	    server_reply(Parent, disconnected, Res),
-	    loop(S);
+	    loop(evs(S, {disconnect, Reason}));
 
 	{{update_user_info, Tag, Val}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got update_user_info: ~w -> ~p", [Tag, Val]),
 	    Res = (catch megaco:update_user_info(S#mgc.mid, Tag, Val)),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, update_user_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {uui, {Tag, Val}}));
 
-	{{user_info, Tag}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> got user_info request for ~w", [Tag]),
-	    Res = (catch megaco:user_info(S#mgc.mid, Tag)),
-	    d("loop -> Res: ~p", [Res]),
-	    server_reply(Parent, user_info_ack, Res),
-	    loop(S);
-
+        {{user_info, Tag}, Parent} when S#mgc.parent == Parent ->
+            i("loop -> got user_info request for ~w", [Tag]),
+            Res = (catch megaco:user_info(S#mgc.mid, Tag)),
+            d("loop -> Res: ~p", [Res]),
+            server_reply(Parent, user_info_ack, Res),
+            loop(evs(S, {ui, Tag}));
+                     
 	{{update_conn_info, Tag, Val}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got update_conn_info: ~w -> ~p", [Tag, Val]),
 	    Conns = megaco:user_info(S#mgc.mid, connections), 
@@ -404,7 +409,7 @@ loop(S) ->
 	    Res = lists:map(Fun, Conns),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, update_conn_info_ack, Res),
-	    loop(S);
+            loop(evs(S, {uci, {Tag, Val}}));
 
 	{{conn_info, Tag}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got conn_info request for ~w", [Tag]),
@@ -415,11 +420,11 @@ loop(S) ->
 	    Res = lists:map(Fun, Conns),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, conn_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {ci, Tag}));
 
 
 	%% 
-	{request_action, {Action, To}, Parent} when S#mgc.parent == Parent ->
+        {request_action, {Action, To}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got new request_action: ~p:~w", [Action,To]),
 	    {Reply, S1} = 
 		case lists:member(Action, ?valid_actions) of
@@ -432,7 +437,7 @@ loop(S) ->
 			{{error, {invalid_action, Action}}, S}
 		end,
 	    server_reply(Parent, request_action_ack, Reply),
-	    loop(S1);
+            loop(evs(S1, {req_act, {Action, To}}));
 
 
 	%% Reset stats
@@ -440,7 +445,7 @@ loop(S) ->
 	    i("loop -> got request to reset stats counters"),
 	    do_reset_stats(S#mgc.mid),
 	    server_reply(Parent, reset_stats_ack, ok),
-	    loop(S);
+	    loop(evs(S, rst_stats));
 
 
 	%% Give me statistics
@@ -466,7 +471,7 @@ loop(S) ->
 		lists:map(GetTrans, megaco:user_info(Mid, connections)),
 	    Reply = {ok, [{gen, Gen}, {trans, Trans}]},
 	    server_reply(Parent, {statistics_reply, 1}, Reply),
-	    loop(S);
+	    loop(evs(S, {stats, 1}));
 
 
 	{{statistics, 2}, Parent} when S#mgc.parent == Parent ->
@@ -477,78 +482,90 @@ loop(S) ->
 	    UdpStats = get_trans_stats(UdpSup, megaco_udp),
 	    Reply = {ok, [{gen, Gen}, {trans, [TcpStats, UdpStats]}]},
 	    server_reply(Parent, {statistics_reply, 2}, Reply),
-	    loop(S);
+	    loop(evs(S, {stats, 2}));
 
 
 	%% Megaco callback messages
 	{request, Request, From} ->
-	    d("loop -> received megaco request from ~p:~n~p", 
-	      [From, Request]),
+	    d("loop -> received megaco request from ~p:"
+              "~n      ~p", [From, Request]),
 	    {Reply, S1} = handle_megaco_request(Request, S),
 	    d("loop -> send request reply: ~n~p", [Reply]),
 	    reply(From, Reply),
-	    loop(S1);
+	    loop(evs(S1, {req, Request}));
 
 
 	{ack_info, To, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> received request to inform about received ack's ", []),
-	    loop(S#mgc{ack_info = To});
+	    i("loop -> received request to inform about received ack's "),
+	    loop(evs(S#mgc{ack_info = To}, {acki, To}));
 
 
 	{abort_info, To, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> received request to inform about received aborts ", []),
-	    loop(S#mgc{abort_info = To});
+	    i("loop -> received request to inform about received aborts "),
+	    loop(evs(S#mgc{abort_info = To}, {abi, To}));
 
 
 	{req_info, To, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> received request to inform about received req's ", []),
-	    loop(S#mgc{req_info = To});
+	    i("loop -> received request to inform about received req's "),
+	    loop(evs(S#mgc{req_info = To}, {reqi, To}));
 
 
 	{verbosity, V, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> received new verbosity: ~p", [V]),
 	    put(verbosity,V),
-	    loop(S);
+	    loop(evs(S, {verb, V}));
 
 
 	{'EXIT', Pid, Reason} when S#mgc.tcp_sup =:= Pid ->
 	    error_msg("MGC received unexpected exit "
-		      "from TCP transport supervisor (~p):~n~p", 
-		      [Pid, Reason]),
-	    i("loop -> [tcp] exiting", []),
+		      "from TCP transport supervisor (~p):"
+                      "~n   ~p", [Pid, Reason]),
+	    i("loop -> [tcp] exiting"),
 	    display_system_info(S#mgc.mid, "at bad finish (tcp) "),
 	    cancel_timer(S#mgc.dsi_timer),
   	    Mid = S#mgc.mid,
 	    (catch close_conns(Mid)),
 	    megaco:stop_user(Mid),
 	    application:stop(megaco),
-	    i("loop -> stopped", []),
+	    i("loop -> stopped"),
 	    StopReason = {error, {tcp_terminated, Pid, Reason}}, 
 	    server_reply(S#mgc.parent, stopped, StopReason),
-	    exit(StopReason);
+	    done(evs(S, {tcp_sup_exit, Reason}), StopReason);
 
 
 	{'EXIT', Pid, Reason} when S#mgc.udp_sup =:= Pid ->
 	    error_msg("MGC received unexpected exit "
-		      "from UDP transport supervisor (~p):~n~p", 
-		      [Pid, Reason]),
-	    i("loop -> [udp] exiting", []),
+		      "from UDP transport supervisor (~p):"
+                      "~n   ~p", [Pid, Reason]),
+	    i("loop -> [udp] exiting"),
 	    display_system_info(S#mgc.mid, "at bad finish (udp) "),
 	    cancel_timer(S#mgc.dsi_timer),
   	    Mid = S#mgc.mid,
 	    (catch close_conns(Mid)),
 	    megaco:stop_user(Mid),
 	    application:stop(megaco),
-	    i("loop -> stopped", []),
+	    i("loop -> stopped"),
 	    StopReason = {error, {udp_terminated, Pid, Reason}}, 
 	    server_reply(S#mgc.parent, stopped, StopReason),
-	    exit(StopReason);
+	    done(evs(S, {udp_sup_exit, Reason}), StopReason);
 
 
 	Invalid ->
 	    i("loop -> received invalid request: ~p", [Invalid]),
-	    loop(S)
+	    loop(evs(S, {invalid, Invalid}))
     end.
+
+
+evs(#mgc{evs = EVS} = S, Ev) when (length(EVS) < ?EVS_MAX) ->
+    S#mgc{evs = [{?FTS(), Ev}|EVS]};
+evs(#mgc{evs = EVS} = S, Ev) ->
+    S#mgc{evs = [{?FTS(), Ev}|lists:droplast(EVS)]}.
+
+done(#mgc{evs = EVS}, Reason) ->
+    info_msg("Exiting with latest event(s): "
+             "~n   ~p"
+             "~n", [EVS]),
+    exit(Reason).
 
 
 do_reset_stats(Mid) ->
@@ -604,13 +621,13 @@ parse_receive_info(RI, RH) ->
 
 parse_receive_info([], _RH, Transports) ->
     d("parse_receive_info -> done when"
-      "~n   Transports: ~p", [Transports]),
+      "~n      Transports: ~p", [Transports]),
     Transports;
 parse_receive_info([RI|RIs], RH, Transports) ->
     d("parse_receive_info -> parse receive info"),
     case (catch parse_receive_info1(RI, RH)) of
 	{error, Reason} ->
-	    i("failed parsing receive info: ~p~n~p", [RI, Reason]),
+	    e("failed parsing receive info: ~p~n~p", [RI, Reason]),
 	    exit({failed_parsing_recv_info, RI, Reason});
 	RH1 ->
 	    parse_receive_info(RIs, RH, [RH1|Transports])
@@ -631,9 +648,9 @@ parse_receive_info1(RI, RH) ->
 				   encoding_mod    = EM,
 				   encoding_config = EC},
     d("parse_receive_info1 -> "
-      "~n   Transport Opts: ~p"
-      "~n   Port:           ~p"
-      "~n   Receive handle: ~p", [TO, TP, RH1]),
+      "~n      Transport Opts: ~p"
+      "~n      Port:           ~p"
+      "~n      Receive handle: ~p", [TO, TP, RH1]),
     {TO, TP, RH1}.
 
 
@@ -660,19 +677,27 @@ start_transports1([], Tcp, Udp) ->
 start_transports1([{_TO, _Port, RH}|Transports], Tcp, Udp) 
   when ((RH#megaco_receive_handle.send_mod =:= megaco_tcp) andalso 
 	(not is_pid(Tcp)))  ->
+    d("try start tcp transport service"),
     case megaco_tcp:start_transport() of
 	{ok, Sup} ->
+            d("tcp transport service started: ~p", [Sup]),
 	    start_transports1(Transports, Sup, Udp);
 	Else ->
+            e("Failed starting TCP transport service:"
+              "~n   ~p", [Else]),
 	    throw({error, {failed_starting_tcp_transport, Else}})
     end;
 start_transports1([{_TO, _Port, RH}|Transports], Tcp, Udp) 
   when ((RH#megaco_receive_handle.send_mod =:= megaco_udp) andalso 
 	(not is_pid(Udp))) ->
+    d("try start udp transport servuice"),
     case megaco_udp:start_transport() of
 	{ok, Sup} ->
+            d("udp transport started: ~p", [Sup]),
 	    start_transports1(Transports, Tcp, Sup);
 	Else ->
+            e("Failed starting UDP transport service:"
+              "~n   ~p", [Else]),
 	    throw({error, {failed_starting_udp_transport, Else}})
     end;
 start_transports1([_|Transports], Tcp, Udp) ->
@@ -816,34 +841,34 @@ handle_megaco_request({handle_trans_reply, _CH, _PV, _AR, _RD}, S) ->
 handle_megaco_request({handle_trans_ack, CH, PV, AS, AD}, 
 		      #mgc{ack_info = P} = S) when is_pid(P) ->
     d("handle_megaco_request(handle_trans_ack,~p) -> entry when"
-      "~n   CH: ~p"
-      "~n   PV: ~p"
-      "~n   AS: ~p"
-      "~n   AD: ~p", [P, CH, PV, AS, AD]),
+      "~n      CH: ~p"
+      "~n      PV: ~p"
+      "~n      AS: ~p"
+      "~n      AD: ~p", [P, CH, PV, AS, AD]),
     P ! {ack_received, self(), AS},
     {ok, S};
 
 handle_megaco_request({handle_trans_ack, CH, PV, AS, AD}, S) ->
     d("handle_megaco_request(handle_trans_ack) -> entry with"
-      "~n   CH: ~p"
-      "~n   PV: ~p"
-      "~n   AS: ~p"
-      "~n   AD: ~p", [CH, PV, AS, AD]),
+      "~n      Conn Handle:  ~p"
+      "~n      Prot Version: ~p"
+      "~n      Ack Status:   ~p"
+      "~n      Ack Data:     ~p", [CH, PV, AS, AD]),
     {ok, S};
 
 handle_megaco_request({handle_unexpected_trans, CH, PV, TR}, S) ->
     d("handle_megaco_request(handle_unexpected_trans) -> entry with"
-      "~n   CH: ~p"
-      "~n   PV: ~p"
-      "~n   TR: ~p", [CH, PV, TR]),
+      "~n      CH: ~p"
+      "~n      PV: ~p"
+      "~n      TR: ~p", [CH, PV, TR]),
     {ok, S};
 
 handle_megaco_request({handle_trans_request_abort, CH, PV, TI, Handler}, S) ->
     d("handle_megaco_request(handle_trans_request_abort) -> entry with"
-      "~n   CH:      ~p"
-      "~n   PV:      ~p"
-      "~n   TI:      ~p"
-      "~n   Handler: ~p", [CH, PV, TI, Handler]),
+      "~n      CH:      ~p"
+      "~n      PV:      ~p"
+      "~n      TI:      ~p"
+      "~n      Handler: ~p", [CH, PV, TI, Handler]),
     Reply = 
 	case S#mgc.abort_info of
 	    P when is_pid(P) ->
@@ -858,8 +883,8 @@ handle_megaco_request({handle_trans_request_abort, CH, PV, TI, Handler}, S) ->
 do_handle_trans_request(CH, PV, ARs, 
 			#mgc{req_action = Action, req_timeout = To} = S) ->
     d("do_handle_megaco_request(handle_trans_request) -> entry with"
-      "~n   Action: ~p"
-      "~n   To:     ~p", [Action, To]),
+      "~n      Action: ~p"
+      "~n      To:     ~p", [Action, To]),
     case handle_act_requests(CH, PV, ARs, Action) of
 	{pending_ignore, ActReqs} ->
 	    {{pending, ActReqs}, S#mgc{req_action = ignore}};
@@ -935,8 +960,8 @@ handle_notify_req(CH, PV, CtxId,
 
 handle_event(_CH, _PV, _Cid, Tid, EvDesc) ->
     d("handle_event -> received"
-      "~n   EvDesc: ~p"
-      "~n   Tid:    ~p", [EvDesc, Tid]),
+      "~n      EvDesc: ~p"
+      "~n      Tid:    ~p", [EvDesc, Tid]),
     {notifyReply, cre_notifyRep(Tid)}.
     
 
@@ -1090,6 +1115,7 @@ sleep(X) ->
     receive after X -> ok end.
 
 
+info_msg(F,A)  -> error_logger:info_msg("MGC: " ++ F ++ "~n",A).
 error_msg(F,A) -> error_logger:error_msg("MGC: " ++ F ++ "~n",A).
 
 
@@ -1153,18 +1179,17 @@ get_conf(Key, Config, Default) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
+    ok.
 
 random(N) ->
-    random:uniform(N).
+    rand:uniform(N).
 
 
 display_system_info(Mid) ->
     display_system_info(Mid, "").
 
 display_system_info(Mid, Pre) ->
-    TimeStr = format_timestamp(now()),
+    TimeStr = ?FTS(),
     MibStr  = lists:flatten(io_lib:format("~p ", [Mid])), 
     megaco_test_lib:display_system_info(MibStr ++ Pre ++ TimeStr).
 
@@ -1180,20 +1205,24 @@ cancel_timer(Ref) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+e(F, A) ->
+    print(error, get(verbosity), "ERROR", F, A).
+
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), "", F, A).
+    print(info, get(verbosity), "INFO", F, A).
 
 
 d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(debug, get(verbosity), "DBG: ", F, A).
+    print(debug, get(verbosity), "DBG", F, A).
 
 
+printable(error, _)   -> true;
 printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.
@@ -1207,16 +1236,8 @@ print(_, _, _, _) ->
     ok.
 
 print(P, F, A) ->
-    io:format("*** [~s] ~s ~p ~s ***"
+    io:format("*** [~s] [~s] ~p ~s ***"
 	      "~n   " ++ F ++ "~n~n", 
-	      [format_timestamp(now()), P, self(), get(sname) | A]).
+	      [?FTS(), P, self(), get(sname) | A]).
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
 

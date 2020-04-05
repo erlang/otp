@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,6 +62,7 @@ logfile(Config) ->
     error_logger:logfile({open,Log}),
     ok = rpc:call(Node, erlang, apply, [fun gen_events/1,[Ev]]),
     AtNode = iolist_to_binary(["** at node ",atom_to_list(Node)," **"]),
+    timer:sleep(1000), % some time get all log events in the log
     error_logger:logfile(close),
     analyse_events(Log, Ev, [AtNode], unlimited),
 
@@ -124,6 +125,7 @@ tty(Config) ->
     ok = rpc:call(Node, erlang, apply, [fun gen_events/1,[Ev]]),
     tty_log_close(),
     AtNode = iolist_to_binary(["** at node ",atom_to_list(Node)," **"]),
+    timer:sleep(1000), % some time get all log events in the log
     analyse_events(Log, Ev, [AtNode], unlimited),
 
     test_server:stop_node(Node),
@@ -207,7 +209,7 @@ event_templates() ->
 gen_events(Ev) ->
     io:format("node = ~p\n", [node()]),
     io:format("group leader = ~p\n", [group_leader()]),
-    io:format("~p\n", [gen_event:which_handlers(error_logger)]),
+    io:format("~p\n", [error_logger:which_report_handlers()]),
     call_error_logger(Ev),
 
     {Pid,Ref} = spawn_monitor(fun() -> error(ouch) end),
@@ -240,6 +242,7 @@ analyse_events(Log, Ev, AtNode, Depth) ->
 
 call_error_logger([{F,Args}|T]) ->
     apply(error_logger, F, Args),
+    timer:sleep(10),
     call_error_logger(T);
 call_error_logger([]) -> ok.
 
@@ -257,8 +260,7 @@ match_output([Item|T], Lines0, AtNode, Depth) ->
 	Lines ->
 	    match_output(T, Lines, AtNode, Depth)
     catch
-	C:E ->
-	    Stk = erlang:get_stacktrace(),
+	C:E:Stk ->
 	    io:format("ITEM: ~p", [Item]),
 	    io:format("LINES: ~p", [Lines0]),
 	    erlang:raise(C, E, Stk)

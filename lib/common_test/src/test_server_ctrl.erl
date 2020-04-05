@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1393,7 +1393,7 @@ temp_nodename([Chr|Base], Acc) ->
 %%
 %% Counts the test cases that are about to run and returns that number.
 %% If there's a conf group in TestSpec with a repeat property, the total number
-%% of cases can not be calculated and NoOfCases = unknown.
+%% of cases cannot be calculated and NoOfCases = unknown.
 count_test_cases(TopCases, SkipCases) when is_list(TopCases) ->
     case collect_all_cases(TopCases, SkipCases) of
 	{error,_Why} = Error ->
@@ -1443,6 +1443,8 @@ remove_conf([C={Mod,error_in_suite,_}|Cases], NoConf, Repeats) ->
        true ->
 	    remove_conf(Cases, [C|NoConf], Repeats)
     end;
+remove_conf([C={repeat,_,_}|Cases], NoConf, _Repeats) ->
+    remove_conf(Cases, [C|NoConf], true);
 remove_conf([C|Cases], NoConf, Repeats) ->
     remove_conf(Cases, [C|NoConf], Repeats);
 remove_conf([], NoConf, true) ->
@@ -1472,13 +1474,14 @@ get_suites([], Mods) ->
     lists:reverse(Mods).
 
 add_mod(Mod, Mods) ->
-    case string:rstr(atom_to_list(Mod), "_SUITE") of
-	0 -> false;
-	_ ->					% test suite
+    case lists:reverse(atom_to_list(Mod)) of
+        "ETIUS_" ++ _ -> % test suite
 	     case lists:member(Mod, Mods) of
 		 true ->  false;
 		 false -> true
-	     end
+	     end;
+        _ ->
+            false
     end.
 
 
@@ -1557,7 +1560,7 @@ do_test_cases(TopCases, SkipCases,
 			 Html1}
 		end,
 
-	    print(html, Header),
+	    print(html, "~ts", [Header]),
 
 	    print(html, xhtml("<p>", "<h4>")),
 	    print_timestamp(html, "Test started at "),
@@ -1604,10 +1607,10 @@ do_test_cases(TopCases, SkipCases,
 		  [?suitelog_name,CoverLog,?unexpected_io_log]),
 	    print(html,
 		  "<p>~ts</p>\n" ++
-		  xhtml(["<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">\n",
-			 "<thead>\n"],
-			["<table id=\"",?sortable_table_name,"\">\n",
-			 "<thead>\n"]) ++
+		  xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">\n" ++
+			 "<thead>\n",
+			"<table id=\"" ++ ?sortable_table_name ++ "\">\n" ++
+			 "<thead>\n") ++
 		      "<tr><th>Num</th><th>Module</th><th>Group</th>" ++
 		      "<th>Case</th><th>Log</th><th>Time</th><th>Result</th>" ++
 		      "<th>Comment</th></tr>\n</thead>\n<tbody>\n",
@@ -2060,6 +2063,14 @@ add_init_and_end_per_suite([SkipCase|Cases], LastMod, LastRef, FwMod)
     [SkipCase|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{repeat,{Mod,_},_}=Case|Cases], LastMod, LastRef, FwMod)
+  when Mod =/= LastMod, Mod =/= FwMod ->
+    {PreCases, NextMod, NextRef} =
+	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
+add_init_and_end_per_suite([{repeat,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef, FwMod)
   when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
@@ -2137,7 +2148,7 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 			%% let's call a "fake" end_per_suite if it exists
 			case erlang:function_exported(FwMod, end_per_suite, 1) of
 			    true ->				
-				[{conf,LastRef,[{suite,Mod}],
+				[{conf,LastRef,[{suite,LastMod}],
 				  {FwMod,end_per_suite}}|Init];
 			    false ->
 				[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
@@ -2300,7 +2311,7 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 %% test_server_io:print_buffered/1 to print the data. To help with this,
 %% two variables in the process dictionary are used:
 %% 'test_server_common_io_handler' and 'test_server_queued_io'. The values
-%% are set to as follwing:
+%% are set to as following:
 %%
 %%   Value	Meaning
 %%   -----     -------
@@ -2632,7 +2643,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 				NumStr ->
 				    %% Ex: "123 456 789" or "123,456,789" -> {123,456,789}
 				    list_to_tuple([list_to_integer(NS) ||
-						   NS <- string:tokens(NumStr, [$ ,$:,$,])])
+						   NS <- string:lexemes(NumStr, [$ ,$:,$,])])
 			    end,
 			{shuffle_cases(Ref, Cs0, UseSeed),{shuffle,UseSeed}}
 		end;
@@ -2925,6 +2936,29 @@ run_test_cases_loop([{conf,_Ref,_Props,_X}=Conf|_Cases0],
 		    Config, _TimetrapData, _Mode, _Status) ->
     erlang:error(badarg, [Conf,Config]);
 
+run_test_cases_loop([{repeat,Case,{RepeatType,N}}|Cases0], Config,
+                    TimeTrapData, Mode, Status) ->
+    Ref = make_ref(),
+    Parallel = check_prop(parallel, Mode) =/= false,
+    Sequence = check_prop(sequence, Mode) =/= false,
+    RepeatStop = RepeatType=:=repeat_until_fail
+        orelse RepeatType=:=repeat_until_ok,
+
+    if Parallel andalso RepeatStop ->
+            %% Cannot check results of test case during parallal
+            %% execution, so only RepeatType=:=repeat is allowed in
+            %% combination with parallel groups.
+            erlang:error({illegal_combination,{parallel,RepeatType}});
+       Sequence andalso RepeatStop ->
+            %% Sequence is stop on fail + skip rest, so only
+            %% RepeatType=:=repeat makes sense inside a sequence.
+            erlang:error({illegal_combination,{sequence,RepeatType}});
+       true ->
+            Mode1 = [{Ref,[{repeat,{RepeatType,1,N}}],?now}|Mode],
+            run_test_cases_loop([Case | Cases0], Config, TimeTrapData,
+                                Mode1, Status)
+    end;
+
 run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
     ActualCfg =
 	case get(test_server_create_priv_dir) of
@@ -2937,7 +2971,7 @@ run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
     run_test_cases_loop([{Mod,Case,[ActualCfg]}|Cases], Config,
 			TimetrapData, Mode, Status);
 
-run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status) ->
+run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, Status) ->
     {Num,RunInit} =
 	case FwMod = get_fw_mod(?MODULE) of
 	    Mod when Func == error_in_suite ->
@@ -2946,6 +2980,14 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 		{put(test_server_case_num, get(test_server_case_num)+1),
 		 run_init}
 	end,
+
+    Mode =
+        case Mode0 of
+            [{_,[{repeat,{_,_,_}}],_}|RestMode] ->
+                RestMode;
+            _ ->
+                Mode0
+        end,
 
     %% check the current execution mode and save info about the case if
     %% detected that printouts to common log files is handled later
@@ -2974,36 +3016,42 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
                 if is_tuple(RetVal) -> element(1,RetVal);
                    true -> undefined
                 end,
-	    {Failed,Status1} =
+	    {Result,Failed,Status1} =
                 case RetTag of
                     Skip when Skip==skip; Skip==skipped ->
-                        {false,update_status(skipped, Mod, Func, Status)};
+                        {skipped,false,update_status(skipped, Mod, Func, Status)};
                     Fail when Fail=='EXIT'; Fail==failed ->
-                        {true,update_status(failed, Mod, Func, Status)};
+                        {failed,true,update_status(failed, Mod, Func, Status)};
                     _ when Time==died, RetVal=/=ok ->
-                        {true,update_status(failed, Mod, Func, Status)};
+                        {failed,true,update_status(failed, Mod, Func, Status)};
                     _ ->
-                        {false,update_status(ok, Mod, Func, Status)}
+                        {ok,false,update_status(ok, Mod, Func, Status)}
                 end,
 	    case check_prop(sequence, Mode) of
 		false ->
+                    {Cases1,Mode1} =
+                        check_repeat_testcase(Case,Result,Cases,Mode0),
 		    stop_minor_log_file(),
-		    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status1);
+		    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status1);
 		Ref ->
 		    %% the case is in a sequence; we must check the result and
 		    %% determine if the following cases should run or be skipped
 		    if not Failed ->	      % proceed with next case
+                            {Cases1,Mode1} =
+                                check_repeat_testcase(Case,Result,Cases,Mode0),
 			    stop_minor_log_file(),
-			    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status1);
+			    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status1);
 		       true ->	              % skip rest of cases in sequence
 			    print(minor, "~n*** ~tw failed.~n"
 				  "    Skipping all other cases in sequence.",
 				  [Func]),
+                            {Cases1,Mode1} =
+                                check_repeat_testcase(Case,Result,Cases,Mode0),
 			    Reason = {failed,{Mod,Func}},
-			    Cases2 = skip_cases_upto(Ref, Cases, Reason, tc,
+			    Cases2 = skip_cases_upto(Ref, Cases1, Reason, tc,
 						     Mode, auto_skip_case),
 			    stop_minor_log_file(),
-			    run_test_cases_loop(Cases2, Config, TimetrapData, Mode, Status1)
+			    run_test_cases_loop(Cases2, Config, TimetrapData, Mode1, Status1)
 		    end
 	    end;
 	%% the test case is being executed in parallel with the main process (and
@@ -3012,7 +3060,8 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 	    %% io from Pid will be buffered by the test_server_io process and
 	    %% handled later, so we have to save info about the case
 	    queue_test_case_io(undefined, Pid, Num+1, Mod, Func),
-	    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status)
+            {Cases1,Mode1} = check_repeat_testcase(Case,ok,Cases,Mode0),
+	    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status)
     end;
 
 %% TestSpec processing finished
@@ -3305,7 +3354,8 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
        true ->
 	    print(2,"*** Skipping test case #~w ~tw ***", [CaseNum,{Mod,Func}])
     end,
-    TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),	       
+    TR = xhtml("<tr valign=\"top\">",
+               "<tr class=\"" ++ odd_or_even() ++ "\">"),
     GroupName =	case get_name(Mode) of
 		    undefined -> "";
 		    Name      -> cast_to_list(Name)
@@ -3450,9 +3500,19 @@ modify_cases_upto1(Ref, {skip,Reason,FType,Mode,SkipType},
 			       T, Orig, Alt)
     end;
 
-%% next is some other case, ignore or copy
-modify_cases_upto1(Ref, {skip,_,_,_,_}=Op, [_Other|T], Orig, Alt) ->
+%% next is a repeated test case
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType}=Op,
+                   [{repeat,{_M,_F}=MF,_Repeat}|T], Orig, Alt) ->
+    modify_cases_upto1(Ref, Op, T, Orig, [{SkipType,{MF,Reason},Mode}|Alt]);
+
+%% next is an already skipped case, ignore or copy
+modify_cases_upto1(Ref, {skip,_,_,_,_}=Op, [{SkipType,_,_}|T], Orig, Alt)
+  when SkipType=:=skip_case; SkipType=:=auto_skip_case ->
     modify_cases_upto1(Ref, Op, T, Orig, Alt);
+
+%% next is some other case, mark as skipped or copy
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType}=Op, [Other|T], Orig, Alt) ->
+    modify_cases_upto1(Ref, Op, T, Orig, [{SkipType,{Other,Reason},Mode}|Alt]);
 modify_cases_upto1(Ref, CopyOp, [C|T], Orig, Alt) ->
     modify_cases_upto1(Ref, CopyOp, T, [C|Orig], [C|Alt]).
 
@@ -3795,8 +3855,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     end,
 
     print(minor,
-	  escape_chars(io_lib:format("Config value:\n\n    ~tp\n", [Args2Print])),
-	  []),
+          "~ts",
+	  [escape_chars(io_lib:format("Config value:\n\n    ~tp\n", [Args2Print]))]),
     print(minor, "Current directory is ~tp\n", [Cwd]),
 
     GrNameStr =	case GrName of
@@ -3805,7 +3865,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		end,
     print(major, "=started       ~s", [lists:flatten(timestamp_get(""))]),
     {{Col0,Col1},Style} = get_font_style((RunInit==run_init), Mode),
-    TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),
+    TR = xhtml("<tr valign=\"top\">", "<tr class=\"" ++ odd_or_even() ++ "\">"),
     EncMinorBase = uri_encode(MinorBase),
     print(html,	TR ++ "<td>" ++ Col0 ++ "~ts" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "~w" ++ Col1 ++ "</td>"
@@ -3830,7 +3890,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     print(minor, "<a name=\"end\"></a>", [], internal_raw),
     print(minor, "\n", [], internal_raw),
     print_timestamp(minor, "Ended at "),
-    print(major, "=ended         ~s", [lists:flatten(timestamp_get(""))]),
+    print(major, "=ended         ~s", [timestamp_get("")]),
 
     do_unless_parallel(Main, fun() -> file:set_cwd(filename:dirname(TSDir)) end),
 
@@ -3840,6 +3900,10 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	    {died,{timetrap_timeout,TimetrapTimeout}} ->
 		progress(failed, Num, Mod, Func, GrName, Loc,
 			 timetrap_timeout, TimetrapTimeout, Comment, Style);
+	    {died,Reason={auto_skip,_Why}} ->
+                %% died in init_per_testcase or in a hook in this context
+		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
+			 Time, Comment, Style);
 	    {died,{Skip,Reason}} when Skip==skip; Skip==skipped ->
                 %% died in init_per_testcase
 		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
@@ -4001,11 +4065,12 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 			       true -> "~w"
 			    end, [Time]),
     ReasonStr = escape_chars(reason_to_string(Reason1)),
-    ReasonStr1 = lists:flatten([string:strip(S,left) ||
-				S <- string:tokens(ReasonStr,[$\n])]),
+    ReasonStr1 = lists:flatten([string:trim(S,leading,"\s") ||
+				S <- string:lexemes(ReasonStr,[$\n])]),
+    ReasonLength = string:length(ReasonStr1),
     ReasonStr2 =
-	if length(ReasonStr1) > 80 ->
-		string:substr(ReasonStr1, 1, 77) ++ "...";
+	if ReasonLength > 80 ->
+		string:slice(ReasonStr1, 0, 77) ++ "...";
 	   true ->
 		ReasonStr1
 	end,
@@ -4073,9 +4138,9 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor,
-	  escape_chars(io_lib:format("=== Reason: {testcase_aborted,~tp}",
-				     [Reason])),
-	  []),
+          "~ts",
+	  [escape_chars(io_lib:format("=== Reason: {testcase_aborted,~tp}",
+				     [Reason]))]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
@@ -4089,11 +4154,12 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 			       true -> "~w"
 			    end, [Time]),
     ErrorReason = escape_chars(lists:flatten(io_lib:format("~tp", [Reason]))),
-    ErrorReason1 = lists:flatten([string:strip(S,left) ||
-				  S <- string:tokens(ErrorReason,[$\n])]),
+    ErrorReason1 = lists:flatten([string:trim(S,leading,"\s") ||
+				  S <- string:lexemes(ErrorReason,[$\n])]),
+    ErrorReasonLength = string:length(ErrorReason1),
     ErrorReason2 =
-	if length(ErrorReason1) > 63 ->
-		string:substr(ErrorReason1, 1, 60) ++ "...";
+	if ErrorReasonLength > 63 ->
+		string:slice(ErrorReason1, 0, 60) ++ "...";
 	   true ->
 		ErrorReason1
 	end,
@@ -4112,8 +4178,8 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
     print(minor, "=== Location: ~w", [unknown]),
     {FStr,FormattedReason} = format_exception(Reason),
     print(minor,
-	  escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason])),
-	  []),
+          "~ts",
+	  [escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason]))]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
@@ -4147,8 +4213,9 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
     FormatLoc = test_server_sup:format_loc(LocMin),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     {FStr,FormattedReason} = format_exception(Reason),
-    print(minor, "=== Reason: " ++
-	      escape_chars(io_lib:format(FStr, [FormattedReason])), []),
+    print(minor, "~ts",
+          ["=== Reason: " ++
+           escape_chars(io_lib:format(FStr, [FormattedReason]))]),
     failed;
 
 progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
@@ -4181,8 +4248,8 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	  "~ts</tr>\n",
 	  [TimeStr,Comment]),
     print(minor,
-	  escape_chars(io_lib:format("=== Returned value: ~tp", [RetVal])),
-	  []),
+          "~ts",
+	  [escape_chars(io_lib:format("=== Returned value: ~tp", [RetVal]))]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -4379,7 +4446,7 @@ do_format_exception(Reason={Error,Stack}) ->
     PF = fun(Term, I) ->
 		 io_lib:format("~." ++ integer_to_list(I) ++ "tp", [Term])
 	 end,
-    case catch lib:format_exception(1, error, Error, Stack, StackFun, PF, utf8) of
+    case catch erl_error:format_exception(1, error, Error, Stack, StackFun, PF, utf8) of
 	{'EXIT',_R} ->
 	    {"~tp",Reason};
 	Formatted  ->
@@ -4539,7 +4606,7 @@ timestamp_get(Leader) ->
 
 timestamp_get_internal(Leader, Format) ->
     {YY,MM,DD,H,M,S} = time_get(),
-    io_lib:format(Format, [Leader,YY,MM,DD,H,M,S]).
+    lists:flatten(io_lib:format(Format, [Leader,YY,MM,DD,H,M,S])).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% time_get() -> {YY,MM,DD,H,M,S}
@@ -4795,6 +4862,14 @@ collect_cases({make,InitMFA,CaseList,FinMFA}, St0, Mode) ->
 	{error,_Reason} = Error -> Error
     end;
 
+collect_cases({repeat,{Module, Case}, Repeat}, St, Mode) ->
+    case catch collect_case([Case], St#cc{mod=Module}, [], Mode) of
+        {ok, [{Module,Case}], _} ->
+            {ok, [{repeat,{Module, Case}, Repeat}], St};
+        Other ->
+            {error,Other}
+    end;
+
 collect_cases({Module, Cases}, St, Mode) when is_list(Cases)  ->
     case (catch collect_case(Cases, St#cc{mod=Module}, [], Mode)) of
 	Result = {ok,_,_} ->
@@ -4903,7 +4978,7 @@ collect_files(Dir, Pattern, St, Mode) ->
 fullname_to_mod(Path) when is_list(Path) ->
     %% If this is called with a binary, then we are probably in +fnu
     %% mode and have found a beam file with name encoded as latin1. We
-    %% will let this crash since it can not work to load such a module
+    %% will let this crash since it cannot work to load such a module
     %% anyway. It should be removed or renamed!
     list_to_atom(filename:rootname(filename:basename(Path))).
 
@@ -5164,7 +5239,7 @@ display_info([Pid|T], R, M) ->
 			   Other
 		   end,
 	    Reds  = fetch(reductions, Info),
-	    LM = length(fetch(messages, Info)),
+	    LM = fetch(message_queue_len, Info),
 	    pformat(io_lib:format("~w", [Pid]),
 		    io_lib:format("~tw", [Call]),
 		    io_lib:format("~tw", [Curr]), Reds, LM),
@@ -5736,7 +5811,7 @@ uri_encode_comp([Char|Chars],Encoding) ->
     Reserved = sets:is_element(Char, reserved()),
     case (Char>127 andalso Encoding==latin1) orelse Reserved of
 	true ->
-	    [ $% | http_util:integer_to_hexlist(Char)] ++
+	    [ $% | integer_to_list(Char, 16)] ++
 		uri_encode_comp(Chars,Encoding);
 	false ->
 	    [Char | uri_encode_comp(Chars,Encoding)]
@@ -5758,3 +5833,42 @@ encoding(File) ->
 	E ->
 	    E
     end.
+
+check_repeat_testcase(Case,Result,Cases,
+                      [{Ref,[{repeat,RepeatData0}],StartTime}|Mode0]) ->
+    case do_update_repeat_data(Result,RepeatData0) of
+        false ->
+            {Cases,Mode0};
+        RepeatData ->
+            {[Case|Cases],[{Ref,[{repeat,RepeatData}],StartTime}|Mode0]}
+    end;
+check_repeat_testcase(_,_,Cases,Mode) ->
+    {Cases,Mode}.
+
+do_update_repeat_data(_,{RT,N,N}) when is_integer(N) ->
+    report_repeat_testcase(N,N),
+    report_stop_repeat_testcase(done,{RT,N}),
+    false;
+do_update_repeat_data(ok,{repeat_until_ok=RT,M,N}) ->
+    report_repeat_testcase(M,N),
+    report_stop_repeat_testcase(RT,{RT,N}),
+    false;
+do_update_repeat_data(failed,{repeat_until_fail=RT,M,N}) ->
+    report_repeat_testcase(M,N),
+    report_stop_repeat_testcase(RT,{RT,N}),
+    false;
+do_update_repeat_data(_,{RT,M,N}) when is_integer(M) ->
+    report_repeat_testcase(M,N),
+    {RT,M+1,N};
+do_update_repeat_data(_,{_,M,N}=RepeatData) ->
+    report_repeat_testcase(M,N),
+    RepeatData.
+
+report_stop_repeat_testcase(Reason,RepVal) ->
+    print(minor, "~n*** Stopping test case repeat operation: ~w", [Reason]),
+    print(1, "Stopping test case repeat operation: ~w", [RepVal]).
+
+report_repeat_testcase(M,forever) ->
+    print(minor, "~n=== Repeated test case: ~w of infinity", [M]);
+report_repeat_testcase(M,N) ->
+    print(minor, "~n=== Repeated test case: ~w of ~w", [M,N]).
