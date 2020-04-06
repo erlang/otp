@@ -1742,14 +1742,20 @@ handle_option(reuse_session = Option, unbound, OptionsMap, #{role := Role}) ->
                 fun(_, _, _, _) -> true end
         end,
     OptionsMap#{Option => Value};
-handle_option(reuse_session = Option, Value0, OptionsMap, _Env) ->
+handle_option(reuse_session = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(reuse_session, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 %% TODO: validate based on role
 handle_option(reuse_sessions = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};
-handle_option(reuse_sessions = Option, Value0, OptionsMap, _Env) ->
+handle_option(reuse_sessions = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(reuse_sessions, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(server_name_indication = Option, unbound, OptionsMap, #{host := Host,

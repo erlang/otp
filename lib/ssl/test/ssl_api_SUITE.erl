@@ -44,9 +44,13 @@ all() ->
 groups() ->
     [
      {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++
-                           option_dependency_tests() ++ handshake_paus_tests()) --
-                          [dh_params, honor_server_cipher_order, honor_client_cipher_order,
-                           new_options_in_handshake, handshake_continue_tls13_client])
+                           invalid_options_tls13() ++ handshake_paus_tests()) --
+                          [dh_params,
+                           honor_server_cipher_order,
+                           honor_client_cipher_order,
+                           new_options_in_handshake,
+                           handshake_continue_tls13_client,
+                           invalid_options])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
@@ -144,15 +148,15 @@ tls13_group() ->
      server_options_negative_dependency_role
     ].
 
-%% Tested only on platforms that supports TLS 1.3
-option_dependency_tests() ->
+invalid_options_tls13() ->
     [
      beast_mitigation,
      next_protocol_negotiation,
      client_renegotiation,
      padding_check,
      psk_identity,
-     user_lookup_fun
+     user_lookup_fun,
+     reuse_session
     ].
 
 init_per_suite(Config0) ->
@@ -1945,6 +1949,31 @@ user_lookup_fun(Config) when is_list(Config) ->
                            {versions, ['tlsv1.3']}],
                           {options, dependency,
                            {user_lookup_fun,{versions,['tlsv1.2']}}}).
+
+%%--------------------------------------------------------------------
+reuse_session() ->
+    [{doc, "Test that 'reuse_session' and 'reuse_sessions' can only be set if a legacy version is also set in versions"}].
+reuse_session(Config) when is_list(Config) ->
+    start_server_negative(Config, [{reuse_session, fun(_,_,_,_) -> false end},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {reuse_session,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
+    start_server_negative(Config, [{reuse_sessions, true},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {reuse_sessions,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
+    start_client_negative(Config, [{reuse_session, <<1,2,3,4>>},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {reuse_session,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
+    start_client_negative(Config, [{reuse_sessions, true},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {reuse_sessions,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
