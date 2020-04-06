@@ -27,7 +27,8 @@
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
 	 call_with_huge_message_queue/1,receive_in_between/1,
          receive_opt_exception/1,receive_opt_recursion/1,
-         receive_opt_deferred_save/1]).
+         receive_opt_deferred_save/1,
+         erl_1199/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -38,7 +39,8 @@ all() ->
      receive_in_between,
      receive_opt_exception,
      receive_opt_recursion,
-     receive_opt_deferred_save].
+     receive_opt_deferred_save,
+     erl_1199].
 
 init_per_testcase(receive_opt_deferred_save, Config) ->
     case erlang:system_info(schedulers) of
@@ -47,10 +49,23 @@ init_per_testcase(receive_opt_deferred_save, Config) ->
         _ ->
             Config
     end;
+init_per_testcase(erl_1199, Config) ->
+    SO = erlang:system_info(schedulers_online),
+    [{schedulers_online, SO}|Config];
 init_per_testcase(_, Config) ->
     Config.
 
-
+end_per_testcase(erl_1199, Config) ->
+    {value, {schedulers_online, SO}} = lists:keysearch(schedulers_online,
+                                                       1, Config),
+    case erlang:system_info(schedulers_online) of
+        SO ->
+            ok;
+        _ ->
+            erlang:system_info(schedulers_online, SO),
+            SO = erlang:system_info(schedulers_online)
+    end,
+    Config;
 end_per_testcase(_Name, Config) ->
     Config.
 
@@ -266,6 +281,119 @@ deferred(N,M) ->
     receive
         N ->
             deferred(N+1,M)
+    end.
+
+erl_1199(Config) when is_list(Config) ->
+    %% Whitebox testing for issue in ERL-1199/OTP-16572
+    %%
+    %% When the bug hits, the client save pointer will be pointing to
+    %% a message later than the actual message we want to match on.
+    %%
+    %% In order to trigger the bug we want to have messages in the
+    %% message queue (inner queue) and get scheduled out while we are
+    %% working with signals in the middle queue and have handled signals
+    %% past the save_last pointer while it is deferred (possibly pointing
+    %% into the middle queue). When this happens the save pointer is set
+    %% to the end of the message queue (to indicate that we need to
+    %% handle more signals in the middle queue before we have any
+    %% messages that can match) via deferred save. The save_last pointer
+    %% now points into the message queue but we cannot determine that
+    %% since we don't know if we have handled signals past it or not. The
+    %% main issue here is that we did not keep the deferred_save flag so
+    %% we later can adjust save_last when we know longer have a
+    %% deferred_save_last.
+    %%
+    %% The testcase tries with a psequdo random amount of signals, over
+    %% and over again, which makes it likely to hit the bug if reintroduced
+    %% even if reduction costs etc are changed. The test-case, at the
+    %% time of writing, consistently fail (on my machine) while the bug is
+    %% present.
+    %%
+    SO = erlang:system_info(schedulers_online),
+    try
+        process_flag(priority, high),
+        Srv = spawn_opt(fun erl_1199_server/0, [link, {priority, max}]),
+        Clnt = spawn_opt(fun () -> erl_1199_client(Srv) end,
+                         [link, {priority, normal},
+                          {message_queue_data, on_heap}]),
+        Srv ! {client, Clnt},
+        receive after 10000 -> ok end,
+        Responsive = make_ref(),
+        Clnt ! {responsive_check, self(), Responsive},
+        Result = receive
+                     Responsive ->
+                         ok
+                 after 10000 ->
+                         hanging_client
+                 end,
+        unlink(Clnt),
+        exit(Clnt, kill),
+        unlink(Srv),
+        exit(Srv, kill),
+        %% Wait for terminations...
+        false = is_process_alive(Clnt),
+        false = is_process_alive(Srv),
+        ok = Result
+    after
+        erlang:system_flag(schedulers_online, SO)
+    end.
+
+erl_1199_server() ->
+    receive
+	{client, Clnt} ->
+	    rand:seed(exrop, 4711),
+	    BEN = fun () -> Clnt ! {blipp}, exit(Clnt, normal) end,
+	    erl_1199_server(Clnt, BEN)
+    end.
+
+erl_1199_server(Clnt, BEN) ->
+    receive
+	prepare ->
+	    Extra = rand:uniform(10000),
+	    erl_1199_do(BEN, 1000),
+	    erl_1199_do(BEN, Extra);
+	{request, Ref} ->
+	    Extra = rand:uniform(10000),
+	    erl_1199_do(BEN, 1000),
+	    erl_1199_do(BEN, Extra),
+	    Clnt ! Ref, %% Response...
+	    erl_1199_do(BEN, 1000),
+	    erl_1199_do(BEN, Extra)
+    end,
+    erl_1199_server(Clnt, BEN).
+
+erl_1199_do(_Fun, 0) ->
+    ok;
+erl_1199_do(Fun, N) ->
+    Fun(),
+    erl_1199_do(Fun, N-1).
+
+erl_1199_client(Srv) ->
+    Srv ! prepare,
+    erlang:yield(),
+    Ref = erlang:monitor(process, Srv),
+    Srv ! {request, Ref},
+    erlang:yield(),
+    receive
+	Ref -> ok;
+	{'DOWN', Ref, _, _, _} -> ok
+    end,
+    erl_1199_flush_blipp(),
+    receive
+	{responsive_check, From, FromRef} ->
+	    From ! FromRef
+    after
+	0 ->
+	    ok
+    end,
+    erl_1199_client(Srv).
+
+erl_1199_flush_blipp() ->
+    receive
+	{blipp} ->
+	    erl_1199_flush_blipp()
+    after 0 ->
+	    ok
     end.
 
 %%%
