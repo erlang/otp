@@ -46,15 +46,18 @@
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
--type chunk_element_type() :: a | p | 'div' | i | br | em | pre | code | ul |
-                              ol | li | dl | dt | dd | h1 | h2 | h3.
--type chunk_element_attr() :: {atom(),unicode:chardata()}.
--type chunk_element_attrs() :: [chunk_element_attr()].
+%% If you update the below types, make sure to update the documentation in
+%% erl_docgen/doc/src/doc_storage.xml as well!!!
+-type docs_v1() :: #docs_v1{}.
+-type chunk_elements() :: [chunk_element()].
 -type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
                           chunk_elements()} | binary().
--type chunk_elements() :: [chunk_element()].
--type docs_v1() :: #docs_v1{}.
-
+-type chunk_element_attrs() :: [chunk_element_attr()].
+-type chunk_element_attr() :: {atom(),unicode:chardata()}.
+-type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
+-type chunk_element_inline_type() :: a | code |  em | i.
+-type chunk_element_block_type() :: p | 'div' | br | pre | ul |
+                              ol | li | dl | dt | dd | h1 | h2 | h3.
 
 -spec validate(Module) -> ok when
       Module :: module() | docs_v1().

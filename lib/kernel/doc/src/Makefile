@@ -80,7 +80,8 @@ XML_CHAPTER_FILES = \
         notes.xml \
         introduction_chapter.xml \
 	logger_chapter.xml \
-	logger_cookbook.xml
+	logger_cookbook.xml \
+	eep48_chapter.xml
 
 BOOK_FILES = book.xml
 
