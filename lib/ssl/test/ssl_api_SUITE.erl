@@ -1571,7 +1571,6 @@ invalid_options(Config) when is_list(Config) ->
           {verify, 4}, 
           {verify_fun, function},
           {fail_if_no_peer_cert, 0}, 
-          {verify_client_once, 1},
           {depth, four}, 
           {certfile, 'cert.pem'}, 
           {keyfile,'key.pem' }, 

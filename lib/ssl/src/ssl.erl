@@ -2067,8 +2067,6 @@ validate_option(partial_chain, Value) when is_function(Value) ->
     Value;
 validate_option(fail_if_no_peer_cert, Value) when is_boolean(Value) ->
     Value;
-validate_option(verify_client_once, Value) when is_boolean(Value) ->
-    Value;
 validate_option(depth, Value) when is_integer(Value),
                                    Value >= 0, Value =< 255->
     Value;

@@ -176,12 +176,9 @@
           supported_groups           => {undefined, [versions]},
           use_ticket                 => {undefined, [versions]},
           user_lookup_fun            => {undefined, [versions]},
-          validate_extensions_fun    => {undefined, [versions]},
           verify                     => {verify_none, [versions,
                                                        fail_if_no_peer_cert,
-                                                       partial_chain,
-                                                       verify_client_once]},
-          verify_client_once         => {false,     [versions]},
+                                                       partial_chain]},
           verify_fun                 =>
               {
                {fun(_,{bad_cert, _}, UserState) ->
