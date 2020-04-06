@@ -31,7 +31,7 @@
   </header>
 
   <module since="OTP R15B01">http_uri</module>
-  <modulesummary>URI utility module</modulesummary>
+  <modulesummary>Old URI utility module, use uri_string instead</modulesummary>
 
   <description>
     <p>This module provides utility functions for working with URIs, 

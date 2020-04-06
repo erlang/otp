@@ -49,8 +49,7 @@
 %%%========================================================================
 
 parse_query(String) ->
-  SplitString = re:split(String,"[&;]", [{return, list}]),
-  foreach(SplitString).
+    uri_string:dissect_query(String).
 
 reload_config(Config = [Value| _], Mode) when is_tuple(Value) ->
     do_reload_config(Config, Mode);
@@ -258,18 +257,6 @@ unblock(Addr, Port, Profile) when is_integer(Port) ->
 	    httpd_manager:unblock(Pid);
 	_ ->
 	    {error,not_started}
-    end.
-
-foreach([]) ->
-  [];
-foreach([KeyValue|Rest]) ->
-    Plus2Space = re:replace(KeyValue,"[\+]"," ", [{return,list}, global]),
-    case re:split(Plus2Space,"=", [{return, list}]) of
-	[Key|Value] ->
-	    [{http_uri:decode(Key),
-	      http_uri:decode(lists:flatten(Value))}|foreach(Rest)];
-	_ ->
-	    foreach(Rest)
     end.
 
 
