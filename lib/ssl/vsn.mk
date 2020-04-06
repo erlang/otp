@@ -1,1 +1,1 @@
-SSL_VSN = 9.6
+SSL_VSN = 9.6.1
