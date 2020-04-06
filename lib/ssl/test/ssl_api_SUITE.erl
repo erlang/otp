@@ -156,7 +156,8 @@ invalid_options_tls13() ->
      padding_check,
      psk_identity,
      user_lookup_fun,
-     reuse_session
+     reuse_session,
+     secure_renegotiate
     ].
 
 init_per_suite(Config0) ->
@@ -1973,6 +1974,21 @@ reuse_session(Config) when is_list(Config) ->
                                    {versions, ['tlsv1.3']}],
                           {options, dependency,
                            {reuse_sessions,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+
+%%--------------------------------------------------------------------
+secure_renegotiate() ->
+    [{doc, "Test that 'secure_renegotiate' can only be set if a legacy version is also set in versions"}].
+secure_renegotiate(Config) when is_list(Config) ->
+    start_server_negative(Config, [{secure_renegotiate, false},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {secure_renegotiate,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
+    start_client_negative(Config, [{secure_renegotiate, false},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {secure_renegotiate,
                             {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
 
 %%--------------------------------------------------------------------

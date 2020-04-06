@@ -1729,8 +1729,17 @@ handle_option(padding_check = Option, Value0,  #{versions := Versions} = Options
 handle_option(psk_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};
-handle_option(psk_identity = Option, Value0,  #{versions := Versions} = OptionsMap, _Env) ->
+handle_option(psk_identity = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
     assert_option_dependency(Option, versions, Versions, ['tlsv1.2']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
+handle_option(secure_renegotiate = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(secure_renegotiate= Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(secure_renegotiate, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(reuse_session = Option, unbound, OptionsMap, #{role := Role}) ->
