@@ -478,28 +478,21 @@ init_per_suite(Config) ->
                 %% This version is *not* ok: Skip
                 true
         end,
-    %% We are "looking" for a specific machine (a VM)
-    %% which are *old and crappy" and slow, because it
-    %% causes a bunch of test cases to fail randomly.
-    %% But we don not want to test for the host name...
-    %% WinVersionVerify =
-    %%     fun(V) when (V =:= {6,2,9200}) ->
-    %%             try erlang:system_info(schedulers) of
-    %%                 2 ->
-    %%                     true;
-    %%                 _ ->
-    %%                     false
-    %%             catch
-    %%                 _:_:_ ->
-    %%                     true
-    %%             end;
-    %%        (_) ->
-    %%             false
-    %% end,
+    SkipWindowsOnVirtual =
+        fun() ->
+                SysInfo = which_win_system_info(),
+                SysMan  = win_sys_info_lookup(system_manufacturer, SysInfo),
+                case string:to_lower(SysMan) of
+                    "vmware" ++ _ ->
+                        true;
+                    _ ->
+                        false
+                end
+        end,
     COND = [
             {unix, [{linux,  LinuxVersionVerify}, 
-		    {darwin, DarwinVersionVerify}]}%% ,
-            %% {win32, [{nt, WinVersionVerify}]}
+		    {darwin, DarwinVersionVerify}]},
+            {win32, SkipWindowsOnVirtual}
            ],
     case os_based_skip(COND) of
         true ->
