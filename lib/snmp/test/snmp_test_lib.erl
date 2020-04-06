@@ -638,6 +638,13 @@ init_per_suite(Config) ->
                     _ ->
                         false
                 end;
+           (V) when (V =:= {2,6,32}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    "Debian GNU/Linux 6.0 " ++ _ -> % Stone age Debian => Skip
+                        true;
+                    _ ->
+                        false
+                end;
            (V) when (V > {2,6,24}) ->
                 false; % OK - No skip
            (_) ->
