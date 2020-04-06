@@ -442,8 +442,6 @@ eval_is([#b_set{op=phi,dst=Dst,args=Args}|Is], From, Bs0, St) ->
     eval_is(Is, From, Bs, St);
 eval_is([#b_set{op={succeeded,guard},dst=Dst,args=[Var]}], _From, Bs, _St) ->
     case Bs of
-        #{Var:=failed} ->
-            bind_var(Dst, #b_literal{val=false}, Bs);
         #{Var:=#b_literal{}} ->
             bind_var(Dst, #b_literal{val=true}, Bs);
         #{} ->
@@ -454,8 +452,6 @@ eval_is([#b_set{op={bif,_},dst=Dst}=I0|Is], From, Bs, St) ->
     case eval_bif(I, St) of
         #b_literal{}=Val ->
             eval_is(Is, From, bind_var(Dst, Val, Bs), St);
-        failed ->
-            eval_is(Is, From, bind_var(Dst, failed, Bs), St);
         none ->
             eval_is(Is, From, Bs, St)
     end;
@@ -555,8 +551,6 @@ bind_var_if_used(L, Var, Val, #st{us=Us}) ->
         false -> #{}
     end.
 
-bind_var(Var, failed, Bs) ->
-    Bs#{Var=>failed};
 bind_var(Var, Val0, Bs) ->
     Val = get_value(Val0, Bs),
     Bs#{Var=>Val}.
@@ -702,7 +696,7 @@ eval_rel_op(_Bif, _Args, #st{rel_op=none}) ->
 eval_rel_op(Bif, Args, #st{rel_op=Prev}) ->
     case normalize_op(Bif, Args) of
         none ->
-            eval_boolean(Prev, Bif, Args);
+            none;
         RelOp ->
             case will_succeed(Prev, RelOp) of
                 yes -> #b_literal{val=true};
@@ -710,17 +704,6 @@ eval_rel_op(Bif, Args, #st{rel_op=Prev}) ->
                 maybe -> none
             end
     end.
-
-eval_boolean({{'not',is_boolean},Var}, {bif,'not'}, [Var]) ->
-    failed;
-eval_boolean({{'not',is_boolean},Var}, {bif,Op}, Args)
-  when Op =:= 'and'; Op =:= 'or' ->
-    case member(Var, Args) of
-        true -> failed;
-        false -> none
-    end;
-eval_boolean(_, _, _) ->
-    none.
 
 %% will_succeed(PrevCondition, Condition) -> yes | no | maybe
 %%  PrevCondition is a condition known to be true. This function
