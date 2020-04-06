@@ -92,8 +92,7 @@ validate_docs([H|T],Path) when is_tuple(H) ->
     _ = validate_docs(H,Path),
     validate_docs(T,Path);
 validate_docs({br,Attr,Content} = Br,Path) ->
-    if Attr =:= [],
-       Content =:= [] ->
+    if Attr =:= [], Content =:= [] ->
             ok;
        true ->
             throw({content_to_allowed_in_br,Br,Path})
@@ -309,9 +308,9 @@ get_doc(Module, Function, Arity) ->
     [{F,A,S,get_local_doc({F,A},D),M} || {F,A,S,D,M} <- FnFunctions].
 
 -spec render(Module :: module(), Docs :: docs_v1()) -> unicode:chardata().
-render(Module, #docs_v1{ module_doc = ModuleDoc, metadata = MD } = D) ->
-    render_docs([["\t",atom_to_binary(Module)]],
-                get_local_doc(Module, ModuleDoc), MD, D).
+render(Module, #docs_v1{ module_doc = ModuleDoc } = D) ->
+    render_headers_and_docs([[{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]}]],
+                            get_local_doc(Module, ModuleDoc), D).
 
 -spec render(Module :: module(), Function :: function(), Docs :: docs_v1()) ->
           unicode:chardata() | {error,function_missing}.
@@ -353,15 +352,8 @@ get_type_doc(Module, Type, Arity) ->
     [{F,A,S,get_local_doc(F, D),M} || {F,A,S,D,M} <- FnFunctions].
 
 -spec render_type(Module :: module(), Docs :: docs_v1()) -> unicode:chardata().
-render_type(Module, #docs_v1{ docs = Docs } = D) ->
-    render_signature_listing(
-      Module,
-      "These types are documented in this module:",
-      lists:filter(fun({{type, _, _},_Anno,_Sig,_Doc,_Meta}) ->
-                             true;
-                        (_) ->
-                             false
-                     end, Docs), D).
+render_type(Module, D) ->
+    render_signature_listing(Module, type, D).
 
 -spec render_type(Module :: module(), Type :: atom(), Docs :: docs_v1()) ->
           unicode:chardata() | {error,type_missing}.
@@ -404,15 +396,8 @@ get_callback_doc(Module, Callback, Arity) ->
     [{F,A,S,get_local_doc(F, D),M} || {F,A,S,D,M} <- FnFunctions].
 
 -spec render_callback(Module :: module(), Docs :: docs_v1()) -> unicode:chardata().
-render_callback(Module, #docs_v1{ docs = Docs } = D) ->
-    render_signature_listing(
-      Module,
-      "These callbacks are documented in this module:",
-      lists:filter(fun({{callback, _, _},_Anno,_Sig,_Doc,_Meta}) ->
-                           true;
-                      (_) ->
-                           false
-                   end, Docs), D).
+render_callback(Module, D) ->
+    render_signature_listing(Module, callback, D).
 
 -spec render_callback(Module :: module(), Callback :: atom(), Docs :: docs_v1()) ->
           unicode:chardata() | {error,callback_missing}.
@@ -472,74 +457,102 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D) ->
                                         Doc =/= #{}
                                 end, Members) of
                   {value, {_,_,_,Doc,_Meta}} ->
-                      render_docs(Signatures,get_local_doc({F,A},Doc), [], D);
+                      render_headers_and_docs(Signatures, get_local_doc({F,A},Doc), D);
                   false ->
                       case lists:keyfind(Group, 1, Docs) of
                           false ->
-                              render_docs(Signatures,get_local_doc({F,A},none), [], D);
+                              render_headers_and_docs(Signatures, get_local_doc({F,A},none), D);
                           {_,_,_,Doc,_} ->
-                              render_docs(Signatures,get_local_doc({F,A},Doc), [], D)
+                              render_headers_and_docs(Signatures, get_local_doc({F,A},Doc), D)
                       end
               end
       end, maps:to_list(Grouping)).
 
-    %% [render_docs(render_signature(Func),get_local_doc({F,A},Doc,Meta,Docs), Meta, D)
-    %%  || {{_,F,A},_Anno,_Sig,Doc,Meta} = Func <- lists:sort(FDocs)].
-
 %% Render the signature of either function, type, or anything else really.
 render_signature({{_Type,_F,_A},_Anno,_Sig,_Docs,#{ signature := Specs } = Meta}) ->
-    lists:flatmap(fun(Spec) ->
-                          [erl_pp:attribute(Spec,[{encoding,utf8}])|render_meta(Meta)]
-                  end, Specs);
+    lists:flatmap(
+      fun(ASTSpec) ->
+              Spec = unicode:characters_to_binary(
+                       string:trim(
+                         erl_pp:attribute(ASTSpec,[{encoding,utf8}]),
+                         trailing, "\n")),
+              [{pre,[],[{em,[],Spec}]}|render_meta(Meta)]
+      end, Specs);
 render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
-    lists:flatmap(fun(Sig) ->
-                          [Sig|render_meta(Meta)]
-                  end, Sigs).
+    lists:flatmap(
+      fun(Sig) ->
+              [{h2,[],[<<"  "/utf8,Sig/binary>>]}|render_meta(Meta)]
+      end, Sigs).
 
-render_meta(#{ since := Vsn } = M) ->
-    [[" Since: ",Vsn] | render_meta(maps:remove(since, M))];
-render_meta(#{ deprecated := Depr }) ->
-    [[" Deprecated: ",Depr]];
-render_meta(_) ->
+render_meta(M) ->
+    case render_meta_(M) of
+        [] -> [];
+        Meta ->
+            [[{dl,[],Meta}]]
+    end.
+render_meta_(#{ since := Vsn } = M) ->
+    [{dt,[],<<"Since">>},{dd,[],[Vsn]}
+    | render_meta_(maps:remove(since, M))];
+render_meta_(#{ deprecated := Depr } = M) ->
+    [{dt,[],<<"Deprecated">>},{dd,[],[Depr]}
+    | render_meta_(maps:remove(deprecated, M))];
+render_meta_(_) ->
     [].
 
-render_docs(Headers, DocContents, _MD, D = #config{}) ->
-    init_ansi(D),
-    try
-        {Doc,_} = trimnl(render_docs(DocContents,[],0,2,D)),
-        [sansi(bold),
-         [io_lib:format("~n~ts",[Header]) || Header <- Headers],
-         ransi(bold),
-         io_lib:format("~n~n~ts",[Doc])]
-    after
-        clean_ansi()
-    end;
-render_docs(Headers, DocContents, MD, D) ->
-    render_docs(Headers, DocContents, MD, #config{ docs = D }).
+render_headers_and_docs(Headers, DocContents, D) ->
+    ["\n",render_docs(
+       lists:flatmap(
+         fun(Header) ->
+                 [{br,[],[]},Header]
+         end,Headers), 0, D),
+     "\n",
+     render_docs(DocContents,2,D)].
 
 %%% Functions for rendering type/callback documentation
-render_signature_listing(Module, Description, TypeOrCBs, D = #config{}) ->
-    init_ansi(D),
-    try
-        [sansi(bold),"\t",atom_to_list(Module),ransi(bold),"\n\n",
-         Description,"\n",
-         [ io_lib:format("~n~ts",[Header]) || Headers <- lists:flatmap(fun render_signature/1, TypeOrCBs), Header <- Headers]]
-    after
-        clean_ansi()
-    end;
-render_signature_listing(Module, Description, TypeOrCBs, D) ->
-    render_signature_listing(Module, Description, TypeOrCBs, #config{ docs = D }).
+render_signature_listing(Module, Type, #docs_v1{ docs = Docs } = D) ->
+    Slogan = [{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]},{br,[],[]}],
+    case lists:filter(fun({{T, _, _},_Anno,_Sig,_Doc,_Meta}) ->
+                              Type =:= T
+                      end, Docs) of
+        [] ->
+            render_docs(
+              Slogan ++ [<<"There are no ",(atom_to_binary(Type))/binary,"s "
+                           "in this module">>], D);
+        Headers ->
+            Hdr = lists:flatmap(
+                    fun(Header) ->
+                            [{br,[],[]},render_signature(Header)]
+                    end,Headers),
+            render_docs(
+              Slogan ++
+                  [{p,[],[<<"These ",(atom_to_binary(Type))/binary,"s "
+                            "are documented in this module:">>]},
+                   {br,[],[]}, Hdr], D)
+    end.
 
 render_typecb_docs([], _D) ->
     {error,type_missing};
 render_typecb_docs(TypeCBs, #config{} = D) when is_list(TypeCBs) ->
     [render_typecb_docs(TypeCB, D) || TypeCB <- TypeCBs];
-render_typecb_docs({{_,F,A},_,_Sig,Docs,Meta} = TypeCB, #config{} = D) ->
-    render_docs(render_signature(TypeCB), get_local_doc({F,A},Docs), Meta, D);
+render_typecb_docs({{_,F,A},_,_Sig,Docs,_Meta} = TypeCB, #config{} = D) ->
+    render_headers_and_docs(render_signature(TypeCB), get_local_doc({F,A},Docs), D);
 render_typecb_docs(Docs, D) ->
     render_typecb_docs(Docs, #config{ docs = D }).
 
 %%% General rendering functions
+render_docs(DocContents, D) ->
+    render_docs(DocContents, 0, D).
+render_docs(DocContents, Ind, D = #config{}) ->
+    init_ansi(D),
+    try
+        {Doc,_} = trimnl(render_docs(DocContents, [], 0, Ind, D)),
+        Doc
+    after
+        clean_ansi()
+    end;
+render_docs(DocContents, Ind, D) ->
+    render_docs(DocContents, Ind, #config{ docs = D }).
+
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->
 %                           io:format("Elem: ~p (~p) (~p,~p)~n",[Elem,State,P,Ind]),
@@ -590,7 +603,7 @@ render_element({'div',[{class,What}],Content},State,Pos,Ind,D) ->
     {Docs,_} = render_docs(Content, ['div'|State], 0, Ind+2, D),
     trimnlnl([pad(Ind - Pos),string:titlecase(What),":\n",Docs]);
 render_element({Tag,_,Content},State,Pos,Ind,D) when Tag =:= p; Tag =:= 'div' ->
-    trimnlnl(render_docs(Content, [Tag|State], Pos, Ind,D));
+    trimnlnl(render_docs(Content, [Tag|State], Pos, Ind, D));
 
 render_element(Elem,State,Pos,Ind,D) when Pos < Ind ->
 %    io:format("Pad: ~p~n",[Ind - Pos]),
