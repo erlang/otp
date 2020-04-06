@@ -433,6 +433,12 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	return result;
     }
 
+    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_fetch(p);
+	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    }
+    
     if (!p->mbuf) {
 	/* Must have GC:d in BIF call... invalidate live_hf_end */
 	live_hf_end = ERTS_INVALID_HFRAG_PTR;
@@ -885,8 +891,14 @@ do_major_collection:
 int
 erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fcalls)
 {
-    int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, fcalls, 0);
-    int reds_left = ERTS_REDS_LEFT(p, fcalls);
+    int reds, reds_left;
+    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_fetch(p);
+	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    }
+    reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, fcalls, 0);
+    reds_left = ERTS_REDS_LEFT(p, fcalls);
     if (reds > reds_left)
 	reds = reds_left;
     ASSERT(CONTEXT_REDS - (reds_left - reds) >= erts_proc_sched_data(p)->virtual_reds);
@@ -896,7 +908,13 @@ erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fca
 void
 erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 {
-    int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, p->fcalls, 0);
+    int reds;
+    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_fetch(p);
+	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    }
+    reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, p->fcalls, 0);
     BUMP_REDS(p, reds);
     ASSERT(CONTEXT_REDS - ERTS_BIF_REDS_LEFT(p)
 	   >= erts_proc_sched_data(p)->virtual_reds);
@@ -921,6 +939,12 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
 
     if (p->flags & F_DISABLE_GC)
 	ERTS_INTERNAL_ERROR("GC disabled");
+
+    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_fetch(p);
+	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    }
 
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)))
         p->flags &= ~(F_DIRTY_GC_HIBERNATE|F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC);
@@ -1164,6 +1188,12 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 
     p->flags |= F_NEED_FULLSWEEP;
 
+    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_fetch(p);
+	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    }
+    
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)))
 	p->flags &= ~F_DIRTY_CLA;
     else {
@@ -2613,6 +2643,28 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	 * need to add signal queues to rootset...
 	 */
 
+#ifdef DEBUG
+        if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+            ErtsMessage *mp;
+            erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+            /*
+             * Verify that we do not have any messages in the outer
+             * queue that might refer to the heap...
+             */
+            for (mp = p->sig_inq.first; mp; mp = mp->next) {
+                if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
+                    int i;
+                    for (i = 0; i < ERL_MESSAGE_REF_ARRAY_SZ; i++) {
+                        ASSERT(is_immed(mp->m[i])
+                               || erts_is_literal(mp->m[i],
+                                                  ptr_val(mp->m[i])));
+                    }
+                }
+            }
+            erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+        }
+#endif
+        
         len = erts_proc_sig_privqs_len(p);
 
 	/* Ensure large enough rootset... */

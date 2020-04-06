@@ -339,6 +339,14 @@ typedef struct erl_trace_message_queue__ {
         if ((P)->sig_qs.saved_last) {                                   \
             if ((P)->sig_qs.flags & FS_DEFERRED_SAVED_LAST) {           \
                 (P)->sig_qs.flags |= FS_DEFERRED_SAVE;                  \
+                /*                                                      \
+                 * Trigger handling of signals in loop_rec by           \
+                 * setting save pointer to the end of message queue     \
+                 * (inner queue). This in order to resolv saved_last    \
+                 * which currently may point into inner or middle       \
+                 * queue.                                               \
+                 */                                                     \
+                (P)->sig_qs.save = (P)->sig_qs.last;                    \
             }                                                           \
             else {                                                      \
                 /* Points to inner queue; safe to use */                \

@@ -334,9 +334,6 @@ erts_queue_dist_message(Process *rcvr,
     else {
 	LINK_MESSAGE(rcvr, mp);
 
-        if (rcvr_locks & ERTS_PROC_LOCK_MAIN)
-            erts_proc_sig_fetch(rcvr);
-
 	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
 	    erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 
@@ -400,9 +397,6 @@ queue_messages(Process* receiver,
     else {
         erts_enqueue_signals(receiver, first, last, NULL, len, state);
     }
-
-    if (receiver_locks & ERTS_PROC_LOCK_MAIN)
-        erts_proc_sig_fetch(receiver);
 
     if (locked_msgq) {
 	erts_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
@@ -659,12 +653,16 @@ erts_send_message(Process* sender,
     Eterm utag = NIL;
 #endif
     erts_aint32_t receiver_state;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    int have_receiver_main_lock = 0;
+#endif
 #ifdef SHCOPY_SEND
     erts_shcopy_t info;
 #else
     erts_literal_area_t litarea;
     INITIALIZE_LITERAL_PURGE_AREA(litarea);
 #endif
+    
 
 #ifdef USE_VM_PROBES
     *sender_name = *receiver_name = '\0';
@@ -722,6 +720,13 @@ erts_send_message(Process* sender,
                                             + seq_trace_size),
                                            &hp,
                                            &ohp);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+        if ((*receiver_locks) & ERTS_PROC_LOCK_MAIN) {
+            have_receiver_main_lock = 1;
+            erts_proc_lc_require_lock(receiver, ERTS_PROC_LOCK_MAIN,
+                                      __FILE__, __LINE__);
+        }
+#endif
 
 #ifdef SHCOPY_SEND
 	if (is_not_immed(message))
@@ -759,6 +764,12 @@ erts_send_message(Process* sender,
 	if (receiver == sender && !(receiver_state & ERTS_PSFLG_OFF_HEAP_MSGQ)) {
 	    mp = erts_alloc_message(0, NULL);
 	    msize = 0;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+            ASSERT((*receiver_locks) & ERTS_PROC_LOCK_MAIN);
+            have_receiver_main_lock = 1;
+            erts_proc_lc_require_lock(receiver, ERTS_PROC_LOCK_MAIN,
+                                      __FILE__, __LINE__);
+#endif
 	}
 	else {
 #ifdef SHCOPY_SEND
@@ -773,6 +784,13 @@ erts_send_message(Process* sender,
 					       msize,
 					       &hp,
 					       &ohp);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+            if ((*receiver_locks) & ERTS_PROC_LOCK_MAIN) {
+                have_receiver_main_lock = 1;
+                erts_proc_lc_require_lock(receiver, ERTS_PROC_LOCK_MAIN,
+                                          __FILE__, __LINE__);
+            }
+#endif
 #ifdef SHCOPY_SEND
             if (is_not_immed(message))
                 message = copy_shared_perform(message, msize, &info, &hp, ohp);
@@ -794,6 +812,11 @@ erts_send_message(Process* sender,
 #endif
 
     erts_queue_proc_message(sender, receiver, *receiver_locks, mp, message);
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    if (have_receiver_main_lock)
+        erts_proc_lc_unrequire_lock(receiver, ERTS_PROC_LOCK_MAIN);
+#endif
 
     if (msize > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
         Uint reds = msize / ERTS_MSG_COPY_WORDS_PER_REDUCTION;

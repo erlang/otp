@@ -4116,7 +4116,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
                     erts_aint32_t state;
 		    Eterm res;
 		    Process *p;
-                    int sigs_done, local_only;
+                    int sigs_done;
 
 		    p = erts_pid2proc(BIF_P,
 				      ERTS_PROC_LOCK_MAIN,
@@ -4127,15 +4127,16 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			BIF_RET(am_undefined);
 		    }
                     
-                    local_only = 0;
+                    erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+                    erts_proc_sig_fetch(p);
+                    erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
                     do {
                         int reds = CONTEXT_REDS;
                         sigs_done = erts_proc_sig_handle_incoming(p,
                                                                   &state,
                                                                   &reds,
                                                                   CONTEXT_REDS,
-                                                                  local_only);
-                        local_only = !0;
+                                                                  !0);
                     } while (!sigs_done && !(state & ERTS_PSFLG_EXITING));
 
                     if (!(state & ERTS_PSFLG_EXITING))
@@ -4181,7 +4182,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
                     erts_aint32_t state;
 		    Process *p;
 		    Eterm res;
-                    int sigs_done, local_only;
+                    int sigs_done;
 
 		    p = erts_pid2proc(BIF_P,
 				      ERTS_PROC_LOCK_MAIN,
@@ -4192,15 +4193,16 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			BIF_RET(am_undefined);
 		    }
                     
-                    local_only = 0;
+                    erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+                    erts_proc_sig_fetch(p);
+                    erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
                     do {
                         int reds = CONTEXT_REDS;
                         sigs_done = erts_proc_sig_handle_incoming(p,
                                                                   &state,
                                                                   &reds,
                                                                   CONTEXT_REDS,
-                                                                  local_only);
-                        local_only = !0;
+                                                                  !0);
                     } while (!sigs_done && !(state & ERTS_PSFLG_EXITING));
 
                     if (!(state & ERTS_PSFLG_EXITING)) {

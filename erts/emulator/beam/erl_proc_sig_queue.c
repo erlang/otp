@@ -3655,7 +3655,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 {
     Eterm tag;
     erts_aint32_t state;
-    int yield, cnt, limit, abs_lim, msg_tracing;
+    int yield, cnt, limit, abs_lim, msg_tracing, deferred_fetch;
     ErtsMessage *sig, ***next_nm_sig;
     ErtsSigRecvTracing tracing;
 
@@ -3663,11 +3663,16 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
     state = erts_atomic32_read_nob(&c_p->state);
+    deferred_fetch = 0;
     if (!local_only) {
         if (ERTS_PSFLG_SIG_IN_Q & state) {
-            erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-            erts_proc_sig_fetch(c_p);
-            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+            if (c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST)
+                deferred_fetch = !0;
+            else {
+                erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+                erts_proc_sig_fetch(c_p);
+                erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+            }
         }
     }
 
@@ -3677,6 +3682,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
     if (!c_p->sig_qs.cont) {
         *statep = state;
+        ASSERT(!deferred_fetch);
         return !0;
     }
 
@@ -4105,12 +4111,13 @@ stop: {
             if (c_p->sig_qs.saved_last == &c_p->sig_qs.cont) {
                 c_p->sig_qs.saved_last = c_p->sig_qs.last;
                 c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
+                if (deferred_save) {
+                    c_p->sig_qs.save = c_p->sig_qs.saved_last;
+                    c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
+                }
                 deferred_saved_last = deferred_save = 0;
             }
         }
-
-        if (deferred_save)
-            c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
 
         ASSERT(c_p->sig_qs.saved_last != &c_p->sig_qs.cont);
 
@@ -4207,8 +4214,10 @@ stop: {
             && (c_p->sig_qs.saved_last == &c_p->sig_qs.cont)) {
             c_p->sig_qs.saved_last = c_p->sig_qs.last;
             c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
-            if (deferred_save)
+            if (deferred_save) {
+                c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
                 c_p->sig_qs.save = c_p->sig_qs.saved_last;
+            }
         }
         else if (!res) {
             if (deferred_save) {
@@ -4218,8 +4227,10 @@ stop: {
         }
         else {
             c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
-            if (deferred_save)
+            if (deferred_save) {
+                c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
                 c_p->sig_qs.save = c_p->sig_qs.saved_last;
+            }
         }
 
         ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
@@ -4235,6 +4246,8 @@ stop: {
             *redsp = max_reds;
         }
 
+        if (deferred_fetch)
+            return 0;
         return res;
     }
 }
@@ -4679,6 +4692,7 @@ erts_proc_sig_receive_helper(Process *c_p,
 
         if (!c_p->sig_qs.cont) {
 
+            ASSERT(!(c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST));
             consumed_reds += 4;
             left_reds -= 4;
             erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
