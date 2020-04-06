@@ -25,13 +25,12 @@
 
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
-all() -> [{group, basic}, {group, setup}, {group, payload}, {group, pem_cache}].
+all() -> [{group, setup}, {group, payload}].
 
 groups() ->
-    [{basic, [], [basic_pem_cache]},
-     {setup, [{repeat, 3}], [setup_sequential, setup_concurrent]},
-     {payload, [{repeat, 3}], [payload_simple]},
-     {pem_cache, [{repeat, 3}], [use_pem_cache, bypass_pem_cache]}
+    [{setup, [{repeat, 3}], [setup_sequential, setup_sequential_noreuse, setup_sequential_13,
+                             setup_concurrent, setup_concurrent_noreuse, setup_concurrent_13]},
+     {payload, [{repeat, 3}], [payload, payload_13]}
     ].
 
 init_per_group(_GroupName, Config) ->
@@ -53,25 +52,9 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_testcase(TC, Conf) when TC =:= use_pem_cache;
-                                 TC =:= bypass_pem_cache;
-                                 TC =:= basic_pem_cache ->
-    case bypass_pem_cache_supported() of
-        false -> {skipped, "PEM cache bypass support required"};
-        true ->
-            application:set_env(ssl, bypass_pem_cache, false),
-            Conf
-    end;
 init_per_testcase(_Func, Conf) ->
     Conf.
 
-end_per_testcase(TC, _Config) when TC =:= use_pem_cache;
-                                   TC =:= bypass_pem_cache;
-                                   TC =:= basic_pem_cache ->
-    case bypass_pem_cache_supported() of
-        false -> ok;
-        true -> application:set_env(ssl, bypass_pem_cache, false)
-    end;
 end_per_testcase(_Func, _Conf) ->
     ok.
 
@@ -89,73 +72,112 @@ end_per_testcase(_Func, _Conf) ->
 setup_sequential(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
-    {ok, Result} = do_test(ssl, setup_connection, ?COUNT * 20, 1, Server),
+    Cfg = [{version, 'tlsv1.2'}],
+    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT * 20, 1, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Sequential setup"}]}),
     ok.
 
+setup_sequential_noreuse(Config) ->
+    Server = proplists:get_value(server_node, Config),
+    Server =/= undefined orelse error(no_server),
+    Cfg = [{version, 'tlsv1.2'}, no_reuse],
+    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT * 20, 1, Server),
+    ct_event:notify(#event{name = benchmark_data,
+			   data=[{value, Result},
+				 {suite, "ssl"}, {name, "Seq setup 1.2 no session"}]}),
+    ok.
+
+setup_sequential_13(Config) ->
+    Server = proplists:get_value(server_node, Config),
+    Server =/= undefined orelse error(no_server),
+    Cfg = [{version, 'tlsv1.3'}],
+    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT * 20, 1, Server),
+    ct_event:notify(#event{name = benchmark_data,
+			   data=[{value, Result},
+				 {suite, "ssl"}, {name, "Seq setup 1.3"}]}),
+    ok.
+
 setup_concurrent(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
-    {ok, Result} = do_test(ssl, setup_connection, ?COUNT, 100, Server),
+    Cfg = [{version, 'tlsv1.2'}],
+    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT, 100, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Concurrent setup"}]}),
     ok.
 
-payload_simple(Config) ->
+setup_concurrent_noreuse(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
-    {ok, Result} = do_test(ssl, payload, ?COUNT*300, 10, Server),
+    Cfg = [{version, 'tlsv1.2'}, no_reuse],
+    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT, 100, Server),
+    ct_event:notify(#event{name = benchmark_data,
+			   data=[{value, Result},
+				 {suite, "ssl"}, {name, "Conc setup 1.2 no session"}]}),
+    ok.
+
+setup_concurrent_13(Config) ->
+    Server = proplists:get_value(server_node, Config),
+    Server =/= undefined orelse error(no_server),
+    Cfg = [{version, 'tlsv1.3'}],
+    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT, 100, Server),
+    ct_event:notify(#event{name = benchmark_data,
+			   data=[{value, Result},
+				 {suite, "ssl"}, {name, "Conc setup 1.3"}]}),
+    ok.
+
+payload(Config) ->
+    Server = proplists:get_value(server_node, Config),
+    Server =/= undefined orelse error(no_server),
+    Cfg = [{version, 'tlsv1.2'}],
+    {ok, Result} = do_test(ssl, {payload, Cfg}, ?COUNT*300, 10, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Payload simple"}]}),
     ok.
 
-basic_pem_cache(_Config) ->
-    do_test(ssl, pem_cache, 10, 5, node()).
-
-use_pem_cache(_Config) ->
-    {ok, Result} = do_test(ssl, pem_cache, 100, 500, node()),
+payload_13(Config) ->
+    Server = proplists:get_value(server_node, Config),
+    Server =/= undefined orelse error(no_server),
+    Cfg = [{version, 'tlsv1.3'}],
+    {ok, Result} = do_test(ssl, {payload, Cfg}, ?COUNT*300, 10, Server),
     ct_event:notify(#event{name = benchmark_data,
-                           data=[{value, Result},
-                                 {suite, "ssl"}, {name, "Use PEM cache"}]}).
-
-bypass_pem_cache(_Config) ->
-    {ok, Result} = do_test(ssl, pem_cache, 100, 500, node()),
-    ct_event:notify(#event{name = benchmark_data,
-                           data=[{value, Result},
-                                 {suite, "ssl"}, {name, "Bypass PEM cache"}]}).
-
+			   data=[{value, Result},
+				 {suite, "ssl"}, {name, "Payload 1.3"}]}),
+    ok.
 
 ssl() ->
     test(ssl, ?COUNT).
 
 test(Type, Count) ->
     Server = ssl_bench_test_lib:setup(perf_server),
-    (do_test(Type, setup_connection, Count * 20, 1, Server)),
-    (do_test(Type, setup_connection, Count, 100, Server)),
-    (do_test(Type, payload, Count*300, 10, Server)),
+    (do_test(Type, {setup_connection, [{version, 'tlsv1.2'}]}, Count * 20, 1, Server)),
+    (do_test(Type, {setup_connection, [{version, 'tlsv1.3'}]}, Count * 20, 1, Server)),
+    (do_test(Type, {setup_connection, [{version, 'tlsv1.2'}, no_reuse]}, Count * 20, 1, Server)),
+    (do_test(Type, {setup_connection, [{version, 'tlsv1.2'}]}, Count, 100, Server)),
+    (do_test(Type, {payload, [{version, 'tlsv1.2'}]}, Count*300, 10, Server)),
     ok.
 
-do_test(Type, TC, Loop, ParallellConnections, Server) ->
+do_test(Type, {Func, _}=TC, Loop, ParallellConnections, Server) ->
     _ = ssl:stop(),
     {ok, _} = ensure_all_started(ssl, []),
-
+    Certs = cert_data(),
     {ok, {SPid, Host, Port}} = rpc:call(Server, ?MODULE, setup_server_init,
-					[Type, TC, Loop, ParallellConnections]),
+					[Type, TC, Loop, ParallellConnections, Certs]),
     link(SPid),
     Me = self(),
     Test = fun(Id) ->
-		   CData = client_init(Me, Type, TC, Host, Port),
+		   CData = client_init(Me, Type, TC, Host, Port, Certs),
 		   receive
 		       go ->
 			   ?FPROF_CLIENT andalso Id =:= 1 andalso
 			       start_profile(fprof, [self(),new]),
 			   ?EPROF_CLIENT andalso Id =:= 1 andalso
 			       start_profile(eprof, [ssl_connection_sup, ssl_manager]),
-			   ok = ?MODULE:TC(Loop, Type, CData),
+			   ok = ?MODULE:Func(Loop, Type, CData),
 			   ?FPROF_CLIENT andalso Id =:= 1 andalso
 			       stop_profile(fprof, "test_connection_client_res.fprof"),
 			   ?EPROF_CLIENT andalso Id =:= 1 andalso
@@ -177,7 +199,7 @@ do_test(Type, TC, Loop, ParallellConnections, Server) ->
     TestPerSecond = case TimeInMicro of
                         0 ->
                             undefined;
-                        _ -> 
+                        _ ->
                             1000000 * TotalTests div TimeInMicro
                     end,
     io:format("TC ~p ~p ~p ~p 1/s~n", [TC, Type, ParallellConnections, TestPerSecond]),
@@ -185,8 +207,8 @@ do_test(Type, TC, Loop, ParallellConnections, Server) ->
     SPid ! quit,
     {ok, TestPerSecond}.
 
-server_init(ssl, setup_connection, _, _, Server) ->
-    {ok, LSocket} = ssl:listen(0, ssl_opts(listen)),
+server_init(ssl, {setup_connection, Opts}, _, _, Server, Certs) ->
+    {ok, LSocket} = ssl:listen(0, ssl_opts(listen, Opts, Certs)),
     {ok, {_Host, Port}} = ssl:sockname(LSocket),
     {ok, Host} = inet:gethostname(),
     ?FPROF_SERVER andalso start_profile(fprof, [whereis(ssl_manager), new]),
@@ -198,20 +220,8 @@ server_init(ssl, setup_connection, _, _, Server) ->
 		   ssl:close(Socket)
 	   end,
     setup_server_connection(LSocket, Test);
-server_init(ssl, payload, Loop, _, Server) ->
-    {ok, LSocket} = ssl:listen(0, ssl_opts(listen)),
-    {ok, {_Host, Port}} = ssl:sockname(LSocket),
-    {ok, Host} = inet:gethostname(),
-    Server ! {self(), {init, Host, Port}},
-    Test = fun(TSocket) ->
-		   {ok, Socket} = ssl:handshake(TSocket),
-		   Size = byte_size(msg()),
-		   server_echo(Socket, Size, Loop),
-		   ssl:close(Socket)
-	   end,
-    setup_server_connection(LSocket, Test);
-server_init(ssl, pem_cache, Loop, _, Server) ->
-    {ok, LSocket} = ssl:listen(0, ssl_opts(listen_der)),
+server_init(ssl, {payload, Opts}, Loop, _, Server, Certs) ->
+    {ok, LSocket} = ssl:listen(0, ssl_opts(listen, Opts, Certs)),
     {ok, {_Host, Port}} = ssl:sockname(LSocket),
     {ok, Host} = inet:gethostname(),
     Server ! {self(), {init, Host, Port}},
@@ -223,24 +233,19 @@ server_init(ssl, pem_cache, Loop, _, Server) ->
 	   end,
     setup_server_connection(LSocket, Test);
 
-server_init(Type, Tc, _, _, Server) ->
+server_init(Type, Tc, _, _, Server, _) ->
     io:format("No server init code for ~p ~p~n",[Type, Tc]),
     Server ! {self(), no_init}.
 
-client_init(Master, ssl, setup_connection, Host, Port) ->
+client_init(Master, ssl, {setup_connection, Opts}, Host, Port, Certs) ->
     Master ! {self(), init},
-    {Host, Port, ssl_opts(connect)};
-client_init(Master, ssl, payload, Host, Port) ->
-    {ok, Sock} = ssl:connect(Host, Port, ssl_opts(connect)),
-    Master ! {self(), init},
-    Size = byte_size(msg()),
-    {Sock, Size};
-client_init(Master, ssl, pem_cache, Host, Port) ->
-    {ok, Sock} = ssl:connect(Host, Port, ssl_opts(connect_der)),
+    {Host, Port, ssl_opts(connect, Opts, Certs)};
+client_init(Master, ssl, {payload, Opts}, Host, Port, Certs) ->
+    {ok, Sock} = ssl:connect(Host, Port, ssl_opts(connect, Opts, Certs)),
     Master ! {self(), init},
     Size = byte_size(msg()),
     {Sock, Size};
-client_init(_Me, Type, Tc, Host, Port) ->
+client_init(_Me, Type, Tc, Host, Port, _) ->
     io:format("No client init code for ~p ~p~n",[Type, Tc]),
     {Host, Port}.
 
@@ -282,13 +287,6 @@ payload(Loop, ssl, D = {Socket, Size}) when Loop > 0 ->
 payload(_, _, {Socket, _}) ->
     ssl:close(Socket).
 
-pem_cache(N, ssl, Data = {Socket, Size}) when N > 0 ->
-    ok = ssl:send(Socket, msg()),
-    {ok, _} = ssl:recv(Socket, Size),
-    pem_cache(N-1, ssl, Data);
-pem_cache(_, _, {Socket, _}) ->
-    ssl:close(Socket).
-
 msg() ->
     <<"Hello", 
       0:(512*8), 
@@ -308,11 +306,11 @@ ensure_all_started(App, Ack) ->
 	    {ok, Ack}
     end.
 
-setup_server_init(Type, Tc, Loop, PC) ->
+setup_server_init(Type, Tc, Loop, PC, Certs) ->
     _ = ssl:stop(),
     {ok, _} = ensure_all_started(ssl, []),
     Me = self(),
-    Pid = spawn_link(fun() -> server_init(Type, Tc, Loop, PC, Me) end),
+    Pid = spawn_link(fun() -> server_init(Type, Tc, Loop, PC, Me, Certs) end),
     Res = receive
 	      {Pid, {init, Host, Port}} -> {ok, {Pid, Host, Port}};
 	      {Pid, Error} -> {error, Error}
@@ -355,48 +353,39 @@ stop_profile(fprof, File) ->
     fprof:stop(),
     ok.
 
-ssl_opts(listen) ->
-    [{backlog, 500} | ssl_opts("server")];
-ssl_opts(connect) ->
-    [{verify, verify_peer} | ssl_opts("client")];
-ssl_opts(listen_der) ->
-    [{backlog, 500} | ssl_opts("server_der")];
-ssl_opts(connect_der) ->
-    [{verify, verify_peer} | ssl_opts("client_der")];
-ssl_opts(Role) ->
-    CertData = cert_data(Role),
-    Opts = [{active, false},
-            {depth, 2},
-            {reuseaddr, true},
-            {mode,binary},
-            {nodelay, true},
-            {ciphers, [{dhe_rsa,aes_256_cbc,sha}]}
-            |CertData],
-    case Role of
-        "client" ++ _ ->
-            [{server_name_indication, disable} | Opts];
-        "server" ++ _ ->
-            Opts
-    end.
+ssl_opts(listen, Opts, Certs) ->
+    [{backlog, 500} | ssl_opts(server_config, Opts, Certs)];
+ssl_opts(connect, Opts, Certs) ->
+    [{verify, verify_peer} | ssl_opts(client_config, Opts, Certs)];
+ssl_opts(Role, TCOpts, Certs) ->
+    CertData = maps:get(Role, Certs),
+    {Version, KeyEx} =
+        case proplists:get_value(version, TCOpts) of
+            'tlsv1.2' = V -> {V, ecdhe_ecdsa};
+            'tlsv1.3' = V -> {V, any}
+        end,
+    Opts0 = [{active, false},
+             {depth, 2},
+             {reuseaddr, true},
+             {mode,binary},
+             {nodelay, true},
+             {versions, [Version]},
+             {ciphers, [ #{key_exchange => KeyEx, cipher => aes_128_gcm,
+                           mac => aead, prf => sha256}
+                       ]}
+            | CertData ],
+    Opts1 = case Role of
+                client_config -> [{server_name_indication, disable} | Opts0];
+                server_config -> Opts0
+            end,
+    Opts = case proplists:get_value(no_reuse, TCOpts) of
+               true -> [{reuse_sessions, false}|Opts1];
+               _ -> Opts1
+           end,
+    Opts.
 
-cert_data(Der) when Der =:= "server_der"; Der =:= "client_der" ->
-    [Role,_] = string:tokens(Der, "_"),
-    Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
-    {ok, CaCert0} = file:read_file(filename:join([Dir, Role, "cacerts.pem"])),
-    {ok, Cert0} = file:read_file(filename:join([Dir, Role, "cert.pem"])),
-    {ok, Key0} = file:read_file(filename:join([Dir, Role, "key.pem"])),
-    [{_, Cert, _}] = public_key:pem_decode(Cert0),
-    CaCert1 = public_key:pem_decode(CaCert0),
-    CaCert = [CCert || {_, CCert, _} <- CaCert1],
-    [{KeyType, Key, _}] = public_key:pem_decode(Key0),
-    [{cert, Cert},
-     {cacerts, CaCert},
-     {key, {KeyType, Key}}];
-cert_data(Role) ->
-    Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
-    [{cacertfile, filename:join([Dir, Role, "cacerts.pem"])},
-     {certfile, filename:join([Dir, Role, "cert.pem"])},
-     {keyfile, filename:join([Dir, Role, "key.pem"])}].
+cert_data() ->
+    ssl_test_lib:make_cert_chains_der(ecdhe_ecdsa, []).
 
 bypass_pem_cache_supported() ->
     %% This function is currently critical to support cache bypass
