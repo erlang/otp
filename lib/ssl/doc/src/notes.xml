@@ -27,6 +27,24 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct error handling when the partial_chain fun claims
+	    a certificate to be the trusted cert that is not part of
+	    the chain. This bug would hide the appropriate alert
+	    generating an "INTERNAL_ERROR" alert instead.</p>
+          <p>
+	    Own Id: OTP-16567 Aux Id: ERIERL-481 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
