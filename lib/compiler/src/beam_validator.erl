@@ -1667,11 +1667,16 @@ infer_types(_, #vst{}) ->
 
 infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
     fun({atom,true}, S) ->
-            %% Either side might contain something worth inferring, so we need
-            %% to check them both.
-            Infer_L = infer_types(RHS, S),
-            Infer_R = infer_types(LHS, S),
-            Infer_R(RHS, Infer_L(LHS, S));
+            update_eq_types(LHS, RHS, S);
+       ({atom,false}, S) ->
+            update_ne_types(LHS, RHS, S);
+       (_, S) -> S
+    end;
+infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}) ->
+    fun({atom,true}, S) ->
+            update_ne_types(LHS, RHS, S);
+       ({atom,false}, S) ->
+            update_eq_types(LHS, RHS, S);
        (_, S) -> S
     end;
 infer_types_1(#value{op={bif,element},args=[{integer,Index}=Key,Tuple]}) ->
@@ -1830,7 +1835,7 @@ update_type(Merge, With, Literal, Vst) ->
         _Type -> Vst
     end.
 
-update_ne_types(LHS, RHS, Vst) ->
+update_ne_types(LHS, RHS, Vst0) ->
     %% While updating types on equality is fairly straightforward, inequality
     %% is a bit trickier since all we know is that the *value* of LHS differs
     %% from RHS, so we can't blindly subtract their types.
@@ -1840,10 +1845,21 @@ update_ne_types(LHS, RHS, Vst) ->
     %% {integer,[]} we would erroneously infer that the new type is {float,[]}.
     %%
     %% Therefore, we only subtract when we know that RHS has a specific value.
-    RType = get_term_type(RHS, Vst),
+    RType = get_term_type(RHS, Vst0),
     case is_literal(RType) of
-        true -> update_type(fun subtract/2, RType, LHS, Vst);
-        false -> Vst
+        true ->
+            Vst = update_type(fun subtract/2, RType, LHS, Vst0),
+
+            %% If LHS has a specific value after subtraction we can infer types
+            %% as if we've made an exact match, which is much stronger than
+            %% ne_exact.
+            LType = get_term_type(LHS, Vst),
+            case is_literal(LType) of
+                true -> update_eq_types(LHS, LType, Vst);
+                false -> Vst
+            end;
+        false ->
+            Vst0
     end.
 
 update_eq_types(LHS, RHS, Vst0) ->
