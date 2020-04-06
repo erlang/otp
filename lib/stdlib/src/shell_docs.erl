@@ -488,13 +488,19 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D) ->
 
 %% Render the signature of either function, type, or anything else really.
 render_signature({{_Type,_F,_A},_Anno,_Sig,_Docs,#{ signature := Specs } = Meta}) ->
-    [[erl_pp:attribute(Spec,[{encoding,utf8}])|render_since(Meta)] || Spec <- Specs];
+    lists:flatmap(fun(Spec) ->
+                          [erl_pp:attribute(Spec,[{encoding,utf8}])|render_meta(Meta)]
+                  end, Specs);
 render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
-    [[Sig|render_since(Meta)] || Sig <- Sigs].
+    lists:flatmap(fun(Sig) ->
+                          [Sig|render_meta(Meta)]
+                  end, Sigs).
 
-render_since(#{ since := Vsn }) ->
-    [[" Since: ",Vsn]];
-render_since(_) ->
+render_meta(#{ since := Vsn } = M) ->
+    [[" Since: ",Vsn] | render_meta(maps:remove(since, M))];
+render_meta(#{ deprecated := Depr }) ->
+    [[" Deprecated: ",Depr]];
+render_meta(_) ->
     [].
 
 render_docs(Headers, DocContents, _MD, D = #config{}) ->

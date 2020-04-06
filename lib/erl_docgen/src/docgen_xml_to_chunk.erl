@@ -692,22 +692,47 @@ to_chunk(Dom, Source, Module, AST) ->
                           Sig ->
                               #{ signature => [Sig] }
                       end,
-                  docs_v1_entry(type, Anno, TypeName, TypeArity, TypeSignature, MetaSig, Descr)
+
+                  MetaDepr
+                      = case otp_internal:obsolete_type(Module, TypeName, TypeArity) of
+                            {deprecated,Text} ->
+                                MetaSig#{ deprecated =>
+                                              unicode:characters_to_binary(
+                                                erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
+                            {deprecated, Replacement, Rel} ->
+                                MetaSig#{ deprecated =>
+                                              unicode:characters_to_binary(
+                                                erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Replacement, Rel})) };
+                            _ ->
+                                MetaSig
+                        end,
+
+                  docs_v1_entry(type, Anno, TypeName, TypeArity, TypeSignature, MetaDepr, Descr)
           end, Types),
 
     Functions = lists:flatten([Functions || {functions,[],Functions} <- Mcontent]),
 
     FuncEntrys =
-        lists:flatmap(
+        lists:map(
           fun({function,Attr,Fdoc}) ->
+                  {Type, Name} = func_to_atom(proplists:get_value(name,Attr)),
                   Arity = proplists:get_value(arity,Attr),
                   Signature = proplists:get_value(signature,Attr),
                   FMeta = proplists:get_value(meta,Attr),
                   MetaWSpec = add_spec(AST,FMeta),
-                  case func_to_atom(proplists:get_value(name,Attr)) of
-                      {Type, Name} ->
-                          [docs_v1_entry(Type, Anno, Name, Arity, Signature, MetaWSpec, Fdoc)]
-                  end
+                  MetaDepr
+                      = case otp_internal:obsolete(Module, Name, Arity) of
+                            {deprecated, Text} ->
+                                MetaWSpec#{ deprecated =>
+                                                unicode:characters_to_binary(
+                                                  erl_lint:format_error({deprecated,{Module,Name,Arity}, Text})) };
+                            {deprecated, Replacement, Rel} ->
+                                MetaWSpec#{ deprecated =>
+                                                unicode:characters_to_binary(
+                                                  erl_lint:format_error({deprecated,{Module,Name,Arity}, Replacement, Rel})) };
+                            _ -> MetaWSpec
+                        end,
+                  docs_v1_entry(Type, Anno, Name, Arity, Signature, MetaDepr, Fdoc)
           end, Functions),
 
     docs_v1(ModuleDocs, Anno, TypeMeta, FuncEntrys ++ TypeEntries).
