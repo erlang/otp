@@ -596,8 +596,8 @@ render_element({i,_,Content},State,Pos,Ind,D) ->
     %% Just ignore i as ansi does not have cursive style
     render_docs(Content, State, Pos, Ind,D);
 
-render_element({br,[],[]},_State,_Pos,_Ind,_D) ->
-    nl("");
+render_element({br,[],[]},_State,Pos,_Ind,_D) ->
+    {"",Pos};
 
 render_element({em,_,Content},State,Pos,Ind,D) ->
     Bold = sansi(bold),
