@@ -71,26 +71,34 @@ validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
     true = lists:all(fun(Elem) -> ?IS_INLINE(Elem) end, ?INLINE),
     true = lists:all(fun(Elem) -> ?IS_BLOCK(Elem) end, ?BLOCK),
 
-    _ = maps:map(fun(_Key,MDoc) -> validate(MDoc,[]) end, MDocs),
+    _ = validate_docs(MDocs),
     lists:foreach(fun({_,_Anno, Sig, Docs, _Meta}) ->
                       case lists:all(fun erlang:is_binary/1, Sig) of
                           false -> throw({invalid_signature,Sig});
                           true -> ok
                       end,
-                      maps:map(fun(_Key,Doc) -> validate(Doc,[]) end, Docs)
+                      [validate_docs(Doc) || Doc <- Docs]
               end, AllDocs),
     ok.
-validate([H|T],Path) when is_tuple(H) ->
-    _ = validate(H,Path),
-    validate(T,Path);
-validate({br,Attr,Content} = Br,Path) ->
+
+validate_docs(hidden) ->
+    ok;
+validate_docs(none) ->
+    ok;
+validate_docs(#{} = MDocs) ->
+    _ = maps:map(fun(_Key,MDoc) -> validate_docs(MDoc,[]) end, MDocs),
+    ok.
+validate_docs([H|T],Path) when is_tuple(H) ->
+    _ = validate_docs(H,Path),
+    validate_docs(T,Path);
+validate_docs({br,Attr,Content} = Br,Path) ->
     if Attr =:= [],
        Content =:= [] ->
             ok;
        true ->
             throw({content_to_allowed_in_br,Br,Path})
     end;
-validate({Tag,Attr,Content},Path) ->
+validate_docs({Tag,Attr,Content},Path) ->
     case Tag =:= p andalso lists:member(p, Path) of
         true ->
             throw({nested_p_not_allowed,Tag,Path});
@@ -127,10 +135,10 @@ validate({Tag,Attr,Content},Path) ->
         true -> ok;
         false -> throw({invalid_attribute,{Tag,Attr}})
     end,
-    validate(Content,[Tag | Path]);
-validate([Chars | T], Path) when is_binary(Chars) ->
-    validate(T, Path);
-validate([],_) ->
+    validate_docs(Content,[Tag | Path]);
+validate_docs([Chars | T], Path) when is_binary(Chars) ->
+    validate_docs(T, Path);
+validate_docs([],_) ->
     ok.
 
 %% Follows algorithm described here:
