@@ -1589,6 +1589,16 @@ invalid_options(Config) when is_list(Config) ->
           {active, trice},
           {key, 'key.pem' }],
 
+    TestOpts2 =
+        [{{anti_replay, '10k'},
+          %% anti_replay is a server only option but tested with client
+          %% for simplicity
+          {options,dependency,{anti_replay,{versions,['tlsv1.3']}}}},
+         {{supported_groups, []},
+          {options,dependency,{supported_groups,{versions,['tlsv1.3']}}}},
+         {{use_ticket, [<<1,2,3,4>>]},
+          {options,dependency,{use_ticket,{versions,['tlsv1.3']}}}}],
+
     [begin
 	 Server =
 	     ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
@@ -1602,7 +1612,13 @@ invalid_options(Config) when is_list(Config) ->
 	 Check(Client, Server, TestOpt),
 	 ok
      end || TestOpt <- TestOpts],
+
+    [begin
+         start_client_negative(Config, [TestOpt], ErrorMsg),
+         ok
+     end || {TestOpt, ErrorMsg} <- TestOpts2],
     ok.
+
 %%-------------------------------------------------------------------
 
 default_reject_anonymous()->

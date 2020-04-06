@@ -1612,7 +1612,9 @@ handle_option(anti_replay = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};
 handle_option(anti_replay = Option, Value0,
-              #{session_tickets := SessionTickets} = OptionsMap, #{rules := Rules}) ->
+              #{session_tickets := SessionTickets,
+                versions := Versions} = OptionsMap, #{rules := Rules}) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     assert_option_dependency(Option, session_tickets, [SessionTickets], [stateless]),
     case SessionTickets of
         stateless ->
@@ -1830,8 +1832,18 @@ handle_option(srp_identity = Option, Value0,
 handle_option(supported_groups = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := _Rules}) ->
     Value = handle_supported_groups_option(groups(default), HighestVersion),
     OptionsMap#{Option => Value};
-handle_option(supported_groups = Option, Value0, #{versions := [HighestVersion|_]} = OptionsMap, _Env) ->
+handle_option(supported_groups = Option, Value0,
+              #{versions := [HighestVersion|_] = Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     Value = handle_supported_groups_option(Value0, HighestVersion),
+    OptionsMap#{Option => Value};
+handle_option(use_ticket = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(use_ticket = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(user_lookup_fun = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
