@@ -1818,6 +1818,15 @@ handle_option(sni_fun = Option, Value0, OptionsMap, _Env) ->
                 throw({error, {conflict_options, [sni_fun, sni_hosts]}})
         end,
     OptionsMap#{Option => Value};
+handle_option(srp_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(srp_identity = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(srp_identity, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(supported_groups = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := _Rules}) ->
     Value = handle_supported_groups_option(groups(default), HighestVersion),
     OptionsMap#{Option => Value};

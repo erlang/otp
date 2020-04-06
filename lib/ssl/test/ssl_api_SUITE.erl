@@ -157,7 +157,8 @@ invalid_options_tls13() ->
      psk_identity,
      user_lookup_fun,
      reuse_session,
-     secure_renegotiate
+     secure_renegotiate,
+     srp_identity
     ].
 
 init_per_suite(Config0) ->
@@ -1989,6 +1990,16 @@ secure_renegotiate(Config) when is_list(Config) ->
                                    {versions, ['tlsv1.3']}],
                           {options, dependency,
                            {secure_renegotiate,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+
+%%--------------------------------------------------------------------
+srp_identity() ->
+    [{doc, "Test that 'srp_identity' can only be set if a legacy version is also set in versions"}].
+srp_identity(Config) when is_list(Config) ->
+    start_client_negative(Config, [{srp_identity, false},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {srp_identity,
                             {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
 
 %%--------------------------------------------------------------------
