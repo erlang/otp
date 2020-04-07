@@ -44,7 +44,7 @@ all() ->
 groups() ->
     [
      {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++
-                           invalid_options_tls13() ++ handshake_paus_tests()) --
+                           handshake_paus_tests()) --
                           [dh_params,
                            honor_server_cipher_order,
                            honor_client_cipher_order,
@@ -145,20 +145,8 @@ tls13_group() ->
      client_options_negative_dependency_stateless,
      client_options_negative_dependency_role,
      server_options_negative_version_gap,
-     server_options_negative_dependency_role
-    ].
-
-invalid_options_tls13() ->
-    [
-     beast_mitigation,
-     next_protocol_negotiation,
-     client_renegotiation,
-     padding_check,
-     psk_identity,
-     user_lookup_fun,
-     reuse_session,
-     secure_renegotiate,
-     srp_identity
+     server_options_negative_dependency_role,
+     invalid_options_tls13
     ].
 
 init_per_suite(Config0) ->
@@ -1885,137 +1873,103 @@ getstat(Config) when is_list(Config) ->
                                         {options, ClientOpts}]),
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
-%%--------------------------------------------------------------------
-beast_mitigation() ->
-    [{doc, "Test that 'beast_mitigation' can only be set if 'tlsv1' is also set in versions"}].
-beast_mitigation(Config) when is_list(Config) ->
-    start_server_negative(Config, [{beast_mitigation, one_n_minus_one},
-                                   {versions, ['tlsv1.2', 'tlsv1.3']}],
-                          {options, dependency,
-                           {beast_mitigation,{versions,[tlsv1]}}}),
-    start_client_negative(Config, [{beast_mitigation, one_n_minus_one},
-                                   {versions, ['tlsv1.2', 'tlsv1.3']}],
-                          {options, dependency,
-                           {beast_mitigation,{versions,[tlsv1]}}}).
+invalid_options_tls13() ->
+    [{doc, "Test invalid options with TLS 1.3"}].
+invalid_options_tls13(Config) when is_list(Config) ->
+    TestOpts =
+        [{{beast_mitigation, one_n_minus_one},
+          {options, dependency,
+           {beast_mitigation,{versions,[tlsv1]}}},
+          common},
 
-%%--------------------------------------------------------------------
-next_protocol_negotiation() ->
-    [{doc, "Test that 'next_protocol_negotiation' can only be set if a legacy version is also set in versions"}].
-next_protocol_negotiation(Config) when is_list(Config) ->
-    start_server_negative(Config, [{next_protocols_advertised, [<<"http/1.1">>]},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {next_protocols_advertised,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
-    start_client_negative(Config, [{client_preferred_next_protocols,
-                                    {client, [<<"http/1.1">>]}},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {client_preferred_next_protocols,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+         {{next_protocols_advertised, [<<"http/1.1">>]},
+          {options, dependency,
+           {next_protocols_advertised,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          server},
 
-%%--------------------------------------------------------------------
-client_renegotiation() ->
-    [{doc, "Test that 'client_renegotiation' can only be set if a legacy version is also set in versions"}].
-client_renegotiation(Config) when is_list(Config) ->
-    start_server_negative(Config, [{client_renegotiation, false},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {client_renegotiation,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+         {{client_preferred_next_protocols,
+           {client, [<<"http/1.1">>]}},
+          {options, dependency,
+           {client_preferred_next_protocols,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          client},
 
-%%--------------------------------------------------------------------
-padding_check() ->
-    [{doc, "Test that 'padding_check' can only be set if 'tlsv1' is also set in versions"}].
-padding_check(Config) when is_list(Config) ->
-    start_server_negative(Config, [{padding_check, false},
-                                   {versions, ['tlsv1.2', 'tlsv1.3']}],
-                          {options, dependency,
-                           {padding_check,{versions,[tlsv1]}}}),
-    start_client_negative(Config, [{padding_check, false},
-                                   {versions, ['tlsv1.2', 'tlsv1.3']}],
-                          {options, dependency,
-                           {padding_check,{versions,[tlsv1]}}}).
+         {{client_renegotiation, false},
+          {options, dependency,
+           {client_renegotiation,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          server
+         },
 
-%%--------------------------------------------------------------------
-psk_identity() ->
-    [{doc, "Test that 'psk_identity' can only be set if 'tlsv1.2' is also set in versions"}].
-psk_identity(Config) when is_list(Config) ->
-    start_server_negative(Config, [{psk_identity, "Test-User"},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {psk_identity,{versions,['tlsv1.2']}}}),
-    start_client_negative(Config, [{psk_identity, "Test-User"},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {psk_identity,{versions,['tlsv1.2']}}}).
+         {{padding_check, false},
+          {options, dependency,
+           {padding_check,{versions,[tlsv1]}}},
+          common},
 
-%%--------------------------------------------------------------------
-user_lookup_fun() ->
-    [{doc, "Test that 'user_lookup_fun' can only be set if 'tlsv1.2' is also set in versions"}].
-user_lookup_fun(Config) when is_list(Config) ->
-    start_server_negative(Config,
-                          [{user_lookup_fun,
-                            {fun ssl_test_lib:user_lookup/3, <<1,2,3>>}},
-                           {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {user_lookup_fun,{versions,['tlsv1.2']}}}),
-    start_client_negative(Config,
-                          [{user_lookup_fun,
-                            {fun ssl_test_lib:user_lookup/3, <<1,2,3>>}},
-                           {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {user_lookup_fun,{versions,['tlsv1.2']}}}).
+         {{psk_identity, "Test-User"},
+          {options, dependency,
+           {psk_identity,{versions,['tlsv1.2']}}},
+          common},
 
-%%--------------------------------------------------------------------
-reuse_session() ->
-    [{doc, "Test that 'reuse_session' and 'reuse_sessions' can only be set if a legacy version is also set in versions"}].
-reuse_session(Config) when is_list(Config) ->
-    start_server_negative(Config, [{reuse_session, fun(_,_,_,_) -> false end},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {reuse_session,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
-    start_server_negative(Config, [{reuse_sessions, true},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {reuse_sessions,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
-    start_client_negative(Config, [{reuse_session, <<1,2,3,4>>},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {reuse_session,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
-    start_client_negative(Config, [{reuse_sessions, true},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {reuse_sessions,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+         {{user_lookup_fun,
+           {fun ssl_test_lib:user_lookup/3, <<1,2,3>>}},
+          {options, dependency,
+           {user_lookup_fun,{versions,['tlsv1.2']}}},
+          common},
 
-%%--------------------------------------------------------------------
-secure_renegotiate() ->
-    [{doc, "Test that 'secure_renegotiate' can only be set if a legacy version is also set in versions"}].
-secure_renegotiate(Config) when is_list(Config) ->
-    start_server_negative(Config, [{secure_renegotiate, false},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {secure_renegotiate,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
-    start_client_negative(Config, [{secure_renegotiate, false},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {secure_renegotiate,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+         {{reuse_session, fun(_,_,_,_) -> false end},
+          {options, dependency,
+           {reuse_session,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          server},
 
-%%--------------------------------------------------------------------
-srp_identity() ->
-    [{doc, "Test that 'srp_identity' can only be set if a legacy version is also set in versions"}].
-srp_identity(Config) when is_list(Config) ->
-    start_client_negative(Config, [{srp_identity, false},
-                                   {versions, ['tlsv1.3']}],
-                          {options, dependency,
-                           {srp_identity,
-                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+         {{reuse_session, <<1,2,3,4>>},
+          {options, dependency,
+           {reuse_session,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          client},
+
+         {{reuse_sessions, true},
+          {options, dependency,
+           {reuse_sessions,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          common},
+
+         {{secure_renegotiate, false},
+          {options, dependency,
+           {secure_renegotiate,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          common},
+
+         {{srp_identity, false},
+          {options, dependency,
+           {srp_identity,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          client}
+        ],
+
+    Fun = fun(Option, ErrorMsg, Type) ->
+                  case Type of
+                      server ->
+                          start_server_negative(Config,
+                                                [Option,{versions, ['tlsv1.3']}],
+                                                ErrorMsg);
+                      client ->
+                          start_client_negative(Config,
+                                                [Option,{versions, ['tlsv1.3']}],
+                                                ErrorMsg);
+                      common ->
+                          start_server_negative(Config,
+                                                [Option,{versions, ['tlsv1.3']}],
+                                                ErrorMsg),
+                          start_client_negative(Config,
+                                                [Option,{versions, ['tlsv1.3']}],
+                                                ErrorMsg)
+                  end
+          end,
+    [Fun(Option, ErrorMsg, Type) || {Option, ErrorMsg, Type} <- TestOpts].
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
