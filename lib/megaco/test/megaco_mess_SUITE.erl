@@ -266,6 +266,7 @@
 	]).
 -endif.
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 -include("megaco_test_lib.hrl").
@@ -511,18 +512,19 @@ init_per_testcase(Case, Config) ->
 
 init_per_testcase2(otp_7189 = Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
-    init_per_testcase3(Case, [{tc_timeout, min(2)} |C]);
+    init_per_testcase3(Case, [{tc_timeout, min(tfactor(2, Config))} |C]);
 init_per_testcase2(request_and_no_reply = Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
-    init_per_testcase3(Case, [{tc_timeout, min(2)} |C]);
+    init_per_testcase3(Case, [{tc_timeout, min(tfactor(2, Config))} |C]);
 init_per_testcase2(Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
-    init_per_testcase3(Case, [{tc_timeout, min(1)} |C]).
+    init_per_testcase3(Case, [{tc_timeout, min(tfactor(1, Config))} |C]).
 
 init_per_testcase3(Case, Config) ->
     megaco_test_global_sys_monitor:reset_events(),
     megaco_test_lib:init_per_testcase(Case, Config).
-    
+
+
 
 end_per_testcase(Case, Config) ->
 
@@ -539,6 +541,13 @@ end_per_testcase(Case, Config) ->
 
 min(M) -> ?MINS(M).
 
+tfactor(T, Config) ->
+    case ?config(megaco_factor, Config) of
+        Factor when is_integer(Factor) andalso (Factor > 1) ->
+            T * Factor;
+        _ ->
+            T
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -10560,6 +10569,7 @@ otp_6442_resend_request2_mg_notify_request_ar(Rid, Tid, Cid) ->
 otp_6442_resend_reply1(suite) ->
     [];
 otp_6442_resend_reply1(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
     Pre = fun() ->
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
@@ -10567,14 +10577,14 @@ otp_6442_resend_reply1(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_otp_6442_resend_reply1/1,
+    Case = fun(Nodes) -> do_otp_6442_resend_reply1(Nodes, Factor) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(request_and_no_reply, Pre, Case, Post).
 
-do_otp_6442_resend_reply1([MgNode]) ->
+do_otp_6442_resend_reply1([MgNode], Factor) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -10591,7 +10601,7 @@ do_otp_6442_resend_reply1([MgNode]) ->
     {ok, MgId} = megaco_test_megaco_generator:exec(Mg, MgEvSeq),
 
     i("await the transport module service change send_message event"),
-    Pid = otp_6442_expect(fun otp_6442_rsrp1_verify_scr_msg/1, 5000),
+    Pid = otp_6442_expect(fun otp_6442_rsrp1_verify_scr_msg/1, Factor * 5000),
 
     i("wait some before issuing the service change reply"),
     sleep(500),
@@ -10610,7 +10620,7 @@ do_otp_6442_resend_reply1([MgNode]) ->
 
     i("await the transport module first notify-reply send_message event from MG: "
       "ignore"),
-    otp_6442_expect(fun otp_6442_rsrp1_verify_first_nr_msg/1, 5000),
+    otp_6442_expect(fun otp_6442_rsrp1_verify_first_nr_msg/1, Factor * 5000),
 
     i("await the transport module second notify-reply send_message event from MG: "
       "ack"),
@@ -10955,6 +10965,7 @@ otp_6442_resend_reply1_err_desc(T) ->
 otp_6442_resend_reply2(suite) ->
     [];
 otp_6442_resend_reply2(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
     Pre = fun() ->
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
@@ -10962,14 +10973,14 @@ otp_6442_resend_reply2(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_otp_6442_resend_reply2/1,
+    Case = fun(Nodes) -> do_otp_6442_resend_reply2(Nodes, Factor) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(otp6442rrep2, Pre, Case, Post).
 
-do_otp_6442_resend_reply2([MgNode]) ->
+do_otp_6442_resend_reply2([MgNode], Factor) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -10986,7 +10997,7 @@ do_otp_6442_resend_reply2([MgNode]) ->
     {ok, MgId} = megaco_test_megaco_generator:exec(Mg, MgEvSeq),
 
     i("await the transport module service change send_message event"),
-    Pid = otp_6442_expect(fun otp_6442_rsrp2_verify_scr_msg/1, 5000),
+    Pid = otp_6442_expect(fun otp_6442_rsrp2_verify_scr_msg/1, Factor * 5000),
 
     i("wait some before issuing the service change reply"),
     sleep(500),
@@ -11004,7 +11015,7 @@ do_otp_6442_resend_reply2([MgNode]) ->
     megaco_test_generic_transport:incomming_message(Pid, NotifyRequest),
 
     i("await the transport module notify-reply send_message event from MG: ignore"),
-    otp_6442_expect(otp_6442_rsrp2_verify_first_nr_msg_fun(), 5000),
+    otp_6442_expect(otp_6442_rsrp2_verify_first_nr_msg_fun(), Factor * 5000),
 
     i("await the transport module notify-reply resend_message event from MG: ack"),
     {TransId, _, _} = 
