@@ -3419,10 +3419,10 @@ bigger_buffers() ->
         _ ->
             []
     end.
-
 set_protocol_versions(Version) when Version == 'tlsv1';
                                     Version == 'tlsv1.1';
-                                    Version == 'tlsv1.2' ->    
+                                    Version == 'tlsv1.2';
+                                    Version == 'tlsv1.3'->    
     set_protocol_versions(protocol_version, [Version]);
 set_protocol_versions(Version) when Version == 'dtlsv1';
                                     Version == 'dtlsv1.2' ->    

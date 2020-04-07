@@ -87,41 +87,30 @@ end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(internal_active_1, Config) ->
-    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    Version = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
     application:load(ssl),
     ssl_test_lib:clean_env(),
     application:set_env(ssl, internal_active_n, 1),
+    ssl_test_lib:set_protocol_versions(Version),
     ssl:start(),
     ct:timetrap({seconds, 5}),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Config;
 init_per_testcase(protocol_versions, Config) ->
-    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Version = ssl_test_lib:protocol_version(Config),
-    case atom_to_list(Version) of
-        "d" ++ _ ->
-            ssl:stop(),
-            application:load(ssl),
-            ssl_test_lib:clean_env(),
-            application:set_env(ssl, dtls_protocol_version, [Version]),
-            ssl:start();
-        _ ->  
-            ssl:stop(),
-            application:load(ssl),
-            ssl_test_lib:clean_env(),
-            application:set_env(ssl, protocol_version, [Version]),
-            ssl:start()
-    end,
+    ssl_test_lib:set_protocol_versions(Version),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),
     Config;
 init_per_testcase(empty_protocol_versions, Config)  ->
-    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ssl:stop(),
     application:load(ssl),
     ssl_test_lib:clean_env(),
     application:set_env(ssl, protocol_version, []),
     application:set_env(ssl, dtls_protocol_version, []),
     ssl:start(),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),
     Config;
 init_per_testcase(_TestCase, Config) ->
