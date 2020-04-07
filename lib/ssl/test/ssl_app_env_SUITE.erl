@@ -87,6 +87,7 @@ end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(internal_active_1, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ssl:stop(),
     application:load(ssl),
     ssl_test_lib:clean_env(),
@@ -95,6 +96,7 @@ init_per_testcase(internal_active_1, Config) ->
     ct:timetrap({seconds, 5}),
     Config;
 init_per_testcase(protocol_versions, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Version = ssl_test_lib:protocol_version(Config),
     case atom_to_list(Version) of
         "d" ++ _ ->
@@ -113,6 +115,7 @@ init_per_testcase(protocol_versions, Config) ->
     ct:timetrap({seconds, 5}),
     Config;
 init_per_testcase(empty_protocol_versions, Config)  ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ssl:stop(),
     application:load(ssl),
     ssl_test_lib:clean_env(),
@@ -125,8 +128,8 @@ init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, 5}),
     Config.
 
-end_per_testcase(_, _Config) ->
-    ssl_test_lib:clean_start().
+end_per_testcase(_, Config) ->
+    Config.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
