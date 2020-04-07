@@ -76,7 +76,7 @@ CSYM(x86_call_to_native):
  * This is where native code returns to emulated code.
  */
 ASYM(nbif_return):
-	movq	%rax, P_ARG0(P)			# save retval
+	movq	%rax, P_ARG0(P)			/* save retval */
 	movl	$HIPE_MODE_SWITCH_RES_RETURN, %eax
 /* FALLTHROUGH to .flush_exit
  *
@@ -96,12 +96,12 @@ ASYM(nbif_return):
 	SWITCH_ERLANG_TO_C_QUICK
 	SET_GC_SAFE
 	/* restore C callee-save registers, drop frame, return */
-	movq	(%rsp), %rbp	# kills P
+	movq	(%rsp), %rbp	/* kills P */
 	movq	8(%rsp), %rbx
 	movq	16(%rsp), %r12
 	movq	24(%rsp), %r13
 	movq	32(%rsp), %r14
-	movq	40(%rsp), %r15	# kills HP
+	movq	40(%rsp), %r15	/* kills HP */
 	addq	$(7*8), %rsp
 	ret
 
@@ -260,10 +260,10 @@ ASYM(nbif_suspend_msg):
 ASYM(nbif_suspend_msg_timeout):
 	movq	P_FLAGS(P), %rax
 	/* this relies on F_TIMO (1<<2) fitting in a byte */
-	testb	$F_TIMO, %al			# F_TIMO set?
-	jz	.no_timeout			# if not set, suspend
+	testb	$F_TIMO, %al			/* F_TIMO set? */
+	jz	.no_timeout			/* if not set, suspend */
 	/* timeout has occurred */
-	xorl	%eax, %eax			# return 0 to signal timeout
+	xorl	%eax, %eax			/* return 0 to signal timeout */
 	NSP_RET0
 .no_timeout:
 	movl	$HIPE_MODE_SWITCH_RES_WAIT_TIMEOUT, %eax
@@ -308,7 +308,7 @@ CSYM(x86_tailcall_to_native):
 CSYM(x86_throw_to_native):
 	ENTER_FROM_C
 	/* invoke the handler */
-	jmp	*P_NCALLEE(P)		# set by hipe_find_handler()
+	jmp	*P_NCALLEE(P)		/* set by hipe_find_handler() */
 
 /*
  * This is the default exception handler for native code.
@@ -346,15 +346,15 @@ nbif_4_gc_after_bif:
 	/*FALLTHROUGH*/
 	.align	4
 .gc_after_bif:
-	movl	%edx, P_NARITY(P)	# Note: narity is a 32-bit field
+	movl	%edx, P_NARITY(P)	/* Note: narity is a 32-bit field */
 	subq	$(16-8), %rsp
 	movq	P, %rdi
 	movq	%rax, %rsi
-	xorl	%edx, %edx		# Pass NULL in regs
-	xorl	%ecx, %ecx		# Pass 0 in arity
+	xorl	%edx, %edx		/* Pass NULL in regs */
+	xorl	%ecx, %ecx		/* Pass 0 in arity */
 	call	CSYM(erts_gc_after_bif_call)
 	addq	$(16-8), %rsp
-	movl	$0, P_NARITY(P)		# Note: narity is a 32-bit field
+	movl	$0, P_NARITY(P)		/* Note: narity is a 32-bit field */
 	ret
 
 /*
@@ -396,15 +396,15 @@ nbif_4_simple_exception:
 	 * The stack/heap registers were just read from P.
 	 * - %eax should contain the current call's arity
 	 */
-	movl	%eax, P_NARITY(P)	# Note: narity is a 32-bit field
+	movl	%eax, P_NARITY(P)	/* Note: narity is a 32-bit field */
 	/* find and prepare to invoke the handler */
-	SWITCH_ERLANG_TO_C_QUICK	# The cached state is clean and need not be saved.
+	SWITCH_ERLANG_TO_C_QUICK	/* The cached state is clean and need not be saved. */
 	SET_GC_SAFE
 	movq	P, %rdi
-	call	CSYM(hipe_handle_exception)	# Note: hipe_handle_exception() conses
-	SWITCH_C_TO_ERLANG		# %rsp updated by hipe_find_handler()
+	call	CSYM(hipe_handle_exception)	/* Note: hipe_handle_exception() conses */
+	SWITCH_C_TO_ERLANG		/* %rsp updated by hipe_find_handler() */
 	/* now invoke the handler */
-	jmp	*P_NCALLEE(P)		# set by hipe_find_handler()
+	jmp	*P_NCALLEE(P)		/* set by hipe_find_handler() */
 
 	/*
 	 * A BIF failed with freason TRAP:
@@ -412,7 +412,7 @@ nbif_4_simple_exception:
 	 * - the native heap/stack/reds registers are saved in P
 	 */
 .handle_trap:
-	movl	%eax, P_NARITY(P)	# Note: narity is a 32-bit field
+	movl	%eax, P_NARITY(P)	/* Note: narity is a 32-bit field */
 	movl	$HIPE_MODE_SWITCH_RES_TRAP, %eax
 	jmp	.nosave_exit
 
@@ -422,17 +422,17 @@ nbif_4_simple_exception:
  */
 	GLOBAL(ASYM(nbif_stack_trap_ra))
 	.align	4
-ASYM(nbif_stack_trap_ra):			# a return address, not a function
-	# This only handles a single return value.
-	# If we have more, we need to save them in the PCB.
-	movq	%rax, TEMP_RV		# save retval
+ASYM(nbif_stack_trap_ra):			/* a return address, not a function */
+	/* This only handles a single return value. */
+	/* If we have more, we need to save them in the PCB. */
+	movq	%rax, TEMP_RV		/* save retval */
 	SWITCH_ERLANG_TO_C_QUICK
 	movq	P, %rdi
-	call	CSYM(hipe_handle_stack_trap)	# must not cons; preserves TEMP_RV
-	movq	%rax, %rdx		# original RA
+	call	CSYM(hipe_handle_stack_trap)	/* must not cons; preserves TEMP_RV */
+	movq	%rax, %rdx		/* original RA */
 	SWITCH_C_TO_ERLANG_QUICK
-	movq	TEMP_RV, %rax		# restore retval
-	jmp	*%rdx			# resume at original RA
+	movq	TEMP_RV, %rax		/* restore retval */
+	jmp	*%rdx			/* resume at original RA */
 
 /*
  * nbif_inc_stack_0
@@ -443,8 +443,8 @@ ASYM(nbif_inc_stack_0):
 	SWITCH_ERLANG_TO_C_QUICK
 	STORE_ARG_REGS
 	movq	P, %rdi
-	# hipe_inc_nstack reads and writes NSP and NSP_LIMIT,
-	# but does not access HP or FCALLS (or the non-amd64 NRA).
+	/* hipe_inc_nstack reads and writes NSP and NSP_LIMIT, */
+	/* but does not access HP or FCALLS (or the non-amd64 NRA). */
 	call	CSYM(hipe_inc_nstack)
 	LOAD_ARG_REGS
 	SWITCH_C_TO_ERLANG_QUICK
