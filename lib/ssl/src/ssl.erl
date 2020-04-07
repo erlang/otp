@@ -1858,15 +1858,11 @@ handle_option(verify = Option, unbound, OptionsMap, #{rules := Rules}) ->
     handle_verify_option(default_value(Option, Rules), OptionsMap);
 handle_option(verify = _Option, Value, OptionsMap, _Env) ->
     handle_verify_option(Value, OptionsMap);
-
 handle_option(verify_fun = Option, unbound, #{verify := Verify} = OptionsMap, #{rules := Rules})
-  when Verify =:= verify_none orelse
-       Verify =:= 0 ->
+  when Verify =:= verify_none ->
     OptionsMap#{Option => default_value(Option, Rules)};
 handle_option(verify_fun = Option, unbound, #{verify := Verify} = OptionsMap, _Env)
-  when Verify =:= verify_peer orelse
-       Verify =:= 1 orelse
-       Verify =:= 2 ->
+  when Verify =:= verify_peer ->
     OptionsMap#{Option => undefined};
 handle_option(verify_fun = Option, Value0, OptionsMap, _Env) ->
     Value = validate_option(Option, Value0),
@@ -2645,19 +2641,14 @@ assert_proplist([Value | _]) ->
     throw({option_not_a_key_value_tuple, Value}).
 
 
-handle_verify_option(verify_none, #{fail_if_no_peer_cert := _FailIfNoPeerCert} = OptionsMap) ->
-    OptionsMap#{verify => verify_none,
-                fail_if_no_peer_cert => false};
-handle_verify_option(verify_peer, #{fail_if_no_peer_cert := FailIfNoPeerCert} = OptionsMap) ->
-    OptionsMap#{verify => verify_peer,
-                fail_if_no_peer_cert => FailIfNoPeerCert};
-%% Handle 0, 1, 2 for backwards compatibility
-handle_verify_option(0, OptionsMap) ->
-    handle_verify_option(verify_none, OptionsMap);
-handle_verify_option(1, OptionsMap) ->
-    handle_verify_option(verify_peer, OptionsMap#{fail_if_no_peer_cert => false});
-handle_verify_option(2, OptionsMap) ->
-    handle_verify_option(verify_peer, OptionsMap#{fail_if_no_peer_cert => true});
+handle_verify_option(verify_none, #{fail_if_no_peer_cert := false} = OptionsMap) ->
+    OptionsMap#{verify => verify_none};
+handle_verify_option(verify_none, #{fail_if_no_peer_cert := true}) ->
+    throw({error, {options, incompatible,
+                   {verify, verify_none},
+                   {fail_if_no_peer_cert, true}}});
+handle_verify_option(verify_peer, OptionsMap) ->
+    OptionsMap#{verify => verify_peer};
 handle_verify_option(Value, _) ->
     throw({error, {options, {verify, Value}}}).
 

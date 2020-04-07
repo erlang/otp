@@ -1577,14 +1577,18 @@ invalid_options(Config) when is_list(Config) ->
           {key, 'key.pem' }],
 
     TestOpts2 =
-        [{{anti_replay, '10k'},
+        [{[{anti_replay, '10k'}],
           %% anti_replay is a server only option but tested with client
           %% for simplicity
           {options,dependency,{anti_replay,{versions,['tlsv1.3']}}}},
-         {{supported_groups, []},
+         {[{supported_groups, []}],
           {options,dependency,{supported_groups,{versions,['tlsv1.3']}}}},
-         {{use_ticket, [<<1,2,3,4>>]},
-          {options,dependency,{use_ticket,{versions,['tlsv1.3']}}}}],
+         {[{use_ticket, [<<1,2,3,4>>]}],
+          {options,dependency,{use_ticket,{versions,['tlsv1.3']}}}},
+         {[{verify, verify_none}, {fail_if_no_peer_cert, true}],
+          {options, incompatible,
+                   {verify, verify_none},
+                   {fail_if_no_peer_cert, true}}}],
 
     [begin
 	 Server =
@@ -1601,7 +1605,7 @@ invalid_options(Config) when is_list(Config) ->
      end || TestOpt <- TestOpts],
 
     [begin
-         start_client_negative(Config, [TestOpt], ErrorMsg),
+         start_client_negative(Config, TestOpt, ErrorMsg),
          ok
      end || {TestOpt, ErrorMsg} <- TestOpts2],
     ok.
