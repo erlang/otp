@@ -1909,13 +1909,13 @@ invalid_options_tls13(Config) when is_list(Config) ->
 
          {{psk_identity, "Test-User"},
           {options, dependency,
-           {psk_identity,{versions,['tlsv1.2']}}},
+           {psk_identity,{versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
           common},
 
          {{user_lookup_fun,
            {fun ssl_test_lib:user_lookup/3, <<1,2,3>>}},
           {options, dependency,
-           {user_lookup_fun,{versions,['tlsv1.2']}}},
+           {user_lookup_fun,{versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
           common},
 
          {{reuse_session, fun(_,_,_,_) -> false end},

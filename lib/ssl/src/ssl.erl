@@ -1732,7 +1732,8 @@ handle_option(psk_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};
 handle_option(psk_identity = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.2']),
+    assert_option_dependency(Option, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(secure_renegotiate = Option, unbound, OptionsMap, #{rules := Rules}) ->
@@ -1850,7 +1851,7 @@ handle_option(user_lookup_fun = Option, unbound, OptionsMap, #{rules := Rules}) 
     OptionsMap#{Option => Value};
 handle_option(user_lookup_fun = Option, Value0,
               #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.2']),
+    assert_option_dependency(Option, versions, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(verify = Option, unbound, OptionsMap, #{rules := Rules}) ->
@@ -2016,27 +2017,39 @@ assert_role_value(server, Option, Value, ServerValues, _) ->
                 throw({error, {options, role, {Option, {Value, {server, ServerValues}}}}})
         end.
 
-
 assert_option_dependency(Option, OptionDep, Values0, AllowedValues) ->
-    %% special handling for version
-    Values =
-        case OptionDep of
-            versions ->
-                lists:map(fun tls_record:protocol_version/1, Values0);
-            _ ->
-                Values0
-        end,
-    Set1 = sets:from_list(Values),
-    Set2 = sets:from_list(AllowedValues),
-    case sets:size(sets:intersection(Set1, Set2)) > 0 of
+    case is_dtls_configured(Values0) of
         true ->
+            %% TODO: Check option dependency for DTLS
             ok;
         false ->
-            %% Message = build_error_message(Option, OptionDep, AllowedValues),
-            %% throw({error, {options, Message}})
-            throw({error, {options, dependency, {Option, {OptionDep, AllowedValues}}}})
+            %% special handling for version
+            Values =
+                case OptionDep of
+                    versions ->
+                        lists:map(fun tls_record:protocol_version/1, Values0);
+                    _ ->
+                        Values0
+                end,
+            Set1 = sets:from_list(Values),
+            Set2 = sets:from_list(AllowedValues),
+            case sets:size(sets:intersection(Set1, Set2)) > 0 of
+                true ->
+                    ok;
+                false ->
+                    throw({error, {options, dependency,
+                                   {Option, {OptionDep, AllowedValues}}}})
+            end
     end.
 
+is_dtls_configured(Versions) ->
+    Fun = fun (Version) when Version =:= {254, 253} orelse
+                             Version =:= {254, 255} ->
+                  true;
+              (_) ->
+                  false
+          end,
+    lists:any(Fun, Versions).
 
 validate_option(versions, Versions)  ->
     validate_versions(Versions, Versions);
