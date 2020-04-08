@@ -763,7 +763,6 @@ leader_update(ErtsThrPrgrData *tpd)
 		(void) block_thread(tpd);
 	}
 	else {
-	    int force_wakeup_check = 0;
 	    erts_aint32_t set_flags = ERTS_THR_PRGR_LFLG_NO_LEADER;
 	    tpd->leader = 0;
 	    tpd->leader_state.current = ERTS_THR_PRGR_VAL_WAITING;
@@ -788,20 +787,10 @@ leader_update(ErtsThrPrgrData *tpd)
 		/* Need to check umrefc again */
 		ETHR_MEMBAR(ETHR_StoreLoad);
 		refc = erts_atomic_read_nob(&intrnl->umrefc[umrefc_ix].refc);
-		if (refc == 0) {
-		    /* Need to force wakeup check */
-		    force_wakeup_check = 1;
+		if (refc == 0 && got_sched_wakeups()) {
+                    /* Someone need to make progress */
+                    wakeup_managed(tpd->id);
 		}
-	    }
-
-	    if ((force_wakeup_check
-		 || ((lflgs & (ERTS_THR_PRGR_LFLG_NO_LEADER
-			       | ERTS_THR_PRGR_LFLG_WAITING_UM
-			       | ERTS_THR_PRGR_LFLG_ACTIVE_MASK))
-		     == ERTS_THR_PRGR_LFLG_NO_LEADER))
-		&& got_sched_wakeups()) {
-		/* Someone need to make progress */
-		wakeup_managed(tpd->id);
 	    }
 	}
     }
