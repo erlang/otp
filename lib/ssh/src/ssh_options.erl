@@ -641,8 +641,11 @@ default(common) ->
              class => user_option
             },
 
+       %% NOTE: This option's default value must be undefined.
+       %% In the final stage that "merges" the modify_algorithms and preferred_algorithms,
+       %% this option's default values is set.
       pref_public_key_algs =>
-          #{default => ssh_transport:default_algorithms(public_key),
+          #{default => undefined,
             chk => fun check_pref_public_key_algs/1,
             class => user_option
            },
@@ -1105,19 +1108,25 @@ check_input_ok(Algs) ->
             orelse (size(KVs) =/= 2)].
 
 %%%----------------------------------------------------------------
-final_preferred_algorithms(Options) ->
+final_preferred_algorithms(Options0) ->
     Result =
-        case ?GET_OPT(modify_algorithms, Options) of
+        case ?GET_OPT(modify_algorithms, Options0) of
             undefined ->
                 rm_non_supported(true,
-                                 ?GET_OPT(preferred_algorithms, Options));
+                                 ?GET_OPT(preferred_algorithms, Options0));
             ModAlgs ->
                 rm_non_supported(false,
-                                 eval_ops(?GET_OPT(preferred_algorithms, Options),
+                                 eval_ops(?GET_OPT(preferred_algorithms, Options0),
                                           ModAlgs))
         end,
     error_if_empty(Result), % Throws errors if any value list is empty
-    ?PUT_OPT({preferred_algorithms,Result}, Options).
+    Options1 = ?PUT_OPT({preferred_algorithms,Result}, Options0),
+    case ?GET_OPT(pref_public_key_algs, Options1) of
+        undefined ->
+            ?PUT_OPT({pref_public_key_algs, proplists:get_value(public_key,Result)}, Options1);
+        _ ->
+            Options1
+    end.
     
 eval_ops(PrefAlgs, ModAlgs) ->
     lists:foldl(fun eval_op/2, PrefAlgs, ModAlgs).
