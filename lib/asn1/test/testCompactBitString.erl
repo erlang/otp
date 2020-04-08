@@ -40,10 +40,10 @@ compact_bit_string(Rules) ->
 	      {0,<<75,80,248,215,49,149,42,213>>}),
 
     roundtrip('Bs1', [1,1,1,1,1,1,1,1], {0,<<255>>}),
-    roundtrip('Bs1', [0,1,0,0,1,0], {2,<<16#48>>}),
-    roundtrip('Bs1', [1,0,0,0,0,0,0,0,0], {7,<<16#80,0>>}),
-    roundtrip('Bs1', [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1],
-	      {5,<<75,226,96>>}),
+
+    (Rules =/= jer) andalso roundtrip('Bs1', [0,1,0,0,1,0], {2,<<16#48>>}),
+    (Rules =/= jer) andalso roundtrip('Bs1', [1,0,0,0,0,0,0,0,0], {7,<<16#80,0>>}),
+    roundtrip('Bs1', [0,1,0,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1,1], {5,<<75,226,96>>}),
     
     case Rules of
 	ber ->
@@ -75,7 +75,7 @@ compact_bit_string(Rules) ->
     %%==========================================================
     
     roundtrip('Bs3', [mo,tu,fr]),
-    roundtrip('Bs3', [0,1,1,0,0,1,0], [mo,tu,fr]),
+    (Rules =/= jer) andalso roundtrip('Bs3', [0,1,1,0,0,1,0], [mo,tu,fr]),
     
     %%==========================================================
     %% BsPri ::= [PRIVATE 61] BIT STRING
@@ -128,6 +128,7 @@ ticket_7734(_) ->
     BS = {0,list_to_binary(lists:duplicate(128, 0))},
     roundtrip('BS1024', BS).
 
+bit_string_unnamed(jer) -> ok;
 bit_string_unnamed(_Rules) ->
     roundtrip('TransportLayerAddress', [0,1,1,0], {4,<<96>>}).
 

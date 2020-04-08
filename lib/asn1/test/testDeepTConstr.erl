@@ -26,6 +26,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+main(jer) -> ok; % Table constraints not JER visible
 main(_Erule) ->
     Val1 = {substrings,
 	    {'FilterItem_substrings',

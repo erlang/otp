@@ -43,7 +43,8 @@ run(Erule) ->
 %% From X.691 (07/2002) A.4.
 encoded_ax(per) ->  "9E000180 010291A4";
 encoded_ax(uper) -> "9E000600 040A4690";
-encoded_ax(ber) ->  none.
+encoded_ax(ber) -> none;
+encoded_ax(jer) -> none. 
 
 hex_to_binary(none) ->
     none;
