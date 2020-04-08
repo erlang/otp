@@ -299,7 +299,7 @@ start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callba
                     {from, self()},
                     {mfa, {ssl_test_lib,
                            erlang_ssl_receive_and_assert_negotiated_protocol, [<<"spdy/2">>, Data]}},
-                    {options,  [{reuse_sessions, false} | ClientOpts]}]),
+                    {options, ClientOpts}]),
 
     Callback(Client, OpensslPort),
 
@@ -368,7 +368,7 @@ start_erlang_client_and_openssl_server_for_alpn_npn_negotiation(Config, Data, Ca
                     {from, self()},
                     {mfa, {ssl_test_lib,
                            erlang_ssl_receive_and_assert_negotiated_protocol, [<<"spdy/2">>, Data]}},
-                    {options, [{reuse_sessions, false} | ClientOpts]}]),
+                    {options, ClientOpts}]),
 
     Callback(Client, OpensslPort),
 
