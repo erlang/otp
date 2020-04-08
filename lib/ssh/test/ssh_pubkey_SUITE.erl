@@ -36,7 +36,8 @@ suite() ->
 
 all() -> 
     [{group, old_format},
-     {group, new_format}
+     {group, new_format},
+     {group, option_space}
     ].
 
 
@@ -61,9 +62,10 @@ all() ->
                     | ?tests_old]).
 
 groups() ->
-    [{new_format, [], ?tests_new},
-     {old_format, [], ?tests_old++[{group,passphrase}]},
-     {passphrase, [], ?tests_old}
+    [{new_format,  [], ?tests_new},
+     {old_format,  [], ?tests_old++[{group,passphrase}]},
+     {passphrase,  [], ?tests_old},
+     {option_space,[], [{group,new_format}]}
     ].
 
 %%%----------------------------------------------------------------
@@ -90,6 +92,11 @@ init_per_group(old_format, Config) ->
     [{fmt,old_format},
      {key_src_dir,Dir} | Config];
 
+init_per_group(option_space, Config) ->
+    extend_optsL([client_opts,daemon_opts],
+                 [{key_cb, {ssh_file, [{optimize, space}]}}],
+                 Config);
+
 init_per_group(passphrase, Config0) ->
     case supported(hashs, md5) of
         true ->
@@ -111,7 +118,11 @@ extend_opts(OptName, Value, Config) ->
     Opts = proplists:get_value(OptName, Config),
     replace_opt(OptName, [Value|Opts], Config).
 
-extend_optsL(OptName, Values, Config) ->
+extend_optsL(OptNames, Values, Config) when is_list(OptNames) ->
+    lists:foldl(fun(N, Cnf) ->
+                        extend_optsL(N, Values, Cnf)
+                end, Config, OptNames);
+extend_optsL(OptName, Values, Config) when is_atom(OptName) ->
     Opts = proplists:get_value(OptName, Config),
     replace_opt(OptName, Values ++ Opts, Config).
 
@@ -269,8 +280,7 @@ setup_user_system_dir(ClientAlg, ServerAlg, Config) ->
                       ],
             [{system_dir,SystemDir},
              {user_dir,UserDir}
-             | extend_optsL(daemon_opts, ModAlgs,
-                            extend_optsL(client_opts, ModAlgs, Config))];
+             | extend_optsL([daemon_opts,client_opts], ModAlgs, Config)];
         false ->
             {skip, unsupported_algorithm}
     end.
