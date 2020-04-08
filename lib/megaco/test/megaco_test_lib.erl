@@ -625,18 +625,27 @@ str_num_schedulers() ->
 
     
 analyze_and_print_linux_host_info(Version) ->
-    case file:read_file_info("/etc/issue") of
-        {ok, _} ->
-            io:format("Linux: ~s"
-                      "~n   ~s"
-                      "~n",
-                      [Version, string:trim(os:cmd("cat /etc/issue"))]);
-        _ ->
-            io:format("Linux: ~s"
-                      "~n", [Version])
-    end,
+    Distro =
+        case file:read_file_info("/etc/issue") of
+            {ok, _} ->
+                DistroStr = string:trim(os:cmd("cat /etc/issue")),
+                io:format("Linux: ~s"
+                          "~n   ~s"
+                          "~n",
+                          [Version, DistroStr]),
+                case DistroStr of
+                    "Wind River Linux" ++ _ ->
+                        wind_river;
+                    _ ->
+                        other
+                end;
+            _ ->
+                io:format("Linux: ~s"
+                          "~n", [Version]),
+                other
+        end,
     Factor =
-        case (catch linux_which_cpuinfo()) of
+        case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
                 io:format("CPU: "
                           "~n   Model:          ~s"
@@ -675,7 +684,8 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n   Num Schedulers: ~s"
                           "~n", [CPU, str_num_schedulers()]),
                 2; % Be a "bit" conservative...
-            _ ->
+            _X ->
+                %% io:format("X: ~p~n", [_X]),
                 5 % Be a "bit" (more) conservative...
         end,
     %% Check if we need to adjust the factor because of the memory
@@ -687,42 +697,62 @@ analyze_and_print_linux_host_info(Version) ->
             Factor
     end.
 
-linux_which_cpuinfo() ->
-    %% Check for x86 (Intel or AMD)
+
+linux_cpuinfo_lookup(Key) when is_list(Key) ->
+    linux_info_lookup(Key, "/proc/cpuinfo").
+
+linux_which_cpuinfo(wind_river) ->
     CPU =
-        try [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])] of
-            ["model name", ModelName | _] ->
-                ModelName;
-            _ ->
-                %% ARM (at least some distros...)
-                try [string:trim(S) || S <- string:tokens(os:cmd("grep \"Processor\" /proc/cpuinfo"), [$:,$\n])] of
-                    ["Processor", Proc | _] ->
-                        Proc;
-                    _ ->
-                        %% Ok, we give up
-                        throw(noinfo)
-                catch
-                    _:_:_ ->
-                        throw(noinfo)
+        case linux_cpuinfo_lookup("model") of
+            "-" ->
+                throw(noinfo);
+            Model ->
+                case linux_cpuinfo_lookup("platform") of
+                    "-" ->
+                        Model;
+                    Platform ->
+                        Model ++ " (" ++ Platform ++ ")"
                 end
-        catch
-            _:_:_ ->
-                throw(noinfo)
         end,
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i \"bogomips\" /proc/cpuinfo"), [$:,$\n])] of
-        [_, BMips | _] ->
-            {ok, {CPU, BMips}};
-        _ ->
-            {ok, CPU}
-    catch
-        _:_:_ ->
-            {ok, CPU}
+    case linux_cpuinfo_lookup("total bogomips") of
+        "-" ->
+            {ok, CPU};
+        BMips ->
+            {ok, {CPU, BMips}}
+    end;
+
+linux_which_cpuinfo(other) ->
+    %% Check for x86 (Intel or AMD or ...)
+    CPU =
+        case linux_cpuinfo_lookup("model name") of
+            "-" ->
+                %% ARM (at least some distros...)
+                case linux_cpuinfo_lookup("Processor") of
+                    "-" ->
+                        %% Ok, we give up
+                        throw(noinfo);
+                    Proc ->
+                        Proc
+                end;
+            ModelName ->
+                ModelName
+        end,
+    case linux_cpuinfo_lookup("bogomips") of
+        "-" ->
+            {ok, CPU};
+        BMips ->
+            {ok, {CPU, BMips}}
     end.
+
+linux_meminfo_lookup(Key) when is_list(Key) ->
+    linux_info_lookup(Key, "/proc/meminfo").
 
 %% We *add* the value this return to the Factor.
 linux_which_meminfo() ->
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
-        [_, MemTotal] ->
+    case linux_meminfo_lookup("MemTotal") of
+        "-" ->
+            0;
+        MemTotal ->
             io:format("Memory:"
                       "~n   ~s"
                       "~n", [MemTotal]),
@@ -752,12 +782,7 @@ linux_which_meminfo() ->
                     end;
                 _X ->
                     0
-            end;
-        _ ->
-            0
-    catch
-        _:_:_ ->
-            0
+            end
     end.
 
 
@@ -1373,6 +1398,17 @@ process_win_system_info([H|T], Acc) ->
     end.
                     
 
+linux_info_lookup(Key, File) ->
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
+        [Key, Value | _] ->
+            Value;
+        _ ->
+            "-"
+    catch
+        _:_:_ ->
+            "-"
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Set kill timer
