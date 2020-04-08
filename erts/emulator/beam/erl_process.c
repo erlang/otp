@@ -1830,7 +1830,9 @@ misc_aux_work_clean(ErtsThrQ_t *q,
 	return aux_work | ERTS_SSI_AUX_WORK_MISC;
     case ERTS_THR_Q_NEED_THR_PRGR:
 	set_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MISC_THR_PRGR);
-	haw_thr_prgr_soft_wakeup(awdp, erts_thr_q_need_thr_progress(q));
+        awdp->misc.thr_prgr = erts_thr_q_need_thr_progress(q);
+	haw_thr_prgr_soft_wakeup(awdp, awdp->misc.thr_prgr);
+        break;
     case ERTS_THR_Q_CLEAN:
 	break;
     }
