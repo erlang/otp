@@ -81,8 +81,8 @@ init(Args) ->
 handle_call({new_session_ticket, Prf, MasterSecret}, _From, 
             #state{nonce = Nonce, 
                    lifetime = LifeTime,
-                   stateful = #{}} = State0) -> 
-    Id = stateful_psk_id(),
+                   stateful = #{id_generator := IdGen}} = State0) -> 
+    Id = stateful_psk_ticket_id(IdGen),
     PSK = tls_v1:pre_shared_key(MasterSecret, ticket_nonce(Nonce), Prf),
     SessionTicket = new_session_ticket(Id, Nonce, LifeTime),
     State = stateful_ticket_store(Id, SessionTicket, Prf, PSK, State0),
@@ -166,7 +166,8 @@ inital_state([stateful, Lifetime, TicketStoreSize|_]) ->
            nonce = 0,
            stateful = #{db => stateful_store(),                    
                         max => TicketStoreSize,
-                        ref_index => #{}
+                        ref_index => #{},
+                        id_generator => crypto:strong_rand_bytes(16)
                        }
           }.
 
@@ -295,8 +296,13 @@ stateful_living_ticket({TimeStamp,_},
     Lived < LifeTime.
 
 
-stateful_psk_id() ->
-    term_to_binary(make_ref()).
+stateful_psk_ticket_id(Key) ->
+    Unique = erlang:unique_integer(),
+    %% Obfuscate to avoid DoS attack possiblities
+    %% that could invalidate tickets and render them
+    %% unusable. This id should be unpredictable
+    %% and unique but have no other cryptographic requirements.
+    crypto:crypto_one_time(aes_128_ecb, Key, <<Unique:128>>, true).
 
 %%%===================================================================
 %%% Stateless ticket 
