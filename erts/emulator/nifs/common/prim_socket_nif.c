@@ -8858,7 +8858,7 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
     err = esock_close_socket(env, descP);
 
     if (err != 0) {
-        if (err != ERRNO_BLOCK) {
+        if (err == ERRNO_BLOCK) {
             /* Not all data in the buffers where sent,
              * make sure the caller gets this.
              */
@@ -8925,9 +8925,6 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
-    if (! IS_OPEN(descP))
-        return esock_make_error(env, atom_closed);
-    
     if (!ehow2how(ehow, &how))
         return enif_make_badarg(env);
 
@@ -8963,6 +8960,9 @@ ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
                             ESockDescriptor* descP,
                             int              how)
 {
+    if (! IS_OPEN(descP))
+        return esock_make_error(env, atom_closed);
+    
     if (sock_shutdown(descP->sock, how) == 0)
         return esock_atom_ok;
     else
@@ -9000,10 +9000,8 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     ESockDescriptor* descP = NULL;
-    int              eLevel, level = -1;
-    int              eOpt;
-    ERL_NIF_TERM     eIsEncoded;
-    ERL_NIF_TERM     eVal;
+    int              eLevel, level = -1, eOpt;
+    ERL_NIF_TERM     eIsEncoded, eVal;
     BOOLEAN_T        isEncoded, isOTP;
 
     SGDBG( ("SOCKET", "nif_setopt -> entry with argc: %d\r\n", argc) );
@@ -9031,11 +9029,10 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
         return esock_make_error(env, esock_atom_einval);
     }
 
-    if (! IS_OPEN(descP))
-        return esock_make_error(env, atom_closed);
-    
+    MLOCK(descP->readMtx);
     return esock_setopt(env, descP, isEncoded, isOTP, level, eOpt, eVal);
-
+    /* Surprise! MUNLOCK in called function */
+    
 #endif // if defined(__WIN32__)
 }
 
@@ -9050,20 +9047,21 @@ ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
                           int              eOpt,
                           ERL_NIF_TERM     eVal)
 {
-    ERL_NIF_TERM result;
+    if (! IS_OPEN(descP)) {
+        MUNLOCK(descP->readMtx);
+        return esock_make_error(env, atom_closed);
+    }
 
     if (isOTP) {
         /* These are not actual socket options,
          * but options for our implementation.
          */
-        result = esock_setopt_otp(env, descP, eOpt, eVal);
-    } else if (!isEncoded) {
-        result = esock_setopt_native(env, descP, level, eOpt, eVal);
+        return esock_setopt_otp(env, descP, eOpt, eVal);
+    } else if (! isEncoded) {
+        return esock_setopt_native(env, descP, level, eOpt, eVal);
     } else {
-        result = esock_setopt_level(env, descP, level, eOpt, eVal);
+        return esock_setopt_level(env, descP, level, eOpt, eVal);
     }
-
-    return result;
 }
 
 
@@ -9080,7 +9078,6 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
 
     switch (eOpt) {
     case ESOCK_OPT_OTP_DEBUG:
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         result = esock_setopt_otp_debug(env, descP, eVal);
         MUNLOCK(descP->writeMtx);
@@ -9088,7 +9085,6 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         break;
 
     case ESOCK_OPT_OTP_IOW:
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         result = esock_setopt_otp_iow(env, descP, eVal);
         MUNLOCK(descP->writeMtx);
@@ -9096,7 +9092,6 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         break;
 
     case ESOCK_OPT_OTP_CTRL_PROC:
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
         result = esock_setopt_otp_ctrl_proc(env, descP, eVal);
         MUNLOCK(descP->writeMtx);
@@ -9104,31 +9099,32 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         break;
 
     case ESOCK_OPT_OTP_RCVBUF:
-        MLOCK(descP->readMtx);
         result = esock_setopt_otp_rcvbuf(env, descP, eVal);
         MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_RCVCTRLBUF:
-        MLOCK(descP->readMtx);
         result = esock_setopt_otp_rcvctrlbuf(env, descP, eVal);
         MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_SNDCTRLBUF:
         MLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
         result = esock_setopt_otp_sndctrlbuf(env, descP, eVal);
         MUNLOCK(descP->writeMtx);
         break;
 
     case ESOCK_OPT_OTP_META:
         MLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
         result = esock_setopt_otp_meta(env, descP, eVal);
         MUNLOCK(descP->writeMtx);
         break;
 
     default:
         MLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
         SSDBG( descP,
                ("SOCKET", "esock_setopt_otp {%d} -> einval with"
                 "\r\n   eOpt: %d"
@@ -9422,6 +9418,7 @@ ERL_NIF_TERM esock_setopt_native(ErlNifEnv*       env,
     ERL_NIF_TERM result;
 
     MLOCK(descP->writeMtx);
+    MUNLOCK(descP->readMtx);
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_native {%d} -> entry"
@@ -9466,6 +9463,7 @@ ERL_NIF_TERM esock_setopt_level(ErlNifEnv*       env,
     ERL_NIF_TERM result;
 
     MLOCK(descP->writeMtx);
+    MUNLOCK(descP->readMtx);
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_level {%d} -> entry with"
@@ -12786,10 +12784,9 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     if (!elevel2level(isEncoded, eLevel, &isOTP, &level))
         return esock_make_error(env, esock_atom_einval);
 
-    if (! IS_OPEN(descP))
-        return esock_make_error(env, atom_closed);
-    
+    MLOCK(descP->readMtx);
     return esock_getopt(env, descP, isEncoded, isOTP, level, eOpt);
+    /* Surprise! MUNLOCK in called function */
 
 #endif // if defined(__WIN32__)
 }
@@ -12816,19 +12813,21 @@ ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
             "\r\n   eOpt:      %T"
             "\r\n", B2S(isEncoded), B2S(isOTP), level, eOpt) );
 
-    if (isOTP) {
+    if (! IS_OPEN(descP)) {
+        result = esock_make_error(env, atom_closed);
+    } else if (isOTP) {
         /* These are not actual socket options,
          * but options for our implementation.
          */
         if (GET_INT(env, eOpt, &opt))
-            result = esock_getopt_otp(env, descP, opt);
+            return esock_getopt_otp(env, descP, opt);
         else
             result = esock_make_error(env, esock_atom_einval);
     } else if (!isEncoded) {
-        result = esock_getopt_native(env, descP, level, eOpt);
+        return esock_getopt_native(env, descP, level, eOpt);
     } else {
         if (GET_INT(env, eOpt, &opt))
-            result = esock_getopt_level(env, descP, level, opt);
+            return esock_getopt_level(env, descP, level, opt);
         else
             result = esock_make_error(env, esock_atom_einval);
     }
@@ -12837,7 +12836,7 @@ ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
            ("SOCKET", "esock_getopt -> done when"
             "\r\n   result: %T"
             "\r\n", result) );
-
+    MUNLOCK(descP->readMtx);
     return result;
 }
 
@@ -12859,49 +12858,45 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
 
     switch (eOpt) {
     case ESOCK_OPT_OTP_DEBUG:
-        MLOCK(descP->writeMtx);
         result = esock_getopt_otp_debug(env, descP);
-        MUNLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_IOW:
-        MLOCK(descP->writeMtx);
         result = esock_getopt_otp_iow(env, descP);
-        MUNLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_CTRL_PROC:
-        MLOCK(descP->writeMtx);
         result = esock_getopt_otp_ctrl_proc(env, descP);
-        MUNLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_RCVBUF:
-        MLOCK(descP->readMtx);
         result = esock_getopt_otp_rcvbuf(env, descP);
         MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_RCVCTRLBUF:
-        MLOCK(descP->readMtx);
         result = esock_getopt_otp_rcvctrlbuf(env, descP);
         MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_SNDCTRLBUF:
         MLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
         result = esock_getopt_otp_sndctrlbuf(env, descP);
         MUNLOCK(descP->writeMtx);
         break;
 
     case ESOCK_OPT_OTP_FD:
-        MLOCK(descP->readMtx);
         result = esock_getopt_otp_fd(env, descP);
         MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_META:
         MLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
         result = esock_getopt_otp_meta(env, descP);
         MUNLOCK(descP->writeMtx);
         break;
@@ -12909,22 +12904,25 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
         /* *** INTERNAL *** */
     case ESOCK_OPT_OTP_DOMAIN:
         result = esock_getopt_otp_domain(env, descP);
+        MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_TYPE:
         result = esock_getopt_otp_type(env, descP);
+        MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_PROTOCOL:
         result = esock_getopt_otp_protocol(env, descP);
+        MUNLOCK(descP->readMtx);
         break;
 
     case ESOCK_OPT_OTP_DTP:
         result = esock_getopt_otp_dtp(env, descP);
+        MUNLOCK(descP->readMtx);
         break;
 
     default:
-        MLOCK(descP->readMtx);
         SSDBG( descP,
                ("SOCKET", "esock_getopt_otp {%d} -> einval with"
                 "\r\n   eOpt: %d"
@@ -13283,8 +13281,6 @@ ERL_NIF_TERM esock_getopt_native(ErlNifEnv*       env,
     Uint16       valueType;
     SOCKOPTLEN_T valueSz;
 
-    MLOCK(descP->readMtx);
-
     SSDBG( descP,
            ("SOCKET", "esock_getopt_native {%d} -> entry"
             "\r\n   level: %d"
@@ -13399,8 +13395,6 @@ ERL_NIF_TERM esock_getopt_level(ErlNifEnv*       env,
                                 int              eOpt)
 {
     ERL_NIF_TERM result;
-
-    MLOCK(descP->readMtx);
 
     SSDBG( descP,
            ("SOCKET", "esock_getopt_level {%d} -> entry with"
