@@ -23,6 +23,10 @@
 -include("otp_internal.hrl").
 %%
 -dialyzer({no_match, obsolete/3}).
+obsolete(ssl, cipher_suites, 0) ->
+    {deprecated, "use ssl:cipher_suites/2,3 instead"};
+obsolete(ssl, cipher_suites, 1) ->
+    {deprecated, "use ssl:cipher_suites/2,3 instead"};
 obsolete(auth, cookie, 0) ->
     {deprecated, "use erlang:get_cookie/0 instead"};
 obsolete(auth, cookie, 1) ->

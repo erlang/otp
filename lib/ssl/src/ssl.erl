@@ -107,6 +107,9 @@
 
 -deprecated({ssl_accept, '_', "use ssl_handshake/1,2,3 instead"}).
 
+-deprecated({cipher_suites, 0, "use cipher_suites/2,3 instead"}).
+-deprecated({cipher_suites, 1, "use cipher_suites/2,3 instead"}).
+
 -removed([{negotiated_next_protocol,1,
           "use ssl:negotiated_protocol/1 instead"}]).
 -removed([{connection_info,1,
@@ -1017,45 +1020,46 @@ cipher_suites(all) ->
     [ssl_cipher_format:suite_legacy(Suite) || Suite <- available_suites(all)].
 
 %%--------------------------------------------------------------------
--spec cipher_suites(Supported, Version) -> ciphers() when
-      Supported :: default | all | anonymous,
+-spec cipher_suites(Description, Version) -> ciphers() when
+      Description :: default | all | exclusive | anonymous,
       Version :: protocol_version().
 
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
 %%--------------------------------------------------------------------
-cipher_suites(Base, Version) when Version == 'tlsv1.3';
+cipher_suites(Description, Version) when Version == 'tlsv1.3';
                                   Version == 'tlsv1.2';
                                   Version == 'tlsv1.1';
                                   Version == tlsv1 ->
-    cipher_suites(Base, tls_record:protocol_version(Version));
-cipher_suites(Base, Version)  when Version == 'dtlsv1.2';
+    cipher_suites(Description, tls_record:protocol_version(Version));
+cipher_suites(Description, Version)  when Version == 'dtlsv1.2';
                                    Version == 'dtlsv1'->
-    cipher_suites(Base, dtls_record:protocol_version(Version));                   
-cipher_suites(Base, Version) ->
-    [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- supported_suites(Base, Version)].
+    cipher_suites(Description, dtls_record:protocol_version(Version));
+cipher_suites(Description, Version) ->
+    [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- supported_suites(Description, Version)].
 
 %%--------------------------------------------------------------------
--spec cipher_suites(Supported, Version, rfc | openssl) -> [string()] when
-      Supported :: default | all | anonymous,
+-spec cipher_suites(Description, Version, rfc | openssl) -> [string()] when
+      Description :: default | all | exclusive | anonymous,
       Version :: protocol_version().
 
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
 %%--------------------------------------------------------------------
-cipher_suites(Base, Version, StringType) when Version == 'tlsv1.2';
-                                              Version == 'tlsv1.1';
-                                              Version == tlsv1 ->
-    cipher_suites(Base, tls_record:protocol_version(Version), StringType);
-cipher_suites(Base, Version, StringType)  when Version == 'dtlsv1.2';
+cipher_suites(Description, Version, StringType) when  Version == 'tlsv1.3';
+                                               Version == 'tlsv1.2';
+                                               Version == 'tlsv1.1';
+                                               Version == tlsv1 ->
+    cipher_suites(Description, tls_record:protocol_version(Version), StringType);
+cipher_suites(Description, Version, StringType)  when Version == 'dtlsv1.2';
                                                Version == 'dtlsv1'->
-    cipher_suites(Base, dtls_record:protocol_version(Version), StringType);                   
-cipher_suites(Base, Version, rfc) ->
-    [ssl_cipher_format:suite_map_to_str(ssl_cipher_format:suite_bin_to_map(Suite)) 
-     || Suite <- supported_suites(Base, Version)];
-cipher_suites(Base, Version, openssl) ->
-    [ssl_cipher_format:suite_map_to_openssl_str(ssl_cipher_format:suite_bin_to_map(Suite)) 
-     || Suite <- supported_suites(Base, Version)].
+    cipher_suites(Description, dtls_record:protocol_version(Version), StringType);
+cipher_suites(Description, Version, rfc) ->
+    [ssl_cipher_format:suite_map_to_str(ssl_cipher_format:suite_bin_to_map(Suite))
+     || Suite <- supported_suites(Description, Version)];
+cipher_suites(Description, Version, openssl) ->
+    [ssl_cipher_format:suite_map_to_openssl_str(ssl_cipher_format:suite_bin_to_map(Suite))
+     || Suite <- supported_suites(Description, Version)].
 
 %%--------------------------------------------------------------------
 -spec filter_cipher_suites(Suites, Filters) -> Ciphers when
@@ -1521,6 +1525,8 @@ available_suites(all) ->
     Version = tls_record:highest_protocol_version([]),			  
     ssl_cipher:filter_suites(ssl_cipher:all_suites(Version)).
 
+supported_suites(exclusive, {3,Minor}) ->
+    tls_v1:exclusive_suites(Minor);
 supported_suites(default, Version) ->  
     ssl_cipher:suites(Version);
 supported_suites(all, Version) ->  
@@ -1639,11 +1645,11 @@ handle_option(cacertfile = Option, unbound, #{cacerts := CaCerts,
 handle_option(cacertfile = Option, Value0, OptionsMap, _Env) ->
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
-handle_option(ciphers = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := Rules}) ->
-    Value = handle_cipher_option(default_value(Option, Rules), HighestVersion),
+handle_option(ciphers = Option, unbound, #{versions := Versions} = OptionsMap, #{rules := Rules}) ->
+    Value = handle_cipher_option(default_value(Option, Rules), Versions),
     OptionsMap#{Option => Value};
-handle_option(ciphers = Option, Value0, #{versions := [HighestVersion|_]} = OptionsMap, _Env) ->
-    Value = handle_cipher_option(Value0, HighestVersion),
+handle_option(ciphers = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
+    Value = handle_cipher_option(Value0, Versions),
     OptionsMap#{Option => Value};
 handle_option(client_renegotiation = Option, unbound, OptionsMap, #{role := Role}) ->
     Value = default_option_role(server, true, Role),
@@ -2377,8 +2383,8 @@ emulated_options(Protocol, Opts) ->
 	    dtls_socket:emulated_options(Opts)
     end.
 
-handle_cipher_option(Value, Version)  when is_list(Value) ->
-    try binary_cipher_suites(Version, Value) of
+handle_cipher_option(Value, Versions)  when is_list(Value) ->       
+    try binary_cipher_suites(Versions, Value) of
 	Suites ->
 	    Suites
     catch
@@ -2388,37 +2394,44 @@ handle_cipher_option(Value, Version)  when is_list(Value) ->
 	    throw({error, {options, {ciphers, Value}}})
     end.
 
-binary_cipher_suites(Version, []) -> 
+binary_cipher_suites([{3,4} = Version], []) -> 
+    %% Defaults to all supported suites that does
+    %% not require explicit configuration TLS-1.3
+    %% only mode.
+    default_binary_suites(exclusive, Version);
+binary_cipher_suites([Version| _], []) -> 
     %% Defaults to all supported suites that does
     %% not require explicit configuration
-    default_binary_suites(Version);
-binary_cipher_suites(Version, [Map|_] = Ciphers0) when is_map(Map) ->
+    default_binary_suites(default, Version);
+binary_cipher_suites(Versions, [Map|_] = Ciphers0) when is_map(Map) ->
     Ciphers = [ssl_cipher_format:suite_map_to_bin(C) || C <- Ciphers0],
-    binary_cipher_suites(Version, Ciphers);
-binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
+    binary_cipher_suites(Versions, Ciphers);
+binary_cipher_suites(Versions, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
     Ciphers = [ssl_cipher_format:suite_map_to_bin(tuple_to_map(C)) || C <- Ciphers0],
-    binary_cipher_suites(Version, Ciphers);
-binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
+    binary_cipher_suites(Versions, Ciphers);
+binary_cipher_suites([Version |_] = Versions, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
     All = ssl_cipher:all_suites(Version) ++ 
         ssl_cipher:anonymous_suites(Version),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
 	[] ->
 	    %% Defaults to all supported suites that does
 	    %% not require explicit configuration
-	    default_binary_suites(Version);
+	    binary_cipher_suites(Versions, []);
 	Ciphers ->
 	    Ciphers
     end;
-binary_cipher_suites(Version, [Head | _] = Ciphers0) when is_list(Head) ->
+binary_cipher_suites(Versions, [Head | _] = Ciphers0) when is_list(Head) ->
     %% Format: ["RC4-SHA","RC4-MD5"]
     Ciphers = [ssl_cipher_format:suite_openssl_str_to_map(C) || C <- Ciphers0],
-    binary_cipher_suites(Version, Ciphers);
-binary_cipher_suites(Version, Ciphers0)  ->
+    binary_cipher_suites(Versions, Ciphers);
+binary_cipher_suites(Versions, Ciphers0)  ->
     %% Format: "RC4-SHA:RC4-MD5"
     Ciphers = [ssl_cipher_format:suite_openssl_str_to_map(C) || C <- string:lexemes(Ciphers0, ":")],
-    binary_cipher_suites(Version, Ciphers).
+    binary_cipher_suites(Versions, Ciphers).
 
-default_binary_suites(Version) ->
+default_binary_suites(exclusive, {_, Minor}) ->
+    ssl_cipher:filter_suites(tls_v1:exclusive_suites(Minor));
+default_binary_suites(default, Version) ->
     ssl_cipher:filter_suites(ssl_cipher:suites(Version)).
 
 tuple_to_map({Kex, Cipher, Mac}) ->

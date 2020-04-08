@@ -29,22 +29,52 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 
--export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7, hmac_hash/3,
-	 setup_keys/8, suites/1, prf/5,
-	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1, 
-	 default_signature_algs/1, signature_algs/2,
-         default_signature_schemes/1, signature_schemes/2,
-         groups/1, groups/2, group_to_enum/1, enum_to_group/1, default_groups/1]).
+-export([master_secret/4, 
+         finished/5, 
+         certificate_verify/3, 
+         mac_hash/7, 
+         hmac_hash/3,
+	 setup_keys/8, 
+         suites/1, 
+         exclusive_suites/1,
+         prf/5,
+	 ecc_curves/1, 
+         ecc_curves/2, 
+         oid_to_enum/1, 
+         enum_to_oid/1, 
+	 default_signature_algs/1, 
+         signature_algs/2,
+         default_signature_schemes/1, 
+         signature_schemes/2,
+         groups/1, 
+         groups/2, 
+         group_to_enum/1, 
+         enum_to_group/1, 
+         default_groups/1]).
 
--export([derive_secret/4, hkdf_expand_label/5, hkdf_extract/3, hkdf_expand/4,
-         key_schedule/3, key_schedule/4, create_info/3,
-         external_binder_key/2, resumption_binder_key/2,
-         client_early_traffic_secret/3, early_exporter_master_secret/3,
-         client_handshake_traffic_secret/3, server_handshake_traffic_secret/3,
-         client_application_traffic_secret_0/3, server_application_traffic_secret_0/3,
-         exporter_master_secret/3, resumption_master_secret/3,
-         update_traffic_secret/2, calculate_traffic_keys/3,
-         transcript_hash/2, finished_key/2, finished_verify_data/3, pre_shared_key/3]).
+-export([derive_secret/4, 
+         hkdf_expand_label/5, 
+         hkdf_extract/3, 
+         hkdf_expand/4,
+         key_schedule/3, 
+         key_schedule/4, 
+         create_info/3,
+         external_binder_key/2, 
+         resumption_binder_key/2,
+         client_early_traffic_secret/3, 
+         early_exporter_master_secret/3,
+         client_handshake_traffic_secret/3, 
+         server_handshake_traffic_secret/3,
+         client_application_traffic_secret_0/3, 
+         server_application_traffic_secret_0/3,
+         exporter_master_secret/3, 
+         resumption_master_secret/3,
+         update_traffic_secret/2, 
+         calculate_traffic_keys/3,
+         transcript_hash/2, 
+         finished_key/2, 
+         finished_verify_data/3, 
+         pre_shared_key/3]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
@@ -453,7 +483,7 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 
 %% TODO 1.3 same as above?
 
--spec suites(1|2|3|4|'TLS_v1.3') -> [ssl_cipher_format:cipher_suite()].
+-spec suites(1|2|3|4) -> [ssl_cipher_format:cipher_suite()].
 
 suites(Minor) when Minor == 1; Minor == 2 ->
     [
@@ -472,31 +502,57 @@ suites(Minor) when Minor == 1; Minor == 2 ->
       ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA
     ];
 suites(3) ->
+    exclusive_suites(3) ++ suites(2);
+
+suites(4) ->
+    exclusive_suites(4) ++ suites(3).
+
+exclusive_suites(4) ->
+    [?TLS_AES_256_GCM_SHA384,
+     ?TLS_AES_128_GCM_SHA256,
+     ?TLS_CHACHA20_POLY1305_SHA256,
+     ?TLS_AES_128_CCM_SHA256,
+     ?TLS_AES_128_CCM_8_SHA256
+    ];
+exclusive_suites(3) ->
     [?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+
      ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
+
      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
      ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
 
      ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
+
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
 
      ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
      ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+
      ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
      ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+
      ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
      ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
+
      ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
 
      ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
+     
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+     
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
 
@@ -505,24 +561,23 @@ suites(3) ->
      %% ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384,
      %% ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256,
      %% ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256
-    ] ++ suites(2);
+    ];
+exclusive_suites(Minor) when Minor == 1; Minor == 2 ->
+    [
+      ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+      ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
 
-suites(4) ->
-    [?TLS_AES_256_GCM_SHA384,
-     ?TLS_AES_128_GCM_SHA256,
-     ?TLS_CHACHA20_POLY1305_SHA256,
-     ?TLS_AES_128_CCM_SHA256,
-     ?TLS_AES_128_CCM_8_SHA256
-    ] ++ suites(3);
-
-suites('TLS_v1.3') ->
-    [?TLS_AES_256_GCM_SHA384,
-     ?TLS_AES_128_GCM_SHA256,
-     ?TLS_CHACHA20_POLY1305_SHA256,
-     ?TLS_AES_128_CCM_SHA256,
-     ?TLS_AES_128_CCM_8_SHA256
+      ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA
     ].
-
 
 signature_algs({3, 4}, HashSigns) ->
     signature_algs({3, 3}, HashSigns);

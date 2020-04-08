@@ -1995,7 +1995,7 @@ select_cipher_suite(_, [], _) ->
 select_cipher_suite(true, ClientCiphers, ServerCiphers) ->
     select_cipher_suite(false, ServerCiphers, ClientCiphers);
 select_cipher_suite(false, [Cipher|ClientCiphers], ServerCiphers) ->
-    case lists:member(Cipher, tls_v1:suites('TLS_v1.3')) andalso
+    case lists:member(Cipher, tls_v1:exclusive_suites(4)) andalso
         lists:member(Cipher, ServerCiphers) of
         true ->
             {ok, Cipher};
