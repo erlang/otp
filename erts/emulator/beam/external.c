@@ -5807,6 +5807,11 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
          * Suppress monitor control msg (see erts_dsig_send_monitor)
          * by converting it to an empty (tick) packet.
          */
+        int i;
+        for (i = 1; i < ob->eiov->vsize; i++) {
+            if (ob->eiov->binv[i])
+                driver_free_binary(ob->eiov->binv[i]);
+        }
         ob->eiov->vsize = 1;
         ob->eiov->size = 0;
         return reds;
@@ -5837,6 +5842,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         byte *buf_start, *buf_end;
         byte *ptr;
         Uint hsz;
+        int i;
 
         hdr += 4;
         payload_ix = get_int32(hdr);
@@ -5898,6 +5904,10 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         if (buf_start != (byte *) iov[2].iov_base)
             erts_free(ERTS_ALC_T_TMP, buf_start);
 
+        for (i = 1; i < ob->eiov->vsize; i++) {
+            if (ob->eiov->binv[i])
+                driver_free_binary(ob->eiov->binv[i]);
+        }
         ob->eiov->vsize = 1;
         ob->eiov->size = 0;
         
