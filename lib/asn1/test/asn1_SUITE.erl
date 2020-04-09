@@ -219,9 +219,17 @@ end_per_testcase(_Func, Config) ->
 %%------------------------------------------------------------------------------
 
 test(Config, TestF) ->
+    TestJer = case code:which(jsx) of
+                  non_existing -> [];
+                  _ -> [jer]
+              end,
     test(Config, TestF, [per,
                          uper,
-                         ber]).
+                         ber] ++ TestJer),
+    case TestJer of
+        [] -> {comment,"skipped JER"};
+        _ -> ok
+    end.
 
 test(Config, TestF, Rules) ->
     Fun = fun(C, R, O) ->
@@ -314,7 +322,7 @@ do_test_prim(Rule, NoOkWrapper) ->
     testPrim:obj_id(Rule),
     testPrim:rel_oid(Rule),
     testPrim:null(Rule),
-    testPrim:real(Rule).
+    Rule =/= jer andalso testPrim:real(Rule). %% Temporary workaround for JER
 
 testCompactBitString(Config) -> test(Config, fun testCompactBitString/3).
 testCompactBitString(Config, Rule, Opts) ->
@@ -388,7 +396,7 @@ testExtensibilityImplied(Config) ->
 testExtensibilityImplied(Config, Rule, Opts) ->
     asn1_test_lib:compile("ExtensibilityImplied", Config,
 			  [Rule,no_ok_wrapper|Opts]),
-    testExtensibilityImplied:main().
+    testExtensibilityImplied:main(Rule).
 
 testChoPrim(Config) -> test(Config, fun testChoPrim/3).
 testChoPrim(Config, Rule, Opts) ->
@@ -812,6 +820,7 @@ testConstraints(Config, Rule, Opts) ->
     testConstraints:int_constraints(Rule),
     case Rule of
 	ber -> ok;
+        jer -> ok; % subtype constraint is not checked
 	_ -> testConstraints:refed_NNL_name(Rule)
     end.
 
@@ -849,7 +858,7 @@ testUniqueObjectSets(Config, Rule, Opts) ->
 testInfObjExtract(Config) -> test(Config, fun testInfObjExtract/3).
 testInfObjExtract(Config, Rule, Opts) ->
     asn1_test_lib:compile("InfObjExtract", Config, [Rule|Opts]),
-    testInfObjExtract:main().
+    testInfObjExtract:main(Rule).
 
 testParam(Config) ->
     test(Config, fun testParam/3, [ber,{ber,[der]},per,uper]).
@@ -877,6 +886,7 @@ testMergeCompile(Config, Rule, Opts) ->
     testMergeCompile:mvrasn(Rule).
 
 testobj(Config) -> test(Config, fun testobj/3).
+testobj(_Config, jer, _Opts) -> ok;
 testobj(Config, Rule, Opts) ->
     asn1_test_lib:compile("RANAP", Config, [legacy_erlang_types,
 					    Rule|Opts]),
@@ -897,7 +907,7 @@ testImport(Config, Rule, Opts) ->
 	     "Importing","Exporting"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     42 = 'ImportsFrom':i(),
-    testImporting:main(),
+    testImporting:main(Rule),
     ok.
 
 testMegaco(Config) -> test(Config, fun testMegaco/3).
@@ -917,7 +927,7 @@ testContextSwitchingTypes(Config) ->
     test(Config, fun testContextSwitchingTypes/3).
 testContextSwitchingTypes(Config, Rule, Opts) ->
     asn1_test_lib:compile("ContextSwitchingTypes", Config, [Rule|Opts]),
-    testContextSwitchingTypes:test(Config).
+    testContextSwitchingTypes:test(Rule,Config).
 
 testTypeValueNotation(Config) -> test(Config, fun testTypeValueNotation/3).
 testTypeValueNotation(Config, Rule, Opts) ->
@@ -1026,6 +1036,8 @@ testNortel(Config, Rule, Opts) ->
     asn1_test_lib:compile("Nortel", Config, [Rule|Opts]).
 
 test_undecoded_rest(Config) -> test(Config, fun test_undecoded_rest/3).
+test_undecoded_rest(_Config,jer,_Opts) ->
+    ok; % not relevant for JER
 test_undecoded_rest(Config, Rule, Opts) ->
     do_test_undecoded_rest(Config, Rule, Opts),
     do_test_undecoded_rest(Config, Rule, [no_ok_wrapper|Opts]),
@@ -1066,7 +1078,9 @@ testS1AP(Config, Rule, Opts) ->
 	uper ->
 	    ok;
 	ber ->
-	    ok
+	    ok;
+        jer ->
+            ok
     end.
 
 testRfcs() ->

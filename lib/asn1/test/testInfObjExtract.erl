@@ -21,9 +21,10 @@
 
 -module(testInfObjExtract).
 
--export([main/0]).
+-export([main/1]).
 
-main() ->
+main(jer) -> ok;
+main(_Rule) ->
     roundtrip_data_object_13('DataSeq-1'),
 
     roundtrip_data_object_1('DataSeq-2'),

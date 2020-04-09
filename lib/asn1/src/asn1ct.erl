@@ -865,6 +865,7 @@ init_gen_record(EncodingRule, Options) ->
                 _ -> EncodingRule
             end,
     Der = proplists:get_bool(der, Options),
+    Jer = proplists:get_bool(jer, Options) andalso (EncodingRule =/= jer),
     Aligned = EncodingRule =:= per,
     RecPrefix = proplists:get_value(record_name_prefix, Options, ""),
     MacroPrefix = proplists:get_value(macro_name_prefix, Options, ""),
@@ -872,7 +873,7 @@ init_gen_record(EncodingRule, Options) ->
                true -> map;
                false -> record
            end,
-    #gen{erule=Erule,der=Der,aligned=Aligned,
+    #gen{erule=Erule,der=Der,jer=Jer,aligned=Aligned,
          rec_prefix=RecPrefix,macro_prefix=MacroPrefix,
          pack=Pack,options=Options}.
 
@@ -1083,7 +1084,7 @@ get_file_list1(Stream,Dir,Includes,Acc) ->
     end.
 
 get_rule(Options) ->
-    case [Rule || Rule <- [ber,per,uper],
+    case [Rule || Rule <- [ber,per,uper,jer],
 		  Opt <- Options,
 		  Rule =:= Opt] of
 	[Rule] ->

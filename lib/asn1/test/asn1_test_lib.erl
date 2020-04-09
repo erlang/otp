@@ -109,7 +109,7 @@ compile_file(File, Options0) ->
 compile_maps(File, Options) ->
     unload_map_mod(File),
     Incompat = [abs,compact_bit_string,legacy_bit_string,
-                legacy_erlang_types,maps,asn1_test_lib_no_maps],
+                legacy_erlang_types,maps,asn1_test_lib_no_maps,jer],
     case lists:any(fun(E) -> lists:member(E, Incompat) end, Options) of
         true ->
             ok;

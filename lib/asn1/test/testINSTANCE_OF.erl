@@ -23,19 +23,23 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-main(_Erule) ->
+main(Erule) ->
     Int = roundtrip('Int', 3),
 
     ValotherName = {otherName,{'INSTANCE OF',{2,4},Int}},
     _ = roundtrip('GeneralName', ValotherName),
 
-    VallastName1 = {lastName,{'GeneralName_lastName',{2,4},12}},
-    _ = roundtrip('GeneralName', VallastName1),
-
-    VallastName2 = {lastName,{'GeneralName_lastName',{2,3,4},
-			      {'Seq',12,true}}},
-    _ = roundtrip('GeneralName', VallastName2),
-    ok.
+    case Erule of
+        jer -> ok;
+        _ ->
+            VallastName1 = {lastName,{'GeneralName_lastName',{2,4},12}},
+            _ = roundtrip('GeneralName', VallastName1),
+            
+            VallastName2 = {lastName,{'GeneralName_lastName',{2,3,4},
+                                      {'Seq',12,true}}},
+            _ = roundtrip('GeneralName', VallastName2),
+            ok
+    end.
 
 roundtrip(T, V) ->
     asn1_test_lib:roundtrip_enc('INSTANCEOF', T, V).

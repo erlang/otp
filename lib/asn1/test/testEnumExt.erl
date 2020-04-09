@@ -40,14 +40,17 @@ main(Rule) when Rule =:= per; Rule =:= uper ->
     B64 = <<64>>,
     B64 = roundtrip('Noext', red),
     common(Rule);
-main(ber) ->
+main(Rule) when Rule =:= ber; Rule =:= jer ->
     io:format("main(ber)~n",[]),
     %% ENUMERATED with extensionmark (value is in root set)
     roundtrip('Ext', red),
 
     %% value is an extensionvalue
     {ok,Bytes1_1} = 'EnumExt':encode('Ext1', orange),
-    {ok,{asn1_enum,7}} = 'EnumExt':decode('Ext', Bytes1_1),
+    case {Rule,'EnumExt':decode('Ext', Bytes1_1)} of
+        {ber,{ok,{asn1_enum,7}}} -> ok;
+        {jer,{ok,orange}} -> ok
+    end,
 
     %% ENUMERATED no extensionmark
     roundtrip('Noext', red),
@@ -57,12 +60,9 @@ main(ber) ->
     roundtrip('Globalstate', preop),
     roundtrip('Globalstate', com),
 
-    common(ber).
+    common(Rule).
 
 common(Erule) ->
-    roundtrip('SubExt1', blue),
-    roundtrip('SubExt1', orange),
-    roundtrip('SubExt1', black),
 
     roundtrip('Seq', {'Seq',blue,42}),
     roundtrip('Seq', {'Seq',red,42}),
@@ -82,11 +82,16 @@ common(Erule) ->
 
     v_roundtrip(Erule, 'EnumSkip', d),
 
+    roundtrip('SubExt1', blue),
+    roundtrip('SubExt1', orange),
+    roundtrip('SubExt1', black),
+
     ok.
 
 roundtrip(Type, Value) ->
     asn1_test_lib:roundtrip_enc('EnumExt', Type, Value).
 
+v_roundtrip(jer, _Type, _Value) -> ok;
 v_roundtrip(Erule, Type, Value) ->
     Encoded = roundtrip(Type, Value),
     Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)).

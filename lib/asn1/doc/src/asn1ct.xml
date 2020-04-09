@@ -58,7 +58,8 @@
 
       <note>
 	<p>In OTP R16, the options were simplified. The back end is chosen
-	using one of the options <c>ber</c>, <c>per</c>, or <c>uper</c>.
+	using one of the options <c>ber</c>, <c>per</c>, <c>uper</c> or
+	<c>jer</c>.
 	Options <c>optimize</c>, <c>nif</c>, and <c>driver</c> options
 	are no longer necessary (and the ASN.1 compiler generates a
 	warning if they are used). Options <c>ber_bin</c>, <c>per_bin</c>,
@@ -78,7 +79,7 @@
       <type>
         <v>Asn1module = atom() | string()</v>
         <v>Options = [Option| OldOption]</v>
-        <v>Option = ber | per | uper | der | compact_bit_string |
+        <v>Option = ber | per | uper | jer | der | compact_bit_string |
 	legacy_bit_string | legacy_erlang_types |
 	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} |
 	asn1config | undec_rest | no_ok_wrapper |
@@ -142,12 +143,41 @@ File3.asn</pre>
 	  available options are as follows:
 	</p>
 	<taglist>
-          <tag><c>ber | per | uper</c></tag>
+          <tag><c>ber | per | uper | jer</c></tag>
           <item>
             <p>
 	      The encoding rule to be used. The supported encoding rules
-	      are Basic Encoding Rules (BER),
-	      Packed Encoding Rules (PER) aligned, and PER unaligned.
+	      are Basic Encoding Rules (<c>ber</c>),
+	      Packed Encoding Rules (<c>per</c>) aligned, PER unaligned (<c>uper</c>) and
+	      JSON Encoding Rules (<c>jer</c>).
+	      The <c>jer</c> option can be used by itself to generate a module
+	      that only supports encoding/decoding to JER or it can
+	      be used as a supplementary option to ber, per and uper.
+	      In the latter case a module with for both the main encoding rules
+	      and JER will be generated.
+	      The exported functions for JER will then be
+	      <c>jer_encode(Type, Value)</c> and <c>jer_decode(Type, Bytes)</c>.
+	    </p>
+	    <p>
+	      The <c>jer</c> encoding rules (ITU-T X.697) are experimental in
+	      OTP 22.
+	      There is support for a subset of the X.697 standard, for example there is no support for:
+	    </p>
+	    <list>
+	      <item>JER encoding instructions</item>
+	      <item>the REAL type</item>
+	    </list>
+	    <p>
+	      Also note that when using the <c>jer</c> encoding rules the
+	      generated module will get a dependency to an external json
+	      component. The generated code is currently tested together with:
+	    </p>
+	    <list>
+	      <item><c>jsx</c> which currently is the default.</item>
+	      <item><c>jsone</c> can be chosen instead of <c>jsx</c>
+	      by providing the option <c>{d,jsone}</c>.</item>
+	    </list>
+	    <p>
 	      If the encoding rule option is omitted, <c>ber</c> 
 	      is the default.
 	    </p>
@@ -160,7 +190,7 @@ File3.asn</pre>
           <tag><c>der</c></tag>
           <item>
             <p>
-	      With this option the Distinguished Encoding Rules (DER) is chosen.
+	      With this option the Distinguished Encoding Rules (<c>der</c>) is chosen.
 	      DER is regarded as a specialized variant of the BER encoding 
               rule. Therefore, this option only makes sense together
 	      with option <c>ber</c>.
