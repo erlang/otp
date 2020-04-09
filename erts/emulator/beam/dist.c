@@ -1091,6 +1091,9 @@ void init_dist(void)
             szp = NULL;
         }
     }
+    ERTS_CT_ASSERT(sizeof(ErtsDistOutputBuf) % sizeof(void*) == 0);
+    ERTS_CT_ASSERT(sizeof(SysIOVec) % sizeof(void*) == 0);
+    ERTS_CT_ASSERT(sizeof(ErlIOVec) % sizeof(void*) == 0);
 }
 
 static ERTS_INLINE ErtsDistOutputBuf *
@@ -1105,8 +1108,6 @@ alloc_dist_obufs(byte **extp, TTBEncodeContext *ctx,
     Uint fragment_size;
 
     obsz = sizeof(ErtsDistOutputBuf)*fragments;
-    if (obsz % sizeof(void *) != 0)
-        obsz += sizeof(void *) - (obsz % sizeof(void *));
 
     iov_sz = erts_ttb_iov_size(0, vlen, fragments);
     

@@ -2334,15 +2334,12 @@ erts_ttb_iov_size(int use_termv, Sint vlen, Uint fragments)
     ASSERT(vlen > 0);
     ASSERT(fragments > 0);
     sz = sizeof(SysIOVec)*vlen;
-    if (sz % sizeof(void *) != 0)
-        sz += sizeof(void *) - (sz % sizeof(void *));
     sz += sizeof(ErlDrvBinary *)*vlen;
     if (use_termv)
         sz += sizeof(Eterm)*vlen;
     sz += sizeof(ErlIOVec *)*fragments;
     sz += sizeof(ErlIOVec)*fragments;
-    if (sz % sizeof(void *) != 0)
-        sz += sizeof(void *) - (sz % sizeof(void *));
+    ASSERT(sz % sizeof(void*) == 0);
     return sz;
 }
 
@@ -2355,8 +2352,6 @@ erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
     
     ctx->iov = (SysIOVec *) ptr;
     ptr += sizeof(SysIOVec)*vlen;
-    if (((UWord) ptr) % sizeof(void *) != 0)
-        ptr += sizeof(void *) - (((UWord) ptr) % sizeof(void *));
     ASSERT(((UWord) ptr) % sizeof(void *) == 0);
     
     ctx->binv = (ErlDrvBinary **) ptr;
@@ -2371,9 +2366,6 @@ erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
     
     ctx->fragment_eiovs = (ErlIOVec *) ptr;
     ptr += sizeof(ErlIOVec)*fragments;
-
-    if (((UWord) ptr) % sizeof(void *) != 0)
-        ptr += sizeof(void *) - (((UWord) ptr) % sizeof(void *));
     ASSERT(((UWord) ptr) % sizeof(void *) == 0);
     
     ctx->frag_ix = -1;
