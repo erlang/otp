@@ -898,30 +898,34 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n", [CPU, BogoMIPS]),
                 %% We first assume its a float, and if not try integer
                 try list_to_float(string:trim(BogoMIPS)) of
-                    F when F > 1000 ->
+                    F when F > 5000 ->
                         1;
-                    F when F > 1000 ->
+                    F when F > 2000 ->
                         2;
+                    F when F > 1000 ->
+                        3;
                     _ ->
-                        3
+                        5
                 catch
                     _:_:_ ->
                         %% 
                         try list_to_integer(string:trim(BogoMIPS)) of
-                            I when I > 1000 ->
+                            I when I > 5000 ->
                                 1;
-                            I when I > 1000 ->
+                            I when I > 2000 ->
                                 2;
+                            I when I > 1000 ->
+                                3;
                             _ ->
-                                3
+                                5
                         catch
                             _:_:_ ->
-                                2
+                                5
                         end
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
-                          "~n   Model:    ~s"
+                          "~n   Model: ~s"
                           "~n", [CPU]),
                 2;
             _ ->
@@ -949,7 +953,7 @@ linux_which_cpuinfo(montavista) ->
             "-" ->
                 throw(noinfo);
             Model ->
-                case linux_cpuinfo_lookup("motherbord") of
+                case linux_cpuinfo_lookup("motherboard") of
                     "-" ->
                         Model;
                     MB ->
