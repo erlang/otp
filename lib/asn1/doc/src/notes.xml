@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The compiler now has limited support for the JSON
+	    encoding rules (ITU-T X.697 ASN.1 encoding rules:
+	    Specification of JavaScript Object Notation Encoding
+	    Rules).</p>
+          <p>
+	    Own Id: OTP-16030</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.10</title>
 
     <section><title>Improvements and New Features</title>
