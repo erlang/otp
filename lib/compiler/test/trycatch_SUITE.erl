@@ -28,7 +28,8 @@
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
 	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
          stacktrace/1,nested_stacktrace/1,raise/1,
-         no_return_in_try_block/1]).
+         no_return_in_try_block/1,
+         coverage/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +46,7 @@ groups() ->
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
        hockey,handle_info,catch_in_catch,grab_bag,
        stacktrace,nested_stacktrace,raise,
-       no_return_in_try_block]}].
+       no_return_in_try_block,coverage]}].
 
 
 init_per_suite(Config) ->
@@ -1058,6 +1059,8 @@ grab_bag(_Config) ->
 
     <<>> = grab_bag_2(whatever),
 
+    {'EXIT',_} = (catch grab_bag_3()),
+
     ok.
 
 grab_bag_1(V) ->
@@ -1098,6 +1101,19 @@ grab_bag_2(V) ->
         error:_ ->
             V
     end.
+
+grab_bag_3() ->
+    try 2 of
+        true ->
+            <<
+              "" || [V0] = door
+            >>
+    catch
+        error:true:V0 ->
+            []
+            %% The default clause here (which re-throws the exception)
+            %% would not return two values as expected.
+    end =:= (V0 = 42).
 
 stacktrace(_Config) ->
     V = [make_ref()|self()],
@@ -1370,5 +1386,25 @@ no_return_in_try_block_1(H) ->
     end.
 
 no_return() -> throw(no_return).
+
+coverage(_Config) ->
+    {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),
+    ok.
+
+%% Cover some code in beam_trim.
+coverage_1() ->
+    try
+        true
+    catch
+        law:business ->
+            program
+    after
+        head
+    end(0),
+    if
+        [2 or 1] ->
+            true
+    end.
+
 
 id(I) -> I.

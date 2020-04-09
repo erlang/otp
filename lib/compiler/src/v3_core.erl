@@ -82,7 +82,8 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [reverse/1,reverse/2,map/2,member/2,foldl/3,foldr/3,mapfoldl/3,
-		splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1]).
+                splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1,
+                duplicate/2]).
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
 -import(cerl, [ann_c_cons/3,ann_c_tuple/2,c_tuple/1,
@@ -776,7 +777,37 @@ expr({match,L,P0,E0}, St0) ->
 	    Eps = Eps3 ++ [Fail],
 	    {#imatch{anno=#a{anno=Lanno},pat=SanPat,arg=Expr,fc=Fc},Eps,St};
 	Other when not is_atom(Other) ->
-	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps1,St5}
+            %% We must rewrite top-level aliases to lets to avoid unbound
+            %% variables in code such as:
+            %%
+            %%     <<42:Sz>> = Sz = B
+            %%
+            %% If we would keep the top-level aliases the example would
+            %% be translated like this:
+            %%
+            %% 	   case B of
+            %%         <Sz = #{#<42>(Sz,1,'integer',['unsigned'|['big']])}#>
+            %%            when 'true' ->
+            %%            .
+            %%            .
+            %%            .
+            %%
+            %% Here the variable Sz would be unbound in the binary pattern.
+            %%
+            %% Instead we bind Sz in a let to ensure it is bound when
+            %% used in the binary pattern:
+            %%
+            %%     let <Sz> = B
+            %% 	   in case Sz of
+            %%         <#{#<42>(Sz,1,'integer',['unsigned'|['big']])}#>
+            %%            when 'true' ->
+            %%            .
+            %%            .
+            %%            .
+            %%
+            {P3,E3,Eps2} = letify_aliases(P2, E2),
+            Eps = Eps1 ++ Eps2,
+            {#imatch{anno=#a{anno=Lanno},pat=P3,arg=E3,fc=Fc},Eps,St5}
     end;
 expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     %% Optimise '++' here because of the list comprehension algorithm.
@@ -818,6 +849,11 @@ expr({op,L,Op,L0,R0}, St0) ->
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
 
+letify_aliases(#c_alias{var=V,pat=P0}, E0) ->
+    {P1,E1,Eps0} = letify_aliases(P0, V),
+    {P1,E1,[#iset{var=V,arg=E0}|Eps0]};
+letify_aliases(P, E) ->
+    {P,E,[]}.
 
 %% sanitize(Pat) -> SanitizedPattern
 %%  Rewrite Pat so that it will be accepted by pattern/2 and will
@@ -2775,10 +2811,11 @@ cexpr(#icase{anno=A,args=Largs,clauses=Lcs,fc=Lfc}, As, St0) ->
 				{[Ca|Cas],Stb}
 			end, {[],St0}, Largs),
     {Ccs,St2} = cclauses(Lcs, Exp, St1),
-    {Cfc,St3} = cclause(Lfc, [], St2),		%Never exports
+    {Cfc0,St3} = cclause(Lfc, [], St2),		%Never exports
+    {Cfc,St4} = c_add_dummy_export(Cfc0, Exp, St3),
     {#c_case{anno=A#a.anno,
 	     arg=core_lib:make_values(Cargs),clauses=Ccs ++ [Cfc]},
-     Exp,A#a.us,St3};
+     Exp,A#a.us,St4};
 cexpr(#ireceive1{anno=A,clauses=Lcs}, As, St0) ->
     Exp = intersection(A#a.ns, As),		%Exports
     {Ccs,St1} = cclauses(Lcs, Exp, St0),
@@ -2899,6 +2936,17 @@ cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
 c_call_erl(Fun, Args) ->
     As = [compiler_generated],
     cerl:ann_c_call(As, cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
+
+
+c_add_dummy_export(#c_clause{body=B0}=C, [_|_]=Exp, St0) ->
+    %% Add dummy export in order to always return the correct number
+    %% of values for the default clause.
+    {V,St1} = new_var(St0),
+    B = #c_let{vars=[V],arg=B0,
+               body=#c_values{es=[V|duplicate(length(Exp), #c_literal{val=[]})]}},
+    {C#c_clause{body=B},St1};
+c_add_dummy_export(C, [], St) ->
+    {C,St}.
 
 %%%
 %%% Lower a `receive` to more primitive operations. Rewrite patterns

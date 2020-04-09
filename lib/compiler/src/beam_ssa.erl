@@ -31,6 +31,7 @@
          linearize/1,
          mapfold_blocks_rpo/4,
          mapfold_instrs_rpo/4,
+         merge_blocks/1,
          normalize/1,
          no_side_effect/1,
          predecessors/1,
@@ -39,8 +40,7 @@
          split_blocks/3,
          successors/1,successors/2,
          trim_unreachable/1,
-         update_phi_labels/4,used/1,
-         uses/1,uses/2]).
+         used/1,uses/1,uses/2]).
 
 -export_type([b_module/0,b_function/0,b_blk/0,b_set/0,
               b_ret/0,b_br/0,b_switch/0,terminator/0,
@@ -595,31 +595,6 @@ trim_unreachable(Blocks) when is_map(Blocks) ->
 trim_unreachable([_|_]=Blocks) ->
     trim_unreachable_1(Blocks, cerl_sets:from_list([0])).
 
-%% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
-%%  In the given blocks, replace label Old in with New in all
-%%  phi nodes. This is useful after merging or splitting
-%%  blocks.
-
--spec update_phi_labels(From, Old, New, Blocks0) -> Blocks when
-      From :: [label()],
-      Old :: label(),
-      New :: label(),
-      Blocks0 :: block_map(),
-      Blocks :: block_map().
-
-update_phi_labels([L|Ls], Old, New, Blocks0) ->
-    case Blocks0 of
-        #{L:=#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk0} ->
-            Is = update_phi_labels_is(Is0, Old, New),
-            Blk = Blk0#b_blk{is=Is},
-            Blocks = Blocks0#{L:=Blk},
-            update_phi_labels(Ls, Old, New, Blocks);
-        #{L:=#b_blk{}} ->
-            %% No phi nodes in this block.
-            update_phi_labels(Ls, Old, New, Blocks0)
-    end;
-update_phi_labels([], _, _, Blocks) -> Blocks.
-
 -spec used(b_blk() | b_set() | terminator()) -> [var_name()].
 
 used(#b_blk{is=Is,last=Last}) ->
@@ -663,6 +638,12 @@ fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
                       end, UseMap, used(I))
         end,
     F(Last, foldl(F, UseMap0, Is)).
+
+-spec merge_blocks(block_map()) -> block_map().
+
+merge_blocks(Blocks) ->
+    Preds = predecessors(Blocks),
+    merge_blocks_1(rpo(Blocks), Preds, Blocks).
 
 %%%
 %%% Internal functions.
@@ -947,3 +928,110 @@ used_1([H|T], Used0) ->
     Used = ordsets:union(used(H), Used0),
     used_1(T, Used);
 used_1([], Used) -> Used.
+
+
+%%% Merge blocks.
+
+merge_blocks_1([L|Ls], Preds0, Blocks0) ->
+    case Preds0 of
+        #{L:=[P]} ->
+            #{P:=Blk0,L:=Blk1} = Blocks0,
+            case is_merge_allowed(L, Blk0, Blk1) of
+                true ->
+                    #b_blk{is=Is0} = Blk0,
+                    #b_blk{is=Is1} = Blk1,
+                    verify_merge_is(Is1),
+                    Is = Is0 ++ Is1,
+                    Blk2 = Blk1#b_blk{is=Is},
+                    Blk = merge_fix_succeeded(Blk2),
+                    Blocks1 = maps:remove(L, Blocks0),
+                    Blocks2 = Blocks1#{P:=Blk},
+                    Successors = successors(Blk),
+                    Blocks = update_phi_labels(Successors, L, P, Blocks2),
+                    Preds = merge_update_preds(Successors, L, P, Preds0),
+                    merge_blocks_1(Ls, Preds, Blocks);
+                false ->
+                    merge_blocks_1(Ls, Preds0, Blocks0)
+            end;
+        #{} ->
+            merge_blocks_1(Ls, Preds0, Blocks0)
+    end;
+merge_blocks_1([], _Preds, Blocks) -> Blocks.
+
+merge_update_preds([L|Ls], From, To, Preds0) ->
+    Ps = [rename_label(P, From, To) || P <- map_get(L, Preds0)],
+    Preds = Preds0#{L:=Ps},
+    merge_update_preds(Ls, From, To, Preds);
+merge_update_preds([], _, _, Preds) -> Preds.
+
+merge_fix_succeeded(#b_blk{is=[_|_]=Is0,last=#b_br{succ=To,fail=To}}=Blk) ->
+    case reverse(Is0) of
+        [#b_set{op={succeeded,guard},args=[Dst]},#b_set{dst=Dst}|Is] ->
+            %% A succeeded:guard instruction must not be followed by a one-way
+            %% branch. Eliminate it. (We do this mainly for the benefit of the
+            %% beam_ssa_bool pass. When called from beam_ssa_opt there should
+            %% be no such instructions left.)
+            Blk#b_blk{is=reverse(Is)};
+        _ ->
+            Blk
+    end;
+merge_fix_succeeded(Blk) -> Blk.
+
+verify_merge_is([#b_set{op=Op}|_]) ->
+    %% The merged block has only one predecessor, so it should not have any phi
+    %% nodes.
+    true = Op =/= phi;                          %Assertion.
+verify_merge_is(_) ->
+    ok.
+
+is_merge_allowed(?EXCEPTION_BLOCK, #b_blk{}, #b_blk{}) ->
+    false;
+is_merge_allowed(_L, #b_blk{is=[#b_set{op=landingpad} | _]}, #b_blk{}) ->
+    false;
+is_merge_allowed(_L, #b_blk{}, #b_blk{is=[#b_set{op=landingpad} | _]}) ->
+    false;
+is_merge_allowed(L, #b_blk{}=Blk1, #b_blk{is=[#b_set{}=I|_]}=Blk2) ->
+    not is_loop_header(I) andalso
+        is_merge_allowed_1(L, Blk1, Blk2);
+is_merge_allowed(L, Blk1, Blk2) ->
+    is_merge_allowed_1(L, Blk1, Blk2).
+
+is_merge_allowed_1(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
+    %% The predecessor block must have exactly one successor (L) for
+    %% the merge to be safe.
+    case successors(Blk) of
+        [L] ->
+            case Is of
+                [#b_set{op=phi,args=[_]}|_] ->
+                    %% The type optimizer pass must have been
+                    %% turned off, since it would have removed this
+                    %% redundant phi node. Refuse to merge the blocks
+                    %% to ensure that this phi node remains at the
+                    %% beginning of a block.
+                    false;
+                _ ->
+                    true
+            end;
+        [_|_] ->
+            false
+    end;
+is_merge_allowed_1(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
+    false.
+
+%% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
+%%  In the given blocks, replace label Old in with New in all
+%%  phi nodes. This is useful after merging or splitting
+%%  blocks.
+
+update_phi_labels([L|Ls], Old, New, Blocks0) ->
+    case Blocks0 of
+        #{L:=#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk0} ->
+            Is = update_phi_labels_is(Is0, Old, New),
+            Blk = Blk0#b_blk{is=Is},
+            Blocks = Blocks0#{L:=Blk},
+            update_phi_labels(Ls, Old, New, Blocks);
+        #{L:=#b_blk{}} ->
+            %% No phi nodes in this block.
+            update_phi_labels(Ls, Old, New, Blocks0)
+    end;
+update_phi_labels([], _, _, Blocks) -> Blocks.

@@ -40,6 +40,7 @@ MODULES= \
 	match_SUITE \
 	misc_SUITE \
 	overridden_bif_SUITE \
+	random_code_SUITE \
 	receive_SUITE \
 	record_SUITE \
 	regressions_SUITE \
@@ -164,7 +165,7 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-DISABLE_SSA_OPT = +no_beam_ssa_bool +no_share_opt +no_bsm_opt +no_fun_opt +no_ssa_opt +no_recv_opt
+DISABLE_SSA_OPT = +no_bool_opt +no_share_opt +no_bsm_opt +no_fun_opt +no_ssa_opt +no_recv_opt
 
 make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(NO_SSA_OPT_ERL_FILES) \
   $(NO_CORE_OPT_ERL_FILES) $(INLINE_ERL_FILES) $(R21_ERL_FILES) \

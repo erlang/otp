@@ -309,6 +309,13 @@ coverage(Config) when is_list(Config) ->
 		{_,_} ->
 		    Tuple =:= true
 	    end,
+
+    %% Cover is literal_fun/1.
+    {'EXIT',{{case_clause,42},_}} = (catch cover_is_literal_fun()),
+
+    %% Cover core_lib.
+    ok = cover_core_lib([ok,nok]),
+
     ok.
 
 cover_will_match_list_type(A) ->
@@ -375,6 +382,21 @@ cover_eval_is_function(X) ->
 
 bsm_an_inlined(<<_:8>>, _) -> ok;
 bsm_an_inlined(_, _) -> error.
+
+cover_is_literal_fun() ->
+    [case id(42) of
+         [] ->
+             try right of
+                 wrong -> true
+             catch
+                 error:_ -> error
+             end
+     end]().
+
+cover_core_lib(Modules) ->
+    R = id(Modules),
+    _ = [id(Error) || Error <- R, element(1, Error) =/= ok],
+    ok.
 
 unused_multiple_values_error(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

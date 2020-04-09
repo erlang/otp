@@ -161,63 +161,6 @@ guard(Expr, Sub) ->
     ?ASSERT(verify_scope(Expr, Sub)),
     expr(Expr, value, Sub#sub{in_guard=true}).
 
-%% opt_guard_try(Expr) -> Expr.
-%%
-opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
-    Body = opt_guard_try(Body0),
-    WillFail = case Body of
-		   #c_call{module=#c_literal{val=erlang},
-			   name=#c_literal{val=error},
-			   args=[_]} ->
-		       true;
-		   #c_literal{val=false} ->
-		       true;
-		   _ ->
-		       false
-	       end,
-    case Arg of
-	#c_call{module=#c_literal{val=Mod},
-		name=#c_literal{val=Name},
-		args=Args} when WillFail ->
-	    %% We have sequence consisting of a call (evaluated
-	    %% for a possible exception and/or side effect only),
-	    %% followed by 'false' or a call to error/1.
-	    %%   Since the sequence is inside a try block that will
-	    %% default to 'false' if any exception occurs, not
-	    %% evalutating the call will not change the behaviour
-	    %% provided that the call has no side effects.
-	    case erl_bifs:is_pure(Mod, Name, length(Args)) of
-		false ->
-		    %% Not a pure BIF (meaning that this is not
-		    %% a guard and that we must keep the call).
-		    Seq#c_seq{body=Body};
-		true ->
-		    %% The BIF has no side effects, so it can
-		    %% be safely removed.
-		    Body
-	    end;
-	_ ->
-	    Seq#c_seq{body=Body}
-    end;
-opt_guard_try(#c_case{clauses=Cs}=Term) ->
-    Term#c_case{clauses=opt_guard_try_list(Cs)};
-opt_guard_try(#c_clause{body=B0}=Term) ->
-    Term#c_clause{body=opt_guard_try(B0)};
-opt_guard_try(#c_let{vars=[],arg=#c_values{es=[]},body=B}) ->
-    B;
-opt_guard_try(#c_let{arg=Arg,body=B0}=Term) ->
-    case opt_guard_try(B0) of
-	#c_literal{}=B ->
-	    opt_guard_try(#c_seq{arg=Arg,body=B});
-	B ->
-	    Term#c_let{body=B}
-    end;
-opt_guard_try(Term) -> Term.
-
-opt_guard_try_list([C|Cs]) ->
-    [opt_guard_try(C)|opt_guard_try_list(Cs)];
-opt_guard_try_list([]) -> [].
-
 %% expr(Expr, Sub) -> Expr.
 %% expr(Expr, Context, Sub) -> Expr.
 
@@ -444,14 +387,11 @@ expr(#c_try{arg=E0,vars=[#c_var{name=X}],body=#c_var{name=X},
     E1 = body(E0, value, Sub),
     case will_fail(E1) of
 	false ->
-	    %% Remove any calls that are evaluated for effect only.
-	    E2 = opt_guard_try(E1),
-
 	    %% We can remove try/catch if the expression is an
 	    %% expression that cannot fail.
-	    case is_safe_bool_expr(E2) orelse is_safe_simple(E2) of
-		true -> E2;
-		false -> Try#c_try{arg=E2}
+	    case is_safe_bool_expr(E1) orelse is_safe_simple(E1) of
+		true -> E1;
+		false -> Try#c_try{arg=E1}
 	    end;
 	true ->
 	    %% Expression will always fail.

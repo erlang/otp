@@ -51,10 +51,6 @@ is_var_used(V, B) -> vu_expr(V, B).
 vu_expr(V, #c_values{es=Es}) ->
     vu_expr_list(V, Es);
 vu_expr(V, #c_var{name=V2}) -> V =:= V2;
-vu_expr(V, #c_alias{var=V2,pat=Pat}) ->
-    %% XXX Must handle aliases in expressions because of sys_core_fold:kill_types/2,
-    %% that uses a pattern as if it was an expression.
-    V =:= V2 orelse vu_expr(V, Pat);
 vu_expr(_, #c_literal{}) -> false;
 vu_expr(V, #c_cons{hd=H,tl=T}) ->
     vu_expr(V, H) orelse vu_expr(V, T);

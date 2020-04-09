@@ -77,6 +77,9 @@ ambiguous_catch_try_state(Config) ->
     {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(<<>>)),
     {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(Config)),
 
+    {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_2()),
+    {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_3()),
+
     ok.
 
 river() -> song.
@@ -193,6 +196,36 @@ ambiguous_catch_try_state_1(V0) ->
         a = b
     end.
 
+ambiguous_catch_try_state_2() ->
+    case
+        try
+            case false = 0 of
+                   false ->
+                       hand
+               end
+        catch
+            idea:[]:V1 ->
+                V1;
+            country:42 ->
+                %% if_end would be shared in an unsafe way.
+                if 0 -> way end after [] end of [] -> if $X -> "D" end
+    end.
+
+ambiguous_catch_try_state_3() ->
+    case
+        try
+            case false = 0 of
+                   false ->
+                       hand
+               end
+        catch
+            idea:[]:V1 ->
+                V1;
+            country:42 ->
+                %% case_end would be shared in an unsafe way.
+                case x of y -> way end after [] end of [] -> case x of $X -> "D" end
+    end.
+
 
 -record(message2, {id, p1}).
 -record(message3, {id, p1, p2}).
@@ -216,6 +249,8 @@ coverage(_Config) ->
     le = coverage_2([], []),
     gt = coverage_2([], xxx),
 
+    error = coverage_3(#{key => <<"child">>}),
+    error = coverage_3(#{}),
     ok.
 
 coverage_1(Var) ->
@@ -245,10 +280,15 @@ coverage_2(Pre1, Pre2) ->
             end
     end.
 
+coverage_3(#{key := <<child>>}) when false ->
+    ok;
+coverage_3(#{}) ->
+    error.
+
 %% ERIERL-478: The validator failed to validate argument types when calls were
 %% shared and the types at the common block turned out wider than the join of
 %% each individual call site.
-call_sharing(Config) ->
+call_sharing(_Config) ->
     A_2 = {a, 1},
     A_3 = {a, 1, 2},
 

@@ -119,5 +119,6 @@ cover_safe_and_pure_bifs(Config) ->
     _ = registered(),
     _ = term_to_binary(Config),
     42 = list_to_integer("2A", 16),
+    a = binary_to_atom(atom_to_binary(a)),
 
     ok.

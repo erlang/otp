@@ -1711,6 +1711,8 @@ type(put_tuple, Args, _Anno, Ts, _Ds) ->
                             {Es, Index + 1}
                     end, {#{}, 1}, Args),
     #t_tuple{exact=true,size=length(Args),elements=Es};
+type(resume, [_, _], _Anno, _Ts, _Ds) ->
+    none;
 type(_, _, _, _, _) -> any.
 
 put_map_type(Map, Ss, Ts) ->

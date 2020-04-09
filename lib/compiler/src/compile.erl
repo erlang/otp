@@ -455,11 +455,15 @@ run_sub_passes_1([{Name,Run}|Ps], Runner, St0)
 run_sub_passes_1([], _, St) -> St.
 
 run_tc({Name,Fun}, Code, St) ->
-    put(?SUB_PASS_TIMES, []),
+    OldTimes = put(?SUB_PASS_TIMES, []),
     T1 = erlang:monotonic_time(),
     Val = (catch Fun(Code, St)),
     T2 = erlang:monotonic_time(),
-    Times = erase(?SUB_PASS_TIMES),
+    Times = get(?SUB_PASS_TIMES),
+    case OldTimes of
+        undefined -> erase(?SUB_PASS_TIMES);
+        _ -> put(?SUB_PASS_TIMES, OldTimes)
+    end,
     Elapsed = erlang:convert_time_unit(T2 - T1, native, microsecond),
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
@@ -852,20 +856,27 @@ kernel_passes() ->
      {delay,
       [{unless,no_bool_opt,{pass,beam_ssa_bool}},
        {iff,dbool,{listing,"bool"}},
+       {unless,no_bool_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_share_opt,{pass,beam_ssa_share}},
        {iff,dssashare,{listing,"ssashare"}},
-       {iff,ssalint,{pass,beam_ssa_lint}},
+       {unless,no_share_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_bsm_opt,{pass,beam_ssa_bsm}},
        {iff,dssabsm,{listing,"ssabsm"}},
-       {iff,ssalint,{pass,beam_ssa_lint}},
+       {unless,no_bsm_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_fun_opt,{pass,beam_ssa_funs}},
        {iff,dssafuns,{listing,"ssafuns"}},
-       {iff,ssalint,{pass,beam_ssa_lint}},
+       {unless,no_fun_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_ssa_opt,{pass,beam_ssa_opt}},
        {iff,dssaopt,{listing,"ssaopt"}},
-       {iff,ssalint,{pass,beam_ssa_lint}},
+       {unless,no_ssa_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_recv_opt,{pass,beam_ssa_recv}},
-       {iff,drecv,{listing,"recv"}}]},
+       {iff,drecv,{listing,"recv"}},
+       {unless,no_recv_opt,{iff,ssalint,{pass,beam_ssa_lint}}}]},
      {pass,beam_ssa_pre_codegen},
      {iff,dprecg,{listing,"precodegen"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
