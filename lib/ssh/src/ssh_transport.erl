@@ -891,8 +891,12 @@ fmt_hostkey("ecdsa"++_) -> "ECDSA";
 fmt_hostkey(X) -> X.
 
 
-known_host_key(#ssh{opts = Opts, peer = {PeerName,_}} = Ssh, 
+known_host_key(#ssh{opts = Opts, peer = {PeerName0, {_, PeerPort}}} = Ssh,
 	       Public, Alg) ->
+    if PeerPort =/= 22 ->
+            PeerName = "[" ++ PeerName0 ++ "]:" ++ integer_to_list(PeerPort);
+        true -> PeerName = PeerName0
+    end,
     case call_KeyCb(is_host_key, [Public, PeerName, Alg], Opts) of
 	true ->
 	    ok;
