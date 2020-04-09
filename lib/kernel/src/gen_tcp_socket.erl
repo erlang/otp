@@ -291,10 +291,10 @@ send(?module_socket(Server, Socket), Data) ->
                     Result = socket_send(Socket, Data, SendTimeout),
                     send_result(Server, Meta, Result)
             end;
-        {ok, _Meta} ->
+        {ok, _BadMeta} ->
             exit(badarg);
         {error, _} = Error ->
-            ?badarg_exit(Error)
+            Error
     end.
 %%
 send_result(Server, Meta, Result) ->
