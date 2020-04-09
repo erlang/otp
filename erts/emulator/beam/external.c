@@ -2346,12 +2346,10 @@ erts_ttb_iov_size(int use_termv, Sint vlen, Uint fragments)
     return sz;
 }
 
-ErlIOVec **
+void
 erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
                   Sint vlen, Uint fragments, Uint fragment_size)
 {
-    int i;
-    ErlIOVec *feiovp;
     ctx->vlen = 0;
     ctx->size = 0;
     
@@ -2371,19 +2369,13 @@ erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
         ptr += sizeof(Eterm)*vlen;
     }
     
-    ctx->fragment_eiovs = (ErlIOVec **) ptr;
-    ptr += sizeof(ErlIOVec *)*fragments;
-
-    feiovp = (ErlIOVec *) ptr;
+    ctx->fragment_eiovs = (ErlIOVec *) ptr;
     ptr += sizeof(ErlIOVec)*fragments;
 
     if (((UWord) ptr) % sizeof(void *) != 0)
         ptr += sizeof(void *) - (((UWord) ptr) % sizeof(void *));
     ASSERT(((UWord) ptr) % sizeof(void *) == 0);
     
-    for (i = 0; i < fragments; i++)
-        ctx->fragment_eiovs[i] = &feiovp[i];
-
     ctx->frag_ix = -1;
     ctx->fragment_size = fragment_size;
 
@@ -2392,7 +2384,6 @@ erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
     ctx->debug_fragments = fragments;
     ctx->debug_vlen = vlen;
 #endif
-    return ctx->fragment_eiovs;
 }
 
 static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm opts,
@@ -3669,7 +3660,7 @@ store_in_vec_aux(Uint *szp,
                  byte *ptr,
                  Uint len,
                  Sint *fixp,
-                 ErlIOVec **frag_eiovpp,
+                 ErlIOVec *frag_eiovp,
                  Uint frag_size)
 {
     ErlDrvBinary *dbin = Binary2ErlDrvBinary(bin);
@@ -3683,7 +3674,7 @@ store_in_vec_aux(Uint *szp,
     ASSERT(ptr + len <= ((byte *) &bin->orig_bytes[0]) + bin->orig_size);
 
     if (fix >= 0) {
-        feiovp = frag_eiovpp[fix];
+        feiovp = &frag_eiovp[fix];
         ASSERT(0 < feiovp->size);
         ASSERT(feiovp->size <= frag_size);
         if (feiovp->size != frag_size) {
@@ -3698,7 +3689,7 @@ store_in_vec_aux(Uint *szp,
     while (len) {
         /* Start new fragment... */
 
-        feiovp = frag_eiovpp[++fix];
+        feiovp = &frag_eiovp[++fix];
         ASSERT(fix >= 0);
 
         if (termv) {

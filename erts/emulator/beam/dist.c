@@ -1102,7 +1102,6 @@ alloc_dist_obufs(byte **extp, TTBEncodeContext *ctx,
     char *ptr;
     Uint iov_sz, obsz;
     Binary *bin;
-    ErlIOVec **feiov;
     Uint fragment_size;
 
     obsz = sizeof(ErtsDistOutputBuf)*fragments;
@@ -1123,15 +1122,14 @@ alloc_dist_obufs(byte **extp, TTBEncodeContext *ctx,
     else
         fragment_size = ~((Uint) 0);
 
-    feiov = erts_ttb_iov_init(ctx, 0, ptr, vlen,
-                              fragments, fragment_size);
+    erts_ttb_iov_init(ctx, 0, ptr, vlen, fragments, fragment_size);
     ptr += iov_sz;
 
     erts_refc_add(&bin->intern.refc, fragments - 1, 1);
 
     for (ix = 0; ix < fragments; ix++) {
         obuf[ix].bin = bin;
-        obuf[ix].eiov = feiov[ix];
+        obuf[ix].eiov = &ctx->fragment_eiovs[ix];
 #ifdef DEBUG
         obuf[ix].dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;
 #endif
