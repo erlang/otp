@@ -331,6 +331,7 @@ DECODESRC = \
 	decode/decode_double.c \
 	decode/decode_fun.c \
 	decode/decode_intlist.c \
+	decode/decode_iodata.c \
 	decode/decode_list_header.c \
 	decode/decode_long.c \
 	decode/decode_pid.c \

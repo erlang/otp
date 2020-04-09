@@ -33,7 +33,8 @@
          test_ei_decode_char/1,
          test_ei_decode_nonoptimal/1,
          test_ei_decode_misc/1,
-         test_ei_decode_utf8_atom/1]).
+         test_ei_decode_utf8_atom/1,
+         test_ei_decode_iodata/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -41,7 +42,8 @@ all() ->
     [test_ei_decode_long, test_ei_decode_ulong,
      test_ei_decode_longlong, test_ei_decode_ulonglong,
      test_ei_decode_char, test_ei_decode_nonoptimal,
-     test_ei_decode_misc, test_ei_decode_utf8_atom].
+     test_ei_decode_misc, test_ei_decode_utf8_atom,
+     test_ei_decode_iodata].
 
 init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
@@ -212,6 +214,68 @@ test_ei_decode_utf8_atom(Config) ->
     runner:recv_eot(P),
     ok.
 
+
+%% ######################################################################## %%
+
+test_ei_decode_iodata(Config) when is_list(Config) ->
+    P = runner:start(Config, ?test_ei_decode_iodata),
+
+    check_decode_iodata(P, [], true),
+    check_decode_iodata(P, $a, false),
+    check_decode_iodata(P, an_atom, false),
+    check_decode_iodata(P, self(), false),
+    check_decode_iodata(P, [$a,$a], true),    
+    check_decode_iodata(P, [$a|$a], false),
+    check_decode_iodata(P, [[$a|$a],$a], false),
+    check_decode_iodata(P, "hej", true),
+    check_decode_iodata(P, <<"hopp san sa">>, true),
+    check_decode_iodata(P, [$a | <<"a">>], true),
+    check_decode_iodata(P, [[[["hej"]]], [$ , <<"hopp">>, $ , "san" | <<" sa">>]], true),
+    check_decode_iodata(P, [[[["hej"]]], [$ , <<"hopp">>, 0, "san" | <<" sa">>]], true),
+    check_decode_iodata(P, [[[["hej"]]], [$ , <<"hopp">>, 256, "san" | <<" sa">>]], false),
+    check_decode_iodata(P, [[[["hej"]]], [$ , <<"hopp">>, -2, "san" | <<" sa">>]], false),
+    check_decode_iodata(P, [[[["hej"]]], [$ , <<"hopp">>, $ , san | <<" sa">>]], false),
+    check_decode_iodata(P, [[[["hej"]]], [$ , <<"hopp">>, $ , "san s" | $a], "  "], false),
+    check_decode_iodata(P, [[[[[[[]|<<"a">>]]]]]], true),
+    check_decode_iodata(P, [[[[[[[[]]]]]]],[[[],[],[]]]], true),
+
+    send_raw(P, <<"done">>),
+    runner:recv_eot(P),
+    ok.
+
+check_decode_iodata(P, Data, Valid) ->
+    io:format("~n~nChecking: ~p~n", [Data]),
+    Expect = case Valid of
+                 true ->
+                     io:format("Expecting decode SUCCESS... ", []),
+                     iolist_to_binary(Data);
+                 false ->
+                     io:format("Expecting decode FAILURE... ", []),
+                     badarg = try
+                                  iolist_to_binary(Data)
+                              catch
+                                  error:badarg ->
+                                      badarg
+                              end,
+                     decode_size_failed
+             end,
+    send_term_as_binary(P, Data),
+    Actual = case runner:get_term(P) of
+                 {bytes, B} when is_binary(B) ->
+                     B;
+                 {bytes, L} when is_list(L) ->
+                     list_to_binary(L);
+                 {term, T} ->
+                     T
+             end,
+    case Expect =:= Actual of
+        true ->
+            io:format("Expected result!~n",[]),
+            ok;
+        false ->
+            io:format("Expect: ~w~nActual: ~w~n", [Expect, Actual]),
+            ct:fail(unexpected_result)
+    end.
 
 %% ######################################################################## %%
 

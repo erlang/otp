@@ -19,6 +19,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 
 #include "ei_runner.h"
 
@@ -749,6 +750,59 @@ TESTCASE(test_ei_decode_utf8_atom)
 		     P99({ERLANG_ASCII,ERLANG_LATIN1,ERLANG_ASCII}));
 
   report(1);
+}
+
+/* ******************************************************************** */
+
+TESTCASE(test_ei_decode_iodata)
+{
+    ei_init();
+
+    while (1) {
+        char *buf, *data;
+        int len, index, saved_index, err;
+
+        buf = read_packet(&len);
+
+        if (len == 4
+            && buf[0] == 'd'
+            && buf[1] == 'o'
+            && buf[2] == 'n'
+            && buf[3] == 'e') {
+            break;
+        }
+        
+        index = 0;
+        err = ei_decode_version(buf, &index, NULL);
+        if (err != 0)
+            fail1("ei_decode_version returned %d", err);
+        saved_index = index;
+        err = ei_decode_iodata(buf, &index, &len, NULL);
+        if (err != 0) {
+            ei_x_buff x;
+            ei_x_new_with_version(&x);
+            ei_x_encode_atom(&x, "decode_size_failed");
+            send_bin_term(&x);
+            ei_x_free(&x);
+            continue;
+        }
+        data = malloc(len);
+        err = ei_decode_iodata(buf, &saved_index, NULL, (unsigned char *) data);
+        if (err != 0) {
+            ei_x_buff x;
+            ei_x_new_with_version(&x);
+            ei_x_encode_atom(&x, "decode_data_failed");
+            send_bin_term(&x);
+            ei_x_free(&x);
+            free(data);
+            continue;
+        }
+
+        send_buffer(data, len);
+        free(data);
+    }
+
+    report(1);
 }
 
 /* ******************************************************************** */

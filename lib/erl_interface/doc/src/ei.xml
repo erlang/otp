@@ -283,6 +283,37 @@ typedef enum {
     </func>
 
     <func>
+      <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_decode_iodata(const char *buf, int *index, int *size, char *outbuf)</nametext></name>
+      <fsummary>Decode iodata().</fsummary>
+      <desc>
+        <p>Decodes a term of the type <seeguide marker="system/reference_manual:typespec#types-and-their-syntax"><c>iodata()</c></seeguide>. The <c>iodata()</c> term will be
+	flattened an written into the buffer pointed to by the <c>outbuf</c>
+	argument. The byte size of the <c>iodata</c> is written into the
+	integer variable pointed to by the <c>size</c> argument. Both <c>size</c>
+	and <c>outbuf</c> can be set to <c>NULL</c>. The integer pointed to
+	by the <c>index</c> argument is updated to refer to the term
+	following after the <c>iodata()</c> term regardless of the the state
+	of the <c>size</c> and the <c>outbuf</c> arguments.
+	</p>
+	<p>Note that the buffer pointed to by the <c>outbuf</c> argument
+	must be large enough if a non <c>NULL</c> value is passed as
+	<c>outbuf</c>. You typically want to call <c>ei_decode_iodata()</c>
+	twice. First with a non <c>NULL</c> <c>size</c> argument and
+	a <c>NULL</c> <c>outbuf</c> argument in order to determine the
+	size of the buffer needed, and then once again in order to do
+	the actual decoding. Note that the integer pointed to by <c>index</c>
+	will be updated by the call determining the size as well, so you
+	need to reset it before the second call doing the actual decoding.
+	</p>
+	<p>Returns <c>0</c> on success and <c>-1</c> on failure. Failure
+	might be either due to invalid encoding of the term or due to
+	the term not being of the type <c>iodata()</c>. On failure, the
+	integer pointed to by the <c>index</c> argument will be updated
+	to refer to the sub term where the failure was detected.</p>
+      </desc>
+    </func>
+
+    <func>
       <name since=""><ret>int</ret><nametext>ei_decode_list_header(const char *buf, int *index, int *arity)</nametext></name>
       <fsummary>Decode a list.</fsummary>
       <desc>
