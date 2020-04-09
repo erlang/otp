@@ -211,6 +211,7 @@ cmd_ei_global_names(char* buf, int len)
         send_bin_term(&x);
         ei_x_free(&x);
     }
+    free(names);
 }
 
 static void
