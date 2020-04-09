@@ -20,15 +20,20 @@
 %%
 
 -module(testImporting).
--export([main/0]).
+-export([main/1]).
 
-main() ->
+main(Rule) ->
     M = 'Importing',
     roundtrip('Seq', {'Seq',5}),
     roundtrip('OtherSeq', {'Seq',42,true}),
     {'Seq',42,true} = M:seq(),
     roundtrip('ObjSeq', {'ObjSeq',1,<<"XYZ">>}),
-    roundtrip('ObjSeq', {'ObjSeq',2,19}),
+    case Rule of
+        jer ->
+            roundtrip('ObjSeq', {'ObjSeq',2,<<"19">>});
+        _ ->
+            roundtrip('ObjSeq', {'ObjSeq',2,19})
+    end,
     ok.
 
 roundtrip(Type, Value) ->

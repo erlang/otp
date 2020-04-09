@@ -49,6 +49,7 @@ types() ->
      {"SET OF SEQUENCE {x INTEGER (0..7)}",[{'_',7},{'_',0}]}
     ].
 
+main(_,jer,_) -> ok;
 main(CaseDir, Rule, Opts) ->
     D0 = types(),
     {D1,_} = lists:mapfoldl(fun({T,S}, I) ->

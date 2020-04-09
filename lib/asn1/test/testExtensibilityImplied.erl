@@ -20,11 +20,16 @@
 %%
 
 -module(testExtensibilityImplied).
--export([main/0]).
+-export([main/1]).
 
-main() ->
+main(Rule) ->
     M = 'ExtensibilityImplied',
     {'Seq2',true} = M:decode('Seq2', M:encode('Seq1', {'Seq1',true,42})),
     {'Set2',true} = M:decode('Set2', M:encode('Set1', {'Set1',true,42})),
-    {asn1_enum,_} = M:decode('Enum2', M:encode('Enum1', ext)),
+    case Rule of
+        jer ->
+            ext = M:decode('Enum2', M:encode('Enum1', ext));
+        _ ->
+            {asn1_enum,_} = M:decode('Enum2', M:encode('Enum1', ext))
+    end,
     ok.

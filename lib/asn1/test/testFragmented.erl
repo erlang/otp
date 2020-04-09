@@ -22,6 +22,7 @@
 
 -export([main/1]).
 
+main(jer) -> ok;
 main(_Erule) ->
     roundtrip('PDU', {'PDU',1,false,[<<"abc">>,<<"def">>]}),
     B256 = lists:seq(0, 255),
