@@ -218,7 +218,7 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config0) ->
-    case ssl_test_lib:init_per_group(GroupName, Config0) of
+    case ssl_test_lib:init_per_group_openssl(GroupName, Config0) of
         {skip, _} = Skip ->
             Skip;
         Config ->
