@@ -43,8 +43,7 @@ suite() ->
      {timetrap,{seconds,90}}].
 
 all() -> 
-    [{group, all_tests},
-     daemon_already_started
+    [{group, all_tests}
     ].
 
 %%%-define(PARALLEL, ).
@@ -61,6 +60,7 @@ groups() ->
      {sequential, [], [app_test,
                        appup_test,
                        daemon_already_started,
+                       daemon_error_closes_port, % Should be re-written..
                        double_close,
                        daemon_opt_fd,
                        multi_daemon_opt_fd,
@@ -165,11 +165,6 @@ init_per_testcase(inet6_option, Config) ->
 init_per_testcase(_TestCase, Config) ->
     Config.
 
-end_per_testcase(TestCase, Config) when TestCase == server_password_option;
-					TestCase == server_userpassword_option ->
-    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
-    ssh_test_lib:del_dirs(UserDir),
-    end_per_testcase(Config);
 end_per_testcase(TC, Config) when TC==shell_no_unicode ; 
 				  TC==shell_unicode_string ->
     case proplists:get_value(sftpd, Config) of
@@ -445,81 +440,6 @@ shell(Config) when is_list(Config) ->
     end.
     
 %%--------------------------------------------------------------------
-%%% Test that we could user different types of host pubkey and user pubkey
-exec_key_differs1(Config) -> exec_key_differs(Config, ['ecdsa-sha2-nistp256']).
-
-exec_key_differs2(Config) -> exec_key_differs(Config, ['ssh-dss','ecdsa-sha2-nistp256']).
-
-exec_key_differs3(Config) -> exec_key_differs(Config, ['ecdsa-sha2-nistp384','ecdsa-sha2-nistp256']).
-
-
-
-exec_key_differs(Config, UserPKAlgs) ->
-    case lists:usort(['ssh-rsa'|UserPKAlgs])
-	-- ssh_transport:supported_algorithms(public_key)
-    of
-	[] ->
-	    process_flag(trap_exit, true),
-	    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
-	    SystemUserDir = filename:join(SystemDir, user),
-	    UserDir = filename:join(proplists:get_value(priv_dir, Config), user_ecdsa_256),
-   
-	    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-						       {user_dir, SystemUserDir},
-						       {preferred_algorithms,
-							[{public_key,['ssh-rsa'|UserPKAlgs]}]}]),
-	    ct:sleep(500),
-
-	    IO = ssh_test_lib:start_io_server(),
-	    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
-							{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-							{pref_public_key_algs,UserPKAlgs}
-						       ]),
-
-
-	    receive
-		{'EXIT', _, _} ->
-		    ct:fail(no_ssh_connection);  
-		ErlShellStart ->
-		    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
-		    do_shell(IO, Shell)
-	    after 
-		30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-	    end;
-
-	UnsupportedPubKeys ->
-	    {skip, io_lib:format("~p unsupported",[UnsupportedPubKeys])}
-    end.
-    
-%%--------------------------------------------------------------------
-exec_key_differs_fail(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
-    SystemUserDir = filename:join(SystemDir, user),
-    UserDir = filename:join(proplists:get_value(priv_dir, Config), user_ecdsa_256),
-   
-    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					       {user_dir, SystemUserDir},
-					       {preferred_algorithms,
-						[{public_key,['ssh-rsa']}]}]),
-    ct:sleep(500),
-
-    IO = ssh_test_lib:start_io_server(),
-    ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
-                                        {recv_ext_info, false},
-					{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-					{pref_public_key_algs,['ssh-dss']}]),
-    receive
-	{'EXIT', _, _} ->
-	    ok;  
-	ErlShellStart ->
-	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
-	    ct:fail(connection_not_rejected)
-    after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
-    
-%%--------------------------------------------------------------------
 cli(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
@@ -578,6 +498,11 @@ daemon_already_started(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 %%% Test that a failed daemon start does not leave the port open
+
+%%%%%%%%%%%%%%%%%%%%%% REWRITE! %%%%%%%%%%%%%%%%%%%%
+%%% 1) check that {error,_} is not  {error,eaddrinuse}
+%%% 2) instead of ssh_test_lib:daemon second time, use gen_tcp:listen
+
 daemon_error_closes_port(Config) ->
     GoodSystemDir = proplists:get_value(data_dir, Config),
     Port = inet_port(),
@@ -593,6 +518,11 @@ daemon_error_closes_port(Config) ->
             ssh:stop_daemon(Pid)
     end.
     
+inet_port() ->
+    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
+    {ok, Port} = inet:port(Socket),
+    gen_tcp:close(Socket),
+    Port.
 
 %%--------------------------------------------------------------------
 %%% check that known_hosts is updated correctly
@@ -897,17 +827,6 @@ send(Config) when is_list(Config) ->
     ok = ssh_connection:send(ConnectionRef, ChannelId, << >>),
     ssh:stop_daemon(Pid).
 
-
-%%--------------------------------------------------------------------
-%%%
-fail_daemon_start(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
-    UserDir = proplists:get_value(priv_dir, Config),
-
-    {error,_} = ssh_test_lib:daemon([{system_dir, SystemDir},
-                                     {user_dir, UserDir},
-                                     {failfun, fun ssh_test_lib:failfun/2}]).
 
 %%--------------------------------------------------------------------
 %%% Test ssh:connection_info([peername, sockname])
@@ -1533,9 +1452,3 @@ new_do_shell_prompt(IO, N, Op, Str, More) ->
     ct:log("Matched prompt ~p",[N]),
     new_do_shell(IO, N, [{Op,Str}|More]).
   
-%%--------------------------------------------------------------------
-inet_port() ->
-    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
-    {ok, Port} = inet:port(Socket),
-    gen_tcp:close(Socket),
-    Port.

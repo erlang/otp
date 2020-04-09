@@ -152,8 +152,3 @@ load_engine() ->
             {error, Error}
     end.
 
-start_std_daemon(Opts, Config) ->
-    ct:log("starting std_daemon",[]),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config, Opts),
-    ct:log("started ~p:~p  ~p",[Host,Port,Opts]),
-    [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].

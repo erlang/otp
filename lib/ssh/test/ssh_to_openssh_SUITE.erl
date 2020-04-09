@@ -531,22 +531,6 @@ extra_logout() ->
 	    ok
     end.
 
-%%--------------------------------------------------------------------
-%% Check if we have a "newer" ssh client that supports these test cases
-check_ssh_client_support(Config) ->
-    case ssh_test_lib:ssh_client_supports_Q() of
-	true ->
-	    ssh:start(),
-	    Config;
-	_ ->
-	    {skip, "test case not supported by ssh client"}
-    end.
-
-comment(AtomList) ->
-    ct:comment(
-      string:join(lists:map(fun erlang:atom_to_list/1, AtomList),
-		", ")).
-
 %%%----------------------------------------------------------------
 no_forwarding() ->
     %%% Check if the ssh of the OS has tunneling enabled

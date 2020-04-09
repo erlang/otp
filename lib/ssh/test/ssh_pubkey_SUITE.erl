@@ -52,14 +52,25 @@ all() ->
                     connect_ecdsa_to_ecdsa
                    ]).
 
--define(tests_new, [connect_ecdsa_to_ed25519,
-                    connect_rsa_to_ed25519,
+-define(tests_new, [
                     connect_dsa_to_ed25519,
-                    connect_ed25519_to_rsa,
+                    connect_dsa_to_ed448,
+                    connect_ecdsa_to_ed25519,
+                    connect_ecdsa_to_ed448,
                     connect_ed25519_to_dsa,
                     connect_ed25519_to_ecdsa,
-                    connect_ed25519_to_ed25519
-                    | ?tests_old]).
+                    connect_ed25519_to_ed448,
+                    connect_ed25519_to_ed25519,
+                    connect_ed25519_to_rsa,
+                    connect_ed448_to_dsa,
+                    connect_ed448_to_ecdsa,
+                    connect_ed448_to_ed25519,
+                    connect_ed448_to_ed448,
+                    connect_ed448_to_rsa,
+                    connect_rsa_to_ed25519,
+                    connect_rsa_to_ed448
+                    | ?tests_old % but taken from the new format directory
+                   ]).
 
 groups() ->
     [{new_format,  [], ?tests_new},
@@ -143,6 +154,8 @@ init_per_testcase(connect_rsa_to_ecdsa, Config0) ->
     setup_user_system_dir(rsa, ecdsa, Config0);
 init_per_testcase(connect_rsa_to_ed25519, Config0) ->
     setup_user_system_dir(rsa, ed25519, Config0);
+init_per_testcase(connect_rsa_to_ed448, Config0) ->
+    setup_user_system_dir(rsa, ed448, Config0);
 init_per_testcase(connect_dsa_to_rsa, Config0) ->
     setup_user_system_dir(dsa, rsa, Config0);
 init_per_testcase(connect_dsa_to_dsa, Config0) ->
@@ -151,6 +164,8 @@ init_per_testcase(connect_dsa_to_ecdsa, Config0) ->
     setup_user_system_dir(dsa, ecdsa, Config0);
 init_per_testcase(connect_dsa_to_ed25519, Config0) ->
     setup_user_system_dir(dsa, ed25519, Config0);
+init_per_testcase(connect_dsa_to_ed448, Config0) ->
+    setup_user_system_dir(dsa, ed448, Config0);
 init_per_testcase(connect_ecdsa_to_rsa, Config0) ->
     setup_user_system_dir(ecdsa, rsa, Config0);
 init_per_testcase(connect_ecdsa_to_dsa, Config0) ->
@@ -159,6 +174,8 @@ init_per_testcase(connect_ecdsa_to_ecdsa, Config0) ->
     setup_user_system_dir(ecdsa, ecdsa, Config0);
 init_per_testcase(connect_ecdsa_to_ed25519, Config0) ->
     setup_user_system_dir(ecdsa, ed25519, Config0);
+init_per_testcase(connect_ecdsa_to_ed448, Config0) ->
+    setup_user_system_dir(ecdsa, ed448, Config0);
 init_per_testcase(connect_ed25519_to_rsa, Config0) ->
     setup_user_system_dir(ed25519, rsa, Config0);
 init_per_testcase(connect_ed25519_to_dsa, Config0) ->
@@ -167,6 +184,18 @@ init_per_testcase(connect_ed25519_to_ecdsa, Config0) ->
     setup_user_system_dir(ed25519, ecdsa, Config0);
 init_per_testcase(connect_ed25519_to_ed25519, Config0) ->
     setup_user_system_dir(ed25519, ed25519, Config0);
+init_per_testcase(connect_ed25519_to_ed448, Config0) ->
+    setup_user_system_dir(ed25519, ed448, Config0);
+init_per_testcase(connect_ed448_to_rsa, Config0) ->
+    setup_user_system_dir(ed448, rsa, Config0);
+init_per_testcase(connect_ed448_to_dsa, Config0) ->
+    setup_user_system_dir(ed448, dsa, Config0);
+init_per_testcase(connect_ed448_to_ecdsa, Config0) ->
+    setup_user_system_dir(ed448, ecdsa, Config0);
+init_per_testcase(connect_ed448_to_ed25519, Config0) ->
+    setup_user_system_dir(ed448, ed25519, Config0);
+init_per_testcase(connect_ed448_to_ed448, Config0) ->
+    setup_user_system_dir(ed448, ed448, Config0);
 init_per_testcase(_, Config) ->
     Config.
 
@@ -188,6 +217,9 @@ connect_rsa_to_ecdsa(Config) ->
 connect_rsa_to_ed25519(Config) ->
     try_connect(Config).
 
+connect_rsa_to_ed448(Config) ->
+    try_connect(Config).
+
 connect_dsa_to_rsa(Config) ->
     try_connect(Config).
 
@@ -198,6 +230,9 @@ connect_dsa_to_ecdsa(Config) ->
     try_connect(Config). 
 
 connect_dsa_to_ed25519(Config) ->
+    try_connect(Config).
+
+connect_dsa_to_ed448(Config) ->
     try_connect(Config).
 
 connect_ecdsa_to_rsa(Config) ->
@@ -212,6 +247,9 @@ connect_ecdsa_to_ecdsa(Config) ->
 connect_ecdsa_to_ed25519(Config) ->
     try_connect(Config).
 
+connect_ecdsa_to_ed448(Config) ->
+    try_connect(Config).
+
 connect_ed25519_to_rsa(Config) ->
     try_connect(Config).
 
@@ -222,6 +260,24 @@ connect_ed25519_to_ecdsa(Config) ->
     try_connect(Config).
 
 connect_ed25519_to_ed25519(Config) ->
+    try_connect(Config).
+
+connect_ed25519_to_ed448(Config) ->
+    try_connect(Config).
+
+connect_ed448_to_rsa(Config) ->
+    try_connect(Config).
+
+connect_ed448_to_dsa(Config) ->
+    try_connect(Config).
+
+connect_ed448_to_ecdsa(Config) ->
+    try_connect(Config).
+
+connect_ed448_to_ed25519(Config) ->
+    try_connect(Config).
+
+connect_ed448_to_ed448(Config) ->
     try_connect(Config).
 
 
@@ -265,22 +321,33 @@ setup_user_system_dir(ClientAlg, ServerAlg, Config) ->
 
             HostSrcFile = filename:join(KeySrcDir, file(host,ServerAlg)),
             HostDstFile = filename:join(SystemDir, file(host,ServerAlg)),
-            {ok,_} = file:copy(HostSrcFile, HostDstFile),
 
             UserSrcFile = filename:join(KeySrcDir, file(user,ClientAlg)),
             UserDstFile = filename:join(UserDir, file(user,ClientAlg)),
-            {ok,_} = file:copy(UserSrcFile, UserDstFile),
 
             UserPubSrcFile = filename:join(KeySrcDir, file(user,ClientAlg)++".pub"),
             AuthorizedKeys = filename:join(UserDir, "authorized_keys"),
-            {ok,_} = file:copy(UserPubSrcFile, AuthorizedKeys),
 
-            ModAlgs = [{modify_algorithms, [{append,[{public_key,
-                                                      lists:usort([alg(ClientAlg),alg(ServerAlg)])}]}]}
-                      ],
-            [{system_dir,SystemDir},
-             {user_dir,UserDir}
-             | extend_optsL([daemon_opts,client_opts], ModAlgs, Config)];
+            try
+                {ok,_} = file:copy(UserSrcFile, UserDstFile),
+                {ok,_} = file:copy(UserPubSrcFile, AuthorizedKeys),
+                {ok,_} = file:copy(HostSrcFile, HostDstFile)
+            of
+                _ ->
+                    ModAlgs = [{modify_algorithms,
+                                [{append,[{public_key,
+                                           lists:usort([alg(ClientAlg),
+                                                        alg(ServerAlg)])}]}]}
+                              ],
+                    [{system_dir,SystemDir},
+                     {user_dir,UserDir}
+                     | extend_optsL([daemon_opts,client_opts], ModAlgs, Config)]
+            catch
+                error:{badmatch,{error,enoent}}:S ->
+                    ct:log("~p:~p Stack:~n~p", [?MODULE,?LINE,S]),
+                    {skip, no_key_file_found}
+            end;
+
         false ->
             {skip, unsupported_algorithm}
     end.
@@ -289,15 +356,18 @@ setup_user_system_dir(ClientAlg, ServerAlg, Config) ->
 file(host, dsa)     -> "ssh_host_dsa_key";
 file(host, ecdsa)   -> "ssh_host_ecdsa_key";
 file(host, ed25519) -> "ssh_host_ed25519_key";
+file(host, ed448)   -> "ssh_host_ed448_key";
 file(host, rsa)     -> "ssh_host_rsa_key";
 file(user, dsa)     -> "id_dsa";
 file(user, ecdsa)   -> "id_ecdsa";
 file(user, ed25519) -> "id_ed25519";
+file(user, ed448)   -> "id_ed448";
 file(user, rsa)     -> "id_rsa".
 
 alg(dsa)     -> 'ssh-dss';
 alg(ecdsa)   -> 'ecdsa-sha2-nistp256';
 alg(ed25519) -> 'ssh-ed25519';
+alg(ed448)   -> 'ssh-ed448';
 alg(rsa)     -> 'ssh-rsa'.
 
 
