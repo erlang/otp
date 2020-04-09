@@ -868,18 +868,29 @@ analyze_and_print_host_info() ->
     end.
     
 analyze_and_print_linux_host_info(Version) ->
-    case file:read_file_info("/etc/issue") of
-        {ok, _} ->
-            io:format("Linux: ~s"
-                      "~n   ~s"
-                      "~n",
-                      [Version, string:trim(os:cmd("cat /etc/issue"))]);
-        _ ->
-            io:format("Linux: ~s"
-                      "~n", [Version])
-    end,
+    Distro =
+        case file:read_file_info("/etc/issue") of
+            {ok, _} ->
+                DistroStr = string:trim(os:cmd("cat /etc/issue")),
+                io:format("Linux: ~s"
+                          "~n   ~s"
+                          "~n",
+                          [Version, DistroStr]),
+                case DistroStr of
+                    "Wind River Linux" ++ _ ->
+                        wind_river;
+                    "MontaVista" ++ _ ->
+                        montavista;
+                    _ ->
+                        other
+                end;
+            _ ->
+                io:format("Linux: ~s"
+                          "~n", [Version]),
+                other
+        end,
     Factor =
-        case (catch linux_which_cpuinfo()) of
+        case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
                 io:format("CPU: "
                           "~n   Model:    ~s"
@@ -905,11 +916,16 @@ analyze_and_print_linux_host_info(Version) ->
                                 3
                         catch
                             _:_:_ ->
-                                1
+                                2
                         end
                 end;
+            {ok, CPU} ->
+                io:format("CPU: "
+                          "~n   Model:    ~s"
+                          "~n", [CPU]),
+                2;
             _ ->
-                1
+                5
         end,
     %% Check if we need to adjust the factor because of the memory
     try linux_which_meminfo() of
@@ -922,42 +938,83 @@ analyze_and_print_linux_host_info(Version) ->
             Factor
     end.
 
-linux_which_cpuinfo() ->
+
+
+linux_cpuinfo_lookup(Key) when is_list(Key) ->
+    linux_info_lookup(Key, "/proc/cpuinfo").
+
+linux_which_cpuinfo(montavista) ->
+    CPU =
+        case linux_cpuinfo_lookup("cpu") of
+            "-" ->
+                throw(noinfo);
+            Model ->
+                case linux_cpuinfo_lookup("motherbord") of
+                    "-" ->
+                        Model;
+                    MB ->
+                        Model ++ " (" ++ MB ++ ")"
+                end
+        end,
+    case linux_cpuinfo_lookup("bogomips") of
+        "-" ->
+            {ok, CPU};
+        BMips ->
+            {ok, {CPU, BMips}}
+    end;
+
+linux_which_cpuinfo(wind_river) ->
+    CPU =
+        case linux_cpuinfo_lookup("model") of
+            "-" ->
+                throw(noinfo);
+            Model ->
+                case linux_cpuinfo_lookup("platform") of
+                    "-" ->
+                        Model;
+                    Platform ->
+                        Model ++ " (" ++ Platform ++ ")"
+                end
+        end,
+    case linux_cpuinfo_lookup("total bogomips") of
+        "-" ->
+            {ok, CPU};
+        BMips ->
+            {ok, {CPU, BMips}}
+    end;
+
+linux_which_cpuinfo(other) ->
     %% Check for x86 (Intel or AMD)
     CPU =
-        try [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])] of
-            ["model name", ModelName | _] ->
-                ModelName;
-            _ ->
+        case linux_cpuinfo_lookup("model name") of
+            "-" ->
                 %% ARM (at least some distros...)
-                try [string:trim(S) || S <- string:tokens(os:cmd("grep \"Processor\" /proc/cpuinfo"), [$:,$\n])] of
-                    ["Processor", Proc | _] ->
-                        Proc;
-                    _ ->
+                case linux_cpuinfo_lookup("Processor") of
+                    "-" ->
                         %% Ok, we give up
-                        throw(noinfo)
-                catch
-                    _:_:_ ->
-                        throw(noinfo)
-                end
-        catch
-            _:_:_ ->
-                throw(noinfo)
+                        throw(noinfo);
+                    Proc ->
+                        Proc
+                end;
+            ModelName ->
+                ModelName
         end,
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i \"bogomips\" /proc/cpuinfo"), [$:,$\n])] of
-        [_, BMips | _] ->
-            {ok, {CPU, BMips}};
-        _ ->
-            {ok, CPU}
-    catch
-        _:_:_ ->
-            {ok, CPU}
+    case linux_cpuinfo_lookup("bogomips") of
+        "-" ->
+            {ok, CPU};
+        BMips ->
+            {ok, {CPU, BMips}}
     end.
+
+linux_meminfo_lookup(Key) when is_list(Key) ->
+    linux_info_lookup(Key, "/proc/meminfo").
 
 %% We *add* the value this return to the Factor.
 linux_which_meminfo() ->
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
-        [_, MemTotal] ->
+    case linux_meminfo_lookup("MemTotal") of
+        "-" ->
+            0;
+        MemTotal ->
             io:format("Memory:"
                       "~n   ~s"
                       "~n", [MemTotal]),
@@ -981,18 +1038,13 @@ linux_which_meminfo() ->
                         (MemSz3 >= 4194304) ->
                             1;
                         (MemSz3 >= 2097152) ->
-                            2;
+                            3;
                         true ->
-                            3
+                            5
                     end;
                 _X ->
                     0
-            end;
-        _ ->
-            0
-    catch
-        _:_:_ ->
-            0
+            end
     end.
 
 
@@ -1637,6 +1689,18 @@ str_num_schedulers() ->
     end.
 
     
+linux_info_lookup(Key, File) ->
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
+        [Key, Value | _] ->
+            Value;
+        _ ->
+            "-"
+    catch
+        _:_:_ ->
+            "-"
+    end.
+    
+
 
 %% ----------------------------------------------------------------
 %% Time related function
