@@ -119,10 +119,10 @@ init_per_testcase(TestCase, Config) ->
 
 special_init(erlang_client_openssl_server_npn_renegotiate, Config) ->
     {ok, Version} = application:get_env(ssl, protocol_version),
-    ssl_test_lib:check_sane_openssl_renegotaite(Config, Version);
+    ssl_test_lib:check_sane_openssl_renegotiate(Config, Version);
 special_init(erlang_server_openssl_client_npn_renegotiate, Config) ->
     {ok, Version} = application:get_env(ssl, protocol_version),
-    case ssl_test_lib:check_sane_openssl_renegotaite(Config, Version) of
+    case ssl_test_lib:check_sane_openssl_renegotiate(Config, Version) of
         Config ->
             ssl_test_lib:openssl_allows_client_renegotiate(Config);
         Skip ->
