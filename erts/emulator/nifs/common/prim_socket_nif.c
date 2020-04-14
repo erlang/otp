@@ -20744,7 +20744,7 @@ ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
  *
  *         {'$socket', Socket, Tag, Info}
  *
- * Socket :: socket() (#socket{})
+ * Socket :: socket:socket()
  * Tag    :: atom()
  * Info   :: term()
  *
@@ -20763,15 +20763,15 @@ ERL_NIF_TERM mk_socket_msg(ErlNifEnv*   env,
 
 /* *** mk_socket ***
  *
- * Simple utility function that construct the socket resord:
+ * Simple utility function that construct the socket tuple:
  *
- *      #socket{ref = SockRef} => {socket, SockRef :: reference()}
+ *     socket:socket() :: {'$socket', SockRef :: reference()}
  */
 static
 ERL_NIF_TERM mk_socket(ErlNifEnv*   env,
                        ERL_NIF_TERM sockRef)
 {
-    return MKT2(env, esock_atom_socket, sockRef);
+    return MKT2(env, esock_atom_socket_tag, sockRef);
 }
 
 #endif // #if defined(__WIN32__)

@@ -536,9 +536,18 @@
 %%                    raw_socket_option() |
 %%                    plain_socket_option().
 
--record(socket, {ref :: reference()}).
+%% The names of these macros match the names of corresponding
+%%C functions in the NIF code, so a search will match both
+%%
+-define(socket_tag, '$socket').
+%%
+%% Our socket abstract data type
+-define(mk_socket(Ref), {?socket_tag, (Ref)}).
+%%
+%% Messages sent from the nif-code to erlang processes:
+-define(mk_socket_msg(Socket, Tag, Info), {?socket_tag, (Socket), (Tag), (Info)}).
 
--opaque socket() :: #socket{}.
+-opaque socket() :: ?mk_socket(reference()).
 
 -type send_flags() :: [send_flag()].
 -type send_flag()  :: confirm |
@@ -678,19 +687,10 @@
 -opaque select_tag() :: atom().
 -opaque select_ref() :: reference().
 
-%% -record(select_info, {tag :: select_tag(), ref :: select_ref()}).
-
 -type select_info() :: {select_info, select_tag(), select_ref()}.
 
 -define(SELECT_INFO(T, R), {select_info, T, R}).
 -define(SELECT(T, R),      {select, ?SELECT_INFO(T, R)}).
-
-
-%% This is used in messages sent from the nif-code to erlang processes:
-%%
-%%         {?ESOCK_TAG, Socket :: socket(), Tag :: atom(), Info :: term()}
-%%
--define(ESOCK_TAG, '$socket').
 
 
 %% ===========================================================================
@@ -805,7 +805,7 @@ socket_debug(D) when is_boolean(D) ->
 -spec info(Socket) -> socket_info() when
       Socket :: socket().
 %%
-info(#socket{ref = SockRef}) when is_reference(SockRef) ->
+info(?mk_socket(SockRef)) when is_reference(SockRef) ->
     prim_socket:info(SockRef);
 info(Socket) ->
     erlang:error(badarg, [Socket]).
@@ -935,7 +935,7 @@ open(FD) ->
 open(FD, Opts) when is_integer(FD), is_map(Opts) ->
     case prim_socket:open(FD, Opts) of
         {ok, SockRef} ->
-            Socket = #socket{ref = SockRef},
+            Socket = ?mk_socket(SockRef),
             {ok, Socket};
         {error, _} = ERROR ->
             ERROR
@@ -964,7 +964,7 @@ open(Domain, Type, Protocol) ->
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
     case prim_socket:open(Domain, Type, Protocol, Opts) of
         {ok, SockRef} ->
-            Socket = #socket{ref = SockRef},
+            Socket = ?mk_socket(SockRef),
             {ok, Socket};
         {error, _} = ERROR ->
             ERROR
@@ -987,7 +987,7 @@ open(Domain, Type, Protocol, Opts) ->
       Port   :: port_number(),
       Reason :: inet:posix() | closed.
 
-bind(#socket{ref = SockRef} = Socket, Addr) when is_reference(SockRef) ->
+bind(?mk_socket(SockRef) = Socket, Addr) when is_reference(SockRef) ->
     if
         is_map(Addr) ->
             prim_socket:bind(SockRef, Addr);
@@ -1032,7 +1032,7 @@ bind(Socket, Addr) ->
       Action :: add | remove,
       Reason :: inet:posix() | closed.
 
-bind(#socket{ref = SockRef}, Addrs, Action)
+bind(?mk_socket(SockRef), Addrs, Action)
   when is_reference(SockRef)
        andalso is_list(Addrs)
        andalso (Action =:= add
@@ -1071,7 +1071,7 @@ connect(Socket, SockAddr) ->
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
 %% </KOLLA>
-connect(#socket{ref = SockRef} = Socket, SockAddr, Timeout)
+connect(?mk_socket(SockRef) = Socket, SockAddr, Timeout)
   when is_reference(SockRef) ->
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1098,9 +1098,9 @@ connect_deadline(SockRef, SockAddr, Deadline) ->
             %% Connecting...
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, _Socket, select, Ref} ->
+                ?mk_socket_msg(_Socket, select, Ref) ->
                     prim_socket:finalize_connection(SockRef);
-                {?ESOCK_TAG, _Socket, abort, {Ref, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {Ref, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     cancel(SockRef, connect, Ref),
@@ -1137,7 +1137,7 @@ listen(Socket) ->
       Backlog :: integer(),
       Reason  :: inet:posix() | closed.
 
-listen(#socket{ref = SockRef}, Backlog)
+listen(?mk_socket(SockRef), Backlog)
   when is_reference(SockRef), is_integer(Backlog) ->
     prim_socket:listen(SockRef, Backlog);
 listen(Socket, Backlog) ->
@@ -1172,7 +1172,7 @@ accept(Socket) ->
       Socket     :: socket(),
       Reason     :: errcode() | closed | timeout.
 
-accept(#socket{ref = LSockRef} = Socket, Timeout)
+accept(?mk_socket(LSockRef) = Socket, Timeout)
   when is_reference(LSockRef) ->
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1203,9 +1203,9 @@ accept_deadline(LSockRef, Deadline) ->
             %% the receive.
 	    Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = LSockRef}, select, AccRef} ->
+                ?mk_socket_msg(?mk_socket(LSockRef), select, AccRef) ->
                     accept_deadline(LSockRef, Deadline);
-                {?ESOCK_TAG, _Socket, abort, {AccRef, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {AccRef, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     cancel(LSockRef, accept, AccRef),
@@ -1218,7 +1218,7 @@ accept_deadline(LSockRef, Deadline) ->
 accept_result(LSockRef, AccRef, Result) ->
     case Result of
         {ok, SockRef} ->
-            Socket = #socket{ref = SockRef},
+            Socket = ?mk_socket(SockRef),
             {ok, Socket};
         {error, _} = ERROR ->
             cancel(LSockRef, accept, AccRef), % Just to be on the safe side...
@@ -1294,7 +1294,7 @@ send(Socket, Data, Timeout) ->
 send(Socket, Data, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     send(Socket, Bin, Flags, Timeout);
-send(#socket{ref = SockRef} = Socket, Data, Flags, Timeout)
+send(?mk_socket(SockRef) = Socket, Data, Flags, Timeout)
   when is_reference(SockRef), is_binary(Data), is_list(Flags) ->
     To = undefined,
     case deadline(Timeout) of
@@ -1343,15 +1343,15 @@ send_common_deadline(SockRef, Data, To, Flags, Deadline, SendName) ->
 	    %% We are partially done, wait for continuation
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, _Socket, select, SendRef}
+                ?mk_socket_msg(_Socket, select, SendRef)
                   when (Written > 0) -> 
                     <<_:Written/binary, Rest/binary>> = Data,
                     send_common_deadline(
                       SockRef, Rest, To, Flags, Deadline, SendName);
-                {?ESOCK_TAG, _Socket, select, SendRef} ->
+                ?mk_socket_msg(_Socket, select, SendRef) ->
                     send_common_deadline(
                       SockRef, Data, To, Flags, Deadline, SendName);
-                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {SendRef, Reason}) ->
                     {error, {Reason, byte_size(Data)}}
             after Timeout ->
                     _ = cancel(SockRef, SendName, SendRef),
@@ -1361,10 +1361,10 @@ send_common_deadline(SockRef, Data, To, Flags, Deadline, SendName) ->
             %% Wait for continuation
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, _Socket, select, SendRef} ->
+                ?mk_socket_msg(_Socket, select, SendRef) ->
                     send_common_deadline(
                       SockRef, Data, To, Flags, Deadline, SendName);
-                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {SendRef, Reason}) ->
                     {error, {Reason, byte_size(Data)}}
             after Timeout ->
                     _ = cancel(SockRef, SendName, SendRef),
@@ -1463,7 +1463,7 @@ sendto(Socket, Data, Dest, Timeout) ->
 sendto(Socket, Data, Dest, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     sendto(Socket, Bin, Dest, Flags, Timeout);
-sendto(#socket{ref = SockRef} = Socket, Data, Dest, Flags, Timeout)
+sendto(?mk_socket(SockRef) = Socket, Data, Dest, Flags, Timeout)
   when is_reference(SockRef), is_binary(Data), is_list(Flags) ->
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1548,7 +1548,7 @@ sendmsg(Socket, MsgHdr, Timeout) ->
       Remaining  :: erlang:iovec(),
       Reason     :: errcode() | closed | timeout.
 
-sendmsg(#socket{ref = SockRef} = Socket, MsgHdr, Flags, Timeout)
+sendmsg(?mk_socket(SockRef) = Socket, MsgHdr, Flags, Timeout)
   when is_reference(SockRef), is_map(MsgHdr), is_list(Flags) ->
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1581,9 +1581,9 @@ sendmsg_loop(SockRef, MsgHdr, Flags, Deadline) ->
         select ->
 	    Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                ?mk_socket_msg(?mk_socket(SockRef), select, SendRef) ->
                     sendmsg_loop(SockRef, MsgHdr, Flags, Deadline);
-                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {SendRef, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     _ = cancel(SockRef, sendmsg, SendRef),
@@ -1722,7 +1722,7 @@ recv(Socket, Length, Timeout) ->
         errcode() | closed | timeout |
         {errcode() | closed | timeout, Data :: binary()}.
 
-recv(#socket{ref = SockRef} = Socket, Length, Flags, Timeout)
+recv(?mk_socket(SockRef) = Socket, Length, Flags, Timeout)
   when is_reference(SockRef),
        is_integer(Length), Length >= 0,
        is_list(Flags) ->
@@ -1784,7 +1784,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
             %% We got less than requested
 	    Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                ?mk_socket_msg(?mk_socket(SockRef), select, RecvRef) ->
                     if
                         0 < Timeout ->
                             %% Recv more
@@ -1794,7 +1794,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                         true ->
                             {error, {timeout, bincat(Acc, Bin)}}
                     end;
-                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {RecvRef, Reason}) ->
                     {error, {Reason, bincat(Acc, Bin)}}
             after Timeout ->
                     cancel(SockRef, recv, RecvRef),
@@ -1812,7 +1812,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                ?mk_socket_msg(?mk_socket(SockRef), select, RecvRef) ->
                     if
                         0 < Timeout ->
                             %% Retry
@@ -1821,7 +1821,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                         true ->
                             recv_error(Acc, timeout)
                     end;
-                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {RecvRef, Reason}) ->
                     recv_error(Acc, Reason)
             after Timeout ->
                     cancel(SockRef, recv, RecvRef),
@@ -1970,7 +1970,7 @@ recvfrom(Socket, BufSz, Timeout) ->
       Data    :: binary(),
       Reason  :: errcode() | closed | timeout.
 
-recvfrom(#socket{ref = SockRef} = Socket, BufSz, Flags, Timeout)
+recvfrom(?mk_socket(SockRef) = Socket, BufSz, Flags, Timeout)
   when is_reference(SockRef),
        is_integer(BufSz), 0 =< BufSz,
        is_list(Flags) ->
@@ -2002,9 +2002,9 @@ recvfrom_deadline(SockRef, BufSz, Flags, Deadline) ->
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                ?mk_socket_msg(?mk_socket(SockRef), select, RecvRef) ->
                     recvfrom_deadline(SockRef, BufSz, Flags, Deadline);
-                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {RecvRef, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     cancel(SockRef, recvfrom, RecvRef),
@@ -2118,7 +2118,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       MsgHdr     :: msghdr(),
       Reason     :: errcode() | closed | timeout.
 
-recvmsg(#socket{ref = SockRef} = Socket, BufSz, CtrlSz, Flags, Timeout)
+recvmsg(?mk_socket(SockRef) = Socket, BufSz, CtrlSz, Flags, Timeout)
   when is_reference(SockRef),
        is_integer(BufSz), 0 =< BufSz,
        is_integer(CtrlSz), 0 =< CtrlSz,
@@ -2151,10 +2151,10 @@ recvmsg_deadline(SockRef, BufSz, CtrlSz, Flags, Deadline)  ->
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                ?mk_socket_msg(?mk_socket(SockRef), select, RecvRef) ->
                     recvmsg_deadline(
                       SockRef, BufSz, CtrlSz, Flags, Deadline);
-                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                ?mk_socket_msg(_Socket, abort, {RecvRef, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     cancel(SockRef, recvmsg, RecvRef),
@@ -2197,7 +2197,7 @@ recvmsg_result(Result) ->
       Socket :: socket(),
       Reason :: errcode() | closed | timeout.
 
-close(#socket{ref = SockRef})
+close(?mk_socket(SockRef))
   when is_reference(SockRef) ->
     case prim_socket:close(SockRef) of
         ok ->
@@ -2206,7 +2206,7 @@ close(#socket{ref = SockRef})
             %% We must wait for the socket_stop callback function to 
             %% complete its work
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, close, CloseRef} ->
+                ?mk_socket_msg(?mk_socket(SockRef), close, CloseRef) ->
                     prim_socket:finalize_close(SockRef)
             end;
         {error, _} = ERROR ->
@@ -2227,7 +2227,7 @@ close(Socket) ->
       How    :: shutdown_how(),
       Reason :: inet:posix() | closed.
 
-shutdown(#socket{ref = SockRef}, How)
+shutdown(?mk_socket(SockRef), How)
   when is_reference(SockRef) ->
     prim_socket:shutdown(SockRef, How);
 shutdown(Socket, How) ->
@@ -2300,7 +2300,7 @@ shutdown(Socket, How) ->
       Value  :: binary(),
       Reason :: inet:posix() | closed.
 
-setopt(#socket{ref = SockRef}, Level, Key, Value)
+setopt(?mk_socket(SockRef), Level, Key, Value)
   when is_reference(SockRef) ->
     prim_socket:setopt(SockRef, Level, Key, Value);
 setopt(Socket, Level, Key, Value) ->
@@ -2373,7 +2373,7 @@ setopt(Socket, Level, Key, Value) ->
       Value     :: term(),
       Reason    :: inet:posix() | closed.
 
-getopt(#socket{ref = SockRef}, Level, Key)
+getopt(?mk_socket(SockRef), Level, Key)
   when is_reference(SockRef) ->
     prim_socket:getopt(SockRef, Level, Key);
 getopt(Socket, Level, Key) ->
@@ -2391,7 +2391,7 @@ getopt(Socket, Level, Key) ->
       SockAddr :: sockaddr(),
       Reason   :: inet:posix() | closed.
 
-sockname(#socket{ref = SockRef})
+sockname(?mk_socket(SockRef))
   when is_reference(SockRef) ->
     prim_socket:sockname(SockRef);
 sockname(Socket) ->
@@ -2409,7 +2409,7 @@ sockname(Socket) ->
       SockAddr :: sockaddr(),
       Reason   :: inet:posix() | closed.
 
-peername(#socket{ref = SockRef})
+peername(?mk_socket(SockRef))
   when is_reference(SockRef) ->
     prim_socket:peername(SockRef);
 peername(Socket) ->
@@ -2431,7 +2431,7 @@ peername(Socket) ->
       SelectInfo :: select_info(),
       Reason     :: einval | closed | exself.
 
-cancel(#socket{ref = SockRef}, ?SELECT_INFO(Tag, Ref))
+cancel(?mk_socket(SockRef), ?SELECT_INFO(Tag, Ref))
   when is_reference(SockRef) ->
     cancel(SockRef, Tag, Ref);
 cancel(Socket, SelectInfo) ->
@@ -2455,7 +2455,7 @@ cancel(SockRef, Op, OpRef) ->
 
 flush_select_msg(SockRef, Ref) ->
     receive
-        {?ESOCK_TAG, #socket{ref = SockRef}, select, Ref} ->
+        ?mk_socket_msg(?mk_socket(SockRef), select, Ref) ->
             ok
     after 0 ->
             ok
@@ -2463,7 +2463,7 @@ flush_select_msg(SockRef, Ref) ->
 
 flush_abort_msg(SockRef, Ref) ->
     receive
-        {?ESOCK_TAG, #socket{ref = SockRef}, abort, {Ref, Reason}} ->
+        ?mk_socket_msg(?mk_socket(SockRef), abort, {Ref, Reason}) ->
             Reason
     after 0 ->
             ok
