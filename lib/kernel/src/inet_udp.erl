@@ -45,10 +45,10 @@ getaddr(Address, Timer) -> inet:getaddr(Address, ?FAMILY, Timer).
 %% inet_udp special this side addresses
 translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
 
--spec open(_) -> {ok, inet:socket()} | {error, atom()}.
+-spec open(_) -> {ok, port()} | {error, atom()}.
 open(Port) -> open(Port, []).
 
--spec open(_, _) -> {ok, inet:socket()} | {error, atom()}.
+-spec open(_, _) -> {ok, port()} | {error, atom()}.
 open(Port, Opts) ->
     case inet:udp_options(
 	   [{port,Port}, {recbuf, ?RECBUF} | Opts], 
@@ -92,7 +92,7 @@ recv(S, Len) ->
 recv(S, Len, Time) ->
     prim_inet:recvfrom(S, Len, Time).
 
--spec close(inet:socket()) -> ok.
+-spec close(port()) -> ok.
 close(S) ->
     inet:udp_close(S).
 

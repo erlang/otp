@@ -130,7 +130,7 @@
         {netns, file:filename_all()} |
         {bind_to_device, binary()} |
         option().
--type socket() :: port().
+-type socket() :: inet:socket().
 
 -export_type([option/0, option_name/0, connect_option/0, listen_option/0,
               socket/0, pktoptions_value/0]).
