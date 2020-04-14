@@ -286,7 +286,7 @@
           see <seeerl marker="kernel:heart">
           <c>heart(3)</c></seeerl>.</p>
       </item>
-      <tag><c><![CDATA[-hidden]]></c></tag>
+      <tag><marker id="hidden"/><c><![CDATA[-hidden]]></c></tag>
       <item>
         <p>Starts the Erlang runtime system as a hidden node, if it is
           run as a distributed node. Hidden nodes always establish
@@ -1578,8 +1578,7 @@
           <tag><marker id="+zdbbl"/><c>+zdbbl size</c></tag>
           <item>
             <p>Sets the distribution buffer busy limit
-              (<seeerl marker="erlang#system_info_dist_buf_busy_limit">
-              <c>dist_buf_busy_limit</c></seeerl>)
+              (<seeerl marker="erlang#system_info_dist_buf_busy_limit"><c>dist_buf_busy_limit</c></seeerl>)
               in kilobytes. Valid range is 1-2097151. Defaults to 1024.</p>
             <p>A larger buffer limit allows processes to buffer
               more outgoing messages over the distribution. When the
@@ -1592,8 +1591,7 @@
           <tag><marker id="+zdntgc"/><c>+zdntgc time</c></tag>
           <item>
             <p>Sets the delayed node table garbage collection time
-              (<seeerl marker="erlang#system_info_delayed_node_table_gc">
-              <c>delayed_node_table_gc</c></seeerl>)
+              (<seeerl marker="erlang#system_info_delayed_node_table_gc"><c>delayed_node_table_gc</c></seeerl>)
               in seconds. Valid values are either <c>infinity</c> or
               an integer in the range 0-100000000. Defaults to 60.</p>
             <p>Node table entries that are not referred linger
