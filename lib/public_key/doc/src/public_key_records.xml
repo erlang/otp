@@ -138,7 +138,22 @@
 	prime,           % integer()
 	exponent,        % integer()
 	coefficient      % integer()
- 	 }.	 </code>
+ 	}.
+
+#'RSASSA-PSS-params'{hashAlgorithm,     % #'HashAlgorithm'{}},  
+	             maskGenAlgorithm,  % #'MaskGenAlgorithm'{}},
+		     saltLength,        % integer(),
+		     trailerField,      % integer()
+		     }.
+		     
+#'HashAlgorithm'{algorithm,  % oid()
+                 parameters  % defaults to asn1_NOVALUE
+                 }.
+		 
+#'MaskGenAlgorithm'{algorithm,  % oid()
+                    parameters, % defaults to asn1_NOVALUE
+                   }.
+    </code>
 
   </section>
 

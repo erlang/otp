@@ -40,7 +40,8 @@
 	 sign/3, sign/4, verify/4, verify/5,
 	 generate_key/1,
 	 compute_key/2, compute_key/3,
-	 pkix_sign/2, pkix_verify/2,	 
+	 pkix_sign/2, pkix_verify/2,
+	 pkix_hash_type/1,
 	 pkix_sign_types/1,
 	 pkix_is_self_signed/1, 
 	 pkix_is_fixed_dh_cert/1,
@@ -68,11 +69,12 @@
 	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
               key_params/0, digest_type/0, issuer_name/0, oid/0]).
 
--type public_key()           ::  rsa_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
--type private_key()          ::  rsa_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
-
+-type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
+-type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
--type rsa_private_key()      ::  #'RSAPrivateKey'{}.
+-type rsa_private_key()      ::  #'RSAPrivateKey'{}. 
+-type rsa_pss_public_key()   ::  {#'RSAPublicKey'{}, #'RSASSA-PSS-params'{}}.
+-type rsa_pss_private_key()  ::  { #'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}.
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
 -type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
 -type ecpk_parameters() :: {ecParameters, #'ECParameters'{}} | {namedCurve, Oid::tuple()}.
@@ -293,6 +295,12 @@ der_priv_key_decode({'PrivateKeyInfo', v1,
 	{'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', _}, PrivKey, _}) ->
 	der_decode('RSAPrivateKey', PrivKey);
 der_priv_key_decode({'PrivateKeyInfo', v1,
+                     {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS', 
+                      {asn1_OPENTYPE, Parameters}}, PrivKey, _}) ->
+    Key = der_decode('RSAPrivateKey', PrivKey),
+    Params = der_decode('RSASSA-PSS-params', Parameters),
+    {Key, Params};
+der_priv_key_decode({'PrivateKeyInfo', v1,
 	{'PrivateKeyInfo_privateKeyAlgorithm', ?'id-dsa', {asn1_OPENTYPE, Parameters}}, PrivKey, _}) ->
 	{params, #'Dss-Parms'{p=P, q=Q, g=G}} = der_decode('DSAParams', Parameters),
 	X = der_decode('Prime-p', PrivKey),
@@ -307,34 +315,40 @@ der_priv_key_decode(PKCS8Key) ->
 %%
 %% Description: Encodes a public key entity with asn1 DER encoding.
 %%--------------------------------------------------------------------
-
 der_encode('PrivateKeyInfo', #'DSAPrivateKey'{p=P, q=Q, g=G, x=X}) ->
     der_encode('PrivateKeyInfo',
-	{'PrivateKeyInfo', v1,
-	    {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-dsa',
-		{asn1_OPENTYPE, der_encode('Dss-Parms', #'Dss-Parms'{p=P, q=Q, g=G})}},
+               {'PrivateKeyInfo', v1,
+                {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-dsa',
+                 {asn1_OPENTYPE, der_encode('Dss-Parms', #'Dss-Parms'{p=P, q=Q, g=G})}},
 		der_encode('Prime-p', X), asn1_NOVALUE});
 der_encode('PrivateKeyInfo', #'RSAPrivateKey'{} = PrivKey) ->
     der_encode('PrivateKeyInfo',
-	{'PrivateKeyInfo', v1,
-	    {'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', {asn1_OPENTYPE, ?DER_NULL}},
-		der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
+               {'PrivateKeyInfo', v1,
+                {'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', 
+                 {asn1_OPENTYPE, ?DER_NULL}},
+                der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
+der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
+    der_encode('PrivateKeyInfo',
+               {'PrivateKeyInfo', v1,
+                {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS', 
+                 {asn1_OPENTYPE, der_encode('RSASSA-PSS-params', Parameters)}},
+                der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
 der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey) ->
     der_encode('PrivateKeyInfo',
-	    {'PrivateKeyInfo', v1,
+               {'PrivateKeyInfo', v1,
 		{'PrivateKeyInfo_privateKeyAlgorithm', ?'id-ecPublicKey',
-		{asn1_OPENTYPE, der_encode('EcpkParameters', Parameters)}},
-	der_encode('ECPrivateKey', PrivKey#'ECPrivateKey'{parameters = asn1_NOVALUE}), asn1_NOVALUE});
+                 {asn1_OPENTYPE, der_encode('EcpkParameters', Parameters)}},
+                der_encode('ECPrivateKey', PrivKey#'ECPrivateKey'{parameters = asn1_NOVALUE}), 
+                asn1_NOVALUE});
 der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') or
 				  (Asn1Type == 'EncryptedPrivateKeyInfo') ->
      try
-	{ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
-	Encoded
-    catch
+         {ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
+         Encoded
+     catch
 	error:{badmatch, {error, _}} = Error ->
-	    erlang:error(Error)
-    end;
-
+             erlang:error(Error)
+     end;
 der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
     try 
 	{ok, Encoded} = 'OTP-PUB-KEY':encode(Asn1Type, Entity),
@@ -625,6 +639,22 @@ pkix_sign_types(?'ecdsa-with-SHA512') ->
     {sha512, ecdsa}.
 
 %%--------------------------------------------------------------------
+-spec pkix_hash_type(HashOid::oid()) -> DigestType:: md5 | crypto:sha1() | crypto:sha2().
+          
+pkix_hash_type(?'id-sha1') ->
+    sha;
+pkix_hash_type(?'id-sha512') ->
+    sha512;
+pkix_hash_type(?'id-sha384') ->
+    sha384;
+pkix_hash_type(?'id-sha256') ->
+    sha256;
+pkix_hash_type('id-sha224') ->
+    sha224;
+pkix_hash_type('id-md5') ->
+    md5.
+
+%%--------------------------------------------------------------------
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
 -spec sign(Msg, DigestType, Key) ->
@@ -768,12 +798,11 @@ pkix_match_dist_point(#'CertificateList'{
 %% der encoded 'Certificate'{}
 %%--------------------------------------------------------------------
 pkix_sign(#'OTPTBSCertificate'{signature = 
-				   #'SignatureAlgorithm'{algorithm = Alg} 
+				   #'SignatureAlgorithm'{} 
 			       = SigAlg} = TBSCert, Key) ->
-
     Msg = pkix_encode('OTPTBSCertificate', TBSCert, otp),
-    {DigestType, _} = pkix_sign_types(Alg),
-    Signature = sign(Msg, DigestType, Key),
+    {DigestType, _, Opts} = pubkey_cert:x509_pkix_sign_types(SigAlg),
+    Signature = sign(Msg, DigestType, format_pkix_sign_key(Key), Opts),
     Cert = #'OTPCertificate'{tbsCertificate= TBSCert,
 			     signatureAlgorithm = SigAlg,
 			     signature = Signature
@@ -795,6 +824,11 @@ pkix_verify(DerCert,  #'RSAPublicKey'{} = RSAKey)
   when is_binary(DerCert) ->
     {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
     verify(PlainText, DigestType, Signature, RSAKey);
+
+pkix_verify(DerCert,  {#'RSAPublicKey'{} = RSAKey, #'RSASSA-PSS-params'{} = Params}) 
+  when is_binary(DerCert) ->
+    {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
+    verify(PlainText, DigestType, Signature, RSAKey, rsa_opts(Params));
 
 pkix_verify(DerCert, Key = {#'ECPoint'{}, _})
   when is_binary(DerCert) ->
@@ -1257,7 +1291,11 @@ set_padding(Pad, Opts) ->
                                    T =/= rsa_pad]
     ].
 
-
+format_pkix_sign_key({#'RSAPrivateKey'{} = Key, _}) ->
+    %% Params are handled in option arg
+    Key;
+format_pkix_sign_key(Key) ->
+    Key.
 format_sign_key(Key = #'RSAPrivateKey'{}) ->
     {rsa, format_rsa_private_key(Key)};
 format_sign_key(#'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
@@ -1288,6 +1326,15 @@ format_verify_key(#'DSAPrivateKey'{y=Y, p=P, q=Q, g=G}) ->
     format_verify_key({Y, #'Dss-Parms'{p=P, q=Q, g=G}});
 format_verify_key(_) ->
     badarg.
+
+rsa_opts(#'RSASSA-PSS-params'{maskGenAlgorithm = 
+                                  #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                      parameters = #'HashAlgorithm'{algorithm = HashAlgoOid}
+                                                     }}) ->
+    HashAlgo = pkix_hash_type(HashAlgoOid),
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, -1},
+     {rsa_mgf1_md, HashAlgo}].
 
 do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password) ->
     Der = der_encode(Asn1Type, Entity),
@@ -1776,3 +1823,4 @@ format_details([]) ->
     no_relevant_crls;
 format_details(Details) ->
     Details.
+  

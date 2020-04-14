@@ -24,16 +24,29 @@
 
 -include("public_key.hrl").
 
--export([init_validation_state/3, prepare_for_next_cert/2,
- 	 validate_time/3, validate_signature/6,
- 	 validate_issuer/4, validate_names/6,
+-export([init_validation_state/3, 
+         prepare_for_next_cert/2,
+ 	 validate_time/3, 
+         validate_signature/6,
+ 	 validate_issuer/4, 
+         validate_names/6,
 	 validate_extensions/4,
-	 normalize_general_name/1, is_self_signed/1,
-	 is_issuer/2, issuer_id/2, distribution_points/1, 
-	 is_fixed_dh_cert/1, verify_data/1, verify_fun/4, 
-	 select_extension/2, match_name/3,
-	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1,
-         gen_test_certs/1, root_cert/2]).
+	 normalize_general_name/1, 
+         is_self_signed/1,
+	 is_issuer/2, 
+         issuer_id/2, 
+         distribution_points/1, 
+	 is_fixed_dh_cert/1, 
+         verify_data/1, 
+         verify_fun/4, 
+	 select_extension/2, 
+         match_name/3,
+	 extensions_list/1, 
+         cert_auth_key_id/1, 
+         time_str_2_gregorian_sec/1,
+         gen_test_certs/1, 
+         x509_pkix_sign_types/1,
+         root_cert/2]).
 
 -define(NULL, 0).
 
@@ -503,6 +516,17 @@ gen_test_certs(
     DERCAs = ca_config(RootCert, CAsKeys),
     [{cert, DERCert}, {key, DERKey}, {cacerts, DERCAs}].
 
+
+x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                           parameters = #'RSASSA-PSS-params'{hashAlgorithm = #'HashAlgorithm'{algorithm = Alg}}}) ->
+    Hash = public_key:pkix_hash_type(Alg),
+    {Hash, rsa_pss_pss, [{rsa_padding, rsa_pkcs1_pss_padding},
+                         {rsa_pss_saltlen, -1},
+                         {rsa_mgf1_md, Hash}]};
+x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = Alg}) ->
+    {Hash, Sign} = public_key:pkix_sign_types(Alg),
+    {Hash, Sign, []}.
+
 %%%
 -spec root_cert(string(), [cert_opt()]) -> test_root_cert().
 %%
@@ -511,13 +535,16 @@ root_cert(Name, Opts) ->
     PrivKey = gen_key(proplists:get_value(key, Opts, default_key_gen())),
     TBS = cert_template(),
     Issuer = subject("root", Name),
+    SignatureId =  sign_algorithm(PrivKey, Opts),
+    SPI = public_key(PrivKey, SignatureId),
+    
     OTPTBS =
         TBS#'OTPTBSCertificate'{
-          signature = sign_algorithm(PrivKey, Opts),
+          signature = SignatureId,
           issuer = Issuer,
           validity = validity(Opts),
           subject = Issuer,
-          subjectPublicKeyInfo = public_key(PrivKey),
+          subjectPublicKeyInfo = SPI,
           extensions = extensions(undefined, ca, Opts)
          },
     #{cert => public_key:pkix_sign(OTPTBS, PrivKey),
@@ -552,17 +579,21 @@ extensions_list(Extensions) ->
 
 extract_verify_data(OtpCert, DerCert) ->
     Signature = OtpCert#'OTPCertificate'.signature,
-    SigAlgRec = OtpCert#'OTPCertificate'.signatureAlgorithm,
-    SigAlg = SigAlgRec#'SignatureAlgorithm'.algorithm,
+    SigAlg = OtpCert#'OTPCertificate'.signatureAlgorithm,
     PlainText = encoded_tbs_cert(DerCert),
-    {DigestType,_} = public_key:pkix_sign_types(SigAlg),
+    {DigestType,_,_} = x509_pkix_sign_types(SigAlg),
     {DigestType, PlainText, Signature}.
 
 verify_signature(OtpCert, DerCert, Key, KeyParams) ->
     {DigestType, PlainText, Signature} = extract_verify_data(OtpCert, DerCert),
     case Key of
 	#'RSAPublicKey'{} ->
-	    public_key:verify(PlainText, DigestType, Signature, Key);
+            case KeyParams of
+                #'RSASSA-PSS-params'{} ->
+                    public_key:verify(PlainText, DigestType, Signature, Key, verify_options(KeyParams));
+                'NULL' ->
+                    public_key:verify(PlainText, DigestType, Signature, Key)
+            end;
 	_ ->
 	    public_key:verify(PlainText, DigestType, Signature, {Key, KeyParams})
     end.
@@ -1119,6 +1150,8 @@ is_key(#'DSAPrivateKey'{}) ->
     true;
 is_key(#'RSAPrivateKey'{}) ->
     true;
+is_key({#'RSAPrivateKey'{}, _}) ->
+    true;
 is_key(#'ECPrivateKey'{}) ->
     true;
 is_key(_) ->
@@ -1174,10 +1207,18 @@ validity(Opts) ->
     #'Validity'{notBefore={generalTime, Format(DefFrom)},
 		notAfter ={generalTime, Format(DefTo)}}.
 
-sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
-    Type = rsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
-    #'SignatureAlgorithm'{algorithm  = Type,
-                          parameters = 'NULL'};
+sign_algorithm(#'RSAPrivateKey'{} = Key , Opts) ->
+      case proplists:get_value(rsa_padding, Opts, rsa_pkcs1_pss_padding) of
+        rsa_pkcs1_pss_padding ->
+            DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
+            rsa_sign_algo(Key, DigestId, 'NULL');
+        rsa_pss_rsae ->
+            DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha256)),
+            rsa_sign_algo(Key, DigestId, 'NULL')
+      end;
+sign_algorithm({#'RSAPrivateKey'{} = Key,#'RSASSA-PSS-params'{} = Params}, _Opts) ->
+    rsa_sign_algo(Key, ?'id-RSASSA-PSS', Params);
+        
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     #'SignatureAlgorithm'{algorithm  = ?'id-dsa-with-sha1',
                           parameters = {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
@@ -1185,6 +1226,16 @@ sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = ecdsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
     #'SignatureAlgorithm'{algorithm  = Type,
                           parameters = Parms}.
+
+rsa_sign_algo(#'RSAPrivateKey'{}, ?'id-RSASSA-PSS' = Type,  #'RSASSA-PSS-params'{} = Params) ->
+    #'SignatureAlgorithm'{algorithm  = Type,
+                          parameters = Params};   
+rsa_sign_algo(#'RSAPrivateKey'{}, Type, Parms) ->
+    #'SignatureAlgorithm'{algorithm  = Type,
+                          parameters = Parms}.
+
+rsa_digest_oid(Oid) when is_tuple(Oid) ->     
+    Oid;
 rsa_digest_oid(sha1) ->
     ?'sha1WithRSAEncryption';
 rsa_digest_oid(sha) ->
@@ -1196,8 +1247,10 @@ rsa_digest_oid(sha384) ->
 rsa_digest_oid(sha256) ->
     ?'sha256WithRSAEncryption';
 rsa_digest_oid(md5) ->
-   ?'md5WithRSAEncryption'.
+    ?'md5WithRSAEncryption'.
 
+ecdsa_digest_oid(Oid) when is_tuple(Oid) ->     
+    Oid;
 ecdsa_digest_oid(sha1) ->
     ?'ecdsa-with-SHA1';
 ecdsa_digest_oid(sha) ->
@@ -1229,12 +1282,13 @@ cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
 cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}}, 
      PrivKey, Key, Contact, Name, Opts, Type) ->
     TBS = cert_template(),
+    SignAlgoId = sign_algorithm(PrivKey, Opts),
     OTPTBS = TBS#'OTPTBSCertificate'{
-               signature = sign_algorithm(PrivKey, Opts),
+               signature = SignAlgoId,
                issuer =  Issuer,
                validity = validity(Opts),  
                subject = subject(Contact, atom_to_list(Role) ++ Name),
-               subjectPublicKeyInfo = public_key(Key),
+               subjectPublicKeyInfo = public_key(Key, SignAlgoId),
                extensions = extensions(Role, Type, Opts)
               },
     public_key:pkix_sign(OTPTBS, PrivKey).
@@ -1251,19 +1305,33 @@ default_key_gen() ->
             {namedCurve, Oid}
     end.
 
-public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}) ->
+public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E},
+           #'SignatureAlgorithm'{algorithm  = ?rsaEncryption,
+                                 parameters = #'RSASSA-PSS-params'{} = Params}) ->
+    Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters = Params},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = Public};
+public_key({#'RSAPrivateKey'{modulus=N, publicExponent=E}, #'RSASSA-PSS-params'{} = Params}, 
+           #'SignatureAlgorithm'{algorithm  = ?'id-RSASSA-PSS',
+                                 parameters = #'RSASSA-PSS-params'{} = Params}) ->
+    Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-RSASSA-PSS', parameters= Params},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = Public};
+public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}, _) ->
     Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
     Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters='NULL'},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = Public};
-public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
+public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}, _) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-dsa', 
 				 parameters={params, #'Dss-Parms'{p=P, q=Q, g=G}}},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y};
 public_key(#'ECPrivateKey'{version = _Version,
 			  privateKey = _PrivKey,
 			  parameters = Params,
-			  publicKey = PubKey}) ->
+			  publicKey = PubKey}, _) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-ecPublicKey', parameters=Params},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = #'ECPoint'{point = PubKey}}.
@@ -1306,6 +1374,9 @@ add_default_extensions(Defaults0, Exts) ->
                                end, Defaults0),
     Exts ++ Defaults.
 
+encode_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}} = Key) ->
+    {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
+    {Asn1Type, DER};
 encode_key(#'RSAPrivateKey'{} = Key) ->
     {'RSAPrivateKey', public_key:der_encode('RSAPrivateKey', Key)};
 encode_key(#'ECPrivateKey'{} = Key) ->
@@ -1313,3 +1384,11 @@ encode_key(#'ECPrivateKey'{} = Key) ->
 encode_key(#'DSAPrivateKey'{} = Key) ->
     {'DSAPrivateKey', public_key:der_encode('DSAPrivateKey', Key)}.
 
+verify_options(#'RSASSA-PSS-params'{saltLength = SaltLen,
+                                    maskGenAlgorithm = 
+                                        #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                            parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+    HashAlgo = public_key:pkix_hash_type(HashOid),
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, SaltLen},
+     {rsa_mgf1_md, HashAlgo}].

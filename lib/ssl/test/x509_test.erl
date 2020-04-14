@@ -64,6 +64,8 @@ do_gen_pem_config_files(Config, CertFile, KeyFile, CAFile) ->
 cert_entry(Cert) ->
     {'Certificate', Cert, not_encrypted}.
 
+key_entry({'PrivateKeyInfo', DERKeyInfo}) ->
+    {'PrivateKeyInfo', DERKeyInfo, not_encrypted};
 key_entry({'RSAPrivateKey', DERKey}) ->
     {'RSAPrivateKey', DERKey, not_encrypted};
 key_entry({'DSAPrivateKey', DERKey}) ->

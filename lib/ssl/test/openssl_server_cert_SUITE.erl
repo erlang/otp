@@ -49,6 +49,8 @@ groups() ->
       %% TODO: Create proper conf of openssl server
       %%++ [unsupported_sign_algo_client_auth,
       %% unsupported_sign_algo_cert_client_auth]},
+     {rsa_pss_rsae, [], all_version_tests() ++ tls_1_3_tests()},
+     {rsa_pss_pss, [], all_version_tests() ++ tls_1_3_tests()},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
@@ -72,6 +74,8 @@ pre_tls_1_3_protocol_groups() ->
 
 tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},
+     {group, rsa_pss_rsae},
+     {group, rsa_pss_pss},
      {group, ecdsa_1_3}].
 
 tls_1_3_tests() ->
@@ -150,6 +154,28 @@ init_per_group(rsa_1_3 = Group, Config0) ->
                                         lists:delete(client_cert_opts, Config))])];
         [] ->
             {skip, {no_sup, Group, Version}}
+    end;
+init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
+                                 Alg == rsa_pss_pss ->
+    Supports = crypto:supports(),
+    RSAOpts = proplists:get_value(rsa_opts, Supports),
+    
+    case lists:member(rsa_pkcs1_pss_padding, RSAOpts) 
+        andalso lists:member(rsa_pss_saltlen, RSAOpts) 
+        andalso lists:member(rsa_mgf1_md, RSAOpts)
+        andalso ssl_test_lib:is_sane_oppenssl_pss(Alg)
+    of
+        true ->
+            #{client_config := COpts,
+              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(Alg, [], Config, ""),
+            [{cert_key_alg, Alg} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, COpts},
+                           {server_cert_opts, SOpts} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))])];
+        false ->
+            {skip, "Missing crypto or OpenSSL support"}
     end;
 init_per_group(ecdsa = Group, Config0) ->
     PKAlg = crypto:supports(public_keys),

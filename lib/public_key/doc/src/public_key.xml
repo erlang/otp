@@ -100,6 +100,7 @@
     <datatype>
       <name name="public_key"/>
       <name name="rsa_public_key"/>
+      <name name="rsa_pss_public_key"/>
       <name name="dsa_public_key"/>
       <name name="ec_public_key"/>
       <name name="ecpk_parameters"/>
@@ -118,6 +119,7 @@
     <datatype>
       <name name="private_key"/>
       <name name="rsa_private_key"/>
+      <name name="rsa_pss_private_key"/>
       <name name="dsa_private_key"/>
       <name name="ec_private_key"/>
       <desc>
@@ -405,8 +407,8 @@
        <v>CertChain = [der_encoded()]</v>
        <d>A list of DER-encoded certificates in trust order ending with the peer certificate.</d>
        <v>Options = proplists:proplist()</v>
-       <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-dsa',
-       rsa_public_key() | integer(), 'NULL' | 'Dss-Parms'{}}</v>
+       <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-RSASSA-PSS'| ?'id-dsa',
+       rsa_public_key() | integer(), 'NULL' | 'RSASSA-PSS-params'{} | 'Dss-Parms'{}}</v>
        <v>PolicyTree = term()</v>
        <d>At the moment this is always an empty list as policies are not currently supported.</d>
        <v>Reason = cert_expired | invalid_issuer | invalid_signature | name_not_permitted |
@@ -578,7 +580,15 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
        <p> Extracts distribution points from the certificates extensions.</p>
      </desc> 
  </func>
-   
+
+ <func>
+    <name name="pkix_hash_type" arity="1" since="@master@"/>
+    <fsummary>Translates OID to Erlang digest type</fsummary>
+    <desc> 
+      <p>Translates OID to Erlang digest type</p> 
+    </desc> 
+  </func> 
+
   <func>
     <name name="pkix_match_dist_point" arity="2" since="OTP 19.0"/>
     <fsummary>Checks whether the given distribution point matches the

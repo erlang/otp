@@ -122,7 +122,9 @@ IMPORTS
        sha224WithRSAEncryption,
        sha256WithRSAEncryption,
        sha384WithRSAEncryption,
-       sha512WithRSAEncryption	     
+       sha512WithRSAEncryption,
+       id-RSASSA-PSS,
+       RSASSA-PSS-params
     	     
       FROM PKCS-1 {
        iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1)
@@ -341,6 +343,7 @@ SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= {
 		    sha256-with-rsa-encryption |
 		    sha384-with-rsa-encryption |
 		    sha512-with-rsa-encryption |
+		    rsassa-pss      |
 		    ecdsa-with-sha1 |
 		    ecdsa-with-sha224 |
 		    ecdsa-with-sha256 |
@@ -348,7 +351,7 @@ SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= {
 		    ecdsa-with-sha512 }
 
 SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= { 
-		    dsa | rsa-encryption | dh  | kea  | ec-public-key }
+		    dsa |  rsa-encryption | rsa-pss | dh  | kea  | ec-public-key }
 
    --   DSA Keys and Signatures
 
@@ -430,6 +433,11 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 			    ID sha512WithRSAEncryption 
 			    TYPE NULL }
 
+   rsassa-pss SIGNATURE-ALGORITHM-CLASS ::= {
+			   ID id-RSASSA-PSS
+			   TYPE RSASSA-PSS-params }
+
+
    -- Certificate.signature
    -- See PKCS #1 (RFC 2313). XXX
 
@@ -438,6 +446,11 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
    rsa-encryption PUBLIC-KEY-ALGORITHM-CLASS ::= {
 		  ID rsaEncryption
 		  TYPE NULL
+		  PUBLIC-KEY-TYPE RSAPublicKey }
+
+   rsa-pss   PUBLIC-KEY-ALGORITHM-CLASS ::= {
+		  ID id-RSASSA-PSS
+		  TYPE RSASSA-PSS-params
 		  PUBLIC-KEY-TYPE RSAPublicKey }
 
    --
@@ -493,6 +506,7 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
    ecdsa-with-sha512 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA512
        TYPE EcpkParameters }  -- XXX Must be empty and not NULL
+
 
    FIELD-ID-CLASS ::= CLASS {
 	&id OBJECT IDENTIFIER UNIQUE,

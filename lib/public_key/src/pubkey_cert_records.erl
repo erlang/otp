@@ -110,7 +110,8 @@ supportedPublicKeyAlgorithms(?'rsaEncryption') -> 'RSAPublicKey';
 supportedPublicKeyAlgorithms(?'id-dsa') -> 'DSAPublicKey';
 supportedPublicKeyAlgorithms(?'dhpublicnumber') -> 'DHPublicKey';
 supportedPublicKeyAlgorithms(?'id-keyExchangeAlgorithm') -> 'KEA-PublicKey';
-supportedPublicKeyAlgorithms(?'id-ecPublicKey') -> 'ECPoint'.
+supportedPublicKeyAlgorithms(?'id-ecPublicKey') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-RSASSA-PSS') -> 'RSAPublicKey'.
 
 supportedCurvesTypes(?'characteristic-two-field') -> characteristic_two_field;
 supportedCurvesTypes(?'prime-field') -> prime_field;

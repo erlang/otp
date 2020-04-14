@@ -133,10 +133,8 @@
       <item>Key Exchange: ECDHE</item>
       <item>Groups: all standard groups supported for the Diffie-Hellman key exchange</item>
       <item>Ciphers: all cipher suites are supported</item>
-      <item>Signature Algorithms: rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pkcs1_sha512,
-      ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384, ecdsa_secp521r1_sha512, rsa_pss_rsae_sha256,
-      rsa_pss_rsae_sha384, rsa_pss_rsae_sha512, rsa_pkcs1_sha1 and ecdsa_sha1</item>
-      <item>Certificates: RSA (it MUST use the rsaEncryption OID) and ECDSA keys</item>
+      <item>Signature Algorithms: All algorithms form RFC 8456</item>
+      <item>Certificates: RSA and ECDSA keys</item>
     </list>
     <p>Other notable features:</p>
     <list type="bulleted">
@@ -180,7 +178,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">RSASSA-PSS signature schemes</cell>
 	<cell align="left" valign="middle"><em>PC</em></cell>
-	<cell align="left" valign="middle"><em>22</em></cell>
+	<cell align="left" valign="middle"><em>23</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -704,8 +702,8 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em>Client</em></cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
-	<cell align="left" valign="middle"><em>22.1</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -776,20 +774,20 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">rsa_pss_pss_sha256</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">rsa_pss_pss_sha384</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">rsa_pss_pss_sha512</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -879,20 +877,20 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">rsa_pss_pss_sha256</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">rsa_pss_pss_sha384</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">rsa_pss_pss_sha512</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>

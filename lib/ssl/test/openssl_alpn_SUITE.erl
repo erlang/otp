@@ -129,7 +129,7 @@ init_per_testcase(TestCase, Config) ->
 
 special_init(erlang_client_alpn_openssl_server_alpn_renegotiate, Config) ->
     {ok, Version} = application:get_env(ssl, protocol_version),
-    case ssl_test_lib:check_sane_openssl_renegotaite(Config, Version) of
+    case ssl_test_lib:check_sane_openssl_renegotiate(Config, Version) of
         {skip, _} = Skip ->
             Skip;
         Config ->
@@ -137,7 +137,7 @@ special_init(erlang_client_alpn_openssl_server_alpn_renegotiate, Config) ->
     end;
 special_init(erlang_server_alpn_openssl_client_alpn_renegotiate, Config) ->
     {ok, Version} = application:get_env(ssl, protocol_version),
-    case ssl_test_lib:check_sane_openssl_renegotaite(Config, Version) of
+    case ssl_test_lib:check_sane_openssl_renegotiate(Config, Version) of
         {skip, _} = Skip ->
             Skip;
         Config ->

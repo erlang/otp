@@ -214,7 +214,7 @@ certificate_verify(PrivateKey, SignatureScheme,
         ssl_record:pending_connection_state(ConnectionStates, write),
     #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
-    {HashAlgo, _, _} =
+    {HashAlgo, SignAlgo, _} =
         ssl_cipher:scheme_to_components(SignatureScheme),
 
     Context = lists:reverse(Messages),
@@ -225,7 +225,7 @@ certificate_verify(PrivateKey, SignatureScheme,
 
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    case sign(THash, ContextString, HashAlgo, PrivateKey) of
+    case sign(THash, ContextString, HashAlgo, PrivateKey, SignAlgo) of
         {ok, Signature} ->
             {ok, #certificate_verify_1_3{
                     algorithm = SignatureScheme,
@@ -487,24 +487,9 @@ certificate_entry(DER) ->
 %%    79
 %%    00
 %%    0101010101010101010101010101010101010101010101010101010101010101
-sign(THash, Context, HashAlgo, #'ECPrivateKey'{} = PrivateKey) ->
+sign(THash, Context, HashAlgo, PrivateKey, SignAlgo) ->
     Content = build_content(Context, THash),
-    try digitally_signed(Content, HashAlgo, PrivateKey) of
-        Signature ->
-            {ok, Signature}
-    catch
-        error:badarg ->
-            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
-    end;
-sign(THash, Context, HashAlgo, PrivateKey) ->
-    Content = build_content(Context, THash),
-
-    %% The length of the Salt MUST be equal to the length of the output
-    %% of the digest algorithm: rsa_pss_saltlen = -1
-    try digitally_signed(Content, HashAlgo, PrivateKey,
-                         [{rsa_padding, rsa_pkcs1_pss_padding},
-                          {rsa_pss_saltlen, -1},
-                          {rsa_mgf1_md, HashAlgo}]) of
+    try ssl_handshake:digitally_signed({3,4}, Content, HashAlgo, PrivateKey, SignAlgo) of
         Signature ->
             {ok, Signature}
     catch
@@ -512,32 +497,15 @@ sign(THash, Context, HashAlgo, PrivateKey) ->
             {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end.
 
-
-verify(THash, Context, HashAlgo, Signature, {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
+verify(THash, Context, HashAlgo, SignAlgo, Signature, PublicKeyInfo) ->
     Content = build_content(Context, THash),
-    try public_key:verify(Content, HashAlgo, Signature, {PublicKey, PublicKeyParams}) of
-        Result ->
-            {ok, Result}
-    catch
-        error:badarg ->
-            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
-    end;
-verify(THash, Context, HashAlgo, Signature, {?rsaEncryption, PublicKey, _PubKeyParams}) ->
-    Content = build_content(Context, THash),
-
-    %% The length of the Salt MUST be equal to the length of the output
-    %% of the digest algorithm: rsa_pss_saltlen = -1
-    try public_key:verify(Content, HashAlgo, Signature, PublicKey,
-                    [{rsa_padding, rsa_pkcs1_pss_padding},
-                     {rsa_pss_saltlen, -1},
-                     {rsa_mgf1_md, HashAlgo}]) of
+    try ssl_handshake:verify_signature({3, 4}, Content, {HashAlgo, SignAlgo}, Signature, PublicKeyInfo) of
         Result ->
             {ok, Result}
     catch
         error:badarg ->
             {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end.
-
 
 build_content(Context, THash) ->
     Prefix = binary:copy(<<32>>, 64),
@@ -580,6 +548,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     {Ref,Maybe} = maybe(),
 
     try
+        
         %% Handle ALPN extension if ALPN is configured
         ALPNProtocol = Maybe(handle_alpn(ALPNPreferredProtocols, ClientALPN)),
 
@@ -588,27 +557,27 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% and a signature algorithm/certificate pair to authenticate itself to
         %% the client.
         Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
-
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
-
         {PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
 
         %% Check if client supports signature algorithm of server certificate
         Maybe(check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs, ClientSignAlgsCert)),
 
         %% Select signature algorithm (used in CertificateVerify message).
-        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, ServerSignAlgs)),
-
+        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, 
+                                                 handle_pss(PublicKeyAlgo,
+                                                            SignAlgo, SignHash, ServerSignAlgs))),
+        
         %% Select client public key. If no public key found in ClientShares or
         %% ClientShares is empty, trigger HelloRetryRequest as we were able
         %% to find an acceptable set of parameters but the ClientHello does not
         %% contain sufficient information.
         {Group, ClientPubKey} = get_client_public_key(Groups, ClientShares),
-
+        
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
-
+        
         State1 = update_start_state(State0,
                                     #{cipher => Cipher,
                                       key_share => KeyShare,
@@ -617,7 +586,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                       sign_alg => SelectedSignAlg,
                                       peer_public_key => ClientPubKey,
                                       alpn => ALPNProtocol}),
-
+        
         %% 4.1.4.  Hello Retry Request
         %%
         %% The server will send this message in response to a ClientHello
@@ -1850,7 +1819,7 @@ verify_certificate_verify(#state{
         ssl_record:pending_connection_state(ConnectionStates, write),
     #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
-    {HashAlgo, _, _} =
+    {HashAlgo, SignAlg, _} =
         ssl_cipher:scheme_to_components(SignatureScheme),
 
     Messages = get_handshake_context_cv(HHistory),
@@ -1864,7 +1833,7 @@ verify_certificate_verify(#state{
 
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    case verify(THash, ContextString, HashAlgo, Signature, PublicKeyInfo) of
+    case verify(THash, ContextString, HashAlgo, SignAlg, Signature, PublicKeyInfo) of
         {ok, true} ->
             {ok, {State0, wait_finished}};
         {ok, false} ->
@@ -2082,7 +2051,7 @@ select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
     %% RSASSA-PSS PSS algorithms: If the public key is carried in an X.509 certificate,
     %% it MUST use the RSASSA-PSS OID.
     case ((PublicKeyAlgo =:= rsa andalso S =:= rsa_pss_rsae)
-          orelse (PublicKeyAlgo =:= rsa_pss andalso S =:= rsa_pss_pss)
+          orelse (PublicKeyAlgo =:= rsa_pss_pss andalso S =:= rsa_pss_pss)
           orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa))
         andalso
         lists:member(C, ServerSignAlgs) of
@@ -2106,10 +2075,8 @@ do_check_cert_sign_algo(SignAlgo, SignHash, [Scheme|T]) ->
 
 
 %% id-RSASSA-PSS (rsa_pss) indicates that the key may only be used for PSS signatures.
-%% TODO: Uncomment when rsa_pss signatures are supported in certificates
-%% compare_sign_algos(rsa_pss, Hash, Algo, Hash)
-%%   when Algo =:= rsa_pss_pss ->
-%%     true;
+compare_sign_algos(rsa_pss_pss, Hash, rsa_pss_pss, Hash) ->
+     true;
 %% rsaEncryption (rsa) allows the key to be used for any of the standard encryption or
 %% signature schemes.
 compare_sign_algos(rsa, Hash, Algo, Hash)
@@ -2121,23 +2088,27 @@ compare_sign_algos(Algo, Hash, Algo, Hash) ->
 compare_sign_algos(_, _, _, _) ->
     false.
 
-
 get_certificate_params(Cert) ->
-    {SignAlgo0, _Param, PublicKeyAlgo0} = ssl_handshake:get_cert_params(Cert),
-    {SignHash0, SignAlgo} = public_key:pkix_sign_types(SignAlgo0),
-    %% Convert hash to new format
-    SignHash = case SignHash0 of
-                   sha ->
-                       sha1;
-                   H -> H
-               end,
-    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
-    {PublicKeyAlgo, SignAlgo, SignHash}.
+    {SignAlgo0, Param, SubjectPublicKeyAlgo0} = ssl_handshake:get_cert_params(Cert),
+    {SignHash, SignAlgo} = oids_to_atoms(SignAlgo0, Param),
+    SubjectPublicKeyAlgo = public_key_algo(SubjectPublicKeyAlgo0),
+    {SubjectPublicKeyAlgo, SignAlgo, SignHash}.
 
-
+oids_to_atoms(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm = 
+                                                        #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                            parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+    Hash = public_key:pkix_hash_type(HashOid),
+    {Hash, rsa_pss_pss};
+oids_to_atoms(SignAlgo, _) ->
+    case public_key:pkix_sign_types(SignAlgo) of
+        {sha, Sign} ->
+            {sha1, Sign};
+        {_,_} = Algs ->
+            Algs
+    end.
 %% Note: copied from ssl_handshake
 public_key_algo(?'id-RSASSA-PSS') ->
-    rsa_pss;
+    rsa_pss_pss;
 public_key_algo(?rsaEncryption) ->
     rsa;
 public_key_algo(?'id-ecPublicKey') ->
@@ -2412,29 +2383,13 @@ process_user_tickets([H|T], Acc, N) ->
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
     (TicketAge + AgeAdd) rem round(math:pow(2,32)).
 
+handle_pss(rsa_pss_pss, rsa_pss_pss, sha256, Algs) ->
+    Algs -- [rsa_pss_pss_sha384, rsa_pss_pss_sha512];
+handle_pss(rsa_pss_pss, rsa_pss_pss, sha384, Algs) ->
+    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha512];
+handle_pss(rsa_pss_pss, rsa_pss_pss, sha512, Algs) ->
+    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha384];
+handle_pss(_,_,_, Algs) ->
+    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha384, rsa_pss_pss_sha512].
 
-digitally_signed(Msg, HashAlgo, PrivateKey) ->
-    digitally_signed(Msg, HashAlgo, PrivateKey, []).
 
-digitally_signed(Msg, HashAlgo, PrivateKey, Options) ->
-    try do_digitally_signed(Msg, HashAlgo, PrivateKey, Options) of
-	Signature ->
-	    Signature
-    catch 
-        error:_ ->
-            {error, ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey))}
-    end.
-
-do_digitally_signed(Msg, HashAlgo, #{algorithm := Alg} = Engine, Options) ->
-    crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
-do_digitally_signed(Msg, HashAlgo, Key, Options) ->
-    public_key:sign(Msg, HashAlgo, Key, Options).
-
-bad_key(#'RSAPrivateKey'{}) ->
-    unacceptable_rsa_key;
-bad_key(#'ECPrivateKey'{}) ->
-    unacceptable_ecdsa_key;
-bad_key(#{algorithm := rsa}) ->
-    unacceptable_rsa_key;
-bad_key(#{algorithm := ecdsa}) ->
-    unacceptable_ecdsa_key.
