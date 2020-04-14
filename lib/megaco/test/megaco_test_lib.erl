@@ -654,22 +654,22 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 %% We first assume its a float, and if not try integer
                 try list_to_float(string:trim(BogoMIPS)) of
-                    F when F > 4000 ->
+                    F when F > 5000 ->
                         1;
-                    F when F > 1000 ->
+                    F when F > 2000 ->
                         2;
-                    F when F > 500 ->
+                    F when F > 1000 ->
                         3;
                     _ ->
                         5
                 catch
                     _:_:_ ->
                         try list_to_integer(string:trim(BogoMIPS)) of
-                            I when I > 4000 ->
+                            I when I > 5000 ->
                                 1;
-                            I when I > 1000 ->
+                            I when I > 2000 ->
                                 2;
-                            I when I > 500 ->
+                            I when I > 1000 ->
                                 3;
                             _ ->
                                 5
