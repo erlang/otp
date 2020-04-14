@@ -657,6 +657,14 @@ init_per_suite(Config) ->
                         true
                 end
         end,
+    DarwinVersionVerify =
+        fun(V) when (V > {9, 8, 0}) ->
+                %% This version is OK: No Skip
+                false;
+           (_V) ->
+                %% This version is *not* ok: Skip
+                true
+        end,
     SkipWindowsOnVirtual =
         fun() ->
                 SysInfo = which_win_system_info(),
@@ -668,8 +676,9 @@ init_per_suite(Config) ->
                         false
                 end
         end,
-    COND = [{win32, SkipWindowsOnVirtual},
-            {unix,  [{linux, LinuxVersionVerify}]}],
+    COND = [{unix,  [{linux, LinuxVersionVerify}, 
+                     {darwin, DarwinVersionVerify}]},
+            {win32, SkipWindowsOnVirtual}],
     case os_based_skip(COND) of
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
