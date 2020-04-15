@@ -4764,7 +4764,8 @@ do_inform_swarm(Config) ->
             "~p      ~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
-    AgentNode = ?config(agent_node, Config),
+    AgentNode = ?config(agent_node,   Config),
+    Factor    = ?config(snmp_factor,  Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
@@ -4776,7 +4777,7 @@ do_inform_swarm(Config) ->
     ?line ok = agent_load_mib(AgentNode,  Test2Mib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
-    NumInforms = 2000, 
+    NumInforms = 2000 div Factor,
 
     Collector = self(),
 
@@ -4836,11 +4837,11 @@ do_inform_swarm(Config) ->
 
     Commands = 
 	[
-	 {1, "Manager and agent info at start of test", Cmd1},
-	 {2, "Send notifcation(s) from agent", Cmd2},
-	 {3, "Await send-ack(s)/inform(s)/response(s)", Cmd3},
-	 {4, "Sleep some time (1 sec)", Cmd4},
-	 {5, "Manager and agent info after test completion", Cmd1}
+	 {1, "Manager and agent info at start of test",             Cmd1},
+	 {2, ?F("Send ~p notifcation(s) from agent", [NumInforms]), Cmd2},
+	 {3, "Await send-ack(s)/inform(s)/response(s)",             Cmd3},
+	 {4, "Sleep some time (1 sec)",                             Cmd4},
+	 {5, "Manager and agent info after test completion",        Cmd1}
 	],
 
     Res = command_handler(Commands),
