@@ -713,7 +713,13 @@ render_element(B, State, Pos, Ind,#config{ io_columns = Cols }) when is_binary(B
     end;
 
 render_element({Tag,Attr,Content}, State, Pos, Ind,D) ->
-    throw({unhandled,{Tag,Attr,Content,Pos,Ind}}),
+    case lists:member(Tag,?ALL_ELEMENTS) of
+        true ->
+            throw({unhandled_element,Tag,Attr,Content});
+        false ->
+            %% We ignore tags that we do not care about
+            ok
+    end,
     render_docs(Content, State, Pos, Ind,D).
 
 render_words(Words,[_,types|State],Pos,Ind,Acc,Cols) ->
