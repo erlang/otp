@@ -488,13 +488,18 @@
 <pre>
 % <input>erl -name test@ipv6node.example.com -proto_dist inet6_tcp</input></pre>
       </item>
-      <tag><c><![CDATA[-remsh Node]]></c></tag>
+      <tag><marker id="remsh"/><c><![CDATA[-remsh Node]]></c></tag>
       <item>
-        <p>Starts Erlang with a remote shell connected to
-          <c><![CDATA[Node]]></c>. Requires either <c><![CDATA[-name]]></c>
-          or <c><![CDATA[-sname]]></c> to be given. If <c><![CDATA[Node]]></c>
-          does not contain a hostname, one is automatically taken from
-          <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c></p>
+        <p>Starts Erlang with a remote shell connected to <c><![CDATA[Node]]></c>.</p>
+        <p>If no <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c> is given
+          the node will be started using <c>-sname undefined</c>. If <c>Node</c>
+          is using long names then you should give <c>-name undefined</c>.
+          If <c><![CDATA[Node]]></c> does not contain a hostname, one is automatically
+          taken from <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c>
+        </p>
+        <note><p>Before OTP-23 the user <em>needed</em> to supply a valid <c>-sname</c> or
+          <c>-name</c> for <c>-remsh</c> to work. This is still the case if the target
+          node is not running OTP-23 or later.</p></note>
       </item>
       <tag><c><![CDATA[-rsh Program]]></c></tag>
       <item>
