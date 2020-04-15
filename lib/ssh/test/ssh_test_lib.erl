@@ -1081,7 +1081,10 @@ setup_user_key(SshAlg, DataDir, UserDir) ->
     {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub")),
     ok = file:write_file(filename:join(UserDir, "authorized_keys"),
                          io_lib:format("~n~s~n",[Pub]),
-                         [append]).
+                         [append]),
+    ?ct_log_show_file( filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub") ),
+    ?ct_log_show_file( filename:join(UserDir, "authorized_keys") ),
+    ok.
 
 setup_host_key_create_dir(SshAlg, DataDir, BaseDir) ->
     SysDir = filename:join(BaseDir,"system"),
@@ -1095,13 +1098,17 @@ setup_host_key(SshAlg, DataDir, SysDir) ->
     %% Copy private host key to system's dir
     {ok,_} = file:copy(filename:join(DataDir, file_base_name(system_src,SshAlg)),
                        filename:join(SysDir,  file_base_name(system,SshAlg))),
+    ?ct_log_show_file( filename:join(SysDir,  file_base_name(system,SshAlg)) ),
     ok.
 
 setup_known_host(SshAlg, DataDir, UserDir) ->
     {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(system_src,SshAlg)++".pub")),
     S = lists:join(" ", lists:reverse(tl(lists:reverse(string:tokens(binary_to_list(Pub), " "))))),
-    file:write_file(filename:join(UserDir, "known_hosts"),
-                    io_lib:format("~p~n",[S])).
+    ok = file:write_file(filename:join(UserDir, "known_hosts"),
+                         io_lib:format("~p~n",[S])),
+    ?ct_log_show_file( filename:join(UserDir, "known_hosts") ),
+    ok.
+
 
 get_addr_str() ->
     {ok, Hostname} = inet:gethostname(),
