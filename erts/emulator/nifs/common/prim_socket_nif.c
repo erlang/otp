@@ -3542,8 +3542,9 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     BOOLEAN_T isConnected  = (descP->writeState & ESOCK_STATE_CONNECTED) != 0;
     if ((! isConnected) ||
         esock_encode_sockaddr(env, &descP->remote,
-                              descP->addrLen, &remote) != NULL)
+                              descP->addrLen, &remote) != NULL) {
         remote = esock_atom_undefined; // not used
+    }
 
     {
         ERL_NIF_TERM keys[]
@@ -5741,7 +5742,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
                                       (struct sockaddr*) &descP->remote, &sz);
         if (! IS_SOCKET_ERROR(code)) {
             SSDBG2( dbg, ("SOCKET", "esock_open2 -> connected\r\n") );
-	    descP->writeState = ESOCK_STATE_CONNECTED;
+	    descP->writeState |= ESOCK_STATE_CONNECTED;
         } else {
             SSDBG2( dbg, ("SOCKET", "esock_open2 -> not connected\r\n") );
         }
@@ -6439,12 +6440,12 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
             if (descP->connectorP != NULL) {
                 requestor_release("esock_connect -> connected",
                                   env, descP, &descP->connector);
+                descP->writeState &= ~ESOCK_STATE_CONNECTING;
                 descP->connectorP = NULL;
             }
 
-            descP->writeState &= ~ESOCK_STATE_CONNECTING;
-
             if (! verify_is_connected(descP, &err)) {
+                descP->writeState &= ~ESOCK_STATE_CONNECTED;
                 return esock_make_error_errno(env, err);
             }
 
@@ -6510,16 +6511,21 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
         {
             int err;
 
-            if (descP->connectorP != NULL) {
-                requestor_release("esock_connect -> already connected",
-                                  env, descP, descP->connectorP);
-                descP->connectorP = NULL;
+            if (descP->connectorP == NULL) {
+                /* No connection in progress*/
+                return esock_make_error_errno(env, save_errno);
             }
+
+            requestor_release("esock_connect -> already connected",
+                              env, descP, descP->connectorP);
+            descP->connectorP = NULL;
 
             descP->writeState &= ~ESOCK_STATE_CONNECTING;
 
-            if (! verify_is_connected(descP, &err))
+            if (! verify_is_connected(descP, &err)) {
+                descP->writeState &= ~ESOCK_STATE_CONNECTED;
                 return esock_make_error_errno(env, err);
+            }
 
             descP->writeState |= ESOCK_STATE_CONNECTED;
 
@@ -6533,8 +6539,9 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
                 descP->sock, save_errno) );
         {
             if (descP->connectorP != NULL) {
-                requestor_release("esock_connect -> already connected",
+                requestor_release("esock_connect -> other error",
                                   env, descP, descP->connectorP);
+                descP->writeState &= ~ESOCK_STATE_CONNECTING;
                 descP->connectorP = NULL;
             }
 
@@ -6627,8 +6634,10 @@ ERL_NIF_TERM esock_finalize_connection(ErlNifEnv*       env,
 
     descP->writeState &= ~ESOCK_STATE_CONNECTING;
 
-    if (! verify_is_connected(descP, &error))
+    if (! verify_is_connected(descP, &error)) {
+        descP->writeState &= ~ESOCK_STATE_CONNECTED;
         return esock_make_error_errno(env, error);
+    }
 
     descP->writeState |= ESOCK_STATE_CONNECTED;
 
