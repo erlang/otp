@@ -901,24 +901,22 @@ get_function_docs_from_ast(AST) ->
     lists:flatmap(fun(E) -> get_function_docs_from_ast(E, AST) end, AST).
 get_function_docs_from_ast({function,Anno,Name,Arity,_Code}, AST) ->
     Signature = io_lib:format("~p/~p",[Name,Arity]),
-    Specs =  lists:filter(fun({attribute,_Ln,spec,{FA,_}}) ->
-                                  case FA of
-                                      {F,A} ->
-                                          F =:= Name andalso A =:= Arity;
-                                      {_, F, A} ->
-                                          F =:= Name andalso A =:= Arity
-                                  end;
-                             (_) -> false
-                          end, AST),
+    Specs =  lists:filter(
+               fun({attribute,_Ln,spec,{FA,_}}) ->
+                       case FA of
+                           {F,A} ->
+                               F =:= Name andalso A =:= Arity;
+                           {_, F, A} ->
+                               F =:= Name andalso A =:= Arity
+                       end;
+                  (_) -> false
+               end, AST),
     SpecMd = case Specs of
-                 [S] -> #{ spec => [S] };
+                 [S] -> #{ signature => [S] };
                  [] -> #{}
              end,
-    FnDocs = [],
-    Md = SpecMd#{},
-    [{{function, Name, Arity}, Anno, [unicode:characters_to_binary(Signature)],
-     #{ <<"en">> => FnDocs },
-      Md#{}}];
+    [{{function, Name, Arity}, Anno,
+      [unicode:characters_to_binary(Signature)], none, SpecMd}];
 get_function_docs_from_ast(_, _) ->
     [].
 

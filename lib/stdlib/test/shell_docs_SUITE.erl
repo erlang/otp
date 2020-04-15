@@ -37,7 +37,13 @@ all() ->
 groups() ->
     [{prop,[],[render_prop]}].
 
+%% Include a spec here in order to test that specs of undocumented functions
+%% is rendered correctly.
+-spec init_per_suite(Config1) -> Config2 when
+      Config1 :: list({atom(),term()}),
+      Config2 :: list({atom(),term()}).
 init_per_suite(Config) ->
+    {ok, ?MODULE} = c:c(?MODULE,[debug_info]),
     Config.
 
 end_per_suite(_Config) ->
@@ -194,25 +200,26 @@ render_all(Dir) ->
       end).
 
 docsmap(Fun) ->
-    lists:map(fun F({Mod,_,_}) ->
-                      F(Mod);
-                  F(Mod) when is_list(Mod) ->
-                      F(list_to_atom(Mod));
-                  F(Mod) ->
-                      case code:get_doc(Mod) of
-                          {error, missing} ->
-                              ok;
-                          {error, cover_compiled} ->
-                              ok;
-                          {error, eacces} ->
-                              %% This can happen in BSD's for some reason...
-                              ok;
-                          {ok, Docs} ->
-                              try
-                                  Fun(Mod, Docs)
-                              catch E:R:ST ->
-                                      io:format("Failed to render ~p~n~p:~p:~p~n",[Mod,E,R,ST]),
-                                      erlang:raise(E,R,ST)
-                              end
+    lists:map(
+      fun F({Mod,_,_}) ->
+              F(Mod);
+          F(Mod) when is_list(Mod) ->
+              F(list_to_atom(Mod));
+          F(Mod) ->
+              case code:get_doc(Mod) of
+                  {error, missing} ->
+                      ok;
+                  {error, cover_compiled} ->
+                      ok;
+                  {error, eacces} ->
+                      %% This can happen in BSD's for some reason...
+                      ok;
+                  {ok, Docs} ->
+                      try
+                          Fun(Mod, Docs)
+                      catch E:R:ST ->
+                              io:format("Failed to render ~p~n~p:~p:~p~n",[Mod,E,R,ST]),
+                              erlang:raise(E,R,ST)
                       end
-              end, code:all_available()).
+              end
+      end, code:all_available()).
