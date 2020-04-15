@@ -4886,7 +4886,7 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 
 	%% The manager has received the actual inform
 	{async_event, From, {inform, Pid, Inform}} ->
-	    ?IPRINT("received inform"),
+	    ?IPRINT("received inform (~p of ~p)", [RecvCnt+1, N]),
 	    case Inform of
 		{noError, 0, VBs} when is_list(VBs) ->
 		    Pid ! {handle_inform_response, From}, 
