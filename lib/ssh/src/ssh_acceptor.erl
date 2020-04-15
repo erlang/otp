@@ -217,6 +217,11 @@ ssh_dbg_format(connections, {call, {?MODULE,acceptor_init,
                                     [_Parent, Port, Address, _Opts, _AcceptTimeout]}}) ->
     [io_lib:format("Starting LISTENER on ~s:~p\n", [ntoa(Address),Port])
     ];
+ssh_dbg_format(connections, {return_from, {?MODULE,acceptor_init,5}, _Ret}) ->
+    skip;
+
+ssh_dbg_format(connections, {call, {?MODULE,handle_connection,[_,_,_,_,_]}}) ->
+    skip;
 ssh_dbg_format(connections, {return_from, {?MODULE,handle_connection,5}, {error,Error}}) ->
     ["Starting connection to server failed:\n",
      io_lib:format("Error = ~p", [Error])

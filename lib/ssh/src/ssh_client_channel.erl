@@ -419,12 +419,16 @@ ssh_dbg_format(channels, {return_from, {?MODULE,init,1}, {stop,Reason}}) ->
     ["Server Channel Start FAILED!\n",
      io_lib:format("Reason = ~p", [Reason])
     ];
+
 ssh_dbg_format(channels, F) ->
     ssh_dbg_format(terminate, F);
+
 ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
     ["Server Channel Terminating:\n",
      io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
     ];
+ssh_dbg_format(terminate, {return_from, {?MODULE,terminate,2}, _Ret}) ->
+    skip;
 
 ssh_dbg_format(channel_events, {call, {?MODULE,handle_call, [Call,From,State]}}) ->
     [hdr("is called", State),
@@ -434,6 +438,7 @@ ssh_dbg_format(channel_events, {return_from, {?MODULE,handle_call,3}, Ret}) ->
     ["Server Channel call returned:\n",
      io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
     ];
+
 ssh_dbg_format(channel_events, {call, {?MODULE,handle_cast, [Cast,State]}}) ->
     [hdr("got cast", State),
      io_lib:format("Cast: ~p~n", [Cast])
@@ -442,6 +447,7 @@ ssh_dbg_format(channel_events, {return_from, {?MODULE,handle_cast,2}, Ret}) ->
     ["Server Channel cast returned:\n",
      io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
     ];
+
 ssh_dbg_format(channel_events, {call, {?MODULE,handle_info, [Info,State]}}) ->
     [hdr("got info", State),
      io_lib:format("Info: ~p~n", [Info])

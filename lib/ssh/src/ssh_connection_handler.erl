@@ -2561,17 +2561,26 @@ ssh_dbg_format(renegotiation, {call, {?MODULE,init_renegotiate_timers,[_State,D]
                    [?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
                     ?REKEY_DATA_TIMOUT])
     ];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,init_renegotiate_timers,2}, _Ret}) ->
+    skip;
+
 ssh_dbg_format(renegotiation, {call, {?MODULE,pause_renegotiate_timers,[_State,_D]}}) ->
     ["Renegotiation pause\n"];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,pause_renegotiate_timers,2}, _Ret}) ->
+    skip;
+
 ssh_dbg_format(renegotiation, {call, {?MODULE,start_rekeying,[_Role,_D]}}) ->
     ["Renegotiation start rekeying\n"];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,start_rekeying,2}, _Ret}) ->
+    skip;
+
 ssh_dbg_format(renegotiation, {call, {?MODULE,check_data_rekeying_dbg,[SentSinceRekey, MaxSent]}}) ->
     ["Renegotiation check data sent\n",
      io_lib:format("TotalSentSinceRekey: ~p~nMaxBeforeRekey: ~p~nStartRekey: ~p~n",
                    [SentSinceRekey, MaxSent, SentSinceRekey >= MaxSent])
     ];
-
-
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,check_data_rekeying_dbg,2}, _Ret}) ->
+    skip;
 
 ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}) ->
     ExtraInfo =
@@ -2605,6 +2614,8 @@ ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}) -
                            [Reason, StateName, ExtraInfo, state_data2proplist(D)])
             ]
     end;
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,terminate,3}, _Ret}) ->
+    skip;
 
 ssh_dbg_format(disconnect, {call,{?MODULE,send_disconnect,
                                      [Code, Reason, DetailedText, Module, Line, StateName, _D]}}) ->
@@ -2614,7 +2625,9 @@ ssh_dbg_format(disconnect, {call,{?MODULE,send_disconnect,
                    " DetailedText =~n"
                    " ~p",
                    [Module, Line, StateName, Code, Reason, lists:flatten(DetailedText)])
-    ].
+    ];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,send_disconnect,7}, _Ret}) ->
+    skip.
 
 
 event_handler_result({next_state, NextState, _NewData}) ->

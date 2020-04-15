@@ -89,7 +89,7 @@
 -callback ssh_dbg_flags(trace_point()) -> [atom()].
 -callback ssh_dbg_on(trace_point() | trace_points()) -> term().
 -callback ssh_dbg_off(trace_point() | trace_points()) -> term().
--callback ssh_dbg_format(trace_point(), term()) -> iolist().
+-callback ssh_dbg_format(trace_point(), term()) -> iolist() | skip.
 
 %%%================================================================
 
@@ -325,20 +325,35 @@ try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
     TS = trace_ts(Arg),
     PID = trace_pid(Arg),
     INFO = trace_info(Arg),
-    lists:foldl(
-      fun(Type, Acc1) ->
-              lists:foldl(
-                fun(SshMod,Acc) ->
-                        try WriteFun("~n~s ~p ~s~n", 
-                                     [lists:flatten(TS),
-                                      PID,
-                                      lists:flatten(SshMod:ssh_dbg_format(Type, INFO))],
-                                     Acc)
-                        catch
-                            _:_ -> Acc
-                        end
-                end, Acc1, SshModules)
-      end, Acc0, TypesOn).
+    Acc =
+        lists:foldl(
+          fun(Type, Acc1) ->
+                  lists:foldl(
+                    fun(SshMod,Acc) ->
+                            try SshMod:ssh_dbg_format(Type, INFO)
+                            of
+                                skip ->
+                                    %% Don't try to print this later
+                                    written;
+                                Txt when is_list(Txt) ->
+                                    WriteFun("~n~s ~p ~s~n", 
+                                             [lists:flatten(TS),
+                                              PID,
+                                              lists:flatten(Txt)],
+                                             written % this is returned
+                                            )
+                            catch
+                                _:_ -> Acc
+                            end
+                    end, Acc1, SshModules)
+          end, Acc0, TypesOn),
+    case Acc of
+        Acc0 ->
+            %% INFO :: any()
+            WriteFun("~n~s ~p DEBUG~n~p~n", [lists:flatten(TS),PID,INFO], Acc0);
+        written ->
+            Acc0
+    end.
 
 %%%----------------------------------------------------------------
 wr_record(T, Fs, BL) when is_tuple(T) ->
