@@ -1038,14 +1038,12 @@ DiB == gen_digest(ChA, ICA)?
         <item>
           <p>The node implements atom cache in distribution header.</p>
         </item>
-	<marker id="DFLAG_SMALL_ATOM_TAGS"/>
-        <tag><c>-define(DFLAG_SMALL_ATOM_TAGS, 16#4000).</c></tag>
+        <tag><marker id="DFLAG_SMALL_ATOM_TAGS"/><c>-define(DFLAG_SMALL_ATOM_TAGS, 16#4000).</c></tag>
         <item>
           <p>The node understands the <seeguide marker="erl_ext_dist#SMALL_ATOM_EXT">
 	  <c>SMALL_ATOM_EXT</c></seeguide> tag.</p>
         </item>
-	<marker id="DFLAG_UTF8_ATOMS"/>
-        <tag><c>-define(DFLAG_UTF8_ATOMS, 16#10000).</c></tag>
+        <tag><marker id="DFLAG_UTF8_ATOMS"/><c>-define(DFLAG_UTF8_ATOMS, 16#10000).</c></tag>
         <item>
           <p>The node understands UTF-8 atoms encoded with
 	    <seeguide marker="erl_ext_dist#ATOM_UTF8_EXT">
@@ -1058,8 +1056,7 @@ DiB == gen_digest(ChA, ICA)?
           <p>The node understands the map tag
 	  <seeguide marker="erl_ext_dist#MAP_EXT"><c>MAP_EXT</c></seeguide>.</p>
         </item>
-	<marker id="DFLAG_BIG_CREATION"/>
-        <tag><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
+        <tag><marker id="DFLAG_BIG_CREATION"/><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
         <item>
           <p>The node understands big node creation tags
 	  <seeguide marker="erl_ext_dist#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>,
@@ -1089,14 +1086,12 @@ DiB == gen_digest(ChA, ICA)?
             <seeguide marker="#control_message">control message</seeguide>s
             instead of the non-PAYLOAD variants.</p>
         </item>
-	<marker id="DFLAG_FRAGMENTS"/>
-        <tag><c>-define(DFLAG_FRAGMENTS, 16#800000).</c></tag>
+        <tag><marker id="DFLAG_FRAGMENTS"/><c>-define(DFLAG_FRAGMENTS, 16#800000).</c></tag>
         <item>
           <p>Use <seeguide marker="erl_ext_dist#fragments">fragmented</seeguide>
             distribution messages to send large messages.</p>
         </item>
-	<marker id="DFLAG_HANDSHAKE_23"/>
-        <tag><c>-define(DFLAG_HANDSHAKE_23, 16#1000000).</c></tag>
+        <tag><marker id="DFLAG_HANDSHAKE_23"/><c>-define(DFLAG_HANDSHAKE_23, 16#1000000).</c></tag>
         <item>
           <p>The node supports the new connection setup handshake (version 6)
 	  introduced in OTP 23.</p>
