@@ -114,6 +114,11 @@
           <tag><c>signature := SpecAST</c></tag>
           <item>The spec AST associated with this function. It is used to render a more
             descriptive slogan for the documentation entry.</item>
+          <tag><c>equiv := {Type,Name,Arity}</c></tag>
+          <item>The current function/type shares documentation with another function/type.
+            This means that if this and the target function/type are to be shown at the
+            same time only the prototype of this function/type should will be displayed
+            and the documentation will use a common body of text.</item>
         </taglist>
       </item>
     </list>
