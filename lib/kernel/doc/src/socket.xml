@@ -301,6 +301,31 @@
     <datatype>
       <name name="int32"/>
     </datatype>
+    <datatype>
+      <name name="errcode"/>
+      <desc>
+	<p>
+	  The POSIX error codes are mostly come from the
+	  OS level socket interface,
+	  but this module may generate some appropriate
+	  POSIX codes.
+	</p>
+	<p>
+	  The other values come from this module's lower levels
+	  and are all fairly fatal internal errors:
+	</p>
+	<taglist>
+	  <tag><c>exalloc</c></tag>
+	  <item>Memory allocation failed</item>
+	  <tag><c>exmonitor</c></tag>
+	  <item>Failed to set a monitor on a process</item>
+	  <tag><c>exselect</c></tag>
+	  <item>Select operation failed</item>
+	  <tag><c>exself</c></tag>
+	  <item>Failed to get current process</item>
+	</taglist>
+      </desc>
+    </datatype>
   </datatypes>
 
   <funcs>
