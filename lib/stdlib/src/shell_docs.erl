@@ -76,12 +76,12 @@ validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
 
     _ = validate_docs(MDocs),
     lists:foreach(fun({_,_Anno, Sig, Docs, _Meta}) ->
-                      case lists:all(fun erlang:is_binary/1, Sig) of
-                          false -> throw({invalid_signature,Sig});
-                          true -> ok
-                      end,
-                      [validate_docs(Doc) || Doc <- Docs]
-              end, AllDocs),
+                          case lists:all(fun erlang:is_binary/1, Sig) of
+                              false -> throw({invalid_signature,Sig});
+                              true -> ok
+                          end,
+                          validate_docs(Docs)
+                  end, AllDocs),
     ok.
 
 validate_docs(hidden) ->
@@ -101,6 +101,24 @@ validate_docs({br,Attr,Content} = Br,Path) ->
             throw({content_to_allowed_in_br,Br,Path})
     end;
 validate_docs({Tag,Attr,Content},Path) ->
+
+    %% Test that we only have li's within ul and ol
+    case (Tag =/= li) andalso (length(Path) > 0) andalso ((hd(Path) =:= ul) orelse (hd(Path) =:= ol)) of
+        true ->
+            throw({only_li_allowed_within_ul_or_ol,Tag,Path});
+        _ ->
+            ok
+    end,
+
+    %% Test that we only have dd's and dt's within dl
+    case (Tag =/= dd) andalso (Tag =/= dt) andalso (length(Path) > 0) andalso (hd(Path) =:= dl) of
+        true ->
+            throw({only_dd_or_dt_allowed_within_dl,Tag,Path});
+        _ ->
+            ok
+    end,
+
+    %% Test that we do not have p's within p's
     case Tag =:= p andalso lists:member(p, Path) of
         true ->
             throw({nested_p_not_allowed,Tag,Path});
