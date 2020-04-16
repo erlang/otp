@@ -489,6 +489,7 @@ init_per_suite(Config) ->
         fun() ->
                 SysInfo = which_win_system_info(),
                 SysMan  = win_sys_info_lookup(system_manufacturer, SysInfo),
+                io:format("Virtual Windows skip check with ~p~n", [SysMan]),
                 case string:to_lower(SysMan) of
                     "vmware" ++ _ ->
                         true;
