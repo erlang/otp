@@ -647,6 +647,14 @@ init_per_suite(Config) ->
                 end;
            (V) when (V > {2,6,24}) ->
                 false; % OK - No skip
+           (V) when (V =:= {2,6,10}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    "MontaVista" ++ _ -> % Stone age MontaVista => Skip
+                        %% The real problem is that the machine is *very* slow
+                        true;
+                    _ ->
+                        false
+                end;
            (_) ->
                 %% We are specifically checking for
                 %% a *really* old gento...

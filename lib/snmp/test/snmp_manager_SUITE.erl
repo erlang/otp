@@ -4797,8 +4797,8 @@ do_inform_swarm(Config) ->
 					     {{inform2_tag1, N}, Collector},
 					     "standard inform",
 					     []),
-			    %% Sleep some [(N div 10)*100 ms] 
-			    %% every tenth notification
+			    %% Sleep 1000 ms every 100th notif
+			    %% Sleep 100  ms every 10th notif
 			    if
                                 N rem 100 == 0 ->
                                     Sleep = 1000,
