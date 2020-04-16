@@ -883,24 +883,38 @@ analyze_and_print_host_info() ->
                     10
             end
     end.
+
+linux_which_distro(Version) ->
+    case [string:trim(S) ||
+             S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
+        [DistroStr|_] ->
+            io:format("Linux: ~s"
+                      "~n   ~s"
+                      "~n",
+                      [Version, DistroStr]),
+            case DistroStr of
+                "Wind River Linux" ++ _ ->
+                    wind_river;
+                "MontaVista" ++ _ ->
+                    montavista;
+                "Yellow Dog" ++ _ ->
+                    yellow_dog;
+                _ ->
+                    other
+            end;
+        X ->
+            io:format("Linux: ~s"
+                      "~n   ~p"
+                      "~n",
+                      [Version, X]),
+            other
+    end.
     
 analyze_and_print_linux_host_info(Version) ->
     Distro =
         case file:read_file_info("/etc/issue") of
             {ok, _} ->
-                DistroStr = string:trim(os:cmd("cat /etc/issue")),
-                io:format("Linux: ~s"
-                          "~n   ~s"
-                          "~n",
-                          [Version, DistroStr]),
-                case DistroStr of
-                    "Wind River Linux" ++ _ ->
-                        wind_river;
-                    "MontaVista" ++ _ ->
-                        montavista;
-                    _ ->
-                        other
-                end;
+                linux_which_distro(Version);
             _ ->
                 io:format("Linux: ~s"
                           "~n", [Version]),
@@ -1054,6 +1068,21 @@ linux_which_cpuinfo(montavista) ->
         BMips ->
             {ok, {CPU, BMips}}
     end;
+
+linux_which_cpuinfo(yellow_dog) ->
+    CPU =
+        case linux_cpuinfo_cpu() of
+            "-" ->
+                throw(noinfo);
+            Model ->
+                case linux_cpuinfo_motherboard() of
+                    "-" ->
+                        Model;
+                    MB ->
+                        Model ++ " (" ++ MB ++ ")"
+                end
+        end,
+    {ok, CPU};
 
 linux_which_cpuinfo(wind_river) ->
     CPU =
