@@ -354,11 +354,18 @@ restart_with_mode(Config) when is_list(Config) ->
     {ok,[[Erl]]} = init:get_argument(progname),
     ModPath = filename:dirname(code:which(?MODULE)),
 
-    Eval1 = "'Mode=code:get_mode(), io:fwrite(Mode), case Mode of interactive -> init:restart([{mode,embedded}]); embedded -> erlang:halt() end'",
+    Quote = case os:type() of
+                {win,_} ->
+                    [$"];
+                {unix,_} ->
+                    [$']
+            end,
+
+    Eval1 = Quote ++ "Mode=code:get_mode(), io:fwrite(Mode), case Mode of interactive -> init:restart([{mode,embedded}]); embedded -> erlang:halt() end" ++ Quote,
     Cmd1 = Erl ++ " -mode interactive -noshell -eval " ++ Eval1,
     "interactiveembedded" = os:cmd(Cmd1),
 
-    Eval2 = "'Mode=code:get_mode(), io:fwrite(Mode), case Mode of embedded -> init:restart([{mode,interactive}]); interactive -> erlang:halt() end'",
+    Eval2 = Quote ++ "Mode=code:get_mode(), io:fwrite(Mode), case Mode of embedded -> init:restart([{mode,interactive}]); interactive -> erlang:halt() end" ++ Quote,
     Cmd2 = Erl ++ " -mode embedded -noshell -eval " ++ Eval2,
     "embeddedinteractive" = os:cmd(Cmd2),
 
