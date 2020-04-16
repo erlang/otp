@@ -291,9 +291,16 @@ errors(Config) ->
         _ ->
             NoDir = lists:concat(["/",?MODULE,"_dir"]),
             {error,
-             {handler_not_added,{open_failed,NoDir,eacces}}} =
+             {handler_not_added,{open_failed,NoDir,Error}}} =
                 logger:add_handler(myh2,logger_std_h,
-                                   #{config=>#{type=>{file,NoDir}}})
+                                   #{config=>#{type=>{file,NoDir}}}),
+            case Error of
+                erofs ->
+                    %% Happens on OS X
+                    ok;
+                eacces ->
+                    ok
+            end
     end,
 
     {error,
@@ -1768,7 +1775,7 @@ rotation_opts_restart_handler(Config) ->
            HConfig3#{config=>StdHConfig3#{max_no_bytes=>75,
                                           max_no_files=>1,
                                           compress_on_rotate=>true}}),
-    timer:sleep(100),
+    timer:sleep(500),
     {ok,#file_info{size=0}} = file:read_file_info(Log),
     {ok,#file_info{size=29}} = file:read_file_info(Log++".0.gz"),
     [_] = filelib:wildcard(Log++".*"),
