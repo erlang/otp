@@ -292,7 +292,7 @@ do_recv(Sock, Bs) ->
           If any other process is interacting with the socket while
           the transfer is happening, the transfer may not work correctly
           and messages may remain in the caller's mailbox. For instance
-          changing the sockets active mode before the transfere is complete
+          changing the sockets active mode before the transfer is complete
           may cause this.</p>
       </desc>
     </func>
