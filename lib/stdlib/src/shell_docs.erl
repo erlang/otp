@@ -490,14 +490,22 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D) ->
       end, maps:to_list(Grouping)).
 
 %% Render the signature of either function, type, or anything else really.
-render_signature({{_Type,_F,_A},_Anno,_Sig,_Docs,#{ signature := Specs } = Meta}) ->
+render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta}) ->
     lists:flatmap(
       fun(ASTSpec) ->
-              Spec = unicode:characters_to_binary(
-                       string:trim(
-                         erl_pp:attribute(ASTSpec,[{encoding,utf8}]),
-                         trailing, "\n")),
-              [{pre,[],[{em,[],Spec}]}|render_meta(Meta)]
+              PPSpec = erl_pp:attribute(ASTSpec,[{encoding,utf8}]),
+              Spec =
+                  case ASTSpec of
+                      {_Attribute, _Line, opaque, _} ->
+                          %% We do not want show the internals of the opaque type
+                          hd(string:split(PPSpec,"::"));
+                      _ ->
+                          PPSpec
+                  end,
+              BinSpec =
+                  unicode:characters_to_binary(
+                    string:trim(Spec, trailing, "\n")),
+              [{pre,[],[{em,[],BinSpec}]}|render_meta(Meta)]
       end, Specs);
 render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
     lists:flatmap(
