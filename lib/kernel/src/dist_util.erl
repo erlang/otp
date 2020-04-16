@@ -674,7 +674,10 @@ send_name(#hs_data{socket = Socket, this_node = Node,
             ?ERL_DIST_VER_5;
 
        is_integer(Version), Version >= ?ERL_DIST_VER_6 ->
-            Creation = erts_internal:get_creation(),
+            Creation = case name_type(Flags) of
+                           static -> erts_internal:get_creation();
+                           dynamic -> 0
+                       end,
             NameLen = byte_size(NameBin),
             ?trace("send_name: 'N' node=~p creation=~w\n",
                    [Node, Creation]),

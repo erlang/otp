@@ -67,6 +67,19 @@
 #define ERTS_MAX_TINY_CREATION (3)
 #define is_tiny_creation(Cre) ((unsigned)(Cre) <= ERTS_MAX_TINY_CREATION)
 
+/*
+ *   When 0 is used as creation, the real creation
+ *   is unknown. Creation 0 on data will be changed to current
+ *   creation of the node which it belongs to when it enters
+ *   that node.
+ *       This typically happens when a remote pid is created with
+ *   list_to_pid/1 and then sent to the remote node. This behavior
+ *   has the undesirable effect that a pid can be passed between nodes,
+ *   and as a result of that not being equal to itself (the pid that
+ *   comes back isn't equal to the original pid).
+ *
+ */
+
 #undef ERTS_DEBUG_USE_DIST_SEP
 #ifdef DEBUG
 #  if 0
@@ -84,20 +97,6 @@
 /* Does Sint fit in Sint32?
  */
 #define IS_SSMALL32(x) (((Uint) (((x) >> (32-1)) + 1)) < 2)
-
-/*
- *   Valid creations for nodes are 1, 2, or 3. 0 can also be sent
- *   as creation, though. When 0 is used as creation, the real creation
- *   is unknown. Creation 0 on data will be changed to current
- *   creation of the node which it belongs to when it enters
- *   that node.
- *       This typically happens when a remote pid is created with
- *   list_to_pid/1 and then sent to the remote node. This behavior 
- *   has the undesirable effect that a pid can be passed between nodes,
- *   and as a result of that not being equal to itself (the pid that
- *   comes back isn't equal to the original pid).
- *
- */
 
 static Export term_to_binary_trap_export;
 
@@ -5770,6 +5769,11 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
          * Suppress monitor control msg (see erts_dsig_send_monitor)
          * by converting it to an empty (tick) packet.
          */
+        int i;
+        for (i = 1; i < ob->eiov->vsize; i++) {
+            if (ob->eiov->binv[i])
+                driver_free_binary(ob->eiov->binv[i]);
+        }
         ob->eiov->vsize = 1;
         ob->eiov->size = 0;
         return reds;
@@ -5800,6 +5804,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         byte *buf_start, *buf_end;
         byte *ptr;
         Uint hsz;
+        int i;
 
         hdr += 4;
         payload_ix = get_int32(hdr);
@@ -5861,6 +5866,10 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         if (buf_start != (byte *) iov[2].iov_base)
             erts_free(ERTS_ALC_T_TMP, buf_start);
 
+        for (i = 1; i < ob->eiov->vsize; i++) {
+            if (ob->eiov->binv[i])
+                driver_free_binary(ob->eiov->binv[i]);
+        }
         ob->eiov->vsize = 1;
         ob->eiov->size = 0;
         

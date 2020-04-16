@@ -172,6 +172,7 @@ dist_table_alloc(void *dep_tmpl)
     erts_rwmtx_init_opt(&dep->rwmtx, &rwmtx_opt, "dist_entry", sysname,
         ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     dep->sysname			= sysname;
+    dep->creation                       = 0; /* undefined */
     dep->cid				= NIL;
     erts_atomic_init_nob(&dep->input_handler, (erts_aint_t) NIL);
     dep->connection_id			= 0;
