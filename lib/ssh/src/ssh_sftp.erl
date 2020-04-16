@@ -36,16 +36,16 @@
 
 -export([open/3, open_tar/3, opendir/2, close/2, readdir/2, pread/4, read/3,
          open/4, open_tar/4, opendir/3, close/3, readdir/3, pread/5, read/4,
-	 apread/4, aread/3, pwrite/4, write/3, apwrite/4, awrite/3,
-	 pwrite/5, write/4,
-	 position/3, real_path/2, read_file_info/2, get_file_info/2,
-	 position/4, real_path/3, read_file_info/3, get_file_info/3,
-	 write_file_info/3, read_link_info/2, read_link/2, make_symlink/3,
-	 write_file_info/4, read_link_info/3, read_link/3, make_symlink/4,
-	 rename/3, delete/2, make_dir/2, del_dir/2, send_window/1,
-	 rename/4, delete/3, make_dir/3, del_dir/3, send_window/2,
-	 recv_window/1, list_dir/2, read_file/2, write_file/3,
-	 recv_window/2, list_dir/3, read_file/3, write_file/4]).
+         apread/4, aread/3, pwrite/4, write/3, apwrite/4, awrite/3,
+         pwrite/5, write/4,
+         position/3, real_path/2, read_file_info/2, get_file_info/2,
+         position/4, real_path/3, read_file_info/3, get_file_info/3,
+         write_file_info/3, read_link_info/2, read_link/2, make_symlink/3,
+         write_file_info/4, read_link_info/3, read_link/3, make_symlink/4,
+         rename/3, delete/2, make_dir/2, del_dir/2, send_window/1,
+         rename/4, delete/3, make_dir/3, del_dir/3, send_window/2,
+         recv_window/1, list_dir/2, list_dir_details/2, read_file/2, write_file/3,
+         recv_window/2, list_dir/3, list_dir_details/3, read_file/3, write_file/4]).
 
 %% ssh_client_channel callbacks
 -export([init/1, handle_call/3, handle_cast/2, code_change/3, handle_msg/2, handle_ssh_msg/2, terminate/2]).
@@ -738,20 +738,45 @@ list_dir(Pid, Name) ->
       FileName :: string(),
       Error :: {error, reason()} .
 list_dir(Pid, Name, FileOpTimeout) ->
+    case list_dir_details(Pid, Name, FileOpTimeout) of
+      {ok,FileNamesAndDetails} ->
+        NList = lists:foldl(fun({Nm, _Info},Acc) ->
+              [Nm|Acc] end,
+          [], FileNamesAndDetails),
+        {ok,NList};
+      Error ->
+        Error
+    end.
+
+-spec list_dir_details(ChannelPid, Path) -> {ok,FileNamesAndDetails} | Error when
+      ChannelPid :: pid(),
+      Path :: string(),
+      FileNamesAndDetails :: [{FileName, Details}],
+      FileName :: string(),
+      Details :: #ssh_xfer_attr{},
+      Error :: {error, reason()} .
+list_dir_details(Pid, Name) ->
+    list_dir_details(Pid, Name, ?FILEOP_TIMEOUT).
+-spec list_dir_details(ChannelPid, Path, Timeout) -> {ok,FileNamesAndDetails} | Error when
+      ChannelPid :: pid(),
+      Path :: string(),
+      Timeout :: timeout(),
+      FileNamesAndDetails :: [{FileName, Details}],
+      FileName :: string(),
+      Details :: #ssh_xfer_attr{},
+      Error :: {error, reason()} .
+list_dir_details(Pid, Name, FileOpTimeout) ->
     case opendir(Pid, Name, FileOpTimeout) of
-	{ok,Handle} ->
-	    Res = do_list_dir(Pid, Handle, FileOpTimeout, []),
-	    close(Pid, Handle, FileOpTimeout),
-	    case Res of
-		{ok, List} ->
-		    NList = lists:foldl(fun({Nm, _Info},Acc) ->
-					  [Nm|Acc] end,
-				  [], List),
-		    {ok,NList};
-		Error -> Error
-	    end;
-	Error ->
-	    Error
+      {ok,Handle} ->
+        Res = do_list_dir(Pid, Handle, FileOpTimeout, []),
+        close(Pid, Handle, FileOpTimeout),
+        case Res of
+          {ok, List} ->
+            {ok,List};
+          Error -> Error
+        end;
+      Error ->
+        Error
     end.
 
 do_list_dir(Pid, Handle, FileOpTimeout, Acc) ->
