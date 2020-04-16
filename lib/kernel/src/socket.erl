@@ -36,7 +36,7 @@
 -export([
          open/1, open/2, open/3, open/4,
          bind/2, bind/3,
-         connect/2, connect/3,
+         connect/1, connect/2, connect/3,
          listen/1, listen/2,
          accept/1, accept/2,
 
@@ -1047,6 +1047,20 @@ bind(Socket, Addrs, Action) ->
 %% connect - initiate a connection on a socket
 %%
 
+-spec connect(Socket) -> ok | {error, Reason} when
+    Socket   :: socket(),
+    Reason   :: errcode() | closed.
+
+%% Finalize connect after connect(,, nowait) and received
+%% select message - see connect_deadline/3
+%%
+connect(?mk_socket(SockRef))
+  when is_reference(SockRef) ->
+    prim_socket:connect(SockRef);
+connect(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+
 -spec connect(Socket, SockAddr) -> ok | {error, Reason} when
     Socket   :: socket(),
     SockAddr :: sockaddr(),
@@ -1054,6 +1068,7 @@ bind(Socket, Addrs, Action) ->
 
 connect(Socket, SockAddr) ->
     connect(Socket, SockAddr, infinity).
+
 
 -spec connect(Socket, SockAddr, nowait) ->
            ok | {select, SelectInfo} | {error, Reason} when
@@ -1089,7 +1104,7 @@ connect_nowait(SockRef, SockAddr) ->
         {select, Ref} ->
             ?SELECT(connect, Ref);
         Result ->
-            connect_result(Result)
+            Result
     end.
 
 connect_deadline(SockRef, SockAddr, Deadline) ->
@@ -1099,7 +1114,7 @@ connect_deadline(SockRef, SockAddr, Deadline) ->
             Timeout = timeout(Deadline),
             receive
                 ?mk_socket_msg(_Socket, select, Ref) ->
-                    prim_socket:finalize_connection(SockRef);
+                    prim_socket:connect(SockRef);
                 ?mk_socket_msg(_Socket, abort, {Ref, Reason}) ->
                     {error, Reason}
             after Timeout ->
@@ -1107,16 +1122,7 @@ connect_deadline(SockRef, SockAddr, Deadline) ->
                     {error, timeout}
             end;
         Result ->
-            connect_result(Result)
-    end.
-
-connect_result(Result) ->
-    case Result of
-        ok ->
-            %% Connected!
-            ok;
-        {error, _} = ERROR ->
-            ERROR
+            Result
     end.
 
 

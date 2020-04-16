@@ -31,7 +31,7 @@
     supports/0, supports/1, supports/2,
     open/2, open/4,
     bind/2, bind/3,
-    connect/2, finalize_connection/1,
+    connect/1, connect/2,
     listen/2,
     accept/2,
     send/4, sendto/5, sendmsg/4,
@@ -482,17 +482,10 @@ bind(SockRef, Addrs, Action) when is_list(Addrs) ->
 %% ----------------------------------
 
 connect(SockRef, SockAddr) ->
-    case nif_connect(SockRef, enc_sockaddr(SockAddr)) of
-        ok ->
-            ok;
-        {ok, Ref} ->
-            {select, Ref};
-        {error, _} = Error ->
-            Error
-    end.
+    nif_connect(SockRef, enc_sockaddr(SockAddr)).
 
-finalize_connection(SockRef) ->
-    nif_finalize_connection(SockRef).
+connect(SockRef) ->
+    nif_connect(SockRef).
 
 %% ----------------------------------
 
@@ -1279,8 +1272,8 @@ nif_open(_Domain, _Type, _Protocol, _Opts) -> erlang:nif_error(undef).
 nif_bind(_SRef, _SockAddr) -> erlang:nif_error(undef).
 nif_bind(_SRef, _SockAddrs, _Action) -> erlang:nif_error(undef).
 
+nif_connect(_SRef) -> erlang:nif_error(undef).
 nif_connect(_SRef, _SockAddr) -> erlang:nif_error(undef).
-nif_finalize_connection(_SRef) ->  erlang:nif_error(undef).
 
 nif_listen(_SRef, _Backlog) -> erlang:nif_error(undef).
 
