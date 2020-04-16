@@ -261,7 +261,7 @@ typedef struct TTBEncodeContext_ {
     int iovec;
     Uint fragment_size;
     Sint frag_ix;
-    ErlIOVec **fragment_eiovs;
+    ErlIOVec *fragment_eiovs;
 #ifdef DEBUG
     int debug_fragments;
     int debug_vlen;
@@ -414,6 +414,6 @@ void erts_dist_print_procs_suspended_on_de(fmtfn_t to, void *to_arg);
 int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
 
 Uint erts_ttb_iov_size(int use_termv, Sint vlen, Uint fragments);
-ErlIOVec **erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
-                             Sint vlen, Uint fragments, Uint fragments_size);
+void erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
+                       Sint vlen, Uint fragments, Uint fragments_size);
 #endif
