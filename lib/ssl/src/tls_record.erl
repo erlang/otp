@@ -55,7 +55,7 @@
 -export_type([tls_version/0, tls_atom_version/0]).
 
 -type tls_version()       :: ssl_record:ssl_version().
--type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'.
+-type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2' | 'tlsv1.3'.
 
 -compile(inline).
 

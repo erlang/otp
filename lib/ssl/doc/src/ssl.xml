@@ -1836,18 +1836,19 @@ fun(srp, Username :: string(), UserState :: term()) ->
     
     <func>
       <name since="OTP R14B" name="versions" arity="0" />
-      <fsummary>Returns version information relevant for the
-	SSL application.</fsummary>
+      <fsummary>Lists information, mainly concerning TLS/DTLS versions,
+	in runtime for debugging and testing purposes.</fsummary>
       <desc>
-	<p>Returns version information relevant for the SSL
-	application.</p>
+	<p>Lists information, mainly concerning TLS/DTLS versions,
+	in runtime for debugging and testing purposes.
+	</p>
 	<taglist>
 	  <tag><c>app_vsn</c></tag>
 	  <item>The application version of the SSL application.</item>
 
-	  <tag><c>default_supported</c></tag>
-	  <item>TLS versions supported by default if crypto lib
-	  support is sufficent·
+	  <tag><c>supported</c></tag>
+	  <item>TLS versions supported with current application environment
+	  and crypto library configuration.
 	  Overridden by a version option on
 	  <seemfa marker="#connect/2"> connect/[2,3,4]</seemfa>,
 	  <seemfa marker="#listen/2"> listen/2</seemfa>, and <seemfa
@@ -1856,9 +1857,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  marker="#connection_information/1">connection_information/1
 	  </seemfa>.</item>
 	  
-	  <tag><c>default_supported_dtls</c></tag>
-	  <item>DTLS versions supported by default if crypto lib
-	  support is sufficent·
+	  <tag><c>supported_dtls</c></tag>
+	  <item>DTLS versions supported with current application environment
+	  and crypto library configuration.
 	  Overridden by a version option on
 	  <seemfa marker="#connect/2"> connect/[2,3,4]</seemfa>,
 	  <seemfa marker="#listen/2"> listen/2</seemfa>, and <seemfa
@@ -1868,19 +1869,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  </seemfa>.</item>
 
 	  <tag><c>available</c></tag>
-	  <item>All TLS versions than can be supported by the SSL application.
+	  <item>All TLS versions supported with the
+	  linked crypto library.
 	 </item>
 
 	  <tag><c>available_dtls</c></tag>
-	  <item>All DTLS versions than can be supported by the SSL application.</item>
+	  <item>All DTLS versions supported with the
+	  linked crypto library.</item>
 	  
-	  <tag><c>crypto_support</c></tag>
-	  <item>TLS versions than has sufficient crypto lib
-	  support through the Crypto applications currently linked crypto lib.</item>
+	  <tag><c>implemented</c></tag>
+	  <item>All TLS versions supported by the SSL
+	  application if linked with a crypto library with the
+	  necessary support.</item>
 
-	  <tag><c>crypto_support_dtls</c></tag>
-	  <item>All DTLS versions than has sufficient crypto lib
-	  support through the Crypto applications currently linked crypto lib.</item>
+	  <tag><c>implemented_dtls</c></tag>
+	  <item>All DTLS versions supported by the SSL
+	  application if linked with a crypto library with the
+	  necessary support.</item>
 	  
 	</taglist>
       </desc>
