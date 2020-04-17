@@ -591,7 +591,10 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 
 #ifdef HAVE_SOCKLEN_T
 #  define SOCKLEN_T socklen_t
+#elif defined(__WIN32__)
+#  define SOCKLEN_T int
 #else
+#  warning "Non-Windows OS without type 'socklen_t'"
 #  define SOCKLEN_T size_t
 #endif
 
@@ -1113,8 +1116,8 @@ typedef struct {
 
     inet_address* peer_ptr;     /* fake peername or NULL */
     inet_address* name_ptr;     /* fake sockname or NULL */
-    SOCKLEN_T peer_addr_len;    /* fake peername size */
-    SOCKLEN_T name_addr_len;    /* fake sockname size */
+    unsigned int peer_addr_len; /* fake peername size */
+    unsigned int name_addr_len; /* fake sockname size */
 
     int   bufsz;                /* minimum buffer constraint */
     unsigned int hsz;           /* the list header size, -1 is large !!! */
@@ -4778,7 +4781,7 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
                                     char** rbuf, ErlDrvSizeT rsize)
 {
     inet_address name;
-    unsigned int sz;
+    SOCKLEN_T sz;
 
     if (bound) {
         /* check that it is a socket and that the socket is bound */
@@ -9455,7 +9458,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    return ctl_xerror(xerror, rbuf, rsize);
 	else {
 	    desc->peer_ptr = &desc->peer_addr;
-	    desc->peer_addr_len = (SOCKLEN_T) len;
+	    desc->peer_addr_len = (unsigned int) len;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);	    
 	}
     }
@@ -9530,7 +9533,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    return ctl_xerror(xerror, rbuf, rsize);
 	else {
 	    desc->name_ptr = &desc->name_addr;
-	    desc->name_addr_len = (SOCKLEN_T) len;
+	    desc->name_addr_len = (unsigned int) len;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);	    
 	}
     }
