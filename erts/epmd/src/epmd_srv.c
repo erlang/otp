@@ -1054,6 +1054,12 @@ static int conn_open(EpmdVars *g,int fd)
   int i;
   Connection *s;
 
+  if (fd >= FD_SETSIZE) {
+      dbg_tty_printf(g,0,"fd does not fit in fd_set fd=%d, FD_SETSIZE=%d",fd, FD_SETSIZE);
+      close(fd);
+      return EPMD_FALSE;
+  }
+
   for (i = 0; i < g->max_conn; i++) {
     if (g->conn[i].open == EPMD_FALSE) {
       g->active_conn++;
