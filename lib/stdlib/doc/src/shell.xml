@@ -740,8 +740,8 @@ q                 - quit erlang
 
     <p>If you want an Erlang node to have a remote job active from the start
       (rather than the default local job), start Erlang with flag
-      <c>-remsh</c>, for example,
-      <c>erl -sname this_node -remsh other_node@other_host</c></p>
+      <seecom marker="erts:erl#remsh"><c>-remsh</c></seecom>, for example,
+      <c>erl -remsh other_node@other_host</c></p>
   </section>
 
   <section>

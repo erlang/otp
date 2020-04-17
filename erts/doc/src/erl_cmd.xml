@@ -286,7 +286,7 @@
           see <seeerl marker="kernel:heart">
           <c>heart(3)</c></seeerl>.</p>
       </item>
-      <tag><c><![CDATA[-hidden]]></c></tag>
+      <tag><marker id="hidden"/><c><![CDATA[-hidden]]></c></tag>
       <item>
         <p>Starts the Erlang runtime system as a hidden node, if it is
           run as a distributed node. Hidden nodes always establish
@@ -373,7 +373,7 @@
           modules, as conventionally happens in OTP releases. See
           <seeerl marker="kernel:code"><c>code(3)</c></seeerl></p>.
       </item>
-      <tag><c><![CDATA[-name Name]]></c></tag>
+      <tag><marker id="name"/><c><![CDATA[-name Name]]></c></tag>
       <item>
         <p>Makes the Erlang runtime system into a distributed node.
           This flag invokes all network servers necessary for a node to
@@ -386,6 +386,31 @@
           <c><![CDATA[Host]]></c> is the fully qualified host name of the
           current host. For short names, use flag <c><![CDATA[-sname]]></c>
           instead.</p>
+        <p>If <c>Name</c> is set to <em><c>undefined</c></em> the node will
+          be started in a special mode optimized to be the temporary client
+          of another node. When enabled the node will request a
+          <seeguide marker="erl_dist_protocol#DFLAG_NAME_ME">dynamic
+          node name</seeguide> from the first node it connects to. In addition
+          these distribution settings will be set:
+        </p>
+        <pre><seeapp marker="kernel:kernel_app#dist_listen">-dist_listen false</seeapp> <seecom marker="#hidden">-hidden</seecom> <seeapp marker="kernel:kernel_app#dist_auto_connect">-dist_auto_connect never</seeapp></pre>
+        <p>Because <c>-dist_auto_connect</c> is set to <c>never</c>, the system will have
+          to manually call <seemfa marker="kernel:net_kernel#connect_node/1">
+          <c>net_kernel:connect_node/1</c></seemfa> in order to start the distribution.
+          If the distribution channel is closed, when a node uses a dynamic
+          node name, the node will stop the distribution and a new call to
+          <seemfa marker="kernel:net_kernel#connect_node/1">
+          <c>net_kernel:connect_node/1</c></seemfa> has to be made. Note that the node
+          name may change if the distribution is dropped and then set up again.
+        </p>
+	<note>
+	  <p>
+	    The <em>dynamic node name</em> feature is supported from
+	    OTP 23. Both the temporary client node and the first
+	    connected peer node (supplying the dynamic node name) must
+	    be at least OTP 23 for it to work.
+	  </p>
+	</note>
         <warning>
           <p>
             Starting a distributed node without also specifying
@@ -453,7 +478,7 @@
           <tag><c>inet_tls</c></tag>
           <item>Distribution over TLS/SSL, See the
             <seeguide marker="ssl:ssl_distribution">
-              Using SSL for Erlang Distribution</seeguide> User's Guide
+              Using SSL for Erlang Distribution</seeguide> User&apos;s Guide
               for details on how to setup a secure distributed node.
           </item>
           <tag><c>inet6_tcp</c></tag>
@@ -463,13 +488,18 @@
 <pre>
 % <input>erl -name test@ipv6node.example.com -proto_dist inet6_tcp</input></pre>
       </item>
-      <tag><c><![CDATA[-remsh Node]]></c></tag>
+      <tag><marker id="remsh"/><c><![CDATA[-remsh Node]]></c></tag>
       <item>
-        <p>Starts Erlang with a remote shell connected to
-          <c><![CDATA[Node]]></c>. Requires either <c><![CDATA[-name]]></c>
-          or <c><![CDATA[-sname]]></c> to be given. If <c><![CDATA[Node]]></c>
-          does not contain a hostname, one is automatically taken from
-          <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c></p>
+        <p>Starts Erlang with a remote shell connected to <c><![CDATA[Node]]></c>.</p>
+        <p>If no <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c> is given
+          the node will be started using <c>-sname undefined</c>. If <c>Node</c>
+          is using long names then you should give <c>-name undefined</c>.
+          If <c><![CDATA[Node]]></c> does not contain a hostname, one is automatically
+          taken from <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c>
+        </p>
+        <note><p>Before OTP-23 the user <em>needed</em> to supply a valid <c>-sname</c> or
+          <c>-name</c> for <c>-remsh</c> to work. This is still the case if the target
+          node is not running OTP-23 or later.</p></note>
       </item>
       <tag><c><![CDATA[-rsh Program]]></c></tag>
       <item>
@@ -514,9 +544,9 @@
       <tag><c><![CDATA[-sname Name]]></c></tag>
       <item>
         <p>Makes the Erlang runtime system into a distributed node, similar to
-          <c><![CDATA[-name]]></c>, but the host name portion of the node
-          name <c><![CDATA[Name@Host]]></c> will be the short name, not fully
-          qualified.</p>
+          <seecom marker="#name"><c><![CDATA[-name]]></c></seecom>, but the host
+          name portion of the node name <c><![CDATA[Name@Host]]></c> will be the
+          short name, not fully qualified.</p>
         <p>This is sometimes the only way to run distributed Erlang if
           the Domain Name System (DNS) is not running. No communication can
           exist between nodes running with flag <c><![CDATA[-sname]]></c>
@@ -691,12 +721,12 @@
           code points &gt; 255.</p>
         <p>For more information about Unicode filenames, see section
           <seeguide marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seeguide> in the STDLIB User's Guide. Notice that
+          Filenames</seeguide> in the STDLIB User&apos;s Guide. Notice that
           this value also applies to command-line parameters and environment
           variables (see section <seeguide
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
           Unicode in Environment and Parameters</seeguide> in the STDLIB
-          User's Guide).</p>
+          User&apos;s Guide).</p>
       </item>
       <tag><c><![CDATA[+fnu[{w|i|e}]]]></c></tag>
       <item>
@@ -727,12 +757,12 @@
           points to an invalid filename.</p>
         <p>For more information about Unicode filenames, see section
           <seeguide marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seeguide> in the STDLIB User's Guide. Notice that
+          Filenames</seeguide> in the STDLIB User&apos;s Guide. Notice that
           this value also applies to command-line parameters and environment
           variables (see section <seeguide
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
           Unicode in Environment and Parameters</seeguide> in the STDLIB
-          User's Guide).</p>
+          User&apos;s Guide).</p>
       </item>
       <tag><c><![CDATA[+fna[{w|i|e}]]]></c></tag>
       <item>
@@ -748,12 +778,12 @@
           selected, then <c>w</c>, <c>i</c>, or <c>e</c> have no effect.</p>
         <p>For more information about Unicode filenames, see section
           <seeguide marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seeguide> in the STDLIB User's Guide. Notice that
+          Filenames</seeguide> in the STDLIB User&apos;s Guide. Notice that
           this value also applies to command-line parameters and environment
           variables (see section <seeguide
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
           Unicode in Environment and Parameters</seeguide> in the STDLIB
-          User's Guide).</p>
+          User&apos;s Guide).</p>
       </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
@@ -1115,7 +1145,7 @@
               </item>
               <tag><c>ts</c></tag>
               <item><c>thread_spread</c> - Thread refers to hardware threads
-                (such as Intel's hyper-threads). Schedulers with low scheduler
+                (such as Intel&apos;s hyper-threads). Schedulers with low scheduler
                 identifiers, are bound to the first hardware thread of
                 each core, then schedulers with higher scheduler identifiers
                 are bound to the second hardware thread of each core,and so on.
@@ -1578,8 +1608,7 @@
           <tag><marker id="+zdbbl"/><c>+zdbbl size</c></tag>
           <item>
             <p>Sets the distribution buffer busy limit
-              (<seeerl marker="erlang#system_info_dist_buf_busy_limit">
-              <c>dist_buf_busy_limit</c></seeerl>)
+              (<seeerl marker="erlang#system_info_dist_buf_busy_limit"><c>dist_buf_busy_limit</c></seeerl>)
               in kilobytes. Valid range is 1-2097151. Defaults to 1024.</p>
             <p>A larger buffer limit allows processes to buffer
               more outgoing messages over the distribution. When the
@@ -1592,8 +1621,7 @@
           <tag><marker id="+zdntgc"/><c>+zdntgc time</c></tag>
           <item>
             <p>Sets the delayed node table garbage collection time
-              (<seeerl marker="erlang#system_info_delayed_node_table_gc">
-              <c>delayed_node_table_gc</c></seeerl>)
+              (<seeerl marker="erlang#system_info_delayed_node_table_gc"><c>delayed_node_table_gc</c></seeerl>)
               in seconds. Valid values are either <c>infinity</c> or
               an integer in the range 0-100000000. Defaults to 60.</p>
             <p>Node table entries that are not referred linger
@@ -1733,7 +1761,7 @@
       <tag>The <c>.erlang</c> startup file</tag>
       <item>
         <p>When Erlang/OTP is started, the system searches for a file named
-        <c>.erlang</c> in the user's home directory.</p>
+        <c>.erlang</c> in the user&apos;s home directory.</p>
         <p>If an <c>.erlang</c> file is found, it is assumed to contain valid
           Erlang expressions. These expressions are evaluated as if they were
           input to the shell.</p>

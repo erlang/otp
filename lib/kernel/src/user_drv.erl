@@ -121,6 +121,13 @@ server1(Iport, Oport, Shell) ->
 	case init:get_argument(remsh) of
 	    {ok,[[Node]]} ->
 		ANode = list_to_atom(append_hostname(Node)),
+                %% We try to connect to the node if the current node is not
+                %% a distributed node yet. If this succeeds it means that we
+                %% are running using "-sname undefined".
+                [begin
+                     _ = net_kernel:start([undefined, shortnames]),
+                     net_kernel:connect_node(ANode)
+                 end || node() =:= nonode@nohost],
 		RShell = {ANode,shell,start,[]},
 		RGr = group:start(self(), RShell, rem_sh_opts(ANode)),
 		{RGr,RShell};

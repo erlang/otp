@@ -134,7 +134,7 @@
         <p>The parameter is described in
 	  <seemfa marker="application#load/2"><c>application:load/2</c></seemfa>.</p>
       </item>
-      <tag><c>dist_auto_connect = Value</c></tag>
+      <tag><marker id="dist_auto_connect"/><c>dist_auto_connect = Value</c></tag>
       <item>
         <p>Specifies when nodes are automatically connected. If
           this parameter is not specified, a node is always
@@ -151,6 +151,12 @@
            explicitly connected. See
 	   <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl>.</p></item>
         </taglist>
+      </item>
+      <tag><marker id="dist_listen"/><c>dist_listen = boolean()</c></tag>
+      <item>
+        <p>Specifies whether this node should be listening for incoming
+        distribution connections. Using this option implies that the node
+        also is <seecom marker="erts:erl#hidden"><c>-hidden</c></seecom>.</p>
       </item>
       <tag><c>permissions = [Perm]</c></tag>
       <item>

@@ -1679,13 +1679,17 @@ epmd_module() ->
 %% dist_listen() -> whether the erlang distribution should listen for connections
 %%
 dist_listen() ->
-    case init:get_argument(dist_listen) of
-	{ok,[[DoListen]]} ->
-	    list_to_atom(DoListen) =/= false;
-	_ ->
-	    true
+    case persistent_term:get(net_kernel, undefined) of
+        dynamic_node_name ->
+            false;
+        _ ->
+            case init:get_argument(dist_listen) of
+                {ok,[[DoListen]]} ->
+                    list_to_atom(DoListen) =/= false;
+                _ ->
+                    true
+            end
     end.
-
 
 %%
 %% Start all protocols
@@ -1761,8 +1765,12 @@ wrap_creation(Cr) ->
     
 
 start_protos_listen(Node, Ps, CleanHalt) ->
-    {Name, "@"++Host} = split_node(Node),
-    start_protos_listen(list_to_atom(Name), Host, Node, Ps, [], CleanHalt).
+    case split_node(Node) of
+        {"undefined", _} ->
+            start_protos_no_listen(Node, Ps, [], CleanHalt);
+        {Name, "@"++Host} ->
+            start_protos_listen(list_to_atom(Name), Host, Node, Ps, [], CleanHalt)
+    end.
 start_protos_listen(Name, Host, Node, [Proto | Ps], Ls, CleanHalt) ->
     Mod = list_to_atom(Proto ++ "_dist"),
     try try Mod:listen(Name,Host)
