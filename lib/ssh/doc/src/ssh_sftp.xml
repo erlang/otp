@@ -227,6 +227,16 @@
     </func>
 
     <func>
+      <name name="list_dir_details" arity="2" since=""/>
+      <name name="list_dir_details" arity="3" since=""/>
+      <fsummary>Lists the directory.</fsummary>
+      <desc>
+        <p>Lists the given directory on the server, returning the
+          filenames and info as a list of pairs of strings and records.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="make_dir" arity="2" since=""/>
       <name name="make_dir" arity="3" since=""/>
       <fsummary>Creates a directory.</fsummary>
