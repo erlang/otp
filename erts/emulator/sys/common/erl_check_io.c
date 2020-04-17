@@ -1718,10 +1718,10 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time)
 	ErtsDrvEventState *state;
         ErtsPollEvents revents = ERTS_POLL_RES_GET_EVTS(&psi->pollres[i]);
 
-        /* The fd will be set to -1 if a pollset internal fd was triggered
+        /* The fd will be set to INVALID if a pollset internal fd was triggered
            that was determined to be too expensive to remove from the result.
         */
-        if (fd == -1) continue;
+        if (fd == ERTS_SYS_FD_INVALID) continue;
 
 	erts_mtx_lock(fd_mtx(fd));
 
