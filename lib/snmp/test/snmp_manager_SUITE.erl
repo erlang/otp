@@ -529,18 +529,16 @@ init_per_testcase2(Case, Config) ->
 
     Family = proplists:get_value(ipfamily, Config, inet),
 
+    Factor = ?config(snmp_factor, Config),
     TO = case Case of
              inform3 ->
-                 ?MINS(2);
+                 ?MINS(2 + (Factor div 2));
              InformSwarm when (InformSwarm =:= inform_swarm_cbp_def) orelse
                               (InformSwarm =:= inform_swarm_cbp_temp) orelse
                               (InformSwarm =:= inform_swarm_cbp_perm) ->
-                 case ?config(snmp_factor, Config) of
-                     N when is_integer(N) -> ?MINS(2*N);
-                     _                    -> ?MINS(2)
-                 end;
+                 ?MINS(1 + Factor);
              _ ->
-                 ?MINS(1)
+                 ?MINS(1 + (Factor div 2))
          end,
     ?IPRINT("Set test case timetrap: ~p", [TO]),
     ct:timetrap(TO),
