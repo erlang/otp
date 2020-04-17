@@ -525,30 +525,60 @@ func2func({func,Attr,Contents}) ->
                 _ = VerifyNameList(NameList,fun([]) -> ok end),
 
                 FAs = [TagsToFA(FAttr) || {name,FAttr,[]} <- NameList ],
+                SortedFAs = lists:usort(FAs),
                 FAClauses = lists:usort([{TagsToFA(FAttr),proplists:get_value(clause_i,FAttr)}
                                          || {name,FAttr,[]} <- NameList ]),
-                Signature = [iolist_to_binary([F,"/",A]) || {F,A} <- FAs],
-                lists:map(
-                  fun({F,A}) ->
-                          Specs = [{func_to_atom(CF),list_to_integer(CA),C}
-                                   || {{CF,CA},C} <- FAClauses,
-                                      F =:= CF, A =:= CA],
-                          {function,[{name,F},{arity,list_to_integer(A)},
-                                     {signature,Signature},
-                                     {meta,SinceMD#{ signature => Specs }}],
-                           ContentsNoName}
-                  end, lists:usort(FAs));
+
+                MakeFunc = fun({F,A}, MD, Doc) ->
+                                   Specs = [begin
+                                                {function,Name} = func_to_atom(CF),
+                                                {Name,list_to_integer(CA),C}
+                                            end || {{CF,CA},C} <- FAClauses,
+                                                   F =:= CF, A =:= CA],
+                                   {function,[{name,F},{arity,list_to_integer(A)},
+                                              {signature,[iolist_to_binary([F,"/",A])]},
+                                              {meta,MD#{ signature => Specs }}],
+                                    Doc}
+                           end,
+
+                Base = MakeFunc(hd(SortedFAs), SinceMD, ContentsNoName),
+
+                {BaseF,BaseA} = hd(SortedFAs),
+                MD = SinceMD#{ equiv => {function,list_to_atom(BaseF),list_to_integer(BaseA)}},
+                Equiv = lists:map(
+                          fun(FA) ->
+                                  MakeFunc(FA, MD, [])
+                          end, tl(SortedFAs)),
+                [Base | Equiv];
             NameList ->
                 %% Manual style function docs
-                FAs = lists:flatten([func_to_tuple(NameString) || {name, _Attr, NameString} <- NameList]),
+                FAs = lists:foldl(
+                        fun({name,_,NameString}, Acc) ->
+                                FAs = func_to_tuple(NameString),
+                                lists:foldl(
+                                  fun(FA, FAAcc) ->
+                                          Slogan = maps:get(FA, FAAcc, []),
+                                          FAAcc#{ FA => [strip_tags(NameString)|Slogan] }
+                                  end, Acc, FAs)
+                        end, #{}, NameList),
 
                 _ = VerifyNameList(NameList,fun([_|_]) -> ok end),
 
-                Signature = [strip_tags(NameString) || {name, _Attr, NameString} <- NameList],
-                [{function,[{name,F},{arity,A},
-                            {signature,Signature},
-                            {meta,SinceMD}],ContentsNoName}
-                 || {F,A} <- lists:usort(FAs)]
+                SortedFAs = lists:usort(maps:to_list(FAs)),
+
+                {{BaseF, BaseA}, BaseSig} = hd(SortedFAs),
+
+                Base = {function,[{name,BaseF},{arity,BaseA},
+                                  {signature,BaseSig},
+                                  {meta,SinceMD}],
+                        ContentsNoName},
+
+                Equiv = [{function,
+                          [{name,F},{arity,A},
+                           {signature,Signature},
+                           {meta,SinceMD#{ equiv => {function,list_to_atom(BaseF),BaseA}}}],[]}
+                         || {{F,A},Signature} <- tl(SortedFAs)],
+                [Base | Equiv]
         end,
     transform(Functions,[]).
 
@@ -644,7 +674,7 @@ to_chunk(Dom, Source, Module, AST) ->
     TypeEntries =
         lists:map(
           fun({datatype,Attr,Descr}) ->
-                  TypeName = func_to_atom(proplists:get_value(name,Attr)),
+                  {function, TypeName} = func_to_atom(proplists:get_value(name,Attr)),
                   TypeArity = case proplists:get_value(n_vars,Attr) of
                                   undefined ->
                                       find_type_arity(TypeName, TypeMap);
@@ -662,24 +692,48 @@ to_chunk(Dom, Source, Module, AST) ->
                           Sig ->
                               #{ signature => [Sig] }
                       end,
-                  docs_v1_entry(type, Anno, TypeName, TypeArity, TypeSignature, MetaSig, Descr)
+
+                  MetaDepr
+                      = case otp_internal:obsolete_type(Module, TypeName, TypeArity) of
+                            %% Commented out to make dialyzer happy
+                            %% {deprecated, Text} ->
+                            %%     MetaSig#{ deprecated =>
+                            %%                   unicode:characters_to_binary(
+                            %%                     erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
+                            %% {deprecated, Replacement, Rel} ->
+                            %%     MetaSig#{ deprecated =>
+                            %%                   unicode:characters_to_binary(
+                            %%                     erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Replacement, Rel})) };
+                            no ->
+                                MetaSig
+                        end,
+
+                  docs_v1_entry(type, Anno, TypeName, TypeArity, TypeSignature, MetaDepr, Descr)
           end, Types),
 
     Functions = lists:flatten([Functions || {functions,[],Functions} <- Mcontent]),
 
     FuncEntrys =
-        lists:flatmap(
+        lists:map(
           fun({function,Attr,Fdoc}) ->
-                  case func_to_atom(proplists:get_value(name,Attr)) of
-                      callback ->
-                          [];
-                      Name ->
-                          Arity = proplists:get_value(arity,Attr),
-                          Signature = proplists:get_value(signature,Attr),
-                          FMeta = proplists:get_value(meta,Attr),
-                          MetaWSpec = add_spec(AST,FMeta),
-                          [docs_v1_entry(function, Anno, Name, Arity, Signature, MetaWSpec, Fdoc)]
-                  end
+                  {Type, Name} = func_to_atom(proplists:get_value(name,Attr)),
+                  Arity = proplists:get_value(arity,Attr),
+                  Signature = proplists:get_value(signature,Attr),
+                  FMeta = proplists:get_value(meta,Attr),
+                  MetaWSpec = add_spec(AST,FMeta),
+                  MetaDepr
+                      = case otp_internal:obsolete(Module, Name, Arity) of
+                            {deprecated, Text} ->
+                                MetaWSpec#{ deprecated =>
+                                                unicode:characters_to_binary(
+                                                  erl_lint:format_error({deprecated,{Module,Name,Arity}, Text})) };
+                            {deprecated, Replacement, Rel} ->
+                                MetaWSpec#{ deprecated =>
+                                                unicode:characters_to_binary(
+                                                  erl_lint:format_error({deprecated,{Module,Name,Arity}, Replacement, Rel})) };
+                            _ -> MetaWSpec
+                        end,
+                  docs_v1_entry(Type, Anno, Name, Arity, Signature, MetaDepr, Fdoc)
           end, Functions),
 
     docs_v1(ModuleDocs, Anno, TypeMeta, FuncEntrys ++ TypeEntries).
@@ -691,6 +745,7 @@ docs_v1(DocContents, Anno, Metadata, Docs) ->
               docs = Docs }.
 
 docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->
+
     AnnoWLine =
         case Metadata of
             #{ signature := [Sig|_] } ->
@@ -699,8 +754,16 @@ docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->
             _NoSignature ->
                 Anno
         end,
-    {{Kind, Name, Arity}, AnnoWLine, lists:flatten(Signature),
-     #{ <<"en">> => shell_docs:normalize(DocContents)}, Metadata}.
+
+    Doc =
+        case DocContents of
+              [] ->
+                  #{};
+              DocContents ->
+                  #{ <<"en">> => shell_docs:normalize(DocContents) }
+          end,
+
+    {{Kind, Name, Arity}, AnnoWLine, lists:flatten(Signature), Doc, Metadata}.
 
 %% A special list_to_atom that handles
 %%  'and'
@@ -708,11 +771,16 @@ docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->
 %%  'begin'
 func_to_atom(List) ->
     case erl_scan:string(List) of
-        {ok,[{atom,_,Fn}],_} -> Fn;
-        {ok,[{var,_,Fn}],_} -> Fn;
-        {ok,[{Fn,_}],_} -> Fn;
-        {ok,[{var,_,_},{':',_},_],_} ->
-            callback
+        {ok,[{atom,_,Fn}],_} ->
+            {function, Fn};
+        {ok,[{var,_,Fn}],_} ->
+            {function, Fn};
+        {ok,[{Fn,_}],_} ->
+            {function, Fn};
+        {ok,[{var,_,_},{':',_},{atom,_,Fn}],_} ->
+            {callback, Fn};
+        {ok,[{var,_,_},{':',_},{var,_,Fn}],_} ->
+            {callback, Fn}
     end.
 
 -define(IS_TYPE(TO),(TO =:= type orelse TO =:= opaque)).

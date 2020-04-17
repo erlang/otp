@@ -58,6 +58,7 @@ if [ "$1" = "docs" ]; then
     DOC_TARGET=${TRAVIS_TAG:-$DOC_TARGET}
     TESTROOT=$PWD/$DOC_TARGET do_and_log "Building documentation" make release_docs
     do_and_log "Linting documentation" make xmllint
+    do_and_log "Checking html links" scripts/otp_html_check $PWD/$DOC_TARGET doc/index.html
     do_and_log "Test chunks" erlc lib/stdlib/test/shell_docs_SUITE.erl &&
         ct_run -no_auto_compile -suite shell_docs_SUITE -case render
     # The code below prepares this build to be used as a deploy to

@@ -30,7 +30,7 @@
 	 lc_batch/0, lc_batch/1,
 	 i/3,pid/3,m/0,m/1,mm/0,lm/0,
 	 bt/1, q/0,
-         h/1,h/2,h/3,ht/1,ht/2,ht/3,
+         h/1,h/2,h/3,ht/1,ht/2,ht/3,hcb/1,hcb/2,hcb/3,
 	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
 	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
 
@@ -154,8 +154,9 @@ c(SrcFile, NewOpts, Filter, BeamFile, Info) ->
     safe_recompile(SrcFile, Options, BeamFile).
 
 -type h_return() :: ok | {error, missing | {unknown_format, unicode:chardata()}}.
--type ht_return() :: h_return() | {error, type_missing}.
 -type hf_return() :: h_return() | {error, function_missing}.
+-type ht_return() :: h_return() | {error, type_missing}.
+-type hcb_return() :: h_return() | {error, callback_missing}.
 
 -spec h(module()) -> h_return().
 h(Module) ->
@@ -224,10 +225,49 @@ ht(Module,Type,Arity) ->
             Error
     end.
 
+-spec hcb(module()) -> h_return().
+hcb(Module) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render_callback(Module, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec hcb(module(),Callback :: atom()) -> hcb_return().
+hcb(Module,Callback) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render_callback(Module, Callback, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec hcb(module(),Callback :: atom(),arity()) ->
+          hcb_return().
+hcb(Module,Callback,Arity) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render_callback(Module, Callback, Arity, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
 format_docs({error,_} = E) ->
     E;
 format_docs(Docs) ->
-    format("~ts",[Docs]).
+    {match, Lines} = re:run(Docs,"(.+\n|\n)",[unicode,global,{capture,all_but_first,binary}]),
+    _ = paged_output(fun(Line,_) ->
+                             format("~ts",Line),
+                             {1,undefined}
+                     end, undefined, Lines),
+    ok.
 
 old_options(Info) ->
     case lists:keyfind(options, 1, Info) of
@@ -557,58 +597,54 @@ ni() -> i(all_procs()).
 -spec i([pid()]) -> 'ok'.
 
 i(Ps) ->
-    i(Ps, length(Ps)).
-
--spec i([pid()], non_neg_integer()) -> 'ok'.
-
-i(Ps, N) when N =< 100 ->
-    iformat("Pid", "Initial Call", "Heap", "Reds",
-	    "Msgs"),
-    iformat("Registered", "Current Function", "Stack", "",
-	    ""),
-    {R,M,H,S} = foldl(fun(Pid, {R0,M0,H0,S0}) ->
-			      {A,B,C,D} = display_info(Pid),
-			      {R0+A,M0+B,H0+C,S0+D}
-		      end, {0,0,0,0}, Ps),
-    iformat("Total", "", w(H), w(R), w(M)),
-    iformat("", "", w(S), "", "");
-i(Ps, N) ->
-    iformat("Pid", "Initial Call", "Heap", "Reds",
-	    "Msgs"),
-    iformat("Registered", "Current Function", "Stack", "",
-	    ""),
-    paged_i(Ps, {0,0,0,0}, N, 50).
-
-paged_i([], {R,M,H,S}, _, _) ->
-    iformat("Total", "", w(H), w(R), w(M)),
-    iformat("", "", w(S), "", "");
-paged_i(Ps, Acc, N, Page) ->
-    {Pids, Rest, N1} =
-	if N > Page ->
-		{L1,L2} = lists:split(Page, Ps),
-		{L1,L2,N-Page};
-	   true ->
-		{Ps, [], 0}
-	end,
-    NewAcc = foldl(fun(Pid, {R,M,H,S}) ->
-			   {A,B,C,D} = display_info(Pid),
-			   {R+A,M+B,H+C,S+D}
-		   end, Acc, Pids),
-    case Rest of
-	[_|_] ->
-	    choice(fun() -> paged_i(Rest, NewAcc, N1, Page) end);
-	[] ->
-	    paged_i([], NewAcc, 0, Page)
+    iformat("Pid", "Initial Call", "Heap", "Reds", "Msgs"),
+    iformat("Registered", "Current Function", "Stack", "", ""),
+    case paged_output(fun(Pid, {R,M,H,S}) ->
+                              {A,B,C,D} = display_info(Pid),
+                              {2,{R+A,M+B,H+C,S+D}}
+                      end, 2, {0,0,0,0}, Ps) of
+        {R,M,H,S} ->
+            iformat("Total", "", w(H), w(R), w(M)),
+            iformat("", "", w(S), "", "");
+        less ->
+            ok
     end.
 
-choice(F) ->
-    case get_line('(c)ontinue (q)uit -->', "c\n") of
+paged_output(Fun, Acc, Items) ->
+    paged_output(Fun, 0, Acc, Items).
+paged_output(Fun, CurrLine, Acc, Items) ->
+    Limit =
+        case io:rows() of
+            {ok, Rows} -> Rows-2;
+            _ -> 100
+        end,
+    paged_output(Fun, CurrLine, Limit, Acc, Items).
+
+paged_output(PrintFun, CurrLine, Limit, Acc, Items) when CurrLine >= Limit ->
+    case more() of
+        more ->
+            paged_output(PrintFun, 0, Limit, Acc, Items);
+        less ->
+            less
+    end;
+paged_output(PrintFun, CurrLine, Limit, Acc, [H|T]) ->
+    {Lines, NewAcc} = PrintFun(H, Acc),
+    paged_output(PrintFun, CurrLine+Lines, Limit, NewAcc, T);
+paged_output(_, _, _, Acc, []) ->
+    Acc.
+
+more() ->
+    case get_line('more (y/n)? (y) ', "y\n") of
 	"c\n" ->
-	    F();
+            more;
+	"y\n" ->
+            more;
 	"q\n" ->
-	    quit;
+	    less;
+	"n\n" ->
+	    less;
 	_ ->
-	    choice(F)
+	    more()
     end.
 
 get_line(P, Default) ->

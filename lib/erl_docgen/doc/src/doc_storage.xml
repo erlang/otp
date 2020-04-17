@@ -21,7 +21,7 @@
       limitations under the License.
 
      </legalnotice>
-    <title>Documentation Storage</title>
+    <title>EEP-48: Implementation in Erlang/OTP</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
@@ -31,29 +31,103 @@
 
   <section>
     <title>EEP-48: Documentation storage and format</title>
-    <p><url href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</url>
+    <p><seeguide marker="kernel:eep48_chapter">EEP-48</seeguide>
       defines a common documentation storage format for module documentation in the Erlang/OTP
       ecosystem. Erl_Docgen can generate documentation in this format from XML files following
       the DTD's descibed in the other User's Guides in this application.</p>
-    <p></p>
     <p>Some special considerations have to be taken when writing documentation that
       should also be available through EEP-48 style storage.</p>
     <list>
-      <item>The <c>#PCDATA</c> within <c>&lt;name&gt;</c> tags must be parseable to figure out the arity of the function.</item>
+      <item>The <c>#PCDATA</c> within <c>&lt;name&gt;</c> tags must be parseable
+        to figure out the arity of the function.</item>
       <item>It is not allowed to mix <c>&lt;name&gt;</c> tags with #PCDATA and attributes.</item>
-      <item>All <c>&lt;name&gt;</c> tags within <c>&lt;func&gt;</c> has to have a <c>since</c> attribute.</item>
+      <item>All <c>&lt;name&gt;</c> tags within <c>&lt;func&gt;</c>
+        has to have a <c>since</c> attribute.</item>
       <item>All callback function documentations have to start with a <c>Module</c> prefix.</item>
     </list>
   </section>
 
   <section>
     <title>Erlang Documentation Format</title>
-    <p>When generating documentation for generic storage</p>
+    <p>When generating documentation for EEP-48 Erl_Docgen uses the format mime type
+      &lt;&lt;"application/erlang+html"&gt;&gt;. The documentation content is an Erlang
+      term that represents an HTML like structure.</p>
+      <code>
+-type chunk_elements() :: [chunk_element()].
+-type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
+                          chunk_elements()} | unicode:unicode_binary().
+-type chunk_element_attrs() :: [chunk_element_attr()].
+-type chunk_element_attr() :: {atom(),unicode:unicode_binary()}.
+-type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
+-type chunk_element_inline_type() :: a | code |  em | i.
+-type chunk_element_block_type() :: p | 'div' | br | pre | ul |
+                              ol | li | dl | dt | dd | h1 | h2 | h3.
+      </code>
+      <p>The different element types follow their HTML meaning when rendered.
+        The following are some general rules for how the chunk elements are allowed
+        to be generated.</p>
+      <list>
+        <item>Inline and <c>pre</c> elements are not allowed to contain block elements.</item>
+        <item><c>p</c> elements are not allowed to be nested.</item>
+      </list>
+      <p>The attributes on some elements have a special meaning.</p>
+      <taglist>
+        <tag><c>{'div',[{class,unicode:unicode_binary()}],_}</c></tag>
+        <item>The class name will be used to provide styling to the content in the div.
+          The types of classes used by Erlang/OTP are: <c>warning</c>, <c>note</c>, <c>do</c>,
+          <c>dont</c> and <c>quote</c>.</item>
+        <tag><c><![CDATA[{ul,[{class,<<"types">>}],_}]]></c></tag>
+        <item>This is a list containing type documentation.</item>
+        <tag><c><![CDATA[{li,[{name,TypeName :: unicode:unicode_binary()}],_}]]></c></tag>
+        <item>A list item with a type specification located in the metadata of this modules
+          EEP-48 documentation. The implementation should look for the AST representation of
+          the type under the <c>types</c> key. This attribute is only valid under a <c>ul</c>
+          with class &lt;&lt;"types"&gt;&gt;.</item>
+        <tag><c><![CDATA[{li,[{class,<<"type">>}],_}]]></c></tag>
+        <item>A list item with the type described in the Erlang Documentation Format.
+        This attribute is only valid under a <c>ul</c> with class &lt;&lt;"types"&gt;&gt;.</item>
+        <tag><c><![CDATA[{li,[{class,<<"description">>}],_}]]></c></tag>
+        <item>A list item with the description of the type previous in the list.
+        This attribute is only valid under a <c>ul</c> with class &lt;&lt;"types"&gt;&gt;.</item>
+      </taglist>
+      <p>The <seemfa marker="stdlib:shell_docs#validate/1"><c>shell_docs:validate/1</c></seemfa>
+        function can be used to do a validation of the Erlang Documentation Format.</p>
+  </section>
+
+  <section>
+    <title>Erlang Documentation extra Metadata</title>
+    <p>Erlang/OTP uses some extra metadata fields to embed more information into the EEP-48 docs.</p>
+    <list>
+      <item>Fields on module level:
+        <taglist>
+          <tag><c>otp_doc_vsn := {non_neg_integer(),non_neg_integer(),non_neg_integer()}</c></tag>
+          <item>Describes the version of the Erlang Documentation Format used
+            within this module</item>
+          <tag><c>types := #{ TypeName :: unicode:unicode_binary() => TypeAST }</c></tag>
+          <item>A map containing the AST of the types that are part of this module.
+            This map is used to by functions and callbacks to render the types inline
+            into their documentation.</item>
+        </taglist>
+      </item>
+      <item>Fields on functions and types:
+        <taglist>
+          <tag><c>signature := SpecAST</c></tag>
+          <item>The spec AST associated with this function. It is used to render a more
+            descriptive slogan for the documentation entry.</item>
+          <tag><c>equiv := {Type,Name,Arity}</c></tag>
+          <item>The current function/type shares documentation with another function/type.
+            This means that if this and the target function/type are to be shown at the
+            same time only the prototype of this function/type should will be displayed
+            and the documentation will use a common body of text.</item>
+        </taglist>
+      </item>
+    </list>
   </section>
 
   <section>
     <title>See Also</title>
     <p>
+      <seeguide marker="kernel:eep48_chapter"></seeguide>
       <seeerl marker="stdlib:shell_docs"><c>shell_docs(3)</c></seeerl>,
       <seemfa marker="kernel:code#get_doc/1"><c>code:get_doc(3)</c></seemfa>
     </p>

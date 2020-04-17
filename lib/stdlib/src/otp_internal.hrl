@@ -26,7 +26,7 @@
 -export([obsolete/3, obsolete_type/3]).
 
 -type tag()     :: 'deprecated' | 'removed'. %% | 'experimental'.
--type mfas()    :: mfa() | {atom(), atom(), [byte()]}.
+-type mfas()    :: mfa() | {atom(), atom(), [byte()]} | string().
 -type release() :: string().
 
 -spec obsolete(module(), atom(), arity()) ->

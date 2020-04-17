@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2020</year><year>2020</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>EEP-48: Documentation storage and format</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>eep48_chapter.xml</file>
+  </header>
+
+  <p>This User's Guide describes the documentation storage format initially described in
+    <url href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</url>.
+    By standardizing how API documentation is stored, it will be possible to write tools that
+    work across languages.</p>
+
+  <p>To fetch the EEP-48 documentation for a module you can use
+    <seemfa marker="code#get_doc/1"><c>code:get_doc/1</c></seemfa>.</p>
+
+  <section>
+    <title>the "Docs" storage</title>
+    <p>To look for documentation for a module name example, a tool should:</p>
+
+    <p>Look for <c>example.beam</c> in the code path, parse the BEAM file and
+      retrieve the <c>Docs</c> chunk. If the chunk is not available, it should look
+      for "example.beam" in the code path and find the <c>doc/chunks/example.chunk</c>
+      file in the application that defines the <c>example</c> module. If a .chunk file is not
+      available, then documentation is not available.</p>
+
+    <p>The choice of using a chunk or the filesystem is completely up to the language or library.
+      In both cases, the documentation can be added or removed at any moment by stripping
+      the <c>Docs</c> chunk or by removing the doc/chunks directory.</p>
+
+    <p>For example, languages like Elixir and LFE attach the <c>Docs</c> chunk at
+      compilation time, which can be controlled via a compiler flag. On the other hand,
+      projects like OTP itself will likely generate the doc/chunks entries on a separate
+      command, completely unrelated from code compilation.</p>
+  </section>
+
+  <section>
+    <title>the "Docs" format</title>
+    <p>In both storages, the documentation is written in the exactly same format:
+      an Erlang term serialized to binary via <seemfa marker="erts:erlang#term_to_binary/1">
+      <c>term_to_binary/1</c></seemfa>. The term may be optionally compressed when serialized.
+      It must follow the type specification below:</p>
+
+    <code>
+{docs_v1,
+ Anno :: erl_anno:anno(),
+ BeamLanguage :: atom(),
+ Format :: binary(),
+ ModuleDoc :: #{DocLanguage := DocValue} | none | hidden,
+ Metadata :: map(),
+ Docs ::
+   [{{Kind, Name, Arity},
+     Anno :: erl_anno:anno(),
+     Signature :: [binary()],
+     Doc :: #{DocLanguage := DocValue} | none | hidden,
+     Metadata :: map()
+    }]} when DocLanguage :: binary(),
+             DocValue :: binary() | term()
+    </code>
+    <p>where in the root tuple we have:</p>
+    <taglist>
+      <tag>Anno</tag>
+      <item>annotation (line, column, file) of the definition itself (see
+        <seeerl marker="stdlib:erl_anno"><c>erl_anno(3)</c></seeerl>)</item>
+
+      <tag>BeamLanguage</tag>
+      <item>an atom representing the language, for example: erlang, elixir, lfe, alpaca, etc</item>
+
+      <tag>Format</tag>
+      <item>the mime type of the documentation, such as &lt;&lt;"text/markdown"&gt;&gt; or
+        &lt;&lt;"application/erlang+html"&gt;&gt;. For details of the format used by Erlang
+        see the <seeguide marker="erl_docgen:doc_storage"><c>EEP-48 Chapter</c></seeguide>
+        in Erl_Docgen's User's Guide.</item>
+
+      <tag>ModuleDoc</tag>
+      <item>a map with the documentation language as key, such as <c>&lt;&lt;"en"&gt;&gt;</c> or
+        <c>&lt;&lt;"pt_BR"&gt;&gt;</c>, and the documentation as a binary value. It may be the
+        atom <c>none</c> in case there is no documentation or the atom <c>hidden</c> if documentation
+        has been explicitly disabled for this entry.</item>
+
+      <tag>Metadata</tag>
+      <item>a map of atom keys with any term as value. This can be used to add annotations like the
+        <c>authors</c> of a module, <c>deprecated</c>, or anything else a language or documentation
+        tool may find relevant.</item>
+
+      <tag>Docs</tag>
+      <item>a list of documentation for other entities (such as functions and types)
+        in the module.</item>
+    </taglist>
+
+    <p>For each entry in Docs, we have:</p>
+
+    <taglist>
+      <tag>{Kind, Name, Arity}</tag>
+      <item>the kind, name and arity identifying the function, callback, type, etc.
+        The official entities are: <c>function</c>, <c>type</c> and <c>callback</c>.
+        Other languages will add their own. For instance, Elixir and LFE may add macro.</item>
+
+      <tag>Anno</tag>
+      <item>annotation (line, column, file) of the module documentation or of the definition itself
+        (see <seeerl marker="stdlib:erl_anno"><c>erl_anno(3)</c></seeerl>).</item>
+
+      <tag>Signature</tag>
+      <item>the signature of the entity. It is is a list of binaries. Each entry represents a
+        binary in the signature that can be joined with a whitespace or a newline. For example,
+        <c>[&lt;&lt;"binary_to_atom(Binary, Encoding)"&gt;&gt;,
+        &lt;&lt;"when is_binary(Binary)"&gt;&gt;]</c> may be rendered as
+        a single line or two lines. It exists exclusively for exhibition purposes.</item>
+
+      <tag>Doc</tag>
+      <item>a map with the documentation language as key, such as &lt;&lt;"en"&gt;&gt; or
+        &lt;&lt;"pt_BR"&gt;&gt;, and the documentation as a value. The documentation may
+        either be a binary or any Erlang term, both described by <c>Format</c>. If it is an
+        Erlang term, then the Format must be &lt;&lt;"application/erlang+SUFFIX",&gt;&gt;
+        such as &lt;&lt;"application/erlang+html"&gt;&gt; when the documentation is an Erlang
+        representation of an HTML document. The Doc may also be atom <c>none</c> in case there is
+        no documentation or the atom <c>hidden</c> if documentation has been explicitly
+        disabled for this entry.</item>
+
+      <tag>Metadata</tag>
+      <item>a map of atom keys with any term as value.</item>
+    </taglist>
+
+    <p>This shared format is the heart of the EEP as it is what effectively
+      allows cross-language collaboration.</p>
+
+    <p>The Metadata field exists to allow languages, tools and libraries to add
+      custom information to each entry. This EEP documents the following metadata keys:</p>
+
+    <taglist>
+      <tag>authors := [binary()]</tag>
+      <item>a list of authors as binaries.</item>
+
+      <tag>cross_references := [module() | {module(), {Kind, Name, Arity}}]</tag>
+      <item>a list of modules or module entries that can be used as cross references
+        when generating documentation.</item>
+
+      <tag>deprecated := binary()</tag>
+      <item>when present, it means the current entry is deprecated with a binary
+        that represents the reason for deprecation and a recommendation to replace
+        the deprecated code.</item>
+
+      <tag>since := binary()</tag>
+      <item>a binary representing the version such entry was added, such
+        as &lt;&lt;"1.3.0"&gt;&gt; or &lt;&lt;"20.0"&gt;&gt;.</item>
+
+      <tag>edit_url := binary()</tag>
+      <item>a binary representing a URL to change to change the documentation itself.</item>
+    </taglist>
+
+    <p>Any key may be added to Metadata at any time. Keys that are frequently
+      used by the community can be standardized in future versions.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>
+      <seeerl marker="stdlib:erl_anno"><c>erl_anno(3)</c></seeerl>,
+      <seeerl marker="stdlib:shell_docs"><c>shell_docs(3)</c></seeerl>,
+      <seeguide marker="erl_docgen:doc_storage"><c>EEP-48 Chapter in Erl_Docgen's User's Guide</c></seeguide>,
+      <seemfa marker="code#get_doc/1"><c>code:get_doc/1</c></seemfa>
+    </p>
+  </section>
+</chapter>

@@ -772,11 +772,10 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       <name name="get_doc" arity="1" since="OTP @OTP-16406@"/>
       <fsummary>Gets the documentation for a module.</fsummary>
       <desc>
-        <p>Searches the code path for a documentation chunk
-          and returns ut if available. If no documentation chunk
-          can be found the function tries to generate documentation
-          from the debug information in the module. If no debug
-          information is available, this function will return
+        <p>Searches the code path for EEP-48 style documentation and returns it
+          if available. If no documentation can be found the function tries to
+          generate documentation from the debug information in the module.
+          If no debug information is available, this function will return
           <c>{error,missing}</c>.
         </p>
         <p>For more information about the documentation chunk see

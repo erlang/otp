@@ -119,6 +119,9 @@
 
   <section>
     <title>Shell Commands</title>
+    <p>The commands below are the built-in shell commands that are always
+      available. In most system the commands listed in the <seeerl marker="c">c(3)</seeerl>
+      module are also available in the shell.</p>
     <taglist>
       <tag><c>b()</c></tag>
       <item>

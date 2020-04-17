@@ -89,8 +89,9 @@ call_edoc(FileSpec, InclFs, Dir) ->
         ok = write_text(Text, File, Dir),
         rename(Dir, File)
     catch
-        _:_ ->
+        E:R:ST ->
             io:format("EDoc could not process file '~s'\n", [File]),
+            io:format("~p:~p ~p\n", [E,R,ST]),
             clean_up(Dir),
             halt(3)
     end.

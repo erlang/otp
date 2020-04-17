@@ -33,10 +33,10 @@
     <file>shell_docs.xml</file>
   </header>
   <module since="OTP @OTP-16222@">shell_docs</module>
-  <modulesummary>Functions used to render documentation for a shell.</modulesummary>
+  <modulesummary>Functions used to render EEP-48 style documentation for a shell.</modulesummary>
   <description>
     <p>This module can be used to render function and type documentation
-      to be printed in a shell. It can only render documentation of the format
+      to be printed in a shell. It can only render EEP-48 documentation of the format
       <c>application/erlang+html</c>. For more information about this format see
       <seeguide marker="erl_docgen:doc_storage">Documentation Storage</seeguide>
       in Erl_Docgen's User's Guide.
@@ -48,6 +48,8 @@
       <name name="docs_v1"/>
     </datatype>
     <datatype>
+      <name name="chunk_element_block_type"/>
+      <name name="chunk_element_inline_type"/>
       <name name="chunk_element_type"/>
       <desc>
         <p>
@@ -95,6 +97,21 @@
       <fsummary>Render the documentation of a type in a module.</fsummary>
       <desc>
         <p>Render the documentation of a type in a module.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="render_callback" arity="2" since="OTP @OTP-16222@"/>
+      <fsummary>Render a list of all available callbacks in a module.</fsummary>
+      <desc>
+        <p>Render a list of all available callbacks in a module.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="render_callback" arity="3" since="OTP @OTP-16222@"/>
+      <name name="render_callback" arity="4" since="OTP @OTP-16222@"/>
+      <fsummary>Render the documentation of a callback in a module.</fsummary>
+      <desc>
+        <p>Render the documentation of a callback in a module.</p>
       </desc>
     </func>
 

@@ -23,38 +23,41 @@
 
 -export([render/2, render/3, render/4]).
 -export([render_type/2, render_type/3, render_type/4]).
+-export([render_callback/2, render_callback/3, render_callback/4]).
 
 %% Used by chunks.escript in erl_docgen
 -export([validate/1, normalize/1]).
 
 %% Convinience functions
--export([get_doc/1, get_doc/3, get_type_doc/3]).
+-export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
 
 -record(config, { docs,
                   io_opts = io:getopts(),
                   io_columns = element(2,io:columns())
                 }).
 
--define(ALL_ELEMENTS,[a,p,'div',h1,h2,h3,i,br,em,pre,code,ul,ol,li,dl,dt,dd]).
+-define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,i,em,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
--define(INLINE,[i,br,em,code,a]).
+-define(INLINE,[i,em,code,a]).
 -define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= code)
-                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= br)
-                         orelse ((ELEM) =:= em))).
+                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= em))).
 %% non-inline elements are:
--define(BLOCK,[p,'div',pre,ul,ol,li,dl,dt,dd,h1,h2,h3]).
+-define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
--type chunk_element_type() :: a | p | 'div' | i | br | em | pre | code | ul |
-                              ol | li | dl | dt | dd.
--type chunk_element_attr() :: {atom(),unicode:chardata()}.
--type chunk_element_attrs() :: [chunk_element_attr()].
+%% If you update the below types, make sure to update the documentation in
+%% erl_docgen/doc/src/doc_storage.xml as well!!!
+-type docs_v1() :: #docs_v1{}.
+-type chunk_elements() :: [chunk_element()].
 -type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
                           chunk_elements()} | binary().
--type chunk_elements() :: [chunk_element()].
--type docs_v1() :: #docs_v1{}.
-
+-type chunk_element_attrs() :: [chunk_element_attr()].
+-type chunk_element_attr() :: {atom(),unicode:chardata()}.
+-type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
+-type chunk_element_inline_type() :: a | code |  em | i.
+-type chunk_element_block_type() :: p | 'div' | br | pre | ul |
+                              ol | li | dl | dt | dd | h1 | h2 | h3.
 
 -spec validate(Module) -> ok when
       Module :: module() | docs_v1().
@@ -71,28 +74,80 @@ validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
     true = lists:all(fun(Elem) -> ?IS_INLINE(Elem) end, ?INLINE),
     true = lists:all(fun(Elem) -> ?IS_BLOCK(Elem) end, ?BLOCK),
 
-    _ = maps:map(fun(_Key,MDoc) -> validate(MDoc,[]) end, MDocs),
+    _ = validate_docs(MDocs),
     lists:foreach(fun({_,_Anno, Sig, Docs, _Meta}) ->
-                      case lists:all(fun erlang:is_binary/1, Sig) of
-                          false -> throw({invalid_signature,Sig});
-                          true -> ok
-                      end,
-                      maps:map(fun(_Key,Doc) -> validate(Doc,[]) end, Docs)
-              end, AllDocs),
+                          case lists:all(fun erlang:is_binary/1, Sig) of
+                              false -> throw({invalid_signature,Sig});
+                              true -> ok
+                          end,
+                          validate_docs(Docs)
+                  end, AllDocs),
     ok.
-validate([H|T],Path) when is_tuple(H) ->
-    _ = validate(H,Path),
-    validate(T,Path);
-validate({Tag,Attr,Content},Path) ->
+
+validate_docs(hidden) ->
+    ok;
+validate_docs(none) ->
+    ok;
+validate_docs(#{} = MDocs) ->
+    _ = maps:map(fun(_Key,MDoc) -> validate_docs(MDoc,[]) end, MDocs),
+    ok.
+validate_docs([H|T],Path) when is_tuple(H) ->
+    _ = validate_docs(H,Path),
+    validate_docs(T,Path);
+validate_docs({br,Attr,Content} = Br,Path) ->
+    if Attr =:= [], Content =:= [] ->
+            ok;
+       true ->
+            throw({content_to_allowed_in_br,Br,Path})
+    end;
+validate_docs({Tag,Attr,Content},Path) ->
+
+    %% Test that we only have li's within ul and ol
+    case (Tag =/= li) andalso (length(Path) > 0) andalso ((hd(Path) =:= ul) orelse (hd(Path) =:= ol)) of
+        true ->
+            throw({only_li_allowed_within_ul_or_ol,Tag,Path});
+        _ ->
+            ok
+    end,
+
+    %% Test that we only have dd's and dt's within dl
+    case (Tag =/= dd) andalso (Tag =/= dt) andalso (length(Path) > 0) andalso (hd(Path) =:= dl) of
+        true ->
+            throw({only_dd_or_dt_allowed_within_dl,Tag,Path});
+        _ ->
+            ok
+    end,
+
+    %% Test that we do not have p's within p's
     case Tag =:= p andalso lists:member(p, Path) of
         true ->
-            throw({nested,p,not_allowed});
+            throw({nested_p_not_allowed,Tag,Path});
+        false ->
+            ok
+    end,
+    %% Test that there are no block tags within a pre, h1, h2 or h3
+    case lists:member(pre,Path) or lists:member(h1,Path) or
+        lists:member(h2,Path) or lists:member(h3,Path) of
+        true when ?IS_BLOCK(Tag) ->
+            throw({cannot_put_block_tag_within_pre,Tag,Path});
+        _ ->
+            ok
+    end,
+    %% Test that a block tag is not within an inline tag
+    case lists:member(Tag,?BLOCK) of
+        true ->
+            case lists:any(fun(P) -> ?IS_INLINE(P) end, Path) of
+                true ->
+                    throw({cannot_put_inline_tag_outside_block, Tag, Path});
+                false ->
+                    ok
+            end;
         false ->
             ok
     end,
     case lists:member(Tag,?ALL_ELEMENTS) of
         false ->
-            throw({invalid_tag,Tag});
+            throw({invalid_tag,Tag,Path});
         true ->
             ok
     end,
@@ -100,10 +155,10 @@ validate({Tag,Attr,Content},Path) ->
         true -> ok;
         false -> throw({invalid_attribute,{Tag,Attr}})
     end,
-    validate(Content,[Tag | Path]);
-validate([Chars | T], Path) when is_binary(Chars) ->
-    validate(T, Path);
-validate([],_) ->
+    validate_docs(Content,[Tag | Path]);
+validate_docs([Chars | T], Path) when is_binary(Chars) ->
+    validate_docs(T, Path);
+validate_docs([],_) ->
     ok.
 
 %% Follows algorithm described here:
@@ -119,13 +174,13 @@ normalize(Docs) ->
 
 normalize_trim(Bin,true) when is_binary(Bin) ->
     %% Remove any whitespace (except \n) before or after a newline
-    NoSpace = re:replace(Bin,"[^\\S\n]*\n+[^\\S\n]*","\n",[global]),
+    NoSpace = re:replace(Bin,"[^\\S\n]*\n+[^\\S\n]*","\n",[unicode,global]),
     %% Replace any tabs with space
-    NoTab = re:replace(NoSpace,"\t"," ",[global]),
+    NoTab = re:replace(NoSpace,"\t"," ",[unicode,global]),
     %% Replace any newlines with space
-    NoNewLine = re:replace(NoTab,"\\v"," ",[global]),
+    NoNewLine = re:replace(NoTab,"\\v"," ",[unicode,global]),
     %% Replace any sequences of \s with a single " "
-    re:replace(NoNewLine,"\\s+"," ",[global,{return,binary}]);
+    re:replace(NoNewLine,"\\s+"," ",[unicode,global,{return,binary}]);
 normalize_trim(Bin,false) when is_binary(Bin) ->
     Bin;
 normalize_trim([{pre,Attr,Content}|T],Trim) ->
@@ -148,38 +203,41 @@ normalize_trim([],_Trim) ->
 normalize_space([{Pre,Attr,Content}|T]) when ?IS_PRE(Pre) ->
     [{Pre,Attr,trim_first_and_last(Content,$\n)} | normalize_space(T)];
 normalize_space([{Block,Attr,Content}|T]) when ?IS_BLOCK(Block) ->
-    [{Block,Attr,trim_first_and_last(trim_inline(Content),$ )} | normalize_space(T)];
-normalize_space([B]) when is_binary(B) ->
-    trim_first_and_last([B],$ );
-normalize_space([E|T]) ->
-    [E|normalize_space(T)];
+    [{Block,Attr,normalize_space(Content)} | normalize_space(T)];
 normalize_space([]) ->
-    [].
+    [];
+normalize_space(Elems) ->
+    {InlineElems, T} =
+        lists:splitwith(fun(E) ->
+                                is_binary(E) orelse (is_tuple(E) andalso ?IS_INLINE(element(1,E)))
+                        end, Elems),
+    trim_inline(InlineElems) ++ normalize_space(T).
 
 trim_inline(Content) ->
     {NewContent,_} = trim_inline(Content,false),
-    NewContent.
+    trim_first_and_last(NewContent,$ ).
 trim_inline([Bin|T],false) when is_binary(Bin) ->
     LastElem = binary:at(Bin,byte_size(Bin)-1),
-    {NewT, NewState} = trim_inline(T,LastElem =:= $ ),
-    {[Bin | NewT],NewState};
+    case trim_inline(T,LastElem =:= $ ) of
+        {[B2 | NewT],NewState} when is_binary(B2) ->
+            {[<<Bin/binary,B2/binary>>|NewT],NewState};
+        {NewT, NewState} ->
+            {[Bin|NewT],NewState}
+    end;
 trim_inline([<<" ">>|T],true) ->
-    trim_inline(T,false);
+    trim_inline(T,true);
 trim_inline([<<" ",Bin/binary>>|T],true) when is_binary(Bin) ->
-    trim_inline([Bin | T],false);
+    trim_inline([Bin | T],true);
 trim_inline([Bin|T],true) when is_binary(Bin) ->
     trim_inline([Bin|T],false);
-trim_inline([{Elem,Attr,Content}|T],TrimSpace) when ?IS_INLINE(Elem) ->
+trim_inline([{Elem,Attr,Content}|T],TrimSpace) ->
     {NewContent,ContentTrimSpace} = trim_inline(Content,TrimSpace),
     {NewT,TTrimSpace} = trim_inline(T,ContentTrimSpace),
-    {[{Elem,Attr,NewContent} | NewT], TTrimSpace};
-trim_inline([{Elem1,_A1,_C1} = B1,<<" ">>,{Elem2,_A2,_C2} = B2|T],TrimSpace)
-  when ?IS_BLOCK(Elem1),?IS_BLOCK(Elem2) ->
-    trim_inline([B1,B2|T],TrimSpace);
-trim_inline([{Elem,_Attr,_Content} = Block|T],_TrimSpace) when ?IS_BLOCK(Elem) ->
-    [NewBlock] = normalize_space([Block]),
-    {NewT,TTrimSpace} = trim_inline(T,false),
-    {[NewBlock | NewT], TTrimSpace};
+    if NewContent == [] ->
+            {NewT, TTrimSpace};
+       true ->
+            {[{Elem,Attr,NewContent} | NewT], TTrimSpace}
+    end;
 trim_inline([],TrimSpace) ->
     {[],TrimSpace}.
 
@@ -205,6 +263,8 @@ trim_first([Bin|T],false,What) when is_binary(Bin) ->
     end;
 trim_first([{Elem,Attr,Content} = Tag|T],false,What) ->
     case trim_first(Content,false,What) of
+        {[],true} ->
+            {T,true};
         {NewContent,true} ->
             {[{Elem,Attr,NewContent}|T],true};
         {Content,false} ->
@@ -233,8 +293,12 @@ trim_last([{Elem,Attr,Content} = Tag|T],What) ->
         {NewT,true} ->
             {[Tag | NewT],true};
         {T,false} ->
-            {NewContent,NewState} = trim_last(Content,What),
-            {[{Elem,Attr,NewContent}|T],NewState}
+            case trim_last(Content,What) of
+                {[],NewState} ->
+                    {T,NewState};
+                {NewContent,NewState} ->
+                    {[{Elem,Attr,NewContent}|T],NewState}
+            end
     end;
 trim_last([],_What) ->
     {[],false}.
@@ -265,9 +329,9 @@ get_doc(Module, Function, Arity) ->
     [{F,A,S,get_local_doc({F,A},D),M} || {F,A,S,D,M} <- FnFunctions].
 
 -spec render(Module :: module(), Docs :: docs_v1()) -> unicode:chardata().
-render(Module, #docs_v1{ module_doc = ModuleDoc, metadata = MD } = D) ->
-    render_docs([["\t",atom_to_binary(Module)]],
-                get_local_doc(Module, ModuleDoc), MD, D).
+render(Module, #docs_v1{ module_doc = ModuleDoc } = D) ->
+    render_headers_and_docs([[{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]}]],
+                            get_local_doc(Module, ModuleDoc), D).
 
 -spec render(Module :: module(), Function :: function(), Docs :: docs_v1()) ->
           unicode:chardata() | {error,function_missing}.
@@ -309,18 +373,13 @@ get_type_doc(Module, Type, Arity) ->
     [{F,A,S,get_local_doc(F, D),M} || {F,A,S,D,M} <- FnFunctions].
 
 -spec render_type(Module :: module(), Docs :: docs_v1()) -> unicode:chardata().
-render_type(Module, #docs_v1{ docs = Docs } = D) ->
-    render_type_signatures(Module,
-      lists:filter(fun({{type, _, _},_Anno,_Sig,_Doc,_Meta}) ->
-                             true;
-                        (_) ->
-                             false
-                     end, Docs), D).
+render_type(Module, D) ->
+    render_signature_listing(Module, type, D).
 
 -spec render_type(Module :: module(), Type :: atom(), Docs :: docs_v1()) ->
           unicode:chardata() | {error,type_missing}.
 render_type(_Module, Type, #docs_v1{ docs = Docs } = D) ->
-    render_type_docs(
+    render_typecb_docs(
       lists:filter(fun({{type, T, _},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Type;
                         (_) ->
@@ -330,13 +389,56 @@ render_type(_Module, Type, #docs_v1{ docs = Docs } = D) ->
 -spec render_type(Module :: module(), Type :: atom(), Arity :: arity(),
                   Docs :: docs_v1()) -> unicode:chardata() | {error,type_missing}.
 render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D) ->
-    render_type_docs(
+    render_typecb_docs(
       lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                            T =:= Type andalso A =:= Arity;
                         (_) ->
                              false
                    end, Docs), D).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% API function for dealing with the callback documentation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec get_callback_doc(Module :: module(), Callback :: atom(), Arity :: arity()) ->
+          [{{Callback,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
+      Callback :: atom(),
+      Arity :: arity(),
+      Anno :: erl_anno:anno(),
+      Signature :: [binary()],
+      Metadata :: #{}.
+get_callback_doc(Module, Callback, Arity) ->
+    {ok, #docs_v1{ docs = Docs } } = code:get_doc(Module),
+    FnFunctions =
+        lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
+                             T =:= Callback andalso A =:= Arity;
+                        (_) ->
+                             false
+                     end, Docs),
+    [{F,A,S,get_local_doc(F, D),M} || {F,A,S,D,M} <- FnFunctions].
+
+-spec render_callback(Module :: module(), Docs :: docs_v1()) -> unicode:chardata().
+render_callback(Module, D) ->
+    render_signature_listing(Module, callback, D).
+
+-spec render_callback(Module :: module(), Callback :: atom(), Docs :: docs_v1()) ->
+          unicode:chardata() | {error,callback_missing}.
+render_callback(_Module, Callback, #docs_v1{ docs = Docs } = D) ->
+    render_typecb_docs(
+      lists:filter(fun({{callback, T, _},_Anno,_Sig,_Doc,_Meta}) ->
+                             T =:= Callback;
+                        (_) ->
+                             false
+                     end, Docs), D).
+
+-spec render_callback(Module :: module(), Callback :: atom(), Arity :: arity(),
+                  Docs :: docs_v1()) -> unicode:chardata() | {error,callback_missing}.
+render_callback(_Module, Callback, Arity, #docs_v1{ docs = Docs } = D) ->
+    render_typecb_docs(
+      lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
+                           T =:= Callback andalso A =:= Arity;
+                        (_) ->
+                             false
+                   end, Docs), D).
 
 %% Get the docs in the correct locale if it exists.
 get_local_doc(MissingMod, Docs) when is_atom(MissingMod) ->
@@ -359,58 +461,127 @@ get_local_doc(Missing, None) when None =:= none; None =:= #{} ->
 %%% Functions for rendering reference documentation
 render_function([], _D) ->
     {error,function_missing};
-render_function(FDocs, D) ->
-    [render_docs(render_signature(Func), get_local_doc({F,A},Doc), Meta, D)
-     || {{_,F,A},_Anno,_Sig,Doc,Meta} = Func <- lists:sort(FDocs)].
+render_function(FDocs, #docs_v1{ docs = Docs } = D) ->
+    Grouping =
+        lists:foldl(
+          fun({_Group,_Anno,_Sig,_Doc,#{ equiv := Group }} = Func,Acc) ->
+                  Members = maps:get(Group, Acc, []),
+                  Acc#{ Group => [Func|Members] };
+             ({Group, _Anno, _Sig, _Doc, _Meta} = Func, Acc) ->
+                  Members = maps:get(Group, Acc, []),
+                  Acc#{ Group => [Func|Members] }
+          end, #{}, lists:sort(FDocs)),
+    lists:map(
+      fun({{_,F,A} = Group,Members}) ->
+              Signatures = lists:flatmap(fun render_signature/1,lists:reverse(Members)),
+              case lists:search(fun({_,_,_,Doc,_}) ->
+                                        Doc =/= #{}
+                                end, Members) of
+                  {value, {_,_,_,Doc,_Meta}} ->
+                      render_headers_and_docs(Signatures, get_local_doc({F,A},Doc), D);
+                  false ->
+                      case lists:keyfind(Group, 1, Docs) of
+                          false ->
+                              render_headers_and_docs(Signatures, get_local_doc({F,A},none), D);
+                          {_,_,_,Doc,_} ->
+                              render_headers_and_docs(Signatures, get_local_doc({F,A},Doc), D)
+                      end
+              end
+      end, maps:to_list(Grouping)).
 
-%% Render the signature of either function or a type, or anything else really.
-render_signature({{_Type,_F,_A},_Anno,_Sig,_Docs,#{ signature := Specs }}) ->
-    [erl_pp:attribute(Spec,[{encoding,utf8}]) || Spec <- Specs];
-render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,_Meta}) ->
-    [Sig || Sig <- Sigs].
+%% Render the signature of either function, type, or anything else really.
+render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta}) ->
+    lists:flatmap(
+      fun(ASTSpec) ->
+              PPSpec = erl_pp:attribute(ASTSpec,[{encoding,utf8}]),
+              Spec =
+                  case ASTSpec of
+                      {_Attribute, _Line, opaque, _} ->
+                          %% We do not want show the internals of the opaque type
+                          hd(string:split(PPSpec,"::"));
+                      _ ->
+                          PPSpec
+                  end,
+              BinSpec =
+                  unicode:characters_to_binary(
+                    string:trim(Spec, trailing, "\n")),
+              [{pre,[],[{em,[],BinSpec}]}|render_meta(Meta)]
+      end, Specs);
+render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
+    lists:flatmap(
+      fun(Sig) ->
+              [{h2,[],[<<"  "/utf8,Sig/binary>>]}|render_meta(Meta)]
+      end, Sigs).
 
-render_since(#{ since := Vsn }) ->
-    ["\n\nSince: ",Vsn];
-render_since(_) ->
+render_meta(M) ->
+    case render_meta_(M) of
+        [] -> [];
+        Meta ->
+            [[{dl,[],Meta}]]
+    end.
+render_meta_(#{ since := Vsn } = M) ->
+    [{dt,[],<<"Since">>},{dd,[],[Vsn]}
+    | render_meta_(maps:remove(since, M))];
+render_meta_(#{ deprecated := Depr } = M) ->
+    [{dt,[],<<"Deprecated">>},{dd,[],[Depr]}
+    | render_meta_(maps:remove(deprecated, M))];
+render_meta_(_) ->
     [].
 
-render_docs(Headers, DocContents, MD, D = #config{}) ->
-    init_ansi(D),
-    try
-        {Doc,_} = trimnl(render_docs(DocContents,[],0,2,D)),
-        [sansi(bold),
-         [io_lib:format("~n~ts",[Header]) || Header <- Headers],
-         ransi(bold),
-         render_since(MD),
-         io_lib:format("~n~n~ts",[Doc])]
-    after
-        clean_ansi()
-    end;
-render_docs(Headers, DocContents, MD, D) ->
-    render_docs(Headers, DocContents, MD, #config{ docs = D }).
+render_headers_and_docs(Headers, DocContents, D) ->
+    ["\n",render_docs(
+       lists:flatmap(
+         fun(Header) ->
+                 [{br,[],[]},Header]
+         end,Headers), 0, D),
+     "\n",
+     render_docs(DocContents,2,D)].
 
-%%% Functions for rendering type documentation
-render_type_signatures(Module, Types, D = #config{}) ->
-    init_ansi(D),
-    try
-        [sansi(bold),"\t",atom_to_list(Module),ransi(bold),"\n\n",
-         [render_signature(Type) || Type <- Types ]]
-    after
-        clean_ansi()
-    end;
-render_type_signatures(Module, Types, D) ->
-    render_type_signatures(Module, Types, #config{ docs = D }).
+%%% Functions for rendering type/callback documentation
+render_signature_listing(Module, Type, #docs_v1{ docs = Docs } = D) ->
+    Slogan = [{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]},{br,[],[]}],
+    case lists:filter(fun({{T, _, _},_Anno,_Sig,_Doc,_Meta}) ->
+                              Type =:= T
+                      end, Docs) of
+        [] ->
+            render_docs(
+              Slogan ++ [<<"There are no ",(atom_to_binary(Type))/binary,"s "
+                           "in this module">>], D);
+        Headers ->
+            Hdr = lists:flatmap(
+                    fun(Header) ->
+                            [{br,[],[]},render_signature(Header)]
+                    end,Headers),
+            render_docs(
+              Slogan ++
+                  [{p,[],[<<"These ",(atom_to_binary(Type))/binary,"s "
+                            "are documented in this module:">>]},
+                   {br,[],[]}, Hdr], D)
+    end.
 
-render_type_docs([], _D) ->
+render_typecb_docs([], _D) ->
     {error,type_missing};
-render_type_docs(Types, #config{} = D) when is_list(Types) ->
-    [render_type_docs(Type, D) || Type <- Types];
-render_type_docs({{_,F,A},_,_Sig,Docs,Meta} = Type, #config{} = D) ->
-    render_docs(render_signature(Type), get_local_doc({F,A},Docs), Meta, D);
-render_type_docs(Docs, D) ->
-    render_type_docs(Docs, #config{ docs = D }).
+render_typecb_docs(TypeCBs, #config{} = D) when is_list(TypeCBs) ->
+    [render_typecb_docs(TypeCB, D) || TypeCB <- TypeCBs];
+render_typecb_docs({{_,F,A},_,_Sig,Docs,_Meta} = TypeCB, #config{} = D) ->
+    render_headers_and_docs(render_signature(TypeCB), get_local_doc({F,A},Docs), D);
+render_typecb_docs(Docs, D) ->
+    render_typecb_docs(Docs, #config{ docs = D }).
 
 %%% General rendering functions
+render_docs(DocContents, D) ->
+    render_docs(DocContents, 0, D).
+render_docs(DocContents, Ind, D = #config{}) ->
+    init_ansi(D),
+    try
+        {Doc,_} = trimnl(render_docs(DocContents, [], 0, Ind, D)),
+        Doc
+    after
+        clean_ansi()
+    end;
+render_docs(DocContents, Ind, D) ->
+    render_docs(DocContents, Ind, #config{ docs = D }).
+
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->
 %                           io:format("Elem: ~p (~p) (~p,~p)~n",[Elem,State,P,Ind]),
@@ -443,10 +614,10 @@ render_docs(Elem,State,Pos,Ind,D) ->
           {unicode:chardata(), Pos :: non_neg_integer()}.
 
 render_element({IgnoreMe,_,Content}, State, Pos, Ind,D)
-  when IgnoreMe =:= a; IgnoreMe =:= anno ->
+  when IgnoreMe =:= a ->
     render_docs(Content, State, Pos, Ind,D);
 
-%% Catch h1, h2 and h3 before the padding is done as there reset padding
+%% Catch h1, h2 and h3 before the padding is done as they reset padding
 render_element({h1,_,Content},State,0 = Pos,_Ind,D) ->
     trimnlnl(render_element({code,[],[{em,[],Content}]}, State, Pos, 0, D));
 render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
@@ -461,7 +632,7 @@ render_element({'div',[{class,What}],Content},State,Pos,Ind,D) ->
     {Docs,_} = render_docs(Content, ['div'|State], 0, Ind+2, D),
     trimnlnl([pad(Ind - Pos),string:titlecase(What),":\n",Docs]);
 render_element({Tag,_,Content},State,Pos,Ind,D) when Tag =:= p; Tag =:= 'div' ->
-    trimnlnl(render_docs(Content, [Tag|State], Pos, Ind,D));
+    trimnlnl(render_docs(Content, [Tag|State], Pos, Ind, D));
 
 render_element(Elem,State,Pos,Ind,D) when Pos < Ind ->
 %    io:format("Pad: ~p~n",[Ind - Pos]),
@@ -481,8 +652,8 @@ render_element({i,_,Content},State,Pos,Ind,D) ->
     %% Just ignore i as ansi does not have cursive style
     render_docs(Content, State, Pos, Ind,D);
 
-render_element({br,[],[]},_State,_Pos,_Ind,_D) ->
-    nl("");
+render_element({br,[],[]},_State,Pos,_Ind,_D) ->
+    {"",Pos};
 
 render_element({em,_,Content},State,Pos,Ind,D) ->
     Bold = sansi(bold),
@@ -550,7 +721,13 @@ render_element(B, State, Pos, Ind,#config{ io_columns = Cols }) when is_binary(B
     end;
 
 render_element({Tag,Attr,Content}, State, Pos, Ind,D) ->
-    throw({unhandled,{Tag,Attr,Content,Pos,Ind}}),
+    case lists:member(Tag,?ALL_ELEMENTS) of
+        true ->
+            throw({unhandled_element,Tag,Attr,Content});
+        false ->
+            %% We ignore tags that we do not care about
+            ok
+    end,
     render_docs(Content, State, Pos, Ind,D).
 
 render_words(Words,[_,types|State],Pos,Ind,Acc,Cols) ->
@@ -560,8 +737,10 @@ render_words(Words,[_,types|State],Pos,Ind,Acc,Cols) ->
 render_words([Word|T],State,Pos,Ind,Acc,Cols) when is_binary(Word) ->
     WordLength = string:length(Word),
     NewPos = WordLength + Pos,
+    %% We do not want to add a newline if this word is only a punctuation
+    IsPunct = is_tuple(re:run(Word,"^\\W$",[unicode])),
     if
-        NewPos > (Cols - 10 - Ind) ->
+        NewPos > (Cols - 10 - Ind), Word =/= <<>>, not IsPunct ->
             %% Word does not fit, time to add a newline and also pad to Indent level
             render_words(T,State,WordLength+Ind+1,Ind,[[[pad(Ind), Word]]|Acc],Cols);
          true ->
@@ -601,9 +780,14 @@ get_bullet(_State,latin1) ->
     <<" * ">>;
 get_bullet(State,unicode) ->
     %% Fancy bullet point logic!
-    lists:nth(length([l || l <- State]),
-              [<<" • "/utf8>>,<<" ￮ "/utf8>>,
-               <<" ◼ "/utf8>>,<<" ◻ "/utf8>>]).
+    case length([l || l <- State]) of
+        Level when Level > 4 ->
+            get_bullet(State, latin1);
+        Level ->
+            lists:nth(Level,
+                      [<<" • "/utf8>>,<<" ￮ "/utf8>>,
+                       <<" ◼ "/utf8>>,<<" ◻ "/utf8>>])
+    end.
 
 % Look for the length of the last line of a string
 lastline(Str) ->

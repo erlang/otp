@@ -1,0 +1,532 @@
+#!/usr/bin/perl -w
+
+###########################################################################
+#
+#  Find broken links and files not referenced.
+#
+#  Author: Kent Boortz <kent@erix.ericsson.se>
+#
+###########################################################################
+
+use File::Find;
+use strict;
+
+undef $/;			# No record separator reading files
+
+###########################################################################
+#
+#  When we talk about "a page" we mean the actual page/file
+#  When we talk about "a link" we mean a referense to a page/file.
+#  All links/URL's start with an slash except the top link that is
+#  the empty string.
+#
+#  So basically we have a set of links and a set of URL's to pages and
+#  check if this is a valid combination.
+#
+###########################################################################
+
+my $debug = 1;
+my $expand_url = 0;		# If we are to expand an URL with default
+				# names like "index.html"
+my @indexes =			# The order to try URL expansion
+  (
+   "index.shtml",
+   "index.html",
+   "index.htm",
+  );
+
+my $html_ext = 'shtml|html|htm'; # HTML pages ends in these
+
+my @links;			# Set of [page,link] we want to check
+my @exclude;			# Pages/dir/prefix to exclude
+my %pages;			# Set of all files found in the file system
+				# limited by the script arguments.
+				# After the spider is done all members in the
+				# set thas has the value 1 was visited.
+
+my %missing;			# Pages not found "$page$;$link"
+my %invalid;			# After expansion it is invalid
+my %access;			# Can't access but exists
+
+my %anchor_refs;		# Absolute links including anchor part
+my %anchor_defs;		# <a name="..."> in the form "$page#$anchor"
+
+###########################################################################
+#
+#  Argument processing, see usage() function below
+#
+###########################################################################
+
+@ARGV or usage("No base directory given");
+my $base = shift @ARGV;
+-d $base or usage("Not a directory: $base");
+$base =~ m&^/& or usage("Has to be absolute path: $base");
+$base =~ s&/+$&&;		# Remove ending slash if any
+
+my $link;
+while ($link = shift @ARGV) {
+    last if $link eq '--';
+    $link =~ s&/+$&&;		# Remove ending slash if any
+    $link =~ s&$base&&;		# Make absolute URL
+    $link =~ m&^/& and usage("Invalid start point of HTML tree \"$_\"");
+    $link = "/$link";
+    push(@links,["",$link]);
+}
+
+while ($link = shift @ARGV) {
+    $link =~ s&/+$&&;		# Remove ending slash if any
+    $link =~ s&$base&&;		# Make absolute URL
+    $link =~ m&^/& and usage("Invalid exclude URL \"$_\"");
+    $link = "/$link";
+    push(@exclude,$link);
+}
+
+# OTP specific
+
+push(@links,["","/doc/index.html"]) unless @links;
+
+###########################################################################
+#
+#  Traverse all files and directories and put all possible URL's into
+#  the set %pages. When we later find a referense to a page that URL
+#  is removed from the set. When we have followed all links the set
+#  contains the pages never visited.
+#
+#  We skip files and directories in @exclude.
+#
+###########################################################################
+
+find(\&wanted,$base);
+
+sub wanted {
+  return unless -f;
+  return if /^\.info\./;
+  return if /~$/;
+
+  my $url = $File::Find::name;
+  $url =~ s&$base&&;
+  $pages{$url} = 0 unless map {$url =~ m&^$_&} @exclude;
+}
+
+
+###########################################################################
+#
+#  Spider that follow all links adding links to the @links set.
+#
+#  @links is expanded, normalized links
+#
+#  We check if there is an valid URL for this link.
+#  @links may contain links that look bad, this is cleaned up here
+#  before checking it.
+#
+###########################################################################
+
+while (@links) {
+    my $page_and_link = shift @links;
+    my ($page,$link) = @$page_and_link;
+
+    # We skip some links directly
+
+    next if $link =~ /^\w{3,10}:/i;
+    next if $link =~ /cgi-bin|cgiwrap|user-cgi/;
+    next if $link =~ /^and|or$/;
+#    next if $link eq "";
+
+#    print STDERR "1 link: $link\n";
+
+    $link = expand_link($link,\%pages) if $expand_url;
+
+    unless (exists $pages{$link}) {
+	# No page for link, mark as invalid
+	$missing{"$page$;$link"} = 1;
+	next;
+    }
+
+#    print STDERR "2 link: $link\n";
+
+    next if $pages{$link};	# If == 1 it is visited
+    $pages{$link} = 1;		# Mark as visited
+
+#    print STDERR "3 link: $link\n";
+
+#    next unless $link =~ /\.(shtml|html|htm)$/oi;
+    next unless $link =~ /\.($html_ext)$/oi;
+
+    push(@links,get_page_links($base,$link));
+}
+
+
+###########################################################################
+#
+#  Read the page and get all the links. We know that the URL for the page
+#  is absolute and that a page/file exists.
+#
+###########################################################################
+
+sub get_page_links {
+  my $base = shift;
+  my $page = shift;		# Absolute URL
+
+#  print STDERR "open: $page\n";
+
+  my $path = "$base$page";
+
+  open(HTML,$path)
+    or print STDERR "INTERNAL ERROR: Can't open page $page: $!\n";
+
+  my $html = <HTML>;
+  close HTML;
+
+#  my $url_base = $page;
+#  $url_base =~ s&/[^/]+$&&;
+
+  # Remove comments
+  $html =~ s/\<\!\-\-\s*(.*?)\s*\-\-\>//gs;
+
+#  # Remove comments and expand SSI
+#  $html =~ s/\<\!\-\-\s*(.*?)\s*\-\-\>/
+#    expand_ssi($url_base,$page,$1)/gsie;
+
+  my @links;			# Links in this document
+#  push(@links,$html =~ /\/\*URL\*\/\s*\'([^\']+\.[^\']+)\'/gsi);
+#  push(@links,$html =~ /=\s*\'([^\']+\.(?:gif|jpg|jpeg))\'/gsi);
+#  push(@links,$html =~ /option value=\s*\"(\/[^\"]+)\"/gsi);
+#  push(@links,$html =~ /option value=\s*\"([^\"]+\.[^\"]+)\"/gsi);
+# FIXME: This is not working....
+#  push(@links,$html =~ /url\s*=\s*([\w-\.\/]+)/gsi);
+#  push(@links,$html =~ /\"([^\"]+\.html)\"/gsi);
+
+  # Find real HTML links
+  push(@links,$html =~ /\<\s*\w[^\>]*\sHREF=\s*\"([^\"]*)\"[^\>]*\>/gsi);
+  push(@links,$html =~ /\<\s*\w[^\>]*\sSRC=\s*\"([^\"]*)\"[^\>]*\>/gsi);
+  push(@links,$html =~ /\<\s*\w[^\>]*\sLOWSRC=\s*\"([^\"]*)\"[^\>]*\>/gsi);
+  push(@links,$html =~ /\<\s*\w[^\>]*\sBACKGROUND=\s*\"([^\"]*)\"[^\>]*\>/gsi);
+
+  # FIXME: Now we have the raw links, if we want to complain about
+  # spaces etc this is the time.
+
+  # Remove referenses to the same page  FIXME??? Was removed , why...
+#  @links = grep {$_ and $_ !~ /^\#/} @links;
+
+  # Find the URL to the current directory
+  my $rpath = $page;
+  $rpath =~ s&/[^/]+$&&;	# Remove name
+
+  # Links pointing to the same page
+  # should look the same
+  map {$_ = normalize_link($page,$rpath,$_)} @links;
+
+#  print "XXX $page\n" if grep {m&lib/asn1-1.3.2/doc/index\.html&} @links;
+
+  map {$_ = [$page,$_]} @links;	# Add what page was referensing it
+
+  # Find the anchors
+  
+  my @anchors =
+    ($html =~ m/
+     <
+     \s*
+     A
+     [^>]*
+     \s (?: NAME|ID) \s* = \s*
+     (?: \"([^\"]*)\" | \'([^\']*)\' | ([^>\s]+) )
+     [^>]*
+     >
+    /gsix);
+
+  foreach my $anchor (@anchors) {
+      # FIXME if already there, duplicate
+      next unless defined $anchor;
+      $anchor =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
+      $anchor =~ s/&lt;/</g; # 
+      $anchor =~ s/&gt;/>/g; #
+      $anchor_defs{"$page#$anchor"} = 1;
+  }
+
+  return @links;
+}
+
+
+# -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+
+sub normalize_link {
+    my $page  = shift;		# Page where we found this link
+    my $rpath = shift;		# URL to directory where we found this link
+    my $link  = shift;		# The link to normalize
+
+#    print STDERR "\n";
+#    print STDERR "1 normalize_link: $link\n";
+
+    # Handle javascript:erlhref() specially to be able to check those links.
+    if ($link =~ /^javascript:erlhref\(([^\)]*)\);$/) {
+	my($up,$part,$mod) = split(/,\s*/, $1);
+	$up  =~ tr/\'//d;
+	$part =~ tr/\'//d;
+	$mod =~ tr/\'//d;
+	my $dir;
+	if ($part =~ m&^[a-z]+/&) {
+	    $dir = "$base$rpath/${up}/$part";
+	} else {
+	    my $path = "$base$rpath/${up}lib/$part/doc/html";
+	    ($dir) = <$path-*>;
+	    return $link unless defined $dir;
+	}
+	$dir =~ s&^$base&&o;
+	$link = "$dir/$mod";
+    }
+
+    return $link if $link =~ /^\w{3,10}:/i; # mailto: http: .....
+    return $link if $link =~ /\?/i;         # Contains arguments to CGI
+
+    $link =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
+
+    if ($link eq "") {
+	# The empty link is a reference to URL directory
+	return $rpath;
+    } elsif ($link =~ /^#(.*)$/) {
+	# Lokal reference to anchor
+        my $anchor = $1;
+        $anchor =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
+        $anchor =~ s/&lt;/</g; # 
+        $anchor =~ s/&gt;/>/g; #
+	push(@{$anchor_refs{"$page#$anchor"}}, $page);
+	return $page;
+    }
+
+    my $anchor = "";
+
+    if ($link =~ s&#(.*)$&&) {
+	# Removed page ref (anchor)
+	$anchor = $1;
+        $anchor =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
+        $anchor =~ s/&lt;/</g; # 
+        $anchor =~ s/&gt;/>/g; #
+    }
+
+    $link = "" if $link eq "/";
+
+    # Make the link absolute
+    # FIXME: maybe move down.....
+
+    if ($link !~ m&^/&) {
+	if ($link) {
+	  $link = "$rpath/$link";
+	} else {
+	  $link = $rpath;
+	}
+    }
+
+    my $xlink = $link;
+
+    $link =~ s&//+&/&g;		# Replace multiple slashes with one slash
+#    $link =~ s&^(\./)+&&g;	# Remove starting dot slash "./"  (can't be if absolute)
+    $link =~ s&(/\.)+$&&;	# Remove ending slash dot "/."
+    $link =~ s&(/\.)+/&/&g;	# Remove all slash dot slash "/./"
+    $link =~ s&/+$&&;		# Remove ending slashes
+
+    # Remove a real directory part followed by ".."
+
+    while ($link =~ s&/[^/]+/\.\.&&) {}
+
+#    print STDERR "4 normalize_link: $link\n";
+
+    $link = "" if $link eq "/";	# We do this again
+
+    #    print STDERR "5 normalize_link: $link\n";
+
+    push(@{$anchor_refs{"$link#$anchor"}}, $page) if $anchor;
+
+    return $link;
+}
+
+
+# -------------------------------------------------------------------------
+# We know the link is normalized
+# -------------------------------------------------------------------------
+
+sub expand_link {
+    my $link = shift;
+    my $pages = shift;
+
+    return $link if exists $pages{$link};
+
+    my $newlink;
+
+    foreach my $index (@indexes) {
+	$newlink = "$link/$index";
+	return $newlink if exists $pages{$newlink};
+    }
+
+    return $link;
+}
+
+###########################################################################
+#
+#  Report the result
+#
+###########################################################################
+
+if (keys %missing) {
+    print "\n\n\n**** Broken links\n\n";
+    foreach (sort keys %missing) {
+	my ($page,$link) = split($;);
+	print qq(Broken Link: $page -> "$link"\n);
+    }
+}
+
+
+# Entrys in %pages that has the value 0 is not visited
+if (keys %pages) {
+    print "\n\n\n**** Files not used (that I can see)\n\n";
+    foreach my $page (sort keys %pages) {
+	next if $pages{$page};	# If == 1 it is visited
+
+	# OTP specific
+
+	next if $page =~ m&^/(man|pdf|logs|COPYRIGHT|PR.template|README)&;
+	next if $page =~ m&^/.*\.tar.gz$&;
+	next if $page =~ m&(/info|\.kwc)$&;
+
+	print qq("$page"\n);
+    }
+}
+
+
+# Remove all references that has a matching NAME=....
+map {delete $anchor_refs{$_}} keys %anchor_defs;
+
+if (keys %anchor_refs) {
+    print "\n\n\n**** References to missing anchors\n\n";
+    foreach my $ref (sort keys %anchor_refs) {
+        foreach my $anchor (sort @{$anchor_refs{$ref}}) {
+            print qq(Missing Anchor: "$ref" from ${anchor}\n);
+        }
+    }
+}
+
+
+###########################################################################
+
+sub usage {
+  print STDERR "ERROR: ",join("\n",@_),"\n" if @_;
+  print <<HERE;
+Usage: $0 BaseDirectory URL [ URLs... ] [ -- ExcludeURLs... ]
+
+This script try to find out what files are used and not of your
+HTML documents, graphic files etc. It doesn't use HTTP, i.e. you
+work off-line, so this script may fail to find a link. Javascripts
+and other extensions also makes it very hard. But for many sites
+it work very well.
+
+The base directory has to given has to start with a slash.
+
+For URLs and ExcludeURLs absolute paths or relative the base
+directory can be used.
+
+ExcludeURLs is used as prefixes of directories or files that
+should be excluded from the search.
+
+You call it something like
+
+  % $0 /test/r7a /test/r7a/doc/index.html /test/r7a/lib/*/doc/index.html
+
+or using relative start points
+
+  % $0 /test/r7a doc/index.html
+
+HERE
+  exit 1;
+}
+
+
+__END__
+
+# FIXME: The order below is important
+
+if (%access) {
+  print "\n**** Link exists but can't open\n\n";
+
+  my $file;
+
+  foreach $file (sort keys %access) {
+    print "$file\n";
+  }
+}
+
+
+if (%invalid) {
+  print "\n**** Invalid links (goes up above top directory)\n\n";
+
+  foreach (sort keys %invalid) {
+    my ($page,$link) = split($;,$_);
+    delete $done{$link};	# FIXME: xxxx
+    print "$page\n\t-> $link\n";
+  }
+}
+
+if (%done) {
+  print "\n**** Internal error, should be no files here\n\n";
+
+  foreach (sort keys %done) {
+    print "$_\n";
+  }
+}
+
+
+__END__
+###########################################################################
+
+
+sub expand_ssi {
+  my $url_base = shift;
+  my $page = shift;
+  my $comment = shift;		# Text between <!-- and -->
+
+  return "" unless $comment =~ s/^\#//;
+
+  # This is an SSI
+  unless ($comment =~ /([\w-]+)=\"([^\"]+)\"/) {
+#    print STDERR "WARNING: Unknown SSI $comment\n\ton $page\n";
+    return "";
+  }
+
+  my $op = lc($1);		# Operator
+  my $inc = $2;			# Absolute or relative URL anding in anything
+
+  if ($debug) {
+    print STDERR "X: url_base = $url_base\n";
+    print STDERR "X: page     = $page\n";
+    print STDERR "X: op       = $op\n";
+    print STDERR "X: inc      = $inc\n";
+    print STDERR "X: base     = $base\n";
+  }
+
+  unless ($op eq 'virtual') {
+#    print STDERR "WARNING: Unknown SSI $comment\n\ton $page\n";
+    return "";
+  }
+
+  $inc = make_url_absolute($url_base,$page,$inc);
+
+  my $path = "$base$inc";
+
+  if ($debug) {
+    print STDERR "X: inc      = $inc\n";
+    print STDERR "X: path     = $path\n\n";
+  }
+
+  unless (open(HTML,$path)) {
+#    print STDERR "ERROR: Can't open page $inc: $!\n";
+    $access{$inc} = 1;
+    return "";
+  }
+
+  my $html = <HTML>;
+  close HTML;
+
+  $done{$inc} = 1;		# Mark done
+
+  return $html;
+}
+

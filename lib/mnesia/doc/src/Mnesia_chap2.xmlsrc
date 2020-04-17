@@ -298,7 +298,7 @@
       <p>The function <c>insert_emp/3</c> creates a Functional Object (Fun).
         <c>Fun</c> is passed
         as a single argument to the function
-        <seemfa marker="mnesia#transaction/2">mnesia:transaction(Fun)</seemfa>.
+        <seemfa marker="mnesia#transaction/1">mnesia:transaction(Fun)</seemfa>.
         This means that <c>Fun</c> is
         run as a transaction with the following properties:</p>
       <list type="bulleted">

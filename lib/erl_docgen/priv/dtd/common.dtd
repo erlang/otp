@@ -51,7 +51,7 @@
 
 <!ELEMENT list                (item+) >
 <!ATTLIST list                 type (ordered|bulleted) "bulleted" >
-<!ELEMENT taglist             (marker*,tag,item+)+ >
+<!ELEMENT taglist             (tag,item+)+ >
 <!ELEMENT tag                 (#PCDATA|c|i|em|br|%refs;|marker|anno)* >
 <!ELEMENT item                (%inline;|%block;|warning|note|dont|do|quote|table)* >
 

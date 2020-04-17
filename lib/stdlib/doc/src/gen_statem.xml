@@ -1250,7 +1250,7 @@ handle_event(_, _, State, Data) ->
 	    </p>
 	  </item>
 	  <tag>
-	    <c>push_callback_module</c><br />
+	    <c>push_callback_module</c>
 	  </tag>
 	  <item>
 	    <p>

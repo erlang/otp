@@ -220,7 +220,7 @@
       forced to release all its locks and sleep for a while. The Fun
       in the transaction is evaluated once more.</p>
     <p>It is therefore important that the code inside the Fun given to
-      <seemfa marker="mnesia#transaction/2"><c>mnesia:transaction/1</c></seemfa>
+      <seemfa marker="mnesia#transaction/1"><c>mnesia:transaction/1</c></seemfa>
       is pure. Some strange results can
       occur if, for example, messages are sent by the transaction
       Fun. The following example illustrates this situation:</p>
@@ -252,7 +252,7 @@
       transaction. If no enclosing transaction (or other enclosing
       <c>Mnesia</c> activity) exists, they all fail.</p>
     <list type="bulleted">
-      <item><seemfa marker="mnesia#transaction/2">mnesia:transaction(Fun) -> {aborted, Reason} |{atomic, Value}</seemfa>
+      <item><seemfa marker="mnesia#transaction/1">mnesia:transaction(Fun) -> {aborted, Reason} |{atomic, Value}</seemfa>
        executes one transaction with the
        functional object <c>Fun</c> as the single parameter.
       </item>
@@ -664,7 +664,7 @@ mnesia:all_keys/1</seemfa>.
     <p>As previously described, a Functional Object (Fun) performing
       table access operations, as listed here, can be passed
       on as arguments to the function
-      <seemfa marker="mnesia#transaction/2">mnesia:transaction/1,2,3</seemfa>:
+      <seemfa marker="mnesia#transaction/1">mnesia:transaction/1,2,3</seemfa>:
     </p>
     <list type="bulleted">
       <item>
@@ -732,7 +732,7 @@ mnesia:all_keys/1</seemfa>.
       <item><c>ets</c></item>
     </list>
     <p>By passing the same "fun" as argument to the function
-       <seemfa marker="mnesia#sync_transaction/3">mnesia:sync_transaction(Fun [, Args])</seemfa>
+       <seemfa marker="mnesia#sync_transaction/1">mnesia:sync_transaction(Fun [, Args])</seemfa>
       it is performed
       in synced transaction context. Synced transactions wait until all
       active replicas has committed the transaction (to disc) before
