@@ -43,16 +43,14 @@ suite() ->
      {timetrap,{seconds,90}}].
 
 all() -> 
-    [{group, all_tests},
-     daemon_already_started
+    [{group, all_tests}
     ].
 
 %%%-define(PARALLEL, ).
 -define(PARALLEL, parallel).
 
 groups() ->
-    [{all_tests, [?PARALLEL], [{group, renegotiate},
-                               {group, sequential},
+    [{all_tests, [?PARALLEL], [{group, sequential},
                                {group, p_basic},
                                {group, internal_error},
                                {group, login_bad_pwd_no_retry},
@@ -62,6 +60,7 @@ groups() ->
      {sequential, [], [app_test,
                        appup_test,
                        daemon_already_started,
+                       daemon_error_closes_port, % Should be re-written..
                        double_close,
                        daemon_opt_fd,
                        multi_daemon_opt_fd,
@@ -74,20 +73,6 @@ groups() ->
                        ssh_file_is_host_key_misc,
                        ssh_file_is_auth_key
                       ]},
-
-     {renegotiate, [?PARALLEL], [rekey0,
-                                 rekey1,
-                                 rekey2,
-                                 rekey3,
-                                 rekey4,
-                                 rekey_limit_client,
-                                 rekey_limit_daemon,
-                                 rekey_time_limit_client,
-                                 rekey_time_limit_daemon,
-                                 norekey_limit_client,
-                                 norekey_limit_daemon,
-                                 renegotiate1,
-                                 renegotiate2]},
 
      {key_cb, [?PARALLEL], [key_callback, key_callback_options]},
 
@@ -132,9 +117,6 @@ end_per_suite(_Config) ->
     ssh:stop().
 
 %%--------------------------------------------------------------------
-init_per_group(renegotiate, Config) ->
-    [{preferred_algorithms, ssh:default_algorithms()} | Config];
-
 init_per_group(key_cb, Config) ->
     case lists:member('ssh-rsa',
 		      ssh_transport:supported_algorithms(public_key)) of
@@ -183,11 +165,6 @@ init_per_testcase(inet6_option, Config) ->
 init_per_testcase(_TestCase, Config) ->
     Config.
 
-end_per_testcase(TestCase, Config) when TestCase == server_password_option;
-					TestCase == server_userpassword_option ->
-    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
-    ssh_test_lib:del_dirs(UserDir),
-    end_per_testcase(Config);
 end_per_testcase(TC, Config) when TC==shell_no_unicode ; 
 				  TC==shell_unicode_string ->
     case proplists:get_value(sftpd, Config) of
@@ -463,81 +440,6 @@ shell(Config) when is_list(Config) ->
     end.
     
 %%--------------------------------------------------------------------
-%%% Test that we could user different types of host pubkey and user pubkey
-exec_key_differs1(Config) -> exec_key_differs(Config, ['ecdsa-sha2-nistp256']).
-
-exec_key_differs2(Config) -> exec_key_differs(Config, ['ssh-dss','ecdsa-sha2-nistp256']).
-
-exec_key_differs3(Config) -> exec_key_differs(Config, ['ecdsa-sha2-nistp384','ecdsa-sha2-nistp256']).
-
-
-
-exec_key_differs(Config, UserPKAlgs) ->
-    case lists:usort(['ssh-rsa'|UserPKAlgs])
-	-- ssh_transport:supported_algorithms(public_key)
-    of
-	[] ->
-	    process_flag(trap_exit, true),
-	    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
-	    SystemUserDir = filename:join(SystemDir, user),
-	    UserDir = filename:join(proplists:get_value(priv_dir, Config), user_ecdsa_256),
-   
-	    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-						       {user_dir, SystemUserDir},
-						       {preferred_algorithms,
-							[{public_key,['ssh-rsa'|UserPKAlgs]}]}]),
-	    ct:sleep(500),
-
-	    IO = ssh_test_lib:start_io_server(),
-	    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
-							{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-							{pref_public_key_algs,UserPKAlgs}
-						       ]),
-
-
-	    receive
-		{'EXIT', _, _} ->
-		    ct:fail(no_ssh_connection);  
-		ErlShellStart ->
-		    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
-		    do_shell(IO, Shell)
-	    after 
-		30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-	    end;
-
-	UnsupportedPubKeys ->
-	    {skip, io_lib:format("~p unsupported",[UnsupportedPubKeys])}
-    end.
-    
-%%--------------------------------------------------------------------
-exec_key_differs_fail(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
-    SystemUserDir = filename:join(SystemDir, user),
-    UserDir = filename:join(proplists:get_value(priv_dir, Config), user_ecdsa_256),
-   
-    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					       {user_dir, SystemUserDir},
-					       {preferred_algorithms,
-						[{public_key,['ssh-rsa']}]}]),
-    ct:sleep(500),
-
-    IO = ssh_test_lib:start_io_server(),
-    ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
-                                        {recv_ext_info, false},
-					{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-					{pref_public_key_algs,['ssh-dss']}]),
-    receive
-	{'EXIT', _, _} ->
-	    ok;  
-	ErlShellStart ->
-	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
-	    ct:fail(connection_not_rejected)
-    after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
-    
-%%--------------------------------------------------------------------
 cli(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
@@ -596,6 +498,11 @@ daemon_already_started(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 %%% Test that a failed daemon start does not leave the port open
+
+%%%%%%%%%%%%%%%%%%%%%% REWRITE! %%%%%%%%%%%%%%%%%%%%
+%%% 1) check that {error,_} is not  {error,eaddrinuse}
+%%% 2) instead of ssh_test_lib:daemon second time, use gen_tcp:listen
+
 daemon_error_closes_port(Config) ->
     GoodSystemDir = proplists:get_value(data_dir, Config),
     Port = inet_port(),
@@ -611,6 +518,11 @@ daemon_error_closes_port(Config) ->
             ssh:stop_daemon(Pid)
     end.
     
+inet_port() ->
+    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
+    {ok, Port} = inet:port(Socket),
+    gen_tcp:close(Socket),
+    Port.
 
 %%--------------------------------------------------------------------
 %%% check that known_hosts is updated correctly
@@ -915,17 +827,6 @@ send(Config) when is_list(Config) ->
     ok = ssh_connection:send(ConnectionRef, ChannelId, << >>),
     ssh:stop_daemon(Pid).
 
-
-%%--------------------------------------------------------------------
-%%%
-fail_daemon_start(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
-    UserDir = proplists:get_value(priv_dir, Config),
-
-    {error,_} = ssh_test_lib:daemon([{system_dir, SystemDir},
-                                     {user_dir, UserDir},
-                                     {failfun, fun ssh_test_lib:failfun/2}]).
 
 %%--------------------------------------------------------------------
 %%% Test ssh:connection_info([peername, sockname])
@@ -1372,315 +1273,6 @@ setopts_getopts(Config) ->
     
      ssh:stop_daemon(Pid).
 
-%%----------------------------------------------------------------------------
-%%% Idle timeout test
-rekey0() -> [{timetrap,{seconds,120}}].
-rekey1() -> [{timetrap,{seconds,120}}].
-rekey2() -> [{timetrap,{seconds,120}}].
-rekey3() -> [{timetrap,{seconds,120}}].
-rekey4() -> [{timetrap,{seconds,120}}].
-    
-rekey0(Config) -> rekey_chk(Config, 0,                   0).
-rekey1(Config) -> rekey_chk(Config, infinity,            0).
-rekey2(Config) -> rekey_chk(Config, {infinity,infinity}, 0).
-rekey3(Config) -> rekey_chk(Config, 0,                   infinity).
-rekey4(Config) -> rekey_chk(Config, 0,                   {infinity,infinity}).
-
-rekey_chk(Config, RLdaemon, RLclient) ->
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,	[{rekey_limit, RLdaemon}]),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, RLclient}]),
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-
-    %% Make both sides send something:
-    {ok, _SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-
-    %% Check rekeying
-    timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex1==ssh_test_lib:get_kex_init(ConnectionRef), [], 2000, 10),
-
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-%%% Test rekeying by data volume
-
-rekey_limit_client() -> [{timetrap,{seconds,500}}].
-rekey_limit_client(Config) ->
-    Limit = 6000,
-    UserDir = proplists:get_value(priv_dir, Config),
-    DataFile = filename:join(UserDir, "rekey.data"),
-    Data = lists:duplicate(Limit+10,1),
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, Limit},
-								  {max_random_length_padding,0}]),
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-
-    %% Check that it doesn't rekey without data transfer
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-
-    %% Check that datatransfer triggers rekeying
-    ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
-    timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
-
-    %% Check that datatransfer continues to trigger rekeying
-    ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
-    timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex2==(Kex3=ssh_test_lib:get_kex_init(ConnectionRef)), Kex3, 2000, 10),
-
-    %% Check that it doesn't rekey without data transfer
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
-
-    %% Check that it doesn't rekey on a small datatransfer
-    ok = ssh_sftp:write_file(SftpPid, DataFile, "hi\n"),
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
-
-    %% Check that it doesn't rekey without data transfer
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
-
-    ssh_sftp:stop_channel(SftpPid),
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
-
-
-
-rekey_limit_daemon() -> [{timetrap,{seconds,500}}].
-rekey_limit_daemon(Config) ->
-    Limit = 6000,
-    UserDir = proplists:get_value(priv_dir, Config),
-    DataFile1 = filename:join(UserDir, "rekey1.data"),
-    DataFile2 = filename:join(UserDir, "rekey2.data"),
-    file:write_file(DataFile1, lists:duplicate(Limit+10,1)),
-    file:write_file(DataFile2, "hi\n"),
-
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{rekey_limit, Limit},
-                                                        {max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{max_random_length_padding,0}]),
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-
-    %% Check that it doesn't rekey without data transfer
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-    timer:sleep(?REKEY_DATA_TMO),
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-
-    %% Check that datatransfer triggers rekeying
-    {ok,_} = ssh_sftp:read_file(SftpPid, DataFile1),
-    timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
-
-    %% Check that datatransfer continues to trigger rekeying
-    {ok,_} = ssh_sftp:read_file(SftpPid, DataFile1),
-    timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex2==(Kex3=ssh_test_lib:get_kex_init(ConnectionRef)), Kex3, 2000, 10),
-
-    %% Check that it doesn't rekey without data transfer
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
-
-    %% Check that it doesn't rekey on a small datatransfer
-    {ok,_} = ssh_sftp:read_file(SftpPid, DataFile2),
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
-
-    %% Check that it doesn't rekey without data transfer
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex3 == ssh_test_lib:get_kex_init(ConnectionRef)),
-
-    ssh_sftp:stop_channel(SftpPid),
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
-
-
-%%--------------------------------------------------------------------
-%% Check that datatransfer in the other direction does not trigger re-keying
-norekey_limit_client() -> [{timetrap,{seconds,500}}].
-norekey_limit_client(Config) ->
-    Limit = 6000,
-    UserDir = proplists:get_value(priv_dir, Config),
-    DataFile = filename:join(UserDir, "rekey3.data"),
-    file:write_file(DataFile, lists:duplicate(Limit+10,1)),
-
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, Limit},
-								  {max_random_length_padding,0}]),
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-    
-    {ok,_} = ssh_sftp:read_file(SftpPid, DataFile),
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-    
-    ssh_sftp:stop_channel(SftpPid),
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
-
-%% Check that datatransfer in the other direction does not trigger re-keying
-norekey_limit_daemon() -> [{timetrap,{seconds,500}}].
-norekey_limit_daemon(Config) ->
-    Limit = 6000,
-    UserDir = proplists:get_value(priv_dir, Config),
-    DataFile = filename:join(UserDir, "rekey4.data"),
-
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{rekey_limit, Limit},
-                                                        {max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{max_random_length_padding,0}]),
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-    
-    ok = ssh_sftp:write_file(SftpPid, DataFile, lists:duplicate(Limit+10,1)),
-    timer:sleep(?REKEY_DATA_TMO),
-    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-    
-    ssh_sftp:stop_channel(SftpPid),
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-%%% Test rekeying by time
-
-rekey_time_limit_client() -> [{timetrap,{seconds,500}}].
-rekey_time_limit_client(Config) ->
-    Minutes = ?REKEY_DATA_TMO div 60000,
-    GB = 1024*1000*1000,
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, {Minutes, GB}},
-                                                                  {max_random_length_padding,0}]),
-    rekey_time_limit(Pid, ConnectionRef).
-
-rekey_time_limit_daemon() -> [{timetrap,{seconds,500}}].
-rekey_time_limit_daemon(Config) ->
-    Minutes = ?REKEY_DATA_TMO div 60000,
-    GB = 1024*1000*1000,
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{rekey_limit, {Minutes, GB}},
-                                                        {max_random_length_padding,0},
-							{preferred_algorithms,Algs}]),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{max_random_length_padding,0}]),
-    rekey_time_limit(Pid, ConnectionRef).
-
-
-rekey_time_limit(Pid, ConnectionRef) ->
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-
-    timer:sleep(5000),
-    true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-
-    %% Check that it rekeys when the max time + 30s has passed
-    timer:sleep(?REKEY_DATA_TMO + 30*1000),
-    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
-
-    %% Check that it does not rekey when nothing is transferred
-    timer:sleep(?REKEY_DATA_TMO + 30*1000),
-    ?wait_match(false, Kex2==ssh_test_lib:get_kex_init(ConnectionRef), [], 2000, 10),
-
-    ssh_sftp:stop_channel(SftpPid),
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-
-%%% Test rekeying with simultaneous send request
-
-renegotiate1(Config) ->
-    UserDir = proplists:get_value(priv_dir, Config),
-    DataFile = filename:join(UserDir, "renegotiate1.data"),
-
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							 {preferred_algorithms,Algs}]),
-
-    {ok,RelayPid,_,RPort} = ssh_relay:start_link({0,0,0,0}, 0, Host, DPort),
-
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-
-    {ok, Handle} = ssh_sftp:open(SftpPid, DataFile, [write]),
-
-    ok = ssh_sftp:write(SftpPid, Handle, "hi\n"),
-
-    ssh_relay:hold(RelayPid, rx, 20, 1000),
-    ssh_connection_handler:renegotiate(ConnectionRef),
-    spawn(fun() -> ok=ssh_sftp:write(SftpPid, Handle, "another hi\n") end),
-
-    timer:sleep(2000),
-
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
-
-    false = (Kex2 == Kex1),
-    
-    ssh_relay:stop(RelayPid),
-    ssh_sftp:stop_channel(SftpPid),
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-
-%%% Test rekeying with inflight messages from peer
-
-renegotiate2(Config) ->
-    UserDir = proplists:get_value(priv_dir, Config),
-    DataFile = filename:join(UserDir, "renegotiate2.data"),
-
-    Algs = proplists:get_value(preferred_algorithms, Config),
-    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
-							 {preferred_algorithms,Algs}]),
-
-    {ok,RelayPid,_,RPort} = ssh_relay:start_link({0,0,0,0}, 0, Host, DPort),
-
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
-
-    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
-
-    {ok, Handle} = ssh_sftp:open(SftpPid, DataFile, [write]),
-
-    ok = ssh_sftp:write(SftpPid, Handle, "hi\n"),
-
-    ssh_relay:hold(RelayPid, rx, 20, infinity),
-    spawn(fun() -> ok=ssh_sftp:write(SftpPid, Handle, "another hi\n") end),
-    %% need a small pause here to ensure ssh_sftp:write is executed
-    ct:sleep(10),
-    ssh_connection_handler:renegotiate(ConnectionRef),
-    ssh_relay:release(RelayPid, rx),
-
-    timer:sleep(2000),
-
-    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
-
-    false = (Kex2 == Kex1),
-
-    ssh_relay:stop(RelayPid),
-    ssh_sftp:stop_channel(SftpPid),
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
-
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -1860,9 +1452,3 @@ new_do_shell_prompt(IO, N, Op, Str, More) ->
     ct:log("Matched prompt ~p",[N]),
     new_do_shell(IO, N, [{Op,Str}|More]).
   
-%%--------------------------------------------------------------------
-inet_port() ->
-    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
-    {ok, Port} = inet:port(Socket),
-    gen_tcp:close(Socket),
-    Port.

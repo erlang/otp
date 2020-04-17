@@ -48,6 +48,22 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok = ssh:stop().
 
+init_per_testcase(connect_with_ssh_agent, Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    AgentUserDir = filename:join(UserDir,"agent"), % just to separate them in the tests
+                                                % so we know that the right dir is used
+    file:make_dir(AgentUserDir),
+    %% Arrange the host keys in <priv_dir>/system
+    ct:log("Host keys setup for: ~p",
+           [ssh_test_lib:setup_all_host_keys(Config)]),
+    %% Copy the user's files used by the daemon
+    {ok,_} = file:copy(filename:join(DataDir,"authorized_keys"), 
+                       filename:join(UserDir,"authorized_keys")),
+    %% And copy the user's files used by the agent (and not by the user)
+    {ok,_} = file:copy(filename:join(DataDir,"id_rsa"),
+                       filename:join(AgentUserDir,"id_rsa")),
+    Config;
 init_per_testcase(_TestCase, Config) ->
     Config.
 
@@ -119,16 +135,18 @@ connect_with_ssh_agent() ->
     [{doc, "Connect with RSA key from SSH agent"}].
 
 connect_with_ssh_agent(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    {ok, SocketPath} = ssh_agent_mock_server:start_link('rsa-sha2-256', DataDir),
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, DataDir},
-                                             {user_dir, DataDir}]),
-    ConnectionRef = ssh_test_lib:connect(Host, Port, [{user_dir, DataDir},
-                                          {silently_accept_hosts, true},
-                                          {user_interaction, false},
-                                          {auth_methods, "publickey"},
-                                          {key_cb, {ssh_agent, [{socket_path, SocketPath}]}}
-                                         ]),
+    UserDir = PrivDir = proplists:get_value(priv_dir, Config),
+    AgentUserDir = filename:join(UserDir,"agent"),
+    SystemDir = filename:join(PrivDir, "system"),
+    {ok, SocketPath} = ssh_agent_mock_server:start_link('rsa-sha2-256', AgentUserDir),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {user_dir, UserDir}]),
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{user_dir, UserDir},
+                                                      {silently_accept_hosts, true},
+                                                      {user_interaction, false},
+                                                      {auth_methods, "publickey"},
+                                                      {key_cb, {ssh_agent, [{socket_path, SocketPath}]}}
+                                                     ]),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid),
     ssh_agent_mock_server:stop(SocketPath).

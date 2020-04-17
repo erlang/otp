@@ -1270,37 +1270,6 @@ test_exec_is_enabled(ConnectionRef, Exec, Expect) ->
             {fail,"Exec Timeout"}
     end.
 
-
-%%%----------------------------------------------------------------
-get_channel_close_sequence(ConnectionRef, ChannelId) ->
-    Set = [eof, exit_status, closed],
-    get_channel_close_sequence(ConnectionRef, ChannelId, Set).
-
-get_channel_close_sequence(_ConnectionRef, _ChannelId, []) ->
-    ok;
-get_channel_close_sequence(ConnectionRef, ChannelId, Set) ->
-    receive
-        {ssh_cm, ConnectionRef, Event} when element(2,Event) == ChannelId ->
-            try lists:member(element(1,Event), Set)
-            of
-                true ->
-                    ct:log("get_channel_close_sequence: ~p received", [Event]),
-                    get_channel_close_sequence(ConnectionRef, Event, Set--[element(1,Event)]);
-                false ->
-                    ct:log("~p:~p Got unexpected ~p~nExpecting ~p",[?MODULE,?LINE,Event,Set]),
-                    ct:fail("Strange response 1")
-            catch
-                _ :_ ->
-                    ct:log("~p:~p Got unexpected ~p~nExpecting ~p",[?MODULE,?LINE,Event,Set]),
-                    ct:fail("Strange response 2")
-            end;
-        Msg ->
-            ct:log("~p:~p Got unexpected ~p~nExpecting event from the set ~p",[?MODULE,?LINE,Msg,Set]),
-            ct:fail("Strange response 3")
-    after
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
-
 %%%----------------------------------------------------------------
 big_cat_rx(ConnectionRef, ChannelId) ->
     big_cat_rx(ConnectionRef, ChannelId, []).

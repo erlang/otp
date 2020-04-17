@@ -351,21 +351,6 @@ receive_exec_result(Data, ConnectionRef, ChannelId) ->
     expected = receive_exec_result(Closed).
 
 
-setup_ssh_auth_keys(RSAFile, DSAFile, Dir) ->
-    Entries = ssh_file_entry(RSAFile) ++ ssh_file_entry(DSAFile),
-    AuthKeys = public_key:ssh_encode(Entries , auth_keys),
-    AuthKeysFile = filename:join(Dir, "authorized_keys"),
-    file:write_file(AuthKeysFile, AuthKeys).
-
-ssh_file_entry(PubFile) ->
-    case file:read_file(PubFile) of
-	{ok, Ssh} ->
-	    [{Key, _}] = public_key:ssh_decode(Ssh, public_key), 
-	    [{Key, [{comment, "Test"}]}];
-	_ ->
-	    []
-    end. 
-	    
 failfun(_User, {authmethod,none}) ->
     ok;
 failfun(User, Reason) ->
@@ -374,53 +359,6 @@ failfun(User, Reason) ->
 hostname() ->
     {ok,Host} = inet:gethostname(),
     Host.
-
-known_hosts(BR) ->
-    KnownHosts = ssh_file:file_name(user, "known_hosts", []),
-    B = KnownHosts ++ "xxx",
-    case BR of
-	backup ->
-	    file:rename(KnownHosts, B);
-	restore ->
-	    file:delete(KnownHosts),
-	    file:rename(B, KnownHosts)
-    end.
-
-setup_all_known_hosts(SystemDir, UserDir) ->
-    PubKeys =
-        lists:map(fun(Name) ->
-                          {ok, SshBin} = file:read_file(filename:join(SystemDir, Name)), 
-                          [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-                          Key
-                  end, filelib:wildcard("*.pub", SystemDir)),
-    lists:foldl(
-      fun(Key, Acc) ->
-              case setup_known_hosts(Key,UserDir) of
-                  ok -> Acc;
-                  Other -> Other
-              end
-      end, ok, PubKeys).
-
-
-setup_known_hosts(Key, UserDir) ->
-    {ok, Hostname} = inet:gethostname(),
-    {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
-    IP = lists:concat([A, ".", B, ".", C, ".", D]),
-    HostNames = [{hostnames,[Hostname, IP]}],
-    KnownHosts = [{Key, HostNames}],
-    KnownHostsEnc = public_key:ssh_encode(KnownHosts, known_hosts),
-    KHFile = filename:join(UserDir, "known_hosts"),
-    file:write_file(KHFile, KnownHostsEnc).
-
-setup_auth_keys(Keys, Dir) ->
-    AuthKeys = public_key:ssh_encode(Keys, auth_keys),
-    AuthKeysFile = filename:join(Dir, "authorized_keys"),
-    ok = file:write_file(AuthKeysFile, AuthKeys),
-    AuthKeys.
-
-write_auth_keys(Keys, Dir) ->
-    AuthKeysFile = filename:join(Dir, "authorized_keys"),
-    file:write_file(AuthKeysFile, Keys).
 
 del_dirs(Dir) ->
     del_dir_contents(Dir),
@@ -462,34 +400,6 @@ openssh_sanity_check(Config) ->
 	    Str = lists:append(io_lib:format("~p", [Err])),
 	    ssh:stop(),
 	    {skip, Str}
-    end.
-
-openssh_supports(ClientOrServer, Tag, Alg) when ClientOrServer == sshc ;
-						ClientOrServer == sshd ->
-    SSH_algos = ssh_test_lib:default_algorithms(ClientOrServer),
-    L = proplists:get_value(Tag, SSH_algos, []),
-    lists:member(Alg, L) orelse 
-	lists:member(Alg, proplists:get_value(client2server, L, [])) orelse
-	lists:member(Alg, proplists:get_value(server2client, L, [])).
-
-%%--------------------------------------------------------------------
-%% Check if we have a "newer" ssh client that supports these test cases
-
-ssh_client_supports_Q() ->
-    0 == check_ssh_client_support2(
-	   ?MODULE:open_port({spawn, "ssh -Q cipher"})
-	  ).
-
-check_ssh_client_support2(P) ->
-    receive
-	{P, {data, _A}} ->
-	    check_ssh_client_support2(P);
-	{P, {exit_status, E}} ->
-            ct:log("~p:~p exit_status:~n~p",[?MODULE,?LINE,E]),
-	    E
-    after 5000 ->
-	    ct:log("Openssh command timed out ~n"),
-	    -1
     end.
 
 %%%--------------------------------------------------------------------
