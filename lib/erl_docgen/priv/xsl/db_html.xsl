@@ -2267,10 +2267,10 @@
           </xsl:variable>
           <xsl:choose>
             <xsl:when test="string-length($fname2) > 0">
-              <xsl:value-of select="$fname2"/>
+              <xsl:value-of select="normalize-space($fname2)"/>
             </xsl:when>
             <xsl:otherwise>
-              <xsl:value-of select="$fname1"/>
+              <xsl:value-of select="normalize-space($fname1)"/>
             </xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
