@@ -82,7 +82,7 @@ APP_FILE= erts.app
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(STATIC_EBIN)/$(APP_FILE)
 ifeq ($(USE_ESOCK), yes)
-APP_ESOCK_MODS= prim_net, prim_socket, socket_registry
+APP_ESOCK_MODS= prim_net, prim_socket, socket_registry,
 else
 APP_ESOCK_MODS=
 endif

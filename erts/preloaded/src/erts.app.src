@@ -36,8 +36,8 @@
                 atomics,
                 counters,
                 persistent_term,
-		zlib,
 		%ESOCK_MODS%
+		zlib
 	    ]},
 	{registered, []},
 	{applications, []},
