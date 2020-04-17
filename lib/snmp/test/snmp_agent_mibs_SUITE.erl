@@ -172,29 +172,28 @@ init_per_testcase2(size_check_ets2_bad_file1, Config) when is_list(Config) ->
     %% Create a bad file
     ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
 			 "calvin and hoppes play chess"),
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
     Config;
 init_per_testcase2(size_check_ets3_bad_file1, Config) when is_list(Config) ->
     DbDir = ?config(db_dir, Config),
     %% Create a bad file
     ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
 			 "calvin and hoppes play chess"),
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
     Config;
 init_per_testcase2(size_check_mnesia, Config) when is_list(Config) ->
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
     Config;
 init_per_testcase2(cache_test, Config) when is_list(Config) ->
-    Min = timer:minutes(5), 
-    Timeout =
-	case lists:keysearch(tc_timeout, 1, Config) of
-	    {value, {tc_timeout, TcTimeout}} when TcTimeout < Min ->
-		Min; 
-	    {value, {tc_timeout, TcTimeout}} ->
-		TcTimeout; 
-	    _ ->
-		Min
-	end,
-    Dog = test_server:timetrap(Timeout), 
-    [{watchdog, Dog} | Config];
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(5 + (Factor div 2))),
+    Config;
 init_per_testcase2(_Case, Config) when is_list(Config) ->
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 3))),
     Config.
 
 
@@ -365,6 +364,10 @@ do_size_check(Name, Config) ->
     do_size_check(Name, Init, Config).
 
 do_size_check(Name, Init, Config) ->
+    io:format("do_size_check -> entry with"
+              "~n   Name:   ~p"
+              "~n   Config: ~p"
+              "~n", [Name, Config]),
     Pre = fun() ->
                   {ok, Node} = ?ALIB:start_node(unique(Name)),
                   ok = run_on(Node, Init),
@@ -387,9 +390,18 @@ do_size_check(Name, Init, Config) ->
                            exit(Reason)
                    end
            end,
-    Post = fun({Node, _}) ->
-                   ?STOP_NODE(Node)
+    Post = fun(Node) ->
+                   monitor_node(Node, true),
+                   ?NPRINT("try stop node ~p", [Node]),
+                   ?STOP_NODE(Node),
+                   receive
+                       {nodedown, Node} ->
+                           ?NPRINT("node ~p stopped", [Node]),
+                           ok
+                   end
            end,
+    io:format("do_size_check -> do test"
+              "~n", []),
     ?TC_TRY(Name, Pre, Case, Post).
 
 run_on(Node, F) when is_atom(Node) andalso is_function(F, 0) ->
