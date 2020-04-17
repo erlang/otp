@@ -560,17 +560,22 @@ last_byte(Bin) ->
 test_phash2_4GB_plus_bin(Config) when is_list(Config) ->
     run_when_enough_resources(
       fun() ->
-              erts_debug:set_internal_state(available_internal_state, true),
-              %% Created Bin4GB here so it only needs to be created once
-              erts_debug:set_internal_state(force_gc, self()),
-              Bin4GB = get_4GB_bin(),
-              test_phash2_plus_bin_helper1(Bin4GB, <<>>, <<>>, 13708901),
-              erts_debug:set_internal_state(force_gc, self()),
-              test_phash2_plus_bin_helper1(Bin4GB, <<>>, <<3:5>>, 66617678),
-              erts_debug:set_internal_state(force_gc, self()),
-              test_phash2_plus_bin_helper1(Bin4GB, <<13>>, <<>>, 31308392),
-              erts_debug:set_internal_state(force_gc, self()),
-              erts_debug:set_internal_state(available_internal_state, false)
+              {ok, N} = start_node(?FUNCTION_NAME),
+              erpc:call(N,
+                        fun() ->
+                                erts_debug:set_internal_state(available_internal_state, true),
+                                %% Created Bin4GB here so it only needs to be created once
+                                erts_debug:set_internal_state(force_gc, self()),
+                                Bin4GB = get_4GB_bin(),
+                                test_phash2_plus_bin_helper1(Bin4GB, <<>>, <<>>, 13708901),
+                                erts_debug:set_internal_state(force_gc, self()),
+                                test_phash2_plus_bin_helper1(Bin4GB, <<>>, <<3:5>>, 66617678),
+                                erts_debug:set_internal_state(force_gc, self()),
+                                test_phash2_plus_bin_helper1(Bin4GB, <<13>>, <<>>, 31308392),
+                                erts_debug:set_internal_state(force_gc, self()),
+                                erts_debug:set_internal_state(available_internal_state, false)
+                        end),
+              stop_node(N)
       end).
 
 
@@ -660,6 +665,36 @@ total_memory() ->
         _ : _ ->
             undefined
     end.
+
+start_node(X) ->
+    start_node(X, [], []).
+
+start_node(X, Y) ->
+    start_node(X, Y, []).
+
+start_node(Name, Args, Rel) when is_atom(Name), is_list(Rel) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    Cookie = atom_to_list(erlang:get_cookie()),
+    RelArg = case Rel of
+                 [] -> [];
+                 _ -> [{erl,[{release,Rel}]}]
+             end,
+    test_server:start_node(Name, slave,
+                           [{args,
+                             Args++" -setcookie "++Cookie++" -pa \""++Pa++"\""}
+                            | RelArg]);
+start_node(Config, Args, Rel) when is_list(Config), is_list(Rel) ->
+    Name = list_to_atom((atom_to_list(?MODULE)
+                         ++ "-"
+                         ++ atom_to_list(proplists:get_value(testcase, Config))
+                         ++ "-"
+                         ++ integer_to_list(erlang:system_time(second))
+                         ++ "-"
+                         ++ integer_to_list(erlang:unique_integer([positive])))),
+    start_node(Name, Args, Rel).
+
+stop_node(Node) ->
+    test_server:stop_node(Node).
 
 -ifdef(FALSE).
 f1() ->
