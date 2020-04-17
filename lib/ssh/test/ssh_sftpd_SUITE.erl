@@ -80,9 +80,9 @@ groups() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        begin
-	   DataDir = proplists:get_value(data_dir, Config),	    
-	   PrivDir = proplists:get_value(priv_dir, Config),
-	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
+           ssh:start(),
+           ct:log("Pub keys setup for: ~p",
+                  [ssh_test_lib:setup_all_user_host_keys(Config)]),
 	   %% to make sure we don't use public-key-auth
 	   %% this should be tested by other test suites
 	   UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey), 
@@ -92,7 +92,6 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     SysDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_dsa(SysDir),
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
     ssh:stop().

@@ -64,15 +64,12 @@ init_per_suite(Config) ->
 	   {ok, FileInfo} = file:read_file_info(FileName),
 	   ok = file:write_file_info(FileName,
 				     FileInfo#file_info{mode = 8#400}),
+           ct:log("Pub keys setup for: ~p",
+                  [ssh_test_lib:setup_all_user_host_keys(Config)]),
 	   Config
        end).
 
 end_per_suite(Config) -> 
-    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
-    file:del_dir(UserDir),
-    SysDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_rsa(SysDir),
-    ssh_test_lib:clean_dsa(SysDir),
     ok.
 
 %%--------------------------------------------------------------------
@@ -83,10 +80,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
 	Config.
 %%--------------------------------------------------------------------
-
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
     DataDir = proplists:get_value(data_dir, Config),
+    UserDir = PrivDir = proplists:get_value(priv_dir, Config),
+    SysDir = filename:join(PrivDir,"system"),
 
     Options =
 	case atom_to_list(TestCase) of
@@ -110,9 +108,10 @@ init_per_testcase(TestCase, Config) ->
 		[]
 	end,
 
-    {Sftpd, Host, Port} = ssh_test_lib:daemon([{preferred_algorithms, ssh_transport:supported_algorithms()},
-                                               {system_dir, DataDir},
-                                               {user_dir, DataDir},
+    {Sftpd, Host, Port} = ssh_test_lib:daemon([{preferred_algorithms,
+                                                ssh_transport:supported_algorithms()},
+                                               {system_dir, SysDir},
+                                               {user_dir, UserDir},
                                                {user_passwords, [{?USER,?PASSWD}]}
                                                | Options]),
 
@@ -120,7 +119,7 @@ init_per_testcase(TestCase, Config) ->
 	ssh_sftp:start_channel(Host, Port,
 			       [{silently_accept_hosts, true},
                                 {preferred_algorithms, ssh_transport:supported_algorithms()},
-				{user_dir, DataDir},
+				{user_dir, UserDir},
 				{timeout, 30000}]),
     TmpConfig = lists:keydelete(sftp, 1, Config),
     NewConfig = lists:keydelete(sftpd, 1, TmpConfig),
@@ -178,7 +177,8 @@ quit(Config) when is_list(Config) ->
     timer:sleep(5000),
     {ok, NewSftp, _Conn} = ssh_sftp:start_channel(Host, Port,
 						 [{silently_accept_hosts, true},
-                                                  {preferred_algorithms, ssh_transport:supported_algorithms()},
+                                                  {preferred_algorithms,
+                                                   ssh_transport:supported_algorithms()},
 						  {user_dir, UserDir},
 						  {user, ?USER}, {password, ?PASSWD}]),
 

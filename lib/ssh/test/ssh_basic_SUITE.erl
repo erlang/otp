@@ -40,7 +40,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,40}}].
+     {timetrap,{seconds,90}}].
 
 all() -> 
     [{group, all_tests},
@@ -51,92 +51,68 @@ all() ->
 -define(PARALLEL, parallel).
 
 groups() ->
-    [{all_tests, [?PARALLEL], [{group, ssh_renegotiate_SUITE},
-                               {group, ssh_basic_SUITE},
-                               ssh_file_is_host_key,
-                               ssh_file_is_host_key_misc,
-                               ssh_file_is_auth_key
-                             ]},
-     {ssh_basic_SUITE, [], [app_test,
-                            appup_test,
-                            {group, dsa_key},
-                            {group, rsa_key},
-                            {group, ecdsa_sha2_nistp256_key},
-                            {group, ecdsa_sha2_nistp384_key},
-                            {group, ecdsa_sha2_nistp521_key},
-                            {group, ed25519_key},
-                            {group, ed448_key},
-                            {group, dsa_pass_key},
-                            {group, rsa_pass_key},
-                            {group, ecdsa_sha2_nistp256_pass_key},
-                            {group, ecdsa_sha2_nistp384_pass_key},
-                            {group, ecdsa_sha2_nistp521_pass_key},
-                            {group, host_user_key_differs},
-                            {group, key_cb},
-                            {group, internal_error},
-                            {group, rsa_host_key_is_actualy_ecdsa},
-                            daemon_already_started,
-                            double_close,
-                            daemon_opt_fd,
-                            multi_daemon_opt_fd,
-                            packet_size,
-                            ssh_info_print,
-                            {group, login_bad_pwd_no_retry},
-                            shell_exit_status,
-                            setopts_getopts
-                           ]},
+    [{all_tests, [?PARALLEL], [{group, renegotiate},
+                               {group, sequential},
+                               {group, p_basic},
+                               {group, internal_error},
+                               {group, login_bad_pwd_no_retry},
+                               {group, key_cb}
+                              ]},
 
-     {ssh_renegotiate_SUITE, [?PARALLEL], [rekey0,
-                                          rekey1,
-                                          rekey2,
-                                          rekey3,
-                                          rekey4,
-                                          rekey_limit_client,
-                                          rekey_limit_daemon,
-                                          rekey_time_limit_client,
-                                          rekey_time_limit_daemon,
-                                          norekey_limit_client,
-                                          norekey_limit_daemon,
-                                          renegotiate1,
-                                          renegotiate2]},
+     {sequential, [], [app_test,
+                       appup_test,
+                       daemon_already_started,
+                       double_close,
+                       daemon_opt_fd,
+                       multi_daemon_opt_fd,
+                       packet_size,
+                       ssh_info_print,
+                       shell_exit_status,
+                       setopts_getopts,
+                       known_hosts,
+                       ssh_file_is_host_key,
+                       ssh_file_is_host_key_misc,
+                       ssh_file_is_auth_key
+                      ]},
 
-     {dsa_key, [], [{group, basic}]},
-     {rsa_key, [], [{group, basic}]},
-     {ecdsa_sha2_nistp256_key, [], [{group, basic}]},
-     {ecdsa_sha2_nistp384_key, [], [{group, basic}]},
-     {ecdsa_sha2_nistp521_key, [], [{group, basic}]},
-     {ed25519_key, [], [{group, basic}]},
-     {ed448_key,   [], [{group, basic}]},
-     {rsa_host_key_is_actualy_ecdsa, [], [fail_daemon_start]},
-     {host_user_key_differs, [?PARALLEL], [exec_key_differs1,
-                                          exec_key_differs2,
-                                          exec_key_differs3,
-                                          exec_key_differs_fail]},
-     {dsa_pass_key, [], [pass_phrase]},
-     {rsa_pass_key, [], [pass_phrase]},
-     {ecdsa_sha2_nistp256_pass_key, [], [pass_phrase]},
-     {ecdsa_sha2_nistp384_pass_key, [], [pass_phrase]},
-     {ecdsa_sha2_nistp521_pass_key, [], [pass_phrase]},
+     {renegotiate, [?PARALLEL], [rekey0,
+                                 rekey1,
+                                 rekey2,
+                                 rekey3,
+                                 rekey4,
+                                 rekey_limit_client,
+                                 rekey_limit_daemon,
+                                 rekey_time_limit_client,
+                                 rekey_time_limit_daemon,
+                                 norekey_limit_client,
+                                 norekey_limit_daemon,
+                                 renegotiate1,
+                                 renegotiate2]},
+
      {key_cb, [?PARALLEL], [key_callback, key_callback_options]},
-     {internal_error, [], [internal_error]},
+
+     {internal_error, [?PARALLEL], [internal_error]},
+
      {login_bad_pwd_no_retry, [?PARALLEL], [login_bad_pwd_no_retry1,
-                                           login_bad_pwd_no_retry2,
-                                           login_bad_pwd_no_retry3,
-                                           login_bad_pwd_no_retry4,
-                                           login_bad_pwd_no_retry5
-                                          ]},
+                                            login_bad_pwd_no_retry2,
+                                            login_bad_pwd_no_retry3,
+                                            login_bad_pwd_no_retry4,
+                                            login_bad_pwd_no_retry5
+                                           ]},
      
-     {basic, [], [{group,p_basic},
-                  shell, shell_no_unicode, shell_unicode_string,
-                  close, 
-                  known_hosts
-                 ]},
      {p_basic, [?PARALLEL], [send, peername_sockname,
-                            exec, exec_compressed, 
-                            exec_with_io_out, exec_with_io_in,
-                            cli,
-                            idle_time_client, idle_time_server, openssh_zlib_basic_test, 
-                            misc_ssh_options, inet_option, inet6_option]}
+                             exec, exec_compressed, 
+                             exec_with_io_out, exec_with_io_in,
+                             cli,
+                             idle_time_client, idle_time_server, openssh_zlib_basic_test, 
+                             misc_ssh_options, inet_option, inet6_option
+
+                             ,shell, 
+                       shell_no_unicode,
+                       shell_unicode_string,
+                       close 
+                             
+                            ]}
     ].
 
 
@@ -147,6 +123,8 @@ groups() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(begin
                       ssh:start(),
+                      ct:log("Pub keys setup for: ~p",
+                             [ssh_test_lib:setup_all_user_host_keys(Config)]),
                       Config
                   end).
 
@@ -154,281 +132,24 @@ end_per_suite(_Config) ->
     ssh:stop().
 
 %%--------------------------------------------------------------------
-init_per_group(ssh_renegotiate_SUITE, Config) ->
+init_per_group(renegotiate, Config) ->
     [{preferred_algorithms, ssh:default_algorithms()} | Config];
-init_per_group(dsa_key, Config) ->
-    case lists:member('ssh-dss',
-		      ssh_transport:default_algorithms(public_key)) of
-	true ->
-            DataDir = proplists:get_value(data_dir, Config),
-            PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_dsa(DataDir, PrivDir),
-            Config;
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(rsa_key, Config) ->
-    case lists:member('ssh-rsa',
-		      ssh_transport:default_algorithms(public_key)) of
-	true ->
-            DataDir = proplists:get_value(data_dir, Config),
-            PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_rsa(DataDir, PrivDir),
-            Config;
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(rsa_host_key_is_actualy_ecdsa, Config) ->
-    case 
-        lists:member('ssh-rsa',
-		      ssh_transport:default_algorithms(public_key)) and
-        lists:member('ecdsa-sha2-nistp256',
-                     ssh_transport:default_algorithms(public_key))
-    of
-	true ->
-            DataDir = proplists:get_value(data_dir, Config),
-            PrivDir = proplists:get_value(priv_dir, Config),
-	    ssh_test_lib:setup_ecdsa("256", DataDir, PrivDir),
-            %% The following sets up bad rsa keys:
-            begin
-                UserDir = PrivDir,
-                System = filename:join(UserDir, "system"),
-                file:copy(filename:join(DataDir, "id_rsa"), filename:join(UserDir, "id_rsa")),
-                file:rename(filename:join(System, "ssh_host_ecdsa_key"), filename:join(System, "ssh_host_rsa_key")),
-                file:rename(filename:join(System, "ssh_host_ecdsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-                ssh_test_lib:setup_rsa_known_host(DataDir, UserDir),
-                ssh_test_lib:setup_rsa_auth_keys(DataDir, UserDir)
-            end,
-            Config;
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(ecdsa_sha2_nistp256_key, Config) ->
-    case lists:member('ecdsa-sha2-nistp256',
-		      ssh_transport:default_algorithms(public_key)) of
-	true ->
-	    DataDir = proplists:get_value(data_dir, Config),
-	    PrivDir = proplists:get_value(priv_dir, Config),
-	    ssh_test_lib:setup_ecdsa("256", DataDir, PrivDir),
-	    Config;
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(ecdsa_sha2_nistp384_key, Config) ->
-    case lists:member('ecdsa-sha2-nistp384',
-		      ssh_transport:default_algorithms(public_key)) of
-	true ->
-	    DataDir = proplists:get_value(data_dir, Config),
-	    PrivDir = proplists:get_value(priv_dir, Config),
-	    ssh_test_lib:setup_ecdsa("384", DataDir, PrivDir),
-	    Config;
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(ecdsa_sha2_nistp521_key, Config) ->
-    case lists:member('ecdsa-sha2-nistp521',
-		      ssh_transport:default_algorithms(public_key)) of
-	true ->
-	    DataDir = proplists:get_value(data_dir, Config),
-	    PrivDir = proplists:get_value(priv_dir, Config),
-	    ssh_test_lib:setup_ecdsa("521", DataDir, PrivDir),
-	    Config;
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(ed25519_key, Config) ->
-    case lists:member('ssh-ed25519',
-		      ssh_transport:default_algorithms(public_key)) of
-	true ->
-	    DataDir = proplists:get_value(data_dir, Config),
-	    PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_eddsa(ed25519, DataDir, PrivDir),
-	    Config;
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(ed448_key, Config) ->
-    case lists:member('ssh-ed448',
-		      ssh_transport:default_algorithms(public_key)) of
-	true ->
-	    DataDir = proplists:get_value(data_dir, Config),
-	    PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_eddsa(ed448, DataDir, PrivDir),
-	    Config;
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(rsa_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    case lists:member('ssh-rsa',
-		      ssh_transport:default_algorithms(public_key))
-        andalso
-        ssh_test_lib:setup_rsa_pass_phrase(DataDir, PrivDir, "Password")
-    of
-	true ->
-            [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(dsa_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    case lists:member('ssh-dss',
-		      ssh_transport:default_algorithms(public_key))
-    andalso
-        ssh_test_lib:setup_dsa_pass_phrase(DataDir, PrivDir, "Password")
-    of
-	true ->
-            [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(ecdsa_sha2_nistp256_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    case lists:member('ecdsa-sha2-nistp256',
-		      ssh_transport:default_algorithms(public_key))
-        andalso
-        ssh_test_lib:setup_ecdsa_pass_phrase("256", DataDir, PrivDir, "Password")
-    of
-	true ->
-	    [{pass_phrase, {ecdsa_pass_phrase, "Password"}}| Config];
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(ecdsa_sha2_nistp384_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    case lists:member('ecdsa-sha2-nistp384',
-		      ssh_transport:default_algorithms(public_key))
-        andalso
-        ssh_test_lib:setup_ecdsa_pass_phrase("384", DataDir, PrivDir, "Password")
-    of
-	true ->
-	    [{pass_phrase, {ecdsa_pass_phrase, "Password"}}| Config];
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(ecdsa_sha2_nistp521_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    case lists:member('ecdsa-sha2-nistp521',
-		      ssh_transport:default_algorithms(public_key))
-        andalso
-        ssh_test_lib:setup_ecdsa_pass_phrase("521", DataDir, PrivDir, "Password")
-    of
-	true ->
-	    [{pass_phrase, {ecdsa_pass_phrase, "Password"}}| Config];
-	false ->
-	    {skip, unsupported_pub_key}
-    end;
-init_per_group(host_user_key_differs, Config) ->
-    Data = proplists:get_value(data_dir, Config),
-    Sys = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
-    SysUsr = filename:join(Sys, user),
-    Usr = filename:join(proplists:get_value(priv_dir, Config), user_ecdsa_256),
-    file:make_dir(Sys),
-    file:make_dir(SysUsr),
-    file:make_dir(Usr),
-    file:copy(filename:join(Data, "ssh_host_rsa_key"),     filename:join(Sys, "ssh_host_rsa_key")),
-    file:copy(filename:join(Data, "ssh_host_rsa_key.pub"), filename:join(Sys, "ssh_host_rsa_key.pub")),
-    file:copy(filename:join(Data, "id_ecdsa256"),         filename:join(Usr, "id_ecdsa")),
-    file:copy(filename:join(Data, "id_ecdsa256.pub"),     filename:join(Usr, "id_ecdsa.pub")),
-    ssh_test_lib:setup_ecdsa_auth_keys("256", Data, SysUsr),
-    ssh_test_lib:setup_rsa_known_host(Sys, Usr),
-    Config;
+
 init_per_group(key_cb, Config) ->
     case lists:member('ssh-rsa',
-		      ssh_transport:default_algorithms(public_key)) of
+		      ssh_transport:supported_algorithms(public_key)) of
 	true ->
             DataDir = proplists:get_value(data_dir, Config),
             PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_rsa(DataDir, PrivDir),
+            ssh_test_lib:setup_user_key('ssh-rsa', DataDir, PrivDir),
+            ssh_test_lib:setup_host_key_create_dir('ssh-rsa', DataDir, PrivDir),
             Config;
 	false ->
 	    {skip, unsupported_pub_key}
-    end;
-init_per_group(internal_error, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_rsa(DataDir, PrivDir),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    ssh_test_lib:setup_ecdsa("256", DataDir, PrivDir),
-    %% In the test case the key will be deleted after the daemon start:
-    %% ... file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")),
-    Config;
-init_per_group(dir_options, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    %% Make unreadable dir:
-    Dir_unreadable = filename:join(PrivDir, "unread"),
-    ok = file:make_dir(Dir_unreadable),
-    {ok,F1} = file:read_file_info(Dir_unreadable),
-    ok = file:write_file_info(Dir_unreadable, 
-			      F1#file_info{mode = F1#file_info.mode band (bnot 8#00444)}),
-    %% Make readable file:
-    File_readable = filename:join(PrivDir, "file"),
-    ok = file:write_file(File_readable, <<>>),
-
-    %% Check:
-    case {file:read_file_info(Dir_unreadable), 
-	  file:read_file_info(File_readable)} of
-	{{ok, Id=#file_info{type=directory, access=Md}},
-	 {ok, If=#file_info{type=regular,   access=Mf}}} ->
-	    AccessOK =
-		case {Md,                Mf} of
-		    {read,               _} -> false;
-		    {read_write,         _} -> false;
-		    {_,               read} -> true;
-		    {_,         read_write} -> true;
-		    _ -> false
-		end,
-
-	    case AccessOK of
-		true ->
-		    %% Save:
-		    [{unreadable_dir, Dir_unreadable},
-		     {readable_file, File_readable} 
-		     | Config];
-		false ->
-		    ct:log("File#file_info : ~p~n"
-			   "Dir#file_info  : ~p",[If,Id]),
-		    {skip, "File or dir mode settings failed"}
-	    end;
-
-	NotDirFile ->
-	    ct:log("{Dir,File} -> ~p",[NotDirFile]),
-	    {skip, "File/Dir creation failed"}
     end;
 init_per_group(_, Config) ->
     Config.
 
-
-end_per_group(dsa_key, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_dsa(PrivDir),
-    Config;
-end_per_group(rsa_key, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_rsa(PrivDir),
-    Config;
-end_per_group(dsa_pass_key, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_dsa(PrivDir),
-    Config;
-end_per_group(rsa_pass_key, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_rsa(PrivDir),
-    Config;
-end_per_group(key_cb, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_rsa(PrivDir),
-    Config;
-end_per_group(internal_error, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_rsa(PrivDir),
-    ssh_test_lib:clean_dsa(PrivDir),
-    Config;
 
 end_per_group(_, Config) ->
     Config.
@@ -527,6 +248,7 @@ inet_option(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 %%% Test configuring IPv6
+inet6_option() -> [{timetrap,{seconds,30}}].
 inet6_option(Config) when is_list(Config) ->   
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
@@ -603,13 +325,16 @@ exec_with_io_out(Config) when is_list(Config) ->
 				  "io:write(hej).", infinity),
     case ssh_test_lib:receive_exec_result(
            [{ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"hej">>}},
-            {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"ok">>}}]) of
+            {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"ok">>}},
+            {ssh_cm, ConnectionRef, {eof, ChannelId0}},
+            {ssh_cm, ConnectionRef, {exit_status, ChannelId0, 0}},
+            {ssh_cm, ConnectionRef, {closed, ChannelId0}}
+           ]) of
         expected ->
             ok;
         Other0 ->
 	    ct:fail(Other0)
     end,
-    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
@@ -957,7 +682,7 @@ known_hosts(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-ssh_file_is_host_key() -> [{timetrap,{seconds,120}}]. % Some machines are S L O W !
+ssh_file_is_host_key() -> [{timetrap,{seconds,240}}]. % Some machines are S L O W !
 ssh_file_is_host_key(Config) ->
     Dir = ssh_test_lib:create_random_dir(Config),
     ct:log("Dir = ~p", [Dir]),
@@ -1176,12 +901,13 @@ send(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
-
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {preferred_algorithms, ssh_transport:supported_algorithms()},
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+	ssh_test_lib:connect(Host, Port, [{preferred_algorithms, ssh_transport:supported_algorithms()},
+                                          {silently_accept_hosts, true},
 					  {user_dir, UserDir},
 					  {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
@@ -1648,11 +1374,11 @@ setopts_getopts(Config) ->
 
 %%----------------------------------------------------------------------------
 %%% Idle timeout test
-rekey0() -> [{timetrap,{seconds,90}}].
-rekey1() -> [{timetrap,{seconds,90}}].
-rekey2() -> [{timetrap,{seconds,90}}].
-rekey3() -> [{timetrap,{seconds,90}}].
-rekey4() -> [{timetrap,{seconds,90}}].
+rekey0() -> [{timetrap,{seconds,120}}].
+rekey1() -> [{timetrap,{seconds,120}}].
+rekey2() -> [{timetrap,{seconds,120}}].
+rekey3() -> [{timetrap,{seconds,120}}].
+rekey4() -> [{timetrap,{seconds,120}}].
     
 rekey0(Config) -> rekey_chk(Config, 0,                   0).
 rekey1(Config) -> rekey_chk(Config, infinity,            0).
@@ -1678,7 +1404,7 @@ rekey_chk(Config, RLdaemon, RLclient) ->
 %%--------------------------------------------------------------------
 %%% Test rekeying by data volume
 
-rekey_limit_client() -> [{timetrap,{seconds,400}}].
+rekey_limit_client() -> [{timetrap,{seconds,500}}].
 rekey_limit_client(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1726,7 +1452,7 @@ rekey_limit_client(Config) ->
 
 
 
-rekey_limit_daemon() -> [{timetrap,{seconds,400}}].
+rekey_limit_daemon() -> [{timetrap,{seconds,500}}].
 rekey_limit_daemon(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1777,7 +1503,7 @@ rekey_limit_daemon(Config) ->
 
 %%--------------------------------------------------------------------
 %% Check that datatransfer in the other direction does not trigger re-keying
-norekey_limit_client() -> [{timetrap,{seconds,400}}].
+norekey_limit_client() -> [{timetrap,{seconds,500}}].
 norekey_limit_client(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1805,7 +1531,7 @@ norekey_limit_client(Config) ->
     ssh:stop_daemon(Pid).
 
 %% Check that datatransfer in the other direction does not trigger re-keying
-norekey_limit_daemon() -> [{timetrap,{seconds,400}}].
+norekey_limit_daemon() -> [{timetrap,{seconds,500}}].
 norekey_limit_daemon(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1834,7 +1560,7 @@ norekey_limit_daemon(Config) ->
 %%--------------------------------------------------------------------
 %%% Test rekeying by time
 
-rekey_time_limit_client() -> [{timetrap,{seconds,400}}].
+rekey_time_limit_client() -> [{timetrap,{seconds,500}}].
 rekey_time_limit_client(Config) ->
     Minutes = ?REKEY_DATA_TMO div 60000,
     GB = 1024*1000*1000,
@@ -1845,7 +1571,7 @@ rekey_time_limit_client(Config) ->
                                                                   {max_random_length_padding,0}]),
     rekey_time_limit(Pid, ConnectionRef).
 
-rekey_time_limit_daemon() -> [{timetrap,{seconds,400}}].
+rekey_time_limit_daemon() -> [{timetrap,{seconds,500}}].
 rekey_time_limit_daemon(Config) ->
     Minutes = ?REKEY_DATA_TMO div 60000,
     GB = 1024*1000*1000,

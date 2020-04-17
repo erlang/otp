@@ -1,4 +1,6 @@
+*COVER.html
 
+ssh_sftp_SUITE_data/test_data*
 
 property_test/ssh_eqc_client_server_dirs/system
 property_test/ssh_eqc_client_server_dirs/user

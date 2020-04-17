@@ -294,25 +294,37 @@ rcv_lingering(Timeout) ->
 receive_exec_result([]) ->
     expected;
 receive_exec_result(Msgs) when is_list(Msgs) ->
-    ct:log("Expect data! ~p", [Msgs]),
+    ct:log("~p:~p Expect data! ~p", [?MODULE,?FUNCTION_NAME,Msgs]),
     receive
         Msg ->
-            case lists:member(Msg, Msgs) of
+            case lists:member(Msg, Msgs)
+                orelse lists:member({optional,Msg}, Msgs)
+            of
                 true ->
-                    ct:log("Collected data ~p", [Msg]),
-                    receive_exec_result(Msgs--[Msg]);
+                    ct:log("~p:~p Collected data ~p", [?MODULE,?FUNCTION_NAME,Msg]),
+                    receive_exec_result(Msgs--[Msg,{optional,Msg}]);
                 false ->
                     case Msg of
                         {ssh_cm,_,{data,_,1, Data}} ->
-                            ct:log("StdErr: ~p~n", [Data]),
+                            ct:log("~p:~p StdErr: ~p~n", [?MODULE,?FUNCTION_NAME,Data]),
                             receive_exec_result(Msgs);
                         Other ->
-                            ct:log("Other ~p", [Other]),
+                            ct:log("~p:~p Other ~p", [?MODULE,?FUNCTION_NAME,Other]),
                             {unexpected_msg, Other}
                     end
             end
     after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+	30000 ->
+            case lists:all(fun(M) ->
+                                   is_tuple(M) andalso (element(1,M) == optional)
+                           end, Msgs)
+            of
+                false ->
+                    ct:fail("timeout ~p:~p",[?MODULE,?FUNCTION_NAME]);
+                true ->
+                    ct:log("~p:~p Only optional messages expected!~n ~p", [?MODULE,?FUNCTION_NAME,Msgs]),
+                    expected
+            end
     end;
 receive_exec_result(Msg) ->
     receive_exec_result([Msg]).
@@ -325,26 +337,11 @@ receive_exec_result_or_fail(Msg) ->
     end.
 
 receive_exec_end(ConnectionRef, ChannelId) ->
-    Eof = {ssh_cm, ConnectionRef, {eof, ChannelId}},
-    ExitStatus = {ssh_cm, ConnectionRef, {exit_status, ChannelId, 0}},
-    Closed =  {ssh_cm, ConnectionRef,{closed, ChannelId}},
-    case receive_exec_result(ExitStatus) of
-	{unexpected_msg, Eof} -> %% Open ssh seems to not allways send these messages
-	    %% in the same order!
-	    ct:log("2: Collected data ~p", [Eof]),
-	    case receive_exec_result(ExitStatus) of
-		expected ->
-		    expected = receive_exec_result(Closed);
-		{unexpected_msg, Closed} ->
-		    ct:log("3: Collected data ~p", [Closed])
-	    end;
-	expected ->
-	    ct:log("4: Collected data ~p", [ExitStatus]),
-	    expected = receive_exec_result(Eof),
-	    expected = receive_exec_result(Closed);
-	Other ->
-	    ct:fail({unexpected_msg, Other})
-    end.
+    receive_exec_result(
+      [{ssh_cm, ConnectionRef, {eof, ChannelId}},
+       {optional, {ssh_cm, ConnectionRef, {exit_status, ChannelId, 0}}},
+       {ssh_cm, ConnectionRef, {closed, ChannelId}}
+      ]).
 
 receive_exec_result(Data, ConnectionRef, ChannelId) ->
     Eof = {ssh_cm, ConnectionRef, {eof, ChannelId}},
@@ -389,146 +386,21 @@ known_hosts(BR) ->
 	    file:rename(B, KnownHosts)
     end.
 
-setup_dsa(DataDir, UserDir) ->
-    file:copy(filename:join(DataDir, "id_dsa"), filename:join(UserDir, "id_dsa")),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
-    setup_dsa_known_host(DataDir, UserDir),
-    setup_dsa_auth_keys(DataDir, UserDir).
-    
-setup_rsa(DataDir, UserDir) ->
-    file:copy(filename:join(DataDir, "id_rsa"), filename:join(UserDir, "id_rsa")),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
-    setup_rsa_known_host(DataDir, UserDir),
-    setup_rsa_auth_keys(DataDir, UserDir).
+setup_all_known_hosts(SystemDir, UserDir) ->
+    PubKeys =
+        lists:map(fun(Name) ->
+                          {ok, SshBin} = file:read_file(filename:join(SystemDir, Name)), 
+                          [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
+                          Key
+                  end, filelib:wildcard("*.pub", SystemDir)),
+    lists:foldl(
+      fun(Key, Acc) ->
+              case setup_known_hosts(Key,UserDir) of
+                  ok -> Acc;
+                  Other -> Other
+              end
+      end, ok, PubKeys).
 
-setup_ecdsa(Size, DataDir, UserDir) ->
-    file:copy(filename:join(DataDir, "id_ecdsa"++Size), filename:join(UserDir, "id_ecdsa")),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
-ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
-    setup_ecdsa_known_host(Size, System, UserDir),
-    setup_ecdsa_auth_keys(Size, DataDir, UserDir).
-
-setup_eddsa(Alg, DataDir, UserDir) ->
-    {IdPriv, _IdPub, HostPriv, HostPub} =
-        case Alg of
-            ed25519 -> {"id_ed25519", "id_ed25519.pub", "ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"};
-            ed448   -> {"id_ed448",   "id_ed448.pub",   "ssh_host_ed448_key",   "ssh_host_ed448_key.pub"}
-        end,
-    file:copy(filename:join(DataDir, IdPriv), filename:join(UserDir, IdPriv)),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, HostPriv), filename:join(System, HostPriv)),
-    file:copy(filename:join(DataDir, HostPub), filename:join(System, HostPub)),
-ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
-    setup_eddsa_known_host(HostPub, DataDir, UserDir),
-    setup_eddsa_auth_keys(Alg, DataDir, UserDir).
-
-clean_dsa(UserDir) ->
-    del_dirs(filename:join(UserDir, "system")),
-    file:delete(filename:join(UserDir,"id_dsa")),
-    file:delete(filename:join(UserDir,"known_hosts")),
-    file:delete(filename:join(UserDir,"authorized_keys")).
-
-clean_rsa(UserDir) ->
-    del_dirs(filename:join(UserDir, "system")),
-    file:delete(filename:join(UserDir,"id_rsa")),
-    file:delete(filename:join(UserDir,"known_hosts")),
-    file:delete(filename:join(UserDir,"authorized_keys")).
-
-setup_dsa_pass_phrase(DataDir, UserDir, Phrase) ->
-    try
-        {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
-        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
-        System = filename:join(UserDir, "system"),
-        file:make_dir(System),
-        file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
-        file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-        setup_dsa_known_host(DataDir, UserDir),
-        setup_dsa_auth_keys(DataDir, UserDir)
-    of 
-        _ -> true
-    catch
-        _:_ -> false
-    end.
-
-setup_rsa_pass_phrase(DataDir, UserDir, Phrase) ->
-    try
-        {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
-        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
-        System = filename:join(UserDir, "system"),
-        file:make_dir(System),
-        file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-        file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-        setup_rsa_known_host(DataDir, UserDir),
-        setup_rsa_auth_keys(DataDir, UserDir)
-    of 
-        _ -> true
-    catch
-        _:_ -> false
-    end.
-
-setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
-    try
-        {ok, KeyBin} = 
-            case file:read_file(F=filename:join(DataDir, "id_ecdsa"++Size)) of
-                {error,E} ->
-                    ct:log("Failed (~p) to read ~p~nFiles: ~p", [E,F,file:list_dir(DataDir)]),
-                    file:read_file(filename:join(DataDir, "id_ecdsa"));
-                Other ->
-                    Other
-            end,
-        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
-        System = filename:join(UserDir, "system"),
-        file:make_dir(System),
-        file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
-        file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
-        setup_ecdsa_known_host(Size, System, UserDir),
-        setup_ecdsa_auth_keys(Size, DataDir, UserDir)
-    of 
-        _ -> true
-    catch
-        _:_ -> false
-    end.
-
-setup_pass_phrase(KeyBin, OutFile, Phrase) ->
-    [{KeyType, _,_} = Entry0] = public_key:pem_decode(KeyBin),
-    Key =  public_key:pem_entry_decode(Entry0),
-    Salt = crypto:strong_rand_bytes(8),
-    Entry = public_key:pem_entry_encode(KeyType, Key,
-					{{"DES-CBC", Salt}, Phrase}),
-    Pem = public_key:pem_encode([Entry]),
-    file:write_file(OutFile, Pem).
-
-setup_dsa_known_host(SystemDir, UserDir) ->
-    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_dsa_key.pub")),
-    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-    setup_known_hosts(Key, UserDir).
-
-setup_rsa_known_host(SystemDir, UserDir) ->
-    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_rsa_key.pub")),
-    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-    setup_known_hosts(Key, UserDir).
-
-setup_ecdsa_known_host(_Size, SystemDir, UserDir) ->
-    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_ecdsa_key.pub")),
-    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-    setup_known_hosts(Key, UserDir).
-
-setup_eddsa_known_host(HostPub, SystemDir, UserDir) ->
-    {ok, SshBin} = file:read_file(filename:join(SystemDir, HostPub)),
-    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-    setup_known_hosts(Key, UserDir).
 
 setup_known_hosts(Key, UserDir) ->
     {ok, Hostname} = inet:gethostname(),
@@ -539,46 +411,6 @@ setup_known_hosts(Key, UserDir) ->
     KnownHostsEnc = public_key:ssh_encode(KnownHosts, known_hosts),
     KHFile = filename:join(UserDir, "known_hosts"),
     file:write_file(KHFile, KnownHostsEnc).
-
-setup_dsa_auth_keys(Dir, UserDir) ->
-    {ok, Pem} = file:read_file(filename:join(Dir, "id_dsa")),
-    DSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
-    PKey = DSA#'DSAPrivateKey'.y,
-    P = DSA#'DSAPrivateKey'.p,
-    Q = DSA#'DSAPrivateKey'.q,
-    G = DSA#'DSAPrivateKey'.g,
-    Dss = #'Dss-Parms'{p=P, q=Q, g=G},
-    setup_auth_keys([{{PKey, Dss}, [{comment, "Test"}]}], UserDir).
-
-setup_rsa_auth_keys(Dir, UserDir) ->
-    {ok, Pem} = file:read_file(filename:join(Dir, "id_rsa")),
-    RSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
-    #'RSAPrivateKey'{publicExponent = E, modulus = N} = RSA,
-    PKey = #'RSAPublicKey'{publicExponent = E, modulus = N},
-    setup_auth_keys([{ PKey, [{comment, "Test"}]}], UserDir).
-
-setup_ecdsa_auth_keys(Size, Dir, UserDir) ->
-    {ok, Pem} =
-        case file:read_file(F=filename:join(Dir, "id_ecdsa"++Size)) of
-            {error,E} ->
-                ct:log("Failed (~p) to read ~p~nFiles: ~p", [E,F,file:list_dir(Dir)]),
-                file:read_file(filename:join(Dir, "id_ecdsa"));
-            Other ->
-                Other
-        end,
-    ECDSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
-    #'ECPrivateKey'{publicKey = Q,
-		    parameters = Param = {namedCurve,_Id0}} = ECDSA,
-    PKey = #'ECPoint'{point = Q},
-    setup_auth_keys([{ {PKey,Param}, [{comment, "Test"}]}], UserDir).
-
-setup_eddsa_auth_keys(Alg, Dir, UserDir) ->
-    SshAlg = case Alg of
-                 ed25519 -> 'ssh-ed25519';
-                 ed448 -> 'ssh-ed448'
-             end,
-    {ok, {ed_pri,Alg,Pub,_}} = ssh_file:user_key(SshAlg, [{user_dir,Dir}]),
-    setup_auth_keys([{{ed_pub,Alg,Pub}, [{comment, "Test"}]}], UserDir).
 
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),
@@ -591,23 +423,30 @@ write_auth_keys(Keys, Dir) ->
     file:write_file(AuthKeysFile, Keys).
 
 del_dirs(Dir) ->
+    del_dir_contents(Dir),
+    file:del_dir(Dir),
+    ok.
+
+
+del_dir_contents(Dir) ->
     case file:list_dir(Dir) of
-	{ok, []} ->
-	    file:del_dir(Dir);
-	{ok, Files} ->
-	    lists:foreach(fun(File) ->
-				  FullPath = filename:join(Dir,File),
-				  case filelib:is_dir(FullPath) of
-				      true ->
-					  del_dirs(FullPath),
-					  file:del_dir(FullPath);
-				      false ->
-					  file:delete(FullPath)
-				  end
-			  end, Files);
-	_ ->
-	    ok
+        {ok, Files} ->
+            do_del_files(Dir, Files);
+        _ ->
+            ok
     end.
+
+do_del_files(Dir, Files) ->
+    lists:foreach(fun(File) ->
+                          FullPath = filename:join(Dir,File),
+                          case filelib:is_dir(FullPath) of
+                              true ->
+                                  del_dirs(FullPath);
+                              false ->
+                                  file:delete(FullPath)
+                          end
+                  end, Files).
+
 
 openssh_sanity_check(Config) ->
     ssh:start(),
@@ -1189,3 +1028,132 @@ mk_dir_path(DirPath) ->
             %%ct:log("~p:~p return Other ~p ~ts", [?MODULE,?LINE,Other,DirPath]),
             Other
     end.
+
+%%%----------------------------------------------------------------
+%%% New
+
+setup_all_user_host_keys(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    setup_all_user_host_keys(DataDir, PrivDir).
+
+setup_all_user_host_keys(DataDir, PrivDir) ->
+    setup_all_user_host_keys(DataDir, PrivDir, filename:join(PrivDir,"system")).
+
+setup_all_user_host_keys(DataDir, UserDir, SysDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_user_key(Alg, DataDir, UserDir),
+                            ok = ssh_test_lib:setup_host_key(Alg, DataDir, SysDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+
+setup_all_host_keys(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    setup_all_host_keys(DataDir, filename:join(PrivDir,"system")).
+
+setup_all_host_keys(DataDir, SysDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_host_key(Alg, DataDir, SysDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+setup_user_key(SshAlg, DataDir, UserDir) ->
+    file:make_dir(UserDir),
+    %% Copy private user key to user's dir
+    {ok,_} = file:copy(filename:join(DataDir, file_base_name(user_src,SshAlg)),
+                       filename:join(UserDir, file_base_name(user,SshAlg))),
+    %% Setup authorized_keys in user's dir
+    {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub")),
+    ok = file:write_file(filename:join(UserDir, "authorized_keys"),
+                         io_lib:format("~n~s~n",[Pub]),
+                         [append]),
+    ?ct_log_show_file( filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub") ),
+    ?ct_log_show_file( filename:join(UserDir, "authorized_keys") ),
+    ok.
+
+setup_host_key_create_dir(SshAlg, DataDir, BaseDir) ->
+    SysDir = filename:join(BaseDir,"system"),
+    ct:log("~p:~p  SshAlg=~p~nDataDir = ~p~nBaseDir = ~p~nSysDir = ~p",[?MODULE,?LINE,SshAlg, DataDir, BaseDir,SysDir]),
+    file:make_dir(SysDir),
+    setup_host_key(SshAlg, DataDir, SysDir),
+    SysDir.
+
+setup_host_key(SshAlg, DataDir, SysDir) ->
+    mk_dir_path(SysDir),
+    %% Copy private host key to system's dir
+    {ok,_} = file:copy(filename:join(DataDir, file_base_name(system_src,SshAlg)),
+                       filename:join(SysDir,  file_base_name(system,SshAlg))),
+    ?ct_log_show_file( filename:join(SysDir,  file_base_name(system,SshAlg)) ),
+    ok.
+
+setup_known_host(SshAlg, DataDir, UserDir) ->
+    {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(system_src,SshAlg)++".pub")),
+    S = lists:join(" ", lists:reverse(tl(lists:reverse(string:tokens(binary_to_list(Pub), " "))))),
+    ok = file:write_file(filename:join(UserDir, "known_hosts"),
+                         io_lib:format("~p~n",[S])),
+    ?ct_log_show_file( filename:join(UserDir, "known_hosts") ),
+    ok.
+
+
+get_addr_str() ->
+    {ok, Hostname} = inet:gethostname(),
+    {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
+    IP = lists:concat([A, ".", B, ".", C, ".", D]),
+    lists:concat([Hostname,",",IP]).
+
+
+file_base_name(user,   'ecdsa-sha2-nistp256') -> "id_ecdsa";
+file_base_name(user,   'ecdsa-sha2-nistp384') -> "id_ecdsa";
+file_base_name(user,   'ecdsa-sha2-nistp521') -> "id_ecdsa";
+file_base_name(user,   'rsa-sha2-256'       ) -> "id_rsa";
+file_base_name(user,   'rsa-sha2-384'       ) -> "id_rsa";
+file_base_name(user,   'rsa-sha2-512'       ) -> "id_rsa";
+file_base_name(user,   'ssh-dss'            ) -> "id_dsa";
+file_base_name(user,   'ssh-ed25519'        ) -> "id_ed25519";
+file_base_name(user,   'ssh-ed448'          ) -> "id_ed448";
+file_base_name(user,   'ssh-rsa'            ) -> "id_rsa";
+
+file_base_name(user_src, 'ecdsa-sha2-nistp256') -> "id_ecdsa256";
+file_base_name(user_src, 'ecdsa-sha2-nistp384') -> "id_ecdsa384";
+file_base_name(user_src, 'ecdsa-sha2-nistp521') -> "id_ecdsa521";
+file_base_name(user_src, Alg) -> file_base_name(user, Alg);
+
+file_base_name(system, 'ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'rsa-sha2-256'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'rsa-sha2-384'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'rsa-sha2-512'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'ssh-dss'            ) -> "ssh_host_dsa_key";
+file_base_name(system, 'ssh-ed25519'        ) -> "ssh_host_ed25519_key";
+file_base_name(system, 'ssh-ed448'          ) -> "ssh_host_ed448_key";
+file_base_name(system, 'ssh-rsa'            ) -> "ssh_host_rsa_key";
+
+file_base_name(system_src, 'ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key256";
+file_base_name(system_src, 'ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key384";
+file_base_name(system_src, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key521";
+file_base_name(system_src, Alg) -> file_base_name(system, Alg).
+
+%%%----------------------------------------------------------------

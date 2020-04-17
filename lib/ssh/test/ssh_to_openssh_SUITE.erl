@@ -81,10 +81,6 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(erlang_server, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    UserDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa_known_host(DataDir, UserDir),
-    ssh_test_lib:setup_rsa_known_host(DataDir, UserDir),
     Config;
 init_per_group(G, Config) when G==tunnel_distro_server ;
                                G==tunnel_distro_client ->
@@ -102,11 +98,6 @@ init_per_group(erlang_client, Config) ->
 init_per_group(_, Config) ->
     Config.
 
-end_per_group(erlang_server, Config) ->
-    UserDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_dsa(UserDir),
-    ssh_test_lib:clean_rsa(UserDir),
-    Config;
 end_per_group(_, Config) ->
     Config.
 
@@ -166,10 +157,16 @@ exec_with_io_in_sshc(Config) when is_list(Config) ->
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
+    PrivDir = proplists:get_value(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
     ExecStr = "\"io:read('% ').\"",
     Cmd =  "echo howdy. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
-                                                          " -o StrictHostKeyChecking=no"
-                                                          " -x", % Disable X forwarding
+                                                          [" -o UserKnownHostsFile=", KnownHosts,
+                                                           " -o CheckHostIP=no"
+                                                           " -o StrictHostKeyChecking=no"
+                                                           " -q"
+                                                           " -x" % Disable X forwarding
+                                                          ],
                                                           ExecStr),
     ct:pal("Cmd = ~p~n",[Cmd]),
     case os:cmd(Cmd) of
@@ -194,9 +191,15 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
                                             ]),
     ct:sleep(500),
 
+    PrivDir = proplists:get_value(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
     Cmd =  "echo ciao. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
-                                                          " -o StrictHostKeyChecking=no"
-                                                          " -x", % Disable X forwarding
+                                                          [" -o UserKnownHostsFile=", KnownHosts,
+                                                           " -o CheckHostIP=no"
+                                                           " -o StrictHostKeyChecking=no"
+                                                           " -q"
+                                                           " -x" % Disable X forwarding
+                                                          ],
                                                          "'? '"),
     ct:pal("Cmd = ~p~n",[Cmd]),
     case os:cmd(Cmd) of
@@ -214,7 +217,6 @@ erlang_server_openssh_client_renegotiate(Config) ->
     _PubKeyAlg = ssh_rsa,
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {failfun, fun ssh_test_lib:failfun/2}]),
@@ -225,9 +227,13 @@ erlang_server_openssh_client_renegotiate(Config) ->
     Data =  lists:duplicate(trunc(1.1*RenegLimitK*1024), $a),
     ok = file:write_file(DataFile, Data),
 
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
     Cmd = ssh_test_lib:open_sshc_cmd(Host, Port,
                                      [" -o UserKnownHostsFile=", KnownHosts,
-                                      " -o StrictHostKeyChecking=no",
+                                      " -o CheckHostIP=no"
+                                      " -o StrictHostKeyChecking=no"
+                                      " -q"
+                                      " -x",
                                       " -o RekeyLimit=",integer_to_list(RenegLimitK),"K"]),
 
 
@@ -268,7 +274,6 @@ erlang_server_openssh_client_renegotiate(Config) ->
 tunnel_out_non_erlclient_erlserver(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_out, true},
                                              {system_dir, SystemDir},
@@ -278,9 +283,13 @@ tunnel_out_non_erlclient_erlserver(Config) ->
     ListenHost = {127,0,0,1},
     ListenPort = 2345,
 
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
     Cmd = ssh_test_lib:open_sshc_cmd(Host, Port,
                                      [" -o UserKnownHostsFile=", KnownHosts,
-                                      " -o StrictHostKeyChecking=no",
+                                      " -o CheckHostIP=no"
+                                      " -o StrictHostKeyChecking=no"
+                                      " -q"
+                                      " -x",
                                       " -R ",integer_to_list(ListenPort),":127.0.0.1:",integer_to_list(ToPort)]),
     spawn(fun() ->
                   ct:log(["ssh command:\r\n  ",Cmd],[]),
@@ -295,7 +304,6 @@ tunnel_out_non_erlclient_erlserver(Config) ->
 tunnel_in_non_erlclient_erlserver(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
-    KnownHosts = filename:join(UserDir, "known_hosts"),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
                                               {system_dir, SystemDir},
                                               {failfun, fun ssh_test_lib:failfun/2}]),
@@ -304,10 +312,14 @@ tunnel_in_non_erlclient_erlserver(Config) ->
     ListenHost = {127,0,0,1},
     ListenPort = 2345,
 
+    KnownHosts = filename:join(UserDir, "known_hosts"),
     Cmd =
         ssh_test_lib:open_sshc_cmd(Host, Port,
                                    [" -o UserKnownHostsFile=", KnownHosts,
-                                    " -o StrictHostKeyChecking=no",
+                                    " -o CheckHostIP=no"
+                                    " -o StrictHostKeyChecking=no"
+                                    " -q"
+                                    " -x",
                                     " -L ",integer_to_list(ListenPort),":127.0.0.1:",integer_to_list(ToPort)]),
     spawn(fun() ->
                   ct:log(["ssh command:\r\n  ",Cmd],[]),

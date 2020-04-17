@@ -41,7 +41,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,60}}].
+    [{timetrap,{seconds,90}}].
 
 all() ->
 %%    [check_docker_present] ++
@@ -534,21 +534,22 @@ result_of_exec(C, Ch, ExitStatus, Acc) ->
 chk_all_algos(FunctionName, CommonAlgs, Config, DoTestFun) when is_function(DoTestFun,2) ->
     ct:comment("~p algorithms",[length(CommonAlgs)]),
     %% Check each algorithm
-    Failed =
+    Nmax = length(CommonAlgs),
+    {_N,Failed} =
         lists:foldl(
-          fun({Tag,Alg}, FailedAlgos) ->
-                  %% ct:log("Try ~p",[Alg]),
+          fun({Tag,Alg}, {N,FailedAlgos}) ->
+                  ct:log("Try ~p  ~p/~p",[{Tag,Alg},N,Nmax]),
                   case DoTestFun(Tag,Alg) of
                       {ok,C} ->
                           ssh:close(C),
-                          FailedAlgos;
+                          {N+1,FailedAlgos};
                       ok ->
-                          FailedAlgos;
+                          {N+1,FailedAlgos};
                       Other ->
                           ct:log("FAILED! ~p ~p: ~p",[Tag,Alg,Other]),
-                          [{Alg,Other}|FailedAlgos]
+                          {N+1, [{Alg,Other}|FailedAlgos]}
                   end
-          end, [], CommonAlgs),
+          end, {1,[]}, CommonAlgs),
     ct:pal("~s", [format_result_table_use_all_algos(FunctionName, Config, CommonAlgs, Failed)]),
     case Failed of
         [] ->

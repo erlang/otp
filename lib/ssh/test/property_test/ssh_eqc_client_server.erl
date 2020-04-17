@@ -480,12 +480,9 @@ setup_rsa(Dir) ->
     erase_dir(user_dir(Dir)),
     file:make_dir(system_dir(Dir)),
     file:make_dir(user_dir(Dir)),
-
-    file:copy(data_dir(Dir,"id_rsa"),           user_dir(Dir,"id_rsa")),
-    file:copy(data_dir(Dir,"ssh_host_rsa_key"), system_dir(Dir,"ssh_host_rsa_key")),
-    file:copy(data_dir(Dir,"ssh_host_rsa_key"), system_dir(Dir,"ssh_host_rsa_key.pub")),
-    ssh_test_lib:setup_rsa_known_host(data_dir(Dir), user_dir(Dir)),
-    ssh_test_lib:setup_rsa_auth_keys(data_dir(Dir),  user_dir(Dir)).
+    ct:log("Dir = ~p~ndata_dir = ~p~nsystem_dir = ~p~nuser = ~p~n",
+           [Dir,data_dir(Dir),system_dir(Dir),user_dir(Dir)]),
+    ssh_test_lib:setup_all_user_host_keys( data_dir(Dir), user_dir(Dir), system_dir(Dir)).
 
 data_dir(Dir, File) ->   filename:join(Dir, File).
 system_dir(Dir, File) -> filename:join([Dir, "system", File]).

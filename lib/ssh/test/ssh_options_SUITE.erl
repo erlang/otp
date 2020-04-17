@@ -92,7 +92,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,30}}].
+     {timetrap,{seconds,60}}].
 
 all() -> 
     [connectfun_disconnectfun_server,
@@ -128,9 +128,9 @@ all() ->
      id_string_own_string_server_trail_space,
      id_string_random_server,
      save_accepted_host_option,
-     {group, hardening_tests},
      config_file,
-     config_file_modify_algorithms_order
+     config_file_modify_algorithms_order,
+     {group, hardening_tests}
     ].
 
 groups() ->
@@ -157,10 +157,8 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(hardening_tests, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    ssh_test_lib:setup_rsa(DataDir, PrivDir),
+    ct:log("Pub keys setup for: ~p",
+           [ssh_test_lib:setup_all_user_host_keys(Config)]),
     Config;
 init_per_group(dir_options, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -937,7 +935,7 @@ ssh_connect_arg4_timeout(_Config) ->
 	    Msp = ms_passed(T0),
 	    exit(Server,hasta_la_vista___baby),
 	    Low = 0.9*Timeout,
-	    High =  2.5*Timeout,
+	    High =  4.0*Timeout,
 	    ct:log("Timeout limits: ~.4f - ~.4f ms, timeout "
                    "was ~.4f ms, expected ~p ms",[Low,High,Msp,Timeout]),
 	    if
