@@ -277,7 +277,6 @@ sub normalize_link {
     }
 
     return $link if $link =~ /^\w{3,10}:/i; # mailto: http: .....
-    return $link if $link =~ /\?/i;         # Contains arguments to CGI
 
     $link =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
 
@@ -328,6 +327,7 @@ sub normalize_link {
     $link =~ s&(/\.)+$&&;	# Remove ending slash dot "/."
     $link =~ s&(/\.)+/&/&g;	# Remove all slash dot slash "/./"
     $link =~ s&/+$&&;		# Remove ending slashes
+    $link =~ s&\?.*$&&;         # Remove any query parameters
 
     # Remove a real directory part followed by ".."
 
