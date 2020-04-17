@@ -706,7 +706,7 @@ adjust_time_unit_(Time, Unit) ->
     case Time rem 1000 of
         0 ->
             NextUnit = next_time_unit(Unit),
-            NextTime = convert_time_unit(Time, Unit, NextUnit),
+            NextTime = erlang:convert_time_unit(Time, Unit, NextUnit),
             adjust_time_unit_(NextTime, NextUnit);
         _ ->
             {Time, Unit}
