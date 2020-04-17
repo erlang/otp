@@ -770,11 +770,7 @@ list_dir_details(Pid, Name, FileOpTimeout) ->
       {ok,Handle} ->
         Res = do_list_dir(Pid, Handle, FileOpTimeout, []),
         close(Pid, Handle, FileOpTimeout),
-        case Res of
-          {ok, List} ->
-            {ok,List};
-          Error -> Error
-        end;
+        Res;
       Error ->
         Error
     end.
