@@ -57,7 +57,7 @@ main()
 
 static void print_last_error(char* message)
 {
-    LPTSTR* lpBufPtr;
+    LPTSTR lpBufPtr;
 
     FormatMessage(
 		  FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,

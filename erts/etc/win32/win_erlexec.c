@@ -272,7 +272,7 @@ start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_d
      */
 
     if (start_detached) {
-	int result;
+	HANDLE result;
 	int i;
 	wchar_t *start_prog=NULL;
 	wchar_t **argv;
@@ -311,17 +311,17 @@ start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_d
 	    MessageBoxW(NULL, buffer, L"Start detached",MB_OK);
 	}
 #endif
-	result = _wspawnv(_P_DETACH, start_prog, argv);
+	result = (HANDLE) _wspawnv(_P_DETACH, start_prog, argv);
 	free_fnuttified(utf8argv);
 	free(start_prog);
 
-	if (result == -1) {
+	if (result == (HANDLE)-1) {
 #ifdef ARGS_HARDDEBUG
 	    MessageBox(NULL, "_wspawnv failed","Start detached",MB_OK);
 #endif
 	    return 1;
 	}
-	SetPriorityClass((HANDLE) result, GetPriorityClass(GetCurrentProcess()));
+	SetPriorityClass(result, GetPriorityClass(GetCurrentProcess()));
     } else {
 	wchar_t *emu=NULL;
 #ifdef LOAD_BEAM_DYNAMICALLY
