@@ -99,6 +99,9 @@
                            | 'nanosecond'
                            | 'second'.
 
+-type rfc3339_fraction_format() :: 'strict'
+                                 | 'relaxed'.
+
 %%----------------------------------------------------------------------
 
 %% All dates are according the the Gregorian calendar. In this module
@@ -438,20 +441,23 @@ system_time_to_rfc3339(Time) ->
       Options :: [Option],
       Option :: {'offset', offset()}
               | {'time_designator', byte()}
-              | {'unit', rfc3339_time_unit()},
+              | {'unit', rfc3339_time_unit()
+              | {'fraction_format', rfc3339_fraction_format()}},
       DateTimeString :: rfc3339_string().
 
 system_time_to_rfc3339(Time, Options) ->
     Unit = proplists:get_value(unit, Options, second),
     OffsetOption = proplists:get_value(offset, Options, ""),
     T = proplists:get_value(time_designator, Options, $T),
-    AdjustmentSecs = offset_adjustment(Time, Unit, OffsetOption),
+    FractionFormat = proplists:get_value(fraction_format, Options, strict),
+    {AdjTime, AdjUnit} = adjust_time_unit(Time, Unit, FractionFormat),
+    AdjustmentSecs = offset_adjustment(AdjTime, AdjUnit, OffsetOption),
     Offset = offset(OffsetOption, AdjustmentSecs),
-    Adjustment = erlang:convert_time_unit(AdjustmentSecs, second, Unit),
-    AdjustedTime = Time + Adjustment,
-    Factor = factor(Unit),
+    Adjustment = erlang:convert_time_unit(AdjustmentSecs, second, AdjUnit),
+    AdjustedTime = AdjTime + Adjustment,
+    Factor = factor(AdjUnit),
     Secs = AdjustedTime div Factor,
-    check(Time, Options, Secs),
+    check(AdjTime, Options, Secs),
     DateTime = system_time_to_datetime(Secs),
     {{Year, Month, Day}, {Hour, Min, Sec}} = DateTime,
     FractionStr = fraction_str(Factor, AdjustedTime),
@@ -688,6 +694,27 @@ offset(OffsetOption, Secs0) when OffsetOption =:= "";
     [Sign | lists:append([pad2(Hour), ":", pad2(Min)])];
 offset(OffsetOption, _Secs) ->
     OffsetOption.
+
+adjust_time_unit(Time, Unit, strict) ->
+    {Time, Unit};
+adjust_time_unit(Time, Unit, relaxed) ->
+    adjust_time_unit_(Time, Unit).
+
+adjust_time_unit_(Time, second) ->
+    {Time, second};
+adjust_time_unit_(Time, Unit) ->
+    case Time rem 1000 of
+        0 ->
+            NextUnit = next_time_unit(Unit),
+            NextTime = convert_time_unit(Time, Unit, NextUnit),
+            adjust_time_unit_(NextTime, NextUnit);
+        _ ->
+            {Time, Unit}
+    end.
+
+next_time_unit(nanosecond) -> microsecond;
+next_time_unit(microsecond) -> millisecond;
+next_time_unit(millisecond) -> second.
 
 offset_adjustment(Time, Unit, "") ->
     local_offset(Time, Unit);

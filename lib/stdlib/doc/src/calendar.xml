@@ -409,6 +409,15 @@
 	    the fraction.
             </p>
 	  </item>
+      <tag><c>{fraction_format, FractionFormat}</c></tag>
+      <item><p>The second fraction part format type. The
+        default is <c>strict</c>, so trailing zeros are
+        not removed from fraction. The <c>relaxed</c> option
+        removes trailing zeros, adjusting factional second
+        to three, six, or nine digits depending on trailing
+        zeroes. If fraction part equals zero then it omitted.
+      </p>
+      </item>
 	</taglist>
         <pre>
 1> <input>calendar:system_time_to_rfc3339(erlang:system_time(second)).</input>
@@ -421,7 +430,10 @@
 "2018-04-23T10:57:05-02:00"
 4> <input>calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
    [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}]).</input>
-"2018-04-23 12:57:20.482Z"</pre>
+"2018-04-23 12:57:20.482Z"
+4> <input>calendar:system_time_to_rfc3339(503640306100000000,
+   [{unit, nanosecond}, {fraction_format, relaxed}, {offset, "Z"}]).</input>
+"1985-12-17T04:05:06.100Z"</pre>
       </desc>
     </func>
 

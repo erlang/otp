@@ -307,6 +307,19 @@ rfc3339(Config) when is_list(Config) ->
     "1970-01-01T00:00:06.543210Z" = do_format_z(6543210, Mys),
     "1979-06-21T12:12:12.000000Z" = do_format_z(298815132000000, Mys),
     "1918-11-11T13:00:00.000000Z" = do_format_z(-1613818800000000, Mys),
+
+    "1985-12-17T04:05:06Z" = do_format_rz(503640306, S),
+    "1985-12-17T04:05:06.123Z" = do_format_rz(503640306123, Ms),
+    "1985-12-17T04:05:06.123456Z" = do_format_rz(503640306123456, Mys),
+    "1985-12-17T04:05:06.123456789Z" = do_format_rz(503640306123456789, Ns),
+    "1985-12-17T04:05:06.123456Z" = do_format_rz(503640306123456000, Ns),
+    "1985-12-17T04:05:06.123Z" = do_format_rz(503640306123000, Mys),
+    "1985-12-17T04:05:06Z" = do_format_rz(503640306000, Ms),
+    "1985-12-17T04:05:06.200Z" = do_format_rz(503640306200, Ms),
+    "1985-12-17T04:05:06.210Z" = do_format_rz(503640306210, Ms),
+    "1985-12-17T04:05:06Z" = do_format_rz(503640306000000000, Ns),
+    "1985-12-17T04:05:06.123Z" = do_format_rz(503640306123000000, Ns),
+    "1985-12-17T04:05:06.100Z" = do_format_rz(503640306100000000, Ns),
     ok.
 
 %%
@@ -326,6 +339,9 @@ do_parse(String, Options) ->
 test_time(Time, Options) ->
     F = calendar:system_time_to_rfc3339(Time, Options),
     Time = calendar:rfc3339_to_system_time(F, Options).
+
+do_format_rz(Time, Options) ->
+    do_format_z(Time, [{fraction_format, relaxed}|Options]).
 
 do_format_z(Time, Options) ->
     do_format(Time, [{offset, "Z"}|Options]).
