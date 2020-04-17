@@ -54,6 +54,8 @@
          start_tracer/0, start_tracer/1,
          on/1,  on/0,
          off/1, off/0,
+         is_on/0,
+         is_off/0,
          go_on/0,
          %% Circular buffer
          cbuf_start/0, cbuf_start/1,
@@ -134,10 +136,13 @@ start_tracer(WriteFun, InitAcc) when is_function(WriteFun, 3) ->
 %%%----------------------------------------------------------------
 on() -> on(?ALL_DBG_TYPES).
 on(Type) -> switch(on, Type).
-
+is_on() -> gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT).
+    
 
 off() -> off(?ALL_DBG_TYPES). % A bit overkill...
 off(Type) -> switch(off, Type).
+is_off() -> ?ALL_DBG_TYPES -- is_on().
+    
     
 go_on() ->
     IsOn = gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT),
