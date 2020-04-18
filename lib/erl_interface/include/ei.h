@@ -568,6 +568,7 @@ int ei_decode_trace(const char *buf, int *index, erlang_trace *p);
 int ei_decode_tuple_header(const char *buf, int *index, int *arity);
 int ei_decode_list_header(const char *buf, int *index, int *arity);
 int ei_decode_map_header(const char *buf, int *index, int *arity);
+int ei_decode_iodata(const char *buf, int* index, int *szp, char *out_buf);
 
 /* 
  * ei_decode_ei_term() returns 1 if term is decoded, 0 if term is OK,
