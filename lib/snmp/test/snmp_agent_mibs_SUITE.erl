@@ -172,29 +172,28 @@ init_per_testcase2(size_check_ets2_bad_file1, Config) when is_list(Config) ->
     %% Create a bad file
     ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
 			 "calvin and hoppes play chess"),
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
     Config;
 init_per_testcase2(size_check_ets3_bad_file1, Config) when is_list(Config) ->
     DbDir = ?config(db_dir, Config),
     %% Create a bad file
     ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
 			 "calvin and hoppes play chess"),
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
     Config;
 init_per_testcase2(size_check_mnesia, Config) when is_list(Config) ->
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
     Config;
 init_per_testcase2(cache_test, Config) when is_list(Config) ->
-    Min = timer:minutes(5), 
-    Timeout =
-	case lists:keysearch(tc_timeout, 1, Config) of
-	    {value, {tc_timeout, TcTimeout}} when TcTimeout < Min ->
-		Min; 
-	    {value, {tc_timeout, TcTimeout}} ->
-		TcTimeout; 
-	    _ ->
-		Min
-	end,
-    Dog = test_server:timetrap(Timeout), 
-    [{watchdog, Dog} | Config];
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(5 + (Factor div 2))),
+    Config;
 init_per_testcase2(_Case, Config) when is_list(Config) ->
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 3))),
     Config.
 
 
@@ -220,6 +219,10 @@ end_per_testcase1(_Case, Config) when is_list(Config) ->
 
 start_and_stop(suite) -> [];
 start_and_stop(Config) when is_list(Config) ->
+    tc_try(start_and_start,
+           fun() -> do_start_and_stop(Config) end).
+
+do_start_and_stop(_Config) ->
     Prio      = normal,
     Verbosity = trace,
 
@@ -238,6 +241,10 @@ start_and_stop(Config) when is_list(Config) ->
 
 load_unload(suite) -> [];
 load_unload(Config) when is_list(Config) ->
+    tc_try(load_unload,
+           fun() -> do_load_unload(Config) end).
+
+do_load_unload(Config) ->
     ?DBG("load_unload -> start", []),
 
     Prio       = normal,
@@ -365,49 +372,8 @@ do_size_check(Name, Config) ->
     do_size_check(Name, Init, Config).
 
 do_size_check(Name, Init, Config) ->
-    Pre = fun() ->
-                  {ok, Node} = ?ALIB:start_node(unique(Name)),
-                  ok = run_on(Node, Init),
-                  Node
-          end,
-    Case = fun(Node) ->
-                   monitor_node(Node, true),
-                   Pid = spawn_link(Node, fun() -> do_size_check(Config) end),
-                   receive
-                       {nodedown, Node} = N ->
-                           exit(N);
-                       {'EXIT', Pid, normal} ->
-                           monitor_node(Node, false),                           
-                           ok;
-                       {'EXIT', Pid, ok} ->
-                           monitor_node(Node, false),                           
-                           ok;
-                       {'EXIT', Pid, Reason} ->
-                           monitor_node(Node, false),                           
-                           exit(Reason)
-                   end
-           end,
-    Post = fun({Node, _}) ->
-                   ?STOP_NODE(Node)
-           end,
-    ?TC_TRY(Name, Pre, Case, Post).
+    tc_try(Name, Init, fun() -> do_size_check(Config) end).
 
-run_on(Node, F) when is_atom(Node) andalso is_function(F, 0) ->
-    monitor_node(Node, true),
-    Pid = spawn_link(Node, F),
-    receive
-        {nodedown, Node} = N ->
-            exit(N);
-        {'EXIT', Pid, normal} ->
-            monitor_node(Node, false),                           
-            ok;
-        {'EXIT', Pid, Reason} ->
-            monitor_node(Node, false),                           
-            Reason
-    end.
-    
-unique(PreName) ->
-    list_to_atom(?F("~w_~w", [PreName, erlang:system_time(millisecond)])).
 
 do_size_check(Config) ->
     ?IPRINT("do_size_check -> start with"
@@ -465,6 +431,10 @@ do_size_check(Config) ->
 
 me_lookup(suite) -> [];
 me_lookup(Config) when is_list(Config) ->
+    tc_try(me_lookup,
+           fun() -> do_me_lookup(Config) end).
+
+do_me_lookup(Config) ->
     Prio       = normal,
     Verbosity  = trace,
     MibDir     = ?config(data_dir, Config),
@@ -518,6 +488,10 @@ me_lookup(Config) when is_list(Config) ->
 
 which_mib(suite) -> [];
 which_mib(Config) when is_list(Config) ->
+    tc_try(which_mib,
+           fun() -> do_which_mib(Config) end).
+
+do_which_mib(Config) ->
     Prio       = normal,
     Verbosity  = trace,
     MibDir     = ?config(data_dir, Config),
@@ -574,7 +548,11 @@ which_mib(Config) when is_list(Config) ->
 
 cache_test(suite) -> [];
 cache_test(Config) when is_list(Config) ->
-    ?DBG("cache_test -> start", []),
+    tc_try(cache_test,
+           fun() -> do_cache_test(Config) end).
+
+do_cache_test(Config) ->
+    ?DBG("do_cache_test -> start", []),
     Prio       = normal,
     Verbosity  = trace,
     MibStorage = [{module, snmpa_mib_storage_ets}],
@@ -660,15 +638,17 @@ walk(MibsPid) ->
     
 
 do_walk(MibsPid, Oid, MibView) ->
-    io:format("do_walk -> entry with"
-	      "~n   Oid: ~p"
-	      "~n", [Oid]),
+    ?IPRINT("do_walk -> entry with"
+            "~n   Oid: ~p"
+            "~n", [Oid]),
     case snmpa_mib:next(MibsPid, Oid, MibView) of
 	{table, _, _, #me{oid = Oid}} ->
+            ?IPRINT("do_walk -> done for table (~p)", [Oid]),
 	    ok;
 	{table, _, _, #me{oid = Next}} ->
 	    do_walk(MibsPid, Next, MibView);
 	{variable, #me{oid = Oid}, _} ->
+            ?IPRINT("do_walk -> done for variable (~p)", [Oid]),
 	    ok;
 	{variable, #me{oid = Next}, _} ->
 	    do_walk(MibsPid, Next, MibView)
@@ -895,6 +875,65 @@ which_mib(M1, M2) ->
 %% Default mib-storage
 mib_storage() ->
     [{module, snmpa_mib_storage_ets}].
+
+
+%% --
+
+tc_try(Name, TC) ->
+    tc_try(Name, fun() -> ok end, TC).
+
+tc_try(Name, Init, TC)
+  when is_atom(Name) andalso is_function(Init, 0) andalso is_function(TC, 0) ->
+    Pre = fun() ->
+                  {ok, Node} = ?ALIB:start_node(unique(Name)),
+                  ok = run_on(Node, Init),
+                  Node
+          end,
+    Case = fun(Node) ->
+                   monitor_node(Node, true),
+                   Pid = spawn_link(Node, TC),
+                   receive
+                       {nodedown, Node} = N ->
+                           exit(N);
+                       {'EXIT', Pid, normal} ->
+                           monitor_node(Node, false),                           
+                           ok;
+                       {'EXIT', Pid, ok} ->
+                           monitor_node(Node, false),                           
+                           ok;
+                       {'EXIT', Pid, Reason} ->
+                           monitor_node(Node, false),                           
+                           exit(Reason)
+                   end
+           end,
+    Post = fun(Node) ->
+                   monitor_node(Node, true),
+                   ?NPRINT("try stop node ~p", [Node]),
+                   ?STOP_NODE(Node),
+                   receive
+                       {nodedown, Node} ->
+                           ?NPRINT("node ~p stopped", [Node]),
+                           ok
+                   end
+           end,
+    ?TC_TRY(Name, Pre, Case, Post).
+    
+run_on(Node, F) when is_atom(Node) andalso is_function(F, 0) ->
+    monitor_node(Node, true),
+    Pid = spawn_link(Node, F),
+    receive
+        {nodedown, Node} = N ->
+            exit(N);
+        {'EXIT', Pid, normal} ->
+            monitor_node(Node, false),                           
+            ok;
+        {'EXIT', Pid, Reason} ->
+            monitor_node(Node, false),                           
+            Reason
+    end.
+    
+unique(PreName) ->
+    list_to_atom(?F("~w_~w", [PreName, erlang:system_time(millisecond)])).
 
 
 %% -- 

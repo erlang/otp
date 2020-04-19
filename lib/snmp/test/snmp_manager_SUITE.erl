@@ -529,18 +529,16 @@ init_per_testcase2(Case, Config) ->
 
     Family = proplists:get_value(ipfamily, Config, inet),
 
+    Factor = ?config(snmp_factor, Config),
     TO = case Case of
              inform3 ->
-                 ?MINS(2);
+                 ?MINS(2 + (Factor div 2));
              InformSwarm when (InformSwarm =:= inform_swarm_cbp_def) orelse
                               (InformSwarm =:= inform_swarm_cbp_temp) orelse
                               (InformSwarm =:= inform_swarm_cbp_perm) ->
-                 case ?config(snmp_factor, Config) of
-                     N when is_integer(N) -> ?MINS(2*N);
-                     _                    -> ?MINS(2)
-                 end;
+                 ?MINS(1 + Factor);
              _ ->
-                 ?MINS(1)
+                 ?MINS(1 + (Factor div 2))
          end,
     ?IPRINT("Set test case timetrap: ~p", [TO]),
     ct:timetrap(TO),
@@ -4764,7 +4762,8 @@ do_inform_swarm(Config) ->
             "~p      ~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
-    AgentNode = ?config(agent_node, Config),
+    AgentNode = ?config(agent_node,   Config),
+    Factor    = ?config(snmp_factor,  Config),
 
     ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
@@ -4776,7 +4775,7 @@ do_inform_swarm(Config) ->
     ?line ok = agent_load_mib(AgentNode,  Test2Mib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
-    NumInforms = 2000, 
+    NumInforms = 2000 div Factor,
 
     Collector = self(),
 
@@ -4796,8 +4795,8 @@ do_inform_swarm(Config) ->
 					     {{inform2_tag1, N}, Collector},
 					     "standard inform",
 					     []),
-			    %% Sleep some [(N div 10)*100 ms] 
-			    %% every tenth notification
+			    %% Sleep 1000 ms every 100th notif
+			    %% Sleep 100  ms every 10th notif
 			    if
                                 N rem 100 == 0 ->
                                     Sleep = 1000,
@@ -4836,11 +4835,11 @@ do_inform_swarm(Config) ->
 
     Commands = 
 	[
-	 {1, "Manager and agent info at start of test", Cmd1},
-	 {2, "Send notifcation(s) from agent", Cmd2},
-	 {3, "Await send-ack(s)/inform(s)/response(s)", Cmd3},
-	 {4, "Sleep some time (1 sec)", Cmd4},
-	 {5, "Manager and agent info after test completion", Cmd1}
+	 {1, "Manager and agent info at start of test",             Cmd1},
+	 {2, ?F("Send ~p notifcation(s) from agent", [NumInforms]), Cmd2},
+	 {3, "Await send-ack(s)/inform(s)/response(s)",             Cmd3},
+	 {4, "Sleep some time (1 sec)",                             Cmd4},
+	 {5, "Manager and agent info after test completion",        Cmd1}
 	],
 
     Res = command_handler(Commands),
@@ -4885,7 +4884,7 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 
 	%% The manager has received the actual inform
 	{async_event, From, {inform, Pid, Inform}} ->
-	    ?IPRINT("received inform"),
+	    ?IPRINT("received inform (~p of ~p)", [RecvCnt+1, N]),
 	    case Inform of
 		{noError, 0, VBs} when is_list(VBs) ->
 		    Pid ! {handle_inform_response, From}, 
