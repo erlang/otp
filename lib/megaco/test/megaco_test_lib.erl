@@ -469,6 +469,14 @@ init_per_suite(Config) ->
                     _ ->
                         false
                 end;
+           (V) when (V =:= {2,6,10}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    "MontaVista" ++ _ -> % Stone age MontaVista => Skip
+                        %% The real problem is that the machine is *very* slow
+                        true;
+                    _ ->
+                        false
+                end;
            (V) when (V > {2,6,24}) ->
                 false; % OK - No skip
            (_) ->
@@ -605,19 +613,7 @@ analyze_and_print_host_info() ->
                       "~n   Version:        ~p"
                       "~n   Num Schedulers: ~s"
                       "~n", [OsFam, OsName, Version, str_num_schedulers()]),
-            try erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                N when (N =< 6) ->
-                    2;
-                _ ->
-                    1
-            catch
-                _:_:_ ->
-                    10
-            end
+            num_schedulers_to_factor()
     end.
 
 str_num_schedulers() ->
@@ -627,70 +623,89 @@ str_num_schedulers() ->
         _:_:_ -> "-"
     end.
 
+num_schedulers_to_factor() ->
+    try erlang:system_info(schedulers) of
+        1 ->
+            10;
+        2 ->
+            5;
+        N when (N =< 6) ->
+            2;
+        _ ->
+            1
+    catch
+        _:_:_ ->
+            10
+    end.
+    
+
+    
+linux_which_distro(Version) ->
+    case file:read_file_info("/etc/issue") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
+                [DistroStr|_] ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, DistroStr]),
+                    case DistroStr of
+                        "Wind River Linux" ++ _ ->
+                            wind_river;
+                        "MontaVista" ++ _ ->
+                            montavista;
+                        "Yellow Dog" ++ _ ->
+                            yellow_dog;
+                        _ ->
+                            other
+                    end;
+                X ->
+                    io:format("Linux: ~s"
+                              "~n   ~p"
+                              "~n",
+                              [Version, X]),
+                    other
+            end;
+        _ ->
+            io:format("Linux: ~s"
+                      "~n", [Version]),
+            other
+    end.
+
     
 analyze_and_print_linux_host_info(Version) ->
-    Distro =
-        case file:read_file_info("/etc/issue") of
-            {ok, _} ->
-                DistroStr = string:trim(os:cmd("cat /etc/issue")),
-                io:format("Linux: ~s"
-                          "~n   ~s"
-                          "~n",
-                          [Version, DistroStr]),
-                case DistroStr of
-                    "Wind River Linux" ++ _ ->
-                        wind_river;
-                    _ ->
-                        other
-                end;
-            _ ->
-                io:format("Linux: ~s"
-                          "~n", [Version]),
-                other
-        end,
+    Distro = linux_which_distro(Version),
     Factor =
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
                 io:format("CPU: "
                           "~n   Model:          ~s"
-                          "~n   BogoMIPS:       ~s"
+                          "~n   BogoMIPS:       ~w"
                           "~n   Num Schedulers: ~s"
                           "~n", [CPU, BogoMIPS, str_num_schedulers()]),
-                %% We first assume its a float, and if not try integer
-                try list_to_float(string:trim(BogoMIPS)) of
-                    F when F > 5000 ->
+                if
+                    (BogoMIPS > 20000) ->
                         1;
-                    F when F > 2000 ->
+                    (BogoMIPS > 10000) ->
                         2;
-                    F when F > 1000 ->
+                    (BogoMIPS > 5000) ->
                         3;
-                    _ ->
-                        5
-                catch
-                    _:_:_ ->
-                        try list_to_integer(string:trim(BogoMIPS)) of
-                            I when I > 5000 ->
-                                1;
-                            I when I > 2000 ->
-                                2;
-                            I when I > 1000 ->
-                                3;
-                            _ ->
-                                5
-                        catch
-                            _:_:_ ->
-                                5 % Be a "bit" conservative...
-                        end
+                    (BogoMIPS > 2000) ->
+                        5;
+                    (BogoMIPS > 1000) ->
+                        8;
+                    true ->
+                        10
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
                           "~n   Model:          ~s"
                           "~n   Num Schedulers: ~s"
                           "~n", [CPU, str_num_schedulers()]),
-                2; % Be a "bit" conservative...
-            _X ->
-                %% io:format("X: ~p~n", [_X]),
-                5 % Be a "bit" (more) conservative...
+                num_schedulers_to_factor();
+            _ ->
+                5
         end,
     %% Check if we need to adjust the factor because of the memory
     try linux_which_meminfo() of
@@ -705,20 +720,138 @@ analyze_and_print_linux_host_info(Version) ->
 linux_cpuinfo_lookup(Key) when is_list(Key) ->
     linux_info_lookup(Key, "/proc/cpuinfo").
 
-linux_which_cpuinfo(wind_river) ->
+linux_cpuinfo_cpu() ->
+    case linux_cpuinfo_lookup("cpu") of
+        [Model] ->
+            Model;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_motherboard() ->
+    case linux_cpuinfo_lookup("motherboard") of
+        [MB] ->
+            MB;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_bogomips() ->
+    case linux_cpuinfo_lookup("bogomips") of
+        BMips when is_list(BMips) ->
+            try lists:sum([bogomips_to_int(BM) || BM <- BMips])
+            catch
+                _:_:_ ->
+                    "-"
+            end;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_total_bogomips() ->
+    case linux_cpuinfo_lookup("total bogomips") of
+        [TMB] ->
+            TMB;
+        _ ->
+            "-"
+    end.
+
+bogomips_to_int(BM) ->
+    try list_to_float(BM) of
+        F ->
+            floor(F)
+    catch
+        _:_:_ ->
+            try list_to_integer(BM) of
+                I ->
+                    I
+            catch
+                _:_:_ ->
+                    throw(noinfo)
+            end
+    end.
+
+linux_cpuinfo_model() ->
+    case linux_cpuinfo_lookup("model") of
+        [M] ->
+            M;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_platform() ->
+    case linux_cpuinfo_lookup("platform") of
+        [P] ->
+            P;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_model_name() ->
+    case linux_cpuinfo_lookup("model name") of
+        [P|_] ->
+            P;
+        _X ->
+            "-"
+    end.
+
+linux_cpuinfo_processor() ->
+    case linux_cpuinfo_lookup("Processor") of
+        [P] ->
+            P;
+        _ ->
+            "-"
+    end.
+
+linux_which_cpuinfo(montavista) ->
     CPU =
-        case linux_cpuinfo_lookup("model") of
+        case linux_cpuinfo_cpu() of
             "-" ->
                 throw(noinfo);
             Model ->
-                case linux_cpuinfo_lookup("platform") of
+                case linux_cpuinfo_motherboard() of
+                    "-" ->
+                        Model;
+                    MB ->
+                        Model ++ " (" ++ MB ++ ")"
+                end
+        end,
+    case linux_cpuinfo_bogomips() of
+        "-" ->
+            {ok, CPU};
+        BMips ->
+            {ok, {CPU, BMips}}
+    end;
+
+linux_which_cpuinfo(yellow_dog) ->
+    CPU =
+        case linux_cpuinfo_cpu() of
+            "-" ->
+                throw(noinfo);
+            Model ->
+                case linux_cpuinfo_motherboard() of
+                    "-" ->
+                        Model;
+                    MB ->
+                        Model ++ " (" ++ MB ++ ")"
+                end
+        end,
+    {ok, CPU};
+
+linux_which_cpuinfo(wind_river) ->
+    CPU =
+        case linux_cpuinfo_model() of
+            "-" ->
+                throw(noinfo);
+            Model ->
+                case linux_cpuinfo_platform() of
                     "-" ->
                         Model;
                     Platform ->
                         Model ++ " (" ++ Platform ++ ")"
                 end
         end,
-    case linux_cpuinfo_lookup("total bogomips") of
+    case linux_cpuinfo_total_bogomips() of
         "-" ->
             {ok, CPU};
         BMips ->
@@ -726,12 +859,12 @@ linux_which_cpuinfo(wind_river) ->
     end;
 
 linux_which_cpuinfo(other) ->
-    %% Check for x86 (Intel or AMD or ...)
+    %% Check for x86 (Intel or AMD)
     CPU =
-        case linux_cpuinfo_lookup("model name") of
+        case linux_cpuinfo_model_name() of
             "-" ->
                 %% ARM (at least some distros...)
-                case linux_cpuinfo_lookup("Processor") of
+                case linux_cpuinfo_processor() of
                     "-" ->
                         %% Ok, we give up
                         throw(noinfo);
@@ -741,7 +874,7 @@ linux_which_cpuinfo(other) ->
             ModelName ->
                 ModelName
         end,
-    case linux_cpuinfo_lookup("bogomips") of
+    case linux_cpuinfo_bogomips() of
         "-" ->
             {ok, CPU};
         BMips ->
@@ -751,9 +884,17 @@ linux_which_cpuinfo(other) ->
 linux_meminfo_lookup(Key) when is_list(Key) ->
     linux_info_lookup(Key, "/proc/meminfo").
 
+linux_meminfo_memtotal() ->
+    case linux_meminfo_lookup("MemTotal") of
+        [X] ->
+            X;
+        _ ->
+            "-"
+    end.
+
 %% We *add* the value this return to the Factor.
 linux_which_meminfo() ->
-    case linux_meminfo_lookup("MemTotal") of
+    case linux_meminfo_memtotal() of
         "-" ->
             0;
         MemTotal ->
@@ -1404,14 +1545,19 @@ process_win_system_info([H|T], Acc) ->
 
 linux_info_lookup(Key, File) ->
     try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
-        [Key, Value | _] ->
-            Value;
-        _ ->
-            "-"
+        Info ->
+            linux_info_lookup_collect(Key, Info, [])
     catch
         _:_:_ ->
             "-"
     end.
+
+linux_info_lookup_collect(_Key, [], Values) ->
+    lists:reverse(Values);
+linux_info_lookup_collect(Key, [Key, Value|Rest], Values) ->
+    linux_info_lookup_collect(Key, Rest, [Value|Values]);
+linux_info_lookup_collect(_, _, Values) ->
+    lists:reverse(Values).
     
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
