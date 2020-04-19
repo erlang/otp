@@ -164,6 +164,10 @@ os_base_skip(Skippable, OsFam, OsName) ->
             case lists:keysearch(OsFam, 1, Skippable) of
                 {value, {OsFam, OsName}} ->
                     true;
+		{value, {OsFam, Check}} when is_function(Check, 0) ->
+		    Check();
+		{value, {OsFam, Check}} when is_function(Check, 1) ->
+		    Check(os:version());
                 {value, {OsFam, OsNames}} when is_list(OsNames) ->
                     %% OsNames is a list of: 
                     %%    [atom()|{atom(), function/0 | function/1}]
@@ -489,7 +493,6 @@ init_per_suite(Config) ->
         fun() ->
                 SysInfo = which_win_system_info(),
                 SysMan  = win_sys_info_lookup(system_manufacturer, SysInfo),
-                io:format("Virtual Windows skip check with ~p~n", [SysMan]),
                 case string:to_lower(SysMan) of
                     "vmware" ++ _ ->
                         true;
