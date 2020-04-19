@@ -51,14 +51,14 @@
 	 update_agent_info/3, 
 	 which_all_agents/0, which_own_agents/0, 
 	 load_mib/1, unload_mib/1, 
-	 sync_get/1,       sync_get/2,       sync_get2/3, 
-	 async_get/1,      async_get/2,      async_get2/3,
-	 sync_get_next/1,  sync_get_next/2,  sync_get_next2/3,
-	 async_get_next/1, async_get_next/2, async_get_next2/3,
-	 sync_set/1,       sync_set/2,       sync_set2/3, 
-	 async_set/1,      async_set/2,      async_set2/3, 
-	 sync_get_bulk/3,  sync_get_bulk/4,  sync_get_bulk2/5,
-	 async_get_bulk/3, async_get_bulk/4, async_get_bulk2/5,
+         sync_get2/3, 
+         async_get2/3,
+         sync_get_next2/3,
+         async_get_next2/3,
+         sync_set2/3, 
+         async_set2/3, 
+         sync_get_bulk2/5,
+         async_get_bulk2/5,
 	 name_to_oid/1, oid_to_name/1, 
 	 purify_oid/1	 
         ]).
@@ -159,89 +159,41 @@ unload_mib(Mib) ->
 
 %% -- 
 
-sync_get(Oids) ->
-    call({sync_get, Oids}).
-
-sync_get(TargetName, Oids) ->
-    call({sync_get, TargetName, Oids}).
-
 sync_get2(TargetName, Oids, SendOpts) ->
     call({sync_get2, TargetName, Oids, SendOpts}).
 
 
 %% --
 
-async_get(Oids) ->
-    call({async_get, Oids}).
-
-async_get(TargetName, Oids) ->
-    call({async_get, TargetName, Oids}).
-
 async_get2(TargetName, Oids, SendOpts) ->
     call({async_get2, TargetName, Oids, SendOpts}).
 
 %% --
-
-sync_get_next(Oids) ->
-    call({sync_get_next, Oids}).
-
-sync_get_next(TargetName, Oids) ->
-    call({sync_get_next, TargetName, Oids}).
 
 sync_get_next2(TargetName, Oids, SendOpts) ->
     call({sync_get_next2, TargetName, Oids, SendOpts}).
 
 %% --
 
-async_get_next(Oids) ->
-    call({async_get_next, Oids}).
-
-async_get_next(TargetName, Oids) ->
-    call({async_get_next, TargetName, Oids}).
-
 async_get_next2(TargetName, Oids, SendOpts) ->
     call({async_get_next2, TargetName, Oids, SendOpts}).
 
 %% --
-
-sync_set(VAV) ->
-    call({sync_set, VAV}).
-
-sync_set(TargetName, VAV) ->
-    call({sync_set, TargetName, VAV}).
 
 sync_set2(TargetName, VAV, SendOpts) ->
     call({sync_set2, TargetName, VAV, SendOpts}).
 
 %% --
 
-async_set(VAV) ->
-    call({async_set, VAV}).
-
-async_set(TargetName, VAV) ->
-    call({async_set, TargetName, VAV}).
-
 async_set2(TargetName, VAV, SendOpts) ->
     call({async_set2, TargetName, VAV, SendOpts}).
 
 %% --
 
-sync_get_bulk(NonRep, MaxRep, Oids) ->
-    call({sync_get_bulk, NonRep, MaxRep, Oids}).
-
-sync_get_bulk(TargetName, NonRep, MaxRep, Oids) ->
-    call({sync_get_bulk, TargetName, NonRep, MaxRep, Oids}).
-
 sync_get_bulk2(TargetName, NonRep, MaxRep, Oids, SendOpts) ->
     call({sync_get_bulk2, TargetName, NonRep, MaxRep, Oids, SendOpts}).
 
 %% --
-
-async_get_bulk(NonRep, MaxRep, Oids) ->
-    call({async_get_bulk, NonRep, MaxRep, Oids}).
-
-async_get_bulk(TargetName, NonRep, MaxRep, Oids) ->
-    call({async_get_bulk, TargetName, NonRep, MaxRep, Oids}).
 
 async_get_bulk2(TargetName, NonRep, MaxRep, Oids, SendOpts) ->
     call({async_get_bulk2, TargetName, NonRep, MaxRep, Oids, SendOpts}).
@@ -377,23 +329,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	%% No agent specified, so send it to all of them
-	{{sync_get, Oids}, From, Ref} ->
-	    d("loop -> received sync_get request "
-	      "(for every agent of this user)"),
-	    Res = [snmpm:sync_get(Id, TargetName, Oids) ||
-		      TargetName <- snmpm:which_agents(Id)],
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{sync_get, TargetName, Oids}, From, Ref} when is_list(TargetName) ->
-	    d("loop -> received sync_get request with"
-	      "~n   TargetName: ~p"
-	      "~n   Oids:       ~p", [TargetName, Oids]),
-	    Res = snmpm:sync_get(Id, TargetName, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (async) get-request --
@@ -406,22 +341,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	      "~n   Oids:       ~p"
 	      "~n   SendOpts:   ~p", [TargetName, Oids, SendOpts]),
 	    Res = snmpm:async_get2(Id, TargetName, Oids, SendOpts), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	%% No agent specified, so send it to all of them
-	{{async_get, Oids}, From, Ref} ->
-	    d("loop -> received async_get request"),
-	    Res = [snmpm:async_get(Id, TargetName, Oids) ||
-		      TargetName <- snmpm:which_agents(Id)],
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_get, TargetName, Oids}, From, Ref} when is_list(TargetName) ->
-	    d("loop -> received async_get request with"
-	      "~n   TargetName: ~p"
-	      "~n   Oids:       ~p", [TargetName, Oids]),
-	    Res = snmpm:async_get(Id, TargetName, Oids), 
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -440,22 +359,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	%% No agent specified, so send it to all of them
-	{{sync_get_next, Oids}, From, Ref} ->
-	    d("loop -> received sync_get_next request"),
-	    Res = [snmpm:sync_get_next(Id, TargetName, Oids) ||
-		      TargetName <- snmpm:which_agents(Id)],
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{sync_get_next, TargetName, Oids}, From, Ref} when is_list(TargetName) ->
-	    d("loop -> received sync_get_next request with"
-	      "~n   TargetName: ~p"
-	      "~n   Oids:       ~p", [TargetName, Oids]),
-	    Res = snmpm:sync_get_next(Id, TargetName, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (async) get_next-request --
@@ -468,22 +371,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	      "~n   Oids:       ~p"
 	      "~n   SendOpts:   ~p", [TargetName, Oids, SendOpts]),
 	    Res = snmpm:async_get_next2(Id, TargetName, Oids, SendOpts), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	%% No agent specified, so send it to all of them
-	{{async_get_next, Oids}, From, Ref} ->
-	    d("loop -> received async_get_next request"),
-	    Res = [snmpm:async_get_next(Id, TargetName, Oids) ||
-		      TargetName <- snmpm:which_agents(Id)],
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_get_next, TargetName, Oids}, From, Ref} when is_list(TargetName) ->
-	    d("loop -> received async_get_next request with"
-	      "~n   TargetName: ~p"
-	      "~n   Oids:       ~p", [TargetName, Oids]),
-	    Res = snmpm:async_get_next(Id, TargetName, Oids), 
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -502,19 +389,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	{{sync_set, VAV}, From, Ref} ->
-	    d("loop -> received sync_set request"),
-	    Res = [snmpm:sync_set(Id, TargetName, VAV) ||
-		      TargetName <- snmpm:which_agents(Id)],
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{sync_set, TargetName, VAV}, From, Ref} when is_list(TargetName) ->
-	    d("loop -> received sync_set request"),
-	    Res = snmpm:sync_set(Id, TargetName, VAV), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (async) set-request --
@@ -527,19 +401,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	      "~n   VAV:        ~p"
 	      "~n   SendOpts:   ~p", [TargetName, VAV, SendOpts]),
 	    Res = snmpm:async_set2(Id, TargetName, VAV, SendOpts), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_set, VAV}, From, Ref} ->
-	    d("loop -> received async_set request"),
-	    Res = [snmpm:async_set(Id, TargetName, VAV) ||
-		      TargetName <- snmpm:which_agents(Id)],
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_set, TargetName, VAV}, From, Ref} when is_list(TargetName) ->
-	    d("loop -> received async_set request"),
-	    Res = snmpm:async_set(Id, TargetName, VAV), 
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -562,27 +423,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	%% No agent specified, so send it to all of them
-	{{sync_get_bulk, NonRep, MaxRep, Oids}, From, Ref} ->
-	    d("loop -> received sync_get_bulk request with"
-	      "~n   NonRep: ~w"
-	      "~n   MaxRep: ~w"
-	      "~n   Oids:   ~p", [NonRep, MaxRep, Oids]),
-	    Res = [snmpm:sync_get_bulk(Id, TargetName, NonRep, MaxRep, Oids) ||
-		      TargetName <- snmpm:which_agents(Id)],
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{sync_get_bulk, TargetName, NonRep, MaxRep, Oids}, From, Ref} when is_list(TargetName) ->
-	    d("loop -> received sync_get_bulk request with"
-	      "~n   TargetName: ~p"
-	      "~n   NonRep:     ~w"
-	      "~n   MaxRep:     ~w"
-	      "~n   Oids:       ~p", [TargetName, NonRep, MaxRep, Oids]),
-	    Res = snmpm:sync_get_bulk(Id, TargetName, NonRep, MaxRep, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (async) get-bulk-request --
@@ -599,27 +439,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	      [TargetName, NonRep, MaxRep, Oids, SendOpts]),
 	    Res = snmpm:async_get_bulk2(Id, TargetName, 
 					NonRep, MaxRep, Oids, SendOpts), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	%% No agent specified, so send it to all of them
-	{{async_get_bulk, NonRep, MaxRep, Oids}, From, Ref} ->
-	    d("loop -> received async_get_bulk request with"
-	      "~n   NonRep: ~w"
-	      "~n   MaxRep: ~w"
-	      "~n   Oids:   ~p", [NonRep, MaxRep, Oids]),
-	    Res = [snmpm:async_get_bulk(Id, TargetName, NonRep, MaxRep, Oids) ||
-		      TargetName <- snmpm:which_agents(Id)],
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_get_bulk, TargetName, NonRep, MaxRep, Oids}, From, Ref} when is_list(TargetName) ->
-	    d("loop -> received async_get_bulk request with"
-	      "~n   TargetName: ~p"
-	      "~n   NonRep:     ~w"
-	      "~n   MaxRep:     ~w"
-	      "~n   Oids:       ~p", [TargetName, NonRep, MaxRep, Oids]),
-	    Res = snmpm:async_get_bulk(Id, TargetName, NonRep, MaxRep, Oids), 
 	    reply(From, Res, Ref),
 	    loop(S);
 
