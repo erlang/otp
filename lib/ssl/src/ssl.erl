@@ -34,6 +34,11 @@
 -include("ssl_handshake.hrl").
 -include("ssl_srp.hrl").
 
+%% Needed to make documentation rendering happy
+-ifndef(VSN).
+-define(VSN,"unknown").
+-endif.
+
 %% Application handling
 -export([start/0, 
          start/1, 
@@ -1318,31 +1323,36 @@ sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(P
 %%---------------------------------------------------------------
 -spec versions() -> [VersionInfo] when
       VersionInfo :: {ssl_app, string()} |
-                     {supported | available, [tls_version()]} |
-                     {supported_dtls | available_dtls, [dtls_version()]}.
+                     {supported | available | implemented, [tls_version()]} |
+                     {supported_dtls | available_dtls | implemented_dtls, [dtls_version()]}.
 %%
 %% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
 versions() ->
-    TLSVsns = tls_record:supported_protocol_versions(),
-    DTLSVsns = dtls_record:supported_protocol_versions(),
-    SupportedTLSVsns = [tls_record:protocol_version(Vsn) || Vsn <- TLSVsns],
-    SupportedDTLSVsns = [dtls_record:protocol_version(Vsn) || Vsn <- DTLSVsns],
-    AvailableTLSVsns = ?ALL_AVAILABLE_VERSIONS,
-    AvailableDTLSVsns = ?ALL_AVAILABLE_DATAGRAM_VERSIONS,
-    CryptoSupVersionsTLS = [Vsn || Vsn <- AvailableTLSVsns, 
-                                   tls_record:sufficient_crypto_support(Vsn)],
-    CryptoSupVersionsDTLS = [Vsn || Vsn <- AvailableDTLSVsns,                                     
-                                     tls_record:sufficient_crypto_support(tls_record:protocol_version(
-                                                                            dtls_v1:corresponding_tls_version(
-                                                                              dtls_record:protocol_version(Vsn))))],
-    
-    [{ssl_app, "9.2"}, {default_supported, SupportedTLSVsns}, 
-     {default_supported_dtls, SupportedDTLSVsns}, 
+    ConfTLSVsns = tls_record:supported_protocol_versions(),
+    ConfDTLSVsns = dtls_record:supported_protocol_versions(),
+    ImplementedTLSVsns =  ?ALL_AVAILABLE_VERSIONS,
+    ImplementedDTLSVsns = ?ALL_AVAILABLE_DATAGRAM_VERSIONS,
+
+     TLSCryptoSupported = fun(Vsn) -> 
+                                  tls_record:sufficient_crypto_support(Vsn)
+                          end,
+     DTLSCryptoSupported = fun(Vsn) -> 
+                                   tls_record:sufficient_crypto_support(dtls_v1:corresponding_tls_version(Vsn))  
+                           end,
+    SupportedTLSVsns = [tls_record:protocol_version(Vsn) || Vsn <- ConfTLSVsns,  TLSCryptoSupported(Vsn)],
+    SupportedDTLSVsns = [dtls_record:protocol_version(Vsn) || Vsn <- ConfDTLSVsns, DTLSCryptoSupported(Vsn)],
+
+    AvailableTLSVsns = [Vsn || Vsn <- ImplementedTLSVsns, TLSCryptoSupported(tls_record:protocol_version(Vsn))],
+    AvailableDTLSVsns = [Vsn || Vsn <- ImplementedDTLSVsns, DTLSCryptoSupported(dtls_record:protocol_version(Vsn))],
+                                    
+    [{ssl_app, ?VSN}, 
+     {supported, SupportedTLSVsns}, 
+     {supported_dtls, SupportedDTLSVsns}, 
      {available, AvailableTLSVsns}, 
      {available_dtls, AvailableDTLSVsns},
-     {crypto_support, CryptoSupVersionsTLS},
-     {crypto_support_dtls, CryptoSupVersionsDTLS}
+     {implemented, ImplementedTLSVsns},
+     {implemented_dtls, ImplementedDTLSVsns}
     ].
 
 %%---------------------------------------------------------------
