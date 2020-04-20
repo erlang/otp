@@ -725,7 +725,7 @@ client_active_once_server_close(
 send(_Socket, _Data, 0, _) ->
     ok;
 send(Socket, Data, Count, RecvEcho) ->
-    ok = ssl:send(Socket, Data),
+    spawn(fun() -> ssl:send(Socket, Data) end),
     RecvEcho(),
     send(Socket, Data, Count - 1, RecvEcho).
 
