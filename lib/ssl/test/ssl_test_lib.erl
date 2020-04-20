@@ -3481,3 +3481,14 @@ pss_params(sha256) ->
        saltLength = 32,
        trailerField = 1}.
        
+test_ciphers(Kex, Cipher, Version) ->
+    ssl:filter_cipher_suites(
+        ssl:cipher_suites(all, Version) ++ ssl:cipher_suites(anonymous, Version),
+        [{key_exchange,
+          fun(K) when K == Kex -> true;
+             (_) -> false
+          end},
+         {cipher,
+          fun(C) when C == Cipher -> true;
+             (_) -> false
+          end}]).
