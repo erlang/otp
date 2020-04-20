@@ -115,6 +115,7 @@
              raw_file_io_list,
              raw_file_io_raw,
 	     seq_trace,
+             socket,
 	     standard_error,
 	     wrap_log_reader]},
   {registered, [application_controller,

@@ -128,7 +128,8 @@
         'etimedout' |
         'ewouldblock' |
         'exbadport' | 'exbadseq' | file:posix().
--type socket() :: port().
+-type module_socket() :: {'$inet', Handler :: module(), Handle :: term()}.
+-type socket() :: port() | module_socket().
 
 -type socket_setopt() ::
         gen_sctp:option() | gen_tcp:option() | gen_udp:option().
@@ -1433,7 +1434,7 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	   Family :: address_family(),
 	   Type :: socket_type(),
 	   Module :: atom()) ->
-	{'ok', socket()} | {'error', posix()}.
+	{'ok', port()} | {'error', posix()}.
 
 open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
   when is_integer(FdO), FdO < 0;

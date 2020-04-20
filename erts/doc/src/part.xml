@@ -42,7 +42,6 @@
   <xi:include href="tty.xml"/>
   <xi:include href="driver.xml"/>
   <xi:include href="inet_cfg.xml"/>
-  %ESOCK_USE_SOCKET_USAGE_XML%
   <xi:include href="erl_ext_dist.xml"/>
   <xi:include href="erl_dist_protocol.xml"/>
 </part>

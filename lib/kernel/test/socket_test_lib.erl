@@ -100,7 +100,7 @@ f(F, A) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 has_support_ipv6() ->
-    case socket:supports(ipv6) of
+    case socket:is_supported(ipv6) of
         true ->
             ok;
         false ->

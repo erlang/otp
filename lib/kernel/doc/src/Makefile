@@ -67,9 +67,11 @@ XML_REF3_FILES = application.xml \
 	pg2.xml \
 	rpc.xml \
 	seq_trace.xml \
+	socket.xml \
 	wrap_log_reader.xml \
 	user.xml \
-	zlib_stub.xml
+	zlib_stub.xml \
+	$(XML_REF3_ESOCK_EFILES)
 
 XML_REF4_FILES = app.xml config.xml
 
@@ -79,6 +81,7 @@ XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = \
         notes.xml \
         introduction_chapter.xml \
+	socket_usage.xml \
 	logger_chapter.xml \
 	logger_cookbook.xml \
 	eep48_chapter.xml

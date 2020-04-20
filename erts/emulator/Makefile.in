@@ -662,7 +662,7 @@ GENERATE += $(TARGET)/erl_db_insert_list.ycf.h
 ifeq ($(USE_ESOCK), yes)
 ESOCK_PRELOAD_BEAM = \
 	$(ERL_TOP)/erts/preloaded/ebin/socket_registry.beam \
-	$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
+	$(ERL_TOP)/erts/preloaded/ebin/prim_socket.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
 else
 ESOCK_PRELOAD_BEAM =
@@ -875,7 +875,7 @@ ifeq ($(USE_ESOCK), yes)
 # WE ARE USING ESOCK
 
 ESOCK_NIF_OBJS = \
-	$(OBJDIR)/socket_nif.o \
+	$(OBJDIR)/prim_socket_nif.o \
 	$(OBJDIR)/prim_net_nif.o
 
 ifneq ($(TARGET), win32)
@@ -1222,8 +1222,7 @@ ifeq ($(TARGET), win32)
 # These are *currently* only needed for non-win32,
 # since the nif-functions for socket and net are basically
 # stubbed with badarg in the win32 case.
-NIF_SOCKET_UTILS_SRC=$(filter-out nifs/common/socket_nif.c, $(wildcard nifs/common/socket_*.c))
-NIF_COMMON_SRC=$(filter-out $(NIF_SOCKET_UTILS_SRC), $(wildcard nifs/common/*.c))
+NIF_COMMON_SRC=$(filter-out $(wildcard nifs/common/socket_*.c), $(wildcard nifs/common/*.c))
 else
 NIF_COMMON_SRC=$(wildcard nifs/common/*.c)
 endif

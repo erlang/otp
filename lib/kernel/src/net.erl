@@ -152,7 +152,6 @@ relay(X) -> slave:relay(X).
 info() ->
     prim_net:info().
 -else.
--dialyzer({nowarn_function, info/0}).
 info() ->
     erlang:error(notsup).
 -endif.
@@ -164,7 +163,6 @@ info() ->
 command(Cmd) ->
     prim_net:command(Cmd).
 -else.
--dialyzer({nowarn_function, command/1}).
 command(_Cmd) ->
     erlang:error(notsup).
 -endif.
@@ -191,7 +189,6 @@ command(_Cmd) ->
 gethostname() ->
     prim_net:gethostname().
 -else.
--dialyzer({nowarn_function, gethostname/0}).
 gethostname() ->
     erlang:error(notsup).
 -endif.
@@ -207,6 +204,8 @@ gethostname() ->
       SockAddr :: socket:sockaddr(),
       Info     :: name_info(),
       Reason   :: term().
+
+-dialyzer({no_return, getnameinfo/1}).
 
 getnameinfo(SockAddr) ->
     getnameinfo(SockAddr, undefined).
@@ -226,25 +225,18 @@ getnameinfo(SockAddr) ->
 -endif.
 
 -ifdef(USE_ESOCK).
-getnameinfo(SockAddr, [] = _Flags) ->
-    getnameinfo(SockAddr, undefined);
-getnameinfo(#{family := Fam, addr := _Addr} = SockAddr, Flags)
-  when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
-       (is_list(Flags) orelse (Flags =:= undefined)) ->
-    prim_net:getnameinfo(socket:ensure_sockaddr(SockAddr), Flags);
-getnameinfo(#{family := Fam, path := _Path} = SockAddr, Flags)
-  when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
+getnameinfo(SockAddr, Flags)
+  when is_map(SockAddr), is_list(Flags);
+       is_map(SockAddr), Flags =:= undefined ->
     prim_net:getnameinfo(SockAddr, Flags).
+
 -else.
--dialyzer({nowarn_function, getnameinfo/2}).
-getnameinfo(SockAddr, [] = _Flags) ->
-    getnameinfo(SockAddr, undefined);
-getnameinfo(#{family := Fam, addr := _Addr} = _SockAddr, Flags)
-  when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
-       (is_list(Flags) orelse (Flags =:= undefined)) ->
-    erlang:error(notsup);
-getnameinfo(#{family := Fam, path := _Path} = _SockAddr, Flags)
-  when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
+
+-dialyzer({no_return, getnameinfo/2}).
+
+getnameinfo(SockAddr, Flags)
+  when is_map(SockAddr), is_list(Flags);
+       is_map(SockAddr), Flags =:= undefined ->
     erlang:error(notsup).
 -endif.
 
@@ -259,6 +251,8 @@ getnameinfo(#{family := Fam, path := _Path} = _SockAddr, Flags)
       Host    :: string(),
       Info    :: [address_info()],
       Reason  :: term().
+
+-dialyzer({no_return, getaddrinfo/1}).
 
 getaddrinfo(Host) when is_list(Host) ->
     getaddrinfo(Host, undefined).
@@ -285,7 +279,6 @@ getaddrinfo(Host, Service)
        (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
     prim_net:getaddrinfo(Host, Service).
 -else.
--dialyzer({nowarn_function, getaddrinfo/2}).
 getaddrinfo(Host, Service)
   when (is_list(Host) orelse (Host =:= undefined)) andalso
        (is_list(Service) orelse (Service =:= undefined)) andalso
@@ -332,7 +325,6 @@ getifaddrs(Filter) when is_function(Filter, 1) ->
 getifaddrs(Namespace) when is_list(Namespace) ->
     prim_net:getifaddrs(#{netns => Namespace}).
 -else.
--dialyzer({nowarn_function, getifaddrs/1}).
 getifaddrs(Filter) when is_atom(Filter) orelse
                         is_map(Filter) orelse
                         is_function(Filter) ->
@@ -348,6 +340,8 @@ getifaddrs(Namespace) when is_list(Namespace) ->
       IfAddrs   :: [ifaddrs()],
       Reason    :: term().
 
+-dialyzer({no_return, getifaddrs/2}).
+
 getifaddrs(Filter, Namespace)
   when (is_atom(Filter) orelse is_map(Filter)) andalso is_list(Namespace) ->
     do_getifaddrs(getifaddrs_filter_map(Filter),
@@ -355,6 +349,8 @@ getifaddrs(Filter, Namespace)
 getifaddrs(Filter, Namespace)
   when is_function(Filter, 1) andalso is_list(Namespace) ->
     do_getifaddrs(Filter, fun() -> getifaddrs(Namespace) end).
+
+-dialyzer({no_return, do_getifaddrs/2}).
 
 do_getifaddrs(Filter, GetIfAddrs) ->
     case GetIfAddrs() of
@@ -395,6 +391,8 @@ getifaddrs_filter_map_inet6() ->
 getifaddrs_filter_map_packet() ->
     #{family => packet, flags => any}.
 
+-compile({nowarn_unused_function, getifaddrs_filter/2}).
+
 getifaddrs_filter(#{family := FFamily, flags := FFlags},
                   #{addr := #{family := Family}, flags := Flags} = _Entry)
   when (FFamily =:= default) andalso
@@ -419,6 +417,8 @@ getifaddrs_filter(#{family := FFamily, flags := FFlags},
 getifaddrs_filter(_Filter, _Entry) ->
     false.
 
+-compile({nowarn_unused_function, getifaddrs_filter_flags/2}).
+
 getifaddrs_filter_flags(any, _Flags) ->
     true;
 getifaddrs_filter_flags(FilterFlags, Flags) ->
@@ -442,7 +442,6 @@ getifaddrs_filter_flags(FilterFlags, Flags) ->
 if_name2index(If) when is_list(If) ->
     prim_net:if_name2index(If).
 -else.
--dialyzer({nowarn_function, if_name2index/1}).
 if_name2index(If) when is_list(If) ->
     erlang:error(notsup).
 -endif.
@@ -465,7 +464,6 @@ if_name2index(If) when is_list(If) ->
 if_index2name(Idx) when is_integer(Idx) ->
     prim_net:if_index2name(Idx).
 -else.
--dialyzer({nowarn_function, if_index2name/1}).
 if_index2name(Idx) when is_integer(Idx) ->
     erlang:error(notsup).
 -endif.
@@ -488,7 +486,6 @@ if_index2name(Idx) when is_integer(Idx) ->
 if_names() ->
     prim_net:if_names().
 -else.
--dialyzer({nowarn_function, if_names/0}).
 if_names() ->
     erlang:error(notsup).
 -endif.

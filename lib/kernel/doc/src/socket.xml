@@ -302,31 +302,29 @@
       <name name="int32"/>
     </datatype>
     <datatype>
-      <name name="supports_options_socket"/>
-    </datatype>
-    <datatype>
-      <name name="supports_options_ip"/>
-    </datatype>
-    <datatype>
-      <name name="supports_options_ipv6"/>
-    </datatype>
-    <datatype>
-      <name name="supports_options_tcp"/>
-    </datatype>
-    <datatype>
-      <name name="supports_options_udp"/>
-    </datatype>
-    <datatype>
-      <name name="supports_options_sctp"/>
-    </datatype>
-    <datatype>
-      <name name="supports_options"/>
-    </datatype>
-    <datatype>
-      <name name="supports_send_flags"/>
-    </datatype>
-    <datatype>
-      <name name="supports_recv_flags"/>
+      <name name="errcode"/>
+      <desc>
+	<p>
+	  The POSIX error codes are mostly come from the
+	  OS level socket interface,
+	  but this module may generate some appropriate
+	  POSIX codes.
+	</p>
+	<p>
+	  The other values come from this module's lower levels
+	  and are all fairly fatal internal errors:
+	</p>
+	<taglist>
+	  <tag><c>exalloc</c></tag>
+	  <item>Memory allocation failed</item>
+	  <tag><c>exmonitor</c></tag>
+	  <item>Failed to set a monitor on a process</item>
+	  <tag><c>exselect</c></tag>
+	  <item>Select operation failed</item>
+	  <tag><c>exself</c></tag>
+	  <item>Failed to get current process</item>
+	</taglist>
+      </desc>
     </datatype>
   </datatypes>
 
@@ -956,36 +954,178 @@
     </func>
 
     <func>
+      <name since="OTP 22.0">
+	supports() -> Supports
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: options) -> SupportsOptions
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: send_flags) -> SupportsSendFlags
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: recv_flags) -> SupportsRecvFlags
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: options, Key2 :: socket) -> SupportsOptionsSocket
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: options, Key2 :: ip) -> SupportsOptionsIP
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: options, Key2 :: ipv6) -> SupportsOptionsIPv6
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: options, Key2 :: tcp) -> SupportsOptionsTCP
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: options, Key2 :: udp) -> SupportsOptionsUDP
+      </name>
+      <name since="OTP 22.0">
+	supports(Key1 :: options, Key2 :: sctp) -> SupportsOptionsSCTP
+      </name>
+      <!--
       <name name="supports" arity="0" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="1" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="2" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="3" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="4" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="5" since="OTP 22.3"/>
-      <name name="supports" arity="1" clause_i="6" since="OTP 22.3"/>
-      <name name="supports" arity="1" clause_i="7" since="OTP @OTP-16432@"/>
-      <name name="supports" arity="1" clause_i="8" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="1" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="3" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="4" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="5" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="6" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="7" since="OTP 22.3"/>
-      <name name="supports" arity="2" clause_i="8" since="OTP 22.3"/>
-      <name name="supports" arity="2" clause_i="9" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="4" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="5" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="6" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="7" since="OTP 22.0"/>
+      <name name="supports" arity="1" since="OTP 22.0"/>
+      <name name="supports" arity="2" since="OTP 22.0"/>
+      -->
       <fsummary>Report info about what the platform supports.</fsummary>
+      <type>
+	<v>
+	  Supports :: [{Feature,&nbsp;boolean()}
+	  &nbsp;&nbsp;|&nbsp;{send_flags,&nbsp;SupportsSendFlags}
+	  &nbsp;&nbsp;|&nbsp;{recv_flags,&nbsp;SupportsRecvFlags}
+	  &nbsp;&nbsp;|&nbsp;{options,&nbsp;SupportsOptions}]
+	</v>
+	<v>Feature :: sctp | ipv6 | local | netns</v>
+	<v>
+	  SupportsSendFlags ::
+	  [{<seetype marker="#send_flag">send_flag()</seetype>,&nbsp;boolean()}]
+	</v>
+	<v>
+	  SupportsRecvFlags ::
+	  [{<seetype marker="#recv_flag">recv_flag()</seetype>,&nbsp;boolean()}]
+	</v>
+	<v>
+	  SupportsOptions ::
+	  [{socket,&nbsp;SupportsOptionsSocket}
+	  &nbsp;&nbsp;|&nbsp;{ip,&nbsp;SupportsOptionsIP}
+	  &nbsp;&nbsp;|&nbsp;{ipv6,&nbsp;SupportsOptionsIPv6}
+	  &nbsp;&nbsp;|&nbsp;{tcp,&nbsp;SupportsOptionsTCP}
+	  &nbsp;&nbsp;|&nbsp;{udp,&nbsp;SupportsOptionsUDP}
+	  &nbsp;&nbsp;|&nbsp;{sctp,&nbsp;SupportsOptionsSCTP}]
+	</v>
+	<v>
+	  SupportsOptionsSocket ::
+	  [{<seetype marker="#socket_option">socket_option()</seetype>,&nbsp;boolean()}]
+	</v>
+	<v>
+	  SupportsOptionsIP ::
+	  [{<seetype marker="#ip_socket_option">ip_socket_option()</seetype>,&nbsp;boolean()}]
+	</v>
+	<v>
+	  SupportsOptionsIPv6 ::
+	  [{<seetype marker="#ipv6_socket_option">ipv6_socket_option()</seetype>,&nbsp;boolean()}]
+	</v>
+	<v>
+	  SupportsOptionsTCP ::
+	  [{<seetype marker="#tcp_socket_option">tcp_socket_option()</seetype>,&nbsp;boolean()}]
+	</v>
+	<v>
+	  SupportsOptionsUDP ::
+	  [{<seetype marker="#udp_socket_option">udp_socket_option()</seetype>,&nbsp;boolean()}]
+	</v>
+	<v>
+	  SupportsOptionsSCTP ::
+	  [{<seetype marker="#sctp_socket_option">sctp_socket_option()</seetype>,&nbsp;boolean()}]
+	</v>
+      </type>
       <desc>
-	<p>This function intends to retreive information about what the
-	platform supports. Such as if SCTP is supported. Or which socket
-	options are supported. </p>
+	<p>
+	  This function retreives information about what the
+	  platform supports,  such as if SCTP is supported,
+	  or which socket options are supported.
+	</p>
+	<p>
+	  For keys other than the known the empty list is returned,
+	  Note that in a future version or on a different platform
+	  there might be more supported items.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: sctp | ipv6 | local | netns) -> boolean()
+      </name>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: send_flags, Key2 :: SendFlag) -> boolean()
+      </name>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: recv_flags, Key2 :: RecvFlag) -> boolean()
+      </name>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: options, Key2 :: socket, Key3 :: SocketOption) ->
+	boolean()
+      </name>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: options, Key2 :: ip, Key3 :: IPSocketOption) ->
+	boolean()
+      </name>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: options, Key2 :: ipv6, Key3 :: IPv6SocketOption) ->
+	boolean()
+      </name>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: options, Key2 :: tcp, Key3 :: TCPSocketOption) ->
+	boolean()
+      </name>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: options, Key2 :: udp, Key3 :: UDPSocketOption) ->
+	boolean()
+      </name>
+      <name since="OTP 23.0">
+	is_supported(Key1 :: options, Key2 :: sctp, Key3 :: SCTPSocketOption) ->
+	boolean()
+      </name>
+      <fsummary>Report info about what the platform supports.</fsummary>
+      <type>
+	<v>
+	  SocketOption ::
+	  <seetype marker="#socket_option">socket_option()</seetype>
+	</v>
+	<v>
+	  IPSocketOption ::
+	  <seetype marker="#ip_socket_option">ip_socket_option()</seetype>
+	</v>
+	<v>
+	  IPv6SocketOption ::
+	  <seetype marker="#ipv6_socket_option">ipv6_socket_option()</seetype>
+	</v>
+	<v>
+	  TCPSocketOption ::
+	  <seetype marker="#tcp_socket_option">tcp_socket_option()</seetype>
+	</v>
+	<v>
+	  UDPSocketOption ::
+	  <seetype marker="#udp_socket_option">udp_socket_option()</seetype>
+	</v>
+	<v>
+	  SCTPSocketOption ::
+	  <seetype marker="#sctp_socket_option">sctp_socket_option()</seetype>
+	</v>
+      </type>
+      <desc>
+	<p>
+	  This function retreives information about what the
+	  platform supports,  such as if SCTP is supported,
+	  or which socket options are supported.
+	</p>
+	<p>
+	  For keys other than the known <c>false</c> is returned.
+	  Note that in a future version or on a different platform
+	  there might be more supported items.
+	</p>
       </desc>
     </func>
 

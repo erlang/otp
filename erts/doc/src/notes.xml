@@ -167,7 +167,7 @@
       <list>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, not all
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, not all
 	    send and receive flags are supported on all platforms. In
 	    order to (at least) simplify testing, the
 	    socket:supports/0,1,2,3 functions has been extended with
@@ -386,7 +386,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, invalid
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, invalid
 	    encoding of send and receive flags caused badarg and send
 	    failure.</p>
           <p>
@@ -401,7 +401,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, unable to
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, unable to
 	    properly decode the timestamp control message header on
 	    FreeBSD. We incorrectly used the SO_TIMESTAMP flag for
 	    the timestamp control message header type. It should have
@@ -412,7 +412,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, when
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, when
 	    setting the ip option 'recvtos' to true, thereby
 	    indicating that we want to receive the TOS control
 	    message header, we don't actually get TOS but RECVTOS on
@@ -429,7 +429,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, wrong
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, wrong
 	    type for protocol caused segmentation fault if protocol
 	    was provided as {raw, integer()}.</p>
           <p>
@@ -437,7 +437,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, when
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, when
 	    setting the ip option 'recvttl' to true, thereby
 	    indicating that we want to receive the TTL control
 	    message header, we don't actually get TTL but RECVTTL on
@@ -448,7 +448,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, IPv6
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, IPv6
 	    control message headers was incorrectly decoded with
 	    level ip instead of ipv6.</p>
           <p>
@@ -494,7 +494,7 @@
         </item>
         <item>
           <p>
-	    The <seeerl marker="socket#">socket</seeerl> socket
+	    The <seeerl marker="kernel:socket#">socket</seeerl> socket
 	    option 'peek_off' has been disabled. If peek_off was set
 	    and then socket:recv/3 was called with the peek flag, the
 	    call could hang.</p>
@@ -544,7 +544,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, the
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, the
 	    timestamp creation used when printing warning messages
 	    and debug printouts did not work. The used buffer was too
 	    small.</p>
@@ -590,7 +590,7 @@
       <list>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, not all
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, not all
 	    send and receive flags are supported on all platforms. In
 	    order to (at least) simplify testing, the
 	    socket:supports/0,1,2,3 functions has been extended with
@@ -601,7 +601,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, add
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, add
 	    support for IPv6 socket options tclass and recvtclass.
 	    Both has been added, but the use of them are platform
 	    dependent. Call socket:supports(options, ipv6, Opt) to be
@@ -612,7 +612,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, the TCP
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, the TCP
 	    socket option cork was not supported even though the
 	    supports function reported it as such.</p>
           <p>
@@ -645,7 +645,7 @@
         </item>
         <item>
           <p>
-	    For <seeerl marker="socket#">socket</seeerl>, added
+	    For <seeerl marker="kernel:socket#">socket</seeerl>, added
 	    support for the socket option extended_err. Andreas
 	    Schultz.</p>
           <p>
