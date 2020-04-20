@@ -449,8 +449,8 @@
 	<code>
 fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() |
              {revoked, atom()}} |
-	     {extension, #'Extension'{}}, InitialUserState :: term()) ->
-	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
+	     {extension, #'Extension'{}} | valid | valid_peer, InitialUserState :: term()) ->
+	{valid, UserState :: term()} |
 	{fail, Reason :: term()} | {unknown, UserState :: term()}.
 	</code>
 
