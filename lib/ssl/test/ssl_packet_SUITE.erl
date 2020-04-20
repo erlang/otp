@@ -2148,7 +2148,7 @@ server_packet_decode(Socket, Packet) ->
 	{ssl, Socket, Packet}  -> ok;
 	Other1 -> exit({?LINE, Other1})
     end,
-    ok = ssl:send(Socket, Packet),
+    spawn(fun() -> ssl:send(Socket, Packet) end),
     receive
 	{ssl, Socket, Packet}  -> ok;
 	Other2 -> exit({?LINE, Other2})
