@@ -344,7 +344,9 @@
 
 -type custom_verify()               ::  {Verifyfun :: fun(), InitialUserState :: any()}.
 -type crl_check()                :: boolean() | peer | best_effort.
--type crl_cache_opts()           :: [any()].
+-type crl_cache_opts()           :: {Module :: atom(),
+                                     {DbHandle :: internal | term(),
+                                      Args :: list()}}.
 -type handshake_size()           :: integer().
 -type hibernate_after()          :: timeout().
 -type root_fun()                 ::  fun().
