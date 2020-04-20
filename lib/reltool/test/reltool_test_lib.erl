@@ -238,7 +238,7 @@ wait_for_close() ->
     end.
 
 erl_libs() ->
-    lists:sort([filename:absname(P) || P<-reltool_utils:erl_libs()]).
+    [filename:absname(P) || P<-reltool_utils:erl_libs()].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A small test server, which can be run standalone in a shell
