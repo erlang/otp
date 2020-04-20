@@ -259,11 +259,6 @@ validate_link(Filename, LinkType = "seetype", Line, Link, CachedFiles) ->
         _ ->
             validate_type(Line,LinkType,read_link(Line, ParsedLink, CachedFiles))
     end;
-validate_link(Filename, "seeerl" = LinkType, Line, Link, CachedFiles) ->
-    ParsedLink = parse_link(Filename, maps:get(m2a,CachedFiles), Link),
-    TargetInfo = read_link(Line, ParsedLink, CachedFiles),
-    validate_type(Line,LinkType,TargetInfo),
-    validate_marker(Line,ParsedLink,TargetInfo);
 validate_link({"jinterface","jinterface_users_guide"},"seefile",_, _, _) ->
     %% Skip links to java documentation
     ok;
