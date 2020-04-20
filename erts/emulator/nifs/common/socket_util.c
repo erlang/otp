@@ -1353,7 +1353,7 @@ char* esock_decode_type(ErlNifEnv*   env,
     } else if (COMPARE(esock_atom_raw, eType) == 0) {
         *type = SOCK_RAW;
 
-#if defined(HAVE_SCTP)
+#ifdef SOCK_SEQPACKET
     } else if (COMPARE(esock_atom_seqpacket, eType) == 0) {
         *type = SOCK_SEQPACKET;
 #endif
@@ -1398,7 +1398,7 @@ char* esock_encode_type(ErlNifEnv*    env,
         *eType = esock_atom_raw;
         break;
 
-#if defined(HAVE_SCTP)
+#ifdef SOCK_SEQPACKET
     case SOCK_SEQPACKET:
         *eType = esock_atom_seqpacket;
         break;

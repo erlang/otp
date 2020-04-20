@@ -13024,7 +13024,7 @@ ERL_NIF_TERM getopt_otp_type(ErlNifEnv* env, int type)
         result = esock_atom_dgram;
         break;
 
-#ifdef HAVE_SCTP
+#ifdef SOCK_SEQPACKET
     case SOCK_SEQPACKET:
         result = esock_atom_seqpacket;
         break;
@@ -13859,7 +13859,7 @@ ERL_NIF_TERM esock_getopt_lvl_sock_type(ErlNifEnv*       env,
         case SOCK_DGRAM:
             result = esock_make_ok2(env, esock_atom_dgram);
             break;
-#ifdef HAVE_SCTP
+#ifdef SOCK_SEQPACKET
         case SOCK_SEQPACKET:
             result = esock_make_ok2(env, esock_atom_seqpacket);
             break;
@@ -19863,7 +19863,7 @@ void dec_socket(int domain, int type, int protocol)
         cnt_dec(&data.numTypeStreams, 1);
     else if (type == SOCK_DGRAM)
         cnt_dec(&data.numTypeDGrams, 1);
-#ifdef HAVE_SCTP
+#ifdef SOCK_SEQPACKET
     else if (type == SOCK_SEQPACKET)
         cnt_dec(&data.numTypeSeqPkgs, 1);
 #endif
@@ -19908,7 +19908,7 @@ void inc_socket(int domain, int type, int protocol)
         cnt_inc(&data.numTypeStreams, 1);
     else if (type == SOCK_DGRAM)
         cnt_inc(&data.numTypeDGrams, 1);
-#ifdef HAVE_SCTP
+#ifdef SOCK_SEQPACKET
     else if (type == SOCK_SEQPACKET)
         cnt_inc(&data.numTypeSeqPkgs, 1);
 #endif
@@ -19989,7 +19989,7 @@ BOOLEAN_T etype2type(int etype, int* type)
         *type = SOCK_RAW;
         break;
 
-#ifdef HAVE_SCTP    
+#ifdef SOCK_SEQPACKET
     case ESOCK_TYPE_SEQPACKET:
         *type = SOCK_SEQPACKET;
         break;
