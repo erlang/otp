@@ -24,9 +24,8 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
-
--define(TIMEOUT, 600000).
-
+-define(TIMEOUT, {seconds, 20}).
+-define(TIMEOUT_LONG, {seconds, 80}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -127,7 +126,7 @@ init_per_testcase(TestCase, Config)
 	"sparc-sun-solaris2.10" ->
 	    {skip,"Will take to long time on an old Sparc"};
 	_ ->
-	    ct:timetrap({seconds, 90}),
+	    ct:timetrap(?TIMEOUT_LONG),
 	    Config
     end;
 
@@ -140,11 +139,11 @@ init_per_testcase(TestCase, Config)
        TestCase == client_echos_passive_chunk_big;
        TestCase == client_echos_active_once_big;
        TestCase == client_echos_active_big ->
-    ct:timetrap({seconds, 60}),
+    ct:timetrap(?TIMEOUT_LONG),
     Config;
 
 init_per_testcase(_TestCase, Config) ->
-    ct:timetrap({seconds, 15}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(_TestCase, Config) ->

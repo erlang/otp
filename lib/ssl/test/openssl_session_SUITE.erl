@@ -28,6 +28,7 @@
 
 -define(SLEEP, 1000).
 -define(EXPIRE, 10).
+-define(TIMEOUT, {seconds, 120}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -132,17 +133,17 @@ init_per_testcase(reuse_session_erlang_server, Config) ->
         true ->
             case ssl_test_lib:openssl_sane_dtls_session_reuse() of
                 true ->
-                    ct:timetrap({seconds, 10}),
+                    ct:timetrap(?TIMEOUT),
                     Config;
                 false ->
                     {skip, "Broken OpenSSL DTLS session reuse"}
             end;
         false ->
-            ct:timetrap({seconds, 10}),
+            ct:timetrap(?TIMEOUT),
             Config
     end;
-init_per_testcase(TestCase, Config) ->
-    ct:timetrap({seconds, 10}),
+init_per_testcase(_TestCase, Config) ->
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(reuse_session_erlang_client, Config) ->

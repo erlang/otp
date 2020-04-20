@@ -25,7 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
-
+-define(TIMEOUT, {seconds, 5}).
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -87,7 +87,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(raw_inet_option, Config) ->
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     case os:type() of
         {unix,linux} ->
             Config;
@@ -95,7 +95,7 @@ init_per_testcase(raw_inet_option, Config) ->
             {skip, "Raw options are platform-specific"}
     end;
 init_per_testcase(_TestCase, Config) ->
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     

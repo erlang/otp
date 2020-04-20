@@ -28,8 +28,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -define(SLEEP, 1000).
--define(TIMEOUT, 60000).
--define(LONG_TIMEOUT, 600000).
+-define(TIMEOUT, {seconds, 20}).
 -define(MAX_TABLE_SIZE, 5).
 
 -behaviour(ssl_session_cache_api).
@@ -123,18 +122,18 @@ init_per_testcase(session_cleanup, Config) ->
     application:set_env(ssl, session_lifetime, 5),
     ssl:start(),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 20}),
+    ct:timetrap(?TIMEOUT),
     Config;
 
 init_per_testcase(client_unique_session, Config) ->
-    ct:timetrap({seconds, 40}),
+    ct:timetrap(?TIMEOUT),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Config;
 init_per_testcase(save_specific_session, Config) ->
     Versions = ssl_test_lib:protocol_version(Config),
     ssl_test_lib:clean_start(),
     ssl_test_lib:set_protocol_versions(Versions),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(max_table_size, Config) ->
     Versions = ssl_test_lib:protocol_version(Config),
@@ -161,7 +160,7 @@ init_customized_session_cache(Type, Config) ->
 	   Config)),
     ets:new(ssl_test, [named_table, public, set]),
     ets:insert(ssl_test, {type, Type}),
-    ct:timetrap({seconds, 20}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(session_cache_process_list, Config) ->
