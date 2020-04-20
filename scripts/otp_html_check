@@ -277,31 +277,34 @@ sub normalize_link {
     }
 
     return $link if $link =~ /^\w{3,10}:/i; # mailto: http: .....
-    return $link if $link =~ /\?/i;         # Contains arguments to CGI
 
     $link =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
 
     if ($link eq "") {
 	# The empty link is a reference to URL directory
 	return $rpath;
-    } elsif ($link =~ /^#(.*)$/) {
+    } elsif ($link =~ /^#(.*)$/s) {
 	# Lokal reference to anchor
         my $anchor = $1;
         $anchor =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
         $anchor =~ s/&lt;/</g; # 
         $anchor =~ s/&gt;/>/g; #
+        $anchor =~ s&^\s+&&;		# Remove leading any whitespaces
+        $anchor =~ s&\s+$&&;		# Remove trailing any whitespaces
 	push(@{$anchor_refs{"$page#$anchor"}}, $page);
 	return $page;
     }
 
     my $anchor = "";
 
-    if ($link =~ s&#(.*)$&&) {
+    if ($link =~ s&#(.*)$&&s) {
 	# Removed page ref (anchor)
 	$anchor = $1;
         $anchor =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
         $anchor =~ s/&lt;/</g; # 
         $anchor =~ s/&gt;/>/g; #
+        $anchor =~ s&^\s+&&;		# Remove leading any whitespaces
+        $anchor =~ s&\s+$&&;		# Remove trailing any whitespaces
     }
 
     $link = "" if $link eq "/";
@@ -324,6 +327,7 @@ sub normalize_link {
     $link =~ s&(/\.)+$&&;	# Remove ending slash dot "/."
     $link =~ s&(/\.)+/&/&g;	# Remove all slash dot slash "/./"
     $link =~ s&/+$&&;		# Remove ending slashes
+    $link =~ s&\?.*$&&;         # Remove any query parameters
 
     # Remove a real directory part followed by ".."
 
