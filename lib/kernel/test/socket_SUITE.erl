@@ -83,6 +83,7 @@
          api_b_open_and_close_tcp6/1,
          api_b_open_and_close_udpL/1,
          api_b_open_and_close_tcpL/1,
+         api_b_open_and_close_seqpL/1,
 	 api_b_open_and_close_sctp4/1,
          api_b_open_and_maybe_close_raw/1,
          api_b_sendto_and_recvfrom_udp4/1,
@@ -91,8 +92,10 @@
          api_b_sendmsg_and_recvmsg_udpL/1,
          api_b_send_and_recv_tcp4/1,
          api_b_send_and_recv_tcpL/1,
+         api_b_send_and_recv_seqpL/1,
          api_b_sendmsg_and_recvmsg_tcp4/1,
          api_b_sendmsg_and_recvmsg_tcpL/1,
+         api_b_sendmsg_and_recvmsg_seqpL/1,
          api_b_sendmsg_and_recvmsg_sctp4/1,
 
          %% *** API socket from FD ***
@@ -820,6 +823,7 @@ api_basic_cases() ->
      api_b_open_and_close_tcp6,
      api_b_open_and_close_udpL,
      api_b_open_and_close_tcpL,
+     api_b_open_and_close_seqpL,
      api_b_open_and_close_sctp4,
      api_b_open_and_maybe_close_raw,
      api_b_sendto_and_recvfrom_udp4,
@@ -828,8 +832,10 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_udpL,
      api_b_send_and_recv_tcp4,
      api_b_send_and_recv_tcpL,
+     api_b_send_and_recv_seqpL,
      api_b_sendmsg_and_recvmsg_tcp4,
      api_b_sendmsg_and_recvmsg_tcpL,
+     api_b_sendmsg_and_recvmsg_seqpL,
      api_b_sendmsg_and_recvmsg_sctp4
     ].
 
@@ -2722,6 +2728,26 @@ api_b_open_and_close_tcpL(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically open (create) and close an Unix Domain dgram (UDP) socket.
+%% With some extra checks...
+api_b_open_and_close_seqpL(suite) ->
+    [];
+api_b_open_and_close_seqpL(doc) ->
+    [];
+api_b_open_and_close_seqpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 type     => seqpacket,
+                                 protocol => default},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically open (create) and close an IPv4 SCTP (seqpacket) socket.
 %% With some extra checks...
 api_b_open_and_close_sctp4(suite) ->
@@ -3232,10 +3258,11 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
                                   socket:recv(Sock)
                           end,
                    InitState = #{domain => inet,
+                                 type   => stream,
                                  proto  => tcp,
                                  send   => Send,
                                  recv   => Recv},
-                   ok = api_b_send_and_recv_tcp(InitState)
+                   ok = api_b_send_and_recv_conn(InitState)
            end).
 
 
@@ -3259,10 +3286,39 @@ api_b_send_and_recv_tcpL(_Config) when is_list(_Config) ->
                                   socket:recv(Sock)
                           end,
                    InitState = #{domain => local,
+                                 type   => stream,
                                  proto  => default,
                                  send   => Send,
                                  recv   => Recv},
-                   ok = api_b_send_and_recv_tcp(InitState)
+                   ok = api_b_send_and_recv_conn(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the "common" functions (send and recv)
+%% on an Unix Domain seqpacket socket.
+api_b_send_and_recv_seqpL(suite) ->
+    [];
+api_b_send_and_recv_seqpL(doc) ->
+    [];
+api_b_send_and_recv_seqpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => local,
+                                 type   => seqpacket,
+                                 proto  => default,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_conn(InitState)
            end).
 
 
@@ -3292,10 +3348,11 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 type   => stream,
                                  proto  => tcp,
                                  send   => Send,
                                  recv   => Recv},
-                   ok = api_b_send_and_recv_tcp(InitState)
+                   ok = api_b_send_and_recv_conn(InitState)
            end).
 
 
@@ -3341,16 +3398,68 @@ api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => local,
+                                 type   => stream,
                                  proto  => default,
                                  send   => Send,
                                  recv   => Recv},
-                   ok = api_b_send_and_recv_tcp(InitState)
+                   ok = api_b_send_and_recv_conn(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_b_send_and_recv_tcp(InitState) ->
+%% Basically send and receive using the msg functions (sendmsg and recvmsg)
+%% on an Unix Domain (stream) socket (TCP).
+api_b_sendmsg_and_recvmsg_seqpL(suite) ->
+    [];
+api_b_sendmsg_and_recvmsg_seqpL(doc) ->
+    [];
+api_b_sendmsg_and_recvmsg_seqpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Send =
+                       fun(Sock, Data) ->
+                               MsgHdr =
+                                   #{iov => [Data]},
+                               socket:sendmsg(Sock, MsgHdr)
+                       end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock) of
+                                      %% On some platforms, the address
+                                      %% is *not* provided (e.g. FreeBSD)
+                                      {ok,
+                                       #{addr  := undefined,
+                                         iov   := [Data]}} ->
+                                          {ok, Data};
+                                      %% On some platforms, the address
+                                      %% *is* provided (e.g. linux)
+                                      {ok,
+                                       #{addr  := #{family := local},
+                                         iov   := [Data]}} ->
+                                          socket:setopt(
+                                            Sock, otp, debug, false),
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          socket:setopt(
+                                            Sock, otp, debug, false),
+                                          ERROR
+                                  end
+                          end,
+                   InitState =
+                       #{domain => local,
+                         type   => seqpacket,
+                         proto  => default,
+                         send   => Send,
+                         recv   => Recv},
+                   ok = api_b_send_and_recv_conn(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_b_send_and_recv_conn(InitState) ->
     process_flag(trap_exit, true),
     ServerSeq = 
         [
@@ -3374,8 +3483,9 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "create listen socket",
            cmd  => fun(#{domain := Domain,
+                         type := Type,
                          proto  := Proto} = State) ->
-                           case socket:open(Domain, stream, Proto) of
+                           case socket:open(Domain, Type, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -3535,8 +3645,9 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "create socket",
            cmd  => fun(#{domain := Domain,
+                         type := Type,
                          proto  := Proto} = State) ->
-                           case socket:open(Domain, stream, Proto) of
+                           case socket:open(Domain, Type, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
