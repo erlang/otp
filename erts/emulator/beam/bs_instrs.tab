@@ -294,10 +294,13 @@ i_new_bs_put_binary(Fail, Sz, Flags, Src) {
     Eterm sz = $Sz;
     Sint _size;
     $BS_GET_UNCHECKED_FIELD_SIZE(sz, (($Flags) >> 3), $BADARG($Fail), _size);
-    if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2(($Src), _size))) {
+    c_p->fcalls = FCALLS;
+    if (!erts_new_bs_put_binary(c_p, $Src, _size)) {
         $BADARG($Fail);
     }
+    FCALLS = c_p->fcalls;
 }
+
 i_new_bs_put_binary_all := i_new_bs_put_binary_all.fetch.execute;
 
 i_new_bs_put_binary_all.head() {
@@ -309,15 +312,19 @@ i_new_bs_put_binary_all.fetch(Src) {
 }
 
 i_new_bs_put_binary_all.execute(Fail, Unit) {
-    if (!erts_new_bs_put_binary_all(ERL_BITS_ARGS_2(src, ($Unit)))) {
+    c_p->fcalls = FCALLS;
+    if (!erts_new_bs_put_binary_all(c_p, src, ($Unit))) {
         $BADARG($Fail);
     }
+    FCALLS = c_p->fcalls;
 }
 
 i_new_bs_put_binary_imm(Fail, Sz, Src) {
-    if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2(($Src), ($Sz)))) {
+    c_p->fcalls = FCALLS;
+    if (!erts_new_bs_put_binary(c_p, ($Src), ($Sz))) {
         $BADARG($Fail);
     }
+    FCALLS = c_p->fcalls;
 }
 
 i_new_bs_put_float(Fail, Sz, Flags, Src) {
@@ -707,11 +714,13 @@ i_bs_append(Fail, ExtraHeap, Live, Unit, Size, Dst) {
 i_bs_private_append(Fail, Unit, Size, Src, Dst) {
     Eterm res;
 
+    c_p->fcalls = FCALLS;
     res = erts_bs_private_append(c_p, $Src, $Size, $Unit);
     if (is_non_value(res)) {
         /* c_p->freason is already set (to BADARG or SYSTEM_LIMIT). */
         $FAIL_HEAD_OR_BODY($Fail);
     }
+    FCALLS = c_p->fcalls;
     $Dst = res;
 }
 
