@@ -23,13 +23,15 @@
 	 init_per_group/2,end_per_group/2,
          calls/1,tuple_matching/1,recv/1,maps/1,
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
-         beam_ssa_dead_crash/1,stack_init/1,grab_bag/1,
-         coverage/1]).
+         beam_ssa_dead_crash/1,stack_init/1,
+         mapfoldl/0,mapfoldl/1,
+         grab_bag/1,coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [{group,p}].
+    [mapfoldl,
+     {group,p}].
 
 groups() ->
     [{p,test_lib:parallel(),
@@ -701,6 +703,74 @@ stack_init(Key, Map) ->
     %% y(0) would be uninitialized here if the key was not present in the map
     %% (if the second clause was executed).
     id(Res).
+
+%% Test that compiler "optimizations" don't rewrite mapfold/3 to the
+%% equivalent of slow_mapfoldl/3.
+mapfoldl() ->
+    {N,Size} = mapfoldl_limits(),
+    {Time,_} = timer:tc(fun() ->
+                                mapfoldl(fun(Sz, _) ->
+                                                 erlang:garbage_collect(),
+                                                 {Sz,erlang:make_tuple(Sz, a)}
+                                         end, [], [Size])
+                        end),
+    Seconds = 15 + ceil(10 * Time * N / 1_000_000),
+    io:format("~p seconds timetrap\n", [Seconds]),
+    [{timetrap,{seconds,Seconds}}].
+
+mapfoldl(_Config) ->
+    test_mapfoldl_implementations(),
+    F = fun(Sz, _) ->
+                erlang:garbage_collect(),
+                {Sz,erlang:make_tuple(Sz, a)}
+        end,
+    {N,Size} = mapfoldl_limits(),
+    List = lists:duplicate(N, Size),
+    {List,Tuple} = mapfoldl(F, [], List),
+    {List,Tuple} = fast_mapfoldl(F, [], List),
+    Size = tuple_size(Tuple),
+    ok.
+
+mapfoldl_limits() ->
+    {1_000,100_000}.
+
+test_mapfoldl_implementations() ->
+    Seq = lists:seq(1, 10),
+    F = fun(N, Sum) -> {N,Sum+N} end,
+    {Seq,55} = mapfoldl(F, 0, Seq),
+    {Seq,55} = fast_mapfoldl(F, 0, Seq),
+    {Seq,55} = slow_mapfoldl(F, 0, Seq),
+    ok.
+
+mapfoldl(F, Acc0, [Hd|Tail]) ->
+    {R,Acc1} = F(Hd, Acc0),
+    {Rs,Acc2} = mapfoldl(F, Acc1, Tail),
+    {[R|Rs],Acc2};
+mapfoldl(F, Acc, []) when is_function(F, 2) -> {[],Acc}.
+
+%% Here is an illustration of how the compiler used to sink
+%% get_tuple_element instructions in a way that would cause all
+%% versions of the accumulator to be kept until the end. The compiler
+%% now uses a heuristic to only sink get_tuple_element instructions if
+%% that would cause fewer values to be saved in the stack frame.
+slow_mapfoldl(F, Acc0, [Hd|Tail]) ->
+    Res1 = F(Hd, Acc0),
+    %% By saving the Res1 tuple, all intermediate accumulators will be
+    %% kept to the end.
+    Res2 = slow_mapfoldl(F, element(2, Res1), Tail),
+    {[element(1, Res1)|element(1, Res2)],element(2, Res2)};
+slow_mapfoldl(F, Acc, []) when is_function(F, 2) -> {[],Acc}.
+
+%% Here is an illustration how the compiler should compile mapfoldl/3
+%% to avoid keeping all intermediate accumulators. Note that
+%% slow_mapfoldl/3 and fast_mapfoldl/3 use the same amount of stack
+%% space.
+fast_mapfoldl(F, Acc0, [Hd|Tail]) ->
+    Res1 = F(Hd, Acc0),
+    R = element(1, Res1),
+    Res2 = fast_mapfoldl(F, element(2, Res1), Tail),
+    {[R|element(1, Res2)],element(2, Res2)};
+fast_mapfoldl(F, Acc, []) when is_function(F, 2) -> {[],Acc}.
 
 grab_bag(_Config) ->
     {'EXIT',_} = (catch grab_bag_1()),

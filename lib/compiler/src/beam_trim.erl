@@ -63,7 +63,8 @@ trim([{kill,_}|_]=Is0, St, Acc) ->
         %% Calculate all recipes that are not worse in terms
         %% of estimated execution time. The recipes are ordered
         %% in descending order from how much they trim.
-        Recipes = trim_recipes(Layout),
+        IsNotRecursive = is_not_recursive(Is1),
+        Recipes = trim_recipes(Layout, IsNotRecursive),
 
         %% Try the recipes in order. A recipe may not work out because
         %% a register that was previously killed may be
@@ -85,6 +86,21 @@ trim([I|Is], St, Acc) ->
 trim([], _, Acc) ->
     reverse(Acc).
 
+%% is_not_recursive([Instruction]) -> true|false.
+%%  Test whether the next call or apply instruction may
+%%  do a recursive call. Return `true` if the call is
+%%  definitely not recursive, and `false` otherwise.
+is_not_recursive([{call_ext,_,Ext}|_]) ->
+    case Ext of
+        {extfunc,M,F,A} ->
+            erl_bifs:is_pure(M, F, A);
+        _ ->
+            false
+    end;
+is_not_recursive([{block,_}|Is]) -> is_not_recursive(Is);
+is_not_recursive([{line,_}|Is]) -> is_not_recursive(Is);
+is_not_recursive(_) -> false.
+
 %% trim_recipes([{kill,R}|{live,R}|{dead,R}]) -> [Recipe].
 %%      Recipe = {Kills,NumberToTrim,Moves}
 %%      Kills = [{kill,Y}]
@@ -93,34 +109,34 @@ trim([], _, Acc) ->
 %%  Calculate how to best trim the stack and kill the correct
 %%  Y registers. Return a list of possible recipes. The best
 %%  recipe (the one that trims the most) is first in the list.
-%%  All of the recipes are no worse in estimated execution time
-%%  than the original sequences of kill instructions.
 
-trim_recipes(Layout) ->
-    Cost = length([I || {kill,_}=I <- Layout]),
-    trim_recipes_1(Layout, 0, [], {Cost,[]}).
+trim_recipes(Layout, IsNotRecursive) ->
+    Recipes = construct_recipes(Layout, 0, [], []),
+    NumOrigKills = length([I || {kill,_}=I <- Layout]),
+    IsTooExpensive = is_too_expensive_fun(IsNotRecursive),
+    [R || R <- Recipes,
+          not is_too_expensive(R, NumOrigKills, IsTooExpensive)].
 
-trim_recipes_1([{kill,{y,Trim0}}|Ks], Trim0, Moves, Recipes0) ->
+construct_recipes([{kill,{y,Trim0}}|Ks], Trim0, Moves, Acc) ->
     Trim = Trim0 + 1,
-    Recipes = save_recipe(Ks, Trim, Moves, Recipes0),
-    trim_recipes_1(Ks, Trim, Moves, Recipes);
-trim_recipes_1([{dead,{y,Trim0}}|Ks], Trim0, Moves, Recipes0) ->
+    Recipe = {Ks,Trim,Moves},
+    construct_recipes(Ks, Trim, Moves, [Recipe|Acc]);
+construct_recipes([{dead,{y,Trim0}}|Ks], Trim0, Moves, Acc) ->
     Trim = Trim0 + 1,
-    Recipes = save_recipe(Ks, Trim, Moves, Recipes0),
-    trim_recipes_1(Ks, Trim, Moves, Recipes);
-trim_recipes_1([{live,{y,Trim0}=Src}|Ks0], Trim0, Moves0, Recipes0) ->
+    Recipe = {Ks,Trim,Moves},
+    construct_recipes(Ks, Trim, Moves, [Recipe|Acc]);
+construct_recipes([{live,{y,Trim0}=Src}|Ks0], Trim0, Moves0, Acc) ->
     case take_last_dead(Ks0) of
 	none ->
-            {_,RecipesList} = Recipes0,
-            RecipesList;
+            %% No more recipes are possible.
+            Acc;
 	{Dst,Ks} ->
 	    Trim = Trim0 + 1,
 	    Moves = [{move,Src,Dst}|Moves0],
-            Recipes = save_recipe(Ks, Trim, Moves, Recipes0),
-            trim_recipes_1(Ks, Trim, Moves, Recipes)
+            Recipe = {Ks,Trim,Moves},
+            construct_recipes(Ks, Trim, Moves, [Recipe|Acc])
     end;
-trim_recipes_1([], _, _, {_,RecipesList}) ->
-    RecipesList.
+construct_recipes([], _, _, Acc) -> Acc.
 
 take_last_dead(L) ->
     take_last_dead_1(reverse(L)).
@@ -131,33 +147,47 @@ take_last_dead_1([{dead,Reg}|Is]) ->
     {Reg,reverse(Is)};
 take_last_dead_1(_) -> none.
 
-save_recipe(Ks, Trim, Moves, {MaxCost,Acc}=Recipes) ->
-    case recipe_cost(Ks, Moves) of
-        Cost when Cost =< MaxCost ->
-            %% The price is right.
-            {MaxCost,[{Ks,Trim,Moves}|Acc]};
-	_Cost ->
-            %% Too expensive.
-            Recipes
+%% Is trimming too expensive?
+is_too_expensive({Ks,_,Moves}, NumOrigKills, IsTooExpensive) ->
+    NumKills = num_kills(Ks, 0),
+    NumMoves = length(Moves),
+    IsTooExpensive(NumKills, NumMoves, NumOrigKills).
+
+num_kills([{kill,_}|T], Acc) ->
+    num_kills(T, Acc+1);
+num_kills([_|T], Acc) ->
+    num_kills(T, Acc);
+num_kills([], Acc) -> Acc.
+
+is_too_expensive_fun(true) ->
+    %% This call is not recursive (because it is a call to a BIF).
+    %% Here we should avoid trimming if the trimming sequence is
+    %% likely to be more expensive than the original sequence.
+    fun(NumKills, NumMoves, NumOrigKills) ->
+            Penalty =
+                if
+                    %% Slightly penalize the use of any `move`
+                    %% instruction to avoid replacing two `kill`
+                    %% instructions with a `move` and a `trim`.
+                    NumMoves =/= 0 -> 1;
+                    true -> 0
+                end,
+            1 + Penalty + NumKills + NumMoves > NumOrigKills
+    end;
+is_too_expensive_fun(false) ->
+    %% This call **may** be recursive. In a recursive function that
+    %% builds up a huge stack, having unused stack slots will be very
+    %% expensive. Therefore, we want to be biased towards trimming.
+    %% We will do that by not counting the `trim` instruction in
+    %% the formula below.
+    fun(NumKills, NumMoves, NumOrigKills) ->
+            NumKills + NumMoves > NumOrigKills
     end.
-
-recipe_cost(Ks, Moves) ->
-    %% We estimate that a {move,{y,_},{y,_}} instruction is roughly twice as
-    %% expensive as a {kill,{y,_}} instruction. A {trim,_} instruction is
-    %% roughly as expensive as a {kill,{y,_}} instruction.
-
-    recipe_cost_1(Ks, 1+2*length(Moves)).
-
-recipe_cost_1([{kill,_}|Ks], Cost) ->
-    recipe_cost_1(Ks, Cost+1);
-recipe_cost_1([_|Ks], Cost) ->
-    recipe_cost_1(Ks, Cost);
-recipe_cost_1([], Cost) -> Cost.
 
 %% try_remap([Recipe], [Instruction], FrameSize) ->
 %%           {[Instruction],[TrimInstruction]}.
 %%  Try to renumber Y registers in the instruction stream. The
-%%  first rececipe that works will be used.
+%%  first recipe that works will be used.
 %%
 %%  This function will issue a `not_possible` exception if none
 %%  of the recipes were possible to apply.
