@@ -498,14 +498,6 @@
        <c>mnesia:dirty_prev/2</c> are synonyms.
       </item>
       <item>
-        <p><seemfa marker="mnesia#dirty_slot/2">mnesia:dirty_slot(Tab, Slot)</seemfa>
-          returns the list of records that are associated with <c>Slot</c>
-          in a table. It can be used to traverse a table in a manner
-          similar to the function <c>dirty_next/2</c>. A table has a
-          number of slots that range from zero to some unknown upper
-          bound. The function <c>dirty_slot/2</c> returns the special
-          atom <c>'$end_of_table'</c> when the end of the table is
-          reached.</p>
         <p>The behavior of this function is undefined if the
           table is written on while being
           traversed. The function

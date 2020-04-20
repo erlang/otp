@@ -198,6 +198,9 @@
       <name name="t_result" n_vars="1"/>
     </datatype>
     <datatype>
+      <name name="result"/>
+    </datatype>
+    <datatype>
       <name name="index_attr"/>
     </datatype>
     <datatype>
@@ -219,11 +222,21 @@
       <name name="snmp_type"/>
     </datatype>
     <datatype>
+      <name name="tuple_of" n_vars="1"/>
+    </datatype>
+    <datatype>
       <name name="config_key"/>
+    </datatype>
+    <datatype>
+      <name name="config_value"/>
     </datatype>
     <datatype>
       <name name="config_result"/>
     </datatype>
+    <datatype>
+      <name name="debug_level"/>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -664,7 +677,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
       </desc>
     </func>
     <func>
-      <name name="create_table" arity="1" since=""/>
+      <name name="create_schema" arity="1" since=""/>
       <fsummary>Creates a new schema on the specified nodes.</fsummary>
       <desc>
       <marker id="create_schema"></marker>
@@ -984,7 +997,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name name="dirty_delete_object" arity="2" since=""/>
+      <name name="dirty_delete_object" arity="1" since=""/>
       <fsummary>Dirty delete of a record.</fsummary>
       <desc>
       <marker id="dirty_delete_object_1"></marker>
@@ -2190,7 +2203,10 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name since="">sync_transaction(Fun [, Args [, Retries]]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name name="sync_transaction" arity="1" since=""/>
+      <name name="sync_transaction" arity="2" clause_i="1" since=""/>
+      <name name="sync_transaction" arity="2" clause_i="2" since=""/>
+      <name name="sync_transaction" arity="3" since=""/>
       <fsummary>Synchronously executes a transaction.</fsummary>
       <desc>
       <marker id="sync_transaction"></marker>
@@ -2602,7 +2618,11 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name since="">transaction(Fun [, Args [, Retries]]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name name="transaction" arity="1" since=""/>
+      <name name="transaction" arity="2" clause_i="1" since=""/>
+      <name name="transaction" arity="2" clause_i="2" since=""/>
+      <name name="transaction" arity="3" since=""/>
+
       <fsummary>Executes a transaction.</fsummary>
       <desc>
       <marker id="transaction"></marker>
