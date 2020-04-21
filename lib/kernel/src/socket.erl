@@ -66,7 +66,6 @@
               select_info/0,
 
               socket_counters/0,
-              socket_counter/0,
               socket_info/0,
 
               domain/0,
@@ -147,12 +146,22 @@
 -define(REGISTRY, socket_registry).
 
 
--type socket_counters() :: [{socket_counter(), non_neg_integer()}].
--type socket_counter()  :: read_byte | read_fails | read_pkg | read_pkg_max |
-                           read_tries | read_waits |
-                           write_byte | write_fails | write_pkg | write_pkg_max |
-                           write_tries | write_waits |
-                           acc_success | acc_fails | acc_tries | acc_waits.
+-type socket_counters() :: #{read_byte     := non_neg_integer(),
+                             read_fails    := non_neg_integer(),
+                             read_pkg      := non_neg_integer(),
+                             read_pkg_max  := non_neg_integer(),
+                             read_tries    := non_neg_integer(),
+                             read_waits    := non_neg_integer(),
+                             write_byte    := non_neg_integer(),
+                             write_fails   := non_neg_integer(),
+                             write_pkg     := non_neg_integer(),
+                             write_pkg_max := non_neg_integer(),
+                             write_tries   := non_neg_integer(),
+                             write_waits   := non_neg_integer(),
+                             acc_success   := non_neg_integer(),
+                             acc_fails     := non_neg_integer(),
+                             acc_tries     := non_neg_integer(),
+                             acc_waits     := non_neg_integer()}.
 -type socket_info() :: #{domain        := domain(),
                          type          := type(),
                          protocol      := protocol(),

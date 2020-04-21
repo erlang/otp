@@ -3686,38 +3686,54 @@ static
 ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                                         ESockDescriptor* descP)
 {
+    ERL_NIF_TERM keys[] = {atom_read_byte,
+                           atom_read_fails,
+                           atom_read_pkg,
+                           atom_read_pkg_max,
+                           atom_read_tries,
+                           atom_read_waits,
+                           atom_write_byte,
+                           atom_write_fails,
+                           atom_write_pkg,
+                           atom_write_pkg_max,
+                           atom_write_tries,
+                           atom_write_waits,
+                           atom_acc_success,
+                           atom_acc_fails,
+                           atom_acc_tries,
+                           atom_acc_waits};
+    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM vals[] = {MKUI(env, descP->readByteCnt),
+                           MKUI(env, descP->readFails),
+                           MKUI(env, descP->readPkgCnt),
+                           MKUI(env, descP->readPkgMax),
+                           MKUI(env, descP->readTries),
+                           MKUI(env, descP->readWaits),
+                           MKUI(env, descP->writeByteCnt),
+                           MKUI(env, descP->writeFails),
+                           MKUI(env, descP->writePkgCnt),
+                           MKUI(env, descP->writePkgMax),
+                           MKUI(env, descP->writeTries),
+                           MKUI(env, descP->writeWaits),
+                           MKUI(env, descP->accSuccess),
+                           MKUI(env, descP->accFails),
+                           MKUI(env, descP->accTries),
+                           MKUI(env, descP->accWaits)};
+    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
     ERL_NIF_TERM info;
-    ERL_NIF_TERM readByteCnt  = MKCT(env, atom_read_byte, descP->readByteCnt);
-    ERL_NIF_TERM readFails    = MKCT(env, atom_read_fails, descP->readFails);
-    ERL_NIF_TERM readPkgCnt   = MKCT(env, atom_read_pkg, descP->readPkgCnt);
-    ERL_NIF_TERM readPkgMax   = MKCT(env, atom_read_pkg_max, descP->readPkgMax);
-    ERL_NIF_TERM readTries    = MKCT(env, atom_read_tries, descP->readTries);
-    ERL_NIF_TERM readWaits    = MKCT(env, atom_read_waits, descP->readWaits);
-    ERL_NIF_TERM writeByteCnt = MKCT(env, atom_write_byte, descP->writeByteCnt);
-    ERL_NIF_TERM writeFails   = MKCT(env, atom_write_fails, descP->writeFails);
-    ERL_NIF_TERM writePkgCnt  = MKCT(env, atom_write_pkg, descP->writePkgCnt);
-    ERL_NIF_TERM writePkgMax  = MKCT(env, atom_write_pkg_max, descP->writePkgMax);
-    ERL_NIF_TERM writeTries   = MKCT(env, atom_write_tries, descP->writeTries);
-    ERL_NIF_TERM writeWaits   = MKCT(env, atom_write_waits, descP->writeWaits);
-
-    ERL_NIF_TERM accSuccess   = MKCT(env, atom_acc_success, descP->accSuccess);
-    ERL_NIF_TERM accFails     = MKCT(env, atom_acc_fails, descP->accFails);
-    ERL_NIF_TERM accTries     = MKCT(env, atom_acc_tries, descP->accTries);
-    ERL_NIF_TERM accWaits     = MKCT(env, atom_acc_waits, descP->accWaits);
-    ERL_NIF_TERM acnt[] =
-        {readByteCnt, readFails, readPkgCnt, readPkgMax,
-         readTries, readWaits,
-         writeByteCnt, writeFails, writePkgCnt, writePkgMax,
-         writeTries, writeWaits,
-         accSuccess, accFails, accTries, accWaits};
-    unsigned int lenACnt      = sizeof(acnt) / sizeof(ERL_NIF_TERM);
-
-    info = MKLA(env, acnt, lenACnt);
 
     SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> "
-                   "\r\n   lenACnt: %d"
-                   "\r\n   info:    %T"
-                   "\r\n", lenACnt, info) );
+                   "\r\n   numKeys: %d"
+                   "\r\n   numVals: %d"
+                   "\r\n", numKeys, numVals) );
+
+    ESOCK_ASSERT( (numKeys == numVals) );
+
+    if (!MKMA(env, keys, vals, numKeys, &info)) {
+        SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> "
+                       "failed creating counters map\r\n") );        
+        return enif_make_badarg(env);
+    }
 
     SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> done with"
                    "\r\n   info: %T"
