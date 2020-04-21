@@ -122,6 +122,8 @@ static void format_node_hostname(const struct call_flags *flags,
     }
 }
 
+static void start_timeout(int timeout);
+
 /***************************************************************************
  *
  *  XXXXX
@@ -192,6 +194,20 @@ int main(int argc, char *argv[])
                 }
                 i++;
             }
+        } else if (strcmp(argv[i], "-timeout") == 0) {
+            long timeout;
+
+            if (i+1 >= argc) {
+                usage_arg(progname, "-timeout ");
+            }
+
+            timeout = strtol(argv[i+1], NULL, 10);
+            if (timeout <= 0 || timeout >= (1 << 20)) {
+                usage_error(progname, "-timeout");
+            }
+
+            start_timeout(timeout);
+            i++;
         } else if (strcmp(argv[i], "-__uh_test__") == 0) {
             /* Fakes a failure in the call to ei_gethostbyname(h_hostname) so
              * we can test the localhost fallback. */
@@ -853,6 +869,25 @@ static int get_module(char **mbuf, char **mname)
 
 } /* get_module */
 
+#ifdef __WIN32__
+static DWORD WINAPI timer_thread(void *data) {
+    DWORD_PTR timeout = (DWORD_PTR)data * 1000;
+
+    Sleep(timeout);
+    exit(1);
+}
+
+static void start_timeout(int timeout) {
+    if (CreateThread(NULL, 0, timer_thread, (void*)timeout, 0, NULL) == NULL) {
+        fprintf(stderr,"erl_call: Failed to start timer thread\n");
+        exit(1);
+    }
+}
+#else
+static void start_timeout(int timeout) {
+    alarm(timeout);
+}
+#endif
 
 /***************************************************************************
  *
@@ -862,7 +897,7 @@ static int get_module(char **mbuf, char **mname)
 
 static void usage_noexit(const char *progname) {
   fprintf(stderr,"\nUsage: %s [-[demqrsv]] [-c Cookie] [-h HiddenName] \n", progname);
-  fprintf(stderr,"            [-x ErlScript] [-a [Mod [Fun [Args]]]]\n");
+  fprintf(stderr,"            [-x ErlScript] [-a [Mod [Fun [Args]]]] [-timeout Secs]\n");
   fprintf(stderr,"            (-n Node | -sname Node | -name Node | -address [HOSTNAME:]PORT)\n\n");
 #ifdef __WIN32__
   fprintf(stderr,"  where: -a  apply(Mod,Fun,Args) (e.g -a \"erlang length [[a,b,c]]\"\n");
@@ -883,6 +918,7 @@ static void usage_noexit(const char *progname) {
           "                  (e.g., %s -address my_host:36303 ...)\n"
           "                  (cannot be combinated with -s, -n, -name and -sname)\n",
           progname);
+  fprintf(stderr,"         -timeout  command timeout, in seconds\n");
   fprintf(stderr,"         -q  halt the Erlang node (overrides the -s switch)\n");
   fprintf(stderr,"         -r  use a random name for the erl_call client node\n");
   fprintf(stderr,"         -s  start a new Erlang node if necessary\n");

@@ -26,13 +26,15 @@
 -export([all/0, smoke/1,
          random_cnode_name/1,
          test_connect_to_host_port/1,
-         unresolvable_hostname/1]).
+         unresolvable_hostname/1,
+         timeout/1]).
 
 all() ->
     [smoke,
      random_cnode_name,
      test_connect_to_host_port,
-     unresolvable_hostname].
+     unresolvable_hostname,
+     timeout].
 
 smoke(Config) when is_list(Config) ->
     Name = atom_to_list(?MODULE)
@@ -130,6 +132,21 @@ unresolvable_hostname(_Config) ->
         [_, Hostname] = string:lexemes(atom_to_list(node()), "@"),
         DefaultName = list_to_atom("c17@" ++ Hostname),
         check_eq(CNodeName, DefaultName)
+    after
+        halt_node(Name)
+    end,
+
+    ok.
+
+%% OTP-16604: Test the -timeout option
+timeout(_Config) ->
+    Name = atom_to_list(?MODULE)
+        ++ "-"
+        ++ integer_to_list(erlang:system_time(microsecond)),
+    Opts = ["-timeout", "3"],
+
+    try
+        [] = start_node_and_apply(Name, "timer sleep [10000]", Opts)
     after
         halt_node(Name)
     end,
