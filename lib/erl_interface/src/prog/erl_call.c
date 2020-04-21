@@ -80,6 +80,7 @@ struct call_flags {
     int randomp;
     int dynamic_name;
     int use_long_name;	/* indicates if -name was used, else -sname or -n */
+    int use_localhost_fallback;
     int debugp;
     int verbosep;
     int haltp;
@@ -105,6 +106,21 @@ static void* ei_chk_calloc(size_t nmemb, size_t size);
 static void* ei_chk_realloc(void *old, size_t size);
 static char* ei_chk_strdup(char *s);
 
+/* Converts the given hostname to a shortname, if required. */
+static void format_node_hostname(const struct call_flags *flags,
+                                 const char *hostname,
+                                 char dst[EI_MAXHOSTNAMELEN + 1])
+{
+    char *ct;
+
+    strncpy(dst, hostname, EI_MAXHOSTNAMELEN);
+    dst[EI_MAXHOSTNAMELEN] = '\0';
+
+    /* If shortnames, cut off the name at first '.' */
+    if (flags->use_long_name == 0 && (ct = strchr(dst, '.'))) {
+        *ct = '\0';
+    }
+}
 
 /***************************************************************************
  *
@@ -119,7 +135,6 @@ int main(int argc, char *argv[])
     char host_name[EI_MAXHOSTNAMELEN+1];
     char nodename[MAXNODELEN+1];
     char *p = NULL;
-    char *ct = NULL; /* temporary used when truncating nodename */
     int modsize = 0;
     char *host = NULL;
     char *module = NULL;
@@ -177,6 +192,10 @@ int main(int argc, char *argv[])
                 }
                 i++;
             }
+        } else if (strcmp(argv[i], "-__uh_test__") == 0) {
+            /* Fakes a failure in the call to ei_gethostbyname(h_hostname) so
+             * we can test the localhost fallback. */
+            flags.use_localhost_fallback = 1;
 	} else {
 	    if (strlen(argv[i]) != 2) {
 		usage_error(progname, argv[i]);
@@ -312,23 +331,24 @@ int main(int argc, char *argv[])
       char *h_nodename = h_nodename_buf;
       char *h_alivename = flags.hidden;
       struct in_addr h_ipadr;
-      char* ct;
 
       /* gethostname requires len to be max(hostname) + 1 */
       if (gethostname(h_hostname, EI_MAXHOSTNAMELEN+1) < 0) {
-	  fprintf(stderr,"erl_call: failed to get host name: %d\n", errno);
-	  exit(1);
+          fprintf(stderr,"erl_call: failed to get host name: %d\n", errno);
+          exit(1);
       }
-      if ((hp = ei_gethostbyname(h_hostname)) == 0) {
-	  fprintf(stderr,"erl_call: can't resolve hostname %s\n", h_hostname);
-	  exit(1);
+
+      if (flags.use_localhost_fallback || (hp = ei_gethostbyname(h_hostname)) == 0) {
+          /* Failed to resolve our own hostname; try binding to loopback and
+           * hope for the best. */
+          hp = ei_gethostbyname("localhost");
+          flags.use_localhost_fallback = 1;
+
+          format_node_hostname(&flags, h_hostname, h_hostname);
+      } else {
+          format_node_hostname(&flags, hp->h_name, h_hostname);
       }
-      /* If shortnames, cut off the name at first '.' */
-      if (flags.use_long_name == 0 && (ct = strchr(hp->h_name, '.')) != NULL) {
-	  *ct = '\0';
-      }
-      strncpy(h_hostname, hp->h_name, EI_MAXHOSTNAMELEN);
-      h_hostname[EI_MAXHOSTNAMELEN] = '\0';
+
       memcpy(&h_ipadr.s_addr, *hp->h_addr_list, sizeof(struct in_addr));
       if (h_alivename) {
           if (strlen(h_alivename) + strlen(h_hostname) + 2 > sizeof(h_nodename_buf)) {
@@ -364,20 +384,21 @@ int main(int argc, char *argv[])
 	host = p+1;
     }
 
-    /* 
-     * Expand name to a real name (may be ip-address) 
-     */
-    /* FIXME better error string */
-    if ((hp = ei_gethostbyname(host)) == 0) {
-	fprintf(stderr,"erl_call: can't ei_gethostbyname(%s)\n", host);
-	exit(1);
+    if (flags.use_localhost_fallback && strcmp(host, ei_thishostname(&ec)) == 0) {
+        /* We're on the same host *and* have used the localhost fallback, so we
+         * skip canonical name resolution since it's bound to fail.
+         *
+         * `ei_connect` will do the right thing later on. */
+        strcpy(host_name, ei_thishostname(&ec));
+    } else {
+        if ((hp = ei_gethostbyname(host)) == 0) {
+            fprintf(stderr,"erl_call: can't ei_gethostbyname(%s)\n", host);
+            exit(1);
+        }
+
+        format_node_hostname(&flags, hp->h_name, host_name);
     }
-    /* If shortnames, cut off the name at first '.' */
-    if (flags.use_long_name == 0 && (ct = strchr(hp->h_name, '.')) != NULL) {
-	*ct = '\0';
-    }
-    strncpy(host_name, hp->h_name, EI_MAXHOSTNAMELEN);
-    host_name[EI_MAXHOSTNAMELEN] = '\0';
+
     if (flags.port == -1) {
         if (strlen(flags.node) + strlen(host_name) + 2 > sizeof(nodename)) {
             fprintf(stderr,"erl_call: nodename too long: %s\n", flags.node);
