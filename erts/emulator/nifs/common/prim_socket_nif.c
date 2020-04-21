@@ -965,9 +965,6 @@ typedef struct {
     ESockCounter       writeTries;
     ESockCounter       writeWaits;
     ESockCounter       writeFails;
-    /* Connect */
-    ESockAddress       remote;
-    socklen_t          addrLen;
     /* +++ Connector +++ */
     ESockRequestor     connector;
     ESockRequestor*    connectorP;
@@ -1270,19 +1267,16 @@ static ERL_NIF_TERM esock_accept_listening_accept(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
                                                   ERL_NIF_TERM     sockRef,
                                                   SOCKET           accSock,
-                                                  ErlNifPid        caller,
-                                                  ESockAddress*    remote,
-                                                  unsigned int len);
+                                                  ErlNifPid        caller);
 static ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
                                                    ESockDescriptor* descP,
                                                    ERL_NIF_TERM     sockRef,
                                                    ERL_NIF_TERM     ref);
-static ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
-                                                          ESockDescriptor* descP,
-                                                          ERL_NIF_TERM     sockRef,
-                                                          SOCKET           accSock,
-                                                          ESockAddress*    remote,
-                                                          unsigned int     len);
+static ERL_NIF_TERM
+esock_accept_accepting_current_accept(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      SOCKET           accSock);
 static ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
                                                          ESockDescriptor* descP,
                                                          ERL_NIF_TERM     sockRef,
@@ -1302,8 +1296,6 @@ static BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                        ERL_NIF_TERM     sockRef,
                                        SOCKET           accSock,
                                        ErlNifPid        pid,
-                                       ESockAddress*    remote,
-                                       unsigned int     len,
                                        ERL_NIF_TERM*    result);
 static ERL_NIF_TERM esock_send(ErlNifEnv*       env,
                                ESockDescriptor* descP,
@@ -3519,7 +3511,6 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
  *    readers:   The number of current and waiting readers
  *    writers:   The number of current and waiting writers
  *    acceptors: The number of current and waiting acceptors
- *   (remote:    (socket) Address of the peer (if connected))
  */
 static
 ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
@@ -3534,13 +3525,6 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM readers   = esock_socket_info_readers(env, descP);
     ERL_NIF_TERM writers   = esock_socket_info_writers(env, descP);
     ERL_NIF_TERM acceptors = esock_socket_info_acceptors(env, descP);
-    BOOLEAN_T hasRemote    = descP->addrLen > 0;
-    ERL_NIF_TERM remote;
-    if ((! hasRemote) ||
-        esock_encode_sockaddr(env, &descP->remote,
-                              descP->addrLen, &remote) != NULL) {
-        remote = esock_atom_undefined; // not used
-    }
 
     {
         ERL_NIF_TERM keys[]
@@ -3552,8 +3536,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                atom_counters,
                atom_num_readers,
                atom_num_writers,
-               atom_num_acceptors,
-               atom_remote};
+               atom_num_acceptors};
         ERL_NIF_TERM vals[]
             = {domain,
                type,
@@ -3563,8 +3546,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                counters,
                readers,
                writers,
-               acceptors,
-               remote};
+               acceptors};
         ERL_NIF_TERM info;
         unsigned int numKeys  = sizeof(keys) / sizeof(ERL_NIF_TERM);
         unsigned int numVals  = sizeof(vals) / sizeof(ERL_NIF_TERM);
@@ -3576,8 +3558,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
 
         ESOCK_ASSERT( (numKeys == numVals) );
 
-        if (!MKMA(env, keys, vals,
-                  hasRemote ? numKeys : numKeys - 1, &info))
+        if (!MKMA(env, keys, vals, numKeys, &info))
             return enif_make_badarg(env);
 
         return info;
@@ -5732,16 +5713,18 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     descP->origFD       = fd;
 
     /* Check if we are already connected, if so change state */
-    descP->addrLen = sizeof(descP->remote);
-    sys_memzero((char *) &descP->remote, descP->addrLen);
-    if (sock_peer(descP->sock,
-                  (struct sockaddr*) &descP->remote,
-                  &descP->addrLen) == 0) {
-        SSDBG2( dbg, ("SOCKET", "esock_open2 -> connected\r\n") );
-        descP->writeState |= ESOCK_STATE_CONNECTED;
-    } else {
-        SSDBG2( dbg, ("SOCKET", "esock_open2 -> not connected\r\n") );
-        descP->addrLen = 0;
+    {
+        ESockAddress remote;
+        socklen_t    addrLen = sizeof(remote);
+        sys_memzero((char *) &remote, addrLen);
+        if (sock_peer(descP->sock,
+                      (struct sockaddr*) &remote,
+                      &addrLen) == 0) {
+            SSDBG2( dbg, ("SOCKET", "esock_open2 -> connected\r\n") );
+            descP->writeState |= ESOCK_STATE_CONNECTED;
+        } else {
+            SSDBG2( dbg, ("SOCKET", "esock_open2 -> not connected\r\n") );
+        }
     }
 
     /* And create the 'socket' resource */
@@ -6457,9 +6440,6 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
         SSDBG( descP, ("SOCKET", "esock_connect {%d} -> connected\r\n",
                        descP->sock) );
 
-        sys_memcpy(&descP->remote, addrP, addrLen);
-        descP->addrLen = addrLen;
-
         descP->writeState |= ESOCK_STATE_CONNECTED;
 
         return esock_atom_ok;
@@ -6534,43 +6514,44 @@ BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err)
      * This *should* work on Windows NT too, but doesn't.
      * An bug in Winsock 2.0 for Windows NT?
      *
-     * See "Unix Netwok Programming", W.R.Stevens, p 412 for a
-     * discussion about Unix portability and non blocking connect.
+     * See "Unix Netwok Programming", "The Sockets Networking API",
+     * W.R.Stevens, Volume 1, third edition, 16.4 Nonblocking 'connect',
+     * before Interrupted 'connect' (p 412) for a discussion about
+     * Unix portability and non blocking connect.
      */
 
-    int code;
+    int error = 0;
 
-    descP->addrLen = sizeof(descP->remote);
-    sys_memzero((char *) &descP->remote, descP->addrLen);
-    code = sock_peer(descP->sock,
-                     (struct sockaddr*) &descP->remote, &descP->addrLen);
-
-    if (IS_SOCKET_ERROR(code)) {
-        int save_errno = sock_errno();
-
-        descP->addrLen = 0;
-        
 #ifdef SO_ERROR
-        {
-            int error;
-            SOCKLEN_T sz = sizeof(error);
+    SOCKLEN_T sz = sizeof(error);
 
-            if ((sock_getopt(descP->sock, SOL_SOCKET, SO_ERROR,
-                             (void *)&error, &sz) == 0)
-                && (sz == sizeof(error))
-                && (error != 0)) {
-
-                *err = error;
-                return FALSE;
-            }
-        }
+    if (IS_SOCKET_ERROR(sock_getopt(descP->sock, SOL_SOCKET, SO_ERROR,
+                                    (void *)&error, &sz))) {
+        // Solaris does it this way according to W.R.Stevens
+        error = sock_errno();
+    }
+#elif 1
+    char buf[0];
+    if (IS_SOCKET_ERROR(read(descP->sock, buf, 0))) {
+        error = sock_errno();
+    }
+#else
+    /* This variant probably returns wrong error value
+     * ENOTCONN instead of the actual connect error
+     */
+    ESockAddress remote;
+    socklen_t    addrLen = sizeof(remote);
+    sys_memzero((char *) &remote, addrLen);
+    if (IS_SOCKET_ERROR(sock_peer(descP->sock,
+                                  (struct sockaddr*) &remote, &addrLen))) {
+        error = sock_errno();
+    }
 #endif
 
-        *err = save_errno;
+    if (error != 0) {
+        *err = error;
         return FALSE;
     }
-
-    *err = 0;
     return TRUE;
 }
 #endif
@@ -6753,20 +6734,15 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
         return esock_make_error(env, atom_exself);
 
     if (descP->currentAcceptorP == NULL) {
-        ESockAddress  remote;
-        unsigned int  len;
         SOCKET        accSock;
 
         /* We have no active acceptor (and therefor no acceptors in queue)
          */
 
-        len = sizeof(remote);
-        sys_memzero((char *) &remote, len);
-
         SSDBG( descP, ("SOCKET", "esock_accept {%d} -> try accept\r\n",
                        descP->sock) );
 
-        accSock = sock_accept(descP->sock, (struct sockaddr*) &remote, &len);
+        accSock = sock_accept(descP->sock, NULL, NULL);
 
         if (IS_SOCKET_ERROR(accSock)) {
             int           save_errno;
@@ -6779,7 +6755,7 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
             /* We got an incoming connection */
             return
                 esock_accept_listening_accept(env, descP, sockRef,
-                                              accSock, caller, &remote, len);
+                                              accSock, caller);
         }
     } else {
 
@@ -6885,13 +6861,11 @@ ERL_NIF_TERM esock_accept_listening_accept(ErlNifEnv*       env,
                                            ESockDescriptor* descP,
                                            ERL_NIF_TERM     sockRef,
                                            SOCKET           accSock,
-                                           ErlNifPid        caller,
-                                           ESockAddress*    remote,
-                                           unsigned int     len)
+                                           ErlNifPid        caller)
 {
     ERL_NIF_TERM res;
 
-    esock_accept_accepted(env, descP, sockRef, accSock, caller, remote, len, &res);
+    esock_accept_accepted(env, descP, sockRef, accSock, caller, &res);
     
     return res;
 }
@@ -6906,8 +6880,6 @@ ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
                                             ERL_NIF_TERM     sockRef,
                                             ERL_NIF_TERM     accRef)
 {
-    ESockAddress  remote;
-    unsigned int  len;
     SOCKET        accSock;
     int           save_errno;
     ERL_NIF_TERM  res;
@@ -6917,9 +6889,7 @@ ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
             "esock_accept_accepting_current {%d} -> try accept\r\n",
             descP->sock) );
 
-    len = sizeof(descP->remote);
-    sys_memzero((char *) &remote, len);
-    accSock = sock_accept(descP->sock, (struct sockaddr*) &remote, &len);
+    accSock = sock_accept(descP->sock, NULL, NULL);
 
     if (IS_SOCKET_ERROR(accSock)) {
 
@@ -6930,7 +6900,7 @@ ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
     } else {
 
         res = esock_accept_accepting_current_accept(env, descP, sockRef,
-                                                    accSock, &remote, len);
+                                                    accSock);
     }
 
     return res;
@@ -6945,9 +6915,7 @@ static
 ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
                                                    ESockDescriptor* descP,
                                                    ERL_NIF_TERM     sockRef,
-                                                   SOCKET           accSock,
-                                                   ESockAddress*    remote,
-                                                   unsigned int     len)
+                                                   SOCKET           accSock)
 {
     ERL_NIF_TERM res;
 
@@ -6957,7 +6925,7 @@ ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
             "\r\n", descP->sock) );
 
     if (esock_accept_accepted(env, descP, sockRef, accSock,
-                              descP->currentAcceptor.pid, remote, len, &res)) {
+                              descP->currentAcceptor.pid, &res)) {
 
         if (!activate_next_acceptor(env, descP, sockRef)) {
 
@@ -7121,8 +7089,6 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                 ERL_NIF_TERM     sockRef,
                                 SOCKET           accSock,
                                 ErlNifPid        pid,
-                                ESockAddress*    remote,
-                                unsigned int     len,
                                 ERL_NIF_TERM*    result)
 {
     ESockDescriptor* accDescP;
@@ -7179,8 +7145,6 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
         return FALSE;
     }
 
-    accDescP->remote = *remote;
-    accDescP->addrLen = len;
     SET_NONBLOCKING(accDescP->sock);
 
     descP->writeState |= ESOCK_STATE_CONNECTED;
