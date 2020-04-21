@@ -300,6 +300,7 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_merge_blocks),
           ?PASS(ssa_opt_get_tuple_element),
+          ?PASS(ssa_opt_tail_calls),
           ?PASS(ssa_opt_trim_unreachable),
           ?PASS(ssa_opt_unfold_literals)],
     passes_1(Ps, Opts).
@@ -2906,6 +2907,170 @@ unfold_arg(#b_literal{val=Val}=Lit, LitMap, X) ->
         #{} -> Lit
     end;
 unfold_arg(Expr, _LitMap, _X) -> Expr.
+
+%%%
+%%% Optimize tail calls created as the result of optimizations.
+%%%
+%%% Consider the following example of a tail call in Erlang code:
+%%%
+%%%    bar() ->
+%%%        foo().
+%%%
+%%% The SSA code for the call will look like this:
+%%%
+%%%      @ssa_ret = call (`foo`/0)
+%%%      ret @ssa_ret
+%%%
+%%% Sometimes optimizations create new tail calls. Consider this
+%%% slight variation of the example:
+%%%
+%%%    bar() ->
+%%%        {_,_} = foo().
+%%%
+%%%    foo() -> {a,b}.
+%%%
+%%% If beam_ssa_type can figure out that `foo/0` always returns a tuple
+%%% of size two, the test for a tuple is no longer needed and the call
+%%% to `foo/0` will become a tail call. However, the resulting SSA
+%%% code will look like this:
+%%%
+%%%      @ssa_ret = call (`foo`/0)
+%%%      @ssa_bool = succeeded:body @ssa_ret
+%%%      br @ssa_bool, ^999, ^1
+%%%
+%%%    999:
+%%%      ret @ssa_ret
+%%%
+%%% The beam_ssa_codegen pass will not recognize this code as a tail
+%%% call and will generate an unncessary stack frame. It may also
+%%% generate unecessary `kill` instructions.
+%%%
+%%% To avoid those extra instructions, this optimization will
+%%% eliminate the `succeeded:body` and `br` instructions and insert
+%%% the `ret` in the same block as the call:
+%%%
+%%%      @ssa_ret = call (`foo`/0)
+%%%      ret @ssa_ret
+%%%
+%%% Finally, consider this example:
+%%%
+%%%    bar() ->
+%%%        foo_ok(),
+%%%        ok.
+%%%
+%%%    foo_ok() -> ok.
+%%%
+%%% The SSA code for the call to `foo_ok/0` will look like:
+%%%
+%%%      %% Result type: `ok`
+%%%      @ssa_ignored = call (`foo_ok`/0)
+%%%      @ssa_bool = succeeded:body @ssa_ignored
+%%%      br @ssa_bool, ^999, ^1
+%%%
+%%%    999:
+%%%      ret `ok`
+%%%
+%%% Since the call to `foo_ok/0` has an annotation indicating that the
+%%% call will always return the atom `ok`, the code can be simplified
+%%% like this:
+%%%
+%%%      @ssa_ignored = call (`foo_ok`/0)
+%%%      ret @ssa_ignored
+%%%
+%%% The beam_jump pass does the same optimization, but it does it too
+%%% late to avoid creating an uncessary stack frame or unnecessary
+%%% `kill` instructions.
+%%%
+
+ssa_opt_tail_calls({St,FuncDb}) ->
+    #opt_st{ssa=Blocks0} = St,
+    Blocks = opt_tail_calls(beam_ssa:rpo(Blocks0), Blocks0),
+    {St#opt_st{ssa=Blocks},FuncDb}.
+
+opt_tail_calls([L|Ls], Blocks0) ->
+    #b_blk{is=Is0,last=Last} = Blk0 = map_get(L, Blocks0),
+
+    %% Does this block end with a two-way branch whose success
+    %% label targets an empty block with a `ret` terminator?
+    case is_potential_tail_call(Last, Blocks0) of
+        {yes,Bool,Ret} ->
+            %% Yes, `Ret` is the value returned from that block
+            %% (either a variable or literal). Do the instructions
+            %% in this block end with a `call` instruction that
+            %% returns the same value as `Ret`, followed by a
+            %% `succeeded:body` instruction?
+            case is_tail_call_is(Is0, Bool, Ret, []) of
+                {yes,Is,Var} ->
+                    %% Yes, this is a tail call. `Is` is the instructions
+                    %% in the block with `succeeded:body` removed, and
+                    %% `Var` is the destination variable for the return
+                    %% value of the call. Rewrite this block to directly
+                    %% return `Var`.
+                    Blk = Blk0#b_blk{is=Is,last=#b_ret{arg=Var}},
+                    Blocks = Blocks0#{L:=Blk},
+                    opt_tail_calls(Ls, Blocks);
+                no ->
+                    %% No, the block does not end with a call, or the
+                    %% the call instruction has not the same value
+                    %% as `Ret`.
+                    opt_tail_calls(Ls, Blocks0)
+            end;
+        no ->
+            opt_tail_calls(Ls, Blocks0)
+    end;
+opt_tail_calls([], Blocks) -> Blocks.
+
+is_potential_tail_call(#b_br{bool=#b_var{}=Bool,succ=Succ}, Blocks) ->
+    case Blocks of
+        #{Succ := #b_blk{is=[],last=#b_ret{arg=Arg}}} ->
+            %% This could be a tail call.
+            {yes,Bool,Arg};
+        #{} ->
+            %% The block is not empty or does not have a `ret` terminator.
+            no
+    end;
+is_potential_tail_call(_, _) ->
+    %% Not a two-way branch (a `succeeded:body` instruction must be
+    %% followed by a two-way branch).
+    no.
+
+is_tail_call_is([#b_set{op=call,dst=Dst}=Call,
+                 #b_set{op={succeeded,body},dst=Bool}],
+                Bool, Ret, Acc) ->
+    IsTailCall =
+        case Ret of
+            #b_literal{val=Val} ->
+                %% The return value for this function is a literal.
+                %% Now test whether it is the same literal that the
+                %% `call` instruction returns.
+                Type = beam_ssa:get_anno(result_type, Call, any),
+                case beam_types:get_singleton_value(Type) of
+                    {ok,Val} ->
+                        %% Same value.
+                        true;
+                    {ok,_} ->
+                        %% Wrong value.
+                        false;
+                    error ->
+                        %% The type for the return value is not a singleton value.
+                        false
+                end;
+            #b_var{} ->
+                %% It is a tail call if the variable set by the `call` instruction
+                %% is the same variable as the argument for the `ret` terminator.
+                Ret =:= Dst
+        end,
+    case IsTailCall of
+        true ->
+            %% Return the instructions in the block with `succeeded:body` removed.
+            Is = reverse(Acc, [Call]),
+            {yes,Is,Dst};
+        false ->
+            no
+    end;
+is_tail_call_is([I|Is], Bool, Ret, Acc) ->
+    is_tail_call_is(Is, Bool, Ret, [I|Acc]);
+is_tail_call_is([], _Bool, _Ret, _Acc) -> no.
 
 %%%
 %%% Common utilities.
