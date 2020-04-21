@@ -1006,8 +1006,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	</desc>
       </datatype>
 
-      <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - SERVER </datatype_title>
-
+      <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - SERVER</datatype_title>
 
       <datatype>
 	<name name="server_option"/>
