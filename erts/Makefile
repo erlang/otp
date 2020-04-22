@@ -79,6 +79,7 @@ local_setup:
 		cp $(ERL_TOP)/bin/$(TARGET)/ct_run.exe $(ERL_TOP)/bin/ct_run.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erlc.exe $(ERL_TOP)/bin/erlc.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erl.exe $(ERL_TOP)/bin/erl.exe; \
+		cp $(ERL_TOP)/bin/$(TARGET)/erl_call.exe $(ERL_TOP)/bin/erl_call.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/werl.exe $(ERL_TOP)/bin/werl.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/escript.exe $(ERL_TOP)/bin/escript.exe; \
 	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
@@ -94,6 +95,7 @@ local_setup:
 		-e "s;%TARGET%;$(TARGET);"    \
 		-e "s;%VSN%;$(VSN);"    \
 	        $(ERL_TOP)/erts/etc/unix/cerl.src > $(ERL_TOP)/bin/cerl; \
+		cp $(ERL_TOP)/bin/$(TARGET)/erl_call $(ERL_TOP)/bin/erl_call; \
 		cp $(ERL_TOP)/bin/$(TARGET)/dialyzer $(ERL_TOP)/bin/dialyzer; \
 		cp $(ERL_TOP)/bin/$(TARGET)/typer $(ERL_TOP)/bin/typer; \
 		cp $(ERL_TOP)/bin/$(TARGET)/ct_run $(ERL_TOP)/bin/ct_run; \

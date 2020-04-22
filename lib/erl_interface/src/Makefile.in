@@ -745,9 +745,7 @@ release: opt
 	$(INSTALL_DATA) $(HEADERS)     "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELSYSDIR)/lib"
 	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELEASE_PATH)/usr/lib"
-ifneq ($(EXE_TARGETS),)
 	$(INSTALL_PROGRAM) $(EXE_TARGETS) "$(RELSYSDIR)/bin"
-endif
 	$(INSTALL_DATA) $(EXTRA)        "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) connect/*.[ch]  "$(RELSYSDIR)/src/connect"
 	$(INSTALL_DATA) decode/*.[ch]   "$(RELSYSDIR)/src/decode"
