@@ -1585,6 +1585,16 @@ preloaded() ->
            prim_inet,prim_zip,zlib]).
 
 %%______________________________________________________________________
+%% This is the erts binaries that should *not* be part of a systool:make_tar package
+
+erts_binary_filter() ->
+    Cmds = ["typer", "dialyzer", "ct_run", "yielding_c_fun", "erlc"],
+    case os:type() of
+        {unix,_} -> Cmds;
+        {win32,_} -> [ [Cmd, ".exe"] || Cmd <- Cmds]
+    end.
+
+%%______________________________________________________________________
 %% Kernel processes; processes that are specially treated by the init
 %% process. If a kernel process terminates the whole system terminates.
 %% kernel_processes() -> [{Name, Mod, Func, Args}]
@@ -1973,17 +1983,25 @@ add_priv(ADir, ToDir, Tar) ->
     end.
 
 add_erts_bin(Tar, Release, Flags) ->
-    case get_flag(erts,Flags) of
-	{erts,ErtsDir} ->
-	    EVsn = Release#release.erts_vsn,
-	    FromDir = filename:join([to_list(ErtsDir),
-				     "erts-" ++ EVsn, "bin"]),
-	    dirp(FromDir),
-	    ToDir = filename:join("erts-" ++ EVsn, "bin"),
-	    add_to_tar(Tar, FromDir, ToDir);
+    case {get_flag(erts,Flags),member(erts_all,Flags)} of
+	{{erts,ErtsDir},true} ->
+            add_erts_bin(Tar, Release, ErtsDir, []);
+	{{erts,ErtsDir},false} ->
+            add_erts_bin(Tar, Release, ErtsDir, erts_binary_filter());
 	_ ->
 	    ok
     end.
+
+add_erts_bin(Tar, Release, ErtsDir, Filters) ->
+    FlattenedFilters = [filename:flatten(Filter) || Filter <- Filters],
+    EVsn = Release#release.erts_vsn,
+    FromDir = filename:join([to_list(ErtsDir),
+                             "erts-" ++ EVsn, "bin"]),
+    ToDir = filename:join("erts-" ++ EVsn, "bin"),
+    {ok, Bins} = file:list_dir(FromDir),
+    [add_to_tar(Tar, filename:join(FromDir,Bin), filename:join(ToDir,Bin))
+     || Bin <- Bins, not lists:member(Bin, FlattenedFilters)],
+    ok.
 
 %%______________________________________________________________________
 %% Tar functions.
@@ -2246,6 +2264,8 @@ cat([{dirs, D} | Args], X) ->
     end;
 %%% erts ---------------------------------------------------------------
 cat([{erts, E} | Args], X) when is_list(E)->
+    cat(Args, X);
+cat([erts_all | Args], X) ->
     cat(Args, X);
 %%% src_tests ----------------------------------------------------
 cat([src_tests | Args], X) ->

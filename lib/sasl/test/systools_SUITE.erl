@@ -69,7 +69,7 @@ groups() ->
       [tar_options, relname_tar, normal_tar, no_mod_vsn_tar, system_files_tar,
        system_src_file_tar, invalid_system_files_tar, variable_tar,
        src_tests_tar, var_tar, exref_tar, link_tar, no_sasl_tar,
-       otp_9507_path_ebin, additional_files_tar]},
+       otp_9507_path_ebin, additional_files_tar, erts_tar]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
        no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
@@ -1041,12 +1041,89 @@ additional_files_tar(Config) ->
 
     ok.
 
-
 system_files_tar(cleanup,Config) ->
     Dir = ?privdir,
     file:delete(filename:join(Dir,"sys.config")),
     file:delete(filename:join(Dir,"relup")),
     ok.
+
+erts_tar(Config) ->
+
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(current_all,Config),
+
+    ERTS_VSN = erlang:system_info(version),
+    ERTS_DIR = fname(["erts-" ++ ERTS_VSN,bin]),
+
+    %% List of all expected executable files in erts/bin
+    %% This list needs to be kept up to date whenever a file is
+    %% added or removed.
+    {Default, Ignored} =
+        case os:type()  of
+            {unix,_} ->
+                {["beam.smp","dyn_erl","epmd","erl","erl_call","erl_child_setup",
+                  "erlexec","erl.src","escript","heart","inet_gethost","run_erl",
+                  "start","start_erl.src","start.src","to_erl"],
+                 ["ct_run","dialyzer","erlc","typer","yielding_c_fun"]};
+            {win32, _} ->
+                {["beam.smp.pdb","erl.exe",
+                  "erl.pdb","erl_log.exe","erlexec.dll","erlsrv.exe","heart.exe",
+                  "start_erl.exe","werl.exe","beam.smp.dll",
+                  "epmd.exe","erl.ini","erl_call.exe",
+                  "erlexec.pdb","escript.exe","inet_gethost.exe","werl.pdb"],
+                 ["dialyzer.exe","erlc.exe","yielding_c_fun.exe","ct_run.exe","typer.exe"]}
+        end,
+
+    ErtsTarContent =
+        fun(TarName) ->
+                lists:sort(
+                  [filename:basename(File)
+                   || File <- tar_contents(TarName),
+                      string:equal(filename:dirname(File),ERTS_DIR),
+                      %% Filter out beam.*.smp.*
+                      re:run(filename:basename(File), "beam\\.[^\\.]+\\.smp(\\.dll)?") == nomatch,
+                      %% Filter out any erl_child_setup.*
+                      re:run(filename:basename(File), "erl_child_setup\\..*") == nomatch
+                  ])
+        end,
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, "start"}]),
+    ok = systools:make_tar(LatestName, [{path, P}, {erts, code:root_dir()}]),
+    ErtsContent = ErtsTarContent(LatestName),
+
+    case lists:sort(Default) of
+        ErtsContent ->
+            ok;
+        Expected ->
+            ct:pal("Content: ~p",[ErtsContent]),
+            ct:pal("Expected: ~p",[Expected]),
+            ct:fail("Incorrect erts bin content")
+    end,
+
+    ok = systools:make_tar(LatestName, [{path, P},
+                                        {erts, code:root_dir()},
+                                        erts_all]),
+    ErtsAllContent = ErtsTarContent(LatestName),
+
+    case lists:sort(Default ++ Ignored) of
+        ErtsAllContent ->
+            ok;
+        ExpectedIgn ->
+            ct:pal("Content: ~p",[ErtsAllContent]),
+            ct:pal("Expected: ~p",[ExpectedIgn]),
+            ct:fail("Incorrect erts bin content")
+    end,
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
 
 %% make_tar: Check that sys.config.src and not sys.config is included
 system_src_file_tar(Config) ->
@@ -2342,7 +2419,7 @@ delete_tree(Dir) ->
     end.
 
 tar_contents(Name) ->
-    {ok, Cont} = erl_tar:table(Name ++ ".tar.gz", [compressed]),
+    {ok, Cont} = erl_tar:table(tar_name(Name), [compressed]),
     Cont.
 
 tar_name(Name) ->

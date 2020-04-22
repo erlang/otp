@@ -62,8 +62,32 @@ make_script(RelName, Opt) ->
 %% release package and erts specifies that the erts-Vsn/bin directory
 %% should be included in the release package and there it can be found.
 %%-----------------------------------------------------------------
+-spec make_tar(Name) -> Result when
+      Name :: string(),
+      Result :: ok | error | {ok, Module :: module(), Warnings :: term()} |
+                {error, Module :: module(), Error :: term()}.
 make_tar(RelName) -> make_tar(RelName, []).
 
+-spec make_tar(Name, Opts) -> Result when
+      Name :: string(),
+      Opts :: [Opt],
+      Opt :: {dirs,[IncDir]} | {path,[Dir]} |
+             {variables,[Var]} | {var_tar,VarTar} |
+             {erts,Dir} | erts_all | src_tests | exref |
+             {exref,[App]} | silent | {outdir,Dir} |
+             no_warn_sasl | warnings_as_errors |
+             {extra_files, ExtraFiles},
+      Dir :: file:filename_all(),
+      IncDir :: src | include | atom(),
+      Var :: {VarName,PreFix},
+      VarName :: string(),
+      PreFix :: string(),
+      VarTar :: include | ownfile | omit,
+      App :: atom(),
+      Result :: ok | error | {ok, Module :: module(), Warnings :: term()} |
+                {error, Module :: module(), Error :: term()},
+      ExtraFiles :: [{NameInArchive, file:filename_all()}],
+      NameInArchive :: string().
 make_tar(RelName, Opt) ->
     systools_make:make_tar(RelName, Opt).
 

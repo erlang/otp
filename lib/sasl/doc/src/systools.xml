@@ -251,8 +251,8 @@
           warnings are issued for calls to undefined functions.</p>
         <p>By default, errors and warnings are printed to tty and
           the function returns <c>ok</c> or <c>error</c>. If option
-          <c>silent</c> is specified, the function instead returns
           <c>{ok,Module,Warnings}</c> or <c>{error,Module,Error}</c>.
+          <c>silent</c> is specified, the function instead returns
           Warnings and errors can be converted to strings by calling
           <c>Module:format_warning(Warnings)</c> or
           <c>Module:format_error(Error)</c>.</p>
@@ -265,25 +265,9 @@
     </func>
 
     <func>
-      <name since="">make_tar(Name) -> Result</name>
-      <name since="">make_tar(Name, [Opt]) -> Result</name>
+      <name name="make_tar" arity="1" since=""/>
+      <name name="make_tar" arity="2" since=""/>
       <fsummary>Creates a release package.</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | src_tests | exref | {exref,[App]} | silent | {outdir,Dir} | | no_warn_sasl | warnings_as_errors | {extra_files, ExtraFiles}</v>
-        <v>&nbsp;Dir = string()</v>
-        <v>&nbsp;IncDir = src | include | atom()</v>
-        <v>&nbsp;Var = {VarName,PreFix}</v>
-        <v>&nbsp;&nbsp;VarName = Prefix = string()</v>
-        <v>&nbsp;VarTar = include | ownfile | omit</v>
-        <v>&nbsp;Machine = atom()</v>
-        <v>&nbsp;App = atom()</v>
-        <v>Result = ok | error | {ok,Module,Warnings} | {error,Module,Error}</v>
-        <v>&nbsp;Module = atom()</v>
-        <v>&nbsp;Warning = Error = term()</v>
-        <v>&nbsp;ExtraFiles = [{NameInArchive, file:filename_all()}]</v>
-        <v>&nbsp;NameInArchive = string()</v>
-      </type>
       <desc>
         <p>Creates a release package file <c>Name.tar.gz</c>.
           This file must be uncompressed and unpacked on the target
@@ -364,8 +348,10 @@ myapp-1/ebin/myapp.app
           specified using option <c>path</c>. In the case of <c>sys.config</c>
           it is not included if <c>sys.config.src</c> is found.</p>
         <p>If the release package is to contain a new Erlang runtime
-          system, the <c>bin</c> directory of the specified runtime
-          system <c>{erts,Dir}</c> is copied to <c>erts-ErtsVsn/bin</c>.</p>
+          system, the <c>erts-ErtsVsn/bin</c> directory of the specified runtime
+          system <c>{erts,Dir}</c> is copied to <c>erts-ErtsVsn/bin</c>. Some
+          erts executables are not copied by default, if you want to include all
+          executables you can give the <c>erts_all</c> option.</p>
         <p>All checks with function 
 	<seemfa marker="#make_script/1"><c>make_script</c></seemfa>
           are performed before the release package is created.
