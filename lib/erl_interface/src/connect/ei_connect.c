@@ -1588,27 +1588,46 @@ int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
 
     ei_x_buff x;
     erlang_pid *self = ei_self(ec);
+    int err = ERL_ERROR;
     self->num = fd;
 
     /* encode header */
-    ei_x_new_with_version(&x);
-    ei_x_encode_tuple_header(&x, 2);  /* A */
+    if (ei_x_new_with_version(&x) < 0)
+        goto einval;
+    if (ei_x_encode_tuple_header(&x, 2) < 0)  /* A */
+        goto einval;
     
-    self->num = fd;
-    ei_x_encode_pid(&x, self);	      /* A 1 */
+    if (ei_x_encode_pid(&x, self) < 0)	      /* A 1 */
+        goto einval;
     
-    ei_x_encode_tuple_header(&x, 5);  /* B A 2 */
-    ei_x_encode_atom(&x, "call");     /* B 1 */
-    ei_x_encode_atom(&x, mod);	      /* B 2 */
-    ei_x_encode_atom(&x, fun);	      /* B 3 */
-    ei_x_append_buf(&x, buf, len);    /* B 4 */
-    ei_x_encode_atom(&x, "user");     /* B 5 */
+    if (ei_x_encode_tuple_header(&x, 5) < 0)  /* B A 2 */
+        goto einval;
+    if (ei_x_encode_atom(&x, "call") < 0)     /* B 1 */
+        goto einval;
+    if (ei_x_encode_atom(&x, mod) < 0)	      /* B 2 */
+        goto einval;
+    if (ei_x_encode_atom(&x, fun) < 0)	      /* B 3 */
+        goto einval;
+    if (ei_x_append_buf(&x, buf, len) < 0)    /* B 4 */
+        goto einval;
+    if (ei_x_encode_atom(&x, "user") < 0)     /* B 5 */
+        goto einval;
+    
+    err = ei_send_reg_encoded(fd, self, "rex", x.buff, x.index);
+    if (err)
+        goto error;
+    
+    ei_x_free(&x);	
 
-    /* ei_x_encode_atom(&x,"user"); */
-    ei_send_reg_encoded(fd, self, "rex", x.buff, x.index);
-    ei_x_free(&x);
-	
     return 0;
+
+einval:
+    EI_CONN_SAVE_ERRNO__(EINVAL);
+
+error:
+    if (x.buff != NULL)
+        ei_x_free(&x);
+    return err;
 } /* rpc_to */
 
   /*
@@ -1640,13 +1659,14 @@ int ei_rpc(ei_cnode* ec, int fd, char *mod, char *fun,
     char rex[MAXATOMLEN];
 
     if (ei_rpc_to(ec, fd, mod, fun, inbuf, inbuflen) < 0) {
-	return -1;
+	return ERL_ERROR;
     }
-    /* FIXME are we not to reply to the tick? */
+
+    /* ei_rpc_from() responds with a tick if it gets one... */
     while ((i = ei_rpc_from(ec, fd, ERL_NO_TIMEOUT, &msg, x)) == ERL_TICK)
 	;
 
-    if (i == ERL_ERROR)  return -1;
+    if (i == ERL_ERROR)  return i;
     /*ep = 'erl'_element(2,emsg.msg);*/ /* {RPC_Tag, RPC_Reply} */
     index = 0;
     if (ei_decode_version(x->buff, &index, &i) < 0

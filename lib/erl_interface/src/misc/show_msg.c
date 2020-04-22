@@ -129,9 +129,9 @@ int ei_show_sendmsg(FILE *stream, const char *header, const char *msgbuf)
 
     /* skip five bytes */
     index = 5;
-    ei_decode_version(header,&index,&version);
-    ei_decode_tuple_header(header,&index,&arity);
-    ei_decode_long(header,&index,&msg.msgtype);
+    if (ei_decode_version(header,&index,&version)
+        || ei_decode_tuple_header(header,&index,&arity)
+        || ei_decode_long(header,&index,&msg.msgtype)) return -1;
 
     switch (msg.msgtype) {
     case ERL_SEND:
