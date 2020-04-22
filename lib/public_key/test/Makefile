@@ -33,7 +33,8 @@ MODULES= \
 	public_key_SUITE \
 	pbe_SUITE \
 	pkits_SUITE \
-	pubkey_ssh_SUITE
+	pubkey_ssh_SUITE \
+	pubkey_ocsp_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

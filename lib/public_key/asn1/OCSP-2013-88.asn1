@@ -1,0 +1,146 @@
+-- OCSP definition from RFC6960, 1998 Syntax
+
+OCSP-2013-88 {
+   iso(1) identified-organization(3) dod(6) internet(1)
+   security(5) mechanisms(5) pkix(7) id-mod(0)
+   id-mod-ocsp-2013-88(81)
+}
+
+DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+IMPORTS
+
+   -- PKIX Certificate Extensions
+      AuthorityInfoAccessSyntax, CRLReason, GeneralName
+      FROM PKIX1Implicit88 { iso(1) identified-organization(3)
+           dod(6) internet(1) security(5) mechanisms(5) pkix(7)
+           id-mod(0) id-pkix1-implicit(19) }
+
+      Name, CertificateSerialNumber, Extensions,
+      id-kp, id-ad-ocsp, Certificate, AlgorithmIdentifier
+      FROM PKIX1Explicit88 { iso(1) identified-organization(3)
+           dod(6) internet(1) security(5) mechanisms(5) pkix(7)
+           id-mod(0) id-pkix1-explicit(18) };
+
+OCSPRequest ::= SEQUENCE {
+   tbsRequest              TBSRequest,
+   optionalSignature   [0] EXPLICIT Signature OPTIONAL }
+
+TBSRequest ::= SEQUENCE {
+   version             [0] EXPLICIT Version DEFAULT v1,
+   requestorName       [1] EXPLICIT GeneralName OPTIONAL,
+   requestList             SEQUENCE OF Request,
+   requestExtensions   [2] EXPLICIT Extensions OPTIONAL }
+
+Signature ::= SEQUENCE {
+   signatureAlgorithm      AlgorithmIdentifier,
+   signature               BIT STRING,
+   certs               [0] EXPLICIT SEQUENCE OF Certificate OPTIONAL }
+
+Version ::= INTEGER { v1(0) }
+
+Request ::= SEQUENCE {
+   reqCert                     CertID,
+   singleRequestExtensions [0] EXPLICIT Extensions OPTIONAL }
+
+CertID ::= SEQUENCE {
+   hashAlgorithm           AlgorithmIdentifier,
+   issuerNameHash          OCTET STRING, -- Hash of issuer's DN
+   issuerKeyHash           OCTET STRING, -- Hash of issuer's public key
+   serialNumber            CertificateSerialNumber }
+
+OCSPResponse ::= SEQUENCE {
+   responseStatus          OCSPResponseStatus,
+   responseBytes       [0] EXPLICIT ResponseBytes OPTIONAL }
+
+OCSPResponseStatus ::= ENUMERATED {
+   successful          (0),  -- Response has valid confirmations
+   malformedRequest    (1),  -- Illegal confirmation request
+   internalError       (2),  -- Internal error in issuer
+   tryLater            (3),  -- Try again later
+                             -- (4) is not used
+   sigRequired         (5),  -- Must sign the request
+   unauthorized        (6)   -- Request unauthorized
+}
+
+ResponseBytes ::= SEQUENCE {
+   responseType            OBJECT IDENTIFIER,
+   response                OCTET STRING }
+
+BasicOCSPResponse ::= SEQUENCE {
+  tbsResponseData          ResponseData,
+  signatureAlgorithm       AlgorithmIdentifier,
+  signature                BIT STRING,
+  certs                [0] EXPLICIT SEQUENCE OF Certificate OPTIONAL }
+
+ResponseData ::= SEQUENCE {
+   version             [0] EXPLICIT Version DEFAULT v1,
+   responderID             ResponderID,
+   producedAt              GeneralizedTime,
+   responses               SEQUENCE OF SingleResponse,
+   responseExtensions  [1] EXPLICIT Extensions OPTIONAL }
+
+ResponderID ::= CHOICE {
+   byName              [1] Name,
+   byKey               [2] KeyHash }
+
+KeyHash ::= OCTET STRING -- SHA-1 hash of responder's public key
+                         -- (i.e., the SHA-1 hash of the value of the
+                         -- BIT STRING subjectPublicKey [excluding
+                         -- the tag, length, and number of unused
+                         -- bits] in the responder's certificate)
+
+SingleResponse ::= SEQUENCE {
+   certID                  CertID,
+   certStatus              CertStatus,
+   thisUpdate              GeneralizedTime,
+   nextUpdate          [0] EXPLICIT GeneralizedTime OPTIONAL,
+   singleExtensions    [1] EXPLICIT Extensions OPTIONAL }
+
+CertStatus ::= CHOICE {
+   good                [0] IMPLICIT NULL,
+   revoked             [1] IMPLICIT RevokedInfo,
+   unknown             [2] IMPLICIT UnknownInfo }
+
+RevokedInfo ::= SEQUENCE {
+   revocationTime          GeneralizedTime,
+   revocationReason    [0] EXPLICIT CRLReason OPTIONAL }
+
+UnknownInfo ::= NULL
+
+ArchiveCutoff ::= GeneralizedTime
+
+AcceptableResponses ::= SEQUENCE OF OBJECT IDENTIFIER
+
+ServiceLocator ::= SEQUENCE {
+   issuer                  Name,
+   locator                 AuthorityInfoAccessSyntax }
+
+CrlID ::= SEQUENCE {
+    crlUrl               [0]     EXPLICIT IA5String OPTIONAL,
+    crlNum               [1]     EXPLICIT INTEGER OPTIONAL,
+    crlTime              [2]     EXPLICIT GeneralizedTime OPTIONAL }
+
+PreferredSignatureAlgorithms ::= SEQUENCE OF PreferredSignatureAlgorithm
+
+PreferredSignatureAlgorithm ::= SEQUENCE {
+   sigIdentifier   AlgorithmIdentifier,
+   certIdentifier  AlgorithmIdentifier OPTIONAL }
+
+-- Object Identifiers
+
+id-kp-OCSPSigning            OBJECT IDENTIFIER ::= { id-kp 9 }
+id-pkix-ocsp                 OBJECT IDENTIFIER ::= { id-ad-ocsp }
+id-pkix-ocsp-basic           OBJECT IDENTIFIER ::= { id-pkix-ocsp 1 }
+id-pkix-ocsp-nonce           OBJECT IDENTIFIER ::= { id-pkix-ocsp 2 }
+id-pkix-ocsp-crl             OBJECT IDENTIFIER ::= { id-pkix-ocsp 3 }
+id-pkix-ocsp-response        OBJECT IDENTIFIER ::= { id-pkix-ocsp 4 }
+id-pkix-ocsp-nocheck         OBJECT IDENTIFIER ::= { id-pkix-ocsp 5 }
+id-pkix-ocsp-archive-cutoff  OBJECT IDENTIFIER ::= { id-pkix-ocsp 6 }
+id-pkix-ocsp-service-locator OBJECT IDENTIFIER ::= { id-pkix-ocsp 7 }
+id-pkix-ocsp-pref-sig-algs   OBJECT IDENTIFIER ::= { id-pkix-ocsp 8 }
+id-pkix-ocsp-extended-revoke OBJECT IDENTIFIER ::= { id-pkix-ocsp 9 }
+
+END

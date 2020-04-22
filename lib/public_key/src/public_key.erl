@@ -1444,7 +1444,7 @@ validate(Cert, #path_validation_state{working_issuer_name = Issuer,
 
 otp_cert(Der) when is_binary(Der) ->
     pkix_decode_cert(Der, otp);
-otp_cert(#'OTPCertificate'{} =Cert) ->
+otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert.
 
 der_cert(#'OTPCertificate'{} = Cert) ->
