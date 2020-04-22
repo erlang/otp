@@ -91,6 +91,9 @@ typedef union {
     struct sockaddr_ll ll;
 #endif
 
+    /* Max size sockaddr on system */
+    struct sockaddr_storage ss;
+
 } ESockAddress;
 
 
