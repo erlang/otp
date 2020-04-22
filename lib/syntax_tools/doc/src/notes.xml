@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove incomplete support for <c>cond</c>
+	    expressions. </p>
+          <p>
+	    Own Id: OTP-15925 Aux Id: PR-2304 </p>
+        </item>
+        <item>
+          <p>
+	    Improved indentation for code generated with
+	    <c>erl_prettypr</c> and <c>tidier</c>.</p>
+          <p>
+	    Own Id: OTP-16386 Aux Id: PR-2451 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 2.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

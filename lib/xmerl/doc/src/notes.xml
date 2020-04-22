@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.25</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that the function name didn't get
+	    normalized in some case which left white spaces in links.
+	    </p>
+          <p>
+	    Own Id: OTP-16617</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.24</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

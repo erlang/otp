@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>shell_docs.xml</file>
   </header>
-  <module since="OTP @OTP-16222@">shell_docs</module>
+  <module since="OTP 23.0">shell_docs</module>
   <modulesummary>Functions used to render EEP-48 style documentation for a shell.</modulesummary>
   <description>
     <p>This module can be used to render function and type documentation
@@ -70,45 +70,45 @@
   <funcs>
 
     <func>
-      <name name="render" arity="2" since="OTP @OTP-16222@"/>
+      <name name="render" arity="2" since="OTP 23.0"/>
       <fsummary>Render the documentation for a module.</fsummary>
       <desc>
         <p>Render the documentation for a module.</p>
       </desc>
     </func>
     <func>
-      <name name="render" arity="3" since="OTP @OTP-16222@"/>
-      <name name="render" arity="4" since="OTP @OTP-16222@"/>
+      <name name="render" arity="3" since="OTP 23.0"/>
+      <name name="render" arity="4" since="OTP 23.0"/>
       <fsummary>Render the documentation for a function.</fsummary>
       <desc>
         <p>Render the documentation for a function.</p>
       </desc>
     </func>
     <func>
-      <name name="render_type" arity="2" since="OTP @OTP-16222@"/>
+      <name name="render_type" arity="2" since="OTP 23.0"/>
       <fsummary>Render a list of all available types in a module.</fsummary>
       <desc>
         <p>Render a list of all available types in a module.</p>
       </desc>
     </func>
     <func>
-      <name name="render_type" arity="3" since="OTP @OTP-16222@"/>
-      <name name="render_type" arity="4" since="OTP @OTP-16222@"/>
+      <name name="render_type" arity="3" since="OTP 23.0"/>
+      <name name="render_type" arity="4" since="OTP 23.0"/>
       <fsummary>Render the documentation of a type in a module.</fsummary>
       <desc>
         <p>Render the documentation of a type in a module.</p>
       </desc>
     </func>
     <func>
-      <name name="render_callback" arity="2" since="OTP @OTP-16222@"/>
+      <name name="render_callback" arity="2" since="OTP 23.0"/>
       <fsummary>Render a list of all available callbacks in a module.</fsummary>
       <desc>
         <p>Render a list of all available callbacks in a module.</p>
       </desc>
     </func>
     <func>
-      <name name="render_callback" arity="3" since="OTP @OTP-16222@"/>
-      <name name="render_callback" arity="4" since="OTP @OTP-16222@"/>
+      <name name="render_callback" arity="3" since="OTP 23.0"/>
+      <name name="render_callback" arity="4" since="OTP 23.0"/>
       <fsummary>Render the documentation of a callback in a module.</fsummary>
       <desc>
         <p>Render the documentation of a callback in a module.</p>
@@ -116,7 +116,7 @@
     </func>
 
     <func>
-      <name name="validate" arity="1" since="OTP @OTP-16222@"/>
+      <name name="validate" arity="1" since="OTP 23.0"/>
       <fsummary>Validate the documentation</fsummary>
       <desc>
         <p>This function can be used to do a basic validation of
@@ -125,7 +125,7 @@
     </func>
 
     <func>
-      <name name="normalize" arity="1" since="OTP @OTP-16222@"/>
+      <name name="normalize" arity="1" since="OTP 23.0"/>
       <fsummary>Normalize the documentation</fsummary>
       <desc>
         <p>This function can be used to do whitespace normalization

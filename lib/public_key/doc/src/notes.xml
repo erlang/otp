@@ -35,6 +35,30 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added support for RSA-PSS signature schemes</p>
+          <p>
+	    Own Id: OTP-15247</p>
+        </item>
+        <item>
+          <p>
+	    Calls of deprecated functions in the <seeguide
+	    marker="crypto:new_api#the-old-api">Old Crypto
+	    API</seeguide> are replaced by calls of their <seeguide
+	    marker="crypto:new_api#the-new-api">substitutions</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16346</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.7.2</title>
 
     <section><title>Improvements and New Features</title>

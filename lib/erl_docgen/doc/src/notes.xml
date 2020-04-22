@@ -31,7 +31,53 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.11</title>
+  <section><title>Erl_Docgen 1.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Embedded documentation (also known as Documentation
+	    Chunks) is now also available in the form of files
+	    according to <url
+	    href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</url>.
+	    The Documentation Chunks are produced by default when
+	    building the other Erlang/OTP documentation. If you want
+	    to only build the embedded documentation you can pass the
+	    <c>DOC_TARGETS=chunks</c> environment variable to make.</p>
+          <p>
+	    Own Id: OTP-16406</p>
+        </item>
+        <item>
+          <p>
+	    Minor DTD additions.</p>
+          <p>
+	    Own Id: OTP-16497</p>
+        </item>
+        <item>
+          <p>
+	    The <c>seealso</c> tag has been replaced with type aware
+	    tags instead. The new tags are:
+	    <c>seemfa|seeerl|seetype|seeapp|seecom|seecref|seefile|seeguide</c>.</p>
+          <p>
+	    <c>fsdescription</c> has been added for adding a title to
+	    groups of functions, for instance Module Callbacks.</p>
+          <p>
+	    The <c>dtd</c>s of all documentation files have been
+	    trimmed from all unused or rarely-used tags.</p>
+          <p>
+	    Unused <c>dtd</c>s have been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16503</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

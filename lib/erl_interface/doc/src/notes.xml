@@ -31,6 +31,113 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 4.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>A client node can receive its node name dynamically
+	    from the node that it first connects to. This featured
+	    can by used by</p> <list> <item><p>starting with <c>erl
+	    -dist_listen false -sname undefined</c></p></item>
+	    <item><p>erl_interface functions <c>ei_connect_init</c>
+	    and friends</p></item> <item><p><c>erl_call
+	    -R</c></p></item> </list>
+          <p>
+	    Own Id: OTP-13812</p>
+        </item>
+        <item>
+          <p>
+	    Increased size of node incarnation numbers (aka
+	    "creation"), from 2 bits to 32 bits. This will reduce the
+	    risk of pids/ports/refs, from different node incarnation
+	    with the same name, being mixed up.</p>
+          <p>
+	    Own Id: OTP-15603</p>
+        </item>
+        <item>
+          <p>
+	    Fix various build issues when compiling Erlang/OTP to the
+	    IBM AIX platform.</p>
+          <p>
+	    Own Id: OTP-15866 Aux Id: PR-2110 </p>
+        </item>
+        <item>
+          <p>
+	    Improved node connection setup handshake protocol. Made
+	    possible to agree on protocol version without dependence
+	    on <c>epmd</c> or other prior knowledge of peer node
+	    version. Also added exchange of node incarnation
+	    ("creation") values and expanded the distribution
+	    capability flag field from 32 to 64 bits.</p>
+          <p>
+	    Own Id: OTP-16229</p>
+        </item>
+        <item>
+          <p>
+	    New <c>erl_call</c> option <c>-address [Host]:Port</c> to
+	    connect directly to a node without being dependent on
+	    <c>epmd</c> to resolve the node name.</p>
+          <p>
+	    Own Id: OTP-16251</p>
+        </item>
+        <item>
+          <p>
+	    As announced in OTP 22.0, the deprecated parts of
+	    <c>erl_interface</c> have now been removed (essentially
+	    all C functions with prefix <c>erl_</c>).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16328</p>
+        </item>
+        <item>
+          <p>
+	    As announced in OTP 22.0, the previously existing limited
+	    support for VxWorks has now been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16329 Aux Id: OTP-15621 </p>
+        </item>
+        <item>
+          <p>
+	    New function <c>ei_connect_host_port</c> and friends to
+	    allow node connection without being dependent on
+	    <c>epmd</c> for node name resolution.</p>
+          <p>
+	    Own Id: OTP-16496 Aux Id: OTP-16251 </p>
+        </item>
+        <item>
+          <p>
+	    A new function <seecref
+	    marker="erl_interface:ei#ei_decode_iodata"><c>ei_decode_iodata()</c></seecref>
+	    has been added.</p>
+          <p>
+	    Own Id: OTP-16594</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    The <c>ei</c> API for decoding/encoding terms is not
+	    fully 64-bit compatible since terms that have a
+	    representation on the external term format larger than 2
+	    GB cannot be handled. In order to fix this, a binary
+	    incompatible change in the API is needed. This API change
+	    is planned for OTP 24.</p>
+          <p>
+	    Own Id: OTP-16607 Aux Id: OTP-16608 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.13.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

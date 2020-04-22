@@ -283,7 +283,7 @@ typedef enum {
     </func>
 
     <func>
-      <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_decode_iodata(const char *buf, int *index, int *size, char *outbuf)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_decode_iodata(const char *buf, int *index, int *size, char *outbuf)</nametext></name>
       <fsummary>Decode iodata().</fsummary>
       <desc>
         <p>Decodes a term of the type <seeguide marker="system/reference_manual:typespec#types-and-their-syntax"><c>iodata()</c></seeguide>. The <c>iodata()</c> term will be

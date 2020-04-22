@@ -33,7 +33,31 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.1.3</title>
+  <section><title>Inets 7.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove support for deprecated functionality. Support for
+	    mod_esi eval scheme, mod_htacess, mod_browser, apache
+	    config files and deprecated httpd_conf functions are
+	    dropped. Module http_uri is deprecated.</p>
+          <p>
+	    Own Id: OTP-16252</p>
+        </item>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

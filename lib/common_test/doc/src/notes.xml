@@ -33,6 +33,44 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.19</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The function <c>ct_property_test:init_tool/1</c> is added
+	    for the cases when the user does not want
+	    ct_property_test to compile properties. init_tool/1 can
+	    be used to set the property_test_tool config value.</p>
+          <p>
+	    Own Id: OTP-16029 Aux Id: PR-2145 </p>
+        </item>
+        <item>
+          <p>
+	    The built-in Common Test Hook, <c>cth_log_redirect</c>,
+	    has been updated to use the system <c>default</c> Logger
+	    handler's configuration instead of its own. See the
+	    section on <seeguide
+	    marker="common_test:ct_hooks_chapter#built-in-cths">Built-in
+	    Hooks</seeguide> in the Common Test User's Guide.</p>
+          <p>
+	    Own Id: OTP-16273</p>
+        </item>
+        <item>
+          <p>
+	    Calls of deprecated functions in the <seeguide
+	    marker="crypto:new_api#the-old-api">Old Crypto
+	    API</seeguide> are replaced by calls of their <seeguide
+	    marker="crypto:new_api#the-new-api">substitutions</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16346</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.18.2</title>
 
     <section><title>Improvements and New Features</title>

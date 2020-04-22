@@ -31,6 +31,35 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Increased size of node incarnation numbers (aka
+	    "creation"), from 2 bits to 32 bits. This will reduce the
+	    risk of pids/ports/refs, from different node incarnation
+	    with the same name, being mixed up.</p>
+          <p>
+	    Own Id: OTP-15603</p>
+        </item>
+        <item>
+          <p>
+	    Improved node connection setup handshake protocol. Made
+	    possible to agree on protocol version without dependence
+	    on <c>epmd</c> or other prior knowledge of peer node
+	    version. Also added exchange of node incarnation
+	    ("creation") values and expanded the distribution
+	    capability flag field from 32 to 64 bits.</p>
+          <p>
+	    Own Id: OTP-16229</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

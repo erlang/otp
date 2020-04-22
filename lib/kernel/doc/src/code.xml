@@ -705,7 +705,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="all_available" arity="0" since="OTP @OTP-16494@"/>
+      <name name="all_available" arity="0" since="OTP 23.0"/>
       <fsummary>Get all available modules.</fsummary>
       <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
@@ -769,7 +769,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="get_doc" arity="1" since="OTP @OTP-16406@"/>
+      <name name="get_doc" arity="1" since="OTP 23.0"/>
       <fsummary>Gets the documentation for a module.</fsummary>
       <desc>
         <p>Searches the code path for EEP-48 style documentation and returns it

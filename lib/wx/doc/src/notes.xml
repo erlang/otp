@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.9.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.9</title>
 
     <section><title>Improvements and New Features</title>

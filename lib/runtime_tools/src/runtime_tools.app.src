@@ -29,5 +29,5 @@
     {applications, [kernel, stdlib]},
     {env,          []},
     {mod,          {runtime_tools, []}},
-    {runtime_dependencies, ["stdlib-@OTP-15251@","mnesia-4.12","kernel-@OTP-15251@",
-			    "erts-@OTP-15251:OTP-16327@"]}]}.
+    {runtime_dependencies, ["stdlib-3.13","mnesia-4.12","kernel-7.0",
+			    "erts-11.0"]}]}.

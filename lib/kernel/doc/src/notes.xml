@@ -31,6 +31,348 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 7.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix race condition during shutdown when
+	    <c>shell_history</c> is enabled. The race condition would
+	    trigger crashes in <c>disk_log</c>.</p>
+          <p>
+	    Own Id: OTP-16008 Aux Id: PR-2302 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the Erlang distribution to handle the scenario when a
+	    node connects that can handle message fragmentation but
+	    can not handle the atom cache. This bug only affects
+	    users that have implemented a custom distribution
+	    carrier. It has been present since OTP-21.</p>
+          <p>
+	    The <c>DFLAG_FRAGMENT</c> distribution flag was added to
+	    the set of flags that can be rejected by a distribution
+	    implementation.</p>
+          <p>
+	    Own Id: OTP-16284</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where a binary was not allowed to be the format
+	    string in calls to <c>logger:log</c>.</p>
+          <p>
+	    Own Id: OTP-16395 Aux Id: PR-2444 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where <c>logger</c> would end up in an infinite
+	    loop when trying to log the crash of a handler or
+	    formatter.</p>
+          <p>
+	    Own Id: OTP-16489 Aux Id: ERL-1134 </p>
+        </item>
+        <item>
+          <p>
+	    <c>code:lib_dir/1</c> has been fixed to also return the
+	    lib dir for <c>erts</c>.</p>
+          <p>
+	    This is been marked as an incompatibility for any
+	    application that depended on <c>{error,bad_name}</c> to
+	    be returned for <c>erts</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16502</p>
+        </item>
+        <item>
+          <p>
+	    The application <c>stop/1</c> callback was not called if
+	    the application master of the application terminated.</p>
+          <p>
+	    Own Id: OTP-16504 Aux Id: PR-2328 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>A new module <seeerl
+	    marker="kernel:erpc"><c>erpc</c></seeerl> has been
+	    introduced in the <c>kernel</c> application. The
+	    <c>erpc</c> module implements an enhanced subset of the
+	    operations provided by the <seeerl
+	    marker="kernel:rpc"><c>rpc</c></seeerl> module. Enhanced
+	    in the sense that it makes it possible to distinguish
+	    between returned value, raised exceptions, and other
+	    errors. <c>erpc</c> also has better performance and
+	    scalability than the original <c>rpc</c> implementation.
+	    This by utilizing the newly introduced <seemfa
+	    marker="erts:erlang#spawn_request/5"><c>spawn_request()</c></seemfa>
+	    BIF. Also the <c>rpc</c> module benefits from these
+	    improvements by utilizing <c>erpc</c> when it is
+	    possible. </p><p> This change has been marked as a
+	    potential incompatibility since <seemfa
+	    marker="kernel:rpc#block_call/5"><c>rpc:block_call()</c></seemfa>
+	    now only is guaranteed to block other <c>block_call()</c>
+	    operations. The documentation previously claimed that it
+	    would block all <c>rpc</c> operations. This has however
+	    never been the case. It previously did not block
+	    node-local <c>block_call()</c> operations.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13450 Aux Id: OTP-15251 </p>
+        </item>
+        <item>
+	    <p>A client node can receive its node name dynamically
+	    from the node that it first connects to. This featured
+	    can by used by</p> <list> <item><p>starting with <c>erl
+	    -dist_listen false -sname undefined</c></p></item>
+	    <item><p>erl_interface functions <c>ei_connect_init</c>
+	    and friends</p></item> <item><p><c>erl_call
+	    -R</c></p></item> </list>
+          <p>
+	    Own Id: OTP-13812</p>
+        </item>
+        <item>
+          <p>
+	    Improved the printout of single line logger events for
+	    most of the OTP behaviours in STDLIB and Kernel. This
+	    includes <c>proc_lib</c>, <c>gen_server</c>,
+	    <c>gen_event</c>, <c>gen_statem</c>, <c>gen_fsm</c>,
+	    <c>supervisor</c>, <c>supervisor_bridge</c> and
+	    <c>application</c>.</p>
+          <p>
+	    Improved the <seeerl
+	    marker="kernel:logger_formatter#chars_limit"><c>chars_limit</c></seeerl>
+	    and <seeerl
+	    marker="kernel:logger_formatter#depth"><c>depth</c></seeerl>
+	    handling in <c>proc_lib</c> and when formatting of
+	    exceptions.</p>
+          <p>
+	    Own Id: OTP-15299</p>
+        </item>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+        <item>
+	    <p>Directories can now be opened by <c>file:open/2</c>
+	    when passing the <c>directory</c> option.</p>
+          <p>
+	    Own Id: OTP-15835 Aux Id: PR-2212 </p>
+        </item>
+        <item>
+          <p>
+	    The check of whether to log or not based on the log level
+	    in <c>logger</c> has been optimized by using
+	    <c>persistent_term</c> to store the log level.</p>
+          <p>
+	    Own Id: OTP-15948 Aux Id: PR-2356 </p>
+        </item>
+        <item>
+	    <p><c>file:read_file_info/2</c> can now be used on opened
+	    files and directories.</p>
+          <p>
+	    Own Id: OTP-15956 Aux Id: PR-2231 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>-config</c> option to <c>erl</c> now can take
+	    multiple config files without repeating the
+	    <c>-config</c> option. Example:</p>
+          <p>
+	    erl -config sys local</p>
+          <p>
+	    Own Id: OTP-16148 Aux Id: PR-2373 </p>
+        </item>
+        <item>
+          <p>
+	    Improved node connection setup handshake protocol. Made
+	    possible to agree on protocol version without dependence
+	    on <c>epmd</c> or other prior knowledge of peer node
+	    version. Also added exchange of node incarnation
+	    ("creation") values and expanded the distribution
+	    capability flag field from 32 to 64 bits.</p>
+          <p>
+	    Own Id: OTP-16229</p>
+        </item>
+        <item>
+	    <p>The possibility to run Erlang distribution without
+	    relying on EPMD has been extended. To achieve this a
+	    couple of new options to the inet distribution has been
+	    added.</p> <taglist> <tag>-dist_listen false</tag>
+	    <item>Setup the distribution channel, but do not listen
+	    for incoming connection. This is useful when you want to
+	    use the current node to interact with another node on the
+	    same machine without it joining the entire
+	    cluster.</item> <tag>-erl_epmd_port Port</tag>
+	    <item>Configure a default port that the built-in EPMD
+	    client should return. This allows the local node to know
+	    the port to connect to for any other node in the
+	    cluster.</item> </taglist> <p>The <c>erl_epmd</c>
+	    callback API has also been extended to allow returning
+	    <c>-1</c> as the creation which means that a random
+	    creation will be created by the node.</p>
+	    <p>In addition a new callback function called
+	    <c>listen_port_please</c> has been added that allows the
+	    callback to return which listen port the distribution
+	    should use. This can be used instead of
+	    <c>inet_dist_listen_min/max</c> if the listen port is to
+	    be fetched from an external service.</p>
+          <p>
+	    Own Id: OTP-16250</p>
+        </item>
+        <item>
+          <p>
+	    A first EXPERIMENTAL module that is a <c>socket</c>
+	    backend to <c>gen_tcp</c> and <c>inet</c> has been
+	    implemented. Others will follow. Feedback will be
+	    appreciated.</p>
+          <p>
+	    Own Id: OTP-16260 Aux Id: OTP-15403 </p>
+        </item>
+        <item>
+          <p>
+	    The new experimental <c>socket</c> module has been moved
+	    to the Kernel application.</p>
+          <p>
+	    Own Id: OTP-16312</p>
+        </item>
+        <item>
+          <p>
+	    Replace usage of deprecated function in the <c>group</c>
+	    module.</p>
+          <p>
+	    Own Id: OTP-16345</p>
+        </item>
+        <item>
+          <p>
+	    Minor updates due to the new spawn improvements made.</p>
+          <p>
+	    Own Id: OTP-16368 Aux Id: OTP-15251 </p>
+        </item>
+        <item>
+          <p>
+	    Update of <seeerl
+	    marker="kernel:seq_trace#whatis">sequential
+	    tracing</seeerl> to also support other information
+	    transfers than message passing.</p>
+          <p>
+	    Own Id: OTP-16370 Aux Id: OTP-15251, OTP-15232 </p>
+        </item>
+        <item>
+	    <p><c>code:module_status/1</c> now accepts a list of
+	    modules. <c>code:module_status/0</c>, which returns the
+	    statuses for all loaded modules, has been added.</p>
+          <p>
+	    Own Id: OTP-16402</p>
+        </item>
+        <item>
+	    <p><c>filelib:wildcard/1,2</c> is now twice as fast when
+	    a double star (<c>**</c>) is part of the pattern.</p>
+          <p>
+	    Own Id: OTP-16419</p>
+        </item>
+        <item>
+	    <p> A new implementation of distributed named process
+	    groups has been introduced. It is available in the
+	    <seeerl marker="kernel:pg"><c>pg</c></seeerl> module.
+	    </p><p> Note that this <c>pg</c> module only has the name
+	    in common with the experimental <c>pg</c> module that was
+	    present in <c>stdlib</c> up until OTP 17. </p><p> Thanks
+	    to Maxim Fedorov for the implementation. </p>
+          <p>
+	    Own Id: OTP-16453 Aux Id: PR-2524 </p>
+        </item>
+        <item>
+	    <p> The <seeerl marker="kernel:pg2"><c>pg2</c></seeerl>
+	    module has been deprecated. It has also been scheduled
+	    for removal in OTP 24. </p><p> You are advised to replace
+	    the usage of <c>pg2</c> with the newly introduced <seeerl
+	    marker="kernel:pg"><c>pg</c></seeerl> module. <c>pg</c>
+	    has a similar API, but with a more scalable
+	    implementation. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16455</p>
+        </item>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    The internal hosts file resolver cache <c>inet_hosts</c>
+	    has been rewritten to behave better when the hosts file
+	    changes. For example the cache is updated per entry
+	    instead of cleared and reloaded so lookups do not
+	    temporarily fail during reloading, and; when multiple
+	    processes simultaneously request reload these are now
+	    folded into one instead of all done in sequence. Reported
+	    and first solution suggestion by Maxim Fedorov.</p>
+          <p>
+	    Own Id: OTP-16487 Aux Id: PR-2516 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>code:all_available/0</c> that can be used to get
+	    all available modules.</p>
+          <p>
+	    Own Id: OTP-16494</p>
+        </item>
+        <item>
+          <p>
+	    As of OTP 23, the distributed <seeerl
+	    marker="kernel:disk_log"><c>disk_log</c></seeerl> feature
+	    has been deprecated. It has also been scheduled for
+	    removal in OTP 24.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16495</p>
+        </item>
+        <item>
+          <p>
+	    Add the function <c>code:fetch_docs/1</c> for fetching
+	    embedded documentation for aa Erlang module.</p>
+          <p>
+	    Own Id: OTP-16499</p>
+        </item>
+        <item>
+          <p>
+	    Improve configure for the net nif, which should increase
+	    portability.</p>
+          <p>
+	    Own Id: OTP-16530 Aux Id: OTP-16464 </p>
+        </item>
+        <item>
+          <p>
+	    Allow using custom IO devices in <c>logger_std_h</c>.</p>
+          <p>
+	    Own Id: OTP-16563 Aux Id: PR-2523 </p>
+        </item>
+        <item>
+	    <p>Added <c>file:del_dir_r/1</c> which deletes a
+	    directory together with all of its contents, similar to
+	    <c>rm -rf</c> on Unix systems.</p>
+          <p>
+	    Own Id: OTP-16570 Aux Id: PR-2565 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

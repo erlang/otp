@@ -37,7 +37,31 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.18.8</title>
+  <section><title>Megaco 3.19</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    The preliminary version 3 codec(s) prev3a, prev3b and
+	    prev3c has been deprecated and will be *removed* in OTP
+	    24. The encoding config option 'version3' will continue
+	    to work until OTP 24.</p>
+          <p>
+	    Own Id: OTP-16531</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
