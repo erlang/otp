@@ -355,7 +355,7 @@ restart_with_mode(Config) when is_list(Config) ->
     ModPath = filename:dirname(code:which(?MODULE)),
 
     Quote = case os:type() of
-                {win,_} ->
+                {win32,_} ->
                     [$"];
                 {unix,_} ->
                     [$']
