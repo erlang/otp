@@ -129,9 +129,6 @@
       <name name="ip6_address"/>
     </datatype>
     <datatype>
-      <name name="ip_address"/>
-    </datatype>
-    <datatype>
       <name name="sockaddr"/>
     </datatype>
     <datatype>
@@ -901,10 +898,11 @@
       <name name="setopt" arity="4" clause_i="5" since="OTP 22.0"/>
       <name name="setopt" arity="4" clause_i="6" since="OTP 22.0"/>
       <name name="setopt" arity="4" clause_i="7" since="OTP 22.0"/>
-      <fsummary>Set options on a socket.</fsummary>
+      <name name="setopt" arity="4" clause_i="8" since="OTP 22.0"/>
+      <fsummary>Set an option on a socket.</fsummary>
       <desc>
-        <p>Set options on a socket.</p>
-	<p>What properties are valid depend both on <c>Level</c> and on
+        <p>Set an option on a socket.</p>
+	<p>What options are valid depend both on <c>Level</c> and on
 	what kind of socket it is (<c>domain</c>, <c>type</c> and
 	<c>protocol</c>).</p>
 
