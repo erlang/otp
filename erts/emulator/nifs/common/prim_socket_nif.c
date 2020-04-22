@@ -12394,7 +12394,7 @@ ERL_NIF_TERM esock_setopt_str_opt(ErlNifEnv*       env,
 
     if (GET_STR(env, eVal, val, max) > 0) {
         int optLen = strlen(val);
-        int res    = socket_setopt(descP->sock, level, opt, &val, optLen);
+        int res    = socket_setopt(descP->sock, level, opt, val, optLen);
 
         if (res != 0)
             result = esock_make_error_errno(env, sock_errno());
