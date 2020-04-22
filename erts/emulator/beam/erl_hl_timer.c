@@ -2819,6 +2819,10 @@ btm_tree_print(ErtsBifTimer *tmr, void *vbtmp, Sint reds)
 {
     int is_hlt = !!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
     ErtsMonotonicTime tpos;
+
+    if (erts_atomic32_read_nob(&tmr->btm.state) != ERTS_TMR_STATE_ACTIVE)
+	return 1;
+
     if (is_hlt)
         tpos = 0;
     else
