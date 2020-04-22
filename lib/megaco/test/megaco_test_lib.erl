@@ -750,8 +750,12 @@ linux_cpuinfo_bogomips() ->
 
 linux_cpuinfo_total_bogomips() ->
     case linux_cpuinfo_lookup("total bogomips") of
-        [TMB] ->
-            TMB;
+        [TBM] ->
+            try bogomips_to_int(TBM)
+            catch
+                _:_:_ ->
+                    "-"
+            end;
         _ ->
             "-"
     end.
