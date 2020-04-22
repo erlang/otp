@@ -5287,10 +5287,10 @@ mgr_user_async_set2(Node, TargetName, VAV, SendOpts) when is_list(TargetName) ->
 %% mgr_user_sync_get_bulk(Node, NonRep, MaxRep, Oids) ->
 %%     mgr_user_sync_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
 %% 			   NonRep, MaxRep, Oids).
-mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
-  when is_list(TargetName) ->
-    rcall(Node, snmp_manager_user, sync_get_bulk, 
-	  [TargetName, NonRep, MaxRep, Oids]).
+%% mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
+%%   when is_list(TargetName) ->
+%%     rcall(Node, snmp_manager_user, sync_get_bulk, 
+%% 	  [TargetName, NonRep, MaxRep, Oids]).
 
 mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_list(TargetName) ->
