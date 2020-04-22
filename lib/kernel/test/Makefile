@@ -155,6 +155,7 @@ ERL_COMPILE_FLAGS +=
 EBIN = .
 
 TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 
 # ----------------------------------------------------
@@ -181,6 +182,7 @@ clean:
 docs:
 
 targets: $(TARGETS)
+socket_targets: $(SOCKET_TARGETS)
 
 
 # ----------------------------------------------------
