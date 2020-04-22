@@ -30492,18 +30492,18 @@ format_counters(Type, Counters) when (Type =:= listen) orelse (Type =:= traffic)
     format_counters("   ", Type, Counters).
 
 format_counters(Prefix, traffic, Counters) ->
-    ReadByte    = proplists:get_value(read_byte,     Counters, -1),
-    ReadFails   = proplists:get_value(read_fails,    Counters, -1),
-    ReadPkg     = proplists:get_value(read_pkg,      Counters, -1),
-    ReadPkgMax  = proplists:get_value(read_pkg_max,  Counters, -1),
-    ReadTries   = proplists:get_value(read_tries,    Counters, -1),
-    ReadWaits   = proplists:get_value(read_waits,    Counters, -1),
-    WriteByte   = proplists:get_value(write_byte,    Counters, -1),
-    WriteFails  = proplists:get_value(write_fails,   Counters, -1),
-    WritePkg    = proplists:get_value(write_pkg,     Counters, -1),
-    WritePkgMax = proplists:get_value(write_pkg_max, Counters, -1),
-    WriteTries  = proplists:get_value(write_tries,   Counters, -1),
-    WriteWaits  = proplists:get_value(write_waits,   Counters, -1),
+    ReadByte    = maps:get(read_byte,     Counters, -1),
+    ReadFails   = maps:get(read_fails,    Counters, -1),
+    ReadPkg     = maps:get(read_pkg,      Counters, -1),
+    ReadPkgMax  = maps:get(read_pkg_max,  Counters, -1),
+    ReadTries   = maps:get(read_tries,    Counters, -1),
+    ReadWaits   = maps:get(read_waits,    Counters, -1),
+    WriteByte   = maps:get(write_byte,    Counters, -1),
+    WriteFails  = maps:get(write_fails,   Counters, -1),
+    WritePkg    = maps:get(write_pkg,     Counters, -1),
+    WritePkgMax = maps:get(write_pkg_max, Counters, -1),
+    WriteTries  = maps:get(write_tries,   Counters, -1),
+    WriteWaits  = maps:get(write_waits,   Counters, -1),
     f("~n~sNumber Of Read Bytes:     ~p"
       "~n~sNumber Of Read Fails:     ~p"
       "~n~sNumber Of Read Packages:  ~p"
@@ -30530,10 +30530,10 @@ format_counters(Prefix, traffic, Counters) ->
        Prefix, WritePkgMax]);
 
 format_counters(Prefix, listen, Counters) ->
-    AccSuccess = proplists:get_value(acc_success, Counters, -1),
-    AccFails   = proplists:get_value(acc_fails,   Counters, -1),
-    AccTries   = proplists:get_value(acc_tries,   Counters, -1),
-    AccWaits   = proplists:get_value(acc_waits,   Counters, -1),
+    AccSuccess = maps:get(acc_success, Counters, -1),
+    AccFails   = maps:get(acc_fails,   Counters, -1),
+    AccTries   = maps:get(acc_tries,   Counters, -1),
+    AccWaits   = maps:get(acc_waits,   Counters, -1),
     f("~n~sNumber Of Successful Accepts: ~p"
       "~n~sNumber Of Failed Accepts:     ~p"
       "~n~sNumber Of Accept Attempts:    ~p"
@@ -30588,10 +30588,17 @@ ensure_counters([{Cnt, Val}|DefCounters], Counters, Acc) ->
     end.
 
 traffic_sar_counters_validation(Counters) ->
-    traffic_sar_counters_validation2(Counters, zero_counters()).
+    %% ?SEV_IPRINT("traffic_sar_counters_validation -> entry with"
+    %%             "~n   Counters: ~p", [Counters]),
+    traffic_sar_counters_validation2(maps:to_list(Counters),
+                                     zero_counters()).
 
 traffic_sar_counters_validation(Counters, ValidateCounters) ->
-    traffic_sar_counters_validation2(Counters, ensure_counters(ValidateCounters)).
+    %% ?SEV_IPRINT("traffic_sar_counters_validation -> entry with"
+    %%             "~n   Counters:          ~p"
+    %%             "~n   Validate Counters: ~p", [Counters, ValidateCounters]),
+    traffic_sar_counters_validation2(maps:to_list(Counters),
+                                     ensure_counters(ValidateCounters)).
 
 traffic_sar_counters_validation2(Counters, []) ->
     %% ?SEV_IPRINT("traffic_sar_counters_validation2 -> Remaining Counters: "
@@ -30618,7 +30625,8 @@ traffic_sar_counters_validation2(Counters, [{Cnt, Val}|ValidateCounters]) ->
             Counters2 = lists:keydelete(Cnt, 1, Counters),
             traffic_sar_counters_validation2(Counters2, ValidateCounters);
         {value, {Cnt, InvVal}} ->
-            ?SEV_EPRINT("traffic_sar_counters_validation2 -> ~w validation failed: "
+            ?SEV_EPRINT("traffic_sar_counters_validation2 -> "
+                        "~w validation failed: "
                         "~n   Expected Value: ~p"
                         "~n   Actual Value:   ~p", [Cnt, Val, InvVal]),
             {error, {invalid_counter, Cnt, InvVal, Val}};
