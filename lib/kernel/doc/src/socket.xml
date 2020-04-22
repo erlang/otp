@@ -117,9 +117,6 @@
       <name name="socket_counters"/>
     </datatype>
     <datatype>
-      <name name="socket_counter"/>
-    </datatype>
-    <datatype>
       <name name="socket_info"/>
     </datatype>
     <datatype>
