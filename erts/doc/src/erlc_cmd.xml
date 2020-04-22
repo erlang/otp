@@ -106,7 +106,7 @@
           must be quoted. Terms containing spaces
           must be quoted on all platforms.</p>
       </item>
-      <tag><c>-W&lt;Error&gt;</c></tag>
+      <tag><c>-WError</c></tag>
       <item>
         <p>Makes all warnings into errors.</p>
       </item>
