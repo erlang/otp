@@ -835,7 +835,7 @@ skip(Reason, Module, Line) ->
 %% when analyzing the test suite (results).
 %% It also returns a "factor" that can be used when deciding 
 %% the load for some test cases. Such as run time or number of
-%% iteraions. This only works for some OSes.
+%% iterations. This only works for some OSes.
 %%
 %% We make some calculations on Linux, OpenBSD and FreeBSD.
 %% On SunOS we always set the factor to 2 (just to be on the safe side)
@@ -885,28 +885,35 @@ analyze_and_print_host_info() ->
     end.
 
 linux_which_distro(Version) ->
-    case [string:trim(S) ||
-             S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-        [DistroStr|_] ->
-            io:format("Linux: ~s"
-                      "~n   ~s"
-                      "~n",
-                      [Version, DistroStr]),
-            case DistroStr of
-                "Wind River Linux" ++ _ ->
-                    wind_river;
-                "MontaVista" ++ _ ->
-                    montavista;
-                "Yellow Dog" ++ _ ->
-                    yellow_dog;
-                _ ->
+    case file:read_file_info("/etc/issue") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
+                [DistroStr|_] ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, DistroStr]),
+                    case DistroStr of
+                        "Wind River Linux" ++ _ ->
+                            wind_river;
+                        "MontaVista" ++ _ ->
+                            montavista;
+                        "Yellow Dog" ++ _ ->
+                            yellow_dog;
+                        _ ->
+                            other
+                    end;
+                X ->
+                    io:format("Linux: ~s"
+                              "~n   ~p"
+                              "~n",
+                              [Version, X]),
                     other
             end;
-        X ->
+        _ ->
             io:format("Linux: ~s"
-                      "~n   ~p"
-                      "~n",
-                      [Version, X]),
+                      "~n", [Version]),
             other
     end.
     
@@ -924,9 +931,10 @@ analyze_and_print_linux_host_info(Version) ->
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
                 io:format("CPU: "
-                          "~n   Model:    ~s"
-                          "~n   BogoMIPS: ~w"
-                          "~n", [CPU, BogoMIPS]),
+                          "~n   Model:          ~s"
+                          "~n   BogoMIPS:       ~w"
+                          "~n   Num Schedulers: ~s"
+                          "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 if
                     (BogoMIPS > 20000) ->
                         1;
@@ -943,9 +951,16 @@ analyze_and_print_linux_host_info(Version) ->
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
-                          "~n   Model: ~s"
-                          "~n", [CPU]),
-                2;
+                          "~n   Model:          ~s"
+                          "~n   Num Schedulers: ~s"
+                          "~n", [CPU, str_num_schedulers()]),
+                NumChed = erlang:system_info(schedulers),
+                if
+                    (NumChed > 2) ->
+                        2;
+                    true ->
+                        5
+                end;
             _ ->
                 5
         end,
@@ -995,8 +1010,12 @@ linux_cpuinfo_bogomips() ->
 
 linux_cpuinfo_total_bogomips() ->
     case linux_cpuinfo_lookup("total bogomips") of
-        [TMB] ->
-            TMB;
+        [TBM] ->
+            try bogomips_to_int(TBM)
+            catch
+                _:_:_ ->
+                    "-"
+            end;
         _ ->
             "-"
     end.
@@ -1104,8 +1123,8 @@ linux_which_cpuinfo(wind_river) ->
             {ok, {CPU, BMips}}
     end;
 
+%% Check for x86 (Intel or AMD)
 linux_which_cpuinfo(other) ->
-    %% Check for x86 (Intel or AMD)
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
@@ -1821,12 +1840,6 @@ str_num_schedulers() ->
 linux_info_lookup(Key, File) ->
     try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
         Info ->
-            %% io:format("linux_info_lookup -> "
-            %%           "~n   Key:  ~p"
-            %%           "~n   File: ~p"
-            %%           "~n=> "
-            %%           "~n   ~p"
-            %%           "~n", [Key, File, Info]),
             linux_info_lookup_collect(Key, Info, [])
     catch
         _:_:_ ->
