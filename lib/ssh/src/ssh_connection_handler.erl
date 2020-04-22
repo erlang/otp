@@ -63,7 +63,8 @@
 	 adjust_window/3, close/2,
 	 disconnect/4,
 	 get_print_info/1,
-         set_sock_opts/2, get_sock_opts/2
+         set_sock_opts/2, get_sock_opts/2,
+         prohibited_sock_option/1
 	]).
 
 -type connection_ref() :: ssh:connection_ref().
@@ -365,11 +366,11 @@ retrieve(ConnectionHandler, Key) ->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 set_sock_opts(ConnectionRef, SocketOptions) ->
     try lists:foldr(fun({Name,_Val}, Acc) ->
-                            case lists:member(Name, [active, deliver, mode, packet]) of
+                            case prohibited_sock_option(Name) of
                                 true -> [Name|Acc];
                                 false -> Acc
                             end
-                     end, [], SocketOptions)
+                    end, [], SocketOptions)
     of
         [] ->
             call(ConnectionRef, {set_sock_opts,SocketOptions});
@@ -379,6 +380,12 @@ set_sock_opts(ConnectionRef, SocketOptions) ->
         _:_ ->
             {error, badarg}
     end.
+
+prohibited_sock_option(active)    -> true;
+prohibited_sock_option(deliver)   -> true;
+prohibited_sock_option(mode)      -> true;
+prohibited_sock_option(packet)    -> true;
+prohibited_sock_option(_) -> false.
 
 %%--------------------------------------------------------------------
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
