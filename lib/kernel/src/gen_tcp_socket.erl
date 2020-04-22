@@ -1993,7 +1993,7 @@ getstat_avg(SumTag, D, C, CntTag) ->
 
 socket_info_counters(Socket) ->
     #{counters := Counters} = socket:info(Socket),
-    maps:from_list(Counters).
+    Counters.
 
 receive_counter_wrap(Socket, D, Wrapped) ->
     receive
