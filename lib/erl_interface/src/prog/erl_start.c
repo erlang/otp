@@ -80,7 +80,7 @@ static struct in_addr *get_addr(const char *hostname, struct in_addr *oaddr);
 static int wait_for_erlang(int sockd, int magic, struct timeval *timeout);
 #if defined(__WIN32__)
 static int unique_id(void);
-static unsigned long spawn_erlang_epmd(ei_cnode *ec,
+static HANDLE spawn_erlang_epmd(ei_cnode *ec,
 				       char *alive,
 				       Erl_IpAddr adr,
 				       int flags,
@@ -116,9 +116,9 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
   int sockd = 0;
   int one = 1;
 #if defined(__WIN32__)
-  unsigned long pid = 0;
+  HANDLE pid;
 #else
-  int pid = 0;
+  int pid;
 #endif
   int r = 0;
 
@@ -145,8 +145,8 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
   listen(sockd,5);
 
 #if defined(__WIN32__)
-  if((pid = spawn_erlang_epmd(ec,alive,adr,flags,erl,args,port,1))
-      == 0)
+  pid = spawn_erlang_epmd(ec,alive,adr,flags,erl,args,port,1);
+  if (pid == INVALID_HANDLE_VALUE)
      return ERL_SYS_ERROR;
   timeout.tv_usec = 0;
   timeout.tv_sec = 10; /* ignoring ERL_START_TIME */
@@ -154,7 +154,7 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
      == ERL_TIMEOUT) {
       /* Well, this is not a nice way to do it, and it does not 
 	 always kill the emulator, but the alternatives are few.*/
-      TerminateProcess((HANDLE) pid,1);
+      TerminateProcess(pid,1);
   }
 #else /* Unix */
   switch ((pid = fork())) {
@@ -269,7 +269,7 @@ static void free_args(char **args){
 /* In NT we cannot fork(), Erlang and Epmd gets 
    spawned by this function instead. */
 
-static unsigned long spawn_erlang_epmd(ei_cnode *ec,
+static HANDLE spawn_erlang_epmd(ei_cnode *ec,
 				       char *alive,
 				       Erl_IpAddr adr,
 				       int flags,
@@ -290,18 +290,18 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
     struct in_addr myaddr;
     struct in_addr *hisaddr = (struct in_addr *)adr;
     char iaddrbuf[IP_ADDR_CHARS + 1];
-    int ret;
+    HANDLE ret;
 
     if(is_erlang){
 	get_addr(ei_thishostname(ec), &myaddr);
 	if((ptr = inet_ntoa(myaddr)) == NULL)
-	    return 0;
+	    return INVALID_HANDLE_VALUE;
 	else
 	    strcpy(iaddrbuf,ptr);
     }
     if ((flags & ERL_START_REMOTE) ||
 	(is_erlang && (hisaddr->s_addr != myaddr.s_addr))) {
-	return 0;
+	return INVALID_HANDLE_VALUE;
     } else {
 	num_args = enquote_args(args, &args);
 	for(cmdlen = i = 0; args[i] != NULL; ++i)
@@ -364,9 +364,9 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 			  NULL,
 			  &sinfo,
 			  &pinfo))
-	    ret = 0;
+	    ret = INVALID_HANDLE_VALUE;
 	else
-	    ret = (unsigned long) pinfo.hProcess;
+	    ret = pinfo.hProcess;
 	free(cmdbuf);
 	return ret;
     }

@@ -22,6 +22,8 @@
 #ifndef _EI_PORTIO_H
 #define _EI_PORTIO_H
 
+#include <stdint.h>
+
 #undef EI_HAVE_STRUCT_IOVEC__
 #if !defined(__WIN32__) && defined(HAVE_SYS_UIO_H)
 /* Declaration of struct iovec *iov should be visible in this scope. */
@@ -50,12 +52,12 @@ int ei_socket_callbacks_have_writev__(ei_socket_callbacks *cbs);
 extern ei_socket_callbacks ei_default_socket_callbacks;
 
 #define EI_FD_AS_CTX__(FD)                                              \
-    ((void *) (long) (FD))
+    ((void *) (intptr_t) (FD))
 
 #define EI_DFLT_CTX_TO_FD__(CTX, FD)                                    \
-    ((int) (long) (CTX) < 0                                             \
+    ((intptr_t) (CTX) < 0                                               \
      ? EBADF                                                            \
-     : (*(FD) = (int) (long) (CTX), 0))
+     : (*(FD) = (int) (intptr_t) (CTX), 0))
 
 #define EI_GET_FD__(CBS, CTX, FD)                                       \
     ((CBS) == &ei_default_socket_callbacks                              \
