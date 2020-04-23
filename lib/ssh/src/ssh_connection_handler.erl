@@ -1151,17 +1151,17 @@ handle_event(internal, {conn_msg,Msg}, StateName, #data{starter = User,
     end;
 
 
-handle_event(enter, _OldState, {connected,_}=State, D) ->
+handle_event(enter, OldState, {connected,_}=NewState, D) ->
     %% Entering the state where re-negotiation is possible
-    init_renegotiate_timers(State, D);
+    init_renegotiate_timers(OldState, NewState, D);
     
-handle_event(enter, _OldState, {ext_info,_,renegotiate}=State, D) ->
+handle_event(enter, OldState, {ext_info,_,renegotiate}=NewState, D) ->
     %% Could be hanging in exit_info state if nothing else arrives
-    init_renegotiate_timers(State, D);
+    init_renegotiate_timers(OldState, NewState, D);
 
-handle_event(enter, {connected,_}, State, D) ->
+handle_event(enter, {connected,_}=OldState, NewState, D) ->
     %% Exiting the state where re-negotiation is possible
-    pause_renegotiate_timers(State, D);
+    pause_renegotiate_timers(OldState, NewState, D);
 
 handle_event(cast, force_renegotiate, StateName, D) ->
     handle_event({timeout,renegotiate}, undefined, StateName, D);
@@ -2119,15 +2119,15 @@ start_rekeying(Role, D0) ->
     {next_state, {kexinit,Role,renegotiate}, D}.
 
 
-init_renegotiate_timers(State, D) ->
+init_renegotiate_timers(OldState, NewState, D) ->
     {RekeyTimeout,_MaxSent} = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
-    {next_state, State, D, [{{timeout,renegotiate},     RekeyTimeout,       none},
-                            {{timeout,check_data_size}, ?REKEY_DATA_TIMOUT, none} ]}.
+    {next_state, NewState, D, [{{timeout,renegotiate},     RekeyTimeout,       none},
+                               {{timeout,check_data_size}, ?REKEY_DATA_TIMOUT, none} ]}.
 
 
-pause_renegotiate_timers(State, D) ->
-    {next_state, State, D, [{{timeout,renegotiate},     infinity, none},
-                            {{timeout,check_data_size}, infinity, none} ]}.
+pause_renegotiate_timers(_OldState, NewState, D) ->
+    {next_state, NewState, D, [{{timeout,renegotiate},     infinity, none},
+                               {{timeout,check_data_size}, infinity, none} ]}.
 
 check_data_rekeying(Role, D) ->
     case inet:getstat(D#data.socket, [send_oct]) of
@@ -2503,20 +2503,22 @@ ssh_dbg_flags(disconnect) -> [c].
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init_connection_handler, 3, x),
                            ssh_dbg_on(terminate);
 ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x);
-ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 2, x),
-                             dbg:tpl(?MODULE,   pause_renegotiate_timers, 2, x),
+ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 3, x),
+                             dbg:tpl(?MODULE,   pause_renegotiate_timers, 3, x),
                              dbg:tpl(?MODULE,   check_data_rekeying_dbg, 2, x),
-                             dbg:tpl(?MODULE,   start_rekeying, 2, x);
+                             dbg:tpl(?MODULE,   start_rekeying, 2, x),
+                             dbg:tp(?MODULE,   renegotiate, 1, x);
 ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 3, x);
 ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
 
 
 ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
 ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 3);
-ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 2),
-                              dbg:ctpl(?MODULE,   pause_renegotiate_timers, 2),
+ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 3),
+                              dbg:ctpl(?MODULE,   pause_renegotiate_timers, 3),
                               dbg:ctpl(?MODULE,   check_data_rekeying_dbg, 2),
-                              dbg:ctpl(?MODULE,   start_rekeying, 2);
+                              dbg:ctpl(?MODULE,   start_rekeying, 2),
+                              dbg:ctpg(?MODULE,   renegotiate, 1);
 ssh_dbg_off(connection_events) -> dbg:ctpg(?MODULE, handle_event, 4);
 ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init_connection_handler, 3),
                             ssh_dbg_off(terminate).
@@ -2555,32 +2557,47 @@ ssh_dbg_format(connection_events, {return_from, {?MODULE,handle_event,4}, Ret}) 
      io_lib:format("~p~n", [event_handler_result(Ret)])
     ];
 
-ssh_dbg_format(renegotiation, {call, {?MODULE,init_renegotiate_timers,[_State,D]}}) ->
-    ["Renegotiation init\n",
-     io_lib:format("rekey_limit: ~p ({ms,bytes})~ncheck_data_size: ~p (ms)~n", 
-                   [?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
+ssh_dbg_format(renegotiation, {call, {?MODULE,init_renegotiate_timers,[OldState,NewState,D]}}) ->
+    ["Renegotiation: start timer (init_renegotiate_timers)\n",
+     io_lib:format("State: ~p  -->  ~p~n"
+                   "rekey_limit: ~p ({ms,bytes})~n"
+                   "check_data_size: ~p (ms)~n", 
+                   [OldState, NewState,
+                    ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
                     ?REKEY_DATA_TIMOUT])
     ];
-ssh_dbg_format(renegotiation, {return_from, {?MODULE,init_renegotiate_timers,2}, _Ret}) ->
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,init_renegotiate_timers,3}, _Ret}) ->
     skip;
 
-ssh_dbg_format(renegotiation, {call, {?MODULE,pause_renegotiate_timers,[_State,_D]}}) ->
-    ["Renegotiation pause\n"];
-ssh_dbg_format(renegotiation, {return_from, {?MODULE,pause_renegotiate_timers,2}, _Ret}) ->
+ssh_dbg_format(renegotiation, {call, {?MODULE,renegotiate,[ConnectionHandler]}}) ->
+    ["Renegotiation: renegotiation forced\n",
+     io_lib:format("~p:renegotiate(~p) called~n", 
+                   [?MODULE,ConnectionHandler])
+    ];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,renegotiate,1}, _Ret}) ->
+    skip;
+
+ssh_dbg_format(renegotiation, {call, {?MODULE,pause_renegotiate_timers,[OldState,NewState,_D]}}) ->
+    ["Renegotiation: pause timers\n",
+     io_lib:format("State: ~p  -->  ~p~n",
+                   [OldState, NewState])
+    ];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,pause_renegotiate_timers,3}, _Ret}) ->
     skip;
 
 ssh_dbg_format(renegotiation, {call, {?MODULE,start_rekeying,[_Role,_D]}}) ->
-    ["Renegotiation start rekeying\n"];
+    ["Renegotiation: start rekeying\n"];
 ssh_dbg_format(renegotiation, {return_from, {?MODULE,start_rekeying,2}, _Ret}) ->
     skip;
 
 ssh_dbg_format(renegotiation, {call, {?MODULE,check_data_rekeying_dbg,[SentSinceRekey, MaxSent]}}) ->
-    ["Renegotiation check data sent\n",
+    ["Renegotiation: check size of data sent\n",
      io_lib:format("TotalSentSinceRekey: ~p~nMaxBeforeRekey: ~p~nStartRekey: ~p~n",
                    [SentSinceRekey, MaxSent, SentSinceRekey >= MaxSent])
     ];
 ssh_dbg_format(renegotiation, {return_from, {?MODULE,check_data_rekeying_dbg,2}, _Ret}) ->
     skip;
+
 
 ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}) ->
     ExtraInfo =
