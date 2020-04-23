@@ -473,7 +473,6 @@
 -type common_info() :: {protocol, protocol_version()} |
                        {session_id, session_id()} |
                        {session_resumption, boolean()} |
-                       {cipher_suite, old_erl_cipher_suite()} |
                        {selected_cipher_suite, erl_cipher_suite()} |
                        {sni_hostname, term()} |
                        {srp_username, term()}.
@@ -482,14 +481,10 @@
 -type security_info() :: {client_random, binary()} |
                          {server_random, binary()} |
                          {master_secret, binary()}.
--type old_erl_cipher_suite() :: {kex_algo(), null | cipher(), null | hash()} |
-                                {kex_algo(), null | cipher(), null | hash(),
-                                 null | hash() | default_prf}.
 -type connection_info_items() :: [connection_info_item()].
 -type connection_info_item() :: protocol |
                                 session_id |
                                 session_resumption |
-                                cipher_suite |
                                 selected_cipher_suite |
                                 sni_hostname |
                                 srp_username |

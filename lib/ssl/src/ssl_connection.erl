@@ -1671,7 +1671,6 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
      {session_resumption, Resumption},
-     {cipher_suite, ssl_cipher_format:suite_legacy(CipherSuiteDef)},
      {selected_cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname},
      {srp_username, SrpUsername} | CurveInfo] ++ ssl_options_list(Opts).

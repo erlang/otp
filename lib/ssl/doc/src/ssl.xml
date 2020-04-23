@@ -1281,10 +1281,6 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       </datatype>
 
       <datatype>
-        <name name="old_erl_cipher_suite"/>
-      </datatype>
-
-      <datatype>
         <name name="connection_info_items"/>
       </datatype>
 
