@@ -2413,7 +2413,11 @@ api_b_open_and_close(InitState) ->
            cmd  => fun({S, {ok, Sock}}) -> 
                            NewS = S#{socket => Sock},
                            {ok, NewS};
+                      ({_, {error, epfnosupport = Reason}}) ->
+                           {skip, Reason};
                       ({_, {error, eprotonosupport = Reason}}) ->
+                           {skip, Reason};
+                      ({_, {error, esocktnosupport = Reason}}) ->
                            {skip, Reason};
                       ({_, {error, _} = ERROR}) ->
                            ERROR
