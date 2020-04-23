@@ -27,8 +27,7 @@
 
 -export([format_error/1, format_warning/1]).
 
--export([read_release/2, get_release/2, get_release/3,
-	 get_release/4, pack_app/1]).
+-export([read_release/2, get_release/2, get_release/3, pack_app/1]).
 
 -export([read_application/4]).
 
@@ -65,7 +64,6 @@
 %% New options: {path,Path} can contain wildcards
 %%              src_tests
 %%              {variables,[{Name,AbsString}]}
-%%              {machine, jam | beam | vee}
 %%              exref | {exref, [AppName]}
 %%              no_warn_sasl
 %%-----------------------------------------------------------------
@@ -98,7 +96,7 @@ make_script(RelName, Output, Flags) when is_list(RelName),
 	    Path1 = mk_path(Path0), % expand wildcards etc.
 	    Path  = make_set(Path1 ++ code:get_path()),
 	    ModTestP = {member(src_tests, Flags),xref_p(Flags)},
-	    case get_release(RelName, Path, ModTestP, machine(Flags)) of
+	    case get_release(RelName, Path, ModTestP) of
 		{ok, Release, Appls, Warnings0} ->
 		    Warnings = wsasl(Flags, Warnings0),
 		    case systools_lib:werror(Flags, Warnings) of
@@ -136,12 +134,6 @@ wsasl(Options, Warnings) ->
 
 badarg(BadArg, Args) ->
     erlang:error({badarg,BadArg}, Args).
-
-machine(Flags) ->
-    case get_flag(machine,Flags) of
-	{machine, Machine} when is_atom(Machine) -> Machine;
-	_                                        -> false
-    end.
 
 get_script_name(RelName, Flags) ->
     case get_flag(script_name,Flags) of
@@ -362,7 +354,6 @@ add_apply_upgrade(Script,Args) ->
 %%              src_tests
 %%              exref | {exref, [AppName]}
 %%              {variables,[{Name,AbsString}]}
-%%              {machine, jam | beam | vee}
 %%              {var_tar, include | ownfile | omit}
 %%              no_warn_sasl
 %%              warnings_as_errors
@@ -398,7 +389,7 @@ make_tar(RelName, Flags) when is_list(RelName), is_list(Flags) ->
 	    Path1 = mk_path(Path0),
 	    Path  = make_set(Path1 ++ code:get_path()),
 	    ModTestP = {member(src_tests, Flags),xref_p(Flags)},
-	    case get_release(RelName, Path, ModTestP, machine(Flags)) of
+	    case get_release(RelName, Path, ModTestP) of
 		{ok, Release, Appls, Warnings0} ->
 		    Warnings = wsasl(Flags, Warnings0),
 		    case systools_lib:werror(Flags, Warnings) of
@@ -430,17 +421,13 @@ make_tar(RelName, Flags) ->
 %%______________________________________________________________________
 %% get_release(File, Path) ->
 %% get_release(File, Path, ModTestP) ->
-%% get_release(File, Path, ModTestP, Machine) ->
 %%     {ok, #release, [{{Name,Vsn},#application}], Warnings} | {error, What}
 
 get_release(File, Path) ->
-    get_release(File, Path, {false,false}, false).
+    get_release(File, Path, {false,false}).
 
 get_release(File, Path, ModTestP) ->
-    get_release(File, Path, ModTestP, false).
-
-get_release(File, Path, ModTestP, Machine) ->
-    case catch get_release1(File, Path, ModTestP, Machine) of
+    case catch get_release1(File, Path, ModTestP) of
 	{error, Error} ->
 	    {error, ?MODULE, Error};
 	{'EXIT', Why} ->
@@ -449,12 +436,12 @@ get_release(File, Path, ModTestP, Machine) ->
 	    Answer
     end.
 	
-get_release1(File, Path, ModTestP, Machine) ->
+get_release1(File, Path, ModTestP) ->
     {ok, Release, Warnings1} = read_release(File, Path),
     {ok, Appls0} = collect_applications(Release, Path),
     {ok, Appls1} = check_applications(Appls0),
     {ok, Appls2} = sort_used_and_incl_appls(Appls1, Release), % OTP-4121, OTP-9984
-    {ok, Warnings2} = check_modules(Appls2, Path, ModTestP, Machine),
+    {ok, Warnings2} = check_modules(Appls2, Path, ModTestP),
     {ok, Appls} = sort_appls(Appls2),
     {ok, Release, Appls, Warnings1 ++ Warnings2}.
 
@@ -974,13 +961,13 @@ find_pos(N, Name, [_OtherAppl|OrderedAppls]) ->
     find_pos(N+1, Name, OrderedAppls).
 
 %%______________________________________________________________________
-%% check_modules(Appls, Path, TestP, Machine) ->
+%% check_modules(Appls, Path, TestP) ->
 %%  {ok, Warnings} | throw({error, What})
 %%   where Appls = [{App,Vsn}, #application}]
 %%   performs logical checking that we can find all the modules
 %%   etc.
 
-check_modules(Appls, Path, TestP, Machine) ->
+check_modules(Appls, Path, TestP) ->
     %% first check that all the module names are unique
     %% Make a list M1 = [{Mod,App,Dir}]
     M1 = [{Mod,App,A#application.dir} ||
@@ -988,7 +975,7 @@ check_modules(Appls, Path, TestP, Machine) ->
 	     Mod <- A#application.modules],
     case duplicates(M1) of
 	[] ->
-	    case check_mods(M1, Appls, Path, TestP, Machine) of
+	    case check_mods(M1, Appls, Path, TestP) of
 		{error, Errors} ->
 		    throw({error, {modules, Errors}});
 		Return ->
@@ -1004,8 +991,8 @@ check_modules(Appls, Path, TestP, Machine) ->
 %% Use the module extension of the running machine as extension for
 %% the checked modules.
 
-check_mods(Modules, Appls, Path, {SrcTestP, XrefP}, Machine) ->
-    SrcTestRes = check_src(Modules, Appls, Path, SrcTestP, Machine),
+check_mods(Modules, Appls, Path, {SrcTestP, XrefP}) ->
+    SrcTestRes = check_src(Modules, Appls, Path, SrcTestP),
     XrefRes = check_xref(Appls, Path, XrefP),
     Res = SrcTestRes ++ XrefRes,
     case filter(fun({error, _}) -> true;
@@ -1021,8 +1008,8 @@ check_mods(Modules, Appls, Path, {SrcTestP, XrefP}, Machine) ->
 	    {error, Errors}
     end.
 
-check_src(Modules, Appls, Path, true, Machine) ->
-    Ext = objfile_extension(Machine),
+check_src(Modules, Appls, Path, true) ->
+    Ext = code:objfile_extension(),
     IncPath = create_include_path(Appls, Path),
     append(map(fun(ModT) ->
 		       {Mod,App,Dir} = ModT,
@@ -1036,7 +1023,7 @@ check_src(Modules, Appls, Path, true, Machine) ->
 		       end
 	       end,
 	       Modules));
-check_src(_, _, _, _, _) ->
+check_src(_, _, _, _) ->
     [].
 
 check_xref(_Appls, _Path, false) ->
@@ -1133,11 +1120,6 @@ exists_xref(Flag) ->
 	{error, _} -> false;
 	_          -> Flag
     end.
-
-objfile_extension(false) ->
-    code:objfile_extension();
-objfile_extension(Machine) ->
-    "." ++ atom_to_list(Machine).
 
 check_mod(Mod,App,Dir,Ext,IncPath) ->
     ObjFile = mod_to_filename(Dir, Mod, Ext),
@@ -1904,7 +1886,7 @@ add_appl(Name, Vsn, App, Tar, Variables, Flags, Var) ->
 			Tar,
 			AppDir,
 			BinDir,
-			objfile_extension(machine(Flags)))
+			code:objfile_extension())
     end.
 
 %%______________________________________________________________________
@@ -2196,9 +2178,6 @@ cas([{variables, V} | Args], X) when is_list(V) ->
 	error ->
 	    cas(Args, X++[{variables, V}])
     end;
-%%% machine ------------------------------------------------------------
-cas([{machine, M} | Args], X) when is_atom(M) ->
-    cas(Args, X);
 %%% exref --------------------------------------------------------------
 cas([exref | Args], X)  ->
     cas(Args, X);
@@ -2282,9 +2261,6 @@ cat([{variables, V} | Args], X) when is_list(V) ->
 cat([{var_tar, VT} | Args], X) when VT == include;
                                     VT == ownfile;
                                     VT == omit ->
-    cat(Args, X);
-%%% machine ------------------------------------------------------------
-cat([{machine, M} | Args], X) when is_atom(M) ->
     cat(Args, X);
 %%% exref --------------------------------------------------------------
 cat([exref | Args], X)  ->
