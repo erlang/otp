@@ -135,8 +135,8 @@ ycf_node* mk_yield_code(ycf_node* f_node,
     ycf_symbol_list ret_type = ycf_node_get_return_type(f_node);
     ret_code =
       ycf_string_new("  {\n"
-                     "    %s ycf_ret_value;\n"
-                     "    return ycf_ret_value;\n"
+                     "    static %s const ycf_unused_ret_value;\n"
+                     "    return ycf_unused_ret_value;\n"
                      "  }\n",
                      ycf_symbol_list_to_str(&ret_type));
   }
