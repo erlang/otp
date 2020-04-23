@@ -1196,10 +1196,18 @@ handle_info({Protocol, _, Data}, StateName,
 handle_info({PassiveTag, Socket},  StateName, 
             #state{static_env = #static_env{socket = Socket,
                                             passive_tag = PassiveTag},
+                   start_or_recv_from = From,
+                   protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
                    protocol_specific = PS
-                  } = State) ->
-    next_event(StateName, no_record, 
-               State#state{protocol_specific = PS#{active_n_toggle => true}});
+                  } = State0) ->
+    case (From =/= undefined) andalso (CTs == []) of
+        true ->
+            {Record, State} = activate_socket(State0#state{protocol_specific = PS#{active_n_toggle => true}}),
+            next_event(StateName, Record, State);
+        false ->
+            next_event(StateName, no_record, 
+                       State0#state{protocol_specific = PS#{active_n_toggle => true}})
+    end;
 handle_info({CloseTag, Socket}, StateName,
             #state{static_env = #static_env{
                                    role = Role,
