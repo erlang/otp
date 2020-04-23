@@ -361,9 +361,11 @@
 -type prompt_texts() ::
         kb_int_tuple()
       | kb_int_fun_3()
+      | kb_int_fun_4()
       .
 
 -type kb_int_fun_3() :: fun((Peer::ip_port(), User::string(), Service::string()) -> kb_int_tuple()).
+-type kb_int_fun_4() :: fun((Peer::ip_port(), User::string(), Service::string(), State::any()) -> kb_int_tuple()).
 -type kb_int_tuple() :: {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}.
 
 -type pwdfun_2() :: fun((User::string(), Password::string()) -> boolean()) .

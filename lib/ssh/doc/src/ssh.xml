@@ -514,6 +514,7 @@
       <name name="prompt_texts"/>
       <name name="kb_int_tuple"/>
       <name name="kb_int_fun_3"/>
+      <name name="kb_int_fun_4"/>
       <name name="pwdfun_2"/>
       <name name="pwdfun_4"/>
       <desc>
@@ -522,7 +523,7 @@
 	  <item>
 	    <p>Sets the text strings that the daemon sends to the client for presentation to the user when
 	    using <c>keyboard-interactive</c> authentication.</p>
-	    <p>If the fun/3 is used, it is called when the actual authentication occurs and may therefore
+	    <p>If the fun/3 or fun/4 is used, it is called when the actual authentication occurs and may therefore
 	    return dynamic data like time, remote ip etc.</p>
 	    <p>The parameter <c>Echo</c> guides the client about need to hide the password.</p>
 	    <p>The default value is:
