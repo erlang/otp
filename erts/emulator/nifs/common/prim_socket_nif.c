@@ -1466,7 +1466,7 @@ static ERL_NIF_TERM esock_setopt_lvl_sock_rcvlowat(ErlNifEnv*       env,
                                                    ESockDescriptor* descP,
                                                    ERL_NIF_TERM     eVal);
 #endif
-#if defined(SO_RCVTIMEO)
+#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_setopt_lvl_sock_rcvtimeo(ErlNifEnv*       env,
                                                    ESockDescriptor* descP,
                                                    ERL_NIF_TERM     eVal);
@@ -1491,7 +1491,7 @@ static ERL_NIF_TERM esock_setopt_lvl_sock_sndlowat(ErlNifEnv*       env,
                                                    ESockDescriptor* descP,
                                                    ERL_NIF_TERM     eVal);
 #endif
-#if defined(SO_SNDTIMEO)
+#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_setopt_lvl_sock_sndtimeo(ErlNifEnv*       env,
                                                    ESockDescriptor* descP,
                                                    ERL_NIF_TERM     eVal);
@@ -2004,7 +2004,7 @@ static ERL_NIF_TERM esock_getopt_lvl_sock_rcvbuf(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_getopt_lvl_sock_rcvlowat(ErlNifEnv*       env,
                                                    ESockDescriptor* descP);
 #endif
-#if defined(SO_RCVTIMEO)
+#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_getopt_lvl_sock_rcvtimeo(ErlNifEnv*       env,
                                                    ESockDescriptor* descP);
 #endif
@@ -2024,7 +2024,7 @@ static ERL_NIF_TERM esock_getopt_lvl_sock_sndbuf(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_getopt_lvl_sock_sndlowat(ErlNifEnv*       env,
                                                    ESockDescriptor* descP);
 #endif
-#if defined(SO_SNDTIMEO)
+#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_getopt_lvl_sock_sndtimeo(ErlNifEnv*       env,
                                                    ESockDescriptor* descP);
 #endif
@@ -2349,11 +2349,13 @@ static ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
                                          int              level,
                                          int              opt,
                                          ERL_NIF_TERM     eVal);
+#if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO)) && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
                                              ESockDescriptor* descP,
                                              int              level,
                                              int              opt,
                                              ERL_NIF_TERM     eVal);
+#endif
 
 #if defined(USE_GETOPT_STR_OPT)
 static ERL_NIF_TERM esock_getopt_str_opt(ErlNifEnv*       env,
@@ -2370,10 +2372,12 @@ static ERL_NIF_TERM esock_getopt_int_opt(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
                                          int              level,
                                          int              opt);
+#if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO)) && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
                                              ESockDescriptor* descP,
                                              int              level,
                                              int              opt);
+#endif
 
 static BOOLEAN_T send_check_writer(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
@@ -4277,7 +4281,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
 
 
     /* *** ESOCK_OPT_SOCK_RCVTIMEO => SO_RCVTIMEO *** */
-#if defined(SO_RCVTIMEO)
+#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
     tmp = MKT2(env, esock_atom_rcvtimeo, esock_atom_true);
 #else
     tmp = MKT2(env, esock_atom_rcvtimeo, esock_atom_false);
@@ -4337,7 +4341,7 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
 
 
     /* *** ESOCK_OPT_SOCK_SNDTIMEO => SO_SNDTIMEO *** */
-#if defined(SO_SNDTIMEO)
+#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
     tmp = MKT2(env, esock_atom_sndtimeo, esock_atom_true);
 #else
     tmp = MKT2(env, esock_atom_sndtimeo, esock_atom_false);
@@ -9501,7 +9505,7 @@ ERL_NIF_TERM esock_setopt_lvl_socket(ErlNifEnv*       env,
         break;
 #endif
 
-#if defined(SO_RCVTIMEO)
+#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
     case ESOCK_OPT_SOCK_RCVTIMEO:
         result = esock_setopt_lvl_sock_rcvtimeo(env, descP, eVal);
         break;
@@ -9531,7 +9535,7 @@ ERL_NIF_TERM esock_setopt_lvl_socket(ErlNifEnv*       env,
         break;
 #endif
 
-#if defined(SO_SNDTIMEO)
+#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
     case ESOCK_OPT_SOCK_SNDTIMEO:
         result = esock_setopt_lvl_sock_sndtimeo(env, descP, eVal);
         break;
@@ -9709,7 +9713,7 @@ ERL_NIF_TERM esock_setopt_lvl_sock_rcvlowat(ErlNifEnv*       env,
 #endif
 
 
-#if defined(SO_RCVTIMEO)
+#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
 static
 ERL_NIF_TERM esock_setopt_lvl_sock_rcvtimeo(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
@@ -9764,7 +9768,7 @@ ERL_NIF_TERM esock_setopt_lvl_sock_sndlowat(ErlNifEnv*       env,
 #endif
 
 
-#if defined(SO_SNDTIMEO)
+#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
 static
 ERL_NIF_TERM esock_setopt_lvl_sock_sndtimeo(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
@@ -12414,6 +12418,7 @@ ERL_NIF_TERM esock_setopt_str_opt(ErlNifEnv*       env,
 
 /* esock_setopt_timeval_opt - set an option that has an (timeval) bool value
  */
+#if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO)) && defined(ESOCK_USE_RCVSNDTIMEO)
 static
 ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
@@ -12452,6 +12457,7 @@ ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
     return result;
     
 }
+#endif
 
 
 
@@ -13440,7 +13446,7 @@ ERL_NIF_TERM esock_getopt_lvl_socket(ErlNifEnv*       env,
         break;
 #endif
 
-#if defined(SO_RCVTIMEO)
+#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
     case ESOCK_OPT_SOCK_RCVTIMEO:
         result = esock_getopt_lvl_sock_rcvtimeo(env, descP);
         break;
@@ -13470,7 +13476,7 @@ ERL_NIF_TERM esock_getopt_lvl_socket(ErlNifEnv*       env,
         break;
 #endif
 
-#if defined(SO_SNDTIMEO)
+#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
     case ESOCK_OPT_SOCK_SNDTIMEO:
         result = esock_getopt_lvl_sock_sndtimeo(env, descP);
         break;
@@ -13767,7 +13773,7 @@ ERL_NIF_TERM esock_getopt_lvl_sock_rcvlowat(ErlNifEnv*       env,
 #endif
 
 
-#if defined(SO_RCVTIMEO)
+#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
 static
 ERL_NIF_TERM esock_getopt_lvl_sock_rcvtimeo(ErlNifEnv*       env,
                                             ESockDescriptor* descP)
@@ -13817,7 +13823,7 @@ ERL_NIF_TERM esock_getopt_lvl_sock_sndlowat(ErlNifEnv*       env,
 #endif
 
 
-#if defined(SO_SNDTIMEO)
+#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
 static
 ERL_NIF_TERM esock_getopt_lvl_sock_sndtimeo(ErlNifEnv*       env,
                                             ESockDescriptor* descP)
@@ -15188,7 +15194,8 @@ ERL_NIF_TERM esock_getopt_lvl_sctp(ErlNifEnv*       env,
  * association (and not an endpoint) then it will have an
  * assoc id. But since the sctp support at present is "limited",
  * we leave it for now.
- * What do we do if this is an endpoint? Invalid op?
+ * What do we do if this is an endpoint? Invalid op? Or just leave
+ * it for the OS?
  *
  * </KOLLA>
  */
@@ -15434,6 +15441,7 @@ ERL_NIF_TERM esock_getopt_int_opt(ErlNifEnv*       env,
 
 /* esock_getopt_timeval_opt - get an timeval option
  */
+#if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO)) && defined(ESOCK_USE_RCVSNDTIMEO)
 static
 ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
@@ -15462,6 +15470,7 @@ ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
 
     return result;
 }
+#endif
 
 
 
