@@ -658,9 +658,9 @@ fun(Chain::[public_key:der_encoded()]) ->
       <desc><p>The lookup fun is to defined as follows:</p>
 
 	<code>
-fun(psk, PSKIdentity ::string(), UserState :: term()) ->
+fun(psk, PSKIdentity :: binary(), UserState :: term()) ->
 	{ok, SharedSecret :: binary()} | error;
-fun(srp, Username :: string(), UserState :: term()) ->
+fun(srp, Username :: binary(), UserState :: term()) ->
 	{ok, {SRPParams :: srp_param_type(), Salt :: binary(),
 	      DerivedKey :: binary()}} | error.
 	</code>
@@ -1006,8 +1006,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	</desc>
       </datatype>
 
-      <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - SERVER </datatype_title>
-
+      <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - SERVER</datatype_title>
 
       <datatype>
 	<name name="server_option"/>
