@@ -302,6 +302,10 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>
+	  This option is not normally supported (see why below).
+	  OTP has to be explicitly built with the
+	  <c>--enable-esock-rcvsndtime</c> configure option for this
+	  to be available.
 	  Since our implementation is <em>nonblocking</em>,
 	  its unknown if and how this option works, or even if
 	  it may cause malfunctions.
@@ -346,6 +350,10 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>
+	  This option is not normally supported (see why below).
+	  OTP has to be explicitly built with the
+	  <c>--enable-esock-rcvsndtime</c> configure option for this
+	  to be available.
 	  Since our implementation is <em>nonblocking</em>,
 	  its unknown if and how this option works, or even if
 	  it may cause malfunctions.
