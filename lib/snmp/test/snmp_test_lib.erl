@@ -626,14 +626,20 @@ init_per_suite(Config) ->
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
     %% checking for the host name...
-    %% We have two "machines" we are checking for. Both are old installations
-    %% running on really slow VMs (the host machines are old and tired).
+
     LinuxVersionVerify =
         fun(V) when (V > {3,6,11}) ->
                 false; % OK - No skip
            (V) when (V =:= {3,6,11}) ->
                 case string:trim(os:cmd("cat /etc/issue")) of
                     "Fedora release 16 " ++ _ -> % Stone age Fedora => Skip
+                        true;
+                    _ ->
+                        false
+                end;
+           (V) when (V =:= {3,4,20}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    "Wind River Linux 5.0.1.0" ++ _ -> % *Old* Wind River => skip
                         true;
                     _ ->
                         false
