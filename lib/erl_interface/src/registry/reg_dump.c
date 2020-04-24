@@ -209,11 +209,11 @@ static int mn_send_write(int fd, erlang_pid *mnesia, const char *key, ei_reg_obj
     break;
   case EI_STR:
     if (obj->size > 0) ei_encode_string(msgbuf,&index,obj->val.s);
-    else ei_encode_long(msgbuf,&index, (long)NULL);  /* just the NULL pointer */
+    else ei_encode_long(msgbuf,&index, 0);  /* just the NULL pointer */
     break;
   case EI_BIN:
     if (obj->size > 0) ei_encode_binary(msgbuf,&index,obj->val.p,obj->size);
-    else ei_encode_long(msgbuf,&index,(long)(obj->val.p));  /* just the pointer */
+    else ei_encode_long(msgbuf,&index, obj->val.i);  /* just the pointer */
     break;
   default:
     if (dbuf) free(dbuf);
