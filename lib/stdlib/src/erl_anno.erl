@@ -53,9 +53,9 @@
                     | {'text', string()}.
 
 -ifdef(DEBUG).
--opaque anno() :: [annotation(), ...].
+-type anno() :: [annotation(), ...].
 -else.
--opaque anno() :: location() | [annotation(), ...].
+-type anno() :: location() | [annotation(), ...].
 -endif.
 -type anno_term() :: term().
 
