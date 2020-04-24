@@ -2123,14 +2123,21 @@ pause_renegotiate_timers(State, D) ->
                             {{timeout,check_data_size}, infinity, none} ]}.
 
 check_data_rekeying(Role, D) ->
-    {ok, [{send_oct,SocketSentTotal}]} = inet:getstat(D#data.socket, [send_oct]),
-    SentSinceRekey = SocketSentTotal - D#data.last_size_rekey,
-    {_RekeyTimeout,MaxSent} = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
-    case check_data_rekeying_dbg(SentSinceRekey, MaxSent) of
-        true ->
-            start_rekeying(Role, D#data{last_size_rekey = SocketSentTotal});
-        _ ->
-            %% Not enough data sent for a re-negotiation. Restart timer.
+    case inet:getstat(D#data.socket, [send_oct]) of
+        {ok, [{send_oct,SocketSentTotal}]} ->
+            SentSinceRekey = SocketSentTotal - D#data.last_size_rekey,
+            {_RekeyTimeout,MaxSent} = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
+            case check_data_rekeying_dbg(SentSinceRekey, MaxSent) of
+                true ->
+                    start_rekeying(Role, D#data{last_size_rekey = SocketSentTotal});
+                _ ->
+                    %% Not enough data sent for a re-negotiation. Restart timer.
+                    {keep_state, D, {{timeout,check_data_size}, ?REKEY_DATA_TIMOUT, none}}
+            end;
+        {error,_} ->
+            %% Socket closed, but before this module has handled that. Maybe
+            %% it is in the message queue.
+            %% Just go on like if there was not enough data transmitted to start re-keying:
             {keep_state, D, {{timeout,check_data_size}, ?REKEY_DATA_TIMOUT, none}}
     end.
 
