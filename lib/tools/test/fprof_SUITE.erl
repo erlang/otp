@@ -501,7 +501,11 @@ cpu_create_file_slow(Config) when is_list(Config) ->
             %%
             {ok, [T, P]} = parse(AnalysisFile),
             io:format("~p~n~n~p~n", [P, ets:tab2list(T)]),
-            ok = verify(T, P),
+            try
+                ok = verify(T, P)
+            catch throw:{negative,_Weird} ->
+                    io:format("Aborted as counter is negative because of bad cpu_time")
+            end,
             Proc = pid_to_list(self()),
             case P of
                 [{analysis_options, _},
@@ -520,13 +524,7 @@ cpu_create_file_slow(Config) when is_list(Config) ->
             io:format("cpu_ts:~w, fprof:~w~n", [Acc, Acc1]),
             {comment, io_lib:format("~p% cpu utilization", [100*divide(Acc,Acc1)])};
         {'EXIT', not_supported} ->
-            case {os:type(), os:version()} of
-                {{unix, sunos}, {Major, Minor, _}}
-                  when Major >= 5, Minor >= 7 ->
-                    ct:fail(Result);
-                _ ->
-                    {skipped, "not_supported"}
-            end;
+            {skipped, "not_supported"};
         _ ->
             ct:fail(Result)
     end,
@@ -633,6 +631,8 @@ verify(Tab, [{analysis_options, _},
                   {Proc, Cnt_P, Acc_P, Own_P} = Clocks
                     when Acc_P >= Own_P ->
                       Clocks;
+                  {_, _, Acc_p, _} = Weird when Acc_p < 0 ->
+                      throw({negative, Weird});
                   Weird ->
                       throw({error, [?MODULE, ?LINE, Weird]})
               end
