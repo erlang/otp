@@ -1645,11 +1645,6 @@ int ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg,
     return res;
 } /* rpc_from */
 
-  /*
-  * A true RPC. It return a NULL pointer
-  * in case of failure, otherwise a valid
-  * (ETERM *) pointer containing the reply
-  */
 int ei_rpc(ei_cnode* ec, int fd, char *mod, char *fun,
 	   const char* inbuf, int inbuflen, ei_x_buff* x)
 {
@@ -1667,20 +1662,37 @@ int ei_rpc(ei_cnode* ec, int fd, char *mod, char *fun,
 	;
 
     if (i == ERL_ERROR)  return i;
-    /*ep = 'erl'_element(2,emsg.msg);*/ /* {RPC_Tag, RPC_Reply} */
+    
+    /* Expect: {rex, RPC_Reply} */
+
     index = 0;
-    if (ei_decode_version(x->buff, &index, &i) < 0
-	|| ei_decode_ei_term(x->buff, &index, &t) < 0)
-	return -1;		/* FIXME ei_decode_version don't set erl_errno as before */
-    /* FIXME this is strange, we don't check correct "rex" atom
-       and we let it pass if not ERL_SMALL_TUPLE_EXT and arity == 2 */
-    if (t.ei_type == ERL_SMALL_TUPLE_EXT && t.arity == 2)
-	if (ei_decode_atom(x->buff, &index, rex) < 0)
-	    return -1;
+    if (ei_decode_version(x->buff, &index, &i) < 0)
+        goto ebadmsg;
+
+    if (ei_decode_ei_term(x->buff, &index, &t) < 0)
+        goto ebadmsg;
+
+    if (t.ei_type != ERL_SMALL_TUPLE_EXT && t.ei_type != ERL_LARGE_TUPLE_EXT)
+        goto ebadmsg;
+
+    if (t.arity != 2)
+        goto ebadmsg;
+
+    if (ei_decode_atom(x->buff, &index, rex) < 0)
+        goto ebadmsg;
+
+    if (strcmp("rex", rex) != 0)
+        goto ebadmsg;
+
     /* remove header */
     x->index -= index;
     memmove(x->buff, &x->buff[index], x->index);
     return 0;
+    
+ebadmsg:
+    
+    EI_CONN_SAVE_ERRNO__(EBADMSG);
+    return ERL_ERROR;
 }
 
 
