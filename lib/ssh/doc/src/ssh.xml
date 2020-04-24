@@ -896,7 +896,7 @@
     <datatype>
       <name name="disconnectfun_common_option"/>
       <desc>
-	<p>Provides a fun to implement your own logging when the peer disconnects.</p>
+	<p>Provides a fun to implement your own logging or other handling at disconnects.</p>
       </desc>
     </datatype>
 
