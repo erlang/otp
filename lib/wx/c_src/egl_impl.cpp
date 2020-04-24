@@ -48,6 +48,7 @@ int egl_initiated = 0;
 #define OPENGLU_LIB L"glu32.dll"
 typedef HMODULE DL_LIB_P;
 typedef WCHAR DL_CHAR;
+#define DL_STR_FMT "%S"
 void * dlsym(HMODULE Lib, const char *func) {
   void * funcp;
   if((funcp = (void *) GetProcAddress(Lib, func)))
@@ -67,6 +68,7 @@ void dlclose(HMODULE Lib) {
 #else
 typedef void * DL_LIB_P;
 typedef char DL_CHAR;
+# define DL_STR_FMT "%s"
 # ifdef _MACOSX
 #  define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
 #  define OPENGLU_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib"
@@ -125,7 +127,7 @@ int load_gl_functions() {
     // dlclose(LIBhandle);
     // fprintf(stderr, "OPENGL library is loaded\r\n");
   } else {
-    fprintf(stderr, "Could NOT load OpenGL library: %s\r\n", DLName);
+    fprintf(stderr, "Could NOT load OpenGL library: " DL_STR_FMT "\r\n", DLName);
   };
 
   DLName = (DL_CHAR *) OPENGLU_LIB;
@@ -154,7 +156,7 @@ int load_gl_functions() {
     // dlclose(LIBhandle);
     // fprintf(stderr, "GLU library is loaded\r\n");
   } else {
-    fprintf(stderr, "Could NOT load OpenGL GLU library: %s\r\n", DLName);
+    fprintf(stderr, "Could NOT load OpenGL GLU library: " DL_STR_FMT "\r\n", DLName);
   };
 
   return 1;
