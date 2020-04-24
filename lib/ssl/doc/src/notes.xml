@@ -27,6 +27,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix timing bug that could cause ssl sockets to become
+	    unresponsive after an ssl:recv/3 call timed out</p>
+          <p>
+	    Own Id: OTP-16619 Aux Id: ERL-1213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
