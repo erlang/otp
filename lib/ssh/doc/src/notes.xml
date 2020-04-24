@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Potential hazard between re-keying decision and socket
+	    close.</p>
+          <p>
+	    Own Id: OTP-16462 Aux Id: ERIERL-464 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

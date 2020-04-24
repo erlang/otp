@@ -31,6 +31,33 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.5.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <seealso marker="stdlib:re#run/3">re:run(Subject, RE,
+	    [unicode])</seealso> returned <c>nomatch</c> instead of
+	    failing with a <c>badarg</c> error exception when
+	    <c>Subject</c> contained illegal utf8 and <c>RE</c> was
+	    passed as a binary. This has been corrected along with
+	    corrections of reduction counting in <c>re:run()</c>
+	    error cases.</p>
+          <p>
+	    Own Id: OTP-16553</p>
+        </item>
+        <item>
+	    <p>Fixed a bug that could cause the emulator to crash
+	    when purging modules or persistent terms.</p>
+          <p>
+	    Own Id: OTP-16555 Aux Id: ERL-1188 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
