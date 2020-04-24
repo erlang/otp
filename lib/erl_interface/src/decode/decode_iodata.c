@@ -19,11 +19,15 @@
  *
  */
 
+#include <string.h>
 #include "eidef.h"
 #include "eiext.h"
+#include "putget.h"
     
 static int decode_list_ext_iodata(const char *buf, int* index,
                                   int *szp, unsigned char **pp);
+static void decode_string(const char *buf, int* index,
+                          int *szp, unsigned char **pp);
 
 int ei_decode_iodata(const char *buf, int* index, int *szp, char *out_buf)
 {
@@ -50,13 +54,11 @@ int ei_decode_iodata(const char *buf, int* index, int *szp, char *out_buf)
         return 0;
     }
 
-    case ERL_STRING_EXT:
-        if (ei_decode_string(buf, index, out_buf) < 0)
-            return -1;
-        if (szp)
-            *szp += len;
+    case ERL_STRING_EXT: {
+        unsigned char *p = (unsigned char *) out_buf;
+        decode_string(buf, index, szp, p ? &p : NULL);
         return 0;
-
+    }
     case ERL_NIL_EXT:
         return ei_decode_list_header(buf, index, NULL);
 
@@ -69,7 +71,7 @@ int ei_decode_iodata(const char *buf, int* index, int *szp, char *out_buf)
     }
 
     default:
-        return -1; /* Not a list or binary... */
+        return -1; /* Not a list nor a binary... */
     }
 }
     
@@ -113,15 +115,9 @@ static int decode_list_ext_iodata(const char *buf, int* index,
             *szp += len;
             break;
         }
-        case ERL_STRING_EXT: {
-            void *p = pp ? *pp : NULL;
-            if (ei_decode_string(buf, index, p) < 0)
-                return -1;
-            if (pp)
-                *pp += len;
-            *szp += len;
+        case ERL_STRING_EXT:
+            decode_string(buf, index, szp, pp);
             break;
-        }
         case ERL_LIST_EXT:
             if (decode_list_ext_iodata(buf, index, szp, pp) < 0)
                 return -1;
@@ -131,7 +127,7 @@ static int decode_list_ext_iodata(const char *buf, int* index,
                 return -1;
             break;
         default:
-            /* Not a list, binary, nor byte sized integer... */
+            /* Not a list, a binary, nor a byte sized integer... */
             return -1;
         }
     }
@@ -139,3 +135,32 @@ static int decode_list_ext_iodata(const char *buf, int* index,
     return 0;
 }
     
+static void
+decode_string(const char *buf, int* index, int *szp, unsigned char **pp)
+{
+    /*
+     * ei_decode_string() null-terminates the string
+     * which we do not want, so we decode it ourselves
+     * here instead...
+     */
+    int len;
+    char *s = (char *) buf + *index;
+    char *s0 = s;
+
+    /* ASSERT(*s == ERL_STRING_EXT); */
+    s++;
+
+    len = get16be(s);
+
+    if (pp) {
+        memcpy(*pp, s, len); 
+        *pp += len;
+    }
+
+    if (szp)
+        *szp += len;
+
+    s += len;
+    *index += s-s0; 
+
+}

@@ -228,6 +228,7 @@ test_ei_decode_iodata(Config) when is_list(Config) ->
     check_decode_iodata(P, [$a|$a], false),
     check_decode_iodata(P, [[$a|$a],$a], false),
     check_decode_iodata(P, "hej", true),
+    check_decode_iodata(P, ["hej", " ", "hopp"], true),
     check_decode_iodata(P, <<"hopp san sa">>, true),
     check_decode_iodata(P, [$a | <<"a">>], true),
     check_decode_iodata(P, [[[["hej"]]], [$ , <<"hopp">>, $ , "san" | <<" sa">>]], true),

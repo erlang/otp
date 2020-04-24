@@ -756,12 +756,16 @@ TESTCASE(test_ei_decode_utf8_atom)
 
 TESTCASE(test_ei_decode_iodata)
 {
+    char *buf = NULL, *data = NULL;
     ei_init();
 
     while (1) {
-        char *buf, *data;
+        int unexpected_write = 0;
+        int i;
         int len, index, saved_index, err;
 
+        if (buf)
+            free_packet(buf);
         buf = read_packet(&len);
 
         if (len == 4
@@ -774,8 +778,10 @@ TESTCASE(test_ei_decode_iodata)
         
         index = 0;
         err = ei_decode_version(buf, &index, NULL);
-        if (err != 0)
+        if (err != 0) {
+            free_packet(buf);
             fail1("ei_decode_version returned %d", err);
+        }
         saved_index = index;
         err = ei_decode_iodata(buf, &index, &len, NULL);
         if (err != 0) {
@@ -786,7 +792,22 @@ TESTCASE(test_ei_decode_iodata)
             ei_x_free(&x);
             continue;
         }
-        data = malloc(len);
+        if (data) {
+            data -= 100;
+            free(data);
+        }
+        data = malloc(len + 200);
+        if (!data) {
+            ei_x_buff x;
+            ei_x_new_with_version(&x);
+            ei_x_encode_atom(&x, "malloc_failed");
+            send_bin_term(&x);
+            ei_x_free(&x);
+            continue;
+        }
+        for (i = 0; i < len + 200; i++)
+            data[i] = 'Y';
+        data += 100;
         err = ei_decode_iodata(buf, &saved_index, NULL, (unsigned char *) data);
         if (err != 0) {
             ei_x_buff x;
@@ -794,14 +815,45 @@ TESTCASE(test_ei_decode_iodata)
             ei_x_encode_atom(&x, "decode_data_failed");
             send_bin_term(&x);
             ei_x_free(&x);
-            free(data);
             continue;
         }
 
-        send_buffer(data, len);
-        free(data);
+        for (i = -100; i < 0; i++) {
+            if (data[i] != 'Y') {
+                ei_x_buff x;
+                ei_x_new_with_version(&x);
+                ei_x_encode_atom(&x, "unexpected_write_before_data");
+                send_bin_term(&x);
+                ei_x_free(&x);
+                unexpected_write = !0;
+                break;
+            }
+        }
+
+        if (!unexpected_write) {
+            for (i = len; i < len + 100; i++) {
+                if (data[i] != 'Y') {
+                    ei_x_buff x;
+                    ei_x_new_with_version(&x);
+                    ei_x_encode_atom(&x, "unexpected_write_after_data");
+                    send_bin_term(&x);
+                    ei_x_free(&x);
+                    unexpected_write = !0;
+                    break;
+                }
+            }
+        }
+
+        if (!unexpected_write)
+            send_buffer(data, len);
     }
 
+    if (buf)
+        free_packet(buf);
+    if (data) {
+        data -= 100;
+        free(data);
+    }
     report(1);
 }
 
