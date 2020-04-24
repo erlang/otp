@@ -120,7 +120,7 @@
 
 /*------------------------   TYPDEFS  ----------------------------------*/
 
-typedef char byte;
+typedef unsigned char byte;
 typedef int Boolean;
 
 typedef struct {
