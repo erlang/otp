@@ -427,7 +427,8 @@ default(server) ->
                                check_string(S3) andalso
                                is_boolean(B);
                       (F) ->
-                           check_function3(F)
+                           check_function3(F) orelse
+                               check_function4(F)
                    end,
             class => user_option
            },
