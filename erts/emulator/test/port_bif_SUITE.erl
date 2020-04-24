@@ -487,11 +487,16 @@ busy_options(Config) when is_list(Config) ->
 
     process_flag(trap_exit, true),
     Tester = self(),
-    HejLoop = fun (Prt, _F, 1000) ->
+
+    %% We want this loop to write enough data to tirgger the busy limits,
+    %% this means that it first has to fill the pipe buffer on Linux which
+    %% can be anything from 4k to 1 MB, so we make sure to fill it with
+    %% at least 2 MB of data here.
+    HejLoop = fun (Prt, _F, N) when N > (2 bsl 20) ->
                       Prt;
                   (Prt, F, N) ->
                       Prt ! {Tester, {command, Data}},
-                      F(Prt, F, N+1)
+                      F(Prt, F, N + iolist_size(Data))
               end,
 
     io:format("Test1...~n", []),
