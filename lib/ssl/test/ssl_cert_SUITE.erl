@@ -113,6 +113,7 @@ all_version_tests() ->
      client_auth_allow_partial_chain,
      client_auth_do_not_allow_partial_chain,
      client_auth_partial_chain_fun_fail,
+     client_auth_sni,
      missing_root_cert_no_auth,
      missing_root_cert_auth,
      missing_root_cert_auth_user_verify_fun_accept,
@@ -296,6 +297,12 @@ client_auth_partial_chain_fun_fail() ->
    ssl_cert_tests:client_auth_partial_chain_fun_fail().
 client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
     ssl_cert_tests:client_auth_partial_chain_fun_fail(Config).
+
+%%--------------------------------------------------------------------
+client_auth_sni() ->
+   ssl_cert_tests:client_auth_sni().
+client_auth_sni(Config) when is_list(Config) ->
+    ssl_cert_tests:client_auth_sni(Config).
 
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
