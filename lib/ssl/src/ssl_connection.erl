@@ -1652,7 +1652,9 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
                        handshake_env = #handshake_env{sni_hostname = SNIHostname,
                                                       resumption = Resumption},
                        session = #session{session_id = SessionId,
-                                          cipher_suite = CipherSuite, ecc = ECCCurve},
+                                          cipher_suite = CipherSuite,
+                                          srp_username = SrpUsername,
+                                          ecc = ECCCurve},
 		       connection_env = #connection_env{negotiated_version =  {_,_} = Version}, 
 		       ssl_options = Opts}) ->
     RecordCB = record_cb(Connection),
@@ -1665,12 +1667,13 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
 		    _ ->
 			[]
 		end,
+
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
      {session_resumption, Resumption},
-     {cipher_suite, ssl_cipher_format:suite_legacy(CipherSuiteDef)},
      {selected_cipher_suite, CipherSuiteDef},
-     {sni_hostname, SNIHostname} | CurveInfo] ++ ssl_options_list(Opts).
+     {sni_hostname, SNIHostname},
+     {srp_username, SrpUsername} | CurveInfo] ++ ssl_options_list(Opts).
 
 security_info(#state{connection_states = ConnectionStates}) ->
     #{security_parameters :=

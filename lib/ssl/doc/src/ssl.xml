@@ -1259,6 +1259,39 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  </p></note>
 	</desc>
       </datatype>
+
+      <datatype>
+        <name name="connection_info"/>
+      </datatype>
+
+      <datatype>
+        <name name="common_info"/>
+      </datatype>
+
+      <datatype>
+        <name name="curve_info"/>
+      </datatype>
+
+      <datatype>
+        <name name="ssl_options_info"/>
+      </datatype>
+
+      <datatype>
+        <name name="security_info"/>
+      </datatype>
+
+      <datatype>
+        <name name="connection_info_items"/>
+      </datatype>
+
+      <datatype>
+        <name name="connection_info_item"/>
+      </datatype>
+
+      <datatype>
+        <name name="tls_options_name"/>
+      </datatype>
+
     </datatypes>
 
 <!--

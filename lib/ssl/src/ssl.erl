@@ -469,6 +469,32 @@
                                   elliptic_curves => [public_key:oid()],
                                   sni => hostname()}. % exported
 %% -------------------------------------------------------------------------------------------------------
+-type connection_info() :: [common_info() | curve_info() | ssl_options_info() | security_info()].
+-type common_info() :: {protocol, protocol_version()} |
+                       {session_id, session_id()} |
+                       {session_resumption, boolean()} |
+                       {selected_cipher_suite, erl_cipher_suite()} |
+                       {sni_hostname, term()} |
+                       {srp_username, term()}.
+-type curve_info() :: {ecc, {named_curve, term()}}.
+-type ssl_options_info() :: tls_option().
+-type security_info() :: {client_random, binary()} |
+                         {server_random, binary()} |
+                         {master_secret, binary()}.
+-type connection_info_items() :: [connection_info_item()].
+-type connection_info_item() :: protocol |
+                                session_id |
+                                session_resumption |
+                                selected_cipher_suite |
+                                sni_hostname |
+                                srp_username |
+                                ecc |
+                                client_random |
+                                server_random |
+                                master_secret |
+                                tls_options_name().
+-type tls_options_name() :: atom().
+%% -------------------------------------------------------------------------------------------------------
 
 %%%--------------------------------------------------------------------
 %%% API
@@ -907,9 +933,7 @@ controlling_process(#sslsocket{pid = {Listen,
 %%--------------------------------------------------------------------
 -spec connection_information(SslSocket) -> {ok, Result} | {error, reason()} when
       SslSocket :: sslsocket(),
-      Result :: [{OptionName, OptionValue}],
-      OptionName :: atom(),
-      OptionValue :: any().
+      Result :: connection_info().
 %%
 %% Description: Return SSL information for the connection
 %%--------------------------------------------------------------------
@@ -928,10 +952,8 @@ connection_information(#sslsocket{pid = {dtls,_}}) ->
 %%--------------------------------------------------------------------
 -spec connection_information(SslSocket, Items) -> {ok, Result} | {error, reason()} when
       SslSocket :: sslsocket(),
-      Items :: [OptionName],
-      Result :: [{OptionName, OptionValue}],
-      OptionName :: atom(),
-      OptionValue :: any().
+      Items :: connection_info_items(),
+      Result :: connection_info().
 %%
 %% Description: Return SSL information for the connection
 %%--------------------------------------------------------------------

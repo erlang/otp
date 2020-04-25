@@ -68,7 +68,8 @@ since_1_2() ->
 
 pre_1_3() ->
     [
-     default_reject_anonymous
+     default_reject_anonymous,
+     connection_information_with_srp
     ].
 gen_api_tests() ->
     [
@@ -197,6 +198,14 @@ init_per_testcase(handshake_continue_tls13_client, Config) ->
         false ->
             {skip, "Missing crypto support: TLS 1.3 not supported"}
     end;
+init_per_testcase(connection_information_with_srp, Config) ->
+    PKAlg = proplists:get_value(public_keys, crypto:supports()),
+    case lists:member(srp, PKAlg) of
+        true ->
+            Config;
+        false ->
+            {skip, "Missing SRP crypto support"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
@@ -304,6 +313,56 @@ connection_information(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+connection_information_with_srp() ->
+    [{doc,"Test the result of API function ssl:connection_information/1"
+          "includes srp_username."}].
+connection_information_with_srp(Config) when is_list(Config) ->
+    run_conn_info_srp_test(srp_anon, 'aes_128_cbc', Config).
+
+run_conn_info_srp_test(Kex, Cipher, Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    TestCiphers = ssl_test_lib:test_ciphers(Kex, Cipher, Version),
+
+    case TestCiphers of
+        [] ->
+            {skip, {not_sup, Kex, Cipher, Version}};
+        [TestCipher | _T] ->
+            do_run_conn_info_srp_test(TestCipher, Version, Config)
+    end.
+
+do_run_conn_info_srp_test(ErlangCipherSuite, Version, Config) ->
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    SOpts = [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}}],
+    COpts = [{srp_identity, {"Test-User", "secret"}}],
+
+    ServerOpts = ssl_test_lib:ssl_options(SOpts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(COpts, Config),
+
+    ct:log("Erlang Cipher Suite is: ~p~n", [ErlangCipherSuite]),
+
+    Server = ssl_test_lib:start_server([
+        {node, ServerNode}, {port, 0},
+		{from, self()},
+        {mfa, {?MODULE, check_srp_in_connection_information, [<<"Test-User">>, server]}},
+        {options, [{versions, [Version]}, {ciphers, [ErlangCipherSuite]} |
+                   ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client(
+        [{node, ClientNode}, {port, Port},
+		 {host, Hostname},
+		 {from, self()},
+		 {mfa, {?MODULE, check_srp_in_connection_information, [<<"Test-User">>, client]}},
+		 {options, [{versions, [Version]}, {ciphers, [ErlangCipherSuite]} |
+                    ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 %%--------------------------------------------------------------------
 
 secret_connection_info() ->
@@ -1875,7 +1934,18 @@ secret_connection_info_result(Socket) ->
     {ok, [{protocol, Protocol}]} = ssl:connection_information(Socket, [protocol]),
     {ok, ConnInfo} = ssl:connection_information(Socket, [client_random, server_random, master_secret]),
     check_connection_info(Protocol, ConnInfo).
-  
+
+check_srp_in_connection_information(_Socket, _Username, client) ->
+    ok;
+check_srp_in_connection_information(Socket, Username, server) ->
+    {ok, Info} = ssl:connection_information(Socket),
+    ct:log("Info ~p~n", [Info]),
+    case proplists:get_value(srp_username, Info, not_found) of
+        Username ->
+	        ok;
+        not_found ->
+            ct:fail(srp_username_not_found)
+    end.
 
 %% In TLS 1.3 the master_secret field is used to store multiple secrets from the key schedule and it is a tuple.
 %% client_random and server_random are not used in the TLS 1.3 key schedule.
