@@ -3460,50 +3460,64 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
         numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP;
 
     MLOCK(data.cntMtx);
-    numBits        = MKCT(env, atom_num_cnt_bits, ESOCK_COUNTER_SIZE);
-    numSockets     = MKCT(env, atom_num_sockets,  data.numSockets);
-    numTypeDGrams  = MKCT(env, atom_num_tdgrams,  data.numTypeDGrams);
-    numTypeStreams = MKCT(env, atom_num_tstreams, data.numTypeStreams);
-    numTypeSeqPkgs = MKCT(env, atom_num_tseqpkgs, data.numTypeSeqPkgs);
-    numDomLocal    = MKCT(env, atom_num_dlocal,   data.numDomainLocal);
-    numDomInet     = MKCT(env, atom_num_dinet,    data.numDomainInet);
-    numDomInet6    = MKCT(env, atom_num_dinet6,   data.numDomainInet6);
-    numProtoIP     = MKCT(env, atom_num_pip,      data.numProtoIP);
-    numProtoTCP    = MKCT(env, atom_num_ptcp,     data.numProtoTCP);
-    numProtoUDP    = MKCT(env, atom_num_pudp,     data.numProtoUDP);
-    numProtoSCTP   = MKCT(env, atom_num_psctp,    data.numProtoSCTP);
+    numBits        = MKUI(env, ESOCK_COUNTER_SIZE);
+    numSockets     = MKUI(env, data.numSockets);
+    numTypeDGrams  = MKUI(env, data.numTypeDGrams);
+    numTypeStreams = MKUI(env, data.numTypeStreams);
+    numTypeSeqPkgs = MKUI(env, data.numTypeSeqPkgs);
+    numDomLocal    = MKUI(env, data.numDomainLocal);
+    numDomInet     = MKUI(env, data.numDomainInet);
+    numDomInet6    = MKUI(env, data.numDomainInet6);
+    numProtoIP     = MKUI(env, data.numProtoIP);
+    numProtoTCP    = MKUI(env, data.numProtoTCP);
+    numProtoUDP    = MKUI(env, data.numProtoUDP);
+    numProtoSCTP   = MKUI(env, data.numProtoSCTP);
     MUNLOCK(data.cntMtx);
 
     {
-        ERL_NIF_TERM gcnt[] =
+        ERL_NIF_TERM gcntVals[] =
             {numBits,
              numSockets,
              numTypeDGrams, numTypeStreams, numTypeSeqPkgs,
              numDomLocal, numDomInet, numDomInet6,
              numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP};
-        unsigned int lenGCnt =
-            sizeof(gcnt) / sizeof(ERL_NIF_TERM);
-        ERL_NIF_TERM
-            lgcnt  = MKLA(env, gcnt, lenGCnt),
-            keys[] = {esock_atom_debug,
-                      atom_socket_debug,
-                      atom_iow,
-                      atom_counters},
-            vals[] = {BOOL2ATOM(data.dbg),
-                      BOOL2ATOM(data.sockDbg),
-                      BOOL2ATOM(data.iow),
-                      lgcnt},
-            info;
-        unsigned int
-            numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM),
-            numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+        ERL_NIF_TERM gcntKeys[] =
+            {atom_num_cnt_bits,
+             atom_num_sockets,
+             atom_num_tdgrams, atom_num_tstreams, atom_num_tseqpkgs,
+             atom_num_dlocal, atom_num_dinet, atom_num_dinet6,
+             atom_num_pip, atom_num_ptcp, atom_num_pudp, atom_num_psctp};
+        unsigned int numGCntVals = sizeof(gcntVals) / sizeof(ERL_NIF_TERM);
+        unsigned int numGCntKeys = sizeof(gcntKeys) / sizeof(ERL_NIF_TERM);
+        ERL_NIF_TERM gcnt;
 
-        ESOCK_ASSERT( (numKeys == numVals) );
-
-        if (!MKMA(env, keys, vals, numKeys, &info))
+        ESOCK_ASSERT( (numGCntKeys == numGCntVals) );
+        
+        if (!MKMA(env, gcntKeys, gcntVals, numGCntKeys, &gcnt))
             return enif_make_badarg(env);
 
-        return info;
+        {
+            ERL_NIF_TERM
+                keys[] = {esock_atom_debug,
+                          atom_socket_debug,
+                          atom_iow,
+                          atom_counters},
+                vals[] = {BOOL2ATOM(data.dbg),
+                          BOOL2ATOM(data.sockDbg),
+                          BOOL2ATOM(data.iow),
+                          gcnt},
+                info;
+            unsigned int
+                numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM),
+                numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+            ESOCK_ASSERT( (numKeys == numVals) );
+
+            if (!MKMA(env, keys, vals, numKeys, &info))
+                return enif_make_badarg(env);
+
+            return info;
+        }
     }
 }
 
@@ -3686,38 +3700,54 @@ static
 ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                                         ESockDescriptor* descP)
 {
+    ERL_NIF_TERM keys[] = {atom_read_byte,
+                           atom_read_fails,
+                           atom_read_pkg,
+                           atom_read_pkg_max,
+                           atom_read_tries,
+                           atom_read_waits,
+                           atom_write_byte,
+                           atom_write_fails,
+                           atom_write_pkg,
+                           atom_write_pkg_max,
+                           atom_write_tries,
+                           atom_write_waits,
+                           atom_acc_success,
+                           atom_acc_fails,
+                           atom_acc_tries,
+                           atom_acc_waits};
+    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM vals[] = {MKUI(env, descP->readByteCnt),
+                           MKUI(env, descP->readFails),
+                           MKUI(env, descP->readPkgCnt),
+                           MKUI(env, descP->readPkgMax),
+                           MKUI(env, descP->readTries),
+                           MKUI(env, descP->readWaits),
+                           MKUI(env, descP->writeByteCnt),
+                           MKUI(env, descP->writeFails),
+                           MKUI(env, descP->writePkgCnt),
+                           MKUI(env, descP->writePkgMax),
+                           MKUI(env, descP->writeTries),
+                           MKUI(env, descP->writeWaits),
+                           MKUI(env, descP->accSuccess),
+                           MKUI(env, descP->accFails),
+                           MKUI(env, descP->accTries),
+                           MKUI(env, descP->accWaits)};
+    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
     ERL_NIF_TERM info;
-    ERL_NIF_TERM readByteCnt  = MKCT(env, atom_read_byte, descP->readByteCnt);
-    ERL_NIF_TERM readFails    = MKCT(env, atom_read_fails, descP->readFails);
-    ERL_NIF_TERM readPkgCnt   = MKCT(env, atom_read_pkg, descP->readPkgCnt);
-    ERL_NIF_TERM readPkgMax   = MKCT(env, atom_read_pkg_max, descP->readPkgMax);
-    ERL_NIF_TERM readTries    = MKCT(env, atom_read_tries, descP->readTries);
-    ERL_NIF_TERM readWaits    = MKCT(env, atom_read_waits, descP->readWaits);
-    ERL_NIF_TERM writeByteCnt = MKCT(env, atom_write_byte, descP->writeByteCnt);
-    ERL_NIF_TERM writeFails   = MKCT(env, atom_write_fails, descP->writeFails);
-    ERL_NIF_TERM writePkgCnt  = MKCT(env, atom_write_pkg, descP->writePkgCnt);
-    ERL_NIF_TERM writePkgMax  = MKCT(env, atom_write_pkg_max, descP->writePkgMax);
-    ERL_NIF_TERM writeTries   = MKCT(env, atom_write_tries, descP->writeTries);
-    ERL_NIF_TERM writeWaits   = MKCT(env, atom_write_waits, descP->writeWaits);
-
-    ERL_NIF_TERM accSuccess   = MKCT(env, atom_acc_success, descP->accSuccess);
-    ERL_NIF_TERM accFails     = MKCT(env, atom_acc_fails, descP->accFails);
-    ERL_NIF_TERM accTries     = MKCT(env, atom_acc_tries, descP->accTries);
-    ERL_NIF_TERM accWaits     = MKCT(env, atom_acc_waits, descP->accWaits);
-    ERL_NIF_TERM acnt[] =
-        {readByteCnt, readFails, readPkgCnt, readPkgMax,
-         readTries, readWaits,
-         writeByteCnt, writeFails, writePkgCnt, writePkgMax,
-         writeTries, writeWaits,
-         accSuccess, accFails, accTries, accWaits};
-    unsigned int lenACnt      = sizeof(acnt) / sizeof(ERL_NIF_TERM);
-
-    info = MKLA(env, acnt, lenACnt);
 
     SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> "
-                   "\r\n   lenACnt: %d"
-                   "\r\n   info:    %T"
-                   "\r\n", lenACnt, info) );
+                   "\r\n   numKeys: %d"
+                   "\r\n   numVals: %d"
+                   "\r\n", numKeys, numVals) );
+
+    ESOCK_ASSERT( (numKeys == numVals) );
+
+    if (!MKMA(env, keys, vals, numKeys, &info)) {
+        SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> "
+                       "failed creating counters map\r\n") );        
+        return enif_make_badarg(env);
+    }
 
     SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> done with"
                    "\r\n   info: %T"
