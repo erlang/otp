@@ -653,6 +653,27 @@
 
 </section>
 
+<section><title>STDLIB 3.8.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <seealso marker="stdlib:re#run/3">re:run(Subject, RE,
+	    [unicode])</seealso> returned <c>nomatch</c> instead of
+	    failing with a <c>badarg</c> error exception when
+	    <c>Subject</c> contained illegal utf8 and <c>RE</c> was
+	    passed as a binary. This has been corrected along with
+	    corrections of reduction counting in <c>re:run()</c>
+	    error cases.</p>
+          <p>
+	    Own Id: OTP-16553</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.8.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
