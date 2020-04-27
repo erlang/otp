@@ -53,7 +53,6 @@ char **ei_global_names(ei_cnode *ec, int fd, int *count)
   char **names;
   char *s;
   
-  self->num = fd;
   if (ei_encode_version(buf,&index)
       || ei_encode_tuple_header(buf,&index,2)
       || ei_encode_pid(buf,&index,self)               /* PidFrom */

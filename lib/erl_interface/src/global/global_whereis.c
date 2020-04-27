@@ -45,8 +45,6 @@ int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, c
   int i;
   int version,arity,msglen;
 
-  self->num = fd;		/* FIXME looks strange to change something?! */
-
   if (ei_encode_version(buf,&index)
       || ei_encode_tuple_header(buf,&index,2)
       || ei_encode_pid(buf,&index,self)               /* PidFrom */

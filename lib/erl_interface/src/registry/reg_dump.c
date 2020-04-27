@@ -255,7 +255,7 @@ static int mn_get_unlink(int fd)
 int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags)
 {
   ei_hash *tab;
-  erlang_pid self;
+  erlang_pid *self;
   erlang_pid mnesia;
   ei_bucket *b;
   ei_reg_obj *obj;
@@ -271,12 +271,10 @@ int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags)
   if ((ec = ei_fd_to_cnode(fd)) == NULL) {
       return -1;
   }
-  strcpy(self.node,ei_thisnodename(ec));
-  self.num = fd;
-  self.serial = 0;
-  self.creation = ei_thiscreation(ec);
 
-  if (mn_start_dump(fd,&self,&mnesia,mntab)) return -1;
+  self = ei_self(ec);
+
+  if (mn_start_dump(fd,self,&mnesia,mntab)) return -1;
 
   /* traverse the table, passing objects to mnesia */
   for (i=0; i<tab->size; i++) {
@@ -288,13 +286,13 @@ int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags)
       if ((flags & EI_FORCE) || (obj->attr & EI_DIRTY)) {
 	if (obj->attr & EI_DELET) {
 	  if (mn_send_delete(fd,&mnesia,key)) {
-	    ei_send_exit(fd,&self,&mnesia,"delete failed");
+	    ei_send_exit(fd,self,&mnesia,"delete failed");
 	    return -1;
 	  }
 	}
 	else {
 	  if (mn_send_write(fd,&mnesia,key,obj)) {
-	    ei_send_exit(fd,&self,&mnesia,"update failed");
+	    ei_send_exit(fd,self,&mnesia,"update failed");
 	    return -1;
 	  }
 	}
@@ -304,8 +302,8 @@ int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags)
   }
 
   /* end the transaction */
-  if (mn_send_commit(fd,&mnesia,&self)) {
-    ei_send_exit(fd,&self,&mnesia,"commit failed");
+  if (mn_send_commit(fd,&mnesia,self)) {
+    ei_send_exit(fd,self,&mnesia,"commit failed");
     return -1;
   }
 

@@ -1076,17 +1076,8 @@ if (ei_decode_version(result.buff, &index) < 0
           <c>erlang_pid</c>,
           which is to be the process identifier of the sending process
           (in the Erlang distribution protocol).</p>
-        <p>A suitable <c>erlang_pid</c> can be constructed from the
-          <c>ei_cnode</c> structure by the following example
-          code:</p>
-        <code type="none"><![CDATA[
-ei_cnode ec;
-erlang_pid *self;
-int fd; /* the connection fd */
-...
-self = ei_self(&ec);
-self->num = fd;
-        ]]></code>
+        <p>A suitable <c>erlang_pid</c> can be retrieved from the
+        <c>ei_cnode</c> structure by calling <c>ei_self(cnode_pointer)</c>.</p>
       </desc>
     </func>
 

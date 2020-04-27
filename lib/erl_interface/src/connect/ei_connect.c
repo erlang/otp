@@ -1475,11 +1475,8 @@ int ei_receive(int fd, unsigned char *bufp, int bufsize)
 int ei_reg_send_tmo(ei_cnode* ec, int fd, char *server_name,
 		    char* buf, int len, unsigned ms)
 {
-    erlang_pid *self = ei_self(ec);
-    self->num = fd;
-
     /* erl_errno and return code is set by ei_reg_send_encoded_tmo() */
-    return ei_send_reg_encoded_tmo(fd, self, server_name, buf, len, ms);
+    return ei_send_reg_encoded_tmo(fd, ei_self(ec), server_name, buf, len, ms);
 }
 
 
@@ -1589,7 +1586,6 @@ int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
     ei_x_buff x;
     erlang_pid *self = ei_self(ec);
     int err = ERL_ERROR;
-    self->num = fd;
 
     /* encode header */
     if (ei_x_new_with_version(&x) < 0)

@@ -41,8 +41,6 @@ int ei_global_unregister(ei_cnode *ec, int fd, const char *name)
   int version,arity,msglen;
   int needunlink, needatom, needdemonitor;
 
-  /* make a self pid */
-  self->num = fd;
   if (ei_encode_version(buf,&index)
       || ei_encode_tuple_header(buf,&index,2)
       || ei_encode_pid(buf,&index,self)               /* PidFrom */
