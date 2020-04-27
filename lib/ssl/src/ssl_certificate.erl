@@ -133,7 +133,7 @@ file_to_crls(File, DbHandle) ->
     [Bin || {'CertificateList', Bin, not_encrypted} <- List].
 
 %%--------------------------------------------------------------------
--spec validate(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid,
+-spec validate(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid | valid_peer,
 	       term()) -> {valid, term()} |
 			  {fail, tuple()} |
 			  {unknown, term()}.

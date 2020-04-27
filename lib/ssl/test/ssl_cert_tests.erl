@@ -162,6 +162,39 @@ client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
 
 %%--------------------------------------------------------------------
+client_auth_sni() ->
+    [{doc, "Check that sni check works with user verify_fun"}].
+client_auth_sni(Config) when is_list(Config) ->
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    FunAndState = {fun(valid_peer, {bad_cert, unknown_ca}, UserState) ->
+                           {valid_peer, UserState};
+                      (_,{bad_cert, _} = Reason, _) ->                         
+                           {fail, Reason};
+                      (_,{extension, _}, UserState) ->
+                           {unknown, UserState};
+                      (_, valid, UserState) ->
+                           {valid, UserState};
+                      (_, valid_peer, UserState) ->
+                           {valid, UserState}
+                   end, []},
+
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ClientOpts = [{verify, verify_peer}, {verify_fun, FunAndState
+                                         }, {server_name_indication, "localhost"} | ClientOpts0], 
+
+    {ok, ServerCAs} = file:read_file(proplists:get_value(cacertfile, ServerOpts0)),
+    [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ServerCAs),
+
+    ServerOpts = [{cacerts, [IntermidiateCA]} |
+                  proplists:delete(cacertfile, ServerOpts0)],
+    %% Basic test if hostname check is not performed the connection will succeed
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts0, Config, handshake_failure),
+    %% Also test that user verify_fun is run.
+    %% If user verify fun is not used the ALERT will be unknown_ca
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, handshake_failure).
+
+%%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
      [{doc,"Test that the client succeds if the ROOT CA is unknown in verify_none mode"}].
 

@@ -1683,9 +1683,10 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef,
 				      SslState)
      end, {Role, CertDbHandle, CertDbRef, {ServerNameIndication, CustomizeHostCheck}, CRLCheck, CRLDbHandle}}.
 
-apply_user_fun(Fun, OtpCert, VerifyResult, UserState0, 
+apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, 
 	       {_, CertDbHandle, CertDbRef, _, CRLCheck, CRLDbHandle} = SslState, CertPath, LogLevel) when
-      (VerifyResult == valid) or (VerifyResult == valid_peer) ->
+      (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
+    VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState),
     case Fun(OtpCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
 	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
@@ -1707,6 +1708,16 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState, _CertPath, 
 	{unknown, UserState} ->
 	    {unknown, {SslState, UserState}}
     end.
+
+maybe_check_hostname(OtpCert, valid_peer, SslState) ->
+    case ssl_certificate:validate(OtpCert, valid_peer, SslState) of 
+        {valid, _} ->
+            valid_peer;
+        {fail, Reason} ->
+            Reason
+    end;
+maybe_check_hostname(_, valid, _) ->
+    valid.
 
 handle_path_validation_error({bad_cert, unknown_ca} = Reason, PeerCert, Chain,  
                              Opts, Options, CertDbHandle, CertsDbRef) ->
