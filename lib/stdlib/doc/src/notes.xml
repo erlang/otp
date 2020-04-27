@@ -659,8 +659,8 @@
       <list>
         <item>
           <p>
-	    <seealso marker="stdlib:re#run/3">re:run(Subject, RE,
-	    [unicode])</seealso> returned <c>nomatch</c> instead of
+	    <seemfa marker="stdlib:re#run/3">re:run(Subject, RE,
+	    [unicode])</seemfa> returned <c>nomatch</c> instead of
 	    failing with a <c>badarg</c> error exception when
 	    <c>Subject</c> contained illegal utf8 and <c>RE</c> was
 	    passed as a binary. This has been corrected along with
