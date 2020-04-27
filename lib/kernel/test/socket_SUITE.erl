@@ -3488,6 +3488,8 @@ api_b_send_and_recv_conn(InitState) ->
                            case socket:open(Domain, Type, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
+                               {error, eprotonosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
