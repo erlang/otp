@@ -61,7 +61,6 @@ alpn_tests() ->
      client_alpn_and_server_alpn,
      client_alpn_and_server_no_support,
      client_no_support_and_server_alpn,
-     client_alpn_npn_and_server_alpn,
      client_renegotiate,
      session_reused
     ].
@@ -69,7 +68,8 @@ alpn_tests() ->
 alpn_npn_coexist() ->
     [
      client_alpn_npn_and_server_alpn_npn,
-     client_alpn_and_server_alpn_npn
+     client_alpn_and_server_alpn_npn,
+     client_alpn_npn_and_server_alpn
     ].
 
 

@@ -1634,7 +1634,9 @@ handle_option(anti_replay = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};
 handle_option(anti_replay = Option, Value0,
-              #{session_tickets := SessionTickets} = OptionsMap, #{rules := Rules}) ->
+              #{session_tickets := SessionTickets,
+                versions := Versions} = OptionsMap, #{rules := Rules}) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     assert_option_dependency(Option, session_tickets, [SessionTickets], [stateless]),
     case SessionTickets of
         stateless ->
@@ -1643,6 +1645,13 @@ handle_option(anti_replay = Option, Value0,
         _ ->
             OptionsMap#{Option => default_value(Option, Rules)}
     end;
+handle_option(beast_mitigation = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(beast_mitigation = Option, Value0,  #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(cacertfile = Option, unbound, #{cacerts := CaCerts,
                                               verify := Verify,
                                               verify_fun := VerifyFun} = OptionsMap, _Env)
@@ -1670,8 +1679,11 @@ handle_option(ciphers = Option, Value0, #{versions := [HighestVersion|_]} = Opti
 handle_option(client_renegotiation = Option, unbound, OptionsMap, #{role := Role}) ->
     Value = default_option_role(server, true, Role),
     OptionsMap#{Option => Value};
-handle_option(client_renegotiation = Option, Value0, OptionsMap, #{role := Role}) ->
+handle_option(client_renegotiation = Option, Value0,
+              #{versions := Versions} = OptionsMap, #{role := Role}) ->
     assert_role(server_only, Role, Option, Value0),
+    assert_option_dependency(Option, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(eccs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := _Rules}) ->
@@ -1711,12 +1723,49 @@ handle_option(key_update_at = Option, Value0, #{versions := Versions} = OptionsM
     assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
+handle_option(next_protocols_advertised = Option, unbound, OptionsMap,
+              #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(next_protocols_advertised = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(next_protocols_advertised, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(next_protocol_selector = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = default_value(Option, Rules),
     OptionsMap#{Option => Value};
-handle_option(next_protocol_selector = Option, Value0, OptionsMap, _Env) ->
+handle_option(next_protocol_selector = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(client_preferred_next_protocols, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = make_next_protocol_selector(
               validate_option(client_preferred_next_protocols, Value0)),
+    OptionsMap#{Option => Value};
+handle_option(padding_check = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(padding_check = Option, Value0,  #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
+handle_option(psk_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(psk_identity = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
+handle_option(secure_renegotiate = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(secure_renegotiate= Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(secure_renegotiate, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
+    Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(reuse_session = Option, unbound, OptionsMap, #{role := Role}) ->
     Value =
@@ -1727,14 +1776,20 @@ handle_option(reuse_session = Option, unbound, OptionsMap, #{role := Role}) ->
                 fun(_, _, _, _) -> true end
         end,
     OptionsMap#{Option => Value};
-handle_option(reuse_session = Option, Value0, OptionsMap, _Env) ->
+handle_option(reuse_session = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(reuse_session, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 %% TODO: validate based on role
 handle_option(reuse_sessions = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};
-handle_option(reuse_sessions = Option, Value0, OptionsMap, _Env) ->
+handle_option(reuse_sessions = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(reuse_sessions, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(server_name_indication = Option, unbound, OptionsMap, #{host := Host,
@@ -1788,25 +1843,48 @@ handle_option(sni_fun = Option, Value0, OptionsMap, _Env) ->
                 throw({error, {conflict_options, [sni_fun, sni_hosts]}})
         end,
     OptionsMap#{Option => Value};
+handle_option(srp_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(srp_identity = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(srp_identity, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(supported_groups = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := _Rules}) ->
     Value = handle_supported_groups_option(groups(default), HighestVersion),
     OptionsMap#{Option => Value};
-handle_option(supported_groups = Option, Value0, #{versions := [HighestVersion|_]} = OptionsMap, _Env) ->
+handle_option(supported_groups = Option, Value0,
+              #{versions := [HighestVersion|_] = Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     Value = handle_supported_groups_option(Value0, HighestVersion),
+    OptionsMap#{Option => Value};
+handle_option(use_ticket = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(use_ticket = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
+handle_option(user_lookup_fun = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(user_lookup_fun = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+    Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(verify = Option, unbound, OptionsMap, #{rules := Rules}) ->
     handle_verify_option(default_value(Option, Rules), OptionsMap);
 handle_option(verify = _Option, Value, OptionsMap, _Env) ->
     handle_verify_option(Value, OptionsMap);
-
 handle_option(verify_fun = Option, unbound, #{verify := Verify} = OptionsMap, #{rules := Rules})
-  when Verify =:= verify_none orelse
-       Verify =:= 0 ->
+  when Verify =:= verify_none ->
     OptionsMap#{Option => default_value(Option, Rules)};
 handle_option(verify_fun = Option, unbound, #{verify := Verify} = OptionsMap, _Env)
-  when Verify =:= verify_peer orelse
-       Verify =:= 1 orelse
-       Verify =:= 2 ->
+  when Verify =:= verify_peer ->
     OptionsMap#{Option => undefined};
 handle_option(verify_fun = Option, Value0, OptionsMap, _Env) ->
     Value = validate_option(Option, Value0),
@@ -1957,27 +2035,39 @@ assert_role_value(server, Option, Value, ServerValues, _) ->
                 throw({error, {options, role, {Option, {Value, {server, ServerValues}}}}})
         end.
 
-
 assert_option_dependency(Option, OptionDep, Values0, AllowedValues) ->
-    %% special handling for version
-    Values =
-        case OptionDep of
-            versions ->
-                lists:map(fun tls_record:protocol_version/1, Values0);
-            _ ->
-                Values0
-        end,
-    Set1 = sets:from_list(Values),
-    Set2 = sets:from_list(AllowedValues),
-    case sets:size(sets:intersection(Set1, Set2)) > 0 of
+    case is_dtls_configured(Values0) of
         true ->
+            %% TODO: Check option dependency for DTLS
             ok;
         false ->
-            %% Message = build_error_message(Option, OptionDep, AllowedValues),
-            %% throw({error, {options, Message}})
-            throw({error, {options, dependency, {Option, {OptionDep, AllowedValues}}}})
+            %% special handling for version
+            Values =
+                case OptionDep of
+                    versions ->
+                        lists:map(fun tls_record:protocol_version/1, Values0);
+                    _ ->
+                        Values0
+                end,
+            Set1 = sets:from_list(Values),
+            Set2 = sets:from_list(AllowedValues),
+            case sets:size(sets:intersection(Set1, Set2)) > 0 of
+                true ->
+                    ok;
+                false ->
+                    throw({error, {options, dependency,
+                                   {Option, {OptionDep, AllowedValues}}}})
+            end
     end.
 
+is_dtls_configured(Versions) ->
+    Fun = fun (Version) when Version =:= {254, 253} orelse
+                             Version =:= {254, 255} ->
+                  true;
+              (_) ->
+                  false
+          end,
+    lists:any(Fun, Versions).
 
 validate_option(versions, Versions)  ->
     validate_versions(Versions, Versions);
@@ -2007,8 +2097,6 @@ validate_option(verify_fun, {Fun, _} = Value) when is_function(Fun) ->
 validate_option(partial_chain, Value) when is_function(Value) ->
     Value;
 validate_option(fail_if_no_peer_cert, Value) when is_boolean(Value) ->
-    Value;
-validate_option(verify_client_once, Value) when is_boolean(Value) ->
     Value;
 validate_option(depth, Value) when is_integer(Value),
                                    Value >= 0, Value =< 255->
@@ -2575,19 +2663,14 @@ assert_proplist([Value | _]) ->
     throw({option_not_a_key_value_tuple, Value}).
 
 
-handle_verify_option(verify_none, #{fail_if_no_peer_cert := _FailIfNoPeerCert} = OptionsMap) ->
-    OptionsMap#{verify => verify_none,
-                fail_if_no_peer_cert => false};
-handle_verify_option(verify_peer, #{fail_if_no_peer_cert := FailIfNoPeerCert} = OptionsMap) ->
-    OptionsMap#{verify => verify_peer,
-                fail_if_no_peer_cert => FailIfNoPeerCert};
-%% Handle 0, 1, 2 for backwards compatibility
-handle_verify_option(0, OptionsMap) ->
-    handle_verify_option(verify_none, OptionsMap);
-handle_verify_option(1, OptionsMap) ->
-    handle_verify_option(verify_peer, OptionsMap#{fail_if_no_peer_cert => false});
-handle_verify_option(2, OptionsMap) ->
-    handle_verify_option(verify_peer, OptionsMap#{fail_if_no_peer_cert => true});
+handle_verify_option(verify_none, #{fail_if_no_peer_cert := false} = OptionsMap) ->
+    OptionsMap#{verify => verify_none};
+handle_verify_option(verify_none, #{fail_if_no_peer_cert := true}) ->
+    throw({error, {options, incompatible,
+                   {verify, verify_none},
+                   {fail_if_no_peer_cert, true}}});
+handle_verify_option(verify_peer, OptionsMap) ->
+    OptionsMap#{verify => verify_peer};
 handle_verify_option(Value, _) ->
     throw({error, {options, {verify, Value}}}).
 

@@ -43,9 +43,14 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++ handshake_paus_tests()) --
-                          [dh_params, honor_server_cipher_order, honor_client_cipher_order,
-                           new_options_in_handshake, handshake_continue_tls13_client])
+     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++
+                           handshake_paus_tests()) --
+                          [dh_params,
+                           honor_server_cipher_order,
+                           honor_client_cipher_order,
+                           new_options_in_handshake,
+                           handshake_continue_tls13_client,
+                           invalid_options])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
@@ -141,9 +146,9 @@ tls13_group() ->
      client_options_negative_dependency_stateless,
      client_options_negative_dependency_role,
      server_options_negative_version_gap,
-     server_options_negative_dependency_role
+     server_options_negative_dependency_role,
+     invalid_options_tls13
     ].
-
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -1613,7 +1618,6 @@ invalid_options(Config) when is_list(Config) ->
           {verify, 4}, 
           {verify_fun, function},
           {fail_if_no_peer_cert, 0}, 
-          {verify_client_once, 1},
           {depth, four}, 
           {certfile, 'cert.pem'}, 
           {keyfile,'key.pem' }, 
@@ -1631,6 +1635,20 @@ invalid_options(Config) when is_list(Config) ->
           {active, trice},
           {key, 'key.pem' }],
 
+    TestOpts2 =
+        [{[{anti_replay, '10k'}],
+          %% anti_replay is a server only option but tested with client
+          %% for simplicity
+          {options,dependency,{anti_replay,{versions,['tlsv1.3']}}}},
+         {[{supported_groups, []}],
+          {options,dependency,{supported_groups,{versions,['tlsv1.3']}}}},
+         {[{use_ticket, [<<1,2,3,4>>]}],
+          {options,dependency,{use_ticket,{versions,['tlsv1.3']}}}},
+         {[{verify, verify_none}, {fail_if_no_peer_cert, true}],
+          {options, incompatible,
+                   {verify, verify_none},
+                   {fail_if_no_peer_cert, true}}}],
+
     [begin
 	 Server =
 	     ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
@@ -1644,7 +1662,13 @@ invalid_options(Config) when is_list(Config) ->
 	 Check(Client, Server, TestOpt),
 	 ok
      end || TestOpt <- TestOpts],
+
+    [begin
+         start_client_negative(Config, TestOpt, ErrorMsg),
+         ok
+     end || {TestOpt, ErrorMsg} <- TestOpts2],
     ok.
+
 %%-------------------------------------------------------------------
 
 default_reject_anonymous()->
@@ -1911,6 +1935,103 @@ getstat(Config) when is_list(Config) ->
                                         {mfa, {?MODULE, ssl_getstat, []}},
                                         {options, ClientOpts}]),
     ssl_test_lib:check_result(Server, ok, Client, ok).
+
+invalid_options_tls13() ->
+    [{doc, "Test invalid options with TLS 1.3"}].
+invalid_options_tls13(Config) when is_list(Config) ->
+    TestOpts =
+        [{{beast_mitigation, one_n_minus_one},
+          {options, dependency,
+           {beast_mitigation,{versions,[tlsv1]}}},
+          common},
+
+         {{next_protocols_advertised, [<<"http/1.1">>]},
+          {options, dependency,
+           {next_protocols_advertised,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          server},
+
+         {{client_preferred_next_protocols,
+           {client, [<<"http/1.1">>]}},
+          {options, dependency,
+           {client_preferred_next_protocols,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          client},
+
+         {{client_renegotiation, false},
+          {options, dependency,
+           {client_renegotiation,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          server
+         },
+
+         {{padding_check, false},
+          {options, dependency,
+           {padding_check,{versions,[tlsv1]}}},
+          common},
+
+         {{psk_identity, "Test-User"},
+          {options, dependency,
+           {psk_identity,{versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          common},
+
+         {{user_lookup_fun,
+           {fun ssl_test_lib:user_lookup/3, <<1,2,3>>}},
+          {options, dependency,
+           {user_lookup_fun,{versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          common},
+
+         {{reuse_session, fun(_,_,_,_) -> false end},
+          {options, dependency,
+           {reuse_session,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          server},
+
+         {{reuse_session, <<1,2,3,4>>},
+          {options, dependency,
+           {reuse_session,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          client},
+
+         {{reuse_sessions, true},
+          {options, dependency,
+           {reuse_sessions,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          common},
+
+         {{secure_renegotiate, false},
+          {options, dependency,
+           {secure_renegotiate,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          common},
+
+         {{srp_identity, false},
+          {options, dependency,
+           {srp_identity,
+            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}},
+          client}
+        ],
+
+    Fun = fun(Option, ErrorMsg, Type) ->
+                  case Type of
+                      server ->
+                          start_server_negative(Config,
+                                                [Option,{versions, ['tlsv1.3']}],
+                                                ErrorMsg);
+                      client ->
+                          start_client_negative(Config,
+                                                [Option,{versions, ['tlsv1.3']}],
+                                                ErrorMsg);
+                      common ->
+                          start_server_negative(Config,
+                                                [Option,{versions, ['tlsv1.3']}],
+                                                ErrorMsg),
+                          start_client_negative(Config,
+                                                [Option,{versions, ['tlsv1.3']}],
+                                                ErrorMsg)
+                  end
+          end,
+    [Fun(Option, ErrorMsg, Type) || {Option, ErrorMsg, Type} <- TestOpts].
 
 
 %%--------------------------------------------------------------------

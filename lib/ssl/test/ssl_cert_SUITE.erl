@@ -129,7 +129,6 @@ all_version_tests() ->
      extended_key_usage_auth,
      extended_key_usage_client_auth,
      cert_expired,
-     client_auth_once,
      no_auth_key_identifier_ext,
      no_auth_key_identifier_ext_keyEncipherment
     ].
@@ -694,41 +693,6 @@ cert_expired(Config) when is_list(Config) ->
 					      {options, [{verify, verify_peer} | ClientOpts]}]),    
     
     ssl_test_lib:check_client_alert(Server, Client, certificate_expired).
-
-%%--------------------------------------------------------------------
-client_auth_once() ->
-    [{doc,"Test server option verify_client_once"}].
-
-client_auth_once(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_cert_opts, Config),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, [{verify, verify_peer},
-						   {verify_client_once, true}
-						   | ServerOpts]}]),
-    Port  = ssl_test_lib:inet_port(Server),
-    Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                         {host, Hostname},
-                                         {from, self()},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                         {options, ClientOpts}]),
-    
-    ssl_test_lib:check_result(Server, ok, Client0, ok),
-    Server ! {listen, {mfa, {ssl_test_lib, send_recv_result_active, []}}},
-    ssl_test_lib:close(Client0),
-    Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                         {host, Hostname},
-                                         {from, self()},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                         {options, ClientOpts}]),
-    
-    ssl_test_lib:check_result(Client1, ok, Server, ok),
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client1).
 
 %%--------------------------------------------------------------------
 no_auth_key_identifier_ext() ->
