@@ -1444,6 +1444,7 @@ msd_varm_mib_start(X) ->
 
 msm_varm_mib_start(X) -> 
     %% <CONDITIONAL-SKIP>
+    %% This is a bit radioactive but...
     Skippable = [win32],
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
     ?NON_PC_TC_MAYBE_SKIP(X, Condition),
@@ -6308,27 +6309,34 @@ otp_1131_3(X) ->
     %% Montavista Linux looks like a Debian distro (/etc/issue)
     LinuxVersionVerify = 
 	fun() ->
-		case os:cmd("uname -m") of
+		case string:to_lower(os:cmd("uname -m")) of
 		    "ppc" ++ _ ->
 			case file:read_file_info("/etc/issue") of
 			    {ok, _} ->
-				case os:cmd("grep -i montavista /etc/issue") of
-				    Info when (is_list(Info) andalso 
-					       (length(Info) > 0)) ->
+				case string:to_lower(
+                                       os:cmd("grep -i montavista /etc/issue")) of
+				    "montavista" ++ _ ->
 					case os:version() of
 					    {2, 6, 10} ->
+                                                ?IPRINT("(PPC Linux) kernel version check: "
+                                                        "{2, 6, 10} => SKIP"),
 						true;
-					    _ ->
+					    V ->
+                                                ?IPRINT("(PPC Linux) kernel version check: "
+                                                        "~p != {2, 6, 10} => *NO* SKIP", [V]),
 						false
 					end;
 				    _ -> % Maybe plain Debian or Ubuntu
+                                        ?IPRINT("(PPC Linux) Not MontaVista => *NO* SKIP"),
 					false
 				end;
 			    _ ->
 				%% Not a Debian based distro
+                                ?IPRINT("(PPC Linux) Unknown distro => *NO* SKIP"),
 				false
 			end;
 		    _ ->
+                        ?IPRINT("(Linux) Not PPC => *NO* SKIP"),
 			false
 		end
 	end,
