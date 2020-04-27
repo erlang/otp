@@ -464,9 +464,6 @@ wait_for_decision(D, InitBy, N) ->
 	    %% to end and try again
 	    timer:sleep(100), 
 	    wait_for_decision(D, InitBy, N)
-	%%InitBy == startup ->
-	%%    {ok, Res} = call({wait_for_decision, D}),
-	%%    {Tid, Res}
     end.
 
 still_pending([Tid | Pending]) ->
