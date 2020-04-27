@@ -183,6 +183,13 @@
               specified, an Erlang node is started (if necessary) with
               <c>erl -sname</c>.</p>
           </item>
+          <tag><c>-timeout Seconds</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Aborts the <c>erl_call</c> process after
+              the timeout expires. Note that this does not abort commands that
+              have already been started with <c>-a</c>, <c>-e</c>, or similar.
+            </p>
+          </item>
           <tag><c>-v</c></tag>
           <item>
             <p>(<em>Optional.</em>) Prints a lot of <c>verbose</c>
