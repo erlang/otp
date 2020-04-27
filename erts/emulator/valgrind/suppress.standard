@@ -252,7 +252,19 @@ obj:*/ssleay.*
    fun:start_thread
    fun:clone
 }
-
+{
+   Crypto engine internal...
+   Memcheck:Leak
+   fun:malloc
+   fun:CRYPTO_malloc
+   fun:ENGINE_new
+   fun:ENGINE_by_id
+   fun:engine_by_id_nif
+   fun:process_main
+   fun:sched_thread_func
+   fun:thr_wrapper
+   fun:start_thread
+}
 {
    Harmless assembler bug in openssl
    Memcheck:Addr8
