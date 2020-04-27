@@ -1389,6 +1389,19 @@ fi
 AC_SUBST(USE_ESOCK)
 
 
+dnl *** ESOCK_USE_RCVSNDTIMEO ***
+
+AC_ARG_ENABLE(esock_use_rcvsndtimeo,
+AS_HELP_STRING([--enable-esock-rcvsndtimeo], [enable use of the option(s) rcvtimeo and sndtimeo])
+AS_HELP_STRING([--disable-esock-rcvsndtimeo], [disable use of the option(s) rcvtimeo and sndtimeo (default)]))
+
+if test "x$enable_esock_rcvsndtimeo" = "xyes"; then
+    AC_DEFINE(ESOCK_USE_RCVSNDTIMEO, [1], [Use SO_[RCV|SND]TMIEO])
+fi
+
+
+dnl *** ESOCK_COUNTER_SIZE ***
+
 AC_ARG_WITH(esock-counter-size, 
 AS_HELP_STRING([--with-esock-counter-size=SZ], 
                [Size of the esock counters, in number of bits: 16 | 24 | 32 | 48 | 64; default is 64]), 
