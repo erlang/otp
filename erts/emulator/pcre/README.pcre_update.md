@@ -244,7 +244,10 @@ To begin with you will need a default table for Latin-1 characters, so:
 
 Compare it to the pcre\_latin\_1\_table.c in the old version, they
 should not differ in any significant way. If they do, it might be
-that you do not have the sv_SE locale installed on your machine.
+that you do not have the `sv_SE` locale installed on your machine.
+
+You can test whether it's installed with `locale -a | grep sv_SE$`, and
+install with `sudo locale-gen sv_SE && sudo update-locale` if needed.
 
 A good starting point is then to try to find all files in the new
 version of the library that have (probably) the same names as the
