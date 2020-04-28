@@ -38,3 +38,15 @@
 	encoded in Latin-1 but without a <c>%% coding: latin-1</c> comment at the
 	beginning of the file.</p>
     </section>
+    <section>
+      <title>erl_interface registry</title>
+      <p>
+	The
+	<seecref marker="erl_interface:registry"><c>registry</c></seecref>
+	functionality part of
+	<seeapp marker="erl_interface:index"><c>erl_interface</c></seeapp>
+	is as of
+	<seeguide marker="deprecations#otp-23">OTP 23 deprecated</seeguide>
+	and will be removed in OTP 24.
+      </p>
+    </section>
