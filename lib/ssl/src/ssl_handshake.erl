@@ -400,12 +400,18 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 %%
 %% Description: Checks that a public_key signature is valid.
 %%--------------------------------------------------------------------
-verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, 
-                 {_, PubKey, PubKeyParams}) when  Minor >= 3,
-                                                  SignAlgo == rsa_pss_rsae;
+verify_signature({3, 4}, Hash, {HashAlgo, SignAlgo}, Signature, 
+                 {_, PubKey, PubKeyParams}) when  SignAlgo == rsa_pss_rsae;
                                                   SignAlgo == rsa_pss_pss ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
     public_key:verify(Hash, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, 3}, Hash, {HashAlgo, SignAlgo}, Signature, 
+                 {_, PubKey, PubKeyParams}) when  SignAlgo == rsa_pss_rsae;
+                                                  SignAlgo == rsa_pss_pss ->
+    Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
+    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
+
+
 verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
   when Minor >= 3 ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
