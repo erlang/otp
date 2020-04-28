@@ -1227,9 +1227,7 @@ handle_event(
   {call, From}, {recv, Length, Timeout}, State, {P, D}) ->
     case State of
         'connected' ->
-            handle_recv(
-              P, recv_start(D, From, Length),
-              [{{timeout, recv}, Timeout, recv}]);
+            handle_recv_start(P, D, From, Length, Timeout);
         #recv{} ->
             %% Receive in progress
             {keep_state_and_data,
@@ -1351,6 +1349,32 @@ handle_connected(P, D, ActionsR) ->
         #{active := _} ->
             handle_recv(P, recv_start(D), ActionsR)
     end.
+
+handle_recv_start(
+  P, #{packet := Packet, buffer := Buffer} = D, From, Length, Timeout)
+  when Packet =:= raw, 0 < Length;
+       Packet =:= 0, 0 < Length ->
+    Size = iolist_size(Buffer),
+    if
+        Length =< Size ->
+            {Data, NewBuffer} =
+                split_binary(condense_buffer(Buffer), Length),
+            handle_recv_deliver(
+              P,
+              D#{recv_length => Length, % Redundant
+                 recv_from => From,
+                 buffer := NewBuffer},
+              [], Data);
+        true ->
+            N = Length - Size,
+            handle_recv(
+              P, D#{recv_length => N, recv_from => From},
+              [{{timeout, recv}, Timeout, recv}])
+    end;
+handle_recv_start(P, D, From, _Length, Timeout) ->
+    handle_recv(
+      P, D#{recv_length => 0, recv_from => From},
+      [{{timeout, recv}, Timeout, recv}]).
 
 handle_recv(P, #{packet := Packet, recv_length := Length} = D, ActionsR) ->
     if
@@ -1661,16 +1685,6 @@ cleanup_recv_reply(
      end}.
 
 %% Initialize packet recv state
-recv_start(#{packet := Packet} = D, From, Length) ->
-    %%
-    D#{recv_length =>
-           case Packet of
-               raw -> Length;
-               0 -> Length;
-               _ -> 0
-           end,
-       recv_from => From}.
-
 recv_start(D) ->
     D#{recv_length => 0}.
 
