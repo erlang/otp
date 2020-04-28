@@ -587,10 +587,6 @@ end_per_testcase(_Case, Config) ->
 %% the load for some test cases. Such as run time or number of
 %% iteraions. This only works for some OSes.
 %%
-%% We make some calculations on Linux, OpenBSD and FreeBSD.
-%% On SunOS we always set the factor to 2 (just to be on the safe side)
-%% On all other os:es (mostly windows) we check the number of schedulers,
-%% but at least the factor will be 2.
 analyze_and_print_host_info() ->
     {OsFam, OsName} = os:type(),
     Version         =

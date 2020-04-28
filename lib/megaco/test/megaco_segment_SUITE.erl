@@ -165,7 +165,7 @@ end_per_group(_Group, Config) ->
 init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
 
-    p("init_per_suite -> entry with"
+    p("init_per_testcase -> entry with"
       "~n      Config: ~p"
       "~n      Nodes:  ~p", [Config, erlang:nodes()]),
 
@@ -175,7 +175,7 @@ init_per_testcase(Case, Config) ->
 end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
 
-    p("end_per_suite -> entry with"
+    p("end_per_testcase -> entry with"
       "~n      Config: ~p"
       "~n      Nodes:  ~p", [Config, erlang:nodes()]),
 
@@ -806,17 +806,9 @@ send_segmented_msg_plain2(doc) ->
     "Second plain test that it is possible to send segmented messages. "
 	"Send window = infinity. ";
 send_segmented_msg_plain2(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(?MINS(1) + Factor * ?MINS(1)),
     Pre = fun() ->
-                  %% We leave it commented out as test
-                  %% All the other changes to the framework
-                  %% may have "solved" the issues...
-
-                  %% <CONDITIONAL-SKIP>
-                  %% Skippable = [{unix, [linux]}],
-                  %% Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-                  %% ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-                  %% </CONDITIONAL-SKIP>
-
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
@@ -827,20 +819,20 @@ send_segmented_msg_plain2(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_send_segmented_msg_plain2/1,
+    Case = fun(X) -> do_send_segmented_msg_plain2(Factor, X) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(ssmp2, Pre, Case, Post).
 
-do_send_segmented_msg_plain2([MgcNode, MgNode]) ->
+do_send_segmented_msg_plain2(Factor, [MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = ssmp2_mgc_event_sequence(text, tcp),
+    MgcEvSeq = ssmp2_mgc_event_sequence(Factor, text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -855,7 +847,7 @@ do_send_segmented_msg_plain2([MgcNode, MgNode]) ->
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
     d("[MG] create the event sequence"),
-    MgEvSeq = ssmp2_mg_event_sequence(text, tcp),
+    MgEvSeq = ssmp2_mg_event_sequence(Factor, text, tcp),
 
     i("wait some time before starting the MG simulation"),
     sleep(1000),
@@ -883,7 +875,7 @@ do_send_segmented_msg_plain2([MgcNode, MgNode]) ->
 %% MGC generator stuff
 %%
 
-ssmp2_mgc_event_sequence(text, tcp) ->
+ssmp2_mgc_event_sequence(Factor, text, tcp) ->
     DecodeFun = ssmp2_mgc_decode_msg_fun(megaco_pretty_text_encoder, []),
     EncodeFun = ssmp2_mgc_encode_msg_fun(megaco_pretty_text_encoder, []),
     Mid       = {deviceName,"mgc"},
@@ -908,6 +900,7 @@ ssmp2_mgc_event_sequence(text, tcp) ->
     SegmentRep1 = ssmp2_mgc_segment_reply_msg(Mid, TransId, 1, false),
     SegmentRep2 = ssmp2_mgc_segment_reply_msg(Mid, TransId, 2, true),
     TransAck    = ssmp2_mgc_trans_ack_msg(Mid, TransId),
+    TO = fun(T) -> Factor * T end,
     EvSeq = [{debug,  true},
              {decode, DecodeFun},
              {encode, EncodeFun},
@@ -915,15 +908,17 @@ ssmp2_mgc_event_sequence(text, tcp) ->
 	     {expect_accept, any},
              {expect_receive, "service-change-request",  {ScrVerifyFun, 5000}},
              {send, "service-change-reply",              ServiceChangeRep},
-	     {expect_nothing, timer:seconds(1)}, 
+	     {expect_nothing, ?SECS(1)}, 
              {send, "notify request",                    NotifyReq},
-             {expect_receive, "notify reply: segment 1", {NrVerifyFun1, 2000}},
+             {expect_receive, "notify reply: segment 1",
+              {NrVerifyFun1, TO(?SECS(2))}},
              {send, "segment reply 1",                   SegmentRep1},
-             {expect_receive, "notify reply: segment 2", {NrVerifyFun2, 1000}},
+             {expect_receive, "notify reply: segment 2",
+              {NrVerifyFun2, TO(?SECS(1))}},
              {send, "segment reply 2",                   SegmentRep2},
 	     {sleep, 100}, % {expect_nothing, 500}, 
 	     {send, "transaction-ack",                   TransAck},
-             {expect_closed,  timer:seconds(5)},
+             {expect_closed,  TO(?SECS(5))},
              disconnect
             ],
     EvSeq.
@@ -1036,14 +1031,13 @@ ssmp2_mgc_verify_notify_reply_segment_msg_fun(SN, Last,
 
 ssmp2_mgc_verify_notify_reply_segment(#'MegacoMessage'{mess = Mess} = M,
 				     SN, Last, TransId, TermId, Cid) ->
-    io:format("ssmp2_mgc_verify_notify_reply_segment -> entry with"
-	      "~n   M:       ~p"
-	      "~n   SN:      ~p"
-	      "~n   Last:    ~p"
-	      "~n   TransId: ~p"
-	      "~n   TermId:  ~p"
-	      "~n   Cid:     ~p"
-	      "~n", [M, SN, Last, TransId, TermId, Cid]),
+    p("ssmp2_mgc_verify_notify_reply_segment -> entry with"
+      "~n   M:       ~p"
+      "~n   SN:      ~p"
+      "~n   Last:    ~p"
+      "~n   TransId: ~p"
+      "~n   TermId:  ~p"
+      "~n   Cid:     ~p", [M, SN, Last, TransId, TermId, Cid]),
     Body = 
 	case Mess of 
 	    #'Message'{version     = ?VERSION,
@@ -1173,7 +1167,7 @@ ssmp2_mgc_trans_ack_msg(Mid, TransId) ->
 %%
 %% MG generator stuff
 %%
-ssmp2_mg_event_sequence(text, tcp) ->
+ssmp2_mg_event_sequence(Factor, text, tcp) ->
     Mid = {deviceName,"mg"},
     RI = [
           {port,             2944},
@@ -1187,7 +1181,8 @@ ssmp2_mg_event_sequence(text, tcp) ->
     Tid1 = #megaco_term_id{id = ["00000000","00000000","00000001"]},
     Tid2 = #megaco_term_id{id = ["00000000","00000000","00000002"]},
     NotifyReqVerify = ssmp2_mg_verify_notify_request_fun(Tid1, Tid2),
-    AckVerify = ssmp2_mg_verify_ack_fun(), 
+    AckVerify = ssmp2_mg_verify_ack_fun(),
+    SECS = fun(T) -> ?SECS(Factor * T) end,
     EvSeq = [
              {debug, true},
              {megaco_trace, disable},
@@ -1206,12 +1201,12 @@ ssmp2_mg_event_sequence(text, tcp) ->
 	     {megaco_update_conn_info, protocol_version, ?VERSION}, 
 	     {megaco_update_conn_info, segment_send,     infinity}, 
 	     {megaco_update_conn_info, max_pdu_size,     128}, 
-             {sleep, 1000},
+             {sleep, ?SECS(1)},
              {megaco_callback, handle_trans_request, NotifyReqVerify},
-             {megaco_callback, handle_trans_ack,     AckVerify, 5000},
+             {megaco_callback, handle_trans_ack,     AckVerify, SECS(5)},
              megaco_stop_user,
              megaco_stop,
-             {sleep, 1000}
+             {sleep, ?SECS(1)}
             ],
     EvSeq.
 
@@ -1220,12 +1215,12 @@ ssmp2_mg_verify_handle_connect_fun() ->
     fun(Ev) -> ssmp2_mg_verify_handle_connect(Ev) end.
 
 ssmp2_mg_verify_handle_connect({handle_connect, CH, 1}) -> 
-    io:format("ssmp2_mg_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    p("ssmp2_mg_verify_handle_connect -> ok"
+      "~n   CH: ~p", [CH]),
     {ok, CH, ok};
 ssmp2_mg_verify_handle_connect(Else) ->
-    io:format("ssmp2_mg_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    p("ssmp2_mg_verify_handle_connect -> unknown"
+      "~n   Else: ~p", [Else]),
     {error, Else, ok}.
 
 
@@ -1235,14 +1230,13 @@ ssmp2_mg_verify_service_change_reply_fun() ->
 ssmp2_mg_verify_scr({handle_trans_reply, _CH, 1, {ok, [AR]}, _}) ->
     (catch ssmp2_mg_do_verify_scr(AR));
 ssmp2_mg_verify_scr(Crap) ->
-    io:format("ssmp2_mg_verify_scr -> error: "
-	      "~n   Crap: ~p"
-	      "~n", [Crap]),
+    p("ssmp2_mg_verify_scr -> error: "
+      "~n   Crap: ~p", [Crap]),
     {error, Crap, ok}.
 
 ssmp2_mg_do_verify_scr(AR) ->
-    io:format("ssmp2_mg_do_verify_scr -> ok: "
-	      "~n   AR: ~p~n", [AR]),
+    p("ssmp2_mg_do_verify_scr -> ok: "
+      "~n   AR: ~p", [AR]),
     CR = 
 	case AR of
 	    #'ActionReply'{commandReply = [CmdRep]} ->
@@ -1304,30 +1298,27 @@ ssmp2_mg_verify_notify_request(
   {handle_trans_request, CH, V, ARs}, _Tid1, _Tid2) ->
     {error, {invalid_trans_request, {CH, V, ARs}}, ok};
 ssmp2_mg_verify_notify_request(Crap, _Tid1, _Tid2) ->
-    io:format("ssmp2_mg_verify_notify_request -> unknown request"
-	      "~n   Tid1: ~p"
-	      "~n   Tid2: ~p"
-	      "~n   Crap: ~p"
-	      "~n", [_Tid1, _Tid2, Crap]),
+    p("ssmp2_mg_verify_notify_request -> unknown request"
+      "~n   Tid1: ~p"
+      "~n   Tid2: ~p"
+      "~n   Crap: ~p", [_Tid1, _Tid2, Crap]),
     {error, {unexpected_event, Crap}, ok}.
 
 ssmp2_mg_do_verify_notify_request(Tid1, Tid2, AR1, AR2) ->
-    io:format("ssmp2_mg_do_verify_notify_request -> ok"
-	      "~n   Tid1: ~p"
-	      "~n   Tid2: ~p"
-	      "~n   AR1:  ~p"
-	      "~n   AR2:  ~p"
-	      "~n", [Tid1, Tid2, AR1, AR2]),
+    p("ssmp2_mg_do_verify_notify_request -> ok"
+      "~n   Tid1: ~p"
+      "~n   Tid2: ~p"
+      "~n   AR1:  ~p"
+      "~n   AR2:  ~p", [Tid1, Tid2, AR1, AR2]),
     ActionReply1 = ssmp2_mg_do_verify_notify_request(Tid1, AR1),
     ActionReply2 = ssmp2_mg_do_verify_notify_request(Tid2, AR2),
     Reply = {{handle_ack, ssmp2}, [ActionReply1, ActionReply2]}, 
     {ok, [AR1, AR2], Reply}.
 
 ssmp2_mg_do_verify_notify_request(Tid, AR) ->
-    io:format("ssmp2_mg_do_verify_notify_request -> ok"
-	      "~n   Tid: ~p"
-	      "~n   AR:  ~p"
-	      "~n", [Tid, AR]),
+    p("ssmp2_mg_do_verify_notify_request -> ok"
+      "~n   Tid: ~p"
+      "~n   AR:  ~p", [Tid, AR]),
     {Cid, CR} = 
 	case AR of
 	    #'ActionRequest'{contextId       = CtxId, 
@@ -1375,9 +1366,8 @@ ssmp2_mg_verify_ack_fun() ->
     fun(Event) -> ssmp2_mg_verify_ack(Event) end.
 
 ssmp2_mg_verify_ack({handle_trans_ack, CH, ?VERSION, ok, ssmp2}) ->
-    io:format("ssmp2_mg_verify_ack -> ok"
-              "~n   CH: ~p"
-              "~n", [CH]),
+    p("ssmp2_mg_verify_ack -> ok"
+      "~n   CH: ~p", [CH]),
     {ok, CH, ok};
 ssmp2_mg_verify_ack({handle_trans_ack, CH, ?VERSION, ok, CrapAckData}) ->
     {error, {unknown_ack_data, CrapAckData, CH}, ok};
@@ -1412,6 +1402,8 @@ send_segmented_msg_plain3(doc) ->
     "Third plain test that it is possible to send segmented messages. "
 	"Send window = 1. ";
 send_segmented_msg_plain3(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(?MINS(1) + Factor * ?MINS(1)),
     Pre = fun() ->
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
@@ -1612,9 +1604,8 @@ ssmp3_mgc_verify_service_change_req_msg_fun() ->
     end.
 
 ssmp3_mgc_verify_service_change_req(#'MegacoMessage'{mess = Mess} = M) ->
-    io:format("ssmp3_mgc_verify_service_change_req -> entry with"
-	      "~n   M: ~p"
-	      "~n", [M]),
+    p("ssmp3_mgc_verify_service_change_req -> entry with"
+      "~n   M: ~p", [M]),
     Body = 
 	case Mess of 
 	    #'Message'{version     = 1, 
@@ -1704,14 +1695,13 @@ ssmp3_mgc_verify_notify_reply_segment_msg_fun(SN, Last,
 
 ssmp3_mgc_verify_notify_reply_segment(#'MegacoMessage'{mess = Mess} = M,
 				     SN, Last, TransId, TermId, Cid) ->
-    io:format("ssmp3_mgc_verify_notify_reply_segment -> entry with"
-	      "~n   M:       ~p"
-	      "~n   SN:      ~p"
-	      "~n   Last:    ~p"
-	      "~n   TransId: ~p"
-	      "~n   TermId:  ~p"
-	      "~n   Cid:     ~p"
-	      "~n", [M, SN, Last, TransId, TermId, Cid]),
+    p("ssmp3_mgc_verify_notify_reply_segment -> entry with"
+      "~n   M:       ~p"
+      "~n   SN:      ~p"
+      "~n   Last:    ~p"
+      "~n   TransId: ~p"
+      "~n   TermId:  ~p"
+      "~n   Cid:     ~p", [M, SN, Last, TransId, TermId, Cid]),
     Body = 
 	case Mess of 
 	    #'Message'{version     = ?VERSION,
@@ -1903,12 +1893,12 @@ ssmp3_mg_verify_handle_connect_fun() ->
     fun(Ev) -> ssmp3_mg_verify_handle_connect(Ev) end.
 
 ssmp3_mg_verify_handle_connect({handle_connect, CH, 1}) -> 
-    io:format("ssmp3_mg_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    p("ssmp3_mg_verify_handle_connect -> ok"
+      "~n   CH: ~p", [CH]),
     {ok, CH, ok};
 ssmp3_mg_verify_handle_connect(Else) ->
-    io:format("ssmp3_mg_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    p("ssmp3_mg_verify_handle_connect -> unknown"
+      "~n   Else: ~p", [Else]),
     {error, Else, ok}.
 
 
@@ -1918,14 +1908,13 @@ ssmp3_mg_verify_service_change_reply_fun() ->
 ssmp3_mg_verify_scr({handle_trans_reply, _CH, 1, {ok, [AR]}, _}) ->
     (catch ssmp3_mg_do_verify_scr(AR));
 ssmp3_mg_verify_scr(Crap) ->
-    io:format("ssmp3_mg_verify_scr -> error: "
-	      "~n   Crap: ~p"
-	      "~n", [Crap]),
+    p("ssmp3_mg_verify_scr -> error: "
+      "~n   Crap: ~p", [Crap]),
     {error, Crap, ok}.
 
 ssmp3_mg_do_verify_scr(AR) ->
-    io:format("ssmp3_mg_do_verify_scr -> ok: "
-	      "~n   AR: ~p~n", [AR]),
+    p("ssmp3_mg_do_verify_scr -> ok: "
+      "~n   AR: ~p", [AR]),
     CR = 
 	case AR of
 	    #'ActionReply'{commandReply = [CmdRep]} ->
@@ -1988,21 +1977,18 @@ ssmp3_mg_verify_notify_request(
   {handle_trans_request, CH, V, ARs}, _Tids) ->
     {error, {invalid_trans_request, {CH, V, ARs}}, ok};
 ssmp3_mg_verify_notify_request(Crap, _Tids) ->
-    io:format("ssmp3_mg_verify_notify_request -> unknown request"
-	      "~n   Crap: ~p"
-	      "~n   Tids: ~p"
-	      "~n", [Crap, _Tids]),
+    p("ssmp3_mg_verify_notify_request -> unknown request"
+      "~n   Crap: ~p"
+      "~n   Tids: ~p", [Crap, _Tids]),
     {error, {unexpected_event, Crap}, ok}.
 
 ssmp3_mg_do_verify_notify_request(Tids, ARs) ->
-    io:format("ssmp3_mg_do_verify_notify_request -> ok"
-	      "~n   Tids: ~p"
-	      "~n   ARs:  ~p"
-	      "~n", [Tids, ARs]),
+    p("ssmp3_mg_do_verify_notify_request -> ok"
+      "~n   Tids: ~p"
+      "~n   ARs:  ~p", [Tids, ARs]),
     ActionReplies = ssmp3_mg_do_verify_notify_request_ars(Tids, ARs), 
-    io:format("ssmp3_mg_do_verify_notify_request -> ok"
-	      "~n   ActionReplies:  ~p"
-	      "~n", [ActionReplies]),
+    p("ssmp3_mg_do_verify_notify_request -> ok"
+      "~n   ActionReplies:  ~p", [ActionReplies]),
     Reply = {{handle_ack, ssmp3}, ActionReplies}, 
     {ok, ARs, Reply}.
 
@@ -2016,10 +2002,9 @@ ssmp3_mg_do_verify_notify_request_ars([Tid|Tids], [AR|ARs], Acc) ->
     ssmp3_mg_do_verify_notify_request_ars(Tids, ARs, [ActionReply|Acc]).
 
 ssmp3_mg_do_verify_notify_request_ar(Tid, AR) ->
-    io:format("ssmp3_mg_do_verify_notify_request_ar -> ok"
-	      "~n   Tid: ~p"
-	      "~n   AR:  ~p"
-	      "~n", [Tid, AR]),
+    p("ssmp3_mg_do_verify_notify_request_ar -> ok"
+      "~n   Tid: ~p"
+      "~n   AR:  ~p", [Tid, AR]),
     {Cid, CR} = 
 	case AR of
 	    #'ActionRequest'{contextId       = CtxId, 
@@ -2067,9 +2052,8 @@ ssmp3_mg_verify_ack_fun() ->
     fun(Event) -> ssmp3_mg_verify_ack(Event) end.
 
 ssmp3_mg_verify_ack({handle_trans_ack, CH, ?VERSION, ok, ssmp3}) ->
-    io:format("ssmp3_mg_verify_ack -> ok"
-              "~n   CH: ~p"
-              "~n", [CH]),
+    p("ssmp3_mg_verify_ack -> ok"
+      "~n   CH: ~p", [CH]),
     {ok, CH, ok};
 ssmp3_mg_verify_ack({handle_trans_ack, CH, ?VERSION, ok, CrapAckData}) ->
     {error, {unknown_ack_data, CrapAckData, CH}, ok};
@@ -2105,7 +2089,7 @@ send_segmented_msg_plain4(doc) ->
 	"Send window = 3. ";
 send_segmented_msg_plain4(Config) when is_list(Config) ->
     Factor = ?config(megaco_factor, Config),
-    ct:timetrap(Factor * ?SECS(60)),
+    ct:timetrap(Factor * ?MINS(1)),
     Pre = fun() ->
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
@@ -2302,9 +2286,8 @@ ssmp4_mgc_verify_service_change_req_msg_fun() ->
     end.
 
 ssmp4_mgc_verify_service_change_req(#'MegacoMessage'{mess = Mess} = M) ->
-    io:format("ssmp4_mgc_verify_service_change_req -> entry with"
-	      "~n   M: ~p"
-	      "~n", [M]),
+    p("ssmp4_mgc_verify_service_change_req -> entry with"
+      "~n   M: ~p", [M]),
     Body = 
 	case Mess of 
 	    #'Message'{version     = 1, 
@@ -2394,14 +2377,13 @@ ssmp4_mgc_verify_notify_reply_segment_msg_fun(SN, Last,
 
 ssmp4_mgc_verify_notify_reply_segment(#'MegacoMessage'{mess = Mess} = M,
 				     SN, Last, TransId, TermId, Cid) ->
-    io:format("ssmp4_mgc_verify_notify_reply_segment -> entry with"
-	      "~n   M:       ~p"
-	      "~n   SN:      ~p"
-	      "~n   Last:    ~p"
-	      "~n   TransId: ~p"
-	      "~n   TermId:  ~p"
-	      "~n   Cid:     ~p"
-	      "~n", [M, SN, Last, TransId, TermId, Cid]),
+    p("ssmp4_mgc_verify_notify_reply_segment -> entry with"
+      "~n   M:       ~p"
+      "~n   SN:      ~p"
+      "~n   Last:    ~p"
+      "~n   TransId: ~p"
+      "~n   TermId:  ~p"
+      "~n   Cid:     ~p", [M, SN, Last, TransId, TermId, Cid]),
     Body = 
 	case Mess of 
 	    #'Message'{version     = ?VERSION,
@@ -2582,7 +2564,7 @@ ssmp4_mg_event_sequence(Factor, text, tcp) ->
 	     {megaco_update_conn_info, max_pdu_size,     128}, 
              {sleep, 1000},
              {megaco_callback, handle_trans_request, NotifyReqVerify},
-             {megaco_callback, handle_trans_ack,     AckVerify, TO(15000)},
+             {megaco_callback, handle_trans_ack,     AckVerify, TO(?SECS(15))},
              megaco_stop_user,
              megaco_stop,
              {sleep, 1000}
@@ -2594,12 +2576,12 @@ ssmp4_mg_verify_handle_connect_fun() ->
     fun(Ev) -> ssmp4_mg_verify_handle_connect(Ev) end.
 
 ssmp4_mg_verify_handle_connect({handle_connect, CH, 1}) -> 
-    io:format("ssmp4_mg_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    p("ssmp4_mg_verify_handle_connect -> ok"
+      "~n   CH: ~p", [CH]),
     {ok, CH, ok};
 ssmp4_mg_verify_handle_connect(Else) ->
-    io:format("ssmp4_mg_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    p("ssmp4_mg_verify_handle_connect -> unknown"
+      "~n   Else: ~p", [Else]),
     {error, Else, ok}.
 
 
@@ -2609,14 +2591,13 @@ ssmp4_mg_verify_service_change_reply_fun() ->
 ssmp4_mg_verify_scr({handle_trans_reply, _CH, 1, {ok, [AR]}, _}) ->
     (catch ssmp4_mg_do_verify_scr(AR));
 ssmp4_mg_verify_scr(Crap) ->
-    io:format("ssmp4_mg_verify_scr -> error: "
-	      "~n   Crap: ~p"
-	      "~n", [Crap]),
+    p("ssmp4_mg_verify_scr -> error: "
+      "~n   Crap: ~p", [Crap]),
     {error, Crap, ok}.
 
 ssmp4_mg_do_verify_scr(AR) ->
-    io:format("ssmp4_mg_do_verify_scr -> ok: "
-	      "~n   AR: ~p~n", [AR]),
+    p("ssmp4_mg_do_verify_scr -> ok: "
+      "~n   AR: ~p", [AR]),
     CR = 
 	case AR of
 	    #'ActionReply'{commandReply = [CmdRep]} ->
@@ -2761,9 +2742,8 @@ ssmp4_mg_verify_ack_fun() ->
     fun(Event) -> ssmp4_mg_verify_ack(Event) end.
 
 ssmp4_mg_verify_ack({handle_trans_ack, CH, ?VERSION, ok, ssmp4}) ->
-    io:format("ssmp4_mg_verify_ack -> ok"
-              "~n   CH: ~p"
-              "~n", [CH]),
+    p("ssmp4_mg_verify_ack -> ok"
+      "~n   CH: ~p", [CH]),
     {ok, CH, ok};
 ssmp4_mg_verify_ack({handle_trans_ack, CH, ?VERSION, ok, CrapAckData}) ->
     {error, {unknown_ack_data, CrapAckData, CH}, ok};
@@ -2992,9 +2972,8 @@ ssmo1_mgc_verify_service_change_req_msg_fun() ->
     end.
 
 ssmo1_mgc_verify_service_change_req(#'MegacoMessage'{mess = Mess} = M) ->
-    io:format("ssmo1_mgc_verify_service_change_req -> entry with"
-	      "~n   M: ~p"
-	      "~n", [M]),
+    p("ssmo1_mgc_verify_service_change_req -> entry with"
+      "~n   M: ~p", [M]),
     Body = 
 	case Mess of 
 	    #'Message'{version     = 1, 
@@ -7896,12 +7875,12 @@ await_completion(Ids) ->
 	    ok;
 	{error, {OK, ERROR}} ->
 	    d("ERROR => "
-	      "~n   OK:    ~p"
-	      "~n   ERROR: ~p", [OK, ERROR]),
+	      "~n      OK:    ~p"
+	      "~n      ERROR: ~p", [OK, ERROR]),
 	    ?ERROR({failed, ERROR});
 	{error, Reply} ->
 	    d("ERROR => "
-	      "~n   Reply: ~p", [Reply]),
+	      "~n      Reply: ~p", [Reply]),
 	    ?ERROR({failed, Reply})
     end.
 
