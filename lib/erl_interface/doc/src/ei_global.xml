@@ -35,9 +35,6 @@
   <lib>ei_global</lib>
   <libsummary>Access globally registered names.</libsummary>
   <description>
-    <note><p>The support for VxWorks is deprecated as of OTP 22, and
-    will be removed in OTP 23.</p></note>
-
     <p>This module provides support for registering, looking
       up, and unregistering names in the <c>global</c> module.
       For more information, see

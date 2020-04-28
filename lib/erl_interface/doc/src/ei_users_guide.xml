@@ -34,12 +34,6 @@
   </header>
 
   <section>
-    <title>Deprecation and Removal</title>
-    <note><p>The support for VxWorks is deprecated as of OTP 22, and
-    will be removed in OTP 23.</p></note>
-  </section>
-
-  <section>
     <title>Introduction</title>
     <p>The <c>Erl_Interface</c> library contains functions that help you
       integrate programs written in C and Erlang. The functions in

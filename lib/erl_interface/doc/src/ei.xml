@@ -35,9 +35,6 @@
   <lib>ei</lib>
   <libsummary>Routines for handling the Erlang binary term format.</libsummary>
   <description>
-    <note><p>The support for VxWorks is deprecated as of OTP 22, and
-    will be removed in OTP 23.</p></note>
-    
     <p>The library <c>ei</c> contains macros and functions to encode
       and decode the Erlang binary term format.</p>
 
@@ -85,7 +82,9 @@
     <p>There are also encode functions that use a dynamic buffer. It
       is often more convenient to use these to encode data. All encode
       functions comes in two versions; those starting with
-      <c>ei_x</c> use a dynamic buffer.</p>
+      <c>ei_x_</c> use a dynamic buffer of type
+      <seecref marker="#ei_x_buff"><c>ei_x_buff</c></seecref>.
+    </p>
 
     <p>All functions return <c>0</c> if successful, otherwise
       <c>-1</c> (for example, if a term is not of the expected
@@ -93,7 +92,7 @@
 
     <p>Some of the decode functions need a pre-allocated buffer. This
       buffer must be allocated large enough, and for non-compound types
-      the <c>ei_get_type()</c>
+      the <seecref marker="#ei_get_type"><c>ei_get_type()</c></seecref>
       function returns the size required (notice that for strings an
       extra byte is needed for the <c>NULL</c>-terminator).</p>
   </description>
@@ -101,7 +100,32 @@
   <section>
     <title>Data Types</title>
     <taglist>
-      <tag><marker id="erlang_char_encoding"/>erlang_char_encoding</tag>
+      <tag><marker id="ei_x_buff"/><c>ei_x_buff</c></tag>
+      <item>
+        <p>A dynamically resized buffer. It is a <c>struct</c> with
+	two fields of interest for the user:
+	</p>
+	<taglist>
+	  <tag><c>char *buff</c></tag>
+	  <item>
+	    <p>Pointer to the dynamically allocated buffer.</p>
+	  </item>
+	  <tag><c>int index</c></tag>
+	  <item>
+	    <p>Offset to the next byte to write which also equals the
+	    amount of bytes currently written.</p>
+	  </item>
+	</taglist>
+	<p>
+	  An <c>ei_x_buff</c> is initialized by calling either
+	  <seecref marker="#ei_x_new"><c>ei_x_new()</c></seecref> or
+	  <seecref marker="#ei_x_new_with_version"><c>ei_x_new_with_version()</c></seecref>.
+	  The memory used by an initialized <c>ei_x_buff</c> is released
+	  by calling 
+	  <seecref marker="#ei_x_free"><c>ei_x_free()</c></seecref>.
+	</p>
+      </item>
+      <tag><marker id="erlang_char_encoding"/><c>erlang_char_encoding</c></tag>
        <item>
 	 <code type="none">
 typedef enum {
@@ -224,7 +248,8 @@ typedef enum {
                   <c>len</c> is set to the actual size of the
                   binary. Notice that <c>ei_decode_binary()</c> assumes that
                   there is enough room for the binary. The size required can be
-                  fetched by <c>ei_get_type()</c>.</p>
+                  fetched by
+	      <seecref marker="#ei_get_type"><c>ei_get_type()</c></seecref>.</p>
           </desc>
       </func>
 
@@ -842,6 +867,105 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
 	  the number of bytes. For lists, tuples and maps, <c>*size</c> is the
 	  arity of the object. For other types, <c>*size</c> is 0. In all
           cases, <c>index</c> is left unchanged.</p>
+	<p>Currently <c>*type</c> is one of:</p>
+	<taglist>  
+	  <tag>ERL_ATOM_EXT</tag>
+	  <item><p>
+	    Decode using either
+	    <seecref marker="#ei_decode_atom"><c>ei_decode_atom()</c></seecref>,
+	    <seecref marker="#ei_decode_atom_as"><c>ei_decode_atom_as()</c></seecref>,
+	    or
+	    <seecref marker="#ei_decode_boolean"><c>ei_decode_boolean()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_BINARY_EXT</tag>
+	  <item><p>
+	    Decode using either
+	    <seecref marker="#ei_decode_binary"><c>ei_decode_binary()</c></seecref>,
+	    <seecref marker="#ei_decode_bitstring"><c>ei_decode_bitstring()</c></seecref>,
+	    or
+	    <seecref marker="#ei_decode_iodata"><c>ei_decode_iodata()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_BIT_BINARY_EXT</tag>
+	  <item><p>
+	    Decode using
+	    <seecref marker="#ei_decode_bitstring"><c>ei_decode_bitstring()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_FLOAT_EXT</tag>
+	  <item><p>
+	    Decode using
+	    <seecref marker="#ei_decode_double"><c>ei_decode_double()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_NEW_FUN_EXT<br/>ERL_FUN_EXT<br/>ERL_EXPORT_EXT</tag>
+	  <item><p>
+	    Decode using
+	    <seecref marker="#ei_decode_fun"><c>ei_decode_fun()</c></seecref>.
+	  </p></item>
+	  
+	  <tag>ERL_SMALL_INTEGER_EXT<br/>ERL_INTEGER_EXT<br/>ERL_SMALL_BIG_EXT<br/>ERL_LARGE_BIG_EXT</tag>
+	  <item><p>
+	    Decode using either
+	    <seecref marker="#ei_decode_char"><c>ei_decode_char()</c></seecref>,
+	    <seecref marker="#ei_decode_long"><c>ei_decode_long()</c></seecref>,
+	    <seecref marker="#ei_decode_longlong"><c>ei_decode_longlong()</c></seecref>,
+	    <seecref marker="#ei_decode_ulong"><c>ei_decode_ulong()</c></seecref>,
+	    <seecref marker="#ei_decode_ulonglong"><c>ei_decode_ulonglong()</c></seecref>,
+	    or
+	    <seecref marker="#ei_decode_bignum"><c>ei_decode_bignum()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_LIST_EXT<br/>ERL_NIL_EXT</tag>
+	  <item><p>
+	    Decode using either
+	    <seecref marker="#ei_decode_list_header"><c>ei_decode_list_header()</c></seecref>,
+	    or
+	    <seecref marker="#ei_decode_iodata"><c>ei_decode_iodata()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_STRING_EXT</tag>
+	  <item><p>
+	    Decode using either
+	    <seecref marker="#ei_decode_string"><c>ei_decode_string()</c></seecref>,
+	    or
+	    <seecref marker="#ei_decode_iodata"><c>ei_decode_iodata()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_MAP_EXT</tag>
+	  <item><p>
+	    Decode using
+	    <seecref marker="#ei_decode_map_header"><c>ei_decode_map_header()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_PID_EXT</tag>
+	  <item><p>
+	    Decode using
+	    <seecref marker="#ei_decode_pid"><c>ei_decode_pid()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_PORT_EXT</tag>
+	  <item><p>
+	    Decode using
+	    <seecref marker="#ei_decode_pid"><c>ei_decode_pid()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_NEW_REFERENCE_EXT</tag>
+	  <item><p>
+	    Decode using
+	    <seecref marker="#ei_decode_ref"><c>ei_decode_ref()</c></seecref>.
+	  </p></item>
+
+	  <tag>ERL_SMALL_TUPLE_EXT<br/>ERL_LARGE_TUPLE_EXT</tag>
+	  <item><p>
+	    Decode using
+	    <seecref marker="#ei_decode_tuple_header"><c>ei_decode_tuple_header()</c></seecref>.
+	  </p></item>
+	</taglist>
+	<p>Instead of decoding a term you can also skipped past it if you are
+	not interested in the data by usage of
+	<seecref marker="#ei_skip_term"><c>ei_skip_term()</c></seecref>.</p>
       </desc>
     </func>
 
@@ -998,8 +1122,9 @@ encodes the tuple {numbers,12,3.14159}</pre>
       <name since=""><ret>int</ret><nametext>ei_x_free(ei_x_buff* x)</nametext></name>
       <fsummary>Free a buffer.</fsummary>
       <desc>
-        <p>Frees an <c>ei_x_buff</c> buffer.
-          The memory used by the buffer is returned to the OS.</p>
+	<p>Deallocates the content of an
+	<seecref marker="#ei_x_buff"><c>ei_x_buff</c></seecref> buffer.
+	After deallocation, the <c>buff</c> field is set to <c>NULL</c>.</p>
       </desc>
     </func>
 
@@ -1008,7 +1133,8 @@ encodes the tuple {numbers,12,3.14159}</pre>
       <name since=""><ret>int</ret><nametext>ei_x_new_with_version(ei_x_buff* x)</nametext></name>
       <fsummary>Allocate a new buffer.</fsummary>
       <desc>
-        <p>Allocates a new <c>ei_x_buff</c> buffer. The
+        <p>Allocates a new <seecref marker="#ei_x_buff"><c>ei_x_buff</c></seecref>
+	  buffer. The
           fields of the structure pointed to by parameter <c>x</c>
           is filled in, and a default buffer is allocated.
           <c>ei_x_new_with_version()</c> also puts an initial
