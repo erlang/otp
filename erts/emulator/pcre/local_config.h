@@ -86,4 +86,4 @@
 #define SUPPORT_UTF 
 
 /* Version number of package */
-#define VERSION "8.42"
+#define VERSION "8.44"
