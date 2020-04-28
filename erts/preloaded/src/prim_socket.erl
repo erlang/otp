@@ -595,7 +595,11 @@ shutdown(SockRef, How) ->
 setopt(SockRef, Level, Opt, Val)
   when is_integer(Level), is_integer(Opt), is_binary(Val) ->
     nif_setopt(SockRef, false, Level, Opt, Val);
-setopt(SockRef, Level, Opt, Value) ->
+setopt(SockRef, Level, Opt, Val)
+  when is_integer(Opt), is_binary(Val) ->
+    ELevel = enc_sockopt_type(Level, []),
+    nif_setopt(SockRef, true, ELevel, Opt, Val);
+setopt(SockRef, Level, Opt, Value) when Opt =/= [] ->
     case enc_sockopt_type(Level, Opt) of
         {undefined, _ELevel, _EOpt} ->
             {error, einval};
@@ -607,14 +611,17 @@ setopt(SockRef, Level, Opt, Value) ->
 getopt(SockRef, Level, Opt)
   when is_integer(Level) ->
     nif_getopt(SockRef, false, Level, Opt);
-getopt(SockRef, Level, Opt) ->
+getopt(SockRef, Level, Opt) when is_atom(Opt) ->
     {_Type, ELevel, EOpt} = enc_sockopt_type(Level, Opt),
     case nif_getopt(SockRef, true, ELevel, EOpt) of
         {ok, Value} ->
             {ok, dec_getopt_value(Value, Level, Opt)};
         {error, _} = Error ->
             Error
-    end.
+    end;
+getopt(SockRef, Level, Opt) ->
+    ELevel = enc_sockopt_type(Level, []),
+    nif_getopt(SockRef, true, ELevel, Opt).
 
 %% ----------------------------------
 
@@ -736,9 +743,13 @@ enc_msghdr(#{} = M) ->
 %% a return value from setopt/4 and getopt/3 and should
 %% be in the type spec for socket:setopt() and socket:getopt().
 %%
+%% Opt =:= [] just encodes the Level
+%%
 enc_sockopt_type(otp = Level, Opt) ->
     L = ?ESOCK_OPT_LEVEL_OTP,
     case Opt of
+        [] -> L;
+        %%
         debug ->        {boolean,       L, ?ESOCK_OPT_OTP_DEBUG};
         iow ->          {boolean,       L, ?ESOCK_OPT_OTP_IOW};
         controlling_process ->  {pid,   L, ?ESOCK_OPT_OTP_CTRL_PROC};
@@ -754,6 +765,8 @@ enc_sockopt_type(otp = Level, Opt) ->
 enc_sockopt_type(socket = Level, Opt) ->
     L = ?ESOCK_OPT_LEVEL_SOCKET,
     case Opt of
+        [] -> L;
+        %%
         acceptconn ->   {undefined,     L, ?ESOCK_OPT_SOCK_ACCEPTCONN};
         acceptfilter -> {undefined,     L, ?ESOCK_OPT_SOCK_ACCEPTFILTER};
         bindtodevice ->
@@ -801,6 +814,8 @@ enc_sockopt_type(socket = Level, Opt) ->
 enc_sockopt_type(ip = Level, Opt) ->
     L = ?ESOCK_OPT_LEVEL_IP,
     case Opt of
+        [] -> L;
+        %%
         add_membership ->
             {addr_if,           L, ?ESOCK_OPT_IP_ADD_MEMBERSHIP};
         add_source_membership ->
@@ -877,6 +892,8 @@ enc_sockopt_type(ip = Level, Opt) ->
 enc_sockopt_type(ipv6 = Level, Opt) ->
     L = ?ESOCK_OPT_LEVEL_IPV6,
     case Opt of
+        [] -> L;
+        %%
         addrform ->     {Opt,   L, ?ESOCK_OPT_IPV6_ADDRFORM};
         add_membership ->
             {addr_if,           L, ?ESOCK_OPT_IPV6_ADD_MEMBERSHIP};
@@ -951,6 +968,8 @@ enc_sockopt_type(ipv6 = Level, Opt) ->
 enc_sockopt_type(tcp = Level, Opt) ->
     L = ?ESOCK_OPT_LEVEL_TCP,
     case Opt of
+        [] -> L;
+        %%
         congestion ->
             {list,              L, ?ESOCK_OPT_TCP_CONGESTION};
         cork ->
@@ -984,6 +1003,8 @@ enc_sockopt_type(tcp = Level, Opt) ->
 enc_sockopt_type(udp = Level, Opt) ->
     L = ?ESOCK_OPT_LEVEL_UDP,
     case Opt of
+        [] -> L;
+        %%
         cork ->
             {boolean,           L, ?ESOCK_OPT_UDP_CORK};
         _ ->
@@ -992,6 +1013,8 @@ enc_sockopt_type(udp = Level, Opt) ->
 enc_sockopt_type(sctp = Level, Opt) ->
     L = ?ESOCK_OPT_LEVEL_SCTP,
     case Opt of
+        [] -> L;
+        %%
         adaption_layer ->
             {undefined,         L, ?ESOCK_OPT_SCTP_ADAPTION_LAYER};
         associnfo ->    {Opt,   L, ?ESOCK_OPT_SCTP_ASSOCINFO};

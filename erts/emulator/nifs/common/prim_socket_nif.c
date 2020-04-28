@@ -12678,7 +12678,7 @@ ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
         if (GET_INT(env, eOpt, &opt))
             return esock_getopt_level(env, descP, level, opt);
         else
-            result = esock_make_error(env, esock_atom_einval);
+            return esock_getopt_native(env, descP, level, eOpt);
     }
 
     SSDBG( descP,
