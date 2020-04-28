@@ -34,18 +34,43 @@
 -include("tls_handshake_1_3.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([security_parameters/2, security_parameters/3, security_parameters_1_3/2,
-	 cipher_init/3, nonce_seed/2, decipher/6, cipher/5, aead_encrypt/6, aead_decrypt/6,
-	 suites/1, all_suites/1,  crypto_support_filters/0,
-	 chacha_suites/1, anonymous_suites/1, psk_suites/1, psk_suites_anon/1, 
-         srp_suites/1, srp_suites_anon/1,
-	 rc4_suites/1, des_suites/1, rsa_suites/1, 
-         filter/3, filter_suites/1, filter_suites/2,
-	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
-	 random_bytes/1, calc_mac_hash/4, calc_mac_hash/6,
-         is_stream_ciphersuite/1, signature_scheme/1,
-         scheme_to_components/1, hash_size/1, effective_key_bits/1,
-         key_material/1, signature_algorithm_to_scheme/1]).
+-export([security_parameters/2, 
+         security_parameters/3, 
+         security_parameters_1_3/2,
+	 cipher_init/3, 
+         nonce_seed/2, 
+         decipher/6, 
+         cipher/5, 
+         aead_encrypt/6, 
+         aead_decrypt/6,
+	 suites/1, 
+         all_suites/1, 
+         crypto_support_filters/0,
+	 anonymous_suites/1, 
+         psk_suites/1, 
+         psk_suites_anon/1, 
+         srp_suites/1, 
+         srp_suites_anon/1,
+	 rc4_suites/1, 
+         des_suites/1, 
+         rsa_suites/1, 
+         filter/3, 
+         filter_suites/1, 
+         filter_suites/2,
+	 hash_algorithm/1, 
+         sign_algorithm/1, 
+         is_acceptable_hash/2, 
+         is_fallback/1,
+	 random_bytes/1, 
+         calc_mac_hash/4, 
+         calc_mac_hash/6,
+         is_stream_ciphersuite/1, 
+         signature_scheme/1,
+         scheme_to_components/1, 
+         hash_size/1, 
+         effective_key_bits/1,
+         key_material/1, 
+         signature_algorithm_to_scheme/1]).
 
 %% RFC 8446 TLS 1.3
 -export([generate_client_shares/1,
@@ -303,7 +328,6 @@ suites({_, Minor}) ->
 
 all_suites({3, _} = Version) ->
     suites(Version)
-        ++ chacha_suites(Version)
 	++ psk_suites(Version)
 	++ srp_suites(Version)
         ++ rsa_suites(Version)
@@ -312,20 +336,6 @@ all_suites({3, _} = Version) ->
 
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
-%%--------------------------------------------------------------------
--spec chacha_suites(ssl_record:ssl_version() | integer()) ->
-                           [ssl_cipher_format:cipher_suite()].
-%%
-%% Description: Returns list of the chacha cipher suites, only supported
-%% if explicitly set by user for now due to interop problems, proably need
-%% to be fixed in crypto.
-%%--------------------------------------------------------------------
-chacha_suites({3, _}) ->
-    [?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
-     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256];
-chacha_suites(_) ->
-    [].
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version() | integer()) ->
