@@ -41,6 +41,18 @@
 #define BIT_IS_MACHINE_ENDIAN(x) (((x)&BSF_LITTLE) == BIT_ENDIAN_MACHINE)
 
 /*
+ * Here is how many bits we can copy in each reduction.
+ *
+ * At the time of writing of this comment, CONTEXT_REDS was 4000 and
+ * BITS_PER_REDUCTION was 1 KiB (8192 bits). The time for copying an
+ * unaligned 4000 KiB binary on my computer (which has a 4,2 GHz Intel
+ * i7 CPU) was about 5 ms. The time was approximately 4 times lower if
+ * the source and destinations binaries were aligned.
+ */
+
+#define BITS_PER_REDUCTION (8*1024)
+
+/*
  * MAKE_MASK(n) constructs a mask with n bits.
  * Example: MAKE_MASK(3) returns the binary number 00000111.
  */
@@ -977,14 +989,14 @@ erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
     erts_bin_offset += num_bits;
     return 1;
 }
-     
 
 int
-erts_new_bs_put_binary(ERL_BITS_PROTO_2(Eterm arg, Uint num_bits))
+erts_new_bs_put_binary(Process *c_p, Eterm arg, Uint num_bits)
 {
     byte *bptr;
     Uint bitoffs;
     Uint bitsize; 
+    ERL_BITS_DEFINE_STATEP(c_p);
 
     if (!is_binary(arg)) {
 	return 0;
@@ -995,16 +1007,18 @@ erts_new_bs_put_binary(ERL_BITS_PROTO_2(Eterm arg, Uint num_bits))
     }
     copy_binary_to_buffer(erts_current_bin, erts_bin_offset, bptr, bitoffs, num_bits);
     erts_bin_offset += num_bits;
+    BUMP_REDS(c_p, num_bits / BITS_PER_REDUCTION);
     return 1;
 }
 
 int
-erts_new_bs_put_binary_all(ERL_BITS_PROTO_2(Eterm arg, Uint unit))
+erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
 {
    byte *bptr;
    Uint bitoffs;
    Uint bitsize;
    Uint num_bits;
+   ERL_BITS_DEFINE_STATEP(c_p);
 
    /*
     * This type test is not needed if the code was compiled with
@@ -1029,6 +1043,7 @@ erts_new_bs_put_binary_all(ERL_BITS_PROTO_2(Eterm arg, Uint unit))
    }
    copy_binary_to_buffer(erts_current_bin, erts_bin_offset, bptr, bitoffs, num_bits);
    erts_bin_offset += num_bits;
+   BUMP_REDS(c_p, num_bits / BITS_PER_REDUCTION);
    return 1;
 }
 
@@ -1352,6 +1367,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	binp = erts_bin_realloc(binp, new_size);
 	pb->val = binp;
 	pb->bytes = (byte *) binp->orig_bytes;
+        BUMP_REDS(c_p, pb->size / BITS_PER_REDUCTION);
     }
     erts_current_bin = pb->bytes;
 
@@ -1473,6 +1489,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	 * Now copy the data into the binary.
 	 */
 	copy_binary_to_buffer(erts_current_bin, 0, src_bytes, bitoffs, erts_bin_offset);
+        BUMP_REDS(c_p, erts_bin_offset / BITS_PER_REDUCTION);
 
 	return make_binary(sb);
     }
@@ -1537,6 +1554,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
     if (binp->orig_size < pb->size) {
 	Uint new_size = 2*pb->size;
 
+        BUMP_REDS(p, pb->size / BITS_PER_REDUCTION);
 	if (pb->flags & PB_IS_WRITABLE) {
 	    /*
 	     * This is the normal case - the binary is writable.

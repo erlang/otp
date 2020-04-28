@@ -27,7 +27,8 @@
 	 mem_leak/1, coerce_to_float/1, bjorn/1, append_empty_is_same/1,
 	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
-	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1]).
+	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
+         reductions/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +41,7 @@ all() ->
      in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
      huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append, bs_append_overflow].
+     bad_append, bs_append_overflow, reductions].
 
 init_per_suite(Config) ->
     Config.
@@ -888,6 +889,33 @@ bs_append_overflow_unsigned() ->
     B = <<2, 3>>,
     C = <<A/binary,1,B/binary>>,
     true = byte_size(B) < byte_size(C).
+
+reductions(_Config) ->
+    TwoMeg = <<0:(2_000*1024)/unit:8>>,
+    reds_at_least(2000, fun() -> <<0:8,TwoMeg/binary>> end),
+    reds_at_least(4000, fun() -> <<0:8,TwoMeg/binary,TwoMeg/binary>> end),
+    reds_at_least(1000, fun() -> <<0:8,TwoMeg:(1000*1024)/binary>> end),
+
+    %% Here we expect about 500 reductions in the bs_append
+    %% instruction for setting up a writable binary and about 2000
+    %% reductions in the bs_put_binary instruction for copying the
+    %% binary data.
+    reds_at_least(2500, fun() -> <<TwoMeg/binary,TwoMeg:(2000*1024)/binary>> end),
+    ok.
+
+reds_at_least(N, Fun) ->
+    receive after 1 -> ok end,
+    {reductions,Red0} = process_info(self(), reductions),
+    _ = Fun(),
+    {reductions,Red1} = process_info(self(), reductions),
+    Diff = Red1 - Red0,
+    io:format("Expected at least ~p; got ~p\n", [N,Diff]),
+    if
+        Diff >= N ->
+            ok;
+        Diff ->
+            ct:fail({expected,N,got,Diff})
+    end.
 
 id(I) -> I.
 
