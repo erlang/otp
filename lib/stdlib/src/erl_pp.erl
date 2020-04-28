@@ -560,8 +560,6 @@ lexpr({bc,_,E,Qs}, _Prec, Opts) ->
     %% {list,[{step,'<<',Lcl},'>>']};
 lexpr({tuple,_,Elts}, _, Opts) ->
     tuple(Elts, Opts);
-%%lexpr({struct,_,Tag,Elts}, _, Opts) ->
-%%  {first,format("~w", [Tag]),tuple(Elts, Opts)};
 lexpr({record_index, _, Name, F}, Prec, Opts) ->
     {P,R} = preop_prec('#'),
     Nl = record_name(Name),
