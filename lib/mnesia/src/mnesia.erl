@@ -155,6 +155,7 @@
         {'user_properties', proplists:proplist()}.
 
 -type t_result(Res) :: {'atomic', Res} | {'aborted', Reason::term()}.
+-type result() :: ok | {'error', Reason::term()}.
 -type activity() :: 'ets' | 'async_dirty' | 'sync_dirty' | 'transaction' | 'sync_transaction' |
                     {'transaction', Retries::non_neg_integer()} |
                     {'sync_transaction', Retries::non_neg_integer()}.
@@ -171,6 +172,7 @@
 -type config_key() :: extra_db_nodes | dc_dump_limit.
 -type config_value() :: [node()] | number().
 -type config_result() :: {ok, config_value()} | {error, term()}.
+-type debug_level() :: 'none' | 'verbose' | 'debug' | 'trace'.
 
 -define(DEFAULT_ACCESS, ?MODULE).
 
@@ -230,7 +232,7 @@ e_has_var(X, Pos) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start and stop
--spec start() -> 'ok' | {'error', term()}.
+-spec start() -> result().
 start() ->
     start([]).
 
@@ -250,7 +252,7 @@ start_() ->
 	    {error, R}
     end.
 
--spec start([{Option::atom(), Value::_}]) -> 'ok' | {'error', term()}.
+-spec start([{Option::atom(), Value::_}]) -> result().
 start(ExtraEnv) when is_list(ExtraEnv) ->
     case mnesia_lib:ensure_loaded(?APPLICATION) of
 	ok ->
@@ -281,8 +283,8 @@ stop() ->
 	Other -> Other
     end.
 
--spec change_config(Config::config_key(), Value::config_value()) ->
-	  config_result().
+-spec change_config(Config, Value) -> config_result() when
+      Config :: config_key(), Value :: config_value().
 change_config(extra_db_nodes, Ns) when is_list(Ns) ->
     mnesia_controller:connect_nodes(Ns);
 change_config(dc_dump_limit, N) when is_number(N), N > 0 ->
@@ -298,6 +300,10 @@ change_config(BadKey, _BadVal) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Debugging
+
+
+-spec set_debug_level(Level  :: debug_level()) ->
+          OldLevel :: debug_level().
 
 set_debug_level(Level) ->
     mnesia_subscr:set_debug_level(Level).
@@ -371,7 +377,7 @@ transaction(Fun) ->
 -spec transaction(Fun, Retries) -> t_result(Res) when
       Fun :: fun(() -> Res),
       Retries :: non_neg_integer() | 'infinity';
-                 (Fun, [Arg::_]) -> t_result(Res) when
+                 (Fun, Args::[Arg::_]) -> t_result(Res) when
       Fun :: fun((...) -> Res).
 transaction(Fun, Retries) when is_integer(Retries), Retries >= 0 ->
     transaction(get(mnesia_activity_state), Fun, [], Retries, ?DEFAULT_ACCESS, async);
@@ -392,9 +398,9 @@ sync_transaction(Fun) ->
     transaction(get(mnesia_activity_state), Fun, [], infinity, ?DEFAULT_ACCESS, sync).
 
 -spec sync_transaction(Fun, Retries) -> t_result(Res) when
-      Fun :: fun(() -> Res),
+      Fun :: fun(() -> Res) | fun((...) -> Res),
       Retries :: non_neg_integer() | 'infinity';
-                      (Fun, [Arg::_]) -> t_result(Res) when
+                      (Fun, Args :: [Arg::_]) -> t_result(Res) when
       Fun :: fun((...) -> Res).
 sync_transaction(Fun, Retries) when is_integer(Retries), Retries >= 0 ->
     transaction(get(mnesia_activity_state), Fun, [], Retries, ?DEFAULT_ACCESS, sync);
@@ -2637,18 +2643,18 @@ load_mnesia_or_abort() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Database mgt
 
--spec create_schema(Ns::[node()]) -> 'ok' | {'error', Reason::term()}.
+-spec create_schema(Ns::[node()]) -> result().
 create_schema(Ns) ->
     create_schema(Ns, []).
 
--spec create_schema(Ns::[node()], [Prop]) -> 'ok' | {'error', Reason::term()} when
+-spec create_schema(Ns::[node()], [Prop]) -> result() when
       Prop :: BackendType | IndexPlugin,
       BackendType :: {backend_types, [{Name::atom(), Module::module()}]},
       IndexPlugin :: {index_plugins, [{{Name::atom()}, Module::module(), Function::atom()}]}.
 create_schema(Ns, Properties) ->
     mnesia_bup:create_schema(Ns, Properties).
 
--spec delete_schema(Ns::[node()]) -> 'ok' | {'error', Reason::term()}.
+-spec delete_schema(Ns::[node()]) -> result().
 delete_schema(Ns) ->
     mnesia_schema:delete_schema(Ns).
 
@@ -2656,12 +2662,12 @@ delete_schema(Ns) ->
 add_backend_type(Alias, Module) ->
     mnesia_schema:add_backend_type(Alias, Module).
 
--spec backup(Dest::term()) -> 'ok' | {'error', Reason::term()}.
+-spec backup(Dest::term()) -> result().
 backup(Opaque) ->
     mnesia_log:backup(Opaque).
 
 -spec backup(Dest::term(), Mod::module()) ->
-                    'ok' | {'error', Reason::term()}.
+          result().
 backup(Opaque, Mod) ->
     mnesia_log:backup(Opaque, Mod).
 
@@ -2679,12 +2685,12 @@ traverse_backup(S, T, Fun, Acc) ->
 traverse_backup(S, SM, T, TM, F, A) ->
     mnesia_bup:traverse_backup(S, SM, T, TM, F, A).
 
--spec install_fallback(Src::term()) -> 'ok' | {'error', Reason::term()}.
+-spec install_fallback(Src::term()) -> result().
 install_fallback(Opaque) ->
     mnesia_bup:install_fallback(Opaque).
 
 -spec install_fallback(Src::term(), Mod::module()|[Opt]) ->
-                              'ok' | {'error', Reason::term()} when
+          result() when
       Opt :: Module | Scope | Dir,
       Module :: {'module', Mod::module()},
       Scope :: {'scope', 'global' | 'local'},
@@ -2692,11 +2698,11 @@ install_fallback(Opaque) ->
 install_fallback(Opaque, Mod) ->
     mnesia_bup:install_fallback(Opaque, Mod).
 
--spec uninstall_fallback() -> 'ok' | {'error', Reason::term()}.
+-spec uninstall_fallback() -> result().
 uninstall_fallback() ->
     mnesia_bup:uninstall_fallback().
 
--spec uninstall_fallback(Args) -> 'ok' | {'error', Reason::term()} when
+-spec uninstall_fallback(Args) -> result() when
       Args :: [{'mnesia_dir', Dir::string()}].
 uninstall_fallback(Args) ->
     mnesia_bup:uninstall_fallback(Args).
@@ -2707,16 +2713,17 @@ uninstall_fallback(Args) ->
 activate_checkpoint(Args) ->
     mnesia_checkpoint:activate(Args).
 
--spec deactivate_checkpoint(Name::_) -> 'ok' | {'error', Reason::term()}.
+-spec deactivate_checkpoint(Name::_) -> result().
 deactivate_checkpoint(Name) ->
     mnesia_checkpoint:deactivate(Name).
 
--spec backup_checkpoint(Name::_, Dest::_) -> 'ok' | {'error', Reason::term()}.
+-spec backup_checkpoint(Name, Dest) -> result() when
+      Name :: term(), Dest :: term().
 backup_checkpoint(Name, Opaque) ->
     mnesia_log:backup_checkpoint(Name, Opaque).
 
--spec backup_checkpoint(Name::_, Dest::_, Mod::module()) ->
-                               'ok' | {'error', Reason::term()}.
+-spec backup_checkpoint(Name, Dest, Mod) -> result() when
+      Name :: term(), Dest :: term(), Mod :: module().
 backup_checkpoint(Name, Opaque, Mod) ->
     mnesia_log:backup_checkpoint(Name, Opaque, Mod).
 
@@ -2743,7 +2750,8 @@ create_table(Name, Arg) ->
 delete_table(Tab) ->
     mnesia_schema:delete_table(Tab).
 
--spec add_table_copy(Tab::table(), N::node(), ST::storage_type()) -> t_result(ok).
+-spec add_table_copy(Tab, N, ST) -> t_result(ok) when
+      Tab :: table(), N::node(), ST::storage_type().
 add_table_copy(Tab, N, S) ->
     mnesia_schema:add_table_copy(Tab, N, S).
 
@@ -2755,10 +2763,12 @@ del_table_copy(Tab, N) ->
 move_table_copy(Tab, From, To) ->
     mnesia_schema:move_table(Tab, From, To).
 
--spec add_table_index(Tab::table(), I::index_attr()) -> t_result(ok).
+-spec add_table_index(Tab, I) -> t_result(ok) when
+      Tab :: table(), I :: index_attr().
 add_table_index(Tab, Ix) ->
     mnesia_schema:add_table_index(Tab, Ix).
--spec del_table_index(Tab::table(), I::index_attr()) -> t_result(ok).
+-spec del_table_index(Tab, I) -> t_result(ok) when
+      Tab::table(), I::index_attr().
 del_table_index(Tab, Ix) ->
     mnesia_schema:del_table_index(Tab, Ix).
 
@@ -2842,7 +2852,7 @@ dump_tables(Tabs) ->
 
 %% allow the user to wait for some tables to be loaded
 -spec wait_for_tables([Tab::table()], TMO::timeout()) ->
-      'ok' | {'timeout', [table()]} | {'error', Reason::term()}.
+      result() | {'timeout', [table()]}.
 wait_for_tables(Tabs, Timeout) ->
     mnesia_controller:wait_for_tables(Tabs, Timeout).
 
@@ -2867,7 +2877,7 @@ change_table_load_order(T, O) ->
 change_table_majority(T, M) ->
     mnesia_schema:change_table_majority(T, M).
 
--spec set_master_nodes(Ns::[node()]) -> 'ok' | {'error', Reason::term()}.
+-spec set_master_nodes(Ns::[node()]) -> result().
 set_master_nodes(Nodes) when is_list(Nodes) ->
     UseDir = system_info(use_dir),
     IsRunning = system_info(is_running),
@@ -2906,8 +2916,7 @@ log_valid_master_nodes(Cstructs, Nodes, UseDir, IsRunning) ->
     Args = lists:map(Fun, Cstructs),
     mnesia_recover:log_master_nodes(Args, UseDir, IsRunning).
 
--spec set_master_nodes(Tab::table(), Ns::[node()]) ->
-                              'ok' | {'error', Reason::term()}.
+-spec set_master_nodes(Tab::table(), Ns::[node()]) -> result().
 set_master_nodes(Tab, Nodes) when is_list(Nodes) ->
     UseDir = system_info(use_dir),
     IsRunning = system_info(is_running),
@@ -2962,7 +2971,7 @@ set_master_nodes(Tab, Nodes) ->
 dump_log() ->
     mnesia_controller:sync_dump_log(user).
 
--spec sync_log() -> 'ok' | {'error', Reason::term()}.
+-spec sync_log() -> result().
 sync_log() ->
     mnesia_monitor:sync_log(latest_log).
 
@@ -3136,7 +3145,7 @@ snmp_filter_key(undefined, RowIndex, Tab, Store) ->
 load_textfile(F) ->
     mnesia_text:load_textfile(F).
 
--spec dump_to_textfile(File :: file:filename()) -> 'ok' | 'error' | {'error', term()}.
+-spec dump_to_textfile(File :: file:filename()) -> result() | 'error'.
 dump_to_textfile(F) ->
     mnesia_text:dump_to_textfile(F).
 
