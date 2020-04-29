@@ -91,7 +91,6 @@ init_per_suite(Config) ->
        end).
 
 end_per_suite(Config) ->
-    SysDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
     ssh:stop().

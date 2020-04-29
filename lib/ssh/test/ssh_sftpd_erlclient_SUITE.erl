@@ -69,7 +69,7 @@ init_per_suite(Config) ->
 	   Config
        end).
 
-end_per_suite(Config) -> 
+end_per_suite(_Config) -> 
     ok.
 
 %%--------------------------------------------------------------------
@@ -82,7 +82,6 @@ end_per_group(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
-    DataDir = proplists:get_value(data_dir, Config),
     UserDir = PrivDir = proplists:get_value(priv_dir, Config),
     SysDir = filename:join(PrivDir,"system"),
 
