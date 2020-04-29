@@ -72,6 +72,9 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
+%% Internal apply_after:
+-export([ets_delete/2]).
+
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
 -include("ssh_connect.hrl").
@@ -84,12 +87,16 @@
 
 -type trace_point() :: atom().
 -type trace_points() :: [trace_point()].
+-type stack() :: list(term()).
 
 -callback ssh_dbg_trace_points() -> trace_points().
 -callback ssh_dbg_flags(trace_point()) -> [atom()].
 -callback ssh_dbg_on(trace_point() | trace_points()) -> term().
 -callback ssh_dbg_off(trace_point() | trace_points()) -> term().
 -callback ssh_dbg_format(trace_point(), term()) -> iolist() | skip.
+-callback ssh_dbg_format(trace_point(), term(), stack()) -> {iolist() | skip, stack()}.
+
+-optional_callbacks([ssh_dbg_format/2, ssh_dbg_format/3]).  % At least one of them are to be used
 
 %%%================================================================
 
@@ -179,7 +186,41 @@ reduce_state(T) ->
 
 %%%----------------------------------------------------------------
 init(_) ->
+    new_table(),
     {ok, #data{}}.
+
+
+new_table() ->
+    try 
+        ets:new(?MODULE, [public, named_table]),
+        ok
+    catch
+        exit:badarg ->
+            ok
+    end.
+
+
+get_proc_stack(Pid) when is_pid(Pid) ->
+    try ets:lookup_element(?MODULE, Pid, 2)
+    catch
+        error:badarg ->
+            %% Non-existing item
+            new_proc(Pid),
+            ets:insert(?MODULE, {Pid,[]}),
+            []
+    end.
+
+
+put_proc_stack(Pid, Data) when is_pid(Pid),
+                               is_list(Data) ->
+    ets:insert(?MODULE, {Pid,Data}).
+
+
+new_proc(Pid) when is_pid(Pid) ->
+    gen_server:cast(?SERVER, {new_proc,Pid}).
+
+ets_delete(Tab, Key) ->
+    catch ets:delete(Tab, Key).
 
 %%%----------------------------------------------------------------
 handle_call({switch,on,Types}, _From, D) ->
@@ -201,10 +242,20 @@ handle_call(C, _From, D) ->
     {reply, {error,{unknown_call,C}}, D}.
     
 
+handle_cast({new_proc,Pid}, D) ->
+    monitor(process, Pid),
+    {noreply, D};
+
 handle_cast(C, D) ->
     io:format('*** Unknown cast: ~p~n',[C]),
     {noreply, D}.
     
+
+handle_info({'DOWN', _MonitorRef, process, Pid, _Info}, D) ->
+    %% Universal real-time synchronization (there might be dbg msgs in the queue to the tracer):
+    timer:apply_after(20000, ?MODULE, ets_delete, [?MODULE, Pid]),
+    {noreply, D};
+
 handle_info(C, D) ->
     io:format('*** Unknown info: ~p~n',[C]),
     {noreply, D}.
@@ -330,20 +381,35 @@ try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
           fun(Type, Acc1) ->
                   lists:foldl(
                     fun(SshMod,Acc) ->
-                            try SshMod:ssh_dbg_format(Type, INFO)
+                            try
+                                %% First, call without stack
+                                SshMod:ssh_dbg_format(Type, INFO)
                             of
                                 skip ->
                                     %% Don't try to print this later
                                     written;
                                 Txt when is_list(Txt) ->
-                                    WriteFun("~n~s ~p ~s~n", 
-                                             [lists:flatten(TS),
-                                              PID,
-                                              lists:flatten(Txt)],
-                                             written % this is returned
-                                            )
+                                    write_txt(WriteFun, TS, PID, Txt)
                             catch
-                                _:_ -> Acc
+                                error:E when E==undef ; E==function_clause ; element(1,E)==case_clause ->
+                                    try 
+                                        %% then, call with stack
+                                        STACK = get_proc_stack(PID),
+                                        SshMod:ssh_dbg_format(Type, INFO, STACK)
+                                    of
+                                        {skip, NewStack} ->
+                                            %% Don't try to print this later
+                                            put_proc_stack(PID, NewStack),
+                                            written;
+                                        {Txt, NewStack} when is_list(Txt) ->
+                                            put_proc_stack(PID, NewStack),
+                                            write_txt(WriteFun, TS, PID, Txt)
+                                    catch
+                                        _:_ ->
+                                            %% and finally, signal for special formatting
+                                            %% if noone else formats it
+                                            Acc
+                                    end
                             end
                     end, Acc1, SshModules)
           end, Acc0, TypesOn),
@@ -354,6 +420,16 @@ try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
         written ->
             Acc0
     end.
+
+
+
+write_txt(WriteFun, TS, PID, Txt) when is_list(Txt) ->
+    WriteFun("~n~s ~p ~s~n", 
+             [lists:flatten(TS),
+              PID,
+              lists:flatten(Txt)],
+             written % this is returned
+            ).
 
 %%%----------------------------------------------------------------
 wr_record(T, Fs, BL) when is_tuple(T) ->
