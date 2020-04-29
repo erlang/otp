@@ -1905,6 +1905,7 @@ otp16359_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
+    ct:timetrap(?MINS(2)),
     Factor = analyze_and_print_host_info(),
     try socket:info() of
         #{} ->
@@ -44101,21 +44102,28 @@ win_sys_info_lookup(Key, SysInfo, Def) ->
     end.
 
 %% This function only extracts the prop(s) we actually care about!
+%% On some hosts this (systeminfo) takes a *long time* (several minutes).
+%% And since there is no way to provide a timeout to the os command call,
+%% we have to wrap it in a process.
 which_win_system_info() ->
-    try
-        begin
-            SysInfo = os:cmd("systeminfo"),
-            process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
-        end
-    catch
-        C:E:S ->
-            io:format("Failed get or process System info: "
-                      "   Error Class: ~p"
-                      "   Error:       ~p"
-                      "   Stack:       ~p"
-                      "~n", [C, E, S]),
-            []
-    end.
+    F = fun() ->
+                try
+                    begin
+                        SysInfo = os:cmd("systeminfo"),
+                        process_win_system_info(
+                          string:tokens(SysInfo, [$\r, $\n]), [])
+                    end
+                catch
+                    C:E:S ->
+                        io:format("Failed get or process System info: "
+                                  "   Error Class: ~p"
+                                  "   Error:       ~p"
+                                  "   Stack:       ~p"
+                                  "~n", [C, E, S]),
+                        []
+                end
+        end,
+    ?LIB:pcall(F, ?MINS(1), []).
 
 process_win_system_info([], Acc) ->
     Acc;
