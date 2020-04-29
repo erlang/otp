@@ -34,7 +34,8 @@
 %%--------------------------------------------------------------------
 
 all() ->
-    [{group, 'tlsv1.2'},
+    [{group, 'tlsv1.3'},
+     {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
@@ -43,6 +44,7 @@ all() ->
 
 groups() ->
     [
+     {'tlsv1.3', [], sni_tests()},
      {'tlsv1.2', [], sni_tests()},
      {'tlsv1.1', [], sni_tests()},
      {'tlsv1', [], sni_tests()},
@@ -86,26 +88,10 @@ init_per_suite(Config0) ->
             {skip, "Crypto did not start"}
     end.
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-	true ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    ssl_test_lib:init_tls_version(GroupName, Config);
-		false ->
-		    {skip, "Missing crypto support"}
-	    end;
-	_ ->
-	    ssl:start(),
-	    Config
-    end.
+    ssl_test_lib:init_per_group(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-        false ->
-            Config
-    end.
+   ssl_test_lib:end_per_group(GroupName, Config).
 
 end_per_suite(_) ->
     ssl:stop(),
