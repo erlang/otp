@@ -1713,6 +1713,10 @@ recv_data_deliver(
              [{reply, From, {ok, DeliverData}},
               {{timeout, recv}, cancel}
               | ActionsR]};
+        #{active := false} ->
+            D_1 = D#{buffer := unrecv_buffer(Data, maps:get(buffer, D))},
+            {recv_stop(next_packet(D_1, Packet, Data)),
+             ActionsR};
         #{active := Active} ->
             ModuleSocket = module_socket(P),
             Owner !
@@ -1780,6 +1784,16 @@ catbin(<<>>, Bin) when is_binary(Bin) -> Bin;
 catbin(Bin, <<>>) when is_binary(Bin) -> Bin;
 catbin(Bin1, Bin2) when is_binary(Bin1), is_binary(Bin2) ->
     <<Bin1/binary, Bin2/binary>>.
+
+unrecv_buffer(Data, Buffer) ->
+    case Buffer of
+        <<>> ->
+            Data;
+        _ when is_binary(Buffer) ->
+            [Data, Buffer];
+        _ ->
+            [Data | Buffer]
+    end.
 
 condense_buffer([Bin]) when is_binary(Bin) -> Bin;
 condense_buffer(Buffer) ->
