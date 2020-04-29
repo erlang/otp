@@ -825,13 +825,13 @@ handle_event(_, #ssh_msg_kex_dh_gex_reply{} = Msg, {key_exchange_dh_gex_reply,cl
 %%% ######## {new_keys, client|server} ####
 
 %% First key exchange round:
-handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,client,init}, D) ->
-    {ok, Ssh1} = ssh_transport:handle_new_keys(Msg, D#data.ssh_params),
+handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,client,init}, D0) ->
+    {ok, Ssh1} = ssh_transport:handle_new_keys(Msg, D0#data.ssh_params),
     %% {ok, ExtInfo, Ssh2} = ssh_transport:ext_info_message(Ssh1),
-    %% send_bytes(ExtInfo, D),
+    %% send_bytes(ExtInfo, D0),
     {MsgReq, Ssh} = ssh_auth:service_request_msg(Ssh1),
-    send_bytes(MsgReq, D),
-    {next_state, {ext_info,client,init}, D#data{ssh_params=Ssh}};
+    D = send_msg(MsgReq, D0#data{ssh_params = Ssh}),
+    {next_state, {ext_info,client,init}, D};
 
 handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,server,init}, D) ->
     {ok, Ssh} = ssh_transport:handle_new_keys(Msg, D#data.ssh_params),
@@ -877,8 +877,8 @@ handle_event(_, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {s
 	"ssh-userauth" ->
 	    Ssh0 = #ssh{session_id=SessionId} = D0#data.ssh_params,
 	    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0),
-	    send_bytes(Reply, D0),
-	    {next_state, {userauth,server}, D0#data{ssh_params = Ssh}};
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth,server}, D};
 
 	_ ->
             {Shutdown, D} =  
@@ -889,10 +889,12 @@ handle_event(_, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {s
     end;
 
 handle_event(_, #ssh_msg_service_accept{name = "ssh-userauth"}, {service_request,client},
-	     #data{ssh_params = #ssh{service="ssh-userauth"} = Ssh0} = State) ->
+	     #data{ssh_params = #ssh{service="ssh-userauth"} = Ssh0} = D0) ->
     {Msg, Ssh} = ssh_auth:init_userauth_request_msg(Ssh0),
-    send_bytes(Msg, State),
-    {next_state, {userauth,client}, State#data{auth_user = Ssh#ssh.user, ssh_params = Ssh}};
+    D = send_msg(Msg, D0#data{ssh_params = Ssh,
+                              auth_user = Ssh#ssh.user
+                             }),
+    {next_state, {userauth,client}, D};
 
 
 %%% ######## {userauth, client|server} ####
@@ -908,8 +910,8 @@ handle_event(_,
 	    %% Probably the very first userauth_request but we deny unauthorized login
 	    {not_authorized, _, {Reply,Ssh}} =
 		ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0),
-	    send_bytes(Reply, D0),
-	    {keep_state, D0#data{ssh_params = Ssh}};
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {keep_state, D};
 	
 	{"ssh-connection", "ssh-connection", Method} ->
 	    %% Userauth request with a method like "password" or so
@@ -917,21 +919,24 @@ handle_event(_,
 		true ->
 		    %% Yepp! we support this method
 		    case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
-			{authorized, User, {Reply, Ssh}} ->
-			    send_bytes(Reply, D0),
-			    D0#data.starter ! ssh_connected,
-			    connected_fun(User, Method, D0),
+			{authorized, User, {Reply, Ssh1}} ->
+                            D = #data{ssh_params=Ssh} = 
+                                send_msg(Reply, D0#data{ssh_params = Ssh1}),
+			    D#data.starter ! ssh_connected,
+			    connected_fun(User, Method, D),
 			    {next_state, {connected,server},
-			     D0#data{auth_user = User, 
-				    ssh_params = Ssh#ssh{authenticated = true}}};
+                             D#data{auth_user=User, 
+                                    %% Note: authenticated=true MUST NOT be sent
+                                    %% before send_msg!
+                                    ssh_params = Ssh#ssh{authenticated = true}}};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D0),
-			    send_bytes(Reply, D0),
-			    {next_state, {userauth_keyboard_interactive,server}, D0#data{ssh_params = Ssh}};
+                            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+			    {next_state, {userauth_keyboard_interactive,server}, D};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 			    retry_fun(User, Reason, D0),
-			    send_bytes(Reply, D0),
-			    {keep_state, D0#data{ssh_params = Ssh}}
+                            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+			    {keep_state, D}
 		    end;
 		false ->
 		    %% No we do not support this method (=/= none)
@@ -959,6 +964,7 @@ handle_event(_, #ssh_msg_ext_info{}=Msg, {userauth,client}, D0) ->
     {keep_state, D};
 
 handle_event(_, #ssh_msg_userauth_success{}, {userauth,client}, D=#data{ssh_params = Ssh}) ->
+    ssh_auth:ssh_msg_userauth_result(success),
     D#data.starter ! ssh_connected,
     {next_state, {connected,client}, D#data{ssh_params=Ssh#ssh{authenticated = true}}};
 
@@ -990,11 +996,11 @@ handle_event(_, #ssh_msg_userauth_failure{authentications = Methods}, StateName=
                                  StateName, D0#data{ssh_params = Ssh}),
 	    {stop, Shutdown, D};
 	{"keyboard-interactive", {Msg, Ssh}} ->
-	    send_bytes(Msg, D0),
-	    {next_state, {userauth_keyboard_interactive,client}, D0#data{ssh_params = Ssh}};
+            D = send_msg(Msg, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth_keyboard_interactive,client}, D};
 	{_Method, {Msg, Ssh}} ->
-	    send_bytes(Msg, D0),
-	    {keep_state, D0#data{ssh_params = Ssh}}
+            D = send_msg(Msg, D0#data{ssh_params = Ssh}),
+	    {keep_state, D}
     end;
 
 %%---- banner to client
@@ -1009,39 +1015,46 @@ handle_event(_, #ssh_msg_userauth_banner{message = Msg}, {userauth,client}, D) -
 %%% ######## {userauth_keyboard_interactive, client|server}
 
 handle_event(_, #ssh_msg_userauth_info_request{} = Msg, {userauth_keyboard_interactive, client},
-	     #data{ssh_params = Ssh0} = D) ->
+	     #data{ssh_params = Ssh0} = D0) ->
     case ssh_auth:handle_userauth_info_request(Msg, Ssh0) of
 	{ok, {Reply, Ssh}} ->
-	    send_bytes(Reply, D),
-	    {next_state, {userauth_keyboard_interactive_info_response,client}, D#data{ssh_params = Ssh}};
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth_keyboard_interactive_info_response,client}, D};
 	not_ok ->
-	    {next_state, {userauth,client}, D, [postpone]}
+	    {next_state, {userauth,client}, D0, [postpone]}
     end;
 
-handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D) ->
-    case ssh_auth:handle_userauth_info_response(Msg, D#data.ssh_params) of
-	{authorized, User, {Reply, Ssh}} ->
-	    send_bytes(Reply, D),
+handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D0) ->
+    case ssh_auth:handle_userauth_info_response(Msg, D0#data.ssh_params) of
+	{authorized, User, {Reply, Ssh1}} ->
+            D = #data{ssh_params=Ssh} = 
+                send_msg(Reply, D0#data{ssh_params = Ssh1}),
 	    D#data.starter ! ssh_connected,
 	    connected_fun(User, "keyboard-interactive", D),
 	    {next_state, {connected,server}, D#data{auth_user = User,
+                                                    %% Note: authenticated=true MUST NOT be sent
+                                                    %% before send_msg!
 						    ssh_params = Ssh#ssh{authenticated = true}}};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
-	    retry_fun(User, Reason, D),
-	    send_bytes(Reply, D),
-	    {next_state, {userauth,server}, D#data{ssh_params = Ssh}};
+	    retry_fun(User, Reason, D0),
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth,server}, D};
 
 	{authorized_but_one_more, _User,  {Reply, Ssh}} ->
-	    send_bytes(Reply, D),
-	    {next_state, {userauth_keyboard_interactive_extra,server}, D#data{ssh_params = Ssh}}
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth_keyboard_interactive_extra,server}, D}
     end;
 
-handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive_extra, server}, D) ->
-    {authorized, User, {Reply, Ssh}} = ssh_auth:handle_userauth_info_response({extra,Msg}, D#data.ssh_params),
-    send_bytes(Reply, D),
+handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive_extra, server}, D0) ->
+    {authorized, User, {Reply, Ssh1}} =
+        ssh_auth:handle_userauth_info_response({extra,Msg}, D0#data.ssh_params),
+    D = #data{ssh_params=Ssh} = 
+        send_msg(Reply, D0#data{ssh_params = Ssh1}),
     D#data.starter ! ssh_connected,
     connected_fun(User, "keyboard-interactive", D),
     {next_state, {connected,server}, D#data{auth_user = User,
+                                            %% Note: authenticated=true MUST NOT be sent
+                                            %% before send_msg!
 					    ssh_params = Ssh#ssh{authenticated = true}}};
 
 handle_event(_, #ssh_msg_userauth_failure{}, {userauth_keyboard_interactive, client},
@@ -2119,7 +2132,7 @@ start_rekeying(Role, D0) ->
     {next_state, {kexinit,Role,renegotiate}, D}.
 
 
-init_renegotiate_timers(OldState, NewState, D) ->
+init_renegotiate_timers(_OldState, NewState, D) ->
     {RekeyTimeout,_MaxSent} = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
     {next_state, NewState, D, [{{timeout,renegotiate},     RekeyTimeout,       none},
                                {{timeout,check_data_size}, ?REKEY_DATA_TIMOUT, none} ]}.
