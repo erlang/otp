@@ -29,6 +29,7 @@
 %% -compile(export_all).
 
 -export([
+         proxy_call/3,
          log/4,
          error/3,
 
@@ -68,6 +69,28 @@
 -include("megaco_test_lib.hrl").
 
 -record('REASON', {mod, line, desc}).
+
+
+%% ----------------------------------------------------------------
+%% Proxy Call
+%% This is used when we need to assign a timeout to a call, but the
+%% call itself does not provide such an argument.
+%%
+%% This has nothing to to with the proxy_start and proxy_init
+%% functions below.
+
+proxy_call(F, Timeout, Default)
+  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
+    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+    receive
+        {'DOWN', M, process, P, Reply} ->
+            Reply
+    after Timeout ->
+            erlang:demonitor(M, [flush]),
+            exit(P, kill),
+            Default
+    end.
+
 
 
 %% ----------------------------------------------------------------
@@ -446,6 +469,8 @@ pprint(F, A) ->
 %% Test server callbacks
 
 init_per_suite(Config) ->
+
+    ct:timetrap(minutes(2)),
 
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
@@ -1506,14 +1531,24 @@ win_sys_info_lookup(Key, SysInfo, Def) ->
 
 %% This function only extracts the prop we actually care about!
 which_win_system_info() ->
-    SysInfo = os:cmd("systeminfo"),
-    try process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
-    catch
-        _:_:_ ->
-            io:format("Failed process System info: "
-                      "~s~n", [SysInfo]),
-            []
-    end.
+    F = fun() ->
+                try
+                    begin
+                        SysInfo = os:cmd("systeminfo"),
+                        process_win_system_info(
+                          string:tokens(SysInfo, [$\r, $\n]), [])
+                    end
+                catch
+                    C:E:S ->
+                        io:format("Failed get or process System info: "
+                                  "   Error Class: ~p"
+                                  "   Error:       ~p"
+                                  "   Stack:       ~p"
+                                  "~n", [C, E, S]),
+                        []
+                end
+        end,
+    proxy_call(F, minutes(1), []).
 
 process_win_system_info([], Acc) ->
     Acc;
