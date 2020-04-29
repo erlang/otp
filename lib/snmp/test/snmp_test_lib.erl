@@ -25,6 +25,7 @@
 
 -export([tc_try/2, tc_try/3,
          tc_try/4, tc_try/5]).
+-export([proxy_call/3]).
 -export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4,
@@ -257,6 +258,19 @@ tc_which_name() ->
 %% Misc functions
 %%
 
+proxy_call(F, Timeout, Default)
+  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
+    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+    receive
+        {'DOWN', M, process, P, Reply} ->
+            Reply
+    after Timeout ->
+            erlang:demonitor(M, [flush]),
+            exit(P, kill),
+            Default
+    end.
+
+
 hostname() ->
     hostname(node()).
 
@@ -267,20 +281,6 @@ hostname(Node) ->
         _ ->
             []
     end.
-
-%% localhost() ->
-%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
-%%     Ip.
-%% localhost(Family) ->
-%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
-%%     Ip.
-
-%% localhost() ->
-%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
-%%     Ip.
-%% localhost(Family) ->
-%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
-%%     Ip.
 
 localhost() ->
     localhost(inet).
@@ -622,6 +622,8 @@ old_is_ipv6_host(Hostname) ->
 %% This should be used by "all" suite init functions.
 
 init_per_suite(Config) ->
+
+    ct:timetrap(minutes(2)),
 
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
@@ -1791,14 +1793,24 @@ win_sys_info_lookup(Key, SysInfo, Def) ->
 
 %% This function only extracts the prop we actually care about!
 which_win_system_info() ->
-    SysInfo = os:cmd("systeminfo"),
-    try process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
-    catch
-        _:_:_ ->
-            io:format("Failed process System info: "
-                      "~s~n", [SysInfo]),
-            []
-    end.
+    F = fun() ->
+                try
+                    begin
+                        SysInfo = os:cmd("systeminfo"),
+                        process_win_system_info(
+                          string:tokens(SysInfo, [$\r, $\n]), [])
+                    end
+                catch
+                    C:E:S ->
+                        io:format("Failed get or process System info: "
+                                  "   Error Class: ~p"
+                                  "   Error:       ~p"
+                                  "   Stack:       ~p"
+                                  "~n", [C, E, S]),
+                        []
+                end
+        end,
+    proxy_call(F, minutes(1), []).
 
 process_win_system_info([], Acc) ->
     Acc;
@@ -1885,7 +1897,7 @@ sleep(MSecs) ->
 
 %% ----------------------------------------------------------------
 %% Process utility function
-%% 
+%%
 
 flush_mqueue() ->
     io:format("~p~n", [lists:reverse(flush_mqueue([]))]).
@@ -1900,10 +1912,10 @@ flush_mqueue(MQ) ->
 
     
 trap_exit() -> 
-    {trap_exit,Flag} = process_info(self(),trap_exit),Flag.
+    {trap_exit, Flag} = process_info(self(),trap_exit), Flag.
 
 trap_exit(Flag) -> 
-    process_flag(trap_exit,Flag).
+    process_flag(trap_exit, Flag).
 
 
 
