@@ -24,7 +24,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Target Specs
 # ----------------------------------------------------
 
-MODULES= \
+EI_MODULES= \
 	ei_accept_SUITE \
 	ei_connect_SUITE \
 	ei_decode_SUITE \
@@ -38,12 +38,16 @@ MODULES= \
 	port_call_SUITE \
 	runner
 
+ERTS_MODULES= erts_test_utils
+
+MODULES=$(EI_MODULES) $(ERTS_MODULES)
+
 SPEC_FILES = \
 	erl_interface.spec erl_interface_smoke.spec
 
 COVER_FILE = erl_interface.cover
 
-ERL_FILES = $(MODULES:%=%.erl)
+ERL_FILES = $(EI_MODULES:%=%.erl) $(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl)
 
 # ----------------------------------------------------
 # Release directory specification

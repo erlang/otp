@@ -603,6 +603,10 @@ int ei_x_append(ei_x_buff* x, const ei_x_buff* x2);
 int ei_x_append_buf(ei_x_buff* x, const char* buf, int len);
 int ei_skip_term(const char* buf, int* index);
 
+int ei_cmp_refs(erlang_ref *a, erlang_ref *b);
+int ei_cmp_pids(erlang_pid *a, erlang_pid *b);
+int ei_cmp_ports(erlang_port *a, erlang_port *b);
+
 /***************************************************************************
  *
  *  Hash types needed by registry types

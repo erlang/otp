@@ -122,6 +122,57 @@ typedef enum {
 
   <funcs>
       <func>
+        <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_cmp_pids(erlang_pid *a, erlang_pid *b)</nametext></name>
+        <fsummary>Compare two pids.</fsummary>
+        <desc>
+          <p>
+	    Compare two process identifiers. The comparison is done the same way
+	    as Erlang does.
+	  </p>
+	  <p>
+	    Returns <c>0</c> if <c>a</c> and <c>b</c> are equal. Returns a value
+	    less than <c>0</c> if <c>a</c> compares as less than <c>b</c>.
+	    Returns a value larger than <c>0</c> if <c>a</c> compares as larger
+	    than <c>b</c>.
+	  </p>
+        </desc>
+      </func>
+
+      <func>
+        <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_cmp_ports(erlang_port *a, erlang_port *b)</nametext></name>
+        <fsummary>Compare two ports.</fsummary>
+        <desc>
+          <p>
+	    Compare two port identifiers. The comparison is done the same way as
+	    Erlang does.
+	  </p>
+	  <p>
+	    Returns <c>0</c> if <c>a</c> and <c>b</c> are equal. Returns a value
+	    less than <c>0</c> if <c>a</c> compares as less than <c>b</c>.
+	    Returns a value larger than <c>0</c> if <c>a</c> compares as larger
+	    than <c>b</c>.
+	  </p>
+        </desc>
+      </func>
+
+      <func>
+        <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_cmp_refs(erlang_ref *a, erlang_ref *b)</nametext></name>
+        <fsummary>Compare two references.</fsummary>
+        <desc>
+          <p>
+	    Compare two references. The comparison is done the same way as Erlang
+	    does.
+	  </p>
+	  <p>
+	    Returns <c>0</c> if <c>a</c> and <c>b</c> are equal. Returns a value
+	    less than <c>0</c> if <c>a</c> compares as less than <c>b</c>.
+	    Returns a value larger than <c>0</c> if <c>a</c> compares as larger
+	    than <c>b</c>.
+	  </p>
+        </desc>
+      </func>
+
+      <func>
           <name since=""><ret>int</ret><nametext>ei_decode_atom(const char *buf, int *index, char *p)</nametext></name>
           <fsummary>Decode an atom.</fsummary>
           <desc>
