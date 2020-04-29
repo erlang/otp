@@ -51,8 +51,8 @@
          close/1,
          shutdown/2,
 
-         setopt/4,
-         getopt/3,
+         setopt/3, setopt_native/3, setopt/4,
+         getopt/2, getopt_native/3, getopt/3,
 
          sockname/1,
          peername/1,
@@ -64,7 +64,7 @@
               socket/0,
 
               select_tag/0,
-              select_ref/0,
+              select_handle/0,
               select_info/0,
 
               socket_counters/0,
@@ -75,71 +75,36 @@
               protocol/0,
 
               port_number/0,
-              ip4_address/0,
-              ip6_address/0,
+              in_addr/0,
+              in6_addr/0,
               sockaddr/0,
-              sockaddr_in4/0,
+              sockaddr_in/0,
               sockaddr_in6/0,
               sockaddr_un/0,
               sockaddr_ll/0,
 
-              send_flags/0,
               send_flag/0,
-
-              recv_flags/0,
               recv_flag/0,
-
-              shutdown_how/0,
 
               sockopt_level/0,
               otp_socket_option/0,
               socket_option/0,
-              ip_socket_option/0,
-              ipv6_socket_option/0,
-              tcp_socket_option/0,
-              udp_socket_option/0,
-              sctp_socket_option/0,
-              raw_socket_option/0,
 
               timeval/0,
               ip_tos/0,
-              ip_mreq/0,
-              ip_mreq_source/0,
-              ip_pmtudisc/0,
-              ip_msfilter_mode/0,
-              ip_msfilter/0,
               ip_pktinfo/0,
-              ipv6_mreq/0,
-              ipv6_pmtudisc/0,
               ipv6_pktinfo/0,
-              in6_flow_info/0,
-              in6_scope_id/0,
-              sctp_assoc_id/0,
-              sctp_sndrcvinfo/0,
-              sctp_event_subscribe/0,
-              sctp_assocparams/0,
-              sctp_initmsg/0,
-              sctp_rtoinfo/0,
-
 
               msghdr_flag/0,
-              msghdr_flags/0,
               msghdr/0,
               cmsghdr_level/0,
               cmsghdr_type/0,
-              %% cmsghdr_data/0,
               cmsghdr_recv/0, cmsghdr_send/0,
 
               ee_origin/0,
               icmp_dest_unreach/0,
               icmpv6_dest_unreach/0,
-              extended_err/0,
-
-              uint8/0,
-              uint16/0,
-              uint20/0,
-              uint32/0,
-              int32/0
+              extended_err/0
              ]).
 
 %% Also in prim_socket
@@ -174,12 +139,6 @@
                          writable      := boolean(),
                          readable      := boolean()}.
 
--type uint8()  :: 0..16#FF.
--type uint16() :: 0..16#FFFF.
--type uint20() :: 0..16#FFFFF.
--type uint32() :: 0..16#FFFFFFFF.
--type int32()  :: -2147483648..2147483647.
-
 
 %% We support only a subset of all domains.
 -type domain() :: local | inet | inet6.
@@ -196,12 +155,12 @@
 
 -type port_number() :: 0..65535.
 
--type ip4_address() :: {0..255, 0..255, 0..255, 0..255}.
+-type in_addr() :: {0..255, 0..255, 0..255, 0..255}.
 
--type in6_flow_info() :: uint20().
--type in6_scope_id()  :: uint32().
+-type in6_flow_info() :: 0..16#FFFFF.
+-type in6_scope_id()  :: 0..16#FFFFFFFF.
 
--type ip6_address() ::
+-type in6_addr() ::
            {0..65535,
             0..65535,
             0..65535,
@@ -211,14 +170,9 @@
             0..65535,
             0..65535}.
 
+
 -type timeval() :: #{sec  := integer(),
                      usec := integer()}.
-
--type ip_pktinfo() :: #{
-                        ifindex  := non_neg_integer(), % Interface Index
-                        spec_dst := ip4_address(),     % Local Address
-                        addr     := ip4_address()      % Header Destination address
-                       }.
 
 %% If the integer value is used, its up to the caller to ensure its valid!
 -type ip_tos() :: lowdelay |
@@ -227,103 +181,28 @@
                   mincost |
                   integer().
 
-%% This type is used when requesting to become member of a multicast
-%% group with a call to setopt. Example: 
-%%
-%%     socket:setopt(Socket, ip, add_membership, #{multiaddr => Addr,
-%%                                                 interface => any}).
-%%
-%% Its also used when removing from a multicast group. Example:
-%%
-%%     socket:setopt(Socket, ip, drop_membership, #{multiaddr => Addr,
-%%                                                  interface => any}).
-%%
-
--type ip_mreq() :: #{multiaddr := ip4_address(),
-                     interface := any | ip4_address()}.
-%% -type ip_mreqn() :: #{multiaddr := ip4_address(),
-%%                       address   := any | ip4_address(),
-%%                       ifindex   := integer()}.
-
--type ip_mreq_source() :: #{multiaddr  := ip4_address(),
-                            interface  := ip4_address(),
-                            sourceaddr := ip4_address()}.
-
--type ip_pmtudisc() :: want | dont | do | probe.
-
-%% multiaddr: Multicast group address
-%% interface: Address of local interface
-%% mode:      Filter mode
-%% slist:     List of source addresses
--type ip_msfilter_mode() :: include | exclude.
-
--type ip_msfilter() :: #{multiaddr := ip4_address(),
-                         interface := ip4_address(),
-                         mode      := ip_msfilter_mode(),
-                         slist     := [ip4_address()]}.
-
--type ipv6_mreq() :: #{multiaddr := ip6_address(),
-                       interface := non_neg_integer()}.
-
--type ipv6_pmtudisc() :: ip_pmtudisc().
+-type ip_pktinfo() :: #{
+                        ifindex  := non_neg_integer(), % Interface Index
+                        spec_dst := in_addr(),     % Local Address
+                        addr     := in_addr()      % Header Destination address
+                       }.
 
 -type ipv6_pktinfo() :: #{
-                          addr    := ip6_address(),
+                          addr    := in6_addr(),
                           ifindex := integer()
                          }.
 
 
--type sctp_assoc_id() :: int32().
--type sctp_sndrcvinfo() :: #{
-                             stream     := uint16(),
-                             ssn        := uint16(),
-                             flags      := uint16(),
-                             ppid       := uint16(),
-                             context    := uint16(),
-                             timetolive := uint16(),
-                             tsn        := uint16(),
-                             cumtsn     := uint16(),
-                             assoc_id   := sctp_assoc_id()
-                            }.
-
--type sctp_event_subscribe() :: #{data_in          := boolean(),
-                                  association      := boolean(),
-                                  address          := boolean(),
-                                  send_failure     := boolean(),
-                                  peer_error       := boolean(),
-                                  shutdown         := boolean(),
-                                  partial_delivery := boolean(),
-                                  adaptation_layer := boolean(),
-                                  authentication   := boolean(),
-                                  sender_dry       := boolean()}.
-
--type sctp_assocparams() :: #{assoc_id       := sctp_assoc_id(),
-                              max_rxt        := uint16(),
-                              num_peer_dests := uint16(),
-                              peer_rwnd      := uint32(),
-                              local_rwnd     := uint32(),
-                              cookie_life    := uint32()}.
-
--type sctp_initmsg() :: #{num_outstreams := uint16(),
-                          max_instreams  := uint16(),
-                          max_attempts   := uint16(),
-                          max_init_timeo := uint16()
-                         }.
-
--type sctp_rtoinfo() :: #{assoc_id := sctp_assoc_id(),
-                          initial  := uint32(),
-                          max      := uint32(),
-                          min      := uint32()}.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
--type sockaddr_in4() :: #{family := inet,
+-type sockaddr_in() :: #{family := inet,
                           port   := port_number(),
 			  %% The 'broadcast' here is the "limited broadcast"
-                          addr   := any | broadcast | loopback | ip4_address()}.
+                          addr   := any | broadcast | loopback | in_addr()}.
 -type sockaddr_in6() :: #{family   := inet6,
                           port     := port_number(),
-                          addr     := any | loopback | ip6_address(),
+                          addr     := any | loopback | in6_addr(),
                           flowinfo := in6_flow_info(),
                           scope_id := in6_scope_id()}.
 -type sockaddr_ll() :: #{family   := packet,
@@ -335,7 +214,7 @@
 -type packet_type() :: host | broadcast | multicast | otherhost |
                        outgoing | loopback | user | kernel | fastroute |
                        non_neg_integer().
--type sockaddr() :: sockaddr_in4() |
+-type sockaddr() :: sockaddr_in() |
                     sockaddr_in6() |
                     sockaddr_un()  |
                     sockaddr_ll().
@@ -349,199 +228,183 @@
 %% sctp   - The SCTP (Stream Control Transmission Protocol) layer (IPPROTO_SCTP).
 %% Int    - Raw level, sent down and used "as is".
 %%          Its up to the caller to make sure this is correct!
--type sockopt_level() :: otp |
+-type sockopt_level() :: %otp |
                          socket |
-                         ip | ipv6 | tcp | udp | sctp |
-                         non_neg_integer().
+                         ip | ipv6 | tcp | udp | sctp.% |
+                         %non_neg_integer().
 
 %% There are some options that are 'read-only'.
 %% Should those be included here or in a special list?
 %% Should we just document it and leave it to the user?
 %% Or catch it in the encode functions?
-%% A setopt for a readonly option leads to einval?
+%% A setopt for a readonly option leads to {error, invalid}?
 %% Do we really need a sndbuf?
 
--type otp_socket_option() :: debug |
-                             iow |
-                             controlling_process |
-                             rcvbuf | % sndbuf |
-                             rcvctrlbuf |
-                             sndctrlbuf |
-                             meta |
-                             fd.
-%% Shall we have special treatment of linger??
-%% read-only options:
-%% domain | protocol | type.
-%% FreeBSD (only?): acceptfilter
--type socket_option() :: acceptconn |
-                         acceptfilter |
-                         bindtodevice |
-                         broadcast |
-                         busy_poll |
-                         debug |
-                         domain |
-                         dontroute |
-                         error |
-                         keepalive |
-                         linger |
-                         mark |
-                         oobinline |
-                         passcred |
-                         peek_off |
-                         peercred |
-                         priority |
-                         protocol |
-                         rcvbuf |
-                         rcvbufforce |
-                         rcvlowat |
-                         rcvtimeo |
-                         reuseaddr |
-                         reuseport |
-                         rxq_ovfl |
-                         setfib |
-                         sndbuf |
-                         sndbufforce |
-                         sndlowat |
-                         sndtimeo |
-                         timestamp |
-                         type.
+-type otp_socket_option() ::
+        debug |
+        iow |
+        controlling_process |
+        rcvbuf | % sndbuf |
+        rcvctrlbuf |
+        sndctrlbuf |
+        meta |
+        fd.
 
-%% Read-only options:
-%% mtu
-%%
-%% Options only valid on FreeBSD?:
-%% dontfrag
-%% Options only valid for RAW sockets:
-%% nodefrag (linux only?)
--type ip_socket_option() :: add_membership |
-                            add_source_membership |
-                            block_source |
-                            dontfrag |
-                            drop_membership |
-                            drop_source_membership |
-                            freebind |
-                            hdrincl |
-                            minttl |
-                            msfilter |
-                            mtu |
-                            mtu_discover |
-                            multicast_all |
-                            multicast_if |
-                            multicast_loop |
-                            multicast_ttl |
-                            nodefrag |
-                            options |
-                            pktinfo |
-                            recverr |
-                            recvif |
-                            recvdstaddr |
-                            recvopts |
-                            recvorigdstaddr |
-                            recvtos |
-                            recvttl |
-                            retopts |
-                            router_alert |
-                            sndsrcaddr |
-                            tos |
-                            transparent |
-                            ttl |
-                            unblock_source.
--type ipv6_socket_option() ::
-        addrform |
-        add_membership |
-        authhdr |
-        auth_level |
-        checksum |
-        drop_membership |
-        dstopts |
-        esp_trans_level |
-        esp_network_level |
-        faith |
-        flowinfo |
-        hopopts |
-        ipcomp_level |
-        join_group |
-        leave_group |
-        mtu |
-        mtu_discover |
-        multicast_hops |
-        multicast_if |
-        multicast_loop |
-        portrange |
-        pktoptions |
-        recverr |
-        recvhoplimit | hoplimit |
-        recvpktinfo | pktinfo |
-        recvtclass |
-        router_alert |
-        rthdr |
-        tclass |
-        unicast_hops |
-        use_min_mtu |
-        v6only.
+-type socket_option() ::
+        {Level :: socket,
+         Opt ::
+           acceptconn |
+           acceptfilter |
+           bindtodevice |
+           broadcast |
+           busy_poll |
+           debug |
+           domain |
+           dontroute |
+           error |
+           keepalive |
+           linger |
+           mark |
+           oobinline |
+           passcred |
+           peek_off |
+           peercred |
+           priority |
+           protocol |
+           rcvbuf |
+           rcvbufforce |
+           rcvlowat |
+           rcvtimeo |
+           reuseaddr |
+           reuseport |
+           rxq_ovfl |
+           setfib |
+           sndbuf |
+           sndbufforce |
+           sndlowat |
+           sndtimeo |
+           timestamp |
+           type} |
+        {Level :: ip,
+         Opt ::
+           add_membership |
+           add_source_membership |
+           block_source |
+           dontfrag |
+           drop_membership |
+           drop_source_membership |
+           freebind |
+           hdrincl |
+           minttl |
+           msfilter |
+           mtu |
+           mtu_discover |
+           multicast_all |
+           multicast_if |
+           multicast_loop |
+           multicast_ttl |
+           nodefrag |
+           options |
+           pktinfo |
+           recverr |
+           recvif |
+           recvdstaddr |
+           recvopts |
+           recvorigdstaddr |
+           recvtos |
+           recvttl |
+           retopts |
+           router_alert |
+           sndsrcaddr |
+           tos |
+           transparent |
+           ttl |
+           unblock_source} |
+        {Level :: ipv6,
+         Opt ::
+           addrform |
+           add_membership |
+           authhdr |
+           auth_level |
+           checksum |
+           drop_membership |
+           dstopts |
+           esp_trans_level |
+           esp_network_level |
+           faith |
+           flowinfo |
+           hopopts |
+           ipcomp_level |
+           join_group |
+           leave_group |
+           mtu |
+           mtu_discover |
+           multicast_hops |
+           multicast_if |
+           multicast_loop |
+           portrange |
+           pktoptions |
+           recverr |
+           recvhoplimit | hoplimit |
+           recvpktinfo | pktinfo |
+           recvtclass |
+           router_alert |
+           rthdr |
+           tclass |
+           unicast_hops |
+           use_min_mtu |
+           v6only} |
+        {Level :: tcp,
+         Opt ::
+           congestion |
+           cork |
+           info |
+           keepcnt |
+           keepidle |
+           keepintvl |
+           maxseg |
+           md5sig |
+           nodelay |
+           noopt |
+           nopush |
+           syncnt |
+           user_timeout} |
+        {Level :: udp, Opt :: cork} |
+        {Level :: sctp,
+         Opt ::
+           adaption_layer |
+           associnfo |
+           auth_active_key |
+           auth_asconf |
+           auth_chunk |
+           auth_key |
+           auth_delete_key |
+           autoclose |
+           context |
+           default_send_params |
+           delayed_ack_time |
+           disable_fragments |
+           hmac_ident |
+           events |
+           explicit_eor |
+           fragment_interleave |
+           get_peer_addr_info |
+           initmsg |
+           i_want_mapped_v4_addr |
+           local_auth_chunks |
+           maxseg |
+           maxburst |
+           nodelay |
+           partial_delivery_point |
+           peer_addr_params |
+           peer_auth_chunks |
+           primary_addr |
+           reset_streams |
+           rtoinfo |
+           set_peer_primary_addr |
+           status |
+           use_ext_recvinfo}.
 
--type tcp_socket_option()  :: congestion |
-                              cork |
-                              info |
-                              keepcnt |
-                              keepidle |
-                              keepintvl |
-                              maxseg |
-                              md5sig |
-                              nodelay |
-                              noopt |
-                              nopush |
-                              syncnt |
-                              user_timeout.
-
--type udp_socket_option() :: cork.
-
--type sctp_socket_option() ::
-        adaption_layer |
-        associnfo |
-        auth_active_key |
-        auth_asconf |
-        auth_chunk |
-        auth_key |
-        auth_delete_key |
-        autoclose |
-        context |
-        default_send_params |
-        delayed_ack_time |
-        disable_fragments |
-        hmac_ident |
-        events |
-        explicit_eor |
-        fragment_interleave |
-        get_peer_addr_info |
-        initmsg |
-        i_want_mapped_v4_addr |
-        local_auth_chunks |
-        maxseg |
-        maxburst |
-        nodelay |
-        partial_delivery_point |
-        peer_addr_params |
-        peer_auth_chunks |
-        primary_addr |
-        reset_streams |
-        rtoinfo |
-        set_peer_primary_addr |
-        status |
-        use_ext_recvinfo.
-
--type raw_socket_option() :: filter.
-
-%% -type plain_socket_option()  :: integer().
-%% -type sockopt() :: otp_socket_option() |
-%%                    socket_option() |
-%%                    ip_socket_option() |
-%%                    ipv6_socket_option() |
-%%                    tcp_socket_option() |
-%%                    udp_socket_option() |
-%%                    sctp_socket_option() |
-%%                    raw_socket_option() |
-%%                    plain_socket_option().
 
 %% The names of these macros match the names of corresponding
 %%C functions in the NIF code, so a search will match both
@@ -549,14 +412,13 @@
 -define(socket_tag, '$socket').
 %%
 %% Our socket abstract data type
--define(mk_socket(Ref), {?socket_tag, (Ref)}).
+-define(socket(Ref), {?socket_tag, (Ref)}).
 %%
 %% Messages sent from the nif-code to erlang processes:
--define(mk_socket_msg(Socket, Tag, Info), {?socket_tag, (Socket), (Tag), (Info)}).
+-define(socket_msg(Socket, Tag, Info), {?socket_tag, (Socket), (Tag), (Info)}).
 
--opaque socket() :: ?mk_socket(reference()).
+-opaque socket() :: ?socket(reference()).
 
--type send_flags() :: [send_flag()].
 -type send_flag()  :: confirm |
                       dontroute |
                       eor |
@@ -566,17 +428,13 @@
 
 %% Note that not all of these flags are useful for every recv function!
 %%
--type recv_flags() :: [recv_flag()].
 -type recv_flag()  :: cmsg_cloexec |
                       errqueue |
                       oob |
                       peek |
                       trunc.
 
--type shutdown_how() :: read | write | read_write.
-
 -type msghdr_flag()  :: ctrunc | eor | errqueue | oob | trunc.
--type msghdr_flags() :: [msghdr_flag()].
 -type msghdr() :: #{
                     %% *Optional* target address
                     %% Used on an unconnected socket to specify the 
@@ -591,7 +449,7 @@
                     ctrl  := [cmsghdr_recv()] | [cmsghdr_send()],
 
                     %% Only valid with recvmsg
-                    flags := msghdr_flags()
+                    flags := [msghdr_flag()]
                    }.
 %% We are able to (completely) decode *some* control message headers.
 %% Even if we are able to decode both level and type, we may not be
@@ -618,73 +476,77 @@
         #{level := ip,        type := ttl,         data := integer()}      |
         #{level := ip,        type := recvttl,     data := integer()}      |
         #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
-        #{level := ip,        type := origdstaddr, data := sockaddr_in4()} |
-        #{level := ip,        type := recverr,     data := extended_err() | binary()} |
+        #{level := ip,        type := origdstaddr, data := sockaddr_in()}  |
+        #{level := ip,        type := recverr,
+          data := extended_err() | binary()} |
         #{level := ip,        type := integer(),   data := binary()}       |
         #{level := ipv6,      type := hoplevel,    data := integer()}      |
         #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
-        #{level := ipv6,      type := recverr,     data := extended_err() | binary()} |
+        #{level := ipv6,      type := recverr,
+          data := extended_err() | binary()} |
         #{level := ipv6,      type := tclass,      data := integer()}      |
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
 -type cmsghdr_send() :: 
-        #{level := socket,    type := timestamp,   data := binary()} |
-        #{level := socket,    type := rights,      data := binary()} |
-        #{level := socket,    type := credentials, data := binary()} |
-        #{level := socket,    type := integer(),   data := binary()} |
-        #{level := ip,        type := tos,         data := ip_tos()  | binary()} |
-        #{level := ip,        type := ttl,         data := integer() | binary()} |
-        #{level := ip,        type := integer(),   data := binary()} |
-        #{level := ipv6,      type := tclass,      data := integer()}      |
-        #{level := ipv6,      type := integer(),   data := binary()} |
-        #{level := udp,       type := integer(),   data := binary()} |
+        #{level := socket,    type := timestamp,   data := binary()}  |
+        #{level := socket,    type := rights,      data := binary()}  |
+        #{level := socket,    type := credentials, data := binary()}  |
+        #{level := socket,    type := integer(),   data := binary()}  |
+        #{level := ip,        type := tos,
+          data := ip_tos()  | binary()} |
+        #{level := ip,        type := ttl,
+          data := integer() | binary()} |
+        #{level := ip,        type := integer(),   data := binary()}  |
+        #{level := ipv6,      type := tclass,      data := integer()} |
+        #{level := ipv6,      type := integer(),   data := binary()}  |
+        #{level := udp,       type := integer(),   data := binary()}  |
         #{level := integer(), type := integer(),   data := binary()}.
 
--type ee_origin() :: none | local | icmp | icmp6 | uint8().
--type icmp_dest_unreach() :: net_unreach | host_unreach | port_unreach | frag_needed |
-                             net_unknown | host_unknown | uint8().
--type icmpv6_dest_unreach() :: noroute | adm_prohibited | not_neighbour | addr_unreach |
-                               port_unreach | policy_fail | reject_route | uint8().
+-type ee_origin() :: none | local | icmp | icmp6 | 0..16#FF.
+-type icmp_dest_unreach() ::
+        net_unreach | host_unreach | port_unreach | frag_needed |
+        net_unknown | host_unknown | 0..16#FF.
+-type icmpv6_dest_unreach() ::
+        noroute | adm_prohibited | not_neighbour | addr_unreach |
+        port_unreach | policy_fail | reject_route | 0..16#FF.
 -type extended_err() ::
         #{error    := term(),
           origin   := icmp,
           type     := dest_unreach,
           code     := icmp_dest_unreach(),
-          info     := uint32(),
-          data     := uint32(),
+          info     := 0..16#FFFFFFFF,
+          data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()} |
         #{error    := term(),
           origin   := icmp,
-          type     := time_exceeded | uint8(),
-          code     := uint8(),
-          info     := uint32(),
-          data     := uint32(),
+          type     := time_exceeded | 0..16#FF,
+          code     := 0..16#FF,
+          info     := 0..16#FFFFFFFF,
+          data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()} |
         #{error    := term(),
           origin   := icmp6,
           type     := dest_unreach,
           code     := icmpv6_dest_unreach(),
-          info     := uint32(),
-          data     := uint32(),
+          info     := 0..16#FFFFFFFF,
+          data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()} |
         #{error    := term(),
           origin   := icmp6,
-          type     := pkt_toobig | time_exceeded | uint8(),
-          code     := uint8(),
-          info     := uint32(),
-          data     := uint32(),
+          type     := pkt_toobig | time_exceeded | 0..16#FF,
+          code     := 0..16#FF,
+          info     := 0..16#FFFFFFFF,
+          data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()} |
         #{error    := term(),
           origin   := ee_origin(),
-          type     := uint8(),
-          code     := uint8(),
-          info     := uint32(),
-          data     := uint32(),
+          type     := 0..16#FF,
+          code     := 0..16#FF,
+          info     := 0..16#FFFFFFFF,
+          data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()}.
 
--type errcode() ::
-        inet:posix() | % closed | timeout | not_owner |
-        exalloc | exmonitor | exselect | exself.
+-type posix() :: inet:posix().
 
 %% ===========================================================================
 %%
@@ -692,9 +554,12 @@
 %%
 
 -opaque select_tag() :: atom().
--opaque select_ref() :: reference().
+-opaque select_handle() :: reference().
 
--type select_info() :: {select_info, select_tag(), select_ref()}.
+-type select_info() ::
+        {select_info,
+         SelectTag :: select_tag(),
+         SelectHandle :: select_handle()}.
 
 -define(SELECT_INFO(T, R), {select_info, T, R}).
 -define(SELECT(T, R),      {select, ?SELECT_INFO(T, R)}).
@@ -771,7 +636,10 @@ which_sockets(CTRL)
     ?REGISTRY:which_sockets(fun(#{ctrl := C}) when (C =:= CTRL) -> true;
                                (_) -> false end);
 which_sockets(Filter) when is_function(Filter, 1) ->
-    ?REGISTRY:which_sockets(Filter).
+    ?REGISTRY:which_sockets(Filter);
+which_sockets(Other) ->
+    erlang:error(badarg, [Other]).
+
 
 
 %% ===========================================================================
@@ -790,13 +658,18 @@ info() ->
 -spec debug(D :: boolean()) -> ok.
 %%
 debug(D) when is_boolean(D) ->
-    prim_socket:debug(D).
+    prim_socket:debug(D);
+debug(D) ->
+    erlang:error(badarg, [D]).
 
 
 -spec socket_debug(D :: boolean()) -> ok.
 %%
 socket_debug(D) when is_boolean(D) ->
-    prim_socket:socket_debug(D).
+    prim_socket:socket_debug(D);
+socket_debug(D) ->
+    erlang:error(badarg, [D]).
+
 
 
 %% ===========================================================================
@@ -812,7 +685,7 @@ socket_debug(D) when is_boolean(D) ->
 -spec info(Socket) -> socket_info() when
       Socket :: socket().
 %%
-info(?mk_socket(SockRef)) when is_reference(SockRef) ->
+info(?socket(SockRef)) when is_reference(SockRef) ->
     prim_socket:info(SockRef);
 info(Socket) ->
     erlang:error(badarg, [Socket]).
@@ -916,7 +789,8 @@ get_is_supported(Key, Supported) ->
 -spec open(FD) -> {ok, Socket} | {error, Reason} when
       FD     :: integer(),
       Socket :: socket(),
-      Reason :: errcode().
+      Reason ::
+        posix() | domain | type | protocol.
 
 open(FD) when is_integer(FD) ->
     open(FD, #{});
@@ -931,18 +805,19 @@ open(FD) ->
           protocol => protocol(),
           dup => boolean()},
       Socket   :: socket(),
-      Reason   :: errcode();
+      Reason   ::
+        posix() | domain | type | protocol;
 
           (Domain, Type) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
       Socket   :: socket(),
-      Reason   :: errcode().
+      Reason   :: posix() | protocol.
 
 open(FD, Opts) when is_integer(FD), is_map(Opts) ->
     case prim_socket:open(FD, Opts) of
         {ok, SockRef} ->
-            Socket = ?mk_socket(SockRef),
+            Socket = ?socket(SockRef),
             {ok, Socket};
         {error, _} = ERROR ->
             ERROR
@@ -955,7 +830,7 @@ open(Domain, Type) ->
       Type     :: type(),
       Protocol :: default | protocol(),
       Socket   :: socket(),
-      Reason   :: errcode().
+      Reason   :: posix() | protocol.
 
 open(Domain, Type, Protocol) ->
     open(Domain, Type, Protocol, #{}).
@@ -966,12 +841,12 @@ open(Domain, Type, Protocol) ->
       Protocol :: default | protocol(),
       Opts     :: map(),
       Socket   :: socket(),
-      Reason   :: errcode().
+      Reason   :: posix() | protocol.
 
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
     case prim_socket:open(Domain, Type, Protocol, Opts) of
         {ok, SockRef} ->
-            Socket = ?mk_socket(SockRef),
+            Socket = ?socket(SockRef),
             {ok, Socket};
         {error, _} = ERROR ->
             ERROR
@@ -992,9 +867,9 @@ open(Domain, Type, Protocol, Opts) ->
       Socket :: socket(),
       Addr   :: sockaddr() | any | broadcast | loopback,
       Port   :: port_number(),
-      Reason :: inet:posix() | closed.
+      Reason :: posix() | closed | invalid.
 
-bind(?mk_socket(SockRef) = Socket, Addr) when is_reference(SockRef) ->
+bind(?socket(SockRef) = Socket, Addr) when is_reference(SockRef) ->
     if
         is_map(Addr) ->
             prim_socket:bind(SockRef, Addr);
@@ -1037,9 +912,9 @@ bind(Socket, Addr) ->
       Socket :: socket(),
       Addrs  :: [sockaddr()],
       Action :: add | remove,
-      Reason :: inet:posix() | closed.
+      Reason :: posix() | closed.
 
-bind(?mk_socket(SockRef), Addrs, Action)
+bind(?socket(SockRef), Addrs, Action)
   when is_reference(SockRef)
        andalso is_list(Addrs)
        andalso (Action =:= add
@@ -1056,12 +931,12 @@ bind(Socket, Addrs, Action) ->
 
 -spec connect(Socket) -> ok | {error, Reason} when
     Socket   :: socket(),
-    Reason   :: errcode() | closed.
+    Reason   :: posix() | closed | invalid | already.
 
 %% Finalize connect after connect(,, nowait) and received
 %% select message - see connect_deadline/3
 %%
-connect(?mk_socket(SockRef))
+connect(?socket(SockRef))
   when is_reference(SockRef) ->
     prim_socket:connect(SockRef);
 connect(Socket) ->
@@ -1071,7 +946,7 @@ connect(Socket) ->
 -spec connect(Socket, SockAddr) -> ok | {error, Reason} when
     Socket   :: socket(),
     SockAddr :: sockaddr(),
-    Reason   :: errcode() | closed.
+    Reason   :: posix() | closed | invalid | already.
 
 connect(Socket, SockAddr) ->
     connect(Socket, SockAddr, infinity).
@@ -1082,18 +957,18 @@ connect(Socket, SockAddr) ->
     Socket     :: socket(),
     SockAddr   :: sockaddr(),
     SelectInfo :: select_info(),
-    Reason     :: errcode() | closed;
+    Reason     :: posix() | closed | invalid | already;
 
              (Socket, SockAddr, Timeout) -> ok | {error, Reason} when
     Socket   :: socket(),
     SockAddr :: sockaddr(),
     Timeout  :: timeout(),
-    Reason   :: errcode() | closed | timeout.
+    Reason   :: posix() | closed | invalid | already | timeout.
 
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
 %% </KOLLA>
-connect(?mk_socket(SockRef) = Socket, SockAddr, Timeout)
+connect(?socket(SockRef) = Socket, SockAddr, Timeout)
   when is_reference(SockRef) ->
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1120,9 +995,9 @@ connect_deadline(SockRef, SockAddr, Deadline) ->
             %% Connecting...
             Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(_Socket, select, Ref) ->
+                ?socket_msg(_Socket, select, Ref) ->
                     prim_socket:connect(SockRef);
-                ?mk_socket_msg(_Socket, abort, {Ref, Reason}) ->
+                ?socket_msg(_Socket, abort, {Ref, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     cancel(SockRef, connect, Ref),
@@ -1140,7 +1015,7 @@ connect_deadline(SockRef, SockAddr, Deadline) ->
 
 -spec listen(Socket) -> ok | {error, Reason} when
       Socket  :: socket(),
-      Reason  :: inet:posix() | closed.
+      Reason  :: posix() | closed.
 
 listen(Socket) ->
     listen(Socket, ?ESOCK_LISTEN_BACKLOG_DEFAULT).
@@ -1148,9 +1023,9 @@ listen(Socket) ->
 -spec listen(Socket, Backlog) -> ok | {error, Reason} when
       Socket  :: socket(),
       Backlog :: integer(),
-      Reason  :: inet:posix() | closed.
+      Reason  :: posix() | closed.
 
-listen(?mk_socket(SockRef), Backlog)
+listen(?socket(SockRef), Backlog)
   when is_reference(SockRef), is_integer(Backlog) ->
     prim_socket:listen(SockRef, Backlog);
 listen(Socket, Backlog) ->
@@ -1165,7 +1040,7 @@ listen(Socket, Backlog) ->
 -spec accept(LSocket) -> {ok, Socket} | {error, Reason} when
       LSocket :: socket(),
       Socket  :: socket(),
-      Reason  :: errcode() | closed.
+      Reason  :: posix() | closed | invalid.
 
 accept(Socket) ->
     accept(Socket, ?ESOCK_ACCEPT_TIMEOUT_DEFAULT).
@@ -1177,15 +1052,15 @@ accept(Socket) ->
       LSocket    :: socket(),
       Socket     :: socket(),
       SelectInfo :: select_info(),
-      Reason     :: errcode() | closed;
+      Reason     :: posix() | closed | invalid;
 
             (LSocket, Timeout) -> {ok, Socket} | {error, Reason} when
       LSocket    :: socket(),
       Timeout    :: timeout(),
       Socket     :: socket(),
-      Reason     :: errcode() | closed | timeout.
+      Reason     :: posix() | closed | invalid | timeout.
 
-accept(?mk_socket(LSockRef) = Socket, Timeout)
+accept(?socket(LSockRef) = Socket, Timeout)
   when is_reference(LSockRef) ->
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1216,9 +1091,9 @@ accept_deadline(LSockRef, Deadline) ->
             %% the receive.
 	    Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(?mk_socket(LSockRef), select, AccRef) ->
+                ?socket_msg(?socket(LSockRef), select, AccRef) ->
                     accept_deadline(LSockRef, Deadline);
-                ?mk_socket_msg(_Socket, abort, {AccRef, Reason}) ->
+                ?socket_msg(_Socket, abort, {AccRef, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     cancel(LSockRef, accept, AccRef),
@@ -1231,7 +1106,7 @@ accept_deadline(LSockRef, Deadline) ->
 accept_result(LSockRef, AccRef, Result) ->
     case Result of
         {ok, SockRef} ->
-            Socket = ?mk_socket(SockRef),
+            Socket = ?socket(SockRef),
             {ok, Socket};
         {error, _} = ERROR ->
             cancel(LSockRef, accept, AccRef), % Just to be on the safe side...
@@ -1255,13 +1130,12 @@ send(Socket, Data) ->
 -spec send(Socket, Data, Flags) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
-      Flags      :: send_flags(),
-      Reason     :: {errcode() | closed,
+      Flags      :: [send_flag()],
+      Reason     :: {posix() | closed | invalid,
                      Remaining :: pos_integer()};
 
           (Socket, Data, Timeout :: nowait) ->
                   ok |
-                  {ok, {binary(), SelectInfo}} |
                   {select, SelectInfo} |
                   {ok, {RestData, SelectInfo}} |
                   {error, Reason} when
@@ -1269,14 +1143,14 @@ send(Socket, Data) ->
       Data       :: iodata(),
       RestData   :: binary(),
       SelectInfo :: select_info(),
-      Reason     :: {errcode() | closed,
+      Reason     :: {posix() | closed | invalid,
                      Remaining :: pos_integer()};
 
           (Socket, Data, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
       Timeout    :: timeout(),
-      Reason     :: {errcode() | closed | timeout,
+      Reason     :: {posix() | closed | invalid | timeout,
                      Remaining :: pos_integer()}.
 
 send(Socket, Data, Flags) when is_list(Flags) ->
@@ -1290,24 +1164,24 @@ send(Socket, Data, Timeout) ->
                                            {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
-      Flags      :: send_flags(),
+      Flags      :: [send_flag()],
       RestData   :: binary(),
       SelectInfo :: select_info(),
-      Reason     :: {errcode() | closed,
+      Reason     :: {posix() | closed | invalid,
                      Remaining :: pos_integer()};
 
           (Socket, Data, Flags, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
-      Flags      :: send_flags(),
+      Flags      :: [send_flag()],
       Timeout    :: timeout(),
-      Reason     :: {errcode() | closed | timeout,
+      Reason     :: {posix() | closed | invalid | timeout,
                      Remaining :: pos_integer()}.
 
 send(Socket, Data, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     send(Socket, Bin, Flags, Timeout);
-send(?mk_socket(SockRef) = Socket, Data, Flags, Timeout)
+send(?socket(SockRef) = Socket, Data, Flags, Timeout)
   when is_reference(SockRef), is_binary(Data), is_list(Flags) ->
     To = undefined,
     case deadline(Timeout) of
@@ -1356,15 +1230,15 @@ send_common_deadline(SockRef, Data, To, Flags, Deadline, SendName) ->
 	    %% We are partially done, wait for continuation
             Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(_Socket, select, SendRef)
+                ?socket_msg(_Socket, select, SendRef)
                   when (Written > 0) -> 
                     <<_:Written/binary, Rest/binary>> = Data,
                     send_common_deadline(
                       SockRef, Rest, To, Flags, Deadline, SendName);
-                ?mk_socket_msg(_Socket, select, SendRef) ->
+                ?socket_msg(_Socket, select, SendRef) ->
                     send_common_deadline(
                       SockRef, Data, To, Flags, Deadline, SendName);
-                ?mk_socket_msg(_Socket, abort, {SendRef, Reason}) ->
+                ?socket_msg(_Socket, abort, {SendRef, Reason}) ->
                     {error, {Reason, byte_size(Data)}}
             after Timeout ->
                     _ = cancel(SockRef, SendName, SendRef),
@@ -1374,10 +1248,10 @@ send_common_deadline(SockRef, Data, To, Flags, Deadline, SendName) ->
             %% Wait for continuation
             Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(_Socket, select, SendRef) ->
+                ?socket_msg(_Socket, select, SendRef) ->
                     send_common_deadline(
                       SockRef, Data, To, Flags, Deadline, SendName);
-                ?mk_socket_msg(_Socket, abort, {SendRef, Reason}) ->
+                ?socket_msg(_Socket, abort, {SendRef, Reason}) ->
                     {error, {Reason, byte_size(Data)}}
             after Timeout ->
                     _ = cancel(SockRef, SendName, SendRef),
@@ -1410,7 +1284,7 @@ send_common_result(Data, Result) ->
       Socket :: socket(),
       Data   :: binary(),
       Dest   :: sockaddr(),
-      Reason :: {errcode() | closed,
+      Reason :: {posix() | closed | invalid,
                      Remaining :: pos_integer()}.
 
 sendto(Socket, Data, Dest) ->
@@ -1421,8 +1295,8 @@ sendto(Socket, Data, Dest) ->
       Socket    :: socket(),
       Data      :: binary(),
       Dest      :: sockaddr(),
-      Flags     :: send_flags(),
-      Reason    :: {errcode() | closed,
+      Flags     :: [send_flag()],
+      Reason    :: {posix() | closed | invalid,
                      Remaining :: pos_integer()};
 
             (Socket, Data, Dest, Timeout :: nowait) ->
@@ -1433,7 +1307,7 @@ sendto(Socket, Data, Dest) ->
       Data       :: iodata(),
       Dest       :: sockaddr(),
       SelectInfo :: select_info(),
-      Reason     :: {errcode() | closed,
+      Reason     :: {posix() | closed | invalid,
                      Remaining :: pos_integer()};
 
             (Socket, Data, Dest, Timeout) ->
@@ -1442,7 +1316,7 @@ sendto(Socket, Data, Dest) ->
       Data       :: iodata(),
       Dest       :: sockaddr(),
       Timeout    :: timeout(),
-      Reason     :: {errcode() | closed | timeout,
+      Reason     :: {posix() | closed | invalid | timeout,
                      Remaining :: pos_integer()}.
 
 sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
@@ -1459,24 +1333,24 @@ sendto(Socket, Data, Dest, Timeout) ->
       Socket     :: socket(),
       Data       :: binary(),
       Dest       :: sockaddr(),
-      Flags      :: send_flags(),
+      Flags      :: [send_flag()],
       SelectInfo :: select_info(),
-      Reason     :: {errcode() | closed,
+      Reason     :: {posix() | closed | invalid,
                      Remaining :: pos_integer()};
 
             (Socket, Data, Dest, Flags, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: binary(),
       Dest       :: sockaddr(),
-      Flags      :: send_flags(),
+      Flags      :: [send_flag()],
       Timeout    :: timeout(),
-      Reason     :: {errcode() | closed | timeout,
+      Reason     :: {posix() | closed | invalid | timeout,
                      Remaining :: pos_integer()}.
 
 sendto(Socket, Data, Dest, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     sendto(Socket, Bin, Dest, Flags, Timeout);
-sendto(?mk_socket(SockRef) = Socket, Data, Dest, Flags, Timeout)
+sendto(?socket(SockRef) = Socket, Data, Dest, Flags, Timeout)
   when is_reference(SockRef), is_binary(Data), is_list(Flags) ->
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1516,23 +1390,25 @@ sendmsg(Socket, MsgHdr) ->
 -spec sendmsg(Socket, MsgHdr, Flags) -> ok | {error, Reason} when
       Socket  :: socket(),
       MsgHdr  :: msghdr(),
-      Flags   :: send_flags(),
-      Reason  :: errcode() | closed;
+      Flags   :: [send_flag()],
+      Reason  :: posix() | closed;
 
              (Socket, MsgHdr, Timeout :: nowait) ->
                      ok |
                      {ok, Remaining} |
+                     {select, SelectInfo} |
                      {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
       Remaining :: erlang:iovec(),
-      Reason     :: errcode() | closed;
+      SelectInfo :: select_info(),
+      Reason     :: posix() | closed;
 
              (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
       Timeout    :: timeout(),
-      Reason     :: errcode() | closed | timeout.
+      Reason     :: posix() | closed | timeout.
 
 sendmsg(Socket, MsgHdr, Flags) when is_list(Flags) ->
     sendmsg(Socket, MsgHdr, Flags, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
@@ -1543,12 +1419,14 @@ sendmsg(Socket, MsgHdr, Timeout) ->
 -spec sendmsg(Socket, MsgHdr, Flags, nowait) -> 
                      ok |
                      {ok, Remaining} |
+                     {select, SelectInfo} |
                      {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
-      Flags      :: send_flags(),
+      Flags      :: [send_flag()],
       Remaining  :: erlang:iovec(),
-      Reason     :: errcode() | closed;
+      SelectInfo :: select_info(),
+      Reason     :: posix() | closed;
 
              (Socket, MsgHdr, Flags, Timeout) -> 
                      ok |
@@ -1556,12 +1434,12 @@ sendmsg(Socket, MsgHdr, Timeout) ->
                      {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
-      Flags      :: send_flags(),
+      Flags      :: [send_flag()],
       Timeout    :: timeout(),
       Remaining  :: erlang:iovec(),
-      Reason     :: errcode() | closed | timeout.
+      Reason     :: posix() | closed | timeout.
 
-sendmsg(?mk_socket(SockRef) = Socket, MsgHdr, Flags, Timeout)
+sendmsg(?socket(SockRef) = Socket, MsgHdr, Flags, Timeout)
   when is_reference(SockRef), is_map(MsgHdr), is_list(Flags) ->
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1594,9 +1472,9 @@ sendmsg_loop(SockRef, MsgHdr, Flags, Deadline) ->
         select ->
 	    Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(?mk_socket(SockRef), select, SendRef) ->
+                ?socket_msg(?socket(SockRef), select, SendRef) ->
                     sendmsg_loop(SockRef, MsgHdr, Flags, Deadline);
-                ?mk_socket_msg(_Socket, abort, {SendRef, Reason}) ->
+                ?socket_msg(_Socket, abort, {SendRef, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     _ = cancel(SockRef, sendmsg, SendRef),
@@ -1648,8 +1526,8 @@ sendmsg_rest([B|IOVec], Written) ->
       Socket :: socket(),
       Data   :: binary(),
       Reason ::
-        errcode() | closed |
-        {errcode() | closed, Data :: binary()}.
+        posix() | closed | invalid |
+        {posix() | closed | invalid, Data :: binary()}.
                           
 recv(Socket) ->
     recv(Socket, 0).
@@ -1661,8 +1539,8 @@ recv(Socket) ->
       Length :: non_neg_integer(),
       Data   :: binary(),
       Reason ::
-        errcode() | closed |
-        {errcode() | closed, Data :: binary()}.
+        posix() | closed | invalid |
+        {posix() | closed | invalid, Data :: binary()}.
 
 recv(Socket, Length) ->
     recv(Socket, Length,
@@ -1674,11 +1552,11 @@ recv(Socket, Length) ->
                   {error, Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
-      Flags  :: recv_flags(),
+      Flags  :: [recv_flag()],
       Data   :: binary(),
       Reason ::
-        errcode() | closed |
-        {errcode() | closed, Data :: binary()};
+        posix() | closed | invalid |
+        {posix() | closed | invalid, Data :: binary()};
 
           (Socket, Length, Timeout :: nowait) ->
                   {ok, Data} |
@@ -1690,8 +1568,8 @@ recv(Socket, Length) ->
       Data       :: binary(),
       SelectInfo :: select_info(),
       Reason     ::
-        errcode() | closed |
-        {errcode() | closed, Data :: binary()};
+        posix() | closed | invalid |
+        {posix() | closed | invalid, Data :: binary()};
 
           (Socket, Length, Timeout) ->
                   {ok, Data} |
@@ -1701,8 +1579,8 @@ recv(Socket, Length) ->
       Timeout :: timeout(),
       Data    :: binary(),
       Reason  ::
-        errcode() | closed | timeout |
-        {errcode() | closed | timeout, Data :: binary()}.
+        posix() | closed | invalid | timeout |
+        {posix() | closed | invalid | timeout, Data :: binary()}.
 
 recv(Socket, Length, Flags) when is_list(Flags) ->
     recv(Socket, Length, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
@@ -1716,26 +1594,26 @@ recv(Socket, Length, Timeout) ->
                   {error, Reason} when
       Socket     :: socket(),
       Length     :: non_neg_integer(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       Data       :: binary(),
       SelectInfo :: select_info(),
       Reason     ::
-        errcode() | closed |
-        {errcode() | closed, Data :: binary()};
+        posix() | closed | invalid |
+        {posix() | closed | invalid, Data :: binary()};
 
           (Socket, Length, Flags, Timeout) ->
                   {ok, Data} |
                   {error, Reason} when
       Socket     :: socket(),
       Length     :: non_neg_integer(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       Timeout    :: timeout(),
       Data       :: binary(),
       Reason     ::
-        errcode() | closed | timeout |
-        {errcode() | closed | timeout, Data :: binary()}.
+        posix() | closed | invalid | timeout |
+        {posix() | closed | invalid | timeout, Data :: binary()}.
 
-recv(?mk_socket(SockRef) = Socket, Length, Flags, Timeout)
+recv(?socket(SockRef) = Socket, Length, Flags, Timeout)
   when is_reference(SockRef),
        is_integer(Length), Length >= 0,
        is_list(Flags) ->
@@ -1797,7 +1675,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
             %% We got less than requested
 	    Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(?mk_socket(SockRef), select, RecvRef) ->
+                ?socket_msg(?socket(SockRef), select, RecvRef) ->
                     if
                         0 < Timeout ->
                             %% Recv more
@@ -1807,7 +1685,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                         true ->
                             {error, {timeout, bincat(Acc, Bin)}}
                     end;
-                ?mk_socket_msg(_Socket, abort, {RecvRef, Reason}) ->
+                ?socket_msg(_Socket, abort, {RecvRef, Reason}) ->
                     {error, {Reason, bincat(Acc, Bin)}}
             after Timeout ->
                     cancel(SockRef, recv, RecvRef),
@@ -1825,7 +1703,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(?mk_socket(SockRef), select, RecvRef) ->
+                ?socket_msg(?socket(SockRef), select, RecvRef) ->
                     if
                         0 < Timeout ->
                             %% Retry
@@ -1834,7 +1712,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                         true ->
                             recv_error(Acc, timeout)
                     end;
-                ?mk_socket_msg(_Socket, abort, {RecvRef, Reason}) ->
+                ?socket_msg(_Socket, abort, {RecvRef, Reason}) ->
                     recv_error(Acc, Reason)
             after Timeout ->
                     cancel(SockRef, recv, RecvRef),
@@ -1886,7 +1764,7 @@ recv_error(Acc, Reason) ->
       Socket    :: socket(),
       Source    :: sockaddr() | undefined,
       Data      :: binary(),
-      Reason    :: errcode() | closed.
+      Reason    :: posix() | closed | invalid.
 
 recvfrom(Socket) ->
     recvfrom(Socket, 0).
@@ -1896,7 +1774,7 @@ recvfrom(Socket) ->
       BufSz     :: non_neg_integer(),
       Source    :: sockaddr() | undefined,
       Data      :: binary(),
-      Reason    :: errcode() | closed.
+      Reason    :: posix() | closed | invalid.
 
 recvfrom(Socket, BufSz) ->
     recvfrom(Socket, BufSz,
@@ -1908,30 +1786,30 @@ recvfrom(Socket, BufSz) ->
                       {select, SelectInfo} |
                       {error, Reason} when
       Socket     :: socket(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       Source     :: sockaddr() | undefined,
       Data       :: binary(),
       SelectInfo :: select_info(),
-      Reason     :: errcode() | closed;
+      Reason     :: posix() | closed | invalid;
 
               (Socket, Flags, Timeout) -> 
                       {ok, {Source, Data}} |
                       {error, Reason} when
       Socket     :: socket(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       Timeout    :: timeout(),
       Source     :: sockaddr() | undefined,
       Data       :: binary(),
-      Reason     :: errcode() | closed | timeout;
+      Reason     :: posix() | closed | invalid | timeout;
 
               (Socket, BufSz, Flags) -> 
                       {ok, {Source, Data}} | {error, Reason} when
       Socket    :: socket(),
       BufSz     :: non_neg_integer(),
-      Flags     :: recv_flags(),
+      Flags     :: [recv_flag()],
       Source    :: sockaddr() | undefined,
       Data      :: binary(),
-      Reason    :: errcode() | closed;
+      Reason    :: posix() | closed | invalid;
 
               (Socket, BufSz, nowait) -> 
                       {ok, {Source, Data}} |
@@ -1942,7 +1820,7 @@ recvfrom(Socket, BufSz) ->
       Source     :: sockaddr() | undefined,
       Data       :: binary(),
       SelectInfo :: select_info(),
-      Reason     :: errcode() | closed;
+      Reason     :: posix() | closed | invalid;
 
               (Socket, BufSz, Timeout) -> 
                       {ok, {Source, Data}} | {error, Reason} when
@@ -1951,7 +1829,7 @@ recvfrom(Socket, BufSz) ->
       Timeout    :: timeout(),
       Source     :: sockaddr() | undefined,
       Data       :: binary(),
-      Reason     :: errcode() | closed | timeout.
+      Reason     :: posix() | closed | invalid | timeout.
 
 recvfrom(Socket, Flags, Timeout) when is_list(Flags) ->
     recvfrom(Socket, 0, Flags, Timeout);
@@ -1966,24 +1844,24 @@ recvfrom(Socket, BufSz, Timeout) ->
                       {error, Reason} when
       Socket     :: socket(),
       BufSz      :: non_neg_integer(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       Source     :: sockaddr() | undefined,
       Data       :: binary(),
       SelectInfo :: select_info(),
-      Reason     :: errcode() | closed;
+      Reason     :: posix() | closed | invalid;
 
               (Socket, BufSz, Flags, Timeout) -> 
                       {ok, {Source, Data}} |
                       {error, Reason} when
       Socket  :: socket(),
       BufSz   :: non_neg_integer(),
-      Flags   :: recv_flags(),
+      Flags   :: [recv_flag()],
       Timeout :: timeout(),
       Source  :: sockaddr() | undefined,
       Data    :: binary(),
-      Reason  :: errcode() | closed | timeout.
+      Reason  :: posix() | closed | invalid | timeout.
 
-recvfrom(?mk_socket(SockRef) = Socket, BufSz, Flags, Timeout)
+recvfrom(?socket(SockRef) = Socket, BufSz, Flags, Timeout)
   when is_reference(SockRef),
        is_integer(BufSz), 0 =< BufSz,
        is_list(Flags) ->
@@ -2015,9 +1893,9 @@ recvfrom_deadline(SockRef, BufSz, Flags, Deadline) ->
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(?mk_socket(SockRef), select, RecvRef) ->
+                ?socket_msg(?socket(SockRef), select, RecvRef) ->
                     recvfrom_deadline(SockRef, BufSz, Flags, Deadline);
-                ?mk_socket_msg(_Socket, abort, {RecvRef, Reason}) ->
+                ?socket_msg(_Socket, abort, {RecvRef, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     cancel(SockRef, recvfrom, RecvRef),
@@ -2047,7 +1925,7 @@ recvfrom_result(Result) ->
 -spec recvmsg(Socket) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
       MsgHdr  :: msghdr(),
-      Reason  :: errcode() | closed.
+      Reason  :: posix() | closed | invalid.
 
 recvmsg(Socket) ->
     recvmsg(Socket, 0, 0,
@@ -2055,9 +1933,9 @@ recvmsg(Socket) ->
 
 -spec recvmsg(Socket, Flags) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
-      Flags   :: recv_flags(),
+      Flags   :: [recv_flag()],
       MsgHdr  :: msghdr(),
-      Reason  :: errcode() | closed;
+      Reason  :: posix() | closed | invalid;
 
              (Socket, Timeout :: nowait) -> {ok, MsgHdr} |
                                             {select, SelectInfo} |
@@ -2065,13 +1943,13 @@ recvmsg(Socket) ->
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
       SelectInfo :: select_info(),
-      Reason     :: errcode() | closed;
+      Reason     :: posix() | closed | invalid;
 
              (Socket, Timeout) -> {ok, MsgHdr} | {error, Reason} when
       Socket     :: socket(),
       Timeout    :: timeout(),
       MsgHdr     :: msghdr(),
-      Reason     :: errcode() | closed | timeout.
+      Reason     :: posix() | closed | invalid | timeout.
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
@@ -2082,24 +1960,24 @@ recvmsg(Socket, Timeout) ->
                                         {select, SelectInfo} |
                                         {error, Reason} when
       Socket     :: socket(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       MsgHdr     :: msghdr(),
       SelectInfo :: select_info(),
-      Reason     :: errcode() | closed;
+      Reason     :: posix() | closed | invalid;
 
              (Socket, Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
       Socket     :: socket(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       Timeout    :: timeout(),
       MsgHdr     :: msghdr(),
-      Reason     :: errcode() | closed | timeout;
+      Reason     :: posix() | closed | invalid | timeout;
 
              (Socket, BufSz, CtrlSz) -> {ok, MsgHdr} | {error, Reason} when
       Socket     :: socket(),
       BufSz      :: non_neg_integer(),
       CtrlSz     :: non_neg_integer(),
       MsgHdr     :: msghdr(),
-      Reason     :: errcode() | closed.
+      Reason     :: posix() | closed | invalid.
 
 recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, Timeout);
@@ -2115,10 +1993,10 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       Socket     :: socket(),
       BufSz      :: non_neg_integer(),
       CtrlSz     :: non_neg_integer(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       MsgHdr     :: msghdr(),
       SelectInfo :: select_info(),
-      Reason     :: errcode() | closed;
+      Reason     :: posix() | closed | invalid;
 
              (Socket, BufSz, CtrlSz, Flags, Timeout) ->
                      {ok, MsgHdr} |
@@ -2126,12 +2004,12 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       Socket     :: socket(),
       BufSz      :: non_neg_integer(),
       CtrlSz     :: non_neg_integer(),
-      Flags      :: recv_flags(),
+      Flags      :: [recv_flag()],
       Timeout    :: timeout(),
       MsgHdr     :: msghdr(),
-      Reason     :: errcode() | closed | timeout.
+      Reason     :: posix() | closed | invalid | timeout.
 
-recvmsg(?mk_socket(SockRef) = Socket, BufSz, CtrlSz, Flags, Timeout)
+recvmsg(?socket(SockRef) = Socket, BufSz, CtrlSz, Flags, Timeout)
   when is_reference(SockRef),
        is_integer(BufSz), 0 =< BufSz,
        is_integer(CtrlSz), 0 =< CtrlSz,
@@ -2164,10 +2042,10 @@ recvmsg_deadline(SockRef, BufSz, CtrlSz, Flags, Deadline)  ->
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                ?mk_socket_msg(?mk_socket(SockRef), select, RecvRef) ->
+                ?socket_msg(?socket(SockRef), select, RecvRef) ->
                     recvmsg_deadline(
                       SockRef, BufSz, CtrlSz, Flags, Deadline);
-                ?mk_socket_msg(_Socket, abort, {RecvRef, Reason}) ->
+                ?socket_msg(_Socket, abort, {RecvRef, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     cancel(SockRef, recvmsg, RecvRef),
@@ -2208,9 +2086,9 @@ recvmsg_result(Result) ->
 
 -spec close(Socket) -> ok | {error, Reason} when
       Socket :: socket(),
-      Reason :: errcode() | closed | timeout.
+      Reason :: posix() | closed | timeout.
 
-close(?mk_socket(SockRef))
+close(?socket(SockRef))
   when is_reference(SockRef) ->
     case prim_socket:close(SockRef) of
         ok ->
@@ -2219,7 +2097,7 @@ close(?mk_socket(SockRef))
             %% We must wait for the socket_stop callback function to 
             %% complete its work
             receive
-                ?mk_socket_msg(?mk_socket(SockRef), close, CloseRef) ->
+                ?socket_msg(?socket(SockRef), close, CloseRef) ->
                     prim_socket:finalize_close(SockRef)
             end;
         {error, _} = ERROR ->
@@ -2237,10 +2115,10 @@ close(Socket) ->
 
 -spec shutdown(Socket, How) -> ok | {error, Reason} when
       Socket :: socket(),
-      How    :: shutdown_how(),
-      Reason :: inet:posix() | closed.
+      How    :: read | write | read_write,
+      Reason :: posix() | closed.
 
-shutdown(?mk_socket(SockRef), How)
+shutdown(?socket(SockRef), How)
   when is_reference(SockRef) ->
     prim_socket:shutdown(SockRef, How);
 shutdown(Socket, How) ->
@@ -2263,61 +2141,47 @@ shutdown(Socket, How) ->
 %%
 %% </KOLLA>
 
--spec setopt(Socket, otp, otp_socket_option(), Value) ->
-                    ok | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: errcode() | closed | not_owner;
+-spec setopt(socket(),
+             SocketOption ::
+               {Level :: otp, Opt :: otp_socket_option()},
+             _) ->
+                    ok | {error, invalid | closed};
+            (socket(),
+             SocketOption :: socket_option(),
+             _) ->
+                    ok | {error, posix() | invalid | closed}.
 
-            (Socket, socket, socket_option(), Value) ->
-                    ok | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, ip, ip_socket_option(), Value) ->
-                    ok | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, ipv6, ipv6_socket_option(), Value) ->
-                    ok | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, tcp, tcp_socket_option(), Value) ->
-                    ok | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, udp, udp_socket_option(), Value) ->
-                    ok | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, sctp, sctp_socket_option(), Value) ->
-                    ok | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, Level, Key, Value) ->
-                    ok | {error, Reason} when
-      Socket :: socket(),
-      Level  :: non_neg_integer(),
-      Key    :: non_neg_integer(),
-      Value  :: binary(),
-      Reason :: inet:posix() | closed.
-
-setopt(?mk_socket(SockRef), Level, Key, Value)
+setopt(?socket(SockRef), {Level, Opt}, Value)
   when is_reference(SockRef) ->
-    prim_socket:setopt(SockRef, Level, Key, Value);
-setopt(Socket, Level, Key, Value) ->
-    erlang:error(badarg, [Socket, Level, Key, Value]).
+    prim_socket:setopt(SockRef, Level, Opt, Value);
+setopt(Socket, SocketOption, Value) ->
+    erlang:error(badarg, [Socket, SocketOption, Value]).
+
+
+%% Backwards compatibility
+setopt(Socket, Level, Opt, Value)
+  when is_integer(Opt), is_binary(Value) ->
+    setopt_native(Socket, {Level, Opt}, Value);
+setopt(Socket, Level, Opt, Value) ->
+    setopt(Socket, {Level, Opt}, Value).
+
+
+-spec setopt_native(socket(),
+                    SocketOption ::
+                      socket_option() |
+                      {Level :: sockopt_level()
+                              | (NativeLevel :: non_neg_integer()),
+                       NativeOpt :: non_neg_integer()},
+                    Value :: integer() | boolean() | binary()) ->
+                           %% Possible here to add type tagged values
+                           %% a'la {uint16, 0..16#FFFF}
+                           ok | {error, posix() | invalid | closed}.
+
+setopt_native(?socket(SockRef), {Level, Opt}, Value)
+  when is_reference(SockRef) ->
+    prim_socket:setopt_native(SockRef, Level, Opt, Value);
+setopt_native(Socket, SocketOption, Value) ->
+    erlang:error(badarg, [Socket, SocketOption, Value]).
 
 
 %% ===========================================================================
@@ -2334,63 +2198,62 @@ setopt(Socket, Level, Key, Value) ->
 %% value size. Example: int | bool | {string, pos_integer()} | non_neg_integer()
 %%
 
--spec getopt(Socket, otp, otp_socket_option()) ->
-                    {ok, Value} | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: einval | closed;
+-spec getopt(socket(),
+             SocketOption ::
+               {Level :: otp,
+                Opt :: otp_socket_option()}) ->
+                    {ok, Value :: term()} |
+                    {error, invalid | closed};
+            (socket(),
+             SocketOption :: socket_option()) ->
+                    {ok, Value :: term()} |
+                    {error, posix() | invalid | closed}.
 
-            (Socket, socket, socket_option()) ->
-                    {ok, Value} | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, ip, ip_socket_option()) ->
-                    {ok, Value} | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, ipv6, ipv6_socket_option()) ->
-                    {ok, Value} | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, tcp, tcp_socket_option()) ->
-                    {ok, Value} | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, udp, udp_socket_option()) ->
-                    {ok, Value} | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, sctp, sctp_socket_option()) ->
-                    {ok, Value} | {error, Reason} when
-      Socket :: socket(),
-      Value  :: term(),
-      Reason :: inet:posix() | closed;
-
-            (Socket, Level, Key) ->
-                    ok | {ok, Value} | {error, Reason} when
-      Socket    :: socket(),
-      Level     :: integer(),
-      Key       :: {NativeOpt, ValueSize},
-      NativeOpt :: integer(),
-      ValueSize :: int | bool | non_neg_integer(),
-      Value     :: term(),
-      Reason    :: inet:posix() | closed.
-
-getopt(?mk_socket(SockRef), Level, Key)
+getopt(?socket(SockRef), {Level, Opt})
   when is_reference(SockRef) ->
-    prim_socket:getopt(SockRef, Level, Key);
-getopt(Socket, Level, Key) ->
-    erlang:error(badarg, [Socket, Level, Key]).
+    prim_socket:getopt(SockRef, Level, Opt);
+getopt(Socket, SocketOption) ->
+    erlang:error(badarg, [Socket, SocketOption]).
+
+%% Backwards compatibility
+getopt(Socket, Level, {NativeOpt, ValueSpec})
+  when is_integer(NativeOpt) ->
+    getopt_native(Socket, {Level, NativeOpt}, ValueSpec);
+getopt(Socket, Level, Opt) ->
+    getopt(Socket, {Level, Opt}).
+
+-spec getopt_native(socket(),
+                    SocketOption ::
+                      socket_option() |
+                      {Level :: sockopt_level()
+                              | (NativeLevel :: non_neg_integer()),
+                       NativeOpt :: non_neg_integer()},
+                    ValueType :: integer) ->
+                           {ok, Value :: integer()} |
+                           {error, posix() | invalid | closed};
+                   (socket(),
+                    SocketOption ::
+                      socket_option() |
+                      {Level :: sockopt_level()
+                              | (NativeLevel :: non_neg_integer()),
+                       NativeOpt :: non_neg_integer()},
+                    ValueType :: boolean) ->
+                           {ok, Value :: boolean()} |
+                           {error, posix() | invalid | closed};
+                   (socket(),
+                    SocketOption ::
+                      socket_option() |
+                      {Level :: sockopt_level()
+                              | (NativeLevel :: non_neg_integer()),
+                       NativeOpt :: non_neg_integer()},
+                    ValueSize :: non_neg_integer()) ->
+                           {ok, Value :: binary()} |
+                           {error, posix() | invalid | closed}.
+
+getopt_native(?socket(SockRef), {Level, Opt}, ValueSpec) ->
+    prim_socket:getopt_native(SockRef, Level, Opt, ValueSpec);
+getopt_native(Socket, SocketOption, ValueSpec) ->
+    erlang:error(badarg, [Socket, SocketOption, ValueSpec]).
 
 
 %% ===========================================================================
@@ -2402,9 +2265,9 @@ getopt(Socket, Level, Key) ->
 -spec sockname(Socket) -> {ok, SockAddr} | {error, Reason} when
       Socket   :: socket(),
       SockAddr :: sockaddr(),
-      Reason   :: inet:posix() | closed.
+      Reason   :: posix() | closed | bad_data.
 
-sockname(?mk_socket(SockRef))
+sockname(?socket(SockRef))
   when is_reference(SockRef) ->
     prim_socket:sockname(SockRef);
 sockname(Socket) ->
@@ -2420,9 +2283,9 @@ sockname(Socket) ->
 -spec peername(Socket) -> {ok, SockAddr} | {error, Reason} when
       Socket   :: socket(),
       SockAddr :: sockaddr(),
-      Reason   :: inet:posix() | closed.
+      Reason   :: posix() | closed | bad_data.
 
-peername(?mk_socket(SockRef))
+peername(?socket(SockRef))
   when is_reference(SockRef) ->
     prim_socket:peername(SockRef);
 peername(Socket) ->
@@ -2442,9 +2305,9 @@ peername(Socket) ->
 -spec cancel(Socket, SelectInfo) -> ok | {error, Reason} when
       Socket     :: socket(),
       SelectInfo :: select_info(),
-      Reason     :: einval | closed | exself.
+      Reason     :: closed | invalid.
 
-cancel(?mk_socket(SockRef), ?SELECT_INFO(Tag, Ref))
+cancel(?socket(SockRef), ?SELECT_INFO(Tag, Ref))
   when is_reference(SockRef) ->
     cancel(SockRef, Tag, Ref);
 cancel(Socket, SelectInfo) ->
@@ -2460,7 +2323,7 @@ cancel(SockRef, Op, OpRef) ->
             ok;
         {error, not_found} ->
             _ = flush_abort_msg(SockRef, OpRef),
-            {error, einval};
+            {error, invalid};
         Other ->
             _ = flush_abort_msg(SockRef, OpRef),
             Other
@@ -2468,7 +2331,7 @@ cancel(SockRef, Op, OpRef) ->
 
 flush_select_msg(SockRef, Ref) ->
     receive
-        ?mk_socket_msg(?mk_socket(SockRef), select, Ref) ->
+        ?socket_msg(?socket(SockRef), select, Ref) ->
             ok
     after 0 ->
             ok
@@ -2476,7 +2339,7 @@ flush_select_msg(SockRef, Ref) ->
 
 flush_abort_msg(SockRef, Ref) ->
     receive
-        ?mk_socket_msg(?mk_socket(SockRef), abort, {Ref, Reason}) ->
+        ?socket_msg(?socket(SockRef), abort, {Ref, Reason}) ->
             Reason
     after 0 ->
             ok

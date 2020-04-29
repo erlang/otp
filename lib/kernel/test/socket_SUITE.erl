@@ -2460,8 +2460,17 @@ api_b_open_and_close(InitState) ->
                       ({#{domain := ExpDomain}, {ok, Domain}}) ->
                            {error, {unexpected_domain, ExpDomain, Domain}};
                       %% Some platforms do not support this option
-                      ({S, {error, einval}}) ->
-                           {ok, S};
+                      ({S, {error, invalid} = ERROR}) ->
+                           case
+                               socket:is_supported(options, socket, domain)
+                           of
+                               true ->
+                                   ERROR;
+                               false ->
+                                   ?SEV_IPRINT("socket option 'domain' "
+                                               "not supported"),
+                                   {ok, S}
+                           end;
                       ({_, {error, _} = ERROR}) ->
                            ERROR
                    end},
@@ -2478,22 +2487,13 @@ api_b_open_and_close(InitState) ->
                       ({_, {error, _} = ERROR}) ->
                            ERROR
                    end},
-         #{desc => "get protocol",
+         #{desc => "get protocol (maybe)",
            cmd  => fun(#{socket := Sock} = State) ->
-			   case socket:is_supported(options, socket, protocol) of
-			       true ->
-				   Res = socket:getopt(Sock, socket, protocol),
-				   {ok, {State, Res}};
-			       false ->
-				   {ok, {State, not_supported}}
-			   end
+                           Res = socket:getopt(Sock, socket, protocol),
+                           {ok, {State, Res}}
                    end},
          #{desc => "validate protocol",
-           cmd  => fun({State, not_supported}) ->
-			   ?SEV_IPRINT("socket option 'protocol' "
-				       "not supported"),
-                           {ok, State};
-                      ({#{protocol := Protocol} = State, {ok, Protocol}}) ->
+           cmd  => fun({#{protocol := Protocol} = State, {ok, Protocol}}) ->
                            {ok, State};
                       ({#{domain   := Domain,
 			  protocol := ExpProtocol}, {ok, Protocol}}) ->
@@ -2509,6 +2509,16 @@ api_b_open_and_close(InitState) ->
 			       _ ->
 				   {error, {unexpected_protocol,
 					    ExpProtocol, Protocol}}
+			   end;
+                      %% Some platforms do not support this option
+                      ({State, {error, invalid} = ERROR}) ->
+			   case socket:is_supported(options, socket, protocol) of
+			       true ->
+                                   ERROR;
+			       false ->
+                                   ?SEV_IPRINT("socket option 'protocol' "
+                                               "not supported"),
+                                   {ok, State}
 			   end;
                       ({_, {error, _} = ERROR}) ->
                            ERROR
