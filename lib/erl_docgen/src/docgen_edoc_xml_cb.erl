@@ -757,23 +757,21 @@ functions(Fs) ->
 
 function(_Name, E=#xmlElement{content = Es}) ->
     TypeSpec = get_content(typespec, Es),
-    [?NL,{func, [ ?NL,
-		  {name, [{since,""}],
-			  case funcheader(TypeSpec) of
-			      [] ->
-				  signature(get_content(args, Es),
-					    get_attrval(name, E));
-			      Spec -> Spec
-			  end
-			 },
-		  ?NL,{fsummary, fsummary(Es)},
-		  ?NL,local_types(TypeSpec),
-		  ?NL,{desc,
-		       label_anchor(E)++
-		       deprecated(Es)++
-		       fulldesc(Es)++
-		       seealso_function(Es)}
-	   ]}].
+    FuncHeaders =
+        case funcheader(TypeSpec) of
+            [] ->
+                [signature(get_content(args, Es), get_attrval(name, E))];
+            Specs ->
+                Specs
+        end,
+    [?NL, {func, [?NL]++
+		 [{name, [{since,""}], Spec} || Spec <- FuncHeaders]++
+		 [?NL, {fsummary, fsummary(Es)},
+		  ?NL, local_types(TypeSpec),
+		  ?NL, {desc, label_anchor(E)++
+		              deprecated(Es)++
+		              fulldesc(Es)++
+		              seealso_function(Es)}]}].
 
 fsummary([]) -> ["\s"];
 fsummary(Es) ->
@@ -817,7 +815,9 @@ arg(#xmlElement{content = Es}) ->
 
 funcheader([]) -> [];
 funcheader(Es) ->
-    [t_name(get_elem(erlangName, Es))] ++ t_utype(get_elem(type, Es)).
+    Name = t_name(get_elem(erlangName, Es)),
+    [ [Name] ++ t_utype([E]) || E <- get_elem(type, Es)].
+
 
 local_types([]) -> [];
 local_types(Es) ->
@@ -1035,7 +1035,7 @@ author(E=#xmlElement{}) ->
 	   end,
     [?NL,{aname,[Name]},?NL,{email,[Mail]}].
 
-t_name([E]) ->
+t_name([E | _]) ->
     N = get_attrval(name, E),
     case get_attrval(module, E) of
 	"" -> N;
@@ -1246,12 +1246,15 @@ get_attrval(Name, #xmlElement{attributes = As}) ->
 
 %% get_content(Tag, Es1) -> Es2
 %% If there is one element in Es1 with name Tag, returns its contents,
-%% otherwise []
+%% if there are no tags, return [],
+%% if there are multiple, merge their contents.
 get_content(Name, Es) ->
     case get_elem(Name, Es) of
-	[#xmlElement{content = Es1}] ->
-	    Es1;
-	[] -> []
+        [#xmlElement{content = Es1}] ->
+            Es1;
+        [] -> [];
+        Elems ->
+            lists:append([Es1 || #xmlElement{content = Es1} <- Elems])
     end.
 
 %% get_text(Tag, Es) -> string()

@@ -634,7 +634,7 @@ select_spec(Ts, _Where, _Specs) ->
 selected_specs([], Ts) ->
     Ts;
 selected_specs([F], [_ | Ts]) ->
-    [edoc_specs:spec(F, _Clause=1) | Ts].
+    [edoc_specs:spec(F) | Ts].
 
 %% Macros for modules
 

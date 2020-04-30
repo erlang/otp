@@ -21,7 +21,7 @@
 
 -module(edoc_specs).
 
--export([type/2, spec/2, dummy_spec/1, docs/2]).
+-export([type/2, spec/1, dummy_spec/1, docs/2]).
 
 -export([add_data/4, tag/1, is_tag/1]).
 
@@ -67,15 +67,14 @@ type(Form, TypeDocs) ->
                             type = d2e(opaque2abstr(Name, Type))},
                  Doc}}.
 
--spec spec(Form::syntaxTree(), ClauseN::pos_integer()) -> #tag{}.
+-spec spec(Form::syntaxTree()) -> #tag{}.
 
 %% @doc Convert an Erlang spec to EDoc representation.
-spec(Form, Clause) ->
+spec(Form) ->
     {Name, _Arity, TypeSpecs} = get_spec(Form),
-    TypeSpec = lists:nth(Clause, TypeSpecs),
-    #tag{name = spec, line = get_line(element(2, TypeSpec)),
+    #tag{name = spec, line = get_line(element(2, lists:nth(1, TypeSpecs))),
          origin = code,
-         data = aspec(d2e(TypeSpec), Name)}.
+         data = [aspec(d2e(TypeSpec), Name) || TypeSpec <- TypeSpecs]}.
 
 -spec dummy_spec(Form::syntaxTree()) -> #tag{}.
 
@@ -264,8 +263,9 @@ use_tags([#tag{origin = code}=T | Ts], E, TypeTable, NTs) ->
 use_tags([T | Ts], E, TypeTable, NTs) ->
     use_tags(Ts, E, TypeTable, [T | NTs]).
 
-params(#tag{name = spec, data=#t_spec{type = #t_fun{args = As}}}, Default) ->
-    parms(As, Default).
+
+params(#tag{name = spec, data=Data}, Default) when is_list(Data) ->
+    [parms(As, Default) || #t_spec{type = #t_fun{args = As}} <- Data].
 
 parms([], []) ->
     [];
@@ -485,13 +485,17 @@ entries([E0 | Es], P, Opts) ->
 entries([], _P, _Opts) ->
     [].
 
-specs([#tag{line = L, name = spec, origin = code, data = Spec}=Tag0 | Tags],
+specs([#tag{line = L, name = spec, origin = code, data = Specs}=Tag0 | Tags],
       P0) ->
-    #t_spec{type = Type0, defs = Defs0} = Spec,
     P = P0#parms{line = L},
-    Type = xrecs(Type0, P),
-    Defs = xrecs(Defs0, P),
-    Tag = Tag0#tag{data = Spec#t_spec{type = Type, defs = Defs}},
+    Data =
+    [ begin
+        #t_spec{type = Type0, defs = Defs0} = Spec,
+        Type = xrecs(Type0, P),
+        Defs = xrecs(Defs0, P),
+        Spec#t_spec{type = Type, defs = Defs}
+    end || Spec <- Specs],
+    Tag = Tag0#tag{data = Data},
     [Tag | specs(Tags, P)];
 specs([Tag | Tags], P) ->
     [Tag | specs(Tags, P)];
