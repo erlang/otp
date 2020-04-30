@@ -353,7 +353,7 @@ do_mark_pending(Kernel, MyNode, Node, Flags) ->
     receive
 	{Kernel,{accept_pending,Ret}} ->
 	    ?trace("do_mark_pending(~p,~p,~p,~p) -> ~p~n",
-		   [Kernel,Node,Address,Flags,Ret]),
+		   [Kernel, MyNode, Node, Flags, Ret]),
 	    Ret
     end.
 
@@ -784,7 +784,7 @@ recv_name_new(HSData,
     <<Creation:32>> = <<Cr3,Cr2,Cr1,Cr0>>,
     <<NameLen:16>> = <<NL1,NL0>>,
     {Name, _Residue} = lists:split(NameLen, Rest),
-    ?trace("recv_name: 'N' node=~p creation=~w\n", [Node, Creation]),
+    ?trace("recv_name: 'N' name=~p creation=~w\n", [Name, Creation]),
     case is_name_ok(Name, Flags) of
         true ->
             check_allowed(HSData, Name),
@@ -1138,7 +1138,7 @@ send_status(#hs_data{socket = Socket,
                      other_creation = Creation,
 		    f_send = FSend},
             named) ->
-    ?debug({dist_util,self(),send_status, Node, Stat}),
+    ?debug({dist_util, self(), send_status, Node}),
     NameBin = atom_to_binary(Node, utf8),
     NameLen = byte_size(NameBin),
     case FSend(Socket, [$s, "named:",
