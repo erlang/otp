@@ -61,6 +61,8 @@
         ]).
 
 -export_type([
+              socket/0,
+
               select_tag/0,
               select_ref/0,
               select_info/0,
@@ -71,10 +73,8 @@
               domain/0,
               type/0,
               protocol/0,
-              socket/0,
 
               port_number/0,
-              ip_address/0,
               ip4_address/0,
               ip6_address/0,
               sockaddr/0,
@@ -195,8 +195,6 @@
 -type protocol() :: ip | tcp | udp | sctp | icmp | igmp | {raw, integer()}.
 
 -type port_number() :: 0..65535.
-
--type ip_address() :: ip4_address() | ip6_address().
 
 -type ip4_address() :: {0..255, 0..255, 0..255, 0..255}.
 
@@ -2305,7 +2303,7 @@ shutdown(Socket, How) ->
                     ok | {error, Reason} when
       Socket :: socket(),
       Value  :: term(),
-      Reason :: term();
+      Reason :: inet:posix() | closed;
 
             (Socket, Level, Key, Value) ->
                     ok | {error, Reason} when
