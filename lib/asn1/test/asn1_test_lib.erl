@@ -24,7 +24,6 @@
 	 rm_dirs/1,
 	 hex_to_bin/1,
 	 match_value/2,
-	 parallel/0,
 	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4,
          map_roundtrip/3]).
 
@@ -47,12 +46,6 @@ compile_all(Files, Config, Options0) ->
 
     dialyze(Files, Options),
     ok.
-
-parallel() ->
-    case erlang:system_info(schedulers) > 1 andalso not run_dialyzer() of
-        true  -> [parallel];
-        false -> []
-    end.
 
 dialyze(Files, Options) ->
     case not run_dialyzer() orelse lists:member(abs, Options) of
