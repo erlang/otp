@@ -238,7 +238,7 @@ responses(Config) when is_list(Config) ->
     {ok,BootPid} = erl_boot_server:start_link([Host]),
 
     %% Send junk
-    S1 = open_udp(),
+    S1 = open_udp(Ip),
     prim_inet:sendto(S1, Ip, EBOOT_PORT, ["0"]),
     receive
 	What ->
@@ -249,10 +249,10 @@ responses(Config) when is_list(Config) ->
     end,
 
     %% Req from a slave with same erlang vsn.
-    S2 = open_udp(),
+    S2 = open_udp(Ip),
     prim_inet:sendto(S2, Ip, EBOOT_PORT, [EBOOT_REQUEST,ThisVer]),
     receive
-	{udp,S2,Ip,_Port1,Resp1} ->
+	{udp,S2,_Ip,_Port1,Resp1} ->
 	    close_udp(S2),
 	    EBOOT_REPLY = string:substr(Resp1, 1, length(EBOOT_REPLY)),
 	    Rest1 = string:substr(Resp1, length(EBOOT_REPLY)+1, length(Resp1)),
@@ -263,7 +263,7 @@ responses(Config) when is_list(Config) ->
     end,
 
     %% Req from a slave with other erlang vsn.
-    S3 = open_udp(),
+    S3 = open_udp(Ip),
     prim_inet:sendto(S3, Ip, EBOOT_PORT, [EBOOT_REQUEST,"1.0"]),
     receive
 	Anything ->
@@ -284,7 +284,7 @@ responses(Config) when is_list(Config) ->
     {ok,BootPid2} = erl_boot_server:start_link(["127.0.0.1"]),
 
     %% Req from slave with invalid ip address.
-    S4 = open_udp(),
+    S4 = open_udp(Ip),
     Ret =
 	case Ip of
 	    {127,0,0,1} ->
@@ -336,11 +336,11 @@ good_hosts(_Config) ->
     GoodHost3 = "sauron",
     [GoodHost1, GoodHost2, GoodHost3].
 
-open_udp() ->
+open_udp(Ip) ->
     {ok, S} = prim_inet:open(udp, inet, dgram),
     ok = prim_inet:setopts(S, [{mode,list},{active,true},
 			       {deliver,term},{broadcast,true}]),
-    {ok,_} = prim_inet:bind(S, {0,0,0,0}, 0),
+    {ok,_} = prim_inet:bind(S, Ip, 0),
     S.
 
 close_udp(S) ->
