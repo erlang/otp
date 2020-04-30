@@ -3738,13 +3738,17 @@ start_node(Name, How, Config) ->
 start_node(Name0, How, Args, Config) ->
     Name = node_name(Name0, Config),
     Pa = filename:dirname(code:which(?MODULE)),
-    R = test_server:start_node(Name, How, [{args,
-					    Args ++ " " ++
-						"-kernel net_setuptime 100 "
-					    %%					    "-noshell "
-					    "-pa " ++ Pa},
-					   {linked, false}
-					  ]),
+    R = test_server:start_node(
+          Name, How, [{args,
+                       Args ++
+                           " -kernel net_setuptime 100 " ++
+                           %% Limit the amount of threads so that we
+                           %% don't run into the maximum allowed
+                           " +S 1 +SDio 1 " ++
+                           %% "-noshell "
+                           "-pa " ++ Pa},
+                      {linked, false}
+                     ]),
     %% {linked,false} only seems to work for slave nodes.
     %%    ct:sleep(1000),
     record_started_node(R).
@@ -3761,12 +3765,16 @@ start_node_rel(Name0, Rel, Config) ->
 			end,
     Env = [],
     Pa = filename:dirname(code:which(?MODULE)),
-    Res = test_server:start_node(Name, peer, 
-                                 [{args,
-                                   Compat ++ 
-				       " -kernel net_setuptime 100 "
-                                   " -pa " ++ Pa},
-                                  {erl, Release}] ++ Env),
+    Res = test_server:start_node(
+            Name, peer,
+            [{args,
+              Compat ++
+                  " -kernel net_setuptime 100 " ++
+                  %% Limit the amount of threads so that we
+                  %% don't run into the maximum allowed
+                  " +S 1 +SDio 1 " ++
+                  "-pa " ++ Pa},
+             {erl, Release}] ++ Env),
     record_started_node(Res).
 
 record_started_node({ok, Node}) ->

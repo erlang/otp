@@ -695,11 +695,11 @@ to_chunk(Dom, Source, Module, AST) ->
 
                   MetaDepr
                       = case otp_internal:obsolete_type(Module, TypeName, TypeArity) of
+                            {deprecated, Text} ->
+                                MetaSig#{ deprecated =>
+                                              unicode:characters_to_binary(
+                                                erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
                             %% Commented out to make dialyzer happy
-                            %% {deprecated, Text} ->
-                            %%     MetaSig#{ deprecated =>
-                            %%                   unicode:characters_to_binary(
-                            %%                     erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
                             %% {deprecated, Replacement, Rel} ->
                             %%     MetaSig#{ deprecated =>
                             %%                   unicode:characters_to_binary(

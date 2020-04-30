@@ -338,7 +338,7 @@ endif
 else
 # Cross compiling
 
-all: cross_check_erl depend build_erl_interface \
+all: cross_check_erl depend erl_interface \
      emulator libs start_scripts check_dev_rt_dep
 
 endif
@@ -378,21 +378,14 @@ endif
 # the system is delivered in open source, the primary
 # bootstrap is not included, it requires a pre built emulator...
 ifeq ($(OTP_TINY_BUILD),true)
-all_bootstraps: build_erl_interface emulator bootstrap_setup \
+all_bootstraps: erl_interface emulator bootstrap_setup \
      tiny_secondary_bootstrap_build tiny_secondary_bootstrap_copy
 else
-all_bootstraps: build_erl_interface emulator \
+all_bootstraps: erl_interface emulator \
      bootstrap_setup \
      secondary_bootstrap_build secondary_bootstrap_copy \
      tertiary_bootstrap_build tertiary_bootstrap_copy
 endif
-
-.PHONY: build_erl_interface
-
-build_erl_interface:
-	$(make_verbose)cd lib/erl_interface && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) $(TYPE)
 
 #
 # Use these targets when you want to use the erl and erlc
@@ -400,7 +393,7 @@ build_erl_interface:
 # pre-compiled Erlang modules under bootstrap/.
 #
 noboot:
-	$(MAKE) USE_PGO=false BOOT_PREFIX= build_erl_interface emulator libs local_setup
+	$(MAKE) USE_PGO=false BOOT_PREFIX= erl_interface emulator libs local_setup
 
 noboot_install:
 	$(MAKE) USE_PGO=false BOOT_PREFIX= install
@@ -480,7 +473,7 @@ BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
 # otp.mk is only used to figure out if we are doing PGO or not
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-.PHONY: emulator libs kernel stdlib compiler hipe syntax_tools preloaded
+.PHONY: emulator libs kernel preloaded
 
 ifeq ($(USE_PGO), true)
 PROFILE=use
@@ -516,6 +509,8 @@ endif
 endif
 
 APPS=$(patsubst $(ERL_TOP)/lib/%/doc,%,$(wildcard $(ERL_TOP)/lib/*/doc))
+
+.PHONY: $(APPS)
 
 $(APPS):
 	$(make_verbose)cd lib/$@ && \

@@ -68,6 +68,10 @@
          message_latency_large_link_exit/1,
          message_latency_large_monitor_exit/1,
          message_latency_large_exit2/1,
+         message_latency_large_message/0,
+         message_latency_large_link_exit/0,
+         message_latency_large_monitor_exit/0,
+         message_latency_large_exit2/0,
          system_limit/1,
          hopefull_data_encoding/1,
          mk_hopefull_data/0]).
@@ -1409,7 +1413,6 @@ get_conflicting_unicode_atoms(CIX, N) ->
 %% kept as they continue to find bugs in the distribution implementation.
 message_latency_large_message(Config) when is_list(Config) ->
     measure_latency_large_message(?FUNCTION_NAME, fun(Dropper, Payload) -> Dropper ! Payload end).
-
 message_latency_large_exit2(Config) when is_list(Config) ->
     measure_latency_large_message(?FUNCTION_NAME, fun erlang:exit/2).
 
@@ -1417,10 +1420,20 @@ message_latency_large_link_exit(Config) when is_list(Config) ->
     message_latency_large_exit(?FUNCTION_NAME, fun erlang:link/1).
 
 message_latency_large_monitor_exit(Config) when is_list(Config) ->
-    message_latency_large_exit(?FUNCTION_NAME, fun(Dropper) ->
-                                                       Dropper ! {monitor, self()},
-                                                       receive ok -> ok end
-                                               end).
+    message_latency_large_exit(?FUNCTION_NAME,
+                               fun(Dropper) ->
+                                       Dropper ! {monitor, self()},
+                                       receive ok -> ok end
+                               end).
+
+message_latency_large_message() ->
+    [{timetrap, {minutes, 6}}].
+message_latency_large_exit2() ->
+    message_latency_large_message().
+message_latency_large_link_exit() ->
+    message_latency_large_message().
+message_latency_large_monitor_exit() ->
+    message_latency_large_message().
 
 message_latency_large_exit(Nodename, ReasonFun) ->
     measure_latency_large_message(

@@ -198,10 +198,46 @@ static EPMD_INLINE void select_fd_set(EpmdVars* g, int fd)
     }
 }
 
+#ifdef HAVE_SOCKLEN_T
+static const char *epmd_ntop(struct sockaddr_storage *sa, char *buff, socklen_t len) {
+#else
+static const char *epmd_ntop(struct sockaddr_storage *sa, char *buff, size_t len) {
+#endif
+    /* Save errno so that it is not changed by inet_ntop */
+    int myerrno = errno;
+    const char *res;
+#if !defined(EPMD6)
+    if (sa->ss_family == AF_INET6) {
+        struct sockaddr_in6 *addr = (struct sockaddr_in6 *)sa;
+        res = inet_ntop(
+            addr->sin6_family,
+            (void*)&addr->sin6_addr,
+            buff, len);
+    } else {
+        struct sockaddr_in *addr = (struct sockaddr_in *)sa;
+        res = inet_ntop(
+            addr->sin_family, &addr->sin_addr.s_addr,
+            buff, len);
+    }
+#else
+    struct sockaddr_in *addr = (struct sockaddr_in *)sa;
+    res = inet_ntoa(addr->sin_addr);
+    erts_snprintf(buff,len,"%s", res);
+    res = buff;
+#endif
+    errno = myerrno;
+    return res;
+}
+
 void run(EpmdVars *g)
 {
   struct EPMD_SOCKADDR_IN iserv_addr[MAX_LISTEN_SOCKETS];
   int listensock[MAX_LISTEN_SOCKETS];
+#if defined(EPMD6)
+  char socknamebuf[INET6_ADDRSTRLEN];
+#else
+  char socknamebuf[INET_ADDRSTRLEN];
+#endif
   int num_sockets = 0;
   int i;
   int opt;
@@ -415,26 +451,32 @@ void run(EpmdVars *g)
       opt = fcntl(listensock[i], F_GETFL, 0);
       if (fcntl(listensock[i], F_SETFL, opt | O_NONBLOCK) == -1)
 #endif /* __WIN32__ */
-	dbg_perror(g,"failed to set non-blocking mode of listening socket %d",
-		   listensock[i]);
+	dbg_perror(g,"failed to set non-blocking mode of listening socket %d on ipaddr %s",
+		   listensock[i], epmd_ntop(&iserv_addr[num_sockets],
+                                            socknamebuf, sizeof(socknamebuf)));
 
-      if (bind(listensock[i], (struct sockaddr*) &iserv_addr[i], salen) < 0)
+      if (bind(listensock[i], sa, salen) < 0)
 	{
 	  if (errno == EADDRINUSE)
 	    {
-	      dbg_tty_printf(g,1,"there is already a epmd running at port %d",
-			     g->port);
+	      dbg_tty_printf(g,1,"there is already a epmd running at port %d on ipaddr %s",
+			     g->port, epmd_ntop(&iserv_addr[num_sockets],
+                                                socknamebuf, sizeof(socknamebuf)));
 	      epmd_cleanup_exit(g,0);
 	    }
 	  else
 	    {
-	      dbg_perror(g,"failed to bind socket");
-	      epmd_cleanup_exit(g,1);
+              dbg_perror(g,"failed to bind on ipaddr %s",
+                         epmd_ntop(&iserv_addr[num_sockets],
+                                   socknamebuf, sizeof(socknamebuf)));
+              epmd_cleanup_exit(g,1);
 	    }
 	}
 
       if(listen(listensock[i], SOMAXCONN) < 0) {
-          dbg_perror(g,"failed to listen on socket");
+          dbg_perror(g,"failed to listen on ipaddr %s",
+                     epmd_ntop(&iserv_addr[num_sockets],
+                               socknamebuf, sizeof(socknamebuf)));
           epmd_cleanup_exit(g,1);
       }
       select_fd_set(g, listensock[i]);

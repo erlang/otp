@@ -492,7 +492,7 @@ same_time_yielding(Config) when is_list(Config) ->
     Mem = mem(),
     Ref = make_ref(),
     SchdlrsOnln = erlang:system_info(schedulers_online),
-    Tmo = erlang:monotonic_time(millisecond) + 3000,
+    Tmo = erlang:monotonic_time(millisecond) + 6000,
     Tmrs = lists:map(fun (I) ->
                              process_flag(scheduler, (I rem SchdlrsOnln) + 1),
                              erlang:start_timer(Tmo, self(), Ref, [{abs, true}])
@@ -536,7 +536,7 @@ same_time_yielding_with_cancel_other(Config) when is_list(Config) ->
 do_cancel_tmrs(Tmo, Tmrs, Tester) ->
     BeginCancel = erlang:convert_time_unit(Tmo,
                                            millisecond,
-                                           microsecond) - 100,
+                                           microsecond) - 500,
     busy_wait_until(fun () ->
                             erlang:monotonic_time(microsecond) >= BeginCancel
                     end),
@@ -553,7 +553,7 @@ do_cancel_tmrs(Tmo, Tmrs, Tester) ->
 same_time_yielding_with_cancel_test(Other, Accessor) ->
     Mem = mem(),
     SchdlrsOnln = erlang:system_info(schedulers_online),
-    Tmo = erlang:monotonic_time(millisecond) + 3000,
+    Tmo = erlang:monotonic_time(millisecond) + 6000,
     Tester = self(),
     Cancelor = case Other of
                    false ->
