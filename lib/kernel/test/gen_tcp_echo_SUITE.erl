@@ -246,6 +246,16 @@ echo_packet0(Echo, Type, EchoFun, SlowEcho, Opts) ->
 	    echo_packet1(Echo, Type, EchoFun, infinite);
        true -> ok
     end,
+    PacketSize =:= 0 andalso
+        begin
+            %% Switch to raw mode and echo one byte 
+            ok = inet:setopts(Echo, [{packet, raw}, {active, false}]),
+            ok = gen_tcp:send(Echo, <<"$">>),
+            case gen_tcp:recv(Echo, 1) of
+                {ok, <<"$">>} -> ok;
+                {ok, "$"} -> ok
+            end
+        end,
     _CloseResult = gen_tcp:close(Echo),
     ct:log("echo_packet0[~w] close: ~p", [self(), _CloseResult]),
     ok.

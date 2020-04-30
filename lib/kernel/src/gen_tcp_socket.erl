@@ -1227,9 +1227,7 @@ handle_event(
   {call, From}, {recv, Length, Timeout}, State, {P, D}) ->
     case State of
         'connected' ->
-            handle_recv(
-              P, recv_start(D, From, Length),
-              [{{timeout, recv}, Timeout, recv}]);
+            handle_recv_start(P, D, From, Length, Timeout);
         #recv{} ->
             %% Receive in progress
             {keep_state_and_data,
@@ -1351,6 +1349,32 @@ handle_connected(P, D, ActionsR) ->
         #{active := _} ->
             handle_recv(P, recv_start(D), ActionsR)
     end.
+
+handle_recv_start(
+  P, #{packet := Packet, buffer := Buffer} = D, From, Length, Timeout)
+  when Packet =:= raw, 0 < Length;
+       Packet =:= 0, 0 < Length ->
+    Size = iolist_size(Buffer),
+    if
+        Length =< Size ->
+            {Data, NewBuffer} =
+                split_binary(condense_buffer(Buffer), Length),
+            handle_recv_deliver(
+              P,
+              D#{recv_length => Length, % Redundant
+                 recv_from => From,
+                 buffer := NewBuffer},
+              [], Data);
+        true ->
+            N = Length - Size,
+            handle_recv(
+              P, D#{recv_length => N, recv_from => From},
+              [{{timeout, recv}, Timeout, recv}])
+    end;
+handle_recv_start(P, D, From, _Length, Timeout) ->
+    handle_recv(
+      P, D#{recv_length => 0, recv_from => From},
+      [{{timeout, recv}, Timeout, recv}]).
 
 handle_recv(P, #{packet := Packet, recv_length := Length} = D, ActionsR) ->
     if
@@ -1661,16 +1685,6 @@ cleanup_recv_reply(
      end}.
 
 %% Initialize packet recv state
-recv_start(#{packet := Packet} = D, From, Length) ->
-    %%
-    D#{recv_length =>
-           case Packet of
-               raw -> Length;
-               0 -> Length;
-               _ -> 0
-           end,
-       recv_from => From}.
-
 recv_start(D) ->
     D#{recv_length => 0}.
 
@@ -1699,6 +1713,10 @@ recv_data_deliver(
              [{reply, From, {ok, DeliverData}},
               {{timeout, recv}, cancel}
               | ActionsR]};
+        #{active := false} ->
+            D_1 = D#{buffer := unrecv_buffer(Data, maps:get(buffer, D))},
+            {recv_stop(next_packet(D_1, Packet, Data)),
+             ActionsR};
         #{active := Active} ->
             ModuleSocket = module_socket(P),
             Owner !
@@ -1766,6 +1784,16 @@ catbin(<<>>, Bin) when is_binary(Bin) -> Bin;
 catbin(Bin, <<>>) when is_binary(Bin) -> Bin;
 catbin(Bin1, Bin2) when is_binary(Bin1), is_binary(Bin2) ->
     <<Bin1/binary, Bin2/binary>>.
+
+unrecv_buffer(Data, Buffer) ->
+    case Buffer of
+        <<>> ->
+            Data;
+        _ when is_binary(Buffer) ->
+            [Data, Buffer];
+        _ ->
+            [Data | Buffer]
+    end.
 
 condense_buffer([Bin]) when is_binary(Bin) -> Bin;
 condense_buffer(Buffer) ->
