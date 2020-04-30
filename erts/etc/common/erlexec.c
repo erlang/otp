@@ -219,7 +219,7 @@ static void get_start_erl_data(char *);
 static char* get_value(HKEY key, char* value_name, BOOL mustExit);
 static char* possibly_quote(char* arg);
 
-/* 
+/*
  * Functions from win_erlexec.c
  */
 int start_win_emulator(char* emu, char *startprog,char** argv, int start_detached);
@@ -249,7 +249,7 @@ static int start_smp_emu = 1;   /* Start the smp emulator. */
 static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
 
 #ifdef __WIN32__
-static char *start_emulator_program = NULL; /* For detachec mode - 
+static char *start_emulator_program = NULL; /* For detached mode -
 					       erl.exe/werl.exe */
 static char* key_val_name = ERLANG_VERSION; /* Used by the registry
 					   * access functions.
@@ -267,7 +267,7 @@ static WCHAR *latin1_to_utf16(char *str);
 #endif
 
 /*
- * Needed parameters to be fetched from the environment (Unix)
+ * Parameters to be fetched from the environment (Unix)
  * or the ini file (Win32).
  */
 
@@ -275,7 +275,7 @@ static char* bindir;		/* Location of executables. */
 static char* rootdir;		/* Root location of Erlang installation. */
 static char* emu;		/* Emulator to run. */
 static char* progname;		/* Name of this program. */
-static char* home;		/* Path of user's home directory. */
+static char* home;		/* Path of user's home directory, if any. */
 
 static void
 set_env(char *key, char *value)
@@ -415,7 +415,7 @@ __declspec(dllexport) int win_erlexec(int argc, char **argv, HANDLE module, int 
 int main(int argc, char **argv)
 #endif
 {
-    int haltAfterwards = 0;	/* If true, put 's erlang halt' at the end
+    int haltAfterwards = 0;	/* If true, put '-s erlang halt' at the end
 				 * of the arguments. */
     int isdistributed = 0;
     int no_epmd = 0;
@@ -431,7 +431,7 @@ int main(int argc, char **argv)
 #ifdef __WIN32__
     this_module_handle = module;
     run_werl = windowed;
-    /* if we started this erl just to get a detached emulator, 
+    /* if we started this erl just to get a detached emulator,
      * the arguments are already prepared for beam, so we skip
      * directly to start_emulator */
     s = get_env("ERL_CONSOLE_MODE");
@@ -449,7 +449,7 @@ int main(int argc, char **argv)
 	emu = argv[0];
 	start_emulator_program = strsave(argv[0]);
 	goto skip_arg_massage;
-    }   
+    }
     free_env_val(s);
 #else
     int reset_cerl_detached = 0;
@@ -480,7 +480,7 @@ int main(int argc, char **argv)
 #endif		
 
     get_parameters(argc, argv);
-    
+
     /*
      * Construct the path of the executable.
      */
@@ -596,11 +596,16 @@ int main(int argc, char **argv)
 
     free_env_val(s);
     set_env("PATH", tmpStr);
-    
+
     i = 1;
 
     get_home();
-    add_args("-home", home, NULL);
+    /* Add the home parameter when available. This is optional to support
+       systems that don't have the notion of a home directory and setups
+       that don't have the HOME environment variable set (ERL-476). */
+    if (home != NULL) {
+        add_args("-home", home, NULL);
+    }
 
     add_epmd_port();
 
@@ -634,7 +639,7 @@ int main(int argc, char **argv)
 		case 'c':
 		    if (strcmp(argv[i], "-compile") == 0) {
 			/*
-			 * Note that the shell script erl.exec does an recursive call
+			 * Note that the shell script erl.exec does a recursive call
 			 * on itself here.  We'll avoid doing that.
 			 */
 			add_args("-noshell", "-noinput", "-s", "c", "lc_batch",
@@ -690,7 +695,7 @@ int main(int argc, char **argv)
 			    usage("-env");
 			set_env(argv[i+1], argv[i+2]);
 			i += 2;
-		    } else if (strcmp(argv[i], "-epmd") == 0) { 
+		    } else if (strcmp(argv[i], "-epmd") == 0) {
 			if (i+1 >= argc)
 			    usage("-epmd");
 			epmd_prog = argv[i+1];
@@ -708,7 +713,7 @@ int main(int argc, char **argv)
 
 		  case 'm':
 		    /*
-		     * Note that the shell script erl.exec does an recursive call
+		     * Note that the shell script erl.exec does a recursive call
 		     * on itself here.  We'll avoid doing that.
 		     */
 		    if (strcmp(argv[i], "-make") == 0) {
@@ -734,7 +739,7 @@ int main(int argc, char **argv)
 		    if (strcmp(argv[i], "-name") == 0) { /* -name NAME */
 			if (i+1 >= argc)
 			    usage("-name");
-		    
+
 			/*
 			 * Note: Cannot use add_args() here, due to non-defined
 			 * evaluation order.
@@ -771,7 +776,7 @@ int main(int argc, char **argv)
 			add_arg(argv[i]);
 			add_arg(argv[i+1]);
 			i++;
-		    }		    
+		    }
 		    else if (strcmp(argv[i], "-start_erl") == 0) {
 			if (i+1 < argc && argv[i+1][0] != '-') {
 			    get_start_erl_data(argv[i+1]);
@@ -893,7 +898,7 @@ int main(int argc, char **argv)
 		      if (argv[i][2] != '\0') {
 			  if ((argv[i][2] != 'i') &&
 			      (argv[i][2] != 'c') &&
-			      (argv[i][2] != 'd')) { 
+			      (argv[i][2] != 'd')) {
 			  usage(argv[i]);
 			} else {
 			  add_Eargs(argv[i]);
@@ -1025,7 +1030,7 @@ int main(int argc, char **argv)
 		    add_Eargs(argv[i]);
 		}
 		break;
-      
+
 	      default:
 		add_arg(argv[i]);
 	    } /* switch(argv[i][0] */
@@ -1043,7 +1048,7 @@ int main(int argc, char **argv)
     if (haltAfterwards) {
 	add_args("-s", "erlang", "halt", NULL);
     }
-    
+
     if (isdistributed && !no_epmd)
 	start_epmd(epmd_prog);
 
@@ -1052,8 +1057,8 @@ int main(int argc, char **argv)
 	/* Start the emulator within an xterm.
 	 * Move up all arguments and insert
 	 * "xterm -e " first.
-	 * The path must be searched for this 
-	 * to work, i.e execvp() must be used. 
+	 * The path must be searched for this
+	 * to work, i.e execvp() must be used.
 	 */
 	ensure_EargsSz(EargsCnt+2);
 	for (i = EargsCnt; i > 0; i--)
@@ -1061,9 +1066,9 @@ int main(int argc, char **argv)
 	EargsCnt += 2; /* Two args to insert */
 	Eargsp[0] = emu = "xterm";
 	Eargsp[1] = "-e";
-    }    
+    }
 #endif
-    
+
     add_Eargs("--");
     add_Eargs("-root");
     add_Eargs(rootdir);
@@ -1074,7 +1079,7 @@ int main(int argc, char **argv)
     for (i = 0; i < argsCnt; i++)
 	Eargsp[EargsCnt++] = argsp[i];
     Eargsp[EargsCnt] = NULL;
-    
+
     if (print_qouted_cmd_exit) {
 	printf("\"%s\" ", emu);
 	for (i = 1; i < EargsCnt; i++)
@@ -1099,7 +1104,7 @@ int main(int argc, char **argv)
 #ifdef __WIN32__
 
     if (EargsSz != EargsCnt + 1)
-	Eargsp = (char **) erealloc((void *) Eargsp, (EargsCnt + 1) * 
+	Eargsp = (char **) erealloc((void *) Eargsp, (EargsCnt + 1) *
 				    sizeof(char *));
     efree((void *) argsp);
 
@@ -1165,7 +1170,7 @@ int main(int argc, char **argv)
 #ifdef DEBUG
 	execvp(emu, Eargsp); /* "xterm ..." needs to search the path */
 #endif
-    } 
+    }
 #ifdef DEBUG
     else
 #endif
@@ -1245,7 +1250,7 @@ start_epmd(char *epmd)
 #else
 	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "\"%s" DIRSEP "epmd\" -daemon", bindir);
 #endif
-    } 
+    }
 #ifdef __WIN32__
     if (arg1 != NULL) {
 	strcat(epmd, " ");
@@ -1259,7 +1264,7 @@ start_epmd(char *epmd)
 	start.cb = sizeof (start);
 	MultiByteToWideChar(CP_UTF8, 0, epmd, -1, wcepmd, MAXPATHLEN+100);
 
-	if (!CreateProcessW(NULL, wcepmd, NULL, NULL, FALSE, 
+	if (!CreateProcessW(NULL, wcepmd, NULL, NULL, FALSE,
 			       CREATE_DEFAULT_ERROR_MODE | DETACHED_PROCESS,
 			       NULL, NULL, &start, &pi))
 	    result = -1;
@@ -1289,7 +1294,7 @@ add_args(char *first_arg, ...)
 {
     va_list ap;
     char* arg;
-    
+
     add_arg(first_arg);
     va_start(ap, first_arg);
     while ((arg = va_arg(ap, char *)) != NULL) {
@@ -1348,7 +1353,7 @@ erealloc(void *p, size_t size)
 }
 
 static void
-efree(void *p) 
+efree(void *p)
 {
     free(p);
 }
@@ -1395,7 +1400,7 @@ static void get_start_erl_data(char *file)
     char* reldir;
     char* otpstring;
     char* tprogname;
-    if (boot_script) 
+    if (boot_script)
 	error("Conflicting -start_erl and -boot options");
     if (config_scripts)
 	error("Conflicting -start_erl and -config options");
@@ -1452,12 +1457,12 @@ static void get_start_erl_data(char *file)
     erts_snprintf(a_config_script, 512, "%s/%s/sys", reldir, otpstring);
     config_scripts = &a_config_script;
     config_script_cnt = 1;
-       
+
     got_start_erl = 1;
 }
 
 
-static wchar_t *replace_filename(wchar_t *path, wchar_t *new_base) 
+static wchar_t *replace_filename(wchar_t *path, wchar_t *new_base)
 {
     int plen = wcslen(path);
     wchar_t *res = (wchar_t *) emalloc((plen+wcslen(new_base)+1)*sizeof(wchar_t));
@@ -1480,8 +1485,8 @@ static char *path_massage(wchar_t *long_path)
      WideCharToMultiByte(CP_UTF8, 0, long_path, -1, p, len, NULL, NULL);
      return p;
 }
-    
-static char *do_lookup_in_section(InitSection *inis, char *name, 
+
+static char *do_lookup_in_section(InitSection *inis, char *name,
 				  char *section, wchar_t *filename, int is_path)
 {
     char *p = lookup_init_entry(inis, name);
@@ -1500,8 +1505,8 @@ static void get_parameters(int argc, char** argv)
     wchar_t *p;
     wchar_t buffer[MAX_PATH];
     wchar_t *ini_filename;
-    HANDLE module = GetModuleHandle(NULL); /* This might look strange, but we want the erl.ini 
-					      that resides in the same dir as erl.exe, not 
+    HANDLE module = GetModuleHandle(NULL); /* This might look strange, but we want the erl.ini
+					      that resides in the same dir as erl.exe, not
 					      an erl.ini in our directory */
     InitFile *inif;
     InitSection *inis;
@@ -1550,9 +1555,9 @@ static void get_parameters(int argc, char** argv)
 	}
 
 	bindir = do_lookup_in_section(inis, "Bindir", INI_SECTION, ini_filename,1);
-	rootdir = do_lookup_in_section(inis, "Rootdir", INI_SECTION, 
+	rootdir = do_lookup_in_section(inis, "Rootdir", INI_SECTION,
 				       ini_filename,1);
-	progname = do_lookup_in_section(inis, "Progname", INI_SECTION, 
+	progname = do_lookup_in_section(inis, "Progname", INI_SECTION,
 					ini_filename,0);
 	free_init_file(inif);
     }
@@ -1577,7 +1582,7 @@ get_home(void)
             home = utf16_to_utf8(profile);
             /* CoTaskMemFree(profile); */
 	} else
-	    error("HOMEDRIVE or HOMEPATH is not set and GetWindowsDir failed");
+	    error("HOMEDRIVE or HOMEPATH not set and getting USERPROFILE failed");
     } else {
 	home = emalloc(strlen(homedrive)+strlen(homepath)+1);
 	strcpy(home, homedrive);
@@ -1642,8 +1647,6 @@ static void
 get_home(void)
 {
     home = get_env("HOME");
-    if (home == NULL)
-	error("HOME must be set");
 }
 
 #endif
@@ -1989,7 +1992,7 @@ get_file_args(char *filename, argv_buf *abp, argv_buf *xabp)
 
     i = 0;
     argv = read_args_file(filename);
-    
+
     while (argv) {
 	
 	while (argv[i]) {
@@ -2092,7 +2095,7 @@ initial_argv_massage(int *argc, char ***argv)
  build_new_argv:
 
     save_arg(&ab, (*argv)[0]);
-    
+
     vix = 0;
     while (avv[vix].argv) {
 	ac = avv[vix].argc;
@@ -2184,12 +2187,12 @@ possibly_quote(char* arg)
  * Unicode helpers to handle environment and command line parameters on
  * Windows. We internally handle all environment variables in UTF8,
  * but put and get the environment using the WCHAR (limited UTF16) interface
- * 
- * These are simplified to only handle Unicode characters that can fit in 
+ *
+ * These are simplified to only handle Unicode characters that can fit in
  * Windows simplified UTF16, i.e. characters that fit in 16 bits.
  */
 
-static int utf8_len(unsigned char first) 
+static int utf8_len(unsigned char first)
 {
     if ((first & ((unsigned char) 0x80)) == 0) {
 	return 1;
@@ -2199,7 +2202,7 @@ static int utf8_len(unsigned char first)
 	return 3;
     } else if ((first & ((unsigned char) 0xF8)) == 0xF0) {
 	return 4;
-    } 
+    }
     return 1; /* will be a '?' */
 }
 
@@ -2209,7 +2212,7 @@ static WCHAR *utf8_to_utf16(unsigned char *bytes)
     unsigned char *tmp = bytes;
     WCHAR *target, *res;
     int num = 0;
-    
+
     while (*tmp) {
 	num++;
 	tmp += utf8_len(*tmp);
@@ -2220,12 +2223,12 @@ static WCHAR *utf8_to_utf16(unsigned char *bytes)
 	    unipoint = (unsigned int) *bytes;
 	    ++bytes;
 	} else if (((*bytes) & ((unsigned char) 0xE0)) == 0xC0) {
-	    unipoint = 
+	    unipoint =
 		(((unsigned int) ((*bytes) & ((unsigned char) 0x1F))) << 6) |
 		((unsigned int) (bytes[1] & ((unsigned char) 0x3F)));
 	    bytes += 2;
 	} else if (((*bytes) & ((unsigned char) 0xF0)) == 0xE0) {
-	    unipoint = 
+	    unipoint =
 		(((unsigned int) ((*bytes) & ((unsigned char) 0xF))) << 12) |
 		(((unsigned int) (bytes[1] & ((unsigned char) 0x3F))) << 6) |
 		((unsigned int) (bytes[2] & ((unsigned char) 0x3F)));
@@ -2258,9 +2261,9 @@ static int put_utf8(WCHAR ch, unsigned char *target, int sz, int *pos)
 	if (((*pos) + 1) >= sz) {
 	    return -1;
 	}
-	target[(*pos)++] = (((unsigned char) (x >> 6)) | 
+	target[(*pos)++] = (((unsigned char) (x >> 6)) |
 			    ((unsigned char) 0xC0));
-	target[(*pos)++] = (((unsigned char) (x & 0x3F)) | 
+	target[(*pos)++] = (((unsigned char) (x & 0x3F)) |
 			    ((unsigned char) 0x80));
     } else {
 	if ((x >= 0xD800 && x <= 0xDFFF) ||
@@ -2272,11 +2275,11 @@ static int put_utf8(WCHAR ch, unsigned char *target, int sz, int *pos)
 	    return -1;
 	}
 
-	target[(*pos)++] = (((unsigned char) (x >> 12)) | 
+	target[(*pos)++] = (((unsigned char) (x >> 12)) |
 			    ((unsigned char) 0xE0));
-	target[(*pos)++] = ((((unsigned char) (x >> 6)) & 0x3F)  | 
+	target[(*pos)++] = ((((unsigned char) (x >> 6)) & 0x3F)  |
 			    ((unsigned char) 0x80));
-	target[(*pos)++] = (((unsigned char) (x & 0x3F)) | 
+	target[(*pos)++] = (((unsigned char) (x & 0x3F)) |
 			    ((unsigned char) 0x80));
     }
     return 0;
@@ -2288,7 +2291,7 @@ static int need_bytes_for_utf8(WCHAR x)
 	return 1;
     else if (x < 0x800)
 	return 2;
-    else 
+    else
 	return 3;
 }
 
@@ -2303,7 +2306,7 @@ static WCHAR *latin1_to_utf16(char *str)
     return wstr;
 }
 
-static char *utf16_to_utf8(WCHAR *wstr) 
+static char *utf16_to_utf8(WCHAR *wstr)
 {
     int len = wcslen(wstr);
     char *result;
@@ -2322,5 +2325,5 @@ static char *utf16_to_utf8(WCHAR *wstr)
     result[pos] = '\0';
     return result;
 }
-    
+
 #endif
