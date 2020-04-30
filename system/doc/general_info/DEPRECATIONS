@@ -21,6 +21,8 @@
 #
 # Added in OTP 23.
 #
+ssl:cipher_suites/1 since=21 remove=24
+ssl:cipher_suites/0 since=21 remove=24
 
 http_uri:parse/1 since=23 remove=25
 http_uri:parse/2 since=23 remove=25
@@ -99,7 +101,7 @@ sys:get_debug/3 since=22
 # Added in OTP 21.
 #
 
-ssl:ssl_accept/_ since=21
+ssl:ssl_accept/_ since=21 remove=24
 
 #
 # Added in OTP 20.

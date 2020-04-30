@@ -23,10 +23,6 @@
 -include("otp_internal.hrl").
 %%
 -dialyzer({no_match, obsolete/3}).
-obsolete(ssl, cipher_suites, 0) ->
-    {deprecated, "use ssl:cipher_suites/2,3 instead"};
-obsolete(ssl, cipher_suites, 1) ->
-    {deprecated, "use ssl:cipher_suites/2,3 instead"};
 obsolete(auth, cookie, 0) ->
     {deprecated, "use erlang:get_cookie/0 instead"};
 obsolete(auth, cookie, 1) ->
@@ -249,6 +245,10 @@ obsolete(snmpm, sync_set, 5) ->
     {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_set, 6) ->
     {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
+obsolete(ssl, cipher_suites, 0) ->
+    {deprecated, "use cipher_suites/2,3 instead", "OTP 24"};
+obsolete(ssl, cipher_suites, 1) ->
+    {deprecated, "use cipher_suites/2,3 instead", "OTP 24"};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
 obsolete(wxCalendarCtrl, enableYearChange, 1) ->
@@ -470,7 +470,7 @@ obsolete(crypto, stream_init, _) ->
 obsolete(filename, find_src, _) ->
     {deprecated, "use filelib:find_source/1,3 instead", "OTP 24"};
 obsolete(ssl, ssl_accept, _) ->
-    {deprecated, "use ssl_handshake/1,2,3 instead"};
+    {deprecated, "use ssl_handshake/1,2,3 instead", "OTP 24"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->
@@ -498,6 +498,14 @@ obsolete(os_mon_mib, _, _) ->
 obsolete(_,_,_) -> no.
 
 -dialyzer({no_match, obsolete_type/3}).
+obsolete_type(crypto, retired_cbc_cipher_aliases, 0) ->
+    {deprecated, "Use aes_*_cbc or des_ede3_cbc"};
+obsolete_type(crypto, retired_cfb_cipher_aliases, 0) ->
+    {deprecated, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"};
+obsolete_type(crypto, retired_ctr_cipher_aliases, 0) ->
+    {deprecated, "Use aes_*_ctr"};
+obsolete_type(crypto, retired_ecb_cipher_aliases, 0) ->
+    {deprecated, "Use aes_*_ecb"};
 obsolete_type(erl_scan, column, 0) ->
     {removed, "use erl_anno:column() instead"};
 obsolete_type(erl_scan, line, 0) ->
