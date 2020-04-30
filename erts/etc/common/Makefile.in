@@ -154,7 +154,14 @@ MC_OUTPUTS=$(OBJDIR)/erlsrv_logmess.h $(OBJDIR)/erlsrv_logmess.res
 MT_FLAG="-MD"
 endif
 INET_GETHOST = $(BINDIR)/inet_gethost.exe
-INSTALL_EMBEDDED_PROGS += $(BINDIR)/typer.exe $(BINDIR)/dialyzer.exe $(BINDIR)/erlc.exe $(BINDIR)/start_erl.exe $(BINDIR)/escript.exe $(BINDIR)/ct_run.exe
+INSTALL_EMBEDDED_PROGS += \
+	$(BINDIR)/typer.exe \
+	$(BINDIR)/dialyzer.exe \
+	$(BINDIR)/erlc.exe \
+	$(BINDIR)/start_erl.exe \
+	$(BINDIR)/escript.exe \
+	$(BINDIR)/ct_run.exe \
+	$(BINDIR)/erl_call.exe
 INSTALL_SRC = $(WINETC)/start_erl.c $(WINETC)/Nmakefile.start_erl
 ERLEXECDIR=.
 INSTALL_LIBS =
@@ -165,9 +172,11 @@ INSTALL_TOP = Install.ini
 INSTALL_TOP_BIN = $(BINDIR)/Install.exe
 INSTALL_PROGS =              \
 	$(INET_GETHOST)      \
-	$(BINDIR)/heart.exe   $(BINDIR)/erlsrv.exe   \
-	$(BINDIR)/erl.exe $(BINDIR)/erl_log.exe \
-	$(BINDIR)/werl.exe \
+	$(BINDIR)/heart.exe  \
+	$(BINDIR)/erlsrv.exe \
+	$(BINDIR)/erl.exe    \
+	$(BINDIR)/erl_log.exe\
+	$(BINDIR)/werl.exe   \
 	$(BINDIR)/$(ERLEXEC) \
 	$(INSTALL_EMBEDDED_PROGS)
 
@@ -187,9 +196,16 @@ ENTRY_OBJ=
 ERLSRV_OBJECTS= 
 MC_OUTPUTS=
 INET_GETHOST = $(BINDIR)/inet_gethost@EXEEXT@
-INSTALL_EMBEDDED_PROGS += $(BINDIR)/typer@EXEEXT@ $(BINDIR)/dialyzer@EXEEXT@ \
- $(BINDIR)/erlc@EXEEXT@ $(BINDIR)/escript@EXEEXT@ $(BINDIR)/ct_run@EXEEXT@ \
- $(BINDIR)/run_erl $(BINDIR)/to_erl $(BINDIR)/dyn_erl
+INSTALL_EMBEDDED_PROGS += \
+	$(BINDIR)/typer@EXEEXT@ \
+	$(BINDIR)/dialyzer@EXEEXT@ \
+	$(BINDIR)/erlc@EXEEXT@ \
+	$(BINDIR)/escript@EXEEXT@ \
+	$(BINDIR)/ct_run@EXEEXT@ \
+	$(BINDIR)/run_erl@EXEEXT@ \
+	$(BINDIR)/to_erl@EXEEXT@ \
+	$(BINDIR)/dyn_erl@EXEEXT@ \
+	$(BINDIR)/erl_call@EXEEXT@
 INSTALL_EMBEDDED_DATA = $(UXETC)/start.src $(UXETC)/start_erl.src
 INSTALL_TOP = Install
 INSTALL_TOP_BIN = 
@@ -423,6 +439,10 @@ $(OBJDIR)/dyn_erl.o: $(UXETC)/dyn_erl.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c $(UXETC)/dyn_erl.c
 $(OBJDIR)/safe_string.o: $(ETC)/safe_string.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/safe_string.c
+
+# erl_call
+$(BINDIR)/erl_call@EXEEXT@: $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)/erl_call@EXEEXT@
+	$(ld_verbose)cp $< $@
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)

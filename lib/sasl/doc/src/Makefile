@@ -53,6 +53,8 @@ XML_FILES = \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF4_FILES) \
 	$(XML_REF6_FILES) $(XML_APPLICATION_FILES)
 
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
 
 include $(ERL_TOP)/make/doc.mk
