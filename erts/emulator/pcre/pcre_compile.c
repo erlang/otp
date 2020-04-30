@@ -6,7 +6,7 @@
 and semantics are as close as possible to those of the Perl 5 language.
 
                        Written by Philip Hazel
-           Copyright (c) 1997-2018 University of Cambridge
+           Copyright (c) 1997-2020 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -69,7 +69,7 @@ COMPILE_PCREx macro will already be appropriately set. */
 
 /* Macro for setting individual bits in class bitmaps. */
 
-#define SETBIT(a,b) a[(b)/8] |= (1 << ((b)&7))
+#define SETBIT(a,b) a[(b)/8] |= (1U << ((b)&7))
 
 /* Maximum length value to check against when making sure that the integer that
 holds the compiled pattern length does not overflow. We make it a bit less than
@@ -130,8 +130,8 @@ overrun before it actually does run off the end of the data block. */
 
 /* Private flags added to firstchar and reqchar. */
 
-#define REQ_CASELESS    (1 << 0)        /* Indicates caselessness */
-#define REQ_VARY        (1 << 1)        /* Reqchar followed non-literal item */
+#define REQ_CASELESS    (1U << 0)        /* Indicates caselessness */
+#define REQ_VARY        (1U << 1)        /* Reqchar followed non-literal item */
 /* Negative values for the firstchar and reqchar flags */
 #define REQ_UNSET       (-2)
 #define REQ_NONE        (-1)
@@ -3612,7 +3612,7 @@ for(;;)
       if (chr > 255) break;
       class_bitset = (pcre_uint8 *)
         ((list_ptr == list ? code : base_end) - list_ptr[2]);
-      if ((class_bitset[chr >> 3] & (1 << (chr & 7))) != 0) return FALSE;
+      if ((class_bitset[chr >> 3] & (1U << (chr & 7))) != 0) return FALSE;
       break;
 
 #if defined SUPPORT_UTF || !defined COMPILE_PCRE8
@@ -7131,15 +7131,17 @@ for (;; ptr++)
           int n = 0;
           ptr++;
           while(IS_DIGIT(*ptr))
+            {
             n = n * 10 + *ptr++ - CHAR_0;
+            if (n > 255)
+              {
+              *errorcodeptr = ERR38;
+              goto FAILED;
+              }
+            }
           if (*ptr != CHAR_RIGHT_PARENTHESIS)
             {
             *errorcodeptr = ERR39;
-            goto FAILED;
-            }
-          if (n > 255)
-            {
-            *errorcodeptr = ERR38;
             goto FAILED;
             }
           *code++ = n;
@@ -7457,7 +7459,7 @@ for (;; ptr++)
               {
               open_capitem *oc;
               recno = GET2(slot, 0);
-              cd->backref_map |= (recno < 32)? (1 << recno) : 1;
+              cd->backref_map |= (recno < 32)? (1U << recno) : 1;
               if (recno > cd->top_backref) cd->top_backref = recno;
 
               /* Check to see if this back reference is recursive, that it, it
@@ -8068,7 +8070,7 @@ for (;; ptr++)
         item_hwm_offset = cd->hwm - cd->start_workspace;
         *code++ = ((options & PCRE_CASELESS) != 0)? OP_REFI : OP_REF;
         PUT2INC(code, 0, recno);
-        cd->backref_map |= (recno < 32)? (1 << recno) : 1;
+        cd->backref_map |= (recno < 32)? (1U << recno) : 1;
         if (recno > cd->top_backref) cd->top_backref = recno;
 
         /* Check to see if this back reference is recursive, that it, it
@@ -8681,7 +8683,7 @@ do {
             op == OP_SCBRA || op == OP_SCBRAPOS)
      {
      int n = GET2(scode, 1+LINK_SIZE);
-     int new_map = bracket_map | ((n < 32)? (1 << n) : 1);
+     int new_map = bracket_map | ((n < 32)? (1U << n) : 1);
      if (!is_anchored(scode, new_map, cd, atomcount)) return FALSE;
      }
 
@@ -8809,7 +8811,7 @@ do {
             op == OP_SCBRA || op == OP_SCBRAPOS)
      {
      int n = GET2(scode, 1+LINK_SIZE);
-     int new_map = bracket_map | ((n < 32)? (1 << n) : 1);
+     int new_map = bracket_map | ((n < 32)? (1U << n) : 1);
      if (!is_startline(scode, new_map, cd, atomcount, inassert)) return FALSE;
      }
 
@@ -9033,7 +9035,7 @@ Returns:        pointer to compiled data block, or NULL on error,
 #if defined(ERLANG_INTEGRATION)
 PCRE_EXP_DEFN pcre * PCRE_CALL_CONVENTION
 erts_pcre_compile(const char *pattern, int options, const char **errorptr,
-		  int *erroroffset, const unsigned char *tables)
+                  int *erroroffset, const unsigned char *tables)
 #else
 PCRE_EXP_DEFN pcre * PCRE_CALL_CONVENTION
 pcre_compile(const char *pattern, int options, const char **errorptr,
@@ -9051,8 +9053,8 @@ pcre32_compile(PCRE_SPTR32 pattern, int options, const char **errorptr,
 {
 #if defined COMPILE_PCRE8
 #if defined(ERLANG_INTEGRATION)
-return erts_pcre_compile2(pattern, options, NULL, errorptr, 
-			  erroroffset, tables);
+return erts_pcre_compile2(pattern, options, NULL, errorptr,
+                          erroroffset, tables);
 #else
 return pcre_compile2(pattern, options, NULL, errorptr, erroroffset, tables);
 #endif
