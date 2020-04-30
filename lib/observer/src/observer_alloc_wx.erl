@@ -158,7 +158,7 @@ handle_info({refresh, Seq},
     State#state.active andalso (catch wxWindow:refresh(Panel)),
     erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
     if Seq =:= (trunc(DispF)-1) ->
-	    Req = rpc:async_call(Node, observer_backend, sys_info, []),
+	    Req = request_info(Node),
 	    {noreply, State#state{time=Ti#ti{tick=Next}, async=Req}};
        true ->
 	    {noreply, State#state{time=Ti#ti{tick=Next}}}
@@ -192,6 +192,13 @@ code_change(_, _, State) ->
     State.
 
 %%%%%%%%%%
+
+request_info(Node) ->
+    ReplyTo = self(),
+    spawn(fun() ->
+                  Res = rpc:call(Node, observer_backend, sys_info, []),
+                  ReplyTo ! {self(), {promise_reply, Res}}
+          end).
 
 restart_fetcher(Node, #state{panel=Panel, wins=Wins0, time=Ti} = State) ->
     case rpc:call(Node, observer_backend, sys_info, []) of
