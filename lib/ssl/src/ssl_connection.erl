@@ -1655,6 +1655,7 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
                                           cipher_suite = CipherSuite,
                                           srp_username = SrpUsername,
                                           ecc = ECCCurve},
+                       connection_states = #{current_write := CurrentWrite},
 		       connection_env = #connection_env{negotiated_version =  {_,_} = Version}, 
 		       ssl_options = Opts}) ->
     RecordCB = record_cb(Connection),
@@ -1668,12 +1669,18 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
 			[]
 		end,
 
+    MFLInfo = case maps:get(max_fragment_length, CurrentWrite, undefined) of
+                  MaxFragmentLength when is_integer(MaxFragmentLength) ->
+                      [{max_fragment_length, MaxFragmentLength}];
+                  _ ->
+                      []
+              end,
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
      {session_resumption, Resumption},
      {selected_cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname},
-     {srp_username, SrpUsername} | CurveInfo] ++ ssl_options_list(Opts).
+     {srp_username, SrpUsername} | CurveInfo] ++ MFLInfo ++ ssl_options_list(Opts).
 
 security_info(#state{connection_states = ConnectionStates}) ->
     #{security_parameters :=
@@ -2809,6 +2816,9 @@ ssl_options_list([{protocol, _}| T], Acc) ->
 ssl_options_list([{erl_dist, _}|T], Acc) ->
     ssl_options_list(T, Acc);
 ssl_options_list([{renegotiate_at, _}|T], Acc) ->
+    ssl_options_list(T, Acc);
+ssl_options_list([{max_fragment_length, _}|T], Acc) ->
+    %% skip max_fragment_length from options since it is taken above from connection_states
     ssl_options_list(T, Acc);
 ssl_options_list([{ciphers = Key, Value}|T], Acc) ->
    ssl_options_list(T,

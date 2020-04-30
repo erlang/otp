@@ -154,6 +154,8 @@
 -define(MAX_COMPRESSED_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+1024)).
 -define(MAX_CIPHER_TEXT_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+2048)).
 -define(TLS13_MAX_CIPHER_TEXT_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+256)).
+-define(MAX_PADDING_LENGTH,256).
+-define(MAX_MAC_LENGTH,32).
 
 %% -record(protocol_version, {
 %% 	  major,  % unit 8

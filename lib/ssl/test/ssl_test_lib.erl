@@ -264,6 +264,9 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
                     Pid ! {self(), Reason}
             end,
             do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
+        get_socket ->
+            Pid ! {self(), {socket, AcceptSocket}},
+            do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
 	listen ->
 	    run_server(ListenSocket, Opts);
 	{listen, MFA} ->
@@ -311,7 +314,7 @@ connect(ListenSocket, Node, _N, _, Timeout, SslOpts, cancel) ->
 	    ct:log("~p:~p~nssl:handshake@~p ret ~p",[?MODULE,?LINE, Node,Result]),
 	    Result
     end;
-connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts) ->
+connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
     ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
     ct:log("~p:~p~nssl:handshake(~p,~p,~p)~n", [?MODULE,?LINE, AcceptSocket, SslOpts,Timeout]),
@@ -320,10 +323,21 @@ connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts) ->
 	{ok, Socket0, Ext} ->
             [_|_] = maps:get(sni, Ext),
             ct:log("Ext ~p:~n", [Ext]),            
-            ct:log("~p:~p~nssl:handshake_continue(~p,~p,~p)~n", [?MODULE,?LINE, Socket0, ContOpts,Timeout]),            
+            ContOpts = case lists:keytake(want_ext, 1, ContOpts0) of
+                           {value, {_, WantExt}, ContOpts1} ->
+                               if is_pid(WantExt) ->
+                                       WantExt ! {self(), {ext, Ext}};
+                                  true ->
+                                       ignore
+                               end,
+                               ContOpts1;
+                           _ ->
+                               ContOpts0
+                       end,
+            ct:log("~p:~p~nssl:handshake_continue(~p,~p,~p)~n", [?MODULE,?LINE, Socket0, ContOpts,Timeout]),
             case ssl:handshake_continue(Socket0, ContOpts, Timeout) of
                 {ok, Socket} ->
-                    connect(ListenSocket, Node, N-1, Socket, Timeout, SslOpts, ContOpts);
+                    connect(ListenSocket, Node, N-1, Socket, Timeout, SslOpts, ContOpts0);
                 Error ->
                     ct:log("~p:~p~nssl:handshake_continue@~p ret ~p",[?MODULE,?LINE, Node,Error]),
                     Error
@@ -375,8 +389,6 @@ start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, Opens
     ClientOpts = ErlangClientOpts ++ ClientOpts0,
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-
-    Data = "From openssl to erlang",
 
     Port = ssl_test_lib:inet_port(node()),
     CaCertFile = proplists:get_value(cacertfile, ServerOpts),
@@ -815,6 +827,9 @@ client_loop_core(Socket, Pid, Transport) ->
                     Pid ! {self(), Reason}
             end,
             client_loop_core(Socket, Pid, Transport);
+        get_socket ->
+            Pid ! {self(), {socket, Socket}},
+            client_loop_core(Socket, Pid, Transport);
         close ->
             ct:log("~p:~p~nClient closing~n", [?MODULE,?LINE]),
             Transport:close(Socket);
@@ -835,9 +850,20 @@ client_cont_loop(_Node, Host, Port, Pid, Transport, Options, cancel, _Opts) ->
 	    Pid ! {connect_failed, Reason}
     end;
 
-client_cont_loop(_Node, Host, Port, Pid, Transport, Options, ContOpts, Opts) ->
+client_cont_loop(_Node, Host, Port, Pid, Transport, Options, ContOpts0, Opts) ->
     case Transport:connect(Host, Port, Options) of
-        {ok, Socket0, _} ->
+        {ok, Socket0, Ext} ->
+            ContOpts = case lists:keytake(want_ext, 1, ContOpts0) of
+                           {value, {_, WantExt}, ContOpts1} ->
+                               if is_pid(WantExt) ->
+                                       WantExt ! {self(), {ext, Ext}};
+                                  true ->
+                                       ignore
+                               end,
+                               ContOpts1;
+                           _ ->
+                               ContOpts0
+                       end,
             ct:log("~p:~p~nClient: handshake_continue(~p, ~p, infinity) ~n", [?MODULE, ?LINE, Socket0, ContOpts]),
             case Transport:handshake_continue(Socket0, ContOpts) of
                 {ok, Socket} ->
@@ -2488,7 +2514,7 @@ active_recv(Socket, N, Acc) ->
 filter_openssl_debug_data(Bytes) ->
     re:replace(Bytes,
                "(read.*\n|write to.*\n|[\\dabcdefABCDEF]{4,4} -.*\n|>>> .*\n|<<< .*\n|    \\d\\d.*\n|KEYUPDATE\n|.*Read BLOCK\n)*",
-               "", [{return, list}]).
+               "", [global,{return, list}]).
 
 active_once_recv(_Socket, 0) ->
     ok;

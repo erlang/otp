@@ -30,7 +30,7 @@
 -include("ssl_alert.hrl").
 
 %% Handshake handling
--export([client_hello/7, client_hello/8, cookie/4, hello/4, 
+-export([client_hello/7, client_hello/8, cookie/4, hello/5, hello/4,
 	 hello_verify_request/2]).
         
 %% Handshake encoding
@@ -97,15 +97,16 @@ hello(#server_hello{server_version = Version, random = Random,
 		    compression_method = Compression,
 		    session_id = SessionId, extensions = HelloExt},
       #{versions := SupportedVersions} = SslOpt,
-      ConnectionStates0, Renegotiation) ->
+      ConnectionStates0, Renegotiation, OldId) ->
+    IsNew = ssl_session:is_new(OldId, SessionId),
     case dtls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
 	    handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 					   Compression, HelloExt, SslOpt, 
-                                           ConnectionStates0, Renegotiation);
+                                           ConnectionStates0, Renegotiation, IsNew);
 	false ->
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
-    end;
+    end.
 hello(#client_hello{client_version = ClientVersion} = Hello,
       #{versions := Versions} = SslOpts,
       Info, Renegotiation) ->
@@ -212,7 +213,8 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
     try ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
 						     HelloExt, dtls_v1:corresponding_tls_version(Version),
 						     SslOpts, Session0, 
-                                                     ConnectionStates0, Renegotiation) of
+                                                     ConnectionStates0, Renegotiation,
+                                                     Session0#session.is_resumable) of
 	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
 	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}
     catch throw:Alert ->
@@ -220,11 +222,11 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
     end.
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-			       Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation) ->
+			       Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
     try ssl_handshake:handle_server_hello_extensions(dtls_record, Random, CipherSuite,
                                                      Compression, HelloExt,
                                                      dtls_v1:corresponding_tls_version(Version),
-                                                     SslOpt, ConnectionStates0, Renegotiation) of
+                                                     SslOpt, ConnectionStates0, Renegotiation, IsNew) of
 	{ConnectionStates, ProtoExt, Protocol} ->
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     catch throw:Alert ->

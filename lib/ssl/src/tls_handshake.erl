@@ -36,7 +36,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Handshake handling
--export([client_hello/9, hello/4]).
+-export([client_hello/9, hello/5, hello/4]).
 
 %% Handshake encoding
 -export([encode_handshake/2]).
@@ -95,11 +95,11 @@ client_hello(_Host, _Port, ConnectionStates,
 		 }.
 
 %%--------------------------------------------------------------------
--spec hello(#server_hello{} | #client_hello{}, ssl_options(),
+-spec hello(#server_hello{}, ssl_options(),
 	    ssl_record:connection_states() | {inet:port_number(), #session{}, db_handle(),
 				    atom(), ssl_record:connection_states(), 
 				    binary() | undefined, ssl:kex_algo()},
-	    boolean()) ->
+	    boolean(), #session{}) ->
 		   {tls_record:tls_version(), ssl:session_id(), 
 		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
 		   {tls_record:tls_version(), {resumed | new, #session{}}, 
@@ -117,7 +117,7 @@ client_hello(_Host, _Port, ConnectionStates,
 %% values.
 hello(#server_hello{server_version = {Major, Minor},
                     random = <<_:24/binary,Down:8/binary>>},
-      #{versions := [{M,N}|_]}, _, _)
+      #{versions := [{M,N}|_]}, _, _, _)
   when (M > 3 orelse M =:= 3 andalso N >= 4) andalso  %% TLS 1.3 client
        (Major =:= 3 andalso Minor =:= 3 andalso       %% Negotiating TLS 1.2
         Down =:= ?RANDOM_OVERRIDE_TLS12) orelse
@@ -131,7 +131,7 @@ hello(#server_hello{server_version = {Major, Minor},
 %% equal to the second value if the ServerHello indicates TLS 1.1 or below.
 hello(#server_hello{server_version = {Major, Minor},
                     random = <<_:24/binary,Down:8/binary>>},
-      #{versions := [{M,N}|_]}, _, _)
+      #{versions := [{M,N}|_]}, _, _, _)
   when (M =:= 3 andalso N =:= 3) andalso              %% TLS 1.2 client
        (Major =:= 3 andalso Minor < 3 andalso         %% Negotiating TLS 1.1 or prior
         Down =:= ?RANDOM_OVERRIDE_TLS11) ->
@@ -157,7 +157,7 @@ hello(#server_hello{server_version = LegacyVersion,
                                        #server_hello_selected_version{selected_version = Version} = HelloExt}
                    },
       #{versions := SupportedVersions} = SslOpt,
-      ConnectionStates0, Renegotiation) ->
+      ConnectionStates0, Renegotiation, OldId) ->
     %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
     %% number for TLS 1.2.
@@ -171,10 +171,11 @@ hello(#server_hello{server_version = LegacyVersion,
                 true ->
                     case Version of
                         {3,3} ->
+                            IsNew = ssl_session:is_new(OldId, SessionId),
                             %% TLS 1.2 ServerHello with "supported_versions" (special case)
                             handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
                                                            Compression, HelloExt, SslOpt,
-                                                           ConnectionStates0, Renegotiation);
+                                                           ConnectionStates0, Renegotiation, IsNew);
                         SelectedVersion ->
                             %% TLS 1.3
                             {next_state, wait_sh, SelectedVersion}
@@ -191,17 +192,30 @@ hello(#server_hello{server_version = Version,
 		    session_id = SessionId,
                     extensions = HelloExt},
       #{versions := SupportedVersions} = SslOpt,
-      ConnectionStates0, Renegotiation) ->
+      ConnectionStates0, Renegotiation, OldId) ->
+    IsNew = ssl_session:is_new(OldId, SessionId),
     case tls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
 	    handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 					   Compression, HelloExt, SslOpt, 
-                                           ConnectionStates0, Renegotiation);
+                                           ConnectionStates0, Renegotiation, IsNew);
 	false ->
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
-    end;
+    end.
 
 
+%%--------------------------------------------------------------------
+-spec hello(#client_hello{}, ssl_options(),
+	    ssl_record:connection_states() | {inet:port_number(), #session{}, db_handle(),
+				    atom(), ssl_record:connection_states(), 
+				    binary() | undefined, ssl:kex_algo()},
+	    boolean()) ->
+		   {tls_record:tls_version(), ssl:session_id(), 
+		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
+		   {tls_record:tls_version(), {resumed | new, #session{}}, 
+		    ssl_record:connection_states(), binary() | undefined, 
+                    HelloExt::map(), {ssl:hash(), ssl:sign_algo()} | 
+                    undefined} | {atom(), atom()} | {atom(), atom(), tuple()} | #alert{}.
 %% TLS 1.2 Server
 %% - If "supported_versions" is present (ClientHello):
 %%   - Select version from "supported_versions" (ignore ClientHello.legacy_version)
@@ -338,7 +352,8 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
     try ssl_handshake:handle_client_hello_extensions(tls_record, Random, CipherSuites,
 						     HelloExt, Version, SslOpts,
 						     Session0, ConnectionStates0, 
-                                                     Renegotiation) of
+                                                     Renegotiation,
+                                                     Session0#session.is_resumable) of
 	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
 	    {Version, {Type, Session}, ConnectionStates, Protocol, 
              ServerHelloExt, HashSign}
@@ -348,11 +363,11 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
 
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-			Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation) ->
+			Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
     try ssl_handshake:handle_server_hello_extensions(tls_record, Random, CipherSuite,
 						      Compression, HelloExt, Version,
 						      SslOpt, ConnectionStates0, 
-                                                     Renegotiation) of
+                                                     Renegotiation, IsNew) of
 	{ConnectionStates, ProtoExt, Protocol} ->
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     catch throw:Alert ->

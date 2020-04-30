@@ -395,6 +395,7 @@
                                 {psk_identity, client_psk_identity()} |
                                 {srp_identity, client_srp_identity()} |
                                 {server_name_indication, sni()} |
+                                {max_fragment_length, max_fragment_length()} |
                                 {customize_hostname_check, customize_hostname_check()} |
                                 {signature_algs, client_signature_algs()} |
                                 {fallback, fallback()} |
@@ -417,6 +418,7 @@
 -type client_srp_identity()             :: srp_identity().
 -type customize_hostname_check() :: list().
 -type sni()                      :: HostName :: hostname() | disable. 
+-type max_fragment_length()      :: undefined | 512 | 1024 | 2048 | 4096.
 -type client_signature_algs()    :: signature_algs().
 -type fallback()                 :: boolean().
 -type ssl_imp()                  :: new | old.
@@ -468,6 +470,7 @@
                                   alpn =>  app_level_protocol(),
                                   srp  => binary(),
                                   next_protocol => app_level_protocol(),
+                                  max_frag_enum  => 1..4,
                                   ec_point_formats  => [0..2],
                                   elliptic_curves => [public_key:oid()],
                                   sni => hostname()}. % exported
@@ -2263,6 +2266,13 @@ validate_option(server_name_indication, undefined) ->
     undefined;
 validate_option(server_name_indication, disable) ->
     disable;
+
+%% RFC 6066, Section 4
+validate_option(max_fragment_length, I) when I == ?MAX_FRAGMENT_LENGTH_BYTES_1; I == ?MAX_FRAGMENT_LENGTH_BYTES_2;
+                                             I == ?MAX_FRAGMENT_LENGTH_BYTES_3; I == ?MAX_FRAGMENT_LENGTH_BYTES_4 ->
+    I;
+validate_option(max_fragment_length, undefined) ->
+    undefined;
 
 validate_option(sni_hosts, []) ->
     [];
