@@ -80,7 +80,9 @@
 %% functions below.
 
 proxy_call(F, Timeout, Default)
-  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
+  when is_function(F, 0) andalso
+       is_integer(Timeout) andalso (Timeout > 0) andalso
+       is_function(Default, 0) ->
     {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
     receive
         {'DOWN', M, process, P, Reply} ->
@@ -88,9 +90,10 @@ proxy_call(F, Timeout, Default)
     after Timeout ->
             erlang:demonitor(M, [flush]),
             exit(P, kill),
-            Default
-    end.
-
+            Default()
+    end;
+proxy_call(F, Timeout, Default) ->
+    proxy_call(F, Timeout, fun() -> Default end).
 
 
 %% ----------------------------------------------------------------
@@ -470,7 +473,7 @@ pprint(F, A) ->
 
 init_per_suite(Config) ->
 
-    ct:timetrap(minutes(2)),
+    ct:timetrap(minutes(3)),
 
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
@@ -530,13 +533,19 @@ init_per_suite(Config) ->
         end,
     SkipWindowsOnVirtual =
         fun() ->
-                SysInfo = which_win_system_info(),
-                SysMan  = win_sys_info_lookup(system_manufacturer, SysInfo),
-                case string:to_lower(SysMan) of
-                    "vmware" ++ _ ->
-                        true;
-                    _ ->
-                        false
+                try which_win_system_info() of
+                    SysInfo ->
+                        SysMan  = win_sys_info_lookup(system_manufacturer,
+                                                      SysInfo),
+                        case string:to_lower(SysMan) of
+                            "vmware" ++ _ ->
+                                true;
+                            _ ->
+                                false
+                        end
+                catch
+                    throw:{skip, _} = SKIP ->
+                        SKIP
                 end
         end,
     COND = [
@@ -548,9 +557,15 @@ init_per_suite(Config) ->
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
         false ->
-            Factor = analyze_and_print_host_info(),
-            maybe_start_global_sys_monitor(Config),
-            [{megaco_factor, Factor} | Config]
+            %% Factor = analyze_and_print_host_info(),
+            try analyze_and_print_host_info() of
+                Factor ->
+                    maybe_start_global_sys_monitor(Config),
+                    [{megaco_factor, Factor} | Config]
+            catch
+                throw:{skip, _} = SKIP ->
+                    SKIP
+            end
     end.
 
 %% We start the global system monitor unless explicitly disabled
@@ -1548,7 +1563,8 @@ which_win_system_info() ->
                         []
                 end
         end,
-    proxy_call(F, minutes(1), []).
+    proxy_call(F, minutes(1),
+               fun() -> throw({skip, "System info timeout"}) end).
 
 process_win_system_info([], Acc) ->
     Acc;
