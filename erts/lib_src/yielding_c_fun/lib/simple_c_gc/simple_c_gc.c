@@ -90,7 +90,7 @@ static void *scgc_extract_key(void *v, int keyPos) {
 static unsigned int scgc_hash_key(void *keyPtr) {
   /* From
    * https://lemire.me/blog/2018/08/15/fast-strongly-universal-64-bit-hashing-everywhere*/
-  int64_t x = (long)*((void **)keyPtr);
+  int64_t x = (intptr_t)*((void **)keyPtr);
   int64_t a = 2348923;
   int64_t b = 3292;
   int64_t c = 9893487421;
@@ -117,7 +117,7 @@ static void scgc_initialize_global_state() {
   scgc_objects =
       ch_set_create(0, scgc_extract_key, scgc_hash_key, scgc_are_equal,
                     scgc_to_string, scgc_malloc, scgc_free);
-  srand((int)(long)scgc_objects * 2654435761);
+  srand((int)(intptr_t)scgc_objects * 2654435761);
 }
 
 static void scgc_do_gc(bool no_stack);

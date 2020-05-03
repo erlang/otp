@@ -1101,7 +1101,7 @@ static OldLiteral* alloc_old_literal(void)
 
 static void free_old_literal(OldLiteral* olp)
 {
-    return erts_free(ERTS_ALC_T_RELEASE_LAREA, olp);
+    erts_free(ERTS_ALC_T_RELEASE_LAREA, olp);
 }
 
 static void

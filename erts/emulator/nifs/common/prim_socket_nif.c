@@ -2793,7 +2793,7 @@ static size_t my_strnlen(const char *s, size_t maxlen);
 static void esock_dtor(ErlNifEnv* env, void* obj);
 static void esock_stop(ErlNifEnv* env,
                        void*      obj,
-                       int        fd,
+                       ErlNifEvent fd,
                        int        is_direct_call);
 static void esock_down(ErlNifEnv*           env,
                        void*                obj,
@@ -21362,7 +21362,7 @@ void esock_dtor(ErlNifEnv* env, void* obj)
  *
  */
 static
-void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
+void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
 {
 #if !defined(__WIN32__)
     ESockDescriptor* descP = (ESockDescriptor*) obj;
