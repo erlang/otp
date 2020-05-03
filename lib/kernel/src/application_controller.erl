@@ -271,13 +271,12 @@ which_applications(Timeout) ->
     gen_server:call(?AC, which_applications, Timeout).
 
 loaded_applications() ->
-    ets:filter(ac_tab,
-	       fun([{{loaded, AppName}, #appl{descr = Descr, vsn = Vsn}}]) ->
-		       {true, {AppName, Descr, Vsn}};
-		  (_) ->
-		       false
-	       end,
-	       []).
+    ets:select(ac_tab,
+               [{
+                  {{loaded, '$1'}, #appl{descr = '$2', vsn = '$3', _ = '_'}},
+                  [],
+                  [{{'$1', '$2', '$3'}}]
+                }]).
 
 %% Returns some debug info
 info() ->
