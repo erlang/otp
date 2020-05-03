@@ -2706,6 +2706,7 @@ erts_get_atom_cache_map(Process *c_p)
  * erl_process.c on windows.
  */
 #  define ERTS_TIME2REDS_IMPL__ erts_time2reds__
+Sint64 erts_time2reds(ErtsMonotonicTime start, ErtsMonotonicTime end);
 #else
 #  define ERTS_TIME2REDS_IMPL__ erts_time2reds
 #endif

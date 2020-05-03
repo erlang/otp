@@ -1578,8 +1578,7 @@ static int create_worker(Worker *pworker, int save_que)
 	pworker->que_first = pworker->que_last = NULL;
 	pworker->que_size = 0;
     }
-    DEBUGF(3,("Created worker[%ld] with fd %d", 
-	      (long) pworker->pid, (int) pworker->readfrom));
+    DEBUGF(3,("Created worker[%ld]", (long) pworker->pid));
     return 0;
 }
 

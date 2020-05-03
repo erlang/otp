@@ -953,10 +953,8 @@ static int subtract_continue(Process *p, ErtsSubtractContext *context) {
         case SUBTRACT_STAGE_SET_FINISH: {
             return subtract_set_finish(p, context);
         }
-
-        default:
-            ERTS_ASSERT(!"unreachable");
     }
+    ERTS_INTERNAL_ERROR("unreachable");
 }
 
 static int subtract_start(Process *p, Eterm lhs, Eterm rhs,

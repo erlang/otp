@@ -184,11 +184,14 @@ int ERTS_WRITE_UNLIKELY(erts_no_pollsets) = 1;
 int ERTS_WRITE_UNLIKELY(erts_no_poll_threads) = 1;
 struct drv_ev_state_shared drv_ev_state;
 
-static ERTS_INLINE int fd_hash(ErtsSysFdType fd) {
+static ERTS_INLINE int fd_hash(ErtsSysFdType fd)
+{
+#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     int hash = (int)fd;
-# ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
+#else
+    int hash = (int)(SWord)fd;
     hash ^= (hash >> 9);
-# endif
+#endif
     return hash;
 }
 
@@ -1339,7 +1342,7 @@ print_driver_name(erts_dsprintf_buf_t *dsbufp, Eterm id)
 static void
 steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 {
-    erts_dsprintf(dsbufp, "stealing control of fd=%d from ", (int) state->fd);
+    erts_dsprintf(dsbufp, "stealing control of fd=%bpd from ", (SWord) state->fd);
     switch (state->type) {
     case ERTS_EV_TYPE_DRV_SEL: {
 	int deselect_mode = 0;
@@ -1363,7 +1366,7 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 	if (deselect_mode)
 	    deselect(state, deselect_mode);
 	else {
-	    erts_dsprintf(dsbufp, "no one", (int) state->fd);
+	    erts_dsprintf(dsbufp, "no one");
 	    ASSERT(0);
 	}
 	erts_dsprintf(dsbufp, "\n");
@@ -1394,7 +1397,7 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 	break;
     }
     default:
-	erts_dsprintf(dsbufp, "no one\n", (int) state->fd);
+	erts_dsprintf(dsbufp, "no one\n");
 	ASSERT(0);
     }
 }
@@ -1405,10 +1408,10 @@ print_drv_select_op(erts_dsprintf_buf_t *dsbufp,
 {
     Port *pp = erts_drvport2port(ix);
     erts_dsprintf(dsbufp,
-		  "driver_select(%p, %d,%s%s%s%s, %d) "
+		  "driver_select(%p, %bpd,%s%s%s%s, %d) "
 		  "by ",
 		  ix,
-		  (int) fd,
+		  (SWord) fd,
 		  mode & ERL_DRV_READ ? " ERL_DRV_READ" : "",
 		  mode & ERL_DRV_WRITE ? " ERL_DRV_WRITE" : "",
 		  mode & ERL_DRV_USE ? " ERL_DRV_USE" : "",
@@ -1424,8 +1427,8 @@ print_nif_select_op(erts_dsprintf_buf_t *dsbufp,
                     ErtsResource* resource, Eterm ref)
 {
     erts_dsprintf(dsbufp,
-		  "enif_select(_, %d,%s%s%s, %T:%T, %T) ",
-		  (int) fd,
+		  "enif_select(_, %bpd,%s%s%s, %T:%T, %T) ",
+		  (SWord) fd,
 		  mode & ERL_NIF_SELECT_READ ? " READ" : "",
 		  mode & ERL_NIF_SELECT_WRITE ? " WRITE" : "",
 		  (mode & ERL_NIF_SELECT_STOP ? " STOP"
@@ -1715,10 +1718,10 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time)
 	ErtsDrvEventState *state;
         ErtsPollEvents revents = ERTS_POLL_RES_GET_EVTS(&psi->pollres[i]);
 
-        /* The fd will be set to -1 if a pollset internal fd was triggered
+        /* The fd will be set to INVALID if a pollset internal fd was triggered
            that was determined to be too expensive to remove from the result.
         */
-        if (fd == -1) continue;
+        if (fd == ERTS_SYS_FD_INVALID) continue;
 
 	erts_mtx_lock(fd_mtx(fd));
 
@@ -1866,7 +1869,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time)
 	    dsbufp = erts_create_logger_dsbuf();
 	    erts_dsprintf(dsbufp,
 			  "Invalid event request type for fd in erts_poll()! "
-			  "fd=%d, event request type=%d\n", (int) state->fd,
+			  "fd=%bpd, event request type=%d\n", (SWord) state->fd,
 			  (int) state->type);
 	    ASSERT(0);
 	    deselect(state, 0);
@@ -1944,8 +1947,8 @@ bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport, Eterm outport)
 	    }
 	}
 	erts_dsprintf(dsbufp,
-		      "Bad %s fd in erts_poll()! fd=%d, ",
-		      io_str, (int) state->fd);
+		      "Bad %s fd in erts_poll()! fd=%bpd, ",
+		      io_str, (SWord) state->fd);
         if (state->type == ERTS_EV_TYPE_DRV_SEL) {
             if (is_nil(port)) {
                 ErtsPortNames *ipnp = erts_get_port_names(inport, ERTS_INVALID_ERL_DRV_PORT);
@@ -1978,7 +1981,8 @@ bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport, Eterm outport)
         }
     }
     else {
-	erts_dsprintf(dsbufp, "Bad fd in erts_poll()! fd=%d\n", (int) state->fd);
+	erts_dsprintf(dsbufp, "Bad fd in erts_poll()! fd=%bpd\n",
+		      (SWord) state->fd);
     }
     erts_send_error_to_logger_nogl(dsbufp);
 
@@ -1997,7 +2001,7 @@ stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode)
 
 static SafeHashValue drv_ev_state_hash(void *des)
 {
-    SafeHashValue val = (SafeHashValue) ((ErtsDrvEventState *) des)->fd;
+    SafeHashValue val = (SafeHashValue)(SWord) ((ErtsDrvEventState *) des)->fd;
     return val ^ (val >> 8);  /* Good enough for aligned pointer values? */
 }
 
@@ -2548,8 +2552,9 @@ static int erts_debug_print_checkio_state(erts_dsprintf_buf_t *dsbufp,
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     ErtsPollEvents aio_events = state->active_events;
 #endif
-    erts_dsprintf(dsbufp, "pollset=%d fd=%d ",
-                state->flags & ERTS_EV_FLAG_FALLBACK ? -1 : get_pollset_id(fd), (int) fd);
+    erts_dsprintf(dsbufp, "pollset=%d fd=%bpd ",
+		  state->flags & ERTS_EV_FLAG_FALLBACK ? -1 : get_pollset_id(fd),
+		  (SWord) fd);
 
 #if defined(HAVE_FSTAT) && !defined(NO_FSTAT_ON_SYS_FD_TYPE)
     if (fstat((int) fd, &stat_buf) < 0)

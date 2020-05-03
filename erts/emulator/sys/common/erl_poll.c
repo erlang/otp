@@ -1459,13 +1459,13 @@ ERTS_POLL_EXPORT(save_result)(ErtsPollSet *ps, ErtsPollResFd pr[], int max_res, 
 
             if (ERTS_POLL_USE_WAKEUP(ps) && fd == wake_fd) {
                 cleanup_wakeup_pipe(ps);
-                ERTS_POLL_RES_SET_FD(&pr[i], -1);
+                ERTS_POLL_RES_SET_FD(&pr[i], ERTS_SYS_FD_INVALID);
                 ERTS_POLL_RES_SET_EVTS(&pr[i], ERTS_POLL_EV_NONE);
                 res--;
             }
 #if ERTS_POLL_USE_TIMERFD
             else if (fd == ps->timer_fd) {
-                ERTS_POLL_RES_SET_FD(&pr[i], -1);
+                ERTS_POLL_RES_SET_FD(&pr[i], ERTS_SYS_FD_INVALID);
                 ERTS_POLL_RES_SET_EVTS(&pr[i], ERTS_POLL_EV_NONE);
                 res--;
             }

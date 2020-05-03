@@ -304,7 +304,7 @@ int main(void)
 static void spawn_sup(const char *port)
 {
     DWORD threadId;
-    (HANDLE)_beginthreadex(NULL, 0, supervise, port, 0, &threadId);
+    _beginthreadex(NULL, 0, supervise, port, 0, &threadId);
 }
 #elif defined(UNIX)
 static void spawn_sup(const char *port)

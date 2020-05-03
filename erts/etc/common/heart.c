@@ -977,7 +977,7 @@ debugf(const char *format,...)
 
 #ifdef __WIN32__
 void print_last_error() {
-	LPVOID lpMsgBuf;
+	LPTSTR lpMsgBuf;
 	FormatMessage( 
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
 		NULL,

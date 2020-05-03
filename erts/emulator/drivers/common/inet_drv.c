@@ -591,7 +591,10 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 
 #ifdef HAVE_SOCKLEN_T
 #  define SOCKLEN_T socklen_t
+#elif defined(__WIN32__)
+#  define SOCKLEN_T int
 #else
+#  warning "Non-Windows OS without type 'socklen_t'"
 #  define SOCKLEN_T size_t
 #endif
 
@@ -1113,8 +1116,8 @@ typedef struct {
 
     inet_address* peer_ptr;     /* fake peername or NULL */
     inet_address* name_ptr;     /* fake sockname or NULL */
-    SOCKLEN_T peer_addr_len;    /* fake peername size */
-    SOCKLEN_T name_addr_len;    /* fake sockname size */
+    unsigned int peer_addr_len; /* fake peername size */
+    unsigned int name_addr_len; /* fake sockname size */
 
     int   bufsz;                /* minimum buffer constraint */
     unsigned int hsz;           /* the list header size, -1 is large !!! */
@@ -4628,10 +4631,10 @@ static void desc_close(inet_descriptor* desc)
 	 * be selecting on it.
 	 */
 	if (!INET_IGNORED(desc))
-	    driver_select(desc->port,(ErlDrvEvent)(long)desc->event, 
+	    driver_select(desc->port,(ErlDrvEvent)(SWord)desc->event,
 			  ERL_DRV_USE, 0);
 	else
-	  inet_stop_select((ErlDrvEvent)(long)desc->event,NULL);
+	  inet_stop_select((ErlDrvEvent)(SWord)desc->event,NULL);
 	desc->event = INVALID_EVENT; /* closed by stop_select callback */
 	desc->s = INVALID_SOCKET;
 	desc->event_mask = 0;
@@ -4780,7 +4783,7 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
                                     char** rbuf, ErlDrvSizeT rsize)
 {
     inet_address name;
-    unsigned int sz;
+    SOCKLEN_T sz;
 
     if (bound) {
         /* check that it is a socket and that the socket is bound */
@@ -5854,9 +5857,10 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
     *buf_p++ = INET_REP_OK;
 
     /* Iterate over MIB_IPADDRTABLE or IP_ADAPTER_ADDRESSES */
-    for (ia_p = NULL, ip_addrs_p ? ((void *)(i = 0)) : (ia_p = ip_adaddrs_p);
+    ia_p = NULL;
+    for (ip_addrs_p ? (void)(i = 0) : (void)(ia_p = ip_adaddrs_p);
 	 ip_addrs_p ? (i < ip_addrs_p->dwNumEntries) : (ia_p != NULL);
-	 ip_addrs_p ? ((void *)(i++)) : (ia_p = ia_p->Next)) {
+	 ip_addrs_p ? (void)(i++) : (void)(ia_p = ia_p->Next)) {
 	MIB_IPADDRROW *ipaddrrow_p = NULL;
 	DWORD flags = INET_IFF_MULTICAST;
 	DWORD index = 0;
@@ -9458,7 +9462,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    return ctl_xerror(xerror, rbuf, rsize);
 	else {
 	    desc->peer_ptr = &desc->peer_addr;
-	    desc->peer_addr_len = (SOCKLEN_T) len;
+	    desc->peer_addr_len = (unsigned int) len;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);	    
 	}
     }
@@ -9533,7 +9537,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    return ctl_xerror(xerror, rbuf, rsize);
 	else {
 	    desc->name_ptr = &desc->name_addr;
-	    desc->name_addr_len = (SOCKLEN_T) len;
+	    desc->name_addr_len = (unsigned int) len;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);	    
 	}
     }
@@ -9922,7 +9926,7 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     
     /* The new port will be linked and connected to the original caller */
     port = driver_create_port(port, owner, "tcp_inet", (ErlDrvData) copy_desc);
-    if ((long)port == -1) {
+    if ((SWord)port == -1) {
 	*err = INET_ERRNO_SYSTEM_LIMIT;
 	FREE(copy_desc);
 	return NULL;

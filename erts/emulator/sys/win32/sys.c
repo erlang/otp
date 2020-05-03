@@ -2112,15 +2112,15 @@ translate_fd(int fd)
 	handle = GetStdHandle(STD_ERROR_HANDLE);
 	break;
     default:
-	return (HANDLE) fd;
+	return (HANDLE)(SWord) fd;
     }
-    DEBUGF(("translate_fd(%d) -> std(%d)\n", fd, handle));
+    DEBUGF(("translate_fd(%d) -> std(%p)\n", fd, (void*)handle));
 
     if (handle == INVALID_HANDLE_VALUE || handle == 0) {
 	handle = CreateFile("nul", access, 0,
 			    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     }
-    DEBUGF(("translate_fd(%d) -> %d\n", fd, handle));
+    DEBUGF(("translate_fd(%d) -> %p\n", fd, (void*)handle));
     return handle;
 }
 
@@ -2925,9 +2925,9 @@ unsigned char* sys_preload_begin(Preload* pp)
     ASSERT(beam_module != NULL);
 
     resource = res_name[pp-preloaded];
-    DEBUGF(("Loading name: %s; size: %d; resource: %p\n",
+    DEBUGF(("Loading name: %s; size: %d; resource: %u\n",
 	    pp->name, pp->size, resource));
-    hRes = FindResource(beam_module, (char *) resource, "ERLANG_CODE");
+    hRes = FindResource(beam_module, (char*)(UWord) resource, "ERLANG_CODE");
     return pp->code = LoadResource(beam_module, hRes);
 }
 
