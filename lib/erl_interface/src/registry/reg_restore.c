@@ -227,7 +227,7 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   char *dbuf = NULL;
   char *msgbuf = NULL;
   char *keybuf = NULL;
-  erlang_pid self;
+  erlang_pid *self;
   erlang_pid mnesia = {"",0,0,0};
   erlang_msg msg;
   int index = 0;
@@ -247,20 +247,18 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   if ((ec = ei_fd_to_cnode(fd)) == NULL) {
       return -1;
   }
-  strcpy(self.node,ei_thisnodename(ec));
-  self.num = fd;
-  self.serial = 0;
-  self.creation = ei_thiscreation(ec);
+
+  self = ei_self(ec);
 
   
-  if (mn_start_restore(fd,&self,&mnesia,mntab,&count,&maxkey,&maxobj)) {
+  if (mn_start_restore(fd,self,&mnesia,mntab,&count,&maxkey,&maxobj)) {
     /* send exit *only* if we have pid */
-    if (mnesia.node[0]) ei_send_exit(fd,&self,&mnesia,"bad response from rpc start");
+    if (mnesia.node[0]) ei_send_exit(fd,self,&mnesia,"bad response from rpc start");
     return -1;
   }
 
   if (count <= 0) {
-    ei_send_exit(fd,&self,&mnesia,"nothing to do");
+    ei_send_exit(fd,self,&mnesia,"nothing to do");
     return 0;
   }
   
@@ -268,7 +266,7 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   len = maxkey + maxobj + 512; 
   if (len > EISMALLBUF)
     if (!(dbuf = malloc(len))) {
-      ei_send_exit(fd,&self,&mnesia,"cannot allocate space for incoming data");
+      ei_send_exit(fd,self,&mnesia,"cannot allocate space for incoming data");
       return -1;
     }
   msgbuf = (dbuf ? dbuf : sbuf);
@@ -281,7 +279,7 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   ei_encode_version(msgbuf,&index);
   ei_encode_tuple_header(msgbuf,&index,2);
   ei_encode_atom(msgbuf,&index,"send_records");
-  ei_encode_pid(msgbuf,&index,&self);
+  ei_encode_pid(msgbuf,&index,self);
   if (ei_send_encoded(fd,&mnesia,msgbuf,index)) goto restore_failure;
 
   /* read as much as possible, until count or EXIT */
@@ -317,7 +315,7 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   return 0;
 
 restore_failure:
-  ei_send_exit(fd,&self,&mnesia,"restore failure");
+  ei_send_exit(fd,self,&mnesia,"restore failure");
   if (keybuf) free(keybuf);
   if (dbuf) free(dbuf);
   return -1;

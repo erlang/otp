@@ -26,6 +26,7 @@
 #include "ei_connect_int.h"
 #include "ei.h"
 #include "ei_connect.h"
+#include "ei_internal.h"
 
 #define GLOBALNAMEBUF (16*1024) /* not very small actually */
 
@@ -52,16 +53,18 @@ char **ei_global_names(ei_cnode *ec, int fd, int *count)
   char **names;
   char *s;
   
-  self->num = fd;
-  ei_encode_version(buf,&index);
-  ei_encode_tuple_header(buf,&index,2);
-  ei_encode_pid(buf,&index,self);               /* PidFrom */
-  ei_encode_tuple_header(buf,&index,5);
-  ei_encode_atom(buf,&index,"call");            /* call */
-  ei_encode_atom(buf,&index,"global");          /* Mod */
-  ei_encode_atom(buf,&index,"registered_names");    /* Fun */
-  ei_encode_list_header(buf,&index,0);          /* Args: [ ] */
-  ei_encode_atom(buf,&index,"user");            /* user */
+  if (ei_encode_version(buf,&index)
+      || ei_encode_tuple_header(buf,&index,2)
+      || ei_encode_pid(buf,&index,self)               /* PidFrom */
+      || ei_encode_tuple_header(buf,&index,5)
+      || ei_encode_atom(buf,&index,"call")            /* call */
+      || ei_encode_atom(buf,&index,"global")          /* Mod */
+      || ei_encode_atom(buf,&index,"registered_names")/* Fun */
+      || ei_encode_list_header(buf,&index,0)          /* Args: [ ] */
+      || ei_encode_atom(buf,&index,"user")) {         /* user */
+      EI_CONN_SAVE_ERRNO__(EINVAL);
+      return NULL;
+  }
   
   /* make the rpc call */
   if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return NULL;
@@ -72,7 +75,10 @@ char **ei_global_names(ei_cnode *ec, int fd, int *count)
     else break;
   }
 
-  if (i != ERL_SEND) return NULL;
+  if (i != ERL_SEND) {
+      EI_CONN_SAVE_ERRNO__(EBADMSG);
+      return NULL;
+  }
 
   /* expecting { rex, [name1, name2, ...] } */
   size = msglen;
@@ -83,7 +89,10 @@ char **ei_global_names(ei_cnode *ec, int fd, int *count)
       || (arity != 2) 
       || ei_decode_atom(buf,&index,tmpbuf) 
       || strcmp(tmpbuf,"rex")
-      || ei_decode_list_header(buf,&index,&arity)) return NULL;
+      || ei_decode_list_header(buf,&index,&arity))  {
+      EI_CONN_SAVE_ERRNO__(EBADMSG);
+      return NULL;
+  }
 
   
   /* we use the size of the rest of the received message to estimate
@@ -92,7 +101,10 @@ char **ei_global_names(ei_cnode *ec, int fd, int *count)
    * a little less than the atoms themselves needed in the reply.
    */
   arity++; /* we will need a terminating NULL as well */
-  if (!(names = malloc((arity * sizeof(char**)) + (size-index)))) return NULL;
+  if (!(names = malloc((arity * sizeof(char**)) + (size-index)))) {
+      EI_CONN_SAVE_ERRNO__(ENOMEM);
+      return NULL;
+  }
 
   /* arity pointers first, followed by s */
   s = (char *)(names+arity);

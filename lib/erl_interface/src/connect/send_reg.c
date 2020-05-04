@@ -64,21 +64,33 @@ int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from,
     if (ei_distversion(fd) > 0)
 	token = ei_trace(0,NULL);
     
+    EI_CONN_SAVE_ERRNO__(EINVAL);
+
     /* header = REG_SEND, from, cookie, toname         max sizes: */
-    ei_encode_version(header,&index);                     /*   1 */
+    if (ei_encode_version(header,&index) < 0)                   /*   1 */
+        return ERL_ERROR;                     
     if (token) { 
-	ei_encode_tuple_header(header,&index,5);            /*   2 */
-	ei_encode_long(header,&index,ERL_REG_SEND_TT);      /*   2 */
+	if (ei_encode_tuple_header(header,&index,5) < 0)        /*   2 */
+            return ERL_ERROR;
+	if (ei_encode_long(header,&index,ERL_REG_SEND_TT) < 0)  /*   2 */
+            return ERL_ERROR;
     } else {
-	ei_encode_tuple_header(header,&index,4);    
-	ei_encode_long(header,&index,ERL_REG_SEND); 
+	if (ei_encode_tuple_header(header,&index,4) < 0)
+            return ERL_ERROR;
+	if (ei_encode_long(header,&index,ERL_REG_SEND) < 0)
+            return ERL_ERROR;
     }
-    ei_encode_pid(header, &index, from);                    /* 268 */
-    ei_encode_atom(header, &index, ei_getfdcookie(fd));       /* 258 */
-    ei_encode_atom(header, &index, to);                     /* 268 */
+    if (ei_encode_pid(header, &index, from) < 0)                /* 268 */
+        return ERL_ERROR;
+    if (ei_encode_atom(header, &index, ei_getfdcookie(fd)) < 0) /* 258 */
+        return ERL_ERROR;
+    if (ei_encode_atom(header, &index, to) < 0)                 /* 268 */
+        return ERL_ERROR;
 
-    if (token) ei_encode_trace(header,&index,token);      /* 534 */
-
+    if (token) {
+        if (ei_encode_trace(header,&index,token) < 0)      /* 534 */
+            return ERL_ERROR;
+    }
     /* control message (precedes header actually) */
     /* length = 1 ('p') + header len + message len */
     s = header;
@@ -103,8 +115,11 @@ int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from,
             err = EIO;
         if (err) {
             EI_CONN_SAVE_ERRNO__(err);
-            return -1;
+            return ERL_ERROR;
         }
+
+        erl_errno = 0;
+
         return 0;
     }
 #endif /* EI_HAVE_STRUCT_IOVEC__ */
@@ -116,7 +131,7 @@ int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from,
         err = EIO;
     if (err) {
         EI_CONN_SAVE_ERRNO__(err);
-        return -1;
+        return ERL_ERROR;
     }
 
     len = tot_len = (ssize_t) msglen;
@@ -125,8 +140,10 @@ int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from,
         err = EIO;
     if (err) {
         EI_CONN_SAVE_ERRNO__(err);
-        return -1;
+        return ERL_ERROR;
     }
+
+    erl_errno = 0;
     
     return 0;
 }

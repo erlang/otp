@@ -26,6 +26,7 @@
 #include "ei_connect_int.h"
 #include "ei.h"
 #include "ei_connect.h"
+#include "ei_internal.h"
 
 /* return the ETERM pid corresponding to name. If caller
  * provides non-NULL node, nodename will be returned there
@@ -44,22 +45,22 @@ int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, c
   int i;
   int version,arity,msglen;
 
-  self->num = fd;		/* FIXME looks strange to change something?! */
-
-  ei_encode_version(buf,&index);
-  ei_encode_tuple_header(buf,&index,2);
-  ei_encode_pid(buf,&index,self);               /* PidFrom */
-  ei_encode_tuple_header(buf,&index,5);
-  ei_encode_atom(buf,&index,"call");            /* call */
-  ei_encode_atom(buf,&index,"global");          /* Mod */
-  ei_encode_atom(buf,&index,"whereis_name");    /* Fun */
-  ei_encode_list_header(buf,&index,1);          /* Args: [ name ] */
-  ei_encode_atom(buf,&index,name);
-  ei_encode_empty_list(buf,&index);
-  ei_encode_atom(buf,&index,"user");            /* user */
-
+  if (ei_encode_version(buf,&index)
+      || ei_encode_tuple_header(buf,&index,2)
+      || ei_encode_pid(buf,&index,self)               /* PidFrom */
+      || ei_encode_tuple_header(buf,&index,5)
+      || ei_encode_atom(buf,&index,"call")            /* call */
+      || ei_encode_atom(buf,&index,"global")          /* Mod */
+      || ei_encode_atom(buf,&index,"whereis_name")    /* Fun */
+      || ei_encode_list_header(buf,&index,1)          /* Args: [ name ] */
+      || ei_encode_atom(buf,&index,name)
+      || ei_encode_empty_list(buf,&index)
+      || ei_encode_atom(buf,&index,"user")) {            /* user */
+      EI_CONN_SAVE_ERRNO__(EINVAL);
+      return ERL_ERROR;
+  }
   /* make the rpc call */
-  if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return -1;
+  if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return ERL_ERROR;
 
   while (1) {
     index = EISMALLBUF;
@@ -67,7 +68,7 @@ int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, c
     else break;
   }
 
-  if (i != ERL_SEND) return -1;
+  if (i != ERL_SEND) return ERL_ERROR;
     
   /* expecting { rex, pid } */
   index = 0;
@@ -76,8 +77,10 @@ int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, c
       || (arity != 2) 
       || ei_decode_atom(buf,&index,tmpbuf) 
       || strcmp(tmpbuf,"rex")
-      || ei_decode_pid(buf,&index,&epid))
-    return -1; /* bad response from other side */
+      || ei_decode_pid(buf,&index,&epid)) {
+      EI_CONN_SAVE_ERRNO__(EBADMSG);
+      return ERL_ERROR; /* bad response from other side */
+  }
 
   /* extract the nodename for the caller */
   if (node) {
@@ -86,7 +89,8 @@ int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, c
 	  strcpy(node, node_str);
       }
       else {
-	  return -1;
+          EI_CONN_SAVE_ERRNO__(EBADMSG);
+	  return ERL_ERROR;
       }
   }
   *pid = epid;

@@ -23,6 +23,7 @@
 #include "eisend.h"
 #include "eirecv.h"
 #include "ei.h"
+#include "ei_internal.h"
 
 int ei_global_register(int fd, const char *name, erlang_pid *self)
 {
@@ -40,24 +41,27 @@ int ei_global_register(int fd, const char *name, erlang_pid *self)
   /* set up rpc arguments */
   /* { PidFrom, { call, Mod, Fun, Args, user }}  */
   index = 0;
-  ei_encode_version(buf,&index);
-  ei_encode_tuple_header(buf,&index,2);
-  ei_encode_pid(buf,&index,self);               /* PidFrom */
-  ei_encode_tuple_header(buf,&index,5);
-  ei_encode_atom(buf,&index,"call");            /* call */
-  ei_encode_atom(buf,&index,"global");          /* Mod */
-  ei_encode_atom(buf,&index,"register_name_external");    /* Fun */
-  ei_encode_list_header(buf,&index,3);     /* Args: [ name, self(), cnode ] */
-  ei_encode_atom(buf,&index,name);
-  ei_encode_pid(buf,&index,self); 
-  ei_encode_tuple_header(buf,&index,2);
-  ei_encode_atom(buf,&index,"global"); /* special "resolve" treatment */ 
-  ei_encode_atom(buf,&index,"cnode");  /* i.e. we get a SEND when conflict */
-  ei_encode_empty_list(buf,&index);
-  ei_encode_atom(buf,&index,"user");            /* user */
+  if (ei_encode_version(buf,&index)
+      || ei_encode_tuple_header(buf,&index,2)
+      || ei_encode_pid(buf,&index,self)               /* PidFrom */
+      || ei_encode_tuple_header(buf,&index,5)
+      || ei_encode_atom(buf,&index,"call")            /* call */
+      || ei_encode_atom(buf,&index,"global")          /* Mod */
+      || ei_encode_atom(buf,&index,"register_name_external")/* Fun */
+      || ei_encode_list_header(buf,&index,3) /* Args: [ name, self(), cnode ] */
+      || ei_encode_atom(buf,&index,name)
+      || ei_encode_pid(buf,&index,self) 
+      || ei_encode_tuple_header(buf,&index,2)
+      || ei_encode_atom(buf,&index,"global") /* special "resolve" treatment */ 
+      || ei_encode_atom(buf,&index,"cnode")  /* i.e. we get a SEND when conflict */
+      || ei_encode_empty_list(buf,&index)
+      || ei_encode_atom(buf,&index,"user")) {           /* user */
+      EI_CONN_SAVE_ERRNO__(EINVAL);
+      return ERL_ERROR;
+  }
 
   /* make the rpc call */
-  if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return -1;
+  if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return ERL_ERROR;
 
   /* get the reply: expect link and an atom, or just an atom */
   needlink = needatom = needmonitor = 1;
@@ -72,19 +76,28 @@ int ei_global_register(int fd, const char *name, erlang_pid *self)
     switch (i) {
     case ERL_LINK:
       /* got link */
-      if (!needlink) return -1;
+      if (!needlink) {
+          EI_CONN_SAVE_ERRNO__(EBADMSG);
+          return ERL_ERROR;
+      }
       needlink = 0;
       break;
       
     case ERL_MONITOR_P-10:
       /* got monitor */
-	if (!needmonitor) { return -1;}
+	if (!needmonitor) {
+            EI_CONN_SAVE_ERRNO__(EBADMSG);
+            return ERL_ERROR;
+        }
 	needmonitor = 0;
       break;
 
     case ERL_SEND:
       /* got message - does it contain our atom? */
-      if (!needatom) return -1;
+      if (!needatom) {
+          EI_CONN_SAVE_ERRNO__(EBADMSG);
+          return ERL_ERROR;
+      }
       else {
 	/* expecting { rex, yes } */
 	index = 0;
@@ -94,8 +107,10 @@ int ei_global_register(int fd, const char *name, erlang_pid *self)
 	    || ei_decode_atom(buf,&index,tmpbuf) 
 	    || strcmp(tmpbuf,"rex")
 	    || ei_decode_atom(buf,&index,tmpbuf) 
-	    || strcmp(tmpbuf,"yes"))
-	  return -1; /* bad response from other side */
+	    || strcmp(tmpbuf,"yes")) {
+            EI_CONN_SAVE_ERRNO__(EBADMSG);
+            return ERL_ERROR; /* bad response from other side */
+        }
 
 	/* we're done */
 	return 0;
@@ -103,7 +118,8 @@ int ei_global_register(int fd, const char *name, erlang_pid *self)
       break;
       
     default:
-      return -1; /* something else */
+      EI_CONN_SAVE_ERRNO__(EBADMSG);
+      return ERL_ERROR; /* something else */
     }
   }
   return 0;

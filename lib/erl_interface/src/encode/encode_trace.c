@@ -23,12 +23,18 @@
 int ei_encode_trace(char *buf, int *index, const erlang_trace *p)
 {
   /* { Flags, Label, Serial, FromPid, Prev } */
-  ei_encode_tuple_header(buf,index,5);
-  ei_encode_long(buf,index,p->flags);
-  ei_encode_long(buf,index,p->label);
-  ei_encode_long(buf,index,p->serial);
-  ei_encode_pid(buf,index,&p->from);
-  ei_encode_long(buf,index,p->prev);
+    if (ei_encode_tuple_header(buf,index,5) < 0)
+        return -1;
+    if (ei_encode_long(buf,index,p->flags) < 0)
+        return -1;
+    if (ei_encode_long(buf,index,p->label) < 0)
+        return -1;
+    if (ei_encode_long(buf,index,p->serial) < 0)
+        return -1;
+    if (ei_encode_pid(buf,index,&p->from) < 0)
+        return -1;
+    if (ei_encode_long(buf,index,p->prev) < 0)
+        return -1;
 
   /* index is updated by the functions we called */
   

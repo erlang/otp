@@ -54,6 +54,9 @@ int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
       /* first the integer count */
       count = get16be(s);
 
+      if (count > sizeof(p->n)/sizeof(p->n[0]))
+          return -1; /* Not enough space in struct... */
+
       if (p) {
 	  p->len = count;
 	  if (get_atom(&s, p->node, NULL) < 0) return -1;

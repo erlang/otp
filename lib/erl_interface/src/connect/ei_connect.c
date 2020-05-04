@@ -1475,11 +1475,8 @@ int ei_receive(int fd, unsigned char *bufp, int bufsize)
 int ei_reg_send_tmo(ei_cnode* ec, int fd, char *server_name,
 		    char* buf, int len, unsigned ms)
 {
-    erlang_pid *self = ei_self(ec);
-    self->num = fd;
-
     /* erl_errno and return code is set by ei_reg_send_encoded_tmo() */
-    return ei_send_reg_encoded_tmo(fd, self, server_name, buf, len, ms);
+    return ei_send_reg_encoded_tmo(fd, ei_self(ec), server_name, buf, len, ms);
 }
 
 
@@ -1588,27 +1585,45 @@ int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
 
     ei_x_buff x;
     erlang_pid *self = ei_self(ec);
-    self->num = fd;
+    int err = ERL_ERROR;
 
     /* encode header */
-    ei_x_new_with_version(&x);
-    ei_x_encode_tuple_header(&x, 2);  /* A */
+    if (ei_x_new_with_version(&x) < 0)
+        goto einval;
+    if (ei_x_encode_tuple_header(&x, 2) < 0)  /* A */
+        goto einval;
     
-    self->num = fd;
-    ei_x_encode_pid(&x, self);	      /* A 1 */
+    if (ei_x_encode_pid(&x, self) < 0)	      /* A 1 */
+        goto einval;
     
-    ei_x_encode_tuple_header(&x, 5);  /* B A 2 */
-    ei_x_encode_atom(&x, "call");     /* B 1 */
-    ei_x_encode_atom(&x, mod);	      /* B 2 */
-    ei_x_encode_atom(&x, fun);	      /* B 3 */
-    ei_x_append_buf(&x, buf, len);    /* B 4 */
-    ei_x_encode_atom(&x, "user");     /* B 5 */
+    if (ei_x_encode_tuple_header(&x, 5) < 0)  /* B A 2 */
+        goto einval;
+    if (ei_x_encode_atom(&x, "call") < 0)     /* B 1 */
+        goto einval;
+    if (ei_x_encode_atom(&x, mod) < 0)	      /* B 2 */
+        goto einval;
+    if (ei_x_encode_atom(&x, fun) < 0)	      /* B 3 */
+        goto einval;
+    if (ei_x_append_buf(&x, buf, len) < 0)    /* B 4 */
+        goto einval;
+    if (ei_x_encode_atom(&x, "user") < 0)     /* B 5 */
+        goto einval;
+    
+    err = ei_send_reg_encoded(fd, self, "rex", x.buff, x.index);
+    if (err)
+        goto error;
+    
+    ei_x_free(&x);	
 
-    /* ei_x_encode_atom(&x,"user"); */
-    ei_send_reg_encoded(fd, self, "rex", x.buff, x.index);
-    ei_x_free(&x);
-	
     return 0;
+
+einval:
+    EI_CONN_SAVE_ERRNO__(EINVAL);
+
+error:
+    if (x.buff != NULL)
+        ei_x_free(&x);
+    return err;
 } /* rpc_to */
 
   /*
@@ -1626,11 +1641,6 @@ int ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg,
     return res;
 } /* rpc_from */
 
-  /*
-  * A true RPC. It return a NULL pointer
-  * in case of failure, otherwise a valid
-  * (ETERM *) pointer containing the reply
-  */
 int ei_rpc(ei_cnode* ec, int fd, char *mod, char *fun,
 	   const char* inbuf, int inbuflen, ei_x_buff* x)
 {
@@ -1640,27 +1650,45 @@ int ei_rpc(ei_cnode* ec, int fd, char *mod, char *fun,
     char rex[MAXATOMLEN];
 
     if (ei_rpc_to(ec, fd, mod, fun, inbuf, inbuflen) < 0) {
-	return -1;
+	return ERL_ERROR;
     }
-    /* FIXME are we not to reply to the tick? */
+
+    /* ei_rpc_from() responds with a tick if it gets one... */
     while ((i = ei_rpc_from(ec, fd, ERL_NO_TIMEOUT, &msg, x)) == ERL_TICK)
 	;
 
-    if (i == ERL_ERROR)  return -1;
-    /*ep = 'erl'_element(2,emsg.msg);*/ /* {RPC_Tag, RPC_Reply} */
+    if (i == ERL_ERROR)  return i;
+    
+    /* Expect: {rex, RPC_Reply} */
+
     index = 0;
-    if (ei_decode_version(x->buff, &index, &i) < 0
-	|| ei_decode_ei_term(x->buff, &index, &t) < 0)
-	return -1;		/* FIXME ei_decode_version don't set erl_errno as before */
-    /* FIXME this is strange, we don't check correct "rex" atom
-       and we let it pass if not ERL_SMALL_TUPLE_EXT and arity == 2 */
-    if (t.ei_type == ERL_SMALL_TUPLE_EXT && t.arity == 2)
-	if (ei_decode_atom(x->buff, &index, rex) < 0)
-	    return -1;
+    if (ei_decode_version(x->buff, &index, &i) < 0)
+        goto ebadmsg;
+
+    if (ei_decode_ei_term(x->buff, &index, &t) < 0)
+        goto ebadmsg;
+
+    if (t.ei_type != ERL_SMALL_TUPLE_EXT && t.ei_type != ERL_LARGE_TUPLE_EXT)
+        goto ebadmsg;
+
+    if (t.arity != 2)
+        goto ebadmsg;
+
+    if (ei_decode_atom(x->buff, &index, rex) < 0)
+        goto ebadmsg;
+
+    if (strcmp("rex", rex) != 0)
+        goto ebadmsg;
+
     /* remove header */
     x->index -= index;
     memmove(x->buff, &x->buff[index], x->index);
     return 0;
+    
+ebadmsg:
+    
+    EI_CONN_SAVE_ERRNO__(EBADMSG);
+    return ERL_ERROR;
 }
 
 
