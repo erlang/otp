@@ -3004,10 +3004,10 @@ supports_ssl_tls_version(Version) when Version == sslv2;
     case ubuntu_legacy_support() of
         true ->   
             case portable_cmd("openssl", ["version"]) of
-                "OpenSSL 1.1" ++ _ ->
-                    false;
-                "OpenSSL 1" ++ _ ->
+                "OpenSSL 1.0.1" ++ _ ->
                     Version =/= sslv2;
+                "OpenSSL 1" ++ _ ->
+                    false;
                 %% Appears to be broken
                 "OpenSSL 0.9.8.o" ++ _ -> 
                     false;
