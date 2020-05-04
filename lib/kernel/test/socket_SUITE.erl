@@ -1911,6 +1911,7 @@ otp16359_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
+    ct:timetrap(?MINS(2)),
     Factor = analyze_and_print_host_info(),
     try socket:info() of
         #{} ->
@@ -44213,16 +44214,29 @@ win_sys_info_lookup(Key, SysInfo, Def) ->
             Def
     end.
 
-%% This function only extracts the prop we actually care about!
+%% This function only extracts the prop(s) we actually care about!
+%% On some hosts this (systeminfo) takes a *long time* (several minutes).
+%% And since there is no way to provide a timeout to the os command call,
+%% we have to wrap it in a process.
 which_win_system_info() ->
-    SysInfo = os:cmd("systeminfo"),
-    try process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
-    catch
-        _:_:_ ->
-            io:format("Failed process System info: "
-                      "~s~n", [SysInfo]),
-            []
-    end.
+    F = fun() ->
+                try
+                    begin
+                        SysInfo = os:cmd("systeminfo"),
+                        process_win_system_info(
+                          string:tokens(SysInfo, [$\r, $\n]), [])
+                    end
+                catch
+                    C:E:S ->
+                        io:format("Failed get or process System info: "
+                                  "   Error Class: ~p"
+                                  "   Error:       ~p"
+                                  "   Stack:       ~p"
+                                  "~n", [C, E, S]),
+                        []
+                end
+        end,
+    ?LIB:pcall(F, ?MINS(1), []).
 
 process_win_system_info([], Acc) ->
     Acc;
@@ -44272,46 +44286,6 @@ b2l(B) when is_binary(B) ->
 
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
-
-%% p(F) ->
-%%     p(F, []).
-
-%% p(F, A) ->
-%%     p(F, A, "", "").
-
-%% p(F, A, Before, After) when is_list(Before) andalso is_list(After) ->
-%%     TcName = 
-%%         case get(tc_name) of
-%%             undefined ->
-%%                 case get(sname) of
-%%                     undefined ->
-%%                         "";
-%%                     SName when is_list(SName) ->
-%%                         SName
-%%                 end;
-%%             Name when is_list(Name) ->
-%%                 Name
-%%         end,
-%%     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
-%%              [formated_timestamp(),TcName,self()|A]),
-%%     i(Before ++ FStr ++ After, []).
-
-
-%% d(F, A) ->
-%%     d(get(dbg_fd), F, A).
-
-%% d(undefined, F, A) ->
-%%     [NodeNameStr|_] = string:split(atom_to_list(node()), [$@]),
-%%     DbgFileName = f("~s-dbg.txt", [NodeNameStr]),
-%%     case file:open(DbgFileName, [write]) of
-%%         {ok, FD} ->
-%%             put(dbg_fd, FD),
-%%             d(FD, F, A);
-%%         {error, Reason} ->
-%%             exit({failed_open_dbg_file, Reason})
-%%     end;
-%% d(FD, F, A) ->
-%%     io:format(FD, "~s~n", [f("[~s] " ++ F, [formated_timestamp()|A])]).
 
 i(F) ->
     i(F, []).

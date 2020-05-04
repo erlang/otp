@@ -21,7 +21,11 @@
 -module(socket_test_lib).
 
 -export([
+         %% Process info
          pi/1, pi/2, pi/3,
+
+         %% Proxy call
+         pcall/3,
 
          %% Time stuff
          timestamp/0,
@@ -64,6 +68,21 @@ pi(Node, Pid, Item) when is_pid(Pid) andalso is_atom(Item) ->
     rpc:call(Node, erlang, process_info, [Pid, Item]).
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pcall(F, Timeout, Default)
+  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
+    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+    receive
+        {'DOWN', M, process, P, Reply} ->
+            Reply
+    after Timeout ->
+            erlang:demonitor(M, [flush]),
+            exit(P, kill),
+            Default
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
