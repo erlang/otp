@@ -82,6 +82,8 @@ end_per_testcase(_TC, Config) ->
                 ok
 
         after 5000 ->
+                ct:log("~p:~p Messages:~n~p",
+                       [?MODULE,?LINE, process_info(self(),messages)]),
                 ssh_dbg:stop(),
                 ssh:stop_daemon(Pid),
                 ct:fail("No '~s' debug message",[ExpectPfx])
@@ -448,10 +450,15 @@ dbg_SKIP(Ref, Prefixes) ->
 
 dbg_SKIP(Ref, Prefixes, UnexpectedAcc) ->
     receive
+        {Ref, [_, _C, Msg]} when is_tuple(Msg) ->
+            %% filter non ssh_dbg messages, for example from dbg:tp(..) etc
+            dbg_SKIP(Ref, Prefixes, UnexpectedAcc);
         {Ref, [_, _C, Msg]=M} ->
             case lists:any(
                    fun(Pfx) ->
-                           lists:prefix(Pfx, Msg)
+                           try lists:prefix(Pfx, Msg)
+                           catch _:_ -> false
+                           end
                    end, Prefixes) of
                 true ->
                     ct:log("Skip:~n~p", [M]),

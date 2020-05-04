@@ -762,15 +762,26 @@ ssh_dbg_format(ssh_messages, {call,{?MODULE,encode,[Msg]}}) ->
     ["Going to send ",Name,":\n",
      wr_record(ssh_dbg:shrink_bin(Msg))
     ];
+ssh_dbg_format(ssh_messages, {return_from, {?MODULE,encode,1}, _Ret}) ->
+    skip;
+
+ssh_dbg_format(ssh_messages, {call, {?MODULE,decode,[_]}}) ->
+    skip;
 ssh_dbg_format(ssh_messages, {return_from,{?MODULE,decode,1},Msg}) ->
     Name = string:to_upper(atom_to_list(element(1,Msg))),
     ["Received ",Name,":\n",
      wr_record(ssh_dbg:shrink_bin(Msg))
     ];
+
 ssh_dbg_format(raw_messages, {call,{?MODULE,decode,[BytesPT]}}) ->
     ["Received plain text bytes (shown after decryption):\n",
      io_lib:format("~p",[BytesPT])
     ];
+ssh_dbg_format(raw_messages, {return_from, {?MODULE,decode,1}, _Ret}) ->
+    skip;
+
+ssh_dbg_format(raw_messages, {call, {?MODULE,encode,[_]}}) ->
+    skip;
 ssh_dbg_format(raw_messages, {return_from,{?MODULE,encode,1},BytesPT}) ->
     ["Going to send plain text bytes (shown before encryption):\n",
      io_lib:format("~p",[BytesPT])

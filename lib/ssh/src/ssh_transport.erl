@@ -2172,18 +2172,27 @@ ssh_dbg_off(ssh_messages) -> ssh_dbg_off(hello).
 
 
 
+ssh_dbg_format(hello, {call,{?MODULE,hello_version_msg,[_]}}) ->
+    skip;
 ssh_dbg_format(hello, {return_from,{?MODULE,hello_version_msg,1},Hello}) ->
     ["Going to send hello message:\n",
      Hello
     ];
+
 ssh_dbg_format(hello, {call,{?MODULE,handle_hello_version,[Hello]}}) ->
     ["Received hello message:\n",
      Hello
     ];
+ssh_dbg_format(hello, {return_from,{?MODULE,handle_hello_version,1},_Ret}) ->
+    skip;
+
+ssh_dbg_format(alg, {call,{?MODULE,select_algorithm,[_,_,_,_]}}) ->
+    skip;
 ssh_dbg_format(alg, {return_from,{?MODULE,select_algorithm,4},{ok,Alg}}) ->
     ["Negotiated algorithms:\n",
      wr_record(Alg)
     ];
+
 ssh_dbg_format(raw_messages, X) -> ssh_dbg_format(hello, X);
 ssh_dbg_format(ssh_messages, X) -> ssh_dbg_format(hello, X).
 

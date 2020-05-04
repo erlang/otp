@@ -663,6 +663,9 @@ ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2).
 ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
     ["Cli Terminating:\n",
      io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
-    ].
+    ];
+ssh_dbg_format(terminate, {return_from, {?MODULE,terminate,2}, _Ret}) ->
+    skip.
+
 
 ?wr_record(state).

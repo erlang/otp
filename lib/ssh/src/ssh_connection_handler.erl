@@ -825,13 +825,13 @@ handle_event(_, #ssh_msg_kex_dh_gex_reply{} = Msg, {key_exchange_dh_gex_reply,cl
 %%% ######## {new_keys, client|server} ####
 
 %% First key exchange round:
-handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,client,init}, D) ->
-    {ok, Ssh1} = ssh_transport:handle_new_keys(Msg, D#data.ssh_params),
+handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,client,init}, D0) ->
+    {ok, Ssh1} = ssh_transport:handle_new_keys(Msg, D0#data.ssh_params),
     %% {ok, ExtInfo, Ssh2} = ssh_transport:ext_info_message(Ssh1),
-    %% send_bytes(ExtInfo, D),
+    %% send_bytes(ExtInfo, D0),
     {MsgReq, Ssh} = ssh_auth:service_request_msg(Ssh1),
-    send_bytes(MsgReq, D),
-    {next_state, {ext_info,client,init}, D#data{ssh_params=Ssh}};
+    D = send_msg(MsgReq, D0#data{ssh_params = Ssh}),
+    {next_state, {ext_info,client,init}, D};
 
 handle_event(_, #ssh_msg_newkeys{} = Msg, {new_keys,server,init}, D) ->
     {ok, Ssh} = ssh_transport:handle_new_keys(Msg, D#data.ssh_params),
@@ -877,8 +877,8 @@ handle_event(_, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {s
 	"ssh-userauth" ->
 	    Ssh0 = #ssh{session_id=SessionId} = D0#data.ssh_params,
 	    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0),
-	    send_bytes(Reply, D0),
-	    {next_state, {userauth,server}, D0#data{ssh_params = Ssh}};
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth,server}, D};
 
 	_ ->
             {Shutdown, D} =  
@@ -889,10 +889,12 @@ handle_event(_, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {s
     end;
 
 handle_event(_, #ssh_msg_service_accept{name = "ssh-userauth"}, {service_request,client},
-	     #data{ssh_params = #ssh{service="ssh-userauth"} = Ssh0} = State) ->
+	     #data{ssh_params = #ssh{service="ssh-userauth"} = Ssh0} = D0) ->
     {Msg, Ssh} = ssh_auth:init_userauth_request_msg(Ssh0),
-    send_bytes(Msg, State),
-    {next_state, {userauth,client}, State#data{auth_user = Ssh#ssh.user, ssh_params = Ssh}};
+    D = send_msg(Msg, D0#data{ssh_params = Ssh,
+                              auth_user = Ssh#ssh.user
+                             }),
+    {next_state, {userauth,client}, D};
 
 
 %%% ######## {userauth, client|server} ####
@@ -908,8 +910,8 @@ handle_event(_,
 	    %% Probably the very first userauth_request but we deny unauthorized login
 	    {not_authorized, _, {Reply,Ssh}} =
 		ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0),
-	    send_bytes(Reply, D0),
-	    {keep_state, D0#data{ssh_params = Ssh}};
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {keep_state, D};
 	
 	{"ssh-connection", "ssh-connection", Method} ->
 	    %% Userauth request with a method like "password" or so
@@ -917,21 +919,24 @@ handle_event(_,
 		true ->
 		    %% Yepp! we support this method
 		    case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
-			{authorized, User, {Reply, Ssh}} ->
-			    send_bytes(Reply, D0),
-			    D0#data.starter ! ssh_connected,
-			    connected_fun(User, Method, D0),
+			{authorized, User, {Reply, Ssh1}} ->
+                            D = #data{ssh_params=Ssh} = 
+                                send_msg(Reply, D0#data{ssh_params = Ssh1}),
+			    D#data.starter ! ssh_connected,
+			    connected_fun(User, Method, D),
 			    {next_state, {connected,server},
-			     D0#data{auth_user = User, 
-				    ssh_params = Ssh#ssh{authenticated = true}}};
+                             D#data{auth_user=User, 
+                                    %% Note: authenticated=true MUST NOT be sent
+                                    %% before send_msg!
+                                    ssh_params = Ssh#ssh{authenticated = true}}};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D0),
-			    send_bytes(Reply, D0),
-			    {next_state, {userauth_keyboard_interactive,server}, D0#data{ssh_params = Ssh}};
+                            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+			    {next_state, {userauth_keyboard_interactive,server}, D};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 			    retry_fun(User, Reason, D0),
-			    send_bytes(Reply, D0),
-			    {keep_state, D0#data{ssh_params = Ssh}}
+                            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+			    {keep_state, D}
 		    end;
 		false ->
 		    %% No we do not support this method (=/= none)
@@ -959,6 +964,7 @@ handle_event(_, #ssh_msg_ext_info{}=Msg, {userauth,client}, D0) ->
     {keep_state, D};
 
 handle_event(_, #ssh_msg_userauth_success{}, {userauth,client}, D=#data{ssh_params = Ssh}) ->
+    ssh_auth:ssh_msg_userauth_result(success),
     D#data.starter ! ssh_connected,
     {next_state, {connected,client}, D#data{ssh_params=Ssh#ssh{authenticated = true}}};
 
@@ -990,11 +996,11 @@ handle_event(_, #ssh_msg_userauth_failure{authentications = Methods}, StateName=
                                  StateName, D0#data{ssh_params = Ssh}),
 	    {stop, Shutdown, D};
 	{"keyboard-interactive", {Msg, Ssh}} ->
-	    send_bytes(Msg, D0),
-	    {next_state, {userauth_keyboard_interactive,client}, D0#data{ssh_params = Ssh}};
+            D = send_msg(Msg, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth_keyboard_interactive,client}, D};
 	{_Method, {Msg, Ssh}} ->
-	    send_bytes(Msg, D0),
-	    {keep_state, D0#data{ssh_params = Ssh}}
+            D = send_msg(Msg, D0#data{ssh_params = Ssh}),
+	    {keep_state, D}
     end;
 
 %%---- banner to client
@@ -1009,39 +1015,46 @@ handle_event(_, #ssh_msg_userauth_banner{message = Msg}, {userauth,client}, D) -
 %%% ######## {userauth_keyboard_interactive, client|server}
 
 handle_event(_, #ssh_msg_userauth_info_request{} = Msg, {userauth_keyboard_interactive, client},
-	     #data{ssh_params = Ssh0} = D) ->
+	     #data{ssh_params = Ssh0} = D0) ->
     case ssh_auth:handle_userauth_info_request(Msg, Ssh0) of
 	{ok, {Reply, Ssh}} ->
-	    send_bytes(Reply, D),
-	    {next_state, {userauth_keyboard_interactive_info_response,client}, D#data{ssh_params = Ssh}};
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth_keyboard_interactive_info_response,client}, D};
 	not_ok ->
-	    {next_state, {userauth,client}, D, [postpone]}
+	    {next_state, {userauth,client}, D0, [postpone]}
     end;
 
-handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D) ->
-    case ssh_auth:handle_userauth_info_response(Msg, D#data.ssh_params) of
-	{authorized, User, {Reply, Ssh}} ->
-	    send_bytes(Reply, D),
+handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D0) ->
+    case ssh_auth:handle_userauth_info_response(Msg, D0#data.ssh_params) of
+	{authorized, User, {Reply, Ssh1}} ->
+            D = #data{ssh_params=Ssh} = 
+                send_msg(Reply, D0#data{ssh_params = Ssh1}),
 	    D#data.starter ! ssh_connected,
 	    connected_fun(User, "keyboard-interactive", D),
 	    {next_state, {connected,server}, D#data{auth_user = User,
+                                                    %% Note: authenticated=true MUST NOT be sent
+                                                    %% before send_msg!
 						    ssh_params = Ssh#ssh{authenticated = true}}};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
-	    retry_fun(User, Reason, D),
-	    send_bytes(Reply, D),
-	    {next_state, {userauth,server}, D#data{ssh_params = Ssh}};
+	    retry_fun(User, Reason, D0),
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth,server}, D};
 
 	{authorized_but_one_more, _User,  {Reply, Ssh}} ->
-	    send_bytes(Reply, D),
-	    {next_state, {userauth_keyboard_interactive_extra,server}, D#data{ssh_params = Ssh}}
+            D = send_msg(Reply, D0#data{ssh_params = Ssh}),
+	    {next_state, {userauth_keyboard_interactive_extra,server}, D}
     end;
 
-handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive_extra, server}, D) ->
-    {authorized, User, {Reply, Ssh}} = ssh_auth:handle_userauth_info_response({extra,Msg}, D#data.ssh_params),
-    send_bytes(Reply, D),
+handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive_extra, server}, D0) ->
+    {authorized, User, {Reply, Ssh1}} =
+        ssh_auth:handle_userauth_info_response({extra,Msg}, D0#data.ssh_params),
+    D = #data{ssh_params=Ssh} = 
+        send_msg(Reply, D0#data{ssh_params = Ssh1}),
     D#data.starter ! ssh_connected,
     connected_fun(User, "keyboard-interactive", D),
     {next_state, {connected,server}, D#data{auth_user = User,
+                                            %% Note: authenticated=true MUST NOT be sent
+                                            %% before send_msg!
 					    ssh_params = Ssh#ssh{authenticated = true}}};
 
 handle_event(_, #ssh_msg_userauth_failure{}, {userauth_keyboard_interactive, client},
@@ -1151,17 +1164,17 @@ handle_event(internal, {conn_msg,Msg}, StateName, #data{starter = User,
     end;
 
 
-handle_event(enter, _OldState, {connected,_}=State, D) ->
+handle_event(enter, OldState, {connected,_}=NewState, D) ->
     %% Entering the state where re-negotiation is possible
-    init_renegotiate_timers(State, D);
+    init_renegotiate_timers(OldState, NewState, D);
     
-handle_event(enter, _OldState, {ext_info,_,renegotiate}=State, D) ->
+handle_event(enter, OldState, {ext_info,_,renegotiate}=NewState, D) ->
     %% Could be hanging in exit_info state if nothing else arrives
-    init_renegotiate_timers(State, D);
+    init_renegotiate_timers(OldState, NewState, D);
 
-handle_event(enter, {connected,_}, State, D) ->
+handle_event(enter, {connected,_}=OldState, NewState, D) ->
     %% Exiting the state where re-negotiation is possible
-    pause_renegotiate_timers(State, D);
+    pause_renegotiate_timers(OldState, NewState, D);
 
 handle_event(cast, force_renegotiate, StateName, D) ->
     handle_event({timeout,renegotiate}, undefined, StateName, D);
@@ -2119,15 +2132,15 @@ start_rekeying(Role, D0) ->
     {next_state, {kexinit,Role,renegotiate}, D}.
 
 
-init_renegotiate_timers(State, D) ->
+init_renegotiate_timers(_OldState, NewState, D) ->
     {RekeyTimeout,_MaxSent} = ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
-    {next_state, State, D, [{{timeout,renegotiate},     RekeyTimeout,       none},
-                            {{timeout,check_data_size}, ?REKEY_DATA_TIMOUT, none} ]}.
+    {next_state, NewState, D, [{{timeout,renegotiate},     RekeyTimeout,       none},
+                               {{timeout,check_data_size}, ?REKEY_DATA_TIMOUT, none} ]}.
 
 
-pause_renegotiate_timers(State, D) ->
-    {next_state, State, D, [{{timeout,renegotiate},     infinity, none},
-                            {{timeout,check_data_size}, infinity, none} ]}.
+pause_renegotiate_timers(_OldState, NewState, D) ->
+    {next_state, NewState, D, [{{timeout,renegotiate},     infinity, none},
+                               {{timeout,check_data_size}, infinity, none} ]}.
 
 check_data_rekeying(Role, D) ->
     case inet:getstat(D#data.socket, [send_oct]) of
@@ -2503,20 +2516,22 @@ ssh_dbg_flags(disconnect) -> [c].
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init_connection_handler, 3, x),
                            ssh_dbg_on(terminate);
 ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x);
-ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 2, x),
-                             dbg:tpl(?MODULE,   pause_renegotiate_timers, 2, x),
+ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 3, x),
+                             dbg:tpl(?MODULE,   pause_renegotiate_timers, 3, x),
                              dbg:tpl(?MODULE,   check_data_rekeying_dbg, 2, x),
-                             dbg:tpl(?MODULE,   start_rekeying, 2, x);
+                             dbg:tpl(?MODULE,   start_rekeying, 2, x),
+                             dbg:tp(?MODULE,   renegotiate, 1, x);
 ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 3, x);
 ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
 
 
 ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
 ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 3);
-ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 2),
-                              dbg:ctpl(?MODULE,   pause_renegotiate_timers, 2),
+ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 3),
+                              dbg:ctpl(?MODULE,   pause_renegotiate_timers, 3),
                               dbg:ctpl(?MODULE,   check_data_rekeying_dbg, 2),
-                              dbg:ctpl(?MODULE,   start_rekeying, 2);
+                              dbg:ctpl(?MODULE,   start_rekeying, 2),
+                              dbg:ctpg(?MODULE,   renegotiate, 1);
 ssh_dbg_off(connection_events) -> dbg:ctpg(?MODULE, handle_event, 4);
 ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init_connection_handler, 3),
                             ssh_dbg_off(terminate).
@@ -2555,22 +2570,46 @@ ssh_dbg_format(connection_events, {return_from, {?MODULE,handle_event,4}, Ret}) 
      io_lib:format("~p~n", [event_handler_result(Ret)])
     ];
 
-ssh_dbg_format(renegotiation, {call, {?MODULE,init_renegotiate_timers,[_State,D]}}) ->
-    ["Renegotiation init\n",
-     io_lib:format("rekey_limit: ~p ({ms,bytes})~ncheck_data_size: ~p (ms)~n", 
-                   [?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
+ssh_dbg_format(renegotiation, {call, {?MODULE,init_renegotiate_timers,[OldState,NewState,D]}}) ->
+    ["Renegotiation: start timer (init_renegotiate_timers)\n",
+     io_lib:format("State: ~p  -->  ~p~n"
+                   "rekey_limit: ~p ({ms,bytes})~n"
+                   "check_data_size: ~p (ms)~n", 
+                   [OldState, NewState,
+                    ?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
                     ?REKEY_DATA_TIMOUT])
     ];
-ssh_dbg_format(renegotiation, {call, {?MODULE,pause_renegotiate_timers,[_State,_D]}}) ->
-    ["Renegotiation pause\n"];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,init_renegotiate_timers,3}, _Ret}) ->
+    skip;
+
+ssh_dbg_format(renegotiation, {call, {?MODULE,renegotiate,[ConnectionHandler]}}) ->
+    ["Renegotiation: renegotiation forced\n",
+     io_lib:format("~p:renegotiate(~p) called~n", 
+                   [?MODULE,ConnectionHandler])
+    ];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,renegotiate,1}, _Ret}) ->
+    skip;
+
+ssh_dbg_format(renegotiation, {call, {?MODULE,pause_renegotiate_timers,[OldState,NewState,_D]}}) ->
+    ["Renegotiation: pause timers\n",
+     io_lib:format("State: ~p  -->  ~p~n",
+                   [OldState, NewState])
+    ];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,pause_renegotiate_timers,3}, _Ret}) ->
+    skip;
+
 ssh_dbg_format(renegotiation, {call, {?MODULE,start_rekeying,[_Role,_D]}}) ->
-    ["Renegotiation start rekeying\n"];
+    ["Renegotiation: start rekeying\n"];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,start_rekeying,2}, _Ret}) ->
+    skip;
+
 ssh_dbg_format(renegotiation, {call, {?MODULE,check_data_rekeying_dbg,[SentSinceRekey, MaxSent]}}) ->
-    ["Renegotiation check data sent\n",
+    ["Renegotiation: check size of data sent\n",
      io_lib:format("TotalSentSinceRekey: ~p~nMaxBeforeRekey: ~p~nStartRekey: ~p~n",
                    [SentSinceRekey, MaxSent, SentSinceRekey >= MaxSent])
     ];
-
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,check_data_rekeying_dbg,2}, _Ret}) ->
+    skip;
 
 
 ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}) ->
@@ -2605,6 +2644,8 @@ ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}) -
                            [Reason, StateName, ExtraInfo, state_data2proplist(D)])
             ]
     end;
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,terminate,3}, _Ret}) ->
+    skip;
 
 ssh_dbg_format(disconnect, {call,{?MODULE,send_disconnect,
                                      [Code, Reason, DetailedText, Module, Line, StateName, _D]}}) ->
@@ -2614,7 +2655,9 @@ ssh_dbg_format(disconnect, {call,{?MODULE,send_disconnect,
                    " DetailedText =~n"
                    " ~p",
                    [Module, Line, StateName, Code, Reason, lists:flatten(DetailedText)])
-    ].
+    ];
+ssh_dbg_format(renegotiation, {return_from, {?MODULE,send_disconnect,7}, _Ret}) ->
+    skip.
 
 
 event_handler_result({next_state, NextState, _NewData}) ->
