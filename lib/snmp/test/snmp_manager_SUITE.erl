@@ -1109,20 +1109,15 @@ notify_started02(Config) when is_list(Config) ->
 notify_started02_cond(Config) ->
     LinuxVersionVerify = 
 	fun() ->
-		case os:cmd("uname -m") of
-		    "i686" ++ _ ->
-			case os:version() of
-			    {2, 6, Rev} when Rev >= 16 ->
-				false;
-			    {2, Min, _} when Min > 6 ->
-				false;
-			    {Maj, _, _} when Maj > 2 ->
-				false;
-			    _ ->
-				true
-			end;
-		    _ ->
-			false
+                case os:version() of
+                    V when V > {2, 6, 16} ->
+                        ?IPRINT("(Linux) kernel version check: "
+                                "~p > {2, 6, 16} => *NO* SKIP", [V]),
+                        false;
+                    V ->
+                        ?IPRINT("(Linux) kernel version check: "
+                                "~p =< {2, 6, 16}  => *SKIP*", [V]),
+                        true
 		end
 	end,
     Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
@@ -5287,10 +5282,10 @@ mgr_user_async_set2(Node, TargetName, VAV, SendOpts) when is_list(TargetName) ->
 %% mgr_user_sync_get_bulk(Node, NonRep, MaxRep, Oids) ->
 %%     mgr_user_sync_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
 %% 			   NonRep, MaxRep, Oids).
-mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
-  when is_list(TargetName) ->
-    rcall(Node, snmp_manager_user, sync_get_bulk, 
-	  [TargetName, NonRep, MaxRep, Oids]).
+%% mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
+%%   when is_list(TargetName) ->
+%%     rcall(Node, snmp_manager_user, sync_get_bulk, 
+%% 	  [TargetName, NonRep, MaxRep, Oids]).
 
 mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_list(TargetName) ->

@@ -52,9 +52,12 @@
 -define(OS_BASED_SKIP(Skippable), ?LIB:os_based_skip(Skippable)).
 -define(NON_PC_TC_MAYBE_SKIP(Config, Condition),
         ?LIB:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
+
 -define(SKIP(Reason),        ?LIB:skip(Reason, ?MODULE, ?LINE)).
 -define(FAIL(Reason),        ?LIB:fail(Reason, ?MODULE, ?LINE)).
 -define(HAS_SUPPORT_IPV6(),  ?LIB:has_support_ipv6()).
+
+-define(PCALL(F, T, D),      ?LIB:proxy_call(F, T, D)).
 
 
 %% - Time macros -

@@ -25,6 +25,7 @@
 
 -export([tc_try/2, tc_try/3,
          tc_try/4, tc_try/5]).
+-export([proxy_call/3]).
 -export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4,
@@ -257,6 +258,19 @@ tc_which_name() ->
 %% Misc functions
 %%
 
+proxy_call(F, Timeout, Default)
+  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
+    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+    receive
+        {'DOWN', M, process, P, Reply} ->
+            Reply
+    after Timeout ->
+            erlang:demonitor(M, [flush]),
+            exit(P, kill),
+            Default
+    end.
+
+
 hostname() ->
     hostname(node()).
 
@@ -267,20 +281,6 @@ hostname(Node) ->
         _ ->
             []
     end.
-
-%% localhost() ->
-%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
-%%     Ip.
-%% localhost(Family) ->
-%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
-%%     Ip.
-
-%% localhost() ->
-%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
-%%     Ip.
-%% localhost(Family) ->
-%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
-%%     Ip.
 
 localhost() ->
     localhost(inet).
@@ -623,17 +623,25 @@ old_is_ipv6_host(Hostname) ->
 
 init_per_suite(Config) ->
 
+    ct:timetrap(minutes(2)),
+
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
     %% checking for the host name...
-    %% We have two "machines" we are checking for. Both are old installations
-    %% running on really slow VMs (the host machines are old and tired).
+
     LinuxVersionVerify =
         fun(V) when (V > {3,6,11}) ->
                 false; % OK - No skip
            (V) when (V =:= {3,6,11}) ->
                 case string:trim(os:cmd("cat /etc/issue")) of
                     "Fedora release 16 " ++ _ -> % Stone age Fedora => Skip
+                        true;
+                    _ ->
+                        false
+                end;
+           (V) when (V =:= {3,4,20}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    "Wind River Linux 5.0.1.0" ++ _ -> % *Old* Wind River => skip
                         true;
                     _ ->
                         false
@@ -835,7 +843,7 @@ skip(Reason, Module, Line) ->
 %% when analyzing the test suite (results).
 %% It also returns a "factor" that can be used when deciding 
 %% the load for some test cases. Such as run time or number of
-%% iteraions. This only works for some OSes.
+%% iterations. This only works for some OSes.
 %%
 %% We make some calculations on Linux, OpenBSD and FreeBSD.
 %% On SunOS we always set the factor to 2 (just to be on the safe side)
@@ -885,28 +893,35 @@ analyze_and_print_host_info() ->
     end.
 
 linux_which_distro(Version) ->
-    case [string:trim(S) ||
-             S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-        [DistroStr|_] ->
-            io:format("Linux: ~s"
-                      "~n   ~s"
-                      "~n",
-                      [Version, DistroStr]),
-            case DistroStr of
-                "Wind River Linux" ++ _ ->
-                    wind_river;
-                "MontaVista" ++ _ ->
-                    montavista;
-                "Yellow Dog" ++ _ ->
-                    yellow_dog;
-                _ ->
+    case file:read_file_info("/etc/issue") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
+                [DistroStr|_] ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, DistroStr]),
+                    case DistroStr of
+                        "Wind River Linux" ++ _ ->
+                            wind_river;
+                        "MontaVista" ++ _ ->
+                            montavista;
+                        "Yellow Dog" ++ _ ->
+                            yellow_dog;
+                        _ ->
+                            other
+                    end;
+                X ->
+                    io:format("Linux: ~s"
+                              "~n   ~p"
+                              "~n",
+                              [Version, X]),
                     other
             end;
-        X ->
+        _ ->
             io:format("Linux: ~s"
-                      "~n   ~p"
-                      "~n",
-                      [Version, X]),
+                      "~n", [Version]),
             other
     end.
     
@@ -924,9 +939,10 @@ analyze_and_print_linux_host_info(Version) ->
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
                 io:format("CPU: "
-                          "~n   Model:    ~s"
-                          "~n   BogoMIPS: ~w"
-                          "~n", [CPU, BogoMIPS]),
+                          "~n   Model:          ~s"
+                          "~n   BogoMIPS:       ~w"
+                          "~n   Num Schedulers: ~s"
+                          "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 if
                     (BogoMIPS > 20000) ->
                         1;
@@ -943,9 +959,16 @@ analyze_and_print_linux_host_info(Version) ->
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
-                          "~n   Model: ~s"
-                          "~n", [CPU]),
-                2;
+                          "~n   Model:          ~s"
+                          "~n   Num Schedulers: ~s"
+                          "~n", [CPU, str_num_schedulers()]),
+                NumChed = erlang:system_info(schedulers),
+                if
+                    (NumChed > 2) ->
+                        2;
+                    true ->
+                        5
+                end;
             _ ->
                 5
         end,
@@ -995,8 +1018,12 @@ linux_cpuinfo_bogomips() ->
 
 linux_cpuinfo_total_bogomips() ->
     case linux_cpuinfo_lookup("total bogomips") of
-        [TMB] ->
-            TMB;
+        [TBM] ->
+            try bogomips_to_int(TBM)
+            catch
+                _:_:_ ->
+                    "-"
+            end;
         _ ->
             "-"
     end.
@@ -1104,8 +1131,8 @@ linux_which_cpuinfo(wind_river) ->
             {ok, {CPU, BMips}}
     end;
 
+%% Check for x86 (Intel or AMD)
 linux_which_cpuinfo(other) ->
-    %% Check for x86 (Intel or AMD)
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
@@ -1766,14 +1793,24 @@ win_sys_info_lookup(Key, SysInfo, Def) ->
 
 %% This function only extracts the prop we actually care about!
 which_win_system_info() ->
-    SysInfo = os:cmd("systeminfo"),
-    try process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
-    catch
-        _:_:_ ->
-            io:format("Failed process System info: "
-                      "~s~n", [SysInfo]),
-            []
-    end.
+    F = fun() ->
+                try
+                    begin
+                        SysInfo = os:cmd("systeminfo"),
+                        process_win_system_info(
+                          string:tokens(SysInfo, [$\r, $\n]), [])
+                    end
+                catch
+                    C:E:S ->
+                        io:format("Failed get or process System info: "
+                                  "   Error Class: ~p"
+                                  "   Error:       ~p"
+                                  "   Stack:       ~p"
+                                  "~n", [C, E, S]),
+                        []
+                end
+        end,
+    proxy_call(F, minutes(1), []).
 
 process_win_system_info([], Acc) ->
     Acc;
@@ -1821,12 +1858,6 @@ str_num_schedulers() ->
 linux_info_lookup(Key, File) ->
     try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
         Info ->
-            %% io:format("linux_info_lookup -> "
-            %%           "~n   Key:  ~p"
-            %%           "~n   File: ~p"
-            %%           "~n=> "
-            %%           "~n   ~p"
-            %%           "~n", [Key, File, Info]),
             linux_info_lookup_collect(Key, Info, [])
     catch
         _:_:_ ->
@@ -1866,7 +1897,7 @@ sleep(MSecs) ->
 
 %% ----------------------------------------------------------------
 %% Process utility function
-%% 
+%%
 
 flush_mqueue() ->
     io:format("~p~n", [lists:reverse(flush_mqueue([]))]).
@@ -1881,10 +1912,10 @@ flush_mqueue(MQ) ->
 
     
 trap_exit() -> 
-    {trap_exit,Flag} = process_info(self(),trap_exit),Flag.
+    {trap_exit, Flag} = process_info(self(),trap_exit), Flag.
 
 trap_exit(Flag) -> 
-    process_flag(trap_exit,Flag).
+    process_flag(trap_exit, Flag).
 
 
 

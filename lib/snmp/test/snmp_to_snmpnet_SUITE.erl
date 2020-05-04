@@ -435,9 +435,9 @@ erlang_manager_netsnmp_get(Config) when is_list(Config) ->
                 {version, v2}, {sec_model, v2c}, {sec_level, noAuthNoPriv}])
              || {Domain, Addr} <- Transports],
             Results =
-                [snmp_manager_user:sync_get(
+                [snmp_manager_user:sync_get2(
                    TargetName++domain_suffix(Domain),
-                   [?sysDescr_instance])
+                   [?sysDescr_instance], [])
                  || {Domain, _} <- Transports],
             ct:pal("sync_get -> ~p", [Results]),
             snmp_manager_user:stop(),

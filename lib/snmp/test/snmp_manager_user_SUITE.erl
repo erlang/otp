@@ -888,26 +888,17 @@ register_monitor_and_crash3(Conf) when is_list(Conf) ->
     put(tname,rlac3),
 
     %% <CONDITIONAL-SKIP>
-    %% The point of this is to catch machines running 
-    %% SLES9 (2.6.5)
     LinuxVersionVerify = 
 	fun() ->
-		case os:cmd("uname -m") of
-		    "i686" ++ _ ->
-%% 			io:format("found an i686 machine, "
-%% 				  "now check version~n", []),
-			case os:version() of
-			    {2, 6, Rev} when Rev >= 16 ->
-				true;
-			    {2, Min, _} when Min > 6 ->
-				true;
-			    {Maj, _, _} when Maj > 2 ->
-				true;
-			    _ ->
-				false
-			end;
-		    _ ->
-			true
+                case os:version() of
+                    V when V > {2, 6, 16} ->
+                        ?IPRINT("(Linux) kernel version check: "
+                                "~p > {2, 6, 16} => *NO* SKIP", [V]),
+                        false;
+                    V ->
+                        ?IPRINT("(Linux) kernel version check: "
+                                "~p =< {2, 6, 16}  => *SKIP*", [V]),
+                        true
 		end
 	end,
     Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
@@ -922,10 +913,10 @@ register_monitor_and_crash3(Conf) when is_list(Conf) ->
 
     write_manager_conf(ConfDir),
 
-    Opts = [{server, [{verbosity, trace}]},
-            {net_if, [{verbosity, trace}]},
+    Opts = [{server,     [{verbosity, trace}]},
+            {net_if,     [{verbosity, trace}]},
             {note_store, [{verbosity, trace}]},
-            {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
+            {config,     [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
     ?IPRINT("try starting manager"),
     ?line ok = snmpm:start_link(Opts),
