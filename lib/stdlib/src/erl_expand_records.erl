@@ -20,10 +20,6 @@
 %% Purpose: Expand records into tuples. Also add explicit module
 %% names to calls to imported functions and BIFs.
 
-%% N.B. Although structs (tagged tuples) are not yet allowed in the
-%% language there is code included in pattern/2 and expr/3 (commented out)
-%% that handles them.
-
 -module(erl_expand_records).
 
 -export([module/2]).
@@ -125,9 +121,6 @@ pattern({map_field_exact,Line,K0,V0}, St0) ->
     {K,St1} = expr(K0, St0),
     {V,St2} = pattern(V0, St1),
     {{map_field_exact,Line,K,V},St2};
-%%pattern({struct,Line,Tag,Ps}, St0) ->
-%%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
-%%    {{struct,Line,Tag,TPs},TPsvs,St1};
 pattern({record_index,Line,Name,Field}, St) ->
     {index_expr(Line, Field, Name, record_fields(Name, St)),St};
 pattern({record,Line0,Name,Pfs}, St0) ->
@@ -310,9 +303,6 @@ expr({map_field_exact,Line,K0,V0}, St0) ->
     {K,St1} = expr(K0, St0),
     {V,St2} = expr(V0, St1),
     {{map_field_exact,Line,K,V},St2};
-%%expr({struct,Line,Tag,Es0}, Vs, St0) ->
-%%    {Es1,Esvs,Esus,St1} = expr_list(Es0, Vs, St0),
-%%    {{struct,Line,Tag,Es1},Esvs,Esus,St1};
 expr({record_index,Line,Name,F}, St) ->
     I = index_expr(Line, F, Name, record_fields(Name, St)),
     expr(I, St);

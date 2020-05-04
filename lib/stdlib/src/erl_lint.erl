@@ -20,9 +20,6 @@
 %%
 %% Do necessary checking of Erlang code.
 
-%% N.B. All the code necessary for checking structs (tagged tuples) is
-%% here. Just comment out the lines in pattern/2, gexpr/3 and expr/3.
-
 -module(erl_lint).
 
 -export([module/1,module/2,module/3,format_error/1]).
@@ -1646,8 +1643,6 @@ pattern({tuple,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({map,_Line,Ps}, Vt, Old, Bvt, St) ->
     pattern_map(Ps, Vt, Old, Bvt, St);
-%%pattern({struct,_Line,_Tag,Ps}, Vt, Old, Bvt, St) ->
-%%    pattern_list(Ps, Vt, Old, Bvt, St);
 pattern({record_index,Line,Name,Field}, _Vt, _Old, _Bvt, St) ->
     {Vt1,St1} =
         check_record(Line, Name, St,
@@ -2266,8 +2261,6 @@ is_gexpr({string,_L,_S}, _Info) -> true;
 is_gexpr({nil,_L}, _Info) -> true;
 is_gexpr({cons,_L,H,T}, Info) -> is_gexpr_list([H,T], Info);
 is_gexpr({tuple,_L,Es}, Info) -> is_gexpr_list(Es, Info);
-%%is_gexpr({struct,_L,_Tag,Es}, Info) ->
-%%    is_gexpr_list(Es, Info);
 is_gexpr({map,_L,Es}, Info) ->
     is_map_fields(Es, Info);
 is_gexpr({map,_L,Src,Es}, Info) ->

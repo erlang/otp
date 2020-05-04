@@ -193,9 +193,6 @@ pattern({map_field_exact,Line,K,V}) ->
     Ke = expr(K),
     Ve = pattern(V),
     {map_field_exact,Line,Ke,Ve};
-%%pattern({struct,Line,Tag,Ps0}) ->
-%%    Ps1 = pattern_list(Ps0),
-%%    {struct,Line,Tag,Ps1};
 pattern({record,Line,Name,Pfs0}) ->
     Pfs1 = pattern_fields(Pfs0),
     {record,Line,Name,Pfs1};
@@ -433,9 +430,6 @@ expr({map_field_exact,Line,K,V}) ->
     Ke = expr(K),
     Ve = expr(V),
     {map_field_exact,Line,Ke,Ve};
-%%expr({struct,Line,Tag,Es0}) ->
-%%    Es1 = pattern_list(Es0),
-%%    {struct,Line,Tag,Es1};
 expr({record_index,Line,Name,Field0}) ->
     Field1 = expr(Field0),
     {record_index,Line,Name,Field1};
