@@ -475,6 +475,25 @@ init_per_suite(Config) ->
 
     ct:timetrap(minutes(3)),
 
+    try analyze_and_print_host_info() of
+        {Factor, HostInfo} when is_integer(Factor) ->
+            try maybe_skip(HostInfo) of
+                true ->
+                    {skip, "Unstable host and/or os (or combo thererof)"};
+                false ->
+                    maybe_start_global_sys_monitor(Config),
+                    [{megaco_factor, Factor} | Config]
+            catch
+                throw:{skip, _} = SKIP ->
+                    SKIP
+            end
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+maybe_skip(HostInfo) ->
+
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
     %% checking for the host name...
@@ -533,19 +552,12 @@ init_per_suite(Config) ->
         end,
     SkipWindowsOnVirtual =
         fun() ->
-                try which_win_system_info() of
-                    SysInfo ->
-                        SysMan  = win_sys_info_lookup(system_manufacturer,
-                                                      SysInfo),
-                        case string:to_lower(SysMan) of
-                            "vmware" ++ _ ->
-                                true;
-                            _ ->
-                                false
-                        end
-                catch
-                    throw:{skip, _} = SKIP ->
-                        SKIP
+                SysMan = win_sys_info_lookup(system_manufacturer, HostInfo),
+                case string:to_lower(SysMan) of
+                    "vmware" ++ _ ->
+                        true;
+                    _ ->
+                        false
                 end
         end,
     COND = [
@@ -553,23 +565,7 @@ init_per_suite(Config) ->
 		    {darwin, DarwinVersionVerify}]},
             {win32, SkipWindowsOnVirtual}
            ],
-    try os_based_skip(COND) of
-        true ->
-            {skip, "Unstable host and/or os (or combo thererof)"};
-        false ->
-            %% Factor = analyze_and_print_host_info(),
-            try analyze_and_print_host_info() of
-                Factor ->
-                    maybe_start_global_sys_monitor(Config),
-                    [{megaco_factor, Factor} | Config]
-            catch
-                throw:{skip, _} = SKIP ->
-                    SKIP
-            end
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    os_based_skip(COND).
 
 %% We start the global system monitor unless explicitly disabled
 maybe_start_global_sys_monitor(Config) ->
@@ -755,10 +751,10 @@ analyze_and_print_linux_host_info(Version) ->
     %% Check if we need to adjust the factor because of the memory
     try linux_which_meminfo() of
         AddFactor ->
-            Factor + AddFactor
+            {Factor + AddFactor, []}
     catch
         _:_:_ ->
-            Factor
+            {Factor, []}
     end.
 
 
@@ -1062,11 +1058,11 @@ analyze_and_print_openbsd_host_info(Version) ->
                     true ->
                         3
                 end,
-            CPUFactor + MemAddFactor
+            {CPUFactor + MemAddFactor, []}
         end
     catch
         _:_:_ ->
-            1
+            {5, []}
     end.
 
 
@@ -1149,21 +1145,22 @@ analyze_and_print_freebsd_host_info(Version) ->
                     true ->
                         3
                 end,
-            CPUFactor + MemAddFactor
+            {CPUFactor + MemAddFactor, []}
         end
     catch
         _:_:_ ->
             io:format("CPU:"
                       "~n   Num Schedulers: ~w"
                       "~n", [erlang:system_info(schedulers)]),
-            case erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                _ ->
-                    2
-            end
+            Factor = case erlang:system_info(schedulers) of
+                         1 ->
+                             10;
+                         2 ->
+                             5;
+                         _ ->
+                             2
+                     end,
+            {Factor, []}
     end.
 
 analyze_freebsd_cpu(Extract) ->
@@ -1286,21 +1283,22 @@ analyze_and_print_netbsd_host_info(Version) ->
                     true ->
                         3
                 end,
-            CPUFactor + MemAddFactor
+            {CPUFactor + MemAddFactor, []}
         end
     catch
         _:_:_ ->
             io:format("CPU:"
                       "~n   Num Schedulers: ~w"
                       "~n", [erlang:system_info(schedulers)]),
-            case erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                _ ->
-                    2
-            end
+            Factor = case erlang:system_info(schedulers) of
+                         1 ->
+                             10;
+                         2 ->
+                             5;
+                         _ ->
+                             2
+                     end,
+            {Factor, []}
     end.
 
 analyze_netbsd_cpu(Extract) ->
@@ -1450,19 +1448,19 @@ analyze_and_print_solaris_host_info(Version) ->
             _:_:_ ->
                 10
         end,
-    try erlang:system_info(schedulers) of
-        1 ->
-            10;
-        2 ->
-            5;
-        N when (N =< 6) ->
-            2;
-        _ ->
-            1
-    catch
-        _:_:_ ->
-            10
-    end + MemFactor.    
+    {try erlang:system_info(schedulers) of
+         1 ->
+             10;
+         2 ->
+             5;
+         N when (N =< 6) ->
+             2;
+         _ ->
+             1
+     catch
+         _:_:_ ->
+             10
+     end + MemFactor, []}.    
 
 
 analyze_and_print_win_host_info(Version) ->
@@ -1534,7 +1532,7 @@ analyze_and_print_win_host_info(Version) ->
             _ ->
                 2
         end,
-    CPUFactor + MemFactor.
+    {CPUFactor + MemFactor, SysInfo}.
 
 win_sys_info_lookup(Key, SysInfo) ->
     win_sys_info_lookup(Key, SysInfo, "-").
