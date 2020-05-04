@@ -366,6 +366,7 @@ typedef struct ei_cnode_s {
     erlang_pid self;
     ei_socket_callbacks *cbs;
     void *setup_context;
+    unsigned int pidsn;
 } ei_cnode;
 
 typedef struct in_addr *Erl_IpAddr; 
@@ -446,6 +447,8 @@ const char *ei_thishostname(const ei_cnode* ec);
 const char *ei_thisalivename(const ei_cnode* ec);
 
 erlang_pid *ei_self(ei_cnode* ec);
+int ei_make_pid(ei_cnode *ec, erlang_pid *pid);
+int ei_make_ref(ei_cnode *ec, erlang_ref *ref);
 
 /* 
  * settings 
@@ -599,6 +602,10 @@ int ei_x_free(ei_x_buff* x);
 int ei_x_append(ei_x_buff* x, const ei_x_buff* x2);
 int ei_x_append_buf(ei_x_buff* x, const char* buf, int len);
 int ei_skip_term(const char* buf, int* index);
+
+int ei_cmp_refs(erlang_ref *a, erlang_ref *b);
+int ei_cmp_pids(erlang_pid *a, erlang_pid *b);
+int ei_cmp_ports(erlang_port *a, erlang_port *b);
 
 /***************************************************************************
  *

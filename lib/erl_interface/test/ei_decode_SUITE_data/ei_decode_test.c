@@ -859,6 +859,87 @@ TESTCASE(test_ei_decode_iodata)
 
 /* ******************************************************************** */
 
+/*
+ * Does not belong here move to its own suite...
+ */
+TESTCASE(test_ei_cmp_nc)
+{
+    char *buf = NULL;
+    ei_init();
+
+    while (1) {
+        int len, index, arity;
+        char atom[MAXATOMLEN_UTF8];
+        ei_x_buff x;
+
+        if (buf)
+            free_packet(buf);
+        buf = read_packet(&len);
+
+        if (len == 4
+            && buf[0] == 'd'
+            && buf[1] == 'o'
+            && buf[2] == 'n'
+            && buf[3] == 'e') {
+            break;
+        }
+
+        ei_x_new_with_version(&x);
+        index = 0;
+        if (ei_decode_version(buf, &index, NULL)
+            || ei_decode_tuple_header(buf, &index, &arity)
+            || (arity != 3)
+            || ei_decode_atom(buf, &index, atom)) {
+            ei_x_encode_atom(&x, "decode_tuple_failed");
+        }
+        else if (strcmp(atom, "cmp_pids") == 0) {
+            erlang_pid a, b;
+            if (ei_decode_pid(buf, &index, &a)
+                || ei_decode_pid(buf, &index, &b)) {
+                ei_x_encode_atom(&x, "decode_pids_failed");
+            }
+            else {
+                long res = (long) ei_cmp_pids(&a, &b);
+                ei_x_encode_long(&x, res);
+            }
+        }
+        else if (strcmp(atom, "cmp_ports") == 0) {
+            erlang_port a, b;
+            if (ei_decode_port(buf, &index, &a)
+                || ei_decode_port(buf, &index, &b)) {
+                ei_x_encode_atom(&x, "decode_ports_failed");
+            }
+            else {
+                long res = (long) ei_cmp_ports(&a, &b);
+                ei_x_encode_long(&x, res);
+            }
+        }
+        else if (strcmp(atom, "cmp_refs") == 0) {
+            erlang_ref a, b;
+            if (ei_decode_ref(buf, &index, &a)
+                || ei_decode_ref(buf, &index, &b)) {
+                ei_x_encode_atom(&x, "decode_refs_failed");
+            }
+            else {
+                long res = (long) ei_cmp_refs(&a, &b);
+                ei_x_encode_long(&x, res);
+            }
+        }
+        else {
+            ei_x_encode_atom(&x, "unexpected_operation");
+        }
+
+        send_bin_term(&x);
+        ei_x_free(&x);
+    }
+
+    if (buf)
+        free_packet(buf);
+    report(1);
+}
+
+/* ******************************************************************** */
+
 int ei_decode_my_atom_as(const char *buf, int *index, char *to,
 			 struct my_atom *atom) {
   erlang_char_encoding was,result;

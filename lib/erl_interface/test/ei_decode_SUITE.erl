@@ -34,7 +34,8 @@
          test_ei_decode_nonoptimal/1,
          test_ei_decode_misc/1,
          test_ei_decode_utf8_atom/1,
-         test_ei_decode_iodata/1]).
+         test_ei_decode_iodata/1,
+         test_ei_cmp_nc/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -43,7 +44,7 @@ all() ->
      test_ei_decode_longlong, test_ei_decode_ulonglong,
      test_ei_decode_char, test_ei_decode_nonoptimal,
      test_ei_decode_misc, test_ei_decode_utf8_atom,
-     test_ei_decode_iodata].
+     test_ei_decode_iodata, test_ei_cmp_nc].
 
 init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
@@ -277,6 +278,97 @@ check_decode_iodata(P, Data, Valid) ->
             io:format("Expect: ~w~nActual: ~w~n", [Expect, Actual]),
             ct:fail(unexpected_result)
     end.
+
+%% ######################################################################## %%
+
+%% Should be moved to its own suite...
+
+test_ei_cmp_nc(Config) when is_list(Config) ->
+    P = runner:start(Config, ?test_ei_cmp_nc),
+    R0 = make_ref(),
+    R1 = make_ref(),
+    check_cmp(P, R0, R0),
+    check_cmp(P, R0, R1),
+    check_cmp(P, R1, R0),
+    check_cmp(P, mk_ref({a@b, 4711}, [17, 17, 17]), mk_ref({a@c, 4711}, [17, 17, 17])),
+    check_cmp(P, mk_ref({a@b, 4711}, [17, 17, 17]), mk_ref({a@d, 4711}, [17, 17, 17])),
+    check_cmp(P, mk_ref({a@b, 4711}, [17, 17, 17]), mk_ref({a@bc, 4711}, [17, 17, 17])),
+    check_cmp(P, mk_ref({a@b, 4712}, [17, 17, 17]), mk_ref({a@b, 4711}, [17, 17, 17])),
+    check_cmp(P, mk_ref({a@b, 4711}, [17, 17, 17]), mk_ref({a@b, 4711}, [18, 17, 17])),
+    check_cmp(P, mk_ref({a@b, 4711}, [17, 17, 17]), mk_ref({a@b, 4711}, [17, 18, 17])),
+    check_cmp(P, mk_ref({a@b, 4711}, [17, 17, 17]), mk_ref({a@b, 4711}, [17, 17, 18])),
+    check_cmp(P, mk_ref({a@b, 4711}, [0, 17]), mk_ref({a@b, 4711}, [18])),
+    check_cmp(P, mk_ref({a@b, 4711}, [17, 17]), mk_ref({a@b, 4711}, [17, 18])),
+    check_cmp(P, mk_ref({a@b, 4711}, [0, 0, 0]), mk_ref({a@b, 4711}, [17])),
+    check_cmp(P, mk_ref({a@b, 4711}, [0, 0, 17]), mk_ref({a@b, 4711}, [18, 17])),
+    check_cmp(P, mk_ref({a@b, 4711}, [0, 17, 17]), mk_ref({a@b, 4711}, [18])),
+
+    check_cmp(P, self(), self()),
+    check_cmp(P, self(), whereis(file_server_2)),
+    check_cmp(P, whereis(file_server_2), self()),
+    check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@c, 4711}, 17, 17)),
+    check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@d, 4711}, 17, 17)),
+    check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@bc, 4711}, 17, 17)),
+    check_cmp(P, mk_pid({a@b, 4712}, 17, 17), mk_pid({a@b, 4711}, 17, 17)),
+    check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@b, 4711}, 18, 17)),
+    check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@b, 4711}, 17, 18)),
+
+    Prt0 = open_port({spawn, "true"},[]),
+    Prt1 = open_port({spawn, "true"},[]),
+
+    check_cmp(P, Prt0, Prt0),
+    check_cmp(P, Prt1, Prt0),
+    check_cmp(P, Prt0, Prt1),
+    check_cmp(P, mk_port({a@b, 4711}, 17), mk_port({a@b, 4711}, 17)),
+    check_cmp(P, mk_port({a@b, 4711}, 17), mk_port({a@d, 4711}, 17)),
+    check_cmp(P, mk_port({a@b, 4711}, 17), mk_port({a@bc, 4711}, 17)),
+    check_cmp(P, mk_port({a@b, 4712}, 17), mk_port({a@b, 4711}, 17)),
+    check_cmp(P, mk_port({a@b, 4711}, 17), mk_port({a@b, 4711}, 18)),
+
+    send_raw(P, <<"done">>),
+    runner:recv_eot(P),
+    ok.
+
+mk_pid(Node, Num, Ser) ->
+    erts_test_utils:mk_ext_pid(Node, Num, Ser).
+
+mk_port(Node, Id) ->
+    erts_test_utils:mk_ext_port(Node, Id).
+
+mk_ref(Node, Numbers) ->
+    erts_test_utils:mk_ext_ref(Node, Numbers).
+
+check_cmp(P, A, B) when is_pid(A), is_pid(B) ->
+    check_cmp(P, {cmp_pids, A, B});
+check_cmp(P, A, B) when is_port(A), is_port(B) ->
+    check_cmp(P, {cmp_ports, A, B});
+check_cmp(P, A, B) when is_reference(A), is_reference(B) ->
+    check_cmp(P, {cmp_refs, A, B}).
+
+check_cmp(P, {_, A, B} = Data) ->
+    io:format("~n~nChecking: ~p~n", [Data]),
+    send_term_as_binary(P, Data),
+    {term, Res} = runner:get_term(P),
+    io:format("Res = ~p~n", [Res]),
+    case {{ei_cmp, Res}, {erlang, cmp_nc(A, B)}} of
+        {{ei_cmp, 0}, {erlang, equal}} ->
+            ok;
+        {{ei_cmp, Cmp}, {erlang, less_than}} when is_integer(Cmp),
+                                                  Cmp < 0 ->
+            ok;
+        {{ei_cmp, Cmp}, {erlang, larger_than}} when is_integer(Cmp),
+                                                    Cmp > 0 -> ok;
+        Fail ->
+            ct:fail(Fail)
+    end.
+
+cmp_nc(A, A) ->
+    equal;
+cmp_nc(A, B) when A < B ->
+    less_than;
+cmp_nc(_, _) ->
+    larger_than.
+
 
 %% ######################################################################## %%
 

@@ -40,6 +40,8 @@ static void cmd_ei_send_funs(char* buf, int len);
 static void cmd_ei_reg_send(char* buf, int len);
 static void cmd_ei_rpc(char* buf, int len);
 static void cmd_ei_set_get_tracelevel(char* buf, int len);
+static void cmd_ei_make_refs(char* buf, int len);
+static void cmd_ei_make_pids(char* buf, int len);
 
 static void send_errno_result(int value);
 
@@ -60,6 +62,8 @@ static struct {
     "ei_rpc",  		     4, cmd_ei_rpc,
     "ei_set_get_tracelevel", 1, cmd_ei_set_get_tracelevel,
     "ei_format_pid",         2, cmd_ei_format_pid,
+    "ei_make_refs",          2, cmd_ei_make_refs,
+    "ei_make_pids",          2, cmd_ei_make_pids,
 };
 
 
@@ -207,6 +211,80 @@ static void cmd_ei_send(char* buf, int len)
     if (ei_x_append_buf(&x, &buf[index], len - index) < 0)
 	fail("append");
     send_errno_result(ei_send(fd, &pid, x.buff, x.index));
+    ei_x_free(&x);
+}
+
+static void cmd_ei_make_refs(char* buf, int len)
+{
+    int index = 0;
+    long fd;
+    erlang_pid pid;
+    ei_x_buff x;
+    int i;
+    int nref = 1000;
+
+    if (ei_decode_long(buf, &index, &fd) < 0)
+	fail("expected long");
+    if (ei_decode_pid(buf, &index, &pid) < 0)
+	fail("expected pid (node)");
+    if (ei_x_new_with_version(&x) < 0)
+	fail("ei_x_new_with_version");
+    if (ei_x_encode_tuple_header(&x, 2) < 0)
+        fail("ei_x_encode_tuple_header() failed");
+    if (ei_x_encode_atom(&x, ei_thisnodename(&ec)) < 0)
+        fail("ei_x_encode_atom() failed");
+    if (ei_x_encode_list_header(&x, nref) < 0)
+        fail("ei_x_encode_list_header() failed");
+    for (i = 0; i < nref; i++) {
+        erlang_ref ref;
+        if (ei_make_ref(&ec, &ref))
+            fail("ei_make_ref() failed");
+        if (ei_x_encode_ref(&x, &ref))
+            fail("ei_x_encode_ref() failed");
+    }
+    if (ei_x_encode_empty_list(&x) < 0)
+        fail("ei_x_encode_empty_list() failed");
+    send_errno_result(ei_send(fd, &pid, x.buff, x.index));
+    ei_x_free(&x);
+}
+
+static void cmd_ei_make_pids(char* buf, int len)
+{
+    int index = 0;
+    long fd;
+    erlang_pid from_pid;
+    erlang_pid *self;
+    ei_x_buff x;
+    int i;
+    int npid = 1000;
+
+    if (ei_decode_long(buf, &index, &fd) < 0)
+	fail("expected long");
+    if (ei_decode_pid(buf, &index, &from_pid) < 0)
+	fail("expected pid (node)");
+    if (ei_x_new_with_version(&x) < 0)
+	fail("ei_x_new_with_version");
+    if (ei_x_encode_tuple_header(&x, 2) < 0)
+        fail("ei_x_encode_tuple_header() failed");
+    if (ei_x_encode_atom(&x, ei_thisnodename(&ec)) < 0)
+        fail("ei_x_encode_atom() failed");
+    if (ei_x_encode_list_header(&x, 1+npid) < 0)
+        fail("ei_x_encode_list_header() failed");
+    self = ei_self(&ec);
+    if (!self)
+        fail("ei_self() failed");
+    if (ei_x_encode_pid(&x, self))
+        fail("ei_x_encode_pid() failed");
+    for (i = 0; i < npid; i++) {
+        erlang_pid pid;
+        if (ei_make_pid(&ec, &pid))
+            fail("ei_make_pid() failed");
+        if (ei_x_encode_pid(&x, &pid))
+            fail("ei_x_encode_pid() failed");
+    }
+    if (ei_x_encode_empty_list(&x) < 0)
+        fail("ei_x_encode_empty_list() failed");
+    send_errno_result(ei_send(fd, &from_pid, x.buff, x.index));
     ei_x_free(&x);
 }
 
