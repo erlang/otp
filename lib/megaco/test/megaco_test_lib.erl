@@ -29,6 +29,7 @@
 %% -compile(export_all).
 
 -export([
+         proxy_call/3,
          log/4,
          error/3,
 
@@ -68,6 +69,31 @@
 -include("megaco_test_lib.hrl").
 
 -record('REASON', {mod, line, desc}).
+
+
+%% ----------------------------------------------------------------
+%% Proxy Call
+%% This is used when we need to assign a timeout to a call, but the
+%% call itself does not provide such an argument.
+%%
+%% This has nothing to to with the proxy_start and proxy_init
+%% functions below.
+
+proxy_call(F, Timeout, Default)
+  when is_function(F, 0) andalso
+       is_integer(Timeout) andalso (Timeout > 0) andalso
+       is_function(Default, 0) ->
+    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+    receive
+        {'DOWN', M, process, P, Reply} ->
+            Reply
+    after Timeout ->
+            erlang:demonitor(M, [flush]),
+            exit(P, kill),
+            Default()
+    end;
+proxy_call(F, Timeout, Default) ->
+    proxy_call(F, Timeout, fun() -> Default end).
 
 
 %% ----------------------------------------------------------------
@@ -447,17 +473,25 @@ pprint(F, A) ->
 
 init_per_suite(Config) ->
 
+    ct:timetrap(minutes(3)),
+
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
     %% checking for the host name...
-    %% We have two "machines" we are checking for. Both are old installations
-    %% running on really slow VMs (the host machines are old and tired).
+
     LinuxVersionVerify =
         fun(V) when (V > {3,6,11}) ->
                 false; % OK - No skip
            (V) when (V =:= {3,6,11}) ->
                 case string:trim(os:cmd("cat /etc/issue")) of
                     "Fedora release 16 " ++ _ -> % Stone age Fedora => Skip
+                        true;
+                    _ ->
+                        false
+                end;
+           (V) when (V =:= {3,4,20}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    "Wind River Linux 5.0.1.0" ++ _ -> % *Old* Wind River => skip
                         true;
                     _ ->
                         false
@@ -499,13 +533,19 @@ init_per_suite(Config) ->
         end,
     SkipWindowsOnVirtual =
         fun() ->
-                SysInfo = which_win_system_info(),
-                SysMan  = win_sys_info_lookup(system_manufacturer, SysInfo),
-                case string:to_lower(SysMan) of
-                    "vmware" ++ _ ->
-                        true;
-                    _ ->
-                        false
+                try which_win_system_info() of
+                    SysInfo ->
+                        SysMan  = win_sys_info_lookup(system_manufacturer,
+                                                      SysInfo),
+                        case string:to_lower(SysMan) of
+                            "vmware" ++ _ ->
+                                true;
+                            _ ->
+                                false
+                        end
+                catch
+                    throw:{skip, _} = SKIP ->
+                        SKIP
                 end
         end,
     COND = [
@@ -517,9 +557,15 @@ init_per_suite(Config) ->
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
         false ->
-            Factor = analyze_and_print_host_info(),
-            maybe_start_global_sys_monitor(Config),
-            [{megaco_factor, Factor} | Config]
+            %% Factor = analyze_and_print_host_info(),
+            try analyze_and_print_host_info() of
+                Factor ->
+                    maybe_start_global_sys_monitor(Config),
+                    [{megaco_factor, Factor} | Config]
+            catch
+                throw:{skip, _} = SKIP ->
+                    SKIP
+            end
     end.
 
 %% We start the global system monitor unless explicitly disabled
@@ -581,10 +627,6 @@ end_per_testcase(_Case, Config) ->
 %% the load for some test cases. Such as run time or number of
 %% iteraions. This only works for some OSes.
 %%
-%% We make some calculations on Linux, OpenBSD and FreeBSD.
-%% On SunOS we always set the factor to 2 (just to be on the safe side)
-%% On all other os:es (mostly windows) we check the number of schedulers,
-%% but at least the factor will be 2.
 analyze_and_print_host_info() ->
     {OsFam, OsName} = os:type(),
     Version         =
@@ -750,8 +792,12 @@ linux_cpuinfo_bogomips() ->
 
 linux_cpuinfo_total_bogomips() ->
     case linux_cpuinfo_lookup("total bogomips") of
-        [TMB] ->
-            TMB;
+        [TBM] ->
+            try bogomips_to_int(TBM)
+            catch
+                _:_:_ ->
+                    "-"
+            end;
         _ ->
             "-"
     end.
@@ -1500,14 +1546,25 @@ win_sys_info_lookup(Key, SysInfo, Def) ->
 
 %% This function only extracts the prop we actually care about!
 which_win_system_info() ->
-    SysInfo = os:cmd("systeminfo"),
-    try process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
-    catch
-        _:_:_ ->
-            io:format("Failed process System info: "
-                      "~s~n", [SysInfo]),
-            []
-    end.
+    F = fun() ->
+                try
+                    begin
+                        SysInfo = os:cmd("systeminfo"),
+                        process_win_system_info(
+                          string:tokens(SysInfo, [$\r, $\n]), [])
+                    end
+                catch
+                    C:E:S ->
+                        io:format("Failed get or process System info: "
+                                  "   Error Class: ~p"
+                                  "   Error:       ~p"
+                                  "   Stack:       ~p"
+                                  "~n", [C, E, S]),
+                        []
+                end
+        end,
+    proxy_call(F, minutes(1),
+               fun() -> throw({skip, "System info timeout"}) end).
 
 process_win_system_info([], Acc) ->
     Acc;

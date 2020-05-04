@@ -27,6 +27,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
+-include_lib("common_test/include/ct.hrl").
 -include_lib("megaco/src/udp/megaco_udp.hrl").
 -include("megaco_test_lib.hrl").
 
@@ -239,6 +240,8 @@ start_and_stop(doc) ->
     ["This test case sets up a connection and then cloises it. "
      "No data is sent. "];
 start_and_stop(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(Factor * ?SECS(45)),
     Pre = fun() ->
 		  p("create nodes"),
 		  ServerNode = make_node_name(server),
@@ -247,20 +250,22 @@ start_and_stop(Config) when is_list(Config) ->
 		  ok = ?START_NODES(Nodes),
 		  Nodes
 	  end,
-    Case = fun do_start_and_stop/1,
+    Case = fun(X) -> do_start_and_stop(Factor, X) end,
     Post = fun(Nodes) ->
                    p("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(start_and_stop, Pre, Case, Post).
 
-do_start_and_stop([ServerNode, ClientNode]) ->
+do_start_and_stop(Factor, [ServerNode, ClientNode]) ->
     %% Create command sequences
+    TOCalc = fun(BaseTO) -> to_calc(Factor, BaseTO) end,
+    TO     = TOCalc(?SECS(5)),
     p("create command sequences"),
     ServerPort = 2944,
     ServerCmds = start_and_stop_server_commands(ServerPort),
     {ok, ServerHost} = inet:gethostname(),
-    ClientCmds = start_and_stop_client_commands(ServerPort, ServerHost),
+    ClientCmds = start_and_stop_client_commands(TO, ServerPort, ServerHost),
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
@@ -268,8 +273,8 @@ do_start_and_stop([ServerNode, ClientNode]) ->
     p("server command handler started: ~p", [Server]),
     Client = client_start_command_handler(ClientNode, ClientCmds),
     p("client command handler started: ~p", [Client]),
-
-    ok =
+    
+    ok     =
         receive
             {operational, Server} ->
                 p("received listening message from server [~p] => "
@@ -280,11 +285,11 @@ do_start_and_stop([ServerNode, ClientNode]) ->
 		?SKIP(Reason);
 	    {'EXIT', Client, {skip, Reason}} ->
 		?SKIP(Reason)
-        after 5000 ->
+        after TO ->
                 {error, server_timeout}
         end,
 
-    ok = await_command_handler_completion([Server, Client], ?SECS(20)),
+    ok = await_command_handler_completion([Server, Client], TOCalc(?SECS(20))),
     p("done"),
     ok.
 
@@ -337,7 +342,7 @@ start_and_stop_server_commands(Port) ->
 
     ].
 
-start_and_stop_client_commands(ServerPort, _ServerHost) ->
+start_and_stop_client_commands(TO, ServerPort, _ServerHost) ->
     Opts = [{port, ServerPort}],
     Self = self(),
     [
@@ -362,7 +367,7 @@ start_and_stop_client_commands(ServerPort, _ServerHost) ->
      #{id   => 4,
        desc => "Await continue",
        cmd  => fun(State) ->
-		       client_await_continue_signal(State, 5000)
+		       client_await_continue_signal(State, TO)
 	       end},
 
      #{id   => 5,
@@ -399,6 +404,8 @@ sendreceive(suite) ->
 sendreceive(doc) ->
     ["Test send and receive with the UDP transport. "];
 sendreceive(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(Factor * ?SECS(30)),
     Pre = fun() ->
 		  p("create nodes"),
 		  ServerNode = make_node_name(server),
@@ -407,20 +414,22 @@ sendreceive(Config) when is_list(Config) ->
 		  ok = ?START_NODES(Nodes),
 		  Nodes
 	  end,
-    Case = fun do_sendreceive/1,
+    Case = fun(X) -> do_sendreceive(Factor, X) end,
     Post = fun(Nodes) ->
                    p("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(sendreceive, Pre, Case, Post).
 
-do_sendreceive([ServerNode, ClientNode]) ->
+do_sendreceive(Factor, [ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
+    TOCalc = fun(BaseTO) -> to_calc(Factor, BaseTO) end,
+    TO     = TOCalc(?SECS(5)),
     ServerPort = 2944,
-    ServerCmds = sendreceive_server_commands(ServerPort),
+    ServerCmds = sendreceive_server_commands(TO, ServerPort),
     {ok, ServerHost} = inet:gethostname(),
-    ClientCmds = sendreceive_client_commands(ServerPort, ServerHost),
+    ClientCmds = sendreceive_client_commands(TO, ServerPort, ServerHost),
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
@@ -440,16 +449,16 @@ do_sendreceive([ServerNode, ClientNode]) ->
 		?SKIP(Reason);
 	    {'EXIT', Client, {skip, Reason}} ->
 		?SKIP(Reason)        
-	after 5000 ->
+	after TO ->
                 {error, server_timeout}
         end,
 
-    ok = await_command_handler_completion([Server, Client], ?SECS(20)),
+    ok = await_command_handler_completion([Server, Client], TOCalc(?SECS(20))),
     p("done"),
     ok.
 
 
-sendreceive_server_commands(Port) ->
+sendreceive_server_commands(TO, Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
@@ -480,7 +489,7 @@ sendreceive_server_commands(Port) ->
      #{id   => 5,
        desc => "Await initial message (ping)",
        cmd  => fun(State) -> 
-		       server_await_initial_message(State, "ping", 5000) 
+		       server_await_initial_message(State, "ping", TO)
 	       end},
 
      #{id   => 6,
@@ -492,7 +501,7 @@ sendreceive_server_commands(Port) ->
      #{id   => 7,
        desc => "Await nothing before sending a message (hejsan)",
        cmd  => fun(State) -> 
-		       server_await_nothing(State, 1000) 
+		       server_await_nothing(State, TO div 5)
 	       end},
 
      #{id   => 8,
@@ -504,13 +513,13 @@ sendreceive_server_commands(Port) ->
      #{id   => 9,
        desc => "Await reply (hoppsan) to message",
        cmd  => fun(State) -> 
-		       server_await_message(State, "hoppsan", 1000) 
+		       server_await_message(State, "hoppsan", TO div 5) 
 	       end},
 
      #{id   => 10,
        desc => "Await nothing before closing",
        cmd  => fun(State) -> 
-		       server_await_nothing(State, 1000) 
+		       server_await_nothing(State, TO div 5)
 	       end},
      
      #{id   => 11,
@@ -522,7 +531,7 @@ sendreceive_server_commands(Port) ->
      #{id   => 12,
        desc => "Await nothing before stopping transport",
        cmd  => fun(State) -> 
-		       server_await_nothing(State, 1000) 
+		       server_await_nothing(State, TO div 5)
 	       end},
      
      #{id   => 13,
@@ -532,7 +541,7 @@ sendreceive_server_commands(Port) ->
 	       end}
     ].
 
-sendreceive_client_commands(ServerPort, ServerHost) ->
+sendreceive_client_commands(TO, ServerPort, ServerHost) ->
     OwnPort = ServerPort+1, 
     Opts    = [{port, OwnPort}], 
     Self    = self(),
@@ -558,7 +567,7 @@ sendreceive_client_commands(ServerPort, ServerHost) ->
      #{id   => 4,
        desc => "Await continue",
        cmd  => fun(State) ->
-		       client_await_continue_signal(State, 5000)
+		       client_await_continue_signal(State, TO)
 	       end},
 
      #{id   => 5,
@@ -576,13 +585,13 @@ sendreceive_client_commands(ServerPort, ServerHost) ->
      #{id   => 7,
        desc => "Await reply (pong) to initial message",
        cmd  => fun(State) -> 
-		       client_await_message(State, "pong", 1000) 
+		       client_await_message(State, "pong", TO div 5)
 	       end},
 
      #{id   => 8,
        desc => "Await message (hejsan)",
        cmd  => fun(State) -> 
-		       client_await_message(State, "hejsan", 5000) 
+		       client_await_message(State, "hejsan", TO)
 	       end},
 
      #{id   => 9,
@@ -594,7 +603,7 @@ sendreceive_client_commands(ServerPort, ServerHost) ->
      #{id   => 10,
        desc => "Await nothing before closing",
        cmd  => fun(State) -> 
-		       client_await_nothing(State, 1000) 
+		       client_await_nothing(State, TO div 5)
 	       end},
 
      #{id   => 11,
@@ -606,7 +615,7 @@ sendreceive_client_commands(ServerPort, ServerHost) ->
      #{id   => 12,
        desc => "Await nothing before stopping transport",
        cmd  => fun(State) -> 
-		       client_await_nothing(State, 1000) 
+		       client_await_nothing(State, TO div 5)
 	       end},
 
      #{id   => 13,
@@ -624,6 +633,8 @@ block_unblock(suite) ->
 block_unblock(doc) ->
     ["Test the block/unblock functions of the UDP transport. "];
 block_unblock(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(Factor * ?MINS(1)),
     Pre = fun() ->
 		  p("create nodes"),
 		  ServerNode = make_node_name(server),
@@ -632,20 +643,22 @@ block_unblock(Config) when is_list(Config) ->
 		  ok = ?START_NODES(Nodes),
 		  Nodes
 	  end,
-    Case = fun do_block_unblock/1,
+    Case = fun(X) -> do_block_unblock(Factor, X) end,
     Post = fun(Nodes) ->
                    p("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(block_unblock, Pre, Case, Post).
 
-do_block_unblock([ServerNode, ClientNode]) ->
+do_block_unblock(Factor, [ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
+    TOCalc = fun(BaseTO) -> to_calc(Factor, BaseTO) end,
+    TO     = TOCalc(?SECS(5)),
     ServerPort = 2944,
-    ServerCmds = block_unblock_server_commands(ServerPort),
+    ServerCmds = block_unblock_server_commands(TO, ServerPort),
     {ok, ServerHost} = inet:gethostname(),
-    ClientCmds = block_unblock_client_commands(ServerPort, ServerHost),
+    ClientCmds = block_unblock_client_commands(TO, ServerPort, ServerHost),
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
@@ -667,7 +680,7 @@ do_block_unblock([ServerNode, ClientNode]) ->
 		?SKIP(Reason1);
 	    {'EXIT', Client, {skip, Reason2}} ->
 		?SKIP(Reason2)
-        after 5000 ->
+        after TO ->
                 {error, server_timeout}
         end,
 
@@ -684,16 +697,16 @@ do_block_unblock([ServerNode, ClientNode]) ->
 		?SKIP(Reason3);
 	    {'EXIT', Client, {skip, Reason4}} ->
 		?SKIP(Reason4)
-	after 5000 ->
+	after TO ->
 		{error, timeout}
 	end,
 
-    ok = await_command_handler_completion([Server, Client], ?SECS(20)),
+    ok = await_command_handler_completion([Server, Client], TOCalc(?SECS(20))),
     p("done"),
     ok.
 
 
-block_unblock_server_commands(Port) ->
+block_unblock_server_commands(TO, Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
@@ -724,7 +737,7 @@ block_unblock_server_commands(Port) ->
      #{id   => 5,
        desc => "Await initial message (ping)",
        cmd  => fun(State) -> 
-		       server_await_initial_message(State, "ping", 5000) 
+		       server_await_initial_message(State, "ping", TO)
 	       end},
 
      #{id   => 6,
@@ -736,7 +749,7 @@ block_unblock_server_commands(Port) ->
      #{id   => 7,
        desc => "Await continue",
        cmd  => fun(State) ->
-		       server_await_continue_signal(State, 5000)
+		       server_await_continue_signal(State, TO)
 	       end},
 
      #{id   => 8,
@@ -748,19 +761,19 @@ block_unblock_server_commands(Port) ->
      #{id   => 9,
        desc => "Await nothing before receiving (hoppsan) reply",
        cmd  => fun(State) -> 
-		       server_await_nothing(State, 4000) 
+		       server_await_nothing(State, TO)
 	       end},
 
      #{id   => 10,
        desc => "Await reply (hoppsan) to message",
        cmd  => fun(State) -> 
-		       server_await_message(State, "hoppsan", 2000) 
+		       server_await_message(State, "hoppsan", TO div 2)
 	       end},
 
      #{id   => 11,
        desc => "Await nothing before closing",
        cmd  => fun(State) -> 
-		       server_await_nothing(State, 1000) 
+		       server_await_nothing(State, TO div 5)
 	       end},
 
      #{id   => 12,
@@ -772,7 +785,7 @@ block_unblock_server_commands(Port) ->
      #{id   => 13,
        desc => "Await nothing before stopping transport",
        cmd  => fun(State) -> 
-		       server_await_nothing(State, 1000) 
+		       server_await_nothing(State, TO div 5)
 	       end},
 
      #{id   => 14,
@@ -783,7 +796,7 @@ block_unblock_server_commands(Port) ->
 
     ].
 
-block_unblock_client_commands(ServerPort, ServerHost) ->
+block_unblock_client_commands(TO, ServerPort, ServerHost) ->
     OwnPort = ServerPort+1, 
     Opts    = [{port, OwnPort}], 
     Self    = self(),
@@ -809,7 +822,7 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
      #{id   => 4,
        desc => "Await continue",
        cmd  => fun(State) ->
-		       client_await_continue_signal(State, 5000)
+		       client_await_continue_signal(State, TO)
 	       end},
 
      #{id   => 5,
@@ -827,7 +840,7 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
      #{id   => 7,
        desc => "Await reply (pong) to initial message",
        cmd  => fun(State) -> 
-		       client_await_message(State, "pong", 1000) 
+		       client_await_message(State, "pong", TO div 5)
 	       end},
 
      #{id   => 8,
@@ -845,7 +858,7 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
      #{id   => 10,
        desc => "Await nothing before unblocking",
        cmd  => fun(State) -> 
-		       client_await_nothing(State, 5000) 
+		       client_await_nothing(State, TO)
 	       end},
 
      #{id   => 11,
@@ -857,7 +870,7 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
      #{id   => 8,
        desc => "Await message (hejsan)",
        cmd  => fun(State) -> 
-		       client_await_message(State, "hejsan", 5000) 
+		       client_await_message(State, "hejsan", TO)
 	       end},
 
      #{id   => 9,
@@ -869,7 +882,7 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
      #{id   => 10,
        desc => "Await nothing before closing",
        cmd  => fun(State) -> 
-		       client_await_nothing(State, 1000) 
+		       client_await_nothing(State, TO)
 	       end},
 
      #{id   => 11,
@@ -881,7 +894,7 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
      #{id   => 12,
        desc => "Await nothing before stopping transport",
        cmd  => fun(State) -> 
-		       client_await_nothing(State, 1000) 
+		       client_await_nothing(State, TO)
 	       end},
 
      #{id   => 13,
@@ -974,14 +987,17 @@ server_start_transport(State) when is_map(State) ->
 server_open(#{transport_ref := Ref} = State, Options) 
   when is_list(Options) ->
     Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
-    case (catch megaco_udp:open(Ref, Opts)) of
+    try megaco_udp:open(Ref, Opts) of
 	{ok, Socket, ControlPid} ->
 	    {ok, State#{handle      => {socket, Socket},  % Temporary
 			control_pid => ControlPid}};
 	{error, {could_not_open_udp_port, eaddrinuse}} ->
 	    {skip, {server, eaddrinuse}};
-	Error ->
-	    Error
+	{error, _} = ERROR ->
+	    ERROR
+    catch
+        C:E:S ->
+            {error, {catched, C, E, S}}
     end.
 
 server_notify_operational(#{parent := Parent} = State) ->
@@ -1080,14 +1096,17 @@ client_start_transport(State) when is_map(State) ->
 client_open(#{transport_ref := Ref} = State, Options) 
   when is_list(Options) ->
     Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
-    case (catch megaco_udp:open(Ref, Opts)) of
+    try megaco_udp:open(Ref, Opts) of
 	{ok, Socket, ControlPid} ->
 	    {ok, State#{handle      => {socket, Socket}, 
 			control_pid => ControlPid}};
 	{error, {could_not_open_udp_port, eaddrinuse}} ->
 	    {skip, {client, eaddrinuse}};
-	Error ->
-	    Error
+	{error, _} = ERROR ->
+	    ERROR
+    catch
+        C:E:S ->
+            {error, {catched, C, E, S}}
     end.
 
 client_await_continue_signal(#{parent := Parent} = State, Timeout) ->
@@ -1194,6 +1213,13 @@ make_node_name(Name) ->
         _ ->
             exit("Test node must be started with '-sname'")
     end.
+
+
+to_calc(1 = _Factor, BaseTO) when is_integer(BaseTO) andalso (BaseTO > 0) ->
+    BaseTO;
+to_calc(Factor, BaseTO) when is_integer(Factor) andalso (Factor > 0) andalso
+                             is_integer(BaseTO) andalso (BaseTO > 0) ->
+    trunc( ((Factor + 1) / 2) * BaseTO ).
 
 
 p(F) ->

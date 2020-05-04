@@ -29,6 +29,8 @@
 
 -define(LIB, megaco_test_lib).
 
+-define(PCALL(F, T, D),      ?LIB:proxy_call(F, T, D)).
+
 -define(APPLY(Proxy, Fun),
 	Proxy ! {apply, Fun}).
 
