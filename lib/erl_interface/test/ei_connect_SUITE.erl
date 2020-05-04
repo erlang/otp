@@ -34,7 +34,9 @@
          ei_send_funs/1,
          ei_threaded_send/1,
          ei_set_get_tracelevel/1,
-         ei_connect_host_port_test/1]).
+         ei_connect_host_port_test/1,
+         ei_make_ref/1,
+         ei_make_pid/1]).
 
 -import(runner, [get_term/1,send_term/2]).
 
@@ -54,7 +56,9 @@ groups() ->
                ei_send_funs,
                ei_set_get_tracelevel,
                ei_reg_send,
-               ei_rpc],
+               ei_rpc,
+               ei_make_ref,
+               ei_make_pid],
     [{default, [], Members},
      {ussi, [], Members}].
 
@@ -207,6 +211,100 @@ ei_connect_host_port_test(Config) when is_list(Config) ->
     runner:recv_eot(P),
     ok.
 
+ei_make_ref(Config) when is_list(Config) ->
+    P = runner:start(Config, ?interpret),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
+    {ok,Fd} = ei_connect(P, node()),
+
+    %% Call ei_make_ref() enough times for it to
+    %% wrap the first internal integer..
+
+    N = 270,
+    {CNode, Refs} = make_refs(N, undefined, P, Fd, []),
+    io:format("Last Ref ~p~n", [hd(Refs)]),
+
+    io:format("CNode = ~p", [CNode]),
+
+    true = lists:member(CNode, nodes(hidden)),
+
+    %% Ensure that all references are
+    %% unique...
+    RefsLen = N*1000,
+    RefsLen = length(lists:usort(Refs)),
+
+    runner:send_eot(P),
+    runner:recv_eot(P),
+    ok.
+
+make_refs(0, CNode, _P, _Fd, Refs) ->
+    {CNode, Refs};
+make_refs(N, CNode, P, Fd, Refs) ->
+    ok = ei_make_refs(P, Fd, self()),
+    receive
+        {Node, NewRefs} ->
+            NewNode = if CNode == undefined ->
+                              Node;
+                         true ->
+                              CNode = Node
+                      end,
+            make_refs(N-1, NewNode, P, Fd,
+                      chk_refs(NewRefs, NewNode, Refs))
+    end.
+
+chk_refs([], _CNode, Refs) ->
+    Refs;
+chk_refs([NewRef|NewRefs], CNode, Refs) ->
+    true = is_reference(NewRef),
+    CNode = node(NewRef),
+    chk_refs(NewRefs, CNode, [NewRef|Refs]).
+
+ei_make_pid(Config) when is_list(Config) ->
+    P = runner:start(Config, ?interpret),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
+    {ok,Fd} = ei_connect(P, node()),
+
+    %%
+    %% Ensure to wrap all num values...
+    %%
+    N = 200,
+    {CNode, Pids} = make_pids(N, undefined, P, Fd, []),
+    io:format("Last Pid ~p~n", [hd(Pids)]),
+
+    io:format("CNode = ~p", [CNode]),
+
+    true = lists:member(CNode, nodes(hidden)),
+
+    %% Ensure that all pid created by ei_make_pid()
+    %% are unique. Note that ei_self() is passed
+    %% along in each call as well...
+    PidsLen = N*1000 + 1,
+    PidsLen = length(lists:usort(Pids)),
+
+    runner:send_eot(P),
+    runner:recv_eot(P),
+    ok.
+
+make_pids(0, CNode, _P, _Fd, Pids) ->
+    {CNode, Pids};
+make_pids(N, CNode, P, Fd, Pids) ->
+    ok = ei_make_pids(P, Fd, self()),
+    receive
+        {Node, NewPids} ->
+            NewNode = if CNode == undefined ->
+                              Node;
+                         true ->
+                              CNode = Node
+                      end,
+            make_pids(N-1, NewNode, P, Fd,
+                      chk_pids(NewPids, NewNode, Pids))
+    end.
+
+chk_pids([], _CNode, Pids) ->
+    Pids;
+chk_pids([NewPid|NewPids], CNode, Pids) ->
+    true = is_pid(NewPid),
+    CNode = node(NewPid),
+    chk_pids(NewPids, CNode, [NewPid|Pids]).
 
 %%% Interface functions for ei (erl_interface) functions.
 
@@ -255,6 +353,14 @@ ei_reg_send(P, Fd, To, Msg) ->
 ei_rpc(P, Fd, To, Func, Msg) ->
     send_command(P, ei_rpc, [Fd, To, Func, Msg]),
     get_term(P).
+
+ei_make_refs(P, Fd, To) ->
+    send_command(P, ei_make_refs, [Fd,To]),
+    get_send_result(P).
+
+ei_make_pids(P, Fd, To) ->
+    send_command(P, ei_make_pids, [Fd,To]),
+    get_send_result(P).
 
 
 get_send_result(P) ->

@@ -649,6 +649,47 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     </func>
 
     <func>
+      <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_make_pid(ei_cnode *ec, erlang_pid *pid)</nametext></name>
+      <fsummary>Create a new process identifier</fsummary>
+      <desc>
+	<p>
+	  Creates a new process identifier in the argument <c>pid</c>. This process identifier
+	  refers to a conseptual process residing on the C-node identified by the argument
+	  <c>ec</c>. On success <c>0</c> is returned. On failure <c>ERL_ERROR</c> is
+	  returned and <c>erl_errno</c> is set.
+	</p>
+	<p>
+	  The C-node identified by <c>ec</c> must have been initialized and must have
+	  received a name prior to the call to <c>ei_make_pid()</c>. Initialization
+	  of the C-node is done by a call to
+	  <seecref marker="#ei_connect_init"><c>ei_connect_init()</c></seecref>
+	  or friends. If the name is dynamically assigned from the peer node, the
+	  C-node also has to be connected.
+	</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_make_ref(ei_cnode *ec, erlang_ref *ref)</nametext></name>
+      <fsummary>Create a new reference</fsummary>
+      <desc>
+	<p>
+	  Creates a new reference in the argument <c>ref</c>. This reference originates
+	  from the C-node identified by the argument <c>ec</c>. On success <c>0</c> is
+	  returned. On failure <c>ERL_ERROR</c> is returned and <c>erl_errno</c> is set.
+	</p>
+	<p>
+	  The C-node identified by <c>ec</c> must have been initialized and must have
+	  received a name prior to the call to <c>ei_make_ref()</c>. Initialization
+	  of the C-node is done by a call to
+	  <seecref marker="#ei_connect_init"><c>ei_connect_init()</c></seecref>
+	  or friends. If the name is dynamically assigned from the peer node, the
+	  C-node also has to be connected.
+	</p>
+      </desc>
+    </func>
+    
+    <func>
       <name since=""><ret>int</ret><nametext>ei_publish(ei_cnode *ec, int port)</nametext></name>
       <fsummary>Publish a node name.</fsummary>
       <desc>
