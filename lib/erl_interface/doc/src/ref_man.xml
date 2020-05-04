@@ -29,8 +29,6 @@
     <file>ref_man.xml</file>
   </header>
   <description>
-    <note><p>The support for VxWorks is deprecated as of OTP 22, and
-    will be removed in OTP 23.</p></note>
   </description>
   <xi:include href="ei.xml"/>
   <xi:include href="ei_connect.xml"/>
