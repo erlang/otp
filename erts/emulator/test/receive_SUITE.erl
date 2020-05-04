@@ -43,7 +43,7 @@ all() ->
      erl_1199].
 
 init_per_testcase(receive_opt_deferred_save, Config) ->
-    case erlang:system_info(schedulers) of
+    case erlang:system_info(schedulers_online) of
         1 ->
             {skip, "Needs more schedulers to run"};
         _ ->

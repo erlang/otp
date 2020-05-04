@@ -370,7 +370,7 @@ many_shot(CaseName, I, Mem) ->
     Result1.
 
 concurrent(CaseName) ->
-    NSched = erlang:system_info(schedulers),
+    NSched = erlang:system_info(schedulers_online),
     Mem = (free_memory() * 3) div 4,
     PRs = lists:map(fun(I) -> spawn_opt(fun() ->
 						many_shot(CaseName, I,

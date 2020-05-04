@@ -1127,7 +1127,7 @@ process_info_status_handled_signal(Config) when is_list(Config) ->
 %% And a bug where process_info(reductions) on a process which was releasing its
 %% main lock during execution could result in negative reduction diffs.
 process_info_reductions(Config) when is_list(Config) ->
-    {S1, S2} = case erlang:system_info(schedulers) of
+    {S1, S2} = case erlang:system_info(schedulers_online) of
                    1 -> {1,1};
                    _ -> {1,2}
                end,
