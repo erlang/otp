@@ -553,7 +553,7 @@ init_per_suite(Config) ->
 		    {darwin, DarwinVersionVerify}]},
             {win32, SkipWindowsOnVirtual}
            ],
-    case os_based_skip(COND) of
+    try os_based_skip(COND) of
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
         false ->
@@ -566,6 +566,9 @@ init_per_suite(Config) ->
                 throw:{skip, _} = SKIP ->
                     SKIP
             end
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
     end.
 
 %% We start the global system monitor unless explicitly disabled
