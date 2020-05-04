@@ -536,6 +536,12 @@ ei_global_unregister(ec,fd,servicename);    ]]></code>
 
   <section>
     <title>Using the Registry</title>
+
+    <note><p>This functionality is deprecated as of OTP 23, and will be
+    removed in OTP 24. Reasonably new <c>gcc</c> compilers will issue
+    deprecation warnings. In order to disable these warnings, define the
+    macro <c>EI_NO_DEPR_WARN</c>.</p></note>
+
     <p>This section describes the use of the registry, a simple mechanism
       for storing key-value pairs in a C-node, as well as backing them up or
       restoring them from an <c>Mnesia</c> table on an Erlang node. For more

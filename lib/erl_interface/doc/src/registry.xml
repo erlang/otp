@@ -35,6 +35,11 @@
   <lib>registry</lib>
   <libsummary>Store and back up key-value pairs.</libsummary>
   <description>
+    <note><p>This functionality is deprecated as of OTP 23, and will be
+    removed in OTP 24. Reasonably new <c>gcc</c> compilers will issue
+    deprecation warnings. In order to disable these warnings, define the
+    macro <c>EI_NO_DEPR_WARN</c>.</p></note>
+
     <p>This module provides support for storing key-value
       pairs in a table known as a registry, backing up registries to
       <seeerl marker="mnesia:mnesia">Mnesia</seeerl>

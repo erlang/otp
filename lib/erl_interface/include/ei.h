@@ -692,9 +692,9 @@ int ei_init(void);
  * be specified in all subsequent calls to registry functions. You can
  * open as many registries as you like.
  */
-ei_reg *ei_reg_open(int size);
-int ei_reg_resize(ei_reg *oldreg, int newsize);
-int ei_reg_close(ei_reg *reg);
+ei_reg *ei_reg_open(int size) EI_DEPRECATED_ATTR;
+int ei_reg_resize(ei_reg *oldreg, int newsize) EI_DEPRECATED_ATTR;
+int ei_reg_close(ei_reg *reg) EI_DEPRECATED_ATTR;
 
 /* set values... these routines assign values to keys. If the key
  * exists, the previous value is discarded and the new one replaces
@@ -711,10 +711,10 @@ int ei_reg_close(ei_reg *reg);
  * On success the function returns 0, otherwise a value
  * indicating the reason for failure will be returned.
  */
-int ei_reg_setival(ei_reg *reg, const char *key, long i);
-int ei_reg_setfval(ei_reg *reg, const char *key, double f);
-int ei_reg_setsval(ei_reg *reg, const char *key, const char *s);
-int ei_reg_setpval(ei_reg *reg, const char *key, const void *p, int size);
+int ei_reg_setival(ei_reg *reg, const char *key, long i) EI_DEPRECATED_ATTR;
+int ei_reg_setfval(ei_reg *reg, const char *key, double f) EI_DEPRECATED_ATTR;
+int ei_reg_setsval(ei_reg *reg, const char *key, const char *s) EI_DEPRECATED_ATTR;
+int ei_reg_setpval(ei_reg *reg, const char *key, const void *p, int size) EI_DEPRECATED_ATTR;
 
 /* general set function (specifiy type via flags)
  * optional arguments are as for equivalent type-specific function,
@@ -724,16 +724,16 @@ int ei_reg_setpval(ei_reg *reg, const char *key, const void *p, int size);
  * ei_reg_setval(fd, path, EI_STR, const char *s);
  * ei_reg_setval(fd, path, EI_BIN, const void *p, int size);
  */
-int ei_reg_setval(ei_reg *reg, const char *key, int flags, ...);
+int ei_reg_setval(ei_reg *reg, const char *key, int flags, ...) EI_DEPRECATED_ATTR;
 
 /* get value of specific type object */
 /* warning: it may be difficult to detect errors when using these
  * functions, since the error values are returned "in band"
  */
-long ei_reg_getival(ei_reg *reg, const char *key);
-double ei_reg_getfval(ei_reg *reg, const char *key);
-const char *ei_reg_getsval(ei_reg *reg, const char *key);
-const void *ei_reg_getpval(ei_reg *reg, const char *key, int *size);
+long ei_reg_getival(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
+double ei_reg_getfval(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
+const char *ei_reg_getsval(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
+const void *ei_reg_getpval(ei_reg *reg, const char *key, int *size) EI_DEPRECATED_ATTR;
 
 /* get value of any type object (must specify) 
  * Retrieve a value from an object. The type of value expected and a
@@ -749,7 +749,7 @@ const void *ei_reg_getpval(ei_reg *reg, const char *key, int *size);
  * for BIN objects an int* is needed to return the size of the object, i.e.
  * int ei_reg_getval(ei_reg *reg, const char *path, int flags, void **p, int *size);
  */
-int ei_reg_getval(ei_reg *reg, const char *key, int flags, ...);
+int ei_reg_getval(ei_reg *reg, const char *key, int flags, ...) EI_DEPRECATED_ATTR;
 
 /* mark the object as dirty. Normally this operation will not be
  * necessary, as it is done automatically by all of the above 'set'
@@ -759,26 +759,26 @@ int ei_reg_getval(ei_reg *reg, const char *key, int flags, ...);
  * backup operation. Use this function to set the dirty bit on the
  * object.
  */
-int ei_reg_markdirty(ei_reg *reg, const char *key);
+int ei_reg_markdirty(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
 
 /* remove objects. The value, if any, is discarded. For STR and BIN
  * objects, the object itself is removed using free(). */
-int ei_reg_delete(ei_reg *reg, const char *key);
+int ei_reg_delete(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
 
 /* get information about an object */
-int ei_reg_stat(ei_reg *reg, const char *key, struct ei_reg_stat *obuf);
+int ei_reg_stat(ei_reg *reg, const char *key, struct ei_reg_stat *obuf) EI_DEPRECATED_ATTR;
 
 /* get information about table */
-int ei_reg_tabstat(ei_reg *reg, struct ei_reg_tabstat *obuf);
+int ei_reg_tabstat(ei_reg *reg, struct ei_reg_tabstat *obuf) EI_DEPRECATED_ATTR;
 
 /* dump to / restore from backup */
 /* fd is open descriptor to Erlang, mntab is Mnesia table name */
 /* flags here: */
 #define EI_FORCE 0x1 /* dump all records (not just dirty ones) */
 #define EI_NOPURGE 0x2 /* don't purge deleted records */
-int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags);
-int ei_reg_restore(int fd, ei_reg *reg, const char *mntab);
-int ei_reg_purge(ei_reg *reg);
+int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags) EI_DEPRECATED_ATTR;
+int ei_reg_restore(int fd, ei_reg *reg, const char *mntab) EI_DEPRECATED_ATTR;
+int ei_reg_purge(ei_reg *reg) EI_DEPRECATED_ATTR;
 
 /* -------------------------------------------------------------------- */
 /*            The ei_global functions */

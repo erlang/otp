@@ -55,3 +55,16 @@
 	in OTP 24.
       </p>
     </section>
+
+    <section>
+      <title>erl_interface registry</title>
+      <p>
+	As of OTP 23, the
+	<seecref marker="erl_interface:registry"><c>registry</c></seecref>
+	functionality part of
+	<seeapp marker="erl_interface:index"><c>erl_interface</c></seeapp>
+	has been deprecated and it has also been
+	<seeguide marker="scheduled_for_removal#otp-24">scheduled for removal</seeguide>
+	in OTP 24.
+      </p>
+    </section>
