@@ -95,7 +95,9 @@ init_per_group(GroupName, Config) ->
 init_per_group_openssl(GroupName, Config) ->
     case is_tls_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
-	    case check_sane_openssl_version(GroupName) of
+	    case check_sane_openssl_version(GroupName) 
+                andalso maybe_legacy_tls_version_support(GroupName, Config)
+            of
 		true ->
 		    [{version, GroupName}|init_tls_version(GroupName, Config)];
 		false ->
@@ -2310,6 +2312,39 @@ is_dtls_version('dtlsv1') ->
 is_dtls_version(_) ->
     false.
 
+maybe_legacy_tls_version_support(Version, Config0) when 
+      Version == 'tlsv1';
+      Version == 'tlsv1.1' ->
+    %% Check if legacy version is supported
+    Config = ssl_test_lib:make_rsa_cert(Config0),
+    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+    Exe = "openssl",
+    Args = ["s_server", "-accept", 
+            integer_to_list(Port), "-CAfile", CaCertFile,
+            "-cert", CertFile,"-key", KeyFile],
+    
+    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
+        ssl_test_lib:wait_for_openssl_server(Port, tls),
+    
+    case  ssl:connect("localhost", Port, [{versions, [Version]}]) of
+        {ok, Socket} ->
+            ssl:close(Socket),
+            close_port(OpensslPort),
+            true;
+        {error, {tls_alert, {protocol_version, _}}} ->
+            close_port(OpensslPort),
+            false
+    end;
+maybe_legacy_tls_version_support('dtlsv1', Config) ->
+    maybe_legacy_tls_version_support('tlsv1.1', Config);
+maybe_legacy_tls_version_support(_, _) ->
+    %% Not a legacy version
+    true.
+
 init_tls_version(Version, Config)
   when Version == 'dtlsv1.2'; Version == 'dtlsv1' ->
     ssl:stop(),
@@ -3518,3 +3553,4 @@ test_ciphers(Kex, Cipher, Version) ->
           fun(C) when C == Cipher -> true;
              (_) -> false
           end}]).
+

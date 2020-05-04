@@ -96,32 +96,20 @@ end_per_suite(_Config) ->
     ssl_test_lib:kill_openssl().
 
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
+    case ssl_test_lib:check_sane_openssl_version(GroupName) of
         true ->
-            case ssl_test_lib:supports_ssl_tls_version(GroupName) of
-                 true ->
-                    case ssl_test_lib:check_sane_openssl_version(GroupName) of
-                         true ->
-                            ssl_test_lib:check_sane_openssl_renegotiate(
-                              ssl_test_lib:init_tls_version(GroupName, Config),
-                              GroupName);
-                        false ->
-                            {skip, openssl_does_not_support_version}
-                    end;
-                false ->
-                    {skip, openssl_does_not_support_version}
-            end; 
-         _ ->
-            Config
+            case ssl_test_lib:check_sane_openssl_renegotiate(Config, GroupName) of
+                {skip,_} = Skip ->
+                    Skip;
+                _ ->
+                    ssl_test_lib:init_per_group_openssl(GroupName, Config)
+            end;
+        false  ->
+            {skip, {atom_to_list(GroupName) ++ " not supported by OpenSSL"}}
     end.
-
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-       false ->
-            Config
-    end.
+    ssl_test_lib:end_per_group(GroupName, Config).
+
 init_per_testcase(erlang_client_openssl_server_nowrap_seqnum, Config) ->
     ct:timetrap(?DEFAULT_TIMEOUT),
     ssl_test_lib:openssl_allows_client_renegotiate(Config);
