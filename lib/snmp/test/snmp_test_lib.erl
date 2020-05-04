@@ -695,13 +695,22 @@ init_per_suite(Config) ->
     COND = [{unix,  [{linux, LinuxVersionVerify}, 
                      {darwin, DarwinVersionVerify}]},
             {win32, SkipWindowsOnVirtual}],
-    case os_based_skip(COND) of
+    try os_based_skip(COND) of
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
         false ->
-            Factor = analyze_and_print_host_info(),
-            snmp_test_global_sys_monitor:start(),
-            [{snmp_factor, Factor} | Config]
+            %% Factor = analyze_and_print_host_info(),
+            try analyze_and_print_host_info() of
+                Factor ->
+                    snmp_test_global_sys_monitor:start(),
+                    [{snmp_factor, Factor} | Config]
+            catch
+                throw:{skip, _} = SKIP ->
+                    SKIP
+            end
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
     end.
 
 
