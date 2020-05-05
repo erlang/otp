@@ -654,7 +654,7 @@ analyze_and_print_host_info() ->
                       "~n   Version:        ~p"
                       "~n   Num Schedulers: ~s"
                       "~n", [OsFam, OsName, Version, str_num_schedulers()]),
-            num_schedulers_to_factor()
+            {num_schedulers_to_factor(), []}
     end.
 
 str_num_schedulers() ->
