@@ -109,27 +109,10 @@
     only supports IPv4. That is, at this time <c>addr</c> always
     points to a <c>struct sockaddr_in</c> structure.</p>
 
-    <p>The <c>ei_socket_callbacks</c> structure may be enlarged in
-    the future. All fields not set, <em>needs</em> to be zeroed out.</p>
-
-    <marker id="ei_socket_callbacks"/>
-    <code type="none"><![CDATA[
-typedef struct {
-    int flags;
-    int (*socket)(void **ctx, void *setup_ctx);
-    int	(*close)(void *ctx);
-    int (*listen)(void *ctx, void *addr, int *len, int backlog);
-    int (*accept)(void **ctx, void *addr, int *len, unsigned tmo);
-    int (*connect)(void *ctx, void *addr, int len, unsigned tmo);
-    int (*writev)(void *ctx, const void *iov, int iovcnt, ssize_t *len, unsigned tmo);
-    int (*write)(void *ctx, const char *buf, ssize_t *len, unsigned tmo);
-    int (*read)(void *ctx, char *buf, ssize_t *len, unsigned tmo);
-    int (*handshake_packet_header_size)(void *ctx, int *sz);
-    int (*connect_handshake_complete)(void *ctx);
-    int (*accept_handshake_complete)(void *ctx);
-    int (*get_fd)(void *ctx, int *fd);
-} ei_socket_callbacks;
-        ]]></code>
+    <p><marker id="ei_socket_callbacks_fields"/>The
+    <seecref marker="#ei_socket_callbacks"><c>ei_socket_callbacks</c></seecref>
+    structure may be enlarged in the future. All fields not set, <em>needs</em>
+    to be zeroed out. Currently the following fields exist:</p>
 
     <taglist>
       
@@ -352,6 +335,79 @@ typedef struct {
       </item>
     </taglist>
   </section>
+  <section>
+    <title>Data Types</title>
+    <taglist>
+      <tag><marker id="ei_cnode"/><c>ei_cnode</c></tag>
+      <item><p>
+	Opaque data type representing a C-node. A <c>ei_cnode</c>
+	structure is initialized by calling
+	<seecref marker="#ei_connect_init"><c>ei_connect_init()</c></seecref>
+	or friends.
+      </p></item>
+
+      <tag><marker id="ei_socket_callbacks"/><c>ei_socket_callbacks</c></tag>
+      <item><code type="none">
+typedef struct {
+    int flags;
+    int (*socket)(void **ctx, void *setup_ctx);
+    int	(*close)(void *ctx);
+    int (*listen)(void *ctx, void *addr, int *len, int backlog);
+    int (*accept)(void **ctx, void *addr, int *len, unsigned tmo);
+    int (*connect)(void *ctx, void *addr, int len, unsigned tmo);
+    int (*writev)(void *ctx, const void *iov, int iovcnt, ssize_t *len, unsigned tmo);
+    int (*write)(void *ctx, const char *buf, ssize_t *len, unsigned tmo);
+    int (*read)(void *ctx, char *buf, ssize_t *len, unsigned tmo);
+    int (*handshake_packet_header_size)(void *ctx, int *sz);
+    int (*connect_handshake_complete)(void *ctx);
+    int (*accept_handshake_complete)(void *ctx);
+    int (*get_fd)(void *ctx, int *fd);
+} ei_socket_callbacks;</code>
+        <p>
+	  Callbacks functions for a <seecref marker="#ussi"><i>User
+	  Supplied Socket Implementation</i></seecref>. 
+	  <seecref marker="#ei_socket_callbacks_fields">Documentation
+	  of each field</seecref> can be found in the
+	  <i>User Supplied Socket Implementation</i> section
+	  above.
+	</p>
+
+      </item>
+
+      <tag><marker id="ErlConnect"/><c>ErlConnect</c></tag>
+      <item><code type="none">
+typedef struct {
+    char ipadr[4]; /* Ip v4 address in network byte order */
+    char nodename[MAXNODELEN];
+} ErlConnect;</code>
+      <p>IP v4 address and nodename.</p>
+      </item>
+
+      <tag><marker id="Erl_IpAddr"/><c>Erl_IpAddr</c></tag>
+      <item><code type="none">
+typedef struct {
+    unsigned s_addr; /* Ip v4 address in network byte order */
+} Erl_IpAddr;</code>
+      <p>IP v4 address.</p>
+      </item>
+
+      <tag><marker id="erlang_msg"/><c>erlang_msg</c></tag>
+      <item>
+	<code type="none">
+typedef struct {
+    long msgtype;
+    erlang_pid from;
+    erlang_pid to;
+    char toname[MAXATOMLEN+1];
+    char cookie[MAXATOMLEN+1];
+    erlang_trace token;
+} erlang_msg;</code>
+        <p>Information about a message received via
+	<seecref marker="#ei_receive_msg"><c>ei_receive_msg()</c></seecref>
+	or friends.</p>
+      </item>
+    </taglist>
+  </section>
   <funcs>
     <func>
       <name since=""><ret>struct hostent *</ret><nametext>ei_gethostbyaddr(const char *addr, int len, int type)</nametext></name>
@@ -368,6 +424,10 @@ typedef struct {
     <func>
       <name since=""><ret>int</ret><nametext>ei_accept(ei_cnode *ec, int listensock, ErlConnect *conp)</nametext></name>
       <fsummary>Accept a connection from another node.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="#ErlConnect"><c>ErlConnect</c></seecref></v>
+      </type>
       <desc>
         <p>Used by a server process to accept a
           connection from a client process.</p>
@@ -381,13 +441,8 @@ typedef struct {
           </item>
           <item>
             <p><c>conp</c> is a pointer to an
-              <c>ErlConnect</c> struct, described as follows:</p>
-            <code type="none"><![CDATA[
-typedef struct {
-  char ipadr[4];             
-  char nodename[MAXNODELEN];
-} ErlConnect;
-        ]]></code>
+	    <seecref marker="#ErlConnect"><c>ErlConnect</c></seecref>
+	    struct.</p>
           </item>
         </list>
         <p>On success, <c>conp</c> is filled in with the address and
@@ -401,6 +456,10 @@ typedef struct {
       <name since=""><ret>int</ret><nametext>ei_accept_tmo(ei_cnode *ec, int listensock, ErlConnect *conp, unsigned timeout_ms)</nametext></name>
       <fsummary>Accept a connection from another node with optional
         time-out.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="#ErlConnect"><c>ErlConnect</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to
           <c>ei_accept</c> with an optional time-out argument,
@@ -422,6 +481,10 @@ typedef struct {
       <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_connect_host_port(ei_cnode* ec, char *hostname, int port)</nametext></name>
       <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_xconnect_host_port(ei_cnode* ec, Erl_IpAddr adr, int port)</nametext></name>
       <fsummary>Establish a connection to an Erlang node.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="#Erl_IpAddr"><c>Erl_IpAddr</c></seecref></v>
+      </type>
       <desc>
         <p>Sets up a connection to an Erlang node.</p>
         <p><c>ei_xconnect()</c> requires the IP address of the
@@ -483,6 +546,11 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
       <name since=""><ret>int</ret><nametext>ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation)</nametext></name>
       <name since="OTP 21.3"><ret>int</ret><nametext>ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
       <fsummary>Initialize for a connection.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="#Erl_IpAddr"><c>Erl_IpAddr</c></seecref></v>
+	<v><seecref marker="#ei_socket_callbacks"><c>ei_socket_callbacks</c></seecref></v>
+      </type>
       <desc>
         <p>Initializes the <c>ec</c> structure, to
           identify the node name and cookie of the server. One of them
@@ -584,6 +652,10 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_xconnect_host_port_tmo(ei_cnode* ec, Erl_IpAddr adr, int port, unsigned ms)</nametext></name>
       <fsummary>Establish a connection to an Erlang node with optional
         time-out.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="#Erl_IpAddr"><c>Erl_IpAddr</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to <c>ei_connect</c>, <c>ei_xconnect</c>,
         <c>ei_connect_host_port</c> and
@@ -610,6 +682,10 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <name since="OTP 21.3"><ret>int</ret><nametext>ei_listen(ei_cnode *ec, int *port, int backlog)</nametext></name>
       <name since="OTP 21.3"><ret>int</ret><nametext>ei_xlisten(ei_cnode *ec, Erl_IpAddr adr, int *port, int backlog)</nametext></name>
       <fsummary>Create a listen socket.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="#Erl_IpAddr"><c>Erl_IpAddr</c></seecref></v>
+      </type>
       <desc>
         <p>Used by a server process to setup a listen socket which
 	later can be used for accepting connections from client processes.
@@ -648,6 +724,10 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_make_pid(ei_cnode *ec, erlang_pid *pid)</nametext></name>
       <fsummary>Create a new process identifier</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="ei#erlang_pid"><c>erlang_pid</c></seecref></v>
+      </type>
       <desc>
 	<p>
 	  Creates a new process identifier in the argument <c>pid</c>. This process identifier
@@ -669,6 +749,10 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_make_ref(ei_cnode *ec, erlang_ref *ref)</nametext></name>
       <fsummary>Create a new reference</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="ei#erlang_ref"><c>erlang_ref</c></seecref></v>
+      </type>
       <desc>
 	<p>
 	  Creates a new reference in the argument <c>ref</c>. This reference originates
@@ -689,6 +773,9 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name since=""><ret>int</ret><nametext>ei_publish(ei_cnode *ec, int port)</nametext></name>
       <fsummary>Publish a node name.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+      </type>
       <desc>
         <p>Used by a server process to register
           with the local name server EPMD, thereby allowing
@@ -726,6 +813,9 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name since=""><ret>int</ret><nametext>ei_publish_tmo(ei_cnode *ec, int port, unsigned timeout_ms)</nametext></name>
       <fsummary>Publish a node name with optional time-out.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to
           <c>ei_publish</c> with an optional time-out argument,
@@ -777,6 +867,9 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name since=""><ret>int</ret><nametext>ei_receive_encoded(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen)</nametext></name>
       <fsummary>Obsolete function for receiving a message.</fsummary>
+      <type>
+	<v><seecref marker="#erlang_msg"><c>erlang_msg</c></seecref></v>
+      </type>
       <desc>
         <p>This function is retained for compatibility with code
           generated by the interface compiler and with code following
@@ -808,6 +901,9 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <name since=""><ret>int</ret><nametext>ei_receive_encoded_tmo(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen, unsigned timeout_ms)</nametext></name>
       <fsummary>Obsolete function for receiving a message with time-out.
       </fsummary>
+      <type>
+	<v><seecref marker="#erlang_msg"><c>erlang_msg</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to
           <c>ei_receive_encoded</c> with an optional time-out argument,
@@ -819,6 +915,10 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <name since=""><ret>int</ret><nametext>ei_receive_msg(int fd, erlang_msg* msg, ei_x_buff* x)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_xreceive_msg(int fd, erlang_msg* msg, ei_x_buff* x)</nametext></name>
       <fsummary>Receive a message.</fsummary>
+      <type>
+	<v><seecref marker="ei#ei_x_buff"><c>ei_x_buff</c></seecref></v>
+	<v><seecref marker="#erlang_msg"><c>erlang_msg</c></seecref></v>
+      </type>
       <desc>
         <p>Receives a message to the buffer in <c>x</c>.
           <c>ei_xreceive_msg</c> allows the buffer in
@@ -835,18 +935,8 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
             <c>ei_x_new</c>.</item>
         </list>
         <p>On success, the functions return <c>ERL_MSG</c> and the
-          <c>msg</c> struct is initialized.
-          <c>erlang_msg</c> is defined as follows:</p>
-        <code type="none"><![CDATA[
-typedef struct {
-    long msgtype;
-    erlang_pid from;
-    erlang_pid to;
-    char toname[MAXATOMLEN+1];
-    char cookie[MAXATOMLEN+1];
-    erlang_trace token;
-} erlang_msg;
-        ]]></code>
+        <seecref marker="#erlang_msg"><c>msg</c></seecref> struct
+	is initialized.</p>
         <p><c>msgtype</c> identifies the type of message, and is
           one of the following:</p>
         <taglist>
@@ -884,6 +974,10 @@ typedef struct {
       <name since=""><ret>int</ret><nametext>ei_receive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned imeout_ms)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_xreceive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned timeout_ms)</nametext></name>
       <fsummary>Receive a message with optional time-out.</fsummary>
+      <type>
+	<v><seecref marker="ei#ei_x_buff"><c>ei_x_buff</c></seecref></v>
+	<v><seecref marker="#erlang_msg"><c>erlang_msg</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to <c>ei_receive_msg</c> and <c>ei_xreceive_msg</c>
           with an optional time-out argument,
@@ -904,6 +998,9 @@ typedef struct {
     <func>
       <name since=""><ret>int</ret><nametext>ei_reg_send(ei_cnode* ec, int fd, char* server_name, char* buf, int len)</nametext></name>
       <fsummary>Send a message to a registered name.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+      </type>
       <desc>
         <p>Sends an Erlang term to a registered process.</p>
         <list type="bulleted">
@@ -937,6 +1034,9 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
       <name since=""><ret>int</ret><nametext>ei_reg_send_tmo(ei_cnode* ec, int fd, char* server_name, char* buf, int len, unsigned timeout_ms)</nametext></name>
       <fsummary>Send a message to a registered name with optional time-out
       </fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to
           <c>ei_reg_send</c> with an optional time-out argument,
@@ -949,6 +1049,11 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
       <name since=""><ret>int</ret><nametext>ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg, ei_x_buff *x)</nametext></name>
       <fsummary>Remote Procedure Call from C to Erlang.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="ei#ei_x_buff"><c>ei_x_buff</c></seecref></v>
+	<v><seecref marker="#erlang_msg"><c>erlang_msg</c></seecref></v>
+      </type>
       <desc>
         <p>Supports calling Erlang functions on remote nodes.
           <c>ei_rpc_to()</c> sends an RPC request to a remote node
@@ -1048,19 +1153,40 @@ if (ei_decode_version(result.buff, &index) < 0
     <func>
       <name since=""><ret>erlang_pid *</ret><nametext>ei_self(ei_cnode *ec)</nametext></name>
       <fsummary>Retrieve the pid of the C-node.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+	<v><seecref marker="ei#erlang_pid"><c>erlang_pid</c></seecref></v>
+      </type>
       <desc>
-        <p>Retrieves the pid of the C-node. Every C-node
+        <p>Retrieves a generic pid of the C-node. Every C-node
           has a (pseudo) pid used in <c>ei_send_reg</c>,
-          <c>ei_rpc</c>,
+          <c>ei_rpc()</c>,
           and others. This is contained in a field in the <c>ec</c>
-          structure. It will be safe for a long time to fetch this
-          field directly from the <c>ei_cnode</c> structure.</p>
+          structure. Do <em>not</em> modify this structure.
+	</p>
+	<p>
+	  On success a pointer to the process identifier is returned.
+	  On failure <c>NULL</c> is returned and <c>erl_errno</c> is
+	  set.
+	</p>
+	<p>
+	  The C-node identified by <c>ec</c> must have been initialized
+	  and must have received a name prior to the call to <c>ei_self()</c>.
+	  Initialization of the C-node is done by a call to
+	  <seecref marker="#ei_connect_init"><c>ei_connect_init()</c></seecref>
+	  or friends. If the name is dynamically assigned from the peer node, the
+	  C-node also has to be connected.
+	</p>
+
       </desc>
     </func>
 
     <func>
       <name since=""><ret>int</ret><nametext>ei_send(int fd, erlang_pid* to, char* buf, int len)</nametext></name>
       <fsummary>Send a message.</fsummary>
+      <type>
+	<v><seecref marker="ei#erlang_pid"><c>erlang_pid</c></seecref></v>
+      </type>
       <desc>
         <p>Sends an Erlang term to a process.</p>
         <list type="bulleted">
@@ -1082,6 +1208,9 @@ if (ei_decode_version(result.buff, &index) < 0
     <func>
       <name since=""><ret>int</ret><nametext>ei_send_encoded(int fd, erlang_pid* to, char* buf, int len)</nametext></name>
       <fsummary>Obsolete function to send a message.</fsummary>
+      <type>
+	<v><seecref marker="ei#erlang_pid"><c>erlang_pid</c></seecref></v>
+      </type>
       <desc>
         <p>Works exactly as <c>ei_send</c>, the alternative name is retained for
           backward compatibility. The function will <em>not</em> be
@@ -1093,6 +1222,9 @@ if (ei_decode_version(result.buff, &index) < 0
       <name since=""><ret>int</ret><nametext>ei_send_encoded_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)</nametext></name>
       <fsummary>Obsolete function to send a message with optional time-out.
       </fsummary>
+      <type>
+	<v><seecref marker="ei#erlang_pid"><c>erlang_pid</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to
           <c>ei_send_encoded</c> with an optional time-out argument,
@@ -1104,6 +1236,9 @@ if (ei_decode_version(result.buff, &index) < 0
       <name since=""><ret>int</ret><nametext>ei_send_reg_encoded(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</nametext></name>
       <fsummary>Obsolete function to send a message to a registered name.
       </fsummary>
+      <type>
+	<v><seecref marker="ei#erlang_pid"><c>erlang_pid</c></seecref></v>
+      </type>
       <desc>
         <p>This function is retained for compatibility with code
           generated by the interface compiler and with code following
@@ -1123,6 +1258,9 @@ if (ei_decode_version(result.buff, &index) < 0
       <name since=""><ret>int</ret><nametext>ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</nametext></name>
       <fsummary>Obsolete function to send a message to a registered name with
         time-out.</fsummary>
+      <type>
+	<v><seecref marker="ei#erlang_pid"><c>erlang_pid</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to
           <c>ei_send_reg_encoded</c> with an optional time-out argument,
@@ -1133,6 +1271,9 @@ if (ei_decode_version(result.buff, &index) < 0
     <func>
       <name since=""><ret>int</ret><nametext>ei_send_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)</nametext></name>
       <fsummary>Send a message with optional time-out.</fsummary>
+      <type>
+	<v><seecref marker="ei#erlang_pid"><c>erlang_pid</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to
           <c>ei_send</c> with an optional time-out argument,
@@ -1145,6 +1286,9 @@ if (ei_decode_version(result.buff, &index) < 0
       <name since=""><ret>const char *</ret><nametext>ei_thishostname(ei_cnode *ec)</nametext></name>
       <name since=""><ret>const char *</ret><nametext>ei_thisalivename(ei_cnode *ec)</nametext></name>
       <fsummary>Retrieve some values.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+      </type>
       <desc>
         <p>Can be used to retrieve information about
           the C-node. These values are initially set with
@@ -1160,6 +1304,9 @@ if (ei_decode_version(result.buff, &index) < 0
     <func>
       <name since=""><ret>int</ret><nametext>ei_unpublish(ei_cnode *ec)</nametext></name>
       <fsummary>Forcefully unpublish a node name.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+      </type>
       <desc>
         <p>Can be called by a process to unregister a
           specified node from EPMD on the local host. This is, however, usually
@@ -1183,6 +1330,9 @@ if (ei_decode_version(result.buff, &index) < 0
     <func>
       <name since=""><ret>int</ret><nametext>ei_unpublish_tmo(ei_cnode *ec, unsigned timeout_ms)</nametext></name>
       <fsummary>Unpublish a node name with optional time-out.</fsummary>
+      <type>
+	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
+      </type>
       <desc>
         <p>Equivalent to
           <c>ei_unpublish</c> with an optional time-out argument,

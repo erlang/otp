@@ -207,6 +207,7 @@
     They can be thought as predefined aliases for the type unions also shown in
     the table.
   </p>
+  <marker id="builtin_types"/>
   <table>
     <row>
       <cell><em>Built-in type</em></cell><cell><em>Defined as</em></cell>
