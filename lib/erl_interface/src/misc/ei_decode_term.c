@@ -47,25 +47,30 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	break;
     case ERL_FLOAT_EXT:
     case NEW_FLOAT_EXT:
+        term->ei_type = ERL_FLOAT_EXT;
         return (ei_decode_double(buf, index, &term->value.d_val) < 0
                 ? -1 : 1);
     case ERL_ATOM_EXT:
     case ERL_ATOM_UTF8_EXT:
     case ERL_SMALL_ATOM_EXT:
     case ERL_SMALL_ATOM_UTF8_EXT:
+        term->ei_type = ERL_ATOM_EXT;
 	return (ei_decode_atom(buf, index, term->value.atom_name) < 0
                 ? -1 : 1);
     case ERL_REFERENCE_EXT:
     case ERL_NEW_REFERENCE_EXT:
     case ERL_NEWER_REFERENCE_EXT:
+        term->ei_type = ERL_NEW_REFERENCE_EXT;
         return (ei_decode_ref(buf, index, &term->value.ref) < 0
                 ? -1 : 1);
     case ERL_PORT_EXT:
     case ERL_NEW_PORT_EXT:
+        term->ei_type = ERL_PORT_EXT;
         return (ei_decode_port(buf, index, &term->value.port) < 0
                 ? -1 : 1);
     case ERL_PID_EXT:
     case ERL_NEW_PID_EXT:
+        term->ei_type = ERL_PID_EXT;
         return (ei_decode_pid(buf, index, &term->value.pid) < 0
                 ? -1 : 1);
     case ERL_SMALL_TUPLE_EXT:
