@@ -888,19 +888,7 @@ analyze_and_print_host_info() ->
                       "~n   Version:        ~p"
                       "~n   Num Schedulers: ~s"
                       "~n", [OsFam, OsName, Version, str_num_schedulers()]),
-            try erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                N when (N =< 6) ->
-                    2;
-                _ ->
-                    1
-            catch
-                _:_:_ ->
-                    10
-            end
+            {num_schedulers_to_factor(), []}
     end.
 
 linux_which_distro(Version) ->
@@ -1865,6 +1853,21 @@ str_num_schedulers() ->
         N -> f("~w", [N])
     catch
         _:_:_ -> "-"
+    end.
+
+num_schedulers_to_factor() ->
+    try erlang:system_info(schedulers) of
+        1 ->
+            10;
+        2 ->
+            5;
+        N when (N =< 6) ->
+            2;
+        _ ->
+            1
+    catch
+        _:_:_ ->
+            10
     end.
 
 
