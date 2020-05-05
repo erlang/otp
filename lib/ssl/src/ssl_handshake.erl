@@ -410,8 +410,6 @@ verify_signature({3, 3}, Hash, {HashAlgo, SignAlgo}, Signature,
                                                   SignAlgo == rsa_pss_pss ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
     public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
-
-
 verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
   when Minor >= 3 ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
@@ -1856,8 +1854,9 @@ do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, Si
 do_digitally_signed({3, 3}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
     crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine), Options);
-do_digitally_signed({3, 4}, Hash, HashAlgo, {#'RSAPrivateKey'{} = Key, #'RSASSA-PSS-params'{} = Params}, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo, Params),
+do_digitally_signed({3, 4}, Hash, HashAlgo, {#'RSAPrivateKey'{} = Key,
+                                             #'RSASSA-PSS-params'{}}, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Hash, HashAlgo, Key, Options);
 do_digitally_signed({3, 4}, Hash, HashAlgo, Key, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
@@ -1871,36 +1870,23 @@ do_digitally_signed({3, Minor}, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) 
 do_digitally_signed(_Version, Hash, HashAlgo, Key, _SignAlgo) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
     
-signature_options(SignAlgo, HashAlgo) ->
-    signature_options(SignAlgo, HashAlgo, undefined).
-signature_options(rsa_pss_pss, HashAlgo, #'RSASSA-PSS-params'{} = Params) ->
-    pss_pss_options(HashAlgo, Params);
-signature_options(rsa_pss_rsae, HashAlgo, _) ->
-    pss_rsae_options(HashAlgo);
-signature_options(_, _, _) ->
+signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
+                                           SignAlgo =:= rsa_pss_pss ->
+    pss_options(HashAlgo);
+signature_options(_, _) ->
     [].
 
-verify_options(rsa_pss_rsae, HashAlgo, _KeyParams) -> 
-    pss_rsae_options(HashAlgo);
-verify_options(rsa_pss_pss, HashAlgo, #'RSASSA-PSS-params'{} = Params) ->
-    pss_pss_options(HashAlgo, Params);
+verify_options(SignAlgo, HashAlgo, _KeyParams)
+  when SignAlgo =:= rsa_pss_rsae orelse
+       SignAlgo =:= rsa_pss_pss ->
+    pss_options(HashAlgo);
 verify_options(_, _, _) ->
     [].
 
-pss_rsae_options(HashAlgo) ->
+pss_options(HashAlgo) ->
     %% of the digest algorithm: rsa_pss_saltlen = -1
     [{rsa_padding, rsa_pkcs1_pss_padding},
      {rsa_pss_saltlen, -1},
-     {rsa_mgf1_md, HashAlgo}].
-
-pss_pss_options(HashAlgo, #'RSASSA-PSS-params'{saltLength = SaltLen,
-                                               maskGenAlgorithm = 
-                                                   #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
-                                                                       parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
-
-    HashAlgo = public_key:pkix_hash_type(HashOid),
-    [{rsa_padding, rsa_pkcs1_pss_padding},
-     {rsa_pss_saltlen, SaltLen},
      {rsa_mgf1_md, HashAlgo}].
 
 bad_key(#'DSAPrivateKey'{}) ->

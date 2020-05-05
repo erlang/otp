@@ -557,7 +557,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     {Ref,Maybe} = maybe(),
 
     try
-        
+
         %% Handle ALPN extension if ALPN is configured
         ALPNProtocol = Maybe(handle_alpn(ALPNPreferredProtocols, ClientALPN)),
 
@@ -574,16 +574,14 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         Maybe(check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs, ClientSignAlgsCert)),
 
         %% Select signature algorithm (used in CertificateVerify message).
-        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, 
-                                                 handle_pss(PublicKeyAlgo,
-                                                            SignAlgo, SignHash, ServerSignAlgs))),
-        
+        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, ServerSignAlgs)),
+
         %% Select client public key. If no public key found in ClientShares or
         %% ClientShares is empty, trigger HelloRetryRequest as we were able
         %% to find an acceptable set of parameters but the ClientHello does not
         %% contain sufficient information.
         {Group, ClientPubKey} = get_client_public_key(Groups, ClientShares),
-        
+
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
 
@@ -605,7 +603,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                       sign_alg => SelectedSignAlg,
                                       peer_public_key => ClientPubKey,
                                       alpn => ALPNProtocol}),
-        
+
         %% 4.1.4.  Hello Retry Request
         %%
         %% The server will send this message in response to a ClientHello
@@ -2416,14 +2414,3 @@ process_user_tickets([H|T], Acc, N) ->
 %% (see Section 4.6.1), modulo 2^32.
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
     (TicketAge + AgeAdd) rem round(math:pow(2,32)).
-
-handle_pss(rsa_pss_pss, rsa_pss_pss, sha256, Algs) ->
-    Algs -- [rsa_pss_pss_sha384, rsa_pss_pss_sha512];
-handle_pss(rsa_pss_pss, rsa_pss_pss, sha384, Algs) ->
-    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha512];
-handle_pss(rsa_pss_pss, rsa_pss_pss, sha512, Algs) ->
-    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha384];
-handle_pss(_,_,_, Algs) ->
-    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha384, rsa_pss_pss_sha512].
-
-
