@@ -239,15 +239,12 @@ session_cleanup(Config) when is_list(Config) ->
 	ssl_test_lib:start_client([{node, ClientNode},
 				   {port, Port}, {host, Hostname},
 				   {mfa, {ssl_test_lib, no_result, []}},
-				   {from, self()},  {options, ClientOpts}]),
+				   {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
     SessionInfo =
 	receive
 	    {Server, Info} ->
 		Info
 	end,
-
-    %% Make sure session is registered
-    ct:sleep(?SLEEP*2),
 
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
