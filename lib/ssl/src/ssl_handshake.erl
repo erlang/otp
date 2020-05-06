@@ -1428,7 +1428,7 @@ select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                 Cert, KeyExAlgo, SupportedHashSigns, {Major, Minor})
   when Major >= 3 andalso Minor >= 3 ->
     ClientSignatureSchemes = get_signature_scheme(ClientSignatureSchemes0),
-    {SignAlgo0, Param, PublicKeyAlgo0} = get_cert_params(Cert),
+    {SignAlgo0, Param, PublicKeyAlgo0, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
@@ -1482,7 +1482,7 @@ select_hashsign(#certificate_request{
                 Cert,
                 SupportedHashSigns,
 		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
-    {SignAlgo0, Param, PublicKeyAlgo0} = get_cert_params(Cert),
+    {SignAlgo0, Param, PublicKeyAlgo0, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
@@ -1505,7 +1505,7 @@ select_hashsign(#certificate_request{
 	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end;
 select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Version) ->
-    {_, _, PublicKeyAlgo0} = get_cert_params(Cert),
+    {_, _, PublicKeyAlgo0, _} = get_cert_params(Cert),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
     %% Check cert even for TLS 1.0/1.1
@@ -1521,14 +1521,23 @@ select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Versio
 %% - signature algorithm
 %% - parameters of the signature algorithm
 %% - public key algorithm (key type)
+%% - RSA key size in bytes
 get_cert_params(Cert) ->
     #'OTPCertificate'{tbsCertificate = TBSCert,
 		      signatureAlgorithm =
                           {_,SignAlgo, Param}} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPSubjectPublicKeyInfo'{algorithm = {_, PublicKeyAlgo, _}} =
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_, PublicKeyAlgo, _},
+                               subjectPublicKey = PublicKey} =
         TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    {SignAlgo, Param, PublicKeyAlgo}.
-
+    RSAKeySize =
+        case PublicKey of
+            #'RSAPublicKey'{modulus = Modulus} ->
+                %% Get RSA key size in bytes
+                byte_size(binary:encode_unsigned(Modulus));
+            _ ->
+                undefined
+        end,
+    {SignAlgo, Param, PublicKeyAlgo, RSAKeySize}.
 
 get_signature_scheme(undefined) ->
     undefined;
