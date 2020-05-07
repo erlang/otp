@@ -218,8 +218,10 @@
 # define HAVE_RC4
 #endif
 
-#ifndef OPENSSL_NO_RMD160
-/* Note RMD160 vs RIPEMD160 */
+#if !defined(OPENSSL_NO_RMD160) && \
+    !defined(OPENSSL_NO_RIPEMD160) && \
+    !defined(OPENSSL_NO_RIPEMD) && \
+    OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_RIPEMD160
 #endif
 
