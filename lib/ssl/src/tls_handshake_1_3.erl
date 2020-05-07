@@ -557,7 +557,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     {Ref,Maybe} = maybe(),
 
     try
-        
+
         %% Handle ALPN extension if ALPN is configured
         ALPNProtocol = Maybe(handle_alpn(ALPNPreferredProtocols, ClientALPN)),
 
@@ -568,22 +568,20 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
-        {PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
+        {PublicKeyAlgo, SignAlgo, SignHash, RSAKeySize} = get_certificate_params(Cert),
 
         %% Check if client supports signature algorithm of server certificate
         Maybe(check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs, ClientSignAlgsCert)),
 
         %% Select signature algorithm (used in CertificateVerify message).
-        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, 
-                                                 handle_pss(PublicKeyAlgo,
-                                                            SignAlgo, SignHash, ServerSignAlgs))),
-        
+        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, RSAKeySize, ClientSignAlgs, ServerSignAlgs)),
+
         %% Select client public key. If no public key found in ClientShares or
         %% ClientShares is empty, trigger HelloRetryRequest as we were able
         %% to find an acceptable set of parameters but the ClientHello does not
         %% contain sufficient information.
         {Group, ClientPubKey} = get_client_public_key(Groups, ClientShares),
-        
+
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
 
@@ -605,7 +603,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                       sign_alg => SelectedSignAlg,
                                       peer_public_key => ClientPubKey,
                                       alpn => ALPNProtocol}),
-        
+
         %% 4.1.4.  Hello Retry Request
         %%
         %% The server will send this message in response to a ClientHello
@@ -1253,7 +1251,7 @@ process_certificate_request(#certificate_request_1_3{
     ServerSignAlgsCert = get_signature_scheme_list(
                            maps:get(signature_algs_cert, Extensions, undefined)),
 
-    {_PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
+    {_PublicKeyAlgo, SignAlgo, SignHash, _} = get_certificate_params(Cert),
 
     %% Check if server supports signature algorithm of client certificate
     case check_cert_sign_algo(SignAlgo, SignHash, ServerSignAlgs, ServerSignAlgsCert) of
@@ -2071,11 +2069,11 @@ check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
 
 
 %% DSA keys are not supported by TLS 1.3
-select_sign_algo(dsa, _ClientSignAlgs, _ServerSignAlgs) ->
+select_sign_algo(dsa, _RSAKeySize, _ClientSignAlgs, _ServerSignAlgs) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
-select_sign_algo(_, [], _) ->
+select_sign_algo(_, _RSAKeySize, [], _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
-select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
+select_sign_algo(PublicKeyAlgo, RSAKeySize, [C|ClientSignAlgs], ServerSignAlgs) ->
     {_, S, _} = ssl_cipher:scheme_to_components(C),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
     %% TLS handshake messages: filter sha-1 and rsa_pkcs1.
@@ -2090,11 +2088,43 @@ select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
         andalso
         lists:member(C, ServerSignAlgs) of
         true ->
-            {ok, C};
+            validate_key_compatibility(PublicKeyAlgo, RSAKeySize,
+                                       [C|ClientSignAlgs], ServerSignAlgs);
         false ->
-            select_sign_algo(PublicKeyAlgo, ClientSignAlgs, ServerSignAlgs)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, ClientSignAlgs, ServerSignAlgs)
     end.
 
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [C|ClientSignAlgs], ServerSignAlgs)
+  when PublicKeyAlgo =:= rsa orelse
+       PublicKeyAlgo =:= rsa_pss_pss ->
+    case is_rsa_key_compatible(RSAKeySize, C) of
+        true ->
+            {ok, C};
+        false ->
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, ClientSignAlgs, ServerSignAlgs)
+    end;
+validate_key_compatibility(_, _, [C|_], _) ->
+    {ok, C}.
+
+is_rsa_key_compatible(KeySize, SigAlg) ->
+    {Hash, _, _} = ssl_cipher:scheme_to_components(SigAlg),
+    HashSize = ssl_cipher:hash_size(Hash),
+
+    %% OpenSSL crypto lib defines a limit on the size of the random salt
+    %% in PSS signatures based on the size of signing RSA key.
+    %% If the limit is unchecked, it causes handshake failures when the
+    %% configured certificates contain short (e.g. 1024-bit) RSA keys.
+    %% For more information see the OpenSSL crypto library
+    %% (rsa_pss:c{77,86}).
+    %% TODO: Move this check into crypto. Investigate if this is a bug in
+    %% OpenSSL crypto lib.
+    if (KeySize < (HashSize + 2)) ->
+            false;
+       (HashSize > (KeySize - HashSize - 2)) ->
+            false;
+       true ->
+            true
+    end.
 
 do_check_cert_sign_algo(_, _, []) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
@@ -2123,10 +2153,11 @@ compare_sign_algos(_, _, _, _) ->
     false.
 
 get_certificate_params(Cert) ->
-    {SignAlgo0, Param, SubjectPublicKeyAlgo0} = ssl_handshake:get_cert_params(Cert),
+    {SignAlgo0, Param, SubjectPublicKeyAlgo0, RSAKeySize} =
+        ssl_handshake:get_cert_params(Cert),
     {SignHash, SignAlgo} = oids_to_atoms(SignAlgo0, Param),
     SubjectPublicKeyAlgo = public_key_algo(SubjectPublicKeyAlgo0),
-    {SubjectPublicKeyAlgo, SignAlgo, SignHash}.
+    {SubjectPublicKeyAlgo, SignAlgo, SignHash, RSAKeySize}.
 
 oids_to_atoms(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm = 
                                                         #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
@@ -2416,14 +2447,3 @@ process_user_tickets([H|T], Acc, N) ->
 %% (see Section 4.6.1), modulo 2^32.
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
     (TicketAge + AgeAdd) rem round(math:pow(2,32)).
-
-handle_pss(rsa_pss_pss, rsa_pss_pss, sha256, Algs) ->
-    Algs -- [rsa_pss_pss_sha384, rsa_pss_pss_sha512];
-handle_pss(rsa_pss_pss, rsa_pss_pss, sha384, Algs) ->
-    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha512];
-handle_pss(rsa_pss_pss, rsa_pss_pss, sha512, Algs) ->
-    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha384];
-handle_pss(_,_,_, Algs) ->
-    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha384, rsa_pss_pss_sha512].
-
-

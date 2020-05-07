@@ -51,7 +51,8 @@ groups() ->
      {rsa, [], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests()},
      {ecdsa, [], all_version_tests()},
      {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
+     {rsa_1_3, [], all_version_tests() ++ rsa_tests() ++
+          tls_1_3_tests() ++ tls_1_3_rsa_tests() ++ [basic_rsa_1024]},
      {rsa_pss_rsae, [], all_version_tests() ++ rsa_tests()},
      {rsa_pss_rsae_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {rsa_pss_pss, [], all_version_tests() ++ rsa_tests()},
@@ -150,7 +151,8 @@ end_per_suite(_Config) ->
 
 init_per_group(Group, Config0) when Group == rsa;
                                     Group == rsa_1_3 ->
-    Config = ssl_test_lib:make_rsa_cert(Config0),
+    Config1 = ssl_test_lib:make_rsa_cert(Config0),
+    Config = ssl_test_lib:make_rsa_1024_cert(Config1),
     COpts = proplists:get_value(client_rsa_opts, Config),
     SOpts = proplists:get_value(server_rsa_opts, Config),
     [{cert_key_alg, rsa} |
@@ -897,6 +899,19 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
                   {supported_groups, [secp256r1, x25519]}|ClientOpts2],
    
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
+
+%%--------------------------------------------------------------------
+basic_rsa_1024() ->
+    [{doc, "TLS 1.3 (Basic): Test if connection can be established using 1024 bits RSA keys in certificates."}].
+
+basic_rsa_1024(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_1024_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_1024_opts, Config),
+    ServerOpts1 = [{versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ServerOpts = [{verify, verify_peer},
+                  {fail_if_no_peer_cert, true} | ServerOpts1],
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------

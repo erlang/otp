@@ -410,8 +410,6 @@ verify_signature({3, 3}, Hash, {HashAlgo, SignAlgo}, Signature,
                                                   SignAlgo == rsa_pss_pss ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
     public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
-
-
 verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
   when Minor >= 3 ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
@@ -1430,7 +1428,7 @@ select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                 Cert, KeyExAlgo, SupportedHashSigns, {Major, Minor})
   when Major >= 3 andalso Minor >= 3 ->
     ClientSignatureSchemes = get_signature_scheme(ClientSignatureSchemes0),
-    {SignAlgo0, Param, PublicKeyAlgo0} = get_cert_params(Cert),
+    {SignAlgo0, Param, PublicKeyAlgo0, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
@@ -1484,7 +1482,7 @@ select_hashsign(#certificate_request{
                 Cert,
                 SupportedHashSigns,
 		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
-    {SignAlgo0, Param, PublicKeyAlgo0} = get_cert_params(Cert),
+    {SignAlgo0, Param, PublicKeyAlgo0, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
@@ -1507,7 +1505,7 @@ select_hashsign(#certificate_request{
 	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end;
 select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Version) ->
-    {_, _, PublicKeyAlgo0} = get_cert_params(Cert),
+    {_, _, PublicKeyAlgo0, _} = get_cert_params(Cert),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
     %% Check cert even for TLS 1.0/1.1
@@ -1523,14 +1521,23 @@ select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Versio
 %% - signature algorithm
 %% - parameters of the signature algorithm
 %% - public key algorithm (key type)
+%% - RSA key size in bytes
 get_cert_params(Cert) ->
     #'OTPCertificate'{tbsCertificate = TBSCert,
 		      signatureAlgorithm =
                           {_,SignAlgo, Param}} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPSubjectPublicKeyInfo'{algorithm = {_, PublicKeyAlgo, _}} =
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_, PublicKeyAlgo, _},
+                               subjectPublicKey = PublicKey} =
         TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    {SignAlgo, Param, PublicKeyAlgo}.
-
+    RSAKeySize =
+        case PublicKey of
+            #'RSAPublicKey'{modulus = Modulus} ->
+                %% Get RSA key size in bytes
+                byte_size(binary:encode_unsigned(Modulus));
+            _ ->
+                undefined
+        end,
+    {SignAlgo, Param, PublicKeyAlgo, RSAKeySize}.
 
 get_signature_scheme(undefined) ->
     undefined;
@@ -1856,8 +1863,9 @@ do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, Si
 do_digitally_signed({3, 3}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
     crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine), Options);
-do_digitally_signed({3, 4}, Hash, HashAlgo, {#'RSAPrivateKey'{} = Key, #'RSASSA-PSS-params'{} = Params}, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo, Params),
+do_digitally_signed({3, 4}, Hash, HashAlgo, {#'RSAPrivateKey'{} = Key,
+                                             #'RSASSA-PSS-params'{}}, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Hash, HashAlgo, Key, Options);
 do_digitally_signed({3, 4}, Hash, HashAlgo, Key, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
@@ -1871,36 +1879,23 @@ do_digitally_signed({3, Minor}, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) 
 do_digitally_signed(_Version, Hash, HashAlgo, Key, _SignAlgo) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
     
-signature_options(SignAlgo, HashAlgo) ->
-    signature_options(SignAlgo, HashAlgo, undefined).
-signature_options(rsa_pss_pss, HashAlgo, #'RSASSA-PSS-params'{} = Params) ->
-    pss_pss_options(HashAlgo, Params);
-signature_options(rsa_pss_rsae, HashAlgo, _) ->
-    pss_rsae_options(HashAlgo);
-signature_options(_, _, _) ->
+signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
+                                           SignAlgo =:= rsa_pss_pss ->
+    pss_options(HashAlgo);
+signature_options(_, _) ->
     [].
 
-verify_options(rsa_pss_rsae, HashAlgo, _KeyParams) -> 
-    pss_rsae_options(HashAlgo);
-verify_options(rsa_pss_pss, HashAlgo, #'RSASSA-PSS-params'{} = Params) ->
-    pss_pss_options(HashAlgo, Params);
+verify_options(SignAlgo, HashAlgo, _KeyParams)
+  when SignAlgo =:= rsa_pss_rsae orelse
+       SignAlgo =:= rsa_pss_pss ->
+    pss_options(HashAlgo);
 verify_options(_, _, _) ->
     [].
 
-pss_rsae_options(HashAlgo) ->
+pss_options(HashAlgo) ->
     %% of the digest algorithm: rsa_pss_saltlen = -1
     [{rsa_padding, rsa_pkcs1_pss_padding},
      {rsa_pss_saltlen, -1},
-     {rsa_mgf1_md, HashAlgo}].
-
-pss_pss_options(HashAlgo, #'RSASSA-PSS-params'{saltLength = SaltLen,
-                                               maskGenAlgorithm = 
-                                                   #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
-                                                                       parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
-
-    HashAlgo = public_key:pkix_hash_type(HashOid),
-    [{rsa_padding, rsa_pkcs1_pss_padding},
-     {rsa_pss_saltlen, SaltLen},
      {rsa_mgf1_md, HashAlgo}].
 
 bad_key(#'DSAPrivateKey'{}) ->
