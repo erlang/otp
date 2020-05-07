@@ -10191,13 +10191,14 @@ fetch_sys_task(Process *c_p, erts_aint32_t state, int *qmaskp, int *priop)
 	*priop = PRIORITY_HIGH;
 	break;
     case NORMAL_BIT:
-	if (!(qmask & PRIORITY_LOW)
+	if (!(qmask & LOW_BIT)
 	    || ++c_p->sys_task_qs->ncount <= RESCHEDULE_LOW) {
 	    qp = &c_p->sys_task_qs->q[PRIORITY_NORMAL];
 	    *priop = PRIORITY_NORMAL;
 	    break;
 	}
 	c_p->sys_task_qs->ncount = 0;
+        qbit = LOW_BIT;
 	/* Fall through */
     case LOW_BIT:
 	qp = &c_p->sys_task_qs->q[PRIORITY_LOW];
