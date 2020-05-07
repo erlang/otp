@@ -625,6 +625,25 @@ init_per_suite(Config) ->
 
     ct:timetrap(minutes(2)),
 
+    try analyze_and_print_host_info() of
+        {Factor, HostInfo} when is_integer(Factor) ->
+            try maybe_skip(HostInfo) of
+                true ->
+                    {skip, "Unstable host and/or os (or combo thererof)"};
+                false ->
+                    snmp_test_global_sys_monitor:start(),
+                    [{snmp_factor, Factor} | Config]
+            catch
+                throw:{skip, _} = SKIP ->
+                    SKIP
+            end
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+maybe_skip(HostInfo) ->
+
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
     %% checking for the host name...
@@ -683,8 +702,7 @@ init_per_suite(Config) ->
         end,
     SkipWindowsOnVirtual =
         fun() ->
-                SysInfo = which_win_system_info(),
-                SysMan  = win_sys_info_lookup(system_manufacturer, SysInfo),
+                SysMan = win_sys_info_lookup(system_manufacturer, HostInfo),
                 case string:to_lower(SysMan) of
                     "vmware" ++ _ ->
                         true;
@@ -695,14 +713,7 @@ init_per_suite(Config) ->
     COND = [{unix,  [{linux, LinuxVersionVerify}, 
                      {darwin, DarwinVersionVerify}]},
             {win32, SkipWindowsOnVirtual}],
-    case os_based_skip(COND) of
-        true ->
-            {skip, "Unstable host and/or os (or combo thererof)"};
-        false ->
-            Factor = analyze_and_print_host_info(),
-            snmp_test_global_sys_monitor:start(),
-            [{snmp_factor, Factor} | Config]
-    end.
+    os_based_skip(COND).
 
 
 end_per_suite(Config) when is_list(Config) ->
@@ -877,19 +888,7 @@ analyze_and_print_host_info() ->
                       "~n   Version:        ~p"
                       "~n   Num Schedulers: ~s"
                       "~n", [OsFam, OsName, Version, str_num_schedulers()]),
-            try erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                N when (N =< 6) ->
-                    2;
-                _ ->
-                    1
-            catch
-                _:_:_ ->
-                    10
-            end
+            {num_schedulers_to_factor(), []}
     end.
 
 linux_which_distro(Version) ->
@@ -976,11 +975,11 @@ analyze_and_print_linux_host_info(Version) ->
     try linux_which_meminfo() of
         AddFactor ->
             io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            Factor + AddFactor
+            {Factor + AddFactor, []}
     catch
         _:_:_ ->
             io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            Factor
+            {Factor, []}
     end.
 
 
@@ -1287,12 +1286,12 @@ analyze_and_print_openbsd_host_info(Version) ->
                     true ->
                         3
                 end,
-            CPUFactor + MemAddFactor
+            {CPUFactor + MemAddFactor, []}
         end
     catch
         _:_:_ ->
             io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            1
+            {2, []}
     end.
     
 
@@ -1375,7 +1374,7 @@ analyze_and_print_freebsd_host_info(Version) ->
                     true ->
                         3
                 end,
-            CPUFactor + MemAddFactor
+            {CPUFactor + MemAddFactor, []}
         end
     catch
         _:_:_ ->
@@ -1383,14 +1382,15 @@ analyze_and_print_freebsd_host_info(Version) ->
                       "~n   Num Schedulers: ~s"
                       "~n", [str_num_schedulers()]),
             io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            case erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                _ ->
-                    2
-            end
+            Factor = case erlang:system_info(schedulers) of
+                         1 ->
+                             10;
+                         2 ->
+                             5;
+                         _ ->
+                             2
+                     end,
+            {Factor, []}
     end.
 
 
@@ -1514,21 +1514,22 @@ analyze_and_print_netbsd_host_info(Version) ->
                     true ->
                         3
                 end,
-            CPUFactor + MemAddFactor
+            {CPUFactor + MemAddFactor, []}
         end
     catch
         _:_:_ ->
             io:format("CPU:"
                       "~n   Num Schedulers: ~w"
                       "~n", [erlang:system_info(schedulers)]),
-            case erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                _ ->
-                    2
-            end
+            Factor = case erlang:system_info(schedulers) of
+                         1 ->
+                             10;
+                         2 ->
+                             5;
+                         _ ->
+                             2
+                     end,
+            {Factor, []}
     end.
 
 analyze_netbsd_cpu(Extract) ->
@@ -1692,19 +1693,19 @@ analyze_and_print_solaris_host_info(Version) ->
             _:_:_ ->
                 10
         end,
-    try erlang:system_info(schedulers) of
-        1 ->
-            10;
-        2 ->
-            5;
-        N when (N =< 6) ->
-            2;
-        _ ->
-            1
-    catch
-        _:_:_ ->
-            10
-    end + MemFactor.    
+    {try erlang:system_info(schedulers) of
+         1 ->
+             10;
+         2 ->
+             5;
+         N when (N =< 6) ->
+             2;
+         _ ->
+             1
+     catch
+         _:_:_ ->
+             10
+     end + MemFactor, []}.    
 
 
 
@@ -1778,7 +1779,7 @@ analyze_and_print_win_host_info(Version) ->
             _ ->
                 2
         end,
-    CPUFactor + MemFactor.
+    {CPUFactor + MemFactor, SysInfo}.
 
 win_sys_info_lookup(Key, SysInfo) ->
     win_sys_info_lookup(Key, SysInfo, "-").
@@ -1852,6 +1853,21 @@ str_num_schedulers() ->
         N -> f("~w", [N])
     catch
         _:_:_ -> "-"
+    end.
+
+num_schedulers_to_factor() ->
+    try erlang:system_info(schedulers) of
+        1 ->
+            10;
+        2 ->
+            5;
+        N when (N =< 6) ->
+            2;
+        _ ->
+            1
+    catch
+        _:_:_ ->
+            10
     end.
 
 
