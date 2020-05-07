@@ -2239,12 +2239,13 @@ gen_rsa_sign_verify_tests(Hashs, Msg, Public, Private, Opts) ->
 
 
 gen_rsa_pub_priv_tests(Public, Private, Msg, OptsToTry) ->
-    SupOpts = proplists:get_value(rsa_opts, crypto:supports(), []),
+    SupOpts = proplists:get_value(rsa_opts, crypto:supports(), []) --
+        [rsa_x931_padding],
     lists:foldr(fun(Opt, Acc) ->
                         case rsa_opt_is_supported(Opt, SupOpts) of
                             true ->
                                 [{rsa, Public, Private, Msg, Opt} | Acc];
-                            false ->
+                             false ->
                                 Acc
                         end
                 end, [], OptsToTry).
