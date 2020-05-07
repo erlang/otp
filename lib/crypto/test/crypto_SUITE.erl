@@ -1648,6 +1648,9 @@ do_generate_compute({srp = Type, UserPrivate, UserGenParams, UserComParams,
      				    UserComParams),
     SessionKey = crypto:compute_key(Type, UserPublic, {HostPublic, HostPrivate},
 				    HostComParam);
+
+
+
 do_generate_compute({dh, P, G}) ->
     {UserPub, UserPriv} = crypto:generate_key(dh, [P, G]),
     {HostPub, HostPriv} = crypto:generate_key(dh, [P, G]),
@@ -1655,6 +1658,7 @@ do_generate_compute({dh, P, G}) ->
     SharedSecret = crypto:compute_key(dh, UserPub, HostPriv, [P, G]).
     
 do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
+    ct:log("~p ~p", [Type,Curve]),
     Secret = crypto:compute_key(Type, Pub, Priv, Curve),
      case Secret of
 	 SharedSecret ->
@@ -1664,6 +1668,7 @@ do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
      end.
 
 do_generate({Type, Curve, Priv, Pub}) when Type == ecdh ; Type == eddsa ->
+    ct:log("~p ~p", [Type,Curve]),
     case crypto:generate_key(Type, Curve, Priv) of
 	{Pub, _} ->
 	    ok;
@@ -1671,6 +1676,7 @@ do_generate({Type, Curve, Priv, Pub}) when Type == ecdh ; Type == eddsa ->
 	    ct:fail({{crypto, generate_key, [Type, Priv, Curve]}, {expected, Pub}, {got, Other}})
     end;
 do_generate({rsa = Type, Mod, Exp}) ->
+    ct:log("~p", [Type]),
     case crypto:info_fips() of
         enabled when Mod < 3072 ->
             ct:log("SKIP do_generate ~p FIPS=~p, Mod=~p  Exp=~p", [Type, enabled, Mod, Exp]),
@@ -3976,11 +3982,13 @@ eddsa(ed448) ->
 
 ecdh() ->
     %% http://csrc.nist.gov/groups/STM/cavp/
-    Curves = crypto:ec_curves() ++ 
-        [X  || X <- proplists:get_value(curves, crypto:supports(), []),
-               lists:member(X, [x25519,x448])],
-    TestCases =
-        [{ecdh, hexstr2point("42ea6dd9969dd2a61fea1aac7f8e98edcc896c6e55857cc0", "dfbe5d7c61fac88b11811bde328e8a0d12bf01a9d204b523"),
+    Curves = crypto:supports(curves),
+    lists:filter(
+      fun ({_Type, _Pub, _Priv, Curve, _SharedSecret}) ->
+              lists:member(Curve, Curves)
+      end,
+
+      [{ecdh, hexstr2point("42ea6dd9969dd2a61fea1aac7f8e98edcc896c6e55857cc0", "dfbe5d7c61fac88b11811bde328e8a0d12bf01a9d204b523"),
           hexstr2bin("f17d3fea367b74d340851ca4270dcb24c271f445bed9d527"),
           secp192r1,
           hexstr2bin("803d8ab2e5b6e6fca715737c3a82f7ce3c783124f6d51cd0")},
@@ -4086,11 +4094,8 @@ ecdh() ->
           16#9a8f4925d1519f5775cf46b04b5800d4ee9ee8bae8bc5565d498c28dd9c9baf574a9419744897391006382a6f127ab1d9ac2d8c0a598726b,
           x448,
           hexstr2bin("07fff4181ac6cc95ec1c16a94a0f74d12da232ce40a77552281d282bb60c0b56fd2464c335543936521c24403085d59a449a5037514a879d")}
-        ],
-    lists:filter(fun ({_Type, _Pub, _Priv, Curve, _SharedSecret}) ->
-                         lists:member(Curve, Curves)
-                 end,
-                 TestCases).
+        ]
+        ).
 
 dh() ->
     {dh, 90970053988169282502023478715631717259407236400413906591937635666709823903223997309250405131675572047545403771567755831138144089197560332757755059848492919215391041119286178688014693040542889497092308638580104031455627238700168892909539193174537248629499995652186913900511641708112112482297874449292467498403, 2}.
@@ -4144,8 +4149,11 @@ ecc() ->
 %% information about the curves see
 %%       http://csrc.nist.gov/encryption/dss/ecdsa/NISTReCur.pdf
 %%
-    Curves = crypto:ec_curves(),
-    TestCases =
+    Curves = crypto:supports(curves),
+    lists:filter(
+      fun ({_Type, Curve, _Priv, _Pub}) ->
+              lists:member(Curve, Curves)
+      end,
         [{ecdh,secp192r1,1,
           hexstr2point("188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012",
                        "07192B95FFC8DA78631011ED6B24CDD573F977A11E794811")},
@@ -4175,12 +4183,9 @@ ecc() ->
           hexstr2bin("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a")},
          {ecdh, x25519,
           hexstr2bin("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb"),
-          hexstr2bin("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")}],
-    lists:filter(fun ({_Type, Curve, _Priv, _Pub}) ->
-                         lists:member(Curve, Curves)
-                 end,
-                 TestCases).
-
+          hexstr2bin("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")}
+        ]
+     ).
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).
