@@ -218,7 +218,8 @@
 # define HAVE_RC2
 #endif
 
-#ifndef OPENSSL_NO_RC4
+#if !defined(OPENSSL_NO_RC4) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_RC4
 #endif
 

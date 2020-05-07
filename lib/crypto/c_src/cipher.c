@@ -27,7 +27,7 @@ static struct cipher_type_t cipher_types[] =
 #ifdef HAVE_RC2
     {{"rc2_cbc"}, {&EVP_rc2_cbc}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #else
-    {{"rc2_cbc"}, {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"rc2_cbc"}, {NULL}, 0, 0},
 #endif
 
 #ifdef HAVE_RC4
