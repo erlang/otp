@@ -878,6 +878,8 @@ analyze_and_print_host_info() ->
             analyze_and_print_freebsd_host_info(Version);           
         {unix, netbsd} ->
             analyze_and_print_netbsd_host_info(Version);           
+        {unix, darwin} ->
+            analyze_and_print_darwin_host_info(Version);
         {unix, sunos} ->
             analyze_and_print_solaris_host_info(Version);
         {win32, nt} ->
@@ -1567,6 +1569,289 @@ analyze_netbsd_item(Extract, Key, Process, Default) ->
     analyze_freebsd_item(Extract, Key, Process, Default).
 
 
+
+%% Model Identifier: Macmini7,1
+%%       Processor Name: Intel Core i5
+%%       Processor Speed: 2,6 GHz
+%%       Number of Processors: 1
+%%       Total Number of Cores: 2
+%%       L2 Cache (per Core): 256 KB
+%%       L3 Cache: 3 MB
+%%       Hyper-Threading Technology: Enabled
+%%       Memory: 16 GB
+
+analyze_and_print_darwin_host_info(Version) ->
+    %% This stuff is for macOS.
+    %% If we ever tested on a pure darwin machine,
+    %% we need to find some other way to find some info...
+    %% Also, I suppose its possible that we for some other
+    %% reason *fail* to get the info...
+    case analyze_darwin_software_info() of
+        [] ->
+            io:format("Darwin:"
+                      "~n   Version:        ~s"
+                      "~n   Num Schedulers: ~s"
+                      "~n", [Version, str_num_schedulers()]),
+            {num_schedulers_to_factor(), []};
+        SwInfo when  is_list(SwInfo) ->
+            SystemVersion = analyze_darwin_sw_system_version(SwInfo),
+            KernelVersion = analyze_darwin_sw_kernel_version(SwInfo),
+            HwInfo        = analyze_darwin_hardware_info(),
+            ModelName     = analyze_darwin_hw_model_name(HwInfo),
+            ModelId       = analyze_darwin_hw_model_identifier(HwInfo),
+            ProcName      = analyze_darwin_hw_processor_name(HwInfo),
+            ProcSpeed     = analyze_darwin_hw_processor_speed(HwInfo),
+            NumProc       = analyze_darwin_hw_number_of_processors(HwInfo),
+            NumCores      = analyze_darwin_hw_total_number_of_cores(HwInfo),
+            Memory        = analyze_darwin_hw_memory(HwInfo),
+            io:format("Darwin:"
+                      "~n   System Version: ~s"
+                      "~n   Kernel Version: ~s"
+                      "~n   Model:          ~s (~s)"
+                      "~n   Processor:      ~s (~s, ~s, ~s)"
+                      "~n   Memory:         ~s"
+                      "~n   Num Schedulers: ~s"
+                      "~n", [SystemVersion, KernelVersion,
+                             ModelName, ModelId,
+                             ProcName, ProcSpeed, NumProc, NumCores, 
+                             Memory,
+                             str_num_schedulers()]),
+            CPUFactor = analyze_darwin_cpu_to_factor(ProcName,
+                                                     ProcSpeed,
+                                                     NumProc,
+                                                     NumCores),
+            MemFactor = analyze_darwin_memory_to_factor(Memory),
+            if (MemFactor =:= 1) ->
+                    {CPUFactor, []};
+               true ->
+                    {CPUFactor + MemFactor, []}
+            end
+    end.
+
+analyze_darwin_sw_system_version(SwInfo) ->
+    proplists:get_value("system version", SwInfo, "-").
+
+analyze_darwin_sw_kernel_version(SwInfo) ->
+    proplists:get_value("kernel version", SwInfo, "-").
+
+analyze_darwin_software_info() ->
+    analyze_darwin_system_profiler("SPSoftwareDataType").
+
+analyze_darwin_hw_model_name(HwInfo) ->
+    proplists:get_value("model name", HwInfo, "-").
+
+analyze_darwin_hw_model_identifier(HwInfo) ->
+    proplists:get_value("model identifier", HwInfo, "-").
+
+analyze_darwin_hw_processor_name(HwInfo) ->
+    proplists:get_value("processor name", HwInfo, "-").
+
+analyze_darwin_hw_processor_speed(HwInfo) ->
+    proplists:get_value("processor speed", HwInfo, "-").
+
+analyze_darwin_hw_number_of_processors(HwInfo) ->
+    proplists:get_value("number of processors", HwInfo, "-").
+
+analyze_darwin_hw_total_number_of_cores(HwInfo) ->
+    proplists:get_value("total number of cores", HwInfo, "-").
+
+analyze_darwin_hw_memory(HwInfo) ->
+    proplists:get_value("memory", HwInfo, "-").
+
+analyze_darwin_hardware_info() ->
+    analyze_darwin_system_profiler("SPHardwareDataType").
+
+%% This basically has the structure: "Key: Value"
+%% But could also be (for example):
+%%    "Something:" (which we ignore)
+%%    "Key: Value1:Value2"
+analyze_darwin_system_profiler(DataType) ->
+    %% First, make sure the program actually exist:
+    case os:cmd("which system_profiler") of
+        [] ->
+            [];
+        _ ->
+            D0 = os:cmd("system_profiler " ++ DataType),
+            D1 = string:tokens(D0, [$\n]),
+            D2 = [string:trim(S1) || S1 <- D1],
+            D3 = [string:tokens(S2, [$:]) || S2 <- D2],
+            analyze_darwin_system_profiler2(D3)
+    end.
+
+analyze_darwin_system_profiler2(L) ->
+    analyze_darwin_system_profiler2(L, []).
+    
+analyze_darwin_system_profiler2([], Acc) ->
+    [{string:to_lower(K), V} || {K, V} <- lists:reverse(Acc)];
+analyze_darwin_system_profiler2([[_]|T], Acc) ->
+    analyze_darwin_system_profiler2(T, Acc);
+analyze_darwin_system_profiler2([[H1,H2]|T], Acc) ->
+    analyze_darwin_system_profiler2(T, [{H1, string:trim(H2)}|Acc]);
+analyze_darwin_system_profiler2([[H|TH0]|T], Acc) ->
+    %% Some value parts has ':' in them, so put them together
+    TH1 = colonize(TH0),
+    analyze_darwin_system_profiler2(T, [{H, string:trim(TH1)}|Acc]).
+
+%% This is only called if the length is at least 2
+colonize([L1, L2]) ->
+    L1 ++ ":" ++ L2;
+colonize([H|T]) ->
+    H ++ ":" ++ colonize(T).
+
+
+%% The memory looks like this "<size> <unit>". Example: "2 GB" 
+analyze_darwin_memory_to_factor(Mem) ->
+    case [string:to_lower(S) || S <- string:tokens(Mem, [$\ ])] of
+        [_SzStr, "tb"] ->
+            1;
+        [SzStr, "gb"] ->
+            try list_to_integer(SzStr) of
+                Sz when Sz < 2 ->
+                    20;
+                Sz when Sz < 4 ->
+                    10;
+                Sz when Sz < 8 ->
+                    5;
+                Sz when Sz < 16 ->
+                    2;
+                _ ->
+                    1
+            catch
+                _:_:_ ->
+                    20
+            end;
+        [_SzStr, "mb"] ->
+            20;
+        _ ->
+            20
+    end.
+
+
+%% The speed is a string: "<speed> <unit>"
+%% the speed may be a float, which we transforms into an integer of MHz.
+%% To calculate a factor based on processor speed, number of procs
+%% and number of cores is ... not an exact ... science ...
+analyze_darwin_cpu_to_factor(_ProcName,
+                             ProcSpeedStr, NumProcStr, NumCoresStr) ->
+    Speed = 
+        case [string:to_lower(S) || S <- string:tokens(ProcSpeedStr, [$\ ])] of
+            [SpeedStr, "mhz"] ->
+                try list_to_integer(SpeedStr) of
+                    SpeedI ->
+                        SpeedI
+                catch
+                    _:_:_ ->
+                        try list_to_float(SpeedStr) of
+                            SpeedF ->
+                                trunc(SpeedF)
+                        catch
+                            _:_:_ ->
+                                -1
+                        end
+                end;
+            [SpeedStr, "ghz"] ->
+                try list_to_float(SpeedStr) of
+                    SpeedF ->
+                        trunc(1000*SpeedF)
+                catch
+                    _:_:_ ->
+                        try list_to_integer(SpeedStr) of
+                            SpeedI ->
+                                1000*SpeedI
+                        catch
+                            _:_:_ ->
+                                -1
+                        end
+                end;
+            _ ->
+                -1
+        end,
+    NumProc = try list_to_integer(NumProcStr) of
+                  NumProcI ->
+                      NumProcI
+              catch
+                  _:_:_ ->
+                      1
+              end,
+    NumCores = try list_to_integer(NumCoresStr) of
+                   NumCoresI ->
+                       NumCoresI
+               catch
+                   _:_:_ ->
+                       1
+               end,
+    if
+        (Speed > 3000) ->
+            if
+                (NumProc =:= 1) ->
+                    if
+                        (NumCores < 2) ->
+                            5;
+                        (NumCores < 4) ->
+                            3;
+                        (NumCores < 6) ->
+                            2;
+                        true ->
+                            1
+                    end;
+                true ->
+                    if
+                        (NumCores < 4) ->
+                            2;
+                        true ->
+                            1
+                    end
+            end;
+        (Speed > 2000) ->
+            if
+                (NumProc =:= 1) ->
+                    if
+                        (NumCores < 2) ->
+                            8;
+                        (NumCores < 4) ->
+                            5;
+                        (NumCores < 6) ->
+                            3;
+                        true ->
+                            1
+                    end;
+                true ->
+                    if
+                        (NumCores < 4) ->
+                            5;
+                        (NumCores < 8) ->
+                            2;
+                        true ->
+                            1
+                    end
+            end;
+        true ->
+            if
+                (NumProc =:= 1) ->
+                    if
+                        (NumCores < 2) ->
+                            10;
+                        (NumCores < 4) ->
+                            7;
+                        (NumCores < 6) ->
+                            5;
+                        (NumCores < 8) ->
+                            3;
+                        true ->
+                            1
+                    end;
+                true ->
+                    if
+                        (NumCores < 4) ->
+                            8;
+                        (NumCores < 8) ->
+                            4;
+                        true ->
+                            1
+                    end
+            end
+    end.
+    
 
 analyze_and_print_solaris_host_info(Version) ->
     Release =
