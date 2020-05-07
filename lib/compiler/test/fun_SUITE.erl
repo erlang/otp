@@ -56,12 +56,14 @@ end_per_group(_GroupName, Config) ->
 
 %%% The help functions below are copied from emulator:bs_construct_SUITE.
 
--define(T(B, L), {B, ??B, L}).
+-define(T(B, L), {fun() -> B end(), ??B, L}).
 
 l1() ->
     [
      ?T((begin A = 3, F = fun(A) -> 1; (_) -> 2 end, F(2) end), 1),
-     ?T((begin G = fun(1=0) -> ok end, {'EXIT',_} = (catch G(2)), ok end), ok)
+     ?T((begin G = fun(1=0) -> ok end, {'EXIT',_} = (catch G(2)), ok end), ok),
+     ?T((begin F = fun(_, 1) -> 1; (F, N) -> N * F(F, N-1) end, F(F, 5) end), 120),
+     ?T((begin F = fun(_, 1) -> 1; (F, N) -> N * F(F, N-1) end, F(F, 1), ok end), ok)
     ].
 
 test1(Config) when is_list(Config) ->
@@ -241,6 +243,7 @@ dup2() ->
 
 badarity(Config) when is_list(Config) ->
     {'EXIT',{{badarity,{_,[]}},_}} = (catch (fun badarity/1)()),
+    {'EXIT',{{badarity,_},_}} = (catch fun() -> 42 end(0)),
     ok.
 
 badfun(_Config) ->

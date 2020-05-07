@@ -274,7 +274,7 @@ expr(#c_let{}=Let0, Ctxt, Sub) ->
 	    %% The argument for the let is "simple", i.e. has no
 	    %% complex structures such as let or seq that can be entered.
 	    ?ASSERT(verify_scope(Let, Sub)),
-	    opt_simple_let(Let, Ctxt, Sub);
+	    opt_fun_call(opt_simple_let(Let, Ctxt, Sub));
 	Expr ->
 	    %% The let body was successfully moved into the let argument.
 	    %% Now recursively re-process the new expression.
@@ -2171,6 +2171,43 @@ is_safe_bool_expr_list([C|Cs], BoolVars) ->
 	false -> false
     end;
 is_safe_bool_expr_list([], _) -> true.
+
+opt_fun_call(#c_let{vars=[#c_var{name=V}],arg=#c_fun{}=FunDef,body=Body}=Let) ->
+    try do_opt_fun_call(V, FunDef, Body) of
+        impossible -> Let;
+        Expr -> Expr
+    catch
+        throw:impossible ->
+            Let
+    end;
+opt_fun_call(Expr) -> Expr.
+
+do_opt_fun_call(V, FunDef, #c_apply{op=#c_var{name=V},args=CallArgs}) ->
+    Values = core_lib:make_values(CallArgs),
+    simplify_fun_call(V, Values, FunDef, CallArgs);
+do_opt_fun_call(V, FunDef, #c_let{arg=#c_apply{op=#c_var{name=V},args=CallArgs},
+                                  body=Rest}=Let) ->
+    Values = core_lib:make_values([Rest|CallArgs]),
+    Inlined = simplify_fun_call(V, Values, FunDef, CallArgs),
+    Let#c_let{arg=Inlined};
+do_opt_fun_call(V, FunDef, #c_seq{arg=#c_apply{op=#c_var{name=V},args=CallArgs},
+                                  body=Rest}=Seq) ->
+    Values = core_lib:make_values([Rest|CallArgs]),
+    Inlined = simplify_fun_call(V, Values, FunDef, CallArgs),
+    Seq#c_seq{arg=Inlined};
+do_opt_fun_call(_, _, _) -> impossible.
+
+simplify_fun_call(V, Values, #c_fun{vars=Vars,body=FunBody}, CallArgs) ->
+    case not core_lib:is_var_used(V, Values) andalso length(Vars) =:= length(CallArgs) of
+        true ->
+            %% Safe to inline.
+            #c_let{vars=Vars,
+                   arg=core_lib:make_values(CallArgs),
+                   body=FunBody};
+        false ->
+            %% The fun is used more than once or there is an arity mismatch.
+            throw(impossible)
+    end.
 
 %% simplify_let(Let, Sub) -> Expr | impossible
 %%  If the argument part of an let contains a complex expression, such
