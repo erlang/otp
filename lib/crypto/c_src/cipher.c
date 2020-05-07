@@ -20,12 +20,6 @@
 
 #include "cipher.h"
 
-#ifdef HAVE_DES
-#define COND_NO_DES_PTR(Ptr) (Ptr)
-#else
-#define COND_NO_DES_PTR(Ptr) (NULL)
-#endif
-
 #define NOT_AEAD {{0,0,0}}
 
 static struct cipher_type_t cipher_types[] =
@@ -35,19 +29,31 @@ static struct cipher_type_t cipher_types[] =
 #else
     {{"rc2_cbc"}, {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #endif
+
 #ifdef HAVE_RC4
     {{"rc4"},     {&EVP_rc4}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #else
     {{"rc4"},     {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #endif
-    {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}, 0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}, 0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}, 0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L, NOT_AEAD},
 
-    {{"des_ede3_cbc"}, {COND_NO_DES_PTR(&EVP_des_ede3_cbc)}, 0, 0, NOT_AEAD},
+#ifdef HAVE_DES
+    {{"des_cbc"}, {&EVP_des_cbc},  0, NO_FIPS_CIPHER},
+    {{"des_cfb"}, {&EVP_des_cfb8}, 0, NO_FIPS_CIPHER},
+    {{"des_ecb"}, {&EVP_des_ecb},  0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L},
+#else
+    {{"des_cbc"}, {NULL}, 0, 0},
+    {{"des_cfb"}, {NULL}, 0, 0},
+    {{"des_ecb"}, {NULL}, 0, 0},
+#endif
 
-#ifdef HAVE_DES_ede3_cfb_encrypt
-    {{"des_ede3_cfb"}, {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}, 0, 0, NOT_AEAD},
+#ifdef HAVE_DES_ede3_cbc
+    {{"des_ede3_cbc"}, {&EVP_des_ede3_cbc}, 0, 0},
+#else
+    {{"des_ede3_cbc"}, {NULL}, 0, 0},
+#endif
+
+#ifdef HAVE_DES_ede3_cfb
+    {{"des_ede3_cfb"}, {&EVP_des_ede3_cfb8}, 0, 0},
 #else
     {{"des_ede3_cfb"}, {NULL}, 0, 0, NOT_AEAD},
 #endif

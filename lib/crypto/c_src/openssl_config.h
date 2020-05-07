@@ -153,9 +153,6 @@
     && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
 # define HAVE_SHA512
 #endif
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
-# define HAVE_DES_ede3_cfb_encrypt
-#endif
 
 // SHA3:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
@@ -187,6 +184,14 @@
 
 #ifndef OPENSSL_NO_DES
 # define HAVE_DES
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
+# define HAVE_DES_ede3_cfb
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
+# define HAVE_DES_ede3_cbc
 #endif
 
 #ifndef OPENSSL_NO_DH
