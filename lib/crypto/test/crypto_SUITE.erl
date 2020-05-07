@@ -217,7 +217,7 @@ groups() ->
      {dss,                  [], [sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
                                 ]},
-     {ecdsa,                [], [sign_verify
+     {ecdsa,                [], [sign_verify, use_all_ec_sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
                                 ]},
      {ed25519,              [], [sign_verify,
@@ -229,7 +229,7 @@ groups() ->
                                  generate
                                 ]},
      {dh,                   [], [generate_compute, compute_bug]},
-     {ecdh,                 [], [use_all_elliptic_curves, compute, generate]},
+     {ecdh,                 [], [compute, generate, use_all_ecdh_generate_compute]},
      {srp,                  [], [generate_compute]},
      {des_cbc,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {des_cfb,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
@@ -604,7 +604,7 @@ api_ng_cipher_increment_loop(Ref, InTexts) ->
                               Bin
                       catch
                           error:Error ->
-                              ct:pal("Txt = ~p",[Txt]),
+                              ct:log("Txt = ~p",[Txt]),
                               ct:fail("~p",[Error])
                       end
               end, InTexts).
@@ -961,9 +961,7 @@ compute(Config) when is_list(Config) ->
     Gen = proplists:get_value(compute, Config),
     lists:foreach(fun do_compute/1, Gen).
 %%--------------------------------------------------------------------
-use_all_elliptic_curves() ->
-    [{doc, " Test that all curves from crypto:ec_curves/0"}].
-use_all_elliptic_curves(_Config) ->
+use_all_ec_sign_verify(_Config) ->
     Msg = <<"hello world!">>,
     Sups = crypto:supports(),
     Curves = proplists:get_value(curves, Sups),
@@ -975,6 +973,7 @@ use_all_elliptic_curves(_Config) ->
     Results =
         [{{Curve,Hash},
           try
+              ct:log("~p ~p",[Curve,Hash]),
               {Pub,Priv} = crypto:generate_key(ecdh, Curve),
               true = is_binary(Pub),
               true = is_binary(Priv),
@@ -995,6 +994,50 @@ use_all_elliptic_curves(_Config) ->
         [] ->
             ok;
         _ ->
+            ct:log("Fails:~n~p",[Fails]),
+            ct:fail("Bad curve(s)",[])
+    end.
+
+%%--------------------------------------------------------------------
+use_all_ecdh_generate_compute(_Config) ->
+    Sups = crypto:supports(),
+    Curves = proplists:get_value(curves, Sups),
+    ct:log("Lib: ~p~nFIPS: ~p~nCurves:~n~p", [crypto:info_lib(),
+                                              crypto:info_fips(),
+                                              Curves]),
+    Results =
+        [{Curve,
+          try
+              ct:log("~p",[Curve]),
+              {APub,APriv} = crypto:generate_key(ecdh, Curve),
+              {BPub,BPriv} = crypto:generate_key(ecdh, Curve),
+              true = is_binary(APub),
+              true = is_binary(APriv),
+              true = is_binary(BPub),
+              true = is_binary(BPriv),
+
+              ACommonSecret = crypto:compute_key(ecdh, BPub, APriv, Curve),
+              BCommonSecret = crypto:compute_key(ecdh, APub, BPriv, Curve),
+              ACommonSecret == BCommonSecret
+          catch
+              C:E ->
+                  {C,E}
+          end}
+         || Curve <- [ed25519, ed448, x25519, x448],
+            lists:member(Curve, Curves)
+        ],
+    Fails0 =
+        lists:filter(fun({_,true}) -> false;
+                        (_) -> true
+                     end, Results),
+    case Fails0 of
+        [{ed25519,_}, {ed448,_}] ->
+            ok;
+        _ ->
+            Fails = lists:filter(fun({ed25519,_}) -> true;
+                                    ({ed448,_}) -> true;
+                                    (_) -> false
+                                 end, Fails0),
             ct:log("Fails:~n~p",[Fails]),
             ct:fail("Bad curve(s)",[])
     end.
@@ -1065,13 +1108,14 @@ cipher_info(Config) when is_list(Config) ->
                              of
                                  _ -> Ok
                              catch Cls:Exc ->
-                                     ct:pal("~p:~p ~p",[Cls,Exc,C]),
+                                     ct:log("~p:~p ~p",[Cls,Exc,C]),
                                      false
                              end
                      end,
                      true,
-crypto:supports(ciphers)) of
-%%                     proplists:get_value(ciphers, crypto:supports())) of
+                     crypto:supports(ciphers)
+                    )
+    of
         true ->
             ok;
         false ->
