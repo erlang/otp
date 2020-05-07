@@ -183,7 +183,8 @@
 # define HAVE_BF
 #endif
 
-#ifndef OPENSSL_NO_DES
+#if !defined(OPENSSL_NO_DES) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_DES
 #endif
 
