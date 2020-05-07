@@ -178,7 +178,8 @@
 # define HAVE_BLAKE2
 #endif
 
-#ifndef OPENSSL_NO_BF
+#if !defined(OPENSSL_NO_BF) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_BF
 #endif
 
