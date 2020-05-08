@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Dialyzer warnings of type <c>no_match</c> are now
+	    suppressed in the generated files.</p>
+          <p>
+	    Own Id: OTP-16636 Aux Id: ERIERL-145 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.11</title>
 
     <section><title>Improvements and New Features</title>
