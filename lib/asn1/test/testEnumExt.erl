@@ -41,7 +41,7 @@ main(Rule) when Rule =:= per; Rule =:= uper ->
     B64 = roundtrip('Noext', red),
     common(Rule);
 main(Rule) when Rule =:= ber; Rule =:= jer ->
-    io:format("main(ber)~n",[]),
+    io:format("main(~p)~n",[Rule]),
     %% ENUMERATED with extensionmark (value is in root set)
     roundtrip('Ext', red),
 

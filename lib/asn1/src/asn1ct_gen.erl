@@ -1314,7 +1314,9 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
           Mod,".",nl,nl,
           "-module('",Mod,"').",nl,
           "-compile(nowarn_unused_vars).",nl,
-          "-dialyzer(no_improper_lists).",nl]),
+          "-dialyzer(no_improper_lists).",nl,
+          "-dialyzer(no_match).",nl
+         ]),
     case Hrl of
 	0 -> ok;
 	_ -> emit(["-include(\"",Mod,".hrl\").",nl])
