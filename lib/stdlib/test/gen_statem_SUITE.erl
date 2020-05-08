@@ -453,19 +453,24 @@ stop7(Config) ->
 stop8(Config) ->
     Node = gen_statem_stop8,
     {ok,NodeName} = ct_slave:start(Node),
-    Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(NodeName, code, add_path, [Dir]),
-    {ok,Pid} =
-	rpc:call(
-	  NodeName, gen_statem,start,
-	  [?MODULE,start_arg(Config, []),[]]),
-    ok = gen_statem:stop(Pid),
-    false = rpc:call(NodeName, erlang, is_process_alive, [Pid]),
-    noproc =
-	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason1),
-    {ok,NodeName} = ct_slave:stop(Node),
+    Statem =
+        try
+            Dir = filename:dirname(code:which(?MODULE)),
+            rpc:block_call(NodeName, code, add_path, [Dir]),
+            {ok,Pid} =
+                rpc:block_call(
+                  NodeName, gen_statem,start,
+                  [?MODULE,start_arg(Config, []),[]]),
+            ok = gen_statem:stop(Pid),
+            false = rpc:block_call(NodeName, erlang, is_process_alive, [Pid]),
+            noproc =
+                ?EXPECT_FAILURE(gen_statem:stop(Pid), Reason1),
+            Pid
+        after
+            {ok,NodeName} = ct_slave:stop(Node)
+        end,
     {{nodedown,NodeName},{sys,terminate,_}} =
-	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason2),
+	?EXPECT_FAILURE(gen_statem:stop(Statem), Reason2),
     ok.
 
 %% Registered name on remote node
@@ -474,21 +479,26 @@ stop9(Config) ->
     LocalSTM = {local,Name},
     Node = gen_statem__stop9,
     {ok,NodeName} = ct_slave:start(Node),
-    STM = {Name,NodeName},
-    Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(NodeName, code, add_path, [Dir]),
-    {ok,Pid} =
-	rpc:call(
-	  NodeName, gen_statem, start,
-	  [LocalSTM,?MODULE,start_arg(Config, []),[]]),
-    ok = gen_statem:stop(STM),
-    undefined = rpc:call(NodeName,erlang,whereis,[Name]),
-    false = rpc:call(NodeName,erlang,is_process_alive,[Pid]),
-    noproc =
-	?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
-    {ok,NodeName} = ct_slave:stop(Node),
+    Statem =
+        try
+            STM = {Name,NodeName},
+            Dir = filename:dirname(code:which(?MODULE)),
+            rpc:block_call(NodeName, code, add_path, [Dir]),
+            {ok,Pid} =
+                rpc:block_call(
+                  NodeName, gen_statem, start,
+                  [LocalSTM,?MODULE,start_arg(Config, []),[]]),
+            ok = gen_statem:stop(STM),
+            undefined = rpc:block_call(NodeName,erlang,whereis,[Name]),
+            false = rpc:block_call(NodeName,erlang,is_process_alive,[Pid]),
+            noproc =
+                ?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
+            STM
+        after
+            {ok,NodeName} = ct_slave:stop(Node)
+        end,
     {{nodedown,NodeName},{sys,terminate,_}} =
-	?EXPECT_FAILURE(gen_statem:stop(STM), Reason2),
+	?EXPECT_FAILURE(gen_statem:stop(Statem), Reason2),
     ok.
 
 %% Globally registered name on remote node
@@ -496,18 +506,21 @@ stop10(Config) ->
     Node = gen_statem_stop10,
     STM = {global,to_stop},
     {ok,NodeName} = ct_slave:start(Node),
-    Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(NodeName,code,add_path,[Dir]),
-    {ok,Pid} =
-	rpc:call(
-	  NodeName, gen_statem, start,
-	  [STM,?MODULE,start_arg(Config, []),[]]),
-    global:sync(),
-    ok = gen_statem:stop(STM),
-    false = rpc:call(NodeName, erlang, is_process_alive, [Pid]),
-    noproc =
-	?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
-    {ok,NodeName} = ct_slave:stop(Node),
+    try
+        Dir = filename:dirname(code:which(?MODULE)),
+        rpc:block_call(NodeName,code,add_path,[Dir]),
+        {ok,Pid} =
+            rpc:block_call(
+              NodeName, gen_statem, start,
+              [STM,?MODULE,start_arg(Config, []),[]]),
+        global:sync(),
+        ok = gen_statem:stop(STM),
+        false = rpc:block_call(NodeName, erlang, is_process_alive, [Pid]),
+        noproc =
+            ?EXPECT_FAILURE(gen_statem:stop(STM), Reason1)
+    after
+        {ok,NodeName} = ct_slave:stop(Node)
+    end,
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(STM), Reason2),
     ok.
@@ -2340,13 +2353,13 @@ init(stop_shutdown) ->
     {stop,shutdown};
 init(sleep) ->
     ?t:sleep(1000),
-    {ok,idle,data};
+    init_sup({ok,idle,data});
 init(hiber) ->
-    {ok,hiber_idle,[]};
+    init_sup({ok,hiber_idle,[]});
 init(hiber_now) ->
-    {ok,hiber_idle,[],[hibernate]};
+    init_sup({ok,hiber_idle,[],[hibernate]});
 init({data, Data}) ->
-    {ok,idle,Data};
+    init_sup({ok,idle,Data});
 init({callback_mode,CallbackMode,Arg}) ->
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,CallbackMode}),
@@ -2356,14 +2369,35 @@ init({map_statem,#{init := Init}=Machine,Modes}) ->
     ets:insert(?MODULE, {callback_mode,[handle_event_function|Modes]}),
     case Init() of
 	{ok,State,Data,Ops} ->
-	    {ok,State,[Data|Machine],Ops};
+	    init_sup({ok,State,[Data|Machine],Ops});
 	{ok,State,Data} ->
-	    {ok,State,[Data|Machine]};
+	    init_sup({ok,State,[Data|Machine]});
 	Other ->
-	    Other
+	    init_sup(Other)
     end;
 init([]) ->
-    {ok,idle,data}.
+    init_sup({ok,idle,data}).
+
+%% Supervise state machine parent i.e the test case, and if it dies
+%% (fails due to some reason), kill the state machine,
+%% just to not leak resources (process, name, ETS table, etc...)
+%%
+init_sup(Result) ->
+    Parent = gen:get_parent(),
+    Statem = self(),
+    _Supervisor =
+        spawn(
+          fun () ->
+                  StatemRef = monitor(process, Statem),
+                  ParentRef = monitor(process, Parent),
+                  receive
+                      {'DOWN', StatemRef, _, _, Reason} ->
+                          exit(Reason);
+                      {'DOWN', ParentRef, _, _, _} ->
+                          exit(Statem, kill)
+                  end
+          end),
+    Result.
 
 callback_mode() ->
     try ets:lookup(?MODULE, callback_mode) of

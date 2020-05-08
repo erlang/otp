@@ -31,6 +31,24 @@ start(Opts) ->
     gen_statem:start({local, ?MODULE}, ?MODULE, [], Opts).
 
 init([]) ->
+    %% Supervise state machine parent i.e the test case, and if it dies
+    %% (fails due to some reason), kill the state machine,
+    %% just to not leak resources (process, name, ETS table, etc...)
+    %%
+    Parent = gen:get_parent(),
+    Statem = self(),
+    _Supervisor =
+        spawn(
+          fun () ->
+                  StatemRef = monitor(process, Statem),
+                  ParentRef = monitor(process, Parent),
+                  receive
+                      {'DOWN', StatemRef, _, _, Reason} ->
+                          exit(Reason);
+                      {'DOWN', ParentRef, _, _, _} ->
+                          exit(Statem, kill)
+                  end
+          end),
     {ok, start, #{}}.
 
 callback_mode() ->
