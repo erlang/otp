@@ -600,7 +600,7 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
     if (BIF_ARG_1 == BIF_P->common.id)
         BIF_RET(am_normal);
 
-    rp = erts_proc_lookup_raw(BIF_ARG_1);
+    rp = erts_proc_lookup(BIF_ARG_1);
     if (!rp)
         BIF_RET(am_false);
 
@@ -619,7 +619,9 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
     if (busy)
         BIF_RET(am_busy);
 
-    res = erts_check_process_code(rp, BIF_ARG_2, &reds, BIF_P->fcalls);
+    res = (ERTS_PROC_IS_EXITING(rp)
+           ? am_false
+           : erts_check_process_code(rp, BIF_ARG_2, &reds, BIF_P->fcalls));
 
     erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 
