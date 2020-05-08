@@ -66,7 +66,7 @@ check_memory(atomics, Memory, Size) ->
     {_,true} = {Memory, Memory > Size*8},
     {_,true} = {Memory, Memory < Size*max_atomic_sz() + 100};
 check_memory(write_concurrency, Memory, Size) ->
-    NWords = erlang:system_info(schedulers) + 1,
+    NWords = erlang:system_info(schedulers_online) + 1,
     {_,true} = {Memory, Memory > NWords*Size*8},
     {_,true} = {Memory, Memory < NWords*(Size+7)*max_atomic_sz() + 100}.
 
@@ -130,7 +130,7 @@ limits_do(Ref) ->
 %% Verify that independent workers, using different counters
 %% within the same array, do not interfere with each other.
 indep(Config) when is_list(Config) ->
-    NScheds = erlang:system_info(schedulers),
+    NScheds = erlang:system_info(schedulers_online),
     Ref = counters:new(NScheds,[write_concurrency]),
     Rounds = 100,
     Papa = self(),
@@ -182,7 +182,7 @@ indep_subber(_Ref, _I, Val) ->
 write_concurrency(Config) when is_list(Config) ->
     rand:seed(exs1024s),
     io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
-    NScheds = erlang:system_info(schedulers),
+    NScheds = erlang:system_info(schedulers_online),
     Size = 100,
     Ref = counters:new(Size,[write_concurrency]),
     Rounds = 1000,
