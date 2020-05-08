@@ -214,11 +214,13 @@ send_and_hostname(SSLSocket) ->
     end.
 
 openssl_client_args(Version, Hostname, Port) ->
-    ["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port), ssl_test_lib:version_flag(Version)].
+    ssl_test_lib:maybe_force_ipv4(["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port), 
+                                   ssl_test_lib:version_flag(Version)]).
 
 openssl_client_args(Version, Hostname, Port, ServerName) ->
-    ["s_client",  "-connect", Hostname ++ ":" ++ 
-	 integer_to_list(Port), ssl_test_lib:version_flag(Version), "-servername", ServerName].
+    ssl_test_lib:maybe_force_ipv4(["s_client",  "-connect", Hostname ++ ":" ++ 
+                                       integer_to_list(Port), 
+                                   ssl_test_lib:version_flag(Version), "-servername", ServerName]).
 
 check_openssl_sni_support(Config) ->
     HelpText = os:cmd("openssl s_client --help"),
