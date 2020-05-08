@@ -1064,9 +1064,9 @@ get_module_info(_Module) ->
     erlang:nif_error(undefined).
 
 %% get_stacktrace/0
--spec erlang:get_stacktrace() -> [stack_item()].
+-spec erlang:get_stacktrace() -> [].
 get_stacktrace() ->
-    erlang:nif_error(undefined).
+    [].
 
 %% group_leader/0
 -spec group_leader() -> pid().

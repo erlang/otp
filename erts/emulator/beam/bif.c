@@ -1032,13 +1032,6 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
 }
 
 /**********************************************************************/
-
-BIF_RETTYPE get_stacktrace_0(BIF_ALIST_0)
-{
-    BIF_RET(NIL);
-}
-
-/**********************************************************************/
 /*
  * This is like exit/1, except that errors are logged if they terminate
  * the process, and the final error value will be {Term,StackTrace}.

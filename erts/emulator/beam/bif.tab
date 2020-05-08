@@ -283,7 +283,6 @@ bif erts_internal:is_process_alive/2
 bif erlang:error/1		error_1
 bif erlang:error/2		error_2
 bif erlang:raise/3		raise_3
-bif erlang:get_stacktrace/0
 
 bif erlang:is_builtin/3
 
