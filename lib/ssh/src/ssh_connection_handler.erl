@@ -889,13 +889,13 @@ handle_event(_,
                                 D0#data{ssh_params = Ssh}),
                             {stop, Shutdown, D};
                         {not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
-			    retry_fun(User, Reason, D0),
-			    send_bytes(Reply, D0),
-			    {next_state, {userauth_keyboard_interactive,server}, D0#data{ssh_params = Ssh}};
+			    D1 = retry_fun(User, Reason, D0#data{ssh_params = Ssh}),
+			    send_bytes(Reply, D1),
+			    {next_state, {userauth_keyboard_interactive,server}, D1};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} ->
-			    retry_fun(User, Reason, D0),
-			    send_bytes(Reply, D0),
-			    {keep_state, D0#data{ssh_params = Ssh}}
+			    D1 = retry_fun(User, Reason, D0#data{ssh_params = Ssh}),
+			    send_bytes(Reply, D1),
+			    {keep_state, D1}
 		    end;
 		false ->
 		    %% No we do not support this method (=/= none)
@@ -994,9 +994,9 @@ handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_inte
              D2#data{auth_user = User,
                      ssh_params = Ssh2#ssh{authenticated = true}}};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
-	    retry_fun(User, Reason, D),
-	    send_bytes(Reply, D),
-	    {next_state, {userauth,server}, D#data{ssh_params = Ssh}};
+	    D1 = retry_fun(User, Reason, D#data{ssh_params = Ssh}),
+	    send_bytes(Reply, D1),
+	    {next_state, {userauth,server}, D1};
 
 	{authorized_but_one_more, _User,  {Reply, Ssh}} ->
 	    send_bytes(Reply, D),
