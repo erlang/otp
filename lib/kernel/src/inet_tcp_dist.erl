@@ -101,7 +101,7 @@ gen_listen(Driver, Name, Host) ->
     end.
 
 gen_listen(ErlEpmd, Name, Host, Driver, Options) ->
-    ListenOptions = listen_options([{backlog,128}|Options]),
+    ListenOptions = listen_options(Options),
     case call_epmd_function(ErlEpmd, listen_port_please, [Name, Host]) of
         {ok, 0} ->
             {First,Last} = get_port_range(),
@@ -143,7 +143,12 @@ listen_options(Opts0) ->
 	end,
     case application:get_env(kernel, inet_dist_listen_options) of
 	{ok,ListenOpts} ->
-	    ListenOpts ++ Opts1;
+	    case proplists:is_defined(backlog, ListenOpts) of
+		true ->
+		    ListenOpts ++ Opts1;
+		false ->
+		    ListenOpts ++ [{backlog, 128} | Opts1]
+	    end;
 	_ ->
 	    Opts1
     end.
