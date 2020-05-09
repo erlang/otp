@@ -501,10 +501,7 @@ service_info(Pid) ->
 %%% Internal functions
 %%%========================================================================
 normalize_and_parse_url(Url) ->
-    case uri_string:normalize(Url) of
-        {error, _, _} = Error -> Error;
-        UriString -> uri_string:parse(UriString)
-    end.
+	uri_string:parse(Url).
 
 handle_request(Method, Url, 
                URI,

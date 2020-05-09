@@ -157,6 +157,7 @@ only_simulated() ->
      relaxed,
      multipart_chunks,
      get_space,
+     get_percent,
      delete_no_body,
      post_with_content_type,
      stream_fun_server_close
@@ -381,9 +382,18 @@ get_space() ->
     [{"Test http get request with '%20' in the path of the URL."}].
 get_space(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/space%20.html", Config), []},
-    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
+    {ok, {{_,201,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
 
     inets_test_lib:check_body(Body).
+
+%%--------------------------------------------------------------------
+get_percent() ->
+  [{"Test http get request with '%2525' in the path of the URL."}].
+get_percent(Config) when is_list(Config) ->
+  Request  = {url(group_name(Config), "/%2525.html", Config), []},
+  {ok, {{_,201,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
+
+  inets_test_lib:check_body(Body).
 
 %%--------------------------------------------------------------------
 post() ->
@@ -2264,9 +2274,15 @@ handle_uri("GET","/dummy.html?foo=bar",_,_,_,_) ->
 
 handle_uri("GET","/space%20.html",_,_,_,_) ->
     Body = "<HTML><BODY>foobar</BODY></HTML>",
-    "HTTP/1.1 200 OK\r\n" ++
-        "Content-Length:" ++ integer_to_list(length(Body)) ++ "\r\n\r\n" ++
-        Body;
+    "HTTP/1.1 201 Created\r\n" ++
+    "Content-Length:" ++ integer_to_list(length(Body)) ++ "\r\n\r\n" ++
+    Body;
+
+handle_uri("GET","/%2525.html",_,_,_,_) ->
+    Body = "<HTML><BODY>foobar</BODY></HTML>",
+    "HTTP/1.1 201 Created\r\n" ++
+    "Content-Length:" ++ integer_to_list(length(Body)) ++ "\r\n\r\n" ++
+    Body;
 
 handle_uri(_,"/just_close.html",_,_,_,_) ->
 		close;
