@@ -348,7 +348,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 			V;
                     F when is_function(F, 4) ->
 			{_,PeerName} = Ssh#ssh.peer,
-			F(PeerName, User, "ssh-connection", Ssh#ssh.pwdfun_user_state);
+			F(PeerName, User, "ssh-connection", Ssh#ssh.user_state);
 		    F when is_function(F) ->
 			{_,PeerName} = Ssh#ssh.peer,
 			F(PeerName, User, "ssh-connection")

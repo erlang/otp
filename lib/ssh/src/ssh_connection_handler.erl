@@ -2295,8 +2295,8 @@ connected_fun(User, Method, D = #data{ssh_params = Ssh}) ->
             D#data{ssh_params = Ssh#ssh{user_state = UserState1}}
     end.
 
-retry_fun(_, undefined, _) ->
-    ok;
+retry_fun(_, undefined, D) ->
+    D;
 retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
                                                 peer = {_,Peer},
                                                 user_state = UserState0} = Ssh} = D0) ->
