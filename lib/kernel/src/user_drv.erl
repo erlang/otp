@@ -120,14 +120,20 @@ server1(Iport, Oport, Shell) ->
     {Curr,Shell1} =
 	case init:get_argument(remsh) of
 	    {ok,[[Node]]} ->
-		ANode = list_to_atom(append_hostname(Node)),
-                %% We try to connect to the node if the current node is not
-                %% a distributed node yet. If this succeeds it means that we
-                %% are running using "-sname undefined".
-                [begin
-                     _ = net_kernel:start([undefined, shortnames]),
-                     net_kernel:connect_node(ANode)
-                 end || node() =:= nonode@nohost],
+                ANode =
+                    if
+                        node() =:= nonode@nohost ->
+                            %% We try to connect to the node if the current node is not
+                            %% a distributed node yet. If this succeeds it means that we
+                            %% are running using "-sname undefined".
+                            _ = net_kernel:start([undefined, shortnames]),
+                            NodeName = append_hostname(Node, net_kernel:nodename()),
+                            true = net_kernel:connect_node(NodeName),
+                            NodeName;
+                        true ->
+                            append_hostname(Node, node())
+                    end,
+
 		RShell = {ANode,shell,start,[]},
 		RGr = group:start(self(), RShell, rem_sh_opts(ANode)),
 		{RGr,RShell};
@@ -146,10 +152,12 @@ server1(Iport, Oport, Shell) ->
     %% Enter the server loop.
     server_loop(Iport, Oport, Curr, User, Gr, {false, queue:new()}).
 
-append_hostname(Node) ->
-    case string:find(Node, "@") of
-	nomatch -> Node ++ string:find(atom_to_list(node()), "@");
-	_ -> Node
+append_hostname(Node, LocalNode) ->
+    case string:find(Node,"@") of
+        nomatch ->
+            list_to_atom(Node ++ string:find(atom_to_list(LocalNode),"@"));
+        _ ->
+            list_to_atom(Node)
     end.
 
 rem_sh_opts(Node) ->

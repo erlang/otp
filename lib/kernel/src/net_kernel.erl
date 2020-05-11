@@ -67,6 +67,7 @@
 -export([start_link/3,
 	 kernel_apply/3,
 	 longnames/0,
+         nodename/0,
 	 protocol_childspecs/0,
 	 epmd_module/0,
          dist_listen/0]).
@@ -186,6 +187,8 @@ allow(Nodes) ->                request({allow, Nodes}).
 allowed() ->                   request(allowed).
 
 longnames() ->                 request(longnames).
+
+nodename() ->                  request(nodename).
 
 -spec stop() -> ok | {error, Reason} when
       Reason :: not_allowed | not_found.
@@ -605,6 +608,9 @@ handle_call({apply,_Mod,_Fun,_Args}, {From,Tag}, State)
 
 handle_call(longnames, From, State) ->
     async_reply({reply, get(longnames), State}, From);
+
+handle_call(nodename, From, State) ->
+    async_reply({reply, State#state.node, State}, From);
 
 handle_call({update_publish_nodes, Ns}, From, State) ->
     async_reply({reply, ok, State#state{publish_on_nodes = Ns}}, From);
