@@ -200,13 +200,14 @@ static int get_init_args(ErlNifEnv* env,
                          ERL_NIF_TERM *return_term)
 {
     int ivec_len;
-    ErlNifBinary key_bin;
     ErlNifBinary ivec_bin;
 
     ctx_res->ctx = NULL; /* For testing if *ctx should be freed after errors */
 #if !defined(HAVE_EVP_AES_CTR)
     ctx_res->env = NULL; /* For testing if *env should be freed after errors */
 #endif
+    ctx_res->key_bin.data = NULL;
+    ctx_res->padding = atom_undefined;
     ctx_res->padded_size = -1;
     ctx_res->size = 0;
 
@@ -222,7 +223,7 @@ static int get_init_args(ErlNifEnv* env,
         goto err;
 
     /* Fetch the key */
-    if (!enif_inspect_iolist_as_binary(env, argv[key_arg_num], &key_bin))
+    if (!enif_inspect_iolist_as_binary(env, argv[key_arg_num], &ctx_res->key_bin))
         {
             *return_term = EXCP_BADARG_N(env, key_arg_num, "Bad key");
             goto err;
@@ -235,7 +236,7 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
 
-    if (!(*cipherp = get_cipher_type(argv[cipher_arg_num], key_bin.size)))
+    if (!(*cipherp = get_cipher_type(argv[cipher_arg_num], ctx_res->key_bin.size)))
         {
             if (!get_cipher_type_no_key(argv[cipher_arg_num]))
                 *return_term = EXCP_BADARG_N(env, cipher_arg_num, "Unknown cipher");
@@ -349,7 +350,7 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
 
-    if (!EVP_CIPHER_CTX_set_key_length(ctx_res->ctx, (int)key_bin.size))
+    if (!EVP_CIPHER_CTX_set_key_length(ctx_res->ctx, (int)ctx_res->key_bin.size))
         {
             *return_term = EXCP_ERROR_N(env, key_arg_num, "Can't initialize context, key_length");
             goto err;
@@ -357,11 +358,11 @@ static int get_init_args(ErlNifEnv* env,
 
 #ifdef HAVE_RC2
     if (EVP_CIPHER_type((*cipherp)->cipher.p) == NID_rc2_cbc) {
-        if (key_bin.size > INT_MAX / 8) {
+        if (ctx_res->key_bin.size > INT_MAX / 8) {
             *return_term = EXCP_BADARG_N(env, key_arg_num, "To large rc2_cbc key");
             goto err;
         }
-        if (!EVP_CIPHER_CTX_ctrl(ctx_res->ctx, EVP_CTRL_SET_RC2_KEY_BITS, (int)key_bin.size * 8, NULL)) {
+        if (!EVP_CIPHER_CTX_ctrl(ctx_res->ctx, EVP_CTRL_SET_RC2_KEY_BITS, (int)ctx_res->key_bin.size * 8, NULL)) {
             *return_term = EXCP_BADARG_N(env, key_arg_num, "ctrl rc2_cbc key");
             goto err;
         }
@@ -370,13 +371,13 @@ static int get_init_args(ErlNifEnv* env,
 
     if (argv[ivec_arg_num] == atom_undefined || ivec_len == 0)
         {
-            if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, NULL, -1)) {
+            if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL,ctx_res->key_bin.data, NULL, -1)) {
                 *return_term = EXCP_BADARG_N(env, key_arg_num, "Can't initialize key");
                 goto err;
             }
         }
     else
-        if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, ivec_bin.data, -1))
+        if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, ctx_res->key_bin.data, ivec_bin.data, -1))
             {
                 *return_term = EXCP_ERROR(env, "Can't initialize key or iv");
                 goto err;
@@ -732,11 +733,50 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 #endif
             {
                 ctx_res_copy.ctx = EVP_CIPHER_CTX_new();
+                if (! ctx_res->ctx)
+                    {
+                        ret = EXCP_ERROR(env, "Can't allocate context");
+                        goto err;
+                    }
 
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
                 if (!EVP_CIPHER_CTX_copy(ctx_res_copy.ctx, ctx_res->ctx)) {
                     ret = EXCP_ERROR(env, "Can't copy ctx_res");
                     goto err;
                 }
+#else
+
+                if (!EVP_CipherInit_ex(ctx_res_copy.ctx,
+                                       EVP_CIPHER_CTX_cipher(ctx_res->ctx),
+                                       NULL, NULL, NULL, ctx_res->encflag))
+                    {
+                        ret = EXCP_ERROR(env, "Can't initialize context, step 1");
+                        goto err;
+                    }
+
+
+                if (!EVP_CIPHER_CTX_set_key_length(ctx_res_copy.ctx,
+                                                   ctx_res->key_bin.size))
+                    {
+                        ret = EXCP_ERROR(env, "Can't initialize context, key_length");
+                        goto err;
+                    }
+
+
+                if (!EVP_CipherInit_ex(ctx_res_copy.ctx, NULL, NULL,
+                                       ctx_res->key_bin.data,
+                                       NULL, -1))
+                    {
+                        ret = EXCP_ERROR(env, "Can't initialize key or iv");
+                        goto err;
+                    }
+
+                if ((ctx_res->padding == atom_undefined) ||
+                    (ctx_res->padding == atom_none) ||
+                    (ctx_res->padding == atom_zero) ||
+                    (ctx_res->padding == atom_random) )
+                    EVP_CIPHER_CTX_set_padding(ctx_res_copy.ctx, 0);
+#endif
             }
 
         if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
@@ -763,14 +803,15 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                 ctx_res_copy.state = enif_make_tuple4(env, tuple_argv[0], argv[2], tuple_argv[2], tuple_argv[3]);
             }
         } else
-#endif
-            if (!EVP_CipherInit_ex(ctx_res_copy.ctx, NULL, NULL, NULL, ivec_bin.data, -1))
+#endif 
+           if (!EVP_CipherInit_ex(ctx_res_copy.ctx, NULL, NULL, NULL, ivec_bin.data, -1))
                 {
                     ret = EXCP_ERROR(env, "Can't set iv");
                     goto err;
                 }
         
         get_update_args(env, &ctx_res_copy, argv, 1, &ret);
+
         ctx_res->size = ctx_res_copy.size;
     } else
         /* argc != 3, that is, argc = 2 (we don't have an IV in this call) */

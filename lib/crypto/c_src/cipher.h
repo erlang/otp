@@ -60,6 +60,7 @@ struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
     int iv_len;
     ERL_NIF_TERM padding; /* id of the padding to add by get_final_args() */
+    ErlNifBinary key_bin;
     int padded_size;   /* Length of the padding that was added */
     int encflag; /* 1 if encrypting, 0 if decrypting */
     unsigned int size; /* The sum of all sizes of input texts to get_update_args() */
