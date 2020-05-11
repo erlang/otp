@@ -91,8 +91,16 @@
       </item>
     </taglist>
     <p><c>url() = string()</c> syntax according to the URI definition in
-    <url href="http://www.ietf.org/rfc/rfc2396.txt">RFC 2396</url>, 
+    <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>,
     for example <c>"http://www.erlang.org"</c></p>
+    <warning><p>Please note that httpc normalizes input URIs before internal processing
+    and special care shall be taken when the URI has percent ("%") characters. A percent
+    serves as the indicator for percent-encoded octets and it must be percent-encoded
+    as "%25" for that octet to be used as data within the URI.</p>
+    <p>For example, in order to send an HTTP GET request with the URI
+    <c>http://localhost/foo%25bar</c>, the percent character must be percent-encoded when
+    creating the request: <c>httpc:request("http://localhost/foo%2525bar").</c>
+    </p></warning>
     <p><c>status_line() = {http_version(), status_code(), reason_phrase()}</c></p>
     <p><c>http_version() = string()</c>, for example, <c>"HTTP/1.1"</c></p>
     <p><c>status_code() = integer()</c></p>
