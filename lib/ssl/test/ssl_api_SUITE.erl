@@ -165,13 +165,16 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
-init_per_group(GroupName, Config0) ->
-    case ssl_test_lib:init_per_group(GroupName, Config0) of
-        {skip, _} = Skip ->
-            Skip;
-        Config ->
-            [{client_type, erlang},
-             {server_type, erlang}|Config]
+init_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_protocol_version(GroupName) of
+        true  ->
+            ssl_test_lib:init_per_group(GroupName, 
+                                        [{client_type, erlang},
+                                         {server_type, erlang},
+                                         {version, GroupName}
+                                        | Config]);
+        false -> 
+            Config
     end.
 
 end_per_group(GroupName, Config) ->

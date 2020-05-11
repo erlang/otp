@@ -94,23 +94,18 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
+    case ssl_test_lib:is_protocol_version(GroupName) of
 	true ->
-            [{tls_version, GroupName},
-             {server_type, erlang},
-             {client_type, erlang} | ssl_test_lib:init_tls_version(GroupName, Config)];
-        _ ->
+            ssl_test_lib:init_per_group(GroupName, 
+                                        [{client_type, erlang},
+                                         {server_type, erlang},
+                                         {version, GroupName} | Config]);
+        false ->
             Config
     end.
 
-end_per_group(GroupName, Config0) ->
-  case ssl_test_lib:is_tls_version(GroupName) of
-      true ->
-          Config = ssl_test_lib:clean_tls_version(Config0),
-          proplists:delete(tls_version, Config);
-      false ->
-          Config0
-  end.
+end_per_group(GroupName, Config) ->
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 %%--------------------------------------------------------------------
 

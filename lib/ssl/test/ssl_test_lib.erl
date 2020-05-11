@@ -51,10 +51,10 @@ start_server(Type, _Args, _Config) ->
 
 %% Test
 send_recv_result_active(Peer1, Peer2, Data) ->
-    ok = ssl_test_lib:send(Peer1, Data),
-    Data = ssl_test_lib:check_active_receive(Peer2, Data),
-    ok = ssl_test_lib:send(Peer2, Data),
-    Data = ssl_test_lib:check_active_receive(Peer1, Data).
+    ok = send(Peer1, Data),
+    Data = check_active_receive(Peer2, Data),
+    ok = send(Peer2, Data),
+    Data = check_active_receive(Peer1, Data).
 
 %% Certs
 init_ecdsa_certs(Config) ->
@@ -69,19 +69,21 @@ init_ecdsa_certs(Config) ->
 
 %% Options
 get_server_opts(Config) ->
-    SOpts = proplists:get_value(server_ecdsa_opts, Config),
+    DSOpts = proplists:get_value(server_ecdsa_opts, Config),
+    SOpts = proplists:get_value(server_opts, Config, DSOpts),
     ssl_test_lib:ssl_options(SOpts, Config).
 
 get_client_opts(Config) ->
-    COpts = proplists:get_value(client_ecdsa_opts, Config),
+    DCOpts = proplists:get_value(client_ecdsa_opts, Config),
+    COpts = proplists:get_value(client_opts, Config, DCOpts),
     ssl_test_lib:ssl_options(COpts, Config).
 
 %% Default callback functions
 init_per_group(GroupName, Config) ->
-    clean_tls_version(Config),
-    case is_tls_version(GroupName) andalso sufficient_crypto_support(GroupName) of
+    case is_protocol_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
-	    init_tls_version(GroupName, Config);
+            clean_protocol_version(Config),
+	    init_protocol_version(GroupName, Config);
 	_ ->
 	    case sufficient_crypto_support(GroupName) of
 		true ->
@@ -95,11 +97,10 @@ init_per_group(GroupName, Config) ->
 init_per_group_openssl(GroupName, Config) ->
     case is_tls_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
-	    case check_sane_openssl_version(GroupName) 
-                andalso maybe_legacy_tls_version_support(GroupName, Config)
+	    case openssl_tls_version_support(GroupName, Config)
             of
 		true ->
-		    [{version, GroupName}|init_tls_version(GroupName, Config)];
+		    [{version, GroupName}|init_protocol_version(GroupName, Config)];
 		false ->
 		    {skip, "Missing openssl support"}
 	    end;
@@ -116,7 +117,7 @@ init_per_group_openssl(GroupName, Config) ->
 end_per_group(GroupName, Config) ->
   case is_tls_version(GroupName) of
       true ->
-          clean_tls_version(Config);
+          clean_protocol_version(Config);
       false ->
           Config
   end.
@@ -384,54 +385,6 @@ start_server_transport_control(Args) ->
 	    Result
     end.
 
-start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, OpensslServerOpts, Data, Callback) ->
-    process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ClientOpts = ErlangClientOpts ++ ClientOpts0,
-
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-
-    Port = ssl_test_lib:inet_port(node()),
-    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    KeyFile = proplists:get_value(keyfile, ServerOpts),
-    Version = ssl_test_lib:protocol_version(Config),
-
-    Exe = "openssl",
-    Args = case OpensslServerOpts of
-	       [] -> 
-		   ["s_server", "-accept", 
-		    integer_to_list(Port), ssl_test_lib:version_flag(Version),
-                    "-CAfile", CaCertFile,
-		    "-cert", CertFile,"-key", KeyFile];
-	       [Opt, Value] ->
-		   ["s_server", Opt, Value, "-accept", 
-		    integer_to_list(Port), ssl_test_lib:version_flag(Version),
-                    "-CAfile", CaCertFile,
-		    "-cert", CertFile,"-key", KeyFile]
-	   end,
-		   
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
-
-    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
-
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                    {host, Hostname},
-                    {from, self()},
-                    {mfa, {?MODULE,
-                           active_recv, [length(Data)]}},
-                    {options, ClientOpts}]),
-
-    Callback(Client, OpensslPort),
-
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close_port(OpensslPort),
-
-    ssl_test_lib:close(Client),
-    process_flag(trap_exit, false).
-
-
 transport_accept_abuse(Opts) ->
     Port = proplists:get_value(port, Opts),
     Options = proplists:get_value(options, Opts),
@@ -445,35 +398,6 @@ transport_accept_abuse(Opts) ->
     {error, _} = ssl:connection_information(AcceptSocket),
     _ = ssl:handshake(AcceptSocket, infinity),
     Pid ! {self(), ok}.
-
-start_erlang_server_and_openssl_client_with_opts(Config, ErlangServerOpts, OpenSSLClientOpts, Data, Callback) ->
-    process_flag(trap_exit, true),
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ServerOpts = ErlangServerOpts ++  ServerOpts0,
-
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                    {from, self()},
-                    {mfa, {?MODULE, active_recv, [length(Data)]}},
-                    {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Version = ssl_test_lib:protocol_version(Config),
-   
-    Exe = "openssl",
-    Args = ["s_client"] ++ OpenSSLClientOpts ++ ["-msg",  "-connect", 
-                                                 hostname_format(Hostname) ++ ":" ++ integer_to_list(Port),
-                                                 ssl_test_lib:version_flag(Version)],
-
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
-
-    Callback(Server, OpenSslPort),
-
-    ssl_test_lib:close(Server),
-
-    ssl_test_lib:close_port(OpenSslPort),
-    process_flag(trap_exit, false).
 
 transport_switch_control(Opts) ->
     Port = proplists:get_value(port, Opts),
@@ -504,11 +428,11 @@ start_openssl_server(Args0, Config) ->
     Node = proplists:get_value(node, Args0, ServerNode),
     Port = proplists:get_value(port, Args0, 0),
     Args = [{from, self()}, {port, Port}] ++ ServerOpts ++ Args0,
-    Result = spawn_link(Node, ?MODULE, init_openssl_server, [lists:delete(return_socket, Args)]),
+    Result = spawn_link(Node, ?MODULE, init_openssl_server, [lists:delete(return_port, Args)]),
     receive
-	{started, Socket} ->
-	    case lists:member(return_socket, Args) of
-		true -> {Result, Socket};
+	{started, OpenSSLPort} ->
+	    case lists:member(return_port, Args) of
+		true -> {Result, OpenSSLPort};
 		false -> Result
 	    end;
 	{start_failed, Reason} ->
@@ -516,29 +440,32 @@ start_openssl_server(Args0, Config) ->
     end.
 
 init_openssl_server(Options) ->
-    {ok, Version} = application:get_env(ssl,protocol_version),
-    %% Port = proplists:get_value(port, Options),
+    DefaultVersions = default_tls_version(Options),
+    [Version | _] = proplists:get_value(versions, Options, DefaultVersions),
     Port = inet_port(node()),
     Pid = proplists:get_value(from, Options),
-
+     
     Exe = "openssl",
     Ciphers = proplists:get_value(ciphers, Options, ssl:cipher_suites(default,Version)),
     Groups0 = proplists:get_value(groups, Options),
-    CertArgs = openssl_cert_options(Options, server),
-    Exe = "openssl",
+    CertArgs = openssl_cert_options(Options, server), 
+    AlpnArgs = openssl_alpn_options(proplists:get_value(alpn, Options, undefined)),
+    NpnArgs =  openssl_npn_options(proplists:get_value(np, Options, undefined)),                
+    Debug = openssl_debug_options(),
 
-    Args =  case Groups0 of
+    Args0 =  case Groups0 of
                 undefined ->
                     ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
-                     ciphers(Ciphers, Version),
-                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"];
+                     ciphers(Ciphers, Version), 
+                     ssl_test_lib:version_flag(Version)] ++ AlpnArgs ++ NpnArgs ++ CertArgs ++ Debug;
                 Group ->
                        ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                         ciphers(Ciphers, Version), "-groups", Group,
-                        ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
+                        ssl_test_lib:version_flag(Version)] ++ AlpnArgs ++ NpnArgs ++ CertArgs ++ Debug
             end,
+    Args = maybe_force_ipv4(Args0),
     SslPort = ssl_test_lib:portable_open_port(Exe, Args),
-    Pid ! {started, Port},
+    Pid ! {started, SslPort},
     Pid ! {self(), {port, Port}},
     case openssl_server_started(SslPort) of
         true ->
@@ -598,17 +525,19 @@ openssl_server_loop(Pid, SslPort, Args) ->
 
 start_openssl_client(Args0, Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-    ClientOpts = ssl_test_lib:get_client_opts(Config),
+    ClientOpts = ssl_test_lib:get_client_opts(Config),    
+    DefaultVersions = default_tls_version(ClientOpts),
+    [Version | _] = proplists:get_value(versions, ClientOpts, DefaultVersions),
     Node = proplists:get_value(node, Args0, ClientNode),
     Args = [{from, self()},
             {host, Hostname},
             {options, ClientOpts} | Args0],
 
-    Result = spawn_link(Node, ?MODULE, init_openssl_client, [lists:delete(return_socket, Args)]),
+    Result = spawn_link(Node, ?MODULE, init_openssl_client, [[{version, Version} | lists:delete(return_port, Args)]]),
     receive
-	{connected, Socket} ->
-	    case lists:member(return_socket, Args) of
-		true -> {Result, Socket};
+	{connected, OpenSSLPort} ->
+	    case lists:member(return_port, Args) of
+		true -> {Result, OpenSSLPort};
 		false -> Result
 	    end;
 	{connect_failed, Reason} ->
@@ -616,56 +545,17 @@ start_openssl_client(Args0, Config) ->
     end.
 
 init_openssl_client(Options) ->
-    {ok, Version} = application:get_env(ssl,protocol_version),
+    Version = proplists:get_value(version, Options),
     Port = proplists:get_value(port, Options),
     Pid = proplists:get_value(from, Options),
+    SslPort = start_client(openssl, Port, Options, [{version, Version}]),
+    openssl_client_loop(Pid, SslPort, []).
 
-    Exe = "openssl",
-    Ciphers = proplists:get_value(ciphers, Options, ssl:cipher_suites(default,Version)),
-    Groups0 = proplists:get_value(groups, Options),
-    CertArgs = openssl_cert_options(Options, client),
-    Exe = "openssl",
-    Args0 =  case Groups0 of
-                undefined ->
-                    ["s_client", "-verify", "2", "-port", integer_to_list(Port), cipher_flag(Version),
-                     ciphers(Ciphers, Version),
-                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"];
-                Group ->
-                    ["s_client", "-verify", "2", "-port", integer_to_list(Port), cipher_flag(Version),
-                     ciphers(Ciphers, Version), "-groups", Group,
-                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
-            end,
-    Args = maybe_force_ipv4(Args0),
-    SslPort = ssl_test_lib:portable_open_port(Exe, Args),
-    case openssl_client_started(SslPort) of
-        true ->
-            openssl_client_loop(Pid, SslPort, Args);
-        false ->
-            {error, openssl_client}
-    end.
-
-openssl_client_started(Port) ->
-    receive
-        {Port, {data, Data}} ->
-            ct:log("~p:~p~n Openssl~n ~s~n",[?MODULE,?LINE, Data]),
-            verify_openssl_client_started(Port, Data)
-    after
-        5000 ->
-            false
-    end.
 
 verify_openssl_server_started(Port, Data) ->
     case re:run(Data, ".*CIPHER is.*") of
         nomatch ->
             openssl_server_started(Port);
-        {match, _} ->
-            true
-    end.
-
-verify_openssl_client_started(Port, Data) ->
-    case re:run(Data, ".*New, TLSv\\d[.]\\d, Cipher is.*") of
-        nomatch ->
-            openssl_client_started(Port);
         {match, _} ->
             true
     end.
@@ -715,12 +605,12 @@ openssl_client_loop_core(Pid, SslPort, Args) ->
 
 start_client(Args0, Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    ServerOpts = ssl_test_lib:get_server_opts(Config),
+    COpts = ssl_test_lib:get_client_opts(Config),
     Node = proplists:get_value(node, Args0, ServerNode),
     Args = [{from, self()},
             {host, Hostname},
             {node, Node},
-            {options, ServerOpts} | Args0],
+            {options, COpts} | Args0],
     start_client(Args).
 %%
 start_client(Args) ->
@@ -1459,10 +1349,10 @@ make_rsa_cert(Config) ->
             [{server_config, ServerConf}, 
              {client_config, ClientConf}] = 
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
-	    [{server_rsa_opts, [{ssl_imp, new},{reuseaddr, true} | ServerConf]},
+	    [{server_rsa_opts, [{reuseaddr, true} | ServerConf]},
              
-	     {server_rsa_verify_opts, [{ssl_imp, new}, {reuseaddr, true},
-					 {verify, verify_peer} | ServerConf]},
+	     {server_rsa_verify_opts, [{reuseaddr, true},
+                                       {verify, verify_peer} | ServerConf]},
 	     {client_rsa_opts, ClientConf},
              {client_rsa_verify_opts,  [{verify, verify_peer} |ClientConf]}
 	     | Config];
@@ -1745,10 +1635,10 @@ run_basic_alert(erlang, erlang, ClientOpts, ServerOpts, Config, Alert) ->
     Port  = inet_port(Server),
     
     Client = start_client_error([{node, ClientNode}, {port, Port},
-					      {host, Hostname},
-					      {from, self()},
-                                              {mfa, {ssl_test_lib, no_result, []}},
-					      {options, ClientOpts}]),
+                                 {host, Hostname},
+                                 {from, self()},
+                                 {mfa, {ssl_test_lib, no_result, []}},
+                                 {options, ClientOpts}]),
 
     check_server_alert(Server, Client, Alert);
 run_basic_alert(openssl = SType, erlang, ClientOpts, ServerOpts, Config, Alert) ->
@@ -1792,26 +1682,33 @@ start_client(openssl, Port, ClientOpts, Config) ->
     Ciphers = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
     Groups0 = proplists:get_value(groups, ClientOpts),
     CertArgs = openssl_cert_options(ClientOpts, client),
+    AlpnArgs = openssl_alpn_options(proplists:get_value(alpn, ClientOpts, undefined)),
+    NpnArgs =  openssl_npn_options(proplists:get_value(np, ClientOpts, undefined)),                          
+    Reconnect = openssl_reconect_option(proplists:get_value(reconnect, ClientOpts, false)),  
+    MaxFragLen = openssl_maxfag_option(proplists:get_value(maxfrag, ClientOpts, false)),
+    SessionArgs =  proplists:get_value(session_args, ClientOpts, []),
+    HostName = proplists:get_value(hostname, ClientOpts, net_adm:localhost()),
+    Debug = openssl_debug_options(),
 
     Exe = "openssl",
     Args0 =  case Groups0 of
                 undefined ->
-                    ["s_client", 
-                     "-verify", "2", 
-                     "-port", integer_to_list(Port), cipher_flag(Version),
-                     ciphers(Ciphers, Version),
-                     ssl_test_lib:version_flag(Version)] 
-                         ++ CertArgs 
-                         ++ ["-msg", "-debug"];
-                Group ->
-                    ["s_client", 
-                     "-verify", "2", 
-                     "-port", integer_to_list(Port), cipher_flag(Version),
-                     ciphers(Ciphers, Version), "-groups", Group, 
-                     ssl_test_lib:version_flag(Version)] 
-                         ++CertArgs 
-                         ++ ["-msg", "-debug"]
-            end,
+                     ["s_client",
+                      "-verify", "2",
+                      "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port), cipher_flag(Version),
+                      ciphers(Ciphers, Version),
+                      ssl_test_lib:version_flag(Version)] 
+                         ++ CertArgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
+                         ++ Debug;
+                 Group ->
+                     ["s_client",
+                      "-verify", "2",
+                      "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port), cipher_flag(Version),
+                      ciphers(Ciphers, Version), "-groups", Group,
+                      ssl_test_lib:version_flag(Version)]
+                         ++ CertArgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
+                         ++ Debug
+                 end,
     Args = maybe_force_ipv4(Args0),
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, "Hello world"),
@@ -1867,15 +1764,18 @@ start_server(openssl, ClientOpts, ServerOpts, Config) ->
     Ciphers = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
     Groups0 = proplists:get_value(groups, ServerOpts),
     SigAlgs = proplists:get_value(openssl_sigalgs, Config, undefined),
+    SessionArgs = proplists:get_value(session_args, Config, []),
+    Debug = openssl_debug_options(),
+
     Args =  case Groups0 of
                 undefined ->
                     ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                      ciphers(Ciphers, Version),
-                     ssl_test_lib:version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ ["-msg", "-debug"];
+                     ssl_test_lib:version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ SessionArgs ++ Debug;
                 Group ->
                        ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                         ciphers(Ciphers, Version), "-groups", Group, 
-                        ssl_test_lib:version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ ["-msg", "-debug"]
+                        ssl_test_lib:version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ SessionArgs ++ Debug
             end,
     OpenSslPort = portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
@@ -1917,6 +1817,29 @@ ciphers_concat('tlsv1.3' = Version, [Head| Tail], Acc) ->
     end;
 ciphers_concat(Version,  [Head| Tail], Acc) ->
     ciphers_concat(Version, Tail, [":", Head | Acc]).
+
+openssl_alpn_options(undefined) ->
+    [];
+openssl_alpn_options(Alpn) ->
+    ["-alpn", Alpn].
+
+openssl_npn_options(undefined) ->
+    [];
+openssl_npn_options(Npn) ->
+    ["-nextprotoneg", Npn].
+
+openssl_reconect_option(false) ->
+    [];
+openssl_reconect_option(true) ->
+    ["-reconnect"].
+openssl_maxfag_option(false) ->
+    [];
+openssl_maxfag_option(Int) ->
+    ["-maxfraglen", integer_to_list(Int)].
+
+openssl_debug_options() ->
+    ["-msg", "-debug"].
+
 
 start_server_with_raw_key(erlang, ServerOpts, Config) ->
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
@@ -2297,18 +2220,6 @@ public_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
     public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
 public_key(Key) ->
     Key.
-receive_rizzo_duong_beast() ->
-    receive 
-	{ssl, _, "ello\n"} ->
-	    receive 
-		{ssl, _, " "} ->
-		    receive
-			{ssl, _, "world\n"} ->
-			    ok
-		    end
-	    end
-    end.
-
 
 state([{data,[{"State", {_StateName, StateData}}]} | _]) -> %% gen_statem
     StateData;
@@ -2319,11 +2230,10 @@ state([{data,[{"StateData", State}]} | _]) -> %% gen_fsm
 state([_ | Rest]) ->
     state(Rest).
 
-%% TODO: DTLS considered tls version in this use maybe rename
-is_tls_version('dtlsv1.2') ->
-    true;
-is_tls_version('dtlsv1') ->
-    true;
+is_protocol_version(Ver) ->
+    is_tls_version(Ver) orelse
+        is_dtls_version(Ver).
+
 is_tls_version('tlsv1.3') ->
     true;
 is_tls_version('tlsv1.2') ->
@@ -2342,10 +2252,8 @@ is_dtls_version('dtlsv1') ->
 is_dtls_version(_) ->
     false.
 
-maybe_legacy_tls_version_support(Version, Config0) when 
-      Version == 'tlsv1';
-      Version == 'tlsv1.1' ->
-    %% Check if legacy version is supported
+openssl_tls_version_support(Version, Config0) ->    
+    %% Check if version is supported
     Config = ssl_test_lib:make_rsa_cert(Config0),
     ServerOpts = proplists:get_value(server_rsa_opts, Config),
     Port = ssl_test_lib:inet_port(node()),
@@ -2353,46 +2261,53 @@ maybe_legacy_tls_version_support(Version, Config0) when
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Exe = "openssl",
-    Args = ["s_server", "-accept", 
+    Args0 = ["s_server", "-accept", 
             integer_to_list(Port), "-CAfile", CaCertFile,
             "-cert", CertFile,"-key", KeyFile],
-    
+    Args = maybe_force_ipv4(Args0),
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
-        ssl_test_lib:wait_for_openssl_server(Port, tls),
-    
-    case  ssl:connect("localhost", Port, [{versions, [Version]}]) of
-        {ok, Socket} ->
-            ssl:close(Socket),
-            close_port(OpensslPort),
-            true;
-        {error, {tls_alert, {protocol_version, _}}} ->
+
+    try wait_for_openssl_server(Port, tls) of
+        ok ->
+            case  ssl:connect("localhost", Port, [{versions, [Version]}]) of
+                {ok, Socket} ->
+                    ssl:close(Socket),
+                    close_port(OpensslPort),
+                    true;
+                {error, {tls_alert, {protocol_version, _}}} ->
+                    ct:pal("Openssl does not support ~p", [Version]),
+                    close_port(OpensslPort),
+                    false;
+                {error, {tls_alert, Alert}} ->
+                    ct:pal("Openssl returned alert ~p", [Alert]),
+                    close_port(OpensslPort),
+                    false
+            end
+    catch
+        _:_ ->
+            ct:pal("Openssl does not support ~p", [Version]),
             close_port(OpensslPort),
             false
-    end;
-maybe_legacy_tls_version_support('dtlsv1', Config) ->
-    maybe_legacy_tls_version_support('tlsv1.1', Config);
-maybe_legacy_tls_version_support(_, _) ->
-    %% Not a legacy version
-    true.
+    end.
 
-init_tls_version(Version, Config)
+init_protocol_version(Version, Config)
   when Version == 'dtlsv1.2'; Version == 'dtlsv1' ->
     ssl:stop(),
     application:load(ssl),
-    application:set_env(ssl, dtls_protocol_version, Version),
+    application:set_env(ssl, dtls_protocol_version, [Version]),
     ssl:start(),
     NewConfig = proplists:delete(protocol_opts, proplists:delete(protocol, Config)),
     [{protocol, dtls}, {protocol_opts, [{protocol, dtls}]} | NewConfig];
 
-init_tls_version(Version, Config) ->
+init_protocol_version(Version, Config) ->
     ssl:stop(),
     application:load(ssl),
-    application:set_env(ssl, protocol_version, Version),
+    application:set_env(ssl, protocol_version, [Version]),
     ssl:start(),
     NewConfig = proplists:delete(protocol_opts, proplists:delete(protocol, Config)),
     [{protocol, tls} | NewConfig].
 
-clean_tls_version(Config) ->
+clean_protocol_version(Config) ->
     proplists:delete(protocol_opts, proplists:delete(protocol, Config)).
 
 sufficient_crypto_support(Version)
@@ -2911,7 +2826,8 @@ do_wait_for_openssl_tls_server(_, 0) ->
 do_wait_for_openssl_tls_server(Port, N) ->
     case gen_tcp:connect("localhost", Port, []) of
 	{ok, S} ->
-	    gen_tcp:close(S);
+	    gen_tcp:close(S),
+            ok;
 	_  ->
 	    ct:sleep(?SLEEP),
 	    do_wait_for_openssl_tls_server(Port, N-1)
@@ -3104,8 +3020,12 @@ ssl_options(Options, Config) ->
     Options ++ ProtocolOpts.
 
 protocol_version(Config) ->
-   protocol_version(Config, atom).
-
+   case proplists:get_value(version, Config, undefined) of
+       undefined -> 
+           protocol_version(Config, atom);
+       Version ->
+           Version
+   end.
 protocol_version(Config, tuple) ->
     case proplists:get_value(protocol, Config) of
 	dtls ->
@@ -3619,3 +3539,17 @@ test_ciphers(Kex, Cipher, Version) ->
              (_) -> false
           end}]).
 
+sanity_check(ErlangPeer, OpenSSLPort) ->
+    Data = "OpenSSL to Erlang",
+    port_command(OpenSSLPort, Data, [nosuspend]),
+    Data = check_active_receive(ErlangPeer, Data).
+
+default_tls_version(Config) ->
+    case proplists:get_value(protocol, Config, tls) of
+        tls ->
+            {ok, Versions} = application:get_env(ssl, protocol_version),
+            Versions;
+        dtls ->
+            {ok, Versions} = application:get_env(ssl, dtls_protocol_version),
+            Versions
+    end.

@@ -73,13 +73,23 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_group(rsa, Config0) ->
+init_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_protocol_version(GroupName) of
+        true  ->
+            ssl_test_lib:init_per_group(GroupName, 
+                                        [{client_type, erlang},
+                                         {server_type, erlang} | Config]);
+        false -> 
+            do_init_per_group(GroupName, Config)
+    end.
+
+do_init_per_group(rsa, Config0) ->
     Config = ssl_test_lib:make_rsa_cert(Config0),
     COpts = proplists:get_value(client_rsa_opts, Config),
     SOpts = proplists:get_value(server_rsa_opts, Config),
     [{client_cert_opts, COpts}, {server_cert_opts, SOpts} | 
      lists:delete(server_cert_opts, lists:delete(client_cert_opts, Config))];
-init_per_group(ecdsa, Config0) ->
+do_init_per_group(ecdsa, Config0) ->
     PKAlg = crypto:supports(public_keys),
     case lists:member(ecdsa, PKAlg) andalso 
         (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
@@ -91,31 +101,10 @@ init_per_group(ecdsa, Config0) ->
              lists:delete(server_cert_opts, lists:delete(client_cert_opts, Config))];
         false ->
             {skip, "Missing EC crypto support"}
-    end;
-init_per_group(GroupName, Config) ->
-    ssl_test_lib:clean_tls_version(Config),                          
-    case ssl_test_lib:is_tls_version(GroupName) andalso 
-        ssl_test_lib:sufficient_crypto_support(GroupName) of
-	true ->
-	    ssl_test_lib:init_tls_version(GroupName, Config);
-	_ ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    ssl:start(),
-		    Config;
-		false ->
-		    {skip, "Missing crypto support"}
-	    end
     end.
 
 end_per_group(GroupName, Config) ->
-  case ssl_test_lib:is_tls_version(GroupName) of
-      true ->
-          ssl_test_lib:clean_tls_version(Config);
-      false ->
-          Config
-  end.
-
+    ssl_test_lib:end_per_group(GroupName, Config).
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------

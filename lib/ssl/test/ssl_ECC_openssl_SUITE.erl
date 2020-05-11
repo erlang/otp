@@ -72,13 +72,12 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
+    case ssl_test_lib:is_protocol_version(GroupName) of
 	true ->
             case ssl_test_lib:check_sane_openssl_version(GroupName) of
                 true ->
-                    [{tls_version, GroupName},
-                     {server_type, erlang},
-                     {client_type, openssl} | ssl_test_lib:init_tls_version(GroupName, Config)];
+                     ssl_test_lib:init_per_group_openssl([{server_type, erlang},
+                                                          {client_type, openssl}], [{tls_version, GroupName} | Config]);
                 false ->
                     {skip, openssl_does_not_support_version}
             end;
@@ -86,14 +85,8 @@ init_per_group(GroupName, Config) ->
             Config
     end.
 
-end_per_group(GroupName, Config0) ->
-  case ssl_test_lib:is_tls_version(GroupName) of
-      true ->
-          Config = ssl_test_lib:clean_tls_version(Config0),
-          proplists:delete(tls_version, Config);
-      false ->
-          Config0
-  end.
+end_per_group(GroupName, Config) ->
+  ssl_test_lib:end_per_group(GroupName, Config).
 
 %%--------------------------------------------------------------------
 init_per_testcase(skip, Config) ->

@@ -140,10 +140,10 @@ reuse_session_erlang_server() ->
     [{doc, "Test erlang server with openssl client that reconnects with the"
       "same session id, to test reusing of sessions."}].
 reuse_session_erlang_server(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
+    ClientOpts = proplists:get_value(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     
     Data = "From openssl to erlang",
     
@@ -153,53 +153,37 @@ reuse_session_erlang_server(Config) when is_list(Config) ->
                                         {reconnect_times, 5},
                                         {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    Version = ssl_test_lib:protocol_version(Config),
+
     
-    Exe = "openssl",
-    Args = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname)
-            ++ ":" ++ integer_to_list(Port),
-            ssl_test_lib:version_flag(Version),
-            "-reconnect"],
-    
-    OpenSslPort =  ssl_test_lib:portable_open_port(Exe, Args),
-    
-    true = port_command(OpenSslPort, Data),
+    {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port}, 
+                                                                 {reconnect, true},
+                                                                 {options, ClientOpts}, 
+                                                                 return_port], Config),
+    true = port_command(OpenSSLPort, Data),
     
     ssl_test_lib:check_result(Server, Data),
-    
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close_port(OpenSslPort).
+    ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
 
 reuse_session_erlang_client() ->
     [{doc, "Test erlang ssl client that wants to reuse sessions"}].
 reuse_session_erlang_client(Config) when is_list(Config) -> 
-    process_flag(trap_exit, true),
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_opts, Config),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
-    Version = ssl_test_lib:protocol_version(Config),    
-    Port = ssl_test_lib:inet_port(node()),
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    CACertFile = proplists:get_value(cacertfile, ServerOpts),
-    KeyFile = proplists:get_value(keyfile, ServerOpts),
-
-    Exe = "openssl",
-    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-            "-cert", CertFile,"-key", KeyFile, "-CAfile", CACertFile],
-
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args), 
-
-    ssl_test_lib:wait_for_openssl_server(Port,  proplists:get_value(protocol, Config)),
+    Server = ssl_test_lib:start_server(openssl, [], 
+                                       [{server_opts, ServerOpts} | Config]),
+    Port = ssl_test_lib:inet_port(Server),    
     
     Client0 =
         ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, session_id, []}},
-                                   {from, self()},  {options, [{reuse_sessions, save}, {verify, verify_peer}| ClientOpts]}]),
+                                   {from, self()}, 
+                                   {options, [{reuse_sessions, save}, 
+                                              {verify, verify_peer}| ClientOpts]}]),
     
     SID = receive
               {Client0, Id0} ->
@@ -239,9 +223,6 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
                     ok
             end
     end,
-    
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close_port(OpensslPort),
     ssl_test_lib:close(Client2).
 
 
