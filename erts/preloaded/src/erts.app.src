@@ -42,7 +42,7 @@
 	{registered, []},
 	{applications, []},
 	{env, []},
-	{runtime_dependencies, ["stdlib-@OTP-15251@", "kernel-@OTP-15251@", "sasl-3.3"]}
+	{runtime_dependencies, ["stdlib-3.13", "kernel-7.0", "sasl-3.3"]}
     ]}.
 
 %% vim: ft=erlang

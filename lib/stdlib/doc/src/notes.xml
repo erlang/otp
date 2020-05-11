@@ -31,6 +31,209 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compiling a match specification with excessive nesting
+	    caused the runtime system to crash due to scheduler stack
+	    exhaustion. Instead of crashing the runtime system,
+	    effected functions will now raise a <c>system_limit</c>
+	    error exception in this situation.</p>
+          <p>
+	    Own Id: OTP-16431 Aux Id: ERL-592 </p>
+        </item>
+        <item>
+	    <p> Initialization of record fields using <c>_</c> is no
+	    longer allowed if the number of affected fields is zero.
+	    </p>
+          <p>
+	    Own Id: OTP-16516</p>
+        </item>
+        <item>
+	    <p> Fix bugs in <c>eval_bits</c>. </p>
+          <p>
+	    Own Id: OTP-16545</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved the printout of single line logger events for
+	    most of the OTP behaviours in STDLIB and Kernel. This
+	    includes <c>proc_lib</c>, <c>gen_server</c>,
+	    <c>gen_event</c>, <c>gen_statem</c>, <c>gen_fsm</c>,
+	    <c>supervisor</c>, <c>supervisor_bridge</c> and
+	    <c>application</c>.</p>
+          <p>
+	    Improved the <seeerl
+	    marker="kernel:logger_formatter#chars_limit"><c>chars_limit</c></seeerl>
+	    and <seeerl
+	    marker="kernel:logger_formatter#depth"><c>depth</c></seeerl>
+	    handling in <c>proc_lib</c> and when formatting of
+	    exceptions.</p>
+          <p>
+	    Own Id: OTP-15299</p>
+        </item>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+        <item>
+	    <p>Improved ETS scalability of concurrent calls that
+	    change the size of a table, like <c>ets:insert/2</c> and
+	    <c>ets:delete/2</c>.</p> <p>This performance feature was
+	    implemented for <c>ordered_set</c> in OTP 22.0 and does
+	    now apply for all ETS table types.</p> <p>The improved
+	    scalability may come at the cost of longer latency of
+	    <c>ets:info(T,size)</c> and <c>ets:info(T,memory)</c>. A
+	    new table option <c>decentralized_counters</c> has
+	    therefore been added. It is default <c>true</c> for
+	    <c>ordered_set</c> with <c>write_concurrency</c> enabled
+	    and default <c>false</c> for all other table types.</p>
+          <p>
+	    Own Id: OTP-15744 Aux Id: OTP-15623, PR-2229 </p>
+        </item>
+        <item>
+	    <p> Handle Unicode filenames in the <c>zip</c> module.
+	    </p>
+          <p>
+	    Own Id: OTP-16005 Aux Id: ERL-1003, ERL-1150 </p>
+        </item>
+        <item>
+          <p>
+	    Unicode support was updated to the Unicode 12.1 standard.</p>
+          <p>
+	    Own Id: OTP-16073 Aux Id: PR-2339 </p>
+        </item>
+        <item>
+          <p>
+	    All of the modules <seemfa
+	    marker="stdlib:proc_lib#start_monitor/3"><c>proc_lib</c></seemfa>,
+	    <seemfa
+	    marker="stdlib:gen_server#start_monitor/3"><c>gen_server</c></seemfa>,
+	    <seemfa
+	    marker="stdlib:gen_statem#start_monitor/3"><c>gen_statem</c></seemfa>,
+	    and <seemfa
+	    marker="stdlib:gen_event#start_monitor/0"><c>gen_event</c></seemfa>
+	    have been extended with a <c>start_monitor()</c>
+	    function. For more information, see the documentation of
+	    <c>start_monitor()</c> for these modules.</p>
+          <p>
+	    Own Id: OTP-16120 Aux Id: ERIERL-402, PR-2427 </p>
+        </item>
+        <item>
+          <p>
+	    Updates for new <c>erlang:term_to_iovec()</c> BIF.</p>
+          <p>
+	    Own Id: OTP-16128 Aux Id: OTP-15618 </p>
+        </item>
+        <item>
+	    <p>Documented a quirk regarding extraction from file
+	    descriptors in <c>erl_tar</c>.</p>
+          <p>
+	    Own Id: OTP-16171 Aux Id: ERL-1057 </p>
+        </item>
+        <item>
+          <p>
+	    Added <c>ok</c> as return value to
+	    <c>gen_server:reply/2</c></p>
+          <p>
+	    Own Id: OTP-16210 Aux Id: PR-2411 </p>
+        </item>
+        <item>
+	    <p>New functions have been added to <seeerl
+	    marker="c"><c>c(3)</c></seeerl> for printing embedded
+	    documentation for Erlang modules. The functions are:</p>
+	    <taglist> <tag>h/1,2,3</tag> <item>Print the
+	    documentation for a Module:Function/Arity.</item>
+	    <tag>ht/1,2,3</tag> <item>Print the type documentation
+	    for a Module:Type/Arity.</item> </taglist> <p>The
+	    embedded documentation is created when building the
+	    Erlang/OTP documentation.</p>
+          <p>
+	    Own Id: OTP-16222</p>
+        </item>
+        <item>
+	    <p> Add <c>indent</c> and <c>linewidth</c> to the options
+	    of the <c>erl_pp</c> module's functions. </p>
+          <p>
+	    Own Id: OTP-16276 Aux Id: PR-2443 </p>
+        </item>
+        <item>
+          <p>
+	    Minor updates due to the new spawn improvements made.</p>
+          <p>
+	    Own Id: OTP-16368 Aux Id: OTP-15251 </p>
+        </item>
+        <item>
+	    <p>The compiler will now raise a warning when inlining is
+	    used in modules that load NIFs.</p>
+          <p>
+	    Own Id: OTP-16429 Aux Id: ERL-303 </p>
+        </item>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+	    <p> Extend <c>erl_parse:abstract/1,2</c> to handle
+	    external fun expressions (<c>fun M:F/A</c>). </p>
+          <p>
+	    Own Id: OTP-16480</p>
+        </item>
+        <item>
+	    <p>Added <c>filelib:safe_relative_path/2</c> to replace
+	    <c>filename:safe_relative_path/1</c>, which did not
+	    safely handle symbolic links.</p>
+	    <p><c>filename:safe_relative_path/1</c> has been
+	    deprecated.</p>
+          <p>
+	    Own Id: OTP-16483 Aux Id: PR-2542 </p>
+        </item>
+        <item>
+          <p>
+	    The module <c>shell_docs</c> has been added. The module
+	    contains functions for rendering, validating and
+	    normalizing embedded documentation.</p>
+          <p>
+	    Own Id: OTP-16500</p>
+        </item>
+        <item>
+          <p>
+	    Module and function auto-completion in the shell now
+	    looks at all available modules instead of only those
+	    loaded. A module is considered available if it either is
+	    loaded already or would be loaded if called.</p>
+          <p>
+	    The auto-completion has also been expanded to work in the
+	    new <c>h/1,2,3</c> function in <c>c(3)</c>.</p>
+          <p>
+	    Own Id: OTP-16501 Aux Id: OTP-16494, OTP-16222,
+	    OTP-16406, OTP-16499, OTP-16500, PR-2545, ERL-708 </p>
+        </item>
+        <item>
+	    <p>Updated the internal <c>pcre</c> library to
+	    <c>8.44</c>.</p>
+          <p>
+	    Own Id: OTP-16557</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.12.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

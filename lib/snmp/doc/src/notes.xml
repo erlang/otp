@@ -34,7 +34,76 @@
   </header>
 
 
-  <section><title>SNMP 5.5</title>
+  <section><title>SNMP 5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    For manager, fix PrivParams for SNMPv3 USM with AES
+	    privacy; * In `snmp_usm:do_decrypt/3`, pass full
+	    UsmSecParams to `snmp_usm:try_decrypt/5` as expected by
+	    AES clause. * Change `snmpm_usm:aes_encrypt/3` to use
+	    EngineBoots and EngineTime as cached by
+	    `snmpm_config:get_usm_eboots/1` and
+	    `snmpm_config:get_usm_etime/1` instead of
+	    `snmpm_config:get_engine_boots/0` and
+	    `snmpm_config:get_engine_time/0`. This ensures correct
+	    msgPrivacyParameters are sent when AES is used. * Add
+	    test `snmp.snmp_manager_SUITE.usm_priv_aes/1` to avoid
+	    regression.</p>
+          <p>
+	    Own Id: OTP-16541 Aux Id: #2544 </p>
+        </item>
+        <item>
+          <p>
+	    Invalid character in (manager) usm config entry generator
+	    function.</p>
+          <p>
+	    Own Id: OTP-16552 Aux Id: ERL-1196 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+        <item>
+          <p>
+	    Calls of deprecated functions in the <seeguide
+	    marker="crypto:new_api#the-old-api">Old Crypto
+	    API</seeguide> are replaced by calls of their <seeguide
+	    marker="crypto:new_api#the-new-api">substitutions</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16346</p>
+        </item>
+        <item>
+          <p>
+	    Finalize deprecation. Already deprecated functions has a
+	    "remove version 24" set and "new" functions added to list
+	    of deprecated functions.</p>
+          <p>
+	    Own Id: OTP-16463</p>
+        </item>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.5</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -505,8 +505,8 @@
     </func>
 
     <func>
-      <name name="open" arity="1" since="OTP @OTP-16398@"/>
-      <name name="open" arity="2" clause_i="1" since="OTP @OTP-16398@"/>
+      <name name="open" arity="1" since="OTP 23.0"/>
+      <name name="open" arity="2" clause_i="1" since="OTP 23.0"/>
       <fsummary>Create an endpoint for communication.</fsummary>
       <desc>
 	<p>Create an endpoint (socket) for communication based on an

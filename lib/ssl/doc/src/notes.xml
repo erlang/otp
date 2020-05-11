@@ -27,6 +27,161 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a bug that causes cross-build failure.</p>
+          <p>
+	    This change excludes the ssl.d dependency file from the
+	    source tar balls.</p>
+          <p>
+	    Own Id: OTP-16562 Aux Id: ERL-1168 </p>
+        </item>
+        <item>
+          <p>
+	    Correct translation of OpenSSL legacy names for two
+	    legacy cipher suites</p>
+          <p>
+	    Own Id: OTP-16573 Aux Id: ERIERL-477 </p>
+        </item>
+        <item>
+          <p>
+	    Correct documentation for PSK identity and SRP username.</p>
+          <p>
+	    Own Id: OTP-16585</p>
+        </item>
+        <item>
+          <p>
+	    Make sure client hostname check is run when client uses
+	    its own verify_fun</p>
+          <p>
+	    Own Id: OTP-16626 Aux Id: ERL-1232 </p>
+        </item>
+        <item>
+          <p>
+	    Improved signature selection mechanism in TLS 1.3 for
+	    increased interoperability.</p>
+          <p>
+	    Own Id: OTP-16638 Aux Id: ERL-1206 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Drop support for SSL-3.0. Support for this legacy TLS
+	    version has not been enabled by default since OTP 19. Now
+	    all code to support it has been removed, that is SSL-3.0
+	    protocol version can not be used and is considered
+	    invalid.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14790</p>
+        </item>
+        <item>
+          <p>
+	    Added support for RSA-PSS signature schemes</p>
+          <p>
+	    Own Id: OTP-15247</p>
+        </item>
+        <item>
+          <p>
+	    Improve interoperability by implementing the middlebox
+	    compatiblity mode.</p>
+          <p>
+	    The middlebox compatibility mode makes the TLS 1.3
+	    handshake look more like a TLS 1.2 handshake and
+	    increases the chance of successfully establishing TLS 1.3
+	    connections through legacy middleboxes.</p>
+          <p>
+	    Own Id: OTP-15589</p>
+        </item>
+        <item>
+          <p>
+	    Utilize new properties of <seemfa
+	    marker="erts:erlang#dist_ctrl_get_data/1"><c>erlang:dist_ctrl_get_data()</c></seemfa>
+	    for performance improvement of Erlang distribution over
+	    TLS.</p>
+          <p>
+	    Own Id: OTP-16127 Aux Id: OTP-15618 </p>
+        </item>
+        <item>
+          <p>
+	    Calls of deprecated functions in the <seeguide
+	    marker="crypto:new_api#the-old-api">Old Crypto
+	    API</seeguide> are replaced by calls of their <seeguide
+	    marker="crypto:new_api#the-new-api">substitutions</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16346</p>
+        </item>
+        <item>
+          <p>
+	    Implement cipher suite TLS_AES_128_CCM_8_SHA256.</p>
+          <p>
+	    Own Id: OTP-16391</p>
+        </item>
+        <item>
+          <p>
+	    This change adds TLS-1.3 to the list of default supported
+	    versions. That is, TLS-1.3 and TLS-1.2 are configured
+	    when ssl option 'versions' is not explicitly set.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16400</p>
+        </item>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    Extended ssl:versions so that it lists supported,
+	    available and implemented TLS/DTLS versions.</p>
+          <p>
+	    Own Id: OTP-16519</p>
+        </item>
+        <item>
+          <p>
+	    Added new option exclusive for ssl:cipher_suites/2,3</p>
+          <p>
+	    Own Id: OTP-16532</p>
+        </item>
+        <item>
+          <p>
+	    Avoid DoS attack against stateful session_tickets by
+	    making session ticket ids unpredictable.</p>
+          <p>
+	    Own Id: OTP-16533</p>
+        </item>
+        <item>
+          <p>
+	    Add support for the max_fragment_length extension (RFC
+	    6066).</p>
+          <p>
+	    Own Id: OTP-16547 Aux Id: PR-2547 </p>
+        </item>
+        <item>
+          <p>
+	    Add srp_username in ssl:connection_info, update the
+	    document with types of this function.</p>
+          <p>
+	    Own Id: OTP-16584</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

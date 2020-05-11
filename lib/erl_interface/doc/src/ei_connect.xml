@@ -478,8 +478,8 @@ typedef struct {
     <func>
       <name since=""><ret>int</ret><nametext>ei_connect(ei_cnode* ec, char *nodename)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename)</nametext></name>
-      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_connect_host_port(ei_cnode* ec, char *hostname, int port)</nametext></name>
-      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_xconnect_host_port(ei_cnode* ec, Erl_IpAddr adr, int port)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_connect_host_port(ei_cnode* ec, char *hostname, int port)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_xconnect_host_port(ei_cnode* ec, Erl_IpAddr adr, int port)</nametext></name>
       <fsummary>Establish a connection to an Erlang node.</fsummary>
       <type>
 	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
@@ -648,8 +648,8 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name since=""><ret>int</ret><nametext>ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned timeout_ms)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr adr, char *alivename, unsigned timeout_ms)</nametext></name>
-      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_connect_host_port_tmo(ei_cnode* ec, char *hostname, int port, unsigned ms)</nametext></name>
-      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_xconnect_host_port_tmo(ei_cnode* ec, Erl_IpAddr adr, int port, unsigned ms)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_connect_host_port_tmo(ei_cnode* ec, char *hostname, int port, unsigned ms)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_xconnect_host_port_tmo(ei_cnode* ec, Erl_IpAddr adr, int port, unsigned ms)</nametext></name>
       <fsummary>Establish a connection to an Erlang node with optional
         time-out.</fsummary>
       <type>
@@ -722,7 +722,7 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     </func>
 
     <func>
-      <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_make_pid(ei_cnode *ec, erlang_pid *pid)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_make_pid(ei_cnode *ec, erlang_pid *pid)</nametext></name>
       <fsummary>Create a new process identifier</fsummary>
       <type>
 	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
@@ -747,7 +747,7 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     </func>
     
     <func>
-      <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_make_ref(ei_cnode *ec, erlang_ref *ref)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_make_ref(ei_cnode *ec, erlang_ref *ref)</nametext></name>
       <fsummary>Create a new reference</fsummary>
       <type>
 	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>

@@ -73,7 +73,7 @@
     </func>
 
     <func>
-      <name name="listen_port_please" arity="2" since="OTP @OTP-16250@"/>
+      <name name="listen_port_please" arity="2" since="OTP 23.0"/>
       <fsummary>Returns the port number for the local node.</fsummary>
       <desc>
         <p>Called by the distribution module to get which port the

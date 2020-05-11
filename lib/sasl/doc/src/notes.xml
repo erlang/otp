@@ -31,6 +31,45 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 4.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+        <item>
+          <p>
+	    <c>systools:make_script/2</c> now accepts the name of the
+	    boot file to create, it is not restricted to only
+	    <c>RelName.boot</c> or <c>start.boot</c>.</p>
+          <p>
+	    <c>systools:make_tar/2</c> now accepts the option
+	    <c>extra_files</c> to add any extra non release related
+	    files to the tar file.</p>
+          <p>
+	    Own Id: OTP-16561 Aux Id: PR-2420 </p>
+        </item>
+        <item>
+          <p>
+	    <seemfa
+	    marker="systools#make_tar/1"><c>systools:make_tar/1,2</c></seemfa>
+	    now filters out any tools from erts if included in the
+	    release tar ball. See the documentation for more details.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16603</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.4.2</title>
 
     <section><title>Improvements and New Features</title>

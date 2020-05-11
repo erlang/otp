@@ -32,6 +32,32 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove Inets dependency from EDoc. </p>
+          <p>
+	    Own Id: OTP-15999 Aux Id: PR-2317 </p>
+        </item>
+        <item>
+          <p>
+	    Add support for overloaded Erlang specifications.</p>
+          <p>
+	    Own Id: OTP-16407 Aux Id: PR-2430 </p>
+        </item>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.11</title>
 
     <section><title>Improvements and New Features</title>

@@ -30,6 +30,231 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix error in ssh_sftpd typespec.</p>
+          <p>
+	    Own Id: OTP-16363</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The plug-in file ssh_file.erl, that is responsible for
+	    default file handling, is re-factored, optimized and
+	    re-written.</p>
+          <p>
+	    Own Id: OTP-11688 Aux Id: OTP-12699 </p>
+        </item>
+        <item>
+          <p>
+	    OpenSSH 6.5 introduced a new file representation of keys
+	    called <url
+	    href="https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.key?annotate=1.1">openssh-key-v1</url>.</p>
+          <p>
+	    OTP/SSH had an experimental implementation of this
+	    format. That implementation is now improved and supported
+	    with the exception of handling encrypted keys.</p>
+          <p>
+	    Own Id: OTP-15434</p>
+        </item>
+        <item>
+          <p>
+	    TCP/IP port forwarding, a.k.a tunneling a.k.a
+	    tcp-forward/direct-tcp is implemented. In the OpenSSH
+	    client, this corresponds to the options -L and -R.</p>
+          <p>
+	    The client or server listens to a specified socket, and
+	    when something connects to it with TCP/IP, that
+	    connection is forwarded in an encrypted tunnel to the
+	    peer. The peer then connects to a predefined IP/port pair
+	    and then acts as a proxy.</p>
+          <p>
+	    See the manual, <seemfa
+	    marker="ssh:ssh#tcpip_tunnel_to_server/6"><c>ssh:tcpip_tunnel_to_server/6</c></seemfa>
+	    and <seemfa
+	    marker="ssh:ssh#tcpip_tunnel_from_server/6"><c>ssh:tcpip_tunnel_from_server/6</c></seemfa>.</p>
+          <p>
+	    The functionality is disabled per default but can be
+	    enabled when starting a daemon.</p>
+          <p>
+	    Own Id: OTP-15998 Aux Id: PR-2376, PR-2368 </p>
+        </item>
+        <item>
+          <p>
+	    The client-side of the supervisor tree (under sshc_sup)
+	    was previously not complete; the channel handling
+	    processes were handled with links but had no supervisors.</p>
+          <p>
+	    This is now corrected with a client-side supervisor tree
+	    under <c>sshc_sup</c>, similar to the server-side
+	    supervisor tree under <c>sshd_sup</c>.</p>
+          <p>
+	    Own Id: OTP-16026 Aux Id: PR-2368, (OTP-15998) </p>
+        </item>
+        <item>
+          <p>
+	    The extension <url
+	    href="https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL?annotate=HEAD">posix-rename@openssh.com</url>
+	    is added to the <seemfa
+	    marker="ssh:ssh_sftp#rename/3">ssh/sftp rename</seemfa>
+	    operation.</p>
+          <p>
+	    Own Id: OTP-16289 Aux Id: PR-2448 </p>
+        </item>
+        <item>
+          <p>
+	    Calls of deprecated functions in the <seeguide
+	    marker="crypto:new_api#the-old-api">Old Crypto
+	    API</seeguide> are replaced by calls of their <seeguide
+	    marker="crypto:new_api#the-new-api">substitutions</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16346</p>
+        </item>
+        <item>
+          <p>
+	    The default known_hosts file handling is improved to
+	    include ports.</p>
+          <p>
+	    The handling of the contents in that file is updated to
+	    support the <url
+	    href="https://man.openbsd.org/sshd#SSH_KNOWN_HOSTS_FILE_FORMAT">full
+	    syntax</url>, with exception of 1) the wildcard '?', 2)
+	    wildcards in canonical names and 3) the option
+	    '@cert-authority'</p>
+          <p>
+	    Own Id: OTP-16506</p>
+        </item>
+        <item>
+          <p>
+	    The MAC (Message Authorization Code) algorithms</p>
+	    <list> <item>hmac-sha1-etm@openssh.com</item>
+	    <item>hmac-sha2-256-etm@openssh.com</item>
+	    <item>hmac-sha2-512-etm@openssh.com</item> </list> <p>are
+	    implemented.</p>
+          <p>
+	    Own Id: OTP-16508</p>
+        </item>
+        <item>
+          <p>
+	    The key-exchange algorithms
+	    <c>'diffie-hellman-group14-sha1'</c> and
+	    <c>'diffie-hellman-group-exchange-sha1'</c> are disabled
+	    per default. The reason is that SHA1 now is considered
+	    insecure.</p>
+          <p>
+	    They can be enabled if needed, see <seeapp
+	    marker="ssh:SSH_app#algorithms">SSH (App)</seeapp>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16509</p>
+        </item>
+        <item>
+          <p>
+	    The public key algorithm <c>'ssh-dss'</c> is disabled per
+	    default. The reason is that it is now considered as
+	    insecure.</p>
+          <p>
+	    It can be enabled if needed, see <seeapp
+	    marker="ssh:SSH_app#algorithms">SSH (App)</seeapp>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16510</p>
+        </item>
+        <item>
+          <p>
+	    The public key <c>'ssh-rsa'</c> is now considered as
+	    insecure because of its usage of SHA1.</p>
+          <p>
+	    It is therefore deprecated and will no longer be enabled
+	    per default in OTP-24.0.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16511</p>
+        </item>
+        <item>
+          <p>
+	    An option <seetype
+	    marker="ssh:ssh_file#optimize_key_lookup">optimize
+	    (optimize_key_lookup)</seetype> is introduced for the
+	    file interface ssh_file.erl</p>
+          <p>
+	    The option enables the user to select between the default
+	    handling which is fast but memory consuming vs memory
+	    efficient but not as fast. The effect might be observable
+	    only for large files.</p>
+          <p>
+	    See the manual for <seemfa
+	    marker="ssh:ssh_file#is_host_key/5">ssh_file:is_host_key/5</seemfa>
+	    and <seemfa
+	    marker="ssh:ssh_file#is_auth_key/3">ssh_file:is_auth_key/3</seemfa>.</p>
+          <p>
+	    Own Id: OTP-16512</p>
+        </item>
+        <item>
+          <p>
+	    The ssh agent is now implemented in the ssh_agent key
+	    callback module. </p>
+          <p>
+	    Enable with the the option <c> {key_cb, {ssh_agent,
+	    []}}</c> in for example ssh:connect/3.</p>
+          <p>
+	    See the <seeerl marker="ssh:ssh_agent">ssh_agent
+	    manual</seeerl> for details.</p>
+          <p>
+	    Own Id: OTP-16513</p>
+        </item>
+        <item>
+          <p>
+	    Algorithm configuration could now be done in a .config
+	    file.</p>
+          <p>
+	    This is useful for example to enable an algorithm that is
+	    disabled by default. It could now be enabled in an
+	    .config-file without changing the code,</p>
+          <p>
+	    See the SSH User's Guide chapter <seeguide
+	    marker="ssh:configurations">"Configuration in
+	    SSH"</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16540</p>
+        </item>
+        <item>
+          <p>
+	    Documented which gen_tcp socket options can't be used in
+	    calls to ssh:connect and ssh:daemon.</p>
+          <p>
+	    Own Id: OTP-16589</p>
+        </item>
+        <item>
+          <p>
+	    Added <seetype
+	    marker="ssh:ssh#kb_int_fun_4">kb_int_fun_4()</seetype> to
+	    the <seetype
+	    marker="ssh:ssh#authentication_daemon_options">authentication_daemon_options()</seetype>
+	    to enable generating dynamic keyboard-interactive prompts
+	    from the user's state returned from the authentication
+	    fun <seetype
+	    marker="ssh:ssh#pwdfun_4">pwdfun_4()</seetype>.</p>
+          <p>
+	    Own Id: OTP-16622 Aux Id: PR-2604 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

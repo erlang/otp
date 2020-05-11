@@ -32,6 +32,41 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adhere to the ASN.1 specification for hstring &amp;
+	    bstring lexical items. That is they may include white
+	    space.</p>
+          <p>
+	    Own Id: OTP-16490</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    Improve handling of ellipsis in a CHOICE</p>
+          <p>
+	    Own Id: OTP-16554 Aux Id: ERL-1189 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.12</title>
 
     <section><title>Improvements and New Features</title>

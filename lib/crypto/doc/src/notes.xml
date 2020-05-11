@@ -31,6 +31,93 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Crypto reported unsupported elliptic curves as supported
+	    on e.g Fedora distros.</p>
+          <p>
+	    Own Id: OTP-16579 Aux Id: ERL-825 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for ed25519 and ed448 added to
+	    <c>crypto:generate_key</c>.</p>
+          <p>
+	    Own Id: OTP-15967 Aux Id: PR-2329 </p>
+        </item>
+        <item>
+          <p>
+	    The <seeguide marker="crypto:new_api#the-new-api">new
+	    crypto functions api</seeguide> (crypto_init,
+	    crypto_update and crypto_one_time) has been updated.</p>
+          <p>
+	    There is now a function <seemfa
+	    marker="crypto:crypto#crypto_final/1"><c>crypto_final/1</c></seemfa>
+	    and a possibility to set options in <seemfa
+	    marker="crypto:crypto#crypto_init/3"><c>crypto_init/3</c></seemfa>
+	    and <seemfa
+	    marker="crypto:crypto#crypto_init/4"><c>crypto_init/4</c></seemfa>.
+	    See the manual for details.</p>
+          <p>
+	    Own Id: OTP-16160</p>
+        </item>
+        <item>
+          <p>
+	    As <seeguide
+	    marker="crypto:notes#crypto-4.5">announced</seeguide> in
+	    OTP 22.0, a New API was introduced in CRYPTO. See the
+	    <seeguide marker="crypto:new_api"><i>New and Old
+	    API</i></seeguide> chapter in the CRYPTO User's Guide for
+	    more information and suggested replacement functions.</p>
+          <p>
+	    <seeguide marker="crypto:new_api#the-old-api">The Old
+	    API</seeguide> is now deprecated in OTP-23.0 and will be
+	    removed in OTP-24.0.</p>
+          <p>
+	    This deprecation includes cipher names. See the section
+	    <seeguide
+	    marker="crypto:new_api#retired-cipher-names">Retired
+	    cipher names</seeguide> in the crypto User's Guide,
+	    chapter <seeguide marker="crypto:new_api#the-old-api">The
+	    Old API</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16232</p>
+        </item>
+        <item>
+          <p>
+	    Fix C-compilation without deprecated OpenSSL cryptolib
+	    APIs</p>
+          <p>
+	    Own Id: OTP-16369 Aux Id: PR-2474 </p>
+        </item>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    Added missing 'eddh' to <seemfa
+	    marker="crypto:crypto#supports/1">crypto:supports(public_keys)</seemfa>.</p>
+          <p>
+	    Own Id: OTP-16583</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.6.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

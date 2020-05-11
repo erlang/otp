@@ -2049,8 +2049,8 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="start_monitor" arity="3" since="OTP @OTP-16120@"/>
-      <name name="start_monitor" arity="4" since="OTP @OTP-16120@"/>
+      <name name="start_monitor" arity="3" since="OTP 23.0"/>
+      <name name="start_monitor" arity="4" since="OTP 23.0"/>
       <fsummary>Create a standalone <c>gen_statem</c> process.</fsummary>
       <desc>
         <p>

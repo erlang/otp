@@ -189,7 +189,7 @@ typedef enum {
 
   <funcs>
       <func>
-        <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_cmp_pids(erlang_pid *a, erlang_pid *b)</nametext></name>
+        <name since="OTP 23.0"><ret>int</ret><nametext>ei_cmp_pids(erlang_pid *a, erlang_pid *b)</nametext></name>
         <fsummary>Compare two pids.</fsummary>
 	<type>
 	  <v><seecref marker="#erlang_pid"><c>erlang_pid</c></seecref></v>
@@ -209,7 +209,7 @@ typedef enum {
       </func>
 
       <func>
-        <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_cmp_ports(erlang_port *a, erlang_port *b)</nametext></name>
+        <name since="OTP 23.0"><ret>int</ret><nametext>ei_cmp_ports(erlang_port *a, erlang_port *b)</nametext></name>
         <fsummary>Compare two ports.</fsummary>
 	<type>
 	  <v><seecref marker="#erlang_port"><c>erlang_port</c></seecref></v>
@@ -229,7 +229,7 @@ typedef enum {
       </func>
 
       <func>
-        <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_cmp_refs(erlang_ref *a, erlang_ref *b)</nametext></name>
+        <name since="OTP 23.0"><ret>int</ret><nametext>ei_cmp_refs(erlang_ref *a, erlang_ref *b)</nametext></name>
         <fsummary>Compare two references.</fsummary>
 	<type>
 	  <v><seecref marker="#erlang_ref"><c>erlang_ref</c></seecref></v>
@@ -420,7 +420,7 @@ typedef enum {
     </func>
 
     <func>
-      <name since="OTP @OTP-16594@"><ret>int</ret><nametext>ei_decode_iodata(const char *buf, int *index, int *size, char *outbuf)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_decode_iodata(const char *buf, int *index, int *size, char *outbuf)</nametext></name>
       <fsummary>Decode iodata().</fsummary>
       <desc>
         <p>Decodes a term of the type <seeguide marker="system/reference_manual:typespec#builtin_types"><c>iodata()</c></seeguide>. The <c>iodata()</c> term will be

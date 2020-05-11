@@ -39,7 +39,51 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.16.3</title>
+  <section><title>Mnesia 4.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>mnesia:create_table/2</c> return correct badarg
+	    value.</p>
+          <p>
+	    Own Id: OTP-16072 Aux Id: PR-2320 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where mnesia was sometimes not waiting during
+	    start for a commit decision on asymmetric transactions.</p>
+          <p>
+	    Own Id: OTP-16634 Aux Id: PR-2610 ERL-1227 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+        <item>
+          <p>
+	    Avoid using <c>rpc</c> calls to do table reads, which
+	    will reduce the load on rpc server and improve
+	    performance.</p>
+          <p>
+	    Own Id: OTP-16189</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.16.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

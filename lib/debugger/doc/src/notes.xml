@@ -33,6 +33,43 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 5.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>EEP-52 has been implemented.</p>
+	    <p>In binary matching, the size of the segment to be
+	    matched is now allowed to be a guard expression, and
+	    similarly in map matching the keys can now be guard
+	    expressions. See the Erlang Reference Manual and
+	    Programming Examples for more details.</p>
+	    <p>Language compilers or code generators that generate
+	    Core Erlang code may need to be updated to be compatible
+	    with the compiler in OTP 23. For more details, see the
+	    section Backwards Compatibility in <url
+	    href="http://erlang.org/eeps/eep-0052.html">EEP
+	    52</url>.</p>
+          <p>
+	    Own Id: OTP-14708</p>
+        </item>
+        <item>
+	    <p>The deprecated <c>erlang:get_stacktrace/0</c> BIF now
+	    returns an empty list instead of a stacktrace. To
+	    retrieve the stacktrace, use the extended try/catch
+	    syntax that was introduced in OTP 21.
+	    <c>erlang:get_stacktrace/0</c> is scheduled for removal
+	    in OTP 24.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16484</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 4.2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
