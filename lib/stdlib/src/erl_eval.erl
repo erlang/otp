@@ -1185,10 +1185,8 @@ match1({bin,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
 match1({op,_,'++',{nil,_},R}, Term, Bs, BBs) ->
     match1(R, Term, Bs, BBs);
-match1({op,_,'++',{cons,Ai,{integer,A2,I},T},R}, Term, Bs, BBs) ->
-    match1({cons,Ai,{integer,A2,I},{op,Ai,'++',T,R}}, Term, Bs, BBs);
-match1({op,_,'++',{cons,Ai,{char,A2,C},T},R}, Term, Bs, BBs) ->
-    match1({cons,Ai,{char,A2,C},{op,Ai,'++',T,R}}, Term, Bs, BBs);
+match1({op,_,'++',{cons,Ai,H,T},R}, Term, Bs, BBs) ->
+    match1({cons,Ai,H,{op,Ai,'++',T,R}}, Term, Bs, BBs);
 match1({op,_,'++',{string,Ai,L},R}, Term, Bs, BBs) ->
     match1(string_to_conses(L, Ai, R), Term, Bs, BBs);
 match1({op,Anno,Op,A}, Term, Bs, BBs) ->

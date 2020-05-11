@@ -1665,10 +1665,8 @@ pattern({bin,_,Fs}, Vt, Old, St) ->
     pattern_bin(Fs, Vt, Old, St);
 pattern({op,_Anno,'++',{nil,_},R}, Vt, Old, St) ->
     pattern(R, Vt, Old, St);
-pattern({op,_Anno,'++',{cons,Ai,{char,_A2,_C},T},R}, Vt, Old, St) ->
-    pattern({op,Ai,'++',T,R}, Vt, Old, St);    %Char unimportant here
-pattern({op,_Anno,'++',{cons,Ai,{integer,_A2,_I},T},R}, Vt, Old, St) ->
-    pattern({op,Ai,'++',T,R}, Vt, Old, St);    %Weird, but compatible!
+pattern({op,_Line,'++',{cons,Li,H,T},R}, Vt, Old, St) ->
+    pattern_list([H,{op,Li,'++',T,R}], Vt, Old, St);
 pattern({op,_Anno,'++',{string,_Ai,_S},R}, Vt, Old, St) ->
     pattern(R, Vt, Old, St);                   %String unimportant here
 pattern({match,_Anno,Pat1,Pat2}, Vt, Old, St0) ->

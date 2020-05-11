@@ -166,8 +166,15 @@ f(Signal, To) ->
     </section>
 
     <section>
-      <title>String Prefix in Patterns</title>
-      <p>When matching strings, the following is a valid pattern:</p>
+      <title>List and String Prefix in Patterns</title>
+      <p>For a fixed-length list prefix, the <c>++</c> operator is allowed
+      in a pattern to match on the prefix and extract the suffix:</p>
+      <pre>
+f([{a,A},{b,B}] ++ Rest) -> ...</pre>
+      <p>which is just a different way of writing a list pattern with a tail:</p>
+      <pre>
+f([{a,A},{b,B} | Rest]) -> ...</pre>
+      <p>Strings are lists of characters, so the following is also a valid pattern:</p>
       <pre>
 f("prefix" ++ Str) -> ...</pre>
       <p>This is syntactic sugar for the equivalent, but harder to
