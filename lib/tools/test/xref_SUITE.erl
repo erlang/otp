@@ -45,7 +45,7 @@
 
 -export([add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
          replace/1, update/1, deprecated/1, trycatch/1,
-         fun_mfa/1, fun_mfa_r14/1,
+         fun_mfa/1,
          fun_mfa_vars/1, qlc/1]).
 
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
@@ -80,7 +80,7 @@ groups() ->
      {files, [],
       [add, default, info, lib, read, read2, remove, replace,
        update, deprecated, trycatch, fun_mfa,
-       fun_mfa_r14, fun_mfa_vars, qlc]},
+       fun_mfa_vars, qlc]},
      {analyses, [],
 
       [analyze, basic, md, q, variables, unused_locals]},
@@ -1674,28 +1674,6 @@ fun_mfa(Conf) when is_list(Conf) ->
 
     ok = file:delete(File),
     ok = file:delete(Beam),
-    ok.
-
-%% Same as the previous test case, except that we use a BEAM file
-%% that was compiled by an R14 compiler to test backward compatibility.
-fun_mfa_r14(Conf) when is_list(Conf) ->
-    Dir = proplists:get_value(data_dir, Conf),
-    MFile = fname(Dir, "fun_mfa_r14"),
-
-    A = fun_mfa_r14,
-    {ok, _} = xref:start(s),
-    {ok, A} = xref:add_module(s, MFile, {warnings,false}),
-    {ok, [{{{A,t,0},{'$M_EXPR','$F_EXPR',0}},[7]},
-          {{{A,t,0},{A,t,0}},[6]},
-          {{{A,t1,0},{'$M_EXPR','$F_EXPR',0}},[11]},
-          {{{A,t1,0},{A,t,0}},[10]},
-          {{{A,t2,0},{A,t,0}},[14]},
-          {{{A,t3,0},{A,t3,0}},[17]}]} =
-    xref:q(s, "(Lin) E"),
-
-    ok = check_state(s),
-    xref:stop(s),
-
     ok.
 
 %% fun M:F/A with varibles.

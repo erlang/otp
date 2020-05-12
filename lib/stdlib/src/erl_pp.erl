@@ -623,15 +623,7 @@ lexpr({'fun',_,{function,F,A}}, _Prec, _Opts) ->
     [leaf("fun "),{atom,F},leaf(format("/~w", [A]))];
 lexpr({'fun',L,{function,_,_}=Func,Extra}, Prec, Opts) ->
     {force_nl,fun_info(Extra),lexpr({'fun',L,Func}, Prec, Opts)};
-lexpr({'fun',L,{function,M,F,A}}, Prec, Opts)
-  when is_atom(M), is_atom(F), is_integer(A) ->
-    %% For backward compatibility with pre-R15 abstract format.
-    Mod = erl_parse:abstract(M),
-    Fun = erl_parse:abstract(F),
-    Arity = erl_parse:abstract(A),
-    lexpr({'fun',L,{function,Mod,Fun,Arity}}, Prec, Opts);
 lexpr({'fun',_,{function,M,F,A}}, _Prec, Opts) ->
-    %% New format in R15.
     NameItem = lexpr(M, Opts),
     CallItem = lexpr(F, Opts),
     ArityItem = lexpr(A, Opts),
