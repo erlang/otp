@@ -678,17 +678,16 @@ api_ng_tls(Config) when is_list(Config) ->
     lists:foreach(fun do_api_ng_tls/1, Ciphers).
 
 
-do_api_ng_tls({Type, Key, PlainTexts}=_X) ->
-    ct:log("~p",[_X]),
+do_api_ng_tls({Type, Key, PlainTexts}) ->
     do_api_ng_tls({Type, Key, <<>>, PlainTexts});
 
-do_api_ng_tls({Type, Key, IV, PlainTexts}=_X) ->
-    ct:log("~p",[_X]),
+do_api_ng_tls({Type, Key, IV, PlainTexts}) ->
     do_api_ng_tls({Type, Key, IV, PlainTexts, undefined});
 
-do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
-    ct:log("~p",[_X]),
+do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}) ->
     PlainText = iolist_to_binary(lazy_eval(PlainText0)),
+    ct:log("Type = ~p~nKey = ~p~nIV = ~p~nPlainText = ~p~nExpectedEncText = ~p",
+           [Type, Key, IV, PlainText, ExpectedEncText]),
     Renc = crypto:crypto_dyn_iv_init(Type, Key, true),
     Rdec = crypto:crypto_dyn_iv_init(Type, Key, false),
     EncTxt = crypto:crypto_dyn_iv_update(Renc, PlainText, IV),
