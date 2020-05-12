@@ -1278,9 +1278,9 @@ ets_insert_new_with_check(Table, ToInsert) ->
 
 t_insert_list_parallel_do(Opts) ->
     [(fun(I) ->
-             t_insert_list_parallel_do(Opts, I, 2, 100, 5000),
-             t_insert_list_parallel_do(Opts, I, 10, 100, 500),
-             t_insert_list_parallel_do(Opts, I, 1000, 100, 50),
+             t_insert_list_parallel_do(Opts, I, 2, 100, 500),
+             t_insert_list_parallel_do(Opts, I, 10, 100, 100),
+             t_insert_list_parallel_do(Opts, I, 1000, 100, 10),
              t_insert_list_parallel_do(Opts, I, 50000, 3, 1)
       end)(InsertFun) || InsertFun <- [fun ets_insert_with_check/2,
                                        fun ets_insert_new_with_check/2]].
@@ -5118,7 +5118,7 @@ test_delete_table_while_size_snapshot_helper(TableType) ->
                    Problem -> TopParent ! Problem
                end || _ <- Pids]
       end,
-      15000),
+      100*erlang:system_info(schedulers_online)),
     receive
         Problem -> throw(Problem)
     after 0 -> ok
