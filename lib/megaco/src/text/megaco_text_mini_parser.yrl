@@ -77,7 +77,7 @@ Nonterminals
 
 Terminals
 
-    %% 'AddToken'
+    'AddToken'
     %% 'AndAUDITselectToken'  
     'AuditCapToken'
     'AuditToken'
@@ -106,7 +106,7 @@ Terminals
     %% 'EmergencyValueToken' 
     'ErrorToken'
     %% 'EventBufferToken'
-    %% 'EventsToken'
+    'EventsToken'
     %% 'ExternalToken' 
     'FailoverToken'
     'ForcedToken'
@@ -273,7 +273,7 @@ pathName             -> safeToken : ensure_pathName('$1') .
 
 safeToken            -> safeToken2              : make_safe_token('$1') .
 
-%% safeToken2           -> 'AddToken'              : '$1' .
+safeToken2           -> 'AddToken'              : '$1' .
 safeToken2           -> 'AuditToken'            : '$1' .
 safeToken2           -> 'AuditCapToken'         : '$1' .
 safeToken2           -> 'AuditValueToken'       : '$1' .
@@ -298,7 +298,7 @@ safeToken2           -> 'EmbedToken'            : '$1' .
 %% safeToken2           -> 'EmergencyOffToken'     : '$1' .
 safeToken2           -> 'ErrorToken'            : '$1' .
 %% safeToken2           -> 'EventBufferToken'      : '$1' .
-%% safeToken2           -> 'EventsToken'           : '$1' .
+safeToken2           -> 'EventsToken'           : '$1' .
 %% safeToken2           -> 'ExternalToken'         : '$1' . % v3
 safeToken2           -> 'FailoverToken'         : '$1' .
 safeToken2           -> 'ForcedToken'           : '$1' .
