@@ -1032,13 +1032,6 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
 }
 
 /**********************************************************************/
-
-BIF_RETTYPE get_stacktrace_0(BIF_ALIST_0)
-{
-    BIF_RET(NIL);
-}
-
-/**********************************************************************/
 /*
  * This is like exit/1, except that errors are logged if they terminate
  * the process, and the final error value will be {Term,StackTrace}.
@@ -1132,12 +1125,11 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
 	reason = EXC_THROWN;
     } else goto error;
     reason &= ~EXF_SAVETRACE;
-    
-    /* Check syntax of stacktrace, and count depth.
-     * Accept anything that can be returned from erlang:get_stacktrace/0,
-     * as well as a 2-tuple with a fun as first element that the
-     * error_handler may need to give us. Also allow old-style
-     * MFA three-tuples.
+
+    /* Check syntax of stacktrace, and count depth.  Accept anything
+     * that can be returned from a stacktrace from try/catch, as well
+     * as a 2-tuple with a fun as first element that the error_handler
+     * may need to give us. Also allow old-style MFA three-tuples.
      */
     for (l = stacktrace, depth = 0;  
 	 is_list(l);  

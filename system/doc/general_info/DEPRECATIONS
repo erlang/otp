@@ -108,7 +108,6 @@ ssl:ssl_accept/_ since=21 remove=24
 #
 
 crypto:rand_uniform/2 since=20
-erlang:get_stacktrace/0 since=20 remove=24
 filename:find_src/_ since=20 remove=24
 gen_fsm:_/_ since=20
 
