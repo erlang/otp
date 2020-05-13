@@ -2680,10 +2680,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (BIF_ARG_1 == am_alloc_util_allocators) {
 	BIF_RET(erts_alloc_util_allocators((void *) BIF_P));
     }
-    else if (BIF_ARG_1 == am_elib_malloc) {
-	/* To be removed in R15 */
-        BIF_RET(am_false);
-    }
     else if (BIF_ARG_1 == am_os_version) {
 	BIF_RET(os_version_tuple);
     }

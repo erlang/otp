@@ -2747,7 +2747,6 @@ tuple_to_list(_Tuple) ->
          (dynamic_trace) -> none | dtrace | systemtap;
          (dynamic_trace_probes) -> boolean();
          (end_time) -> non_neg_integer();
-         (elib_malloc) -> false;
          (eager_check_io) -> boolean();
          (ets_count) -> pos_integer();
          (ets_limit) -> pos_integer();
