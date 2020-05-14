@@ -224,7 +224,19 @@ new_openssh_decode(<<"none">>, <<"none">>, <<"">>, _PublicKey, 1,
                      ?DEC_BIN(_Comment,    _C1),
                      _Pad/binary>>) when Type == <<"ssh-rsa">> ->
     #'RSAPrivateKey'{modulus = N, publicExponent = E,
-                     privateExponent = D}.
+                     privateExponent = D};
+new_openssh_decode(<<"none">>, <<"none">>, <<"">>, _PublicKey, 1,
+                   <<?UINT32(CheckInt),
+                     ?UINT32(CheckInt),
+                     ?DEC_BIN(Type, _Lt),
+                     ?DEC_INT(P, _Lp),
+                     ?DEC_INT(Q, _Lq),
+                     ?DEC_INT(G, _Lg),
+                     ?DEC_INT(Pub, _Lpub),
+                     ?DEC_INT(Priv, _Lpriv),
+                     ?DEC_BIN(_Comment,    _C1),
+                     _Pad/binary>>) when Type == <<"ssh-dss">> ->
+    #'DSAPrivateKey'{p = P, q = Q, g = G, x = Priv, y = Pub}.
 
 new_openssh_encode({ed_pri,_,PubKey,PrivKey}=Key) ->
     Type = key_type(Key),
