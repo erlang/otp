@@ -135,6 +135,7 @@ groups() ->
 
                      {group, dh},
                      {group, ecdh},
+                     {group, eddh},
                      {group, srp},
 
 		     {group, chacha20_poly1305},
@@ -230,6 +231,7 @@ groups() ->
                                 ]},
      {dh,                   [], [generate_compute, compute_bug]},
      {ecdh,                 [], [compute, generate, use_all_ecdh_generate_compute]},
+     {eddh,                 [], [compute, generate, use_all_eddh_generate_compute]},
      {srp,                  [], [generate_compute]},
      {des_cbc,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {des_cfb,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
@@ -999,12 +1001,20 @@ use_all_ec_sign_verify(_Config) ->
     end.
 
 %%--------------------------------------------------------------------
-use_all_ecdh_generate_compute(_Config) ->
-    Sups = crypto:supports(),
-    Curves = proplists:get_value(curves, Sups),
-    ct:log("Lib: ~p~nFIPS: ~p~nCurves:~n~p", [crypto:info_lib(),
-                                              crypto:info_fips(),
-                                              Curves]),
+use_all_ecdh_generate_compute(Config) ->
+    Curves = crypto:supports(curves) -- [ed25519, ed448, x25519, x448],
+    do_dh_curves(Config, Curves).
+
+use_all_eddh_generate_compute(Config) ->
+    AllCurves = crypto:supports(curves),
+    Curves = [C || C <- [x25519, x448],
+                     lists:member(C, AllCurves)],
+    do_dh_curves(Config, Curves).
+
+do_dh_curves(_Config, Curves) ->
+    ct:log("Lib: ~p~nFIPS: ~p~nCurves:~n~p~n", [crypto:info_lib(),
+                                                crypto:info_fips(),
+                                                Curves]),
     Results =
         [{Curve,
           try
@@ -1023,21 +1033,20 @@ use_all_ecdh_generate_compute(_Config) ->
               C:E ->
                   {C,E}
           end}
-         || Curve <- [ed25519, ed448, x25519, x448],
-            lists:member(Curve, Curves)
+         || Curve <- Curves
         ],
-    Fails0 =
+
+    Fails =
         lists:filter(fun({_,true}) -> false;
                         (_) -> true
                      end, Results),
-    case Fails0 of
-        [{ed25519,_}, {ed448,_}] ->
+
+    case Fails of
+        [] ->
+            ct:comment("All ~p passed",[length(Results)]),
             ok;
         _ ->
-            Fails = lists:filter(fun({ed25519,_}) -> true;
-                                    ({ed448,_}) -> true;
-                                    (_) -> false
-                                 end, Fails0),
+            ct:comment("passed: ~p, failed: ~p",[length(Results),length(Fails)]),
             ct:log("Fails:~n~p",[Fails]),
             ct:fail("Bad curve(s)",[])
     end.
@@ -2151,6 +2160,8 @@ group_config(ecdh, Config) ->
     Compute = ecdh(),
     Generate = ecc(),
     [{compute, Compute}, {generate, Generate} | Config];
+group_config(eddh, Config) ->
+    [{compute, []}, {generate, []} | Config];
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
