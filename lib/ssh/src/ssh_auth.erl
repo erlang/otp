@@ -346,6 +346,10 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 			Default;
 		    {_,_,_,_}=V -> 
 			V;
+                    F when is_function(F, 5) ->
+			{_,PeerName} = Ssh#ssh.peer,
+			F(PeerName, User, "ssh-connection", Ssh#ssh.user_state,
+                          Ssh#ssh.local);
                     F when is_function(F, 4) ->
 			{_,PeerName} = Ssh#ssh.peer,
 			F(PeerName, User, "ssh-connection", Ssh#ssh.user_state);

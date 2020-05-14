@@ -346,7 +346,8 @@ default(server) ->
                                is_boolean(B);
                       (F) ->
                            check_function3(F) orelse
-                               check_function4(F)
+                               check_function4(F) orelse
+                               check_function5(F)
                    end,
             class => user_option
            },
@@ -783,6 +784,7 @@ check_function1(F) -> is_function(F,1).
 check_function2(F) -> is_function(F,2).
 check_function3(F) -> is_function(F,3).
 check_function4(F) -> is_function(F,4).
+check_function5(F) -> is_function(F,5).
      
 %%%----------------------------------------------------------------
 check_pref_public_key_algs(V) -> 
