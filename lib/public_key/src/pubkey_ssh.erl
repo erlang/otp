@@ -200,7 +200,7 @@ new_openssh_decode(<<"none">>, <<"none">>, <<"">>, _PublicKey, 1,
                      ?DEC_BIN(PubKey, _Lpu),
                      ?DEC_BIN(PrivPubKey, _Lpripub),
                      ?DEC_BIN(_Comment,    _C1),
-                     _Pad/binary>>) ->
+                     _Pad/binary>>) when Type == <<"ssh-ed25519">>; Type == <<"ssh-ed448">> ->
     case {Type,PrivPubKey} of
         {<<"ssh-ed25519">>,
          <<PrivKey:32/binary, PubKey:32/binary>>} ->
@@ -210,8 +210,21 @@ new_openssh_decode(<<"none">>, <<"none">>, <<"">>, _PublicKey, 1,
          <<PrivKey:57/binary, PubKey/binary>>} -> % "Intelligent" guess from
                                                 % https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448
             {ed_pri, ed448, PubKey, PrivKey}
-    end.
-
+    end;
+new_openssh_decode(<<"none">>, <<"none">>, <<"">>, _PublicKey, 1,
+                   <<?UINT32(CheckInt),
+                     ?UINT32(CheckInt),
+                     ?DEC_BIN(Type, _Lt),
+                     ?DEC_INT(N, _Ln),
+                     ?DEC_INT(E, _Le),
+                     ?DEC_INT(D, _Ld),
+                     ?DEC_INT(_IQMP, _Liqmp),
+                     ?DEC_INT(_P, _Lp),
+                     ?DEC_INT(_Q, _Lq),
+                     ?DEC_BIN(_Comment,    _C1),
+                     _Pad/binary>>) when Type == <<"ssh-rsa">> ->
+    #'RSAPrivateKey'{modulus = N, publicExponent = E,
+                     privateExponent = D}.
 
 new_openssh_encode({ed_pri,_,PubKey,PrivKey}=Key) ->
     Type = key_type(Key),
