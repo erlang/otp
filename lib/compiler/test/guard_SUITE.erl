@@ -2300,6 +2300,7 @@ beam_bool_SUITE(_Config) ->
     in_catch(),
     recv_semi(),
     andalso_repeated_var(),
+    erl1246(),
     ok.
 
 before_and_inside_if() ->
@@ -2596,6 +2597,30 @@ andalso_repeated_var() ->
 
 andalso_repeated_var(B) when B andalso B -> ok;
 andalso_repeated_var(_) -> error.
+
+-record(erl1246, {tran_stat = 0}).
+
+erl1246() ->
+    false = erl1246(#erl1246{tran_stat = 0}, #{cid => 1131}),
+    false = erl1246(#erl1246{tran_stat = 12}, #{cid => 1131}),
+    false = erl1246(#erl1246{tran_stat = 12}, #{cid => 9502}),
+    true = erl1246(#erl1246{tran_stat = 0}, #{cid => 9502}),
+    ok.
+
+erl1246(Rec, #{cid := CollID}) ->
+    {GiftCollID, _} = erl1246_conf(gift_coll),
+    IsTranStat = Rec#erl1246.tran_stat =:= erl1246_conf(transform_id),
+    if
+        %% Optimization of 'not' in a guard was broken.
+        CollID =:= GiftCollID andalso not IsTranStat ->
+            true;
+        true ->
+            false
+    end.
+
+erl1246_conf(gift_coll) -> {9502, {112, 45}};
+erl1246_conf(transform_id) -> 12;
+erl1246_conf(_) -> undefined.
 
 %%%
 %%% End of beam_bool_SUITE tests.
