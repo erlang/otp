@@ -397,7 +397,6 @@ os_getenv_erts_specific() ->
 	    "ERL_EMULATOR_DLL",
 	    "ERL_FULLSWEEP_AFTER",
 	    "ERL_LIBS",
-	    "ERL_MALLOC_LIB",
 	    "ERL_MAX_PORTS",
 	    "ERL_MAX_ETS_TABLES",
 	    "ERL_NO_KERNEL_POLL",

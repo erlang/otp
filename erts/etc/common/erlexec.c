@@ -422,7 +422,6 @@ int main(int argc, char **argv)
     int i;
     char* s;
     char *epmd_prog = NULL;
-    char *malloc_lib;
     int process_args = 1;
     int print_args_exit = 0;
     int print_qouted_cmd_exit = 0;
@@ -489,21 +488,8 @@ int main(int argc, char **argv)
 #endif
 
     /* We need to do this before the ordinary processing. */
-    malloc_lib = get_env("ERL_MALLOC_LIB");
     while (i < argc) {
-	if (argv[i][0] == '+') {
-	    if (argv[i][1] == 'M' && argv[i][2] == 'Y' && argv[i][3] == 'm') {
-		if (argv[i][4] == '\0') {
-		    if (++i < argc)
-			malloc_lib = argv[i];
-		    else
-			usage("+MYm");
-		}
-		else
-		    malloc_lib = &argv[i][4];
-	    }
-	}
-	else if (argv[i][0] == '-') {
+	if (argv[i][0] == '-') {
 	    if (strcmp(argv[i], "-smp") == 0) {
 		if (i + 1 >= argc)
 		    goto smp;
@@ -541,10 +527,6 @@ int main(int argc, char **argv)
 	i++;
     }
 
-    if (malloc_lib) {
-	if (strcmp(malloc_lib, "libc") != 0)
-	    usage("+MYm");
-    }
     emu = add_extra_suffixes(emu);
     emu_name = strsave(emu);
     erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);

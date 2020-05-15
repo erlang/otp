@@ -423,13 +423,6 @@
             <p><c>sys_alloc</c> cannot be disabled.</p>
           </note>
         </item>
-        <tag><marker id="MYm"/><c>+MYm libc</c></tag>
-        <item>
-          <p><c>malloc</c> library to use. Only
-            <c>libc</c> is available. <c>libc</c> enables the standard
-            <c>libc</c> <c>malloc</c> implementation. By default <c>libc</c>
-            is used.</p>
-        </item>
         <tag><marker id="MYtt"/><c><![CDATA[+MYtt <size>]]></c></tag>
         <item>
           <p>Trim threshold size (in kilobytes). This is the maximum amount
