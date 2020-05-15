@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>gen_event Behaviour</title>
@@ -45,7 +45,7 @@
       event handlers. For example, an event manager for handling errors
       can by default have a handler installed, which writes error
       messages to the terminal. If the error messages during a certain
-      period is to be saved to a file as well, the user adds another
+      period are to be saved to a file as well, the user adds another
       event handler that does this. When logging to the file is no
       longer necessary, this event handler is deleted.</p>
     <p>An event manager is implemented as a process and each event
@@ -239,4 +239,3 @@ code_change(OldVsn, State, Extra) ->
     {ok, NewState}</code>
   </section>
 </chapter>
-
