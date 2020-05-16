@@ -153,6 +153,13 @@ AC_SUBST(TARGET_FLAGS)
 
                AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
             ;;
+	haiku*)
+               TARGET_FLAGS="-DUNIX"
+               ODBC_LIB= -L"/system/lib"
+               ODBC_INCLUDE="-I/system/develop/headers"
+               dnl Haiku's package manager will deal with this for us
+               AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               ;;
         win32|cygwin)
 		TARGET_FLAGS="-DWIN32"
 		AC_CHECK_LIB(ws2_32, main)
