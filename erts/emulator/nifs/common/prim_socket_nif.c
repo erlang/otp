@@ -13033,9 +13033,11 @@ ERL_NIF_TERM getopt_otp_type(ErlNifEnv* env, int type)
         result = esock_atom_raw;
         break;
 
+#ifdef SOCK_RDM
     case SOCK_RDM:
         result = esock_atom_rdm;
         break;
+#endif
 
     default:
         result = MKI(env, type);
@@ -13867,9 +13869,11 @@ ERL_NIF_TERM esock_getopt_lvl_sock_type(ErlNifEnv*       env,
         case SOCK_RAW:
             result = esock_make_ok2(env, esock_atom_raw);
             break;
+#ifdef SOCK_RDM
         case SOCK_RDM:
             result = esock_make_ok2(env, esock_atom_rdm);
             break;
+#endif
         default:
             reason = MKT2(env, esock_atom_unknown, MKI(env, val));
             result = esock_make_error(env, reason);
