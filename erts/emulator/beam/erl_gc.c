@@ -71,13 +71,15 @@
  */
 #define ALENGTH(a) (sizeof(a)/sizeof(a[0]))
 
-# define STACK_SZ_ON_HEAP(p) ((p)->hend - (p)->stop)
+/* Actual stack usage, note that this may include words in the redzone. */
+# define STACK_SZ_ON_HEAP(p) (STACK_START(p) - STACK_TOP(p))
+
 # define OverRunCheck(P) \
     if ((P)->stop < (P)->htop) { \
-        erts_fprintf(stderr, "hend=%p\n", (p)->hend); \
-        erts_fprintf(stderr, "stop=%p\n", (p)->stop); \
-        erts_fprintf(stderr, "htop=%p\n", (p)->htop); \
-        erts_fprintf(stderr, "heap=%p\n", (p)->heap); \
+        erts_fprintf(stderr, "hend=%p\n", (P)->hend); \
+        erts_fprintf(stderr, "stop=%p\n", (P)->stop); \
+        erts_fprintf(stderr, "htop=%p\n", (P)->htop); \
+        erts_fprintf(stderr, "heap=%p\n", (P)->heap); \
         erts_exit(ERTS_ABORT_EXIT, "%s, line %d: %T: Overrun stack and heap\n", \
 		 __FILE__,__LINE__,(P)->common.id); \
     }
@@ -528,7 +530,7 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
     orig_stop = p->stop;
 
     ssz = orig_hend - orig_stop;
-    hsz = ssz + need + ERTS_DELAY_GC_EXTRA_FREE;
+    hsz = ssz + need + ERTS_DELAY_GC_EXTRA_FREE + S_RESERVED;
 
     hfrag = new_message_buffer(hsz);
     p->heap = p->htop = &hfrag->mem[0];
@@ -945,32 +947,41 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
     }
 
-    if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)))
+    if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p))) {
         p->flags &= ~(F_DIRTY_GC_HIBERNATE|F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC);
-    else if (check_long_gc) {
-	Uint flags = p->flags;
-	p->flags |= F_NEED_FULLSWEEP;
-	check_for_possibly_long_gc(p, (p->htop - p->heap) + p->mbuf_sz);
-	if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)) {
-	    p->flags = flags|F_DIRTY_GC_HIBERNATE;
-	    return 1;
-	}
-	p->flags = flags;
+    } else if (check_long_gc) {
+        Uint flags = p->flags;
+
+        p->flags |= F_NEED_FULLSWEEP;
+
+        check_for_possibly_long_gc(p, ((p->htop - p->heap) +
+                                       p->mbuf_sz + S_RESERVED));
+
+        if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)) {
+            p->flags = flags|F_DIRTY_GC_HIBERNATE;
+            return 1;
+        }
+
+        p->flags = flags;
     }
+
     /*
      * Preliminaries.
      */
     erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     ErtsGcQuickSanityCheck(p);
-    ASSERT(p->stop == p->hend - 1); /* Only allow one continuation pointer. */
+
+    /* Only allow one continuation pointer. */
+    ASSERT(p->stop == p->hend - CP_SIZE);
     ASSERT(p->stop[0] == make_cp(BeamCodeNormalExit()));
 
     /*
      * Do it.
      */
-
     heap_size = p->heap_sz + (p->old_htop - p->old_heap) + p->mbuf_sz;
-    heap_size += 1;             /* Reserve place for continuation pointer */
+
+    /* Reserve place for continuation pointer and redzone */
+    heap_size += S_RESERVED;
 
     heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_TMP_HEAP,
 				    sizeof(Eterm)*heap_size);
@@ -996,11 +1007,13 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
     p->high_water = htop;
     p->htop = htop;
     p->hend = p->heap + heap_size;
-    p->stop = p->hend - 1;
+    p->stop = p->hend - CP_SIZE;
     p->heap_sz = heap_size;
 
     heap_size = actual_size = p->htop - p->heap;
-    heap_size += 1;             /* Reserve place for continuation pointer */
+
+    /* Reserve place for continuation pointer and redzone */
+    heap_size += S_RESERVED;
 
     FLAGS(p) &= ~F_FORCE_GC;
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
@@ -1023,7 +1036,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
     ERTS_HEAP_FREE(ERTS_ALC_T_TMP_HEAP, p->heap, p->heap_sz*sizeof(Eterm));
 
     p->hend = heap + heap_size;
-    p->stop = p->hend - 1;
+    p->stop = p->hend - CP_SIZE;
     p->stop[0] = make_cp(BeamCodeNormalExit());
 
     offs = heap - p->heap;
@@ -1492,7 +1505,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 	Eterm *prev_old_htop;
 	Uint stack_size, size_after, adjust_size, need_after, new_sz, new_mature;
 
-	stack_size = p->hend - p->stop;
+	stack_size = STACK_START(p) - STACK_TOP(p);
 	new_sz = stack_size + size_before;
         new_sz = next_heap_size(p, new_sz, 0);
 
@@ -1514,7 +1527,8 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
         GEN_GCS(p)++;
         need_after = ((HEAP_TOP(p) - HEAP_START(p))
                       + need
-                      + stack_size);
+                      + stack_size
+                      + S_RESERVED);
 	
         /*
          * Excessively large heaps should be shrunk, but
@@ -1821,7 +1835,7 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     size_before += p->old_htop - p->old_heap;
     stack_size = p->hend - p->stop;
 
-    new_sz = stack_size + size_before;
+    new_sz = stack_size + size_before + S_RESERVED;
     new_sz = next_heap_size(p, new_sz, 0);
 
     /*
@@ -2017,7 +2031,7 @@ adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj)
      * Resize the heap if needed.
      */
     
-    need_after = (HEAP_TOP(p) - HEAP_START(p)) + need + stack_size;
+    need_after = (HEAP_TOP(p) - HEAP_START(p)) + need + stack_size + S_RESERVED;
     if (HEAP_SIZE(p) < need_after) {
         /* Too small - grow to match requested need */
         sz = next_heap_size(p, need_after, 0);

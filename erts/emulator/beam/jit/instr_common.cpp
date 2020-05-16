@@ -41,7 +41,7 @@ void BeamModuleAssembler::emit_error(Label entry, int reason) {
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgVal &Need,
                                                 const ArgVal &Live,
                                                 x86::Gp term) {
-    const int32_t bytes_needed = Need.getValue() * sizeof(Eterm);
+    const int32_t bytes_needed = (Need.getValue() + S_RESERVED) * sizeof(Eterm);
     Label after_gc_check = a.newLabel();
 
     ASSERT(term != ARG3);
@@ -62,7 +62,7 @@ void BeamModuleAssembler::emit_gc_test(const ArgVal &Ns,
                                        const ArgVal &Nh,
                                        const ArgVal &Live) {
     const int32_t bytes_needed =
-            (Ns.getValue() + Nh.getValue()) * sizeof(Eterm);
+            (Ns.getValue() + Nh.getValue() + S_RESERVED) * sizeof(Eterm);
     Label after_gc_check = a.newLabel();
 
     a.lea(ARG3, x86::qword_ptr(HTOP, bytes_needed));
@@ -110,8 +110,9 @@ void BeamModuleAssembler::emit_validate(const ArgVal &arity) {
     a.test(HTOP, imm(sizeof(Eterm) - 1));
     a.jne(crash);
 
-    /* Crash if HTOP > E */
-    a.cmp(HTOP, E);
+    /* Crash if we've overrun the stack */
+    a.lea(TMP1, x86::qword_ptr(E, -S_REDZONE * sizeof(Eterm)));
+    a.cmp(HTOP, TMP1);
     a.ja(crash);
 
     a.jmp(next);

@@ -926,9 +926,19 @@ typedef struct ErtsProcSysTask_ ErtsProcSysTask;
 typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 
 /* Defines to ease the change of memory architecture */
+
 #  define HEAP_START(p)     (p)->heap
 #  define HEAP_TOP(p)       (p)->htop
-#  define HEAP_LIMIT(p)     (p)->stop
+
+/* The redzone is reserved for Erlang code and runtime functions may not use it
+ * on its own, but it's okay for them to run when the redzone is used.
+ *
+ * Therefore, we set the heap limit to HTOP or the start of the redzone,
+ * whichever is higher. */
+#  define HEAP_LIMIT(p)                                                        \
+    (ASSERT((p)->htop <= (p)->stop),                                           \
+     MAX((p)->htop, (p)->stop - S_REDZONE))
+
 #  define HEAP_END(p)       (p)->hend
 #  define HEAP_SIZE(p)      (p)->heap_sz
 #  define STACK_START(p)    (p)->hend

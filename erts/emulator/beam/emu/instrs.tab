@@ -1080,7 +1080,7 @@ catch_end(Y) {
                 SWAPIN;
             }
             /* only x(2) is included in the rootset here */
-            if (E - HTOP < 3) {
+            if ((E - HTOP) < (3 + S_RESERVED)) {
                 $GC_SWAPOUT();
                 PROCESS_MAIN_CHK_LOCKS(c_p);
                 FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1, FCALLS);

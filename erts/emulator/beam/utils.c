@@ -91,7 +91,7 @@ erts_heap_alloc(Process* p, Uint need, Uint xtra)
     if (p->space_verified && p->space_verified_from!=NULL
 	&& HEAP_TOP(p) >= p->space_verified_from
 	&& HEAP_TOP(p) + need <= p->space_verified_from + p->space_verified
-	&& HEAP_LIMIT(p) - HEAP_TOP(p) >= need) {
+	&& HeapWordsLeft(p) >= need) {
 
 	Uint consumed = need + (HEAP_TOP(p) - p->space_verified_from);
 	ASSERT(consumed <= p->space_verified);

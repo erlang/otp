@@ -1221,7 +1221,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
         need = 1; /* i_apply_only */
     }
 
-    if (p->stop - p->htop < need) {
+    if (HeapWordsLeft(p) < need) {
         erts_garbage_collect(p, (int) need, reg, arity+1);
     }
 
@@ -1699,7 +1699,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     Eterm* hp;
     int i;
 
-    if (HEAP_LIMIT(p) - HEAP_TOP(p) <= needed) {
+    if (HeapWordsLeft(p) <= needed) {
 	PROCESS_MAIN_CHK_LOCKS(p);
 	erts_garbage_collect(p, needed, reg, num_free);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);

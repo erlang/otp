@@ -52,6 +52,33 @@
 
 #define CP_SIZE 1
 
+/* In the JIT we're not guaranteed to have allocated a word for the CP when
+ * allocating a stack frame (it's still reserved however), as the `call` and
+ * `ret` instructions bump the stack pointer for us. Consider the following
+ * code:
+ *
+ *    {call_ext, 1, {extfunc,foo,bar,1}.
+ *    {test_heap, 2, 1}.
+ *    {put_list, {y,0}, {x,0}, {x,0}}.
+ *    {call_ext, 1, {extfunc,bar,qux,1}.
+ *
+ * Since the CP is not reflected in the stack use, the test_heap instruction
+ * will not GC when there's 2 words left on the heap, overwriting the space for
+ * the CP and crashing after the call to `bar:qux/1`.
+ *
+ * To get around this, we maintain a minimum amount of free space on the stack
+ * that can be freely used by the JIT or interpreter for whatever purpose. */
+
+#if defined(BEAMASM)
+#define S_REDZONE (CP_SIZE * 3)
+#elif defined(DEBUG)
+#define S_REDZONE CP_SIZE
+#else
+#define S_REDZONE 0
+#endif
+
+#define S_RESERVED (CP_SIZE + S_REDZONE)
+
 #define ErtsHAllocLockCheck(P) \
   ERTS_LC_ASSERT(erts_dbg_check_halloc_lock((P)))
 
@@ -87,12 +114,12 @@ Eterm* erts_set_hole_marker(Eterm* ptr, Uint sz);
  * Allocate heap memory, first on the ordinary heap;
  * failing that, in a heap fragment.
  */
-#define HAllocX(p, sz, xtra)		                              \
-  (ASSERT((sz) >= 0),					              \
-     ErtsHAllocLockCheck(p),					      \
-     (IS_FORCE_HEAP_FRAGS || (((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz))) \
-      ? erts_heap_alloc((p),(sz),(xtra))                              \
-      : (INIT_HEAP_MEM(HEAP_TOP(p),sz),                               \
+#define HAllocX(p, sz, xtra)                                                \
+  (ASSERT((sz) >= 0),                                                       \
+     ErtsHAllocLockCheck(p),                                                \
+     ((IS_FORCE_HEAP_FRAGS || (!HEAP_START(p) || HeapWordsLeft(p) < (sz)))  \
+      ? erts_heap_alloc((p),(sz),(xtra))                                    \
+      : (INIT_HEAP_MEM(HEAP_TOP(p), sz),                                    \
          HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 
 #define HAlloc(P, SZ) HAllocX(P,SZ,0)

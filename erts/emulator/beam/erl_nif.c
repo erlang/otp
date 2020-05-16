@@ -550,25 +550,25 @@ struct enif_msg_environment_t
     Process phony_proc;
 };
 
+static Eterm phony_heap[S_REDZONE];
+
 static ERTS_INLINE void
 setup_nif_env(struct enif_msg_environment_t* msg_env,
               struct erl_module_nif* mod,
               Process* tracee)
 {
-    Eterm* phony_heap = (Eterm*) msg_env; /* dummy non-NULL ptr */
-
-    msg_env->env.hp = phony_heap;
-    msg_env->env.hp_end = phony_heap;
+    msg_env->env.hp = &phony_heap[0];
+    msg_env->env.hp_end = &phony_heap[0];
     msg_env->env.heap_frag = NULL;
     msg_env->env.mod_nif = mod;
     msg_env->env.tmp_obj_list = NULL;
     msg_env->env.proc = &msg_env->phony_proc;
     msg_env->env.exception_thrown = 0;
     sys_memset(&msg_env->phony_proc, 0, sizeof(Process));
-    HEAP_START(&msg_env->phony_proc) = phony_heap;
-    HEAP_TOP(&msg_env->phony_proc) = phony_heap;
-    HEAP_LIMIT(&msg_env->phony_proc) = phony_heap;
-    HEAP_END(&msg_env->phony_proc) = phony_heap;
+    HEAP_START(&msg_env->phony_proc) = &phony_heap[0];
+    HEAP_TOP(&msg_env->phony_proc) = &phony_heap[0];
+    STACK_TOP(&msg_env->phony_proc) = &phony_heap[S_REDZONE];
+    STACK_START(&msg_env->phony_proc) = &phony_heap[S_REDZONE];
     MBUF(&msg_env->phony_proc) = NULL;
     msg_env->phony_proc.common.id = ERTS_INVALID_PID;
     msg_env->env.tracee = tracee;
@@ -632,7 +632,8 @@ void enif_clear_env(ErlNifEnv* env)
 	MBUF(p) = NULL;
 	menv->env.heap_frag = NULL;
     }
-    ASSERT(HEAP_TOP(p) == HEAP_END(p));
+
+    ASSERT(HEAP_TOP(p) == HEAP_END(p) - S_REDZONE);
     menv->env.hp = menv->env.hp_end = HEAP_TOP(p);
     
     ASSERT(!is_offheap(&MSO(p)));

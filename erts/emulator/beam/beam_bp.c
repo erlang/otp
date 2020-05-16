@@ -732,7 +732,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
         w = (BeamInstr*) E[0];
 	if (!(BeamIsReturnTrace(w) || BeamIsReturnToTrace(w) || BeamIsReturnTimeTrace(w))) {
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
-	    if (E - 2 < c_p->htop) {
+	    if (HeapWordsLeft(c_p) < 2) {
 		(void) erts_garbage_collect(c_p, 2, reg, info->mfa.arity);
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    }
@@ -782,7 +782,7 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
     }
     if (need) {
 	ASSERT(c_p->htop <= E && E <= c_p->hend);
-	if (E - need < c_p->htop) {
+	if (HeapWordsLeft(c_p) < need) {
 	    (void) erts_garbage_collect(c_p, need, reg, info->mfa.arity);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    E = c_p->stop;
