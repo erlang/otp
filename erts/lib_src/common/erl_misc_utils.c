@@ -410,6 +410,8 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
 
     if (available > online)
 	available = online;
+    else if (available == 0) /* shouldn't happen */
+        available = online;
 
     if (cpuinfo->available != available)
 	changed = 1;
