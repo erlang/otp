@@ -2313,6 +2313,21 @@ delete(Config) when is_list(Config) ->
     {error, _} = ?FILE_MODULE:open(Name, read),
     %% Try deleting a nonexistent file
     {error, enoent} = ?FILE_MODULE:delete(Name),
+    Name2 = filename:join(RootDir,
+                          atom_to_list(?MODULE)
+                          ++"_delete_2.fil"),
+    {ok, Fd3} = ?FILE_MODULE:open(Name2, write),
+    io:format(Fd3,"ok.\n",[]),
+    ok = ?FILE_MODULE:close(Fd3),
+    %% Check that the file is readable
+    {ok, Fd4} = ?FILE_MODULE:open(Name2, read),
+    ok = ?FILE_MODULE:close(Fd4),
+    %% Try deleting with the raw option
+    ok = ?FILE_MODULE:delete(Name2, [raw]),
+    %% Check that the file is not readable anymore
+    {error, _} = ?FILE_MODULE:open(Name2, read),
+    %% Try deleting a nonexistent file with the raw option
+    {error, enoent} = ?FILE_MODULE:delete(Name2, [raw]),
     [] = flush(),
     ok.
 

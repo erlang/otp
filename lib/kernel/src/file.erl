@@ -27,7 +27,7 @@
 
 -export([format_error/1]).
 %% File system and metadata.
--export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, rename/2,
+-export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, delete/2, rename/2,
 	 make_dir/1, del_dir/1, del_dir_r/1, list_dir/1, list_dir_all/1,
 	 read_file_info/1, read_file_info/2,
 	 write_file_info/2, write_file_info/3,
@@ -123,10 +123,11 @@
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
+-type delete_option() :: 'raw'.
 -type sendfile_option() :: {chunk_size, non_neg_integer()}
 			 | {use_threads, boolean()}.
--type file_info_option() :: {'time', 'local'} | {'time', 'universal'} 
-			  | {'time', 'posix'} | raw.
+-type file_info_option() :: {'time', 'local'} | {'time', 'universal'}
+			  | {'time', 'posix'} | 'raw'.
 %%% BIFs
 
 -export([native_name_encoding/0]).
@@ -216,6 +217,26 @@ set_cwd(Dirname) ->
 
 delete(Name) ->
     check_and_call(delete, [file_name(Name)]).
+
+-spec delete(Filename, Opts) -> ok | {error, Reason} when
+      Filename :: name_all(),
+      Opts :: [delete_option()],
+      Reason :: posix() | badarg.
+
+delete(Name, Opts) when is_list(Opts) ->
+    Args = [file_name(Name), Opts],
+    case check_args(Args) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    [FileName|_] = Args,
+                    ?PRIM_FILE:delete(FileName);
+                false ->
+                    call(delete, Args)
+            end;
+        Error ->
+            Error
+    end.
 
 -spec rename(Source, Destination) -> ok | {error, Reason} when
       Source :: name_all(),
