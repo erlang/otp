@@ -1070,7 +1070,60 @@ redirect_phi(Phi, Args, SuccFail, G0, St) ->
 redirect_phi_1(PhiVtx, [{#b_literal{val=false},FalseExit},
                         {#b_var{}=SuccBool,_BoolExit}],
              SuccFail, G0, St) ->
+    %% This was most likely an `andalso` in the source code.
     BoolVtx = get_vertex(SuccBool, St),
+
+    %% We must be careful when rewriting guards that reference boolean
+    %% expressions defined before the guard. Here is an example:
+    %%
+    %%    Bool = Z =:= false,
+    %%    if
+    %%      X =:= Y andalso Bool -> ok;
+    %%      true -> error
+    %%    end.
+    %%
+    %% Slightly simplified, the SSA code will look like this:
+    %%
+    %%  10:  Bool = bif:'=:=' _2, `false`
+    %%       br ^11
+    %%
+    %%  11:  B = bif:'=:=' X, Y
+    %%       br B, ^20, ^30
+    %%
+    %%  20:  br ^40
+    %%  30:  br ^40
+    %%
+    %%  40:  Phi = phi { `true`, ^20 }, { Bool, ^30 }
+    %%       br Phi, ^100, ^200
+    %%
+    %%  100: ret `ok`
+    %%  200: ret `error'
+    %%
+    %% The usual rewriting of the phi node will result in the following
+    %% SSA code:
+    %%
+    %%  10:  Bool = bif:'=:=' _2, `false`
+    %%       br Bool, ^100, ^200
+    %%
+    %%  11:  B = bif:'=:=' X, Y
+    %%       br B, ^100, ^200
+    %%
+    %%  20:  br ^40
+    %%  30:  br ^40
+    %%
+    %%  40:  Phi = phi { `true`, ^20 }, { Bool, ^30 }
+    %%       br Phi, ^100, ^200
+    %%
+    %%  100: ret `ok`
+    %%  200: ret `error'
+    %%
+    %% Block 11 is no longer reachable; thus, the X =:= Y test has been dropped.
+    %% To avoid dropping tests, we should check whether if there is a path from
+    %% 10 to block 20. If there is, the optimization in its current form is not
+    %% safe.
+    %%
+    ensure_disjoint_paths(G0, BoolVtx, FalseExit),
+
     [FalseOut] = beam_digraph:out_edges(G0, FalseExit),
     G1 = beam_digraph:del_edge(G0, FalseOut),
     case SuccFail of
@@ -1088,6 +1141,11 @@ redirect_phi_1(PhiVtx, [{#b_literal{val=true},TrueExit},
              {fail,Fail}, G0, St) ->
     %% This was probably an `orelse` in the source code.
     BoolVtx = get_vertex(SuccBool, St),
+
+    %% See the previous clause for an explanation of why we
+    %% must ensure that paths are disjoint.
+    ensure_disjoint_paths(G0, BoolVtx, TrueExit),
+
     [TrueOut] = beam_digraph:out_edges(G0, TrueExit),
     G1 = beam_digraph:del_edge(G0, TrueOut),
     G2 = beam_digraph:add_edge(G1, TrueExit, PhiVtx, next),
@@ -1116,6 +1174,18 @@ digraph_bool_def(G) ->
     Vs = beam_digraph:vertices(G),
     Ds = [{Dst,Vtx} || {Vtx,#b_set{dst=Dst}} <- Vs],
     maps:from_list(Ds).
+
+
+%% ensure_disjoint_paths(G, Vertex1, Vertex2) -> ok.
+%%  Ensure that there is no path from Vertex1 to Vertex2 in
+%%  either direction. (It is probably overkill to test both
+%%  directions, but better safe than sorry.)
+
+ensure_disjoint_paths(G, V1, V2) ->
+    case beam_digraph:is_path(G, V1, V2) orelse beam_digraph:is_path(G, V2, V1) of
+        true -> not_possible();
+        false -> ok
+    end.
 
 %%%
 %%% Shortcut branches that branch to other branches.
