@@ -12254,14 +12254,15 @@ static void packet_inet_stop(ErlDrvData e)
        into "udp_descriptor*" or "inet_descriptor*":
     */
     udp_descriptor * udesc = (udp_descriptor*) e;
-    inet_descriptor* descr = INETP(udesc);
+    inet_descriptor* desc  = INETP(udesc);
     if (udesc->i_buf != NULL) {
 	release_buffer(udesc->i_buf);
 	udesc->i_buf = NULL;
     }
 
-    ASSERT(NO_SUBSCRIBERS(&(descr->empty_out_q_subs)));
-    inet_stop(descr);
+    ASSERT(NO_SUBSCRIBERS(&(desc->empty_out_q_subs)));
+    async_error_am_all(desc, am_closed);
+    inet_stop(desc);
 }
 
 static int packet_error(udp_descriptor* udesc, int err)
