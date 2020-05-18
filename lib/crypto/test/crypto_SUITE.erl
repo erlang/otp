@@ -332,7 +332,7 @@ init_per_suite(Config) ->
     {ok, _} = zip:unzip("cmactestvectors.zip"),
     {ok, _} = zip:unzip("gcmtestvectors.zip"),
 
-    try crypto:start() of
+    try is_ok(crypto:start()) of
 	ok ->
             catch ct:comment("~s",[element(3,hd(crypto:info_lib()))]),
             catch ct:log("crypto:info_lib() -> ~p~n"
@@ -355,9 +355,17 @@ init_per_suite(Config) ->
 		    crypto:rand_seed(<< <<Bin/binary>> || _ <- lists:seq(1,16) >>),
 		    Config
 	    end
-    catch _:_ ->
+                  
+    catch C:E:S ->
+            ct:log("~p ~p~n~p", [C,E,S]),
 	    {fail, "Crypto did not start"}
     end.
+
+is_ok(ok) -> ok;
+is_ok({error, already_started}) -> ok;
+is_ok({error,{already_started,crypto}}) -> ok.
+
+    
 
 end_per_suite(_Config) ->
     application:stop(crypto).
