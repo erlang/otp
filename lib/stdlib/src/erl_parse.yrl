@@ -26,12 +26,8 @@ form
 attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
-expr expr_100 expr_150 expr_160 expr_200 expr_300 expr_400 expr_500
-expr_600 expr_650 expr_700 expr_800
-expr_max
-pat_expr pat_expr_200 pat_expr_300 pat_expr_400 pat_expr_500
-pat_expr_600 pat_expr_650 pat_expr_700 pat_expr_800
-pat_expr_max map_pat_expr record_pat_expr
+expr expr_max expr_remote
+pat_expr pat_expr_max map_pat_expr record_pat_expr
 pat_argument_list pat_exprs
 list tail
 list_comprehension lc_expr lc_exprs
@@ -48,11 +44,11 @@ atomic strings
 prefix_op mult_op add_op list_op comp_op
 binary bin_elements bin_element bit_expr
 opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
-top_type top_type_100 top_types type typed_expr typed_attr_val
-type_sig type_sigs type_guard type_guards fun_type fun_type_100 binary_type
+top_type top_types type typed_expr typed_attr_val
+type_sig type_sigs type_guard type_guards fun_type binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
 map_pair_types map_pair_type
-bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
+bin_base_type bin_unit_type.
 
 Terminals
 char integer float atom string var
@@ -73,6 +69,27 @@ dot.
 Expect 0.
 
 Rootsymbol form.
+
+%% Expressions
+
+Unary 0 'catch'.
+Right 100 '=' '!'.
+Right 150 'orelse'.
+Right 160 'andalso'.
+Nonassoc 200 comp_op.
+Right 300 list_op.
+Left 400 add_op.
+Left 500 mult_op.
+Unary 600 prefix_op.
+Nonassoc 700 '#'.
+Nonassoc 800 ':'.
+
+%% Types
+
+Right 150 '::'.
+Left 170 '|'.
+Nonassoc 200 '..'.
+Nonassoc 500 '*'. % for binary expressions
 
 form -> attribute dot : '$1'.
 form -> function dot : '$1'.
@@ -117,25 +134,14 @@ type_guard -> var '::' top_type        : build_constraint('$1', '$3').
 top_types -> top_type                     : ['$1'].
 top_types -> top_type ',' top_types       : ['$1'|'$3'].
 
-top_type -> var '::' top_type_100         : {ann_type, ?anno('$1'), ['$1','$3']}.
-top_type -> top_type_100                  : '$1'.
+top_type -> var '::' top_type             : {ann_type, ?anno('$1'), ['$1','$3']}.
+top_type -> type '|' top_type             : lift_unions('$1','$3').
+top_type -> type                          : '$1'.
 
-top_type_100 -> type_200                  : '$1'.
-top_type_100 -> type_200 '|' top_type_100 : lift_unions('$1','$3').
-
-type_200 -> type_300 '..' type_300        : {type, ?anno('$1'), range,
-                                             ['$1', '$3']}.
-type_200 -> type_300                      : '$1'.
-
-type_300 -> type_300 add_op type_400      : ?mkop2('$1', '$2', '$3').
-type_300 -> type_400                      : '$1'.
-
-type_400 -> type_400 mult_op type_500     : ?mkop2('$1', '$2', '$3').
-type_400 -> type_500                      : '$1'.
-
-type_500 -> prefix_op type                : ?mkop1('$1', '$2').
-type_500 -> type                          : '$1'.
-
+type -> type '..' type                    : {type, ?anno('$1'), range, ['$1', '$3']}.
+type -> type add_op type                  : ?mkop2('$1', '$2', '$3').
+type -> type mult_op type                 : ?mkop2('$1', '$2', '$3').
+type -> prefix_op type                    : ?mkop1('$1', '$2').
 type -> '(' top_type ')'                  : '$2'.
 type -> var                               : '$1'.
 type -> atom                              : '$1'.
@@ -160,13 +166,10 @@ type -> binary_type                       : '$1'.
 type -> integer                           : '$1'.
 type -> char                              : '$1'.
 type -> 'fun' '(' ')'                     : {type, ?anno('$1'), 'fun', []}.
-type -> 'fun' '(' fun_type_100 ')'        : '$3'.
+type -> 'fun' '(' fun_type ')'            : '$3'.
 
-fun_type_100 -> '(' '...' ')' '->' top_type
-                                          : {type, ?anno('$1'), 'fun',
+fun_type -> '(' '...' ')' '->' top_type   : {type, ?anno('$1'), 'fun',
                                              [{type, ?anno('$1'), any}, '$5']}.
-fun_type_100 -> fun_type                  : '$1'.
-
 fun_type -> '(' ')' '->' top_type  : {type, ?anno('$1'), 'fun',
                                       [{type, ?anno('$1'), product, []}, '$4']}.
 fun_type -> '(' top_types ')' '->' top_type
@@ -223,48 +226,22 @@ clause_body -> '->' exprs: '$2'.
 
 
 expr -> 'catch' expr : {'catch',?anno('$1'),'$2'}.
-expr -> expr_100 : '$1'.
+expr -> expr '=' expr : {match,?anno('$2'),'$1','$3'}.
+expr -> expr '!' expr : ?mkop2('$1', '$2', '$3').
+expr -> expr 'orelse' expr : ?mkop2('$1', '$2', '$3').
+expr -> expr 'andalso' expr : ?mkop2('$1', '$2', '$3').
+expr -> expr comp_op expr : ?mkop2('$1', '$2', '$3').
+expr -> expr list_op expr : ?mkop2('$1', '$2', '$3').
+expr -> expr add_op expr : ?mkop2('$1', '$2', '$3').
+expr -> expr mult_op expr : ?mkop2('$1', '$2', '$3').
+expr -> prefix_op expr : ?mkop1('$1', '$2').
+expr -> map_expr : '$1'.
+expr -> function_call : '$1'.
+expr -> record_expr : '$1'.
+expr -> expr_remote : '$1'.
 
-expr_100 -> expr_150 '=' expr_100 : {match,?anno('$2'),'$1','$3'}.
-expr_100 -> expr_150 '!' expr_100 : ?mkop2('$1', '$2', '$3').
-expr_100 -> expr_150 : '$1'.
-
-expr_150 -> expr_160 'orelse' expr_150 : ?mkop2('$1', '$2', '$3').
-expr_150 -> expr_160 : '$1'.
-
-expr_160 -> expr_200 'andalso' expr_160 : ?mkop2('$1', '$2', '$3').
-expr_160 -> expr_200 : '$1'.
-
-expr_200 -> expr_300 comp_op expr_300 :
-	?mkop2('$1', '$2', '$3').
-expr_200 -> expr_300 : '$1'.
-
-expr_300 -> expr_400 list_op expr_300 :
-	?mkop2('$1', '$2', '$3').
-expr_300 -> expr_400 : '$1'.
-
-expr_400 -> expr_400 add_op expr_500 :
-	?mkop2('$1', '$2', '$3').
-expr_400 -> expr_500 : '$1'.
-
-expr_500 -> expr_500 mult_op expr_600 :
-	?mkop2('$1', '$2', '$3').
-expr_500 -> expr_600 : '$1'.
-
-expr_600 -> prefix_op expr_600 :
-	?mkop1('$1', '$2').
-expr_600 -> expr_650 : '$1'.
-
-expr_650 -> map_expr : '$1'.
-expr_650 -> expr_700 : '$1'.
-
-expr_700 -> function_call : '$1'.
-expr_700 -> record_expr : '$1'.
-expr_700 -> expr_800 : '$1'.
-
-expr_800 -> expr_max ':' expr_max :
-	{remote,?anno('$2'),'$1','$3'}.
-expr_800 -> expr_max : '$1'.
+expr_remote -> expr_max ':' expr_max : {remote,?anno('$2'),'$1','$3'}.
+expr_remote -> expr_max : '$1'.
 
 expr_max -> var : '$1'.
 expr_max -> atomic : '$1'.
@@ -281,36 +258,15 @@ expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
 
-pat_expr -> pat_expr_200 '=' pat_expr : {match,?anno('$2'),'$1','$3'}.
-pat_expr -> pat_expr_200 : '$1'.
-
-pat_expr_200 -> pat_expr_300 comp_op pat_expr_300 :
-	?mkop2('$1', '$2', '$3').
-pat_expr_200 -> pat_expr_300 : '$1'.
-
-pat_expr_300 -> pat_expr_400 list_op pat_expr_300 :
-	?mkop2('$1', '$2', '$3').
-pat_expr_300 -> pat_expr_400 : '$1'.
-
-pat_expr_400 -> pat_expr_400 add_op pat_expr_500 :
-	?mkop2('$1', '$2', '$3').
-pat_expr_400 -> pat_expr_500 : '$1'.
-
-pat_expr_500 -> pat_expr_500 mult_op pat_expr_600 :
-	?mkop2('$1', '$2', '$3').
-pat_expr_500 -> pat_expr_600 : '$1'.
-
-pat_expr_600 -> prefix_op pat_expr_600 :
-	?mkop1('$1', '$2').
-pat_expr_600 -> pat_expr_650 : '$1'.
-
-pat_expr_650 -> map_pat_expr : '$1'.
-pat_expr_650 -> pat_expr_700 : '$1'.
-
-pat_expr_700 -> record_pat_expr : '$1'.
-pat_expr_700 -> pat_expr_800 : '$1'.
-
-pat_expr_800 -> pat_expr_max : '$1'.
+pat_expr -> pat_expr '=' pat_expr : {match,?anno('$2'),'$1','$3'}.
+pat_expr -> pat_expr comp_op pat_expr : ?mkop2('$1', '$2', '$3').
+pat_expr -> pat_expr list_op pat_expr : ?mkop2('$1', '$2', '$3').
+pat_expr -> pat_expr add_op pat_expr : ?mkop2('$1', '$2', '$3').
+pat_expr -> pat_expr mult_op pat_expr : ?mkop2('$1', '$2', '$3').
+pat_expr -> prefix_op pat_expr : ?mkop1('$1', '$2').
+pat_expr -> map_pat_expr : '$1'.
+pat_expr -> record_pat_expr : '$1'.
+pat_expr -> pat_expr_max : '$1'.
 
 pat_expr_max -> var : '$1'.
 pat_expr_max -> atomic : '$1'.
@@ -405,7 +361,7 @@ map_field_exact -> map_key ':=' expr :
 map_key -> expr : '$1'.
 
 
-%% N.B. This is called from expr_700.
+%% N.B. This is called from expr.
 %% N.B. Field names are returned as the complete object, even if they are
 %% always atoms for the moment, this might change in the future.
 
@@ -431,9 +387,9 @@ record_fields -> record_field ',' record_fields : ['$1' | '$3'].
 record_field -> var '=' expr : {record_field,?anno('$1'),'$1','$3'}.
 record_field -> atom '=' expr : {record_field,?anno('$1'),'$1','$3'}.
 
-%% N.B. This is called from expr_700.
+%% N.B. This is called from expr.
 
-function_call -> expr_800 argument_list :
+function_call -> expr_remote argument_list :
 	{call,?anno('$1'),'$1',element(1, '$2')}.
 
 
