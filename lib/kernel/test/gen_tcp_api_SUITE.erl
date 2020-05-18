@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -561,11 +561,11 @@ connect_timeout({M,F,A}, Lower, Upper) ->
     case test_server:timecall(M, F, A) of
 	{Time, Result} when Time < Lower ->
 	    case Result of
-		{error,econnrefused=E} ->
-		    {comment,"Not tested -- got error "++atom_to_list(E)};
-		{error,enetunreach=E} ->
-		    {comment,"Not tested -- got error "++atom_to_list(E)};
-		{ok,Socket} -> % What the...
+		{error, econnrefused = E} ->
+		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
+		{error, enetunreach = E} ->
+		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
+		{ok, Socket} -> % What the...
 		    Pinfo = erlang:port_info(Socket),
 		    Db = inet_db:lookup_socket(Socket),
 		    Peer = inet:peername(Socket),
@@ -591,7 +591,24 @@ unused_ip() ->
     %% Note: In our net, addresses below 16 are reserved for routers and
     %% other strange creatures.
     IP = unused_ip(A, B, C, 16),
-    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP]),
+    if
+        (IP =:= error) ->
+            %% This is not supported on all platforms (yet), so...
+            try net:getifaddrs() of
+                {ok, IfAddrs} ->
+                    io:format("we        = ~p,"
+                              "unused_ip = ~p"
+                              "            ~p"
+                              "~n", [Hent, IP, IfAddrs]);
+                {error, _} ->
+                    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+            catch
+                _:_:_ ->
+                    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+            end;
+        true ->
+            io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+    end,
     IP.
 
 unused_ip(255, 255, 255, 255) -> error;
