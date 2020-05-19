@@ -799,7 +799,19 @@ implicit_inet6(S1, Addr) ->
 				    addr={Addr,P2},
 				    error=0}} ->
 	    {Addr,P2,#sctp_assoc_change{state=comm_up}} =
-		recv_event(log_ok(gen_sctp:recv(S1)))
+		recv_event(log_ok(gen_sctp:recv(S1)));
+        {AX, PX, CX} = EX ->
+            io:format("LOG[~p] received: "
+                      "~n   Address:              ~p"
+                      "~n   Port:                 ~p"
+                      "~n   [Assoc|PAddr] Change: ~p"
+                      "~nwhen"
+                      "~n   Addr: ~p"
+                      "~n   P1:   ~p"
+                      "~n   P2:   ~p"
+                      "~n", [AX, PX, CX, Addr, P1, P2]),
+            exit({unexpected_event, EX})
+                
     end,
     case log_ok(inet:sockname(S1)) of
 	{Addr,P1} -> ok;
