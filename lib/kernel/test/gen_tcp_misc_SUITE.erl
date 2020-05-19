@@ -2692,46 +2692,97 @@ active_once_closed(Config) when is_list(Config) ->
 
 %% Check that active n and tcp_close messages behave as expected.
 active_n_closed(Config) when is_list(Config) ->
+    try do_active_n_closed(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_active_n_closed(_Config) ->
+    p("create listen socket"),
     {ok, L} = gen_tcp:listen(0, [binary, {active, false}]),
 
     P = self(),
 
-    {ok,Port} = inet:port(L),
+    {ok, Port} = inet:port(L),
 
-    spawn_link(fun() ->
-                       Payload = <<0:50000/unit:8>>,
-                       Cnt = 10000,
-                       P ! {size,Cnt * byte_size(Payload)},
-                       {ok, S} = gen_tcp:connect("localhost", Port, [binary, {active, false}]),
-                       _ = [gen_tcp:send(S, Payload) || _ <- lists:seq(1, Cnt)],
-                       gen_tcp:close(S)
-          end),
+    ClientF =
+        fun() ->
+                Payload = <<0:50000/unit:8>>,
+                Cnt = 10000,
+                P ! {size, Cnt * byte_size(Payload)},
+                S = case gen_tcp:connect("localhost", Port,
+                                         [binary, {active, false}]) of
+                        {ok, CS} ->
+                            P ! {continue, self()},
+                            CS;
+                        {error, eaddrnotavail = Reason} ->
+                            exit({skip, Reason})
+                    end,
+                _ = [gen_tcp:send(S, Payload) || _ <- lists:seq(1, Cnt)],
+                gen_tcp:close(S),
+                %% Try to "ensure" that teh close get there before the DOWN...
+                receive after 1000 -> ok end,
+                exit(ok)
+        end,
+    p("create client process"),
+    {Pid, MRef} = spawn_monitor(ClientF),
 
-    receive {size,SendSize} -> SendSize end,
+    p("await size"),
+    receive {size, SendSize} -> SendSize end,
+    p("await continue or down"),
+    receive
+        {continue, Pid} ->
+            p("got continue"),
+            ok;
+        {'DOWN', MRef, process, Pid, {skip, _} = SKIP} ->
+            p("got *unexpected* skip"),
+            gen_tcp:close(L),
+            throw(SKIP);
+        {'DOWN', MRef, process, Pid, ConnectRes} ->
+            p("got *unexpected* crash: "
+              "~n   ~p", [ConnectRes]),
+            exit({unexpected, connect, ConnectRes})
+    end,
     {ok, S} = gen_tcp:accept(L),
     inet:setopts(S, [{active, 10}]),
+    p("start collecting data"),
     RecvSize =
         (fun Server(Size) ->
                  receive
                      {tcp, S, Bin} ->
+                         %% p("got a chunk (~w) of data", [byte_size(Bin)]),
                          Server(byte_size(Bin) + Size);
                      {tcp_closed, S} ->
+                         p("got closed -> we are done: ~w", [Size]),
                          Size;
                      {tcp_passive, S} ->
+                         %% p("got passive -> active"),
                          inet:setopts(S, [{active, 10}]),
                          Server(Size);
                      Msg ->
-                         io:format("~p~n", [Msg]),
+                         p("ignore: ~p", [Msg]),
                          Server(Size)
                  end
          end)(0),
 
+    p("await client process termination"),
+    receive
+        {'DOWN', MRef, process, Pid, ok} ->
+            ok;
+        {'DOWN', MRef, process, Pid, CloseRes} ->
+            exit({unexpected, close, CloseRes})
+    end,
+
+    p("close listen socket"),
     gen_tcp:close(L),
 
+    p("validate size"),
     if SendSize =:= RecvSize ->
+            p("done"),
             ok;
        true ->
-            ct:fail("Send and Recv size not equal: ~p ~p",[SendSize, RecvSize])
+            ct:fail("Send and Recv size not equal: ~p ~p", [SendSize, RecvSize])
     end.
 
 %% Test the send_timeout socket option.
