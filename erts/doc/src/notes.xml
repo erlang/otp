@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in erl_crash.dump generation that could cause a
+	    SEGV core dump if a recently cancelled timer was found.</p>
+          <p>
+	    Own Id: OTP-16596 Aux Id: ERL-1105, PR-2606 </p>
+        </item>
+        <item>
+          <p>
+	    The functionality utilized by BIFs for temporary
+	    disabling of garbage collection while yielding could
+	    cause system task queues to become inconsistent on a
+	    process executing such a BIF. Process system tasks are
+	    for example utilized when purging code, garbage
+	    collecting literal data, and when issuing an ordinary
+	    garbage collection from another process.</p>
+          <p>
+	    The bug does not trigger frequently. Multiple code purges
+	    in direct sequence makes it more likely that this bug is
+	    triggered. In the cases observed, this has resulted in a
+	    hanging code purge operation.</p>
+          <p>
+	    Own Id: OTP-16639 Aux Id: ERL-1236 </p>
+        </item>
+        <item>
+          <p>
+	    SCTP and UDP recv/2,3 hangs indefinitely if socket is
+	    closed while recv is called (socket in passive mode).</p>
+          <p>
+	    Own Id: OTP-16654 Aux Id: ERL-1242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
