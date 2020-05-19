@@ -837,10 +837,9 @@ start_remote(Name) ->
     test_server:start_node(Name, slave, [{remote, true}, {args, "-pa " ++ Pa}]).
 
 %% Tests that when 'the other side' on a passive socket closes, the
-%% connecting, side still can read until the end of data.
+%% connecting side can still read until the end of data.
 passive_sockets(Config) when is_list(Config) ->
-    spawn_link(?MODULE, passive_sockets_server,
-               [[{active,false}],self()]),
+    spawn_link(?MODULE, passive_sockets_server, [[{active, false}], self()]),
     receive
         {socket,Port} -> ok
     end,
@@ -848,6 +847,8 @@ passive_sockets(Config) when is_list(Config) ->
     case gen_tcp:connect("localhost", Port, [{active, false}]) of
         {ok, Sock} ->
             passive_sockets_read(Sock);
+        {error, eaddrnotavail = Reason} ->
+            {skip, Reason};
         Error ->
             ct:fail({"Could not connect to server", Error})
     end.
