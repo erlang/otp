@@ -1027,7 +1027,26 @@ xfer_stream_min(Config) when is_list(Config) ->
 	     Pa,
 	     [#sctp_sndrcvinfo{stream=Stream,
 			       assoc_id=SbAssocId}],
-	     Data} = log_ok(gen_sctp:recv(Sb, infinity))
+	     Data} = log_ok(gen_sctp:recv(Sb, infinity));
+        {FromIP, FromPort, AncData, Data} = Other1 ->
+            p("UNEXPECTED: "
+              "~n   FromIP:   ~p"
+              "~n   FromPort: ~p"
+              "~n   AncData:  ~p"
+              "~n   Data:     ~p"
+              "~nwhen"
+              "~n   Loopback: ~p"
+              "~n   Pa:       ~p",
+              [FromIP, FromPort, AncData, Data, Loopback, Pa]),
+            exit({unexpected, Other1});
+        Other2 ->
+            p("UNEXPECTED: "
+              "~n   Other:    ~p"
+              "~nwhen"
+              "~n   Loopback: ~p"
+              "~n   Pa:       ~p",
+              [Other2, Loopback, Pa]),
+            exit({unexpected, Other2})
     end,
     ok =
 	do_from_other_process(
