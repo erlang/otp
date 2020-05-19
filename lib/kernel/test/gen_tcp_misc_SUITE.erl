@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -706,35 +706,75 @@ iter_max_socks() ->
 %% Open as many sockets as possible. Do this several times and check
 %% that we get the same number of sockets every time.
 iter_max_socks(Config) when is_list(Config) ->
-    N = case os:type() of {win32,_} -> 10; _ -> 20 end,
+    %% This is not *nearly* enough
+    %% We have some crap machines, which we need to "handle with care"...
+    Tries =
+        case os:type() of
+            {win32, _} ->
+                10;
+            {unix, darwin} ->
+                10;
+            _ ->
+                20
+        end,
     %% Run on a different node in order to limit the effect if this test fails.
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(test_iter_max_socks,slave,
-				       [{args,"+Q 2048 -pa " ++ Dir}]),
-    L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
+    {ok, Node} = test_server:start_node(test_iter_max_socks,slave,
+                                        [{args,"+Q 2048 -pa " ++ Dir}]),
+    %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
+    L = iter_max_socks_run(Node,
+                           fun() ->
+                                   exit(do_iter_max_socks(Tries, initalize))
+                           end),
     test_server:stop_node(Node),
 
-    io:format("Result: ~p",[L]),
+    io:format("Result: ~p", [L]),
     all_equal(L),
     {comment, "Max sockets: " ++ integer_to_list(hd(L))}.
 
+iter_max_socks_run(Node, F) ->
+    try erlang:spawn_opt(Node, F, [monitor]) of
+        {Pid, MRef} when is_pid(Pid) andalso is_reference(MRef) ->
+            receive
+                {'DOWN', MRef, process, Pid, Res} ->
+                    Res
+            end;
+        _Any ->
+            p("Unexpected process start result: "
+              "~n   ~p", [_Any]),
+            {skip, "Failed starting iterator (slave) process"}
+    catch
+        C:E:S ->
+            p("Failed starting iterator (slave) process: "
+              "~n   Class: ~p"
+              "~n   Error: ~p"
+              "~n   Stack: ~p", [C, E, S]),
+            {skip, "Failed starting iterator (slave) process"}
+    end.
+            
+             
 do_iter_max_socks(0, _) ->
+    p("do_iter_max_socks(0,-) -> done"),
     [];
-do_iter_max_socks(N, initalize) ->
+do_iter_max_socks(N, initalize = First) ->
+    p("do_iter_max_socks(~w,~w) -> entry", [N, First]),
     MS = max_socks(),
     [MS|do_iter_max_socks(N-1, MS)];
-do_iter_max_socks(N, failed) ->
+do_iter_max_socks(N, failed = First) ->
+    p("do_iter_max_socks(~w,~w) -> entry", [N, First]),
     MS = max_socks(),
     [MS|do_iter_max_socks(N-1, failed)];
 do_iter_max_socks(N, First) when is_integer(First) ->
+    p("do_iter_max_socks(~w,~w) -> entry", [N, First]),
     MS = max_socks(),
-    if MS == First -> 
+    if
+        (MS =:= First) -> 
 	    [MS|do_iter_max_socks(N-1, First)];
        true ->
-	    io:format("Sleeping for ~p seconds...~n",
-			    [?RETRY_SLEEP/1000]), 
+	    p("~w =/= ~w => sleeping for ~p seconds...",
+              [MS, First, ?RETRY_SLEEP/1000]), 
 	    ct:sleep(?RETRY_SLEEP),
-	    io:format("Trying again...~n", []),
+	    p("Trying again...", []),
 	    RetryMS = max_socks(),
 	    if RetryMS == First ->
 			  [RetryMS|do_iter_max_socks(N-1, First)];
@@ -762,7 +802,7 @@ max_socks() ->
     Socks = open_socks(),
     N = length(Socks),
     lists:foreach(fun(S) -> ok = gen_tcp:close(S) end, Socks),
-    io:format("Got ~p sockets", [N]),
+    p("Got ~p sockets", [N]),
     N.
 
 open_socks() ->
@@ -3594,3 +3634,23 @@ delay_send_error(_Config) ->
             ok
     end,
     ok = gen_tcp:close(C).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+
