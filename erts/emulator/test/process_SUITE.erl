@@ -63,7 +63,8 @@
          system_task_failed_enqueue/1,
 	 gc_request_when_gc_disabled/1,
 	 gc_request_blast_when_gc_disabled/1,
-         otp_16436/1]).
+         otp_16436/1,
+         otp_16642/1]).
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -112,7 +113,7 @@ groups() ->
       [no_priority_inversion, no_priority_inversion2,
        system_task_blast, system_task_on_suspended, system_task_failed_enqueue,
        gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled,
-       otp_16436]}].
+       otp_16436, otp_16642]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -2869,7 +2870,120 @@ otp_16436(Config) when is_list(Config) ->
     exit(P, kill),
     ok.
 
+otp_16642(Config) when is_list(Config) ->
+    %%
+    %% Whitebox testing...
+    %%
+    %% Ensure that low prio system tasks are interleaved with
+    %% normal prio system tasks as they should.
+    %%
+    process_flag(priority, high),
+    process_flag(scheduler, 1),
+    Pid = spawn_opt(fun () -> receive after infinity -> ok end end,
+                    [link, {scheduler, 1}]),
+    ReqSTasks = fun (Prio, Start, Stop) ->
+                        lists:foreach(
+                          fun (N) ->
+                                  erts_internal:request_system_task(
+                                    Pid,
+                                    Prio,
+                                    {check_process_code,
+                                     {Prio, N},
+                                     '__non_existing_module__'})
+                          end,
+                          lists:seq(Start, Stop))
+                end,
+    MkResList = fun (Prio, Start, Stop) ->
+                        lists:map(fun (N) ->
+                                          {check_process_code,
+                                           {Prio, N},
+                                           false}
+                                  end,
+                                  lists:seq(Start, Stop))
+                end,
+
+    %%% Test when normal queue clears first...
+
+    ReqSTasks(low, 0, 1),
+    ReqSTasks(normal, 0, 10),
+    ReqSTasks(low, 2, 4),
+    ReqSTasks(normal, 11, 26),
+
+    Msgs1 = recv_msgs(32),
+    io:format("Got test 1 messages: ~p~n", [Msgs1]),
+
+    ExpMsgs1 =
+        MkResList(normal, 0, 7)
+        ++ MkResList(low, 0, 0)
+        ++ MkResList(normal, 8, 15)
+        ++ MkResList(low, 1, 1)
+        ++ MkResList(normal, 16, 23)
+        ++ MkResList(low, 2, 2)
+        ++ MkResList(normal, 24, 26)
+        ++ MkResList(low, 3, 4),
+    
+    case Msgs1 =:= ExpMsgs1 of
+        true ->
+            ok;
+        false ->
+            io:format("Expected test 1 messages ~p~n",
+                      [ExpMsgs1]),
+            ct:fail(unexpected_messages)
+    end,
+
+    receive Unexp1 -> ct:fail({unexpected_message, Unexp1})
+    after 500 -> ok
+    end,
+
+    io:format("Test 1 as expected~n", []),
+
+    %%% Test when low queue clears first...
+
+    ReqSTasks(low, 0, 1),
+    ReqSTasks(normal, 0, 20),
+
+    Msgs2 = recv_msgs(23),
+    io:format("Got test 2 messages: ~p~n", [Msgs2]),
+
+    ExpMsgs2 =
+        MkResList(normal, 0, 7)
+        ++ MkResList(low, 0, 0)
+        ++ MkResList(normal, 8, 15)
+        ++ MkResList(low, 1, 1)
+        ++ MkResList(normal, 16, 20),
+    
+    case Msgs2 =:= ExpMsgs2 of
+        true ->
+            ok;
+        false ->
+            io:format("Expected test 2 messages ~p~n",
+                      [ExpMsgs2]),
+            ct:fail(unexpected_messages)
+    end,
+
+    receive Unexp2 -> ct:fail({unexpected_message, Unexp2})
+    after 500 -> ok
+    end,
+
+    io:format("Test 2 as expected~n", []),
+
+    unlink(Pid),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    ok.
+
 %% Internal functions
+
+recv_msgs(N) ->
+    recv_msgs(N, []).
+
+recv_msgs(0, Msgs) ->
+    lists:reverse(Msgs);
+recv_msgs(N, Msgs) ->
+    receive
+        Msg ->
+            recv_msgs(N-1, [Msg|Msgs])
+    end.
 
 wait_until(Fun) ->
     case Fun() of
