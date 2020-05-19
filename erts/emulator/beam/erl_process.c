@@ -11188,7 +11188,7 @@ erts_set_gc_state(Process *c_p, int enable)
 		first1 = dgc_tsk_qs->q[prio];
 		last1 = first1->prev;
 		first2 = stsk_qs->q[prio];
-		last2 = first1->prev;
+		last2 = first2->prev;
 
 		last1->next = first2;
 		first2->prev = last1;
