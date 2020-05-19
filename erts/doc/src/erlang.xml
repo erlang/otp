@@ -2147,25 +2147,6 @@ true</pre>
     </func>
 
     <func>
-      <name name="get_stacktrace" arity="0" since=""/>
-      <fsummary>Get the call stack back-trace of the last exception.</fsummary>
-      <type name="stack_item"/>
-      <desc>
-	<warning><p><c>erlang:get_stacktrace/0</c> is deprecated and
-	will be removed in OTP 24. Starting from OTP 23,
-	<c>erlang:get_stacktrace/0</c> returns <c>[]</c>.</p></warning>
-      <p>Instead of using <c>erlang:get_stacktrace/0</c> to retrieve
-      the call stack back-trace, use the following syntax:</p>
-<pre>
-try Expr
-catch
-  Class:Reason:Stacktrace ->
-   {Class,Reason,Stacktrace}
-end</pre>
-      </desc>
-    </func>
-
-    <func>
       <name name="group_leader" arity="0" since=""/>
       <fsummary>Get the group leader for the calling process.</fsummary>
       <desc>

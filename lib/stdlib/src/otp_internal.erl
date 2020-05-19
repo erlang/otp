@@ -65,8 +65,6 @@ obsolete(crypto, stream_decrypt, 2) ->
     {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
 obsolete(crypto, stream_encrypt, 2) ->
     {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
-obsolete(erlang, get_stacktrace, 0) ->
-    {deprecated, "use the new try/catch syntax for retrieving the stack backtrace", "OTP 24"};
 obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(filename, safe_relative_path, 1) ->
@@ -439,6 +437,8 @@ obsolete(erl_parse, set_line, 2) ->
     {removed, "use erl_anno:set_line/2"};
 obsolete(erl_scan, set_attribute, 3) ->
     {removed, "use erl_anno:set_line/2 instead"};
+obsolete(erlang, get_stacktrace, 0) ->
+    {removed, "use the new try/catch syntax for retrieving the stack backtrace"};
 obsolete(erlang, hash, 2) ->
     {removed, "use erlang:phash2/2 instead"};
 obsolete(httpd_conf, check_enum, 2) ->

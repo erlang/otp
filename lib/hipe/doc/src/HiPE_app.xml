@@ -72,8 +72,7 @@
       </item>
 
       <tag>Stack traces</tag>
-      <item><p>Stack traces returned from <seemfa marker="erts:erlang#get_stacktrace/0">
-      <c>erlang:get_stacktrace/0</c></seemfa> or as part of <c>'EXIT'</c> terms
+      <item><p>Stack traces returned from <c>try</c>/<c>catch</c> or as part of <c>'EXIT'</c> terms
       can look incomplete if HiPE compiled functions are involved. Typically a stack trace
       will contain only BEAM compiled functions or only HiPE compiled functions, depending
       on where the exception was raised.</p>

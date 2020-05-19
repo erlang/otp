@@ -327,7 +327,6 @@ stacktrace_1(X, C1, Y) ->
             C1 -> value1
         catch
             C1:D1:Stk1 ->
-                [] = erlang:get_stacktrace(),
                 {caught1,D1,Stk1}
         after
             foo(Y)
@@ -335,7 +334,6 @@ stacktrace_1(X, C1, Y) ->
         V2 -> {value2,V2}
     catch
         C2:D2:Stk2 ->
-            [] = erlang:get_stacktrace(),
             {caught2,{C2,D2},Stk2}
     after
         ok
@@ -462,7 +460,6 @@ my_abs(X) -> abs(X).
 
 gunilla(Config) when is_list(Config) ->
     {throw,kalle} = gunilla_1(),
-    [] = erlang:get_stacktrace(),
     ok.
 
 gunilla_1() ->

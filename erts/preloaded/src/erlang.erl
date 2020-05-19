@@ -54,13 +54,13 @@
          dist_ctrl_set_opt/3,
          dist_get_stat/1]).
 
--deprecated([{get_stacktrace,0,
-              "use the new try/catch syntax for retrieving the "
-              "stack backtrace"}]).
 -deprecated([{now,0,
               "see the \"Time and Time Correction in Erlang\" "
               "chapter of the ERTS User's Guide for more information"}]).
 -removed([{hash,2,"use erlang:phash2/2 instead"}]).
+-removed([{get_stacktrace,0,
+           "use the new try/catch syntax for retrieving the "
+           "stack backtrace"}]).
 
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
 -compile({no_auto_import,[spawn_link/1]}).
@@ -146,7 +146,7 @@
 -export([fun_info/2, fun_info_mfa/1, fun_to_list/1, function_exported/3]).
 -export([garbage_collect/0, garbage_collect/1, garbage_collect/2]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/0, get_keys/1]).
--export([get_module_info/1, get_stacktrace/0, group_leader/0]).
+-export([get_module_info/1, group_leader/0]).
 -export([group_leader/2]).
 -export([halt/0, halt/1, halt/2,
 	 has_prepared_code_on_load/1, hibernate/3]).
@@ -1061,11 +1061,6 @@ get_keys(_Val) ->
       Item :: module | exports | attributes | compile | native | md5,
       Module :: atom().
 get_module_info(_Module) ->
-    erlang:nif_error(undefined).
-
-%% get_stacktrace/0
--spec erlang:get_stacktrace() -> [stack_item()].
-get_stacktrace() ->
     erlang:nif_error(undefined).
 
 %% group_leader/0
