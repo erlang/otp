@@ -47,7 +47,8 @@
 	 pkix_is_fixed_dh_cert/1,
 	 pkix_is_issuer/2,
 	 pkix_issuer_id/2,
-	 pkix_normalize_name/1,
+	 pkix_subject_id/1,
+         pkix_normalize_name/1,
 	 pkix_path_validation/3,
 	 pkix_verify_hostname/2, pkix_verify_hostname/3,
          pkix_verify_hostname_match_fun/1,
@@ -67,7 +68,7 @@
 
 -export_type([public_key/0, private_key/0, pem_entry/0,
 	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
-              key_params/0, digest_type/0, issuer_name/0, oid/0]).
+              key_params/0, digest_type/0, issuer_name/0, cert_id/0, oid/0]).
 
 -type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
 -type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
@@ -123,8 +124,7 @@
 -type oid()                  :: tuple().
 -type chain_type()           :: server_chain | client_chain.
 
--type issuer_id()            :: {SerialNr::integer(), issuer_name()} .
-
+-type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[#'AttributeTypeAndValue'{}]} .
 
 
@@ -905,7 +905,7 @@ pkix_is_fixed_dh_cert(Cert) when is_binary(Cert) ->
 
 %%--------------------------------------------------------------------
 -spec pkix_issuer_id(Cert, IssuedBy) ->
-			    {ok, issuer_id()} | {error, Reason}
+			    {ok, ID::cert_id()} | {error, Reason}
                                 when Cert::der_encoded()| #'OTPCertificate'{},
                                      IssuedBy :: self | other,
                                      Reason :: term() .
@@ -918,6 +918,19 @@ pkix_issuer_id(#'OTPCertificate'{} = OtpCert, Signed) when (Signed == self) or
 pkix_issuer_id(Cert, Signed) when is_binary(Cert) -> 
     OtpCert = pkix_decode_cert(Cert, otp),
     pkix_issuer_id(OtpCert, Signed).
+
+%%--------------------------------------------------------------------
+-spec pkix_subject_id(Cert) -> ID
+              when Cert::der_encoded()| #'OTPCertificate'{},
+                   ID::cert_id() .
+
+%% Description: Returns the subject id.
+%%--------------------------------------------------------------------
+pkix_subject_id(#'OTPCertificate'{} = OtpCert) ->
+    pubkey_cert:subject_id(OtpCert);
+pkix_subject_id(Cert) when is_binary(Cert) -> 
+    OtpCert = pkix_decode_cert(Cert, otp),
+    pkix_subject_id(OtpCert).
 
 %%--------------------------------------------------------------------
 -spec pkix_crl_issuer(CRL| #'CertificateList'{}) -> 

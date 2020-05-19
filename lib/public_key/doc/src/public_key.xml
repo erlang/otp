@@ -153,7 +153,7 @@
     </datatype>
 
     <datatype>
-      <name name="issuer_id"/>
+      <name name="cert_id"/>
       <desc>
       </desc>
     </datatype>
@@ -378,9 +378,9 @@
 
  <func>
    <name name="pkix_issuer_id" arity="2" since="OTP R14B"/>
-   <fsummary>Returns the issuer id.</fsummary>
+   <fsummary>Returns the x509 certificater issuer id.</fsummary>
    <desc> 
-     <p>Returns the issuer id.</p> 
+     <p>Returns the x509 certificater issuer id, if it can be determined.</p> 
    </desc> 
  </func>
  
@@ -787,6 +787,14 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     </desc>
   </func>
 
+  <func>
+    <name name="pkix_subject_id" arity="1" since="@maint@"/>
+    <fsummary>Returns the X509 certificate subject id.</fsummary>
+    <desc> 
+      <p>Returns the X509 certificate subject id.</p> 
+    </desc> 
+  </func>
+  
   <func>  
     <name name="pkix_verify" arity="2" since="OTP R14B"/>
     <fsummary>Verifies PKIX x.509 certificate signature.</fsummary>
