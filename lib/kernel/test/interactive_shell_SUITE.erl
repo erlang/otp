@@ -25,7 +25,7 @@
 	 job_control_remote/1,stop_during_init/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
-         remsh/1, remsh_longnames/1]).
+         remsh/1, remsh_longnames/1, remsh_no_epmd/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% For spawn
@@ -46,7 +46,7 @@ all() ->
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
      ctrl_keys, stop_during_init,
-     remsh, remsh_longnames].
+     remsh, remsh_longnames, remsh_no_epmd].
 
 groups() -> 
     [].
@@ -456,6 +456,34 @@ remsh_longnames(Config) when is_list(Config) ->
             end
     end.
 
+%% Test that -remsh works without epmd
+remsh_no_epmd(Config) when is_list(Config) ->
+
+    case proplists:get_value(default_shell,Config) of
+        old -> {skip,"Not supported in old shell"};
+        new ->
+            EPMD_ARGS = "-start_epmd false -erl_epmd_port 12345 ",
+            case rtstart([],"ERL_EPMD_PORT=12345 ",
+                         EPMD_ARGS ++ " -sname " ++ atom_to_list(?FUNCTION_NAME)) of
+                {ok, _SRPid, _STPid, SState} ->
+                    {ok, _CRPid, CTPid, CState} =
+                        rtstart([],"ERL_EPMD_PORT=12345 ",
+                                EPMD_ARGS ++ " -remsh "++atom_to_list(?FUNCTION_NAME)),
+                    try
+                        ok = get_and_put(
+                               CTPid,
+                               [{kill_emulator_command,sigint},
+                                {putline,""},
+                                {putline,"node()."},
+                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
+                    after
+                        rtstop(CState), %% Stop client before server
+                        rtstop(SState)
+                    end;
+                Else ->
+                    Else
+            end
+    end.
 
 rtnode(C,N) ->
     rtnode(C,N,[]).

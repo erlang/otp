@@ -1590,9 +1590,7 @@ create_name(Name, LongOrShortNames, Try) ->
             {error, badarg};
 	{error,Type} ->
 	    error_logger:info_msg(
-	      lists:concat(["Can\'t set ",
-			    Type,
-			    " node name!\n"
+	      lists:concat(["Can't set ", Type, " node name!\n"
 			    "Please check your configuration\n"])),
 	    {error,badarg}
     end.
