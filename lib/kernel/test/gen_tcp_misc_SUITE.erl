@@ -418,6 +418,13 @@ send_loop(Sock, Data, Left) ->
 %% Test {active,N} option
 %% Verify operation of the {active,N} option.
 active_n(Config) when is_list(Config) ->
+    try do_active_n(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_active_n(_Config) ->
     N = 3,
     LS = ok(gen_tcp:listen(0, [{active,N}])),
     [{active,N}] = ok(inet:getopts(LS, [active])),
@@ -469,7 +476,12 @@ active_n(Config) when is_list(Config) ->
     ok = inet:setopts(LS, [{active,false}]),
     [{active,false}] = ok(inet:getopts(LS, [active])),
     Port = ok(inet:port(LS)),
-    C = ok(gen_tcp:connect("localhost", Port, [{active,N}])),
+    C = case gen_tcp:connect("localhost", Port, [{active,N}]) of
+            {ok, CS} ->
+                CS;
+            {error, eaddrnotavail = Reason} ->
+                throw({skip, Reason})
+        end,
     [{active,N}] = ok(inet:getopts(C, [active])),
     S = ok(gen_tcp:accept(LS)),
     ok = inet:setopts(S, [{active,N}]),
