@@ -40,25 +40,45 @@
          recvtos/1, recvtosttl/1, recvttl/1, recvtclass/1,
          sendtos/1, sendtosttl/1, sendttl/1, sendtclass/1,
 	 local_basic/1, local_unbound/1,
-	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1]).
+	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1,
+         recv_close/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [send_to_closed, buffer_size, binary_passive_recv, max_buffer_size,
-     bad_address, read_packets, recv_poll_after_active_once,
-     open_fd, connect,
-     implicit_inet6, active_n,
+    [
+     send_to_closed,
+     buffer_size,
+     binary_passive_recv,
+     max_buffer_size,
+     bad_address,
+     read_packets,
+     recv_poll_after_active_once,
+     open_fd,
+     connect,
+     implicit_inet6,
+     active_n,
      recvtos, recvtosttl, recvttl, recvtclass,
      sendtos, sendtosttl, sendttl, sendtclass,
-     {group, local}].
+     {group, local},
+     recv_close
+    ].
 
 groups() -> 
-    [{local, [],
-      [local_basic, local_unbound,
-       local_fdopen, local_fdopen_unbound, local_abstract]}].
+    [
+     {local, [], local_cases()}
+    ].
+
+local_cases() ->
+    [
+     local_basic,
+     local_unbound,
+     local_fdopen,
+     local_fdopen_unbound,
+     local_abstract
+    ].
 
 init_per_suite(Config) ->
     Config.
@@ -968,6 +988,52 @@ local_handshake(S, SAddr, C, CAddr) ->
 	    ok
 
     end.
+
+
+
+%%-------------------------------------------------------------
+%% Open a passive socket. Create a socket that reads from it.
+%% Then close the socket.
+recv_close(Config) when is_list(Config) ->
+    {ok, Sock} = gen_udp:open(0, [{active, false}]),
+    RECV = fun() ->
+                   io:format("~p try recv~n", [self()]),
+                   Res = gen_udp:recv(Sock, 0),
+                   io:format("~p recv res: ~p~n", [self(), Res]),
+                   exit(Res)
+           end,
+    io:format("~p spawn reader", [self()]),
+    {Pid, MRef} = spawn_monitor(RECV),
+    receive
+        {'DOWN', MRef, process, Pid, PreReason} ->
+            %% Make sure id does not die for some other reason...
+            ?line ct:fail("Unexpected pre close from reader (~p): ~p",
+                          [Pid, PreReason])
+    after 5000 -> % Just in case...
+            ok
+    end,
+    io:format("~p close socket", [self()]),
+    ok = gen_udp:close(Sock),
+    io:format("~p await reader termination", [self()]),
+    receive
+        {'DOWN', MRef, process, Pid, {error, closed}} ->
+            io:format("~p expected reader termination result", [self()]),
+            ok;
+        {'DOWN', MRef, process, Pid, PostReason} ->
+            io:format("~p unexpected reader termination: ~p",
+                      [self(), PostReason]),
+            ?line ct:fail("Unexpected post close from reader (~p): ~p",
+                          [Pid, PostReason])
+    after 5000 ->
+            io:format("~p unexpected reader termination timeout", [self()]),
+            demonitor(MRef, [flush]),
+            exit(Pid, kill),
+            ?line ct:fail("Reader (~p) termination timeout", [Pid])
+    end,
+    ok.
+
+
+
 
 %%
 %% Utils
