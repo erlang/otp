@@ -801,15 +801,15 @@ implicit_inet6(S1, Addr) ->
 	    {Addr,P2,#sctp_assoc_change{state=comm_up}} =
 		recv_event(log_ok(gen_sctp:recv(S1)));
         {AX, PX, CX} = EX ->
-            io:format("LOG[~p] received: "
-                      "~n   Address:              ~p"
-                      "~n   Port:                 ~p"
-                      "~n   [Assoc|PAddr] Change: ~p"
-                      "~nwhen"
-                      "~n   Addr: ~p"
-                      "~n   P1:   ~p"
-                      "~n   P2:   ~p"
-                      "~n", [AX, PX, CX, Addr, P1, P2]),
+            p("UNEXPECTED EVENT: "
+              "~n   Address:              ~p"
+              "~n   Port:                 ~p"
+              "~n   [Assoc|PAddr] Change: ~p"
+              "~nwhen"
+              "~n   Addr: ~p"
+              "~n   P1:   ~p"
+              "~n   P2:   ~p"
+              "~n", [AX, PX, CX, Addr, P1, P2]),
             exit({unexpected_event, EX})
                 
     end,
@@ -882,24 +882,35 @@ active_n(Config) when is_list(Config) ->
     ok = inet:setopts(S1, [{active,N}]),
     [{active,N}] = ok(inet:getopts(S1, [active])),
     LoopFun = fun(Count, Count, _Fn) ->
+                      p("we are done - wait for passive"),
 		      receive
 			  {sctp_passive,S1} ->
+                              p("received passive"),
 			      ok
 		      after
 			  5000 ->
+                              p("UNEXPECTED TIMEOUT"),
 			      exit({error,timeout})
 		      end;
 		 (I, Count, Fn) ->
 		      Msg = list_to_binary("message "++integer_to_list(I)),
+                      p("send message ~w:~w (on ~p)", [I, Count, S2]),
 		      ok = gen_sctp:send(S2, Assoc, 0, Msg),
 		      receive
-			  {sctp,S1,_,_,{[SR],Msg}} when is_record(SR, sctp_sndrcvinfo) ->
+			  {sctp, S1, _, _, {[SR], Msg}}
+                            when is_record(SR, sctp_sndrcvinfo) ->
+                              p("recv (expected) data message (on ~p)~n", [S1]),
 			      Fn(I+1, Count, Fn);
-			  {sctp,S1,_,_,_} ->
+			  {sctp, S1, _, _, _} ->
+                              p("ignore non-data messages (on ~p)~n", [S1]),
 			      %% ignore non-data messages
 			      ok = inet:setopts(S1, [{active,1}]),
 			      Fn(I, Count, Fn);
 			  Other ->
+                              p("UNEXPECTED: "
+                                "~n   Other: ~p"
+                                "~n   S1:    ~p"
+                                "~n   S2:    ~p", [Other, S1, S2]),
 			      exit({unexpected, Other})
 		      after
 			  5000 ->
