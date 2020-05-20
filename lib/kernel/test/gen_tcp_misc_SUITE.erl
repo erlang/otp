@@ -1332,7 +1332,7 @@ do_econnreset_after_sync_send(_Config) ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
                 skip(connect_failed_str(Reason))
-        end,            
+        end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
@@ -1497,15 +1497,27 @@ do_econnreset_after_async_send_active_once(_Config) ->
     end.
 
 econnreset_after_async_send_passive(Config) when is_list(Config) ->
+    try do_econnreset_after_async_send_passive(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_econnreset_after_async_send_passive(_Config) ->
     {OS, _} = os:type(),
     Payload = lists:duplicate(1024 * 1024, $.),
 
     %% First confirm everything works with option turned off.
+    p("test with option switched off (default)"),
     {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-					 [{active, false},
-					  {sndbuf, 4096}]),
+    Client = case gen_tcp:connect(localhost, Port,
+                                  [{active, false}, {sndbuf, 4096}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
@@ -1521,12 +1533,18 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
     {error, closed} = gen_tcp:recv(Client, 0),
 
     %% Now test with option switched on.
+    p("test with option explicitly switched on"),
     {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1,
+    Client1 = case gen_tcp:connect(localhost, Port1,
 				   [{active, false},
 				    {sndbuf, 4096},
-				    {show_econnreset, true}]),
+				    {show_econnreset, true}]) of
+                  {ok, CSock1} ->
+                      CSock1;
+            {error, eaddrnotavail = Reason1} ->
+                skip(connect_failed_str(Reason1))
+        end,
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
@@ -1534,7 +1552,9 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
     ok = gen_tcp:send(Client1, Payload),
     ok = gen_tcp:close(S1),
     ok = ct:sleep(20),
-    {error, econnreset} = gen_tcp:recv(Client1, 0).
+    {error, econnreset} = gen_tcp:recv(Client1, 0),
+    p("done"),
+    ok.
 
 %%
 %% Test {linger {true, 0}} aborts a connection
