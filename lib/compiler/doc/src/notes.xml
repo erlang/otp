@@ -32,6 +32,29 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    In rare circumstances, a guard using 'not' could evaluate
+	    to the wrong boolean value.</p>
+          <p>
+	    Own Id: OTP-16652 Aux Id: ERL-1246 </p>
+        </item>
+        <item>
+	    <p>A guard expression that referenced a variable bound to
+	    a boolean expression could evaluate to the wrong
+	    value.</p>
+          <p>
+	    Own Id: OTP-16657 Aux Id: ERL-1253 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
