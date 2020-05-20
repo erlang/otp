@@ -414,6 +414,23 @@
 
 </section>
 
+<section><title>Kernel 6.5.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>application:loaded_applications/0</c> that
+	    could cause it to fail with <c>badarg</c> if for example
+	    a concurrent upgrade/downgrade is running.</p>
+          <p>
+	    Own Id: OTP-16627 Aux Id: PR-2601 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
