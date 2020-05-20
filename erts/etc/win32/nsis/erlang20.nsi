@@ -52,7 +52,7 @@ Var STARTMENU_FOLDER
 !define MY_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
 
 ;General
-	OutFile "${OUTFILEDIR}\otp_${WINTYPE}_${OTP_VERSION}.exe"
+	OutFile "${OUTFILEDIR}\otp_${WINTYPE}_${OTP_RELEASE_VERSION}.exe"
 
 ;Folder selection page
 !if ${WINTYPE} == "win64"
@@ -68,7 +68,7 @@ Var STARTMENU_FOLDER
 !if ${WINTYPE} == "win64"
 	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION} (x64)"
 !else
-	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION}"
+	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION} (i386)"
 !endif  
 
 ;--------------------------------
@@ -201,7 +201,7 @@ done_startmenu:
 
   	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
-		"DisplayName" "Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+		"DisplayName" "Erlang OTP ${OTP_RELEASE_VERSION} (${ERTS_VERSION})"
   	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
 		"UninstallString" "$INSTDIR\Uninstall.exe"
@@ -225,7 +225,7 @@ done_startmenu:
 
   	WriteRegStr HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
-		"DisplayName" "Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+		"DisplayName" "Erlang OTP ${OTP_RELEASE_VERSION} (${ERTS_VERSION})"
   	WriteRegStr HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
 		"UninstallString" "$INSTDIR\Uninstall.exe"
