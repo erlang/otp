@@ -45,9 +45,18 @@ start_client(Type, _Args, _Config) ->
 start_server(erlang, Options, Config) ->
     start_server(Options, Config);
 start_server(openssl, Options, Config) ->
-    start_openssl_server(Options, Config);
+    start_openssl_server(openssl, Options, Config);
+start_server(openssl_ocsp, Options, Config) ->
+    start_openssl_server(openssl_ocsp, Options, Config);
+start_server(openssl_ocsp_revoked, Options, Config) ->
+    start_openssl_server(openssl_ocsp_revoked, Options, Config);
 start_server(Type, _Args, _Config) ->
     {error, unsupported_server_type, Type}.
+
+generate_test_data() ->
+    "TEST_DATA_" ++
+        lists:flatmap(fun(I) -> <<A:4,B:4>> = <<I>>, [65+A,65+B] end,
+                      binary:bin_to_list(crypto:strong_rand_bytes(32))).
 
 %% Test
 send_recv_result_active(Peer1, Peer2, Data) ->
@@ -69,9 +78,36 @@ init_ecdsa_certs(Config) ->
 
 %% Options
 get_server_opts(Config) ->
+    get_server_opts(openssl, Config).
+    %% DSOpts = proplists:get_value(server_ecdsa_opts, Config),
+    %% SOpts = proplists:get_value(server_opts, Config, DSOpts),
+    %% ssl_test_lib:ssl_options(SOpts, Config).
+%%
+get_server_opts(openssl, Config) ->
     DSOpts = proplists:get_value(server_ecdsa_opts, Config),
     SOpts = proplists:get_value(server_opts, Config, DSOpts),
+    ssl_test_lib:ssl_options(SOpts, Config);
+get_server_opts(openssl_ocsp, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Cert = filename:join(PrivDir, "a.server/cert.pem"),
+    Key = filename:join(PrivDir, "a.server/key.pem"),
+    CACerts = filename:join(PrivDir, "a.server/cacerts.pem"),
+    SOpts = [{reuseaddr, true},
+             {cacertfile, CACerts},
+             {certfile, Cert},
+             {keyfile, Key}],
+    ssl_test_lib:ssl_options(SOpts, Config);
+get_server_opts(openssl_ocsp_revoked, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Cert = filename:join(PrivDir, "revoked/cert.pem"),
+    Key = filename:join(PrivDir, "revoked/key.pem"),
+    CACerts = filename:join(PrivDir, "revoked/cacerts.pem"),
+    SOpts = [{reuseaddr, true},
+             {cacertfile, CACerts},
+             {certfile, Cert},
+             {keyfile, Key}],
     ssl_test_lib:ssl_options(SOpts, Config).
+
 
 get_client_opts(Config) ->
     DCOpts = proplists:get_value(client_ecdsa_opts, Config),
@@ -422,13 +458,15 @@ remove_close_msg(ReconnectTimes) ->
     end.
 
 
-start_openssl_server(Args0, Config) ->
+start_openssl_server(Mode, Args0, Config) ->
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
-    ServerOpts = ssl_test_lib:get_server_opts(Config),
+    ServerOpts = ssl_test_lib:get_server_opts(Mode, Config),
     Node = proplists:get_value(node, Args0, ServerNode),
     Port = proplists:get_value(port, Args0, 0),
+    ResponderPort = proplists:get_value(responder_port, Config, 0),
     Args = [{from, self()}, {port, Port}] ++ ServerOpts ++ Args0,
-    Result = spawn_link(Node, ?MODULE, init_openssl_server, [lists:delete(return_port, Args)]),
+    Result = spawn_link(Node, ?MODULE, init_openssl_server,
+                        [Mode, ResponderPort,lists:delete(return_port, Args)]),
     receive
 	{started, OpenSSLPort} ->
 	    case lists:member(return_port, Args) of
@@ -439,7 +477,7 @@ start_openssl_server(Args0, Config) ->
 	    {start_failed, Reason}
     end.
 
-init_openssl_server(Options) ->
+init_openssl_server(openssl, _, Options) ->
     DefaultVersions = default_tls_version(Options),
     [Version | _] = proplists:get_value(versions, Options, DefaultVersions),
     Port = inet_port(node()),
@@ -468,24 +506,63 @@ init_openssl_server(Options) ->
     wait_for_openssl_server(Port, proplists:get_value(protocol, Options, tls)),
     Pid ! {started, SslPort},
     Pid ! {self(), {port, Port}},
+    openssl_server_loop(Pid, SslPort, Args);
+
+init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orelse
+                                                       Mode == openssl_ocsp_revoked ->
+    DefaultVersions = default_tls_version(Options),
+    [Version | _] = proplists:get_value(versions, Options, DefaultVersions),
+    Port = inet_port(node()),
+    Pid = proplists:get_value(from, Options),
+
+    Exe = "openssl",
+    Ciphers = proplists:get_value(ciphers, Options, ssl:cipher_suites(default,Version)),
+    CertArgs = openssl_cert_options(Options, server),
+    Exe = "openssl",
+
+    Args = ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
+            ciphers(Ciphers, Version),
+            "-status_verbose",
+            "-status_url",
+            "http://127.0.0.1:" ++ erlang:integer_to_list(ResponderPort),
+            ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"],
+
+    SslPort = ssl_test_lib:portable_open_port(Exe, Args),
+    Pid ! {started, Port},
+    Pid ! {self(), {port, Port}},
     openssl_server_loop(Pid, SslPort, Args).
+
+openssl_server_started(Port) ->
+    openssl_server_started(Port, []).
+%%
+openssl_server_started(Port, Data0) ->
+    receive
+        {Port, {data, Data}} ->
+            ct:log("~p:~p~n Openssl~n ~s~n",[?MODULE,?LINE, Data]),
+            verify_openssl_server_started(Port, Data0 ++ Data)
+    after
+        5000 ->
+            false
+    end.
 
 openssl_server_loop(Pid, SslPort, Args) ->
     receive
         {data, Data} ->
             case port_command(SslPort, Data, [nosuspend]) of
                 true ->
-                    ct:log("[openssl server] Send data: ~p~n", [Data]),
+                    ct:log("(~p) [openssl server] Send data: ~p~n",
+                           [self(), Data]),
                     Pid ! {self(), ok};
                 _Else ->
-                    ct:log("[openssl server] Send failed, data: ~p~n", [Data]),
+                    ct:log("(~p) [openssl server] Send failed, data: ~p~n",
+                           [self(), Data]),
                     Pid ! {self(), {error, port_command_failed}}
             end,
             openssl_server_loop(Pid, SslPort, Args);
         {active_receive, Data} ->
             case active_recv(SslPort, length(Data)) of
                 ReceivedData ->
-                    ct:log("[openssl server] Received: ~p~n", [Data]),
+                    ct:log("(~p) [openssl server] Received: ~p~n", [self(), Data]),
                     Pid ! {self(), ReceivedData}
             end,
             openssl_server_loop(Pid, SslPort, Args);
@@ -537,6 +614,14 @@ init_openssl_client(Options) ->
     SslPort = start_client(openssl, Port, Options, [{version, Version}]),
     openssl_client_loop(Pid, SslPort, []).
 
+verify_openssl_server_started(Port, Data) ->
+    case re:run(Data, ".*CIPHER is.*") of
+        nomatch ->
+            openssl_server_started(Port, Data);
+        {match, _} ->
+            {true, Data}
+    end.
+
 openssl_client_loop(Pid, SslPort, Args) ->
     Pid ! {connected, SslPort},
     openssl_client_loop_core(Pid, SslPort, Args).
@@ -546,17 +631,20 @@ openssl_client_loop_core(Pid, SslPort, Args) ->
         {data, Data} ->
             case port_command(SslPort, Data, [nosuspend]) of
                 true ->
-                    ct:log("[openssl client] Send data: ~p~n", [Data]),
+                    ct:log("(~p) [openssl client] Send data: ~p~n",
+                           [self(), Data]),
                     Pid ! {self(), ok};
                 _Else ->
-                    ct:log("[openssl client] Send failed, data: ~p~n", [Data]),
+                    ct:log("(~p) [openssl client] Send failed, data: ~p~n",
+                           [self(), Data]),
                     Pid ! {self(), {error, port_command_failed}}
             end,
             openssl_client_loop_core(Pid, SslPort, Args);
         {active_receive, Data} ->
             case active_recv(SslPort, length(Data)) of
                 ReceivedData ->
-                    ct:log("[openssl client] Received: ~p~n", [Data]),
+                    ct:log("(~p) [openssl client] Received: ~p~n   (forward to PID=~p)~n",
+                           [self(), Data, Pid]),
                     Pid ! {self(), ReceivedData}
             end,
             openssl_client_loop_core(Pid, SslPort, Args);
@@ -582,12 +670,14 @@ openssl_client_loop_core(Pid, SslPort, Args) ->
 
 start_client(Args0, Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    COpts = ssl_test_lib:get_client_opts(Config),
+    ClientOpts = ssl_test_lib:get_client_opts(Config),
+    ClientOpts1 = proplists:get_value(options, Args0, []),
     Node = proplists:get_value(node, Args0, ServerNode),
+    Args1 = proplists:delete(options, Args0),
     Args = [{from, self()},
             {host, Hostname},
             {node, Node},
-            {options, COpts} | Args0],
+            {options, ClientOpts ++ ClientOpts1} | Args1],
     start_client(Args).
 %%
 start_client(Args) ->
@@ -2369,10 +2459,17 @@ send(Pid, Data) ->
 
 check_active_receive(Pid, Data) ->
     Pid ! {active_receive, Data},
+    check_active_receive_loop(Pid, Data).
+
+check_active_receive_loop(Pid, Data) ->
     receive
         {Pid, Data} ->
-            %% ct:log("Received: ~p~n", [Data]),
-            Data
+            ct:log("(~p) Received: ~p~n   (from ~p)~n", [self(), Data, Pid]),
+            Data;
+        {Pid, Data2} ->
+            ct:log("(~p) Received unexpected message: ~p~n   (from ~p)~n",
+                   [self(), Data2, Pid]),
+            check_active_receive_loop(Pid, Data)
     end.
 
 update_keys(Pid, Type) ->
@@ -2453,6 +2550,57 @@ check_tickets(Client) ->
     after
         5000 ->
             ct:fail("~p:~p~nNo tickets received!", [?MODULE, ?LINE])
+    end.
+
+active_recv_loop(Pid, SslPort, Data) ->
+    case active_recv(SslPort, length(Data)) of
+        Data ->
+            ct:log("(~p) [openssl server] Received: ~p~n   (forward to PID=~p)~n",
+                   [self(), Data, Pid]),
+            Pid ! {self(), Data};
+        Unexpected ->
+            ct:log("(~p) [openssl server] Received unexpected: ~p~n   (dropping message)~n", [self(), Unexpected]),
+            active_recv_loop(Pid, SslPort, Data)
+    end.
+
+re_active_recv(Pid, SslPort, Data) ->
+    re_active_recv(Pid, SslPort, Data, []).
+%%
+re_active_recv(Pid, SslPort, Data, Acc0) ->
+    receive
+        {SslPort, {data, Bytes0}} ->
+            ct:log("RAW DATA = ~p~n", [Bytes0]),
+            Acc = Acc0 ++ Bytes0,
+            case find_match(Acc, Data) of
+                true ->
+                    ct:log("(~p) [openssl server] Received: ~p~n   (forward to PID=~p)~n",
+                           [self(), Data, Pid]),
+                    Pid ! {self(), Data};
+                false ->
+                    re_active_recv(Pid, SslPort, Data, Acc)
+            end
+    after
+        1000 ->
+            %% Sometimes expected data arrives in the first message that
+            %% is received when server started. We must re-test the buffer.
+            case find_match(Acc0, Data) of
+                true ->
+                    ct:log("(~p) [openssl server] Received: ~p~n   (forward to PID=~p)~n",
+                           [self(), Data, Pid]),
+                    Pid ! {self(), Data};
+                false ->
+                    ct:log("(~p) [openssl server] Expected data have not received: ~p~n   (forward BAD_DATA to PID=~p)~n   RAW BUFFER = ~p~n",
+                           [self(), Data, Pid, Acc0]),
+                    Pid ! {self(), "BAD DATA"}
+            end
+    end.
+
+find_match(Acc, RegExp) ->
+    case re:run(Acc, RegExp, [{capture, first}]) of
+        {match, _} ->
+            true;
+        nomatch ->
+            false
     end.
 
 active_recv(Socket, N) ->
