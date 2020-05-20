@@ -41,7 +41,8 @@
     peeloff_active_once/1, peeloff_active_true/1, peeloff_active_n/1,
     buffers/1,
     names_unihoming_ipv4/1, names_unihoming_ipv6/1,
-    names_multihoming_ipv4/1, names_multihoming_ipv6/1]).
+    names_multihoming_ipv4/1, names_multihoming_ipv6/1,
+    recv_close/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -56,10 +57,25 @@ all() ->
      {group,G}].
 
 groups() -> 
-    [{smoke,[],[basic,basic_stream]},
-     {old_solaris,[],[skip_old_solaris]},
-     {extensive,[],
-      [api_open_close, api_listen, api_connect_init,
+    [
+     {smoke,       [], smoke_cases()},
+     {old_solaris, [], old_solaris_cases()},
+     {extensive,   [], extensive_cases()}
+    ].
+
+smoke_cases() ->
+    [
+     basic,
+     basic_stream
+    ].
+
+old_solaris_cases() ->
+    [
+     skip_old_solaris
+    ].
+
+extensive_cases() ->
+    [api_open_close, api_listen, api_connect_init,
        api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
        open_multihoming_ipv4_socket,
        open_unihoming_ipv6_socket,
@@ -68,7 +84,8 @@ groups() ->
        xfer_stream_min, peeloff_active_once,
        peeloff_active_true, peeloff_active_n, buffers,
        names_unihoming_ipv4, names_unihoming_ipv6,
-       names_multihoming_ipv4, names_multihoming_ipv6]}].
+       names_multihoming_ipv4, names_multihoming_ipv6,
+       recv_close].
 
 init_per_suite(_Config) ->
     case gen_sctp:open() of
@@ -1511,6 +1528,111 @@ recv_comm_up_eventually(S) ->
 	    recv_comm_up_eventually(S)
     end.
 
+
+%% 
+recv_close(Config) when is_list(Config) ->
+    p("create server socket (and listen)"),
+    {ok, S} = gen_sctp:open(),
+    gen_sctp:listen(S, true),
+    {ok, SPort} = inet:port(S),
+
+    p("create client socket (and connect)"),
+    {ok, C} = gen_sctp:open(),
+    {ok, _} = gen_sctp:connect(C, localhost, SPort, []),
+
+    TC = self(),
+    RECV = fun() ->
+                   p("try setup recv(s)"),
+                   ok = recv_close_setup_recv(S),
+                   p("announce ready"),
+                   TC ! {self(), ready},
+                   p("try data recv"),
+                   Res = gen_sctp:recv(S),
+                   p("recv res: "
+                     "~n   ~p", [Res]),
+                   exit(Res)
+           end,
+    p("spawn reader - then await reader ready"),
+    {Pid, MRef} = spawn_monitor(RECV),
+    receive
+        {'DOWN', MRef, process, Pid, PreReason} ->
+            %% Make sure it does not die for some other reason...
+            p("unexpected reader termination:"
+              "~n   ~p", [PreReason]),
+            (catch gen_sctp:close(S)),
+            (catch gen_sctp:close(C)),
+            ?line ct:fail("Unexpected pre close from reader (~p): ~p",
+                          [Pid, PreReason]);
+        {Pid, ready} ->
+            p("reader ready"),
+            ok
+    after 30000 -> % Just in case...
+            %% This is **extreme**, but there is no way to know
+            %% how long it will take to iterate through all the
+            %% addresses of a host...
+            p("reader ready timeout"),
+            (catch gen_sctp:close(S)),
+            (catch gen_sctp:close(C)),
+            ?line ct:fail("Unexpected pre close timeout (~p)", [Pid])
+    end,
+
+    p("\"ensure\" reader reading..."),
+    receive
+        Any ->
+            p("Received unexpected message: "
+              "~n   ~p", [Any]),
+            (catch gen_sctp:close(S)),
+            (catch gen_sctp:close(C)),
+            ?line ct:fail("Unexpected message: ~p", [Any])
+    after 5000 ->
+            ok
+    end,
+
+    p("close server socket"),
+    ok = gen_sctp:close(S),
+    p("await reader termination"),
+    receive
+        {'DOWN', MRef, process, Pid, {error, closed}} ->
+            p("expected reader termination result"),
+            (catch gen_sctp:close(C)),
+            ok;
+        {'DOWN', MRef, process, Pid, PostReason} ->
+            p("unexpected reader termination: "
+              "~n   ~p", [PostReason]),
+            (catch gen_sctp:close(C)),
+            ?line ct:fail("Unexpected post close from reader (~p): ~p",
+                          [Pid, PostReason])
+    after 5000 ->
+            p("unexpected reader termination timeout"),
+            demonitor(MRef, [flush]),
+            (catch gen_sctp:close(C)),
+            exit(Pid, kill),
+            ?line ct:fail("Reader (~p) termination timeout", [Pid])
+    end,
+    p("close client socket"),
+    (catch gen_sctp:close(C)),
+    p("done"),
+    ok.
+
+
+recv_close_setup_recv(S) ->
+    recv_close_setup_recv(S, 1).
+
+recv_close_setup_recv(S, N) ->
+    p("try setup recv ~w", [N]),
+    case gen_sctp:recv(S, 5000) of
+        {ok, {Addr,
+              Port,
+              _AncData, 
+              Data}} when is_tuple(Addr) andalso is_integer(Port) ->
+            p("setup recv ~w: "
+              "~n   ~p", [N, Data]),
+            recv_close_setup_recv(S, N+1);
+        {error, timeout} ->
+            ok
+    end.
+
+
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light
 
@@ -1745,3 +1867,21 @@ match_unless_solaris(A, B) ->
 
 timestamp() ->
     erlang:monotonic_time().
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+
+
