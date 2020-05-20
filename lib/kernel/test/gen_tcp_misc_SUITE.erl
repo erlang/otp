@@ -1561,32 +1561,54 @@ do_econnreset_after_async_send_passive(_Config) ->
 %%
 
 linger_zero(Config) when is_list(Config) ->
+    try do_linger_zero(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_linger_zero(_Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty.
     {OS, _} = os:type(),
+    p("create listen socket"),
     {ok, L} = gen_tcp:listen(0, [{active, false},
 				 {recbuf, 4096},
 				 {show_econnreset, true}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-				   [{active, false},
-				    {sndbuf, 4096}]),
+    p("connect (create client socket)"),
+    Client = case gen_tcp:connect(localhost, Port,
+                                  [{active, false}, {sndbuf, 4096}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
+    p("accept"),
     {ok, S} = gen_tcp:accept(L),
+    p("close listen socket"),
     ok = gen_tcp:close(L),
     PayloadSize = 1024 * 1024,
     Payload = lists:duplicate(PayloadSize, $.),
+    p("send payload (on client socket)"),
     ok = gen_tcp:send(Client, Payload),
+    p("verify client socket queue size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
+    p("linger: {true, 0}"),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
+    p("close client socket"),
     ok = gen_tcp:close(Client),
     ok = ct:sleep(1),
+    p("verify client socket (port) not connected"),
     undefined = erlang:port_info(Client, connected),
+    p("try (and fail) recv (on accepted socket)"),
     {error, econnreset} = gen_tcp:recv(S, PayloadSize),
+    p("done"),
     ok.
 
 
