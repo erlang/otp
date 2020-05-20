@@ -1274,10 +1274,22 @@ do_show_econnreset_active_once(_Config) ->
     end.
 
 show_econnreset_passive(Config) when is_list(Config) ->
+    try do_show_econnreset_passive(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_show_econnreset_passive(_Config) ->
     %% First confirm everything works with option turned off.
     {ok, L} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    Client = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+                 {ok, CSock} ->
+                     CSock;
+                 {error, eaddrnotavail = Reason} ->
+                     skip(connect_failed_str(Reason))
+             end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
@@ -1288,9 +1300,14 @@ show_econnreset_passive(Config) when is_list(Config) ->
     %% Now test with option switched on.
     {ok, L1} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1,
-				 [{active, false},
-				  {show_econnreset, true}]),
+    Client1 =
+        case gen_tcp:connect(localhost, Port1,
+                             [{active, false}, {show_econnreset, true}]) of
+            {ok, CSock1} ->
+                CSock1;
+            {error, eaddrnotavail = Reason1} ->
+                skip(connect_failed_str(Reason1))
+        end,            
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
