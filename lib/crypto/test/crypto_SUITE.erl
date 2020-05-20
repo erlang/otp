@@ -135,6 +135,7 @@ groups() ->
 
                      {group, dh},
                      {group, ecdh},
+                     {group, eddh},
                      {group, srp},
 
 		     {group, chacha20_poly1305},
@@ -217,7 +218,7 @@ groups() ->
      {dss,                  [], [sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
                                 ]},
-     {ecdsa,                [], [sign_verify
+     {ecdsa,                [], [sign_verify, use_all_ec_sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
                                 ]},
      {ed25519,              [], [sign_verify,
@@ -229,7 +230,8 @@ groups() ->
                                  generate
                                 ]},
      {dh,                   [], [generate_compute, compute_bug]},
-     {ecdh,                 [], [use_all_elliptic_curves, compute, generate]},
+     {ecdh,                 [], [compute, generate, use_all_ecdh_generate_compute]},
+     {eddh,                 [], [compute, generate, use_all_eddh_generate_compute]},
      {srp,                  [], [generate_compute]},
      {des_cbc,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {des_cfb,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
@@ -330,7 +332,7 @@ init_per_suite(Config) ->
     {ok, _} = zip:unzip("cmactestvectors.zip"),
     {ok, _} = zip:unzip("gcmtestvectors.zip"),
 
-    try crypto:start() of
+    try is_ok(crypto:start()) of
 	ok ->
             catch ct:comment("~s",[element(3,hd(crypto:info_lib()))]),
             catch ct:log("crypto:info_lib() -> ~p~n"
@@ -353,9 +355,17 @@ init_per_suite(Config) ->
 		    crypto:rand_seed(<< <<Bin/binary>> || _ <- lists:seq(1,16) >>),
 		    Config
 	    end
-    catch _:_ ->
+                  
+    catch C:E:S ->
+            ct:log("~p ~p~n~p", [C,E,S]),
 	    {fail, "Crypto did not start"}
     end.
+
+is_ok(ok) -> ok;
+is_ok({error, already_started}) -> ok;
+is_ok({error,{already_started,crypto}}) -> ok.
+
+    
 
 end_per_suite(_Config) ->
     application:stop(crypto).
@@ -471,8 +481,7 @@ hmac() ->
      [{doc, "Test hmac function"}].
 hmac(Config) when is_list(Config) ->
     Tuples = lazy_eval(proplists:get_value(hmac, Config)),
-    lists:foreach(fun hmac_check/1, Tuples),
-    lists:foreach(fun hmac_check/1, mac_listify(Tuples)).
+    do_cipher_tests(fun hmac_check/1, Tuples++mac_listify(Tuples)).
 
 %%--------------------------------------------------------------------
 no_hmac() ->
@@ -500,8 +509,7 @@ cmac() ->
      [{doc, "Test all different cmac functions"}].
 cmac(Config) when is_list(Config) ->
     Pairs = lazy_eval(proplists:get_value(cmac, Config)),
-    lists:foreach(fun cmac_check/1, Pairs),
-    lists:foreach(fun cmac_check/1, mac_listify(Pairs)).
+    do_cipher_tests(fun cmac_check/1, Pairs ++ mac_listify(Pairs)).
 
 %%--------------------------------------------------------------------
 poly1305() ->
@@ -531,8 +539,7 @@ block() ->
      [{doc, "Test block ciphers"}].
 block(Config) when is_list(Config) ->
     [_|_] = Blocks = lazy_eval(proplists:get_value(cipher, Config)),
-    lists:foreach(fun block_cipher/1, Blocks),
-    lists:foreach(fun block_cipher/1, block_iolistify(Blocks)),
+    do_cipher_tests(fun block_cipher/1, Blocks++block_iolistify(Blocks)),
     lists:foreach(fun block_cipher_increment/1, block_iolistify(Blocks)).
 
 %%--------------------------------------------------------------------
@@ -604,7 +611,7 @@ api_ng_cipher_increment_loop(Ref, InTexts) ->
                               Bin
                       catch
                           error:Error ->
-                              ct:pal("Txt = ~p",[Txt]),
+                              ct:log("Txt = ~p",[Txt]),
                               ct:fail("~p",[Error])
                       end
               end, InTexts).
@@ -676,17 +683,16 @@ api_ng_tls(Config) when is_list(Config) ->
     lists:foreach(fun do_api_ng_tls/1, Ciphers).
 
 
-do_api_ng_tls({Type, Key, PlainTexts}=_X) ->
-    ct:log("~p",[_X]),
+do_api_ng_tls({Type, Key, PlainTexts}) ->
     do_api_ng_tls({Type, Key, <<>>, PlainTexts});
 
-do_api_ng_tls({Type, Key, IV, PlainTexts}=_X) ->
-    ct:log("~p",[_X]),
+do_api_ng_tls({Type, Key, IV, PlainTexts}) ->
     do_api_ng_tls({Type, Key, IV, PlainTexts, undefined});
 
-do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
-    ct:log("~p",[_X]),
+do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}) ->
     PlainText = iolist_to_binary(lazy_eval(PlainText0)),
+    ct:log("Type = ~p~nKey = ~p~nIV = ~p~nPlainText = ~p~nExpectedEncText = ~p",
+           [Type, Key, IV, PlainText, ExpectedEncText]),
     Renc = crypto:crypto_dyn_iv_init(Type, Key, true),
     Rdec = crypto:crypto_dyn_iv_init(Type, Key, false),
     EncTxt = crypto:crypto_dyn_iv_update(Renc, PlainText, IV),
@@ -832,8 +838,6 @@ no_stream_ivec(Config) when is_list(Config) ->
     notsup(fun crypto:stream_init/3, [Type, <<"Key">>, <<"Ivec">>]).
 
 %%--------------------------------------------------------------------
-aead() ->
-      [{doc, "Test AEAD ciphers"}].
 aead(Config) when is_list(Config) ->
     [_|_] = AEADs = lazy_eval(proplists:get_value(cipher, Config)),
     FilteredAEADs =
@@ -848,7 +852,7 @@ aead(Config) when is_list(Config) ->
 			  IVLen >= 12
 		  end, AEADs)
 	end,
-    lists:foreach(fun aead_cipher/1, FilteredAEADs).
+    do_cipher_tests(fun aead_cipher/1, FilteredAEADs).
 
 %%--------------------------------------------------------------------
 aead_ng(Config) when is_list(Config) ->
@@ -865,7 +869,7 @@ aead_ng(Config) when is_list(Config) ->
 			  IVLen >= 12
 		  end, AEADs)
 	end,
-    lists:foreach(fun aead_cipher_ng/1, FilteredAEADs ++ spec_0_bytes(Config)).
+    do_cipher_tests(fun aead_cipher_ng/1, FilteredAEADs ++ spec_0_bytes(Config)).
 
 %%-------------------------------------------------------------------- 
 aead_bad_tag(Config) ->
@@ -882,7 +886,7 @@ aead_bad_tag(Config) ->
 			  IVLen >= 12
 		  end, AEADs)
 	end,
-    lists:foreach(fun aead_cipher_bad_tag/1, FilteredAEADs).
+    do_cipher_tests(fun aead_cipher_bad_tag/1, FilteredAEADs).
 
 %%-------------------------------------------------------------------- 
 sign_verify() ->
@@ -902,6 +906,7 @@ no_sign_verify(Config) when is_list(Config) ->
 public_encrypt() ->
      [{doc, "Test public_encrypt/decrypt "}].
 public_encrypt(Config) when is_list(Config) ->
+    ct:log("public_encrypt", []),
     Params = proplists:get_value(pub_pub_encrypt, Config, []),
     lists:foreach(fun do_public_encrypt/1, Params).
 
@@ -961,9 +966,7 @@ compute(Config) when is_list(Config) ->
     Gen = proplists:get_value(compute, Config),
     lists:foreach(fun do_compute/1, Gen).
 %%--------------------------------------------------------------------
-use_all_elliptic_curves() ->
-    [{doc, " Test that all curves from crypto:ec_curves/0"}].
-use_all_elliptic_curves(_Config) ->
+use_all_ec_sign_verify(_Config) ->
     Msg = <<"hello world!">>,
     Sups = crypto:supports(),
     Curves = proplists:get_value(curves, Sups),
@@ -975,6 +978,7 @@ use_all_elliptic_curves(_Config) ->
     Results =
         [{{Curve,Hash},
           try
+              ct:log("~p ~p",[Curve,Hash]),
               {Pub,Priv} = crypto:generate_key(ecdh, Curve),
               true = is_binary(Pub),
               true = is_binary(Priv),
@@ -995,6 +999,57 @@ use_all_elliptic_curves(_Config) ->
         [] ->
             ok;
         _ ->
+            ct:log("Fails:~n~p",[Fails]),
+            ct:fail("Bad curve(s)",[])
+    end.
+
+%%--------------------------------------------------------------------
+use_all_ecdh_generate_compute(Config) ->
+    Curves = crypto:supports(curves) -- [ed25519, ed448, x25519, x448],
+    do_dh_curves(Config, Curves).
+
+use_all_eddh_generate_compute(Config) ->
+    AllCurves = crypto:supports(curves),
+    Curves = [C || C <- [x25519, x448],
+                     lists:member(C, AllCurves)],
+    do_dh_curves(Config, Curves).
+
+do_dh_curves(_Config, Curves) ->
+    ct:log("Lib: ~p~nFIPS: ~p~nCurves:~n~p~n", [crypto:info_lib(),
+                                                crypto:info_fips(),
+                                                Curves]),
+    Results =
+        [{Curve,
+          try
+              ct:log("~p",[Curve]),
+              {APub,APriv} = crypto:generate_key(ecdh, Curve),
+              {BPub,BPriv} = crypto:generate_key(ecdh, Curve),
+              true = is_binary(APub),
+              true = is_binary(APriv),
+              true = is_binary(BPub),
+              true = is_binary(BPriv),
+
+              ACommonSecret = crypto:compute_key(ecdh, BPub, APriv, Curve),
+              BCommonSecret = crypto:compute_key(ecdh, APub, BPriv, Curve),
+              ACommonSecret == BCommonSecret
+          catch
+              C:E ->
+                  {C,E}
+          end}
+         || Curve <- Curves
+        ],
+
+    Fails =
+        lists:filter(fun({_,true}) -> false;
+                        (_) -> true
+                     end, Results),
+
+    case Fails of
+        [] ->
+            ct:comment("All ~p passed",[length(Results)]),
+            ok;
+        _ ->
+            ct:comment("passed: ~p, failed: ~p",[length(Results),length(Fails)]),
             ct:log("Fails:~n~p",[Fails]),
             ct:fail("Bad curve(s)",[])
     end.
@@ -1065,13 +1120,14 @@ cipher_info(Config) when is_list(Config) ->
                              of
                                  _ -> Ok
                              catch Cls:Exc ->
-                                     ct:pal("~p:~p ~p",[Cls,Exc,C]),
+                                     ct:log("~p:~p ~p",[Cls,Exc,C]),
                                      false
                              end
                      end,
                      true,
-crypto:supports(ciphers)) of
-%%                     proplists:get_value(ciphers, crypto:supports())) of
+                     crypto:supports(ciphers)
+                    )
+    of
         true ->
             ok;
         false ->
@@ -1175,76 +1231,49 @@ hmac_increment(State0, [Increment | Rest]) ->
     hmac_increment(State, Rest).
 
 %%%----------------------------------------------------------------
-cmac_check({cmac, Type, Key, Text, CMac}) ->
+cmac_check({cmac, Type, Key, Text, CMac}=T) ->
     ExpCMac = iolist_to_binary(CMac),
-    case crypto:cmac(Type, Key, Text) of
-        ExpCMac ->
-            ok;
-        Other ->
-            ct:fail({{crypto, cmac, [Type, Key, Text]}, {expected, ExpCMac}, {got, Other}})
-    end;
-cmac_check({cmac, Type, Key, Text, Size, CMac}) ->
+    cipher_test(T,
+                fun() -> crypto:cmac(Type, Key, Text) end,
+                ExpCMac);
+cmac_check({cmac, Type, Key, Text, Size, CMac}=T) ->
     ExpCMac = iolist_to_binary(CMac),
-    case crypto:cmac(Type, Key, Text, Size) of
-        ExpCMac ->
-            ok;
-        Other ->
-            ct:fail({{crypto, cmac, [Type, Key, Text, Size]}, {expected, ExpCMac}, {got, Other}})
-    end.
+    cipher_test(T,
+                fun() -> crypto:cmac(Type, Key, Text, Size) end,
+                ExpCMac).
 
-
-mac_check({MacType, SubType, Key, Text, Mac}) ->
+mac_check({MacType, SubType, Key, Text, Mac}=T) ->
     ExpMac = iolist_to_binary(Mac),
-    case crypto:mac(MacType, SubType, Key, Text) of
-        ExpMac ->
-            ok;
-        Other ->
-            ct:fail({{crypto, mac, [MacType, SubType, Key, Text]}, {expected, ExpMac}, {got, Other}})
-    end;
-mac_check({MacType, SubType, Key, Text, Size, Mac}) ->
+    cipher_test(T,
+                fun() -> crypto:mac(MacType, SubType, Key, Text) end,
+                ExpMac);
+mac_check({MacType, SubType, Key, Text, Size, Mac}=T) ->
     ExpMac = iolist_to_binary(Mac),
-    case crypto:mac(MacType, SubType, Key, Text, Size) of
-        ExpMac ->
-            ok;
-        Other ->
-            ct:fail({{crypto, mac, [MacType, SubType, Key, Text]}, {expected, ExpMac}, {got, Other}})
-    end.
+    cipher_test(T,
+                fun() -> crypto:mac(MacType, SubType, Key, Text, Size) end,
+                ExpMac).
 
-
-block_cipher({Type, Key,  PlainText}) ->
+block_cipher({Type, Key,  PlainText}=T) ->
     Plain = iolist_to_binary(PlainText),
     CipherText = crypto:block_encrypt(Type, Key, PlainText),
-    case crypto:block_decrypt(Type, Key, CipherText) of
-	Plain ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, block_decrypt, [Type, Key, CipherText]}, {expected, Plain}, {got, Other}})
-    end;
+    cipher_test(T,
+                fun() -> crypto:block_decrypt(Type, Key, CipherText) end,
+                Plain);
 
-block_cipher({Type, Key,  IV, PlainText}) ->
+block_cipher({Type, Key,  IV, PlainText}=T) ->
     Plain = iolist_to_binary(PlainText),
     CipherText = crypto:block_encrypt(Type, Key, IV, PlainText),
-    case crypto:block_decrypt(Type, Key, IV, CipherText) of
-	Plain ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, block_decrypt, [Type, Key, IV, CipherText]}, {expected, Plain}, {got, Other}})
-    end;
+    cipher_test(T,
+                fun() -> crypto:block_decrypt(Type, Key, IV, CipherText) end,
+                Plain);
 
-block_cipher({Type, Key, IV, PlainText, CipherText}) ->
+block_cipher({Type, Key, IV, PlainText, CipherText}=T) ->
     Plain = iolist_to_binary(PlainText),
-    case crypto:block_encrypt(Type, Key, IV, Plain) of
-	CipherText ->
-	    ok;
-	Other0 ->
-	    ct:fail({{crypto, block_encrypt, [Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
-    end,
-    case crypto:block_decrypt(Type, Key, IV, CipherText) of
-	Plain ->
-	    ok;
-	Other1 ->
-	    ct:fail({{crypto, block_decrypt, [Type, Key, IV, CipherText]}, {expected, Plain}, {got, Other1}})
-    end.
+    cipher_test(T,
+                fun() -> crypto:block_encrypt(Type, Key, IV, Plain) end,
+                CipherText,
+                fun() -> crypto:block_decrypt(Type, Key, IV, CipherText) end,
+                Plain).
 
 block_cipher_increment({Type, Key, IV, PlainTexts}) when Type == des_cbc ;
                                                          Type == des3_cbc ;
@@ -1365,123 +1394,98 @@ stream_cipher_incment_loop(State0, OrigState, [PlainText | PlainTexts], Acc, Pla
     {State, CipherText} = crypto:stream_encrypt(State0, PlainText),
     stream_cipher_incment_loop(State, OrigState, PlainTexts, [CipherText | Acc], Plain).
 
-aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, Info}) ->
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
     Plain = iolist_to_binary(PlainText),
-    case crypto:block_encrypt(Type, Key, IV, {AAD, Plain}) of
-	{CipherText, CipherTag} ->
-	    ok;
-	Other0 ->
-	    ct:fail({{crypto,
-                      block_encrypt,
-                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}]},
-                     {expected, {CipherText, CipherTag}},
-                     {got, Other0}})
-    end,
-    case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, CipherTag}) of
-	Plain ->
-	    ok;
-	Other1 ->
-	    ct:fail({{crypto,
-                      block_decrypt,
-                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}]},
-                     {expected, Plain},
-                     {got, Other1}})
-    end;
-aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}) ->
+    cipher_test(T,
+                fun() -> crypto:block_encrypt(Type, Key, IV, {AAD, Plain}) end,
+                {CipherText, CipherTag},
+                fun() -> crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, CipherTag}) end,
+                Plain);
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, _Info}=T) ->
     <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
     Plain = iolist_to_binary(PlainText),
-    try crypto:block_encrypt(Type, Key, IV, {AAD, Plain, TagLen}) of
-	{CipherText, TruncatedCipherTag} ->
-	    ok;
-	Other0 ->
-	    ct:fail({{crypto,
-                      block_encrypt, 
-                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}, {taglen,TagLen}]},
-                     {expected, {CipherText, TruncatedCipherTag}},
-                     {got, Other0}})
-    catch
-        error:E ->
-            ct:log("~p",[{Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}]),
-            try crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true)
-            of
-                RR ->
-                    ct:log("Works: ~p",[RR])
-            catch
-                CC:EE ->
-                    ct:log("~p:~p", [CC,EE])
-            end,
-            ct:fail("~p",[E])
-    end,
-    case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, TruncatedCipherTag}) of
-	Plain ->
-	    ok;
-	Other1 ->
-	    ct:fail({{crypto,
-                      block_decrypt, 
-                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag},
-                       {truncated,TruncatedCipherTag}]},
-                     {expected, Plain},
-                     {got, Other1}})
+    cipher_test(T,
+                fun() -> crypto:block_encrypt(Type, Key, IV, {AAD, Plain, TagLen}) end,
+                {CipherText, TruncatedCipherTag},
+                fun() -> crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, TruncatedCipherTag}) end,
+                Plain).
+
+aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
+    Plain = iolist_to_binary(PlainText),
+    cipher_test(T,
+                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, true) end,
+                {CipherText, CipherTag},
+                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, CipherTag, false) end,
+                Plain);
+aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, _Info}=T) ->
+    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
+    Plain = iolist_to_binary(PlainText),
+    cipher_test(T,
+                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true) end,
+                {CipherText, TruncatedCipherTag},
+                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, TruncatedCipherTag, false) end,
+                Plain).
+
+aead_cipher_bad_tag({Type, Key, _PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
+    BadTag = mk_bad_tag(CipherTag),
+    cipher_test(T,
+                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, BadTag, false) end,
+                error);
+aead_cipher_bad_tag({Type, Key, _PlainText, IV, AAD, CipherText, CipherTag, TagLen, _Info}=T) ->
+    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
+    BadTruncatedTag = mk_bad_tag(TruncatedCipherTag),
+    cipher_test(T,
+                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, BadTruncatedTag, false) end,
+                error).
+
+
+cipher_test(T, Fe, Ee, Fd, Ed) ->
+    %% Test encrypt
+    Re = cipher_test(encrypt, T, Fe, Ee),
+    %% Test decrypt
+    Rd = cipher_test(decrypt, T, Fd, Ed),
+    case {Re, Rd} of
+        {ok,ok} -> ok;
+        {ok,_} -> Rd;
+        {_,ok} -> Re;
+        _ -> {Re,Rd}
     end.
 
-aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, Info}) ->
-    Plain = iolist_to_binary(PlainText),
-    case crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, true) of
-	{CipherText, CipherTag} ->
-	    ok;
-	Other0 ->
-	    ct:fail({{crypto,
-                      block_encrypt,
-                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}]},
-                     {expected, {CipherText, CipherTag}},
-                     {got, Other0}})
-    end,
-    case crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, CipherTag, false) of
-	Plain ->
-	    ok;
-	Other1 ->
-	    ct:fail({{crypto,
-                      block_decrypt,
-                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}]},
-                     {expected, Plain},
-                     {got, Other1}})
-    end;
-aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}) ->
-    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
-    Plain = iolist_to_binary(PlainText),
-    try crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true) of
-	{CipherText, TruncatedCipherTag} ->
-	    ok;
-	Other0 ->
-	    ct:fail({{crypto,
-                      block_encrypt, 
-                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}, {taglen,TagLen}]},
-                     {expected, {CipherText, TruncatedCipherTag}},
-                     {got, Other0}})
+cipher_test(T, F, E) ->
+    cipher_test(notag, T, F, E).
+
+cipher_test(Tag, T, F, E) ->
+    try F() of
+        E -> ok;
+        Other -> {other, {Tag,T,Other}}
     catch
-        error:E ->
-            ct:log("~p",[{Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}]),
-            try crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true)
-            of
-                RR ->
-                    ct:log("Works: ~p",[RR])
-            catch
-                CC:EE ->
-                    ct:log("~p:~p", [CC,EE])
-            end,
-            ct:fail("~p",[E])
-    end,
-    case crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, TruncatedCipherTag, false) of
-	Plain ->
-	    ok;
-	Other1 ->
-	    ct:fail({{crypto,
-                      block_decrypt, 
-                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag},
-                       {truncated,TruncatedCipherTag}]},
-                     {expected, Plain},
-                     {got, Other1}})
+        error:Error -> {error, {Tag,T,Error}}
     end.
+
+do_cipher_tests(F, TestVectors) when is_function(F,1) ->
+    {Passed,Failed} =
+        lists:partition(
+          fun(R) -> R == ok end,
+          lists:map(F, TestVectors)
+         ),
+    BothFailed = lists:filter(fun({ok,_}) -> false;
+                                 ({_,ok}) -> false;
+                                 (ok) -> false;
+                                 (_) -> true
+                              end,
+                              Failed),
+    ct:log("Passed: ~p, BothFailed: ~p OnlyOneFailed: ~p",
+           [length(Passed), length(BothFailed), length(Failed)-length(BothFailed)]),
+    case Failed of
+        [] ->
+            ct:comment("All ~p passed", [length(Passed)]);
+        _ ->
+            ct:log("~p",[hd(Failed)]),
+            ct:comment("Passed: ~p, BothFailed: ~p OnlyOneFailed: ~p",
+                       [length(Passed), length(BothFailed), length(Failed)-length(BothFailed)]),
+            ct:fail("Failed", [])
+    end.
+
 
 mk_bad_tag(CipherTag) ->
     case <<0:(size(CipherTag))/unit:8>> of
@@ -1489,30 +1493,6 @@ mk_bad_tag(CipherTag) ->
             <<1:(size(CipherTag))/unit:8>>;
         X ->
             X
-    end.
-
-aead_cipher_bad_tag({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, Info}) ->
-    Plain = iolist_to_binary(PlainText),
-    BadTag = mk_bad_tag(CipherTag),
-    case crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, BadTag, false) of
-	error ->
-            ok;
-	Plain ->
-            ct:log("~p:~p~n info: ~p~n key: ~p~n pt: ~p~n iv: ~p~n aad: ~p~n ct: ~p~n tag: ~p~n bad tag: ~p~n",
-                   [?MODULE,?LINE,Info, Key, PlainText, IV, AAD, CipherText, CipherTag, BadTag]),
-            ct:fail("Didn't fail on bad tag")
-    end;
-aead_cipher_bad_tag({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}) ->
-    Plain = iolist_to_binary(PlainText),
-    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
-    BadTruncatedTag = mk_bad_tag(TruncatedCipherTag),
-    case  crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, BadTruncatedTag, false) of
-	error ->
-	    ok;
-	Plain ->
-            ct:log("~p:~p~n info: ~p~n key: ~p~n pt: ~p~n iv: ~p~n aad: ~p~n ct: ~p~n tag: ~p~n bad tag: ~p~n",
-                   [Info, Key, PlainText, IV, AAD, CipherText, TruncatedCipherTag, BadTruncatedTag]),
-            ct:fail("Didn't fail on bad tag")
     end.
 
 do_sign_verify({Type, undefined=Hash, Private, Public, Msg, Signature}) ->
@@ -1598,45 +1578,65 @@ negative_verify(Type, Hash, Msg, Signature, Public, Options) ->
     end.
 
 do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
+    ct:log("do_public_encrypt Type=~p, Padding=~p,~nPublic = ~p,~nPrivate = ~p,~nMsg = ~p.",
+           [Type, Padding, Public, Private, Msg]),
+    timer:sleep(100),
     try
         crypto:public_encrypt(Type, Msg, Public, Padding)
     of
         PublicEcn ->
+            ct:log("private_decrypt~nPublicEcn = ~p.", [PublicEcn]),
+            timer:sleep(100),
             try
                 crypto:private_decrypt(Type, PublicEcn, Private, Padding)
             of
                 Msg ->
+                    ct:log("~p:~p ok", [?MODULE,?LINE]),
+                    timer:sleep(100),
                     ok;
                 Other ->
+                    ct:log("~p:~p Other = ~p", [?MODULE,?LINE,Other]),
+                    timer:sleep(100),
                     ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, Other}})
             catch
                 CC:EE ->
+                    ct:log("~p:~p EXC. ~p:~p", [?MODULE,?LINE,CC,EE]),
+                    timer:sleep(100),
                     ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, {CC,EE}}})
             end
     catch
         CC:EE ->
+            ct:log("~p:~p EXC 2. ~p:~p", [?MODULE,?LINE,CC,EE]),
+            timer:sleep(100),
             ct:fail({{crypto, public_encrypt, [Type, Msg, Public, Padding]}, {got, {CC,EE}}})
     end. 
 
 
 do_private_encrypt({Type, Public, Private, Msg, Padding}) ->
+    ct:log("do_private_encrypt Type=~p, Padding=~p,~nPublic = ~p,~nPrivate = ~p,~nMsg = ~p.",
+           [Type, Padding, Public, Private, Msg]),
     try
         crypto:private_encrypt(Type, Msg, Private, Padding)
     of
         PrivEcn ->
             try
+                ct:log("public_decrypt~nPrivEcn = ~p.", [PrivEcn]),
                 crypto:public_decrypt(Type, PrivEcn, Public, Padding)
             of
                 Msg ->
+                    ct:log("~p:~p ok", [?MODULE,?LINE]),
                     ok;
                 Other ->
+                    ct:log("~p:~p Other = ~p", [?MODULE,?LINE,Other]),
                     ct:fail({{crypto, public_decrypt, [Type, PrivEcn, Public, Padding]}, {expected, Msg}, {got, Other}})
             catch
                 CC:EE ->
+                    ct:log("~p:~p EXC. ~p:~p", [?MODULE,?LINE,CC,EE]),
                     ct:fail({{crypto, public_decrypt, [Type, PrivEcn, Public, Padding]}, {expected, Msg}, {got, {CC,EE}}})
             end
     catch
         CC:EE ->
+            ct:log("~p:~p EXC 2. ~p:~p", [?MODULE,?LINE,CC,EE]),
             ct:fail({{crypto, private_encrypt, [Type, Msg, Private, Padding]}, {got, {CC,EE}}})
     end.
 
@@ -1648,6 +1648,9 @@ do_generate_compute({srp = Type, UserPrivate, UserGenParams, UserComParams,
      				    UserComParams),
     SessionKey = crypto:compute_key(Type, UserPublic, {HostPublic, HostPrivate},
 				    HostComParam);
+
+
+
 do_generate_compute({dh, P, G}) ->
     {UserPub, UserPriv} = crypto:generate_key(dh, [P, G]),
     {HostPub, HostPriv} = crypto:generate_key(dh, [P, G]),
@@ -1655,6 +1658,7 @@ do_generate_compute({dh, P, G}) ->
     SharedSecret = crypto:compute_key(dh, UserPub, HostPriv, [P, G]).
     
 do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
+    ct:log("~p ~p", [Type,Curve]),
     Secret = crypto:compute_key(Type, Pub, Priv, Curve),
      case Secret of
 	 SharedSecret ->
@@ -1664,6 +1668,7 @@ do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
      end.
 
 do_generate({Type, Curve, Priv, Pub}) when Type == ecdh ; Type == eddsa ->
+    ct:log("~p ~p", [Type,Curve]),
     case crypto:generate_key(Type, Curve, Priv) of
 	{Pub, _} ->
 	    ok;
@@ -1671,6 +1676,7 @@ do_generate({Type, Curve, Priv, Pub}) when Type == ecdh ; Type == eddsa ->
 	    ct:fail({{crypto, generate_key, [Type, Priv, Curve]}, {expected, Pub}, {got, Other}})
     end;
 do_generate({rsa = Type, Mod, Exp}) ->
+    ct:log("~p", [Type]),
     case crypto:info_fips() of
         enabled when Mod < 3072 ->
             ct:log("SKIP do_generate ~p FIPS=~p, Mod=~p  Exp=~p", [Type, enabled, Mod, Exp]),
@@ -2101,6 +2107,8 @@ group_config(ecdh, Config) ->
     Compute = ecdh(),
     Generate = ecc(),
     [{compute, Compute}, {generate, Generate} | Config];
+group_config(eddh, Config) ->
+    [{compute, []}, {generate, []} | Config];
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
@@ -2239,12 +2247,13 @@ gen_rsa_sign_verify_tests(Hashs, Msg, Public, Private, Opts) ->
 
 
 gen_rsa_pub_priv_tests(Public, Private, Msg, OptsToTry) ->
-    SupOpts = proplists:get_value(rsa_opts, crypto:supports(), []),
+    SupOpts = proplists:get_value(rsa_opts, crypto:supports(), []) --
+        [rsa_x931_padding],
     lists:foldr(fun(Opt, Acc) ->
                         case rsa_opt_is_supported(Opt, SupOpts) of
                             true ->
                                 [{rsa, Public, Private, Msg, Opt} | Acc];
-                            false ->
+                             false ->
                                 Acc
                         end
                 end, [], OptsToTry).
@@ -3975,11 +3984,13 @@ eddsa(ed448) ->
 
 ecdh() ->
     %% http://csrc.nist.gov/groups/STM/cavp/
-    Curves = crypto:ec_curves() ++ 
-        [X  || X <- proplists:get_value(curves, crypto:supports(), []),
-               lists:member(X, [x25519,x448])],
-    TestCases =
-        [{ecdh, hexstr2point("42ea6dd9969dd2a61fea1aac7f8e98edcc896c6e55857cc0", "dfbe5d7c61fac88b11811bde328e8a0d12bf01a9d204b523"),
+    Curves = crypto:supports(curves),
+    lists:filter(
+      fun ({_Type, _Pub, _Priv, Curve, _SharedSecret}) ->
+              lists:member(Curve, Curves)
+      end,
+
+      [{ecdh, hexstr2point("42ea6dd9969dd2a61fea1aac7f8e98edcc896c6e55857cc0", "dfbe5d7c61fac88b11811bde328e8a0d12bf01a9d204b523"),
           hexstr2bin("f17d3fea367b74d340851ca4270dcb24c271f445bed9d527"),
           secp192r1,
           hexstr2bin("803d8ab2e5b6e6fca715737c3a82f7ce3c783124f6d51cd0")},
@@ -4085,11 +4096,8 @@ ecdh() ->
           16#9a8f4925d1519f5775cf46b04b5800d4ee9ee8bae8bc5565d498c28dd9c9baf574a9419744897391006382a6f127ab1d9ac2d8c0a598726b,
           x448,
           hexstr2bin("07fff4181ac6cc95ec1c16a94a0f74d12da232ce40a77552281d282bb60c0b56fd2464c335543936521c24403085d59a449a5037514a879d")}
-        ],
-    lists:filter(fun ({_Type, _Pub, _Priv, Curve, _SharedSecret}) ->
-                         lists:member(Curve, Curves)
-                 end,
-                 TestCases).
+        ]
+        ).
 
 dh() ->
     {dh, 90970053988169282502023478715631717259407236400413906591937635666709823903223997309250405131675572047545403771567755831138144089197560332757755059848492919215391041119286178688014693040542889497092308638580104031455627238700168892909539193174537248629499995652186913900511641708112112482297874449292467498403, 2}.
@@ -4143,8 +4151,11 @@ ecc() ->
 %% information about the curves see
 %%       http://csrc.nist.gov/encryption/dss/ecdsa/NISTReCur.pdf
 %%
-    Curves = crypto:ec_curves(),
-    TestCases =
+    Curves = crypto:supports(curves),
+    lists:filter(
+      fun ({_Type, Curve, _Priv, _Pub}) ->
+              lists:member(Curve, Curves)
+      end,
         [{ecdh,secp192r1,1,
           hexstr2point("188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012",
                        "07192B95FFC8DA78631011ED6B24CDD573F977A11E794811")},
@@ -4174,12 +4185,9 @@ ecc() ->
           hexstr2bin("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a")},
          {ecdh, x25519,
           hexstr2bin("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb"),
-          hexstr2bin("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")}],
-    lists:filter(fun ({_Type, Curve, _Priv, _Pub}) ->
-                         lists:member(Curve, Curves)
-                 end,
-                 TestCases).
-
+          hexstr2bin("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")}
+        ]
+     ).
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).
