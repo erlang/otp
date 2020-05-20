@@ -35,6 +35,7 @@ init_per_suite(Config) ->
         try crypto:start() of
             ok -> true;
             {error, already_started} -> true;
+            {error,{already_started,crypto}} -> true;
             _ -> false
         catch
             _:_ -> false
