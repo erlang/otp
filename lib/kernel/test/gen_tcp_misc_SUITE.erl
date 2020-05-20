@@ -1090,21 +1090,40 @@ send_lines(S, Lines) ->
 %%%
 
 shutdown_pending(Config) when is_list(Config) ->
+    try do_shutdown_pending(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_shutdown_pending(_Config) ->
     N = 512*1024+17,
-    io:format("~p\n", [N]),
+    p("N: ~p", [N]),
     Data = [<<N:32>>,ones(N),42],
     P = a_server(),
-    io:format("Server port: ~p\n", [P]),
-    {ok,S} = gen_tcp:connect(localhost, P, []),
+    p("try connect to server (port: ~p)", [P]),
+    S = case gen_tcp:connect(localhost, P, []) of
+            {ok, Socket} ->
+                p("connected"),
+                Socket;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
+    p("send"),
     gen_tcp:send(S, Data),
+    p("shutdown(write)"),
     gen_tcp:shutdown(S, write),
+    p("await data message"),
     receive
-        {tcp,S,Msg} ->
-            io:format("~p\n", [Msg]),
+        {tcp, S, Msg} ->
+            p("got tcp (data) message: ~p", [Msg]),
             N = list_to_integer(Msg) - 5;
         Other ->
-            ct:fail({unexpected,Other})
+            p("UNEXPECTED: "
+              "~n   ~p", [Other]),
+            ct:fail({unexpected, Other})
     end,
+    p("done"),
     ok.
 
  ones(0) -> [];
