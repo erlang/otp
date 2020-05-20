@@ -922,9 +922,11 @@ opt_digraph_instr(#b_set{dst=Dst}=I, G0, St) ->
             %% Rewriting 'xor' is not practical. Fortunately,
             %% 'xor' is almost never used in practice.
             not_possible();
-        #b_set{op={bif,'not'},args=[#b_var{}=Bool]} ->
-            G = convert_to_br_node(I, Fail, G1, St),
-            redirect_test(Bool, {fail,Succ}, G, St);
+        #b_set{op={bif,'not'}} ->
+            %% This is suprisingly rare. The previous attempt to
+            %% optimize it was broken, which wasn't noticed because
+            %% very few test cases triggered this code.
+            not_possible();
         #b_set{op=phi,dst=Bool} ->
             Vtx = get_vertex(Bool, St),
             G2 = del_out_edges(Vtx, G1),
