@@ -1322,7 +1322,7 @@ econnreset_after_sync_send(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_econnreset_after_sync_send(Config) ->
+do_econnreset_after_sync_send(_Config) ->
     %% First confirm everything works with option turned off.
     p("test with option switched off (default)"),
     {ok, L} = gen_tcp:listen(0, [{active, false}]),
@@ -1360,13 +1360,26 @@ do_econnreset_after_sync_send(Config) ->
     {error, econnreset} = gen_tcp:send(Client1, "Whatever").
 
 econnreset_after_async_send_active(Config) when is_list(Config) ->
+    try do_econnreset_after_async_send_active(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_econnreset_after_async_send_active(_Config) ->
     {OS, _} = os:type(),
     Payload = lists:duplicate(1024 * 1024, $.),
 
     %% First confirm everything works with option turned off.
+    p("test with option switched off (default)"),
     {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{sndbuf, 4096}]),
+    Client = case gen_tcp:connect(localhost, Port, [{sndbuf, 4096}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = gen_tcp:send(Client, Payload),
@@ -1393,11 +1406,17 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
     end,
 
     %% Now test with option switched on.
+    p("test with option explicitly switched on"),
     {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1,
-				  [{sndbuf, 4096},
-				   {show_econnreset, true}]),
+    Client1 =
+        case gen_tcp:connect(localhost, Port1,
+                             [{sndbuf, 4096}, {show_econnreset, true}]) of
+            {ok, CSock1} ->
+                CSock1;
+            {error, eaddrnotavail = Reason1} ->
+                skip(connect_failed_str(Reason1))
+        end,
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = gen_tcp:send(Client1, Payload),
@@ -1417,6 +1436,7 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
 		{tcp_error, Client1, econnreset} ->
 		    receive
 			{tcp_closed, Client1} ->
+                            p("done"),
 			    ok;
 			Other3 ->
 			    ct:fail({unexpected3, Other3})
