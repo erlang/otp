@@ -2428,6 +2428,64 @@
 
 </section>
 
+<section><title>Erts 10.3.5.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The functionality utilized by BIFs for temporary
+	    disabling of garbage collection while yielding could
+	    cause system task queues to become inconsistent on a
+	    process executing such a BIF. Process system tasks are
+	    for example utilized when purging code, garbage
+	    collecting literal data, and when issuing an ordinary
+	    garbage collection from another process.</p>
+          <p>
+	    The bug does not trigger frequently. Multiple code purges
+	    in direct sequence makes it more likely that this bug is
+	    triggered. In the cases observed, this has resulted in a
+	    hanging code purge operation.</p>
+          <p>
+	    Own Id: OTP-16639 Aux Id: ERL-1236 </p>
+        </item>
+        <item>
+          <p>
+	    A literal area could prematurely be released before all
+	    uses of it had been removed. This occurred either when a
+	    terminating process had a complex exit reason referring
+	    to a literal that concurrently was removed, or when a
+	    terminating process continued executing a dirty NIF
+	    accessing a literal (via the heap) that concurrently was
+	    removed.</p>
+          <p>
+	    Own Id: OTP-16640 Aux Id: OTP-16193 </p>
+        </item>
+        <item>
+          <p>
+	    The VM could potentially crash when checking process code
+	    of a process that terminated while executing a dirty NIF.
+	    The checking of process code is part of a code purge
+	    operation.</p>
+          <p>
+	    Own Id: OTP-16641</p>
+        </item>
+        <item>
+          <p>
+	    System tasks of <c>low</c> priority were not interleaved
+	    with <c>normal</c> priority system tasks as they should.
+	    This could potentially delay garbage collection of
+	    another process longer than intended if the garbage
+	    collection was requested from a <c>low</c> priority
+	    process.</p>
+          <p>
+	    Own Id: OTP-16642</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
