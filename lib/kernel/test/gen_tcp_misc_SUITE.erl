@@ -1449,13 +1449,25 @@ do_econnreset_after_async_send_active(_Config) ->
     end.
 
 econnreset_after_async_send_active_once(Config) when is_list(Config) ->
+    try do_econnreset_after_async_send_active_once(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_econnreset_after_async_send_active_once(_Config) ->
     {OS, _} = os:type(),
     {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-				   [{active, false},
-				    {sndbuf, 4096},
-				    {show_econnreset, true}]),
+    Client = case gen_tcp:connect(localhost, Port,
+                                  [{active, false},
+                                   {sndbuf, 4096},
+                                   {show_econnreset, true}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,            
     {ok,S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     Payload = lists:duplicate(1024 * 1024, $.),
