@@ -30,31 +30,19 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() -> 
-    [{group, tls1_2},
-     {group, tls1_3},
-     {group, revoked_1_2},
-     {group, revoked_1_3}].
+    [{group, 'tlsv1.2'},
+     {group, 'tlsv1.3'}].
 
 groups() -> 
-    [{tls1_2, [], tls1_2_tests()},
-     {tls1_3, [], tls1_3_tests()},
-     {revoked_1_2, [], tls1_2_revoked_tests()},
-     {revoked_1_3, [], tls1_3_revoked_tests()}].
+    [{'tlsv1.2', [], ocsp_tests()},
+     {'tlsv1.3', [], ocsp_tests()}].
 
-tls1_2_tests() ->
-    [ocsp_stapling_without_nonce_and_responder_certs_tls1_2,
-     ocsp_stapling_with_nonce_tls1_2,
-     ocsp_stapling_with_responder_cert_tls1_2].
-
-tls1_2_revoked_tests() ->
-    [ocsp_stapling_revoked_tls1_2].
-
-tls1_3_tests() ->
-    [ocsp_stapling_without_nonce_and_responder_certs_tls1_3,
-     ocsp_stapling_with_nonce_and_responder_certs_tls1_3].
-
-tls1_3_revoked_tests() ->
-    [ocsp_stapling_revoked_tls1_3].
+ocsp_tests() ->
+    [ocsp_stapling_basic
+     %%ocsp_stapling_with_nonce,
+     %%ocsp_stapling_with_responder_cert,
+     %%ocsp_stapling_revoked
+    ].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -92,24 +80,16 @@ end_per_suite(Config) ->
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
-init_per_group(tls1_2, Config) ->
-    setup_tls_server_for_group(tls1_2, Config);
-init_per_group(tls1_3, Config) ->
-    setup_tls_server_for_group(tls1_3, Config);
-init_per_group(revoked_1_2, Config) ->
-    setup_tls_server_for_group(revoked_1_2, Config);
-init_per_group(revoked_1_3, Config) ->
-    setup_tls_server_for_group(revoked_1_3, Config);
-init_per_group(_GroupName, Config) ->
-    Config.
+init_per_group(GroupName, Config) ->
+    ssl_test_lib:init_per_group(GroupName, Config).
 
-end_per_group(_GroupName, Config) ->
-    Pid = proplists:get_value(server_pid, Config),
-    stop_tls_server(Pid),
-    Config.
+end_per_group(GroupName, Config) ->
+  ssl_test_lib:end_per_group(GroupName, Config).
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:timetrap({seconds, 10}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
@@ -119,21 +99,28 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
-ocsp_stapling_without_nonce_and_responder_certs_tls1_2() ->
+ocsp_stapling_basic() ->
     [{doc, "Verify OCSP stapling works without nonce "
-           "and responder certs for tls1.2."}].
-ocsp_stapling_without_nonce_and_responder_certs_tls1_2(Config)
+           "and responder certs."}].
+ocsp_stapling_basic(Config)
   when is_list(Config) ->
-    Port = proplists:get_value(server_port, Config),
-    {ok, Sock} =
-    ssl:connect({127,0,0,1}, Port, proplists:get_value(client_opts, Config) ++
-        [{keepalive, true},
-         {versions, ['tlsv1.2']},
-         {ocsp_stapling, true},
-         {ocsp_nonce, false},
-         {log_level, debug}], 5000),
-    ok = ssl:send(Sock, <<"ok">>),
-    ssl:close(Sock).
+    Data = "ping",  %% 4 bytes
+    ServerOpts = [{log_level, debug}],
+    Server = ssl_test_lib:start_server(openssl_ocsp,
+                                       [{options, ServerOpts}], Config),
+    Port = ssl_test_lib:inet_port(Server),
+
+    ClientOpts = [{log_level, debug},
+                  {ocsp_stapling, true},
+                  {ocsp_nonce, false}],
+    Client = ssl_test_lib:start_client(erlang,
+                                       [{port, Port},
+                                        {options, ClientOpts}], Config),
+    ssl_test_lib:send(Client, Data),
+    Data = ssl_test_lib:check_active_receive(Server, Data),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 ocsp_stapling_with_nonce_tls1_2() ->
     [{doc, "Verify OCSP stapling works with nonce "
@@ -189,23 +176,6 @@ ocsp_stapling_revoked_tls1_2(Config)
          {ocsp_stapling, true},
          {ocsp_responder_certs, [Der]},
          {log_level, debug}], 5000).
-
-
-ocsp_stapling_without_nonce_and_responder_certs_tls1_3() ->
-    [{doc, "Verify OCSP stapling works without nonce "
-           "and responder certs for tls1.3."}].
-ocsp_stapling_without_nonce_and_responder_certs_tls1_3(Config)
-  when is_list(Config) ->
-    Port = proplists:get_value(server_port, Config),
-    {ok, Sock} =
-    ssl:connect({127,0,0,1}, Port, proplists:get_value(client_opts, Config) ++
-        [{keepalive, true},
-         {versions, ['tlsv1.3']},
-         {ocsp_stapling, true},
-         {ocsp_nonce, false},
-         {log_level, debug}], 5000),
-    ok = ssl:send(Sock, <<"ok">>),
-    ssl:close(Sock).
 
 ocsp_stapling_with_nonce_and_responder_certs_tls1_3() ->
     [{doc, "Verify OCSP stapling works with nonce "
@@ -365,3 +335,18 @@ setup_tls_server_for_group(Group, Config) ->
         [{server_port, Port},
          {server_pid, Pid}
         ], Config).
+
+do_test_ocsp_stapling(SOpts, COpts, Config) ->
+    Data = "123456789012345",  %% 15 bytes
+    Server = ssl_test_lib:start_server(openssl_ocsp,
+                                       [{options, SOpts}], Config),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client(erlang,
+                                       [{port, Port},
+                                        {options, COpts}], Config),
+    ssl_test_lib:send(Client, Data),
+    Data = ssl_test_lib:check_active_receive(Server, Data),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
