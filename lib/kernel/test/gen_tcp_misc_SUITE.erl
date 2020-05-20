@@ -480,7 +480,7 @@ do_active_n(_Config) ->
             {ok, CS} ->
                 CS;
             {error, eaddrnotavail = Reason} ->
-                throw({skip, Reason})
+                skip(connect_failed_str(Reason))
         end,
     [{active,N}] = ok(inet:getopts(C, [active])),
     S = ok(gen_tcp:accept(LS)),
@@ -860,7 +860,7 @@ passive_sockets(Config) when is_list(Config) ->
         {ok, Sock} ->
             passive_sockets_read(Sock);
         {error, eaddrnotavail = Reason} ->
-            {skip, Reason};
+            {skip, connect_failed_str(Reason)};
         Error ->
             ct:fail({"Could not connect to server", Error})
     end.
@@ -981,8 +981,15 @@ shutdown_passive(Config) when is_list(Config) ->
     shutdown_common(false).
 
 shutdown_common(Active) ->
+    try do_shutdown_common(Active)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_shutdown_common(Active) ->
     P = sort_server(Active),
-    io:format("[~w]Sort server port: ~p\n", [self(), P]),
+    p("Sort server port: ~p", [P]),
 
 
     do_sort(P, []),
@@ -1004,15 +1011,23 @@ shutdown_common(Active) ->
     end.
 
 do_sort(P, List0) ->
-    io:format("[~w]Sort: ~p\n", [self(), List0]),
+    p("Sort: "
+      "~n   ~p", [List0]),
     List = [El++"\n" || El <- List0],
-    {ok,S} = gen_tcp:connect(localhost, P, [{packet,line}]),
+    S = case gen_tcp:connect(localhost, P, [{packet,line}]) of
+            {ok, Socket} ->
+                Socket;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     send_lines(S, List),
     ok = gen_tcp:shutdown(S, write),
     Lines = collect_lines(S, true),
-    io:format("[~w]Collected: ~p\n", [self(), Lines]),
+    p("Collected: "
+      "~n   ~p", [Lines]),
     SortedLines = lists:sort(List),
-    io:format("[~w]Sorted: ~p\n", [self(), SortedLines]),
+    p("Sorted: "
+      "~n   ~p", [SortedLines]),
     Lines = SortedLines,
     ok = gen_tcp:close(S).
 
@@ -1050,10 +1065,10 @@ collect_lines(S, false) ->
 collect_lines_1(S, Acc) ->
     receive
 	{tcp,S,Line} ->
-            io:format("[~w]collect_lines_1(~w): ~p\n", [self(), S, Line]),
+            p("collect_lines_1(~w): ~p", [S, Line]),
             collect_lines_1(S, [Line|Acc]);
 	{tcp_closed,S} ->
-            io:format("[~w]collect_lines_1(~w): tcp_closed\n", [self(), S]),
+            p("collect_lines_1(~w): tcp_closed", [S]),
             lists:reverse(Acc)
     end.
 
@@ -1066,8 +1081,7 @@ passive_collect_lines_1(S, Acc) ->
 
 send_lines(S, Lines) ->    
     lists:foreach(fun(Line) ->
-                          io:format(
-                            "[~w]send_line(~w): ~p\n", [self(), S, Line]),
+                          p("send_line(~w): ~p", [S, Line]),
 			  ok = gen_tcp:send(S, Line)
 		  end, Lines).
 
@@ -2717,7 +2731,7 @@ do_active_n_closed(_Config) ->
                             P ! {continue, self()},
                             CS;
                         {error, eaddrnotavail = Reason} ->
-                            exit({skip, Reason})
+                            exit({skip, connect_failed_str(Reason)})
                     end,
                 _ = [gen_tcp:send(S, Payload) || _ <- lists:seq(1, Cnt)],
                 gen_tcp:close(S),
@@ -3701,6 +3715,18 @@ delay_send_error(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+skip(S) when is_list(S) ->
+    throw({skip, S}).
+
+%% skip(F, A) when is_list(F) andalso is_list(A) ->
+%%     skip(f(F, A)).
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+connect_failed_str(Reason) ->
+    f("Connect failed: ~w", [Reason]).
 
 formated_timestamp() ->
     format_timestamp(os:timestamp()).
