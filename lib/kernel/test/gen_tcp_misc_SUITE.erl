@@ -1232,12 +1232,24 @@ do_show_econnreset_active(_Config) ->
     end.
 
 show_econnreset_active_once(Config) when is_list(Config) ->
+    try do_show_econnreset_active_once(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_show_econnreset_active_once(_Config) ->
     %% Now test using {active, once}
     {ok, L} = gen_tcp:listen(0,
 			   [{active, false},
 			    {show_econnreset, true}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    Client = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+                 {ok, CSock} ->
+                     CSock;
+                  {error, eaddrnotavail = Reason} ->
+                      skip(connect_failed_str(Reason))
+              end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
