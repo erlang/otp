@@ -1162,19 +1162,32 @@ do_shutdown_pending(_Config) ->
 %%
 
 show_econnreset_active(Config) when is_list(Config) ->
+    try do_show_econnreset_active(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_show_econnreset_active(_Config) ->
     %% First confirm everything works with option turned off.
-    {ok, L} = gen_tcp:listen(0, []),
-    {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    {ok, S} = gen_tcp:accept(L),
-    ok = gen_tcp:close(L),
-    ok = inet:setopts(Client, [{linger, {true, 0}}]),
-    ok = gen_tcp:close(Client),
+    p("test with option switched off (default)"),
+    {ok, L0} = gen_tcp:listen(0, []),
+    {ok, Port0} = inet:port(L0),
+    Client0 = case gen_tcp:connect(localhost, Port0, [{active, false}]) of
+                 {ok, CSock0} ->
+                     CSock0;
+                  {error, eaddrnotavail = Reason0} ->
+                      skip(connect_failed_str(Reason0))
+              end,
+    {ok, S0} = gen_tcp:accept(L0),
+    ok = gen_tcp:close(L0),
+    ok = inet:setopts(Client0, [{linger, {true, 0}}]),
+    ok = gen_tcp:close(Client0),
     receive
-       {tcp_closed, S} ->
+       {tcp_closed, S0} ->
 	   ok;
-       Other ->
-	   ct:fail({unexpected1, Other})
+       Other0 ->
+	   ct:fail({unexpected, off, closed, Other0})
     after 1000 ->
 	ct:fail({timeout, {server, no_tcp_closed}})
     end,
@@ -1182,9 +1195,15 @@ show_econnreset_active(Config) when is_list(Config) ->
     %% Now test with option switched on.
     %% Note: We are also testing that the show_econnreset option is
     %% inherited from the listening socket by the accepting socket.
+    p("test with option explicitly switched on"),
     {ok, L1} = gen_tcp:listen(0, [{show_econnreset, true}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1, [{active, false}]),
+    Client1 = case gen_tcp:connect(localhost, Port1, [{active, false}]) of
+                  {ok, CSock1} ->
+                      CSock1;
+                  {error, eaddrnotavail = Reason1} ->
+                      skip(connect_failed_str(Reason1))
+              end,
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(Client1, [{linger, {true, 0}}]),
@@ -1193,16 +1212,23 @@ show_econnreset_active(Config) when is_list(Config) ->
 	{tcp_error, S1, econnreset} ->
 	    receive
 		{tcp_closed, S1} ->
+                    p("done"),
 		    ok;
 		Other1 ->
-		    ct:fail({unexpected2, Other1})
+                    p("UNEXPECTED (expected closed):"
+                      "~n   ~p", [Other1]),
+		    ct:fail({unexpected, on, closed, Other1})
 	    after 1 ->
-		ct:fail({timeout, {server, no_tcp_closed}})
+                    p("UNEXPECTED timeout (expected closed)"),
+                    ct:fail({timeout, {server, no_tcp_closed}})
 	    end;
 	Other2 ->
-	    ct:fail({unexpected3, Other2})
+            p("UNEXPECTED (expected error:econnreset):"
+              "~n   ~p", [Other2]),
+	    ct:fail({unexpected, on, econnreset, Other2})
     after 1000 ->
-	ct:fail({timeout, {server, no_tcp_error}})
+            p("UNEXPECTED timeout (expected error:econnreset)"),
+            ct:fail({timeout, {server, no_tcp_error}})
     end.
 
 show_econnreset_active_once(Config) when is_list(Config) ->
