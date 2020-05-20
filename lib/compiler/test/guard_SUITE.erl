@@ -2300,6 +2300,7 @@ beam_bool_SUITE(_Config) ->
     in_catch(),
     recv_semi(),
     andalso_repeated_var(),
+    erl1253(),
     erl1246(),
     ok.
 
@@ -2621,6 +2622,146 @@ erl1246(Rec, #{cid := CollID}) ->
 erl1246_conf(gift_coll) -> {9502, {112, 45}};
 erl1246_conf(transform_id) -> 12;
 erl1246_conf(_) -> undefined.
+
+erl1253() ->
+    ok = erl1253_orelse_false(a, a, any),
+    ok = erl1253_orelse_false(a, a, true),
+    ok = erl1253_orelse_false(a, a, false),
+    error = erl1253_orelse_false(a, b, any),
+    error = erl1253_orelse_false(a, b, true),
+    ok = erl1253_orelse_false(a, b, false),
+
+    ok = erl1253_orelse_true(a, a, any),
+    ok = erl1253_orelse_true(a, a, true),
+    ok = erl1253_orelse_true(a, a, false),
+    error = erl1253_orelse_true(a, b, any),
+    ok = erl1253_orelse_true(a, b, true),
+    error = erl1253_orelse_true(a, b, false),
+
+    error = erl1253_andalso_false(a, a, any),
+    error = erl1253_andalso_false(a, a, true),
+    ok = erl1253_andalso_false(a, a, false),
+    error = erl1253_andalso_false(a, b, any),
+    error = erl1253_andalso_false(a, b, true),
+    error = erl1253_andalso_false(a, b, false),
+
+    error = erl1253_andalso_true(a, a, any),
+    ok = erl1253_andalso_true(a, a, true),
+    error = erl1253_andalso_true(a, a, false),
+    error = erl1253_andalso_true(a, b, any),
+    error = erl1253_andalso_true(a, b, true),
+    error = erl1253_andalso_true(a, b, false),
+
+    ok.
+
+erl1253_orelse_false(X, Y, Z) ->
+    Res = erl1253_orelse_false_1(X, Y, Z),
+    Res = erl1253_orelse_false_2(X, Y, Z),
+    Res = erl1253_orelse_false_3(X, Y, Z).
+
+erl1253_orelse_false_1(X, Y, Z) ->
+    Bool = Z =:= false,
+    if
+        X =:= Y orelse Bool -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_false_2(X, Y, Z) ->
+    Bool = Z =:= false,
+    if
+        Bool orelse X =:= Y -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_false_3(X, Y, Z) ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= false,
+    if
+        Bool1 orelse Bool2 -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_true(X, Y, Z) ->
+    Res = erl1253_orelse_true_1(X, Y, Z),
+    Res = erl1253_orelse_true_2(X, Y, Z),
+    Res = erl1253_orelse_true_3(X, Y, Z).
+
+erl1253_orelse_true_1(X, Y, Z)   ->
+    Bool = Z =:= true,
+    if
+        X =:= Y orelse Bool -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_true_2(X, Y, Z) ->
+    Bool = Z =:= true,
+    if
+        Bool orelse X =:= Y -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_true_3(X, Y, Z)   ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= true,
+    if
+        Bool1 orelse Bool2 -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_false(X, Y, Z) ->
+    Res = erl1253_andalso_false_1(X, Y, Z),
+    Res = erl1253_andalso_false_2(X, Y, Z),
+    Res = erl1253_andalso_false_3(X, Y, Z).
+
+erl1253_andalso_false_1(X, Y, Z) ->
+    Bool = Z =:= false,
+    if
+        X =:= Y andalso Bool -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_false_2(X, Y, Z) ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= false,
+    if
+        Bool1 andalso Bool2 -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_false_3(X, Y, Z) ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= false,
+    if
+        Bool1 andalso Bool2 -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_true(X, Y, Z) ->
+    Res = erl1253_andalso_true_1(X, Y, Z),
+    Res = erl1253_andalso_true_2(X, Y, Z),
+    Res = erl1253_andalso_true_3(X, Y, Z).
+
+erl1253_andalso_true_1(X, Y, Z) ->
+    Bool = Z =:= true,
+    if
+        X =:= Y andalso Bool -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_true_2(X, Y, Z) ->
+    Bool = Z =:= true,
+    if
+        Bool andalso X =:= Y-> ok;
+        true -> error
+    end.
+
+erl1253_andalso_true_3(X, Y, Z) ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= true,
+    if
+        Bool1 andalso Bool2 -> ok;
+        true -> error
+    end.
 
 %%%
 %%% End of beam_bool_SUITE tests.
