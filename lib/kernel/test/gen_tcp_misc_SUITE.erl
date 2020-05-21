@@ -1613,36 +1613,58 @@ do_linger_zero(_Config) ->
 
 
 linger_zero_sndbuf(Config) when is_list(Config) ->
+    try do_linger_zero_sndbuf(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_linger_zero_sndbuf(_Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty
     %% and the linger zero option is set on the listen socket.
     {OS, _} = os:type(),
+    p("create listen socket"),
     {ok, Listen} =
         gen_tcp:listen(0, [{active, false},
                            {recbuf, 4096},
                            {show_econnreset, true},
                            {linger, {true, 0}}]),
     {ok, Port} = inet:port(Listen),
-    {ok, Client} =
-        gen_tcp:connect(localhost, Port,
-				   [{active, false},
-				    {sndbuf, 4096}]),
+    p("connect (create client socket)"),
+    Client =
+        case gen_tcp:connect(localhost, Port,
+                             [{active, false}, {sndbuf, 4096}]) of
+            {ok, CSock} ->
+                CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
+    p("accept"),
     {ok, Server} = gen_tcp:accept(Listen),
+    p("close listen socket"),
     ok = gen_tcp:close(Listen),
     PayloadSize = 1024 * 1024,
     Payload = binary:copy(<<"0123456789ABCDEF">>, 256 * 1024), % 1 MB
+    p("send payload (on client socket)"),
     ok = gen_tcp:send(Server, Payload),
+    p("verify client socket queue size"),
     case erlang:port_info(Server, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
+    p("verify linger: {true, 0}"),
     {ok, [{linger, {true, 0}}]} = inet:getopts(Server, [linger]),
+    p("close client socket"),
     ok = gen_tcp:close(Server),
     ok = ct:sleep(1),
+    p("verify client socket (port) not connected"),
     undefined = erlang:port_info(Server, connected),
+    p("try (and fail) recv (on client socket)"),
     {error, closed} = gen_tcp:recv(Client, PayloadSize),
+    p("done"),
     ok.
 
 
