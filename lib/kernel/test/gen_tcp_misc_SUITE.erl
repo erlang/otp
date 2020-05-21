@@ -125,6 +125,13 @@ end_per_group(_GroupName, Config) ->
 %% Tests kernel application variables inet_default_listen_options and
 %% inet_default_connect_options.
 default_options(Config) when is_list(Config) ->
+    try do_default_options(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_default_options(_Config) ->
     %% First check the delay_send option
     {true,true,true}=do_delay_send_1(),
     {false,false,false}=do_delay_send_2(),
@@ -207,7 +214,12 @@ do_delay_on_other_node(XArgs, Function) ->
 do_delay_send_1() ->
     {ok,LS}=gen_tcp:listen(0,[{delay_send,true}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    {ok,S}=gen_tcp:connect("localhost",PortNum,[{delay_send,true}]),
+    S = case gen_tcp:connect("localhost",PortNum,[{delay_send,true}]) of
+            {ok, Sock} ->
+                Sock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     {ok,S2}= gen_tcp:accept(LS),
     {ok,[{delay_send,B1}]}=inet:getopts(S,[delay_send]),
     {ok,[{delay_send,B2}]}=inet:getopts(LS,[delay_send]),
