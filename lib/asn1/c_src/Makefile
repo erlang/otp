@@ -71,7 +71,7 @@ LN=cp
 else
 NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1rt_nif.so
 NIF_LIB_FILE = $(LIBDIR)/asn1rt_nif.a
-CLIB_FLAGS = -lc
+CLIB_FLAGS =
 LN= ln -s
 endif
 
