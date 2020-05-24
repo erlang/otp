@@ -1867,20 +1867,6 @@ busy_send_srv_loop(Socket, Master, Msg) ->
 	    busy_send_srv_loop(Socket, Master, Msg)
     end.
 
-%% busy_send_client(Port, Master, Msg) ->
-%%     %% Client
-%%     %%
-%%     spawn_link(
-%%       fun () ->
-%% 	      {ok,Socket} = gen_tcp:connect(
-%% 			 "localhost", Port,
-%% 			 [{active,false},binary,{packet,0}]),
-%% 	      receive
-%% 		  {Master,recv, N} ->
-%% 		      busy_send_client_loop(Socket, Master, Msg, N)
-%% 	      end
-%%       end).
-
 busy_send_client_loop(Socket, Master, Msg, N) ->
     %% Client
     %%
@@ -1919,11 +1905,18 @@ busy_disconnect_passive_send(S, Data) ->
 %%% a {tcp_closed,Socket} message. (Active mode.)
 %%%
 busy_disconnect_active(Config) when is_list(Config) ->
+    try do_busy_disconnect_active(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+end.
+
+do_busy_disconnect_active(_Config) ->
     MuchoData = list_to_binary(ones(64*1024)),
-    [do_busy_disconnect_active(MuchoData) || _ <- lists:seq(1, 10)],
+    [do_busy_disconnect_active2(MuchoData) || _ <- lists:seq(1, 10)],
     ok.
 
-do_busy_disconnect_active(MuchoData) ->
+do_busy_disconnect_active2(MuchoData) ->
     S = busy_disconnect_prepare_server([{active,true}]),
     busy_disconnect_active_send(S, MuchoData).
 
@@ -1941,10 +1934,14 @@ busy_disconnect_active_send(S, Data) ->
 busy_disconnect_prepare_server(ConnectOpts) ->
     Sender = self(),
     Server = spawn_link(fun() -> busy_disconnect_server(Sender) end),
-    receive {port,Server,Port} -> ok end,
-    {ok,S} = gen_tcp:connect(localhost, Port, ConnectOpts),
-    Server ! {Sender,sending},
-    S.
+    receive {port, Server, Port} -> ok end,
+    case gen_tcp:connect(localhost, Port, ConnectOpts) of
+        {ok, S} ->
+            Server ! {Sender, sending},
+            S;
+        {error, eaddrnotavail = Reason} ->
+            skip(connect_failed_str(Reason))
+    end.
 
 busy_disconnect_server(Sender) ->
     {ok,L} = gen_tcp:listen(0, [{active,false},binary,{reuseaddr,true},{packet,0}]),
