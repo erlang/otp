@@ -1715,53 +1715,128 @@ http_bad_client(Port) ->
 %% Fill send queue and then start receiving.
 %%
 busy_send(Config) when is_list(Config) ->
-    Master = self(),
-    Msg = <<"the quick brown fox jumps over a lazy dog~n">>,
-    Server =
-	spawn_link(fun () ->
-			   {ok,L} = gen_tcp:listen
-				      (0, [{active,false},binary,
-					   {reuseaddr,true},{packet,0}]),
-			   {ok,Port} = inet:port(L),
-			   Master ! {self(),client,
-				     busy_send_client(Port, Master, Msg)},
-			   busy_send_srv(L, Master, Msg)
-		   end),
-    io:format("~p Server~n", [Server]),
-    receive
-        {Server,client,Client} ->
-            io:format("~p Client~n", [Client]),
-            busy_send_loop(Server, Client, 0)
+    try do_busy_send(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
     end.
+
+do_busy_send(_Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    Master  = self(),
+    Msg     = <<"the quick brown fox jumps over a lazy dog~n">>,
+    p("[master] start server"),
+    ServerF =
+        fun() ->
+                p("[server] create listen socket"),
+                case gen_tcp:listen(0, [{active,false},binary,
+                                        {reuseaddr,true},{packet,0}]) of
+                    {ok, L} ->
+                        p("[server] listen socket created"),
+                        {ok, Port} = inet:port(L),
+                        Master ! {self(), listen_port, Port},
+                        p("[server] await continue"),
+                        receive
+                            {Master, continue} ->
+                                p("[server] continue"),
+                                busy_send_srv(L, Master, Msg)
+                        end;
+                    {error, Reason} ->
+                        p("[server] UNEXPECTED: ~w", [Reason]),
+                        exit({skip, listen_failed_str(Reason)})
+                end
+        end,
+    Server = spawn_link(ServerF),
+    p("[master] server: ~p", [Server]),
+    ListenPort =
+        receive
+            {'EXIT', Server, {skip, _} = SKIP} ->
+                throw(SKIP);
+
+            {'EXIT', Server, Reason} ->
+                exit({server, Reason});
+
+            {Server, listen_port, LP} ->
+                p("listen port: ~p", [LP]),
+                LP
+        end,
+    p("[master] start client"),
+    ClientF = 
+      fun () ->
+              p("[client] await (connect) server port"),
+              Port =
+                  receive
+                      {Master, connect, P} ->
+                          P
+                  end,
+              p("[client] connect to ~w", [Port]),
+	      case gen_tcp:connect("localhost", Port,
+                                   [{active,false},binary,{packet,0}]) of
+                  {ok, Socket} ->
+                      Master ! {self(), connected},
+                      p("[client] connected - await recv"),
+                      receive
+                          {Master, recv, N} ->
+                              p("[client] received recv:~w", [N]),
+                              busy_send_client_loop(Socket, Master, Msg, N)
+                      end;
+                  {error, eaddrnotavail = CReason} ->
+                      p("[client] UNEXPECTED: ~w", [CReason]),
+                      exit({skip, connect_failed_str(CReason)})
+              end
+      end,
+    Client = spawn_link(ClientF),
+    p("[master] client: ~p", [Client]),
+    Server ! {self(), continue},
+    Client ! {self(), connect, ListenPort},
+    receive
+        {Client, connected} ->
+            p("[master] client connected"),
+            ok
+    end,
+    busy_send_loop(Server, Client, 0),
+    process_flag(trap_exit, OldFlag),
+    p("[master] done"),
+    ok.
 
 busy_send_loop(Server, Client, N) ->
     %% Master
     %%
-    receive {Server,send} ->
-		  busy_send_loop(Server, Client, N+1)
-	  after 2000 ->
-		  %% Send queue full, sender blocked 
-		  %% -> stop sender and release client
-		  io:format("Send timeout, time to receive...~n", []),
-		  Server ! {self(),close},
-		  Client ! {self(),recv,N+1},
-                  receive
-                      {Server,send} ->
-                          busy_send_2(Server, Client, N+1)
-                  after 10000 ->
-                            %% If this happens, see busy_send_srv
-                            ct:fail({timeout,{server,not_send,flush([])}})
-                  end
+    receive
+        {Server, send} ->
+            busy_send_loop(Server, Client, N+1)
+
+    after 2000 ->
+            p("[master] send timeout: server send queue full (N = ~w+1)", [N]),
+            %% Send queue full, sender blocked 
+            %% -> stop sender and release client
+            p("Send timeout, time to receive..."),
+            Server ! {self(), close},
+            Client ! {self(), recv, N+1},
+            receive
+                {Server, send} ->
+                    busy_send_2(Server, Client, N+1)
+            after 10000 ->
+                    %% If this happens, see busy_send_srv
+                    p("UNEXPECTED: server send timeout"),
+                    ct:fail({timeout,{server,not_send,flush([])}})
+            end
     end.
 
 busy_send_2(Server, Client, _N) ->
     %% Master
     %%
     receive
-        {Server,[closed]} ->
-            receive {Client,[0,{error,closed}]} -> ok end
+        {Server, [closed]} ->
+            p("[master] received expected (server) closed"),
+            receive
+                {Client, [0,{error,closed}]} ->
+                    p("[master] received expected (client) closed"),
+                    ok
+            end
     after 10000 ->
-              ct:fail({timeout,{server,not_closed,flush([])}})
+            p("UNEXPECTED: server closed timeout"),
+            ct:fail({timeout, {server, not_closed, flush([])}})
     end.
 
 busy_send_srv(L, Master, Msg) ->
@@ -1769,45 +1844,52 @@ busy_send_srv(L, Master, Msg) ->
     %% Sometimes this accept does not return, do not really know why
     %% but is causes the timeout error in busy_send_loop to be
     %% triggered. Only happens on OS X Leopard?!?
-    {ok,Socket} = gen_tcp:accept(L),
-    busy_send_srv_loop(Socket, Master, Msg).
+    case gen_tcp:accept(L) of
+        {ok, Socket} ->
+            p("[server] accepted"),
+            busy_send_srv_loop(Socket, Master, Msg);
+        {error, Reason} ->
+            p("UNEXPECTED: server accept failure: ~p", [Reason]),
+            exit({skip, accept_failed_str(Reason)})
+    end.
 
 busy_send_srv_loop(Socket, Master, Msg) ->
     %% Server
     %%
     receive
-	{Master,close} ->
+	{Master, close} ->
+            p("[server] received close"),
 	    ok = gen_tcp:close(Socket),
 	    Master ! {self(),flush([closed])}
     after 0 ->
 	    ok = gen_tcp:send(Socket, Msg),
-	    Master ! {self(),send},
+	    Master ! {self(), send},
 	    busy_send_srv_loop(Socket, Master, Msg)
     end.
 
-busy_send_client(Port, Master, Msg) ->    
-    %% Client
-    %%
-    spawn_link(
-      fun () ->
-	      {ok,Socket} = gen_tcp:connect(
-			 "localhost", Port,
-			 [{active,false},binary,{packet,0}]),
-	      receive
-		  {Master,recv, N} ->
-		      busy_send_client_loop(Socket, Master, Msg, N)
-	      end
-      end).
+%% busy_send_client(Port, Master, Msg) ->
+%%     %% Client
+%%     %%
+%%     spawn_link(
+%%       fun () ->
+%% 	      {ok,Socket} = gen_tcp:connect(
+%% 			 "localhost", Port,
+%% 			 [{active,false},binary,{packet,0}]),
+%% 	      receive
+%% 		  {Master,recv, N} ->
+%% 		      busy_send_client_loop(Socket, Master, Msg, N)
+%% 	      end
+%%       end).
 
 busy_send_client_loop(Socket, Master, Msg, N) ->
     %% Client
     %%
     Size = byte_size(Msg),
     case gen_tcp:recv(Socket, Size) of
-	{ok,Msg} ->
+	{ok, Msg} ->
 	    busy_send_client_loop(Socket, Master, Msg, N-1);
 	Other ->
-	    Master ! {self(),flush([Other,N])}
+	    Master ! {self(), flush([Other,N])}
     end.
 
 %%%
@@ -3928,6 +4010,12 @@ f(F, A) ->
 
 connect_failed_str(Reason) ->
     f("Connect failed: ~w", [Reason]).
+
+listen_failed_str(Reason) ->
+    f("Listen failed: ~w", [Reason]).
+
+accept_failed_str(Reason) ->
+    f("Accept failed: ~w", [Reason]).
 
 formated_timestamp() ->
     format_timestamp(os:timestamp()).
