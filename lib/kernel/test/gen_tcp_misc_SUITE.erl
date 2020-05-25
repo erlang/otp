@@ -2274,14 +2274,20 @@ test_prio_put_get() ->
     {ok,[{priority,3},{tos,Tos}]} = inet:getopts(L1,[priority,tos]),
     gen_tcp:close(L1),
     ok.
+
 test_prio_accept() ->
     {ok,Sock}=gen_tcp:listen(0,[binary,{packet,0},{active,false},
                                 {reuseaddr,true},{priority,4}]),
     {ok,Port} = inet:port(Sock),
-    {ok,Sock2}=gen_tcp:connect("localhost",Port,[binary,{packet,0},
-                                                 {active,false},
-                                                 {reuseaddr,true},
-                                                 {priority,4}]),
+    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+                                                   {active,false},
+                                                   {reuseaddr,true},
+                                                   {priority,4}]) of
+                {ok, S2} -> 
+                    S2;
+                {error, eaddrnotavail = Reason} ->
+                    skip(connect_failed_str(Reason))
+            end,
     {ok,Sock3}=gen_tcp:accept(Sock),
     {ok,[{priority,4}]} = inet:getopts(Sock,[priority]),
     {ok,[{priority,4}]} = inet:getopts(Sock2,[priority]),
@@ -2298,11 +2304,16 @@ test_prio_accept2() ->
                                 {reuseaddr,true},{priority,4},
                                 {tos,Tos1}]),
     {ok,Port} = inet:port(Sock),
-    {ok,Sock2}=gen_tcp:connect("localhost",Port,[binary,{packet,0},
-                                                 {active,false},
-                                                 {reuseaddr,true},
-                                                 {priority,4},
-                                                 {tos,Tos2}]),
+    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+                                                   {active,false},
+                                                   {reuseaddr,true},
+                                                   {priority,4},
+                                                   {tos,Tos2}]) of
+                {ok, S2} ->
+                    S2;
+                {error, eaddrnotavail = Reason} ->
+                    skip(connect_failed_str(Reason))
+            end,
     {ok,Sock3}=gen_tcp:accept(Sock),
     {ok,[{priority,4},{tos,Tos1}]} = inet:getopts(Sock,[priority,tos]),
     {ok,[{priority,4},{tos,Tos2}]} = inet:getopts(Sock2,[priority,tos]),
@@ -2319,10 +2330,15 @@ test_prio_accept3() ->
                                 {reuseaddr,true},
                                 {tos,Tos1}]),
     {ok,Port} = inet:port(Sock),
-    {ok,Sock2}=gen_tcp:connect("localhost",Port,[binary,{packet,0},
-                                                 {active,false},
-                                                 {reuseaddr,true},
-                                                 {tos,Tos2}]),
+    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+                                                   {active,false},
+                                                   {reuseaddr,true},
+                                                   {tos,Tos2}]) of
+                {ok, S2} ->
+                    S2;
+        {error, eaddrnotavail = Reason} ->
+            skip(connect_failed_str(Reason))
+    end,
     {ok,Sock3}=gen_tcp:accept(Sock),
     {ok,[{priority,0},{tos,Tos1}]} = inet:getopts(Sock,[priority,tos]),
     {ok,[{priority,0},{tos,Tos2}]} = inet:getopts(Sock2,[priority,tos]),
@@ -2344,11 +2360,16 @@ test_prio_accept_async() ->
     receive
     after 3000 -> ok
     end,
-    {ok,Sock2}=gen_tcp:connect("localhost",Port,[binary,{packet,0},
-                                                 {active,false},
-                                                 {reuseaddr,true},
-                                                 {priority,4},
-                                                 {tos,Tos2}]),
+    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+                                                   {active,false},
+                                                   {reuseaddr,true},
+                                                   {priority,4},
+                                                   {tos,Tos2}]) of
+                {ok, S2} ->
+                    S2;
+                {error, eaddrnotavail = Reason} ->
+                    skip(connect_failed_str(Reason))
+            end,
     receive
         {Ref,{ok,[{priority,4},{tos,Tos1}]}} ->
             ok;
@@ -2396,6 +2417,13 @@ test_prio_udp() ->
 
 %% Tests the so_priority and ip_tos options on sockets when applicable.
 so_priority(Config) when is_list(Config) ->
+    try do_so_priority(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_so_priority(_Config) ->
     {ok,L} = gen_tcp:listen(0, [{active,false}]),
     ok = inet:setopts(L,[{priority,1}]),
     case inet:getopts(L,[priority]) of
