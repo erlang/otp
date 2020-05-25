@@ -2809,7 +2809,12 @@ multi_accept_close_listen(Config) when is_list(Config) ->
     end.
 
 do_multi_accept_close_listen(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     spawn(F),
@@ -2829,7 +2834,12 @@ accept_timeout(Config) when is_list(Config) ->
     end.
 
 do_accept_timeout(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS,1000)} end,
     P = spawn(F),
@@ -2844,7 +2854,12 @@ accept_timeouts_in_order(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_in_order(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
     P2 = spawn(mktmofun(1200,Parent,LS)),
@@ -2862,7 +2877,12 @@ accept_timeouts_in_order2(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_in_order2(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1400,Parent,LS)),
     P2 = spawn(mktmofun(1300,Parent,LS)),
@@ -2880,7 +2900,12 @@ accept_timeouts_in_order3(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_in_order3(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1200,Parent,LS)),
     P2 = spawn(mktmofun(1400,Parent,LS)),
@@ -2899,7 +2924,12 @@ accept_timeouts_in_order4(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_in_order4(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(200,Parent,LS)),
     P2 = spawn(mktmofun(400,Parent,LS)),
@@ -2918,7 +2948,12 @@ accept_timeouts_in_order5(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_in_order5(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(400,Parent,LS)),
     P2 = spawn(mktmofun(1000,Parent,LS)),
@@ -2937,7 +2972,12 @@ accept_timeouts_in_order6(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_in_order6(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
     P2 = spawn(mktmofun(400,Parent,LS)),
@@ -2956,7 +2996,12 @@ accept_timeouts_in_order7(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_in_order7(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
     P2 = spawn(mktmofun(200,Parent,LS)),
@@ -2980,7 +3025,12 @@ accept_timeouts_mixed(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_mixed(_Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
     P1 = spawn(mktmofun(1000,Parent,LS)),
@@ -3009,9 +3059,24 @@ do_accept_timeouts_mixed(_Config) ->
     ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100).
 
 %% Check that single acceptor behaves as expected when killed.
-killing_acceptor(Config) when is_list(Config) ->    
-    {ok,LS}=gen_tcp:listen(0,[]),
-    Pid = spawn(fun() -> erlang:display({accepted,self(),gen_tcp:accept(LS)}) end),
+killing_acceptor(Config) when is_list(Config) ->
+    try do_killing_acceptor(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_killing_acceptor(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
+    Pid = spawn(
+            fun() ->
+                    erlang:display({accepted,self(),gen_tcp:accept(LS)})
+            end),
     receive after 100 -> ok
     end,
     {ok,L1} = prim_inet:getstatus(LS),
@@ -3024,8 +3089,20 @@ killing_acceptor(Config) when is_list(Config) ->
     ok.
 
 %% Check that multi acceptors behaves as expected when killed.
-killing_multi_acceptors(Config) when is_list(Config) ->    
-    {ok,LS}=gen_tcp:listen(0,[]),
+killing_multi_acceptors(Config) when is_list(Config) ->
+    try do_killing_multi_acceptors(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_killing_multi_acceptors(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,             
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     F2 = mktmofun(1000,Parent,LS),
@@ -3047,7 +3124,19 @@ killing_multi_acceptors(Config) when is_list(Config) ->
 
 %% Check that multi acceptors behaves as expected when killed (more).
 killing_multi_acceptors2(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_killing_multi_acceptors2(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_killing_multi_acceptors2(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,             
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
