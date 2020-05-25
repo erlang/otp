@@ -291,11 +291,21 @@ t_fdconnect(Config) when is_list(Config) ->
 %%% implicit inet6 option to api functions
 
 t_implicit_inet6(Config) when is_list(Config) ->
+    try do_t_implicit_inet6(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_t_implicit_inet6(_Config) ->
+    p("try get hostname"),
     Host = ok(inet:gethostname()),
+    p("try get address for host ~p", [Host]),
     case inet:getaddr(Host, inet6) of
-	{ok,Addr} ->
+	{ok, Addr} ->
+            p("address: ~p", [Addr]),
 	    t_implicit_inet6(Host, Addr);
-	{error,Reason} ->
+	{error, Reason} ->
 	    {skip,
 	     "Can not look up IPv6 address: "
 	     ++atom_to_list(Reason)}
@@ -304,29 +314,51 @@ t_implicit_inet6(Config) when is_list(Config) ->
 t_implicit_inet6(Host, Addr) ->
     Loopback = {0,0,0,0,0,0,0,1},
     case gen_tcp:listen(0, [inet6, {ip,Loopback}]) of
-	{ok,S1} ->
-	    io:format("~s ~p~n", ["::1",Loopback]),
+	{ok, S1} ->
+	    p("try ~s ~p", ["::1", Loopback]),
 	    implicit_inet6(S1, Loopback),
 	    ok = gen_tcp:close(S1),
 	    %%
 	    Localaddr = ok(get_localaddr()),
-	    S2 = ok(gen_tcp:listen(0, [{ip,Localaddr}])),
+	    S2 = case gen_tcp:listen(0, [{ip, Localaddr}]) of
+                     {ok, LSock2} ->
+                         LSock2;
+                     {error, Reason2} ->
+                         skip(listen_failed_str(Reason2))
+                 end,
 	    implicit_inet6(S2, Localaddr),
 	    ok = gen_tcp:close(S2),
 	    %%
-	    io:format("~s ~p~n", [Host,Addr]),
-	    S3 = ok(gen_tcp:listen(0, [{ifaddr,Addr}])),
+	    p("try ~s ~p", [Host, Addr]),
+	    S3 = case gen_tcp:listen(0, [{ifaddr,Addr}]) of
+                     {ok, LSock3} ->
+                         LSock3;
+                     {error, Reason3} ->
+                         skip(listen_failed_str(Reason3))
+                 end,
 	    implicit_inet6(S3, Addr),
-	    ok = gen_tcp:close(S3);
-	{error,_} ->
-	    {skip,"IPv6 not supported"}
+	    ok = gen_tcp:close(S3),
+	    p("done"),
+            ok;
+        {error, Reason1} ->
+            skip(listen_failed_str(Reason1))
     end.
 
 implicit_inet6(S, Addr) ->
     P = ok(inet:port(S)),
-    S2 = ok(gen_tcp:connect(Addr, P, [])),
+    S2 = case gen_tcp:connect(Addr, P, []) of
+             {ok, CSock} ->
+                 CSock;
+             {error, CReason} ->
+                 skip(connect_failed_str(CReason))
+         end,
     P2 = ok(inet:port(S2)),
-    S1 = ok(gen_tcp:accept(S)),
+    S1 = case gen_tcp:accept(S) of
+             {ok, ASock} ->
+                 ASock;
+             {error, AReason} ->
+                 skip(accept_failed_str(AReason))
+         end,
     P1 = P = ok(inet:port(S1)),
     {Addr,P2} = ok(inet:peername(S1)),
     {Addr,P1} = ok(inet:peername(S2)),
@@ -638,7 +670,7 @@ get_localaddr([]) ->
 get_localaddr([Localhost|Ls]) ->
     case inet:getaddr(Localhost, inet6) of
        {ok, LocalAddr} ->
-           io:format("~s ~p~n", [Localhost, LocalAddr]),
+           p("~s ~p", [Localhost, LocalAddr]),
            {ok, LocalAddr};
        _ ->
            get_localaddr(Ls)
@@ -660,3 +692,44 @@ delete_local_filenames() ->
 		filelib:wildcard(
 		  "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+skip(S) when is_list(S) ->
+    throw({skip, S}).
+
+%% skip(F, A) when is_list(F) andalso is_list(A) ->
+%%     skip(f(F, A)).
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+connect_failed_str(Reason) ->
+    f("Connect failed: ~w", [Reason]).
+
+listen_failed_str(Reason) ->
+    f("Listen failed: ~w", [Reason]).
+
+accept_failed_str(Reason) ->
+    f("Accept failed: ~w", [Reason]).
+
+%% port_failed_str(Reason) ->
+%%     f("Port failed: ~w", [Reason]).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+
