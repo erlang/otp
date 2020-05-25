@@ -2906,6 +2906,13 @@ accept_timeouts_in_order7(Config) when is_list(Config) ->
 
 %% Check that multi-accept timeouts behave correctly when mixed with successful timeouts.
 accept_timeouts_mixed(Config) when is_list(Config) ->
+    try do_accept_timeouts_mixed(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_mixed(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
@@ -2918,10 +2925,20 @@ accept_timeouts_mixed(Config) when is_list(Config) ->
     P4 = spawn(mktmofun(4000,Parent,LS)),
     wait_until_accepting(P4,500),
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}}],infinity,1500),
-    {ok,_}=gen_tcp:connect("localhost",PortNo,[]),
+    case gen_tcp:connect("localhost", PortNo, []) of
+        {ok, _} ->
+            ok;
+        {error, eaddrnotavail = Reason1} ->
+            skip(connect_failed_str(Reason1))
+    end,
     ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),infinity,100),
     ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],infinity,2000),
-    gen_tcp:connect("localhost",PortNo,[]),
+    case gen_tcp:connect("localhost", PortNo, []) of
+        {error, eaddrnotavail = Reason2} ->
+            skip(connect_failed_str(Reason2));
+        _  ->
+            ok
+    end,
     ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100).
 
 %% Check that single acceptor behaves as expected when killed.
