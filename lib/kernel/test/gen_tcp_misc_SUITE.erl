@@ -1891,7 +1891,7 @@ busy_disconnect_passive(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_busy_disconnect_passive(Config) ->
+do_busy_disconnect_passive(_Config) ->
     MuchoData = list_to_binary(ones(64*1024)),
     [do_busy_disconnect_passive2(MuchoData) || _ <- lists:seq(1, 10)],
     ok.
@@ -1980,117 +1980,174 @@ busy_disconnect_server_wait_for_busy(Sender, S) ->
 %%% Fill send queue
 %%%
 fill_sendq(Config) when is_list(Config) ->
-    Master = self(),
-    Server =
-	spawn_link(fun () ->
-			   {ok,L} = gen_tcp:listen(0, [{active,false},binary,
-                                                       {reuseaddr,true},{packet,0}]),
-			   {ok,Port} = inet:port(L),
-			   Master ! {self(),client,
-				     fill_sendq_client(Port, Master)},
-			   fill_sendq_srv(L, Master)
-		   end),
-    io:format("~p Server~n", [Server]),
-    receive
-        {Server,client,Client} ->
-            io:format("~p Client~n", [Client]),
-            receive
-                {Server,reader,Reader} ->
-                    io:format("~p Reader~n", [Reader]),
-                    fill_sendq_loop(Server, Client, Reader)
-	    end
+    try do_fill_sendq(Config)
+    catch
+        exit:{skip, _} = SKIP ->
+            SKIP
     end.
+
+do_fill_sendq(_Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    Master  = self(),
+    ServerF =
+        fun () ->
+                p("[server] try listen"),
+                case gen_tcp:listen(0, [{active,false},binary,
+                                        {reuseaddr,true},{packet,0}]) of
+                    {ok, L} ->
+                        p("[server] try port"),
+                        case inet:port(L) of
+                            {ok, Port} ->
+                                Master ! {self(), listen_port, Port},
+                                fill_sendq_srv(L, Master);
+                            {error, PReason} ->
+                                exit({skip, port_failed_str(PReason)})
+                        end;
+                    {error, LReason} ->
+                        exit({skip, listen_failed_str(LReason)})
+                end
+        end,
+    Server  = spawn_link(ServerF),
+    p("[master] server: ~p", [Server]),
+    ClientF =
+        fun () ->
+                p("[client] await server port"),
+                ServerPort =
+                    receive
+                        {Master, server_port, SP} ->
+                            p("[client] server port: ~w", [SP]),
+                            SP
+                    end,
+                %% Just close on order
+                p("[client] try connect"),
+                case gen_tcp:connect(
+                       "localhost", ServerPort,
+                       [{active,false},binary,{packet,0}]) of
+                    {ok, S} ->
+                        p("[client] connected"),
+                        Master ! {self(), connected},
+                        receive
+                            {Master, close} ->
+                                p("[client] received close"),
+                                ok = gen_tcp:close(S)
+                        end;
+                    {error, eaddrnotavail = Reason} ->
+                        exit({skip, connect_failed_str(Reason)})
+                end
+        end,
+    Client = spawn_link(ClientF),
+    p("[master] client: ~p", [client]),
+    ListenPort =
+        receive
+            {Server, listen_port, LP} ->
+                p("[master] listen port: ~w", [LP]),
+                LP
+        end,
+    Client ! {self(), server_port, ListenPort},
+    p("[master] await client connected"),
+    receive {Client, connected} -> ok end,
+    p("[master] await reader"),
+    Res = receive
+              {Server, reader, Reader} ->
+                  p("[master] reader: ~p", [Reader]),
+                  fill_sendq_loop(Server, Client, Reader)
+          end,
+    process_flag(trap_exit, OldFlag),    
+    p("[master] done"),
+    Res.
 
 fill_sendq_loop(Server, Client, Reader) ->
     %% Master
     %%
     receive
-        {Server,send} ->
+        {Server, send} ->
 	    fill_sendq_loop(Server, Client, Reader)
     after 2000 ->
 	    %% Send queue full, sender blocked -> close client.
-	    io:format("Send timeout, closing Client...~n", []),
-	    Client ! {self(),close},
+	    p("[master] send timeout, closing client"),
+	    Client ! {self(), close},
 	    receive
-                {Server,[{error,closed}]} ->
-                    io:format("Got server closed.~n"),
+                {Server, [{error,closed}] = SErrors} ->
+                    p("[master] got expected server closed"),
                     receive
-                        {Reader,[{error,closed}]} ->
-                            io:format("Got reader closed.~n"),
-                            ok
+                        {Reader, [{error,closed}]} ->
+                            p("[master] got expected reader closed"),
+                            ok;
+                        {Reader, RErrors} ->
+                            ct:fail([{server, SErrors}, {reader, RErrors}])
                     after 3000 ->
                             ct:fail({timeout,{closed,reader}})
                     end;
-                {Reader,[{error,closed}]} ->
-                    io:format("Got reader closed.~n"),
+
+                {Server, SErrors} ->
+                    ct:fail([{server, SErrors}, {reader, []}]);
+
+                {Reader, [{error,closed}] = RErrors} ->
+                    p("[master] got expected reader closed"),
                     receive
-                        {Server,[{error,closed}]} ->
-                            io:format("Got server closed~n"),
-                            ok
+                        {Server, [{error,closed}]} ->
+                            p("[master] got expected server closed"),
+                            ok;
+                        {Server, SErrors} ->
+                            ct:fail([{server, SErrors}, {reader, RErrors}])
                     after 3000 ->
                             ct:fail({timeout,{closed,server}})
-                    end
+                    end;
+
+                {Reader, RErrors} ->
+                    ct:fail([{server, []}, {reader, RErrors}])
+
             after 3000 ->
-                    ct:fail({timeout,{closed,[server,reader]}})
+                    Msgs = flush([]),
+                    ct:fail({timeout,{closed,[server,reader]}, Msgs})
             end
     end.
 
 fill_sendq_srv(L, Master) ->
     %% Server
     %%
+    p("[server] await accept"),
     case gen_tcp:accept(L) of
-	{ok,S} ->
+	{ok, S} ->
 	    Master ! {self(),reader,
 		      spawn_link(fun () -> fill_sendq_read(S, Master) end)},
 	    Msg = "the quick brown fox jumps over a lazy dog~n",
 	    fill_sendq_write(S, Master, [Msg,Msg,Msg,Msg,Msg,Msg,Msg,Msg]);
-	Error ->
-	    io:format("~p accept error: ~p.~n", [self(),Error]),
-	    Master ! {self(),flush([Error])}
+	E ->
+            Error = flush([E]),
+	    p("[server] accept error: ~p", [E]),
+	    Master ! {self(), Error}
     end.
 
 fill_sendq_write(S, Master, Msg) ->
     %% Server
     %%
-    %%io:format("~p sending...~n", [self()]),
-    Master ! {self(),send},
+    %% p("[server] sending..."),
+    Master ! {self(), send},
     case gen_tcp:send(S, Msg) of
 	ok ->
-	    %%io:format("~p ok.~n", [self()]),
+	    %% p("[server] ok."),
 	    fill_sendq_write(S, Master, Msg);
-	E ->
+	{error, _} = E ->
 	    Error = flush([E]),
-	    io:format("~p send error: ~p.~n", [self(),Error]),
-	    Master ! {self(),Error}
+	    p("[server] send error: ~p", [Error]),
+	    Master ! {self(), Error}
     end.
 
 fill_sendq_read(S, Master) ->
     %% Reader
     %%
-    io:format("~p read infinity...~n", [self()]),
+    p("[reader] read infinity..."),
     case gen_tcp:recv(S, 0, infinity) of
-	{ok,Data} ->
-	    io:format("~p recv: ~p.~n", [self(),Data]),
+	{ok, Data} ->
+	    p("[reader] recv: ~p", [Data]),
 	    fill_sendq_read(S, Master);
 	E ->
 	    Error = flush([E]),
-	    io:format("~p recv error: ~p.~n", [self(),Error]),
-	    Master ! {self(),Error}
+	    p("[reader] recv error: ~p", [Error]),
+	    Master ! {self(), Error}
     end.
 
-fill_sendq_client(Port, Master) ->
-    %% Client
-    %%
-    spawn_link(fun () ->
-		       %% Just close on order
-		       {ok,S} = gen_tcp:connect(
-				  "localhost", Port,
-				  [{active,false},binary,{packet,0}]),
-		       receive
-			   {Master,close} ->
-			       ok = gen_tcp:close(S)
-		       end
-	       end).
 
 %%% Try to receive more than available number of bytes from 
 %%% a closed socket.
@@ -4020,6 +4077,9 @@ listen_failed_str(Reason) ->
 
 accept_failed_str(Reason) ->
     f("Accept failed: ~w", [Reason]).
+
+port_failed_str(Reason) ->
+    f("Port failed: ~w", [Reason]).
 
 formated_timestamp() ->
     format_timestamp(os:timestamp()).
