@@ -2762,12 +2762,30 @@ mktmofun(Tmo,Parent,LS) ->
 %% Accept tests
 %% Test singular accept.
 primitive_accept(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
-    {ok,PortNo}=inet:port(LS),
+    try do_primitive_accept(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_primitive_accept(_Config) ->
+    LSock =
+        case gen_tcp:listen(0,[]) of
+            {ok, LS} ->
+                LS;
+            {error, LReason} ->
+                skip(listen_failed_str(LReason))
+        end,
+    {ok, PortNo} = inet:port(LSock),
     Parent = self(),
-    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
+    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LSock)} end,
     P = spawn(F),
-    gen_tcp:connect("localhost",PortNo,[]),
+    case gen_tcp:connect("localhost", PortNo, []) of
+        {ok, _} ->
+            ok;
+        {error, eaddrnotavail = CReason} ->
+            skip(connect_failed_str(CReason))
+    end,        
     receive
         {accepted,P,{ok,P0}} when is_port(P0) ->
             ok;
