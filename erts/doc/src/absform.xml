@@ -370,9 +370,7 @@
       </item>
       <item>
         <p>If E is a fun expression <c>fun Module:Name/Arity</c>, then Rep(E) =
-          <c>{'fun',LINE,{function,Rep(Module),Rep(Name),Rep(Arity)}}</c>.
-          (Before Erlang/OTP R15: Rep(E) =
-          <c>{'fun',LINE,{function,Module,Name,Arity}}</c>.)</p>
+          <c>{'fun',LINE,{function,Rep(Module),Rep(Name),Rep(Arity)}}</c>.</p>
       </item>
       <item>
         <p>If E is a fun expression <c>fun Fc_1 ; ... ; Fc_k end</c>,

@@ -2426,11 +2426,7 @@ expr({'fun',Line,Body}, Vt, St) ->
                 true -> {[],St};
                 false -> {[],call_function(Line, F, A, St)}
             end;
-	{function,M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
-	    %% Compatibility with pre-R15 abstract format.
-	    {[],St};
 	{function,M,F,A} ->
-	    %% New in R15.
 	    expr_list([M,F,A], Vt, St)
     end;
 expr({named_fun,_,'_',Cs}, Vt, St) ->
