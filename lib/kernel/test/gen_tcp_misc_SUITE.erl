@@ -2720,7 +2720,11 @@ collect_accepts(0,_) -> [];
 collect_accepts(N,Tmo) ->
     A = millis(),
     receive
-	{accepted,P,Msg} ->
+	{accepted, P, {error, eaddrnotavail = Reason}} ->
+            p("~p Failed accept: ~p", [P, Reason]),
+            skip(accept_failed_str(Reason));
+
+        {accepted,P,Msg} ->
             NextN = if N =:= infinity -> N; true -> N - 1 end,
 	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
     after Tmo ->
@@ -2798,6 +2802,13 @@ do_primitive_accept(_Config) ->
 	
 %% Closing listen socket when multi-accepting.
 multi_accept_close_listen(Config) when is_list(Config) ->
+    try do_multi_accept_close_listen(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_multi_accept_close_listen(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
@@ -2811,6 +2822,13 @@ multi_accept_close_listen(Config) when is_list(Config) ->
 	
 %% Single accept with timeout.
 accept_timeout(Config) when is_list(Config) ->
+    try do_accept_timeout(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeout(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS,1000)} end,
@@ -2819,6 +2837,13 @@ accept_timeout(Config) when is_list(Config) ->
 
 %% Check that multi-accept timeouts happen in the correct order.
 accept_timeouts_in_order(Config) when is_list(Config) ->
+    try do_accept_timeouts_in_order(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
@@ -2830,6 +2855,13 @@ accept_timeouts_in_order(Config) when is_list(Config) ->
 
 %% Check that multi-accept timeouts happen in the correct order (more).
 accept_timeouts_in_order2(Config) when is_list(Config) ->
+    try do_accept_timeouts_in_order2(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order2(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     P1 = spawn(mktmofun(1400,Parent,LS)),
@@ -2841,6 +2873,13 @@ accept_timeouts_in_order2(Config) when is_list(Config) ->
 
 %% Check that multi-accept timeouts happen in the correct order (even more).
 accept_timeouts_in_order3(Config) when is_list(Config) ->
+    try do_accept_timeouts_in_order3(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order3(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     P1 = spawn(mktmofun(1200,Parent,LS)),
@@ -2853,6 +2892,13 @@ accept_timeouts_in_order3(Config) when is_list(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts.
 accept_timeouts_in_order4(Config) when is_list(Config) ->
+    try do_accept_timeouts_in_order4(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order4(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     P1 = spawn(mktmofun(200,Parent,LS)),
@@ -2865,6 +2911,13 @@ accept_timeouts_in_order4(Config) when is_list(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (more).
 accept_timeouts_in_order5(Config) when is_list(Config) ->
+    try do_accept_timeouts_in_order5(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order5(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     P1 = spawn(mktmofun(400,Parent,LS)),
@@ -2877,6 +2930,13 @@ accept_timeouts_in_order5(Config) when is_list(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (even more).
 accept_timeouts_in_order6(Config) when is_list(Config) ->
+    try do_accept_timeouts_in_order6(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order6(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
@@ -2889,6 +2949,13 @@ accept_timeouts_in_order6(Config) when is_list(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (even more++).
 accept_timeouts_in_order7(Config) when is_list(Config) ->
+    try do_accept_timeouts_in_order7(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order7(_Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
