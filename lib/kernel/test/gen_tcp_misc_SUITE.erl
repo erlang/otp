@@ -2181,6 +2181,16 @@ do_partial_recv_and_close(_Config) ->
 %%% a closed socket, this time waiting in the recv before closing.
 %%%
 partial_recv_and_close_2(Config) when is_list(Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    Res = try do_partial_recv_and_close_2(Config)
+          catch
+              exit:{skip, _} = SKIP ->
+                  SKIP
+          end,
+    process_flag(trap_exit, OldFlag),
+    Res.
+
+do_partial_recv_and_close_2(_Config) ->
     Msg = "the quick brown fox jumps over a lazy dog 0123456789\n",
     Len = length(Msg),
     {ok,L} = gen_tcp:listen(0, [{active,false}]),
@@ -2190,15 +2200,19 @@ partial_recv_and_close_2(Config) when is_list(Config) ->
 	spawn_link(
 	  fun () ->
 		  receive after 2000 -> ok end,
-		  {ok,S} = gen_tcp:connect("localhost", P, [{active,false}]),
-		  ok = gen_tcp:send(S, Msg),
-		  receive {Server,close} -> ok end,
-		  receive after 2000 -> ok end,
-		  ok = gen_tcp:close(S)
+		  case gen_tcp:connect("localhost", P, [{active,false}]) of
+                      {ok, S} ->
+                          ok = gen_tcp:send(S, Msg),
+                          receive {Server,close} -> ok end,
+                          receive after 2000 -> ok end,
+                          ok = gen_tcp:close(S);
+                      {error, eaddrnotavail = Reason} ->
+                          exit({skip, connect_failed_str(Reason)})
+                  end
 	  end),
-    {ok,A} = gen_tcp:accept(L),
-    Client ! {Server,close},
-    {error,closed} = gen_tcp:recv(A, Len+1),
+    {ok, A} = gen_tcp:accept(L),
+    Client ! {Server, close},
+    {error, closed} = gen_tcp:recv(A, Len+1),
     ok.
 
 %%% Here we tests that gen_tcp:recv/2 will return {error,closed} following
