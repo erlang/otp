@@ -2219,6 +2219,16 @@ do_partial_recv_and_close_2(_Config) ->
 %%% a send operation of a huge amount data when the other end closed the socket.
 %%%
 partial_recv_and_close_3(Config) when is_list(Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    Res = try do_partial_recv_and_close_3(Config)
+          catch
+              throw:{skip, _} = SKIP ->
+                  SKIP
+          end,
+    process_flag(trap_exit, OldFlag),
+    Res.
+
+do_partial_recv_and_close_3(_Config) ->
     [do_partial_recv_and_close_3() || _ <- lists:seq(0, 20)],
     ok.
 
@@ -2236,14 +2246,20 @@ do_partial_recv_and_close_3() ->
 	{port,Port} -> ok
     end,
     Much = ones(8*64*1024),
-    {ok,S} = gen_tcp:connect(localhost, Port, [{active,false}]),
+    S = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+            {ok, Sock} ->
+                Sock;
+        {error, eaddrnotavail = Reason} ->
+            skip(connect_failed_str(Reason))
+    end,
 
-    %% Send a lot of data (most of it will be queued). The receiver will read one byte
-    %% and close the connection. The write operation will fail.
+    %% Send a lot of data (most of it will be queued).
+    %% The receiver will read one byte and close the connection.
+    %% The write operation will fail.
     gen_tcp:send(S, Much),
 
     %% We should always get {error,closed} here.
-    {error,closed} = gen_tcp:recv(S, 0).
+    {error, closed} = gen_tcp:recv(S, 0).
     
 
 test_prio_put_get() ->
