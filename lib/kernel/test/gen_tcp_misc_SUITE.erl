@@ -2153,15 +2153,28 @@ fill_sendq_read(S, Master) ->
 %%% a closed socket.
 %%%
 partial_recv_and_close(Config) when is_list(Config) ->
+    try do_partial_recv_and_close(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_partial_recv_and_close(_Config) ->
     Msg = "the quick brown fox jumps over a lazy dog 0123456789\n",
     Len = length(Msg),
     {ok,L} = gen_tcp:listen(0, [{active,false}]),
     {ok,P} = inet:port(L),
-    {ok,S} = gen_tcp:connect("localhost", P, [{active,false}]),
-    {ok,A} = gen_tcp:accept(L),
-    ok = gen_tcp:send(S, Msg),
-    ok = gen_tcp:close(S),
-    {error,closed} = gen_tcp:recv(A, Len+1),
+    Sock =
+        case gen_tcp:connect("localhost", P, [{active,false}]) of
+            {ok, S} ->
+                S;
+        {error, eaddrnotavail = Reason} ->
+            skip(connect_failed_str(Reason))
+    end,
+    {ok, A} = gen_tcp:accept(L),
+    ok = gen_tcp:send(Sock, Msg),
+    ok = gen_tcp:close(Sock),
+    {error, closed} = gen_tcp:recv(A, Len+1),
     ok.
 
 %%% Try to receive more than available number of bytes from 
