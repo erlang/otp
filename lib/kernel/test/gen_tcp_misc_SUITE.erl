@@ -2727,6 +2727,7 @@ collect_accepts(N,Tmo) ->
         {accepted,P,Msg} ->
             NextN = if N =:= infinity -> N; true -> N - 1 end,
 	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
+
     after Tmo ->
 	    []
     end.
@@ -2744,8 +2745,13 @@ collect_accepts(N,Tmo) ->
 collect_connects(Tmo) ->
     A = millis(),
     receive
+	{connected, P, {error, eaddrnotavail = Reason}} ->
+            p("~p Failed connect: ~p", [P, Reason]),
+            skip(connect_failed_str(Reason));
+
 	{connected,P,Msg} ->
 	    [{P,Msg}] ++ collect_connects(Tmo-(millis() - A))
+
     after Tmo ->
 	    []
     end.
@@ -3171,7 +3177,19 @@ do_killing_multi_acceptors2(_Config) ->
 %% Checks that multi-accept works when more than one accept can be
 %% done at once (wb test of inet_driver).
 several_accepts_in_one_go(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_several_accepts_in_one_go(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_several_accepts_in_one_go(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSock} ->
+                 LSock;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
     F1 = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
