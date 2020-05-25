@@ -1885,11 +1885,18 @@ busy_send_client_loop(Socket, Master, Msg, N) ->
 %%%
 
 busy_disconnect_passive(Config) when is_list(Config) ->
+    try do_busy_disconnect_passive(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_busy_disconnect_passive(Config) ->
     MuchoData = list_to_binary(ones(64*1024)),
-    [do_busy_disconnect_passive(MuchoData) || _ <- lists:seq(1, 10)],
+    [do_busy_disconnect_passive2(MuchoData) || _ <- lists:seq(1, 10)],
     ok.
 
-do_busy_disconnect_passive(MuchoData) ->
+do_busy_disconnect_passive2(MuchoData) ->
     S = busy_disconnect_prepare_server([{active,false}]),
     busy_disconnect_passive_send(S, MuchoData).
 
