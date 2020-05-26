@@ -962,8 +962,8 @@ pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
 	    Options = proplists:delete(verify_fun, Options0),
 	    pkix_path_validation(Otpcert, Chain, [{verify_fun,
 						   {VerifyFun, Userstate}}| Options]);
-	{fail, _} ->
-	    {error, Reason}
+	{fail, UserReason} ->
+	    {error, UserReason}
     catch
 	_:_ ->
 	    {error, Reason}

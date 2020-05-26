@@ -1278,9 +1278,9 @@ ets_insert_new_with_check(Table, ToInsert) ->
 
 t_insert_list_parallel_do(Opts) ->
     [(fun(I) ->
-             t_insert_list_parallel_do(Opts, I, 2, 100, 5000),
-             t_insert_list_parallel_do(Opts, I, 10, 100, 500),
-             t_insert_list_parallel_do(Opts, I, 1000, 100, 50),
+             t_insert_list_parallel_do(Opts, I, 2, 100, 500),
+             t_insert_list_parallel_do(Opts, I, 10, 100, 100),
+             t_insert_list_parallel_do(Opts, I, 1000, 100, 10),
              t_insert_list_parallel_do(Opts, I, 50000, 3, 1)
       end)(InsertFun) || InsertFun <- [fun ets_insert_with_check/2,
                                        fun ets_insert_new_with_check/2]].
@@ -5118,7 +5118,7 @@ test_delete_table_while_size_snapshot_helper(TableType) ->
                    Problem -> TopParent ! Problem
                end || _ <- Pids]
       end,
-      15000),
+      100*erlang:system_info(schedulers_online)),
     receive
         Problem -> throw(Problem)
     after 0 -> ok
@@ -6853,7 +6853,7 @@ verify_table_load(T) ->
                          false;
 
                      true ->
-                         io:format("Stats = ~p\n",[Stats]),
+                         io:format("Stats = ~p\n~p\n",[Stats, ets:info(T)]),
                          ok
                  end
     end.
@@ -8134,58 +8134,60 @@ wait_for_memory_deallocations() ->
     end.
 
 etsmem() ->
-    % The following is done twice to avoid an inconsistent memory
-    % "snapshot" (see verify_etsmem/2).
-    lists:foldl(
-      fun(AttemptNr, PrevEtsMem) ->
-              AllTabsExceptions = [logger, code],
-              %% The logger table is excluded from the AllTabs list
-              %% below because it uses decentralized counters to keep
-              %% track of the size and the memory counters. This cause
-              %% ets:info(T,size) and ets:info(T,memory) to trigger
-              %% allocations and frees that may change the amount of
-              %% memory that is allocated for ETS.
-              %%
-              %% The code table is excluded from the list below
-              %% because the amount of memory allocated for it may
-              %% change if the tested code loads a new module.
-              AllTabs =
-                  lists:sort(
-                    [begin
-                         try ets:info(T, decentralized_counters) of
-                             true ->
-                                 ct:fail("Background ETS table (~p) that "
-                                         "uses decentralized counters (Add exception?)",
-                                         [ets:info(T,name)]);
-                             _ -> ok
-                         catch _:_ ->
-                                 ok
-                         end,
-                         {T,
-                          ets:info(T,name),
-                          ets:info(T,size),
-                          ets:info(T,memory),
-                          ets:info(T,type)}
-                     end
-                     || T <- ets:all(),
-                        not lists:member(ets:info(T, name), AllTabsExceptions)]),
-              wait_for_memory_deallocations(),
-              EtsAllocSize = erts_debug:alloc_blocks_size(ets_alloc),
-              ErlangMemoryEts = try erlang:memory(ets) catch error:notsup -> notsup end,
-              FlxCtrMemUsage = try erts_debug:get_internal_state(flxctr_memory_usage) catch error:badarg -> notsup end,
-              Mem = {ErlangMemoryEts, EtsAllocSize, FlxCtrMemUsage},
-              EtsMem = {Mem, AllTabs},
-              case PrevEtsMem of
-                  first -> ok;
-                  _ when PrevEtsMem =:= EtsMem -> ok;
-                  _ ->
-                      io:format("etsmem(): Change in attempt ~p~n~nbefore:~n~p~n~nafter:~n~p~n~n",
-                                [AttemptNr, PrevEtsMem, EtsMem])
-              end,
-              EtsMem
-      end,
-      first,
-      lists:seq(1,2)).
+    etsmem(get_etsmem(), 1).
+
+etsmem(PrevEtsMem, Try) when Try < 10 ->
+    case get_etsmem() of
+        PrevEtsMem ->
+            PrevEtsMem;
+        EtsMem ->
+            io:format("etsmem(): Change in attempt ~p~n~nbefore:~n~p~n~nafter:~n~p~n~n",
+                      [Try, PrevEtsMem, EtsMem]),
+            etsmem(EtsMem, Try+1)
+    end;
+etsmem(_, _) ->
+    ct:fail("Failed to get a stable/consistent memory snapshot").
+
+get_etsmem() ->
+    AllTabsExceptions = [logger, code],
+    %% The logger table is excluded from the AllTabs list
+    %% below because it uses decentralized counters to keep
+    %% track of the size and the memory counters. This cause
+    %% ets:info(T,size) and ets:info(T,memory) to trigger
+    %% allocations and frees that may change the amount of
+    %% memory that is allocated for ETS.
+    %%
+    %% The code table is excluded from the list below
+    %% because the amount of memory allocated for it may
+    %% change if the tested code loads a new module.
+    AllTabs =
+        lists:sort(
+          [begin
+               try ets:info(T, decentralized_counters) of
+                   true ->
+                       ct:fail("Background ETS table (~p) that "
+                               "uses decentralized counters (Add exception?)",
+                               [ets:info(T,name)]);
+                   _ -> ok
+               catch _:_ ->
+                       ok
+               end,
+               {T,
+                ets:info(T,name),
+                ets:info(T,size),
+                ets:info(T,memory),
+                ets:info(T,type)}
+           end
+           || T <- ets:all(),
+              not lists:member(ets:info(T, name), AllTabsExceptions)]),
+    wait_for_memory_deallocations(),
+    EtsAllocSize = erts_debug:alloc_blocks_size(ets_alloc),
+    ErlangMemoryEts = try erlang:memory(ets)
+                      catch error:notsup -> notsup end,
+    FlxCtrMemUsage = try erts_debug:get_internal_state(flxctr_memory_usage)
+                     catch error:badarg -> notsup end,
+    Mem = {ErlangMemoryEts, EtsAllocSize, FlxCtrMemUsage},
+    {Mem, AllTabs}.
 
 verify_etsmem(MI) ->
     wait_for_test_procs(),
