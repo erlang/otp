@@ -852,7 +852,7 @@ eval_type_test_1(Test, Arg) ->
     erlang:Test(Arg).
 
 %%%
-%%% Combine bif:'=:=' and switch instructions
+%%% Combine bif:'=:=', is_boolean/1 tests, and switch instructions
 %%% to switch instructions.
 %%%
 %%% Consider this code:
@@ -904,10 +904,11 @@ combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
         none ->
             combine_eqs_1(Ls, St0);
         {_,Arg,_,Fail0,List0} ->
+            %% Look for a switch instruction at the fail label
             case comb_get_sw(Fail0, St0) of
                 {true,Arg,Fail1,Fail,List1} ->
                     %% Another switch/br with the same arguments was
-                    %% found. Try combining them.
+                    %% found at the fail label. Try combining them.
                     case combine_lists(Fail1, List0, List1, Blocks0) of
                         none ->
                             %% Different types of literals in the lists,
@@ -916,29 +917,45 @@ combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
                             %% (increasing code size and repeating tests).
                             combine_eqs_1(Ls, St0);
                         List ->
-                            %% Everything OK! Combine the lists.
-                            Sw0 = #b_switch{arg=Arg,fail=Fail,list=List},
-                            Sw = beam_ssa:normalize(Sw0),
-                            Blk0 = map_get(L, Blocks0),
-                            Blk = Blk0#b_blk{last=Sw},
-                            Blocks = Blocks0#{L:=Blk},
-                            St = St0#st{bs=Blocks},
+                            %% The lists were successfully combined.
+                            St = combine_build_sw(L, Arg, Fail, List, St0),
                             combine_eqs_1(Ls, St)
                     end;
-                {true,_OtherArg,_,_,_} ->
-                    %% The other switch/br uses a different Arg.
-                    combine_eqs_1(Ls, St0);
-                {false,_,_,_,_} ->
-                    %% Not safe: Bindings of variables that will be used
-                    %% or execution of instructions with potential
-                    %% side effects will be skipped.
-                    combine_eqs_1(Ls, St0);
-                none ->
-                    %% No switch/br at this label.
-                    combine_eqs_1(Ls, St0)
+                _ ->
+                    %% There was no switch of the correct kind found at the
+                    %% fail label. Look for a switch at the first success label.
+                    [{_,Succ}|_] = List0,
+                    case comb_get_sw(Succ, St0) of
+                        {true,Arg,_,_,_} ->
+                            %% Since we found a switch at the success
+                            %% label, the switch for this block (L)
+                            %% must have been constructed out of a
+                            %% is_boolean test or a two-way branch
+                            %% instruction (if the switch at L had
+                            %% been present when the shortcut_opt/1
+                            %% pass was run, its success branches
+                            %% would have been cut short and no longer
+                            %% point at the switch at the fail label).
+                            %%
+                            %% Therefore, keep this constructed
+                            %% switch. It will be further optimized
+                            %% the next time shortcut_opt/1 is run.
+                            St = combine_build_sw(L, Arg, Fail0, List0, St0),
+                            combine_eqs_1(Ls, St);
+                        _ ->
+                            combine_eqs_1(Ls, St0)
+                    end
             end
     end;
 combine_eqs_1([], St) -> St.
+
+combine_build_sw(From, Arg, Fail, List, #st{bs=Blocks0}=St) ->
+    Sw0 = #b_switch{arg=Arg,fail=Fail,list=List},
+    Sw = beam_ssa:normalize(Sw0),
+    Blk0 = map_get(From, Blocks0),
+    Blk = Blk0#b_blk{last=Sw},
+    Blocks = Blocks0#{From := Blk},
+    St#st{bs=Blocks}.
 
 comb_get_sw(L, #st{bs=Blocks,skippable=Skippable}) ->
     #b_blk{is=Is,last=Last} = map_get(L, Blocks),
@@ -948,10 +965,14 @@ comb_get_sw(L, #st{bs=Blocks,skippable=Skippable}) ->
             none;
         #b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail} ->
             case comb_is(Is, Bool, Safe0) of
-                {none,_} ->
-                    none;
+                {none,Safe} ->
+                    {Safe,Bool,L,Fail,[{#b_literal{val=true},Succ}]};
                 {#b_set{op={bif,'=:='},args=[#b_var{}=Arg,#b_literal{}=Lit]},Safe} ->
                     {Safe,Arg,L,Fail,[{Lit,Succ}]};
+                {#b_set{op={bif,is_boolean},args=[#b_var{}=Arg]},Safe} ->
+                    SwList = [{#b_literal{val=false},Succ},
+                              {#b_literal{val=true},Succ}],
+                    {Safe,Arg,L,Fail,SwList};
                 {#b_set{},_} ->
                     none
             end;
