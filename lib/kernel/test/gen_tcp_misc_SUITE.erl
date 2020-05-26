@@ -3314,42 +3314,54 @@ open_ports(L) ->
 
 %% Check that active once and tcp_close messages behave as expected.
 active_once_closed(Config) when is_list(Config) ->
+    try do_active_once_closed(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_active_once_closed(_Config) ->
+    p("stage 1"),
+    (fun() ->
+	     {Loop,A} = setup_closed_ao(),
+	     Loop({{error,closed},{error,econnaborted}},
+                  fun() -> gen_tcp:send(A,"Hello") end),
+	     ok = inet:setopts(A,[{active,once}]),
+	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     {error,einval} = inet:setopts(A,[{active,once}]),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+     end)(),
+    p("stage 2"),
+    (fun() ->
+	     {Loop,A} = setup_closed_ao(),
+	     Loop({{error,closed},{error,econnaborted}},
+                  fun() -> gen_tcp:send(A,"Hello") end),
+	     ok = inet:setopts(A,[{active,true}]),
+	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     {error,einval} = inet:setopts(A,[{active,true}]),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+     end)(),
+    p("stage 3"),
+    (fun() ->
+	     {Loop,A} = setup_closed_ao(),
+	     Loop({{error,closed},{error,econnaborted}},
+                  fun() -> gen_tcp:send(A,"Hello") end),
+	     ok = inet:setopts(A,[{active,true}]),
+	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     {error,einval} = inet:setopts(A,[{active,once}]),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+     end)(),
+    p("stage 4"),
     (fun() ->
 	     {Loop,A} = setup_closed_ao(),
 	     Loop({{error,closed},{error,econnaborted}},
 			fun() -> gen_tcp:send(A,"Hello") end),
 	     ok = inet:setopts(A,[{active,once}]),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
-	     {error,einval} = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
-     end)(),
-    (fun() ->
-	     {Loop,A} = setup_closed_ao(),
-	     Loop({{error,closed},{error,econnaborted}},
-			fun() -> gen_tcp:send(A,"Hello") end),
-	     ok = inet:setopts(A,[{active,true}]),
-	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
 	     {error,einval} = inet:setopts(A,[{active,true}]),
 	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
      end)(),
-     (fun() ->
-	     {Loop,A} = setup_closed_ao(),
-	     Loop({{error,closed},{error,econnaborted}},
-			fun() -> gen_tcp:send(A,"Hello") end),
-	     ok = inet:setopts(A,[{active,true}]),
-	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
-	     {error,einval} = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
-     end)(),
-    (fun() ->
-	     {Loop,A} = setup_closed_ao(),
-	     Loop({{error,closed},{error,econnaborted}},
-			fun() -> gen_tcp:send(A,"Hello") end),
-	     ok = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
-	     {error,einval} = inet:setopts(A,[{active,true}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
-     end)(),
+    p("stage 5"),
     (fun() ->
 	     {Loop,A} = setup_closed_ao(),
 	     Loop({{error,closed},{error,econnaborted}},
@@ -3358,7 +3370,9 @@ active_once_closed(Config) when is_list(Config) ->
 	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end,
 	     ok = inet:setopts(A,[{active,once}]),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end
-     end)().
+     end)(),
+    p("done"),
+    ok.
 
 %% Check that active n and tcp_close messages behave as expected.
 active_n_closed(Config) when is_list(Config) ->
@@ -3628,10 +3642,23 @@ get_max_diff(Max) ->
 	    
 setup_closed_ao() ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
-                                    [{args,"-pa " ++ Dir}]),
+    p("[setup] start slave node"),
+    R = case test_server:start_node(?UNIQ_NODE_NAME, slave,
+                                    [{args,"-pa " ++ Dir}]) of
+            {ok, Slave} ->
+                Slave;
+            {error, Reason} ->
+                skip(f("failed starting slave node: ~p", [Reason]))
+        end,
     Host = get_hostname(node()),
-    {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2}]),
+    p("[setup] create listen socket"),
+    L = case gen_tcp:listen(0, [{active,false},{packet,2}]) of
+            {ok, LSock} ->
+                LSock;
+            {error, eaddrnotavail = LReason} ->
+                (catch test_server:stop_node(R)),
+                skip(listen_failed_str(LReason))
+        end,
     Fun = fun(F) ->
                   receive
                       {From,X} when is_function(X) ->
@@ -3639,20 +3666,37 @@ setup_closed_ao() ->
                       die -> ok
                   end
           end,
-    Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
+    p("[setup] create remote runner"),
+    Pid = rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
     {ok, Port} = inet:port(L),
     Remote = fun(Fu) ->
                      Pid ! {self(), Fu},
-                     receive {Pid,X} -> X
-                     end
+                     receive {Pid,X} -> X end
              end,
-    {ok, C} = Remote(fun() -> 
-			     gen_tcp:connect(Host,Port,
-					     [{active,false},{packet,2}]) 
-		     end),
-    {ok,A} = gen_tcp:accept(L),
+    Connect = fun() -> 
+                      gen_tcp:connect(Host,Port,
+                                      [{active,false},{packet,2}]) 
+              end,
+    p("[setup] create (remote) connection"),
+    C = case Remote(Connect) of
+            {ok, CSock} ->
+                CSock;
+            {error, eaddrnotavail = CReason} ->
+                (catch test_server:stop_node(R)),
+                skip(connect_failed_str(CReason))
+        end,
+    p("[setup] accept (local) connection"),
+    A = case gen_tcp:accept(L) of
+            {ok, ASock} ->
+                ASock;
+            {error, eaddrnotavail = AReason} ->
+                (catch test_server:stop_node(R)),
+                skip(accept_failed_str(AReason))
+        end,
+    p("[setup] send message"),
     gen_tcp:send(A,"Hello"),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
+    p("[setup] close (remote) connection"),
     ok =  Remote(fun() -> gen_tcp:close(C) end),
     Loop2 = fun(_,_,_,0) ->
 		    {failure, timeout}; 
@@ -3660,13 +3704,15 @@ setup_closed_ao() ->
 		    case F2() of
 			MA -> MA;
 			MB -> MB;
-			Other -> io:format("~p~n",[Other]),
+			Other -> p("~p",[Other]),
 				 receive after 1000 -> ok end,
 				 L2(L2,{MA,MB},F2,N-1)
 		    end
 	    end,
     Loop = fun(Match2,F3) ->  Loop2(Loop2,Match2,F3,10) end,
+    p("[setup] stop slave node"),
     test_server:stop_node(R),
+    p("[setup] done"),
     {Loop,A}.
     
 setup_timeout_sink(RNode, Timeout, AutoClose) ->
