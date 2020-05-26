@@ -115,6 +115,9 @@ compiled and that it works.
 * Check for unnecessary whitespace before committing with `git diff --check`.
 However, do not fix preexisting whitespace errors in otherwise untouched source lines.
 
+* Each commit should only change one application.
+** If you need to change (for example) both the `ftp` and `ssl` applications, a single commit should not change both.
+
 Check your coding style:
 
 * Make sure your changes follow the coding and indentation style of the code surrounding your changes.
