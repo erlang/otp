@@ -3233,41 +3233,73 @@ wait_until_accepting(Proc,N) ->
 %% Check that accept returns {error, system_limit}
 %% (and not {error, enfile}) when running out of ports.
 accept_system_limit(Config) when is_list(Config) ->
-    {ok, LS} = gen_tcp:listen(0, []),
+    OldFlag = process_flag(trap_exit, true),
+    Res = try do_accept_system_limit(Config)
+          catch
+              exit:{skip, _} = SKIP ->
+                  SKIP
+          end,
+    process_flag(trap_exit, OldFlag),
+    Res.
+
+do_accept_system_limit(_Config) ->
+    p("create listen socket"),
+    LS = case gen_tcp:listen(0, []) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+        end,             
     {ok, TcpPort} = inet:port(LS),
     Me = self(),
+    p("create connector"),
     Connector = spawn_link(fun () -> connector(TcpPort, Me) end),
+    p("sync with connector (~p)", [Connector]),
     receive {Connector, sync} -> Connector ! {self(), continue} end,
-    ok = acceptor(LS, false, []),
+    p("begin accepting"),
+    ok = acceptor(Connector, LS, false, []),
+    p("stop connector (~p)", [Connector]),
     Connector ! stop,
+    p("done"),
     ok.
 
-acceptor(LS, GotSL, A) ->
+acceptor(Connector, LS, GotSL, A) ->
     case gen_tcp:accept(LS, 1000) of
-	{ok, S} ->
-	    acceptor(LS, GotSL, [S|A]);
-	{error, system_limit} ->
-	    acceptor(LS, true, A);
-	{error, timeout} when GotSL ->
-	    ok;
-	{error, timeout} ->
-	    error
+        {ok, S} ->
+            acceptor(Connector, LS, GotSL, [S|A]);
+        {error, eaddrnotavail = Reason} ->
+            exit({skip, accept_failed_str(Reason)});
+        {error, system_limit} ->
+            p("acceptor: system limit => *almost* done (~w)", [length(A)]),
+            acceptor(Connector, LS, true, A);
+        {error, timeout} when GotSL ->
+            p("acceptor: timeout (with system limit) => done (~w)",
+              [length(A)]),
+            ok;
+        {error, timeout} ->
+            error
     end.
 
 connector(TcpPort, Tester) ->
+    p("[connector] start"),
     ManyPorts = open_ports([]),
     Tester ! {self(), sync},
+    p("[connector] sync with tester (~p)", [Tester]),
     receive {Tester, continue} -> timer:sleep(100) end,
+    p("[connector] begin connecting"),
     ConnF = fun (Port) ->
-		    case catch gen_tcp:connect({127,0,0,1}, TcpPort, []) of
-			{ok, Sock} ->
-			    Sock;
-			_Error ->
-			    port_close(Port)
-		    end
-	    end,
+                    case (catch gen_tcp:connect({127,0,0,1}, TcpPort, [])) of
+                        {ok, Sock} ->
+                            Sock;
+                        {error, eaddrnotavail = Reason} ->
+                            exit({skip, connect_failed_str(Reason)});
+                        _Error ->
+                            port_close(Port)
+                    end
+            end,
     R = [ConnF(Port) || Port <- lists:sublist(ManyPorts, 10)],
-    receive stop -> R end.
+    p("[connector] await stop"),
+    receive stop -> p("[connector] stop (~w)", [length(R)]), R end.
 
 open_ports(L) ->
     case catch open_port({spawn_driver, "ram_file_drv"}, []) of
