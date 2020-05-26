@@ -43,6 +43,9 @@
 	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1,
          recv_close/1]).
 
+
+-define(TRY_TC(F), try_tc(F)).
+               
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
@@ -1065,15 +1068,18 @@ connect(Config) when is_list(Config) ->
     ok.
 
 implicit_inet6(Config) when is_list(Config) ->
+    ?TRY_TC(fun() -> do_implicit_inet6(Config) end).
+
+do_implicit_inet6(_Config) ->
     Host = ok(inet:gethostname()),
     case inet:getaddr(Host, inet6) of
-	{ok,{16#fe80,0,0,0,_,_,_,_} = Addr} ->
+	{ok, {16#fe80,0,0,0,_,_,_,_} = Addr} ->
 	    {skip,
 	     "Got link local IPv6 address: "
 	     ++inet:ntoa(Addr)};
-	{ok,Addr} ->
+	{ok, Addr} ->
 	    implicit_inet6(Host, Addr);
-	{error,Reason} ->
+	{error, Reason} ->
 	    {skip,
 	     "Can not look up IPv6 address: "
 	     ++atom_to_list(Reason)}
@@ -1082,40 +1088,75 @@ implicit_inet6(Config) when is_list(Config) ->
 implicit_inet6(Host, Addr) ->
     Active = {active,false},
     Loopback = {0,0,0,0,0,0,0,1},
-    case gen_udp:open(0, [inet6,Active,{ip, Loopback}]) of
-	{ok,S1} ->
-	    io:format("~s ~p~n", ["::1",Loopback]),
-	    implicit_inet6(S1, Active, Loopback),
-	    ok = gen_udp:close(S1),
-	    %%
-	    Localaddr = ok(get_localaddr()),
-	    S2 = ok(gen_udp:open(0, [{ip,Localaddr},Active])),
-	    implicit_inet6(S2, Active, Localaddr),
-	    ok = gen_udp:close(S2),
-	    %%
-	    io:format("~s ~p~n", [Host,Addr]),
-	    S3 = ok(gen_udp:open(0, [{ifaddr,Addr},Active])),
-	    implicit_inet6(S3, Active, Addr),
-	    ok = gen_udp:close(S3);
-	_ ->
-	    {skip,"IPv6 not supported"}
-    end.
+    p("try 1 with explit inet6 on loopback"),
+    S1 = case gen_udp:open(0, [inet6, Active, {ip, Loopback}]) of
+             {ok, Sock1} ->
+                 Sock1;
+             {error, eaddrnotavail = Reason1} ->
+                 skip(open_failed_str(Reason1));
+             _ ->
+                 skip("IPv6 not supported")
+         end,
+    implicit_inet6(S1, Active, Loopback),
+    ok = gen_udp:close(S1),
+    %%
+    Localaddr = ok(get_localaddr()),
+    p("try 2 on local addr (~p)", [Localaddr]),
+    S2 = case gen_udp:open(0, [{ip, Localaddr}, Active]) of
+             {ok, Sock2} ->
+                 Sock2;
+             {error, eaddrnotavail = Reason2} ->
+                 skip(open_failed_str(Reason2))
+         end,
+    implicit_inet6(S2, Active, Localaddr),
+    ok = gen_udp:close(S2),
+    %%
+    p("try 3 on addr ~p (~p)", [Addr, Host]),
+    S3 = case gen_udp:open(0, [{ifaddr, Addr}, Active]) of
+             {ok, Sock3} ->
+                 Sock3;
+             {error, eaddrnotavail = Reason3} ->
+                 skip(open_failed_str(Reason3))
+         end,
+    implicit_inet6(S3, Active, Addr),
+    ok = gen_udp:close(S3),
+    ok.
 
 implicit_inet6(S1, Active, Addr) ->
+    p("get (\"local\") port number"),
     P1 = ok(inet:port(S1)),
-    S2 = ok(gen_udp:open(0, [inet6,Active])),
+    p("open \"remote\" socket"),
+    S2 = case gen_udp:open(0, [inet6, Active]) of
+             {ok, Sock2} ->
+                 Sock2;
+             {error, eaddrnotavail = Reason3} ->
+                 skip(open_failed_str(Reason3))
+         end,
+    p("get (\"remote\") port number"),
     P2 = ok(inet:port(S2)),
+    p("connect (\"remote\") socket (to ~p:~p)", [Addr, P1]),
     ok = gen_udp:connect(S2, Addr, P1),
+    p("connect (\"local\") socket (to ~p:~p)", [Addr, P2]),
     ok = gen_udp:connect(S1, Addr, P2),
+    p("peername of \"local\" socket"),
     {Addr,P2} = ok(inet:peername(S1)),
+    p("peername of \"remote\" socket"),
     {Addr,P1} = ok(inet:peername(S2)),
+    p("sockname of \"local\" socket"),
     {Addr,P1} = ok(inet:sockname(S1)),
+    p("sockname of \"remote\" socket"),
     {Addr,P2} = ok(inet:sockname(S2)),
+    p("send ping on \"local\" socket (to ~p:~p)", [Addr, P2]),
     ok = gen_udp:send(S1, Addr, P2, "ping"),
+    p("recv ping on \"remote\" socket (from ~p:~p)", [Addr, P1]),
     {Addr,P1,"ping"} = ok(gen_udp:recv(S2, 1024, 1000)),
+    p("send pong on \"remote\" socket (to ~p:~p)", [Addr, P1]),
     ok = gen_udp:send(S2, Addr, P1, "pong"),
+    p("recv ping on \"local\" socket (from ~p:~p)", [Addr, P2]),
     {Addr,P2,"pong"} = ok(gen_udp:recv(S1, 1024)),
-    ok = gen_udp:close(S2).
+    p("close \"remote\" socket"),
+    ok = gen_udp:close(S2),
+    ok.
 
 ok({ok,V}) -> V;
 ok(NotOk) ->
@@ -1150,8 +1191,53 @@ get_localaddr([]) ->
 get_localaddr([Localhost|Ls]) ->
     case inet:getaddr(Localhost, inet6) of
        {ok, LocalAddr} ->
-           io:format("~s ~p~n", [Localhost, LocalAddr]),
+           p("found local address: ~s ~p", [Localhost, LocalAddr]),
            {ok, LocalAddr};
        _ ->
            get_localaddr(Ls)
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(F) when is_function(F, 0) ->
+    OldFlag = process_flag(trap_exit, true),
+    Res = try F()
+          catch
+              throw:{skip, _} = SKIP ->
+                  SKIP;
+              exit:{skip, _} = SKIP ->
+                  SKIP
+          end,
+    process_flag(trap_exit, OldFlag),
+    Res.
+                   
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+skip(S) when is_list(S) ->
+    throw({skip, S}).
+
+%% skip(F, A) when is_list(F) andalso is_list(A) ->
+%%     skip(f(F, A)).
+
+open_failed_str(Reason) ->
+    f("Open failed: ~w", [Reason]).
+
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+
