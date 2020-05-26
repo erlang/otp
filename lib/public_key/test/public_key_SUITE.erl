@@ -631,6 +631,19 @@ pkix_path_validation(Config) when is_list(Config) ->
     {ok, _} =
 	public_key:pkix_path_validation(unknown_ca, [Cert1], [{verify_fun,
 							      VerifyFunAndState1}]),
+
+    VerifyFunAndState2 =
+        {fun(_, {bad_cert, selfsigned_peer}, _UserState) ->
+                  {fail, custom_reason};
+            (_,{extension, _}, UserState) ->
+		          {unknown, UserState};
+	        (_, valid, UserState) ->
+		          {valid, UserState}
+        end, []},
+
+    {error, custom_reason} =
+        public_key:pkix_path_validation(selfsigned_peer, [Trusted], [{verify_fun,
+                                                                     VerifyFunAndState2}]),
     ok.
 
 %%--------------------------------------------------------------------

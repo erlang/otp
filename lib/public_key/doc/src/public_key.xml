@@ -450,6 +450,10 @@ fun(OtpCert :: #'OTPCertificate'{},
 	verifying application-specific extensions. If called with an
 	extension unknown to the user application, the return value
 	<c>{unknown, UserState}</c> is to be used.</p>
+  <warning><p>
+  Note that user defined custom <c>verify_fun</c> may alter original
+  path validation error (e.g <c>selfsigned_peer</c>). Use with caution.
+  </p></warning>
 
 	</item>
 	<tag>{max_path_length, integer()}</tag>
