@@ -49,15 +49,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/err.h>
-
-/* Helper macro to construct a OPENSSL_VERSION_NUMBER.
- * See openssl/opensslv.h
- */
-#define PACKED_OPENSSL_VERSION(MAJ, MIN, FIX, P)	\
-    ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
-
-#define PACKED_OPENSSL_VERSION_PLAIN(MAJ, MIN, FIX) \
-    PACKED_OPENSSL_VERSION(MAJ,MIN,FIX,('a'-1))
+#include "openssl_version.h"
 
 
 /* LibreSSL was cloned from OpenSSL 1.0.1g and claims to be API and BPI compatible
@@ -78,21 +70,9 @@
  *
  */
 
-#ifdef LIBRESSL_VERSION_NUMBER
-/* A macro to test on in this file */
-#define HAS_LIBRESSL
-#endif
-
 #ifdef HAS_LIBRESSL
 /* LibreSSL dislikes FIPS */
-# ifdef FIPS_SUPPORT
 #  undef FIPS_SUPPORT
-# endif
-
-/* LibreSSL has never supported the custom mem functions */
-#ifndef HAS_LIBRESSL
-#  define HAS_CRYPTO_MEM_FUNCTIONS
-#endif
 
 # if LIBRESSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(2,7,0)
 /* LibreSSL wants the 1.0.1 API */
@@ -101,6 +81,19 @@
 #endif
 
 
+/* LibreSSL has never supported the custom mem functions */
+#ifndef HAS_LIBRESSL
+/* Since f46401d46f9ed331ff2a09bb6a99376707083c96 this macro can NEVER have been enabled
+ * because its inside an #ifdef HAS_LIBRESSL
+ *
+ * If I enable HAS_CRYPTO_MEM_FUNCTIONS, there are two lab machines that fails:
+ *    SunOS mallor 5.11 illumos-2d990ab13b i86pc i386 i86pc  OpenSSL 1.0.2u  20 Dec 2019
+ *    SunOS fingon 5.11 11.4.0.15.0 i86pc i386 i86pc         OpenSSL 1.0.2o  27 Mar 2018
+ *
+ * Therefore I don't want to enable this until further investigated
+# define HAS_CRYPTO_MEM_FUNCTIONS
+ */
+#endif
 
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 # define NEED_EVP_COMPATIBILITY_FUNCTIONS
