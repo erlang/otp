@@ -914,10 +914,19 @@ active_n(Config) when is_list(Config) ->
                             when is_record(SR, sctp_sndrcvinfo) ->
                               p("recv (expected) data message (on ~p)~n", [S1]),
 			      Fn(I+1, Count, Fn);
-			  {sctp, S1, _, _, _} ->
-                              p("ignore non-data messages (on ~p)~n", [S1]),
+			  {sctp, S1, _FromIP, _FromPort, {_AncData, _Data}} ->
 			      %% ignore non-data messages
+                              p("ignore non-data messages (on ~p):"
+                                "~n   From:    ~p:~p"
+                                "~n   AncData: ~p"
+                                "~n   Data:    ~p",
+                                [S1, _FromIP, _FromPort, _AncData, _Data]),
+                              [{active,NX1}] = ok(inet:getopts(S1, [active])),
 			      ok = inet:setopts(S1, [{active,1}]),
+                              [{active,NX2}] = ok(inet:getopts(S1, [active])),
+                              p("active increment (of ~p) with 1 => "
+                                "~n   Before: ~w"
+                                "~n   After:  ~w", [S1, NX1, NX2]),
 			      Fn(I, Count, Fn);
 			  Other ->
                               p("UNEXPECTED: "
