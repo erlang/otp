@@ -57,7 +57,10 @@
          sockname/1,
          peername/1,
 
-         cancel/2
+         cancel/2,
+
+         getprotobyname/1,
+         getprotobynumber/1
         ]).
 
 -export_type([
@@ -193,6 +196,12 @@
 %% to be used with type = raw.
 %% Note also that only the "superuser" can create a raw socket.
 -type protocol() :: ip | tcp | udp | sctp | icmp | igmp | {raw, integer()}.
+
+-type protoent() :: #{
+        name := string(),
+        aliases := [string()],
+        protocol := integer()
+       }.
 
 -type port_number() :: 0..65535.
 
@@ -2488,6 +2497,14 @@ flush_abort_msg(SockRef, Ref) ->
 %% Misc utility functions
 %%
 %% ===========================================================================
+
+-spec getprotobyname(string()) -> protoent().
+getprotobyname(Name) ->
+    prim_socket:getprotobyname(Name).
+
+-spec getprotobynumber(non_neg_integer()) -> protoent().
+getprotobynumber(Nr) ->
+    prim_socket:getprotobynumber(Nr).
 
 %% formated_timestamp() ->
 %%     format_timestamp(os:timestamp()).

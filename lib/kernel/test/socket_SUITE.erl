@@ -71,6 +71,7 @@
          %% *** API Misc ***
          api_m_info/1,
          api_m_debug/1,
+         api_m_getproto/1,
 
          %% *** API Basic ***
          api_b_open_and_info_udp4/1,
@@ -808,7 +809,8 @@ api_cases() ->
 api_misc_cases() ->
     [
      api_m_info,
-     api_m_debug
+     api_m_debug,
+     api_m_getproto
     ].
 
 api_basic_cases() ->
@@ -2113,8 +2115,26 @@ api_m_debug() ->
     #{debug := D2} = socket:info(),
     i("ok"),
     ok.
-    
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% A simple test case that tests that the getprotobyname returns the same
+%% value as getprotobynumber.
+
+api_m_getproto(suite) ->
+    [];
+api_m_getproto(doc) ->
+    [];
+api_m_getproto(_Config) when is_list(_Config) ->
+    tc_try(api_m_getproto,
+           fun() ->
+                   ok = api_m_getproto()
+           end).
+
+api_m_getproto() ->
+    #{protocol := Num} = ProtoEnt = socket:getprotobyname("tcp"),
+    ProtoEnt = socket:getprotobynumber(Num),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

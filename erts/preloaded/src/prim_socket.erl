@@ -39,7 +39,8 @@
     close/1, finalize_close/1,
     shutdown/2, setopt/4, getopt/3,
     sockname/1, peername/1,
-    cancel/3
+    cancel/3,
+    getprotobyname/1, getprotobynumber/1
    ]).
 
 %% Also in socket
@@ -635,6 +636,14 @@ peername(Ref) ->
 
 cancel(SRef, Op, Ref) ->
     nif_cancel(SRef, Op, Ref).
+
+%% ----------------------------------
+
+getprotobyname(Name) ->
+    nif_getprotobyname(Name).
+
+getprotobynumber(Num) ->
+    nif_getprotobynumber(Num).
 
 %% ===========================================================================
 %% Encode / decode
@@ -1340,5 +1349,8 @@ nif_sockname(_Ref) -> erlang:nif_error(undef).
 nif_peername(_Ref) -> erlang:nif_error(undef).
 
 nif_cancel(_SRef, _Op, _Ref) -> erlang:nif_error(undef).
+
+nif_getprotobyname(_Name) -> erlang:nif_error(undef).
+nif_getprotobynumber(_Num) -> erlang:nif_error(undef).
 
 %% ===========================================================================

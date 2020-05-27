@@ -1120,6 +1120,8 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
  * nif_peername
  * nif_finalize_close
  * nif_cancel
+ * nif_getprotobyname
+ * nif_getprotobynumber
  */
 
 #define ESOCK_NIF_FUNCS                             \
@@ -1144,7 +1146,9 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
     ESOCK_NIF_FUNC_DEF(sockname);                   \
     ESOCK_NIF_FUNC_DEF(peername);                   \
     ESOCK_NIF_FUNC_DEF(finalize_close);             \
-    ESOCK_NIF_FUNC_DEF(cancel);
+    ESOCK_NIF_FUNC_DEF(cancel);                     \
+    ESOCK_NIF_FUNC_DEF(getprotobyname);             \
+    ESOCK_NIF_FUNC_DEF(getprotobynumber);
 
 #define ESOCK_NIF_FUNC_DEF(F)                              \
     static ERL_NIF_TERM nif_##F(ErlNifEnv*         env,    \
@@ -2888,6 +2892,9 @@ static int esock_select_cancel(ErlNifEnv*             env,
                                enum ErlNifSelectFlags mode,
                                void*                  obj);
 
+static ERL_NIF_TERM esock_make_protoent(ErlNifEnv* env,
+        struct protoent* proto);
+
 static char* extract_debug_filename(ErlNifEnv*   env,
                                     ERL_NIF_TERM map);
 
@@ -2937,19 +2944,20 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(acceptconn);                      \
     GLOBAL_ATOM_DECL(acceptfilter);                    \
     GLOBAL_ATOM_DECL(adaption_layer);                  \
-    GLOBAL_ATOM_DECL(addr);                            \
-    GLOBAL_ATOM_DECL(addrform);                        \
     GLOBAL_ATOM_DECL(add_membership);                  \
     GLOBAL_ATOM_DECL(add_source_membership);           \
+    GLOBAL_ATOM_DECL(addr);                            \
+    GLOBAL_ATOM_DECL(addrform);                        \
+    GLOBAL_ATOM_DECL(aliases);                         \
     GLOBAL_ATOM_DECL(any);                             \
     GLOBAL_ATOM_DECL(associnfo);                       \
-    GLOBAL_ATOM_DECL(authhdr);                         \
     GLOBAL_ATOM_DECL(auth_active_key);                 \
     GLOBAL_ATOM_DECL(auth_asconf);                     \
     GLOBAL_ATOM_DECL(auth_chunk);                      \
     GLOBAL_ATOM_DECL(auth_delete_key);                 \
     GLOBAL_ATOM_DECL(auth_key);                        \
     GLOBAL_ATOM_DECL(auth_level);                      \
+    GLOBAL_ATOM_DECL(authhdr);                         \
     GLOBAL_ATOM_DECL(autoclose);                       \
     GLOBAL_ATOM_DECL(bindtodevice);                    \
     GLOBAL_ATOM_DECL(block_source);                    \
@@ -3047,6 +3055,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(multicast_if);                    \
     GLOBAL_ATOM_DECL(multicast_loop);                  \
     GLOBAL_ATOM_DECL(multicast_ttl);                   \
+    GLOBAL_ATOM_DECL(name);                            \
     GLOBAL_ATOM_DECL(nodelay);                         \
     GLOBAL_ATOM_DECL(nodefrag);                        \
     GLOBAL_ATOM_DECL(noopt);                           \
@@ -3372,6 +3381,8 @@ static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
  *
  * And some utility functions:
  * -------------------------------------------------------------
+ * nif_getprotobyname/1
+ * nif_getprotobynumber/1
  *
  * And some socket admin functions:
  * -------------------------------------------------------------
@@ -16198,8 +16209,79 @@ ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
 }
 #endif // if !defined(__WIN32__)
 
+static
+ERL_NIF_TERM nif_getprotobyname(ErlNifEnv* env,
+        int argc,
+        const ERL_NIF_TERM argv[])
+{
+#if defined(__WIN32__)
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#else
+    char name[1024];
 
+    if (GET_STR(env, argv[0], name, 1023) <= 0) {
+        return enif_make_badarg(env);
+    }
 
+    struct protoent *entry = getprotobyname(name);
+
+    if (!entry)
+        return esock_atom_unknown;
+
+    return esock_make_protoent(env, entry);
+#endif // defined(__WIN32__)
+}
+
+static
+ERL_NIF_TERM nif_getprotobynumber(ErlNifEnv* env,
+        int argc,
+        const ERL_NIF_TERM argv[])
+{
+#if defined(__WIN32__)
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#else
+    int num;
+
+    if (GET_INT(env, argv[0], &num) <= 0) {
+        return enif_make_badarg(env);
+    }
+
+    struct protoent *entry = getprotobynumber(num);
+
+    if (!entry)
+        return esock_atom_unknown;
+
+    return esock_make_protoent(env, entry);
+#endif // defined(__WIN32__)
+}
+
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM esock_make_protoent(ErlNifEnv* env,
+        struct protoent *entry)
+{
+    ERL_NIF_TERM name = MKS(env, entry->p_name);
+    ERL_NIF_TERM aliases = MKEL(env);
+
+    for (char **alias = entry->p_aliases; alias; ++alias) {
+        ERL_NIF_TERM item = MKS(env, *alias);
+        aliases = enif_make_list_cell(env, item, aliases);
+    }
+
+    ERL_NIF_TERM protocol = MKI(env, entry->p_proto);
+
+    ERL_NIF_TERM kv[2][3] = {
+        {esock_atom_name, esock_atom_aliases, esock_atom_protocol},
+        {           name,            aliases,            protocol}
+    };
+
+    ERL_NIF_TERM map;
+
+    MKMA(env, kv[0], kv[1], 3, &map);
+
+    return map;
+}
+#endif
 
 /* ----------------------------------------------------------------------
  *  U t i l i t y   F u n c t i o n s
@@ -21942,6 +22024,8 @@ ErlNifFunc esock_funcs[] =
     {"nif_peername",            1, nif_peername, 0},
 
     /* Misc utility functions */
+    /* {"nif_getprotobyname",      1, nif_getprotobyname, 0}, */
+    /* {"nif_getprotobynumber",    1, nif_getprotobynumber, 0}, */
 
     /* "Extra" functions to "complete" the socket interface.
      * For instance, the function nif_finalize_close
