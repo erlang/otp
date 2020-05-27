@@ -1027,30 +1027,35 @@ xfer_stream_min(Config) when is_list(Config) ->
 			   assoc_id=SbAssocId}],
 	 Data} -> ok;
 	{Loopback,
-	 Pa,[],
-	 #sctp_paddr_change{addr = {Loopback,_},
-			    state = addr_available,
-			    error = 0,
+	 Pa,
+         [],
+	 #sctp_paddr_change{addr     = {Loopback,_},
+			    state    = addr_available,
+			    error    = 0,
 			    assoc_id = SbAssocId}} ->
 	    {Loopback,
 	     Pa,
-	     [#sctp_sndrcvinfo{stream=Stream,
-			       assoc_id=SbAssocId}],
+	     [#sctp_sndrcvinfo{stream   = Stream,
+			       assoc_id = SbAssocId}],
 	     Data} = log_ok(gen_sctp:recv(Sb, infinity));
+
+        %% It seems that on FreeBSD (for instance) we don't get any
+        %% AncData with this, so this test fails.
+        %% Shall we augment, or is it an actual fault?
 	{Loopback,
 	 Pa,
-	 [#sctp_sndrcvinfo{stream=Stream,
-			   assoc_id=SbAssocId}],
-	 #sctp_paddr_change{addr = {Loopback,_},
-			    state = addr_confirmed,
-			    error = 0,
+	 [#sctp_sndrcvinfo{stream    = Stream,
+			   assoc_id  = SbAssocId}],
+	 #sctp_paddr_change{addr     = {Loopback,_},
+			    state    = addr_confirmed,
+			    error    = 0,
 			    assoc_id = SbAssocId}} ->
 	    {Loopback,
 	     Pa,
-	     [#sctp_sndrcvinfo{stream=Stream,
-			       assoc_id=SbAssocId}],
+	     [#sctp_sndrcvinfo{stream   = Stream,
+			       assoc_id = SbAssocId}],
 	     Data} = log_ok(gen_sctp:recv(Sb, infinity));
-        {FromIP, FromPort, AncData, Data} = Other1 ->
+        {FromIPX, FromPortX, AncDataX, DataX} = Other1 ->
             p("UNEXPECTED: "
               "~n   FromIP:   ~p"
               "~n   FromPort: ~p"
@@ -1059,7 +1064,7 @@ xfer_stream_min(Config) when is_list(Config) ->
               "~nwhen"
               "~n   Loopback: ~p"
               "~n   Pa:       ~p",
-              [FromIP, FromPort, AncData, Data, Loopback, Pa]),
+              [FromIPX, FromPortX, AncDataX, DataX, Loopback, Pa]),
             exit({unexpected, Other1});
         Other2 ->
             p("UNEXPECTED: "
