@@ -257,6 +257,13 @@ t_fdopen(Config) when is_list(Config) ->
     ok.
 
 t_fdconnect(Config) when is_list(Config) ->
+    try do_t_fdconnect(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_t_fdconnect(Config) ->
     Question = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
@@ -265,13 +272,46 @@ t_fdconnect(Config) when is_list(Config) ->
     Answer = "there was a shoemaker, Schumacher was his name.",
     Path = proplists:get_value(data_dir, Config),
     Lib = "gen_tcp_api_SUITE",
-    ok = erlang:load_nif(filename:join(Path,Lib), []),
-    {ok, L} = gen_tcp:listen(0, [{active, false}]),
+    p("try load util nif lib"),
+    case erlang:load_nif(filename:join(Path,Lib), []) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            p("UNEXPECTED - failed loading util nif lib: "
+              "~n   ~p", [Reason]),
+            skip("failed loading util nif lib")
+    end,
+    p("try create listen socket"),
+    L = case gen_tcp:listen(0, [{active, false}]) of
+            {ok, LSock} ->
+                LSock;
+            {error, eaddrnotavail = LReason} ->
+                skip(listen_failed_str(LReason))
+        end,            
     {ok, Port} = inet:port(L),
+    p("try create file descriptor (fd)"),
     FD = gen_tcp_api_SUITE:getsockfd(),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{fd,FD},{port,20002},
-                                                     {active,false}]),
-    {ok, Server} = gen_tcp:accept(L),
+    p("try connect to using file descriptor (~w)", [FD]),
+    Client = case gen_tcp:connect(localhost, Port, [{fd,FD},{port,20002},
+                                                    {active,false}]) of
+                 {ok, CSock} ->
+                     CSock;
+                 {error, eaddrnotavail = CReason} ->
+                     gen_tcp:close(L),
+                     gen_tcp_api_SUITE:closesockfd(FD),
+                     skip(connect_failed_str(CReason))
+             end,                             
+    p("try accept connection"),
+    Server = case gen_tcp:accept(L) of
+                 {ok, ASock} ->
+                     ASock;
+                 {error, eaddrnotavail = AReason} ->
+                     gen_tcp:close(Client),
+                     gen_tcp:close(L),
+                     gen_tcp_api_SUITE:closesockfd(FD),
+                     skip(accept_failed_str(AReason))
+        end,                             
+    p("begin validation"),
     ok = gen_tcp:send(Client, Question),
     {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
     ok = gen_tcp:send(Client, Question1),
@@ -285,6 +325,7 @@ t_fdconnect(Config) when is_list(Config) ->
     {error,closed} = gen_tcp:recv(Server, 1, 2000),
     ok = gen_tcp:close(Server),
     ok = gen_tcp:close(L),
+    p("done"),
     ok.
 
 
