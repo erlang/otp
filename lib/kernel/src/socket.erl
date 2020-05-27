@@ -2498,11 +2498,11 @@ flush_abort_msg(SockRef, Ref) ->
 %%
 %% ===========================================================================
 
--spec getprotobyname(string()) -> protoent().
+-spec getprotobyname(string()) -> protoent() | unknown.
 getprotobyname(Name) ->
     prim_socket:getprotobyname(Name).
 
--spec getprotobynumber(non_neg_integer()) -> protoent().
+-spec getprotobynumber(non_neg_integer()) -> protoent() | unknown.
 getprotobynumber(Nr) ->
     prim_socket:getprotobynumber(Nr).
 
