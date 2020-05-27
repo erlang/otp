@@ -965,6 +965,7 @@ basic_stream(Config) when is_list(Config) ->
 
 %% Minimal data transfer.
 xfer_stream_min(Config) when is_list(Config) ->
+    {_, OSName} = os:type(),
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     Loopback = {127,0,0,1},
@@ -1023,9 +1024,12 @@ xfer_stream_min(Config) when is_list(Config) ->
     case log_ok(gen_sctp:recv(Sb, infinity)) of
 	{Loopback,
 	 Pa,
-	 [#sctp_sndrcvinfo{stream=Stream,
-			   assoc_id=SbAssocId}],
-	 Data} -> ok;
+	 [#sctp_sndrcvinfo{stream   = Stream,
+			   assoc_id = SbAssocId}],
+	 Data} ->
+            p("[1] received expected data with ancillary data => done"),
+            ok;
+
 	{Loopback,
 	 Pa,
          [],
@@ -1033,15 +1037,18 @@ xfer_stream_min(Config) when is_list(Config) ->
 			    state    = addr_available,
 			    error    = 0,
 			    assoc_id = SbAssocId}} ->
+            p("[2] received paddr change => recv again"),
+            Res2 = log_ok(gen_sctp:recv(Sb, infinity)),
+            p("[2] recv ok => "
+              "~n   ~p", [Res2]),
 	    {Loopback,
 	     Pa,
 	     [#sctp_sndrcvinfo{stream   = Stream,
 			       assoc_id = SbAssocId}],
-	     Data} = log_ok(gen_sctp:recv(Sb, infinity));
+	     Data} = Res2,
+            p("[2] received expected data with ancillary data => done"),
+            Res2;
 
-        %% It seems that on FreeBSD (for instance) we don't get any
-        %% AncData with this, so this test fails.
-        %% Shall we augment, or is it an actual fault?
 	{Loopback,
 	 Pa,
 	 [#sctp_sndrcvinfo{stream    = Stream,
@@ -1050,11 +1057,39 @@ xfer_stream_min(Config) when is_list(Config) ->
 			    state    = addr_confirmed,
 			    error    = 0,
 			    assoc_id = SbAssocId}} ->
+            p("[3] received paddr change with ancillary data => recv again"),
+            Res3 = log_ok(gen_sctp:recv(Sb, infinity)),
+            p("[3] recv ok => "
+              "~n   ~p", [Res3]),
 	    {Loopback,
 	     Pa,
 	     [#sctp_sndrcvinfo{stream   = Stream,
 			       assoc_id = SbAssocId}],
-	     Data} = log_ok(gen_sctp:recv(Sb, infinity));
+	     Data} = Res3,
+            p("[3] received expected data with ancillary data => done"),
+            Res3;
+
+        %% It seems that on FreeBSD (for instance) we don't get any
+        %% AncData with this.
+	{Loopback,
+	 Pa,
+	 [],
+	 #sctp_paddr_change{addr     = {Loopback,_},
+			    state    = addr_confirmed,
+			    error    = 0,
+			    assoc_id = SbAssocId}} when (OSName =:= freebsd) ->
+            p("[4] received paddr change without ancillary data => recv again"),
+            Res4 = log_ok(gen_sctp:recv(Sb, infinity)),
+            p("[4] recv ok => "
+              "~n   ~p", [Res4]),
+	    {Loopback,
+	     Pa,
+	     [#sctp_sndrcvinfo{stream   = Stream,
+                               assoc_id = SbAssocId}],
+	     Data} = Res4,
+            p("[4] received expected data with ancillary data => done"),
+            Res4;
+
         {FromIPX, FromPortX, AncDataX, DataX} = Other1 ->
             p("UNEXPECTED: "
               "~n   FromIP:   ~p"
