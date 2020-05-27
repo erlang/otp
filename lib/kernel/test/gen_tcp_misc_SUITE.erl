@@ -2551,24 +2551,31 @@ recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
 recvtclass_ok({unix,_}, _) -> true;
 recvtclass_ok(_, _) -> false.
 
-semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
+semver_lt({X1,Y1,Z1} = V1, {X2,Y2,Z2} = V2) ->
+    p("semver_lt -> OS version check:"
+      "~n   Version 1: ~p"
+      "~n   Version 2: ~p", [V1, V2]),
     if
-        X1 > X2 -> false;
-        X1 < X2 -> true;
-        Y1 > Y2 -> false;
-        Y1 < Y2 -> true;
-        Z1 > Z2 -> false;
-        Z1 < Z2 -> true;
-        true -> false
+        X1 > X2 -> p("semver_lt -> X1 > X2: ~p > ~p", [X1, X2]), false;
+        X1 < X2 -> p("semver_lt -> X1 < X2: ~p < ~p", [X1, X2]), true;
+        Y1 > Y2 -> p("semver_lt -> Y1 > Y2: ~p > ~p", [Y1, Y2]), false;
+        Y1 < Y2 -> p("semver_lt -> Y1 < Y2: ~p < ~p", [Y1, Y2]), true;
+        Z1 > Z2 -> p("semver_lt -> Z1 > Z2: ~p > ~p", [Z1, Z2]), false;
+        Z1 < Z2 -> p("semver_lt -> Z1 < Z2: ~p < ~p", [Z1, Z2]), true;
+        true    -> p("semver_lt -> default"), false
     end;
-semver_lt(_, {_,_,_}) -> false.
+semver_lt(V1, {_,_,_} = V2) ->
+    p("semver_lt -> fallback OS version check when: "
+      "~n   Version 1: ~p"
+      "~n   Version 2: ~p", [V1, V2]),
+    false.
 
 test_pktoptions(Family, Spec, OSFilter, CheckConnect) ->
     OSType = os:type(),
-    OSVer = os:version(),
+    OSVer  = os:version(),
     case OSFilter(OSType, OSVer) of
         true ->
-            io:format("Os: ~p, ~p~n", [OSType,OSVer]),
+            p("OS: ~p, ~p", [OSType, OSVer]),
             test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer);
         false ->
             {skip,{not_supported_for_os_version,{OSType,OSVer}}}
@@ -2627,9 +2634,9 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
                     {ok, [{pktoptions, PktOpts1}]} ->
                         PktOpts1;
                     {ok, UnexpOK1} ->
-                        io:format("Unexpected OK (~w): "
-                                  "~n   ~p"
-                                  "~n", [Role, UnexpOK1]),
+                        p("Unexpected OK (~w): "
+                          "~n   ~p"
+                          "~n", [Role, UnexpOK1]),
                         exit({unexpected_getopts_ok,
                               Role,
                               Spec,
@@ -2638,9 +2645,9 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
                               OptsValsDefault,
                               UnexpOK1});
                     {error, UnexpERR1} ->
-                        io:format("Unexpected ERROR (~w): "
-                                  "~n   ~p"
-                                  "~n", [Role, UnexpERR1]),
+                        p("Unexpected ERROR (~w): "
+                          "~n   ~p"
+                          "~n", [Role, UnexpERR1]),
                         exit({unexpected_getopts_failure,
                               Role,
                               Spec,
@@ -2655,11 +2662,11 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
     %% {ok,[{pktoptions,OptsVals1}]} = inet:getopts(S1, [pktoptions]),
     %% {ok,[{pktoptions,OptsVals2}]} = inet:getopts(S2, [pktoptions]),
     (Result1 = sets_eq(OptsVals1, OptsVals))
-        orelse io:format(
-                 "Accept differs: ~p neq ~p~n", [OptsVals1,OptsVals]),
+        orelse p(
+                 "Accept differs: ~p neq ~p", [OptsVals1,OptsVals]),
     (Result2 = sets_eq(OptsVals2, OptsValsDefault))
-        orelse io:format(
-                 "Connect differs: ~p neq ~p~n",
+        orelse p(
+                 "Connect differs: ~p neq ~p",
                  [OptsVals2,OptsValsDefault]),
     %%
     ok = gen_tcp:close(S2),
