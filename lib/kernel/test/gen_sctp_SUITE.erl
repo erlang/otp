@@ -568,7 +568,7 @@ err([_|Reasons], Result) ->
     err(Reasons, Result).
 
 log(X) ->
-    io:format("LOG[~w]: ~p~n", [self(),X]),
+    p("LOG: ~p", [X]),
     X.
 
 flush() ->
