@@ -647,11 +647,17 @@ recvtclass(_Config) ->
 
 
 sendtos(_Config) ->
+    ?TRY_TC(fun() -> do_sendtos() end).
+
+do_sendtos() ->
     test_recv_opts(
       inet, [{recvtos,tos,96}], true,
       fun sendtos_ok/2).
 
 sendtosttl(_Config) ->
+    ?TRY_TC(fun() -> do_sendtosttl() end).
+
+do_sendtosttl() ->
     test_recv_opts(
       inet, [{recvtos,tos,96},{recvttl,ttl,33}], true,
       fun (OSType, OSVer) ->
@@ -659,11 +665,17 @@ sendtosttl(_Config) ->
       end).
 
 sendttl(_Config) ->
+    ?TRY_TC(fun() -> do_sendttl() end).
+
+do_sendttl() ->
     test_recv_opts(
       inet, [{recvttl,ttl,33}], true,
       fun sendttl_ok/2).
 
 sendtclass(_Config) ->
+    ?TRY_TC(fun() -> do_sendtclass() end).
+
+do_sendtclass() ->
     {ok,IFs} = inet:getifaddrs(),
     case
         [Name ||
@@ -751,24 +763,31 @@ sendtclass_ok({unix,_}, _) -> true;
 sendtclass_ok(_, _) -> false.
 
 
-semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
+semver_lt({X1,Y1,Z1} = V1, {X2,Y2,Z2} = V2) ->
+    p("semver_lt -> OS version check:"
+      "~n   Version 1: ~p"
+      "~n   Version 2: ~p", [V1, V2]),
     if
-        X1 > X2 -> false;
-        X1 < X2 -> true;
-        Y1 > Y2 -> false;
-        Y1 < Y2 -> true;
-        Z1 > Z2 -> false;
-        Z1 < Z2 -> true;
-        true -> false
+        X1 > X2 -> p("semver_lt -> X1 > X2: ~p > ~p", [X1, X2]), false;
+        X1 < X2 -> p("semver_lt -> X1 < X2: ~p < ~p", [X1, X2]), true;
+        Y1 > Y2 -> p("semver_lt -> Y1 > Y2: ~p > ~p", [Y1, Y2]), false;
+        Y1 < Y2 -> p("semver_lt -> Y1 < Y2: ~p < ~p", [Y1, Y2]), true;
+        Z1 > Z2 -> p("semver_lt -> Z1 > Z2: ~p > ~p", [Z1, Z2]), false;
+        Z1 < Z2 -> p("semver_lt -> Z1 < Z2: ~p < ~p", [Z1, Z2]), true;
+        true    -> p("semver_lt -> default"), false
     end;
-semver_lt(_, {_,_,_}) -> false.
+semver_lt(V1, {_,_,_} = V2) ->
+    p("semver_lt -> fallback OS version check when: "
+      "~n   Version 1: ~p"
+      "~n   Version 2: ~p", [V1, V2]),
+    false.
 
 test_recv_opts(Family, Spec, TestSend, OSFilter) ->
     OSType = os:type(),
-    OSVer = os:version(),
+    OSVer  = os:version(),
     case OSFilter(OSType, OSVer) of
         true ->
-            io:format("Os: ~p, ~p~n", [OSType,OSVer]),
+            p("OS: ~p, ~p", [OSType, OSVer]),
             test_recv_opts(Family, Spec, TestSend, OSType, OSVer);
         false ->
             {skip,{not_supported_for_os_version,{OSType,OSVer}}}
@@ -814,8 +833,18 @@ test_recv_opts(Family, Spec, TestSend, _OSType, _OSVer) ->
     ok = gen_udp:send(S1, Addr, P2, <<"fghij">>),
     TestSend andalso
         begin
-            ok = gen_udp:send(S2, Addr, P1, OptsVals, <<"ABCDE">>),
-            ok = gen_udp:send(S2, {Addr,P1}, OptsVals, <<"12345">>)
+            case gen_udp:send(S2, Addr, P1, OptsVals, <<"ABCDE">>) of
+                ok ->
+                    ok;
+                {error, enoprotoopt = Reason1} ->
+                    skip(f("send (1) failed: ~p", [Reason1]))
+            end,
+            case gen_udp:send(S2, {Addr,P1}, OptsVals, <<"12345">>) of
+                ok ->
+                    ok;
+                {error, enoprotoopt = Reason2} ->
+                    skip(f("send (2) failed: ~p", [Reason2]))
+            end
         end,
     {ok,{_,P2,OptsVals3,<<"abcde">>}} = gen_udp:recv(S1, 0, Timeout),
     verify_sets_eq(OptsVals3, OptsVals2),
