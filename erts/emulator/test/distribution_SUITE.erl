@@ -74,6 +74,7 @@
          message_latency_large_exit2/0,
          system_limit/1,
          hopefull_data_encoding/1,
+         hopefull_export_fun_bug/1,
          mk_hopefull_data/0]).
 
 %% Internal exports.
@@ -104,7 +105,7 @@ all() ->
      {group, message_latency},
      {group, bad_dist}, {group, bad_dist_ext},
      start_epmd_false, epmd_module, system_limit,
-     hopefull_data_encoding].
+     hopefull_data_encoding, hopefull_export_fun_bug].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -2710,6 +2711,13 @@ chk_hopefull_fallback(Func, {ModName, FuncName}) when is_function(Func) ->
 chk_hopefull_fallback(Other, SameOther) ->
     Other = SameOther,
     ok.
+
+%% ERL-1254
+hopefull_export_fun_bug(Config) when is_list(Config) ->
+    Msg = [1, fun blipp:blapp/7,
+           2, fun blipp:blapp/7],
+    {dummy, dummy@dummy} ! Msg.  % Would crash on debug VM
+
 
 %%% Utilities
 

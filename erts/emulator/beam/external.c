@@ -5311,8 +5311,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                     ASSERT(dflags & DFLAG_EXPORT_PTR_TAG);
                     csz = tmp_result - ctx->last_result;
                     /* potentially multiple elements leading up to hopefull entry */
-                    vlen += csz/MAX_SYSIOVEC_IOVLEN;
-                    vlen++; /* hopefull entry */
+                    vlen += (csz/MAX_SYSIOVEC_IOVLEN + 1
+			     + 1); /* hopefull entry */
                     result += 4; /* hopefull index */
                     ctx->last_result = result;
                 }
