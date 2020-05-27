@@ -777,7 +777,7 @@ implicit_inet6(Config) when is_list(Config) ->
 			log_ok(gen_sctp:open(0, [{ifaddr,Host}])),
 		    implicit_inet6(S3, Host),
 		    ok = gen_sctp:close(S1);
-		{error,eafnosupport} ->
+		{error, eafnosupport} ->
 		    ok = gen_sctp:close(S1),
 		    {skip,"Can not look up IPv6 address"}
 	    end;
@@ -793,13 +793,26 @@ implicit_inet6(S1, Addr) ->
     #sctp_assoc_change{state=comm_up} =
 	log_ok(gen_sctp:connect(S2, Addr, P1, [])),
     case recv_event(log_ok(gen_sctp:recv(S1))) of
-	{Addr,P2,#sctp_assoc_change{state=comm_up}} ->
+	{Addr, P2, #sctp_assoc_change{state=comm_up}} ->
 	    ok;
-	{Addr,P2,#sctp_paddr_change{state=addr_confirmed,
-				    addr={Addr,P2},
-				    error=0}} ->
-	    {Addr,P2,#sctp_assoc_change{state=comm_up}} =
+	{AX, P2, #sctp_assoc_change{state=comm_up}} = EX ->
+            p("Expected (comm_up) event from UNEXPECTED ADDRESS: "
+              "~n   UNEXPECTED Address: ~p"
+              "~n   Expected Address:   ~p"
+              "~n", [AX, Addr]),
+            exit({unexpected_event, EX});
+	{Addr, P2, #sctp_paddr_change{state = addr_confirmed,
+                                      addr  = {Addr, P2},
+                                      error = 0}} ->
+	    {Addr, P2, #sctp_assoc_change{state = comm_up}} =
 		recv_event(log_ok(gen_sctp:recv(S1)));
+	{AX, P2, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
+            p("Expected (addr_confirmed) event from UNEXPECTED ADDRESS: "
+              "~n   UNEXPECTED Address: ~p"
+              "~n   Expected Address:   ~p"
+              "~n   PAddr Change:       ~p"
+              "~n", [AX, Addr, CX]),
+            exit({unexpected_event, EX});
         {AX, PX, CX} = EX ->
             p("UNEXPECTED EVENT: "
               "~n   Address:              ~p"
