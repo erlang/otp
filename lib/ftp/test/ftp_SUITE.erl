@@ -246,7 +246,8 @@ init_per_testcase(Case, Config0) ->
         ssl:filter_cipher_suites(All, [{key_exchange, fun(rsa) -> true;
                                                          (_) -> false end}]),
     Suites = ssl:append_cipher_suites(RSASuites, Default),
-    TLS = [{tls,[{reuse_sessions,true},{ciphers, Suites}]}],
+    %% vsftpd =< 3.0.3 gets upset with anything later than tlsv1.2
+    TLS = [{tls,[{reuse_sessions,true},{versions,['tlsv1.2']},{ciphers, Suites}]}],
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
     CaseOpts = case Case of
