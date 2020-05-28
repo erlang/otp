@@ -1604,7 +1604,7 @@ handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
             State = activate_ctrl_connection(State1),
             {noreply, State#state{tls_upgrading_data_connection = {true, pbsz}} };
         {error, _} = Error ->
-            gen_server:reply(From, {Error, self()}),
+            gen_server:reply(From, Error),
             {stop, normal, State0#state{client = undefined,
                                         caller = undefined,
                                         tls_upgrading_data_connection = false}}
@@ -1756,12 +1756,12 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {dir, Dir}} = State0) ->
         {ok, State1} ->
             State = activate_data_connection(State1),
             {noreply, State#state{caller = {handle_dir_result, Dir}}};
-        {error, _Reason} = ERROR ->
+        {error, _Reason} = Error ->
             case State0#state.client of
                 undefined ->
-                    {stop, ERROR, State0};
+                    {stop, Error, State0};
                 From ->
-                    gen_server:reply(From, ERROR),
+                    gen_server:reply(From, Error),
                     {stop, normal, State0#state{client = undefined}}
             end
     end;
@@ -1865,12 +1865,12 @@ handle_ctrl_result({pos_prel, _}, #state{caller = recv_bin} = State0) ->
         {ok, State1} ->
             State = activate_data_connection(State1),
             {noreply, State};
-        {error, _Reason} = ERROR ->
+        {error, _Reason} = Error ->
             case State0#state.client of
                 undefined ->
-                    {stop, ERROR, State0};
+                    {stop, Error, State0};
                 From ->
-                    gen_server:reply(From, ERROR),
+                    gen_server:reply(From, Error),
                     {stop, normal, State0#state{client = undefined}}
             end
     end;
@@ -1899,12 +1899,12 @@ handle_ctrl_result({pos_prel, _}, #state{client = From,
         {ok, State1} ->
             State = start_chunk(State1),
             {noreply, State};
-        {error, _Reason} = ERROR ->
+        {error, _Reason} = Error ->
             case State0#state.client of
                 undefined ->
-                    {stop, ERROR, State0};
+                    {stop, Error, State0};
                 From ->
-                    gen_server:reply(From, ERROR),
+                    gen_server:reply(From, Error),
                     {stop, normal, State0#state{client = undefined}}
             end
     end;
@@ -1940,12 +1940,12 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {recv_file, _}} = State0) ->
         {ok, State1} ->
             State = activate_data_connection(State1),
             {noreply, State};
-        {error, _Reason} = ERROR ->
+        {error, _Reason} = Error ->
             case State0#state.client of
                 undefined ->
-                    {stop, ERROR, State0};
+                    {stop, Error, State0};
                 From ->
-                    gen_server:reply(From, ERROR),
+                    gen_server:reply(From, Error),
                     {stop, normal, State0#state{client = undefined}}
             end
     end;
@@ -1962,12 +1962,12 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_file, Fd}}
     case accept_data_connection(State0) of
         {ok, State1} ->
             send_file(State1, Fd);
-        {error, _Reason} = ERROR ->
+        {error, _Reason} = Error ->
             case State0#state.client of
                 undefined ->
-                    {stop, ERROR, State0};
+                    {stop, Error, State0};
                 From ->
-                    gen_server:reply(From, ERROR),
+                    gen_server:reply(From, Error),
                     {stop, normal, State0#state{client = undefined}}
             end
     end;
@@ -1977,12 +1977,12 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
     case accept_data_connection(State0) of
         {ok, State} ->
             send_bin(State, Bin);
-        {error, _Reason} = ERROR ->
+        {error, _Reason} = Error ->
             case State0#state.client of
                 undefined ->
-                    {stop, ERROR, State0};
+                    {stop, Error, State0};
                 From ->
-                    gen_server:reply(From, ERROR),
+                    gen_server:reply(From, Error),
                     {stop, normal, State0#state{client = undefined}}
             end
     end;
