@@ -254,7 +254,7 @@ init_per_testcase(Case, Config0) ->
                    progress_report_recv -> [{progress, {?MODULE,progress,#progress{}}}];
                    _ -> []
                end,
-    ExtraOpts = [verbose | CaseOpts],
+    ExtraOpts = [{verbose,true} | CaseOpts],
     Config =
         case Group of
             ftp_active   -> ftp__open(Config0,       ACTIVE  ++ ExtraOpts);
@@ -876,7 +876,7 @@ clean_shutdown(Config) ->
     Parent = self(),
     HelperPid = spawn(
                   fun() ->
-                          ftp__open(Config, [verbose]),
+                          ftp__open(Config, [{verbose,true}]),
                           Parent ! ok,
                           receive
                               nothing -> ok
@@ -1073,7 +1073,7 @@ start_ftpd(Config0) ->
                       {ftpd_port,Port},
                       {ftpd_start_result,StartResult} | ConfigRewrite(Config0)],
             try
-                ftp__close(ftp__open(Config,[verbose]))
+                ftp__close(ftp__open(Config,[{verbose,true}]))
             of
                 Config1 when is_list(Config1) ->
                     ct:log("Usuable ftp server ~p started on ~p:~p",[AbsName,Host,Port]),
