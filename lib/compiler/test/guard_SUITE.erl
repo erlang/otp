@@ -2601,6 +2601,10 @@ fail_in_guard() ->
     error = fun() when (0 #fail_in_guard.f)#fail_in_guard.f -> ok;
                () -> error
             end(),
+    error = fun() when 42; <<0.5,0:(element(true, false))>> ->
+                    a = b;
+               () -> error
+            end(),
 
     ok.
 

@@ -643,6 +643,10 @@ fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
 
 merge_blocks(Blocks) ->
     Preds = predecessors(Blocks),
+
+    %% We must traverse the blocks in reverse postorder to avoid
+    %% embedding succeeded:guard instructions into the middle of
+    %% blocks when this function is called from beam_ssa_bool.
     merge_blocks_1(rpo(Blocks), Preds, Blocks).
 
 %%%
@@ -941,9 +945,8 @@ merge_blocks_1([L|Ls], Preds0, Blocks0) ->
                     #b_blk{is=Is0} = Blk0,
                     #b_blk{is=Is1} = Blk1,
                     verify_merge_is(Is1),
-                    Is = Is0 ++ Is1,
-                    Blk2 = Blk1#b_blk{is=Is},
-                    Blk = merge_fix_succeeded(Blk2),
+                    Is = merge_fix_succeeded(Is0 ++ Is1, Blk1),
+                    Blk = Blk1#b_blk{is=Is},
                     Blocks1 = maps:remove(L, Blocks0),
                     Blocks2 = Blocks1#{P:=Blk},
                     Successors = successors(Blk),
@@ -958,24 +961,44 @@ merge_blocks_1([L|Ls], Preds0, Blocks0) ->
     end;
 merge_blocks_1([], _Preds, Blocks) -> Blocks.
 
+%% Since we process the candidates in reverse postorder it is necessary
+%% to update the predecessors. Reverse postorder is necessary to ensure
+%% that merge_fix_succeeded/2 will find and remove all succeeded:guard
+%% not followed by a two-way branch.
 merge_update_preds([L|Ls], From, To, Preds0) ->
-    Ps = [rename_label(P, From, To) || P <- map_get(L, Preds0)],
-    Preds = Preds0#{L:=Ps},
-    merge_update_preds(Ls, From, To, Preds);
+    case Preds0 of
+        #{L := [P]} ->
+            Preds = Preds0#{L := [rename_label(P, From, To)]},
+            merge_update_preds(Ls, From, To, Preds);
+        #{} ->
+            %% More than one predecessor, so this block will not be
+            %% merged. Updating the predecessors is not needed and
+            %% updating would waste a lot of time if there are many
+            %% predecessors.
+            merge_update_preds(Ls, From, To, Preds0)
+    end;
 merge_update_preds([], _, _, Preds) -> Preds.
 
-merge_fix_succeeded(#b_blk{is=[_|_]=Is0,last=#b_br{succ=To,fail=To}}=Blk) ->
+merge_fix_succeeded(Is, #b_blk{last=#b_br{succ=Succ,fail=Fail}}) when Succ =/= Fail ->
+    %% This is a two-way branch. There is no need look at the instructions.
+    Is;
+merge_fix_succeeded([_|_]=Is0, #b_blk{}) ->
+    %% Not a two-way branch.
     case reverse(Is0) of
         [#b_set{op={succeeded,guard},args=[Dst]},#b_set{dst=Dst}|Is] ->
-            %% A succeeded:guard instruction must not be followed by a one-way
-            %% branch. Eliminate it. (We do this mainly for the benefit of the
-            %% beam_ssa_bool pass. When called from beam_ssa_opt there should
-            %% be no such instructions left.)
-            Blk#b_blk{is=reverse(Is)};
+            %% This succeeded:guard instruction MUST be followed by a
+            %% two-way branch. It is not, which means that its result
+            %% will never be used. Therefore, the instruction and
+            %% succeeded:guard must be removed.
+            %%
+            %% We remove those instructions for the benefit of the
+            %% beam_ssa_bool pass. When called from beam_ssa_opt there
+            %% should be no such instructions left.
+            reverse(Is);
         _ ->
-            Blk
+            Is0
     end;
-merge_fix_succeeded(Blk) -> Blk.
+merge_fix_succeeded(Is, _Blk) -> Is.
 
 verify_merge_is([#b_set{op=Op}|_]) ->
     %% The merged block has only one predecessor, so it should not have any phi
