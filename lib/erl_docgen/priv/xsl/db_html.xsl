@@ -445,10 +445,12 @@
 
   <!-- Datatypes -->
   <xsl:template match="datatypes">
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Data Types</xsl:with-param>
     </xsl:call-template>
     <xsl:apply-templates/>
+    </div>
   </xsl:template>
 
   <!-- Datatype Title, is the really needed? not used by anything -->
@@ -801,13 +803,11 @@
           </xsl:call-template>
 
           <div id="content">
-            <div class="innertube">
 
               <!-- Insert the node-specific content -->
               <xsl:call-template name="content">
                 <xsl:with-param name="chapnum" select="$chapnum"/>
               </xsl:call-template>
-            </div>
 
             <div class="footer">
               <hr/>
@@ -837,6 +837,7 @@
 
     <xsl:variable name="lname"><xsl:value-of select="local-name()"/></xsl:variable>
 
+    <div class="innertube">
     <xsl:if test="$lname = 'releasenotes'">
       <!-- .../part -->
       <xsl:call-template name="releasenotes.content" />
@@ -859,6 +860,7 @@
       <!-- .../application -->
       <xsl:call-template name="app.content" />
     </xsl:if>
+    </div>
     <xsl:if test="$lname = 'erlref' or $lname = 'cref' or $lname= 'comref' or $lname= 'fileref' or $lname= 'appref'">
       <!-- .../application/*ref -->
       <xsl:comment> refpage </xsl:comment>
@@ -1054,6 +1056,7 @@
   <!-- *ref/Section -->
   <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section|funcs/fsdescription">
     <xsl:param name="chapnum"/>
+    <div class="innertube">
     <h3>
       <xsl:for-each select="marker">
 	<xsl:call-template name="marker-before-title"/>
@@ -1066,6 +1069,7 @@
     <xsl:apply-templates>
       <xsl:with-param name="chapnum" select="$chapnum"/>
     </xsl:apply-templates>
+    </div>
     </div>
   </xsl:template>
 
@@ -1378,7 +1382,7 @@
     <xsl:param name="chapnum"/>
 
     <div id="leftnav">
-      <div class="innertube">
+      <div class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1406,7 +1410,7 @@
   <xsl:template name="menu.internal.ref">
       <xsl:param name="curModule"/>
       <div id="leftnav">
-      <div class="innertube">
+      <div class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1473,7 +1477,7 @@
     <xsl:param name="chapnum"/>
 
     <div id="leftnav">
-      <div class="innertube">
+      <div class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1634,7 +1638,7 @@
   <xsl:template name="menu.ref">
     <xsl:param name="curModule"/>
     <div id="leftnav">
-      <div class="innertube">
+      <div class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1964,6 +1968,7 @@
   <xsl:template name="ref.content">
     <xsl:param name="partnum"/>
 
+    <div class="innertube">
     <center>
       <h1>
         <xsl:choose>
@@ -1985,17 +1990,18 @@
         </xsl:choose>
       </h1>
     </center>
+    </div>
 
     <xsl:apply-templates>
       <xsl:with-param name="partnum" select="$partnum"/>
     </xsl:apply-templates>
-
   </xsl:template>
 
 
   <!-- Module -->
   <xsl:template match="module">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Module</xsl:with-param>
     </xsl:call-template>
@@ -2004,12 +2010,14 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
 
   <!-- Modulesummary -->
   <xsl:template match="modulesummary">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Module Summary</xsl:with-param>
     </xsl:call-template>
@@ -2028,11 +2036,13 @@
 	<xsl:value-of select="../module/@since"/>.
       </div>
     </xsl:if>
+    </div>
   </xsl:template>
 
   <!-- Lib -->
   <xsl:template match="lib">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">C Library</xsl:with-param>
     </xsl:call-template>
@@ -2041,12 +2051,14 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
 
   <!-- Libsummary -->
   <xsl:template match="libsummary">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Library Summary</xsl:with-param>
     </xsl:call-template>
@@ -2055,11 +2067,13 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
   <!-- Com -->
   <xsl:template match="com">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Command</xsl:with-param>
     </xsl:call-template>
@@ -2068,12 +2082,14 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
 
   <!-- Comsummary -->
   <xsl:template match="comsummary">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Command Summary</xsl:with-param>
     </xsl:call-template>
@@ -2082,11 +2098,13 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
   <!-- File -->
   <xsl:template match="file">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">File</xsl:with-param>
     </xsl:call-template>
@@ -2095,12 +2113,14 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
 
   <!-- Filesummary -->
   <xsl:template match="filesummary">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">File Summary</xsl:with-param>
     </xsl:call-template>
@@ -2109,12 +2129,14 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
 
   <!-- App -->
   <xsl:template match="app">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Application</xsl:with-param>
     </xsl:call-template>
@@ -2123,12 +2145,14 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
 
   <!-- Appsummary -->
   <xsl:template match="appsummary">
     <xsl:param name="partnum"/>
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Application Summary</xsl:with-param>
     </xsl:call-template>
@@ -2137,12 +2161,15 @@
         <xsl:with-param name="partnum" select="$partnum"/>
       </xsl:apply-templates>
     </div>
+    </div>
   </xsl:template>
 
   <!-- Description -->
   <xsl:template match="description">
     <xsl:param name="partnum"/>
-        <xsl:call-template name="h3_title_link">
+
+    <div class="innertube">
+    <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Description</xsl:with-param>
     </xsl:call-template>
     <div class="REFBODY description-body">
@@ -2151,6 +2178,7 @@
           <xsl:with-param name="partnum" select="$partnum"/>
         </xsl:apply-templates>
       </p>
+    </div>
     </div>
   </xsl:template>
 
@@ -2162,9 +2190,11 @@
       <xsl:with-param name="partnum" select="$partnum"/>
     </xsl:apply-templates>
 
+    <div class="innertube">
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Exports</xsl:with-param>
     </xsl:call-template>
+    </div>
 
     <div class="exports-body">
       <xsl:apply-templates select="func">
@@ -2183,9 +2213,11 @@
         select="name[string-length(@arity) > 0 and position()=last()]"
         mode="types"/>
 
+    <div class="exports-tube">
     <xsl:apply-templates select="fsummary|type|desc">
       <xsl:with-param name="partnum" select="$partnum"/>
     </xsl:apply-templates>
+    </div>
 
   </xsl:template>
 
@@ -2622,7 +2654,7 @@
     <xsl:param name="chapnum"/>
 
     <div id="leftnav">
-      <div class="innertube">
+      <div class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
