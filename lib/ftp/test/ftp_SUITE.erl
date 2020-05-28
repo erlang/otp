@@ -745,7 +745,7 @@ recv_chunk_delay(Config0) when is_list(Config0) ->
 delay_recv_chunk(Pid) ->
      delay_recv_chunk(Pid, <<>>).
 delay_recv_chunk(Pid, Acc) ->
-    ct:pal("Recived size ~p", [byte_size(Acc)]),
+    ct:pal("Received size ~p", [byte_size(Acc)]),
     case ftp:recv_chunk(Pid) of
          ok ->
              {ok, Acc};
@@ -758,7 +758,7 @@ delay_recv_chunk(Pid, Acc) ->
 
 %%-------------------------------------------------------------------------
 type() ->
-    [{doc,"Test that we can change btween ASCCI and binary transfer mode"}].
+    [{doc,"Test that we can change between ASCII and binary transfer mode"}].
 type(Config) ->
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:type(Pid, ascii),
