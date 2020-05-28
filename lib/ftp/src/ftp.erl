@@ -1731,13 +1731,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {dir, Dir}} = State0) ->
             State = activate_data_connection(State1),
             {noreply, State#state{caller = {handle_dir_result, Dir}}};
         {error, _Reason} = Error ->
-            case State0#state.client of
-                undefined ->
-                    {stop, Error, State0};
-                From ->
-                    gen_server:reply(From, Error),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+            ctrl_result_response(error, State0, Error)
     end;
 
 handle_ctrl_result({pos_compl, _}, #state{caller = {handle_dir_result, Dir,
@@ -1840,13 +1834,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = recv_bin} = State0) ->
             State = activate_data_connection(State1),
             {noreply, State};
         {error, _Reason} = Error ->
-            case State0#state.client of
-                undefined ->
-                    {stop, Error, State0};
-                From ->
-                    gen_server:reply(From, Error),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+            ctrl_result_response(error, State0, Error)
     end;
 
 handle_ctrl_result({pos_compl, _}, #state{caller = {recv_bin, Data},
@@ -1866,21 +1854,14 @@ handle_ctrl_result({Status, _}, #state{caller = {recv_bin, _}} = State) ->
                          {error, epath});
 %%--------------------------------------------------------------------------
 %% File handling - start_chunk_transfer
-handle_ctrl_result({pos_prel, _}, #state{client = From,
-                                         caller = start_chunk_transfer}
+handle_ctrl_result({pos_prel, _}, #state{caller = start_chunk_transfer}
                    = State0) ->
     case accept_data_connection(State0) of
         {ok, State1} ->
             State = start_chunk(State1),
             {noreply, State};
         {error, _Reason} = Error ->
-            case State0#state.client of
-                undefined ->
-                    {stop, Error, State0};
-                From ->
-                    gen_server:reply(From, Error),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+            ctrl_result_response(error, State0, Error)
     end;
 
 %%--------------------------------------------------------------------------
@@ -1915,13 +1896,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {recv_file, _}} = State0) ->
             State = activate_data_connection(State1),
             {noreply, State};
         {error, _Reason} = Error ->
-            case State0#state.client of
-                undefined ->
-                    {stop, Error, State0};
-                From ->
-                    gen_server:reply(From, Error),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+            ctrl_result_response(error, State0, Error)
     end;
 
 handle_ctrl_result({Status, _}, #state{caller = {recv_file, Fd}} = State) ->
@@ -1937,13 +1912,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_file, Fd}}
         {ok, State1} ->
             send_file(State1, Fd);
         {error, _Reason} = Error ->
-            case State0#state.client of
-                undefined ->
-                    {stop, Error, State0};
-                From ->
-                    gen_server:reply(From, Error),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+            ctrl_result_response(error, State0, Error)
     end;
 
 handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
@@ -1952,13 +1921,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
         {ok, State} ->
             send_bin(State, Bin);
         {error, _Reason} = Error ->
-            case State0#state.client of
-                undefined ->
-                    {stop, Error, State0};
-                From ->
-                    gen_server:reply(From, Error),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+            ctrl_result_response(error, State0, Error)
     end;
 
 %%--------------------------------------------------------------------------
@@ -1978,13 +1941,22 @@ ctrl_result_response(enofile, #state{client = From} = State, _) ->
     gen_server:reply(From, {error, enofile}),
     {noreply, State#state{client = undefined, caller = undefined}};
 
+ctrl_result_response(error, State0, {error, _Reason} = Error) ->
+    case State0#state.client of
+        undefined ->
+            {stop, Error, State0};
+        From ->
+            gen_server:reply(From, Error),
+            State = activate_ctrl_connection(State0),
+            {noreply, State}
+    end;
+
 ctrl_result_response(Status, #state{client = From} = State, _)
   when (Status =:= etnospc)  orelse
        (Status =:= epnospc)  orelse
        (Status =:= efnamena) orelse
        (Status =:= econn) ->
     gen_server:reply(From, {error, Status}),
-%%    {stop, normal, {error, Status}, State#state{client = undefined}};
     {stop, normal, State#state{client = undefined}};
 
 ctrl_result_response(_, #state{client = From} = State, ErrorMsg) ->

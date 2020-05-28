@@ -57,6 +57,7 @@ all() ->
      app,
      appup,
      error_ehost,
+     error_datafail,
      clean_shutdown
     ].
 
@@ -144,28 +145,62 @@ ftp_sup_tests() ->
                   ConfFile = filename:join(DataDir, "vsftpd.conf"),
                   PrivDir = proplists:get_value(priv_dir,__CONF__),
                   AnonRoot = PrivDir,
-                  Cmd = [AbsName ++" "++filename:join(DataDir,"vsftpd.conf"),
-                         " -oftpd_banner=erlang_otp_testing",
-                         " -oanon_root=\"",AnonRoot,"\"",
-                         " -orsa_cert_file=\"",filename:join(DataDir,"server-cert.pem"),"\"",
-                         " -orsa_private_key_file=\"",filename:join(DataDir,"server-key.pem"),"\""
-                        ],
-                  Result = os:cmd(Cmd),
-                  ct:log("Config file:~n~s~n~nServer start command:~n  ~s~nResult:~n  ~p",
-                         [case file:read_file(ConfFile) of
-                              {ok,X} -> X;
-                              _ -> ""
-                          end,
-                          Cmd, Result
-                         ]),
-                  case Result of
-                      [] -> {ok,'dont care'};
-                      [Msg] -> {error,Msg}
+                  Cmd0 = AbsName,
+                  Args0 = [filename:join(DataDir,"vsftpd.conf"),
+                          "-oftpd_banner=erlang_otp_testing",
+                          "-oanon_root=\"" ++ AnonRoot ++ "\"",
+                          "-orsa_cert_file=\"" ++ filename:join(DataDir,"server-cert.pem") ++ "\"",
+                          "-orsa_private_key_file=\"" ++ filename:join(DataDir,"server-key.pem") ++ "\""
+                         ],
+                  Args = lists:append(Args0, case proplists:get_value(ftpd_ssl_reuse,__CONF__) of
+                      true -> ["-orequire_ssl_reuse=YES"];
+                      _ -> []
+                  end),
+                  % eof on stdin does not kill vsftpd
+                  Cmd = "script -qefc '" ++ "stty -echo intr ^D && exec " ++ string:join([Cmd0|Args], " ") ++ "' /dev/null",
+                  Parent = self(),
+                  Helper = spawn(fun() ->
+                      case os:cmd("ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'") of
+                          [] ->
+                              case open_port({spawn,Cmd},[exit_status]) of
+                                  Port when is_port(Port) ->
+                                      timer:sleep(500),        % give it a chance to actually open the listening socket
+                                      Parent ! {ok,Port},
+                                      receive {From,close} ->
+                                          true = erlang:port_command(Port, [4]),
+                                          receive {Port,{exit_status,Status}} ->
+                                              ct:log("vsftpd exit with status ~b", [Status - 128])
+                                          after 500 ->
+                                              ct:log("vsftpd requires violence", []),
+                                              os:cmd("kill -9 `ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'`")
+                                          end,
+                                          From ! ok
+                                      end;
+                                  _Else ->
+                                      Parent ! {error,open_port}
+                              end;
+                          OSPids ->
+                              Parent ! {error,{existing,OSPids}}
+                      end
+                  end),
+                  receive
+                      {ok,Port} ->
+                          ct:log("Config file:~n~s~n~nServer start command:~n  ~s~nResult:~n  ~p",
+                                  [case file:read_file(ConfFile) of
+                                      {ok,X} -> X;
+                                      _ -> ""
+                                  end,
+                                  Cmd, erlang:port_info(Port)
+                          ]),
+                          {ok, {Helper, Port}};
+                      {error,_} = Error ->
+                          ct:fail("open_port: ~p", [Error]),
+                          Error
                   end
           end,
-          fun(_StartResult) -> os:cmd("ps ax | grep erlang_otp_testing | grep -v grep")
+          fun(_StartResult = {_Helper, Port}) -> erlang:port_info(Port)
           end,
-          fun(_StartResult) -> os:cmd("kill `ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'`")
+          fun(_StartResult = {Helper, _Port}) -> Helper ! {self(), close}, receive ok -> ok end
           end,
           fun(__CONF__) ->
                   AnonRoot = proplists:get_value(priv_dir,__CONF__),
@@ -180,32 +215,29 @@ ftp_sup_tests() ->
 
 
 init_per_suite(Config) ->
+    % remove anything defunct from previoused crashed runs
+    os:cmd("kill -9 `ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'`"),
+
     case find_executable(Config) of
         false ->
             {skip, "No ftp server found"};
         {ok,Data} ->
             TstDir = filename:join(proplists:get_value(priv_dir,Config), "test"),
             file:make_dir(TstDir),
-            %% make_cert_files(dsa, rsa, "server-", proplists:get_value(data_dir,Config)),
             ftp_test_lib:make_cert_files(proplists:get_value(data_dir,Config)),
-            start_ftpd([{test_dir,TstDir},
-                        {ftpd_data,Data}
-                        | Config])
+            [{test_dir,TstDir},{ftpd_data,Data} | Config]
     end.
 
-end_per_suite(Config) ->
-    ps_ftpd(Config),
-    stop_ftpd(Config),
-    ps_ftpd(Config),
+end_per_suite(_Config) ->
     ok.
 
 %%--------------------------------------------------------------------
-init_per_group(Group, Config) when Group == ftps_active,
+init_per_group(Group, Config) when Group == ftps_active;
                                    Group == ftps_passive ->
     catch crypto:stop(),
     try crypto:start() of
         ok ->
-            Config
+            start_ftpd(Config)
     catch
         _:_ ->
             {skip, "Crypto did not start"}
@@ -213,25 +245,46 @@ init_per_group(Group, Config) when Group == ftps_active,
 init_per_group(ftp_sup, Config) ->
     try ftp:start() of
         ok ->
-            Config
+            start_ftpd(Config)
     catch
         _:_ ->
             {skip, "Ftp did not start"}
     end;
 init_per_group(_Group, Config) ->
-    Config.
+    start_ftpd(Config).
 
 
 end_per_group(ftp_sup, Config) ->
     ftp:stop(),
+    stop_ftpd(Config),
     Config;
 end_per_group(_Group, Config) ->
+    stop_ftpd(Config),
     Config.
 
 %%--------------------------------------------------------------------
 init_per_testcase(T, Config0) when T =:= app; T =:= appup ->
     Config0;
 init_per_testcase(Case, Config0) ->
+    case Case of
+        error_datafail ->
+            catch crypto:stop(),
+            try crypto:start() of
+                ok ->
+                    Config = start_ftpd([{ftpd_ssl_reuse,true}|Config0]),
+                    init_per_testcase2(Case, Config)
+            catch
+                _:_ ->
+                    {skip, "Crypto did not start"}
+            end;
+        clean_shutdown ->
+            Config = start_ftpd(Config0),
+            init_per_testcase2(Case, Config);
+        _ ->
+            init_per_testcase2(Case, Config0)
+    end.
+
+init_per_testcase2(Case, Config0) ->
     Group = proplists:get_value(name, proplists:get_value(tc_group_properties,Config0)),
 
     %% Workaround for interoperability issues with vsftpd =< 3.0.2:
@@ -247,7 +300,11 @@ init_per_testcase(Case, Config0) ->
                                                          (_) -> false end}]),
     Suites = ssl:append_cipher_suites(RSASuites, Default),
     %% vsftpd =< 3.0.3 gets upset with anything later than tlsv1.2
-    TLS = [{tls,[{reuse_sessions,true},{versions,['tlsv1.2']},{ciphers, Suites}]}],
+    TLS = [{tls, [
+              {versions,['tlsv1.2']},{ciphers,Suites},
+              % not safe for ftp ctrl channels as reuse is for data channels
+              {reuse_sessions,not proplists:get_value(ftpd_ssl_reuse,Config0,false)}
+          ]}],
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
     CaseOpts = case Case of
@@ -272,18 +329,27 @@ init_per_testcase(Case, Config0) ->
         error_ehost    -> Config;
         clean_shutdown -> Config;
         _ ->
-            Pid = proplists:get_value(ftp,Config),
+            ConfigN = if
+                Case == error_datafail ->
+                    ftp__open(Config, TLS++PASSIVE++ExtraOpts);
+                true ->
+                    Config
+            end,
+            Pid = proplists:get_value(ftp,ConfigN),
             ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS(atom_to_list(Group)++"-"++atom_to_list(Case)) ),
-            ok = ftp:cd(Pid, proplists:get_value(priv_dir,Config)),
-            Config
+            ok = ftp:cd(Pid, proplists:get_value(priv_dir,ConfigN)),
+            ConfigN
     end.
 
-end_per_testcase(T, _Config) when  T =:= app; T =:= appup -> ok;
+end_per_testcase(T, _Config) when T =:= app; T =:= appup -> ok;
 end_per_testcase(user, _Config) -> ok;
 end_per_testcase(bad_user, _Config) -> ok;
 end_per_testcase(error_elogin, _Config) -> ok;
 end_per_testcase(error_ehost, _Config) -> ok;
-end_per_testcase(clean_shutdown, _Config) -> ok;
+end_per_testcase(T, Config) when T =:= error_datafail; T =:= clean_shutdown ->
+    T == error_datafail andalso ftp__close(Config),
+    stop_ftpd(Config),
+    ok;
 end_per_testcase(_Case, Config) ->
     case proplists:get_value(tc_status,Config) of
         ok -> ok;
@@ -963,6 +1029,39 @@ error_ehost(_Config) ->
     {error, ehost} = ftp:open("nohost.nodomain"),
     ok.
 
+%%%----------------------------------------------------------------
+error_datafail() ->
+    [{doc, "Test that failure to open data channel captures "
+     "error emitted on ctrl chanenel"}].
+
+error_datafail(Config) ->
+    Self = self(),
+    Pid = proplists:get_value(ftp, Config),
+    % ftp:latest_ctrl_response/1 returns {error,eclosed}
+    % and erlang:group_leader/2 does not work under ct
+    dbg:start(),
+    dbg:tracer(process, {fun
+        ({trace,P,call,{ftp,verbose,[M,_,'receive']}}, ok) when P == Pid -> Self ! M, ok;
+        (_, ok) -> ok
+    end, ok}),
+    dbg:tpl(ftp, verbose, []),
+    dbg:p(Pid, [call]),
+    {error,_} = ftp:ls(Pid),
+    dbg:stop_clear(),
+    Recv = fun(Recv) ->
+        receive
+            Msg when is_list(Msg) ->
+                case string:find(Msg, "session reuse required") of
+                    nomatch -> Recv(Recv);
+                    _ -> ok
+                end
+            after 2000 ->
+                {fail, "missing error stating 'session reuse required'"}
+        end
+    end,
+    Result = Recv(Recv),
+    Result.
+
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
@@ -1083,6 +1182,7 @@ start_ftpd(Config0) ->
                 Class:Exception ->
                     ct:log("Ftp server ~p started on ~p:~p but is unusable:~n~p:~p",
                            [AbsName,Host,Port,Class,Exception]),
+                    stop_ftpd(Config),
                     {skip, [AbsName," started but unusuable"]}
             end;
         {error,Msg} ->
@@ -1093,14 +1193,9 @@ stop_ftpd(Config) ->
     {_Name,_StartCmd,_ChkUp,StopCommand,_ConfigUpd,_Host,_Port} = proplists:get_value(ftpd_data, Config),
     StopCommand(proplists:get_value(ftpd_start_result,Config)).
 
-ps_ftpd(Config) ->
-    {_Name,_StartCmd,ChkUp,_StopCommand,_ConfigUpd,_Host,_Port} = proplists:get_value(ftpd_data, Config),
-    ct:log( ChkUp(proplists:get_value(ftpd_start_result,Config)) ).
-
-
 ftpd_running(Config) ->
     {_Name,_StartCmd,ChkUp,_StopCommand,_ConfigUpd,_Host,_Port} = proplists:get_value(ftpd_data, Config),
-    ChkUp(proplists:get_value(ftpd_start_result,Config)).
+    undefined =/= ChkUp(proplists:get_value(ftpd_start_result,Config)).
 
 ftp__open(Config, Options) ->
     Host = proplists:get_value(ftpd_host,Config),
