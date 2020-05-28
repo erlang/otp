@@ -37,7 +37,23 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.19</title>
+  <section><title>Megaco 3.19.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The mini parser could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16631 Aux Id: ERIERL-491 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19</title>
 
     <section><title>Improvements and New Features</title>
       <list>
