@@ -217,14 +217,14 @@ end_per_suite(_Config) ->
     ssl_test_lib:kill_openssl().
 
 %%--------------------------------------------------------------------
-init_per_group(GroupName, Config0) ->
-    case ssl_test_lib:init_per_group_openssl(GroupName, Config0) of
-        {skip, _} = Skip ->
-            Skip;
-        Config ->
+init_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_protocol_version(GroupName) of
+        true ->
+            ssl_test_lib:init_per_group_openssl(GroupName, Config);
+        false ->
             do_init_per_group(GroupName, Config)
     end.
-
+  
 do_init_per_group(openssl_client, Config0) ->
     Config = proplists:delete(server_type, proplists:delete(client_type, Config0)),
     [{client_type, openssl}, {server_type, erlang} | Config];
@@ -266,7 +266,7 @@ do_init_per_group(srp_dss = GroupName, Config) ->
             {skip, "Missing DSS_SRP crypto support"}
     end;
 do_init_per_group(GroupName, Config) when GroupName == srp_anon;
-                                       GroupName == srp_rsa ->
+                                          GroupName == srp_rsa ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(srp, PKAlg) of
         true ->
@@ -282,14 +282,31 @@ do_init_per_group(dhe_psk = GroupName, Config) ->
         false ->
             {skip, "Missing SRP crypto support"}
     end;
-do_init_per_group(GroupName, Config0) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
+do_init_per_group(dhe_rsa = GroupName, Config) ->
+    PKAlg = proplists:get_value(public_keys, crypto:supports()),
+    case lists:member(dh, PKAlg) andalso lists:member(rsa, PKAlg) of
         true ->
-            ssl_test_lib:init_tls_version(GroupName, end_per_group(GroupName, Config0));
+            init_certs(GroupName, Config);
         false ->
-            init_certs(GroupName, Config0)
+            {skip, "Missing SRP crypto support"}
+    end;
+do_init_per_group(rsa = GroupName, Config) ->
+    PKAlg = proplists:get_value(public_keys, crypto:supports()),
+    case lists:member(rsa, PKAlg) of
+        true ->
+            init_certs(GroupName, Config);
+        false ->
+            {skip, "Missing SRP crypto support"}
+    end;
+do_init_per_group(dh_anon = GroupName, Config) ->
+    PKAlg = proplists:get_value(public_keys, crypto:supports()),
+    case lists:member(dh, PKAlg) of
+        true ->
+            init_certs(GroupName, Config);
+        false ->
+            {skip, "Missing SRP crypto support"}
     end.
-  
+
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 

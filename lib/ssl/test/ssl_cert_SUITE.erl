@@ -149,8 +149,20 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
-init_per_group(Group, Config0) when Group == rsa;
-                                    Group == rsa_1_3 ->
+
+init_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_protocol_version(GroupName) of
+        true  ->
+            ssl_test_lib:init_per_group(GroupName, 
+                                        [{client_type, erlang},
+                                         {server_type, erlang},
+                                         {version, GroupName} | Config]);
+        false -> 
+            do_init_per_group(GroupName, Config)
+    end.
+
+do_init_per_group(Group, Config0) when Group == rsa;
+                                       Group == rsa_1_3 ->
     Config1 = ssl_test_lib:make_rsa_cert(Config0),
     Config = ssl_test_lib:make_rsa_1024_cert(Config1),
     COpts = proplists:get_value(client_rsa_opts, Config),
@@ -162,7 +174,7 @@ init_per_group(Group, Config0) when Group == rsa;
                    lists:delete(server_cert_opts, 
                                 lists:delete(client_cert_opts, Config))])];
 
-init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
+do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
                                  Alg == rsa_pss_pss;
                                  Alg == rsa_pss_rsae_1_3;
                                  Alg == rsa_pss_pss_1_3 ->
@@ -185,7 +197,7 @@ init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
         false ->
             {skip, "Missing EC crypto support"}
     end;
-init_per_group(Group, Config0) when Group == ecdsa;
+do_init_per_group(Group, Config0) when Group == ecdsa;
                                     Group == ecdsa_1_3 ->
 
     PKAlg = crypto:supports(public_keys),
@@ -205,7 +217,7 @@ init_per_group(Group, Config0) when Group == ecdsa;
             {skip, "Missing EC crypto support"}
     end;
 
-init_per_group(Group, Config0) when Group == dsa ->
+do_init_per_group(Group, Config0) when Group == dsa ->
     PKAlg = crypto:supports(public_keys),
     case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
         true ->
@@ -220,30 +232,12 @@ init_per_group(Group, Config0) when Group == dsa ->
                                         lists:delete(client_cert_opts, Config))])];
         false ->
             {skip, "Missing DSS crypto support"}
-    end;    
-init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-	true ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    [{client_type, erlang},
-                     {server_type, erlang}, {version, GroupName} 
-                     | ssl_test_lib:init_tls_version(GroupName, Config)];
-		false ->
-		    {skip, "Missing crypto support"}
-	    end;
-	_ ->
-	    ssl:start(),
-	    Config
-    end.
+    end;
+do_init_per_group(Group, Config) ->
+    Config.
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-        false ->
-            Config
-    end.
+  ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),

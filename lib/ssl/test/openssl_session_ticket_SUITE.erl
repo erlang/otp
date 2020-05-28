@@ -112,28 +112,18 @@ end_per_testcase(_TestCase, Config) ->
 openssl_server_basic() ->
     [{doc,"Test session resumption with session tickets (erlang client - openssl server)"}].
 openssl_server_basic(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-
-    Version = 'tlsv1.3',
-    Port = ssl_test_lib:inet_port(node()),
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    CACertFile = proplists:get_value(cacertfile, ServerOpts),
-    KeyFile = proplists:get_value(keyfile, ServerOpts),
 
     %% Configure session tickets
     ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
 
-    Exe = "openssl",
-    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-            "-cert", CertFile,"-key", KeyFile, "-CAfile", CACertFile, "-msg", "-debug"],
-
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),
-
-    ssl_test_lib:wait_for_openssl_server(Port,  proplists:get_value(protocol, Config)),
+    Server = ssl_test_lib:start_server(openssl, [], 
+                                       [{server_opts, ServerOpts} | Config]),
+    
+    Port = ssl_test_lib:inet_port(Server),
 
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
@@ -156,17 +146,16 @@ openssl_server_basic(Config) when is_list(Config) ->
                                                 [true, no_reply]}},
                                          {from, self()},
                                          {options, ClientOpts}]),
-    process_flag(trap_exit, false),
-
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close_port(OpensslPort),
+    ssl_test_lib:close(Server),
     ssl_test_lib:close(Client1).
 
 openssl_client_basic() ->
     [{doc,"Test session resumption with session tickets (openssl client - erlang server)"}].
 openssl_client_basic(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+
+    {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
     TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
@@ -185,75 +174,52 @@ openssl_client_basic(Config) when is_list(Config) ->
                                           [false]}},
 				   {options, ServerOpts}]),
 
-    Version = 'tlsv1.3',
     Port0 = ssl_test_lib:inet_port(Server0),
 
-    Exe = "openssl",
-    Args0 = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname)
-            ++ ":" ++ integer_to_list(Port0),
-            ssl_test_lib:version_flag(Version),
-            "-sess_out", TicketFile0],
+    Client0 = ssl_test_lib:start_client(openssl, [{port, Port0}, 
+                                                  {options, ClientOpts},
+                                                  {session_args, ["-sess_out", TicketFile0]}], Config),
 
-    OpenSslPort0 =  ssl_test_lib:portable_open_port(Exe, Args0),
-
-    true = port_command(OpenSslPort0, Data),
+    ssl_test_lib:send(Client0, Data),
 
     ssl_test_lib:check_result(Server0, ok),
 
     Server0 ! {listen, {mfa, {ssl_test_lib,
-                              verify_active_session_resumption,
+                               verify_active_session_resumption,
                               [true]}}},
-
-    %% Wait for session ticket
+    ssl_test_lib:close(Client0),
+    %% %% Wait for session ticket
     ct:sleep(100),
+    
+    Client1 = ssl_test_lib:start_client(openssl, [{port, Port0},
+                                                  {options, ClientOpts},
+                                                  {session_args, ["-sess_in", TicketFile0,
+                                                                  "-sess_out", TicketFile1]}], Config),
+    
 
-    Args1 = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname)
-            ++ ":" ++ integer_to_list(Port0),
-            ssl_test_lib:version_flag(Version),
-            "-sess_in", TicketFile0,
-            "-sess_out", TicketFile1],
-
-    OpenSslPort1 =  ssl_test_lib:portable_open_port(Exe, Args1),
-
-    true = port_command(OpenSslPort1, Data),
-
+    ssl_test_lib:send(Client1, Data),
     ssl_test_lib:check_result(Server0, ok),
-
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close(Server0),
-    ssl_test_lib:close_port(OpenSslPort0),
-    ssl_test_lib:close_port(OpenSslPort1).
+    ssl_test_lib:close(Server0),    
+    ssl_test_lib:close(Client1).
 
 openssl_server_hrr() ->
     [{doc,"Test session resumption with session tickets and hello_retry_request (erlang client - openssl server)"}].
 openssl_server_hrr(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-
-    Version = 'tlsv1.3',
-    Port = ssl_test_lib:inet_port(node()),
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    CACertFile = proplists:get_value(cacertfile, ServerOpts),
-    KeyFile = proplists:get_value(keyfile, ServerOpts),
 
     %% Configure session tickets
     ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
 
-    Exe = "openssl",
-    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-            "-cert", CertFile,
-            "-key", KeyFile,
-            "-CAfile", CACertFile,
-            "-groups", "X448:X25519",
-            "-msg", "-debug"],
-
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),
-
-    ssl_test_lib:wait_for_openssl_server(Port,  proplists:get_value(protocol, Config)),
+    
+    Server = ssl_test_lib:start_server(openssl, [{groups, "X448:X25519"}], 
+                                       [{server_opts, ServerOpts} | Config]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+  
 
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
@@ -276,17 +242,15 @@ openssl_server_hrr(Config) when is_list(Config) ->
                                                 [true, no_reply]}},
                                          {from, self()},
                                          {options, ClientOpts}]),
-    process_flag(trap_exit, false),
-
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close_port(OpensslPort),
+    ssl_test_lib:close(Server),
     ssl_test_lib:close(Client1).
 
 openssl_client_hrr() ->
     [{doc,"Test session resumption with session tickets and hello_retry_request (openssl client - erlang server)"}].
 openssl_client_hrr(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
     TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
@@ -306,19 +270,15 @@ openssl_client_hrr(Config) when is_list(Config) ->
                                           [false]}},
 				   {options, ServerOpts}]),
 
-    Version = 'tlsv1.3',
     Port0 = ssl_test_lib:inet_port(Server0),
+    
 
-    Exe = "openssl",
-    Args0 = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname)
-            ++ ":" ++ integer_to_list(Port0),
-            ssl_test_lib:version_flag(Version),
-            "-groups", "P-256:X25519",
-            "-sess_out", TicketFile0],
+    Client0 = ssl_test_lib:start_client(openssl, [{port, Port0}, 
+                                                  {options, ClientOpts},
+                                                  {groups,  "P-256:X25519"},
+                                                  {session_args, ["-sess_out", TicketFile0]}], Config),
 
-    OpenSslPort0 =  ssl_test_lib:portable_open_port(Exe, Args0),
-
-    true = port_command(OpenSslPort0, Data),
+    ssl_test_lib:send(Client0, Data),
 
     ssl_test_lib:check_result(Server0, ok),
 
@@ -327,56 +287,40 @@ openssl_client_hrr(Config) when is_list(Config) ->
                               [true]}}},
 
     %% Wait for session ticket
+    ssl_test_lib:close(Client0),
     ct:sleep(100),
 
-    Args1 = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname)
-            ++ ":" ++ integer_to_list(Port0),
-            ssl_test_lib:version_flag(Version),
-            "-groups", "P-256:X25519",
-            "-sess_in", TicketFile0,
-            "-sess_out", TicketFile1],
-
-    OpenSslPort1 =  ssl_test_lib:portable_open_port(Exe, Args1),
-
-    true = port_command(OpenSslPort1, Data),
+    Client1 = ssl_test_lib:start_client(openssl, [{port, Port0}, 
+                                                  {options, ClientOpts},
+                                                  {groups,  "P-256:X25519"},
+                                                  {session_args, ["-sess_in", TicketFile0,
+                                                                  "-sess_out", TicketFile1]}], Config),
+    ssl_test_lib:send(Client1, Data),
 
     ssl_test_lib:check_result(Server0, ok),
 
-    %% Clean close down!   Server needs to be closed first !!
     ssl_test_lib:close(Server0),
-    ssl_test_lib:close_port(OpenSslPort0),
-    ssl_test_lib:close_port(OpenSslPort1).
+    ssl_test_lib:close(Client1).
 
 openssl_server_hrr_multiple_tickets() ->
-    [{doc,"Test session resumption with multiple session tickets and hello_retry_request (erlang client - openssl server)"}].
+    [{doc,"Test session resumption with multiple session tickets and hello_retry_request "
+      "(erlang client - openssl server)"}].
 openssl_server_hrr_multiple_tickets(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
-    Version = 'tlsv1.3',
-    Port = ssl_test_lib:inet_port(node()),
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    CACertFile = proplists:get_value(cacertfile, ServerOpts),
-    KeyFile = proplists:get_value(keyfile, ServerOpts),
-
     %% Configure session tickets
     ClientOpts = [{session_tickets, manual}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
 
-    Exe = "openssl",
-    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-            "-cert", CertFile,
-            "-key", KeyFile,
-            "-CAfile", CACertFile,
-            "-groups", "X448:X25519",
-            "-msg", "-debug"],
-
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),
-
-    ssl_test_lib:wait_for_openssl_server(Port,  proplists:get_value(protocol, Config)),
+    
+    Server = ssl_test_lib:start_server(openssl, [{groups, "X448:X25519"}], 
+                                       [{server_opts, ServerOpts} | Config]),
+    
+    Port = ssl_test_lib:inet_port(Server),
 
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
@@ -404,6 +348,5 @@ openssl_server_hrr_multiple_tickets(Config) when is_list(Config) ->
 
     process_flag(trap_exit, false),
 
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close_port(OpensslPort),
-    ssl_test_lib:close(Client1).
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Server).

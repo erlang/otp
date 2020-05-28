@@ -182,15 +182,24 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
+init_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_protocol_version(GroupName) of
+        true  ->
+            ssl_test_lib:init_per_group(GroupName, [{client_type, erlang},
+                                                    {server_type, erlang},
+                                                    {version, GroupName} | Config]);
+        false -> 
+            do_init_per_group(GroupName, Config)
+    end.
 
-init_per_group(GroupName, Config) when GroupName == ecdhe_1_3_rsa_cert ->    
+do_init_per_group(GroupName, Config) when GroupName == ecdhe_1_3_rsa_cert ->    
     case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
         true ->
             init_certs(GroupName, Config);
         false ->
             {skip, "Missing EC crypto support"}
     end;
-init_per_group(GroupName, Config) when GroupName == ecdh_anon;
+do_init_per_group(GroupName, Config) when GroupName == ecdh_anon;
                                        GroupName == ecdhe_rsa;
                                        GroupName == ecdhe_psk ->
     case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
@@ -199,7 +208,7 @@ init_per_group(GroupName, Config) when GroupName == ecdh_anon;
         false ->
             {skip, "Missing EC crypto support"}
     end;
-init_per_group(ecdhe_ecdsa = GroupName, Config) ->
+do_init_per_group(ecdhe_ecdsa = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(ecdh, PKAlg) andalso lists:member(ecdsa, PKAlg) of
         true ->
@@ -207,7 +216,7 @@ init_per_group(ecdhe_ecdsa = GroupName, Config) ->
         false ->
             {skip, "Missing EC crypto support"}
     end;
-init_per_group(dhe_dss = GroupName, Config) ->
+do_init_per_group(dhe_dss = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
         true ->
@@ -215,7 +224,7 @@ init_per_group(dhe_dss = GroupName, Config) ->
         false ->
             {skip, "Missing DSS crypto support"}
     end;
-init_per_group(srp_dss = GroupName, Config) ->
+do_init_per_group(srp_dss = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(dss, PKAlg) andalso lists:member(srp, PKAlg) of
         true ->
@@ -223,8 +232,8 @@ init_per_group(srp_dss = GroupName, Config) ->
         false ->
             {skip, "Missing DSS_SRP crypto support"}
     end;
-init_per_group(GroupName, Config) when GroupName == srp_anon;
-                                       GroupName == srp_rsa ->
+do_init_per_group(GroupName, Config) when GroupName == srp_anon;
+                                          GroupName == srp_rsa ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(srp, PKAlg) of
         true ->
@@ -232,7 +241,7 @@ init_per_group(GroupName, Config) when GroupName == srp_anon;
         false ->
             {skip, "Missing SRP crypto support"}
     end;
-init_per_group(dhe_psk = GroupName, Config) ->
+do_init_per_group(dhe_psk = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(dh, PKAlg) of
         true ->
@@ -240,13 +249,8 @@ init_per_group(dhe_psk = GroupName, Config) ->
         false ->
             {skip, "Missing SRP crypto support"}
     end;
-init_per_group(GroupName, Config0) ->
-    case ssl_test_lib:init_per_group(GroupName, Config0) of
-        {skip, _} = Skip ->
-            Skip;
-        Config ->
-            init_certs(GroupName, Config)
-    end.
+do_init_per_group(GroupName, Config) ->
+   init_certs(GroupName, Config).
   
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).

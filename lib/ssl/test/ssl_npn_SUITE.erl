@@ -74,28 +74,11 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-	true ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    ssl_test_lib:init_tls_version(GroupName, Config);
-		false ->
-		    {skip, "Missing crypto support"}
-	    end;
-	_ ->
-	    ssl:start(),
-	    Config
-    end.
+    ssl_test_lib:init_per_group(GroupName, Config). 
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-        false ->
-            Config
-    end.
+  ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
