@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 11.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug when sending an export fun (eg
+	    <c>lists:reverse/1</c>) on a not yet established
+	    connection. It could cause VM crash. Bug exists since OTP
+	    23.0.</p>
+          <p>
+	    Own Id: OTP-16693 Aux Id: ERL-1254, PR-2640 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
