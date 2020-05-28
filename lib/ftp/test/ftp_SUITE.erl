@@ -147,15 +147,31 @@ ftp_sup_tests() ->
                   AnonRoot = PrivDir,
                   Cmd0 = AbsName,
                   Args0 = [filename:join(DataDir,"vsftpd.conf"),
-                          "-oftpd_banner=erlang_otp_testing",
-                          "-oanon_root=\"" ++ AnonRoot ++ "\"",
-                          "-orsa_cert_file=\"" ++ filename:join(DataDir,"server-cert.pem") ++ "\"",
-                          "-orsa_private_key_file=\"" ++ filename:join(DataDir,"server-key.pem") ++ "\""
-                         ],
-                  Args = lists:append(Args0, case proplists:get_value(ftpd_ssl_reuse,__CONF__) of
-                      true -> ["-orequire_ssl_reuse=YES"];
+                           "-oftpd_banner=erlang_otp_testing",
+                           "-oanon_root=\"" ++ AnonRoot ++ "\""
+                          ],
+                  Args1 = lists:append(Args0, case proplists:get_value(name, proplists:get_value(tc_group_properties,__CONF__,[])) of
+                      ftp_active -> ["-opasv_enable=NO"];
+                      ftp_passive -> ["-oport_enable=NO"];
                       _ -> []
                   end),
+                  Args = case proplists:get_value(ftpd_ssl,__CONF__) of
+                      true ->
+                          A0 = [
+                                "-ossl_enable=YES",
+                                "-orsa_cert_file=\"" ++ filename:join(DataDir,"server-cert.pem") ++ "\"",
+                                "-orsa_private_key_file=\"" ++ filename:join(DataDir,"server-key.pem") ++ "\"",
+                                "-oforce_anon_logins_ssl=YES",
+                                "-oforce_anon_data_ssl=YES"
+                               ],
+                          A1 = case proplists:get_value(ftpd_ssl_reuse,__CONF__) of
+                              true -> ["-orequire_ssl_reuse=YES"];
+                              _ -> []
+                          end,
+                          lists:append([Args1, A0, A1]);
+                      _ ->
+                          Args1
+                  end,
                   % eof on stdin does not kill vsftpd
                   Cmd = "script -qefc '" ++ "stty -echo intr ^D && exec " ++ string:join([Cmd0|Args], " ") ++ "' /dev/null",
                   Parent = self(),
@@ -238,7 +254,7 @@ init_per_group(Group, Config) when Group == ftps_active;
     catch crypto:stop(),
     try crypto:start() of
         ok ->
-            start_ftpd(Config)
+            start_ftpd([{ftpd_ssl,true}|Config])
     catch
         _:_ ->
             {skip, "Crypto did not start"}
@@ -272,7 +288,7 @@ init_per_testcase(Case, Config0) ->
             catch crypto:stop(),
             try crypto:start() of
                 ok ->
-                    Config = start_ftpd([{ftpd_ssl_reuse,true}|Config0]),
+                    Config = start_ftpd([{ftpd_ssl,true},{ftpd_ssl_reuse,true}|Config0]),
                     init_per_testcase2(Case, Config)
             catch
                 _:_ ->
