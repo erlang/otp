@@ -51,6 +51,8 @@ all() ->
     [
      {group, ftp_passive},
      {group, ftp_active},
+     {group, ftpes_passive},
+     {group, ftpes_active},
      {group, ftps_passive},
      {group, ftps_active},
      {group, ftp_sup},
@@ -65,8 +67,10 @@ groups() ->
     [
      {ftp_passive, [], ftp_tests()},
      {ftp_active, [], ftp_tests()},
-     {ftps_passive, [], ftp_tests()},
-     {ftps_active, [], ftp_tests()},
+     {ftpes_passive, [], ftp_tests_smoke()},
+     {ftpes_active, [], ftp_tests_smoke()},
+     {ftps_passive, [], ftp_tests_smoke()},
+     {ftps_active, [], ftp_tests_smoke()},
      {ftp_sup, [], ftp_sup_tests()}
     ].
 
@@ -107,6 +111,11 @@ ftp_tests()->
      unexpected_call,
      unexpected_cast,
      unexpected_bang
+    ].
+
+ftp_tests_smoke() ->
+    [
+     ls
     ].
 
 ftp_sup_tests() ->
@@ -168,7 +177,11 @@ ftp_sup_tests() ->
                               true -> ["-orequire_ssl_reuse=YES"];
                               _ -> []
                           end,
-                          lists:append([Args1, A0, A1]);
+                          A2 = case proplists:get_value(ftpd_ssl_implicit,__CONF__) of
+                              true -> ["-oimplicit_ssl=YES"];
+                              _ -> []
+                          end,
+                          lists:append([Args1, A0, A1, A2]);
                       _ ->
                           Args1
                   end,
@@ -249,12 +262,16 @@ end_per_suite(_Config) ->
     ok.
 
 %%--------------------------------------------------------------------
-init_per_group(Group, Config) when Group == ftps_active;
-                                   Group == ftps_passive ->
+init_per_group(Group, Config) when Group == ftpes_passive;
+                                   Group == ftpes_active;
+                                   Group == ftps_passive;
+                                   Group == ftps_active ->
     catch crypto:stop(),
     try crypto:start() of
-        ok ->
-            start_ftpd([{ftpd_ssl,true}|Config])
+        ok when Group == ftpes_passive; Group == ftpes_active ->
+            start_ftpd([{ftpd_ssl,true}|Config]);
+        ok when Group == ftps_passive; Group == ftps_active ->
+            start_ftpd([{ftpd_ssl,true},{ftpd_ssl_implicit,true}|Config])
     catch
         _:_ ->
             {skip, "Crypto did not start"}
@@ -304,24 +321,8 @@ init_per_testcase(Case, Config0) ->
 init_per_testcase2(Case, Config0) ->
     Group = proplists:get_value(name, proplists:get_value(tc_group_properties,Config0)),
 
-    %% Workaround for interoperability issues with vsftpd =< 3.0.2:
-    %%
-    %% vsftpd =< 3.0.2 does not support ECDHE ciphers and the ssl application
-    %% removed ciphers with RSA key exchange from its default cipher list.
-    %% To allow interoperability with old versions of vsftpd, cipher suites
-    %% with RSA key exchange are appended to the default cipher list.
-    All = ssl:cipher_suites(all, 'tlsv1.2'),
-    Default = ssl:cipher_suites(default, 'tlsv1.2'),
-    RSASuites =
-        ssl:filter_cipher_suites(All, [{key_exchange, fun(rsa) -> true;
-                                                         (_) -> false end}]),
-    Suites = ssl:append_cipher_suites(RSASuites, Default),
-    %% vsftpd =< 3.0.3 gets upset with anything later than tlsv1.2
-    TLS = [{tls, [
-              {versions,['tlsv1.2']},{ciphers,Suites},
-              % not safe for ftp ctrl channels as reuse is for data channels
-              {reuse_sessions,not proplists:get_value(ftpd_ssl_reuse,Config0,false)}
-          ]}],
+    TLS = [{tls,vsftpd_tls()}],
+    SSL = [{tls_sec_method,ftps}|TLS],
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
     CaseOpts = case Case of
@@ -332,12 +333,14 @@ init_per_testcase2(Case, Config0) ->
     ExtraOpts = [{verbose,true} | CaseOpts],
     Config =
         case Group of
-            ftp_active   -> ftp__open(Config0,       ACTIVE  ++ ExtraOpts);
-            ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ ExtraOpts);
-            ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ ExtraOpts);
-            ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ ExtraOpts);
-            ftp_sup      -> ftp_start_service(Config0, ACTIVE  ++ ExtraOpts);
-            undefined    -> Config0
+            ftp_active    -> ftp__open(Config0,       ACTIVE  ++ ExtraOpts);
+            ftpes_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ ExtraOpts);
+            ftps_active   -> ftp__open(Config0, SSL++ ACTIVE  ++ ExtraOpts);
+            ftp_passive   -> ftp__open(Config0,      PASSIVE  ++ ExtraOpts);
+            ftpes_passive -> ftp__open(Config0, TLS++PASSIVE  ++ ExtraOpts);
+            ftps_passive  -> ftp__open(Config0, SSL++PASSIVE  ++ ExtraOpts);
+            ftp_sup       -> ftp_start_service(Config0, ACTIVE  ++ ExtraOpts);
+            undefined     -> Config0
         end,
     case Case of
         user           -> Config;
@@ -385,6 +388,27 @@ end_per_testcase(_Case, Config) ->
         _Else ->
             ftp__close(Config)
     end.
+
+vsftpd_tls() ->
+    %% Workaround for interoperability issues with vsftpd =< 3.0.2:
+    %%
+    %% vsftpd =< 3.0.2 does not support ECDHE ciphers and the ssl application
+    %% removed ciphers with RSA key exchange from its default cipher list.
+    %% To allow interoperability with old versions of vsftpd, cipher suites
+    %% with RSA key exchange are appended to the default cipher list.
+    All = ssl:cipher_suites(all, 'tlsv1.2'),
+    Default = ssl:cipher_suites(default, 'tlsv1.2'),
+    RSASuites =
+        ssl:filter_cipher_suites(All, [{key_exchange, fun(rsa) -> true;
+                                                         (_) -> false end}]),
+    Suites = ssl:append_cipher_suites(RSASuites, Default),
+    [
+        {ciphers,Suites},
+        %% vsftpd =< 3.0.3 gets upset with anything later than tlsv1.2
+        {versions,['tlsv1.2']},
+        % not safe for ftp ctrl channels as reuse is for data channels
+        {reuse_sessions,not proplists:get_value(ftpd_ssl_reuse,Config,false)}
+    ].
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -1189,8 +1213,12 @@ start_ftpd(Config0) ->
             Config = [{ftpd_host,Host},
                       {ftpd_port,Port},
                       {ftpd_start_result,StartResult} | ConfigRewrite(Config0)],
+            Options = case proplists:get_value(ftpd_ssl_implicit, Config) of
+                true -> [{tls,vsftpd_tls()},{tls_sec_method,ftps}];
+                _ -> [] % we do not need to test AUTH TLS
+            end,
             try
-                ftp__close(ftp__open(Config,[{verbose,true}]))
+                ftp__close(ftp__open(Config,[{verbose,true}|Options]))
             of
                 Config1 when is_list(Config1) ->
                     ct:log("Usable ftp server ~p started on ~p:~p",[AbsName,Host,Port]),
