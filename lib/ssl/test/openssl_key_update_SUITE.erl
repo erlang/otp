@@ -96,15 +96,16 @@ openssl_client_explicit_key_update(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client(openssl, [{port, Port}], Config),
-    ssl_test_lib:send_recv_result_active(Client, Server, Data),
-
+    ssl_test_lib:send(Client, Data),
+    Data = ssl_test_lib:check_active_receive(Server, Data),
     %% TODO s_client can hang after sending special commands e.g "k", "K"
     %% ssl_test_lib:update_keys(Client, write),
     %% ssl_test_lib:update_keys(Client, read_write),
     ssl_test_lib:update_keys(Server, write),
     ssl_test_lib:update_keys(Server, read_write),
 
-    ssl_test_lib:send_recv_result_active(Client, Server, Data),
+    ssl_test_lib:send(Client, Data),
+    Data = ssl_test_lib:check_active_receive(Server, Data),
 
     ssl_test_lib:close(Client),
     ssl_test_lib:close(Server).
@@ -121,14 +122,16 @@ openssl_server_explicit_key_update(Config) ->
     Client = ssl_test_lib:start_client(erlang, [{port, Port},
                                                 {log_level, debug},
                                                 {versions, ['tlsv1.2','tlsv1.3']}],Config),
-    ssl_test_lib:send_recv_result_active(Server, Client, Data),
-
+    ssl_test_lib:send(Server, Data),
+    Data = ssl_test_lib:check_active_receive(Client, Data),
+        
     ssl_test_lib:update_keys(Client, write),
     ssl_test_lib:update_keys(Client, read_write),
     ssl_test_lib:update_keys(Server, write),
     ssl_test_lib:update_keys(Server, read_write),
 
-    ssl_test_lib:send_recv_result_active(Client, Server, Data),
+    ssl_test_lib:send(Server, Data),
+    Data = ssl_test_lib:check_active_receive(Client, Data),
 
     ssl_test_lib:close(Client),
     ssl_test_lib:close(Server).

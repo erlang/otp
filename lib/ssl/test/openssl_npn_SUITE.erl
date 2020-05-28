@@ -94,7 +94,7 @@ end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(TestCase, Config) -> 
-    ct:timetrap({seconds, 10}),
+    ct:timetrap({seconds, 30}),
     special_init(TestCase, Config).
 
 special_init(erlang_client_openssl_server_npn_renegotiate, Config) ->
@@ -122,168 +122,238 @@ erlang_client_openssl_server_npn() ->
     [{doc,"Test erlang client with openssl server doing npn negotiation"}].
 
 erlang_client_openssl_server_npn(Config) when is_list(Config) ->
-    Data = "From openssl to erlang",
-    start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, 
-                                                               fun(Client, OpensslPort) ->
-                                                                       true = port_command(OpensslPort, Data),
-                                                                       ssl_test_lib:check_result(Client, Data)
-                                                               end).
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    NpnProtocol = <<"spdy/2">>,
+   
+    {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [{np,"http/1.1,spdy/2"},return_port], 
+                                       [{server_opts, ServerOpts} | Config]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    {Client, CSocket} = ssl_test_lib:start_client(erlang, [{port, Port},
+                                                      return_socket], 
+                                             [{client_opts, 
+                                               [{client_preferred_next_protocols,
+                                                  {client, [NpnProtocol], <<"http/1.1">>}} | ClientOpts]} 
+                                             | Config]),
+   
+    case ssl:negotiated_protocol(CSocket) of
+        {ok, NpnProtocol} ->
+            ok;
+        Result ->
+            ct:fail({error, {{expected,  NpnProtocol}, {got, Result}}})
+    end,
+    ssl_test_lib:sanity_check(Client, OpenSSLPort),
+    ssl:close(CSocket).
 
 %%--------------------------------------------------------------------
 erlang_client_openssl_server_npn_renegotiate() ->
     [{doc,"Test erlang client with openssl server doing npn negotiation and renegotiate"}].
 
 erlang_client_openssl_server_npn_renegotiate(Config) when is_list(Config) ->
-    Data = "From openssl to erlang",
-    start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, 
-                                                               fun(Client, OpensslPort) ->
-                                                                       true = port_command(OpensslPort, 
-                                                                                           ?OPENSSL_RENEGOTIATE),
-                                                                       ct:sleep(?SLEEP),
-                                                                       true = port_command(OpensslPort, Data),
-                                                                       ssl_test_lib:check_result(Client, Data)
-                                                               end).
+      
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    NpnProtocol = <<"spdy/2">>,
+   
+    Server = ssl_test_lib:start_server(openssl, [{np,"http/1.1,spdy/2"}],
+                                       [{server_opts, ServerOpts} | Config]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    {_, CSocket} = ssl_test_lib:start_client(erlang, [{port, Port},
+                                                      return_socket], 
+                                             [{client_opts, 
+                                               [{client_preferred_next_protocols,
+                                                 {client, [NpnProtocol], <<"http/1.1">>}} | ClientOpts]} | Config]),
+    
+    case ssl:negotiated_protocol(CSocket) of
+        {ok, NpnProtocol} ->
+            ok;
+        Result ->
+            ct:fail({error, {{expected,  NpnProtocol}, {got, Result}}})
+    end,
+    ssl_test_lib:send(Server, ?OPENSSL_RENEGOTIATE),
+    ct:sleep(1000),
+    %%% Should still be the same as initially negotiated
+    case ssl:negotiated_protocol(CSocket) of
+        {ok, NpnProtocol} ->
+            ok;
+        Other ->
+            ct:fail({error, {{expected,  NpnProtocol}, {got, Other}}})
+    end.
+    
 %%--------------------------------------------------------------------------
 erlang_server_openssl_client_npn() ->
     [{doc,"Test erlang server with openssl client and npn negotiation"}].
 
 erlang_server_openssl_client_npn(Config) when is_list(Config) ->
+    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    Protocol = <<"spdy/2">>,
+    Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
+                                       [{server_opts, [{next_protocols_advertised, 
+                                                        [<<"spdy/2">>]} |ServerOpts]} | Config]),
+    Port = ssl_test_lib:inet_port(Server),
+    {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port}, 
+                                                                 {np, "spdy/2"}, 
+                                                                 {options, ClientOpts}, 
+                                                                 return_port], Config),
+    Server ! get_socket,
+    SSocket = 
+        receive 
+            {Server, {socket, Socket}} ->
+                Socket
+        end,
+    case ssl:negotiated_protocol(SSocket) of
+        {ok, Protocol} ->
+            ok;
+        Result ->
+            ct:fail({error, {{expected, Protocol}, {got, Result}}})
+    end,
+    ssl_test_lib:sanity_check(Server, OpenSSLPort),
+    ssl:close(SSocket).
 
-    Data = "From openssl to erlang",
-    start_erlang_server_and_openssl_client_for_npn_negotiation(Config, Data, 
-                                                               fun(Server, OpensslPort) ->
-                                                                       true = port_command(OpensslPort, Data),
-                                                                       ssl_test_lib:check_result(Server, Data)
-                                                               end).
-
+   
 %%--------------------------------------------------------------------------
 erlang_server_openssl_client_npn_renegotiate() ->
     [{doc,"Test erlang server with openssl client and npn negotiation with renegotiation"}].
 
 erlang_server_openssl_client_npn_renegotiate(Config) when is_list(Config) ->
-    Data = "From openssl to erlang",
-    start_erlang_server_and_openssl_client_for_npn_negotiation(Config, Data, 
-                                                               fun(Server, OpensslPort) ->
-                                                                       true = port_command(OpensslPort, 
-                                                                                           ?OPENSSL_RENEGOTIATE),
-                                                                       ct:sleep(?SLEEP),
-                                                                       true = port_command(OpensslPort, Data),
-                                                                       ssl_test_lib:check_result(Server, Data)
-                                                               end).
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    NpnProtocol = <<"spdy/2">>,
+    Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
+                                       [{server_opts, [{next_protocols_advertised,
+                                                        [NpnProtocol]} | ServerOpts]} | Config]),
+    Port = ssl_test_lib:inet_port(Server),
+    {_Client, OpenSSLPort} = 
+        ssl_test_lib:start_client(openssl, [{port, Port}, {np, "spdy/2"}, 
+                                            {options, ClientOpts}, return_port], Config),
+    
+    Server ! get_socket,
+    SSocket = 
+        receive 
+            {Server, {socket, Socket}} ->
+                Socket
+        end,
+    case ssl:negotiated_protocol(SSocket) of
+        {ok, NpnProtocol} ->
+            ok;
+        Result ->
+            ct:fail({error, {{expected,  NpnProtocol}, {got, Result}}})
+    end,
+    ssl_test_lib:sanity_check(Server, OpenSSLPort),
+    ssl:renegotiate(SSocket),
+    case ssl:negotiated_protocol(SSocket) of
+        {ok, NpnProtocol} ->
+            ok;
+        Other ->
+            ct:fail({error, {{expected,  NpnProtocol}, {got, Other}}})
+    end,
+    ssl_test_lib:sanity_check(Server, OpenSSLPort),
+    ssl:close(SSocket).
+%%--------------------------------------------------------------------------
+erlang_client_openssl_server_npn_only_client(Config) when is_list(Config) ->
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+   
+    {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [{np,"spdy/2"}, return_port], 
+                                       [{server_opts, ServerOpts} | Config]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    {Client, CSocket} = ssl_test_lib:start_client(erlang, [{port, Port},
+                                                           return_socket], 
+                                                  [{client_opts, ClientOpts} | Config]),
+  
+    case ssl:negotiated_protocol(CSocket) of
+        {error, protocol_not_negotiated} ->
+            ok;
+        Result ->
+            ct:fail({error, {{expected, undefined}, {got, Result}}})
+    end,
+    ssl_test_lib:sanity_check(Client, OpenSSLPort),
+    ssl:close(CSocket).
+
 %%--------------------------------------------------------------------------
 erlang_client_openssl_server_npn_only_server(Config) when is_list(Config) ->
-    Data = "From openssl to erlang",
-    ssl_test_lib:start_erlang_client_and_openssl_server_with_opts(Config, [],
-                                                                  ["-nextprotoneg", "spdy/2"], Data, 
-                                                                  fun(Server, OpensslPort) ->
-                                                                          true = port_command(OpensslPort, Data),
-                                                                          ssl_test_lib:check_result(Server, Data)
-                                                                  end).
-
-%%--------------------------------------------------------------------------
-
-erlang_client_openssl_server_npn_only_client(Config) when is_list(Config) ->
-    Data = "From openssl to erlang",
-    ssl_test_lib:start_erlang_client_and_openssl_server_with_opts(Config,
-                                                                  [{client_preferred_next_protocols,
-                                                                    {client, [<<"spdy/2">>], <<"http/1.1">>}}], [],
-                                                                  Data, 
-                                                                  fun(Server, OpensslPort) ->
-                                                                          true = port_command(OpensslPort, Data),
-                                                                          ssl_test_lib:check_result(Server, Data)
-                                                                  end).
-
+   ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+   
+    {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [{np,"spdy/2"}, return_port], 
+                                       [{server_opts, ServerOpts} | Config]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    {Client, CSocket} = ssl_test_lib:start_client(erlang, [{port, Port},
+                                                      return_socket], 
+                                                  [{client_opts, ClientOpts} | Config]),
+    
+    case ssl:negotiated_protocol(CSocket) of
+        {error, protocol_not_negotiated} ->
+            ok;
+        Result ->
+            ct:fail({error, {{expected, undefined}, {got, Result}}})
+    end,
+    ssl_test_lib:sanity_check(Client, OpenSSLPort),
+    ssl:close(CSocket).
+        
 %%--------------------------------------------------------------------------
 erlang_server_openssl_client_npn_only_server(Config) when is_list(Config) ->
-    Data = "From openssl to erlang",
-    ssl_test_lib:start_erlang_server_and_openssl_client_with_opts(Config, 
-                                                                  [{next_protocols_advertised, [<<"spdy/2">>]}], [],
-                                                                  Data, 
-                                                                  fun(Server, OpensslPort) ->
-                                                                          true = port_command(OpensslPort, Data),
-                                                                          ssl_test_lib:check_result(Server, Data)
-                                                                  end).
+  ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
+                                       [{server_opts, [{client_preferred_next_protocols, 
+                                                        {client, [<<"spdy/2">>], <<"http/1.1">>}
+                                                       } | ServerOpts]} | Config]),
+    Port = ssl_test_lib:inet_port(Server),
+    {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port}, 
+                                                                 {options, ClientOpts}, 
+                                                                 return_port], Config),
+    
+    Server ! get_socket,
+    SSocket = 
+        receive 
+            {Server, {socket, Socket}} ->
+                Socket
+        end,
+    case ssl:negotiated_protocol(SSocket) of
+        {error, protocol_not_negotiated} ->
+            ok;
+        Result ->
+            ct:fail({error, {{expected, undefined}, {got, Result}}})
+    end,
+    ssl_test_lib:sanity_check(Server, OpenSSLPort),
+    ssl:close(SSocket).
 
+%%--------------------------------------------------------------------------
 erlang_server_openssl_client_npn_only_client(Config) when is_list(Config) ->
-    Data = "From openssl to erlang",
-    ssl_test_lib:start_erlang_server_and_openssl_client_with_opts(Config, [], ["-nextprotoneg", "spdy/2"],
-                                                                  Data, 
-                                                                  fun(Server, OpensslPort) ->
-                                                                          true = port_command(OpensslPort, Data),
-                                                                          ssl_test_lib:check_result(Server, Data)
-                                                                  end).
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
+                                       [{server_opts, [ServerOpts]} | Config]),
+    Port = ssl_test_lib:inet_port(Server),
+    {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port}, 
+                                                                 {np, "spdy/2"}, 
+                                                                 {options, ClientOpts},
+                                                                 return_port], Config),
+    
+    Server ! get_socket,
+    SSocket = 
+        receive 
+            {Server, {socket, Socket}} ->
+                Socket
+        end,
+    case ssl:negotiated_protocol(SSocket) of
+        {error, protocol_not_negotiated} ->
+            ok;
+        Result ->
+            ct:fail({error, {{expected, undefined}, {got, Result}}})
+    end,
+    ssl_test_lib:sanity_check(Server, OpenSSLPort),
+    ssl:close(SSocket).
 
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
-
-start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callback) ->
-    process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ClientOpts = [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}} | ClientOpts0],
-
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-
-    Data = "From openssl to erlang",
-
-    Port = ssl_test_lib:inet_port(node()),
-    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    KeyFile = proplists:get_value(keyfile, ServerOpts),
-    Version = ssl_test_lib:protocol_version(Config),
-    
-    Exe = "openssl",
-    Args = ["s_server", "-msg", "-nextprotoneg", "http/1.1,spdy/2", "-accept", integer_to_list(Port),
-	    ssl_test_lib:version_flag(Version),
-            "-CAfile", CaCertFile,
-	    "-cert", CertFile, "-key", KeyFile],
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
-
-    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
-
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                    {host, Hostname},
-                    {from, self()},
-                    {mfa, {ssl_test_lib,
-                           erlang_ssl_receive_and_assert_negotiated_protocol, [<<"spdy/2">>, Data]}},
-                    {options, ClientOpts}]),
-
-    Callback(Client, OpensslPort),
-
-    %% Clean close down! Server needs to be closed first !!
-    ssl_test_lib:close_port(OpensslPort),
-
-    ssl_test_lib:close(Client),
-    process_flag(trap_exit, false).
-
-start_erlang_server_and_openssl_client_for_npn_negotiation(Config, Data, Callback) ->
-    process_flag(trap_exit, true),
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ServerOpts = [{next_protocols_advertised, [<<"spdy/2">>]} | ServerOpts0],
-
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                    {from, self()},
-                    {mfa, {ssl_test_lib, erlang_ssl_receive_and_assert_negotiated_protocol, [<<"spdy/2">>, Data]}},
-                    {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Version = ssl_test_lib:protocol_version(Config),
-
-    Exe = "openssl",
-    Args = ["s_client", "-nextprotoneg", "http/1.0,spdy/2", "-msg", "-connect", 
-            ssl_test_lib:hostname_format(Hostname) ++ ":" 
-	    ++ integer_to_list(Port), ssl_test_lib:version_flag(Version)],
-
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),  
-
-    Callback(Server, OpenSslPort),
-
-    ssl_test_lib:close(Server),
-
-    ssl_test_lib:close_port(OpenSslPort),
-    process_flag(trap_exit, false).
 
 check_openssl_npn_support(Config) ->
     HelpText = os:cmd("openssl s_client --help"),

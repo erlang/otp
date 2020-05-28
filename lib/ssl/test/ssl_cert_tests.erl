@@ -401,6 +401,17 @@ test_ciphers(_, 'tlsv1.3' = Version) ->
                          ct:log("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers);
+test_ciphers(_, Version) when Version == 'dtlsv1';
+                                Version == 'dtlsv1.2' ->
+    {_, Minor} = dtls_record:proplists(Version),
+    Ciphers = dtls_v1:suites(Minor),
+    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    OpenSSLCiphers = openssl_ciphers(),
+    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    lists:filter(fun(C) ->
+                         ct:log("Cipher ~p~n", [C]),
+                         lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
+                 end, Ciphers);
 test_ciphers(Kex, Version) ->
     Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(default, Version), 
                                        [{key_exchange, Kex}]),

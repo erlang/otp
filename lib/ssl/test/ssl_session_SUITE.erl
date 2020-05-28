@@ -70,7 +70,7 @@ init_per_suite(Config0) ->
 	ok ->
 	    ssl_test_lib:clean_start(),
             Config = ssl_test_lib:make_rsa_cert(Config0),
-            ssl_test_lib:make_dsa_cert(Config)
+            ssl_test_lib:make_rsa_1024_cert(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -80,27 +80,10 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 init_per_group(GroupName, Config) ->
-    ssl_test_lib:clean_tls_version(Config),                          
-    case ssl_test_lib:is_tls_version(GroupName) andalso ssl_test_lib:sufficient_crypto_support(GroupName) of
-	true ->
-	    ssl_test_lib:init_tls_version(GroupName, Config);
-	_ ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    ssl:start(),
-		    Config;
-		false ->
-		    {skip, "Missing crypto support"}
-	    end
-    end.
+    ssl_test_lib:init_per_group(GroupName, Config). 
 
 end_per_group(GroupName, Config) ->
-  case ssl_test_lib:is_tls_version(GroupName) of
-      true ->
-          ssl_test_lib:clean_tls_version(Config);
-      false ->
-          Config
-  end.
+  ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(reuse_session_expired, Config)  ->
     Versions = ssl_test_lib:protocol_version(Config),
@@ -268,8 +251,8 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
 
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    DsaServerOpts = ssl_test_lib:ssl_options(server_dsa_verify_opts, Config),
-    DsaClientOpts = ssl_test_lib:ssl_options(client_dsa_opts, Config),
+    RSA1024ServerOpts = ssl_test_lib:ssl_options(server_rsa_1024_opts, Config),
+    RSA1024ClientOpts = ssl_test_lib:ssl_options(client_rsa_1024_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
@@ -303,13 +286,13 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
 				   {from, self()},
 		      {mfa, {ssl_test_lib, no_result, []}},
-				   {options, [{reuseaddr, true} | DsaServerOpts]}]),
+				   {options, [{reuseaddr, true} | RSA1024ServerOpts]}]),
 
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
 		      {mfa, {ssl_test_lib, session_info_result, []}},
-		      {from, self()},  {options, DsaClientOpts}]),
+		      {from, self()},  {options, RSA1024ClientOpts}]),
     receive
 	{Client1, SessionInfo} ->
 	    ct:fail(session_reused_when_server_has_new_cert);
@@ -327,7 +310,7 @@ no_reuses_session_server_restart_new_cert_file() ->
 no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    DsaServerOpts = ssl_test_lib:ssl_options(server_dsa_verify_opts, Config),
+    RSA1024ServerOpts = ssl_test_lib:ssl_options(server_rsa_1024_verify_opts, Config),
     PrivDir =  proplists:get_value(priv_dir, Config),
 
     NewServerOpts0 = ssl_test_lib:new_config(PrivDir, ServerOpts),
@@ -358,7 +341,7 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
 
     ssl:clear_pem_cache(),
 
-    NewServerOpts1 = ssl_test_lib:new_config(PrivDir, DsaServerOpts),
+    NewServerOpts1 = ssl_test_lib:new_config(PrivDir, RSA1024ServerOpts),
 
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
