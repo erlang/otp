@@ -1053,6 +1053,7 @@ handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, F
                                  sockopts_ctrl = CtrlOpts,
                                  sockopts_data_passive =  DataPassOpts,
                                  sockopts_data_active = DataActOpts,
+                                 timeout = Timeout,
                                  dtimeout = DTimeout,
                                  ftp_extension = FtpExt},
 
