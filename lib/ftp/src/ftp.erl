@@ -137,11 +137,9 @@ start() ->
 start_standalone(Options) ->
     try
         {ok, StartOptions} = start_options(Options),
-        {ok, OpenOptions}  = open_options(Options),
-        {ok, SocketOptions}  = socket_options(Options),
         case start_link(StartOptions, []) of
             {ok, Pid} ->
-                call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain);
+                call(Pid, {open, ip_comm, Options}, plain);
             Error1 ->
                 Error1
         end
@@ -153,11 +151,9 @@ start_standalone(Options) ->
 start_service(Options) ->
     try
         {ok, StartOptions} = start_options(Options),
-        {ok, OpenOptions}  = open_options(Options),
-        {ok, SocketOptions}  = socket_options(Options),
         case ftp_sup:start_child([[[{client, self()} | StartOptions], []]]) of
             {ok, Pid} ->
-                call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain);
+                call(Pid, {open, ip_comm, Options}, plain);
             Error1 ->
                 Error1
         end
@@ -202,20 +198,7 @@ service_info(Pid) ->
 
 %% <BACKWARD-COMPATIBILLITY>
 open({option_list, Options}) when is_list(Options) ->
-    try
-        {ok, StartOptions} = start_options(Options),
-        {ok, OpenOptions}  = open_options(Options),
-        {ok, SockOpts}  = socket_options(Options),
-        case ftp_sup:start_child([[[{client, self()} | StartOptions], []]]) of
-            {ok, Pid} ->
-                call(Pid, {open, ip_comm, OpenOptions, SockOpts}, plain);
-            Error1 ->
-                Error1
-        end
-    catch
-        throw:Error2 ->
-            Error2
-    end;
+    start_service(Options);
 %% </BACKWARD-COMPATIBILLITY>
 
 open(Host) ->
@@ -229,29 +212,9 @@ open(Host, Port) when is_integer(Port) ->
     open(Host, [{port, Port}]);
 %% </BACKWARD-COMPATIBILLITY>
 
-open(Host, Opts) when is_list(Opts) ->
-    try
-        {ok, StartOptions} = start_options(Opts),
-        {ok, OpenOptions}  = open_options([{host, Host}|Opts]),
-        {ok, SocketOptions}  = socket_options(Opts),
-        case start_link(StartOptions, []) of
-            {ok, Pid} ->
-                do_open(Pid, OpenOptions, SocketOptions, tls_options(Opts));
-            Error1 ->
-                Error1
-        end
-    catch
-        throw:Error2 ->
-            Error2
-    end.
+open(Host, Options) when is_list(Options) ->
+    start_standalone([{host,Host}|Options]).
 
-do_open(Pid, OpenOptions, SocketOptions, TLSOpts) ->
-    case call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain) of
-        {ok, Pid} ->
-            maybe_tls_upgrade(Pid, TLSOpts);
-        Error ->
-            Error
-    end.
 %%--------------------------------------------------------------------------
 %% user(Pid, User, Pass, <Acc>) -> ok | {error, euser} | {error, econn}
 %%                                    | {error, eacct}
@@ -1033,7 +996,11 @@ handle_call({_,latest_ctrl_response}, _, #state{latest_ctrl_response=Resp} = Sta
 handle_call({Pid, _}, _, #state{owner = Owner} = State) when Owner =/= Pid ->
     {reply, {error, not_connection_owner}, State};
 
-handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, From, State) ->
+handle_call({_, {open, ip_comm, Options}}, From, State) ->
+    {ok, Opts} = open_options(Options),
+    {ok, {CtrlOpts, DataPassOpts, DataActOpts}} = socket_options(Options),
+    {ok, TLSOpts} = tls_options(Options),
+
     case key_search(host, Opts, undefined) of
         undefined ->
             {stop, normal, {error, ehost}, State};
@@ -1058,6 +1025,8 @@ handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, F
                                  ftp_extension = FtpExt},
 
             case setup_ctrl_connection(Host, Port, Timeout, State2) of
+                {ok, State3, WaitTimeout} when is_list(TLSOpts) ->
+                    {noreply, State3#state{tls_options = TLSOpts}, WaitTimeout};
                 {ok, State3, WaitTimeout} ->
                     {noreply, State3, WaitTimeout};
                 {error, _Reason} ->
@@ -1065,11 +1034,6 @@ handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, F
                     {stop, normal, State2#state{client = undefined}}
             end
     end;
-
-handle_call({_, {open, tls_upgrade, TLSOptions}}, From, State0) ->
-    _ = send_ctrl_message(State0, mk_cmd("AUTH TLS", [])),
-    State = activate_ctrl_connection(State0),
-    {noreply, State#state{client = From, caller = open, tls_options = TLSOptions}};
 
 handle_call({_, {user, User, Password}}, From,
             #state{csock = CSock} = State) when (CSock =/= undefined) ->
@@ -1591,12 +1555,22 @@ handle_user_account(Acc, State0) ->
 %%--------------------------------------------------------------------------
 %% handle_ctrl_result
 %%--------------------------------------------------------------------------
+handle_ctrl_result({pos_compl, _}, #state{csock = {tcp, _Socket},
+                                          tls_options = TLSOptions,
+                                          timeout = Timeout,
+                                          caller = open}
+                   = State0) when is_list(TLSOptions) ->
+    _ = send_ctrl_message(State0, mk_cmd("AUTH TLS", [])),
+    State = activate_ctrl_connection(State0),
+    {noreply, State, Timeout};
+
 handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
                                             tls_options = TLSOptions,
                                             timeout = Timeout,
                                             caller = open, client = From}
-                   = State0) ->
+                   = State0) when is_list(TLSOptions) ->
     ?DBG('<--ctrl ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
+    catch ssl:start(),
     case ssl:connect(Socket, TLSOptions, Timeout) of
         {ok, TLSSocket} ->
             State1 = State0#state{csock = {ssl,TLSSocket}},
@@ -2429,12 +2403,6 @@ peername({ssl, Socket}) -> ssl:peername(Socket).
 sockname({tcp, Socket}) -> inet:sockname(Socket);
 sockname({ssl, Socket}) -> ssl:sockname(Socket).
 
-maybe_tls_upgrade(Pid, undefined) ->
-    {ok, Pid};
-maybe_tls_upgrade(Pid, TLSOptions) ->
-    catch ssl:start(),
-    call(Pid, {open, tls_upgrade, TLSOptions}, plain).
-
 start_chunk(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State) ->
     State#state{tls_upgrading_data_connection = {true, CTRL, ?MODULE, start_chunk, undefined}};
 start_chunk(#state{client = From} = State) ->
@@ -2592,7 +2560,7 @@ valid_socket_option(_) -> true.
 
 tls_options(Options) ->
     %% Options will be validated by ssl application
-    proplists:get_value(tls, Options, undefined).
+    {ok, proplists:get_value(tls, Options, undefined)}.
 
 validate_options([], [], Acc) ->
     {ok, lists:reverse(Acc)};
