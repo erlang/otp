@@ -1378,7 +1378,7 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
                                               ctrl_data = {BinCtrlData, AccLines,
                                                            LineStatus}}
             = State0) ->
-    ?DBG('--ctrl ~p ----> ~s~p~n',[Socket,<<BinCtrlData/binary, Data/binary>>,State]),
+    ?DBG('--ctrl ~p ----> ~s~p~n',[Socket,<<BinCtrlData/binary, Data/binary>>,State0]),
     case ftp_response:parse_lines(<<BinCtrlData/binary, Data/binary>>,
                                   AccLines, LineStatus) of
         {ok, Lines, NextMsgData} ->
