@@ -210,6 +210,28 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 
 %%%----------------------------------------------------------------
 %%% called by server
+handle_userauth_request_2fa(User, Ssh, Method) ->
+     #ssh{user_state = PrivateState,
+          peer       = {_, PeerAddr = {_, _}},
+          kb_tries_left = KbTriesLeft,
+          opts       = Opts
+     } = Ssh,
+    case ?GET_OPT(auth2fa_fun, Opts) of
+        undefined ->
+            %% The assumption is that we come here when the first factor
+            %% has successfully authenticated the user
+            {authorized, User,
+             ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh)};
+        Auth2Fun ->
+            case Auth2Fun(User, PeerAddr, Method, PrivateState) of
+                true ->
+                    {authorized, User,
+                     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh)};
+                {false, _Reason} ->
+                    auth_remote_failed(reduce_tries_count(KbTriesLeft), User, "password", Ssh)
+            end
+    end.
+
 handle_userauth_request(#ssh_msg_service_request{name = Name = "ssh-userauth"},
 			_, Ssh) ->
     {ok, ssh_transport:ssh_packet(#ssh_msg_service_accept{name = Name},
@@ -221,7 +243,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  data = <<?FALSE, ?UINT32(Sz), BinPwd:Sz/binary>>}, _, 
 			#ssh{opts = Opts,
 			     kb_tries_left = KbTriesLeft,
-			     userauth_supported_methods = Methods} = Ssh) ->
+			     userauth_supported_methods = _Methods} = Ssh) ->
     case KbTriesLeft of
         %% number always < atom, so extra 'infinity' case here.
         %% Must have 1 try at least remaining.
@@ -231,8 +253,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
             Password = unicode:characters_to_list(BinPwd),
             case check_password(User, Password, Opts, Ssh) of
                 {true, Ssh1} ->
-                    {authorized, User,
-                     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh1)};
+                    handle_userauth_request_2fa(User, Ssh1, "password");
                 {false, Ssh1} ->
                     auth_remote_failed(reduce_tries_count(KbTriesLeft), User, "password", Ssh1)
             end
@@ -306,9 +327,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
     case verify_sig(SessionId, User, "ssh-connection", 
 		    BAlg, KeyBlob, SigWLen, Ssh) of
 	true ->
-	    {authorized, User, 
-	     ssh_transport:ssh_packet(
-	       #ssh_msg_userauth_success{}, Ssh)};
+            handle_userauth_request_2fa(User, Ssh, "publickey");
 	false ->
             auth_remote_failed(reduce_tries_count(KbTriesLeft), User, "password", Ssh)
     end;

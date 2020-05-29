@@ -389,6 +389,12 @@ default(server) ->
             class => user_option
            },
 
+      auth2fa_fun =>
+          #{default => undefined,
+            chk => fun(V) -> check_function4(V) end,
+            class => user_option
+           },
+
       pwdfun =>
           #{default => undefined,
             chk => fun(V) -> check_function4(V) orelse check_function2(V) end,
