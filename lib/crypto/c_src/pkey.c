@@ -73,7 +73,7 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
         return PKEY_OK;
     if (algorithm == atom_eddsa) {
 #ifdef HAVE_EDDSA
-        if (!FIPS_mode()) return PKEY_OK;
+        if (!FIPS_MODE()) return PKEY_OK;
 #else
         return PKEY_NOTSUP;
 #endif
@@ -322,7 +322,7 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 
     } else if (algorithm == atom_eddsa) {
 #ifdef HAVE_EDDSA
-        if (FIPS_mode())
+        if (FIPS_MODE())
             return PKEY_NOTSUP;
         if (!get_eddsa_key(env, 0, key, &result))
             goto err;
@@ -452,7 +452,7 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 #endif
     } else if (algorithm == atom_eddsa) {
 #ifdef HAVE_EDDSA
-        if (!FIPS_mode()) {
+        if (!FIPS_MODE()) {
             if (!get_eddsa_key(env, 1, key, &result))
                 goto err;
         }
@@ -609,7 +609,7 @@ enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
 
     if (argv[0] == atom_eddsa) {
 #ifdef HAVE_EDDSA
-        if (!FIPS_mode()) {
+        if (!FIPS_MODE()) {
             if ((mdctx = EVP_MD_CTX_new()) == NULL)
                 goto err;
 
@@ -842,7 +842,7 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 
     if (argv[0] == atom_eddsa) {
 #ifdef HAVE_EDDSA
-        if (!FIPS_mode()) {
+        if (!FIPS_MODE()) {
             if ((mdctx = EVP_MD_CTX_new()) == NULL)
                 goto err;
 

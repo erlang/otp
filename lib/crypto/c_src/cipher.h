@@ -49,12 +49,9 @@ struct cipher_type_t {
 #define CCM_MODE 64
 #define GCM_MODE 128
 
-
 #ifdef FIPS_SUPPORT
-/* May have FIPS support, must check dynamically if it is enabled */
-# define CIPHER_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_mode())
+# define CIPHER_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_MODE())
 #else
-/* No FIPS support since the symbol FIPS_SUPPORT is undefined */
 # define CIPHER_FORBIDDEN_IN_FIPS(P) 0
 #endif
 

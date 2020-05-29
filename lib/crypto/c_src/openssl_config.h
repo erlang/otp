@@ -421,11 +421,12 @@ do {                                                    \
 #endif
 
 
-#ifdef FIPS_SUPPORT
-/* In FIPS mode non-FIPS algorithms are disabled and return badarg. */
-#define CHECK_NO_FIPS_MODE() { if (FIPS_mode()) return atom_notsup; }
+#if defined(FIPS_SUPPORT)
+# define FIPS_MODE() (FIPS_mode() ? 1 : 0)
 #else
-#define CHECK_NO_FIPS_MODE()
+# define FIPS_MODE() 0
 #endif
+
+
 
 #endif /* E_OPENSSL_CONFIG_H__ */

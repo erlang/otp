@@ -48,12 +48,9 @@ extern ERL_NIF_TERM atom_none;
 extern ERL_NIF_TERM atom_notsup;
 extern ERL_NIF_TERM atom_badarg;
 extern ERL_NIF_TERM atom_digest;
-#ifdef FIPS_SUPPORT
 extern ERL_NIF_TERM atom_enabled;
 extern ERL_NIF_TERM atom_not_enabled;
-#else
 extern ERL_NIF_TERM atom_not_supported;
-#endif
 
 extern ERL_NIF_TERM atom_type;
 extern ERL_NIF_TERM atom_size;
