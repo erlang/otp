@@ -1427,7 +1427,12 @@ crypto_get_data(State) ->
                                       Result :: binary() .
 
 crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
-    crypto_one_time(Cipher, Key, <<>>, Data, FlagOrOptions).
+    ng_crypto_one_time_nif(Cipher,
+                           iolist_to_binary(Key),
+                           <<>>,
+                           iolist_to_binary(Data),
+                           get_crypto_opts(FlagOrOptions)).
+
 
 -spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
                              Result | descriptive_error()
