@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -257,6 +257,13 @@ t_fdopen(Config) when is_list(Config) ->
     ok.
 
 t_fdconnect(Config) when is_list(Config) ->
+    try do_t_fdconnect(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_t_fdconnect(Config) ->
     Question = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
@@ -265,13 +272,46 @@ t_fdconnect(Config) when is_list(Config) ->
     Answer = "there was a shoemaker, Schumacher was his name.",
     Path = proplists:get_value(data_dir, Config),
     Lib = "gen_tcp_api_SUITE",
-    ok = erlang:load_nif(filename:join(Path,Lib), []),
-    {ok, L} = gen_tcp:listen(0, [{active, false}]),
+    p("try load util nif lib"),
+    case erlang:load_nif(filename:join(Path,Lib), []) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            p("UNEXPECTED - failed loading util nif lib: "
+              "~n   ~p", [Reason]),
+            skip("failed loading util nif lib")
+    end,
+    p("try create listen socket"),
+    L = case gen_tcp:listen(0, [{active, false}]) of
+            {ok, LSock} ->
+                LSock;
+            {error, eaddrnotavail = LReason} ->
+                skip(listen_failed_str(LReason))
+        end,            
     {ok, Port} = inet:port(L),
+    p("try create file descriptor (fd)"),
     FD = gen_tcp_api_SUITE:getsockfd(),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{fd,FD},{port,20002},
-                                                     {active,false}]),
-    {ok, Server} = gen_tcp:accept(L),
+    p("try connect to using file descriptor (~w)", [FD]),
+    Client = case gen_tcp:connect(localhost, Port, [{fd,FD},{port,20002},
+                                                    {active,false}]) of
+                 {ok, CSock} ->
+                     CSock;
+                 {error, eaddrnotavail = CReason} ->
+                     gen_tcp:close(L),
+                     gen_tcp_api_SUITE:closesockfd(FD),
+                     skip(connect_failed_str(CReason))
+             end,                             
+    p("try accept connection"),
+    Server = case gen_tcp:accept(L) of
+                 {ok, ASock} ->
+                     ASock;
+                 {error, eaddrnotavail = AReason} ->
+                     gen_tcp:close(Client),
+                     gen_tcp:close(L),
+                     gen_tcp_api_SUITE:closesockfd(FD),
+                     skip(accept_failed_str(AReason))
+        end,                             
+    p("begin validation"),
     ok = gen_tcp:send(Client, Question),
     {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
     ok = gen_tcp:send(Client, Question1),
@@ -285,17 +325,28 @@ t_fdconnect(Config) when is_list(Config) ->
     {error,closed} = gen_tcp:recv(Server, 1, 2000),
     ok = gen_tcp:close(Server),
     ok = gen_tcp:close(L),
+    p("done"),
     ok.
 
 
 %%% implicit inet6 option to api functions
 
 t_implicit_inet6(Config) when is_list(Config) ->
+    try do_t_implicit_inet6(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_t_implicit_inet6(_Config) ->
+    p("try get hostname"),
     Host = ok(inet:gethostname()),
+    p("try get address for host ~p", [Host]),
     case inet:getaddr(Host, inet6) of
-	{ok,Addr} ->
+	{ok, Addr} ->
+            p("address: ~p", [Addr]),
 	    t_implicit_inet6(Host, Addr);
-	{error,Reason} ->
+	{error, Reason} ->
 	    {skip,
 	     "Can not look up IPv6 address: "
 	     ++atom_to_list(Reason)}
@@ -304,29 +355,51 @@ t_implicit_inet6(Config) when is_list(Config) ->
 t_implicit_inet6(Host, Addr) ->
     Loopback = {0,0,0,0,0,0,0,1},
     case gen_tcp:listen(0, [inet6, {ip,Loopback}]) of
-	{ok,S1} ->
-	    io:format("~s ~p~n", ["::1",Loopback]),
+	{ok, S1} ->
+	    p("try ~s ~p", ["::1", Loopback]),
 	    implicit_inet6(S1, Loopback),
 	    ok = gen_tcp:close(S1),
 	    %%
 	    Localaddr = ok(get_localaddr()),
-	    S2 = ok(gen_tcp:listen(0, [{ip,Localaddr}])),
+	    S2 = case gen_tcp:listen(0, [{ip, Localaddr}]) of
+                     {ok, LSock2} ->
+                         LSock2;
+                     {error, Reason2} ->
+                         skip(listen_failed_str(Reason2))
+                 end,
 	    implicit_inet6(S2, Localaddr),
 	    ok = gen_tcp:close(S2),
 	    %%
-	    io:format("~s ~p~n", [Host,Addr]),
-	    S3 = ok(gen_tcp:listen(0, [{ifaddr,Addr}])),
+	    p("try ~s ~p", [Host, Addr]),
+	    S3 = case gen_tcp:listen(0, [{ifaddr,Addr}]) of
+                     {ok, LSock3} ->
+                         LSock3;
+                     {error, Reason3} ->
+                         skip(listen_failed_str(Reason3))
+                 end,
 	    implicit_inet6(S3, Addr),
-	    ok = gen_tcp:close(S3);
-	{error,_} ->
-	    {skip,"IPv6 not supported"}
+	    ok = gen_tcp:close(S3),
+	    p("done"),
+            ok;
+        {error, Reason1} ->
+            skip(listen_failed_str(Reason1))
     end.
 
 implicit_inet6(S, Addr) ->
     P = ok(inet:port(S)),
-    S2 = ok(gen_tcp:connect(Addr, P, [])),
+    S2 = case gen_tcp:connect(Addr, P, []) of
+             {ok, CSock} ->
+                 CSock;
+             {error, CReason} ->
+                 skip(connect_failed_str(CReason))
+         end,
     P2 = ok(inet:port(S2)),
-    S1 = ok(gen_tcp:accept(S)),
+    S1 = case gen_tcp:accept(S) of
+             {ok, ASock} ->
+                 ASock;
+             {error, AReason} ->
+                 skip(accept_failed_str(AReason))
+         end,
     P1 = P = ok(inet:port(S1)),
     {Addr,P2} = ok(inet:peername(S1)),
     {Addr,P1} = ok(inet:peername(S2)),
@@ -561,11 +634,11 @@ connect_timeout({M,F,A}, Lower, Upper) ->
     case test_server:timecall(M, F, A) of
 	{Time, Result} when Time < Lower ->
 	    case Result of
-		{error,econnrefused=E} ->
-		    {comment,"Not tested -- got error "++atom_to_list(E)};
-		{error,enetunreach=E} ->
-		    {comment,"Not tested -- got error "++atom_to_list(E)};
-		{ok,Socket} -> % What the...
+		{error, econnrefused = E} ->
+		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
+		{error, enetunreach = E} ->
+		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
+		{ok, Socket} -> % What the...
 		    Pinfo = erlang:port_info(Socket),
 		    Db = inet_db:lookup_socket(Socket),
 		    Peer = inet:peername(Socket),
@@ -591,7 +664,24 @@ unused_ip() ->
     %% Note: In our net, addresses below 16 are reserved for routers and
     %% other strange creatures.
     IP = unused_ip(A, B, C, 16),
-    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP]),
+    if
+        (IP =:= error) ->
+            %% This is not supported on all platforms (yet), so...
+            try net:getifaddrs() of
+                {ok, IfAddrs} ->
+                    io:format("we        = ~p,"
+                              "unused_ip = ~p"
+                              "            ~p"
+                              "~n", [Hent, IP, IfAddrs]);
+                {error, _} ->
+                    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+            catch
+                _:_:_ ->
+                    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+            end;
+        true ->
+            io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+    end,
     IP.
 
 unused_ip(255, 255, 255, 255) -> error;
@@ -621,7 +711,7 @@ get_localaddr([]) ->
 get_localaddr([Localhost|Ls]) ->
     case inet:getaddr(Localhost, inet6) of
        {ok, LocalAddr} ->
-           io:format("~s ~p~n", [Localhost, LocalAddr]),
+           p("~s ~p", [Localhost, LocalAddr]),
            {ok, LocalAddr};
        _ ->
            get_localaddr(Ls)
@@ -643,3 +733,44 @@ delete_local_filenames() ->
 		filelib:wildcard(
 		  "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+skip(S) when is_list(S) ->
+    throw({skip, S}).
+
+%% skip(F, A) when is_list(F) andalso is_list(A) ->
+%%     skip(f(F, A)).
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+connect_failed_str(Reason) ->
+    f("Connect failed: ~w", [Reason]).
+
+listen_failed_str(Reason) ->
+    f("Listen failed: ~w", [Reason]).
+
+accept_failed_str(Reason) ->
+    f("Accept failed: ~w", [Reason]).
+
+%% port_failed_str(Reason) ->
+%%     f("Port failed: ~w", [Reason]).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+

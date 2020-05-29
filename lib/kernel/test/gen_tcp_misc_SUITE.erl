@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -125,6 +125,13 @@ end_per_group(_GroupName, Config) ->
 %% Tests kernel application variables inet_default_listen_options and
 %% inet_default_connect_options.
 default_options(Config) when is_list(Config) ->
+    try do_default_options(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_default_options(_Config) ->
     %% First check the delay_send option
     {true,true,true}=do_delay_send_1(),
     {false,false,false}=do_delay_send_2(),
@@ -207,7 +214,12 @@ do_delay_on_other_node(XArgs, Function) ->
 do_delay_send_1() ->
     {ok,LS}=gen_tcp:listen(0,[{delay_send,true}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    {ok,S}=gen_tcp:connect("localhost",PortNum,[{delay_send,true}]),
+    S = case gen_tcp:connect("localhost",PortNum,[{delay_send,true}]) of
+            {ok, Sock} ->
+                Sock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     {ok,S2}= gen_tcp:accept(LS),
     {ok,[{delay_send,B1}]}=inet:getopts(S,[delay_send]),
     {ok,[{delay_send,B2}]}=inet:getopts(LS,[delay_send]),
@@ -418,6 +430,13 @@ send_loop(Sock, Data, Left) ->
 %% Test {active,N} option
 %% Verify operation of the {active,N} option.
 active_n(Config) when is_list(Config) ->
+    try do_active_n(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_active_n(_Config) ->
     N = 3,
     LS = ok(gen_tcp:listen(0, [{active,N}])),
     [{active,N}] = ok(inet:getopts(LS, [active])),
@@ -469,7 +488,12 @@ active_n(Config) when is_list(Config) ->
     ok = inet:setopts(LS, [{active,false}]),
     [{active,false}] = ok(inet:getopts(LS, [active])),
     Port = ok(inet:port(LS)),
-    C = ok(gen_tcp:connect("localhost", Port, [{active,N}])),
+    C = case gen_tcp:connect("localhost", Port, [{active,N}]) of
+            {ok, CS} ->
+                CS;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     [{active,N}] = ok(inet:getopts(C, [active])),
     S = ok(gen_tcp:accept(LS)),
     ok = inet:setopts(S, [{active,N}]),
@@ -706,35 +730,75 @@ iter_max_socks() ->
 %% Open as many sockets as possible. Do this several times and check
 %% that we get the same number of sockets every time.
 iter_max_socks(Config) when is_list(Config) ->
-    N = case os:type() of {win32,_} -> 10; _ -> 20 end,
+    %% This is not *nearly* enough
+    %% We have some crap machines, which we need to "handle with care"...
+    Tries =
+        case os:type() of
+            {win32, _} ->
+                10;
+            {unix, darwin} ->
+                10;
+            _ ->
+                20
+        end,
     %% Run on a different node in order to limit the effect if this test fails.
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(test_iter_max_socks,slave,
-				       [{args,"+Q 2048 -pa " ++ Dir}]),
-    L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
+    {ok, Node} = test_server:start_node(test_iter_max_socks,slave,
+                                        [{args,"+Q 2048 -pa " ++ Dir}]),
+    %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
+    L = iter_max_socks_run(Node,
+                           fun() ->
+                                   exit(do_iter_max_socks(Tries, initalize))
+                           end),
     test_server:stop_node(Node),
 
-    io:format("Result: ~p",[L]),
+    io:format("Result: ~p", [L]),
     all_equal(L),
     {comment, "Max sockets: " ++ integer_to_list(hd(L))}.
 
+iter_max_socks_run(Node, F) ->
+    try erlang:spawn_opt(Node, F, [monitor]) of
+        {Pid, MRef} when is_pid(Pid) andalso is_reference(MRef) ->
+            receive
+                {'DOWN', MRef, process, Pid, Res} ->
+                    Res
+            end;
+        _Any ->
+            p("Unexpected process start result: "
+              "~n   ~p", [_Any]),
+            {skip, "Failed starting iterator (slave) process"}
+    catch
+        C:E:S ->
+            p("Failed starting iterator (slave) process: "
+              "~n   Class: ~p"
+              "~n   Error: ~p"
+              "~n   Stack: ~p", [C, E, S]),
+            {skip, "Failed starting iterator (slave) process"}
+    end.
+            
+             
 do_iter_max_socks(0, _) ->
+    p("do_iter_max_socks(0,-) -> done"),
     [];
-do_iter_max_socks(N, initalize) ->
+do_iter_max_socks(N, initalize = First) ->
+    p("do_iter_max_socks(~w,~w) -> entry", [N, First]),
     MS = max_socks(),
     [MS|do_iter_max_socks(N-1, MS)];
-do_iter_max_socks(N, failed) ->
+do_iter_max_socks(N, failed = First) ->
+    p("do_iter_max_socks(~w,~w) -> entry", [N, First]),
     MS = max_socks(),
     [MS|do_iter_max_socks(N-1, failed)];
 do_iter_max_socks(N, First) when is_integer(First) ->
+    p("do_iter_max_socks(~w,~w) -> entry", [N, First]),
     MS = max_socks(),
-    if MS == First -> 
+    if
+        (MS =:= First) -> 
 	    [MS|do_iter_max_socks(N-1, First)];
        true ->
-	    io:format("Sleeping for ~p seconds...~n",
-			    [?RETRY_SLEEP/1000]), 
+	    p("~w =/= ~w => sleeping for ~p seconds...",
+              [MS, First, ?RETRY_SLEEP/1000]), 
 	    ct:sleep(?RETRY_SLEEP),
-	    io:format("Trying again...~n", []),
+	    p("Trying again...", []),
 	    RetryMS = max_socks(),
 	    if RetryMS == First ->
 			  [RetryMS|do_iter_max_socks(N-1, First)];
@@ -762,7 +826,7 @@ max_socks() ->
     Socks = open_socks(),
     N = length(Socks),
     lists:foreach(fun(S) -> ok = gen_tcp:close(S) end, Socks),
-    io:format("Got ~p sockets", [N]),
+    p("Got ~p sockets", [N]),
     N.
 
 open_socks() ->
@@ -797,10 +861,9 @@ start_remote(Name) ->
     test_server:start_node(Name, slave, [{remote, true}, {args, "-pa " ++ Pa}]).
 
 %% Tests that when 'the other side' on a passive socket closes, the
-%% connecting, side still can read until the end of data.
+%% connecting side can still read until the end of data.
 passive_sockets(Config) when is_list(Config) ->
-    spawn_link(?MODULE, passive_sockets_server,
-               [[{active,false}],self()]),
+    spawn_link(?MODULE, passive_sockets_server, [[{active, false}], self()]),
     receive
         {socket,Port} -> ok
     end,
@@ -808,6 +871,8 @@ passive_sockets(Config) when is_list(Config) ->
     case gen_tcp:connect("localhost", Port, [{active, false}]) of
         {ok, Sock} ->
             passive_sockets_read(Sock);
+        {error, eaddrnotavail = Reason} ->
+            {skip, connect_failed_str(Reason)};
         Error ->
             ct:fail({"Could not connect to server", Error})
     end.
@@ -928,8 +993,15 @@ shutdown_passive(Config) when is_list(Config) ->
     shutdown_common(false).
 
 shutdown_common(Active) ->
+    try do_shutdown_common(Active)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_shutdown_common(Active) ->
     P = sort_server(Active),
-    io:format("[~w]Sort server port: ~p\n", [self(), P]),
+    p("Sort server port: ~p", [P]),
 
 
     do_sort(P, []),
@@ -951,15 +1023,23 @@ shutdown_common(Active) ->
     end.
 
 do_sort(P, List0) ->
-    io:format("[~w]Sort: ~p\n", [self(), List0]),
+    p("Sort: "
+      "~n   ~p", [List0]),
     List = [El++"\n" || El <- List0],
-    {ok,S} = gen_tcp:connect(localhost, P, [{packet,line}]),
+    S = case gen_tcp:connect(localhost, P, [{packet,line}]) of
+            {ok, Socket} ->
+                Socket;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     send_lines(S, List),
     ok = gen_tcp:shutdown(S, write),
     Lines = collect_lines(S, true),
-    io:format("[~w]Collected: ~p\n", [self(), Lines]),
+    p("Collected: "
+      "~n   ~p", [Lines]),
     SortedLines = lists:sort(List),
-    io:format("[~w]Sorted: ~p\n", [self(), SortedLines]),
+    p("Sorted: "
+      "~n   ~p", [SortedLines]),
     Lines = SortedLines,
     ok = gen_tcp:close(S).
 
@@ -997,10 +1077,10 @@ collect_lines(S, false) ->
 collect_lines_1(S, Acc) ->
     receive
 	{tcp,S,Line} ->
-            io:format("[~w]collect_lines_1(~w): ~p\n", [self(), S, Line]),
+            p("collect_lines_1(~w): ~p", [S, Line]),
             collect_lines_1(S, [Line|Acc]);
 	{tcp_closed,S} ->
-            io:format("[~w]collect_lines_1(~w): tcp_closed\n", [self(), S]),
+            p("collect_lines_1(~w): tcp_closed", [S]),
             lists:reverse(Acc)
     end.
 
@@ -1013,8 +1093,7 @@ passive_collect_lines_1(S, Acc) ->
 
 send_lines(S, Lines) ->    
     lists:foreach(fun(Line) ->
-                          io:format(
-                            "[~w]send_line(~w): ~p\n", [self(), S, Line]),
+                          p("send_line(~w): ~p", [S, Line]),
 			  ok = gen_tcp:send(S, Line)
 		  end, Lines).
 
@@ -1023,21 +1102,40 @@ send_lines(S, Lines) ->
 %%%
 
 shutdown_pending(Config) when is_list(Config) ->
+    try do_shutdown_pending(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_shutdown_pending(_Config) ->
     N = 512*1024+17,
-    io:format("~p\n", [N]),
+    p("N: ~p", [N]),
     Data = [<<N:32>>,ones(N),42],
     P = a_server(),
-    io:format("Server port: ~p\n", [P]),
-    {ok,S} = gen_tcp:connect(localhost, P, []),
+    p("try connect to server (port: ~p)", [P]),
+    S = case gen_tcp:connect(localhost, P, []) of
+            {ok, Socket} ->
+                p("connected"),
+                Socket;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
+    p("send"),
     gen_tcp:send(S, Data),
+    p("shutdown(write)"),
     gen_tcp:shutdown(S, write),
+    p("await data message"),
     receive
-        {tcp,S,Msg} ->
-            io:format("~p\n", [Msg]),
+        {tcp, S, Msg} ->
+            p("got tcp (data) message: ~p", [Msg]),
             N = list_to_integer(Msg) - 5;
         Other ->
-            ct:fail({unexpected,Other})
+            p("UNEXPECTED: "
+              "~n   ~p", [Other]),
+            ct:fail({unexpected, Other})
     end,
+    p("done"),
     ok.
 
  ones(0) -> [];
@@ -1076,19 +1174,32 @@ shutdown_pending(Config) when is_list(Config) ->
 %%
 
 show_econnreset_active(Config) when is_list(Config) ->
+    try do_show_econnreset_active(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_show_econnreset_active(_Config) ->
     %% First confirm everything works with option turned off.
-    {ok, L} = gen_tcp:listen(0, []),
-    {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    {ok, S} = gen_tcp:accept(L),
-    ok = gen_tcp:close(L),
-    ok = inet:setopts(Client, [{linger, {true, 0}}]),
-    ok = gen_tcp:close(Client),
+    p("test with option switched off (default)"),
+    {ok, L0} = gen_tcp:listen(0, []),
+    {ok, Port0} = inet:port(L0),
+    Client0 = case gen_tcp:connect(localhost, Port0, [{active, false}]) of
+                 {ok, CSock0} ->
+                     CSock0;
+                  {error, eaddrnotavail = Reason0} ->
+                      skip(connect_failed_str(Reason0))
+              end,
+    {ok, S0} = gen_tcp:accept(L0),
+    ok = gen_tcp:close(L0),
+    ok = inet:setopts(Client0, [{linger, {true, 0}}]),
+    ok = gen_tcp:close(Client0),
     receive
-       {tcp_closed, S} ->
+       {tcp_closed, S0} ->
 	   ok;
-       Other ->
-	   ct:fail({unexpected1, Other})
+       Other0 ->
+	   ct:fail({unexpected, off, closed, Other0})
     after 1000 ->
 	ct:fail({timeout, {server, no_tcp_closed}})
     end,
@@ -1096,9 +1207,15 @@ show_econnreset_active(Config) when is_list(Config) ->
     %% Now test with option switched on.
     %% Note: We are also testing that the show_econnreset option is
     %% inherited from the listening socket by the accepting socket.
+    p("test with option explicitly switched on"),
     {ok, L1} = gen_tcp:listen(0, [{show_econnreset, true}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1, [{active, false}]),
+    Client1 = case gen_tcp:connect(localhost, Port1, [{active, false}]) of
+                  {ok, CSock1} ->
+                      CSock1;
+                  {error, eaddrnotavail = Reason1} ->
+                      skip(connect_failed_str(Reason1))
+              end,
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(Client1, [{linger, {true, 0}}]),
@@ -1107,25 +1224,44 @@ show_econnreset_active(Config) when is_list(Config) ->
 	{tcp_error, S1, econnreset} ->
 	    receive
 		{tcp_closed, S1} ->
+                    p("done"),
 		    ok;
 		Other1 ->
-		    ct:fail({unexpected2, Other1})
+                    p("UNEXPECTED (expected closed):"
+                      "~n   ~p", [Other1]),
+		    ct:fail({unexpected, on, closed, Other1})
 	    after 1 ->
-		ct:fail({timeout, {server, no_tcp_closed}})
+                    p("UNEXPECTED timeout (expected closed)"),
+                    ct:fail({timeout, {server, no_tcp_closed}})
 	    end;
 	Other2 ->
-	    ct:fail({unexpected3, Other2})
+            p("UNEXPECTED (expected error:econnreset):"
+              "~n   ~p", [Other2]),
+	    ct:fail({unexpected, on, econnreset, Other2})
     after 1000 ->
-	ct:fail({timeout, {server, no_tcp_error}})
+            p("UNEXPECTED timeout (expected error:econnreset)"),
+            ct:fail({timeout, {server, no_tcp_error}})
     end.
 
 show_econnreset_active_once(Config) when is_list(Config) ->
+    try do_show_econnreset_active_once(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_show_econnreset_active_once(_Config) ->
     %% Now test using {active, once}
     {ok, L} = gen_tcp:listen(0,
 			   [{active, false},
 			    {show_econnreset, true}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    Client = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+                 {ok, CSock} ->
+                     CSock;
+                  {error, eaddrnotavail = Reason} ->
+                      skip(connect_failed_str(Reason))
+              end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
@@ -1150,10 +1286,22 @@ show_econnreset_active_once(Config) when is_list(Config) ->
     end.
 
 show_econnreset_passive(Config) when is_list(Config) ->
+    try do_show_econnreset_passive(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_show_econnreset_passive(_Config) ->
     %% First confirm everything works with option turned off.
     {ok, L} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    Client = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+                 {ok, CSock} ->
+                     CSock;
+                 {error, eaddrnotavail = Reason} ->
+                     skip(connect_failed_str(Reason))
+             end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
@@ -1164,9 +1312,14 @@ show_econnreset_passive(Config) when is_list(Config) ->
     %% Now test with option switched on.
     {ok, L1} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1,
-				 [{active, false},
-				  {show_econnreset, true}]),
+    Client1 =
+        case gen_tcp:connect(localhost, Port1,
+                             [{active, false}, {show_econnreset, true}]) of
+            {ok, CSock1} ->
+                CSock1;
+            {error, eaddrnotavail = Reason1} ->
+                skip(connect_failed_str(Reason1))
+        end,            
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
@@ -1175,10 +1328,23 @@ show_econnreset_passive(Config) when is_list(Config) ->
     {error, econnreset} = gen_tcp:recv(Client1, 0).
 
 econnreset_after_sync_send(Config) when is_list(Config) ->
+    try do_econnreset_after_sync_send(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_econnreset_after_sync_send(_Config) ->
     %% First confirm everything works with option turned off.
+    p("test with option switched off (default)"),
     {ok, L} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    Client = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
@@ -1187,11 +1353,17 @@ econnreset_after_sync_send(Config) when is_list(Config) ->
     {error, closed} = gen_tcp:send(Client, "Whatever"),
 
     %% Now test with option switched on.
+    p("test with option explicitly switched on"),
     {ok, L1} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1,
-          			  [{active, false},
-          			   {show_econnreset, true}]),
+    Client1 =
+        case gen_tcp:connect(localhost, Port1,
+                             [{active, false}, {show_econnreset, true}]) of
+            {ok, CSock1} ->
+                CSock1;
+            {error, eaddrnotavail = Reason1} ->
+                skip(connect_failed_str(Reason1))
+        end,            
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
@@ -1200,13 +1372,26 @@ econnreset_after_sync_send(Config) when is_list(Config) ->
     {error, econnreset} = gen_tcp:send(Client1, "Whatever").
 
 econnreset_after_async_send_active(Config) when is_list(Config) ->
+    try do_econnreset_after_async_send_active(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_econnreset_after_async_send_active(_Config) ->
     {OS, _} = os:type(),
     Payload = lists:duplicate(1024 * 1024, $.),
 
     %% First confirm everything works with option turned off.
+    p("test with option switched off (default)"),
     {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, [{sndbuf, 4096}]),
+    Client = case gen_tcp:connect(localhost, Port, [{sndbuf, 4096}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = gen_tcp:send(Client, Payload),
@@ -1233,11 +1418,17 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
     end,
 
     %% Now test with option switched on.
+    p("test with option explicitly switched on"),
     {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1,
-				  [{sndbuf, 4096},
-				   {show_econnreset, true}]),
+    Client1 =
+        case gen_tcp:connect(localhost, Port1,
+                             [{sndbuf, 4096}, {show_econnreset, true}]) of
+            {ok, CSock1} ->
+                CSock1;
+            {error, eaddrnotavail = Reason1} ->
+                skip(connect_failed_str(Reason1))
+        end,
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = gen_tcp:send(Client1, Payload),
@@ -1257,6 +1448,7 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
 		{tcp_error, Client1, econnreset} ->
 		    receive
 			{tcp_closed, Client1} ->
+                            p("done"),
 			    ok;
 			Other3 ->
 			    ct:fail({unexpected3, Other3})
@@ -1269,13 +1461,25 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
     end.
 
 econnreset_after_async_send_active_once(Config) when is_list(Config) ->
+    try do_econnreset_after_async_send_active_once(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_econnreset_after_async_send_active_once(_Config) ->
     {OS, _} = os:type(),
     {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-				   [{active, false},
-				    {sndbuf, 4096},
-				    {show_econnreset, true}]),
+    Client = case gen_tcp:connect(localhost, Port,
+                                  [{active, false},
+                                   {sndbuf, 4096},
+                                   {show_econnreset, true}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,            
     {ok,S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     Payload = lists:duplicate(1024 * 1024, $.),
@@ -1305,15 +1509,27 @@ econnreset_after_async_send_active_once(Config) when is_list(Config) ->
     end.
 
 econnreset_after_async_send_passive(Config) when is_list(Config) ->
+    try do_econnreset_after_async_send_passive(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_econnreset_after_async_send_passive(_Config) ->
     {OS, _} = os:type(),
     Payload = lists:duplicate(1024 * 1024, $.),
 
     %% First confirm everything works with option turned off.
+    p("test with option switched off (default)"),
     {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-					 [{active, false},
-					  {sndbuf, 4096}]),
+    Client = case gen_tcp:connect(localhost, Port,
+                                  [{active, false}, {sndbuf, 4096}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
     {ok, S} = gen_tcp:accept(L),
     ok = gen_tcp:close(L),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
@@ -1329,12 +1545,18 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
     {error, closed} = gen_tcp:recv(Client, 0),
 
     %% Now test with option switched on.
+    p("test with option explicitly switched on"),
     {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port1} = inet:port(L1),
-    {ok, Client1} = gen_tcp:connect(localhost, Port1,
+    Client1 = case gen_tcp:connect(localhost, Port1,
 				   [{active, false},
 				    {sndbuf, 4096},
-				    {show_econnreset, true}]),
+				    {show_econnreset, true}]) of
+                  {ok, CSock1} ->
+                      CSock1;
+            {error, eaddrnotavail = Reason1} ->
+                skip(connect_failed_str(Reason1))
+        end,
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
@@ -1342,73 +1564,119 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
     ok = gen_tcp:send(Client1, Payload),
     ok = gen_tcp:close(S1),
     ok = ct:sleep(20),
-    {error, econnreset} = gen_tcp:recv(Client1, 0).
+    {error, econnreset} = gen_tcp:recv(Client1, 0),
+    p("done"),
+    ok.
 
 %%
 %% Test {linger {true, 0}} aborts a connection
 %%
 
 linger_zero(Config) when is_list(Config) ->
+    try do_linger_zero(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_linger_zero(_Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty.
     {OS, _} = os:type(),
+    p("create listen socket"),
     {ok, L} = gen_tcp:listen(0, [{active, false},
 				 {recbuf, 4096},
 				 {show_econnreset, true}]),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-				   [{active, false},
-				    {sndbuf, 4096}]),
+    p("connect (create client socket)"),
+    Client = case gen_tcp:connect(localhost, Port,
+                                  [{active, false}, {sndbuf, 4096}]) of
+                 {ok, CSock} ->
+                     CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
+    p("accept"),
     {ok, S} = gen_tcp:accept(L),
+    p("close listen socket"),
     ok = gen_tcp:close(L),
     PayloadSize = 1024 * 1024,
     Payload = lists:duplicate(PayloadSize, $.),
+    p("send payload (on client socket)"),
     ok = gen_tcp:send(Client, Payload),
+    p("verify client socket queue size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
+    p("linger: {true, 0}"),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
+    p("close client socket"),
     ok = gen_tcp:close(Client),
     ok = ct:sleep(1),
+    p("verify client socket (port) not connected"),
     undefined = erlang:port_info(Client, connected),
+    p("try (and fail) recv (on accepted socket)"),
     {error, econnreset} = gen_tcp:recv(S, PayloadSize),
+    p("done"),
     ok.
 
 
 linger_zero_sndbuf(Config) when is_list(Config) ->
+    try do_linger_zero_sndbuf(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_linger_zero_sndbuf(_Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty
     %% and the linger zero option is set on the listen socket.
     {OS, _} = os:type(),
+    p("create listen socket"),
     {ok, Listen} =
         gen_tcp:listen(0, [{active, false},
                            {recbuf, 4096},
                            {show_econnreset, true},
                            {linger, {true, 0}}]),
     {ok, Port} = inet:port(Listen),
-    {ok, Client} =
-        gen_tcp:connect(localhost, Port,
-				   [{active, false},
-				    {sndbuf, 4096}]),
+    p("connect (create client socket)"),
+    Client =
+        case gen_tcp:connect(localhost, Port,
+                             [{active, false}, {sndbuf, 4096}]) of
+            {ok, CSock} ->
+                CSock;
+            {error, eaddrnotavail = Reason} ->
+                skip(connect_failed_str(Reason))
+        end,
+    p("accept"),
     {ok, Server} = gen_tcp:accept(Listen),
+    p("close listen socket"),
     ok = gen_tcp:close(Listen),
     PayloadSize = 1024 * 1024,
     Payload = binary:copy(<<"0123456789ABCDEF">>, 256 * 1024), % 1 MB
+    p("send payload (on client socket)"),
     ok = gen_tcp:send(Server, Payload),
+    p("verify client socket queue size"),
     case erlang:port_info(Server, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
+    p("verify linger: {true, 0}"),
     {ok, [{linger, {true, 0}}]} = inet:getopts(Server, [linger]),
+    p("close client socket"),
     ok = gen_tcp:close(Server),
     ok = ct:sleep(1),
+    p("verify client socket (port) not connected"),
     undefined = erlang:port_info(Server, connected),
+    p("try (and fail) recv (on client socket)"),
     {error, closed} = gen_tcp:recv(Client, PayloadSize),
+    p("done"),
     ok.
 
 
@@ -1447,53 +1715,128 @@ http_bad_client(Port) ->
 %% Fill send queue and then start receiving.
 %%
 busy_send(Config) when is_list(Config) ->
-    Master = self(),
-    Msg = <<"the quick brown fox jumps over a lazy dog~n">>,
-    Server =
-	spawn_link(fun () ->
-			   {ok,L} = gen_tcp:listen
-				      (0, [{active,false},binary,
-					   {reuseaddr,true},{packet,0}]),
-			   {ok,Port} = inet:port(L),
-			   Master ! {self(),client,
-				     busy_send_client(Port, Master, Msg)},
-			   busy_send_srv(L, Master, Msg)
-		   end),
-    io:format("~p Server~n", [Server]),
-    receive
-        {Server,client,Client} ->
-            io:format("~p Client~n", [Client]),
-            busy_send_loop(Server, Client, 0)
+    try do_busy_send(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
     end.
+
+do_busy_send(_Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    Master  = self(),
+    Msg     = <<"the quick brown fox jumps over a lazy dog~n">>,
+    p("[master] start server"),
+    ServerF =
+        fun() ->
+                p("[server] create listen socket"),
+                case gen_tcp:listen(0, [{active,false},binary,
+                                        {reuseaddr,true},{packet,0}]) of
+                    {ok, L} ->
+                        p("[server] listen socket created"),
+                        {ok, Port} = inet:port(L),
+                        Master ! {self(), listen_port, Port},
+                        p("[server] await continue"),
+                        receive
+                            {Master, continue} ->
+                                p("[server] continue"),
+                                busy_send_srv(L, Master, Msg)
+                        end;
+                    {error, Reason} ->
+                        p("[server] UNEXPECTED: ~w", [Reason]),
+                        exit({skip, listen_failed_str(Reason)})
+                end
+        end,
+    Server = spawn_link(ServerF),
+    p("[master] server: ~p", [Server]),
+    ListenPort =
+        receive
+            {'EXIT', Server, {skip, _} = SKIP} ->
+                throw(SKIP);
+
+            {'EXIT', Server, Reason} ->
+                exit({server, Reason});
+
+            {Server, listen_port, LP} ->
+                p("listen port: ~p", [LP]),
+                LP
+        end,
+    p("[master] start client"),
+    ClientF = 
+      fun () ->
+              p("[client] await (connect) server port"),
+              Port =
+                  receive
+                      {Master, connect, P} ->
+                          P
+                  end,
+              p("[client] connect to ~w", [Port]),
+	      case gen_tcp:connect("localhost", Port,
+                                   [{active,false},binary,{packet,0}]) of
+                  {ok, Socket} ->
+                      Master ! {self(), connected},
+                      p("[client] connected - await recv"),
+                      receive
+                          {Master, recv, N} ->
+                              p("[client] received recv:~w", [N]),
+                              busy_send_client_loop(Socket, Master, Msg, N)
+                      end;
+                  {error, eaddrnotavail = CReason} ->
+                      p("[client] UNEXPECTED: ~w", [CReason]),
+                      exit({skip, connect_failed_str(CReason)})
+              end
+      end,
+    Client = spawn_link(ClientF),
+    p("[master] client: ~p", [Client]),
+    Server ! {self(), continue},
+    Client ! {self(), connect, ListenPort},
+    receive
+        {Client, connected} ->
+            p("[master] client connected"),
+            ok
+    end,
+    busy_send_loop(Server, Client, 0),
+    process_flag(trap_exit, OldFlag),
+    p("[master] done"),
+    ok.
 
 busy_send_loop(Server, Client, N) ->
     %% Master
     %%
-    receive {Server,send} ->
-		  busy_send_loop(Server, Client, N+1)
-	  after 2000 ->
-		  %% Send queue full, sender blocked 
-		  %% -> stop sender and release client
-		  io:format("Send timeout, time to receive...~n", []),
-		  Server ! {self(),close},
-		  Client ! {self(),recv,N+1},
-                  receive
-                      {Server,send} ->
-                          busy_send_2(Server, Client, N+1)
-                  after 10000 ->
-                            %% If this happens, see busy_send_srv
-                            ct:fail({timeout,{server,not_send,flush([])}})
-                  end
+    receive
+        {Server, send} ->
+            busy_send_loop(Server, Client, N+1)
+
+    after 2000 ->
+            p("[master] send timeout: server send queue full (N = ~w+1)", [N]),
+            %% Send queue full, sender blocked 
+            %% -> stop sender and release client
+            p("Send timeout, time to receive..."),
+            Server ! {self(), close},
+            Client ! {self(), recv, N+1},
+            receive
+                {Server, send} ->
+                    busy_send_2(Server, Client, N+1)
+            after 10000 ->
+                    %% If this happens, see busy_send_srv
+                    p("UNEXPECTED: server send timeout"),
+                    ct:fail({timeout,{server,not_send,flush([])}})
+            end
     end.
 
 busy_send_2(Server, Client, _N) ->
     %% Master
     %%
     receive
-        {Server,[closed]} ->
-            receive {Client,[0,{error,closed}]} -> ok end
+        {Server, [closed]} ->
+            p("[master] received expected (server) closed"),
+            receive
+                {Client, [0,{error,closed}]} ->
+                    p("[master] received expected (client) closed"),
+                    ok
+            end
     after 10000 ->
-              ct:fail({timeout,{server,not_closed,flush([])}})
+            p("UNEXPECTED: server closed timeout"),
+            ct:fail({timeout, {server, not_closed, flush([])}})
     end.
 
 busy_send_srv(L, Master, Msg) ->
@@ -1501,45 +1844,38 @@ busy_send_srv(L, Master, Msg) ->
     %% Sometimes this accept does not return, do not really know why
     %% but is causes the timeout error in busy_send_loop to be
     %% triggered. Only happens on OS X Leopard?!?
-    {ok,Socket} = gen_tcp:accept(L),
-    busy_send_srv_loop(Socket, Master, Msg).
+    case gen_tcp:accept(L) of
+        {ok, Socket} ->
+            p("[server] accepted"),
+            busy_send_srv_loop(Socket, Master, Msg);
+        {error, Reason} ->
+            p("UNEXPECTED: server accept failure: ~p", [Reason]),
+            exit({skip, accept_failed_str(Reason)})
+    end.
 
 busy_send_srv_loop(Socket, Master, Msg) ->
     %% Server
     %%
     receive
-	{Master,close} ->
+	{Master, close} ->
+            p("[server] received close"),
 	    ok = gen_tcp:close(Socket),
 	    Master ! {self(),flush([closed])}
     after 0 ->
 	    ok = gen_tcp:send(Socket, Msg),
-	    Master ! {self(),send},
+	    Master ! {self(), send},
 	    busy_send_srv_loop(Socket, Master, Msg)
     end.
-
-busy_send_client(Port, Master, Msg) ->    
-    %% Client
-    %%
-    spawn_link(
-      fun () ->
-	      {ok,Socket} = gen_tcp:connect(
-			 "localhost", Port,
-			 [{active,false},binary,{packet,0}]),
-	      receive
-		  {Master,recv, N} ->
-		      busy_send_client_loop(Socket, Master, Msg, N)
-	      end
-      end).
 
 busy_send_client_loop(Socket, Master, Msg, N) ->
     %% Client
     %%
     Size = byte_size(Msg),
     case gen_tcp:recv(Socket, Size) of
-	{ok,Msg} ->
+	{ok, Msg} ->
 	    busy_send_client_loop(Socket, Master, Msg, N-1);
 	Other ->
-	    Master ! {self(),flush([Other,N])}
+	    Master ! {self(), flush([Other,N])}
     end.
 
 %%%
@@ -1549,11 +1885,18 @@ busy_send_client_loop(Socket, Master, Msg, N) ->
 %%%
 
 busy_disconnect_passive(Config) when is_list(Config) ->
+    try do_busy_disconnect_passive(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_busy_disconnect_passive(_Config) ->
     MuchoData = list_to_binary(ones(64*1024)),
-    [do_busy_disconnect_passive(MuchoData) || _ <- lists:seq(1, 10)],
+    [do_busy_disconnect_passive2(MuchoData) || _ <- lists:seq(1, 10)],
     ok.
 
-do_busy_disconnect_passive(MuchoData) ->
+do_busy_disconnect_passive2(MuchoData) ->
     S = busy_disconnect_prepare_server([{active,false}]),
     busy_disconnect_passive_send(S, MuchoData).
 
@@ -1569,11 +1912,18 @@ busy_disconnect_passive_send(S, Data) ->
 %%% a {tcp_closed,Socket} message. (Active mode.)
 %%%
 busy_disconnect_active(Config) when is_list(Config) ->
+    try do_busy_disconnect_active(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+end.
+
+do_busy_disconnect_active(_Config) ->
     MuchoData = list_to_binary(ones(64*1024)),
-    [do_busy_disconnect_active(MuchoData) || _ <- lists:seq(1, 10)],
+    [do_busy_disconnect_active2(MuchoData) || _ <- lists:seq(1, 10)],
     ok.
 
-do_busy_disconnect_active(MuchoData) ->
+do_busy_disconnect_active2(MuchoData) ->
     S = busy_disconnect_prepare_server([{active,true}]),
     busy_disconnect_active_send(S, MuchoData).
 
@@ -1591,10 +1941,14 @@ busy_disconnect_active_send(S, Data) ->
 busy_disconnect_prepare_server(ConnectOpts) ->
     Sender = self(),
     Server = spawn_link(fun() -> busy_disconnect_server(Sender) end),
-    receive {port,Server,Port} -> ok end,
-    {ok,S} = gen_tcp:connect(localhost, Port, ConnectOpts),
-    Server ! {Sender,sending},
-    S.
+    receive {port, Server, Port} -> ok end,
+    case gen_tcp:connect(localhost, Port, ConnectOpts) of
+        {ok, S} ->
+            Server ! {Sender, sending},
+            S;
+        {error, eaddrnotavail = Reason} ->
+            skip(connect_failed_str(Reason))
+    end.
 
 busy_disconnect_server(Sender) ->
     {ok,L} = gen_tcp:listen(0, [{active,false},binary,{reuseaddr,true},{packet,0}]),
@@ -1626,137 +1980,217 @@ busy_disconnect_server_wait_for_busy(Sender, S) ->
 %%% Fill send queue
 %%%
 fill_sendq(Config) when is_list(Config) ->
-    Master = self(),
-    Server =
-	spawn_link(fun () ->
-			   {ok,L} = gen_tcp:listen(0, [{active,false},binary,
-                                                       {reuseaddr,true},{packet,0}]),
-			   {ok,Port} = inet:port(L),
-			   Master ! {self(),client,
-				     fill_sendq_client(Port, Master)},
-			   fill_sendq_srv(L, Master)
-		   end),
-    io:format("~p Server~n", [Server]),
-    receive
-        {Server,client,Client} ->
-            io:format("~p Client~n", [Client]),
-            receive
-                {Server,reader,Reader} ->
-                    io:format("~p Reader~n", [Reader]),
-                    fill_sendq_loop(Server, Client, Reader)
-	    end
+    try do_fill_sendq(Config)
+    catch
+        exit:{skip, _} = SKIP ->
+            SKIP
     end.
+
+do_fill_sendq(_Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    Master  = self(),
+    ServerF =
+        fun () ->
+                p("[server] try listen"),
+                case gen_tcp:listen(0, [{active,false},binary,
+                                        {reuseaddr,true},{packet,0}]) of
+                    {ok, L} ->
+                        p("[server] try port"),
+                        case inet:port(L) of
+                            {ok, Port} ->
+                                Master ! {self(), listen_port, Port},
+                                fill_sendq_srv(L, Master);
+                            {error, PReason} ->
+                                exit({skip, port_failed_str(PReason)})
+                        end;
+                    {error, LReason} ->
+                        exit({skip, listen_failed_str(LReason)})
+                end
+        end,
+    Server  = spawn_link(ServerF),
+    p("[master] server: ~p", [Server]),
+    ClientF =
+        fun () ->
+                p("[client] await server port"),
+                ServerPort =
+                    receive
+                        {Master, server_port, SP} ->
+                            p("[client] server port: ~w", [SP]),
+                            SP
+                    end,
+                %% Just close on order
+                p("[client] try connect"),
+                case gen_tcp:connect(
+                       "localhost", ServerPort,
+                       [{active,false},binary,{packet,0}]) of
+                    {ok, S} ->
+                        p("[client] connected"),
+                        Master ! {self(), connected},
+                        receive
+                            {Master, close} ->
+                                p("[client] received close"),
+                                ok = gen_tcp:close(S)
+                        end;
+                    {error, eaddrnotavail = Reason} ->
+                        exit({skip, connect_failed_str(Reason)})
+                end
+        end,
+    Client = spawn_link(ClientF),
+    p("[master] client: ~p", [client]),
+    ListenPort =
+        receive
+            {Server, listen_port, LP} ->
+                p("[master] listen port: ~w", [LP]),
+                LP
+        end,
+    Client ! {self(), server_port, ListenPort},
+    p("[master] await client connected"),
+    receive {Client, connected} -> ok end,
+    p("[master] await reader"),
+    Res = receive
+              {Server, reader, Reader} ->
+                  p("[master] reader: ~p", [Reader]),
+                  fill_sendq_loop(Server, Client, Reader)
+          end,
+    process_flag(trap_exit, OldFlag),    
+    p("[master] done"),
+    Res.
 
 fill_sendq_loop(Server, Client, Reader) ->
     %% Master
     %%
     receive
-        {Server,send} ->
+        {Server, send} ->
 	    fill_sendq_loop(Server, Client, Reader)
     after 2000 ->
 	    %% Send queue full, sender blocked -> close client.
-	    io:format("Send timeout, closing Client...~n", []),
-	    Client ! {self(),close},
+	    p("[master] send timeout, closing client"),
+	    Client ! {self(), close},
 	    receive
-                {Server,[{error,closed}]} ->
-                    io:format("Got server closed.~n"),
+                {Server, [{error,closed}] = SErrors} ->
+                    p("[master] got expected server closed"),
                     receive
-                        {Reader,[{error,closed}]} ->
-                            io:format("Got reader closed.~n"),
-                            ok
+                        {Reader, [{error,closed}]} ->
+                            p("[master] got expected reader closed"),
+                            ok;
+                        {Reader, RErrors} ->
+                            ct:fail([{server, SErrors}, {reader, RErrors}])
                     after 3000 ->
                             ct:fail({timeout,{closed,reader}})
                     end;
-                {Reader,[{error,closed}]} ->
-                    io:format("Got reader closed.~n"),
+
+                {Server, SErrors} ->
+                    ct:fail([{server, SErrors}, {reader, []}]);
+
+                {Reader, [{error,closed}] = RErrors} ->
+                    p("[master] got expected reader closed"),
                     receive
-                        {Server,[{error,closed}]} ->
-                            io:format("Got server closed~n"),
-                            ok
+                        {Server, [{error,closed}]} ->
+                            p("[master] got expected server closed"),
+                            ok;
+                        {Server, SErrors} ->
+                            ct:fail([{server, SErrors}, {reader, RErrors}])
                     after 3000 ->
                             ct:fail({timeout,{closed,server}})
-                    end
+                    end;
+
+                {Reader, RErrors} ->
+                    ct:fail([{server, []}, {reader, RErrors}])
+
             after 3000 ->
-                    ct:fail({timeout,{closed,[server,reader]}})
+                    Msgs = flush([]),
+                    ct:fail({timeout,{closed,[server,reader]}, Msgs})
             end
     end.
 
 fill_sendq_srv(L, Master) ->
     %% Server
     %%
+    p("[server] await accept"),
     case gen_tcp:accept(L) of
-	{ok,S} ->
+	{ok, S} ->
 	    Master ! {self(),reader,
 		      spawn_link(fun () -> fill_sendq_read(S, Master) end)},
 	    Msg = "the quick brown fox jumps over a lazy dog~n",
 	    fill_sendq_write(S, Master, [Msg,Msg,Msg,Msg,Msg,Msg,Msg,Msg]);
-	Error ->
-	    io:format("~p accept error: ~p.~n", [self(),Error]),
-	    Master ! {self(),flush([Error])}
+	E ->
+            Error = flush([E]),
+	    p("[server] accept error: ~p", [E]),
+	    Master ! {self(), Error}
     end.
 
 fill_sendq_write(S, Master, Msg) ->
     %% Server
     %%
-    %%io:format("~p sending...~n", [self()]),
-    Master ! {self(),send},
+    %% p("[server] sending..."),
+    Master ! {self(), send},
     case gen_tcp:send(S, Msg) of
 	ok ->
-	    %%io:format("~p ok.~n", [self()]),
+	    %% p("[server] ok."),
 	    fill_sendq_write(S, Master, Msg);
-	E ->
+	{error, _} = E ->
 	    Error = flush([E]),
-	    io:format("~p send error: ~p.~n", [self(),Error]),
-	    Master ! {self(),Error}
+	    p("[server] send error: ~p", [Error]),
+	    Master ! {self(), Error}
     end.
 
 fill_sendq_read(S, Master) ->
     %% Reader
     %%
-    io:format("~p read infinity...~n", [self()]),
+    p("[reader] read infinity..."),
     case gen_tcp:recv(S, 0, infinity) of
-	{ok,Data} ->
-	    io:format("~p recv: ~p.~n", [self(),Data]),
+	{ok, Data} ->
+	    p("[reader] recv: ~p", [Data]),
 	    fill_sendq_read(S, Master);
 	E ->
 	    Error = flush([E]),
-	    io:format("~p recv error: ~p.~n", [self(),Error]),
-	    Master ! {self(),Error}
+	    p("[reader] recv error: ~p", [Error]),
+	    Master ! {self(), Error}
     end.
 
-fill_sendq_client(Port, Master) ->
-    %% Client
-    %%
-    spawn_link(fun () ->
-		       %% Just close on order
-		       {ok,S} = gen_tcp:connect(
-				  "localhost", Port,
-				  [{active,false},binary,{packet,0}]),
-		       receive
-			   {Master,close} ->
-			       ok = gen_tcp:close(S)
-		       end
-	       end).
 
 %%% Try to receive more than available number of bytes from 
 %%% a closed socket.
 %%%
 partial_recv_and_close(Config) when is_list(Config) ->
+    try do_partial_recv_and_close(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_partial_recv_and_close(_Config) ->
     Msg = "the quick brown fox jumps over a lazy dog 0123456789\n",
     Len = length(Msg),
     {ok,L} = gen_tcp:listen(0, [{active,false}]),
     {ok,P} = inet:port(L),
-    {ok,S} = gen_tcp:connect("localhost", P, [{active,false}]),
-    {ok,A} = gen_tcp:accept(L),
-    ok = gen_tcp:send(S, Msg),
-    ok = gen_tcp:close(S),
-    {error,closed} = gen_tcp:recv(A, Len+1),
+    Sock =
+        case gen_tcp:connect("localhost", P, [{active,false}]) of
+            {ok, S} ->
+                S;
+        {error, eaddrnotavail = Reason} ->
+            skip(connect_failed_str(Reason))
+    end,
+    {ok, A} = gen_tcp:accept(L),
+    ok = gen_tcp:send(Sock, Msg),
+    ok = gen_tcp:close(Sock),
+    {error, closed} = gen_tcp:recv(A, Len+1),
     ok.
 
 %%% Try to receive more than available number of bytes from 
 %%% a closed socket, this time waiting in the recv before closing.
 %%%
 partial_recv_and_close_2(Config) when is_list(Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    Res = try do_partial_recv_and_close_2(Config)
+          catch
+              exit:{skip, _} = SKIP ->
+                  SKIP
+          end,
+    process_flag(trap_exit, OldFlag),
+    Res.
+
+do_partial_recv_and_close_2(_Config) ->
     Msg = "the quick brown fox jumps over a lazy dog 0123456789\n",
     Len = length(Msg),
     {ok,L} = gen_tcp:listen(0, [{active,false}]),
@@ -1766,21 +2200,35 @@ partial_recv_and_close_2(Config) when is_list(Config) ->
 	spawn_link(
 	  fun () ->
 		  receive after 2000 -> ok end,
-		  {ok,S} = gen_tcp:connect("localhost", P, [{active,false}]),
-		  ok = gen_tcp:send(S, Msg),
-		  receive {Server,close} -> ok end,
-		  receive after 2000 -> ok end,
-		  ok = gen_tcp:close(S)
+		  case gen_tcp:connect("localhost", P, [{active,false}]) of
+                      {ok, S} ->
+                          ok = gen_tcp:send(S, Msg),
+                          receive {Server,close} -> ok end,
+                          receive after 2000 -> ok end,
+                          ok = gen_tcp:close(S);
+                      {error, eaddrnotavail = Reason} ->
+                          exit({skip, connect_failed_str(Reason)})
+                  end
 	  end),
-    {ok,A} = gen_tcp:accept(L),
-    Client ! {Server,close},
-    {error,closed} = gen_tcp:recv(A, Len+1),
+    {ok, A} = gen_tcp:accept(L),
+    Client ! {Server, close},
+    {error, closed} = gen_tcp:recv(A, Len+1),
     ok.
 
 %%% Here we tests that gen_tcp:recv/2 will return {error,closed} following
 %%% a send operation of a huge amount data when the other end closed the socket.
 %%%
 partial_recv_and_close_3(Config) when is_list(Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    Res = try do_partial_recv_and_close_3(Config)
+          catch
+              throw:{skip, _} = SKIP ->
+                  SKIP
+          end,
+    process_flag(trap_exit, OldFlag),
+    Res.
+
+do_partial_recv_and_close_3(_Config) ->
     [do_partial_recv_and_close_3() || _ <- lists:seq(0, 20)],
     ok.
 
@@ -1798,14 +2246,20 @@ do_partial_recv_and_close_3() ->
 	{port,Port} -> ok
     end,
     Much = ones(8*64*1024),
-    {ok,S} = gen_tcp:connect(localhost, Port, [{active,false}]),
+    S = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+            {ok, Sock} ->
+                Sock;
+        {error, eaddrnotavail = Reason} ->
+            skip(connect_failed_str(Reason))
+    end,
 
-    %% Send a lot of data (most of it will be queued). The receiver will read one byte
-    %% and close the connection. The write operation will fail.
+    %% Send a lot of data (most of it will be queued).
+    %% The receiver will read one byte and close the connection.
+    %% The write operation will fail.
     gen_tcp:send(S, Much),
 
     %% We should always get {error,closed} here.
-    {error,closed} = gen_tcp:recv(S, 0).
+    {error, closed} = gen_tcp:recv(S, 0).
     
 
 test_prio_put_get() ->
@@ -1820,14 +2274,20 @@ test_prio_put_get() ->
     {ok,[{priority,3},{tos,Tos}]} = inet:getopts(L1,[priority,tos]),
     gen_tcp:close(L1),
     ok.
+
 test_prio_accept() ->
     {ok,Sock}=gen_tcp:listen(0,[binary,{packet,0},{active,false},
                                 {reuseaddr,true},{priority,4}]),
     {ok,Port} = inet:port(Sock),
-    {ok,Sock2}=gen_tcp:connect("localhost",Port,[binary,{packet,0},
-                                                 {active,false},
-                                                 {reuseaddr,true},
-                                                 {priority,4}]),
+    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+                                                   {active,false},
+                                                   {reuseaddr,true},
+                                                   {priority,4}]) of
+                {ok, S2} -> 
+                    S2;
+                {error, eaddrnotavail = Reason} ->
+                    skip(connect_failed_str(Reason))
+            end,
     {ok,Sock3}=gen_tcp:accept(Sock),
     {ok,[{priority,4}]} = inet:getopts(Sock,[priority]),
     {ok,[{priority,4}]} = inet:getopts(Sock2,[priority]),
@@ -1844,11 +2304,16 @@ test_prio_accept2() ->
                                 {reuseaddr,true},{priority,4},
                                 {tos,Tos1}]),
     {ok,Port} = inet:port(Sock),
-    {ok,Sock2}=gen_tcp:connect("localhost",Port,[binary,{packet,0},
-                                                 {active,false},
-                                                 {reuseaddr,true},
-                                                 {priority,4},
-                                                 {tos,Tos2}]),
+    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+                                                   {active,false},
+                                                   {reuseaddr,true},
+                                                   {priority,4},
+                                                   {tos,Tos2}]) of
+                {ok, S2} ->
+                    S2;
+                {error, eaddrnotavail = Reason} ->
+                    skip(connect_failed_str(Reason))
+            end,
     {ok,Sock3}=gen_tcp:accept(Sock),
     {ok,[{priority,4},{tos,Tos1}]} = inet:getopts(Sock,[priority,tos]),
     {ok,[{priority,4},{tos,Tos2}]} = inet:getopts(Sock2,[priority,tos]),
@@ -1865,10 +2330,15 @@ test_prio_accept3() ->
                                 {reuseaddr,true},
                                 {tos,Tos1}]),
     {ok,Port} = inet:port(Sock),
-    {ok,Sock2}=gen_tcp:connect("localhost",Port,[binary,{packet,0},
-                                                 {active,false},
-                                                 {reuseaddr,true},
-                                                 {tos,Tos2}]),
+    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+                                                   {active,false},
+                                                   {reuseaddr,true},
+                                                   {tos,Tos2}]) of
+                {ok, S2} ->
+                    S2;
+        {error, eaddrnotavail = Reason} ->
+            skip(connect_failed_str(Reason))
+    end,
     {ok,Sock3}=gen_tcp:accept(Sock),
     {ok,[{priority,0},{tos,Tos1}]} = inet:getopts(Sock,[priority,tos]),
     {ok,[{priority,0},{tos,Tos2}]} = inet:getopts(Sock2,[priority,tos]),
@@ -1890,11 +2360,16 @@ test_prio_accept_async() ->
     receive
     after 3000 -> ok
     end,
-    {ok,Sock2}=gen_tcp:connect("localhost",Port,[binary,{packet,0},
-                                                 {active,false},
-                                                 {reuseaddr,true},
-                                                 {priority,4},
-                                                 {tos,Tos2}]),
+    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+                                                   {active,false},
+                                                   {reuseaddr,true},
+                                                   {priority,4},
+                                                   {tos,Tos2}]) of
+                {ok, S2} ->
+                    S2;
+                {error, eaddrnotavail = Reason} ->
+                    skip(connect_failed_str(Reason))
+            end,
     receive
         {Ref,{ok,[{priority,4},{tos,Tos1}]}} ->
             ok;
@@ -1942,6 +2417,13 @@ test_prio_udp() ->
 
 %% Tests the so_priority and ip_tos options on sockets when applicable.
 so_priority(Config) when is_list(Config) ->
+    try do_so_priority(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_so_priority(_Config) ->
     {ok,L} = gen_tcp:listen(0, [{active,false}]),
     ok = inet:setopts(L,[{priority,1}]),
     case inet:getopts(L,[priority]) of
@@ -2069,24 +2551,31 @@ recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
 recvtclass_ok({unix,_}, _) -> true;
 recvtclass_ok(_, _) -> false.
 
-semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
+semver_lt({X1,Y1,Z1} = V1, {X2,Y2,Z2} = V2) ->
+    p("semver_lt -> OS version check:"
+      "~n   Version 1: ~p"
+      "~n   Version 2: ~p", [V1, V2]),
     if
-        X1 > X2 -> false;
-        X1 < X2 -> true;
-        Y1 > Y2 -> false;
-        Y1 < Y2 -> true;
-        Z1 > Z2 -> false;
-        Z1 < Z2 -> true;
-        true -> false
+        X1 > X2 -> p("semver_lt -> X1 > X2: ~p > ~p", [X1, X2]), false;
+        X1 < X2 -> p("semver_lt -> X1 < X2: ~p < ~p", [X1, X2]), true;
+        Y1 > Y2 -> p("semver_lt -> Y1 > Y2: ~p > ~p", [Y1, Y2]), false;
+        Y1 < Y2 -> p("semver_lt -> Y1 < Y2: ~p < ~p", [Y1, Y2]), true;
+        Z1 > Z2 -> p("semver_lt -> Z1 > Z2: ~p > ~p", [Z1, Z2]), false;
+        Z1 < Z2 -> p("semver_lt -> Z1 < Z2: ~p < ~p", [Z1, Z2]), true;
+        true    -> p("semver_lt -> default"), false
     end;
-semver_lt(_, {_,_,_}) -> false.
+semver_lt(V1, {_,_,_} = V2) ->
+    p("semver_lt -> fallback OS version check when: "
+      "~n   Version 1: ~p"
+      "~n   Version 2: ~p", [V1, V2]),
+    false.
 
 test_pktoptions(Family, Spec, OSFilter, CheckConnect) ->
     OSType = os:type(),
-    OSVer = os:version(),
+    OSVer  = os:version(),
     case OSFilter(OSType, OSVer) of
         true ->
-            io:format("Os: ~p, ~p~n", [OSType,OSVer]),
+            p("OS: ~p, ~p", [OSType, OSVer]),
             test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer);
         false ->
             {skip,{not_supported_for_os_version,{OSType,OSVer}}}
@@ -2145,9 +2634,9 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
                     {ok, [{pktoptions, PktOpts1}]} ->
                         PktOpts1;
                     {ok, UnexpOK1} ->
-                        io:format("Unexpected OK (~w): "
-                                  "~n   ~p"
-                                  "~n", [Role, UnexpOK1]),
+                        p("Unexpected OK (~w): "
+                          "~n   ~p"
+                          "~n", [Role, UnexpOK1]),
                         exit({unexpected_getopts_ok,
                               Role,
                               Spec,
@@ -2156,9 +2645,9 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
                               OptsValsDefault,
                               UnexpOK1});
                     {error, UnexpERR1} ->
-                        io:format("Unexpected ERROR (~w): "
-                                  "~n   ~p"
-                                  "~n", [Role, UnexpERR1]),
+                        p("Unexpected ERROR (~w): "
+                          "~n   ~p"
+                          "~n", [Role, UnexpERR1]),
                         exit({unexpected_getopts_failure,
                               Role,
                               Spec,
@@ -2173,11 +2662,11 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
     %% {ok,[{pktoptions,OptsVals1}]} = inet:getopts(S1, [pktoptions]),
     %% {ok,[{pktoptions,OptsVals2}]} = inet:getopts(S2, [pktoptions]),
     (Result1 = sets_eq(OptsVals1, OptsVals))
-        orelse io:format(
-                 "Accept differs: ~p neq ~p~n", [OptsVals1,OptsVals]),
+        orelse p(
+                 "Accept differs: ~p neq ~p", [OptsVals1,OptsVals]),
     (Result2 = sets_eq(OptsVals2, OptsValsDefault))
-        orelse io:format(
-                 "Connect differs: ~p neq ~p~n",
+        orelse p(
+                 "Connect differs: ~p neq ~p",
                  [OptsVals2,OptsValsDefault]),
     %%
     ok = gen_tcp:close(S2),
@@ -2238,9 +2727,14 @@ collect_accepts(0,_) -> [];
 collect_accepts(N,Tmo) ->
     A = millis(),
     receive
-	{accepted,P,Msg} ->
+	{accepted, P, {error, eaddrnotavail = Reason}} ->
+            p("~p Failed accept: ~p", [P, Reason]),
+            skip(accept_failed_str(Reason));
+
+        {accepted,P,Msg} ->
             NextN = if N =:= infinity -> N; true -> N - 1 end,
 	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
+
     after Tmo ->
 	    []
     end.
@@ -2258,8 +2752,13 @@ collect_accepts(N,Tmo) ->
 collect_connects(Tmo) ->
     A = millis(),
     receive
+	{connected, P, {error, eaddrnotavail = Reason}} ->
+            p("~p Failed connect: ~p", [P, Reason]),
+            skip(connect_failed_str(Reason));
+
 	{connected,P,Msg} ->
 	    [{P,Msg}] ++ collect_connects(Tmo-(millis() - A))
+
     after Tmo ->
 	    []
     end.
@@ -2280,12 +2779,30 @@ mktmofun(Tmo,Parent,LS) ->
 %% Accept tests
 %% Test singular accept.
 primitive_accept(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
-    {ok,PortNo}=inet:port(LS),
+    try do_primitive_accept(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_primitive_accept(_Config) ->
+    LSock =
+        case gen_tcp:listen(0,[]) of
+            {ok, LS} ->
+                LS;
+            {error, LReason} ->
+                skip(listen_failed_str(LReason))
+        end,
+    {ok, PortNo} = inet:port(LSock),
     Parent = self(),
-    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
+    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LSock)} end,
     P = spawn(F),
-    gen_tcp:connect("localhost",PortNo,[]),
+    case gen_tcp:connect("localhost", PortNo, []) of
+        {ok, _} ->
+            ok;
+        {error, eaddrnotavail = CReason} ->
+            skip(connect_failed_str(CReason))
+    end,        
     receive
         {accepted,P,{ok,P0}} when is_port(P0) ->
             ok;
@@ -2298,7 +2815,19 @@ primitive_accept(Config) when is_list(Config) ->
 	
 %% Closing listen socket when multi-accepting.
 multi_accept_close_listen(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_multi_accept_close_listen(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_multi_accept_close_listen(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     spawn(F),
@@ -2311,7 +2840,19 @@ multi_accept_close_listen(Config) when is_list(Config) ->
 	
 %% Single accept with timeout.
 accept_timeout(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeout(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeout(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS,1000)} end,
     P = spawn(F),
@@ -2319,7 +2860,19 @@ accept_timeout(Config) when is_list(Config) ->
 
 %% Check that multi-accept timeouts happen in the correct order.
 accept_timeouts_in_order(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeouts_in_order(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
     P2 = spawn(mktmofun(1200,Parent,LS)),
@@ -2330,7 +2883,19 @@ accept_timeouts_in_order(Config) when is_list(Config) ->
 
 %% Check that multi-accept timeouts happen in the correct order (more).
 accept_timeouts_in_order2(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeouts_in_order2(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order2(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1400,Parent,LS)),
     P2 = spawn(mktmofun(1300,Parent,LS)),
@@ -2341,7 +2906,19 @@ accept_timeouts_in_order2(Config) when is_list(Config) ->
 
 %% Check that multi-accept timeouts happen in the correct order (even more).
 accept_timeouts_in_order3(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeouts_in_order3(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order3(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1200,Parent,LS)),
     P2 = spawn(mktmofun(1400,Parent,LS)),
@@ -2353,7 +2930,19 @@ accept_timeouts_in_order3(Config) when is_list(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts.
 accept_timeouts_in_order4(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeouts_in_order4(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order4(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(200,Parent,LS)),
     P2 = spawn(mktmofun(400,Parent,LS)),
@@ -2365,7 +2954,19 @@ accept_timeouts_in_order4(Config) when is_list(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (more).
 accept_timeouts_in_order5(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeouts_in_order5(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order5(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(400,Parent,LS)),
     P2 = spawn(mktmofun(1000,Parent,LS)),
@@ -2377,7 +2978,19 @@ accept_timeouts_in_order5(Config) when is_list(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (even more).
 accept_timeouts_in_order6(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeouts_in_order6(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order6(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
     P2 = spawn(mktmofun(400,Parent,LS)),
@@ -2389,7 +3002,19 @@ accept_timeouts_in_order6(Config) when is_list(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (even more++).
 accept_timeouts_in_order7(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeouts_in_order7(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_in_order7(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     P1 = spawn(mktmofun(1000,Parent,LS)),
     P2 = spawn(mktmofun(200,Parent,LS)),
@@ -2406,7 +3031,19 @@ accept_timeouts_in_order7(Config) when is_list(Config) ->
 
 %% Check that multi-accept timeouts behave correctly when mixed with successful timeouts.
 accept_timeouts_mixed(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_accept_timeouts_mixed(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_accept_timeouts_mixed(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
     P1 = spawn(mktmofun(1000,Parent,LS)),
@@ -2418,16 +3055,41 @@ accept_timeouts_mixed(Config) when is_list(Config) ->
     P4 = spawn(mktmofun(4000,Parent,LS)),
     wait_until_accepting(P4,500),
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}}],infinity,1500),
-    {ok,_}=gen_tcp:connect("localhost",PortNo,[]),
+    case gen_tcp:connect("localhost", PortNo, []) of
+        {ok, _} ->
+            ok;
+        {error, eaddrnotavail = Reason1} ->
+            skip(connect_failed_str(Reason1))
+    end,
     ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),infinity,100),
     ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],infinity,2000),
-    gen_tcp:connect("localhost",PortNo,[]),
+    case gen_tcp:connect("localhost", PortNo, []) of
+        {error, eaddrnotavail = Reason2} ->
+            skip(connect_failed_str(Reason2));
+        _  ->
+            ok
+    end,
     ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100).
 
 %% Check that single acceptor behaves as expected when killed.
-killing_acceptor(Config) when is_list(Config) ->    
-    {ok,LS}=gen_tcp:listen(0,[]),
-    Pid = spawn(fun() -> erlang:display({accepted,self(),gen_tcp:accept(LS)}) end),
+killing_acceptor(Config) when is_list(Config) ->
+    try do_killing_acceptor(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_killing_acceptor(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
+    Pid = spawn(
+            fun() ->
+                    erlang:display({accepted,self(),gen_tcp:accept(LS)})
+            end),
     receive after 100 -> ok
     end,
     {ok,L1} = prim_inet:getstatus(LS),
@@ -2440,8 +3102,20 @@ killing_acceptor(Config) when is_list(Config) ->
     ok.
 
 %% Check that multi acceptors behaves as expected when killed.
-killing_multi_acceptors(Config) when is_list(Config) ->    
-    {ok,LS}=gen_tcp:listen(0,[]),
+killing_multi_acceptors(Config) when is_list(Config) ->
+    try do_killing_multi_acceptors(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_killing_multi_acceptors(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,             
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     F2 = mktmofun(1000,Parent,LS),
@@ -2463,7 +3137,19 @@ killing_multi_acceptors(Config) when is_list(Config) ->
 
 %% Check that multi acceptors behaves as expected when killed (more).
 killing_multi_acceptors2(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_killing_multi_acceptors2(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_killing_multi_acceptors2(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,             
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
@@ -2498,7 +3184,19 @@ killing_multi_acceptors2(Config) when is_list(Config) ->
 %% Checks that multi-accept works when more than one accept can be
 %% done at once (wb test of inet_driver).
 several_accepts_in_one_go(Config) when is_list(Config) ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+    try do_several_accepts_in_one_go(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_several_accepts_in_one_go(_Config) ->
+    LS = case gen_tcp:listen(0,[]) of
+             {ok, LSock} ->
+                 LSock;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+         end,
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
     F1 = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
@@ -2542,41 +3240,73 @@ wait_until_accepting(Proc,N) ->
 %% Check that accept returns {error, system_limit}
 %% (and not {error, enfile}) when running out of ports.
 accept_system_limit(Config) when is_list(Config) ->
-    {ok, LS} = gen_tcp:listen(0, []),
+    OldFlag = process_flag(trap_exit, true),
+    Res = try do_accept_system_limit(Config)
+          catch
+              exit:{skip, _} = SKIP ->
+                  SKIP
+          end,
+    process_flag(trap_exit, OldFlag),
+    Res.
+
+do_accept_system_limit(_Config) ->
+    p("create listen socket"),
+    LS = case gen_tcp:listen(0, []) of
+             {ok, LSocket} ->
+                 LSocket;
+             {error, eaddrnotavail = Reason} ->
+                 skip(listen_failed_str(Reason))
+        end,             
     {ok, TcpPort} = inet:port(LS),
     Me = self(),
+    p("create connector"),
     Connector = spawn_link(fun () -> connector(TcpPort, Me) end),
+    p("sync with connector (~p)", [Connector]),
     receive {Connector, sync} -> Connector ! {self(), continue} end,
-    ok = acceptor(LS, false, []),
+    p("begin accepting"),
+    ok = acceptor(Connector, LS, false, []),
+    p("stop connector (~p)", [Connector]),
     Connector ! stop,
+    p("done"),
     ok.
 
-acceptor(LS, GotSL, A) ->
+acceptor(Connector, LS, GotSL, A) ->
     case gen_tcp:accept(LS, 1000) of
-	{ok, S} ->
-	    acceptor(LS, GotSL, [S|A]);
-	{error, system_limit} ->
-	    acceptor(LS, true, A);
-	{error, timeout} when GotSL ->
-	    ok;
-	{error, timeout} ->
-	    error
+        {ok, S} ->
+            acceptor(Connector, LS, GotSL, [S|A]);
+        {error, eaddrnotavail = Reason} ->
+            exit({skip, accept_failed_str(Reason)});
+        {error, system_limit} ->
+            p("acceptor: system limit => *almost* done (~w)", [length(A)]),
+            acceptor(Connector, LS, true, A);
+        {error, timeout} when GotSL ->
+            p("acceptor: timeout (with system limit) => done (~w)",
+              [length(A)]),
+            ok;
+        {error, timeout} ->
+            error
     end.
 
 connector(TcpPort, Tester) ->
+    p("[connector] start"),
     ManyPorts = open_ports([]),
     Tester ! {self(), sync},
+    p("[connector] sync with tester (~p)", [Tester]),
     receive {Tester, continue} -> timer:sleep(100) end,
+    p("[connector] begin connecting"),
     ConnF = fun (Port) ->
-		    case catch gen_tcp:connect({127,0,0,1}, TcpPort, []) of
-			{ok, Sock} ->
-			    Sock;
-			_Error ->
-			    port_close(Port)
-		    end
-	    end,
+                    case (catch gen_tcp:connect({127,0,0,1}, TcpPort, [])) of
+                        {ok, Sock} ->
+                            Sock;
+                        {error, eaddrnotavail = Reason} ->
+                            exit({skip, connect_failed_str(Reason)});
+                        _Error ->
+                            port_close(Port)
+                    end
+            end,
     R = [ConnF(Port) || Port <- lists:sublist(ManyPorts, 10)],
-    receive stop -> R end.
+    p("[connector] await stop"),
+    receive stop -> p("[connector] stop (~w)", [length(R)]), R end.
 
 open_ports(L) ->
     case catch open_port({spawn_driver, "ram_file_drv"}, []) of
@@ -2591,42 +3321,54 @@ open_ports(L) ->
 
 %% Check that active once and tcp_close messages behave as expected.
 active_once_closed(Config) when is_list(Config) ->
+    try do_active_once_closed(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_active_once_closed(_Config) ->
+    p("stage 1"),
+    (fun() ->
+	     {Loop,A} = setup_closed_ao(),
+	     Loop({{error,closed},{error,econnaborted}},
+                  fun() -> gen_tcp:send(A,"Hello") end),
+	     ok = inet:setopts(A,[{active,once}]),
+	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     {error,einval} = inet:setopts(A,[{active,once}]),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+     end)(),
+    p("stage 2"),
+    (fun() ->
+	     {Loop,A} = setup_closed_ao(),
+	     Loop({{error,closed},{error,econnaborted}},
+                  fun() -> gen_tcp:send(A,"Hello") end),
+	     ok = inet:setopts(A,[{active,true}]),
+	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     {error,einval} = inet:setopts(A,[{active,true}]),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+     end)(),
+    p("stage 3"),
+    (fun() ->
+	     {Loop,A} = setup_closed_ao(),
+	     Loop({{error,closed},{error,econnaborted}},
+                  fun() -> gen_tcp:send(A,"Hello") end),
+	     ok = inet:setopts(A,[{active,true}]),
+	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     {error,einval} = inet:setopts(A,[{active,once}]),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+     end)(),
+    p("stage 4"),
     (fun() ->
 	     {Loop,A} = setup_closed_ao(),
 	     Loop({{error,closed},{error,econnaborted}},
 			fun() -> gen_tcp:send(A,"Hello") end),
 	     ok = inet:setopts(A,[{active,once}]),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
-	     {error,einval} = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
-     end)(),
-    (fun() ->
-	     {Loop,A} = setup_closed_ao(),
-	     Loop({{error,closed},{error,econnaborted}},
-			fun() -> gen_tcp:send(A,"Hello") end),
-	     ok = inet:setopts(A,[{active,true}]),
-	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
 	     {error,einval} = inet:setopts(A,[{active,true}]),
 	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
      end)(),
-     (fun() ->
-	     {Loop,A} = setup_closed_ao(),
-	     Loop({{error,closed},{error,econnaborted}},
-			fun() -> gen_tcp:send(A,"Hello") end),
-	     ok = inet:setopts(A,[{active,true}]),
-	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
-	     {error,einval} = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
-     end)(),
-    (fun() ->
-	     {Loop,A} = setup_closed_ao(),
-	     Loop({{error,closed},{error,econnaborted}},
-			fun() -> gen_tcp:send(A,"Hello") end),
-	     ok = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
-	     {error,einval} = inet:setopts(A,[{active,true}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
-     end)(),
+    p("stage 5"),
     (fun() ->
 	     {Loop,A} = setup_closed_ao(),
 	     Loop({{error,closed},{error,econnaborted}},
@@ -2635,50 +3377,103 @@ active_once_closed(Config) when is_list(Config) ->
 	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end,
 	     ok = inet:setopts(A,[{active,once}]),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end
-     end)().
+     end)(),
+    p("done"),
+    ok.
 
 %% Check that active n and tcp_close messages behave as expected.
 active_n_closed(Config) when is_list(Config) ->
+    try do_active_n_closed(Config)
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
+do_active_n_closed(_Config) ->
+    p("create listen socket"),
     {ok, L} = gen_tcp:listen(0, [binary, {active, false}]),
 
     P = self(),
 
-    {ok,Port} = inet:port(L),
+    {ok, Port} = inet:port(L),
 
-    spawn_link(fun() ->
-                       Payload = <<0:50000/unit:8>>,
-                       Cnt = 10000,
-                       P ! {size,Cnt * byte_size(Payload)},
-                       {ok, S} = gen_tcp:connect("localhost", Port, [binary, {active, false}]),
-                       _ = [gen_tcp:send(S, Payload) || _ <- lists:seq(1, Cnt)],
-                       gen_tcp:close(S)
-          end),
+    ClientF =
+        fun() ->
+                Payload = <<0:50000/unit:8>>,
+                Cnt = 10000,
+                P ! {size, Cnt * byte_size(Payload)},
+                S = case gen_tcp:connect("localhost", Port,
+                                         [binary, {active, false}]) of
+                        {ok, CS} ->
+                            P ! {continue, self()},
+                            CS;
+                        {error, eaddrnotavail = Reason} ->
+                            exit({skip, connect_failed_str(Reason)})
+                    end,
+                _ = [gen_tcp:send(S, Payload) || _ <- lists:seq(1, Cnt)],
+                gen_tcp:close(S),
+                %% Try to "ensure" that teh close get there before the DOWN...
+                receive after 1000 -> ok end,
+                exit(ok)
+        end,
+    p("create client process"),
+    {Pid, MRef} = spawn_monitor(ClientF),
 
-    receive {size,SendSize} -> SendSize end,
+    p("await size"),
+    receive {size, SendSize} -> SendSize end,
+    p("await continue or down"),
+    receive
+        {continue, Pid} ->
+            p("got continue"),
+            ok;
+        {'DOWN', MRef, process, Pid, {skip, _} = SKIP} ->
+            p("got *unexpected* skip"),
+            gen_tcp:close(L),
+            throw(SKIP);
+        {'DOWN', MRef, process, Pid, ConnectRes} ->
+            p("got *unexpected* crash: "
+              "~n   ~p", [ConnectRes]),
+            exit({unexpected, connect, ConnectRes})
+    end,
     {ok, S} = gen_tcp:accept(L),
     inet:setopts(S, [{active, 10}]),
+    p("start collecting data"),
     RecvSize =
         (fun Server(Size) ->
                  receive
                      {tcp, S, Bin} ->
+                         %% p("got a chunk (~w) of data", [byte_size(Bin)]),
                          Server(byte_size(Bin) + Size);
                      {tcp_closed, S} ->
+                         p("got closed -> we are done: ~w", [Size]),
                          Size;
                      {tcp_passive, S} ->
+                         %% p("got passive -> active"),
                          inet:setopts(S, [{active, 10}]),
                          Server(Size);
                      Msg ->
-                         io:format("~p~n", [Msg]),
+                         p("ignore: ~p", [Msg]),
                          Server(Size)
                  end
          end)(0),
 
+    p("await client process termination"),
+    receive
+        {'DOWN', MRef, process, Pid, ok} ->
+            ok;
+        {'DOWN', MRef, process, Pid, CloseRes} ->
+            exit({unexpected, close, CloseRes})
+    end,
+
+    p("close listen socket"),
     gen_tcp:close(L),
 
+    p("validate size"),
     if SendSize =:= RecvSize ->
+            p("done"),
             ok;
        true ->
-            ct:fail("Send and Recv size not equal: ~p ~p",[SendSize, RecvSize])
+            ct:fail("Send and Recv size not equal: ~p ~p", [SendSize, RecvSize])
     end.
 
 %% Test the send_timeout socket option.
@@ -2854,10 +3649,23 @@ get_max_diff(Max) ->
 	    
 setup_closed_ao() ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
-                                    [{args,"-pa " ++ Dir}]),
+    p("[setup] start slave node"),
+    R = case test_server:start_node(?UNIQ_NODE_NAME, slave,
+                                    [{args,"-pa " ++ Dir}]) of
+            {ok, Slave} ->
+                Slave;
+            {error, Reason} ->
+                skip(f("failed starting slave node: ~p", [Reason]))
+        end,
     Host = get_hostname(node()),
-    {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2}]),
+    p("[setup] create listen socket"),
+    L = case gen_tcp:listen(0, [{active,false},{packet,2}]) of
+            {ok, LSock} ->
+                LSock;
+            {error, eaddrnotavail = LReason} ->
+                (catch test_server:stop_node(R)),
+                skip(listen_failed_str(LReason))
+        end,
     Fun = fun(F) ->
                   receive
                       {From,X} when is_function(X) ->
@@ -2865,20 +3673,37 @@ setup_closed_ao() ->
                       die -> ok
                   end
           end,
-    Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
+    p("[setup] create remote runner"),
+    Pid = rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
     {ok, Port} = inet:port(L),
     Remote = fun(Fu) ->
                      Pid ! {self(), Fu},
-                     receive {Pid,X} -> X
-                     end
+                     receive {Pid,X} -> X end
              end,
-    {ok, C} = Remote(fun() -> 
-			     gen_tcp:connect(Host,Port,
-					     [{active,false},{packet,2}]) 
-		     end),
-    {ok,A} = gen_tcp:accept(L),
+    Connect = fun() -> 
+                      gen_tcp:connect(Host,Port,
+                                      [{active,false},{packet,2}]) 
+              end,
+    p("[setup] create (remote) connection"),
+    C = case Remote(Connect) of
+            {ok, CSock} ->
+                CSock;
+            {error, eaddrnotavail = CReason} ->
+                (catch test_server:stop_node(R)),
+                skip(connect_failed_str(CReason))
+        end,
+    p("[setup] accept (local) connection"),
+    A = case gen_tcp:accept(L) of
+            {ok, ASock} ->
+                ASock;
+            {error, eaddrnotavail = AReason} ->
+                (catch test_server:stop_node(R)),
+                skip(accept_failed_str(AReason))
+        end,
+    p("[setup] send message"),
     gen_tcp:send(A,"Hello"),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
+    p("[setup] close (remote) connection"),
     ok =  Remote(fun() -> gen_tcp:close(C) end),
     Loop2 = fun(_,_,_,0) ->
 		    {failure, timeout}; 
@@ -2886,13 +3711,15 @@ setup_closed_ao() ->
 		    case F2() of
 			MA -> MA;
 			MB -> MB;
-			Other -> io:format("~p~n",[Other]),
+			Other -> p("~p",[Other]),
 				 receive after 1000 -> ok end,
 				 L2(L2,{MA,MB},F2,N-1)
 		    end
 	    end,
     Loop = fun(Match2,F3) ->  Loop2(Loop2,Match2,F3,10) end,
+    p("[setup] stop slave node"),
     test_server:stop_node(R),
+    p("[setup] done"),
     {Loop,A}.
     
 setup_timeout_sink(RNode, Timeout, AutoClose) ->
@@ -3594,3 +4421,44 @@ delay_send_error(_Config) ->
             ok
     end,
     ok = gen_tcp:close(C).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+skip(S) when is_list(S) ->
+    throw({skip, S}).
+
+%% skip(F, A) when is_list(F) andalso is_list(A) ->
+%%     skip(f(F, A)).
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+connect_failed_str(Reason) ->
+    f("Connect failed: ~w", [Reason]).
+
+listen_failed_str(Reason) ->
+    f("Listen failed: ~w", [Reason]).
+
+accept_failed_str(Reason) ->
+    f("Accept failed: ~w", [Reason]).
+
+port_failed_str(Reason) ->
+    f("Port failed: ~w", [Reason]).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+
