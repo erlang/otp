@@ -72,12 +72,22 @@ random_cnode_name(Config) when is_list(Config) ->
 
         %% we should get the same recycled node name again
         CNodeName_R2 = start_node_and_get_c_node_name(Name, ["-R"]),
-        check_eq(CNodeName_R, CNodeName_R2)
+        check_eq(CNodeName_R, CNodeName_R2),
+
+        %% Check that it works with static ports using address
+        {ok,Nodes} = erl_epmd:names('localhost'),
+        Port = proplists:get_value(nodename(),Nodes),
+        MyName = get_node_name_from_self(
+                         ["-R","-address","localhost:"++integer_to_list(Port)]),
+        check_eq(MyName, node())
 
     after
         halt_node(Name)
     end,
     ok.
+
+nodename() ->
+    hd(string:split(atom_to_list(node()), "@")).
 
 check_eq(X,Y) ->
     {Y,X} = {X,Y}.
@@ -199,6 +209,14 @@ start_node_and_get_port(Name) ->
                        end,
                        NamePortList),
     Port.
+
+get_node_name_from_self(Opts) ->
+    Str = apply_on_self("erlang node []", Opts),
+    {ok, [{atom, _, Node}], _} = erl_scan:string(Str),
+    Node.
+
+apply_on_self(MfaStr, Opts) ->
+    get_erl_call_result(Opts ++ ["-a",MfaStr]).
 
 find_erl_call() ->
     ErlCallName = case os:type() of
