@@ -836,8 +836,13 @@ implicit_inet6(S1, Addr) ->
     end,
     ok = gen_sctp:close(S2).
 
-%% Verify {active,N} socket management.
+%% Verify {active, N} socket management.
+%% This is difficult to do since we do not just receive data messages.
+%% Also, how do we know that sctp behaves the same way on all platforms?
 active_n(Config) when is_list(Config) ->
+    try_tc(fun() -> do_active_n(Config) end).
+
+do_active_n(_Config) ->
     N = 3,
     S1 = ok(gen_sctp:open([{active,N}])),
     [{active,N}] = ok(inet:getopts(S1, [active])),
@@ -893,53 +898,8 @@ active_n(Config) when is_list(Config) ->
     S2 = ok(gen_sctp:open(0, [{active,false}])),
     Assoc = ok(gen_sctp:connect(S2, "localhost", S1Port, [])),
     ok = inet:setopts(S1, [{active,N}]),
-    [{active,N}] = ok(inet:getopts(S1, [active])),
-    LoopFun = fun(Count, Count, _Fn) ->
-                      p("we are done - wait for passive"),
-		      receive
-			  {sctp_passive,S1} ->
-                              p("received passive"),
-			      ok
-		      after
-			  5000 ->
-                              p("UNEXPECTED TIMEOUT"),
-			      exit({error,timeout})
-		      end;
-		 (I, Count, Fn) ->
-		      Msg = list_to_binary("message "++integer_to_list(I)),
-                      p("send message ~w:~w (on ~p)", [I, Count, S2]),
-		      ok = gen_sctp:send(S2, Assoc, 0, Msg),
-		      receive
-			  {sctp, S1, _, _, {[SR], Msg}}
-                            when is_record(SR, sctp_sndrcvinfo) ->
-                              p("recv (expected) data message (on ~p)~n", [S1]),
-			      Fn(I+1, Count, Fn);
-			  {sctp, S1, _FromIP, _FromPort, {_AncData, _Data}} ->
-			      %% ignore non-data messages
-                              p("ignore non-data messages (on ~p):"
-                                "~n   From:    ~p:~p"
-                                "~n   AncData: ~p"
-                                "~n   Data:    ~p",
-                                [S1, _FromIP, _FromPort, _AncData, _Data]),
-                              [{active,NX1}] = ok(inet:getopts(S1, [active])),
-			      ok = inet:setopts(S1, [{active,1}]),
-                              [{active,NX2}] = ok(inet:getopts(S1, [active])),
-                              p("active increment (of ~p) with 1 => "
-                                "~n   Before: ~w"
-                                "~n   After:  ~w", [S1, NX1, NX2]),
-			      Fn(I, Count, Fn);
-			  Other ->
-                              p("UNEXPECTED: "
-                                "~n   Other: ~p"
-                                "~n   S1:    ~p"
-                                "~n   S2:    ~p", [Other, S1, S2]),
-			      exit({unexpected, Other})
-		      after
-			  5000 ->
-			      exit({error,timeout})
-		      end
-	      end,
-    ok = LoopFun(1, N, LoopFun),
+    active_n_flush_connect_msgs(S1),
+    active_n_send_loop(N, S2, Assoc, S1),
     S3 = ok(gen_sctp:open([{active,0}])),
     receive
         {sctp_passive,S3} ->
@@ -953,6 +913,122 @@ active_n(Config) when is_list(Config) ->
     ok = gen_sctp:close(S1),
     ok.
 
+
+%% There is no way to know how many addresses this host has,
+%% and if there is "too many" (more then N = 3), then the
+%% socket may already be passive. In this case the send-
+%% loop will fail.
+%% So, if we get a passive-message here, we just give up (=skip).
+active_n_flush_connect_msgs(Sock) ->
+    %% This seems only to be needed on certain platforms
+    active_n_flush_connect_msgs(os:type(), Sock).
+
+active_n_flush_connect_msgs(_, Sock) ->
+    do_active_n_flush_connect_msgs(Sock).
+%% active_n_flush_connect_msgs({unix, freebsd}, Sock) ->
+%%     do_active_n_flush_connect_msgs(Sock);
+%% active_n_flush_connect_msgs(_, _) ->
+%%     ok.
+
+do_active_n_flush_connect_msgs(Sock) ->
+    receive
+        {sctp_passive, Sock} ->
+            p("connect-flush-loop -> premature passive"),
+            skip("Too many addresses (premature passive)");
+
+        {sctp, Sock,
+         _FromIP, _FromPort,
+         {[], #sctp_assoc_change{state = comm_up}}} ->
+            p("connect-flush-loop -> "
+              "connect message discard - assoc change : comm-up"),
+            ok = inet:setopts(Sock, [{active, 1}]),
+            do_active_n_flush_connect_msgs(Sock);
+
+        {sctp, Sock,
+         _FromIP, _FromPort,
+         {[], #sctp_paddr_change{state    = addr_confirmed,
+                                 addr     = Addr,
+                                 error    = Error,
+                                 assoc_id = AID}}} ->
+            p("connect-flush-loop -> "
+              "connect message discard - paddr change : addr-confirmed:"
+              "~n   Addr:    ~p"
+              "~n   Error:   ~p"
+              "~n   AssocID: ~p", [Addr, Error, AID]),
+            ok = inet:setopts(Sock, [{active, 1}]),
+            do_active_n_flush_connect_msgs(Sock)
+
+    after 5000 ->
+            ok
+    end.
+            
+active_n_send_loop(Count, SrcSock, SndAssoc, DstSock) ->
+    active_n_send_loop(0, Count, SrcSock, SndAssoc, DstSock).
+
+active_n_send_loop(Count, Count, _SndSock, _SndAssoc, RcvSock) ->
+    p("send-loop -> we are done - wait for passive"),
+    receive
+        {sctp_passive, RcvSock} ->
+            p("received passive"),
+            ok
+    after
+        5000 ->
+            p("UNEXPECTED TIMEOUT: "
+              "~n   Message Queue:    ~p"
+              "~n   Active:           ~p",
+              [process_info(self(), messages),
+               inet:getopts(RcvSock, [active])]),
+            exit({error, timeout})
+    end;
+
+active_n_send_loop(Sent, Count, SndSock, SndAssoc, RcvSock) ->
+    Msg = list_to_binary("message " ++ integer_to_list(Sent+1)),
+    p("send-loop(~w,~w) -> send message (on ~p)", [Sent, Count, SndSock]),
+    ok = gen_sctp:send(SndSock, SndAssoc, 0, Msg),
+    receive
+        {sctp, RcvSock, FromIP, FromPort, {[SR], Msg}}
+        when is_record(SR, sctp_sndrcvinfo) ->
+            p("send-loop(~w,~w) -> "
+              "recv (expected) data message (on ~p):"
+              "~n   Msg:  ~p"
+              "~n   From: ~p, ~p",
+              [Sent, Count,
+               RcvSock, Msg, FromIP, FromPort]),
+            active_n_send_loop(Sent+1, Count, SndSock, SndAssoc, RcvSock);
+        
+        {sctp, RcvSock, _FromIP, _FromPort, {_AncData, _Data}} ->
+            %% ignore non-data messages
+            %% we should not get any here because of the flush loop,
+            %% but just in case...
+            p("send-loop(~w,~w) -> "
+              "ignore non-data messages (on ~p):"
+              "~n   From:    ~p:~p"
+              "~n   AncData: ~p"
+              "~n   Data:    ~p",
+              [Sent, Count,
+               RcvSock, _FromIP, _FromPort, _AncData, _Data]),
+            
+            %% It may be too late to update here,
+            %% the socket may already have gone passive 
+            %% and generated a passive message!
+            
+            ok = inet:setopts(RcvSock, [{active, 1}]),
+
+            active_n_send_loop(Sent, Count, SndSock, SndAssoc, RcvSock);
+        
+        Other ->
+            p("send-loop(~w,~w) -> "
+              "UNEXPECTED: "
+              "~n   Other:     ~p"
+              "~n   Send Sock: ~p"
+              "~n   Recv Sock: ~p", [Sent, Count,
+                                     Other, SndSock, RcvSock]),
+            exit({unexpected, Other})
+    after
+        5000 ->
+            exit({error,timeout})
+    end.
+    
 %% Hello world stream socket.
 basic_stream(Config) when is_list(Config) ->
     {ok,S} = gen_sctp:open([{type,stream}]),
@@ -1572,9 +1648,6 @@ ipv4_map_addrs(InetAddrs) ->
 	 {0, 0, 0, 0, 0, 16#ffff, AB, CD}
      end || {A,B,C,D} <- InetAddrs].
 
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
-
 do_open_and_connect(ServerAddresses, AddressToConnectTo) ->
     Fun = fun (_, _, _, _, _, _) -> ok end,
     do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun).
@@ -1972,6 +2045,25 @@ match_unless_solaris(A, B) ->
 timestamp() ->
     erlang:monotonic_time().
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(F) when is_function(F, 0) ->
+    OldFlag = process_flag(trap_exit, true),
+    Res = try F()
+          catch
+              throw:{skip, _} = SKIP ->
+                  SKIP;
+              exit:{skip, _} = SKIP ->
+                  SKIP
+          end,
+    process_flag(trap_exit, OldFlag),
+    Res.
+                   
+
+skip(S) when is_list(S) ->
+    throw({skip, S}).
+
+
 formated_timestamp() ->
     format_timestamp(os:timestamp()).
 
@@ -1982,10 +2074,14 @@ format_timestamp({_N1, _N2, N3} = TS) ->
                              [Hour, Min, Sec, N3 div 1000]),  
     lists:flatten(FormatTS).
 
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+
 p(F) ->
     p(F, []).
 
 p(F, A) ->
     io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
-
 
