@@ -134,7 +134,7 @@ Section "Microsoft redistributable libraries." SecMSRedist
 	IfSilent +3
 	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}"'
 	Goto +2
-	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}" /q'
+	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}" /q /norestart'
 
   	!verbose 1
 SectionEnd ; MSRedist
