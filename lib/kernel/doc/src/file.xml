@@ -425,10 +425,16 @@ f.txt:  {person, "kalle", 25}.
     </func>
     <func>
       <name name="delete" arity="1" since=""/>
+      <name name="delete" arity="2" since=""/>
       <fsummary>Delete a file.</fsummary>
+      <type name="delete_option"/>
       <desc>
         <p>Tries to delete file <c><anno>Filename</anno></c>.
           Returns <c>ok</c> if successful.</p>
+        <p>If the option <c>raw</c> is set, the file server is not called.
+           This can be useful in particular during the early boot stage when
+           the file server is not yet registered, to still be able to delete
+           local files.</p>
         <p>Typical error reasons:</p>
         <taglist>
           <tag><c>enoent</c></tag>
