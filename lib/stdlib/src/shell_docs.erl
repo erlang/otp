@@ -312,7 +312,7 @@ get_doc(Module) ->
 
 -spec get_doc(Module :: module(), Function, Arity) ->
           [{{Function,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
-      Function :: function(),
+      Function :: atom(),
       Arity :: arity(),
       Anno :: erl_anno:anno(),
       Signature :: [binary()],
@@ -333,7 +333,7 @@ render(Module, #docs_v1{ module_doc = ModuleDoc } = D) ->
     render_headers_and_docs([[{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]}]],
                             get_local_doc(Module, ModuleDoc), D).
 
--spec render(Module :: module(), Function :: function(), Docs :: docs_v1()) ->
+-spec render(Module :: module(), Function :: atom(), Docs :: docs_v1()) ->
           unicode:chardata() | {error,function_missing}.
 render(_Module, Function, #docs_v1{ docs = Docs } = D) ->
     render_function(
@@ -342,7 +342,7 @@ render(_Module, Function, #docs_v1{ docs = Docs } = D) ->
                         (_) ->
                              false
                      end, Docs), D).
--spec render(Module :: module(), Function :: function(), Arity :: arity(),
+-spec render(Module :: module(), Function :: atom(), Arity :: arity(),
              Docs :: docs_v1()) -> unicode:chardata() | {error,function_missing}.
 render(_Module, Function, Arity, #docs_v1{ docs = Docs } = D) ->
     render_function(
