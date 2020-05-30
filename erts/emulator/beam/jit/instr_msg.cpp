@@ -27,23 +27,21 @@ extern "C"
 #include "erl_proc_sig_queue.h"
 }
 
-static ErtsMessage *decode_dist(Process *c_p,
-                                ErtsMessage *msgp,
-                                Eterm *HTOP,
-                                Eterm *E) {
+static ErtsMessage *decode_dist(Process *c_p, ErtsMessage *msgp) {
     if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
         /*
          * A corrupt distribution message that we weren't able to decode;
          * remove it...
          */
-        /* No swapin should be needed */
-        ASSERT(HTOP == c_p->htop && E == c_p->stop);
+
         /* TODO: Add DTrace probe for this bad message situation? */
         UNLINK_MESSAGE(c_p, msgp);
         msgp->next = NULL;
         erts_cleanup_messages(msgp);
+
         return nullptr;
     }
+
     return msgp;
 }
 
@@ -56,13 +54,21 @@ static void recv_mark_set(Process *p) {
 }
 
 void BeamModuleAssembler::emit_i_recv_mark() {
+    emit_enter_runtime();
+
     a.mov(ARG1, c_p);
-    abs_call<1>(recv_mark_save);
+    runtime_call<1>(recv_mark_save);
+
+    emit_leave_runtime();
 }
 
 void BeamModuleAssembler::emit_i_recv_set() {
+    emit_enter_runtime();
+
     a.mov(ARG1, c_p);
-    abs_call<1>(recv_mark_set);
+    runtime_call<1>(recv_mark_set);
+
+    emit_leave_runtime();
 }
 
 void BeamGlobalAssembler::emit_i_loop_rec_shared() {
@@ -71,9 +77,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
           done = a.newLabel();
 
     x86::Mem await_addr = TMP_MEM1q, message_ptr = TMP_MEM2q,
-             get_out = dTMP3_MEM;
-
-    emit_function_preamble();
+             get_out = TMP_MEM3d;
 
     a.or_(x86::dword_ptr(c_p, offsetof(Process, flags)), imm(F_DELAY_GC));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG1);
@@ -96,7 +100,9 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.jne(check_is_distributed);
 
         comment("Inner queue empty, fetch more from outer/middle queues");
-        emit_heavy_swapout();
+
+        emit_enter_runtime<Update::eReductions | Update::eStack |
+                           Update::eHeap>();
 
         a.mov(message_ptr, imm(0));
         a.mov(ARG1, c_p);
@@ -104,10 +110,13 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.sub(ARG3, ARG3);
         a.lea(ARG4, message_ptr);
         a.lea(ARG5, get_out);
-        abs_call<5>(erts_proc_sig_receive_helper);
+        runtime_call<5>(erts_proc_sig_receive_helper);
+
+        /* erts_proc_sig_receive_helper merely inspects FCALLS, so we don't
+         * need to update it here. */
+        emit_leave_runtime<Update::eStack | Update::eHeap>();
 
         a.sub(FCALLS, RET);
-        emit_swapin();
 
         /* Another process may have loaded new code and sent us a message to
          * notify us about it, so we must update the active code index. */
@@ -130,21 +139,17 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
          * Note that the message queue lock is still held in this case. */
         a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), imm(~F_DELAY_GC));
 
-        emit_function_postamble();
-        a.add(x86::rsp, 8);
+        emit_discard_cp();
         a.jmp(await_addr);
     }
 
     a.bind(schedule_out);
     {
-        emit_swapout();
-
         a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), imm(~F_DELAY_GC));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
 
-        emit_function_postamble();
-        a.add(x86::rsp, imm(8));
+        emit_discard_cp();
         a.jmp(labels[do_schedule]);
     }
 
@@ -156,21 +161,19 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.jne(done);
 
         a.sub(FCALLS, imm(10));
-        emit_swapout();
+
+        emit_enter_runtime();
 
         a.mov(ARG2, ARG1);
         a.mov(ARG1, c_p);
-#ifdef DEBUG
-        a.mov(ARG3, HTOP);
-        a.mov(ARG4, E);
-#endif
-        abs_call<4>(decode_dist);
+        runtime_call<2>(decode_dist);
+
+        emit_leave_runtime();
+
         a.test(RET, RET);
         a.je(restart);
 
         a.mov(ARG1, RET);
-        emit_swapin();
-
         /* !! FALL THROUGH !! */
     }
 
@@ -179,7 +182,6 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.mov(ARG1, x86::qword_ptr(ARG1, offsetof(ErtsMessage, m[0])));
         a.mov(getXRef(0), ARG1);
 
-        emit_function_postamble();
         a.ret();
     }
 }
@@ -192,7 +194,7 @@ void BeamModuleAssembler::emit_i_loop_rec(const ArgVal &Wait) {
 
     a.lea(ARG1, x86::qword_ptr(entry));
     a.lea(ARG2, x86::qword_ptr(labels[Wait.getValue()]));
-    aligned_call(ga->get_i_loop_rec_shared());
+    fragment_call(ga->get_i_loop_rec_shared());
 }
 
 /* Remove a (matched) message from the message queue. */
@@ -309,13 +311,20 @@ static Sint remove_message(Process *c_p,
 }
 
 void BeamModuleAssembler::emit_remove_message() {
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, FCALLS);
+    /* HTOP and E are passed explicitly and only read from, so we don't need to
+     * swap them out. */
     a.mov(ARG3, HTOP);
     a.mov(ARG4, E);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, FCALLS);
     a.mov(ARG5, active_code_ix);
-    abs_call<5>(remove_message);
+    runtime_call<5>(remove_message);
     a.mov(FCALLS, RET);
+
+    emit_leave_runtime();
 }
 
 void BeamModuleAssembler::emit_loop_rec_end(const ArgVal &Dest) {
@@ -331,13 +340,6 @@ static void take_receive_lock(Process *c_p) {
     erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 }
 
-void BeamModuleAssembler::emit_wait_unlocked(const ArgVal &Dest) {
-    a.mov(ARG1, c_p);
-    abs_call<1>(take_receive_lock);
-
-    emit_wait_locked(Dest);
-}
-
 static void wait_locked(Process *c_p, BeamInstr *cp) {
     c_p->arity = 0;
     if (!ERTS_PTMR_IS_TIMED_OUT(c_p)) {
@@ -349,11 +351,32 @@ static void wait_locked(Process *c_p, BeamInstr *cp) {
     c_p->i = cp;
 }
 
-void BeamModuleAssembler::emit_wait_locked(const ArgVal &Dest) {
+static void wait_unlocked(Process *c_p, BeamInstr *cp) {
+    take_receive_lock(c_p);
+    wait_locked(c_p, cp);
+}
+
+void BeamModuleAssembler::emit_wait_unlocked(const ArgVal &Dest) {
+    emit_enter_runtime();
+
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(labels[Dest.getValue()]));
-    abs_call<2>(wait_locked);
-    emit_swapout();
+    runtime_call<2>(wait_unlocked);
+
+    emit_leave_runtime();
+
+    abs_jmp(ga->get_do_schedule());
+}
+
+void BeamModuleAssembler::emit_wait_locked(const ArgVal &Dest) {
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    a.lea(ARG2, x86::qword_ptr(labels[Dest.getValue()]));
+    runtime_call<2>(wait_locked);
+
+    emit_leave_runtime();
+
     abs_jmp(ga->get_do_schedule());
 }
 
@@ -395,8 +418,12 @@ static enum tmo_ret wait_timeout(Process *c_p,
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgVal &Src,
                                                      const ArgVal &Dest) {
+    emit_enter_runtime();
+
     a.mov(ARG1, c_p);
-    abs_call<1>(take_receive_lock);
+    runtime_call<1>(take_receive_lock);
+
+    emit_leave_runtime();
 
     emit_wait_timeout_locked(Src, Dest);
 }
@@ -405,10 +432,15 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
                                                    const ArgVal &Dest) {
     Label wait = a.newLabel(), next = a.newLabel();
 
-    a.mov(ARG1, c_p);
     mov_arg(ARG2, Src);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
     a.lea(ARG3, x86::qword_ptr(next));
-    abs_call<3>(wait_timeout);
+    runtime_call<3>(wait_timeout);
+
+    emit_leave_runtime();
 
     ERTS_CT_ASSERT(RET_next < RET_wait && RET_wait < RET_badarg);
     a.cmp(RET, RET_wait);
@@ -441,11 +473,19 @@ static void timeout_locked(Process *c_p) {
 }
 
 void BeamModuleAssembler::emit_timeout_locked() {
+    emit_enter_runtime();
+
     a.mov(ARG1, c_p);
-    abs_call<1>(timeout_locked);
+    runtime_call<1>(timeout_locked);
+
+    emit_leave_runtime();
 }
 
 void BeamModuleAssembler::emit_timeout() {
+    emit_enter_runtime();
+
     a.mov(ARG1, c_p);
-    abs_call<1>(timeout);
+    runtime_call<1>(timeout);
+
+    emit_leave_runtime();
 }

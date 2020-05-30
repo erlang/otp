@@ -53,41 +53,39 @@ void BeamModuleAssembler::emit_ensure_map(const ArgVal &map) {
 }
 
 void BeamGlobalAssembler::emit_new_map_shared() {
-    emit_function_preamble();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    emit_heavy_swapout();
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    abs_call<5>(erts_gc_new_map);
-    emit_heavy_swapin();
+    runtime_call<5>(erts_gc_new_map);
 
-    emit_function_postamble();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.ret();
 }
 
 void BeamModuleAssembler::emit_new_map(const ArgVal &Dst,
                                        const ArgVal &Live,
                                        const std::vector<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args);
+    Label data = embed_vararg_rodata(args, CP_SIZE);
 
     mov_imm(ARG3, Live.getValue());
     mov_imm(ARG4, args.size());
     a.lea(ARG5, x86::qword_ptr(data));
-    aligned_call(ga->get_new_map_shared());
+    fragment_call(ga->get_new_map_shared());
 
     mov_arg(Dst, RET);
 }
 
 void BeamGlobalAssembler::emit_i_new_small_map_lit_shared() {
-    emit_function_preamble();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    emit_heavy_swapout();
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    abs_call<5>(erts_gc_new_small_map_lit);
-    emit_heavy_swapin();
+    runtime_call<5>(erts_gc_new_small_map_lit);
 
-    emit_function_postamble();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.ret();
 }
 
@@ -96,14 +94,14 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(
         const ArgVal &Live,
         const ArgVal &Keys,
         const std::vector<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args);
+    Label data = embed_vararg_rodata(args, CP_SIZE);
 
     ASSERT(Keys.isLiteral());
     mov_arg(ARG3, Keys);
     mov_imm(ARG4, Live.getValue());
     a.lea(ARG5, x86::qword_ptr(data));
 
-    aligned_call(ga->get_i_new_small_map_lit_shared());
+    fragment_call(ga->get_i_new_small_map_lit_shared());
 
     mov_arg(Dst, RET);
 }
@@ -114,7 +112,13 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
                                                  const ArgVal &Dst) {
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
-    abs_call<2>(get_map_element);
+
+    emit_enter_runtime();
+
+    runtime_call<2>(get_map_element);
+
+    emit_leave_runtime();
+
     a.cmp(RET, imm(THE_NON_VALUE));
     a.je(labels[Fail.getValue()]);
     mov_arg(Dst, RET);
@@ -189,17 +193,21 @@ void BeamModuleAssembler::emit_i_get_map_elements(
         const ArgVal &Fail,
         const ArgVal &Src,
         const std::vector<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args);
+    Label data = embed_vararg_rodata(args, 0);
 
     mov_arg(ARG1, Src);
-    mov_imm(ARG4, args.size() / 3);
+    a.mov(ARG3, E);
 
+    emit_enter_runtime();
+
+    mov_imm(ARG4, args.size() / 3);
     a.lea(ARG5, x86::qword_ptr(data));
     load_x_reg_array(ARG2);
-    a.mov(ARG3, E);
-    abs_call<5>(i_get_map_elements);
-    a.test(RET, RET);
+    runtime_call<5>(i_get_map_elements);
 
+    emit_leave_runtime();
+
+    a.test(RET, RET);
     a.je(labels[Fail.getValue()]);
 }
 
@@ -211,23 +219,29 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
     mov_arg(ARG3, Hx);
-    abs_call<3>(get_map_element_hash);
+
+    emit_enter_runtime();
+
+    runtime_call<3>(get_map_element_hash);
+
+    emit_leave_runtime();
+
     a.cmp(RET, imm(THE_NON_VALUE));
     a.je(labels[Fail.getValue()]);
+
     mov_arg(Dst, RET);
 }
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector. */
 void BeamGlobalAssembler::emit_update_map_assoc_shared() {
-    emit_function_preamble();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    emit_heavy_swapout();
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    abs_call<5>(erts_gc_update_map_assoc);
-    emit_heavy_swapin();
+    runtime_call<5>(erts_gc_update_map_assoc);
 
-    emit_function_postamble();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.ret();
 }
 
@@ -236,14 +250,14 @@ void BeamModuleAssembler::emit_update_map_assoc(
         const ArgVal &Dst,
         const ArgVal &Live,
         const std::vector<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args);
+    Label data = embed_vararg_rodata(args, CP_SIZE);
 
     mov_arg(getXRef(Live.getValue()), Src);
 
     mov_imm(ARG3, Live.getValue());
     mov_imm(ARG4, args.size());
     a.lea(ARG5, x86::qword_ptr(data));
-    aligned_call(ga->get_update_map_assoc_shared());
+    fragment_call(ga->get_update_map_assoc_shared());
 
     mov_arg(Dst, RET);
 }
@@ -252,16 +266,15 @@ void BeamModuleAssembler::emit_update_map_assoc(
  *
  * Result is returned in RET, error is indicated by ZF. */
 void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
-    emit_function_preamble();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    emit_heavy_swapout();
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    abs_call<5>(erts_gc_update_map_exact);
-    emit_heavy_swapin();
-    a.cmp(RET, imm(THE_NON_VALUE));
+    runtime_call<5>(erts_gc_update_map_exact);
 
-    emit_function_postamble();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
+    a.cmp(RET, imm(THE_NON_VALUE));
     a.ret();
 }
 
@@ -271,17 +284,17 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
 void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     Label error = a.newLabel();
 
-    emit_function_preamble();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    emit_heavy_swapout();
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    abs_call<5>(erts_gc_update_map_exact);
-    emit_heavy_swapin();
+    runtime_call<5>(erts_gc_update_map_exact);
+
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.cmp(RET, imm(THE_NON_VALUE));
     a.je(error);
 
-    emit_function_postamble();
     a.ret();
 
     a.bind(error);
@@ -297,7 +310,7 @@ void BeamModuleAssembler::emit_update_map_exact(
         const ArgVal &Dst,
         const ArgVal &Live,
         const std::vector<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args);
+    Label data = embed_vararg_rodata(args, CP_SIZE);
 
     /* We _KNOW_ Src is a map */
     mov_arg(getXRef(Live.getValue()), Src);
@@ -307,10 +320,10 @@ void BeamModuleAssembler::emit_update_map_exact(
     a.lea(ARG5, x86::qword_ptr(data));
 
     if (Fail.getValue() != 0) {
-        aligned_call(ga->get_update_map_exact_guard_shared());
+        fragment_call(ga->get_update_map_exact_guard_shared());
         a.je(labels[Fail.getValue()]);
     } else {
-        aligned_call(ga->get_update_map_exact_body_shared());
+        fragment_call(ga->get_update_map_exact_body_shared());
     }
 
     mov_arg(Dst, RET);

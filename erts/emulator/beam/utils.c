@@ -5021,28 +5021,6 @@ Uint64 erts_timestamp_millis(void)
 #endif
 }
 
-void *
-erts_calc_stacklimit(char *prev_c, UWord stacksize)
-{
-    /*
-     * We *don't* want this function inlined, i.e., it is
-     * risky to call this function from another function
-     * in utils.c
-     */
-
-    UWord pagesize = erts_sys_get_page_size();
-    char c;
-    char *start;
-    if (&c > prev_c) {
-        start = (char *) ((((UWord) prev_c) / pagesize) * pagesize);
-        return (void *) (start + stacksize);
-    }
-    else {
-        start = (char *) (((((UWord) prev_c) - 1) / pagesize + 1) * pagesize);
-        return (void *) (start - stacksize);
-    }
-}
-
 /*
  * erts_check_below_limit() and
  * erts_check_above_limit() are put
@@ -5066,6 +5044,10 @@ void *
 erts_ptr_id(void *ptr)
 {
     return ptr;
+}
+
+const void *erts_get_stacklimit() {
+    return ethr_get_stacklimit();
 }
 
 int erts_check_if_stack_grows_downwards(char *ptr)

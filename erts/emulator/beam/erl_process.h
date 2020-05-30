@@ -621,22 +621,38 @@ typedef enum {
 typedef struct ErtsSchedulerRegisters_ {
     union {
         struct aux_regs__ {
-            /* erl_bits.c state */
-            struct erl_bits_state erl_bits_state;
-
 #ifdef BEAMASM
+#ifdef NATIVE_ERLANG_STACK
+            /* On normal schedulers we allocate this structure on the "C stack"
+             * to allow stack switching without needing to read memory or
+             * occupy a register; we simply compute the stack address from the
+             * register pointer.
+             *
+             * This is placed first because the stack grows downwards. */
+            UWord runtime_stack[1];
+#else
+#ifdef HARD_DEBUG
+	    /* Hold the initial thread stack pointer. Used to ensure that
+	     * everything that is pushed to the stack is also popped. */
+	    UWord *initial_sp;
+#endif
+#endif
+
 #ifdef ERTS_MSACC_EXTENDED_STATES
             ErtsMsAcc *erts_msacc_cache;
 #endif
 
             /* Temporary memory used by beamasm for allocations within
              * instructions */
-            UWord TMP_MEM[3];
+            UWord TMP_MEM[5];
 
             /* Local copy of the active code index. This is set to
              * ERTS_SAVE_CALLS_CODE_IX when save_calls is active. */
             UWord active_code_ix;
 #endif
+
+            /* erl_bits.c state */
+            struct erl_bits_state erl_bits_state;
         } d;
         char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(struct aux_regs__))];
     } aux_regs;
@@ -650,6 +666,21 @@ typedef struct ErtsSchedulerRegisters_ {
         FloatDef d[MAX_REG];
         char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(FloatDef[MAX_REG]))];
     } f_reg_array;
+
+#ifdef BEAMASM
+    /* Seldom-used scheduler-specific data. */
+    UWord start_time_i;
+    UWord start_time;
+
+#ifdef DEBUG
+#ifdef NATIVE_ERLANG_STACK
+    /* Raw pointers to the start and end of the stack. Used to test bounds
+     * without clobbering any registers. */
+    UWord *runtime_stack_start;
+    UWord *runtime_stack_end;
+#endif
+#endif
+#endif
 } ErtsSchedulerRegisters;
 
 struct ErtsSchedulerData_ {

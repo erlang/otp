@@ -1581,7 +1581,7 @@ Binary *db_match_compile(Eterm *matchexpr,
     Binary *bp = NULL;
     unsigned clause_start;
 
-    context.stack_limit = (char *) ethr_get_stacklimit();
+    context.stack_limit = (char *) erts_get_stacklimit();
     context.freason = BADARG;
 
     DMC_INIT_STACK(stack);

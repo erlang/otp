@@ -27,6 +27,13 @@
  */
 /* #define FORCE_HEAP_FRAGS */
 
+/* By default, BEAMASM will use the native stack. */
+#define NATIVE_ERLANG_STACK
+
+/* valgrind can't handle stack switching, so we will turn off native stack. */
+#ifdef VALGRIND
+#undef NATIVE_ERLANG_STACK
+#endif
 
 #if defined(DEBUG) && !defined(CHECK_FOR_HOLES) && !defined(__WIN32__)
 # define CHECK_FOR_HOLES
@@ -66,12 +73,14 @@
  * will not GC when there's 2 words left on the heap, overwriting the space for
  * the CP and crashing after the call to `bar:qux/1`.
  *
- * To get around this, we maintain a minimum amount of free space on the stack
- * that can be freely used by the JIT or interpreter for whatever purpose. */
+ * To get around this, we maintain a minimum amount (S_RESERVED) of free space
+ * on the stack that can be freely used by the JIT or interpreter for whatever
+ * purpose. */
 
-#if defined(BEAMASM)
+#if defined(BEAMASM) && defined(NATIVE_ERLANG_STACK)
 #define S_REDZONE (CP_SIZE * 3)
 #elif defined(DEBUG)
+/* Ensure that a redzone won't cause problems in the interpreter. */
 #define S_REDZONE CP_SIZE
 #else
 #define S_REDZONE 0

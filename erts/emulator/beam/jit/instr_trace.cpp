@@ -27,90 +27,118 @@ extern "C"
 #include "beam_bp.h"
 };
 
-/* This function is called from the export entry of a function */
+/* This function is jumped to from the export entry of a function. */
 void BeamGlobalAssembler::emit_generic_bp_global() {
-    /* ARG2 contains a pointer to exactly after the ErtsCodeInfo */
-    emit_heavy_swapout();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
+    /* ARG2 contains a pointer to exactly after the ErtsCodeInfo. */
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
     load_x_reg_array(ARG3);
-    abs_call<3>(erts_generic_breakpoint);
-    emit_heavy_swapin();
+    runtime_call<3>(erts_generic_breakpoint);
+
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.jmp(RET);
 }
 
-/* This function is called from the module header which is called
- * from the prologue of the function to trace.
+/* This function is called from the module header, which is in turn called from
+ * the prologue of the traced function. As such, the real return address is at
+ * RSP+8.
+ *
  * See beam_asm.h about more details */
 void BeamGlobalAssembler::emit_generic_bp_local() {
-    /* Reserve 1 word and align stack. We are aligned coming into this
-     * function which is very odd, but had to be done for the module
-     * trampoline section to work. */
-    a.sub(x86::rsp, imm(2 * sizeof(UWord)));
+    emit_assert_erlang_stack();
 
-    emit_stackcheck();
+#ifdef NATIVE_ERLANG_STACK
+    /* Since we've entered here on the Erlang stack, we need to stash our return
+     * addresses in case `erts_generic_breakpoint` pushes any trace frames. */
+    a.pop(TMP_MEM2q);
+    a.pop(ARG2);
+#else
+    a.mov(ARG2, x86::qword_ptr(x86::rsp, 8));
+#endif
 
-    /* Read address from stack and get ErtsCodeInfo* from it into ARG2 */
-    a.mov(ARG2, x86::qword_ptr(x86::rsp, 3 * sizeof(UWord)));
-    a.dec(ARG2);
-    a.and_(ARG2, imm(~0x7));
-    a.mov(x86::qword_ptr(x86::rsp), ARG2);
-    a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
+    a.mov(TMP_MEM1q, ARG2);
 
-    emit_heavy_swapout();
+    /* Our actual return address is valid (and word-aligned), but it points just
+     * after the trampoline word so we'll need to skip that to find our
+     * ErtsCodeInfo. */
+    a.sub(ARG2, imm(sizeof(UWord) + sizeof(ErtsCodeInfo)));
+
+#ifdef DEBUG
+    {
+        Label next = a.newLabel();
+
+        /* Crash if our return address isn't word-aligned. */
+        a.test(ARG2, imm(sizeof(UWord) - 1));
+        a.je(next);
+
+        a.hlt();
+
+        a.bind(next);
+    }
+#endif
+
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.mov(ARG1, c_p);
     /* ARG2 is already set above */
     load_x_reg_array(ARG3);
-    abs_call<3>(erts_generic_breakpoint);
-    emit_heavy_swapin();
+    runtime_call<3>(erts_generic_breakpoint);
 
-    /* If the return value is op_i_debug_breakpoint, we do a debug breakpoint */
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
+#ifdef NATIVE_ERLANG_STACK
+    a.push(TMP_MEM1q);
+    a.push(TMP_MEM2q);
+#endif
+
     a.cmp(RET, imm(BeamOpCodeAddr(op_i_debug_breakpoint)));
     a.je(labels[debug_bp]);
-    a.lea(x86::rsp, x86::qword_ptr(x86::rsp, 2 * sizeof(UWord)));
+
     a.ret();
 }
 
-/* This function is called from the module header which is called
- * from the prologue of the function to trace.
- * See beam_asm.h about more details
+/* This function is called from the module header which is called from the
+ * prologue of the function to trace. See beam_asm.h about more details
  *
  * The only place that we can come to here is from generic_bp_local */
 void BeamGlobalAssembler::emit_debug_bp() {
     Label next = a.newLabel();
 
-    emit_stackcheck();
+    emit_assert_erlang_stack();
 
-    /* Read I from stack, saved in generic_bp_local */
-    a.mov(ARG2, x86::qword_ptr(x86::rsp));
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    /* Put on stack for later use in error case */
-    a.mov(x86::qword_ptr(x86::rsp), ARG2);
-
-    emit_heavy_swapout();
+    /* Read and adjust the return address we saved in generic_bp_local. */
+    a.mov(ARG2, TMP_MEM1q);
+    a.sub(ARG2, imm(sizeof(UWord)));
 
     a.mov(ARG1, c_p);
-    /* ARG2 is already set above */
     load_x_reg_array(ARG3);
     a.mov(ARG4, imm(am_breakpoint));
-    abs_call<4>(call_error_handler);
+    runtime_call<4>(call_error_handler);
 
-    emit_heavy_swapin();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.test(RET, RET);
     a.jne(next);
-    a.mov(ARG2, x86::qword_ptr(x86::rsp));
+
+    a.mov(ARG2, TMP_MEM1q);
     a.lea(RET, x86::qword_ptr(labels[handle_error_shared]));
 
     a.bind(next);
     {
-        /* We patch the return address to jump to the correct place. */
-        a.mov(x86::qword_ptr(x86::rsp, 3 * sizeof(UWord)), RET);
         /* Here we skip one call frame to jump to the place we just set. This
          * makes it so that if we are to do a call_nif_early, we skip that and
          * call the error handlers code instead. This in order to be compliant
          * with the way that the interpreter works. */
-        a.lea(x86::rsp, x86::qword_ptr(x86::rsp, 3 * sizeof(UWord)));
+        emit_discard_cp();
+
+        /* We patch the return address to jump to the correct place.
+         * The return address is always on the native stack. */
+        a.mov(x86::qword_ptr(x86::rsp), RET);
         a.ret();
     }
 }
@@ -125,44 +153,39 @@ static void return_trace(Process *c_p,
 }
 
 void BeamModuleAssembler::emit_return_trace() {
-    emit_swapout();
-    a.mov(ARG1, c_p);
     a.mov(ARG2, getYRef(0));
     a.mov(ARG3, getXRef(0));
     a.lea(ARG4, getYRef(1));
-    abs_call<4>(return_trace);
-    emit_swapin();
-    emit_deallocate(ArgVal(ArgVal::i, 3 * sizeof(Eterm)));
+
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
+
+    a.mov(ARG1, c_p);
+    runtime_call<4>(return_trace);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
+    emit_deallocate(ArgVal(ArgVal::u, 2));
     emit_return();
 }
 
 void BeamModuleAssembler::emit_i_return_time_trace() {
-    Label is_cp = a.newLabel(), execute = a.newLabel();
-
+    /* Pass prev_info if present (is a CP), otherwise null. */
     a.mov(ARG2, getYRef(0));
-    a.mov(ARG3, ARG2);
+    a.sub(ARG3, ARG3);
 
-    a.and_(ARG3, imm(_CPMASK));
-    a.jz(is_cp);
+    a.test(ARG2, imm(_CPMASK));
+    a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
+    a.cmovnz(ARG2, ARG3);
 
-    a.sub(ARG2, ARG2);
-    a.jmp(execute);
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
 
-    a.bind(is_cp);
-    {
-        a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
-        /* Fall through*/
-    }
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_trace_time_return);
 
-    a.bind(execute);
-    {
-        emit_swapout();
-        a.mov(ARG1, c_p);
-        abs_call<2>(erts_trace_time_return);
-        emit_swapin();
-        emit_deallocate(ArgVal(ArgVal::i, 2 * sizeof(Eterm)));
-        emit_return();
-    }
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
+    emit_deallocate(ArgVal(ArgVal::u, 1));
+    emit_return();
 }
 
 static void i_return_to_trace(Process *c_p) {
@@ -193,11 +216,17 @@ static void i_return_to_trace(Process *c_p) {
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
-    emit_swapout();
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
+
     a.mov(ARG1, c_p);
-    abs_call<1>(i_return_to_trace);
-    emit_swapin();
-    emit_deallocate(ArgVal(ArgVal::i, 1 * 8));
+    runtime_call<1>(i_return_to_trace);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
+    /* Remove the zero-sized stack frame. (Will actually do nothing if
+     * the native stack is used.) */
+    emit_deallocate(ArgVal(ArgVal::u, 0));
+
     emit_return();
 }
 
@@ -207,22 +236,22 @@ void BeamModuleAssembler::emit_i_hibernate() {
     a.align(kAlignCode, 8);
     a.bind(entry);
 
-    emit_heavy_swapout();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    abs_call<2>(erts_hibernate);
+    runtime_call<2>(erts_hibernate);
+
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.test(RET, RET);
     a.je(error);
 
-    emit_heavy_swapin();
     a.mov(ARG1, x86::qword_ptr(c_p, offsetof(Process, flags)));
     a.and_(ARG1, imm(~F_HIBERNATE_SCHED));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, flags)), ARG1);
     abs_jmp(ga->get_do_schedule());
 
     a.bind(error);
-    {
-        emit_heavy_swapin();
-        emit_handle_error(entry, &BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
-    }
+    emit_handle_error(entry, &BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
 }

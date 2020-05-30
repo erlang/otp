@@ -1277,7 +1277,7 @@ ms_wait(Process *c_p, Eterm etimeout, int busy)
 }
 
 
-#  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
+#  define ERTS_STACK_LIMIT ((char *) erts_get_stacklimit())
 
 /*
  * The below functions is for testing of the stack

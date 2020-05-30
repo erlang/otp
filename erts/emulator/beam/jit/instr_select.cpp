@@ -102,13 +102,19 @@ void BeamModuleAssembler::emit_i_select_val_bins(
         const ArgVal &Fail,
         const std::vector<ArgVal> &args) {
     /* FIXME: Emit this as a jump tree if it's relatively small. */
-    Label data = embed_vararg_rodata(args);
+    Label data = embed_vararg_rodata(args, 0);
 
     mov_arg(ARG1, Src);
+
+    emit_enter_runtime();
+
     a.mov(ARG2, imm(args.size() / 2));
     a.lea(ARG3, x86::qword_ptr(labels[Fail.getValue()]));
     a.lea(ARG4, x86::qword_ptr(data));
-    abs_call<4>(select_val_bins);
+    runtime_call<4>(select_val_bins);
+
+    emit_leave_runtime();
+
     a.jmp(RET);
 }
 
@@ -116,9 +122,10 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
                                              const ArgVal &Fail,
                                              const ArgVal &Base,
                                              const std::vector<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args);
+    Label data = embed_vararg_rodata(args, 0);
 
     mov_arg(ARG1, Src);
+
     a.mov(ARG2, ARG1);
     a.and_(ARG2, imm(_TAG_IMMED1_MASK));
     a.cmp(ARG2, imm(_TAG_IMMED1_SMALL));

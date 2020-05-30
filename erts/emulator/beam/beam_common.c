@@ -62,7 +62,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
      * in all other cases x0 is used.
      */
-    Eterm* reg = NULL;
+    Eterm* reg = (esdp->registers)->x_reg_array.d;
 
     /*
      * Top of heap (next free location); grows upwards.
@@ -531,7 +531,23 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 	reg[2] = Value;
 	reg[3] = c_p->ftrace;
         if ((new_pc = next_catch(c_p, reg))) {
-            c_p->stop[0] = NIL;  /* To avoid keeping stale references. */
+
+#if defined(BEAMASM) && defined(NATIVE_ERLANG_STACK)
+            /* In order to make use of native call and return
+             * instructions, when beamasm uses the native stack it
+             * doesn't include the CP in the current stack frame,
+             * relying on the call and return instructions to do that
+             * for us.
+             *
+             * Therefore, we need to bump the stack pointer as if this were an
+             * ordinary return. */
+            ASSERT(is_CP(c_p->stop[0]));
+            c_p->stop += CP_SIZE;
+#else
+            /* To avoid keeping stale references. */
+            c_p->stop[0] = NIL;
+#endif
+
             ERTS_RECV_MARK_CLEAR(c_p); /* No longer safe to use this position */
 	    return new_pc;
 	}
@@ -1466,7 +1482,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     c_p->arg_reg[0] = module;
     c_p->arg_reg[1] = function;
     c_p->arg_reg[2] = args;
-    c_p->stop = c_p->hend - 1;  /* Keep first continuation pointer */
+    c_p->stop = c_p->hend - CP_SIZE;  /* Keep first continuation pointer */
     ASSERT(c_p->stop[0] == make_cp(BeamCodeNormalExit()));
     c_p->catches = 0;
     c_p->i = BeamCodeApply();

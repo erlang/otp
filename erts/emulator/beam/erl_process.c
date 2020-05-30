@@ -5776,6 +5776,30 @@ init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp, char *dawwp)
 }
 
 static void
+init_scheduler_registers(ErtsSchedulerData* esdp) {
+    ErtsSchedulerRegisters *registers = NULL;
+    int allocate_regs = 1;
+
+#ifdef BEAMASM
+    /* Normal schedulers allocate registers themselves for performance
+     * reasons. See `ErtsSchedulerRegisters` for details. */
+    if (esdp->type == ERTS_SCHED_NORMAL) {
+        allocate_regs = 0;
+    }
+#endif
+
+    if (allocate_regs) {
+        registers =
+            erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
+                                               sizeof(ErtsSchedulerRegisters));
+
+        erts_bits_init_state(&registers->aux_regs.d.erl_bits_state);
+    }
+
+    esdp->registers = registers;
+}
+
+static void
 init_scheduler_data(ErtsSchedulerData* esdp, int num,
 		    ErtsSchedulerSleepInfo* ssi,
 		    ErtsRunQueue* runq,
@@ -5786,11 +5810,6 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     esdp->timer_wheel = NULL;
     esdp->match_pseudo_process = NULL;
     esdp->free_process = NULL;
-    esdp->registers =
-        erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
-                                           sizeof(ErtsSchedulerRegisters));
-
-    erts_bits_init_state(&esdp->registers->aux_regs.d.erl_bits_state);
 
     esdp->run_queue = runq;
     if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix)) {
@@ -5816,6 +5835,9 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
 	esdp->dirty_no = 0;
         runq->scheduler = esdp;
     }
+
+    init_scheduler_registers(esdp);
+
     esdp->dirty_shadow_process = shadow_proc;
     if (shadow_proc) {
 	erts_init_empty_process(shadow_proc);
@@ -8497,7 +8519,7 @@ sched_thread_func(void *vesdp)
     erts_alcu_sched_spec_data_init(esdp);
     erts_ets_sched_spec_data_init(esdp);
 
-    process_main(esdp->registers);
+    process_main(esdp);
 
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
@@ -11787,7 +11809,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #else
     arg_size = size_object_litopt(args, &litarea);
 #endif
-    heap_need = arg_size + 1;   /* Reserve place for continuation pointer */
+
+    /* Reserve place for continuation pointer, redzone, etc */
+    heap_need = arg_size + S_RESERVED;
 
     p->flags = flags;
     p->sig_qs.flags = qs_flags;

@@ -424,10 +424,13 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                 curr->val = (BeamInstr)stp->bif_imports[i]->f;
             }
         } break;
-        case 'P': /* Byte offset into tuple or stack */
-        case 'Q': /* Like 'P', but packable */
+        case 'P': /* Byte offset into tuple */
             BeamLoadVerifyTag(stp, tag, TAG_u);
             curr->val = (BeamInstr)((curr->val + 1) * sizeof(Eterm));
+            break;
+        case 'Q': /* Byte offset into stack */
+            BeamLoadError0(stp,
+                           "argument tag 'Q' should not be used in BEAMASM");
             break;
         case 'l': /* Floating point register. */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);

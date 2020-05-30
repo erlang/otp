@@ -44,8 +44,6 @@ const std::map<BeamGlobalAssembler::GlobalLabels, std::string>
 #undef DECL_LABEL_NAME
 
 BeamGlobalAssembler::BeamGlobalAssembler() : BeamAssembler("beam_asm_global") {
-    std::vector<AsmRange> ranges;
-
     labels.reserve(emitPtrs.size());
 
     /* These labels are defined up-front so global functions can refer to each
@@ -65,22 +63,18 @@ BeamGlobalAssembler::BeamGlobalAssembler() : BeamAssembler("beam_asm_global") {
 
     _codegen();
 
-    /* `this->get_xxx` are populated last to ensure that we crash if we use them
-     * instead of labels in global code. */
-
-    for (auto val : labelNames) {
-        ptrs[val.first] = (fptr)getCode(labels[val.first]);
-    }
-
 #ifndef WIN32
+    std::vector<AsmRange> ranges;
+
     ranges.reserve(emitPtrs.size());
 
     for (auto val : emitPtrs) {
         BeamInstr *start = (BeamInstr *)getCode(labels[val.first]);
         BeamInstr *stop;
-        if (val.first + 1 < emitPtrs.size())
+
+        if (val.first + 1 < emitPtrs.size()) {
             stop = (BeamInstr *)getCode(labels[(GlobalLabels)(val.first + 1)]);
-        else {
+        } else {
             stop = (BeamInstr *)((char *)getBaseAddress() + code.codeSize());
         }
 
@@ -92,20 +86,32 @@ BeamGlobalAssembler::BeamGlobalAssembler() : BeamAssembler("beam_asm_global") {
     update_gdb_jit_info("global", ranges);
     update_perf_info("global", ranges);
 #endif
+
+    /* `this->get_xxx` are populated last to ensure that we crash if we use them
+     * instead of labels in global code. */
+
+    for (auto val : labelNames) {
+        ptrs[val.first] = (fptr)getCode(labels[val.first]);
+    }
 }
 
-void BeamGlobalAssembler::emit_handle_error(int pops) {
-    emit_function_postamble(pops);
+void BeamGlobalAssembler::emit_handle_error() {
+    /* Move return address into ARG2 so we know where we crashed.
+     *
+     * This bluntly assumes that we haven't pushed anything to the (Erlang)
+     * stack in the fragments that jump here. */
 
+#ifdef NATIVE_ERLANG_STACK
+    a.mov(ARG2, x86::qword_ptr(E));
+#else
     a.pop(ARG2);
+#endif
     a.jmp(labels[handle_error_shared]);
 }
 
 /* ARG3 = (HTOP + bytes needed) !!
  * ARG4 = Live registers */
 void BeamGlobalAssembler::emit_garbage_collect() {
-    emit_function_preamble();
-
     /* Convert ARG3 to words needed and move it to the correct argument slot */
     a.sub(ARG3, HTOP);
     a.shr(ARG3, 3);
@@ -113,18 +119,19 @@ void BeamGlobalAssembler::emit_garbage_collect() {
 
     /* Save our return address in c_p->i so we can tell where we crashed if we
      * do so during GC. */
-    a.mov(RET, x86::qword_ptr(frame_pointer, sizeof(UWord)));
+    a.mov(RET, x86::qword_ptr(x86::rsp));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), RET);
 
-    emit_swapout();
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
+
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
     a.mov(ARG5, FCALLS);
-    abs_call<5>(erts_garbage_collect_nobump);
+    runtime_call<5>(erts_garbage_collect_nobump);
     a.sub(FCALLS, RET);
-    emit_swapin();
 
-    emit_function_postamble();
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
     a.ret();
 }
 
@@ -148,15 +155,17 @@ void BeamGlobalAssembler::emit_call_error_handler_shared() {
 
     a.bind(error_handler);
     {
-        emit_heavy_swapout();
+        emit_enter_runtime<Update::eReductions | Update::eStack |
+                           Update::eHeap>();
 
         a.mov(ARG1, c_p);
         /* ARG2 is set in module assembler */
         load_x_reg_array(ARG3);
         mov_imm(ARG4, am_undefined_function);
-        abs_call<4>(call_error_handler);
+        runtime_call<4>(call_error_handler);
 
-        emit_heavy_swapin();
+        emit_leave_runtime<Update::eReductions | Update::eStack |
+                           Update::eHeap>();
 
         a.test(RET, RET);
         a.je(labels[error_action_code]);
@@ -190,6 +199,12 @@ void BeamModuleAssembler::emit_handle_error(Label I, const ErtsCodeMFA *exp) {
     a.lea(ARG2, x86::qword_ptr(I));
     mov_imm(ARG4, (Uint)exp);
 
+#ifdef NATIVE_ERLANG_STACK
+    /* The CP must be reserved for try/catch to work, so we'll fake a call with
+     * the return address set to the error address. */
+    a.push(ARG2);
+#endif
+
     abs_jmp(ga->get_handle_error_shared());
 }
 
@@ -204,7 +219,7 @@ void BeamGlobalAssembler::emit_error_action_code() {
 void BeamGlobalAssembler::emit_handle_error_shared() {
     Label crash = a.newLabel();
 
-    emit_swapout();
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
 
     /* The error address must be a valid CP or NULL. The check is done here
      * rather than in handle_error since the compiler is free to assume that any
@@ -215,12 +230,13 @@ void BeamGlobalAssembler::emit_handle_error_shared() {
     /* ARG2 and ARG4 must be set prior to jumping here! */
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
-    abs_call<4>(handle_error);
+    runtime_call<4>(handle_error);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
 
     a.test(RET, RET);
     a.je(labels[do_schedule]);
 
-    emit_swapin();
     a.jmp(RET);
 
     a.bind(crash);
@@ -229,20 +245,24 @@ void BeamGlobalAssembler::emit_handle_error_shared() {
 
 void BeamModuleAssembler::emit_proc_lc_unrequire(void) {
 #ifdef ERTS_ENABLE_LOCK_CHECK
+    emit_assert_runtime_stack();
+
     a.mov(ARG1, c_p);
     a.mov(ARG2, imm(ERTS_PROC_LOCK_MAIN));
     a.mov(TMP_MEM1q, RET);
-    abs_call<2>(erts_proc_lc_unrequire_lock);
+    runtime_call<2>(erts_proc_lc_unrequire_lock);
     a.mov(RET, TMP_MEM1q);
 #endif
 }
 
 void BeamModuleAssembler::emit_proc_lc_require(void) {
 #ifdef ERTS_ENABLE_LOCK_CHECK
+    emit_assert_runtime_stack();
+
     a.mov(ARG1, c_p);
     a.mov(ARG2, imm(ERTS_PROC_LOCK_MAIN));
     a.mov(TMP_MEM1q, RET);
-    abs_call<4>(erts_proc_lc_require_lock);
+    runtime_call<4>(erts_proc_lc_require_lock);
     a.mov(RET, TMP_MEM1q);
 #endif
 }

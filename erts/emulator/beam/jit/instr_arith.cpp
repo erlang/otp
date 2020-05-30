@@ -48,15 +48,17 @@ void BeamModuleAssembler::emit_is_both_small(Label fail, x86::Gp A, x86::Gp B) {
 void BeamGlobalAssembler::emit_increment_body_shared() {
     Label error = a.newLabel();
 
-    emit_function_preamble();
+    emit_enter_runtime();
 
     a.mov(ARG1, c_p);
     a.or_(ARG3, imm(_TAG_IMMED1_SMALL));
-    abs_call<3>(erts_mixed_plus);
+    runtime_call<3>(erts_mixed_plus);
+
+    emit_leave_runtime();
+
     a.cmp(RET, imm(THE_NON_VALUE));
     a.je(error);
 
-    emit_function_postamble();
     a.ret();
 
     a.bind(error);
@@ -86,7 +88,7 @@ void BeamModuleAssembler::emit_i_increment(const ArgVal &Src,
     a.jno(next);
 
     a.bind(mixed);
-    aligned_call(ga->get_increment_body_shared());
+    fragment_call(ga->get_increment_body_shared());
 
     /* all went well, store result in dst */
     a.bind(next);
@@ -98,26 +100,29 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
 
     Label error = a.newLabel();
 
-    /* Align the stack and save original arguments for the error path. */
-    emit_function_preamble();
+    emit_enter_runtime();
 
-    a.push(ARG3);
-    a.push(ARG2);
+    /* Save original arguments for the error path. */
+    a.mov(TMP_MEM1q, ARG2);
+    a.mov(TMP_MEM2q, ARG3);
 
     a.mov(ARG1, c_p);
-    abs_call<3>(erts_mixed_plus);
+    runtime_call<3>(erts_mixed_plus);
+
+    emit_leave_runtime();
+
     a.cmp(RET, imm(THE_NON_VALUE));
     a.je(error);
 
-    /* Realign the stack and return. */
-    emit_function_postamble(2);
     a.ret();
 
     a.bind(error);
     {
         /* Place the original arguments in x-registers. */
-        a.pop(getXRef(0));
-        a.pop(getXRef(1));
+        a.mov(ARG1, TMP_MEM1q);
+        a.mov(ARG2, TMP_MEM2q);
+        a.mov(getXRef(0), ARG1);
+        a.mov(getXRef(1), ARG2);
 
         a.mov(ARG4, imm(&bif_mfa));
         emit_handle_error();
@@ -149,13 +154,18 @@ void BeamModuleAssembler::emit_i_plus(const ArgVal &LHS,
     a.bind(mixed);
 
     if (Fail.getValue() != 0) {
+        emit_enter_runtime();
+
         a.mov(ARG1, c_p);
         /* ARG2 and ARG3 set above */
-        abs_call<3>(erts_mixed_plus);
+        runtime_call<3>(erts_mixed_plus);
+
+        emit_leave_runtime();
+
         a.cmp(RET, imm(THE_NON_VALUE));
         a.je(labels[Fail.getValue()]);
     } else {
-        aligned_call(ga->get_plus_body_shared());
+        fragment_call(ga->get_plus_body_shared());
     }
 
     a.bind(next);
@@ -167,26 +177,29 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
 
     Label error = a.newLabel();
 
-    /* Align the stack and save original arguments for the error path. */
-    emit_function_preamble();
+    emit_enter_runtime();
 
-    a.push(ARG3);
-    a.push(ARG2);
+    /* Save original arguments for the error path. */
+    a.mov(TMP_MEM1q, ARG2);
+    a.mov(TMP_MEM2q, ARG3);
 
     a.mov(ARG1, c_p);
-    abs_call<3>(erts_mixed_minus);
+    runtime_call<3>(erts_mixed_minus);
+
+    emit_leave_runtime();
+
     a.cmp(RET, imm(THE_NON_VALUE));
     a.je(error);
 
-    /* Realign the stack and return. */
-    emit_function_postamble(2);
     a.ret();
 
     a.bind(error);
     {
         /* Place the original arguments in x-registers. */
-        a.pop(getXRef(0));
-        a.pop(getXRef(1));
+        a.mov(ARG1, TMP_MEM1q);
+        a.mov(ARG2, TMP_MEM2q);
+        a.mov(getXRef(0), ARG1);
+        a.mov(getXRef(1), ARG2);
 
         a.mov(ARG4, imm(&bif_mfa));
         emit_handle_error();
@@ -216,13 +229,18 @@ void BeamModuleAssembler::emit_i_minus(const ArgVal &LHS,
     a.bind(mixed);
     {
         if (Fail.getValue() != 0) {
+            emit_enter_runtime();
+
             a.mov(ARG1, c_p);
             /* ARG2 and ARG3 set above */
-            abs_call<3>(erts_mixed_minus);
+            runtime_call<3>(erts_mixed_minus);
+
+            emit_leave_runtime();
+
             a.cmp(RET, imm(THE_NON_VALUE));
             a.je(labels[Fail.getValue()]);
         } else {
-            aligned_call(ga->get_minus_body_shared());
+            fragment_call(ga->get_minus_body_shared());
         }
     }
 
@@ -238,9 +256,6 @@ void BeamModuleAssembler::emit_i_minus(const ArgVal &LHS,
  * Quotient is returned in RAX, remainder in RDX. Error is indicated by ZF. */
 void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
     Label exit = a.newLabel(), generic = a.newLabel();
-
-    /* Align the stack */
-    emit_function_preamble();
 
     a.cmp(ARG4, imm(SMALL_ZERO));
     a.je(exit);
@@ -280,12 +295,16 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
 
     a.bind(generic);
     {
+        emit_enter_runtime();
+
         a.mov(ARG2, ARG1);
         a.mov(ARG3, ARG4);
         a.lea(ARG4, TMP_MEM1q);
         a.lea(ARG5, TMP_MEM2q);
         a.mov(ARG1, c_p);
-        abs_call<5>(erts_int_div_rem);
+        runtime_call<5>(erts_int_div_rem);
+
+        emit_leave_runtime();
 
         /* Place the result in RAX:RDX, mirroring the `idiv` instruction. */
         a.mov(x86::rax, TMP_MEM1q);
@@ -301,11 +320,7 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
     /* Return with a potential error in ZF. It will be set if we came here from
      * the guard against SMALL_ZERO or if we're returning THE_NON_VALUE. */
     a.bind(exit);
-    {
-        /* Realign the stack and return. */
-        emit_function_postamble();
-        a.ret();
-    }
+    a.ret();
 }
 
 /* ARG1 = LHS, ARG4 (!) = RHS, ARG5 = error MFA
@@ -317,9 +332,6 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
 void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     Label div_zero = a.newLabel(), generic_div = a.newLabel(),
           generic_error = a.newLabel(), error = a.newLabel();
-
-    /* Align the stack */
-    emit_function_preamble();
 
     a.cmp(ARG4, imm(SMALL_ZERO));
     a.je(div_zero);
@@ -356,34 +368,33 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     a.jge(generic_div);
 
     /* Realign the stack and return. */
-    emit_function_postamble();
     a.ret();
 
     a.bind(generic_div);
     {
-        /* Save MFA and original arguments for the error path, adding a bogus
-         * word (RET) to align the stack. */
-        a.push(RET);
-        a.push(ARG5);
-        a.push(ARG4);
-        a.push(ARG1);
+        emit_enter_runtime();
+
+        /* Save MFA and original arguments for the error path. */
+        a.mov(TMP_MEM1q, ARG1);
+        a.mov(TMP_MEM2q, ARG4);
+        a.mov(TMP_MEM3q, ARG5);
 
         a.mov(ARG2, ARG1);
         a.mov(ARG3, ARG4);
-        a.lea(ARG4, TMP_MEM1q);
-        a.lea(ARG5, TMP_MEM2q);
+        a.lea(ARG4, TMP_MEM4q);
+        a.lea(ARG5, TMP_MEM5q);
         a.mov(ARG1, c_p);
-        abs_call<5>(erts_int_div_rem);
+        runtime_call<5>(erts_int_div_rem);
+
+        emit_leave_runtime();
+
         a.test(RET, RET);
 
         /* Place the result in RAX:RDX, mirroring the `idiv` instruction. */
-        a.mov(x86::rax, TMP_MEM1q);
-        a.mov(x86::rdx, TMP_MEM2q);
+        a.mov(x86::rax, TMP_MEM4q);
+        a.mov(x86::rdx, TMP_MEM5q);
 
         a.je(generic_error);
-
-        /* Realign the stack and return */
-        emit_function_postamble(4);
         a.ret();
     }
 
@@ -404,18 +415,19 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     a.bind(generic_error);
     {
         /* Place the original arguments in x-registers. */
-        a.pop(getXRef(0));
-        a.pop(getXRef(1));
+        a.mov(ARG1, TMP_MEM1q);
+        a.mov(ARG2, TMP_MEM2q);
+        a.mov(getXRef(0), ARG1);
+        a.mov(getXRef(1), ARG2);
 
-        /* Pop the error MFA and bogus alignment word. */
-        a.pop(ARG4);
-        a.pop(RET);
+        /* Read saved MFA. */
+        a.mov(ARG4, TMP_MEM3q);
 
         /* Fall through to `error` */
     }
 
     a.bind(error);
-    { emit_handle_error(); }
+    emit_handle_error();
 }
 
 void BeamModuleAssembler::emit_div_rem(const ArgVal &Fail,
@@ -428,11 +440,11 @@ void BeamModuleAssembler::emit_div_rem(const ArgVal &Fail,
     /* TODO: Specialize division with immediates, either here or in the
      * compiler. */
     if (Fail.getValue() != 0) {
-        aligned_call(ga->get_int_div_rem_guard_shared());
+        safe_fragment_call(ga->get_int_div_rem_guard_shared());
         a.je(labels[Fail.getValue()]);
     } else {
         a.mov(ARG5, imm(error_mfa));
-        aligned_call(ga->get_int_div_rem_body_shared());
+        fragment_call(ga->get_int_div_rem_body_shared());
     }
 }
 
@@ -497,9 +509,15 @@ void BeamModuleAssembler::emit_i_m_div(const ArgVal &Fail,
 
     mov_arg(ARG2, LHS);
     mov_arg(ARG3, RHS);
+
+    emit_enter_runtime();
+
     /* Must be set last since mov_arg() may clobber ARG1 */
     a.mov(ARG1, c_p);
-    abs_call<3>(erts_mixed_div);
+    runtime_call<3>(erts_mixed_div);
+
+    emit_leave_runtime();
+
     a.cmp(RET, imm(THE_NON_VALUE));
 
     if (Fail.getValue() != 0) {
@@ -522,9 +540,6 @@ void BeamModuleAssembler::emit_i_m_div(const ArgVal &Fail,
 void BeamGlobalAssembler::emit_times_guard_shared() {
     Label generic = a.newLabel(), exit = a.newLabel();
 
-    /* Align the stack */
-    emit_function_preamble();
-
     /* Are both smalls? */
     a.mov(ARG2, ARG1);
     a.and_(ARG2, ARG4);
@@ -546,10 +561,14 @@ void BeamGlobalAssembler::emit_times_guard_shared() {
 
     a.bind(generic);
     {
+        emit_enter_runtime();
+
         a.mov(ARG2, ARG1);
         a.mov(ARG3, ARG4);
         a.mov(ARG1, c_p);
-        abs_call<3>(erts_mixed_times);
+        runtime_call<3>(erts_mixed_times);
+
+        emit_leave_runtime();
 
         a.cmp(RET, imm(THE_NON_VALUE)); /* Sets ZF for use in caller */
 
@@ -557,11 +576,7 @@ void BeamGlobalAssembler::emit_times_guard_shared() {
     }
 
     a.bind(exit);
-    {
-        /* Realign the stack and return */
-        emit_function_postamble();
-        a.ret();
-    }
+    a.ret();
 }
 
 /* ARG1 = LHS, ARG4 (!) = RHS
@@ -574,9 +589,6 @@ void BeamGlobalAssembler::emit_times_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_Times, 2};
 
     Label generic = a.newLabel(), error = a.newLabel();
-
-    /* Align the stack */
-    emit_function_preamble();
 
     /* Are both smalls? */
     a.mov(ARG2, ARG1);
@@ -595,33 +607,36 @@ void BeamGlobalAssembler::emit_times_body_shared() {
     a.or_(RET, imm(_TAG_IMMED1_SMALL));
 
     /* Realign the stack and return. */
-    emit_function_postamble();
     a.ret();
 
     a.bind(generic);
     {
+        emit_enter_runtime();
+
         /* Save original arguments for the error path. */
-        a.push(ARG4);
-        a.push(ARG1);
+        a.mov(TMP_MEM1q, ARG1);
+        a.mov(TMP_MEM2q, ARG4);
 
         a.mov(ARG2, ARG1);
         a.mov(ARG3, ARG4);
         a.mov(ARG1, c_p);
-        abs_call<3>(erts_mixed_times);
+        runtime_call<3>(erts_mixed_times);
+
+        emit_leave_runtime();
 
         a.cmp(RET, imm(THE_NON_VALUE));
         a.je(error);
 
-        /* Realign the stack and return. */
-        emit_function_postamble(2);
         a.ret();
     }
 
     a.bind(error);
     {
         /* Place the original arguments in x-registers. */
-        a.pop(getXRef(0));
-        a.pop(getXRef(1));
+        a.mov(ARG1, TMP_MEM1q);
+        a.mov(ARG2, TMP_MEM2q);
+        a.mov(getXRef(0), ARG1);
+        a.mov(getXRef(1), ARG2);
 
         a.mov(ARG4, imm(&bif_mfa));
         emit_handle_error();
@@ -638,10 +653,10 @@ void BeamModuleAssembler::emit_i_times(const ArgVal &Fail,
     /* TODO: Specialize multiplication with immediates, either here or in the
      * compiler. */
     if (Fail.getValue() != 0) {
-        aligned_call(ga->get_times_guard_shared());
+        safe_fragment_call(ga->get_times_guard_shared());
         a.je(labels[Fail.getValue()]);
     } else {
-        aligned_call(ga->get_times_body_shared());
+        fragment_call(ga->get_times_body_shared());
     }
 
     mov_arg(Dst, RET);
@@ -652,13 +667,14 @@ void BeamModuleAssembler::emit_i_times(const ArgVal &Fail,
  * Result is returned in RET. Error is indicated by ZF. */
 template<typename T>
 void BeamGlobalAssembler::emit_bitwise_fallback_guard(T(*func_ptr)) {
-    emit_function_preamble();
+    emit_enter_runtime();
 
     a.mov(ARG1, c_p);
     /* ARG2 is already set to LHS */
     a.mov(ARG3, RET);
-    abs_call<3>(func_ptr);
-    emit_function_postamble();
+    runtime_call<3>(func_ptr);
+
+    emit_leave_runtime();
 
     a.cmp(RET, imm(THE_NON_VALUE));
     a.ret();
@@ -672,28 +688,31 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
                                                      const ErtsCodeMFA *mfa) {
     Label error = a.newLabel();
 
-    emit_function_preamble();
+    emit_enter_runtime();
 
     /* Save original arguments for the error path. */
-    a.push(RET);
-    a.push(ARG2);
+    a.mov(TMP_MEM1q, ARG2);
+    a.mov(TMP_MEM2q, RET);
 
     a.mov(ARG1, c_p);
     /* ARG2 is already set to LHS */
     a.mov(ARG3, RET);
-    abs_call<3>(func_ptr);
+    runtime_call<3>(func_ptr);
+
+    emit_leave_runtime();
 
     a.cmp(RET, imm(THE_NON_VALUE));
     a.je(error);
 
-    emit_function_postamble(2);
     a.ret();
 
     a.bind(error);
     {
         /* Place the original arguments in x-registers. */
-        a.pop(getXRef(0));
-        a.pop(getXRef(1));
+        a.mov(ARG1, TMP_MEM1q);
+        a.mov(ARG2, TMP_MEM2q);
+        a.mov(getXRef(0), ARG1);
+        a.mov(getXRef(1), ARG2);
 
         a.mov(ARG4, imm(mfa));
         emit_handle_error();
@@ -727,10 +746,10 @@ void BeamModuleAssembler::emit_i_band(const ArgVal &LHS,
     a.bind(generic);
     {
         if (Fail.getValue() != 0) {
-            aligned_call(ga->get_i_band_guard_shared());
+            safe_fragment_call(ga->get_i_band_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            aligned_call(ga->get_i_band_body_shared());
+            fragment_call(ga->get_i_band_body_shared());
         }
     }
 
@@ -771,10 +790,10 @@ void BeamModuleAssembler::emit_i_bor(const ArgVal &Fail,
     a.bind(generic);
     {
         if (Fail.getValue() != 0) {
-            aligned_call(ga->get_i_bor_guard_shared());
+            safe_fragment_call(ga->get_i_bor_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            aligned_call(ga->get_i_bor_body_shared());
+            fragment_call(ga->get_i_bor_body_shared());
         }
     }
 
@@ -816,10 +835,10 @@ void BeamModuleAssembler::emit_i_bxor(const ArgVal &Fail,
     a.bind(generic);
     {
         if (Fail.getValue() != 0) {
-            aligned_call(ga->get_i_bxor_guard_shared());
+            safe_fragment_call(ga->get_i_bxor_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            aligned_call(ga->get_i_bxor_body_shared());
+            fragment_call(ga->get_i_bxor_body_shared());
         }
     }
 
@@ -831,12 +850,13 @@ void BeamModuleAssembler::emit_i_bxor(const ArgVal &Fail,
  *
  * Result is returned in RET. Error is indicated by ZF. */
 void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
-    emit_function_preamble();
+    emit_enter_runtime();
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, RET);
-    abs_call<2>(erts_bnot);
-    emit_function_postamble();
+    runtime_call<2>(erts_bnot);
+
+    emit_leave_runtime();
 
     a.cmp(RET, imm(THE_NON_VALUE));
     a.ret();
@@ -850,19 +870,20 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
 
     Label error = a.newLabel();
 
-    emit_function_preamble();
+    emit_enter_runtime();
 
     /* Save original arguments for the error path. */
     a.mov(TMP_MEM1q, RET);
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, RET);
-    abs_call<2>(erts_bnot);
+    runtime_call<2>(erts_bnot);
+
+    emit_leave_runtime();
 
     a.cmp(RET, imm(THE_NON_VALUE));
     a.je(error);
 
-    emit_function_postamble(1);
     a.ret();
 
     a.bind(error);
@@ -895,10 +916,10 @@ void BeamModuleAssembler::emit_i_bnot(const ArgVal &Fail,
     a.bind(generic);
     {
         if (Fail.getValue() != 0) {
-            aligned_call(ga->get_i_bnot_guard_shared());
+            safe_fragment_call(ga->get_i_bnot_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            aligned_call(ga->get_i_bnot_body_shared());
+            fragment_call(ga->get_i_bnot_body_shared());
         }
     }
 
@@ -958,10 +979,10 @@ void BeamModuleAssembler::emit_i_bsr(const ArgVal &LHS,
         mov_arg(RET, RHS);
 
         if (Fail.getValue() != 0) {
-            aligned_call(ga->get_i_bsr_guard_shared());
+            safe_fragment_call(ga->get_i_bsr_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            aligned_call(ga->get_i_bsr_body_shared());
+            fragment_call(ga->get_i_bsr_body_shared());
         }
     }
 
@@ -1037,10 +1058,10 @@ void BeamModuleAssembler::emit_i_bsl(const ArgVal &LHS,
         mov_arg(RET, RHS);
 
         if (Fail.getValue() != 0) {
-            aligned_call(ga->get_i_bsl_guard_shared());
+            safe_fragment_call(ga->get_i_bsl_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            aligned_call(ga->get_i_bsl_body_shared());
+            fragment_call(ga->get_i_bsl_body_shared());
         }
     }
 

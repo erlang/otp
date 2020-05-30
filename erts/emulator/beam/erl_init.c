@@ -99,6 +99,11 @@ const int etp_hipe = 1;
 #else
 const int etp_hipe = 0;
 #endif
+#ifdef BEAMASM
+const int etp_beamasm = 1;
+#else
+const int etp_beamasm = 0;
+#endif
 #ifdef DEBUG
 const int etp_debug_compiled = 1;
 #else

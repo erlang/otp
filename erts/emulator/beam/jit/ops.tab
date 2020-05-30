@@ -99,9 +99,7 @@ line I
 allocate t t?
 allocate_heap t I t?
 
-# This instruction when a BIF is called tail-recursively when
-# ther is stack frame.
-deallocate Q
+deallocate t
 
 init y
 allocate_zero t t?
@@ -641,11 +639,11 @@ call_ext_only Ar Func   => i_call_ext_only Func
 i_validate t
 
 i_apply
-i_apply_last Q
+i_apply_last t
 i_apply_only
 
 i_apply_fun
-i_apply_fun_last Q
+i_apply_fun_last t
 i_apply_fun_only
 
 call_light_bif Bif => call_light_bif Bif Bif
@@ -700,11 +698,11 @@ call_last Ar Func D => i_call_last Func D
 call_only Ar Func   => i_call_only Func
 
 i_call f
-i_call_last f Q
+i_call_last f t
 i_call_only f
 
 i_call_ext e
-i_call_ext_last e Q
+i_call_ext_last e t
 i_call_ext_only e
 
 # Fun calls.
@@ -713,7 +711,7 @@ call_fun Arity | deallocate D | return => i_call_fun_last Arity D
 call_fun Arity => i_call_fun Arity
 
 i_call_fun t
-i_call_fun_last t Q
+i_call_fun_last t t
 
 #
 # A fun with an empty environment can be converted to a literal.
@@ -1089,7 +1087,7 @@ fcheckerror p =>
 #
 
 apply t
-apply_last t Q
+apply_last t t
 
 #
 # Handle compatibility with OTP 17 here.

@@ -550,7 +550,16 @@ struct enif_msg_environment_t
     Process phony_proc;
 };
 
+#if S_REDZONE == 0
+/*
+ * Arrays of size zero are not allowed (although some compilers do
+ * allow it). Be sure to set the array size to 1 if there is no
+ * redzone to ensure that the code can be compiled with any compiler.
+ */
+static Eterm phony_heap[1];
+#else
 static Eterm phony_heap[S_REDZONE];
+#endif
 
 static ERTS_INLINE void
 setup_nif_env(struct enif_msg_environment_t* msg_env,

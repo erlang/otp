@@ -71,7 +71,13 @@ void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
 
     mov_arg(ARG1, Src);
     a.lea(ARG2, getArgRef(Dst));
-    abs_call<2>(handle_fconv);
+
+    emit_enter_runtime();
+
+    runtime_call<2>(handle_fconv);
+
+    emit_leave_runtime();
+
     a.test(RET, RET);
     a.je(next);
 

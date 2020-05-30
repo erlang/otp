@@ -187,9 +187,13 @@ void BeamAssembler::embed_zeros(size_t size) {
     }
 }
 
-Label BeamModuleAssembler::embed_vararg_rodata(
-        const std::vector<ArgVal> &args) {
+Label BeamModuleAssembler::embed_vararg_rodata(const std::vector<ArgVal> &args,
+                                               int y_offset) {
     Label label = a.newLabel();
+
+#if !defined(NATIVE_ERLANG_STACK)
+    y_offset = CP_SIZE;
+#endif
 
     a.section(rodata);
     a.bind(label);
@@ -207,7 +211,7 @@ Label BeamModuleAssembler::embed_vararg_rodata(
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
         case TAG_y:
-            data.as_beam = make_loader_y_reg(arg.getValue() + CP_SIZE);
+            data.as_beam = make_loader_y_reg(arg.getValue() + y_offset);
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
         case TAG_q:
@@ -267,7 +271,7 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     } else {
         /* NIF or BIF stub; we're not going to use this trampoline as-is, but
          * we need to reserve space for it. */
-        a.hlt();
+        a.ud2();
     }
 
     a.align(kAlignCode, 8);
@@ -277,8 +281,12 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
 }
 
 void BeamModuleAssembler::emit_nyi(const char *msg) {
+    emit_enter_runtime();
+
     a.mov(ARG1, imm(msg));
-    abs_call<1>(i_emit_nyi);
+    runtime_call<1>(i_emit_nyi);
+
+    /* Never returns */
 }
 
 void BeamModuleAssembler::emit_nyi() {

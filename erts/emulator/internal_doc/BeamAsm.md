@@ -46,10 +46,10 @@ The original register allocation done by the Erlang compiler is used to manage t
 liveness of values and the physical registers are statically allocated to keep
 the necessary process state. At the moment this is the static register allocation:
 
-    rbx: ErtsSchedulerRegisters struct (contains x and float registers and some metadata)
-    r12: Erlang stack pointer
-    r13: current running process
-    r14: remaining reductions
+    rbx: ErtsSchedulerRegisters struct (contains x/float registers and some metadata)
+    r12: Optional Save slot for the Erlang stack pointer when executing C code
+    r13: Current running process
+    r14: Remaining reductions
     r15: Erlang heap pointer
 
 Note that all of these are callee save registers under the System V and Windows
@@ -78,33 +78,83 @@ For instance, the return instruction looks something like this:
 
     Label yield = a.newLabel();
 
-    a.mov(ARG3, getCPRef()); /* Get address to return to */
-    a.mov(getCPRef(), imm(NIL));
-
-    a.dec(FCALLS); /* Decrement reduction counter */
-    a.jl(yield);   /* Check if we should yield */
-    a.jmp(ARG3);   /* Jump to the return address */
+    a.dec(FCALLS);           /* Decrement reduction counter */
+    a.jl(dispatch_return);   /* Check if we should yield */
+    a.ret();
 
     a.bind(yield);
-    abs_jmp(ga->get_return_shared());
+    abs_jmp(ga->get_dispatch_return());
 
 The code above is not exactly what is emitted, but close enough. The thing to note
 is that the code for doing the context switch is never emitted. Instead, we jump
 to a global fragment that all return instructions share. This greatly reduces
 the amount of code that has to be emitted for each module.
 
-## Running Code
+## Running Erlang code
 
-Running BeamAsm code is very similar to running the interpreter, only that native
-code is executed instead of interpreted code. It does not use the native-stack to
-keep track of Erlang process stack frames, nor does it use the native registers.
+Running BeamAsm code is very similar to running the interpreter, except that
+native code is executed instead of interpreted code.
 
-Instead, everything is kept the same as the interpreter to not have to do
-any context switches when calling BIFs or any other C functions.
+We had to tweak the way the Erlang stack works in order to execute native
+instructions on it. While the interpreter uses a stack slot for
+the current frame's return address (setting it to `[]` when unused), the
+native code merely reserves enough space for it as the x86 `call` and `ret`
+instructions bump the stack pointer when executed.
 
-This means that the BEAM instruction for `call` does not do an x86 `call`.
-Instead it does a push of the return address to the Erlang process stack and then
-a jump to the called function.
+This only affects the _current stack frame_, and is functionally identical
+aside from two caveats:
+
+1. Exceptions must not be thrown when the return address is reserved.
+
+    It's hard to tell where the stack will end up after an exception; the return
+    address won't be on the stack if we crash in the _current stack frame_, but
+    will be if we crash in a function we call. Telling these apart turned out to
+    rather complicated, so we decided to require the return address to be used
+    when an exception is thrown.
+
+    `emit_handle_error` handles this for you, and shared fragments that have been
+    called (rather than jumped to) satisfy this requirement by default.
+
+2. Garbage collection needs to take return addresses into account.
+
+    If we're about to create a term we have to make sure that there's enough
+    space for this term _and_ a potential return address, or else the next
+    `call` will clobber said term. This is taken care of in `emit_gc_test` and
+    you generally don't need to think about it.
+
+In addition to the above, we ensure that there's always at least `S_REDZONE`
+free words on the stack so we can make calls to shared fragments or trace
+handlers even when we lack a stack frame. This is merely a reservation and has
+no effect on how the stack works, and all values stored there must be valid
+Erlang terms in case of a garbage collection.
+
+## Running C code
+
+As Erlang stacks can be very small, we have to switch over to a different stack
+when we need to execute C code (which may expect a much larger stack). This is
+done through `emit_enter_runtime` and `emit_leave_runtime`, for example:
+
+    mov_arg(ARG4, NumFree);
+
+    /* Move to the C stack and swap out our current reductions, stack-, and
+     * heap pointer to the process structure. */
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    make_move_patch(ARG3, lambdas[Fun.getValue()].patches);
+
+    /* Call `new_fun`, asserting that we're on the C stack. */
+    runtime_call<4>(new_fun);
+
+    /* Move back to the C stack, and read the updated values from the process
+     * structure */
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
+    a.mov(getXRef(0), RET);
+
+All combinations of the `Update` constants are legal, but the ones given to
+`emit_leave_runtime` _must_ be the same as those given to `emit_enter_runtime`.
 
 ## Tracing and NIF Loading
 
@@ -122,7 +172,7 @@ do this. This is solved by emitting the code below at the start of each function
 When code starts to execute it will simply see the `jmp 6` instruction
 which skips the prologue and starts to execute the code directly.
 
-When we want to enable a certain breakpoint we set the `jmp` target to
+When we want to enable a certain break point we set the `jmp` target to
 be 1 (which means it will land on the call instruction) and will call
 genericBPTramp. genericBPTramp is a label at the top of each module
 that contains [trampolines][1] for all flag combinations.
@@ -142,47 +192,6 @@ in the function prologue is updated to target the correct place when a flag
 is updated. So if CALL\_NIF\_EARLY is set, then it is updated to be
 genericBPTramp + 0x10. If BP is set, it is updated to genericBPTramp + 0x20
 and the combination makes it to be genericBPTramp + 0x30.
-
-## GDB support
-
-When using the `cerl` command to debug BeamAsm a gdb plug-in called jit-reader
-is automatically loaded so that symbols on the native stack are resolved to the
-correct symbols. Example:
-
-    #0  db_free_term (tb=0x7fffb51801c8, basep=0x7fffb5184cd0, offset=16)
-        at beam/erl_db_util.c:3024
-    #1  0x000055555572989c in free_term (p=<optimized out>, tb=0x7fffb51801c8)
-        at beam/erl_db_hash.c:382
-    #2  free_term_list (p=<optimized out>, tb=<optimized out>)
-        at beam/erl_db_hash.c:382
-    #3  db_erase_hash (tbl=0x7fffb51801c8, key=<optimized out>,
-        ret=<optimized out>) at beam/erl_db_hash.c:1358
-    #4  0x0000555555712065 in ets_delete_2 (A__p=0x7fffb4c44e40,
-        A__p@entry=<error reading variable: value has been optimized out>,
-        BIF__ARGS=0x7fffb5850440,
-        BIF__ARGS@entry=<error reading variable: value has been optimized out>,
-        A__I=<error reading variable: value has been optimized out>)
-        at beam/erl_db.c:2786
-    #5  0x0000555555601a64 in call_light_bif (c_p=0x7fffb4c44e40,
-        reg=0x7fffb5850440, I=<optimized out>, exp=0x7fffb277b720,
-        vbf=<optimized out>) at beam/asm/instr_bif.cpp:212
-    #6  0x00007fffb275b451 in global::call_light_bif_shared ()
-    #7  0x00007fffb2621920 in logger_config:delete/2 ()
-    #8  0x00005555555ce447 in process_main (registers=<optimized out>)
-        at beam/asm/beam_asm.cpp:165
-    #9  0x00005555555abfd6 in sched_thread_func (vesdp=0x7fffb35d9580)
-        at beam/erl_process.c:8509
-    #10 0x0000555555840f3a in thr_wrapper (vtwd=0x7fffffffd110)
-        at pthread/ethread.c:118
-    #11 0x00007ffff75726db in start_thread (arg=0x7fffb22f9700)
-        at pthread_create.c:463
-    #12 0x00007ffff670988f in clone ()
-        at ../sysdeps/unix/sysv/linux/x86_64/clone.S:95
-
-The frames `logger_config:delete/2` and `global::call_light_bif_shared` are BeamAsm
-generated frames. Note that this stack trace does not include the stack of the current
-executing Erlang process. It only includes the current function of the currently executing
-Erlang process.
 
 ## Description of each file
 
@@ -221,16 +230,15 @@ that perf provides functionality similar to that of [eprof](https://erlang.org/d
 
 You can run perf on BeamAsm like this:
 
-    perf record -g erl +JPperf true
+    perf record --call-graph lbr erl +JPperf true
 
 and then look at the results using `perf report` as you normally would with perf.
 For example, you can run perf to analyze dialyzer building a PLT like this:
 
-     ERL_FLAGS="+JPperf true +S 1" perf record -g \
-     dialyzer --build_plt -Wunknown \
-     --apps compiler crypto erts kernel stdlib syntax_tools \
-     asn1 edoc et ftp inets mnesia observer public_key sasl \
-     runtime_tools snmp ssl tftp wx xmerl tools
+     ERL_FLAGS="+JPperf true +S 1" perf record --call-graph lbr \
+       dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
+       syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
+       sasl runtime_tools snmp ssl tftp wx xmerl tools
 
 The above code is run using `+S 1` to make the perf output easier to understand.
 If you then run `perf report -f --no-children` you may get something similar to this:
@@ -249,7 +257,7 @@ at it in the source code to see if you can figure out why so much time is spent 
 After `eq` we see the function `erl_types:t_has_var/1` where we spend almost
 6% of the entire execution in. A while further down you can see `copy_struct` which
 is the function used to copy terms. If we expand it to view the parents we find that
-it is mostly `ets:lookup_element/3` that contributes to this time via the erlang
+it is mostly `ets:lookup_element/3` that contributes to this time via the Erlang
 function `dialyzer_plt:ets_table_lookup/2`.
 
 ### Flame Graph
@@ -260,20 +268,20 @@ be more easily shared with others and manipulated to give a graph tailor-made fo
 your needs. For instance, if we run dialyzer with all schedulers:
 
     ## Run dialyzer with multiple schedulers
-    ERL_FLAGS="+JPperf true" perf record -g $ERL_TOP/bin/dialyzer \
-      --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
+    ERL_FLAGS="+JPperf true" perf record --call-graph lbr \
+      dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
       syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
       sasl runtime_tools snmp ssl tftp wx xmerl tools --statistics
 
 And then use the scripts found at Brendan Gregg's [CPU Flame Graphs](http://www.brendangregg.com/FlameGraphs/cpuflamegraphs)
-webpage as follows:
+web page as follows:
 
     ## Collect the results
     perf script > out.perf
     ## run stackcollapse
     stackcollapse-perf.pl out.perf > out.folded
     ## Create the svg
-    flamegraph.pl out.folded_sched > out.svg
+    flamegraph.pl out.folded > out.svg
 
 We get a graph that would look something like this:
 
@@ -281,7 +289,7 @@ We get a graph that would look something like this:
 
 You can view a larger version [here](seefile/figures/perf-beamasm.svg). It contains
 the same information, but it is easier to share with others as it does
-not need the symbols in the executables.
+not need the symbols in the executable.
 
 Using the same data we can also produce a graph where the scheduler profile data
 has been merged by using `sed`:
@@ -325,7 +333,7 @@ It is possible to have both the JIT and interpreter available at the same time.
 ### How much of a speedup should I expect from BeamAsm compared to the interpreter?
 
 It depends a lot on what your application does. Anything from no difference to up to
-twice as fast is possible.
+four times as fast is possible.
 
 BeamAsm tries very hard to not be slower than the interpreter, but there can be cases
 when that happens. One such could be very short-lived small scripts. If you come across
@@ -349,14 +357,20 @@ the OS supports mapping of memory as executable. If the ABI used by the
 OS is not supported changes related to calling C-functions also have to
 be made.
 
-As a reference, it took us about 1-2 weeks to implement support for Windows.
+As a reference, it took us about 2-3 weeks to implement support for Windows.
 
-### Would it be possible to add support in perf to crawl the Erlang stack?
+### Would it be possible to add support in perf to better crawl the Erlang stack?
 
-Yes, though not easily. One approach would be to instruct perf to know
+Yes, though not easily.
+
+Using `perf --call-graph lbr` works for Erlang, but it does not give a
+perfect record as the buffer has a limited size.
+
+One approach to improve this would be to instruct perf to know
 what Erlang is and how to crawl its stack. This would entail modifying
 the Linux kernel and/or libunwind. A second, probably better approach,
-would be to make Erlang processes run on the native C-stack instead of
-on a parallel Erlang stack. This would radically change the way that
-BeamAsm handles calls and returns but would allow perf to crawl the
-Erlang stack.
+would be to make Erlang processes emit a frame-pointer on its stack
+so that `perf --call-graph fp` would work. However, this means that
+each call frame will need 2 words of memory, and for Erlang processes
+this can be quite detrimental to performance because of the heavy use
+of recursion.

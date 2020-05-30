@@ -60,6 +60,8 @@ static BeamGlobalAssembler *bga;
 static BeamModuleAssembler *bma;
 static CpuInfo cpuinfo;
 
+static void beam_asm_init_gdb_jit_info(void);
+
 /*
  * Enter all BIFs into the export table.
  *
@@ -196,6 +198,8 @@ void beamasm_init() {
         call_error_handler_template = bma->getCode(call_error_handler_label);
     }
 
+    beam_asm_init_gdb_jit_info();
+
     for (auto op : operands) {
         if (op.target) {
             *op.target = bma->getCode(op.operand);
@@ -215,20 +219,17 @@ void init_emulator(void) {
     install_bifs();
 }
 
-void process_main(ErtsSchedulerRegisters *registers) {
-    typedef void (*pmain_type)(ErtsSchedulerRegisters *);
+void process_main(ErtsSchedulerData *esdp) {
+    typedef void (*pmain_type)(ErtsSchedulerData *);
 
     pmain_type pmain = (pmain_type)bga->get_process_main();
-
-    pmain(registers);
+    pmain(esdp);
 }
 
 #ifdef DEBUG
 static Process *erts_debug_schedule(ErtsSchedulerData *esdp,
                                     Process *c_p,
-                                    int calls,
-                                    Eterm *HTOP,
-                                    Eterm *E) {
+                                    int calls) {
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -240,23 +241,68 @@ static Process *erts_debug_schedule(ErtsSchedulerData *esdp,
 }
 #endif
 
-/* void process_main(ErtsSchedulerRegisters *regs); */
-
+/* void process_main(ErtsSchedulerData *esdp); */
 void BeamGlobalAssembler::emit_process_main() {
-    Label schedule_next = a.newLabel();
+    Label context_switch_local = a.newLabel(),
+          context_switch_simplified_local = a.newLabel(),
+          do_schedule_local = a.newLabel(), schedule_next = a.newLabel();
 
-    /* We don't save the callee save registers here as we will never return. */
-    emit_function_preamble(2);
+    const x86::Mem start_time_i =
+            getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time_i));
+    const x86::Mem start_time =
+            getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time));
 
-    const x86::Mem start_time_i = x86::qword_ptr(x86::rsp, 2 * sizeof(UWord));
-    const x86::Mem start_time = x86::qword_ptr(x86::rsp, 1 * sizeof(UWord));
+    /* Allocate the register structure on the stack to allow computing the
+     * runtime stack address from it, greatly reducing the cost of stack
+     * swapping. */
+    a.sub(x86::rsp, imm(sizeof(ErtsSchedulerRegisters) + ERTS_CACHE_LINE_SIZE));
+    a.and_(x86::rsp, imm(~ERTS_CACHE_LINE_MASK));
 
-    /* Center `registers` at the base of x_reg_array so we can use use negative
+    a.mov(x86::qword_ptr(ARG1, offsetof(ErtsSchedulerData, registers)),
+          x86::rsp);
+
+    /* Center `registers` at the base of x_reg_array so we can use negative
      * 8-bit displacement to address the commonly used aux_regs, located at the
      * start of the ErtsSchedulerRegisters struct. */
     a.lea(registers,
-          x86::qword_ptr(ARG1,
+          x86::qword_ptr(x86::rsp,
                          offsetof(ErtsSchedulerRegisters, x_reg_array.d)));
+
+    load_erl_bits_state(ARG1);
+    runtime_call<1>(erts_bits_init_state);
+
+#if defined(DEBUG) && defined(NATIVE_ERLANG_STACK)
+    /* Save stack bounds so they can be tested without clobbering anything. */
+    runtime_call<0>(erts_get_stacklimit);
+
+    a.mov(getSchedulerRegRef(
+                  offsetof(ErtsSchedulerRegisters, runtime_stack_end)),
+          RET);
+    a.mov(getSchedulerRegRef(
+                  offsetof(ErtsSchedulerRegisters, runtime_stack_start)),
+          x86::rsp);
+#endif
+
+#if !defined(NATIVE_ERLANG_STACK)
+#    ifdef HARD_DEBUG
+    /* Save the initial SP of the thread so that we can verify that it
+     * doesn't grow. */
+    a.mov(getInitialSPRef(), x86::rsp);
+#    endif
+
+    /*
+     * Manually do an `emit_enter_runtime` to match the
+     * `emit_leave_runtime` below.  We avoid `emit_enter_runtime`
+     * because it may do additional assertions that may currently
+     * fail.
+     *
+     * IMPORTANT: We must ensure that this sequence leaves the stack
+     * aligned on a 16-byte boundary.
+     */
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.sub(x86::rsp, imm(8)); /* Align */
+#endif
 
     a.mov(start_time_i, imm(0));
     a.mov(start_time, imm(0));
@@ -267,10 +313,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
     a.jmp(schedule_next);
 
-    /* Exported entry point, `ga->get_do_schedule()`
-     *
-     * `c_p->i` must be set prior to jumping here. */
-    a.bind(labels[do_schedule]);
+    a.bind(do_schedule_local);
     {
         /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
         a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])));
@@ -279,11 +322,7 @@ void BeamGlobalAssembler::emit_process_main() {
         a.jmp(schedule_next);
     }
 
-    /* Exported entry point, `ga->get_context_switch()`
-     *
-     * The *next* instruction pointer is provided in ARG3, and must be preceded
-     * by an ErtsCodeMFA. */
-    a.bind(labels[context_switch]);
+    a.bind(context_switch_local);
     comment("Context switch, unknown arity/MFA");
     {
         Sint arity_offset = offsetof(ErtsCodeMFA, arity) - sizeof(ErtsCodeMFA);
@@ -297,12 +336,7 @@ void BeamGlobalAssembler::emit_process_main() {
         /* !! Fall through !! */
     }
 
-    /* Exported entry point, `ga->get_context_switch_simplified()`
-     *
-     * The next instruction pointer is provided in ARG3, which does not need to
-     * point past an ErtsCodeMFA as the process structure has already been
-     * updated. */
-    a.bind(labels[context_switch_simplified]);
+    a.bind(context_switch_simplified_local);
     comment("Context switch, known arity and MFA");
     {
         Label not_exiting = a.newLabel();
@@ -312,7 +346,7 @@ void BeamGlobalAssembler::emit_process_main() {
         /* Check that ARG3 is set to a valid CP. */
         a.test(ARG3, imm(_CPMASK));
         a.je(check_i);
-        a.hlt();
+        a.ud2();
         a.bind(check_i);
 #endif
 
@@ -336,10 +370,9 @@ void BeamGlobalAssembler::emit_process_main() {
             a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG1);
             a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
             a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
-            a.jmp(labels[do_schedule]);
+            a.jmp(do_schedule_local);
         }
         a.bind(not_exiting);
-        emit_swapout();
 
         /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
         a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])));
@@ -350,7 +383,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        abs_call<2>(copy_out_registers);
+        runtime_call<2>(copy_out_registers);
 
         /* Restore reds_used from FCALLS */
         a.mov(ARG3, FCALLS);
@@ -375,22 +408,19 @@ void BeamGlobalAssembler::emit_process_main() {
             a.mov(start_time, ARG3);
 
             a.mov(ARG3, start_time_i);
-            abs_call<3>(check_monitor_long_schedule);
+            runtime_call<3>(check_monitor_long_schedule);
 
             /* Restore reds_used */
             a.mov(ARG3, start_time);
         }
         a.bind(schedule);
 
-        emit_stackcheck();
         mov_imm(ARG1, 0);
         a.mov(ARG2, c_p);
 #ifdef DEBUG
-        a.mov(ARG4, HTOP);
-        a.mov(ARG5, E);
-        abs_call<5>(erts_debug_schedule);
+        runtime_call<3>(erts_debug_schedule);
 #else
-        abs_call<3>(erts_schedule);
+        runtime_call<3>(erts_schedule);
 #endif
         a.mov(c_p, RET);
 
@@ -399,7 +429,7 @@ void BeamGlobalAssembler::emit_process_main() {
               x86::qword_ptr(registers,
                              offsetof(ErtsSchedulerRegisters,
                                       aux_regs.d.erts_msacc_cache)));
-        abs_call<1>(erts_msacc_update_cache);
+        runtime_call<1>(erts_msacc_update_cache);
 #endif
 
         a.mov(ARG1, imm((UWord)&erts_system_monitor_long_schedule));
@@ -408,7 +438,7 @@ void BeamGlobalAssembler::emit_process_main() {
         a.je(skip_long_schedule);
         {
             /* Enable long schedule test */
-            abs_call<0>(erts_timestamp_millis);
+            runtime_call<0>(erts_timestamp_millis);
             a.mov(start_time, RET);
             a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, i)));
             a.mov(start_time_i, RET);
@@ -418,12 +448,10 @@ void BeamGlobalAssembler::emit_process_main() {
         /* Copy arguments */
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        abs_call<2>(copy_in_registers);
-
-        /* Load FCALLS and friends */
-        emit_heavy_swapin();
+        runtime_call<2>(copy_in_registers);
 
         /* Setup reduction counting */
+        a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])), FCALLS);
 
 #ifdef DEBUG
@@ -433,7 +461,7 @@ void BeamGlobalAssembler::emit_process_main() {
         /* Check whether save calls is on */
         a.mov(ARG1, c_p);
         a.mov(ARG2, imm(ERTS_PSD_SAVED_CALLS_BUF));
-        abs_call<2>(erts_psd_get);
+        runtime_call<2>(erts_psd_get);
 
         /* Read the active code index, overriding it with
          * ERTS_SAVE_CALLS_CODE_IX when save_calls is enabled. */
@@ -444,6 +472,10 @@ void BeamGlobalAssembler::emit_process_main() {
         a.cmovne(ARG1, ARG2);
         a.mov(active_code_ix, ARG1);
 
+        /* Start executing the Erlang process. Note that reductions have
+         * already been set up above. */
+        emit_leave_runtime<Update::eStack | Update::eHeap>();
+
         /* Check if we are just returning from a dirty nif/bif call and if so we
          * need to do a bit of cleaning up before continuing. */
         a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, i)));
@@ -452,6 +484,44 @@ void BeamGlobalAssembler::emit_process_main() {
         a.cmp(x86::qword_ptr(RET), imm(op_call_bif_W));
         a.je(labels[dispatch_bif]);
         a.jmp(RET);
+    }
+
+    /* Processes may jump to the exported entry points below, executing on the
+     * Erlang stack when entering. These are separate from the `_local` labels
+     * above as we don't want to worry about which stack we're on when the
+     * cases overlap. */
+
+    /* `ga->get_context_switch()`
+     *
+     * The *next* instruction pointer is provided in ARG3, and must be preceded
+     * by an ErtsCodeMFA. */
+    a.bind(labels[context_switch]);
+    {
+        emit_enter_runtime<Update::eStack | Update::eHeap>();
+
+        a.jmp(context_switch_local);
+    }
+
+    /* `ga->get_context_switch_simplified()`
+     *
+     * The next instruction pointer is provided in ARG3, which does not need to
+     * point past an ErtsCodeMFA as the process structure has already been
+     * updated. */
+    a.bind(labels[context_switch_simplified]);
+    {
+        emit_enter_runtime<Update::eStack | Update::eHeap>();
+
+        a.jmp(context_switch_simplified_local);
+    }
+
+    /* `ga->get_do_schedule()`
+     *
+     * `c_p->i` must be set prior to jumping here. */
+    a.bind(labels[do_schedule]);
+    {
+        emit_enter_runtime<Update::eStack | Update::eHeap>();
+
+        a.jmp(do_schedule_local);
     }
 }
 
@@ -486,6 +556,35 @@ extern "C"
                                                     NULL,
                                                     NULL};
 } /* extern "C" */
+
+static void beam_asm_init_gdb_jit_info(void) {
+    Sint symfile_size = sizeof(uint64_t) * 2;
+    uint64_t *symfile = (uint64_t *)malloc(symfile_size);
+    jit_code_entry *entry;
+
+    symfile[0] = 0;
+    symfile[1] = (uint64_t)beam_normal_exit;
+
+    entry = (jit_code_entry *)malloc(sizeof(jit_code_entry));
+
+    /* Add address description */
+    entry->symfile_addr = (char *)symfile;
+    entry->symfile_size = symfile_size;
+
+    /* Insert into linked list */
+    entry->next_entry = __jit_debug_descriptor.first_entry;
+    if (entry->next_entry) {
+        entry->next_entry->prev_entry = entry;
+    } else {
+        entry->prev_entry = nullptr;
+    }
+
+    /* register with dbg */
+    __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
+    __jit_debug_descriptor.first_entry = entry;
+    __jit_debug_descriptor.relevant_entry = entry;
+    __jit_debug_register_code();
+}
 
 void BeamAssembler::update_gdb_jit_info(std::string modulename,
                                         std::vector<AsmRange> &functions) {
@@ -637,9 +736,11 @@ extern "C"
                                          char *buff,
                                          unsigned buff_len) {
         ERTS_ASSERT(buff_len - call_error_handler_size >= 0);
-#ifndef VALGRIND
+
+#if !defined(VALGRIND)
         ERTS_ASSERT(buff_len - call_error_handler_size < sizeof(BeamInstr));
 #endif
+
         sys_memcpy(buff, call_error_handler_template, call_error_handler_size);
 #ifdef WIN32
         DWORD old;

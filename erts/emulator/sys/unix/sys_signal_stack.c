@@ -49,8 +49,9 @@
 
 #include "sys.h"
 #include "erl_alloc.h"
+#include "erl_vm.h"
 
-#if (defined(BEAMASM) || defined(HIPE))
+#if ((defined(BEAMASM) && defined(USING_NATIVE_STACK)) || defined(HIPE))
 
 #if defined(__GLIBC__) && __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
 /*

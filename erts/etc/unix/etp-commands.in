@@ -3241,13 +3241,14 @@ define etp-system-info
   else
     printf "no\n"
   end
-  printf "SMP support: yes\n"
-  printf "Thread support: "
-  if (etp_thread_compiled)
+  printf "BeamAsm support: "
+  if (etp_beamasm)
     printf "yes\n"
   else
     printf "no\n"
   end
+  printf "SMP support: yes\n"
+  printf "Thread support: yes\n"
   printf "Kernel poll: "
   if (etp_kernel_poll_support)
     if (!erts_initialized)
@@ -4597,7 +4598,9 @@ define etp-init
 
   set $etp_ets_tables_i = 0
   set disassembly-flavor intel
-  jit-reader-load @ERL_TOP@/bin/@TARGET@/jit-reader.so
+  if etp_beamasm
+    jit-reader-load @ERL_TOP@/bin/@TARGET@/jit-reader.so
+  end
 end
 
 document etp-init

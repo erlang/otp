@@ -1166,7 +1166,7 @@ void print_pass_through(int, byte*, int);
 /* beam_emu.c */
 int catchlevel(Process*);
 void init_emulator(void);
-void process_main(ErtsSchedulerRegisters *registers);
+void process_main(ErtsSchedulerData *);
 void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
@@ -1279,9 +1279,10 @@ Uint64 erts_timestamp_millis(void);
 Export* erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
 
 /* ERTS_NOINLINE prevents link-time optimization across modules */
-void *erts_calc_stacklimit(char *prev_c, UWord stacksize) ERTS_NOINLINE;
+const void *erts_get_stacklimit(void);
 int erts_check_below_limit(char *ptr, char *limit) ERTS_NOINLINE;
 int erts_check_above_limit(char *ptr, char *limit) ERTS_NOINLINE;
+
 void *erts_ptr_id(void *ptr) ERTS_NOINLINE;
 int erts_check_if_stack_grows_downwards(char *ptr) ERTS_NOINLINE;
 

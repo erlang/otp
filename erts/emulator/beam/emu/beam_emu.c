@@ -244,7 +244,7 @@ init_emulator(void)
  * The second call starts execution of BEAM code. This call never returns.
  */
 ERTS_NO_RETPOLINE
-void process_main(ErtsSchedulerRegisters *registers)
+void process_main(ErtsSchedulerData *esdp)
 {
     static int init_done = 0;
     Process* c_p = NULL;
@@ -256,7 +256,7 @@ void process_main(ErtsSchedulerRegisters *registers)
     /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
      * in all other cases x0 is used.
      */
-    register Eterm* reg = registers->x_reg_array.d;
+    register Eterm* reg = NULL;
 
     /*
      * Top of heap (next free location); grows upwards.
@@ -283,7 +283,7 @@ void process_main(ErtsSchedulerRegisters *registers)
      * X registers and floating point registers are located in
      * scheduler specific data.
      */
-    register FloatDef *freg = registers->f_reg_array.d;
+    register FloatDef *freg = NULL;
 
     /*
      * For keeping the negative old value of 'reds' when call saving is active.
@@ -322,6 +322,9 @@ void process_main(ErtsSchedulerRegisters *registers)
 	init_done = 1;
 	goto init_emulator;
     }
+
+    reg = (esdp->registers)->x_reg_array.d;
+    freg = (esdp->registers)->f_reg_array.d;
 
     c_p = NULL;
     reds_used = 0;

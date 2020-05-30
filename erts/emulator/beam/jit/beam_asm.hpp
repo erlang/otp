@@ -139,15 +139,26 @@ protected:
 
     /* * * * * * * * * */
 
-    const x86::Gp frame_pointer = x86::rbp;
-
     /* Points at x_reg_array inside an ErtsSchedulerRegisters struct, allowing
      * the aux_regs field to be addressed with an 8-bit displacement. */
     const x86::Gp registers = x86::rbx;
 
-    /* TODO: Use r12 for the active code index once we start executing on the
-     * native stack */
+#ifdef NATIVE_ERLANG_STACK
+    /* The Erlang stack pointer, note that it uses RSP and is therefore invalid
+     * when running on the runtime stack. */
+    const x86::Gp E = x86::rsp;
+
+    /* Cached copy of Erlang stack pointer used to speed up stack switches when
+     * we know that the runtime doesn't read or modify the Erlang stack.
+     *
+     * If we find ourselves pressed for registers in the future, we could save
+     * this in the same slot as `registers` as that can be trivially recomputed
+     * from the top of the runtime stack. */
+    const x86::Gp E_saved = x86::r12;
+#else
     const x86::Gp E = x86::r12;
+#endif
+
     const x86::Gp c_p = x86::r13;
     const x86::Gp FCALLS = x86::r14;
     const x86::Gp HTOP = x86::r15;
@@ -206,15 +217,25 @@ protected:
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[1]));
     const x86::Mem TMP_MEM3q = getSchedulerRegRef(
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[2]));
+    const x86::Mem TMP_MEM4q = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[3]));
+    const x86::Mem TMP_MEM5q = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[4]));
 
-    const x86::Mem dTMP1_MEM = getSchedulerRegRef(
+    const x86::Mem TMP_MEM1d = getSchedulerRegRef(
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[0]),
             sizeof(Uint32));
-    const x86::Mem dTMP2_MEM = getSchedulerRegRef(
+    const x86::Mem TMP_MEM2d = getSchedulerRegRef(
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[1]),
             sizeof(Uint32));
-    const x86::Mem dTMP3_MEM = getSchedulerRegRef(
+    const x86::Mem TMP_MEM3d = getSchedulerRegRef(
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[2]),
+            sizeof(Uint32));
+    const x86::Mem TMP_MEM4d = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[3]),
+            sizeof(Uint32));
+    const x86::Mem TMP_MEM5d = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[4]),
             sizeof(Uint32));
 
 public:
@@ -351,9 +372,25 @@ protected:
         ASSERT(0 && "Fault instruction encode");
     }
 
+#ifdef NATIVE_ERLANG_STACK
+    constexpr x86::Mem getRuntimeStackRef() const {
+        int base = offsetof(ErtsSchedulerRegisters, aux_regs.d.runtime_stack);
+
+        return getSchedulerRegRef(base);
+    }
+#else
+#    ifdef HARD_DEBUG
+    constexpr x86::Mem getInitialSPRef() const {
+        int base = offsetof(ErtsSchedulerRegisters, aux_regs.d.initial_sp);
+
+        return getSchedulerRegRef(base);
+    }
+#    endif
+
     constexpr x86::Mem getCPRef() const {
         return x86::qword_ptr(E);
     }
+#endif
 
     constexpr x86::Mem getSchedulerRegRef(int offset,
                                           size_t size = sizeof(UWord)) const {
@@ -386,7 +423,11 @@ protected:
     constexpr x86::Mem getYRef(int index) const {
         ASSERT(index >= 0 && index <= 1023);
 
+#ifdef NATIVE_ERLANG_STACK
+        return x86::qword_ptr(E, index * sizeof(Eterm));
+#else
         return x86::qword_ptr(E, (index + CP_SIZE) * sizeof(Eterm));
+#endif
     }
 
     void load_x_reg_array(x86::Gp reg) {
@@ -401,32 +442,126 @@ protected:
         a.lea(reg, getSchedulerRegRef(offset));
     }
 
-    /* Calls the given label, ensuring that the return address forms a valid
-     * CP. */
-    void aligned_call(Label label) {
-        /* The return address must be 8-byte aligned to form a valid CP.
-         * Short-form calls are 5 bytes long, so we'll align up to the nearest
-         * 8-byte boundary after that. */
-        ssize_t next_address = (a.offset() + 5);
+    void emit_assert_redzone_unused() {
+#ifdef HARD_DEBUG
+        const int REDZONE_BYTES = S_REDZONE * sizeof(Eterm);
+        Label next = a.newLabel();
 
-        if (next_address % 8) {
-            ssize_t nop_count = 8 - next_address % 8;
+        /* We modify the stack pointer to avoid spilling into a register,
+         * TMP_MEM, or using the stack. */
+        a.sub(E, imm(REDZONE_BYTES));
+        a.cmp(HTOP, E);
+        a.add(E, imm(REDZONE_BYTES));
 
-            for (int i = 0; i < nop_count; i++) {
-                a.nop();
-            }
-        }
+        a.jbe(next);
+        a.ud2();
 
-        a.call(label);
-        ASSERT((a.offset() % 8) == 0);
+        a.bind(next);
+#endif
+    }
+
+    /*
+     * Calls an Erlang function.
+     */
+    template<typename Any>
+    void erlang_call(Any Target, const x86::Gp &spill) {
+#ifdef NATIVE_ERLANG_STACK
+        /* We use the Erlang stack as the native stack. We can use a
+         * native `call` instruction. */
+        emit_assert_erlang_stack();
+        emit_assert_redzone_unused();
+        aligned_call(Target);
+#else
+        Label next = a.newLabel();
+
+        /* Save the return CP on the stack. */
+        a.lea(spill, x86::qword_ptr(next));
+        a.mov(getCPRef(), spill);
+
+        a.jmp(Target);
+
+        /* Need to align this label in order for it to be recognized as is_CP.
+         */
+        a.align(kAlignCode, 8);
+        a.bind(next);
+#endif
+    }
+
+    /*
+     * Calls the given address in shared fragment, ensuring that the
+     * redzone is unused and that the return address forms a valid
+     * CP.
+     */
+    template<typename Any>
+    void fragment_call(Any Target) {
+        emit_assert_erlang_stack();
+        emit_assert_redzone_unused();
+
+#if defined(HARD_DEBUG) && !defined(NATIVE_ERLANG_STACK)
+        /* Verify that the stack has not grown. */
+        Label next = a.newLabel();
+        a.cmp(x86::rsp, getInitialSPRef());
+        a.short_().je(next);
+        a.ud2();
+        a.bind(next);
+#endif
+
+        aligned_call(Target);
+    }
+
+    /*
+     * Calls the given function pointer. In a debug build with
+     * HARD_DEBUG defined, it will be enforced that the redzone is
+     * unused.
+     *
+     * The return will NOT be aligned, and thus will not form a valid
+     * CP. That means that call code must not scan the stack in any
+     * way. That means, for example, that the called code must not
+     * throw an exception, do a garbage collection, or cause a context
+     * switch.
+     */
+    void safe_fragment_call(void (*Target)()) {
+        emit_assert_erlang_stack();
+        emit_assert_redzone_unused();
+        a.call(imm(Target));
+    }
+
+    template<typename FuncPtr>
+    void aligned_call(FuncPtr(*target)) {
+        /* Calls to absolute addresses (encoded in the address table) are
+         * always 6 bytes long. */
+        aligned_call(imm(target), 6);
+    }
+
+    void aligned_call(Label target) {
+        /* Relative calls are always 5 bytes long. */
+        aligned_call(target, 5);
+    }
+
+    template<typename OperandType>
+    void aligned_call(OperandType target) {
+        /* Other calls are variable size. While it would be nice to use this
+         * method for pointer/label calls too, `asmjit` writes relocations into
+         * the code buffer itself and overwriting them causes all kinds of
+         * havoc. */
+        size_t call_offset, call_size;
+
+        call_offset = a.offset();
+        a.call(target);
+
+        call_size = a.offset() - call_offset;
+        a.setOffset(call_offset);
+
+        aligned_call(target, call_size);
     }
 
     /* Calls the given address, ensuring that the return address forms a valid
      * CP. */
-    template<typename T>
-    void aligned_call(T(*func)) {
-        /* Long-form calls are 6 bytes long. */
-        ssize_t next_address = (a.offset() + 6);
+    template<typename OperandType>
+    void aligned_call(OperandType target, size_t size) {
+        /* The return address must be 8-byte aligned to form a valid CP, so
+         * we'll align according to the size of the call instruction. */
+        ssize_t next_address = (a.offset() + size);
 
         if (next_address % 8) {
             ssize_t nop_count = 8 - next_address % 8;
@@ -436,13 +571,20 @@ protected:
             }
         }
 
-        a.call(imm(func));
+#ifdef HARD_DEBUG
+        /* TODO: When frame pointers are in place, assert (at runtime) that the
+         * destination has a `push rbp; mov rbp, rsp` sequence. */
+#endif
+
+        a.call(target);
         ASSERT((a.offset() % 8) == 0);
     }
 
-    void abs_call(x86::Gp func, unsigned args) {
+    void runtime_call(x86::Gp func, unsigned args) {
         ASSERT(args < 5);
-        emit_stackcheck();
+
+        emit_assert_runtime_stack();
+
 #ifdef WIN32
         a.sub(x86::rsp, imm(4 * sizeof(UWord)));
         a.call(func);
@@ -459,9 +601,11 @@ protected:
             : std::integral_constant<int, sizeof...(Args)> {};
 
     template<int expected_arity, typename T>
-    void abs_call(T(*func)) {
+    void runtime_call(T(*func)) {
         static_assert(expected_arity == function_arity<T>());
-        emit_stackcheck();
+
+        emit_assert_runtime_stack();
+
 #ifdef WIN32
         unsigned pushed;
         switch (expected_arity) {
@@ -528,34 +672,134 @@ protected:
         a.mov(active_code_ix, ARG1);
     }
 
-    void emit_light_swapin() {
-        a.mov(HTOP, x86::qword_ptr(c_p, offsetof(Process, htop)));
+    /* Discards a continuation pointer, including the frame pointer if
+     * applicable. */
+    void emit_discard_cp() {
+        emit_assert_erlang_stack();
+
+        a.add(x86::rsp, imm(CP_SIZE * sizeof(Eterm)));
     }
 
-    void emit_light_swapout() {
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
+    void emit_assert_runtime_stack() {
+#ifdef HARD_DEBUG
+        Label crash = a.newLabel(), next = a.newLabel();
+
+        /* Are we 16-byte aligned? */
+        a.test(E, (16 - 1));
+        a.jne(crash);
+
+#    ifdef NATIVE_ERLANG_STACK
+        /* Ensure that we are using the runtime stack. */
+        int end_offs, start_offs;
+
+        end_offs = offsetof(ErtsSchedulerRegisters, runtime_stack_end);
+        start_offs = offsetof(ErtsSchedulerRegisters, runtime_stack_start);
+
+        a.cmp(E, getSchedulerRegRef(end_offs));
+        a.short_().jl(crash);
+        a.cmp(E, getSchedulerRegRef(start_offs));
+        a.short_().jle(next);
+
+#    endif
+        a.bind(crash);
+        a.ud2();
+        a.bind(next);
+#endif
     }
 
-    void emit_swapin() {
-        a.mov(E, x86::qword_ptr(c_p, offsetof(Process, stop)));
-        a.mov(HTOP, x86::qword_ptr(c_p, offsetof(Process, htop)));
+    void emit_assert_erlang_stack() {
+#ifdef HARD_DEBUG
+        Label crash = a.newLabel(), next = a.newLabel();
+
+        /* Are we term-aligned? */
+        a.test(E, imm(sizeof(Eterm) - 1));
+        a.jne(crash);
+
+        a.cmp(E, x86::qword_ptr(c_p, offsetof(Process, heap)));
+        a.jl(crash);
+        a.cmp(E, x86::qword_ptr(c_p, offsetof(Process, hend)));
+        a.jle(next);
+
+        a.bind(crash);
+        a.hlt();
+        a.bind(next);
+#endif
     }
 
-    void emit_swapout() {
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
+    enum Update : int {
+        eStack = (1 << 0),
+        eHeap = (1 << 1),
+        eReductions = (1 << 2)
+    };
+
+    template<int Spec = 0>
+    void emit_enter_runtime() {
+        emit_assert_erlang_stack();
+
+        ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
+                                Update::eHeap)) == Spec);
+
+#ifdef NATIVE_ERLANG_STACK
+        if (!(Spec & Update::eStack)) {
+            a.mov(E_saved, E);
+        }
+#endif
+        if ((Spec & Update::eStack)) {
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
+        }
+
+        if (Spec & Update::eHeap) {
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
+        }
+
+        if (Spec & Update::eReductions) {
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+        }
+
+#ifdef NATIVE_ERLANG_STACK
+        a.lea(E, getRuntimeStackRef());
+#else
+        /* Do an `enter` sequence. Note that the actual `enter`
+         * instruction is slower than using these two
+         * instructions. */
+        a.push(x86::rbp);
+        a.mov(x86::rbp, x86::rsp);
+
+        /* Make sure that the stack is 16-byte aligned. We don't want
+         * to keep track of stack usage in shared fragments, so we will
+         * emit code to align the stack at runtime. */
+        a.sub(x86::rsp, imm(15));
+        a.and_(x86::rsp, imm(-16));
+#endif
     }
 
-    void emit_heavy_swapin() {
-        emit_swapin();
+    template<int Spec = 0>
+    void emit_leave_runtime() {
+        emit_assert_runtime_stack();
 
-        a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
-    }
+        ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
+                                Update::eHeap)) == Spec);
 
-    void emit_heavy_swapout() {
-        emit_swapout();
+#ifdef NATIVE_ERLANG_STACK
+        if (!(Spec & Update::eStack)) {
+            a.mov(E, E_saved);
+        }
+#endif
+        if ((Spec & Update::eStack)) {
+            a.mov(E, x86::qword_ptr(c_p, offsetof(Process, stop)));
+        }
 
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+        if (Spec & Update::eHeap) {
+            a.mov(HTOP, x86::qword_ptr(c_p, offsetof(Process, htop)));
+        }
+
+        if (Spec & Update::eReductions) {
+            a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
+        }
+
+#if !defined(NATIVE_ERLANG_STACK)
+        a.leave();
+#endif
     }
 
     void emit_is_boxed(Label Fail, x86::Gp Src) {
@@ -571,9 +815,9 @@ protected:
             a.mov(Dst, Src);
         }
 
-        /* We intentionally skip TAG_PTR_MASK__ here, as we want to use plain
-         * `emit_boxed_val` when we know the argument can't be a literal, such
-         * as in bit-syntax matching.
+        /* We intentionally skip TAG_PTR_MASK__ here, as we want to use
+         * plain `emit_boxed_val` when we know the argument can't be a literal,
+         * such as in bit-syntax matching.
          *
          * This comes at very little cost as `emit_boxed_val` nearly always has
          * a displacement. */
@@ -637,42 +881,6 @@ public:
     void update_perf_info(std::string modulename,
                           std::vector<AsmRange> &functions);
 
-    unsigned emit_function_preamble(unsigned pushes = 0) {
-        /* Push rbp to stack */
-        a.push(frame_pointer);
-        a.mov(frame_pointer, x86::rsp);
-
-        /* Make sure the stack is 16-byte aligned. We're off by 16 because of
-         * our return address + rbp push, so if our stack frame is "uneven" we
-         * need to make it "even." */
-        if (pushes % 2 == 1) {
-            pushes++;
-        }
-
-        if (pushes)
-            a.sub(x86::rsp, imm(8 * pushes));
-
-        emit_stackcheck();
-
-        return pushes;
-    }
-
-    /* This function is not allowed to modify any x86 CPU flags */
-    void emit_function_postamble(unsigned pops = 0) {
-        a.leave();
-    }
-
-    void emit_stackcheck(void) {
-#ifdef DEBUG
-        Label next = a.newLabel();
-        /* Assert that we didn't missalign up the stack. */
-        a.test(x86::rsp, imm(0xF));
-        a.je(next);
-        a.hlt();
-        a.bind(next);
-#endif
-    }
-
     void embed(void *data, uint32_t size) {
         a.embed((char *)data, size);
     }
@@ -720,6 +928,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(i_bxor_body_shared)                                                      \
     _(i_bxor_guard_shared)                                                     \
     _(i_func_info_shared)                                                      \
+    _(i_load_nif_shared)                                                       \
     _(i_loop_rec_shared)                                                       \
     _(i_new_small_map_lit_shared)                                              \
     _(i_test_yield_shared)                                                     \
@@ -765,7 +974,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     template<typename T>
     void emit_bitwise_fallback_guard(T(*func_ptr));
 
-    void emit_handle_error(int pops = 0);
+    void emit_handle_error();
 
 public:
     BeamGlobalAssembler();
@@ -873,7 +1082,7 @@ public:
         return BeamAssembler::getCode(labelName);
     }
 
-    Label embed_vararg_rodata(const std::vector<ArgVal> &args);
+    Label embed_vararg_rodata(const std::vector<ArgVal> &args, int y_offset);
 
     unsigned getCodeSize() {
         ASSERT(code.hasBaseAddress());
@@ -899,12 +1108,15 @@ private:
     void emit_gc_test_preserve(const ArgVal &Need,
                                const ArgVal &Live,
                                x86::Gp term);
-    void emit_dispatch_export(const ArgVal &Exp);
-    x86::Gp emit_apply(uint64_t deallocate, bool includeI);
-    x86::Gp emit_apply(const ArgVal &arity, uint64_t deallocate);
+
+    x86::Mem emit_setup_export(const ArgVal &Exp);
+
+    x86::Gp emit_variable_apply(bool includeI);
+    x86::Gp emit_fixed_apply(const ArgVal &arity, bool includeI);
+
     x86::Gp emit_call_fun(const ArgVal &Fun);
     x86::Gp emit_apply_fun(void);
-    void emit_setup_return(x86::Gp dest);
+
     void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
     void emit_is_integer(Label Fail, Label next, Label BigFail, x86::Gp Src);
 
@@ -962,26 +1174,6 @@ private:
 
 #include "beamasm_protos.h"
 
-    void alloc(Uint slots) {
-        a.sub(E, imm(slots * sizeof(Eterm)));
-    }
-
-    void alloc(const ArgVal &slots) {
-        /* slots gives the value in bytes */
-        ASSERT(slots.getValue() % sizeof(Eterm) == 0);
-        alloc(slots.getValue() / sizeof(Eterm));
-    }
-
-    void dealloc(Uint slots) {
-        a.add(E, imm(slots * sizeof(Eterm)));
-    }
-
-    void dealloc(const ArgVal &slots) {
-        /* slots the value in bytes */
-        ASSERT(slots.getValue() % sizeof(Eterm) == 0);
-        dealloc(slots.getValue() / sizeof(Eterm));
-    }
-
     void make_move_patch(x86::Gp to,
                          std::vector<struct patch> &patches,
                          int64_t offset = 0) {
@@ -1006,6 +1198,11 @@ private:
 
     template<typename A, typename B>
     void mov_arg(A to, B from) {
+        /* We can't move to or from Y registers when we're on the runtime
+         * stack, so we'll conservatively disallow all mov_args in the hopes of
+         * finding such bugs sooner. */
+        emit_assert_erlang_stack();
+
         mov_arg(to, from, ARG1);
     }
 

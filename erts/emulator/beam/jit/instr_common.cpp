@@ -52,7 +52,7 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgVal &Need,
 
     a.mov(getXRef(Live.getValue()), term);
     mov_imm(ARG4, Live.getValue() + 1);
-    aligned_call(ga->get_garbage_collect());
+    fragment_call(ga->get_garbage_collect());
     a.mov(term, getXRef(Live.getValue()));
 
     a.bind(after_gc_check);
@@ -71,7 +71,7 @@ void BeamModuleAssembler::emit_gc_test(const ArgVal &Ns,
 
     mov_imm(ARG4, Live.getValue());
 
-    aligned_call(ga->get_garbage_collect());
+    fragment_call(ga->get_garbage_collect());
     a.bind(after_gc_check);
 }
 
@@ -93,26 +93,17 @@ void BeamModuleAssembler::emit_validate(const ArgVal &arity) {
 #ifdef DEBUG
     Label next = a.newLabel(), crash = a.newLabel();
 
-#    ifdef HARD_DEBUG
-    emit_heavy_swapout();
-#    endif
-
-    /* Crash if the native stack is not 16-byte-aligned */
-    a.test(x86::rsp, imm(0xF));
-    a.jne(crash);
-
-    /* Crash if return address is not a valid CP. */
-    a.mov(ARG1, getCPRef());
-    a.test(ARG1, imm(_CPMASK));
-    a.jne(crash);
-
     /* Crash if the Erlang heap is not word-aligned */
     a.test(HTOP, imm(sizeof(Eterm) - 1));
     a.jne(crash);
 
+    /* Crash if the Erlang stack is not word-aligned */
+    a.test(E, imm(sizeof(Eterm) - 1));
+    a.jne(crash);
+
     /* Crash if we've overrun the stack */
-    a.lea(TMP1, x86::qword_ptr(E, -S_REDZONE * sizeof(Eterm)));
-    a.cmp(HTOP, TMP1);
+    a.lea(ARG1, x86::qword_ptr(E, -(int32_t)(S_REDZONE * sizeof(Eterm))));
+    a.cmp(HTOP, ARG1);
     a.ja(crash);
 
     a.jmp(next);
@@ -121,10 +112,14 @@ void BeamModuleAssembler::emit_validate(const ArgVal &arity) {
     a.bind(next);
 
 #    ifdef HARD_DEBUG
+    emit_enter_runtime();
+
     for (unsigned i = 0; i < arity.getValue(); i++) {
         a.mov(ARG1, getXRef(i));
-        abs_call<1>(validate_term);
+        runtime_call<1>(validate_term);
     }
+
+    emit_leave_runtime();
 #    endif
 #endif
 }
@@ -138,10 +133,22 @@ void BeamModuleAssembler::emit_i_validate(const ArgVal &Arity) {
 void BeamModuleAssembler::emit_allocate_heap(const ArgVal &NeedStack,
                                              const ArgVal &NeedHeap,
                                              const ArgVal &Live) {
-    const ArgVal needed(NeedStack + 1);
+    ASSERT(NeedStack.getType() == ArgVal::TYPE::u);
+    ASSERT(NeedStack.getValue() <= MAX_REG);
+    ArgVal needed = NeedStack;
+
+#if !defined(NATIVE_ERLANG_STACK)
+    needed = needed + CP_SIZE;
+#endif
+
     emit_gc_test(needed, NeedHeap, Live);
-    alloc(needed * sizeof(Eterm));
+
+    if (needed.getValue() > 0) {
+        a.sub(E, imm(needed.getValue() * sizeof(Eterm)));
+    }
+#if !defined(NATIVE_ERLANG_STACK)
     a.mov(getCPRef(), imm(NIL));
+#endif
 }
 
 void BeamModuleAssembler::emit_allocate(const ArgVal &NeedStack,
@@ -153,8 +160,32 @@ void BeamModuleAssembler::emit_allocate_heap_zero(const ArgVal &NeedStack,
                                                   const ArgVal &NeedHeap,
                                                   const ArgVal &Live) {
     emit_allocate_heap(NeedStack, NeedHeap, Live);
-    for (unsigned i = 0; i < NeedStack.getValue(); i++) {
-        a.mov(getYRef(i), imm(NIL));
+
+    int slots = NeedStack.getValue();
+
+    if (slots == 1) {
+        a.mov(getYRef(0), imm(NIL));
+    } else {
+        /* `stosq` is more compact than `mov` after 2 slots. */
+        mov_imm(x86::rax, NIL);
+
+#ifdef NATIVE_ERLANG_STACK
+        /* `mov` is two bytes shorter than `lea`. */
+        a.mov(x86::rdi, E);
+#else
+        /* y(0) is at E+8. Must use `lea` here. */
+        a.lea(x86::rdi, getYRef(0));
+#endif
+
+        if (slots <= 4) {
+            /* Slightly more compact than `rep stosq`. */
+            for (int i = 0; i < slots; i++) {
+                a.stosq();
+            }
+        } else {
+            mov_imm(x86::rcx, slots);
+            a.rep().stosq();
+        }
     }
 }
 
@@ -163,12 +194,32 @@ void BeamModuleAssembler::emit_allocate_zero(const ArgVal &NeedStack,
     emit_allocate_heap_zero(NeedStack, ArgVal(ArgVal::TYPE::u, 0), Live);
 }
 
+void BeamModuleAssembler::emit_deallocate(const ArgVal &Deallocate) {
+    ASSERT(Deallocate.getType() == ArgVal::TYPE::u);
+    ASSERT(Deallocate.getValue() <= 1023);
+    ArgVal dealloc = Deallocate;
+
+#if !defined(NATIVE_ERLANG_STACK)
+    dealloc = dealloc + CP_SIZE;
+#endif
+
+    if (dealloc.getValue() > 0) {
+        a.add(E, imm(dealloc.getValue() * sizeof(Eterm)));
+    }
+}
+
 void BeamModuleAssembler::emit_test_heap(const ArgVal &Nh, const ArgVal &Live) {
     emit_gc_test(ArgVal(ArgVal::u, 0), Nh, Live);
 }
 
 void BeamGlobalAssembler::emit_dispatch_return() {
-    /* ARG3 contains the place to jump to */
+#ifdef NATIVE_ERLANG_STACK
+    /* ARG3 should contain the place to jump to. */
+    a.pop(ARG3);
+#else
+    /* ARG3 already contains the place to jump to. */
+#endif
+
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
     a.jmp(labels[context_switch_simplified]);
@@ -182,33 +233,30 @@ void BeamModuleAssembler::emit_return() {
     emit_validate(ArgVal(ArgVal::u, 1));
 #endif
 
+#if !defined(NATIVE_ERLANG_STACK)
     a.mov(ARG3, getCPRef());
     a.mov(getCPRef(), imm(NIL));
+#endif
 
+    /* The reduction test is kept in module code because moving it to a shared
+     * fragment caused major performance regressions in dialyzer. */
     a.dec(FCALLS);
-    a.jl(dispatch_return);
+    a.short_().jl(dispatch_return);
+
+#ifdef NATIVE_ERLANG_STACK
+    a.ret();
+#else
     a.jmp(ARG3);
+#endif
 
     a.bind(dispatch_return);
     abs_jmp(ga->get_dispatch_return());
 }
 
-void BeamModuleAssembler::emit_deallocate(const ArgVal &Deallocate) {
-    dealloc(Deallocate);
-}
-
 void BeamModuleAssembler::emit_i_call(const ArgVal &CallDest) {
-    Label ret = a.newLabel();
+    Label dest = labels[CallDest.getValue()];
 
-    /* Save the return CP on the stack */
-    a.lea(ARG1, x86::qword_ptr(ret));
-    a.mov(getCPRef(), ARG1);
-
-    a.jmp(labels[CallDest.getValue()]);
-
-    /* Need to align this label in order for it to be recognized as is_CP */
-    a.align(kAlignCode, 8);
-    a.bind(ret);
+    erlang_call(dest, RET);
 }
 
 void BeamModuleAssembler::emit_i_call_last(const ArgVal &CallDest,
@@ -226,8 +274,12 @@ void BeamModuleAssembler::emit_i_call_only(const ArgVal &CallDest) {
 void BeamGlobalAssembler::emit_dispatch_save_calls() {
     a.mov(TMP_MEM1q, ARG2);
 
+    emit_enter_runtime();
+
     a.mov(ARG1, c_p);
-    abs_call<2>(save_calls);
+    runtime_call<2>(save_calls);
+
+    emit_leave_runtime();
 
     a.mov(ARG2, TMP_MEM1q);
 
@@ -238,43 +290,39 @@ void BeamGlobalAssembler::emit_dispatch_save_calls() {
     a.jmp(x86::qword_ptr(ARG2, ARG1, 3, offsetof(Export, addressv)));
 }
 
-void BeamModuleAssembler::emit_dispatch_export(const ArgVal &Exp) {
+x86::Mem BeamModuleAssembler::emit_setup_export(const ArgVal &Exp) {
     a.mov(ARG1, active_code_ix);
 
     /* Load export pointer / addressv */
     make_move_patch(ARG2, imports[Exp.getValue()].patches);
 
-    a.jmp(x86::qword_ptr(ARG2, ARG1, 3, offsetof(Export, addressv)));
+    return x86::qword_ptr(ARG2, ARG1, 3, offsetof(Export, addressv));
 }
 
 void BeamModuleAssembler::emit_i_call_ext(const ArgVal &Exp) {
-    Label next = a.newLabel();
-
-    /* Save the return CP on the stack */
-    a.lea(ARG1, x86::qword_ptr(next));
-    a.mov(getCPRef(), ARG1);
-
-    emit_dispatch_export(Exp);
-
-    /* Need to align this label in order for it to be recognized as is_CP */
-    a.align(kAlignCode, 8);
-    a.bind(next);
+    x86::Mem destination = emit_setup_export(Exp);
+    erlang_call(destination, RET);
 }
 
 void BeamModuleAssembler::emit_i_call_ext_only(const ArgVal &Exp) {
-    emit_dispatch_export(Exp);
+    auto destination = emit_setup_export(Exp);
+    a.jmp(destination);
 }
 
 void BeamModuleAssembler::emit_i_call_ext_last(const ArgVal &Exp,
                                                const ArgVal &Deallocate) {
     emit_deallocate(Deallocate);
-    emit_dispatch_export(Exp);
+
+    auto destination = emit_setup_export(Exp);
+
+    a.jmp(destination);
 }
 
 void BeamModuleAssembler::emit_normal_exit() {
     /* This is implictly global; it does not normally appear in modules and
      * doesn't require size optimization. */
-    emit_heavy_swapout();
+
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
     emit_proc_lc_unrequire();
 
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(EXC_NORMAL));
@@ -282,10 +330,10 @@ void BeamModuleAssembler::emit_normal_exit() {
     a.mov(ARG1, c_p);
 
     mov_imm(ARG2, am_normal);
-    abs_call<2>(erts_do_exit_process);
+    runtime_call<2>(erts_do_exit_process);
 
     emit_proc_lc_require();
-    emit_heavy_swapin();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     abs_jmp(ga->get_do_schedule());
 }
@@ -294,14 +342,14 @@ void BeamModuleAssembler::emit_continue_exit() {
     /* This is implictly global; it does not normally appear in modules and
      * doesn't require size optimization. */
 
-    emit_heavy_swapout();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
     emit_proc_lc_unrequire();
 
     a.mov(ARG1, c_p);
-    abs_call<1>(erts_continue_exit_process);
+    runtime_call<1>(erts_continue_exit_process);
 
     emit_proc_lc_require();
-    emit_heavy_swapin();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     abs_jmp(ga->get_do_schedule());
 }
@@ -313,76 +361,80 @@ void BeamModuleAssembler::emit_error_action_code() {
 
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
 
-x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate, bool includeI) {
+x86::Gp BeamModuleAssembler::emit_variable_apply(bool includeI) {
     Label dispatch = a.newLabel(), entry = a.newLabel();
 
     a.align(kAlignCode, 8);
     a.bind(entry);
 
-    emit_heavy_swapout();
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
+
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
+
     if (includeI) {
         a.lea(ARG3, x86::qword_ptr(entry));
     } else {
         mov_imm(ARG3, 0);
     }
-    a.mov(ARG4, deallocate);
-    abs_call<4>(apply);
-    emit_heavy_swapin();
+
+    mov_imm(ARG4, 0);
+
+    runtime_call<4>(apply);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
     a.test(RET, RET);
     a.jne(dispatch);
     emit_handle_error(entry, &apply3_mfa);
     a.bind(dispatch);
+
     return RET;
 }
 
 void BeamModuleAssembler::emit_i_apply() {
-    Label next = a.newLabel();
-    x86::Gp dest = emit_apply(0, false);
+    x86::Gp dest = emit_variable_apply(false);
 
-    /* Save the return CP on the stack */
-    a.lea(ARG1, x86::qword_ptr(next));
-    a.mov(getCPRef(), ARG1);
-
-    a.jmp(dest);
-
-    /* Need to align this label in order for it to be recognized as is_CP */
-    a.align(kAlignCode, 8);
-    a.bind(next);
+    ASSERT(dest != ARG1);
+    erlang_call(dest, ARG1);
 }
 
 void BeamModuleAssembler::emit_i_apply_last(const ArgVal &Deallocate) {
-    x86::Gp dest = emit_apply(Deallocate.getValue(), true);
     emit_deallocate(Deallocate);
-    a.jmp(dest);
+    emit_i_apply_only();
 }
 
 void BeamModuleAssembler::emit_i_apply_only() {
-    x86::Gp dest = emit_apply(0, true);
+    x86::Gp dest = emit_variable_apply(true);
     a.jmp(dest);
 }
 
-x86::Gp BeamModuleAssembler::emit_apply(const ArgVal &Arity,
-                                        uint64_t deallocate) {
+x86::Gp BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
+                                              bool includeI) {
     Label dispatch = a.newLabel(), entry = a.newLabel();
 
     a.align(kAlignCode, 8);
     a.bind(entry);
 
-    emit_heavy_swapout();
+    mov_arg(ARG3, Arity);
+
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
+
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    mov_arg(ARG3, Arity);
-    if (deallocate) {
+
+    if (includeI) {
         a.lea(ARG4, x86::qword_ptr(entry));
-        a.mov(ARG5, deallocate);
     } else {
         mov_imm(ARG4, 0);
-        mov_imm(ARG5, 0);
     }
-    abs_call<5>(fixed_apply);
-    emit_heavy_swapin();
+
+    mov_imm(ARG5, 0);
+
+    runtime_call<5>(fixed_apply);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
     a.test(RET, RET);
     a.jne(dispatch);
 
@@ -393,26 +445,17 @@ x86::Gp BeamModuleAssembler::emit_apply(const ArgVal &Arity,
 }
 
 void BeamModuleAssembler::emit_apply(const ArgVal &Arity) {
-    Label next = a.newLabel();
-    x86::Gp dest = emit_apply(Arity, (uint64_t)0);
+    x86::Gp dest = emit_fixed_apply(Arity, false);
 
-    /* Save the return CP on the stack */
-    a.lea(ARG1, x86::qword_ptr(next));
-    a.mov(getCPRef(), ARG1);
-
-    a.jmp(dest);
-
-    /* Need to align this label in order for it to be recognized as is_CP */
-    a.align(kAlignCode, 8);
-    a.bind(next);
+    ASSERT(dest != ARG1);
+    erlang_call(dest, ARG1);
 }
 
 void BeamModuleAssembler::emit_apply_last(const ArgVal &Arity,
                                           const ArgVal &Deallocate) {
-    x86::Gp dest = emit_apply(Arity, Deallocate.getValue());
-
     emit_deallocate(Deallocate);
 
+    x86::Gp dest = emit_fixed_apply(Arity, true);
     a.jmp(dest);
 }
 
@@ -422,13 +465,16 @@ x86::Gp BeamModuleAssembler::emit_call_fun(const ArgVal &Fun) {
     a.align(kAlignCode, 8);
     a.bind(entry);
 
-    emit_heavy_swapout();
-    a.mov(ARG1, c_p);
     mov_arg(ARG2, Fun);
+
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
+
+    a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
     mov_imm(ARG4, THE_NON_VALUE);
-    abs_call<4>(call_fun);
-    emit_heavy_swapin();
+    runtime_call<4>(call_fun);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
 
     a.test(RET, RET);
     a.jne(dispatch);
@@ -439,26 +485,17 @@ x86::Gp BeamModuleAssembler::emit_call_fun(const ArgVal &Fun) {
 }
 
 void BeamModuleAssembler::emit_i_call_fun(const ArgVal &Fun) {
-    Label next = a.newLabel();
     x86::Gp dest = emit_call_fun(Fun);
 
-    /* Save the return CP on the stack */
-    a.lea(ARG1, x86::qword_ptr(next));
-    a.mov(getCPRef(), ARG1);
-
-    a.jmp(dest);
-
-    /* Align the return address so it's recognized as a CP. */
-    a.align(kAlignCode, 8);
-    a.bind(next);
+    ASSERT(dest != ARG1);
+    erlang_call(dest, ARG1);
 }
 
 void BeamModuleAssembler::emit_i_call_fun_last(const ArgVal &Fun,
                                                const ArgVal &Deallocate) {
-    x86::Gp dest = emit_call_fun(Fun);
-
     emit_deallocate(Deallocate);
 
+    x86::Gp dest = emit_call_fun(Fun);
     a.jmp(dest);
 }
 
@@ -468,41 +505,34 @@ x86::Gp BeamModuleAssembler::emit_apply_fun() {
     a.align(kAlignCode, 8);
     a.bind(entry);
 
-    emit_heavy_swapout();
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
+
     a.mov(ARG1, c_p);
     a.mov(ARG2, getXRef(0));
     a.mov(ARG3, getXRef(1));
     load_x_reg_array(ARG4);
-    abs_call<4>(apply_fun);
-    emit_heavy_swapin();
+    runtime_call<4>(apply_fun);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
     a.test(RET, RET);
     a.jne(dispatch);
     emit_handle_error(entry, (ErtsCodeMFA *)nullptr);
     a.bind(dispatch);
+
     return RET;
 }
 
 void BeamModuleAssembler::emit_i_apply_fun() {
-    Label next = a.newLabel();
     x86::Gp dest = emit_apply_fun();
 
-    /* Save the return CP on the stack */
-    a.lea(ARG1, x86::qword_ptr(next));
-    a.mov(getCPRef(), ARG1);
-
-    a.jmp(dest);
-
-    /* Need to align this label in order for it to be recognized as is_CP */
-    a.align(kAlignCode, 8);
-    a.bind(next);
+    ASSERT(dest != ARG1);
+    erlang_call(dest, ARG1);
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_last(const ArgVal &Deallocate) {
-    x86::Gp dest = emit_apply_fun();
-
     emit_deallocate(Deallocate);
-
-    a.jmp(dest);
+    emit_i_apply_fun_only();
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_only() {
@@ -518,13 +548,17 @@ void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
 
 void BeamModuleAssembler::emit_i_make_fun(const ArgVal &Fun,
                                           const ArgVal &NumFree) {
-    emit_heavy_swapout();
+    mov_arg(ARG4, NumFree);
+
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     make_move_patch(ARG3, lambdas[Fun.getValue()].patches);
-    mov_arg(ARG4, NumFree);
-    abs_call<4>(new_fun);
-    emit_heavy_swapin();
+    runtime_call<4>(new_fun);
+
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+
     a.mov(getXRef(0), RET);
 }
 
@@ -571,19 +605,31 @@ void BeamModuleAssembler::emit_get_tl(const ArgVal &Src, const ArgVal &Tl) {
 }
 
 void BeamModuleAssembler::emit_i_get(const ArgVal &Src, const ArgVal &Dst) {
-    a.mov(ARG1, c_p);
     mov_arg(ARG2, Src);
-    abs_call<2>(erts_pd_hash_get);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_pd_hash_get);
+
+    emit_leave_runtime();
+
     mov_arg(Dst, RET);
 }
 
 void BeamModuleAssembler::emit_i_get_hash(const ArgVal &Src,
                                           const ArgVal &Hash,
                                           const ArgVal &Dst) {
-    a.mov(ARG1, c_p);
     mov_arg(ARG2, Hash);
     mov_arg(ARG3, Src);
-    abs_call<3>(erts_pd_hash_get_with_hx);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_pd_hash_get_with_hx);
+
+    emit_leave_runtime();
+
     mov_arg(Dst, RET);
 }
 
@@ -601,8 +647,12 @@ void BeamModuleAssembler::emit_init(const ArgVal &Y) {
 }
 
 void BeamModuleAssembler::emit_i_trim(const ArgVal &Words) {
-    dealloc(Words * sizeof(Eterm));
-    a.mov(getCPRef(), imm(NIL));
+    ASSERT(Words.getType() == ArgVal::TYPE::u);
+    ASSERT(Words.getValue() <= 1023);
+
+    if (Words.getValue() > 0) {
+        a.add(E, imm(Words.getValue() * sizeof(Eterm)));
+    }
 }
 
 void BeamModuleAssembler::emit_move(const ArgVal &Src, const ArgVal &Dst) {
@@ -648,11 +698,13 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
     comment("Create boxed ptr");
     a.lea(ARG1, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
     a.add(HTOP, imm((size + 1) * sizeof(Eterm)));
+
     mov_arg(Dst, ARG1);
 }
 
 void BeamModuleAssembler::emit_self(const ArgVal &Dst) {
     a.mov(ARG1, x86::qword_ptr(c_p, offsetof(Process, common.id)));
+
     mov_arg(Dst, ARG1);
 }
 
@@ -779,10 +831,16 @@ void BeamModuleAssembler::emit_is_function(const ArgVal &Fail,
 void BeamModuleAssembler::emit_cold_is_function2(const ArgVal &Fail,
                                                  const ArgVal &Src,
                                                  const ArgVal &Arity) {
-    a.mov(ARG1, c_p);
     mov_arg(ARG2, Src);
     mov_arg(ARG3, Arity);
-    abs_call<3>(erl_is_function);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erl_is_function);
+
+    emit_leave_runtime();
+
     a.cmp(RET, imm(am_true));
     a.jne(labels[Fail.getValue()]);
 }
@@ -1074,11 +1132,16 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgVal &Fail,
     a.and_(ARG3, imm(_TAG_PRIMARY_MASK));
     a.and_(ARG3, ARG2);
     a.cmp(ARG3, imm(TAG_PRIMARY_IMMED1));
-
     a.je(labels[Fail.getValue()]);
-    abs_call<2>(eq);
+
+    emit_enter_runtime();
+
+    runtime_call<2>(eq);
+
+    emit_leave_runtime();
+
     a.test(RET, RET);
-    a.jz(labels[Fail.getValue()]);
+    a.je(labels[Fail.getValue()]);
 
     a.bind(next);
 }
@@ -1094,7 +1157,12 @@ void BeamModuleAssembler::emit_i_is_eq_exact_literal(const ArgVal &Fail,
     a.cmp(ARG3, imm(TAG_PRIMARY_IMMED1));
     a.je(labels[Fail.getValue()]);
 
-    abs_call<2>(eq);
+    emit_enter_runtime();
+
+    runtime_call<2>(eq);
+
+    emit_leave_runtime();
+
     a.test(RET, RET);
     a.jz(labels[Fail.getValue()]);
 }
@@ -1117,7 +1185,12 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgVal &Fail,
     a.cmp(ARG3, imm(TAG_PRIMARY_IMMED1));
     a.je(next);
 
-    abs_call<2>(eq);
+    emit_enter_runtime();
+
+    runtime_call<2>(eq);
+
+    emit_leave_runtime();
+
     a.test(RET, RET);
     a.jnz(labels[Fail.getValue()]);
 
@@ -1137,7 +1210,12 @@ void BeamModuleAssembler::emit_i_is_ne_exact_literal(const ArgVal &Fail,
     a.cmp(ARG3, imm(TAG_PRIMARY_IMMED1));
     a.je(next);
 
-    abs_call<2>(eq);
+    emit_enter_runtime();
+
+    runtime_call<2>(eq);
+
+    emit_leave_runtime();
+
     a.test(RET, RET);
     a.jnz(labels[Fail.getValue()]);
 
@@ -1146,9 +1224,6 @@ void BeamModuleAssembler::emit_i_is_ne_exact_literal(const ArgVal &Fail,
 
 void BeamGlobalAssembler::emit_arith_eq_shared() {
     Label generic_compare = a.newLabel();
-
-    /* Align stack */
-    emit_function_preamble();
 
     /* Are both floats? */
     a.mov(ARG3, ARG1);
@@ -1176,23 +1251,24 @@ void BeamGlobalAssembler::emit_arith_eq_shared() {
      * need to check for errors (PF). */
     a.comisd(x86::xmm0, x86::xmm1);
 
-    /* Realign stack and return */
-    emit_function_postamble();
     a.ret();
 
     a.bind(generic_compare);
+    {
+        emit_enter_runtime();
 
-    /* Generic eq-only arithmetic comparison. */
-    comment("erts_cmp_compound(X, Y, 0, 1);");
-    a.sub(ARG3, ARG3);
-    a.mov(ARG4, 1);
-    abs_call<4>(erts_cmp_compound);
+        /* Generic eq-only arithmetic comparison. */
+        comment("erts_cmp_compound(X, Y, 0, 1);");
+        a.sub(ARG3, ARG3);
+        a.mov(ARG4, imm(1));
+        runtime_call<4>(erts_cmp_compound);
 
-    a.test(RET, RET);
+        emit_leave_runtime();
 
-    /* Realign stack and return */
-    emit_function_postamble();
-    a.ret();
+        a.test(RET, RET);
+
+        a.ret();
+    }
 }
 
 void BeamModuleAssembler::emit_is_eq(const ArgVal &Fail,
@@ -1213,7 +1289,7 @@ void BeamModuleAssembler::emit_is_eq(const ArgVal &Fail,
     a.cmp(ARG3, imm(TAG_PRIMARY_IMMED1));
     a.je(fail);
 
-    aligned_call(ga->get_arith_eq_shared());
+    safe_fragment_call(ga->get_arith_eq_shared());
     a.jne(fail);
     a.bind(next);
 }
@@ -1236,7 +1312,7 @@ void BeamModuleAssembler::emit_is_ne(const ArgVal &Fail,
     a.cmp(ARG3, imm(TAG_PRIMARY_IMMED1));
     a.je(next);
 
-    aligned_call(ga->get_arith_eq_shared());
+    safe_fragment_call(ga->get_arith_eq_shared());
     a.je(fail);
     a.bind(next);
 }
@@ -1246,9 +1322,6 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 
     atom_compare = a.newLabel();
     generic_compare = a.newLabel();
-
-    /* Align stack */
-    emit_function_preamble();
 
     /* Are both floats?
      *
@@ -1281,43 +1354,47 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     a.setae(x86::al);
     a.dec(x86::al);
 
-    /* Realign stack and return */
-    emit_function_postamble();
     a.ret();
 
     a.bind(atom_compare);
+    {
+        /* Are both atoms? */
+        a.mov(ARG3, ARG1);
+        a.mov(ARG5, ARG2);
+        a.and_(ARG3, imm(_TAG_IMMED2_MASK));
+        a.and_(ARG5, imm(_TAG_IMMED2_MASK));
+        a.sub(ARG3, imm(_TAG_IMMED2_ATOM));
+        a.sub(ARG5, imm(_TAG_IMMED2_ATOM));
+        a.or_(ARG3, ARG5);
+        a.jne(generic_compare);
 
-    /* Are both atoms? */
-    a.mov(ARG3, ARG1);
-    a.mov(ARG5, ARG2);
-    a.and_(ARG3, imm(_TAG_IMMED2_MASK));
-    a.and_(ARG5, imm(_TAG_IMMED2_MASK));
-    a.sub(ARG3, imm(_TAG_IMMED2_ATOM));
-    a.sub(ARG5, imm(_TAG_IMMED2_ATOM));
-    a.or_(ARG3, ARG5);
-    a.jne(generic_compare);
+        emit_enter_runtime();
 
-    abs_call<2>(erts_cmp_atoms);
+        runtime_call<2>(erts_cmp_atoms);
 
-    /* !! erts_cmp_atoms returns int, not Sint !! */
-    a.test(RETd, RETd);
+        emit_leave_runtime();
 
-    /* Realign stack and return */
-    emit_function_postamble();
-    a.ret();
+        /* !! erts_cmp_atoms returns int, not Sint !! */
+        a.test(RETd, RETd);
+
+        a.ret();
+    }
 
     a.bind(generic_compare);
+    {
+        emit_enter_runtime();
 
-    comment("erts_cmp_compound(X, Y, 0, 0);");
-    a.sub(ARG3, ARG3);
-    a.sub(ARG4, ARG4);
-    abs_call<4>(erts_cmp_compound);
+        comment("erts_cmp_compound(X, Y, 0, 0);");
+        a.sub(ARG3, ARG3);
+        a.sub(ARG4, ARG4);
+        runtime_call<4>(erts_cmp_compound);
 
-    a.test(RET, RET);
+        emit_leave_runtime();
 
-    /* Realign stack and return */
-    emit_function_postamble();
-    a.ret();
+        a.test(RET, RET);
+
+        a.ret();
+    }
 }
 
 void BeamModuleAssembler::emit_arith_compare(x86::Inst::Id succJmpOp,
@@ -1356,9 +1433,10 @@ void BeamModuleAssembler::emit_arith_compare(x86::Inst::Id succJmpOp,
     a.jmp(fail);
 
     a.bind(generic);
-
-    aligned_call(ga->get_arith_compare_shared());
-    a.emit(failJmpOp, fail);
+    {
+        safe_fragment_call(ga->get_arith_compare_shared());
+        a.emit(failJmpOp, fail);
+    }
 }
 
 void BeamModuleAssembler::emit_is_lt(const ArgVal &Fail,
@@ -1448,9 +1526,6 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     Label not_throw = a.newLabel(), not_error = a.newLabel(),
           after_gc = a.newLabel();
 
-    /* Align stack */
-    emit_function_preamble();
-
     /* Load thrown value / reason into ARG2 for add_stacktrace */
     a.mov(ARG2, getXRef(2));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), imm(NIL));
@@ -1461,8 +1536,6 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     /* Thrown value, return it in x0 */
     a.mov(getXRef(0), ARG2);
 
-    /* Realign stack and return */
-    emit_function_postamble();
     a.ret();
 
     a.bind(not_throw);
@@ -1471,12 +1544,14 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
         a.jne(not_error);
 
         /* This is an error, attach a stacktrace to the reason. */
-        emit_swapout();
+        emit_enter_runtime<Update::eStack | Update::eHeap>();
+
         a.mov(ARG1, c_p);
         /* ARG2 set above. */
         a.mov(ARG3, getXRef(3));
-        abs_call<3>(add_stacktrace);
-        emit_swapin();
+        runtime_call<3>(add_stacktrace);
+
+        emit_leave_runtime<Update::eStack | Update::eHeap>();
 
         /* not_error assumes stacktrace/reason is in ARG2 */
         a.mov(ARG2, RET);
@@ -1484,14 +1559,16 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
 
     a.bind(not_error);
     {
-        a.lea(ARG3, x86::qword_ptr(HTOP, 3 * sizeof(Eterm)));
+        const int32_t bytes_needed = (3 + S_RESERVED) * sizeof(Eterm);
+
+        a.lea(ARG3, x86::qword_ptr(HTOP, bytes_needed));
         a.cmp(ARG3, E);
         a.jbe(after_gc);
 
         /* Preserve stacktrace / reason */
         a.mov(getXRef(0), ARG2);
         mov_imm(ARG4, 1);
-        a.call(labels[garbage_collect]);
+        aligned_call(labels[garbage_collect]);
         a.mov(ARG2, getXRef(0));
 
         a.bind(after_gc);
@@ -1506,8 +1583,6 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
         a.mov(getXRef(0), RET);
     }
 
-    /* Realign stack and return */
-    emit_function_postamble();
     a.ret();
 }
 
@@ -1517,8 +1592,8 @@ void BeamModuleAssembler::emit_catch_end(const ArgVal &Y) {
     emit_try_end(Y);
 
     a.cmp(getXRef(0), imm(THE_NON_VALUE));
-    a.jne(next);
-    aligned_call(ga->get_catch_end_shared());
+    a.short_().jne(next);
+    fragment_call(ga->get_catch_end_shared());
     a.bind(next);
 }
 
@@ -1555,11 +1630,16 @@ void BeamModuleAssembler::emit_i_raise() {
     a.align(kAlignCode, 8);
     a.bind(entry);
 
+    emit_enter_runtime();
+
+    /* This is an error, attach a stacktrace to the reason. */
     a.mov(ARG1, getXRef(2));
     a.mov(ARG2, getXRef(1));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), ARG2);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, ftrace)), ARG1);
-    abs_call<1>(get_trace_from_exc);
+    runtime_call<1>(get_trace_from_exc);
+
+    emit_leave_runtime();
 
     a.test(RET, RET);
     a.jne(primary_exception);
@@ -1580,12 +1660,13 @@ void BeamModuleAssembler::emit_i_raise() {
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {
-    emit_swapout();
+    emit_enter_runtime<Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, getXRef(0));
-    abs_call<2>(build_stacktrace);
-    emit_swapin();
+    runtime_call<2>(build_stacktrace);
+
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
 
     a.mov(getXRef(0), RET);
 }
@@ -1596,11 +1677,16 @@ void BeamModuleAssembler::emit_raw_raise() {
     a.align(kAlignCode, 8);
     a.bind(entry);
 
+    emit_enter_runtime();
+
     a.mov(ARG1, getXRef(2));
     a.mov(ARG2, getXRef(0));
     a.mov(ARG3, getXRef(1));
     a.mov(ARG4, c_p);
-    abs_call<4>(raw_raise);
+    runtime_call<4>(raw_raise);
+
+    emit_leave_runtime();
+
     a.test(RET, RET);
     a.jne(next);
     emit_handle_error(entry, (ErtsCodeMFA *)nullptr);
@@ -1611,17 +1697,13 @@ void BeamModuleAssembler::emit_raw_raise() {
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
     int mfa_offset = -(int)sizeof(ErtsCodeMFA) - BEAM_ASM_FUNC_PROLOGUE_SIZE;
 
-    emit_function_preamble();
-
     /* Yield address is in ARG3. */
     a.lea(ARG2, x86::qword_ptr(ARG3, mfa_offset));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG2);
     a.mov(ARG2, x86::qword_ptr(ARG2, offsetof(ErtsCodeMFA, arity)));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), ARG2);
 
-    /* Re-align the stack, and skip the return address. */
-    emit_function_postamble();
-    a.add(x86::rsp, imm(sizeof(UWord)));
+    emit_discard_cp();
 
     a.jmp(labels[context_switch_simplified]);
 }
@@ -1642,22 +1724,34 @@ void BeamModuleAssembler::emit_i_test_yield() {
 }
 
 void BeamModuleAssembler::emit_i_yield() {
-    Label next = a.newLabel();
     a.mov(getXRef(0), imm(am_true));
+#ifdef NATIVE_ERLANG_STACK
+    fragment_call(ga->get_dispatch_return());
+#else
+    Label next = a.newLabel();
+
     a.lea(ARG3, x86::qword_ptr(next));
     abs_jmp(ga->get_dispatch_return());
+
     a.align(kAlignCode, 8);
     a.bind(next);
+#endif
 }
 
 void BeamModuleAssembler::emit_i_perf_counter() {
     Label next = a.newLabel(), small = a.newLabel();
-    /* Load the function pointer used by erts_sys_perf_counter */
+
+    emit_enter_runtime();
+
 #ifdef WIN32
-    abs_call<0>(erts_sys_time_data__.r.o.sys_hrtime);
+    /* Call the function pointer used by erts_sys_perf_counter */
+    runtime_call<0>(erts_sys_time_data__.r.o.sys_hrtime);
 #else
-    abs_call<0>(erts_sys_time_data__.r.o.perf_counter);
+    runtime_call<0>(erts_sys_time_data__.r.o.perf_counter);
 #endif
+
+    emit_leave_runtime();
+
     a.mov(ARG1, RET);
     a.sar(ARG1, imm(SMALL_BITS - 1));
     a.add(ARG1, 1);
