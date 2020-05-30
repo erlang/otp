@@ -838,21 +838,36 @@ do_terminate(Child, SupName) when is_pid(Child#child.pid) ->
           when (not (?is_permanent(Child))) andalso
                (element(1,Child#child.mfargs) == ssh_server_channel
                 orelse
-                element(1,Child#child.mfargs) == ssh_connection_handler) ->
+                element(1,Child#child.mfargs) == ssh_connection_handler
+                orelse
+                element(1,Child#child.mfargs) == util_spawn_supervisor) ->
             %% FIXME: Remove when OTP23?. Now to see what other issues we have.
             ok;
         {error,{shutdown,"Connection closed"}}
           when (not (?is_permanent(Child))) andalso
                (element(1,Child#child.mfargs) == ssh_server_channel
                 orelse
-                element(1,Child#child.mfargs) == ssh_connection_handler) ->
+                element(1,Child#child.mfargs) == ssh_connection_handler
+                orelse
+                element(1,Child#child.mfargs) == util_spawn_supervisor) ->
             %% FIXME: Remove when OTP23?. Now to see what other issues we have.
             ok;
         {error,{shutdown,dropped}}
           when (not (?is_permanent(Child))) andalso
                (element(1,Child#child.mfargs) == ssh_server_channel
                 orelse
-                element(1,Child#child.mfargs) == ssh_connection_handler) ->
+                element(1,Child#child.mfargs) == ssh_connection_handler
+                orelse
+                element(1,Child#child.mfargs) == util_spawn_supervisor) ->
+            %% FIXME: Remove when OTP23?. Now to see what other issues we have.
+            ok;
+        {error,shutdown}
+          when (not (?is_permanent(Child))) andalso
+               (element(1,Child#child.mfargs) == ssh_server_channel
+                orelse
+                element(1,Child#child.mfargs) == ssh_connection_handler
+                orelse
+                element(1,Child#child.mfargs) == util_spawn_supervisor) ->
             %% FIXME: Remove when OTP23?. Now to see what other issues we have.
             ok;
         {error, OtherReason} ->
