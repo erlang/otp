@@ -451,41 +451,52 @@ cmp_memory(MWs, Str) ->
     garbage_collect(),
     erts_debug:set_internal_state(wait, deallocations),
 
-    EDM = erts_debug:get_internal_state(memory),
-    EM = erlang:memory(),
+    retry(3, fun() ->
+                     EDM = erts_debug:get_internal_state(memory),
+                     EM = erlang:memory(),
 
-    io:format("~s:~n"
-	      "erlang:memory() = ~p~n"
-	      "crash dump memory = ~p~n",
-	      [Str, EM, EDM]),
+                     io:format("~s:~n"
+                               "erlang:memory() = ~p~n"
+                               "crash dump memory = ~p~n",
+                               [Str, EM, EDM]),
 
-    check_sane_memory(EM),
-    check_sane_memory(EDM),
+                     check_sane_memory(EM),
+                     check_sane_memory(EDM),
 
-    %% We expect these to always give us exactly the same result
+                     %% We expect these to always give us exactly the same result
 
-    cmp_memory(atom, EM, EDM, 1),
-    cmp_memory(atom_used, EM, EDM, 1),
-    cmp_memory(binary, EM, EDM, 1),
-    cmp_memory(code, EM, EDM, 1),
-    cmp_memory(ets, EM, EDM, 1),
+                     cmp_memory(atom, EM, EDM, 1),
+                     cmp_memory(atom_used, EM, EDM, 1),
+                     cmp_memory(binary, EM, EDM, 1),
+                     cmp_memory(code, EM, EDM, 1),
+                     cmp_memory(ets, EM, EDM, 1),
 
-    %% Total, processes, processes_used, and system will seldom
-    %% give us exactly the same result since the two readings
-    %% aren't taken atomically.
-    %%
-    %% Torerance is scaled according to the number of schedulers
-    %% to match spawn_mem_workers.
+                     %% Total, processes, processes_used, and system will seldom
+                     %% give us exactly the same result since the two readings
+                     %% aren't taken atomically.
+                     %%
+                     %% Torerance is scaled according to the number of schedulers
+                     %% to match spawn_mem_workers.
 
-    Tolerance = 1.05 + 0.01 * erlang:system_info(schedulers_online),
+                     Tolerance = 1.05 + 0.01 * erlang:system_info(schedulers_online),
 
-    cmp_memory(total, EM, EDM, Tolerance),
-    cmp_memory(processes, EM, EDM, Tolerance),
-    cmp_memory(processes_used, EM, EDM, Tolerance),
-    cmp_memory(system, EM, EDM, Tolerance),
+                     cmp_memory(total, EM, EDM, Tolerance),
+                     cmp_memory(processes, EM, EDM, Tolerance),
+                     cmp_memory(processes_used, EM, EDM, Tolerance),
+                     cmp_memory(system, EM, EDM, Tolerance)
+             end),
 
     ok.
     
+retry(N, Fun) ->
+    try Fun()
+    catch
+        error:Error:Stack when N > 1 ->
+            io:format("Test failed: ~p\nat: ~p\nRetry max ~p more times\n",
+                      [Error, Stack, N-1]),
+            retry(N-1, Fun)
+    end.
+
 mapn(_Fun, 0) ->
     [];
 mapn(Fun, N) ->
