@@ -2081,6 +2081,8 @@ fill_sendq_loop(Server, Client, Reader) ->
                     end;
 
                 {Server, SErrors} ->
+                    ?P("UNEXPECTED SERVER ERROR(S): "
+                       "~n   ~p", [SErrors]),
                     ct:fail([{server, SErrors}, {reader, []}]);
 
                 {Reader, [{error,closed}] = RErrors} ->
@@ -2096,6 +2098,8 @@ fill_sendq_loop(Server, Client, Reader) ->
                     end;
 
                 {Reader, RErrors} ->
+                    ?P("UNEXPECTED READER ERROR(S): "
+                       "~n   ~p", [RErrors]),
                     ct:fail([{server, []}, {reader, RErrors}])
 
             after 3000 ->
