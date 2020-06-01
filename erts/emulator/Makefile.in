@@ -29,13 +29,14 @@ HIPE_ENABLED=@HIPE_ENABLED@
 DTRACE_ENABLED=@DTRACE_ENABLED@
 DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
 USE_VM_PROBES=@USE_VM_PROBES@
-FPE=@FPE@
 LIBS = @LIBS@
 Z_LIB=@Z_LIB@
 CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
 OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab \
 beam/ops.tab \
+beam/predicates.tab \
+beam/generators.tab \
 beam/macros.tab \
 beam/instrs.tab \
 beam/arith_instrs.tab \
@@ -45,7 +46,7 @@ beam/float_instrs.tab \
 beam/map_instrs.tab \
 beam/msg_instrs.tab \
 beam/select_instrs.tab \
-beam/trace_instrs.tab
+beam/trace_instrs.tab \
 
 DEBUG_CFLAGS = @DEBUG_CFLAGS@
 CONFIGURE_CFLAGS = @CFLAGS@
@@ -562,8 +563,7 @@ $(TTF_DIR)/beam_warm.h \
 $(TTF_DIR)/beam_hot.h \
 $(TTF_DIR)/beam_opcodes.c \
 $(TTF_DIR)/beam_opcodes.h \
-$(TTF_DIR)/beam_pred_funcs.h \
-$(TTF_DIR)/beam_tr_funcs.h \
+$(TTF_DIR)/beam_transform.c \
 	: $(TTF_DIR)/OPCODES-GENERATED
 $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 	$(gen_verbose)LANG=C $(PERL) utils/beam_makeops \
@@ -571,7 +571,6 @@ $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 		-code-model @CODE_MODEL@ \
 		-outdir $(TTF_DIR) \
 		-DUSE_VM_PROBES=$(if $(USE_VM_PROBES),1,0) \
-		-DNO_FPE_SIGNALS=$(if $(filter unreliable,$(FPE)),1,0) \
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
 
@@ -864,6 +863,9 @@ PROFILE_OBJS = $(OBJDIR)/beam_emu.o	$(OBJDIR)/erl_process.o
 
 EMU_OBJS = \
 	$(OBJDIR)/beam_opcodes.o \
+	$(OBJDIR)/beam_transform.o \
+	$(OBJDIR)/beam_transform_engine.o \
+	$(OBJDIR)/beam_transform_helpers.o \
 	$(OBJDIR)/beam_load.o		$(OBJDIR)/beam_bif_load.o \
 	$(OBJDIR)/beam_debug.o		$(OBJDIR)/beam_bp.o \
 	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \

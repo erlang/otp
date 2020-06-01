@@ -76,13 +76,3 @@ i_fnegate(Src, Dst) {
     $Dst = -$Src;
     ERTS_NO_FPE_ERROR(c_p, $Dst, $BADARITH0());
 }
-
-%unless NO_FPE_SIGNALS
-fclearerror() {
-    ERTS_FP_CHECK_INIT(c_p);
-}
-
-i_fcheckerror() {
-    ERTS_FP_ERROR(c_p, freg[0].fd, $BADARITH0());
-}
-%endif

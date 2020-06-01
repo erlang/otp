@@ -97,6 +97,7 @@ my @obsolete;
 # Instructions and micro instructions implemented in C.
 my %c_code;                     # C code block, location, arguments.
 my %c_code_used;                # Used or not.
+my %c_param_types;              # Types for predicates and generators.
 
 # Definitions for instructions combined from micro instructions.
 my %combined_instrs;
@@ -108,7 +109,6 @@ my @unnumbered_generic;
 my %unnumbered;
 
 my %is_transformed;
-
 
 #
 # Pre-processor.
@@ -597,17 +597,7 @@ sub emulator_output {
     $name = "$outdir/beam_opcodes.c";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
-    print "#ifdef HAVE_CONFIG_H\n";
-    print "#  include \"config.h\"\n";
-    print "#endif\n\n";
-    print '#include "sys.h"', "\n";
-    print '#include "erl_vm.h"', "\n";
-    print '#include "export.h"', "\n";
-    print '#include "erl_process.h"', "\n";
-    print '#include "bif.h"', "\n";
-    print '#include "erl_atom_table.h"', "\n";
-    print '#include "beam_load.h"', "\n";
-    print "\n";
+    include_files();
 
     print "const char tag_to_letter[] = {\n  ";
     for ($i = 0; $i < length($genop_types); $i++) {
@@ -864,15 +854,19 @@ sub emulator_output {
     # Extension of transform engine.
     #
 
-    $name = "$outdir/beam_tr_funcs.h";
+    $name = "$outdir/beam_transform.c";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
-    tr_gen_call(@call_table);
-
-    $name = "$outdir/beam_pred_funcs.h";
-    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    comment('C');
-    tr_gen_call(@pred_table);
+    include_files();
+    print '#include "erl_term.h"', "\n";
+    print '#include "erl_map.h"', "\n";
+    print '#include "big.h"', "\n";
+    print '#include "beam_transform_helpers.h"', "\n";
+    print "\n";
+    gen_tr_code('pred.');
+    gen_tr_func('int', 'erts_beam_eval_predicate', @pred_table);
+    gen_tr_code('gen.');
+    gen_tr_func('GenOp*', 'erts_beam_execute_transform', @call_table);
 
     #
     # Implementation of operations for emulator.
@@ -2469,10 +2463,12 @@ sub tr_gen_from {
 	    my $var;
 	    my @args;
             my @vars;
+            my @param_types;
 
 	    foreach $var (@ops) {
                 if ($var =~ /^-?\d+$/) {
                     push @args, $var;
+                    push @param_types, 'Uint';
                     next;
                 }
 		error($where, "'$var' unbound")
@@ -2480,11 +2476,16 @@ sub tr_gen_from {
                 push @vars, $var;
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "var[$var{$var}]");
+                    push @param_types, 'GenOpArg';
 		} else {
 		    push(@args, "rest_args");
+                    push @param_types, 'GenOpArg*';
 		}
 	    }
-	    my $pi = tr_next_index(\@{pred_table}, \%pred_table, $name, @args);
+            my $c_name = "pred.$name";
+            $c_param_types{$c_name} = \@param_types;
+            $c_code_used{$c_name} = 1;
+	    my $pi = next_tr_index(\@{pred_table}, \%pred_table, $name, @args);
             my $op = make_op("$name()", 'pred', $pi);
             my @slots = grep(/^\d+/, map { $var{$_} } @vars);
 	    op_slot_usage($op, @slots);
@@ -2654,18 +2655,24 @@ sub tr_gen_to {
 	    $name = $1;
 	    my $var;
 	    my(@args);
+            my @param_types;
 
 	    foreach $var (@ops) {
 		error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
 		if ($var_type{$var} eq 'scalar') {
-		    push(@args, "var[$var{$var}]");
+		    push @args, "var[$var{$var}]";
+                    push @param_types, 'GenOpArg';
 		} else {
-		    push(@args, "rest_args");
+		    push @args, "rest_args";
+                    push @param_types, 'GenOpArg*';
 		}
 	    }
+            my $c_name = "gen.$name";
+            $c_param_types{$c_name} = \@param_types;
+            $c_code_used{$c_name} = 1;
 	    pop(@code);	# Get rid of 'commit' instruction
-	    my $index = tr_next_index(\@call_table, \%call_table,
+	    my $index = next_tr_index(\@call_table, \%call_table,
 				      $name, @args);
 	    my $op = make_op("$name()", 'call_end', $index);
 	    my @slots = grep(/^\d+/, map { $var{$_} } @ops);
@@ -3027,6 +3034,39 @@ sub tr_remove_unused {
     }
 }
 
+sub gen_tr_code {
+    my($prefix) = @_;
+
+    foreach my $name (sort keys %c_code) {
+        if (index($name, $prefix) == 0) {
+            my $func_name = $name;
+            $func_name =~ s/^$prefix//;
+            my($block,$where,@params) = @{$c_code{$name}};
+            my %bindings;
+            $block = eval { expand_all($block, \%bindings) };
+            unless (defined $block) {
+                warn $@;
+                error("... from the body of $name at $where");
+            }
+            my $head = 'static ';
+            $head .= $prefix eq 'pred.' ? 'int' : 'GenOp*';
+            $head .= " $func_name(LoaderState* S";
+            my(@param_types);
+            if (defined $c_param_types{$name}) {
+                @param_types = @{$c_param_types{$name}};
+            } else {
+                @param_types = ('GenOpArg') x @params;
+            }
+            for (my $i = 0; $i < @params; $i++) {
+                $head .= ", $param_types[$i] $params[$i]";
+            }
+            $head .= ") {\n";
+            my $code = $head . "$block;\n}\n";
+            print_indented_code($code);
+        }
+    }
+}
+
 sub code_len {
     my($sum) = 0;
     my($ref);
@@ -3063,9 +3103,9 @@ sub starred_comment {
     "\n/*" . join("\n * ", '', @_) . "\n */\n\n";
 }
 
-sub tr_next_index {
+sub next_tr_index {
     my($lref,$href,$name,@args) = @_;
-    my $code = "RVAL = $name(" . join(', ', 'st', @args) . "); break;\n";
+    my $code = "return $name(" . join(', ', 'st', @args) . ");\n";
     my $index;
 
     if (defined $$href{$code}) {
@@ -3078,11 +3118,29 @@ sub tr_next_index {
     $index;
 }
 
-sub tr_gen_call {
-    my(@call_table) = @_;
-    my($i);
+sub gen_tr_func {
+    my($type,$name,@call_table) = @_;
 
-    for ($i = 0; $i < @call_table; $i++) {
-	print "case $i: $call_table[$i]";
+    print "$type $name(unsigned int op, LoaderState* st, GenOpArg var[], GenOpArg* rest_args) {\n";
+    print "  switch (op) {\n";
+    for (my $i = 0; $i < @call_table; $i++) {
+	print "    case $i: $call_table[$i]";
     }
+    print qq[    default: erts_exit(ERTS_ABORT_EXIT, "$name: invalid op %d\\n", op);];
+    print "  }\n";
+    print "}\n\n";
+}
+
+sub include_files() {
+    print "#ifdef HAVE_CONFIG_H\n";
+    print "#  include \"config.h\"\n";
+    print "#endif\n\n";
+    print '#include "sys.h"', "\n";
+    print '#include "erl_vm.h"', "\n";
+    print '#include "export.h"', "\n";
+    print '#include "erl_process.h"', "\n";
+    print '#include "bif.h"', "\n";
+    print '#include "erl_atom_table.h"', "\n";
+    print '#include "beam_load.h"', "\n";
+    print "\n";
 }
