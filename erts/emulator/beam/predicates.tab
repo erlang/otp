@@ -23,7 +23,6 @@ pred.is_offset(X, Y, Offset) {
     return X.type == Y.type && X.val + Offset == Y.val;
 }
 
-
 pred.succ(X, Y) {
     return X.type == Y.type && X.val + 1 == Y.val;
 }
@@ -129,7 +128,7 @@ pred.fixed_size_values(Size, Rest) {
         case TAG_v:
             break;
         case TAG_q:
-            return is_float(S->literals[Rest[i].val].term);
+            return is_float(beamfile_get_literal(&S->beam, Rest[i].val));
         default:
             return 0;
         }
@@ -157,30 +156,22 @@ pred.mixed_types(Size, Rest) {
     return 0;
 }
 
-// Test whether register Reg is killed by a make_fun instruction that
-// creates the fun given by index idx.
-pred.is_killed_by_make_fun(Reg, idx) {
-    Uint num_free;
-
-    if (idx.val >= S->num_lambdas) {
-        /* Invalid index. Ignore the error for now. */
-        return 0;
-    } else {
-        num_free = S->lambdas[idx.val].num_free;
-        return Reg.type == TAG_x && num_free <= Reg.val;
-    }
-}
-
 // Test whether Bif is "heavy" and should always go through its export entry.
 pred.is_heavy_bif(Bif) {
-    Export *ep;
+    BeamFile_ImportEntry *import;
+    Export *export;
 
-    if (Bif.type != TAG_u || Bif.val >= S->num_imports) {
+    if (Bif.type != TAG_u || Bif.val >= S->beam.imports.count) {
         return 0;
     }
 
-    if ((ep = S->import[Bif.val].bif) != 0) {
-        return bif_table[ep->bif_number].kind == BIF_KIND_HEAVY;
+    import = &S->beam.imports.entries[Bif.val];
+    export = erts_active_export_entry(import->module,
+                                      import->function,
+                                      import->arity);
+
+    if (export->bif_number != -1) {
+        return bif_table[export->bif_number].kind == BIF_KIND_HEAVY;
     }
 
     return 0;
@@ -191,7 +182,7 @@ pred.literal_is_map(Lit) {
     Eterm term;
 
     ASSERT(Lit.type == TAG_q);
-    term = S->literals[Lit.val].term;
+    term = beamfile_get_literal(&S->beam, Lit.val);
     return is_map(term);
 }
 
@@ -226,7 +217,7 @@ pred.is_empty_map(Lit) {
     if (Lit.type != TAG_q) {
         return 0;
     }
-    term = S->literals[Lit.val].term;
+    term = beamfile_get_literal(&S->beam, Lit.val);
     return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
 }
 

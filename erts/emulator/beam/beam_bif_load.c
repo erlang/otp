@@ -49,6 +49,8 @@
 #  include "hipe_stack.h"
 #endif
 
+#include "beam_file.h"
+
 static struct {
     Eterm module;
     erts_mtx_t mtx;
@@ -124,6 +126,103 @@ BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
            erts_is_module_native(modp->old.code_hdr)) ?
 		am_true : am_false;
     erts_runlock_old_code(code_ix);
+    return res;
+}
+
+static int read_iff_list(Eterm iff_list, Uint *res) {
+    Uint iff;
+    int i;
+
+    iff = 0;
+    for (i = 0; i < 4; i++) {
+        Eterm *cell;
+        Eterm octet;
+
+        if (is_not_list(iff_list)) {
+            return 0;
+        }
+
+        cell = list_val(iff_list);
+
+        octet = CAR(cell);
+        iff_list = CDR(cell);
+
+        if (!is_byte(octet)) {
+            return 0;
+        }
+
+        iff = iff << 8 | unsigned_val(octet);
+    }
+
+    *res = iff;
+
+    return is_nil(iff_list);
+}
+
+BIF_RETTYPE
+code_get_chunk_2(BIF_ALIST_2)
+{
+    Uint search_iff;
+    IFF_Chunk chunk;
+    IFF_File iff;
+
+    byte* temp_alloc;
+    byte* start;
+    Eterm Bin;
+    Eterm res;
+
+    res = am_undefined;
+    temp_alloc = NULL;
+    Bin = BIF_ARG_1;
+
+    if (!read_iff_list(BIF_ARG_2, &search_iff)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if ((start = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (iff_init(start, binary_size(Bin), &iff)) {
+        if (iff_read_chunk(&iff, search_iff, &chunk) && chunk.size > 0) {
+            res = new_binary(BIF_P, (byte*)chunk.data, chunk.size);
+        }
+
+        iff_dtor(&iff);
+    }
+
+    erts_free_aligned_binary_bytes(temp_alloc);
+
+    return res;
+}
+
+/* Calculate the MD5 for a module. */
+BIF_RETTYPE
+code_module_md5_1(BIF_ALIST_1)
+{
+    byte* temp_alloc;
+    byte* bytes;
+
+    BeamFile beam;
+    Eterm Bin;
+    Eterm res;
+
+    temp_alloc = NULL;
+    Bin = BIF_ARG_1;
+
+    if ((bytes = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (beamfile_read(bytes, binary_size(Bin), &beam) == BEAMFILE_READ_SUCCESS) {
+        res = new_binary(BIF_P, beam.checksum, sizeof(beam.checksum));
+        beamfile_free(&beam);
+    } else {
+        res = am_undefined;
+    }
+
+    erts_free_aligned_binary_bytes(temp_alloc);
+
     return res;
 }
 

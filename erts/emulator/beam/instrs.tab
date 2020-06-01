@@ -1176,3 +1176,8 @@ raw_raise() {
         x(0) = am_badarg;
     }
 }
+
+// Psuedo-instruction for signalling lambda load errors. Never actually runs.
+i_lambda_error(Dummy) {
+
+}

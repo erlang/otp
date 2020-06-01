@@ -159,6 +159,7 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'I' => 1,	# untagged integer (32 bits) -- can be packed
                 'W' => 1,       # untagged integer/pointer (one word)
 		'b' => 1,	# pointer to bif
+		'F' => 1,	# pointer to function entry
 		'A' => 1,	# arity value
 		'P' => 1,	# byte offset into tuple or stack
 		'Q' => 1,	# like 'P', but packable
@@ -233,6 +234,7 @@ sub define_type_bit {
     define_type_bit('A', $type_bit{'u'});
     define_type_bit('L', $type_bit{'u'});
     define_type_bit('b', $type_bit{'u'});
+    define_type_bit('F', $type_bit{'u'});
     define_type_bit('e', $type_bit{'u'});
     define_type_bit('P', $type_bit{'u'});
     define_type_bit('Q', $type_bit{'u'});
@@ -866,7 +868,7 @@ sub emulator_output {
     gen_tr_code('pred.');
     gen_tr_func('int', 'erts_beam_eval_predicate', @pred_table);
     gen_tr_code('gen.');
-    gen_tr_func('GenOp*', 'erts_beam_execute_transform', @call_table);
+    gen_tr_func('BeamOp*', 'erts_beam_execute_transform', @call_table);
 
     #
     # Implementation of operations for emulator.
@@ -2476,10 +2478,10 @@ sub tr_gen_from {
                 push @vars, $var;
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "var[$var{$var}]");
-                    push @param_types, 'GenOpArg';
+                    push @param_types, 'BeamOpArg';
 		} else {
 		    push(@args, "rest_args");
-                    push @param_types, 'GenOpArg*';
+                    push @param_types, 'BeamOpArg*';
 		}
 	    }
             my $c_name = "pred.$name";
@@ -2662,10 +2664,10 @@ sub tr_gen_to {
 		    unless defined $var{$var};
 		if ($var_type{$var} eq 'scalar') {
 		    push @args, "var[$var{$var}]";
-                    push @param_types, 'GenOpArg';
+                    push @param_types, 'BeamOpArg';
 		} else {
 		    push @args, "rest_args";
-                    push @param_types, 'GenOpArg*';
+                    push @param_types, 'BeamOpArg*';
 		}
 	    }
             my $c_name = "gen.$name";
@@ -3049,13 +3051,13 @@ sub gen_tr_code {
                 error("... from the body of $name at $where");
             }
             my $head = 'static ';
-            $head .= $prefix eq 'pred.' ? 'int' : 'GenOp*';
+            $head .= $prefix eq 'pred.' ? 'int' : 'BeamOp*';
             $head .= " $func_name(LoaderState* S";
             my(@param_types);
             if (defined $c_param_types{$name}) {
                 @param_types = @{$c_param_types{$name}};
             } else {
-                @param_types = ('GenOpArg') x @params;
+                @param_types = ('BeamOpArg') x @params;
             }
             for (my $i = 0; $i < @params; $i++) {
                 $head .= ", $param_types[$i] $params[$i]";
@@ -3121,7 +3123,7 @@ sub next_tr_index {
 sub gen_tr_func {
     my($type,$name,@call_table) = @_;
 
-    print "$type $name(unsigned int op, LoaderState* st, GenOpArg var[], GenOpArg* rest_args) {\n";
+    print "$type $name(unsigned int op, LoaderState* st, BeamOpArg var[], BeamOpArg* rest_args) {\n";
     print "  switch (op) {\n";
     for (my $i = 0; $i < @call_table; $i++) {
 	print "    case $i: $call_table[$i]";

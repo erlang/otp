@@ -1117,19 +1117,13 @@ i_call_fun_last t Q
 
 make_fun2 OldIndex=u => make_fun2(OldIndex)
 
-move_fun/2
-move_fun Fun X0 | move X0 Dst | move Src X0 => move Fun Dst | move Src X0
-move_fun Fun X0 | move A B | move X0 Dst | move Src X0 | \
-  independent_moves(Fun, X0, A, B) | distinct(Dst, A) => \
-    move Fun Dst | move A B | move Src X0
-move_fun Fun X0 | move X0 Dst | make_fun2 OldIndex | \
-  is_killed_by_make_fun(X0, OldIndex)=> \
-    move Fun Dst | make_fun2 OldIndex
-
-move_fun Fun Dst => move Fun Dst
-
 %cold
-i_make_fun W t
+
+i_make_fun F t
+
+# Psuedo-instruction for signalling lambda load errors. Never actually runs.
+i_lambda_error t
+
 %hot
 
 is_function f? xy

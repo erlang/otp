@@ -27,13 +27,13 @@
 #include "erl_map.h"
 #include "beam_transform_helpers.h"
 
-typedef struct SortGenOpArg {
+typedef struct SortBeamOpArg {
     Eterm term;                 /* Term to use for comparing  */
-    GenOpArg arg;               /* Original data */
-} SortGenOpArg;
+    BeamOpArg arg;               /* Original data */
+} SortBeamOpArg;
 
-static int oparg_compare(GenOpArg* a, GenOpArg* b);
-static int oparg_term_compare(SortGenOpArg* a, SortGenOpArg* b);
+static int oparg_compare(BeamOpArg* a, BeamOpArg* b);
+static int oparg_term_compare(SortBeamOpArg* a, SortBeamOpArg* b);
 
 int
 beam_load_safe_mul(UWord a, UWord b, UWord* resp)
@@ -49,9 +49,9 @@ beam_load_safe_mul(UWord a, UWord b, UWord* resp)
 }
 
 int
-beam_load_map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
+beam_load_map_key_sort(LoaderState* stp, BeamOpArg Size, BeamOpArg* Rest)
 {
-    SortGenOpArg* t;
+    SortBeamOpArg* t;
     unsigned size = Size.val;
     unsigned i;
 
@@ -60,7 +60,7 @@ beam_load_map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
     }
 
 
-    t = (SortGenOpArg *) erts_alloc(ERTS_ALC_T_TMP, size*sizeof(SortGenOpArg));
+    t = (SortBeamOpArg *) erts_alloc(ERTS_ALC_T_TMP, size*sizeof(SortBeamOpArg));
 
     /*
      * Copy original data and sort keys to a temporary array.
@@ -79,7 +79,7 @@ beam_load_map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
 	    t[i].term = NIL;
 	    break;
 	case TAG_q:
-	    t[i].term = stp->literals[Rest[i].val].term;
+	    t[i].term = beamfile_get_literal(&stp->beam, Rest[i].val);
 	    break;
 	default:
 	    /*
@@ -98,7 +98,7 @@ beam_load_map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
     /*
      * Sort the temporary array.
      */
-    qsort((void *) t, size / 2, 2 * sizeof(SortGenOpArg),
+    qsort((void *) t, size / 2, 2 * sizeof(SortBeamOpArg),
 	  (int (*)(const void *, const void *)) oparg_term_compare);
 
     /*
@@ -113,7 +113,7 @@ beam_load_map_key_sort(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
 }
 
 Eterm
-beam_load_get_literal(LoaderState* stp, GenOpArg Key)
+beam_load_get_term(LoaderState* stp, BeamOpArg Key)
 {
     switch (Key.type) {
     case TAG_a:
@@ -123,21 +123,21 @@ beam_load_get_literal(LoaderState* stp, GenOpArg Key)
     case TAG_n:
         return NIL;
     case TAG_q:
-        return stp->literals[Key.val].term;
+        return beamfile_get_literal(&stp->beam, Key.val);
     default:
         return THE_NON_VALUE;
     }
 }
 
 void
-beam_load_sort_select_vals(GenOpArg* base, size_t n)
+beam_load_sort_select_vals(BeamOpArg* base, size_t n)
 {
-    qsort(base, n, 2 * sizeof(GenOpArg),
+    qsort(base, n, 2 * sizeof(BeamOpArg),
           (int (*)(const void *, const void *)) oparg_compare);
 }
 
 static int
-oparg_compare(GenOpArg* a, GenOpArg* b)
+oparg_compare(BeamOpArg* a, BeamOpArg* b)
 {
     if (a->val < b->val)
         return -1;
@@ -148,7 +148,7 @@ oparg_compare(GenOpArg* a, GenOpArg* b)
 }
 
 static int
-oparg_term_compare(SortGenOpArg* a, SortGenOpArg* b)
+oparg_term_compare(SortBeamOpArg* a, SortBeamOpArg* b)
 {
     Sint res = CMP_TERM(a->term, b->term);
 

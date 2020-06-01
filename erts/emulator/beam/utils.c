@@ -28,6 +28,7 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
+#include "beam_file.h"
 #include "big.h"
 #include "bif.h"
 #include "erl_binary.h"
