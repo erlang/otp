@@ -65,6 +65,7 @@
          pkix_test_data/1,
          pkix_test_root_cert/2,
      ocsp_status/3,
+     ocsp_responses/3,
      ocsp_nonce/0,
      ocsp_responder_id/1,
      ocsp_extensions/1
@@ -1280,12 +1281,27 @@ pkix_test_root_cert(Name, Opts) ->
     pubkey_cert:root_cert(Name, Opts).
 
 %%--------------------------------------------------------------------
--spec ocsp_status(binary(), list(), undefined | binary()) ->
+-spec ocsp_status(binary | #'Certificate'{} | #'OTPCertificate'{},
+                  list(), list()) ->
+    {good, term()} | {unknown, term()} | {revoked, term()} | no_matched_response.
+%%
+%% Description: Get Certificate status
+%%--------------------------------------------------------------------
+ocsp_status(Cert, CertPath, Responses) ->
+    case pubkey_ocsp:find_single_response(Cert, CertPath, Responses) of
+        {ok, #'SingleResponse'{certStatus = CertStatus}} ->
+            CertStatus;
+        {error, no_matched_response} ->
+            no_matched_response
+    end.
+
+%%--------------------------------------------------------------------
+-spec ocsp_responses(binary(), list(), undefined | binary()) ->
     {ok, [#'SingleResponse'{}]} | {error, Reason::term()}.
 %%
-%% Description: Verify the OCSP response to get the certificate status
+%% Description: Get verified OCSP responses
 %%--------------------------------------------------------------------
-ocsp_status(OCSPResponseDer, ResponderCerts, Nonce) ->
+ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
     catch pubkey_ocsp:verify_ocsp_response(
         OCSPResponseDer, ResponderCerts, Nonce).
 

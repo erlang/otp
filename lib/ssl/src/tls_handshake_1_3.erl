@@ -1303,26 +1303,30 @@ process_certificate(#certificate_1_3{
     State = ssl_record:step_encryption_state(State1),
     {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
 process_certificate(#certificate_1_3{certificate_list = CertEntries},
-                    #state{ssl_options = SslOptions,
+                    #state{ssl_options =
+                               #{ocsp_stapling := OcspStapling} = SslOptions,
                            static_env =
                                #static_env{
                                   role = Role,
                                   host = Host,
                                   cert_db = CertDbHandle,
                                   cert_db_ref = CertDbRef,
-                                  crl_db = CRLDbHandle}} = State0) ->
-    
+                                  crl_db = CRLDbHandle},
+                           handshake_env = #handshake_env{
+                               ocsp_stapling_state = OcspState0} = HsEnv} = State0) ->
+    OcspState = maps:put(ocsp_negotiated, OcspStapling, OcspState0),
+    State = State0#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state = OcspState}},
     case validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
-                                    SslOptions, CRLDbHandle, Role, Host) of
+                                    SslOptions, CRLDbHandle, Role, Host, OcspState) of
         {ok, {PeerCert, PublicKeyInfo}} ->
-            State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
-            {ok, {State, wait_cv}};
+            NewState = store_peer_cert(State, PeerCert, PublicKeyInfo),
+            {ok, {NewState, wait_cv}};
         {error, Reason} ->
-            State = update_encryption_state(Role, State0),
-            {error, {Reason, State}};
+            NewState = update_encryption_state(Role, State),
+            {error, {Reason, NewState}};
         {ok, #alert{} = Alert} ->
-            State = update_encryption_state(Role, State0),
-            {error, {Alert, State}}
+            NewState = update_encryption_state(Role, State),
+            {error, {Alert, NewState}}
     end.
 
 %% Sets correct encryption state when sending Alerts in shared states that use different secrets.
@@ -1344,9 +1348,11 @@ validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                              crl_check := CrlCheck,
                              log_level := LogLevel,
                              depth := Depth,
+                             ocsp_stapling := OcspStapling,
+                             ocsp_responder_certs := OcspResponderCerts,
                              signature_algs := SignAlgs,
                              signature_algs_cert := SignAlgsCert
-                            } = SslOptions, CRLDbHandle, Role, Host) ->
+                            } = SslOptions, CRLDbHandle, Role, Host, OcspState) ->
     {Certs, CertExt} = split_cert_entries(CertEntries),
     ServerName = ssl_handshake:server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = Certs,
@@ -1366,7 +1372,10 @@ validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                                                                 signature_algs => filter_tls13_algs(SignAlgs),
                                                                 signature_algs_cert => filter_tls13_algs(SignAlgsCert),
                                                                 version => {3,4},
-                                                                cert_ext => CertExt
+                                                                cert_ext => CertExt,
+                                                                ocsp_stapling => OcspStapling,
+                                                                ocsp_responder_certs => OcspResponderCerts,
+                                                                ocsp_state => OcspState
                                                                }, 
                                                    CertPath, LogLevel),
         Options = [{max_path_length, Depth},

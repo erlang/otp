@@ -55,7 +55,7 @@
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
-	 hello/3, user_hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
+	 hello/3, user_hello/3, wait_ocsp_stapling/3, certify/3, cipher/3, abbreviated/3, %% Handshake states
 	 connection/3]). 
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
@@ -552,11 +552,24 @@ hello(internal, #client_hello{extensions = Extensions} = Hello,
                                          handshake_env = HsEnv#handshake_env{hello = Hello}},
      [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello, 
-      #state{ssl_options = #{handshake := hello},
+      #state{ssl_options = #{
+                 handshake := hello,
+                 ocsp_stapling := OcspStapling},
              handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->
+    %% RFC6066.8, If a server returns a "CertificateStatus" message,
+    %% then the server MUST have included an extension of type
+    %% "status_request" with empty "extension_data" in the extended
+    %% server hello.
+    OcspState = HsEnv#handshake_env.ocsp_stapling_state,
+    OcspNegotiated = tls_connection:is_ocsp_stapling_negotiated(OcspStapling,
+                                                                Extensions,
+                                                                State),
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                         handshake_env = HsEnv#handshake_env{hello = Hello}},    
+                                         handshake_env = HsEnv#handshake_env{
+                                             hello = Hello,
+                                             ocsp_stapling_state = OcspState#{
+                                                 ocsp_negotiated => OcspNegotiated}}},
      [{reply, From, {ok, Extensions}}]};     
 
 hello(internal, #client_hello{cookie = Cookie} = Hello, #state{static_env = #static_env{role = server,
@@ -578,20 +591,30 @@ hello(internal, #client_hello{cookie = Cookie} = Hello, #state{static_env = #sta
                     hello(internal, Hello#client_hello{cookie = <<>>}, State0) 
             end
     end;
-hello(internal, #server_hello{} = Hello,
+hello(internal, #server_hello{extensions = Extensions} = Hello,
       #state{
          static_env = #static_env{role = client},
-         handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
+         handshake_env = #handshake_env{
+             renegotiation = {Renegotiation, _},
+             ocsp_stapling_state = OcspState} = HsEnv,
          connection_env = #connection_env{negotiated_version = ReqVersion},
          connection_states = ConnectionStates0,
          session = #session{session_id = OldId},
          ssl_options = SslOptions} = State) ->
+    %% check if OCSP stapling is negotiated
+    #{ocsp_stapling := OcspStapling} = SslOptions,
+    OcspNegotiated = tls_connection:is_ocsp_stapling_negotiated(
+        OcspStapling, Extensions, State),
+
     case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, ReqVersion, ?FUNCTION_NAME, State);
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
+					  Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                      State#state{handshake_env = HsEnv#handshake_env{
+                          ocsp_stapling_state = OcspState#{
+                              ocsp_negotiated => OcspNegotiated}}})
     end;
 hello(internal, {handshake, {#client_hello{cookie = <<>>} = Handshake, _}}, State) ->
     %% Initial hello should not be in handshake history
@@ -640,6 +663,20 @@ abbreviated(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_ocsp_stapling(gen_statem:event_type(), term(), #state{}) ->
+		     gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_ocsp_stapling(enter, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_ocsp_stapling(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_ocsp_stapling(state_timeout, Event, State) ->
+    handle_state_timeout(Event, ?FUNCTION_NAME, State);
+wait_ocsp_stapling(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
 %%--------------------------------------------------------------------
 -spec certify(gen_statem:event_type(), term(), #state{}) ->
 		     gen_statem:state_function_result().

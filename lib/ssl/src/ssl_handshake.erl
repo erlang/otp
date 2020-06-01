@@ -51,7 +51,7 @@
 	 finished/5,  next_protocol/1, digitally_signed/5]).
 
 %% Handle handshake messages
--export([certify/8, certificate_verify/6, verify_signature/5,
+-export([certify/9, certificate_verify/6, verify_signature/5,
 	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5,
          select_version/3, select_supported_version/2, extension_value/1
@@ -338,7 +338,7 @@ next_protocol(SelectedProtocol) ->
 %%--------------------------------------------------------------------
 -spec certify(#certificate{}, db_handle(), certdb_ref(), ssl_options(), term(),
 	      client | server, inet:hostname() | inet:ip_address(),
-              ssl_record:ssl_version()) ->  {der_cert(), public_key_info()} | #alert{}.
+              ssl_record:ssl_version(), map()) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
@@ -350,7 +350,11 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
           crl_check := CrlCheck,
           log_level := Level,
           signature_algs := SignAlgos,
-          depth := Depth} = Opts, CRLDbHandle, Role, Host, Version) ->
+          depth := Depth} = Opts, CRLDbHandle, Role, Host, Version,
+          #{cert_ext := CertExt,
+            ocsp_stapling := OcspStapling,
+            ocsp_responder_certs := OcspResponderCerts,
+            ocsp_state := OcspState}) ->
     
     ServerName = server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = ASN1Certs,
@@ -368,7 +372,11 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                                                                       signature_algs_cert => undefined,
                                                                       version => Version,
                                                                       crl_check => CrlCheck,
-                                                                      crl_db => CRLDbHandle},
+                                                                      crl_db => CRLDbHandle,
+                                                                      cert_ext => CertExt,
+                                                                      ocsp_stapling => OcspStapling,
+                                                                      ocsp_responder_certs => OcspResponderCerts,
+                                                                      ocsp_state => OcspState},
                                                          CertPath, Level),
         Options = [{max_path_length, Depth},
                    {verify_fun, ValidationFunAndState}],
@@ -1779,10 +1787,10 @@ validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
 		     {valid, {NewSslState, UserState}};
 		 {fail, Reason} ->
 		     apply_user_fun(Fun, OtpCert, Reason, UserState,
-				    SslState, CertPath, LogLevel);
+				            SslState, CertPath, LogLevel);
 		 {unknown, _} ->
 		     apply_user_fun(Fun, OtpCert,
-				    Extension, UserState, SslState, CertPath, LogLevel)
+				            Extension, UserState, SslState, CertPath, LogLevel)
 	     end;
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
@@ -1794,12 +1802,10 @@ validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
 				      Extension,
 				      SslState);
 	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
-                                               (VerifyResult == valid_peer) -> 
-	     case crl_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
-		 valid ->                     
-                     ssl_certificate:validate(OtpCert,
-                                              VerifyResult,
-                                              SslState);
+                                           (VerifyResult == valid_peer) -> 
+	     case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
+		 valid ->
+             ssl_certificate:validate(OtpCert, VerifyResult, SslState);
 		 Reason ->
 		     {fail, Reason}
 	     end;
@@ -1814,7 +1820,7 @@ apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, SslState, CertPath, LogL
     VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState),
     case Fun(OtpCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
-	    case crl_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
+	    case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
@@ -1987,6 +1993,52 @@ bad_key(#{algorithm := rsa}) ->
     unacceptable_rsa_key;
 bad_key(#{algorithm := ecdsa}) ->
     unacceptable_ecdsa_key.
+
+cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) ->
+    case ocsp_check(OtpCert, CertPath, SslState) of
+        not_applicable ->
+            %% OCSP not enabled or no OCSP response received
+            crl_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
+        CertStatus ->
+            CertStatus
+    end.
+
+ocsp_check(_OtpCert, _CertPath, #{ocsp_stapling := false}) ->
+    %% OCSP is disabled, try CRL
+    not_applicable;
+ocsp_check(OtpCert, CertPath, #{cert_ext := CertExt,
+                                ocsp_stapling := true,
+                                ocsp_responder_certs := ResponderCerts,
+                                ocsp_state := OcspState}) ->
+    Id = public_key:pkix_subject_id(OtpCert),
+    case lists:keyfind(status_request, 1, maps:get(Id, CertExt, [])) of
+        false ->
+            %% no OCSP response, try CRL
+            not_applicable;
+        {status_request, OcspRespDer} ->
+            Responses = public_key:ocsp_responses(
+                            OcspRespDer, ResponderCerts,
+                            maps:get(ocsp_nonce, OcspState, undefined)),
+            ocsp_responses_check(OtpCert, CertPath, Responses)
+    end.
+
+ocsp_responses_check(_OtpCert, _CertPath, {error, _Reason}) ->
+    %% no valid OCSP response
+    not_applicable;
+ocsp_responses_check(OtpCert, CertPath, {ok, Responses}) ->
+    case public_key:ocsp_status(OtpCert, CertPath, Responses) of
+        {good, _Info} ->
+            valid;
+        {unknown, _Info} ->
+            %% Go on to check crl
+            not_applicable;
+        {revoked, Info} ->
+            {bad_cert, {revoked, Info}};
+        no_matched_response ->
+            %% Go on to check crl
+            not_applicable
+    end.
+
 
 crl_check(_, #{crl_check := false}, _, _, _) ->
     valid;

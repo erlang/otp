@@ -55,7 +55,7 @@
          send_handshake_flight/1,
 	 queue_handshake/2, queue_change_cipher/2,
 	 reinit/1, reinit_handshake_data/1, select_sni_extension/1, 
-         empty_connection_state/2]).
+         empty_connection_state/2, is_ocsp_stapling_negotiated/3]).
 
 %% Alert and close handling
 -export([send_alert/2, send_alert_in_connection/2,
@@ -67,7 +67,7 @@
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
-	 hello/3, user_hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
+	 hello/3, user_hello/3, wait_ocsp_stapling/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
 	 connection/3]).
 %% TLS 1.3 state functions (server)
 -export([start/3,         %% common state with client
@@ -744,7 +744,7 @@ hello(internal, #server_hello{extensions = Extensions} = Hello,
                  ocsp_stapling_state = OcspState} = HsEnv,
              session = #session{session_id = OldId},
 	     ssl_options = SslOptions} = State) ->
-    %% check if server has sent an empty certifucate status message in hello
+    %% check if OCSP stapling is negotiated
     #{ocsp_stapling := OcspStapling} = SslOptions,
     OcspNegotiated = is_ocsp_stapling_negotiated(OcspStapling, Extensions, State),
 
@@ -766,10 +766,7 @@ hello(internal, #server_hello{extensions = Extensions} = Hello,
             %% Continue in TLS 1.3 'wait_sh' state
             {next_state, wait_sh,
              State#state{
-               connection_env = CEnv#connection_env{negotiated_version = SelectedVersion},
-               handshake_env = HsEnv#handshake_env{
-                   ocsp_stapling_state = OcspState#{
-                       ocsp_negotiated => OcspNegotiated}}},
+               connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
              [{next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
@@ -787,6 +784,15 @@ user_hello(Type, Event, State) ->
 abbreviated(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_ocsp_stapling(gen_statem:event_type(), term(), #state{}) ->
+		     gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_ocsp_stapling(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_ocsp_stapling(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------

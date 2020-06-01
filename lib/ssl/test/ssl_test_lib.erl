@@ -48,6 +48,8 @@ start_server(openssl, Options, Config) ->
     start_openssl_server(openssl, Options, Config);
 start_server(openssl_ocsp, Options, Config) ->
     start_openssl_server(openssl_ocsp, Options, Config);
+start_server(openssl_ocsp_revoked, Options, Config) ->
+    start_openssl_server(openssl_ocsp_revoked, Options, Config);
 start_server(Type, _Args, _Config) ->
     {error, unsupported_server_type, Type}.
 
@@ -94,8 +96,18 @@ get_server_opts(openssl_ocsp, Config) ->
              {cacertfile, CACerts},
              {certfile, Cert},
              {keyfile, Key}],
-    %% SOpts = proplists:get_value(server_opts, Config),
+    ssl_test_lib:ssl_options(SOpts, Config);
+get_server_opts(openssl_ocsp_revoked, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Cert = filename:join(PrivDir, "revoked/cert.pem"),
+    Key = filename:join(PrivDir, "revoked/key.pem"),
+    CACerts = filename:join(PrivDir, "revoked/cacerts.pem"),
+    SOpts = [{reuseaddr, true},
+             {cacertfile, CACerts},
+             {certfile, Cert},
+             {keyfile, Key}],
     ssl_test_lib:ssl_options(SOpts, Config).
+
 
 get_client_opts(Config) ->
     DCOpts = proplists:get_value(client_ecdsa_opts, Config),
@@ -501,7 +513,8 @@ init_openssl_server(openssl, _, Options) ->
             {error, openssl_server}
     end;
 
-init_openssl_server(openssl_ocsp, ResponderPort, Options) ->
+init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orelse
+                                                       Mode == openssl_ocsp_revoked ->
     DefaultVersions = default_tls_version(Options),
     [Version | _] = proplists:get_value(versions, Options, DefaultVersions),
     Port = inet_port(node()),

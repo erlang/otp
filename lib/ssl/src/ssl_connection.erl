@@ -65,7 +65,7 @@
 
 %% General gen_statem state functions with extra callback argument 
 %% to determine if it is an SSL/TLS or DTLS gen_statem machine
--export([init/4, error/4, hello/4, user_hello/4, abbreviated/4, certify/4, cipher/4,
+-export([init/4, error/4, hello/4, user_hello/4, abbreviated/4, certify/4, wait_ocsp_stapling/4, cipher/4,
          connection/4, downgrade/4]).
 
 %% gen_statem callbacks
@@ -960,6 +960,34 @@ abbreviated(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 abbreviated(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
+
+%%--------------------------------------------------------------------
+-spec wait_ocsp_stapling(gen_statem:event_type(),
+                         #certificate{} |  #certificate_status{} | term(),
+	                     #state{}, tls_connection | dtls_connection) ->
+		gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_ocsp_stapling(internal, #certificate_status{response = OcspRespDer},
+                   #state{
+                       handshake_env = #handshake_env{
+                           ocsp_stapling_state = OcspState}} = State,
+                   Connection) ->
+    Cert = maps:get(cert_msg, OcspState),
+    certify_check(Cert, State, Connection, [{status_request, OcspRespDer}]);
+wait_ocsp_stapling(internal, Msg,
+                   #state{
+                       handshake_env = #handshake_env{
+                           ocsp_stapling_state = OcspState}} = State,
+                   Connection)
+  when is_record(Msg, server_key_exchange) orelse
+       is_record(Msg, hello_request) orelse
+       is_record(Msg, certificate_request) orelse
+       is_record(Msg, server_hello_done) orelse
+       is_record(Msg, client_key_exchange) ->
+    certify_check(
+        maps:get(cert_msg, OcspState), State, Connection, [], [{postpone, true}]);
+wait_ocsp_stapling(Type, Msg, State, Connection) ->
+    handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
  
 %%--------------------------------------------------------------------
 -spec certify(gen_statem:event_type(),
@@ -994,21 +1022,16 @@ certify(internal, #certificate{},
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
     handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
 certify(internal, #certificate{} = Cert,
-        #state{static_env = #static_env{
-                               role = Role,
-                               host = Host,
-                               cert_db = CertDbHandle,
-                               cert_db_ref = CertDbRef,
-                               crl_db = CRLDbInfo},
-               connection_env = #connection_env{negotiated_version = Version},
-	       ssl_options = Opts} = State, Connection) ->
-    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, 
-			       Opts, CRLDbInfo, Role, Host, ensure_tls(Version)) of
-        {PeerCert, PublicKeyInfo} ->
-	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
-			     State#state{client_certificate_requested = false}, Connection);
-	#alert{} = Alert ->
-            handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
+        #state{handshake_env = #handshake_env{
+                   ocsp_stapling_state = OcspState} = HsEnv} = State, Connection) ->
+    case maps:get(ocsp_negotiated, OcspState, false) of
+        true ->
+            NewOcspState = OcspState#{cert_msg => Cert},
+            NewHsEnv = HsEnv#handshake_env{ocsp_stapling_state = NewOcspState},
+            Connection:next_event(
+                wait_ocsp_stapling, no_record, State#state{handshake_env = NewHsEnv});
+        false ->
+            certify_check(Cert, State, Connection, [])
     end;
 certify(internal, #server_key_exchange{exchange_keys = Keys},
         #state{static_env = #static_env{role = client},
@@ -1179,37 +1202,43 @@ certify(internal, #client_key_exchange{exchange_keys = Keys},
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
     end;
-%% The response will be handled only when a certificate status request has
-%% been sent by the client and confirmed by the server.
-certify(internal, #certificate_status{response = OcspRespDer},
-        #state{ssl_options = #{
-            ocsp_stapling        := true,
-            ocsp_responder_certs := ResponderCerts},
-               handshake_env = #handshake_env{
-                   ocsp_stapling_state = #{
-                       ocsp_negotiated := true,
-                       ocsp_nonce := OcspNonce} = OcspState} = HsEnv,
-               connection_env = #connection_env{
-                   negotiated_version = Version}} = State,
-        Connection) ->
-    Result = public_key:ocsp_status(
-        OcspRespDer, ResponderCerts, OcspNonce),
-    NewOcspState = OcspState#{
-        ocsp_stapling_result => Result},
-    NewState = State#state{handshake_env =
-        HsEnv#handshake_env{ocsp_stapling_state = NewOcspState}},
-    case Result of
-        {ok, [#'SingleResponse'{
-                certStatus = {revoked, _RevokedInfo}}
-             ]} ->
-            Alert = ?ALERT_REC(
-                ?FATAL, ?BAD_CERTIFICATE_STATUS_RESPONSE, revoked_certificate),
-            handle_own_alert(Alert, Version, ?FUNCTION_NAME, NewState);
-        _Other ->
-            Connection:next_event(?FUNCTION_NAME, no_record, NewState)
-    end;
 certify(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
+
+certify_check(Cert, State, Connection, CertStatus) ->
+    certify_check(Cert, State, Connection, CertStatus, []).
+
+certify_check(#certificate{asn1_certificates = [PeerCert | _T]} = Cert,
+              #state{static_env =
+                   #static_env{
+                       role = Role,
+                       host = Host,
+                       cert_db = CertDbHandle,
+                       cert_db_ref = CertDbRef,
+                       crl_db = CRLDbInfo},
+               handshake_env = #handshake_env{
+               ocsp_stapling_state = OcspState},
+               connection_env = #connection_env{
+                   negotiated_version = Version},
+	           ssl_options =
+                   #{ocsp_stapling := OcspStapling,
+                     ocsp_responder_certs := OcspResponderCerts}
+               = Opts} = State,
+              Connection, CertStatus, Actions) ->
+    OcspInfo = #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => CertStatus},
+                 ocsp_stapling => OcspStapling,
+                 ocsp_responder_certs => OcspResponderCerts,
+                 ocsp_state => OcspState},
+            
+    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef,
+                               Opts, CRLDbInfo, Role, Host,
+                               ensure_tls(Version), OcspInfo) of
+        {PeerCert, PublicKeyInfo} ->
+	        handle_peer_cert(Role, PeerCert, PublicKeyInfo,
+			State#state{client_certificate_requested = false}, Connection, Actions);
+	    #alert{} = Alert ->
+            handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
+    end.
  
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(),
@@ -1845,13 +1874,13 @@ server_hello_done(State, Connection) ->
 handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 		 #state{handshake_env = HsEnv,
                     session = #session{cipher_suite = CipherSuite} = Session} = State0,
-		 Connection) ->
+		 Connection, Actions) ->
     State1 = State0#state{handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo},
                           session =
                               Session#session{peer_certificate = PeerCert}},
     #{key_exchange := KeyAlgorithm} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     State = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlgorithm, State1),
-    Connection:next_event(certify, no_record, State).
+    Connection:next_event(certify, no_record, State, Actions).
 
 handle_peer_cert_key(client, _,
 		     {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey,

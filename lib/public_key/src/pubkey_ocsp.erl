@@ -24,7 +24,7 @@
 
 -export([otp_cert/1, get_ocsp_responder_id/1, get_nonce/0, get_nonce_extn/1,
          decode_ocsp_response/1, verify_ocsp_response/3,
-         get_acceptable_response_types_extn/0]).
+         get_acceptable_response_types_extn/0, find_single_response/3]).
 
 %%--------------------------------------------------------------------
 -spec verify_ocsp_response(binary(), list(), undefined | binary()) ->
@@ -246,13 +246,20 @@ get_subject_name(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
 %%--------------------------------------------------------------------
 -spec get_public_key(#'Certificate'{} | #'OTPCertificate'{}) -> binary().
 %%
-%% Description: Get the public key der from cert
+%% Description: Get the public key from cert
 %%--------------------------------------------------------------------
 get_public_key(#'Certificate'{} = Cert) ->
     get_public_key(otp_cert(Cert));
 get_public_key(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
+    enc_pub_key(PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey).
+
+enc_pub_key(Key = #'RSAPublicKey'{}) ->
+    public_key:der_encode('RSAPublicKey', Key);
+enc_pub_key({DsaInt, #'Dss-Parms'{}}) when is_integer(DsaInt) ->
+    public_key:der_encode('DSAPublicKey', DsaInt);
+enc_pub_key({#'ECPoint'{point = Key}, _ECParam}) ->
+    Key.
 
 %%--------------------------------------------------------------------
 -spec get_nonce() -> binary().
@@ -286,3 +293,64 @@ get_acceptable_response_types_extn() ->
         extnValue = public_key:der_encode(
             'AcceptableResponses', [?'id-pkix-ocsp-basic'])
     }.
+
+%%--------------------------------------------------------------------
+-spec get_serial_num(binary | #'Certificate'{} | #'OTPCertificate'{}) ->
+    term().
+%%
+%% Description: Get the serial number of a certificate
+%%--------------------------------------------------------------------
+get_serial_num(Cert) ->
+    #'OTPCertificate'{tbsCertificate = TbsCert} = otp_cert(Cert),
+    TbsCert#'OTPTBSCertificate'.serialNumber.
+
+
+%%--------------------------------------------------------------------
+-spec find_single_response(
+    binary | #'Certificate'{} | #'OTPCertificate'{}, list(), list()) ->
+    #'SingleResponse'{} | {error, no_matched_response}.
+%%
+%% Description: Find the matched single response.
+%%--------------------------------------------------------------------
+find_single_response(Cert, CertPath, SingleResponseList) ->
+    case find_issuer(Cert, CertPath) of
+        {ok, Issuer} ->
+            OtpCert = otp_cert(Cert),
+            IssuerName = get_subject_name(Issuer),
+            IssuerKey = get_public_key(Issuer),
+            SerialNum = get_serial_num(OtpCert),
+            match_single_response(
+                IssuerName, IssuerKey, SerialNum, SingleResponseList);
+        {error, issuer_not_found} ->
+            {error, no_matched_response}
+    end.
+
+match_single_response(_IssuerName, _IssuerKey, _SerialNum, []) ->
+    {error, no_matched_response};
+match_single_response(
+    IssuerName, IssuerKey, SerialNum,
+    [#'SingleResponse'{
+        certID = #'CertID'{hashAlgorithm = Algo} = CertID
+     } = Response | Reponses]) ->
+    HashType = public_key:pkix_hash_type(
+        Algo#'AlgorithmIdentifier'.algorithm),
+    case (SerialNum == CertID#'CertID'.serialNumber) andalso
+         (crypto:hash(
+             HashType, IssuerName) == CertID#'CertID'.issuerNameHash) andalso
+         (crypto:hash(
+             HashType, IssuerKey) == CertID#'CertID'.issuerKeyHash) of
+        true ->
+            {ok, Response};
+        false ->
+            match_single_response(IssuerName, IssuerKey, SerialNum, Reponses)
+    end.
+
+find_issuer(_Cert, []) ->
+    {error, issuer_not_found};
+find_issuer(Cert, [Issuer | CertPath]) ->
+    case public_key:pkix_is_issuer(Cert, Issuer) of
+        true ->
+            {ok, otp_cert(Issuer)};
+        false ->
+            find_issuer(Cert, CertPath)
+    end.
