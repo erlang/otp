@@ -244,7 +244,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <desc>
         <p>Sets the configuration <c><anno>Config</anno></c> for multiple
           applications. It is equivalent to calling <c>set_env/4</c> on
-          each application individially, except it is more efficient.
+          each application individually, except it is more efficient.
           The given <c><anno>Config</anno></c> is validated before the
           configuration is set.</p>
         <p><c>set_env/2</c> uses the standard <c>gen_server</c> time-out
