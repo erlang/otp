@@ -76,10 +76,15 @@ init_ecdsa_certs(Config) ->
 
 %% Options
 get_server_opts(Config) ->
+    get_server_opts(openssl, Config).
+    %% DSOpts = proplists:get_value(server_ecdsa_opts, Config),
+    %% SOpts = proplists:get_value(server_opts, Config, DSOpts),
+    %% ssl_test_lib:ssl_options(SOpts, Config).
+%%
+get_server_opts(openssl, Config) ->
     DSOpts = proplists:get_value(server_ecdsa_opts, Config),
     SOpts = proplists:get_value(server_opts, Config, DSOpts),
-    ssl_test_lib:ssl_options(SOpts, Config).
-%%
+    ssl_test_lib:ssl_options(SOpts, Config);
 get_server_opts(openssl_ocsp, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Cert = filename:join(PrivDir, "a.server/cert.pem"),
@@ -497,8 +502,8 @@ init_openssl_server(openssl, _, Options) ->
     end;
 
 init_openssl_server(openssl_ocsp, ResponderPort, Options) ->
-    {ok, Version} = application:get_env(ssl,protocol_version),
-    %% Port = proplists:get_value(port, Options),
+    DefaultVersions = default_tls_version(Options),
+    [Version | _] = proplists:get_value(versions, Options, DefaultVersions),
     Port = inet_port(node()),
     Pid = proplists:get_value(from, Options),
 
