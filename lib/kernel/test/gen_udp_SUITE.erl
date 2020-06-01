@@ -745,7 +745,7 @@ sendtos_ok({unix,_}, _) -> true;
 sendtos_ok(_, _) -> false.
 
 %% Using the option returns einval, so it is not implemented.
-sendttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
+sendttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,4,0});
 sendttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
 %% Using the option returns enoprotoopt, so it is not implemented.
 sendttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
@@ -1035,7 +1035,7 @@ recv_close(Config) when is_list(Config) ->
     RECV = fun() ->
                    ?P("try recv"),
                    Res = gen_udp:recv(Sock, 0),
-                   ?P("recv res: ~p"),
+                   ?P("recv res: ~p", [Res]),
                    exit(Res)
            end,
     ?P("spawn reader"),
