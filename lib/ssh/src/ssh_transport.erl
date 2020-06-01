@@ -255,27 +255,19 @@ versions(server, Options) ->
     Vsn = ?GET_INTERNAL_OPT(vsn, Options, ?DEFAULT_SERVER_VERSION),
     {Vsn, format_version(Vsn, software_version(Options))}.
 
+format_version({Major,Minor}, "") ->
+    lists:concat(["SSH-",Major,".",Minor]);
+format_version({Major,Minor}, SoftwareVersion) ->
+    lists:concat(["SSH-",Major,".",Minor,"-",SoftwareVersion]).
+
 software_version(Options) -> 
     case ?GET_OPT(id_string, Options) of
-	undefined ->
-	    "Erlang"++ssh_vsn();
 	{random,Nlo,Nup} ->
 	    random_id(Nlo,Nup);
 	ID ->
 	    ID
     end.
 
-ssh_vsn() ->
-    try {ok,L} = application:get_all_key(ssh),
-	 proplists:get_value(vsn, L, "")
-    of 
-	"" -> "";
-	VSN when is_list(VSN) -> "/" ++ VSN;
-	_ -> ""
-    catch
-	_:_ -> ""
-    end.
-    
 random_id(Nlo, Nup) ->
     [$a + rand:uniform($z-$a+1) - 1 || _<- lists:duplicate(Nlo + rand:uniform(Nup-Nlo+1) - 1, x)].
 
@@ -285,16 +277,11 @@ hello_version_msg(Data) ->
 next_seqnum(SeqNum) ->
     (SeqNum + 1) band 16#ffffffff.
 
-
 is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
     true;
 is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
     crypto:equal_const_time(Mac, mac(Algorithm, Key, SeqNum, Data)).
-
-format_version({Major,Minor}, SoftwareVersion) ->
-    "SSH-" ++ integer_to_list(Major) ++ "." ++ 
-	integer_to_list(Minor) ++ "-" ++ SoftwareVersion.
 
 handle_hello_version(Version) ->
     try

@@ -670,7 +670,11 @@ default(common) ->
             },
 
        id_string => 
-           #{default => undefined, % FIXME: see ssh_transport:ssh_vsn/0
+           #{default => try {ok, [_|_] = VSN} = application:get_key(ssh, vsn),
+                            "Erlang/" ++ VSN
+                        catch
+                            _:_ -> ""
+                        end,
              chk => fun(random) -> 
                             {true, {random,2,5}}; % 2 - 5 random characters
                        ({random,I1,I2}) -> 
