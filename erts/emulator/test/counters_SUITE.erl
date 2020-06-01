@@ -66,7 +66,7 @@ check_memory(atomics, Memory, Size) ->
     {_,true} = {Memory, Memory > Size*8},
     {_,true} = {Memory, Memory < Size*max_atomic_sz() + 100};
 check_memory(write_concurrency, Memory, Size) ->
-    NWords = erlang:system_info(schedulers_online) + 1,
+    NWords = erlang:system_info(schedulers) + 1,
     {_,true} = {Memory, Memory > NWords*Size*8},
     {_,true} = {Memory, Memory < NWords*(Size+7)*max_atomic_sz() + 100}.
 
