@@ -2381,11 +2381,21 @@ scale_start_stop_many_children() ->
     ct:log("~w children, start time: ~w ms, stop time: ~w ms",
            [N2, StartT2 div 1000, StopT2 div 1000]),
 
+    TimerAdjustment =
+        case os:type() of
+            {win32,_} ->
+                %% Windows timer unit is really bad...
+                16000;
+            _ ->
+                %% To avoid div by zero
+                1
+        end,
+
     %% Scaling should be more or less linear, but allowing a bit more
     %% to avoid false alarms (add 1 to avoid div zero)
     ScaleLimit = (N2 div N1) * 10,
-    StartScale = StartT2 div (StartT1+1),
-    StopScale = StopT2 div (StopT1+1),
+    StartScale = StartT2 div (StartT1+TimerAdjustment),
+    StopScale = StopT2 div (StopT1+TimerAdjustment),
 
     ct:log("Scale limit: ~w~nStart scale: ~w~nStop scale: ~w",
            [ScaleLimit, StartScale, StopScale]),
