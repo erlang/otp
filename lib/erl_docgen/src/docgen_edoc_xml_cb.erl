@@ -990,7 +990,7 @@ makesee(Ref) ->
             {seeguide,"chapter#" ++ Anchor};
         [Mod,"type-"++Anchor] ->
             {seeerl,Mod ++ "#type-" ++ Anchor};
-        ["",Anchor] ->
+        ["",_Anchor] ->
             case get(type) of
                 chapter ->
                     {seeguide, Ref};
