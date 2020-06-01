@@ -23,7 +23,9 @@
 %% because udp is not deterministic.
 %%
 -module(gen_udp_SUITE).
+
 -include_lib("common_test/include/ct.hrl").
+-include("gen_inet_test_lib.hrl").
 
 
 %% XXX - we should pick a port that we _know_ is closed. That's pretty hard.
@@ -647,7 +649,7 @@ recvtclass(_Config) ->
 
 
 sendtos(_Config) ->
-    ?TRY_TC(fun() -> do_sendtos() end).
+    ?TC_TRY(sendtos, fun() -> do_sendtos() end).
 
 do_sendtos() ->
     test_recv_opts(
@@ -655,7 +657,7 @@ do_sendtos() ->
       fun sendtos_ok/2).
 
 sendtosttl(_Config) ->
-    ?TRY_TC(fun() -> do_sendtosttl() end).
+    ?TC_TRY(sendtosttl, fun() -> do_sendtosttl() end).
 
 do_sendtosttl() ->
     test_recv_opts(
@@ -665,7 +667,7 @@ do_sendtosttl() ->
       end).
 
 sendttl(_Config) ->
-    ?TRY_TC(fun() -> do_sendttl() end).
+    ?TC_TRY(sendttl, fun() -> do_sendttl() end).
 
 do_sendttl() ->
     test_recv_opts(
@@ -673,7 +675,7 @@ do_sendttl() ->
       fun sendttl_ok/2).
 
 sendtclass(_Config) ->
-    ?TRY_TC(fun() -> do_sendtclass() end).
+    ?TC_TRY(sendtclass, fun() -> do_sendtclass() end).
 
 do_sendtclass() ->
     {ok,IFs} = inet:getifaddrs(),
@@ -687,8 +689,9 @@ do_sendtclass() ->
               inet6, [{recvtclass,tclass,224}], true,
               fun sendtclass_ok/2);
         [] ->
-            {skip,ipv6_not_supported,IFs}
+            {skip, {ipv6_not_supported, IFs}}
     end.
+
 
 %% These version numbers are just above the highest noted in daily tests
 %% where the test fails for a plausible reason, that is the lowest
@@ -764,22 +767,22 @@ sendtclass_ok(_, _) -> false.
 
 
 semver_lt({X1,Y1,Z1} = V1, {X2,Y2,Z2} = V2) ->
-    p("semver_lt -> OS version check:"
-      "~n   Version 1: ~p"
-      "~n   Version 2: ~p", [V1, V2]),
+    ?P("semver_lt -> OS version check:"
+       "~n   Version 1: ~p"
+       "~n   Version 2: ~p", [V1, V2]),
     if
-        X1 > X2 -> p("semver_lt -> X1 > X2: ~p > ~p", [X1, X2]), false;
-        X1 < X2 -> p("semver_lt -> X1 < X2: ~p < ~p", [X1, X2]), true;
-        Y1 > Y2 -> p("semver_lt -> Y1 > Y2: ~p > ~p", [Y1, Y2]), false;
-        Y1 < Y2 -> p("semver_lt -> Y1 < Y2: ~p < ~p", [Y1, Y2]), true;
-        Z1 > Z2 -> p("semver_lt -> Z1 > Z2: ~p > ~p", [Z1, Z2]), false;
-        Z1 < Z2 -> p("semver_lt -> Z1 < Z2: ~p < ~p", [Z1, Z2]), true;
-        true    -> p("semver_lt -> default"), false
+        X1 > X2 -> ?P("semver_lt -> X1 > X2: ~p > ~p", [X1, X2]), false;
+        X1 < X2 -> ?P("semver_lt -> X1 < X2: ~p < ~p", [X1, X2]), true;
+        Y1 > Y2 -> ?P("semver_lt -> Y1 > Y2: ~p > ~p", [Y1, Y2]), false;
+        Y1 < Y2 -> ?P("semver_lt -> Y1 < Y2: ~p < ~p", [Y1, Y2]), true;
+        Z1 > Z2 -> ?P("semver_lt -> Z1 > Z2: ~p > ~p", [Z1, Z2]), false;
+        Z1 < Z2 -> ?P("semver_lt -> Z1 < Z2: ~p < ~p", [Z1, Z2]), true;
+        true    -> ?P("semver_lt -> default"), false
     end;
 semver_lt(V1, {_,_,_} = V2) ->
-    p("semver_lt -> fallback OS version check when: "
-      "~n   Version 1: ~p"
-      "~n   Version 2: ~p", [V1, V2]),
+    ?P("semver_lt -> fallback OS version check when: "
+       "~n   Version 1: ~p"
+       "~n   Version 2: ~p", [V1, V2]),
     false.
 
 test_recv_opts(Family, Spec, TestSend, OSFilter) ->
@@ -787,7 +790,7 @@ test_recv_opts(Family, Spec, TestSend, OSFilter) ->
     OSVer  = os:version(),
     case OSFilter(OSType, OSVer) of
         true ->
-            p("OS: ~p, ~p", [OSType, OSVer]),
+            ?P("OS: ~p, ~p", [OSType, OSVer]),
             test_recv_opts(Family, Spec, TestSend, OSType, OSVer);
         false ->
             {skip,{not_supported_for_os_version,{OSType,OSVer}}}
@@ -837,13 +840,13 @@ test_recv_opts(Family, Spec, TestSend, _OSType, _OSVer) ->
                 ok ->
                     ok;
                 {error, enoprotoopt = Reason1} ->
-                    skip(f("send (1) failed: ~p", [Reason1]))
+                    ?SKIPT(?F("send (1) failed: ~p", [Reason1]))
             end,
             case gen_udp:send(S2, {Addr,P1}, OptsVals, <<"12345">>) of
                 ok ->
                     ok;
                 {error, enoprotoopt = Reason2} ->
-                    skip(f("send (2) failed: ~p", [Reason2]))
+                    ?SKIPT(?F("send (2) failed: ~p", [Reason2]))
             end
         end,
     {ok,{_,P2,OptsVals3,<<"abcde">>}} = gen_udp:recv(S1, 0, Timeout),
@@ -1097,7 +1100,7 @@ connect(Config) when is_list(Config) ->
     ok.
 
 implicit_inet6(Config) when is_list(Config) ->
-    ?TRY_TC(fun() -> do_implicit_inet6(Config) end).
+    ?TC_TRY(implicit_inet6, fun() -> do_implicit_inet6(Config) end).
 
 do_implicit_inet6(_Config) ->
     Host = ok(inet:gethostname()),
@@ -1117,73 +1120,73 @@ do_implicit_inet6(_Config) ->
 implicit_inet6(Host, Addr) ->
     Active = {active,false},
     Loopback = {0,0,0,0,0,0,0,1},
-    p("try 1 with explit inet6 on loopback"),
+    ?P("try 1 with explit inet6 on loopback"),
     S1 = case gen_udp:open(0, [inet6, Active, {ip, Loopback}]) of
              {ok, Sock1} ->
                  Sock1;
              {error, eaddrnotavail = Reason1} ->
-                 skip(open_failed_str(Reason1));
+                 ?SKIPT(open_failed_str(Reason1));
              _ ->
-                 skip("IPv6 not supported")
+                 ?SKIPT("IPv6 not supported")
          end,
     implicit_inet6(S1, Active, Loopback),
     ok = gen_udp:close(S1),
     %%
     Localaddr = ok(get_localaddr()),
-    p("try 2 on local addr (~p)", [Localaddr]),
+    ?P("try 2 on local addr (~p)", [Localaddr]),
     S2 = case gen_udp:open(0, [{ip, Localaddr}, Active]) of
              {ok, Sock2} ->
                  Sock2;
              {error, eaddrnotavail = Reason2} ->
-                 skip(open_failed_str(Reason2))
+                 ?SKIPT(open_failed_str(Reason2))
          end,
     implicit_inet6(S2, Active, Localaddr),
     ok = gen_udp:close(S2),
     %%
-    p("try 3 on addr ~p (~p)", [Addr, Host]),
+    ?P("try 3 on addr ~p (~p)", [Addr, Host]),
     S3 = case gen_udp:open(0, [{ifaddr, Addr}, Active]) of
              {ok, Sock3} ->
                  Sock3;
              {error, eaddrnotavail = Reason3} ->
-                 skip(open_failed_str(Reason3))
+                 ?SKIPT(open_failed_str(Reason3))
          end,
     implicit_inet6(S3, Active, Addr),
     ok = gen_udp:close(S3),
     ok.
 
 implicit_inet6(S1, Active, Addr) ->
-    p("get (\"local\") port number"),
+    ?P("get (\"local\") port number"),
     P1 = ok(inet:port(S1)),
-    p("open \"remote\" socket"),
+    ?P("open \"remote\" socket"),
     S2 = case gen_udp:open(0, [inet6, Active]) of
              {ok, Sock2} ->
                  Sock2;
              {error, eaddrnotavail = Reason3} ->
-                 skip(open_failed_str(Reason3))
+                 ?SKIPT(open_failed_str(Reason3))
          end,
-    p("get (\"remote\") port number"),
+    ?P("get (\"remote\") port number"),
     P2 = ok(inet:port(S2)),
-    p("connect (\"remote\") socket (to ~p:~p)", [Addr, P1]),
+    ?P("connect (\"remote\") socket (to ~p:~p)", [Addr, P1]),
     ok = gen_udp:connect(S2, Addr, P1),
-    p("connect (\"local\") socket (to ~p:~p)", [Addr, P2]),
+    ?P("connect (\"local\") socket (to ~p:~p)", [Addr, P2]),
     ok = gen_udp:connect(S1, Addr, P2),
-    p("peername of \"local\" socket"),
+    ?P("peername of \"local\" socket"),
     {Addr,P2} = ok(inet:peername(S1)),
-    p("peername of \"remote\" socket"),
+    ?P("peername of \"remote\" socket"),
     {Addr,P1} = ok(inet:peername(S2)),
-    p("sockname of \"local\" socket"),
+    ?P("sockname of \"local\" socket"),
     {Addr,P1} = ok(inet:sockname(S1)),
-    p("sockname of \"remote\" socket"),
+    ?P("sockname of \"remote\" socket"),
     {Addr,P2} = ok(inet:sockname(S2)),
-    p("send ping on \"local\" socket (to ~p:~p)", [Addr, P2]),
+    ?P("send ping on \"local\" socket (to ~p:~p)", [Addr, P2]),
     ok = gen_udp:send(S1, Addr, P2, "ping"),
-    p("recv ping on \"remote\" socket (from ~p:~p)", [Addr, P1]),
+    ?P("recv ping on \"remote\" socket (from ~p:~p)", [Addr, P1]),
     {Addr,P1,"ping"} = ok(gen_udp:recv(S2, 1024, 1000)),
-    p("send pong on \"remote\" socket (to ~p:~p)", [Addr, P1]),
+    ?P("send pong on \"remote\" socket (to ~p:~p)", [Addr, P1]),
     ok = gen_udp:send(S2, Addr, P1, "pong"),
-    p("recv ping on \"local\" socket (from ~p:~p)", [Addr, P2]),
+    ?P("recv ping on \"local\" socket (from ~p:~p)", [Addr, P2]),
     {Addr,P2,"pong"} = ok(gen_udp:recv(S1, 1024)),
-    p("close \"remote\" socket"),
+    ?P("close \"remote\" socket"),
     ok = gen_udp:close(S2),
     ok.
 
@@ -1220,7 +1223,7 @@ get_localaddr([]) ->
 get_localaddr([Localhost|Ls]) ->
     case inet:getaddr(Localhost, inet6) of
        {ok, LocalAddr} ->
-           p("found local address: ~s ~p", [Localhost, LocalAddr]),
+           ?P("found local address: ~s ~p", [Localhost, LocalAddr]),
            {ok, LocalAddr};
        _ ->
            get_localaddr(Ls)
@@ -1229,44 +1232,5 @@ get_localaddr([Localhost|Ls]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-try_tc(F) when is_function(F, 0) ->
-    OldFlag = process_flag(trap_exit, true),
-    Res = try F()
-          catch
-              throw:{skip, _} = SKIP ->
-                  SKIP;
-              exit:{skip, _} = SKIP ->
-                  SKIP
-          end,
-    process_flag(trap_exit, OldFlag),
-    Res.
-                   
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
-
-skip(S) when is_list(S) ->
-    throw({skip, S}).
-
-%% skip(F, A) when is_list(F) andalso is_list(A) ->
-%%     skip(f(F, A)).
-
 open_failed_str(Reason) ->
-    f("Open failed: ~w", [Reason]).
-
-
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
-
-format_timestamp({_N1, _N2, N3} = TS) ->
-    {_Date, Time}   = calendar:now_to_local_time(TS),
-    {Hour, Min, Sec} = Time,
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
-                             [Hour, Min, Sec, N3 div 1000]),  
-    lists:flatten(FormatTS).
-
-p(F) ->
-    p(F, []).
-
-p(F, A) ->
-    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
-
+    ?F("Open failed: ~w", [Reason]).
