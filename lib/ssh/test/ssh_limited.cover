@@ -1,0 +1,22 @@
+%% -*- erlang -*-
+
+{incl_app,ssh,details}.
+
+{excl_mods, ssh,
+ [
+  %% App
+  ssh_app,
+
+  %% Supervisors
+  ssh_acceptor_sup, ssh_channel_sup, ssh_connection_sup,
+  sshc_sup, sshd_sup, ssh_subsystem_sup, ssh_sup,
+  ssh_system_sup, ssh_tcpip_forward_acceptor_sup,
+
+  %% Test and/or info modules:
+  ssh_dbg, ssh_info,
+
+  %% API modules (behaviours):
+  ssh_server_key_api, ssh_client_key_api,
+  ssh_sftpd_file_api,
+  ssh_channel, ssh_client_channel, ssh_daemon_channel, ssh_server_channel
+  ]}.
