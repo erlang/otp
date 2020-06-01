@@ -714,24 +714,24 @@ api_connect_init(Config) when is_list(Config) ->
     ok = gen_sctp:close(Sb),
     ok.
 
-recv_event({Addr,Port,[],#sctp_assoc_change{}=AssocChange}) ->
-    {Addr,Port,AssocChange};
+recv_event({Addr, Port, [], #sctp_assoc_change{} = AssocChange}) ->
+    {Addr, Port, AssocChange};
 recv_event({Addr,Port,
-	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
-	    #sctp_assoc_change{assoc_id=Assoc}=AssocChange}) ->
-    {Addr,Port,AssocChange};
-recv_event({Addr,Port,[],#sctp_paddr_change{}=PaddrChange}) ->
-    {Addr,Port,PaddrChange};
-recv_event({Addr,Port,
-	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
-	    #sctp_paddr_change{assoc_id=Assoc}=PaddrChange}) ->
-    {Addr,Port,PaddrChange};
-recv_event({Addr,Port,[],#sctp_shutdown_event{}=ShutdownEvent}) ->
-    {Addr,Port,ShutdownEvent};
-recv_event({Addr,Port,
-	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
-	    #sctp_shutdown_event{assoc_id=Assoc}=ShutdownEvent}) ->
-    {Addr,Port,ShutdownEvent}.
+	    [#sctp_sndrcvinfo{assoc_id  = Assoc}],
+	    #sctp_assoc_change{assoc_id = Assoc} = AssocChange}) ->
+    {Addr, Port, AssocChange};
+recv_event({Addr, Port, [], #sctp_paddr_change{} = PaddrChange}) ->
+    {Addr, Port, PaddrChange};
+recv_event({Addr, Port,
+	    [#sctp_sndrcvinfo{assoc_id  = Assoc}],
+	    #sctp_paddr_change{assoc_id = Assoc} = PaddrChange}) ->
+    {Addr, Port, PaddrChange};
+recv_event({Addr, Port, [], #sctp_shutdown_event{} = ShutdownEvent}) ->
+    {Addr, Port, ShutdownEvent};
+recv_event({Addr, Port,
+	    [#sctp_sndrcvinfo{assoc_id    = Assoc}],
+	    #sctp_shutdown_event{assoc_id = Assoc} = ShutdownEvent}) ->
+    {Addr, Port, ShutdownEvent}.
 
 %% Test socket options.
 api_opts(Config) when is_list(Config) ->
@@ -751,53 +751,57 @@ api_opts(Config) when is_list(Config) ->
 	{ok,[{sndbuf,SB}]} when SB >= Sndbuf -> ok
     end,
     case inet:getopts(S, [recbuf]) of
-	{ok,[{recbuf,RB}]} when RB >= Recbuf -> ok
+	{ok, [{recbuf, RB}]} when (RB >= Recbuf) -> ok
     end.
 
 implicit_inet6(Config) when is_list(Config) ->
+    ?P("begin"),
     Hostname = log_ok(inet:gethostname()),
+    ?P("try create (listen) socket"),
     case gen_sctp:open(0, [inet6]) of
-	{ok,S1} ->
+	{ok, S1} ->
 	    case inet:getaddr(Hostname, inet6) of
-		{ok,Host} ->
+		{ok, Host} ->
 		    Loopback = {0,0,0,0,0,0,0,1},
-		    io:format("~s ~p~n", ["Loopback",Loopback]),
+		    ?P("*** ~s: ~p ***", ["Loopback", Loopback]),
 		    implicit_inet6(S1, Loopback),
 		    ok = gen_sctp:close(S1),
 		    %%
-		    Localhost =
-			log_ok(inet:getaddr("localhost", inet6)),
-		    io:format("~s ~p~n", ["localhost",Localhost]),
-		    S2 =
-			log_ok(gen_sctp:open(0, [{ip,Localhost}])),
+		    Localhost = log_ok(inet:getaddr("localhost", inet6)),
+		    ?P("*** ~s: ~p ***", ["localhost", Localhost]),
+		    S2 = log_ok(gen_sctp:open(0, [{ip,Localhost}])),
 		    implicit_inet6(S2, Localhost),
 		    ok = gen_sctp:close(S2),
 		    %%
-		    io:format("~s ~p~n", [Hostname,Host]),
-		    S3 =
-			log_ok(gen_sctp:open(0, [{ifaddr,Host}])),
+		    ?P("*** ~s: ~p ***", [Hostname, Host]),
+		    S3 = log_ok(gen_sctp:open(0, [{ifaddr,Host}])),
 		    implicit_inet6(S3, Host),
 		    ok = gen_sctp:close(S1);
 		{error, eafnosupport} ->
 		    ok = gen_sctp:close(S1),
-		    {skip,"Can not look up IPv6 address"}
+		    {skip, "Can not look up IPv6 address"}
 	    end;
 	_ ->
-	    {skip,"IPv6 not supported"}
+	    {skip, "IPv6 not supported"}
     end.
 
 implicit_inet6(S1, Addr) ->
+    ?P("make (server) listen socket"),
     ok = gen_sctp:listen(S1, true),
     P1 = log_ok(inet:port(S1)),
+    ?P("try create socket"),
     S2 = log_ok(gen_sctp:open(0, [inet6])),
     P2 = log_ok(inet:port(S2)),
-    #sctp_assoc_change{state=comm_up} =
+    ?P("try connect (from ~p) to ~p, ~p", [S2, Addr, P1]),
+    #sctp_assoc_change{state = comm_up} =
 	log_ok(gen_sctp:connect(S2, Addr, P1, [])),
+    ?P("await events"),
     case recv_event(log_ok(gen_sctp:recv(S1))) of
-	{Addr, P2, #sctp_assoc_change{state=comm_up}} ->
+	{Addr, P2, #sctp_assoc_change{state = comm_up}} ->
+            ?P("received assoc-change:comm-up event => done"),
 	    ok;
-	{AX, P2, #sctp_assoc_change{state=comm_up}} = EX ->
-            ?P("Expected (comm_up) event from UNEXPECTED ADDRESS: "
+	{AX, P2, #sctp_assoc_change{state = comm_up}} = EX ->
+            ?P("Expected (assoc-change:comm-up) event from UNEXPECTED ADDRESS: "
                "~n   UNEXPECTED Address: ~p"
                "~n   Expected Address:   ~p"
                "~n", [AX, Addr]),
@@ -805,10 +809,13 @@ implicit_inet6(S1, Addr) ->
 	{Addr, P2, #sctp_paddr_change{state = addr_confirmed,
                                       addr  = {Addr, P2},
                                       error = 0}} ->
+            ?P("received paddr-change:comm-up event - "
+               "try recv assoc-change:comm-up"),
 	    {Addr, P2, #sctp_assoc_change{state = comm_up}} =
 		recv_event(log_ok(gen_sctp:recv(S1)));
 	{AX, P2, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
-            ?P("Expected (addr_confirmed) event from UNEXPECTED ADDRESS: "
+            ?P("Expected paddr-change:addr-confirmed event from "
+               "UNEXPECTED ADDRESS: "
                "~n   UNEXPECTED Address: ~p"
                "~n   Expected Address:   ~p"
                "~n   PAddr Change:       ~p"
