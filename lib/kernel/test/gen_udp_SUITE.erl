@@ -1030,14 +1030,15 @@ local_handshake(S, SAddr, C, CAddr) ->
 %% Open a passive socket. Create a socket that reads from it.
 %% Then close the socket.
 recv_close(Config) when is_list(Config) ->
+    ?P("begin"),
     {ok, Sock} = gen_udp:open(0, [{active, false}]),
     RECV = fun() ->
-                   io:format("~p try recv~n", [self()]),
+                   ?P("try recv"),
                    Res = gen_udp:recv(Sock, 0),
-                   io:format("~p recv res: ~p~n", [self(), Res]),
+                   ?P("recv res: ~p"),
                    exit(Res)
            end,
-    io:format("~p spawn reader", [self()]),
+    ?P("spawn reader"),
     {Pid, MRef} = spawn_monitor(RECV),
     receive
         {'DOWN', MRef, process, Pid, PreReason} ->
@@ -1047,56 +1048,54 @@ recv_close(Config) when is_list(Config) ->
     after 5000 -> % Just in case...
             ok
     end,
-    io:format("~p close socket", [self()]),
+    ?P("close socket"),
     ok = gen_udp:close(Sock),
-    io:format("~p await reader termination", [self()]),
+    ?P("await reader termination"),
     receive
         {'DOWN', MRef, process, Pid, {error, closed}} ->
-            io:format("~p expected reader termination result", [self()]),
+            ?P("expected reader termination result"),
             ok;
         {'DOWN', MRef, process, Pid, PostReason} ->
-            io:format("~p unexpected reader termination: ~p",
-                      [self(), PostReason]),
+            ?P("unexpected reader termination: ~p", [PostReason]),
             ?line ct:fail("Unexpected post close from reader (~p): ~p",
                           [Pid, PostReason])
     after 5000 ->
-            io:format("~p unexpected reader termination timeout", [self()]),
+            ?P("unexpected reader termination timeout"),
             demonitor(MRef, [flush]),
             exit(Pid, kill),
             ?line ct:fail("Reader (~p) termination timeout", [Pid])
     end,
+    ?P("done"),
     ok.
 
 
 
 
-%%
-%% Utils
-%%
-
-start_node(Name) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
-
-
 %% Test that connect/3 has effect.
 connect(Config) when is_list(Config) ->
     Addr = {127,0,0,1},
+    ?P("try create first socket"),
     {ok,S1} = gen_udp:open(0),
     {ok,P1} = inet:port(S1),
+    ?P("try create second socket"),
     {ok,S2} = gen_udp:open(0),
+    ?P("try set second socket active: false"),
     ok = inet:setopts(S2, [{active,false}]),
+    ?P("try close first socket"),
     ok = gen_udp:close(S1),
+    ?P("try connect second socket to: ~p, ~p", [Addr, P1]),
     ok = gen_udp:connect(S2, Addr, P1),
+    ?P("try send on second socket"),
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
+    ?P("try recv on second socket - expect failure"),
     ok = case gen_udp:recv(S2, 0, 500) of
-	     {error,econnrefused} -> ok;
-	     {error,econnreset} -> ok;
-	     Other -> Other
+	     {error, econnrefused} -> ok;
+	     {error, econnreset}   -> ok;
+	     Other -> 
+                 ?P("UNEXPECTED failure: ~p", [Other]),
+                 Other
 	 end,
+    ?P("done"),
     ok.
 
 implicit_inet6(Config) when is_list(Config) ->
@@ -1228,6 +1227,20 @@ get_localaddr([Localhost|Ls]) ->
        _ ->
            get_localaddr(Ls)
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%
+%% Utils
+%%
+
+start_node(Name) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]).
+
+stop_node(Node) ->
+    test_server:stop_node(Node).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
