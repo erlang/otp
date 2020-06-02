@@ -790,7 +790,7 @@ implicit_inet6(S1, Addr) ->
     ok = gen_sctp:listen(S1, true),
     ServerPortNo = log_ok(inet:port(S1)),
     ?P("try create (client) socket"),
-    S2 = log_ok(gen_sctp:open(0, [inet6])),
+    S2 = log_ok(gen_sctp:open(0, [inet6, {ifaddr, Addr}])),
     {ClientAddr, ClientPortNo} = log_ok(inet:sockname(S2)),
     ?P("try connect"
        "~n   from (connector): ~p, ~p (~p)"
