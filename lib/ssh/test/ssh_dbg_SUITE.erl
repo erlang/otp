@@ -47,7 +47,8 @@ groups() ->
                 dbg_alg_terminate,
                 dbg_ssh_messages,
                 dbg_connections,
-                dbg_channels]},
+                dbg_channels,
+                all_dbg]},
      {circ_buf, [], [cb_basic,
                      cb_print,
                      cb_macros_print
@@ -353,6 +354,37 @@ dbg_channels(Config) ->
     stop_and_fail_if_unhandled_dbg_msgs(Ref, [C,D], Pid).
 
 %%--------------------------------------------------------------------
+all_dbg(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir   = proplists:get_value(priv_dir, Config),
+
+    Dir0 = filename:join(proplists:get_value(priv_dir,Config), ssh_test_lib:random_chars(10)),
+    file:make_dir(Dir0),
+    Dir = w2l(Config, Dir0),
+    ct:log("~p:~p created the directory~nsDir0 = ~p~nDir  = ~p", [?MODULE,?LINE,Dir0,Dir]),
+
+    AllTags = ssh_dbg:start(),
+    {ok,AllTags} = ssh_dbg:on(AllTags),
+
+    {_, Host, Port} =
+	ssh_test_lib:daemon([{system_dir, SystemDir},
+			     {user_dir,   UserDir},
+			     {user_passwords, [{?USR,?PWD}]}
+                            ]),
+
+    {ok, ChPid, _C} =
+        ssh_sftp:start_channel(Host, Port,
+                               [{user_dir, UserDir},
+                                {user,?USR},
+                                {password,?PWD},
+                                {user_interaction, false},
+                                {silently_accept_hosts, true}
+                               ]),
+
+    {ok, _Files} = ssh_sftp:list_dir(ChPid, Dir).
+
+
+%%--------------------------------------------------------------------
 cb_basic(_Config) ->
     %% Check that the circular buffer is disabled at start:
     [] = ssh_dbg:cbuf_list(),
@@ -469,4 +501,12 @@ dbg_SKIP(Ref, Prefixes, UnexpectedAcc) ->
     after 0 ->
             lists:reverse(UnexpectedAcc)
     end.
+
+%%%----------------------------------------------------------------
+w2l(P) ->
+    ssh_test_lib:winpath_to_linuxpath(P).
+
+w2l(Config, P) ->
+    W2L = proplists:get_value(w2l, Config, fun(X) -> X end),
+    W2L(P).
 
