@@ -869,6 +869,15 @@ implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
                "~n   => RETRY"
                "~n", [Addr2, PortNo2, Addr, PortNo]),
             implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
+	{Addr2, PortNo2, #sctp_paddr_change{state = addr_confirmed}}
+          when (OsName =:= freebsd) ->
+            ?P("Expected paddr-change:addr-confirmed event from "
+               "UNEXPECTED ADDRESS: "
+               "~n   UNEXPECTED Address: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n   => RETRY"
+               "~n", [Addr2, PortNo2, Addr, PortNo]),
+            implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
 
 	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up}} = UNEX ->
             ?P("Expected (assoc-change:comm-up) event from UNEXPECTED ADDRESS: "
@@ -877,13 +886,13 @@ implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
                "~n", [Addr2, PortNo2, Addr, PortNo]),
             exit({unexpected_event, UNEX});
 
-	{AX, P2, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
+	{AX, PX, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
             ?P("Expected paddr-change:addr-confirmed event from "
                "UNEXPECTED ADDRESS: "
-               "~n   UNEXPECTED Address: ~p"
-               "~n   Expected Address:   ~p"
+               "~n   UNEXPECTED Address: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
                "~n   PAddr Change:       ~p"
-               "~n", [AX, Addr, CX]),
+               "~n", [AX, PX, Addr, PortNo, CX]),
             exit({unexpected_event, EX});
 
         {AX, PX, CX} = UNEX ->
