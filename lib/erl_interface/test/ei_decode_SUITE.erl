@@ -313,8 +313,13 @@ test_ei_cmp_nc(Config) when is_list(Config) ->
     check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@b, 4711}, 18, 17)),
     check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@b, 4711}, 17, 18)),
 
-    Prt0 = open_port({spawn, "true"},[]),
-    Prt1 = open_port({spawn, "true"},[]),
+    Cmd = case os:type() of
+              {win32, _} -> "cmd /q /c true";
+              _ -> "true"
+          end,
+
+    Prt0 = open_port({spawn, Cmd},[]),
+    Prt1 = open_port({spawn, Cmd},[]),
 
     check_cmp(P, Prt0, Prt0),
     check_cmp(P, Prt1, Prt0),
