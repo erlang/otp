@@ -282,10 +282,10 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 #else
         return PKEY_BADARG;
 #endif
+
     } else if (algorithm == atom_rsa) {
         if ((rsa = RSA_new()) == NULL)
             goto err;
-
         if (!get_rsa_private_key(env, key, rsa))
             goto err;
         if ((result = EVP_PKEY_new()) == NULL)
@@ -299,7 +299,6 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 #if defined(HAVE_EC)
 	const ERL_NIF_TERM *tpl_terms;
 	int tpl_arity;
-
         if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms))
             goto err;
         if (tpl_arity != 2)
@@ -317,48 +316,41 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
             goto err;
         /* On success, result owns ec */
         ec = NULL;
-
 #else
 	return PKEY_NOTSUP;
 #endif
+
     } else if (algorithm == atom_eddsa) {
 #ifdef HAVE_EDDSA
-        if (!FIPS_mode())
-            {
-                if (!get_eddsa_key(env, 0, key, &result))
-                    goto err;
-                else
-                    goto done; // Not nice....
-            }
+        if (FIPS_mode())
+            return PKEY_NOTSUP;
+        if (!get_eddsa_key(env, 0, key, &result))
+            goto err;
 #else
             return PKEY_NOTSUP;
 #endif
+
     } else if (algorithm == atom_dss) {
 #ifdef HAVE_DSA
         if ((dsa = DSA_new()) == NULL)
             goto err;
         if (!get_dss_private_key(env, key, dsa))
             goto err;
-
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
         if (EVP_PKEY_assign_DSA(result, dsa) != 1)
             goto err;
         /* On success, result owns dsa */
         dsa = NULL;
-
-    } else {
+#else
+        return PKEY_NOTSUP;
 #endif
+
+    } else
 	return PKEY_BADARG;
-    }
-    goto done;
 
- err:
-    if (result)
-        EVP_PKEY_free(result);
-    result = NULL;
 
- done:
+ free_and_return:
     if (password)
         enif_free(password);
     if (id)
@@ -380,7 +372,14 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
         *pkey = result;
         return PKEY_OK;
     }
+
+ err:
+    if (result)
+        EVP_PKEY_free(result);
+    result = NULL;
+    goto free_and_return;
 }
+
 
 static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key,
 			       EVP_PKEY **pkey)
