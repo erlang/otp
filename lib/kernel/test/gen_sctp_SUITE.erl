@@ -788,77 +788,37 @@ implicit_inet6(Config) when is_list(Config) ->
 implicit_inet6(S1, Addr) ->
     ?P("make (server) listen socket"),
     ok = gen_sctp:listen(S1, true),
-    P1 = log_ok(inet:port(S1)),
+    ServerPortNo = log_ok(inet:port(S1)),
     ?P("try create (client) socket"),
     S2 = log_ok(gen_sctp:open(0, [inet6])),
-    P2 = log_ok(inet:port(S2)),
+    {ClientAddr, ClientPortNo} = log_ok(inet:sockname(S2)),
     ?P("try connect"
-       "~n   from (connector): ~p (~p)"
+       "~n   from (connector): ~p, ~p (~p)"
        "~n   to:               ~p, ~p",
-       [S2, case inet:sockname(S2) of
-                {ok, SockAP} -> SockAP;
-                {error, _} = SockE -> SockE
-            end, Addr, P1]),
+       [ClientAddr, ClientPortNo, S2, Addr, ServerPortNo]),
     #sctp_assoc_change{state = comm_up} =
-	log_ok(gen_sctp:connect(S2, Addr, P1, [])),
+	log_ok(gen_sctp:connect(S2, Addr, ServerPortNo, [])),
     ?P("connect success: await events"),
-    implicit_inet6_await_ac_comm_up(S1),%, Addr, P2),
-    %% case recv_event(log_ok(gen_sctp:recv(S1))) of
-    %%     {Addr, P2, #sctp_assoc_change{state = comm_up}} ->
-    %%         ?P("received assoc-change:comm-up event => done"),
-    %%         ok;
-    %%     {AX, P2, #sctp_assoc_change{state = comm_up}} = EX ->
-    %%         ?P("Expected (assoc-change:comm-up) event from UNEXPECTED ADDRESS: "
-    %%            "~n   UNEXPECTED Address: ~p"
-    %%            "~n   Expected Address:   ~p"
-    %%            "~n", [AX, Addr]),
-    %%         exit({unexpected_event, EX});
-    %%     {Addr, P2, #sctp_paddr_change{state = addr_confirmed,
-    %%                                   addr  = {Addr, P2},
-    %%                                   error = 0}} ->
-    %%         ?P("received paddr-change:comm-up event - "
-    %%            "try recv assoc-change:comm-up"),
-    %%         {Addr, P2, #sctp_assoc_change{state = comm_up}} =
-    %%     	recv_event(log_ok(gen_sctp:recv(S1)));
-    %%     {AX, P2, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
-    %%         ?P("Expected paddr-change:addr-confirmed event from "
-    %%            "UNEXPECTED ADDRESS: "
-    %%            "~n   UNEXPECTED Address: ~p"
-    %%            "~n   Expected Address:   ~p"
-    %%            "~n   PAddr Change:       ~p"
-    %%            "~n", [AX, Addr, CX]),
-    %%         exit({unexpected_event, EX});
-    %%     {AX, PX, CX} = EX ->
-    %%         ?P("UNEXPECTED EVENT: "
-    %%            "~n   Address:              ~p"
-    %%            "~n   Port:                 ~p"
-    %%            "~n   [Assoc|PAddr] Change: ~p"
-    %%            "~nwhen"
-    %%            "~n   Addr: ~p"
-    %%            "~n   P1:   ~p"
-    %%            "~n   P2:   ~p"
-    %%            "~n", [AX, PX, CX, Addr, P1, P2]),
-    %%         exit({unexpected_event, EX})
-    %% end,
+    implicit_inet6_await_ac_comm_up(S1, ClientAddr, ClientPortNo),
+    ?P("verify server sockname"),
     case log_ok(inet:sockname(S1)) of
-	{Addr,P1} -> ok;
-	{{0,0,0,0,0,0,0,0},P1} -> ok
+	{Addr,              ServerPortNo} -> ok;
+	{{0,0,0,0,0,0,0,0}, ServerPortNo} -> ok
     end,
+    ?P("verify client sockname"),
     case log_ok(inet:sockname(S2)) of
-	{Addr,P2} -> ok;
-	{{0,0,0,0,0,0,0,0},P2} -> ok
+	{Addr,              ClientPortNo} -> ok;
+	{{0,0,0,0,0,0,0,0}, ClientPortNo} -> ok
     end,
-    ok = gen_sctp:close(S2).
+    ?P("client client socket"),
+    ok = gen_sctp:close(S2),
+    ?P("verification complete"),
+    ok.
 
 
-implicit_inet6_await_ac_comm_up(Sock) ->
-    case inet:sockname(Sock) of
-        {ok, {Addr, PortNo}} ->
-            {_OsFam, OsName} = os:type(),
-            implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
-        {error, Reason} ->
-            exit({failed_sockname, Reason})
-    end.
+implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo) ->
+    {_OsFam, OsName} = os:type(),
+    implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName).
 
 implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
     case recv_event(log_ok(gen_sctp:recv(Sock))) of
