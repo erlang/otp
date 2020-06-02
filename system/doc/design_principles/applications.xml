@@ -113,7 +113,7 @@ stop(_State) ->
 <list>
     <item><c>Application</c>, an atom, is the name of the application.
       The file must be named <c>Application.app</c>.</item>
-    <item>Each <c>Opt</c> is a tuple <c>{Key,Value}</c>, which define a
+    <item>Each <c>Opt</c> is a tuple <c>{Key,Value}</c>, which defines a
       certain property of the application. All keys are optional.
       Default values are used for any omitted keys.</item>
 </list>
@@ -187,7 +187,7 @@ ch_app:stop([])</code>
       <section>
           <title>Directory Structure Guidelines for a Development Environment</title>
           <p>Any directory structure for development will suffice as long as the released directory structure
-              adhere to the <seeguide marker="#app_dir_released">description below</seeguide>,
+              adheres to the <seeguide marker="#app_dir_released">description below</seeguide>,
               but it is encouraged that the same directory structure
               also be used in a development environment. The version number should be omitted from the
               application directory name since this is an artifact of the release step.
@@ -236,7 +236,7 @@ ch_app:stop([])</code>
               should target the <c>priv/lib</c> or <c>priv/bin</c> directories.</p>
           <p>The <c>priv</c> directory holds assets that the application needs during runtime. Executables should
               reside in <c>priv/bin</c> and dynamically-linked libraries should reside in <c>priv/lib</c>. Other assets
-              are free to reside within the <c>priv</c> directory but it is recommended it does so in a structured manner.</p>
+              are free to reside within the <c>priv</c> directory but it is recommended they do so in a structured manner.</p>
           <p>Source files from other languages that generate Erlang code, such as ASN.1 or Mibs, should be placed
               in directories, at the top level or in <c>src</c>, with the same name as the source language, for example
               <c>asn1</c> and <c>mibs</c>. Build artifacts should be placed in their respective language directory,
@@ -312,7 +312,7 @@ ch_app:stop([])</code>
       processes is the <em>application controller</em> process,
       registered as <c>application_controller</c>.</p>
     <p>All operations on applications are coordinated by the application
-      controller. It is interacted through the functions in
+      controller. It is interacted with through the functions in
       the module <c>application</c>, see the <c>application(3)</c>
       manual page in Kernel. In particular, applications can be
       loaded, unloaded, started, and stopped.</p>
