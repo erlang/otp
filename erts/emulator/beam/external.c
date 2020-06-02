@@ -108,10 +108,10 @@ static int is_external_string(Eterm obj, Uint* lenp);
 static byte* enc_atom(ErtsAtomCacheMap *, Eterm, byte*, Uint64);
 static byte* enc_pid(ErtsAtomCacheMap *, Eterm, byte*, Uint64);
 struct B2TContext_t;
-static byte* dec_term(ErtsDistExternal*, ErtsHeapFactory*, byte*, Eterm*, struct B2TContext_t*, int);
-static byte* dec_atom(ErtsDistExternal *, byte*, Eterm*);
-static byte* dec_pid(ErtsDistExternal *, ErtsHeapFactory*, byte*, Eterm*, byte tag);
-static Sint decoded_size(byte *ep, byte* endp, int internal_tags, struct B2TContext_t*);
+static const byte* dec_term(ErtsDistExternal*, ErtsHeapFactory*, const byte*, Eterm*, struct B2TContext_t*, int);
+static const byte* dec_atom(ErtsDistExternal *, const byte*, Eterm*);
+static const byte* dec_pid(ErtsDistExternal *, ErtsHeapFactory*, const byte*, Eterm*, byte tag);
+static Sint decoded_size(const byte *ep, const byte* endp, int internal_tags, struct B2TContext_t*);
 static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1);
 
 static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm opts, int level,
@@ -1181,14 +1181,14 @@ erts_decode_dist_ext_size(ErtsDistExternal *edep, int kill_connection, int paylo
     return -1;
 }
 
-Sint erts_decode_ext_size(byte *ext, Uint size)
+Sint erts_decode_ext_size(const byte *ext, Uint size)
 {
     if (size == 0 || *ext != VERSION_MAGIC)
 	return -1;
     return decoded_size(ext+1, ext+size, 0, NULL);
 }
 
-Sint erts_decode_ext_size_ets(byte *ext, Uint size)
+Sint erts_decode_ext_size_ets(const byte *ext, Uint size)
 {
     Sint sz = decoded_size(ext, ext+size, 1, NULL);
     ASSERT(sz >= 0);
@@ -1207,7 +1207,7 @@ erts_decode_dist_ext(ErtsHeapFactory* factory,
                      int kill_connection)
 {
     Eterm obj;
-    byte* ep;
+    const byte* ep;
 
     ep = edep->data->extp;
 
@@ -1229,7 +1229,7 @@ erts_decode_dist_ext(ErtsHeapFactory* factory,
     if (!ep)
 	goto error;
 
-    edep->data->extp = ep;
+    edep->data->extp = (byte*)ep;
 
     return obj;
 
@@ -1242,11 +1242,11 @@ erts_decode_dist_ext(ErtsHeapFactory* factory,
     return THE_NON_VALUE;
 }
 
-Eterm erts_decode_ext(ErtsHeapFactory* factory, byte **ext, Uint32 flags)
+Eterm erts_decode_ext(ErtsHeapFactory* factory, const byte **ext, Uint32 flags)
 {
     ErtsDistExternal ede, *edep;
     Eterm obj;
-    byte *ep = *ext;
+    const byte *ep = *ext;
     if (*ep++ != VERSION_MAGIC) {
         erts_factory_undo(factory);
 	return THE_NON_VALUE;
@@ -1267,7 +1267,7 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, byte **ext, Uint32 flags)
     return obj;
 }
 
-Eterm erts_decode_ext_ets(ErtsHeapFactory* factory, byte *ext)
+Eterm erts_decode_ext_ets(ErtsHeapFactory* factory, const byte *ext)
 {
     Eterm obj;
     ext = dec_term(NULL, factory, ext, &obj, NULL, 1);
@@ -1598,12 +1598,12 @@ enum B2TState { /* order is somewhat significant */
 typedef struct {
     Sint heap_size;
     int terms;
-    byte* ep;
+    const byte* ep;
     int atom_extra_skip;
 } B2TSizeContext;
 
 typedef struct {
-    byte*  ep;
+    const byte* ep;
     Eterm  res;
     Eterm* next;
     ErtsHeapFactory factory;
@@ -2872,8 +2872,8 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint64 dflags)
 }
 
 /* Expect an atom in plain text or cached */
-static byte*
-dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
+static const byte*
+dec_atom(ErtsDistExternal *edep, const byte* ep, Eterm* objp)
 {
     Uint len;
     int n;
@@ -2965,8 +2965,8 @@ static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint32 creation, Eterm b
         return erts_find_or_insert_node(sysname,creation,book);
 }
 
-static byte*
-dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
+static const byte*
+dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, const byte* ep,
         Eterm* objp, byte tag)
 {
     Eterm sysname;
@@ -3931,10 +3931,10 @@ struct dec_term_hamt
 /* Decode term from external format into *objp.
 ** On failure calls erts_factory_undo() and returns NULL
 */
-static byte*
+static const byte*
 dec_term(ErtsDistExternal *edep,
 	 ErtsHeapFactory* factory,
-	 byte* ep,
+	 const byte* ep,
          Eterm* objp,
 	 B2TContext* ctx,
          int ets_decode)
@@ -4084,8 +4084,8 @@ dec_term(ErtsDistExternal *edep,
 	big_loop:
 	    {
 		Eterm big;
-		byte* first;
-		byte* last;
+		const byte* first;
+		const byte* last;
 		Uint neg;
 
 		neg = get_int8(ep); /* Sign bit */
@@ -4693,7 +4693,7 @@ dec_term_atom_common:
 		ErlFunThing* funp = (ErlFunThing *) hp;
 		Uint arity;
 		Eterm module;
-		byte* uniq;
+		const byte* uniq;
 		int index;
 		Sint old_uniq;
 		Sint old_index;
@@ -5382,7 +5382,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
 
 static Sint
-decoded_size(byte *ep, byte* endp, int internal_tags, B2TContext* ctx)
+decoded_size(const byte *ep, const byte* endp, int internal_tags, B2TContext* ctx)
 {
     Sint heap_size;
     int terms;
@@ -5810,7 +5810,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         Eterm ctl_msg, ref, pid, token, *tp, *hp;
         Uint buf_sz;
         byte *buf_start, *buf_end;
-        byte *ptr;
+        const byte *ptr;
         Uint hsz;
         int i;
 
@@ -5922,9 +5922,9 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
                 /* Read original encoding... */
                 ep++;
                 start_ep = ep;
-                ep = dec_atom(NULL, ep, &module);
+                ep = (byte*)dec_atom(NULL, ep, &module);
                 ASSERT(ep && is_atom(module));
-                ep = dec_atom(NULL, ep, &function);
+                ep = (byte*)dec_atom(NULL, ep, &function);
                 ASSERT(ep && is_atom(function));
                 end_ep = ep;
                 ASSERT(*ep == SMALL_INTEGER_EXT

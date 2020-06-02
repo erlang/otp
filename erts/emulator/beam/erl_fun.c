@@ -101,7 +101,7 @@ int erts_fun_table_sz(void)
 
 ErlFunEntry*
 erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
-		    byte* uniq, int index, int arity)
+		    const byte* uniq, int index, int arity)
 {
     ErlFunEntry template;
     ErlFunEntry* fe;

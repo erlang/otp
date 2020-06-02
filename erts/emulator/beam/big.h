@@ -156,7 +156,7 @@ Eterm erts_make_integer(Uint, Process *);
 Eterm erts_make_integer_from_uword(UWord x, Process *p);
 
 dsize_t big_bytes(Eterm);
-Eterm bytes_to_big(byte*, dsize_t, int, Eterm*);
+Eterm bytes_to_big(const byte*, dsize_t, int, Eterm*);
 byte* big_to_bytes(Eterm, byte*);
 
 int term_to_Uint(Eterm, Uint*);

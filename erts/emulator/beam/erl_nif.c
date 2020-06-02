@@ -1394,7 +1394,7 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
 {
     Sint size;
     ErtsHeapFactory factory;
-    byte *bp = (byte*) data;
+    const byte *bp = (byte*) data;
     Uint32 flags = 0;
 
     switch ((Uint32)opts) {

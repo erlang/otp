@@ -1954,7 +1954,7 @@ dsize_t big_bytes(Eterm x)
 ** xsz is the number of bytes in xp
 ** *r is untouched if number fits in small
 */
-Eterm bytes_to_big(byte *xp, dsize_t xsz, int xsgn, Eterm *r)
+Eterm bytes_to_big(const byte *xp, dsize_t xsz, int xsgn, Eterm *r)
 {
     ErtsDigit* rwp = BIG_V(r);
     dsize_t rsz = 0;
