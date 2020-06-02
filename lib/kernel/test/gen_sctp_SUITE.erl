@@ -754,6 +754,7 @@ api_opts(Config) when is_list(Config) ->
 	{ok, [{recbuf, RB}]} when (RB >= Recbuf) -> ok
     end.
 
+%% What is this *actually* supposed to test?
 implicit_inet6(Config) when is_list(Config) ->
     ?P("begin"),
     Hostname = log_ok(inet:gethostname()),
@@ -776,7 +777,9 @@ implicit_inet6(Config) when is_list(Config) ->
 		    ?P("*** ~s: ~p ***", [Hostname, Host]),
 		    S3 = log_ok(gen_sctp:open(0, [{ifaddr, Host}])),
 		    implicit_inet6(S3, Host),
-		    ok = gen_sctp:close(S1);
+		    ok = gen_sctp:close(S1),
+		    ?P("done"),
+                    ok;
 		{error, eafnosupport} ->
 		    ok = gen_sctp:close(S1),
 		    {skip, "Can not look up IPv6 address"}
@@ -823,25 +826,13 @@ implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo) ->
 implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
     case recv_event(log_ok(gen_sctp:recv(Sock))) of
 	{Addr, PortNo, #sctp_assoc_change{state = comm_up}} ->
-            ?P("received assoc-change:comm-up event => done: "
-               "~n   ~p", [case inet:peername(Sock) of
-                               {ok, PeerAP} ->
-                                   PeerAP;
-                               {error, _} = PeerE ->
-                                   PeerE
-                           end]),
+            ?P("received assoc-change:comm-up event => done"),
 	    ok;
 	{Addr, PortNo, #sctp_paddr_change{state = addr_confirmed,
                                           addr  = {Addr, PortNo},
                                           error = 0}} ->
             ?P("received paddr-change:addr-confirmed event - "
-               "try recv assoc-change:comm-up: "
-               "~n   ~p", [case inet:peername(Sock) of
-                               {ok, PeerAP} ->
-                                   PeerAP;
-                               {error, _} = PeerE ->
-                                   PeerE
-                           end]),
+               "try recv assoc-change:comm-up"),
             implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
 
 	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up}}
@@ -849,14 +840,8 @@ implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
             ?P("Expected (assoc-change:comm-up) event from unexpected address: "
                "~n   Unexpected Address: ~p, ~p"
                "~n   Expected Address:   ~p, ~p"
-               "~n   PeerName:           ~p"
                "~n   => RETRY"
-               "~n", [Addr2, PortNo2, Addr, PortNo, case inet:peername(Sock) of
-                                                        {ok, PeerAP} ->
-                                                            PeerAP;
-                                                        {error, _} = PeerE ->
-                                                            PeerE
-                                                    end]),
+               "~n", [Addr2, PortNo2, Addr, PortNo]),
             implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
 	{Addr2, PortNo2, #sctp_paddr_change{state = addr_confirmed}}
           when (OsName =:= freebsd) ->
@@ -864,31 +849,26 @@ implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
                "UNEXPECTED ADDRESS: "
                "~n   UNEXPECTED Address: ~p, ~p"
                "~n   Expected Address:   ~p, ~p"
-               "~n   PeerName:           ~p"
                "~n   => RETRY"
-               "~n", [Addr2, PortNo2, Addr, PortNo, case inet:peername(Sock) of
-                                                        {ok, PeerAP} ->
-                                                            PeerAP;
-                                                        {error, _} = PeerE ->
-                                                            PeerE
-                                                    end]),
+               "~n", [Addr2, PortNo2, Addr, PortNo]),
             implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
 
-	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up}} = UNEX ->
+	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up} = CX} = UNEX ->
             ?P("Expected (assoc-change:comm-up) event from UNEXPECTED ADDRESS: "
                "~n   UNEXPECTED Address: ~p, ~p"
                "~n   Expected Address:   ~p, ~p"
-               "~n", [Addr2, PortNo2, Addr, PortNo]),
+               "~n   Assoc Change:       ~p"
+               "~n", [Addr2, PortNo2, Addr, PortNo, CX]),
             exit({unexpected_event, UNEX});
 
-	{AX, PX, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
+	{AX, PX, #sctp_paddr_change{state = addr_confirmed} = CX} = UNEX ->
             ?P("Expected paddr-change:addr-confirmed event from "
                "UNEXPECTED ADDRESS: "
                "~n   UNEXPECTED Address: ~p, ~p"
                "~n   Expected Address:   ~p, ~p"
                "~n   PAddr Change:       ~p"
                "~n", [AX, PX, Addr, PortNo, CX]),
-            exit({unexpected_event, EX});
+            exit({unexpected_event, UNEX});
 
         {AX, PX, CX} = UNEX ->
             ?P("UNEXPECTED EVENT: "
