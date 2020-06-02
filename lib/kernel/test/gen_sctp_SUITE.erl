@@ -795,45 +795,45 @@ implicit_inet6(S1, Addr) ->
     ?P("try connect (from ~p) to ~p, ~p", [S2, Addr, P1]),
     #sctp_assoc_change{state = comm_up} =
 	log_ok(gen_sctp:connect(S2, Addr, P1, [])),
-    ?P("await events"),
-    case recv_event(log_ok(gen_sctp:recv(S1))) of
-	{Addr, P2, #sctp_assoc_change{state = comm_up}} ->
-            ?P("received assoc-change:comm-up event => done"),
-	    ok;
-	{AX, P2, #sctp_assoc_change{state = comm_up}} = EX ->
-            ?P("Expected (assoc-change:comm-up) event from UNEXPECTED ADDRESS: "
-               "~n   UNEXPECTED Address: ~p"
-               "~n   Expected Address:   ~p"
-               "~n", [AX, Addr]),
-            exit({unexpected_event, EX});
-	{Addr, P2, #sctp_paddr_change{state = addr_confirmed,
-                                      addr  = {Addr, P2},
-                                      error = 0}} ->
-            ?P("received paddr-change:comm-up event - "
-               "try recv assoc-change:comm-up"),
-	    {Addr, P2, #sctp_assoc_change{state = comm_up}} =
-		recv_event(log_ok(gen_sctp:recv(S1)));
-	{AX, P2, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
-            ?P("Expected paddr-change:addr-confirmed event from "
-               "UNEXPECTED ADDRESS: "
-               "~n   UNEXPECTED Address: ~p"
-               "~n   Expected Address:   ~p"
-               "~n   PAddr Change:       ~p"
-               "~n", [AX, Addr, CX]),
-            exit({unexpected_event, EX});
-        {AX, PX, CX} = EX ->
-            ?P("UNEXPECTED EVENT: "
-               "~n   Address:              ~p"
-               "~n   Port:                 ~p"
-               "~n   [Assoc|PAddr] Change: ~p"
-               "~nwhen"
-               "~n   Addr: ~p"
-               "~n   P1:   ~p"
-               "~n   P2:   ~p"
-               "~n", [AX, PX, CX, Addr, P1, P2]),
-            exit({unexpected_event, EX})
-                
-    end,
+    ?P("await (comm-up) events"),
+    implicit_inet6_await_ac_comm_up(S1, Addr, P2),
+    %% case recv_event(log_ok(gen_sctp:recv(S1))) of
+    %%     {Addr, P2, #sctp_assoc_change{state = comm_up}} ->
+    %%         ?P("received assoc-change:comm-up event => done"),
+    %%         ok;
+    %%     {AX, P2, #sctp_assoc_change{state = comm_up}} = EX ->
+    %%         ?P("Expected (assoc-change:comm-up) event from UNEXPECTED ADDRESS: "
+    %%            "~n   UNEXPECTED Address: ~p"
+    %%            "~n   Expected Address:   ~p"
+    %%            "~n", [AX, Addr]),
+    %%         exit({unexpected_event, EX});
+    %%     {Addr, P2, #sctp_paddr_change{state = addr_confirmed,
+    %%                                   addr  = {Addr, P2},
+    %%                                   error = 0}} ->
+    %%         ?P("received paddr-change:comm-up event - "
+    %%            "try recv assoc-change:comm-up"),
+    %%         {Addr, P2, #sctp_assoc_change{state = comm_up}} =
+    %%     	recv_event(log_ok(gen_sctp:recv(S1)));
+    %%     {AX, P2, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
+    %%         ?P("Expected paddr-change:addr-confirmed event from "
+    %%            "UNEXPECTED ADDRESS: "
+    %%            "~n   UNEXPECTED Address: ~p"
+    %%            "~n   Expected Address:   ~p"
+    %%            "~n   PAddr Change:       ~p"
+    %%            "~n", [AX, Addr, CX]),
+    %%         exit({unexpected_event, EX});
+    %%     {AX, PX, CX} = EX ->
+    %%         ?P("UNEXPECTED EVENT: "
+    %%            "~n   Address:              ~p"
+    %%            "~n   Port:                 ~p"
+    %%            "~n   [Assoc|PAddr] Change: ~p"
+    %%            "~nwhen"
+    %%            "~n   Addr: ~p"
+    %%            "~n   P1:   ~p"
+    %%            "~n   P2:   ~p"
+    %%            "~n", [AX, PX, CX, Addr, P1, P2]),
+    %%         exit({unexpected_event, EX})
+    %% end,
     case log_ok(inet:sockname(S1)) of
 	{Addr,P1} -> ok;
 	{{0,0,0,0,0,0,0,0},P1} -> ok
@@ -843,6 +843,58 @@ implicit_inet6(S1, Addr) ->
 	{{0,0,0,0,0,0,0,0},P2} -> ok
     end,
     ok = gen_sctp:close(S2).
+
+
+implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo) ->
+    {_OsFam, OsName} = os:type(),
+    implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName).
+
+implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
+    case recv_event(log_ok(gen_sctp:recv(Sock))) of
+	{Addr, PortNo, #sctp_assoc_change{state = comm_up}} ->
+            ?P("received assoc-change:comm-up event => done"),
+	    ok;
+	{Addr, PortNo, #sctp_paddr_change{state = addr_confirmed,
+                                          addr  = {Addr, PortNo},
+                                          error = 0}} ->
+            ?P("received paddr-change:addr-confirmed event - "
+               "try recv assoc-change:comm-up"),
+            implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
+
+	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up}}
+          when (OsName =:= freebsd) ->
+            ?P("Expected (assoc-change:comm-up) event from unexpected address: "
+               "~n   Unexpected Address: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n   => RETRY"
+               "~n", [Addr2, PortNo2, Addr, PortNo]),
+            implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
+
+	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up}} = UNEX ->
+            ?P("Expected (assoc-change:comm-up) event from UNEXPECTED ADDRESS: "
+               "~n   UNEXPECTED Address: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n", [Addr2, PortNo2, Addr, PortNo]),
+            exit({unexpected_event, UNEX});
+
+	{AX, P2, #sctp_paddr_change{state = addr_confirmed} = CX} = EX ->
+            ?P("Expected paddr-change:addr-confirmed event from "
+               "UNEXPECTED ADDRESS: "
+               "~n   UNEXPECTED Address: ~p"
+               "~n   Expected Address:   ~p"
+               "~n   PAddr Change:       ~p"
+               "~n", [AX, Addr, CX]),
+            exit({unexpected_event, EX});
+
+        {AX, PX, CX} = UNEX ->
+            ?P("UNEXPECTED EVENT: "
+               "~n   ~p"
+               "~n   UNEXPECTED ADDRESS: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n", [CX, AX, PX, Addr, PortNo]),
+            exit({unexpected_event, UNEX})
+    end.
+
 
 %% Verify {active, N} socket management.
 %% This is difficult to do since we do not just receive data messages.
