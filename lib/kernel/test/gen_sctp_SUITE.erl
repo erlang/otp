@@ -792,10 +792,23 @@ implicit_inet6(S1, Addr) ->
     ?P("try create socket"),
     S2 = log_ok(gen_sctp:open(0, [inet6])),
     P2 = log_ok(inet:port(S2)),
-    ?P("try connect (from ~p) to ~p, ~p", [S2, Addr, P1]),
+    ?P("try connect"
+       "~n   from: ~p (~p)"
+       "~n   to:   ~p, ~p",
+       [S2, case inet:sockname(S2) of
+                {ok, SockAP} -> SockAP;
+                {error, _} = SockE -> SockE
+            end, Addr, P1]),
     #sctp_assoc_change{state = comm_up} =
 	log_ok(gen_sctp:connect(S2, Addr, P1, [])),
-    ?P("await (comm-up) events"),
+    ?P("connect success: "
+       "~n   ~p"
+       "~n   => await (comm-up) events", [case inet:peername() of
+                                              {ok, PeerAP} ->
+                                                  PeerAP;
+                                              {error, _} = PeerE ->
+                                                  PeerE
+                                          end]),
     implicit_inet6_await_ac_comm_up(S1, Addr, P2),
     %% case recv_event(log_ok(gen_sctp:recv(S1))) of
     %%     {Addr, P2, #sctp_assoc_change{state = comm_up}} ->
