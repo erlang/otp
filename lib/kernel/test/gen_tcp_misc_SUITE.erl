@@ -1981,11 +1981,7 @@ busy_disconnect_server_wait_for_busy(Sender, S) ->
 %%% Fill send queue
 %%%
 fill_sendq(Config) when is_list(Config) ->
-    try do_fill_sendq(Config)
-    catch
-        exit:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(fill_sendq, fun() -> do_fill_sendq(Config) end).
 
 do_fill_sendq(_Config) ->
     OldFlag = process_flag(trap_exit, true),
@@ -2082,7 +2078,8 @@ fill_sendq_loop(Server, Client, Reader) ->
 
                 {Server, SErrors} ->
                     ?P("UNEXPECTED SERVER ERROR(S): "
-                       "~n   ~p", [SErrors]),
+                       "~n   ~p"
+                       "~n   ~p", [SErrors, flush([])]),
                     ct:fail([{server, SErrors}, {reader, []}]);
 
                 {Reader, [{error,closed}] = RErrors} ->
@@ -2099,7 +2096,8 @@ fill_sendq_loop(Server, Client, Reader) ->
 
                 {Reader, RErrors} ->
                     ?P("UNEXPECTED READER ERROR(S): "
-                       "~n   ~p", [RErrors]),
+                       "~n   ~p"
+                       "~n   ~p", [RErrors, flush([])]),
                     ct:fail([{server, []}, {reader, RErrors}])
 
             after 3000 ->
@@ -2114,7 +2112,8 @@ fill_sendq_srv(L, Master) ->
     ?P("[server] await accept"),
     case gen_tcp:accept(L) of
 	{ok, S} ->
-	    Master ! {self(),reader,
+            ?P("[server] accepted ~p", [S]),
+	    Master ! {self(), reader,
 		      spawn_link(fun () -> fill_sendq_read(S, Master) end)},
 	    Msg = "the quick brown fox jumps over a lazy dog~n",
 	    fill_sendq_write(S, Master, [Msg,Msg,Msg,Msg,Msg,Msg,Msg,Msg]);
@@ -2128,9 +2127,9 @@ fill_sendq_write(S, Master, Msg) ->
     %% Server
     %%
     %% ?P("[server] sending..."),
-    Master ! {self(), send},
     case gen_tcp:send(S, Msg) of
 	ok ->
+            Master ! {self(), send},
 	    %% ?P("[server] ok."),
 	    fill_sendq_write(S, Master, Msg);
 	{error, _} = E ->
