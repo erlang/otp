@@ -232,7 +232,7 @@ print_test_error({error, Exception}, Data, #state{print_depth = Depth}) ->
 	_ ->
 	    fwrite("  output:<<\"~ts\">>\n\n", [Output])
     end;
-print_test_error({skipped, Reason}, _, St) ->
+print_test_error({skipped, Reason}, _, _St) ->
     fwrite("*did not run*\n::~ts\n", [format_skipped(Reason)]).
 
 format_skipped({module_not_found, M}) ->
