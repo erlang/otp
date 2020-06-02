@@ -707,7 +707,7 @@ do_sendtclass() ->
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
 %% Using the option returns einval, so it is not implemented.
-recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,6,0});
+recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %%
