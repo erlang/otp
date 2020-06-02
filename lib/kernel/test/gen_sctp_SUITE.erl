@@ -802,7 +802,7 @@ implicit_inet6(S1, Addr) ->
     #sctp_assoc_change{state = comm_up} =
 	log_ok(gen_sctp:connect(S2, Addr, P1, [])),
     ?P("connect success: await events"),
-    implicit_inet6_await_ac_comm_up(S1, Addr, P2),
+    implicit_inet6_await_ac_comm_up(S1),%, Addr, P2),
     %% case recv_event(log_ok(gen_sctp:recv(S1))) of
     %%     {Addr, P2, #sctp_assoc_change{state = comm_up}} ->
     %%         ?P("received assoc-change:comm-up event => done"),
@@ -851,9 +851,14 @@ implicit_inet6(S1, Addr) ->
     ok = gen_sctp:close(S2).
 
 
-implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo) ->
-    {_OsFam, OsName} = os:type(),
-    implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName).
+implicit_inet6_await_ac_comm_up(Sock) ->
+    case inet:sockname(Sock) of
+        {ok, {Addr, PortNo}} ->
+            {_OsFam, OsName} = os:type(),
+            implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
+        {error, Reason} ->
+            exit({failed_sockname, Reason})
+    end.
 
 implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
     case recv_event(log_ok(gen_sctp:recv(Sock))) of
