@@ -748,7 +748,7 @@ api_opts(Config) when is_list(Config) ->
     ok = inet:setopts(S, [{sndbuf,Sndbuf}]),
     ok = inet:setopts(S, [{recbuf,Recbuf}]),
     case inet:getopts(S, [sndbuf]) of
-	{ok,[{sndbuf,SB}]} when SB >= Sndbuf -> ok
+	{ok, [{sndbuf,SB}]} when SB >= Sndbuf -> ok
     end,
     case inet:getopts(S, [recbuf]) of
 	{ok, [{recbuf, RB}]} when (RB >= Recbuf) -> ok
@@ -757,7 +757,7 @@ api_opts(Config) when is_list(Config) ->
 implicit_inet6(Config) when is_list(Config) ->
     ?P("begin"),
     Hostname = log_ok(inet:gethostname()),
-    ?P("try create (listen) socket"),
+    ?P("try create socket"),
     case gen_sctp:open(0, [inet6]) of
 	{ok, S1} ->
 	    case inet:getaddr(Hostname, inet6) of
@@ -774,7 +774,7 @@ implicit_inet6(Config) when is_list(Config) ->
 		    ok = gen_sctp:close(S2),
 		    %%
 		    ?P("*** ~s: ~p ***", [Hostname, Host]),
-		    S3 = log_ok(gen_sctp:open(0, [{ifaddr,Host}])),
+		    S3 = log_ok(gen_sctp:open(0, [{ifaddr, Host}])),
 		    implicit_inet6(S3, Host),
 		    ok = gen_sctp:close(S1);
 		{error, eafnosupport} ->
@@ -789,7 +789,7 @@ implicit_inet6(S1, Addr) ->
     ?P("make (server) listen socket"),
     ok = gen_sctp:listen(S1, true),
     P1 = log_ok(inet:port(S1)),
-    ?P("try create socket"),
+    ?P("try create (client) socket"),
     S2 = log_ok(gen_sctp:open(0, [inet6])),
     P2 = log_ok(inet:port(S2)),
     ?P("try connect"
@@ -801,14 +801,7 @@ implicit_inet6(S1, Addr) ->
             end, Addr, P1]),
     #sctp_assoc_change{state = comm_up} =
 	log_ok(gen_sctp:connect(S2, Addr, P1, [])),
-    ?P("connect success: "
-       "~n   PeerName of Connector: ~p"
-       "~n   => await (comm-up) events", [case inet:peername(S2) of
-                                              {ok, PeerAP} ->
-                                                  PeerAP;
-                                              {error, _} = PeerE ->
-                                                  PeerE
-                                          end]),
+    ?P("connect success: await events"),
     implicit_inet6_await_ac_comm_up(S1, Addr, P2),
     %% case recv_event(log_ok(gen_sctp:recv(S1))) of
     %%     {Addr, P2, #sctp_assoc_change{state = comm_up}} ->
@@ -865,13 +858,25 @@ implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo) ->
 implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
     case recv_event(log_ok(gen_sctp:recv(Sock))) of
 	{Addr, PortNo, #sctp_assoc_change{state = comm_up}} ->
-            ?P("received assoc-change:comm-up event => done"),
+            ?P("received assoc-change:comm-up event => done: "
+               "~n   ~p", [case inet:peername(Sock) of
+                               {ok, PeerAP} ->
+                                   PeerAP;
+                               {error, _} = PeerE ->
+                                   PeerE
+                           end]),
 	    ok;
 	{Addr, PortNo, #sctp_paddr_change{state = addr_confirmed,
                                           addr  = {Addr, PortNo},
                                           error = 0}} ->
             ?P("received paddr-change:addr-confirmed event - "
-               "try recv assoc-change:comm-up"),
+               "try recv assoc-change:comm-up: "
+               "~n   ~p", [case inet:peername(Sock) of
+                               {ok, PeerAP} ->
+                                   PeerAP;
+                               {error, _} = PeerE ->
+                                   PeerE
+                           end]),
             implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
 
 	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up}}
@@ -879,8 +884,14 @@ implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
             ?P("Expected (assoc-change:comm-up) event from unexpected address: "
                "~n   Unexpected Address: ~p, ~p"
                "~n   Expected Address:   ~p, ~p"
+               "~n   PeerName:           ~p"
                "~n   => RETRY"
-               "~n", [Addr2, PortNo2, Addr, PortNo]),
+               "~n", [Addr2, PortNo2, Addr, PortNo, case inet:peername(Sock) of
+                                                        {ok, PeerAP} ->
+                                                            PeerAP;
+                                                        {error, _} = PeerE ->
+                                                            PeerE
+                                                    end]),
             implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
 	{Addr2, PortNo2, #sctp_paddr_change{state = addr_confirmed}}
           when (OsName =:= freebsd) ->
@@ -888,8 +899,14 @@ implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
                "UNEXPECTED ADDRESS: "
                "~n   UNEXPECTED Address: ~p, ~p"
                "~n   Expected Address:   ~p, ~p"
+               "~n   PeerName:           ~p"
                "~n   => RETRY"
-               "~n", [Addr2, PortNo2, Addr, PortNo]),
+               "~n", [Addr2, PortNo2, Addr, PortNo, case inet:peername(Sock) of
+                                                        {ok, PeerAP} ->
+                                                            PeerAP;
+                                                        {error, _} = PeerE ->
+                                                            PeerE
+                                                    end]),
             implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
 
 	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up}} = UNEX ->
