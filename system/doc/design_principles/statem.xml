@@ -72,7 +72,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       in which the new state <c>S'</c> is different from
       the current state <c>S</c>, where "different" means
       Erlang's strict inequality: <c>=/=</c>
-      also know as "does not match".
+      also known as "does not match".
       <c>gen_statem</c> does more things during <em>state changes</em>
       than during other <em>state transitions</em>.
     </p>
@@ -122,7 +122,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	<seeguide marker="#Inserted Events">
 	  Inserted Events
 	</seeguide>
-	(that is, events from the state machine to itself; 
+	(that is, events from the state machine to itself;
 	 for purely internal events in particular)
       </item>
       <item>
@@ -177,7 +177,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     </p>
     <p>
       The behaviour engine holds the state machine state,
-      server data, timer references, a queue of posponed messages
+      server data, timer references, a queue of postponed messages
       and other metadata.  It receives all process messages,
       handles the system messages, and calls the <em>callback module</em>
       with machine specific events.
@@ -189,14 +189,14 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       <seetype marker="stdlib:gen_statem#action"><c>{change_callback_module, NewModule}</c></seetype>,
       <seetype marker="stdlib:gen_statem#action"><c>{push_callback_module, NewModule}</c></seetype> or
       <seetype marker="stdlib:gen_statem#action"><c>pop_callback_module</c></seetype>.
-      Note that this is a pretty esotheric thing to do...
+      Note that this is a pretty esoteric thing to do...
       The origin for this feature is a protocol that after
       version negotiation branches off into quite different
       state machines depending on the protocol version.
       There <i>might</i> be other use cases.
       <i>Beware</i> that the new callback module
       completely replaces the previous behaviour module,
-      so all relevant callback functions has to handle
+      so all relevant callback functions have to handle
       the state and data from the previous callback module.
     </p>
   </section>
@@ -505,8 +505,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	</seemfa>
 	callback function is called before any
 	<seeguide marker="#State Callback"><em>state callback</em></seeguide>
-	is called.  This function behaves like an <em>state callback</em>
-	function, but gets its only argument <c>Args</c> from 
+	is called.  This function behaves like a <em>state callback</em>
+	function, but gets its only argument <c>Args</c> from
 	the <c>gen_statem</c>
 	<seemfa marker="stdlib:gen_statem#start/3">
 	  <c>start/3,4</c>
@@ -644,7 +644,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	</seetype>
       </tag>
       <item>
-	Generate the next event to handle, see section 
+	Generate the next event to handle, see section
 	<seeguide marker="#Inserted Events">Inserted Events</seeguide>.
       </item>
       <tag>
@@ -892,7 +892,7 @@ StateName(EventType, EventContent, Data) ->
     <p>
       You may repeat the <em>state enter call</em>
       using the <c>{repeat_state,...}</c>
-      return value from the 
+      return value from the
       <seeguide marker="#State Callback">state callback</seeguide>.
       In this case <c>OldState</c> will also be equal to the current state.
     </p>
@@ -1765,10 +1765,10 @@ open(cast, {button,_}, Data) ->
       Note that no time-out message will arrive after this (because the timer has been explicitly canceled),
       unless you have already postponed one earlier (see the next section),
       so ensure that you do not accidentally postpone such messages.
-      Also note that a time-out message may arrive during a **state callback** 
+      Also note that a time-out message may arrive during a <em>state callback</em>
       that is cancelling the timer, so you may have to read out
       such a message from the process mailbox, depending on
-      the return value from 
+      the return value from
       <seemfa marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seemfa>.
     </p>
     <p>
@@ -1829,7 +1829,7 @@ open(cast, {button,_}, Data) ->
       This is not important if you do not postpone events.
       But if you later decide to start postponing some events,
       then the design flaw of not having separate states
-      when they should be, might become a hard to find bug.
+      when they should be, might become a hard-to-find bug.
     </p>
 
     <section>
