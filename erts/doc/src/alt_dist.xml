@@ -63,9 +63,9 @@
 	Erlang code will of course have to take care of retransmissions,
 	etc in this example). That is, depending on what you want
 	to do you perhaps do not need to implement a driver at all
-	and can then skip the driver related sections below.
-	The <c>gen_tcp_dist</c> example described in the
-	<seeguide marker="#distribution_module">Distribution
+	and can then skip the driver related sections below. The
+	<c>gen_tcp_dist</c> and <c>erl_uds_dist</c> examples described
+	in the <seeguide marker="#distribution_module">Distribution
 	Module</seeguide> section utilize distribution controller
 	processes and can be worth having a look at if you want to
 	use distribution controller processes.
@@ -187,13 +187,20 @@
       then voluntarily terminate when an exit signal is received.
     </p>
     <p>
-      An example implementation of a distribution module can be found
-      in
+      An example implementation of a distribution module can be found in
       <url href="gen_tcp_dist.erl">$ERL_TOP/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl</url>.
       It implements the distribution over TCP/IP using the <c>gen_tcp</c>
       API with distribution controllers implemented by processes. This
       instead of using port distribution controllers as the ordinary TCP/IP
       distribution uses.
+    </p>
+    <p>
+      Another example implementation of a distribution module can be found in
+      <url href="erl_uds_dist.erl">$ERL_TOP/lib/kernel/examples/erl_uds_dist/src/erl_uds_dist.erl</url>.
+      It implements the distribution over Unix domain sockets using the
+      <c>gen_tcp</c> API with distribution controllers implemented by processes.
+      Compared to the original <c>uds_dist</c> example using a port driver
+      written in C, <c>erl_uds_dist</c> is written entirely in Erlang.
     </p>
 
     <section>
