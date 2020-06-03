@@ -4441,15 +4441,6 @@ delay_send_error(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% skip(S) when is_list(S) ->
-%%     throw({skip, S}).
-
-%% %% skip(F, A) when is_list(F) andalso is_list(A) ->
-%% %%     skip(f(F, A)).
-
-%% f(F, A) ->
-%%     lists:flatten(io_lib:format(F, A)).
-
 connect_failed_str(Reason) ->
     ?F("Connect failed: ~w", [Reason]).
 
@@ -4461,20 +4452,4 @@ accept_failed_str(Reason) ->
 
 port_failed_str(Reason) ->
     ?F("Port failed: ~w", [Reason]).
-
-%% formated_timestamp() ->
-%%     format_timestamp(os:timestamp()).
-
-%% format_timestamp({_N1, _N2, N3} = TS) ->
-%%     {_Date, Time}   = calendar:now_to_local_time(TS),
-%%     {Hour, Min, Sec} = Time,
-%%     FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
-%%                              [Hour, Min, Sec, N3 div 1000]),  
-%%     lists:flatten(FormatTS).
-
-%% p(F) ->
-%%     p(F, []).
-
-%% p(F, A) ->
-%%     io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
 
