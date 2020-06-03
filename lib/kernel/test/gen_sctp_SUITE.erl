@@ -179,8 +179,8 @@ xfer_min(Config) when is_list(Config) ->
     case log_ok(gen_sctp:recv(Sb, infinity)) of
 	{Loopback,
 	 Pa,
-	 [#sctp_sndrcvinfo{stream=Stream,
-			   assoc_id=SbAssocId}],
+	 [#sctp_sndrcvinfo{stream   = Stream,
+			   assoc_id = SbAssocId}],
 	 Data} -> ok;
 	Event1 ->
 	    case recv_event(Event1) of
@@ -557,20 +557,6 @@ getopt(S, Opt, Param) ->
 setopt(S, Opt, Val) ->
     inet:setopts(S, [{Opt,Val}]).
 
-log_ok(X) -> log(ok(X)).
-
-ok({ok,X}) -> X.
-
-err([], Result) ->
-    erlang:error(Result);
-err([Reason|_], {error,Reason}) ->
-    ok;
-err([_|Reasons], Result) ->
-    err(Reasons, Result).
-
-log(X) ->
-    ?P("LOG: ~p", [X]),
-    X.
 
 flush() ->
     receive
@@ -756,44 +742,64 @@ api_opts(Config) when is_list(Config) ->
 
 %% What is this *actually* supposed to test?
 implicit_inet6(Config) when is_list(Config) ->
+    ?TC_TRY(implicit_inet6, fun() -> do_implicit_inet6(Config) end).
+
+do_implicit_inet6(_Config) ->
     ?P("begin"),
-    Hostname = log_ok(inet:gethostname()),
-    ?P("try create socket"),
+    %% First
+    ?P("try create server socket (1)"),
     case gen_sctp:open(0, [inet6]) of
 	{ok, S1} ->
-	    case inet:getaddr(Hostname, inet6) of
-		{ok, Host} ->
-		    Loopback = {0,0,0,0,0,0,0,1},
-		    ?P("*** ~s: ~p ***", ["Loopback", Loopback]),
-		    implicit_inet6(S1, Loopback),
-		    ok = gen_sctp:close(S1),
-		    %%
-		    Localhost = log_ok(inet:getaddr("localhost", inet6)),
-		    ?P("*** ~s: ~p ***", ["localhost", Localhost]),
-		    S2 = log_ok(gen_sctp:open(0, [{ip,Localhost}])),
-		    implicit_inet6(S2, Localhost),
-		    ok = gen_sctp:close(S2),
-		    %%
-		    ?P("*** ~s: ~p ***", [Hostname, Host]),
-		    S3 = log_ok(gen_sctp:open(0, [{ifaddr, Host}])),
-		    implicit_inet6(S3, Host),
-		    ok = gen_sctp:close(S1),
-		    ?P("done"),
-                    ok;
-		{error, eafnosupport} ->
-		    ok = gen_sctp:close(S1),
-		    {skip, "Can not look up IPv6 address"}
-	    end;
-	_ ->
-	    {skip, "IPv6 not supported"}
+            Loopback = {0,0,0,0,0,0,0,1},
+            ?P("*** ~s: ~p ***", ["Loopback", Loopback]),
+            implicit_inet6(S1, Loopback),
+            ok = gen_sctp:close(S1),
+            
+            %% Second
+            ?P("try create server socket (2)"),
+            Localhost = log_ok(inet:getaddr("localhost", inet6)),
+            S2 = log_ok(gen_sctp:open(0, [{ip,Localhost}])),
+            ?P("*** ~s: ~p ***", ["localhost", Localhost]),
+            implicit_inet6(S2, Localhost),
+            ok = gen_sctp:close(S2),
+            
+            %% Third
+            ?P("try create server socket (3)"),
+            Hostname = log_ok(inet:gethostname()),
+            Addr     = case inet:getaddr(Hostname, inet6) of
+                           {ok, A} ->
+                               A;
+                           {error, eafnosupport} ->
+                               ok = gen_sctp:close(S1),
+                               ?SKIPT("Can not look up IPv6 address")
+                       end,
+            S3 = log_ok(gen_sctp:open(0, [{ifaddr, Addr}])),
+            ?P("*** ~s: ~p ***", [Hostname, Addr]),
+            implicit_inet6(S3, Addr),
+            ok = gen_sctp:close(S1),
+            ?P("done"),
+            ok;
+        {error, eaddrnotavail = Reason} ->
+            ?SKIPT(open_failed_str(Reason));
+        _ ->
+            {skip, "IPv6 not supported"}
     end.
+
 
 implicit_inet6(S1, Addr) ->
     ?P("make (server) listen socket"),
     ok = gen_sctp:listen(S1, true),
     ServerPortNo = log_ok(inet:port(S1)),
     ?P("try create (client) socket"),
-    S2 = log_ok(gen_sctp:open(0, [inet6, {ifaddr, Addr}])),
+    S2 = case gen_sctp:open(0, [inet6, {ifaddr, Addr}]) of
+             {ok, Sock} ->
+                 ?P("client socket created: ~p", [Sock]),
+                 Sock;
+             {error, eaddrnotavail = Reason} ->
+                 ?P("could not create (client) socket with ifaddr: "
+                    "~n   ~p", [Addr]),
+                 ?SKIPT(open_failed_str(Reason))
+    end,
     {ClientAddr, ClientPortNo} = log_ok(inet:sockname(S2)),
     ?P("try connect"
        "~n   from (connector): ~p, ~p (~p)"
@@ -2088,7 +2094,42 @@ match_unless_solaris(A, B) ->
 	_ -> A = B
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 timestamp() ->
     erlang:monotonic_time().
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+log_ok(X) ->
+    log(ok(X)).
+
+ok({ok, X}) ->
+    X;
+ok({error, X}) ->
+    ?P("ERROR: ~p", [X]),
+    ?line ct:fail({unexpected_error, X});
+ok(X) ->
+    ?P("UNEXPECTED: ~p", [X]),
+    ?line ct:fail({unexpected, X}).
+    
+
+log(X) ->
+    ?P("LOG: ~p", [X]),
+    X.
+
+err([], Result) ->
+    erlang:error(Result);
+err([Reason|_], {error,Reason}) ->
+    ok;
+err([_|Reasons], Result) ->
+    err(Reasons, Result).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+open_failed_str(Reason) ->
+    ?F("Open failed: ~w", [Reason]).
 
