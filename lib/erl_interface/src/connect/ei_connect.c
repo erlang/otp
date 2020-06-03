@@ -440,7 +440,7 @@ static ei_socket_info* get_ei_socket_info(int fd)
 
 static int remove_ei_socket_info(int fd)
 {
-    return put_ei_socket_info(fd, -1, NULL, NULL, NULL, NULL);
+    return put_ei_socket_info(fd, -1, null_cookie, NULL, NULL, NULL);
 }
 
 ei_cnode *ei_fd_to_cnode(int fd)
