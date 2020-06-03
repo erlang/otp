@@ -1084,15 +1084,50 @@ on(V) when number(V) -> number;
 on(_) -> not_number.
 
 complex_guard(_Config) ->
-    _ = [true = do_complex_guard(X, Y, Z) ||
+    _ = [true = do_complex_guard_1(X, Y, Z) ||
 	    X <- [4,5], Y <- [4,5], Z <- [4,5]],
-    _ = [true = do_complex_guard(X, Y, Z) ||
+    _ = [true = do_complex_guard_1(X, Y, Z) ||
 	    X <- [1,2,3], Y <- [1,2,3], Z <- [1,2,3]],
-    _ = [catch do_complex_guard(X, Y, Z) ||
+    _ = [catch do_complex_guard_1(X, Y, Z) ||
 	    X <- [1,2,3,4,5], Y <- [0,6], Z <- [1,2,3,4,5]],
+
+    b = do_complex_guard_2(false, false, true),
+    c = do_complex_guard_2(false, false, false),
+    c = do_complex_guard_2(false, true,  true),
+    a = do_complex_guard_2(false, true,  false),
+
+    c = do_complex_guard_2(true,  false, true),
+    a = do_complex_guard_2(true,  false, false),
+    c = do_complex_guard_2(true,  true,  true),
+    a = do_complex_guard_2(true,  true,  false),
+
+    c = do_complex_guard_2(other, false, true),
+    c = do_complex_guard_2(other, false, false),
+    c = do_complex_guard_2(other, true,  true),
+    c = do_complex_guard_2(other, true,  false),
+
+    c = do_complex_guard_2(false, other, true),
+    c = do_complex_guard_2(false, other, false),
+    c = do_complex_guard_2(true,  other, true),
+    a = do_complex_guard_2(true,  other, false),
+
+    c = do_complex_guard_2(false, false, other),
+    c = do_complex_guard_2(false, true,  other),
+    c = do_complex_guard_2(true,  false, other),
+    c = do_complex_guard_2(true,  true,  other),
+
+    c = do_complex_guard_2(false, other, other),
+    c = do_complex_guard_2(true,  other, other),
+    c = do_complex_guard_2(other, other, true),
+    c = do_complex_guard_2(other, other, false),
+    c = do_complex_guard_2(other, false, other),
+    c = do_complex_guard_2(other, true,  other),
+
+    c = do_complex_guard_2(other, other, other),
+
     ok.
 
-do_complex_guard(X1, Y1, Z1) ->
+do_complex_guard_1(X1, Y1, Z1) ->
     if
 	((X1 =:= 4) or (X1 =:= 5)) and
 	((Y1 =:= 4) or (Y1 =:= 5)) and
@@ -1102,6 +1137,13 @@ do_complex_guard(X1, Y1, Z1) ->
 	((Z1 =:= 1) or (Z1 =:= 2) or (Z1 =:= 3)) ->
 	    true
     end.
+
+do_complex_guard_2(X, Y, Z) ->
+  if
+      (X orelse Y) andalso (not Z) -> a;
+      Z andalso (not (X orelse Y)) -> b;
+      true                         -> c
+  end.
 
 gbif(Config) when is_list(Config) ->
     error = gbif_1(1, {false,true}),
@@ -2557,6 +2599,10 @@ fail_in_guard() ->
                     error
             end(),
     error = fun() when (0 #fail_in_guard.f)#fail_in_guard.f -> ok;
+               () -> error
+            end(),
+    error = fun() when 42; <<0.5,0:(element(true, false))>> ->
+                    a = b;
                () -> error
             end(),
 

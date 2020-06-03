@@ -1342,23 +1342,38 @@ live_opt_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Acc) ->
         false ->
             live_opt_is(Is, Live, Acc)
     end;
-live_opt_is([#b_set{op={succeeded,_},dst=SuccDst,args=[MapDst]}=SuccI,
-             #b_set{op=get_map_element,dst=MapDst}=MapI | Is],
+live_opt_is([#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}=SuccI,
+             #b_set{op=Op,dst=Dst}=I0|Is],
             Live0, Acc) ->
     case {gb_sets:is_member(SuccDst, Live0),
-          gb_sets:is_member(MapDst, Live0)} of
+          gb_sets:is_member(Dst, Live0)} of
         {true, true} ->
             Live = gb_sets:delete(SuccDst, Live0),
-            live_opt_is([MapI | Is], Live, [SuccI | Acc]);
+            live_opt_is([I0|Is], Live, [SuccI|Acc]);
         {true, false} ->
-            %% 'get_map_element' is unused; replace 'succeeded' with
-            %% 'has_map_field'
-            NewI = MapI#b_set{op=has_map_field,dst=SuccDst},
-            live_opt_is([NewI | Is], Live0, Acc);
+            %% The result of the instruction before {succeeded,guard} is
+            %% unused. Attempt to perform a strength reduction.
+            case Op of
+                {bif,'not'} ->
+                    I = I0#b_set{op={bif,is_boolean},dst=SuccDst},
+                    live_opt_is([I|Is], Live0, Acc);
+                {bif,tuple_size} ->
+                    I = I0#b_set{op={bif,is_tuple},dst=SuccDst},
+                    live_opt_is([I|Is], Live0, Acc);
+                bs_start_match ->
+                    [#b_literal{val=new},Bin] = I0#b_set.args,
+                    I = I0#b_set{op={bif,is_bitstring},args=[Bin],dst=SuccDst},
+                    live_opt_is([I|Is], Live0, Acc);
+                get_map_element ->
+                    I = I0#b_set{op=has_map_field,dst=SuccDst},
+                    live_opt_is([I|Is], Live0, Acc);
+                _ ->
+                    Live1 = gb_sets:delete(SuccDst, Live0),
+                    Live = gb_sets:add(Dst, Live1),
+                    live_opt_is([I0|Is], Live, [SuccI|Acc])
+            end;
         {false, true} ->
-            %% 'succeeded' is unused (we know it will succeed); discard it and
-            %% keep 'get_map_element'
-            live_opt_is([MapI | Is], Live0, Acc);
+            live_opt_is([I0|Is], Live0, Acc);
         {false, false} ->
             live_opt_is(Is, Live0, Acc)
     end;

@@ -1263,6 +1263,10 @@ t_guard_bifs(Config) when is_list(Config) ->
     true   = map_is_key_head_not(#{}),
     false  = map_is_key_head_not(not_a_map),
 
+    b = map_get_head_badmap1(),
+    b = map_get_head_badmap2(),
+    b = map_get_head_badmap3(),
+
     true   = map_guard_body(#{a=>1}),
     false  = map_guard_body({}),
     true   = map_guard_pattern(#{a=>1, <<"hi">> => "hi" }),
@@ -1336,6 +1340,15 @@ map_get_head(_) -> false.
 
 map_get_head_not(M) when not map_get(a, M) -> true;
 map_get_head_not(_) -> false.
+
+map_get_head_badmap1() when map_get(key, not_a_map), false -> a;
+map_get_head_badmap1() -> b.
+
+map_get_head_badmap2() when map_get(key, not_a_map), true -> a;
+map_get_head_badmap2() -> b.
+
+map_get_head_badmap3() when map_get(key, not_a_map) -> a;
+map_get_head_badmap3() -> b.
 
 map_is_key_head(M) when is_map_key(a, M) -> true;
 map_is_key_head(_) -> false.
