@@ -108,7 +108,8 @@ real_requests()->
      invalid_headers,
      invalid_body,
      no_scheme,
-     invalid_uri
+     invalid_uri,
+     undefined_port
     ].
 
 real_requests_esi() ->
@@ -1250,6 +1251,12 @@ no_scheme(_Config) ->
 invalid_uri(Config) ->
     URL = url(group_name(Config), "/bar?x[]=a", Config),
     {error, invalid_uri} = httpc:request(URL),
+    ok.
+
+%%-------------------------------------------------------------------------
+
+undefined_port(_Config) ->
+    {error, {failed_connect, _Reason}} = httpc:request("http://:"),
     ok.
 
 
