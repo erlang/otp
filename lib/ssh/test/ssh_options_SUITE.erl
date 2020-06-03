@@ -1321,7 +1321,7 @@ config_file(Config) ->
     ServerAlgs = ssh_test_lib:default_algorithms(sshd),
     OurAlgs = ssh_transport:supported_algorithms(), % Incl disabled but supported
     CommonAlgs = ssh_test_lib:intersection(ServerAlgs, OurAlgs),
-    ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),
+    ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),   
     Nkex = length(proplists:get_value(kex, CommonAlgs, [])),
 
     case {ServerAlgs, ssh_test_lib:some_empty(CommonAlgs)} of
@@ -1377,7 +1377,10 @@ config_file(Config) ->
                       {_,[Ch1]}]} | _] = R1,
 
             %% First connection. The client_options should be applied:
-            {ok,C1} = rpc:call(Node, ssh, connect, [loopback, 22, []]),
+            {ok,C1} = rpc:call(Node, ssh, connect, [loopback, 22, [{silently_accept_hosts, true},
+                                                                   {user_interaction, false}
+                                                                  ]]),
+            ct:log("C1 = ~n~p", [C1]),
             {algorithms,As1} = rpc:call(Node, ssh, connection_info, [C1, algorithms]),
             K1b = proplists:get_value(kex, As1),
             Ch1 = proplists:get_value(encrypt, As1),
@@ -1387,7 +1390,10 @@ config_file(Config) ->
 
             %% Second connection, the Options take precedence:
             C2_Opts = [{modify_algorithms,[{rm,[{kex,[K1b]}]}, % N.B.
-                                           {append, [{kex,[K2a]}]}]}],
+                                           {append, [{kex,[K2a]}]}]},
+                       {silently_accept_hosts, true},
+                       {user_interaction, false}
+                      ],
             {ok,C2} = rpc:call(Node, ssh, connect, [loopback, 22, C2_Opts]),
             {algorithms,As2} = rpc:call(Node, ssh, connection_info, [C2, algorithms]),
             K2a = proplists:get_value(kex, As2),

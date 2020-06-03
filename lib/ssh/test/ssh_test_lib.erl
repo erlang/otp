@@ -728,12 +728,14 @@ get_kex_init(Conn, Ref, TRef) ->
 	    end;
 
 	false ->
-	    ct:log("~p:~p Not in 'connected' state: ~p",[?MODULE,?LINE,State]),
 	    receive
 		{reneg_timeout,Ref} -> 
+                    ct:log("~p:~p Not in 'connected' state: ~p but reneg_timeout received. Fail.",
+                           [?MODULE,?LINE,State]),
 		    ct:log("S = ~p", [S]),
 		    ct:fail(reneg_timeout)
 	    after 0 ->
+                    ct:log("~p:~p Not in 'connected' state: ~p, Will try again after 100ms",[?MODULE,?LINE,State]),
 		    timer:sleep(100), % If renegotiation is complete we do not
 				      % want to exit on the reneg_timeout
 		    get_kex_init(Conn, Ref, TRef)
