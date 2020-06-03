@@ -267,7 +267,6 @@ login_otp_is_server(Config) ->
 all_algorithms_sftp_exec_reneg_otp_is_client(Config) ->
     CommonAlgs = proplists:get_value(common_remote_server_algs, Config),
     {IP,Port} = ip_port(Config),
-ssh_dbg:start(), ssh_dbg:on([renegotiation]),
     chk_all_algos(?FUNCTION_NAME, CommonAlgs, Config,
                   fun(Tag, Alg) ->
                           PrefAlgs =
