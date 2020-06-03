@@ -413,7 +413,7 @@ test_ciphers(_, Version) when Version == 'dtlsv1';
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers);
 test_ciphers(Kex, Version) ->
-    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(default, Version), 
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), 
                                        [{key_exchange, Kex}]),
     ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),

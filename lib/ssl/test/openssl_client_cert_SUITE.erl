@@ -124,7 +124,7 @@ init_per_group(Group, Config0) when Group == rsa;
     COpts = proplists:get_value(client_rsa_opts, Config),
     SOpts = proplists:get_value(server_rsa_opts, Config),
     %% Make sure _rsa* suite is choosen by ssl_test_lib:start_server
-    Version = proplists:get_value(version,Config),
+    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_cert_tests:test_ciphers(fun(dhe_rsa) -> 
                                                   true;
                                              (ecdhe_rsa) -> 
@@ -169,13 +169,15 @@ init_per_group(Group, Config0) when Group == ecdsa;
                                     Group == ecdsa_1_3 ->
     PKAlg = crypto:supports(public_keys),
     case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse 
-                                             lists:member(dh, PKAlg)) of
+                                             lists:member(dh, PKAlg)) 
+        andalso (ssl_test_lib:openssl_ecdsa_suites() =/= []) 
+    of
         true ->
             Config = ssl_test_lib:make_ecdsa_cert(Config0),
             COpts = proplists:get_value(client_ecdsa_opts, Config),
             SOpts = proplists:get_value(server_ecdsa_opts, Config),
             %% Make sure ecdh* suite is choosen by ssl_test_lib:start_server
-            Version = proplists:get_value(version,Config),
+            Version = ssl_test_lib:protocol_version(Config),
             Ciphers =  ssl_cert_tests:test_ciphers(fun(ecdh_ecdsa) -> 
                                                            true;
                                                       (ecdhe_ecdsa) -> 
@@ -200,13 +202,14 @@ init_per_group(Group, Config0) when Group == ecdsa;
     end;
 init_per_group(Group, Config0) when Group == dsa ->
     PKAlg = crypto:supports(public_keys),
-    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
+    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) 
+        andalso (ssl_test_lib:openssl_dsa_suites() =/= []) of
         true ->
             Config = ssl_test_lib:make_dsa_cert(Config0),    
             COpts = proplists:get_value(client_dsa_opts, Config),
             SOpts = proplists:get_value(server_dsa_opts, Config),
             %% Make sure dhe_dss* suite is choosen by ssl_test_lib:start_server
-            Version = proplists:get_value(version,Config),
+            Version = ssl_test_lib:protocol_version(Config),
             Ciphers =  ssl_cert_tests:test_ciphers(fun(dh_dss) -> 
                                                            true;
                                                       (dhe_dss) -> 
