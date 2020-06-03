@@ -3480,41 +3480,51 @@ do_active_n_closed(_Config) ->
 
 %% Test the send_timeout socket option.
 send_timeout(Config) when is_list(Config) ->
+    ?P("begin"),
     Dir = filename:dirname(code:which(?MODULE)),
+    ?P("create (slave) node"),
     {ok,RNode} = test_server:start_node(?UNIQ_NODE_NAME, slave,
 					[{args,"-pa " ++ Dir}]),
 
     %% Basic
+    ?P("basic check wo autoclose"),
     send_timeout_basic(false, RNode),
+    ?P("basic check w autoclose"),
     send_timeout_basic(true, RNode),
 
     BinData = <<1:10000>>,
 
     %% Check timeout length.
+    ?P("check timeout length"),
     Self = self(),
-    Pid = spawn(fun() ->
-                        A = setup_timeout_sink(RNode, 1000, true),
-			Send = fun() ->
-				       Res = gen_tcp:send(A, BinData),
-				       Self ! Res,
-				       Res
-			       end,
-			{error,timeout} = timeout_sink_loop(Send)
+    {Pid, Mon} = spawn_monitor(
+                   fun() ->
+                           A = setup_timeout_sink(RNode, 1000, true),
+                           Send = fun() ->
+                                          Res = gen_tcp:send(A, BinData),
+                                          Self ! Res,
+                                          Res
+                                  end,
+                           {error, timeout} = timeout_sink_loop(Send)
 	      end),
     Diff = get_max_diff(),
-    io:format("Max time for send: ~p~n",[Diff]),
+    ?P("Max time for send: ~p~n",[Diff]),
     true = (Diff > 500) and (Diff < 1500),
 
     %% Wait for the process to die.
-    Mon = erlang:monitor(process, Pid),
-    receive {'DOWN',Mon,process,Pid,_} -> ok end,
+    ?P("wait (timeout checker) process death"),
+    receive {'DOWN', Mon, process, Pid, _} -> ok end,
 
     %% Check that parallell writers do not hang forever
+    ?P("parallell writers check wo autoclose"),
     send_timeout_para(false, RNode),
+    ?P("parallell writers check w autoclose"),
     send_timeout_para(true, RNode),
 
+    ?P("stop (slave) node"),
     test_server:stop_node(RNode),
 
+    ?P("done"),
     ok.
 
 send_timeout_basic(AutoClose, RNode) ->
@@ -3543,39 +3553,65 @@ send_timeout_para(AutoClose, RNode) ->
     spawn_link(SenderFun),
 
     receive
-	{error,timeout} -> ok
+	{error, timeout} -> ok
     after 10000 ->
-	    exit(timeout)
+            ?P("UNEXPECTED timeout(1,~w)", [AutoClose]),
+	    exit({timeout, AutoClose})
     end,
 
     receive
-	{error,Error_1} ->
+	{error, Error_1} ->
             after_send_timeout(AutoClose, Error_1)
     after 10000 ->
-	    exit(timeout)
+            ?P("UNEXPECTED timeout(2,~w)", [AutoClose]),
+	    exit({timeout, AutoClose})
     end,
 
     {error,Error_2} = gen_tcp:send(A, <<"Hej">>),
     after_send_timeout(AutoClose, Error_2),
     ok.
 
-mad_sender(S) ->
-    U = rand:uniform(1000000),
-    case gen_tcp:send(S, integer_to_list(U)) of
-        ok ->
-            mad_sender(S);
-        Err ->
-            Err
-    end.
 
-
-flush() ->
+get_max_diff() ->
     receive
-	_X ->
-	    flush()
-    after 0 ->
-	    ok
+	ok ->
+	    get_max_diff(0)
+    after 10000 ->
+	    exit(timeout)
     end.
+
+get_max_diff(Max) ->
+    T1 = millis(),
+    receive
+	ok ->
+	    Diff = millis() - T1,
+	    if
+		Diff > Max ->
+		    get_max_diff(Diff);
+		true ->
+		    get_max_diff(Max)
+	    end;
+	{error,timeout} ->
+	    Diff = millis() - T1,
+	    if
+		Diff > Max ->
+		    Diff;
+		true ->
+		    Max
+	    end
+    after 10000 ->
+              exit(timeout)
+    end.
+	    
+after_send_timeout(AutoClose, Reason) ->
+    case Reason of
+        timeout when AutoClose =:= false -> ok;
+        enotconn when AutoClose =:= true -> ok
+%%%        timeout -> ok;
+%%%        enotconn when AutoClose -> ok;
+%%%        closed when AutoClose -> ok
+    end.
+
 
 %% Test the send_timeout socket option for active sockets.
 send_timeout_active(Config) when is_list(Config) ->
@@ -3609,46 +3645,23 @@ do_send_timeout_active(AutoClose, RNode) ->
     flush(),
     ok.
 
-after_send_timeout(AutoClose, Reason) ->
-    case Reason of
-        timeout when AutoClose =:= false -> ok;
-        enotconn when AutoClose =:= true -> ok
-%%%        timeout -> ok;
-%%%        enotconn when AutoClose -> ok;
-%%%        closed when AutoClose -> ok
+mad_sender(S) ->
+    U = rand:uniform(1000000),
+    case gen_tcp:send(S, integer_to_list(U)) of
+        ok ->
+            mad_sender(S);
+        Err ->
+            Err
     end.
 
-get_max_diff() ->
+flush() ->
     receive
-	ok ->
-	    get_max_diff(0)
-    after 10000 ->
-	    exit(timeout)
+	_X ->
+	    flush()
+    after 0 ->
+	    ok
     end.
 
-get_max_diff(Max) ->
-    T1 = millis(),
-    receive
-	ok ->
-	    Diff = millis() - T1,
-	    if
-		Diff > Max ->
-		    get_max_diff(Diff);
-		true ->
-		    get_max_diff(Max)
-	    end;
-	{error,timeout} ->
-	    Diff = millis() - T1,
-	    if
-		Diff > Max ->
-		    Diff;
-		true ->
-		    Max
-	    end
-    after 10000 ->
-              exit(timeout)
-    end.
-	    
 setup_closed_ao() ->
     Dir = filename:dirname(code:which(?MODULE)),
     ?P("[setup] start slave node"),
@@ -3726,9 +3739,10 @@ setup_closed_ao() ->
     
 setup_timeout_sink(RNode, Timeout, AutoClose) ->
     Host = get_hostname(node()),
-    {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2},
-				 {send_timeout,Timeout},
-				 {send_timeout_close,AutoClose}]),
+    {ok, L} = gen_tcp:listen(0, [{active,             false},
+                                 {packet,             2},
+				 {send_timeout,       Timeout},
+				 {send_timeout_close, AutoClose}]),
     Fun = fun(F) ->
 		  receive
 		      {From,X} when is_function(X) ->
@@ -3747,7 +3761,7 @@ setup_timeout_sink(RNode, Timeout, AutoClose) ->
 			     gen_tcp:connect(Host,Port,
 					     [{active,false},{packet,2}])
 		     end),
-    {ok,A} = gen_tcp:accept(L),
+    {ok, A} = gen_tcp:accept(L),
     gen_tcp:send(A,"Hello"),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
     A.
@@ -3776,10 +3790,10 @@ setup_active_timeout_sink(RNode, Timeout, AutoClose) ->
     {ok, C} = Remote(fun() ->
 			     gen_tcp:connect(Host, Port, [{active,false}])
 		     end),
-    {ok,A} = gen_tcp:accept(L),
+    {ok, A} = gen_tcp:accept(L),
     gen_tcp:send(A, "Hello"),
     {ok, "H"++_} = Remote(fun() -> gen_tcp:recv(C, 0) end),
-    {A,C}.
+    {A, C}.
 
 timeout_sink_loop(Action) ->
     Ret = Action(),
