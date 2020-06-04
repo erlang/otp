@@ -1893,12 +1893,16 @@ busy_disconnect_passive(Config) when is_list(Config) ->
     end.
 
 do_busy_disconnect_passive(_Config) ->
+    ?P("[passive] begin"),
     MuchoData = list_to_binary(ones(64*1024)),
-    [do_busy_disconnect_passive2(MuchoData) || _ <- lists:seq(1, 10)],
+    [do_busy_disconnect_passive2(MuchoData, N) || N <- lists:seq(1, 10)],
+    ?P("[passive] done"),
     ok.
 
-do_busy_disconnect_passive2(MuchoData) ->
+do_busy_disconnect_passive2(MuchoData, N) ->
+    ?P("[passive,~w] *** prepare server *** ", [N]),
     S = busy_disconnect_prepare_server([{active,false}]),
+    ?P("[passive,~w] server prepared - start sending", [N]),
     busy_disconnect_passive_send(S, MuchoData).
 
 busy_disconnect_passive_send(S, Data) ->
@@ -1920,44 +1924,74 @@ busy_disconnect_active(Config) when is_list(Config) ->
 end.
 
 do_busy_disconnect_active(_Config) ->
+    ?P("[active] begin"),
     MuchoData = list_to_binary(ones(64*1024)),
-    [do_busy_disconnect_active2(MuchoData) || _ <- lists:seq(1, 10)],
+    [do_busy_disconnect_active2(MuchoData, N) || N <- lists:seq(1, 10)],
+    ?P("[active] done"),
     ok.
 
-do_busy_disconnect_active2(MuchoData) ->
+do_busy_disconnect_active2(MuchoData, N) ->
+    ?P("[active,~w] *** prepare server *** ", [N]),
     S = busy_disconnect_prepare_server([{active,true}]),
+    ?P("[active,~w] server prepared - start sending", [N]),
     busy_disconnect_active_send(S, MuchoData).
 
 busy_disconnect_active_send(S, Data) ->
     case gen_tcp:send(S, Data) of
-	ok -> busy_disconnect_active_send(S, Data);
-	{error,closed} ->
+	ok ->
+            busy_disconnect_active_send(S, Data);
+	{error, closed} ->
+            ?P("[active-sender] send failed with closed - await tcp-closed"),
 	    receive
-		{tcp_closed,S} -> ok;
-		Other -> ct:fail({unexpected, Other, S, flush([])})
-	    end
+		{tcp_closed, S} ->
+                    ?P("[active-sender] received tcp-closed"),
+                    ok;
+		Other ->
+                    ?P("[active-sender] received UNEXPECTED message:"
+                       "~n   ~p", [Other]),
+                    ct:fail({unexpected, Other, S, flush([])})
+	    end;
+        {error, Reason} ->
+            ?P("[active-sender] UNEXPECTED send failure:"
+               "~n   ~p", [Reason]),
+            ct:fail({unexpected_send_result, Reason})
     end.
 
 
 busy_disconnect_prepare_server(ConnectOpts) ->
     Sender = self(),
+    ?P("[prep-server] create server"),
     Server = spawn_link(fun() -> busy_disconnect_server(Sender) end),
+    ?P("[prep-server] await port (from server)"),
     receive {port, Server, Port} -> ok end,
+    ?P("[prep-server] connect to ~w", [Port]),
     case gen_tcp:connect(localhost, Port, ConnectOpts) of
         {ok, S} ->
+            ?P("[prep-server] connected - order server start sending"),
             Server ! {Sender, sending},
+            ?P("[prep-server] done"),
             S;
         {error, eaddrnotavail = Reason} ->
             ?SKIPT(connect_failed_str(Reason))
     end.
 
 busy_disconnect_server(Sender) ->
-    {ok,L} = gen_tcp:listen(0, [{active,false},binary,{reuseaddr,true},{packet,0}]),
+    ?P("[server] create listen socket"),
+    {ok, L} = gen_tcp:listen(0,
+                             [{active,false},
+                              binary,
+                              {reuseaddr,true},
+                              {packet,0}]),
+    ?P("[server] created - get port number"),
     {ok,Port} = inet:port(L),
+    ?P("[server] send port ~w (to sender)", [Port]),
     Sender ! {port,self(),Port},
+    ?P("[server] try accept"),
     {ok,S} = gen_tcp:accept(L),
+    ?P("[server] connection accepted"),
     receive
-	{Sender,sending} ->
+	{Sender, sending} ->
+            ?P("[server] received sending (from sender)"),
 	    busy_disconnect_server_wait_for_busy(Sender, S)
     end.
 
@@ -1965,17 +1999,23 @@ busy_disconnect_server(Sender) ->
 %% a busy port.
 busy_disconnect_server_wait_for_busy(Sender, S) ->
     case process_info(Sender, status) of
-	{status,waiting} ->
+	{status, waiting = Status} ->
 	    %% We KNOW that the sender will be in state 'waiting' only
 	    %% if the port has become busy. (Fallback solution if the
 	    %% implementation changes: Watch Sender's reduction count;
 	    %% when it stops changing, wait 2 seconds and then close.)
+	    ?P("[server] sender status ~p => close socket", [Status]),
 	    gen_tcp:close(S);
-	_Other ->
-	    io:format("~p\n", [_Other]),
+	{status, Status} ->
+	    ?P("[server] sender status ~p", [Status]),
+	    timer:sleep(100),
+	    busy_disconnect_server_wait_for_busy(Sender, S);
+	Other ->
+	    ?P("[server] sender status ~p", [Other]),
 	    timer:sleep(100),
 	    busy_disconnect_server_wait_for_busy(Sender, S)
     end.
+
 
 %%%
 %%% Fill send queue
