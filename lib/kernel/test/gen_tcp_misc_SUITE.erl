@@ -3508,17 +3508,17 @@ send_timeout(Config) when is_list(Config) ->
                            {error, timeout} = timeout_sink_loop(Send)
 	      end),
     Diff = get_max_diff(),
-    ?P("Max time for send: ~p~n",[Diff]),
+    ?P("Max time for send: ~p",[Diff]),
     true = (Diff > 500) and (Diff < 1500),
 
     %% Wait for the process to die.
-    ?P("wait (timeout checker) process death"),
+    ?P("await (timeout checker) process death"),
     receive {'DOWN', Mon, process, Pid, _} -> ok end,
 
     %% Check that parallell writers do not hang forever
-    ?P("parallell writers check wo autoclose"),
+    ?P("check parallell writers wo autoclose"),
     send_timeout_para(false, RNode),
-    ?P("parallell writers check w autoclose"),
+    ?P("check parallell writers w autoclose"),
     send_timeout_para(true, RNode),
 
     ?P("stop (slave) node"),
@@ -3542,6 +3542,7 @@ send_timeout_basic(AutoClose, RNode) ->
 send_timeout_para(AutoClose, RNode) ->
     BinData = <<1:10000>>,
 
+    ?P("[para] sink"),
     A = setup_timeout_sink(RNode, 1000, AutoClose),
     Self = self(),
     SenderFun = fun() ->
@@ -3549,26 +3550,34 @@ send_timeout_para(AutoClose, RNode) ->
 			{error,Error} = timeout_sink_loop(Send),
 			Self ! {error,Error}
 		end,
+    ?P("[para] spawn process 1 with sender fun"),
     spawn_link(SenderFun),
+    ?P("[para] spawn process 2 with sender fun"),
     spawn_link(SenderFun),
 
+    ?P("[para] await sender timeout"),
     receive
-	{error, timeout} -> ok
+	{error, timeout} ->
+            ?P("[para] timeout received"),
+            ok
     after 10000 ->
-            ?P("UNEXPECTED timeout(1,~w)", [AutoClose]),
+            ?P("[para] UNEXPECTED timeout(1,~w)", [AutoClose]),
 	    exit({timeout, AutoClose})
     end,
 
+    ?P("await sender error"),
     receive
 	{error, Error_1} ->
+            ?P("[para] error (~p) received", [Error_1]),
             after_send_timeout(AutoClose, Error_1)
     after 10000 ->
-            ?P("UNEXPECTED timeout(2,~w)", [AutoClose]),
+            ?P("[para] UNEXPECTED timeout(2,~w)", [AutoClose]),
 	    exit({timeout, AutoClose})
     end,
 
     {error,Error_2} = gen_tcp:send(A, <<"Hej">>),
     after_send_timeout(AutoClose, Error_2),
+    ?P("[para] done"),    
     ok.
 
 
@@ -3739,6 +3748,7 @@ setup_closed_ao() ->
     
 setup_timeout_sink(RNode, Timeout, AutoClose) ->
     Host = get_hostname(node()),
+    ?P("[sink] create listen socket"),
     {ok, L} = gen_tcp:listen(0, [{active,             false},
                                  {packet,             2},
 				 {send_timeout,       Timeout},
@@ -3750,6 +3760,7 @@ setup_timeout_sink(RNode, Timeout, AutoClose) ->
 		      die -> ok
 		  end
 	  end,
+    ?P("[sink] start remote runner process (on ~p)", [RNode]),
     Pid =  rpc:call(RNode, erlang, spawn, [fun() -> Fun(Fun) end]),
     {ok, Port} = inet:port(L),
     Remote = fun(Fu) ->
@@ -3757,13 +3768,18 @@ setup_timeout_sink(RNode, Timeout, AutoClose) ->
 		     receive {Pid,X} -> X
 		     end
 	     end,
+    ?P("[sink] connect from remote node (~p)", [RNode]),
     {ok, C} = Remote(fun() ->
 			     gen_tcp:connect(Host,Port,
 					     [{active,false},{packet,2}])
 		     end),
+    ?P("[sink] accept"),
     {ok, A} = gen_tcp:accept(L),
+    ?P("[sink] send message"),
     gen_tcp:send(A,"Hello"),
+    ?P("[sink] recv message on remote node (~p)", [RNode]),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
+    ?P("[sink] done"),
     A.
 
 setup_active_timeout_sink(RNode, Timeout, AutoClose) ->
@@ -3802,6 +3818,8 @@ timeout_sink_loop(Action) ->
 	    receive after 1 -> ok end,
 	    timeout_sink_loop(Action);
 	Other ->
+            ?P("[sink-loop] action result: "
+               "~n   ~p", [Other]),
 	    Other
     end.
      
