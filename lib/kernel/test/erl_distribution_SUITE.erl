@@ -45,7 +45,8 @@
 	 monitor_nodes_many/1,
          monitor_nodes_down_up/1,
          dist_ctrl_proc_smoke/1,
-         dist_ctrl_proc_reject/1]).
+         dist_ctrl_proc_reject/1,
+         erl_uds_dist_smoke_test/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -61,6 +62,8 @@
 -export([dist_cntrlr_output_test_size/2]).
 
 -export([pinger/1]).
+
+-export([start_uds_rpc_server/1]).
 
 -define(DUMMY_NODE,dummy@test01).
 
@@ -83,7 +86,8 @@ all() ->
      dyn_node_name,
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
-     {group, monitor_nodes}].
+     {group, monitor_nodes},
+     erl_uds_dist_smoke_test].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -1702,6 +1706,179 @@ smoke_communicate(Node, OLoopMod, OLoopFun) ->
     unlink(Pid),
     exit(Pid, kill),
     ok.
+
+
+erl_uds_dist_smoke_test(Config) when is_list(Config) ->
+    Me = self(),
+    [Node1, Node2] = lists:map(fun (Name) ->
+                                       list_to_atom(atom_to_list(Name) ++ "@localhost")
+                               end,
+                               get_nodenames(2, erl_uds_dist_smoke_test)),
+    {LPort, Acceptor} = uds_listen(),
+    start_uds_node(Node1, LPort),
+    start_uds_node(Node2, LPort),
+    receive
+        {uds_nodeup, N1} ->
+            io:format("~p is up~n", [N1])
+    end,
+    receive
+        {uds_nodeup, N2} ->
+            io:format("~p is up~n", [N2])
+    end,
+    
+    io:format("Testing ping net_adm:ping(~p) on ~p~n", [Node2, Node1]),
+    Node1 ! {self(), {net_adm, ping, [Node2]}},
+    receive
+        {Node1, PingRes} ->
+            io:format("~p~n", [PingRes]),
+            pong = PingRes
+    end,
+
+    io:format("Testing nodes() on ~p~n", [Node1]),
+    Node1 ! {self(), {erlang, nodes, []}},
+    receive
+        {Node1, N1List} ->
+            io:format("~p~n", [N1List]),
+            [Node2] = N1List
+    end,
+
+    io:format("Testing nodes() on ~p~n", [Node2]),
+    Node2 ! {self(), {erlang, nodes, []}},
+    receive
+        {Node2, N2List} ->
+            io:format("~p~n", [N2List]),
+            [Node1] = N2List
+    end,
+
+    io:format("Shutting down~n", []),
+
+    Node1 ! {self(), close},
+    Node2 ! {self(), close},
+
+    receive {Node1, C1} -> ok = C1 end,
+    receive {Node2, C2} -> ok = C2 end,
+
+    unlink(Acceptor),
+    exit(Acceptor, kill),
+
+    io:format("ok~n", []),
+
+    ok.
+
+%% Helpers for testing the erl_uds_dist example
+
+uds_listen() ->
+    Me = self(),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 4}, {active, false}]),
+    {ok, LPort} = inet:port(LSock),
+    {LPort, spawn_link(fun () ->
+                               uds_accept_loop(LSock, Me)
+                       end)}.
+
+uds_accept_loop(LSock, TestProc) ->
+    {ok, Sock} = gen_tcp:accept(LSock),
+    _ = spawn_link(fun () ->
+                           uds_rpc_client_init(Sock, TestProc)
+                   end),
+    uds_accept_loop(LSock, TestProc).
+
+uds_rpc(Sock, MFA) ->
+    ok = gen_tcp:send(Sock, term_to_binary(MFA)),
+    case gen_tcp:recv(Sock, 0) of
+        {error, Reason} ->
+            error({recv_failed, Reason});
+        {ok, Packet} ->
+            binary_to_term(Packet)
+    end.
+
+uds_rpc_client_init(Sock, TestProc) ->
+    case uds_rpc(Sock, {erlang, node, []}) of
+        nonode@nohost ->
+            %% Wait for distribution to come up...
+            receive after 100 -> ok end,
+            uds_rpc_client_init(Sock, TestProc);
+        Node when is_atom(Node) ->
+            register(Node, self()),
+            TestProc ! {uds_nodeup, Node},
+            uds_rpc_client_loop(Sock, Node)
+    end.
+
+uds_rpc_client_loop(Sock, Node) ->
+    receive
+        {From, close} ->
+            ok = gen_tcp:send(Sock, term_to_binary(close)),
+            From ! {Node, gen_tcp:close(Sock)},
+            exit(normal);
+        {From, ApplyData} ->
+            From ! {Node, uds_rpc(Sock, ApplyData)},
+            uds_rpc_client_loop(Sock, Node)
+    end.
+
+uds_rpc_server_loop(Sock) ->
+    case gen_tcp:recv(Sock, 0) of
+        {error, Reason} ->
+            error({recv_failed, Reason});
+        {ok, Packet} ->
+            case binary_to_term(Packet) of
+                {M, F, A} when is_atom(M), is_atom(F), is_list(A) ->
+                    ok = gen_tcp:send(Sock, term_to_binary(apply(M, F, A)));
+                {F, A} when is_function(F), is_list(A) ->
+                    ok = gen_tcp:send(Sock, term_to_binary(apply(F, A)));
+                close ->
+                    ok = gen_tcp:close(Sock),
+                    exit(normal);
+                Other ->
+                    error({unexpected_data, Other})
+            end
+    end,
+    uds_rpc_server_loop(Sock).
+
+start_uds_rpc_server([PortString]) ->
+    Port = list_to_integer(PortString),
+    {Pid, Mon} = spawn_monitor(fun () ->
+                                       {ok, Sock} = gen_tcp:connect({127,0,0,1}, Port,
+                                                                    [binary, {packet, 4},
+                                                                     {active, false}]),
+                                       uds_rpc_server_loop(Sock)
+                               end),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            if Reason == normal ->
+                    halt();
+               true ->
+                    EStr = lists:flatten(io_lib:format("uds rpc server crashed: ~p", [Reason])),
+                    (catch file:write_file("uds_rpc_server_crash."++os:getpid(), EStr)),
+                    halt(EStr)
+            end
+    end.
+
+start_uds_node(NodeName, LPort) ->
+    Static = "-detached -noinput -proto_dist erl_uds",
+    Pa = filename:dirname(code:which(?MODULE)),
+    Prog = case catch init:get_argument(progname) of
+	       {ok,[[P]]} -> P;
+	       _ -> error(no_progname_argument_found)
+	   end,
+    {ok, Pwd} = file:get_cwd(),
+    NameStr = atom_to_list(NodeName),
+    CmdLine = Prog ++ " "
+	++ Static
+	++ " -sname " ++ NameStr
+	++ " -pa " ++ Pa
+	++ " -env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr
+	++ " -setcookie " ++ atom_to_list(erlang:get_cookie())
+        ++ " -run " ++ atom_to_list(?MODULE) ++ " start_uds_rpc_server "
+        ++ integer_to_list(LPort),
+    io:format("Starting: ~p~n", [CmdLine]),
+    case open_port({spawn, CmdLine}, []) of
+	Port when is_port(Port) ->
+	    unlink(Port),
+	    erlang:port_close(Port);
+	Error ->
+	    error({open_port_failed, Error})
+    end,
+    ok.
+
 
 %% Misc. functions
 

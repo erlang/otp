@@ -112,7 +112,8 @@ XML_FILES = \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF1_FILES) $(XML_APPLICATION_FILES)
 
 HTML_EXTRA_FILES = $(ERL_TOP)/erts/example/time_compat.erl \
-	$(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl
+	$(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl \
+	$(ERL_TOP)/lib/kernel/examples/erl_uds_dist/src/erl_uds_dist.erl
 
 XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
 
