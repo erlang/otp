@@ -2070,13 +2070,13 @@ fill_sendq_loop(Server, Client, Reader) ->
                         {Reader, [{error,closed}]} ->
                             ?P("[master] got expected reader closed"),
                             ok;
-                        {Reader, RErrors} ->
+                        {Reader, RErrors} when is_list(RErrors) ->
                             ct:fail([{server, SErrors}, {reader, RErrors}])
                     after 3000 ->
                             ct:fail({timeout,{closed,reader}})
                     end;
 
-                {Server, SErrors} ->
+                {Server, SErrors} when is_list(SErrors) ->
                     ?P("UNEXPECTED SERVER ERROR(S): "
                        "~n   ~p"
                        "~n   ~p", [SErrors, flush([])]),
@@ -2088,13 +2088,13 @@ fill_sendq_loop(Server, Client, Reader) ->
                         {Server, [{error,closed}]} ->
                             ?P("[master] got expected server closed"),
                             ok;
-                        {Server, SErrors} ->
+                        {Server, SErrors} when is_list(SErrors) ->
                             ct:fail([{server, SErrors}, {reader, RErrors}])
                     after 3000 ->
                             ct:fail({timeout,{closed,server}})
                     end;
 
-                {Reader, RErrors} ->
+                {Reader, RErrors} when is_list(RErrors) ->
                     ?P("UNEXPECTED READER ERROR(S): "
                        "~n   ~p"
                        "~n   ~p", [RErrors, flush([])]),
