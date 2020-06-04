@@ -102,6 +102,9 @@ all() ->
      server_pwdfun_option,
      server_pwdfun_4_option,
      server_keyboard_interactive,
+     auth_method_kb_interactive_data_tuple,
+     auth_method_kb_interactive_data_fun3,
+     auth_method_kb_interactive_data_fun4,
      {group, dir_options},
      ssh_connect_timeout,
      ssh_connect_arg4_timeout,
@@ -441,6 +444,96 @@ server_keyboard_interactive(Config) ->
 			{"Bad again",1},
 			{"bar",2}]).
 			
+%%--------------------------------------------------------------------
+auth_method_kb_interactive_data_tuple(Config) ->
+    T = {"abc1", "def1", "ghi1: ", true},
+    amkid(Config, T, T).
+
+auth_method_kb_interactive_data_fun3(Config) ->
+    T = {"abc2", "def2", "ghi2: ", true},
+    amkid(Config, T,
+          fun(_Peer, _User, _Service) -> T end
+         ).
+
+auth_method_kb_interactive_data_fun4(Config) ->
+    T = {"abc3", "def3", "ghi3: ", true},
+    amkid(Config, T,
+          fun(_Peer, _User, _Service, _State) -> T end
+         ).
+
+amkid(Config, {ExpectName,ExpectInstr,ExpectPrompts,ExpectEcho}, OptVal) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Test that the state works
+    Parent = self(),
+    PWDFUN = fun("foo",P="bar",_,S) -> Parent!{P,S},true;
+		(_,P,_,S=undefined) -> Parent!{P,S},{false,1};
+		(_,P,_,S) -> Parent!{P,S},          {false,S+1}
+	     end,
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {auth_methods,"keyboard-interactive"},
+					     {pwdfun,PWDFUN},
+                                             {auth_method_kb_interactive_data,OptVal}
+                                            ]),
+
+    KIFFUN = fun(Name, Instr, PromptInfos) ->
+		     K={k,self()},
+                     Answer =
+                         case get(K) of
+                             undefined ->
+                                 put(K,1),
+                                 ["incorrect"];
+                             2 ->
+                                 put(K,3),
+                                 ["bar"];
+                             S->
+                                 put(K,S+1),
+                                 ["Bad again"]
+                         end,
+                     ct:log("keyboard_interact_fun:~n"
+                            " Name        = ~p~n"
+                            " Instruction = ~p~n"
+                            " Prompts     = ~p~n"
+                            "~nAnswer:~n  ~p~n",
+                            [Name, Instr, PromptInfos, Answer]),
+                     case {binary_to_list(Name),
+                           binary_to_list(Instr),
+                           [{binary_to_list(PI),Echo} || {PI,Echo} <- PromptInfos]
+                          } of
+                         {ExpectName, ExpectInstr, [{ExpectPrompts,ExpectEcho}]} ->
+                             ct:log("Match!", []),
+                             Answer;
+                         _ ->
+                             ct:log("Not match!~n"
+                                    " ExpectName        = ~p~n"
+                                    " ExpectInstruction = ~p~n"
+                                    " ExpectPrompts     = ~p~n",
+                                    [ExpectName, ExpectInstr, [{ExpectPrompts,ExpectEcho}]]),
+                             ct:fail("no_match")
+                     end
+	     end,
+    ssh_dbg:start(), ssh_dbg:on(authentication), %% Test dbg code
+    ConnectionRef2 =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {keyboard_interact_fun, KIFFUN},
+					  {user_dir, UserDir}]),
+    ssh_dbg:stop(),
+    ssh:close(ConnectionRef2),
+    ssh:stop_daemon(Pid),
+
+    lists:foreach(fun(Expect) ->
+			  receive
+			      Expect -> ok;
+			      Other -> ct:fail("Expect: ~p~nReceived ~p",[Expect,Other])
+			  after
+			      2000 -> ct:fail("Timeout expecting ~p",[Expect])
+			  end
+		  end, [{"incorrect",undefined},
+			{"Bad again",1},
+			{"bar",2}]).
+
 %%--------------------------------------------------------------------
 system_dir_option(Config) ->
     DirUnread = proplists:get_value(unreadable_dir,Config),
