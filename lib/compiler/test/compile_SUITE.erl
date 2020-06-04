@@ -879,9 +879,8 @@ utf8_atoms(Config) when is_list(Config) ->
 	beam_lib:chunks(Utf8AtomBin, [atoms]),
     code:load_binary(utf8_atom, "compile_SUITE", Utf8AtomBin),
     Atom = utf8_atom:atom(),
-
-    NoUtf8AtomForms = [{attribute,Anno,module,no_utf8_atom}|Forms],
-    error = compile:forms(NoUtf8AtomForms, [binary, r19]).
+    true = is_atom(Atom),
+    ok.
 
 utf8_functions(Config) when is_list(Config) ->
     Anno = erl_anno:new(1),
@@ -1571,45 +1570,46 @@ env_compiler_options(_Config) ->
 bc_options(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    L = [{101, small_float, [no_shared_fun_wrappers,
-                             no_get_hd_tl,no_line_info]},
-         {125, small_float, [no_shared_fun_wrappers,no_get_hd_tl,
+    DataDir = proplists:get_value(data_dir, Config),
+
+    L = [{101, small_float, [no_shared_fun_wrappers,no_line_info]},
+         {125, small_float, [no_shared_fun_wrappers,
                              no_line_info,
                              no_ssa_opt_float]},
 
-         {132, small, [no_init_yregs,no_shared_fun_wrappers,
-                       no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
-                       no_ssa_opt_float,no_line_info,no_bsm3]},
-
-         {153, small, [r20]},
-         {153, small, [r21]},
-
-         {153, big, [r18]},
-         {153, big, [r19]},
          {153, small_float, [no_shared_fun_wrappers]},
-
-         {158, small_maps, [r18]},
-         {158, small_maps, [r19]},
-         {158, small_maps, [r20]},
-         {158, small_maps, [r21]},
 
          {164, small_maps, [no_init_yregs,no_shared_fun_wrappers]},
          {164, small_maps, [r22]},
          {164, big, [r22]},
+         {164, funs, [r22]},
+         {164, funs, [no_init_yregs,no_shared_fun_wrappers,
+                      no_ssa_opt_record,
+                      no_line_info,no_stack_trimming,
+                      no_make_fun3]},
 
          {168, small, [r22]},
 
          {169, big, [no_init_yregs,no_shared_fun_wrappers,
-                     no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                     no_ssa_opt_record,
                      no_line_info,no_stack_trimming,
                      no_make_fun3]},
          {169, big, [r23]},
 
          {169, small_maps, [no_init_yregs]},
 
-         {170, small, [no_shared_fun_wrappers,no_init_yregs]},
+         {170, small, [no_init_yregs,no_shared_fun_wrappers,
+                       no_ssa_opt_record,
+                       no_ssa_opt_float,no_line_info]},
 
-         {171, big, [no_init_yregs]},
+         {171, big, [no_init_yregs,no_shared_fun_wrappers,
+                     no_ssa_opt_record,
+                     no_ssa_opt_float,no_line_info]},
+         {171, funs, [no_init_yregs,no_shared_fun_wrappers,
+                      no_ssa_opt_record,
+                      no_ssa_opt_float,no_line_info]},
+
+         {172, funs, []},
          {172, big, []}
         ],
 
@@ -1628,7 +1628,7 @@ bc_options(Config) ->
 
 highest_opcode(DataDir, Mod, Opt) ->
     Src = filename:join(DataDir, atom_to_list(Mod)++".erl"),
-    {ok,Mod,Beam} = compile:file(Src, [binary|Opt]),
+    {ok,Mod,Beam} = compile:file(Src, [binary,report_errors|Opt]),
     test_lib:highest_opcode(Beam).
 
 deterministic_include(Config) when is_list(Config) ->

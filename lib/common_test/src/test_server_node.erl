@@ -18,12 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r20).
-
-%%%
-%%% The same compiled code for this module must be possible to load
-%%% in R16B and later.
-%%%
+-compile(r22).
 
 %% Test Controller interface
 -export([is_release_available/1, find_release/1]).

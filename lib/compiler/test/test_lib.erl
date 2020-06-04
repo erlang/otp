@@ -118,7 +118,6 @@ get_data_dir(Config) ->
                 "_no_copt_SUITE",
                 "_post_opt_SUITE",
                 "_inline_SUITE",
-                "_r21_SUITE",
                 "_no_module_opt_SUITE",
                 "_no_type_opt_SUITE",
                 "_no_ssa_opt_SUITE"],

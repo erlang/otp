@@ -19,9 +19,6 @@
 %%
 -module(seq_trace_SUITE).
 
-%% label_capability_mismatch needs to run a part of the test on an OTP 20 node.
--compile(r20).
-
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
@@ -30,7 +27,7 @@
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
          port_clean_token/1,
-	 match_set_seq_token/1, gc_seq_token/1, label_capability_mismatch/1,
+	 match_set_seq_token/1, gc_seq_token/1,
          send_literal/1,inherit_on_spawn/1,inherit_on_dist_spawn/1,
          dist_spawn_error/1]).
 
@@ -57,7 +54,7 @@ all() ->
      old_heap_token, mature_heap_token,
      distributed_exit, call, port, match_set_seq_token,
      port_clean_token,
-     gc_seq_token, label_capability_mismatch,
+     gc_seq_token,
      inherit_on_spawn, inherit_on_dist_spawn, dist_spawn_error].
 
 groups() -> 
@@ -416,74 +413,6 @@ do_distributed_exit(TsType) ->
     [{0, {send, {1, 2}, Receiver, Self,
 		{'EXIT', Receiver, {exit, {before, exit}}}}, Ts}] = Result,
     check_ts(TsType, Ts).
-
-label_capability_mismatch(Config) when is_list(Config) ->
-    Releases = ["20_latest"],
-    Available = [Rel || Rel <- Releases, test_server:is_release_available(Rel)],
-    case Available of
-        [] -> {skipped, "No incompatible releases available"};
-        _ ->
-            lists:foreach(fun do_incompatible_labels/1, Available),
-            lists:foreach(fun do_compatible_labels/1, Available),
-            ok
-    end.
-
-do_incompatible_labels(Rel) ->
-    Cookie = atom_to_list(erlang:get_cookie()),
-    {ok, Node} = test_server:start_node(
-        list_to_atom(atom_to_list(?MODULE)++"_"++Rel), peer,
-        [{args, " -setcookie "++Cookie}, {erl, [{release, Rel}]}]),
-
-    {_,Dir} = code:is_loaded(?MODULE),
-    Mdir = filename:dirname(Dir),
-    true = rpc:call(Node,code,add_patha,[Mdir]),
-    seq_trace:reset_trace(),
-    true = is_pid(rpc:call(Node,?MODULE,start_tracer,[])),
-    Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
-
-    %% This node does not support arbitrary labels, so it must fail with a
-    %% timeout as the token is dropped silently.
-    seq_trace:set_token(label,make_ref()),
-    seq_trace:set_token('receive',true),
-
-    Receiver ! 'receive',
-    %% let the other process receive the message:
-    receive after 10 -> ok end,
-    seq_trace:reset_trace(),
-
-    {error,timeout} = rpc:call(Node,?MODULE,stop_tracer,[1]),
-    stop_node(Node),
-    ok.
-
-do_compatible_labels(Rel) ->
-    Cookie = atom_to_list(erlang:get_cookie()),
-    {ok, Node} = test_server:start_node(
-        list_to_atom(atom_to_list(?MODULE)++"_"++Rel), peer,
-        [{args, " -setcookie "++Cookie}, {erl, [{release, Rel}]}]),
-
-    {_,Dir} = code:is_loaded(?MODULE),
-    Mdir = filename:dirname(Dir),
-    true = rpc:call(Node,code,add_patha,[Mdir]),
-    seq_trace:reset_trace(),
-    true = is_pid(rpc:call(Node,?MODULE,start_tracer,[])),
-    Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
-
-    %% This node does not support arbitrary labels, but small integers should
-    %% still work.
-    Label = 1234,
-    seq_trace:set_token(label,Label),
-    seq_trace:set_token('receive',true),
-
-    Receiver ! 'receive',
-    %% let the other process receive the message:
-    receive after 10 -> ok end,
-    Self = self(),
-    seq_trace:reset_trace(),
-    Result = rpc:call(Node,?MODULE,stop_tracer,[1]),
-    stop_node(Node),
-    ok = io:format("~p~n",[Result]),
-    [{Label,{'receive',_,Self,Receiver,'receive'}, _}] = Result,
-    ok.
 
 call(doc) -> 
     "Tests special forms {is_seq_trace} and {get_seq_token} "
