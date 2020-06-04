@@ -4438,36 +4438,68 @@ wait(Mref) ->
 %% OTP-15536
 %% Test that send error works correctly for delay_send
 delay_send_error(_Config) ->
+    ?P("create listen socket"),
     {ok, L} =
         gen_tcp:listen(
           0, [{reuseaddr, true}, {packet, 1}, {active, false}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(L),
+    ?P("try connect - with delay_send:true"),
     {ok, C} =
         gen_tcp:connect(
           "localhost", PortNum,
           [{packet, 1}, {active, false}, {delay_send, true}]),
+    ?P("try accept"),
     {ok, S} = gen_tcp:accept(L),
     %% Do a couple of sends first to see that it works
+    ?P("send data"),
     ok = gen_tcp:send(C, "hello"),
+    ?P("send data"),
     ok = gen_tcp:send(C, "hello"),
+    ?P("send data"),
     ok = gen_tcp:send(C, "hello"),
     %% Close the receiver
+    ?P("close receiver (accepted socket)"),
     ok = gen_tcp:close(S),
     %%
+    ?P("send data"),
     case gen_tcp:send(C, "hello") of
         ok ->
+            ?P("send data"),
             case gen_tcp:send(C, "hello") of
                 ok ->
-                    timer:sleep(1000), %% Sleep in order for delay_send to have time to trigger
-                    %% This used to result in a double free
-                    {error, closed} = gen_tcp:send(C, "hello");
+                    delay_send_error2(C);
                 {error, closed} ->
+                    ?P("closed (expected)"),
                     ok
             end;
         {error, closed} ->
+                    ?P("closed (expected)"),
             ok
     end,
     ok = gen_tcp:close(C).
+
+
+delay_send_error2(Sock) ->
+    delay_send_error2(Sock, 3).
+
+delay_send_error2(Sock, 0) ->
+    gen_tcp:close(Sock),
+    ct:fail("Unxpected send success");
+delay_send_error2(Sock, N) ->
+    %% Sleep in order for delay_send to have time to trigger
+    %% This used to result in a double free
+    timer:sleep(1000),
+    case gen_tcp:send(Sock, "hello") of
+        ok ->
+            delay_send_error2(Sock, N-1);
+        {error, closed} ->
+            ?P("closed (expected, ~w)", [N]),
+            ok;
+        {error, Reason} ->
+            ct:fail(?F("Unexpected send error: ~p", [Reason]))
+    end.
+
+    
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
