@@ -3889,38 +3889,47 @@ otp_7731_recv(Socket) ->
 zombie_sockets(Config) when is_list(Config) ->
     register(zombie_collector,self()),
     Calls = 10,
+    ?P("create zombie server"),
     Server = spawn_link(?MODULE, zombie_server,[self(), Calls]),
     {Server, ready, PortNum} = receive Msg -> Msg  end,
-    io:format("Ports before = ~p\n",[lists:sort(erlang:ports())]),
+    ?P("Ports before = ~p",[lists:sort(erlang:ports())]),
     zombie_client_loop(Calls, PortNum),
-    Ports = lists:sort(zombie_collector(Calls,[])),
+    Ports = lists:sort(zombie_collector(Calls, [])),
     Server ! terminate,
-    io:format("Collected ports = ~p\n",[Ports]),
+    ?P("Collected ports = ~p", [Ports]),
     [] = zombies_alive(Ports, 10),
     timer:sleep(1000),
+    ?P("done"),
     ok.
 
-zombie_client_loop(0, _) -> ok;
+zombie_client_loop(0, _) ->
+    ?P("[zombie client] done"),
+    ok;
 zombie_client_loop(N, PortNum) when is_integer(PortNum) ->
+    ?P("[zombie client][~w] try connect", [N]),
     {ok, Socket} = gen_tcp:connect("localhost", PortNum,
                                    [binary, {active, false}, {packet, raw}]),
+    ?P("[zombie client] connected - now close ~p", [Socket]),
     gen_tcp:close(Socket), % to make server recv fail
     zombie_client_loop(N-1, PortNum).
 
 
-zombie_collector(0,Acc) ->
+zombie_collector(0, Acc) ->
+    ?P("[zombie collector] done: "
+       "~n   ~p", [Acc]),
     Acc;
-zombie_collector(N,Acc) ->
+zombie_collector(N, Acc) ->
     receive 
 	{closed, Socket} -> 
-	    zombie_collector(N-1,[Socket|Acc]);
+            ?P("[zombie collector] ~p closed", [Socket]),
+	    zombie_collector(N-1, [Socket|Acc]);
 	E -> 
 	    {unexpected, E, Acc}
     end.
 	    
 zombies_alive(Ports, WaitSec) ->
     Alive = lists:sort(erlang:ports()),
-    io:format("Alive = ~p\n",[Alive]),
+    ?P("[zombies alive][~w] Alive: ~p", [WaitSec, Alive]),
     Zombies = lists:filter(fun(P) -> lists:member(P, Alive) end, Ports),
     case Zombies of
 	[] -> [];
@@ -3933,37 +3942,59 @@ zombies_alive(Ports, WaitSec) ->
     end.
 
 zombie_server(Pid, Calls) ->
-    {ok, LSocket} = gen_tcp:listen(0, [binary, {packet, raw},
-                                       {active, false}, {backlog, Calls}]),
-    {ok, {_, PortNum}} = inet:sockname(LSocket),
-    io:format("Listening on ~w with port number ~p\n", [LSocket, PortNum]),
+    ?P("[zombie server] try create listen socket with backlog: ~w", [Calls]),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, raw},
+                                     {active, false}, {backlog, Calls}]),
+    {ok, {_, PortNum}} = inet:sockname(LSock),
+    ?P("[zombie server] Listening on ~w with port number ~p", [LSock, PortNum]),
     BigBin = list_to_binary(lists:duplicate(100*1024, 77)),
+    ?P("[zombie server] send ready"),
     Pid ! {self(), ready, PortNum},
-    zombie_accept_loop(LSocket, BigBin, Calls),
-    terminate = receive Msg -> Msg end.
+    zombie_accept_loop(LSock, BigBin, Calls),
+    ?P("[zombie server] await terminate"),
+    terminate = receive Msg -> Msg end,
+    ?P("[zombie server] terminating"),
+    ok.
 
 zombie_accept_loop(_, _, 0) ->
+    ?P("[zombie server] accept loop done"),
     ok;
 zombie_accept_loop(Socket, BigBin, Calls) ->
+    ?P("[zombie server][~w] try accept", [Calls]),
     case gen_tcp:accept(Socket) of
 	{ok, NewSocket} ->
-	    spawn_link(fun() -> zombie_serve_client(NewSocket, BigBin) end),
+            ?P("[zombie server][~w] accepted ~p - create handler",
+               [Calls, NewSocket]),
+	    spawn_link(fun() -> zombie_server_handler(NewSocket, BigBin) end),
 	    zombie_accept_loop(Socket, BigBin, Calls-1);
 	E ->
 	    E
     end.
 
-zombie_serve_client(Socket, Bin) ->
-    %%io:format("Got connection on ~p\n",[Socket]),
+zombie_server_handler(Socket, Bin) ->
+    ?P("[zombie server handler] got connection on ~p - attempt send", [Socket]),
     gen_tcp:send(Socket, Bin),
-    %%io:format("Sent data, waiting for reply on ~p\n",[Socket]),
+    ?P("[zombie server handler] Sent data, waiting for reply on ~p", [Socket]),
     case gen_tcp:recv(Socket, 4) of
-	      {error,closed} -> ok;
-	      {error,econnaborted} -> ok % may be returned on Windows
+        {error, closed} ->
+            ?P("[zombie server handler] recv: closed (expected)"),
+            ok;
+        {error, econnaborted} -> % may be returned on Windows
+            ?P("[zombie server handler] recv: econnaborted (expected)"),
+            ok;
+        {error, Reason} ->
+            ?P("[zombie server handler] UNEXPECTED recv failure reason: ~p",
+               [Reason]),
+            exit({unexpected_recv_error_reason, Reason});
+        {ok, _} ->
+            ?P("[zombie server handler] UNEXPECTED recv success"),
+            exit(unexpected_recv_success)
 	  end,
-    %%io:format("Closing ~p\n",[Socket]),
+    ?P("[zombie server handler] close socket ~p", [Socket]),
     gen_tcp:close(Socket),
+    ?P("[zombie server handler] socket closed: inform collector"),
     zombie_collector ! {closed, Socket}.
+
 
 %% Hanging send on windows when sending iolist with more than 16 binaries.
 otp_7816(Config) when is_list(Config) ->
