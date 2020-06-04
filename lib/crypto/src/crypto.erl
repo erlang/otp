@@ -599,13 +599,13 @@
 %% Exceptions
 %%   error:badarg
 %%   error:notsup
--type run_time_error() :: no_return().
+-type run_time_error() :: any().
 
 %% Exceptions
 %%   error:{badarg,Reason::term()}
 %%   error:{notsup,Reason::term()}
 %%   error:{error,Reason::term()}
--type descriptive_error() :: no_return() .
+-type descriptive_error() :: any() .
 
 
 %%--------------------------------------------------------------------
