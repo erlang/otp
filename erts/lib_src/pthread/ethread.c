@@ -341,11 +341,21 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     twd.stacksize = 0;
 
     if (opts && opts->name) {
+        size_t nlen = sizeof(twd.name_buff);
 #ifdef __HAIKU__
-        snprintf(twd.name_buff, B_OS_NAME_LENGTH, "%s", opts->name);
+        if (nlen > B_OS_NAME_LENGTH)
+            nlen = B_OS_NAME_LENGTH;
 #else
-        snprintf(twd.name_buff, 16, "%s", opts->name);
+        /*
+         * Length of 16 is known to work. At least pthread_setname_np()
+         * is documented to fail on too long name string, but documentation
+         * does not say what the limit is. Do not have the time to dig
+         * further into that now...
+         */
+        if (nlen > 16)
+            nlen = 16;
 #endif
+        snprintf(twd.name_buff, nlen, "%s", opts->name);
 	twd.name = twd.name_buff;
     } else
         twd.name = NULL;
