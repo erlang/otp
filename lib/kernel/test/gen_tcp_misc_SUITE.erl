@@ -3555,7 +3555,7 @@ send_timeout(Config) when is_list(Config) ->
                                           Res
                                   end,
                            {error, timeout} = timeout_sink_loop(Send)
-	      end),
+                   end),
     Diff = get_max_diff(),
     ?P("Max time for send: ~p",[Diff]),
     true = (Diff > 500) and (Diff < 1500),
@@ -3597,8 +3597,7 @@ send_timeout_para(AutoClose, RNode) ->
     SenderFun = fun() ->
                         ?P("[para:sender] start"),
 			Send = fun() -> gen_tcp:send(A, BinData) end,
-			{error,Error} = timeout_sink_loop(Send),
-			Self ! {error,Error}
+			Self ! {self(), timeout_sink_loop(Send)}
 		end,
     ?P("[para] spawn process 1 with sender fun"),
     Snd1 = spawn_link(SenderFun),
@@ -3609,22 +3608,33 @@ send_timeout_para(AutoClose, RNode) ->
        "~n   Sender 1: ~p"
        "~n   Sender 2: ~p", [Snd1, Snd2]),
     receive
-	{error, timeout} ->
-            ?P("[para] timeout received"),
+	{Snd1, {error, timeout}} ->
+            ?P("[para] timeout received from sender 1 (~p)", [Snd1]),
+            ok;
+	{Snd2, {error, timeout}} ->
+            ?P("[para] timeout received from sender 2 (~p)", [Snd2]),
             ok
     after 10000 ->
             ?P("[para] UNEXPECTED timeout(1,~w) when:"
                "~n   Sender 1 Info: ~p"
-               "~n   Sender 2 Info: ~p",
+               "~n   Sender 2 Info: ~p"
+               "~n   Message Queue: ~p",
                [AutoClose,
-                (catch process_info(Snd1)), (catch process_info(Snd2))]),
+                (catch process_info(Snd1)),
+                (catch process_info(Snd2)),
+                flush()]),
 	    exit({timeout, AutoClose})
     end,
 
     ?P("await sender error"),
     receive
-	{error, Error_1} ->
-            ?P("[para] error (~p) received", [Error_1]),
+	{Snd1, {error, Error_1}} ->
+            ?P("[para] error (~p) received from sender 1 (~p)",
+               [Error_1, Snd1]),
+            after_send_timeout(AutoClose, Error_1);
+	{Snd2, {error, Error_1}} ->
+            ?P("[para] error (~p) received from sender 2 (~p)",
+               [Error_1, Snd2]),
             after_send_timeout(AutoClose, Error_1)
     after 10000 ->
             ?P("[para] UNEXPECTED timeout(2,~w)", [AutoClose]),
@@ -3761,8 +3771,8 @@ setup_closed_ao() ->
                      receive {Pid,X} -> X end
              end,
     Connect = fun() -> 
-                      gen_tcp:connect(Host,Port,
-                                      [{active,false},{packet,2}]) 
+                      gen_tcp:connect(Host, Port,
+                                      [{active, false}, {packet, 2}]) 
               end,
     ?P("[setup] create (remote) connection"),
     C = case Remote(Connect) of
