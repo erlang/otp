@@ -517,13 +517,19 @@ pkix(Config) when is_list(Config) ->
 		    end,
     [TestTransform(Cert) || Cert <- Certs0 ++ Certs1],
 
-    true = public_key:pkix_is_self_signed(element(2,hd(Certs0))),
-    false = public_key:pkix_is_self_signed(element(2,hd(Certs1))),
+    Root = element(2, hd(Certs0)),
+    Peer = element(2, hd(Certs1)), 
+
+    true = public_key:pkix_is_self_signed(Root),
+    false = public_key:pkix_is_self_signed(Peer),
 
     CaIds = [element(2, public_key:pkix_issuer_id(Cert, self)) || 
 		{'Certificate', Cert, _} <- Certs0],
-    {ok, IssuerId = {_, _IssuerName}} = 
-	public_key:pkix_issuer_id(element(2,hd(Certs1)), other),
+    {ok, IssuerId} = 
+	public_key:pkix_issuer_id(Peer, other),
+    
+    {ok, Id} = public_key:pkix_issuer_id(Root, self),
+    Id = public_key:pkix_subject_id(Root),
 
     true = lists:member(IssuerId, CaIds),
 

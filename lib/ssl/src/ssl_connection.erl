@@ -1003,7 +1003,7 @@ certify(internal, #certificate{} = Cert,
                connection_env = #connection_env{negotiated_version = Version},
 	       ssl_options = Opts} = State, Connection) ->
     case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, 
-			       Opts, CRLDbInfo, Role, Host) of
+			       Opts, CRLDbInfo, Role, Host, ensure_tls(Version)) of
         {PeerCert, PublicKeyInfo} ->
 	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 			     State#state{client_certificate_requested = false}, Connection);
@@ -3128,3 +3128,8 @@ is_sni_value(Hostname) ->
         _ ->
             true
     end.
+
+ensure_tls({254, _} = Version) -> 
+    dtls_v1:corresponding_tls_version(Version);
+ensure_tls(Version) -> 
+    Version.

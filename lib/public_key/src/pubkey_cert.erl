@@ -34,7 +34,8 @@
 	 normalize_general_name/1, 
          is_self_signed/1,
 	 is_issuer/2, 
-         issuer_id/2, 
+         issuer_id/2,
+         subject_id/1,
          distribution_points/1, 
 	 is_fixed_dh_cert/1, 
          verify_data/1, 
@@ -303,6 +304,20 @@ issuer_id(Otpcert, self) ->
     Issuer = TBSCert#'OTPTBSCertificate'.issuer,
     SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
     {ok, {SerialNr, normalize_general_name(Issuer)}}.  
+
+
+%%--------------------------------------------------------------------
+-spec subject_id(#'OTPCertificate'{}) -> 
+		       {integer(), term()}.
+%%
+%% Description: Extracts the subject and serial number from a certificate.
+%%--------------------------------------------------------------------
+subject_id(Otpcert) ->
+    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate, 
+    Subject = TBSCert#'OTPTBSCertificate'.subject,
+    SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
+    {SerialNr, normalize_general_name(Subject)}.  
+
 
 distribution_points(Otpcert) ->
     TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,

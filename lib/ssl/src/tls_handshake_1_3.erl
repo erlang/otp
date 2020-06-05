@@ -1283,10 +1283,8 @@ process_certificate(#certificate_1_3{
     State1 = calculate_traffic_secrets(State0),
     State = ssl_record:step_encryption_state(State1),
     {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
-process_certificate(#certificate_1_3{certificate_list = Certs0},
-                    #state{ssl_options =
-                               #{signature_algs := SignAlgs,
-                                 signature_algs_cert := SignAlgsCert} = SslOptions,
+process_certificate(#certificate_1_3{certificate_list = CertEntries},
+                    #state{ssl_options = SslOptions,
                            static_env =
                                #static_env{
                                   role = Role,
@@ -1294,44 +1292,19 @@ process_certificate(#certificate_1_3{certificate_list = Certs0},
                                   cert_db = CertDbHandle,
                                   cert_db_ref = CertDbRef,
                                   crl_db = CRLDbHandle}} = State0) ->
-    %% TODO: handle extensions!
-    %% Remove extensions from list of certificates!
-    Certs = convert_certificate_chain(Certs0),
-    case is_supported_signature_algorithm(Certs, SignAlgs, SignAlgsCert) of
-        true ->
-            case validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
-                                            SslOptions, CRLDbHandle, Role, Host) of
-                {ok, {PeerCert, PublicKeyInfo}} ->
-                    State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
-                    {ok, {State, wait_cv}};
-                {error, Reason} ->
-                    State = update_encryption_state(Role, State0),
-                    {error, {Reason, State}};
-                {ok, #alert{} = Alert} ->
-                    State = update_encryption_state(Role, State0),
-                    {error, {Alert, State}}
-            end;
-        false ->
-            State1 = calculate_traffic_secrets(State0),
-            State = ssl_record:step_encryption_state(State1),
-            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
-                                "Client certificate uses unsupported signature algorithm"), State}}
+    
+    case validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
+                                    SslOptions, CRLDbHandle, Role, Host) of
+        {ok, {PeerCert, PublicKeyInfo}} ->
+            State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
+            {ok, {State, wait_cv}};
+        {error, Reason} ->
+            State = update_encryption_state(Role, State0),
+            {error, {Reason, State}};
+        {ok, #alert{} = Alert} ->
+            State = update_encryption_state(Role, State0),
+            {error, {Alert, State}}
     end.
-
-
-%% TODO: check whole chain!
-is_supported_signature_algorithm(Certs, SignAlgs, undefined) ->
-    is_supported_signature_algorithm(Certs, SignAlgs);
-is_supported_signature_algorithm(Certs, _, SignAlgsCert) ->
-    is_supported_signature_algorithm(Certs, SignAlgsCert).
-%%
-is_supported_signature_algorithm([BinCert|_], SignAlgs0) ->
-    #'OTPCertificate'{signatureAlgorithm = SignAlg} =
-        public_key:pkix_decode_cert(BinCert, otp),
-    SignAlgs = filter_tls13_algs(SignAlgs0),
-    Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
-    lists:member(Scheme, SignAlgs).
-
 
 %% Sets correct encryption state when sending Alerts in shared states that use different secrets.
 %% - If client: use handshake secrets.
@@ -1344,30 +1317,41 @@ update_encryption_state(client, State) ->
     State.
 
 
-validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
+validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                            #{server_name_indication := ServerNameIndication,
                              partial_chain := PartialChain,
                              verify_fun := VerifyFun,
                              customize_hostname_check := CustomizeHostnameCheck,
                              crl_check := CrlCheck,
                              log_level := LogLevel,
-                             depth := Depth} = SslOptions,
-                           CRLDbHandle, Role, Host) ->
+                             depth := Depth,
+                             signature_algs := SignAlgs,
+                             signature_algs_cert := SignAlgsCert
+                            } = SslOptions, CRLDbHandle, Role, Host) ->
+    {Certs, CertExt} = split_cert_entries(CertEntries),
     ServerName = ssl_handshake:server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = Certs,
-    try
-	{TrustedCert, CertPath}  =
-	    ssl_certificate:trusted_cert_and_path(Certs, CertDbHandle, CertDbRef,
+     try
+        {TrustedCert, CertPath}  =
+            ssl_certificate:trusted_cert_and_path(Certs, CertDbHandle, CertDbRef,
                                                   PartialChain),
         ValidationFunAndState =
-            ssl_handshake:validation_fun_and_state(VerifyFun, Role,
-                                     CertDbHandle, CertDbRef, ServerName,
-                                     CustomizeHostnameCheck,
-                                     CrlCheck, CRLDbHandle, CertPath, LogLevel),
+            ssl_handshake:validation_fun_and_state(VerifyFun, #{role => Role,
+                                                                certdb => CertDbHandle,
+                                                                certdb_ref => CertDbRef,
+                                                                server_name => ServerName,
+                                                                customize_hostname_check =>
+                                                                    CustomizeHostnameCheck,
+                                                                crl_check => CrlCheck,
+                                                                crl_db => CRLDbHandle,
+                                                                signature_algs => filter_tls13_algs(SignAlgs),
+                                                                signature_algs_cert => filter_tls13_algs(SignAlgsCert),
+                                                                version => {3,4},
+                                                                cert_ext => CertExt
+                                                               }, 
+                                                   CertPath, LogLevel),
         Options = [{max_path_length, Depth},
                    {verify_fun, ValidationFunAndState}],
-        %% TODO: Validate if Certificate is using a supported signature algorithm
-        %% (signature_algs_cert)!
         case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
             {ok, {PublicKeyInfo,_}} ->
                 {ok, {PeerCert, PublicKeyInfo}};
@@ -1384,20 +1368,21 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
             {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})}
     end.
 
-
 store_peer_cert(#state{session = Session,
                        handshake_env = HsEnv} = State, PeerCert, PublicKeyInfo) ->
     State#state{session = Session#session{peer_certificate = PeerCert},
                 handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo}}.
 
 
-convert_certificate_chain(Certs) ->
-    Fun = fun(#certificate_entry{data = Data}) ->
-                  {true, Data};
-             (_) ->
-                  false
-          end,
-    lists:filtermap(Fun, Certs).
+split_cert_entries(CertEntries) ->
+    split_cert_entries(CertEntries, [], #{}).
+split_cert_entries([], Chain, Ext) ->
+    {lists:reverse(Chain), Ext};
+split_cert_entries([#certificate_entry{data = DerCert,
+                                       extensions = Extensions0} | CertEntries], Chain, Ext) ->
+    Id = public_key:pkix_subject_id(DerCert),
+    Extensions = maps:to_list(Extensions0),
+    split_cert_entries(CertEntries, [DerCert | Chain], Ext#{Id => Extensions}).
 
 
 %% 4.4.1.  The Transcript Hash
