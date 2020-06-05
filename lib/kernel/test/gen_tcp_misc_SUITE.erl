@@ -1886,11 +1886,8 @@ busy_send_client_loop(Socket, Master, Msg, N) ->
 %%%
 
 busy_disconnect_passive(Config) when is_list(Config) ->
-    try do_busy_disconnect_passive(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(busy_disconnect_passive,
+            fun() -> do_busy_disconnect_passive(Config) end).
 
 do_busy_disconnect_passive(_Config) ->
     ?P("[passive] begin"),
@@ -1901,14 +1898,16 @@ do_busy_disconnect_passive(_Config) ->
 
 do_busy_disconnect_passive2(MuchoData, N) ->
     ?P("[passive,~w] *** prepare server *** ", [N]),
-    S = busy_disconnect_prepare_server([{active,false}]),
+    {_Server, S} = busy_disconnect_prepare_server([{active,false}]),
     ?P("[passive,~w] server prepared - start sending", [N]),
     busy_disconnect_passive_send(S, MuchoData).
 
 busy_disconnect_passive_send(S, Data) ->
     case gen_tcp:send(S, Data) of
-	ok -> busy_disconnect_passive_send(S, Data);
-	{error,closed} -> ok
+	ok ->
+            busy_disconnect_passive_send(S, Data);
+	{error, closed} ->
+            ok
     end.
 
 %%%
@@ -1917,11 +1916,8 @@ busy_disconnect_passive_send(S, Data) ->
 %%% a {tcp_closed,Socket} message. (Active mode.)
 %%%
 busy_disconnect_active(Config) when is_list(Config) ->
-    try do_busy_disconnect_active(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-end.
+    ?TC_TRY(busy_disconnect_active,
+            fun() -> do_busy_disconnect_active(Config) end).
 
 do_busy_disconnect_active(_Config) ->
     ?P("[active] begin"),
@@ -1932,31 +1928,44 @@ do_busy_disconnect_active(_Config) ->
 
 do_busy_disconnect_active2(MuchoData, N) ->
     ?P("[active,~w] *** prepare server *** ", [N]),
-    S = busy_disconnect_prepare_server([{active,true}]),
+    {Server, S} = busy_disconnect_prepare_server([{active,true}]),
     ?P("[active,~w] server prepared - start sending", [N]),
-    busy_disconnect_active_send(S, MuchoData).
+    busy_disconnect_active_send(Server, S, MuchoData).
 
-busy_disconnect_active_send(S, Data) ->
+busy_disconnect_active_send(Server, S, Data) ->
     case gen_tcp:send(S, Data) of
 	ok ->
-            busy_disconnect_active_send(S, Data);
+            busy_disconnect_active_send(Server, S, Data);
 	{error, closed} ->
             ?P("[active-sender] send failed with closed - await tcp-closed"),
-	    receive
-		{tcp_closed, S} ->
-                    ?P("[active-sender] received tcp-closed"),
-                    ok;
-		Other ->
-                    ?P("[active-sender] received UNEXPECTED message:"
-                       "~n   ~p", [Other]),
-                    ct:fail({unexpected, Other, S, flush([])})
-	    end;
+            busy_disconnect_active_send_await_closed(Server, S);
+        {error, einval = Reason} ->
+            ?P("[active-sender] UNEXPECTED send failure:"
+               "~n   ~p", [Reason]),
+            ?SKIPT(send_failed_str(Reason));
+
         {error, Reason} ->
             ?P("[active-sender] UNEXPECTED send failure:"
                "~n   ~p", [Reason]),
             ct:fail({unexpected_send_result, Reason})
     end.
 
+busy_disconnect_active_send_await_closed(Server, S) ->
+    receive
+        {tcp_closed, S} ->
+            ?P("[active-sender] received tcp-closed"),
+            ok;
+
+        {'EXIT', Server, normal} ->
+            ?P("[active-sender] received server (normal) exit"),
+            busy_disconnect_active_send_await_closed(Server, S);
+
+        Other ->
+            ?P("[active-sender] received UNEXPECTED message:"
+               "~n   ~p", [Other]),
+            ct:fail({unexpected, Other, S, flush([])})
+    end.
+    
 
 busy_disconnect_prepare_server(ConnectOpts) ->
     Sender = self(),
@@ -1970,7 +1979,7 @@ busy_disconnect_prepare_server(ConnectOpts) ->
             ?P("[prep-server] connected - order server start sending"),
             Server ! {Sender, sending},
             ?P("[prep-server] done"),
-            S;
+            {Server, S};
         {error, eaddrnotavail = Reason} ->
             ?SKIPT(connect_failed_str(Reason))
     end.
@@ -3586,22 +3595,29 @@ send_timeout_para(AutoClose, RNode) ->
     A = setup_timeout_sink(RNode, 1000, AutoClose),
     Self = self(),
     SenderFun = fun() ->
+                        ?P("[para:sender] start"),
 			Send = fun() -> gen_tcp:send(A, BinData) end,
 			{error,Error} = timeout_sink_loop(Send),
 			Self ! {error,Error}
 		end,
     ?P("[para] spawn process 1 with sender fun"),
-    spawn_link(SenderFun),
+    Snd1 = spawn_link(SenderFun),
     ?P("[para] spawn process 2 with sender fun"),
-    spawn_link(SenderFun),
+    Snd2 = spawn_link(SenderFun),
 
-    ?P("[para] await sender timeout"),
+    ?P("[para] await sender timeout when"
+       "~n   Sender 1: ~p"
+       "~n   Sender 2: ~p", [Snd1, Snd2]),
     receive
 	{error, timeout} ->
             ?P("[para] timeout received"),
             ok
     after 10000 ->
-            ?P("[para] UNEXPECTED timeout(1,~w)", [AutoClose]),
+            ?P("[para] UNEXPECTED timeout(1,~w) when:"
+               "~n   Sender 1 Info: ~p"
+               "~n   Sender 2 Info: ~p",
+               [AutoClose,
+                (catch process_info(Snd1)), (catch process_info(Snd2))]),
 	    exit({timeout, AutoClose})
     end,
 
@@ -4561,6 +4577,9 @@ delay_send_error2(Sock, N) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+send_failed_str(Reason) ->
+    ?F("Send failed: ~w", [Reason]).
 
 connect_failed_str(Reason) ->
     ?F("Connect failed: ~w", [Reason]).
