@@ -141,7 +141,7 @@ file_to_crls(File, DbHandle) ->
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
 validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-				    extnValue = KeyUse}}, UserState = {Role, _,_, _, _, _}) ->
+				    extnValue = KeyUse}}, UserState = #{role := Role}) ->
     case is_valid_extkey_usage(KeyUse, Role) of
 	true ->
 	    {valid, UserState};
@@ -152,12 +152,28 @@ validate(_, {extension, _}, UserState) ->
     {unknown, UserState};
 validate(_, {bad_cert, _} = Reason, _) ->
     {fail, Reason};
-validate(_, valid, UserState) ->
-    {valid, UserState};
-validate(Cert, valid_peer, UserState = {client, _,_, {Hostname, Customize}, _, _}) when Hostname =/= disable ->
-    verify_hostname(Hostname, Customize, Cert, UserState);  
-validate(_, valid_peer, UserState) ->    
-   {valid, UserState}.
+validate(Cert, valid, UserState) ->
+    case verify_sign(Cert, UserState) of
+        true ->
+            case maps:get(cert_ext, UserState, undefined) of
+                undefined ->
+                    {valid, UserState};
+                _ ->
+                    verify_cert_extensions(Cert, UserState)
+            end;
+        false ->
+            {fail, {bad_cert, invalid_signature}}
+    end;
+validate(Cert, valid_peer, UserState = #{role := client, server_name := Hostname, 
+                                         customize_hostname_check := Customize}) when Hostname =/= disable ->
+    case verify_hostname(Hostname, Customize, Cert, UserState) of
+        {valid, UserState} ->
+            validate(Cert, valid, UserState);
+        Error ->
+            Error
+    end;
+validate(Cert, valid_peer, UserState) ->    
+    validate(Cert, valid, UserState).
 
 %%--------------------------------------------------------------------
 -spec is_valid_key_usage(list(), term()) -> boolean().
@@ -396,3 +412,43 @@ verify_hostname(Hostname, Customize, Cert, UserState) ->
         false ->
             {fail, {bad_cert, hostname_check_failed}}
     end.
+
+verify_cert_extensions(Cert, #{cert_ext := CertExts} =  UserState) ->
+    Id = public_key:pkix_subject_id(Cert),
+    Extensions = maps:get(Id, CertExts, []),
+    verify_cert_extensions(Cert, UserState, Extensions, #{}).
+
+verify_cert_extensions(_, UserState, [], _) ->
+    {valid, UserState};
+verify_cert_extensions(Cert, UserState, [ _ | Exts], Context) ->
+    %% TODO Skip unknow extensions ?
+    verify_cert_extensions(Cert, UserState, Exts, Context).
+
+verify_sign(_, #{version := {_, Minor}}) when Minor < 3 ->
+    %% This verification is not applicable pre TLS-1.2 
+    true; 
+verify_sign(Cert, #{signature_algs := SignAlgs,
+                    signature_algs_cert := undefined}) ->
+    is_supported_signature_algorithm(Cert, SignAlgs); 
+verify_sign(Cert, #{signature_algs_cert := SignAlgs}) ->
+    is_supported_signature_algorithm(Cert, SignAlgs).
+
+is_supported_signature_algorithm(#'OTPCertificate'{signatureAlgorithm = 
+                                                       #'SignatureAlgorithm'{algorithm = ?'id-dsa-with-sha1'}}, [{_,_}|_] = SignAlgs) ->   
+    lists:member({sha, dsa}, SignAlgs);
+is_supported_signature_algorithm(#'OTPCertificate'{signatureAlgorithm = SignAlg}, [{_,_}|_] = SignAlgs) ->   
+    Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
+    {Hash, Sign, _ } = ssl_cipher:scheme_to_components(Scheme),
+    lists:member({pre_1_3_hash(Hash), pre_1_3_sign(Sign)}, SignAlgs);
+is_supported_signature_algorithm(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->   
+    Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
+    lists:member(Scheme, SignAlgs).
+
+pre_1_3_sign(rsa_pkcs1) ->
+    rsa;
+pre_1_3_sign(Other) ->
+    Other.
+pre_1_3_hash(sha1) ->
+    sha;
+pre_1_3_hash(Hash) ->
+    Hash.

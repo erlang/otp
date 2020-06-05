@@ -51,7 +51,7 @@
 	 finished/5,  next_protocol/1, digitally_signed/5]).
 
 %% Handle handshake messages
--export([certify/7, certificate_verify/6, verify_signature/5,
+-export([certify/8, certificate_verify/6, verify_signature/5,
 	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5,
          select_version/3, select_supported_version/2, extension_value/1
@@ -82,7 +82,7 @@
 
 -export([get_cert_params/1,
          server_name/3,
-         validation_fun_and_state/10,
+         validation_fun_and_state/4,
          handle_path_validation_error/7]).
 
 %%====================================================================
@@ -337,7 +337,8 @@ next_protocol(SelectedProtocol) ->
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec certify(#certificate{}, db_handle(), certdb_ref(), ssl_options(), term(),
-	      client | server, inet:hostname() | inet:ip_address()) ->  {der_cert(), public_key_info()} | #alert{}.
+	      client | server, inet:hostname() | inet:ip_address(),
+              ssl_record:ssl_version()) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
@@ -348,7 +349,8 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
           customize_hostname_check := CustomizeHostnameCheck,
           crl_check := CrlCheck,
           log_level := Level,
-          depth := Depth} = Opts, CRLDbHandle, Role, Host) ->
+          signature_algs := SignAlgos,
+          depth := Depth} = Opts, CRLDbHandle, Role, Host, Version) ->
     
     ServerName = server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = ASN1Certs,       
@@ -356,10 +358,18 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
 	{TrustedCert, CertPath}  =
 	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,  
                                                   PartialChain),
-        ValidationFunAndState = validation_fun_and_state(VerifyFun, Role,
-                                                         CertDbHandle, CertDbRef, ServerName,
-                                                         CustomizeHostnameCheck,
-                                                         CrlCheck, CRLDbHandle, CertPath, Level),
+        ValidationFunAndState = validation_fun_and_state(VerifyFun, #{role => Role,
+                                                                      certdb => CertDbHandle,
+                                                                      certdb_ref => CertDbRef,
+                                                                      server_name => ServerName,
+                                                                      customize_hostname_check =>
+                                                                          CustomizeHostnameCheck,
+                                                                      signature_algs => SignAlgos,
+                                                                      signature_algs_cert => undefined,
+                                                                      version => Version,
+                                                                      crl_check => CrlCheck,
+                                                                      crl_db => CRLDbHandle},
+                                                         CertPath, Level),
         Options = [{max_path_length, Depth},
                    {verify_fun, ValidationFunAndState}],
 	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
@@ -1684,9 +1694,7 @@ certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
 		[], CertDbData).
 
 %%-------------Handle handshake messages --------------------------------
-validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, 
-                         ServerNameIndication, CustomizeHostCheck, CRLCheck, 
-                         CRLDbHandle, CertPath, LogLevel) ->
+validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
 					   Extension,
@@ -1703,18 +1711,15 @@ validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef,
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
 			    SslState, CertPath, LogLevel)
-     end, {{Role, CertDbHandle, CertDbRef, {ServerNameIndication, CustomizeHostCheck}, CRLCheck, CRLDbHandle}, UserState0}};
-validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, 
-                         ServerNameIndication, CustomizeHostCheck, CRLCheck, 
-                         CRLDbHandle, CertPath, LogLevel) ->
+     end, {VerifyState, UserState0}};
+validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      Extension,
 				      SslState);
 	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
                                                (VerifyResult == valid_peer) -> 
-	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
-                            CRLDbHandle, VerifyResult, CertPath, LogLevel) of
+	     case crl_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		 valid ->                     
                      ssl_certificate:validate(OtpCert,
                                               VerifyResult,
@@ -1726,16 +1731,14 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef,
 	     ssl_certificate:validate(OtpCert,
 				      VerifyResult,
 				      SslState)
-     end, {Role, CertDbHandle, CertDbRef, {ServerNameIndication, CustomizeHostCheck}, CRLCheck, CRLDbHandle}}.
+     end, VerifyState}.
 
-apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, 
-	       {_, CertDbHandle, CertDbRef, _, CRLCheck, CRLDbHandle} = SslState, CertPath, LogLevel) when
+apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
       (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
     VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState),
     case Fun(OtpCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
-	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
-                           CRLDbHandle, VerifyResult, CertPath, LogLevel) of
+	    case crl_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
@@ -1781,7 +1784,7 @@ handle_incomplete_chain(PeerCert, Chain0,
                                                        CertDbHandle, CertsDbRef,
                                                        PartialChain) of
                 {unknown_ca, []} ->
-                     path_validation_alert(Reason);
+                    path_validation_alert(Reason);
                 {Trusted, Path} ->
                     case public_key:pkix_path_validation(Trusted, Path, Options) of
                         {ok, {PublicKeyInfo,_}} ->
@@ -1909,11 +1912,14 @@ bad_key(#{algorithm := rsa}) ->
 bad_key(#{algorithm := ecdsa}) ->
     unacceptable_ecdsa_key.
 
-crl_check(_, false, _,_,_, _, _, _) ->
+crl_check(_, #{crl_check := false}, _, _, _) ->
     valid;
-crl_check(_, peer, _, _,_, valid, _, _) -> %% Do not check CAs with this option.
+crl_check(_, #{crl_check := peer}, _, valid, _) -> %% Do not check CAs with this option.
     valid;
-crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _, CertPath, LogLevel) ->
+crl_check(OtpCert, #{crl_check := Check, 
+                     certdb := CertDbHandle,
+                     certdb_ref := CertDbRef,
+                     crl_db := {Callback, CRLDbHandle}}, _, CertPath, LogLevel) ->
     Options = [{issuer_fun, {fun(_DP, CRL, Issuer, DBInfo) ->
 				     ssl_crl:trusted_cert_and_path(CRL, Issuer, {CertPath,
                                                                                  DBInfo})
