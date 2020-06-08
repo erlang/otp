@@ -2019,10 +2019,10 @@ static unsigned int gen_challenge(void)
     uname(&s.name);
     s.cpu  = clock();
     s.pid  = getpid();
-#ifndef __ANDROID__
-    s.hid  = gethostid();
-#else
+#if defined(__ANDROID__) || defined(__HAIKU__)
     s.hid  = 0;
+#else
+    s.hid  = gethostid();
 #endif
     s.uid  = getuid();
     s.gid  = getgid();

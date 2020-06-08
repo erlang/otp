@@ -47,6 +47,10 @@
 
 #include <limits.h>
 
+#if defined (__HAIKU__)
+#include <os/kernel/OS.h>
+#endif
+
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHREAD_IMPL__
 
@@ -83,7 +87,7 @@ typedef struct {
     void *prep_func_res;
     size_t stacksize;
     char *name;
-    char name_buff[16];
+    char name_buff[32];
 } ethr_thr_wrap_data__;
 
 static void *thr_wrapper(void *vtwd)
@@ -337,7 +341,21 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     twd.stacksize = 0;
 
     if (opts && opts->name) {
-        snprintf(twd.name_buff, 16, "%s", opts->name);
+        size_t nlen = sizeof(twd.name_buff);
+#ifdef __HAIKU__
+        if (nlen > B_OS_NAME_LENGTH)
+            nlen = B_OS_NAME_LENGTH;
+#else
+        /*
+         * Length of 16 is known to work. At least pthread_setname_np()
+         * is documented to fail on too long name string, but documentation
+         * does not say what the limit is. Do not have the time to dig
+         * further into that now...
+         */
+        if (nlen > 16)
+            nlen = 16;
+#endif
+        snprintf(twd.name_buff, nlen, "%s", opts->name);
 	twd.name = twd.name_buff;
     } else
         twd.name = NULL;
@@ -498,6 +516,14 @@ ethr_setname(char *name)
     pthread_set_name_np(ethr_self(), name);
 #elif defined(ETHR_HAVE_PTHREAD_SETNAME_NP_1)
     pthread_setname_np(name);
+#elif defined(__HAIKU__)
+    thread_id haiku_tid;
+    haiku_tid = get_pthread_thread_id(ethr_self());
+    if (!name) {
+        rename_thread (haiku_tid, "");
+    } else {
+        rename_thread (haiku_tid, name);
+    }
 #endif
 }
 

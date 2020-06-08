@@ -155,7 +155,7 @@ erts_init_async(void)
     if (erts_async_max_threads > 0) {
 	ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
 	erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
-	char *ptr, thr_name[16];
+	char *ptr, thr_name[32];
 	size_t tot_size = 0;
 	int i;
 
@@ -209,7 +209,7 @@ erts_init_async(void)
 	for (i = 0; i < erts_async_max_threads; i++) {
 	    ErtsAsyncQ *aq = async_q(i);
 
-            erts_snprintf(thr_opts.name, 16, "async_%d", i+1);
+            erts_snprintf(thr_opts.name, sizeof(thr_name), "async_%d", i+1);
 
 	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
 	}
