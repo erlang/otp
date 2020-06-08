@@ -629,7 +629,12 @@ sticky_sync(Config) when is_list(Config) ->
         end,
 
     %% Fill 1000 dc records. At the end all dc records should have value 1.
-    lists:foreach(TestFun, lists:seq(1,1000)),
+    {Time, ok} = timer:tc(fun() -> lists:foreach(TestFun, lists:seq(1,200)) end),
+    io:format("200 trans done in ~p ~n",[Time div (1000000)]),
+    case (Time div (1000000)) < 20 of
+        false -> lists:foreach(TestFun, lists:seq(201,1000));
+        true -> ignore  %% Some virtual test machines are really slow..
+    end,
     io:format("Written, check content~n",[]),
     All = fun() -> mnesia:select(dc, [ {{dc, '_', 0}, [] ,['$_']} ]) end,
     ?match({atomic, []}, rpc:call(N1, mnesia, sync_transaction, [All])),
