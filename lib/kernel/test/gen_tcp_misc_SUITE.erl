@@ -1604,13 +1604,17 @@ do_linger_zero(_Config) ->
     ok = gen_tcp:close(L),
     PayloadSize = 1024 * 1024,
     Payload = lists:duplicate(PayloadSize, $.),
-    ?P("send payload (on client socket)"),
+    ?P("send payload (on client socket) when port info:"
+       "~n   ~p", [erlang:port_info(Client)]),
     ok = gen_tcp:send(Client, Payload),
     ?P("verify client socket queue size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T -> ct:fail(T)
+	{queue_size, 0} = T ->
+            ?P("queue size verification failed - port info: "
+               "~n   ~p", [erlang:port_info(Client)]),
+            ct:fail(T)
     end,
     ?P("linger: {true, 0}"),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
