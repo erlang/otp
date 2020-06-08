@@ -108,6 +108,9 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
+init_per_testcase(read_packets, Config) ->
+    ct:timetrap({minutes, 2}),
+    Config;
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -335,24 +338,33 @@ bad_address(Config) when is_list(Config) ->
 
 %% OTP-6249 UDP option for number of packet reads.
 read_packets(Config) when is_list(Config) ->
-    N1 = 5,
-    N2 = 1,
+    N1   = 5,
+    N2   = 1,
     Msgs = 30000,
-    {ok,R} = gen_udp:open(0, [{read_packets,N1}]),
-    {ok,RP} = inet:port(R),
+    ?P("open socket (with read-packets: ~p)", [N1]),
+    {ok, R}   = gen_udp:open(0, [{read_packets,N1}]),
+    {ok, RP}  = inet:port(R),
+    ?P("create slave node"),
     {ok,Node} = start_node(gen_udp_SUITE_read_packets),
     %%
+    ?P("perform read-packets test"),
     {V1, Trace1} = read_packets_test(R, RP, Msgs, Node),
+    ?P("verify read-packets (to ~w)", [N1]),
     {ok,[{read_packets,N1}]} = inet:getopts(R, [read_packets]),
     %%
-    ok = inet:setopts(R, [{read_packets,N2}]),
+    ?P("set new read-packets: ~p", [N2]),
+    ok = inet:setopts(R, [{read_packets, N2}]),
+    ?P("perform read-packets test"),
     {V2, Trace2} = read_packets_test(R, RP, Msgs, Node),
+    ?P("verify read-packets (to ~w)", [N2]),
     {ok,[{read_packets,N2}]} = inet:getopts(R, [read_packets]),
     %%
+    ?P("stop slave node"),
     stop_node(Node),
-    ct:log("N1=~p, V1=~p vs N2=~p, V2=~p",[N1,V1,N2,V2]),
 
+    ?P("dump trace 1"),
     dump_terms(Config, "trace1.terms", Trace1),
+    ?P("dump trace 2"),
     dump_terms(Config, "trace2.terms", Trace2),
 
     %% Because of the inherit racy-ness of the feature it is
@@ -362,6 +374,12 @@ read_packets(Config) when is_list(Config) ->
     %% the max number of executions a port is allowed to
     %% do before being re-scheduled is N * 20
 
+    ?P("read-packets test verification when: "
+       "~n      N1: ~p"
+       "~n      V1: ~p"
+       "~n   vs"
+       "~n      N2: ~p"
+       "~n      V2: ~p", [N1, V1, N2, V2]),
     if
         V1 > (N1 * 20) ->
             ct:fail("Got ~p msgs, max was ~p", [V1, N1]);
@@ -369,7 +387,9 @@ read_packets(Config) when is_list(Config) ->
             ct:fail("Got ~p msgs, max was ~p", [V2, N2]);
         true ->
             ok
-    end.
+    end,
+    ?P("done"),
+    ok.
 
 dump_terms(Config, Name, Terms) ->
     FName = filename:join(proplists:get_value(priv_dir, Config),Name),
@@ -432,7 +452,7 @@ read_packets_recv(N) ->
 
 read_packets_verify(R, SP, Trace) ->
     [Max | _] = Pkts = lists:reverse(lists:sort(read_packets_verify(R, SP, Trace, 0))),
-    ct:pal("~p",[lists:sublist(Pkts,10)]),
+    ?P("read-packets verify: ~p", [lists:sublist(Pkts,10)]),
     Max.
 
 read_packets_verify(R, SP, [{trace,R,OutIn,_}|Trace], M) 
