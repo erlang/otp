@@ -8612,7 +8612,7 @@ erts_start_schedulers(void)
 {
     ethr_tid tid;
     int res = 0;
-    char name[16];
+    char name[32];
     ethr_thr_opts opts = ETHR_THR_OPTS_DEFAULT_INITER;
     int ix;
 
@@ -8622,7 +8622,7 @@ erts_start_schedulers(void)
 
     if (erts_runq_supervision_interval) {
 	opts.suggested_stack_size = 16;
-        erts_snprintf(opts.name, 16, "runq_supervisor");
+        erts_snprintf(opts.name, sizeof(name), "runq_supervisor");
 	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
 	if (0 != ethr_event_init(&runq_supervision_event))
 	    erts_exit(ERTS_ABORT_EXIT, "Failed to create run-queue supervision event\n");
@@ -8643,7 +8643,7 @@ erts_start_schedulers(void)
     for (ix = 0; ix < erts_no_schedulers; ix++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
 	ASSERT(ix == esdp->no - 1);
-	erts_snprintf(opts.name, 16, "%lu_scheduler", ix + 1);
+	erts_snprintf(opts.name, sizeof(name), "%lu_scheduler", ix + 1);
 	res = ethr_thr_create(&esdp->tid, sched_thread_func, (void*)esdp, &opts);
 	if (res != 0) {
            erts_exit(ERTS_ABORT_EXIT, "Failed to create scheduler thread %d, error = %d\n", ix, res);
@@ -8657,7 +8657,7 @@ erts_start_schedulers(void)
     {
 	for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
-	    erts_snprintf(opts.name, 16, "%d_dirty_cpu_scheduler", ix + 1);
+	    erts_snprintf(opts.name, sizeof(name), "%d_dirty_cpu_scheduler", ix + 1);
             opts.suggested_stack_size = erts_dcpu_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
@@ -8665,7 +8665,7 @@ erts_start_schedulers(void)
 	}
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
-	    erts_snprintf(opts.name, 16, "%d_dirty_io_scheduler", ix + 1);
+	    erts_snprintf(opts.name, sizeof(name), "%d_dirty_io_scheduler", ix + 1);
             opts.suggested_stack_size = erts_dio_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
@@ -8673,14 +8673,14 @@ erts_start_schedulers(void)
 	}
     }
 
-    erts_snprintf(opts.name, 16, "aux");
+    erts_snprintf(opts.name, sizeof(name), "aux");
 
     res = ethr_thr_create(&tid, aux_thread, NULL, &opts);
     if (res != 0)
 	erts_exit(ERTS_ABORT_EXIT, "Failed to create aux thread, error = %d\n", res);
 
     for (ix = 0; ix < erts_no_poll_threads; ix++) {
-        erts_snprintf(opts.name, 16, "%d_poller", ix);
+        erts_snprintf(opts.name, sizeof(name), "%d_poller", ix);
 
         res = ethr_thr_create(&tid, poll_thread, (void*)(UWord)ix, &opts);
         if (res != 0)

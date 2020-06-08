@@ -106,6 +106,11 @@ if test "$erl_checkBoth" = 1; then
     AC_CHECK_FUNC(accept, odbc_erl_checkNsl=0, [LIBS=$tk_oldLibs])
 fi
 AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
+case "$host_os" in
+	haiku*)
+		AC_CHECK_LIB(network, socket)
+		;;
+esac
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -153,6 +158,13 @@ AC_SUBST(TARGET_FLAGS)
 
                AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
             ;;
+	haiku*)
+               TARGET_FLAGS="-DUNIX"
+               ODBC_LIB= -L"/system/lib"
+               ODBC_INCLUDE="-I/system/develop/headers"
+               dnl Haiku's package manager will deal with this for us
+               AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               ;;
         win32|cygwin)
 		TARGET_FLAGS="-DWIN32"
 		AC_CHECK_LIB(ws2_32, main)

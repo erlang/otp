@@ -203,7 +203,7 @@ ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
             data[i] = pattern[i % sizeof(pattern)];
         }
     }
-#elif defined(HAVE_SYS_MMAN_H) && !(defined(__sun) || defined(__sun__))
+#elif defined(HAVE_SYS_MMAN_H) && defined(HAVE_MADVISE) && !(defined(__sun) || defined(__sun__))
     #include <sys/mman.h>
 
     ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
@@ -214,6 +214,12 @@ ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
     #else
         madvise(ptr, size, MADV_DONTNEED);
     #endif
+    }
+#elif defined(HAVE_SYS_MMAN_H) && defined(HAVE_POSIX_MADVISE) && !(defined(__sun) || defined(__sun__))
+    #include <sys/mman.h>
+
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        posix_madvise(ptr, size, POSIX_MADV_DONTNEED);
     }
 #elif defined(_WIN32)
     #include <winbase.h>
