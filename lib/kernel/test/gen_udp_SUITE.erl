@@ -85,11 +85,36 @@ local_cases() ->
      local_abstract
     ].
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
 
-end_per_suite(_Config) ->
-    ok.
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+            
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+            "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 init_per_group(local, Config) ->
     case gen_udp:open(0, [local]) of

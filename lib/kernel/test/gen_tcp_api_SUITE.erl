@@ -66,11 +66,36 @@ groups() ->
 
 
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
 
-end_per_suite(_Config) ->
-    ok.
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+            
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+            "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 init_per_group(t_local, Config) ->
     case gen_tcp:connect({local,<<"/">>}, 0, []) of
@@ -730,15 +755,6 @@ delete_local_filenames() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% skip(S) when is_list(S) ->
-%%     throw({skip, S}).
-
-%% %% skip(F, A) when is_list(F) andalso is_list(A) ->
-%% %%     skip(f(F, A)).
-
-%% f(F, A) ->
-%%     lists:flatten(io_lib:format(F, A)).
-
 connect_failed_str(Reason) ->
     ?F("Connect failed: ~w", [Reason]).
 
@@ -748,22 +764,4 @@ listen_failed_str(Reason) ->
 accept_failed_str(Reason) ->
     ?F("Accept failed: ~w", [Reason]).
 
-%% port_failed_str(Reason) ->
-%%     f("Port failed: ~w", [Reason]).
-
-%% formated_timestamp() ->
-%%     format_timestamp(os:timestamp()).
-
-%% format_timestamp({_N1, _N2, N3} = TS) ->
-%%     {_Date, Time}   = calendar:now_to_local_time(TS),
-%%     {Hour, Min, Sec} = Time,
-%%     FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
-%%                              [Hour, Min, Sec, N3 div 1000]),  
-%%     lists:flatten(FormatTS).
-
-%% p(F) ->
-%%     p(F, []).
-
-%% p(F, A) ->
-%%     io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
 
