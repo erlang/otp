@@ -440,12 +440,85 @@ recv_coverage_2() ->
 
 maps(_Config) ->
     {'EXIT',{{badmatch,#{}},_}} = (catch maps_1(any)),
+
+    {jkl,nil,nil} = maps_2(#{abc => 0, jkl => 0}),
+    {def,ghi,abc} = maps_2(#{abc => 0, def => 0}),
+    {def,ghi,jkl} = maps_2(#{def => 0, jkl => 0}),
+    {mno,nil,abc} = maps_2(#{abc => 0, mno => 0, jkl => 0}),
+    {jkl,nil,nil} = maps_2(#{jkl => 0}),
+    error = maps_2(#{}),
+
     ok.
 
 maps_1(K) ->
     _ = id(42),
     #{K:=V} = #{},
     V.
+
+maps_2(Map) ->
+    Res = maps_2a(Map),
+    Res = maps_2b(Map),
+    Res.
+
+maps_2a(#{} = Map) ->
+    case case Abc = is_map_key(abc, Map) of
+             false -> false;
+             _ -> is_map_key(def, Map)
+         end of
+        true ->
+            {def, ghi, abc};
+        false ->
+            case case Jkl = is_map_key(jkl, Map) of
+                     false -> false;
+                     _ -> is_map_key(def, Map)
+                 end of
+                true ->
+                    {def, ghi, jkl};
+                false ->
+                    case case Abc of
+                             false -> false;
+                             _ -> is_map_key(mno, Map)
+                         end of
+                        true ->
+                            {mno, nil, abc};
+                        false ->
+                            case Jkl of
+                                true -> {jkl, nil, nil};
+                                false -> error
+                            end
+                    end
+            end
+    end.
+
+maps_2b(#{}=Map) ->
+    case case is_map_key(abc, Map) of
+             false -> false;
+             _ -> is_map_key(def, Map)
+         end of
+        true ->
+            {def, ghi, abc};
+        false ->
+            case case is_map_key(jkl, Map) of
+                     false -> false;
+                     _ -> is_map_key(def, Map)
+                 end of
+                true ->
+                    {def, ghi, jkl};
+                false ->
+                    case case is_map_key(abc, Map) of
+                             false -> false;
+                             _ -> is_map_key(mno, Map)
+                         end of
+                        true ->
+                            {mno, nil, abc};
+                        false ->
+                            case is_map_key(jkl, Map) of
+                                true -> {jkl, nil, nil};
+                                false -> error
+                            end
+                    end
+            end
+    end.
 
 -record(wx_ref, {type=any_type,ref=any_ref}).
 
