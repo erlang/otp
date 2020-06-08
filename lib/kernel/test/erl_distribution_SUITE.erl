@@ -1709,7 +1709,14 @@ smoke_communicate(Node, OLoopMod, OLoopFun) ->
 
 
 erl_uds_dist_smoke_test(Config) when is_list(Config) ->
-    Me = self(),
+    case os:type() of
+        {win32,_} ->
+            {skipped, "Not on Windows"};
+        _ ->
+            do_erl_uds_dist_smoke_test()
+    end.
+
+do_erl_uds_dist_smoke_test() ->
     [Node1, Node2] = lists:map(fun (Name) ->
                                        list_to_atom(atom_to_list(Name) ++ "@localhost")
                                end,
