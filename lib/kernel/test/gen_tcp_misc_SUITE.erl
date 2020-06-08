@@ -3634,7 +3634,7 @@ send_timeout_para(AutoClose, RNode) ->
                [AutoClose,
                 (catch process_info(Snd1)),
                 (catch process_info(Snd2)),
-                flush()]),
+                flush([])]),
 	    exit({timeout, AutoClose})
     end,
 
@@ -3890,14 +3890,22 @@ setup_active_timeout_sink(RNode, Timeout, AutoClose) ->
     {A, C}.
 
 timeout_sink_loop(Action) ->
+    put(action, nothing),
+    put(sent, 0),
+    timeout_sink_loop(Action, 0).
+
+timeout_sink_loop(Action, N) ->
+    put(action, send),
     Ret = Action(),
+    put(action, sent),
+    put(sent,   N+1),
     case Ret of
 	ok ->
 	    receive after 1 -> ok end,
-	    timeout_sink_loop(Action);
+	    timeout_sink_loop(Action, N+1);
 	Other ->
-            ?P("[sink-loop] action result: "
-               "~n   ~p", [Other]),
+            ?P("[sink-loop] action result (~w): "
+               "~n   ~p", [N+1, Other]),
 	    Other
     end.
      
