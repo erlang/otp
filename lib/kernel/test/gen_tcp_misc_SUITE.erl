@@ -1951,18 +1951,30 @@ busy_disconnect_active_send(Server, S, Data) ->
     end.
 
 busy_disconnect_active_send_await_closed(Server, S) ->
+    busy_disconnect_active_send_await_closed(Server, S, false, false).
+busy_disconnect_active_send_await_closed(Server, S, Closed, Stopped) ->
     receive
+        {tcp_closed, S} when (Stopped =:= true) ->
+            ?P("[active-sender] received tcp-closed - done"),
+            ok;
+
         {tcp_closed, S} ->
             ?P("[active-sender] received tcp-closed"),
+            busy_disconnect_active_send_await_closed(Server, S, true, Stopped);
+
+        {'EXIT', Server, normal} when (Closed =:= true) ->
+            ?P("[active-sender] received server (normal) exit - done"),
             ok;
 
         {'EXIT', Server, normal} ->
             ?P("[active-sender] received server (normal) exit"),
-            busy_disconnect_active_send_await_closed(Server, S);
+            busy_disconnect_active_send_await_closed(Server, S, Closed, true);
 
         Other ->
             ?P("[active-sender] received UNEXPECTED message:"
-               "~n   ~p", [Other]),
+               "~n   Expected tcp-close of ~p"
+               "~n   Server:               ~p"
+               "~n   Unexpected message:   ~p", [S, Server, Other]),
             ct:fail({unexpected, Other, S, flush([])})
     end.
     
