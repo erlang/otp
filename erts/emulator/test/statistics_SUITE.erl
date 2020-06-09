@@ -341,6 +341,21 @@ run_scheduler_wall_time_test(Type) ->
                                     Schedulers + DirtyCPUSchedulers
                         end,
 
+        Env = [io_lib:format("~s~n",[KV]) || KV <- os:getenv()],
+
+        ct:log("Env:~n~s",[Env]),
+
+        ct:log("Schedulers:               ~p~n"
+               "SchedulersOnline:         ~p~n"
+               "DirtyCPUSchedulers:       ~p~n"
+               "DirtyCPUSchedulersOnline: ~p~n"
+               "DirtyIOSchedulersOnline:  ~p~n",
+               [erlang:system_info(schedulers),
+                Schedulers,
+                erlang:system_info(dirty_cpu_schedulers),
+                DirtyCPUSchedulers,
+                DirtyIOSchedulers]),
+
         %% Let testserver and everyone else finish their work
         timer:sleep(1500),
         %% Empty load
@@ -376,7 +391,9 @@ run_scheduler_wall_time_test(Type) ->
                             || _ <- lists:seq(1, lists:max([1,DirtyCPUSchedulers div 2]))],
         HalfDirtyIOHogs = [StartDirtyHog(dirty_io)
                            || _ <- lists:seq(1, lists:max([1,DirtyIOSchedulers div 2]))],
-        HalfLoad = lists:sum(get_load(Type)) div TotLoadSchedulers,
+        HalfScheds = get_load(Type),
+        ct:log("HalfScheds: ~w",[HalfScheds]),
+        HalfLoad = lists:sum(HalfScheds) div TotLoadSchedulers,
         if Schedulers =:= 1, HalfLoad > 80 -> ok; %% Ok only one scheduler online and one hog
            %% We want roughly 50% load
            HalfLoad > 40, HalfLoad < 60 -> ok;
@@ -395,6 +412,7 @@ run_scheduler_wall_time_test(Type) ->
                            || _ <- lists:seq(1, (DirtyIOSchedulers+1) div 2),
                                    DirtyIOSchedulers =/= 1],
         FullScheds = get_load(Type),
+        ct:log("FullScheds: ~w",[FullScheds]),
         {false,_} = {lists:any(fun(Load) -> Load < 80 end, FullScheds),FullScheds},
         FullLoad = lists:sum(FullScheds) div TotLoadSchedulers,
         if FullLoad > 90 -> ok;
@@ -438,6 +456,7 @@ online_statistics(Stats) ->
     DirtyCPUSchedulersOnline = erlang:system_info(dirty_cpu_schedulers_online),
     DirtyIOSchedulersOnline = erlang:system_info(dirty_io_schedulers),
     SortedStats = lists:sort(Stats),
+    ct:pal("Stats: ~p~n", [SortedStats]),
     SchedulersStats =
         lists:sublist(SortedStats, 1, SchedulersOnline),
     DirtyCPUSchedulersStats =
