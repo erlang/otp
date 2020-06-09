@@ -80,7 +80,7 @@ Address          ip_address()
 3ffe:b80:1f8d:2:204:acff:fe17:bf38
                 {16#3ffe,16#b80,16#1f8d,16#2,16#204,16#acff,16#fe17,16#bf38}
 fe80::204:acff:fe17:bf38
-                {16#fe80,0,0,0,0,16#204,16#acff,16#fe17,16#bf38}</code>
+                {16#fe80,0,0,0,16#204,16#acff,16#fe17,16#bf38}</code>
     <p>Function
       <seemfa marker="#parse_address/1"><c>parse_address/1</c></seemfa>
         can be useful:</p>
