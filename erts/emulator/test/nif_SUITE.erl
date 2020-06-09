@@ -33,6 +33,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         t_load_race/1,
          load_traced_nif/1,
          select/1, select_steal/1,
          monitor_process_a/1,
@@ -94,6 +95,7 @@ all() ->
      {group, monitor},
      monitor_frenzy,
      hipe,
+     t_load_race,
      load_traced_nif,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
@@ -501,6 +503,31 @@ t_on_load(Config) when is_list(Config) ->
     true = lists:member(nif_mod, erlang:system_info(taints)),
     verify_tmpmem(TmpMem),
     ok.
+
+%% Test erlang:load_nif/2 waiting for code_write_permission.
+t_load_race(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
+    {module,nif_mod} = erlang:load_module(nif_mod,Bin),
+    try
+        erts_debug:set_internal_state(code_write_permission, true),
+        Papa = self(),
+        spawn_link(fun() ->
+                           ok = nif_mod:load_nif_lib(Config, 1),
+                           Papa ! "NIF loaded"
+                   end),
+        timer:sleep(100),
+        timeout = receive_any(0)
+    after
+        true = erts_debug:set_internal_state(code_write_permission, false)
+    end,
+
+    "NIF loaded" = receive_any(),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    ok.
+
 
 %% Test load of module where a NIF stub is already traced.
 load_traced_nif(Config) when is_list(Config) ->
