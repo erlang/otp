@@ -3595,7 +3595,7 @@ send_timeout(Config) when is_list(Config) ->
                                           Self ! Res,
                                           Res
                                   end,
-                           {error, timeout} = timeout_sink_loop(Send)
+                           {{error, timeout}, _} = timeout_sink_loop(Send)
                    end),
     Diff = get_max_diff(),
     ?P("Max time for send: ~p",[Diff]),
@@ -3622,7 +3622,7 @@ send_timeout_basic(AutoClose, RNode) ->
 
     A = setup_timeout_sink(RNode, 1000, AutoClose),
     Send = fun() -> gen_tcp:send(A, BinData) end,
-    {error,timeout} = timeout_sink_loop(Send),
+    {{error, timeout}, _} = timeout_sink_loop(Send),
 
     %% Check that the socket is not busy/closed...
     {error,Error} = gen_tcp:send(A, <<"Hej">>),
@@ -3649,11 +3649,11 @@ send_timeout_para(AutoClose, RNode) ->
        "~n   Sender 1: ~p"
        "~n   Sender 2: ~p", [Snd1, Snd2]),
     receive
-	{Snd1, {error, timeout}} ->
-            ?P("[para] timeout received from sender 1 (~p)", [Snd1]),
+	{Snd1, {{error, timeout}, N}} ->
+            ?P("[para] timeout received from sender 1 (~p, ~p)", [Snd1, N]),
             ok;
-	{Snd2, {error, timeout}} ->
-            ?P("[para] timeout received from sender 2 (~p)", [Snd2]),
+	{Snd2, {{error, timeout}, N}} ->
+            ?P("[para] timeout received from sender 2 (~p, ~p)", [Snd2, N]),
             ok
     after 20000 ->
             ?P("[para] UNEXPECTED timeout(1,~w) when:"
@@ -3669,13 +3669,13 @@ send_timeout_para(AutoClose, RNode) ->
 
     ?P("await sender error"),
     receive
-	{Snd1, {error, Error_1}} ->
-            ?P("[para] error (~p) received from sender 1 (~p)",
-               [Error_1, Snd1]),
+	{Snd1, {{error, Error_1}, N_1}} ->
+            ?P("[para] error (~p) received from sender 1 (~p, ~p)",
+               [Error_1, Snd1, N_1]),
             after_send_timeout(AutoClose, Error_1);
-	{Snd2, {error, Error_1}} ->
-            ?P("[para] error (~p) received from sender 2 (~p)",
-               [Error_1, Snd2]),
+	{Snd2, {{error, Error_1}, N_1}} ->
+            ?P("[para] error (~p) received from sender 2 (~p, ~p)",
+               [Error_1, Snd2, N_1]),
             after_send_timeout(AutoClose, Error_1)
     after 10000 ->
             ?P("[para] UNEXPECTED timeout(2,~w)", [AutoClose]),
@@ -3755,7 +3755,7 @@ do_send_timeout_active(AutoClose, RNode) ->
 			Err
 		end
 	end,
-    {error,timeout} = timeout_sink_loop(F),
+    {{error, timeout}, _} = timeout_sink_loop(F),
     unlink(Mad),
     exit(Mad, kill),
     flush(),
@@ -3927,15 +3927,16 @@ timeout_sink_loop(Action, N) ->
     put(action, send),
     Ret = Action(),
     put(action, sent),
-    put(sent,   N+1),
+    N2 = N + 1,
+    put(sent,   N2),
     case Ret of
 	ok ->
 	    receive after 1 -> ok end,
 	    timeout_sink_loop(Action, N+1);
 	Other ->
             ?P("[sink-loop] action result (~w): "
-               "~n   ~p", [N+1, Other]),
-	    Other
+               "~n   ~p", [N2, Other]),
+	    {Other, N2}
     end.
      
 has_superfluous_schedulers() ->
