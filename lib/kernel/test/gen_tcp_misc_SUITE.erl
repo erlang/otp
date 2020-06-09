@@ -3655,7 +3655,7 @@ send_timeout_para(AutoClose, RNode) ->
 	{Snd2, {error, timeout}} ->
             ?P("[para] timeout received from sender 2 (~p)", [Snd2]),
             ok
-    after 10000 ->
+    after 20000 ->
             ?P("[para] UNEXPECTED timeout(1,~w) when:"
                "~n   Sender 1 Info: ~p"
                "~n   Sender 2 Info: ~p"
