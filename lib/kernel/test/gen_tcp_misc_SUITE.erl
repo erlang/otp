@@ -3921,11 +3921,16 @@ setup_active_timeout_sink(RNode, Timeout, AutoClose) ->
 timeout_sink_loop(Action) ->
     put(action, nothing),
     put(sent, 0),
+    put(elapsed, 0),
     timeout_sink_loop(Action, 0).
 
 timeout_sink_loop(Action, N) ->
     put(action, send),
+    Start = erlang:monotonic_time(),
     Ret = Action(),
+    Stop = erlang:monotonic_time(),
+    Elapsed = get(elapsed),
+    put(elapsed, Elapsed + (Stop - Start)),
     put(action, sent),
     N2 = N + 1,
     put(sent,   N2),
@@ -3934,8 +3939,13 @@ timeout_sink_loop(Action, N) ->
 	    receive after 1 -> ok end,
 	    timeout_sink_loop(Action, N+1);
 	Other ->
-            ?P("[sink-loop] action result (~w): "
-               "~n   ~p", [N2, Other]),
+            ?P("[sink-loop] action result: "
+               "~n   Number of actions: ~p"
+               "~n   Elapsed time:      ~p msec"
+               "~n   Result:            ~p",
+               [N2,
+                erlang:convert_time_unit(get(elapsed), native, millisecond),
+                Other]),
 	    {Other, N2}
     end.
      
