@@ -1599,11 +1599,7 @@ do_econnreset_after_async_send_passive(_Config) ->
 %%
 
 linger_zero(Config) when is_list(Config) ->
-    try do_linger_zero(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(linger_zero, fun() -> do_linger_zero(Config) end).
 
 do_linger_zero(_Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
@@ -1629,18 +1625,19 @@ do_linger_zero(_Config) ->
     ok = gen_tcp:close(L),
     PayloadSize = 1024 * 1024,
     Payload = lists:duplicate(PayloadSize, $.),
-    ?P("send payload (on client socket) when port info:"
-       "~n   ~p", [erlang:port_info(Client)]),
-    ok = gen_tcp:send(Client, Payload),
-    ?P("verify client socket queue size"),
-    case erlang:port_info(Client, queue_size) of
-	{queue_size, N} when N > 0 -> ok;
-	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T ->
-            ?P("queue size verification failed - port info: "
-               "~n   ~p", [erlang:port_info(Client)]),
-            ct:fail(T)
-    end,
+    %% ?P("send payload (on client socket) when port info:"
+    %%    "~n   ~p", [erlang:port_info(Client)]),
+    %% ok = gen_tcp:send(Client, Payload),
+    %% ?P("verify client socket queue size"),
+    %% case erlang:port_info(Client, queue_size) of
+    %%     {queue_size, N} when N > 0 -> ok;
+    %%     {queue_size, 0} when OS =:= win32 -> ok;
+    %%     {queue_size, 0} = T ->
+    %%         ?P("queue size verification failed - port info: "
+    %%            "~n   ~p", [erlang:port_info(Client)]),
+    %%         ct:fail(T)
+    %% end,
+    lz_ensure_non_empty_queue(Client, Payload, OS),
     ?P("linger: {true, 0}"),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
     ?P("close client socket"),
@@ -1652,6 +1649,34 @@ do_linger_zero(_Config) ->
     {error, econnreset} = gen_tcp:recv(S, PayloadSize),
     ?P("done"),
     ok.
+
+lz_ensure_non_empty_queue(Sock, Payload, OS) ->
+    lz_ensure_non_empty_queue(Sock, Payload, OS, 3).
+
+lz_ensure_non_empty_queue(Sock, _Payload, _OS, 0) ->
+    ?P("queue size verification failed - port info: "
+       "~n   Socket:      ~p"
+       "~n   Socket info: ~p", [Sock, erlang:port_info(Sock)]),
+    ct:fail("Queue size verification failed");
+lz_ensure_non_empty_queue(Sock, Payload, OS, N) ->
+    ?P("try send payload ~w (on client socket) when port info:"
+       "~n   ~p", [N, erlang:port_info(Sock)]),
+    ok = gen_tcp:send(Sock, Payload),
+    ?P("try verify client socket queue size"),
+    case erlang:port_info(Sock, queue_size) of
+	{queue_size, QSz} when QSz > 0 ->
+            ?P("queue size verification *successfull* (~p) - port info: "
+               "~n   ~p", [QSz, erlang:port_info(Sock)]),
+            ok;
+	{queue_size, 0} when OS =:= win32 ->
+            ?P("queue size verification *successfull* - port info: "
+               "~n   ~p", [erlang:port_info(Sock)]),
+            ok;
+	{queue_size, 0} ->
+            ?P("queue size verification failed - port info: "
+               "~n   ~p", [erlang:port_info(Sock)]),
+            lz_ensure_non_empty_queue(Sock, Payload, OS, N-1)
+    end.
 
 
 linger_zero_sndbuf(Config) when is_list(Config) ->
