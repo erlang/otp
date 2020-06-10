@@ -164,12 +164,12 @@ extract(File, Options) when is_list(File), is_list(Options) ->
     try
 	EO = parse_extract_options(Options,
 				   #extract_options{compile_source = false}),
-	{HeaderSz, NextLineNo, Fd, Sections} =
+	{HeaderSz, StartLine, Fd, Sections} =
 	    parse_header(File, not EO#extract_options.compile_source),
 	Type = Sections#sections.type,
 	case {Type, EO#extract_options.compile_source} of
 	    {source, true} ->
-		Bin = compile_source(Type, File, Fd, NextLineNo, HeaderSz);
+		Bin = compile_source(Type, File, Fd, StartLine, HeaderSz);
 	    {_, _} ->
 		ok = file:close(Fd),
 		case file:read_file(File) of
@@ -197,9 +197,9 @@ parse_extract_options([H | T], EO) ->
 parse_extract_options([], EO) ->
     EO.
 
-compile_source(Type, File, Fd, NextLineNo, HeaderSz) ->
+compile_source(Type, File, Fd, StartLine, HeaderSz) ->
     {text, _Module, Forms, _HasRecs, _Mode} =
-	do_parse_file(Type, File, Fd, NextLineNo, HeaderSz, false),
+	do_parse_file(Type, File, Fd, StartLine, HeaderSz, false),
     ok = file:close(Fd),
     case compile:forms(Forms, [return_errors, debug_info]) of
 	{ok, _, BeamBin} ->
@@ -401,12 +401,12 @@ parse_file(File) ->
     end.
 
 parse_file(File, CheckOnly) ->
-    {HeaderSz, NextLineNo, Fd, Sections} =
+    {HeaderSz, StartLine, Fd, Sections} =
 	parse_header(File, false),
     do_parse_file(Sections#sections.type,
-		  File, Fd, NextLineNo, HeaderSz, CheckOnly).
+		  File, Fd, StartLine, HeaderSz, CheckOnly).
 
-do_parse_file(Type, File, Fd, NextLineNo, HeaderSz, CheckOnly) ->
+do_parse_file(Type, File, Fd, StartLine, HeaderSz, CheckOnly) ->
     S = initial_state(File),
     #state{mode = Mode,
 	   source = Source,
@@ -424,7 +424,7 @@ do_parse_file(Type, File, Fd, NextLineNo, HeaderSz, CheckOnly) ->
 		parse_beam(S, File, HeaderSz, CheckOnly);
 	    source ->
 		%% Source code
-		parse_source(S, File, Fd, NextLineNo, HeaderSz, CheckOnly)
+		parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly)
         end,
     {Source, Module, FormsOrBin, HasRecs, Mode}.
 
@@ -600,7 +600,8 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
     _ = io:get_line(Fd, ''),
     Encoding = epp:set_encoding(Fd),
     {ok, _} = file:position(Fd, HeaderSz),
-    case epp:open(File, Fd, StartLine, IncludePath, PreDefMacros) of
+    case epp:open([{fd, Fd}, {name, File}, {location, {StartLine, 1}},
+                   {includes, IncludePath}, {macros, PreDefMacros}]) of
         {ok, Epp} ->
             _ = [io:setopts(Fd, [{encoding,Encoding}]) ||
                     Encoding =/= none],
@@ -698,7 +699,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                             epp_parse_file(Epp, S2, [Form | Forms]);
                         true ->
                             Args = lists:flatten(io_lib:format("illegal mode attribute: ~p", [NewMode])),
-                            io:format(standard_error, "~ts:~w ~s\n", [S#state.file,Ln,Args]),
+                            io:format(standard_error, "~ts:~s: ~s\n", [S#state.file,pos(Ln),Args]),
                             Error = {error,{Ln,erl_parse,Args}},
                             Nerrs= S#state.n_errors + 1,
                             epp_parse_file(Epp, S2#state{n_errors = Nerrs}, [Error | Forms])
@@ -714,8 +715,8 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                     epp_parse_file(Epp, S, [Form | Forms])
             end;
         {error,{Ln,Mod,Args}} = Form ->
-            io:format(standard_error, "~ts:~w: ~ts\n",
-                      [S#state.file,Ln,Mod:format_error(Args)]),
+            io:format(standard_error, "~ts:~s: ~ts\n",
+                      [S#state.file,pos(Ln),Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
         {eof, LastLine} ->
             S#state{forms_or_bin = lists:reverse([{eof, LastLine} | Forms])}
@@ -793,12 +794,17 @@ report_errors(Errors) ->
                   Errors).
 
 list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:format(standard_error, "~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
+    io:fwrite(standard_error, "~ts:~s: ~ts\n", [F,pos(Line),Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Mod,E}|Es]) ->
     io:format(standard_error, "~ts: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
 
 report_warnings(Ws0) ->
     Ws1 = lists:flatmap(fun({{F,_L},Eds}) -> format_message(F, Eds);
@@ -808,7 +814,7 @@ report_warnings(Ws0) ->
     lists:foreach(fun({_,Str}) -> io:put_chars(standard_error, Str) end, Ws).
 
 format_message(F, [{Line,Mod,E}|Es]) ->
-    M = {{F,Line},io_lib:format("~ts:~w: Warning: ~ts\n", [F,Line,Mod:format_error(E)])},
+    M = {{F,Line},io_lib:format("~ts:~s: Warning: ~ts\n", [F,pos(Line),Mod:format_error(E)])},
     [M|format_message(F, Es)];
 format_message(F, [{Mod,E}|Es]) ->
     M = {none,io_lib:format("~ts: Warning: ~ts\n", [F,Mod:format_error(E)])},

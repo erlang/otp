@@ -21,7 +21,7 @@
 
 %% An Erlang code preprocessor.
 
--export([open/1, open/2,open/3,open/5,close/1,format_error/1]).
+-export([open/1,open/2,open/3,close/1,format_error/1]).
 -export([scan_erl_form/1,parse_erl_form/1,macro_defs/1]).
 -export([parse_file/1, parse_file/2, parse_file/3]).
 -export([default_encoding/0, encoding_to_string/1,
@@ -73,13 +73,13 @@
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
 	      pre_opened = false :: boolean(),
-	      fname = [] :: function_name_type()
+              scan_opts=[] :: erl_scan:options(), %Scanner options
+              fname = [] :: function_name_type()
 	     }).
 
 %% open(Options)
 %% open(FileName, IncludePath)
 %% open(FileName, IncludePath, PreDefMacros)
-%% open(FileName, IoDevice, StartLocation, IncludePath, PreDefMacros)
 %% close(Epp)
 %% scan_erl_form(Epp)
 %% parse_erl_form(Epp)
@@ -107,11 +107,7 @@ open(Name, Path) ->
       ErrorDescriptor :: term().
 
 open(Name, Path, Pdm) ->
-    internal_open([{name, Name}, {includes, Path}, {macros, Pdm}], #epp{}).
-
-open(Name, File, StartLocation, Path, Pdm) ->
-    internal_open([{name, Name}, {includes, Path}, {macros, Pdm}],
-		  #epp{file=File, pre_opened=true, location=StartLocation}).
+    open([{name, Name}, {includes, Path}, {macros, Pdm}]).
 
 -spec open(Options) ->
 		  {'ok', Epp} | {'ok', Epp, Extra} | {'error', ErrorDescriptor} when
@@ -120,21 +116,21 @@ open(Name, File, StartLocation, Path, Pdm) ->
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
+		  {'location',StartLocation :: erl_anno:location()} |
+		  {'scan_opts',ScanOpts :: erl_scan:options()} |
+		  {'fd',FileDescriptor :: file:io_device()} |
 		  'extra'],
       Epp :: epp_handle(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       ErrorDescriptor :: term().
 
 open(Options) ->
-    internal_open(Options, #epp{}).
-
-internal_open(Options, St) ->
     case proplists:get_value(name, Options) of
         undefined ->
             erlang:error(badarg);
         Name ->
             Self = self(),
-            Epp = spawn(fun() -> server(Self, Name, Options, St) end),
+            Epp = spawn(fun() -> server(Self, Name, Options) end),
             case epp_request(Epp) of
                 {ok, Pid, Encoding} ->
                     case proplists:get_bool(extra, Options) of
@@ -260,7 +256,7 @@ parse_file(Ifile, Path, Predefs) ->
       OpenError :: file:posix() | badarg | system_limit.
 
 parse_file(Ifile, Options) ->
-    case internal_open([{name, Ifile} | Options], #epp{}) of
+    case open([{name, Ifile} | Options]) of
 	{ok,Epp} ->
 	    Forms = parse_file(Epp),
 	    close(Epp),
@@ -528,18 +524,19 @@ restore_typed_record_fields([{attribute,La,type,{{record,Record},Fields,[]}}|
 restore_typed_record_fields([Form|Forms]) ->
     [Form|restore_typed_record_fields(Forms)].
 
-server(Pid, Name, Options, #epp{pre_opened=PreOpened}=St) ->
+server(Pid, Name, Options) ->
     process_flag(trap_exit, true),
-    case PreOpened of
-        false ->
+    St = #epp{},
+    case proplists:get_value(fd, Options) of
+        undefined ->
             case file:open(Name, [read]) of
                 {ok,File} ->
                     init_server(Pid, Name, Options, St#epp{file = File});
                 {error,E} ->
                     epp_reply(Pid, {error,E})
             end;
-        true ->
-            init_server(Pid, Name, Options, St)
+        Fd ->
+            init_server(Pid, Name, Options, St#epp{file = Fd, pre_opened=true})
     end.
 
 init_server(Pid, FileName, Options, St0) ->
@@ -548,18 +545,20 @@ init_server(Pid, FileName, Options, St0) ->
     Ms0 = predef_macros(FileName),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
-	    #epp{file = File, location = AtLocation} = St0,
             DefEncoding = proplists:get_value(default_encoding, Options,
                                               ?DEFAULT_ENCODING),
-            Encoding = set_encoding(File, DefEncoding),
+            Encoding = set_encoding(St0#epp.file, DefEncoding),
             epp_reply(Pid, {ok,self(),Encoding}),
             %% ensure directory of current source file is
             %% first in path
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
+            ScanOpts = proplists:get_value(scan_opts, Options, []),
+            %% the default location is 1 for backwards compatibility, not {1,1}
+            AtLocation = proplists:get_value(location, Options, 1),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
-			 path=Path, macs=Ms1,
-			 default_encoding=DefEncoding},
+			 path=Path, location=AtLocation, macs=Ms1,
+			 scan_opts=ScanOpts, default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
@@ -696,7 +695,7 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
          default_encoding=DefEncoding}.
 
 enter_file_reply(From, Name, LocationAnno, AtLocation, Where) ->
-    Anno0 = loc_anno(AtLocation),
+    Anno0 = erl_anno:new(AtLocation),
     Anno = case Where of
                code -> Anno0;
                generated -> erl_anno:set_generated(true, Anno0)
@@ -757,7 +756,7 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.scan_opts) of
 	{ok,Toks,Cl} ->
 	    scan_toks(Toks, From, St#epp{location=Cl});
 	{error,E,Cl} ->
@@ -1255,7 +1254,7 @@ new_location(Ln, {Le,_}, {Lf,_}) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.scan_opts) of
 	{ok,[{'-',_Lh},{atom,_Li,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifdef,I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Li,ifndef}|_Toks],Cl} ->
@@ -1729,12 +1728,6 @@ fname_join(["." | [_|_]=Rest]) ->
     fname_join(Rest);
 fname_join(Components) ->
     filename:join(Components).
-
-%% The line only. (Other tokens may have the column and text as well...)
-loc_anno(Line) when is_integer(Line) ->
-    erl_anno:new(Line);
-loc_anno({Line,_Column}) ->
-    erl_anno:new(Line).
 
 loc(Token) ->
     erl_scan:location(Token).
