@@ -207,7 +207,7 @@ one_document_and_junk(Config) ->
 
 %%----------------------------------------------------------------------
 %% Test of continuation when end of stream
-end_of_stream(Config) ->
+end_of_stream(_Config) ->
     Stream = <<"<?xml version=\"1.0\" encoding=\"utf-8\"?><a>hej</a>">>,
     {ok, undefined, <<>>} = xmerl_sax_parser:stream(Stream, []),
     ok.
