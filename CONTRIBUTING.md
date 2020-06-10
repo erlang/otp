@@ -109,8 +109,11 @@ Make sure that your branch contains clean commits:
 * Don't merge `maint` or `master` into your branch. Use `git rebase` if you need to resolve merge
 conflicts or include the latest changes.
 
-* To make it possible to use the powerful `git bisect` command, make sure that each commit can be
-compiled and that it works.
+* Each commit should represent a logical change, such as a feature added or bug fixed, and also include relevant changes to documentation and tests.
+
+* Each commit should compile separately and pass the most relevant test cases. This makes it possible to use the powerful `git bisect` command.
+
+* Changes to multiple applications should be made in separate commits to facilitate code reviews, unless special circumstances motivates a single commit, such as not breaking the ability to build cleanly.
 
 * Check for unnecessary whitespace before committing with `git diff --check`.
 However, do not fix preexisting whitespace errors in otherwise untouched source lines.
