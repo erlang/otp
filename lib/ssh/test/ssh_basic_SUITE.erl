@@ -90,19 +90,11 @@ groups() ->
                              exec_with_io_out, exec_with_io_in,
                              cli,
                              idle_time_client, idle_time_server, openssh_zlib_basic_test, 
-                             misc_ssh_options, inet_option, inet6_option
-
-                             ,shell, 
-                       shell_no_unicode,
-                       shell_unicode_string,
-                       close 
-                             
+                             misc_ssh_options, inet_option, inet6_option,
+                             shell, shell_socket, shell_ssh_conn, shell_no_unicode, shell_unicode_string,
+                             close
                             ]}
     ].
-
-
-        
-
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -430,7 +422,8 @@ shell(Config) when is_list(Config) ->
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir}]),
     receive
-	{'EXIT', _, _} ->
+	{'EXIT', _, _} = Exit ->
+            ct:log("~p:~p ~p", [?MODULE,?LINE,Exit]),
 	    ct:fail(no_ssh_connection);  
 	ErlShellStart ->
 	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
@@ -439,6 +432,76 @@ shell(Config) when is_list(Config) ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
     
+%%--------------------------------------------------------------------
+%%% Test that ssh:shell/2 works when attaching to a open TCP-connection
+shell_socket(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
+					       {failfun, fun ssh_test_lib:failfun/2}]),
+    ct:sleep(500),
+
+    %% First test with active mode:
+    {ok,ActiveSock} = gen_tcp:connect(ssh_test_lib:mangle_connect_address(Host),
+                                      Port,
+                                      [{active,true}]),
+    {error,not_passive_mode} = ssh:shell(ActiveSock),
+    ct:log("~p:~p active tcp socket failed ok", [?MODULE,?LINE]),
+    gen_tcp:close(ActiveSock),
+
+    %% Secondly, test with an UDP socket:
+    {ok,BadSock} = gen_udp:open(0),
+    {error,not_tcp_socket} = ssh:shell(BadSock),
+    ct:log("~p:~p udp socket failed ok", [?MODULE,?LINE]),
+    gen_udp:close(BadSock),
+
+    %% And finaly test with passive mode (which should work):
+    IO = ssh_test_lib:start_io_server(),
+    {ok,Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
+    Shell = ssh_test_lib:start_shell(Sock, IO, [{user_dir,UserDir}]),
+    gen_tcp:controlling_process(Sock, Shell),
+    Shell ! start,
+
+    receive
+	{'EXIT', _, _} = Exit ->
+            ct:log("~p:~p ~p", [?MODULE,?LINE,Exit]),
+	    ct:fail(no_ssh_connection);
+	ErlShellStart ->
+	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
+	    do_shell(IO, Shell)
+    after
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
+
+%%--------------------------------------------------------------------
+%%% Test that ssh:shell/2 works when attaching to a open SSH-connection
+shell_ssh_conn(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
+					       {failfun, fun ssh_test_lib:failfun/2}]),
+    ct:sleep(500),
+
+    IO = ssh_test_lib:start_io_server(),
+    {ok,C} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                      {user_dir, UserDir},
+                                      {user_interaction, false}]),
+    Shell = ssh_test_lib:start_shell(C, IO, undefined),
+    receive
+	{'EXIT', _, _} = Exit ->
+            ct:log("~p:~p ~p", [?MODULE,?LINE,Exit]),
+	    ct:fail(no_ssh_connection);
+	ErlShellStart ->
+	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
+	    do_shell(IO, Shell)
+    after
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
+
 %%--------------------------------------------------------------------
 cli(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
@@ -1357,7 +1420,8 @@ do_shell(IO, Shell) ->
 %%--------------------------------------------------------------------
 wait_for_erlang_first_line(Config) ->
     receive
-	{'EXIT', _, _} ->
+	{'EXIT', _, _} = Exit ->
+            ct:log("~p:~p ~p", [?MODULE,?LINE,Exit]),
 	    {fail,no_ssh_connection};
 	<<"Eshell ",_/binary>> = _ErlShellStart ->
 	    ct:log("Erlang shell start: ~p~n", [_ErlShellStart]),

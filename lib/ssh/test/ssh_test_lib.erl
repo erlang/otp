@@ -184,11 +184,44 @@ start_shell(Port, IOServer) ->
 start_shell(Port, IOServer, ExtraOptions) ->
     spawn_link(
       fun() ->
-	      Host = hostname(),
+              ct:log("~p:~p:~p ssh_test_lib:start_shell(~p, ~p, ~p)",
+                     [?MODULE,?LINE,self(), Port, IOServer, ExtraOptions]),
 	      Options = [{user_interaction, false},
 			 {silently_accept_hosts,true} | ExtraOptions],
-	      group_leader(IOServer, self()),
-	      ssh:shell(Host, Port, Options)
+              try
+                  group_leader(IOServer, self()),
+                  case Port of
+                      22 ->
+                          Host = hostname(),
+                          ct:log("Port==22 Call ssh:shell(~p, ~p)",
+                                 [Host, Options]),
+                          ssh:shell(Host, Options);
+                      _ when is_integer(Port) ->
+                          Host = hostname(),
+                          ct:log("is_integer(Port) Call ssh:shell(~p, ~p, ~p)",
+                                 [Host, Port, Options]),
+                          ssh:shell(Host, Port, Options);
+                      Socket when is_port(Socket) ->
+                          receive
+                              start -> ok
+                          end,
+                          ct:log("is_port(Socket) Call ssh:shell(~p, ~p)",
+                                 [Socket, Options]),
+                          ssh:shell(Socket, Options);
+                      ConnRef when is_pid(ConnRef) ->
+                          ct:log("is_pid(ConnRef) Call ssh:shell(~p)",
+                                 [ConnRef]),
+                          ssh:shell(ConnRef) % Options were given in ssh:connect
+                  end
+              of
+                  R ->
+                      ct:log("~p:~p ssh_test_lib:start_shell(~p, ~p, ~p) -> ~p",
+                             [?MODULE,?LINE,Port, IOServer, ExtraOptions, R])
+              catch
+                  C:E:S ->
+                      ct:log("Exception ~p:~p~n~p", [C,E,S]),
+                      ct:fail("Exception",[])
+              end
       end).
 
 
