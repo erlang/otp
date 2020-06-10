@@ -1426,6 +1426,20 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
                 #ssh_msg_channel_failure{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_channel_success{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
 
+                #ssh_msg_userauth_request{} = Msg ->
+                    case ?GET_OPT(max_auth_request_size, (D0#data.ssh_params)#ssh.opts) of
+                        MaxAuthRequestSize when size(DecryptedBytes) > MaxAuthRequestSize ->
+                            {Shutdown, D} =  
+                                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                                                 "Auth length exceeded.", "Auth length exceeded.", 
+                                                 StateName, D1),
+                            {stop, Shutdown, D};
+                        _ ->
+                            {keep_state, D1, [{next_event, internal, prepare_next_packet},
+                                              {next_event, internal, Msg}
+                                             ]}
+                    end;
+
 		Msg ->
 		    {keep_state, D1, [{next_event, internal, prepare_next_packet},
                                       {next_event, internal, Msg}

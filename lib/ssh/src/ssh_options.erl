@@ -471,6 +471,14 @@ default(server) ->
             class => user_option
            },
 
+      max_auth_request_size =>
+          #{default => ?SSH_MAX_PACKET_SIZE,
+            chk => fun(X) ->
+                           is_integer(X) andalso X >= 0
+                   end,
+            class => user_option
+           },
+
 %%%%% Undocumented
       infofun =>
           #{default => fun(_,_,_) -> void end,
