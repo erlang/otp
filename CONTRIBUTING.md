@@ -110,7 +110,8 @@ Make sure that your branch contains clean commits:
 conflicts or include the latest changes.
 
 * To make it possible to use the powerful `git bisect` command, make sure that each commit can be
-compiled and that it works.
+compiled and that it works. Code reviews will be facilitated if separate commits are made for different OTP applications
+and logical steps in the PR, as long as they still fulfill the bisect requirement.
 
 * Check for unnecessary whitespace before committing with `git diff --check`.
 However, do not fix preexisting whitespace errors in otherwise untouched source lines.
