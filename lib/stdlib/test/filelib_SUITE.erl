@@ -123,6 +123,8 @@ wcc(Wc, Error) ->
     {'EXIT',{{badpattern,Error},
 	     [{filelib,wildcard,2,_}|_]}} = (catch filelib:wildcard(Wc, ".")).
 
+disable_prefix_opt([_,$:|_]=Wc) ->
+    Wc;
 disable_prefix_opt([C|Wc]) when $a =< C, C =< $z; C =:= $@ ->
     %% There is an optimization for patterns that have a literal prefix
     %% (such as "lib/compiler/ebin/*"). Test that we'll get the same result
