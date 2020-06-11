@@ -50,13 +50,13 @@
       <c>{select, </c>
       <seetype marker="#select_info"><c>SelectInfo</c></seetype><c>}</c>
       (<c>SelectInfo</c> contains the
-      <seetype marker="socket#select_ref">SelectRef</seetype>).
+      <seetype marker="socket#select_handle">SelectHandle</seetype>).
       When data eventually arrives a 'select' message
       will be sent to the caller: </p>
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', socket(), select, SelectRef}</c></item>
+	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
       </taglist>
       <p>The caller can now make another
       call to the recv function and now expect data.</p>
@@ -72,7 +72,7 @@
       <p>This message indicates
       that the (asynchronous) operation has been aborted.
       If, for instance, the socket has been closed (by another process),
-      <c>Info</c> will be <c>{SelectRef, closed}</c>. </p>
+      <c>Info</c> will be <c>{SelectHandle, closed}</c>. </p>
     </note>
     <note>
       <p>There is currently <em>no</em> support for Windows. </p>
@@ -105,9 +105,9 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="select_ref"/>
+      <name name="select_handle"/>
       <desc>
-	<p>A reference that uniquely identifies the (select) operation.</p>
+	<p>A term that uniquely identifies the (select) operation.</p>
       </desc>
     </datatype>
     <datatype>
@@ -120,16 +120,16 @@
       <name name="socket_info"/>
     </datatype>
     <datatype>
-      <name name="ip4_address"/>
+      <name name="in_addr"/>
     </datatype>
     <datatype>
-      <name name="ip6_address"/>
+      <name name="in6_addr"/>
     </datatype>
     <datatype>
       <name name="sockaddr"/>
     </datatype>
     <datatype>
-      <name name="sockaddr_in4"/>
+      <name name="sockaddr_in"/>
     </datatype>
     <datatype>
       <name name="sockaddr_in6"/>
@@ -153,43 +153,256 @@
       <name name="in6_scope_id"/>
     </datatype>
     <datatype>
-      <name name="send_flags"/>
-    </datatype>
-    <datatype>
       <name name="send_flag"/>
-    </datatype>
-    <datatype>
-      <name name="recv_flags"/>
     </datatype>
     <datatype>
       <name name="recv_flag"/>
     </datatype>
     <datatype>
-      <name name="shutdown_how"/>
-    </datatype>
-    <datatype>
       <name name="sockopt_level"/>
+      <desc>
+	<p>
+	  The OS protocol levels for socket options
+	  with the following names in OS header files:
+	</p>
+	<taglist>
+	  <tag><c>socket</c></tag>
+	  <item>
+	    <c>SOL_SOCKET</c> with options named <c>SO_</c>*.
+	  </item>
+	  <tag><c>ip</c></tag>
+	  <item>
+	    <c>IPPROTO_IP</c> a.k.a <c>SOL_IP</c>
+	     with options named <c>IP_</c>*.
+	  </item>
+	  <tag><c>ipv6</c></tag>
+	  <item>
+	    <c>IPPROTO_IPV6</c> a.k.a <c>SOL_IPV6</c>
+	    with options named <c>IPV6_</c>*.
+	  </item>
+	  <tag><c>tcp</c></tag>
+	  <item>
+	    <c>IPPROTO_TCP</c> with options named <c>TCP_</c>*.
+	  </item>
+	  <tag><c>udp</c></tag>
+	  <item>
+	    <c>IPPROTO_UDP</c> with options named <c>UDP_</c>*.
+	  </item>
+	  <tag><c>sctp</c></tag>
+	  <item>
+	    <c>IPPROTO_SCTP</c> with options named <c>SCTP_</c>*.
+	  </item>
+	</taglist>
+      </desc>
     </datatype>
     <datatype>
       <name name="otp_socket_option"/>
+      <desc>
+	<p>
+	  These are socket options for the <c>otp</c> protocol level,
+	  which is above all OS protocol levels.
+	  They affect Erlang/OTP's socket implementation.
+	</p>
+	<taglist>
+	  <tag><c>debug</c></tag>
+	  <item><c>boolean()</c> - Activate debug printout.</item>
+	  <tag><c>iow</c></tag>
+	  <item>
+	    <c>boolean()</c>
+	    - Inform On Wrap of statistics counters.
+	  </item>
+	  <tag><c>controlling_process</c></tag>
+	  <item>
+	    <c>pid()</c>
+	    - The socket "owner".
+	    Only the current controlling process can set this option.
+	  </item>
+	  <tag><c>rcvbuf</c></tag>
+	  <item>
+	    <c>
+	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0) |
+	      {N&nbsp;::&nbsp;integer()>0,
+	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)}
+	    </c>
+	    - Receive buffer size.
+	    <c>default</c> is only valid for
+	    <seemfa marker="#setopt/3"><c>setopt/3</c></seemfa>
+	    and will not be returned from
+	    <seemfa marker="#getopt/2"><c>getopt/2</c></seemfa>.
+	    <c>N</c> specifies the number of read attempts to do
+	    in a tight loop before assuming no more data is pending.
+	  </item>
+	  <tag><c>rcvctrlbuf</c></tag>
+	  <item>
+	    <c>
+	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
+	    </c>
+	    - Buffer size for received ancillary messages.
+	  </item>
+	  <tag><c>sndctrlbuf</c></tag>
+	  <item>
+	    <c>
+	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
+	    </c>
+	    - Buffer size for sent ancillary messages.
+	  </item>
+	  <tag><c>fd</c></tag>
+	  <item>
+	    <c>integer()</c>
+	    - The OS protocol levels' socket descriptor.
+	    Only valid for
+	    <seemfa marker="#getopt/2"><c>getopt/2</c></seemfa>.
+	    Functions <seemfa marker="#open/1"><c>open/1,2</c></seemfa>
+	    can be used to create a socket according to this module
+	    from an existing OS socket descriptor.
+	  </item>
+	</taglist>
+	<p>
+	  Options not described here are intentionally undocumented
+	  and for Erlang/OTP internal use only.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="socket_option"/>
-    </datatype>
-    <datatype>
-      <name name="ip_socket_option"/>
-    </datatype>
-    <datatype>
-      <name name="ipv6_socket_option"/>
-    </datatype>
-    <datatype>
-      <name name="tcp_socket_option"/>
-    </datatype>
-    <datatype>
-      <name name="udp_socket_option"/>
-    </datatype>
-    <datatype>
-      <name name="sctp_socket_option"/>
+      <desc>
+	<p>
+	  Socket option on the form
+	  <c>{Level, Opt}</c> where the OS protocol
+	  <c>Level</c> =
+	  <seetype marker="#sockopt_level"><c>sockopt_level()</c></seetype>
+	  and <c>Opt</c> is a socket option on that protocol level.
+	</p>
+	<p>
+	  The OS name for an options is, except where otherwise noted,
+	  the <c>Opt</c> atom, in capitals, with prefix according to
+	  <seetype marker="#sockopt_level"><c>sockopt_level()</c></seetype>.
+	</p>
+	<note><p>See the OS documentation for every socket option.</p></note>
+	<p>
+	  The value type for an option is <c>boolean()</c>
+	  if the OS documentation indicates so
+	  (that it is an on/off option).
+	  Other options are <c>integer()</c> maybe in
+	  a restricted range (for example byte: <c>0..255</c>),
+	  unless noted below.
+	</p>
+	<p>
+	  Options with special value types or other pecularities
+	  for protocol
+	  <seetype marker="#sockopt_level">level <c>socket</c></seetype>.
+	</p>
+	<taglist>
+	  <tag><c>{socket, bindtodevice}</c></tag>
+	  <item>
+	    <p><c>Value = string()</c></p>
+	  </item>
+	  <tag><c>{socket, domain}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#domain"><c>domain()</c></seetype>
+	      <c>| integer()</c>
+	    </p>
+	    <p>
+	      The socket's protocol domain.  Valid to get, not to set.
+	      Does <em>not</em> work on for instance FreeBSD.
+	    </p>
+	  </item>
+	  <tag><c>{socket, linger}</c></tag>
+	  <item>
+	    <p>
+	      <c>
+		Value = abort |
+		{OnOff&nbsp;::&nbsp;boolean(),&nbsp;Linger&nbsp;::&nbsp;integer()}
+	      </c>
+	    </p>
+	    <p>
+	      The value <c>abort</c>
+	      is shorthand for <c>{true, 0}</c>,
+	      is only valid to set,
+	      and will not returned from a get.
+	    </p>
+	  </item>
+	  <tag><c>{socket, peek_off}</c></tag>
+	  <item>
+	    <p>
+	      Currently disabled due to a possible infinite loop when calling
+	      <seemfa marker="#recv/1"><c>recv/1-4</c></seemfa>
+	      with
+	      <seetype marker="#recv_flag"><c>peek</c></seetype>
+	      in <c>Flags</c>.
+	    </p>
+	  </item>
+	  <tag><c>{socket, protocol}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#protocol"><c>protocol()</c></seetype>
+	      <c>| integer()</c>
+	    </p>
+	    <p>
+	      The socket's protocol.  Valid to get, not to set.
+	      Does <em>not</em> work on for instance Darwin.
+	    </p>
+	  </item>
+	  <tag><c>{socket, rcvtimeo}</c></tag>
+	  <item>
+	    <p><c>Value = #{sec := integer(), usec := integer()}</c></p>
+	    <p>
+	      This option is not normally supported;
+	      OTP has to be explicitly built with the
+	      <c>--enable-esock-rcvsndtimeo</c> configure option
+	      for this to be available.
+	    </p>
+	    <p>
+	      Since our implementation uses nonblocking sockets,
+	      it is unknown if and how this option works,
+	      or even if it may cause malfunction.
+	      Therefore, we do not recommend setting this option.
+	    </p>
+	    <p>
+	      Instead, use the <c>Timeout</c> argument to,
+	      for instance, the
+	      <seemfa marker="#recv/3"><c>recv/3</c></seemfa>
+	      function.
+	    </p>
+	  </item>
+	  <tag><c>{socket, sndtimeo}</c></tag>
+	  <item>
+	    <p><c>Value = #{sec := integer(), usec := integer()}</c></p>
+	    <p>
+	      This option is not normally supported;
+	      OTP has to be explicitly built with the
+	      <c>--enable-esock-rcvsndtimeo</c> configure option
+	      for this to be available.
+	    </p>
+	    <p>
+	      Since our implementation uses nonblocking sockets,
+	      it is unknown if and how this option works,
+	      or even if it may cause malfunction.
+	      Therefore, we do not recommend setting this option.
+	    </p>
+	    <p>
+	      Instead, use the <c>Timeout</c> argument to,
+	      for instance, the
+	      <seemfa marker="#send/3"><c>send/3</c></seemfa>
+	      function. 
+	    </p>
+	  </item>
+	  <tag><c>{socket, type}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#type"><c>type()</c></seetype>
+	      <c>| integer()</c>
+	    </p>
+	    <p>
+	      The socket's type.  Valid to get, not to set.
+	    </p>
+	  </item>
+	</taglist>
+      </desc>
     </datatype>
     <datatype>
       <name name="timeval"/>
@@ -198,55 +411,13 @@
       <name name="ip_tos"/>
     </datatype>
     <datatype>
-      <name name="ip_mreq"/>
-    </datatype>
-    <datatype>
-      <name name="ip_mreq_source"/>
-    </datatype>
-    <datatype>
-      <name name="ip_pmtudisc"/>
-    </datatype>
-    <datatype>
-      <name name="ip_msfilter_mode"/>
-    </datatype>
-    <datatype>
-      <name name="ip_msfilter"/>
-    </datatype>
-    <datatype>
       <name name="ip_pktinfo"/>
-    </datatype>
-    <datatype>
-      <name name="ipv6_mreq"/>
-    </datatype>
-    <datatype>
-      <name name="ipv6_pmtudisc"/>
     </datatype>
     <datatype>
       <name name="ipv6_pktinfo"/>
     </datatype>
     <datatype>
-      <name name="sctp_assoc_id"/>
-    </datatype>
-    <datatype>
-      <name name="sctp_sndrcvinfo"/>
-    </datatype>
-    <datatype>
-      <name name="sctp_event_subscribe"/>
-    </datatype>
-    <datatype>
-      <name name="sctp_assocparams"/>
-    </datatype>
-    <datatype>
-      <name name="sctp_initmsg"/>
-    </datatype>
-    <datatype>
-      <name name="sctp_rtoinfo"/>
-    </datatype>
-    <datatype>
       <name name="msghdr_flag"/>
-    </datatype>
-    <datatype>
-      <name name="msghdr_flags"/>
     </datatype>
     <datatype>
       <name name="msghdr"/>
@@ -257,11 +428,6 @@
     <datatype>
       <name name="cmsghdr_type"/>
     </datatype>
-    <!--
-    <datatype>
-      <name name="cmsghdr_data"/>
-    </datatype>
-    -->
     <datatype>
       <name name="cmsghdr_recv"/>
     </datatype>
@@ -281,43 +447,12 @@
       <name name="extended_err"/>
     </datatype>
     <datatype>
-      <name name="uint8"/>
-    </datatype>
-    <datatype>
-      <name name="uint16"/>
-    </datatype>
-    <datatype>
-      <name name="uint20"/>
-    </datatype>
-    <datatype>
-      <name name="uint32"/>
-    </datatype>
-    <datatype>
-      <name name="int32"/>
-    </datatype>
-    <datatype>
-      <name name="errcode"/>
+      <name name="posix"/>
       <desc>
 	<p>
-	  The POSIX error codes are mostly come from the
-	  OS level socket interface,
-	  but this module may generate some appropriate
-	  POSIX codes.
+	  The POSIX error codes originates from the
+	  OS level socket interface.
 	</p>
-	<p>
-	  The other values come from this module's lower levels
-	  and are all fairly fatal internal errors:
-	</p>
-	<taglist>
-	  <tag><c>exalloc</c></tag>
-	  <item>Memory allocation failed</item>
-	  <tag><c>exmonitor</c></tag>
-	  <item>Failed to set a monitor on a process</item>
-	  <tag><c>exselect</c></tag>
-	  <item>Select operation failed</item>
-	  <tag><c>exself</c></tag>
-	  <item>Failed to get current process</item>
-	</taglist>
       </desc>
     </datatype>
   </datatypes>
@@ -347,14 +482,22 @@
 	connection request for the listen socket and returns the (newly)
 	connected socket.</p>
 
-	<p>In the case when there is no connections waiting, the function 
-	will return with the <c>SelectInfo</c>. The caller can then await a 
-	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the
-	<seetype marker="socket#select_ref"><c>ref</c></seetype>
-	field from the <c>SelectInfo</c>),
-	when a client connects (a subsequent call to accept will then return 
-	the socket). </p>
+	<p>
+	  In the case when there is no connections waiting,
+	  the function will return
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  The caller will then receive a select message,
+	  <c>{'$socket', Socket, select, SelectHandle}</c> (
+	  with
+	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	  from
+	  <seetype marker="#select_info">
+	    <c><anno>SelectInfo</anno></c>
+	  </seetype>
+	  ) when a client connects.
+	  A subsequent call to <c>accept/1,2</c>
+	  will then return the socket.
+	</p>
       </desc>
     </func>
 
@@ -416,60 +559,172 @@
       <name name="connect" arity="3" clause_i="1" anchor="connect_async" since="OTP 22.1"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
-        <p>This function connects the socket to the address
-	specied by the <c>SockAddr</c> argument.</p>
+        <p>
+	  This function connects the socket to the address
+	  specified by the <c><anno>SockAddr</anno></c> argument.
+	</p>
 
- 	<p>In the case when its not possible to immediately establish a
-	connection, the function will return with the
-	<seetype marker="#select_info"><c>SelectInfo</c></seetype>.
-	The caller can then await a 
-	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the
-	<seetype marker="socket#select_ref"><c>ref</c></seetype>
-	field from the <c>SelectInfo</c>,
-	a subsequent call to connect will then 
-	establish the connection). </p>
+ 	<p>
+	  In the case when its not possible to immediately establish a
+	  connection, the function will return
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  The caller will then receive a select message,
+	  <c>{'$socket', Socket, select, SelectHandle}</c> (
+	  with
+	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	  from
+	  <seetype marker="#select_info">
+	    <c><anno>SelectInfo</anno></c>
+	  </seetype>
+	  ) when the connection is completed. 
+	  A subsequent call to <c>connect/2,3</c>
+	  will then finalize the connection.
+	</p>
      </desc>
     </func>
 
     <func>
-      <name name="getopt" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="4" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="5" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="6" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="7" since="OTP 22.0"/>
-      <fsummary>Get an option on a socket.</fsummary>
+      <name name="getopt" arity="2" clause_i="1" since="OTP 22.0"/>
+      <fsummary>
+	Get a socket option from the protocol level <c>otp</c>.
+      </fsummary>
       <desc>
-        <p>Get an option on a socket.</p>
-	<p>What properties are valid depend  both on <c>Level</c> and
-	on what kind of socket it is (<c>domain</c>, <c>type</c> and
-	<c>protocol</c>).</p>
-
-	<p>See the
-	<seeguide marker="socket_usage#socket_options">socket options</seeguide>
-	chapter of the users guide for more info. </p>
-
-	<note><p>Not all options are valid on all platforms. That is,
-	even if "we" support an option, that does not mean that the
-	underlying OS does.</p></note>
-
+        <p>
+	  Gets a socket option from the protocol level <c>otp</c>,
+	  which is this implementation's level
+	  above the OS protocol layers.
+	</p>
+	<p>
+	  See the type
+	  <seetype marker="#otp_socket_option">
+	    otp_socket_option()
+	  </seetype>
+	  for a description of the options on this level.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="getopt" arity="3" clause_i="8" since="OTP 22.0"/>
-      <fsummary>Get an option on a socket.</fsummary>
+      <name name="getopt" arity="2" clause_i="2" since="OTP 22.0"/>
+      <fsummary>
+	Get a socket option from one of the OS's protocol levels.
+      </fsummary>
       <desc>
-        <p>Get an option on a socket.</p>
+        <p>
+	  Gets a socket option from one of the OS's protocol levels.
+	  See the type
+	  <seetype marker="#socket_option">socket_option()</seetype>
+	  for which options that this implementation knows about,
+	  how they are related to option names in the OS,
+	  and if there are known pecularities with any of them.
+	</p>
+	<p>
+	  What options are valid depends on what kind of socket it is
+	  (<seetype marker="#domain"><c>domain()</c></seetype>,
+	  <seetype marker="#type"><c>type()</c></seetype> and
+	  <seetype marker="#protocol"><c>protocol()</c></seetype>).
+	</p>
+	<p>
+	  See the
+	  <seeguide marker="socket_usage#socket_options">
+	    socket options
+	  </seeguide>
+	  chapter of the users guide for more info.
+	</p>
+	<note>
+	  <p>
+	    Not all options are valid, or possible to get,
+	    on all platforms.
+	    That is, even if "we" support an option;
+	    it does not mean that the underlying OS does.
+	  </p>
+	</note>
+      </desc>
+    </func>
 
-	<p>When specifying <c>Level</c> as an integer, and therefor
-	using "native mode", it is *currently* up to the caller to
-	know how to interpret the result.</p>
+    <func>
+      <!--
+	  Backwards compatibility function - remove documentation?
+	  Document the Native clause?
+      -->
+      <name since="OTP 22.0">
+	getopt(Socket, Level, Opt) -> ok | {error, Reason}
+      </name>
+      <fsummary>
+	Get a socket protocol option.
+      </fsummary>
+      <type>
+	<v>
+	  Socket = <seetype marker="#socket">socket()</seetype>
+	</v>
+	<v>
+	  Reason = <seetype marker="inet#posix">inet:posix()</seetype>
+	  | invalid | closed
+	</v>
+      </type>
+      <desc>
+	<p>Backwards compatibility function.</p>
+        <p>
+	  The same as
+	  <seemfa marker="#getopt/2">
+	    <c>getopt(Socket, {Level, Opt})</c>
+	  </seemfa>
+	</p>
+      </desc>
+    </func>
 
-	<p>For more info, see
-	<seemfa marker="#getopt/3">getopt</seemfa> above. </p>
+    <func>
+      <name name="getopt_native" arity="3" clause_i="1" since="OTP 22.0"/>
+      <name name="getopt_native" arity="3" clause_i="2" since="OTP 22.0"/>
+      <name name="getopt_native" arity="3" clause_i="3" since="OTP 22.0"/>
+      <fsummary>Get a "native" socket option.</fsummary>
+      <desc>
+        <p>
+	  Gets a socket option that may be unknown to our
+	  implementation, or that has a type not compatible
+	  with our implementation, that is; in "native mode".
+	</p>
+	<p>
+	  The socket option may be specified with an ordinary
+	  <seetype marker="#socket_option">
+	    <c>socket_option()</c>
+	  </seetype>
+	  tuple, with a known 
+	  <seetype marker="#sockopt_level">
+	    <c><anno>Level</anno> = sockopt_level()</c>
+	  </seetype>
+	  and an integer <c><anno>NativeOpt</anno></c>,
+	  or with both an integer <c><anno>NativeLevel</anno></c>
+	  and <c><anno>NativeOpt</anno></c>.
+	</p>
+	<p>
+	  How to decode the option value has to be specified
+	  either with <c><anno>ValueType</anno></c>,
+	  or by specifying the <c><anno>ValueSize</anno></c>
+	  for a <c>binary()</c> that will contain
+	  the fetched option value.
+	</p>
+	<p>
+	  If <c><anno>ValueType</anno></c> is <c>integer</c>
+	  a <c>C</c> type <c>(int)</c> will be fetched,
+	  if it is <c>boolean</c> a <c>C</c> type <c>(int)</c>
+	  will be fetched and converted into a <c>boolean()</c>
+	  according to the <c>C</c> implementation.
+	</p>
+	<p>
+	  What options are valid depends on what kind of socket it is
+	  (<seetype marker="#domain"><c>domain()</c></seetype>,
+	  <seetype marker="#type"><c>type()</c></seetype> and
+	  <seetype marker="#protocol"><c>protocol()</c></seetype>).
+	</p>
+	<p>
+	  The integer values for 
+	  <c><anno>NativeLevel</anno></c> and
+	  <c><anno>NativeOpt</anno></c>
+	  as well as the <c><anno>Value</anno></c> encoding
+	  has to be deduced from the header files for
+	  the running system.
+	</p>
       </desc>
     </func>
 
@@ -484,6 +739,32 @@
 	  <p>In order to ensure data integrity, mutex'es are taken when
 	  needed. So, do not call this function often. </p>
 	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_supported" arity="1" since="OTP 23.0"/>
+      <name name="is_supported" arity="2" since="OTP 23.0"/>
+      <name name="is_supported" arity="3" since="OTP 23.0"/>
+      <fsummary>Report info about what the platform supports.</fsummary>
+      <desc>
+	<p>
+	  This function retreives information about what the
+	  platform supports,  such as if SCTP is supported,
+	  or if a socket options are supported.
+	</p>
+	<p>
+	  For keys other than the known <c>false</c> is returned.
+	  Note that in a future version or on a different platform
+	  there might be more supported items.
+	</p>
+	<p>
+	  This functions returns a <c>boolean</c> corresponding to what
+	  <seemfa marker="#supports/0"><c>supports/0-2</c></seemfa>
+	  reports for the same <c><anno>Key1</anno></c>
+	  (and <c><anno>Key2</anno></c>
+	  (and <c><anno>Key3</anno> = Opt</c>: socket option)).
+	</p>
       </desc>
     </func>
 
@@ -617,19 +898,33 @@
 	If it is set to zero (0), it means "give me everything you 
 	currently have".</p>
 
-	<p>In the case when there is no data waiting, the function 
-	will return with the <c>SelectInfo</c>. The caller can then await a 
-	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the
-	<seetype marker="socket#select_ref"><c>ref</c></seetype>
-	field from the <c>SelectInfo</c>),
-	when data has arrived (a subsequent call to recv will then return 
-	the data). </p>
-	<p>Note that if a length (<c>> 0</c>) is specified, and only part
-	of that amount of data is available, the function will return with
-	that data <em>and</em> the <c>SelectInfo</c> (if the caller don't 
-	want to wait for the remaining data, it must immediately call
-	the <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa> function.)</p>
+	<p>
+	  In the case when there is no data waiting,
+	  the function will return
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  The caller will then receive a select message,
+	  <c>{'$socket', Socket, select, SelectHandle}</c> (
+	  with
+	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	  from
+	  <seetype marker="#select_info">
+	    <c><anno>SelectInfo</anno></c>
+	  </seetype>
+	  ) when data has arrived.
+	  A subsequent call to <c>accept/1,2</c>
+	  will then return the data.
+	</p>
+	<p>
+	  Note that if a length (<c>> 0</c>) is specified,
+	  and only part of that amount of data is available,
+	  the function will return
+	  <seetype marker="#select_info">
+	    <c>{ok, {<anno>Data</anno>, <anno>SelectInfo</anno></c>
+	  </seetype>
+	  with partial data.  If the caller doesn't want to wait
+	  for the remaining data, it must call
+	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
+	</p>
       </desc>
     </func>
 
@@ -678,14 +973,21 @@
 	"consumed" from the underlying buffers, so another recvfrom call
 	is needed, possibly with a then adjusted buffer size.</p>
 
-	<p>In the case when there is no data waiting, the function 
-	will return with the <c>SelectInfo</c>. The caller can then await a 
-	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the
-	<seetype marker="socket#select_ref"><c>ref</c></seetype>
-	field from the <c>SelectInfo</c>),
-	when data has arrived (a subsequent call to recvfrom will then return 
-	the data). </p>
+	<p>
+	  In the case when there is no data waiting,
+	  the function will return
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  The caller will then receive a select message,
+	  <c>{'$socket', Socket, select, SelectHandle}</c> (
+	  with
+	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	  from
+	  <seetype marker="#select_info">
+	    <c><anno>SelectInfo</anno></c>
+	  </seetype>
+	  ) when data has arrived.
+	  A subsequent call to <c>recvfrom/1-4</c> will then return the data.
+	</p>
       </desc>
     </func>
 
@@ -756,14 +1058,21 @@
 	"consumed" from the underlying buffers, so another recvmsg call
 	is needed, possibly with a then adjusted buffer size.</p>
 
-	<p>In the case when there is no data waiting, the function 
-	will return with the <c>SelectInfo</c>. The caller can then await a 
-	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the
-	<seetype marker="socket#select_ref"><c>ref</c></seetype>
-	field from the <c>SelectInfo</c>),
-	when data has arrived (a subsequent call to recvmsg will then return 
-	the data). </p>
+	<p>
+	  In the case when there is no data waiting,
+	  the function will return
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  The caller will then receive a select message,
+	  <c>{'$socket', Socket, select, SelectHandle}</c> (
+	  with
+	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	  from
+	  <seetype marker="#select_info">
+	    <c><anno>SelectInfo</anno></c>
+	  </seetype>
+	  ) when data has arrived.
+	  A subsequent call to <c>recvmsg/1-3,5</c> will then return the data.
+	</p>
       </desc>
     </func>
 
@@ -784,21 +1093,30 @@
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
-
-	<p>In the case when there is no room in the (system-) buffers,
-	the function will return with the <c>SelectInfo</c>. The caller
-	can then await a select message,
-	<c>{'$socket', Socket, select, Info}</c>
-	(where <c>Info</c> is the
-	<seetype marker="socket#select_ref"><c>ref</c></seetype>
-	field from the
-	<c>SelectInfo</c>), when there is room for more data (a subsequent
-	call to send will then send the data). </p>
-	<p>Note that if not all the data was sent, the function will return
-	with the remaining data <em>and</em> the <c>SelectInfo</c>
-	(if the caller don't 
-	want to wait to be able to send the rest, it should immediately call
-	the <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa> function.)</p>
+	<p>
+	  In the case when there is no room in the (system-) buffers,
+	  the function will return
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  The caller will then receive a select message,
+	  <c>{'$socket', Socket, select, SelectHandle}</c> (
+	  with
+	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	  from
+	  <seetype marker="#select_info">
+	    <c><anno>SelectInfo</anno></c>
+	  </seetype>
+	  ) when there is room for more data
+	  A subsequent call to <c>send/2-4</c> will then send the data.
+	</p>
+	<p>
+	  Note that if not all the data was sent, the function will return
+	  <seetype marker="#select_info">
+	    <c>{ok, {<anno>RestData</anno>, <anno>SelectInfo</anno>}</c>
+	  </seetype>
+	  If the caller does not want to wait to be able to send the rest,
+	  it should call
+	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
+	</p>
       </desc>
     </func>
 
@@ -845,15 +1163,21 @@
 	up to the caller to decide what to do (retry with the remaining data
 	of give up). </p>
 
-	<p>In the case when there is no room in the (system-) buffers,
-	the function will return with the <c>SelectInfo</c>. The caller
-	can then await a select message,
-	<c>{'$socket', Socket, select, Info}</c>
-	(where <c>Info</c> is the
-	<seetype marker="socket#select_ref"><c>ref</c></seetype>
-	field from the
-	<c>SelectInfo</c>), when there is room for more data (a subsequent
-	call to sendmsg will then send the data). </p>
+	<p>
+	  In the case when there is no room in the (system-) buffers,
+	  the function will return
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  The caller will then receive a select message,
+	  <c>{'$socket', Socket, select, SelectHandle}</c> (
+	  with
+	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	  from
+	  <seetype marker="#select_info">
+	    <c><anno>SelectInfo</anno></c>
+	  </seetype>
+	  ) when there is room for more data
+	  A subsequent call to <c>sendmsg/2-4</c> will then send the data.
+	</p>
       </desc>
     </func>
 
@@ -875,60 +1199,162 @@
       <desc>
         <p>Send a message on a socket, to the specified destination.</p>
 
-	<p>In the case when there is no room in the (system-) buffers,
-	the function will return with the <c>SelectInfo</c>. The caller
-	can then await a select message,
-	<c>{'$socket', Socket, select, Info}</c>
-	(where <c>Info</c> is the
-	<seetype marker="socket#select_ref"><c>ref</c></seetype>
-	field from the
-	<c>SelectInfo</c>), when there is room for more data (a subsequent
-	call to sendto will then send the data). </p>
+	<p>
+	  In the case when there is no room in the (system-) buffers,
+	  the function will return
+	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  The caller will then receive a select message,
+	  <c>{'$socket', Socket, select, SelectHandle}</c> (
+	  with
+	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	  from
+	  <seetype marker="#select_info">
+	    <c><anno>SelectInfo</anno></c>
+	  </seetype>
+	  ) when there is room for more data
+	  A subsequent call to <c>sendto/3-5</c> will then send the data.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="setopt" arity="4" clause_i="1" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="2" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="3" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="4" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="5" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="6" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="7" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="8" since="OTP 22.0"/>
-      <fsummary>Set an option on a socket.</fsummary>
+      <name name="setopt" arity="3" clause_i="1" since="OTP 22.0"/>
+      <fsummary>
+	Set a socket option in the protocol level <c>otp</c>.
+      </fsummary>
       <desc>
-        <p>Set an option on a socket.</p>
-	<p>What options are valid depend both on <c>Level</c> and on
-	what kind of socket it is (<c>domain</c>, <c>type</c> and
-	<c>protocol</c>).</p>
-
-	<p>See the
-	<seeguide marker="socket_usage#socket_options">socket options</seeguide>
-	chapter of the users guide for more info. </p>
-
-	<note><p>Not all options are valid on all platforms. That is,
-	even if "we" support an option, that does not mean that the
-	underlying OS does.</p></note>
-
-	<note><p>Sockets are set 'non-blocking' when created, so this option
-	is *not* available (as it would adversely effect the Erlang VM
-	to set a socket 'blocking').</p></note>
+        <p>
+	  Sets a socket option in the protocol level <c>otp</c>,
+	  which is this implementation's level
+	  above the OS protocol layers.
+	</p>
+	<p>
+	  See the type
+	  <seetype marker="#otp_socket_option">
+	    otp_socket_option()
+	  </seetype>
+	  for a description of the options on this level.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="setopt" arity="4" clause_i="8" since="OTP 22.0"/>
-      <fsummary>Set options on a socket.</fsummary>
+      <name name="setopt" arity="3" clause_i="2" since="OTP 22.0"/>
+      <fsummary>
+	Set a socket option in one of the OS's protocol levels.
+      </fsummary>
       <desc>
-        <p>Set options on a socket.</p>
+        <p>
+	  Set a socket option in one of the OS's protocol levels.
+	  See the type
+	  <seetype marker="#socket_option">socket_option()</seetype>
+	  for which options that this implementation knows about,
+	  how they are related to option names in the OS,
+	  and if there are known pecularities with any of them.
+	</p>
+	<p>
+	  What options are valid depends on what kind of socket it is
+	  (<seetype marker="#domain"><c>domain()</c></seetype>,
+	  <seetype marker="#type"><c>type()</c></seetype> and
+	  <seetype marker="#protocol"><c>protocol()</c></seetype>).
+	</p>
+	<p>
+	  See the
+	  <seeguide marker="socket_usage#socket_options">
+	    socket options
+	  </seeguide>
+	  chapter of the users guide for more info.
+	</p>
+	<note>
+	  <p>
+	    Not all options are valid, or possible to set,
+	    on all platforms.
+	    That is, even if "we" support an option;
+	    it does not mean that the underlying OS does.
+	  </p>
+	</note>
+      </desc>
+    </func>
 
-	<p>When specifying <c>Level</c> as an integer, and therefor
-	using "native mode", it is *currently* up to the caller to
-	know how to encode the <c>Value</c>.</p>
+    <func>
+      <!--
+	  Backwards compatibility function - remove documentation?
+	  Document the Native clause?
+      -->
+      <name since="OTP 22.0">
+	setopt(Socket, Level, Opt, Value) -> ok | {error, Reason}
+      </name>
+      <fsummary>
+	Set a socket protocol option.
+      </fsummary>
+      <type>
+	<v>
+	  Socket = <seetype marker="#socket">socket()</seetype>
+	</v>
+	<v>
+	  Value = term()
+	</v>
+	<v>
+	  Reason = <seetype marker="inet#posix">inet:posix()</seetype>
+	  | invalid | closed
+	</v>
+      </type>
+      <desc>
+	<p>Backwards compatibility function.</p>
+        <p>
+	  The same as
+	  <seemfa marker="#setopt/3">
+	    <c>setopt(Socket, {Level, Opt}, Value)</c>
+	  </seemfa>
+	</p>
+      </desc>
+    </func>
 
-	<p>For more info, see
-	<seemfa marker="#setopt/4">setopt</seemfa> above. </p>
+    <func>
+      <name name="setopt_native" arity="3" since="OTP 22.0"/>
+      <fsummary>Set a "native" socket option.</fsummary>
+      <desc>
+        <p>
+	  Sets a socket option that may be unknown to our
+	  implementation, or that has a type not compatible
+	  with our implementation, that is; in "native mode".
+	</p>
+	<p>
+	  If <c><anno>Value</anno></c> is an <c>integer()</c>
+	  it will be used as a <c>C</c> type <c>(int)</c>,
+	  if it is a <c>boolean()</c> it will be used
+	  as a <c>C</c> type <c>(int)</c> with the <c>C</c>
+	  implementations values for <c>false</c> or <c>true</c>,
+	  and if it is a <c>binary()</c> its content and size
+	  will be used as the option value.
+	</p>
+	<p>
+	  The socket option may be specified with an ordinary
+	  <seetype marker="#socket_option">
+	    <c>socket_option()</c>
+	  </seetype>
+	  tuple, with a known 
+	  <seetype marker="#sockopt_level">
+	    <c><anno>Level</anno> = sockopt_level()</c>
+	  </seetype>
+	  and an integer <c><anno>NativeOpt</anno></c>,
+	  or with both an integer <c><anno>NativeLevel</anno></c>
+	  and <c><anno>NativeOpt</anno></c>.
+	</p>
+	<p>
+	  What options are valid depends on what kind of socket it is
+	  (<seetype marker="#domain"><c>domain()</c></seetype>,
+	  <seetype marker="#type"><c>type()</c></seetype> and
+	  <seetype marker="#protocol"><c>protocol()</c></seetype>).
+	</p>
+	<p>
+	  The integer values for 
+	  <c><anno>NativeLevel</anno></c> and
+	  <c><anno>NativeOpt</anno></c>
+	  as well as the encoding of <c><anno>Value</anno></c>
+	  has to be deduced from the header files for
+	  the running system.
+	</p>
       </desc>
     </func>
 
@@ -949,178 +1375,106 @@
     </func>
 
     <func>
-      <name since="OTP 22.0">
-	supports() -> Supports
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: options) -> SupportsOptions
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: send_flags) -> SupportsSendFlags
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: recv_flags) -> SupportsRecvFlags
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: options, Key2 :: socket) -> SupportsOptionsSocket
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: options, Key2 :: ip) -> SupportsOptionsIP
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: options, Key2 :: ipv6) -> SupportsOptionsIPv6
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: options, Key2 :: tcp) -> SupportsOptionsTCP
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: options, Key2 :: udp) -> SupportsOptionsUDP
-      </name>
-      <name since="OTP 22.0">
-	supports(Key1 :: options, Key2 :: sctp) -> SupportsOptionsSCTP
-      </name>
-      <!--
       <name name="supports" arity="0" since="OTP 22.0"/>
       <name name="supports" arity="1" since="OTP 22.0"/>
       <name name="supports" arity="2" since="OTP 22.0"/>
-      -->
       <fsummary>Report info about what the platform supports.</fsummary>
-      <type>
-	<v>
-	  Supports :: [{Feature,&nbsp;boolean()}
-	  &nbsp;&nbsp;|&nbsp;{send_flags,&nbsp;SupportsSendFlags}
-	  &nbsp;&nbsp;|&nbsp;{recv_flags,&nbsp;SupportsRecvFlags}
-	  &nbsp;&nbsp;|&nbsp;{options,&nbsp;SupportsOptions}]
-	</v>
-	<v>Feature :: sctp | ipv6 | local | netns</v>
-	<v>
-	  SupportsSendFlags ::
-	  [{<seetype marker="#send_flag">send_flag()</seetype>,&nbsp;boolean()}]
-	</v>
-	<v>
-	  SupportsRecvFlags ::
-	  [{<seetype marker="#recv_flag">recv_flag()</seetype>,&nbsp;boolean()}]
-	</v>
-	<v>
-	  SupportsOptions ::
-	  [{socket,&nbsp;SupportsOptionsSocket}
-	  &nbsp;&nbsp;|&nbsp;{ip,&nbsp;SupportsOptionsIP}
-	  &nbsp;&nbsp;|&nbsp;{ipv6,&nbsp;SupportsOptionsIPv6}
-	  &nbsp;&nbsp;|&nbsp;{tcp,&nbsp;SupportsOptionsTCP}
-	  &nbsp;&nbsp;|&nbsp;{udp,&nbsp;SupportsOptionsUDP}
-	  &nbsp;&nbsp;|&nbsp;{sctp,&nbsp;SupportsOptionsSCTP}]
-	</v>
-	<v>
-	  SupportsOptionsSocket ::
-	  [{<seetype marker="#socket_option">socket_option()</seetype>,&nbsp;boolean()}]
-	</v>
-	<v>
-	  SupportsOptionsIP ::
-	  [{<seetype marker="#ip_socket_option">ip_socket_option()</seetype>,&nbsp;boolean()}]
-	</v>
-	<v>
-	  SupportsOptionsIPv6 ::
-	  [{<seetype marker="#ipv6_socket_option">ipv6_socket_option()</seetype>,&nbsp;boolean()}]
-	</v>
-	<v>
-	  SupportsOptionsTCP ::
-	  [{<seetype marker="#tcp_socket_option">tcp_socket_option()</seetype>,&nbsp;boolean()}]
-	</v>
-	<v>
-	  SupportsOptionsUDP ::
-	  [{<seetype marker="#udp_socket_option">udp_socket_option()</seetype>,&nbsp;boolean()}]
-	</v>
-	<v>
-	  SupportsOptionsSCTP ::
-	  [{<seetype marker="#sctp_socket_option">sctp_socket_option()</seetype>,&nbsp;boolean()}]
-	</v>
-      </type>
       <desc>
 	<p>
-	  This function retreives information about what the
-	  platform supports,  such as if SCTP is supported,
-	  or which socket options are supported.
+	  These functions function retreives information about what the
+	  platform supports, such which platform features
+	  or which socket options, are supported.
 	</p>
 	<p>
 	  For keys other than the known the empty list is returned,
 	  Note that in a future version or on a different platform
 	  there might be more supported items.
 	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: sctp | ipv6 | local | netns) -> boolean()
-      </name>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: send_flags, Key2 :: SendFlag) -> boolean()
-      </name>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: recv_flags, Key2 :: RecvFlag) -> boolean()
-      </name>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: options, Key2 :: socket, Key3 :: SocketOption) ->
-	boolean()
-      </name>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: options, Key2 :: ip, Key3 :: IPSocketOption) ->
-	boolean()
-      </name>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: options, Key2 :: ipv6, Key3 :: IPv6SocketOption) ->
-	boolean()
-      </name>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: options, Key2 :: tcp, Key3 :: TCPSocketOption) ->
-	boolean()
-      </name>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: options, Key2 :: udp, Key3 :: UDPSocketOption) ->
-	boolean()
-      </name>
-      <name since="OTP 23.0">
-	is_supported(Key1 :: options, Key2 :: sctp, Key3 :: SCTPSocketOption) ->
-	boolean()
-      </name>
-      <fsummary>Report info about what the platform supports.</fsummary>
-      <type>
-	<v>
-	  SocketOption ::
-	  <seetype marker="#socket_option">socket_option()</seetype>
-	</v>
-	<v>
-	  IPSocketOption ::
-	  <seetype marker="#ip_socket_option">ip_socket_option()</seetype>
-	</v>
-	<v>
-	  IPv6SocketOption ::
-	  <seetype marker="#ipv6_socket_option">ipv6_socket_option()</seetype>
-	</v>
-	<v>
-	  TCPSocketOption ::
-	  <seetype marker="#tcp_socket_option">tcp_socket_option()</seetype>
-	</v>
-	<v>
-	  UDPSocketOption ::
-	  <seetype marker="#udp_socket_option">udp_socket_option()</seetype>
-	</v>
-	<v>
-	  SCTPSocketOption ::
-	  <seetype marker="#sctp_socket_option">sctp_socket_option()</seetype>
-	</v>
-      </type>
-      <desc>
-	<p>
-	  This function retreives information about what the
-	  platform supports,  such as if SCTP is supported,
-	  or which socket options are supported.
-	</p>
-	<p>
-	  For keys other than the known <c>false</c> is returned.
-	  Note that in a future version or on a different platform
-	  there might be more supported items.
-	</p>
+	<taglist>
+	  <tag><c>supports()</c></tag>
+	  <item>
+ 	    <p>
+	      Returns a list of
+	      <c>{<anno>Key1</anno>, Supports}</c> tuples
+	      for every <c><anno>Key1</anno></c> described below
+	      with <c>Supports</c> containing the result of
+	      <c>supports(<anno>Key1</anno>, <anno>Key2</anno>)</c>,
+	      and a <c>boolean()</c> for each of these keys:
+	    </p>
+	    <taglist>
+	      <tag><c>sctp</c></tag>
+	      <item>SCTP support</item>
+	      <tag><c>ipv6</c></tag>
+	      <item>IPv6 support</item>
+	      <tag><c>local</c></tag>
+	      <item>
+		Unix Domain sockets support (<c>AF_UNIX | AF_LOCAL</c>)
+	      </item>
+	      <tag><c>netns</c></tag>
+	      <item>
+		Network Namespaces support (Linux, <c>setns(2)</c>)
+	      </item>
+	    </taglist>
+	  </item>
+	  <tag><c>supports(send_flags = <anno>Key1</anno>)</c></tag>
+	  <item>
+	    <p>
+	      Returns a list of 
+	      <c>{SendFlag, boolean()}</c> tuples
+	      for every <c>SendFlag</c> in
+	      <seetype marker="#send_flag">
+		<c>send_flag()</c>
+	      </seetype>
+	      with the <c>boolean()</c> indicating if the flag
+	      is supported on this platform.
+ 	    </p>
+	  </item>
+	  <tag><c>supports(recv_flags = <anno>Key1</anno>)</c></tag>
+	  <item>
+ 	    <p>
+	      Returns a list of 
+	      <c>{RecvFlag, boolean()}</c> tuples
+	      for every <c>RecvFlag</c> in
+	      <seetype marker="#recv_flag">
+		<c>recv_flag()</c>
+	      </seetype>
+	      with the <c>boolean()</c> indicating if the flag
+	      is supported on this platform.
+	    </p>
+	  </item>
+	  <tag><c>supports(options = <anno>Key1</anno>)</c></tag>
+	  <item>
+	    <p>
+	      Returns a list of
+	      <c>{<anno>Key2</anno>, Supports}</c> tuples
+	      for every <c><anno>Key2</anno></c> in
+	      <seetype marker="#sockopt_level">
+		<c>sockopt_level()</c>
+	      </seetype>
+	      with <c>Supports</c> containing the result of
+	      <c>supports(options, <anno>Key2</anno>)</c>.
+ 	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      supports(options = <anno>Key1</anno>, <anno>Key2</anno>)
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      For a <c><anno>Key2</anno></c> in
+	      <seetype marker="#sockopt_level">
+		<c>sockopt_level()</c>
+	      </seetype>
+	      returns a list of <c>{Opt, boolean()}</c> tuples
+	      for all known socket options <c>Opt</c> on that level,
+	      and the <c>boolean()</c> indicating if the socket option
+	      is supported on this platform.
+	      See <seemfa marker="#setopt/3">setopt/3</seemfa>
+	      and <seemfa marker="#getopt/2">getopt/2</seemfa>.
+	    </p>
+	  </item>
+	</taglist>
       </desc>
     </func>
 

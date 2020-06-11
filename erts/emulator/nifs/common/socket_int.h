@@ -98,19 +98,13 @@ typedef union {
 
 
 /* *** Boolean *type* stuff... *** */
-typedef unsigned int BOOLEAN_T;
-#define TRUE  1
-#define FALSE 0
+typedef int BOOLEAN_T;
+#define TRUE  (!0)
+#define FALSE (!!0)
 
 #define BOOL2ATOM(__B__) ((__B__) ? esock_atom_true : esock_atom_false)
 
 #define B2S(__B__) ((__B__) ? "true" : "false")
-
-/* Misc error strings */
-#define ESOCK_STR_EAFNOSUPPORT "eafnosupport"
-#define ESOCK_STR_EAGAIN       "eagain"
-#define ESOCK_STR_EINVAL       "einval"
-
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * "Global" atoms (esock_atom_...)
@@ -139,6 +133,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(auth_key);                 \
     GLOBAL_ATOM_DEF(auth_level);               \
     GLOBAL_ATOM_DEF(autoclose);                \
+    GLOBAL_ATOM_DEF(bad_data);                 \
     GLOBAL_ATOM_DEF(bindtodevice);             \
     GLOBAL_ATOM_DEF(block_source);             \
     GLOBAL_ATOM_DEF(broadcast);                \
@@ -200,6 +195,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(inet6);                    \
     GLOBAL_ATOM_DEF(info);                     \
     GLOBAL_ATOM_DEF(initmsg);                  \
+    GLOBAL_ATOM_DEF(invalid);                  \
     GLOBAL_ATOM_DEF(iov);                      \
     GLOBAL_ATOM_DEF(ip);                       \
     GLOBAL_ATOM_DEF(ipcomp_level);             \
@@ -331,7 +327,6 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(unblock_source);           \
     GLOBAL_ATOM_DEF(undefined);                \
     GLOBAL_ATOM_DEF(unicast_hops);             \
-    GLOBAL_ATOM_DEF(unknown);                  \
     GLOBAL_ATOM_DEF(usec);                     \
     GLOBAL_ATOM_DEF(user);                     \
     GLOBAL_ATOM_DEF(user_timeout);             \
@@ -345,7 +340,6 @@ typedef unsigned int BOOLEAN_T;
  */
 
 #define GLOBAL_ERROR_REASON_ATOM_DEFS \
-    GLOBAL_ATOM_DEF(eafnosupport);    \
     GLOBAL_ATOM_DEF(eagain);          \
     GLOBAL_ATOM_DEF(einval);
 
@@ -414,7 +408,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1)
 #define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP))
 #define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP))
-#define GET_INT64(E, TE, IP)          enif_get_int64((E), (TE), (IP))
+#define GET_INT64(E, TE, IP)        enif_get_int64((E), (TE), (IP))
 #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP))
 #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP))
 #define GET_LONG(E, TE, LP)         enif_get_long((E), (TE), (LP))
@@ -423,7 +417,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1)
 #define GET_UINT(E, TE, UIP)        enif_get_uint((E), (TE), (UIP))
 #define GET_UINT64(E, TE, UIP)      enif_get_uint64((E), (TE), (UIP))
-#define GET_ULONG(E, TE, ULP)       enif_get_long((E), (TE), (ULP))
+#define GET_ULONG(E, TE, ULP)       enif_get_ulong((E), (TE), (ULP))
 #define GET_TUPLE(E, TE, TSZ, TA)   enif_get_tuple((E), (TE), (TSZ), (TA))
 #define GET_MAP_VAL(E, M, K, V)     enif_get_map_value((E), (M), (K), (V))
 

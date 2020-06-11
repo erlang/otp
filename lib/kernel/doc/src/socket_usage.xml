@@ -59,13 +59,13 @@
       <c>{select, </c>
       <seetype marker="socket#select_info"><c>SelectInfo</c></seetype><c>}</c>
       (<c>SelectInfo</c> contains the
-      <seetype marker="socket#select_ref">SelectRef</seetype>).
+      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>).
       When data eventually arrives a 'select message'
       will be sent to the caller:</p>
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', socket(), select, SelectRef}</c></item>
+	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
       </taglist>
       <p>The caller can then make another
       call to the recv function and now expect data.</p>
@@ -82,7 +82,7 @@
       <p>If the operation is aborted
       for whatever reason (e.g. if the socket is closed "by someone else").
       The <c>Info</c> part contains the abort reason (in this case that
-      the socket has been closed <c>Info = {SelectRef, closed}</c>). </p>
+      the socket has been closed <c>Info = {SelectHandle, closed}</c>). </p>
 
       <p>The general form of the 'socket' message is: </p>
       <taglist>
@@ -98,15 +98,15 @@
 	</row>
 	<row>
 	  <cell>select</cell>
-	  <cell>select_ref()</cell>
+	  <cell>select_handle()</cell>
 	</row>
 	<row>
 	  <cell>abort</cell>
-	  <cell>{select_ref(), Reason :: term()}</cell>
+	  <cell>{select_handle(), Reason :: term()}</cell>
 	</row>
 	<tcaption>socket message info value type</tcaption>
       </table>
-      <p>The <c>select_ref()</c> is the same as was received in the
+      <p>The <c>select_handle()</c> is the same as was returned in the
       <seetype marker="socket#select_info"><c>SelectInfo</c></seetype>. </p>
     </section>
   </section>
