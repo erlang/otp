@@ -1,0 +1,269 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2020. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+pred.is_offset(X, Y, Offset) {
+    return X.type == Y.type && X.val + Offset == Y.val;
+}
+
+
+pred.succ(X, Y) {
+    return X.type == Y.type && X.val + 1 == Y.val;
+}
+
+pred.succ3(X, Y) {
+    return X.type == Y.type && X.val + 3 == Y.val;
+}
+
+pred.succ4(X, Y) {
+    return X.type == Y.type && X.val + 4 == Y.val;
+}
+
+pred.never() {
+    return 0;
+}
+
+pred.compiled_with_otp_20_or_higher() {
+    return S->otp_20_or_higher;
+}
+
+// Test whether the following two moves are independent:
+//
+//    move Src1 Dst1
+//    move Src2 Dst2
+//
+pred.independent_moves(Src1, Dst1, Src2, Dst2) {
+    return (Src1.type != Dst2.type || Src1.val != Dst2.val) &&
+        (Src2.type != Dst1.type || Src2.val != Dst1.val) &&
+        (Dst1.type != Dst2.type ||Dst1.val != Dst2.val);
+}
+
+
+// Test that the two registers are distinct.
+pred.distinct(Reg1, Reg2) {
+    return Reg1.type != Reg2.type || Reg1.val != Reg2.val;
+}
+
+// Test whether a jump table can be used.
+pred.use_jump_tab(Size, Rest) {
+    Sint min, max;
+    Sint i;
+
+    if (Size.val < 2 || Size.val % 2 != 0) {
+        return 0;
+    }
+
+    if (Rest[0].type != TAG_i || Rest[1].type != TAG_f) {
+        /* Atoms. Can't use a jump table. */
+        return 0;
+    }
+
+    min = max = Rest[0].val;
+    for (i = 2; i < Size.val; i += 2) {
+        if (Rest[i].type != TAG_i || Rest[i+1].type != TAG_f) {
+            return 0;
+        }
+        if (Rest[i].val < min) {
+            min = Rest[i].val;
+        } else if (max < Rest[i].val) {
+            max = Rest[i].val;
+        }
+    }
+
+    return max - min <= Size.val;
+}
+
+// Test whether all values in a table are either floats or bignums.
+pred.floats_or_bignums(Size, Rest) {
+    int i;
+
+    if (Size.val < 2 || Size.val % 2 != 0) {
+        return 0;
+    }
+
+    for (i = 0; i < Size.val; i += 2) {
+        if (Rest[i].type != TAG_q) {
+            return 0;
+        }
+        if (Rest[i+1].type != TAG_f) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+
+// Test whether all values in a table have a fixed size.
+pred.fixed_size_values(Size, Rest) {
+    int i;
+
+    if (Size.val < 2 || Size.val % 2 != 0) {
+        return 0;
+    }
+
+    for (i = 0; i < Size.val; i += 2) {
+        if (Rest[i+1].type != TAG_f) {
+            return 0;
+        }
+        switch (Rest[i].type) {
+        case TAG_a:
+        case TAG_i:
+        case TAG_v:
+            break;
+        case TAG_q:
+            return is_float(S->literals[Rest[i].val].term);
+        default:
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+// Test whether a table has mixe types.
+pred.mixed_types(Size, Rest) {
+    int i;
+    Uint type;
+
+    if (Size.val < 2 || Size.val % 2 != 0) {
+        return 0;
+    }
+
+    type = Rest[0].type;
+    for (i = 0; i < Size.val; i += 2) {
+        if (Rest[i].type != type) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+// Test whether register Reg is killed by a make_fun instruction that
+// creates the fun given by index idx.
+pred.is_killed_by_make_fun(Reg, idx) {
+    Uint num_free;
+
+    if (idx.val >= S->num_lambdas) {
+        /* Invalid index. Ignore the error for now. */
+        return 0;
+    } else {
+        num_free = S->lambdas[idx.val].num_free;
+        return Reg.type == TAG_x && num_free <= Reg.val;
+    }
+}
+
+// Test whether Bif is "heavy" and should always go through its export entry.
+pred.is_heavy_bif(Bif) {
+    Export *ep;
+
+    if (Bif.type != TAG_u || Bif.val >= S->num_imports) {
+        return 0;
+    }
+
+    if ((ep = S->import[Bif.val].bif) != 0) {
+        return bif_table[ep->bif_number].kind == BIF_KIND_HEAVY;
+    }
+
+    return 0;
+}
+
+// Test whether the given literal is a map.
+pred.literal_is_map(Lit) {
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = S->literals[Lit.val].term;
+    return is_map(term);
+}
+
+// Predicate to test whether all of the given new small map keys are literals
+pred.is_small_map_literal_keys(Size, Rest) {
+    if (Size.val > MAP_SMALL_MAP_LIMIT) {
+        return 0;
+    }
+
+    /*
+     * Operations with non-literals have always only one key.
+     */
+    if (Size.val != 2) {
+        return 1;
+    }
+
+    switch (Rest[0].type) {
+    case TAG_a:
+    case TAG_i:
+    case TAG_n:
+    case TAG_q:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+// Test whether the given literal is an empty map.
+pred.is_empty_map(Lit) {
+    Eterm term;
+
+    if (Lit.type != TAG_q) {
+        return 0;
+    }
+    term = S->literals[Lit.val].term;
+    return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
+}
+
+// Test whether a binary construction is too big.
+pred.binary_too_big(Size) {
+    return Size.type == TAG_o ||
+        (Size.type == TAG_u && ((Size.val >> (8*sizeof(Uint)-3)) != 0));
+}
+
+
+// Test whether the negation of the given number is small.
+pred.negation_is_small(Int) {
+    /*
+     * Check for the rare case of overflow in BeamInstr (UWord) -> Sint.
+     * Cast to the correct type before using IS_SSMALL (Sint).
+     */
+    return Int.type == TAG_i &&
+        !(Int.val & ~((((BeamInstr)1) << ((sizeof(Sint)*8)-1))-1)) &&
+        IS_SSMALL(-((Sint)Int.val));
+}
+
+// Mark this label. Always succeeds.
+pred.smp_mark_target_label(L) {
+    ASSERT(L.type == TAG_f);
+    S->labels[L.val].looprec_targeted = 1;
+    return 1;
+}
+
+// Test whether this label was targeted by a loop_rec/2 instruction.
+pred.smp_already_locked(L) {
+    ASSERT(L.type == TAG_u);
+    return S->labels[L.val].looprec_targeted;
+}
+
+
+// Sort map keys. Always succeeds unless the instruction contains
+// invalid map keys (in which case loading will fail).
+pred.map_key_sort(Size, Rest) {
+    return beam_load_map_key_sort(S, Size, Rest);
+}

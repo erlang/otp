@@ -144,35 +144,35 @@ init3 y y y
 select_val S=aiq Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
 
 select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
-  gen_jump_tab(S, Fail, Size, Rest)
+  jump_tab(S, Fail, Size, Rest)
 
 is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
-  gen_jump_tab(S, Fail, Size, Rest)
+  jump_tab(S, Fail, Size, Rest)
 
 is_integer TypeFail=f S | select_val S=s Fail=f Size=u Rest=* | \
 	   mixed_types(Size, Rest) => \
-  gen_split_values(S, TypeFail, Fail, Size, Rest)
+  split_values(S, TypeFail, Fail, Size, Rest)
 
 select_val S=s Fail=f Size=u Rest=* | mixed_types(Size, Rest) => \
-  gen_split_values(S, Fail, Fail, Size, Rest)
+  split_values(S, Fail, Fail, Size, Rest)
 
 is_integer Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
-  fixed_size_values(Size, Rest) => gen_select_val(S, Fail, Size, Rest)
+  fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
 
 is_atom Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
-  fixed_size_values(Size, Rest) => gen_select_val(S, Fail, Size, Rest)
+  fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
 
 select_val S=s Fail=f Size=u Rest=* | floats_or_bignums(Size, Rest) => \
-  gen_select_literals(S, Fail, Size, Rest)
+  select_literals(S, Fail, Size, Rest)
 
 select_val S=d Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
-  gen_select_val(S, Fail, Size, Rest)
+  select_val(S, Fail, Size, Rest)
 
 is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
-  gen_select_tuple_arity(S, Fail, Size, Rest)
+  select_tuple_arity(S, Fail, Size, Rest)
 
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
-  gen_select_tuple_arity(S, Fail, Size, Rest)
+  select_tuple_arity(S, Fail, Size, Rest)
 
 i_select_val_bins xy f? I
 
@@ -294,13 +294,13 @@ move_jump f c r
 move X1=x Y1=y | move X2=x Y2=y | succ(Y1, Y2) => \
     move_window2 X1 X2 Y1
 
-move_window2 X1 X2 Y1 | move X3=x Y3=y | offset(Y1, Y3, 2) => \
+move_window2 X1 X2 Y1 | move X3=x Y3=y | is_offset(Y1, Y3, 2) => \
     move_window3 X1 X2 X3 Y1
 
-move_window3 X1 X2 X3 Y1 | move X4=x Y4=y | offset(Y1, Y4, 3) => \
+move_window3 X1 X2 X3 Y1 | move X4=x Y4=y | is_offset(Y1, Y4, 3) => \
     move_window4 X1 X2 X3 X4 Y1
 
-move_window4 X1 X2 X3 X4 Y1=y | move X5=x Y5=y | offset(Y1, Y5, 4) => \
+move_window4 X1 X2 X3 X4 Y1=y | move X5=x Y5=y | is_offset(Y1, Y5, 4) => \
     move_window5 X1 X2 X3 X4 X5 Y1
 
 move_window2 x x y
@@ -424,8 +424,8 @@ label L | wait_timeout Fail Src | smp_already_locked(L) => \
     label L | wait_timeout_locked Src Fail
 wait_timeout Fail Src => wait_timeout_unlocked Src Fail
 
-wait_timeout_unlocked Src=aiq Fail => gen_literal_timeout(Fail, Src)
-wait_timeout_locked Src=aiq Fail => gen_literal_timeout_locked(Fail, Src)
+wait_timeout_unlocked Src=aiq Fail => literal_timeout(Fail, Src)
+wait_timeout_locked Src=aiq Fail => literal_timeout_locked(Fail, Src)
 
 label L | wait Fail | smp_already_locked(L) => label L | wait_locked Fail
 wait Fail => wait_unlocked Fail
@@ -787,7 +787,7 @@ is_boolean Fail=f ac => jump Fail
 is_boolean f? xy
 %hot
 
-is_function2 Fail=f Fun Arity => gen_is_function2(Fail, Fun, Arity)
+is_function2 Fail=f Fun Arity => is_function2(Fail, Fun, Arity)
 
 %cold
 cold_is_function2 f? x x
@@ -1028,9 +1028,9 @@ bif0 u$bif:erlang:node/0 Dst=d => node Dst
 bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=x Dst=x => is_nonempty_list_get_hd Fail Src Dst
 bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=x Dst=x => is_nonempty_list_get_tl Fail Src Dst
 
-bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => gen_get(Src, Dst)
+bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
 
-bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => gen_element(Jump, S1, S2, Dst)
+bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => element(Jump, S1, S2, Dst)
 
 bif1 p Bif S1 Dst         => i_bif1_body S1 Bif Dst
 bif1 Fail=f Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
@@ -1110,7 +1110,7 @@ i_call_fun_last t Q
 # As a further optimization, the we try to move the fun to its
 # final destination directly.
 
-make_fun2 OldIndex=u => gen_make_fun2(OldIndex)
+make_fun2 OldIndex=u => make_fun2(OldIndex)
 
 move_fun/2
 move_fun Fun X0 | move X0 Dst | move Src X0 => move Fun Dst | move Src X0
@@ -1142,11 +1142,11 @@ bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
 i_bs_start_match2 xy f t t d
 
 bs_save2 Y=y Index => move Y x | bs_save2 x Index
-bs_save2 Reg Index => gen_bs_save(Reg, Index)
+bs_save2 Reg Index => bs_save(Reg, Index)
 i_bs_save2 x t
 
 bs_restore2 Y=y Index => move Y x | bs_restore2 x Index
-bs_restore2 Reg Index => gen_bs_restore(Reg, Index)
+bs_restore2 Reg Index => bs_restore(Reg, Index)
 i_bs_restore2 x t
 
 bs_context_to_binary Y=y | line L | badmatch Y => \
@@ -1168,7 +1168,7 @@ i_bs_match_string xy f W W
 
 # Fetching integers from binaries.
 bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
-			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+			get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 i_bs_get_integer_small_imm Ms Bits Fail Flags Y=y => \
    i_bs_get_integer_small_imm Ms Bits Fail Flags x | move x Y
@@ -1188,7 +1188,7 @@ i_bs_get_integer_32 xy f? d
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
-			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+			get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 i_bs_get_binary_imm2 xy f? t W t d
 i_bs_get_binary2 xy f t? S t d
@@ -1196,7 +1196,7 @@ i_bs_get_binary_all2 xy f? t t d
 
 # Fetching float from binaries.
 bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d => \
-		gen_get_float2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+		get_float2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
@@ -1204,8 +1204,7 @@ i_bs_get_float2 xy f? t s t d
 
 # Miscellanous
 
-bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
-			gen_skip_bits2(Fail, Ms, Sz, Unit, Flags)
+bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => skip_bits2(Fail, Ms, Sz, Unit, Flags)
 
 i_bs_skip_bits_imm2 f? xy W
 i_bs_skip_bits2 xy xy f? t
@@ -1358,7 +1357,7 @@ i_bs_private_append j? t s S x
 #
 
 bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s => \
-			gen_put_integer(Fail, Sz, Unit, Flags, Src)
+			put_integer(Fail, Sz, Unit, Flags, Src)
 
 i_new_bs_put_integer j? S t s
 i_new_bs_put_integer_imm xyc j? W t
@@ -1396,7 +1395,7 @@ i_bs_validate_unicode Fail Src=c => move Src x | i_bs_validate_unicode Fail x
 bs_put_float Fail Sz=q Unit Flags Val => badarg Fail
 
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
-			gen_put_float(Fail, Sz, Unit, Flags, Src)
+			put_float(Fail, Sz, Unit, Flags, Src)
 
 i_new_bs_put_float j? S t s
 i_new_bs_put_float_imm j? W t s
@@ -1406,7 +1405,7 @@ i_new_bs_put_float_imm j? W t s
 #
 
 bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s => \
-			gen_put_binary(Fail, Sz, Unit, Flags, Src)
+			put_binary(Fail, Sz, Unit, Flags, Src)
 
 # In unoptimized code, the binary argument could be a literal. (In optimized code,
 # there would be a bs_put_string instruction.)
@@ -1455,15 +1454,12 @@ i_fmul l l l
 i_fdiv l l l
 i_fnegate l l
 
-fclearerror | no_fpe_signals() =>
-fcheckerror p | no_fpe_signals() =>
-
-%unless NO_FPE_SIGNALS
-fcheckerror p => i_fcheckerror
-
-i_fcheckerror
-fclearerror
-%endif
+#
+# FPE signals were disabled in OTP 21 and we don't intend to ever
+# enable them again.
+#
+fclearerror =>
+fcheckerror p =>
 
 %hot
 
@@ -1527,7 +1523,7 @@ sorted_put_map_exact Fail Src Dst Live Size Rest=* => \
    move Src x | update_map_exact x Fail Dst Live Size Rest
 
 new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
-   gen_new_small_map_lit(Dst, Live, Size, Rest)
+   new_small_map_lit(Dst, Live, Size, Rest)
 
 new_map d t I
 i_new_small_map_lit d t q
@@ -1541,15 +1537,14 @@ is_map f? xy
 
 ## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
 
-has_map_fields Fail Src Size Rest=* => \
-   gen_has_map_fields(Fail, Src, Size, Rest)
+has_map_fields Fail Src Size Rest=* => has_map_fields(Fail, Src, Size, Rest)
 
 ## Transform get_map_elements(s) #{ K1 := V1, K2 := V2 }
 
 get_map_elements Fail Src Size=u==2 Rest=* => \
-    gen_get_map_element(Fail, Src, Size, Rest)
+    get_map_element(Fail, Src, Size, Rest)
 get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
-   gen_get_map_elements(Fail, Src, Size, Rest)
+   get_map_elements(Fail, Src, Size, Rest)
 
 i_get_map_elements f? s I
 
@@ -1583,12 +1578,12 @@ gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst => \
 #
 
 gen_plus p Live Int=i Reg=d Dst => \
-	gen_increment(Reg, Int, Dst)
+	increment(Reg, Int, Dst)
 gen_plus p Live Reg=d Int=i Dst => \
-	gen_increment(Reg, Int, Dst)
+	increment(Reg, Int, Dst)
 
 gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
-	gen_increment_from_minus(Reg, Int, Dst)
+	increment_from_minus(Reg, Int, Dst)
 
 #
 # Arithmetic instructions.
@@ -1597,7 +1592,7 @@ gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
 # It is OK to swap arguments for '+' in a guard. It is also
 # OK to turn minus into plus in a guard.
 gen_plus Fail=f Live S1=c S2 Dst => i_plus S2 S1 Fail Dst
-gen_minus Fail=f Live S1 S2=i Dst => gen_plus_from_minus(Fail, Live, S1, S2, Dst)
+gen_minus Fail=f Live S1 S2=i Dst => plus_from_minus(Fail, Live, S1, S2, Dst)
 
 gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Dst
 
