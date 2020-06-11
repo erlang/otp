@@ -2274,8 +2274,8 @@ activate_connection(Socket) ->
             activate_connection(ssl, ssl_closed, Socket)
     end.
 
-activate_connection(API, CloseTag, Socket) ->
-    Socket = unwrap_socket(Socket),
+activate_connection(API, CloseTag, Socket0) ->
+    Socket = unwrap_socket(Socket0),
     case API:setopts(Socket, [{active, once}]) of
         ok ->
             ok;

@@ -831,8 +831,7 @@ connect_and_send_first_request(Address, Request, #state{options = Options0} = St
                                            headers = undefined,
                                            body = undefined,
                                            status = new},
-                    http_transport:setopts(SocketType,
-                                           Socket, [{active, once}]),
+                    activate_once(Session),
                     NewState = activate_request_timeout(TmpState),
                     {ok, NewState};
                 {error, Reason} ->
@@ -1238,7 +1237,12 @@ case_insensitive_header(Str) ->
     Str.
 
 activate_once(#session{socket = Socket, socket_type = SocketType}) ->
-    http_transport:setopts(SocketType, Socket, [{active, once}]).
+    case http_transport:setopts(SocketType, Socket, [{active, once}]) of
+        ok ->
+            ok;
+        {error, _} -> %% inet can return einval instead of closed
+            self() ! {http_transport:close_tag(SocketType), Socket}
+    end.
 
 close_socket(#session{socket = {remote_close,_}}) ->
     ok;
@@ -1581,8 +1585,7 @@ send_raw(SocketType, Socket, ProcessBody, Acc) ->
             end
     end.
 
-tls_tunnel(Address, Request, #state{session = #session{socket = Socket, 
-						       socket_type = SocketType} = Session} = State, 
+tls_tunnel(Address, Request, #state{session = #session{} = Session} = State, 
 	   ErrorHandler) ->
     UpgradeRequest = tls_tunnel_request(Request), 
     case httpc_request:send(Address, Session, UpgradeRequest) of
@@ -1594,8 +1597,7 @@ tls_tunnel(Address, Request, #state{session = #session{socket = Socket,
 				       init_status_line(UpgradeRequest),
 				   headers = undefined,
 				   body = undefined},
-	    http_transport:setopts(SocketType,
-				   Socket, [{active, once}]),
+	    activate_once(Session),
 	    NewState = activate_request_timeout(TmpState),
 	    {ok, NewState#state{status = {ssl_tunnel, Request}}};
 	{error, Reason} ->
@@ -1661,7 +1663,7 @@ tls_upgrade(#state{status =
 			type = SessionType,
 			client_close = ClientClose},
 	    httpc_request:send(Address, Session, Request), 
-	    http_transport:setopts(SocketType, TLSSocket, [{active, once}]),
+            activate_once(Session),
 	    NewState = State#state{session = Session,
 				   request = Request,
 				   mfa = init_mfa(Request, State),

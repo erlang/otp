@@ -162,8 +162,9 @@ continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
 		   mfa                    = MFA,
                    chunk                   = chunk_start(MaxChunk)},
     
-    http_transport:setopts(SocketType, Socket, 
-			   [binary, {packet, 0}, {active, once}]),
+    ok = http_transport:setopts(SocketType, Socket, 
+                                [binary, {packet, 0}]),
+    activate_once(Socket, SocketType),
     NewState =  data_receive_counter(activate_request_timeout(State), httpd_util:lookup(ConfigDB, minimum_bytes_per_second, false)),
      gen_server:enter_loop(?MODULE, [], NewState).
 
@@ -242,7 +243,7 @@ handle_info({Proto, Socket, Data},
             NewState = handle_chunk(Module, Function, Args, State),
             {noreply, NewState};
 	NewMFA ->
-	    http_transport:setopts(SockType, Socket, [{active, once}]),
+	    activate_once(Socket, SockType),
 	    case NewDataSize of
 		undefined ->
 		    {noreply, State#state{mfa = NewMFA}};
@@ -363,9 +364,7 @@ handle_msg({{continue, Chunk}, Module, Function, Args}, #state{chunk = {_, CbSta
     handle_internal_chunk(State#state{chunk = {continue, CbState},
                                       body = Chunk}, Module, Function, Args);
 handle_msg({continue, Module, Function, Args}, 	#state{mod = ModData} = State) ->
-    http_transport:setopts(ModData#mod.socket_type, 
-                           ModData#mod.socket, 
-                           [{active, once}]),
+    activate_once(ModData#mod.socket, ModData#mod.socket_type),
     {noreply, State#state{mfa = {Module, Function, Args}}};
 handle_msg({last, Body}, #state{headers = Headers, chunk = {_, CbState}} = State) -> 
     NewHeaders = Headers#http_request_h{'content-length' = integer_to_list(size(Body))},
@@ -471,9 +470,7 @@ handle_body(#state{headers = Headers, body = Body,
 	"chunked" ->
 	    try http_chunk:decode(Body, MaxBodySize, MaxHeaderSize) of
                 {Module, Function, Args} ->
-		    http_transport:setopts(ModData#mod.socket_type, 
-					   ModData#mod.socket, 
-					   [{active, once}]),
+                    activate_once(ModData#mod.socket, ModData#mod.socket_type),
 		    {noreply, State#state{mfa = 
                                               {Module, Function, Args},
                                           chunk = chunk_start(MaxChunk)}};
@@ -502,17 +499,13 @@ handle_body(#state{headers = Headers, body = Body,
                         %% This is the case that the we need more data to complete
                         %% the body but chunking to the mod_esi user is not enabled.
                         {Module, add_chunk = Function,  Args} ->  
-                            http_transport:setopts(ModData#mod.socket_type, 
-						   ModData#mod.socket, 
-						   [{active, once}]),
+                            activate_once(ModData#mod.socket, ModData#mod.socket_type),
 			    {noreply, State#state{mfa = 
 						      {Module, Function, Args}}};
                         %% Chunking to mod_esi user is enabled
                         {ok, {continue, Module, Function, Args}} ->
-                                http_transport:setopts(ModData#mod.socket_type, 
-						   ModData#mod.socket, 
-						   [{active, once}]),
-			    {noreply, State#state{mfa = 
+                            activate_once(ModData#mod.socket, ModData#mod.socket_type),
+                            {noreply, State#state{mfa = 
 						      {Module, Function, Args}}};
                         {ok, {{continue, Chunk}, Module, Function, Args}} ->
                             handle_internal_chunk(State#state{chunk =  chunk_start(MaxChunk), 
@@ -588,7 +581,7 @@ handle_chunk(http_chunk = Module, decode_data = Function,
                                socket = Socket} = ModData} = State) ->
     {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = 
                                                                                 {continue, BodySoFar, CbState}}),
-    http_transport:setopts(SockType, Socket, [{active, once}]),
+    activate_once(Socket, SockType),                         
     State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, [ChunkSize, TotalChunk, {MaxBodySize, <<>>, 0, MaxHeaderSize}]}};
 
 handle_chunk(http_chunk = Module, decode_size = Function, 
@@ -597,11 +590,11 @@ handle_chunk(http_chunk = Module, decode_size = Function,
                     mod = #mod{socket_type = SockType,
                                socket = Socket} = ModData} = State) ->
     {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = {continue, BodySoFar, CbState}}),
-    http_transport:setopts(SockType, Socket, [{active, once}]),
+    activate_once(Socket, SockType),                         
     State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, [Data, HexList, 0, {MaxBodySize, <<>>, 0, MaxHeaderSize}]}};
 handle_chunk(Module, Function, Args, #state{mod = #mod{socket_type = SockType,
                                                                       socket = Socket}} = State) ->
-    http_transport:setopts(SockType, Socket, [{active, once}]),
+    activate_once(Socket, SockType),
     State#state{mfa = {Module, Function, Args}}.
 
 handle_internal_chunk(#state{chunk = {ChunkState, CbState}, body = Chunk, 
@@ -611,7 +604,7 @@ handle_internal_chunk(#state{chunk = {ChunkState, CbState}, body = Chunk,
     {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = Bodychunk}),
     case Args of
         [<<>> | _] ->
-            http_transport:setopts(SockType, Socket, [{active, once}]),
+            activate_once(Socket, SockType),
             {noreply, State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, Args}}};
         _ ->
             handle_info({dummy, Socket, <<>>}, State#state{chunk = {continue, NewCbState}, 
@@ -675,8 +668,7 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
 
     case Data of
 	<<>> ->
-	    http_transport:setopts(ModData#mod.socket_type,
-				   ModData#mod.socket, [{active, once}]),
+            activate_once(ModData#mod.socket, ModData#mod.socket_type),
 	    {noreply, NewState};
 	_ ->
 	    handle_info({dummy, ModData#mod.socket, Data}, NewState)
@@ -751,3 +743,12 @@ body_chunk(first, _, Chunk) ->
     {first, Chunk};
 body_chunk(ChunkState, CbState, Chunk) ->
     {ChunkState, Chunk, CbState}.
+
+activate_once(Socket, SocketType) ->
+    case http_transport:setopts(SocketType, Socket, [{active, once}]) of
+        ok ->
+            ok;
+        {error, _} -> %% inet can return einval instead of closed
+            self() ! {http_transport:close_tag(SocketType), Socket}
+    end.
+
