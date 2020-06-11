@@ -2267,12 +2267,21 @@ activate_data_connection(#state{dsock = DSock} = State) ->
     State.
 
 activate_connection(Socket) ->
-    ignore_return_value(
-      case socket_type(Socket) of
-          tcp -> inet:setopts(unwrap_socket(Socket), [{active, once}]);
-          ssl -> ssl:setopts(unwrap_socket(Socket), [{active, once}])
-      end).
+    case socket_type(Socket) of
+        tcp ->
+            activate_connection(inet, tcp_closed, Socket);
+        ssl ->
+            activate_connection(ssl, ssl_closed, Socket)
+    end.
 
+activate_connection(API, CloseTag, Socket) ->
+    Socket = unwrap_socket(Socket),
+    case API:setopts(Socket, [{active, once}]) of
+        ok ->
+            ok;
+        {error, _} -> %% inet can retrun einval instead of closed
+            self() ! {CloseTag, Socket}
+    end.
 
 ignore_return_value(_) -> ok.
 
