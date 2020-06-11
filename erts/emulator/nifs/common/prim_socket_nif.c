@@ -328,12 +328,9 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif
 #include "sys.h"
 
-/* Socket stuff */
-#define INVALID_SOCKET -1
-// #define INVALID_EVENT  -1
-#define SOCKET_ERROR   -1
-
 #endif /* ifdef __WIN32__ */
+
+
 
 #include <erl_nif.h>
 
@@ -368,12 +365,20 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define ESOCK_NIF_IOW_DEFAULT FALSE
 
 
+#ifdef __WIN32__
 
-/* Socket stuff */
-#define INVALID_EVENT  -1
+// INVALID_SOCKET and SOCKET are defined in Windows header files
+#define INVALID_EVENT NULL
 
-#define SOCKET int
-#define HANDLE long int
+#else
+
+#define INVALID_SOCKET (-1)
+typedef int SOCKET;
+#define INVALID_EVENT INVALID_SOCKET
+
+#endif
+
+typedef ErlNifEvent HANDLE;
 
 
 /* ==============================================================================
@@ -387,7 +392,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
  * for errors, thus increasing Erlang's portability.
  */
 #ifdef __WIN32__
-#define IS_SOCKET_ERROR(val) ((val) == SOCKET_ERROR)
+#define IS_SOCKET_ERROR(val) ((val) == INVALID_SOCKET)
 #else
 #define IS_SOCKET_ERROR(val) ((val) < 0)
 #endif

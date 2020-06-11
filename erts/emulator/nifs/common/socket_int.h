@@ -99,8 +99,12 @@ typedef union {
 
 /* *** Boolean *type* stuff... *** */
 typedef int BOOLEAN_T;
+#ifndef TRUE
 #define TRUE  (!0)
-#define FALSE (!!0)
+#endif
+#ifndef FALSE
+#define FALSE (! TRUE)
+#endif
 
 #define BOOL2ATOM(__B__) ((__B__) ? esock_atom_true : esock_atom_false)
 
