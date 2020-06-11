@@ -22,7 +22,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([load_nif_lib/2, load_nif_lib/3, start/0, lib_version/0,
+-export([load_nif_lib/2, load_nif_lib/3, start/0,
+         lib_version/0, lib_version_check/0,
 	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2,
          monitor_process/3]).
 
@@ -91,6 +92,17 @@ get_priv_data_ptr() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
 monitor_process(_,_,_) -> ?nif_stub.
+
+lib_version_check() ->
+    %% Do a recursive call to test that we are able to return
+    %% while this function has been NIF patched.
+    X = lib_version(),
+    case lib_version() of
+        X -> X;
+        V ->
+            undefined = X,
+            V
+    end.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
