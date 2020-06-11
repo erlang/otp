@@ -33,7 +33,7 @@ limitations under the License.
 
 <div id="container">
 <div id="leftnav">
-<div class="innertube">
+<div class="leftnav-tube">
 <div class="erlang-logo-wrapper">
  <img alt="Erlang logo" src="erlang-logo.png" class="erlang-logo"/ >
 </div>

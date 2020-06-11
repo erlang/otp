@@ -49,9 +49,15 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   border-right: 1px solid #ccc;
 }
 
+.leftnav-tube
+{
+    margin: 15px;
+}
+
 #content {
   margin-left: 340px; /* set left value to WidthOfFrameDiv */
-  max-width: 42em;
+  max-width: 52em;
+  overflow-x: hidden;
 }
 
 .frontpage 
@@ -61,7 +67,8 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 
 .innertube 
 {
-  margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+    margin-left: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+    margin-right: 11em;
 }
 
 .footer 
@@ -75,7 +82,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 /* Invisible table for function specs,
  * just to get since-version out in right margin */
 .func-table, .func-tr, .func-td, .cfunc-td, .func-since-td {
-    width: 200%;
+    width: 100%;
     border: 0;
     padding: 0;
     margin: 0;
@@ -86,18 +93,18 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 }
 
 .func-td {
-    width: 50%;
+    width: 38em;
 }
 
 .cfunc-td {
-    width: 50%;
-    padding-left: 100px;
-    text-indent: -100px;
+    width: 31em;
+    padding-left: 7em;
+    text-indent: -7em;
 }
 
 .func-since-td {
-    width: 50%;
-    padding-left: 1em
+    width: auto;
+    padding-left: 1em;
 }
 
 .func-td:hover {
@@ -187,10 +194,17 @@ pre {
 }
 
 
-.exports-body, .data-types-body, .REFBODY{
+.data-types-body, .REFBODY{
  margin-left: 2em;
 }
 .REFTYPES    { margin-left: 1.5em }
+.exports-body {
+    margin-left: 3em;
+}
+.exports-tube
+{
+    margin-right: 11em;
+}
 
 footer       { }
 
