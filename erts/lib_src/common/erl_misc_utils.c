@@ -1216,6 +1216,9 @@ read_cpu_quota(int limit)
             if (cfs_period_us > 0 && cfs_quota_us > 0) {
                 size_t quota = cfs_quota_us / cfs_period_us;
 
+                if (quota == 0) {
+                    quota = 1;
+                }
                 if (quota > 0 && quota <= (size_t)limit) {
                     return quota;
                 }
