@@ -38,8 +38,7 @@
       <item>
 	<p>Counters wrap around at overflow and underflow operations.</p>
       </item>
-      <item><p>Counters are initialized to zero and can then only be written to
-        by adding or subtracting.</p>
+      <item><p>Counters are initialized to zero.</p>
       </item>
       <item>
 	<p>Write operations guarantee atomicity. No intermediate results can be
@@ -74,14 +73,16 @@
       <name name="new" arity="2" since="OTP 21.2"/>
       <fsummary>Create counter array</fsummary>
       <desc>
-        <p>Create a new counter array of <c><anno>Size</anno></c> counters.</p>
+        <p>Create a new counter array of <c><anno>Size</anno></c>
+	counters. All counters in the array are initially set to zero.</p>
 	<p>Argument <c><anno>Opts</anno></c> is a list of the following possible
 	options:</p>
 	<taglist>
 	  <tag><c>atomics</c> (Default)</tag>
 	  <item><p>Counters will be sequentially consistent. If write
-	  operation A is done sequentially before write operation B, then a concurrent reader
-	  may see none of them, only A, or both A and B. It cannot see only B.</p>
+	  operation A is done sequentially before write operation B,
+	  then a concurrent reader may see the result of none of them,
+	  only A, or both A and B. It cannot see the result of only B.</p>
 	  </item>
 	  <tag><c>write_concurrency</c></tag>
 	  <item><p>This is an optimization to achieve very efficient concurrent
