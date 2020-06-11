@@ -1197,10 +1197,17 @@ cg_block([#cg_set{op=is_tagged_tuple,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
 cg_block([#cg_set{op=is_nonempty_list,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     Args = beam_args(Args0, St),
     {[{test,is_nonempty_list,ensure_label(Fail, St),Args}],St};
-cg_block([#cg_set{op=has_map_field,dst=Bool,args=Args0}], {Bool,Fail0}, St) ->
-    [Src,Key] = beam_args(Args0, St),
+cg_block([#cg_set{op=has_map_field,dst=Dst0,args=Args0}], {Dst0,Fail0}, St) ->
     Fail = ensure_label(Fail0, St),
-    {[{test,has_map_fields,Fail,Src,{list,[Key]}}],St};
+    case beam_args([Dst0|Args0], St) of
+        [{z,0},Src,Key] ->
+            {[{test,has_map_fields,Fail,Src,{list,[Key]}}],St};
+        [Dst,Src,Key] ->
+            %% The result is used more than once. Must rewrite to bif:is_map_key
+            %% to set the destination register.
+            {[{bif,is_map_key,Fail0,[Key,Src],Dst},
+              {test,is_eq_exact,Fail,[Dst,{atom,true}]}],St}
+    end;
 cg_block([#cg_set{op=call}=Call], {_Bool,_Fail}=Context, St0) ->
     {Is0,St1} = cg_call(Call, body, none, St0),
     {Is1,St} = cg_block([], Context, St1),
@@ -1719,9 +1726,9 @@ cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
     [line(Anno),{bif,Op,Fail,Args,Dst}];
 cg_test(peek_message, Fail, [], Dst, _I) ->
     [{loop_rec,Fail,{x,0}}|copy({x,0}, Dst)];
-cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, Set) ->
+cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, #cg_set{anno=Anno}=Set) ->
     Live = get_live(Set),
-    [{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}].
+    [line(Anno),{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}].
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=[#b_literal{val=Type}|Ss0]}=Set, St) ->
     Op = case Type of

@@ -268,9 +268,9 @@ do_wildcard(Pattern, Cwd, Mod) ->
     lists:sort(Files).
 
 do_wildcard_1({exists,File}, Mod) ->
-    case eval_read_link_info(File, Mod) of
-	{ok,_} -> [File];
-	_ -> []
+    case exists(File, Mod) of
+	true -> [File];
+	false -> []
     end;
 do_wildcard_1([Base|Rest], Mod) ->
     do_wildcard_2([Base], Rest, [], Mod).
@@ -561,6 +561,36 @@ wrap_escapes([]) ->
 
 badpattern(Reason) ->
     error({badpattern,Reason}).
+
+exists(File, Mod) ->
+    case eval_read_link_info(File, Mod) of
+        {error, _} ->
+            false;
+        {ok, _Info} ->
+            case os:type() of
+                {win32,_} ->
+                    do_exists(filename:split(File), Mod, []);
+                _ ->
+                    true
+            end
+    end.
+
+do_exists([P,".."|Ps], Mod, Acc) ->
+    %% On Windows, "pathname/.." will seem to exist even if pathname
+    %% does not refer to a directory.
+    Path = case Acc of
+               [] -> P;
+               _ -> filename:join(lists:reverse(Acc, [P]))
+           end,
+    case eval_read_link_info(Path, Mod) of
+        {ok, #file_info{type=directory}} ->
+            do_exists(Ps, Mod, Acc);
+        _ ->
+            false
+    end;
+do_exists([P|Ps], Mod, Acc) ->
+    do_exists(Ps, Mod, [P|Acc]);
+do_exists([], _, _) -> true.
 
 eval_read_file_info(File, file) ->
     file:read_file_info(File);

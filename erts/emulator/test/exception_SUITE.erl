@@ -743,6 +743,13 @@ line_numbers(Config) when is_list(Config) ->
               {?MODULE,line_numbers,1,_}|_]}} =
         (catch increment2(x)),
 
+    {'EXIT',{{badmap,not_a_map},
+             [{?MODULE,update_map,1,[{file,"map.erl"},{line,3}]}|_]}} =
+        (catch update_map(not_a_map)),
+    {'EXIT',{{badkey,a},
+             [{?MODULE,update_map,1,[{file,"map.erl"},{line,4}]}|_]}} =
+        (catch update_map(#{})),
+
     ok.
 
 id(I) -> I.
@@ -855,3 +862,8 @@ increment1(Arg) ->                              %Line 43
 increment2(Arg) ->                              %Line 46
     _ = id(Arg),                                %Line 47
     Arg + 1.                                    %Line 48
+
+-file("map.erl", 1).
+update_map(M0) ->                               %Line 2
+    M = M0#{new => value},                      %Line 3
+    M#{a := b}.                                 %Line 4
