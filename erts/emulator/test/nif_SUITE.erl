@@ -33,6 +33,8 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         t_load_race/1,
+         t_call_nif_early/1,
          load_traced_nif/1,
          select/1, select_steal/1,
          monitor_process_a/1,
@@ -94,6 +96,8 @@ all() ->
      {group, monitor},
      monitor_frenzy,
      hipe,
+     t_load_race,
+     t_call_nif_early,
      load_traced_nif,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
@@ -501,6 +505,100 @@ t_on_load(Config) when is_list(Config) ->
     true = lists:member(nif_mod, erlang:system_info(taints)),
     verify_tmpmem(TmpMem),
     ok.
+
+%% Test erlang:load_nif/2 waiting for code_write_permission.
+t_load_race(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
+    {module,nif_mod} = erlang:load_module(nif_mod,Bin),
+    try
+        erts_debug:set_internal_state(code_write_permission, true),
+        Papa = self(),
+        spawn_link(fun() ->
+                           ok = nif_mod:load_nif_lib(Config, 1),
+                           Papa ! "NIF loaded"
+                   end),
+        timer:sleep(100),
+        timeout = receive_any(0)
+    after
+        true = erts_debug:set_internal_state(code_write_permission, false)
+    end,
+
+    "NIF loaded" = receive_any(),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    ok.
+
+-define(NIFS_NOT_LOADED, 0).
+-define(NIFS_LOADED, 1).
+
+%% Test calling functions while loading their NIF implementation.
+%% Verify the change from beam to NIF is atomic.
+t_call_nif_early(Config) ->
+    Flag = atomics:new(1, []),
+    atomics:put(Flag, 1, ?NIFS_NOT_LOADED),
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
+    {module,nif_mod} = erlang:load_module(nif_mod,Bin),
+
+    Papa = self(),
+    NProcs = erlang:system_info(schedulers_online),
+    Pids = [spawn_opt(fun() ->
+                              undefined = nif_mod:lib_version(),
+                              Papa ! ready,
+                              early_caller_1(Flag, 1)
+                      end,
+                      [link, {scheduler,N}])
+            || N <- lists:seq(1, NProcs)],
+
+    [begin ok = receive ready -> ok end end
+     || _ <- Pids],
+
+    ok = nif_mod:load_nif_lib(Config, 1),
+    atomics:put(Flag, 1, ?NIFS_LOADED),
+
+    %% Wait for all scheduled load finishers to complete.
+    erts_debug:set_internal_state(wait, thread_progress),
+    erts_debug:set_internal_state(wait, thread_progress),
+    erts_debug:set_internal_state(wait, thread_progress),
+
+    [P ! done || P <- Pids],
+    ok.
+
+
+early_caller_1(Flag, BeamCnt) ->
+    case atomics:get(Flag, 1) of
+        ?NIFS_NOT_LOADED ->
+            case nif_mod_lib_version(BeamCnt) of
+                undefined ->  % Beam called
+                    early_caller_1(Flag, BeamCnt+1);
+                1 -> % Nif called
+                    atomics:put(Flag, 1, ?NIFS_LOADED),
+                    early_caller_2(BeamCnt, 1)
+            end;
+        ?NIFS_LOADED ->
+            %% Someone else called a NIF
+            early_caller_2(BeamCnt, 0)
+    end.
+
+early_caller_2(BeamCnt, NifCnt) ->
+    %% From now on we only expect to call NIFs
+    1 = nif_mod_lib_version(BeamCnt+NifCnt),
+    receive done ->
+            io:format("Beam calls=~p, Nif calls=~p\n", [BeamCnt, NifCnt+1])
+    after 0 ->
+            early_caller_2(BeamCnt, NifCnt+1)
+    end.
+
+nif_mod_lib_version(Cnt) ->
+    case Cnt rem 2 of
+        0 -> nif_mod:lib_version();
+        1 -> nif_mod:lib_version_check()
+    end.
+
 
 %% Test load of module where a NIF stub is already traced.
 load_traced_nif(Config) when is_list(Config) ->

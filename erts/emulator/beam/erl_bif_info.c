@@ -4828,6 +4828,23 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 
             BIF_RET(old_val ? am_true : am_false);
         }
+        else if (ERTS_IS_ATOM_STR("code_write_permission", BIF_ARG_1)) {
+            /*
+             * Warning: This is a unsafe way of seizing the "lock"
+             * as there is no automatic unlock if caller terminates.
+             */
+            switch(BIF_ARG_2) {
+            case am_true:
+                if (!erts_try_seize_code_write_permission(BIF_P)) {
+                    ERTS_BIF_YIELD2(&bif_trap_export[BIF_erts_debug_set_internal_state_2],
+                                    BIF_P, BIF_ARG_1, BIF_ARG_2);
+                }
+                BIF_RET(am_true);
+            case am_false:
+                erts_release_code_write_permission();
+                BIF_RET(am_true);
+            }
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);
