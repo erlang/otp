@@ -46,6 +46,7 @@
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_global_literals.h"
 
 #define DIST_CTL_DEFAULT_SIZE 64
 
@@ -1030,14 +1031,6 @@ trap_function(Eterm func, int arity)
     return erts_export_put(am_erlang, func, arity);
 }
 
-/*
- * Sync with dist_util.erl:
- *
- * -record(erts_dflags,
- *         {default, mandatory, addable, rejectable, strict_order}).
- */
-static Eterm erts_dflags_record;
-
 static BIF_RETTYPE spawn_request_yield_3(BIF_ALIST_3);
 
 void init_dist(void)
@@ -1069,11 +1062,16 @@ void init_dist(void)
                           am_erts_internal, am_spawn_request_yield,
                           3, spawn_request_yield_3);
     {
-        Eterm *hp_start, *hp, **hpp = NULL;
+        Eterm *hp_start, *hp, **hpp = NULL, tuple;
         Uint sz = 0, *szp = &sz;
         while (1) {
-            erts_dflags_record =
-                erts_bld_tuple(hpp, szp, 6,
+            /*
+             * Sync with dist_util.erl:
+             *
+             * -record(erts_dflags,
+             *         {default, mandatory, addable, rejectable, strict_order}).
+             */
+            tuple = erts_bld_tuple(hpp, szp, 6,
                                am_erts_dflags,
                                erts_bld_uint64(hpp, szp, DFLAG_DIST_DEFAULT),
                                erts_bld_uint64(hpp, szp, DFLAG_DIST_MANDATORY),
@@ -1081,12 +1079,12 @@ void init_dist(void)
                                erts_bld_uint64(hpp, szp, DFLAG_DIST_REJECTABLE),
                                erts_bld_uint64(hpp, szp, DFLAG_DIST_STRICT_ORDER));
             if (hpp) {
-                ASSERT(is_value(erts_dflags_record));
+                ASSERT(is_value(tuple));
                 ASSERT(hp == hp_start + sz);
-                erts_set_literal_tag(&erts_dflags_record, hp_start, sz);
+                erts_register_global_literal(ERTS_LIT_DFLAGS_RECORD, tuple);
                 break;
             }
-            hp = hp_start = erts_alloc(ERTS_ALC_T_LITERAL, sz*sizeof(Eterm));
+            hp = hp_start = erts_alloc_global_literal(ERTS_LIT_DFLAGS_RECORD, sz);
             hpp = &hp;
             szp = NULL;
         }
@@ -5032,8 +5030,7 @@ BIF_RETTYPE erts_internal_get_dflags_0(BIF_ALIST_0)
             szp = NULL;
         }
     }
-    return erts_dflags_record;
-    
+    return erts_get_global_literal(ERTS_LIT_DFLAGS_RECORD);
 }
 
 BIF_RETTYPE erts_internal_get_creation_0(BIF_ALIST_0)

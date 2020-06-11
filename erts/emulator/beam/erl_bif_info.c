@@ -55,6 +55,7 @@
 #ifdef HIPE
 #include "hipe_arch.h"
 #endif
+#include "erl_global_literals.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
@@ -150,10 +151,6 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 # define PERFMON_SETPCR			_IOW('P', 1, unsigned long long)
 # define PERFMON_GETPCR			_IOR('P', 2, unsigned long long)
 #endif
-
-/* Cached, pre-built {OsType,OsFlavor} and {Major,Minor,Build} tuples */
-static Eterm os_type_tuple;
-static Eterm os_version_tuple;
 
 static Eterm
 current_function(Process* p, ErtsHeapFactory *hfact, Process* rp,
@@ -2665,7 +2662,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 			       NIL));
     } 
     else if (BIF_ARG_1 == am_os_type) {
-	BIF_RET(os_type_tuple);
+	BIF_RET(erts_get_global_literal(ERTS_LIT_OS_TYPE));
     }
     else if (BIF_ARG_1 == am_allocator) {
 	BIF_RET(erts_allocator_options((void *) BIF_P));
@@ -2685,7 +2682,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
         BIF_RET(am_false);
     }
     else if (BIF_ARG_1 == am_os_version) {
-	BIF_RET(os_version_tuple);
+	BIF_RET(erts_get_global_literal(ERTS_LIT_OS_VERSION));
     }
     else if (BIF_ARG_1 == am_version) {
 	int n = sys_strlen(ERLANG_VERSION);
@@ -5486,21 +5483,22 @@ static void os_info_init(void)
     int major, minor, build;
     char* buf = erts_alloc(ERTS_ALC_T_TMP, 1024); /* More than enough */
     Eterm* hp;
+    Eterm tuple;
 
     os_flavor(buf, 1024);
     flav = erts_atom_put((byte *) buf, sys_strlen(buf), ERTS_ATOM_ENC_LATIN1, 1);
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    hp = erts_alloc(ERTS_ALC_T_LITERAL, (3+4)*sizeof(Eterm));
-    os_type_tuple = TUPLE2(hp, type, flav);
-    erts_set_literal_tag(&os_type_tuple, hp, 3);
+    hp = erts_alloc_global_literal(ERTS_LIT_OS_TYPE, 3);
+    tuple = TUPLE2(hp, type, flav);
+    erts_register_global_literal(ERTS_LIT_OS_TYPE, tuple);
 
-    hp += 3;
+    hp = erts_alloc_global_literal(ERTS_LIT_OS_VERSION, 4);
     os_version(&major, &minor, &build);
-    os_version_tuple = TUPLE3(hp,
-			      make_small(major),
-			      make_small(minor),
-			      make_small(build));
-    erts_set_literal_tag(&os_version_tuple, hp, 4);
+    tuple = TUPLE3(hp,
+                   make_small(major),
+                   make_small(minor),
+                   make_small(build));
+    erts_register_global_literal(ERTS_LIT_OS_VERSION, tuple);
 }
 
 void

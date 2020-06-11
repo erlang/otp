@@ -619,6 +619,21 @@ special(File,Procs) ->
             Pts = proplists:get_value(pts,Dict),
             io:format("  persistent terms ok",[]),
             ok;
+        ".global_literals" ->
+	    %% I registered a process as aaaaaaaa_global_literals in
+	    %% the dump to make sure it will be the first in the list
+	    %% when sorted on names.
+	    [#proc{pid=Pid0,name=Name}|_Rest] = lists:keysort(#proc.name,Procs),
+            "aaaaaaaa_global_literals" = Name,
+	    Pid = pid_to_list(Pid0),
+	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
+
+	    #proc{dict=Dict} = ProcDetails,
+            Globals = proplists:get_value(global_literals,Dict),
+            Globals = {os:type(),os:version()},
+            io:format("  global_literals ok",[]),
+            ok;
 	_ ->
 	    ok
     end,
@@ -704,9 +719,10 @@ do_create_dumps(DataDir,Rel) ->
             CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),
             CD7 = dump_with_maps(DataDir,Rel,"maps"),
             CD8 = dump_with_persistent_terms(DataDir,Rel,"persistent_terms"),
+            CD9 = dump_with_global_literals(DataDir,Rel,"global_literals"),
             TruncDumpMod = truncate_dump_mod(CD1),
             TruncatedDumpsBinary = truncate_dump_binary(CD1),
-	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7,CD8,
+	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7,CD8,CD9,
               TruncDumpMod|TruncatedDumpsBinary],
              DosDump};
 	_ ->
@@ -882,6 +898,16 @@ dump_with_persistent_terms(DataDir,Rel,DumpName) ->
     PzOpt = [{args,Pz}],
     {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
     {ok,_Pid} = rpc:call(N1,crashdump_helper,dump_persistent_terms,[]),
+    CD = dump(N1,DataDir,Rel,DumpName),
+    ?t:stop_node(n1),
+    CD.
+
+dump_with_global_literals(DataDir,Rel,DumpName) ->
+    Opt = rel_opt(Rel),
+    Pz = "-pz \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
+    PzOpt = [{args,Pz}],
+    {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
+    {ok,_Pid} = rpc:call(N1,crashdump_helper,dump_global_literals,[]),
     CD = dump(N1,DataDir,Rel,DumpName),
     ?t:stop_node(n1),
     CD.
