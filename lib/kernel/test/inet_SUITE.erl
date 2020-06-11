@@ -1122,42 +1122,43 @@ gethostnative_control_1(
 	 ++[H++D || H <- ["www.","www1.","www2.",""],
 		    D <- ["erlang.org","erlang.se"]]
 	 ++[H++"cslab.ericsson.net" || H <- ["morgoth.","hades.","styx."]]],
-    ?P("Hosts: "
+    ?P("ctrl-1: Hosts: "
        "~n   ~p", [Hosts]),
     %% Spawn some processes to do parallel lookups while
     %% I repeatedly do inet_gethost_native:control/1.
     TrapExit = process_flag(trap_exit, true),
     gethostnative_control_2([undefined], Interval, Delay, Cnt, N, Hosts),
     erlang:display(first_intermission),
-    ?P("First intermission: "
+    ?P("ctrl-1: First intermission: "
        "~n   Now starting control sequence ~p", [Seq]),
     gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts),
     erlang:display(second_intermission),
-    ?P("Second intermission: "
+    ?P("ctrl-1: Second intermission: "
        "~n   Now stopping control sequence ~p", [Seq]),
     gethostnative_control_2([undefined], Interval, Delay, Cnt, N, Hosts),
     true = process_flag(trap_exit, TrapExit),
-    ?P("done"),
+    ?P("control-1: done"),
     ok.
 
 gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts) ->
-    Tag = make_ref(),
-    Parent = self(),
-    Lookupers =
-	[spawn_link(
-	   fun() ->
-                   ?P("lookuper starting"),
-		   lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts) 
-	   end)
-	 || _ <- lists:seq(1, N)],
+    Tag       = make_ref(),
+    Parent    = self(),
+    Lookup    = fun() ->
+                        ?P("lookuper starting"),
+                        lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts) 
+                end,
+    Lookupers = [spawn_link(Lookup) || _ <- lists:seq(1, N)],
     control_loop(Seq, Interval, Tag, Lookupers, Seq),
     gethostnative_control_3(Tag, ok).
 
 gethostnative_control_3(Tag, Reason) ->
     receive
-	{Tag,Error} ->
+	{Tag, Lookuper, Error} ->
+            ?P("control-3: received lookup error from ~p: ~p",
+               [Lookuper, Error]),
 	    gethostnative_control_3(Tag, Error)
     after 0 ->
+            ?P("control-3: no (more) lookup errors"),
 	    Reason
     end.
 
@@ -1171,22 +1172,25 @@ control_loop([Op|Ops], Interval, Tag, Lookupers, Seq) ->
 		 Seq).
 
 control_loop_1(Op, Interval, Tag, Lookupers) ->
-    ?P("control-loop-1: await lookuper exit"),
+    ?P("ctrl-loop-1: await lookuper exit"),
     receive
 	{'EXIT', Pid, Reason} ->
 	    case Reason of
 		Tag -> % Done
-                    ?P("received expected exit from lookuper ~p", [Pid]),
+                    ?P("ctrl-loop-1: "
+                       "received expected exit from lookuper ~p", [Pid]),
 		    control_loop_1
 		      (Op, Interval, Tag,
 		       lists:delete(Pid, Lookupers));
 		_ ->
-                    ?P("received unexpected exit from lookuper ~p: "
+                    ?P("ctrl-loop-1: "
+                       "received unexpected exit from lookuper ~p: "
                        "~n   ~p", [Pid]),
 		    ct:fail("Lookuper died")
 	    end
     after Interval ->
-            ?P("control-loop-1: timeout => (maybe) attempt control ~p when"
+            ?P("ctrl-loop-1: "
+               "timeout => (maybe) attempt control ~p when"
                "~n   Lookupers: ~p", [Op, Lookupers]),
 	    if Op =/= undefined ->
 		    ok = inet_gethost_native:control(Op);
@@ -1197,23 +1201,23 @@ control_loop_1(Op, Interval, Tag, Lookupers) ->
     end.
 
 lookup_loop(_, _Delay, Tag, _Parent,  0, _Hosts) ->
-    ?P("done with ~p", [tag]),
+    ?P("lookup-loop: done with ~p", [tag]),
     exit(Tag);
 lookup_loop([], Delay, Tag, Parent, Cnt, Hosts) ->
-    ?P("begin lookup (~p) again when ~p", [Tag, Cnt]),
+    ?P("lookup-loop: begin lookup (~p) again when ~p", [Tag, Cnt]),
     lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts);
 lookup_loop([H|Hs], Delay, Tag, Parent, Cnt, Hosts) ->
-    ?P("try lookup (~p, ~p) ~p", [Tag, Cnt, H]),
+    ?P("lookup-loop: try lookup (~p, ~p) ~p", [Tag, Cnt, H]),
     case inet:gethostbyname(H) of
 	{ok, _Hent} ->
-            ?P("lookup: found"),
+            ?P("lookup-loop: lookup => found"),
             ok;
 	{error, nxdomain} ->
-            ?P("lookup: nxdomain"),
+            ?P("lookup-loop: lookup => nxdomain"),
             ok;
 	Error ->
-	    ?P("loopkup: error for ~p: ~p", [H, Error]),
-	    Parent ! {Tag, Error}
+	    ?P("loopkup-loop: lookup => error for ~p: ~p", [H, Error]),
+	    Parent ! {Tag, self(), Error}
     end,
     receive
     after rand:uniform(Delay) ->
