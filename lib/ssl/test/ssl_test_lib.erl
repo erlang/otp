@@ -2761,7 +2761,7 @@ check_sane_openssl_renegotiate(Config, _) ->
     check_sane_openssl_renegotiate(Config).
 
 check_sane_openssl_renegotiate(Config) ->
-    case os:cmd("openssl version") of  
+    case portable_cmd("openssl", ["version"]) of
 	"OpenSSL 1.0.0" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 0.9.8" ++ _ ->
@@ -2777,7 +2777,7 @@ check_sane_openssl_renegotiate(Config) ->
     end.
 
 openssl_allows_client_renegotiate(Config) ->
-     case os:cmd("openssl version") of  
+     case portable_cmd("openssl", ["version"]) of
 	"OpenSSL 1.1" ++ _ ->
 	    {skip, "OpenSSL does not allow client renegotiation"};
 	"LibreSSL" ++ _ ->
@@ -2787,7 +2787,7 @@ openssl_allows_client_renegotiate(Config) ->
      end.
 
 openssl_allows_server_renegotiate(Config) ->
-     case os:cmd("openssl version") of
+     case portable_cmd("openssl", ["version"]) of
 	"LibreSSL 3.1" ++ _ ->
 	    {skip, "LibreSSL 3.1 does not allow server renegotiation"};
          _ ->
@@ -2799,7 +2799,7 @@ workaround_openssl_s_clinent() ->
     %% https://bugs.archlinux.org/task/33919
     %% Bug seems to manifests it self if TLS version is not
     %% explicitly specified 
-    case os:cmd("openssl version") of 
+    case portable_cmd("openssl", ["version"]) of 
 	"OpenSSL 1.0.1c" ++ _ ->
 	    ["-no_tls1_2"];
 	"OpenSSL 1.0.1d" ++ _ ->
@@ -2934,10 +2934,7 @@ portable_open_port(Exe, Args) ->
 	      [{args, Args}, stderr_to_stdout]). 
 
 portable_cmd(Exe, Args) ->
-    AbsPath = os:find_executable(Exe),
-    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
-    Port = open_port({spawn_executable, AbsPath},
-                     [{args, Args}, stderr_to_stdout]),
+    Port = portable_open_port(Exe, Args),
     receive
          {Port, {data, Data}} ->
             catch erlang:port_close(Port),
@@ -3432,7 +3429,7 @@ erlang_ssl_receive_and_assert_negotiated_protocol(Socket, Protocol, Data) ->
     end. 
 
 check_openssl_npn_support(Config) ->
-    HelpText = os:cmd("openssl s_client --help"),
+    HelpText = portable_cmd("openssl", ["s_client --help"]),
     case string:str(HelpText, "nextprotoneg") of
         0 ->
             {skip, "Openssl not compiled with nextprotoneg support"};
@@ -3462,7 +3459,7 @@ new_config(PrivDir, ServerOpts0) ->
 
 
 openssl_sane_dtls_alpn() ->
-    case os:cmd("openssl version") of
+    case portable_cmd("openssl", ["version"]) of
         "OpenSSL 1.1.0g" ++ _ ->
             false;
         "OpenSSL 1.1.1 " ++ _ ->
@@ -3478,7 +3475,7 @@ openssl_sane_dtls_alpn() ->
     end.
 
 openssl_sane_dtls_session_reuse() ->
-    case os:cmd("openssl version") of
+    case portable_cmd("openssl", ["version"]) of
         "OpenSSL 1.1.1 " ++ _ ->
             false;
         "OpenSSL 1.1.1a" ++ _ ->
