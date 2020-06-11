@@ -18,6 +18,11 @@ IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Au
    goto continue
 )
 
+IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat". (
+   call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
+   goto continue
+)
+
 IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat". (
    call "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" %~1 > nul
    goto continue
