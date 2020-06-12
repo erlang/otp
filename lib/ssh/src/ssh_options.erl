@@ -377,7 +377,8 @@ default(server) ->
           #{default => ?DEFAULT_SHELL,
             chk => fun({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
                       (disabled) -> true;
-                      (V) -> check_function1(V) orelse check_function2(V)
+                      (V) -> check_function1(V) orelse
+                                 check_function2(V)
                    end,
             class => user_option
            },

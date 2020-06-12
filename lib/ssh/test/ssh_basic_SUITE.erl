@@ -1218,11 +1218,10 @@ shell_exit_status(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
 
-    ShellFun = fun (_User) -> spawn(fun() -> ok end) end,
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {user_dir, UserDir},
                                              {user_passwords, [{"vego", "morot"}]},
-                                             {shell, ShellFun},
+                                             {shell, {?MODULE,always_ok,[]}},
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ConnectionRef =
         ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
@@ -1236,14 +1235,15 @@ shell_exit_status(Config) when is_list(Config) ->
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
     ssh:stop_daemon(Pid).
 
-
+always_ok(_) -> ok.
+    
 %%----------------------------------------------------------------------------
 setopts_getopts(Config) ->
     process_flag(trap_exit, true),
     SystemDir = proplists:get_value(data_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
 
-    ShellFun = fun (_User) -> spawn(fun() -> ok end) end,
+    ShellFun = fun (_User, _Peer) -> spawn(fun() -> ok end) end,
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {user_dir, UserDir},
                                              {user_passwords, [{"vego", "morot"}]},
