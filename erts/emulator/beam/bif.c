@@ -5376,27 +5376,6 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
     return exiting;
 }
 
-BIF_RETTYPE get_module_info_1(BIF_ALIST_1)
-{
-    Eterm ret = erts_module_info_0(BIF_P, BIF_ARG_1);
-
-    if (is_non_value(ret)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    BIF_RET(ret);
-}
-
-
-BIF_RETTYPE get_module_info_2(BIF_ALIST_2)
-{
-    Eterm ret = erts_module_info_1(BIF_P, BIF_ARG_1, BIF_ARG_2);
-
-    if (is_non_value(ret)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    BIF_RET(ret);
-}
-
 BIF_RETTYPE dt_put_tag_1(BIF_ALIST_1)
 {
 #ifdef USE_VM_PROBES
