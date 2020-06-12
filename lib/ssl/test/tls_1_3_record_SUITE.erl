@@ -250,7 +250,7 @@ encode_decode(_Config) ->
     %%       e2 10 ad f3 00 aa 1f 26 60 e1 b2 2e 10 f1 70 f9 2a
     HKDFAlgo = sha256,
     Salt = binary:copy(<<?BYTE(0)>>, 32),
-    IKM = binary:copy(<<?BYTE(0)>>, 32),
+    _IKM = binary:copy(<<?BYTE(0)>>, 32),
     EarlySecret =
         hexstr2bin("33 ad 0a 1c 60 7e c0 3b 09 e6 cd 98 93 68 0c
           e2 10 ad f3 00 aa 1f 26 60 e1 b2 2e 10 f1 70 f9 2a"),
@@ -279,7 +279,7 @@ encode_decode(_Config) ->
         hexstr2bin("b1 58 0e ea df 6d d5 89 b8 ef 4f 2d 56
          52 57 8c c8 10 e9 98 01 91 ec 8d 05 83 08 ce a2 16 a2 1e"),
 
-    SPublicKey =
+    _SPublicKey =
         hexstr2bin("c9 82 88 76 11 20 95 fe 66 76 2b db f7 c6
          72 e1 56 d6 cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f"),
 
