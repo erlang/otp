@@ -257,7 +257,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 
     if (term_to_UWord(addr, &uaddr)) {
 	code_ptr = (BeamInstr *) uaddr;
-	if ((cmfa = find_function_from_pc(code_ptr)) == NULL) {
+	if ((cmfa = erts_find_function_from_pc(code_ptr)) == NULL) {
 	    BIF_RET(am_false);
 	}
     } else if (is_tuple(addr)) {
@@ -375,7 +375,7 @@ dbg_bt(Process* p, Eterm* sp)
 
     while (sp < stack) {
 	if (is_CP(*sp)) {
-	    ErtsCodeMFA* cmfa = find_function_from_pc(cp_val(*sp));
+	    ErtsCodeMFA* cmfa = erts_find_function_from_pc(cp_val(*sp));
 	    if (cmfa)
 		erts_fprintf(stderr,
 			     HEXF ": %T:%T/%bpu\n",
@@ -389,7 +389,7 @@ dbg_bt(Process* p, Eterm* sp)
 void
 dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
 {
-    ErtsCodeMFA* cmfa = find_function_from_pc(addr);
+    ErtsCodeMFA* cmfa = erts_find_function_from_pc(addr);
 
     if (cmfa == NULL) {
 	erts_fprintf(stderr, "???\n");
@@ -583,7 +583,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    case op_i_make_fun_Wt:
                 if (*sign == 'W') {
                     ErlFunEntry* fe = (ErlFunEntry *) *ap;
-                    ErtsCodeMFA* cmfa = find_function_from_pc(fe->address);
+                    ErtsCodeMFA* cmfa = erts_find_function_from_pc(fe->address);
 		    erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
                                cmfa->function, cmfa->arity);
                 } else {
@@ -623,7 +623,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             default:
                 {
                     BeamInstr* target = f_to_addr(addr, op, ap);
-                    ErtsCodeMFA* cmfa = find_function_from_pc(target);
+                    ErtsCodeMFA* cmfa = erts_find_function_from_pc(target);
                     if (!cmfa || erts_codemfa_to_code(cmfa) != target) {
                         erts_print(to, to_arg, "f(" HEXF ")", target);
                     } else {

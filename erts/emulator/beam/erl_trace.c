@@ -684,7 +684,7 @@ trace_sched_aux(Process *p, ErtsProcLocks locks, Eterm what)
 	curr_func = 0;
     else {
 	if (!p->current)
-	    p->current = find_function_from_pc(p->i);
+	    p->current = erts_find_function_from_pc(p->i);
 	curr_func = p->current != NULL;
     }
 
@@ -952,7 +952,7 @@ erts_trace_return_to(Process *p, BeamInstr *pc)
 {
     Eterm mfa;
 
-    ErtsCodeMFA *cmfa = find_function_from_pc(pc);
+    ErtsCodeMFA *cmfa = erts_find_function_from_pc(pc);
 
     if (!cmfa) {
 	mfa = am_undefined;
@@ -1953,7 +1953,7 @@ profile_runnable_proc(Process *p, Eterm status){
         if (p->current) {
             cmfa = p->current;
         } else {
-            cmfa = find_function_from_pc(p->i);
+            cmfa = erts_find_function_from_pc(p->i);
         }
     }
 

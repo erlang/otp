@@ -4353,7 +4353,7 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
     }
 
     /* Find calling module */
-    caller = find_function_from_pc(I);
+    caller = erts_find_function_from_pc(I);
     ASSERT(caller != NULL);
     mod_atom = caller->module;
     ASSERT(is_atom(mod_atom));

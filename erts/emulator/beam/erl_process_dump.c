@@ -433,7 +433,7 @@ stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
 static void
 print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
-    ErtsCodeMFA* cmfa = find_function_from_pc(x);
+    ErtsCodeMFA* cmfa = erts_find_function_from_pc(x);
     if (cmfa == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");

@@ -445,7 +445,7 @@ init_emulator(void)
 #define DTRACE_RETURN_FROM_PC(p, i)                                                        \
     do {                                                                                \
         ErtsCodeMFA* cmfa;                                                                  \
-        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc(i))) { \
+        if (DTRACE_ENABLED(function_return) && (cmfa = erts_find_function_from_pc(i))) { \
             DTRACE_RETURN((p), cmfa);                               \
         }                                                                               \
     } while(0)
@@ -593,8 +593,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
 	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
-	    ErtsCodeMFA *inptr = find_function_from_pc(start_time_i);
-	    ErtsCodeMFA *outptr = find_function_from_pc(c_p->i);
+	    ErtsCodeMFA *inptr = erts_find_function_from_pc(start_time_i);
+	    ErtsCodeMFA *outptr = erts_find_function_from_pc(c_p->i);
 	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
 	}
     }
@@ -668,7 +668,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 sys_strcpy(fun_buf, "<exiting>");
             } else {
-                ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
+                ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
                 if (cmfa) {
                     dtrace_fun_decode(c_p, cmfa,
                                       NULL, fun_buf);
@@ -1151,7 +1151,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 sys_strcpy(fun_buf, "<exiting>");
             } else {
-                ErtsCodeMFA *cmfa = find_function_from_pc(c_p->i);
+                ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
                 if (cmfa) {
 		    dtrace_fun_decode(c_p, cmfa, NULL, fun_buf);
                 } else {

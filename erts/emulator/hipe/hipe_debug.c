@@ -62,7 +62,7 @@ static void print_beam_pc(BeamInstr *pc)
     } else if (pc == &beam_apply[1]) {
 	printf("normal-process-exit");
     } else {
-	ErtsCodeMFA *cmfa = find_function_from_pc(pc);
+	ErtsCodeMFA *cmfa = erts_find_function_from_pc(pc);
 	if (cmfa) {
 	    fflush(stdout);
 	    erts_printf("%T:%T/%bpu + 0x%bpx",

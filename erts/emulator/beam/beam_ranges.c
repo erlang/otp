@@ -277,6 +277,31 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
     }
 }
 
+/*
+ * Force setting of the current function in a FunctionInfo
+ * structure. No source code location will be associated with
+ * the function.
+ */
+void
+erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa)
+{
+    fi->mfa = mfa;
+    fi->needed = 5;
+    fi->loc = LINE_INVALID_LOCATION;
+}
+
+/*
+ * Returns a pointer to {module, function, arity}, or NULL if not found.
+ */
+ErtsCodeMFA*
+erts_find_function_from_pc(BeamInstr* pc)
+{
+    FunctionInfo fi;
+
+    erts_lookup_function_info(&fi, pc, 0);
+    return fi.mfa;
+}
+
 static Range*
 find_range(BeamInstr* pc)
 {

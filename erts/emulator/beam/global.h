@@ -961,7 +961,7 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-ErtsCodeMFA* find_function_from_pc(BeamInstr* pc);
+ErtsCodeMFA* erts_find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
 void erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa);

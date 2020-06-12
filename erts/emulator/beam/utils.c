@@ -60,6 +60,7 @@
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_unicode.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
@@ -5072,4 +5073,49 @@ int erts_check_if_stack_grows_downwards(char *ptr)
         return 1;
     else
         return 0;
+}
+
+
+/*
+ * Build a single {M,F,A,Loction} item to be part of
+ * a stack trace.
+ */
+Eterm*
+erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
+{
+    Eterm loc = NIL;
+
+    if (fi->loc != LINE_INVALID_LOCATION) {
+	Eterm tuple;
+	int line = LOC_LINE(fi->loc);
+	int file = LOC_FILE(fi->loc);
+	Eterm file_term = NIL;
+
+	if (file == 0) {
+	    Atom* ap = atom_tab(atom_val(fi->mfa->module));
+	    file_term = buf_to_intlist(&hp, ".erl", 4, NIL);
+	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, file_term);
+	} else {
+            file_term = erts_atom_to_string(&hp, (fi->fname_ptr)[file-1]);
+	}
+
+	tuple = TUPLE2(hp, am_line, make_small(line));
+	hp += 3;
+	loc = CONS(hp, tuple, loc);
+	hp += 2;
+	tuple = TUPLE2(hp, am_file, file_term);
+	hp += 3;
+	loc = CONS(hp, tuple, loc);
+	hp += 2;
+    }
+
+    if (is_list(args) || is_nil(args)) {
+	*mfa_p = TUPLE4(hp, fi->mfa->module, fi->mfa->function,
+                        args, loc);
+    } else {
+	Eterm arity = make_small(fi->mfa->arity);
+	*mfa_p = TUPLE4(hp, fi->mfa->module, fi->mfa->function,
+                        arity, loc);
+    }
+    return hp + 5;
 }
