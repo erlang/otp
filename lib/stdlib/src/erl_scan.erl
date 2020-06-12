@@ -63,7 +63,7 @@
 -export_type([error_info/0,
               options/0,
               return_cont/0,
-              token/0,
+              token/0, tokens/0,
               tokens_result/0]).
 
 %% Removed functions and types

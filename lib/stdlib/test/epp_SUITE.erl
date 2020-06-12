@@ -29,7 +29,7 @@
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
-	 test_if/1,source_name/1,otp_16978/1,otp_16824/1]).
+	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
-     otp_14285, test_if, source_name, otp_16978,otp_16824].
+     otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -840,6 +840,21 @@ otp_8130(Config) when is_list(Config) ->
 
     _ = ifdef(Config),
 
+    ok.
+
+scan_file(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "source_name.erl"),
+
+    {ok, Toks, [{encoding, _}]} = epp:scan_file(File, []),
+    [FileForm1, ModuleForm, ExportForm,
+     FileForm2, FileForm3, FunctionForm,
+     {eof,_}] = Toks,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm1,
+    [{'-',_}, {atom,_,module}, {'(',_} | _ ] = ModuleForm,
+    [{'-',_}, {atom,_,export}, {'(',_} | _ ] = ExportForm,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm2,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm3,
     ok.
 
 macs(Epp) ->
