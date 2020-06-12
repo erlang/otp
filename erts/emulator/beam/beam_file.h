@@ -32,8 +32,6 @@
   (((Uint) (a) << 24) | ((Uint) (b) << 16) | ((Uint) (c) << 8) | (Uint) (d))
 
 typedef struct {
-    struct erl_drv_binary *decompressed_data;
-
     Sint32 form_id;
 
     Sint32 size;
@@ -54,7 +52,6 @@ int iff_init(const byte *data, size_t size, IFF_File *iff);
  *
  * @return 1 on success, 0 on failure */
 int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk);
-void iff_dtor(IFF_File *iff);
 
 typedef struct {
     /* The encoding that was used to create this table. This is only used for

@@ -462,8 +462,6 @@ bif erts_debug:lcnt_clear/0
 # New Bifs in R8.
 #
 
-bif code:get_chunk/2
-bif code:module_md5/1
 bif code:make_stub_module/3
 bif code:is_module_native/1
 
@@ -613,7 +611,6 @@ bif erlang:dt_append_vm_tag_data/1
 #
 # New in R16B.
 #
-bif erlang:prepare_loading/2
 bif erlang:finish_loading/1
 bif erlang:insert_element/3
 bif erlang:delete_element/2
@@ -769,3 +766,10 @@ bif erts_internal:abort_pending_connection/2
 #
 
 bif erts_internal:get_creation/0
+
+#
+# New in 24
+#
+bif erts_internal:prepare_loading/2
+bif erts_internal:beamfile_chunk/2
+bif erts_internal:beamfile_module_md5/1

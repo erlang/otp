@@ -110,6 +110,8 @@
 
 -export([crasher/6]).
 
+-export([prepare_loading/2, beamfile_chunk/2, beamfile_module_md5/1]).
+
 %%
 %% Await result of send to port
 %%
@@ -922,3 +924,25 @@ crasher(Node,Mod,Fun,Args,Opts,Reason) ->
     error_logger:warning_msg("** Can not start ~w:~w,~w (~w) on ~w **~n",
 			     [Mod,Fun,Args,Opts,Node]),
     erlang:exit(Reason).
+
+%%
+%% Actual BIF for erlang:prepare_loading/2, which decompresses the module when
+%% necessary to save us from having to do it in C code.
+%%
+-spec prepare_loading(Module, Code) -> PreparedCode | {error, Reason} when
+      Module :: module(),
+      Code :: binary(),
+      PreparedCode :: erlang:prepared_code(),
+      Reason :: badfile.
+prepare_loading(_Module, _Code) ->
+    erlang:nif_error(undefined).
+
+-spec beamfile_chunk(Bin, Chunk) -> binary() | undefined when
+      Bin :: binary(),
+      Chunk :: string().
+beamfile_chunk(_Bin, _Chunk) ->
+    erlang:nif_error(undefined).
+
+-spec beamfile_module_md5(binary()) -> binary() | undefined.
+beamfile_module_md5(_Bin) ->
+    erlang:nif_error(undefined).

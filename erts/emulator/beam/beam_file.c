@@ -669,8 +669,6 @@ static int parse_code_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     return 1;
 }
 
-ErlDrvBinary *erts_gzinflate_buffer(char*, int);
-
 static int read_beam_chunks(const IFF_File *file,
                             int count, const Uint *ids,
                             IFF_Chunk *chunks) {
@@ -960,8 +958,6 @@ void beamfile_free(BeamFile *beam) {
     if (beam->dynamic_literals.entries) {
         beamfile_literal_dtor(&beam->dynamic_literals);
     }
-
-    iff_dtor(&beam->iff);
 }
 
 Sint beamfile_add_literal(BeamFile *beam, Eterm term) {
@@ -1085,18 +1081,7 @@ int iff_init(const byte *data, size_t size, IFF_File *iff) {
     beamreader_init(data, size, &reader);
 
     LoadAssert(beamreader_read_i32(&reader, &form_id));
-
-    /* Decompress the module if necessary. */
-    if (form_id != MakeIffId('F', 'O', 'R', '1')) {
-        ErlDrvBinary *bin = erts_gzinflate_buffer((char*)data, size);
-
-        LoadAssert(bin);
-        iff->decompressed_data = bin;
-
-        beamreader_init((const byte*)bin->orig_bytes, bin->orig_size, &reader);
-        LoadAssert(beamreader_read_i32(&reader, &form_id));
-        LoadAssert(form_id == MakeIffId('F', 'O', 'R', '1'));
-    }
+    LoadAssert(form_id == MakeIffId('F', 'O', 'R', '1'));
 
     LoadAssert(beamreader_read_i32(&reader, &form_size));
     LoadAssert(beamreader_read_bytes(&reader, form_size, &real_data));
@@ -1105,13 +1090,6 @@ int iff_init(const byte *data, size_t size, IFF_File *iff) {
     iff->size = form_size;
 
     return 1;
-}
-
-void iff_dtor(IFF_File *iff) {
-    if (iff->decompressed_data) {
-        driver_free_binary(iff->decompressed_data);
-        iff->decompressed_data = NULL;
-    }
 }
 
 int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk)

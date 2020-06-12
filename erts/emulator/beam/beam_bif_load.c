@@ -160,7 +160,7 @@ static int read_iff_list(Eterm iff_list, Uint *res) {
 }
 
 BIF_RETTYPE
-code_get_chunk_2(BIF_ALIST_2)
+erts_internal_beamfile_chunk_2(BIF_ALIST_2)
 {
     Uint search_iff;
     IFF_Chunk chunk;
@@ -185,10 +185,27 @@ code_get_chunk_2(BIF_ALIST_2)
 
     if (iff_init(start, binary_size(Bin), &iff)) {
         if (iff_read_chunk(&iff, search_iff, &chunk) && chunk.size > 0) {
-            res = new_binary(BIF_P, (byte*)chunk.data, chunk.size);
-        }
+            Sint offset, bitoffs, bitsize;
+            Eterm real_bin;
 
-        iff_dtor(&iff);
+            ERTS_GET_REAL_BIN(Bin, real_bin, offset, bitoffs, bitsize);
+
+            if (bitoffs) {
+                res = new_binary(BIF_P, (byte*)chunk.data, chunk.size);
+            } else {
+                ErlSubBin *sb = (ErlSubBin*)HAlloc(BIF_P, ERL_SUB_BIN_SIZE);
+
+                sb->thing_word = HEADER_SUB_BIN;
+                sb->orig = real_bin;
+                sb->size = chunk.size;
+                sb->bitsize = 0;
+                sb->bitoffs = 0;
+                sb->offs = offset + (chunk.data - start);
+                sb->is_writable = 0;
+
+                res = make_binary(sb);
+            }
+        }
     }
 
     erts_free_aligned_binary_bytes(temp_alloc);
@@ -198,7 +215,7 @@ code_get_chunk_2(BIF_ALIST_2)
 
 /* Calculate the MD5 for a module. */
 BIF_RETTYPE
-code_module_md5_1(BIF_ALIST_1)
+erts_internal_beamfile_module_md5_1(BIF_ALIST_1)
 {
     byte* temp_alloc;
     byte* bytes;
@@ -280,7 +297,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 }
 
 BIF_RETTYPE
-prepare_loading_2(BIF_ALIST_2)
+erts_internal_prepare_loading_2(BIF_ALIST_2)
 {
     byte* temp_alloc = NULL;
     byte* code;

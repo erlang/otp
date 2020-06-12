@@ -1552,9 +1552,29 @@ timestamp() ->
       Module :: module(),
       Code :: binary(),
       PreparedCode :: prepared_code(),
-      Reason :: bad_file.
-prepare_loading(_Module, _Code) ->
-    erlang:nif_error(undefined).
+      Reason :: badfile.
+prepare_loading(Module, <<"FOR1",_/bits>>=Code) ->
+    prepare_loading_1(Module, Code);
+prepare_loading(Module, Code0) ->
+    %% Corrupt header or compressed module, attempt to decompress it before
+    %% passing it to the loader and leave error signalling to the BIF.
+    Code = try zlib:gunzip(Code0) of
+               Decompressed -> Decompressed
+           catch
+               _:_ -> Code0
+           end,
+
+    prepare_loading_1(Module, Code).
+
+prepare_loading_1(Module, Code) ->
+    try erts_internal:prepare_loading(Module, Code) of
+        Res -> Res
+    catch
+        error:Reason ->
+            {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
+                (catch erlang:error(new_stacktrace, [Module,Code])),
+            erlang:raise(error, Reason, [{Mod,prepare_loading,L,Loc}|Rest])
+    end.
 
 %% pre_loaded/0
 -spec pre_loaded() -> [module()].
