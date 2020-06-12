@@ -465,24 +465,10 @@ init_openssl_server(Options) ->
             end,
     Args = maybe_force_ipv4(Args0),
     SslPort = ssl_test_lib:portable_open_port(Exe, Args),
+    wait_for_openssl_server(Port, proplists:get_value(protocol, Options, tls)),
     Pid ! {started, SslPort},
     Pid ! {self(), {port, Port}},
-    case openssl_server_started(SslPort) of
-        true ->
-            openssl_server_loop(Pid, SslPort, Args);
-        false ->
-            {error, openssl_server}
-    end.
-
-openssl_server_started(_Port) ->
-    receive
-        {Port, {data, Data}} ->
-            ct:log("~p:~p~n Openssl~n ~s~n",[?MODULE,?LINE, Data]),
-            verify_openssl_server_started(Port, Data)
-    after
-        5000 ->
-            false
-    end.
+    openssl_server_loop(Pid, SslPort, Args).
 
 openssl_server_loop(Pid, SslPort, Args) ->
     receive
@@ -550,15 +536,6 @@ init_openssl_client(Options) ->
     Pid = proplists:get_value(from, Options),
     SslPort = start_client(openssl, Port, Options, [{version, Version}]),
     openssl_client_loop(Pid, SslPort, []).
-
-
-verify_openssl_server_started(Port, Data) ->
-    case re:run(Data, ".*CIPHER is.*") of
-        nomatch ->
-            openssl_server_started(Port);
-        {match, _} ->
-            true
-    end.
 
 openssl_client_loop(Pid, SslPort, Args) ->
     Pid ! {connected, SslPort},
