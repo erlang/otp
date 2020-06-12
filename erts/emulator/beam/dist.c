@@ -5833,6 +5833,7 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
     Eterm l;
     int async_connect = 1;
 
+    p->fvalue = am_badopt;
     for (l = Options; l != NIL && is_list(l); l = CDR(list_val(l))) {
 	Eterm t = CAR(list_val(l));
 	if (t == am_allow_passive_connect) {
@@ -5842,11 +5843,11 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
 	     */
 	    async_connect = 0;
 	} else {
-	    BIF_ERROR(p, BADARG);
+	    BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
 	}
     }
     if (l != NIL) {
-	BIF_ERROR(p, BADARG);
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
     if (l != NIL)
         goto badarg;

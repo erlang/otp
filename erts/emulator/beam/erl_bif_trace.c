@@ -803,8 +803,9 @@ Eterm trace_info_2(BIF_ALIST_2)
     } else if (is_tuple(What)) {
 	res = trace_info_func(p, What, Key);
     } else {
+        p->fvalue = am_badopt;
 	erts_release_code_write_permission();
-	BIF_ERROR(p, BADARG);
+        BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
     erts_release_code_write_permission();
 
@@ -980,8 +981,8 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 	       && external_pid_dist_entry(pid_spec) == erts_this_dist_entry) {
 	    return am_undefined;
     } else {
-    error:
-	BIF_ERROR(p, BADARG);
+        p->fvalue = am_badopt;
+        BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
 
     if (key == am_flags) {
@@ -1002,7 +1003,8 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
         hp = HAlloc(p, 3);
         return TUPLE2(hp, key, tracer);
     } else {
-	goto error;
+    error:
+        BIF_ERROR(p, BADARG);
     }
 }
 

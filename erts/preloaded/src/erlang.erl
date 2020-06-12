@@ -141,7 +141,7 @@
 -export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
 -export([display_nl/0, display_string/1, erase/0, erase/1]).
--export([error/1, error/2, exit/1, exit/2, exit_signal/2, external_size/1]).
+-export([error/1, error/2, error/3, exit/1, exit/2, exit_signal/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
 	 float_to_list/1, float_to_list/2, floor/1]).
@@ -840,6 +840,19 @@ error(_Reason) ->
       Reason :: term(),
       Args :: [term()].
 error(_Reason, _Args) ->
+    erlang:nif_error(undefined).
+
+%% error/3
+%% Shadowed by erl_bif_types: erlang:error/3
+-spec error(Reason, Args, Options) -> no_return() when
+      Reason :: term(),
+      Args :: [term()],
+      Options :: [Option],
+      Option :: {'error_info', ErrorInfoMap},
+      ErrorInfoMap :: #{'cause' => term(),
+                        'module' => module(),
+                        'function' => atom()}.
+error(_Reason, _Args, _Options) ->
     erlang:nif_error(undefined).
 
 %% exit/1

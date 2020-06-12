@@ -778,7 +778,7 @@ deep_exception() ->
     1 = trace_func({erlang,'++','_'}, Prog),
     1 = trace_func({erlang,exit,1}, Prog),
     1 = trace_func({erlang,throw,1}, Prog),
-    2 = trace_func({erlang,error,'_'}, Prog),
+    3 = trace_func({erlang,error,'_'}, Prog),
     1 = trace_func({lists,reverse,2}, Prog),
 
     deep_exception(?LINE, exit, [paprika], 1, 
@@ -1076,7 +1076,7 @@ exception_nocatch() ->
     1 = erlang:trace_pattern({?MODULE,id,'_'}, Prog),
     1 = erlang:trace_pattern({erlang,exit,1}, Prog),
     1 = erlang:trace_pattern({erlang,throw,1}, Prog),
-    2 = erlang:trace_pattern({erlang,error,'_'}, Prog),
+    3 = erlang:trace_pattern({erlang,error,'_'}, Prog),
     Q1 = {make_ref(),Prog},
     T1 = 
     exception_nocatch(?LINE, exit, [Q1], 3, 

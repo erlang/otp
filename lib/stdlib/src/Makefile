@@ -71,6 +71,7 @@ MODULES= \
 	erl_posix_msg \
 	erl_pp \
 	erl_scan \
+	erl_stdlib_errors \
 	erl_tar \
 	error_logger_file_h \
 	error_logger_tty_h \

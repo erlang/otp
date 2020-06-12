@@ -45,6 +45,7 @@
   <xi:include href="digraph_utils.xml"/>
   <xi:include href="epp.xml"/>
   <xi:include href="erl_anno.xml"/>
+  <xi:include href="erl_error.xml"/>
   <xi:include href="erl_eval.xml"/>
   <xi:include href="erl_expand_records.xml"/>
   <xi:include href="erl_id_trans.xml"/>

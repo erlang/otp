@@ -1422,10 +1422,6 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     int   code;
     char  delimiter = '\n';
 
-    if (!is_binary(BIF_ARG_2) || 
-        (!is_list(BIF_ARG_3) && !is_nil(BIF_ARG_3))) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
     switch (BIF_ARG_1) {
     case make_small(0): case am_raw: type = TCP_PB_RAW; break;
     case make_small(1): type = TCP_PB_1; break;
@@ -1443,6 +1439,12 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     case am_httph_bin: type = TCP_PB_HTTPH_BIN; break;
     case am_ssl_tls: type = TCP_PB_SSL_TLS; break;
     default:
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
+
+    if (!is_binary(BIF_ARG_2) ||
+        (!is_list(BIF_ARG_3) && !is_nil(BIF_ARG_3))) {
         BIF_ERROR(BIF_P, BADARG);
     }
 

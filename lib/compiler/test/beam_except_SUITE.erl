@@ -111,8 +111,8 @@ coverage(_) ->
                 (catch fc([a,b,c]))
     end,
 
-    {'EXIT',{undef,[{erlang,error,[a,b,c],_}|_]}} =
-	(catch erlang:error(a, b, c)),
+    {'EXIT',{undef,[{erlang,error,[a,b,c,d],_}|_]}} =
+	(catch erlang:error(a, b, c, d)),
 
     {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
 	(catch bar(x)),

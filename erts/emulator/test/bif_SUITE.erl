@@ -1297,14 +1297,14 @@ test_length(_, _, _, _, _) -> ok.
 fixed_apply_badarg(Config) when is_list(Config) ->
     Bad = id({}),
 
-    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[{error_info,_}]} | _]}} =
         (catch Bad:baz(a,b)),
-    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[{error_info,_}]} | _]}} =
         (catch baz:Bad(c,d)),
 
-    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[{error_info,_}]} | _]}} =
         (catch apply(Bad,baz,[e,f])),
-    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[{error_info,_}]} | _]}} =
         (catch apply(baz,Bad,[g,h])),
 
     ok.
