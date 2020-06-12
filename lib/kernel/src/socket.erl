@@ -708,7 +708,7 @@ info(Socket) ->
                                                   boolean()}]}]}].
 supports() ->
     [{Key1, supports(Key1)}
-     || Key1 <- [options, send_flags, recv_flags]]
+     || Key1 <- [options, send_flags, recv_flags, protocols]]
         ++ prim_socket:supports().
 
 -spec supports(Key1 :: term()) ->

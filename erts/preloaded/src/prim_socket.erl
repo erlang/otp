@@ -350,7 +350,24 @@ on_load(Extra) when is_map(Extra) ->
                         socket_debug => true,
                         debug_filename =>
                             encode_path(DebugFilename)}
-          end).
+          end),
+    Protocols = nif_supports(protocols),
+    ProtocolsTable =
+        maps:merge(
+          maps:from_list(flatten_protocols(Protocols)),
+          maps:from_list(
+            [{Num, Name} || {[Name | _], Num} <- Protocols])),
+    persistent_term:put({?MODULE, protocols}, ProtocolsTable).
+
+flatten_protocols([{[Name | Aliases], Num} | Protocols]) ->
+    flatten_protocols(Protocols, Aliases, Name, Num);
+flatten_protocols([]) ->
+    [].
+
+flatten_protocols(Protocols, [Alias | Aliases], Name, Num) ->
+    [{Alias, Num} | flatten_protocols(Protocols, Aliases, Name, Num)];
+flatten_protocols(Protocols, [], Name, Num) ->
+    [{Name, Num} | flatten_protocols(Protocols)].
 
 %% ===========================================================================
 %% API for 'socket'
@@ -395,6 +412,13 @@ socket_debug(D) ->
 supports() ->
     nif_supports().
      
+supports(protocols) ->
+    maps:fold(
+      fun (Name, _Num, Acc) when is_atom(Name) ->
+              [{Name, true} | Acc];
+          (Num, _Name, Acc) when is_integer(Num) ->
+              Acc
+      end, [], persistent_term:get({?MODULE, protocols}));
 supports(Key) ->
     nif_supports(Key).
 

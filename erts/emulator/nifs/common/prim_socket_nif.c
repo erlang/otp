@@ -1097,6 +1097,8 @@ typedef struct {
      */
     BOOLEAN_T    iow; // Where do we send this? Subscription?
 
+    ErlNifMutex* protocolsMtx;
+
     ErlNifMutex* cntMtx; /* Locks the below */
     /* Its extreme overkill to have these counters be 64-bit,
      * but since the other counters are, its much simpler to
@@ -1264,6 +1266,7 @@ static ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env);
 //static ERL_NIF_TERM esock_supports_netns(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
 
 static ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
                                 int          fd,
@@ -2753,6 +2756,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(policy_fail);      \
     LOCAL_ATOM_DECL(port_unreach);     \
     LOCAL_ATOM_DECL(probe);            \
+    LOCAL_ATOM_DECL(protocols);        \
     LOCAL_ATOM_DECL(rcvctrlbuf);       \
     LOCAL_ATOM_DECL(read_byte);        \
     LOCAL_ATOM_DECL(read_fails);       \
@@ -3542,6 +3546,8 @@ ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
         result = esock_supports_send_flags(env);
     else if (COMPARE(key, atom_recv_flags) == 0)
         result = esock_supports_recv_flags(env);
+    else if (COMPARE(key, atom_protocols) == 0)
+        result = esock_supports_protocols(env);
     else
         result = MKEL(env);
 
@@ -4976,6 +4982,93 @@ ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env)
     TARRAY_TOLIST(rflags, env, &rflagsL);
     
     return rflagsL;
+}
+#endif // #ifndef __WIN32__
+
+
+#ifndef __WIN32__
+static
+ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
+{
+    ERL_NIF_TERM protocols;
+    struct protoent *pe;
+    int stayopen;
+
+    protocols = MKEL(env);
+
+    /* Defaults for known protocols in case getprotoent()
+     * does not work or does not exist
+     */
+    
+    protocols =
+        MKC(env,
+            MKT2(env,
+                 MKL1(env, esock_atom_ip),
+                 MKI(env,
+#ifdef SOL_IP
+                     SOL_IP
+#else
+                     IPPROTO_IP
+#endif
+                     )),
+            protocols);
+
+#ifdef HAVE_IPV6
+    protocols =
+        MKC(env,
+            MKT2(env,
+                 MKL1(env, esock_atom_ipv6),
+                 MKI(env,
+#ifdef SOL_IPV6
+                     SOL_IPV6
+#else
+                     IPPROTO_IPV6
+#endif
+                     )),
+            protocols);
+#endif
+
+    protocols =
+        MKC(env,
+            MKT2(env, MKL1(env, esock_atom_tcp), MKI(env, IPPROTO_TCP)),
+            protocols);
+
+    protocols =
+        MKC(env,
+            MKT2(env, MKL1(env, esock_atom_udp), MKI(env, IPPROTO_UDP)),
+            protocols);
+
+#ifdef HAVE_SCTP
+    protocols =
+        MKC(env,
+            MKT2(env, MKL1(env, esock_atom_sctp), MKI(env, IPPROTO_SCTP)),
+            protocols);
+#endif
+
+#if defined(HAVE_GETPROTOENT) && \
+    defined(HAVE_SETPROTOENT) && \
+    defined(HAVE_ENDPROTOENT)
+
+    MLOCK(data.protocolsMtx);
+    stayopen = TRUE;
+    setprotoent(stayopen);
+    while ((pe = getprotoent()) != NULL) {
+        ERL_NIF_TERM names;
+        char **aliases;
+
+        names = MKEL(env);
+        for (aliases = pe->p_aliases;  *aliases != NULL;  aliases++)
+            names = MKC(env, MKA(env, *aliases), names);
+        names = MKC(env, MKA(env, pe->p_name), names);
+
+        protocols =
+            MKC(env, MKT2(env, names, MKI(env, pe->p_proto)), protocols);
+    }
+    endprotoent();
+    MUNLOCK(data.protocolsMtx);
+
+#endif
+    return protocols;
 }
 #endif // #ifndef __WIN32__
 
@@ -18600,6 +18693,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
         if (debug_filename != NULL)
             FREE(debug_filename);
     }
+
+    data.protocolsMtx = MCREATE("esock.protocols");
 
     /* +++ Global Counters +++ */
     data.cntMtx         = MCREATE("esock.gcnt");
