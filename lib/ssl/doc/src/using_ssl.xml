@@ -78,7 +78,7 @@ ok</code>
       
       <p><em>Step 5:</em> Do the TLS handshake:</p>
       <code type="erl">4 server> {ok, Socket} = ssl:handshake(TLSTransportSocket).
-ok</code>
+{ok,{sslsocket, [...]}}</code>
       
       <p><em>Step 6:</em> Send a message over TLS:</p>
       <code type="erl">5 server> ssl:send(Socket, "foo").

@@ -2817,7 +2817,7 @@ end_per_testcase(_Func,_Config) ->
 %% Description:
 %%   Tests the VC by referring to an undefined parameter entity within an
 %%   external entity.
-'not-wf-not-sa-005'(Config) -> {skip, "unknown parameter reference in external (VC test not WFC)"}.
+'not-wf-not-sa-005'(_Config) -> {skip, "unknown parameter reference in external (VC test not WFC)"}.
 %%    file:set_cwd(datadir(Config)),
 %%    Path = filename:join([datadir(Config),"xmltest","not-wf/not-sa/005.xml"]),
 %%    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
@@ -2895,7 +2895,7 @@ end_per_testcase(_Func,_Config) ->
 %% Entities: both
 %% Description:
 %%   Tests the WFC by having an external general entity be self-recursive.
-'not-wf-ext-sa-001'(Config) -> {skip, "recursive external reference"}.
+'not-wf-ext-sa-001'(_Config) -> {skip, "recursive external reference"}.
 %%    file:set_cwd(datadir(Config)),
 %%    Path = filename:join([datadir(Config),"xmltest","not-wf/ext-sa/001.xml"]),
 %%    R = xmerl_sax_parser:file(Path, [{event_fun, fun sax_canon/3}]),
