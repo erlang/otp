@@ -62,7 +62,8 @@
 	 system_dir_option/1, 
 	 unexpectedfun_option_client/1, 
 	 unexpectedfun_option_server/1, 
-	 user_dir_option/1, 
+	 user_dir_option/1,
+	 user_dir_fun_option/1,
 	 connectfun_disconnectfun_server/1,
 	 hostkey_fingerprint_check/1,
 	 hostkey_fingerprint_check_md5/1,
@@ -147,6 +148,7 @@ groups() ->
 			    max_sessions_sftp_start_channel_sequential
 			   ]},
      {dir_options, [], [user_dir_option,
+                        user_dir_fun_option,
 			system_dir_option]}
     ].
 
@@ -555,7 +557,7 @@ system_dir_option(Config) ->
 	    ct:fail("Didn't detect that option is a plain file", [])
     end.
 
-
+%%--------------------------------------------------------------------
 user_dir_option(Config) ->
     DirUnread = proplists:get_value(unreadable_dir,Config),
     FileRead = proplists:get_value(readable_file,Config),
@@ -575,6 +577,44 @@ user_dir_option(Config) ->
 	{error,econnrefused} ->
 	    ct:fail("Didn't detect that option is a plain file", [])
     end.
+
+%%--------------------------------------------------------------------
+user_dir_fun_option(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SysDir = filename:join(PrivDir,"system"),
+    ssh_test_lib:setup_all_host_keys(DataDir, SysDir),
+    UserDir = filename:join(PrivDir,"user"),
+    ssh_test_lib:setup_all_user_keys(DataDir, UserDir),
+
+    Parent = self(),
+    Ref = make_ref(),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir_fun, fun(User) ->
+                                                                    ct:log("user_dir_fun called ~p",[User]),
+                                                                    Parent ! {user,Ref,User},
+                                                                    UserDir
+                                                            end},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {user_dir, UserDir},
+                                          {auth_methods,"publickey"},
+					  {user_interaction, false}]),
+    receive
+        {user,Ref,"foo"} ->
+            ssh:stop_daemon(Pid),
+            ok;
+        {user,Ref,What} ->
+            ssh:stop_daemon(Pid),
+            ct:log("Got ~p",[What]),
+            {fail, bad_userid}
+    after 2000 ->
+            ssh:stop_daemon(Pid),
+            {fail,timeout_in_receive}
+    end.
+
 
 %%--------------------------------------------------------------------
 %%% validate client that uses the 'ssh_msg_debug_fun' option
@@ -1128,7 +1168,7 @@ id_string_random_client(Config) ->
     receive
 	{id,Server,Id="SSH-2.0-Erlang"++_} ->
 	    ct:fail("Unexpected id: ~s.",[Id]);
-	{id,Server,Rnd="SSH-2.0-"++_} ->
+	{id,Server,Rnd="SSH-2.0-"++ID} when 4=<length(ID),length(ID)=<7 -> %% Add 2 for CRLF
 	    ct:log("Got correct ~s",[Rnd]);
 	{id,Server,Id} ->
 	    ct:fail("Unexpected id: ~s.",[Id])
@@ -1157,14 +1197,21 @@ id_string_own_string_server_trail_space(Config) ->
 
 %%--------------------------------------------------------------------
 id_string_random_server(Config) ->
-    {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,random}]),
+    %% Check undocumented format of id_string. First a bad variant:
+    {error,{eoptions,_}} = ssh:daemon(0, [{id_string,{random,8,6}}]),
+    %% And then a correct one:
+    {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,{random,6,8}}]),
     {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-"++Rnd} = gen_tcp:recv(S1, 0, 2000),
     case Rnd of
 	"Erlang"++_ -> ct:log("Id=~p",[Rnd]),
 		       {fail,got_default_id};
 	"Olle\r\n" -> {fail,got_previous_tests_value};
-	_ -> ct:log("Got ~s.",[Rnd])
+	_ when 8=<length(Rnd),length(Rnd)=<10 -> %% Add 2 for CRLF
+	    ct:log("Got correct ~s",[Rnd]);
+	_ ->
+            ct:log("Got wrong sized ~s.",[Rnd]),
+            {fail,got_wrong_size}
     end.
 
 %%--------------------------------------------------------------------

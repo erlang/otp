@@ -1024,6 +1024,24 @@ setup_all_host_keys(DataDir, SysDir) ->
                         end
                 end, [], ssh_transport:supported_algorithms(public_key)).
 
+
+setup_all_user_keys(DataDir, UserDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_user_key(Alg, DataDir, UserDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+
 setup_user_key(SshAlg, DataDir, UserDir) ->
     file:make_dir(UserDir),
     %% Copy private user key to user's dir
