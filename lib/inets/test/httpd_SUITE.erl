@@ -372,7 +372,9 @@ init_per_testcase(disk_log_bad_file, Config0) ->
 init_per_testcase(erl_script_timeout_default, Config) ->
     ct:timetrap({seconds, 60}),
     dbg(erl_script_timeout_default, Config, init);
-
+init_per_testcase(medium = Case, Config) ->
+    ct:timetrap({seconds, 150}),
+    dbg(Case, Config, init);
 init_per_testcase(Case, Config) ->
     ct:timetrap({seconds, 20}),
     dbg(Case, Config, init).
