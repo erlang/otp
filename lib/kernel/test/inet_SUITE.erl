@@ -1184,9 +1184,9 @@ control_loop_1(Op, Interval, Tag, Lookupers) ->
 		       lists:delete(Pid, Lookupers));
 		_ ->
                     ?P("ctrl-loop-1: "
-                       "received unexpected exit from lookuper ~p: "
-                       "~n   ~p", [Pid]),
-		    ct:fail("Lookuper died")
+                       "received unexpected exit from ~p: "
+                       "~n   ~p", [Pid, Reason]),
+		    ct:fail(?P("Unexpected exit from ~p", [Pid]))
 	    end
     after Interval ->
             ?P("ctrl-loop-1: "
