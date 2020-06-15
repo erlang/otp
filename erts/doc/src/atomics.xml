@@ -73,7 +73,9 @@
       <name name="new" arity="2" since="OTP 21.2"/>
       <fsummary>Create atomic array</fsummary>
       <desc>
-        <p>Create a new atomic array of <c><anno>Arity</anno></c> atomics.</p>
+        <p>Create a new array of <c><anno>Arity</anno></c>
+	number of atomics. All atomics in the array are initially set
+	to zero.</p>
 	<p>Argument <c><anno>Opts</anno></c> is a list of the following possible
 	options:</p>
 	<taglist>

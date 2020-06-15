@@ -112,12 +112,12 @@
           <tag><c>microsecond</c></tag>
           <item>
             <p>Symbolic representation of the time unit
-              represented by the integer <c>1000000</c>.</p>
+              represented by the integer <c>1000_000</c>.</p>
           </item>
           <tag><c>nanosecond</c></tag>
           <item>
             <p>Symbolic representation of the time unit
-              represented by the integer <c>1000000000</c>.</p>
+              represented by the integer <c>1000_000_000</c>.</p>
           </item>
           <tag><c>native</c></tag>
           <item>
@@ -4467,7 +4467,7 @@ RealSystem = system + MissedSystem</code>
             driver of the port does not support this. For more
             information, see driver flag
             <seecref marker="driver_entry#driver_flags">
-            <c>![CDATA[ERL_DRV_FLAG_SOFT_BUSY]]</c></seecref>.
+            <c>ERL_DRV_FLAG_SOFT_BUSY</c></seecref>.
           </item>
           <tag><c>nosuspend</c></tag>
           <item>The calling process is not suspended if the port is
@@ -5670,7 +5670,7 @@ RealSystem = system + MissedSystem</code>
         <p>Removes old code for <c><anno>Module</anno></c>.
           Before this BIF is used,
           <seemfa marker="#check_process_code/2">
-          <c>check_process_code/2</c></seemfa>is to be called to check
+          <c>check_process_code/2</c></seemfa> is to be called to check
           that no processes execute old code in the module.</p>
         <warning>
           <p>This BIF is intended for the code server (see
@@ -7753,7 +7753,7 @@ ok
             has been suspended
             more times by the calling process than can be represented by the
             currently used internal data structures. The system limit is
-            &gt; 2,000,000,000 suspends and will never be lower.
+            greater than 2 billion suspends and will never be lower.
           </item>
         </taglist>
       </desc>
@@ -10351,9 +10351,9 @@ hello
 <code type="none">
 timestamp() ->
     ErlangSystemTime = erlang:system_time(microsecond),
-    MegaSecs = ErlangSystemTime div 1000000000000,
-    Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
-    MicroSecs = ErlangSystemTime rem 1000000,
+    MegaSecs = ErlangSystemTime div 1000_000_000_000,
+    Secs = ErlangSystemTime div 1000_000 - MegaSecs*1000_000,
+    MicroSecs = ErlangSystemTime rem 1000_000,
     {MegaSecs, Secs, MicroSecs}.</code>
         <p>It, however, uses a native implementation that does
           not build garbage on the heap and with slightly better
@@ -11886,7 +11886,7 @@ true</pre>
       <desc>
         <p>Voluntarily lets other processes (if any) get a chance to
           execute. Using this function is similar to
-          <c>receive after 1 -> ok end</c>, except that <c>yield()</c>
+          <c>receive after 1 -> true end</c>, except that <c>yield()</c>
           is faster.</p>
         <warning>
           <p>There is seldom or never any need to use this BIF
