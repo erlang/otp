@@ -1314,6 +1314,7 @@ setopts_getopts(Config) ->
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ConnectionRef =
         ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {quiet_mode, true}, % Just to use quiet_mode once
                                           {user_dir, UserDir},
                                           {user, "vego"},
                                           {password, "morot"},
