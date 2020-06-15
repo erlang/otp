@@ -11,7 +11,7 @@
 %% limitations under the License.
 %%
 %% Copyright (c) 2001-2016 Richard Carlsson. Parts written by Ericsson
-%% are Copyright (c) Ericsson AB 2001-2017. All Rights Reserved.
+%% are Copyright (c) Ericsson AB 2001-2020. All Rights Reserved.
 %%
 
 -module(docgen_edoc_xml_cb).
@@ -807,7 +807,7 @@ label_anchor(Content, E) ->
 		   {em, Content}]}
     end.
 
-signature(Es, Name) -> 
+signature(Es, Name) ->
     [Name, "("] ++ seq(fun arg/1, Es) ++ [") -> term()", ?NL].
 
 arg(#xmlElement{content = Es}) ->
@@ -898,7 +898,7 @@ local_defs(Es) ->
 
 localdef(E = #xmlElement{content = Es}) ->
     Var = case get_elem(typevar, Es) of
-	      [] -> 
+	      [] ->
 		  [label_anchor(t_abstype(get_content(abstype, Es)), E)];
 	      [V] ->
 		  t_var(V)
@@ -954,7 +954,7 @@ see(#xmlElement{content=Es0} = E) ->
     Href0 = get_attrval(href, E),
     {Href, Es} = otp_xmlify_a_href(Href0, Es0),
     [makesee(Href, Es)].
-    
+
 equiv(Es) ->
     case get_content(equiv, Es) of
 	[] -> ["\s"];
@@ -990,7 +990,7 @@ makesee(Ref) ->
             {seeguide,"chapter#" ++ Anchor};
         [Mod,"type-"++Anchor] ->
             {seeerl,Mod ++ "#type-" ++ Anchor};
-        ["",Anchor] ->
+        ["",_Anchor] ->
             case get(type) of
                 chapter ->
                     {seeguide, Ref};
@@ -1258,7 +1258,7 @@ get_content(Name, Es) ->
     end.
 
 %% get_text(Tag, Es) -> string()
-%% If there is one element in Es with name Tag, and its content is 
+%% If there is one element in Es with name Tag, and its content is
 %% a single xmlText, return the value of this xmlText.
 %% Otherwise return "".
 get_text(Name, Es) ->
