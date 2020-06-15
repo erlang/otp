@@ -262,8 +262,7 @@ int main(int argc, char **argv)
 #endif
 						
     tty_smode.c_oflag =
-	1*OPOST  |/*Post-process output.*/
-	    1*ONLCR  |/*Map NL to CR-NL on output.*/
+	    0*ONLCR  |/*Map NL to CR-NL on output.*/
 #ifdef XTABS
 		1*XTABS  |/*Expand tabs to spaces. (Linux)*/
 #endif
