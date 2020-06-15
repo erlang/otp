@@ -50,6 +50,7 @@
 	 server_pwdfun_option/1,
 	 server_pwdfun_4_option/1,
 	 server_keyboard_interactive/1,
+	 server_keyboard_interactive_extra_msg/1,
 	 ssh_connect_arg4_timeout/1, 
 	 ssh_connect_negtimeout_parallel/1, 
 	 ssh_connect_negtimeout_sequential/1, 
@@ -103,6 +104,7 @@ all() ->
      server_pwdfun_option,
      server_pwdfun_4_option,
      server_keyboard_interactive,
+     server_keyboard_interactive_extra_msg,
      auth_method_kb_interactive_data_tuple,
      auth_method_kb_interactive_data_fun3,
      auth_method_kb_interactive_data_fun4,
@@ -390,7 +392,7 @@ server_pwdfun_4_option(Config) ->
 %%--------------------------------------------------------------------
 server_keyboard_interactive(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
-    SysDir = proplists:get_value(data_dir, Config),	  
+    SysDir = proplists:get_value(data_dir, Config),
     %% Test that the state works
     Parent = self(),
     PWDFUN = fun("foo",P="bar",_,S) -> Parent!{P,S},true; 
@@ -445,7 +447,26 @@ server_keyboard_interactive(Config) ->
 		  end, [{"incorrect",undefined},
 			{"Bad again",1},
 			{"bar",2}]).
-			
+
+%%--------------------------------------------------------------------
+server_keyboard_interactive_extra_msg(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {auth_methods,"keyboard-interactive"},
+                                             {tstflg, [{one_empty,true}]},
+                                             {user_passwords, [{"foo","bar"}]}
+                                            ]),
+
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "bar"},
+					  {user_dir, UserDir}]),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
 %%--------------------------------------------------------------------
 auth_method_kb_interactive_data_tuple(Config) ->
     T = {"abc1", "def1", "ghi1: ", true},
