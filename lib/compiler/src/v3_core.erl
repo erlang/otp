@@ -2406,13 +2406,16 @@ uexpr(#icall{anno=A,module=Mod,name=Name,args=As}, _, St) ->
     Used = union([lit_vars(Mod),lit_vars(Name),lit_list_vars(As)]),
     {#icall{anno=A#a{us=Used},module=Mod,name=Name,args=As},St};
 uexpr(#itry{anno=A,args=As0,vars=Vs,body=Bs0,evars=Evs,handler=Hs0}, Ks, St0) ->
-    %% Note that we export only from body and exception.
+    %% No variables are exported from try/catch. Starting in OTP 24,
+    %% variables bound in the argument (the code between the 'try' and
+    %% the 'of' keywords) are exported to the body (the code following
+    %% the 'of' keyword).
     {As1,St1} = uexprs(As0, Ks, St0),
-    {Bs1,St2} = uexprs(Bs0, Ks, St1),
+    ArgKs = union(Ks, new_in_any(As1)),
+    {Bs1,St2} = uexprs(Bs0, ArgKs, St1),
     {Hs1,St3} = uexprs(Hs0, Ks, St2),
     Used = intersection(used_in_any(Bs1++Hs1++As1), Ks),
-    New = new_in_all(Bs1++Hs1),
-    {#itry{anno=A#a{us=Used,ns=New},
+    {#itry{anno=A#a{us=Used,ns=[]},
 	   args=As1,vars=Vs,body=Bs1,evars=Evs,handler=Hs1},St3};
 uexpr(#icatch{anno=A,body=Es0}, Ks, St0) ->
     {Es1,St1} = uexprs(Es0, Ks, St0),
@@ -2833,13 +2836,18 @@ cexpr(#ireceive2{anno=A,clauses=Lcs,timeout=Lto,action=Les}, As, St0) ->
     {#c_receive{anno=A#a.anno,
 		clauses=Ccs,timeout=Cto,action=Ces},
      Exp,A#a.us,St3};
-cexpr(#itry{anno=A,args=La,vars=Vs,body=Lb,evars=Evs,handler=Lh}, As, St0) ->
-    Exp = intersection(A#a.ns, As),           %Exports
-    {Ca,_Us1,St1} = cexprs(La, [], St0),
-    {Cb,_Us2,St2} = cexprs(Lb, Exp, St1),
-    {Ch,_Us3,St3} = cexprs(Lh, Exp, St2),
+cexpr(#itry{anno=A,args=La,vars=Vs0,body=Lb,evars=Evs,handler=Lh}, _As, St0) ->
+    %% No variables are exported from try/catch. Starting in OTP 24,
+    %% variables bound in the argument (the code between the 'try' and
+    %% the 'of' keywords) are exported to the body (the code following
+    %% the 'of' keyword).
+    AsExp = intersection(new_in_any(La), used_in_any(Lb)),
+    {Ca,_Us1,St1} = cexprs(La, AsExp, St0),
+    {Cb,_Us2,St2} = cexprs(Lb, [], St1),
+    {Ch,_Us3,St3} = cexprs(Lh, [], St2),
+    Vs = Vs0 ++ [#c_var{name=V} || V <- AsExp],
     {#c_try{anno=A#a.anno,arg=Ca,vars=Vs,body=Cb,evars=Evs,handler=Ch},
-     Exp,A#a.us,St3};
+     [],A#a.us,St3};
 cexpr(#icatch{anno=A,body=Les}, _As, St0) ->
     {Ces,_Us1,St1} = cexprs(Les, [], St0),	%Never export!
     {#c_catch{body=Ces},[],A#a.us,St1};
