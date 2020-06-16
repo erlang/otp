@@ -693,6 +693,16 @@ ssh_dbg_format(authentication, {return_from, {?MODULE,handle_userauth_request,3}
          fmt_req(Req, Ssh)],
      Stack};
 
+ssh_dbg_format(authentication, {return_from, {?MODULE,handle_userauth_request,3},
+                                {not_authorized,{User,_X},
+                                 {#ssh_msg_userauth_info_request{},_Ssh}}},
+               [{#ssh_msg_userauth_request{method="keyboard-interactive"
+                                          } = Req,Ssh}|Stack]) ->
+    {["AUTH srvr: Ask peer client for password\n",
+      io_lib:format("user = ~p~n", [User]),
+      fmt_req(Req, Ssh)],
+     Stack};
+
 
 ssh_dbg_format(authentication, {call, {?MODULE,ssh_msg_userauth_result,[success]}},
                Stack) ->

@@ -87,7 +87,10 @@ rekey2() -> [{timetrap,{seconds,120}}].
 rekey3() -> [{timetrap,{seconds,120}}].
 rekey4() -> [{timetrap,{seconds,120}}].
     
-rekey0(Config) -> rekey_chk(Config, 0,                   0).
+rekey0(Config) -> ssh_dbg:start(), ssh_dbg:on(renegotiation),
+                  R = rekey_chk(Config, 0,                   0),
+                  ssh_dbg:stop(),
+                  R.
 rekey1(Config) -> rekey_chk(Config, infinity,            0).
 rekey2(Config) -> rekey_chk(Config, {infinity,infinity}, 0).
 rekey3(Config) -> rekey_chk(Config, 0,                   infinity).

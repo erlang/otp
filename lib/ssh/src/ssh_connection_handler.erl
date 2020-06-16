@@ -414,7 +414,8 @@ alg(ConnectionHandler) ->
 						 | undefined,
 	  auth_user                             :: string()
 						 | undefined,
-	  connection_state                      :: #connection{},
+	  connection_state                      :: #connection{}
+						 | undefined,
 	  latest_channel_id         = 0         :: non_neg_integer()
                                                  | undefined,
 	  transport_protocol                    :: atom()
@@ -2567,7 +2568,7 @@ ssh_dbg_format(connection_events, {call, {?MODULE,handle_event, [EventType, Even
     ];
 ssh_dbg_format(connection_events, {return_from, {?MODULE,handle_event,4}, Ret}) ->
     ["Connection event result\n",
-     io_lib:format("~p~n", [event_handler_result(Ret)])
+     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret, #data{})])
     ];
 
 ssh_dbg_format(renegotiation, {call, {?MODULE,init_renegotiate_timers,[OldState,NewState,D]}}) ->
@@ -2659,39 +2660,3 @@ ssh_dbg_format(disconnect, {call,{?MODULE,send_disconnect,
 ssh_dbg_format(renegotiation, {return_from, {?MODULE,send_disconnect,7}, _Ret}) ->
     skip.
 
-
-event_handler_result({next_state, NextState, _NewData}) ->
-    {next_state, NextState, "#data{}"};
-event_handler_result({next_state, NextState, _NewData, Actions}) ->
-    {next_state, NextState, "#data{}", Actions};
-event_handler_result(R) ->
-    state_callback_result(R).
-
-state_callback_result({keep_state, _NewData}) ->
-    {keep_state, "#data{}"};
-state_callback_result({keep_state, _NewData, Actions}) ->
-    {keep_state, "#data{}", Actions};
-state_callback_result(keep_state_and_data) ->
-    keep_state_and_data;
-state_callback_result({keep_state_and_data, Actions}) ->
-    {keep_state_and_data, Actions};
-state_callback_result({repeat_state, _NewData}) ->
-    {repeat_state, "#data{}"};
-state_callback_result({repeat_state, _NewData, Actions}) ->
-    {repeat_state, "#data{}", Actions};
-state_callback_result(repeat_state_and_data) ->
-    repeat_state_and_data;
-state_callback_result({repeat_state_and_data, Actions}) ->
-    {repeat_state_and_data, Actions};
-state_callback_result(stop) ->
-    stop;
-state_callback_result({stop, Reason}) ->
-    {stop, Reason};
-state_callback_result({stop, Reason, _NewData}) ->
-    {stop, Reason, "#data{}"};
-state_callback_result({stop_and_reply, Reason,  Replies}) ->
-    {stop_and_reply, Reason,  Replies};
-state_callback_result({stop_and_reply, Reason,  Replies, _NewData}) ->
-    {stop_and_reply, Reason,  Replies, "#data{}"};
-state_callback_result(R) ->
-    R.

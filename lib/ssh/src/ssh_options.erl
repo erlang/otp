@@ -377,7 +377,8 @@ default(server) ->
           #{default => ?DEFAULT_SHELL,
             chk => fun({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
                       (disabled) -> true;
-                      (V) -> check_function1(V) orelse check_function2(V)
+                      (V) -> check_function1(V) orelse
+                                 check_function2(V)
                    end,
             class => user_option
            },
@@ -403,13 +404,13 @@ default(server) ->
 
       tcpip_tunnel_out =>
            #{default => false,
-             chk => fun erlang:is_boolean/1,
+             chk => fun(V) -> erlang:is_boolean(V) end,
              class => user_option
             },
 
       tcpip_tunnel_in =>
            #{default => false,
-             chk => fun erlang:is_boolean/1,
+             chk => fun(V) -> erlang:is_boolean(V) end,
              class => user_option
             },
 
@@ -447,13 +448,13 @@ default(server) ->
 
       password =>
           #{default => undefined,
-            chk => fun check_string/1,
+            chk => fun(V) -> check_string(V) end,
             class => user_option
            },
 
       dh_gex_groups =>
           #{default => undefined,
-            chk => fun check_dh_gex_groups/1,
+            chk => fun(V) -> check_dh_gex_groups(V) end,
             class => user_option
            },
 
@@ -477,31 +478,31 @@ default(server) ->
 
       negotiation_timeout =>
           #{default => 2*60*1000,
-            chk => fun check_timeout/1,
+            chk => fun(V) -> check_timeout(V) end,
             class => user_option
            },
 
       max_sessions =>
           #{default => infinity,
-            chk => fun check_pos_integer/1,
+            chk => fun(V) -> check_pos_integer(V) end,
             class => user_option
            },
 
       max_channels =>
           #{default => infinity,
-            chk => fun check_pos_integer/1,
+            chk => fun(V) -> check_pos_integer(V) end,
             class => user_option
            },
 
       parallel_login =>
           #{default => false,
-            chk => fun erlang:is_boolean/1,
+            chk => fun(V) -> erlang:is_boolean(V) end,
             class => user_option
            },
 
       minimal_remote_max_packet_size =>
           #{default => 0,
-            chk => fun check_pos_integer/1,
+            chk => fun(V) -> check_pos_integer(V) end,
             class => user_option
            },
 
@@ -515,7 +516,7 @@ default(server) ->
 
       connectfun =>
           #{default => fun(_,_,_) -> void end,
-            chk => fun check_function3/1,
+            chk => fun(V) -> check_function3(V) end,
             class => user_option
            },
 
@@ -534,49 +535,49 @@ default(client) ->
         #{
       dsa_pass_phrase =>
           #{default => undefined,
-            chk => fun check_string/1,
+            chk => fun(V) -> check_string(V) end,
             class => user_option
            },
 
       rsa_pass_phrase =>
           #{default => undefined,
-            chk => fun check_string/1,
+            chk => fun(V) -> check_string(V) end,
             class => user_option
            },
 
       ecdsa_pass_phrase =>
           #{default => undefined,
-            chk => fun check_string/1,
+            chk => fun(V) -> check_string(V) end,
             class => user_option
            },
 
 %%% Not yet implemented      ed25519_pass_phrase =>
 %%% Not yet implemented          #{default => undefined,
-%%% Not yet implemented            chk => fun check_string/1,
+%%% Not yet implemented            chk => fun(V) -> check_string(V) end,
 %%% Not yet implemented            class => user_option
 %%% Not yet implemented           },
 %%% Not yet implemented
 %%% Not yet implemented      ed448_pass_phrase =>
 %%% Not yet implemented          #{default => undefined,
-%%% Not yet implemented            chk => fun check_string/1,
+%%% Not yet implemented            chk => fun(V) -> check_string(V) end,
 %%% Not yet implemented            class => user_option
 %%% Not yet implemented           },
 %%% Not yet implemented
       silently_accept_hosts =>
           #{default => false,
-            chk => fun check_silently_accept_hosts/1,
+            chk => fun(V) -> check_silently_accept_hosts(V) end,
             class => user_option
            },
 
       user_interaction =>
           #{default => true,
-            chk => fun erlang:is_boolean/1,
+            chk => fun(V) -> erlang:is_boolean(V) end,
             class => user_option
            },
 
       save_accepted_host =>
           #{default => true,
-            chk => fun erlang:is_boolean/1,
+            chk => fun(V) -> erlang:is_boolean(V) end,
             class => user_option
            },
 
@@ -592,7 +593,7 @@ default(client) ->
 
       connect_timeout =>
           #{default => infinity,
-            chk => fun check_timeout/1,
+            chk => fun(V) -> check_timeout(V) end,
             class => user_option
            },
 
@@ -613,26 +614,26 @@ default(client) ->
                             User
                     end
                 end,
-            chk => fun check_string/1,
+            chk => fun(V) -> check_string(V) end,
             class => user_option
            },
 
       password =>
           #{default => undefined,
-            chk => fun check_string/1,
+            chk => fun(V) -> check_string(V) end,
             class => user_option
            },
 
       quiet_mode =>
           #{default => false,
-            chk => fun erlang:is_boolean/1,
+            chk => fun(V) -> erlang:is_boolean(V) end,
             class => user_option
            },
 
 %%%%% Undocumented
       keyboard_interact_fun =>
           #{default => undefined,
-            chk => fun check_function3/1,
+            chk => fun(V) -> check_function3(V) end,
             class => undoc_user_option
            }
      };
@@ -650,13 +651,13 @@ default(common) ->
        %% this option's default values is set.
       pref_public_key_algs =>
           #{default => undefined,
-            chk => fun check_pref_public_key_algs/1,
+            chk => fun(V) -> check_pref_public_key_algs(V) end,
             class => user_option
            },
 
        preferred_algorithms =>
            #{default => ssh:default_algorithms(),
-             chk => fun check_preferred_algorithms/1,
+             chk => fun(V) -> check_preferred_algorithms(V) end,
              class => user_option
             },
 
@@ -665,12 +666,16 @@ default(common) ->
        %% The preferred_algorithms is the one to use in the rest of the ssh application!
        modify_algorithms =>
            #{default => undefined, % signals error if unsupported algo in preferred_algorithms :(
-             chk => fun check_modify_algorithms/1,
+             chk => fun(V) -> check_modify_algorithms(V) end,
              class => user_option
             },
 
        id_string => 
-           #{default => undefined, % FIXME: see ssh_transport:ssh_vsn/0
+           #{default => try {ok, [_|_] = VSN} = application:get_key(ssh, vsn),
+                            "Erlang/" ++ VSN
+                        catch
+                            _:_ -> ""
+                        end,
              chk => fun(random) -> 
                             {true, {random,2,5}}; % 2 - 5 random characters
                        ({random,I1,I2}) -> 
@@ -695,31 +700,31 @@ default(common) ->
 
        profile =>
            #{default => ?DEFAULT_PROFILE,
-             chk => fun erlang:is_atom/1,
+             chk => fun(V) -> erlang:is_atom(V) end,
              class => user_option
             },
 
       idle_time =>
           #{default => infinity,
-            chk => fun check_timeout/1,
+            chk => fun(V) -> check_timeout(V) end,
             class => user_option
            },
 
        disconnectfun =>
            #{default => fun(_) -> void end,
-             chk => fun check_function1/1,
+             chk => fun(V) -> check_function1(V) end,
              class => user_option
             },
 
        unexpectedfun => 
            #{default => fun(_,_) -> report end,
-             chk => fun check_function2/1,
+             chk => fun(V) -> check_function2(V) end,
              class => user_option
             },
 
        ssh_msg_debug_fun =>
            #{default => fun(_,_,_,_) -> void end,
-             chk => fun check_function4/1,
+             chk => fun(V) -> check_function4(V) end,
              class => user_option
             },
 
@@ -790,19 +795,19 @@ default(common) ->
     
        tstflg =>
            #{default => [],
-             chk => fun erlang:is_list/1,
+             chk => fun(V) -> erlang:is_list(V) end,
              class => undoc_user_option
             },
 
        user_dir_fun =>
            #{default => undefined,
-             chk => fun check_function1/1,
+             chk => fun(V) -> check_function1(V) end,
              class => undoc_user_option
             },
 
        max_random_length_padding =>
            #{default => ?MAX_RND_PADDING_LEN,
-             chk => fun check_non_neg_integer/1,
+             chk => fun(V) -> check_non_neg_integer(V) end,
              class => undoc_user_option
             }
      }.
