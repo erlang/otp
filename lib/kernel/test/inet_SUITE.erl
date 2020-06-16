@@ -109,11 +109,36 @@ required(hosts) ->
     end.     
 
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
 
-end_per_suite(_Config) ->
-    ok.
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+            
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+            "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 
 init_per_group(_GroupName, Config) ->
@@ -1081,19 +1106,47 @@ gethostnative_soft_restart() -> required(hosts).
 %% Check that no name lookups fails during soft restart
 %% of inet_gethost_native.
 gethostnative_soft_restart(Config) when is_list(Config) ->
-    gethostnative_control(Config,
-			  #gethostnative_control{
-			     control_seq=[soft_restart]}).
-
+    Opts  = gethostnative_adjusted_opts(Config,
+                                        [soft_restart]),
+    gethostnative_control(Config, Opts).
 
 gethostnative_debug_level() -> required(hosts).
 
 %% Check that no name lookups fails during debug level change
 %% of inet_gethost_native.
 gethostnative_debug_level(Config) when is_list(Config) ->
-    Opts = #gethostnative_control{control_seq = [{debug_level, 1},
-                                                 {debug_level, 0}]},
+    Opts  = gethostnative_adjusted_opts(Config,
+                                        [{debug_level, 1},
+                                         {debug_level, 0}]),
     gethostnative_control(Config, Opts).
+
+gethostnative_adjusted_opts(Config, CtrlSeq) ->
+    Factor = ?config(gen_inet_factor, Config),
+    gethostnative_adjusted_opts2(Factor, CtrlSeq).
+
+gethostnative_adjusted_opts2(1, CtrlSeq) ->
+    #gethostnative_control{control_seq = CtrlSeq};
+gethostnative_adjusted_opts2(F, CtrlSeq) ->
+    Opts = #gethostnative_control{control_seq = CtrlSeq},
+    gethostnative_adjusted_opts3(F, Opts).
+
+gethostnative_adjusted_opts3(
+  F,
+  #gethostnative_control{lookup_count     = Cnt,
+                         lookup_processes = NProc} = Opts) ->
+    Adjust = fun(X) ->
+                     if
+                         F > 10 ->
+                             X div 3;
+                         F > 5 ->
+                             X div 2;
+                         true ->
+                             (2 * X) div 3
+                     end
+             end,
+    Opts#gethostnative_control{lookup_count     = Adjust(Cnt),
+                               lookup_processes = Adjust(NProc)}.
+
 
 gethostnative_control(Config, Opts) ->
     case inet_db:res_option(lookup) of
@@ -1186,7 +1239,7 @@ control_loop_1(Op, Interval, Tag, Lookupers) ->
                     ?P("ctrl-loop-1: "
                        "received unexpected exit from ~p: "
                        "~n   ~p", [Pid, Reason]),
-		    ct:fail(?P("Unexpected exit from ~p", [Pid]))
+		    ct:fail(?F("Unexpected exit from ~p", [Pid]))
 	    end
     after Interval ->
             ?P("ctrl-loop-1: "
