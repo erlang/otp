@@ -2994,11 +2994,11 @@ header(N, Binary) ->
 
 send_or_reply(false, _Pid, From, Data) when From =/= undefined ->
     gen_statem:reply(From, Data);
-%% Can happen when handling own alert or tcp error/close and there is
-%% no outstanding gen_fsm sync events
-send_or_reply(false, no_pid, _, _) ->
+send_or_reply(false, Pid, undefined, _) when is_pid(Pid) ->
     ok;
-send_or_reply(_, Pid, _From, Data) ->
+send_or_reply(_, no_pid, _, _) -> 
+    ok;
+send_or_reply(_, Pid, _, Data) ->
     send_user(Pid, Data).
 
 send_user(Pid, Msg) ->
