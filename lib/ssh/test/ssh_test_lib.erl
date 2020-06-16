@@ -184,11 +184,44 @@ start_shell(Port, IOServer) ->
 start_shell(Port, IOServer, ExtraOptions) ->
     spawn_link(
       fun() ->
-	      Host = hostname(),
+              ct:log("~p:~p:~p ssh_test_lib:start_shell(~p, ~p, ~p)",
+                     [?MODULE,?LINE,self(), Port, IOServer, ExtraOptions]),
 	      Options = [{user_interaction, false},
 			 {silently_accept_hosts,true} | ExtraOptions],
-	      group_leader(IOServer, self()),
-	      ssh:shell(Host, Port, Options)
+              try
+                  group_leader(IOServer, self()),
+                  case Port of
+                      22 ->
+                          Host = hostname(),
+                          ct:log("Port==22 Call ssh:shell(~p, ~p)",
+                                 [Host, Options]),
+                          ssh:shell(Host, Options);
+                      _ when is_integer(Port) ->
+                          Host = hostname(),
+                          ct:log("is_integer(Port) Call ssh:shell(~p, ~p, ~p)",
+                                 [Host, Port, Options]),
+                          ssh:shell(Host, Port, Options);
+                      Socket when is_port(Socket) ->
+                          receive
+                              start -> ok
+                          end,
+                          ct:log("is_port(Socket) Call ssh:shell(~p, ~p)",
+                                 [Socket, Options]),
+                          ssh:shell(Socket, Options);
+                      ConnRef when is_pid(ConnRef) ->
+                          ct:log("is_pid(ConnRef) Call ssh:shell(~p)",
+                                 [ConnRef]),
+                          ssh:shell(ConnRef) % Options were given in ssh:connect
+                  end
+              of
+                  R ->
+                      ct:log("~p:~p ssh_test_lib:start_shell(~p, ~p, ~p) -> ~p",
+                             [?MODULE,?LINE,Port, IOServer, ExtraOptions, R])
+              catch
+                  C:E:S ->
+                      ct:log("Exception ~p:~p~n~p", [C,E,S]),
+                      ct:fail("Exception",[])
+              end
       end).
 
 
@@ -990,6 +1023,24 @@ setup_all_host_keys(DataDir, SysDir) ->
                                 OkAlgs
                         end
                 end, [], ssh_transport:supported_algorithms(public_key)).
+
+
+setup_all_user_keys(DataDir, UserDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_user_key(Alg, DataDir, UserDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
 
 setup_user_key(SshAlg, DataDir, UserDir) ->
     file:make_dir(UserDir),
