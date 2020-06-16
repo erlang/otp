@@ -21512,7 +21512,8 @@ api_opt_ipv6_hoplimit_udp6(_Config) when is_list(_Config) ->
            fun() ->
                    has_support_ipv6(),
                    has_support_ipv6_hoplimit_or_recvhoplimit(),
-		   is_good_enough_darwin({9,8,0})
+		   is_good_enough_darwin({9,8,0}),
+                   is_good_enough_montavista("4.0.1")
            end,
            fun() ->
 		   %% Begin by choosing which of the options we shall use
@@ -22173,7 +22174,8 @@ api_opt_ipv6_mopts_udp6(_Config) when is_list(_Config) ->
 		   %% The problem here is hoplimit on darwin 9.8.0,
 		   %% but I can't be bothered to adjust the test case,
 		   %% just skip on that machine (there is only one)...
-		   is_good_enough_darwin({9,8,0})
+		   is_good_enough_darwin({9,8,0}),
+                   is_good_enough_montavista("4.0.1")
            end,
            fun() ->
 		   %% If we get this far, we *know* that at least one of the
@@ -42999,6 +43001,28 @@ is_good_enough_linux(CondVsn) ->
 
 is_good_enough_darwin(CondVsn) ->
     is_good_enough_platform(unix, darwin, CondVsn).
+
+is_good_enough_montavista(_Vsn) ->
+    %% We have *one* old M, which have kernel version 2.6.10.
+    %% So if its that kernel version, we only need to check
+    %% if its M (no need to figure out the version of M).
+    case os:type() of
+        {unix, linux} ->
+            case os:version() of
+                {2,6,10} ->
+                    case string:trim(os:cmd("cat /etc/issue")) of
+                        "MontaVista" ++ _ = V -> % Stone age MontaVista => Skip
+                            skip(V);
+                        _ ->
+                            ok
+                    end;
+                _ ->
+                    ok
+            end;
+        _ ->
+            ok
+    end.
+                    
 
 is_good_enough_platform(Family, Name, CondVsn) ->
     case os:type() of
