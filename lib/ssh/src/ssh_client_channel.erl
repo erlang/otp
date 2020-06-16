@@ -436,7 +436,7 @@ ssh_dbg_format(channel_events, {call, {?MODULE,handle_call, [Call,From,State]}})
     ];
 ssh_dbg_format(channel_events, {return_from, {?MODULE,handle_call,3}, Ret}) ->
     ["Server Channel call returned:\n",
-     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
+     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret,#state{})])
     ];
 
 ssh_dbg_format(channel_events, {call, {?MODULE,handle_cast, [Cast,State]}}) ->
@@ -445,7 +445,7 @@ ssh_dbg_format(channel_events, {call, {?MODULE,handle_cast, [Cast,State]}}) ->
     ];
 ssh_dbg_format(channel_events, {return_from, {?MODULE,handle_cast,2}, Ret}) ->
     ["Server Channel cast returned:\n",
-     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
+     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret,#state{})])
     ];
 
 ssh_dbg_format(channel_events, {call, {?MODULE,handle_info, [Info,State]}}) ->
@@ -454,7 +454,7 @@ ssh_dbg_format(channel_events, {call, {?MODULE,handle_info, [Info,State]}}) ->
     ];
 ssh_dbg_format(channel_events, {return_from, {?MODULE,handle_info,2}, Ret}) ->
     ["Server Channel info returned:\n",
-     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
+     io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret,#state{})])
     ].
 
 hdr(Title, S) ->

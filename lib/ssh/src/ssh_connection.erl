@@ -66,6 +66,9 @@
 	 encode_ip/1
         ]).
 
+%% For testing only
+-export([encode_pty_opts/1, decode_pty_opts/1]).
+
 -type connection_ref() :: ssh:connection_ref().
 -type channel_id()     :: ssh:channel_id().
 
