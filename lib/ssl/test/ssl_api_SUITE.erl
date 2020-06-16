@@ -91,6 +91,7 @@ gen_api_tests() ->
      recv_active,
      recv_active_once,
      recv_active_n,
+     recv_no_active_msg,
      recv_timeout,
      recv_close,
      controlling_process,
@@ -887,6 +888,10 @@ listen_socket(Config) ->
     ok = ssl:close(ListenSocket).
 
 %%--------------------------------------------------------------------
+
+
+%%--------------------------------------------------------------------
+
 recv_active() ->
     [{doc,"Test recv on active socket"}].
 
@@ -1014,6 +1019,27 @@ recv_close(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok).
 
 
+%%--------------------------------------------------------------------
+recv_no_active_msg() ->
+    [{doc,"If we have a passive socket and do not call recv and peer closes we should no get"
+      "receive an active message"}].
+recv_no_active_msg(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					  {from, self()},
+					  {mfa, {?MODULE, no_recv_no_active, []}},
+					 {options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, ClientOpts}]),
+    ssl_test_lib:close(Client),
+    ssl_test_lib:check_result(Server, ok).
 
 %%--------------------------------------------------------------------
 controlling_process() ->
@@ -2331,6 +2357,14 @@ run_error_server([ Pid | Opts]) ->
 
 run_client_error([Port, Opts]) ->
     ssl:connect("localhost", Port, Opts).
+
+no_recv_no_active(Socket) ->
+    receive 
+        {ssl_closed, Socket} ->
+            ct:fail(received_active_msg)
+    after 5000 ->
+            ok
+    end.        
 
 honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
