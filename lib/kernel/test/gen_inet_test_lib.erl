@@ -31,22 +31,32 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+init_per_suite([{allow_skip, Allow}|Config]) ->
+    init_per_suite(Allow, Config);
 init_per_suite(Config) ->
+    init_per_suite(true, Config).
+
+init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
 
     ct:timetrap(timer:minutes(2)),
 
     try analyze_and_print_host_info() of
-        {Factor, HostInfo} when is_integer(Factor) ->
+        {Factor, HostInfo} when (AllowSkip =:= true) andalso
+                                is_integer(Factor) ->
             try maybe_skip(HostInfo) of
                 true ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
-                    %% snmp_test_global_sys_monitor:start(),
                     [{gen_inet_factor, Factor} | Config]
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP
-            end
+            end;
+
+        {Factor, _HostInfo} when (AllowSkip =:= false) andalso
+                                 is_integer(Factor) ->
+            [{gen_inet_factor, Factor} | Config]
+
     catch
         throw:{skip, _} = SKIP ->
             SKIP

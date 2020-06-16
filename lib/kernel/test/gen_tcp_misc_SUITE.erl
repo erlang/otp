@@ -3656,26 +3656,28 @@ send_timeout_para(AutoClose, RNode) ->
     ?P("[para] await sender timeout when"
        "~n   Sender 1: ~p"
        "~n   Sender 2: ~p", [Snd1, Snd2]),
-    receive
-	{Snd1, {{error, timeout}, N}} ->
-            ?P("[para] timeout received from sender 1 (~p, ~p)", [Snd1, N]),
-            ok;
-	{Snd2, {{error, timeout}, N}} ->
-            ?P("[para] timeout received from sender 2 (~p, ~p)", [Snd2, N]),
-            ok
-    after 20000 ->
-            ?P("[para] UNEXPECTED timeout(1,~w) when:"
-               "~n   Sender 1 Info: ~p"
-               "~n   Sender 2 Info: ~p"
-               "~n   Message Queue: ~p",
-               [AutoClose,
-                (catch process_info(Snd1)),
-                (catch process_info(Snd2)),
-                flush([])]),
-	    exit({timeout, AutoClose})
-    end,
-
-    ?P("await sender error"),
+    First =
+        receive
+            {Snd1, {{error, timeout}, N}} ->
+                ?P("[para] timeout received from sender 1 (~p, ~p)", [Snd1, N]),
+                1;
+            {Snd2, {{error, timeout}, N}} ->
+                ?P("[para] timeout received from sender 2 (~p, ~p)", [Snd2, N]),
+                2
+        after 20000 ->
+                ?P("[para] UNEXPECTED timeout(1,~w) when:"
+                   "~n   Sender 1 Info: ~p"
+                   "~n   Sender 2 Info: ~p"
+                   "~n   Message Queue: ~p",
+                   [AutoClose,
+                    (catch process_info(Snd1)),
+                    (catch process_info(Snd2)),
+                    flush([])]),
+                exit({timeout, AutoClose})
+        end,
+    
+    Second = if (First =:= 1) -> 2; true -> 1 end,
+    ?P("await sender ~w error", [Second]),
     receive
 	{Snd1, {{error, Error_1}, N_1}} ->
             ?P("[para] error (~p) received from sender 1 (~p, ~p)",
@@ -3686,7 +3688,21 @@ send_timeout_para(AutoClose, RNode) ->
                [Error_1, Snd2, N_1]),
             after_send_timeout(AutoClose, Error_1)
     after 10000 ->
-            ?P("[para] UNEXPECTED timeout(2,~w)", [AutoClose]),
+            if (Second =:= 1) ->
+                    ?P("[para] UNEXPECTED timeout(2,~w):"
+                       "~n   Sender 1 Info: ~p"
+                       "~n   Message Queue: ~p",
+                       [AutoClose,
+                        (catch process_info(Snd1)),
+                        flush([])]);
+               true ->
+                    ?P("[para] UNEXPECTED timeout(2,~w):"
+                       "~n   Sender 2 Info: ~p"
+                       "~n   Message Queue: ~p",
+                       [AutoClose,
+                        (catch process_info(Snd2)),
+                        flush([])])
+            end,
 	    exit({timeout, AutoClose})
     end,
 
