@@ -4131,8 +4131,8 @@ match_expr_body(Node) ->
 %% character sequence represented by `Name'. This is
 %% analogous to the print name of an atom, but an operator is never
 %% written within single-quotes; e.g., the result of
-%% `operator('++')' represents "`++'" rather
-%% than "`'++''".
+%% <code>operator('++')</code> represents "<code>++</code>" rather
+%% than "<code>'++'</code>".
 %%
 %% @see operator_name/1
 %% @see operator_literal/1
