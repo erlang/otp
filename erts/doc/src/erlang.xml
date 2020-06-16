@@ -7753,7 +7753,7 @@ ok
             has been suspended
             more times by the calling process than can be represented by the
             currently used internal data structures. The system limit is
-            greater than 2 billion suspends and will never be lower.
+            greater than 2,000,000,000 suspends and will never be lower.
           </item>
         </taglist>
       </desc>
