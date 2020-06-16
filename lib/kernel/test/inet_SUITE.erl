@@ -115,7 +115,7 @@ init_per_suite(Config0) ->
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
-    case ?LIB:init_per_suite(Config0) of
+    case ?LIB:init_per_suite([{allow_skip, false} | Config0]) of
         {skip, _} = SKIP ->
             SKIP;
 
@@ -1168,6 +1168,12 @@ gethostnative_control_1(
                          lookup_delay     = Delay,
                          lookup_count     = Cnt,
                          lookup_processes = N}) ->
+    ?P("gethostnative control -> begin with"
+       "~n      Ctrl Seq:      ~p"
+       "~n      Ctrl interval: ~p"
+       "~n      Lookup delay:  ~p"
+       "~n      Lookup count:  ~p"
+       "~n      Lookup procs:  ~p", [Seq, Interval, Delay, Cnt, N]),
     {ok, Hostname} = inet:gethostname(),
     {ok, _}        = inet:gethostbyname(Hostname),
     Hosts          =
