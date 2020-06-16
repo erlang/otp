@@ -168,7 +168,7 @@ exec_with_io_in_sshc(Config) when is_list(Config) ->
                                                            " -x" % Disable X forwarding
                                                           ],
                                                           ExecStr),
-    ct:pal("Cmd = ~p~n",[Cmd]),
+    ct:log("Cmd = ~p~n",[Cmd]),
     case os:cmd(Cmd) of
         "% {ok,howdy}" -> ok;
         "{ok,howdy}% " -> ok; % Could happen if the client sends the piped
@@ -201,7 +201,7 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
                                                            " -x" % Disable X forwarding
                                                           ],
                                                          "'? '"),
-    ct:pal("Cmd = ~p~n",[Cmd]),
+    ct:log("Cmd = ~p~n",[Cmd]),
     case os:cmd(Cmd) of
         "? {ciao,\"oaic\"}" -> ok;
         "'? '{ciao,\"oaic\"}" -> ok; % WSL

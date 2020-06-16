@@ -690,6 +690,8 @@ bin_foldl(Fun, Acc0, Bin0) ->
 %%%----------------------------------------------------------------
 decode_keyboard_interactive_prompts(<<>>, Acc) ->
     lists:reverse(Acc);
+decode_keyboard_interactive_prompts(<<0>>, Acc) ->
+    lists:reverse(Acc);
 decode_keyboard_interactive_prompts(<<?DEC_BIN(Prompt,__0), ?BYTE(Bool), Bin/binary>>,
 				    Acc) ->
     decode_keyboard_interactive_prompts(Bin, [{Prompt, erl_boolean(Bool)} | Acc]).

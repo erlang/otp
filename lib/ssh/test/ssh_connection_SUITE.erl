@@ -63,6 +63,7 @@ all() ->
      start_exec_direct_fun1_read_write_advanced,
      start_shell_sock_exec_fun,
      start_shell_sock_daemon_exec,
+     encode_decode_pty_opts,
      connect_sock_not_tcp,
      daemon_sock_not_tcp,
      gracefull_invalid_version,
@@ -340,6 +341,33 @@ send_after_exit(Config) when is_list(Config) ->
 	    ct:fail({expected,{error,closed}, {got, {error, timeout}}});
 	Else ->
 	    ct:fail(Else)
+    end.
+
+%%--------------------------------------------------------------------
+encode_decode_pty_opts(_Config) ->
+    Tags =
+        [vintr, vquit, verase, vkill, veof, veol, veol2, vstart, vstop, vsusp, vdsusp,
+         vreprint, vwerase, vlnext, vflush, vswtch, vstatus, vdiscard, ignpar, parmrk,
+         inpck, istrip, inlcr, igncr, icrnl, iuclc, ixon, ixany, ixoff, imaxbel, isig,
+         icanon, xcase, echo, echoe, echok, echonl, noflsh, tostop, iexten, echoctl,
+         echoke, pendin, opost, olcuc, onlcr, ocrnl, onocr, onlret, cs7, cs8, parenb,
+         parodd, tty_op_ispeed, tty_op_ospeed],
+    Opts =
+        lists:zip(Tags,
+                  lists:seq(1, length(Tags))),
+    
+    case ssh_connection:encode_pty_opts(Opts) of
+        Bin when is_binary(Bin) ->
+            case ssh_connection:decode_pty_opts(Bin) of
+                Opts ->
+                    ok;
+                Other ->
+                    ct:log("Expected ~p~nGot ~p~nBin = ~p",[Opts,Other,Bin]),
+                    ct:fail("Not the same",[])
+            end;
+        Other ->
+            ct:log("encode -> ~p",[Other]),
+            ct:fail("Encode failed",[])
     end.
 
 %%--------------------------------------------------------------------

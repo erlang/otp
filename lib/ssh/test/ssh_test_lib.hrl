@@ -29,7 +29,7 @@
 				 case FunctionCall of
 				     Pattern when Guard -> Bind;
 				     _ when N>0 ->
-					 ct:pal("Must sleep ~p ms at ~p:~p",[Timeout,?MODULE,?LINE]),
+					 ct:log("Must sleep ~p ms at ~p:~p",[Timeout,?MODULE,?LINE]),
 					 timer:sleep(Timeout),
 					 F1(N-1, F1);
 				     Other ->  
