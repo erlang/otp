@@ -847,9 +847,9 @@ find_first_server(UseSSL, [{config,Key}|Ss]) ->
 	    find_first_server(UseSSL, Ss)
     end;
 find_first_server(UseSSL, [{Host,Port}|Ss]) ->
-    case eldap:open([Host],[{port,Port},{ssl,UseSSL}]) of
+    case eldap:open([Host],[{port,Port},{ssl,UseSSL},{timeout,10000}]) of
 	{ok,H} when UseSSL==false, Ss=/=[] ->
-	    case eldap:start_tls(H,[]) of
+	    case eldap:start_tls(H, [], 10000) of
 		ok ->
 		    ct:log("find_first_server ~p UseSSL=~p -> ok",[{Host,Port},UseSSL]),
 		    eldap:close(H),
