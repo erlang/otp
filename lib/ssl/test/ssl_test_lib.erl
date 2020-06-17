@@ -3527,3 +3527,48 @@ default_tls_version(Config) ->
             {ok, Versions} = application:get_env(ssl, dtls_protocol_version),
             Versions
     end.
+
+openssl_maxfraglen_support() ->
+    case portable_cmd("openssl", ["version"]) of
+        %% Max fragmentation support introduced in OpenSSL 1.1.1
+        "OpenSSL 0" ++ _  ->
+            false;
+        "OpenSSL 1.0" ++ _  ->
+            false;
+        "OpenSSL 1.1.0" ++ _ ->
+            false;
+	"OpenSSL 1.1.1" ++ _ ->
+            true;
+        "OpenSSL" ++ _ ->
+            true;
+        _  ->
+            false
+    end.
+
+openssl_dtls_maxfraglen_support() -> 
+    case portable_cmd("openssl", ["version"]) of
+        "OpenSSL 0" ++ _  ->
+            false;
+        "OpenSSL 1.0" ++ _  ->
+            false;
+        "OpenSSL 1.1.0" ++ _ ->
+            false;
+	"OpenSSL 1.1.1" ++ _ ->
+            false;
+        "OpenSSL 1.1" ++ _ ->
+            false;
+        "OpenSSL" ++ _ ->
+            true;
+        _  ->
+            false
+    end.
+
+assert_mfl(Socket, undefined) ->
+    InfoMFL = ssl:connection_information(Socket, [max_fragment_length]),
+    ct:log("Connection MFL ~p, Expecting: [] ~n", [InfoMFL]),
+    {ok, []} = InfoMFL;
+assert_mfl(Socket, MFL) ->
+    InfoMFL = ssl:connection_information(Socket, [max_fragment_length]),
+    ct:log("Connection MFL ~p, Expecting: ~p ~n", [InfoMFL, MFL]),
+    {ok, [{max_fragment_length, ConnMFL}]} = InfoMFL,
+    ConnMFL = MFL.

@@ -54,8 +54,9 @@ MODULES = \
 	ssl_npn_SUITE \
 	openssl_npn_SUITE\
 	openssl_sni_SUITE\
-	ssl_mfl_SUITE \
-	ssl_renegotiate_SUITE\
+	ssl_mfl_SUITE\
+	openssl_mfl_SUITE\
+        ssl_renegotiate_SUITE\
 	openssl_renegotiate_SUITE\
 	openssl_reject_SUITE\
 	ssl_cert_tests\
