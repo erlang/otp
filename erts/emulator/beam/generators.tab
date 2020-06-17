@@ -270,8 +270,12 @@ gen.put_binary(Fail, Size, Unit, Flags, Src) {
             op->a[2] = Src;
         } else {
         error:
-            $BeamOpNameArity(op, badarg, 1);
-            op->a[0] = Fail;
+            /*
+             * Invalid size. This instruction can't possibly be
+             * reached, because bs_add or bs_init* would already
+             * have raised a system_limit exception.
+             */
+            $BeamOpNameArity(op, delete_me, 0);
         }
     } else if (Size.type == TAG_q) {
 #ifdef ARCH_64
@@ -316,8 +320,12 @@ gen.put_integer(Fail, Size, Unit, Flags, Src) {
         Uint size;
         if (!beam_load_safe_mul(Size.val, Unit.val, &size)) {
         error:
-            $BeamOpNameArity(op, badarg, 1);
-            op->a[0] = Fail;
+            /*
+             * Invalid size. This instruction can't possibly be
+             * reached, because bs_add or bs_init* would already
+             * have raised a system_limit exception.
+             */
+            $BeamOpNameArity(op, delete_me, 0);
             return op;
         }
         $BeamOpNameArity(op, i_new_bs_put_integer_imm, 4);
@@ -364,8 +372,12 @@ gen.put_float(Fail, Size, Unit, Flags, Src) {
         op->a[0] = Fail;
         op->a[1].type = TAG_u;
         if (!beam_load_safe_mul(Size.val, Unit.val, &op->a[1].val)) {
-            $BeamOpNameArity(op, badarg, 1);
-            op->a[0] = Fail;
+            /*
+             * Size overflow. This instruction can't possibly be reached, because
+             * bs_add or bs_init* would already have raised a system_limit
+             * exception.
+             */
+            $BeamOpNameArity(op, delete_me, 0);
         } else {
             op->a[2] = Flags;
             op->a[3] = Src;
