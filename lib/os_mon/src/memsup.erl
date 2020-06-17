@@ -703,6 +703,7 @@ get_os_wordsize_with_uname() ->
 	"ppc64"   -> 64;
 	"ppc64le" -> 64;
 	"s390x"   -> 64;
+        "aarch64" -> 64;
 	_         -> 32
     end.
 
