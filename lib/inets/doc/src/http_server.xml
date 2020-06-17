@@ -54,8 +54,8 @@
     <p>As of <c>Inets</c> 5.0 the HTTP server is an easy to
       start/stop and customize web server providing the most basic
       web server functionality. Inets is designed for embedded systems
-      and if you want a full-fledged web server there are exists other 
-      erlang open source alternatives.</p>
+      and if you want a full-fledged web server there are other erlang
+      open source alternatives.</p>
     
     <p>Almost all server functionality has been implemented using an
       especially crafted server API, which is described in the Erlang Web
