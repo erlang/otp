@@ -29,7 +29,8 @@
     end_per_suite/1,
     init_per_testcase/2,
     end_per_testcase/2,
-    stop_proc/1
+    stop_proc/1,
+    ensure_peers_info/2
 ]).
 
 %% Test cases exports
@@ -275,10 +276,11 @@ netsplit(Config) when is_list(Config) ->
     RemoteOldPid = erlang:spawn(Peer, forever()),
     ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, '$invisible', RemoteOldPid])),
     %% hohoho, partition!
-    net_kernel:disconnect(Peer),
+    disconnect_nodes([Peer]),
     ?assertEqual(Peer, rpc(Socket, erlang, node, [])), %% just to ensure RPC still works
     RemotePid = rpc(Socket, erlang, spawn, [forever()]),
     ?assertEqual([], rpc(Socket, erlang, nodes, [])),
+    ?assertNot(lists:member(Peer, nodes())), %% should be no nodes in the cluster
     ?assertEqual(ok, rpc(Socket, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])), %% join - in a partition!
 
     ?assertEqual(ok, rpc(Socket, pg, leave, [?FUNCTION_NAME, '$invisible', RemoteOldPid])),
@@ -304,14 +306,14 @@ trisplit(Config) when is_list(Config) ->
     _PeerPid1 = erlang:spawn(Peer, forever()),
     PeerPid2 = erlang:spawn(Peer, forever()),
     ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, three, PeerPid2])),
-    net_kernel:disconnect(Peer),
+    disconnect_nodes([Peer]),
     ?assertEqual(true, net_kernel:connect_node(Peer)),
     ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, one, PeerPid2])),
     %% now ensure sync happened
     {Peer2, Socket2} = spawn_node(?FUNCTION_NAME, trisplit_second),
     ?assertEqual(true, rpc:call(Peer2, net_kernel, connect_node, [Peer])),
     ?assertEqual(lists:sort([node(), Peer]), lists:sort(rpc:call(Peer2, erlang, nodes, []))),
-    sync({?FUNCTION_NAME, Peer2}),
+    ok = rpc:call(Peer2, ?MODULE, ensure_peers_info, [?FUNCTION_NAME, [node(), Peer]]),
     ?assertEqual([PeerPid2], rpc:call(Peer2, pg, get_members, [?FUNCTION_NAME, one])),
     stop_node(Peer, Socket1),
     stop_node(Peer2, Socket2),
@@ -325,7 +327,7 @@ foursplit(Config) when is_list(Config) ->
     PeerPid1 = spawn(Peer, forever()),
     ?assertEqual(ok, pg:leave(?FUNCTION_NAME, one, Pid)),
     ?assertEqual(not_joined, pg:leave(?FUNCTION_NAME, three, Pid)),
-    net_kernel:disconnect(Peer),
+    disconnect_nodes([Peer]),
     ?assertEqual(ok, rpc(Socket, ?MODULE, stop_proc, [PeerPid1])),
     ?assertEqual(not_joined, pg:leave(?FUNCTION_NAME, three, Pid)),
     ?assertEqual(true, net_kernel:connect_node(Peer)),
@@ -344,7 +346,8 @@ exchange(Config) when is_list(Config) ->
     {PidsToKill, Pids1} = lists:split(3, Pids10),
 
     ?assertEqual(ok, rpc(Socket1, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pids10])),
-    sync({?FUNCTION_NAME, Peer1}),
+    sync({?FUNCTION_NAME, Peer1}), %% Join broadcast have reached local
+    sync(?FUNCTION_NAME), %% Join broadcast has been processed by local
     ?assertEqual(lists:sort(Pids10), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     [rpc(Socket1, ?MODULE, stop_proc, [Pid]) || Pid <- PidsToKill],
     sync(?FUNCTION_NAME),
@@ -353,10 +356,9 @@ exchange(Config) when is_list(Config) ->
     Pids = lists:sort(Pids1 ++ Pids2 ++ Pids11),
     ?assert(lists:all(fun erlang:is_pid/1, Pids)),
 
-    net_kernel:disconnect(Peer1),
-    net_kernel:disconnect(Peer2),
+    disconnect_nodes([Peer1, Peer2]),
 
-    sync(?FUNCTION_NAME),
+    sync(?FUNCTION_NAME), %% Processed nodedowns...
     ?assertEqual([], lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
 
     [?assertEqual(ok, rpc(Socket2, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid])) || Pid <- Pids2],
@@ -366,9 +368,7 @@ exchange(Config) when is_list(Config) ->
     ?assertEqual(true, net_kernel:connect_node(Peer1)),
     ?assertEqual(true, net_kernel:connect_node(Peer2)),
     %% need to sleep longer to ensure both nodes made the exchange
-    sync(?FUNCTION_NAME),
-    sync({?FUNCTION_NAME, Peer1}),
-    sync({?FUNCTION_NAME, Peer2}),
+    ensure_peers_info(?FUNCTION_NAME, [Peer1, Peer2]),
     ?assertEqual(Pids, lists:sort(pg:get_members(?FUNCTION_NAME, second) ++ pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     ?assertEqual(lists:sort(Pids11), lists:sort(pg:get_members(?FUNCTION_NAME, third))),
 
@@ -440,7 +440,7 @@ missing_scope_join(Config) when is_list(Config) ->
 
 disconnected_start(Config) when is_list(Config) ->
     {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    net_kernel:disconnect(Peer),
+    disconnect_nodes([Peer]),
     ?assertEqual(ok, rpc(Socket, gen_server, stop, [?FUNCTION_NAME])),
     ?assertMatch({ok, _Pid}, rpc(Socket, pg, start,[?FUNCTION_NAME])),
     ?assertEqual(ok, rpc(Socket, gen_server, stop, [?FUNCTION_NAME])),
@@ -463,11 +463,9 @@ forced_sync(Config) when is_list(Config) ->
     RemoteScopePid = rpc:call(Peer, erlang, whereis, [?FUNCTION_NAME]),
     ?assert(is_pid(RemoteScopePid)),
     %% hohoho, partition!
-    net_kernel:disconnect(Peer),
+    disconnect_nodes([Peer]),
     ?assertEqual(true, net_kernel:connect_node(Peer)),
-    %% now ensure sync happened
-    sync({?FUNCTION_NAME, Peer}),
-    sync(?FUNCTION_NAME),
+    ensure_peers_info(?FUNCTION_NAME, [Peer]),
     ?assertEqual(Expected, lists:sort(pg:get_members(?FUNCTION_NAME, one))),
     %% WARNING: this code uses pg as white-box, exploiting internals,
     %%  only to simulate broken 'sync'
@@ -515,6 +513,85 @@ group_leave(Config) when is_list(Config) ->
 
 sync(GS) ->
     _ = sys:log(GS, get).
+
+ensure_peers_info(Scope, Peers) ->
+    %% Ensures that pg server on local node has gotten info from
+    %% pg servers on all Peer nodes passed as argument (assuming
+    %% no connection failures).
+    %% 
+    %% This function assumes that all nodeup messages has been
+    %% delivered to all local recipients (pg server) when called.
+    %%
+    %% Note that this relies on current ERTS implementation; not
+    %% language guarantees.
+    %%
+
+    sync(Scope),
+    %% Known: nodup handled and discover sent to Peer
+
+    lists:foreach(fun (Peer) -> sync({Scope, Peer}) end, Peers),
+    %% Known: nodeup handled by Peers and discover sent to local
+    %% Known: discover received/handled by Peers and sync sent to local
+    %% Known: discover received from Peer
+    %% Known: sync received from Peer
+
+    sync(Scope),
+    %% Known: discover handled from Peers and sync sent to Peers
+    %% Known: sync from Peers handled
+    ok.
+
+-ifdef(CURRENTLY_UNUSED_BUT_SERVES_AS_DOC).
+
+ensure_synced(Scope, Peers) ->
+    %% Ensures that the pg server on local node have synced
+    %% with pg servers on all Peer nodes (assuming no connection
+    %% failures).
+    %% 
+    %% This function assumes that all nodeup messages has been
+    %% delivered to all local recipients (pg server) when called.
+    %%
+    %% Note that this relies on current ERTS implementation; not
+    %% language guarantees.
+    %%
+    ensure_peer_info(Scope, Peer),
+    %% Known: local has gotten info from all Peers
+    %% Known: discover from Peers handled and sync sent to Peers
+    lists:foreach(fun (Peer) -> sync({Scope, Peer}) end, Peers),
+    %% Known: sync from local handled by Peers
+    ok.
+
+-endif.
+
+disconnect_nodes(Nodes) ->
+    %% The following is not a language guarantee, but internal
+    %% knowledged about current implementation of ERTS and pg.
+    %%
+    %% The pg server reacts on 'DOWN's via process monitors of
+    %% its peers. These are delivered before 'nodedown's from
+    %% net_kernel:monitor_nodes(). That is, by waiting for
+    %% 'nodedown' from net_kernel:monitor_nodes() we know that
+    %% the 'DOWN' has been delivered to the pg server.
+    %%
+    %% We do this in a separate process to avoid stray
+    %% nodeup/nodedown messages in the test process after
+    %% the operation...
+    F = fun () ->
+                ok = net_kernel:monitor_nodes(true),
+                lists:foreach(fun (Node) ->
+                                      true = erlang:disconnect_node(Node)
+                              end,
+                              Nodes),
+                lists:foreach(fun (Node) ->
+                                      receive {nodedown, Node} -> ok end
+                              end,
+                              Nodes)
+        end,
+    {Pid, Mon} = spawn_monitor(F),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            normal = Reason
+    end,
+    ok.
 
 -define (LOCALHOST, {127, 0, 0, 1}).
 
