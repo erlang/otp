@@ -208,8 +208,8 @@ init_per_testcase(ssl_connection, Config) ->
 						ct:log("ssl server waiting for connections...",[]),
 						{ok, S} = ssl:transport_accept(SSL_LSock),
 						ct:log("ssl:transport_accept/1 ok",[]),
-						ok = ssl:ssl_accept(S),
-						ct:log("ssl:ssl_accept/1 ok",[]),
+                                                {ok,_} = ssl:handshake(S),
+						ct:log("ssl:handshake/1 ok",[]),
 						L()
 				          end)();
 				     Other ->
