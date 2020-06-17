@@ -23,7 +23,8 @@
          dump_maps/0,create_maps/0,
          create_binaries/0,create_sub_binaries/1,
          dump_persistent_terms/0,
-         create_persistent_terms/0]).
+         create_persistent_terms/0,
+         dump_global_literals/0]).
 -compile(r20).
 -include_lib("common_test/include/ct.hrl").
 
@@ -207,3 +208,23 @@ create_persistent_terms() ->
     persistent_term:put({?MODULE,first}, {pid,42.0}),
     persistent_term:put({?MODULE,second}, [1,2,3]),
     {persistent_term:get({?MODULE,first}),persistent_term:get({?MODULE,second})}.
+
+%%%
+%%% Test dumping of global literals such as the tuple returned from os:type/0
+%%% (from OTP 23.1).
+%%%
+
+dump_global_literals() ->
+    Parent = self(),
+    F = fun() ->
+                register(aaaaaaaa_global_literals, self()),
+                put(global_literals, {os:type(),os:version()}),
+                Parent ! {self(),done},
+                receive _ -> ok end
+        end,
+    Pid = spawn_link(F),
+    receive
+        {Pid,done} ->
+            unlink(Pid),
+            {ok,Pid}
+    end.

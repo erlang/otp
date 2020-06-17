@@ -36,6 +36,7 @@
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_global_literals.h"
 
 #define PTR_FMT "%bpX"
 #define ETERM_FMT "%beX"
@@ -840,6 +841,12 @@ dump_literals(fmtfn_t to, void *to_arg)
     erts_rlock_old_code(code_ix);
 
     erts_print(to, to_arg, "=literals\n");
+
+    for (i = 0; i < ERTS_NUM_GLOBAL_LITERALS; i++) {
+        ErtsLiteralArea* area = erts_get_global_literal_area(i);
+        dump_module_literals(to, to_arg, area);
+    }
+
     for (i = 0; i < num_lit_areas; i++) {
         if (lit_areas[i]->off_heap) {
             dump_module_literals(to, to_arg, lit_areas[i]);
