@@ -23,8 +23,7 @@
 -module(erl_make_certs).
 -include_lib("public_key/include/public_key.hrl").
 
--export([make_cert/1, gen_rsa/1, verify_signature/3, write_pem/3]).
--compile(export_all).
+-export([make_cert/1, gen_rsa/1, gen_dsa/2, gen_ec/1, verify_signature/3, write_pem/3]).
 
 %%--------------------------------------------------------------------
 %% @doc  Create and return a der encoded certificate
@@ -179,7 +178,7 @@ make_tbs(SubjectKey, Opts) ->
 		      subject(proplists:get_value(subject, Opts),false)
 	      end,
 
-    {#'OTPTBSCertificate'{serialNumber = trunc(random:uniform()*100000000)*10000 + 1,
+    {#'OTPTBSCertificate'{serialNumber = trunc(rand:uniform()*100000000)*10000 + 1,
 			  signature    = SignAlgo,
 			  issuer       = Issuer,
 			  validity     = validity(Opts),
@@ -447,8 +446,8 @@ odd_rand(Size) ->
     Max = (1 bsl (Size*8))-1,
     odd_rand(Min, Max).
 
-odd_rand(Min,Max) ->
-    Rand = crypto:rand_uniform(Min,Max),
+odd_rand(Min,Max) when Min < Max ->
+    Rand = Min + rand:uniform(Max - Min - 1),
     case Rand rem 2 of
 	0 -> 
 	    Rand + 1;
