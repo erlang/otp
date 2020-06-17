@@ -972,7 +972,7 @@ otp_8567(Config) when is_list(Config) ->
           "-record s, {a :: integer()}.\n"
           "-type t() :: {#r{},#s{}}.\n">>,
     ok = file:write_file(FileName, C),
-    {error,[{_,[{3,erl_parse,["syntax error before: ","')'"]}]}],_} =
+    {error,[{_,[{{3,8},erl_parse,["syntax error before: ","')'"]}]}],_} =
         compile:file(FileName, [return]),
 
     F = <<"-module(otp_8567).\n"
@@ -1022,7 +1022,7 @@ otp_8664(Config) when is_list(Config) ->
            "-spec t() -> 9 and 4.\n"
            "t() -> 0.\n">>,
     ok = file:write_file(FileName, C2),
-    {error,[{_,[{3,erl_lint,{type_syntax,integer}}]}],_} =
+    {error,[{_,[{{3,16},erl_lint,{type_syntax,integer}}]}],_} =
         compile:file(FileName, [return]),
 
     ok.
@@ -1164,7 +1164,7 @@ pr_1014(Config) ->
           "-compile export_all.\n"
           "-type m() :: #{..., a := integer()}.\n">>,
     ok = file:write_file(FileName, C),
-    {error,[{_,[{3,erl_parse,["syntax error before: ","'...'"]}]}],_} =
+    {error,[{_,[{{3,16},erl_parse,["syntax error before: ","'...'"]}]}],_} =
         compile:file(FileName, [return]),
 
     ok.
