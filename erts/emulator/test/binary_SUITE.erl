@@ -475,10 +475,7 @@ t2b_system_limit(Config) when is_list(Config) ->
                                      memsup:get_system_memory_data()) of
                 Memory when is_integer(Memory),
                             Memory > 6*1024*1024*1024 ->
-                    test_t2b_system_limit(term_to_binary, fun erlang:term_to_binary/1, fun erlang:term_to_binary/2),
-                    test_t2b_system_limit(term_to_iovec, fun erlang:term_to_iovec/1, fun erlang:term_to_iovec/2),
-                    garbage_collect(),
-                    ok;
+                    do_t2b_system_limit();
                 _ ->
                     {skipped, "Not enough memory on this machine"}
             end;
@@ -486,36 +483,51 @@ t2b_system_limit(Config) when is_list(Config) ->
             {skipped, "Only interesting on 64-bit builds"}
     end.
 
-test_t2b_system_limit(Name, F1, F2) ->
-    io:format("Creating HugeBin~n", []),
-    Bits = ((1 bsl 32)+1)*8,
-    HugeBin = <<0:Bits>>,
+do_t2b_system_limit() ->
+    F = fun() ->
+                io:format("Creating HugeBin~n", []),
+                Bits = (1 bsl 32) + 1,
+                HugeBin = <<0:Bits/unit:8>>,
+                test_t2b_system_limit(HugeBin, term_to_binary,
+                                      fun erlang:term_to_binary/1,
+                                      fun erlang:term_to_binary/2),
+                test_t2b_system_limit(HugeBin, term_to_iovec,
+                                      fun erlang:term_to_iovec/1,
+                                      fun erlang:term_to_iovec/2),
+                garbage_collect(),
+                ok
+        end,
+    Opts = [{args, "-pa " ++ filename:dirname(code:which(?MODULE))}],
+    {ok,Node} = test_server:start_node(?FUNCTION_NAME, slave, Opts),
+    erpc:call(Node, F).
 
+test_t2b_system_limit(HugeBin, Name, F1, F2) ->
     io:format("Testing ~p(HugeBin)~n", [Name]),
-    {'EXIT',{system_limit,[{erlang,Name,
-                            [HugeBin],
-                            _} |_]}} = (catch F1(HugeBin)),
+    {'EXIT',{system_limit,[{erlang,Name,[HugeBin],_}|_]}} =
+        t2b_eval(fun() -> F1(HugeBin) end),
 
     io:format("Testing ~p(HugeBin, [compressed])~n", [Name]),
-    {'EXIT',{system_limit,[{erlang,Name,
-                            [HugeBin, [compressed]],
-                            _} |_]}} = (catch F2(HugeBin, [compressed])),
+    {'EXIT',{system_limit,[{erlang,Name,[HugeBin,[compressed]],_}|_]}} =
+        t2b_eval(fun() -> F2(HugeBin, [compressed]) end),
 
     %% Check that it works also after we have trapped...
     io:format("Creating HugeListBin~n", []),
-    HugeListBin = [lists:duplicate(2000000,2000000), HugeBin],
+    HugeListBin = [lists:duplicate(2000000, 2000000), HugeBin],
 
     io:format("Testing ~p(HugeListBin)~n", [Name]),
-    {'EXIT',{system_limit,[{erlang,Name,
-                            [HugeListBin],
-                            _} |_]}} = (catch F1(HugeListBin)),
+    {'EXIT',{system_limit,[{erlang,Name,[HugeListBin],_}|_]}} =
+        t2b_eval(fun() -> F1(HugeListBin) end),
 
     io:format("Testing ~p(HugeListBin, [compressed])~n", [Name]),
-    {'EXIT',{system_limit,[{erlang,Name,
-                            [HugeListBin, [compressed]],
-                            _} |_]}} = (catch F2(HugeListBin, [compressed])),
+    {'EXIT',{system_limit,[{erlang,Name,[HugeListBin,[compressed]],_}|_]}} =
+        t2b_eval(fun() -> F2(HugeListBin, [compressed]) end),
 
     ok.
+
+t2b_eval(F) ->
+    Result = (catch F()),
+    io:put_chars(io_lib:format("~P\n", [Result,100])),
+    Result.
 
 term_to_iovec(Config) when is_list(Config) ->
     Bin = list_to_binary(lists:duplicate(1000,100)),
