@@ -19,10 +19,25 @@
 %%
 -module(ssl_upgrade_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
+
+%% Common test
+-export([all/0,
+         init_per_suite/1,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_testcase/2,
+         upgrade_init/2,
+         upgrade_upgraded/2,
+         upgrade_downgraded/2]).
+
+%% Test cases
+-export([minor_upgrade/1,
+         major_upgrade/1]).
+
+%% spawn/apply export
+-export([result_proxy_init/1, use_connection/1]).
+
 
 -record(state, {
 	  config,
@@ -32,6 +47,10 @@
 	  result_proxy,
 	  skip
 	 }).
+
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
 
 all() -> 
     [
@@ -43,6 +62,7 @@ init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
         ok ->
+            ssl_test_lib:clean_start(),
             case ct_release_test:init(Config0) of
                 {skip, Reason} ->
                     {skip, Reason};
@@ -65,33 +85,9 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(_TestCase, Config) ->     
     Config.
 
-major_upgrade(Config) when is_list(Config) ->
-    ct_release_test:upgrade(ssl, major,{?MODULE, #state{config = Config}}, Config).
-
-minor_upgrade(Config) when is_list(Config) ->
-    ct_release_test:upgrade(ssl, minor,{?MODULE, #state{config = Config}}, Config).
-
 upgrade_init(CtData, State) -> 
     {ok,{FromVsn,ToVsn}} = ct_release_test:get_app_vsns(CtData, ssl),
     upgrade_init(FromVsn, ToVsn, CtData, State).
-
-upgrade_init(_, "8.0.2", _, State) ->
-    %% Requires stdlib upgrade so it will be a node upgrade!
-    State#state{skip = true};
-upgrade_init(_, _, CtData, #state{config = Config} = State) ->
-    {ok, {_, _, Up, _Down}} = ct_release_test:get_appup(CtData, ssl),
-    ct:pal("Up: ~p", [Up]),
-    Soft = is_soft(Up), %% It is symmetrical, if upgrade is soft so is downgrade  
-    Pid = spawn(?MODULE, result_proxy_init, [[]]),
-    case Soft of 
-	true ->
-	    {Server, Client} = soft_start_connection(Config, Pid),
-	    State#state{server = Server, client = Client,
-			soft = Soft,
-			result_proxy = Pid};
-	false ->
-	    State#state{soft = Soft, result_proxy = Pid}
-    end.
 
 upgrade_upgraded(_, #state{skip = true} = State) ->
     State;
@@ -137,6 +133,36 @@ upgrade_downgraded(_, #state{server = Server, client = Client, soft = true, resu
     ssl_test_lib:close(Client),
     ok = Result,
     State.
+
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+major_upgrade(Config) when is_list(Config) ->
+    ct_release_test:upgrade(ssl, major,{?MODULE, #state{config = Config}}, Config).
+
+minor_upgrade(Config) when is_list(Config) ->
+    ct_release_test:upgrade(ssl, minor,{?MODULE, #state{config = Config}}, Config).
+
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
+upgrade_init(_, "8.0.2", _, State) ->
+    %% Requires stdlib upgrade so it will be a node upgrade!
+    State#state{skip = true};
+upgrade_init(_, _, CtData, #state{config = Config} = State) ->
+    {ok, {_, _, Up, _Down}} = ct_release_test:get_appup(CtData, ssl),
+    ct:pal("Up: ~p", [Up]),
+    Soft = is_soft(Up), %% It is symmetrical, if upgrade is soft so is downgrade
+    Pid = spawn(?MODULE, result_proxy_init, [[]]),
+    case Soft of
+	true ->
+	    {Server, Client} = soft_start_connection(Config, Pid),
+	    State#state{server = Server, client = Client,
+			soft = Soft,
+			result_proxy = Pid};
+	false ->
+	    State#state{soft = Soft, result_proxy = Pid}
+    end.
 
 use_connection(Socket) ->
     ssl_test_lib:send_recv_result_active(Socket),
