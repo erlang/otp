@@ -81,7 +81,7 @@ DATA_DIRS = $(MODULES:%=%_data)
 INCLUDES = -I$(ERL_TOP)/lib/ssh/src
 
 EMAKEFILE=Emakefile
-MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
+#MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
 
 ifeq ($(MAKE_EMAKE),)
 BUILDTARGET   = $(TARGET_FILES)

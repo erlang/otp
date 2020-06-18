@@ -26,7 +26,20 @@
 -include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2
+        ]).
+
+-export([
+         simple_connect/1
+        ]).
+
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

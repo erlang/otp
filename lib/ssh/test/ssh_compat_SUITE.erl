@@ -28,8 +28,24 @@
 -include_lib("kernel/include/file.hrl"). % #file_info{}
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2
+        ]).
+
+-export([
+         all_algorithms_sftp_exec_reneg_otp_is_client/1,
+         check_docker_present/1,
+         login_otp_is_client/1,
+         login_otp_is_server/1,
+         renegotiation_otp_is_server/1,
+         send_recv_big_with_renegotiate_otp_is_client/1
+        ]).
 
 -define(USER,"sshtester").
 -define(PASSWD, "foobar").
@@ -571,34 +587,6 @@ chk_all_algos(FunctionName, CommonAlgs, Config, DoTestFun) when is_function(DoTe
 
 
 
-%%%----------------------------------------------------------------
-%%%
-%%% Call all Funs as Fun() which returns 'ok', {ok,C} or Other.
-%%% do/1 returns 'ok' or the first encountered value that is not
-%%% successful.
-%%%
-
-do(Funs) ->
-    do(Funs, 1).
-
-do([Fun|Funs], N) ->
-    case Fun() of
-        ok ->
-            %% ct:log("Fun ~p ok",[N]),
-            do(Funs, N-1);
-        {ok,C} ->
-            %% ct:log("Fun ~p {ok,C}",[N]),
-            ssh:close(C),
-            do(Funs, N-1);
-        Other ->
-            ct:log("Fun ~p FAILED:~n~p",[N, Other]),
-            Other
-    end;
-
-do([], _) ->
-    %% ct:log("All Funs ok",[]),
-    ok.
-
 %%--------------------------------------------------------------------
 %%
 %% Functions to set up local and remote host's and user's keys and directories
@@ -612,8 +600,6 @@ setup_local_hostdir(Config) ->
     setup_local_hostdirs(KeyAlgs, new_dir(Config), Config).
 
 
-setup_local_hostdirs(KeyAlgs, Config) ->
-    setup_local_hostdirs(KeyAlgs, new_dir(Config), Config).
 setup_local_hostdirs(KeyAlgs, HostDir, Config) ->
     lists:foreach(
       fun(KeyAlg) ->
@@ -635,13 +621,6 @@ setup_local_hostdir(KeyAlg, HostDir, Config) ->
 
 setup_remote_auth_keys_and_local_priv(KeyAlg, Config) ->
     {IP,Port} = ip_port(Config),
-    setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, new_dir(Config), Config).
-
-setup_remote_auth_keys_and_local_priv(KeyAlg, UserDir, Config) ->
-    {IP,Port} = ip_port(Config),
-    setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, UserDir, Config).
-
-setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, Config) ->
     setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, new_dir(Config), Config).
 
 setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, UserDir, Config) ->
@@ -669,13 +648,6 @@ setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, UserDir, Config) ->
 
 setup_remote_priv_and_local_auth_keys(KeyAlg, Config) ->
     {IP,Port} = ip_port(Config),
-    setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, new_dir(Config), Config).
-
-setup_remote_priv_and_local_auth_keys(KeyAlg, UserDir, Config) ->
-    {IP,Port} = ip_port(Config),
-    setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config).
-
-setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, Config) ->
     setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, new_dir(Config), Config).
 
 setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config) ->
@@ -834,11 +806,6 @@ ip_port(Config) ->
     {_Ver,{IP,Port},_} = proplists:get_value(id,Config),
     {IP,Port}.
 
-port_mapped_to(Id) ->
-    Cmnd = lists:concat(["docker ps --format \"{{.Ports}}\"  --filter id=",Id]),
-    [_, PortStr | _] = string:tokens(os:cmd(Cmnd), ":->/"),
-    list_to_integer(PortStr).
-
 ip(Id) ->
     Cmnd = lists:concat(["docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ",
 			 Id]),
@@ -877,29 +844,6 @@ new_dir(Config) ->
             timer:sleep(25),
             new_dir(Config)
     end.
-
-clear_dir(Dir) ->
-    delete_all_contents(Dir),
-    {ok,[]} = file:list_dir(Dir),
-    Dir.
-
-delete_all_contents(Dir) ->
-    {ok,Fs} = file:list_dir(Dir),
-    lists:map(fun(F0) ->
-                      F = filename:join(Dir, F0),
-                      case filelib:is_file(F) of
-                          true ->
-                              file:delete(F);
-                          false ->
-                              case filelib:is_dir(F) of
-                                  true ->
-                                      delete_all_contents(F),
-                                      file:del_dir(F);
-                                  false ->
-                                      ct:log("Neither file nor dir: ~p",[F])
-                              end
-                      end
-              end, Fs).
 
 %%--------------------------------------------------------------------
 %%
@@ -971,10 +915,6 @@ use_algorithms(RemoteHelloBin) ->
     ssh_transport:adjust_algs_for_peer_version(binary_to_list(RemoteHelloBin)++"\r\n",
                                                MyAlgos).
 
-
-alg_class_diff(Tag) ->
-    alg_diff(proplists:get_value(Tag, ssh:default_algorithms()),
-             proplists:get_value(Tag, ssh_transport:supported_algorithms())).
 
 alg_diff() ->
     alg_diff(ssh:default_algorithms(), ssh_transport:supported_algorithms()).

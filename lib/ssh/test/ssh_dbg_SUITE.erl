@@ -26,8 +26,29 @@
 -include_lib("ssh/src/ssh.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         all_dbg/1,
+         cb_basic/1,
+         cb_macros_print/1,
+         cb_print/1,
+         dbg_alg_terminate/1,
+         dbg_authentication/1,
+         dbg_basic/1,
+         dbg_channels/1,
+         dbg_connections/1,
+         dbg_ssh_messages/1
+        ]).
+
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -600,8 +621,8 @@ dbg_SKIP(Ref, Prefixes, UnexpectedAcc) ->
     end.
 
 %%%----------------------------------------------------------------
-w2l(P) ->
-    ssh_test_lib:winpath_to_linuxpath(P).
+%% w2l(P) ->
+%%     ssh_test_lib:winpath_to_linuxpath(P).
 
 w2l(Config, P) ->
     W2L = proplists:get_value(w2l, Config, fun(X) -> X end),

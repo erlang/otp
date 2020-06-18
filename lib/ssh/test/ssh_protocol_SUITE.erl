@@ -28,8 +28,55 @@
 -include_lib("ssh/src/ssh_auth.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         bad_long_service_name/1,
+         bad_packet_length/2,
+         bad_service_name/1,
+         bad_service_name/2,
+         bad_service_name_length/2,
+         bad_service_name_then_correct/1,
+         bad_very_long_service_name/1,
+         client_handles_keyboard_interactive_0_pwds/1,
+         client_info_line/1,
+         do_gex_client_init/3,
+         do_gex_client_init_old/3,
+         empty_service_name/1,
+         ext_info_c/1,
+         ext_info_s/1,
+         gex_client_init_option_groups/1,
+         gex_client_init_option_groups_file/1,
+         gex_client_init_option_groups_moduli_file/1,
+         gex_client_old_request_exact/1,
+         gex_client_old_request_noexact/1,
+         gex_server_gex_limit/1,
+         lib_match/1,
+         lib_no_match/1,
+         lib_works_as_client/1,
+         lib_works_as_server/1,
+         modify_append/1,
+         modify_combo/1,
+         modify_prepend/1,
+         modify_rm/1,
+         no_common_alg_client_disconnects/1,
+         no_common_alg_server_disconnects/1,
+         no_ext_info_s1/1,
+         no_ext_info_s2/1,
+         packet_length_too_large/1,
+         packet_length_too_short/1,
+         preferred_algorithms/1,
+         service_name_length_too_large/1,
+         service_name_length_too_short/1
+        ]).
 
 -define(NEWLINE, <<"\r\n">>).
 -define(REKEY_DATA_TMO, 65000).

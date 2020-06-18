@@ -27,7 +27,21 @@
 -include_lib("ssh/src/ssh_agent.hrl").
 -include("ssh_test_lib.hrl").
 
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         connect_with_ssh_agent/1,
+         request_identities/1,
+         sign_request/1
+        ]).
+
 
 %% Test configuration
 
@@ -72,9 +86,7 @@ end_per_testcase(_TestCase, _Config) ->
 
 %% Test cases
 
-request_identities() ->
-    [{doc, "Request a list of identities"}].
-
+%%% Request a list of identities
 request_identities(_Config) ->
     Request = #ssh_agent_identities_request{},
 
@@ -100,9 +112,7 @@ request_identities(_Config) ->
 
     ok.
 
-sign_request() ->
-    [{doc, "Request a signature on a binary blob"}].
-
+%%% Request a signature on a binary blob
 sign_request(_Config) ->
     PubKeyBlob = <<"key">>,
     SigData = <<"data">>,
@@ -131,9 +141,7 @@ sign_request(_Config) ->
 
     ok.
 
-connect_with_ssh_agent() ->
-    [{doc, "Connect with RSA key from SSH agent"}].
-
+%%% Connect with RSA key from SSH agent
 connect_with_ssh_agent(Config) ->
     UserDir = PrivDir = proplists:get_value(priv_dir, Config),
     AgentUserDir = filename:join(UserDir,"agent"),

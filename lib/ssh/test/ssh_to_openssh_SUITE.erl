@@ -24,8 +24,31 @@
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         erlang_server_openssh_client_renegotiate/1,
+         erlang_shell_client_openssh_server/1,
+         exec_direct_with_io_in_sshc/1,
+         exec_with_io_in_sshc/1,
+         tunnel_in_erlclient_erlserver/1,
+         tunnel_in_erlclient_openssh_server/1,
+         tunnel_in_non_erlclient_erlserver/1,
+         tunnel_out_erlclient_erlserver/1,
+         tunnel_out_erlclient_openssh_server/1,
+         tunnel_out_non_erlclient_erlserver/1
+
+        ]).
 
 -define(SSH_DEFAULT_PORT, 22).
 -define(REKEY_DATA_TMO, 65000).
@@ -118,10 +141,6 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-
-erlang_shell_client_openssh_server() ->
-    [{doc, "Test that ssh:shell/2 works"}].
-
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     IO = ssh_test_lib:start_io_server(),
@@ -414,22 +433,6 @@ test_tunneling(ListenSocket, Host, Port) ->
     close_and_check(Server2, Client2).
     
     
-tcp_connect(Host, Port, Options) ->
-    tcp_connect(Host, Port, Options, 0).
-tcp_connect(Host, Port, Options, Timeout) ->
-    ct:log("Try connect to ~p:~p ~p Timeout=~p", [Host, Port, Options, Timeout]),
-    case gen_tcp:connect(Host, Port, Options, Timeout) of
-        {error,econnrefused} ->
-            timer:sleep( 2*max(Timeout,250)),
-            tcp_connect(Host, Port, Options, 2*max(Timeout,250));
-        {error,timeout} ->
-            timer:sleep( 2*max(Timeout,250)),
-            tcp_connect(Host, Port, Options, 2*max(Timeout,250));
-        {ok,S} ->
-            ct:log("connect to ~p:~p ~p Timeout=~p -> ~p", [Host, Port, Options, Timeout, S]),
-            {ok,S}
-    end.
-
 close_and_check(OneSide, OtherSide) ->
     ok = gen_tcp:close(OneSide),
     ok = chk_closed(OtherSide).

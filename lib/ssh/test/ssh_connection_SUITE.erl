@@ -25,7 +25,67 @@
 -include_lib("ssh/src/ssh_connect.hrl").
 -include("ssh_test_lib.hrl").
 
--compile(export_all).
+
+
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         big_cat/1,
+         connect_sock_not_passive/1,
+         connect_sock_not_tcp/1,
+         daemon_sock_not_passive/1,
+         daemon_sock_not_tcp/1,
+         do_interrupted_send/3,
+         do_simple_exec/1,
+         encode_decode_pty_opts/1,
+         exec_disabled/1,
+         exec_erlang_term/1,
+         exec_erlang_term_non_default_shell/1,
+         exec_shell_disabled/1,
+         gracefull_invalid_long_start/1,
+         gracefull_invalid_long_start_no_nl/1,
+         gracefull_invalid_start/1,
+         gracefull_invalid_version/1,
+         interrupted_send/1,
+         max_channels_option/1,
+         ptty_alloc/1,
+         ptty_alloc_default/1,
+         ptty_alloc_pixel/1,
+         read_write_loop/1,
+         read_write_loop1/2,
+         send_after_exit/1,
+         simple_eval/1,
+         simple_exec/1,
+         simple_exec_sock/1,
+         small_cat/1,
+         small_interrupted_send/1,
+         start_exec_direct_fun1_read_write/1,
+         start_exec_direct_fun1_read_write_advanced/1,
+         start_shell/1,
+         start_shell_exec/1,
+         start_shell_exec_direct_fun/1,
+         start_shell_exec_direct_fun1_error/1,
+         start_shell_exec_direct_fun1_error_type/1,
+         start_shell_exec_direct_fun2/1,
+         start_shell_exec_direct_fun3/1,
+         start_shell_exec_fun/1,
+         start_shell_exec_fun2/1,
+         start_shell_exec_fun3/1,
+         start_shell_sock_daemon_exec/1,
+         start_shell_sock_exec_fun/1,
+         start_subsystem_on_closed_channel/1,
+         stop_listener/1
+        ]).
 
 -define(SSH_DEFAULT_PORT, 22).
 -define(EXEC_TIMEOUT, 10000).
@@ -124,19 +184,16 @@ end_per_group(_, Config) ->
 init_per_testcase(_TestCase, Config) ->
     %% To make sure we start clean as it is not certain that
     %% end_per_testcase will be run!
-    end_per_testcase(Config),
+    end_per_testcase(any, Config),
     ssh:start(),
     Config.
 
-end_per_testcase(_Config) ->
+end_per_testcase(_TestCase, _Config) ->
     ssh:stop().
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-simple_exec() ->
-    [{doc, "Simple openssh connectivity test for ssh_connection:exec"}].
-
 simple_exec(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
@@ -208,9 +265,6 @@ daemon_sock_not_passive(_Config) ->
     gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
-small_cat() ->
-    [{doc, "Use 'cat' to echo small data block back to us."}].
-
 small_cat(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
@@ -250,9 +304,6 @@ small_cat(Config) when is_list(Config) ->
 	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 %%--------------------------------------------------------------------
-big_cat() ->
-    [{doc,"Use 'cat' to echo large data block back to us."}].
-
 big_cat(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
@@ -303,9 +354,6 @@ big_cat(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-send_after_exit() ->
-    [{doc, "Send channel data after the channel has been closed."}].
-
 send_after_exit(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
@@ -371,9 +419,6 @@ encode_decode_pty_opts(_Config) ->
     end.
 
 %%--------------------------------------------------------------------
-ptty_alloc_default() ->
-    [{doc, "Test sending PTTY alloc message with only defaults."}].
-
 ptty_alloc_default(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
@@ -386,9 +431,6 @@ ptty_alloc_default(Config) when is_list(Config) ->
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
-ptty_alloc() ->
-    [{doc, "Test sending PTTY alloc message with width,height options."}].
-
 ptty_alloc(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
@@ -403,9 +445,6 @@ ptty_alloc(Config) when is_list(Config) ->
 
 
 %%--------------------------------------------------------------------
-ptty_alloc_pixel() ->
-    [{doc, "Test sending PTTY alloc message pixel options."}].
-
 ptty_alloc_pixel(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
@@ -533,9 +572,6 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
     end.
 
 %%--------------------------------------------------------------------
-start_shell() ->
-    [{doc, "Start a shell"}].
-
 start_shell(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -558,9 +594,6 @@ start_shell(Config) when is_list(Config) ->
 
 
 %%--------------------------------------------------------------------
-start_shell_exec() ->
-    [{doc, "start shell to exec command"}].
-
 start_shell_exec(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -867,9 +900,6 @@ do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-start_shell_sock_exec_fun() ->
-    [{doc, "start shell on tcp-socket to exec command"}].
-
 start_shell_sock_exec_fun(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -1032,9 +1062,6 @@ gracefull_invalid_long_start_no_nl(Config) when is_list(Config) ->
 	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
-stop_listener() ->
-    [{doc, "start ssh daemon, setup connections, stop listener, restart listner"}].
-
 stop_listener(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -1132,9 +1159,6 @@ start_subsystem_on_closed_channel(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-max_channels_option() ->
-    [{doc, "Test max_channels option"}].
-
 max_channels_option(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth

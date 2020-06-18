@@ -27,8 +27,42 @@
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2
+        ]).
+
+-export([
+         norekey_limit_client/0,
+         norekey_limit_client/1,
+         norekey_limit_daemon/0,
+         norekey_limit_daemon/1,
+         rekey0/0,
+         rekey0/1,
+         rekey1/0,
+         rekey1/1,
+         rekey2/0,
+         rekey2/1,
+         rekey3/0,
+         rekey3/1,
+         rekey4/0,
+         rekey4/1,
+         rekey_limit_client/0,
+         rekey_limit_client/1,
+         rekey_limit_daemon/0,
+         rekey_limit_daemon/1,
+         rekey_time_limit_client/0,
+         rekey_time_limit_client/1,
+         rekey_time_limit_daemon/0,
+         rekey_time_limit_daemon/1,
+         renegotiate1/1,
+         renegotiate2/1
+        ]).
 
 -define(NEWLINE, <<"\r\n">>).
 
