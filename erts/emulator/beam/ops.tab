@@ -261,12 +261,9 @@ raise Trace Value => move Trace x | move Value x=1 | move x x=2 | i_raise
 
 i_raise
 
-# Internal now, but could be useful to make known to the compiler.
-badarg/1
-badarg p => badarg_body
-badarg Fail=f => jump Fail
-
-badarg_body
+# Workaround the limitation that generators must always return at least one instruction.
+delete_me/0
+delete_me =>
 
 system_limit/1
 system_limit p => system_limit_body
@@ -1392,7 +1389,10 @@ i_bs_validate_unicode Fail Src=c => move Src x | i_bs_validate_unicode Fail x
 #
 # Storing floats into binaries.
 #
-bs_put_float Fail Sz=q Unit Flags Val => badarg Fail
+
+# Will fail. No need to keep the instruction, because bs_add or
+# bs_init* would already have raised an exception.
+bs_put_float Fail Sz=q Unit Flags Val =>
 
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			put_float(Fail, Sz, Unit, Flags, Src)

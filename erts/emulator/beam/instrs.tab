@@ -1035,12 +1035,6 @@ is_ge_literal(Fail, X, Y) {
     CMP_GE_LITERAL_ACTION($X, $Y, $FAIL($Fail));
 }
 
-badarg_body() {
-    c_p->freason = BADARG;
-    $FAIL_BODY();
-    //| -no_next;
-}
-
 badmatch(Src) {
     c_p->fvalue = $Src;
     c_p->freason = BADMATCH;
