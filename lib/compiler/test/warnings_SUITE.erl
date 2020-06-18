@@ -99,9 +99,9 @@ pattern(Config) when is_list(Config) ->
            ">>,
 	   [warn_unused_vars],
 	   {warnings,
-	    [{2,v3_core,nomatch},
-	     {6,v3_core,nomatch},
-	     {11,v3_core,nomatch} ] }}],
+	    [{{2,15},v3_core,nomatch},
+	     {{6,21},v3_core,nomatch},
+	     {{11,20},v3_core,nomatch} ] }}],
     [] = run(Config, Ts),
     ok.
 
@@ -672,15 +672,15 @@ maps(Config) when is_list(Config) ->
                  M#{<<\"a\">>=>1, <<\"b\">>=> 2, <<\"a\">>:=3}.
            ">>,
            [],
-           {warnings,[{3,v3_core,{map_key_repeated,a}},
-                      {8,v3_core,{map_key_repeated,a}},
-                      {11,v3_core,{map_key_repeated,a}},
-                      {14,v3_core,{map_key_repeated,"a"}},
-                      {17,v3_core,{map_key_repeated,"a"}},
-                      {20,v3_core,{map_key_repeated,"a"}},
-                      {23,v3_core,{map_key_repeated,"a"}},
-                      {28,v3_core,{map_key_repeated,"a"}},
-                      {31,v3_core,{map_key_repeated,<<"a">>}}]}},
+           {warnings,[{{3,20},v3_core,{map_key_repeated,a}},
+                      {{8,21},v3_core,{map_key_repeated,a}},
+                      {{11,21},v3_core,{map_key_repeated,a}},
+                      {{14,20},v3_core,{map_key_repeated,"a"}},
+                      {{17,21},v3_core,{map_key_repeated,"a"}},
+                      {{20,21},v3_core,{map_key_repeated,"a"}},
+                      {{23,20},v3_core,{map_key_repeated,"a"}},
+                      {{28,21},v3_core,{map_key_repeated,"a"}},
+                      {{31,21},v3_core,{map_key_repeated,<<"a">>}}]}},
            {repeated_keys2,
            <<"
              foo4(K) ->
@@ -733,15 +733,15 @@ maps(Config) when is_list(Config) ->
                  M1#{#{<<\"a\">>=>1}:=3,K=>2}.
           ">>,
            [],
-           {warnings,[{3,v3_core,{map_key_repeated,"a"}},
-                      {6,v3_core,{map_key_repeated,a}},
-                      {9,v3_core,{map_key_repeated,<<"a">>}},
-                      {14,v3_core,{map_key_repeated,{"a",1}}},
-                      {17,v3_core,{map_key_repeated,{"a",<<"b">>}}},
-                      {21,v3_core,{map_key_repeated,{<<"a">>,1}}},
-                      {25,v3_core,{map_key_repeated,#{"a" => 1}}},
-                      {28,v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
-                      {32,v3_core,{map_key_repeated,#{<<"a">> => 1}}}]}}
+           {warnings,[{{3,20},v3_core,{map_key_repeated,"a"}},
+                      {{6,21},v3_core,{map_key_repeated,a}},
+                      {{9,21},v3_core,{map_key_repeated,<<"a">>}},
+                      {{14,20},v3_core,{map_key_repeated,{"a",1}}},
+                      {{17,21},v3_core,{map_key_repeated,{"a",<<"b">>}}},
+                      {{21,21},v3_core,{map_key_repeated,{<<"a">>,1}}},
+                      {{25,20},v3_core,{map_key_repeated,#{"a" => 1}}},
+                      {{28,21},v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
+                      {{32,21},v3_core,{map_key_repeated,#{<<"a">> => 1}}}]}}
          ],
     run(Config, Ts),
     ok.
@@ -787,8 +787,8 @@ latin1_fallback(Conf) when is_list(Conf) ->
               t(x) -> ok.
               ">>,
 	    [],
-	    {warnings,[{1,compile,reparsing_invalid_unicode},
-		       {3,sys_core_fold,{nomatch_shadow,2,{t,1}}}]}}],
+	    {warnings,[{3,sys_core_fold,{nomatch_shadow,2,{t,1}}},
+		       {{1,25},compile,reparsing_invalid_unicode}]}}],
     [] = run(Conf, Ts1),
 
     Ts2 = [{latin1_fallback2,
@@ -800,7 +800,7 @@ latin1_fallback(Conf) when is_list(Conf) ->
 	      -include(\"include_me.hrl\").
               ">>,
 	    [],
-	    {warnings,[{1,compile,reparsing_invalid_unicode}]}
+	    {warnings,[{{1,1},compile,reparsing_invalid_unicode}]}
 	   }],
     [] = run(Conf, Ts2),
 
@@ -814,7 +814,7 @@ latin1_fallback(Conf) when is_list(Conf) ->
               -endif.
               ">>,
 	    [],
-	    {warnings,[{2,compile,reparsing_invalid_unicode}]}}],
+	    {warnings,[{{2,24},compile,reparsing_invalid_unicode}]}}],
     [] = run(Conf, Ts3),
 
     ok.
