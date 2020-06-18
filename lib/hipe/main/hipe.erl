@@ -501,8 +501,8 @@ compile(Name, [], File, Opts) ->
   compile(Name, File, Opts);
 compile(Name, Core, File, Opts) when is_atom(Name) ->
   DisasmFun = fun (_) -> {false, []} end,
-  IcodeFun = fun (_, Opts) ->
-		 get_core_icode(Name, Core, File, Opts)
+  IcodeFun = fun (_, FOpts) ->
+		 get_core_icode(Name, Core, File, FOpts)
 	     end,
   run_compiler(Name, DisasmFun, IcodeFun, Opts).
 
