@@ -29,6 +29,7 @@
 	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
          stacktrace/1,nested_stacktrace/1,raise/1,
          no_return_in_try_block/1,
+         expression_export/1,
          coverage/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -46,7 +47,8 @@ groups() ->
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
        hockey,handle_info,catch_in_catch,grab_bag,
        stacktrace,nested_stacktrace,raise,
-       no_return_in_try_block,coverage]}].
+       no_return_in_try_block,expression_export,
+       coverage]}].
 
 
 init_per_suite(Config) ->
@@ -1382,6 +1384,75 @@ no_return_in_try_block_1(H) ->
     end.
 
 no_return() -> throw(no_return).
+
+expression_export(_Config) ->
+    42 = expr_export_1(),
+    42 = expr_export_2(),
+
+    42 = expr_export_3(fun() -> bar end),
+    beer = expr_export_3(fun() -> pub end),
+    {error,failed} = expr_export_3(fun() -> error(failed) end),
+    is_42 = expr_export_3(fun() -> 42 end),
+    no_good = expr_export_3(fun() -> bad end),
+
+    <<>> = expr_export_4(<<1:32>>),
+    <<"abcd">> = expr_export_4(<<2:32,"abcd">>),
+    no_match = expr_export_4(<<0:32>>),
+    no_match = expr_export_4(<<777:32>>),
+
+    {1,2,3} = expr_export_5(),
+    ok.
+
+expr_export_1() ->
+    try Bar = 42 of
+        _ -> Bar
+    after
+        ok
+    end.
+
+expr_export_2() ->
+    try Bar = 42 of
+        _ -> Bar
+    catch
+        _:_ ->
+            error
+    end.
+
+expr_export_3(F) ->
+    try
+        Bar = 42,
+        F()
+    of
+        bar -> Bar;
+        pub -> beer;
+        Bar -> is_42;
+        _ -> no_good
+    catch
+        error:Reason ->
+            {error,Reason}
+    end.
+
+expr_export_4(Bin) ->
+    try
+        SzSz = id(32),
+        Bin
+    of
+        <<Sz:SzSz,Tail:(4*Sz-4)/binary>> -> Tail;
+        <<_/binary>> -> no_match
+    after
+        ok
+    end.
+
+expr_export_5() ->
+    try
+        X = 1,
+        Z = 3,
+        Y = 2
+    of
+        2 -> {X,Y,Z}
+    after
+        ok
+    end.
 
 coverage(_Config) ->
     {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),

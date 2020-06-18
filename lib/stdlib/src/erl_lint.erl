@@ -2520,14 +2520,14 @@ expr({call,Line,F,As}, Vt, St0) ->
     St = warn_invalid_call(Line,F,St0),
     expr_list([F|As], Vt, St);                  %They see the same variables
 expr({'try',Line,Es,Scs,Ccs,As}, Vt, St0) ->
-    %% Currently, we don't allow any exports because later
-    %% passes cannot handle exports in combination with 'after'.
+    %% The only exports we allow are from the try expressions to the
+    %% success clauses.
     {Evt0,St1} = exprs(Es, Vt, St0),
     TryLine = {'try',Line},
     Uvt = vtunsafe(TryLine, Evt0, Vt),
-    Evt1 = vtupdate(Uvt, Evt0),
     {Sccs,St2} = try_clauses(Scs, Ccs, TryLine,
-                             vtupdate(Evt1, Vt), St1),
+                             vtupdate(Evt0, Vt), Uvt, St1),
+    Evt1 = vtupdate(Uvt, Evt0),
     Rvt0 = Sccs,
     Rvt1 = vtupdate(vtunsafe(TryLine, Rvt0, Vt), Rvt0),
     Evt2 = vtmerge(Evt1, Rvt1),
@@ -3333,10 +3333,10 @@ is_module_dialyzer_option(Option) ->
 %% try_catch_clauses(Scs, Ccs, In, ImportVarTable, State) ->
 %%      {UpdVt,State}.
 
-try_clauses(Scs, Ccs, In, Vt, St0) ->
+try_clauses(Scs, Ccs, In, Vt, Uvt, St0) ->
     {Csvt0,St1} = icrt_clauses(Scs, Vt, St0),
     St2 = St1#lint{in_try_head=true},
-    {Csvt1,St3} = icrt_clauses(Ccs, Vt, St2),
+    {Csvt1,St3} = icrt_clauses(Ccs, vtupdate(Uvt, Vt), St2),
     Csvt = Csvt0 ++ Csvt1,
     UpdVt = icrt_export(Csvt, Vt, In, St3),
     {UpdVt,St3#lint{in_try_head=false}}.
