@@ -57,7 +57,7 @@ validate({Mod,Exp,Attr,Fs,Lc}, Level) when is_atom(Mod),
         [] ->
             ok;
         Es0 ->
-            Es = [{?MODULE,E} || E <- Es0],
+            Es = [{1,?MODULE,E} || E <- Es0],
             {error,[{atom_to_list(Mod),Es}]}
     end.
 

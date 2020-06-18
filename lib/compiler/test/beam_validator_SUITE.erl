@@ -97,7 +97,7 @@ compiler_bug(Config) when is_list(Config) ->
     %% the beam_validator module.
     {error,
      [{"compiler_bug",
-       [{beam_validator,_}]}],
+       [{_Pos,beam_validator,_}]}],
      []} = compile:file(File, [from_asm,return_errors,time]),
     ok.
 
@@ -831,7 +831,7 @@ do_val(Mod, Config) ->
     case compile:file(File, [from_asm,no_postopt,return_errors]) of
 	{error,L,[]} ->
 	    [{Base,Errors0}] = L,
-	    Errors = [E || {beam_validator,E} <- Errors0],
+	    Errors = [E || {_Pos,beam_validator,E} <- Errors0],
 	    _ = [io:put_chars(beam_validator:format_error(E)) ||
 		    E <- Errors],
 	    Errors;
@@ -842,7 +842,7 @@ do_val(Mod, Config) ->
 beam_val(M) ->
     Name = atom_to_list(element(1, M)),
     {error,[{Name,Errors0}]} = beam_validator:validate(M, strong),
-    Errors = [E || {beam_validator,E} <- Errors0],
+    Errors = [E || {_Pos,beam_validator,E} <- Errors0],
     _ = [io:put_chars(beam_validator:format_error(E)) ||
 	    E <- Errors],
     Errors.
