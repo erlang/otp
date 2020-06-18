@@ -665,7 +665,7 @@ lookat_all_pids([#proc{pid=Pid0}|Procs],TruncAllowed,IncompAllowed) ->
         _ when TruncAllowed ->
             ok; % truncated dump
         TWs ->
-            ct:fail({unexpected_warning,TWs})
+            ct:fail({unexpected_warning,Pid,TWs})
     end,
     lookat_all_pids(Procs,TruncAllowed,IncompAllowed).
 

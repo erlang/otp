@@ -68,7 +68,7 @@ This is the short story though, for the experienced and impatient:
         <http://www.erlang.org/download.html>) and unpack with `tar`
         to the windows disk for example to: /mnt/c/src/
 
-    *   Install mingw-gcc: `sudo apt install gcc-mingw-w64`
+    *   Install mingw-gcc, make and autoconf: `sudo apt install gcc-mingw-w64 make autoconf`
 
     *   `$ cd UNPACK_DIR`
 
@@ -411,19 +411,6 @@ Frequently Asked Questions
     as the performance has been much better in the VC++ versions. The
     mingw build will possibly be back, but as long as VC++ gives better
     performance, the commercial build will be a VC++ one.
-
-*   Q: OK, you need VC++, but now you've started to demand a quite recent
-    (and expensive) version of Visual Studio. Why?
-
-    A: Well, it's not expensive, it's free (as in free beer). Just
-    download and install the latest Windows SDK from Microsoft and all
-    the tools you need are there. The included debugger (WinDbg) is
-    also quite usable. That's what I used when porting Erlang to 64bit
-    Windows. Another reason to use later Microsoft compilers is
-    DLL compatibility. DLL's using a new version of the standard
-    library might not load if the VM is compiled with an old VC++
-    version. So we should aim to use the latest freely available SDK
-    and compiler.
 
 *   Q: Hah, I saw you, you used GCC even though you said you didn't!
 
