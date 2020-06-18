@@ -217,7 +217,7 @@ linux_cpuinfo_bogomips() ->
                 _:_:_ ->
                     "-"
             end;
-        _ ->
+        _X ->
             "-"
     end.
 
@@ -252,7 +252,7 @@ linux_cpuinfo_model() ->
     case linux_cpuinfo_lookup("model") of
         [M] ->
             M;
-        _ ->
+        _X ->
             "-"
     end.
 
@@ -343,8 +343,13 @@ linux_which_cpuinfo(other) ->
                 %% ARM (at least some distros...)
                 case linux_cpuinfo_processor() of
                     "-" ->
-                        %% Ok, we give up
-                        throw(noinfo);
+			case linux_cpuinfo_model() of
+			    "-" ->
+				%% Ok, we give up
+				throw(noinfo);
+			    Model ->
+				Model
+			end;
                     Proc ->
                         Proc
                 end;
@@ -1348,9 +1353,10 @@ num_schedulers_to_factor() ->
 
 
 linux_info_lookup(Key, File) ->
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
+    LKey = string:to_lower(Key),
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i " ++ "\"" ++ LKey ++ "\"" ++ " " ++ File), [$:,$\n])] of
         Info ->
-            linux_info_lookup_collect(Key, Info, [])
+            linux_info_lookup_collect(LKey, Info, [])
     catch
         _:_:_ ->
             "-"
@@ -1360,6 +1366,13 @@ linux_info_lookup_collect(_Key, [], Values) ->
     lists:reverse(Values);
 linux_info_lookup_collect(Key, [Key, Value|Rest], Values) ->
     linux_info_lookup_collect(Key, Rest, [Value|Values]);
+linux_info_lookup_collect(Key1, [Key2, Value|Rest], Values) ->
+    case string:to_lower(Key2) of
+	Key1 ->
+	    linux_info_lookup_collect(Key1, Rest, [Value|Values]);
+	_ ->
+	    lists:reverse(Values)
+    end;
 linux_info_lookup_collect(_, _, Values) ->
     lists:reverse(Values).
 
