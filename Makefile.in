@@ -494,16 +494,17 @@ libs:
 ifeq ($(OTP_SMALL_BUILD),true)
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) $(TYPE)
+		$(MAKE) $(TYPE) ERL_COMPILE_WARNINGS_AS_ERRORS=yes
+
 else
 ifeq ($(OTP_TINY_BUILD),true)
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt TINY_BUILD=true
+		$(MAKE) opt TINY_BUILD=true ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 else
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) $(TYPE) BUILD_ALL=true
+		$(MAKE) $(TYPE) BUILD_ALL=true ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 	$(V_at)test -f $(ERL_TOP)/make/otp_built || echo "OTP built" > $(ERL_TOP)/make/otp_built
 endif
 endif
@@ -600,12 +601,12 @@ bootstrap_setup_target:
 tiny_secondary_bootstrap_build:
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt SECONDARY_BOOTSTRAP=true TINY_BUILD=true
+		$(MAKE) opt SECONDARY_BOOTSTRAP=true TINY_BUILD=true ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 
 secondary_bootstrap_build:
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt SECONDARY_BOOTSTRAP=true
+		$(MAKE) opt SECONDARY_BOOTSTRAP=true ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 
 tiny_secondary_bootstrap_copy:
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
@@ -725,7 +726,7 @@ secondary_bootstrap_copy:
 tertiary_bootstrap_build:
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt TERTIARY_BOOTSTRAP=true
+		$(MAKE) opt TERTIARY_BOOTSTRAP=true ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 
 tertiary_bootstrap_copy:
 	$(make_verbose)
