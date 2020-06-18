@@ -20,7 +20,60 @@
 
 -module(eldap_basic_SUITE).
 
--compile(export_all).
+-export([
+         add_already_exists/1,
+         add_referral/1,
+         add_when_bound/1,
+         add_when_not_bound/1,
+         app/1,
+         appup/1,
+         bind/1,
+         client_side_add_timeout/1,
+         client_side_bind_timeout/1,
+         client_side_search_timeout/1,
+         client_side_start_tls_timeout/1,
+         close_after_tcp_error/1,
+         close_ret_val/1,
+         decode/1,
+         delete/1,
+         delete_referral/1,
+         elementary_search/1,
+         encode/1,
+         modify/1,
+         modify_dn_delete_old/1,
+         modify_dn_keep_old/1,
+         modify_referral/1,
+         more_add/1,
+         open_ret_val_error/1,
+         open_ret_val_success/1,
+         search_filter_and/1,
+         search_filter_and_not/1,
+         search_filter_equalityMatch/1,
+         search_filter_final/1,
+         search_filter_initial/1,
+         search_filter_or/1,
+         search_filter_substring_any/1,
+         search_non_existant/1,
+         search_referral/1,
+         search_two_hits/1,
+         ssl_connection/1,
+         start_tls_on_ssl_should_fail/1,
+         start_tls_twice_should_fail/1,
+         tcp_connection/1,
+         tcp_connection_option/1
+        ]).
+
+-export([
+         all/0,
+         end_per_group/2,
+         end_per_suite/1,
+         end_per_testcase/2,
+         groups/0,
+         init_per_group/2,
+         init_per_suite/1,
+         init_per_testcase/2,
+         suite/0
+        ]).
 
 %%-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct.hrl").
