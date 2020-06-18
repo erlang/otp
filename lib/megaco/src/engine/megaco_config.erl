@@ -2174,8 +2174,8 @@ snmp_counters() ->
 
 %%-----------------------------------------------------------------
 
-warning_msg(F) ->
-    warning_msg(F, []).
+%% warning_msg(F) ->
+%%     warning_msg(F, []).
 warning_msg(F, A) ->
     ?megaco_warning("Config server: " ++ F, A).
 
