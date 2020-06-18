@@ -101,6 +101,9 @@ OTP_RELEASE = @OTP_RELEASE@
 #	Erlang language section
 # ----------------------------------------------------
 EMULATOR = beam
+ifeq ($(ERL_COMPILE_WARNINGS_AS_ERRORS),yes)
+  ERL_COMPILE_FLAGS += -Werror
+endif
 ifdef BOOTSTRAP
   ERL_COMPILE_FLAGS += +slim
 else
