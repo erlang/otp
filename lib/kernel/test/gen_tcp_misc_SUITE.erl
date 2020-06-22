@@ -151,11 +151,7 @@ end_per_group(_GroupName, Config) ->
 %% Tests kernel application variables inet_default_listen_options and
 %% inet_default_connect_options.
 default_options(Config) when is_list(Config) ->
-    try do_default_options(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(default_options, fun() -> do_default_options(Config) end).
 
 do_default_options(_Config) ->
     %% First check the delay_send option
@@ -456,11 +452,7 @@ send_loop(Sock, Data, Left) ->
 %% Test {active,N} option
 %% Verify operation of the {active,N} option.
 active_n(Config) when is_list(Config) ->
-    try do_active_n(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(active_n, fun() -> do_active_n(Config) end).
 
 do_active_n(_Config) ->
     N = 3,
@@ -1013,19 +1005,13 @@ closed_socket(Config) when is_list(Config) ->
 %%% 
 
 shutdown_active(Config) when is_list(Config) ->
-    shutdown_common(true).
+    ?TC_TRY(shutdown_active, fun() -> shutdown_common(true) end).
 
 shutdown_passive(Config) when is_list(Config) ->
-    shutdown_common(false).
+    ?TC_TRY(shutdown_passive, fun() -> shutdown_common(false) end).
 
 shutdown_common(Active) ->
-    try do_shutdown_common(Active)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
-
-do_shutdown_common(Active) ->
+    ?P("start sort server"),
     P = sort_server(Active),
     ?P("Sort server port: ~p", [P]),
 
@@ -1128,19 +1114,15 @@ send_lines(S, Lines) ->
 %%%
 
 shutdown_pending(Config) when is_list(Config) ->
-    try do_shutdown_pending(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(shutdown_pending, fun() -> do_shutdown_pending(Config) end).
 
 do_shutdown_pending(_Config) ->
     N = 512*1024+17,
     ?P("N: ~p", [N]),
     Data = [<<N:32>>,ones(N),42],
-    P = a_server(),
-    ?P("try connect to server (port: ~p)", [P]),
-    S = case gen_tcp:connect(localhost, P, []) of
+    {Port, Pid} = a_server(),
+    ?P("try connect to server (port: ~p)", [Port]),
+    S = case gen_tcp:connect(localhost, Port, []) of
             {ok, Socket} ->
                 ?P("connected"),
                 Socket;
@@ -1152,17 +1134,31 @@ do_shutdown_pending(_Config) ->
     ?P("shutdown(write)"),
     gen_tcp:shutdown(S, write),
     ?P("await data message"),
+    case sp_await_data(Pid, S) of
+        N ->
+            ok;
+        InvalidN ->
+            ?P("Invalid message: "
+               "~n   Expected: ~p"
+               "~n   Received: ~p", [N, InvalidN]),
+            ct:fail({unexpected_msg, N, InvalidN})
+    end,
+    ?P("done"),
+    ok.
+
+sp_await_data(Pid, Sock) ->
     receive
-        {tcp, S, Msg} ->
+        {tcp, Sock, Msg} ->
             ?P("got tcp (data) message: ~p", [Msg]),
-            N = list_to_integer(Msg) - 5;
+            list_to_integer(Msg) - 5;
+        {'EXIT', Pid, normal} ->
+            ?P("server exited normal"),
+            sp_await_data(Pid, Sock);
         Other ->
             ?P("UNEXPECTED: "
                "~n   ~p", [Other]),
             ct:fail({unexpected, Other})
-    end,
-    ?P("done"),
-    ok.
+    end.
 
  ones(0) -> [];
  ones(1) -> [1];
@@ -1175,11 +1171,11 @@ do_shutdown_pending(_Config) ->
      end.
 
  a_server() ->
-     {ok,L} = gen_tcp:listen(0, [{exit_on_close,false},{active,false}]),
-     Pid = spawn_link(fun() -> a_server(L) end),
-     ok = gen_tcp:controlling_process(L, Pid),
-     {ok,Port} = inet:port(L),
-     Port.
+     {ok, L}    = gen_tcp:listen(0, [{exit_on_close,false},{active,false}]),
+     Pid        = spawn_link(fun() -> a_server(L) end),
+     ok         = gen_tcp:controlling_process(L, Pid),
+     {ok, Port} = inet:port(L),
+     {Port, Pid}.
 
  a_server(L) ->
      {ok,S} = gen_tcp:accept(L),
@@ -1200,11 +1196,8 @@ do_shutdown_pending(_Config) ->
 %%
 
 show_econnreset_active(Config) when is_list(Config) ->
-    try do_show_econnreset_active(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(show_econnreset_active,
+            fun() -> do_show_econnreset_active(Config) end).
 
 do_show_econnreset_active(_Config) ->
     %% First confirm everything works with option turned off.
@@ -1270,11 +1263,8 @@ do_show_econnreset_active(_Config) ->
     end.
 
 show_econnreset_active_once(Config) when is_list(Config) ->
-    try do_show_econnreset_active_once(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(show_econnreset_active_once,
+            fun() -> do_show_econnreset_active_once(Config) end).
 
 do_show_econnreset_active_once(_Config) ->
     %% Now test using {active, once}
@@ -1312,11 +1302,8 @@ do_show_econnreset_active_once(_Config) ->
     end.
 
 show_econnreset_passive(Config) when is_list(Config) ->
-    try do_show_econnreset_passive(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(show_econnreset_passive,
+            fun() -> do_show_econnreset_passive(Config) end).
 
 do_show_econnreset_passive(_Config) ->
     %% First confirm everything works with option turned off.
@@ -1354,11 +1341,8 @@ do_show_econnreset_passive(_Config) ->
     {error, econnreset} = gen_tcp:recv(Client1, 0).
 
 econnreset_after_sync_send(Config) when is_list(Config) ->
-    try do_econnreset_after_sync_send(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(econnreset_after_sync_send,
+            fun() -> do_econnreset_after_sync_send(Config) end).
 
 do_econnreset_after_sync_send(_Config) ->
     %% First confirm everything works with option turned off.
@@ -1398,11 +1382,8 @@ do_econnreset_after_sync_send(_Config) ->
     {error, econnreset} = gen_tcp:send(Client1, "Whatever").
 
 econnreset_after_async_send_active(Config) when is_list(Config) ->
-    try do_econnreset_after_async_send_active(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(econnreset_after_async_send_active,
+            fun() -> do_econnreset_after_async_send_active(Config) end).
 
 do_econnreset_after_async_send_active(_Config) ->
     {OS, _} = os:type(),
@@ -1487,11 +1468,8 @@ do_econnreset_after_async_send_active(_Config) ->
     end.
 
 econnreset_after_async_send_active_once(Config) when is_list(Config) ->
-    try do_econnreset_after_async_send_active_once(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(econnreset_after_async_send_active_once,
+            fun() -> do_econnreset_after_async_send_active_once(Config) end).
 
 do_econnreset_after_async_send_active_once(_Config) ->
     {OS, _} = os:type(),
@@ -1535,11 +1513,8 @@ do_econnreset_after_async_send_active_once(_Config) ->
     end.
 
 econnreset_after_async_send_passive(Config) when is_list(Config) ->
-    try do_econnreset_after_async_send_passive(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(econnreset_after_async_send_passive,
+            fun() -> do_econnreset_after_async_send_passive(Config) end).
 
 do_econnreset_after_async_send_passive(_Config) ->
     {OS, _} = os:type(),
@@ -1670,11 +1645,7 @@ lz_ensure_non_empty_queue(Sock, Payload, OS, N) ->
 
 
 linger_zero_sndbuf(Config) when is_list(Config) ->
-    try do_linger_zero_sndbuf(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(linger_zero_sndbuf, fun() -> do_linger_zero_sndbuf(Config) end).
 
 do_linger_zero_sndbuf(_Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
@@ -1753,11 +1724,7 @@ http_bad_client(Port) ->
 %% Fill send queue and then start receiving.
 %%
 busy_send(Config) when is_list(Config) ->
-    try do_busy_send(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(busy_send, fun() -> do_busy_send(Config) end).
 
 do_busy_send(_Config) ->
     OldFlag = process_flag(trap_exit, true),
