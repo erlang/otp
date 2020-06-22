@@ -20,7 +20,14 @@
 
 -module(crypto_property_test_SUITE).
 
--compile(export_all).
+-export([
+         all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         encrypt_decrypt_one_time/1,
+         init_update/1,
+         init_update_multi/1
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 

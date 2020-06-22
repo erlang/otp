@@ -21,8 +21,19 @@
 %%
 -module(crypto_bench_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         block/1,
+         stream/1,
+         chacha/1
+        ]).
+
 -compile([{nowarn_deprecated_function,
            [{crypto,block_encrypt,4},
             {crypto,stream_encrypt,2},
@@ -190,14 +201,6 @@ run(Crypto, KeySize, BlockSize, MilliSecGoal) ->
 
 fmt(X) -> X.
 
-
-find_value(KeyPath, PropList, Default) ->
-    try find_value(KeyPath, PropList)
-    of
-        undefined -> Default
-    catch
-        error:function_clause -> Default
-    end.
 
 find_value(KeyPath, PropList) ->
     lists:foldl(fun(K, L) when is_list(L) -> proplists:get_value(K,L);
