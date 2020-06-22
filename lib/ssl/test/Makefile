@@ -80,7 +80,7 @@ MODULES = \
 	openssl_session_ticket_SUITE \
 	openssl_session_SUITE \
 	ssl_ECC_SUITE \
-	ssl_ECC_openssl_SUITE \
+	openssl_ECC_SUITE \
 	ssl_ECC\
 	ssl_upgrade_SUITE\
 	ssl_sni_SUITE \
