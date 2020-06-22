@@ -90,6 +90,23 @@
     </datatype>
     <datatype>
       <name name="protocol"/>
+      <desc>
+	<p>
+	  An <c>atom()</c> means any protocol as enumerated by the
+	  <c>C</c> library call <c>getprotoent()</c>
+	  on the platform, or at least the supported ones of
+	  <c>ip | ipv6 | tcp | udp | sctp</c>.
+	</p>
+	<p>
+	  An <c>integer()</c> means a native protocol number
+	  on the platform.  The default protocol is <c>0</c>.
+	</p>
+	<p>
+	  The call
+	  <seemfa marker="#supports/2"><c>supports(protocols)</c></seemfa>
+	  returns the supported protocol atoms.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name>socket()</name>
@@ -799,33 +816,38 @@
 	<p>The <c>Opts</c> argument is intended for providing extra
 	information for the open call:</p>
 	<taglist>
-	  <tag><c><![CDATA[dup: boolean()]]></c></tag>
+	  <tag>
+	    <c>domain => </c><seetype marker="#domain"><c>domain()</c></seetype>
+	  </tag>
+	  <item>
+	    <p>Which domain is the descriptor of. </p>
+	  </item>
+
+	  <tag>
+	    <c>type => </c><seetype marker="#type"><c>type()</c></seetype>
+	  </tag>
+	  <item>
+	    <p>Which type is the descriptor of. </p>
+	  </item>
+
+	  <tag>
+	    <c>protocol => </c><seetype marker="#protocol"><c>protocol()</c></seetype>
+	  </tag>
+	  <item>
+	    <p>Which protocol is the descriptor of. </p>
+	  </item>
+
+	  <tag><c>dup => boolean()</c></tag>
 	  <item>
 	    <p>Shall the provided descriptor be duplicated (dup) or not.
 	    <br/>Defaults to <c>true</c>. </p>
 	  </item>
 
-	  <tag><c><![CDATA[debug: boolean()]]></c></tag>
+	  <tag><c>debug => boolean()</c></tag>
 	  <item>
 	    <p>Enable or disable debug during the open call.
 	    <br/>Defaults to <c>false</c>. </p>
 	  </item>
-
-	  <tag><c><![CDATA[domain: socket:domain()]]></c></tag>
-	  <item>
-	    <p>Which domain is the descriptor of. </p>
-	  </item>
-
-	  <tag><c><![CDATA[type: socket:type()]]></c></tag>
-	  <item>
-	    <p>Which type is the descriptor of. </p>
-	  </item>
-
-	  <tag><c><![CDATA[protocol: socket:protocol()]]></c></tag>
-	  <item>
-	    <p>Which protocol is the descriptor of. </p>
-	  </item>
-
 	</taglist>
 
 	<note>
@@ -838,7 +860,8 @@
 
     <func>
       <name name="open" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="open" arity="3" since="OTP 22.0"/>
+      <name name="open" arity="3" clause_i="1" since="OTP 23.1"/>
+      <name name="open" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="open" arity="4" since="OTP 22.0"/>
       <fsummary>Create an endpoint for communication.</fsummary>
       <desc>
@@ -847,7 +870,8 @@
 	<p>For some <c>types</c> there is a default protocol,
 	indicated by <c>default</c>, which it <em>may</em> be
 	possible to specify.
-	And for <c>Domain = local</c>, if a protocol <em>is</em> pecified,
+	And for <c>Domain = local</c>,
+	if a protocol <em>is</em> specified,
 	it <em>must</em> be <c>default</c>. </p>
 
 	<p>The <c>Opts</c> argument is intended for "other" options.
@@ -1439,6 +1463,19 @@
 		<c>recv_flag()</c>
 	      </seetype>
 	      with the <c>boolean()</c> indicating if the flag
+	      is supported on this platform.
+	    </p>
+	  </item>
+	  <tag><c>supports(protocols = <anno>Key1</anno>)</c></tag>
+	  <item>
+ 	    <p>
+	      Returns a list of 
+	      <c>{Name :: atom(), boolean()}</c> tuples
+	      for every <c>Name</c> in
+	      <seetype marker="#protocol">
+		<c>protocol()</c>
+	      </seetype>
+	      with the <c>boolean()</c> indicating if the protocol
 	      is supported on this platform.
 	    </p>
 	  </item>

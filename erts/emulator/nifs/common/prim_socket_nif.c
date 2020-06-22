@@ -546,15 +546,6 @@ typedef union {
 // #define ESOCK_TYPE_RDM           104
 #define ESOCK_TYPE_SEQPACKET     105
 
-/* protocol */
-#define ESOCK_PROTOCOL_DEFAULT   200
-#define ESOCK_PROTOCOL_IP        201
-#define ESOCK_PROTOCOL_TCP       202
-#define ESOCK_PROTOCOL_UDP       203
-#define ESOCK_PROTOCOL_SCTP      204
-#define ESOCK_PROTOCOL_ICMP      205
-#define ESOCK_PROTOCOL_IGMP      206
-
 /* option encodings */
 #define ESOCK_OPT_NATIVE_VALUE  250
 #define ESOCK_OPT_NATIVE_OPT    251
@@ -1279,9 +1270,6 @@ static BOOLEAN_T esock_open2_get_domain(ErlNifEnv*   env,
 static BOOLEAN_T esock_open2_get_type(ErlNifEnv*   env,
                                       ERL_NIF_TERM eopt,
                                       int*         type);
-static BOOLEAN_T esock_open2_get_protocol(ErlNifEnv*   env,
-                                          ERL_NIF_TERM eopts,
-                                          int*         protocol);
 static ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
                                 int          domain,
                                 int          type,
@@ -2170,9 +2158,6 @@ static ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
 
 static BOOLEAN_T edomain2domain(int edomain, int* domain);
 static BOOLEAN_T etype2type(int etype, int* type);
-static BOOLEAN_T eproto2proto(ErlNifEnv*         env,
-                              const ERL_NIF_TERM eproto,
-                              int*               proto);
 static BOOLEAN_T ehow2how(unsigned int ehow, int* how);
 static BOOLEAN_T esendflags2sendflags(unsigned int esendflags, int* sendflags);
 static BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags);
@@ -5151,7 +5136,6 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
         /* The normal version */
         {
             int          edomain, etype;
-            ERL_NIF_TERM eproto; // integer() (normal case) | {raw, integer()}
             ERL_NIF_TERM eopts;
             int          domain, type, proto;
 
@@ -5159,18 +5143,18 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 
             if (!GET_INT(env, argv[0], &edomain) ||
                 !GET_INT(env, argv[1], &etype) ||
+                !GET_INT(env, argv[2], &proto) ||
                 !IS_MAP(env,  argv[3])) {
                 return enif_make_badarg(env);
             }
-            eproto = argv[2];
             eopts  = argv[3];
 
             SGDBG( ("SOCKET", "nif_open -> "
                     "\r\n   edomain: %T"
                     "\r\n   etype:   %T"
-                    "\r\n   eproto:  %T"
+                    "\r\n   proto:   %T"
                     "\r\n   eopts:   %T"
-                    "\r\n", argv[0], argv[1], eproto, eopts) );
+                    "\r\n", argv[0], argv[1], argv[2], eopts) );
 
             if (!edomain2domain(edomain, &domain)) {
                 SGDBG( ("SOCKET",
@@ -5181,12 +5165,6 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
             if (!etype2type(etype, &type)) {
                 SGDBG( ("SOCKET",
                         "nif_open -> invalid type: %d\r\n", etype) );
-                return enif_make_badarg(env);
-            }
-
-            if (!eproto2proto(env, eproto, &proto)) {
-                SGDBG( ("SOCKET",
-                        "nif_open -> invalid protocol: %d\r\n", eproto) );
                 return enif_make_badarg(env);
             }
 
@@ -5281,9 +5259,14 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     
     if (!esock_open_which_protocol(fd, &protocol)) {
         SSDBG2( dbg,
-                ("SOCKET", "esock_open2 -> failed get protocol from system\r\n") );
-        if (!esock_open2_get_protocol(env, eopts, &protocol)) {
-            return esock_make_error(env, esock_atom_protocol);
+                ("SOCKET",
+                 "esock_open2 -> failed get protocol from system\r\n") );
+        if (! esock_get_int_from_map(env, eopts,
+                                     esock_atom_protocol, &protocol)) {
+            SSDBG2( dbg,
+                    ("SOCKET",
+                     "esock_open2 -> trying protocol 0\r\n") );
+            protocol = 0;
         }
     }
 
@@ -5415,28 +5398,6 @@ BOOLEAN_T esock_open2_get_type(ErlNifEnv* env,
     if (esock_get_int_from_map(env, eopts, esock_atom_type, &etype)) {
         /* decode */
         return etype2type(etype, type);
-    } else {
-        return FALSE;
-    }
-}
-#endif // #ifndef __WIN32__
-
-/* The eextra contains an integer 'protocol' key.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open2_get_protocol(ErlNifEnv* env,
-                                   ERL_NIF_TERM eopts, int* protocol)
-{
-    int          eproto;
-    
-    SGDBG( ("SOCKET", "esock_open2_get_protocol -> entry with"
-            "\r\n   eopts: %T"
-            "\r\n", eopts) );
-
-    if (esock_get_int_from_map(env, eopts, esock_atom_protocol, &eproto)) {
-        /* decode */
-        return eproto2proto(env, eproto, protocol);
     } else {
         return FALSE;
     }
@@ -16588,89 +16549,6 @@ BOOLEAN_T etype2type(int etype, int* type)
 
     default:
         return FALSE;
-    }
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
-
-/* eproto2proto - convert internal (erlang) protocol to (proper) protocol
- *
- * Note that only a subset is supported.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T eproto2proto(ErlNifEnv*   env,
-                       ERL_NIF_TERM eproto,
-                       int*         proto)
-{
-    if (IS_NUM(env, eproto)) {
-        int ep;
-
-        if (!GET_INT(env, eproto, &ep)) {
-            *proto = -1;
-            return FALSE;
-        }
-
-        switch (ep) {
-        case ESOCK_PROTOCOL_DEFAULT:
-            *proto = 0; // default - note that _IP also has the value 0...
-            break;
-            
-        case ESOCK_PROTOCOL_IP:
-            *proto = IPPROTO_IP;
-            break;
-            
-        case ESOCK_PROTOCOL_TCP:
-            *proto = IPPROTO_TCP;
-            break;
-            
-        case ESOCK_PROTOCOL_UDP:
-            *proto = IPPROTO_UDP;
-            break;
-            
-#if defined(HAVE_SCTP)
-        case ESOCK_PROTOCOL_SCTP:
-            *proto = IPPROTO_SCTP;
-            break;
-#endif
-            
-        case ESOCK_PROTOCOL_ICMP:
-            *proto = IPPROTO_ICMP;
-            break;
-            
-        case ESOCK_PROTOCOL_IGMP:
-            *proto = IPPROTO_IGMP;
-            break;
-            
-        default:
-            *proto = -2;
-            return FALSE;
-        }
-    } else {
-        const ERL_NIF_TERM* a;
-        int                 sz;
-
-        if (!GET_TUPLE(env, eproto, &sz, &a)) {
-            *proto = -3;
-            return FALSE;
-        }
-        
-        if (sz != 2) {
-            *proto = -4;
-            return FALSE;
-        }
-
-        if (COMPARE(a[0], esock_atom_raw) != 0) {
-            *proto = -5;
-            return FALSE;
-        }
-
-        if (!GET_INT(env, a[1], proto)) {
-            *proto = -6;
-            return FALSE;
-        }
     }
 
     return TRUE;

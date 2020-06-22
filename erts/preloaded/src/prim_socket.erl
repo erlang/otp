@@ -104,17 +104,6 @@
 -define(ESOCK_TYPE_SEQPACKET, 105).
 
 %% ----------------------------------
-%% Protocol
-
--define(ESOCK_PROTOCOL_DEFAULT, 200).
--define(ESOCK_PROTOCOL_IP,      201).
--define(ESOCK_PROTOCOL_TCP,     202).
--define(ESOCK_PROTOCOL_UDP,     203).
--define(ESOCK_PROTOCOL_SCTP,    204).
--define(ESOCK_PROTOCOL_ICMP,    205).
--define(ESOCK_PROTOCOL_IGMP,    206).
-
-%% ----------------------------------
 %% Option encodings
 
 -define(ESOCK_OPT_NATIVE_VALUE, 250).
@@ -351,12 +340,17 @@ on_load(Extra) when is_map(Extra) ->
                         debug_filename =>
                             encode_path(DebugFilename)}
           end),
-    Protocols = nif_supports(protocols),
     ProtocolsTable =
-        maps:merge(
-          maps:from_list(flatten_protocols(Protocols)),
-          maps:from_list(
-            [{Num, Name} || {[Name | _], Num} <- Protocols])),
+        try nif_supports(protocols) of
+            Protocols ->
+                maps:merge(
+                  maps:from_list(flatten_protocols(Protocols)),
+                  maps:from_list(
+                    [{Num, Name} || {[Name | _], Num} <- Protocols]))
+        catch
+            error : notsup ->
+                #{}
+        end,
     persistent_term:put({?MODULE, protocols}, ProtocolsTable).
 
 flatten_protocols([{[Name | Aliases], Num} | Protocols]) ->
@@ -631,14 +625,18 @@ enc_type(raw)       -> ?ESOCK_TYPE_RAW;
 enc_type(seqpacket) -> ?ESOCK_TYPE_SEQPACKET;
 enc_type(Type)      -> invalid(type, Type).
 
-enc_protocol(default) -> ?ESOCK_PROTOCOL_DEFAULT;
-enc_protocol(ip)      -> ?ESOCK_PROTOCOL_IP;
-enc_protocol(tcp)     -> ?ESOCK_PROTOCOL_TCP;
-enc_protocol(udp)     -> ?ESOCK_PROTOCOL_UDP;
-enc_protocol(sctp)    -> ?ESOCK_PROTOCOL_SCTP;
-enc_protocol(icmp)    -> ?ESOCK_PROTOCOL_ICMP;
-enc_protocol(igmp)    -> ?ESOCK_PROTOCOL_IGMP;
-enc_protocol({raw, P} = RAW) when is_integer(P) -> RAW;
+%% These clause should be deprecated
+enc_protocol({raw, ProtoNum}) when is_integer(ProtoNum) -> ProtoNum;
+enc_protocol(default) -> 0;
+%%
+enc_protocol(Proto) when is_atom(Proto) ->
+    case persistent_term:get({?MODULE, protocols}) of
+        #{Proto := Num} ->
+            Num;
+        #{} ->
+            invalid(protocol, Proto)
+    end;
+enc_protocol(Proto) when is_integer(Proto) -> Proto;
 enc_protocol(Proto) ->
     invalid(protocol, Proto).
 
