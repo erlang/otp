@@ -2915,13 +2915,11 @@ do_primitive_accept(_Config) ->
 	
 %% Closing listen socket when multi-accepting.
 multi_accept_close_listen(Config) when is_list(Config) ->
-    try do_multi_accept_close_listen(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(multi_accept_close_listen,
+            fun() -> do_multi_accept_close_listen(Config) end).
 
 do_multi_accept_close_listen(_Config) ->
+    ?P("try create listen socket"),
     LS = case gen_tcp:listen(0,[]) of
              {ok, LSocket} ->
                  LSocket;
@@ -2929,14 +2927,26 @@ do_multi_accept_close_listen(_Config) ->
                  ?SKIPT(listen_failed_str(Reason))
          end,
     Parent = self(),
-    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
+    F = fun() ->
+                ?P("started"),
+                Accepted = gen_tcp:accept(LS),
+                ?P("accept result: ~p", [Accepted]),
+                Parent ! {accepted,self(),Accepted}
+        end,
+    ?P("create acceptor processes"),
     spawn(F),
     spawn(F),
     spawn(F),
     spawn(F),
+    ?P("sleep some"),
+    ct:sleep(?SECS(2)),
+    ?P("close (listen) socket"),
     gen_tcp:close(LS),
+    ?P("await accepts"),
     ok = ?EXPECT_ACCEPTS([{_,{error,closed}},{_,{error,closed}},
-                          {_,{error,closed}},{_,{error,closed}}],4,500).
+                          {_,{error,closed}},{_,{error,closed}}],4,500),
+    ?P("done"),
+    ok.
 	
 %% Single accept with timeout.
 accept_timeout(Config) when is_list(Config) ->
