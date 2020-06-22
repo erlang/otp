@@ -19,9 +19,8 @@
 %%
 
 -module(make_certs).
--compile([export_all]).
 
-%-export([all/1, all/2, rootCA/2, intermediateCA/3, endusers/3, enduser/3, revoke/3, gencrl/2, verify/3]).
+-export([all/1, all/2, default_config/0, verify/4]).
 
 -record(config, {commonName, 
 	     organizationalUnitName = "Erlang OTP",
