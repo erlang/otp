@@ -20,7 +20,60 @@
 
 -module(eldap_basic_SUITE).
 
--compile(export_all).
+-export([
+         add_already_exists/1,
+         add_referral/1,
+         add_when_bound/1,
+         add_when_not_bound/1,
+         app/1,
+         appup/1,
+         bind/1,
+         client_side_add_timeout/1,
+         client_side_bind_timeout/1,
+         client_side_search_timeout/1,
+         client_side_start_tls_timeout/1,
+         close_after_tcp_error/1,
+         close_ret_val/1,
+         decode/1,
+         delete/1,
+         delete_referral/1,
+         elementary_search/1,
+         encode/1,
+         modify/1,
+         modify_dn_delete_old/1,
+         modify_dn_keep_old/1,
+         modify_referral/1,
+         more_add/1,
+         open_ret_val_error/1,
+         open_ret_val_success/1,
+         search_filter_and/1,
+         search_filter_and_not/1,
+         search_filter_equalityMatch/1,
+         search_filter_final/1,
+         search_filter_initial/1,
+         search_filter_or/1,
+         search_filter_substring_any/1,
+         search_non_existant/1,
+         search_referral/1,
+         search_two_hits/1,
+         ssl_connection/1,
+         start_tls_on_ssl_should_fail/1,
+         start_tls_twice_should_fail/1,
+         tcp_connection/1,
+         tcp_connection_option/1
+        ]).
+
+-export([
+         all/0,
+         end_per_group/2,
+         end_per_suite/1,
+         end_per_testcase/2,
+         groups/0,
+         init_per_group/2,
+         init_per_suite/1,
+         init_per_testcase/2,
+         suite/0
+        ]).
 
 %%-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -208,8 +261,8 @@ init_per_testcase(ssl_connection, Config) ->
 						ct:log("ssl server waiting for connections...",[]),
 						{ok, S} = ssl:transport_accept(SSL_LSock),
 						ct:log("ssl:transport_accept/1 ok",[]),
-						ok = ssl:ssl_accept(S),
-						ct:log("ssl:ssl_accept/1 ok",[]),
+                                                {ok,_} = ssl:handshake(S),
+						ct:log("ssl:handshake/1 ok",[]),
 						L()
 				          end)();
 				     Other ->
@@ -847,9 +900,9 @@ find_first_server(UseSSL, [{config,Key}|Ss]) ->
 	    find_first_server(UseSSL, Ss)
     end;
 find_first_server(UseSSL, [{Host,Port}|Ss]) ->
-    case eldap:open([Host],[{port,Port},{ssl,UseSSL}]) of
+    case eldap:open([Host],[{port,Port},{ssl,UseSSL},{timeout,10000}]) of
 	{ok,H} when UseSSL==false, Ss=/=[] ->
-	    case eldap:start_tls(H,[]) of
+	    case eldap:start_tls(H, [], 10000) of
 		ok ->
 		    ct:log("find_first_server ~p UseSSL=~p -> ok",[{Host,Port},UseSSL]),
 		    eldap:close(H),
