@@ -20,13 +20,24 @@
 
 %%
 
--module(ssl_ECC_openssl_SUITE).
-
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-module(openssl_ECC_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,         
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([mix_sign/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -50,11 +61,11 @@ groups() ->
             [{'tlsv1.2', [], [mix_sign]}]
     end.
   
-%%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     end_per_suite(Config0),
     try crypto:start() of
 	ok ->
+            ssl_test_lib:clean_start(),
             case  ssl_test_lib:sufficient_crypto_support(cipher_ec) of
                 true ->
                     Config0;
@@ -70,25 +81,12 @@ end_per_suite(_Config) ->
     application:stop(crypto),
     ssl_test_lib:kill_openssl().
 
-%%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_protocol_version(GroupName) of
-	true ->
-            case ssl_test_lib:check_sane_openssl_version(GroupName) of
-                true ->
-                     ssl_test_lib:init_per_group_openssl([{server_type, erlang},
-                                                          {client_type, openssl}], [{tls_version, GroupName} | Config]);
-                false ->
-                    {skip, openssl_does_not_support_version}
-            end;
-        _ ->
-            Config
-    end.
+    ssl_test_lib:init_per_group_openssl(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
-  ssl_test_lib:end_per_group(GroupName, Config).
+    ssl_test_lib:end_per_group(GroupName, Config).
 
-%%--------------------------------------------------------------------
 init_per_testcase(skip, Config) ->
     Config;
 init_per_testcase(TestCase, Config) ->
@@ -107,10 +105,6 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-
-skip(Config) when is_list(Config) ->
-    {skip, openssl_does_not_support_ECC}.
-
 mix_sign(Config) ->
     {COpts0, SOpts0} = ssl_test_lib:make_mix_cert(Config),
     COpts = ssl_test_lib:ssl_options(COpts0, Config), 
