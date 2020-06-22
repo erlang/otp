@@ -507,17 +507,6 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                     _ -> undefined
                 end,
 
-    {AliveCount, AliveInterval} =
-    case ?GET_OPT(alive_params, Opts) of
-        undefined      -> {0, infinity};
-        F when is_function(F) -> F();
-        {X, Y} -> {X, Y}
-    end,
-    S1 = S0#ssh{
-        alive_interval = AliveInterval,
-        alive_count    = AliveCount
-    },
-
     case Role of
 	client ->
 	    PeerName = case ?GET_INTERNAL_OPT(host, Opts) of
@@ -528,8 +517,8 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                            PeerName0 when is_list(PeerName0) ->
                                PeerName0
                        end,
-            S2 =
-            S1#ssh{c_vsn = Vsn,
+            S1 =
+            S0#ssh{c_vsn = Vsn,
                        c_version = Version,
                        opts = ?PUT_INTERNAL_OPT({io_cb, case ?GET_OPT(user_interaction, Opts) of
                                                             true ->  ssh_io;
@@ -538,14 +527,27 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                                                 Opts),
                        userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
                        peer = {PeerName, PeerAddr},
-                       local = LocalName
+                       local = LocalName,
+                       alive_interval = infinity,
+                       alive_count = 0
                       },
-            S2#ssh{userauth_pubkeys = [K || K <- ?GET_OPT(pref_public_key_algs, Opts),
-                                       is_usable_user_pubkey(K, S2)
+            S1#ssh{userauth_pubkeys = [K || K <- ?GET_OPT(pref_public_key_algs, Opts),
+                                       is_usable_user_pubkey(K, S1)
                                       ]
                   };
 
 	server ->
+            {AliveCount, AliveInterval} =
+            case ?GET_OPT(alive_params, Opts) of
+                undefined      -> {0, infinity};
+                F when is_function(F) -> F();
+                {X, Y} -> {X, Y}
+            end,
+            S1 = S0#ssh{
+                   alive_interval = AliveInterval,
+                   alive_count    = AliveCount
+                  },
+
 	    S1#ssh{s_vsn = Vsn,
 		   s_version = Version,
 		   userauth_methods = string:tokens(AuthMethods, ","),
