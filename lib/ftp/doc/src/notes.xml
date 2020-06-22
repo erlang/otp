@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Ftp 1.0.4</title>
+  <section><title>Ftp 1.0.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid timing issue when setting active once on a socket
+	    that is being closed by the peer.</p>
+          <p>
+	    Own Id: OTP-16734 Aux Id: OTP-16697, ERIERL-496 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ftp 1.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

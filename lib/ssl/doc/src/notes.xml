@@ -182,6 +182,24 @@
 
 </section>
 
+<section><title>SSL 9.6.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    If a passive socket is created, ssl:recv/2,3 is never
+	    called and then the peer closes the socket the
+	    controlling process will no longer receive an active
+	    close message.</p>
+          <p>
+	    Own Id: OTP-16697 Aux Id: ERIERL-496 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
