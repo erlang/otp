@@ -3648,6 +3648,11 @@ send_timeout_para(AutoClose, RNode) ->
 			Send = fun() -> gen_tcp:send(A, BinData) end,
 			Self ! {self(), timeout_sink_loop(Send)}
 		end,
+    Info = fun() ->
+                   {(catch erlang:port_info(A)),
+                    (catch inet:getstat(A)),
+                    (catch prim_inet:getstatus(A))}
+           end,
     ?P("[para] spawn process 1 with sender fun"),
     Snd1 = spawn_link(SenderFun),
     ?P("[para] spawn process 2 with sender fun"),
@@ -3665,14 +3670,22 @@ send_timeout_para(AutoClose, RNode) ->
                 ?P("[para] timeout received from sender 2 (~p, ~p)", [Snd2, N]),
                 2
         after 20000 ->
+                {PortStatus1, SockStat1, SockStatus1} = Info(),
                 ?P("[para] UNEXPECTED timeout(1,~w) when:"
                    "~n   Sender 1 Info: ~p"
                    "~n   Sender 2 Info: ~p"
+                   "~n   Port Status:   ~p"
+                   "~n   Socket Stats:  ~p"
+                   "~n   Socket Status: ~p"
                    "~n   Message Queue: ~p",
                    [AutoClose,
                     (catch process_info(Snd1)),
                     (catch process_info(Snd2)),
+                    PortStatus1, SockStat1, SockStatus1,
                     flush([])]),
+                Snd1 ! {info_and_die, Info},
+                Snd2 ! {info_and_die, Info},
+                ct:sleep(?SECS(1)),
                 exit({timeout, AutoClose})
         end,
     
@@ -3689,23 +3702,35 @@ send_timeout_para(AutoClose, RNode) ->
             after_send_timeout(AutoClose, Error_1)
     after 10000 ->
             if (Second =:= 1) ->
+                    {PortStatus21, SockStat21, SockStatus21} = Info(),
                     ?P("[para] UNEXPECTED timeout(2,~w):"
                        "~n   Sender 1 Info: ~p"
+                       "~n   Port Status:   ~p"
+                       "~n   Socket Stats:  ~p"
+                       "~n   Socket Status: ~p"
                        "~n   Message Queue: ~p",
                        [AutoClose,
                         (catch process_info(Snd1)),
-                        flush([])]);
+                        PortStatus21, SockStat21, SockStatus21,
+                        flush([])]),
+                Snd1 ! {info_and_die, Info};
                true ->
+                    {PortStatus22, SockStat22, SockStatus22} = Info(),
                     ?P("[para] UNEXPECTED timeout(2,~w):"
                        "~n   Sender 2 Info: ~p"
+                       "~n   Port Status:   ~p"
+                       "~n   Socket Stats:  ~p"
+                       "~n   Socket Status: ~p"
                        "~n   Message Queue: ~p",
                        [AutoClose,
                         (catch process_info(Snd2)),
-                        flush([])])
+                        PortStatus22, SockStat22, SockStatus22,
+                        flush([])]),
+                    Snd2 ! {info_and_die, Info}
             end,
-	    exit({timeout, AutoClose})
+            ct:sleep(?SECS(1)),
+	    exit({timeout, AutoClose, Second})
     end,
-
     {error,Error_2} = gen_tcp:send(A, <<"Hej">>),
     after_send_timeout(AutoClose, Error_2),
     ?P("[para] done"),    
@@ -3960,7 +3985,17 @@ timeout_sink_loop(Action, N) ->
     put(sent,   N2),
     case Ret of
 	ok ->
-	    receive after 1 -> ok end,
+	    receive
+                {info_and_die, Info} ->
+                    {PortStatus, SockStat, SockStatus} = Info(),
+                    ?P("[sink-loop] info and die: "
+                       "~n   Port Status:   ~p"
+                       "~n   Socket Stats:  ~p"
+                       "~n   Socket Status: ~p",
+                       [PortStatus, SockStat, SockStatus]),
+                    exit(normal)
+            after 1 -> ok
+            end,
 	    timeout_sink_loop(Action, N+1);
 	Other ->
             ?P("[sink-loop] action result: "
