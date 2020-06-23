@@ -53,7 +53,7 @@
 %% narrow a type down, it could push us over the edge and collapse all entries,
 %% possibly widening the return type and breaking optimizations that were based
 %% on the earlier (narrower) types.
--define(RETURN_LIMIT, 100).
+-define(RETURN_LIMIT, 30).
 
 %% Constants common to all subpasses.
 -record(metadata,
@@ -1486,14 +1486,18 @@ ust_limited_1([{SuccArgs, SuccRet}], CallArgs, CallRet) ->
     NewType = beam_types:join(SuccRet, CallRet),
     [{NewTypes, NewType}].
 
-%% Adds a new success type, collapsing it with entries that have the same
-%% return type to keep the list short.
+%% Adds a new success type. Note that we no longer try to keep the list short
+%% by combining entries with the same return type, as that can make effective
+%% return types less specific as analysis goes on, which may cause endless
+%% loops or render previous optimizations unsafe.
+%%
+%% See beam_type_SUITE:success_type_oscillation/1 for more details.
 ust_unlimited(SuccTypes, _CallArgs, none) ->
     %% 'none' is implied since functions can always fail.
     SuccTypes;
-ust_unlimited([{SuccArgs, Same} | SuccTypes], CallArgs, Same) ->
-    NewArgs = parallel_join(SuccArgs, CallArgs),
-    [{NewArgs, Same} | SuccTypes];
+ust_unlimited([{SameArgs, SameType} | _]=SuccTypes, SameArgs, SameType) ->
+    %% Already covered, return as-is.
+    SuccTypes;
 ust_unlimited([SuccType | SuccTypes], CallArgs, CallRet) ->
     [SuccType | ust_unlimited(SuccTypes, CallArgs, CallRet)];
 ust_unlimited([], CallArgs, CallRet) ->
