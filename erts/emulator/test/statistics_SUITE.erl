@@ -340,7 +340,22 @@ run_scheduler_wall_time_test(Type) ->
                                 scheduler_wall_time ->
                                     Schedulers + DirtyCPUSchedulers
                         end,
-                            
+
+        Env = [io_lib:format("~s~n",[KV]) || KV <- os:getenv()],
+
+        ct:log("Env:~n~s",[Env]),
+
+        ct:log("Schedulers:               ~p~n"
+               "SchedulersOnline:         ~p~n"
+               "DirtyCPUSchedulers:       ~p~n"
+               "DirtyCPUSchedulersOnline: ~p~n"
+               "DirtyIOSchedulersOnline:  ~p~n",
+               [erlang:system_info(schedulers),
+                Schedulers,
+                erlang:system_info(dirty_cpu_schedulers),
+                DirtyCPUSchedulers,
+                DirtyIOSchedulers]),
+
         %% Let testserver and everyone else finish their work
         timer:sleep(1500),
         %% Empty load
@@ -376,20 +391,28 @@ run_scheduler_wall_time_test(Type) ->
                             || _ <- lists:seq(1, lists:max([1,DirtyCPUSchedulers div 2]))],
         HalfDirtyIOHogs = [StartDirtyHog(dirty_io)
                            || _ <- lists:seq(1, lists:max([1,DirtyIOSchedulers div 2]))],
-        HalfLoad = lists:sum(get_load(Type)) div TotLoadSchedulers,
-        if Schedulers < 2, HalfLoad > 80 -> ok; %% Ok only one scheduler online and one hog
+        HalfScheds = get_load(Type),
+        ct:log("HalfScheds: ~w",[HalfScheds]),
+        HalfLoad = lists:sum(HalfScheds) div TotLoadSchedulers,
+        if Schedulers =:= 1, HalfLoad > 80 -> ok; %% Ok only one scheduler online and one hog
            %% We want roughly 50% load
            HalfLoad > 40, HalfLoad < 60 -> ok;
            true -> exit({halfload, HalfLoad})
         end,
 
-        %% 100% load
-        LastHogs = [StartHog() || _ <- lists:seq(1, Schedulers div 2)],
+        %% 100% load. Need to take into consideration an odd number of
+        %% schedulers and also special consideration for when there is
+        %% only 1 scheduler
+        LastHogs = [StartHog() || _ <- lists:seq(1, (Schedulers+1) div 2),
+                                  Schedulers =/= 1],
         LastDirtyCPUHogs = [StartDirtyHog(dirty_cpu)
-                            || _ <- lists:seq(1, DirtyCPUSchedulers div 2)],
+                            || _ <- lists:seq(1, (DirtyCPUSchedulers+1) div 2),
+                                   DirtyCPUSchedulers =/= 1],
         LastDirtyIOHogs = [StartDirtyHog(dirty_io)
-                           || _ <- lists:seq(1, DirtyIOSchedulers div 2)],
+                           || _ <- lists:seq(1, (DirtyIOSchedulers+1) div 2),
+                                   DirtyIOSchedulers =/= 1],
         FullScheds = get_load(Type),
+        ct:log("FullScheds: ~w",[FullScheds]),
         {false,_} = {lists:any(fun(Load) -> Load < 80 end, FullScheds),FullScheds},
         FullLoad = lists:sum(FullScheds) div TotLoadSchedulers,
         if FullLoad > 90 -> ok;
@@ -420,7 +443,27 @@ get_load(Type) ->
     Start = erlang:statistics(Type),
     timer:sleep(1500),
     End = erlang:statistics(Type),
-    lists:reverse(lists:sort(load_percentage(lists:sort(Start),lists:sort(End)))).
+
+    lists:reverse(
+      lists:sort(load_percentage(online_statistics(Start),online_statistics(End)))).
+
+%% We are only interested in schedulers that are online to remove all
+%% offline normal and dirty cpu schedulers (dirty io cannot be offline)
+online_statistics(Stats) ->
+    Schedulers = erlang:system_info(schedulers),
+    SchedulersOnline = erlang:system_info(schedulers_online),
+    DirtyCPUSchedulers = erlang:system_info(dirty_cpu_schedulers),
+    DirtyCPUSchedulersOnline = erlang:system_info(dirty_cpu_schedulers_online),
+    DirtyIOSchedulersOnline = erlang:system_info(dirty_io_schedulers),
+    SortedStats = lists:sort(Stats),
+    ct:pal("Stats: ~p~n", [SortedStats]),
+    SchedulersStats =
+        lists:sublist(SortedStats, 1, SchedulersOnline),
+    DirtyCPUSchedulersStats =
+        lists:sublist(SortedStats, Schedulers+1, DirtyCPUSchedulersOnline),
+    DirtyIOSchedulersStats =
+        lists:sublist(SortedStats, Schedulers + DirtyCPUSchedulers+1, DirtyIOSchedulersOnline),
+    SchedulersStats ++ DirtyCPUSchedulersStats ++ DirtyIOSchedulersStats.
 
 load_percentage([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
     [100*(WN-WP) div (TN-TP)|load_percentage(Ss, Ps)];
@@ -693,9 +736,9 @@ msacc_test(TmpFile) ->
     %% Check some IO
     {ok, L} = gen_tcp:listen(0, [{active, true},{reuseaddr,true}]),
     {ok, Port} = inet:port(L),
-    Pid = spawn(fun() ->
-                        {ok, S} = gen_tcp:accept(L),
-                        (fun F() -> receive M -> F() end end)()
+    _Pid = spawn(fun() ->
+                         {ok, _S} = gen_tcp:accept(L),
+                         (fun F() -> receive _M -> F() end end)()
                 end),
     {ok, C} = gen_tcp:connect("localhost", Port, []),
     [begin gen_tcp:send(C,"hello"),timer:sleep(1) end || _ <- lists:seq(1,100)],

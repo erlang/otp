@@ -150,7 +150,7 @@ listen_options(Opts0) ->
 		    ListenOpts ++ [{backlog, 128} | Opts1]
 	    end;
 	_ ->
-	    Opts1
+	    [{backlog, 128} | Opts1]
     end.
 
 

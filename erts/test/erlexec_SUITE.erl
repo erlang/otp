@@ -406,10 +406,13 @@ verify_args([], _Ys) ->
     ok;
 verify_args(Xs, []) ->
     exit({args_not_found_in_order, Xs});
-verify_args([X|Xs], [X|Ys]) ->
-    verify_args(Xs, Ys);
-verify_args(Xs, [_Y|Ys]) ->
-    verify_args(Xs, Ys).
+verify_args([X|Xs], [Y|Ys]) ->
+    case string:equal(string:replace(X,"\r\n","\n"),string:replace(Y,"\r\n","\n")) of
+        true ->
+            verify_args(Xs,Ys);
+        false ->
+            verify_args(Xs,[Y|Ys])
+    end.
 
 verify_not_args(Xs, Ys) ->
     lists:foreach(fun (X) ->

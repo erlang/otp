@@ -318,7 +318,7 @@ formatter_fail(Config) ->
     Dir = ?config(priv_dir,Config),
     Log = filename:join(Dir,?FUNCTION_NAME),
 
-    logger:set_primary_config(level,all),
+    logger:set_primary_config(level,notice),
 
     %% no formatter
     ok = logger:add_handler(?MODULE,

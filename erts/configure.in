@@ -638,12 +638,12 @@ if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
    saved_CFLAGS=$CFLAGS;
    CFLAGS="-fprofile-instr-generate -Werror $saved_CFLAGS"
    AC_RUN_IFELSE([AC_LANG_PROGRAM([],[])],
-     [AC_CHECK_PROGS([LLVM_PROFDATA], [llvm-profdata])
+     [AC_PATH_PROG([LLVM_PROFDATA], [llvm-profdata],[],[$PATH:/Library/Developer/CommandLineTools/usr/bin])
       AC_CHECK_PROGS([XCRUN], [xcrun])
       if test "X$XCRUN" != "X" -a "X$LLVM_PROFDATA" = "X"; then
-        AC_MSG_CHECKING([for $XCRUN llvm-profdata])
-        if $XCRUN llvm-profdata --help 2>& AS_MESSAGE_LOG_FD >& AS_MESSAGE_LOG_FD; then
-          LLVM_PROFDATA="$XCRUN llvm-profdata"
+        AC_MSG_CHECKING([for $XCRUN $LLVM_PROFDATA])
+        if $XCRUN $LLVM_PROFDATA --help 2>& AS_MESSAGE_LOG_FD >& AS_MESSAGE_LOG_FD; then
+          LLVM_PROFDATA="$XCRUN $LLVM_PROFDATA"
           AC_MSG_RESULT([yes])
         else
           AC_MSG_RESULT([no])
@@ -651,7 +651,7 @@ if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
       fi
       AC_SUBST(LLVM_PROFDATA)
       if test "X$LLVM_PROFDATA" != "X"; then
-        CFLAGS="-fprofile-instr-use=default.profdata -Werror $saved_CFLAGS";
+        CFLAGS="-fprofile-instr-use=default.profdata $saved_CFLAGS";
         $LLVM_PROFDATA merge -output=default.profdata *.profraw;
         AC_MSG_CHECKING([whether $CC accepts -fprofile-instr-use=default.profdata -Werror])
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[return 0;])],

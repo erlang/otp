@@ -738,7 +738,7 @@ diskless(Config) when is_list(Config) ->
     ?line {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
 
     ?line rpc:call(RemoteNode,?MODULE,foo,[]),
-    ?line timer:sleep(500), % needed for the IP port to flush
+    ?line timer:sleep(5000), % needed for the IP port to flush
     ?line ttb:stop([nofetch]),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(RemoteNode)++"-diskless")),
@@ -767,7 +767,7 @@ diskless_wrap(Config) when is_list(Config) ->
     ?line {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
 
     ?line rpc:call(RemoteNode,?MODULE,foo,[]),
-    ?line timer:sleep(500), % needed for the IP port to flush
+    ?line timer:sleep(5000), % needed for the IP port to flush
     ?line ttb:stop([nofetch]),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(RemoteNode)++"-diskless.*.wrp")),

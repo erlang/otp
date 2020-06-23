@@ -220,7 +220,7 @@ nodenames(Config) when is_list(Config) ->
     legal("a_1@b"),
 
     %% Test that giving two -sname works as it should
-    test_node("a_1@b", false, long_or_short() ++ "a_0@b"),
+    started = test_node("a_1@b", false, long_or_short() ++ "a_0@b"),
 
     illegal("cdé@a"),
     illegal("te欢st@a").
@@ -278,8 +278,8 @@ test_node(Name, Illigal) ->
     test_node(Name, Illigal, "").
 test_node(Name, Illigal, ExtraArgs) ->
     ProgName = ct:get_progname(),
-    Command = ProgName ++ " -noinput " ++ ExtraArgs ++
-        long_or_short() ++ Name ++
+    Command = ProgName ++ " -noinput " ++
+        long_or_short() ++ Name ++ ExtraArgs ++
         " -eval \"net_adm:ping('" ++ atom_to_list(node()) ++ "')\"" ++
         case Illigal of
             true ->
