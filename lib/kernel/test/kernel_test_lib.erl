@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--module(gen_inet_test_lib).
+-module(kernel_test_lib).
 
 -export([init_per_suite/1,
          end_per_suite/1]).
@@ -28,7 +28,7 @@
 -export([good_hosts/2,
          lookup/3]).
 
--include("gen_inet_test_lib.hrl").
+-include("kernel_test_lib.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

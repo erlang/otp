@@ -25,7 +25,7 @@
 -module(gen_udp_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include("gen_inet_test_lib.hrl").
+-include("kernel_test_lib.hrl").
 
 
 %% XXX - we should pick a port that we _know_ is closed. That's pretty hard.

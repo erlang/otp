@@ -23,7 +23,7 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_res.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
--include("gen_inet_test_lib.hrl").
+-include("kernel_test_lib.hrl").
 
 -export([
          all/0, suite/0, groups/0,
