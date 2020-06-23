@@ -592,8 +592,8 @@ packet_baddata_active(Config) when is_list(Config) ->
 						   {packet, cdr} |
 						   ClientOpts]}]),
     receive
-	{Client, {other, {ssl_error, _Socket, 
-			  {invalid_packet, _}},{error,closed},1}} -> ok;
+	{Client, {ssl_error, _, {invalid_packet, _}}} ->
+            ok;
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
     end,    
@@ -627,7 +627,8 @@ packet_baddata_passive(Config) when is_list(Config) ->
 						   ClientOpts]}]),
 
     receive
-	{Client, {other, {error, {invalid_packet, _}},{error,closed}, 1}} -> ok;
+	{Client, {error, {invalid_packet, _}}} ->
+            ok;
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
     end,    
@@ -660,11 +661,11 @@ packet_size_active(Config) when is_list(Config) ->
 						   {packet, 4}, {packet_size, 10} |
 						   ClientOpts]}]),
     receive
-	{Client, {other, {ssl_error, _Socket, 
-			  {invalid_packet, _}},{error,closed},1}} -> ok;
+	{Client, {ssl_error, _, {invalid_packet, _}}}->
+            ok;
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
-    end,    
+    end, 
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
@@ -695,7 +696,8 @@ packet_size_passive(Config) when is_list(Config) ->
 						   {packet, 4}, {packet_size, 30} |
 						   ClientOpts]}]),
     receive
-	{Client, {other, {error, {invalid_packet, _}},{error,closed},1}} -> ok;
+	{Client, {error, {invalid_packet, _}}} ->
+            ok;
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
     end,
@@ -2051,8 +2053,8 @@ passive_recv_packet(Socket, Data, N) ->
     case ssl:recv(Socket, 0) of
 	{ok, Data} -> 
 	    passive_recv_packet(Socket, Data, N-1);
-	Other ->
-	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), N}
+        {error, _} = Other ->
+            Other
     end.
 
 send(Socket,_, 0) ->
@@ -2146,9 +2148,9 @@ active_packet(Socket, Data, N) ->
 		    active_packet(Socket, Data, N -1)
 		end;
 	{ssl, Socket, Data} ->
-	    active_packet(Socket, Data, N -1);
+	    active_packet(Socket, Data, N-1);
 	Other ->
-	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]),N}
+	    Other
     end.
 
 assert_packet_opt(Socket, Type) ->
