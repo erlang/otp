@@ -23,9 +23,14 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_res.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
+-include("gen_inet_test_lib.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([
+         all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+
 	 t_gethostbyaddr/0, t_gethostbyaddr/1,
 	 t_getaddr/0, t_getaddr/1,
 	 t_gethostbyname/0, t_gethostbyname/1,
@@ -45,18 +50,25 @@
 	 parse_strict_address/1, ipv4_mapped_ipv6_address/1,
          simple_netns/1, simple_netns_open/1,
          add_del_host/1, add_del_host_v6/1,
-         simple_bind_to_device/1, simple_bind_to_device_open/1]).
+         simple_bind_to_device/1, simple_bind_to_device_open/1
+        ]).
 
--export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
-	 kill_gethost/0, parallell_gethost/0, test_netns/0]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([
+         get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
+	 kill_gethost/0, parallell_gethost/0, test_netns/0
+        ]).
+
+
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+    [
+     {ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}
+    ].
 
 all() -> 
-    [t_gethostbyaddr, t_gethostbyname, t_getaddr,
+    [
+     t_gethostbyaddr, t_gethostbyname, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
      ipv4_to_ipv6, host_and_addr, {group, parse},
      t_gethostnative, gethostnative_parallell, cname_loop,
@@ -66,10 +78,19 @@ all() ->
      getif, getif_ifr_name_overflow, getservbyname_overflow,
      getifaddrs, parse_strict_address, simple_netns, simple_netns_open,
      add_del_host, add_del_host_v6,
-     simple_bind_to_device, simple_bind_to_device_open].
+     simple_bind_to_device, simple_bind_to_device_open
+    ].
 
 groups() -> 
-    [{parse, [], [parse_hosts, parse_address]}].
+    [
+     {parse, [], parse_cases()}
+    ].
+
+parse_cases() ->
+    [
+     parse_hosts,
+     parse_address
+    ].
 
 %% Required configuaration
 required(v4) ->
@@ -87,11 +108,38 @@ required(hosts) ->
 	    [{require, test_hosts}]
     end.     
 
-init_per_suite(Config) ->
-    Config.
 
-end_per_suite(_Config) ->
-    ok.
+init_per_suite(Config0) ->
+
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite([{allow_skip, false} | Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+            
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+            "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
+
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -107,7 +155,7 @@ init_per_testcase(lookup_bad_search_option, Config) ->
     Prev = ets:lookup(Db, Key),
     ets:delete(Db, Key),
     ets:insert(Db, {Key,[lookup_bad_search_option]}),
-    io:format("Misconfigured resolver lookup order", []),
+    ?P("init_per_testcase -> Misconfigured resolver lookup order"),
     [{Key,Prev}|Config];
 init_per_testcase(_Func, Config) ->
     Config.
@@ -118,7 +166,7 @@ end_per_testcase(lookup_bad_search_option, Config) ->
     Prev = proplists:get_value(Key, Config),
     ets:delete(Db, Key),
     ets:insert(Db, Prev),
-    io:format("Restored resolver lookup order", []);
+    ?P("end_per_testcase -> Restored resolver lookup order");
 end_per_testcase(_Func, _Config) ->
     ok.
 
@@ -1058,27 +1106,54 @@ gethostnative_soft_restart() -> required(hosts).
 %% Check that no name lookups fails during soft restart
 %% of inet_gethost_native.
 gethostnative_soft_restart(Config) when is_list(Config) ->
-    gethostnative_control(Config,
-			  #gethostnative_control{
-			     control_seq=[soft_restart]}).
-
+    Opts  = gethostnative_adjusted_opts(Config,
+                                        [soft_restart]),
+    gethostnative_control(Config, Opts).
 
 gethostnative_debug_level() -> required(hosts).
 
 %% Check that no name lookups fails during debug level change
 %% of inet_gethost_native.
 gethostnative_debug_level(Config) when is_list(Config) ->
-    gethostnative_control(Config,
-			  #gethostnative_control{
-			     control_seq=[{debug_level,1},
-					  {debug_level,0}]}).
+    Opts  = gethostnative_adjusted_opts(Config,
+                                        [{debug_level, 1},
+                                         {debug_level, 0}]),
+    gethostnative_control(Config, Opts).
 
-gethostnative_control(Config, Optrec) ->
+gethostnative_adjusted_opts(Config, CtrlSeq) ->
+    Factor = ?config(gen_inet_factor, Config),
+    gethostnative_adjusted_opts2(Factor, CtrlSeq).
+
+gethostnative_adjusted_opts2(1, CtrlSeq) ->
+    #gethostnative_control{control_seq = CtrlSeq};
+gethostnative_adjusted_opts2(F, CtrlSeq) ->
+    Opts = #gethostnative_control{control_seq = CtrlSeq},
+    gethostnative_adjusted_opts3(F, Opts).
+
+gethostnative_adjusted_opts3(
+  F,
+  #gethostnative_control{lookup_count     = Cnt,
+                         lookup_processes = NProc} = Opts) ->
+    Adjust = fun(X) ->
+                     if
+                         F > 10 ->
+                             X div 3;
+                         F > 5 ->
+                             X div 2;
+                         true ->
+                             (2 * X) div 3
+                     end
+             end,
+    Opts#gethostnative_control{lookup_count     = Adjust(Cnt),
+                               lookup_processes = Adjust(NProc)}.
+
+
+gethostnative_control(Config, Opts) ->
     case inet_db:res_option(lookup) of
 	[native] ->
 	    case whereis(inet_gethost_native) of
 		Pid when is_pid(Pid) ->
-		    gethostnative_control_1(Config, Optrec);
+		    gethostnative_control_1(Config, Opts);
 		_ ->
 		    {skipped, "Not running native gethostbyname"}
 	    end;
@@ -1086,54 +1161,63 @@ gethostnative_control(Config, Optrec) ->
 	    {skipped, "Native not only lookup metod"}
     end.
 
-gethostnative_control_1(Config,
-			#gethostnative_control{
-			   control_seq=Seq,
-			   control_interval=Interval,
-			   lookup_delay=Delay,
-			   lookup_count=Cnt,
-			   lookup_processes=N}) ->
+gethostnative_control_1(
+  Config,
+  #gethostnative_control{control_seq      = Seq,
+                         control_interval = Interval,
+                         lookup_delay     = Delay,
+                         lookup_count     = Cnt,
+                         lookup_processes = N}) ->
+    ?P("gethostnative control -> begin with"
+       "~n      Ctrl Seq:      ~p"
+       "~n      Ctrl interval: ~p"
+       "~n      Lookup delay:  ~p"
+       "~n      Lookup count:  ~p"
+       "~n      Lookup procs:  ~p", [Seq, Interval, Delay, Cnt, N]),
     {ok, Hostname} = inet:gethostname(),
-    {ok, _} = inet:gethostbyname(Hostname),
-    Hosts =
+    {ok, _}        = inet:gethostbyname(Hostname),
+    Hosts          =
 	[Hostname|[H || {_,H} <- get_hosts(Config)]
 	 ++[H++D || H <- ["www.","www1.","www2.",""],
 		    D <- ["erlang.org","erlang.se"]]
 	 ++[H++"cslab.ericsson.net" || H <- ["morgoth.","hades.","styx."]]],
+    ?P("ctrl-1: Hosts: "
+       "~n   ~p", [Hosts]),
     %% Spawn some processes to do parallel lookups while
     %% I repeatedly do inet_gethost_native:control/1.
     TrapExit = process_flag(trap_exit, true),
     gethostnative_control_2([undefined], Interval, Delay, Cnt, N, Hosts),
-    io:format(
-      "First intermission: now starting control sequence ~w\n",
-      [Seq]),
     erlang:display(first_intermission),
+    ?P("ctrl-1: First intermission: "
+       "~n   Now starting control sequence ~p", [Seq]),
     gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts),
     erlang:display(second_intermission),
-    io:format(
-      "Second intermission:  now stopping control sequence ~w\n",
-      [Seq]),
+    ?P("ctrl-1: Second intermission: "
+       "~n   Now stopping control sequence ~p", [Seq]),
     gethostnative_control_2([undefined], Interval, Delay, Cnt, N, Hosts),
     true = process_flag(trap_exit, TrapExit),
+    ?P("control-1: done"),
     ok.
 
 gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts) ->
-    Tag = make_ref(),
-    Parent = self(),
-    Lookupers =
-	[spawn_link(
-	   fun () -> 
-		   lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts) 
-	   end)
-	 || _ <- lists:seq(1, N)],
+    Tag       = make_ref(),
+    Parent    = self(),
+    Lookup    = fun() ->
+                        ?P("lookuper starting"),
+                        lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts) 
+                end,
+    Lookupers = [spawn_link(Lookup) || _ <- lists:seq(1, N)],
     control_loop(Seq, Interval, Tag, Lookupers, Seq),
     gethostnative_control_3(Tag, ok).
 
 gethostnative_control_3(Tag, Reason) ->
     receive
-	{Tag,Error} ->
+	{Tag, Lookuper, Error} ->
+            ?P("control-3: received lookup error from ~p: ~p",
+               [Lookuper, Error]),
 	    gethostnative_control_3(Tag, Error)
     after 0 ->
+            ?P("control-3: no (more) lookup errors"),
 	    Reason
     end.
 
@@ -1147,19 +1231,26 @@ control_loop([Op|Ops], Interval, Tag, Lookupers, Seq) ->
 		 Seq).
 
 control_loop_1(Op, Interval, Tag, Lookupers) ->
+    ?P("ctrl-loop-1: await lookuper exit"),
     receive
-	{'EXIT',Pid,Reason} ->
+	{'EXIT', Pid, Reason} ->
 	    case Reason of
 		Tag -> % Done
+                    ?P("ctrl-loop-1: "
+                       "received expected exit from lookuper ~p", [Pid]),
 		    control_loop_1
 		      (Op, Interval, Tag,
 		       lists:delete(Pid, Lookupers));
 		_ ->
-		    io:format("Lookuper ~p died: ~p",
-			      [Pid,Reason]),
-		    ct:fail("Lookuper died")
+                    ?P("ctrl-loop-1: "
+                       "received unexpected exit from ~p: "
+                       "~n   ~p", [Pid, Reason]),
+		    ct:fail(?F("Unexpected exit from ~p", [Pid]))
 	    end
     after Interval ->
+            ?P("ctrl-loop-1: "
+               "timeout => (maybe) attempt control ~p when"
+               "~n   Lookupers: ~p", [Op, Lookupers]),
 	    if Op =/= undefined ->
 		    ok = inet_gethost_native:control(Op);
 	       true ->
@@ -1169,19 +1260,25 @@ control_loop_1(Op, Interval, Tag, Lookupers) ->
     end.
 
 lookup_loop(_, _Delay, Tag, _Parent,  0, _Hosts) ->
+    ?P("lookup-loop: done with ~p", [tag]),
     exit(Tag);
 lookup_loop([], Delay, Tag, Parent, Cnt, Hosts) ->
+    ?P("lookup-loop: begin lookup (~p) again when ~p", [Tag, Cnt]),
     lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts);
 lookup_loop([H|Hs], Delay, Tag, Parent, Cnt, Hosts) ->
+    ?P("lookup-loop: try lookup (~p, ~p) ~p", [Tag, Cnt, H]),
     case inet:gethostbyname(H) of
-	{ok,_Hent} -> ok;
-	{error,nxdomain} -> ok;
+	{ok, _Hent} ->
+            ?P("lookup-loop: lookup => found"),
+            ok;
+	{error, nxdomain} ->
+            ?P("lookup-loop: lookup => nxdomain"),
+            ok;
 	Error ->
-	    io:format("Name lookup error for ~p for ~p: ~p",
-		      [self(),H,Error]),
-	    Parent ! {Tag,Error}
+	    ?P("loopkup-loop: lookup => error for ~p: ~p", [H, Error]),
+	    Parent ! {Tag, self(), Error}
     end,
-    receive 
+    receive
     after rand:uniform(Delay) ->
 	    lookup_loop(Hs, Delay, Tag, Parent, Cnt-1, Hosts) 
     end.
