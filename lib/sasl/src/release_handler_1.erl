@@ -659,16 +659,25 @@ get_proc_state(Proc) ->
         {status, _, {module, _}, [_, State, _, _, _]} when State == running ;
                                                            State == suspended ->
             State
-    catch exit:{noproc, {sys, get_status, [Proc]}} ->
+    catch exit:{Reason, {sys, get_status, [Proc]}}
+                when Reason =/= timeout andalso
+                     not (is_tuple(Reason) andalso
+                          element(1,Reason) =:= nodedown) ->
         noproc
     end.
 
 maybe_get_dynamic_mods(Name, Pid) ->
-    case catch gen:call(Pid, self(), get_modules) of
+    try gen:call(Pid, self(), get_modules) of
         {ok, Res} ->
-            Res;
-        Other ->
-            error_logger:error_msg("release_handler: ~p~nerror during a"
+            Res
+    catch
+        exit:Reason when Reason =/= timeout andalso
+                         not (is_tuple(Reason) andalso
+                              element(1,Reason) =:= nodedown) ->
+            [];
+        exit:Other ->
+            error_logger:error_msg("release_handler: {'EXIT',~p}~n"
+                                   "error during a"
                                    " get_modules call to ~p (~w),"
                                    " there may be an error in it's"
                                    " childspec. Exiting ...~n",
