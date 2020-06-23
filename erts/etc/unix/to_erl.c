@@ -244,8 +244,8 @@ int main(int argc, char **argv)
 #endif
     tty_smode.c_iflag =
 	1*BRKINT |/*Signal interrupt on break.*/
-	    1*IGNPAR |/*Ignore characters with parity errors.*/
-		    0;
+        1*IGNPAR |/*Ignore characters with parity errors.*/
+        0;
     
 #if 0
 0*IGNBRK |/*Ignore break condition.*/
@@ -262,31 +262,31 @@ int main(int argc, char **argv)
 #endif
 						
     tty_smode.c_oflag =
-	1*OPOST  |/*Post-process output.*/
-	    1*ONLCR  |/*Map NL to CR-NL on output.*/
+    OPOST    |/*Post-process output.*/
+    0*ONLCR  |/*Map NL to CR-NL on output.*/
 #ifdef XTABS
-		1*XTABS  |/*Expand tabs to spaces. (Linux)*/
+    1*XTABS  |/*Expand tabs to spaces. (Linux)*/
 #endif
 #ifdef OXTABS
-		    1*OXTABS  |/*Expand tabs to spaces. (FreeBSD)*/
+    1*OXTABS |/*Expand tabs to spaces. (FreeBSD)*/
 #endif
 #ifdef NL0
-			1*NL0    |/*Select newline delays*/
+    1*NL0    |/*Select newline delays*/
 #endif
 #ifdef CR0
-			    1*CR0    |/*Select carriage-return delays*/
+    1*CR0    |/*Select carriage-return delays*/
 #endif
 #ifdef TAB0
-				1*TAB0   |/*Select horizontal tab delays*/
+    1*TAB0   |/*Select horizontal tab delays*/
 #endif
 #ifdef BS0
-				    1*BS0    |/*Select backspace delays*/
+    1*BS0    |/*Select backspace delays*/
 #endif
 #ifdef VT0
-					1*VT0    |/*Select vertical tab delays*/
+    1*VT0    |/*Select vertical tab delays*/
 #endif
 #ifdef FF0
-					    1*FF0    |/*Select form feed delays*/
+    1*FF0    |/*Select form feed delays*/
 #endif
 											    0;
     

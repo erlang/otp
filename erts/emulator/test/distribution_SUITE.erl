@@ -1516,17 +1516,18 @@ measure_latency_large_message(Nodename, DataFun) ->
 
 measure_latency(DataFun, Dropper, Echo, Payload) ->
 
+    TCProc = self(),
+
     flush(),
 
     Senders = [spawn_monitor(
                  fun F() ->
                          DataFun(Dropper, Payload),
-                         receive
-                             die -> ok
-                         after 0 ->
-                                 F()
-                         end
+                         F()
                  end) || _ <- lists:seq(1,2)],
+
+    %% Link in order to cleanup properly if TC crashes
+    [link(Sender) || {Sender,_} <- Senders],
 
     wait_for_busy_dist(2 * 60 * 1000, 10),
 
@@ -1544,7 +1545,8 @@ measure_latency(DataFun, Dropper, Echo, Payload) ->
     ct:pal("Times: Avg: ~p Max: ~p Min: ~p Var: ~p",
            [Avg, lists:max(Times), lists:min(Times), StdDev]),
     [begin
-         Sender ! die,
+         unlink(Sender),
+         exit(Sender,die),
          receive
              {'DOWN', Ref, process, _, _} ->
                  ok
