@@ -21,6 +21,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet_sctp.hrl").
+-include("gen_inet_test_lib.hrl").
 
 %%-compile(export_all).
 
@@ -178,8 +179,8 @@ xfer_min(Config) when is_list(Config) ->
     case log_ok(gen_sctp:recv(Sb, infinity)) of
 	{Loopback,
 	 Pa,
-	 [#sctp_sndrcvinfo{stream=Stream,
-			   assoc_id=SbAssocId}],
+	 [#sctp_sndrcvinfo{stream   = Stream,
+			   assoc_id = SbAssocId}],
 	 Data} -> ok;
 	Event1 ->
 	    case recv_event(Event1) of
@@ -556,20 +557,6 @@ getopt(S, Opt, Param) ->
 setopt(S, Opt, Val) ->
     inet:setopts(S, [{Opt,Val}]).
 
-log_ok(X) -> log(ok(X)).
-
-ok({ok,X}) -> X.
-
-err([], Result) ->
-    erlang:error(Result);
-err([Reason|_], {error,Reason}) ->
-    ok;
-err([_|Reasons], Result) ->
-    err(Reasons, Result).
-
-log(X) ->
-    io:format("LOG[~w]: ~p~n", [self(),X]),
-    X.
 
 flush() ->
     receive
@@ -713,24 +700,24 @@ api_connect_init(Config) when is_list(Config) ->
     ok = gen_sctp:close(Sb),
     ok.
 
-recv_event({Addr,Port,[],#sctp_assoc_change{}=AssocChange}) ->
-    {Addr,Port,AssocChange};
+recv_event({Addr, Port, [], #sctp_assoc_change{} = AssocChange}) ->
+    {Addr, Port, AssocChange};
 recv_event({Addr,Port,
-	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
-	    #sctp_assoc_change{assoc_id=Assoc}=AssocChange}) ->
-    {Addr,Port,AssocChange};
-recv_event({Addr,Port,[],#sctp_paddr_change{}=PaddrChange}) ->
-    {Addr,Port,PaddrChange};
-recv_event({Addr,Port,
-	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
-	    #sctp_paddr_change{assoc_id=Assoc}=PaddrChange}) ->
-    {Addr,Port,PaddrChange};
-recv_event({Addr,Port,[],#sctp_shutdown_event{}=ShutdownEvent}) ->
-    {Addr,Port,ShutdownEvent};
-recv_event({Addr,Port,
-	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
-	    #sctp_shutdown_event{assoc_id=Assoc}=ShutdownEvent}) ->
-    {Addr,Port,ShutdownEvent}.
+	    [#sctp_sndrcvinfo{assoc_id  = Assoc}],
+	    #sctp_assoc_change{assoc_id = Assoc} = AssocChange}) ->
+    {Addr, Port, AssocChange};
+recv_event({Addr, Port, [], #sctp_paddr_change{} = PaddrChange}) ->
+    {Addr, Port, PaddrChange};
+recv_event({Addr, Port,
+	    [#sctp_sndrcvinfo{assoc_id  = Assoc}],
+	    #sctp_paddr_change{assoc_id = Assoc} = PaddrChange}) ->
+    {Addr, Port, PaddrChange};
+recv_event({Addr, Port, [], #sctp_shutdown_event{} = ShutdownEvent}) ->
+    {Addr, Port, ShutdownEvent};
+recv_event({Addr, Port,
+	    [#sctp_sndrcvinfo{assoc_id    = Assoc}],
+	    #sctp_shutdown_event{assoc_id = Assoc} = ShutdownEvent}) ->
+    {Addr, Port, ShutdownEvent}.
 
 %% Test socket options.
 api_opts(Config) when is_list(Config) ->
@@ -747,72 +734,165 @@ api_opts(Config) when is_list(Config) ->
     ok = inet:setopts(S, [{sndbuf,Sndbuf}]),
     ok = inet:setopts(S, [{recbuf,Recbuf}]),
     case inet:getopts(S, [sndbuf]) of
-	{ok,[{sndbuf,SB}]} when SB >= Sndbuf -> ok
+	{ok, [{sndbuf,SB}]} when SB >= Sndbuf -> ok
     end,
     case inet:getopts(S, [recbuf]) of
-	{ok,[{recbuf,RB}]} when RB >= Recbuf -> ok
+	{ok, [{recbuf, RB}]} when (RB >= Recbuf) -> ok
     end.
 
+%% What is this *actually* supposed to test?
 implicit_inet6(Config) when is_list(Config) ->
-    Hostname = log_ok(inet:gethostname()),
+    ?TC_TRY(implicit_inet6, fun() -> do_implicit_inet6(Config) end).
+
+do_implicit_inet6(_Config) ->
+    ?P("begin"),
+    %% First
+    ?P("try create server socket (1)"),
     case gen_sctp:open(0, [inet6]) of
-	{ok,S1} ->
-	    case inet:getaddr(Hostname, inet6) of
-		{ok,Host} ->
-		    Loopback = {0,0,0,0,0,0,0,1},
-		    io:format("~s ~p~n", ["Loopback",Loopback]),
-		    implicit_inet6(S1, Loopback),
-		    ok = gen_sctp:close(S1),
-		    %%
-		    Localhost =
-			log_ok(inet:getaddr("localhost", inet6)),
-		    io:format("~s ~p~n", ["localhost",Localhost]),
-		    S2 =
-			log_ok(gen_sctp:open(0, [{ip,Localhost}])),
-		    implicit_inet6(S2, Localhost),
-		    ok = gen_sctp:close(S2),
-		    %%
-		    io:format("~s ~p~n", [Hostname,Host]),
-		    S3 =
-			log_ok(gen_sctp:open(0, [{ifaddr,Host}])),
-		    implicit_inet6(S3, Host),
-		    ok = gen_sctp:close(S1);
-		{error,eafnosupport} ->
-		    ok = gen_sctp:close(S1),
-		    {skip,"Can not look up IPv6 address"}
-	    end;
-	_ ->
-	    {skip,"IPv6 not supported"}
+	{ok, S1} ->
+            Loopback = {0,0,0,0,0,0,0,1},
+            ?P("*** ~s: ~p ***", ["Loopback", Loopback]),
+            implicit_inet6(S1, Loopback),
+            ok = gen_sctp:close(S1),
+            
+            %% Second
+            ?P("try create server socket (2)"),
+            Localhost = log_ok(inet:getaddr("localhost", inet6)),
+            S2 = log_ok(gen_sctp:open(0, [{ip,Localhost}])),
+            ?P("*** ~s: ~p ***", ["localhost", Localhost]),
+            implicit_inet6(S2, Localhost),
+            ok = gen_sctp:close(S2),
+            
+            %% Third
+            ?P("try create server socket (3)"),
+            Hostname = log_ok(inet:gethostname()),
+            Addr     = case inet:getaddr(Hostname, inet6) of
+                           {ok, A} ->
+                               A;
+                           {error, eafnosupport} ->
+                               ok = gen_sctp:close(S1),
+                               ?SKIPT("Can not look up IPv6 address")
+                       end,
+            S3 = log_ok(gen_sctp:open(0, [{ifaddr, Addr}])),
+            ?P("*** ~s: ~p ***", [Hostname, Addr]),
+            implicit_inet6(S3, Addr),
+            ok = gen_sctp:close(S1),
+            ?P("done"),
+            ok;
+        {error, eaddrnotavail = Reason} ->
+            ?SKIPT(open_failed_str(Reason));
+        _ ->
+            {skip, "IPv6 not supported"}
     end.
+
 
 implicit_inet6(S1, Addr) ->
+    ?P("make (server) listen socket"),
     ok = gen_sctp:listen(S1, true),
-    P1 = log_ok(inet:port(S1)),
-    S2 = log_ok(gen_sctp:open(0, [inet6])),
-    P2 = log_ok(inet:port(S2)),
-    #sctp_assoc_change{state=comm_up} =
-	log_ok(gen_sctp:connect(S2, Addr, P1, [])),
-    case recv_event(log_ok(gen_sctp:recv(S1))) of
-	{Addr,P2,#sctp_assoc_change{state=comm_up}} ->
-	    ok;
-	{Addr,P2,#sctp_paddr_change{state=addr_confirmed,
-				    addr={Addr,P2},
-				    error=0}} ->
-	    {Addr,P2,#sctp_assoc_change{state=comm_up}} =
-		recv_event(log_ok(gen_sctp:recv(S1)))
+    ServerPortNo = log_ok(inet:port(S1)),
+    ?P("try create (client) socket"),
+    S2 = case gen_sctp:open(0, [inet6, {ifaddr, Addr}]) of
+             {ok, Sock} ->
+                 ?P("client socket created: ~p", [Sock]),
+                 Sock;
+             {error, eaddrnotavail = Reason} ->
+                 ?P("could not create (client) socket with ifaddr: "
+                    "~n   ~p", [Addr]),
+                 ?SKIPT(open_failed_str(Reason))
     end,
+    {ClientAddr, ClientPortNo} = log_ok(inet:sockname(S2)),
+    ?P("try connect"
+       "~n   from (connector): ~p, ~p (~p)"
+       "~n   to:               ~p, ~p",
+       [ClientAddr, ClientPortNo, S2, Addr, ServerPortNo]),
+    #sctp_assoc_change{state = comm_up} =
+	log_ok(gen_sctp:connect(S2, Addr, ServerPortNo, [])),
+    ?P("connect success: await events"),
+    implicit_inet6_await_ac_comm_up(S1, ClientAddr, ClientPortNo),
+    ?P("verify server sockname"),
     case log_ok(inet:sockname(S1)) of
-	{Addr,P1} -> ok;
-	{{0,0,0,0,0,0,0,0},P1} -> ok
+	{Addr,              ServerPortNo} -> ok;
+	{{0,0,0,0,0,0,0,0}, ServerPortNo} -> ok
     end,
+    ?P("verify client sockname"),
     case log_ok(inet:sockname(S2)) of
-	{Addr,P2} -> ok;
-	{{0,0,0,0,0,0,0,0},P2} -> ok
+	{Addr,              ClientPortNo} -> ok;
+	{{0,0,0,0,0,0,0,0}, ClientPortNo} -> ok
     end,
-    ok = gen_sctp:close(S2).
+    ?P("client client socket"),
+    ok = gen_sctp:close(S2),
+    ?P("verification complete"),
+    ok.
 
-%% Verify {active,N} socket management.
+
+implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo) ->
+    {_OsFam, OsName} = os:type(),
+    implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName).
+
+implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName) ->
+    case recv_event(log_ok(gen_sctp:recv(Sock))) of
+	{Addr, PortNo, #sctp_assoc_change{state = comm_up}} ->
+            ?P("received assoc-change:comm-up event => done"),
+	    ok;
+	{Addr, PortNo, #sctp_paddr_change{state = addr_confirmed,
+                                          addr  = {Addr, PortNo},
+                                          error = 0}} ->
+            ?P("received paddr-change:addr-confirmed event - "
+               "try recv assoc-change:comm-up"),
+            implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
+
+	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up}}
+          when (OsName =:= freebsd) ->
+            ?P("Expected (assoc-change:comm-up) event from unexpected address: "
+               "~n   Unexpected Address: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n   => RETRY"
+               "~n", [Addr2, PortNo2, Addr, PortNo]),
+            implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
+	{Addr2, PortNo2, #sctp_paddr_change{state = addr_confirmed}}
+          when (OsName =:= freebsd) ->
+            ?P("Expected paddr-change:addr-confirmed event from "
+               "UNEXPECTED ADDRESS: "
+               "~n   UNEXPECTED Address: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n   => RETRY"
+               "~n", [Addr2, PortNo2, Addr, PortNo]),
+            implicit_inet6_await_ac_comm_up(Sock, Addr, PortNo, OsName);
+
+	{Addr2, PortNo2, #sctp_assoc_change{state = comm_up} = CX} = UNEX ->
+            ?P("Expected (assoc-change:comm-up) event from UNEXPECTED ADDRESS: "
+               "~n   UNEXPECTED Address: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n   Assoc Change:       ~p"
+               "~n", [Addr2, PortNo2, Addr, PortNo, CX]),
+            exit({unexpected_event, UNEX});
+
+	{AX, PX, #sctp_paddr_change{state = addr_confirmed} = CX} = UNEX ->
+            ?P("Expected paddr-change:addr-confirmed event from "
+               "UNEXPECTED ADDRESS: "
+               "~n   UNEXPECTED Address: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n   PAddr Change:       ~p"
+               "~n", [AX, PX, Addr, PortNo, CX]),
+            exit({unexpected_event, UNEX});
+
+        {AX, PX, CX} = UNEX ->
+            ?P("UNEXPECTED EVENT: "
+               "~n   ~p"
+               "~n   UNEXPECTED ADDRESS: ~p, ~p"
+               "~n   Expected Address:   ~p, ~p"
+               "~n", [CX, AX, PX, Addr, PortNo]),
+            exit({unexpected_event, UNEX})
+    end.
+
+
+%% Verify {active, N} socket management.
+%% This is difficult to do since we do not just receive data messages.
+%% Also, how do we know that sctp behaves the same way on all platforms?
 active_n(Config) when is_list(Config) ->
+    ?TC_TRY(active_n, fun() -> do_active_n(Config) end).
+
+do_active_n(_Config) ->
     N = 3,
     S1 = ok(gen_sctp:open([{active,N}])),
     [{active,N}] = ok(inet:getopts(S1, [active])),
@@ -868,33 +948,8 @@ active_n(Config) when is_list(Config) ->
     S2 = ok(gen_sctp:open(0, [{active,false}])),
     Assoc = ok(gen_sctp:connect(S2, "localhost", S1Port, [])),
     ok = inet:setopts(S1, [{active,N}]),
-    [{active,N}] = ok(inet:getopts(S1, [active])),
-    LoopFun = fun(Count, Count, _Fn) ->
-		      receive
-			  {sctp_passive,S1} ->
-			      ok
-		      after
-			  5000 ->
-			      exit({error,timeout})
-		      end;
-		 (I, Count, Fn) ->
-		      Msg = list_to_binary("message "++integer_to_list(I)),
-		      ok = gen_sctp:send(S2, Assoc, 0, Msg),
-		      receive
-			  {sctp,S1,_,_,{[SR],Msg}} when is_record(SR, sctp_sndrcvinfo) ->
-			      Fn(I+1, Count, Fn);
-			  {sctp,S1,_,_,_} ->
-			      %% ignore non-data messages
-			      ok = inet:setopts(S1, [{active,1}]),
-			      Fn(I, Count, Fn);
-			  Other ->
-			      exit({unexpected, Other})
-		      after
-			  5000 ->
-			      exit({error,timeout})
-		      end
-	      end,
-    ok = LoopFun(1, N, LoopFun),
+    active_n_flush_connect_msgs(S1),
+    active_n_send_loop(N, S2, Assoc, S1),
     S3 = ok(gen_sctp:open([{active,0}])),
     receive
         {sctp_passive,S3} ->
@@ -908,6 +963,122 @@ active_n(Config) when is_list(Config) ->
     ok = gen_sctp:close(S1),
     ok.
 
+
+%% There is no way to know how many addresses this host has,
+%% and if there is "too many" (more then N = 3), then the
+%% socket may already be passive. In this case the send-
+%% loop will fail.
+%% So, if we get a passive-message here, we just give up (=skip).
+active_n_flush_connect_msgs(Sock) ->
+    %% This seems only to be needed on certain platforms
+    active_n_flush_connect_msgs(os:type(), Sock).
+
+active_n_flush_connect_msgs(_, Sock) ->
+    do_active_n_flush_connect_msgs(Sock).
+%% active_n_flush_connect_msgs({unix, freebsd}, Sock) ->
+%%     do_active_n_flush_connect_msgs(Sock);
+%% active_n_flush_connect_msgs(_, _) ->
+%%     ok.
+
+do_active_n_flush_connect_msgs(Sock) ->
+    receive
+        {sctp_passive, Sock} ->
+            ?P("connect-flush-loop -> premature passive"),
+            ?SKIPT("Too many addresses (premature passive)");
+
+        {sctp, Sock,
+         _FromIP, _FromPort,
+         {[], #sctp_assoc_change{state = comm_up}}} ->
+            ?P("connect-flush-loop -> "
+               "connect message discard - assoc change : comm-up"),
+            ok = inet:setopts(Sock, [{active, 1}]),
+            do_active_n_flush_connect_msgs(Sock);
+
+        {sctp, Sock,
+         _FromIP, _FromPort,
+         {[], #sctp_paddr_change{state    = addr_confirmed,
+                                 addr     = Addr,
+                                 error    = Error,
+                                 assoc_id = AID}}} ->
+            ?P("connect-flush-loop -> "
+               "connect message discard - paddr change : addr-confirmed:"
+               "~n   Addr:    ~p"
+               "~n   Error:   ~p"
+               "~n   AssocID: ~p", [Addr, Error, AID]),
+            ok = inet:setopts(Sock, [{active, 1}]),
+            do_active_n_flush_connect_msgs(Sock)
+
+    after 5000 ->
+            ok
+    end.
+            
+active_n_send_loop(Count, SrcSock, SndAssoc, DstSock) ->
+    active_n_send_loop(0, Count, SrcSock, SndAssoc, DstSock).
+
+active_n_send_loop(Count, Count, _SndSock, _SndAssoc, RcvSock) ->
+    ?P("send-loop -> we are done - wait for passive"),
+    receive
+        {sctp_passive, RcvSock} ->
+            ?P("received passive"),
+            ok
+    after
+        5000 ->
+            ?P("UNEXPECTED TIMEOUT: "
+               "~n   Message Queue:    ~p"
+               "~n   Active:           ~p",
+               [process_info(self(), messages),
+                inet:getopts(RcvSock, [active])]),
+            exit({error, timeout})
+    end;
+
+active_n_send_loop(Sent, Count, SndSock, SndAssoc, RcvSock) ->
+    Msg = list_to_binary("message " ++ integer_to_list(Sent+1)),
+    ?P("send-loop(~w,~w) -> send message (on ~p)", [Sent, Count, SndSock]),
+    ok = gen_sctp:send(SndSock, SndAssoc, 0, Msg),
+    receive
+        {sctp, RcvSock, FromIP, FromPort, {[SR], Msg}}
+        when is_record(SR, sctp_sndrcvinfo) ->
+            ?P("send-loop(~w,~w) -> "
+               "recv (expected) data message (on ~p):"
+               "~n   Msg:  ~p"
+               "~n   From: ~p, ~p",
+               [Sent, Count,
+                RcvSock, Msg, FromIP, FromPort]),
+            active_n_send_loop(Sent+1, Count, SndSock, SndAssoc, RcvSock);
+        
+        {sctp, RcvSock, _FromIP, _FromPort, {_AncData, _Data}} ->
+            %% ignore non-data messages
+            %% we should not get any here because of the flush loop,
+            %% but just in case...
+            ?P("send-loop(~w,~w) -> "
+               "ignore non-data messages (on ~p):"
+               "~n   From:    ~p:~p"
+               "~n   AncData: ~p"
+               "~n   Data:    ~p",
+               [Sent, Count,
+                RcvSock, _FromIP, _FromPort, _AncData, _Data]),
+            
+            %% It may be too late to update here,
+            %% the socket may already have gone passive 
+            %% and generated a passive message!
+            
+            ok = inet:setopts(RcvSock, [{active, 1}]),
+
+            active_n_send_loop(Sent, Count, SndSock, SndAssoc, RcvSock);
+        
+        Other ->
+            ?P("send-loop(~w,~w) -> "
+               "UNEXPECTED: "
+               "~n   Other:     ~p"
+               "~n   Send Sock: ~p"
+               "~n   Recv Sock: ~p", [Sent, Count,
+                                      Other, SndSock, RcvSock]),
+            exit({unexpected, Other})
+    after
+        5000 ->
+            exit({error,timeout})
+    end.
+    
 %% Hello world stream socket.
 basic_stream(Config) when is_list(Config) ->
     {ok,S} = gen_sctp:open([{type,stream}]),
@@ -920,6 +1091,7 @@ basic_stream(Config) when is_list(Config) ->
 
 %% Minimal data transfer.
 xfer_stream_min(Config) when is_list(Config) ->
+    {_, OSName} = os:type(),
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     Loopback = {127,0,0,1},
@@ -978,33 +1150,92 @@ xfer_stream_min(Config) when is_list(Config) ->
     case log_ok(gen_sctp:recv(Sb, infinity)) of
 	{Loopback,
 	 Pa,
-	 [#sctp_sndrcvinfo{stream=Stream,
-			   assoc_id=SbAssocId}],
-	 Data} -> ok;
-	{Loopback,
-	 Pa,[],
-	 #sctp_paddr_change{addr = {Loopback,_},
-			    state = addr_available,
-			    error = 0,
-			    assoc_id = SbAssocId}} ->
-	    {Loopback,
-	     Pa,
-	     [#sctp_sndrcvinfo{stream=Stream,
-			       assoc_id=SbAssocId}],
-	     Data} = log_ok(gen_sctp:recv(Sb, infinity));
+	 [#sctp_sndrcvinfo{stream   = Stream,
+			   assoc_id = SbAssocId}],
+	 Data} ->
+            ?P("[1] received expected data with ancillary data => done"),
+            ok;
+
 	{Loopback,
 	 Pa,
-	 [#sctp_sndrcvinfo{stream=Stream,
-			   assoc_id=SbAssocId}],
-	 #sctp_paddr_change{addr = {Loopback,_},
-			    state = addr_confirmed,
-			    error = 0,
+         [],
+	 #sctp_paddr_change{addr     = {Loopback,_},
+			    state    = addr_available,
+			    error    = 0,
 			    assoc_id = SbAssocId}} ->
+            ?P("[2] received paddr change => recv again"),
+            Res2 = log_ok(gen_sctp:recv(Sb, infinity)),
+            ?P("[2] recv ok => "
+               "~n   ~p", [Res2]),
 	    {Loopback,
 	     Pa,
-	     [#sctp_sndrcvinfo{stream=Stream,
-			       assoc_id=SbAssocId}],
-	     Data} = log_ok(gen_sctp:recv(Sb, infinity))
+	     [#sctp_sndrcvinfo{stream   = Stream,
+			       assoc_id = SbAssocId}],
+	     Data} = Res2,
+            ?P("[2] received expected data with ancillary data => done"),
+            Res2;
+
+	{Loopback,
+	 Pa,
+	 [#sctp_sndrcvinfo{stream    = Stream,
+			   assoc_id  = SbAssocId}],
+	 #sctp_paddr_change{addr     = {Loopback,_},
+			    state    = addr_confirmed,
+			    error    = 0,
+			    assoc_id = SbAssocId}} ->
+            ?P("[3] received paddr change with ancillary data => recv again"),
+            Res3 = log_ok(gen_sctp:recv(Sb, infinity)),
+            ?P("[3] recv ok => "
+               "~n   ~p", [Res3]),
+	    {Loopback,
+	     Pa,
+	     [#sctp_sndrcvinfo{stream   = Stream,
+			       assoc_id = SbAssocId}],
+	     Data} = Res3,
+            ?P("[3] received expected data with ancillary data => done"),
+            Res3;
+
+        %% It seems that on FreeBSD (for instance) we don't get any
+        %% AncData with this.
+	{Loopback,
+	 Pa,
+	 [],
+	 #sctp_paddr_change{addr     = {Loopback,_},
+			    state    = addr_confirmed,
+			    error    = 0,
+			    assoc_id = SbAssocId}} when (OSName =:= freebsd) ->
+            ?P("[4] received paddr change without ancillary data => "
+               "recv again"),
+            Res4 = log_ok(gen_sctp:recv(Sb, infinity)),
+            ?P("[4] recv ok => "
+               "~n   ~p", [Res4]),
+	    {Loopback,
+	     Pa,
+	     [#sctp_sndrcvinfo{stream   = Stream,
+                               assoc_id = SbAssocId}],
+	     Data} = Res4,
+            ?P("[4] received expected data with ancillary data => done"),
+            Res4;
+
+        {FromIPX, FromPortX, AncDataX, DataX} = Other1 ->
+            ?P("UNEXPECTED: "
+               "~n   FromIP:   ~p"
+               "~n   FromPort: ~p"
+               "~n   AncData:  ~p"
+               "~n   Data:     ~p"
+               "~nwhen"
+               "~n   Loopback: ~p"
+               "~n   Pa:       ~p",
+               [FromIPX, FromPortX, AncDataX, DataX, Loopback, Pa]),
+            exit({unexpected, Other1});
+        Other2 ->
+            ?P("UNEXPECTED: "
+               "~n   Other:    ~p"
+               "~nwhen"
+               "~n   Loopback: ~p"
+               "~n   Pa:       ~p",
+               [Other2, Loopback, Pa]),
+            exit({unexpected, Other2})
     end,
     ok =
 	do_from_other_process(
@@ -1411,11 +1642,12 @@ get_addrs_by_family(Family, NumAddrs) ->
 	    end;
 	Os ->
 	    Reason = if Family =:= inet_and_inet6 ->
-			     f("Mixing ipv4 and ipv6 addresses for multihoming "
-			       " has not been verified on ~p", [Os]);
+			     ?F("Mixing ipv4 and ipv6 addresses for "
+			       " multihoming has not been verified on ~p",
+                                [Os]);
 			true ->
-			     f("Multihoming for ~p has not been verified on ~p",
-			       [Family, Os])
+			     ?F("Multihoming for ~p has not been verified "
+                                "on ~p", [Family, Os])
 		     end,
 	    {error, Reason}
     end.
@@ -1424,19 +1656,19 @@ get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
 					       Family =:= inet6 ->
     case inet:getaddr(localhost, Family) of
 	{error,eafnosupport} ->
-	    {skip, f("No support for ~p", Family)};
+	    {skip, ?F("No support for ~p", Family)};
 	{ok, _} ->
 	    IfAddrs = ok(inet:getifaddrs()),
 	    case filter_addrs_by_family(IfAddrs, Family) of
 		Addrs when length(Addrs) >= NumAddrs ->
 		    {ok, lists:sublist(Addrs, NumAddrs)};
 		[] ->
-		    {error, f("Need ~p ~p address(es) found none~n",
-			      [NumAddrs, Family])};
+		    {error, ?F("Need ~p ~p address(es) found none~n",
+                               [NumAddrs, Family])};
 		Addrs ->
 		    {error,
-		     f("Need ~p ~p address(es) found only ~p: ~p~n",
-		       [NumAddrs, Family, length(Addrs), Addrs])}
+		     ?F("Need ~p ~p address(es) found only ~p: ~p~n",
+                        [NumAddrs, Family, length(Addrs), Addrs])}
 	    end
     end;
 get_addrs_by_family_aux(inet_and_inet6, NumAddrs) ->
@@ -1467,9 +1699,6 @@ ipv4_map_addrs(InetAddrs) ->
 	 <<CD:16>> = <<C,D>>,
 	 {0, 0, 0, 0, 0, 16#ffff, AB, CD}
      end || {A,B,C,D} <- InetAddrs].
-
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
 
 do_open_and_connect(ServerAddresses, AddressToConnectTo) ->
     Fun = fun (_, _, _, _, _, _) -> ok end,
@@ -1531,56 +1760,56 @@ recv_comm_up_eventually(S) ->
 
 %% 
 recv_close(Config) when is_list(Config) ->
-    p("create server socket (and listen)"),
+    ?P("create server socket (and listen)"),
     {ok, S} = gen_sctp:open(),
     gen_sctp:listen(S, true),
     {ok, SPort} = inet:port(S),
 
-    p("create client socket (and connect)"),
+    ?P("create client socket (and connect)"),
     {ok, C} = gen_sctp:open(),
     {ok, _} = gen_sctp:connect(C, localhost, SPort, []),
 
     TC = self(),
     RECV = fun() ->
-                   p("try setup recv(s)"),
+                   ?P("try setup recv(s)"),
                    ok = recv_close_setup_recv(S),
-                   p("announce ready"),
+                   ?P("announce ready"),
                    TC ! {self(), ready},
-                   p("try data recv"),
+                   ?P("try data recv"),
                    Res = gen_sctp:recv(S),
-                   p("recv res: "
-                     "~n   ~p", [Res]),
+                   ?P("recv res: "
+                      "~n   ~p", [Res]),
                    exit(Res)
            end,
-    p("spawn reader - then await reader ready"),
+    ?P("spawn reader - then await reader ready"),
     {Pid, MRef} = spawn_monitor(RECV),
     receive
         {'DOWN', MRef, process, Pid, PreReason} ->
             %% Make sure it does not die for some other reason...
-            p("unexpected reader termination:"
-              "~n   ~p", [PreReason]),
+            ?P("unexpected reader termination:"
+               "~n   ~p", [PreReason]),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
             ?line ct:fail("Unexpected pre close from reader (~p): ~p",
                           [Pid, PreReason]);
         {Pid, ready} ->
-            p("reader ready"),
+            ?P("reader ready"),
             ok
     after 30000 -> % Just in case...
             %% This is **extreme**, but there is no way to know
             %% how long it will take to iterate through all the
             %% addresses of a host...
-            p("reader ready timeout"),
+            ?P("reader ready timeout"),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
             ?line ct:fail("Unexpected pre close timeout (~p)", [Pid])
     end,
 
-    p("\"ensure\" reader reading..."),
+    ?P("\"ensure\" reader reading..."),
     receive
         Any ->
-            p("Received unexpected message: "
-              "~n   ~p", [Any]),
+            ?P("Received unexpected message: "
+               "~n   ~p", [Any]),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
             ?line ct:fail("Unexpected message: ~p", [Any])
@@ -1588,30 +1817,30 @@ recv_close(Config) when is_list(Config) ->
             ok
     end,
 
-    p("close server socket"),
+    ?P("close server socket"),
     ok = gen_sctp:close(S),
-    p("await reader termination"),
+    ?P("await reader termination"),
     receive
         {'DOWN', MRef, process, Pid, {error, closed}} ->
-            p("expected reader termination result"),
+            ?P("expected reader termination result"),
             (catch gen_sctp:close(C)),
             ok;
         {'DOWN', MRef, process, Pid, PostReason} ->
-            p("unexpected reader termination: "
-              "~n   ~p", [PostReason]),
+            ?P("unexpected reader termination: "
+               "~n   ~p", [PostReason]),
             (catch gen_sctp:close(C)),
             ?line ct:fail("Unexpected post close from reader (~p): ~p",
                           [Pid, PostReason])
     after 5000 ->
-            p("unexpected reader termination timeout"),
+            ?P("unexpected reader termination timeout"),
             demonitor(MRef, [flush]),
             (catch gen_sctp:close(C)),
             exit(Pid, kill),
             ?line ct:fail("Reader (~p) termination timeout", [Pid])
     end,
-    p("close client socket"),
+    ?P("close client socket"),
     (catch gen_sctp:close(C)),
-    p("done"),
+    ?P("done"),
     ok.
 
 
@@ -1619,14 +1848,14 @@ recv_close_setup_recv(S) ->
     recv_close_setup_recv(S, 1).
 
 recv_close_setup_recv(S, N) ->
-    p("try setup recv ~w", [N]),
+    ?P("try setup recv ~w", [N]),
     case gen_sctp:recv(S, 5000) of
         {ok, {Addr,
               Port,
               _AncData, 
               Data}} when is_tuple(Addr) andalso is_integer(Port) ->
-            p("setup recv ~w: "
-              "~n   ~p", [N, Data]),
+            ?P("setup recv ~w: "
+               "~n   ~p", [N, Data]),
             recv_close_setup_recv(S, N+1);
         {error, timeout} ->
             ok
@@ -1865,23 +2094,42 @@ match_unless_solaris(A, B) ->
 	_ -> A = B
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 timestamp() ->
     erlang:monotonic_time().
 
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
 
-format_timestamp({_N1, _N2, N3} = TS) ->
-    {_Date, Time}   = calendar:now_to_local_time(TS),
-    {Hour, Min, Sec} = Time,
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
-                             [Hour, Min, Sec, N3 div 1000]),  
-    lists:flatten(FormatTS).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-p(F) ->
-    p(F, []).
+log_ok(X) ->
+    log(ok(X)).
 
-p(F, A) ->
-    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+ok({ok, X}) ->
+    X;
+ok({error, X}) ->
+    ?P("ERROR: ~p", [X]),
+    ?line ct:fail({unexpected_error, X});
+ok(X) ->
+    ?P("UNEXPECTED: ~p", [X]),
+    ?line ct:fail({unexpected, X}).
+    
 
+log(X) ->
+    ?P("LOG: ~p", [X]),
+    X.
+
+err([], Result) ->
+    erlang:error(Result);
+err([Reason|_], {error,Reason}) ->
+    ok;
+err([_|Reasons], Result) ->
+    err(Reasons, Result).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+open_failed_str(Reason) ->
+    ?F("Open failed: ~w", [Reason]).
 

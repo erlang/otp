@@ -72,6 +72,7 @@ MODULES= \
 	file_name_SUITE \
 	prim_file_SUITE \
 	ram_file_SUITE \
+	gen_inet_test_lib \
 	gen_tcp_api_SUITE \
 	gen_tcp_dist \
 	gen_tcp_echo_SUITE \
@@ -130,6 +131,7 @@ APP_FILES = \
 
 ERL_FILES= $(MODULES:%=%.erl) code_a_test.erl
 HRL_FILES= \
+	gen_inet_test_lib.hrl \
 	socket_test_evaluator.hrl \
 	socket_test_ttest.hrl \
 	socket_test_ttest_client.hrl
