@@ -439,12 +439,13 @@ shell_socket(Config) when is_list(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
-    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
+    {_Pid, Host0, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
+    Host = ssh_test_lib:mangle_connect_address(Host0),
     ct:sleep(500),
 
     %% First test with active mode:
-    {ok,ActiveSock} = gen_tcp:connect(ssh_test_lib:mangle_connect_address(Host),
+    {ok,ActiveSock} = gen_tcp:connect(Host,
                                       Port,
                                       [{active,true}]),
     {error,not_passive_mode} = ssh:shell(ActiveSock),
