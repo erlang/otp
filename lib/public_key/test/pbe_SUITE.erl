@@ -23,8 +23,27 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+         pbdkdf1/0,
+         pbdkdf1/1,
+         pbdkdf2/0,
+         pbdkdf2/1,
+         old_pbe/0,
+         old_pbe/1,
+         pbes1/0,
+         pbes1/1,
+         pbes2/0,
+         pbes2/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
