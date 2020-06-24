@@ -18510,9 +18510,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
         return 1; // Failure - no registry pid
 
     data.dbg =
-        esock_extract_bool_from_map(env, load_info,
-                                    atom_iow,
-                                    ESOCK_NIF_IOW_DEFAULT);
+        esock_get_bool_from_map(env, load_info,
+                                atom_iow, ESOCK_NIF_IOW_DEFAULT);
 
     {
         char *debug_filename;
@@ -18523,13 +18522,13 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
             // Pick up early debug flags only if debug_filename is ok
 
             data.dbg =
-                esock_extract_bool_from_map(env, load_info,
-                                            esock_atom_debug,
-                                            ESOCK_GLOBAL_DEBUG_DEFAULT);
+                esock_get_bool_from_map(env, load_info,
+                                        esock_atom_debug,
+                                        ESOCK_GLOBAL_DEBUG_DEFAULT);
             data.sockDbg =
-                esock_extract_bool_from_map(env, load_info,
-                                            atom_socket_debug,
-                                            ESOCK_DEBUG_DEFAULT);
+                esock_get_bool_from_map(env, load_info,
+                                        atom_socket_debug,
+                                        ESOCK_DEBUG_DEFAULT);
         }
 
         if (debug_filename != NULL)

@@ -1768,35 +1768,6 @@ BOOLEAN_T esock_decode_string(ErlNifEnv*         env,
 
 
 
-/* *** esock_extract_bool_from_map ***
- *
- * Extract an boolean item from a map.
- * This function returns the retreived or the provided default value.
- */
-extern
-BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
-                                      ERL_NIF_TERM map,
-                                      ERL_NIF_TERM key,
-                                      BOOLEAN_T    def)
-{
-    ERL_NIF_TERM val;
-
-    if (!esock_extract_from_map(env, map, key, &val))
-        return def;
-
-    if (!IS_ATOM(env, val))
-        return def;
-
-    if (COMPARE(val, esock_atom_true) == 0)
-        return TRUE;
-    else if (COMPARE(val, esock_atom_false) == 0)
-        return FALSE;
-    else
-        return def;
-}
-
-
-
 /* *** esock_extract_pid_from_map ***
  *
  * Extract a pid item from a map.
