@@ -22,18 +22,27 @@
 %%% Run like this:
 %%%  ct:run_test([{suite,"ssh_property_test_SUITE"}, {logdir,"/ldisk/OTP/LOG"}]).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%                                                             %%%
-%%%                       WARNING                               %%%
-%%%                                                             %%%
-%%% This is experimental code which may be changed or removed   %%%
-%%%               anytime without any warning.                  %%%
-%%%                                                             %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 -module(ssh_property_test_SUITE).
 
--compile(export_all).
+-export([
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         client_sends_info_timing/1,
+         client_server_parallel/1,
+         client_server_parallel_multi/1,
+         client_server_sequential/1,
+         decode/1,
+         decode_encode/1
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").

@@ -30,7 +30,11 @@
 -include("ssh_test_lib.hrl").
 
 %%% Test cases
--export([connectfun_disconnectfun_client/1, 
+-export([
+         auth_method_kb_interactive_data_tuple/1,
+         auth_method_kb_interactive_data_fun3/1,
+         auth_method_kb_interactive_data_fun4/1,
+         connectfun_disconnectfun_client/1, 
 	 disconnectfun_option_client/1, 
 	 disconnectfun_option_server/1, 
 	 id_string_no_opt_client/1, 
@@ -84,7 +88,6 @@
 	 init_per_group/2, end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2
 	]).
--compile(export_all).
 
 -define(NEWLINE, <<"\r\n">>).
 

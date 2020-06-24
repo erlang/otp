@@ -18,7 +18,21 @@
 %% %CopyrightEnd%
 %%
 -module(ssh_bench_SUITE).
--compile(export_all).
+
+-export([
+         suite/0,
+         all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         connect/1,
+         transfer_text/1,
+         send_wait_acc/3
+        ]).
 
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").

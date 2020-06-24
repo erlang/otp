@@ -24,8 +24,26 @@
 -include_lib("ssh/src/ssh.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         default_tree/1,
+         killed_acceptor_restarts/1,
+         shell_channel_tree/1,
+         sshc_subtree/1,
+         sshd_subtree/1,
+         sshd_subtree_profile/1
+        ]).
 
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
@@ -89,9 +107,6 @@ end_per_testcase(_, _Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases 
 %%-------------------------------------------------------------------------
-default_tree() ->
-    [{doc, "Makes sure the correct processes are started and linked," 
-     "in the default case."}].
 default_tree(Config) when is_list(Config) ->
     TopSupChildren = supervisor:which_children(ssh_sup),
     2 = length(TopSupChildren),
@@ -103,8 +118,6 @@ default_tree(Config) when is_list(Config) ->
     ?wait_match([], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
-sshc_subtree() ->
-    [{doc, "Make sure the sshc subtree is correct"}].
 sshc_subtree(Config) when is_list(Config) ->
     {_Pid, Host, Port} = proplists:get_value(server, Config),
     UserDir = proplists:get_value(userdir, Config),
@@ -135,8 +148,6 @@ sshc_subtree(Config) when is_list(Config) ->
     ?wait_match([], supervisor:which_children(sshc_sup)).
 
 %%-------------------------------------------------------------------------
-sshd_subtree() ->
-    [{doc, "Make sure the sshd subtree is correct"}].
 sshd_subtree(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     {Daemon, HostIP, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
@@ -157,8 +168,6 @@ sshd_subtree(Config) when is_list(Config) ->
     ?wait_match([], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
-sshd_subtree_profile() ->
-    [{doc, "Make sure the sshd subtree using profile option is correct"}].	
 sshd_subtree_profile(Config) when is_list(Config) ->
     Profile = proplists:get_value(profile, Config), 
     SystemDir = proplists:get_value(data_dir, Config),
