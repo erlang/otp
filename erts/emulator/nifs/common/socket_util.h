@@ -47,16 +47,6 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
                                   ERL_NIF_TERM map,
                                   ERL_NIF_TERM key,
                                   BOOLEAN_T    def);
-extern
-BOOLEAN_T esock_get_int_from_map(ErlNifEnv*   env,
-                                 ERL_NIF_TERM map,
-                                 ERL_NIF_TERM key,
-                                 int*         val);
-extern
-BOOLEAN_T esock_get_string_from_map(ErlNifEnv*   env,
-                                    ERL_NIF_TERM map,
-                                    ERL_NIF_TERM key,
-                                    char**       str);
 
 extern
 BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
@@ -222,6 +212,11 @@ BOOLEAN_T esock_extract_pid_from_map(ErlNifEnv*   env,
                                      ERL_NIF_TERM map,
                                      ERL_NIF_TERM key,
                                      ErlNifPid*   pid);
+extern
+BOOLEAN_T esock_extract_int_from_map(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     ERL_NIF_TERM key,
+                                     int*         val);
 extern
 BOOLEAN_T esock_decode_bool(ERL_NIF_TERM eVal, BOOLEAN_T* val);
 extern

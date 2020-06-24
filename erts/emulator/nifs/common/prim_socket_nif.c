@@ -5260,8 +5260,8 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
         SSDBG2( dbg,
                 ("SOCKET",
                  "esock_open2 -> failed get protocol from system\r\n") );
-        if (! esock_get_int_from_map(env, eopts,
-                                     esock_atom_protocol, &protocol)) {
+        if (! esock_extract_int_from_map(env, eopts,
+                                        esock_atom_protocol, &protocol)) {
             SSDBG2( dbg,
                     ("SOCKET",
                      "esock_open2 -> trying protocol 0\r\n") );
@@ -5372,7 +5372,8 @@ BOOLEAN_T esock_open2_get_domain(ErlNifEnv* env,
             "\r\n   eopts: %T"
             "\r\n", eopts) );
 
-    if (esock_get_int_from_map(env, eopts, esock_atom_domain, &edomain)) {
+    if (esock_extract_int_from_map(env, eopts,
+                                   esock_atom_domain, &edomain)) {
         /* decode */
         return edomain2domain(edomain, domain);
     } else {
@@ -18506,8 +18507,10 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     if (! esock_extract_pid_from_map(env, load_info,
                                      atom_registry,
-                                     &data.regPid))
+                                     &data.regPid)) {
+        enif_set_pid_undefined(&data.regPid);
         return 1; // Failure - no registry pid
+    }
 
     data.dbg =
         esock_get_bool_from_map(env, load_info,
