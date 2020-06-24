@@ -3460,11 +3460,7 @@ do_active_once_closed(_Config) ->
 
 %% Check that active n and tcp_close messages behave as expected.
 active_n_closed(Config) when is_list(Config) ->
-    try do_active_n_closed(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(active_n_closed, fun() -> do_active_n_closed(Config) end).
 
 do_active_n_closed(_Config) ->
     ?P("create listen socket"),
@@ -3476,21 +3472,26 @@ do_active_n_closed(_Config) ->
 
     ClientF =
         fun() ->
+                ?P("[client] started"),
                 Payload = <<0:50000/unit:8>>,
                 Cnt = 10000,
+                ?P("[client] send size"),
                 P ! {size, Cnt * byte_size(Payload)},
+                ?P("[client] try connect"),
                 S = case gen_tcp:connect("localhost", Port,
                                          [binary, {active, false}]) of
                         {ok, CS} ->
+                            ?P("[client] connected"),
                             P ! {continue, self()},
                             CS;
                         {error, eaddrnotavail = Reason} ->
                             ?SKIPE(connect_failed_str(Reason))
                     end,
+                ?P("[client] send payload"),
                 _ = [gen_tcp:send(S, Payload) || _ <- lists:seq(1, Cnt)],
+                ?P("[client] close socket"),
                 gen_tcp:close(S),
-                %% Try to "ensure" that teh close get there before the DOWN...
-                receive after 1000 -> ok end,
+                ?P("[client] done"),
                 exit(ok)
         end,
     ?P("create client process"),
@@ -3515,32 +3516,39 @@ do_active_n_closed(_Config) ->
     {ok, S} = gen_tcp:accept(L),
     inet:setopts(S, [{active, 10}]),
     ?P("start collecting data"),
-    RecvSize =
-        (fun Server(Size) ->
-                 receive
-                     {tcp, S, Bin} ->
-                         %% ?P("got a chunk (~w) of data", [byte_size(Bin)]),
-                         Server(byte_size(Bin) + Size);
-                     {tcp_closed, S} ->
-                         ?P("got closed -> we are done: ~w", [Size]),
-                         Size;
-                     {tcp_passive, S} ->
-                         %% ?P("got passive -> active"),
-                         inet:setopts(S, [{active, 10}]),
-                         Server(Size);
-                     Msg ->
-                         ?P("ignore: ~p", [Msg]),
-                         Server(Size)
-                 end
-         end)(0),
-
-    ?P("await client process termination"),
-    receive
-        {'DOWN', MRef, process, Pid, ok} ->
-            ok;
-        {'DOWN', MRef, process, Pid, CloseRes} ->
-            exit({unexpected, close, CloseRes})
-    end,
+    RecvSize = anc_await_closed_and_down(S, Pid, MRef),
+    %% {RecvSize, Down} =
+    %%     (fun Server(Size) ->
+    %%              receive
+    %%                  {tcp, S, Bin} ->
+    %%                      %% ?P("got a chunk (~w) of data", [byte_size(Bin)]),
+    %%                      Server(byte_size(Bin) + Size);
+    %%                  {tcp_closed, S} ->
+    %%                      ?P("got closed -> we are done: ~w", [Size]),
+    %%                      Size;
+    %%                  {tcp_passive, S} ->
+    %%                      %% ?P("got passive -> active"),
+    %%                      inet:setopts(S, [{active, 10}]),
+    %%                      Server(Size);
+    %%                  {'DOWN', MRef, process, Pid, Reason} ->
+    %%                      ?P("Received UNEXPECTED down message regarding client:"
+    %%                         "~n   Reason: ~p"
+    %%                         "~n   S:      ~p"
+    %%                         "~n   Port Info: ~p",
+    %%                         [Reason, ]),
+    %%                      ct:fail({unexpected_client_down, Reason});
+    %%                  Msg ->
+    %%                      ?P("ignore: ~p", [Msg]),
+    %%                      Server(Size)
+    %%              end
+    %%      end)(0),
+    %% ?P("await client process termination"),
+    %% receive
+    %%     {'DOWN', MRef, process, Pid, ok} ->
+    %%         ok;
+    %%     {'DOWN', MRef, process, Pid, CloseRes} ->
+    %%         exit({unexpected, close, CloseRes})
+    %% end,
 
     ?P("close listen socket"),
     gen_tcp:close(L),
@@ -3551,6 +3559,41 @@ do_active_n_closed(_Config) ->
             ok;
        true ->
             ct:fail("Send and Recv size not equal: ~p ~p", [SendSize, RecvSize])
+    end.
+
+
+anc_await_closed_and_down(S, Pid, MRef) ->
+    anc_await_closed_and_down(S, Pid, MRef, 0, false, false).
+
+anc_await_closed_and_down(_S, _Pid, _MRef, Size, true, true) ->
+    Size;
+anc_await_closed_and_down(S, Pid, MRef, Size, Closed, Down) ->
+    receive
+        {tcp, S, Bin} ->
+            %% ?P("got a chunk (~w) of data", [byte_size(Bin)]),
+            anc_await_closed_and_down(S, Pid, MRef,
+                                      byte_size(Bin) + Size, Closed, Down);
+        {tcp_closed, S} ->
+            ?P("got closed -> we are done: ~w", [Size]),
+            anc_await_closed_and_down(S, Pid, MRef, Size, true, Down);
+        {tcp_passive, S} ->
+            %% ?P("got passive -> active"),
+            inet:setopts(S, [{active, 10}]),
+            anc_await_closed_and_down(S, Pid, MRef, Size, Closed, true);
+        {'DOWN', MRef, process, Pid, ok} ->
+            ?P("Received expected down message regarding client"),
+            anc_await_closed_and_down(S, Pid, MRef, Size, Closed, true);
+
+        {'DOWN', MRef, process, Pid, Reason} ->
+            ?P("Received UNEXPECTED down message regarding client:"
+               "~n   Reason:    ~p"
+               "~n   Port Info: ~p",
+               [Reason, (catch erlang:port_info(S))]),
+            ct:fail({unexpected_client_down, Reason}); 
+
+       Msg ->
+            ?P("ignore: ~p", [Msg]),
+            anc_await_closed_and_down(S, Pid, MRef, Size, Closed, Down)
     end.
 
 %% Test the send_timeout socket option.
