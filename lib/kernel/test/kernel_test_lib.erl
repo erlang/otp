@@ -25,7 +25,7 @@
 -export([tc_try/3]).
 -export([f/2,
          print/1, print/2]).
--export([good_hosts/2,
+-export([good_hosts/1,
          lookup/3]).
 
 -include("kernel_test_lib.hrl").
@@ -1519,8 +1519,8 @@ lookup(Key, Config, Default) ->
 %% Extract N number of hosts from the config.
 %% Prepend with the own host.
 %% If not N number of hosts are available, issue a skip exit.
-good_hosts(Config, N) when is_integer(N) andalso (N > 0) ->
-    GoodHosts         = lookup(test_hosts, Config, []),
+good_hosts(N) when is_integer(N) andalso (N > 0) ->
+    GoodHosts         = ct:get_config(test_hosts, []),
     {ok, CurrentHost} = inet:gethostname(),
     GoodHosts2        = [CurrentHost] ++ (GoodHosts -- [CurrentHost]),
     good_hosts2(GoodHosts2, N).
