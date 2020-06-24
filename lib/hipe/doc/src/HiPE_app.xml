@@ -168,7 +168,7 @@
 	  produce data after returning from recursive calls may have to
 	  be scheduled out when returning from a function call. Since
 	  HiPE does not check reductions on returns, processes executing
-	  such HiPE compiled code may cause huge peeks in memory
+	  such HiPE compiled code may cause huge peaks in memory
 	  consumption as well as severe performance degradation.
 	</p>
       </item>
