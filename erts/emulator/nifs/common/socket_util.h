@@ -251,6 +251,9 @@ extern
 ERL_NIF_TERM esock_make_error_str(ErlNifEnv* env, char* reason);
 extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err);
+extern
+ERL_NIF_TERM esock_raise_invalid(ErlNifEnv* env,
+                                 ERL_NIF_TERM what, ERL_NIF_TERM info);
 
 extern
 ERL_NIF_TERM esock_make_new_binary(ErlNifEnv *env, void *buf, size_t size);

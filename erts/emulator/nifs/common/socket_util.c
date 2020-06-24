@@ -143,8 +143,10 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
     } else {
         if (COMPARE(val, esock_atom_true) == 0)
             return TRUE;
-        else
+        else if (COMPARE(val, esock_atom_false) == 0)
             return FALSE;
+        else
+            return def;
     }
 }
 
@@ -1320,21 +1322,28 @@ BOOLEAN_T esock_decode_type(ErlNifEnv*   env,
                             ERL_NIF_TERM eType,
                             int*         type)
 {
+    int cmp;
 
-    if (COMPARE(esock_atom_stream, eType) == 0) {
-        *type = SOCK_STREAM;
-    } else if (COMPARE(esock_atom_dgram, eType) == 0) {
-        *type = SOCK_DGRAM;
-    } else if (COMPARE(esock_atom_raw, eType) == 0) {
-        *type = SOCK_RAW;
-
+    /* A manual binary search to minimize the number of COMPARE:s */
+    cmp = COMPARE(esock_atom_raw, eType);
+    if (cmp < 0) {
+        if (COMPARE(esock_atom_stream, eType) == 0) {
+            *type = SOCK_STREAM;
 #ifdef SOCK_SEQPACKET
-    } else if (COMPARE(esock_atom_seqpacket, eType) == 0) {
-        *type = SOCK_SEQPACKET;
+        } else if (COMPARE(esock_atom_seqpacket, eType) == 0) {
+            *type = SOCK_SEQPACKET;
 #endif
-
+        } else {
+            return FALSE;
+        }
+    } else if (0 < cmp) {
+        if (COMPARE(esock_atom_dgram, eType) == 0) {
+            *type = SOCK_DGRAM;
+        } else {
+            return FALSE;
+        }
     } else {
-        return FALSE;
+        *type = SOCK_RAW;
     }
 
     return TRUE;
@@ -1963,6 +1972,20 @@ extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err)
 {
     return esock_make_error_str(env, erl_errno_id(err));
+}
+
+
+
+/* Raise an exception {invalid, {What, Info}}
+ */
+extern
+ERL_NIF_TERM esock_raise_invalid(ErlNifEnv* env,
+                                 ERL_NIF_TERM what, ERL_NIF_TERM info)
+{
+    return enif_raise_exception(env,
+                                MKT2(env,
+                                     esock_atom_invalid,
+                                     MKT2(env, what, info)));
 }
 
 

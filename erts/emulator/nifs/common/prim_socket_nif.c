@@ -2157,7 +2157,6 @@ static ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
 
 
 static BOOLEAN_T edomain2domain(int edomain, int* domain);
-static BOOLEAN_T etype2type(int etype, int* type);
 static BOOLEAN_T ehow2how(unsigned int ehow, int* how);
 static BOOLEAN_T esendflags2sendflags(unsigned int esendflags, int* sendflags);
 static BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags);
@@ -5135,18 +5134,18 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
     case 4:
         /* The normal version */
         {
-            int          edomain, etype;
-            ERL_NIF_TERM eopts;
+            int          edomain;
+            ERL_NIF_TERM etype, eopts;
             int          domain, type, proto;
 
             /* Extract arguments and perform preliminary validation */
 
             if (!GET_INT(env, argv[0], &edomain) ||
-                !GET_INT(env, argv[1], &etype) ||
                 !GET_INT(env, argv[2], &proto) ||
                 !IS_MAP(env,  argv[3])) {
                 return enif_make_badarg(env);
             }
+            etype = argv[1];
             eopts  = argv[3];
 
             SGDBG( ("SOCKET", "nif_open -> "
@@ -5162,10 +5161,10 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
                 return enif_make_badarg(env);
             }
 
-            if (!etype2type(etype, &type)) {
+            if (! esock_decode_type(env, etype, &type)) {
                 SGDBG( ("SOCKET",
                         "nif_open -> invalid type: %d\r\n", etype) );
-                return enif_make_badarg(env);
+                return esock_raise_invalid(env, esock_atom_type, etype);
             }
 
             MLOCK(data.cntMtx);
@@ -5251,7 +5250,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     if (! esock_open_which_type(fd, &type)) {
         SSDBG2( dbg,
                 ("SOCKET", "esock_open2 -> failed get type from system\r\n") );
-        if (!esock_open2_get_type(env, eopts, &type)) {
+        if (! esock_open2_get_type(env, eopts, &type)) {
             return esock_make_error(env, esock_atom_type);
                                     
         }
@@ -5389,18 +5388,19 @@ static
 BOOLEAN_T esock_open2_get_type(ErlNifEnv* env,
                                ERL_NIF_TERM eopts, int* type)
 {
-    int          etype;
+    ERL_NIF_TERM etype;
     
     SGDBG( ("SOCKET", "esock_open2_get_type -> entry with"
             "\r\n   eopts: %T"
             "\r\n", eopts) );
 
-    if (esock_get_int_from_map(env, eopts, esock_atom_type, &etype)) {
-        /* decode */
-        return etype2type(etype, type);
-    } else {
+    if (! GET_MAP_VAL(env, eopts, esock_atom_type, &etype))
         return FALSE;
-    }
+
+    if (! esock_decode_type(env, etype, type))
+        return FALSE;
+
+    return TRUE;
 }
 #endif // #ifndef __WIN32__
 
@@ -16508,42 +16508,6 @@ BOOLEAN_T edomain2domain(int edomain, int* domain)
 #ifdef HAVE_SYS_UN_H
     case ESOCK_DOMAIN_LOCAL:
         *domain = AF_UNIX;
-        break;
-#endif
-
-    default:
-        return FALSE;
-    }
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
-
-/* etype2type - convert internal (erlang) type to (proper) type
- *
- * Note that only a subset is supported.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T etype2type(int etype, int* type)
-{
-    switch (etype) {
-    case ESOCK_TYPE_STREAM:
-        *type = SOCK_STREAM;
-        break;
-
-    case ESOCK_TYPE_DGRAM:
-        *type = SOCK_DGRAM;
-        break;
-
-    case ESOCK_TYPE_RAW:
-        *type = SOCK_RAW;
-        break;
-
-#ifdef SOCK_SEQPACKET
-    case ESOCK_TYPE_SEQPACKET:
-        *type = SOCK_SEQPACKET;
         break;
 #endif
 

@@ -445,8 +445,6 @@ open(FD, Opts) when is_map(Opts) ->
                   case Key of
                       domain ->
                           enc_domain(Val);
-                      type ->
-                          enc_type(Val);
                       protocol ->
                           enc_protocol(Val);
                       _ ->
@@ -457,7 +455,6 @@ open(FD, Opts) when is_map(Opts) ->
 
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
     EDomain   = enc_domain(Domain),
-    EType     = enc_type(Type),
     EProtocol = enc_protocol(Protocol),
     EOpts =
         case Opts of
@@ -466,7 +463,7 @@ open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
             _ ->
                 Opts
         end,
-    nif_open(EDomain, EType, EProtocol, EOpts).
+    nif_open(EDomain, Type, EProtocol, EOpts).
 
 %% ----------------------------------
 
@@ -619,13 +616,7 @@ enc_domain(inet)   -> ?ESOCK_DOMAIN_INET;
 enc_domain(inet6)  -> ?ESOCK_DOMAIN_INET6;
 enc_domain(Domain) -> invalid(domain, Domain).
 
-enc_type(stream)    -> ?ESOCK_TYPE_STREAM;
-enc_type(dgram)     -> ?ESOCK_TYPE_DGRAM;
-enc_type(raw)       -> ?ESOCK_TYPE_RAW;
-enc_type(seqpacket) -> ?ESOCK_TYPE_SEQPACKET;
-enc_type(Type)      -> invalid(type, Type).
-
-%% These clause should be deprecated
+%% These clauses should be deprecated
 enc_protocol({raw, ProtoNum}) when is_integer(ProtoNum) -> ProtoNum;
 enc_protocol(default) -> 0;
 %%
