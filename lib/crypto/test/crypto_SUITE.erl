@@ -21,8 +21,170 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+
+-export([
+         %% CT callbacks:
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+         
+         %% Test cases:
+         aead/1,
+         aead_bad_tag/1,
+         aead_ng/1,
+         api_errors_ecdh/1,
+         api_ng/0,
+         api_ng/1,
+         api_ng_one_shot/0,
+         api_ng_one_shot/1,
+         api_ng_tls/0,
+         api_ng_tls/1,
+         app/0,
+         app/1,
+         appup/0,
+         appup/1,
+         bad_cipher_name/1,
+         bad_generate_key_name/1,
+         bad_hash_name/1,
+         bad_hmac_name/1,
+         bad_mac_name/1,
+         bad_sign_name/1,
+         bad_verify_name/1,
+         block/0,
+         block/1,
+         cipher_info/0,
+         cipher_info/1,
+         cipher_padding/1,
+         cmac/0,
+         cmac/1,
+         compute/0,
+         compute/1,
+         compute_bug/0,
+         compute_bug/1,
+         exor/0,
+         exor/1,
+         generate/0,
+         generate/1,
+         generate_compute/0,
+         generate_compute/1,
+         hash/0,
+         hash/1,
+         hash_info/0,
+         hash_info/1,
+         hmac/0,
+         hmac/1,
+         hmac_update/0,
+         hmac_update/1,
+         mod_pow/0,
+         mod_pow/1,
+         no_aead/0,
+         no_aead/1,
+         no_aead_ng/0,
+         no_aead_ng/1,
+         no_block/0,
+         no_block/1,
+         no_generate_compute/0,
+         no_generate_compute/1,
+         no_hash/0,
+         no_hash/1,
+         no_hmac/0,
+         no_hmac/1,
+         no_hmac_update/0,
+         no_hmac_update/1,
+         no_poly1305/0,
+         no_poly1305/1,
+         no_sign_verify/0,
+         no_sign_verify/1,
+         no_stream/0,
+         no_stream/1,
+         no_stream_ivec/0,
+         no_stream_ivec/1,
+         no_support/0,
+         no_support/1,
+         poly1305/0,
+         poly1305/1,
+         private_encrypt/0,
+         private_encrypt/1,
+         public_encrypt/0,
+         public_encrypt/1,
+         rand_plugin/0,
+         rand_plugin/1,
+         rand_plugin_s/0,
+         rand_plugin_s/1,
+         rand_threads/0,
+         rand_threads/1,
+         rand_uniform/0,
+         rand_uniform/1,
+         sign_verify/0,
+         sign_verify/1,
+         stream/0,
+         stream/1,
+         use_all_ec_sign_verify/1,
+         use_all_ecdh_generate_compute/1,
+         use_all_eddh_generate_compute/1,
+
+         %% Others:
+         aes_128_cbc/1,
+         aes_128_ccm/1,
+         aes_128_cfb128/1,
+         aes_128_cfb8/1,
+         aes_128_ctr/1,
+         aes_128_ecb/1,
+         aes_128_gcm/1,
+         aes_192_cbc/1,
+         aes_192_ccm/1,
+         aes_192_cfb128/1,
+         aes_192_cfb8/1,
+         aes_192_ctr/1,
+         aes_192_ecb/1,
+         aes_192_gcm/1,
+         aes_256_cbc/1,
+         aes_256_ccm/1,
+         aes_256_cfb128/1,
+         aes_256_cfb8/1,
+         aes_256_ctr/1,
+         aes_256_ecb/1,
+         aes_256_gcm/1,
+         aes_cbc/1,
+         aes_cbc128/1,
+         aes_cbc256/1,
+         aes_ccm/1,
+         aes_cfb128/1,
+         aes_cfb8/1,
+         aes_ctr/1,
+         aes_ecb/1,
+         aes_gcm/1,
+         aes_ige256/1,
+         blowfish_cbc/1,
+         blowfish_cfb64/1,
+         blowfish_ecb/1,
+         blowfish_ofb64/1,
+         chacha20/1,
+         chacha20_poly1305/1,
+         des3_cbc/1,
+         des3_cbf/1,
+         des3_cfb/1,
+         des_cbc/1,
+         des_cfb/1,
+         des_ede3/1,
+         des_ede3_cbc/1,
+         des_ede3_cfb/1,
+         mac_check/1,
+         rc2_cbc/1,
+         rc4/1,
+         ripemd160_incr_digest/0,
+         ripemd160_incr_msgs/0,
+         rsa_oaep/0,
+         rsa_oaep256/0,
+         rsa_oaep_label/0
+        ]).
+
 -compile([{nowarn_deprecated_function,
            [{crypto,block_decrypt,3},
             {crypto,block_decrypt,4},
@@ -1729,9 +1891,6 @@ mkint(C) when $A =< C, C =< $F ->
 mkint(C) when $a =< C, C =< $f ->
     C - $a + 10.
 
-bin2hexstr(B) when is_binary(B) ->
-    io_lib:format("~.16b",[crypto:bytes_to_integer(B)]).    
-
 decstr2int(S) when is_binary(S) ->
     list_to_integer(binary:bin_to_list(S));
 decstr2int(S) ->
@@ -2115,9 +2274,9 @@ group_config(dh, Config) ->
 group_config(poly1305, Config) ->
     V = [%% {Key, Txt, Expect}
          {%% RFC7539 2.5.2
-           crypto_SUITE:hexstr2bin("85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b"),
+           hexstr2bin("85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b"),
            <<"Cryptographic Forum Research Group">>,
-           crypto_SUITE:hexstr2bin("a8061dc1305136c6c22b8baf0c0127a9")
+           hexstr2bin("a8061dc1305136c6c22b8baf0c0127a9")
          }
         ],
     [{poly1305,V} | Config];
@@ -4188,19 +4347,6 @@ ecc() ->
           hexstr2bin("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")}
         ]
      ).
-
-int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
-int_to_bin(X) -> int_to_bin_pos(X, []).
-
-int_to_bin_pos(0,Ds=[_|_]) ->
-    list_to_binary(Ds);
-int_to_bin_pos(X,Ds) ->
-    int_to_bin_pos(X bsr 8, [(X band 255)|Ds]).
-
-int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
-    list_to_binary(Ds);
-int_to_bin_neg(X,Ds) ->
-    int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
 datadir(Config) ->
     proplists:get_value(data_dir, Config).
