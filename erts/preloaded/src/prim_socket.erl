@@ -443,8 +443,6 @@ open(FD, Opts) when is_map(Opts) ->
         maps:map(
           fun (Key, Val) ->
                   case Key of
-                      domain ->
-                          enc_domain(Val);
                       protocol ->
                           enc_protocol(Val);
                       _ ->
@@ -454,7 +452,6 @@ open(FD, Opts) when is_map(Opts) ->
     nif_open(FD, EOpts).
 
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
-    EDomain   = enc_domain(Domain),
     EProtocol = enc_protocol(Protocol),
     EOpts =
         case Opts of
@@ -463,7 +460,7 @@ open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
             _ ->
                 Opts
         end,
-    nif_open(EDomain, Type, EProtocol, EOpts).
+    nif_open(Domain, Type, EProtocol, EOpts).
 
 %% ----------------------------------
 
@@ -610,11 +607,6 @@ cancel(SRef, Op, Ref) ->
 %% ===========================================================================
 %% Encode / decode
 %%
-
-enc_domain(local)  -> ?ESOCK_DOMAIN_LOCAL;
-enc_domain(inet)   -> ?ESOCK_DOMAIN_INET;
-enc_domain(inet6)  -> ?ESOCK_DOMAIN_INET6;
-enc_domain(Domain) -> invalid(domain, Domain).
 
 %% These clauses should be deprecated
 enc_protocol({raw, ProtoNum}) when is_integer(ProtoNum) -> ProtoNum;

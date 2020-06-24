@@ -319,7 +319,7 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
                                          &sockAddrP->in6, addrLen);
 #endif
 
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     case AF_UNIX:
         return esock_decode_sockaddr_un(env, eSockAddr,
                                         &sockAddrP->un, addrLen);
@@ -376,7 +376,7 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
         break;
 #endif
 
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     case AF_UNIX:
         esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen,
                                  eSockAddr);
@@ -663,7 +663,7 @@ void esock_encode_sockaddr_in6(ErlNifEnv*           env,
  * is no need for any elaborate error handling here.
  */
 
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
 extern
 BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
                                    ERL_NIF_TERM        eSockAddr,
@@ -1166,7 +1166,7 @@ BOOLEAN_T esock_decode_domain(ErlNifEnv*   env,
         *domain = AF_INET6;
 #endif
 
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     } else if (COMPARE(esock_atom_local, eDomain) == 0) {
         *domain = AF_UNIX;
 #endif
@@ -1205,7 +1205,7 @@ void esock_encode_domain(ErlNifEnv*    env,
         break;
 #endif
 
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     case AF_UNIX:
         *eDomain = esock_atom_local;
         break;

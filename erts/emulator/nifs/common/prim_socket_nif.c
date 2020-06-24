@@ -2156,7 +2156,6 @@ static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 static ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
 
 
-static BOOLEAN_T edomain2domain(int edomain, int* domain);
 static BOOLEAN_T ehow2how(unsigned int ehow, int* how);
 static BOOLEAN_T esendflags2sendflags(unsigned int esendflags, int* sendflags);
 static BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags);
@@ -5134,17 +5133,16 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
     case 4:
         /* The normal version */
         {
-            int          edomain;
-            ERL_NIF_TERM etype, eopts;
+            ERL_NIF_TERM edomain, etype, eopts;
             int          domain, type, proto;
 
             /* Extract arguments and perform preliminary validation */
 
-            if (!GET_INT(env, argv[0], &edomain) ||
-                !GET_INT(env, argv[2], &proto) ||
+            if (!GET_INT(env, argv[2], &proto) ||
                 !IS_MAP(env,  argv[3])) {
                 return enif_make_badarg(env);
             }
+            edomain = argv[0];
             etype = argv[1];
             eopts  = argv[3];
 
@@ -5155,10 +5153,10 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
                     "\r\n   eopts:   %T"
                     "\r\n", argv[0], argv[1], argv[2], eopts) );
 
-            if (!edomain2domain(edomain, &domain)) {
+            if (! esock_decode_domain(env, edomain, &domain)) {
                 SGDBG( ("SOCKET",
                         "nif_open -> invalid domain: %d\r\n", edomain) );
-                return enif_make_badarg(env);
+                return esock_raise_invalid(env, esock_atom_domain, edomain);
             }
 
             if (! esock_decode_type(env, etype, &type)) {
@@ -5374,8 +5372,7 @@ BOOLEAN_T esock_open2_get_domain(ErlNifEnv* env,
 
     if (esock_extract_int_from_map(env, eopts,
                                    esock_atom_domain, &edomain)) {
-        /* decode */
-        return edomain2domain(edomain, domain);
+        return esock_decode_domain(env, edomain, domain);
     } else {
         return FALSE;
     }
@@ -9258,22 +9255,14 @@ ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
                                    int              opt,
                                    ERL_NIF_TERM     eVal)
 {
-    int edomain, domain;
+    int domain;
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_addrform -> entry with"
             "\r\n   eVal: %T"
             "\r\n", eVal) );
 
-    if (! GET_INT(env, eVal, &edomain))
-        return esock_make_error(env, esock_atom_invalid);
-
-    SSDBG( descP,
-           ("SOCKET", "esock_setopt_addrform -> decode"
-            "\r\n   edomain: %d"
-            "\r\n", edomain) );
-
-    if (! edomain2domain(edomain, &domain))
+    if (! esock_decode_domain(env, eVal, &domain))
         return esock_make_error(env, esock_atom_invalid);
 
     SSDBG( descP, ("SOCKET",
@@ -10483,7 +10472,7 @@ ERL_NIF_TERM getopt_otp_domain(ErlNifEnv* env, int domain)
         break;
 #endif
 
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     case AF_UNIX:
         result = esock_atom_local;
         break;
@@ -10917,7 +10906,7 @@ ERL_NIF_TERM esock_getopt_sock_domain(ErlNifEnv*       env,
             break;
 #endif
             
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
         case AF_UNIX:
             result = esock_make_ok2(env, esock_atom_local);
             break;
@@ -16405,7 +16394,7 @@ void dec_socket(int domain, int type, int protocol)
     else if (domain == AF_INET6)
         cnt_dec(&data.numDomainInet6, 1);
 #endif
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     else if (domain == AF_UNIX)
         cnt_dec(&data.numDomainInet6, 1);
 #endif
@@ -16452,7 +16441,7 @@ void inc_socket(int domain, int type, int protocol)
     else if (domain == AF_INET6)
         cnt_inc(&data.numDomainInet6, 1);
 #endif
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     else if (domain == AF_UNIX)
         cnt_inc(&data.numDomainInet6, 1);
 #endif
@@ -16487,39 +16476,6 @@ void inc_socket(int domain, int type, int protocol)
  *  D e c o d e / E n c o d e   F u n c t i o n s
  * ----------------------------------------------------------------------
  */
-
-/* edomain2domain - convert internal (erlang) domain to (proper) domain
- *
- * Note that only a subset is supported.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T edomain2domain(int edomain, int* domain)
-{
-    switch (edomain) {
-    case ESOCK_DOMAIN_INET:
-        *domain = AF_INET;
-        break;
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-    case ESOCK_DOMAIN_INET6:
-        *domain = AF_INET6;
-        break;
-#endif
-#ifdef HAVE_SYS_UN_H
-    case ESOCK_DOMAIN_LOCAL:
-        *domain = AF_UNIX;
-        break;
-#endif
-
-    default:
-        return FALSE;
-    }
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
 
 #ifndef __WIN32__
 #ifdef HAVE_SETNS
