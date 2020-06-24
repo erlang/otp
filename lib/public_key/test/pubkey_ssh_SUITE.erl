@@ -24,8 +24,39 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         ssh_rsa_public_key/1,
+         ssh_dsa_public_key/1,
+         ssh_ecdsa_public_key/1,
+         ssh_rfc4716_rsa_comment/1,
+         ssh_rfc4716_dsa_comment/1,
+         ssh_rfc4716_rsa_subject/1,
+         ssh_known_hosts/1,
+         ssh1_known_hosts/1,
+         ssh_auth_keys/1,
+         ssh1_auth_keys/1,
+         ssh_openssh_public_key_with_comment/1,
+         ssh_openssh_public_key_long_header/1,
+
+         ssh_hostkey_fingerprint_md5_implicit/1,
+         ssh_hostkey_fingerprint_md5/1,
+         ssh_hostkey_fingerprint_sha/1,
+         ssh_hostkey_fingerprint_sha256/1,
+         ssh_hostkey_fingerprint_sha384/1,
+         ssh_hostkey_fingerprint_sha512/1,
+         ssh_hostkey_fingerprint_list/1
+        ]).
+
 
 -define(TIMEOUT, 120000). % 2 min
 
