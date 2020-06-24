@@ -21,7 +21,45 @@
 -module(ssh_pubkey_SUITE).
 
 %% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         connect_dsa_to_dsa/1,
+         connect_dsa_to_ecdsa/1,
+         connect_dsa_to_ed25519/1,
+         connect_dsa_to_ed448/1,
+         connect_dsa_to_rsa/1,
+         connect_ecdsa_to_dsa/1,
+         connect_ecdsa_to_ecdsa/1,
+         connect_ecdsa_to_ed25519/1,
+         connect_ecdsa_to_ed448/1,
+         connect_ecdsa_to_rsa/1,
+         connect_ed25519_to_dsa/1,
+         connect_ed25519_to_ecdsa/1,
+         connect_ed25519_to_ed25519/1,
+         connect_ed25519_to_ed448/1,
+         connect_ed25519_to_rsa/1,
+         connect_ed448_to_dsa/1,
+         connect_ed448_to_ecdsa/1,
+         connect_ed448_to_ed25519/1,
+         connect_ed448_to_ed448/1,
+         connect_ed448_to_rsa/1,
+         connect_rsa_to_dsa/1,
+         connect_rsa_to_ecdsa/1,
+         connect_rsa_to_ed25519/1,
+         connect_rsa_to_ed448/1,
+         connect_rsa_to_rsa/1
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").
@@ -124,10 +162,6 @@ init_per_group(passphrase, Config0) ->
 init_per_group(_, Config) ->
     Config.
 
-
-extend_opts(OptName, Value, Config) ->
-    Opts = proplists:get_value(OptName, Config),
-    replace_opt(OptName, [Value|Opts], Config).
 
 extend_optsL(OptNames, Values, Config) when is_list(OptNames) ->
     lists:foldl(fun(N, Cnf) ->

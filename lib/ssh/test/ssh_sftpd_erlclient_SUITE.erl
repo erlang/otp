@@ -21,8 +21,26 @@
 %%
 -module(ssh_sftpd_erlclient_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         close_file/1,
+         file_cb/1,
+         list_dir_limited/1,
+         quit/1,
+         root_dir/1,
+         ver6_basic/1
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -134,10 +152,6 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test cases starts here. -------------------------------------------
 %%--------------------------------------------------------------------
-close_file() ->
-    [{doc, "Test that sftpd closes its fildescriptors after compleating the "
-     "transfer OTP-6350"}].
-
 close_file(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
@@ -153,12 +167,6 @@ close_file(Config) when is_list(Config) ->
     NumOfPorts = length(erlang:ports()).
 
 %%--------------------------------------------------------------------
-
-quit() ->
-    [{doc, " When the sftp client ends the session the "
-     "server will now behave correctly and not leave the "
-     "client hanging. OTP-6349"}].
-
 quit(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
@@ -186,11 +194,6 @@ quit(Config) when is_list(Config) ->
     ok = ssh_sftp:stop_channel(NewSftp).
 
 %%--------------------------------------------------------------------
-
-file_cb() ->
-    [{"Test that it is possible to change the callback module for"
-      " the sftpds filehandling. OTP-6356"}].
-
 file_cb(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir =  proplists:get_value(priv_dir, Config),
@@ -253,8 +256,6 @@ list_dir_limited(Config) when is_list(Config) ->
     ct:log("Listing: ~p~n", [Listing]).
 
 %%--------------------------------------------------------------------
-ver6_basic() ->
-    [{doc, "Test some version 6 features"}].
 ver6_basic(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     NewDir = filename:join(PrivDir, "testdir2"),
@@ -262,10 +263,10 @@ ver6_basic(Config) when is_list(Config) ->
     ok =  ssh_sftp:make_dir(Sftp, NewDir),
     %%Test file_is_a_directory
     {error, file_is_a_directory} = ssh_sftp:delete(Sftp, NewDir).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
- 
 alt_file_handler_check(Msg) ->
     receive
 	Msg ->

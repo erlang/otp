@@ -20,8 +20,6 @@
 
 -module(ssh_trpt_test_lib).
 
-%%-compile(export_all).
-
 -export([exec/1, exec/2,
 	 instantiate/2,
 	 format_msg/1,

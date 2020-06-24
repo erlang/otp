@@ -26,8 +26,30 @@
 -include_lib("ssh/src/ssh_transport.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         interpolate/1,
+         simple_connect/1,
+         simple_exec/1,
+         simple_exec_groups/0,
+         simple_exec_groups/1,
+         simple_exec_groups_no_match_too_large/1,
+         simple_exec_groups_no_match_too_small/1,
+         simple_sftp/1,
+         sshc_simple_exec_os_cmd/1,
+         sshd_simple_exec/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

@@ -27,8 +27,71 @@
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         always_ok/1,
+         app_test/1,
+         appup_test/1,
+         basic_test/1,
+         check_error/1,
+         cli/1,
+         close/1,
+         daemon_already_started/1,
+         daemon_error_closes_port/1,
+         daemon_opt_fd/1,
+         double_close/1,
+         exec/1,
+         exec_compressed/1,
+         exec_with_io_in/1,
+         exec_with_io_out/1,
+         host_equal/2,
+         idle_time_client/1,
+         idle_time_server/1,
+         inet6_option/0,
+         inet6_option/1,
+         inet_option/1,
+         internal_error/1,
+         ips/1,
+         key_callback/1,
+         key_callback_options/1,
+         known_hosts/1,
+         login_bad_pwd_no_retry1/1,
+         login_bad_pwd_no_retry2/1,
+         login_bad_pwd_no_retry3/1,
+         login_bad_pwd_no_retry4/1,
+         login_bad_pwd_no_retry5/1,
+         misc_ssh_options/1,
+         multi_daemon_opt_fd/1,
+         openssh_zlib_basic_test/1,
+         packet_size/1,
+         pass_phrase/1,
+         peername_sockname/1,
+         send/1,
+         setopts_getopts/1,
+         shell/1,
+         shell_exit_status/1,
+         shell_no_unicode/1,
+         shell_socket/1,
+         shell_ssh_conn/1,
+         shell_unicode_string/1,
+         ssh_file_is_auth_key/1,
+         ssh_file_is_host_key/0,
+         ssh_file_is_host_key/1,
+         ssh_file_is_host_key_misc/1,
+         ssh_info_print/1
+        ]).
+
 
 -define(NEWLINE, <<"\r\n">>).
 
