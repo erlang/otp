@@ -2013,7 +2013,11 @@ static ErlDrvSSizeT ctl_reply(int rep, char* buf, ErlDrvSizeT len,
     else
 	ptr = *rbuf;
     *ptr++ = rep;
-    memcpy(ptr, buf, len);
+    if (buf) {
+        memcpy(ptr, buf, len);
+    } else {
+        ASSERT(len == 0);
+    }
     return len+1;
 }
 
