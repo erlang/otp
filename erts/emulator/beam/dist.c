@@ -3626,8 +3626,9 @@ erts_dist_command(Port *prt, int initial_reds)
     if (sched_flags & ERTS_PTS_FLG_BUSY_PORT) {
 	if (oq.first) {
 	    ErtsDistOutputBuf *ob;
-            ErtsDistOutputBuf *last_finalized = NULL;
+            ErtsDistOutputBuf *last_finalized;
 	finalize_only:
+            last_finalized = NULL;
 	    ob = oq.first;
 	    ASSERT(ob);
 	    do {
