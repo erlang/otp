@@ -574,6 +574,8 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
+    <p>Bit strings are compared bit by bit. If one bit string is a
+      prefix of the other, the shorter bit string is considered smaller.</p>
     <p>Maps are ordered by size, two maps with the same size are compared by keys in
         ascending term order and then by values in key order.
         In maps key order integers types are considered less than floats types.
@@ -601,8 +603,13 @@ false
 false
 4> <input>#{c => 3} > #{a => 1, b => 2}.</input>
 false
-4> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
-true</pre>
+5> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
+true
+6> <input>&lt;&lt;2:2>> &lt; &lt;&lt;128>>.</input>
+true
+7> <input>&lt;&lt;3:2>> &lt; &lt;&lt;128>>.</input>
+false
+</pre>
   </section>
 
   <section>
