@@ -588,6 +588,8 @@ conv_setopt(Other) -> Other.
 
 socket_setopt(Socket, {raw, Level, Key, Value}) ->
     socket:setopt(Socket, Level, Key, Value);
+socket_setopt(Socket, {raw, {Level, Key, Value}}) ->
+    socket:setopt(Socket, Level, Key, Value);
 socket_setopt(Socket, {Tag, Value}) ->
     case socket_opt() of
         #{Tag := {Level, Key}} ->
@@ -600,6 +602,8 @@ socket_setopt(Socket, {Tag, Value}) ->
 socket_setopt_value(_Tag, Value) -> Value.
 
 socket_getopt(Socket, {raw, Level, Key, _Placeholder}) ->
+    socket:getopt(Socket, Level, Key);
+socket_getopt(Socket, {raw, {Level, Key, _Placeholder}}) ->
     socket:getopt(Socket, Level, Key);
 socket_getopt(Socket, Tag) when is_atom(Tag) ->
     case socket_opt() of
@@ -637,6 +641,7 @@ start_opts([]) -> [].
 setopt_categories(Opt) ->
     case Opt of
         {raw, _, _, _} -> #{socket => []};
+        {raw, {_, _, _}} -> #{socket => []};
         {Tag, _} -> opt_categories(Tag);
         _ -> ignore
     end.
@@ -644,6 +649,7 @@ setopt_categories(Opt) ->
 getopt_categories(Opt) ->
     case Opt of
         {raw, _, _, _} -> #{socket => []};
+        {raw, {_, _, _}} -> #{socket => []};
         _ -> opt_categories(Opt)
     end.
 
