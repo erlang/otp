@@ -307,10 +307,10 @@ transfer_locks(Process *p,
 			   & (lock << ERTS_PROC_LOCK_WAITER_SHIFT));
 	    transferred++;
 	    wtr = dequeue_waiter(&p->lock, lock_no);
-	    ERTS_LC_ASSERT(wtr);
+	    ASSERT(wtr != NULL);
 	    if (!p->lock.queue[lock_no])
 		unset_waiter |= lock;
-	    ERTS_LC_ASSERT(wtr->uflgs & lock);
+	    ASSERT(wtr->uflgs & lock);
 	    wtr->uflgs &= ~lock;
 	    if (wtr->uflgs)
 		try_aquire(&p->lock, wtr);

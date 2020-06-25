@@ -609,6 +609,7 @@ static void octal_or_hex_format(Uint ch, byte *buf, int *pos)
 				'A','B','C','D','E','F'};
     int num = octal_or_hex_positions(ch);
     if (num != 3) {
+        ASSERT(num > 3);
 	buf[(*pos)++] = 'x';
 	buf[(*pos)++] = '{';
 	num -= 3;

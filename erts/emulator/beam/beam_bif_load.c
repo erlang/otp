@@ -77,13 +77,11 @@ init_purge_state(void)
 	erts_export_put(am_erts_code_purger, am_pending_purge_lambda, 3);
 
     purge_state.sprocs = &purge_state.def_sprocs[0];
-    purge_state.sp_size = sizeof(purge_state.def_sprocs);
-    purge_state.sp_size /= sizeof(purge_state.def_sprocs[0]);
+    purge_state.sp_size = sizeof(purge_state.def_sprocs) / sizeof(purge_state.def_sprocs[0]);
     purge_state.sp_ix = 0;
 
     purge_state.funs = &purge_state.def_funs[0];
-    purge_state.fe_size = sizeof(purge_state.def_funs);
-    purge_state.fe_size /= sizeof(purge_state.def_funs[0]);
+    purge_state.fe_size = sizeof(purge_state.def_funs) / sizeof(purge_state.def_funs[0]);
     purge_state.fe_ix = 0;
 
     purge_state.saved_old.code_hdr = 0;

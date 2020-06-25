@@ -3059,6 +3059,9 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	}
     }
 
+    /* If pending connect there must be a context and an iov within that context */
+    ASSERT(!(dflags & DFLAG_PENDING_CONNECT) || (ctx && ctx->iov));
+
     goto L_jump_start;
 
  outer_loop:
@@ -3093,7 +3096,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case ENC_PATCH_FUN_SIZE:
 	    {
 		byte* size_p = (byte *) obj;
-		put_int32(ep - size_p, size_p);
+                Sint32 sz = ep - size_p;
+		put_int32(sz, size_p);
 	    }
 	    goto outer_loop;
 	case ENC_BIN_COPY: {
@@ -3577,7 +3581,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case EXPORT_DEF:
 	    {
 		Export* exp = *((Export **) (export_val(obj) + 1));
-                ASSERT(!(dflags & DFLAG_PENDING_CONNECT) || (ctx && ctx->iov));
                 if (dflags & DFLAG_PENDING_CONNECT)
                     hopefull_export(ctx, &ep, exp, dflags, off_heap);
                 else if ((dflags & DFLAG_EXPORT_PTR_TAG) != 0) {
@@ -4977,6 +4980,9 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    obj = ctx->obj;
 	}
     }
+
+    /* If pending connect there must be a context and an iov within that context */
+    ASSERT(!(dflags & DFLAG_PENDING_CONNECT) || ctx);
 
 #define LIST_TAIL_OP ((0 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
 #define TERM_ARRAY_OP(N) (((N) << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)

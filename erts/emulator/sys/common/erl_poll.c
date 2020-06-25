@@ -219,12 +219,12 @@ int ERTS_SELECT(int nfds, ERTS_fd_set *readfds, ERTS_fd_set *writefds,
 
 #else
 
-#define ERTS_POLLSET_SET_HAVE_UPDATE_REQUESTS(PS)
-#define ERTS_POLLSET_UNSET_HAVE_UPDATE_REQUESTS(PS)
+#define ERTS_POLLSET_SET_HAVE_UPDATE_REQUESTS(PS) do {} while(0)
+#define ERTS_POLLSET_UNSET_HAVE_UPDATE_REQUESTS(PS) do {} while(0)
 #define ERTS_POLLSET_HAVE_UPDATE_REQUESTS(PS) 0
 
-#define ERTS_POLLSET_LOCK(PS)
-#define ERTS_POLLSET_UNLOCK(PS)
+#define ERTS_POLLSET_LOCK(PS) do {} while(0)
+#define ERTS_POLLSET_UNLOCK(PS) do {} while(0)
 
 #endif
 
@@ -1154,6 +1154,8 @@ static int update_pollset(ErtsPollSet *ps, ErtsPollResFd pr[], int fd)
 	int last_pix;
 
         if (reset) {
+            /* pr is only null during poll initialization and then no reset should happen */
+            ASSERT(pr != NULL);
             /* When a fd has been reset, we tell the caller of erts_poll_wait
                this by setting the fd as ERTS_POLL_EV_NONE */
             ERTS_POLL_RES_SET_FD(&pr[res], fd);

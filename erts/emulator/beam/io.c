@@ -3063,6 +3063,7 @@ static void resize_linebuf(LineBuf **b)
  */
 static int flush_linebuf(LineBufContext *bp)
 {
+    ASSERT(*bp->b != NULL);
     bp->retlen = (*bp->b)->ovlen;
     switch(LINEBUF_STATE(*bp)){
     case LINEBUF_CR_INSIDE:

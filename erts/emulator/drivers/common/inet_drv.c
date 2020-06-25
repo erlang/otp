@@ -5348,13 +5348,17 @@ static int call_getifaddrs(inet_descriptor* desc_p, struct ifaddrs **ifa_pp)
 	 * over the getifaddrs() call
 	 */
 	current_ns = open("/proc/self/ns/net", O_RDONLY);
-	if (current_ns == INVALID_SOCKET)
-	    return sock_errno();
+	if (current_ns == INVALID_SOCKET) {
+            save_errno = sock_errno();
+            ASSERT(save_errno != 0);
+	    return save_errno;
+        }
 	new_ns = open(desc_p->netns, O_RDONLY);
 	if (new_ns == INVALID_SOCKET) {
 	    save_errno = sock_errno();
 	    while (close(current_ns) == INVALID_SOCKET &&
 		   sock_errno() == EINTR);
+            ASSERT(save_errno != 0);
 	    return save_errno;
 	}
 	if (setns(new_ns, CLONE_NEWNET) != 0) {
@@ -5363,6 +5367,7 @@ static int call_getifaddrs(inet_descriptor* desc_p, struct ifaddrs **ifa_pp)
 		   sock_errno() == EINTR);
 	    while (close(current_ns) == INVALID_SOCKET &&
 		   sock_errno() == EINTR);
+            ASSERT(save_errno != 0);
 	    return save_errno;
 	}
 	else {
@@ -5387,6 +5392,7 @@ static int call_getifaddrs(inet_descriptor* desc_p, struct ifaddrs **ifa_pp)
             if (result >= 0) {
                 /* We got a result but have to waste it */
                 save_errno = sock_errno();
+                ASSERT(save_errno != 0);
                 freeifaddrs(*ifa_pp);
             }
 	}

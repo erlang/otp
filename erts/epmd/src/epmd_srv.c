@@ -1434,6 +1434,7 @@ static Node *node_reg2(EpmdVars *g,
 	  (g->debug && (g->nodes.unreg_count > DEBUG_MAX_UNREG_COUNT)))
 	{
 	  /* MAX_UNREG_COUNT > 1 so no need to check unreg_tail */
+          ASSERT(g->nodes.unreg != NULL);
 	  node = g->nodes.unreg;	/* Take first == oldest */
 	  g->nodes.unreg = node->next; /* Link out */
 	  g->nodes.unreg_count--;

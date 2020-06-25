@@ -751,9 +751,9 @@ ETHR_IMPL_NORETURN__ ethr_fatal_error__(const char *file,
     ethr_abort__();
 }
 
-int ethr_assert_failed(const char *file, int line, const char *func, char *a)
+ETHR_IMPL_NORETURN__
+ethr_assert_failed(const char *file, int line, const char *func, char *a)
 {
     fprintf(stderr, "%s:%d: %s(): Assertion failed: %s\n", file, line, func, a);
     ethr_abort__();
-    return 0;
 }

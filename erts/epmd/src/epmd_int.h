@@ -97,6 +97,12 @@
 #  include <systemd/sd-daemon.h>
 #endif /* HAVE_SYSTEMD_DAEMON */
 
+#ifdef DEBUG
+#define ASSERT(Cnd) do { if (!(Cnd)) { abort(); } } while(0)
+#else
+#define ASSERT(Cnd)
+#endif
+
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(HAVE_INET_PTON)
 #  define EPMD6
 #endif

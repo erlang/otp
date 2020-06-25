@@ -2867,10 +2867,11 @@ sweep_off_heap(Process *p, int fullsweep)
     while (ptr) {
 	if (IS_MOVED_BOXED(ptr->thing_word)) {
 	    ASSERT(!ErtsInArea(ptr, oheap, oheap_sz));
-            if (is_external_header(((struct erl_off_heap_header*) boxed_val(ptr->thing_word))->thing_word))
+            if (is_external_header(((struct erl_off_heap_header*) boxed_val(ptr->thing_word))->thing_word)) {
                 erts_node_bookkeep(((ExternalThing*)ptr)->node,
                                    make_boxed(&ptr->thing_word),
                                    ERL_NODE_DEC, __FILE__, __LINE__);
+            }
             *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
 	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
 	    switch (ptr->thing_word) {

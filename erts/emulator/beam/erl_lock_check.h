@@ -80,8 +80,9 @@ void erts_lc_might_unlock(erts_lc_lock_t *lck);
 void erts_lc_init_lock(erts_lc_lock_t *lck, const char *name, erts_lock_flags_t flags);
 void erts_lc_init_lock_x(erts_lc_lock_t *lck, const char *name, erts_lock_flags_t flags, Eterm extra);
 void erts_lc_destroy_lock(erts_lc_lock_t *lck);
-void erts_lc_fail(char *fmt, ...);
-int erts_lc_assert_failed(const char *file, int line, const char *assertion);
+__decl_noreturn void __noreturn erts_lc_fail(char *fmt, ...);
+__decl_noreturn int __noreturn erts_lc_assert_failed(const char *file, int line,
+                                                     const char *assertion);
 void erts_lc_set_thread_name(char *thread_name);
 void erts_lc_pll(void);
 

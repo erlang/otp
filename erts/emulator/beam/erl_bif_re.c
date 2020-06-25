@@ -1042,6 +1042,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 						    (tmpbsiz = ap->len + 1));
 			    }
 			}
+                        ASSERT(tmpb != NULL);
 			sys_memcpy(tmpb,ap->name,ap->len);
 			tmpb[ap->len] = '\0';
 		    } else {
@@ -1059,7 +1060,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 						    (tmpbsiz = slen + 1));
 			    }
 			}
-
+                        ASSERT(tmpb != NULL);
 			buffres = erts_iolist_to_buf(val, tmpb, slen);
 			ASSERT(buffres >= 0); (void)buffres;
 			tmpb[slen] = '\0';

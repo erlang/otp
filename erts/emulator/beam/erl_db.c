@@ -1512,6 +1512,7 @@ typedef struct {
 static ERTS_INLINE BIF_RETTYPE
 ets_cret_to_return_value(Process* p, int cret)
 {
+    ASSERT(p || cret == DB_ERROR_NONE_FALSE || cret == DB_ERROR_NONE);
     switch (cret) {
     case DB_ERROR_NONE_FALSE:
         BIF_RET(am_false);

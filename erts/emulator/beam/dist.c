@@ -2847,6 +2847,8 @@ erts_dsig_prepare(ErtsDSigSendContext *ctx,
 {
     int res;
 
+    ASSERT(no_trap || proc);
+
     if (!erts_is_alive)
 	return ERTS_DSIG_PREP_NOT_ALIVE;
     if (!dep) {

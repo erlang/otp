@@ -464,7 +464,7 @@ do {							\
 
 #define ESTACK_COUNT(s) ((s).sp - (s).start)
 #define ESTACK_ISEMPTY(s) ((s).sp == (s).start)
-#define ESTACK_POP(s) (*(--(s).sp))
+#define ESTACK_POP(s) (ASSERT(!ESTACK_ISEMPTY(s)),(*(--(s).sp)))
 
 
 /*
