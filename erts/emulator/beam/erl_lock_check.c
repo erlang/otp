@@ -465,7 +465,7 @@ print_curr_locks(lc_thread_t *thr)
     if (!thr || !thr->locked.first)
 	erts_fprintf(stderr,
 		     "Currently no locks are locked by the %s thread.\n",
-		     thr->thread_name);
+		     thr ? thr->thread_name : "unknown");
     else {
 	erts_fprintf(stderr,
 		     "Currently these locks are locked by the %s thread:\n",
