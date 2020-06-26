@@ -37,8 +37,8 @@ int ei_encode_pid(char *buf, int *index, const erlang_pid *p)
     s = buf + *index;
 
     /* now the integers */
-    put32be(s,p->num & 0x7fff); /* 15 bits */
-    put32be(s,p->serial & 0x1fff); /* 13 bits */
+    put32be(s, p->num);
+    put32be(s, p->serial);
     put32be(s, p->creation); /* 32 bits */
   }
 
