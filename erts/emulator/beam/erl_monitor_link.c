@@ -852,7 +852,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
             /* Pending spawn_request() */
             pending_flag = ERTS_ML_FLG_SPAWN_PENDING;
             /* Prepare for storage of exteral pid */
-            tsz = EXTERNAL_THING_HEAD_SIZE + 1;
+            tsz = EXTERNAL_PID_HEAP_SIZE;
             /* name contains tag */
             
             /* Not by name */
@@ -876,10 +876,10 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
             /* Make room for the future pid... */
 #ifdef DEBUG
             int i;
-            for (i = 0; i < EXTERNAL_THING_HEAD_SIZE + 1; i++)
+            for (i = 0; i < EXTERNAL_PID_HEAP_SIZE; i++)
                 hp[i] = THE_NON_VALUE;
 #endif
-            hp += EXTERNAL_THING_HEAD_SIZE + 1;
+            hp += EXTERNAL_PID_HEAP_SIZE;
         }
 
         mdp = &mdep->md;
@@ -1312,7 +1312,7 @@ erts_link_create(Uint16 type, Eterm a, Eterm b)
         Eterm *hp;
         ErlOffHeap oh;
 
-        hsz = EXTERNAL_THING_HEAD_SIZE + 1;
+        hsz = EXTERNAL_PID_HEAP_SIZE;
         if (hsz < ERTS_REF_THING_SIZE
             && (is_internal_ordinary_ref(a)
                 || is_internal_ordinary_ref(b))) {

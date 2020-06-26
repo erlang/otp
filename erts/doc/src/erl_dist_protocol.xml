@@ -1110,6 +1110,12 @@ DiB == gen_digest(ChA, ICA)?
 	  request from the connecting node to receive its node name from the
 	  accepting node as part of the handshake.</p>
 	</item>
+	<tag><marker id="DFLAG_BIG_PIDS"/><c>-define(DFLAG_BIG_PIDS, (1 bsl 34)).</c></tag>
+        <item>
+          <p>The node accepts full 32-bit <c>ID</c> and <c>Serial</c> fields in
+	  <seeguide marker="erl_ext_dist#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>.
+	  Introduced in OTP 24.</p>
+        </item>
       </taglist>
       <p>
 	There is also function <c>dist_util:strict_order_flags/0</c>

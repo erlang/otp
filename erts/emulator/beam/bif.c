@@ -4164,11 +4164,9 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
     if (!dep)
 	goto bad;
 
-
-    if (c > ERTS_MAX_PID_SERIAL || b > ERTS_MAX_PID_NUMBER)
-	goto bad;
-
     if(dep == erts_this_dist_entry) {
+        if (c > ERTS_MAX_INTERNAL_PID_SERIAL || b > ERTS_MAX_INTERNAL_PID_NUMBER)
+            goto bad;
 	BIF_RET(make_internal_pid(make_pid_data(c, b)));
     }
     else {
@@ -4178,16 +4176,17 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
       if (is_nil(dep->cid))
 	  goto bad;
       
-      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
+      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_PID_HEAP_SIZE);
       
       enp = erts_find_or_insert_node(dep->sysname, dep->creation,
                                      make_boxed(&etp->header));
       ASSERT(enp != erts_this_node);
 
-      etp->header = make_external_pid_header(1);
+      etp->header = make_external_pid_header();
       etp->next = MSO(BIF_P).first;
       etp->node = enp;
-      etp->data.ui[0] = make_pid_data(c, b);
+      etp->data.ui32[0] = b;
+      etp->data.ui32[1] = c;
 
       MSO(BIF_P).first = (struct erl_off_heap_header*) etp;
       BIF_RET(make_external_pid(etp));

@@ -522,16 +522,17 @@ dist_pend_spawn_exit_save_child_result(Eterm result, Eterm ref, ErtsMonLnkDist *
                     ErlOffHeap oh;
 #ifdef DEBUG
                     int i;
-                    for (i = 0; i < EXTERNAL_THING_HEAD_SIZE + 1; i++) {
+                    for (i = 0; i < EXTERNAL_PID_HEAP_SIZE; i++) {
                         ASSERT(is_non_value(mdep->heap[i]));
                     }
 #endif
+                    ASSERT(is_external_pid(result));
                     hp = &(mdep)->heap[0];
                     ERTS_INIT_OFF_HEAP(&oh);
                     oh.first = mdep->uptr.ohhp;
                     mdep->md.origin.other.item
                         = copy_struct(result,
-                                      EXTERNAL_THING_HEAD_SIZE + 1,
+                                      EXTERNAL_PID_HEAP_SIZE,
                                       &hp, &oh);
                     mdep->uptr.ohhp = oh.first;
                 }
@@ -665,7 +666,7 @@ erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon)
                 int i;
 
                 ASSERT(is_external_pid(tmp_mdp->origin.other.item));
-                for (i = 0; i < EXTERNAL_THING_HEAD_SIZE + 1; i++) {
+                for (i = 0; i < EXTERNAL_PID_HEAP_SIZE; i++) {
                     ASSERT(is_non_value(mdep->heap[i]));
                 }
 #endif
@@ -674,7 +675,7 @@ erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon)
                 oh.first = mdep->uptr.ohhp;
                 mdep->md.origin.other.item
                     = copy_struct(tmp_mdp->origin.other.item,
-                                  EXTERNAL_THING_HEAD_SIZE + 1,
+                                  EXTERNAL_PID_HEAP_SIZE,
                                   &hp, &oh);
                 mdep->uptr.ohhp = oh.first;
             }

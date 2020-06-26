@@ -134,7 +134,7 @@ typedef struct {
     ErtsSignalCommon common;
     Eterm local; /* internal pid (immediate) */
     Eterm remote; /* external pid (heap for it follow) */
-    Eterm heap[EXTERNAL_THING_HEAD_SIZE + 1];
+    Eterm heap[EXTERNAL_PID_HEAP_SIZE];
 } ErtsSigDistLinkOp;
 
 typedef struct {
@@ -3358,7 +3358,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
     int cnt = 1;
 
     ASSERT(is_atom(result) || is_external_pid(result));
-    ASSERT(is_atom(result) || size_object(result) == EXTERNAL_THING_HEAD_SIZE + 1);
+    ASSERT(is_atom(result) || size_object(result) == EXTERNAL_PID_HEAP_SIZE);
 
     omon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), datap->ref);
 
@@ -3403,7 +3403,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         ASSERT(is_internal_ref(tp[2]));
         ASSERT((tp[3] == am_ok && is_external_pid(tp[4]))
                || (tp[3] == am_error && is_atom(tp[4])));
-        for (i = 0; i < EXTERNAL_THING_HEAD_SIZE + 1; i++) {
+        for (i = 0; i < EXTERNAL_PID_HEAP_SIZE; i++) {
             ASSERT(is_non_value(mdep->heap[i]));
         }
     }
@@ -3518,7 +3518,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
             ERTS_INIT_OFF_HEAP(&oh);
             oh.first = mdep->uptr.ohhp;
             omon->other.item = copy_struct(result,
-                                           EXTERNAL_THING_HEAD_SIZE + 1,
+                                           EXTERNAL_PID_HEAP_SIZE,
                                            &hp, &oh);
             mdep->uptr.ohhp = oh.first;
             cnt += 2;
@@ -3581,7 +3581,7 @@ handle_dist_spawn_reply_exiting(Process *c_p,
     int cnt = 1;
 
     ASSERT(is_atom(result) || is_external_pid(result));
-    ASSERT(is_atom(result) || size_object(result) == EXTERNAL_THING_HEAD_SIZE + 1);
+    ASSERT(is_atom(result) || size_object(result) == EXTERNAL_PID_HEAP_SIZE);
 
     omon = erts_monitor_tree_lookup(*pend_spawn_mon_pp, datap->ref);
     if (!omon) {

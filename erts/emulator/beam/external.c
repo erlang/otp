@@ -2851,11 +2851,16 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint64 dflags)
 
     *ep++ = NEW_PID_EXT;
 
-    /* insert  atom here containing host and sysname  */
     ep = enc_atom(acmp, sysname, ep, dflags);
 
-    on = pid_number(pid);
-    os = pid_serial(pid);
+    if (is_internal_pid(pid)) {
+        on = internal_pid_number(pid);
+        os = internal_pid_serial(pid);
+    }
+    else {
+        on = external_pid_number(pid);
+        os = external_pid_serial(pid);
+    }
 
     put_int32(on, ep);
     ep += 4;
@@ -2942,16 +2947,22 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
     return ep;
 }
 
+static ERTS_INLINE int dec_is_this_node(Eterm sysname, Uint32 creation)
+{
+    return (sysname == INTERNAL_LOCAL_SYSNAME
+            ||
+            (sysname == erts_this_node->sysname
+             && (creation == erts_this_node->creation
+                 || creation == ORIG_CREATION)));
+}
+
+
 static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint32 creation, Eterm book)
 {
-    if (sysname == INTERNAL_LOCAL_SYSNAME)  /* && DFLAG_INTERNAL_TAGS */
+    if (dec_is_this_node(sysname, creation))
 	return erts_this_node;
-
-    if (sysname == erts_this_node->sysname
-	&& (creation == erts_this_node->creation || creation == ORIG_CREATION))
-	return erts_this_node;
-
-    return erts_find_or_insert_node(sysname,creation,book);
+    else
+        return erts_find_or_insert_node(sysname,creation,book);
 }
 
 static byte*
@@ -2963,7 +2974,6 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
     Uint num;
     Uint ser;
     Uint32 cre;
-    ErlNode *node;
 
     *objp = NIL;		/* In case we fail, don't leave a hole in the heap */
 
@@ -2972,13 +2982,8 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
 	return NULL;
     num = get_uint32(ep);
     ep += 4;
-    if (num > ERTS_MAX_PID_NUMBER)
-	return NULL;
     ser = get_uint32(ep);
     ep += 4;
-    if (ser > ERTS_MAX_PID_SERIAL)
-	return NULL;
-
     if (tag == PID_EXT) {
         cre = get_int8(ep);
         ep += 1;
@@ -2991,24 +2996,27 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
         ep += 4;
     }
 
-    data = make_pid_data(ser, num);
-
     /*
      * We are careful to create the node entry only after all
      * validity tests are done.
      */
-    node = dec_get_node(sysname, cre, make_boxed(factory->hp));
+    if (dec_is_this_node(sysname, cre)) {
+        if (num > ERTS_MAX_INTERNAL_PID_NUMBER ||
+            ser > ERTS_MAX_INTERNAL_PID_SERIAL) {
+            return NULL;
+        }
 
-    if(node == erts_this_node) {
+        data = make_pid_data(ser, num);
 	*objp = make_internal_pid(data);
     } else {
 	ExternalThing *etp = (ExternalThing *) factory->hp;
-	factory->hp += EXTERNAL_THING_HEAD_SIZE + 1;
+        factory->hp += EXTERNAL_PID_HEAP_SIZE;
 
-	etp->header = make_external_pid_header(1);
+	etp->header = make_external_pid_header();
 	etp->next = factory->off_heap->first;
-	etp->node = node;
-	etp->data.ui[0] = data;
+        etp->node = erts_find_or_insert_node(sysname, cre, make_boxed(&etp->header));
+	etp->data.ui32[0] = num;
+        etp->data.ui32[1] = ser;
 
 	factory->off_heap->first = (struct erl_off_heap_header*) etp;
 	*objp = make_external_pid(etp);
@@ -5506,7 +5514,7 @@ init_done:
 	    atom_extra_skip = 9;
 	case_PID:
 	    /* In case it is an external pid */
-	    heap_size += EXTERNAL_THING_HEAD_SIZE + 1;
+	    heap_size += EXTERNAL_PID_HEAP_SIZE;
 	    terms++;
 	    break;
         case NEW_PORT_EXT:
