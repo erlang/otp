@@ -47,16 +47,6 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
                                   ERL_NIF_TERM map,
                                   ERL_NIF_TERM key,
                                   BOOLEAN_T    def);
-extern
-BOOLEAN_T esock_get_int_from_map(ErlNifEnv*   env,
-                                 ERL_NIF_TERM map,
-                                 ERL_NIF_TERM key,
-                                 int*         val);
-extern
-BOOLEAN_T esock_get_string_from_map(ErlNifEnv*   env,
-                                    ERL_NIF_TERM map,
-                                    ERL_NIF_TERM key,
-                                    char**       str);
 
 extern
 BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
@@ -223,6 +213,11 @@ BOOLEAN_T esock_extract_pid_from_map(ErlNifEnv*   env,
                                      ERL_NIF_TERM key,
                                      ErlNifPid*   pid);
 extern
+BOOLEAN_T esock_extract_int_from_map(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     ERL_NIF_TERM key,
+                                     int*         val);
+extern
 BOOLEAN_T esock_decode_bool(ERL_NIF_TERM eVal, BOOLEAN_T* val);
 extern
 BOOLEAN_T esock_decode_bool_val(ERL_NIF_TERM eVal, int *error);
@@ -251,6 +246,9 @@ extern
 ERL_NIF_TERM esock_make_error_str(ErlNifEnv* env, char* reason);
 extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err);
+extern
+ERL_NIF_TERM esock_raise_invalid(ErlNifEnv* env,
+                                 ERL_NIF_TERM what, ERL_NIF_TERM info);
 
 extern
 ERL_NIF_TERM esock_make_new_binary(ErlNifEnv *env, void *buf, size_t size);

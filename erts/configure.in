@@ -1382,7 +1382,7 @@ fi
 
 if test "x$USE_ESOCK" = "xyes"; then
     if test "x$USE_ESOCK" = "xyes"; then
-        AC_CHECK_FUNCS([localtime_r strftime])
+        AC_CHECK_FUNCS([localtime_r strftime getprotoent setprotoent endprotoent])
     fi
 fi
 

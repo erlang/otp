@@ -546,15 +546,6 @@ typedef union {
 // #define ESOCK_TYPE_RDM           104
 #define ESOCK_TYPE_SEQPACKET     105
 
-/* protocol */
-#define ESOCK_PROTOCOL_DEFAULT   200
-#define ESOCK_PROTOCOL_IP        201
-#define ESOCK_PROTOCOL_TCP       202
-#define ESOCK_PROTOCOL_UDP       203
-#define ESOCK_PROTOCOL_SCTP      204
-#define ESOCK_PROTOCOL_ICMP      205
-#define ESOCK_PROTOCOL_IGMP      206
-
 /* option encodings */
 #define ESOCK_OPT_NATIVE_VALUE  250
 #define ESOCK_OPT_NATIVE_OPT    251
@@ -1097,6 +1088,8 @@ typedef struct {
      */
     BOOLEAN_T    iow; // Where do we send this? Subscription?
 
+    ErlNifMutex* protocolsMtx;
+
     ErlNifMutex* cntMtx; /* Locks the below */
     /* Its extreme overkill to have these counters be 64-bit,
      * but since the other counters are, its much simpler to
@@ -1264,6 +1257,7 @@ static ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env);
 //static ERL_NIF_TERM esock_supports_netns(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
 
 static ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
                                 int          fd,
@@ -1276,9 +1270,6 @@ static BOOLEAN_T esock_open2_get_domain(ErlNifEnv*   env,
 static BOOLEAN_T esock_open2_get_type(ErlNifEnv*   env,
                                       ERL_NIF_TERM eopt,
                                       int*         type);
-static BOOLEAN_T esock_open2_get_protocol(ErlNifEnv*   env,
-                                          ERL_NIF_TERM eopts,
-                                          int*         protocol);
 static ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
                                 int          domain,
                                 int          type,
@@ -2165,11 +2156,6 @@ static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 static ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
 
 
-static BOOLEAN_T edomain2domain(int edomain, int* domain);
-static BOOLEAN_T etype2type(int etype, int* type);
-static BOOLEAN_T eproto2proto(ErlNifEnv*         env,
-                              const ERL_NIF_TERM eproto,
-                              int*               proto);
 static BOOLEAN_T ehow2how(unsigned int ehow, int* how);
 static BOOLEAN_T esendflags2sendflags(unsigned int esendflags, int* sendflags);
 static BOOLEAN_T erecvflags2recvflags(unsigned int erecvflags, int* recvflags);
@@ -2753,6 +2739,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(policy_fail);      \
     LOCAL_ATOM_DECL(port_unreach);     \
     LOCAL_ATOM_DECL(probe);            \
+    LOCAL_ATOM_DECL(protocols);        \
     LOCAL_ATOM_DECL(rcvctrlbuf);       \
     LOCAL_ATOM_DECL(read_byte);        \
     LOCAL_ATOM_DECL(read_fails);       \
@@ -3542,6 +3529,8 @@ ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
         result = esock_supports_send_flags(env);
     else if (COMPARE(key, atom_recv_flags) == 0)
         result = esock_supports_recv_flags(env);
+    else if (COMPARE(key, atom_protocols) == 0)
+        result = esock_supports_protocols(env);
     else
         result = MKEL(env);
 
@@ -4980,6 +4969,93 @@ ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env)
 #endif // #ifndef __WIN32__
 
 
+#ifndef __WIN32__
+static
+ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
+{
+    ERL_NIF_TERM protocols;
+    struct protoent *pe;
+    int stayopen;
+
+    protocols = MKEL(env);
+
+    /* Defaults for known protocols in case getprotoent()
+     * does not work or does not exist
+     */
+    
+    protocols =
+        MKC(env,
+            MKT2(env,
+                 MKL1(env, esock_atom_ip),
+                 MKI(env,
+#ifdef SOL_IP
+                     SOL_IP
+#else
+                     IPPROTO_IP
+#endif
+                     )),
+            protocols);
+
+#ifdef HAVE_IPV6
+    protocols =
+        MKC(env,
+            MKT2(env,
+                 MKL1(env, esock_atom_ipv6),
+                 MKI(env,
+#ifdef SOL_IPV6
+                     SOL_IPV6
+#else
+                     IPPROTO_IPV6
+#endif
+                     )),
+            protocols);
+#endif
+
+    protocols =
+        MKC(env,
+            MKT2(env, MKL1(env, esock_atom_tcp), MKI(env, IPPROTO_TCP)),
+            protocols);
+
+    protocols =
+        MKC(env,
+            MKT2(env, MKL1(env, esock_atom_udp), MKI(env, IPPROTO_UDP)),
+            protocols);
+
+#ifdef HAVE_SCTP
+    protocols =
+        MKC(env,
+            MKT2(env, MKL1(env, esock_atom_sctp), MKI(env, IPPROTO_SCTP)),
+            protocols);
+#endif
+
+#if defined(HAVE_GETPROTOENT) && \
+    defined(HAVE_SETPROTOENT) && \
+    defined(HAVE_ENDPROTOENT)
+
+    MLOCK(data.protocolsMtx);
+    stayopen = TRUE;
+    setprotoent(stayopen);
+    while ((pe = getprotoent()) != NULL) {
+        ERL_NIF_TERM names;
+        char **aliases;
+
+        names = MKEL(env);
+        for (aliases = pe->p_aliases;  *aliases != NULL;  aliases++)
+            names = MKC(env, MKA(env, *aliases), names);
+        names = MKC(env, MKA(env, pe->p_name), names);
+
+        protocols =
+            MKC(env, MKT2(env, names, MKI(env, pe->p_proto)), protocols);
+    }
+    endprotoent();
+    MUNLOCK(data.protocolsMtx);
+
+#endif
+    return protocols;
+}
+#endif // #ifndef __WIN32__
+
+
 
 /* ----------------------------------------------------------------------
  * nif_open
@@ -5057,44 +5133,36 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
     case 4:
         /* The normal version */
         {
-            int          edomain, etype;
-            ERL_NIF_TERM eproto; // integer() (normal case) | {raw, integer()}
-            ERL_NIF_TERM eopts;
+            ERL_NIF_TERM edomain, etype, eopts;
             int          domain, type, proto;
 
             /* Extract arguments and perform preliminary validation */
 
-            if (!GET_INT(env, argv[0], &edomain) ||
-                !GET_INT(env, argv[1], &etype) ||
+            if (!GET_INT(env, argv[2], &proto) ||
                 !IS_MAP(env,  argv[3])) {
                 return enif_make_badarg(env);
             }
-            eproto = argv[2];
+            edomain = argv[0];
+            etype = argv[1];
             eopts  = argv[3];
 
             SGDBG( ("SOCKET", "nif_open -> "
                     "\r\n   edomain: %T"
                     "\r\n   etype:   %T"
-                    "\r\n   eproto:  %T"
+                    "\r\n   proto:   %T"
                     "\r\n   eopts:   %T"
-                    "\r\n", argv[0], argv[1], eproto, eopts) );
+                    "\r\n", argv[0], argv[1], argv[2], eopts) );
 
-            if (!edomain2domain(edomain, &domain)) {
+            if (! esock_decode_domain(env, edomain, &domain)) {
                 SGDBG( ("SOCKET",
                         "nif_open -> invalid domain: %d\r\n", edomain) );
-                return enif_make_badarg(env);
+                return esock_raise_invalid(env, esock_atom_domain, edomain);
             }
 
-            if (!etype2type(etype, &type)) {
+            if (! esock_decode_type(env, etype, &type)) {
                 SGDBG( ("SOCKET",
                         "nif_open -> invalid type: %d\r\n", etype) );
-                return enif_make_badarg(env);
-            }
-
-            if (!eproto2proto(env, eproto, &proto)) {
-                SGDBG( ("SOCKET",
-                        "nif_open -> invalid protocol: %d\r\n", eproto) );
-                return enif_make_badarg(env);
+                return esock_raise_invalid(env, esock_atom_type, etype);
             }
 
             MLOCK(data.cntMtx);
@@ -5180,7 +5248,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     if (! esock_open_which_type(fd, &type)) {
         SSDBG2( dbg,
                 ("SOCKET", "esock_open2 -> failed get type from system\r\n") );
-        if (!esock_open2_get_type(env, eopts, &type)) {
+        if (! esock_open2_get_type(env, eopts, &type)) {
             return esock_make_error(env, esock_atom_type);
                                     
         }
@@ -5188,9 +5256,14 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     
     if (!esock_open_which_protocol(fd, &protocol)) {
         SSDBG2( dbg,
-                ("SOCKET", "esock_open2 -> failed get protocol from system\r\n") );
-        if (!esock_open2_get_protocol(env, eopts, &protocol)) {
-            return esock_make_error(env, esock_atom_protocol);
+                ("SOCKET",
+                 "esock_open2 -> failed get protocol from system\r\n") );
+        if (! esock_extract_int_from_map(env, eopts,
+                                        esock_atom_protocol, &protocol)) {
+            SSDBG2( dbg,
+                    ("SOCKET",
+                     "esock_open2 -> trying protocol 0\r\n") );
+            protocol = 0;
         }
     }
 
@@ -5297,9 +5370,9 @@ BOOLEAN_T esock_open2_get_domain(ErlNifEnv* env,
             "\r\n   eopts: %T"
             "\r\n", eopts) );
 
-    if (esock_get_int_from_map(env, eopts, esock_atom_domain, &edomain)) {
-        /* decode */
-        return edomain2domain(edomain, domain);
+    if (esock_extract_int_from_map(env, eopts,
+                                   esock_atom_domain, &edomain)) {
+        return esock_decode_domain(env, edomain, domain);
     } else {
         return FALSE;
     }
@@ -5313,40 +5386,19 @@ static
 BOOLEAN_T esock_open2_get_type(ErlNifEnv* env,
                                ERL_NIF_TERM eopts, int* type)
 {
-    int          etype;
+    ERL_NIF_TERM etype;
     
     SGDBG( ("SOCKET", "esock_open2_get_type -> entry with"
             "\r\n   eopts: %T"
             "\r\n", eopts) );
 
-    if (esock_get_int_from_map(env, eopts, esock_atom_type, &etype)) {
-        /* decode */
-        return etype2type(etype, type);
-    } else {
+    if (! GET_MAP_VAL(env, eopts, esock_atom_type, &etype))
         return FALSE;
-    }
-}
-#endif // #ifndef __WIN32__
 
-/* The eextra contains an integer 'protocol' key.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open2_get_protocol(ErlNifEnv* env,
-                                   ERL_NIF_TERM eopts, int* protocol)
-{
-    int          eproto;
-    
-    SGDBG( ("SOCKET", "esock_open2_get_protocol -> entry with"
-            "\r\n   eopts: %T"
-            "\r\n", eopts) );
-
-    if (esock_get_int_from_map(env, eopts, esock_atom_protocol, &eproto)) {
-        /* decode */
-        return eproto2proto(env, eproto, protocol);
-    } else {
+    if (! esock_decode_type(env, etype, type))
         return FALSE;
-    }
+
+    return TRUE;
 }
 #endif // #ifndef __WIN32__
 
@@ -9203,22 +9255,14 @@ ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
                                    int              opt,
                                    ERL_NIF_TERM     eVal)
 {
-    int edomain, domain;
+    int domain;
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_addrform -> entry with"
             "\r\n   eVal: %T"
             "\r\n", eVal) );
 
-    if (! GET_INT(env, eVal, &edomain))
-        return esock_make_error(env, esock_atom_invalid);
-
-    SSDBG( descP,
-           ("SOCKET", "esock_setopt_addrform -> decode"
-            "\r\n   edomain: %d"
-            "\r\n", edomain) );
-
-    if (! edomain2domain(edomain, &domain))
+    if (! esock_decode_domain(env, eVal, &domain))
         return esock_make_error(env, esock_atom_invalid);
 
     SSDBG( descP, ("SOCKET",
@@ -10428,7 +10472,7 @@ ERL_NIF_TERM getopt_otp_domain(ErlNifEnv* env, int domain)
         break;
 #endif
 
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     case AF_UNIX:
         result = esock_atom_local;
         break;
@@ -10862,7 +10906,7 @@ ERL_NIF_TERM esock_getopt_sock_domain(ErlNifEnv*       env,
             break;
 #endif
             
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
         case AF_UNIX:
             result = esock_make_ok2(env, esock_atom_local);
             break;
@@ -16350,7 +16394,7 @@ void dec_socket(int domain, int type, int protocol)
     else if (domain == AF_INET6)
         cnt_dec(&data.numDomainInet6, 1);
 #endif
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     else if (domain == AF_UNIX)
         cnt_dec(&data.numDomainInet6, 1);
 #endif
@@ -16397,7 +16441,7 @@ void inc_socket(int domain, int type, int protocol)
     else if (domain == AF_INET6)
         cnt_inc(&data.numDomainInet6, 1);
 #endif
-#if defined(HAVE_SYS_UN_H)
+#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
     else if (domain == AF_UNIX)
         cnt_inc(&data.numDomainInet6, 1);
 #endif
@@ -16432,158 +16476,6 @@ void inc_socket(int domain, int type, int protocol)
  *  D e c o d e / E n c o d e   F u n c t i o n s
  * ----------------------------------------------------------------------
  */
-
-/* edomain2domain - convert internal (erlang) domain to (proper) domain
- *
- * Note that only a subset is supported.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T edomain2domain(int edomain, int* domain)
-{
-    switch (edomain) {
-    case ESOCK_DOMAIN_INET:
-        *domain = AF_INET;
-        break;
-
-#if defined(HAVE_IN6) && defined(AF_INET6)
-    case ESOCK_DOMAIN_INET6:
-        *domain = AF_INET6;
-        break;
-#endif
-#ifdef HAVE_SYS_UN_H
-    case ESOCK_DOMAIN_LOCAL:
-        *domain = AF_UNIX;
-        break;
-#endif
-
-    default:
-        return FALSE;
-    }
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
-
-/* etype2type - convert internal (erlang) type to (proper) type
- *
- * Note that only a subset is supported.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T etype2type(int etype, int* type)
-{
-    switch (etype) {
-    case ESOCK_TYPE_STREAM:
-        *type = SOCK_STREAM;
-        break;
-
-    case ESOCK_TYPE_DGRAM:
-        *type = SOCK_DGRAM;
-        break;
-
-    case ESOCK_TYPE_RAW:
-        *type = SOCK_RAW;
-        break;
-
-#ifdef SOCK_SEQPACKET
-    case ESOCK_TYPE_SEQPACKET:
-        *type = SOCK_SEQPACKET;
-        break;
-#endif
-
-    default:
-        return FALSE;
-    }
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
-
-/* eproto2proto - convert internal (erlang) protocol to (proper) protocol
- *
- * Note that only a subset is supported.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T eproto2proto(ErlNifEnv*   env,
-                       ERL_NIF_TERM eproto,
-                       int*         proto)
-{
-    if (IS_NUM(env, eproto)) {
-        int ep;
-
-        if (!GET_INT(env, eproto, &ep)) {
-            *proto = -1;
-            return FALSE;
-        }
-
-        switch (ep) {
-        case ESOCK_PROTOCOL_DEFAULT:
-            *proto = 0; // default - note that _IP also has the value 0...
-            break;
-            
-        case ESOCK_PROTOCOL_IP:
-            *proto = IPPROTO_IP;
-            break;
-            
-        case ESOCK_PROTOCOL_TCP:
-            *proto = IPPROTO_TCP;
-            break;
-            
-        case ESOCK_PROTOCOL_UDP:
-            *proto = IPPROTO_UDP;
-            break;
-            
-#if defined(HAVE_SCTP)
-        case ESOCK_PROTOCOL_SCTP:
-            *proto = IPPROTO_SCTP;
-            break;
-#endif
-            
-        case ESOCK_PROTOCOL_ICMP:
-            *proto = IPPROTO_ICMP;
-            break;
-            
-        case ESOCK_PROTOCOL_IGMP:
-            *proto = IPPROTO_IGMP;
-            break;
-            
-        default:
-            *proto = -2;
-            return FALSE;
-        }
-    } else {
-        const ERL_NIF_TERM* a;
-        int                 sz;
-
-        if (!GET_TUPLE(env, eproto, &sz, &a)) {
-            *proto = -3;
-            return FALSE;
-        }
-        
-        if (sz != 2) {
-            *proto = -4;
-            return FALSE;
-        }
-
-        if (COMPARE(a[0], esock_atom_raw) != 0) {
-            *proto = -5;
-            return FALSE;
-        }
-
-        if (!GET_INT(env, a[1], proto)) {
-            *proto = -6;
-            return FALSE;
-        }
-    }
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
 
 #ifndef __WIN32__
 #ifdef HAVE_SETNS
@@ -18571,13 +18463,14 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     if (! esock_extract_pid_from_map(env, load_info,
                                      atom_registry,
-                                     &data.regPid))
+                                     &data.regPid)) {
+        enif_set_pid_undefined(&data.regPid);
         return 1; // Failure - no registry pid
+    }
 
     data.dbg =
-        esock_extract_bool_from_map(env, load_info,
-                                    atom_iow,
-                                    ESOCK_NIF_IOW_DEFAULT);
+        esock_get_bool_from_map(env, load_info,
+                                atom_iow, ESOCK_NIF_IOW_DEFAULT);
 
     {
         char *debug_filename;
@@ -18588,18 +18481,20 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
             // Pick up early debug flags only if debug_filename is ok
 
             data.dbg =
-                esock_extract_bool_from_map(env, load_info,
-                                            esock_atom_debug,
-                                            ESOCK_GLOBAL_DEBUG_DEFAULT);
+                esock_get_bool_from_map(env, load_info,
+                                        esock_atom_debug,
+                                        ESOCK_GLOBAL_DEBUG_DEFAULT);
             data.sockDbg =
-                esock_extract_bool_from_map(env, load_info,
-                                            atom_socket_debug,
-                                            ESOCK_DEBUG_DEFAULT);
+                esock_get_bool_from_map(env, load_info,
+                                        atom_socket_debug,
+                                        ESOCK_DEBUG_DEFAULT);
         }
 
         if (debug_filename != NULL)
             FREE(debug_filename);
     }
+
+    data.protocolsMtx = MCREATE("esock.protocols");
 
     /* +++ Global Counters +++ */
     data.cntMtx         = MCREATE("esock.gcnt");

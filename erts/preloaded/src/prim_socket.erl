@@ -104,17 +104,6 @@
 -define(ESOCK_TYPE_SEQPACKET, 105).
 
 %% ----------------------------------
-%% Protocol
-
--define(ESOCK_PROTOCOL_DEFAULT, 200).
--define(ESOCK_PROTOCOL_IP,      201).
--define(ESOCK_PROTOCOL_TCP,     202).
--define(ESOCK_PROTOCOL_UDP,     203).
--define(ESOCK_PROTOCOL_SCTP,    204).
--define(ESOCK_PROTOCOL_ICMP,    205).
--define(ESOCK_PROTOCOL_IGMP,    206).
-
-%% ----------------------------------
 %% Option encodings
 
 -define(ESOCK_OPT_NATIVE_VALUE, 250).
@@ -350,7 +339,29 @@ on_load(Extra) when is_map(Extra) ->
                         socket_debug => true,
                         debug_filename =>
                             encode_path(DebugFilename)}
-          end).
+          end),
+    ProtocolsTable =
+        try nif_supports(protocols) of
+            Protocols ->
+                maps:merge(
+                  maps:from_list(flatten_protocols(Protocols)),
+                  maps:from_list(
+                    [{Num, Name} || {[Name | _], Num} <- Protocols]))
+        catch
+            error : notsup ->
+                #{}
+        end,
+    persistent_term:put({?MODULE, protocols}, ProtocolsTable).
+
+flatten_protocols([{[Name | Aliases], Num} | Protocols]) ->
+    flatten_protocols(Protocols, Aliases, Name, Num);
+flatten_protocols([]) ->
+    [].
+
+flatten_protocols(Protocols, [Alias | Aliases], Name, Num) ->
+    [{Alias, Num} | flatten_protocols(Protocols, Aliases, Name, Num)];
+flatten_protocols(Protocols, [], Name, Num) ->
+    [{Name, Num} | flatten_protocols(Protocols)].
 
 %% ===========================================================================
 %% API for 'socket'
@@ -395,6 +406,13 @@ socket_debug(D) ->
 supports() ->
     nif_supports().
      
+supports(protocols) ->
+    maps:fold(
+      fun (Name, _Num, Acc) when is_atom(Name) ->
+              [{Name, true} | Acc];
+          (Num, _Name, Acc) when is_integer(Num) ->
+              Acc
+      end, [], persistent_term:get({?MODULE, protocols}));
 supports(Key) ->
     nif_supports(Key).
 
@@ -425,10 +443,6 @@ open(FD, Opts) when is_map(Opts) ->
         maps:map(
           fun (Key, Val) ->
                   case Key of
-                      domain ->
-                          enc_domain(Val);
-                      type ->
-                          enc_type(Val);
                       protocol ->
                           enc_protocol(Val);
                       _ ->
@@ -438,8 +452,6 @@ open(FD, Opts) when is_map(Opts) ->
     nif_open(FD, EOpts).
 
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
-    EDomain   = enc_domain(Domain),
-    EType     = enc_type(Type),
     EProtocol = enc_protocol(Protocol),
     EOpts =
         case Opts of
@@ -448,7 +460,7 @@ open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
             _ ->
                 Opts
         end,
-    nif_open(EDomain, EType, EProtocol, EOpts).
+    nif_open(Domain, Type, EProtocol, EOpts).
 
 %% ----------------------------------
 
@@ -596,25 +608,18 @@ cancel(SRef, Op, Ref) ->
 %% Encode / decode
 %%
 
-enc_domain(local)  -> ?ESOCK_DOMAIN_LOCAL;
-enc_domain(inet)   -> ?ESOCK_DOMAIN_INET;
-enc_domain(inet6)  -> ?ESOCK_DOMAIN_INET6;
-enc_domain(Domain) -> invalid(domain, Domain).
-
-enc_type(stream)    -> ?ESOCK_TYPE_STREAM;
-enc_type(dgram)     -> ?ESOCK_TYPE_DGRAM;
-enc_type(raw)       -> ?ESOCK_TYPE_RAW;
-enc_type(seqpacket) -> ?ESOCK_TYPE_SEQPACKET;
-enc_type(Type)      -> invalid(type, Type).
-
-enc_protocol(default) -> ?ESOCK_PROTOCOL_DEFAULT;
-enc_protocol(ip)      -> ?ESOCK_PROTOCOL_IP;
-enc_protocol(tcp)     -> ?ESOCK_PROTOCOL_TCP;
-enc_protocol(udp)     -> ?ESOCK_PROTOCOL_UDP;
-enc_protocol(sctp)    -> ?ESOCK_PROTOCOL_SCTP;
-enc_protocol(icmp)    -> ?ESOCK_PROTOCOL_ICMP;
-enc_protocol(igmp)    -> ?ESOCK_PROTOCOL_IGMP;
-enc_protocol({raw, P} = RAW) when is_integer(P) -> RAW;
+%% These clauses should be deprecated
+enc_protocol({raw, ProtoNum}) when is_integer(ProtoNum) -> ProtoNum;
+enc_protocol(default) -> 0;
+%%
+enc_protocol(Proto) when is_atom(Proto) ->
+    case persistent_term:get({?MODULE, protocols}) of
+        #{Proto := Num} ->
+            Num;
+        #{} ->
+            invalid(protocol, Proto)
+    end;
+enc_protocol(Proto) when is_integer(Proto) -> Proto;
 enc_protocol(Proto) ->
     invalid(protocol, Proto).
 

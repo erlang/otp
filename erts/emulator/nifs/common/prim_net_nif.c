@@ -398,8 +398,8 @@ static void make_address_info(ErlNifEnv*    env,
                               ERL_NIF_TERM  addr,
                               ERL_NIF_TERM* ai);
 
-static BOOLEAN_T extract_debug(ErlNifEnv*   env,
-                               ERL_NIF_TERM map);
+static BOOLEAN_T get_debug(ErlNifEnv*   env,
+                           ERL_NIF_TERM map);
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
 
@@ -2306,8 +2306,8 @@ ErlNifFunc net_funcs[] =
 
 #if !defined(__WIN32__)
 static
-BOOLEAN_T extract_debug(ErlNifEnv*   env,
-                        ERL_NIF_TERM map)
+BOOLEAN_T get_debug(ErlNifEnv*   env,
+                    ERL_NIF_TERM map)
 {
     /*
      * We need to do this here since the "proper" atom has not been
@@ -2315,7 +2315,7 @@ BOOLEAN_T extract_debug(ErlNifEnv*   env,
      */
     ERL_NIF_TERM debug = MKA(env, "debug");
     
-    return esock_extract_bool_from_map(env, map, debug, NET_NIF_DEBUG_DEFAULT);
+    return esock_get_bool_from_map(env, map, debug, NET_NIF_DEBUG_DEFAULT);
 }
 #endif
 
@@ -2329,7 +2329,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
 #if !defined(__WIN32__)    
     // We should make it possible to use load_info to get default values
-    data.debug = extract_debug(env, load_info);
+    data.debug = get_debug(env, load_info);
 
     NDBG( ("NET", "on_load -> entry\r\n") );
 #endif

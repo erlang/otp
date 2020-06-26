@@ -147,11 +147,11 @@
 %% RDM - Reliably Delivered Messages
 -type type()   :: stream | dgram | raw | rdm | seqpacket.
 
-%% We support only a subset of all protocols:
-%% Note that the '{raw, integer()}' construct is intended
-%% to be used with type = raw.
-%% Note also that only the "superuser" can create a raw socket.
--type protocol() :: ip | tcp | udp | sctp | icmp | igmp | {raw, integer()}.
+%% We support all protocols enumerated by getprotoent(),
+%% and all of ip | ipv6 | tcp | udp | sctp that are supported
+%% by the platform, even if not enumerated by getprotoent(),
+%% plus native protocol numbers.
+-type protocol() :: atom() | integer().
 
 -type port_number() :: 0..65535.
 
@@ -708,7 +708,7 @@ info(Socket) ->
                                                   boolean()}]}]}].
 supports() ->
     [{Key1, supports(Key1)}
-     || Key1 <- [options, send_flags, recv_flags]]
+     || Key1 <- [options, send_flags, recv_flags, protocols]]
         ++ prim_socket:supports().
 
 -spec supports(Key1 :: term()) ->
@@ -803,7 +803,8 @@ open(FD) ->
         #{domain => domain(),
           type => type(),
           protocol => protocol(),
-          dup => boolean()},
+          dup => boolean(),
+          debug => boolean()},
       Socket   :: socket(),
       Reason   ::
         posix() | domain | type | protocol;
@@ -823,22 +824,30 @@ open(FD, Opts) when is_integer(FD), is_map(Opts) ->
             ERROR
     end;
 open(Domain, Type) ->
-    open(Domain, Type, default).
+    open(Domain, Type, 0).
 
--spec open(Domain, Type, Protocol) -> {ok, Socket} | {error, Reason} when
+-spec open(Domain, Type, Opts) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
-      Protocol :: default | protocol(),
+      Opts     :: map(),
+      Socket   :: socket(),
+      Reason   :: posix() | protocol;
+          (Domain, Type, Protocol) -> {ok, Socket} | {error, Reason} when
+      Domain   :: domain(),
+      Type     :: type(),
+      Protocol :: protocol(),
       Socket   :: socket(),
       Reason   :: posix() | protocol.
 
+open(Domain, Type, Opts) when is_map(Opts) ->
+    open(Domain, Type, 0, Opts);
 open(Domain, Type, Protocol) ->
     open(Domain, Type, Protocol, #{}).
 
 -spec open(Domain, Type, Protocol, Opts) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
-      Protocol :: default | protocol(),
+      Protocol :: protocol(),
       Opts     :: map(),
       Socket   :: socket(),
       Reason   :: posix() | protocol.
