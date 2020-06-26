@@ -1465,7 +1465,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 		switch (packet_bytes) {
 		case 1: h = get_int8(dd->ifd->pbuf);  break;
 		case 2: h = get_int16(dd->ifd->pbuf); break;
-		case 4: h = get_int32(dd->ifd->pbuf); break;
+		case 4: h = get_uint32(dd->ifd->pbuf); break;
 		default: ASSERT(0); return; /* -1; */
 		}
 

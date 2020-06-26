@@ -1195,10 +1195,13 @@ ERTS_GLB_INLINE size_t sys_strlen(const char *s)
                             ((char*)(s))[7] = (char)((Sint64)(i))       & 0xff;\
                            } while (0) 
 
+/* Returns a signed int */
 #define get_int32(s) ((((unsigned char*) (s))[0] << 24) | \
                       (((unsigned char*) (s))[1] << 16) | \
                       (((unsigned char*) (s))[2] << 8)  | \
                       (((unsigned char*) (s))[3]))
+
+#define get_uint32(s) ((Uint32)get_int32(s))
 
 #define put_int32(i, s) do {((char*)(s))[0] = (char)((i) >> 24) & 0xff;   \
                             ((char*)(s))[1] = (char)((i) >> 16) & 0xff;   \

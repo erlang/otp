@@ -530,7 +530,7 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
 	    ip = &instr_buf[0] + (2+4)*iix;
 	    cix = (int) get_int16(&ip[0]);
 	    ASSERT(0 <= cix && cix < ERTS_ATOM_CACHE_SIZE);
-	    atom = make_atom((Uint) get_int32(&ip[2]));
+	    atom = make_atom((Uint) get_uint32(&ip[2]));
 	    if (cache->out_arr[cix] == atom) {
 		--ep;
 		put_int8(cix, ep);
@@ -1688,7 +1688,7 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
 	    (*ctxp)->state = B2TSizeInit;
     }
     else  {
-	uLongf dest_len = (Uint32) get_int32(bytes+1);
+	uLongf dest_len = get_uint32(bytes+1);
 	bytes += 5;
 	size -= 5;	
 	if (dest_len > 32*1024*1024
@@ -2970,11 +2970,11 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
     /* eat first atom */
     if ((ep = dec_atom(edep, ep, &sysname)) == NULL)
 	return NULL;
-    num = get_int32(ep);
+    num = get_uint32(ep);
     ep += 4;
     if (num > ERTS_MAX_PID_NUMBER)
 	return NULL;
-    ser = get_int32(ep);
+    ser = get_uint32(ep);
     ep += 4;
     if (ser > ERTS_MAX_PID_SERIAL)
 	return NULL;
@@ -2987,7 +2987,7 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
         }
     } else {
         ASSERT(tag == NEW_PID_EXT);
-        cre = get_int32(ep);
+        cre = get_uint32(ep);
         ep += 4;
     }
 
@@ -3769,7 +3769,7 @@ static byte *
 begin_hopefull_data(TTBEncodeContext *ctx, byte *ep)
 {
     store_in_vec(ctx, ep, NULL, THE_NON_VALUE, NULL, 0);
-    ASSERT(ERTS_NO_HIX == (Uint32) get_int32(ctx->hopefull_ixp));
+    ASSERT(ERTS_NO_HIX == get_uint32(ctx->hopefull_ixp));
     put_int32(ctx->vlen, ctx->hopefull_ixp);
     ctx->hopefull_ixp = ep;
     put_int32(ERTS_NO_HIX, ep);
@@ -4294,7 +4294,7 @@ dec_term_atom_common:
 		if ((ep = dec_atom(edep, ep, &sysname)) == NULL) {
 		    goto error;
 		}
-		if ((num = get_int32(ep)) > ERTS_MAX_PORT_NUMBER) {
+		if ((num = get_uint32(ep)) > ERTS_MAX_PORT_NUMBER) {
 		    goto error;
 		}
 		ep += 4;
@@ -5450,7 +5450,7 @@ init_done:
 	    break;
 	case LARGE_BIG_EXT:
 	    CHKSIZE(4);
-	    n = get_int32(ep);
+	    n = get_uint32(ep);
 	    if (n > BIG_ARITY_MAX*sizeof(ErtsDigit)) {
 		goto error;
 	    }
@@ -5555,7 +5555,7 @@ init_done:
 	    break;
 	case LIST_EXT:
 	    CHKSIZE(4);
-	    n = get_int32(ep);
+	    n = get_uint32(ep);
 	    ep += 4;
 	    ADDTERMS(n);
 	    terms++;
@@ -5569,14 +5569,14 @@ init_done:
 	    break;
 	case LARGE_TUPLE_EXT:
 	    CHKSIZE(4);
-	    n = get_int32(ep);
+	    n = get_uint32(ep);
 	    ep += 4;
 	    ADDTERMS(n);
 	    heap_size += n + 1;
 	    break;
 	case MAP_EXT:
 	    CHKSIZE(4);
-	    n = get_int32(ep);
+	    n = get_uint32(ep);
 	    ep += 4;
 	    ADDTERMS(2*n);
             if (n <= MAP_SMALL_MAP_LIMIT) {
@@ -5601,7 +5601,7 @@ init_done:
 	    break;
 	case BINARY_EXT:
 	    CHKSIZE(4);
-	    n = get_int32(ep);
+	    n = get_uint32(ep);
 	    SKIP2(n, 4);
 	    if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		heap_size += heap_bin_size(n);
@@ -5612,7 +5612,7 @@ init_done:
 	case BIT_BINARY_EXT:
 	    {
 		CHKSIZE(5);
-		n = get_int32(ep);
+		n = get_uint32(ep);
 		SKIP2(n, 5);
 		if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		    heap_size += heap_bin_size(n) + ERL_SUB_BIN_SIZE;
@@ -5631,11 +5631,11 @@ init_done:
 		Uint total_size;
 
 		CHKSIZE(1+16+4+4);
-		total_size = get_int32(ep);
+		total_size = get_uint32(ep);
 		CHKSIZE(total_size);		
 		ep += 1+16+4+4;
 		CHKSIZE(4);
-		num_free = get_int32(ep);
+		num_free = get_uint32(ep);
 		ep += 4;
 		if (num_free > MAX_ARG) {
 		    goto error;
@@ -5968,7 +5968,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
 
                 /* read original encoded prolog... */
                 ep++;
-                bin_sz = get_int32(ep);
+                bin_sz = get_uint32(ep);
                 ep += 4;
                 bitsize = *ep++;
 
