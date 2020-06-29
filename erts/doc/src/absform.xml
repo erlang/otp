@@ -62,10 +62,12 @@
     construct <c>C</c> to its abstract format representation <c>R</c>, and write
     <c>R = Rep(C)</c>.</p>
 
-  <p>The word <c>LINE</c> in this section represents an integer, and denotes the
-    number of the line in the source file where the construction occurred.
-    Several instances of <c>LINE</c> in the same construction can denote
-    different lines.</p>
+    <p>The word <c>ANNO</c> in this section represents an annotation,
+    and denotes among other things the number of the line in the
+    source file where the construction occurred. See <seeerl
+    marker="stdlib:erl_anno"><c>erl_anno(3)</c></seeerl> for details.
+    Several instances of <c>ANNO</c> in the same construction can denote
+    different annotations.</p>
 
   <p>As operators are not terms in their own right, when operators are
     mentioned below, the representation of an operator is to be taken to
@@ -86,27 +88,27 @@
       <item>
         <p>If F is an attribute <c>-export([Fun_1/A_1, ..., Fun_k/A_k])</c>,
           then Rep(F) =
-          <c>{attribute,LINE,export,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}</c>.</p>
+          <c>{attribute,ANNO,export,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}</c>.</p>
       </item>
       <item>
         <p>If F is an attribute <c>-import(Mod,[Fun_1/A_1, ..., Fun_k/A_k])</c>,
           then Rep(F) =
-          <c>{attribute,LINE,import,{Mod,[{Fun_1,A_1}, ...,
+          <c>{attribute,ANNO,import,{Mod,[{Fun_1,A_1}, ...,
           {Fun_k,A_k}]}}</c>.</p>
       </item>
       <item>
         <p>If F is an attribute <c>-module(Mod)</c>, then
-          Rep(F) = <c>{attribute,LINE,module,Mod}</c>.</p>
+          Rep(F) = <c>{attribute,ANNO,module,Mod}</c>.</p>
       </item>
       <item>
         <p>If F is an attribute <c>-file(File,Line)</c>, then
-          Rep(F) = <c>{attribute,LINE,file,{File,Line}}</c>.</p>
+          Rep(F) = <c>{attribute,ANNO,file,{File,Line}}</c>.</p>
       </item>
       <item>
         <p>If F is a function declaration <c>Name Fc_1 ; ... ; Name Fc_k</c>,
           where each <c>Fc_i</c> is a function clause with a pattern sequence of
           the same length <c>Arity</c>, then Rep(F) =
-          <c>{function,LINE,Name,Arity,[Rep(Fc_1), ...,Rep(Fc_k)]}</c>.</p>
+          <c>{function,ANNO,Name,Arity,[Rep(Fc_1), ...,Rep(Fc_k)]}</c>.</p>
       </item>
       <item>
         <p>If F is a function specification <c>-Spec Name Ft_1; ...; Ft_k</c>,
@@ -114,7 +116,7 @@
           <c>callback</c>, and each <c>Ft_i</c> is a possibly constrained
           function type with an argument sequence of the same length
           <c>Arity</c>, then Rep(F) =
-          <c>{attribute,Line,Spec,{{Name,Arity},[Rep(Ft_1), ...,
+          <c>{attribute,ANNO,Spec,{{Name,Arity},[Rep(Ft_1), ...,
           Rep(Ft_k)]}}</c>.</p>
       </item>
       <item>
@@ -122,13 +124,13 @@
           <c>-spec Mod:Name Ft_1; ...; Ft_k</c>, where each <c>Ft_i</c> is a
           possibly constrained function type with an argument sequence of the
           same length <c>Arity</c>, then Rep(F) =
-          <c>{attribute,Line,spec,{{Mod,Name,Arity},[Rep(Ft_1), ...,
+          <c>{attribute,ANNO,spec,{{Mod,Name,Arity},[Rep(Ft_1), ...,
           Rep(Ft_k)]}}</c>.</p>
       </item>
       <item>
         <p>If F is a record declaration <c>-record(Name,{V_1, ..., V_k})</c>,
           where each <c>V_i</c> is a record field, then Rep(F) =
-          <c>{attribute,LINE,record,{Name,[Rep(V_1), ..., Rep(V_k)]}}</c>.
+          <c>{attribute,ANNO,record,{Name,[Rep(V_1), ..., Rep(V_k)]}}</c>.
           For Rep(V), see below.</p>
       </item>
       <item>
@@ -136,12 +138,12 @@
           where <c>Type</c> is either the atom <c>type</c> or the atom
           <c>opaque</c>, each <c>V_i</c> is a type variable, and <c>T</c> is a type,
           then Rep(F) =
-          <c>{attribute,LINE,Type,{Name,Rep(T),[Rep(V_1), ...,
+          <c>{attribute,ANNO,Type,{Name,Rep(T),[Rep(V_1), ...,
           Rep(V_k)]}}</c>.</p>
       </item>
       <item>
         <p>If F is a wild attribute <c>-A(T)</c>, then
-          Rep(F) = <c>{attribute,LINE,A,T}</c>.</p>
+          Rep(F) = <c>{attribute,ANNO,A,T}</c>.</p>
       </item>
     </list>
 
@@ -154,20 +156,20 @@
       <list type="bulleted">
         <item>
           <p>If V is <c>A</c>, then
-            Rep(V) = <c>{record_field,LINE,Rep(A)}</c>.</p>
+            Rep(V) = <c>{record_field,ANNO,Rep(A)}</c>.</p>
         </item>
         <item>
           <p>If V is <c>A = E</c>, where <c>E</c> is an expression, then
-            Rep(V) = <c>{record_field,LINE,Rep(A),Rep(E)}</c>.</p>
+            Rep(V) = <c>{record_field,ANNO,Rep(A),Rep(E)}</c>.</p>
         </item>
         <item>
           <p>If V is <c>A :: T</c>, where <c>T</c> is a type, then Rep(V) =
-            <c>{typed_record_field,{record_field,LINE,Rep(A)},Rep(T)}</c>.</p>
+            <c>{typed_record_field,{record_field,ANNO,Rep(A)},Rep(T)}</c>.</p>
         </item>
         <item>
           <p>If V is <c>A = E :: T</c>, where
             <c>E</c> is an expression and <c>T</c> is a type, then Rep(V) =
-            <c>{typed_record_field,{record_field,LINE,Rep(A),Rep(E)},Rep(T)}</c>.
+            <c>{typed_record_field,{record_field,ANNO,Rep(A),Rep(E)},Rep(T)}</c>.
           </p>
         </item>
       </list>
@@ -190,8 +192,11 @@
         <item>
           <p><c>{eof,LOCATION}</c>, denoting an end-of-stream
             encountered before a complete form had been parsed.
-            The word <c>LOCATION</c> represents an integer, and denotes the
-            number of the last line in the source file.
+            The word <c>LOCATION</c> represents a location, and denotes the
+            number of the last line, and possibly the number of the last
+	    column on that line, in the source file. See <seeerl
+	    marker="stdlib:erl_anno">erl_anno(3)</seeerl> for
+	    details.
           </p>
         </item>
       </list>
@@ -205,22 +210,22 @@
 
     <list type="bulleted">
       <item>
-        <p>If L is an atom literal, then Rep(L) = <c>{atom,LINE,L}</c>.</p>
+        <p>If L is an atom literal, then Rep(L) = <c>{atom,ANNO,L}</c>.</p>
       </item>
       <item>
-        <p>If L is a character literal, then Rep(L) = <c>{char,LINE,L}</c>.</p>
+        <p>If L is a character literal, then Rep(L) = <c>{char,ANNO,L}</c>.</p>
       </item>
       <item>
-        <p>If L is a float literal, then Rep(L) = <c>{float,LINE,L}</c>.</p>
+        <p>If L is a float literal, then Rep(L) = <c>{float,ANNO,L}</c>.</p>
       </item>
       <item>
         <p>If L is an integer literal, then
-          Rep(L) = <c>{integer,LINE,L}</c>.</p>
+          Rep(L) = <c>{integer,ANNO,L}</c>.</p>
       </item>
       <item>
         <p>If L is a string literal consisting of the characters
           <c>C_1</c>, ..., <c>C_k</c>, then
-          Rep(L) = <c>{string,LINE,[C_1, ..., C_k]}</c>.</p>
+          Rep(L) = <c>{string,ANNO,[C_1, ..., C_k]}</c>.</p>
       </item>
     </list>
 
@@ -245,42 +250,42 @@
           <c>&lt;&lt;P_1:Size_1/TSL_1, ..., P_k:Size_k/TSL_k>></c>, where each
           <c>Size_i</c> is an expression that can be evaluated to an integer,
           and each <c>TSL_i</c> is a type specificer list, then Rep(P) =
-          <c>{bin,LINE,[{bin_element,LINE,Rep(P_1),Rep(Size_1),Rep(TSL_1)},
-          ..., {bin_element,LINE,Rep(P_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
+          <c>{bin,ANNO,[{bin_element,ANNO,Rep(P_1),Rep(Size_1),Rep(TSL_1)},
+          ..., {bin_element,ANNO,Rep(P_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
           For Rep(TSL), see below.
           An omitted <c>Size_i</c> is represented by <c>default</c>.
           An omitted <c>TSL_i</c> is represented by <c>default</c>.</p>
       </item>
       <item>
         <p>If P is a compound pattern <c>P_1 = P_2</c>, then Rep(P) =
-          <c>{match,LINE,Rep(P_1),Rep(P_2)}</c>.</p>
+          <c>{match,ANNO,Rep(P_1),Rep(P_2)}</c>.</p>
       </item>
       <item>
         <p>If P is a cons pattern <c>[P_h | P_t]</c>, then Rep(P) =
-          <c>{cons,LINE,Rep(P_h),Rep(P_t)}</c>.</p>
+          <c>{cons,ANNO,Rep(P_h),Rep(P_t)}</c>.</p>
       </item>
       <item>
         <p>If P is a map pattern <c>#{A_1, ..., A_k}</c>, where each
           <c>A_i</c> is an association <c>P_i_1 := P_i_2</c>, then Rep(P) =
-          <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
+          <c>{map,ANNO,[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see below.</p>
       </item>
       <item>
         <p>If P is a nil pattern <c>[]</c>, then Rep(P) =
-          <c>{nil,LINE}</c>.</p>
+          <c>{nil,ANNO}</c>.</p>
       </item>
       <item>
         <p>If P is an operator pattern <c>P_1 Op P_2</c>, where <c>Op</c> is a
           binary operator (this is either an occurrence of <c>++</c> applied to
           a literal string or character list, or an occurrence of an expression
           that can be evaluated to a number at compile time), then Rep(P) =
-          <c>{op,LINE,Op,Rep(P_1),Rep(P_2)}</c>.</p>
+          <c>{op,ANNO,Op,Rep(P_1),Rep(P_2)}</c>.</p>
       </item>
       <item>
         <p>If P is an operator pattern <c>Op P_0</c>, where <c>Op</c> is a
           unary operator (this is an occurrence of an expression that can be
           evaluated to a number at compile time), then Rep(P) =
-          <c>{op,LINE,Op,Rep(P_0)}</c>.</p>
+          <c>{op,ANNO,Op,Rep(P_0)}</c>.</p>
       </item>
       <item>
         <p>If P is a parenthesized pattern <c>( P_0 )</c>, then Rep(P) =
@@ -290,24 +295,24 @@
       <item>
         <p>If P is a record field index pattern <c>#Name.Field</c>,
           where <c>Field</c> is an atom, then Rep(P) =
-          <c>{record_index,LINE,Name,Rep(Field)}</c>.</p>
+          <c>{record_index,ANNO,Name,Rep(Field)}</c>.</p>
       </item>
       <item>
         <p>If P is a record pattern <c>#Name{Field_1=P_1, ..., Field_k=P_k}</c>,
           where each <c>Field_i</c> is an atom or <c>_</c>, then Rep(P) =
-          <c>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(P_1)}, ...,
-          {record_field,LINE,Rep(Field_k),Rep(P_k)}]}</c>.</p>
+          <c>{record,ANNO,Name,[{record_field,ANNO,Rep(Field_1),Rep(P_1)}, ...,
+          {record_field,ANNO,Rep(Field_k),Rep(P_k)}]}</c>.</p>
       </item>
       <item>
         <p>If P is a tuple pattern <c>{P_1, ..., P_k}</c>, then Rep(P) =
-          <c>{tuple,LINE,[Rep(P_1), ..., Rep(P_k)]}</c>.</p>
+          <c>{tuple,ANNO,[Rep(P_1), ..., Rep(P_k)]}</c>.</p>
       </item>
       <item>
         <p>If P is a universal pattern <c>_</c>, then Rep(P) =
-          <c>{var,LINE,'_'}</c>.</p></item>
+          <c>{var,ANNO,'_'}</c>.</p></item>
       <item>
         <p>If P is a variable pattern <c>V</c>, then Rep(P) =
-          <c>{var,LINE,A}</c>, where A is an atom with a printname consisting
+          <c>{var,ANNO,A}</c>, where A is an atom with a printname consisting
           of the same characters as <c>V</c>.</p>
       </item>
     </list>
@@ -331,7 +336,7 @@
         <p>If E is a bitstring comprehension
           <c>&lt;&lt;E_0 || Q_1, ..., Q_k>></c>,
           where each <c>Q_i</c> is a qualifier, then Rep(E) =
-          <c>{bc,LINE,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}</c>.
+          <c>{bc,ANNO,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}</c>.
           For Rep(Q), see below.</p>
       </item>
       <item>
@@ -339,8 +344,8 @@
           <c>&lt;&lt;E_1:Size_1/TSL_1, ..., E_k:Size_k/TSL_k>></c>,
           where each <c>Size_i</c> is an expression and each
           <c>TSL_i</c> is a type specificer list, then Rep(E) =
-          <c>{bin,LINE,[{bin_element,LINE,Rep(E_1),Rep(Size_1),Rep(TSL_1)},
-          ..., {bin_element,LINE,Rep(E_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
+          <c>{bin,ANNO,[{bin_element,ANNO,Rep(E_1),Rep(Size_1),Rep(TSL_1)},
+          ..., {bin_element,ANNO,Rep(E_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
           For Rep(TSL), see below.
           An omitted <c>Size_i</c> is represented by <c>default</c>.
           An omitted <c>TSL_i</c> is represented by <c>default</c>.</p>
@@ -348,92 +353,92 @@
       <item>
         <p>If E is a block expression <c>begin B end</c>,
           where <c>B</c> is a body, then Rep(E) =
-          <c>{block,LINE,Rep(B)}</c>.</p>
+          <c>{block,ANNO,Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If E is a case expression <c>case E_0 of Cc_1 ; ... ; Cc_k end</c>,
           where <c>E_0</c> is an expression and each <c>Cc_i</c> is a
           case clause, then Rep(E) =
-          <c>{'case',LINE,Rep(E_0),[Rep(Cc_1), ..., Rep(Cc_k)]}</c>.</p>
+          <c>{'case',ANNO,Rep(E_0),[Rep(Cc_1), ..., Rep(Cc_k)]}</c>.</p>
       </item>
       <item>
         <p>If E is a catch expression <c>catch E_0</c>, then Rep(E) =
-          <c>{'catch',LINE,Rep(E_0)}</c>.</p>
+          <c>{'catch',ANNO,Rep(E_0)}</c>.</p>
       </item>
       <item>
         <p>If E is a cons skeleton <c>[E_h | E_t]</c>, then Rep(E) =
-          <c>{cons,LINE,Rep(E_h),Rep(E_t)}</c>.</p>
+          <c>{cons,ANNO,Rep(E_h),Rep(E_t)}</c>.</p>
       </item>
       <item>
         <p>If E is a fun expression <c>fun Name/Arity</c>, then Rep(E) =
-          <c>{'fun',LINE,{function,Name,Arity}}</c>.</p>
+          <c>{'fun',ANNO,{function,Name,Arity}}</c>.</p>
       </item>
       <item>
         <p>If E is a fun expression <c>fun Module:Name/Arity</c>, then Rep(E) =
-          <c>{'fun',LINE,{function,Rep(Module),Rep(Name),Rep(Arity)}}</c>.</p>
+          <c>{'fun',ANNO,{function,Rep(Module),Rep(Name),Rep(Arity)}}</c>.</p>
       </item>
       <item>
         <p>If E is a fun expression <c>fun Fc_1 ; ... ; Fc_k end</c>,
           where each <c>Fc_i</c> is a function clause, then Rep(E) =
-          <c>{'fun',LINE,{clauses,[Rep(Fc_1), ..., Rep(Fc_k)]}}</c>.</p>
+          <c>{'fun',ANNO,{clauses,[Rep(Fc_1), ..., Rep(Fc_k)]}}</c>.</p>
       </item>
       <item>
         <p>If E is a fun expression <c>fun Name Fc_1 ; ... ; Name Fc_k end</c>,
           where <c>Name</c> is a variable and each
           <c>Fc_i</c> is a function clause, then Rep(E) =
-          <c>{named_fun,LINE,Name,[Rep(Fc_1), ..., Rep(Fc_k)]}</c>.</p>
+          <c>{named_fun,ANNO,Name,[Rep(Fc_1), ..., Rep(Fc_k)]}</c>.</p>
       </item>
       <item>
         <p>If E is a function call <c>E_0(E_1, ..., E_k)</c>, then Rep(E) =
-          <c>{call,LINE,Rep(E_0),[Rep(E_1), ..., Rep(E_k)]}</c>.</p>
+          <c>{call,ANNO,Rep(E_0),[Rep(E_1), ..., Rep(E_k)]}</c>.</p>
       </item>
       <item>
         <p>If E is a function call <c>E_m:E_0(E_1, ..., E_k)</c>, then Rep(E) =
-          <c>{call,LINE,{remote,LINE,Rep(E_m),Rep(E_0)},[Rep(E_1), ...,
+          <c>{call,ANNO,{remote,ANNO,Rep(E_m),Rep(E_0)},[Rep(E_1), ...,
           Rep(E_k)]}</c>.</p>
       </item>
       <item>
         <p>If E is an if expression <c>if Ic_1 ; ... ; Ic_k  end</c>,
           where each <c>Ic_i</c> is an if clause, then Rep(E) =
-          <c>{'if',LINE,[Rep(Ic_1), ..., Rep(Ic_k)]}</c>.</p>
+          <c>{'if',ANNO,[Rep(Ic_1), ..., Rep(Ic_k)]}</c>.</p>
       </item>
       <item>
         <p>If E is a list comprehension <c>[E_0 || Q_1, ..., Q_k]</c>,
           where each <c>Q_i</c> is a qualifier, then Rep(E) =
-          <c>{lc,LINE,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}</c>.
+          <c>{lc,ANNO,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}</c>.
           For Rep(Q), see below.</p>
       </item>
       <item>
         <p>If E is a map creation <c>#{A_1, ..., A_k}</c>,
           where each <c>A_i</c> is an association <c>E_i_1 => E_i_2</c>,
-	  then Rep(E) = <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
+	  then Rep(E) = <c>{map,ANNO,[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see below.</p>
       </item>
       <item>
         <p>If E is a map update <c>E_0#{A_1, ..., A_k}</c>,
           where each <c>A_i</c> is an association <c>E_i_1 => E_i_2</c>
           or <c>E_i_1 := E_i_2</c>, then Rep(E) =
-          <c>{map,LINE,Rep(E_0),[Rep(A_1), ..., Rep(A_k)]}</c>.
+          <c>{map,ANNO,Rep(E_0),[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see below.</p>
       </item>
       <item>
         <p>If E is a match operator expression <c>P = E_0</c>,
           where <c>P</c> is a pattern, then Rep(E) =
-          <c>{match,LINE,Rep(P),Rep(E_0)}</c>.</p>
+          <c>{match,ANNO,Rep(P),Rep(E_0)}</c>.</p>
       </item>
       <item>
-        <p>If E is nil, <c>[]</c>, then Rep(E) = <c>{nil,LINE}</c>.</p>
+        <p>If E is nil, <c>[]</c>, then Rep(E) = <c>{nil,ANNO}</c>.</p>
       </item>
       <item>
         <p>If E is an operator expression <c>E_1 Op E_2</c>,
           where <c>Op</c> is a binary operator other than match operator
           <c>=</c>, then Rep(E) =
-          <c>{op,LINE,Op,Rep(E_1),Rep(E_2)}</c>.</p>
+          <c>{op,ANNO,Op,Rep(E_1),Rep(E_2)}</c>.</p>
       </item>
       <item>
         <p>If E is an operator expression <c>Op E_0</c>,
           where <c>Op</c> is a unary operator, then Rep(E) =
-          <c>{op,LINE,Op,Rep(E_0)}</c>.</p>
+          <c>{op,ANNO,Op,Rep(E_0)}</c>.</p>
       </item>
       <item>
         <p>If E is a parenthesized expression <c>( E_0 )</c>, then Rep(E) =
@@ -443,68 +448,68 @@
       <item>
         <p>If E is a receive expression <c>receive Cc_1 ; ... ; Cc_k end</c>,
           where each <c>Cc_i</c> is a case clause, then Rep(E) =
-          <c>{'receive',LINE,[Rep(Cc_1), ..., Rep(Cc_k)]}</c>.</p>
+          <c>{'receive',ANNO,[Rep(Cc_1), ..., Rep(Cc_k)]}</c>.</p>
       </item>
       <item>
         <p>If E is a receive expression
           <c>receive Cc_1 ; ... ; Cc_k after E_0 -> B_t end</c>,
           where each <c>Cc_i</c> is a case clause, <c>E_0</c> is an expression,
           and <c>B_t</c> is a body, then Rep(E) =
-          <c>{'receive',LINE,[Rep(Cc_1), ...,
+          <c>{'receive',ANNO,[Rep(Cc_1), ...,
           Rep(Cc_k)],Rep(E_0),Rep(B_t)}</c>.</p>
       </item>
       <item>
         <p>If E is a record creation
           <c>#Name{Field_1=E_1, ..., Field_k=E_k}</c>,
           where each <c>Field_i</c> is an atom or <c>_</c>, then Rep(E) =
-          <c>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(E_1)},
-          ..., {record_field,LINE,Rep(Field_k),Rep(E_k)}]}</c>.</p>
+          <c>{record,ANNO,Name,[{record_field,ANNO,Rep(Field_1),Rep(E_1)},
+          ..., {record_field,ANNO,Rep(Field_k),Rep(E_k)}]}</c>.</p>
       </item>
       <item>
         <p>If E is a record field access <c>E_0#Name.Field</c>,
           where <c>Field</c> is an atom, then Rep(E) =
-          <c>{record_field,LINE,Rep(E_0),Name,Rep(Field)}</c>.</p>
+          <c>{record_field,ANNO,Rep(E_0),Name,Rep(Field)}</c>.</p>
       </item>
       <item>
         <p>If E is a record field index <c>#Name.Field</c>,
           where <c>Field</c> is an atom, then Rep(E) =
-          <c>{record_index,LINE,Name,Rep(Field)}</c>.</p></item>
+          <c>{record_index,ANNO,Name,Rep(Field)}</c>.</p></item>
       <item>
         <p>If E is a record update
           <c>E_0#Name{Field_1=E_1, ..., Field_k=E_k}</c>,
           where each <c>Field_i</c> is an atom, then Rep(E) =
-          <c>{record,LINE,Rep(E_0),Name,[{record_field,LINE,Rep(Field_1),Rep(E_1)},
-      ..., {record_field,LINE,Rep(Field_k),Rep(E_k)}]}</c>.</p>
+          <c>{record,ANNO,Rep(E_0),Name,[{record_field,ANNO,Rep(Field_1),Rep(E_1)},
+      ..., {record_field,ANNO,Rep(Field_k),Rep(E_k)}]}</c>.</p>
       </item>
       <item>
         <p>If E is a tuple skeleton <c>{E_1, ..., E_k}</c>, then Rep(E) =
-          <c>{tuple,LINE,[Rep(E_1), ..., Rep(E_k)]}</c>.</p>
+          <c>{tuple,ANNO,[Rep(E_1), ..., Rep(E_k)]}</c>.</p>
       </item>
       <item>
         <p>If E is a try expression <c>try B catch Tc_1 ; ... ; Tc_k end</c>,
           where <c>B</c> is a body and each <c>Tc_i</c> is a catch clause,
           then Rep(E) =
-          <c>{'try',LINE,Rep(B),[],[Rep(Tc_1), ..., Rep(Tc_k)],[]}</c>.</p>
+          <c>{'try',ANNO,Rep(B),[],[Rep(Tc_1), ..., Rep(Tc_k)],[]}</c>.</p>
       </item>
       <item>
         <p>If E is a try expression
           <c>try B of Cc_1 ; ... ; Cc_k catch Tc_1 ; ... ; Tc_n end</c>,
           where <c>B</c> is a body, each <c>Cc_i</c> is a case clause, and
           each <c>Tc_j</c> is a catch clause, then Rep(E) =
-          <c>{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1), ...,
+          <c>{'try',ANNO,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1), ...,
           Rep(Tc_n)],[]}</c>.</p>
       </item>
       <item>
         <p>If E is a try expression <c>try B after A end</c>,
           where <c>B</c> and <c>A</c> are bodies, then Rep(E) =
-          <c>{'try',LINE,Rep(B),[],[],Rep(A)}</c>.</p>
+          <c>{'try',ANNO,Rep(B),[],[],Rep(A)}</c>.</p>
       </item>
       <item>
         <p>If E is a try expression
           <c>try B of Cc_1 ; ... ; Cc_k after A end</c>,
           where <c>B</c> and <c>A</c> are a bodies,
           and each <c>Cc_i</c> is a case clause, then Rep(E) =
-          <c>{'try',LINE,Rep(B),[Rep(Cc_1), ...,
+          <c>{'try',ANNO,Rep(B),[Rep(Cc_1), ...,
           Rep(Cc_k)],[],Rep(A)}</c>.</p>
       </item>
       <item>
@@ -512,7 +517,7 @@
           <c>try B catch Tc_1 ; ... ; Tc_k after A end</c>,
           where <c>B</c> and <c>A</c> are bodies,
           and each <c>Tc_i</c> is a catch clause, then Rep(E) =
-          <c>{'try',LINE,Rep(B),[],[Rep(Tc_1), ...,
+          <c>{'try',ANNO,Rep(B),[],[Rep(Tc_1), ...,
           Rep(Tc_k)],Rep(A)}</c>.</p>
       </item>
       <item>
@@ -521,11 +526,11 @@
           end</c>, where <c>B</c> and <c>A</c> are a bodies,
           each <c>Cc_i</c> is a case clause,
           and each <c>Tc_j</c> is a catch clause, then Rep(E) =
-          <c>{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1), ...,
+          <c>{'try',ANNO,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1), ...,
           Rep(Tc_n)],Rep(A)}</c>.</p>
       </item>
       <item>
-        <p>If E is a variable <c>V</c>, then Rep(E) = <c>{var,LINE,A}</c>,
+        <p>If E is a variable <c>V</c>, then Rep(E) = <c>{var,ANNO,A}</c>,
           where <c>A</c> is an atom with a printname consisting of the same
           characters as <c>V</c>.</p>
       </item>
@@ -543,12 +548,12 @@
         <item>
           <p>If Q is a generator <c>P &lt;- E</c>, where <c>P</c> is
             a pattern and <c>E</c> is an expression, then Rep(Q) =
-            <c>{generate,LINE,Rep(P),Rep(E)}</c>.</p>
+            <c>{generate,ANNO,Rep(P),Rep(E)}</c>.</p>
         </item>
         <item>
           <p>If Q is a bitstring generator <c>P &lt;= E</c>, where <c>P</c> is
             a pattern and <c>E</c> is an expression, then Rep(Q) =
-            <c>{b_generate,LINE,Rep(P),Rep(E)}</c>.</p>
+            <c>{b_generate,ANNO,Rep(P),Rep(E)}</c>.</p>
         </item>
       </list>
     </section>
@@ -579,11 +584,11 @@
       <list type="bulleted">
          <item>
            <p>If A is an association <c>K => V</c>,
-             then Rep(A) = <c>{map_field_assoc,LINE,Rep(K),Rep(V)}</c>.</p>
+             then Rep(A) = <c>{map_field_assoc,ANNO,Rep(K),Rep(V)}</c>.</p>
         </item>
         <item>
           <p>If A is an association <c>K := V</c>,
-            then Rep(A) = <c>{map_field_exact,LINE,Rep(K),Rep(V)}</c>.</p>
+            then Rep(A) = <c>{map_field_exact,ANNO,Rep(K),Rep(V)}</c>.</p>
         </item>
       </list>
     </section>
@@ -600,18 +605,18 @@
       <item>
         <p>If C is a case clause <c>P -> B</c>,
           where <c>P</c> is a pattern and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep(P)],[],Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,ANNO,[Rep(P)],[],Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a case clause <c>P when Gs -> B</c>,
           where <c>P</c> is a pattern,
           <c>Gs</c> is a guard sequence, and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep(P)],Rep(Gs),Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,ANNO,[Rep(P)],Rep(Gs),Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a catch clause <c>P -> B</c>,
           where <c>P</c> is a pattern and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],[],Rep(B)}</c>,
+          Rep(C) = <c>{clause,ANNO,[Rep({throw,P,_})],[],Rep(B)}</c>,
 	  that is, a catch clause with an explicit exception class
 	  <c>throw</c> and with or without an explicit stacktrace
 	  variable <c>_</c> cannot be distinguished from a catch clause
@@ -622,7 +627,7 @@
         <p>If C is a catch clause <c>X : P -> B</c>,
           where <c>X</c> is an atomic literal or a variable pattern,
           <c>P</c> is a pattern, and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],[],Rep(B)}</c>,
+          Rep(C) = <c>{clause,ANNO,[Rep({X,P,_})],[],Rep(B)}</c>,
 	  that is, a catch clause with an explicit exception class and
 	  with an explicit stacktrace variable <c>_</c> cannot be
 	  distinguished from a catch clause with an explicit exception
@@ -633,13 +638,13 @@
           where <c>X</c> is an atomic literal or a variable pattern,
           <c>P</c> is a pattern, <c>S</c> is a variable, and <c>B</c>
 	  is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({X,P,S})],[],Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,ANNO,[Rep({X,P,S})],[],Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a catch clause <c>P when Gs -> B</c>,
           where <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
           and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],Rep(Gs),Rep(B)}</c>,
+          Rep(C) = <c>{clause,ANNO,[Rep({throw,P,_})],Rep(Gs),Rep(B)}</c>,
 	  that is, a catch clause with an explicit exception class
 	  <c>throw</c> and with or without an explicit stacktrace
 	  variable <c>_</c> cannot be distinguished from a catch clause
@@ -651,7 +656,7 @@
           where <c>X</c> is an atomic literal or a variable pattern,
           <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
           and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],Rep(Gs),Rep(B)}</c>,
+          Rep(C) = <c>{clause,ANNO,[Rep({X,P,_})],Rep(Gs),Rep(B)}</c>,
 	  that is, a catch clause with an explicit exception class and
 	  with an explicit stacktrace variable <c>_</c> cannot be
 	  distinguished from a catch clause with an explicit exception
@@ -662,23 +667,23 @@
           where <c>X</c> is an atomic literal or a variable pattern,
           <c>P</c> is a pattern, <c>Gs</c> is a guard sequence,
           <c>S</c> is a variable, and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[Rep({X,P,S})],Rep(Gs),Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,ANNO,[Rep({X,P,S})],Rep(Gs),Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a function clause <c>( Ps ) -> B</c>,
           where <c>Ps</c> is a pattern sequence and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,Rep(Ps),[],Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,ANNO,Rep(Ps),[],Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is a function clause <c>( Ps ) when Gs -> B</c>,
           where <c>Ps</c> is a pattern sequence,
           <c>Gs</c> is a guard sequence and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,Rep(Ps),Rep(Gs),Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,ANNO,Rep(Ps),Rep(Gs),Rep(B)}</c>.</p>
       </item>
       <item>
         <p>If C is an if clause <c>Gs -> B</c>,
           where <c>Gs</c> is a guard sequence and <c>B</c> is a body, then
-          Rep(C) = <c>{clause,LINE,[],Rep(Gs),Rep(B)}</c>.</p>
+          Rep(C) = <c>{clause,ANNO,[],Rep(Gs),Rep(B)}</c>.</p>
       </item>
     </list>
   </section>
@@ -704,54 +709,54 @@
           <c>&lt;&lt;Gt_1:Size_1/TSL_1, ..., Gt_k:Size_k/TSL_k>></c>,
           where each <c>Size_i</c> is a guard test and each
           <c>TSL_i</c> is a type specificer list, then Rep(Gt) =
-          <c>{bin,LINE,[{bin_element,LINE,Rep(Gt_1),Rep(Size_1),Rep(TSL_1)},
-          ..., {bin_element,LINE,Rep(Gt_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
+          <c>{bin,ANNO,[{bin_element,ANNO,Rep(Gt_1),Rep(Size_1),Rep(TSL_1)},
+          ..., {bin_element,ANNO,Rep(Gt_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
           For Rep(TSL), see above.
           An omitted <c>Size_i</c> is represented by <c>default</c>.
           An omitted <c>TSL_i</c> is represented by <c>default</c>.</p>
       </item>
       <item>
         <p>If Gt is a cons skeleton <c>[Gt_h | Gt_t]</c>, then Rep(Gt) =
-          <c>{cons,LINE,Rep(Gt_h),Rep(Gt_t)}</c>.</p>
+          <c>{cons,ANNO,Rep(Gt_h),Rep(Gt_t)}</c>.</p>
       </item>
       <item>
         <p>If Gt is a function call <c>A(Gt_1, ..., Gt_k)</c>,
           where <c>A</c> is an atom, then Rep(Gt) =
-          <c>{call,LINE,Rep(A),[Rep(Gt_1), ..., Rep(Gt_k)]}</c>.</p>
+          <c>{call,ANNO,Rep(A),[Rep(Gt_1), ..., Rep(Gt_k)]}</c>.</p>
       </item>
       <item>
         <p>If Gt is a function call <c>A_m:A(Gt_1, ..., Gt_k)</c>,
           where <c>A_m</c> is the atom <c>erlang</c> and <c>A</c> is
           an atom or an operator, then Rep(Gt) =
-          <c>{call,LINE,{remote,LINE,Rep(A_m),Rep(A)},[Rep(Gt_1), ...,
+          <c>{call,ANNO,{remote,ANNO,Rep(A_m),Rep(A)},[Rep(Gt_1), ...,
           Rep(Gt_k)]}</c>.</p>
       </item>
       <item>
         <p>If Gt is a map creation <c>#{A_1, ..., A_k}</c>,
           where each <c>A_i</c> is an association <c>Gt_i_1 => Gt_i_2</c>,
-	  then Rep(Gt) = <c>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</c>.
+	  then Rep(Gt) = <c>{map,ANNO,[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see above.</p>
       </item>
       <item>
         <p>If Gt is a map update <c>Gt_0#{A_1, ..., A_k}</c>,
           where each <c>A_i</c> is an association <c>Gt_i_1 => Gt_i_2</c>
           or <c>Gt_i_1 := Gt_i_2</c>, then Rep(Gt) =
-          <c>{map,LINE,Rep(Gt_0),[Rep(A_1), ..., Rep(A_k)]}</c>.
+          <c>{map,ANNO,Rep(Gt_0),[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see above.</p>
       </item>
       <item>
-        <p>If Gt is nil, <c>[]</c>, then Rep(Gt) = <c>{nil,LINE}</c>.</p>
+        <p>If Gt is nil, <c>[]</c>, then Rep(Gt) = <c>{nil,ANNO}</c>.</p>
       </item>
       <item>
         <p>If Gt is an operator guard test <c>Gt_1 Op Gt_2</c>,
           where <c>Op</c> is a binary operator other than match
           operator <c>=</c>, then Rep(Gt) =
-          <c>{op,LINE,Op,Rep(Gt_1),Rep(Gt_2)}</c>.</p>
+          <c>{op,ANNO,Op,Rep(Gt_1),Rep(Gt_2)}</c>.</p>
       </item>
       <item>
         <p>If Gt is an operator guard test <c>Op Gt_0</c>,
           where <c>Op</c> is a unary operator, then Rep(Gt) =
-          <c>{op,LINE,Op,Rep(Gt_0)}</c>.</p>
+          <c>{op,ANNO,Op,Rep(Gt_0)}</c>.</p>
       </item>
       <item>
         <p>If Gt is a parenthesized guard test <c>( Gt_0 )</c>, then Rep(Gt) =
@@ -762,26 +767,26 @@
         <p>If Gt is a record creation
           <c>#Name{Field_1=Gt_1, ..., Field_k=Gt_k}</c>,
            where each <c>Field_i</c> is an atom or <c>_</c>, then Rep(Gt) =
-           <c>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(Gt_1)},
-           ..., {record_field,LINE,Rep(Field_k),Rep(Gt_k)}]}</c>.</p>
+           <c>{record,ANNO,Name,[{record_field,ANNO,Rep(Field_1),Rep(Gt_1)},
+           ..., {record_field,ANNO,Rep(Field_k),Rep(Gt_k)}]}</c>.</p>
       </item>
       <item>
         <p>If Gt is  a record field access <c>Gt_0#Name.Field</c>,
           where <c>Field</c> is an atom, then Rep(Gt) =
-          <c>{record_field,LINE,Rep(Gt_0),Name,Rep(Field)}</c>.</p>
+          <c>{record_field,ANNO,Rep(Gt_0),Name,Rep(Field)}</c>.</p>
       </item>
       <item>
         <p>If Gt is a record field index <c>#Name.Field</c>,
           where <c>Field</c> is an atom, then Rep(Gt) =
-          <c>{record_index,LINE,Name,Rep(Field)}</c>.</p>
+          <c>{record_index,ANNO,Name,Rep(Field)}</c>.</p>
       </item>
       <item>
         <p>If Gt is a tuple skeleton <c>{Gt_1, ..., Gt_k}</c>, then Rep(Gt) =
-          <c>{tuple,LINE,[Rep(Gt_1), ..., Rep(Gt_k)]}</c>.</p>
+          <c>{tuple,ANNO,[Rep(Gt_1), ..., Rep(Gt_k)]}</c>.</p>
       </item>
       <item>
         <p>If Gt is a variable pattern <c>V</c>, then Rep(Gt) =
-          <c>{var,LINE,A}</c>, where A is an atom with
+          <c>{var,ANNO,A}</c>, where A is an atom with
           a printname consisting of the same characters as <c>V</c>.</p>
       </item>
     </list>
@@ -796,7 +801,7 @@
       <item>
         <p>If T is an annotated type <c>A :: T_0</c>,
           where <c>A</c> is a variable, then Rep(T) =
-          <c>{ann_type,LINE,[Rep(A),Rep(T_0)]}</c>.</p>
+          <c>{ann_type,ANNO,[Rep(A),Rep(T_0)]}</c>.</p>
       </item>
       <item>
         <p>If T is an atom, a character, or an integer literal L,
@@ -805,21 +810,21 @@
       <item>
         <p>If T is a bitstring type <c>&lt;&lt;_:M,_:_*N>></c>,
           where <c>M</c> and <c>N</c> are singleton integer types, then Rep(T) =
-          <c>{type,LINE,binary,[Rep(M),Rep(N)]}</c>.</p>
+          <c>{type,ANNO,binary,[Rep(M),Rep(N)]}</c>.</p>
       </item>
       <item>
         <p>If T is the empty list type <c>[]</c>, then Rep(T) =
-          <c>{type,Line,nil,[]}</c>, that is, the empty list type
+          <c>{type,ANNO,nil,[]}</c>, that is, the empty list type
           <c>[]</c> cannot be distinguished from the predefined type
           <c>nil()</c>.</p>
       </item>
       <item>
         <p>If T is a fun type <c>fun()</c>, then Rep(T) =
-          <c>{type,LINE,'fun',[]}</c>.</p>
+          <c>{type,ANNO,'fun',[]}</c>.</p>
       </item>
       <item>
         <p>If T is a fun type <c>fun((...) -> T_0)</c>, then Rep(T) =
-          <c>{type,LINE,'fun',[{type,LINE,any},Rep(T_0)]}</c>.</p>
+          <c>{type,ANNO,'fun',[{type,ANNO,any},Rep(T_0)]}</c>.</p>
       </item>
       <item>
         <p>If T is a fun type <c>fun(Ft)</c>, where
@@ -829,16 +834,16 @@
       <item>
         <p>If T is an integer range type <c>L .. H</c>,
           where <c>L</c> and <c>H</c> are singleton integer types, then Rep(T) =
-          <c>{type,LINE,range,[Rep(L),Rep(H)]}</c>.</p>
+          <c>{type,ANNO,range,[Rep(L),Rep(H)]}</c>.</p>
       </item>
       <item>
         <p>If T is a map type <c>map()</c>, then Rep(T) =
-          <c>{type,LINE,map,any}</c>.</p>
+          <c>{type,ANNO,map,any}</c>.</p>
       </item>
       <item>
         <p>If T is a map type <c>#{A_1, ..., A_k}</c>, where each
           <c>A_i</c> is an association type, then Rep(T) =
-          <c>{type,LINE,map,[Rep(A_1), ..., Rep(A_k)]}</c>.
+          <c>{type,ANNO,map,[Rep(A_1), ..., Rep(A_k)]}</c>.
           For Rep(A), see below.</p>
       </item>
       <item>
@@ -846,13 +851,13 @@
           where <c>Op</c> is a binary operator (this is an occurrence of
           an expression that can be evaluated to an integer at compile
           time), then Rep(T) =
-          <c>{op,LINE,Op,Rep(T_1),Rep(T_2)}</c>.</p>
+          <c>{op,ANNO,Op,Rep(T_1),Rep(T_2)}</c>.</p>
       </item>
       <item>
         <p>If T is an operator type <c>Op T_0</c>, where <c>Op</c> is a
           unary operator (this is an occurrence of an expression that can
           be evaluated to an integer at compile time), then Rep(T) =
-          <c>{op,LINE,Op,Rep(T_0)}</c>.</p>
+          <c>{op,ANNO,Op,Rep(T_0)}</c>.</p>
       </item>
       <item>
         <p>If T is <c>( T_0 )</c>, then Rep(T) = <c>Rep(T_0)</c>, that is,
@@ -860,40 +865,40 @@
       </item>
       <item>
         <p>If T is a predefined (or built-in) type <c>N(T_1, ..., T_k)</c>,
-          then Rep(T) = <c>{type,LINE,N,[Rep(T_1), ..., Rep(T_k)]}</c>.</p>
+          then Rep(T) = <c>{type,ANNO,N,[Rep(T_1), ..., Rep(T_k)]}</c>.</p>
       </item>
       <item>
         <p>If T is a record type <c>#Name{F_1, ..., F_k}</c>,
           where each <c>F_i</c> is a record field type, then Rep(T) =
-          <c>{type,LINE,record,[Rep(Name),Rep(F_1), ..., Rep(F_k)]}</c>.
+          <c>{type,ANNO,record,[Rep(Name),Rep(F_1), ..., Rep(F_k)]}</c>.
           For Rep(F), see below.</p>
       </item>
       <item>
         <p>If T is a remote type <c>M:N(T_1, ..., T_k)</c>, then Rep(T) =
-          <c>{remote_type,LINE,[Rep(M),Rep(N),[Rep(T_1), ...,
+          <c>{remote_type,ANNO,[Rep(M),Rep(N),[Rep(T_1), ...,
           Rep(T_k)]]}</c>.</p>
       </item>
       <item>
         <p>If T is a tuple type <c>tuple()</c>, then Rep(T) =
-          <c>{type,LINE,tuple,any}</c>.</p>
+          <c>{type,ANNO,tuple,any}</c>.</p>
       </item>
       <item>
         <p>If T is a tuple type <c>{T_1, ..., T_k}</c>, then Rep(T) =
-          <c>{type,LINE,tuple,[Rep(T_1), ..., Rep(T_k)]}</c>.</p>
+          <c>{type,ANNO,tuple,[Rep(T_1), ..., Rep(T_k)]}</c>.</p>
       </item>
       <item>
         <p>If T is a type union <c>T_1 | ... | T_k</c>, then Rep(T) =
-          <c>{type,LINE,union,[Rep(T_1), ..., Rep(T_k)]}</c>.</p>
+          <c>{type,ANNO,union,[Rep(T_1), ..., Rep(T_k)]}</c>.</p>
       </item>
       <item>
         <p>If T is a type variable <c>V</c>, then Rep(T) =
-          <c>{var,LINE,A}</c>, where <c>A</c> is an atom with a printname
+          <c>{var,ANNO,A}</c>, where <c>A</c> is an atom with a printname
           consisting of the same characters as <c>V</c>. A type variable
           is any variable except underscore (<c>_</c>).</p>
       </item>
       <item>
         <p>If T is a user-defined type <c>N(T_1, ..., T_k)</c>, then Rep(T) =
-          <c>{user_type,LINE,N,[Rep(T_1), ..., Rep(T_k)]}</c>.</p>
+          <c>{user_type,ANNO,N,[Rep(T_1), ..., Rep(T_k)]}</c>.</p>
       </item>
     </list>
 
@@ -906,13 +911,13 @@
           <p>If Ft is a constrained function type <c>Ft_1 when Fc</c>,
             where <c>Ft_1</c> is a function type and
             <c>Fc</c> is a function constraint, then Rep(T) =
-            <c>{type,LINE,bounded_fun,[Rep(Ft_1),Rep(Fc)]}</c>.
+            <c>{type,ANNO,bounded_fun,[Rep(Ft_1),Rep(Fc)]}</c>.
             For Rep(Fc), see below.</p>
         </item>
         <item>
           <p>If Ft is a function type <c>(T_1, ..., T_n) -> T_0</c>,
             where each <c>T_i</c> is a type, then Rep(Ft) =
-            <c>{type,LINE,'fun',[{type,LINE,product,[Rep(T_1), ...,
+            <c>{type,ANNO,'fun',[{type,ANNO,product,[Rep(T_1), ...,
             Rep(T_n)]},Rep(T_0)]}</c>.</p>
         </item>
       </list>
@@ -928,7 +933,7 @@
         <item>If C is a constraint <c>V :: T</c>,
           where <c>V</c> is a type variable
           and <c>T</c> is a type, then Rep(C) =
-          <c>{type,LINE,constraint,[{atom,LINE,is_subtype},[Rep(V),Rep(T)]]}</c>.
+          <c>{type,ANNO,constraint,[{atom,ANNO,is_subtype},[Rep(V),Rep(T)]]}</c>.
         </item>
       </list>
     </section>
@@ -939,12 +944,12 @@
         <item>
           <p>If A is an association type <c>K => V</c>,
             where <c>K</c> and <c>V</c> are types, then Rep(A) =
-            <c>{type,LINE,map_field_assoc,[Rep(K),Rep(V)]}</c>.</p>
+            <c>{type,ANNO,map_field_assoc,[Rep(K),Rep(V)]}</c>.</p>
         </item>
         <item>
           <p>If A is an association type <c>K := V</c>,
             where <c>K</c> and <c>V</c> are types, then Rep(A) =
-            <c>{type,LINE,map_field_exact,[Rep(K),Rep(V)]}</c>.</p>
+            <c>{type,ANNO,map_field_exact,[Rep(K),Rep(V)]}</c>.</p>
         </item>
       </list>
     </section>
@@ -954,7 +959,7 @@
       <list type="bulleted">
         <item>If F is a record field type <c>Name :: Type</c>,
           where <c>Type</c> is a type, then Rep(F) =
-          <c>{type,LINE,field_type,[Rep(Name),Rep(Type)]}</c>.
+          <c>{type,ANNO,field_type,[Rep(Name),Rep(Type)]}</c>.
         </item>
       </list>
     </section>
