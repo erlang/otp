@@ -130,7 +130,7 @@ ensure_all_started(Application) ->
       Started :: [atom()],
       Reason :: term().
 ensure_all_started(Application, Type) ->
-    case ensure_all_started(Application, Type, []) of
+    case ensure_all_started([Application], [], Type, []) of
 	{ok, Started} ->
 	    {ok, lists:reverse(Started)};
 	{error, Reason, Started} ->
@@ -138,23 +138,45 @@ ensure_all_started(Application, Type) ->
 	    {error, Reason}
     end.
 
-ensure_all_started(Application, Type, Started) ->
-    case start(Application, Type) of
-	ok ->
-	    {ok, [Application | Started]};
-	{error, {already_started, Application}} ->
-	    {ok, Started};
-	{error, {not_started, Dependency}} ->
-	    case ensure_all_started(Dependency, Type, Started) of
+ensure_all_started([App | Apps], OptionalApps, Type, Started) ->
+    case ensure_loaded(App) of
+	{ok, Name} ->
+	    case ensure_started(Name, App, Type, Started) of
 		{ok, NewStarted} ->
-		    ensure_all_started(Application, Type, NewStarted);
+		    ensure_all_started(Apps, OptionalApps, Type, NewStarted);
 		Error ->
 		    Error
 	    end;
+	{error, {"no such file or directory", _} = Reason} ->
+	    case lists:member(App, OptionalApps) of
+		true ->
+		    ensure_all_started(Apps, OptionalApps, Type, Started);
+		false ->
+		    {error, {App, Reason}, Started}
+	    end;
 	{error, Reason} ->
-	    {error, {Application, Reason}, Started}
-    end.
+	    {error, {App, Reason}, Started}
+    end;
+ensure_all_started([], _OptionalApps, _Type, Started) ->
+    {ok, Started}.
 
+ensure_started(Name, App, Type, Started) ->
+    {ok, ChildApps} = get_key(Name, applications),
+    {ok, OptionalApps} = get_key(Name, optional_applications),
+
+    case ensure_all_started(ChildApps, OptionalApps, Type, Started) of
+	{ok, NewStarted} ->
+	    case application_controller:start_application(Name, Type) of
+		ok ->
+		    {ok, [App | NewStarted]};
+		{error, {already_started, App}} ->
+		    {ok, NewStarted};
+		{error, Reason} ->
+		    {error, {App, Reason}, NewStarted}
+	    end;
+	Error ->
+	    Error
+    end.
 
 -spec start(Application) -> 'ok' | {'error', Reason} when
       Application :: atom(),
@@ -169,12 +191,19 @@ start(Application) ->
       Reason :: term().
 
 start(Application, RestartType) ->
+    case ensure_loaded(Application) of
+	{ok, Name} ->
+	    application_controller:start_application(Name, RestartType);
+	Error ->
+	    Error
+    end.
+
+ensure_loaded(Application) ->
     case load(Application) of
 	ok ->
-	    Name = get_appl_name(Application),
-	    application_controller:start_application(Name, RestartType);
+	    {ok, get_appl_name(Application)};
 	{error, {already_loaded, Name}} ->
-	    application_controller:start_application(Name, RestartType);
+	    {ok, Name};
 	Error ->
 	    Error
     end.

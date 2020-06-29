@@ -573,23 +573,23 @@ apps_in_rel(#rel{name = RelName, rel_apps = RelApps}, Apps) ->
     Explicit0 = [{RelName, AppName} || #rel_app{name=AppName} <- RelApps],
     Explicit = Mandatory ++ Explicit0,
     Deps =
-	[{RelName, AppName} ||
+	[{RelName, AppName, Optional} ||
 	    RA <- RelApps,
-	    AppName <-
+	    {AppName, Optional} <-
 		case lists:keyfind(RA#rel_app.name,
 				   #app.name,
 				   Apps) of
-		    App=#app{info = #app_info{applications = AA}} ->
+		    #app{info = Info} ->
 			%% Included applications in rel shall overwrite included
 			%% applications in .app. I.e. included applications in
 			%% .app shall only be used if it is not defined in rel.
 			IA = case RA#rel_app.incl_apps of
 				 undefined ->
-				     (App#app.info)#app_info.incl_apps;
+				     Info#app_info.incl_apps;
 				 RelIA ->
 				     RelIA
 			     end,
-			AA ++ IA;
+			build_more_apps(Info, IA);
 		    false ->
 			reltool_utils:throw_error(
 			  "Release ~tp uses non existing "
@@ -599,16 +599,19 @@ apps_in_rel(#rel{name = RelName, rel_apps = RelApps}, Apps) ->
 	    not lists:keymember(AppName, 2, Explicit)],
     more_apps_in_rels(Deps, Apps, Explicit).
 
-more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
-    case lists:member(RA, Acc) of
+more_apps_in_rels([{RelName, AppName, Optional} | RelApps], Apps, Acc) ->
+    case lists:member({RelName, AppName}, Acc) of
 	true ->
 	    more_apps_in_rels(RelApps, Apps, Acc);
 	false ->
 	    case lists:keyfind(AppName, #app.name, Apps) of
-		#app{info = #app_info{applications = AA, incl_apps=IA}} ->
-		    Extra = [{RelName, N} || N <- AA++IA],
-		    Acc2 = more_apps_in_rels(Extra, Apps, [RA | Acc]),
+		#app{info = #app_info{incl_apps=IA} = Info} ->
+		    Extra = [{RelName, ChildName, ChildOptional} ||
+				{ChildName, ChildOptional} <- build_more_apps(Info, IA)],
+		    Acc2 = more_apps_in_rels(Extra, Apps, [{RelName, AppName} | Acc]),
 		    more_apps_in_rels(RelApps, Apps, Acc2);
+		false when Optional ->
+		    more_apps_in_rels(RelApps, Apps, Acc);
 		false ->
 		    reltool_utils:throw_error(
 		      "Release ~tp uses non existing application ~w",
@@ -617,6 +620,11 @@ more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
     end;
 more_apps_in_rels([], _Apps, Acc) ->
     Acc.
+
+build_more_apps(#app_info{applications = AA, opt_apps = OA}, IA) ->
+    AAOpt = [{App, lists:member(App, OA)} || App <- AA],
+    IAOpt = [{App, false} || App <- IA],
+    AAOpt ++ IAOpt.
 
 apps_init_is_included(S, Apps, RelApps, Status) ->
     lists:foldl(fun(App, AccStatus) ->
@@ -1215,6 +1223,8 @@ parse_app_info(File, [{Key, Val} | KeyVals], AI, Status) ->
         registered ->
 	    parse_app_info(File, KeyVals, AI#app_info{registered = Val},
 			   Status);
+	optional_applications ->
+	    parse_app_info(File, KeyVals, AI#app_info{opt_apps = Val}, Status);
         included_applications ->
 	    parse_app_info(File, KeyVals, AI#app_info{incl_apps = Val}, Status);
         applications ->

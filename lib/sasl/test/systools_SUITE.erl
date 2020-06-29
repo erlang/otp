@@ -60,7 +60,7 @@ groups() ->
       [script_options, normal_script, start_script, unicode_script, no_mod_vsn_script,
        wildcard_script, variable_script, abnormal_script,
        no_sasl_script, no_dot_erlang_script,
-       src_tests_script, crazy_script,
+       src_tests_script, crazy_script, optional_apps_script,
        included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
        duplicate_modules_script,
@@ -320,6 +320,46 @@ unicode_script(cleanup,Config) ->
     file:delete(fname(?privdir, "unicode_app.tgz")),
     ok.
 
+%% make_script: Check that script handles optional apps.
+optional_apps_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),        % Save path
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_opt_apps, lib]),
+    P1 = fname([LibDir, 'app1-1.0', ebin]),
+    P2 = fname([LibDir, 'app2-1.0', ebin]),
+    true = code:add_patha(P1),
+    true = code:add_patha(P2),
+
+    %% First assemble a release without the optional app
+    {OptDir, OptName} = create_script(optional_apps_missing,Config),
+    ok = file:set_cwd(OptDir),
+    ok = systools:make_script(filename:basename(OptName), [{script_name, "start"}]),
+    {ok, [{script,_,OptCommands}]} = read_script_file("start"),
+
+    %% Check optional_applications is part of the generated script
+    [[app2]] =
+	[proplists:get_value(optional_applications, Properties) ||
+	     {apply,{application,load,[{application,app1,Properties}]}} <- OptCommands],
+
+    %% And there is no app2
+    [] =
+	[ok || {apply,{application,load,[{application,app2,_}]}} <- OptCommands],
+
+    %% Now let's include the optional app
+    {AllDir, AllName} = create_script(optional_apps_all,Config),
+    ok = file:set_cwd(AllDir),
+    ok = systools:make_script(filename:basename(AllName), [{script_name, "start"}]),
+    {ok, [{script,_,AllCommands}]} = read_script_file("start"),
+
+    %% Check boot order is still correct
+    BootOrder = [App || {apply,{application,start_boot,[App,permanent]}} <- AllCommands],
+    [kernel, stdlib, sasl, app2, app1] = BootOrder,
+
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),           % Restore path
+    ok.
 
 %% make_script:
 %% Modules specified without version in .app file (db-3.1).
@@ -2544,8 +2584,13 @@ create_script(replace_app0,Config) ->
     do_create_script(repace_app0,Config,current,Apps);
 create_script(replace_app1,Config) ->
     Apps = core_apps(current) ++ [{db,"1.0"},{fe,"2.1"}],
-    do_create_script(repace_app1,Config,current,Apps).
-
+    do_create_script(repace_app1,Config,current,Apps);
+create_script(optional_apps_missing,Config) ->
+    Apps = core_apps(current) ++ [{app1,"1.0"}],
+    do_create_script(optional_apps_missing,Config,current,Apps);
+create_script(optional_apps_all,Config) ->
+    Apps = core_apps(current) ++ [{app1,"1.0"},{app2,"1.0"}],
+    do_create_script(optional_apps_all,Config,current,Apps).
 
 do_create_script(Id,Config,ErtsVsn,AppVsns) ->
     do_create_script(Id,string:to_upper(atom_to_list(Id)),Config,ErtsVsn,AppVsns).

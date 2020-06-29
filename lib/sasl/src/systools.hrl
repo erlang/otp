@@ -48,6 +48,8 @@
 				%% Module = atom(), Vsn = string().
 	 uses = [],		%% [Application] list of applications required
 	 			%% by the application, Application = atom().
+	 optional = [],		%% [Application] list of applications in uses
+	 			%% that are optional, Application = atom().
 	 includes = [],		%% [Application] list of applications included
 	 			%% by the application, Application = atom().
 	 regs = [],		%% [RegNames] a list of registered process 

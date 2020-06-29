@@ -59,6 +59,7 @@
    {maxT,         MaxT},
    {registered,   Names},
    {included_applications, Apps},
+   {optional_applications, Apps},
    {applications, Apps},
    {env,          Env},
    {mod,          Start},
@@ -148,10 +149,21 @@ ApplicationVersion = string()</code>
       <tag><c>applications</c></tag>
       <item>
         <p>All applications that must be started before this
-          application is allowed to be started. <c>systools</c> uses
-          this list to generate correct start scripts. Defaults to
-          the empty list, but notice that all applications have
-          dependencies to (at least) Kernel and STDLIB.</p>
+          application. If an application is also listed in
+          <c>optional_applications</c>, then the application
+          is not required to exist (but if it exists, it is
+          also guaranteed to be started before this one).</p>
+        <p><c>systools</c> uses this list to generate correct start
+          scripts. Defaults to the empty list, but notice that all
+          applications have dependencies to (at least) Kernel and STDLIB.</p>
+      </item>
+      <tag><c>optional_applications</c></tag>
+      <item>
+        <p>A list of <c>applications</c> that are optional.
+          Note if you want an optional dependency to be
+          automatically started before the current application
+          whenever it is available, it must be listed on both
+          <c>applications</c> and <c>optional_applications</c>.</p>
       </item>
       <tag><c>env</c></tag>
       <item>
@@ -239,4 +251,3 @@ ApplicationVersion = string()</code>
       <seeerl marker="sasl:systools"><c>systools(3)</c></seeerl></p>
   </section>
 </fileref>
-

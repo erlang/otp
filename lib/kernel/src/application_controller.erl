@@ -158,7 +158,7 @@
 %% Env         = [{Key, Value}]
 %%-----------------------------------------------------------------
 
--record(appl, {name, appl_data, descr, id, vsn, restart_type, inc_apps, apps}).
+-record(appl, {name, appl_data, descr, id, vsn, restart_type, inc_apps, opt_apps, apps}).
 
 %%-----------------------------------------------------------------
 %% Func: start/1
@@ -373,6 +373,8 @@ get_key(AppName, Key) ->
 		    {ok, (Appl#appl.appl_data)#appl_data.regs};
 		included_applications ->
 		    {ok, Appl#appl.inc_apps};
+                optional_applications ->
+                    {ok, Appl#appl.opt_apps};
 		applications ->
 		    {ok, Appl#appl.apps};
 		env ->
@@ -404,6 +406,7 @@ get_all_key(AppName) ->
 		  {maxT, (Appl#appl.appl_data)#appl_data.maxT},
 		  {registered, (Appl#appl.appl_data)#appl_data.regs},
 		  {included_applications, Appl#appl.inc_apps},
+                  {optional_applications, Appl#appl.opt_apps},
 		  {applications, Appl#appl.apps},
 		  {env, get_all_env(AppName)},
 		  {mod, (Appl#appl.appl_data)#appl_data.mod},
@@ -1277,15 +1280,15 @@ do_load_application(Application, S) ->
 
 %% Recursively load the application and its included apps.
 %load(S, {ApplData, ApplEnv, IncApps, Descr, Vsn, Apps}) ->
-load(S, {ApplData, ApplEnv, IncApps, Descr, Id, Vsn, Apps}) ->
+load(S, {ApplData, ApplEnv, IncApps, OptApps, Descr, Id, Vsn, Apps}) ->
     Name = ApplData#appl_data.name,
     ConfEnv = get_env_i(Name, S),
     NewEnv = merge_app_env(ApplEnv, ConfEnv),
     CmdLineEnv = get_cmd_env(Name),
     NewEnv2 = merge_app_env(NewEnv, CmdLineEnv),
     add_env(Name, NewEnv2),
-    Appl = #appl{name = Name, descr = Descr, id = Id, vsn = Vsn, 
-		 appl_data = ApplData, inc_apps = IncApps, apps = Apps},
+    Appl = #appl{name = Name, descr = Descr, id = Id, vsn = Vsn, apps = Apps,
+		 appl_data = ApplData, inc_apps = IncApps, opt_apps = OptApps},
     ets:insert(ac_tab, {{loaded, Name}, Appl}),
     NewS =
 	foldl(fun(App, S1) ->
@@ -1322,13 +1325,13 @@ check_start_cond(AppName, RestartType, Started, Running) ->
 		    {error, {already_started, AppName}};
 		false ->
 		    foreach(
-		      fun(AppName2) ->
-			      case lists:keymember(AppName2, 1, Started) of
-				  true -> ok;
-				  false ->
-				      throw({error, {not_started, AppName2}})
-			      end
-		      end, Appl#appl.apps),
+			fun(AppName2) ->
+			    case lists:keymember(AppName2, 1, Started) orelse
+				     lists:member(AppName2, Appl#appl.opt_apps) of
+				true -> ok;
+				false -> throw({error, {not_started, AppName2}})
+			    end
+		    end, Appl#appl.apps),
 		    {ok, Appl}
 	    end;
 	false ->
@@ -1385,14 +1388,13 @@ start_appl(Appl, S, Type) ->
 	    %% Name = ApplData#appl_data.name,
 	    Running = S#state.running,
 	    foreach(
-	      fun(AppName) ->
-		      case lists:keymember(AppName, 1, Running) of
-			  true ->
-			      ok;
-			  false ->
-			      throw({info, {not_running, AppName}})
-		      end
-	      end, Appl#appl.apps),
+		fun(AppName) ->
+		    case lists:keymember(AppName, 1, Running) orelse
+			     lists:member(AppName, Appl#appl.opt_apps) of
+			true -> ok;
+			false -> throw({info, {not_running, AppName}})
+		    end
+		end, Appl#appl.apps),
 	    case application_master:start_link(ApplData, Type) of
 		{ok, _Pid} = Ok ->
 		    Ok;
@@ -1526,9 +1528,10 @@ make_appl_i({application, Name, Opts}) when is_atom(Name), is_list(Opts) ->
     MaxP = get_opt(maxP, Opts, infinity),
     MaxT = get_opt(maxT, Opts, infinity),
     IncApps = get_opt(included_applications, Opts, []),
+    OptApps = get_opt(optional_applications, Opts, []),
     {#appl_data{name = Name, regs = Regs, mod = Mod, phases = Phases,
 		mods = Mods, maxP = MaxP, maxT = MaxT},
-     Env, IncApps, Descr, Id, Vsn, Apps};
+     Env, IncApps, OptApps, Descr, Id, Vsn, Apps};
 make_appl_i({application, Name, Opts}) when is_list(Opts) ->
     throw({error,{invalid_name,Name}});
 make_appl_i({application, _Name, Opts}) ->
@@ -1580,7 +1583,7 @@ is_loaded_app(AppName, [{application, AppName, App} | _]) ->
 is_loaded_app(AppName, [_ | T]) -> is_loaded_app(AppName, T);
 is_loaded_app(_AppName, []) -> false.
 
-do_change_appl({ok, {ApplData, Env, IncApps, Descr, Id, Vsn, Apps}},
+do_change_appl({ok, {ApplData, Env, IncApps, OptApps, Descr, Id, Vsn, Apps}},
 	       OldAppl, Config) ->
     AppName = OldAppl#appl.name,
 
@@ -1601,6 +1604,7 @@ do_change_appl({ok, {ApplData, Env, IncApps, Descr, Id, Vsn, Apps}},
 		 id=Id,
 		 vsn=Vsn,
 		 inc_apps=IncApps,
+                 opt_apps=OptApps,
 		 apps=Apps};
 do_change_appl({error, _R} = Error, _Appl, _ConfData) ->
     throw(Error).
