@@ -297,17 +297,17 @@ start_shell(Port, IOServer, ExtraOptions) ->
                           ct:log("is_integer(Port) Call ssh:shell(~p, ~p, ~p)",
                                  [Host, Port, Options]),
                           ssh:shell(Host, Port, Options);
-                      Socket when is_port(Socket) ->
-                          receive
-                              start -> ok
-                          end,
-                          ct:log("is_port(Socket) Call ssh:shell(~p, ~p)",
-                                 [Socket, Options]),
-                          ssh:shell(Socket, Options);
                       ConnRef when is_pid(ConnRef) ->
                           ct:log("is_pid(ConnRef) Call ssh:shell(~p)",
                                  [ConnRef]),
-                          ssh:shell(ConnRef) % Options were given in ssh:connect
+                          ssh:shell(ConnRef); % Options were given in ssh:connect
+                      Socket ->
+                          receive
+                              start -> ok
+                          end,
+                          ct:log("Socket Call ssh:shell(~p, ~p)",
+                                 [Socket, Options]),
+                          ssh:shell(Socket, Options)
                   end
               of
                   R ->
