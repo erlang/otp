@@ -223,7 +223,7 @@
 		  </list>
 
         <note>
-            <p>The current implementation spawns a port programm
+            <p>The current implementation spawns a port program
             written in C that utilizes the actual ODBC driver. There
             is a default timeout of 5000 msec for this port programm
             to connect to the Erlang ODBC application. This timeout

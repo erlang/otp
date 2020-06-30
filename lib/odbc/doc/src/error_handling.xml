@@ -63,7 +63,7 @@
       <title>Timeouts </title>
       <p>All request made by the client to the connection are
         synchronous. If the timeout is used and expires the client
-        process will exit with reason timeout. Proably the right thing
+        process will exit with reason timeout. Probably the right thing
         to do is let the client die and perhaps be restarted by its
         supervisor. But if the client chooses to catch this timeout,
         it is a good idea to wait a little while before trying
@@ -73,7 +73,7 @@
     </section>
 
     <section>
-      <title>Gaurds </title>
+      <title>Guards </title>
       <p>All API-functions are guarded and if you pass an argument of
         the wrong type a runtime error will occur. All input parameters
         to internal functions are trusted to be correct. It is a good
