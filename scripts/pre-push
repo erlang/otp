@@ -65,7 +65,7 @@ red_off() {
     printf '%b' "\033[0m"
 }
 
-if [ "$url" = 'https://github.com/erlang/otp.git' -o "$url" = 'git@github.com:erlang/otp.git' ]
+if [ "$url" = 'https://github.com/erlang/otp.git' -o "$url" = 'git@github.com:erlang/otp.git' -o "$url" = 'git@github.com:erlang/otp' ]
 then
     if [ $remote = "$url" ]; then
 	red_on
