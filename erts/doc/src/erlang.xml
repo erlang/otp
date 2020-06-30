@@ -5724,9 +5724,16 @@ RealSystem = system + MissedSystem</code>
           <c>erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
           <anno>Stacktrace</anno>)</c> is equivalent to
           <c>erlang:<anno>Class</anno>(<anno>Reason</anno>)</c>.</p>
-        <p><c><anno>Reason</anno></c> is any term.
-          <c><anno>Stacktrace</anno></c> is a list as
-          returned from <c>get_stacktrace()</c>, that is, a list of
+        <p><c><anno>Reason</anno></c> can be any term.</p>
+        <p><c><anno>Stacktrace</anno></c> is a list as provided in a try-catch
+	  clause.</p>
+	  <pre>
+try
+    ...
+catch Class:Reason:Stacktrace ->
+    ...
+end</pre>
+        <p>That is, a list of
           four-tuples <c>{Module, Function, Arity | Args,
           Location}</c>, where <c>Module</c> and <c>Function</c>
           are atoms, and the third element is an integer arity or an
