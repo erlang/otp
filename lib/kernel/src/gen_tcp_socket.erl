@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -534,8 +534,9 @@ chain(Fs, Fail, Values, Ret) ->
 -compile({inline, [domain/1]}).
 domain(Mod) ->
     case Mod of
-        inet_tcp -> inet;
-        inet6_tcp -> inet6
+        inet_tcp  -> inet;
+        inet6_tcp -> inet6;
+        local_tcp -> local
     end.
 
 %% -------------------------------------------------------------------------
