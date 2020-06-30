@@ -712,7 +712,8 @@ ignore_opt() ->
 socket_opt() ->
     #{%% Level: otp
       buffer => {otp, rcvbuf},
-      debug => {otp, debug},
+      debug  => {otp, debug},
+      fd     => {otp, fd},
       %%
       %% Level: socket
       bind_to_device => {socket, bindtodevice},
