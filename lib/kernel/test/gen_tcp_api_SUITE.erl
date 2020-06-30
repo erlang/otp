@@ -307,31 +307,41 @@ t_shutdown_async(Config) when is_list(Config) ->
 %%% gen_tcp:fdopen/2
 
 t_fdopen(Config) when is_list(Config) ->
-    Question = "Aaaa... Long time ago in a small town in Germany,",
+    Question  = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
 		 ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
     Question1 = iolist_to_binary(Question2),
-    Answer = "there was a shoemaker, Schumacher was his name.",
-    {ok, L} = gen_tcp:listen(0, [{active, false}]),
-    {ok, Port} = inet:port(L),
+    Answer    = "there was a shoemaker, Schumacher was his name.",
+    {ok, L}      = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port}   = inet:port(L),
     {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    {ok, A} = gen_tcp:accept(L),
-    {ok, FD} = prim_inet:getfd(A),
-    {ok, Server} = gen_tcp:fdopen(FD, []),
-    ok = gen_tcp:send(Client, Question),
-    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ok = gen_tcp:send(Client, Question1),
-    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ok = gen_tcp:send(Client, Question2),
-    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ok = gen_tcp:send(Server, Answer),
-    {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),
-    ok = gen_tcp:close(Client),
-    {error,closed} = gen_tcp:recv(A, 1, 2000),
-    ok = gen_tcp:close(Server),
-    ok = gen_tcp:close(A),
-    ok = gen_tcp:close(L),
+    {A, FD} = case gen_tcp:accept(L) of
+                  {ok, ASock} when is_port(ASock) ->
+                      {ok, FileDesc} = prim_inet:getfd(ASock),
+                      {ASock, FileDesc};
+                  {ok, ASock} -> % socket
+                      {ok, [{fd, FileDesc}]} =
+                          gen_tcp_socket:getopts(ASock, [fd]),
+                      {ASock, FileDesc}
+              end,
+    ?P("fdopen -> accepted: "
+       "~n   A:  ~p"
+       "~n   FD: ~p", [A, FD]),
+    {ok, Server}    = gen_tcp:fdopen(FD, []),
+    ok              = gen_tcp:send(Client, Question),
+    {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
+    ok              = gen_tcp:send(Client, Question1),
+    {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
+    ok              = gen_tcp:send(Client, Question2),
+    {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
+    ok              = gen_tcp:send(Server, Answer),
+    {ok, Answer}    = gen_tcp:recv(Client, length(Answer), 2000),
+    ok              = gen_tcp:close(Client),
+    {error, closed} = gen_tcp:recv(A, 1, 2000),
+    ok              = gen_tcp:close(Server),
+    ok              = gen_tcp:close(A),
+    ok              = gen_tcp:close(L),
     ok.
 
 t_fdconnect(Config) when is_list(Config) ->
