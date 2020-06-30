@@ -22,7 +22,7 @@
 -module(ssh_connection_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh_connect.hrl").
+-include("ssh_connect.hrl").
 -include("ssh_test_lib.hrl").
 
 

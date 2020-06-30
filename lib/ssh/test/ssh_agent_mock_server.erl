@@ -25,8 +25,8 @@
 
 -behaviour(gen_server).
 
--include_lib("ssh/src/ssh.hrl").
--include_lib("ssh/src/ssh_agent.hrl").
+-include("ssh.hrl").
+-include("ssh_agent.hrl").
 
 -export([respond/1, check_mktemp/1]).
 -export([start_link/2, stop/1]).
