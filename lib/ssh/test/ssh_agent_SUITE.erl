@@ -173,6 +173,7 @@ chk_unix_domain_socket(Config0) ->
                     file:delete(SocketPath),
                     {skip, "Unix Domain Sockets are not supported"};
                 {ok, Socket} ->
+                    ct:log("Socket = ~p", [Socket]),
                     gen_tcp:close(Socket),
                     file:delete(SocketPath),
                     Config

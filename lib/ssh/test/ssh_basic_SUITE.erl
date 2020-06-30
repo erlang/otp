@@ -1148,6 +1148,8 @@ daemon_opt_fd(Config) ->
     file:make_dir(UserDir),
 
     {ok,S1} = gen_tcp:listen(0,[]),
+    ct:log("Socket S1 = ~p", [S1]),
+    
     {ok,Fd1} = prim_inet:getfd(S1),
     
     {ok,Pid1} = ssh:daemon(0, [{system_dir, SystemDir},
@@ -1177,6 +1179,7 @@ multi_daemon_opt_fd(Config) ->
     Test = 
 	fun() ->
 		{ok,S} = gen_tcp:listen(0,[]),
+                ct:log("Socket S = ~p", [S]),
 		{ok,Fd} = prim_inet:getfd(S),
 
 		{ok,Pid} = ssh:daemon(0, [{system_dir, SystemDir},

@@ -775,7 +775,7 @@ start_channel_sock(Config) ->
     %% Test that the socket is closed when the Connection closes
     ok = ssh:close(Conn),
     timer:sleep(400), %% Until the stop sequence is fixed
-    {error,einval} = inet:getopts(Sock, [active]),
+    {error,_} = inet:getopts(Sock, [active]),
 
     ok.
 
