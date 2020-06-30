@@ -344,6 +344,7 @@ t_fdopen(Config) when is_list(Config) ->
     ok              = gen_tcp:close(L),
     ok.
 
+
 t_fdconnect(Config) when is_list(Config) ->
     ?TC_TRY(t_fdconnect, fun() -> do_t_fdconnect(Config) end).
 
@@ -376,8 +377,9 @@ do_t_fdconnect(Config) ->
     ?P("try create file descriptor (fd)"),
     FD = gen_tcp_api_SUITE:getsockfd(),
     ?P("try connect to using file descriptor (~w)", [FD]),
-    Client = case gen_tcp:connect(localhost, Port, [{fd,FD},{port,20002},
-                                                    {active,false}]) of
+    Client = case gen_tcp:connect(localhost, Port, [{fd,     FD},
+                                                    {port,   20002},
+                                                    {active, false}]) of
                  {ok, CSock} ->
                      CSock;
                  {error, eaddrnotavail = CReason} ->
@@ -440,14 +442,16 @@ t_implicit_inet6(Host, Addr) ->
 	    implicit_inet6(S1, Loopback),
 	    ok = gen_tcp:close(S1),
 	    %%
-	    Localaddr = ok(get_localaddr()),
-	    S2 = case gen_tcp:listen(0, [{ip, Localaddr}]) of
+	    LocalAddr = ok(get_localaddr()),
+	    S2 = case gen_tcp:listen(0, [{ip, LocalAddr}]) of
                      {ok, LSock2} ->
                          LSock2;
                      {error, Reason2} ->
+                         ?P("Listen failed (ip):"
+                            "~n   Reason2: ~p", [Reason2]),
                          ?SKIPT(listen_failed_str(Reason2))
                  end,
-	    implicit_inet6(S2, Localaddr),
+	    implicit_inet6(S2, LocalAddr),
 	    ok = gen_tcp:close(S2),
 	    %%
 	    ?P("try ~s ~p", [Host, Addr]),
@@ -455,6 +459,8 @@ t_implicit_inet6(Host, Addr) ->
                      {ok, LSock3} ->
                          LSock3;
                      {error, Reason3} ->
+                         ?P("Listen failed (ifaddr):"
+                            "~n   Reason3: ~p", [Reason3]),
                          ?SKIPT(listen_failed_str(Reason3))
                  end,
 	    implicit_inet6(S3, Addr),
