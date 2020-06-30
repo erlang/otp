@@ -51,7 +51,8 @@
          compose_query/1, compose_query_latin1/1, compose_query_negative/1,
          dissect_query/1, dissect_query_negative/1,
          interop_query_latin1/1, interop_query_utf8/1,
-         regression_parse/1, regression_recompose/1, regression_normalize/1
+         regression_parse/1, regression_recompose/1, regression_normalize/1,
+         recompose_host_relative_path/1
         ]).
 
 
@@ -144,7 +145,8 @@ all() ->
      interop_query_utf8,
      regression_parse,
      regression_recompose,
-     regression_normalize
+     regression_normalize,
+     recompose_host_relative_path
     ].
 
 groups() ->
@@ -1246,3 +1248,11 @@ regression_normalize(_Config) ->
         uri_string:normalize(#{host => "ö",path => [],scheme => "FOo"}),
     #{host := "ö",path := [],scheme := "foo"} =
         uri_string:normalize(#{host => "ö",path => [],scheme => "FOo"}, [return_map]).
+
+recompose_host_relative_path(_Config) ->
+    "//example.com/.foo" =
+        uri_string:recompose(#{host => "example.com", path => ".foo"}),
+    <<"//example.com/foo">> =
+        uri_string:recompose(#{host => <<"example.com">>, path => <<"foo">>}),
+    ok.
+
