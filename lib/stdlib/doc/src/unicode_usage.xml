@@ -1101,7 +1101,7 @@ Eshell V5.10.1  (abort with ^G)
       </item>
       <item><p>Use the <seeerl marker="stdlib:io"><c>io</c></seeerl> module
         when accessing files with any other encoding (for example
-        <c>{encoding,uf8}</c>).</p>
+        <c>{encoding,utf8}</c>).</p>
       </item>
     </list>
 
