@@ -149,7 +149,7 @@ end_per_suite(Config0) ->
 
     Config1.
 
-init_per_group(t_local, Config) ->
+init_per_group(t_local = _GroupName, Config) ->
     case gen_tcp:connect({local,<<"/">>}, 0, []) of
 	{error,eafnosupport} ->
 	    {skip, "AF_LOCAL not supported"};
@@ -495,33 +495,55 @@ implicit_inet6(S, Addr) ->
     ok = gen_tcp:close(S1).
 
 
-
 t_local_basic(_Config) ->
     SFile = local_filename(server),
-    SAddr = {local,bin_filename(SFile)},
+    SAddr = {local, bin_filename(SFile)},
     CFile = local_filename(client),
     CAddr = {local,bin_filename(CFile)},
     _ = file:delete(SFile),
     _ = file:delete(CFile),
     %%
+    ?P("try create listen socket"),
     L =
 	ok(
 	  gen_tcp:listen(0, [{ifaddr,{local,SFile}},{active,false}])),
+    ?P("try connect"),
     C =
 	ok(
 	  gen_tcp:connect(
 	    {local,SFile}, 0, [{ifaddr,{local,CFile}},{active,false}])),
+    ?P("try accept connection"),
     S = ok(gen_tcp:accept(L)),
-    SAddr = ok(inet:sockname(L)),
-    {error,enotconn} = inet:peername(L),
+    ?P("try get sockname for listen socket"),
+    %% SAddr = ok(inet:sockname(L)),
+    case inet:sockname(L) of
+        {ok, SAddr} ->
+            ok;
+        {ok, SAddr2} ->
+            ?P("Invalid sockname: "
+               "~n   Expected: ~p"
+               "~n   Actual:   ~p", [SAddr, SAddr2]),
+            exit({sockename, SAddr, SAddr2});
+        {error, Reason} ->
+            exit({sockname, Reason})
+    end,
+    ?P("try get peername for listen socket"),
+    {error, enotconn} = inet:peername(L),
+    ?P("try handshake"),
     local_handshake(S, SAddr, C, CAddr),
+    ?P("try close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("try close accept socket"),
     ok = gen_tcp:close(S),
+    ?P("try close connect socket"),
     ok = gen_tcp:close(C),
     %%
+    ?P("try 'local' files"),
     ok = file:delete(SFile),
     ok = file:delete(CFile),
+    ?P("done"),
     ok.
+
 
 t_local_unbound(_Config) ->
     SFile = local_filename(server),
