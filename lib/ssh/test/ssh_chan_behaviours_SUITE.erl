@@ -23,7 +23,7 @@
 -module(ssh_chan_behaviours_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh.hrl").
+-include("ssh.hrl").
 -include("ssh_test_lib.hrl").
 
 -export([

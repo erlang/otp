@@ -76,6 +76,9 @@ SPEC_FILES = \
 
 COVER_FILE = ssh.cover
 
+EMAKEFILE=Emakefile
+MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -87,7 +90,7 @@ RELSYSDIR = $(RELEASE_PATH)/ssh_test
 
 INCLUDES = -I$(ERL_TOP)/lib/ssh/src
 
-ERL_COMPILE_FLAGS += $(INCLUDES)
+ERL_COMPILE_FLAGS += $(INCLUDES) -pa ../ebin
 
 EBIN = .
 
@@ -95,9 +98,18 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGET_FILES)
+tests debug opt: emakebuild $(TARGET_FILES)
+
+.PHONY: emakebuild
+
+emakebuild: $(EMAKEFILE)
+
+$(EMAKEFILE):
+	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' | grep -v Warning > $(EMAKEFILE)
+	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) | grep -v Warning >> $(EMAKEFILE)
 
 clean:
+	rm -f $(EMAKEFILE)
 	rm -f $(TARGET_FILES)
 	rm -f core
 
@@ -112,6 +124,7 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(EMAKEFILE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(SPEC_FILES) $(COVER_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES)    "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(HRL_FILES)    "$(RELSYSDIR)"

@@ -37,10 +37,10 @@
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
 
--include_lib("ssh/src/ssh.hrl").
--include_lib("ssh/src/ssh_transport.hrl").
--include_lib("ssh/src/ssh_connect.hrl").
--include_lib("ssh/src/ssh_auth.hrl").
+-include("ssh.hrl").
+-include("ssh_transport.hrl").
+-include("ssh_connect.hrl").
+-include("ssh_auth.hrl").
 
 %%%================================================================
 %%%
