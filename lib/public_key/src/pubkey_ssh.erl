@@ -26,7 +26,8 @@
 -export([decode/2, encode/2,
 	 dh_gex_group/4, 
 	 dh_gex_group_sizes/0,
-pad/2,         new_openssh_encode/1, new_openssh_decode/1  % For test and experiments
+	 pad/2,
+	 new_openssh_decode/1
 	]).
 
 -define(UINT32(X), X:32/unsigned-big-integer).
@@ -180,7 +181,7 @@ join_entry([Line | Lines], Entry) ->
 rfc4716_pubkey_decode(BinKey) -> ssh2_pubkey_decode(BinKey).
 
 
-%% From https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key
+%% Overall structure from https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key
 new_openssh_decode(<<"openssh-key-v1",0,
                      ?DEC_BIN(CipherName, _L1),
                      ?DEC_BIN(KdfName, _L2),
@@ -193,52 +194,66 @@ new_openssh_decode(<<"openssh-key-v1",0,
     %%io:format("CipherName = ~p~nKdfName = ~p~nKdfOptions = ~p~nPublicKey = ~p~nN = ~p~nEncrypted = ~p~nRest = ~p~n", [CipherName, KdfName, KdfOptions, PublicKey, N, Encrypted, _Rest]),
     new_openssh_decode(CipherName, KdfName, KdfOptions, PublicKey, N, Encrypted).
 
+%% Algorithm-specific encoding from https://github.com/openssh/openssh-portable/blob/master/sshkey.c
 new_openssh_decode(<<"none">>, <<"none">>, <<"">>, _PublicKey, 1,
                    <<?UINT32(CheckInt),
                      ?UINT32(CheckInt),
                      ?DEC_BIN(Type, _Lt),
-                     ?DEC_BIN(PubKey, _Lpu),
+                     Private/binary >>) ->
+    new_openssh_decode(Type, Private).
+
+%% support of RFC 8709 in openssh (as of version 8.3) is only for ed25519 key files
+new_openssh_decode(<<"ssh-ed25519">>,
+                   <<?DEC_BIN(PubKey, _Lpu),
                      ?DEC_BIN(PrivPubKey, _Lpripub),
                      ?DEC_BIN(_Comment,    _C1),
                      _Pad/binary>>) ->
-    case {Type,PrivPubKey} of
-        {<<"ssh-ed25519">>,
-         <<PrivKey:32/binary, PubKey:32/binary>>} ->
-            {ed_pri, ed25519, PubKey, PrivKey}; 
+    <<PrivKey:32/binary, PubKey:32/binary>> = PrivPubKey,
+    {ed_pri, ed25519, PubKey, PrivKey};
+new_openssh_decode(<<"ssh-rsa">>,
+                  <<?DEC_BIN(RsaN, _L_RsaN),
+                    ?DEC_BIN(RsaE, _L_RsaE),
+                    ?DEC_BIN(RsaD, _L_RsaD),
+                    ?DEC_BIN(RsaI, _L_RsaI),
+                    ?DEC_BIN(RsaP, _L_RsaP),
+                    ?DEC_BIN(RsaQ, _L_RsaQ),
+                    ?DEC_BIN(_Comment, _L_Comment),
+                     _Pad/binary>>) ->
+    Modulus = crypto:bytes_to_integer(RsaN),
+    PublicExponent = crypto:bytes_to_integer(RsaE),
+    PrivateExponent = crypto:bytes_to_integer(RsaD),
+    Prime1 = crypto:bytes_to_integer(RsaP),
+    Prime2 = crypto:bytes_to_integer(RsaQ),
+    Coefficient = crypto:bytes_to_integer(RsaI),
+    Exponent1 = PrivateExponent rem (Prime1 - 1),
+    Exponent2 = PrivateExponent rem (Prime2 - 1),
 
-        {<<"ssh-ed448">>,
-         <<PrivKey:57/binary, PubKey/binary>>} -> % "Intelligent" guess from
-                                                % https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448
-            {ed_pri, ed448, PubKey, PrivKey}
-    end.
+    #'RSAPrivateKey'{version = 'two-prime',
+                     modulus         = Modulus,
+                     publicExponent  = PublicExponent,
+                     privateExponent = PrivateExponent,
+                     prime1 	    = Prime1,
+                     prime2 	    = Prime2,
+                     coefficient     = Coefficient,
+                     exponent1 	    = Exponent1,
+                     exponent2 	    = Exponent2
+                    };
+new_openssh_decode(<<"ssh-dss">>,
+                  <<?DEC_BIN(DsaP, _L_DsaP),
+                    ?DEC_BIN(DsaQ, _L_DsaQ),
+                    ?DEC_BIN(DsaG, _L_DsaG),
+                    ?DEC_BIN(DsaY, _L_DsaPub),
+                    ?DEC_BIN(DsaX, _L_DsaPriv),
+                    ?DEC_BIN(_Comment, _L_Comment),
+                     _Pad/binary>>) ->
+    #'DSAPrivateKey'{
+       p = crypto:bytes_to_integer(DsaP),
+       q = crypto:bytes_to_integer(DsaQ),
+       g = crypto:bytes_to_integer(DsaG),
+       y = crypto:bytes_to_integer(DsaY),
+       x = crypto:bytes_to_integer(DsaX)
+      }.
 
-
-new_openssh_encode({ed_pri,_,PubKey,PrivKey}=Key) ->
-    Type = key_type(Key),
-    CheckInt = 17*256+17, %crypto:strong_rand_bytes(4),
-    Comment = <<>>,
-    PublicKey = <<?STRING(Type),?STRING(PubKey)>>,
-    CipherName = <<"none">>,
-    KdfName = <<"none">>,
-    KdfOptions = <<>>,
-    BlockSize = 8, % Crypto dependent
-    NumKeys = 1,
-    Encrypted0 = <<?UINT32(CheckInt),
-                   ?UINT32(CheckInt),
-                   ?STRING(Type),
-                   ?STRING(PubKey),
-                   ?STRING(<<PrivKey/binary,PubKey/binary>>),
-                   ?STRING(Comment)
-                >>,
-    Pad = pad(size(Encrypted0), BlockSize),
-    Encrypted = <<Encrypted0/binary, Pad/binary>>,
-    <<"openssh-key-v1",0,
-      ?STRING(CipherName),
-      ?STRING(KdfName),
-      ?STRING(KdfOptions),
-      ?UINT32(NumKeys),
-      ?STRING(PublicKey),
-      ?STRING(Encrypted)>>.
 
 pad(N, BlockSize) when N>BlockSize -> pad(N rem BlockSize, BlockSize);
 pad(N, BlockSize) -> list_to_binary(lists:seq(1,BlockSize-N)).
