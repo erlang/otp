@@ -683,8 +683,15 @@ t_accept_inet6_tclass(Config) when is_list(Config) ->
     end.
 
 
-%% On MacOS, accepting a connection resulted in a crash.
+%% On MacOS (maybe more), accepting a connection resulted in a crash.
+%% Note that since 'socket' currently does not work on windows
+%% we have to skip on that platform.
 s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
+    ?TC_TRY(s_accept_with_explicit_socket_backend,
+            fun() -> is_not_windows() end,
+            fun() -> do_s_accept_with_explicit_socket_backend() end).
+
+do_s_accept_with_explicit_socket_backend() ->
     {ok, S}         = gen_tcp:listen(0, [{inet_backend, socket}]),
     {ok, {_, Port}} = inet:sockname(S),
     ClientF = fun() ->
@@ -698,6 +705,15 @@ s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
 
 
 %%% Utilities
+
+is_not_windows() ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Windows not supported"};
+        _ ->
+            ok
+    end.
+
 
 %% Calls M:F/length(A), which should return a timeout error, and complete
 %% within the given time.
