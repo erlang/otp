@@ -23,8 +23,8 @@
 -module(ssh_agent_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh.hrl").
--include_lib("ssh/src/ssh_agent.hrl").
+-include("ssh.hrl").
+-include("ssh_agent.hrl").
 -include("ssh_test_lib.hrl").
 
 -export([

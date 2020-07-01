@@ -23,7 +23,7 @@
 -module(ssh_compat_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh_transport.hrl"). % #ssh_msg_kexinit{}
+-include("ssh_transport.hrl"). % #ssh_msg_kexinit{}
 -include_lib("kernel/include/inet.hrl"). % #hostent{}
 -include_lib("kernel/include/file.hrl"). % #file_info{}
 -include("ssh_test_lib.hrl").

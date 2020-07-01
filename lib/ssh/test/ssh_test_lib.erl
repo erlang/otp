@@ -122,9 +122,8 @@ get_addr_str/0,
 file_base_name/2
         ]).
 
--include_lib("public_key/include/public_key.hrl").
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh_transport.hrl").
+-include("ssh_transport.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
 
