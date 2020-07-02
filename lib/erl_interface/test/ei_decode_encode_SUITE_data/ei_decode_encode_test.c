@@ -79,15 +79,51 @@ struct Type fun_type = {
     (encodeFT*)ei_encode_fun, (x_encodeFT*)ei_x_encode_fun
 };
 
+int ei_decode_my_pid(const char *buf, int *index, struct my_obj* obj)
+{
+    int ix = *index;
+    int type = -1;
+    int size = -2;
+    if (ei_get_type(buf, &ix, &type, &size) != 0
+        || ix != *index || type != ERL_PID_EXT || size != 0) {
+        fail2("ei_get_type failed for pid, type=%d size=%d", type, size);
+    }
+    return ei_decode_pid(buf, index, (erlang_pid*)obj);
+}
+
 struct Type pid_type = {
-    "pid", "erlang_pid", (decodeFT*)ei_decode_pid,
+    "pid", "erlang_pid", ei_decode_my_pid,
     (encodeFT*)ei_encode_pid, (x_encodeFT*)ei_x_encode_pid
 };
 
+int ei_decode_my_port(const char *buf, int *index, struct my_obj* obj)
+{
+    int ix = *index;
+    int type = -1;
+    int size = -2;
+    if (ei_get_type(buf, &ix, &type, &size) != 0
+        || ix != *index || type != ERL_PORT_EXT || size != 0) {
+        fail2("ei_get_type failed for port, type=%d size=%d", type, size);
+    }
+    return ei_decode_port(buf, index, (erlang_port*)obj);
+}
+
 struct Type port_type = {
-    "port", "erlang_port", (decodeFT*)ei_decode_port,
+    "port", "erlang_port", ei_decode_my_port,
     (encodeFT*)ei_encode_port, (x_encodeFT*)ei_x_encode_port
 };
+
+int ei_decode_my_ref(const char *buf, int *index, struct my_obj* obj)
+{
+    int ix = *index;
+    int type = -1;
+    int size = -2;
+    if (ei_get_type(buf, &ix, &type, &size) != 0
+        || ix != *index || type != ERL_NEW_REFERENCE_EXT || size != 0) {
+        fail2("ei_get_type failed for ref, type=%d size=%d", type, size);
+    }
+    return ei_decode_ref(buf, index, (erlang_ref*)obj);
+}
 
 struct Type ref_type = {
     "ref", "erlang_ref", (decodeFT*)ei_decode_ref,
