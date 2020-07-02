@@ -1020,8 +1020,10 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
           size is the number of characters <em>not</em> including the
           terminating <c>NULL</c>. For binaries and bitstrings, <c>*size</c> is
 	  the number of bytes. For lists, tuples and maps, <c>*size</c> is the
-	  arity of the object. For other types, <c>*size</c> is 0. In all
-          cases, <c>index</c> is left unchanged.</p>
+	  arity of the object. For bignum integers, <c>*size</c> is
+	  the number of bytes for the absolute value of the bignum.
+	  For other types, <c>*size</c> is 0.
+	  In all cases, <c>index</c> is left unchanged.</p>
 	<p>Currently <c>*type</c> is one of:</p>
 	<taglist>  
 	  <tag>ERL_ATOM_EXT</tag>
