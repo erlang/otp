@@ -91,7 +91,13 @@ result(Response = {{_, Code,_}, _, _},
   when ((Code =:= 200) orelse (Code =:= 206)) andalso (Stream =/= none) ->
     stream_end(Response, Request);
 
-result(Response = {{_,100,_}, _, _}, Request) ->
+%% Ignore the body of response with status code 204 or 304
+result({{_, Code, _} = StatusLine, Headers, _Body}, Request)
+  when Code =:= 204 orelse Code =:= 304 ->
+    transparent({StatusLine, Headers, <<>>}, Request);
+
+result(Response = {{_, Code, _}, _, _}, Request)
+  when (100 =< Code andalso Code =< 199) ->
     status_continue(Response, Request);
 
 %% In redirect loop
@@ -356,7 +362,7 @@ status_continue(_, #request{headers =
 
 status_continue({_,_, Data}, _) ->
     %% The data in the body in this case is actually part of the real
-    %% response sent after the "fake" 100-continue.
+    %% response.
     {ignore, Data}.
 
 status_service_unavailable(Response = {_, Headers, _}, Request) ->
