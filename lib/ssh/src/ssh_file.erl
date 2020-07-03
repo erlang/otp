@@ -29,6 +29,9 @@
 
 -include("ssh.hrl").
 
+%% experimental:
+-export([decode_ssh_file/4]).
+
 %%%--------------------- server exports ---------------------------
 -behaviour(ssh_server_key_api).
 -export([host_key/2, is_auth_key/3]).
@@ -512,6 +515,11 @@ read_ssh_key_file(Role, PrivPub, Algorithm, Opts) ->
         {ok, Pem} ->
             try
                 decode_ssh_file(PrivPub, Algorithm, Pem, Password)
+            of
+                {ok, [Key|_Keys]} ->
+                    {ok,Key};
+                {error, Reason} ->
+                    {error, Reason}
             catch
                 throw:Reason ->
                     {error, Reason};
@@ -524,47 +532,66 @@ read_ssh_key_file(Role, PrivPub, Algorithm, Opts) ->
     end.
 
 
+-spec decode_ssh_file(PrivPub, Algorithm, Pem, Password) -> Result when
+      PrivPub :: private | public,
+      Algorithm :: ssh:pubkey_alg(),
+      Pem :: binary(),
+      Password :: string(),
+      Result :: {ok, Keys} | {error, any()},
+      Keys :: [Key],
+      Key :: public_key:private_key() | public_key:public_key() .
+                             
 decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
+    try decode_pem_keys(Pem, Password)
+    of
+        {ok, Keys0} ->
+            case [Key || Key <- Keys0,
+                         ssh_transport:valid_key_sha_alg(PrivPub, Key, Algorithm)] of
+                [] ->
+                    {error,no_key_found};
+                Keys ->
+                    {ok,Keys}
+            end;
+
+        {error,Error} ->
+            {error,Error}
+
+    catch
+        _:_ ->
+            {error, key_decode_failed}
+    end.
+
+decode_pem_keys(Pem, Password) ->
     %% Private Key
     try get_key_part(Pem) of
         {'openssh-key-v1', Bin, _KeyValues} ->
             %% Holds both public and private keys
             KeyPairs = new_openssh_decode(Bin, Password),
-            ValidKeys =
-                [Key || {Pub,Priv} <- KeyPairs,
-                        Key <- [Pub,Priv],
-                        ssh_transport:valid_key_sha_alg(PrivPub, Key, Algorithm)],
-            %% Select one (for now, just pick the first found):
-            case ValidKeys of
-                [Key|_] -> {ok,Key};
-                [] -> {error,bad_keytype_in_file}
-            end;
+            Keys = [Key || {Pub,Priv} <- KeyPairs,
+                           Key <- [Pub,Priv]],
+            {ok,Keys};
 
         {rfc4716, Bin, _KeyValues} ->
             %% rfc4716 only defines public keys
             Key = ssh_message:ssh2_pubkey_decode(Bin),
-            case ssh_transport:valid_key_sha_alg(PrivPub, Key, Algorithm) of
-                true -> {ok,Key};
-                false -> {error,bad_keytype_in_file}
-            end;
+            {ok,[Key]};
 
         {Type, Bin, KeyValues} ->
-            Key =
-                case get_encrypt_hdrs(KeyValues) of
-                    not_encrypted ->
-                        public_key:pem_entry_decode({Type,Bin,not_encrypted});
-                    [Cipher,Salt] when is_binary(Cipher),
-                                       is_binary(Salt),
-                                       Password =/= ignore ->
-                        CryptInfo =
-                            {binary_to_list(Cipher), unhex(binary_to_list(Salt))},
-                        public_key:pem_entry_decode({Type,Bin,CryptInfo}, Password);
-                    _X ->
-                        throw("No pass phrase provided for private key file")
-                end,
-            case ssh_transport:valid_key_sha_alg(PrivPub, Key, Algorithm) of
-                true -> {ok,Key};
-                false -> {error,bad_keytype_in_file}
+            case get_encrypt_hdrs(KeyValues) of
+                not_encrypted ->
+                    Key = public_key:pem_entry_decode({Type,Bin,not_encrypted}),
+                    {ok, [Key]};
+
+                [Cipher,Salt] when is_binary(Cipher),
+                                   is_binary(Salt),
+                                   Password =/= ignore ->
+                    CryptInfo =
+                        {binary_to_list(Cipher), unhex(binary_to_list(Salt))},
+                    Key = public_key:pem_entry_decode({Type,Bin,CryptInfo}, Password),
+                    {ok, [Key]};
+
+                _X ->
+                    {error, no_pass_phrase}
             end
     catch
         _:_ -> error(bad_or_unsupported_key_format)
