@@ -150,14 +150,41 @@ end_per_suite(Config0) ->
     Config1.
 
 init_per_group(t_local = _GroupName, Config) ->
+    %% A specific inet-backend can be enabled by the environment
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keysearch(inet_backend, 1, Env) of
+                {value, {inet_backend, socket}} ->
+                    try socket:is_supported(local) of
+                        true ->
+                            Config;
+                        false ->
+                            {skip, "AF_LOCAL not supported"}
+                    catch
+                        _:_:_ ->
+                            {skip, "AF_LOCAL not supported"}
+                    end;
+                _ ->
+                    gen_tcp_is_local_supported(Config)
+            end;
+        _ ->
+            gen_tcp_is_local_supported(Config)
+    end;
+init_per_group(_GroupName, Config) ->
+    Config.
+
+%% The inet-backend = socket could also be enabled by the test suite
+%% config (either via ts config or explicitly by the test suite).
+%% But that the currently not the case, so...
+gen_tcp_is_local_supported(Config) ->
+    %% This thing does not (currently) work for when inet_backend is socket
     case gen_tcp:connect({local,<<"/">>}, 0, []) of
 	{error,eafnosupport} ->
 	    {skip, "AF_LOCAL not supported"};
 	{error,_} ->
 	    Config
-    end;
-init_per_group(_GroupName, Config) ->
-    Config.
+    end.
+    
 
 end_per_group(t_local, _Config) ->
     delete_local_filenames();
