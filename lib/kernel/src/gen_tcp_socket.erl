@@ -41,6 +41,8 @@
 
 -include("inet_int.hrl").
 
+-define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
 %% -------------------------------------------------------------------------
 
 %% Construct a "socket" as in this module's API
@@ -307,8 +309,7 @@ send_result(Server, Meta, Result) ->
             %% Since send data may have been lost, and there is no room
             %% in this API to inform the caller, we at least close
             %% the socket in the write direction
-%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                   Result}),
+%%%    ?DBG(Result),
             case Reason of
                 econnreset ->
                     case maps:get(show_econnreset, Meta) of
@@ -335,8 +336,7 @@ send_result(Server, Meta, Result) ->
 %%%    %% Since send data may have been lost, and there is no room
 %%%    %% in this API to inform the caller, we at least close
 %%%    %% the socket in the write direction
-%%%%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%%%%                    Error}),
+%%%%%%    ?DBG(Error),
 %%%    case Error of
 %%%        {error, econnreset} ->
 %%%            case maps:get(show_econnreset, Meta) of
@@ -463,14 +463,12 @@ socket_send(Socket, Opts, Timeout) ->
 socket_recv_peek(Socket, Length) ->
     Options = [peek],
     Result = socket:recv(Socket, Length, Options, nowait),
-%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                    {Socket, Length, Options, Result}}),
+%%%    ?DBG({Socket, Length, Options, Result}),
     Result.
 -compile({inline, [socket_recv/2]}).
 socket_recv(Socket, Length) ->
     Result = socket:recv(Socket, Length, nowait),
-%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                    {Socket, Length, Result}}),
+%%%    ?DBG({Socket, Length, Result}),
     Result.
 
 -compile({inline, [socket_close/1]}).
@@ -509,7 +507,9 @@ address(SockAddr) ->
             {IP, Port};
         #{family := inet6, addr := IP, port := Port} ->
             {IP, Port};
-        #{family := local, path := Path} ->
+        #{family := local, path := Path} when is_list(Path) ->
+            {local, prim_socket:encode_path(Path)};
+        #{family := local, path := Path} when is_binary(Path) ->
             {local, Path}
     end.
 
@@ -542,6 +542,9 @@ domain(Mod) ->
 %% -------------------------------------------------------------------------
 
 sockaddrs([], _TP, _Domain) -> [];
+sockaddrs([{local, Path} | IPs], TP, Domain) when (Domain =:= local) ->
+    [#{family => Domain, path => Path}
+     | sockaddrs(IPs, TP, Domain)];
 sockaddrs([IP | IPs], TP, Domain) ->
     [#{family => Domain, addr => IP, port => TP}
      | sockaddrs(IPs, TP, Domain)].
@@ -867,9 +870,10 @@ init({open, Domain, ExtraOpts, Owner}) ->
     process_flag(trap_exit, true),
     OwnerMon = monitor(process, Owner),
     Extra = maps:from_list(ExtraOpts),
-    case socket:open(Domain, stream, tcp, Extra) of
+    Proto = if (Domain =:= local) -> default; true -> tcp end,
+    case socket:open(Domain, stream, Proto, Extra) of
         {ok, Socket} ->
-            D = server_opts(),
+            D  = server_opts(),
             ok = socket:setopt(Socket, otp, iow, true),
             ok = socket:setopt(Socket, otp, meta, meta(D)),
             P =
@@ -1609,8 +1613,7 @@ handle_recv_error(P, D, ActionsR, Reason, Data) ->
     handle_recv_error(P, D_1, ActionsR_1, Reason).
 %%
 handle_recv_error(P, D, ActionsR, Reason) ->
-%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                    Reason}),
+%%%    ?DBG(Reason),
     {D_1, ActionsR_1} =
         cleanup_recv_reply(P, D#{buffer := <<>>}, ActionsR, Reason),
     case Reason of
@@ -1662,8 +1665,7 @@ cleanup_recv_reply(
         #{active := _} ->
             ModuleSocket = module_socket(P),
             Owner = P#params.owner,
-%%%            erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                            {ModuleSocket, Reason}}),
+%%%            ?DBG({ModuleSocket, Reason}),
             case Reason of
                 timeout ->
                     Owner ! {tcp_error, ModuleSocket, Reason},
