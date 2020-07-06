@@ -63,7 +63,12 @@
 	 pkix_crl_issuer/1,
 	 short_name_hash/1,
          pkix_test_data/1,
-         pkix_test_root_cert/2
+         pkix_test_root_cert/2,
+     ocsp_status/3,
+     ocsp_responses/3,
+     ocsp_nonce/0,
+     ocsp_responder_id/1,
+     ocsp_extensions/1
 	]).
 
 -export_type([public_key/0, private_key/0, pem_entry/0,
@@ -1274,6 +1279,56 @@ pkix_test_data(#{} = Chain) ->
 
 pkix_test_root_cert(Name, Opts) ->
     pubkey_cert:root_cert(Name, Opts).
+
+%%--------------------------------------------------------------------
+-spec ocsp_status(binary | #'Certificate'{} | #'OTPCertificate'{},
+                  list(), list()) ->
+    {good, term()} | {unknown, term()} | {revoked, term()} | no_matched_response.
+%%
+%% Description: Get Certificate status
+%%--------------------------------------------------------------------
+ocsp_status(Cert, CertPath, Responses) ->
+    case pubkey_ocsp:find_single_response(Cert, CertPath, Responses) of
+        {ok, #'SingleResponse'{certStatus = CertStatus}} ->
+            CertStatus;
+        {error, no_matched_response} ->
+            no_matched_response
+    end.
+
+%%--------------------------------------------------------------------
+-spec ocsp_responses(binary(), list(), undefined | binary()) ->
+    {ok, [#'SingleResponse'{}]} | {error, Reason::term()}.
+%%
+%% Description: Get verified OCSP responses
+%%--------------------------------------------------------------------
+ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
+    catch pubkey_ocsp:verify_ocsp_response(
+        OCSPResponseDer, ResponderCerts, Nonce).
+
+%%--------------------------------------------------------------------
+-spec ocsp_extensions(undefined | binary()) -> list().
+%% Description: Get OCSP stapling extensions for request
+%%--------------------------------------------------------------------
+ocsp_extensions(Nonce) ->
+    [Extn || Extn <- [pubkey_ocsp:get_nonce_extn(Nonce),
+                      pubkey_ocsp:get_acceptable_response_types_extn()],
+             erlang:is_record(Extn, 'Extension')].
+
+%%--------------------------------------------------------------------
+-spec ocsp_responder_id(#'Certificate'{}) -> binary().
+%%
+%% Description: Get the OCSP responder ID der
+%%--------------------------------------------------------------------
+ocsp_responder_id(Cert) ->
+    pubkey_ocsp:get_ocsp_responder_id(Cert).
+
+%%--------------------------------------------------------------------
+-spec ocsp_nonce() -> binary().
+%%
+%% Description: Get an OCSP nonce
+%%--------------------------------------------------------------------
+ocsp_nonce() ->
+    pubkey_ocsp:get_nonce().
 
 %%--------------------------------------------------------------------
 %%% Internal functions
