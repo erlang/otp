@@ -619,13 +619,19 @@ socket_getopt_value(_Tag, {error, _} = Error) -> Error.
 socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
     case socket_opt() of
         #{Tag := {Level, Key}} ->
-            case socket:getopt(Socket, Level, Key) of
-                {ok, Value} ->
-                    socket:setopt(TargetSocket, Level, Key, Value);
-                {error, _} = Error ->
-                    Error
-            end;
-        #{} -> {error, einval}
+	    case socket:is_supported(Level, Key) of
+		true ->
+		    case socket:getopt(Socket, Level, Key) of
+			{ok, Value} ->
+			    socket:setopt(TargetSocket, Level, Key, Value);
+			{error, _Reason} = Error ->
+			    Error
+		    end;
+		false ->
+		    ok
+	    end;
+        #{} = _X ->
+	    {error, einval}
     end.
 
 start_opts([{sys_debug, D} | Opts]) ->
