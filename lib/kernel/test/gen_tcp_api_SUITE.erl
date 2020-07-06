@@ -27,9 +27,12 @@
 -include_lib("kernel/include/inet.hrl").
 -include("gen_inet_test_lib.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([
+	 all/0, suite/0, groups/0,
+	 init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2,
+
 	 t_connect_timeout/1, t_accept_timeout/1,
 	 t_connect_bad/1,
 	 t_recv_timeout/1, t_recv_eof/1, t_recv_delim/1,
@@ -39,32 +42,81 @@
 	 t_local_basic/1, t_local_unbound/1, t_local_fdopen/1,
 	 t_local_fdopen_listen/1, t_local_fdopen_listen_unbound/1,
 	 t_local_fdopen_connect/1, t_local_fdopen_connect_unbound/1,
-	 t_local_abstract/1, t_accept_inet6_tclass/1]).
+	 t_local_abstract/1, t_accept_inet6_tclass/1,
+	 s_accept_with_explicit_socket_backend/1
+	]).
 
--export([getsockfd/0,closesockfd/1]).
+-export([getsockfd/0, closesockfd/1]).
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+    [
+     {ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}
+    ].
 
 all() -> 
-    [{group, t_accept}, {group, t_connect}, {group, t_recv},
-     t_shutdown_write, t_shutdown_both, t_shutdown_error,
-     t_shutdown_async, t_fdopen, t_fdconnect, t_implicit_inet6,
-     t_accept_inet6_tclass,
-     {group, t_local}].
+    [
+     {group, t_accept},
+     {group, t_connect},
+     {group, t_recv},
+     {group, t_shutdown},
+     t_fdopen, t_fdconnect, t_implicit_inet6, t_accept_inet6_tclass,
+     {group, t_local},
+     {group, s_misc}
+    ].
 
 groups() -> 
-    [{t_accept, [], [t_accept_timeout]},
-     {t_connect, [], [t_connect_timeout, t_connect_bad]},
-     {t_recv, [], [t_recv_timeout, t_recv_eof, t_recv_delim]},
-     {t_local, [],
-      [t_local_basic, t_local_unbound, t_local_fdopen,
-       t_local_fdopen_listen, t_local_fdopen_listen_unbound,
-       t_local_fdopen_connect, t_local_fdopen_connect_unbound,
-       t_local_abstract]}].
+    [
+     {t_accept,   [], t_accept_cases()},
+     {t_connect,  [], t_connect_cases()},
+     {t_recv,     [], t_recv_cases()},
+     {t_shutdown, [], t_shutdown_cases()},
+     {t_local,    [], t_local_cases()},
+     {s_misc,     [], s_misc_cases()}
+    ].
 
+t_accept_cases() ->
+    [
+     t_accept_timeout
+    ].
 
+t_connect_cases() ->
+    [
+     t_connect_timeout,
+     t_connect_bad
+    ].
+
+t_recv_cases() ->
+    [
+     t_recv_timeout,
+     t_recv_eof,
+     t_recv_delim
+    ].
+
+t_shutdown_cases() ->
+    [
+     t_shutdown_write,
+     t_shutdown_both,
+     t_shutdown_error,
+     t_shutdown_async
+    ].
+
+t_local_cases() ->
+    [
+     t_local_basic,
+     t_local_unbound,
+     t_local_fdopen,
+     t_local_fdopen_listen,
+     t_local_fdopen_listen_unbound,
+     t_local_fdopen_connect,
+     t_local_fdopen_connect_unbound,
+     t_local_abstract
+    ].
+
+s_misc_cases() ->
+    [
+     s_accept_with_explicit_socket_backend
+    ].
 
 init_per_suite(Config0) ->
 
@@ -631,7 +683,37 @@ t_accept_inet6_tclass(Config) when is_list(Config) ->
     end.
 
 
+%% On MacOS (maybe more), accepting a connection resulted in a crash.
+%% Note that since 'socket' currently does not work on windows
+%% we have to skip on that platform.
+s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
+    ?TC_TRY(s_accept_with_explicit_socket_backend,
+            fun() -> is_not_windows() end,
+            fun() -> do_s_accept_with_explicit_socket_backend() end).
+
+do_s_accept_with_explicit_socket_backend() ->
+    {ok, S}         = gen_tcp:listen(0, [{inet_backend, socket}]),
+    {ok, {_, Port}} = inet:sockname(S),
+    ClientF = fun() ->
+		      {ok, _} = gen_tcp:connect("localhost", Port, []),
+		      receive die -> exit(normal) after infinity -> ok end
+	      end,
+    Client = spawn_link(ClientF),
+    {ok, _} = gen_tcp:accept(S),
+    Client ! die,
+    ok.
+
+
 %%% Utilities
+
+is_not_windows() ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Windows not supported"};
+        _ ->
+            ok
+    end.
+
 
 %% Calls M:F/length(A), which should return a timeout error, and complete
 %% within the given time.
