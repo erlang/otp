@@ -83,7 +83,8 @@
                         premaster_secret     :: binary() | secret_printout() | 'undefined',
                         server_psk_identity         :: binary() | 'undefined',  % server psk identity hint
                         cookie_iv_shard         :: {binary(), binary()} %% IV, Shard
-                                                 | 'undefined'
+                                                 | 'undefined',
+                        ocsp_stapling_state = #{}
                        }).
 
 -record(connection_env, { 

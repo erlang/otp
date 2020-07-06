@@ -180,6 +180,11 @@ parse_handshake(Direction, #certificate{} = Certificate) ->
                            [header_prefix(Direction)]),
     Message = io_lib:format("~p", [?rec_info(certificate, Certificate)]),
     {Header, Message};
+parse_handshake(Direction, #certificate_status{} = CertificateStatus) ->
+    Header = io_lib:format("~s Handshake, CertificateStatus",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(certificate_status, CertificateStatus)]),
+    {Header, Message};
 parse_handshake(Direction, #server_key_exchange{} = ServerKeyExchange) ->
     Header = io_lib:format("~s Handshake, ServerKeyExchange",
                            [header_prefix(Direction)]),

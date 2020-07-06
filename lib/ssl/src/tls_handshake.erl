@@ -36,13 +36,16 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Handshake handling
--export([client_hello/9, hello/5, hello/4]).
+-export([client_hello/10, hello/5, hello/4]).
 
 %% Handshake encoding
 -export([encode_handshake/2]).
 
 %% Handshake decodeing
 -export([get_tls_handshake/4, decode_handshake/3]).
+
+%% Handshake helper
+-export([ocsp_nonce/2]).
 
 -type tls_handshake() :: #client_hello{} | ssl_handshake:ssl_handshake().
 
@@ -52,7 +55,8 @@
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
 		   ssl_options(), binary(), boolean(), der_cert(),
-                   #key_share_client_hello{} | undefined, tuple() | undefined) ->
+                   #key_share_client_hello{} | undefined, tuple() | undefined,
+                   binary() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -62,7 +66,7 @@ client_hello(_Host, _Port, ConnectionStates,
                ciphers := UserSuites,
                fallback := Fallback
               } = SslOpts,
-	     Id, Renegotiation, _OwnCert, KeyShare, TicketData) ->
+	     Id, Renegotiation, _OwnCert, KeyShare, TicketData, OcspNonce) ->
     Version = tls_record:highest_protocol_version(Versions),
 
     %% In TLS 1.3, the client indicates its version preferences in the
@@ -82,9 +86,10 @@ client_hello(_Host, _Port, ConnectionStates,
     Extensions = ssl_handshake:client_hello_extensions(Version, 
 						       AvailableCipherSuites,
 						       SslOpts, ConnectionStates, 
-                                                       Renegotiation,
-                                                       KeyShare,
-                                                       TicketData),
+                               Renegotiation,
+                               KeyShare,
+                               TicketData,
+                               OcspNonce),
     CipherSuites = ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation, Fallback),
     #client_hello{session_id = Id,
 		  client_version = LegacyVersion,
@@ -294,6 +299,20 @@ get_tls_handshake(Version, Data, <<>>, Options) ->
     get_tls_handshake_aux(Version, Data, Options, []);
 get_tls_handshake(Version, Data, Buffer, Options) ->
     get_tls_handshake_aux(Version, list_to_binary([Buffer, Data]), Options, []).
+
+%%--------------------------------------------------------------------
+%%% Handshake helper
+%%--------------------------------------------------------------------
+
+%%--------------------------------------------------------------------
+-spec ocsp_nonce(boolean(), boolean()) -> binary() | undefined.
+%%
+%% Description: Get an OCSP nonce
+%%--------------------------------------------------------------------
+ocsp_nonce(true, true) ->
+    public_key:ocsp_nonce();
+ocsp_nonce(_OcspNonceOpt, _OcspStaplingOpt) ->
+    undefined.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
