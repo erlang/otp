@@ -77,7 +77,9 @@
          generate_server_share/1,
          add_zero_padding/2,
          encrypt_ticket/3,
-         decrypt_ticket/3]).
+         decrypt_ticket/3,
+         encrypt_data/4,
+         decrypt_data/4]).
 
 -compile(inline).
 
@@ -1458,7 +1460,7 @@ decrypt_ticket(CipherFragment, Shard, IV) ->
 
 
 encrypt_ticket_data(Plaintext, Shard, IV) ->
-    AAD = additional_data(erlang:iolist_size(Plaintext) + 16), %% TagLen = 16
+    AAD = additional_data(<<"ticket">>, erlang:iolist_size(Plaintext) + 16), %% TagLen = 16
     {OTP, Key} = make_otp_key(Shard),
     {Content, CipherTag} = crypto:crypto_one_time_aead(aes_256_gcm, Key, IV, Plaintext, AAD, 16, true),
     <<Content/binary,CipherTag/binary,OTP/binary>>.
@@ -1466,16 +1468,28 @@ encrypt_ticket_data(Plaintext, Shard, IV) ->
 
 decrypt_ticket_data(CipherFragment, Shard, IV) ->
     Size = byte_size(Shard),
-    AAD = additional_data(erlang:iolist_size(CipherFragment) - Size),
+    AAD = additional_data(<<"ticket">>, erlang:iolist_size(CipherFragment) - Size),
     Len = byte_size(CipherFragment) - Size - 16,
     <<Encrypted:Len/binary,CipherTag:16/binary,OTP:Size/binary>> = CipherFragment,
     Key = crypto:exor(OTP, Shard),
     crypto:crypto_one_time_aead(aes_256_gcm, Key, IV, Encrypted, AAD, CipherTag, false).
 
+encrypt_data(ADTag, Plaintext, Shard, IV) ->
+    AAD = additional_data(ADTag, erlang:iolist_size(Plaintext) + 16), %% TagLen = 16
+    {OTP, Key} = make_otp_key(Shard),
+    {Content, CipherTag} = crypto:crypto_one_time_aead(aes_256_gcm, Key, IV, Plaintext, AAD, 16, true),
+    <<Content/binary,CipherTag/binary,OTP/binary>>.
 
-additional_data(Length) ->
-    <<"ticket",?UINT16(Length)>>.
+decrypt_data(ADTag, CipherFragment, Shard, IV) ->
+    Size = byte_size(Shard),
+    AAD = additional_data(ADTag, erlang:iolist_size(CipherFragment) - Size),
+    Len = byte_size(CipherFragment) - Size - 16,
+    <<Encrypted:Len/binary,CipherTag:16/binary,OTP:Size/binary>> = CipherFragment,
+    Key = crypto:exor(OTP, Shard),
+    crypto:crypto_one_time_aead(aes_256_gcm, Key, IV, Encrypted, AAD, CipherTag, false).
 
+additional_data(Tag, Length) ->
+    <<Tag/binary,?UINT16(Length)>>.
 
 make_otp_key(Shard) ->
     Size = byte_size(Shard),

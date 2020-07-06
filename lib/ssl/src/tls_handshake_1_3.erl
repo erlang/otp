@@ -116,22 +116,29 @@ server_hello_random(server_hello, #security_parameters{server_random = Random}) 
 server_hello_random(hello_retry_request, _) ->
     ?HELLO_RETRY_REQUEST_RANDOM.
 
-maybe_add_cookie_extension(#state{ssl_options = #{cookie := false}},
+maybe_add_cookie_extension(#state{ssl_options = #{cookie := false}} = State,
                            ServerHello) ->
-    ServerHello;
+    {State, ServerHello};
 maybe_add_cookie_extension(#state{connection_states = ConnectionStates,
                                   ssl_options = #{cookie := true},
                                   handshake_env =
                                       #handshake_env{
                                          tls_handshake_history =
-                                             {[CH1|_], _}}},
+                                             {[CH1|_], _}} = HsEnv0} = State,
                            #server_hello{extensions = Extensions0} = ServerHello) ->
     HKDFAlgo = get_hkdf_algorithm(ConnectionStates),
     MessageHash0 = message_hash(CH1, HKDFAlgo),
     MessageHash = iolist_to_binary(MessageHash0),
-    %% TODO encrypt!
-    Extensions = Extensions0#{cookie => #cookie{cookie = MessageHash}},
-    ServerHello#server_hello{extensions = Extensions};
+
+    %% Encrypt MessageHash
+    IV = crypto:strong_rand_bytes(16),
+    Shard = crypto:strong_rand_bytes(32),
+    Cookie = ssl_cipher:encrypt_data(<<"cookie">>, MessageHash, Shard, IV),
+
+    HsEnv = HsEnv0#handshake_env{cookie_iv_shard = {IV, Shard}},
+    Extensions = Extensions0#{cookie => #cookie{cookie = Cookie}},
+    {State#state{handshake_env = HsEnv},
+     ServerHello#server_hello{extensions = Extensions}};
 maybe_add_cookie_extension(undefined, ClientHello) ->
     ClientHello;
 maybe_add_cookie_extension(Cookie,
@@ -143,11 +150,13 @@ validate_cookie(_Cookie, #state{ssl_options = #{cookie := false}}) ->
     ok;
 validate_cookie(undefined, #state{ssl_options = #{cookie := true}}) ->
     ok;
-validate_cookie(Cookie, #state{ssl_options = #{cookie := true},
+validate_cookie(Cookie0, #state{ssl_options = #{cookie := true},
                                handshake_env =
                                    #handshake_env{
                                       tls_handshake_history =
-                                          {[_CH2,_HRR,MessageHash|_], _}}}) ->
+                                          {[_CH2,_HRR,MessageHash|_], _},
+                                      cookie_iv_shard = {IV, Shard}}}) ->
+    Cookie = ssl_cipher:decrypt_data(<<"cookie">>, Cookie0, Shard, IV),
     case Cookie =:= iolist_to_binary(MessageHash) of
         true ->
             ok;
@@ -1175,17 +1184,17 @@ compare_verify_data(_, _) ->
 send_hello_retry_request(#state{connection_states = ConnectionStates0} = State0,
                          no_suitable_key, KeyShare, SessionId) ->
     ServerHello0 = server_hello(hello_retry_request, SessionId, KeyShare, undefined, ConnectionStates0),
-    ServerHello = maybe_add_cookie_extension(State0, ServerHello0),
+    {State1, ServerHello} = maybe_add_cookie_extension(State0, ServerHello0),
 
-    State1 = tls_connection:queue_handshake(ServerHello, State0),
+    State2 = tls_connection:queue_handshake(ServerHello, State1),
     %% D.4.  Middlebox Compatibility Mode
-    State2 = maybe_queue_change_cipher_spec(State1, last),
-    {State3, _} = tls_connection:send_handshake_flight(State2),
+    State3 = maybe_queue_change_cipher_spec(State2, last),
+    {State4, _} = tls_connection:send_handshake_flight(State3),
 
     %% Update handshake history
-    State4 = replace_ch1_with_message_hash(State3),
+    State5 = replace_ch1_with_message_hash(State4),
 
-    {ok, {State4, start}};
+    {ok, {State5, start}};
 send_hello_retry_request(State0, _, _, _) ->
     %% Suitable key found.
     {ok, {State0, negotiated}}.
