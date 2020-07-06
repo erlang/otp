@@ -252,7 +252,7 @@
 2> <![CDATA[uri_string:normalize(<<"mid/content=5/../6">>).]]>
 <![CDATA[<<"mid/6">>]]>
 3> uri_string:normalize("http://localhost:80").
-"https://localhost/"
+"http://localhost/"
 4> <input>uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",</input>
 4> host => "localhost-örebro"}).
 "http://localhost-%C3%B6rebro/a/g"
