@@ -55,7 +55,7 @@
          send_handshake_flight/1,
 	 queue_handshake/2, queue_change_cipher/2,
 	 reinit/1, reinit_handshake_data/1, select_sni_extension/1, 
-         empty_connection_state/2, is_ocsp_stapling_negotiated/3]).
+         empty_connection_state/2]).
 
 %% Alert and close handling
 -export([send_alert/2, send_alert_in_connection/2,
@@ -597,7 +597,8 @@ init({call, From}, {start, Timeout},
                                      socket = Socket,
                                      session_cache = Cache,
                                      session_cache_cb = CacheCb},
-            handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
+            handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                                           ocsp_stapling_state = OcspState0} = HsEnv,
             connection_env = CEnv,
 	    ssl_options = #{log_level := LogLevel,
                         %% Use highest version in initial ClientHello.
@@ -645,16 +646,15 @@ init({call, From}, {start, Timeout},
     %% negotiated_version is also used by the TLS 1.3 state machine and is set after
     %% ServerHello is processed.
     RequestedVersion = tls_record:hello_version(Versions),
-    State2 = State1#state{connection_states = ConnectionStates,
+    State = State1#state{connection_states = ConnectionStates,
                           connection_env = CEnv#connection_env{
                                              negotiated_version = RequestedVersion},
                           session = Session,
                           handshake_env = HsEnv#handshake_env{
-                              tls_handshake_history = Handshake},
+                                            tls_handshake_history = Handshake,
+                                            ocsp_stapling_state = OcspState0#{ocsp_nonce => OcspNonce}},
                           start_or_recv_from = From,
                           key_share = KeyShare},
-    State = tls_handshake_1_3:update_ocsp_state(
-        OcspStaplingOpt, OcspNonce, State2),
     next_event(hello, no_record, State, [{{timeout, handshake}, Timeout, close}]);
 
 init(Type, Event, State) ->
@@ -690,24 +690,13 @@ hello(internal, #client_hello{extensions = Extensions} = Hello,
      [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello,
       #state{ssl_options = #{
-                 handshake := hello,
-                 ocsp_stapling := OcspStapling},
+                 handshake := hello},
              handshake_env = HsEnv,
-             start_or_recv_from = From} = State) ->
-    %% RFC6066.8, If a server returns a "CertificateStatus" message,
-    %% then the server MUST have included an extension of type
-    %% "status_request" with empty "extension_data" in the extended
-    %% server hello.
-    OcspState = HsEnv#handshake_env.ocsp_stapling_state,
-    OcspNegotiated = is_ocsp_stapling_negotiated(OcspStapling, Extensions, State),
+             start_or_recv_from = From} = State) ->   
     {next_state, user_hello,
      State#state{start_or_recv_from = undefined,
                  handshake_env = HsEnv#handshake_env{
-                     hello = Hello,
-                     ocsp_stapling_state = OcspState#{
-                         ocsp_negotiated => OcspNegotiated}}},
-     [{reply, From, {ok, Extensions}}]};     
-
+                                   hello = Hello}}, [{reply, From, {ok, Extensions}}]};     
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{connection_states = ConnectionStates0,
              static_env = #static_env{
@@ -755,38 +744,33 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
             end
 
     end;
-hello(internal, #server_hello{extensions = Extensions} = Hello,
+hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
              connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv,
 	     static_env = #static_env{role = client},
              handshake_env = #handshake_env{
-                 renegotiation = {Renegotiation, _},
-                 ocsp_stapling_state = OcspState} = HsEnv,
+                                ocsp_stapling_state = OcspState0,
+                                renegotiation = {Renegotiation, _}} = HsEnv,
              session = #session{session_id = OldId},
-	     ssl_options = SslOptions} = State) ->
-    %% check if OCSP stapling is negotiated
-    #{ocsp_stapling := OcspStapling} = SslOptions,
-    OcspNegotiated = is_ocsp_stapling_negotiated(OcspStapling, Extensions, State),
-
+	     ssl_options = SslOptions} = State) ->   
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
-	#alert{} = Alert -> %%TODO
-	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
+        #alert{} = Alert -> 
+            ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
                                             State#state{connection_env =
                                                             CEnv#connection_env{negotiated_version = ReqVersion}
-                                                        });
+                                                       });
         %% Legacy TLS 1.2 and older
-	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
-	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, ProtoExt, Protocol,
-                      State#state{handshake_env = HsEnv#handshake_env{
-                          ocsp_stapling_state = OcspState#{
-                              ocsp_negotiated => OcspNegotiated}}});
+        {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
+            ssl_connection:handle_session(Hello, 
+                                          Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                                          State#state{handshake_env = HsEnv#handshake_env{
+                                                                        ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
         %% TLS 1.3
-        {next_state, wait_sh, SelectedVersion} ->
+        {next_state, wait_sh, SelectedVersion, OcspState} ->
             %% Continue in TLS 1.3 'wait_sh' state
             {next_state, wait_sh,
-             State#state{
-               connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
+             State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =  maps:merge(OcspState0,OcspState)}, 
+                         connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
              [{next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
@@ -1599,32 +1583,3 @@ send_ticket_data(User, NewSessionTicket, HKDF, SNI, PSK) ->
                    timestamp => Timestamp,
                    ticket => NewSessionTicket},
     User ! {ssl, session_ticket, {SNI, erlang:term_to_binary(TicketData)}}.
-
-is_ocsp_stapling_negotiated(true, Extensions,
-                            #state{connection_env =
-                                   #connection_env{
-                                       negotiated_version = Version}
-                            } = State) ->
-    case maps:get(status_request, Extensions, false) of
-        undefined -> %% status_request in server hello is empty
-            true;
-        false -> %% status_request is missing (not negotiated)
-            false;
-        _Else ->
-            ssl_connection:handle_own_alert(
-                ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, status_request_not_empty),
-                Version, hello, State)
-    end;
-is_ocsp_stapling_negotiated(false, Extensions,
-                            #state{connection_env =
-                                   #connection_env{
-                                       negotiated_version = Version}
-                            } = State) ->
-    case maps:get(status_request, Extensions, false) of
-        false -> %% status_request is missing (not negotiated)
-            false;
-        _Else -> %% unsolicited status_request
-            ssl_connection:handle_own_alert(
-                ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request),
-                Version, hello, State)
-    end.

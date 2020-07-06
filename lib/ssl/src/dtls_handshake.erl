@@ -227,8 +227,8 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
                                                      Compression, HelloExt,
                                                      dtls_v1:corresponding_tls_version(Version),
                                                      SslOpt, ConnectionStates0, Renegotiation, IsNew) of
-	{ConnectionStates, ProtoExt, Protocol} ->
-	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
+	{ConnectionStates, ProtoExt, Protocol, OcspState} ->
+	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}
     catch throw:Alert ->
 	    Alert
     end.

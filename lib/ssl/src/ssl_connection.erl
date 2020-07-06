@@ -967,25 +967,28 @@ abbreviated(Type, Msg, State, Connection) ->
 	                     #state{}, tls_connection | dtls_connection) ->
 		gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-wait_ocsp_stapling(internal, #certificate_status{response = OcspRespDer},
-                   #state{
-                       handshake_env = #handshake_env{
-                           ocsp_stapling_state = OcspState}} = State,
+wait_ocsp_stapling(internal, #certificate{}, State, Connection) ->
+    %% Postpone message, should be handled in certify after receiving staple message
+    Connection:next_event(?FUNCTION_NAME, no_record, State, [{postpone, true}]);
+%% Receive OCSP staple message
+wait_ocsp_stapling(internal, #certificate_status{} = CertStatus,
+                   #state{handshake_env = #handshake_env{
+                                             ocsp_stapling_state = OcspState} = HsEnv} = State,
                    Connection) ->
-    Cert = maps:get(cert_msg, OcspState),
-    certify_check(Cert, State, Connection, [{status_request, OcspRespDer}]);
-wait_ocsp_stapling(internal, Msg,
-                   #state{
-                       handshake_env = #handshake_env{
-                           ocsp_stapling_state = OcspState}} = State,
-                   Connection)
+    Connection:next_event(certify, no_record, State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state = 
+                                                                                                  OcspState#{ocsp_expect => stapled,
+                                                                                                             ocsp_response => CertStatus}}});
+%% Server did not send OCSP staple message
+wait_ocsp_stapling(internal, Msg, #state{handshake_env = #handshake_env{
+                                                            ocsp_stapling_state = OcspState} = HsEnv} = State, Connection)
   when is_record(Msg, server_key_exchange) orelse
        is_record(Msg, hello_request) orelse
        is_record(Msg, certificate_request) orelse
        is_record(Msg, server_hello_done) orelse
        is_record(Msg, client_key_exchange) ->
-    certify_check(
-        maps:get(cert_msg, OcspState), State, Connection, [], [{postpone, true}]);
+    Connection:next_event(certify, no_record, State#state{handshake_env = 
+                                                              HsEnv#handshake_env{ocsp_stapling_state = OcspState#{ocsp_expect => undetermined}}},
+                          [{postpone, true}]);
 wait_ocsp_stapling(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
  
@@ -1021,17 +1024,31 @@ certify(internal, #certificate{},
 	    State, _) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
     handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
-certify(internal, #certificate{} = Cert,
+certify(internal, #certificate{},
         #state{handshake_env = #handshake_env{
-                   ocsp_stapling_state = OcspState} = HsEnv} = State, Connection) ->
-    case maps:get(ocsp_negotiated, OcspState, false) of
-        true ->
-            NewOcspState = OcspState#{cert_msg => Cert},
-            NewHsEnv = HsEnv#handshake_env{ocsp_stapling_state = NewOcspState},
-            Connection:next_event(
-                wait_ocsp_stapling, no_record, State#state{handshake_env = NewHsEnv});
-        false ->
-            certify_check(Cert, State, Connection, [])
+                                  ocsp_stapling_state = #{ocsp_expect := staple}}} = State, Connection) ->
+    Connection:next_event(wait_ocsp_stapling, no_record, State, [{postpone, true}]);
+certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert, #state{static_env =
+                                                    #static_env{
+                                                       role = Role,
+                                                       host = Host,
+                                                       cert_db = CertDbHandle,
+                                                       cert_db_ref = CertDbRef,
+                                                       crl_db = CRLDbInfo},
+                                                handshake_env = #handshake_env{
+                                                                   ocsp_stapling_state = #{ocsp_expect := Status} = OcspState},
+                                                connection_env = #connection_env{
+                                                                    negotiated_version = Version},
+                                                ssl_options = Opts} = State, Connection) when Status =/= staple ->
+    OcspInfo = ocsp_info(OcspState, Opts, Peer),
+    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef,
+                               Opts, CRLDbInfo, Role, Host,
+                               ensure_tls(Version), OcspInfo) of
+        {PeerCert, PublicKeyInfo} ->
+	        handle_peer_cert(Role, PeerCert, PublicKeyInfo,
+			State#state{client_certificate_requested = false}, Connection, []);
+	    #alert{} = Alert ->
+            handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
     end;
 certify(internal, #server_key_exchange{exchange_keys = Keys},
         #state{static_env = #static_env{role = client},
@@ -1053,7 +1070,7 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
        KexAlg == srp_dss; 
        KexAlg == srp_rsa; 
        KexAlg == srp_anon ->
-
+    
     Params = ssl_handshake:decode_server_key(Keys, KexAlg, ssl:tls_version(Version)),
 
     %% Use negotiated value if TLS-1.2 otherwhise return default
@@ -1204,41 +1221,6 @@ certify(internal, #client_key_exchange{exchange_keys = Keys},
     end;
 certify(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
-
-certify_check(Cert, State, Connection, CertStatus) ->
-    certify_check(Cert, State, Connection, CertStatus, []).
-
-certify_check(#certificate{asn1_certificates = [PeerCert | _T]} = Cert,
-              #state{static_env =
-                   #static_env{
-                       role = Role,
-                       host = Host,
-                       cert_db = CertDbHandle,
-                       cert_db_ref = CertDbRef,
-                       crl_db = CRLDbInfo},
-               handshake_env = #handshake_env{
-               ocsp_stapling_state = OcspState},
-               connection_env = #connection_env{
-                   negotiated_version = Version},
-	           ssl_options =
-                   #{ocsp_stapling := OcspStapling,
-                     ocsp_responder_certs := OcspResponderCerts}
-               = Opts} = State,
-              Connection, CertStatus, Actions) ->
-    OcspInfo = #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => CertStatus},
-                 ocsp_stapling => OcspStapling,
-                 ocsp_responder_certs => OcspResponderCerts,
-                 ocsp_state => OcspState},
-            
-    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef,
-                               Opts, CRLDbInfo, Role, Host,
-                               ensure_tls(Version), OcspInfo) of
-        {PeerCert, PublicKeyInfo} ->
-	        handle_peer_cert(Role, PeerCert, PublicKeyInfo,
-			State#state{client_certificate_requested = false}, Connection, Actions);
-	    #alert{} = Alert ->
-            handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
-    end.
  
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(),
@@ -3191,3 +3173,16 @@ ensure_tls({254, _} = Version) ->
     dtls_v1:corresponding_tls_version(Version);
 ensure_tls(Version) -> 
     Version.
+
+ocsp_info(#{ocsp_expect := stapled, 
+            ocsp_response := CertStatus} = OcspState,
+            #{ocsp_responder_certs := OcspResponderCerts}, PeerCert) ->
+    #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => [CertStatus]},
+      ocsp_responder_certs => OcspResponderCerts,
+      ocsp_state => OcspState
+     };
+ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
+    #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
+      ocsp_responder_certs => [],
+      ocsp_state => OcspState
+     }.

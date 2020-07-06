@@ -22,9 +22,21 @@
 
 -include("public_key.hrl").
 
--export([otp_cert/1, get_ocsp_responder_id/1, get_nonce/0, get_nonce_extn/1,
-         decode_ocsp_response/1, verify_ocsp_response/3,
-         get_acceptable_response_types_extn/0, find_single_response/3]).
+-export([otp_cert/1,
+         get_ocsp_responder_id/1,
+         get_nonce_extn/1,
+         decode_ocsp_response/1,
+         verify_ocsp_response/3,
+         get_acceptable_response_types_extn/0,
+         find_single_response/3,
+         ocsp_status/1]).
+
+ocsp_status({good, _}) ->
+    valid;
+ocsp_status({unknown, Reason}) ->
+    {bad_cert, {revocation_status_undetermined, Reason}};
+ocsp_status({revoked, Reason}) ->
+    {bad_cert, {revoked, Reason}}.
 
 %%--------------------------------------------------------------------
 -spec verify_ocsp_response(binary(), list(), undefined | binary()) ->
@@ -262,14 +274,6 @@ enc_pub_key({#'ECPoint'{point = Key}, _ECParam}) ->
     Key.
 
 %%--------------------------------------------------------------------
--spec get_nonce() -> binary().
-%%
-%% Description: Get an OCSP nonce
-%%--------------------------------------------------------------------
-get_nonce() ->
-    public_key:der_encode('Nonce', crypto:strong_rand_bytes(8)).
-
-%%--------------------------------------------------------------------
 -spec get_nonce_extn(undefined | binary()) -> undefined | #'Extension'{}.
 %%
 %% Description: Get an OCSP nonce der
@@ -306,24 +310,18 @@ get_serial_num(Cert) ->
 
 
 %%--------------------------------------------------------------------
--spec find_single_response(
-    binary | #'Certificate'{} | #'OTPCertificate'{}, list(), list()) ->
-    #'SingleResponse'{} | {error, no_matched_response}.
-%%
+%% -spec find_single_response(#'OTPCertificate'{}, #'OTPCertificate'{}, 
+%%                            [#'SingleResponse'{}]) ->
+%%           #'SingleResponse'{} | {error, no_matched_response}.
+%% %%
 %% Description: Find the matched single response.
 %%--------------------------------------------------------------------
-find_single_response(Cert, CertPath, SingleResponseList) ->
-    case find_issuer(Cert, CertPath) of
-        {ok, Issuer} ->
-            OtpCert = otp_cert(Cert),
-            IssuerName = get_subject_name(Issuer),
-            IssuerKey = get_public_key(Issuer),
-            SerialNum = get_serial_num(OtpCert),
-            match_single_response(
-                IssuerName, IssuerKey, SerialNum, SingleResponseList);
-        {error, issuer_not_found} ->
-            {error, no_matched_response}
-    end.
+find_single_response(Cert, IssuerCert, SingleResponseList) ->
+    IssuerName = get_subject_name(IssuerCert),
+    IssuerKey = get_public_key(IssuerCert),
+    SerialNum = get_serial_num(Cert),
+    match_single_response(
+      IssuerName, IssuerKey, SerialNum, SingleResponseList).
 
 match_single_response(_IssuerName, _IssuerKey, _SerialNum, []) ->
     {error, no_matched_response};
@@ -331,7 +329,7 @@ match_single_response(
     IssuerName, IssuerKey, SerialNum,
     [#'SingleResponse'{
         certID = #'CertID'{hashAlgorithm = Algo} = CertID
-     } = Response | Reponses]) ->
+     } = Response | Responses]) ->
     HashType = public_key:pkix_hash_type(
         Algo#'AlgorithmIdentifier'.algorithm),
     case (SerialNum == CertID#'CertID'.serialNumber) andalso
@@ -342,15 +340,6 @@ match_single_response(
         true ->
             {ok, Response};
         false ->
-            match_single_response(IssuerName, IssuerKey, SerialNum, Reponses)
+            match_single_response(IssuerName, IssuerKey, SerialNum, Responses)
     end.
 
-find_issuer(_Cert, []) ->
-    {error, issuer_not_found};
-find_issuer(Cert, [Issuer | CertPath]) ->
-    case public_key:pkix_is_issuer(Cert, Issuer) of
-        true ->
-            {ok, otp_cert(Issuer)};
-        false ->
-            find_issuer(Cert, CertPath)
-    end.

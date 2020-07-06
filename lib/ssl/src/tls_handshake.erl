@@ -105,12 +105,9 @@ client_hello(_Host, _Port, ConnectionStates,
 				    atom(), ssl_record:connection_states(), 
 				    binary() | undefined, ssl:kex_algo()},
 	    boolean(), #session{}) ->
-		   {tls_record:tls_version(), ssl:session_id(), 
-		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
-		   {tls_record:tls_version(), {resumed | new, #session{}}, 
-		    ssl_record:connection_states(), binary() | undefined, 
-                    HelloExt::map(), {ssl:hash(), ssl:sign_algo()} | 
-                    undefined} | {atom(), atom()} | {atom(), atom(), tuple()} | #alert{}.
+          {tls_record:tls_version(), ssl:session_id(), 
+           ssl_record:connection_states(), alpn | npn, binary() | undefined, map()}|
+          {atom(), atom(), tls_record:tls_version(), map()} | #alert{}.
 %%
 %% Description: Handles a received hello message
 %%--------------------------------------------------------------------
@@ -161,7 +158,8 @@ hello(#server_hello{server_version = LegacyVersion,
                     extensions = #{server_hello_selected_version :=
                                        #server_hello_selected_version{selected_version = Version} = HelloExt}
                    },
-      #{versions := SupportedVersions} = SslOpt,
+      #{versions := SupportedVersions, 
+        ocsp_stapling := Stapling} = SslOpt,
       ConnectionStates0, Renegotiation, OldId) ->
     %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
@@ -183,7 +181,8 @@ hello(#server_hello{server_version = LegacyVersion,
                                                            ConnectionStates0, Renegotiation, IsNew);
                         SelectedVersion ->
                             %% TLS 1.3
-                            {next_state, wait_sh, SelectedVersion}
+                            {next_state, wait_sh, SelectedVersion, #{ocsp_stapling => Stapling,
+                                                                     ocsp_expect => ocsp_expect(Stapling)}}
                     end;
                 false ->
                     ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
@@ -310,7 +309,7 @@ get_tls_handshake(Version, Data, Buffer, Options) ->
 %% Description: Get an OCSP nonce
 %%--------------------------------------------------------------------
 ocsp_nonce(true, true) ->
-    public_key:ocsp_nonce();
+    public_key:der_encode('Nonce', crypto:strong_rand_bytes(8));
 ocsp_nonce(_OcspNonceOpt, _OcspStaplingOpt) ->
     undefined.
 
@@ -387,8 +386,8 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 						      Compression, HelloExt, Version,
 						      SslOpt, ConnectionStates0, 
                                                      Renegotiation, IsNew) of
-	{ConnectionStates, ProtoExt, Protocol} ->
-	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
+	{ConnectionStates, ProtoExt, Protocol, OcspState} ->
+	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}
     catch throw:Alert ->
 	    Alert
     end.
@@ -476,3 +475,9 @@ decode_handshake({3, 4}, Tag, Msg) ->
     tls_handshake_1_3:decode_handshake(Tag, Msg);
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
+
+
+ocsp_expect(true) ->
+    staple;
+ocsp_expect(_) ->
+    no_staple.

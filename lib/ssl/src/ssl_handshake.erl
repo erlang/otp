@@ -352,10 +352,8 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
           signature_algs := SignAlgos,
           depth := Depth} = Opts, CRLDbHandle, Role, Host, Version,
           #{cert_ext := CertExt,
-            ocsp_stapling := OcspStapling,
             ocsp_responder_certs := OcspResponderCerts,
             ocsp_state := OcspState}) ->
-    
     ServerName = server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = ASN1Certs,
     try
@@ -374,7 +372,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                                                                       crl_check => CrlCheck,
                                                                       crl_db => CRLDbHandle,
                                                                       cert_ext => CertExt,
-                                                                      ocsp_stapling => OcspStapling,
+                                                                      issuer => TrustedCert,
                                                                       ocsp_responder_certs => OcspResponderCerts,
                                                                       ocsp_state => OcspState},
                                                          CertPath, Level),
@@ -382,7 +380,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                    {verify_fun, ValidationFunAndState}],
 	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
 	    {ok, {PublicKeyInfo, _}} ->
-            {PeerCert, PublicKeyInfo};
+                {PeerCert, PublicKeyInfo};
 	    {error, Reason} ->
 		    handle_path_validation_error(Reason, PeerCert, ChainCerts, Opts, Options,
                                          CertDbHandle, CertDbRef)
@@ -1438,7 +1436,8 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                                Exts, Version,
 			       #{secure_renegotiate := SecureRenegotation,
-                                 next_protocol_selector := NextProtoSelector},
+                                 next_protocol_selector := NextProtoSelector,
+                                 ocsp_stapling := Stapling},
 			       ConnectionStates0, Renegotiation, IsNew) ->
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
                                                       maps:get(renegotiation_info, Exts, undefined), Random, 
@@ -1461,26 +1460,31 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
             ok
     end,
 
-    %% If we receive an ALPN extension then this is the protocol selected,
-    %% otherwise handle the NPN extension.
-    ALPN = maps:get(alpn, Exts, undefined),
-    case decode_alpn(ALPN) of
-        %% ServerHello contains exactly one protocol: the one selected.
-        %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
-        [Protocol] when not Renegotiation ->
-            {ConnectionStates, alpn, Protocol};
-        [_] when Renegotiation ->
-            {ConnectionStates, alpn, undefined};
-        undefined ->
-            NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
-            Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation),
-            {ConnectionStates, npn, Protocol};
-        {error, Reason} ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
-        [] ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, no_protocols_in_server_hello);
-        [_|_] ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, too_many_protocols_in_server_hello)
+    case handle_ocsp_extension(Stapling, Exts) of
+        #alert{} = Alert ->
+            Alert;
+        OcspState ->
+            %% If we receive an ALPN extension then this is the protocol selected,
+            %% otherwise handle the NPN extension.
+            ALPN = maps:get(alpn, Exts, undefined),
+            case decode_alpn(ALPN) of
+                %% ServerHello contains exactly one protocol: the one selected.
+                %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
+                [Protocol] when not Renegotiation ->
+                    {ConnectionStates, alpn, Protocol, OcspState};
+                [_] when Renegotiation ->
+                    {ConnectionStates, alpn, undefined, OcspState};
+                undefined ->
+                    NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
+                    Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation),
+                    {ConnectionStates, npn, Protocol, OcspState};
+                {error, Reason} ->
+                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
+                [] ->
+                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, no_protocols_in_server_hello);
+                [_|_] ->
+                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, too_many_protocols_in_server_hello)
+            end
     end.
 
 select_curve(Client, Server) ->
@@ -1727,7 +1731,25 @@ extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
 extension_value(#cookie{cookie = Cookie}) ->
     Cookie.
 
-
+handle_ocsp_extension(true = Stapling, Extensions) ->
+    case maps:get(status_request, Extensions, false) of
+        undefined -> %% status_request in server hello is empty
+            #{ocsp_stapling => Stapling,
+              ocsp_expect => staple};
+        false -> %% status_request is missing (not negotiated)
+            #{ocsp_stapling => Stapling,
+              ocsp_expect => no_staple};
+        _Else ->
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, status_request_not_empty)
+    end;
+handle_ocsp_extension(false = Stapling, Extensions) ->
+    case maps:get(status_request, Extensions, false) of
+        false -> %% status_request is missing (not negotiated)
+            #{ocsp_stapling => Stapling,
+              ocsp_expect => no_staple};
+        _Else -> %% unsolicited status_request
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request)
+    end.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1809,10 +1831,10 @@ validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
 				      Extension,
 				      SslState);
 	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
-                                           (VerifyResult == valid_peer) -> 
+                                               (VerifyResult == valid_peer) -> 
 	     case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		 valid ->
-             ssl_certificate:validate(OtpCert, VerifyResult, SslState);
+                     ssl_certificate:validate(OtpCert, VerifyResult, SslState);
 		 Reason ->
 		     {fail, Reason}
 	     end;
@@ -2001,57 +2023,21 @@ bad_key(#{algorithm := rsa}) ->
 bad_key(#{algorithm := ecdsa}) ->
     unacceptable_ecdsa_key.
 
-cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) ->
-    case ocsp_check(OtpCert, CertPath, SslState) of
-        not_applicable ->
-            %% OCSP not enabled or no OCSP response received
-            crl_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
-        CertStatus ->
-            CertStatus
-    end.
+cert_status_check(_, #{ocsp_state := #{ocsp_stapling := true,
+                                       ocsp_expect := stapled}}, _VerifyResult, _, _) ->
+    valid; %% OCSP staple will now be checked by ssl_certifcate:verify_cert_extensions/2 in ssl_certifcate:validate
+cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := false}} = SslState, VerifyResult, CertPath, LogLevel) ->
+    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
+cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := best_effort, %%TODO should we support
+                                             ocsp_expect := undetermined}} = SslState, 
+                  VerifyResult, CertPath, LogLevel) ->
+    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel).
 
-ocsp_check(_OtpCert, _CertPath, #{ocsp_stapling := false}) ->
-    %% OCSP is disabled, try CRL
-    not_applicable;
-ocsp_check(OtpCert, CertPath, #{cert_ext := CertExt,
-                                ocsp_stapling := true,
-                                ocsp_responder_certs := ResponderCerts,
-                                ocsp_state := OcspState}) ->
-    Id = public_key:pkix_subject_id(OtpCert),
-    case lists:keyfind(status_request, 1, maps:get(Id, CertExt, [])) of
-        false ->
-            %% no OCSP response, try CRL
-            not_applicable;
-        {status_request, OcspRespDer} ->
-            Responses = public_key:ocsp_responses(
-                            OcspRespDer, ResponderCerts,
-                            maps:get(ocsp_nonce, OcspState, undefined)),
-            ocsp_responses_check(OtpCert, CertPath, Responses)
-    end.
-
-ocsp_responses_check(_OtpCert, _CertPath, Reason = {error, _Reason}) ->
-    %% no valid OCSP response
-    {bad_cert, {revocation_status_undetermined, Reason}};
-ocsp_responses_check(OtpCert, CertPath, {ok, Responses}) ->
-    case public_key:ocsp_status(OtpCert, CertPath, Responses) of
-        {good, _Info} ->
-            valid;
-        {unknown, _Info} ->
-            %% Go on to check crl
-            not_applicable;
-        {revoked, Info} ->
-            {bad_cert, {revoked, Info}};
-        no_matched_response ->
-            %% Go on to check crl
-            not_applicable
-    end.
-
-
-crl_check(_, #{crl_check := false}, _, _, _) ->
+maybe_check_crl(_, #{crl_check := false}, _, _, _) ->
     valid;
-crl_check(_, #{crl_check := peer}, _, valid, _) -> %% Do not check CAs with this option.
+maybe_check_crl(_, #{crl_check := peer}, _, valid, _) -> %% Do not check CAs with this option.
     valid;
-crl_check(OtpCert, #{crl_check := Check, 
+maybe_check_crl(OtpCert, #{crl_check := Check, 
                      certdb := CertDbHandle,
                      certdb_ref := CertDbRef,
                      crl_db := {Callback, CRLDbHandle}}, _, CertPath, LogLevel) ->
@@ -2912,7 +2898,7 @@ decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
           ?UINT24(OCSPLen),
           ASN1OCSPResponse:OCSPLen/binary>> ->
             decode_extensions(Rest, Version, MessageType,
-                      Acc#{status_request => ASN1OCSPResponse});
+                      Acc#{status_request => #certificate_status{response = ASN1OCSPResponse}});
         _Other ->
             decode_extensions(Rest, Version, MessageType, Acc)
     end;

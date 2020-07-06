@@ -525,10 +525,11 @@ hello(internal, #client_hello{cookie = <<>>,
 hello(internal, #hello_verify_request{cookie = Cookie}, #state{static_env = #static_env{role = client,
                                                                                         host = Host,
                                                                                         port = Port},
-                                                               handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
+                                                               handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                                                                                              ocsp_stapling_state = OcspState0} = HsEnv,
                                                                connection_env = CEnv,
 							       ssl_options = #{ocsp_stapling := OcspStaplingOpt,
-                                                   ocsp_nonce := OcspNonceOpt} = SslOpts,
+                                                                               ocsp_nonce := OcspNonceOpt} = SslOpts,
 							       session = #session{own_certificate = Cert, session_id = Id},
 							       connection_states = ConnectionStates0
 							      } = State0) ->
@@ -537,12 +538,13 @@ hello(internal, #hello_verify_request{cookie = Cookie}, #state{static_env = #sta
 					SslOpts, Id, Renegotiation, Cert, OcspNonce),
     Version = Hello#client_hello.client_version,
     State1 = prepare_flight(State0#state{handshake_env =  
-                                             HsEnv#handshake_env{tls_handshake_history 
-                                                                 = ssl_handshake:init_handshake_history()}}),
+                                             HsEnv#handshake_env{tls_handshake_history
+                                                                 = ssl_handshake:init_handshake_history(),
+                                                                 ocsp_stapling_state = OcspState0#{ocsp_nonce => OcspNonce}}}),
     
     {State2, Actions} = send_handshake(Hello, State1), 
-    State3 = tls_handshake_1_3:update_ocsp_state(OcspStaplingOpt, OcspNonce, State2),
-    State = State3#state{connection_env = CEnv#connection_env{negotiated_version = Version} % RequestedVersion
+
+    State = State2#state{connection_env = CEnv#connection_env{negotiated_version = Version} % RequestedVersion
                         },
     next_event(?FUNCTION_NAME, no_record, State, Actions);
 hello(internal, #client_hello{extensions = Extensions} = Hello, 
@@ -554,25 +556,13 @@ hello(internal, #client_hello{extensions = Extensions} = Hello,
      [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello, 
       #state{ssl_options = #{
-                 handshake := hello,
-                 ocsp_stapling := OcspStapling},
+                 handshake := hello},
              handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->
-    %% RFC6066.8, If a server returns a "CertificateStatus" message,
-    %% then the server MUST have included an extension of type
-    %% "status_request" with empty "extension_data" in the extended
-    %% server hello.
-    OcspState = HsEnv#handshake_env.ocsp_stapling_state,
-    OcspNegotiated = tls_connection:is_ocsp_stapling_negotiated(OcspStapling,
-                                                                Extensions,
-                                                                State),
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
                                          handshake_env = HsEnv#handshake_env{
-                                             hello = Hello,
-                                             ocsp_stapling_state = OcspState#{
-                                                 ocsp_negotiated => OcspNegotiated}}},
-     [{reply, From, {ok, Extensions}}]};     
-
+                                                           hello = Hello}},
+     [{reply, From, {ok, Extensions}}]};       
 hello(internal, #client_hello{cookie = Cookie} = Hello, #state{static_env = #static_env{role = server,
                                                                                         transport_cb = Transport,
                                                                                         socket = Socket},
@@ -592,30 +582,24 @@ hello(internal, #client_hello{cookie = Cookie} = Hello, #state{static_env = #sta
                     hello(internal, Hello#client_hello{cookie = <<>>}, State0) 
             end
     end;
-hello(internal, #server_hello{extensions = Extensions} = Hello,
+hello(internal, #server_hello{} = Hello,
       #state{
          static_env = #static_env{role = client},
          handshake_env = #handshake_env{
              renegotiation = {Renegotiation, _},
-             ocsp_stapling_state = OcspState} = HsEnv,
+             ocsp_stapling_state = OcspState0} = HsEnv,
          connection_env = #connection_env{negotiated_version = ReqVersion},
          connection_states = ConnectionStates0,
          session = #session{session_id = OldId},
          ssl_options = SslOptions} = State) ->
-    %% check if OCSP stapling is negotiated
-    #{ocsp_stapling := OcspStapling} = SslOptions,
-    OcspNegotiated = tls_connection:is_ocsp_stapling_negotiated(
-        OcspStapling, Extensions, State),
-
     case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
-	#alert{} = Alert ->
-	    handle_own_alert(Alert, ReqVersion, ?FUNCTION_NAME, State);
-	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
-	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, ProtoExt, Protocol,
-                      State#state{handshake_env = HsEnv#handshake_env{
-                          ocsp_stapling_state = OcspState#{
-                              ocsp_negotiated => OcspNegotiated}}})
+        #alert{} = Alert ->
+            handle_own_alert(Alert, ReqVersion, ?FUNCTION_NAME, State);
+        {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
+            ssl_connection:handle_session(Hello, 
+                                          Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                                          State#state{handshake_env = HsEnv#handshake_env{
+                                                                        ocsp_stapling_state = maps:merge(OcspState0,OcspState)}})
     end;
 hello(internal, {handshake, {#client_hello{cookie = <<>>} = Handshake, _}}, State) ->
     %% Initial hello should not be in handshake history

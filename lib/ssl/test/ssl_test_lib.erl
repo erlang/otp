@@ -530,6 +530,7 @@ init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orel
             ++ openssl_dtls_opt(GroupName),
 
     SslPort = ssl_test_lib:portable_open_port(Exe, Args),
+    wait_for_openssl_server(Port, proplists:get_value(protocol, Options, tls)),
     Pid ! {started, Port},
     Pid ! {self(), {port, Port}},
     openssl_server_loop(Pid, SslPort, Args).

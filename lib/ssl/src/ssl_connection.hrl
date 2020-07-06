@@ -84,7 +84,8 @@
                         server_psk_identity         :: binary() | 'undefined',  % server psk identity hint
                         cookie_iv_shard         :: {binary(), binary()} %% IV, Shard
                                                  | 'undefined',
-                        ocsp_stapling_state = #{}
+                        ocsp_stapling_state = #{ocsp_stapling => false, 
+                                                ocsp_expect => no_staple}
                        }).
 
 -record(connection_env, { 
