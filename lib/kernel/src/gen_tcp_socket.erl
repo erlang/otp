@@ -90,6 +90,7 @@ connect(Address, Port, Opts, Timeout) ->
 %% Helpers -------
 
 connect_lookup(Address, Port, Opts, Timer) ->
+    %% ?DBG({Address, Port, Opts, Timer}),
     {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
     EinvalOpts =:= [] orelse exit(badarg),
     {Mod, Opts_2} = inet:tcp_module(Opts_1, Address),
@@ -109,10 +110,18 @@ connect_lookup(Address, Port, Opts, Timer) ->
             port = BindPort,
             opts = ConnectOpts}} ->
             %%
+            %% ?DBG({Domain, BindIP}),
             BindAddr =
-                #{family => Domain,
-                  addr => BindIP,
-                  port => BindPort},
+                case Domain of
+                    local ->
+                        {local, Path} = BindIP,
+                        #{family => Domain,
+                          path   => Path};
+                    _ ->
+                        #{family => Domain,
+                          addr   => BindIP,
+                          port   => BindPort}
+                end,
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, Fd, Timer, BindAddr)
     catch
@@ -121,6 +130,7 @@ connect_lookup(Address, Port, Opts, Timer) ->
     end.
 
 connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
+    %% ?DBG({Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr}),
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2.
     %% The {debug, Bool} option is passed in Opts since it is
@@ -175,6 +185,7 @@ connect_loop([Addr | Addrs], Server, _Error, Timer) ->
 %% -------------------------------------------------------------------------
 
 listen(Port, Opts) ->
+    %% ?DBG({Port, Opts}),
     {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
     EinvalOpts =:= [] orelse exit(badarg),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
@@ -193,10 +204,18 @@ listen(Port, Opts) ->
                     backlog = Backlog}} ->
                     %%
                     Domain = domain(Mod),
+                    %% ?DBG({Domain, BindIP}),
                     BindAddr =
-                        #{family => Domain,
-                          addr => BindIP,
-                          port => BindPort},
+                        case Domain of
+                            local ->
+                                {local, Path} = BindIP,
+                                #{family => Domain,
+                                  path   => Path};
+                            _ ->
+                                #{family => Domain,
+                                  addr   => BindIP,
+                                  port   => BindPort}
+                        end,
                     listen_open(
                       Domain, ListenOpts, StartOpts, Fd, Backlog, BindAddr)
             end;
@@ -207,6 +226,7 @@ listen(Port, Opts) ->
 %% Helpers -------
 
 listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
+    %% ?DBG({Domain, ListenOpts, Opts, Fd, Backlog, BindAddr}),
     ExtraOpts =
         if
             Fd =:= -1 -> [];
