@@ -399,10 +399,10 @@
                                 {signature_algs, client_signature_algs()} |
                                 {fallback, fallback()} |
                                 {session_tickets, client_session_tickets()} |
-                                {use_ticket, use_ticket()} |
-                                {ocsp_stapling, ocsp_stapling()} |
-                                {ocsp_responder_certs, ocsp_responder_certs()} |
-                                {ocsp_nonce, ocsp_nonce()}.
+                                {use_ticket, use_ticket()}. %% |
+                                %% {ocsp_stapling, ocsp_stapling()} |
+                                %% {ocsp_responder_certs, ocsp_responder_certs()} |
+                                %% {ocsp_nonce, ocsp_nonce()}.
 
 -type client_verify_type()       :: verify_type().
 -type client_reuse_session()     :: session_id().
@@ -424,9 +424,9 @@
 -type client_signature_algs()    :: signature_algs().
 -type fallback()                 :: boolean().
 -type ssl_imp()                  :: new | old.
--type ocsp_stapling()            :: boolean().
--type ocsp_responder_certs()     :: [public_key:der_encoded()].
--type ocsp_nonce()               :: boolean().
+%% -type ocsp_stapling()            :: boolean().
+%% -type ocsp_responder_certs()     :: [public_key:der_encoded()].
+%% -type ocsp_nonce()               :: boolean().
 
 %% -------------------------------------------------------------------------------------------------------
 
