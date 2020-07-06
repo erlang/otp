@@ -284,24 +284,31 @@ nodes_to_alias(Kind, Inner, Anno, Node, Keys0) ->
 %% Builds the key used to check if a value can be
 %% replaced by an alias. It considers literals,
 %% aliases, variables, tuples and cons recursively.
+%%
+%% We bail out after an arbitrary amount of nodes
+%% as very complex expressions may take forever to
+%% process otherwise.
+-define(DEPTH_LIMIT, 100).
 nodes_to_key(Kind, Nodes) ->
-    nodes_to_key(Nodes, [], Kind).
+    ntk_1(Nodes, [], Kind, ?DEPTH_LIMIT).
 
-nodes_to_key([#c_alias{var=Var}|T], Acc, Kind) ->
-    nodes_to_key([Var|T], Acc, Kind);
-nodes_to_key([#c_var{name=Name}|T], Acc, Kind) ->
-    nodes_to_key(T, [[var,Name]|Acc], Kind);
-nodes_to_key([Node|T], Acc0, Kind) ->
+ntk_1(_, _Acc, _Kind, 0) ->
+    error;
+ntk_1([#c_alias{var=Var}|T], Acc, Kind, N) ->
+    ntk_1([Var|T], Acc, Kind, N - 1);
+ntk_1([#c_var{name=Name}|T], Acc, Kind, N) ->
+    ntk_1(T, [[var,Name]|Acc], Kind, N - 1);
+ntk_1([Node|T], Acc0, Kind, N) ->
     case cerl:is_data(Node) of
-        false ->
-            error;
         true ->
-            case nodes_to_key(cerl:data_es(Node), [], cerl:data_type(Node)) of
+            case ntk_1(cerl:data_es(Node), [], cerl:data_type(Node), N - 1) of
                 {ok,Key} ->
-                    nodes_to_key(T, [Key|Acc0], Kind);
+                    ntk_1(T, [Key|Acc0], Kind, N - 1);
                 error ->
                     error
-            end
+            end;
+        false ->
+            error
     end;
-nodes_to_key([], Acc, Kind) ->
+ntk_1([], Acc, Kind, _N) ->
     {ok,[Kind|Acc]}.
