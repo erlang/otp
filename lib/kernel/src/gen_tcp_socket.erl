@@ -129,7 +129,7 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
     ExtraOpts =
         if
             Fd =:= -1 -> [];
-            is_list(Fd) -> Fd
+            is_integer(Fd) -> [{fd, Fd}]
         end,
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
@@ -210,7 +210,7 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
     ExtraOpts =
         if
             Fd =:= -1 -> [];
-            is_list(Fd) -> Fd
+            is_integer(Fd) -> [{fd, Fd}]
         end,
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
