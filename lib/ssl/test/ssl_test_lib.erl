@@ -514,6 +514,7 @@ init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orel
     [Version | _] = proplists:get_value(versions, Options, DefaultVersions),
     Port = inet_port(node()),
     Pid = proplists:get_value(from, Options),
+    GroupName = proplists:get_value(group, Options),
 
     Exe = "openssl",
     Ciphers = proplists:get_value(ciphers, Options, ssl:cipher_suites(default,Version)),
@@ -525,12 +526,18 @@ init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orel
             "-status_verbose",
             "-status_url",
             "http://127.0.0.1:" ++ erlang:integer_to_list(ResponderPort),
-            ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"],
+            ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
+            ++ openssl_dtls_opt(GroupName),
 
     SslPort = ssl_test_lib:portable_open_port(Exe, Args),
     Pid ! {started, Port},
     Pid ! {self(), {port, Port}},
     openssl_server_loop(Pid, SslPort, Args).
+
+openssl_dtls_opt('dtlsv1.2') ->
+    ["-dtls"];
+openssl_dtls_opt(_Other) ->
+    [].
 
 openssl_server_started(Port) ->
     openssl_server_started(Port, []).

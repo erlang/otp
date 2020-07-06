@@ -31,11 +31,13 @@
 %%--------------------------------------------------------------------
 all() -> 
     [{group, 'tlsv1.2'},
-     {group, 'tlsv1.3'}].
+     {group, 'tlsv1.3'},
+     {group, 'dtlsv1.2'}].
 
 groups() -> 
     [{'tlsv1.2', [], ocsp_tests()},
-     {'tlsv1.3', [], ocsp_tests()}].
+     {'tlsv1.3', [], ocsp_tests()},
+     {'dtlsv1.2', [], ocsp_tests()}].
 
 ocsp_tests() ->
     [ocsp_stapling_basic,
@@ -81,10 +83,10 @@ end_per_suite(Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->
-    ssl_test_lib:init_per_group(GroupName, Config).
+    ssl_test_lib:init_per_group(GroupName, [{group, GroupName} | Config]).
 
 end_per_group(GroupName, Config) ->
-  ssl_test_lib:end_per_group(GroupName, Config).
+    ssl_test_lib:end_per_group(GroupName, proplists:delete(group, Config)).
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
@@ -105,14 +107,16 @@ ocsp_stapling_basic() ->
 ocsp_stapling_basic(Config)
   when is_list(Config) ->
     Data = "ping",  %% 4 bytes
-    ServerOpts = [{log_level, debug}],
+    GroupName = proplists:get_value(group, Config),
+    ServerOpts = [{log_level, debug},
+                  {group, GroupName}],
     Server = ssl_test_lib:start_server(openssl_ocsp,
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
     ClientOpts = [{log_level, debug},
                   {ocsp_stapling, true},
-                  {ocsp_nonce, false}],
+                  {ocsp_nonce, false}] ++ dtls_client_opt(GroupName),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
                                         {options, ClientOpts}], Config),
@@ -127,14 +131,16 @@ ocsp_stapling_with_nonce() ->
 ocsp_stapling_with_nonce(Config)
   when is_list(Config) ->
     Data = "ping",  %% 4 bytes
-    ServerOpts = [{log_level, debug}],
+    GroupName = proplists:get_value(group, Config),
+    ServerOpts = [{log_level, debug},
+                  {group, GroupName}],
     Server = ssl_test_lib:start_server(openssl_ocsp,
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
     ClientOpts = [{log_level, debug},
                   {ocsp_stapling, true},
-                  {ocsp_nonce, true}],
+                  {ocsp_nonce, true}] ++ dtls_client_opt(GroupName),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
                                         {options, ClientOpts}], Config),
@@ -150,7 +156,9 @@ ocsp_stapling_with_responder_cert() ->
 ocsp_stapling_with_responder_cert(Config)
   when is_list(Config) ->
     Data = "ping",  %% 4 bytes
-    ServerOpts = [{log_level, debug}],
+    GroupName = proplists:get_value(group, Config),
+    ServerOpts = [{log_level, debug},
+                  {group, GroupName}],
     Server = ssl_test_lib:start_server(openssl_ocsp,
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
@@ -164,7 +172,7 @@ ocsp_stapling_with_responder_cert(Config)
     ClientOpts = [{log_level, debug},
                   {ocsp_stapling, true},
                   {ocsp_nonce, true},
-                  {ocsp_responder_certs, [Der]}],
+                  {ocsp_responder_certs, [Der]}] ++ dtls_client_opt(GroupName),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
                                         {options, ClientOpts}], Config),
@@ -178,25 +186,23 @@ ocsp_stapling_revoked() ->
     [{doc, "Verify OCSP stapling works with revoked certificate."}].
 ocsp_stapling_revoked(Config)
   when is_list(Config) ->
-      Data = "ping",  %% 4 bytes
-    ServerOpts = [{log_level, debug}],
+    GroupName = proplists:get_value(group, Config),
+    ServerOpts = [{log_level, debug},
+                  {group, GroupName}],
     Server = ssl_test_lib:start_server(openssl_ocsp_revoked,
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
     ClientOpts = [{log_level, debug},
                   {ocsp_stapling, true},
-                  {ocsp_nonce, true}],
-    Client = ssl_test_lib:start_client(erlang,
-                                       [{port, Port},
-                                        {options, ClientOpts}], Config),
-    ct:pal("Connection failed:~p~n", [Client]),
+                  {ocsp_nonce, true},
+                  {verify, verify_peer}] ++ dtls_client_opt(GroupName),
+    {connect_failed, {tls_alert, {certificate_revoked, _RevokedInfo}}} =
+    ssl_test_lib:start_client(erlang,
+                              [{port, Port},
+                               {options, ClientOpts}], Config),
 
-    ssl_test_lib:send(Server, Data),
-    Data = ssl_test_lib:check_active_receive(Client, Data),
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
 %% Intrernal functions -----------------------------------------------
@@ -259,3 +265,8 @@ do_test_ocsp_stapling(SOpts, COpts, Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+dtls_client_opt('dtlsv1.2') ->
+    [{protocol, dtls}];
+dtls_client_opt(_Other) ->
+    [].
