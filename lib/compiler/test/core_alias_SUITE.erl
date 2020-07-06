@@ -21,7 +21,7 @@
 
 -export([all/0, suite/0, groups/0,init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
-         tuples/1, cons/1]).
+         tuples/1, cons/1, catastrophic_runtime/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -32,7 +32,7 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [tuples, cons]}].
+      [tuples, cons, catastrophic_runtime]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -192,3 +192,28 @@ unaliased_literal_cons_body([nested,[ok|value]=X]) ->
 unaliased_different_var_cons([nested,[ok|value]=X], Y) ->
     io:format("~p~n", [X]),
     [nested,Y].
+
+catastrophic_runtime(Config) ->
+    ct:timetrap({minutes, 6}),
+    Depth = 16000,
+
+    PrivDir = proplists:get_value(priv_dir,Config),
+    Path = filename:join(PrivDir, "catastrophic_runtime.erl"),
+
+    Term = catastrophic_runtime_1(Depth),
+    Source = <<"-module(catastrophic_runtime). t(Value) -> ", Term/bits, ".">>,
+    file:write_file(Path, Source),
+
+    {ok, catastrophic_runtime} = compile:file(Path, [return_error]),
+    file:delete(Path),
+
+    ok.
+
+catastrophic_runtime_1(0) ->
+    <<"Value">>;
+catastrophic_runtime_1(N) ->
+    Nested = catastrophic_runtime_1(N - 1),
+    Integer = integer_to_binary(N),
+    Eq = <<"{{'.',[],[erlang,'=:=']},[],[Value, \"", Integer/bits, "\"]}">>,
+    <<"{{'.',[],[erlang,atom]},[],[", Nested/bits, ",", Eq/bits, "]}">>.
+
