@@ -138,8 +138,12 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
     %%
     ExtraOpts =
         if
-            Fd =:= -1 -> [];
-            is_integer(Fd) -> [{fd, Fd}]
+            Fd =:= -1      -> [];
+            is_integer(Fd) -> [{fd, Fd}];
+            %% This is an **ugly** hack.
+            %% inet:connect_options/2 has the bad taste to use this
+            %% for [{netns,NS}] if that option is used...
+            is_list(Fd)    -> Fd
         end,
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
@@ -229,8 +233,12 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
     %% ?DBG({Domain, ListenOpts, Opts, Fd, Backlog, BindAddr}),
     ExtraOpts =
         if
-            Fd =:= -1 -> [];
-            is_integer(Fd) -> [{fd, Fd}]
+            Fd =:= -1      -> [];
+            is_integer(Fd) -> [{fd, Fd}];
+            %% This is an **ugly** hack.
+            %% inet:connect_options/2 has the bad taste to use this
+            %% for [{netns,NS}] if that option is used...
+            is_list(Fd)    -> Fd
         end,
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
