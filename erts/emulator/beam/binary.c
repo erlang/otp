@@ -37,8 +37,8 @@
 #define L2B_B2L_MIN_EXEC_REDS (CONTEXT_REDS/4)
 #define L2B_B2L_RESCHED_REDS (CONTEXT_REDS/40)
 
-static Export binary_to_list_continue_export;
-static Export list_to_binary_continue_export;
+static Export *binary_to_list_continue_export;
+static Export *list_to_binary_continue_export;
 
 static BIF_RETTYPE binary_to_list_continue(BIF_ALIST_1);
 static BIF_RETTYPE list_to_binary_continue(BIF_ALIST_1);
@@ -477,7 +477,7 @@ binary_to_list_chunk(Process *c_p,
 	ASSERT(c_p->flags & F_DISABLE_GC);
 	ASSERT(is_value(mb_eterm));
 	ERTS_BIF_PREP_TRAP1(ret,
-			    &binary_to_list_continue_export,
+			    binary_to_list_continue_export,
 			    c_p,
 			    mb_eterm);
     }
@@ -567,7 +567,7 @@ BIF_RETTYPE binary_to_list_1(BIF_ALIST_1)
 	if (size < L2B_B2L_MIN_EXEC_REDS*ERTS_B2L_BYTES_PER_REDUCTION) {
 	    if (reds_left <= L2B_B2L_RESCHED_REDS) {
 		/* Yield and do it with full context reds... */
-		ERTS_BIF_YIELD1(&bif_trap_export[BIF_binary_to_list_1],
+		ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_binary_to_list_1),
 				BIF_P, BIF_ARG_1);
 	    }
 	    /* Allow a bit more reductions... */
@@ -621,7 +621,7 @@ BIF_RETTYPE binary_to_list_3(BIF_ALIST_3)
 	if (size < L2B_B2L_MIN_EXEC_REDS*ERTS_B2L_BYTES_PER_REDUCTION) {
 	    if (reds_left <= L2B_B2L_RESCHED_REDS) {
 		/* Yield and do it with full context reds... */
-		ERTS_BIF_YIELD3(&bif_trap_export[BIF_binary_to_list_3],
+		ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_binary_to_list_3),
 				BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 	    }
 	    /* Allow a bit more reductions... */
@@ -668,7 +668,7 @@ BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 	if (size < L2B_B2L_MIN_EXEC_REDS*ERTS_B2L_BYTES_PER_REDUCTION) {
 	    if (reds_left <= L2B_B2L_RESCHED_REDS) {
 		/* Yield and do it with full context reds... */
-		ERTS_BIF_YIELD1(&bif_trap_export[BIF_bitstring_to_list_1],
+		ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_bitstring_to_list_1),
 				BIF_P, BIF_ARG_1);
 	    }
 	    /* Allow a bit more reductions... */
@@ -882,7 +882,7 @@ list_to_binary_chunk(Eterm mb_eterm,
 	ASSERT(c_p->flags & F_DISABLE_GC);
 
 	ERTS_BIF_PREP_TRAP1(ret,
-			    &list_to_binary_continue_export,
+			    list_to_binary_continue_export,
 			    c_p,
 			    mb_eterm);
 	break;
@@ -1041,7 +1041,7 @@ HIPE_WRAPPER_BIF_DISABLE_GC(list_to_binary, 1)
 
 BIF_RETTYPE list_to_binary_1(BIF_ALIST_1)
 {
-    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, &bif_trap_export[BIF_list_to_binary_1]);
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, BIF_TRAP_EXPORT(BIF_list_to_binary_1));
 }
 
 HIPE_WRAPPER_BIF_DISABLE_GC(iolist_to_binary, 1)
@@ -1054,7 +1054,7 @@ BIF_RETTYPE iolist_to_binary_1(BIF_ALIST_1)
         }
         BIF_ERROR(BIF_P, BADARG);
     }
-    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, &bif_trap_export[BIF_iolist_to_binary_1]);
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, BIF_TRAP_EXPORT(BIF_iolist_to_binary_1));
 }
 
 static int bitstr_list_len(ErtsIOListState *);
@@ -1081,7 +1081,7 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 	else {
 	    ErtsL2BState state = ERTS_L2B_STATE_INITER(BIF_P,
 						       BIF_ARG_1,
-						       &bif_trap_export[BIF_list_to_bitstring_1],
+						       BIF_TRAP_EXPORT(BIF_list_to_bitstring_1),
 						       bitstr_list_len,
 						       list_to_bitstr_buf_yielding);
 	    int orig_reds_left = ERTS_BIF_REDS_LEFT(BIF_P);

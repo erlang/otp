@@ -926,7 +926,7 @@ static void install_bifs(void) {
 
         /* Set up a hidden export entry so we can trap to this BIF without
          * it being seen when tracing. */
-        erts_init_trap_export(&bif_trap_export[i],
+        erts_init_trap_export(&BIF_TRAP_EXPORT(i),
                               entry->module, entry->name, entry->arity,
                               entry->f);
     }
@@ -1221,7 +1221,7 @@ ubif2mfa(void* uf)
     int i;
     for (i = 0; erts_u_bifs[i].bif; i++) {
 	if (erts_u_bifs[i].bif == uf)
-	    return &bif_trap_export[erts_u_bifs[i].exp_ix].info.mfa;
+	    return &BIF_TRAP_EXPORT(erts_u_bifs[i].exp_ix)->info.mfa;
     }
     erts_exit(ERTS_ERROR_EXIT, "bad u bif: %p\n", uf);
     return NULL;
@@ -2315,7 +2315,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    c_p->current = &bif_trap_export[BIF_hibernate_3].info.mfa;
+    c_p->current = &BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa;
     c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
     return 1;
 }

@@ -90,7 +90,7 @@ static BIF_RETTYPE map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_
 struct HashmapMergeContext_;
 static BIF_RETTYPE hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB, int swap_args,
                                  struct HashmapMergeContext_*);
-static Export hashmap_merge_trap_export;
+static Export *hashmap_merge_trap_export;
 static BIF_RETTYPE maps_merge_trap_1(BIF_ALIST_1);
 static Uint hashmap_subtree_size(Eterm node);
 static Eterm hashmap_keys(Process *p, Eterm map);
@@ -1465,7 +1465,7 @@ trap:  /* Yield */
     PSTACK_SAVE(s, &ctx->pstack);
 
     BUMP_ALL_REDS(p);
-    ERTS_BIF_PREP_TRAP1(trap_ret, &hashmap_merge_trap_export,
+    ERTS_BIF_PREP_TRAP1(trap_ret, hashmap_merge_trap_export,
                         p, ctx->trap_bin);
     UnUseTmpHeap(2,p);
     return trap_ret;

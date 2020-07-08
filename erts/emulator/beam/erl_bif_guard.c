@@ -43,7 +43,7 @@
 
 static Eterm double_to_integer(Process* p, double x);
 static BIF_RETTYPE erlang_length_trap(BIF_ALIST_3);
-static Export erlang_length_export;
+static Export *erlang_length_export;
 
 void erts_init_bif_guard(void)
 {
@@ -233,13 +233,13 @@ static BIF_RETTYPE erlang_length_trap(BIF_ALIST_3)
             /*
              * The available reductions were exceeded. Trap.
              */
-            BIF_TRAP3(&erlang_length_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+            BIF_TRAP3(erlang_length_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
         } else {
             /*
              * Signal an error. The original argument was tucked away in BIF_ARG_3.
              */
             ERTS_BIF_ERROR_TRAPPED1(BIF_P, BIF_P->freason,
-                                    &bif_trap_export[BIF_length_1], BIF_ARG_3);
+                                    BIF_TRAP_EXPORT(BIF_length_1), BIF_ARG_3);
         }
     }
 }

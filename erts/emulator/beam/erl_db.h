@@ -125,10 +125,10 @@ extern int erts_ets_rwmtx_spin_count;
 extern int user_requested_db_max_tabs; /* set in erl_init */
 extern int erts_ets_realloc_always_moves;  /* set in erl_init */
 extern int erts_ets_always_compress;  /* set in erl_init */
-extern Export ets_select_delete_continue_exp;
-extern Export ets_select_count_continue_exp;
-extern Export ets_select_replace_continue_exp;
-extern Export ets_select_continue_exp;
+extern Export *ets_select_delete_continue_exp;
+extern Export *ets_select_count_continue_exp;
+extern Export *ets_select_replace_continue_exp;
+extern Export *ets_select_continue_exp;
 extern erts_atomic_t erts_ets_misc_mem_size;
 
 Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
