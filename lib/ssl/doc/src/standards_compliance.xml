@@ -304,7 +304,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>ssl-@OTP-16547@</em></cell>
+	<cell align="left" valign="middle"><em>23.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -443,7 +443,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>ssl-@OTP-16547@</em></cell>
+	<cell align="left" valign="middle"><em>23.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1233,7 +1233,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>ssl-@OTP-16547@</em></cell>
+	<cell align="left" valign="middle"><em>23.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1300,7 +1300,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>ssl-@OTP-16547@</em></cell>
+	<cell align="left" valign="middle"><em>23.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
