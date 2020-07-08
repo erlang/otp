@@ -32,7 +32,7 @@
 	 get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
 	 init_per_testcase/2, end_per_testcase/2,
-	 otp_3924/1, otp_3924_sender/4, closed_socket/1,
+	 otp_3924/1, closed_socket/1,
 	 shutdown_active/1, shutdown_passive/1, shutdown_pending/1,
 	 show_econnreset_active/1, show_econnreset_active_once/1,
 	 show_econnreset_passive/1, econnreset_after_sync_send/1,
@@ -59,9 +59,15 @@
          otp_12242/1, delay_send_error/1]).
 
 %% Internal exports.
--export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, 
+-export([sender/4,
+         not_owner/1,
+         passive_sockets_server/3,
+         priority_server/2, 
 	 oct_acceptor/1,
-	 otp_7731_server/1, zombie_server/2, do_iter_max_socks/2]).
+         otp_3924_sender/5,
+	 otp_7731_server/2,
+         zombie_server/3,
+         do_iter_max_socks/3]).
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -73,8 +79,32 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,4}}].
 
-all() -> 
-    [controlling_process, controlling_process_self, no_accept,
+all() ->
+    [
+     {group, inet_backend_default},
+     {group, inet_backend_inet},
+     {group, inet_backend_socket}
+    ].
+     
+groups() -> 
+    [
+     {inet_backend_default, [], inet_backend_default_cases()},
+     {inet_backend_inet,    [], inet_backend_inet_cases()},
+     {inet_backend_socket,  [], inet_backend_socket_cases()}
+    ].
+
+inet_backend_default_cases() ->
+    all_cases().
+
+inet_backend_inet_cases() ->
+    all_cases().
+
+inet_backend_socket_cases() ->
+    all_cases().
+
+all_cases() ->
+    [
+     controlling_process, controlling_process_self, no_accept,
      close_with_pending_output, data_before_close,
      iter_max_socks, passive_sockets, active_n, active_n_closed,
      accept_closed_by_other_process, otp_3924, closed_socket,
@@ -101,10 +131,9 @@ all() ->
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
      wrapping_oct,
      zombie_sockets, otp_7816, otp_8102, otp_9389,
-     otp_12242, delay_send_error].
+     otp_12242, delay_send_error
+    ].
 
-groups() -> 
-    [].
 
 init_per_suite(Config0) ->
 
@@ -137,6 +166,26 @@ end_per_suite(Config0) ->
 
     Config1.
 
+init_per_group(inet_backend_default = _GroupName, Config) ->
+    [{socket_create_opts, []} | Config];
+init_per_group(inet_backend_inet = _GroupName, Config) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    end;
+init_per_group(inet_backend_socket = _GroupName, Config) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, socket}]} | Config]
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -153,75 +202,76 @@ end_per_group(_GroupName, Config) ->
 default_options(Config) when is_list(Config) ->
     ?TC_TRY(default_options, fun() -> do_default_options(Config) end).
 
-do_default_options(_Config) ->
+do_default_options(Config) ->
     %% First check the delay_send option
-    {true,true,true}=do_delay_send_1(),
-    {false,false,false}=do_delay_send_2(),
-    {true,false,false}=do_delay_send_3(),
-    {false,false,false}=do_delay_send_4(),
-    {false,false,false}=do_delay_send_5(),
-    {false,true,true}=do_delay_send_6(),
+    {true,true,true}=do_delay_send_1(Config),
+    {false,false,false}=do_delay_send_2(Config),
+    {true,false,false}=do_delay_send_3(Config),
+    {false,false,false}=do_delay_send_4(Config),
+    {false,false,false}=do_delay_send_5(Config),
+    {false,true,true}=do_delay_send_6(Config),
     %% Now lets start some nodes with different combinations of options:
-    {true,true,true} = do_delay_on_other_node("", fun do_delay_send_1/0),
+    {true,true,true} =
+        do_delay_on_other_node("", fun() -> do_delay_send_1(Config) end),
     {true,false,false} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"[{delay_send,true}]\"",
-			       fun do_delay_send_2/0),
+			       fun() -> do_delay_send_2(Config) end),
     
     {false,true,true} =
 	do_delay_on_other_node("-kernel inet_default_listen_options "
 			       "\"[{delay_send,true}]\"",
-			       fun do_delay_send_2/0),
+			       fun() -> do_delay_send_2(Config) end),
     
     {true,true,true} =
 	do_delay_on_other_node("-kernel inet_default_listen_options "
 			       "\"[{delay_send,true}]\"",
-			       fun do_delay_send_3/0),
+			       fun() -> do_delay_send_3(Config) end),
     {true,true,true} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"[{delay_send,true}]\"",
-			       fun do_delay_send_6/0),
+			       fun() -> do_delay_send_6(Config) end),
     {false,false,false} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"[{delay_send,true}]\"",
-			       fun do_delay_send_5/0),
+			       fun() -> do_delay_send_5(Config) end),
     {false,true,true} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"[{delay_send,true}]\" "
 			       "-kernel inet_default_listen_options "
 			       "\"[{delay_send,true}]\"",
-			       fun do_delay_send_5/0),
+			       fun() -> do_delay_send_5(Config) end),
     {true,false,false} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"[{delay_send,true}]\" "
 			       "-kernel inet_default_listen_options "
 			       "\"[{delay_send,true}]\"",
-			       fun do_delay_send_4/0),
+			       fun() -> do_delay_send_4(Config) end),
     {true,true,true} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"{delay_send,true}\" "
 			       "-kernel inet_default_listen_options "
 			       "\"{delay_send,true}\"",
-			       fun do_delay_send_2/0),
+			       fun() -> do_delay_send_2(Config) end),
     %% Active is to dangerous and is supressed
     {true,true,true} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"{active,false}\" "
 			       "-kernel inet_default_listen_options "
 			       "\"{active,false}\"",
-			       fun do_delay_send_7/0),
+			       fun() -> do_delay_send_7(Config) end),
     {true,true,true} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"[{active,false},{delay_send,true}]\" "
 			       "-kernel inet_default_listen_options "
 			       "\"[{active,false},{delay_send,true}]\"",
-			       fun do_delay_send_7/0),
+			       fun() -> do_delay_send_7(Config) end),
     {true,true,true} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"[{active,false},{delay_send,true}]\" "
 			       "-kernel inet_default_listen_options "
 			       "\"[{active,false},{delay_send,true}]\"",
-			       fun do_delay_send_2/0),
+			       fun() -> do_delay_send_2(Config) end),
     ok.
 
 
@@ -233,10 +283,10 @@ do_delay_on_other_node(XArgs, Function) ->
     test_server:stop_node(Node),
     Res.
 
-do_delay_send_1() ->
-    {ok,LS}=gen_tcp:listen(0,[{delay_send,true}]),
+do_delay_send_1(Config) ->
+    {ok,LS} = ?LISTEN(Config, 0, [{delay_send,true}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    S = case gen_tcp:connect("localhost",PortNum,[{delay_send,true}]) of
+    S = case ?CONNECT(Config, "localhost", PortNum, [{delay_send,true}]) of
             {ok, Sock} ->
                 Sock;
             {error, eaddrnotavail = Reason} ->
@@ -251,23 +301,23 @@ do_delay_send_1() ->
     gen_tcp:close(LS),
     {B1,B2,B3}.
 
-do_delay_send_2() ->
-    {ok,LS}=gen_tcp:listen(0,[]),
-    {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    {ok,S}=gen_tcp:connect("localhost",PortNum,[]),
-    {ok,S2}= gen_tcp:accept(LS),
-    {ok,[{delay_send,B1}]}=inet:getopts(S,[delay_send]),
-    {ok,[{delay_send,B2}]}=inet:getopts(LS,[delay_send]),
-    {ok,[{delay_send,B3}]}=inet:getopts(S2,[delay_send]),
+do_delay_send_2(Config) ->
+    {ok, LS} = ?LISTEN(Config, 0, []),
+    {ok, {{0,0,0,0},PortNum}} = inet:sockname(LS),
+    {ok, S}  = ?CONNECT(Config, "localhost",PortNum,[]),
+    {ok, S2} = gen_tcp:accept(LS),
+    {ok, [{delay_send,B1}]} = inet:getopts(S,[delay_send]),
+    {ok, [{delay_send,B2}]} = inet:getopts(LS,[delay_send]),
+    {ok, [{delay_send,B3}]} = inet:getopts(S2,[delay_send]),
     gen_tcp:close(S2),
     gen_tcp:close(S),
     gen_tcp:close(LS),
     {B1,B2,B3}.
 
-do_delay_send_3() ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+do_delay_send_3(Config) ->
+    {ok, LS} = ?LISTEN(Config, 0, []),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    {ok,S}=gen_tcp:connect("localhost",PortNum,[{delay_send,true}]),
+    {ok,S} = ?CONNECT(Config, "localhost", PortNum, [{delay_send,true}]),
     {ok,S2}= gen_tcp:accept(LS),
     {ok,[{delay_send,B1}]}=inet:getopts(S,[delay_send]),
     {ok,[{delay_send,B2}]}=inet:getopts(LS,[delay_send]),
@@ -277,10 +327,10 @@ do_delay_send_3() ->
     gen_tcp:close(LS),
     {B1,B2,B3}.
     
-do_delay_send_4() ->
-    {ok,LS}=gen_tcp:listen(0,[{delay_send,false}]),
+do_delay_send_4(Config) ->
+    {ok,LS} = ?LISTEN(Config, 0, [{delay_send,false}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    {ok,S}=gen_tcp:connect("localhost",PortNum,[]),
+    {ok,S}  = ?CONNECT(Config, "localhost", PortNum, []),
     {ok,S2}= gen_tcp:accept(LS),
     {ok,[{delay_send,B1}]}=inet:getopts(S,[delay_send]),
     {ok,[{delay_send,B2}]}=inet:getopts(LS,[delay_send]),
@@ -290,10 +340,10 @@ do_delay_send_4() ->
     gen_tcp:close(LS),
     {B1,B2,B3}.
     
-do_delay_send_5() ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+do_delay_send_5(Config) ->
+    {ok,LS} = ?LISTEN(Config, 0, []),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    {ok,S}=gen_tcp:connect("localhost",PortNum,[{delay_send,false}]),
+    {ok,S} = ?CONNECT(Config, "localhost",PortNum,[{delay_send,false}]),
     {ok,S2}= gen_tcp:accept(LS),
     {ok,[{delay_send,B1}]}=inet:getopts(S,[delay_send]),
     {ok,[{delay_send,B2}]}=inet:getopts(LS,[delay_send]),
@@ -303,10 +353,10 @@ do_delay_send_5() ->
     gen_tcp:close(LS),
     {B1,B2,B3}.
     
-do_delay_send_6() ->
-    {ok,LS}=gen_tcp:listen(0,[{delay_send,true}]),
+do_delay_send_6(Config) ->
+    {ok,LS} = ?LISTEN(Config, 0, [{delay_send,true}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    {ok,S}=gen_tcp:connect("localhost",PortNum,[]),
+    {ok,S} = ?CONNECT(Config, "localhost", PortNum, []),
     {ok,S2}= gen_tcp:accept(LS),
     {ok,[{delay_send,B1}]}=inet:getopts(S,[delay_send]),
     {ok,[{delay_send,B2}]}=inet:getopts(LS,[delay_send]),
@@ -316,11 +366,11 @@ do_delay_send_6() ->
     gen_tcp:close(LS),
     {B1,B2,B3}.
     
-do_delay_send_7() ->
-    {ok,LS}=gen_tcp:listen(0,[]),
+do_delay_send_7(Config) ->
+    {ok,LS} = ?LISTEN(Config, 0, []),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
-    {ok,S}=gen_tcp:connect("localhost",PortNum,[]),
-    {ok,S2}= gen_tcp:accept(LS),
+    {ok,S}  = ?CONNECT(Config, "localhost", PortNum, []),
+    {ok,S2} = gen_tcp:accept(LS),
     {ok,[{active,B1}]}=inet:getopts(S,[active]),
     {ok,[{active,B2}]}=inet:getopts(LS,[active]),
     {ok,[{active,B3}]}=inet:getopts(S2,[active]),
@@ -333,8 +383,8 @@ do_delay_send_7() ->
 %% The result should be ok of done by the owner process,
 %% Otherwise is should return {error,not_owner} or similar.
 controlling_process(Config) when is_list(Config) ->
-    {ok,S} = gen_tcp:listen(0,[]),
-    Pid2 = spawn(?MODULE,not_owner,[S]),
+    {ok, S} = ?LISTEN(Config, 0,[]),
+    Pid2    = spawn(?MODULE, not_owner, [S]),
     Pid2 ! {self(),2,control},
     {error, E} = receive {2,_E} ->
 			      _E
@@ -366,7 +416,7 @@ controlling_process_self(Config) when is_list(Config) ->
     S = self(),
     process_flag(trap_exit,true),
     spawn_link(fun() ->
-		       {ok,Sock} = gen_tcp:listen(0,[]),
+		       {ok,Sock} = ?LISTEN(Config, 0, []),
 		       S ! {socket, Sock},
 		       ok = gen_tcp:controlling_process(Sock,self()),
 		       S ! done
@@ -394,9 +444,9 @@ controlling_process_self(Config) when is_list(Config) ->
 %% without doing any accept.  The connected socket should receive
 %% a tcp_closed message.
 no_accept(Config) when is_list(Config) ->
-    {ok, L} = gen_tcp:listen(0, []),
+    {ok, L}         = ?LISTEN(Config, 0, []),
     {ok, {_, Port}} = inet:sockname(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port, []),
+    {ok, Client}    = ?CONNECT(Config, localhost, Port, []),
     ok = gen_tcp:close(L),
     receive
         {tcp_closed, Client} ->
@@ -409,14 +459,14 @@ no_accept(Config) when is_list(Config) ->
 %% Send several packets to a socket and close it.  All packets should
 %% arrive to the other end.
 close_with_pending_output(Config) when is_list(Config) ->
-    {ok, L} = gen_tcp:listen(0, [binary, {active, false}]),
+    {ok, L} = ?LISTEN(Config, 0, [binary, {active, false}]),
     {ok, {_, Port}} = inet:sockname(L),
     Packets = 16,
     Total = 2048*Packets,
     case start_remote(close_pending) of
 	{ok, Node} ->
 	    {ok, Host} = inet:gethostname(),
-	    spawn_link(Node, ?MODULE, sender, [Port, Packets, Host]),
+	    spawn_link(Node, ?MODULE, sender, [Config, Port, Packets, Host]),
 	    {ok, A} = gen_tcp:accept(L),
 	    case gen_tcp:recv(A, Total) of
 		      {ok, Bin} when byte_size(Bin) == Total ->
@@ -435,12 +485,12 @@ close_with_pending_output(Config) when is_list(Config) ->
 	    ct:fail({failed_to_start_slave_node, Other})
     end.
 
-sender(Port, Packets, Host) ->
+sender(Config, Port, Packets, Host) ->
     X256 = lists:seq(0, 255),
     X512 = [X256|X256],
     X1K = [X512|X512],
     Bin = list_to_binary([X1K|X1K]),
-    {ok, Sock} = gen_tcp:connect(Host, Port, []),
+    {ok, Sock} = ?CONNECT(Config, Host, Port, []),
     send_loop(Sock, Bin, Packets),
     ok = gen_tcp:close(Sock).
 
@@ -454,9 +504,9 @@ send_loop(Sock, Data, Left) ->
 active_n(Config) when is_list(Config) ->
     ?TC_TRY(active_n, fun() -> do_active_n(Config) end).
 
-do_active_n(_Config) ->
+do_active_n(Config) ->
     N = 3,
-    LS = ok(gen_tcp:listen(0, [{active,N}])),
+    LS = ok(?LISTEN(Config, 0, [{active,N}])),
     [{active,N}] = ok(inet:getopts(LS, [active])),
     ok = inet:setopts(LS, [{active,-N}]),
     receive
@@ -506,7 +556,7 @@ do_active_n(_Config) ->
     ok = inet:setopts(LS, [{active,false}]),
     [{active,false}] = ok(inet:getopts(LS, [active])),
     Port = ok(inet:port(LS)),
-    C = case gen_tcp:connect("localhost", Port, [{active,N}]) of
+    C = case ?CONNECT(Config, "localhost", Port, [{active,N}]) of
             {ok, CS} ->
                 CS;
             {error, eaddrnotavail = Reason} ->
@@ -549,7 +599,7 @@ do_active_n(_Config) ->
         5000 ->
             exit({error,tcp_passive})
     end,
-    LS2 = ok(gen_tcp:listen(0, [{active,0}])),
+    LS2 = ok(?LISTEN(Config, 0, [{active,0}])),
     receive
         {tcp_passive,LS2} ->
             [{active,false}] = ok(inet:getopts(LS2, [active]))
@@ -580,28 +630,28 @@ otp_3924(Config) when is_list(Config) ->
 	    {_, true} -> 2;
 	    _ -> 1
 	end * ?OTP_3924_MAX_DELAY),
-    otp_3924_1(MaxDelay).
+    otp_3924_1(Config, MaxDelay).
 
-otp_3924_1(MaxDelay) ->
+otp_3924_1(Config, MaxDelay) ->
     {ok, Node} = start_node(otp_3924),
     DataLen = 100*1024,
     Data = otp_3924_data(DataLen),
     %% Repeat the test a couple of times to prevent the test from passing
     %% by chance.
     repeat(10, fun(N) ->
-                       ok = otp_3924(MaxDelay, Node, Data, DataLen, N)
+                       ok = otp_3924(Config, MaxDelay, Node, Data, DataLen, N)
                end),
     test_server:stop_node(Node),
     ok.
 
-otp_3924(MaxDelay, Node, Data, DataLen, N) ->
-    {ok, L} = gen_tcp:listen(0, [list, {active, false}]),
+otp_3924(Config, MaxDelay, Node, Data, DataLen, N) ->
+    {ok, L} = ?LISTEN(Config, 0, [list, {active, false}]),
     {ok, {_, Port}} = inet:sockname(L),
     {ok, Host} = inet:gethostname(),
     Sender = spawn_link(Node,
                         ?MODULE,
                         otp_3924_sender,
-                        [self(), Host, Port, Data]),
+                        [Config, self(), Host, Port, Data]),
     Data = otp_3924_receive_data(L, Sender, MaxDelay, DataLen, N),
     ok = gen_tcp:close(L).
 
@@ -685,10 +735,10 @@ otp_3924_data(_, Acc, 0, SingleLeft) ->
 otp_3924_data(Block, Acc, BlockLeft, SingleLeft) ->
     otp_3924_data(Block, [Block|Acc], BlockLeft-1, SingleLeft).
 
-otp_3924_sender(Receiver, Host, Port, Data) ->
+otp_3924_sender(Config, Receiver, Host, Port, Data) ->
     receive
 	start ->
-	    {ok, Sock} = gen_tcp:connect(Host, Port, [list]),
+	    {ok, Sock} = ?CONNECT(Config, Host, Port, [list]),
 	    gen_tcp:send(Sock, Data),
 	    ok = gen_tcp:close(Sock),
 	    unlink(Receiver)
@@ -697,10 +747,10 @@ otp_3924_sender(Receiver, Host, Port, Data) ->
 
 %% Tests that a huge amount of data can be received before a close.
 data_before_close(Config) when is_list(Config) ->
-    {ok, L} = gen_tcp:listen(0, [binary]),
+    {ok, L} = ?LISTEN(Config, 0, [binary]),
     {ok, {_, TcpPort}} = inet:sockname(L),
     Bytes = 256*1024,
-    spawn_link(fun() -> huge_sender(TcpPort, Bytes) end),
+    spawn_link(fun() -> huge_sender(Config, TcpPort, Bytes) end),
     {ok, A} = gen_tcp:accept(L),
     case count_bytes_recv(A, 0) of
         {Bytes, Result} ->
@@ -719,8 +769,8 @@ count_bytes_recv(Sock, Total) ->
 	    {Total, Other}
     end.
 
-huge_sender(TcpPort, Bytes) ->
-    {ok, Client} = gen_tcp:connect(localhost, TcpPort, []),
+huge_sender(Config, TcpPort, Bytes) ->
+    {ok, Client} = ?CONNECT(Config, localhost, TcpPort, []),
     receive after 500 -> ok end,
     gen_tcp:send(Client, make_zero_packet(Bytes)),
     gen_tcp:close(Client).
@@ -736,7 +786,7 @@ make_zero_packet(N) ->
 %% OTP-2924. Test that the socket process does not crash when
 %% sys:get_status(Pid) is called.
 get_status(Config) when is_list(Config) ->
-    {ok,{socket,Pid,_,_}} = gen_tcp:listen(5678,[]),
+    {ok,{socket,Pid,_,_}} = ?LISTEN(Config, 5678,[]),
     {status,Pid,_,_} = sys:get_status(Pid).
 
 -define(RECOVER_SLEEP, 60000).
@@ -766,7 +816,7 @@ iter_max_socks(Config) when is_list(Config) ->
     %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
     L = iter_max_socks_run(Node,
                            fun() ->
-                                   exit(do_iter_max_socks(Tries, initalize))
+                                   exit(do_iter_max_socks(Config, Tries, initalize))
                            end),
     test_server:stop_node(Node),
 
@@ -795,33 +845,33 @@ iter_max_socks_run(Node, F) ->
     end.
             
              
-do_iter_max_socks(0, _) ->
+do_iter_max_socks(_Config, 0, _) ->
     ?P("do_iter_max_socks(0,-) -> done"),
     [];
-do_iter_max_socks(N, initalize = First) ->
+do_iter_max_socks(Config, N, initalize = First) ->
     ?P("do_iter_max_socks(~w,~w) -> entry", [N, First]),
-    MS = max_socks(),
-    [MS|do_iter_max_socks(N-1, MS)];
-do_iter_max_socks(N, failed = First) ->
+    MS = max_socks(Config),
+    [MS|do_iter_max_socks(Config, N-1, MS)];
+do_iter_max_socks(Config, N, failed = First) ->
     ?P("do_iter_max_socks(~w,~w) -> entry", [N, First]),
-    MS = max_socks(),
-    [MS|do_iter_max_socks(N-1, failed)];
-do_iter_max_socks(N, First) when is_integer(First) ->
+    MS = max_socks(Config),
+    [MS|do_iter_max_socks(Config, N-1, failed)];
+do_iter_max_socks(Config, N, First) when is_integer(First) ->
     ?P("do_iter_max_socks(~w,~w) -> entry", [N, First]),
-    MS = max_socks(),
+    MS = max_socks(Config),
     if
         (MS =:= First) -> 
-	    [MS|do_iter_max_socks(N-1, First)];
+	    [MS|do_iter_max_socks(Config, N-1, First)];
        true ->
 	    ?P("~w =/= ~w => sleeping for ~p seconds...",
                [MS, First, ?RETRY_SLEEP/1000]), 
 	    ct:sleep(?RETRY_SLEEP),
 	    ?P("Trying again...", []),
-	    RetryMS = max_socks(),
+	    RetryMS = max_socks(Config),
 	    if RetryMS == First ->
-			  [RetryMS|do_iter_max_socks(N-1, First)];
-		     true ->
-			  [RetryMS|do_iter_max_socks(N-1, failed)]
+                    [RetryMS|do_iter_max_socks(Config, N-1, First)];
+               true ->
+                    [RetryMS|do_iter_max_socks(Config, N-1, failed)]
 		  end
     end.
 
@@ -834,39 +884,39 @@ all_equal(Rule, [Rule | T]) ->
     all_equal(Rule, T);
 all_equal(_, [_ | _]) ->
     ct:sleep(?RECOVER_SLEEP), % Wait a while and *hope* that we'll
-                                    %% recover so other tests won't be
-                                    %% affected.
+                              % recover so other tests won't be
+                              % affected.
     ct:fail(max_socket_mismatch);
 all_equal(_Rule, []) ->
     ok.
 
-max_socks() ->
-    Socks = open_socks(),
+max_socks(Config) ->
+    Socks = open_socks(Config),
     N = length(Socks),
     lists:foreach(fun(S) -> ok = gen_tcp:close(S) end, Socks),
     ?P("Got ~p sockets", [N]),
     N.
 
-open_socks() ->
-    case gen_tcp:listen(0, []) of
+open_socks(Config) ->
+    case ?LISTEN(Config, 0, []) of
 	{ok, L} ->
 	    {ok, {_, Port}} = inet:sockname(L),
-	    [L| connect_accept(L, Port)];
+	    [L| connect_accept(Config, L, Port)];
 	_ ->
 	    []
     end.
 
-connect_accept(L, Port) ->
-    case gen_tcp:connect(localhost, Port, []) of
+connect_accept(Config, L, Port) ->
+    case ?CONNECT(Config, localhost, Port, []) of
 	{ok, C} ->
-	    [C| do_accept(L, Port)];
+	    [C| do_accept(Config, L, Port)];
 	_ ->
 	    []
     end.
 
-do_accept(L, Port) ->
+do_accept(Config, L, Port) ->
     case gen_tcp:accept(L) of
-	{ok, A} -> [A| connect_accept(L, Port)];
+	{ok, A} -> [A| connect_accept(Config, L, Port)];
 	_ -> []
     end.
 
@@ -881,12 +931,13 @@ start_remote(Name) ->
 %% Tests that when 'the other side' on a passive socket closes, the
 %% connecting side can still read until the end of data.
 passive_sockets(Config) when is_list(Config) ->
-    spawn_link(?MODULE, passive_sockets_server, [[{active, false}], self()]),
+    spawn_link(?MODULE, passive_sockets_server,
+               [Config, [{active, false}], self()]),
     receive
         {socket,Port} -> ok
     end,
     ct:sleep(500),
-    case gen_tcp:connect("localhost", Port, [{active, false}]) of
+    case ?CONNECT(Config, "localhost", Port, [{active, false}]) of
         {ok, Sock} ->
             passive_sockets_read(Sock);
         {error, eaddrnotavail = Reason} ->
@@ -911,8 +962,8 @@ passive_sockets_read(Sock) ->
 	    ct:fail({"Did not get {error, closed} before other error", Error})
     end.
 
-passive_sockets_server(Opts, Parent) ->
-    case gen_tcp:listen(0, Opts) of
+passive_sockets_server(Config, Opts, Parent) ->
+    case ?LISTEN(Config, 0, Opts) of
         {ok, LSock} ->
             {ok,{_,Port}} = inet:sockname(LSock),
             Parent ! {socket,Port},
@@ -949,7 +1000,7 @@ passive_sockets_server_send(Socket, X) ->
 %% the socket is closed from another process. (OTP-3817)
 accept_closed_by_other_process(Config) when is_list(Config) ->
     Parent = self(),
-    {ok, ListenSocket} = gen_tcp:listen(0, []),
+    {ok, ListenSocket} = ?LISTEN(Config, 0, []),
     Child =
 	spawn_link(
 	  fun() ->
@@ -976,7 +1027,7 @@ repeat(_, _, _) ->
 
 %% Tests the response when using a closed socket as argument.
 closed_socket(Config) when is_list(Config) ->
-    {ok, LS1} = gen_tcp:listen(0, []),
+    {ok, LS1} = ?LISTEN(Config, 0, []),
     erlang:yield(),
     ok = gen_tcp:close(LS1),
     %% If the following delay is uncommented, the result error values
@@ -994,10 +1045,10 @@ closed_socket(Config) when is_list(Config) ->
     {error, R_controlling_process} =
 	gen_tcp:controlling_process(LS1, self()),
     %%
-    ok = io:format("R_send = ~p~n", [R_send]),
-    ok = io:format("R_recv = ~p~n", [R_recv]),
-    ok = io:format("R_accept = ~p~n", [R_accept]),
-    ok = io:format("R_controlling_process = ~p~n", [R_controlling_process]),
+    ok = ?P("R_send = ~p", [R_send]),
+    ok = ?P("R_recv = ~p", [R_recv]),
+    ok = ?P("R_accept = ~p", [R_accept]),
+    ok = ?P("R_controlling_process = ~p", [R_controlling_process]),
     ok.
 
 %%%
@@ -1005,40 +1056,40 @@ closed_socket(Config) when is_list(Config) ->
 %%% 
 
 shutdown_active(Config) when is_list(Config) ->
-    ?TC_TRY(shutdown_active, fun() -> shutdown_common(true) end).
+    ?TC_TRY(shutdown_active, fun() -> shutdown_common(Config, true) end).
 
 shutdown_passive(Config) when is_list(Config) ->
-    ?TC_TRY(shutdown_passive, fun() -> shutdown_common(false) end).
+    ?TC_TRY(shutdown_passive, fun() -> shutdown_common(Config, false) end).
 
-shutdown_common(Active) ->
+shutdown_common(Config, Active) ->
     ?P("start sort server"),
-    P = sort_server(Active),
+    P = sort_server(Config, Active),
     ?P("Sort server port: ~p", [P]),
 
 
-    do_sort(P, []),
-    do_sort(P, ["glurf"]),
-    do_sort(P, ["abc","nisse","dum"]),
+    do_sort(Config, P, []),
+    do_sort(Config, P, ["glurf"]),
+    do_sort(Config, P, ["abc","nisse","dum"]),
 
-    do_sort(P, [lists:reverse(integer_to_list(I)) || I <- lists:seq(25, 255)]),
-    do_sort(P, [lists:reverse(integer_to_list(I)) || I <- lists:seq(77, 999)]),
-    do_sort(P, [lists:reverse(integer_to_list(I)) || I <- lists:seq(25, 55)]),
-    do_sort(P, []),
-    do_sort(P, ["apa"]),
-    do_sort(P, ["kluns","gorilla"]),
-    do_sort(P, [lists:reverse(integer_to_list(I)) || I <- lists:seq(25, 1233)]),
-    do_sort(P, []),
+    do_sort(Config, P, [lists:reverse(integer_to_list(I)) || I <- lists:seq(25, 255)]),
+    do_sort(Config, P, [lists:reverse(integer_to_list(I)) || I <- lists:seq(77, 999)]),
+    do_sort(Config, P, [lists:reverse(integer_to_list(I)) || I <- lists:seq(25, 55)]),
+    do_sort(Config, P, []),
+    do_sort(Config, P, ["apa"]),
+    do_sort(Config, P, ["kluns","gorilla"]),
+    do_sort(Config, P, [lists:reverse(integer_to_list(I)) || I <- lists:seq(25, 1233)]),
+    do_sort(Config, P, []),
     receive
 	Any ->
 	    ct:fail({unexpected_message,Any})
     after 0 -> ok
     end.
 
-do_sort(P, List0) ->
+do_sort(Config, P, List0) ->
     ?P("Sort: "
        "~n   ~p", [List0]),
     List = [El++"\n" || El <- List0],
-    S = case gen_tcp:connect(localhost, P, [{packet,line}]) of
+    S = case ?CONNECT(Config, localhost, P, [{packet,line}]) of
             {ok, Socket} ->
                 Socket;
             {error, eaddrnotavail = Reason} ->
@@ -1055,9 +1106,9 @@ do_sort(P, List0) ->
     Lines = SortedLines,
     ok = gen_tcp:close(S).
 
-sort_server(Active) ->
+sort_server(Config, Active) ->
     Opts = [{exit_on_close,false},{packet,line},{active,Active}],
-    {ok,L} = gen_tcp:listen(0, Opts),
+    {ok,L} = ?LISTEN(Config, 0, Opts),
     Go = make_ref(),
     Pid = spawn_link(fun() ->
                              receive Go -> sort_server_1(L, Active) end
@@ -1116,13 +1167,13 @@ send_lines(S, Lines) ->
 shutdown_pending(Config) when is_list(Config) ->
     ?TC_TRY(shutdown_pending, fun() -> do_shutdown_pending(Config) end).
 
-do_shutdown_pending(_Config) ->
+do_shutdown_pending(Config) ->
     N = 512*1024+17,
     ?P("N: ~p", [N]),
     Data = [<<N:32>>,ones(N),42],
-    {Port, Pid} = a_server(),
+    {Port, Pid} = a_server(Config),
     ?P("try connect to server (port: ~p)", [Port]),
-    S = case gen_tcp:connect(localhost, Port, []) of
+    S = case ?CONNECT(Config, localhost, Port, []) of
             {ok, Socket} ->
                 ?P("connected"),
                 Socket;
@@ -1170,14 +1221,14 @@ sp_await_data(Pid, Sock) ->
 	 _ -> [1,Ones|Ones]
      end.
 
- a_server() ->
-     {ok, L}    = gen_tcp:listen(0, [{exit_on_close,false},{active,false}]),
-     Pid        = spawn_link(fun() -> a_server(L) end),
+ a_server(Config) ->
+     {ok, L}    = ?LISTEN(Config, 0, [{exit_on_close,false},{active,false}]),
+     Pid        = spawn_link(fun() -> a_server2(L) end),
      ok         = gen_tcp:controlling_process(L, Pid),
      {ok, Port} = inet:port(L),
      {Port, Pid}.
 
- a_server(L) ->
+a_server2(L) ->
      {ok,S} = gen_tcp:accept(L),
      do_recv(S, []).
 
@@ -1199,12 +1250,12 @@ show_econnreset_active(Config) when is_list(Config) ->
     ?TC_TRY(show_econnreset_active,
             fun() -> do_show_econnreset_active(Config) end).
 
-do_show_econnreset_active(_Config) ->
+do_show_econnreset_active(Config) ->
     %% First confirm everything works with option turned off.
     ?P("test with option switched off (default)"),
-    {ok, L0} = gen_tcp:listen(0, []),
+    {ok, L0} = ?LISTEN(Config, 0, []),
     {ok, Port0} = inet:port(L0),
-    Client0 = case gen_tcp:connect(localhost, Port0, [{active, false}]) of
+    Client0 = case ?CONNECT(Config, localhost, Port0, [{active, false}]) of
                  {ok, CSock0} ->
                      CSock0;
                   {error, eaddrnotavail = Reason0} ->
@@ -1227,9 +1278,9 @@ do_show_econnreset_active(_Config) ->
     %% Note: We are also testing that the show_econnreset option is
     %% inherited from the listening socket by the accepting socket.
     ?P("test with option explicitly switched on"),
-    {ok, L1} = gen_tcp:listen(0, [{show_econnreset, true}]),
+    {ok, L1} = ?LISTEN(Config, 0, [{show_econnreset, true}]),
     {ok, Port1} = inet:port(L1),
-    Client1 = case gen_tcp:connect(localhost, Port1, [{active, false}]) of
+    Client1 = case ?CONNECT(Config, localhost, Port1, [{active, false}]) of
                   {ok, CSock1} ->
                       CSock1;
                   {error, eaddrnotavail = Reason1} ->
@@ -1266,13 +1317,13 @@ show_econnreset_active_once(Config) when is_list(Config) ->
     ?TC_TRY(show_econnreset_active_once,
             fun() -> do_show_econnreset_active_once(Config) end).
 
-do_show_econnreset_active_once(_Config) ->
+do_show_econnreset_active_once(Config) ->
     %% Now test using {active, once}
-    {ok, L} = gen_tcp:listen(0,
+    {ok, L} = ?LISTEN(Config, 0,
 			   [{active, false},
 			    {show_econnreset, true}]),
     {ok, Port} = inet:port(L),
-    Client = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+    Client = case ?CONNECT(Config, localhost, Port, [{active, false}]) of
                  {ok, CSock} ->
                      CSock;
                   {error, eaddrnotavail = Reason} ->
@@ -1305,11 +1356,11 @@ show_econnreset_passive(Config) when is_list(Config) ->
     ?TC_TRY(show_econnreset_passive,
             fun() -> do_show_econnreset_passive(Config) end).
 
-do_show_econnreset_passive(_Config) ->
+do_show_econnreset_passive(Config) ->
     %% First confirm everything works with option turned off.
-    {ok, L} = gen_tcp:listen(0, [{active, false}]),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false}]),
     {ok, Port} = inet:port(L),
-    Client = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+    Client = case ?CONNECT(Config, localhost, Port, [{active, false}]) of
                  {ok, CSock} ->
                      CSock;
                  {error, eaddrnotavail = Reason} ->
@@ -1323,10 +1374,10 @@ do_show_econnreset_passive(_Config) ->
     {error, closed} = gen_tcp:recv(Client, 0),
 
     %% Now test with option switched on.
-    {ok, L1} = gen_tcp:listen(0, [{active, false}]),
+    {ok, L1} = ?LISTEN(Config, 0, [{active, false}]),
     {ok, Port1} = inet:port(L1),
     Client1 =
-        case gen_tcp:connect(localhost, Port1,
+        case ?CONNECT(Config, localhost, Port1,
                              [{active, false}, {show_econnreset, true}]) of
             {ok, CSock1} ->
                 CSock1;
@@ -1344,12 +1395,12 @@ econnreset_after_sync_send(Config) when is_list(Config) ->
     ?TC_TRY(econnreset_after_sync_send,
             fun() -> do_econnreset_after_sync_send(Config) end).
 
-do_econnreset_after_sync_send(_Config) ->
+do_econnreset_after_sync_send(Config) ->
     %% First confirm everything works with option turned off.
     ?P("test with option switched off (default)"),
-    {ok, L} = gen_tcp:listen(0, [{active, false}]),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false}]),
     {ok, Port} = inet:port(L),
-    Client = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+    Client = case ?CONNECT(Config, localhost, Port, [{active, false}]) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
@@ -1364,10 +1415,10 @@ do_econnreset_after_sync_send(_Config) ->
 
     %% Now test with option switched on.
     ?P("test with option explicitly switched on"),
-    {ok, L1} = gen_tcp:listen(0, [{active, false}]),
+    {ok, L1} = ?LISTEN(Config, 0, [{active, false}]),
     {ok, Port1} = inet:port(L1),
     Client1 =
-        case gen_tcp:connect(localhost, Port1,
+        case ?CONNECT(Config, localhost, Port1,
                              [{active, false}, {show_econnreset, true}]) of
             {ok, CSock1} ->
                 CSock1;
@@ -1385,97 +1436,136 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
     ?TC_TRY(econnreset_after_async_send_active,
             fun() -> do_econnreset_after_async_send_active(Config) end).
 
-do_econnreset_after_async_send_active(_Config) ->
+do_econnreset_after_async_send_active(Config) ->
     {OS, _} = os:type(),
     Payload = lists:duplicate(1024 * 1024, $.),
 
     %% First confirm everything works with option turned off.
-    ?P("test with option switched off (default)"),
-    {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    ?P("create listen socket (server) with active = false"),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    Client = case gen_tcp:connect(localhost, Port, [{sndbuf, 4096}]) of
+    ?P("[client] create connect socket (default = off)"),
+    Client = case ?CONNECT(Config, localhost, Port, [{sndbuf, 4096}]) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
                 ?SKIPT(connect_failed_str(Reason))
         end,
+    ?P("create accept socket (server)"),
     {ok, S} = gen_tcp:accept(L),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("[client] send payload"),
     ok = gen_tcp:send(Client, Payload),
+    ?P("[client] verify socket queue size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
+    ?P("[server] send something"),
     ok = gen_tcp:send(S, "Whatever"),
+    ?P("sleep some"),
     ok = ct:sleep(20),
+    ?P("[server] set linger true:0"),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ?P("[server] close socket"),
     ok = gen_tcp:close(S),
+    ?P("sleep some"),
     ok = ct:sleep(20),
+    ?P("[client] await server data"),
     receive
 	{tcp, Client, "Whatever"} ->
+            ?P("[client] received server data - now await socket closed"),
 	    receive
 		{tcp_closed, Client} ->
+                    ?P("[client] received socket closed"),
 		    ok;
 		Other1 ->
+                    ?P("[client] awaiting socket closed - received upexpected: "
+                       "~n      ~p", [Other1]),
 		    ct:fail({unexpected1, Other1})
 	    end;
 	Other2 ->
+            ?P("[client] awaiting socket data - received upexpected: "
+               "~n      ~p", [Other2]),
 	    ct:fail({unexpected2, Other2})
     end,
 
     %% Now test with option switched on.
-    ?P("test with option explicitly switched on"),
-    {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    ?P("create listen socket (server) with active = false (default)"),
+    {ok, L1} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port1} = inet:port(L1),
+    ?P("[client] create connect socket (on)"),
     Client1 =
-        case gen_tcp:connect(localhost, Port1,
+        case ?CONNECT(Config, localhost, Port1,
                              [{sndbuf, 4096}, {show_econnreset, true}]) of
             {ok, CSock1} ->
                 CSock1;
             {error, eaddrnotavail = Reason1} ->
                 ?SKIPT(connect_failed_str(Reason1))
         end,
+    ?P("create accept socket (server)"),
     {ok, S1} = gen_tcp:accept(L1),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L1),
+    ?P("[client] send payload"),
     ok = gen_tcp:send(Client1, Payload),
+    ?P("[client] verify socket queue size"),
     case erlang:port_info(Client1, queue_size) of
 	{queue_size, N1} when N1 > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T1 -> ct:fail(T1)
     end,
+    ?P("[server] send something"),
     ok = gen_tcp:send(S1, "Whatever"),
+    ?P("sleep some"),
     ok = ct:sleep(20),
+    ?P("[server] set linger true:0"),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
+    ?P("[server] close socket"),
     ok = gen_tcp:close(S1),
+    ?P("sleep some"),
     ok = ct:sleep(20),
+    ?P("[client] await server data"),
     receive
 	{tcp, Client1, "Whatever"} ->
+            ?P("[client] received server data - now await socket error"),
 	    receive
 		{tcp_error, Client1, econnreset} ->
+                    ?P("[client] received socket error - now await socket closed"),
 		    receive
 			{tcp_closed, Client1} ->
-                            ?P("done"),
+                            ?P("[client] received socket closed"),
 			    ok;
 			Other3 ->
+                            ?P("[client] awaiting socket closed - "
+                               "received upexpected: "
+                               "~n      ~p", [Other3]),
 			    ct:fail({unexpected3, Other3})
 		    end;
 		Other4 ->
+                    ?P("[client] awaiting socket error - received upexpected: "
+                       "~n      ~p", [Other4]),
 		    ct:fail({unexpected4, Other4})
 	    end;
 	Other5 ->
+            ?P("[client] awaiting socket data - received upexpected: "
+               "~n      ~p", [Other5]),
 	    ct:fail({unexpected5, Other5})
-    end.
+    end,
+    ?P("done"),
+    ok.
 
 econnreset_after_async_send_active_once(Config) when is_list(Config) ->
     ?TC_TRY(econnreset_after_async_send_active_once,
             fun() -> do_econnreset_after_async_send_active_once(Config) end).
 
-do_econnreset_after_async_send_active_once(_Config) ->
+do_econnreset_after_async_send_active_once(Config) ->
     {OS, _} = os:type(),
-    {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    Client = case gen_tcp:connect(localhost, Port,
+    Client = case ?CONNECT(Config, localhost, Port,
                                   [{active, false},
                                    {sndbuf, 4096},
                                    {show_econnreset, true}]) of
@@ -1516,18 +1606,17 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
     ?TC_TRY(econnreset_after_async_send_passive,
             fun() -> do_econnreset_after_async_send_passive(Config) end).
 
-do_econnreset_after_async_send_passive(_Config) ->
+do_econnreset_after_async_send_passive(Config) ->
     {OS, _} = os:type(),
     Payload = lists:duplicate(1024 * 1024, $.),
 
     %% First confirm everything works with option turned off.
     ?P("create listen socket *** with option switched off (default)"),
-    {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
     ?P("create connect socket"),
-    Client = case gen_tcp:connect(localhost, Port,
-                                  [{active, false},
-                                   {sndbuf, 4096}]) of
+    Client = case ?CONNECT(Config, localhost, Port,
+                                  [{active, false}, {sndbuf, 4096}]) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
@@ -1572,12 +1661,12 @@ do_econnreset_after_async_send_passive(_Config) ->
 
     %% Now test with option switched on.
     ?P("create listen socket *** with option explicitly switched on"),
-    {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
+    {ok, L1} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port1} = inet:port(L1),
     ?P("create connect socket"),
-    Client1 = case gen_tcp:connect(localhost, Port1,
-				   [{active,          false},
-				    {sndbuf,          4096},
+    Client1 = case ?CONNECT(Config, localhost, Port1,
+				   [{active, false},
+				    {sndbuf, 4096},
 				    {show_econnreset, true}]) of
                   {ok, CSock1} ->
                       CSock1;
@@ -1624,18 +1713,18 @@ do_econnreset_after_async_send_passive(_Config) ->
 linger_zero(Config) when is_list(Config) ->
     ?TC_TRY(linger_zero, fun() -> do_linger_zero(Config) end).
 
-do_linger_zero(_Config) ->
+do_linger_zero(Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty.
     {OS, _} = os:type(),
     ?P("create listen socket"),
-    {ok, L} = gen_tcp:listen(0, [{active, false},
+    {ok, L} = ?LISTEN(Config, 0, [{active, false},
 				 {recbuf, 4096},
 				 {show_econnreset, true}]),
     {ok, Port} = inet:port(L),
     ?P("connect (create client socket)"),
-    Client = case gen_tcp:connect(localhost, Port,
+    Client = case ?CONNECT(Config, localhost, Port,
                                   [{active, false}, {sndbuf, 4096}]) of
                  {ok, CSock} ->
                      CSock;
@@ -1655,12 +1744,18 @@ do_linger_zero(_Config) ->
     ok = gen_tcp:close(Client),
     ok = ct:sleep(1),
     ?P("verify client socket (port) not connected"),
+
+    %% THIS WILL NOT WORK IF THE NEW 'SOCKET'
+    %% WE NEED TO FIGURE OUT A NEW WAY TO DO THIS OR JUST SKIP IT?
     undefined = erlang:port_info(Client, connected),
+
+
     ?P("try (and fail) recv (on accepted socket)"),
     {error, econnreset} = gen_tcp:recv(S, PayloadSize),
     ?P("done"),
     ok.
 
+%% THIS DOES NOT WORK FOR 'SOCKET'
 lz_ensure_non_empty_queue(Sock, Payload, OS) ->
     lz_ensure_non_empty_queue(Sock, Payload, OS, 1).
 
@@ -1695,7 +1790,7 @@ lz_ensure_non_empty_queue(Sock, Payload, OS, N) ->
 linger_zero_sndbuf(Config) when is_list(Config) ->
     ?TC_TRY(linger_zero_sndbuf, fun() -> do_linger_zero_sndbuf(Config) end).
 
-do_linger_zero_sndbuf(_Config) ->
+do_linger_zero_sndbuf(Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty
@@ -1703,14 +1798,14 @@ do_linger_zero_sndbuf(_Config) ->
     {OS, _} = os:type(),
     ?P("create listen socket"),
     {ok, Listen} =
-        gen_tcp:listen(0, [{active, false},
+        ?LISTEN(Config, 0, [{active, false},
                            {recbuf, 4096},
                            {show_econnreset, true},
                            {linger, {true, 0}}]),
     {ok, Port} = inet:port(Listen),
     ?P("connect (create client socket)"),
     Client =
-        case gen_tcp:connect(localhost, Port,
+        case ?CONNECT(Config, localhost, Port,
                              [{active, false}, {sndbuf, 4096}]) of
             {ok, CSock} ->
                 CSock;
@@ -1741,12 +1836,12 @@ do_linger_zero_sndbuf(_Config) ->
 %% corrupt data. The testcase will be killed by the timetrap timeout
 %% if the bug is present.
 http_bad_packet(Config) when is_list(Config) ->
-    {ok,L} = gen_tcp:listen(0, [{active, false},
+    {ok,L} = ?LISTEN(Config, 0, [{active, false},
                                 binary,
                                 {reuseaddr, true},
                                 {packet, http}]),
     {ok,Port} = inet:port(L),
-    spawn_link(fun() -> erlang:yield(), http_bad_client(Port) end),
+    spawn_link(fun() -> erlang:yield(), http_bad_client(Config, Port) end),
     case gen_tcp:accept(L) of
         {ok,S} ->
             http_worker(S);
@@ -1763,8 +1858,8 @@ http_worker(S) ->
 	    http_worker(S)
     end.
 
-http_bad_client(Port) ->
-    {ok,S} = gen_tcp:connect("localhost", Port, [{active,false}, binary]),
+http_bad_client(Config, Port) ->
+    {ok,S} = ?CONNECT(Config, "localhost", Port, [{active,false}, binary]),
     ok = gen_tcp:send(S, "\r\n"),
     ok = gen_tcp:close(S).
 
@@ -1774,7 +1869,7 @@ http_bad_client(Port) ->
 busy_send(Config) when is_list(Config) ->
     ?TC_TRY(busy_send, fun() -> do_busy_send(Config) end).
 
-do_busy_send(_Config) ->
+do_busy_send(Config) ->
     OldFlag = process_flag(trap_exit, true),
     Master  = self(),
     Msg     = <<"the quick brown fox jumps over a lazy dog~n">>,
@@ -1782,7 +1877,7 @@ do_busy_send(_Config) ->
     ServerF =
         fun() ->
                 ?P("[server] create listen socket"),
-                case gen_tcp:listen(0, [{active,false},binary,
+                case ?LISTEN(Config, 0, [{active,false},binary,
                                         {reuseaddr,true},{packet,0}]) of
                     {ok, L} ->
                         ?P("[server] listen socket created"),
@@ -1823,7 +1918,7 @@ do_busy_send(_Config) ->
                           P
                   end,
               ?P("[client] connect to ~w", [Port]),
-	      case gen_tcp:connect("localhost", Port,
+	      case ?CONNECT(Config, "localhost", Port,
                                    [{active,false},binary,{packet,0}]) of
                   {ok, Socket} ->
                       Master ! {self(), connected},
@@ -1941,16 +2036,16 @@ busy_disconnect_passive(Config) when is_list(Config) ->
     ?TC_TRY(busy_disconnect_passive,
             fun() -> do_busy_disconnect_passive(Config) end).
 
-do_busy_disconnect_passive(_Config) ->
+do_busy_disconnect_passive(Config) ->
     ?P("[passive] begin"),
     MuchoData = list_to_binary(ones(64*1024)),
-    [do_busy_disconnect_passive2(MuchoData, N) || N <- lists:seq(1, 10)],
+    [do_busy_disconnect_passive2(Config, MuchoData, N) || N <- lists:seq(1, 10)],
     ?P("[passive] done"),
     ok.
 
-do_busy_disconnect_passive2(MuchoData, N) ->
+do_busy_disconnect_passive2(Config, MuchoData, N) ->
     ?P("[passive,~w] *** prepare server *** ", [N]),
-    {_Server, S} = busy_disconnect_prepare_server([{active,false}]),
+    {_Server, S} = busy_disconnect_prepare_server(Config, [{active,false}]),
     ?P("[passive,~w] server prepared - start sending", [N]),
     busy_disconnect_passive_send(S, MuchoData).
 
@@ -1971,16 +2066,16 @@ busy_disconnect_active(Config) when is_list(Config) ->
     ?TC_TRY(busy_disconnect_active,
             fun() -> do_busy_disconnect_active(Config) end).
 
-do_busy_disconnect_active(_Config) ->
+do_busy_disconnect_active(Config) ->
     ?P("[active] begin"),
     MuchoData = list_to_binary(ones(64*1024)),
-    [do_busy_disconnect_active2(MuchoData, N) || N <- lists:seq(1, 10)],
+    [do_busy_disconnect_active2(Config, MuchoData, N) || N <- lists:seq(1, 10)],
     ?P("[active] done"),
     ok.
 
-do_busy_disconnect_active2(MuchoData, N) ->
+do_busy_disconnect_active2(Config, MuchoData, N) ->
     ?P("[active,~w] *** prepare server *** ", [N]),
-    {Server, S} = busy_disconnect_prepare_server([{active,true}]),
+    {Server, S} = busy_disconnect_prepare_server(Config, [{active,true}]),
     ?P("[active,~w] server prepared - start sending", [N]),
     busy_disconnect_active_send(Server, S, MuchoData).
 
@@ -2031,14 +2126,14 @@ busy_disconnect_active_send_await_closed(Server, S, Closed, Stopped) ->
     end.
     
 
-busy_disconnect_prepare_server(ConnectOpts) ->
+busy_disconnect_prepare_server(Config, ConnectOpts) ->
     Sender = self(),
     ?P("[prep-server] create server"),
-    Server = spawn_link(fun() -> busy_disconnect_server(Sender) end),
+    Server = spawn_link(fun() -> busy_disconnect_server(Config, Sender) end),
     ?P("[prep-server] await port (from server)"),
     receive {port, Server, Port} -> ok end,
     ?P("[prep-server] connect to ~w", [Port]),
-    case gen_tcp:connect(localhost, Port, ConnectOpts) of
+    case ?CONNECT(Config, localhost, Port, ConnectOpts) of
         {ok, S} ->
             ?P("[prep-server] connected - order server start sending"),
             Server ! {Sender, sending},
@@ -2048,9 +2143,9 @@ busy_disconnect_prepare_server(ConnectOpts) ->
             ?SKIPT(connect_failed_str(Reason))
     end.
 
-busy_disconnect_server(Sender) ->
+busy_disconnect_server(Config, Sender) ->
     ?P("[server] create listen socket"),
-    {ok, L} = gen_tcp:listen(0,
+    {ok, L} = ?LISTEN(Config, 0,
                              [{active,false},
                               binary,
                               {reuseaddr,true},
@@ -2096,13 +2191,13 @@ busy_disconnect_server_wait_for_busy(Sender, S) ->
 fill_sendq(Config) when is_list(Config) ->
     ?TC_TRY(fill_sendq, fun() -> do_fill_sendq(Config) end).
 
-do_fill_sendq(_Config) ->
+do_fill_sendq(Config) ->
     OldFlag = process_flag(trap_exit, true),
     Master  = self(),
     ServerF =
         fun () ->
                 ?P("[server] try listen"),
-                case gen_tcp:listen(0, [{active,false},binary,
+                case ?LISTEN(Config, 0, [{active,false},binary,
                                         {reuseaddr,true},{packet,0}]) of
                     {ok, L} ->
                         ?P("[server] try port"),
@@ -2130,7 +2225,7 @@ do_fill_sendq(_Config) ->
                     end,
                 %% Just close on order
                 ?P("[client] try connect"),
-                case gen_tcp:connect(
+                case ?CONNECT(Config, 
                        "localhost", ServerPort,
                        [{active,false},binary,{packet,0}]) of
                     {ok, S} ->
@@ -2276,13 +2371,13 @@ partial_recv_and_close(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_partial_recv_and_close(_Config) ->
+do_partial_recv_and_close(Config) ->
     Msg = "the quick brown fox jumps over a lazy dog 0123456789\n",
     Len = length(Msg),
-    {ok,L} = gen_tcp:listen(0, [{active,false}]),
+    {ok,L} = ?LISTEN(Config, 0, [{active,false}]),
     {ok,P} = inet:port(L),
     Sock =
-        case gen_tcp:connect("localhost", P, [{active,false}]) of
+        case ?CONNECT(Config, "localhost", P, [{active,false}]) of
             {ok, S} ->
                 S;
         {error, eaddrnotavail = Reason} ->
@@ -2307,17 +2402,17 @@ partial_recv_and_close_2(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFlag),
     Res.
 
-do_partial_recv_and_close_2(_Config) ->
+do_partial_recv_and_close_2(Config) ->
     Msg = "the quick brown fox jumps over a lazy dog 0123456789\n",
     Len = length(Msg),
-    {ok,L} = gen_tcp:listen(0, [{active,false}]),
+    {ok,L} = ?LISTEN(Config, 0, [{active,false}]),
     {ok,P} = inet:port(L),
     Server = self(),
     Client =
 	spawn_link(
 	  fun () ->
 		  receive after 2000 -> ok end,
-		  case gen_tcp:connect("localhost", P, [{active,false}]) of
+		  case ?CONNECT(Config, "localhost", P, [{active,false}]) of
                       {ok, S} ->
                           ok = gen_tcp:send(S, Msg),
                           receive {Server,close} -> ok end,
@@ -2345,14 +2440,14 @@ partial_recv_and_close_3(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFlag),
     Res.
 
-do_partial_recv_and_close_3(_Config) ->
-    [do_partial_recv_and_close_3() || _ <- lists:seq(0, 20)],
+do_partial_recv_and_close_3(Config) ->
+    [do_partial_recv_and_close_4(Config) || _ <- lists:seq(0, 20)],
     ok.
 
-do_partial_recv_and_close_3() ->
+do_partial_recv_and_close_4(Config) ->
     Parent = self(),
     spawn_link(fun() ->
-		       {ok,L} = gen_tcp:listen(0, [{active,false}]),
+		       {ok,L} = ?LISTEN(Config, 0, [{active,false}]),
 		       {ok,{_,Port}} = inet:sockname(L),
 		       Parent ! {port,Port},
 		       {ok,S} = gen_tcp:accept(L),
@@ -2363,7 +2458,7 @@ do_partial_recv_and_close_3() ->
 	{port,Port} -> ok
     end,
     Much = ones(8*64*1024),
-    S = case gen_tcp:connect(localhost, Port, [{active, false}]) of
+    S = case ?CONNECT(Config, localhost, Port, [{active, false}]) of
             {ok, Sock} ->
                 Sock;
         {error, eaddrnotavail = Reason} ->
@@ -2379,9 +2474,9 @@ do_partial_recv_and_close_3() ->
     {error, closed} = gen_tcp:recv(S, 0).
     
 
-test_prio_put_get() ->
+test_prio_put_get(Config) ->
     Tos = 3 bsl 5,
-    {ok,L1} = gen_tcp:listen(0, [{active,false}]),
+    {ok,L1} = ?LISTEN(Config, 0, [{active,false}]),
     ok = inet:setopts(L1,[{priority,3}]),
     ok = inet:setopts(L1,[{tos,Tos}]),
     {ok,[{priority,3},{tos,Tos}]} = inet:getopts(L1,[priority,tos]),
@@ -2392,11 +2487,11 @@ test_prio_put_get() ->
     gen_tcp:close(L1),
     ok.
 
-test_prio_accept() ->
-    {ok,Sock}=gen_tcp:listen(0,[binary,{packet,0},{active,false},
+test_prio_accept(Config) ->
+    {ok,Sock}=?LISTEN(Config, 0,[binary,{packet,0},{active,false},
                                 {reuseaddr,true},{priority,4}]),
     {ok,Port} = inet:port(Sock),
-    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+    Sock2 = case ?CONNECT(Config, "localhost",Port,[binary,{packet,0},
                                                    {active,false},
                                                    {reuseaddr,true},
                                                    {priority,4}]) of
@@ -2414,14 +2509,14 @@ test_prio_accept() ->
     gen_tcp:close(Sock3),
     ok.
 
-test_prio_accept2() ->
+test_prio_accept2(Config) ->
     Tos1 = 4 bsl 5,
     Tos2 = 3 bsl 5,
-    {ok,Sock}=gen_tcp:listen(0,[binary,{packet,0},{active,false},
+    {ok,Sock}=?LISTEN(Config, 0,[binary,{packet,0},{active,false},
                                 {reuseaddr,true},{priority,4},
                                 {tos,Tos1}]),
     {ok,Port} = inet:port(Sock),
-    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+    Sock2 = case ?CONNECT(Config, "localhost",Port,[binary,{packet,0},
                                                    {active,false},
                                                    {reuseaddr,true},
                                                    {priority,4},
@@ -2440,14 +2535,14 @@ test_prio_accept2() ->
     gen_tcp:close(Sock3),
     ok.
 
-test_prio_accept3() ->
+test_prio_accept3(Config) ->
     Tos1 = 4 bsl 5,
     Tos2 = 3 bsl 5,
-    {ok,Sock}=gen_tcp:listen(0,[binary,{packet,0},{active,false},
+    {ok,Sock}=?LISTEN(Config, 0,[binary,{packet,0},{active,false},
                                 {reuseaddr,true},
                                 {tos,Tos1}]),
     {ok,Port} = inet:port(Sock),
-    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+    Sock2 = case ?CONNECT(Config, "localhost",Port,[binary,{packet,0},
                                                    {active,false},
                                                    {reuseaddr,true},
                                                    {tos,Tos2}]) of
@@ -2465,11 +2560,11 @@ test_prio_accept3() ->
     gen_tcp:close(Sock3),
     ok.
     
-test_prio_accept_async() ->
+test_prio_accept_async(Config) ->
     Tos1 = 4 bsl 5,
     Tos2 = 3 bsl 5,
     Ref = make_ref(),
-    spawn(?MODULE,priority_server,[{self(),Ref}]),
+    spawn(?MODULE, priority_server, [Config, {self(),Ref}]),
     Port = receive
                {Ref,P} -> P
            after 5000 -> ct:fail({error,"helper process timeout"})
@@ -2477,7 +2572,7 @@ test_prio_accept_async() ->
     receive
     after 3000 -> ok
     end,
-    Sock2 = case gen_tcp:connect("localhost",Port,[binary,{packet,0},
+    Sock2 = case ?CONNECT(Config, "localhost",Port,[binary,{packet,0},
                                                    {active,false},
                                                    {reuseaddr,true},
                                                    {priority,4},
@@ -2506,9 +2601,9 @@ test_prio_accept_async() ->
     catch gen_tcp:close(Sock2),
     ok.
 
-priority_server({Parent,Ref}) ->
+priority_server(Config, {Parent,Ref}) ->
     Tos1 = 4 bsl 5,
-    {ok,Sock}=gen_tcp:listen(0,[binary,{packet,0},{active,false},
+    {ok,Sock}=?LISTEN(Config, 0,[binary,{packet,0},{active,false},
                                 {reuseaddr,true},{priority,4},
                                 {tos,Tos1}]),
     {ok,Port} = inet:port(Sock),
@@ -2518,8 +2613,8 @@ priority_server({Parent,Ref}) ->
     Parent ! {Ref, inet:getopts(Sock3,[priority,tos])},
     ok.
 
-test_prio_fail() ->
-    {ok,L} = gen_tcp:listen(0, [{active,false}]),
+test_prio_fail(Config) ->
+    {ok,L} = ?LISTEN(Config, 0, [{active,false}]),
     {error,_} = inet:setopts(L,[{priority,1000}]),
     gen_tcp:close(L),
     ok.
@@ -2540,18 +2635,18 @@ so_priority(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_so_priority(_Config) ->
-    {ok,L} = gen_tcp:listen(0, [{active,false}]),
+do_so_priority(Config) ->
+    {ok,L} = ?LISTEN(Config, 0, [{active,false}]),
     ok = inet:setopts(L,[{priority,1}]),
     case inet:getopts(L,[priority]) of
 	{ok,[{priority,1}]} ->
 	    gen_tcp:close(L),
-	    test_prio_put_get(),
-	    test_prio_accept(),
-	    test_prio_accept2(),
-	    test_prio_accept3(),
-	    test_prio_accept_async(),
-	    test_prio_fail(),
+	    test_prio_put_get(Config),
+	    test_prio_accept(Config),
+	    test_prio_accept2(Config),
+	    test_prio_accept3(Config),
+	    test_prio_accept_async(Config),
+	    test_prio_fail(Config),
 	    test_prio_udp(),
 	    ok;
 	_ ->
@@ -2585,27 +2680,30 @@ do_so_priority(_Config) ->
 %% It is only used for recvtclass that is an IPv6 option
 %% and there we get valid values from both socket ends.
 
-recvtos(_Config) ->
+recvtos(Config) ->
     test_pktoptions(
+      Config,
       inet, [{recvtos,tos,96}],
       fun recvtos_ok/2,
       false).
 
-recvtosttl(_Config) ->
+recvtosttl(Config) ->
     test_pktoptions(
+      Config,
       inet, [{recvtos,tos,96},{recvttl,ttl,33}],
       fun (OSType, OSVer) ->
               recvtos_ok(OSType, OSVer) andalso recvttl_ok(OSType, OSVer)
       end,
       false).
 
-recvttl(_Config) ->
+recvttl(Config) ->
     test_pktoptions(
+      Config,
       inet, [{recvttl,ttl,33}],
       fun recvttl_ok/2,
       false).
 
-recvtclass(_Config) ->
+recvtclass(Config) ->
     {ok,IFs} = inet:getifaddrs(),
     case
         [Name ||
@@ -2614,6 +2712,7 @@ recvtclass(_Config) ->
     of
         [_] ->
             test_pktoptions(
+              Config,
               inet6, [{recvtclass,tclass,224}],
               fun recvtclass_ok/2,
               true);
@@ -2687,18 +2786,26 @@ semver_lt(V1, {_,_,_} = V2) ->
        "~n   Version 2: ~p", [V1, V2]),
     false.
 
-test_pktoptions(Family, Spec, OSFilter, CheckConnect) ->
+test_pktoptions(Config, Family, Spec, OSFilter, CheckConnect) ->
     OSType = os:type(),
     OSVer  = os:version(),
     case OSFilter(OSType, OSVer) of
         true ->
             ?P("OS: ~p, ~p", [OSType, OSVer]),
-            test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer);
+            test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer);
         false ->
             {skip,{not_supported_for_os_version,{OSType,OSVer}}}
     end.
 %%
-test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
+test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
+    ?P("test_pktoptions -> begin test with"
+       "~n   Config:       ~p"
+       "~n   Family:       ~p"
+       "~n   Spec:         ~p"
+       "~n   CheckConnect: ~p"
+       "~n   OSType:       ~p"
+       "~n   OSVer:        ~p",
+       [Config, Family, Spec, CheckConnect, OSType, OSVer]),
     Timeout = 5000,
     RecvOpts = [RecvOpt || {RecvOpt,_,_} <- Spec],
     TrueRecvOpts = [{RecvOpt,true} || {RecvOpt,_,_} <- Spec],
@@ -2714,28 +2821,47 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
         end,
     %%
     %% Set RecvOpts on listen socket
+    ?P("create listen socket with"
+       "~n   ~p", [TrueRecvOpts]),
     {ok,L} =
-        gen_tcp:listen(
+        ?LISTEN(Config, 
           0,
           [Family,binary,{active,false},{send_timeout,Timeout}
            |TrueRecvOpts]),
     {ok,P} = inet:port(L),
+    ?P("get (recv) options for listen socket: "
+       "~n   ~p", [RecvOpts]),
     {ok,TrueRecvOpts} = inet:getopts(L, RecvOpts),
+    ?P("get options for listen socket: "
+       "~n   ~p", [Opts]),
     {ok,OptsValsDefault} = inet:getopts(L, Opts),
+
     %%
     %% Set RecvOpts and Option values on connect socket
+    ?P("create connect socket with"
+       "~n   ~p", [TrueRecvOpts ++ OptsVals]),
     {ok,S2} =
-        gen_tcp:connect(
-          Address, P,
-          [Family,binary,{active,false},{send_timeout,Timeout}
-           |TrueRecvOpts ++ OptsVals],
-          Timeout),
+        ?CONNECT(Config,
+                 Address, P,
+                 [Family,binary,{active,false},{send_timeout,Timeout}
+                  |TrueRecvOpts ++ OptsVals],
+                 Timeout),
+    ?P("get (recv) options for connect socket: "
+       "~n   ~p", [RecvOpts]),
     {ok,TrueRecvOpts} = inet:getopts(S2, RecvOpts),
+    ?P("get options for connect socket: "
+       "~n   ~p", [Opts]),
     {ok,OptsVals} = inet:getopts(S2, Opts),
+
     %%
     %% Accept socket inherits the options from listen socket
+    ?P("create accept socket"),
     {ok,S1} = gen_tcp:accept(L, Timeout),
+    ?P("get (recv) options for accept socket: "
+       "~n   ~p", [RecvOpts]),
     {ok,TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+    ?P("get options for accept socket: "
+       "~n   ~p", [Opts]),
     {ok,OptsValsDefault} = inet:getopts(S1, Opts),
 %%%    %%
 %%%    %% Handshake
@@ -2774,7 +2900,9 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
                               UnexpERR1})
                 end
         end,
+    ?P("verify dest (accept)"),
     OptsVals1 = VerifyRemOpts(S1, dest),
+    ?P("verify orig (connect)"),
     OptsVals2 = VerifyRemOpts(S2, orig),
     %% {ok,[{pktoptions,OptsVals1}]} = inet:getopts(S1, [pktoptions]),
     %% {ok,[{pktoptions,OptsVals2}]} = inet:getopts(S2, [pktoptions]),
@@ -2784,41 +2912,59 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
         orelse ?P("Connect differs: ~p neq ~p",
                   [OptsVals2, OptsValsDefault]),
     %%
+    ?P("close connect socket"),
     ok = gen_tcp:close(S2),
+    ?P("close accept socket"),
     ok = gen_tcp:close(S1),
     %%
     %%
     %% Clear RecvOpts on listen socket and set Option values
+    ?P("clear (recv) options on listen socket"),
     ok = inet:setopts(L, FalseRecvOpts ++ OptsVals),
     {ok,FalseRecvOpts} = inet:getopts(L, RecvOpts),
+    ?P("set  options on listen socket"),
     {ok,OptsVals} = inet:getopts(L, Opts),
+
     %%
     %% Set RecvOpts on connecting socket
     %%
+    ?P("create connect socket with"
+       "~n   ~p", [TrueRecvOpts]),
     {ok,S4} =
-        gen_tcp:connect(
+        ?CONNECT(Config, 
           Address, P,
           [Family,binary,{active,false},{send_timeout,Timeout}
           |TrueRecvOpts],
           Timeout),
+    ?P("get (recv) options on connect socket"),
     {ok,TrueRecvOpts} = inet:getopts(S4, RecvOpts),
+    ?P("get options on connect socket"),
     {ok,OptsValsDefault} = inet:getopts(S4, Opts),
+
     %%
     %% Accept socket inherits the options from listen socket
+    ?P("create accept socket"),
     {ok,S3} = gen_tcp:accept(L, Timeout),
+    ?P("get (recv) options on accept socket"),
     {ok,FalseRecvOpts} = inet:getopts(S3, RecvOpts),
     {ok,OptsVals} = inet:getopts(S3, Opts),
     %%
     %% Verify returned remote options
+    ?P("verify pktoptions on accept socket"),
     {ok,[{pktoptions,[]}]} = inet:getopts(S3, [pktoptions]),
+    ?P("verify pktoptions on connect socket"),
     {ok,[{pktoptions,OptsVals4}]} = inet:getopts(S4, [pktoptions]),
+    ?P("verify options set"),
     (Result3 = sets_eq(OptsVals4, OptsVals))
-        orelse io:format(
-                 "Accept2 differs: ~p neq ~p~n", [OptsVals4,OptsVals]),
+        orelse ?P("Accept2 differs: ~p neq ~p", [OptsVals4, OptsVals]),
     %%
+    ?P("close connect socket"),
     ok = gen_tcp:close(S4),
+    ?P("close accept socket"),
     ok = gen_tcp:close(S3),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("verify final result"),
     (Result1 and ((not CheckConnect) or (Result2 and Result3)))
         orelse
         exit({failed,
@@ -2826,6 +2972,7 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
                {OptsVals2,OptsValsDefault}],
               {OSType,OSVer}}),
 %%    exit({{OSType,OSVer},success}), % In search for the truth
+    ?P("done"),
     ok.
 
 sets_eq(L1, L2) ->
@@ -2900,9 +3047,9 @@ primitive_accept(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_primitive_accept(_Config) ->
+do_primitive_accept(Config) ->
     LSock =
-        case gen_tcp:listen(0,[]) of
+        case ?LISTEN(Config, 0,[]) of
             {ok, LS} ->
                 LS;
             {error, LReason} ->
@@ -2912,7 +3059,7 @@ do_primitive_accept(_Config) ->
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LSock)} end,
     P = spawn(F),
-    case gen_tcp:connect("localhost", PortNo, []) of
+    case ?CONNECT(Config, "localhost", PortNo, []) of
         {ok, _} ->
             ok;
         {error, eaddrnotavail = CReason} ->
@@ -2933,9 +3080,9 @@ multi_accept_close_listen(Config) when is_list(Config) ->
     ?TC_TRY(multi_accept_close_listen,
             fun() -> do_multi_accept_close_listen(Config) end).
 
-do_multi_accept_close_listen(_Config) ->
+do_multi_accept_close_listen(Config) ->
     ?P("try create listen socket"),
-    LS = case gen_tcp:listen(0,[]) of
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -2971,8 +3118,8 @@ accept_timeout(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeout(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeout(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -2991,8 +3138,8 @@ accept_timeouts_in_order(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeouts_in_order(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeouts_in_order(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3014,8 +3161,8 @@ accept_timeouts_in_order2(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeouts_in_order2(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeouts_in_order2(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3037,8 +3184,8 @@ accept_timeouts_in_order3(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeouts_in_order3(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeouts_in_order3(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3061,8 +3208,8 @@ accept_timeouts_in_order4(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeouts_in_order4(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeouts_in_order4(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3085,8 +3232,8 @@ accept_timeouts_in_order5(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeouts_in_order5(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeouts_in_order5(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3109,8 +3256,8 @@ accept_timeouts_in_order6(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeouts_in_order6(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeouts_in_order6(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3133,8 +3280,8 @@ accept_timeouts_in_order7(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeouts_in_order7(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeouts_in_order7(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3162,8 +3309,8 @@ accept_timeouts_mixed(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_accept_timeouts_mixed(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_accept_timeouts_mixed(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3180,7 +3327,7 @@ do_accept_timeouts_mixed(_Config) ->
     P4 = spawn(mktmofun(4000,Parent,LS)),
     wait_until_accepting(P4,500),
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}}],infinity,1500),
-    case gen_tcp:connect("localhost", PortNo, []) of
+    case ?CONNECT(Config, "localhost", PortNo, []) of
         {ok, _} ->
             ok;
         {error, eaddrnotavail = Reason1} ->
@@ -3188,7 +3335,7 @@ do_accept_timeouts_mixed(_Config) ->
     end,
     ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),infinity,100),
     ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],infinity,2000),
-    case gen_tcp:connect("localhost", PortNo, []) of
+    case ?CONNECT(Config, "localhost", PortNo, []) of
         {error, eaddrnotavail = Reason2} ->
             ?SKIPT(connect_failed_str(Reason2));
         _  ->
@@ -3204,8 +3351,8 @@ killing_acceptor(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_killing_acceptor(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_killing_acceptor(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3234,8 +3381,8 @@ killing_multi_acceptors(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_killing_multi_acceptors(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_killing_multi_acceptors(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3268,8 +3415,8 @@ killing_multi_acceptors2(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_killing_multi_acceptors2(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_killing_multi_acceptors2(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3300,7 +3447,7 @@ do_killing_multi_acceptors2(_Config) ->
     end,
     {ok,L4} = prim_inet:getstatus(LS),
     true  = lists:member(accepting, L4),
-    gen_tcp:connect("localhost",PortNo,[]),
+    ?CONNECT(Config, "localhost",PortNo,[]),
     ok = ?EXPECT_ACCEPTS([{Pid3,{ok,Port}}] when is_port(Port),1,100),
     {ok,L5} = prim_inet:getstatus(LS),
     false  = lists:member(accepting, L5),
@@ -3315,8 +3462,8 @@ several_accepts_in_one_go(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_several_accepts_in_one_go(_Config) ->
-    LS = case gen_tcp:listen(0,[]) of
+do_several_accepts_in_one_go(Config) ->
+    LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSock} ->
                  LSock;
              {error, eaddrnotavail = Reason} ->
@@ -3325,7 +3472,7 @@ do_several_accepts_in_one_go(_Config) ->
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
     F1 = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
-    F2 = fun() -> Parent ! {connected,self(),gen_tcp:connect("localhost",PortNo,[])} end,
+    F2 = fun() -> Parent ! {connected,self(),?CONNECT(Config, "localhost",PortNo,[])} end,
     Ns = lists:seq(1,8),
     _  = [spawn(F1) || _ <- Ns],
     ok = ?EXPECT_ACCEPTS([],1,500), % wait for tmo
@@ -3374,9 +3521,9 @@ accept_system_limit(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFlag),
     Res.
 
-do_accept_system_limit(_Config) ->
+do_accept_system_limit(Config) ->
     ?P("create listen socket"),
-    LS = case gen_tcp:listen(0, []) of
+    LS = case ?LISTEN(Config, 0, []) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
@@ -3385,7 +3532,7 @@ do_accept_system_limit(_Config) ->
     {ok, TcpPort} = inet:port(LS),
     Me = self(),
     ?P("create connector"),
-    Connector = spawn_link(fun () -> connector(TcpPort, Me) end),
+    Connector = spawn_link(fun () -> connector(Config, TcpPort, Me) end),
     ?P("sync with connector (~p)", [Connector]),
     receive {Connector, sync} -> Connector ! {self(), continue} end,
     ?P("begin accepting"),
@@ -3412,7 +3559,7 @@ acceptor(Connector, LS, GotSL, A) ->
             error
     end.
 
-connector(TcpPort, Tester) ->
+connector(Config, TcpPort, Tester) ->
     ?P("[connector] start"),
     ManyPorts = open_ports([]),
     Tester ! {self(), sync},
@@ -3420,7 +3567,7 @@ connector(TcpPort, Tester) ->
     receive {Tester, continue} -> timer:sleep(100) end,
     ?P("[connector] begin connecting"),
     ConnF = fun (Port) ->
-                    case (catch gen_tcp:connect({127,0,0,1}, TcpPort, [])) of
+                    case (catch ?CONNECT(Config, {127,0,0,1}, TcpPort, [])) of
                         {ok, Sock} ->
                             Sock;
                         {error, eaddrnotavail = Reason} ->
@@ -3452,10 +3599,10 @@ active_once_closed(Config) when is_list(Config) ->
             SKIP
     end.
 
-do_active_once_closed(_Config) ->
+do_active_once_closed(Config) ->
     ?P("stage 1"),
     (fun() ->
-	     {Loop,A} = setup_closed_ao(),
+	     {Loop,A} = setup_closed_ao(Config),
 	     Loop({{error,closed},{error,econnaborted}},
                   fun() -> gen_tcp:send(A,"Hello") end),
 	     ok = inet:setopts(A,[{active,once}]),
@@ -3465,7 +3612,7 @@ do_active_once_closed(_Config) ->
      end)(),
     ?P("stage 2"),
     (fun() ->
-	     {Loop,A} = setup_closed_ao(),
+	     {Loop,A} = setup_closed_ao(Config),
 	     Loop({{error,closed},{error,econnaborted}},
                   fun() -> gen_tcp:send(A,"Hello") end),
 	     ok = inet:setopts(A,[{active,true}]),
@@ -3475,7 +3622,7 @@ do_active_once_closed(_Config) ->
      end)(),
     ?P("stage 3"),
     (fun() ->
-	     {Loop,A} = setup_closed_ao(),
+	     {Loop,A} = setup_closed_ao(Config),
 	     Loop({{error,closed},{error,econnaborted}},
                   fun() -> gen_tcp:send(A,"Hello") end),
 	     ok = inet:setopts(A,[{active,true}]),
@@ -3485,7 +3632,7 @@ do_active_once_closed(_Config) ->
      end)(),
     ?P("stage 4"),
     (fun() ->
-	     {Loop,A} = setup_closed_ao(),
+	     {Loop,A} = setup_closed_ao(Config),
 	     Loop({{error,closed},{error,econnaborted}},
 			fun() -> gen_tcp:send(A,"Hello") end),
 	     ok = inet:setopts(A,[{active,once}]),
@@ -3495,7 +3642,7 @@ do_active_once_closed(_Config) ->
      end)(),
     ?P("stage 5"),
     (fun() ->
-	     {Loop,A} = setup_closed_ao(),
+	     {Loop,A} = setup_closed_ao(Config),
 	     Loop({{error,closed},{error,econnaborted}},
 			fun() -> gen_tcp:send(A,"Hello") end),
 	     ok = inet:setopts(A,[{active,false}]),
@@ -3510,9 +3657,9 @@ do_active_once_closed(_Config) ->
 active_n_closed(Config) when is_list(Config) ->
     ?TC_TRY(active_n_closed, fun() -> do_active_n_closed(Config) end).
 
-do_active_n_closed(_Config) ->
+do_active_n_closed(Config) ->
     ?P("create listen socket"),
-    {ok, L} = gen_tcp:listen(0, [binary, {active, false}]),
+    {ok, L} = ?LISTEN(Config, 0, [binary, {active, false}]),
 
     P = self(),
 
@@ -3526,8 +3673,8 @@ do_active_n_closed(_Config) ->
                 ?P("[client] send size"),
                 P ! {size, Cnt * byte_size(Payload)},
                 ?P("[client] try connect"),
-                S = case gen_tcp:connect("localhost", Port,
-                                         [binary, {active, false}]) of
+                S = case ?CONNECT(Config, "localhost", Port,
+                                  [binary, {active, false}]) of
                         {ok, CS} ->
                             ?P("[client] connected"),
                             P ! {continue, self()},
@@ -3654,9 +3801,9 @@ send_timeout(Config) when is_list(Config) ->
 
     %% Basic
     ?P("basic check wo autoclose"),
-    send_timeout_basic(false, RNode),
+    send_timeout_basic(Config, false, RNode),
     ?P("basic check w autoclose"),
-    send_timeout_basic(true, RNode),
+    send_timeout_basic(Config, true, RNode),
 
     BinData = <<1:10000>>,
 
@@ -3665,7 +3812,7 @@ send_timeout(Config) when is_list(Config) ->
     Self = self(),
     {Pid, Mon} = spawn_monitor(
                    fun() ->
-                           A = setup_timeout_sink(RNode, 1000, true),
+                           A = setup_timeout_sink(Config, RNode, 1000, true),
                            Send = fun() ->
                                           Res = gen_tcp:send(A, BinData),
                                           Self ! Res,
@@ -3683,9 +3830,9 @@ send_timeout(Config) when is_list(Config) ->
 
     %% Check that parallell writers do not hang forever
     ?P("check parallell writers wo autoclose"),
-    send_timeout_para(false, RNode),
+    send_timeout_para(Config, false, RNode),
     ?P("check parallell writers w autoclose"),
-    send_timeout_para(true, RNode),
+    send_timeout_para(Config, true, RNode),
 
     ?P("stop (slave) node"),
     test_server:stop_node(RNode),
@@ -3693,10 +3840,10 @@ send_timeout(Config) when is_list(Config) ->
     ?P("done"),
     ok.
 
-send_timeout_basic(AutoClose, RNode) ->
+send_timeout_basic(Config, AutoClose, RNode) ->
     BinData = <<1:10000>>,
 
-    A = setup_timeout_sink(RNode, 1000, AutoClose),
+    A = setup_timeout_sink(Config, RNode, 1000, AutoClose),
     Send = fun() -> gen_tcp:send(A, BinData) end,
     {{error, timeout}, _} = timeout_sink_loop(Send),
 
@@ -3705,11 +3852,11 @@ send_timeout_basic(AutoClose, RNode) ->
     after_send_timeout(AutoClose, Error),
     ok.
 
-send_timeout_para(AutoClose, RNode) ->
+send_timeout_para(Config, AutoClose, RNode) ->
     BinData = <<1:10000>>,
 
     ?P("[para] sink"),
-    A = setup_timeout_sink(RNode, 1000, AutoClose),
+    A = setup_timeout_sink(Config, RNode, 1000, AutoClose),
     Self = self(),
     SenderFun = fun() ->
                         ?P("[para:sender] start"),
@@ -3887,13 +4034,13 @@ send_timeout_active(Config) when is_list(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,RNode} = test_server:start_node(?UNIQ_NODE_NAME, slave,
 					[{args,"-pa " ++ Dir}]),
-    do_send_timeout_active(false, RNode),
-    do_send_timeout_active(true, RNode),
+    do_send_timeout_active(Config, false, RNode),
+    do_send_timeout_active(Config, true, RNode),
     test_server:stop_node(RNode),
     ok.
 
-do_send_timeout_active(AutoClose, RNode) ->
-    {A,C} = setup_active_timeout_sink(RNode, 1, AutoClose),
+do_send_timeout_active(Config, AutoClose, RNode) ->
+    {A,C} = setup_active_timeout_sink(Config, RNode, 1, AutoClose),
     inet:setopts(A, [{active, once}]),
     Mad = spawn_link(RNode, fun() -> mad_sender(C) end),
     ListData = lists:duplicate(1000, $a),
@@ -3931,7 +4078,7 @@ flush() ->
 	    ok
     end.
 
-setup_closed_ao() ->
+setup_closed_ao(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
     ?P("[setup] start slave node"),
     R = case test_server:start_node(?UNIQ_NODE_NAME, slave,
@@ -3943,7 +4090,7 @@ setup_closed_ao() ->
         end,
     Host = get_hostname(node()),
     ?P("[setup] create listen socket"),
-    L = case gen_tcp:listen(0, [{active,false},{packet,2}]) of
+    L = case ?LISTEN(Config, 0, [{active,false},{packet,2}]) of
             {ok, LSock} ->
                 LSock;
             {error, eaddrnotavail = LReason} ->
@@ -3965,7 +4112,7 @@ setup_closed_ao() ->
                      receive {Pid,X} -> X end
              end,
     Connect = fun() -> 
-                      gen_tcp:connect(Host, Port,
+                      ?CONNECT(Config, Host, Port,
                                       [{active, false}, {packet, 2}]) 
               end,
     ?P("[setup] create (remote) connection"),
@@ -4006,10 +4153,10 @@ setup_closed_ao() ->
     ?P("[setup] done"),
     {Loop,A}.
     
-setup_timeout_sink(RNode, Timeout, AutoClose) ->
+setup_timeout_sink(Config, RNode, Timeout, AutoClose) ->
     Host = get_hostname(node()),
     ?P("[sink] create listen socket"),
-    {ok, L} = gen_tcp:listen(0, [{active,             false},
+    {ok, L} = ?LISTEN(Config, 0, [{active,             false},
                                  {packet,             2},
 				 {send_timeout,       Timeout},
 				 {send_timeout_close, AutoClose}]),
@@ -4030,7 +4177,7 @@ setup_timeout_sink(RNode, Timeout, AutoClose) ->
 	     end,
     ?P("[sink] connect from remote node (~p)", [RNode]),
     {ok, C} = Remote(fun() ->
-			     gen_tcp:connect(Host,Port,
+			     ?CONNECT(Config, Host,Port,
 					     [{active,false},{packet,2}])
 		     end),
     ?P("[sink] accept"),
@@ -4042,12 +4189,12 @@ setup_timeout_sink(RNode, Timeout, AutoClose) ->
     ?P("[sink] done"),
     A.
 
-setup_active_timeout_sink(RNode, Timeout, AutoClose) ->
+setup_active_timeout_sink(Config, RNode, Timeout, AutoClose) ->
     Host = get_hostname(node()),
     ListenOpts =  [binary,{active,false},{packet,0},
 		   {nodelay,true},{keepalive,true},
 		   {send_timeout,Timeout},{send_timeout_close,AutoClose}],
-    {ok, L} = gen_tcp:listen(0, ListenOpts),
+    {ok, L} = ?LISTEN(Config, 0, ListenOpts),
     Fun = fun(F) ->
 		  receive
 		      {From,X} when is_function(X) ->
@@ -4064,7 +4211,7 @@ setup_active_timeout_sink(RNode, Timeout, AutoClose) ->
 		     end
 	     end,
     {ok, C} = Remote(fun() ->
-			     gen_tcp:connect(Host, Port, [{active,false}])
+			     ?CONNECT(Config, Host, Port, [{active,false}])
 		     end),
     {ok, A} = gen_tcp:accept(L),
     gen_tcp:send(A, "Hello"),
@@ -4125,18 +4272,18 @@ has_superfluous_schedulers() ->
 %% Leaking message from inet_drv {inet_reply,P,ok}
 %% when a socket sending resumes working after a send_timeout.
 otp_7731(Config) when is_list(Config) ->
-    ServerPid = spawn_link(?MODULE, otp_7731_server, [self()]),
+    ServerPid = spawn_link(?MODULE, otp_7731_server, [Config, self()]),
     receive {ServerPid, ready, PortNum} -> ok end,
 
-    {ok, Socket} = gen_tcp:connect("localhost", PortNum,
-                                   [binary, {active, false}, {packet, raw},
-                                    {send_timeout, 1000}]),
+    {ok, Socket} = ?CONNECT(Config, "localhost", PortNum,
+                            [binary, {active, false}, {packet, raw},
+                             {send_timeout, 1000}]),
     otp_7731_send(Socket),
-    io:format("Sending complete...\n",[]),
+    ?P("Sending complete..."),
     ServerPid ! {self(), recv},
     receive {ServerPid, ok} -> ok end,
 
-    io:format("Client waiting for leaking messages...\n",[]),
+    ?P("Client waiting for leaking messages..."),
 
     %% Now make sure inet_drv does not leak any internal messages.
     receive Msg ->
@@ -4144,7 +4291,7 @@ otp_7731(Config) when is_list(Config) ->
     after 1000 ->
 	    ok
     end,
-    io:format("No leaking messages. Done.\n",[]),
+    ?P("No leaking messages. Done."),
     gen_tcp:close(Socket).
     
 otp_7731_send(Socket) ->
@@ -4155,37 +4302,37 @@ otp_7731_send(Socket) ->
         {error,timeout} -> ok
     end.
 
-otp_7731_server(ClientPid) ->
-    {ok, LSocket} = gen_tcp:listen(0, [binary, {packet, raw},
+otp_7731_server(Config, ClientPid) ->
+    {ok, LSocket} = ?LISTEN(Config, 0, [binary, {packet, raw},
                                        {active, false}]),
     {ok, {_, PortNum}} = inet:sockname(LSocket),
-    io:format("Listening on ~w with port number ~p\n", [LSocket, PortNum]),
+    ?P("Listening on ~w with port number ~p", [LSocket, PortNum]),
     ClientPid ! {self(), ready, PortNum},
 
     {ok, CSocket} = gen_tcp:accept(LSocket),
     gen_tcp:close(LSocket),
 
-    io:format("Server got connection, wait for recv order...\n",[]),
+    ?P("Server got connection, wait for recv order..."),
 
     receive {ClientPid, recv} -> ok end,
     
-    io:format("Server start receiving...\n",[]),
+    ?P("Server start receiving..."),
 
     otp_7731_recv(CSocket),
 
     ClientPid ! {self(), ok},
 
-    io:format("Server finished, closing...\n",[]),
+    ?P("Server finished, closing..."),
     gen_tcp:close(CSocket).
 
 
 otp_7731_recv(Socket) ->
     case gen_tcp:recv(Socket, 0, 1000) of
 	      {ok, Bin} -> 
-		  io:format("Server received ~p bytes\n",[size(Bin)]),
+		  ?P("Server received ~p bytes", [size(Bin)]),
 		  otp_7731_recv(Socket);
 	      {error,timeout} ->
-		  io:format("Server got receive timeout\n",[]),
+		  ?P("Server got receive timeout"),
 		  ok
 	  end.
 
@@ -4198,10 +4345,10 @@ zombie_sockets(Config) when is_list(Config) ->
     register(zombie_collector,self()),
     Calls = 10,
     ?P("create zombie server"),
-    Server = spawn_link(?MODULE, zombie_server,[self(), Calls]),
+    Server = spawn_link(?MODULE, zombie_server, [Config, self(), Calls]),
     {Server, ready, PortNum} = receive Msg -> Msg  end,
     ?P("Ports before = ~p",[lists:sort(erlang:ports())]),
-    zombie_client_loop(Calls, PortNum),
+    zombie_client_loop(Config, Calls, PortNum),
     Ports = lists:sort(zombie_collector(Calls, [])),
     Server ! terminate,
     ?P("Collected ports = ~p", [Ports]),
@@ -4210,16 +4357,16 @@ zombie_sockets(Config) when is_list(Config) ->
     ?P("done"),
     ok.
 
-zombie_client_loop(0, _) ->
+zombie_client_loop(_Config, 0, _) ->
     ?P("[zombie client] done"),
     ok;
-zombie_client_loop(N, PortNum) when is_integer(PortNum) ->
+zombie_client_loop(Config, N, PortNum) when is_integer(PortNum) ->
     ?P("[zombie client][~w] try connect", [N]),
-    {ok, Socket} = gen_tcp:connect("localhost", PortNum,
-                                   [binary, {active, false}, {packet, raw}]),
+    {ok, Socket} = ?CONNECT(Config, "localhost", PortNum,
+                            [binary, {active, false}, {packet, raw}]),
     ?P("[zombie client] connected - now close ~p", [Socket]),
     gen_tcp:close(Socket), % to make server recv fail
-    zombie_client_loop(N-1, PortNum).
+    zombie_client_loop(Config, N-1, PortNum).
 
 
 zombie_collector(0, Acc) ->
@@ -4249,10 +4396,10 @@ zombies_alive(Ports, WaitSec) ->
 	    end
     end.
 
-zombie_server(Pid, Calls) ->
+zombie_server(Config, Pid, Calls) ->
     ?P("[zombie server] try create listen socket with backlog: ~w", [Calls]),
-    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, raw},
-                                     {active, false}, {backlog, Calls}]),
+    {ok, LSock} = ?LISTEN(Config, 0, [binary, {packet, raw},
+                                      {active, false}, {backlog, Calls}]),
     {ok, {_, PortNum}} = inet:sockname(LSock),
     ?P("[zombie server] Listening on ~w with port number ~p", [LSock, PortNum]),
     BigBin = list_to_binary(lists:duplicate(100*1024, 77)),
@@ -4307,12 +4454,12 @@ zombie_server_handler(Socket, Bin) ->
 %% Hanging send on windows when sending iolist with more than 16 binaries.
 otp_7816(Config) when is_list(Config) ->
     Client = self(),
-    Server = spawn_link(fun()-> otp_7816_server(Client) end),
+    Server = spawn_link(fun()-> otp_7816_server(Config, Client) end),
     receive {Server, ready, PortNum} -> ok end,
 
-    {ok, Socket} = gen_tcp:connect("localhost", PortNum,
-                                   [binary, {active, false}, {packet, 4},
-                                    {send_timeout, 10}]),
+    {ok, Socket} = ?CONNECT(Config, "localhost", PortNum,
+                            [binary, {active, false}, {packet, 4},
+                             {send_timeout, 10}]),
     %% We use the undocumented feature that sending can be resumed after
     %% a send_timeout without any data loss if the peer starts to receive data.
     %% Unless of course the 7816-bug is in affect, in which case the write event
@@ -4346,28 +4493,28 @@ otp_7816_send_data(Socket, Data, Loops) ->
     end.
     
     
-otp_7816_server(Client) ->
-    {ok, LSocket} = gen_tcp:listen(0, [binary, {packet, 4},
-					     {active, false}]),
+otp_7816_server(Config, Client) ->
+    {ok, LSocket} = ?LISTEN(Config, 0, [binary, {packet, 4},
+                                        {active, false}]),
     {ok, {_, PortNum}} = inet:sockname(LSocket),
-    io:format("Listening on ~w with port number ~p\n", [LSocket, PortNum]),
+    ?P("Listening on ~w with port number ~p", [LSocket, PortNum]),
     Client ! {self(), ready, PortNum},
 
     {ok, CSocket} = gen_tcp:accept(LSocket),
-    io:format("Server got connection...\n",[]),
+    ?P("Server got connection..."),
     gen_tcp:close(LSocket),
 
     otp_7816_server_loop(CSocket),
 
-    io:format("Server terminating.\n",[]).
+    ?P("Server terminating.").
 
 
 otp_7816_server_loop(CSocket) ->
-    io:format("Server waiting for order...\n",[]),
+    ?P("Server waiting for order..."),
 
     receive 
 	{Client, recv, RecvBytes} -> 
-	    io:format("Server start receiving...\n",[]),
+	    ?P("Server start receiving..."),
 
 	    ok = otp_7816_recv(CSocket, RecvBytes),
 	    
@@ -4395,11 +4542,11 @@ otp_7816_recv(CSocket, BytesLeft) ->
 
 %% Receive a packet with a faulty packet header.
 otp_8102(Config) when is_list(Config) ->
-    {ok, LSocket} = gen_tcp:listen(0, []),
+    {ok, LSocket} = ?LISTEN(Config, 0, []),
     {ok, {_, PortNum}} = inet:sockname(LSocket),
-    io:format("Listening on ~w with port number ~p\n", [LSocket, PortNum]),
+    ?P("Listening on ~w with port number ~p", [LSocket, PortNum]),
 
-    [otp_8102_do(LSocket, PortNum, otp_8102_packet(Type,Size))
+    [otp_8102_do(Config, LSocket, PortNum, otp_8102_packet(Type,Size))
      || Size <- lists:seq(-10,-1), 
 	Type <- [4, {cdr,big}, {cdr,little}]],
     
@@ -4413,31 +4560,31 @@ otp_8102_packet({cdr,big}, Size) ->
 otp_8102_packet({cdr,little}, Size) ->
     {<<"GIOP",0,0,1,0,Size:32/little>>, cdr}.
 
-otp_8102_do(LSocket, PortNum, {Bin,PType}) ->
+otp_8102_do(Config, LSocket, PortNum, {Bin,PType}) ->
 
-    io:format("Connect with packet option ~p ...\n",[PType]),
-    {ok, RSocket} = gen_tcp:connect("localhost", PortNum, [binary,
-								 {packet,PType},
-								 {active,true}]),
+    ?P("Connect with packet option ~p ...",[PType]),
+    {ok, RSocket} = ?CONNECT(Config, "localhost", PortNum, [binary,
+                                                            {packet,PType},
+                                                            {active,true}]),
     {ok, SSocket} = gen_tcp:accept(LSocket),
 
-    io:format("Got connection, sending ~p...\n",[Bin]),
+    ?P("Got connection, sending ~p...",[Bin]),
 
     ok = gen_tcp:send(SSocket, Bin),
 
-    io:format("Sending complete...\n",[]),
+    ?P("Sending complete...",[]),
 
     {tcp_error,RSocket,emsgsize} = receive M -> M end,
 
-    io:format("Got error msg, ok.\n",[]),
+    ?P("Got error msg, ok."),
     gen_tcp:close(SSocket),    
     gen_tcp:close(RSocket).
 
 %% Verify packet_size handles long HTTP header lines.
 otp_9389(Config) when is_list(Config) ->
-    {ok, LS} = gen_tcp:listen(0, [{active,false}]),
+    {ok, LS} = ?LISTEN(Config, 0, [{active,false}]),
     {ok, {_, PortNum}} = inet:sockname(LS),
-    io:format("Listening on ~w with port number ~p\n", [LS, PortNum]),
+    ?P("Listening on ~w with port number ~p", [LS, PortNum]),
     OrigLinkHdr = "/" ++ string:chars($S, 8192),
     _Server = spawn_link(
                 fun() ->
@@ -4446,7 +4593,7 @@ otp_9389(Config) when is_list(Config) ->
                         ok = otp_9389_loop(S, OrigLinkHdr),
                         ok = gen_tcp:close(S)
                 end),
-    {ok, S} = gen_tcp:connect("localhost", PortNum,
+    {ok, S} = ?CONNECT(Config, "localhost", PortNum,
                                     [binary, {active, false}]),
     Req = "GET / HTTP/1.1\r\n"
         ++ "Host: localhost\r\n"
@@ -4497,17 +4644,17 @@ wrapping_oct() ->
 
 %% Check that 64bit octet counters work.
 wrapping_oct(Config) when is_list(Config) ->
-    {ok,Sock} = gen_tcp:listen(0,[{active,false},{mode,binary}]),
+    {ok,Sock} = ?LISTEN(Config, 0,[{active,false},{mode,binary}]),
     {ok,Port} = inet:port(Sock),
     spawn_link(?MODULE,oct_acceptor,[Sock]),
-    Res = oct_datapump(Port,16#10000FFFF),
+    Res = oct_datapump(Config, Port, 16#10000FFFF),
     gen_tcp:close(Sock),
     ok = Res,
     ok.
 
-oct_datapump(Port,N) ->
-    {ok,Sock} = gen_tcp:connect("localhost",Port,
-				[{active,false},{mode,binary}]),
+oct_datapump(Config, Port, N) ->
+    {ok,Sock} = ?CONNECT(Config, "localhost", Port,
+                         [{active,false},{mode,binary}]),
     oct_pump(Sock,N,binary:copy(<<$a:8>>,100000),0).
 
 oct_pump(S,N,_,_) when N =< 0 ->
@@ -4572,12 +4719,12 @@ otp_13939(suite) ->
 otp_13939(Config) when is_list(Config) ->
     {Pid, Ref} = spawn_opt(
         fun() ->
-            {ok, Listener} = gen_tcp:listen(0, [{exit_on_close, false}]),
+            {ok, Listener} = ?LISTEN(Config, 0, [{exit_on_close, false}]),
             {ok, Port} = inet:port(Listener),
 
             spawn_link(
                 fun() ->
-                    {ok, Client} = gen_tcp:connect("localhost", Port,
+                    {ok, Client} = ?CONNECT(Config, "localhost", Port,
                         [{active, false}]),
                     ok = gen_tcp:close(Client)
                 end),
@@ -4643,13 +4790,13 @@ otp_12242(Config) when is_list(Config) ->
                       end])
             of
                 [Addr|_] ->
-                    otp_12242(Addr);
+                    otp_12242(Config, Addr);
                 Other ->
                     {skipped,{no_external_address,Other}}
             end
-    end;
+    end.
 %%
-otp_12242(Addr) when tuple_size(Addr) =:= 4 ->
+otp_12242(Config, Addr) when tuple_size(Addr) =:= 4 ->
     ct:timetrap(30000),
     ct:pal("Using address ~p~n", [Addr]),
     Bufsize = 16 * 1024,
@@ -4673,7 +4820,7 @@ otp_12242(Addr) when tuple_size(Addr) =:= 4 ->
         spawn(
           ListenerNode,
           fun () ->
-                  {ok,L} = gen_tcp:listen(0, LOpts),
+                  {ok,L} = ?LISTEN(Config, 0, LOpts),
                   {ok,LPort} = inet:port(L),
                   Tester ! {self(),port,LPort},
                   {ok,A} = gen_tcp:accept(L),
@@ -4685,7 +4832,7 @@ otp_12242(Addr) when tuple_size(Addr) =:= 4 ->
           end),
     ListenerMref = monitor(process, Listener),
     LPort = receive {Listener,port,P} -> P end,
-    {ok,C} = gen_tcp:connect(Addr, LPort, COpts, infinity),
+    {ok,C} = ?CONNECT(Config, Addr, LPort, COpts, infinity),
     {ok,ReadCOpts} = inet:getopts(C, [recbuf,sndbuf,buffer]),
     ct:pal("ReadCOpts ~p~n", [ReadCOpts]),
     %%
@@ -4745,15 +4892,15 @@ wait(Mref) ->
 
 %% OTP-15536
 %% Test that send error works correctly for delay_send
-delay_send_error(_Config) ->
+delay_send_error(Config) ->
     ?P("create listen socket"),
     {ok, L} =
-        gen_tcp:listen(
+        ?LISTEN(Config,
           0, [{reuseaddr, true}, {packet, 1}, {active, false}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(L),
     ?P("try connect - with delay_send:true"),
     {ok, C} =
-        gen_tcp:connect(
+        ?CONNECT(Config,
           "localhost", PortNum,
           [{packet, 1}, {active, false}, {delay_send, true}]),
     ?P("try accept"),
