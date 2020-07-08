@@ -164,10 +164,8 @@ AS_HELP_STRING([--disable-kernel-poll], [disable kernel poll support]),
 
 
 AC_ARG_ENABLE(sctp,
-AS_HELP_STRING([--enable-sctp], [enable sctp support (default)
-to on demand load the SCTP library in runtime if needed])
-AS_HELP_STRING([--enable-sctp=lib], [enable sctp support
-to link against the SCTP library])
+AS_HELP_STRING([--enable-sctp], [enable sctp support (default) to on demand load the SCTP library in runtime if needed])
+AS_HELP_STRING([--enable-sctp=lib], [enable sctp support to link against the SCTP library])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]),
 [ case "x$enableval" in
       xno|xyes|xlib|x)
@@ -611,9 +609,9 @@ AC_SUBST(WFLAGS)
 AC_SUBST(WERRORFLAGS)
 
 ## Check if we can do profile guided optimization of beam_emu
-LM_CHECK_ENABLE_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
-LM_CHECK_ENABLE_CFLAG([-fprofile-use -Werror],[PROFILE_USE])
-LM_CHECK_ENABLE_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
+LM_CHECK_RUN_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
+LM_CHECK_RUN_CFLAG([-fprofile-use -Werror],[PROFILE_USE])
+LM_CHECK_RUN_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
 
 if test "X$PROFILE_CORRECTION" = "Xtrue"; then
    saved_CFLAGS=$CFLAGS
