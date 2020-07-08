@@ -54,6 +54,7 @@
 #include "erl_proc_sig_queue.h"
 #include "beam_load.h"
 
+#include "jit/beam_asm.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -203,6 +204,10 @@ int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
 
 int erts_no_line_info = 0;	/* -L: Don't load line information */
 
+#ifdef BEAMASM
+int erts_asm_dump = 0;		/* -asmdump: Dump assembly code */
+#endif
+
 /*
  * Other global variables.
  */
@@ -339,6 +344,9 @@ erl_init(int ncpu,
     init_module_table();
     init_register_table();
     init_message();
+#ifdef BEAMASM
+    beamasm_init();
+#endif
     erts_bif_info_init();
     erts_ddll_init();
     init_emulator();
@@ -587,6 +595,9 @@ void erts_usage(void)
     erts_fprintf(stderr, "               in the async-thread pool, valid range is [%d-%d]\n",
 		 ERTS_ASYNC_THREAD_MIN_STACK_SIZE,
 		 ERTS_ASYNC_THREAD_MAX_STACK_SIZE);
+#ifdef BEAMASM
+    erts_fprintf(stderr, "-asmdump       dump generated assembly code for each module loaded\n");
+#endif
     erts_fprintf(stderr, "-A number      set number of threads in async thread pool,\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n",
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
@@ -1622,6 +1633,48 @@ erl_start(int argc, char **argv)
 	    init = get_arg(argv[i]+2, argv[i+1], &i);
 	    break;
 
+	case 'J':
+#ifdef BEAMASM
+        {
+            char *sub_param = argv[i]+2;
+
+            switch (sub_param[0])
+            {
+            case 'P':
+                sub_param++;
+
+                if (has_prefix("perf", sub_param)) {
+                    arg = get_arg(sub_param+4, argv[i + 1], &i);
+
+#ifdef HAVE_LINUX_PERF_SUPPORT
+                    if (sys_strcmp(arg, "true") == 0) {
+                        erts_jit_perf_support_enabled = 1;
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        erts_jit_perf_support_enabled = 0;
+                    } else {
+                        erts_fprintf(stderr, "bad +JPperf support flag %s\n", arg);
+                        erts_usage();
+                    }
+#else
+                erts_fprintf(stderr, "+JPperf is not supported on this platform\n");
+                erts_usage();
+#endif
+                }
+                break;
+            default:
+                erts_fprintf(stderr, "invalid JIT option %s\n", arg);
+                erts_usage();
+                break;
+            }
+        }
+#else
+        erts_fprintf(stderr,
+                     "JIT is not supported on this system (option %s)\n",
+                     arg);
+        erts_usage();
+#endif
+        break;
+
 	case 'B':
 	  if (argv[i][2] == 'i')          /* +Bi */
 	    ignore_break = 1;
@@ -2070,6 +2123,12 @@ erl_start(int argc, char **argv)
 	    break;
 
 	case 'a':
+#ifdef BEAMASM
+	    if (strcmp(argv[i]+2, "smdump") == 0) {
+		erts_asm_dump = 1;
+		break;
+	    }
+#endif
 	    /* suggested stack size (Kilo Words) for threads in thread pool */
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    erts_async_thread_suggested_stack_size = atoi(arg);

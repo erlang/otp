@@ -447,7 +447,7 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	if (p->freason == TRAP) {
 #ifdef HIPE
 	    if (regs == NULL) {
-		regs = erts_proc_sched_data(p)->x_reg_array;
+		regs = erts_proc_sched_data(p)->registers->x_reg_array.d;
 	    }
 #endif
 	    cost = garbage_collect(p, live_hf_end, 0, regs, p->arity, p->fcalls, 0);

@@ -60,6 +60,7 @@ my @bif;
 my @bif_info;
 my $dirty_schedulers_test = 'no';
 my $hipe = 'no';
+my $jit = 'no';
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
     my $opt = shift;
@@ -79,6 +80,10 @@ while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
 	$hipe = shift;
 	die "No -hipe argument specified"
 	    unless defined $hipe;
+    } elsif($opt eq '-jit') {
+	$jit = shift;
+	die "No -jit argument specified"
+	    unless defined $jit;
     } else {
 	usage("bad option: $opt");
     }
@@ -252,6 +257,7 @@ extern const ErtsUBif erts_u_bifs[];
 #define BIF_SIZE $bif_size
 
 EOF
+
 print "#define BIF_TRAP_EXPORT(BIF_NAME) (bif_trap_exports[BIF_NAME])\n";
 print "extern Export *bif_trap_exports[];\n";
 print "\n";
@@ -335,6 +341,7 @@ print <<EOF;
 Eterm $bif_info[$i]->[2](Process *c_p, Eterm *regs, BeamInstr *I)
 {
     return erts_reschedule_bif(c_p, regs, I,
+                               &BIF_TRAP_EXPORT($i)->info.mfa,
                                $bif_info[$i]->[3], $dtype);
 }
 

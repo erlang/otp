@@ -35,7 +35,7 @@
 #include "erl_version.h"
 #include "hash.h"
 #include "atom.h"
-#include "beam_load.h"
+#include "beam_code.h"
 #include "erl_hl_timer.h"
 #include "erl_thr_progress.h"
 #include "erl_proc_sig_queue.h"

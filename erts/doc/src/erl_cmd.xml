@@ -239,12 +239,27 @@
       <item>
         <p>Useful for debugging. Prints the arguments sent to the emulator.</p>
       </item>
+      <tag><c><![CDATA[-emu_flavor Flavor]]></c></tag>
+      <item>
+        <p>Start an emulator of a different flavor. The current available flavors
+          are: <c>emu</c> and <c>jit</c>. You can combine this flag with
+          <c>--emu_type</c>. You can get the current flavor at run-time using
+          <seeerl marker="erlang#system_info_emu_flavor">
+            <c>erlang:system_info(build_flavor)</c></seeerl>.
+          (The emulator with this flavor must be built. You can
+          build a specific flavor by doing <c>make FLAVOR=$FLAVOR</c> in the
+          Erlang/OTP source repository.)</p>
+      </item>
       <tag><c><![CDATA[-emu_type Type]]></c></tag>
       <item>
         <p>Start an emulator of a different type. For example, to start
-	the lock-counter emualator, use <c>-emu_type lcnt</c>. (The emulator
-	must already be built. Use the <c>configure</c> option
-	<c>--enable-lock-counter</c> to build the lock-counter emulator.)</p>
+	  the lock-counter emulator, use <c>-emu_type lcnt</c>.
+          You can get the current type at run-time using
+          <seeerl marker="erlang#system_info_emu_type">
+            <c>erlang:system_info(build_type)</c></seeerl>.
+          (The emulator of this type must already be built.
+          Use the <c>configure</c> option <c>--enable-lock-counter</c> to
+          build the lock-counter emulator.)</p>
       </item>
       <tag><c><![CDATA[-env Variable Value]]></c></tag>
       <item>
@@ -863,6 +878,15 @@
           percentages to set the number of IO poll threads to create, based on
           the number of schedulers configured. If both <c>+IOPt</c> and
           <c>+IOt</c> are used, <c>+IOPt</c> is ignored.
+        </p>
+      </item>
+      <tag><marker id="+JPperf"/><c>+JPperf true|false</c></tag>
+      <item>
+        <p>Enables or disables support for the `perf` profiler when running
+          with the JIT on Linux. Defaults to false.</p>
+        <p>For more details about how to run perf see the
+          <seeguide marker="erts:BeamAsm#linux-perf-support">perf support</seeguide>
+          section in the BeamAsm internal documentation.
         </p>
       </item>
       <tag><c><![CDATA[+l]]></c></tag>

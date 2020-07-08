@@ -35,15 +35,15 @@
 #endif
 
 #define CodeNeed(w) do {                                                \
-    ASSERT(ci <= codev_size);                                                \
-    if (codev_size < ci+(w)) {                                                \
-        codev_size = 2*ci+(w);                                                \
-        stp->load_hdr = (BeamCodeHeader*) erts_realloc(ERTS_ALC_T_CODE,        \
-            (void *) stp->load_hdr,                                                \
+    ASSERT(ci <= codev_size);                                           \
+    if (codev_size < ci+(w)) {                                          \
+        codev_size = 2*ci+(w);                                          \
+        stp->code_hdr = (BeamCodeHeader*) erts_realloc(ERTS_ALC_T_CODE, \
+            (void *) stp->code_hdr,                                     \
             (offsetof(BeamCodeHeader,functions)                         \
              + codev_size * sizeof(BeamInstr)));                        \
-        code = stp->codev = (BeamInstr*) &stp->load_hdr->functions;          \
-    }                                                                         \
+        code = stp->codev = (BeamInstr*) &stp->code_hdr->functions;     \
+    }                                                                   \
 } while (0)
 
 /* #define LOAD_MEMORY_HARD_DEBUG 1*/
@@ -81,7 +81,7 @@ void beam_load_prepare_emit(LoaderState *stp) {
     hdr->literal_area = NULL;
     hdr->md5_ptr = NULL;
 
-    stp->load_hdr = hdr;
+    stp->code_hdr = hdr;
 
     /* Let the codev array start at functions[0] in order to index
      * both function pointers and the loaded code itself that follows. */
@@ -164,8 +164,8 @@ int beam_load_prepared_dtor(Binary* magic)
         stp->bin = NULL;
     }
 
-    if (stp->load_hdr) {
-        BeamCodeHeader *hdr = stp->load_hdr;
+    if (stp->code_hdr) {
+        BeamCodeHeader *hdr = stp->code_hdr;
 
         if (hdr->literal_area) {
             erts_release_literal_area(hdr->literal_area);
@@ -173,7 +173,7 @@ int beam_load_prepared_dtor(Binary* magic)
         }
 
         erts_free(ERTS_ALC_T_CODE, hdr);
-        stp->load_hdr = NULL;
+        stp->code_hdr = NULL;
         stp->codev = NULL;
     }
 
@@ -228,8 +228,8 @@ int beam_load_prepared_dtor(Binary* magic)
 }
 
 int beam_load_finish_emit(LoaderState *stp) {
-    BeamCodeHeader* code_hdr = stp->load_hdr;
-    BeamInstr* codev = (BeamInstr*) &stp->load_hdr->functions;
+    BeamCodeHeader* code_hdr = stp->code_hdr;
+    BeamInstr* codev = (BeamInstr*) &stp->code_hdr->functions;
     int i;
     byte* str_table;
     unsigned strtab_size = stp->beam.strings.size;
@@ -265,10 +265,9 @@ int beam_load_finish_emit(LoaderState *stp) {
     /* Move the code to its final location. */
     code_hdr = (BeamCodeHeader*)erts_realloc(ERTS_ALC_T_CODE, (void *) code_hdr, size);
     codev = (BeamInstr*)&code_hdr->functions;
-    CHKBLK(ERTS_ALC_T_CODE, code_hdr);
-
     stp->code_hdr = code_hdr;
-    stp->load_hdr = NULL;
+    stp->codev = codev;
+    CHKBLK(ERTS_ALC_T_CODE, code_hdr);
 
     /*
      * Place a pointer to the op_int_code_end instruction in the
@@ -532,20 +531,14 @@ int beam_load_finish_emit(LoaderState *stp) {
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
     /*
-     * Save the updated code pointer and code size.
+     * Save the updated code code size.
      */
-    stp->codev = codev;
     stp->loaded_size = size;
 
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
     return 1;
 
  load_error:
-    /*
-     * Make sure that the caller frees the newly reallocated block, and
-     * not the old one (in case it has moved).
-     */
-    stp->codev = codev;
     return 0;
 }
 
@@ -578,7 +571,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
         codev[index] = BeamOpCodeAddr(op_catch_yf);
         /* We must make the address of the label absolute again. */
         abs_addr = (BeamInstr *)codev + index + codev[index+2];
-        catches = beam_catches_cons(abs_addr, catches);
+        catches = beam_catches_cons(abs_addr, catches, NULL);
         codev[index+2] = make_catch(catches);
         index = next;
     }
@@ -719,7 +712,6 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
 
     /* Prevent code from being freed. */
     stp->code_hdr = NULL;
-    stp->codev = NULL;
 }
 
 static int
@@ -776,6 +768,7 @@ register_label_patch(LoaderState* stp, Uint label, Uint ci, Uint offset)
     lp->num_patches++;
     stp->codev[ci] = label;
 }
+
 static void
 new_lambda_patch(LoaderState* stp, int pos) {
     LambdaPatch* p = erts_alloc(ERTS_ALC_T_PREPARED_CODE, sizeof(LambdaPatch));
@@ -855,11 +848,6 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             code[ci++] = (tmp_op->a[arg].val + CP_SIZE) * sizeof(Eterm);
             break;
         case 'a':                /* Tagged atom */
-            BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
-            code[ci++] = tmp_op->a[arg].val;
-            break;
-        case 'i':                /* Tagged integer */
-            ASSERT(is_small(tmp_op->a[arg].val));
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
             code[ci++] = tmp_op->a[arg].val;
             break;
@@ -1141,15 +1129,15 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                     }
 
                     /*
-                        * 'w' can handle both labels ('f' and 'j'), as well
-                        * as 'I'. Test whether this is a label.
-                        */
+		     * 'w' can handle both labels ('f' and 'j'), as well
+		     * as 'I'. Test whether this is a label.
+		     */
 
                     if (w < stp->beam.code.label_count) {
                         /*
-                            * Probably a label. Look for patch pointing to this
-                            * position.
-                            */
+			 * Probably a label. Look for patch pointing to this
+			 * position.
+			 */
                         LabelPatch* lp = stp->labels[w].patches;
                         int num_patches = stp->labels[w].num_patches;
                         int patch;
@@ -1314,12 +1302,11 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
 #endif
 
     /*
-        * Handle a few special cases.
-        */
+     * Handle a few special cases.
+     */
     switch (stp->specific_op) {
     case op_i_func_info_IaaI:
         {
-            int padding_required;
             Sint offset;
 
             if (stp->function_number >= stp->beam.code.function_count) {
@@ -1328,49 +1315,25 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                                stp->beam.code.function_count);
             }
 
-            /* Native function calls may be larger than their stubs, so
-                * we'll need to make sure any potentially-native function stub
-                * is padded with enough room.
-                *
-                * Note that the padding is applied for the previous function,
-                * not the current one, so we check whether the old F/A is
-                * a BIF. */
-            padding_required = stp->last_func_start && (stp->may_load_nif ||
-                is_bif(stp->module, stp->function, stp->arity));
-
             /*
-                * Save context for error messages.
-                */
+	     * Save context for error messages.
+	     */
             stp->function = code[ci-2];
             stp->arity = code[ci-1];
 
             /*
-                * Save current offset of into the line instruction array.
-                */
+	     * Save current offset of into the line instruction array.
+	     */
             if (stp->func_line) {
                 stp->func_line[stp->function_number] = stp->current_li;
             }
 
-            if (padding_required) {
-                const int finfo_ix = ci - FUNC_INFO_SZ;
-                if (finfo_ix - stp->last_func_start < BEAM_NATIVE_MIN_FUNC_SZ) {
-                    /* Must make room for call_nif op */
-                    int pad = BEAM_NATIVE_MIN_FUNC_SZ -
-                                (finfo_ix - stp->last_func_start);
-                    ASSERT(pad > 0 && pad < BEAM_NATIVE_MIN_FUNC_SZ);
-                    CodeNeed(pad);
-                    sys_memmove(&code[finfo_ix+pad], &code[finfo_ix],
-                                FUNC_INFO_SZ*sizeof(BeamInstr));
-                    sys_memset(&code[finfo_ix], 0, pad*sizeof(BeamInstr));
-                    ci += pad;
-                    stp->labels[stp->last_label].value += pad;
-                }
-            }
             stp->last_func_start = ci;
 
             /* When this assert is triggered, it is normally a sign that the
              * size of the ops.tab i_func_info instruction is not the same as
-             * FUNC_INFO_SZ */
+             * FUNC_INFO_SZ.
+	     */
             ASSERT(stp->labels[stp->last_label].value == ci - FUNC_INFO_SZ);
             offset = stp->function_number;
             register_label_patch(stp, stp->last_label, offset, 0);
@@ -1391,6 +1354,38 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
 #endif
         }
         break;
+    case op_int_func_end:
+	{
+	    /*
+	     * Native function calls may be larger than their stubs, so
+	     * we'll need to make sure any potentially-native function stub
+	     * is padded with enough room.
+	     */
+	    int padding_required;
+
+	    ci--;		/* Get rid of the instruction */
+
+	    padding_required = stp->may_load_nif ||
+		is_bif(stp->module, stp->function, stp->arity);
+
+	    ASSERT(stp->last_func_start);
+	    if (padding_required) {
+		Sint pad = BEAM_NATIVE_MIN_FUNC_SZ - (ci - stp->last_func_start);
+		if (pad > 0) {
+		    ASSERT(pad < BEAM_NATIVE_MIN_FUNC_SZ);
+		    CodeNeed(pad);
+		    while (pad-- > 0) {
+			/*
+			 * Filling with actual instructions (instead
+			 * of zeroes) will look nicer in a disassembly
+			 * listing.
+			 */
+			code[ci++] = BeamOpCodeAddr(op_padding);
+		    }
+		}
+	    }
+	}
+	break;
     case op_on_load:
         ci--;                /* Get rid of the instruction */
 
@@ -1404,9 +1399,9 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         break;
     case op_catch_yf:
         /* code[ci-3]        &&lb_catch_yf
-            * code[ci-2]        y-register offset in E
-            * code[ci-1]        label; index tagged as CATCH at runtime
-            */
+	 * code[ci-2]        y-register offset in E
+	 * code[ci-1]        label; index tagged as CATCH at runtime
+	 */
         code[ci-3] = stp->catches;
         stp->catches = ci-3;
         break;
@@ -1427,19 +1422,19 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
 
             if (ci - 2 == stp->last_func_start) {
                 /*
-                    * This line instruction directly follows the func_info
-                    * instruction. Its address must be adjusted to point to
-                    * func_info instruction.
-                    */
+		 * This line instruction directly follows the func_info
+		 * instruction. Its address must be adjusted to point to
+		 * func_info instruction.
+		 */
                 stp->line_instr[li].pos = stp->last_func_start - FUNC_INFO_SZ;
                 stp->line_instr[li].loc = item;
                 stp->current_li++;
             } else if (li <= stp->func_line[stp->function_number - 1] ||
-                        stp->line_instr[li-1].loc != item) {
+		       stp->line_instr[li-1].loc != item) {
                 /*
-                    * Only store the location if it is different
-                    * from the previous location in the same function.
-                    */
+		 * Only store the location if it is different
+		 * from the previous location in the same function.
+		 */
                 stp->line_instr[li].pos = ci - 2;
                 stp->line_instr[li].loc = item;
                 stp->current_li++;

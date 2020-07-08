@@ -55,6 +55,7 @@
 #include "erl_io_queue.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
+#include "atom.h"
 #ifdef HIPE
 #  include "hipe_mode_switch.h"
 #endif

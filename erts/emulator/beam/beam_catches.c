@@ -102,7 +102,7 @@ void beam_catches_end_staging(int commit)
     IF_DEBUG(bccix[erts_staging_code_ix()].is_staging = 0);
 }
 
-unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
+unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr, BeamInstr ***cppp)
 {
     int i;
     struct bc_pool* p = &bccix[erts_staging_code_ix()];
@@ -134,6 +134,9 @@ unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 
     p->beam_catches[i].cp  = cp;
     p->beam_catches[i].cdr = cdr;
+    if (cppp) {
+        *cppp = &p->beam_catches[i].cp;
+    }
 
     return i;
 }
@@ -141,6 +144,16 @@ unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 BeamInstr *beam_catches_car(unsigned i)
 {
     struct bc_pool* p = &bccix[erts_active_code_ix()];
+
+    if (i >= p->tabsize ) {
+	erts_exit(ERTS_ERROR_EXIT, "beam_catches_delmod: index %#x is out of range\r\n", i);
+    }
+    return p->beam_catches[i].cp;
+}
+
+BeamInstr *beam_catches_car_staging(unsigned i)
+{
+    struct bc_pool* p = &bccix[erts_staging_code_ix()];
 
     if (i >= p->tabsize ) {
 	erts_exit(ERTS_ERROR_EXIT, "beam_catches_delmod: index %#x is out of range\r\n", i);

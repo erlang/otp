@@ -39,6 +39,10 @@
 typedef struct {
     struct {
         ErtsCodeInfo info;
+#ifdef BEAMASM
+        // Code used by tracing/nif load
+        BeamInstr trace[1];
+#endif
         BeamInstr call_op; /* call_bif || call_nif */
         BeamInstr dfunc;
     } trampoline;
@@ -172,11 +176,17 @@ erts_proc_shadow2real(Process *c_p)
 #if defined(ERTS_WANT_NFUNC_SCHED_INTERNALS__) && !defined(ERTS_NFUNC_SCHED_INTERNALS__)
 #define ERTS_NFUNC_SCHED_INTERNALS__
 
+#ifndef BEAMASM
 #define ERTS_I_BEAM_OP_TO_NFUNC(I)					\
     (ASSERT(BeamIsOpCode(*(I), op_call_bif_W) ||                          \
             BeamIsOpCode(*(I), op_call_nif_WWW)),                           \
      ((ErtsNativeFunc *) (((char *) (I)) - offsetof(ErtsNativeFunc, trampoline.call_op))))
-
+#else
+#define ERTS_I_BEAM_OP_TO_NFUNC(I)					\
+    (ASSERT(*(I) == op_call_bif_W ||                                    \
+            *(I) == op_call_nif_WWW),                                   \
+     ((ErtsNativeFunc *) (((char *) (I)) - offsetof(ErtsNativeFunc, trampoline.trace))))
+#endif
 
 #include "erl_message.h"
 #include <stddef.h>

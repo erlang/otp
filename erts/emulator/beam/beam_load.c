@@ -231,7 +231,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
             DBG_CHECK_EXPORT(ep, code_ix);
 
             if (ep->addressv[code_ix] == ep->trampoline.raw) {
-                if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
+                if (BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint)) {
                     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
                     ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 

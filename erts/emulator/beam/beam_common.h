@@ -40,6 +40,16 @@ do {                                     \
 #endif
 
 #ifdef DEBUG
+
+#ifdef BEAMASM
+
+#define ERTS_DBG_CHK_REDS(P, FC)					\
+    do {								\
+	    ASSERT(FC <= CONTEXT_REDS);					\
+	    ASSERT(erts_proc_sched_data(c_p)->virtual_reds		\
+		   <= CONTEXT_REDS - (FC));				\
+} while (0)
+#else
 #define ERTS_DBG_CHK_REDS(P, FC)					\
     do {								\
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF((P))) {			\
@@ -53,6 +63,8 @@ do {                                     \
 		   <= CONTEXT_REDS - (FC));				\
 	}								\
 } while (0)
+#endif
+
 #else
 #define ERTS_DBG_CHK_REDS(P, FC)
 #endif
@@ -271,6 +283,18 @@ void check_monitor_long_schedule(Process *c_p, Uint64 start_time, BeamInstr* sta
 
 #define BeamCodeApply() beam_apply
 
+#ifdef BEAMASM
+#define BeamCodeNormalExit() beam_normal_exit
+extern BeamInstr *beam_apply;
+extern BeamInstr *beam_normal_exit;
+extern BeamInstr *beam_exit;
+extern BeamInstr *beam_save_calls;
+extern BeamInstr *beam_continue_exit;
+extern BeamInstr *beam_return_to_trace;   /* OpCode(i_return_to_trace) */
+extern BeamInstr *beam_return_trace;      /* OpCode(i_return_trace) */
+extern BeamInstr *beam_exception_trace;   /* OpCode(i_exception_trace) */
+extern BeamInstr *beam_return_time_trace; /* OpCode(i_return_time_trace) */
+#else
 #define BeamCodeNormalExit() (beam_apply + 1)
 extern BeamInstr beam_apply[2];
 extern BeamInstr beam_exit[1];
@@ -279,5 +303,6 @@ extern BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
 extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 extern BeamInstr beam_exception_trace[1];   /* OpCode(i_exception_trace) */
 extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
+#endif
 
 #endif /* _BEAM_COMMON_H_ */

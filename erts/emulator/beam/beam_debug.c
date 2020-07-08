@@ -51,11 +51,13 @@
 void dbg_bt(Process* p, Eterm* sp);
 void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 
+#ifndef BEAMASM
 static int print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr);
 static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif);
 static BeamInstr* f_to_addr(BeamInstr* base, int op, BeamInstr* ap);
 static BeamInstr* f_to_addr_packed(BeamInstr* base, int op, Sint32* ap);
 static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes);
+#endif
 
 BIF_RETTYPE
 erts_debug_same_2(BIF_ALIST_2)
@@ -240,6 +242,7 @@ erts_debug_instructions_0(BIF_ALIST_0)
 BIF_RETTYPE
 erts_debug_disassemble_1(BIF_ALIST_1)
 {
+#ifndef BEAMASM
     Process* p = BIF_P;
     Eterm addr = BIF_ARG_1;
     erts_dsprintf_buf_t *dsbufp;
@@ -350,11 +353,15 @@ erts_debug_disassemble_1(BIF_ALIST_1)
                  make_small(cmfa->arity));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
+#else
+    BIF_RET(am_false);
+#endif
 }
 
 BIF_RETTYPE
 erts_debug_interpreter_size_0(BIF_ALIST_0)
 {
+#ifndef BEAMASM
     int i;
     BeamInstr low, high;
 
@@ -366,6 +373,9 @@ erts_debug_interpreter_size_0(BIF_ALIST_0)
         }
     }
     return erts_make_integer(high - low, BIF_P);
+#else
+    return make_small(0);
+#endif
 }
 
 void
@@ -406,6 +416,7 @@ dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
     }
 }
 
+#ifndef BEAMASM
 static int
 print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 {
@@ -781,18 +792,18 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	break;
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
-	{
-	    int n = unpacked[-1];
+       {
+           int n = unpacked[-1];
             Sint32* jump_tab = (Sint32 *) ap;
 
             size += (n+1) / 2;
             while (n-- > 0) {
                 BeamInstr* target = f_to_addr_packed(addr, op, jump_tab);
-		erts_print(to, to_arg, "f(" HEXF ") ", target);
+               erts_print(to, to_arg, "f(" HEXF ") ", target);
                 jump_tab++;
-	    }
-	}
-	break;
+           }
+       }
+       break;
     case op_put_tuple2_xI:
     case op_put_tuple2_yI:
     case op_new_map_dtI:
@@ -908,6 +919,7 @@ static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes)
         erts_print(to, to_arg, "%02X", str[i]);
     }
 }
+#endif
 
 /*
  * Dirty BIF testing.
@@ -947,6 +959,7 @@ erts_debug_dirty_io_2(BIF_ALIST_2)
 BIF_RETTYPE
 erts_debug_dirty_3(BIF_ALIST_3)
 {
+    ErtsCodeMFA *mfa = &BIF_TRAP_EXPORT(BIF_erts_debug_dirty_3)->info.mfa;
     Eterm argv[2];
     switch (BIF_ARG_1) {
     case am_normal:
@@ -957,6 +970,7 @@ erts_debug_dirty_3(BIF_ALIST_3)
 	return erts_schedule_bif(BIF_P,
 				 argv,
 				 BIF_I,
+				 mfa,
 				 erts_debug_dirty_cpu_2,
 				 ERTS_SCHED_DIRTY_CPU,
 				 am_erts_debug,
@@ -968,6 +982,7 @@ erts_debug_dirty_3(BIF_ALIST_3)
 	return erts_schedule_bif(BIF_P,
 				 argv,
 				 BIF_I,
+				 mfa,
 				 erts_debug_dirty_io_2,
 				 ERTS_SCHED_DIRTY_IO,
 				 am_erts_debug,
@@ -1089,6 +1104,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 		ret = erts_schedule_bif(c_p,
 					argv,
 					I,
+					&BIF_TRAP_EXPORT(BIF_erts_debug_dirty_io_2)->info.mfa,
 					erts_debug_dirty_io_2,
 					ERTS_SCHED_DIRTY_IO,
 					am_erts_debug,
@@ -1101,6 +1117,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 		ret = erts_schedule_bif(c_p,
 					argv,
 					I,
+					&BIF_TRAP_EXPORT(BIF_erts_debug_dirty_cpu_2)->info.mfa,
 					erts_debug_dirty_cpu_2,
 					ERTS_SCHED_DIRTY_CPU,
 					am_erts_debug,
@@ -1114,6 +1131,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 		ret = erts_schedule_bif(c_p,
 					argv,
 					I,
+					&BIF_TRAP_EXPORT(BIF_erts_debug_dirty_3)->info.mfa,
 					erts_debug_dirty_3,
 					ERTS_SCHED_NORMAL,
 					am_erts_debug,

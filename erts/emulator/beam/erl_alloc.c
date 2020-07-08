@@ -356,9 +356,12 @@ set_default_exec_alloc_opts(struct au_init *ip)
     ip->init.util.rmbcmt	= 0;
     ip->init.util.acul		= 0;
 
+#if HAVE_ERTS_MSEG
     ip->init.util.mseg_alloc    = &erts_alcu_exec_mseg_alloc;
     ip->init.util.mseg_realloc  = &erts_alcu_exec_mseg_realloc;
     ip->init.util.mseg_dealloc  = &erts_alcu_exec_mseg_dealloc;
+#endif
+
 }
 #endif /* ERTS_ALC_A_EXEC */
 

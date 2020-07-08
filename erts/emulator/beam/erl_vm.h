@@ -41,8 +41,8 @@
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 
 /*
- * The new trapping length/1 implementation need 3 extra registers in the
- * register array.
+ * Guard BIFs and the new trapping length/1 implementation need 3 extra
+ * registers in the register array.
  */
 #define ERTS_X_REGS_ALLOCATED (MAX_REG+3)
 
@@ -216,7 +216,7 @@ extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 
 #include "erl_term.h"
 
-#if defined(NO_JUMP_TABLE)
+#if defined(NO_JUMP_TABLE) || defined(BEAMASM)
 #  define BeamOpsAreInitialized() (1)
 #  define BeamOpCodeAddr(OpCode) ((BeamInstr)(OpCode))
 #else
@@ -225,7 +225,7 @@ extern void** beam_ops;
 #  define BeamOpCodeAddr(OpCode) ((BeamInstr)beam_ops[(OpCode)])
 #endif
 
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
+#if defined(ARCH_64) && defined(CODE_MODEL_SMALL) && !defined(BEAMASM)
 #  define BeamCodeAddr(InstrWord) ((BeamInstr)(Uint32)(InstrWord))
 #  define BeamSetCodeAddr(InstrWord, Addr) (((InstrWord) & ~((1ull << 32)-1)) | (Addr))
 #  define BeamExtraData(InstrWord) ((InstrWord) >> 32)
@@ -236,7 +236,15 @@ extern void** beam_ops;
 
 #define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
 
+#ifndef BEAMASM
+#define BeamIsReturnTimeTrace(w) BeamIsOpCode(*(w), op_i_return_time_trace)
+#define BeamIsReturnToTrace(w) BeamIsOpCode(*(w), op_i_return_to_trace)
+#define BeamIsReturnTrace(w) BeamIsOpCode(*(w), op_return_trace)
+#else
 #define BeamIsReturnTimeTrace(w) ((w) == beam_return_time_trace)
 #define BeamIsReturnToTrace(w) ((w) == beam_return_to_trace)
 #define BeamIsReturnTrace(w) ((w) == beam_return_trace || (w) == beam_exception_trace)
+
+#endif
+
 #endif	/* __ERL_VM_H__ */

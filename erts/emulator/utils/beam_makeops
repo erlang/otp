@@ -23,6 +23,7 @@ use vars qw($BEAM_FORMAT_NUMBER $GC_REGEXP);
 use constant COLD => 0;
 use constant WARM => 1;
 use constant HOT => 2;
+use constant JIT => 3;
 
 # Instructions for packing
 use constant PACK_JUMP => 1;
@@ -46,6 +47,7 @@ my $num_file_opcodes = 0;
 my $wordsize = 32;
 my $code_pointers_are_short = 0; # Whether code pointers (to C code) are short.
 my $code_model = 'unknown';
+my $jit = 'no';
 my %defs;                        # Defines (from command line).
 
 # This is shift counts and mask for the packer.
@@ -61,7 +63,7 @@ my @extended_pack_options = @basic_pack_options;
 # are those executed by the VM interpreter during run-time.
 
 # Maximum number of operands for a generic instruction.
-# In beam_load.c the MAX_OPARGS refers to the maximum
+# In beam_load.c the ERTS_BEAM_MAX_OPARGS refers to the maximum
 # number of operands for generic instructions.
 my $max_gen_operands = 8;
 
@@ -98,6 +100,8 @@ my @obsolete;
 my %c_code;                     # C code block, location, arguments.
 my %c_code_used;                # Used or not.
 my %c_param_types;              # Types for predicates and generators.
+
+my %asm_code;
 
 # Definitions for instructions combined from micro instructions.
 my %combined_instrs;
@@ -136,18 +140,23 @@ my $loader_types = "nprvlqo";
 my $genop_types = $compiler_types . $loader_types;
 
 #
-# Define the operand types and their loaded size assuming no packing.
+# Define the operand types for specific instructions and their loaded
+# size assuming no packing.
 #
-# Those are the types that can be used in the definition of a specific
-# instruction.
+# These are the types that can be used in the definition of a specific
+# instruction. Note that there may be more types depending on which emulator is
+# being built, for example the 'r' type in beam_emu, which are filled in later
+# on.
 #
-my %arg_size = ('r' => 0,	# x(0) - x register zero
-		'x' => 1,	# x(N), N > 0 - x register
+# Note that the 'i' type is NOT defined, because it does not make
+# sense; instructions that accept small operands invariably also accept other
+# literals.
+#
+my %arg_size = ('x' => 1,	# x(N), N > 0 - x register
 		'y' => 1,	# y(N) - y register
-		'i' => 1,	# tagged integer
 		'a' => 1,	# tagged atom
 		'n' => 0,	# NIL (implicit)
-		'c' => 1,	# tagged constant (integer, atom, nil)
+		'c' => 1,	# tagged constant (integer, atom, nil, other literals)
 		's' => 1,	# tagged source; any of the above
                 'S' => 1,       # tagged source register (x or y)
 		'd' => 1,	# tagged destination register (r, x, y)
@@ -166,6 +175,7 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'h' => 1,	# character (not used)
 		'l' => 1,	# float reg
 		'q' => 1,	# literal term
+		'V' => 1,	# Vararg marker, packed as 'I'
 	     );
 
 #
@@ -236,8 +246,9 @@ sub define_type_bit {
     define_type_bit('b', $type_bit{'u'});
     define_type_bit('F', $type_bit{'u'});
     define_type_bit('e', $type_bit{'u'});
-    define_type_bit('P', $type_bit{'u'});
     define_type_bit('Q', $type_bit{'u'});
+    define_type_bit('P', $type_bit{'u'});
+    define_type_bit('V', $type_bit{'u'});
 }
 
 #
@@ -282,8 +293,14 @@ while (@ARGV && $ARGV[0] =~ /^-(.*)/) {
     ($wordsize = shift), next if /^wordsize/;
     ($code_model = shift), next if /^code-model/;
     ($verbose = 1), next if /^v/;
+    ($jit = shift), next if /^jit/;
     ($defs{$1} = $2), next if /^D(\w+)=(\w+)/;
     die "$0: Bad option: -$_\n";
+}
+
+if ($jit eq 'no') {
+    # x(0) - x register zero. This is only used in the ordinary emulator.
+    $arg_size{'r'} = 0;
 }
 
 if ($wordsize == 32) {
@@ -343,7 +360,13 @@ while (<>) {
             $in_c_code = '';
             $block =~ s/^    //mg;
             chomp $block;
-            $c_code{$name} = [$block,$c_code_loc,@c_args];
+            if ($name =~ /x64\./) {
+                # Put any x64 instruction in a special hash
+                $name =~ s/x64\.//mg;
+                $asm_code{$name} = [$block,$c_code_loc,@c_args];
+            } else {
+                $c_code{$name} = [$block,$c_code_loc,@c_args];
+            }
         } else {
             $c_code_block .= $_;
         }
@@ -441,6 +464,24 @@ while (<>) {
             my $where = $c_code{$name}->[1];
             error("$name: already defined at $where");
         }
+        next;
+    }
+
+    #
+    # Handle asm prototypes
+    #
+    if (/^x64.(\w[\w.]*)\(([^\)]*)\)\s*;/) {
+        my $name = $1;
+
+        @c_args = parse_c_args($2);
+        $c_code_loc = "$ARGV($.)";
+        if ((not defined $c_code{$name}) &&
+            (not defined $combined_instrs{$name})) {
+            my $where = $c_code{$name}->[1];
+            error("$name not already defined in interpreter");
+        }
+
+        $asm_code{$name} = ['',$c_code_loc,@c_args];
         next;
     }
 
@@ -570,12 +611,16 @@ sub emulator_output {
 	foreach (@{$specific_op{$key}}) {
 	    my($name, $hotness, @args) = @$_;
 	    my $print_name = print_name($name, @args);
+            my $pack_spec = '';
+            my $size = 0;
 
-	    my($size, $code, $pack_spec) = cg_basic(name => $name, args => \@args);
-	    if (defined $code) {
-                $code = "OpCase($print_name):\n$code";
-                push @generated_code, [$hotness,$code,($print_name)];
-	    }
+            if ($jit eq 'no') {
+                ($size, my $code, $pack_spec) = cg_basic(name => $name, args => \@args);
+                if (defined $code) {
+                    $code = "OpCase($print_name):\n$code";
+                    push @generated_code, [$hotness,$code,($print_name)];
+                }
+            }
 
             # Note: Some of the information below will be modified
             # for combined instructions.
@@ -591,7 +636,79 @@ sub emulator_output {
     # Combine micro instruction into instruction blocks and generate
     # code for them.
     #
-    combine_micro_instructions();
+
+    if ($jit eq 'no') {
+        combine_micro_instructions();
+    } elsif ($jit eq 'yes') {
+        foreach $key (keys %specific_op) {
+            foreach (@{$specific_op{$key}}) {
+                my($name, $hotness, @args) = @$_;
+                my $print_name = print_name($name, @args);
+                my $body = "emit_$name(";
+                my $i = 0;
+
+                while ($i < @args - 1) {
+                    if ($args[$i] eq 'V') {
+                        error("vararg must be the last operand in $key");
+                    }
+
+                    $body .= "args[$i],";
+                    $i++
+                }
+
+                if ($i < @args) {
+                    if ($args[$i] eq 'V') {
+                        # We pass variable argument lists as a vector of ArgVal,
+                        # slicing our argument vector after the argument count.
+                        $body .= "(ASSERT(args[$i].getValue() == " .
+                                         "args.size() - $i - 1), " .
+                                  "std::vector<ArgVal>(" .
+                                       "args.cbegin() + $i + 1," .
+                                       "args.cend()))";
+                    } else {
+                        $body .= "args[$i]";
+                    }
+                }
+
+                $body .= ");";
+                push @generated_code, [JIT,"case op_$print_name: {\n$body\n\tbreak;\n}\n\n",($print_name)];
+            }
+        }
+
+        $name = "$outdir/beamasm_emit.h";
+        open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+        comment('C');
+        print_code(JIT);
+
+        $name = "$outdir/beamasm_protos.h";
+        open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+        comment('C');
+
+        foreach $key (keys %specific_op) {
+            foreach (@{$specific_op{$key}}) {
+                my($name, $hotness, @args) = @$_;
+                my $i = 0;
+
+                print "void emit_$name(";
+
+                while ($i < @args - 1) {
+                    print 'const ArgVal&, ';
+                    $i++;
+                }
+
+                if ($i < @args) {
+                    if ($args[$i] eq 'V') {
+                        print "const std::vector<ArgVal>&"
+                    } else {
+                        print 'const ArgVal&';
+                    }
+                }
+
+                print ");\n";
+                last; # We only want to print one prototype
+            }
+        }
+    }
 
     #
     # Information about opcodes (beam_opcodes.c).
@@ -1027,6 +1144,9 @@ sub parse_specific_op {
         my $arg = $args[$i];
         $arg =~ s/[?]$//;
         foreach my $type (split(//, $arg)) {
+	    if ($type eq 'i') {
+		error("Argument " . ($i+1) . ": the 'i' type is not supported in specific instructions (use 'c')")
+	    }
             error("Argument " . ($i+1) . ": invalid type '$type'")
                 unless defined $arg_size{$type};
         }
@@ -1814,6 +1934,7 @@ sub do_pack_one {
                        't' => 16);
     if ($wordsize == 64) {
         $bits_needed{'I'} = 32;
+        $bits_needed{'V'} = 32;
         if ($options & PACK_JUMP) {
             $bits_needed{'f'} = 32;
             $bits_needed{'j'} = 32;

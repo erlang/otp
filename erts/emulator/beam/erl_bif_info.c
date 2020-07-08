@@ -101,6 +101,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [dirty-schedulers-TEST]"
 #endif
 				     " [async-threads:%d]"
+#ifdef BEAMASM
+				     " [jit]"
+#endif
 #ifdef HIPE
 				     " [hipe]"
 #endif	
@@ -2440,7 +2443,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 		       ? am_blocked
 		       : am_blocked_normal));
 	}
-    } else if (BIF_ARG_1 == am_build_type) {
+    } else if (BIF_ARG_1 == am_build_type || BIF_ARG_1 == am_emu_type) {
 #if defined(DEBUG)
 	ERTS_DECL_AM(debug);
 	BIF_RET(AM_debug);
@@ -2471,7 +2474,14 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #else
 	BIF_RET(am_opt);
 #endif
-	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_emu_flavor) {
+#if defined(BEAMASM)
+	ERTS_DECL_AM(jit);
+	BIF_RET(AM_jit);
+#else
+        ERTS_DECL_AM(emu);
+	BIF_RET(AM_emu);
+#endif
     } else if (BIF_ARG_1 == am_time_offset) {
 	switch (erts_time_offset_state()) {
 	case ERTS_TIME_OFFSET_PRELIMINARY: {
@@ -5241,7 +5251,7 @@ exported_from_module(Process* p, ErtsCodeIndex code_ix, Eterm mod)
             Eterm tuple;
 
             if (ep->addressv[code_ix] == ep->trampoline.raw &&
-                BeamIsOpCode(ep->trampoline.op, op_call_error_handler)) {
+                BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
                 /* There is a call to the function, but it does not exist. */ 
                 continue;
             }

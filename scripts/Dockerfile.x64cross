@@ -1,0 +1,73 @@
+##
+## This docker file will build Erlang with BEAMASM on 32-bit to 64-bit x86
+##
+FROM i386/debian as build
+
+ARG HOST_ARCH=amd64
+ARG HOST_TRIP=x86_64-linux-gnu
+
+## See https://wiki.debian.org/Multiarch/HOWTO for details on how to install things
+RUN BUILD_ARCH=`dpkg --print-architecture` && \
+        dpkg --add-architecture $HOST_ARCH && \
+        sed -i "s:deb http:deb [arch=$BUILD_ARCH,$HOST_ARCH] http:g" /etc/apt/sources.list && \
+        apt-get update && \
+        apt-get -y upgrade && \
+        apt-get install -y build-essential m4 autoconf
+
+RUN apt-get install -y \
+        crossbuild-essential-$HOST_ARCH \
+        libncurses5-dev:$HOST_ARCH \
+        zlib1g-dev:$HOST_ARCH \
+        libssl-dev:$HOST_ARCH && \
+        mkdir -p /daily_build
+
+ARG MAKEFLAGS=-j6
+ENV MAKEFLAGS=$MAKEFLAGS \
+        ERLC_USE_SERVER=yes \
+        ERL_TOP=/buildroot/otp
+
+ADD otp.tar.gz /buildroot
+
+WORKDIR /buildroot/otp
+
+## Build the bootstrap system
+RUN ./otp_build autoconf
+RUN ./configure --enable-bootstrap-only && make
+
+## Setup a sysroot as our cross compile system does not
+## work perfectly with multiarch yet... crypto for instance
+RUN for dir in `find / -type d -name $HOST_TRIP`; do \
+        echo -n "$dir: /buildroot/sysroot"; \
+        echo `dirname $dir`; \
+        mkdir -p /buildroot/sysroot$dir; \
+        cp -r `dirname $dir`/* `dirname /buildroot/sysroot$dir`; \
+        cp -r $dir/* `dirname /buildroot/sysroot$dir`; \
+        done
+
+ENV HOST=$HOST_TRIP \
+        CC=$HOST_TRIP-gcc \
+        CPP=$HOST_TRIP-cpp \
+        CXX=$HOST_TRIP-g++ \
+        LD=$CC \
+        DED_LDFLAGS="-shared -Wl,-Bsymbolic" \
+        RANLIB=$HOST_TRIP-ranlib \
+        AR=$HOST_TRIP-ar \
+        erl_xcomp_sysroot=/buildroot/sysroot
+
+## Build the cross system
+RUN ./configure --prefix=/otp/ --host=$HOST --build=`erts/autoconf/config.guess` && \
+        make && make install
+
+FROM debian as install
+
+RUN apt-get update && \
+        apt-get -y upgrade && \
+        apt-get install -y \
+        libncurses5 \
+        zlib1g \
+        libssl1.0
+
+# Install the released application
+COPY --from=build /otp /otp
+
+RUN /otp/bin/erl -noshell -s init stop

@@ -477,7 +477,7 @@ i_int_bnot(Fail, Src, Dst) {
     } else {
         result = erts_bnot(c_p, bnot_val);
         ERTS_HOLE_CHECK(c_p);
-        if (ERTS_UNLIKELY(is_nil(result))) {
+        if (ERTS_UNLIKELY(is_non_value(result))) {
             $BIF_ERROR_ARITY_1($Fail, BIF_bnot_1, bnot_val);
         }
     }

@@ -1319,12 +1319,12 @@
 
     <div class="doc-image-wrapper">
       <xsl:choose>
-        <xsl:when test="substring-after(@file,'.') = 'svg'">
+        <xsl:when test="substring(@file, (string-length(@file) - string-length('.svg')) + 1) = '.svg'">
           <object alt="IMAGE MISSING" data="{@file}" class="doc-svg doc-image">
           </object>
         </xsl:when>
 	<xsl:when test="@width">
-	  <img alt="IMAGE MISSING" width="{@width}" src="{substring-after(@file,'.')}" class="doc-image"/>
+	  <img alt="IMAGE MISSING" width="{@width}" src="{@file}" class="doc-image"/>
 	</xsl:when>
 	<xsl:otherwise>
 	  <img alt="IMAGE MISSING" src="{@file}" class="doc-image"/>
@@ -2537,7 +2537,7 @@
 
     <xsl:variable name="extension">
       <xsl:choose>
-        <xsl:when test="substring-after($mod_part,'.') = 'svg'">
+        <xsl:when test="substring($mod_part, (string-length($mod_part) - string-length('.svg')) + 1) = '.svg'">
           <xsl:text></xsl:text>
         </xsl:when>
         <xsl:otherwise>

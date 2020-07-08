@@ -2751,8 +2751,10 @@ tuple_to_list(_Tuple) ->
          (driver_version) -> string();
          (dynamic_trace) -> none | dtrace | systemtap;
          (dynamic_trace_probes) -> boolean();
-         (end_time) -> non_neg_integer();
          (eager_check_io) -> boolean();
+         (emu_flavor) -> emu | jit;
+         (emu_type) -> opt | debug | gcov | valgrind | gprof | lcnt | frmptr;
+         (end_time) -> non_neg_integer();
          (ets_count) -> pos_integer();
          (ets_limit) -> pos_integer();
          (fullsweep_after) -> {fullsweep_after, non_neg_integer()};

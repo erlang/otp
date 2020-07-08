@@ -1,0 +1,867 @@
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Ericsson AB 2020-2020. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
+ */
+
+#ifdef HAVE_CONFIG_H
+#    include "config.h"
+#endif
+
+#include "sys.h"
+#include "global.h"
+#include "erl_binary.h"
+#include "beam_catches.h"
+#include "beam_load.h"
+#include "erl_version.h"
+#include "beam_bp.h"
+
+#include "beam_asm.h"
+
+static void init_label(Label *lp);
+
+void beam_load_prepare_emit(LoaderState *stp) {
+    BeamCodeHeader *hdr;
+    int i;
+
+    stp->ba = beamasm_new_assembler(stp->module,
+                                    stp->beam.code.label_count,
+                                    stp->beam.code.function_count);
+
+    /* Initialize code header */
+    stp->codev_size = stp->beam.code.function_count + 1;
+    hdr = erts_alloc(ERTS_ALC_T_CODE,
+                     (offsetof(BeamCodeHeader, functions) +
+                      sizeof(BeamInstr) * stp->codev_size));
+
+    hdr->num_functions = stp->beam.code.function_count;
+
+    /* Let the codev array start at functions[0] in order to index
+     * both function pointers and the loaded code itself that follows.
+     */
+    stp->codev = (BeamInstr *)&hdr->functions;
+    stp->ci = hdr->num_functions + 1;
+
+    hdr->attr_ptr = NULL;
+    hdr->attr_size = 0;
+    hdr->attr_size_on_heap = 0;
+    hdr->compile_ptr = NULL;
+    hdr->compile_size = 0;
+    hdr->compile_size_on_heap = 0;
+    hdr->literal_area = NULL;
+    hdr->md5_ptr = NULL;
+
+    stp->load_hdr = hdr;
+
+    stp->labels = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                             stp->beam.code.label_count * sizeof(Label));
+    for (i = 0; i < stp->beam.code.label_count; i++) {
+        init_label(&stp->labels[i]);
+    }
+
+    stp->bif_imports =
+            erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                       stp->beam.imports.count * sizeof(BifEntry **));
+
+    for (i = 0; i < stp->beam.imports.count; i++) {
+        BeamFile_ImportEntry *import;
+        Export *export;
+        int bif_number;
+
+        import = &stp->beam.imports.entries[i];
+        export = erts_active_export_entry(import->module,
+                                          import->function,
+                                          import->arity);
+
+        stp->bif_imports[i] = NULL;
+
+        if (export) {
+            bif_number = export->bif_number;
+
+            if (bif_number >= 0) {
+                if (bif_number == BIF_load_nif_2) {
+                    stp->may_load_nif = 1;
+                }
+
+                stp->bif_imports[i] = &bif_table[bif_number];
+            }
+        }
+    }
+
+    stp->current_li = 0;
+    if (stp->beam.lines.item_count > 0) {
+        stp->line_instr = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                     stp->beam.lines.instruction_count *
+                                             sizeof(LineInstr));
+        stp->func_line = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                    stp->beam.code.function_count *
+                                            sizeof(unsigned int));
+    }
+}
+
+static void init_label(Label *lp) {
+    sys_memset(lp, 0, sizeof(*lp));
+}
+
+int beam_load_new_label(LoaderState *stp) {
+    int index = stp->beam.code.label_count;
+
+    stp->labels = erts_realloc(ERTS_ALC_T_PREPARED_CODE,
+                               (void *)stp->labels,
+                               (index + 1) * sizeof(Label));
+
+    init_label(&stp->labels[index]);
+
+    stp->beam.code.label_count = index + 1;
+
+    return index;
+}
+
+void beam_load_prepared_free(Binary *magic) {
+    beam_load_prepared_dtor(magic);
+    erts_bin_release(magic);
+}
+
+/* This destructor function can safely be called multiple times. */
+int beam_load_prepared_dtor(Binary *magic) {
+    LoaderState *stp = ERTS_MAGIC_BIN_DATA(magic);
+
+    /* This should have been freed earlier! */
+    ASSERT(stp->op_allocator.beamop_blocks == NULL);
+
+    beamfile_free(&stp->beam);
+    beamopallocator_dtor(&stp->op_allocator);
+
+    if (stp->bin) {
+        driver_free_binary(stp->bin);
+        stp->bin = NULL;
+    }
+
+    if (stp->load_hdr) {
+        BeamCodeHeader *hdr = stp->load_hdr;
+
+        if (hdr->literal_area) {
+            erts_release_literal_area(hdr->literal_area);
+            hdr->literal_area = NULL;
+        }
+
+        erts_free(ERTS_ALC_T_CODE, hdr);
+        stp->load_hdr = NULL;
+        stp->codev = NULL;
+    }
+
+    if (stp->labels) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->labels);
+        stp->labels = NULL;
+    }
+
+    if (stp->bif_imports) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, stp->bif_imports);
+        stp->bif_imports = NULL;
+    }
+
+    if (stp->line_instr) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, stp->line_instr);
+        stp->line_instr = NULL;
+    }
+
+    if (stp->func_line) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, stp->func_line);
+        stp->func_line = NULL;
+    }
+
+    if (stp->ba) {
+        beamasm_delete_assembler(stp->ba);
+        stp->ba = NULL;
+    }
+
+    if (stp->native_module) {
+        beamasm_purge_module(stp->native_module);
+        stp->native_module = NULL;
+    }
+
+    return 1;
+}
+
+static int add_line_entry(LoaderState *stp,
+                          BeamInstr item,
+                          int insert_duplicates) {
+    int is_duplicate;
+    unsigned int li;
+
+    if (!stp->beam.lines.item_count) {
+        return 0;
+    }
+
+    if (item >= stp->beam.lines.item_count) {
+        BeamLoadError2(stp,
+                       "line instruction index overflow (%u/%u)",
+                       item,
+                       stp->beam.lines.item_count);
+    }
+
+    li = stp->current_li;
+    if (li >= stp->beam.lines.instruction_count) {
+        BeamLoadError2(stp,
+                       "line instruction table overflow (%u/%u)",
+                       li,
+                       stp->beam.lines.instruction_count);
+    }
+
+    is_duplicate = li && (stp->line_instr[li - 1].loc == item);
+
+    if (insert_duplicates || !is_duplicate) {
+        stp->line_instr[li].pos = beamasm_get_offset(stp->ba);
+        stp->line_instr[li].loc = item;
+        stp->current_li++;
+    }
+
+    return 0;
+
+load_error:
+    return -1;
+}
+
+int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
+    const char *sign;
+    int arg;
+
+    /*
+     * Verify and massage the operands for the specific instruction.
+     *
+     * After the massaging, TAG_i denotes a tagged immediate value,
+     * either NIL, an atom, or a small integer. The tags TAG_n and
+     * TAG_a are no longer used. TAG_f can either be a non-zero label
+     * number (in guards) or 0 (in function bodies) to indicate that
+     * an exception should be generated on failure. TAG_j is no longer
+     * used.
+     */
+    sign = opc[stp->specific_op].sign;
+    arg = 0;
+    ASSERT(sign != NULL);
+    while (*sign) {
+        Uint tag;
+        BeamOpArg *curr = &stp->genop->a[arg];
+
+        ASSERT(arg < stp->genop->arity);
+        tag = curr->type;
+
+        switch (*sign) {
+        case 'n': /* Nil */
+            ASSERT(tag != TAG_r);
+            curr->type = TAG_i;
+            curr->val = NIL;
+            BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
+            break;
+        case 'x': /* x(N) */
+        case 'y': /* y(N) */
+            BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
+            break;
+        case 'a': /* Tagged atom */
+            BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
+            curr->type = TAG_i;
+            break;
+        case 'c': /* Tagged constant */
+            switch (tag) {
+            case TAG_i:
+                curr->val = make_small((Uint)curr->val);
+                break;
+            case TAG_a:
+                curr->type = TAG_i;
+                break;
+            case TAG_n:
+                curr->val = NIL;
+                curr->type = TAG_i;
+                break;
+            case TAG_q:
+                break;
+            default:
+                BeamLoadError1(stp,
+                               "bad tag %d for tagged constant",
+                               curr->type);
+                break;
+            }
+            break;
+        case 's':
+            /* Any source (tagged constant or register) */
+            switch (tag) {
+            case TAG_x:
+                break;
+            case TAG_y:
+                break;
+            case TAG_i:
+                curr->val = (BeamInstr)make_small(curr->val);
+                break;
+            case TAG_a:
+                curr->type = TAG_i;
+                break;
+            case TAG_n:
+                curr->type = TAG_i;
+                curr->val = NIL;
+                break;
+            case TAG_q: {
+                Eterm term = beamfile_get_literal(&stp->beam, curr->val);
+                switch (loader_tag(term)) {
+                case LOADER_X_REG:
+                case LOADER_Y_REG:
+                    BeamLoadError1(stp,
+                                   "the term '%T' would be confused "
+                                   "with a register",
+                                   term);
+                }
+            } break;
+            default:
+                BeamLoadError1(stp,
+                               "bad tag %d for general source",
+                               curr->type);
+                break;
+            }
+            break;
+        case 'd': /* Destination (x(N), y(N) */
+        case 'S': /* Source (x(N), y(N)) */
+            switch (tag) {
+            case TAG_x:
+                break;
+            case TAG_y:
+                break;
+            default:
+                BeamLoadError1(stp, "bad tag %d for destination", curr->type);
+                break;
+            }
+            break;
+        case 't': /* Small untagged integer (16 bits) -- can be packed. */
+        case 'I': /* Untagged integer (32 bits) -- can be packed.  */
+        case 'V': /* Vararg length, the same way as 'I' */
+        case 'W': /* Untagged integer or pointer (machine word). */
+#ifdef DEBUG
+            switch (*sign) {
+            case 't':
+                /* 't'-typed values must fit in 16 bits. */
+                ASSERT((curr->val >> 16) == 0);
+                break;
+#    ifdef ARCH_64
+            case 'I':
+            case 'V':
+                /* 'I'- and 'V'-typed values must fit in 32 bits. */
+                ASSERT((curr->val >> 32) == 0);
+                break;
+#    endif
+            }
+#endif
+            BeamLoadVerifyTag(stp, tag, TAG_u);
+            break;
+        case 'A': /* Arity value. */
+            BeamLoadVerifyTag(stp, tag, TAG_u);
+            curr->val = make_arityval(curr->val);
+            break;
+        case 'f': /* Destination label */
+            BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
+            break;
+        case 'j': /* 'f' or 'p' */
+            switch (tag) {
+            case TAG_p:
+                curr->type = TAG_f;
+                curr->val = 0;
+                break;
+            case TAG_f:
+                break;
+            default:
+                BeamLoadError3(stp,
+                               "bad tag %d; expected %d or %d",
+                               tag,
+                               TAG_f,
+                               TAG_p);
+            }
+
+            break;
+        case 'L': /* Define label */
+            ASSERT(stp->specific_op == op_label_L);
+            BeamLoadVerifyTag(stp, tag, TAG_u);
+            stp->last_label = curr->val;
+            if (stp->last_label < 0 ||
+                stp->last_label >= stp->beam.code.label_count) {
+                BeamLoadError2(stp,
+                               "invalid label num %u (0 < label < %u)",
+                               curr->val,
+                               stp->beam.code.label_count);
+            }
+            if (stp->labels[stp->last_label].value != 0) {
+                BeamLoadError1(stp,
+                               "label %d defined more than once",
+                               stp->last_label);
+            }
+            stp->labels[stp->last_label].value = 1;
+            break;
+        case 'e': /* Export entry */
+            BeamLoadVerifyTag(stp, tag, TAG_u);
+            if (curr->val >= stp->beam.imports.count) {
+                BeamLoadError1(stp, "invalid import table index %d", curr->val);
+            }
+            curr->type = TAG_r;
+            break;
+        case 'b': {
+            int i = tmp_op->a[arg].val;
+            BeamLoadVerifyTag(stp, tag, TAG_u);
+            if (i >= stp->beam.imports.count) {
+                BeamLoadError1(stp, "invalid import table index %d", i);
+            } else if (stp->bif_imports[i] == NULL) {
+                BeamLoadError1(stp, "import %d not a BIF", i);
+            } else {
+                curr->val = (BeamInstr)stp->bif_imports[i]->f;
+            }
+        } break;
+        case 'P': /* Byte offset into tuple or stack */
+        case 'Q': /* Like 'P', but packable */
+            BeamLoadVerifyTag(stp, tag, TAG_u);
+            curr->val = (BeamInstr)((curr->val + 1) * sizeof(Eterm));
+            break;
+        case 'l': /* Floating point register. */
+            BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
+            curr->val = curr->val * sizeof(FloatDef);
+            break;
+        case 'q': /* Literal */
+            BeamLoadVerifyTag(stp, tag, TAG_q);
+            break;
+        case 'F': /* Fun entry */
+            BeamLoadVerifyTag(stp, tag, TAG_u);
+            break;
+        default:
+            BeamLoadError1(stp, "bad argument tag: %d", *sign);
+        }
+        sign++;
+        arg++;
+    }
+
+    /*
+     * Verify and massage any list arguments according to the primitive tags.
+     *
+     * TAG_i will denote a tagged immediate value (NIL, small integer,
+     * atom, or tuple arity). TAG_n, TAG_a, and TAG_v will no longer be used.
+     */
+    for (; arg < tmp_op->arity; arg++) {
+        BeamOpArg *curr = &tmp_op->a[arg];
+
+        switch (tmp_op->a[arg].type) {
+        case TAG_i:
+            curr->val = make_small(tmp_op->a[arg].val);
+            break;
+        case TAG_n:
+            curr->val = NIL;
+            curr->type = TAG_i;
+            break;
+        case TAG_a:
+        case TAG_v:
+            curr->type = TAG_i;
+            break;
+        case TAG_u:
+        case TAG_f:
+        case TAG_x:
+        case TAG_y:
+        case TAG_q:
+            break;
+        default:
+            BeamLoadError1(stp,
+                           "unsupported primitive type '%c'",
+                           tag_to_letter[tmp_op->a[arg].type]);
+        }
+    }
+
+    /* Handle a few special cases. */
+    switch (stp->specific_op) {
+    case op_i_func_info_IaaI:
+        if (stp->function_number >= stp->beam.code.function_count) {
+            BeamLoadError1(stp,
+                           "too many functions in module (header said %u)",
+                           stp->beam.code.function_count);
+        }
+
+        /* Save current offset in the function table, pointing before the
+         * func_info instruction. */
+        stp->codev[stp->function_number] = beamasm_get_offset(stp->ba);
+        stp->function_number++;
+
+        /* Save context for error messages. */
+        stp->function = tmp_op->a[2].val;
+        stp->arity = tmp_op->a[3].val;
+
+        if (stp->arity > MAX_ARG) {
+            BeamLoadError1(stp, "too many arguments: %d", stp->arity);
+        }
+
+        break;
+    case op_func_line_I:
+        /* This is the first line instruction of a function, preceding
+         * the func_info instruction. */
+        if (stp->func_line) {
+            stp->func_line[stp->function_number] = stp->current_li;
+        }
+
+        break;
+    }
+
+    /* Generate assembly code for the specific instruction. */
+    if (beamasm_emit(stp->ba, stp->specific_op, tmp_op) == 0) {
+        BeamLoadError1(stp, "failed to emit asm for %d", stp->specific_op);
+    }
+
+    switch (stp->specific_op) {
+    case op_func_line_I:
+        /* Since this is the beginning of a new function, force insertion
+         * of the line entry even if it happens to be a duplicate of the
+         * previous one. */
+        if (add_line_entry(stp, tmp_op->a[0].val, 1)) {
+            goto load_error;
+        }
+        break;
+    case op_line_I:
+        /* We'll save some memory by not inserting a line entry that
+         * is equal to the previous one. */
+        if (add_line_entry(stp, tmp_op->a[0].val, 0)) {
+            goto load_error;
+        }
+        break;
+    case op_int_code_end:
+        /* End of code found. */
+        if (stp->function_number != stp->beam.code.function_count) {
+            BeamLoadError2(stp,
+                           "too few functions (%u) in module (header said %u)",
+                           stp->function_number,
+                           stp->beam.code.function_count);
+        }
+
+        stp->function = THE_NON_VALUE;
+        stp->genop = NULL;
+        stp->specific_op = -1;
+    }
+
+    return 1;
+
+load_error:
+    return 0;
+}
+
+int beam_load_finish_emit(LoaderState *stp) {
+    BeamCodeHeader *code_hdr = NULL;
+    Sint decoded_size;
+    int i;
+
+    char *module_base;
+    size_t module_size;
+
+    if (stp->line_instr != 0) {
+        Uint line_size = offsetof(BeamCodeLineTab, func_tab);
+
+        /* func_tab */
+        line_size += (stp->beam.code.function_count + 1) * sizeof(BeamInstr **);
+
+        /* line items */
+        line_size += (stp->current_li + 1) * sizeof(BeamInstr *);
+
+        /* fname table */
+        line_size += stp->beam.lines.name_count * sizeof(Eterm);
+
+        /* loc_tab */;
+        line_size += (stp->current_li + 1) * stp->beam.lines.location_size;
+
+        beamasm_embed_bss(stp->ba, "line", line_size);
+    }
+
+    /* Place the string table and, optionally, attributes here. */
+    beamasm_embed_rodata(stp->ba,
+                         "str",
+                         (const char *)stp->beam.strings.data,
+                         stp->beam.strings.size);
+    beamasm_embed_rodata(stp->ba,
+                         "attr",
+                         (const char *)stp->beam.attributes.data,
+                         stp->beam.attributes.size);
+    beamasm_embed_rodata(stp->ba,
+                         "compile",
+                         (const char *)stp->beam.compile_info.data,
+                         stp->beam.compile_info.size);
+    beamasm_embed_rodata(stp->ba,
+                         "md5",
+                         (const char *)stp->beam.checksum,
+                         sizeof(stp->beam.checksum));
+
+    /* Move the code to its final location. */
+    stp->native_module =
+            beamasm_codegen(stp->ba, stp->load_hdr, &stp->code_hdr);
+    code_hdr = stp->code_hdr;
+
+    module_base = beamasm_get_base(stp->ba);
+    module_size = beamasm_get_offset(stp->ba);
+
+    stp->on_load = beamasm_get_on_load(stp->ba);
+
+    /* If there is line information, place it here. This must be done after
+     * code generation to make sure the addresses are correct.
+     *
+     * Ideally we'd want this to be embedded in the module itself just like the
+     * string table is and use offsets rather than absolute addresses, but this
+     * will do for now. */
+    if (stp->line_instr == 0) {
+        code_hdr->line_table = NULL;
+    } else {
+        const unsigned int ftab_size = stp->beam.code.function_count;
+        const unsigned int num_instrs = stp->current_li;
+        const void *locp_base;
+
+        BeamCodeLineTab *const line_tab =
+                (BeamCodeLineTab *)beamasm_get_rodata(stp->ba, "line");
+        const BeamInstr **const line_items =
+                (const BeamInstr **)&line_tab->func_tab[ftab_size + 1];
+
+        code_hdr->line_table = line_tab;
+
+        for (i = 0; i < ftab_size; i++) {
+            line_tab->func_tab[i] = line_items + stp->func_line[i];
+        }
+        line_tab->func_tab[i] = line_items + num_instrs;
+        for (i = 0; i < num_instrs; i++) {
+            line_items[i] = (BeamInstr *)&module_base[stp->line_instr[i].pos];
+        }
+        line_items[i] = (BeamInstr *)&module_base[module_size];
+
+        line_tab->fname_ptr = (Eterm *)&line_items[i + 1];
+        if (stp->beam.lines.name_count) {
+            sys_memcpy(line_tab->fname_ptr,
+                       stp->beam.lines.names,
+                       stp->beam.lines.name_count * sizeof(Eterm));
+        }
+
+        locp_base = &line_tab->fname_ptr[stp->beam.lines.name_count];
+        line_tab->loc_size = stp->beam.lines.location_size;
+
+        if (stp->beam.lines.location_size == sizeof(Uint16)) {
+            Uint16 *locp = (Uint16 *)locp_base;
+            line_tab->loc_tab.p2 = locp;
+
+            for (i = 0; i < num_instrs; i++) {
+                BeamFile_LineEntry *entry;
+                int idx;
+
+                idx = stp->line_instr[i].loc;
+                entry = &stp->beam.lines.items[idx];
+                *locp++ = MAKE_LOCATION(entry->name_index, entry->location);
+            }
+
+            *locp++ = LINE_INVALID_LOCATION;
+        } else {
+            Uint32 *locp = (Uint32 *)locp_base;
+            line_tab->loc_tab.p4 = locp;
+
+            ASSERT(stp->beam.lines.location_size == sizeof(Uint32));
+
+            for (i = 0; i < num_instrs; i++) {
+                BeamFile_LineEntry *entry;
+                int idx;
+
+                idx = stp->line_instr[i].loc;
+                entry = &stp->beam.lines.items[idx];
+                *locp++ = MAKE_LOCATION(entry->name_index, entry->location);
+            }
+
+            *locp++ = LINE_INVALID_LOCATION;
+        }
+    }
+
+    /*
+     * Place the literals in their own allocated heap (for fast range check)
+     * and fix up all instructions that refer to it.
+     */
+    {
+        Eterm *ptr;
+        ErlOffHeap code_off_heap;
+        ErtsLiteralArea *literal_area;
+        Uint tot_lit_size;
+        Uint lit_asize;
+
+        tot_lit_size = stp->beam.static_literals.heap_size +
+                       stp->beam.dynamic_literals.heap_size;
+
+        ERTS_INIT_OFF_HEAP(&code_off_heap);
+
+        lit_asize = ERTS_LITERAL_AREA_ALLOC_SIZE(tot_lit_size);
+        literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_asize);
+        ptr = &literal_area->start[0];
+        literal_area->end = ptr + tot_lit_size;
+
+        beamfile_move_literals(&stp->beam, &ptr, &code_off_heap);
+
+        /* MAJOR HACK: literal identifiers are opaque at the moment. Make it
+         * more like string patching. */
+        for (i = 0; i < stp->beam.static_literals.count; i++) {
+            Eterm lit = beamfile_get_literal(&stp->beam, i);
+            beamasm_patch_literal(stp->ba, i, lit);
+        }
+
+        for (i = 0; i < stp->beam.dynamic_literals.count; i++) {
+            Eterm lit = beamfile_get_literal(&stp->beam, ~i);
+            beamasm_patch_literal(stp->ba, ~i, lit);
+        }
+
+        literal_area->off_heap = code_off_heap.first;
+        code_hdr->literal_area = literal_area;
+
+        /* Ensure deallocation of literals in case the prepared code is
+         * deallocated (without calling erlang:finish_loading/1). */
+        stp->load_hdr->literal_area = literal_area;
+    }
+
+    if (stp->beam.attributes.size) {
+        byte *attr = beamasm_get_rodata(stp->ba, "attr");
+
+        code_hdr->attr_ptr = attr;
+        code_hdr->attr_size = stp->beam.attributes.size;
+
+        decoded_size = erts_decode_ext_size(attr, code_hdr->attr_size);
+        if (decoded_size < 0) {
+            BeamLoadError0(stp,
+                           "bad external term representation of module "
+                           "attributes");
+        }
+
+        code_hdr->attr_size_on_heap = decoded_size;
+    }
+
+    if (stp->beam.compile_info.size) {
+        byte *compile_info = beamasm_get_rodata(stp->ba, "compile");
+
+        code_hdr->compile_ptr = compile_info;
+        code_hdr->compile_size = stp->beam.compile_info.size;
+
+        decoded_size =
+                erts_decode_ext_size(compile_info, stp->beam.compile_info.size);
+        if (decoded_size < 0) {
+            BeamLoadError0(stp,
+                           "bad external term representation of compilation "
+                           "information");
+        }
+
+        code_hdr->compile_size_on_heap = decoded_size;
+    }
+
+    {
+        byte *md5_sum = beamasm_get_rodata(stp->ba, "md5");
+        sys_memcpy(md5_sum, stp->beam.checksum, sizeof(stp->beam.checksum));
+        code_hdr->md5_ptr = md5_sum;
+    }
+
+    /* Patch all instructions that refer to the string table. */
+    if (stp->beam.strings.size) {
+        beamasm_patch_strings(stp->ba, beamasm_get_rodata(stp->ba, "str"));
+    }
+
+    /* Save the updated code pointer and code size. */
+
+    stp->codev = (BeamInstr *)&code_hdr->functions;
+    stp->loaded_size = module_size;
+
+    return 1;
+
+load_error:
+    return 0;
+}
+
+void beam_load_finalize_code(LoaderState *stp,
+                             struct erl_module_instance *inst_p) {
+    int staging_ix, code_size, i;
+
+    code_size = beamasm_get_header(stp->ba, &stp->code_hdr);
+    erts_total_code_size += code_size;
+
+    inst_p->native_module = stp->native_module;
+    inst_p->code_hdr = stp->code_hdr;
+    inst_p->code_length = code_size;
+
+    /* Update ranges (used for finding a function from a PC value). */
+    erts_update_ranges((BeamInstr *)inst_p->code_hdr, code_size);
+
+    /* Prevent code from being freed. */
+    stp->native_module = NULL;
+    stp->code_hdr = NULL;
+    stp->codev = NULL;
+    stp->load_hdr->literal_area = NULL;
+
+    staging_ix = erts_staging_code_ix();
+
+    /* Allocate catch indices and fix up all catch_yf instructions. */
+    inst_p->catches = beamasm_get_catches(stp->ba);
+
+    /* Exported functions */
+    for (i = 0; i < stp->beam.exports.count; i++) {
+        BeamFile_ExportEntry *entry = &stp->beam.exports.entries[i];
+        BeamInstr *address;
+        Export *ep;
+
+        address = beamasm_get_code(stp->ba, entry->label);
+        ep = erts_export_put(stp->module, entry->function, entry->arity);
+
+        if (stp->on_load) {
+            /* on_load: Don't make any of the exported functions
+             * callable yet. Keep any function in the current
+             * code callable. */
+            ep->trampoline.not_loaded.deferred = (BeamInstr)address;
+        } else {
+            ep->addressv[staging_ix] = address;
+        }
+    }
+
+    /* Patch external function calls, this is done after exporting functions as
+     * the module may remote-call itself*/
+    for (i = 0; i < stp->beam.imports.count; i++) {
+        BeamFile_ImportEntry *entry = &stp->beam.imports.entries[i];
+        BeamInstr import;
+
+        import = (BeamInstr)erts_export_put(entry->module,
+                                            entry->function,
+                                            entry->arity);
+
+        beamasm_patch_import(stp->ba, i, import);
+    }
+
+    /* Patch fun creation. */
+    if (stp->beam.lambdas.count) {
+        BeamFile_LambdaTable *lambda_table = &stp->beam.lambdas;
+
+        for (i = 0; i < lambda_table->count; i++) {
+            BeamFile_LambdaEntry *lambda;
+            ErlFunEntry *fun_entry;
+
+            lambda = &lambda_table->entries[i];
+
+            fun_entry = erts_put_fun_entry2(stp->module,
+                                            lambda->old_uniq,
+                                            i,
+                                            stp->beam.checksum,
+                                            lambda->index,
+                                            lambda->arity - lambda->num_free);
+
+            if (fun_entry->address[0] != 0) {
+                /* We've reloaded a module over itself and inherited the old
+                 * instance's fun entries, so we need to undo the reference
+                 * bump in `erts_put_fun_entry2` to make fun purging work. */
+                erts_refc_dectest(&fun_entry->refc, 1);
+            }
+
+            fun_entry->address = beamasm_get_code(stp->ba, lambda->label);
+
+            beamasm_patch_lambda(stp->ba, i, (BeamInstr)fun_entry);
+        }
+    }
+}

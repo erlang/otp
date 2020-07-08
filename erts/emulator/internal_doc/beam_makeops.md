@@ -654,12 +654,11 @@ operands.)
 relative to the stack frame. (Can be packed with other operands.)
 
 * `r` - X register 0.  An implicit operand that will not be stored in
-the loaded code.
+the loaded code. This is a beam_emu-specific optimization that is not
+valid in beam_asm.
 
 * `l` - Floating point register number.  (Can be packed with other
 operands.)
-
-* `i` - Tagged literal integer (a SMALL that will fit in one word).
 
 * `a` - Tagged atom.
 
@@ -699,7 +698,7 @@ cheaper than `s`.
 
 * `d` - Tagged destination register (X or Y).  The tag will be tested
 at runtime to set up a pointer to the destination register.  If the
-instrution performs a garbarge collection, it must use the
+instruction performs a garbarge collection, it must use the
 `$REFRESH_GEN_DEST()` macro to refresh the pointer before storing to
 it (there are more details about that in a later section).
 
@@ -736,6 +735,9 @@ of a tuple.
 
 * `Q` - A byte offset into the stack.  Used for updating the frame
 pointer register.  Can be packed with other operands.
+
+* `V` - Variable argument count, followed by that many arguments. This must be
+the last operand.
 
 When the loader translates a generic instruction a specific
 instruction, it will choose the most specific instruction that will

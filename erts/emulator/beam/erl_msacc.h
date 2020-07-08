@@ -173,6 +173,7 @@ extern int ERTS_WRITE_UNLIKELY(erts_msacc_enabled);
 void erts_msacc_early_init(void);
 void erts_msacc_init(void);
 void erts_msacc_init_thread(char *type, int id, int liberty);
+void erts_msacc_update_cache(ErtsMsAcc **cache);
 
 /* The defines below are used to instrument the vm code
  * with different state changes. There are two variants

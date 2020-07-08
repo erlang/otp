@@ -76,5 +76,5 @@ wait_until(Fun) ->
           end,
     case Res of
         true -> ok;
-        _ -> wait_until(Fun)
+        false -> wait_until(Fun)
     end.

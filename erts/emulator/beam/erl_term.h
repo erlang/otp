@@ -54,7 +54,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 #if defined(ARCH_64)
 #  define TAG_PTR_MASK__	0x7
-#  if !defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+#  if !defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION) || defined(DEBUG)
 #    define TAG_LITERAL_PTR	0x4
 #  else
 #    undef TAG_LITERAL_PTR

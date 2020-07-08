@@ -1,0 +1,28 @@
+FROM ubuntu:18.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get --fix-missing -y install build-essential m4 libncurses5-dev \
+        autoconf libssh-dev unixodbc-dev libgmp3-dev xsltproc \
+        default-jdk libxml2-utils tzdata ssh openssh-server groff-base \
+        sudo gdb apache2 bind9 libsctp-dev lksctp-tools curl
+
+ENV MAKEFLAGS=-j4 \
+        ERL_TOP=/buildroot/otp
+
+ARG DEBUG=true
+ENV DEBUG=$DEBUG
+
+ADD ./otp.tar.gz /buildroot/
+
+WORKDIR /buildroot/otp/
+
+RUN ./otp_build autoconf && ./configure --prefix=/otp/ && \
+        make && make install && make install FLAVOR=emu
+
+RUN $DEBUG && make emulator TYPE=debug FLAVOR=emu && make TYPE=debug && \
+        make install TYPE=debug
+
+ENV PATH=/otp/bin/:$PATH
+
+RUN ./otp_build tests

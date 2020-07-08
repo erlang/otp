@@ -133,6 +133,10 @@ Eterm small_times(Sint, Sint, Eterm*);
 Eterm big_plus(Wterm, Wterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
+
+int big_div_rem(Eterm lhs, Eterm rhs,
+                Eterm *q_hp, Eterm *q,
+                Eterm *r_hp, Eterm *r);
 Eterm big_div(Eterm, Eterm, Eterm*);
 Eterm big_rem(Eterm, Eterm, Eterm*);
 

@@ -51,7 +51,7 @@
 #  include "hipe_stack.h"
 #endif
 
-#include "beam_file.h"
+#include "jit/beam_asm.h"
 
 static struct {
     Eterm module;
@@ -955,8 +955,15 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                     continue;
                 }
 
-                ep->addressv[code_ix] = ep->trampoline.raw;
-                ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+#ifdef BEAMASM
+                beamasm_emit_call_error_handler(
+                    &ep->info,
+                    (char*)&ep->trampoline.raw[0],
+                    sizeof(ep->trampoline));
+#else
+                ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
+#endif
+                ep->addressv[code_ix] = &ep->trampoline.raw[0];
             }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
@@ -2199,7 +2206,11 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 				    code_ix);
 		literals = modp->old.code_hdr->literal_area;
 		modp->old.code_hdr->literal_area = NULL;
+#ifndef BEAMASM
 		erts_free(ERTS_ALC_T_CODE, (void *) code);
+#else
+        beamasm_purge_module(modp->old.native_module);
+#endif
 		modp->old.code_hdr = NULL;
 		modp->old.code_length = 0;
 		modp->old.catches = BEAM_CATCHES_NIL;
@@ -2320,7 +2331,7 @@ delete_code(Module* modp)
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->info.mfa.module == module)) {
 	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
-                if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
+                if (BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint)) {
 		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    DBG_TRACE_MFA_P(&ep->info.mfa,
@@ -2328,7 +2339,7 @@ delete_code(Module* modp)
 		    erts_clear_export_break(modp, ep);
 		}
 		else {
-                    ASSERT(BeamIsOpCode(ep->trampoline.op, op_call_error_handler) ||
+                    ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler) ||
                            !erts_initialized);
                 }
             }
@@ -2338,9 +2349,16 @@ delete_code(Module* modp)
                 ep->is_bif_traced = 0;
             }
 
-	    ep->addressv[code_ix] = ep->trampoline.raw;
-	    ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
-	    ep->trampoline.not_loaded.deferred = 0;
+#ifdef BEAMASM
+            beamasm_emit_call_error_handler(
+                &ep->info,
+                (char*)&ep->trampoline.raw[0],
+                sizeof(ep->trampoline));
+#else
+            ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
+#endif
+            ep->addressv[code_ix] = &ep->trampoline.raw[0];
+            ep->trampoline.not_loaded.deferred = 0;
 	    DBG_TRACE_MFA_P(&ep->info.mfa,
 			    "export invalidation, code_ix=%d", code_ix);
 	}

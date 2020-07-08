@@ -1,0 +1,744 @@
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Ericsson AB 2020-2020. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
+ */
+
+#include "beam_asm.hpp"
+
+extern "C"
+{
+#include "bif.h"
+#include "beam_common.h"
+#include "code_ix.h"
+#include "export.h"
+}
+
+/* Global configuration variables (under the `+J` prefix) */
+#ifdef HAVE_LINUX_PERF_SUPPORT
+int erts_jit_perf_support_enabled;
+#endif
+
+/*
+ * Special Beam instructions.
+ */
+
+BeamInstr *beam_apply;
+BeamInstr *beam_normal_exit;
+BeamInstr *beam_exit;
+BeamInstr *beam_continue_exit;
+BeamInstr *beam_save_calls;
+
+/* NOTE These should be the only variables containing trace instructions.
+**      Sometimes tests are for the instruction value, and sometimes
+**      for the variable reference (one of these), and rogue references
+**      will most likely cause chaos.
+*/
+BeamInstr *beam_return_to_trace;   /* OpCode(i_return_to_trace) */
+BeamInstr *beam_return_trace;      /* OpCode(i_return_trace) */
+BeamInstr *beam_exception_trace;   /* UGLY also OpCode(i_return_trace) */
+BeamInstr *beam_return_time_trace; /* OpCode(i_return_time_trace) */
+
+static BeamInstr *call_error_handler_template;
+static size_t call_error_handler_size;
+
+static BeamGlobalAssembler *bga;
+static BeamModuleAssembler *bma;
+static CpuInfo cpuinfo;
+
+/*
+ * Enter all BIFs into the export table.
+ *
+ * Note that they will all call the error_handler until their modules have been
+ * loaded, which may prevent the system from booting if BIFs from non-preloaded
+ * modules are apply/3'd while loading code. Ordinary BIF calls will work fine
+ * however since they won't go through export entries.
+ */
+static void install_bifs(void) {
+    typedef Eterm (*bif_func_type)(Process *, Eterm *, BeamInstr *);
+    int i;
+
+    ASSERT(beam_save_calls != NULL);
+
+    for (i = 0; i < BIF_SIZE; i++) {
+        BifEntry *entry;
+        Export *ep;
+        int j;
+
+        entry = &bif_table[i];
+
+        ep = erts_export_put(entry->module, entry->name, entry->arity);
+
+        ep->info.op = op_i_func_info_IaaI;
+        ep->info.mfa.module = entry->module;
+        ep->info.mfa.function = entry->name;
+        ep->info.mfa.arity = entry->arity;
+        ep->bif_number = i;
+
+        for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
+            ep->addressv[j] = &ep->trampoline.raw[0];
+        }
+
+        /* Set up a hidden export entry so we can trap to this BIF without
+         * it being seen when tracing. */
+        erts_init_trap_export(&BIF_TRAP_EXPORT(i),
+                              entry->module,
+                              entry->name,
+                              entry->arity,
+                              (bif_func_type)entry->f);
+    }
+}
+
+void beamasm_init() {
+    unsigned label = 1;
+
+    ASSERT(bga == nullptr && bma == nullptr);
+
+    struct operands {
+        Eterm name;
+        BeamInstr operand;
+        BeamInstr **target;
+    };
+
+    std::vector<struct operands> operands = {
+            {am_exit, op_error_action_code, &beam_exit},
+            {am_continue_exit, op_continue_exit, &beam_continue_exit},
+            {am_return_trace, op_return_trace, &beam_return_trace},
+            {am_return_to_trace, op_i_return_to_trace, &beam_return_to_trace},
+            {am_return_time_trace,
+             op_i_return_time_trace,
+             &beam_return_time_trace},
+            {am_exception_trace, op_return_trace, &beam_exception_trace}};
+
+    Eterm mod_name;
+    ERTS_DECL_AM(erts_beamasm);
+    mod_name = AM_erts_beamasm;
+
+    cpuinfo = CpuInfo::host();
+
+    bga = new BeamGlobalAssembler();
+
+    bma = new BeamModuleAssembler(bga, mod_name, 6 + operands.size() * 2);
+
+    for (auto &op : operands) {
+        unsigned func_label, entry_label;
+
+        func_label = label++;
+        entry_label = label++;
+
+        bma->emit(op_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_i_func_info_IaaI,
+                  {ArgVal(ArgVal::i, func_label),
+                   ArgVal(ArgVal::i, am_erts_internal),
+                   ArgVal(ArgVal::i, op.name),
+                   ArgVal(ArgVal::i, 0)});
+        bma->emit(op_label_L, {ArgVal(ArgVal::i, entry_label)});
+        bma->emit(op.operand, {});
+
+        op.operand = entry_label;
+    }
+
+    {
+        unsigned func_label, apply_label, normal_exit_label,
+                call_error_handler_label;
+
+        func_label = label++;
+        apply_label = label++;
+        normal_exit_label = label++;
+
+        bma->emit(op_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_i_func_info_IaaI,
+                  {ArgVal(ArgVal::i, func_label),
+                   ArgVal(ArgVal::i, am_erts_internal),
+                   ArgVal(ArgVal::i, am_apply),
+                   ArgVal(ArgVal::i, 3)});
+        bma->emit(op_label_L, {ArgVal(ArgVal::i, apply_label)});
+        bma->emit(op_i_apply, {});
+        bma->emit(op_label_L, {ArgVal(ArgVal::i, normal_exit_label)});
+        bma->emit(op_normal_exit, {});
+
+        /* * */
+
+        func_label = label++;
+        call_error_handler_label = label++;
+
+        bma->emit(op_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_i_func_info_IaaI,
+                  {ArgVal(ArgVal::i, func_label),
+                   ArgVal(ArgVal::i, am_erts_internal),
+                   ArgVal(ArgVal::i, am_call_error_handler),
+                   ArgVal(ArgVal::i, 0)});
+        bma->emit(op_label_L, {ArgVal(ArgVal::i, call_error_handler_label)});
+
+        size_t error_handler_start = bma->getOffset();
+        bma->emit(op_call_error_handler, {});
+        call_error_handler_size = bma->getOffset() - error_handler_start;
+
+        bma->emit(op_int_code_end, {});
+        bma->codegen();
+
+        beam_apply = bma->getCode(apply_label);
+        beam_normal_exit = bma->getCode(normal_exit_label);
+        call_error_handler_template = bma->getCode(call_error_handler_label);
+    }
+
+    for (auto op : operands) {
+        if (op.target) {
+            *op.target = bma->getCode(op.operand);
+        }
+    }
+
+    /* This instruction relies on register contents, and can only be reached
+     * from a `call_ext_*`-instruction, hence the lack of a wrapper function. */
+    beam_save_calls = (BeamInstr *)bga->get_dispatch_save_calls();
+}
+
+bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
+    return cpuinfo.hasFeature(featureId);
+}
+
+void init_emulator(void) {
+    install_bifs();
+}
+
+void process_main(ErtsSchedulerRegisters *registers) {
+    typedef void (*pmain_type)(ErtsSchedulerRegisters *);
+
+    pmain_type pmain = (pmain_type)bga->get_process_main();
+
+    pmain(registers);
+}
+
+#ifdef DEBUG
+static Process *erts_debug_schedule(ErtsSchedulerData *esdp,
+                                    Process *c_p,
+                                    int calls,
+                                    Eterm *HTOP,
+                                    Eterm *E) {
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    c_p = erts_schedule(esdp, c_p, calls);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    return c_p;
+}
+#endif
+
+/* void process_main(ErtsSchedulerRegisters *regs); */
+
+void BeamGlobalAssembler::emit_process_main() {
+    Label schedule_next = a.newLabel();
+
+    /* We don't save the callee save registers here as we will never return. */
+    emit_function_preamble(2);
+
+    const x86::Mem start_time_i = x86::qword_ptr(x86::rsp, 2 * sizeof(UWord));
+    const x86::Mem start_time = x86::qword_ptr(x86::rsp, 1 * sizeof(UWord));
+
+    /* Center `registers` at the base of x_reg_array so we can use use negative
+     * 8-bit displacement to address the commonly used aux_regs, located at the
+     * start of the ErtsSchedulerRegisters struct. */
+    a.lea(registers,
+          x86::qword_ptr(ARG1,
+                         offsetof(ErtsSchedulerRegisters, x_reg_array.d)));
+
+    a.mov(start_time_i, imm(0));
+    a.mov(start_time, imm(0));
+
+    a.sub(c_p, c_p);
+    a.sub(FCALLS, FCALLS);
+    a.sub(ARG3, ARG3); /* Set reds_used for erts_schedule call */
+
+    a.jmp(schedule_next);
+
+    /* Exported entry point, `ga->get_do_schedule()`
+     *
+     * `c_p->i` must be set prior to jumping here. */
+    a.bind(labels[do_schedule]);
+    {
+        /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
+        a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])));
+        a.sub(ARG3, FCALLS);
+
+        a.jmp(schedule_next);
+    }
+
+    /* Exported entry point, `ga->get_context_switch()`
+     *
+     * The *next* instruction pointer is provided in ARG3, and must be preceded
+     * by an ErtsCodeMFA. */
+    a.bind(labels[context_switch]);
+    comment("Context switch, unknown arity/MFA");
+    {
+        Sint arity_offset = offsetof(ErtsCodeMFA, arity) - sizeof(ErtsCodeMFA);
+
+        a.mov(ARG1, x86::qword_ptr(ARG3, arity_offset));
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), ARG1);
+
+        a.lea(ARG1, x86::qword_ptr(ARG3, -(Sint)sizeof(ErtsCodeMFA)));
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG1);
+
+        /* !! Fall through !! */
+    }
+
+    /* Exported entry point, `ga->get_context_switch_simplified()`
+     *
+     * The next instruction pointer is provided in ARG3, which does not need to
+     * point past an ErtsCodeMFA as the process structure has already been
+     * updated. */
+    a.bind(labels[context_switch_simplified]);
+    comment("Context switch, known arity and MFA");
+    {
+        Label not_exiting = a.newLabel();
+
+#ifdef DEBUG
+        Label check_i = a.newLabel();
+        /* Check that ARG3 is set to a valid CP. */
+        a.test(ARG3, imm(_CPMASK));
+        a.je(check_i);
+        a.hlt();
+        a.bind(check_i);
+#endif
+
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG3);
+
+#ifdef WIN32
+        a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.value)));
+#else
+        a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.counter)));
+#endif
+
+        a.test(ARG1d, imm(ERTS_PSFLG_EXITING));
+        a.je(not_exiting);
+        {
+            comment("Process exiting");
+
+            /* We load the beam_exit from memory because it has not yet been set
+             * when the global assembler is created. */
+            a.mov(ARG1, imm(&beam_exit));
+            a.mov(ARG1, x86::qword_ptr(ARG1));
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG1);
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
+            a.jmp(labels[do_schedule]);
+        }
+        a.bind(not_exiting);
+        emit_swapout();
+
+        /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
+        a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])));
+        a.sub(ARG3, FCALLS);
+
+        /* Spill reds_used to FCALLS as we no longer need that value */
+        a.mov(FCALLS, ARG3);
+
+        a.mov(ARG1, c_p);
+        load_x_reg_array(ARG2);
+        abs_call<2>(copy_out_registers);
+
+        /* Restore reds_used from FCALLS */
+        a.mov(ARG3, FCALLS);
+
+        /* !! Fall through !! */
+    }
+
+    a.bind(schedule_next);
+    comment("schedule_next");
+    {
+        Label schedule = a.newLabel(), skip_long_schedule = a.newLabel();
+
+        /* ARG3 contains reds_used at this point */
+
+        a.cmp(start_time, imm(0));
+        a.je(schedule);
+        {
+            a.mov(ARG1, c_p);
+            a.mov(ARG2, start_time);
+
+            /* Spill reds_used in start_time slot */
+            a.mov(start_time, ARG3);
+
+            a.mov(ARG3, start_time_i);
+            abs_call<3>(check_monitor_long_schedule);
+
+            /* Restore reds_used */
+            a.mov(ARG3, start_time);
+        }
+        a.bind(schedule);
+
+        emit_stackcheck();
+        mov_imm(ARG1, 0);
+        a.mov(ARG2, c_p);
+#ifdef DEBUG
+        a.mov(ARG4, HTOP);
+        a.mov(ARG5, E);
+        abs_call<5>(erts_debug_schedule);
+#else
+        abs_call<3>(erts_schedule);
+#endif
+        a.mov(c_p, RET);
+
+#ifdef ERTS_MSACC_EXTENDED_STATES
+        a.lea(ARG1,
+              x86::qword_ptr(registers,
+                             offsetof(ErtsSchedulerRegisters,
+                                      aux_regs.d.erts_msacc_cache)));
+        abs_call<1>(erts_msacc_update_cache);
+#endif
+
+        a.mov(ARG1, imm((UWord)&erts_system_monitor_long_schedule));
+        a.cmp(x86::qword_ptr(ARG1), imm(0));
+        a.mov(start_time, imm(0));
+        a.je(skip_long_schedule);
+        {
+            /* Enable long schedule test */
+            abs_call<0>(erts_timestamp_millis);
+            a.mov(start_time, RET);
+            a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, i)));
+            a.mov(start_time_i, RET);
+        }
+        a.bind(skip_long_schedule);
+
+        /* Copy arguments */
+        a.mov(ARG1, c_p);
+        load_x_reg_array(ARG2);
+        abs_call<2>(copy_in_registers);
+
+        /* Load FCALLS and friends */
+        emit_heavy_swapin();
+
+        /* Setup reduction counting */
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, def_arg_reg[5])), FCALLS);
+
+#ifdef DEBUG
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, debug_reds_in)), FCALLS);
+#endif
+
+        /* Check whether save calls is on */
+        a.mov(ARG1, c_p);
+        a.mov(ARG2, imm(ERTS_PSD_SAVED_CALLS_BUF));
+        abs_call<2>(erts_psd_get);
+
+        /* Read the active code index, overriding it with
+         * ERTS_SAVE_CALLS_CODE_IX when save_calls is enabled. */
+        a.mov(ARG1, imm(&the_active_code_index));
+        a.mov(ARG1d, x86::dword_ptr(ARG1));
+        a.mov(ARG2, imm(ERTS_SAVE_CALLS_CODE_IX));
+        a.test(RET, RET);
+        a.cmovne(ARG1, ARG2);
+        a.mov(active_code_ix, ARG1);
+
+        /* Check if we are just returning from a dirty nif/bif call and if so we
+         * need to do a bit of cleaning up before continuing. */
+        a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, i)));
+        a.cmp(x86::qword_ptr(RET), imm(op_call_nif_WWW));
+        a.je(labels[dispatch_nif]);
+        a.cmp(x86::qword_ptr(RET), imm(op_call_bif_W));
+        a.je(labels[dispatch_bif]);
+        a.jmp(RET);
+    }
+}
+
+enum jit_actions : uint32_t {
+    JIT_NOACTION = 0,
+    JIT_REGISTER_FN,
+    JIT_UNREGISTER_FN,
+};
+
+struct jit_code_entry {
+    struct jit_code_entry *next_entry;
+    struct jit_code_entry *prev_entry;
+    const char *symfile_addr;
+    uint64_t symfile_size;
+};
+
+struct jit_descriptor {
+    uint32_t version;
+    jit_actions action_flag;
+    struct jit_code_entry *relevant_entry;
+    struct jit_code_entry *first_entry;
+};
+
+extern "C"
+{
+    extern void ERTS_NOINLINE __jit_debug_register_code(void);
+
+    /* Make sure to specify the version statically, because the
+     * debugger may check the version before we can set it. */
+    struct jit_descriptor __jit_debug_descriptor = {1,
+                                                    JIT_NOACTION,
+                                                    NULL,
+                                                    NULL};
+} /* extern "C" */
+
+void BeamAssembler::update_gdb_jit_info(std::string modulename,
+                                        std::vector<AsmRange> &functions) {
+    Sint symfile_size = sizeof(uint64_t) * 3 + modulename.size() + 1;
+
+    for (auto fun : functions) {
+        symfile_size += sizeof(uint64_t) * 2;
+        symfile_size += fun.name.size() + 1;
+    }
+
+    char *symfile = (char *)malloc(symfile_size);
+    jit_code_entry *entry;
+
+    entry = (jit_code_entry *)malloc(sizeof(jit_code_entry));
+
+    /* Add address description */
+    entry->symfile_addr = symfile;
+    entry->symfile_size = symfile_size;
+
+    ((uint64_t *)symfile)[0] = functions.size();
+    ((uint64_t *)symfile)[1] = code.baseAddress();
+    ((uint64_t *)symfile)[2] = (uint64_t)code.codeSize();
+
+    symfile += sizeof(uint64_t) * 3;
+
+    sys_memcpy(symfile, modulename.c_str(), modulename.size() + 1);
+    symfile += modulename.size() + 1;
+
+    for (unsigned i = 0; i < functions.size(); i++) {
+        ((uint64_t *)symfile)[0] = (uint64_t)functions[i].start;
+        ((uint64_t *)symfile)[1] = (uint64_t)functions[i].stop;
+
+        ASSERT(functions[i].start <= functions[i].stop);
+
+        symfile += sizeof(uint64_t) * 2;
+
+        sys_memcpy(symfile,
+                   functions[i].name.c_str(),
+                   functions[i].name.size() + 1);
+        symfile += functions[i].name.size() + 1;
+    }
+
+    ASSERT(symfile_size == (symfile - entry->symfile_addr));
+
+    /* Insert into linked list */
+    entry->next_entry = __jit_debug_descriptor.first_entry;
+    if (entry->next_entry) {
+        entry->next_entry->prev_entry = entry;
+    } else {
+        entry->prev_entry = nullptr;
+    }
+
+    /* register with dbg */
+    __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
+    __jit_debug_descriptor.first_entry = entry;
+    __jit_debug_descriptor.relevant_entry = entry;
+    __jit_debug_register_code();
+}
+
+void BeamAssembler::update_perf_info(std::string modulename,
+                                     std::vector<AsmRange> &ranges) {
+#ifdef HAVE_LINUX_PERF_SUPPORT
+    FILE *file;
+    char buff[128];
+
+    if (erts_jit_perf_support_enabled) {
+        snprintf(buff, sizeof(buff), "/tmp/perf-%i.map", getpid());
+        file = fopen(buff, "a");
+        if (file != nullptr) {
+            for (auto r : ranges) {
+                char *start = (char *)r.start, *stop = (char *)r.stop;
+                ptrdiff_t size = stop - start;
+
+                fprintf(file, "%p %tx $%s\n", start, size, r.name.c_str());
+            }
+        }
+
+        fclose(file);
+    }
+#endif
+}
+
+extern "C"
+{
+    int erts_beam_jump_table(void) {
+#if defined(NO_JUMP_TABLE)
+        return 0;
+#else
+        return 1;
+#endif
+    }
+
+    void *beamasm_new_assembler(Eterm mod, int num_labels, int num_functions) {
+        return new BeamModuleAssembler(bga, mod, num_labels, num_functions);
+    }
+
+    int beamasm_emit(void *instance, unsigned specific_op, BeamOp *op) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        const std::vector<ArgVal> args(&op->a[0], &op->a[op->arity]);
+
+        return ba->emit(specific_op, args);
+    }
+
+    void beamasm_emit_call_nif(ErtsCodeInfo *info,
+                               void *normal_fptr,
+                               void *lib,
+                               void *dirty_fptr,
+                               char *buff,
+                               unsigned buff_len) {
+        BeamModuleAssembler ba(bga, info->mfa.module, 3);
+
+        ba.emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+        ba.emit(op_i_func_info_IaaI,
+                {ArgVal(ArgVal::i, 1),
+                 ArgVal(ArgVal::i, info->mfa.module),
+                 ArgVal(ArgVal::i, info->mfa.function),
+                 ArgVal(ArgVal::i, info->mfa.arity)});
+        ba.emit(op_label_L, {ArgVal(ArgVal::i, 2)});
+        ba.emit(op_i_breakpoint_trampoline, {});
+        ba.emit(op_call_nif_WWW,
+                {ArgVal(ArgVal::i, (BeamInstr)normal_fptr),
+                 ArgVal(ArgVal::i, (BeamInstr)lib),
+                 ArgVal(ArgVal::i, (BeamInstr)dirty_fptr)});
+
+        ba.codegen(buff, buff_len);
+    }
+
+    void beamasm_emit_call_bif(ErtsCodeInfo *info,
+                               Eterm (*bif)(BIF_ALIST),
+                               char *buff,
+                               unsigned buff_len) {
+        BeamModuleAssembler ba(bga, info->mfa.module, 3);
+
+        ba.emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+        ba.emit(op_i_func_info_IaaI,
+                {ArgVal(ArgVal::i, 1),
+                 ArgVal(ArgVal::i, info->mfa.module),
+                 ArgVal(ArgVal::i, info->mfa.function),
+                 ArgVal(ArgVal::i, info->mfa.arity)});
+        ba.emit(op_label_L, {ArgVal(ArgVal::i, 2)});
+        ba.emit(op_i_breakpoint_trampoline, {});
+        ba.emit(op_call_bif_W, {ArgVal(ArgVal::i, (BeamInstr)bif)});
+
+        ba.codegen(buff, buff_len);
+    }
+
+    /* This call is not protected by any lock, so must be thread safe */
+    void beamasm_emit_call_error_handler(ErtsCodeInfo *info,
+                                         char *buff,
+                                         unsigned buff_len) {
+        ERTS_ASSERT(buff_len - call_error_handler_size >= 0);
+#ifndef VALGRIND
+        ERTS_ASSERT(buff_len - call_error_handler_size < sizeof(BeamInstr));
+#endif
+        sys_memcpy(buff, call_error_handler_template, call_error_handler_size);
+#ifdef WIN32
+        DWORD old;
+        if (!VirtualProtect(buff,
+                            call_error_handler_size,
+                            PAGE_EXECUTE_READWRITE,
+                            &old)) {
+            erts_exit(-2, "Could not change memory protection");
+        }
+#endif
+    }
+
+    void beamasm_delete_assembler(void *instance) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        delete ba;
+    }
+
+    void beamasm_purge_module(void *native_module) {
+        erts_free(ERTS_ALC_T_CODE, native_module);
+    }
+
+    BeamInstr *beamasm_get_code(void *instance, int label) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        return ba->getCode(label);
+    }
+
+    byte *beamasm_get_rodata(void *instance, char *label) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        return ba->getCode(label);
+    }
+
+    void beamasm_embed_rodata(void *instance,
+                              char *labelName,
+                              const char *buff,
+                              size_t size) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        if (size) {
+            ba->embed_rodata(labelName, buff, size);
+        }
+    }
+
+    void beamasm_embed_bss(void *instance, char *labelName, size_t size) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        if (size) {
+            ba->embed_bss(labelName, size);
+        }
+    }
+
+    void *beamasm_codegen(void *instance,
+                          BeamCodeHeader *in_hdr,
+                          BeamCodeHeader **out_hdr) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+
+        return ba->codegen(in_hdr, out_hdr);
+    }
+
+    Uint beamasm_get_header(void *instance, BeamCodeHeader **hdr) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+
+        *hdr = ba->getCodeHeader();
+
+        return ba->getCodeSize();
+    }
+
+    /* HACK: Return the module base, for line information. */
+    char *beamasm_get_base(void *instance) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        return (char *)ba->getBaseAddress();
+    }
+
+    /* HACK: Return current instruction offset, for line information. */
+    size_t beamasm_get_offset(void *instance) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        return ba->getOffset();
+    }
+
+    BeamInstr *beamasm_get_on_load(void *instance) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        return ba->getOnLoad();
+    }
+
+    unsigned int beamasm_get_catches(void *instance) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        return ba->patchCatches();
+    }
+    void beamasm_patch_import(void *instance, int index, BeamInstr import) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        ba->patchImport(index, import);
+    }
+    void beamasm_patch_literal(void *instance, int index, Eterm lit) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        ba->patchLiteral(index, lit);
+    }
+    void beamasm_patch_lambda(void *instance, int index, BeamInstr fe) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        ba->patchLambda(index, fe);
+    }
+    void beamasm_patch_strings(void *instance, byte *strtab) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        ba->patchStrings(strtab);
+    }
+}

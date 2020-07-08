@@ -143,6 +143,7 @@ atom bsl
 atom bsr
 atom bsr_anycrlf
 atom bsr_unicode
+atom build_flavor
 atom build_type
 atom busy
 atom busy_dist_port
@@ -151,6 +152,7 @@ atom busy_limits_msgq
 atom busy_port
 atom call
 atom call_count
+atom call_error_handler
 atom call_time
 atom caller
 atom capture
@@ -182,6 +184,7 @@ atom connected
 atom connection_closed
 atom const
 atom context_switches
+atom continue_exit
 atom control
 atom copy
 atom copy_literals
@@ -234,6 +237,8 @@ atom duplicate_bag
 atom duplicated
 atom dupnames
 atom einval
+atom emu_flavor
+atom emu_type
 atom emulator
 atom enable_trace
 atom enabled
@@ -568,7 +573,9 @@ atom reset_seq_trace
 atom restart
 atom resume
 atom return_from
+atom return_time_trace
 atom return_to
+atom return_to_trace
 atom return_trace
 atom run_queue
 atom run_queue_lengths

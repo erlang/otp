@@ -187,14 +187,15 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_MSACC_UPDATE_CACHE_X();
 
-    /*
-     * Set fcalls even though we ignore it, so we don't
-     * confuse code accessing it...
-     */
-    if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-	c_p->fcalls = 0;
-    else
-	c_p->fcalls = CONTEXT_REDS;
+    /* Set fcalls even though we ignore it, so we don't
+     * confuse code accessing it... */
+    c_p->fcalls = CONTEXT_REDS;
+
+#ifndef BEAMASM
+    if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
+        c_p->fcalls = 0;
+    }
+#endif
 
     if (erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_DIRTY_RUNNING_SYS) {
 	erts_execute_dirty_system_task(c_p);
@@ -205,7 +206,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	Eterm* argp;
 	int i, exiting;
 
-	reg = esdp->x_reg_array;
+	reg = esdp->registers->x_reg_array.d;
 
 	argp = c_p->arg_reg;
 	for (i = c_p->arity - 1; i >= 0; i--) {
@@ -270,6 +271,15 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+#ifdef BEAMASM
+	if (*I == op_call_bif_W) {
+	    exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
+	}
+	else {
+	    ASSERT(*I == op_call_nif_WWW);
+            exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
+	}
+#else
         if (BeamIsOpCode(*I,op_call_bif_W)) {
 	    exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
 	}
@@ -277,6 +287,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	    ASSERT(BeamIsOpCode(*I, op_call_nif_WWW));
             exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
 	}
+#endif
 
 	ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
 
@@ -2305,8 +2316,11 @@ erts_current_reductions(Process *c_p, Process *p)
     if (c_p != p || !(erts_atomic32_read_nob(&c_p->state)
                       & ERTS_PSFLG_RUNNING)) {
 	return 0;
+#ifndef BEAMASM
+    /* BEAMASM doesn't use negative reductions for save_calls. */
     } else if (c_p->fcalls < 0 && ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
 	reds_left = c_p->fcalls + CONTEXT_REDS;
+#endif
     } else {
         reds_left = c_p->fcalls;
     }

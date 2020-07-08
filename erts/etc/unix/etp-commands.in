@@ -1157,17 +1157,17 @@ define etp-cp-1
     if $etp_cp == beam_apply+1
       printf "#Cp<terminate process normally>"
     else
-      if *(Eterm*)($etp_cp) == beam_return_trace[0]
+      if ($etp_cp) == beam_return_trace
+	printf "#Cp<return trace>"
+      else
         if ($etp_cp) == beam_exception_trace
 	  printf "#Cp<exception trace>"
         else
-	  printf "#Cp<return trace>"
-	end
-      else
-        if *(Eterm*)($etp_cp) == beam_return_to_trace[0]
-	  printf "#Cp<return to trace>"
-	else
-          printf "#Cp<%p>", $etp_cp
+          if ($etp_cp) == beam_return_to_trace
+	    printf "#Cp<return to trace>"
+	  else
+            printf "#Cp<%p>", $etp_cp
+          end
 	end
       end
     end
@@ -4596,6 +4596,8 @@ define etp-init
   set $etp_max_string_length = 100
 
   set $etp_ets_tables_i = 0
+  set disassembly-flavor intel
+  jit-reader-load @ERL_TOP@/bin/@TARGET@/jit-reader.so
 end
 
 document etp-init

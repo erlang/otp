@@ -1769,17 +1769,19 @@ block_queue2(Conf) when is_list(Conf) ->
     %% Asynchronous stuff is ignored.
     ok = disk_log:balog_terms(n, [<<"foo">>,<<"bar">>]),
     ok = disk_log:balog_terms(n, [<<"more">>,<<"terms">>]),
-    Parent = self(),
     Fun =
         fun() ->
                 {error,no_such_log} = disk_log:sync(n),
-                receive {disk_log, _, {error, disk_log_stopped}} -> ok end,
-                Parent ! disk_log_stopped_ok
+                receive {disk_log, _, {error, disk_log_stopped}} -> ok end
         end,
-    spawn(Fun),
+    SyncProc = spawn_link(Fun),
     timer:sleep(500),
     ok = sync_do(Pid, close),
-    receive disk_log_stopped_ok -> ok end,
+
+    %% Make sure SyncProc has terminated to that we know that it has
+    %% received the disk_log error message.
+    SyncProcMonRef = erlang:monitor(process, SyncProc),
+    receive {'DOWN',SyncProcMonRef,process,SyncProc,_} -> ok end,
     sync_do(Pid, terminate),
     {ok,<<>>} = file:read_file(File ++ ".1"),
     del(File, No),

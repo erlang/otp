@@ -74,6 +74,20 @@ trace_jump W
 
 return
 
+# The start of a function.
+int_func_start/5
+int_func_start Lbl Line M F A => label Lbl | i_func_info u M F A | line Line
+
+# The end of a function.
+int_func_end/0
+int_func_end
+
+# Instruction used for padding functions that use native code.
+%cold
+padding/0
+padding
+%hot
+
 #
 # A tail call will not refer to the current function on error unless it's a
 # BIF, so we can omit the line instruction for non-BIFs.
@@ -98,8 +112,8 @@ move S X0=x==0 | line Loc | call_only Ar Func => \
 
 move S X0=x==0 | line Loc => line Loc | move S X0
 
-line Loc | func_info M F A => func_info M F A | line Loc
-
+# The line number in int_func_start/5 can be NIL.
+line n =>
 line I
 
 allocate t t?

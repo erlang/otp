@@ -29,10 +29,21 @@
 ** Export entry
 */
 
+#ifdef BEAMASM
+#define OP_PAD BeamInstr __pad[1];
+#define DISPATCH_SIZE (1 + 4)
+#define ERTS_ADDRESSV_SIZE (ERTS_NUM_CODE_IX + 1)
+#define ERTS_SAVE_CALLS_CODE_IX (ERTS_ADDRESSV_SIZE - 1)
+#else
+#define OP_PAD
+#define DISPATCH_SIZE 0
+#define ERTS_ADDRESSV_SIZE ERTS_NUM_CODE_IX
+#endif
+
 typedef struct export_
 {
     /* Pointer to code for function. */
-    void* addressv[ERTS_NUM_CODE_IX];
+    void* addressv[ERTS_ADDRESSV_SIZE];
 
     /* Index into bif_table[], or -1 if not a BIF. */
     int bif_number;
@@ -46,9 +57,13 @@ typedef struct export_
      * Needless to say, the order of the fields below is significant. */
     ErtsCodeInfo info;
     union {
-        BeamInstr op;           /* Union discriminant. */
+        struct {
+            OP_PAD
+            BeamInstr op;
+        } common;
 
         struct {
+            OP_PAD
             BeamInstr op;       /* op_i_generic_breakpoint */
             BeamInstr address;  /* Address of the original function */
         } breakpoint;
@@ -64,6 +79,7 @@ typedef struct export_
          * awkward condiditon where `deferred` may be set while op is zero. See
          * erlang:finish_after_on_load/2 for details. */
         struct {
+            OP_PAD
             BeamInstr op;       /* op_call_error_handler, or 0 during the last
                                  * phase of code loading when on_load is
                                  * present. See above. */
@@ -71,31 +87,31 @@ typedef struct export_
         } not_loaded;
 
         struct {
+            OP_PAD
             BeamInstr op;       /* op_trace_jump_W */
             BeamInstr address;  /* Address of the traced function */
         } trace;
-
-        BeamInstr raw[2];       /* For use in address comparisons, should not
-                                 * be tampered directly. */
+        BeamInstr raw[2 + DISPATCH_SIZE]; /* For use in address comparisons,
+                                           * should not be tampered directly. */
     } trampoline;
 } Export;
 
-#ifdef DEBUG
+#if defined(DEBUG)
 #define DBG_CHECK_EXPORT(EP, CX) \
     do { \
         if((EP)->addressv[CX] == (EP)->trampoline.raw) { \
             /* The entry currently points at the trampoline, so the
              * instructions must be valid. */ \
-            ASSERT(((BeamIsOpCode((EP)->trampoline.op, op_i_generic_breakpoint)) && \
+            ASSERT(((BeamIsOpCode((EP)->trampoline.common.op, op_i_generic_breakpoint)) && \
                     (EP)->trampoline.breakpoint.address != 0) || \
-                   ((BeamIsOpCode((EP)->trampoline.op, op_trace_jump_W)) && \
+                   ((BeamIsOpCode((EP)->trampoline.common.op, op_trace_jump_W)) && \
                     (EP)->trampoline.trace.address != 0) || \
                    /* (EP)->trampoline.not_loaded.deferred may be zero. */ \
-                   (BeamIsOpCode((EP)->trampoline.op, op_call_error_handler))); \
+                   (BeamIsOpCode((EP)->trampoline.common.op, op_call_error_handler))); \
         } \
     } while(0)
 #else
-#define DBG_CHECK_EXPORT(EP, CX) ((void)(EP), (void)(CX))
+#define DBG_CHECK_EXPORT(EP, CX)
 #endif
 
 void init_export_table(void);

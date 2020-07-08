@@ -618,21 +618,47 @@ typedef enum {
     ERTS_DIRTY_IO_SCHEDULER
 } ErtsDirtySchedulerType;
 
+typedef struct ErtsSchedulerRegisters_ {
+    union {
+        struct aux_regs__ {
+            /* erl_bits.c state */
+            struct erl_bits_state erl_bits_state;
+
+#ifdef BEAMASM
+#ifdef ERTS_MSACC_EXTENDED_STATES
+            ErtsMsAcc *erts_msacc_cache;
+#endif
+
+            /* Temporary memory used by beamasm for allocations within
+             * instructions */
+            UWord TMP_MEM[3];
+
+            /* Local copy of the active code index. This is set to
+             * ERTS_SAVE_CALLS_CODE_IX when save_calls is active. */
+            UWord active_code_ix;
+#endif
+        } d;
+        char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(struct aux_regs__))];
+    } aux_regs;
+
+    union {
+        Eterm d[ERTS_X_REGS_ALLOCATED];
+        char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(Eterm[ERTS_X_REGS_ALLOCATED]))];
+    } x_reg_array;
+
+    union {
+        FloatDef d[MAX_REG];
+        char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(FloatDef[MAX_REG]))];
+    } f_reg_array;
+} ErtsSchedulerRegisters;
 
 struct ErtsSchedulerData_ {
-    /*
-     * Keep X registers first (so we get as many low
-     * numbered registers as possible in the same cache
-     * line).
-     */
-    Eterm* x_reg_array;		/* X registers */
-    FloatDef* f_reg_array;	/* Floating point registers. */
+    ErtsSchedulerRegisters *registers;
 
     ErtsTimerWheel *timer_wheel;
     ErtsNextTimeoutRef next_tmo_ref;
     ErtsHLTimerService *timer_service;
     ethr_tid tid;		/* Thread id */
-    struct erl_bits_state erl_bits_state; /* erl_bits.c state */
     void *match_pseudo_process; /* erl_db_util.c:db_prog_match() */
     Process *free_process;
     ErtsThrPrgrData thr_progress_data;
@@ -1420,7 +1446,7 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
     ErlHeapFragment* hf = MBUF(p);
     Uint sz;
 
-    ASSERT(hf!=NULL && (hp - hf->mem < hf->alloc_size));
+    ASSERT(hf != NULL && (hp - hf->mem <= hf->alloc_size));
 
     sz = hp - hf->mem;
     p->mbuf_sz -= hf->used_size - sz;
@@ -2152,7 +2178,7 @@ erts_psd_set(Process *p, int ix, void *data)
     ((ErtsProcSysTaskQs *) erts_psd_set((P), ERTS_PSD_DELAYED_GC_TASK_QS, (void *) (PBT)))
 
 #define ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(P) \
-    erts_psd_get((P), ERTS_PSD_NFUNC_TRAP_WRAPPER)
+    ((ErtsNativeFunc*)erts_psd_get((P), ERTS_PSD_NFUNC_TRAP_WRAPPER))
 #define ERTS_PROC_SET_NFUNC_TRAP_WRAPPER(P, NTE) \
     erts_psd_set((P), ERTS_PSD_NFUNC_TRAP_WRAPPER, (void *) (NTE))
 

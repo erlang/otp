@@ -64,6 +64,7 @@
 #if defined(USE_DYNAMIC_TRACE) && (defined(USE_DTRACE) || defined(USE_SYSTEMTAP))
 #define HAVE_USE_DTRACE 1
 #endif
+#include "jit/beam_asm.h"
 
 #include <limits.h>
 #include <stddef.h> /* offsetof */
@@ -348,7 +349,11 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     ep = erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
                                   cp_val(c_p->stop[0]),
-				  BeamOpCodeAddr(op_call_nif_WWW),
+                             #ifdef BEAMASM
+				  op_call_nif_WWW,
+                             #else
+                                  BeamOpCodeAddr(op_call_nif_WWW),
+                             #endif
 				  direct_fp, indirect_fp,
 				  mod, func_name,
 				  argc, (const Eterm *) argv);
@@ -371,7 +376,7 @@ erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
     ERL_NIF_TERM *argv = (ERL_NIF_TERM *) reg;
     ErtsNativeFunc *nep = ERTS_I_BEAM_OP_TO_NFUNC(I);
     ErtsCodeMFA *codemfa = erts_code_to_codemfa(I);
-    NativeFunPtr dirty_nif = (NativeFunPtr) I[1];
+    NativeFunPtr dirty_nif = (NativeFunPtr) nep->trampoline.dfunc;
     ErlNifEnv env;
     ERL_NIF_TERM result;
 #ifdef DEBUG
@@ -4066,7 +4071,9 @@ static ErtsCodeInfo** get_func_pp(BeamCodeHeader* mod_code, Eterm f_atom, unsign
     int j;
     for (j = 0; j < n; ++j) {
 	ErtsCodeInfo* ci = mod_code->functions[j];
+#ifndef BEAMASM
 	ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+#endif
 	if (f_atom == ci->mfa.function
 	    && arity == ci->mfa.arity) {
 	    return mod_code->functions+j;
@@ -4253,8 +4260,13 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2) {
 typedef struct {
     HashBucket bucket;
     ErtsCodeInfo* code_info;
-    ErtsCodeMFA mfa;
+    ErtsCodeInfo info;
+#ifdef BEAMASM
+    BeamInstr prologue[BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord)];
+    BeamInstr beam[9];
+#else
     BeamInstr beam[4];
+#endif
 } ErtsNifBeamStub;
 
 typedef struct ErtsNifFinish_ {
@@ -4445,8 +4457,13 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
         ASSERT(opened_rt_list == NULL);
         lib->mod = module_p;
 
+#ifdef BEAMASM
+        lib->finish = erts_alloc(ERTS_ALC_T_NIF_FINISH,
+                                 sizeof_ErtsNifFinish(entry->num_of_funcs));
+#else
         lib->finish = erts_alloc(ERTS_ALC_T_NIF,
                                  sizeof_ErtsNifFinish(entry->num_of_funcs));
+#endif
         lib->finish->nstubs_hashed = 0;
 
         erts_rwmtx_rwlock(&erts_nif_call_tab_lock);
@@ -4478,8 +4495,10 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
             ASSERT(erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0])
                      >= BEAM_NATIVE_MIN_FUNC_SZ);
 
+            ERTS_CT_ASSERT(BEAM_NATIVE_MIN_FUNC_SZ*8 >= sizeof(stub->beam));
+
             stub->code_info = ci;
-            stub->mfa = ci->mfa;
+            stub->info = *ci;
             if (hash_put(&erts_nif_call_tab, stub) != stub) {
                 ret = load_nif_error(c_p, bad_lib, "Duplicate NIF entry for %T:%s/%u",
                                      mod_atom, f->name, f->arity);
@@ -4487,6 +4506,26 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
             }
             lib->finish->nstubs_hashed++;
 
+ #ifdef BEAMASM
+            {
+                /* See beam_asm.h for details on how the nif load trampoline works */
+                void* normal_fptr, *dirty_fptr;
+                if (f->flags) {
+                    if (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND)
+                        normal_fptr = static_schedule_dirty_io_nif;
+                    else
+                        normal_fptr = static_schedule_dirty_cpu_nif;
+                    dirty_fptr = f->fptr;
+                } else {
+                    dirty_fptr = NULL;
+                    normal_fptr = f->fptr;
+                }
+                beamasm_emit_call_nif(
+                    ci, normal_fptr, lib, dirty_fptr,
+                    (char*)&stub->info,
+                    sizeof(stub->info) + sizeof(stub->prologue) + sizeof(stub->beam));
+            }
+#else
             stub->beam[0] = BeamOpCodeAddr(op_call_nif_WWW);
             stub->beam[2] = (BeamInstr) lib;
             if (f->flags) {
@@ -4497,7 +4536,8 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
             }
             else
                 stub->beam[1] = (BeamInstr) f->fptr;
-	}
+#endif
+        }
         erts_rwmtx_rwunlock(&erts_nif_call_tab_lock);
         ASSERT(lib->finish->nstubs_hashed == lib->entry.num_of_funcs);
     }
@@ -4578,7 +4618,11 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
         if (lib != NULL) {
             if (lib->finish != NULL) {
                 erase_hashed_stubs(lib->finish);
+#ifdef BEAMASM
+                erts_free(ERTS_ALC_T_NIF_FINISH, lib->finish);
+#else
                 erts_free(ERTS_ALC_T_NIF, lib->finish);
+#endif
             }
 	    erts_free(ERTS_ALC_T_NIF, lib);
 	}
@@ -4613,27 +4657,34 @@ static void patch_call_nif_early(ErlNifEntry* entry,
     for (i=0; i < entry->num_of_funcs; i++)
     {
         ErlNifFunc* f = &entry->funcs[i];
-        BeamInstr volatile *code_ptr;
         ErtsCodeInfo* ci;
         Eterm f_atom;
 
         erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
         ci = *get_func_pp(this_mi->code_hdr, f_atom, f->arity);
-        code_ptr = erts_codeinfo_to_code(ci);
 
-        if (ci->u.gen_bp) {
-            /*
-             * Function traced, patch the original instruction word
-             * Code write permission protects against racing breakpoint writes.
-             */
-            GenericBp* g = ci->u.gen_bp;
-            g->orig_instr = BeamOpCodeAddr(op_call_nif_early);
-            if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
-                continue;
+#ifndef BEAMASM
+        {
+            BeamInstr volatile *code_ptr;
+            code_ptr = erts_codeinfo_to_code(ci);
+            if (ci->u.gen_bp) {
+                /*
+                 * Function traced, patch the original instruction word
+                 * Code write permission protects against racing breakpoint writes.
+                 */
+                GenericBp* g = ci->u.gen_bp;
+                g->orig_instr = BeamOpCodeAddr(op_call_nif_early);
+                if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
+                    continue;
+            } else {
+                ASSERT(!BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint));
+            }
+            code_ptr[0] = BeamOpCodeAddr(op_call_nif_early);
         }
-        else
-            ASSERT(!BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint));
-        code_ptr[0] = BeamOpCodeAddr(op_call_nif_early);
+#else
+        /* See beam_asm.h for details on how the nif load trampoline works */
+        erts_asm_bp_set_flag(ci, ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
+#endif
     }
 }
 
@@ -4661,6 +4712,12 @@ static void load_nif_1st_finisher(void* vlib)
     fin = lib->finish;
     if (fin) {
         for (i=0; i < lib->entry.num_of_funcs; i++) {
+#ifdef BEAMASM
+            char* code_ptr;
+            code_ptr =  (char*)erts_codeinfo_to_code(fin->beam_stubv[i].code_info);
+            memcpy(code_ptr+BEAM_ASM_FUNC_PROLOGUE_SIZE,
+                   fin->beam_stubv[i].beam, sizeof(fin->beam_stubv[0].beam));
+#else
             BeamInstr* code_ptr;
             code_ptr =  erts_codeinfo_to_code(fin->beam_stubv[i].code_info);
 
@@ -4668,6 +4725,7 @@ static void load_nif_1st_finisher(void* vlib)
             code_ptr[2] = fin->beam_stubv[i].beam[2];  /* erl_module_nif */
             if (lib->entry.funcs[i].flags)
                 code_ptr[3] = fin->beam_stubv[i].beam[3];  /* real NIF */
+#endif
         }
     }
     erts_mtx_unlock(&lib->load_mtx);
@@ -4705,8 +4763,8 @@ static void load_nif_2nd_finisher(void* vlib)
     if (fin) {
         for (i=0; i < lib->entry.num_of_funcs; i++) {
             ErtsCodeInfo *ci = fin->beam_stubv[i].code_info;
+#ifndef BEAMASM
             BeamInstr volatile *code_ptr = erts_codeinfo_to_code(ci);
-
             if (ci->u.gen_bp) {
                 /*
                  * Function traced, patch the original instruction word
@@ -4719,6 +4777,10 @@ static void load_nif_2nd_finisher(void* vlib)
             }
             ASSERT(code_ptr[0] == BeamOpCodeAddr(op_call_nif_early));
             code_ptr[0] = BeamOpCodeAddr(op_call_nif_WWW);
+#else
+            /* See beam_asm.h for details on how the nif load trampoline works */
+            erts_asm_bp_unset_flag(ci, ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
+#endif
         }
     }
     erts_mtx_unlock(&lib->load_mtx);
@@ -4760,7 +4822,11 @@ static void release_beam_stubs(struct erl_module_nif* lib)
 
     if (fin) {
         erase_hashed_stubs(fin);
+#ifdef BEAMASM
+        erts_free(ERTS_ALC_T_NIF_FINISH, fin);
+#else
         erts_free(ERTS_ALC_T_NIF, fin);
+#endif
     }
 }
 

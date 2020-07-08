@@ -114,8 +114,7 @@ struct LoaderState_ {
      */
 
     int specific_op;           /* Specific opcode (-1 if not found). */
-    BeamCodeHeader* load_hdr;   /* Code header during load */
-    BeamCodeHeader* code_hdr;   /* Actual code header */
+    BeamCodeHeader* code_hdr;   /* Code header */
 
     BeamInstr* codev;          /* Loaded code buffer */
     int        codev_size;     /* Size of code buffer in words. */

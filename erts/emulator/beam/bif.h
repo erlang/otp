@@ -61,38 +61,68 @@ extern Export *erts_convert_time_unit_trap;
 
 typedef BIF_RETTYPE (*ErtsBifFunc)(BIF_ALIST);
 
+#ifdef BEAMASM
+#define ERTS_REDS_LEFT(p, FCalls) (FCalls)
+
+#define ERTS_IS_PROC_OUT_OF_REDS(p)	((p)->fcalls == 0)
+
+#define BUMP_REDS(p, gc) do {			   \
+     ASSERT(p);		 			   \
+     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(p));\
+     (p)->fcalls -= (gc); 			   \
+     if ((p)->fcalls < 0) { 			   \
+           (p)->fcalls = 0; 			   \
+     } 						   \
+} while(0)
+
+#define BUMP_ALL_REDS(p) do {			\
+    (p)->fcalls = 0; 			\
+    ASSERT(ERTS_BIF_REDS_LEFT((p)) == 0);	\
+} while(0)
+
+#define ERTS_VBUMP_REDS(p, reds)					\
+do {									\
+	if ((p)->fcalls >= reds) {					\
+	    (p)->fcalls -= reds;					\
+	    erts_proc_sched_data((p))->virtual_reds += reds;		\
+	}								\
+	else {								\
+	    if ((p)->fcalls > 0)					\
+		erts_proc_sched_data((p))->virtual_reds += (p)->fcalls;	\
+	    (p)->fcalls = 0;						\
+	}								\
+} while(0)
+
+
+#define ERTS_VBUMP_ALL_REDS_INTERNAL(p, fcalls)				\
+do {									\
+	if ((fcalls) > 0)						\
+	    erts_proc_sched_data((p))->virtual_reds += (fcalls);	\
+	(fcalls) = 0;							\
+} while(0)
+
+#define ERTS_VBUMP_LEAVE_REDS_INTERNAL(P, Reds, FCalls)			\
+    do {								\
+	    if ((FCalls) > (Reds)) {					\
+		erts_proc_sched_data((P))->virtual_reds			\
+		    += (FCalls) - (Reds);				\
+		(FCalls) = (Reds);					\
+	    }								\
+    } while (0)
+
+#else
+
+#define ERTS_REDS_LEFT(p, FCalls)					\
+  (ERTS_PROC_GET_SAVED_CALLS_BUF((p))					\
+   ? ((FCalls) > -CONTEXT_REDS ? ((FCalls) - (-CONTEXT_REDS)) : 0)	\
+   : ((FCalls) > 0 ? (FCalls) : 0))
+
 #define ERTS_IS_PROC_OUT_OF_REDS(p)		\
     ((p)->fcalls > 0				\
      ? 0					\
      : (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))	\
 	? (p)->fcalls == 0			\
 	: ((p)->fcalls == -CONTEXT_REDS)))
-
-#define BUMP_ALL_REDS(p) do {			\
-    if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) 	\
-	(p)->fcalls = 0; 			\
-    else 					\
-	(p)->fcalls = -CONTEXT_REDS;		\
-    ASSERT(ERTS_BIF_REDS_LEFT((p)) == 0);	\
-} while(0)
-
-#define ERTS_VBUMP_ALL_REDS_INTERNAL(p, fcalls)				\
-do {									\
-    if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) {				\
-	if ((fcalls) > 0)						\
-	    erts_proc_sched_data((p))->virtual_reds += (fcalls);	\
-	(fcalls) = 0;							\
-    }									\
-    else {								\
-	if ((fcalls) > -CONTEXT_REDS)					\
-	    erts_proc_sched_data((p))->virtual_reds			\
-		+= ((fcalls) - (-CONTEXT_REDS));			\
-	(fcalls) = -CONTEXT_REDS;					\
-    }									\
-} while(0)
-
-#define ERTS_VBUMP_ALL_REDS(p) \
-    ERTS_VBUMP_ALL_REDS_INTERNAL((p), (p)->fcalls)
 
 #define BUMP_REDS(p, gc) do {			   \
      ASSERT(p);		 			   \
@@ -106,6 +136,13 @@ do {									\
      } 						   \
 } while(0)
 
+#define BUMP_ALL_REDS(p) do {			\
+    if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) 	\
+	(p)->fcalls = 0; 			\
+    else 					\
+	(p)->fcalls = -CONTEXT_REDS;		\
+    ASSERT(ERTS_BIF_REDS_LEFT((p)) == 0);	\
+} while(0)
 
 #define ERTS_VBUMP_REDS(p, reds)					\
 do {									\
@@ -134,6 +171,21 @@ do {									\
     }									\
 } while(0)
 
+#define ERTS_VBUMP_ALL_REDS_INTERNAL(p, fcalls)				\
+do {									\
+    if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) {				\
+	if ((fcalls) > 0)						\
+	    erts_proc_sched_data((p))->virtual_reds += (fcalls);	\
+	(fcalls) = 0;							\
+    }									\
+    else {								\
+	if ((fcalls) > -CONTEXT_REDS)					\
+	    erts_proc_sched_data((p))->virtual_reds			\
+		+= ((fcalls) - (-CONTEXT_REDS));			\
+	(fcalls) = -CONTEXT_REDS;					\
+    }									\
+} while(0)
+
 #define ERTS_VBUMP_LEAVE_REDS_INTERNAL(P, Reds, FCalls)			\
     do {								\
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF((P))) {			\
@@ -153,15 +205,16 @@ do {									\
 	}								\
     } while (0)
 
-#define ERTS_VBUMP_LEAVE_REDS(P, Reds)					\
+#endif
+
+#define ERTS_VBUMP_ALL_REDS(p) \
+    ERTS_VBUMP_ALL_REDS_INTERNAL((p), (p)->fcalls)
+
+#define ERTS_VBUMP_LEAVE_REDS(P, Reds) \
     ERTS_VBUMP_LEAVE_REDS_INTERNAL(P, Reds, (P)->fcalls)
 
-#define ERTS_REDS_LEFT(p, FCalls)					\
-  (ERTS_PROC_GET_SAVED_CALLS_BUF((p))					\
-   ? ((FCalls) > -CONTEXT_REDS ? ((FCalls) - (-CONTEXT_REDS)) : 0)	\
-   : ((FCalls) > 0 ? (FCalls) : 0))
-
-#define ERTS_BIF_REDS_LEFT(p) ERTS_REDS_LEFT(p, p->fcalls)
+#define ERTS_BIF_REDS_LEFT(p) \
+    ERTS_REDS_LEFT(p, p->fcalls)
 
 #define BIF_RET2(x, gc) do {			\
     BUMP_REDS(BIF_P, (gc));			\
@@ -186,7 +239,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED1(Proc, Reason, Bif, A0)		\
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
@@ -195,7 +248,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED2(Proc, Reason, Bif, A0, A1)	\
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
@@ -205,7 +258,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED3(Proc, Reason, Bif, A0, A1, A2)	\
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
@@ -229,7 +282,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED1(Ret, Proc, Reason, Bif, A0) \
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
@@ -238,7 +291,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED2(Ret, Proc, Reason, Bif, A0, A1) \
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
@@ -248,7 +301,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED3(Ret, Proc, Reason, Bif, A0, A1, A2) \
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = &(Bif)->info.mfa;                         \
     reg[0] = (Eterm) (A0);					\
@@ -267,7 +320,7 @@ do {						\
 
 #define ERTS_BIF_PREP_TRAP1(Ret, Trap, Proc, A0)		\
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->arity = 1;						\
     reg[0] = (Eterm) (A0);					\
     (Proc)->i = (BeamInstr*) ((Trap)->addressv[erts_active_code_ix()]); \
@@ -277,7 +330,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP2(Ret, Trap, Proc, A0, A1)		\
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->arity = 2;						\
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
@@ -288,7 +341,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP3(Ret, Trap, Proc, A0, A1, A2)	\
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->arity = 3;						\
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
@@ -300,7 +353,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP4(Ret, Trap, Proc, A0, A1, A2, A3)	\
 do {								\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->arity = 4;						\
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
@@ -313,7 +366,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP3_NO_RET(Trap, Proc, A0, A1, A2)\
 do {							\
-    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->registers->x_reg_array.d;	\
     (Proc)->arity = 3;					\
     reg[0] = (Eterm) (A0);		\
     reg[1] = (Eterm) (A1);		\
@@ -330,7 +383,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP1(Trap_, p, A0) do {				\
-      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->registers->x_reg_array.d;	\
       (p)->arity = 1;						\
       reg[0] = (A0);						\
       (p)->i = (BeamInstr*) ((Trap_)->addressv[erts_active_code_ix()]); \
@@ -339,7 +392,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP2(Trap_, p, A0, A1) do {			\
-      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->registers->x_reg_array.d;	\
       (p)->arity = 2;						\
       reg[0] = (A0);						\
       reg[1] = (A1);						\
@@ -349,7 +402,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP3(Trap_, p, A0, A1, A2) do {			\
-      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->registers->x_reg_array.d;	\
       (p)->arity = 3;						\
       reg[0] = (A0);						\
       reg[1] = (A1);						\
@@ -360,7 +413,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP4(Trap_, p, A0, A1, A2, A3) do {		\
-      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->registers->x_reg_array.d;	\
       (p)->arity = 4;						\
       reg[0] = (A0);						\
       reg[1] = (A1);						\
@@ -490,6 +543,7 @@ BIF_RETTYPE
 erts_schedule_bif(Process *proc,
 		  Eterm *argv,
 		  BeamInstr *i,
+		  ErtsCodeMFA *mfa,
 		  ErtsBifFunc dbf,
 		  ErtsSchedType sched_type,
 		  Eterm mod,
@@ -500,6 +554,7 @@ ERTS_GLB_INLINE BIF_RETTYPE
 erts_reschedule_bif(Process *proc,
 		    Eterm *argv,
 		    BeamInstr *i,
+		    ErtsCodeMFA *mfa,
 		    ErtsBifFunc dbf,
 		    ErtsSchedType sched_type);
 
@@ -509,10 +564,11 @@ ERTS_GLB_INLINE BIF_RETTYPE
 erts_reschedule_bif(Process *proc,
 		    Eterm *argv,
 		    BeamInstr *i,
+		    ErtsCodeMFA *mfa,
 		    ErtsBifFunc dbf,
 		    ErtsSchedType sched_type)
 {
-    return erts_schedule_bif(proc, argv, i, dbf, sched_type,
+    return erts_schedule_bif(proc, argv, i, mfa, dbf, sched_type,
 			     THE_NON_VALUE, THE_NON_VALUE, -1);
 }
 
@@ -569,3 +625,6 @@ nbif_impl_hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (NBIF_ALIST)		\
 #include "erl_bif_table.h"
 
 #endif
+
+#undef HIPE_WRAPPER_BIF_DISABLE_GC
+#define HIPE_WRAPPER_BIF_DISABLE_GC(A,B)

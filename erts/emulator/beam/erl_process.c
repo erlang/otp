@@ -5785,16 +5785,14 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
                     Uint64 time_stamp)
 {
     esdp->timer_wheel = NULL;
-    erts_bits_init_state(&esdp->erl_bits_state);
     esdp->match_pseudo_process = NULL;
     esdp->free_process = NULL;
-    esdp->x_reg_array =
-	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
-					   ERTS_X_REGS_ALLOCATED *
-					   sizeof(Eterm));
-    esdp->f_reg_array =
-	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
-					   MAX_REG * sizeof(FloatDef));
+    esdp->registers =
+        erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
+                                           sizeof(ErtsSchedulerRegisters));
+
+    erts_bits_init_state(&esdp->registers->aux_regs.d.erl_bits_state);
+
     esdp->run_queue = runq;
     if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix)) {
 	esdp->no = 0;
@@ -6499,10 +6497,17 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
     int enqueue; /* < 0 -> use proxy */
     ErtsRunQueue* runq;
 
+#ifndef BEAMASM
     ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC
                       |ERTS_PSFLG_DIRTY_CPU_PROC))
            || (BeamIsOpCode(*p->i, op_call_nif_WWW)
                || BeamIsOpCode(*p->i, op_call_bif_W)));
+#else
+    ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC
+                      |ERTS_PSFLG_DIRTY_CPU_PROC))
+           || (*p->i == op_call_nif_WWW
+               || *p->i == op_call_bif_W));
+#endif
 
     a = state;
 
@@ -8492,7 +8497,7 @@ sched_thread_func(void *vesdp)
     erts_alcu_sched_spec_data_init(esdp);
     erts_ets_sched_spec_data_init(esdp);
 
-    process_main(esdp->x_reg_array, esdp->f_reg_array);
+    process_main(esdp->registers);
 
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
@@ -9258,6 +9263,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     int is_normal_sched;
 
     ERTS_MSACC_DECLARE_CACHE();
+
+    ASSERT(calls >= 0);
 
 #ifdef USE_VM_PROBES
     if (p != NULL && DTRACE_ENABLED(process_unscheduled)) {
@@ -12535,7 +12542,10 @@ delete_process(Process* p)
     scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
 
     if (scb) {
+#ifndef BEAMASM
 	p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
+#endif
+
         erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
     }
 

@@ -75,6 +75,7 @@ GDB=
 GDBBP=
 GDBARGS=
 TYPE=
+FLAVOR=
 debug=
 run_valgrind=no
 run_rr=no
@@ -222,8 +223,14 @@ while [ $# -gt 0 ]; do
 	    ;;
         "-emu_type")
             shift
-            cargs="$cargs -$1"
+            cargs="$cargs -emu_type $1"
             TYPE=.$1
+            shift
+            ;;
+        "-emu_flavor")
+            shift
+            cargs="$cargs -emu_flavor $1"
+            FLAVOR=$1
             shift
             ;;
 	"-rr")
@@ -256,7 +263,12 @@ EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
-EMU_NAME=`$EXEC -emu_name_exit`
+if [ "x$FLAVOR" = "x" ]; then
+   EMU_NAME=`$EXEC -emu_name_exit`
+else
+    EMU_NAME=`$EXEC -emu_name_exit -emu_flavor $FLAVOR`
+    xargs="$xargs -emu_flavor $FLAVOR"
+fi
 
 if [ $skip_erlexec = yes ]; then
     emu_xargs=`echo $xargs | sed "s|+|-|g"`
@@ -293,10 +305,11 @@ if [ "x$GDB" = "x" ]; then
 	    valgrind_log=
 	else
 	    if [ $valint -gt 3004 ]; then
-		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
+                valgrind_log_file="$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
 	    else
-		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
+                valgrind_log_file="$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
 	    fi
+	    valgrind_log="$log_file_prefix$valgrind_log_file"
 	fi
 	# Add default flags
 	vgflags=$VALGRIND_MISC_FLAGS
@@ -329,9 +342,22 @@ if [ "x$GDB" = "x" ]; then
 	    taskset1=
 	    sched_arg=
 	fi
-
-	exec $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
-
+        if [ $EMU_NAME = "beam.valgrind.asm" ]; then
+            # Always enable `perf` support as we use the same symbol map
+            emu_xargs="$emu_xargs -JPperf true "
+            set -m
+	    $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" &
+            VG_PID=$!
+            fg
+            VG_EXIT=$?
+            set +m
+            if [ -f /tmp/perf-$VG_PID.map ]; then
+                $ERL_TOP/scripts/valgrind_beamasm_update.escript $valgrind_log_file /tmp/perf-$VG_PID.map
+            fi
+            exit $VG_EXIT
+        else
+            exec $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
+        fi
     elif [ $run_rr = yes ]; then
         if [ $1 = replay ]; then
             shift

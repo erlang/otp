@@ -372,11 +372,13 @@ BIF_RETTYPE integer_to_binary_1(BIF_ALIST_1)
     res = integer_to_binary(BIF_P, BIF_ARG_1, 10);
 
     if (is_non_value(res)) {
+        ErtsCodeMFA *mfa = &BIF_TRAP_EXPORT(BIF_integer_to_binary_1)->info.mfa;
         Eterm args[1];
         args[0] = BIF_ARG_1;
         return erts_schedule_bif(BIF_P,
                                  args,
                                  BIF_I,
+                                 mfa,
                                  integer_to_binary_1,
                                  ERTS_SCHED_DIRTY_CPU,
                                  am_erlang,
@@ -404,12 +406,14 @@ BIF_RETTYPE integer_to_binary_2(BIF_ALIST_2)
     res = integer_to_binary(BIF_P, BIF_ARG_1, base);
 
     if (is_non_value(res)) {
+        ErtsCodeMFA *mfa = &BIF_TRAP_EXPORT(BIF_integer_to_binary_2)->info.mfa;
         Eterm args[2];
         args[0] = BIF_ARG_1;
         args[1] = BIF_ARG_2;
         return erts_schedule_bif(BIF_P,
                                  args,
                                  BIF_I,
+                                 mfa,
                                  integer_to_binary_2,
                                  ERTS_SCHED_DIRTY_CPU,
                                  am_erlang,

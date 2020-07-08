@@ -34,7 +34,11 @@
 #define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
 
 /* Minimum size for NIFs and SNIFs, in words. */
-#define BEAM_NATIVE_MIN_FUNC_SZ 4
+#ifdef BEAMASM
+#  define BEAM_NATIVE_MIN_FUNC_SZ 30
+#else
+#  define BEAM_NATIVE_MIN_FUNC_SZ 4
+#endif
 
 #define MD5_SIZE 16
 

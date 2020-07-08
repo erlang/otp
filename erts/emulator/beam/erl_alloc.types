@@ -144,7 +144,6 @@ type	FUN_TABLE	STANDARD	CODE		fun_tab
 type	DIST_TABLE	STANDARD	SYSTEM		dist_tab
 type	NODE_TABLE	STANDARD	SYSTEM		node_tab
 type	ATOM_TABLE	LONG_LIVED	ATOM		atom_tab
-type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
 type	MODULE_TABLE	LONG_LIVED	CODE		module_tab
 type	TAINT		LONG_LIVED	CODE		taint_list
 type	MODULE_REFS	STANDARD	CODE		module_refs
@@ -291,10 +290,6 @@ type	PERSISTENT_TERM_TMP SHORT_LIVED	SYSTEM		persistent_term_tmp_table
 
 type	T2B_VEC	  	SHORT_LIVED	PROCESSES	term_to_binary_vector 
 
-#
-# Types used for special emulators
-#
-
 type	ETHR_STD	STANDARD	SYSTEM		ethread_standard
 type	ETHR_SL		SHORT_LIVED	SYSTEM		ethread_short_lived
 type	ETHR_LL		LONG_LIVED	SYSTEM		ethread_long_lived
@@ -303,6 +298,21 @@ type	SYS_MSG_Q	SHORT_LIVED	PROCESSES	system_messages_queue
 type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
 type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
 type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
+
+#
+# Types used for special emulators
+#
+
++if beamasm
+type	EXPORT		EXEC		CODE		export_entry
+type	EXPORT_TABLE	EXEC		CODE		export_tab
+type	NIF_FINISH	EXEC		CODE		nif_finish
+type	CODE		EXEC		CODE		code
++else
+type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
+type	CODE		LONG_LIVED	CODE		code
+type	EXPORT		LONG_LIVED	CODE		export_entry
++endif
 
 +if hipe
 
@@ -328,7 +338,6 @@ type	DEBUG	        SHORT_LIVED	SYSTEM          debugging
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
 type	MONITOR_EXT	STANDARD	PROCESSES	monitor_extended
 type	LINK_EXT	STANDARD	PROCESSES	link_extended
-type	CODE		LONG_LIVED	CODE		code
 type	LITERAL		LITERAL 	CODE		literal
 type	LITERAL_REF	SHORT_LIVED	CODE		literal_area_ref
 type	PURGE_DATA	SHORT_LIVED	CODE		purge_data
@@ -337,7 +346,6 @@ type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data
 
 type	NFUNC_TRAP_WRAPPER	STANDARD	PROCESSES	nfunc_trap_wrapper
-type	EXPORT		LONG_LIVED	CODE		export_entry
 type	MONITOR		FIXED_SIZE	PROCESSES	monitor
 type	MONITOR_SUSPEND	STANDARD	PROCESSES	monitor_suspend
 type	LINK		FIXED_SIZE	PROCESSES	link

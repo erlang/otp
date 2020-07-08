@@ -1,0 +1,317 @@
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Ericsson AB 2020-2020. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
+ */
+#include <algorithm>
+#include "beam_asm.hpp"
+
+using namespace asmjit;
+
+extern "C"
+{
+#include "erl_map.h"
+#include "beam_common.h"
+}
+
+void BeamModuleAssembler::emit_ensure_map(const ArgVal &map) {
+    Label entry = a.newLabel(), next = a.newLabel(), badmap = a.newLabel();
+
+    a.align(kAlignCode, 8);
+    a.bind(entry);
+
+    mov_arg(ARG1, map);
+    emit_is_boxed(badmap, ARG1);
+    /* We use ARG1 in the badmap branch, so use ARG2 below */
+    x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG1);
+    a.mov(ARG2, emit_boxed_val(boxed_ptr));
+    a.and_(ARG2, _TAG_HEADER_MASK);
+    a.cmp(ARG2, _TAG_HEADER_MAP);
+    a.je(next);
+
+    a.bind(badmap);
+    {
+        a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), ARG1);
+        emit_error(entry, BADMAP);
+    }
+
+    a.bind(next);
+}
+
+void BeamGlobalAssembler::emit_new_map_shared() {
+    emit_function_preamble();
+
+    emit_heavy_swapout();
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    abs_call<5>(erts_gc_new_map);
+    emit_heavy_swapin();
+
+    emit_function_postamble();
+    a.ret();
+}
+
+void BeamModuleAssembler::emit_new_map(const ArgVal &Dst,
+                                       const ArgVal &Live,
+                                       const std::vector<ArgVal> &args) {
+    Label data = embed_vararg_rodata(args);
+
+    mov_imm(ARG3, Live.getValue());
+    mov_imm(ARG4, args.size());
+    a.lea(ARG5, x86::qword_ptr(data));
+    aligned_call(ga->get_new_map_shared());
+
+    mov_arg(Dst, RET);
+}
+
+void BeamGlobalAssembler::emit_i_new_small_map_lit_shared() {
+    emit_function_preamble();
+
+    emit_heavy_swapout();
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    abs_call<5>(erts_gc_new_small_map_lit);
+    emit_heavy_swapin();
+
+    emit_function_postamble();
+    a.ret();
+}
+
+void BeamModuleAssembler::emit_i_new_small_map_lit(
+        const ArgVal &Dst,
+        const ArgVal &Live,
+        const ArgVal &Keys,
+        const std::vector<ArgVal> &args) {
+    Label data = embed_vararg_rodata(args);
+
+    ASSERT(Keys.isLiteral());
+    mov_arg(ARG3, Keys);
+    mov_imm(ARG4, Live.getValue());
+    a.lea(ARG5, x86::qword_ptr(data));
+
+    aligned_call(ga->get_i_new_small_map_lit_shared());
+
+    mov_arg(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
+                                                 const ArgVal &Src,
+                                                 const ArgVal &Key,
+                                                 const ArgVal &Dst) {
+    mov_arg(ARG1, Src);
+    mov_arg(ARG2, Key);
+    abs_call<2>(get_map_element);
+    a.cmp(RET, imm(THE_NON_VALUE));
+    a.je(labels[Fail.getValue()]);
+    mov_arg(Dst, RET);
+}
+
+static Uint i_get_map_elements(Eterm map,
+                               Eterm *reg,
+                               Eterm *E,
+                               Uint n,
+                               BeamInstr *fs) {
+    Uint sz;
+
+    /* This instruction assumes Arg1 is a map, i.e. that it follows a test
+     * is_map if needed. */
+
+    if (is_flatmap(map)) {
+        flatmap_t *mp;
+        Eterm *ks;
+        Eterm *vs;
+
+        mp = (flatmap_t *)flatmap_val(map);
+        sz = flatmap_get_size(mp);
+
+        if (sz == 0) {
+            return 0;
+        }
+
+        ks = flatmap_get_keys(mp);
+        vs = flatmap_get_values(mp);
+
+        while (sz) {
+            if (EQ((Eterm)fs[0], *ks)) {
+                PUT_TERM_REG(*vs, fs[1]);
+
+                n--;
+                fs += 3;
+
+                /* no more values to fetch, we are done */
+                if (n == 0) {
+                    return 1;
+                }
+            }
+
+            ks++, sz--, vs++;
+        }
+        return 0;
+    } else {
+        ASSERT(is_hashmap(map));
+
+        while (n--) {
+            const Eterm *v;
+            Uint32 hx;
+
+            hx = fs[2];
+            ASSERT(hx == hashmap_make_hash((Eterm)fs[0]));
+
+            if ((v = erts_hashmap_get(hx, (Eterm)fs[0], map)) == NULL) {
+                return 0;
+            }
+
+            PUT_TERM_REG(*v, fs[1]);
+            fs += 3;
+        }
+
+        return 1;
+    }
+}
+
+#undef PUT_TERM_REG
+
+void BeamModuleAssembler::emit_i_get_map_elements(
+        const ArgVal &Fail,
+        const ArgVal &Src,
+        const std::vector<ArgVal> &args) {
+    Label data = embed_vararg_rodata(args);
+
+    mov_arg(ARG1, Src);
+    mov_imm(ARG4, args.size() / 3);
+
+    a.lea(ARG5, x86::qword_ptr(data));
+    load_x_reg_array(ARG2);
+    a.mov(ARG3, E);
+    abs_call<5>(i_get_map_elements);
+    a.test(RET, RET);
+
+    a.je(labels[Fail.getValue()]);
+}
+
+void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
+                                                      const ArgVal &Src,
+                                                      const ArgVal &Key,
+                                                      const ArgVal &Hx,
+                                                      const ArgVal &Dst) {
+    mov_arg(ARG1, Src);
+    mov_arg(ARG2, Key);
+    mov_arg(ARG3, Hx);
+    abs_call<3>(get_map_element_hash);
+    a.cmp(RET, imm(THE_NON_VALUE));
+    a.je(labels[Fail.getValue()]);
+    mov_arg(Dst, RET);
+}
+
+/* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector. */
+void BeamGlobalAssembler::emit_update_map_assoc_shared() {
+    emit_function_preamble();
+
+    emit_heavy_swapout();
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    abs_call<5>(erts_gc_update_map_assoc);
+    emit_heavy_swapin();
+
+    emit_function_postamble();
+    a.ret();
+}
+
+void BeamModuleAssembler::emit_update_map_assoc(
+        const ArgVal &Src,
+        const ArgVal &Dst,
+        const ArgVal &Live,
+        const std::vector<ArgVal> &args) {
+    Label data = embed_vararg_rodata(args);
+
+    mov_arg(getXRef(Live.getValue()), Src);
+
+    mov_imm(ARG3, Live.getValue());
+    mov_imm(ARG4, args.size());
+    a.lea(ARG5, x86::qword_ptr(data));
+    aligned_call(ga->get_update_map_assoc_shared());
+
+    mov_arg(Dst, RET);
+}
+
+/* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector.
+ *
+ * Result is returned in RET, error is indicated by ZF. */
+void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
+    emit_function_preamble();
+
+    emit_heavy_swapout();
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    abs_call<5>(erts_gc_update_map_exact);
+    emit_heavy_swapin();
+    a.cmp(RET, imm(THE_NON_VALUE));
+
+    emit_function_postamble();
+    a.ret();
+}
+
+/* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector.
+ *
+ * Does not return on error. */
+void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
+    Label error = a.newLabel();
+
+    emit_function_preamble();
+
+    emit_heavy_swapout();
+    a.mov(ARG1, c_p);
+    load_x_reg_array(ARG2);
+    abs_call<5>(erts_gc_update_map_exact);
+    emit_heavy_swapin();
+    a.cmp(RET, imm(THE_NON_VALUE));
+    a.je(error);
+
+    emit_function_postamble();
+    a.ret();
+
+    a.bind(error);
+    {
+        a.sub(ARG4, ARG4);
+        emit_handle_error();
+    }
+}
+
+void BeamModuleAssembler::emit_update_map_exact(
+        const ArgVal &Src,
+        const ArgVal &Fail,
+        const ArgVal &Dst,
+        const ArgVal &Live,
+        const std::vector<ArgVal> &args) {
+    Label data = embed_vararg_rodata(args);
+
+    /* We _KNOW_ Src is a map */
+    mov_arg(getXRef(Live.getValue()), Src);
+
+    mov_imm(ARG3, Live.getValue());
+    mov_imm(ARG4, args.size());
+    a.lea(ARG5, x86::qword_ptr(data));
+
+    if (Fail.getValue() != 0) {
+        aligned_call(ga->get_update_map_exact_guard_shared());
+        a.je(labels[Fail.getValue()]);
+    } else {
+        aligned_call(ga->get_update_map_exact_body_shared());
+    }
+
+    mov_arg(Dst, RET);
+}

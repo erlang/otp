@@ -180,12 +180,17 @@ int erts_has_code_write_permission(void);
            (is_atom((MFA)->function) || is_nil((MFA)->function)) &&     \
            (((MFA)->arity >= 0 && (MFA)->arity < 1024) || (MFA)->arity == -1))
 
+extern erts_atomic32_t the_active_code_index;
+extern erts_atomic32_t the_staging_code_index;
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE
 BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci)
 {
+#ifndef BEAMASM
     ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+#endif
     ASSERT_MFA(&ci->mfa);
     return (BeamInstr*)(ci + 1);
 }
@@ -194,7 +199,9 @@ ERTS_GLB_INLINE
 ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I)
 {
     ErtsCodeInfo *ci = ((ErtsCodeInfo *)(((char *)(I)) - sizeof(ErtsCodeInfo)));
+#ifndef BEAMASM
     ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+#endif
     ASSERT_MFA(&ci->mfa);
     return ci;
 }
@@ -213,9 +220,6 @@ ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I)
     ASSERT_MFA(mfa);
     return mfa;
 }
-
-extern erts_atomic32_t the_active_code_index;
-extern erts_atomic32_t the_staging_code_index;
 
 ERTS_GLB_INLINE ErtsCodeIndex erts_active_code_ix(void)
 {

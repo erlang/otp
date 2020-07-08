@@ -1156,3 +1156,6 @@ raw_raise() {
 i_lambda_error(Dummy) {
 
 }
+
+padding() {
+}

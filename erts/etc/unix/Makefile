@@ -30,7 +30,9 @@ opt debug lcnt: etc
 etc: etp-commands
 
 etp-commands: etp-commands.in
-	$(gen_verbose)sed -e 's:@ERL_TOP@:${ERL_TOP}:g' \
+	$(gen_verbose)sed \
+	-e 's:@ERL_TOP@:${ERL_TOP}:g' \
+	-e 's:@TARGET@:${TARGET}:g' \
 	etp-commands.in > etp-commands
 
 .PHONY: docs

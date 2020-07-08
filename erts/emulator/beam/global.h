@@ -1166,7 +1166,7 @@ void print_pass_through(int, byte*, int);
 /* beam_emu.c */
 int catchlevel(Process*);
 void init_emulator(void);
-void process_main(Eterm* x_reg_array, FloatDef* f_reg_array);
+void process_main(ErtsSchedulerRegisters *registers);
 void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
@@ -1196,6 +1196,11 @@ extern int erts_no_line_info;
 extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
 extern int erts_compat_rel;
+
+#ifdef BEAMASM
+extern int erts_asm_dump;
+#endif
+
 void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
@@ -1448,12 +1453,16 @@ Eterm erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_mixed_times(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_mixed_div(Process* p, Eterm arg1, Eterm arg2);
+
+int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r);
 Eterm erts_int_div(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_int_rem(Process* p, Eterm arg1, Eterm arg2);
-Eterm erts_band(Process* p, Eterm arg1, Eterm arg2);
-Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2);
+Eterm erts_bsr(Process* p, Eterm arg1, Eterm arg2);
+Eterm erts_bsl(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bnot(Process* p, Eterm arg);
+Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2);
+Eterm erts_band(Process* p, Eterm arg1, Eterm arg2);
 
 Eterm erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live);

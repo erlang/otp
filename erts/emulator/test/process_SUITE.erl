@@ -164,9 +164,9 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(Func, Config)
   when Func =:= processes_default_tab;
        Func =:= processes_this_tab ->
-    case erlang:system_info(debug_compiled) of
-        true ->
-            {skip, "Don't run in debug"};
+    case erlang:system_info(build_type) of
+        BT when BT =:= debug; BT =:= valgrind ->
+            {skip, "Don't run in debug/valgrind"};
         false ->
             [{testcase, Func} | Config]
     end;
@@ -1703,7 +1703,8 @@ processes_large_tab_test(Config) ->
 	_ ->
 	    ProcTabSize0 div 4
     end,
-    ProcTabSize2 = case erlang:system_info(debug_compiled) of
+    BT = erlang:system_info(build_type),
+    ProcTabSize2 = case (BT =:= debug) or (BT =:= valgrind) of
 	true -> ProcTabSize1 - 500000;
 	false -> ProcTabSize1
     end,
