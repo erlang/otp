@@ -188,7 +188,7 @@ end_per_suite(Config0) ->
 init_per_group(inet_backend_default = _GroupName, Config) ->
     [{socket_create_opts, []} | Config];
 init_per_group(inet_backend_inet = _GroupName, Config) ->
-    case explicit_inet_backend() of
+    case ?EXPLICIT_INET_BACKEND() of
         true ->
             %% The environment trumps us,
             %% so only the default group should be run!
@@ -197,7 +197,7 @@ init_per_group(inet_backend_inet = _GroupName, Config) ->
             [{socket_create_opts, [{inet_backend, inet}]} | Config]
     end;
 init_per_group(inet_backend_socket = _GroupName, Config) ->
-    case explicit_inet_backend() of
+    case ?EXPLICIT_INET_BACKEND() of
         true ->
             %% The environment trumps us,
             %% so only the default group should be run!
@@ -274,18 +274,6 @@ init_per_group(t_local = _GroupName, Config) ->
 init_per_group(_GroupName, Config) ->
     Config.
 
-explicit_inet_backend() ->
-    case application:get_all_env(kernel) of
-        Env when is_list(Env) ->
-            case lists:keysearch(inet_backend, 1, Env) of
-                {value, {inet_backend, _}} ->
-                    true;
-                _ ->
-                    false
-            end;
-        _ ->
-            false
-    end.
 
 is_local_socket_supported() ->
     socket:is_supported(local).

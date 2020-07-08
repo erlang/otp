@@ -23,7 +23,10 @@
 -export([init_per_suite/1,
          end_per_suite/1]).
 -export([tc_try/3]).
--export([inet_backend_opts/1]).
+-export([listen/3,
+         connect/4, connect/5,
+         inet_backend_opts/1,
+         explicit_inet_backend/0]).
 -export([f/2,
          print/1, print/2]).
 -export([good_hosts/1,
@@ -1681,12 +1684,39 @@ proxy_call(F, Timeout, Default)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+listen(Config, Port, Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    gen_tcp:listen(Port, InetBackendOpts ++ Opts).
+
+connect(Config, Host, Port, Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts).
+
+connect(Config, Host, Port, Opts, Timeout) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts, Timeout).
+
+
 inet_backend_opts(Config) when is_list(Config) ->
     case lists:keysearch(socket_create_opts, 1, Config) of
         {value, {socket_create_opts, InetBackendOpts}} ->
             InetBackendOpts;
         false ->
             []
+    end.
+
+
+explicit_inet_backend() ->
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keysearch(inet_backend, 1, Env) of
+                {value, {inet_backend, _}} ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
     end.
 
 
