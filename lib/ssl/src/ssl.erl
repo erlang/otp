@@ -444,7 +444,8 @@
                                 {client_renegotiation, client_renegotiation()}|
                                 {signature_algs, server_signature_algs()} |
                                 {session_tickets, server_session_tickets()} |
-                                {anti_replay, anti_replay()}.
+                                {anti_replay, anti_replay()} |
+                                {cookie, cookie()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()].
 -type server_cafile()            :: file:filename().
@@ -463,6 +464,7 @@
 -type honor_cipher_order()       :: boolean().
 -type honor_ecc_order()          :: boolean().
 -type client_renegotiation()     :: boolean().
+-type cookie()                   :: boolean().
 %% -------------------------------------------------------------------------------------------------------
 -type prf_random() :: client_random | server_random. % exported
 -type protocol_extensions()  :: #{renegotiation_info => binary(),

@@ -1270,6 +1270,20 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       </datatype>
 
       <datatype>
+	<name name="cookie"/>
+	<desc><p>If <c>true</c> (default), the server sends a cookie extension in its
+	HelloRetryRequest messages.</p>
+	<note><p>The cookie extension has two main purposes. It allows the server to
+	force the client to demonstrate reachability at their apparent network
+	address (thus providing a measure of DoS protection).  This is primarily
+	useful for non-connection-oriented transports. It also allows to offload the
+	server's state to the client.
+	The cookie extension is enabled by default as it is a mandatory extension
+	in RFC8446.</p></note>
+	</desc>
+      </datatype>
+
+      <datatype>
         <name name="connection_info"/>
       </datatype>
 
