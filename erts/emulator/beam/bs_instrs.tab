@@ -618,7 +618,9 @@ bs_add(Fail, Src1, Src2, Unit, Dst) {
             $BS_SAFE_MUL(Arg2, unit, $SYSTEM_LIMIT($Fail), Op1);
             Op1 += Arg1;
 
+#ifdef ARCH_32
         store_bs_add_result:
+#endif
             if (Op1 <= MAX_SMALL) {
                 Op1 = make_small(Op1);
             } else {
@@ -640,6 +642,18 @@ bs_add(Fail, Src1, Src2, Unit, Dst) {
         }
         $BADARG($Fail);
     } else {
+#ifdef ARCH_64
+        /* The size must fit into a small on 64-bit platforms, which can't
+         * happen if either operand is a bignum. */
+        if (((is_small(Op1) && signed_val(Op1) >= 0) ||
+             (is_big(Op1) && !big_sign(Op1))) &&
+            ((is_small(Op2) && signed_val(Op2) >= 0) ||
+             (is_big(Op2) && !big_sign(Op2)))) {
+            $SYSTEM_LIMIT($Fail);
+        } else {
+            $BADARG($Fail);
+        }
+#else
         Uint a;
         Uint b;
         Uint c;
@@ -661,7 +675,8 @@ bs_add(Fail, Src1, Src2, Unit, Dst) {
 
         if (!term_to_Uint(Op1, &a)) {
             if (a == BADARG) {
-                $BADARG($Fail);
+                c_p->freason = a;
+                $FAIL_HEAD_OR_BODY($Fail);
             }
             if (!term_to_Uint(Op2, &b)) {
                 c_p->freason = b;
@@ -687,6 +702,7 @@ bs_add(Fail, Src1, Src2, Unit, Dst) {
             $SYSTEM_LIMIT($Fail);
         }
         goto store_bs_add_result;
+#endif
     }
     /* No fallthrough */
     ASSERT(0);
@@ -860,7 +876,6 @@ bs_start_match.execute(Fail, Live, Slots, Dst) {
         ms->save_offset[0] = ms->mb.offset;
         if (ERTS_UNLIKELY(actual_slots < slots)) {
             ErlBinMatchState* expanded;
-            Uint live = $Live;
             Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
             $GC_TEST_PRESERVE(wordsneeded, live, context);
             ms = (ErlBinMatchState *) boxed_val(context);
