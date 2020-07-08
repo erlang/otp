@@ -232,6 +232,10 @@ footer       { }
  text-align: center;
 }
 
+.doc-svg {
+    width: 100%;
+}
+
 .doc-table, .doc-image{
  min-width: 50%;
  margin: 0 auto;

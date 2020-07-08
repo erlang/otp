@@ -477,9 +477,9 @@ link_or_image(Str, Type) ->
                         {yes, SeeAlsoKey} ->
                             {delayed, link, SeeAlsoKey, text(Text), Cont2}
                     end;
- 		{image, Image, Title, Cont2} ->
+		{image, Image, _Title, Cont2} ->
  		    {["<image file=\"", text(Image), "\"><icaption>",
-		      text(Title), "</icaption></image>"],
+		      text(Text), "</icaption></image>"],
 		     Cont2};
 		{delayed, text, Cont2} ->
  		    {delayed, Type, Text, Text, Cont2};

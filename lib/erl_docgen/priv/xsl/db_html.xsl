@@ -1319,8 +1319,12 @@
 
     <div class="doc-image-wrapper">
       <xsl:choose>
+        <xsl:when test="substring-after(@file,'.') = 'svg'">
+          <object alt="IMAGE MISSING" data="{@file}" class="doc-svg doc-image">
+          </object>
+        </xsl:when>
 	<xsl:when test="@width">
-	  <img alt="IMAGE MISSING" width="{@width}" src="{@file}" class="doc-image"/>
+	  <img alt="IMAGE MISSING" width="{@width}" src="{substring-after(@file,'.')}" class="doc-image"/>
 	</xsl:when>
 	<xsl:otherwise>
 	  <img alt="IMAGE MISSING" src="{@file}" class="doc-image"/>
@@ -2531,6 +2535,17 @@
       </xsl:choose>
     </xsl:variable>
 
+    <xsl:variable name="extension">
+      <xsl:choose>
+        <xsl:when test="substring-after($mod_part,'.') = 'svg'">
+          <xsl:text></xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:text>.html</xsl:text>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
     <xsl:choose>
       <xsl:when test="starts-with(@marker,'#')">
 	<!-- "#Linkpart" -->
@@ -2541,7 +2556,7 @@
         <xsl:choose>
           <xsl:when test="string-length($app_part) > 0">
             <!-- "AppPart:ModPart#Linkpart" -->
-            <span class="bold_code bc-13"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}.html#{$linkpart}');"><xsl:apply-templates/></a></span>
+            <span class="bold_code bc-13"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}{$extension}#{$linkpart}');"><xsl:apply-templates/></a></span>
           </xsl:when>
           <xsl:otherwise>
             <!-- "Filepart#Linkpart (there is no ':' in Filepart) -->
@@ -2561,7 +2576,7 @@
                   <xsl:variable name="app" select="key('mod2app', $mod_part)"/>
 		  <xsl:choose>
 		    <xsl:when test="string-length($app) > 0">
-		      <span class="bold_code bc-14"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$mod_part}.html#{$linkpart}');"><xsl:value-of select="$this"/></a></span>
+		      <span class="bold_code bc-14"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$mod_part}{$extension}#{$linkpart}');"><xsl:value-of select="$this"/></a></span>
 		    </xsl:when>
 		    <xsl:otherwise>
 		      <!-- Unknown application -->
@@ -2576,11 +2591,11 @@
               </xsl:when>
               <xsl:when test="string-length($linkpart) > 0">
                 <!-- Still Filepart#Linkpart (there is no ':' in Filepart) -->
-                <span class="bold_code bc-15"><a href="{$mod_part}.html#{$linkpart}"><xsl:apply-templates/></a></span>
+                <span class="bold_code bc-15"><a href="{$mod_part}{$extension}#{$linkpart}"><xsl:apply-templates/></a></span>
               </xsl:when>
               <xsl:otherwise>
                 <!-- "Filepart#" (there is no ':' in Filepart) -->
-                <span class="bold_code bc-16"><a href="{$mod_part}.html"><xsl:apply-templates/></a></span>
+                <span class="bold_code bc-16"><a href="{$mod_part}{$extension}"><xsl:apply-templates/></a></span>
               </xsl:otherwise>
             </xsl:choose>
           </xsl:otherwise>
@@ -2592,11 +2607,11 @@
 	<xsl:choose>
 	  <xsl:when test="string-length($app_part) > 0">
 	    <!-- "App:Mod" -->
-	    <span class="bold_code bc-18"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}.html');"><xsl:apply-templates/></a></span>
+	    <span class="bold_code bc-18"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}{$extension}');"><xsl:apply-templates/></a></span>
 	  </xsl:when>
 	  <xsl:otherwise>
 	    <!-- "Mod" -->
-	    <span class="bold_code bc-19"><a href="{$mod_part}.html"><xsl:apply-templates/></a></span>
+	    <span class="bold_code bc-19"><a href="{$mod_part}{$extension}"><xsl:apply-templates/></a></span>
 	  </xsl:otherwise>
 	</xsl:choose>
       </xsl:otherwise>
