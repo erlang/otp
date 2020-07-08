@@ -161,21 +161,19 @@ send(Request, Opts) ->
     BinRequest = pack(encode(Request)),
     ok = gen_tcp:send(Socket, BinRequest),
 
-    {ok, BinResponse} = gen_tcp:recv(Socket, 0, Timeout),
+    {ok, <<Len:32/unsigned-big-integer>>} = gen_tcp:recv(Socket, 4, Timeout),
+    {ok, BinResponse} = gen_tcp:recv(Socket, Len, Timeout),
 
     ok = gen_tcp:close(Socket),
 
-    Response = decode(unpack(BinResponse)),
+    Response = decode(BinResponse),
 
     Response.
 
-%% Message packing and unpacking
+%% Message packing
 
 pack(Data) ->
     <<(size(Data)):32/unsigned-big-integer, Data/binary>>.
-
-unpack(<<Len:32/unsigned-big-integer, Data:Len/binary>>) ->
-    Data.
 
 %% SSH Agent message encoding
 
