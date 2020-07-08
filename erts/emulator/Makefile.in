@@ -33,20 +33,24 @@ LIBS = @LIBS@
 Z_LIB=@Z_LIB@
 CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
-OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab \
-beam/ops.tab \
-beam/predicates.tab \
-beam/generators.tab \
-beam/macros.tab \
-beam/instrs.tab \
-beam/arith_instrs.tab \
-beam/bif_instrs.tab \
-beam/bs_instrs.tab \
-beam/float_instrs.tab \
-beam/map_instrs.tab \
-beam/msg_instrs.tab \
-beam/select_instrs.tab \
-beam/trace_instrs.tab \
+
+OPCODE_TABLES = \
+    $(ERL_TOP)/lib/compiler/src/genop.tab \
+    beam/predicates.tab \
+    beam/generators.tab
+
+OPCODE_TABLES += \
+    beam/emu/ops.tab \
+    beam/emu/macros.tab \
+    beam/emu/instrs.tab \
+    beam/emu/arith_instrs.tab \
+    beam/emu/bif_instrs.tab \
+    beam/emu/bs_instrs.tab \
+    beam/emu/float_instrs.tab \
+    beam/emu/map_instrs.tab \
+    beam/emu/msg_instrs.tab \
+    beam/emu/select_instrs.tab \
+    beam/emu/trace_instrs.tab
 
 DEBUG_CFLAGS = @DEBUG_CFLAGS@
 CONFIGURE_CFLAGS = @CFLAGS@
@@ -749,18 +753,28 @@ endif
 
 # Usually the same as the default rule, but certain platforms (e.g. win32) mix
 # different compilers
-$(OBJDIR)/beam_emu.o: beam/beam_emu.c
+$(OBJDIR)/beam_emu.o: beam/emu/beam_emu.c
 	$(V_EMU_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/beam_emu.S: beam/beam_emu.c
+$(OBJDIR)/beam_emu.S: beam/emu/beam_emu.c
 	$(V_EMU_CC) -S -fverbose-asm $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 $(OBJDIR)/%_pg.o: beam/%.c
 	$(V_CC) $(PROFILE_GENERATE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/%_pg.o: beam/emu/%.c
+	$(V_CC) $(PROFILE_GENERATE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
 $(OBJDIR)/%_pu.o: beam/%.c $(PROFILE_USE_DEPS)
 	$(V_CC) $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
+$(OBJDIR)/%_pu.o: beam/emu/%.c $(PROFILE_USE_DEPS)
+	$(V_CC) $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
 $(OBJDIR)/%_pu.S: beam/%.c $(PROFILE_USE_DEPS)
+	$(V_CC) -S -fverbose-asm $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/%_pu.S: beam/emu/%.c $(PROFILE_USE_DEPS)
 	$(V_CC) -S -fverbose-asm $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 $(OBJDIR)/PROFILE: $(BINDIR)/$(PROFILE_EXECUTABLE)
@@ -803,6 +817,9 @@ endif
 # General targets
 #
 $(OBJDIR)/%.o: beam/%.c
+	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/%.o: beam/emu/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 $(OBJDIR)/%.o: $(TARGET)/%.c
@@ -860,17 +877,22 @@ $(ERL_TOP)/lib/%.beam:
 INIT_OBJS = $(OBJDIR)/erl_main.o	$(PRELOAD_OBJ)
 
 PROFILE_OBJS = $(OBJDIR)/beam_emu.o	$(OBJDIR)/erl_process.o
+COMMON_OBJS = \
+    $(OBJDIR)/beam_common.o \
+    $(OBJDIR)/beam_bif_load.o \
+    $(OBJDIR)/beam_bp.o \
+    $(OBJDIR)/beam_catches.o \
+    $(OBJDIR)/beam_debug.o \
+    $(OBJDIR)/beam_load.o \
+    $(OBJDIR)/beam_opcodes.o \
+    $(OBJDIR)/beam_ranges.o \
+    $(OBJDIR)/beam_transform.o \
+    $(OBJDIR)/beam_transform_engine.o \
+    $(OBJDIR)/beam_transform_helpers.o \
+    $(OBJDIR)/code_ix.o
 
-EMU_OBJS = \
-	$(OBJDIR)/beam_opcodes.o \
-	$(OBJDIR)/beam_transform.o \
-	$(OBJDIR)/beam_transform_engine.o \
-	$(OBJDIR)/beam_transform_helpers.o \
-	$(OBJDIR)/beam_load.o		$(OBJDIR)/beam_bif_load.o \
-	$(OBJDIR)/beam_debug.o		$(OBJDIR)/beam_bp.o \
-	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \
-	$(OBJDIR)/beam_ranges.o
 
+EMU_OBJS =
 
 ifeq ($(USE_ESOCK), yes)
 
@@ -950,7 +972,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
 	$(OBJDIR)/erl_io_queue.o	$(OBJDIR)/erl_db_catree.o \
 	$(ESOCK_RUN_OBJS)		$(OBJDIR)/erl_flxctr.o \
-	$(OBJDIR)/erl_nfunc_sched.o $(OBJDIR)/erl_global_literals.o \
+	$(OBJDIR)/erl_nfunc_sched.o \
+	$(OBJDIR)/erl_global_literals.o \
 	$(OBJDIR)/beam_file.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
@@ -1065,7 +1088,9 @@ ifdef HIPE_ENABLED
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
-BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) \
+BASE_OBJS = $(EMU_OBJS)
+
+BASE_OBJS += $(COMMON_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) \
 	$(LTTNG_OBJS) $(DRV_OBJS) $(NIF_OBJS)
 
 PROF_OBJS = $(patsubst %.o,%$(PROFILE_MARKER).o,$(PROFILE_OBJS)) $(BASE_OBJS)
@@ -1218,7 +1243,7 @@ else
 HIPE_SRC=
 endif
 
-BEAM_SRC=$(wildcard beam/*.c)
+BEAM_SRC=$(wildcard beam/*.c) $(wildcard beam/emu/*.c)
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
 ifeq ($(TARGET), win32)

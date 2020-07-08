@@ -44,6 +44,7 @@
 #include "dist.h"
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_common.h"
 
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20
@@ -64,8 +65,6 @@
 #if defined(DEBUG) && 0
 #  define HARDDEBUG 1
 #endif
-
-extern BeamInstr beam_apply[2];
 
 /*
  * Returns number of elements in an array.
@@ -964,7 +963,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
     erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     ErtsGcQuickSanityCheck(p);
     ASSERT(p->stop == p->hend - 1); /* Only allow one continuation pointer. */
-    ASSERT(p->stop[0] == make_cp(beam_apply+1));
+    ASSERT(p->stop[0] == make_cp(BeamCodeNormalExit()));
 
     /*
      * Do it.
@@ -1025,7 +1024,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
 
     p->hend = heap + heap_size;
     p->stop = p->hend - 1;
-    p->stop[0] = make_cp(beam_apply+1);
+    p->stop[0] = make_cp(BeamCodeNormalExit());
 
     offs = heap - p->heap;
     area = (char *) p->heap;

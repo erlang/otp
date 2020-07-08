@@ -44,7 +44,7 @@ case "X$ERL_TOP" in
     X)
 	;;
     X/*)
-	test -f "$ERL_TOP/erts/emulator/beam/beam_emu.c" || {
+	test -f "$ERL_TOP/erts/emulator/beam/erl_init.c" || {
 	     AC_MSG_ERROR([Invalid \$ERL_TOP])
 	}
 	srcdir="$ERL_TOP";;

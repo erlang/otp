@@ -144,7 +144,7 @@ i_perf_counter() {
 
 i_debug_breakpoint() {
     HEAVY_SWAPOUT;
-    I = call_error_handler(c_p, erts_code_to_codemfa(I), reg, am_breakpoint);
+    I = call_error_handler(c_p, I, reg, am_breakpoint);
     HEAVY_SWAPIN;
     if (I) {
         Goto(*I);

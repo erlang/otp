@@ -217,7 +217,7 @@ remove_message() {
                 c_p->seq_trace_clock = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
             }
             msg = ERL_MESSAGE_TERM(msgp);
-            seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
+            seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE,
                              c_p->common.id, c_p);
 #ifdef USE_VM_PROBES
         }

@@ -27,943 +27,24 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
-#include "error.h"
-#include "bif.h"
-#include "big.h"
-#include "beam_load.h"
-#include "erl_binary.h"
 #include "erl_map.h"
-#include "erl_bits.h"
-#include "dist.h"
-#include "beam_bp.h"
-#include "beam_catches.h"
-#include "erl_thr_progress.h"
+#include "bif.h"
+#include "erl_proc_sig_queue.h"
 #include "erl_nfunc_sched.h"
+#include "dist.h"
+#include "beam_catches.h"
+#include "beam_common.h"
 #ifdef HIPE
 #include "hipe_mode_switch.h"
-#include "hipe_bif1.h"
-#endif
-#include "dtrace-wrapper.h"
-#include "erl_proc_sig_queue.h"
-
-/* #define HARDDEBUG 1 */
-
-/* The x86 and AMD64 optimization guides recommend that branch targets are
- * paragraph aligned (16 bytes). Neither GCC nor Clang align the addresses of
- * first class labels as used by the OpCase construction when the jump table is
- * enabled. Aligning the OpCase labels looks like a worthwhile optimization, but
- * despite the recommendation in the optimization guides, forcing alignment
- * leads to a ~5% slowdown of the emulator. Therefore alignment of OpCase labels
- * are not attempted.
- */
-
-#if defined(NO_JUMP_TABLE)
-#  define OpCase(OpCode)    case op_##OpCode
-#  define CountCase(OpCode) case op_count_##OpCode
-#  define IsOpCode(InstrWord, OpCode)  (BeamCodeAddr(InstrWord) == (BeamInstr)op_##OpCode)
-#  define Goto(Rel)         {Go = BeamCodeAddr(Rel); goto emulator_loop;}
-#  define GotoPF(Rel)       Goto(Rel)
-#else
-#  define OpCase(OpCode)    lb_##OpCode
-#  define CountCase(OpCode) lb_count_##OpCode
-#  define IsOpCode(InstrWord, OpCode)  (BeamCodeAddr(InstrWord) == (BeamInstr)&&lb_##OpCode)
-#  define Goto(Rel)         goto *((void *)BeamCodeAddr(Rel))
-#  define GotoPF(Rel)       goto *((void *)Rel)
-#  define LabelAddr(Label)  &&Label
 #endif
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-#    define PROCESS_MAIN_CHK_LOCKS(P)                   \
-do {                                                    \
-    if ((P))                                            \
-	erts_proc_lc_chk_only_proc_main((P));           \
-    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());   \
-} while (0)
-#    define ERTS_REQ_PROC_MAIN_LOCK(P)				\
-do {                                                            \
-    if ((P))                                                    \
-	erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,     \
-				  __FILE__, __LINE__);          \
-} while (0)
-#    define ERTS_UNREQ_PROC_MAIN_LOCK(P)				\
-do {									\
-    if ((P))								\
-	erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN);		\
-} while (0)
-#else
-#  define PROCESS_MAIN_CHK_LOCKS(P)
-#  define ERTS_REQ_PROC_MAIN_LOCK(P)
-#  define ERTS_UNREQ_PROC_MAIN_LOCK(P)
-#endif
-
-/*
- * Define macros for deep checking of terms.
- */
-
-#if defined(HARDDEBUG)
-
-#  define CHECK_TERM(T) size_object(T)
-
-#  define CHECK_ARGS(PC)                 \
-do {                                     \
-  int i_;                                \
-  int Arity_ = PC[-1];                   \
-  for (i_ = 0; i_ < Arity_; i_++) {      \
-	CHECK_TERM(x(i_));               \
-  }                                      \
-} while (0)
-    
-#else
-#  define CHECK_TERM(T) ASSERT(!is_CP(T))
-#  define CHECK_ARGS(T)
-#endif
-
-#define GET_EXPORT_MODULE(p)  ((p)->info.mfa.module)
-#define GET_EXPORT_FUNCTION(p)  ((p)->info.mfa.function)
-#define GET_EXPORT_ARITY(p)  ((p)->info.mfa.arity)
-
-/*
- * We reuse some of fields in the save area in the process structure.
- * This is safe to do, since this space is only actively used when
- * the process is switched out.
- */
-#define REDS_IN(p)  ((p)->def_arg_reg[5])
-
-/*
- * Add a byte offset to a pointer to Eterm.  This is useful when the
- * the loader has precalculated a byte offset.
- */
-#define ADD_BYTE_OFFSET(ptr, offset) \
-   ((Eterm *) (((unsigned char *)ptr) + (offset)))
-
-/* We don't check the range if an ordinary switch is used */
-#ifdef NO_JUMP_TABLE
-#  define VALID_INSTR(IP) (BeamCodeAddr(IP) < (NUMBER_OF_OPCODES*2+10))
-#else
-#  define VALID_INSTR(IP) \
-    ((BeamInstr)LabelAddr(emulator_loop) <= BeamCodeAddr(IP) && \
-     BeamCodeAddr(IP) < (BeamInstr)LabelAddr(end_emulator_loop))
-#endif /* NO_JUMP_TABLE */
-
-#define SET_I(ip) \
-   ASSERT(VALID_INSTR(* (Eterm *)(ip))); \
-   I = (ip)
-
-/*
- * Register target (X or Y register).
- */
-
-#define REG_TARGET_PTR(Target) (((Target) & 1) ? &yb((Target)-1) : &xb(Target))
-
-/*
- * Special Beam instructions.
- */
-
-BeamInstr beam_apply[2];
-BeamInstr beam_exit[1];
-BeamInstr beam_continue_exit[1];
-
-
-/* NOTE These should be the only variables containing trace instructions.
-**      Sometimes tests are for the instruction value, and sometimes
-**      for the referring variable (one of these), and rouge references
-**      will most likely cause chaos.
-*/
-BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
-BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
-BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
-BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
-
-
-/*
- * All Beam instructions in numerical order.
- */
-
-#ifndef NO_JUMP_TABLE
-void** beam_ops;
-#endif
-
-#define SWAPIN             \
-    HTOP = HEAP_TOP(c_p);  \
-    E = c_p->stop
-
-#define SWAPOUT            \
-    HEAP_TOP(c_p) = HTOP;  \
-    c_p->stop = E
-
-#define HEAVY_SWAPIN       \
-    SWAPIN;		   \
-    FCALLS = c_p->fcalls
-
-#define HEAVY_SWAPOUT      \
-    SWAPOUT;		   \
-    c_p->fcalls = FCALLS
-
-/*
- * Use LIGHT_SWAPOUT when the called function
- * will call HeapOnlyAlloc() (and never HAlloc()).
- */
-#ifdef DEBUG
-#  /* The stack pointer is used in an assertion. */
-#  define LIGHT_SWAPOUT SWAPOUT
-#  define DEBUG_SWAPOUT SWAPOUT
-#  define DEBUG_SWAPIN  SWAPIN
-#else
-#  define LIGHT_SWAPOUT HEAP_TOP(c_p) = HTOP
-#  define DEBUG_SWAPOUT
-#  define DEBUG_SWAPIN
-#endif
-
-/*
- * Use LIGHT_SWAPIN when we know that c_p->stop cannot
- * have been updated (i.e. if there cannot have been
- * a garbage-collection).
- */
-
-#define LIGHT_SWAPIN HTOP = HEAP_TOP(c_p)
-
-#ifdef FORCE_HEAP_FRAGS
-#  define HEAP_SPACE_VERIFIED(Words) do { \
-      c_p->space_verified = (Words);	  \
-      c_p->space_verified_from = HTOP;	  \
-    }while(0)
-#else
-#  define HEAP_SPACE_VERIFIED(Words) ((void)0)
-#endif
-
-#define PRE_BIF_SWAPOUT(P)						\
-     HEAP_TOP((P)) = HTOP;  						\
-     (P)->stop = E;  							\
-     PROCESS_MAIN_CHK_LOCKS((P));					\
-     ERTS_UNREQ_PROC_MAIN_LOCK((P))
-
-#define db(N) (N)
-#define fb(N) ((Sint)(Sint32)(N))
-#define jb(N) ((Sint)(Sint32)(N))
-#define tb(N) (N)
-#define xb(N) (*ADD_BYTE_OFFSET(reg, N))
-#define yb(N) (*ADD_BYTE_OFFSET(E, N))
-#define Sb(N) (*REG_TARGET_PTR(N))
-#define lb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
-#define Qb(N) (N)
-#define Ib(N) (N)
-
-#define x(N) reg[N]
-#define y(N) E[N]
-#define r(N) x(N)
-#define Q(N) (N*sizeof(Eterm *))
-#define l(N) (freg[N].fd)
-
-#define Arg(N)       I[(N)+1]
-
-#define GetSource(raw, dst)			\
-   do {						\
-     dst = raw;                                 \
-     switch (loader_tag(dst)) {			\
-     case LOADER_X_REG:				\
-        dst = x(loader_x_reg_index(dst));       \
-        break;					\
-     case LOADER_Y_REG:				\
-        ASSERT(loader_y_reg_index(dst) >= 1);	\
-        dst = y(loader_y_reg_index(dst));       \
-        break;					\
-     }						\
-     CHECK_TERM(dst);				\
-   } while (0)
-
-#define PUT_TERM_REG(term, desc)		\
-do {						\
-    switch (loader_tag(desc)) {			\
-    case LOADER_X_REG:				\
-	x(loader_x_reg_index(desc)) = (term);	\
-	break;					\
-    case LOADER_Y_REG:				\
-	y(loader_y_reg_index(desc)) = (term);	\
-	break;					\
-    default:					\
-	ASSERT(0);				\
-	break;					\
-    }						\
-} while(0)
-
-#ifdef DEBUG
-/* Better static type testing by the C compiler */
-#  define BEAM_IS_TUPLE(Src) is_tuple(Src)
-#else
-/* Better performance */
-# define BEAM_IS_TUPLE(Src) is_boxed(Src)
-#endif
-
-/*
- * process_main() is already huge, so we want to avoid inlining
- * seldom used functions into it.
- */
-static void init_emulator_finish(void) ERTS_NOINLINE;
-static ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
-static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
-			       Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
-static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
-				     Eterm* reg, Eterm func) ERTS_NOINLINE;
-static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
-			      BeamInstr *I, Uint offs) ERTS_NOINLINE;
-static BeamInstr* apply(Process* p, Eterm* reg,
-                        BeamInstr *I, Uint offs) ERTS_NOINLINE;
-static BeamInstr* call_fun(Process* p, int arity,
-			   Eterm* reg, Eterm args) ERTS_NOINLINE;
-static BeamInstr* apply_fun(Process* p, Eterm fun,
-			    Eterm args, Eterm* reg) ERTS_NOINLINE;
-static Eterm new_fun(Process* p, Eterm* reg,
-		     ErlFunEntry* fe, int num_free) ERTS_NOINLINE;
-static int is_function2(Eterm Term, Uint arity);
-static Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
-                             Uint n, BeamInstr* ptr) ERTS_NOINLINE;
-static Eterm erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
-                               Uint live, BeamInstr* ptr) ERTS_NOINLINE;
-static Eterm erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
-                              Uint n, BeamInstr* new_p) ERTS_NOINLINE;
-static Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
-                              Uint n, Eterm* new_p) ERTS_NOINLINE;
-static Eterm get_map_element(Eterm map, Eterm key);
-static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
-
-/*
- * Functions not directly called by process_main(). OK to inline.
- */
+static Eterm *get_freason_ptr_from_exc(Eterm exc);
 static BeamInstr* next_catch(Process* c_p, Eterm *reg);
 static void terminate_proc(Process* c_p, Eterm Value);
-static Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
 static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 			    ErtsCodeMFA *bif_mfa, Eterm args);
-static struct StackTrace * get_trace_from_exc(Eterm exc);
-static Eterm *get_freason_ptr_from_exc(Eterm exc);
+
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
-
-void
-init_emulator(void)
-{
-    process_main(0, 0);
-}
-
-/*
- * On certain platforms, make sure that the main variables really are placed
- * in registers.
- */
-
-#if defined(__GNUC__) && defined(sparc) && !defined(DEBUG)
-#  define REG_xregs asm("%l1")
-#  define REG_htop asm("%l2")
-#  define REG_stop asm("%l3")
-#  define REG_I asm("%l4")
-#  define REG_fcalls asm("%l5")
-#elif defined(__GNUC__) && defined(__amd64__) && !defined(DEBUG)
-#  define REG_xregs asm("%r12")
-#  define REG_htop
-#  define REG_stop asm("%r13")
-#  define REG_I asm("%rbx")
-#  define REG_fcalls asm("%r14")
-#else
-#  define REG_xregs
-#  define REG_htop
-#  define REG_stop
-#  define REG_I
-#  define REG_fcalls
-#endif
-
-#ifdef USE_VM_PROBES
-#  define USE_VM_CALL_PROBES
-#endif
-
-#ifdef USE_VM_CALL_PROBES
-
-#define DTRACE_LOCAL_CALL(p, mfa)					\
-    if (DTRACE_ENABLED(local_function_entry)) {				\
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);		\
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);			\
-        int depth = STACK_START(p) - STACK_TOP(p);			\
-        dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
-        DTRACE3(local_function_entry, process_name, mfa_buf, depth);	\
-    }
-
-#define DTRACE_GLOBAL_CALL(p, mfa)					\
-    if (DTRACE_ENABLED(global_function_entry)) {			\
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);		\
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);			\
-        int depth = STACK_START(p) - STACK_TOP(p);			\
-        dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
-        DTRACE3(global_function_entry, process_name, mfa_buf, depth);	\
-    }
-
-#define DTRACE_RETURN(p, mfa)                                    \
-    if (DTRACE_ENABLED(function_return)) {                      \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);          \
-        int depth = STACK_START(p) - STACK_TOP(p);              \
-        dtrace_fun_decode(p, mfa, process_name, mfa_buf);       \
-        DTRACE3(function_return, process_name, mfa_buf, depth); \
-    }
-
-#define DTRACE_BIF_ENTRY(p, mfa)                                    \
-    if (DTRACE_ENABLED(bif_entry)) {                                \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);         \
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);              \
-        dtrace_fun_decode(p, mfa, process_name, mfa_buf);           \
-        DTRACE2(bif_entry, process_name, mfa_buf);                  \
-    }
-
-#define DTRACE_BIF_RETURN(p, mfa)                                   \
-    if (DTRACE_ENABLED(bif_return)) {                               \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);         \
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);              \
-        dtrace_fun_decode(p, mfa, process_name, mfa_buf);           \
-        DTRACE2(bif_return, process_name, mfa_buf);                 \
-    }
-
-#define DTRACE_NIF_ENTRY(p, mfa)                                        \
-    if (DTRACE_ENABLED(nif_entry)) {                                    \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);             \
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);                  \
-        dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
-        DTRACE2(nif_entry, process_name, mfa_buf);                      \
-    }
-
-#define DTRACE_NIF_RETURN(p, mfa)                                       \
-    if (DTRACE_ENABLED(nif_return)) {                                   \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);             \
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);                  \
-        dtrace_fun_decode(p, mfa, process_name, mfa_buf);               \
-        DTRACE2(nif_return, process_name, mfa_buf);                     \
-    }
-
-#define DTRACE_GLOBAL_CALL_FROM_EXPORT(p,e)                                                    \
-    do {                                                                                       \
-        if (DTRACE_ENABLED(global_function_entry)) {                                           \
-            BeamInstr* fp = (BeamInstr *) (((Export *) (e))->addressv[erts_active_code_ix()]); \
-            DTRACE_GLOBAL_CALL((p), erts_code_to_codemfa(fp));          \
-        }                                                                                      \
-    } while(0)
-
-#define DTRACE_RETURN_FROM_PC(p, i)                                                        \
-    do {                                                                                \
-        ErtsCodeMFA* cmfa;                                                                  \
-        if (DTRACE_ENABLED(function_return) && (cmfa = erts_find_function_from_pc(i))) { \
-            DTRACE_RETURN((p), cmfa);                               \
-        }                                                                               \
-    } while(0)
-
-#else /* USE_VM_PROBES */
-#define DTRACE_LOCAL_CALL(p, mfa)        do {} while (0)
-#define DTRACE_GLOBAL_CALL(p, mfa)       do {} while (0)
-#define DTRACE_GLOBAL_CALL_FROM_EXPORT(p, e) do {} while (0)
-#define DTRACE_RETURN(p, mfa)            do {} while (0)
-#define DTRACE_RETURN_FROM_PC(p, i)      do {} while (0)
-#define DTRACE_BIF_ENTRY(p, mfa)         do {} while (0)
-#define DTRACE_BIF_RETURN(p, mfa)        do {} while (0)
-#define DTRACE_NIF_ENTRY(p, mfa)         do {} while (0)
-#define DTRACE_NIF_RETURN(p, mfa)        do {} while (0)
-#endif /* USE_VM_PROBES */
-
-#ifdef DEBUG
-#define ERTS_DBG_CHK_REDS(P, FC)					\
-    do {								\
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF((P))) {			\
-	    ASSERT(FC <= 0);						\
-	    ASSERT(erts_proc_sched_data(c_p)->virtual_reds		\
-		   <= 0 - (FC));					\
-	}								\
-	else {								\
-	    ASSERT(FC <= CONTEXT_REDS);					\
-	    ASSERT(erts_proc_sched_data(c_p)->virtual_reds		\
-		   <= CONTEXT_REDS - (FC));				\
-	}								\
-} while (0)
-#else
-#define ERTS_DBG_CHK_REDS(P, FC)
-#endif
-
-#ifdef NO_FPE_SIGNALS
-#  define ERTS_NO_FPE_CHECK_INIT ERTS_FP_CHECK_INIT
-#  define ERTS_NO_FPE_ERROR ERTS_FP_ERROR
-#else
-#  define ERTS_NO_FPE_CHECK_INIT(p)
-#  define ERTS_NO_FPE_ERROR(p, a, b)
-#endif
-
-/*
- * process_main() is called twice:
- * The first call performs some initialisation, including exporting
- * the instructions' C labels to the loader.
- * The second call starts execution of BEAM code. This call never returns.
- */
-ERTS_NO_RETPOLINE
-void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
-{
-    static int init_done = 0;
-    Process* c_p = NULL;
-    int reds_used;
-#ifdef DEBUG
-    ERTS_DECLARE_DUMMY(Eterm pid);
-#endif
-
-    /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
-     * in all other cases x0 is used.
-     */
-    register Eterm* reg REG_xregs = x_reg_array;
-
-    /*
-     * Top of heap (next free location); grows upwards.
-     */
-    register Eterm* HTOP REG_htop = NULL;
-
-    /* Stack pointer.  Grows downwards; points
-     * to last item pushed (normally a saved
-     * continuation pointer).
-     */
-    register Eterm* E REG_stop = NULL;
-
-    /*
-     * Pointer to next threaded instruction.
-     */
-    register BeamInstr *I REG_I = NULL;
-
-    /* Number of reductions left.  This function
-     * returns to the scheduler when FCALLS reaches zero.
-     */
-    register Sint FCALLS REG_fcalls = 0;
-
-    /*
-     * X registers and floating point registers are located in
-     * scheduler specific data.
-     */
-    register FloatDef *freg = f_reg_array;
-
-    /*
-     * For keeping the negative old value of 'reds' when call saving is active.
-     */
-    int neg_o_reds = 0;
-
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-    static void* counting_opcodes[] = { DEFINE_COUNTING_OPCODES };
-#else
-#ifndef NO_JUMP_TABLE
-    static void* opcodes[] = { DEFINE_OPCODES };
-#else
-    register BeamInstr Go;
-#endif
-#endif
-
-    Uint64 start_time = 0;          /* Monitor long schedule */
-    BeamInstr* start_time_i = NULL;
-
-    ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
-
-    ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
-
-
-    /*
-     * Note: In this function, we attempt to place rarely executed code towards
-     * the end of the function, in the hope that the cache hit rate will be better.
-     * The initialization code is only run once, so it is at the very end.
-     *
-     * Note: c_p->arity must be set to reflect the number of useful terms in
-     * c_p->arg_reg before calling the scheduler.
-     */
-    if (ERTS_UNLIKELY(!init_done)) {
-       /* This should only be reached during the init phase when only the main
-        * process is running. I.e. there is no race for init_done.
-        */
-	init_done = 1;
-	goto init_emulator;
-    }
-
-    c_p = NULL;
-    reds_used = 0;
-
-    goto do_schedule1;
-
- do_schedule:
-    ASSERT(c_p->arity < 6);
-    ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
-    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-	reds_used = REDS_IN(c_p) - FCALLS;
-    else
-	reds_used = REDS_IN(c_p) - (CONTEXT_REDS + FCALLS);
-    ASSERT(reds_used >= 0);
- do_schedule1:
-
-    if (start_time != 0) {
-        Sint64 diff = erts_timestamp_millis() - start_time;
-	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
-	    ErtsCodeMFA *inptr = erts_find_function_from_pc(start_time_i);
-	    ErtsCodeMFA *outptr = erts_find_function_from_pc(c_p->i);
-	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
-	}
-    }
-
-    PROCESS_MAIN_CHK_LOCKS(c_p);
-    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    c_p = erts_schedule(NULL, c_p, reds_used);
-    ASSERT(!(c_p->flags & F_HIPE_MODE));
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    start_time = 0;
-#ifdef DEBUG
-    pid = c_p->common.id; /* Save for debugging purposes */
-#endif
-    ERTS_REQ_PROC_MAIN_LOCK(c_p);
-    PROCESS_MAIN_CHK_LOCKS(c_p);
-
-    ERTS_MSACC_UPDATE_CACHE_X();
-
-    if (erts_system_monitor_long_schedule != 0) {
-	start_time = erts_timestamp_millis();
-	start_time_i = c_p->i;
-    }
-
-    ERL_BITS_RELOAD_STATEP(c_p);
-    {
-	int reds;
-	Eterm* argp;
-	BeamInstr next;
-	int i;
-
-	argp = c_p->arg_reg;
-	for (i = c_p->arity - 1; i >= 0; i--) {
-	    reg[i] = argp[i];
-	    CHECK_TERM(reg[i]);
-	}
-
-	/*
-	 * We put the original reduction count in the process structure, to reduce
-	 * the code size (referencing a field in a struct through a pointer stored
-	 * in a register gives smaller code than referencing a global variable).
-	 */
-
-	SET_I(c_p->i);
-
-	REDS_IN(c_p) = reds = c_p->fcalls;
-#ifdef DEBUG
-	c_p->debug_reds_in = reds;
-#endif
-
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
-	    neg_o_reds = -CONTEXT_REDS;
-	    FCALLS = neg_o_reds + reds;
-	} else {
-	    neg_o_reds = 0;
-	    FCALLS = reds;
-	}
-
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-
-	next = *I;
-	SWAPIN;
-	ASSERT(VALID_INSTR(next));
-
-#ifdef USE_VM_PROBES
-        if (DTRACE_ENABLED(process_scheduled)) {
-            DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
-            DTRACE_CHARBUF(fun_buf, DTRACE_TERM_BUF_SIZE);
-            dtrace_proc_str(c_p, process_buf);
-
-            if (ERTS_PROC_IS_EXITING(c_p)) {
-                sys_strcpy(fun_buf, "<exiting>");
-            } else {
-                ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
-                if (cmfa) {
-                    dtrace_fun_decode(c_p, cmfa,
-                                      NULL, fun_buf);
-                } else {
-                    erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
-                                  "<unknown/%p>", next);
-                }
-            }
-
-            DTRACE2(process_scheduled, process_buf, fun_buf);
-        }
-#endif
-	Goto(next);
-    }
-
-#if defined(DEBUG) || defined(NO_JUMP_TABLE)
- emulator_loop:
-#endif
-
-#ifdef NO_JUMP_TABLE
-    switch (Go) {
-#endif
-
-#include "beam_hot.h"
-    /*
-     * The labels are jumped to from the $DISPATCH() macros when the reductions
-     * are used up.
-     *
-     * Since the I register points just beyond the FuncBegin instruction, we
-     * can get the module, function, and arity for the function being
-     * called from I[-3], I[-2], and I[-1] respectively.
-     */
- context_switch_fun:
-    /* Add one for the environment of the fun */
-    c_p->arity = erts_code_to_codemfa(I)->arity + 1;
-    goto context_switch2;
-
- context_switch:
-    c_p->arity = erts_code_to_codemfa(I)->arity;
-
- context_switch2: 		/* Entry for fun calls. */
-    c_p->current = erts_code_to_codemfa(I);
-
- context_switch3:
-
- {
-     Eterm* argp;
-     int i;
-
-     if (erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_EXITING) {
-         c_p->i = beam_exit;
-         c_p->arity = 0;
-         c_p->current = NULL;
-         goto do_schedule;
-     }
-
-     /*
-      * Make sure that there is enough room for the argument registers to be saved.
-      */
-     if (c_p->arity > c_p->max_arg_reg) {
-	 /*
-	  * Yes, this is an expensive operation, but you only pay it the first
-	  * time you call a function with more than 6 arguments which is
-	  * scheduled out.  This is better than paying for 26 words of wasted
-	  * space for most processes which never call functions with more than
-	  * 6 arguments.
-	  */
-	 Uint size = c_p->arity * sizeof(c_p->arg_reg[0]);
-	 if (c_p->arg_reg != c_p->def_arg_reg) {
-	     c_p->arg_reg = (Eterm *) erts_realloc(ERTS_ALC_T_ARG_REG,
-						   (void *) c_p->arg_reg,
-						   size);
-	 } else {
-	     c_p->arg_reg = (Eterm *) erts_alloc(ERTS_ALC_T_ARG_REG, size);
-	 }
-	 c_p->max_arg_reg = c_p->arity;
-     }
-
-     /*
-      * Since REDS_IN(c_p) is stored in the save area (c_p->arg_reg) we must read it
-      * now before saving registers.
-      *
-      * The '+ 1' compensates for the last increment which was not done
-      * (beacuse the code for the Dispatch() macro becomes shorter that way).
-      */
-
-     ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
-    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-	reds_used = REDS_IN(c_p) - FCALLS;
-    else
-	reds_used = REDS_IN(c_p) - (CONTEXT_REDS + FCALLS);
-    ASSERT(reds_used >= 0);
-
-     /*
-      * Save the argument registers and everything else.
-      */
-
-     argp = c_p->arg_reg;
-     for (i = c_p->arity - 1; i >= 0; i--) {
-	 argp[i] = reg[i];
-     }
-     SWAPOUT;
-     c_p->i = I;
-     goto do_schedule1;
- }
-
-#include "beam_warm.h"
-
- OpCase(normal_exit): {
-     HEAVY_SWAPOUT;
-     c_p->freason = EXC_NORMAL;
-     c_p->arity = 0; /* In case this process will ever be garbed again. */
-     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-     erts_do_exit_process(c_p, am_normal);
-     ERTS_REQ_PROC_MAIN_LOCK(c_p);
-     HEAVY_SWAPIN;
-     goto do_schedule;
- }
-
- OpCase(continue_exit): {
-     HEAVY_SWAPOUT;
-     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-     erts_continue_exit_process(c_p);
-     ERTS_REQ_PROC_MAIN_LOCK(c_p);
-     HEAVY_SWAPIN;
-     goto do_schedule;
- }
-
- find_func_info: {
-     SWAPOUT;
-     I = handle_error(c_p, I, reg, NULL);
-     goto post_error_handling;
- }
-
- OpCase(call_error_handler):
-    /*
-     * At this point, I points to the code[3] in the export entry for
-     * a function which is not loaded.
-     *
-     * code[0]: Module
-     * code[1]: Function
-     * code[2]: Arity
-     * code[3]: &&call_error_handler
-     * code[4]: Not used
-     */
-    HEAVY_SWAPOUT;
-    I = call_error_handler(c_p, erts_code_to_codemfa(I),
-                           reg, am_undefined_function);
-    HEAVY_SWAPIN;
-    if (I) {
-	Goto(*I);
-    }
-
- /* Fall through */
- OpCase(error_action_code): {
-    handle_error:
-     SWAPOUT;
-     I = handle_error(c_p, NULL, reg, NULL);
- post_error_handling:
-     if (I == 0) {
-	 goto do_schedule;
-     } else {
-	 ASSERT(!is_value(r(0)));
-	 SWAPIN;
-	 Goto(*I);
-     }
- }
-
- OpCase(i_func_info_IaaI): {
-     ErtsCodeInfo *ci = (ErtsCodeInfo*)I;
-     c_p->freason = EXC_FUNCTION_CLAUSE;
-     c_p->current = &ci->mfa;
-     goto handle_error;
- }
-
-#include "beam_cold.h"
-
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-    DEFINE_COUNTING_LABELS;
-#endif
-
-#ifndef NO_JUMP_TABLE
-#ifdef DEBUG
- end_emulator_loop:
-#endif
-#endif
-
- OpCase(int_code_end):
- OpCase(label_L):
- OpCase(on_load):
- OpCase(line_I):
-    erts_exit(ERTS_ERROR_EXIT, "meta op\n");
-
-    /*
-     * One-time initialization of Beam emulator.
-     */
-
- init_emulator:
- {
-#ifndef NO_JUMP_TABLE
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-#ifdef DEBUG
-     counting_opcodes[op_catch_end_y] = LabelAddr(lb_catch_end_y);
-#endif
-     counting_opcodes[op_i_func_info_IaaI] = LabelAddr(lb_i_func_info_IaaI);
-     beam_ops = counting_opcodes;
-#else /* #ifndef ERTS_OPCODE_COUNTER_SUPPORT */
-     beam_ops = opcodes;
-#endif /* ERTS_OPCODE_COUNTER_SUPPORT */
-#endif /* NO_JUMP_TABLE */
-
-     init_emulator_finish();
-     return;
- }
-#ifdef NO_JUMP_TABLE
- default:
-    erts_exit(ERTS_ERROR_EXIT, "unexpected op code %d\n",Go);
-  }
-#endif
-    return;			/* Never executed */
-}
-
-/*
- * Enter all BIFs into the export table.
- *
- * Note that they will all call the error_handler until their modules have been
- * loaded, which may prevent the system from booting if BIFs from non-preloaded
- * modules are apply/3'd while loading code. Ordinary BIF calls will work fine
- * however since they won't go through export entries.
- */
-static void install_bifs(void) {
-    int i;
-
-    for (i = 0; i < BIF_SIZE; i++) {
-        BifEntry *entry;
-        Export *ep;
-        int j;
-
-        entry = &bif_table[i];
-
-        ep = erts_export_put(entry->module, entry->name, entry->arity);
-
-        ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
-        ep->info.mfa.module = entry->module;
-        ep->info.mfa.function = entry->name;
-        ep->info.mfa.arity = entry->arity;
-        ep->bif_number = i;
-
-        memset(&ep->trampoline, 0, sizeof(ep->trampoline));
-        ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
-
-        for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
-            ep->addressv[j] = ep->trampoline.raw;
-        }
-
-        /* Set up a hidden export entry so we can trap to this BIF without
-         * it being seen when tracing. */
-        erts_init_trap_export(&BIF_TRAP_EXPORT(i),
-                              entry->module, entry->name, entry->arity,
-                              entry->f);
-    }
-}
-
-/*
- * One-time initialization of emulator. Does not need to be
- * in process_main().
- */
-static void
-init_emulator_finish(void)
-{
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-    int i;
-
-    for (i = 0; i < NUMBER_OF_OPCODES; i++) {
-        BeamInstr instr = BeamOpCodeAddr(i);
-        if (instr >= (1ull << 32)) {
-            erts_exit(ERTS_ERROR_EXIT,
-                      "This run-time was supposed be compiled with all code below 2Gb,\n"
-                      "but the instruction '%s' is located at %016lx.\n",
-                      opc[i].name, instr);
-        }
-    }
-#endif
-
-    beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
-    beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
-    beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
-    beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
-    beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
-    beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
-    beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
-    beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
-
-    install_bifs();
-}
 
 /*
  * erts_dirty_process_main() is what dirty schedulers execute. Since they handle
@@ -981,23 +62,23 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
      * in all other cases x0 is used.
      */
-    register Eterm* reg REG_xregs = NULL;
+    Eterm* reg = NULL;
 
     /*
      * Top of heap (next free location); grows upwards.
      */
-    register Eterm* HTOP REG_htop = NULL;
+    Eterm* HTOP = NULL;
 
     /* Stack pointer.  Grows downwards; points
      * to last item pushed (normally a saved
      * continuation pointer).
      */
-    register Eterm* E REG_stop = NULL;
+    Eterm* E = NULL;
 
     /*
      * Pointer to next threaded instruction.
      */
-    register BeamInstr *I REG_I = NULL;
+    BeamInstr *I = NULL;
 
     ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 
@@ -1189,7 +270,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	if (BeamIsOpCode(*I, op_call_bif_W)) {
+        if (BeamIsOpCode(*I,op_call_bif_W)) {
 	    exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
 	}
 	else {
@@ -1215,7 +296,57 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     }
 }
 
-static ErtsCodeMFA *
+void copy_out_registers(Process *c_p, Eterm *reg) {
+
+  /*
+   * Make sure that there is enough room for the argument registers to be saved.
+   */
+  if (c_p->arity > c_p->max_arg_reg) {
+    /*
+     * Yes, this is an expensive operation, but you only pay it the first
+     * time you call a function with more than 6 arguments which is
+     * scheduled out.  This is better than paying for 26 words of wasted
+     * space for most processes which never call functions with more than
+     * 6 arguments.
+     */
+    Uint size = c_p->arity * sizeof(c_p->arg_reg[0]);
+    if (c_p->arg_reg != c_p->def_arg_reg) {
+      c_p->arg_reg = (Eterm *) erts_realloc(ERTS_ALC_T_ARG_REG,
+                                            (void *) c_p->arg_reg,
+                                            size);
+    } else {
+      c_p->arg_reg = (Eterm *) erts_alloc(ERTS_ALC_T_ARG_REG, size);
+    }
+    c_p->max_arg_reg = c_p->arity;
+  }
+
+  /*
+   * Save the argument registers and everything else.
+   */
+  sys_memcpy(c_p->arg_reg,reg,c_p->arity * sizeof(Eterm));
+}
+
+void copy_in_registers(Process *c_p, Eterm *reg) {
+#ifdef DEBUG
+  int i;
+  for (i = 0; i < c_p->arity; i++) {
+      CHECK_TERM(c_p->arg_reg[i]);
+  }
+#endif
+  sys_memcpy(reg, c_p->arg_reg, c_p->arity * sizeof(Eterm));
+
+}
+
+void check_monitor_long_schedule(Process *c_p, Uint64 start_time, BeamInstr* start_time_i) {
+    Sint64 diff = erts_timestamp_millis() - start_time;
+    if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
+        ErtsCodeMFA *inptr = erts_find_function_from_pc(start_time_i);
+        ErtsCodeMFA *outptr = erts_find_function_from_pc(c_p->i);
+        monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
+    }
+}
+
+ErtsCodeMFA *
 ubif2mfa(void* uf)
 {
     int i;
@@ -1275,11 +406,11 @@ BeamInstr *erts_printable_return_address(Process* p, Eterm *E) {
     while (ptr < STACK_START(p)) {
         BeamInstr *cp = cp_val(*ptr);
 
-        if (cp == beam_exception_trace || cp == beam_return_trace) {
+        if (BeamIsReturnTrace(cp)) {
             ptr += 3;
-        } else if (cp == beam_return_time_trace) {
+        } else if (BeamIsReturnTimeTrace(cp)) {
             ptr += 2;
-        } else if (cp == beam_return_to_trace) {
+        } else if (BeamIsReturnToTrace(cp)) {
             ptr += 1;
         } else {
             return cp;
@@ -1287,6 +418,7 @@ BeamInstr *erts_printable_return_address(Process* p, Eterm *E) {
     }
 
     ERTS_ASSERT(!"No continuation pointer on stack");
+    return NULL;
 }
 
 /*
@@ -1309,7 +441,7 @@ BeamInstr *erts_printable_return_address(Process* p, Eterm *E) {
  * at the point of the original exception.
  */
 
-static BeamInstr*
+BeamInstr*
 handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 {
     Eterm* hp;
@@ -1409,10 +541,6 @@ next_catch(Process* c_p, Eterm *reg) {
     int have_return_to_trace = 0;
     Eterm *ptr, *prev, *return_to_trace_ptr = NULL;
 
-    BeamInstr i_return_trace      = beam_return_trace[0];
-    BeamInstr i_return_to_trace   = beam_return_to_trace[0];
-    BeamInstr i_return_time_trace = beam_return_time_trace[0];
-
     ptr = prev = c_p->stop;
     ASSERT(ptr <= STACK_START(c_p));
 
@@ -1433,7 +561,7 @@ next_catch(Process* c_p, Eterm *reg) {
 	}
 	else if (is_CP(*ptr)) {
 	    prev = ptr;
-	    if (*cp_val(*prev) == i_return_trace) {
+	    if (BeamIsReturnTrace(cp_val(*prev))) {
 		/* Skip stack frame variables */
 		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
 		    if (is_catch(*ptr) && active_catches) goto found_catch;
@@ -1446,14 +574,14 @@ next_catch(Process* c_p, Eterm *reg) {
 		}
 		/* Skip return_trace parameters */
 		ptr += 2;
-	    } else if (*cp_val(*prev) == i_return_to_trace) {
+	    } else if (BeamIsReturnToTrace(cp_val(*prev))) {
 		/* Skip stack frame variables */
 		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
 		    if (is_catch(*ptr) && active_catches) goto found_catch;
 		}
 		have_return_to_trace = !0; /* Record next cp */
 		return_to_trace_ptr = NULL;
-	    } else if (*cp_val(*prev) == i_return_time_trace) {
+	    } else if (BeamIsReturnTimeTrace(cp_val(*prev))) {
 		/* Skip stack frame variables */
 		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
 		    if (is_catch(*ptr) && active_catches) goto found_catch;
@@ -1471,14 +599,14 @@ next_catch(Process* c_p, Eterm *reg) {
 	} else ptr++;
     }
     return NULL;
-    
+
  found_catch:
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
     if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_ptr) {
 	/* The stackframe closest to the catch contained an
 	 * return_to_trace entry, so since the execution now
-	 * continues after the catch, a return_to trace message 
+	 * continues after the catch, a return_to trace message
 	 * would be appropriate.
 	 */
 	erts_trace_return_to(c_p, cp_val(*return_to_trace_ptr));
@@ -1535,7 +663,7 @@ terminate_proc(Process* c_p, Eterm Value)
 /*
  * Build and add a symbolic stack trace to the error value.
  */
-static Eterm
+Eterm
 add_stacktrace(Process* c_p, Eterm Value, Eterm exc) {
     Eterm Where = build_stacktrace(c_p, exc);
     Eterm* hp = HAlloc(c_p, 3);
@@ -1609,11 +737,11 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
         if (is_CP(*ptr)) {
             BeamInstr *cp = cp_val(*ptr);
 
-            if (cp == beam_exception_trace || cp == beam_return_trace) {
+            if (BeamIsReturnTrace(cp)) {
                 ptr += 3;
-            } else if (cp == beam_return_time_trace) {
+            } else if (BeamIsReturnTimeTrace(cp)) {
                 ptr += 2;
-            } else if (cp == beam_return_to_trace) {
+            } else if (BeamIsReturnToTrace(cp)) {
                 ptr += 1;
             } else {
                 if (cp != prev) {
@@ -1760,7 +888,7 @@ erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
  * Getting the relevant fields from the term pointed to by ftrace
  */
 
-static struct StackTrace *get_trace_from_exc(Eterm exc) {
+struct StackTrace *get_trace_from_exc(Eterm exc) {
     if (exc == NIL) {
 	return NULL;
     } else {
@@ -1805,6 +933,40 @@ static Eterm *get_freason_ptr_from_exc(Eterm exc) {
         return &s->freason;
     }
 }
+
+int raw_raise(Eterm stacktrace, Eterm exc_class, Eterm value, Process *c_p) {
+  Eterm* freason_ptr;
+
+  /*
+   * Note that the i_raise instruction will override c_p->freason
+   * with the freason field stored inside the StackTrace struct in
+   * ftrace. Therefore, we must take care to store the class both
+   * inside the StackTrace struct and in c_p->freason (important if
+   * the class is different from the class of the original
+   * exception).
+   */
+  freason_ptr = get_freason_ptr_from_exc(stacktrace);
+
+  if (exc_class == am_error) {
+    *freason_ptr = c_p->freason = EXC_ERROR & ~EXF_SAVETRACE;
+    c_p->fvalue = value;
+    c_p->ftrace = stacktrace;
+    return 0;
+  } else if (exc_class == am_exit) {
+    *freason_ptr = c_p->freason = EXC_EXIT & ~EXF_SAVETRACE;
+    c_p->fvalue = value;
+    c_p->ftrace = stacktrace;
+    return 0;
+  } else if (exc_class == am_throw) {
+    *freason_ptr = c_p->freason = EXC_THROWN & ~EXF_SAVETRACE;
+    c_p->fvalue = value;
+    c_p->ftrace = stacktrace;
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
 
 /*
  * Creating a list with the argument registers
@@ -1915,9 +1077,10 @@ build_stacktrace(Process* c_p, Eterm exc) {
     return res;
 }
 
-static BeamInstr*
-call_error_handler(Process* p, ErtsCodeMFA* mfa, Eterm* reg, Eterm func)
+BeamInstr*
+call_error_handler(Process* p, BeamInstr* I, Eterm* reg, Eterm func)
 {
+    ErtsCodeMFA *mfa = erts_code_to_codemfa(I);
     Eterm* hp;
     Export* ep;
     int arity;
@@ -1981,7 +1144,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
 	Uint sz = 2*arity;
 	Eterm* hp;
 	Eterm args = NIL;
-	
+
 	/*
 	 * Always copy args from registers to a new list; this ensures
 	 * that we have the same behaviour whether or not this was
@@ -2075,7 +1238,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
     }
 }
 
-static BeamInstr*
+BeamInstr*
 apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 {
     int arity;
@@ -2177,7 +1340,7 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
     return ep->addressv[erts_active_code_ix()];
 }
 
-static BeamInstr*
+BeamInstr*
 fixed_apply(Process* p, Eterm* reg, Uint arity,
 	    BeamInstr *I, Uint stack_offset)
 {
@@ -2207,7 +1370,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
     if (module == am_erlang && function == am_apply && arity == 3) {
 	return apply(p, reg, I, stack_offset);
     }
-    
+
     /*
      * Get the index into the export table, or failing that the export
      * entry for the error handler module.
@@ -2293,13 +1456,13 @@ erts_hibernate(Process* c_p, Eterm* reg)
     c_p->arg_reg[1] = function;
     c_p->arg_reg[2] = args;
     c_p->stop = c_p->hend - 1;  /* Keep first continuation pointer */
-    ASSERT(c_p->stop[0] == make_cp(beam_apply+1));
+    ASSERT(c_p->stop[0] == make_cp(BeamCodeNormalExit()));
     c_p->catches = 0;
-    c_p->i = beam_apply;
+    c_p->i = BeamCodeApply();
 
     /*
      * If there are no waiting messages, garbage collect and
-     * shrink the heap. 
+     * shrink the heap.
      */
     erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
     if (!erts_proc_sig_fetch(c_p)) {
@@ -2320,7 +1483,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     return 1;
 }
 
-static BeamInstr*
+BeamInstr*
 call_fun(Process* p,		/* Current process. */
 	 int arity,		/* Number of arguments for Fun. */
 	 Eterm* reg,		/* Contents of registers. */
@@ -2425,7 +1588,7 @@ call_fun(Process* p,		/* Current process. */
 			 */
 			goto badfun;
 		    }
-		
+
 		    /*
 		     * No current code for this module. Call the error_handler module
 		     * to attempt loading the module.
@@ -2459,7 +1622,7 @@ call_fun(Process* p,		/* Current process. */
 	} else {
 	    /*
 	     * Wrong arity. First build a list of the arguments.
-	     */  
+	     */
 
 	    if (is_non_value(args)) {
 		args = NIL;
@@ -2484,7 +1647,7 @@ call_fun(Process* p,		/* Current process. */
     }
 }
 
-static BeamInstr*
+BeamInstr*
 apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
 {
     int arity;
@@ -2517,7 +1680,7 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
 
 
 
-static Eterm
+Eterm
 new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 {
     unsigned needed = ERL_FUN_SIZE + num_free;
@@ -2549,7 +1712,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     return make_fun(funp);
 }
 
-static int
+int
 is_function2(Eterm Term, Uint arity)
 {
     if (is_fun(Term)) {
@@ -2562,7 +1725,7 @@ is_function2(Eterm Term, Uint arity)
     return 0;
 }
 
-static Eterm get_map_element(Eterm map, Eterm key)
+Eterm get_map_element(Eterm map, Eterm key)
 {
     Uint32 hx;
     const Eterm *vs;
@@ -2597,7 +1760,7 @@ static Eterm get_map_element(Eterm map, Eterm key)
     return vs ? *vs : THE_NON_VALUE;
 }
 
-static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
+Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
 {
     const Eterm *vs;
 
@@ -2650,7 +1813,7 @@ do {						\
 } while(0)
 
 
-static Eterm
+Eterm
 erts_gc_new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
 {
     Uint i;
@@ -2707,7 +1870,7 @@ erts_gc_new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
     return make_flatmap(mp);
 }
 
-static Eterm
+Eterm
 erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
                           Uint live, BeamInstr* ptr)
 {
@@ -2742,7 +1905,7 @@ erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
     return make_flatmap(mp);
 }
 
-static Eterm
+Eterm
 erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
                          Uint n, BeamInstr* new_p)
 {
@@ -2945,7 +2108,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
  * Update values for keys that already exist in the map.
  */
 
-static Eterm
+Eterm
 erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p)
 {
     Uint i;
@@ -3148,14 +2311,4 @@ erts_current_reductions(Process *c_p, Process *p)
         reds_left = c_p->fcalls;
     }
     return REDS_IN(c_p) - reds_left - erts_proc_sched_data(p)->virtual_reds;
-}
-
-int
-erts_beam_jump_table(void)
-{
-#if defined(NO_JUMP_TABLE)
-    return 0;
-#else
-    return 1;
-#endif
 }
