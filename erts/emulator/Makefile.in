@@ -1265,9 +1265,10 @@ MG_FLAG=-MG
 endif
 
 DEP_CC=$(CC)
-DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) \
+DEP_INCLUDES=$(INCLUDES) \
 	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
 	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
+DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(DEP_INCLUDES)
 SYS_SRC=$(ALL_SYS_SRC)
 endif
 
@@ -1312,6 +1313,22 @@ ifdef HIPE_ENABLED
 endif
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
+
+COMPDB_CFLAGS=-MM $(filter-out -fno-tree-copyrename,$(CFLAGS)) $(DEP_INCLUDES)
+
+compdb:
+	clang -MJ $(TTF_DIR)/beam.json $(COMPDB_CFLAGS) $(BEAM_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/drv.json $(COMPDB_CFLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/drv_$(ERLANG_OSTYPE).json \
+		$(COMPDB_CFLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/nif.json $(COMPDB_CFLAGS) $(NIF_COMMON_SRC)  > /dev/null
+	clang -MJ $(TTF_DIR)/nif_$(ERLANG_OSTYPE).json \
+		$(COMPDB_CFLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/sys.json $(COMPDB_CFLAGS) $(SYS_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/target.json $(COMPDB_CFLAGS) $(TARGET_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/zlib.json $(COMPDB_CFLAGS) $(ZLIB_SRC) > /dev/null
+	cat $(TTF_DIR)/*.json > $(ERL_TOP)/compile_commands.json
+
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)
