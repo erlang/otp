@@ -23,6 +23,7 @@
 -export([init_per_suite/1,
          end_per_suite/1]).
 -export([tc_try/3]).
+-export([inet_backend_opts/1]).
 -export([f/2,
          print/1, print/2]).
 -export([good_hosts/1,
@@ -1676,6 +1677,17 @@ proxy_call(F, Timeout, Default)
             Default
     end.
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+inet_backend_opts(Config) when is_list(Config) ->
+    case lists:keysearch(socket_create_opts, 1, Config) of
+        {value, {socket_create_opts, InetBackendOpts}} ->
+            InetBackendOpts;
+        false ->
+            []
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

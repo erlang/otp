@@ -33,6 +33,8 @@
 -define(TC_TRY(Case, TC),       ?TC_TRY(Case, fun() -> ok end, TC)).
 -define(TC_TRY(Case, Cond, TC), ?LIB:tc_try(Case, Cond, TC)).
 
+-define(INET_BACKEND_OPTS(C),   ?LIB:inet_backend_opts(C)).
+
 -define(F(FORMAT, ARGS),        ?LIB:f(FORMAT, ARGS)).
 -define(P(F),                   ?LIB:print(F)).
 -define(P(F,A),                 ?LIB:print(F, A)).

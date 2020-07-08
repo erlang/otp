@@ -48,10 +48,6 @@
 
 -export([getsockfd/0, closesockfd/1]).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
--define(INET_BACKEND_OPTS(C), inet_backend_opts(C)).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1045,17 +1041,6 @@ delete_local_filenames() ->
 		filelib:wildcard(
 		  "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
     ok.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-inet_backend_opts(Config) when is_list(Config) ->
-    case lists:keysearch(socket_create_opts, 1, Config) of
-        {value, {socket_create_opts, InetBackendOpts}} ->
-            InetBackendOpts;
-        false ->
-            []
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
