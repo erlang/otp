@@ -146,7 +146,7 @@ erts_transform_engine(LoaderState* st)
 	case TOP_is_bif:
 	    {
 		int bif_number = *pc++;
-		
+
 		/*
 		 * In debug build, the type must be 'u'.
 		 * In a real build, don't match.  (I.e. retain the original
@@ -189,7 +189,7 @@ erts_transform_engine(LoaderState* st)
 	    {
 		pc++;
 		i = instr->a[ap].val;
-		
+
 		/*
 		 * In debug build, the type must be 'u'.
 		 */
@@ -240,7 +240,7 @@ erts_transform_engine(LoaderState* st)
 		    goto restart;
 		}
 		i = instr->a[ap].val;
-		ASSERT(i < st->beam.imports.count);
+                ASSERT(i < st->beam.imports.count);
                 {
                     BeamFile_ImportEntry *import;
 
@@ -372,17 +372,17 @@ erts_transform_engine(LoaderState* st)
             st->genop = instr;
 	    while (first != keep) {
 		BeamOp* next = first->next;
-		FREE_GENOP(st, first);
+		beamopallocator_free_op(&st->op_allocator, first);
 		first = next;
 	    }
+
 	    return TE_OK;
-	case TOP_new_instr:
 	    /*
 	     * Note that the instructions are generated in reverse order.
 	     */
+	case TOP_new_instr:
             {
-                BeamOp* new_instr;
-                NEW_GENOP(st, new_instr);
+                BeamOp* new_instr = beamopallocator_new_op(&st->op_allocator);
                 new_instr->next = instr;
                 instr = new_instr;
                 instr->op = op = *pc++;
@@ -412,7 +412,10 @@ erts_transform_engine(LoaderState* st)
 #if defined(TOP_store_rest_args)
 	case TOP_store_rest_args:
 	    {
-		GENOP_ARITY(instr, instr->arity+num_rest_args);
+		ASSERT(instr->a == instr->def_args);
+		instr->arity = instr->arity + num_rest_args;
+		instr->a = erts_alloc(ERTS_ALC_T_LOADER_TMP,
+		                      instr->arity * sizeof(BeamOpArg));
 		sys_memcpy(instr->a, instr->def_args, ap*sizeof(BeamOpArg));
 		sys_memcpy(instr->a+ap, rest_args, num_rest_args*sizeof(BeamOpArg));
 		ap += num_rest_args;

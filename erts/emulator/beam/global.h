@@ -951,8 +951,15 @@ typedef struct {
 } FunctionInfo;
 
 Binary* erts_alloc_loader_state(void);
+
+/* Return the module name (a tagged atom) for the prepared code in the magic
+ * binary, or NIL if the binary does not contain prepared code. */
 Eterm erts_module_for_prepared_code(Binary* magic);
+
+/* Return a non-zero value if the prepared module has an on_load function,
+ * or 0 if it does not. */
 Eterm erts_has_code_on_load(Binary* magic);
+
 Eterm erts_prepare_loading(Binary* loader_state,  Process *c_p,
 			   Eterm group_leader, Eterm* modp,
 			   byte* code, Uint size);

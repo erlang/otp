@@ -36,6 +36,7 @@
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_common.h"
 #include "erl_global_literals.h"
 
 #define PTR_FMT "%bpX"
@@ -64,10 +65,6 @@ static void dump_module_literals(fmtfn_t to, void *to_arg,
                                  ErtsLiteralArea* lit_area);
 
 static Binary* all_binaries;
-
-extern BeamInstr beam_apply[];
-extern BeamInstr beam_exit[];
-extern BeamInstr beam_continue_exit[];
 
 void
 erts_deep_process_dump(fmtfn_t to, void *to_arg)
@@ -439,9 +436,10 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_apply+1) {
+        } else if (x == BeamCodeNormalExit()) {
             erts_print(to, to_arg, "<terminate process normally>");
-        } else {
+        }
+        else {
             erts_print(to, to_arg, "unknown function");
         }
     } else {

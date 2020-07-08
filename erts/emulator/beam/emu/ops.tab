@@ -1109,7 +1109,6 @@ call_fun Arity => i_call_fun Arity
 i_call_fun t
 i_call_fun_last t Q
 
-
 #
 # A fun with an empty environment can be converted to a literal.
 # As a further optimization, the we try to move the fun to its
@@ -1594,7 +1593,8 @@ gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
 # It is OK to swap arguments for '+' in a guard. It is also
 # OK to turn minus into plus in a guard.
 gen_plus Fail=f Live S1=c S2 Dst => i_plus S2 S1 Fail Dst
-gen_minus Fail=f Live S1 S2=i Dst => plus_from_minus(Fail, Live, S1, S2, Dst)
+gen_minus Fail=f Live S1 S2=i Dst | negation_is_small(S2) => \
+    plus_from_minus(Fail, Live, S1, S2, Dst)
 
 gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Dst
 

@@ -41,6 +41,8 @@ OPCODE_TABLES = \
 
 OPCODE_TABLES += \
     beam/emu/ops.tab \
+    beam/emu/predicates.tab \
+    beam/emu/generators.tab \
     beam/emu/macros.tab \
     beam/emu/instrs.tab \
     beam/emu/arith_instrs.tab \
@@ -51,7 +53,6 @@ OPCODE_TABLES += \
     beam/emu/msg_instrs.tab \
     beam/emu/select_instrs.tab \
     beam/emu/trace_instrs.tab
-
 DEBUG_CFLAGS = @DEBUG_CFLAGS@
 CONFIGURE_CFLAGS = @CFLAGS@
 
@@ -892,7 +893,8 @@ COMMON_OBJS = \
     $(OBJDIR)/code_ix.o
 
 
-EMU_OBJS =
+EMU_OBJS = \
+	$(OBJDIR)/emu_load.o
 
 ifeq ($(USE_ESOCK), yes)
 

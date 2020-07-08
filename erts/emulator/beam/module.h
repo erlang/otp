@@ -22,6 +22,7 @@
 #define __MODULE_H__
 
 #include "index.h"
+#include "beam_code.h"
 
 #ifdef HIPE
 #include "hipe_module.h"

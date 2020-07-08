@@ -23,6 +23,7 @@
 #endif
 
 #include "beam_file.h"
+#include "beam_load.h"
 #include "erl_zlib.h"
 #include "big.h"
 
@@ -1150,17 +1151,16 @@ BeamCodeReader *beamfile_get_code(BeamFile *beam, BeamOpAllocator *op_alloc) {
     return res;
 }
 
-/* Converts TAG_i to smalls (TAG_i), bignums (TAG_q with literal), or TAG_o if
- * the result can't fit into a bignum. */
+/* Converts TAG_i to untagged smalls (TAG_i), bignums (TAG_q with literal), or
+ * TAG_o if the result can't fit into a bignum. */
 static int marshal_integer(BeamCodeReader *code_reader, TaggedNumber *value) {
     ASSERT(value->tag == TAG_i);
 
     if (value->size == 0) {
-        /* !! FIXME FIXME FIXME !!
-         *
-         * We want TAG_i to be smalls just like TAG_a are atoms rather than
-         * table indexes, but the current loader assumes they're
-         * untagged. :( */
+        /* Ideally we'd want TAG_i to be tagged integers, just like TAG_a are
+         * tagged atoms rather than table indexes, but it would make the
+         * transformation engine far more complicated so we'll tag them when
+         * emitting instructions instead. */
         ASSERT(IS_SSMALL(value->word_value));
         return 1;
     } else {

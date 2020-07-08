@@ -26,7 +26,7 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
-#include "beam_load.h"
+#include "beam_code.h"
 #include "bif.h"
 #include "error.h"
 #include "erl_binary.h"

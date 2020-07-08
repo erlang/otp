@@ -30,7 +30,7 @@
 #include "error.h"
 #include "bif.h"
 #include "big.h"
-#include "beam_load.h"
+#include "beam_code.h"
 #include "erl_binary.h"
 #include "erl_map.h"
 #include "erl_bits.h"

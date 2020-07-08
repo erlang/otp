@@ -118,8 +118,6 @@ extern erts_mtx_t export_staging_lock;
 #define export_staging_lock()	erts_mtx_lock(&export_staging_lock)
 #define export_staging_unlock()	erts_mtx_unlock(&export_staging_lock)
 
-#include "beam_load.h" /* For em_* extern declarations */ 
-
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Export*

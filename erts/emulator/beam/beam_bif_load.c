@@ -38,6 +38,8 @@
 #include "erl_thr_progress.h"
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_file.h"
+
 #ifdef HIPE
 #  include "hipe_bif0.h"
 #  define IF_HIPE(X) (X)

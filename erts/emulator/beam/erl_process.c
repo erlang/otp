@@ -52,6 +52,7 @@
 #include "erl_check_io.h"
 #include "erl_poll.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_common.h"
 
 #define ERTS_CHECK_TIME_REDS CONTEXT_REDS
 #define ERTS_DELAYED_WAKEUP_INFINITY (~(Uint64) 0)
@@ -133,10 +134,6 @@ runq_got_work_to_execute(ErtsRunQueue *rq)
 }
 
 const Process erts_invalid_process = {{ERTS_INVALID_PID}};
-
-extern BeamInstr beam_apply[];
-extern BeamInstr beam_exit[];
-extern BeamInstr beam_continue_exit[];
 
 int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = SPO_ON_HEAP_MSGQ;
 int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
@@ -11843,8 +11840,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->current = &p->u.initial;
 
-    p->i = (BeamInstr *) beam_apply;
-    p->stop[0] = make_cp(beam_apply + 1);
+    p->i = BeamCodeApply();
+    p->stop[0] = make_cp(BeamCodeNormalExit());
 
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
@@ -13971,9 +13968,10 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_apply+1) {
+        } else if (x == BeamCodeNormalExit()) {
             erts_print(to, to_arg, "<terminate process normally>");
-	} else if (x == 0) {
+        }
+	else if (x == 0) {
             erts_print(to, to_arg, "invalid");
         } else {
             erts_print(to, to_arg, "unknown function");

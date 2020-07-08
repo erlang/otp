@@ -35,7 +35,7 @@
 #include "bif.h"
 #include "big.h"
 #include "external.h"
-#include "beam_load.h"
+#include "beam_code.h"
 #include "beam_bp.h"
 #include "erl_binary.h"
 #include "erl_thr_progress.h"

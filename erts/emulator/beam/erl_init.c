@@ -52,6 +52,8 @@
 #include "erl_check_io.h"
 #include "erl_osenv.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_load.h"
+
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
