@@ -236,4 +236,7 @@ extern void** beam_ops;
 
 #define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
 
+#define BeamIsReturnTimeTrace(w) ((w) == beam_return_time_trace)
+#define BeamIsReturnToTrace(w) ((w) == beam_return_to_trace)
+#define BeamIsReturnTrace(w) ((w) == beam_return_trace || (w) == beam_exception_trace)
 #endif	/* __ERL_VM_H__ */

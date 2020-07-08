@@ -629,13 +629,13 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
     Eterm *cpp = c_p->stop;
 
     for (;;) {
-        BeamInstr w = *cp_val(*cpp);
-        if (BeamIsOpCode(w, op_return_trace)) {
+        BeamInstr *w = cp_val(*cpp);
+        if (BeamIsReturnTrace(w)) {
             cpp += 3;
-        } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
+        } else if (BeamIsReturnToTrace(w)) {
             *return_to_trace = 1;
             cpp += 1;
-        } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
+        } else if (BeamIsReturnTimeTrace(w)) {
             cpp += 2;
         } else {
             break;
@@ -703,14 +703,12 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     }
 
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
-	BeamInstr w;
+	BeamInstr *w;
         Eterm* E;
 	ErtsCodeInfo* prev_info = erts_trace_time_call(c_p, info, bp->time);
         E = c_p->stop;
-        w = *(BeamInstr*) E[0];
-	if (! (BeamIsOpCode(w, op_i_return_time_trace) ||
-	       BeamIsOpCode(w, op_return_trace) ||
-               BeamIsOpCode(w, op_i_return_to_trace)) ) {
+        w = (BeamInstr*) E[0];
+	if (!(BeamIsReturnTrace(w) || BeamIsReturnToTrace(w) || BeamIsReturnTimeTrace(w))) {
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
 	    if (E - 2 < c_p->htop) {
 		(void) erts_garbage_collect(c_p, 2, reg, info->mfa.arity);
