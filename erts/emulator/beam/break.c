@@ -44,7 +44,7 @@
 /* Forward declarations -- should really appear somewhere else */
 static void process_killer(void);
 void do_break(void);
-void erl_crash_dump_v(char *file, int line, char* fmt, va_list args);
+void erl_crash_dump_v(char *file, int line, const char* fmt, va_list args);
 
 #ifdef DEBUG
 static void bin_check(void);
@@ -770,7 +770,7 @@ crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
 
 /* XXX THIS SHOULD BE IN SYSTEM !!!! */
 void
-erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
+erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
 {
     ErtsThrPrgrData tpd_buf; /* in case we aren't a managed thread... */
     int fd;

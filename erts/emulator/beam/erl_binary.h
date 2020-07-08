@@ -384,7 +384,7 @@ erts_bin_drv_alloc_fnf(Uint size)
     BINARY_OVERFLOW_CHECK(size);
     bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
 
-    res = erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
+    res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
 
     if (res) {
@@ -417,7 +417,7 @@ erts_bin_nrml_alloc_fnf(Uint size)
     BINARY_OVERFLOW_CHECK(size);
     bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
 
-    res = erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
+    res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
 
     if (res) {
@@ -455,7 +455,7 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
     BINARY_OVERFLOW_CHECK(size);
     bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
 
-    nbp = erts_realloc_fnf(type, (void *) bp, bsize);
+    nbp = (Binary *)erts_realloc_fnf(type, (void *) bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
 
     if (nbp) {
@@ -519,7 +519,7 @@ erts_create_magic_binary_x(Uint size, int (*destructor)(Binary *),
 {
     Uint bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
                            : ERTS_MAGIC_BIN_SIZE(size);
-    Binary* bptr = erts_alloc_fnf(alloc_type, bsize);
+    Binary* bptr = (Binary *)erts_alloc_fnf(alloc_type, bsize);
     ASSERT(bsize > size);
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(alloc_type), bsize);
@@ -557,7 +557,7 @@ erts_binary_to_magic_indirection(Binary *bp)
     ErtsMagicIndirectionWord *mip;
     ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
-    mip = ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
+    mip = (ErtsMagicIndirectionWord*)ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
     return &mip->smp_atomic_word;
 }
 

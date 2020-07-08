@@ -1180,7 +1180,7 @@ void erts_lcnt_update_process_locks(int enable) {
 #if ERTS_PROC_LOCK_OWN_IMPL
 
 void
-erts_proc_lc_lock(Process *p, ErtsProcLocks locks, char *file, unsigned int line)
+erts_proc_lc_lock(Process *p, ErtsProcLocks locks, const char *file, unsigned int line)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
 					   p->common.id,
@@ -1209,7 +1209,7 @@ erts_proc_lc_lock(Process *p, ErtsProcLocks locks, char *file, unsigned int line
 
 void
 erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked,
-		     char* file, unsigned int line)
+		     const char *file, unsigned int line)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
 					   p->common.id,
@@ -1308,7 +1308,7 @@ erts_proc_lc_might_unlock(Process *p, ErtsProcLocks locks)
 }
 
 void
-erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks, char *file,
+erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks, const char *file,
 			  unsigned int line)
 {
 #if ERTS_PROC_LOCK_OWN_IMPL
@@ -1655,7 +1655,7 @@ erts_proc_lc_my_proc_locks(Process *p)
 }
 
 void
-erts_proc_lc_chk_no_proc_locks(char *file, int line)
+erts_proc_lc_chk_no_proc_locks(const char *file, int line)
 {
     int resv[5];
     int ids[5] = {lc_id.proc_lock_main,

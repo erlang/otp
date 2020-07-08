@@ -54,9 +54,6 @@ extern void (*ethr_thr_child_func__)(void *);
 int ethr_set_tse__(ethr_ts_event *tsep);
 ethr_ts_event *ethr_get_tse__(void);
 ETHR_PROTO_NORETURN__ ethr_abort__(void);
-#ifdef ETHR_WIN32_THREADS
-int ethr_win_get_errno__(void);
-#endif
 
 #ifdef ETHR_INCLUDE_MONOTONIC_CLOCK__
 #undef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME

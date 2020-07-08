@@ -86,7 +86,7 @@
 #define ERTS_GLB_INLINE
 #endif
 
-#if ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF) 
+#if (ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF))
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
 #else
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 0
@@ -297,7 +297,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
  * Compile time assert
  * (the actual compiler error msg can be a bit confusing)
  */
-#if ERTS_AT_LEAST_GCC_VSN__(3,1,1)
+#if ERTS_AT_LEAST_GCC_VSN__(3,1,1) && !defined __cplusplus
 # define ERTS_CT_ASSERT(e) \
     do { \
 	enum { compile_time_assert__ = __builtin_choose_expr((e),0,(void)0) }; \
@@ -305,7 +305,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #else
 # define ERTS_CT_ASSERT(e) \
     do { \
-        enum { compile_time_assert__ = 1/(e) }; \
+        enum { compile_time_assert__ = 1/((int)(e)) };  \
     } while (0)
 #endif
 
@@ -347,8 +347,8 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 **
 ** Eterm: A tagged erlang term (possibly 64 bits)
 ** BeamInstr: A beam code instruction unit, possibly larger than Eterm, not smaller.
-** UInt:  An unsigned integer exactly as large as an Eterm.
-** SInt:  A signed integer exactly as large as an eterm and therefor large
+** Uint:  An unsigned integer exactly as large as an Eterm.
+** Sint:  A signed integer exactly as large as an eterm and therefor large
 **        enough to hold the return value of the signed_val() macro.
 ** UWord: An unsigned integer at least as large as a void * and also as large
 **          or larger than an Eterm
@@ -633,7 +633,7 @@ static unsigned long zero_value = 0, one_value = 1;
 #  endif /* !__WIN32__ */
 #endif /* WANT_NONBLOCKING */
 
-__decl_noreturn void __noreturn erts_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
 
 /* Some special erts_exit() codes: */
 #define ERTS_INTR_EXIT	-1		/* called from signal handler */
@@ -969,7 +969,7 @@ erts_refc_inc_unless(erts_refc_t *refcp,
 {
     erts_aint_t val = erts_atomic_read_nob((erts_atomic_t *) refcp);
     while (1) {
-        erts_aint_t exp, new;
+        erts_aint_t exp, new_value;
 #ifdef ERTS_REFC_DEBUG
         if (val < min_val)
             erts_exit(ERTS_ABORT_EXIT,
@@ -978,11 +978,11 @@ erts_refc_inc_unless(erts_refc_t *refcp,
 #endif
         if (val == unless_val)
             return val;
-        new = val + 1;
+        new_value = val + 1;
         exp = val;
-        val = erts_atomic_cmpxchg_nob((erts_atomic_t *) refcp, new, exp);
+        val = erts_atomic_cmpxchg_nob((erts_atomic_t *) refcp, new_value, exp);
         if (val == exp)
-            return new;
+            return new_value;
     }
 }
 

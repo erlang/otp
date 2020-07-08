@@ -889,7 +889,7 @@ void erts_bif_info_init(void);
 
 /* bif.c */
 
-void erts_write_bif_wrapper(Export *export, BeamInstr *address);
+void erts_write_bif_wrapper(Export *export_, BeamInstr *address);
 
 void erts_queue_monitor_message(Process *,
 				ErtsProcLocks*,
@@ -998,9 +998,9 @@ double erts_get_positive_zero_float(void);
 /* config.c */
 
 __decl_noreturn void __noreturn erts_exit_epilogue(void);
-__decl_noreturn void __noreturn erts_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
 __decl_noreturn void __noreturn erts_flush_async_exit(int n, char*, ...);
-void erl_error(char*, va_list);
+void erl_error(const char*, va_list);
 
 /* This controls whether sharing-preserving copy is used by Erlang */
 

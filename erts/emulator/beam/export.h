@@ -29,7 +29,7 @@
 ** Export entry
 */
 
-typedef struct export
+typedef struct export_
 {
     /* Pointer to code for function. */
     void* addressv[ERTS_NUM_CODE_IX];

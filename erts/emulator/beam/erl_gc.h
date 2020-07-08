@@ -131,7 +131,7 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag)
  */
 
 #define ERTS_IS_GC_DESIRED_INTERNAL(Proc, HTop, STop)			\
-    ((((STop) - (HTop) < (Proc)->mbuf_sz))				\
+    ((((STop) - (HTop) < (Sint)(Proc)->mbuf_sz))                        \
      | ((Proc)->off_heap.overhead > (Proc)->bin_vheap_sz)		\
      | !!((Proc)->flags & F_FORCE_GC))
 

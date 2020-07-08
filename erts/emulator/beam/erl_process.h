@@ -452,7 +452,7 @@ typedef struct {
     ErtsRunQueue *misc_evac_runq;
     struct {
 	struct {
-	    int this;
+	    int here;
 	    int other;
 	} limit;
 	ErtsRunQueue *runq;
@@ -2067,7 +2067,7 @@ void *erts_psd_set_init(Process *p, int ix, void *data);
 ERTS_GLB_INLINE void *
 erts_psd_get(Process *p, int ix);
 ERTS_GLB_INLINE void *
-erts_psd_set(Process *p, int ix, void *new);
+erts_psd_set(Process *p, int ix, void *data);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -2278,7 +2278,7 @@ erts_check_emigration_need(ErtsRunQueue *c_rq, int prio)
 	    /* No migration if other is non-empty */
 	    if (!(ERTS_RUNQ_FLGS_GET(rq) & ERTS_RUNQ_FLG_NONEMPTY)
 		&& erts_get_sched_util(rq, 0, 1) < mp->prio[prio].limit.other
-		&& erts_get_sched_util(c_rq, 0, 1) > mp->prio[prio].limit.this) {
+		&& erts_get_sched_util(c_rq, 0, 1) > mp->prio[prio].limit.here) {
 		return rq;
 	    }
 	}
@@ -2291,7 +2291,7 @@ erts_check_emigration_need(ErtsRunQueue *c_rq, int prio)
 	    else
 		len = RUNQ_READ_LEN(&c_rq->procs.prio_info[prio].len);
 
-	    if (len > mp->prio[prio].limit.this) {
+	    if (len > mp->prio[prio].limit.here) {
 		ErtsRunQueue *n_rq = mp->prio[prio].runq;
 		if (n_rq) {
 		    if (prio == ERTS_PORT_PRIO_LEVEL)

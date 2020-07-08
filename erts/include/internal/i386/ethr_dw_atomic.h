@@ -149,7 +149,7 @@ ethr_native_dw_atomic_addr(ethr_native_dw_atomic_t *var)
 
 static ETHR_INLINE int
 ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
-				 ethr_sint_t *new,
+				 ethr_sint_t *new_value,
 				 ethr_sint_t *xchg)
 {
     ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
@@ -171,7 +171,7 @@ ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
 	"setz %3\n\t"
 	"popl %%ebx\n\t"
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new_value)
 	: "cc", "memory");
 
 #elif ETHR_NO_CLOBBER_EBX__
@@ -186,7 +186,7 @@ ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
 	"setz %3\n\t"
 	"popl %%ebx\n\t"
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "r"(new[0])
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new_value[1]), "r"(new_value[0])
 	: "cc", "memory");
 
 #else
@@ -199,7 +199,7 @@ ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
 	"lock; cmpxchg" ETHR_DW_CMPXCHG_SFX__ " %0\n\t"
 	"setz %3\n\t"
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "b"(new[0])
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new_value[1]), "b"(new_value[0])
 	: "cc", "memory");
 
 #endif
@@ -224,10 +224,10 @@ ethr_native_su_dw_atomic_read(ethr_native_dw_atomic_t *var)
     if (ETHR_X86_RUNTIME_CONF_HAVE_SSE2__)
 	return ethr_sse2_native_su_dw_atomic_read(var);
     else {
-	ethr_sint_t new[2];
+	ethr_sint_t new_value[2];
 	ethr_dw_atomic_no_sse2_convert_t xchg;
-	new[0] = new[1] = xchg.sint[0] = xchg.sint[1] = 0x83838383;
-	(void) ethr_native_dw_atomic_cmpxchg_mb(var, new, xchg.sint);
+	new_value[0] = new_value[1] = xchg.sint[0] = xchg.sint[1] = 0x83838383;
+	(void) ethr_native_dw_atomic_cmpxchg_mb(var, new_value, xchg.sint);
 	return xchg.sint64;
     }
 }
@@ -242,9 +242,9 @@ ethr_native_su_dw_atomic_set(ethr_native_dw_atomic_t *var,
 	ethr_sse2_native_su_dw_atomic_set(var, val);
     else {
 	ethr_sint_t xchg[2] = {0, 0};
-	ethr_dw_atomic_no_sse2_convert_t new;
-	new.sint64 = val;
-	while (!ethr_native_dw_atomic_cmpxchg_mb(var, new.sint, xchg));
+	ethr_dw_atomic_no_sse2_convert_t new_value;
+	new_value.sint64 = val;
+	while (!ethr_native_dw_atomic_cmpxchg_mb(var, new_value.sint, xchg));
     }
 }
 

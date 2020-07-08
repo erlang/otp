@@ -1382,7 +1382,6 @@ ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
 #define line __LINE__
 #endif
 {
-    static char *msg = "tag_val_def error";
 
     switch (x & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
@@ -1427,7 +1426,7 @@ ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
 	  break;
       }
     }
-    erl_assert_error(msg, __FUNCTION__, file, line);
+    erl_assert_error("tag_val_def error", __FUNCTION__, file, line);
 #undef file
 #undef line
 }

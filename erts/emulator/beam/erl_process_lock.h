@@ -244,7 +244,8 @@ void erts_lcnt_proc_lock_destroy(Process *p);
 ERTS_GLB_INLINE
 void erts_lcnt_proc_lock(erts_proc_lock_t *lock, ErtsProcLocks locks);
 ERTS_GLB_INLINE
-void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks, char *file, unsigned int line);
+void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks,
+                                const char *file, unsigned int line);
 ERTS_GLB_INLINE
 void erts_lcnt_proc_lock_unacquire(erts_proc_lock_t *lock, ErtsProcLocks locks);
 ERTS_GLB_INLINE
@@ -285,7 +286,7 @@ void erts_lcnt_proc_lock(erts_proc_lock_t *lock, ErtsProcLocks locks) {
 
 ERTS_GLB_INLINE
 void erts_lcnt_proc_lock_post_x(erts_proc_lock_t *lock, ErtsProcLocks locks,
-                                char *file, unsigned int line) {
+                                const char *file, unsigned int line) {
     erts_lcnt_lock_info_carrier_t *carrier;
     int handle;
 
@@ -401,20 +402,20 @@ void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res
 #define ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(P) \
   erts_proc_lc_chk_only_proc_main((P))
 void erts_proc_lc_lock(Process *p, ErtsProcLocks locks,
-		       char *file, unsigned int line);
+		       const char *file, unsigned int line);
 void erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked,
-			  char *file, unsigned int line);
+			  const char *file, unsigned int line);
 void erts_proc_lc_unlock(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_might_unlock(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_chk_have_proc_locks(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_chk_proc_locks(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_chk_only_proc_main(Process *p);
 void erts_proc_lc_chk_only_proc(Process *p, ErtsProcLocks locks);
-void erts_proc_lc_chk_no_proc_locks(char *file, int line);
+void erts_proc_lc_chk_no_proc_locks(const char *file, int line);
 ErtsProcLocks erts_proc_lc_my_proc_locks(Process *p);
 int erts_proc_lc_trylock_force_busy(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks,
-			       char* file, unsigned int line);
+			       const char* file, unsigned int line);
 void erts_proc_lc_unrequire_lock(Process *p, ErtsProcLocks locks);
 #else
 #define ERTS_CHK_NO_PROC_LOCKS
@@ -536,7 +537,7 @@ ERTS_GLB_INLINE ErtsProcLocks erts_proc_raw_trylock__(Process *p,
 ERTS_GLB_INLINE void erts_proc_lock_x__(Process *,
 					    erts_pix_lock_t *,
 					    ErtsProcLocks,
-					    char *file, unsigned int line);
+					    const char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_proc_lock__(Process *,
 					  erts_pix_lock_t *,
@@ -652,7 +653,7 @@ ERTS_GLB_INLINE void
 erts_proc_lock_x__(Process *p,
 		     erts_pix_lock_t *pix_lck,
 		     ErtsProcLocks locks,
-		     char *file, unsigned int line)
+		     const char *file, unsigned int line)
 #else
 erts_proc_lock__(Process *p,
 		     erts_pix_lock_t *pix_lck,
@@ -912,7 +913,7 @@ erts_proc_lock_op_debug(Process *p, ErtsProcLocks locks, int locked)
 
 
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE void erts_proc_lock_x(Process *, ErtsProcLocks, char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_proc_lock_x(Process *, ErtsProcLocks, const char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_proc_lock(Process *, ErtsProcLocks);
 #endif
@@ -931,7 +932,7 @@ ERTS_GLB_INLINE Sint erts_proc_read_refc(Process *);
 
 ERTS_GLB_INLINE void
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_proc_lock_x(Process *p, ErtsProcLocks locks, char *file, unsigned int line)
+erts_proc_lock_x(Process *p, ErtsProcLocks locks, const char *file, unsigned int line)
 #else
 erts_proc_lock(Process *p, ErtsProcLocks locks)
 #endif 

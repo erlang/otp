@@ -136,7 +136,7 @@ Eterm erts_init_process_id = ERTS_INVALID_PID;
  * inherit previous values.
  */
 
-extern void erl_crash_dump_v(char *, int, char *, va_list);
+extern void erl_crash_dump_v(char *, int, const char *, va_list);
 #ifdef __WIN32__
 extern void ConNormalExit(void);
 extern void ConWaitForExit(void);
@@ -288,7 +288,7 @@ set_default_time_adj(int *time_correction_p, ErtsTimeWarpMode *time_warp_mode_p)
  * that don't go to the error logger go through here.
  */
 
-void erl_error(char *fmt, va_list args)
+void erl_error(const char *fmt, va_list args)
 {
     erts_vfprintf(stderr, fmt, args);
 }
@@ -2378,7 +2378,7 @@ erl_start(int argc, char **argv)
 
 
 
-__decl_noreturn void erts_thr_fatal_error(int err, char *what)
+__decl_noreturn void erts_thr_fatal_error(int err, const char *what)
 {
     char *errstr = err ? strerror(err) : NULL;
     erts_fprintf(stderr,
@@ -2437,7 +2437,7 @@ system_cleanup(int flush_async)
 static int erts_exit_code;
 
 static __decl_noreturn void __noreturn
-erts_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
+erts_exit_vv(int n, int flush_async, const char *fmt, va_list args1, va_list args2)
 {
     system_cleanup(flush_async);
 
@@ -2474,7 +2474,7 @@ __decl_noreturn void __noreturn erts_exit_epilogue(void)
 }
 
 /* Exit without flushing async threads */
-__decl_noreturn void __noreturn erts_exit(int n, char *fmt, ...)
+__decl_noreturn void __noreturn erts_exit(int n, const char *fmt, ...)
 {
     va_list args1, args2;
     va_start(args1, fmt);

@@ -528,15 +528,15 @@ ERTS_GLB_FORCE_INLINE ErtsMessage *erts_alloc_message(Uint sz, Eterm **hpp)
     ErtsMessage *mp;
 
     if (sz == 0) {
-	mp = erts_alloc_message_ref();
+	mp = (ErtsMessage *)erts_alloc_message_ref();
         ERTS_INIT_MESSAGE(mp);
 	if (hpp)
 	    *hpp = NULL;
 	return mp;
     }
 
-    mp = erts_alloc(ERTS_ALC_T_MSG,
-		    sizeof(ErtsMessage) + (sz - 1)*sizeof(Eterm));
+    mp = (ErtsMessage *)erts_alloc(
+        ERTS_ALC_T_MSG, sizeof(ErtsMessage) + (sz - 1)*sizeof(Eterm));
 
     ERTS_INIT_MESSAGE(mp);
     mp->data.attached = ERTS_MSG_COMBINED_HFRAG;
@@ -556,7 +556,7 @@ erts_shrink_message(ErtsMessage *mp, Uint sz, Eterm *brefs, Uint brefs_size)
 	if (!mp->data.attached)
 	    return mp;
 	ASSERT(mp->data.attached == ERTS_MSG_COMBINED_HFRAG);
-	nmp = erts_alloc_message_ref();
+	nmp = (ErtsMessage *)erts_alloc_message_ref();
 #ifdef DEBUG
 	if (brefs && brefs_size) {
 	    int i;
