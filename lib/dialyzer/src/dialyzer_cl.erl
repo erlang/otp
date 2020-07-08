@@ -533,7 +533,7 @@ hc(Mod, Cache) ->
       %% io:format(" ~w", [Mod]),
       case Cache of
 	false ->
-	  {ok, Mod} = hipe:c(Mod),
+	  {ok, Mod} = dialyzer_whining_inhibitor(hipe, c, [Mod]),
 	  ok;
 	true ->
 	  hc_cache(Mod)
@@ -547,8 +547,8 @@ hc_cache(Mod) ->
   HipeArchVersion =
     lists:concat(
       [erlang:system_info(hipe_architecture), "-",
-       hipe:version(), "-",
-       hipe:erts_checksum()]),
+       dialyzer_whining_inhibitor(hipe, version, []), "-",
+       dialyzer_whining_inhibitor(hipe, erts_checksum, [])]),
   CacheDir = filename:join(CacheBase, HipeArchVersion),
   OrigBeamFile = code:which(Mod),
   {ok, {Mod, <<Checksum:128>>}} = beam_lib:md5(OrigBeamFile),
@@ -568,6 +568,15 @@ hc_cache(Mod) ->
   {module, Mod} = code:load_binary(Mod, CachedBeamFile, ModBin),
   true = code:is_module_native(Mod),
   ok.
+
+%% We have an optional runtime dependency on HiPE, but there's no way to
+%% suppress warnings for calls to unknown functions when -Wunknown is on, so
+%% we'll run all HiPE calls through here to suppress warnings when HiPE hasn't
+%% been compiled. :(
+dialyzer_whining_inhibitor(M, F, A) ->
+  apply(id(M), id(F), id(A)).
+
+id(I) -> I.
 
 cache_base_dir() ->
   %% http://standards.freedesktop.org/basedir-spec/basedir-spec-0.7.html

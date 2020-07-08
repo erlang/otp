@@ -101,7 +101,7 @@ annotate(Tree) ->
     {cerl_trees:map(F, Tree), Xs, Out, Esc, Deps, Par}.
 
 append_ann(Tag, Val, [X | Xs]) ->
-    if tuple_size(X) >= 1, element(1, X) =:= Tag -> 
+    if tuple_size(X) >= 1, element(1, X) =:= Tag ->
 	    append_ann(Tag, Val, Xs);
        true ->
 	    [X | append_ann(Tag, Val, Xs)]
@@ -297,8 +297,8 @@ loop(T, L, St0) ->
     St2 = St1#state{out = M},
     case take_work(W) of
 	{ok, L1, W1} ->
- 	    T1 = dict:fetch(L1, St2#state.funs),
- 	    loop(T1, L1, St2#state{work = W1});
+	    T1 = dict:fetch(L1, St2#state.funs),
+	    loop(T1, L1, St2#state{work = W1});
 	none ->
 	    St2
     end.
@@ -742,7 +742,7 @@ set__union(X, Y) -> ordsets:union(X, Y).
 
 set__add(X, S) -> ordsets:add_element(X, S).
 
-set__is_member(X, S) -> ordsets:is_element(X, S).    
+set__is_member(X, S) -> ordsets:is_element(X, S).
 
 set__subtract(X, Y) -> ordsets:subtract(X, Y).
 

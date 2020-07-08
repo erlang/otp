@@ -27,9 +27,9 @@
 -export([format/1, format/2, annotate/3]).
 -ifndef(NO_UNUSED).
 -export([best/1, best/2, layout/1, layout/2, get_ctxt_paperwidth/1,
- 	 set_ctxt_paperwidth/2, get_ctxt_linewidth/1,
- 	 set_ctxt_linewidth/2, get_ctxt_hook/1, set_ctxt_hook/2,
- 	 get_ctxt_user/1, set_ctxt_user/2]).
+	 set_ctxt_paperwidth/2, get_ctxt_linewidth/1,
+	 set_ctxt_linewidth/2, get_ctxt_hook/1, set_ctxt_hook/2,
+	 get_ctxt_user/1, set_ctxt_user/2]).
 -endif.
 
 -import(prettypr, [text/1, nest/2, above/2, beside/2, sep/1, par/1,
@@ -582,7 +582,7 @@ split_string_2([$^, X | Xs], N, L, As) ->
 split_string_2([X1, X2, X3 | Xs], N, L, As) when
   X1 >= $0, X1 =< $7, X2 >= $0, X2 =< $7, X3 >= $0, X3 =< $7 ->
     split_string_1(Xs, N - 3, L - 3, [X3, X2, X1 | As]);
-split_string_2([X1, X2 | Xs], N, L, As) when 
+split_string_2([X1, X2 | Xs], N, L, As) when
   X1 >= $0, X1 =< $7, X2 >= $0, X2 =< $7 ->
     split_string_1(Xs, N - 2, L - 2, [X2, X1 | As]);
 split_string_2([X | Xs], N, L, As) ->

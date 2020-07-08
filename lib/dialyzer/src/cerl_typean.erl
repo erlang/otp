@@ -38,7 +38,7 @@
 
 -import(cerl, [ann_c_fun/3, ann_c_var/2, alias_pat/1, alias_var/1,
 	       apply_args/1, apply_op/1, atom_val/1, bitstr_size/1,
-	       bitstr_val/1, bitstr_type/1, bitstr_flags/1, binary_segments/1, 
+	       bitstr_val/1, bitstr_type/1, bitstr_flags/1, binary_segments/1,
 	       c_letrec/2, c_nil/0,
 	       c_values/1, call_args/1, call_module/1, call_name/1,
 	       case_arg/1, case_clauses/1, catch_body/1, clause_body/1,
@@ -150,7 +150,7 @@ annotate(Tree, Limit, Esc, Dep, Par) ->
     {cerl_trees:map(F, Tree), Type, Vars}.
 
 append_ann(Tag, Val, [X | Xs]) ->
-    if tuple_size(X) >= 1, element(1, X) =:= Tag -> 
+    if tuple_size(X) >= 1, element(1, X) =:= Tag ->
 	    append_ann(Tag, Val, Xs);
        true ->
 	    [X | append_ann(Tag, Val, Xs)]
@@ -159,7 +159,7 @@ append_ann(Tag, Val, []) ->
     [{Tag, Val}].
 
 delete_ann(Tag, [X | Xs]) ->
-    if tuple_size(X) >= 1, element(1, X) =:= Tag -> 
+    if tuple_size(X) >= 1, element(1, X) =:= Tag ->
 	    delete_ann(Tag, Xs);
        true ->
 	    [X | delete_ann(Tag, Xs)]
@@ -344,8 +344,8 @@ loop(T, L, St0) ->
     St2 = St1#state{out = M},
     case take_work(W) of
 	{ok, L1, W1} ->
- 	    T1 = dict:fetch(L1, St2#state.funs),
- 	    loop(T1, L1, St2#state{work = W1});
+	    T1 = dict:fetch(L1, St2#state.funs),
+	    loop(T1, L1, St2#state{work = W1});
 	none ->
 	    St2
     end.
@@ -605,21 +605,21 @@ bind_pat_vars(P, X, Vars) ->
 	    case t_is_tuple(X) of
 		true ->
 		    case t_tuple_subtypes(X) of
-			unknown -> 
-			    bind_vars_single(pat_vars(P), top_or_bottom(X), 
+			unknown ->
+			    bind_vars_single(pat_vars(P), top_or_bottom(X),
 					     Vars);
 			[Tuple] ->
 			    case t_tuple_size(Tuple) =:= tuple_arity(P) of
 				true ->
-				    bind_pats_list(tuple_es(P), 
+				    bind_pats_list(tuple_es(P),
 						   t_tuple_args(Tuple), Vars);
-				
+
 				false ->
-				    bind_vars_single(pat_vars(P), 
+				    bind_vars_single(pat_vars(P),
 						     top_or_bottom(X), Vars)
 			    end;
 			List when is_list(List) ->
-			    bind_vars_single(pat_vars(P), top_or_bottom(X), 
+			    bind_vars_single(pat_vars(P), top_or_bottom(X),
 					     Vars)
 		    end;
 		false ->
@@ -632,21 +632,21 @@ bind_pat_vars(P, X, Vars) ->
 	    %% bound, and the other fields are constant literals.
 	    %% We could create a filter for Size being an integer().
 	    Size = bitstr_size(P),
-	    ValType = 
+	    ValType =
 		case concrete(bitstr_type(P)) of
 		    float -> t_float();
 		    binary -> t_binary();
 		    integer ->
 			case is_c_int(Size) of
 			    false -> t_integer();
-			    true -> 
+			    true ->
 				SizeVal = int_val(Size),
 				Flags = concrete(bitstr_flags(P)),
 				case lists:member(signed, Flags) of
-				    true -> 
+				    true ->
 					t_from_range(-(1 bsl (SizeVal - 1)),
 						     1 bsl (SizeVal - 1) - 1);
-				    false -> 
+				    false ->
 					t_from_range(0,1 bsl SizeVal - 1)
 				end
 			end
@@ -666,7 +666,7 @@ pat_type(P, Vars) ->
 	literal ->
 	    t_from_term(concrete(P));
 	cons ->
-	    t_cons(pat_type(cons_hd(P), Vars), 
+	    t_cons(pat_type(cons_hd(P), Vars),
 		   pat_type(cons_tl(P), Vars));
 	tuple ->
 	    t_tuple([pat_type(E, Vars) || E <- tuple_es(P)]);
@@ -807,7 +807,7 @@ set__singleton(X) -> [X].
 
 set__add(X, S) -> ordsets:add_element(X, S).
 
-set__is_member(X, S) -> ordsets:is_element(X, S).    
+set__is_member(X, S) -> ordsets:is_element(X, S).
 
 %% set__subtract(X, Y) -> ordsets:subtract(X, Y).
 

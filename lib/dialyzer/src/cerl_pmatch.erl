@@ -99,10 +99,10 @@ transform(M, _Opts) ->
 %%       {E1, Vs} = cerl_pmatch(Cs, Env),
 %%       c_let(Vs, case_arg(E), E1).
 %% </pre>
-%% 
+%%
 %% <p>The environment is used for generating new variables which do not
 %% shadow existing bindings.</p>
-%% 
+%%
 %% @see rec_env
 %% @see expr/2
 %% @see transform/2
@@ -130,11 +130,11 @@ match([], Cs, Else, _Env) ->
     %% This clause reduction is an important optimization. It selects a
     %% clause body if possible, and otherwise just removes dead clauses.
     case cerl_clauses:reduce(Cs1) of
- 	{true, {C, []}} ->    % if we get bindings, something is wrong!
- 	    cerl:clause_body(C);
- 	{false, Cs2} ->
+	{true, {C, []}} ->    % if we get bindings, something is wrong!
+	    cerl:clause_body(C);
+	{false, Cs2} ->
 	    %% This happens when guards are nontrivial.
- 	    cerl:c_case(cerl:c_values([]), Cs2)
+	    cerl:c_case(cerl:c_values([]), Cs2)
     end;
 match([V | _] = Vs, Cs, Else, Env) ->
     foldr(fun (CsF, ElseF) ->
@@ -199,13 +199,13 @@ match_var([V | Vs], Cs, Else, Env) ->
 %% body of a final catch-all clause.
 
 match_con([V | Vs], Cs, Else, Env) ->
-    case group_con(Cs) of 
+    case group_con(Cs) of
       [{_, _, Gs}] ->
- 	    %% Don't create a group type switch if there is only one
- 	    %% such group
+	    %% Don't create a group type switch if there is only one
+	    %% such group
 	    make_switch(V, [match_congroup(DG, Vs, CsG, Else, Env)
- 			    || {DG, _, CsG} <- Gs],
- 			Else, Env);
+			    || {DG, _, CsG} <- Gs],
+			Else, Env);
 	Ts ->
 	    Cs1 = [match_typegroup(T, V, Vs, Gs, Else, Env)
 		   || {T, _, Gs} <- Ts],
@@ -215,7 +215,7 @@ match_con([V | Vs], Cs, Else, Env) ->
 
 match_typegroup(_T, _V, Vs, [{D, _, Cs}], Else, Env) when element(1, D) /= ?binary_id ->
     %% Don't create a group type switch if there is only one constructor
-    %% in the group. (Note that this always happens for '[]'.)  
+    %% in the group. (Note that this always happens for '[]'.)
     %% Special case for binaries which always get a group switch
     match_congroup(D, Vs, Cs, Else, Env);
 match_typegroup(T, V, Vs, Gs, Else, Env) ->
@@ -277,7 +277,7 @@ finalize_typegroup(Gs) ->
 %% eliminate these, by turning them into let-definitions in the guards
 %% and bodies of the clauses.
 
-unalias(C, V) -> 
+unalias(C, V) ->
     [P | Ps] = cerl:clause_pats(C),
     B = cerl:clause_body(C),
     G = cerl:clause_guard(C),
@@ -334,7 +334,7 @@ con_desc(E) ->
 	    throw({bad_constructor, E})
     end.
 
-%% This returns the type class for a constructor descriptor, for 
+%% This returns the type class for a constructor descriptor, for
 %% grouping of clauses. It does not distinguish between tuples of
 %% different arity, nor between different values of atoms, integers and
 %% floats.
@@ -396,7 +396,7 @@ make_let(Vs, A, B) ->
 %%
 %% <p>The environment is used for generating new variables which do not
 %% shadow existing bindings.</p>
-%% 
+%%
 %% @see clauses/2
 %% @see rec_env
 
@@ -414,21 +414,21 @@ expr(E, Env) ->
             Unit = expr(cerl:bitstr_unit(E), Env),
             Type = expr(cerl:bitstr_type(E), Env),
             cerl:update_c_bitstr(E, V, Sz, Unit, Type, cerl:bitstr_flags(E));
- 	literal ->
+	literal ->
 	    E;
 	var ->
 	    E;
 	values ->
 	    Es = expr_list(cerl:values_es(E), Env),
- 	    cerl:update_c_values(E, Es);
+	    cerl:update_c_values(E, Es);
 	cons ->
 	    H = expr(cerl:cons_hd(E), Env),
 	    T = expr(cerl:cons_tl(E), Env),
 	    cerl:update_c_cons(E, H, T);
- 	tuple ->
+	tuple ->
 	    Es = expr_list(cerl:tuple_es(E), Env),
 	    cerl:update_c_tuple(E, Es);
- 	'let' ->
+	'let' ->
 	    A = expr(cerl:let_arg(E), Env),
 	    Vs = cerl:let_vars(E),
 	    Env1 = add_vars(Vs, Env),
@@ -437,36 +437,36 @@ expr(E, Env) ->
 	seq ->
 	    A = expr(cerl:seq_arg(E), Env),
 	    B = expr(cerl:seq_body(E), Env),
- 	    cerl:update_c_seq(E, A, B);
- 	apply ->
+	    cerl:update_c_seq(E, A, B);
+	apply ->
 	    Op = expr(cerl:apply_op(E), Env),
 	    As = expr_list(cerl:apply_args(E), Env),
- 	    cerl:update_c_apply(E, Op, As);
- 	call ->
+	    cerl:update_c_apply(E, Op, As);
+	call ->
 	    M = expr(cerl:call_module(E), Env),
 	    N = expr(cerl:call_name(E), Env),
 	    As = expr_list(cerl:call_args(E), Env),
- 	    cerl:update_c_call(E, M, N, As);
- 	primop ->
+	    cerl:update_c_call(E, M, N, As);
+	primop ->
 	    As = expr_list(cerl:primop_args(E), Env),
 	    cerl:update_c_primop(E, cerl:primop_name(E), As);
- 	'case' ->
+	'case' ->
 	    A = expr(cerl:case_arg(E), Env),
 	    Cs = expr_list(cerl:case_clauses(E), Env),
 	    {E1, Vs} = clauses(Cs, Env),
- 	    make_let(Vs, A, E1);
- 	clause ->
+	    make_let(Vs, A, E1);
+	clause ->
 	    Vs = cerl:clause_vars(E),
 	    Env1 = add_vars(Vs, Env),
 	    G = expr(cerl:clause_guard(E), Env1),
 	    B = expr(cerl:clause_body(E), Env1),
 	    cerl:update_c_clause(E, cerl:clause_pats(E), G, B);
- 	'fun' ->
+	'fun' ->
 	    Vs = cerl:fun_vars(E),
 	    Env1 = add_vars(Vs, Env),
 	    B = expr(cerl:fun_body(E), Env1),
 	    cerl:update_c_fun(E, Vs, B);
- 	'receive' ->
+	'receive' ->
 	    %% NOTE: No pattern matching compilation is done here! The
 	    %% receive-clauses and patterns cannot be staged as long as
 	    %% we are working with "normal" Core Erlang.
@@ -481,7 +481,7 @@ expr(E, Env) ->
 	    Evs = cerl:try_evars(E),
 	    H = expr(cerl:try_handler(E), add_vars(Evs, Env)),
 	    cerl:update_c_try(E, A, Vs, B, Evs, H);
- 	'catch' ->
+	'catch' ->
 	    B = expr(cerl:catch_body(E), Env),
 	    cerl:update_c_catch(E, B);
 	letrec ->
@@ -547,26 +547,26 @@ is_lightweight(E) ->
 is_lightweight_1(E) ->
     case cerl:type(E) of
 	var -> true;
-   	literal -> true;
-   	'fun' -> true;
-   	values -> all(fun is_simple/1, cerl:values_es(E));
-   	cons -> is_simple(cerl:cons_hd(E))
-   		    andalso is_simple(cerl:cons_tl(E));
-   	tuple -> all(fun is_simple/1, cerl:tuple_es(E));
-   	'let' -> (is_simple(cerl:let_arg(E)) andalso
-   		  is_lightweight_1(cerl:let_body(E)));
-   	seq -> (is_simple(cerl:seq_arg(E)) andalso
-   		is_lightweight_1(cerl:seq_body(E)));
-   	primop ->
-   	    all(fun is_simple/1, cerl:primop_args(E));
-   	apply ->
-   	    is_simple(cerl:apply_op(E))
-   		andalso all(fun is_simple/1, cerl:apply_args(E));
-   	call ->
-   	    is_simple(cerl:call_module(E))
-   		andalso is_simple(cerl:call_name(E))
-   		andalso all(fun is_simple/1, cerl:call_args(E));    
-   	_ ->
+	literal -> true;
+	'fun' -> true;
+	values -> all(fun is_simple/1, cerl:values_es(E));
+	cons -> is_simple(cerl:cons_hd(E))
+		    andalso is_simple(cerl:cons_tl(E));
+	tuple -> all(fun is_simple/1, cerl:tuple_es(E));
+	'let' -> (is_simple(cerl:let_arg(E)) andalso
+		  is_lightweight_1(cerl:let_body(E)));
+	seq -> (is_simple(cerl:seq_arg(E)) andalso
+		is_lightweight_1(cerl:seq_body(E)));
+	primop ->
+	    all(fun is_simple/1, cerl:primop_args(E));
+	apply ->
+	    is_simple(cerl:apply_op(E))
+		andalso all(fun is_simple/1, cerl:apply_args(E));
+	call ->
+	    is_simple(cerl:call_module(E))
+		andalso is_simple(cerl:call_name(E))
+		andalso all(fun is_simple/1, cerl:call_args(E));
+	_ ->
 	    %% The default is to lift the code to a new function.
 	    false
     end.

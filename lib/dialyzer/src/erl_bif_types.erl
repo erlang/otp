@@ -188,7 +188,7 @@ type(erlang, '=:=', 2, Xs = [Lhs, Rhs], Opaques) ->
 	      {_, unknown} -> t_boolean();
 	      {[X], [X]} -> t_atom('true');
 	      {LhsVals, RhsVals} ->
-		case lists:all(fun({X, Y}) -> X =/= Y end, 
+		case lists:all(fun({X, Y}) -> X =/= Y end,
 			       [{X, Y} || X <- LhsVals, Y <- RhsVals]) of
 		  true -> t_atom('false');
 		  false -> t_boolean()
@@ -209,10 +209,10 @@ type(erlang, '=:=', 2, Xs = [Lhs, Rhs], Opaques) ->
 		    LhsMin = number_min(Lhs, Opaques),
 		    RhsMax = number_max(Rhs, Opaques),
 		    RhsMin = number_min(Rhs, Opaques),
-		    Ans1 = (is_integer(LhsMin) 
+		    Ans1 = (is_integer(LhsMin)
 			    andalso is_integer(RhsMax)
 			    andalso (LhsMin > RhsMax)),
-		    Ans2 = (is_integer(LhsMax) 
+		    Ans2 = (is_integer(LhsMax)
 			    andalso is_integer(RhsMin)
 			    andalso (RhsMin > LhsMax)),
 		    case Ans1 orelse Ans2 of
@@ -254,9 +254,9 @@ type(erlang, '=/=', 2, Xs = [Lhs, Rhs], Opaques) ->
 			andalso (RhsMin > LhsMax)),
 		case Ans1 orelse Ans2 of
 		  true -> t_atom('true');
-		  false -> 
-		    if LhsMax =:= LhsMin, 
-		       RhsMin =:= RhsMax, 
+		  false ->
+		    if LhsMax =:= LhsMin,
+		       RhsMin =:= RhsMax,
 		       RhsMax =:= LhsMax -> t_atom('false');
 		       true -> t_boolean()
 		    end
@@ -275,7 +275,7 @@ type(erlang, '>', 2, Xs = [Lhs, Rhs], Opaques) ->
 	RhsMin = number_min(Rhs, Opaques),
 	T = t_atom('true'),
 	F = t_atom('false'),
-	if 
+	if
 	  is_integer(LhsMin), is_integer(RhsMax), LhsMin > RhsMax -> T;
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin >= LhsMax -> F;
 	  true -> t_boolean()
@@ -293,7 +293,7 @@ type(erlang, '>=', 2, Xs = [Lhs, Rhs], Opaques) ->
 	RhsMin = number_min(Rhs, Opaques),
 	T = t_atom('true'),
 	F = t_atom('false'),
-	if 
+	if
 	  is_integer(LhsMin), is_integer(RhsMax), LhsMin >= RhsMax -> T;
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin > LhsMax -> F;
 	  true -> t_boolean()
@@ -311,7 +311,7 @@ type(erlang, '<', 2, Xs = [Lhs, Rhs], Opaques) ->
 	RhsMin = number_min(Rhs, Opaques),
 	T = t_atom('true'),
 	F = t_atom('false'),
-	if 
+	if
 	  is_integer(LhsMax), is_integer(RhsMin), LhsMax < RhsMin -> T;
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax =< LhsMin -> F;
 	  true -> t_boolean()
@@ -329,7 +329,7 @@ type(erlang, '=<', 2, Xs = [Lhs, Rhs], Opaques) ->
 	RhsMin = number_min(Rhs, Opaques),
 	T = t_atom('true'),
 	F = t_atom('false'),
-	if 
+	if
 	  is_integer(LhsMax), is_integer(RhsMin), LhsMax =< RhsMin -> T;
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax < LhsMin -> F;
 	  true -> t_boolean()
@@ -341,7 +341,7 @@ type(erlang, '+', 1, Xs, Opaques) ->
   strict(erlang, '+', 1, Xs, fun ([X]) -> X end, Opaques);
 type(erlang, '-', 1, Xs, Opaques) ->
   strict(erlang, '-', 1, Xs,
-	 fun ([X]) -> 
+	 fun ([X]) ->
 	     case t_is_integer(X, Opaques) of
 	       true -> type(erlang, '-', 2, [t_integer(0), X]);
 	       false -> X
@@ -527,12 +527,12 @@ type(erlang, abs, 1, Xs, Opaques) ->
 %%  strict(erlang, 'bnot', 1, Xs, fun (_) -> t_integer() end, Opaques);
 type(erlang, append, 2, Xs, _Opaques) -> type(erlang, '++', 2, Xs); % alias
 type(erlang, apply, 2, Xs, Opaques) ->
-  Fun = fun ([X, _Y]) -> 
+  Fun = fun ([X, _Y]) ->
 	    case t_is_fun(X, Opaques) of
 	      true ->
 		t_fun_range(X, Opaques);
 	      false ->
-		t_any() 
+		t_any()
 	    end
 	end,
   strict(erlang, apply, 2, Xs, Fun, Opaques);
@@ -568,7 +568,7 @@ type(erlang, element, 2, Xs, Opaques) ->
 		 case t_number_vals(X1, Opaques) of
 		   unknown -> t_sup(As);
 		   Ns when is_list(Ns) ->
-		     Fun = fun 
+		     Fun = fun
 			     (N, X) when is_integer(N), 1 =< N, N =< Sz ->
 			       t_sup(X, lists:nth(N, As));
 			     (_, X) ->
@@ -636,10 +636,10 @@ type(erlang, is_function, 1, Xs, Opaques) ->
         end,
   strict(erlang, is_function, 1, Xs, Fun, Opaques);
 type(erlang, is_function, 2, Xs, Opaques) ->
-  Fun = fun ([FunType, ArityType]) -> 
+  Fun = fun ([FunType, ArityType]) ->
 	    case t_number_vals(ArityType, Opaques) of
 	      unknown -> t_boolean();
-	      [Val] -> 
+	      [Val] ->
 		FunConstr = t_fun(any_list(Val), t_any()),
 		Fun2 = fun (X) ->
 			   t_is_subtype(X, FunConstr) andalso (not t_is_none(X))
@@ -662,7 +662,7 @@ type(erlang, is_list, 1, Xs, Opaques) ->
 	end,
   strict(erlang, is_list, 1, Xs, Fun, Opaques);
 type(erlang, is_map, 1, Xs, Opaques) ->
-  Fun = fun (X) -> 
+  Fun = fun (X) ->
 	    check_guard(X, fun (Y) -> t_is_map(Y, Opaques) end,
 	    t_map(), Opaques) end,
   strict(erlang, is_map, 1, Xs, Fun, Opaques);
@@ -988,7 +988,7 @@ type(erlang, tuple_to_list, 1, Xs, Opaques) ->
 	 fun ([X]) ->
 	     case t_tuple_subtypes(X, Opaques) of
 	       unknown -> t_list();
-	       SubTypes -> 
+	       SubTypes ->
                  Args = lists:append([t_tuple_args(ST, Opaques) ||
                                        ST <- SubTypes]),
 		 %% Can be nil if the tuple can be {}
@@ -1119,16 +1119,16 @@ type(hipe_bifs, alloc_loader_state, 1, Xs, Opaques) ->
 %%-- lists --------------------------------------------------------------------
 type(lists, all, 2, Xs, Opaques) ->
   strict(lists, all, 2, Xs,
-	 fun ([F, L]) -> 
+	 fun ([F, L]) ->
 	     case t_is_nil(L, Opaques) of
 	       true -> t_atom('true');
 	       false ->
 		 El = t_list_elements(L, Opaques),
 		 case check_fun_application(F, [El], Opaques) of
-		   ok -> 
+		   ok ->
 		     case t_is_cons(L, Opaques) of
 		       true -> t_fun_range(F, Opaques);
-		       false -> 
+		       false ->
 			 %% The list can be empty.
 			 t_sup(t_atom('true'), t_fun_range(F, Opaques))
 		     end;
@@ -1142,16 +1142,16 @@ type(lists, all, 2, Xs, Opaques) ->
 	 end, Opaques);
 type(lists, any, 2, Xs, Opaques) ->
   strict(lists, any, 2, Xs,
-	 fun ([F, L]) -> 
+	 fun ([F, L]) ->
 	     case t_is_nil(L, Opaques) of
 	       true -> t_atom('false');
 	       false ->
 		 El = t_list_elements(L, Opaques),
 		 case check_fun_application(F, [El], Opaques) of
-		   ok -> 
+		   ok ->
 		     case t_is_cons(L, Opaques) of
 		       true -> t_fun_range(F, Opaques);
-		       false -> 
+		       false ->
 			 %% The list can be empty
 			 t_sup(t_atom('false'), t_fun_range(F, Opaques))
 		     end;
@@ -1166,7 +1166,7 @@ type(lists, any, 2, Xs, Opaques) ->
 type(lists, append, 2, Xs, _Opaques) -> type(erlang, '++', 2, Xs);  % alias
 type(lists, delete, 2, Xs, Opaques) ->
   strict(lists, delete, 2, Xs,
-	 fun ([_, List]) -> 
+	 fun ([_, List]) ->
 	     case t_is_cons(List, Opaques) of
 	       true -> t_cons_tl(List);
 	       false -> List
@@ -1174,7 +1174,7 @@ type(lists, delete, 2, Xs, Opaques) ->
 	 end, Opaques);
 type(lists, dropwhile, 2, Xs, Opaques) ->
   strict(lists, dropwhile, 2, Xs,
-	 fun ([F, X]) -> 
+	 fun ([F, X]) ->
 	     case t_is_nil(X, Opaques) of
 	       true -> t_nil();
 	       false ->
@@ -1187,12 +1187,12 @@ type(lists, dropwhile, 2, Xs, Opaques) ->
 			   true -> t_none();
 			   false -> t_nil()
 			 end;
-		       ['false'] -> 
+		       ['false'] ->
 			 case t_is_none(t_inf(t_list(), X, Opaques)) of
 			   true -> t_none();
 			   false -> X
 			 end;
-		       _ -> 
+		       _ ->
 			 t_inf(t_cons_tl(t_inf(X, t_cons(), Opaques)),
                              t_maybe_improper_list(), Opaques)
 		     end;
@@ -1206,7 +1206,7 @@ type(lists, dropwhile, 2, Xs, Opaques) ->
 	 end, Opaques);
 type(lists, filter, 2, Xs, Opaques) ->
   strict(lists, filter, 2, Xs,
-	 fun ([F, L]) -> 
+	 fun ([F, L]) ->
 	     case t_is_nil(L, Opaques) of
 	       true -> t_nil();
 	       false ->
@@ -1216,7 +1216,7 @@ type(lists, filter, 2, Xs, Opaques) ->
                      RangeVals = t_atom_vals(t_fun_range(F, Opaques), Opaques),
 		     case RangeVals =:= ['false'] of
 		       true -> t_nil();
-		       false -> 
+		       false ->
 			 case RangeVals =:= ['true'] of
 			   true -> L;
 			   false -> t_list(T)
@@ -1239,7 +1239,7 @@ type(lists, flatten, 1, Xs, Opaques) ->
 		 %% Avoiding infinite recursion is tricky
 		 X1 = t_list_elements(L, Opaques),
 		 case t_is_any(X1) of
-		   true -> 
+		   true ->
 		     t_list();
 		   false ->
 		     X2 = type(lists, flatten, 1, [t_inf(X1, t_list(), Opaques)]),
@@ -1249,7 +1249,7 @@ type(lists, flatten, 1, Xs, Opaques) ->
 	 end, Opaques);
 type(lists, flatmap, 2, Xs, Opaques) ->
   strict(lists, flatmap, 2, Xs,
-	 fun ([F, List]) -> 
+	 fun ([F, List]) ->
 	     case t_is_nil(List, Opaques) of
 	       true -> t_nil();
 	       false ->
@@ -1278,7 +1278,7 @@ type(lists, flatmap, 2, Xs, Opaques) ->
 		       false -> t_nil()
 		     end
 		 end
- 	     end
+	     end
 	 end, Opaques);
 type(lists, foreach, 2, Xs, Opaques) ->
   strict(lists, foreach, 2, Xs,
@@ -1399,7 +1399,7 @@ type(lists, keysearch, 3, Xs, Opaques) ->
 	     case t_is_none(Tuple) of
 	       true -> t_atom('false');
 	       false ->
-		 Ret = t_sup(t_tuple([t_atom('value'), Tuple]), 
+		 Ret = t_sup(t_tuple([t_atom('value'), Tuple]),
 			     t_atom('false')),
 		 case t_is_any(X) of
 		   true -> Ret;
@@ -1422,7 +1422,7 @@ type(lists, last, 1, Xs, Opaques) ->
          fun ([L]) -> t_list_elements(L, Opaques) end, Opaques);
 type(lists, map, 2, Xs, Opaques) ->
   strict(lists, map, 2, Xs,
-	 fun ([F, L]) -> 
+	 fun ([F, L]) ->
 	     case t_is_nil(L, Opaques) of
 	       true -> L;
 	       false ->
@@ -1458,7 +1458,7 @@ type(lists, mapfoldl, 3, Xs, Opaques) ->
 				   t_tuple([t_nonempty_list(T1), T2])
 			       end,
 			 t_sup([Fun(ST) || ST <- t_tuple_subtypes(R, Opaques)]);
-		       error -> 
+		       error ->
 			 t_none()
 		     end;
 		   false ->
@@ -1518,7 +1518,7 @@ type(lists, partition, 2, Xs, Opaques) ->
 	       false ->
 		 El = t_list_elements(L, Opaques),
 		 case check_fun_application(F, [El], Opaques) of
-		   error -> 
+		   error ->
 		     case t_is_cons(L, Opaques) of
 		       true -> t_none();
 		       false -> t_tuple([t_nil(), t_nil()])
@@ -1586,7 +1586,7 @@ type(lists, usort, 1, Xs, _Opaques) -> type(lists, sort, 1, Xs); % same
 type(lists, usort, 2, Xs, _Opaques) -> type(lists, sort, 2, Xs); % same
 type(lists, unzip, 1, Xs, Opaques) ->
   strict(lists, unzip, 1, Xs,
- 	 fun ([Ps]) ->
+	 fun ([Ps]) ->
 	     case t_is_nil(Ps, Opaques) of
 	       true ->
 		 t_tuple([t_nil(), t_nil()]);
@@ -1601,7 +1601,7 @@ type(lists, unzip, 1, Xs, Opaques) ->
          end, Opaques);
 type(lists, unzip3, 1, Xs, Opaques) ->
   strict(lists, unzip3, 1, Xs,
- 	 fun ([Ts]) ->
+	 fun ([Ts]) ->
 	     case t_is_nil(Ts, Opaques) of
 	       true ->
 		 t_tuple([t_nil(), t_nil(), t_nil()]);
@@ -1610,8 +1610,8 @@ type(lists, unzip3, 1, Xs, Opaques) ->
                                               Opaques),
 		 lists:foldl(fun(T, Acc) ->
 				 [A, B, C] = t_tuple_args(T, Opaques),
-				 t_sup(t_tuple([t_list(A), 
-						t_list(B), 
+				 t_sup(t_tuple([t_list(A),
+						t_list(B),
 						t_list(C)]),
 				       Acc)
 			     end, t_none(), TupleTypes)
@@ -1835,7 +1835,7 @@ infinity_max([H|T]) ->
 	end,
 	H,
 	T)
-  end. 
+  end.
 
 infinity_min([]) -> empty;
 infinity_min([H|T]) ->
@@ -1932,8 +1932,8 @@ infinity_add(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
     error:system_limit -> pos_inf
   end.
 
-infinity_mult(neg_inf, Number) -> 
-  Greater = infinity_geq(Number, 0), 
+infinity_mult(neg_inf, Number) ->
+  Greater = infinity_geq(Number, 0),
   if Greater -> neg_inf;
      true -> pos_inf
   end;
@@ -2017,9 +2017,9 @@ arith_div(Min1, Max1, Min2, Max2) ->
   NewMax2 = if Max2 =:= 0 -> -1;
 	       true       -> Max2
 	    end,
-  Tmp_list = lists:flatten([infinity_div(Min1, NewMin2), 
+  Tmp_list = lists:flatten([infinity_div(Min1, NewMin2),
 			    infinity_div(Min1, NewMax2),
-			    infinity_div(Max1, NewMin2), 
+			    infinity_div(Max1, NewMin2),
 			    infinity_div(Max1, NewMax2)]),
   {infinity_min(Tmp_list), infinity_max(Tmp_list)}.
 
@@ -2032,7 +2032,7 @@ arith_rem(Min1, Max1, Min2, Max2) ->
        Max_range2 =:= 0 -> 0;
        true -> infinity_add(infinity_inv(Max_range2), 1)
     end,
-  New_max = 
+  New_max =
     if Max1_leq_zero -> 0;
        Max_range2 =:= 0 -> 0;
        true -> infinity_add(Max_range2, -1)
@@ -2066,7 +2066,7 @@ arith_bor_range_set({Min, Max}, [Int|IntList]) ->
 	      Int,
 	      IntList),
   {infinity_bor(Min, SafeAnd), infinity_bor(Max, SafeAnd)}.
-	      
+
 arith_band(X1, X2, Opaques) ->
   L1 = t_number_vals(X1, Opaques),
   L2 = t_number_vals(X2, Opaques),
@@ -2119,7 +2119,7 @@ arith_bor_ranges(Min1, Max1, Min2, Max2) ->
     case infinity_geq(Min1, 0) andalso infinity_geq(Min2, 0) of
       true -> 0;
       false -> infinity_bsl(-1, Width)
-    end,	  
+    end,
   Max =
     case infinity_geq(Max1, 0) andalso infinity_geq(Max2, 0) of
       true -> infinity_add(infinity_bsl(1, Width), -1);
@@ -2143,7 +2143,7 @@ arith(Op, X1, X2, Opaques) ->
 	  {NewMin, NewMax} =
 	    case Op of
 	      '+'    -> {infinity_add(Min1, Min2), infinity_add(Max1, Max2)};
-	      '-'    -> {infinity_add(Min1, infinity_inv(Max2)), 
+	      '-'    -> {infinity_add(Min1, infinity_inv(Max2)),
 			 infinity_add(Max1, infinity_inv(Min2))};
 	      '*'    -> arith_mult(Min1, Max1, Min2, Max2);
 	      'div'  -> arith_div(Min1, Max1, Min2, Max2);
@@ -2547,7 +2547,7 @@ arg_types(lists, all, 2) ->
   [t_fun([t_any()], t_boolean()), t_list()];
 arg_types(lists, any, 2) ->
   [t_fun([t_any()], t_boolean()), t_list()];
-arg_types(lists, append, 2) -> 
+arg_types(lists, append, 2) ->
   arg_types(erlang, '++', 2);  % alias
 arg_types(lists, delete, 2) ->
   [t_any(), t_maybe_improper_list()];
@@ -2563,7 +2563,7 @@ arg_types(lists, foreach, 2) ->
   [t_fun([t_any()], t_any()), t_list()];
 arg_types(lists, foldl, 3) ->
   [t_fun([t_any(), t_any()], t_any()), t_any(), t_list()];
-arg_types(lists, foldr, 3) -> 
+arg_types(lists, foldr, 3) ->
   arg_types(lists, foldl, 3);  % same
 arg_types(lists, keydelete, 3) ->
   [t_any(), t_pos_fixnum(), t_maybe_improper_list()]; % t_list(t_tuple())];
@@ -2587,7 +2587,7 @@ arg_types(lists, map, 2) ->
   [t_fun([t_any()], t_any()), t_list()];
 arg_types(lists, mapfoldl, 3) ->
   [t_fun([t_any(), t_any()], t_tuple([t_any(), t_any()])), t_any(), t_list()];
-arg_types(lists, mapfoldr, 3) -> 
+arg_types(lists, mapfoldr, 3) ->
   arg_types(lists, mapfoldl, 3); % same
 arg_types(lists, max, 1) ->
   [t_nonempty_list()];
@@ -2873,7 +2873,7 @@ test() ->
   Bor2 = type(erlang, 'bor', 2),
   Bor3 = type(erlang, 'bor', 2, [t_from_range(1, 299), t_atom('pelle')]),
   io:format("bor ~p ~p ~p~n", [Bor1, Bor2, Bor3]),
-  
+
   io:format("inf_?"),
   pos_inf = infinity_max([1, 4, 51, pos_inf]),
   -12 = infinity_min([1, 142, -4, -12]),

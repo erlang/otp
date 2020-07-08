@@ -520,7 +520,7 @@ compute_new_md5_1([], NewList, Diff) ->
 -spec compute_implementation_md5() -> [file_md5()].
 
 compute_implementation_md5() ->
-  Dir = code:lib_dir(hipe),
+  Dir = code:lib_dir(dialyzer),
   Files1 = ["erl_bif_types.beam", "erl_types.beam"],
   Files2 = [filename:join([Dir, "ebin", F]) || F <- Files1],
   compute_md5_from_files(Files2).

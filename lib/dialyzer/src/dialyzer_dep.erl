@@ -637,7 +637,7 @@ test(Mod) ->
   CallEdges = lists:flatten(CallEdges0),
   NamedCallEdges = [{X, dict:fetch(Y, NameMap)} || {X, Y} <- CallEdges],
   AllNamedEdges = NamedEdges ++ NamedCallEdges,
-  hipe_dot:translate_list(AllNamedEdges, "/tmp/cg.dot", "CG", ColorEsc),
+  dialyzer_dot:translate_list(AllNamedEdges, "/tmp/cg.dot", "CG", ColorEsc),
   os:cmd("dot -T ps -o /tmp/cg.ps /tmp/cg.dot"),
   ok.
 

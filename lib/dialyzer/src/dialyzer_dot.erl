@@ -13,16 +13,16 @@
 %%% limitations under the License.
 %%%
 %%%-------------------------------------------------------------------
-%%% File    : hipe_dot.erl
+%%% File    : dialyzer_dot.erl
 %%% Author  : Per Gustafsson <pergu@it.uu.se>
-%%% Description : 
+%%% Description :
 %%%
 %%% Created : 25 Nov 2004 by Per Gustafsson <pergu@it.uu.se>
 %%%-------------------------------------------------------------------
 
--module(hipe_dot).
+-module(dialyzer_dot).
 
--export([translate_digraph/3, translate_digraph/5, 
+-export([translate_digraph/3, translate_digraph/5,
 	 translate_list/3, translate_list/4, translate_list/5]).
 
 %%--------------------------------------------------------------------
@@ -63,12 +63,12 @@
 %% translate_digraph has the same interface as translate_list except
 %% it takes a digraph rather than a list.
 %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec translate_digraph(digraph:graph(), string(), string()) -> 'ok'.
 
 translate_digraph(G, FileName, GName) ->
-  translate_digraph(G, FileName, GName, 
+  translate_digraph(G, FileName, GName,
 		    fun(X) -> io_lib:format("~p", [X]) end, []).
 
 -spec translate_digraph(digraph:graph(), string(), string(),
@@ -107,7 +107,7 @@ translate_list(List, FileName, GName, Fun, Opts) ->
   String = [Start, VertexList, EdgeList, End],
   %% io:format("~p~n", [lists:flatten([String])]),
   ok = file:write_file(FileName, list_to_binary(String)).
-  
+
 %%--------------------------------------------------------------------
 
 node_format(Opt, Fun, V) ->
@@ -133,10 +133,10 @@ edge_format(Opt, Fun, V1, V2) ->
   String = [io_lib:format("~p", [Fun(V1)]), " -> ",
 	    io_lib:format("~p", [Fun(V2)])],
   [String, " [", OptText, "];\n"].
-  
+
 calc_dim(String) ->
   calc_dim(String, 1, 0, 0).
-		     
+
 calc_dim("\\n" ++ T, H, TmpW, MaxW) ->
   calc_dim(T, H+1, 0, erlang:max(TmpW, MaxW));
 calc_dim([_|T], H, TmpW, MaxW) ->
@@ -144,7 +144,7 @@ calc_dim([_|T], H, TmpW, MaxW) ->
 calc_dim([], H, TmpW, MaxW) ->
   {erlang:max(TmpW, MaxW), H}.
 
-edgeoptions([{all_edges, {OptName, OptVal}}|T], Fun, V1, V2) -> 
+edgeoptions([{all_edges, {OptName, OptVal}}|T], Fun, V1, V2) ->
    case legal_edgeoption(OptName) of
      true ->
        [io_lib:format(",~p=~p ", [OptName, OptVal])|edgeoptions(T, Fun, V1, V2)]
@@ -153,7 +153,7 @@ edgeoptions([{all_edges, {OptName, OptVal}}|T], Fun, V1, V2) ->
    end;
 edgeoptions([{N1, N2, {OptName, OptVal}}|T], Fun, V1, V2) ->
   case %% legal_edgeoption(OptName) andalso
-       Fun(N1) =:= Fun(V1) andalso Fun(N2) =:= Fun(V2) of 
+       Fun(N1) =:= Fun(V1) andalso Fun(N2) =:= Fun(V2) of
     true ->
       [io_lib:format(",~p=~p ", [OptName, OptVal])|edgeoptions(T, Fun, V1, V2)];
     false ->
@@ -164,14 +164,14 @@ edgeoptions([_|T], Fun, V1, V2) ->
 edgeoptions([], _, _, _) ->
   [].
 
-nodeoptions([{all_nodes, {OptName, OptVal}}|T], Fun, V) -> 
+nodeoptions([{all_nodes, {OptName, OptVal}}|T], Fun, V) ->
   case legal_nodeoption(OptName) of
     true ->
       [io_lib:format(",~p=~p ", [OptName, OptVal])|nodeoptions(T, Fun, V)];
     false ->
       nodeoptions(T, Fun, V)
   end;
-nodeoptions([{Node, {OptName, OptVal}}|T], Fun, V) -> 
+nodeoptions([{Node, {OptName, OptVal}}|T], Fun, V) ->
   case Fun(Node) =:= Fun(V) andalso legal_nodeoption(OptName) of
     true ->
       [io_lib:format("~p=~p ", [OptName, OptVal])|nodeoptions(T, Fun, V)];
@@ -188,7 +188,7 @@ legal_nodeoption(color) -> true;
 legal_nodeoption(comment) -> true;
 legal_nodeoption(distortion) -> true;
 legal_nodeoption(fillcolor) -> true;
-legal_nodeoption(fixedsize) -> true;  
+legal_nodeoption(fixedsize) -> true;
 legal_nodeoption(fontcolor) -> true;
 legal_nodeoption(fontname) -> true;
 legal_nodeoption(fontsize) -> true;
@@ -208,5 +208,5 @@ legal_nodeoption(toplabel) -> true;
 legal_nodeoption('URL') -> true;
 legal_nodeoption(z) -> true;
 legal_nodeoption(Option) when is_atom(Option) -> false.
-  
+
 legal_edgeoption(Option) when is_atom(Option) -> true.
