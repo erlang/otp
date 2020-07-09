@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 -module(erl_boot_server_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("kernel_test_lib.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
@@ -44,11 +45,36 @@ all() ->
 groups() -> 
     [].
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
 
-end_per_suite(_Config) ->
-    ok.
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite([{allow_skip, false} | Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+            
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+            "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -61,7 +87,7 @@ end_per_group(_GroupName, Config) ->
 
 %% Tests the erl_boot_server:start/1 function.
 start(Config) when is_list(Config) ->
-    [Host1, Host2|_] = good_hosts(Config),
+    [Host1, Host2] = ?GOOD_HOSTS(2),
 
     %% Bad arguments.
     BadHost = "bad__host",
@@ -90,7 +116,7 @@ start(Config) when is_list(Config) ->
 
 %% Tests the erl_boot_server:start_link/1 function.
 start_link(Config) when is_list(Config) ->
-    [Host1, Host2|_] = good_hosts(Config),
+    [Host1, Host2] = ?GOOD_HOSTS(2),
 
     OldFlag = process_flag(trap_exit, true),
     {error, {badarg, {}}} = erl_boot_server:start_link({}),
@@ -114,7 +140,7 @@ start_link(Config) when is_list(Config) ->
 
 %% Tests that no processes are left if a boot server is killed.
 stop(Config) when is_list(Config) ->
-    [Host1|_] = good_hosts(Config),
+    [Host1] = ?GOOD_HOSTS(1),
 
     %% Start a boot server and kill it.  Make sure that any helper processes
     %% dies.
@@ -139,7 +165,7 @@ add(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     {ok, Pid1} = erl_boot_server:start_link([]),
     [] = erl_boot_server:which_slaves(),
-    [Host1, Host2, Host3|_] = good_hosts(Config),
+    [Host1, Host2, Host3] = ?GOOD_HOSTS(3),
 
     %% Try bad values.
     {error, {badarg, {}}} = erl_boot_server:add_slave({}),
@@ -181,7 +207,7 @@ add(Config) when is_list(Config) ->
 delete(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
 
-    [Host1, Host2, Host3|_] = good_hosts(Config),
+    [Host1, Host2, Host3] = ?GOOD_HOSTS(3),
     {ok, Ip1} = inet:getaddr(Host1, inet),
     {ok, Ip2} = inet:getaddr(Host2, inet),
     {ok, Ip3} = inet:getaddr(Host3, inet),
@@ -328,14 +354,7 @@ shutdown(Pid) ->
 	    ct:fail(shutdown)
     end.
 
-good_hosts(_Config) ->
-    %% XXX The hostnames should not be hard-coded like this. Really!
-
-    {ok, GoodHost1} = inet:gethostname(),
-    GoodHost2 = "gandalf",
-    GoodHost3 = "sauron",
-    [GoodHost1, GoodHost2, GoodHost3].
-
+    
 open_udp(Ip) ->
     {ok, S} = prim_inet:open(udp, inet, dgram),
     ok = prim_inet:setopts(S, [{mode,list},{active,true},

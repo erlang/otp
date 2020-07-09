@@ -18,10 +18,14 @@
 %% %CopyrightEnd%
 %%
 
--ifndef(gen_inet_test_lib_hrl).
--define(gen_inet_test_lib_hrl, true).
+-ifndef(kernel_test_lib_hrl).
+-define(kernel_test_lib_hrl, true).
 
--define(LIB,                    gen_inet_test_lib).
+-define(LIB,                    kernel_test_lib).
+
+-define(LOOKUP(__Key__, __Config__, __Default__),
+        ?LIB:lookup(__Key__, __Config__, __Default__)).
+-define(GOOD_HOSTS(__N__), ?LIB:good_hosts(__N__)).
 
 -define(SKIPT(R),               throw({skip, R})).
 -define(SKIPE(R),               exit({skip, R})).
@@ -39,4 +43,4 @@
 -define(SLEEP(T),               ct:sleep(T)).
 -define(TT(T),                  ct:timetrap(T)).
 
--endif. % -ifdef(gen_inet_test_lib_hrl).
+-endif. % -ifdef(kernel_test_lib_hrl).
