@@ -147,6 +147,9 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(gethostnative_debug_level, Config) ->
+    ?TT(?MINS(2)),
+    Config;
 init_per_testcase(lookup_bad_search_option, Config) ->
     Db = inet_db,
     Key = res_lookup,
@@ -1096,10 +1099,10 @@ hostents_to_list([R | Rs]) ->
 %% the host list and require inet_gethost_native to be started.
 %%
 -record(gethostnative_control, {control_seq,
-				control_interval=100,
-				lookup_delay=10,
-				lookup_count=300,
-				lookup_processes=20}).
+				control_interval = 100,
+				lookup_delay     = 10,
+				lookup_count     = 300,
+				lookup_processes = 20}).
 
 gethostnative_soft_restart() -> required(hosts).
 
