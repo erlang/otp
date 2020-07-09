@@ -1356,6 +1356,8 @@ compdb:
 	clang -MJ $(TTF_DIR)/zlib.json $(COMPDB_CFLAGS) $(ZLIB_SRC) > /dev/null
 	cat $(TTF_DIR)/*.json > $(ERL_TOP)/compile_commands.json
 
+clang_format:
+	clang-format -i beam/asm/*.cpp beam/asm/*.hpp beam/asm/*.c beam/asm/*.h
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)
