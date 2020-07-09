@@ -18,25 +18,43 @@
 %% %CopyrightEnd%
 %%
 
--module(ssl_ocsp_SUITE).
+-module(openssl_ocsp_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([ocsp_stapling_basic/0,ocsp_stapling_basic/1,
+         ocsp_stapling_with_nonce/0, ocsp_stapling_with_nonce/1,
+         ocsp_stapling_with_responder_cert/0,ocsp_stapling_with_responder_cert/1,
+         ocsp_stapling_revoked/0, ocsp_stapling_revoked/1
+        ]).
+
+%% spawn export
+-export([ocsp_responder_init/3]).
+
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() -> 
-    [{group, 'tlsv1.2'},
-     {group, 'tlsv1.3'},
+    [{group, 'tlsv1.3'},
+     {group, 'tlsv1.2'},
      {group, 'dtlsv1.2'}].
 
 groups() -> 
-    [{'tlsv1.2', [], ocsp_tests()},
-     {'tlsv1.3', [], ocsp_tests()},
+    [{'tlsv1.3', [], ocsp_tests()},
+     {'tlsv1.2', [], ocsp_tests()},
      {'dtlsv1.2', [], ocsp_tests()}].
 
 ocsp_tests() ->
@@ -48,6 +66,14 @@ ocsp_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    case ssl_test_lib:openssl_ocsp_support() of
+        true ->
+            do_init_per_suite(Config);
+        false ->
+            {skip, "OCSP not well supported in openSSL"}
+    end.
+
+do_init_per_suite(Config) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
@@ -59,9 +85,7 @@ init_per_suite(Config) ->
         {ok, _} = make_certs:all(DataDir, PrivDir),
 
         ResponderPort = get_free_port(),
-        Pid =
-            start_ocsp_responder(
-                erlang:integer_to_list(ResponderPort), PrivDir),
+        Pid = start_ocsp_responder(ResponderPort, PrivDir),
 
         NewConfig =
         lists:merge(
@@ -77,16 +101,16 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     ResponderPid = proplists:get_value(responder_pid, Config),
-    stop_ocsp_responder(ResponderPid),
+    ssl_test_lib:close(ResponderPid),
     ok = ssl:stop(),
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->
-    ssl_test_lib:init_per_group(GroupName, [{group, GroupName} | Config]).
+    ssl_test_lib:init_per_group_openssl(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
-    ssl_test_lib:end_per_group(GroupName, proplists:delete(group, Config)).
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
@@ -131,7 +155,7 @@ ocsp_stapling_basic(Config)
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-
+%%--------------------------------------------------------------------
 ocsp_stapling_with_nonce() ->
     [{doc, "Verify OCSP stapling works with nonce."}].
 ocsp_stapling_with_nonce(Config)
@@ -199,7 +223,7 @@ ocsp_stapling_with_responder_cert(Config)
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-
+%%--------------------------------------------------------------------
 ocsp_stapling_revoked() ->
     [{doc, "Verify OCSP stapling works with revoked certificate."}].
 ocsp_stapling_revoked(Config)
@@ -234,38 +258,52 @@ ocsp_stapling_revoked(Config)
 %% Intrernal functions -----------------------------------------------
 %%--------------------------------------------------------------------
 start_ocsp_responder(ResponderPort, PrivDir) ->
-    erlang:spawn(
-        ?MODULE, do_start_ocsp_responder, [ResponderPort, PrivDir]).
+    Starter = self(),
+    Pid = erlang:spawn_link(
+            ?MODULE, ocsp_responder_init, [ResponderPort, PrivDir, Starter]),
+    receive
+        {started, Pid} ->
+            Pid;
+        {'EXIT', Pid, Reason} ->
+            throw({unable_to_start_ocsp_service, Reason})
+    end.
 
-do_start_ocsp_responder(ResponderPort, PrivDir) ->
+ocsp_responder_init(ResponderPort, PrivDir, Starter) ->
     Index = filename:join(PrivDir, "otpCA/index.txt"),
     CACerts = filename:join(PrivDir, "b.server/cacerts.pem"),
     Cert = filename:join(PrivDir, "b.server/cert.pem"),
     Key = filename:join(PrivDir, "b.server/key.pem"),
 
     Args = ["ocsp", "-index", Index, "-CA", CACerts, "-rsigner", Cert,
-            "-rkey", Key, "-port", ResponderPort],
+            "-rkey", Key, "-port",  erlang:integer_to_list(ResponderPort)],
     process_flag(trap_exit, true),
-    SSLPort = ssl_test_lib:portable_open_port("openssl", Args),
-    true = port_command(SSLPort, "Hello world"),
-    ocsp_responder_loop(SSLPort).
+    Port = ssl_test_lib:portable_open_port("openssl", Args),
+    ocsp_responder_loop(Port, {new, Starter}).
 
-ocsp_responder_loop(SSLPort) ->
+ocsp_responder_loop(Port, {Status, Starter} = State) ->
     receive
 	stop_ocsp_responder ->
 	    ct:log("Shut down OCSP responder!~n"),
-        ok = ssl_test_lib:close_port(SSLPort);
+            ok = ssl_test_lib:close_port(Port);
 	{_Port, closed} ->
 	    ct:log("Port Closed~n"),
 	    ok;
 	{'EXIT', _Port, Reason} ->
 	    ct:log("Port Closed ~p~n",[Reason]),
 	    ok;
-	Msg ->
-	    ct:log("Port Msg ~p~n",[Msg]),
-	    ocsp_responder_loop(SSLPort)
-    after 600000 ->
-        ssl_test_lib:close_port(SSLPort)
+	{Port, {data, _Msg}} when Status == new ->
+            Starter ! {started, self()},
+	    ocsp_responder_loop(Port, {started, undefined});
+        {Port, {data, Msg}} ->
+	    ct:pal("Responder Msg ~p~n",[Msg]),
+            ocsp_responder_loop(Port, State)
+    after 1000 ->
+            case Status of
+                new ->
+                    exit(no_ocsp_server);
+                _  ->
+                    ocsp_responder_loop(Port, State)
+            end
     end.
 
 stop_ocsp_responder(Pid) ->
@@ -276,21 +314,6 @@ get_free_port() ->
     {ok, Port} = inet:port(Listen),
     ok = gen_tcp:close(Listen),
     Port.
-
-do_test_ocsp_stapling(SOpts, COpts, Config) ->
-    Data = "123456789012345",  %% 15 bytes
-    Server = ssl_test_lib:start_server(openssl_ocsp,
-                                       [{options, SOpts}], Config),
-    Port = ssl_test_lib:inet_port(Server),
-
-    Client = ssl_test_lib:start_client(erlang,
-                                       [{port, Port},
-                                        {options, COpts}], Config),
-    ssl_test_lib:send(Client, Data),
-    Data = ssl_test_lib:check_active_receive(Server, Data),
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
 
 dtls_client_opt('dtlsv1.2') ->
     [{protocol, dtls}];

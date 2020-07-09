@@ -128,7 +128,7 @@ handshake_paus_tests() ->
      handshake_continue_tls13_client
     ].
 
-%% Only relevant for SSL 3.0 and TLS 1.1
+%% Only relevant for SSL 3.0 and TLS 1.0
 beast_mitigation_test() ->
     [%% Original option
      rizzo_disabled,
