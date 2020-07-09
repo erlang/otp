@@ -81,6 +81,16 @@ obsolete(http_uri, scheme_defaults, 0) ->
     {deprecated, "use uri_string functions instead", "OTP 25"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
+obsolete(httpd_util, flatlength, 1) ->
+    {deprecated, "use erlang:iolist_size/1 instead", "OTP 26"};
+obsolete(httpd_util, hexlist_to_integer, 1) ->
+    {deprecated, "use erlang:list_to_integer/2 with base 16 instead", "OTP 26"};
+obsolete(httpd_util, integer_to_hexlist, 1) ->
+    {deprecated, "use erlang:integer_to_hexlist/2 with base 16 instead", "OTP 26"};
+obsolete(httpd_util, strip, 1) ->
+    {deprecated, "use string:trim/1 instead", "OTP 26"};
+obsolete(httpd_util, suffix, 1) ->
+    {deprecated, "use filename:extension/1 and string:trim/2 instead", "OTP 26"};
 obsolete(megaco, format_versions, 1) ->
     {deprecated, "use megaco:print_version_info/0,1 instead.", "OTP 24"};
 obsolete(net, broadcast, 3) ->
@@ -484,9 +494,9 @@ obsolete(crypto, rsa_sign, _) ->
 obsolete(crypto, rsa_verify, _) ->
     {removed, "use crypto:verify/5 instead"};
 obsolete(erl_scan, attributes_info, _) ->
-    {removed, "erl_anno:{column,line,location,text}/1 instead"};
+    {removed, "use erl_anno:{column,line,location,text}/1 instead"};
 obsolete(erl_scan, token_info, _) ->
-    {removed, "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+    {removed, "use erl_scan:{category,column,line,location,symbol,text}/1 instead"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(pg2, _, _) ->
