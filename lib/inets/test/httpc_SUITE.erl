@@ -109,7 +109,8 @@ real_requests()->
      invalid_body,
      no_scheme,
      invalid_uri,
-     undefined_port
+     undefined_port,
+     binary_url
     ].
 
 real_requests_esi() ->
@@ -1235,6 +1236,12 @@ invalid_body(Config) ->
 	error:function_clause ->
 	    ok
     end.
+
+%%-------------------------------------------------------------------------
+
+binary_url(Config) ->
+    URL = uri_string:normalize(url(group_name(Config), "/dummy.html", Config)),
+    {ok, _Response} = httpc:request(unicode:characters_to_binary(URL)).
 
 
 %%-------------------------------------------------------------------------
