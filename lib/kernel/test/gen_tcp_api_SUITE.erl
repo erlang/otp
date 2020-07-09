@@ -25,7 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
--include("gen_inet_test_lib.hrl").
+-include("kernel_test_lib.hrl").
 
 -export([
 	 all/0, suite/0, groups/0,

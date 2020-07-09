@@ -18,15 +18,17 @@
 %% %CopyrightEnd%
 %%
 
--module(gen_inet_test_lib).
+-module(kernel_test_lib).
 
 -export([init_per_suite/1,
          end_per_suite/1]).
 -export([tc_try/3]).
 -export([f/2,
          print/1, print/2]).
+-export([good_hosts/1,
+         lookup/3]).
 
--include("gen_inet_test_lib.hrl").
+-include("kernel_test_lib.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1502,6 +1504,44 @@ os_cond_skip_check(OsName, OsNames) ->
             false
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+lookup(Key, Config, Default) ->
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Val}} ->
+            Val;
+        _ ->
+            Default
+    end.
+
+
+%% Extract N number of hosts from the config.
+%% Prepend with the own host.
+%% If not N number of hosts are available, issue a skip exit.
+good_hosts(N) when is_integer(N) andalso (N > 0) ->
+    GoodHosts         = ct:get_config(test_hosts, []),
+    {ok, CurrentHost} = inet:gethostname(),
+    GoodHosts2        = [CurrentHost] ++ (GoodHosts -- [CurrentHost]),
+    good_hosts2(GoodHosts2, N).
+
+good_hosts2(GoodHosts, N) ->
+    good_hosts2(GoodHosts, N, []).
+
+good_hosts2(_GoodHosts, N, Acc) when (N =:= 0) ->
+    lists:reverse(Acc);
+good_hosts2([], _N, _Acc) ->
+    ?SKIPE("Not enough good hosts");
+good_hosts2([H|T], N, Acc) ->
+    case inet:gethostbyname(H) of
+        {ok, _} ->
+            good_hosts2(T, N-1, [H|Acc]); 
+        {error, _} ->
+            ?P("Host not found: ~p", [H]),
+            good_hosts2(T, N, Acc)
+    end.
+
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
