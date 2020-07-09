@@ -414,7 +414,7 @@ send_response_old(#mod{socket_type = Type,
     end.
 
 content_length(Body)->
-    integer_to_list(httpd_util:flatlength(Body)).
+    integer_to_list(erlang:iolist_size(Body)).
 
 handle_headers([], NewHeaders) ->
     {ok, NewHeaders};

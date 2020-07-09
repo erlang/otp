@@ -38,7 +38,7 @@ do(Info) ->
 	undefined ->
 	  Path = mod_alias:path(Info#mod.data,Info#mod.config_db,
 			      Info#mod.request_uri),
-	  Suffix = httpd_util:suffix(Path),
+	  Suffix = httpd_util:strip_extension_dot(Path),
 	  MimeType = httpd_util:lookup_mime(Info#mod.config_db,Suffix,
 					  "text/plain"),
 	  Actions = httpd_util:multi_lookup(Info#mod.config_db,action),

@@ -116,7 +116,7 @@ do(Info) ->
 		
 		{_StatusCode, Response} ->
 		    transfer_log(Info, "-", AuthUser, Date, 200,
-				 httpd_util:flatlength(Response), LogFormat),
+				 erlang:iolist_size(Response), LogFormat),
 		    {proceed,Info#mod.data};
 		undefined ->
 		    transfer_log(Info, "-", AuthUser, Date, 200,

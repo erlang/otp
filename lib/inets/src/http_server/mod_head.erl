@@ -61,7 +61,7 @@ do_head(Info) ->
     Path = mod_alias:path(Info#mod.data,
 			  Info#mod.config_db,
 			  Info#mod.request_uri),
-    Suffix = httpd_util:suffix(Path),
+    Suffix = httpd_util:strip_extension_dot(Path),
     %% Does the file exists?
     case file:read_file_info(Path) of
 	{ok, FileInfo} ->

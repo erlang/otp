@@ -24,7 +24,7 @@
 	 lookup_mime_default/3, reason_phrase/1, message/3, rfc1123_date/0,
 	 rfc1123_date/1, day/1, month/1,
 	 flatlength/1, split_path/1, split_script_path/1, 
-	 suffix/1, split/3, uniq/1,
+	 suffix/1, strip_extension_dot/1, split/3, uniq/1,
 	 make_name/2,make_name/3,make_name/4,strip/1,
 	 hexlist_to_integer/1,integer_to_hexlist/1,
 	 convert_request_date/1,create_etag/1,create_etag/2,
@@ -32,6 +32,12 @@
 	 modules_validate/1, module_validate/1, 
 	 dir_validate/2, file_validate/2, mime_type_validate/1, 
 	 mime_types_validate/1, custom_date/0, error_log/2]).
+
+-deprecated({flatlength, 1, "use erlang:iolist_size/1 instead"}).
+-deprecated({hexlist_to_integer, 1, "use erlang:list_to_integer/2 with base 16 instead"}).
+-deprecated({integer_to_hexlist, 1, "use erlang:integer_to_hexlist/2 with base 16 instead"}).
+-deprecated({strip, 1, "use string:trim/1 instead"}).
+-deprecated({suffix, 1, "use filename:extension/1 and string:trim/2 instead"}).
 
 -compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
 -compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).
@@ -468,6 +474,14 @@ suffix(Path) ->
 	    tl(Extension)
     end.
 
+%% strip_extension_dot
+strip_extension_dot(Path) ->
+    case filename:extension(Path) of
+	[] ->
+	    [];
+	Extension ->
+	    tl(Extension)
+    end.
 
 %% strip
 strip(Value)->

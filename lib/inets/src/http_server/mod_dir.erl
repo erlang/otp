@@ -71,7 +71,7 @@ do_dir(Info) ->
 			end,
 		    Head=[{content_type,"text/html"},
 			  {content_length,
-			   integer_to_list(httpd_util:flatlength(Dir))},
+			   integer_to_list(erlang:iolist_size(Dir))},
 			  {code,200} | LastModified],
 		    {proceed,[{response,{response, Head, Dir}},
 			      {mime_type,"text/html"} | Info#mod.data]};
@@ -163,7 +163,7 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 	{ok,FileInfo} ->
 	    {{Year, Month, Day},{Hour, Minute,_Second}} =
 		FileInfo#file_info.mtime,
-	    Suffix=httpd_util:suffix(Entry),
+	    Suffix=httpd_util:strip_extension_dot(Entry),
 	    MimeType=httpd_util:lookup_mime(ConfigDB,Suffix,""),
 	    EntryLength=length(Entry),
 	    if
