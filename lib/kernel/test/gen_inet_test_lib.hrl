@@ -37,5 +37,6 @@
 -define(MINS(I),                timer:minutes(I)).
 
 -define(SLEEP(T),               ct:sleep(T)).
+-define(TT(T),                  ct:timetrap(T)).
 
 -endif. % -ifdef(gen_inet_test_lib_hrl).
