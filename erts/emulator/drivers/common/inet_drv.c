@@ -6841,26 +6841,34 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 
     if ( ((desc->stype == SOCK_STREAM) && IS_CONNECTED(desc)) ||
 	((desc->stype == SOCK_DGRAM) && IS_OPEN(desc))) {
+        int trigger_recv;
+
+        /* XXX: UDP sockets could also trigger immediate read here NIY */
+        trigger_recv =
+            (desc->stype==SOCK_STREAM) &&
+            !old_active &&
+            (desc->active == INET_ONCE || desc->active == INET_MULTI) &&
+            (desc->htype == old_htype);
+
+        if (trigger_recv) {
+            return 2;
+        }
 
 	if (desc->active != old_active) {
             /* Need to cancel the read_packet timer if we go from active to passive. */
             if (desc->active == INET_PASSIVE && desc->stype == SOCK_DGRAM)
                 driver_cancel_timer(desc->port);
-	    sock_select(desc, (FD_READ|FD_CLOSE), (desc->active>0));
+
+            sock_select(desc, (FD_READ|FD_CLOSE), (desc->active>0));
         }
 
 	/* XXX: UDP sockets could also trigger immediate read here NIY */
 	if ((desc->stype==SOCK_STREAM) && desc->active) {
 	    if (!old_active || (desc->htype != old_htype)) {
 		/* passive => active change OR header type change in active mode */
-		/* Return > 1 if only active changed to INET_ONCE -> direct read if
-		   header type is unchanged. */
-		/* XXX fprintf(stderr,"desc->htype == %d, old_htype == %d, 
-		   desc->active == %d, old_active == %d\r\n",(int)desc->htype, 
-		   (int) old_htype, (int) desc->active, (int) old_active );*/
-		return 1+(desc->htype == old_htype &&
-                          (desc->active == INET_ONCE || desc->active == INET_MULTI));
+		return 1;
 	    }
+
 	    return 0;
 	}
     }
@@ -9309,7 +9317,9 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	     * Same as above, but active changed to once w/o header type
 	     * change, so try a read instead of just deliver. 
 	     */
-	    tcp_recv((tcp_descriptor *) desc, 0);
+            if ((tcp_recv((tcp_descriptor *) desc, 0) >= 0) && desc->active) {
+                sock_select(desc, (FD_READ|FD_CLOSE), 1);
+            }
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
     }
