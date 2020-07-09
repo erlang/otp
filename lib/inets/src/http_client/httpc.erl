@@ -503,7 +503,7 @@ service_info(Pid) ->
 normalize_and_parse_url(Url) ->
     case uri_string:normalize(Url) of
         {error, _, _} = Error -> Error;
-        UriString -> uri_string:parse(UriString)
+        UriString -> uri_string:parse(unicode:characters_to_list(UriString))
     end.
 
 handle_request(Method, Url, 
