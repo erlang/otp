@@ -652,22 +652,22 @@ analyze_and_print_host_info() ->
             analyze_and_print_win_host_info(Version);
         _ ->
             io:format("OS Family: ~p"
-                      "~n   OS Type:        ~p"
-                      "~n   Version:        ~p"
-                      "~n   Num Schedulers: ~s"
+                      "~n   OS Type:               ~p"
+                      "~n   Version:               ~p"
+                      "~n   Num Online Schedulers: ~s"
                       "~n", [OsFam, OsName, Version, str_num_schedulers()]),
             {num_schedulers_to_factor(), []}
     end.
 
 str_num_schedulers() ->
-    try erlang:system_info(schedulers) of
+    try erlang:system_info(schedulers_online) of
         N -> f("~w", [N])
     catch
         _:_:_ -> "-"
     end.
 
 num_schedulers_to_factor() ->
-    try erlang:system_info(schedulers) of
+    try erlang:system_info(schedulers_online) of
         1 ->
             10;
         2 ->
@@ -723,9 +723,9 @@ analyze_and_print_linux_host_info(Version) ->
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
                 io:format("CPU: "
-                          "~n   Model:          ~s"
-                          "~n   BogoMIPS:       ~w"
-                          "~n   Num Schedulers: ~s"
+                          "~n   Model:                 ~s"
+                          "~n   BogoMIPS:              ~w"
+                          "~n   Num Online Schedulers: ~s"
                           "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 if
                     (BogoMIPS > 20000) ->
@@ -743,8 +743,8 @@ analyze_and_print_linux_host_info(Version) ->
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
-                          "~n   Model:          ~s"
-                          "~n   Num Schedulers: ~s"
+                          "~n   Model:                 ~s"
+                          "~n   Num Online Schedulers: ~s"
                           "~n", [CPU, str_num_schedulers()]),
                 num_schedulers_to_factor();
             _ ->
@@ -1358,8 +1358,8 @@ analyze_and_print_darwin_host_info(Version) ->
     case analyze_darwin_software_info() of
         [] ->
             io:format("Darwin:"
-                      "~n   Version:        ~s"
-                      "~n   Num Schedulers: ~s"
+                      "~n   Version:               ~s"
+                      "~n   Num Online Schedulers: ~s"
                       "~n", [Version, str_num_schedulers()]),
             {num_schedulers_to_factor(), []};
         SwInfo when  is_list(SwInfo) ->
@@ -1374,12 +1374,12 @@ analyze_and_print_darwin_host_info(Version) ->
             NumCores      = analyze_darwin_hw_total_number_of_cores(HwInfo),
             Memory        = analyze_darwin_hw_memory(HwInfo),
             io:format("Darwin:"
-                      "~n   System Version: ~s"
-                      "~n   Kernel Version: ~s"
-                      "~n   Model:          ~s (~s)"
-                      "~n   Processor:      ~s (~s, ~s, ~s)"
-                      "~n   Memory:         ~s"
-                      "~n   Num Schedulers: ~s"
+                      "~n   System Version:        ~s"
+                      "~n   Kernel Version:        ~s"
+                      "~n   Model:                 ~s (~s)"
+                      "~n   Processor:             ~s (~s, ~s, ~s)"
+                      "~n   Memory:                ~s"
+                      "~n   Num Online Schedulers: ~s"
                       "~n", [SystemVersion, KernelVersion,
                              ModelName, ModelId,
                              ProcName, ProcSpeed, NumProc, NumCores, 
@@ -1686,13 +1686,13 @@ analyze_and_print_solaris_host_info(Version) ->
                 "-"
         end,
     io:format("Solaris: ~s"
-              "~n   Release:         ~s"
-              "~n   Banner Name:     ~s"
-              "~n   Instruction Set: ~s"
-              "~n   CPUs:            ~s (~s)"
-              "~n   System Config:   ~s"
-              "~n   Memory Size:     ~s"
-              "~n   Num Schedulers:  ~s"
+              "~n   Release:               ~s"
+              "~n   Banner Name:           ~s"
+              "~n   Instruction Set:       ~s"
+              "~n   CPUs:                  ~s (~s)"
+              "~n   System Config:         ~s"
+              "~n   Memory Size:           ~s"
+              "~n   Num Online Schedulers: ~s"
               "~n~n", [Version, Release, BannerName, InstructionSet,
                        NumPhysProc, NumProc,
                        SysConf, MemSz,
@@ -1762,7 +1762,7 @@ analyze_and_print_win_host_info(Version) ->
               "~n   System Model:           ~s"
               "~n   Number of Processor(s): ~s"
               "~n   Total Physical Memory:  ~s"
-              "~n   Num Schedulers:         ~s"
+              "~n   Num Online Schedulers:  ~s"
               "~n", [OsName, OsVersion, Version,
 		     SysMan, SysMod, NumProcs, TotPhysMem,
 		     str_num_schedulers()]),
