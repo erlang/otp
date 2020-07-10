@@ -17,6 +17,14 @@
 # is scheduled to be removed in OTP 25.
 #
 
+#
+# Added in OTP 24.
+#
+httpd_util:flatlength/1 since=24 remove=26
+httpd_util:hexlist_to_integer/1 since=24 remove=26
+httpd_util:integer_to_hexlist/1 since=24 remove=26
+httpd_util:strip/1 since=24 remove=26
+httpd_util:suffix/1 since=24 remove=26
 
 #
 # Added in OTP 23.
