@@ -1,4 +1,4 @@
-/*
+ /*
  * %CopyrightBegin%
  *
  * Copyright Ericsson AB 2018-2020. All Rights Reserved.
@@ -552,6 +552,7 @@ typedef union {
 #define ESOCK_OPT_OTP_SNDCTRLBUF   1007
 #define ESOCK_OPT_OTP_FD           1008
 #define ESOCK_OPT_OTP_META         1009
+#define ESOCK_OPT_OTP_USE_REGISTRY 1010
 /**/
 #define ESOCK_OPT_OTP_DOMAIN       1999 // INTERNAL AND ONLY GET
 #define ESOCK_OPT_OTP_TYPE         1998 // INTERNAL AND ONLY GET
@@ -721,15 +722,16 @@ typedef union {
 /* We should *eventually* use this instead of hard-coding the size (to 1) */
 #define ESOCK_RECVMSG_IOVEC_SZ 1
 
-#define ESOCK_CMD_DEBUG        0x0001
-#define ESOCK_CMD_SOCKET_DEBUG 0x0002
+#define ESOCK_CMD_DEBUG               0x0001
+#define ESOCK_CMD_SOCKET_DEBUG        0x0002
+#define ESOCK_CMD_USE_SOCKET_REGISTRY 0x0003
 
-#define ESOCK_WHICH_DOMAIN_ERROR -1
-#define ESOCK_WHICH_DOMAIN_UNSUP -2
-#define ESOCK_WHICH_TYPE_ERROR   -1
-#define ESOCK_WHICH_TYPE_UNSUP   -2
-#define ESOCK_WHICH_PROTO_ERROR  -1
-#define ESOCK_WHICH_PROTO_UNSUP  -2
+#define ESOCK_WHICH_DOMAIN_ERROR  -1
+#define ESOCK_WHICH_DOMAIN_UNSUP  -2
+#define ESOCK_WHICH_TYPE_ERROR    -1
+#define ESOCK_WHICH_TYPE_UNSUP    -2
+#define ESOCK_WHICH_PROTO_ERROR   -1
+#define ESOCK_WHICH_PROTO_UNSUP   -2
 
 
 /* =================================================================== *
@@ -1030,6 +1032,7 @@ typedef struct {
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
+    BOOLEAN_T          useReg;
 
     /* Lock order: readMtx, writeMtx, cntMtx
      */
@@ -1045,6 +1048,7 @@ typedef struct {
 
     /* XXX Should be locked but too awkward and small gain */
     BOOLEAN_T    dbg;
+    BOOLEAN_T    useReg;
 
     /* Registry stuff */
     ErlNifPid    regPid; /* Constant - not locked */
@@ -1057,7 +1061,7 @@ typedef struct {
     ErlNifMutex* cntMtx; /* Locks the below */
     /* Its extreme overkill to have these counters be 64-bit,
      * but since the other counters are, its much simpler to
-     * let to let these be 64-bit also
+     * let these be 64-bit also.
      */
     ESockCounter numSockets;
     ESockCounter numTypeStreams;
@@ -1165,8 +1169,12 @@ static BOOLEAN_T ecommand2command(ErlNifEnv*    env,
 static ERL_NIF_TERM esock_command(ErlNifEnv*   env,
                                   Uint16       cmd,
                                   ERL_NIF_TERM ecdata);
-static ERL_NIF_TERM esock_command_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata);
-static ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata);
+static ERL_NIF_TERM esock_command_debug(ErlNifEnv*   env,
+                                        ERL_NIF_TERM ecdata);
+static ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv*   env,
+                                               ERL_NIF_TERM ecdata);
+static ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
+                                                      ERL_NIF_TERM ecdata);
 
 static ERL_NIF_TERM esock_global_info(ErlNifEnv* env);
 static ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
@@ -1237,6 +1245,9 @@ static ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
 static BOOLEAN_T esock_open_is_debug(ErlNifEnv*   env,
                                      ERL_NIF_TERM eextra,
                                      BOOLEAN_T dflt);
+static BOOLEAN_T esock_open_use_registry(ErlNifEnv*   env,
+                                         ERL_NIF_TERM eextra,
+                                         BOOLEAN_T dflt);
 static BOOLEAN_T esock_open_which_domain(SOCKET sock,   int* domain);
 static BOOLEAN_T esock_open_which_type(SOCKET sock,     int* type);
 static BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto);
@@ -1356,22 +1367,22 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      int              eOpt,
                                      ERL_NIF_TERM     eVal);
-/* *** esock_setopt_otp_debug      ***
- * *** esock_setopt_otp_iow        ***
- * *** esock_setopt_otp_ctrl_proc  ***
- * *** esock_setopt_otp_rcvbuf     ***
- * *** esock_setopt_otp_rcvctrlbuf ***
- * *** esock_setopt_otp_sndctrlbuf ***
- * *** esock_setopt_otp_meta       ***
+/* *** esock_setopt_otp_debug        ***
+ * *** esock_setopt_otp_iow          ***
+ * *** esock_setopt_otp_ctrl_proc    ***
+ * *** esock_setopt_otp_rcvbuf       ***
+ * *** esock_setopt_otp_rcvctrlbuf   ***
+ * *** esock_setopt_otp_sndctrlbuf   ***
+ * *** esock_setopt_otp_meta         ***
  */
-#define ESOCK_SETOPT_OTP_FUNCS             \
-    ESOCK_SETOPT_OTP_FUNC_DEF(debug);      \
-    ESOCK_SETOPT_OTP_FUNC_DEF(meta);       \
-    ESOCK_SETOPT_OTP_FUNC_DEF(iow);        \
-    ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);  \
-    ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);     \
-    ESOCK_SETOPT_OTP_FUNC_DEF(rcvctrlbuf); \
-    ESOCK_SETOPT_OTP_FUNC_DEF(sndctrlbuf);
+#define ESOCK_SETOPT_OTP_FUNCS               \
+    ESOCK_SETOPT_OTP_FUNC_DEF(debug);        \
+    ESOCK_SETOPT_OTP_FUNC_DEF(iow);          \
+    ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);    \
+    ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);       \
+    ESOCK_SETOPT_OTP_FUNC_DEF(rcvctrlbuf);   \
+    ESOCK_SETOPT_OTP_FUNC_DEF(sndctrlbuf);   \
+    ESOCK_SETOPT_OTP_FUNC_DEF(meta);
 #define ESOCK_SETOPT_OTP_FUNC_DEF(F)                                 \
     static ERL_NIF_TERM esock_setopt_otp_##F(ErlNifEnv*       env,   \
                                              ESockDescriptor* descP, \
@@ -1888,31 +1899,33 @@ static ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      int              eOpt);
-/* *** esock_getopt_otp_debug      ***
- * *** esock_getopt_otp_iow        ***
- * *** esock_getopt_otp_ctrl_proc  ***
- * *** esock_getopt_otp_rcvbuf     ***
- * *** esock_getopt_otp_rcvctrlbuf ***
- * *** esock_getopt_otp_sndctrlbuf ***
- * *** esock_getopt_otp_fd         ***
- * *** esock_getopt_otp_meta       ***
- * *** esock_getopt_otp_domain     ***
- * *** esock_getopt_otp_type       ***
- * *** esock_getopt_otp_protocol   ***
- * *** esock_getopt_otp_dtp        ***
+/* *** esock_getopt_otp_debug        ***
+ * *** esock_getopt_otp_iow          ***
+ * *** esock_getopt_otp_ctrl_proc    ***
+ * *** esock_getopt_otp_rcvbuf       ***
+ * *** esock_getopt_otp_rcvctrlbuf   ***
+ * *** esock_getopt_otp_sndctrlbuf   ***
+ * *** esock_getopt_otp_fd           ***
+ * *** esock_getopt_otp_meta         ***
+ * *** esock_getopt_otp_use_registry ***
+ * *** esock_getopt_otp_domain       ***
+ * *** esock_getopt_otp_type         ***
+ * *** esock_getopt_otp_protocol     ***
+ * *** esock_getopt_otp_dtp          ***
  */
-#define ESOCK_GETOPT_OTP_FUNCS             \
-    ESOCK_GETOPT_OTP_FUNC_DEF(debug);      \
-    ESOCK_GETOPT_OTP_FUNC_DEF(meta);       \
-    ESOCK_GETOPT_OTP_FUNC_DEF(iow);        \
-    ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);  \
-    ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);     \
-    ESOCK_GETOPT_OTP_FUNC_DEF(rcvctrlbuf); \
-    ESOCK_GETOPT_OTP_FUNC_DEF(sndctrlbuf); \
-    ESOCK_GETOPT_OTP_FUNC_DEF(fd);         \
-    ESOCK_GETOPT_OTP_FUNC_DEF(domain);     \
-    ESOCK_GETOPT_OTP_FUNC_DEF(type);       \
-    ESOCK_GETOPT_OTP_FUNC_DEF(protocol);   \
+#define ESOCK_GETOPT_OTP_FUNCS               \
+    ESOCK_GETOPT_OTP_FUNC_DEF(debug);        \
+    ESOCK_GETOPT_OTP_FUNC_DEF(meta);         \
+    ESOCK_GETOPT_OTP_FUNC_DEF(iow);          \
+    ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);    \
+    ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);       \
+    ESOCK_GETOPT_OTP_FUNC_DEF(rcvctrlbuf);   \
+    ESOCK_GETOPT_OTP_FUNC_DEF(sndctrlbuf);   \
+    ESOCK_GETOPT_OTP_FUNC_DEF(fd);           \
+    ESOCK_GETOPT_OTP_FUNC_DEF(use_registry); \
+    ESOCK_GETOPT_OTP_FUNC_DEF(domain);       \
+    ESOCK_GETOPT_OTP_FUNC_DEF(type);         \
+    ESOCK_GETOPT_OTP_FUNC_DEF(protocol);     \
     ESOCK_GETOPT_OTP_FUNC_DEF(dtp);
 #define ESOCK_GETOPT_OTP_FUNC_DEF(F)                               \
     static ERL_NIF_TERM esock_getopt_otp_##F(ErlNifEnv*        env, \
@@ -3273,6 +3286,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(true);             \
     LOCAL_ATOM_DECL(txstatus);         \
     LOCAL_ATOM_DECL(txtime);           \
+    LOCAL_ATOM_DECL(use_registry);     \
     LOCAL_ATOM_DECL(want);             \
     LOCAL_ATOM_DECL(write_byte);       \
     LOCAL_ATOM_DECL(write_fails);      \
@@ -3496,10 +3510,12 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
             ERL_NIF_TERM
                 keys[] = {esock_atom_debug,
                           atom_socket_debug,
+                          atom_use_registry,
                           atom_iow,
                           atom_counters},
                 vals[] = {BOOL2ATOM(data.dbg),
                           BOOL2ATOM(data.sockDbg),
+                          BOOL2ATOM(data.useReg),
                           BOOL2ATOM(data.iow),
                           gcnt},
                 info;
@@ -3820,6 +3836,10 @@ ERL_NIF_TERM esock_command(ErlNifEnv* env, Uint16 cmd, ERL_NIF_TERM ecdata)
         result = esock_command_socket_debug(env, ecdata);
         break;
 
+    case ESOCK_CMD_USE_SOCKET_REGISTRY:
+        result = esock_command_use_socket_registry(env, ecdata);
+        break;
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -3863,7 +3883,8 @@ ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
         dbg = FALSE;
     } else {
 
-        SGDBG( ("SOCKET", "esock_command_debug -> invalid debug value: %T\r\n",
+        SGDBG( ("SOCKET",
+                "esock_command_socket_debug -> invalid debug value: %T\r\n",
                 ecdata) );
 
         return esock_make_error(env, esock_atom_einval);
@@ -3871,6 +3892,33 @@ ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
 
     MLOCK(data.cntMtx);
     data.sockDbg = dbg;
+    MUNLOCK(data.cntMtx);
+
+    return esock_atom_ok;;
+}
+
+static
+ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv* env, ERL_NIF_TERM ecdata)
+{
+    BOOLEAN_T useReg = FALSE;
+
+    /* The data *should* be a boolean() */
+
+    if (COMPARE(ecdata, esock_atom_true) == 0) {
+        useReg = TRUE;
+    } else if (COMPARE(ecdata, esock_atom_false) == 0) {
+        useReg = FALSE;
+    } else {
+
+        SGDBG( ("SOCKET",
+                "esock_command_use_socket_registry -> invalid debug value: %T\r\n",
+                ecdata) );
+
+        return esock_make_error(env, esock_atom_einval);
+    }
+
+    MLOCK(data.cntMtx);
+    data.useReg = useReg;
     MUNLOCK(data.cntMtx);
 
     return esock_atom_ok;;
@@ -5522,12 +5570,17 @@ ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env)
  *                                        this on all platforms, and in
  *                                        *those* cases this *must* be
  *                                        provided.
+ *               [O] use_registry - boolean() - Shall we use the socket 
+ *                                        registry for this socket.
  * Arguments (4):
  * Domain   - The domain, for example 'inet'
  * Type     - Type of socket, for example 'stream'
  * Protocol - The protocol, for example 'tcp'
  * Extra    - A map with "obscure" options.
- *            Currently the only allowed option is netns (network namespace).
+ *            Currently the only allowed option are:
+ *               netns        - string()  - Network namespace.
+ *               use_registry - boolean() - Shall we use the socket 
+ *                                          registry for this socket.
  *            This is *only* allowed on linux!
  * 
  */
@@ -5646,7 +5699,8 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
                          int          fd,
                          ERL_NIF_TERM eopts)
 {
-    BOOLEAN_T        dbg = esock_open_is_debug(env, eopts, data.sockDbg);
+    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, data.sockDbg);
+    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, data.useReg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     res, reason;
     int              domain, type, protocol;
@@ -5780,13 +5834,14 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
         return esock_make_error(env, atom_exmonitor);
 
 
-    descP->dbg = dbg;
+    descP->dbg    = dbg;
+    descP->useReg = useReg;
     inc_socket(domain, type, protocol);
 
-    /* And finally update the registry.
+    /* And finally (maybe) update the registry.
      * Shall we keep track of the fact that this socket is created elsewhere?
      */
-    esock_send_reg_add_msg(env, res);
+    if (descP->useReg) esock_send_reg_add_msg(env, res);
 
     SSDBG2( dbg,
             ("SOCKET", "esock_open2 -> done: %T\r\n", res) );
@@ -5897,7 +5952,8 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
                          int          protocol,
                          ERL_NIF_TERM eopts)
 {
-    BOOLEAN_T        dbg = esock_open_is_debug(env, eopts, data.sockDbg);
+    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, data.sockDbg);
+    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, data.useReg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     res;
     int              proto = protocol, save_errno;
@@ -6028,11 +6084,12 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
     }
 
 
-    descP->dbg = data.sockDbg;
+    descP->dbg    = data.sockDbg;
+    descP->useReg = useReg;
     inc_socket(domain, type, protocol);
 
-    /* And finally update the registry */
-    esock_send_reg_add_msg(env, res);
+    /* And finally (maybe) update the registry */
+    if (descP->useReg) esock_send_reg_add_msg(env, res);
 
     return esock_make_ok2(env, res);
 }
@@ -6044,7 +6101,15 @@ static
 BOOLEAN_T esock_open_is_debug(ErlNifEnv* env, ERL_NIF_TERM eextra,
                               BOOLEAN_T dflt)
 {
-    return esock_get_bool_from_map(env, eextra, MKA(env, "debug"), dflt);
+    return esock_get_bool_from_map(env, eextra, esock_atom_debug, dflt);
+}
+
+
+static
+BOOLEAN_T esock_open_use_registry(ErlNifEnv* env, ERL_NIF_TERM eextra,
+                                  BOOLEAN_T dflt)
+{
+    return esock_get_bool_from_map(env, eextra, atom_use_registry, dflt);
 }
 
 
@@ -7163,6 +7228,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
     accDescP->iow      = descP->iow;     // Inherit iow
     accDescP->dbg      = descP->dbg;     // Inherit debug flag
+    accDescP->useReg   = descP->useReg;  // Inherit useReg flag
 
     accRef = enif_make_resource(env, accDescP);
     enif_release_resource(accDescP);
@@ -7185,8 +7251,8 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
 
     MUNLOCK(descP->writeMtx);
 
-    /* And finally update the registry */
-    esock_send_reg_add_msg(env, accRef);
+    /* And finally (maybe) update the registry */
+    if (descP->useReg) esock_send_reg_add_msg(env, accRef);
 
     *result = esock_make_ok2(env, accRef);
 
@@ -8770,9 +8836,11 @@ static int esock_close_socket(ErlNifEnv*       env,
     descP->closing = FALSE;
     dec_socket(descP->domain, descP->type, descP->protocol);
 
-    /* Update the registry */
-    sockRef = enif_make_resource(env, descP);
-    esock_send_reg_del_msg(env, sockRef);
+    /* (maybe) Update the registry */
+    if (descP->useReg) {
+        sockRef = enif_make_resource(env, descP);
+        esock_send_reg_del_msg(env, sockRef);
+    }
 
     return err;
 }
@@ -12786,6 +12854,13 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
         MUNLOCK(descP->writeMtx);
         break;
 
+    case ESOCK_OPT_OTP_USE_REGISTRY:
+        MLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
+        result = esock_getopt_otp_use_registry(env, descP);
+        MUNLOCK(descP->writeMtx);
+        break;
+
         /* *** INTERNAL *** */
     case ESOCK_OPT_OTP_DOMAIN:
         result = esock_getopt_otp_domain(env, descP);
@@ -12955,6 +13030,18 @@ ERL_NIF_TERM esock_getopt_otp_meta(ErlNifEnv*       env,
            ("SOCKET", "esock_getopt_otp_meta {%d} ->"
             "\r\n   eVal: %T"
             "\r\n", descP->sock, eVal) );
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+/* esock_getopt_otp_use_registry - Handle the OTP (level) use_registry option
+ */
+static
+ERL_NIF_TERM esock_getopt_otp_use_registry(ErlNifEnv*       env,
+                                           ESockDescriptor* descP)
+{
+    ERL_NIF_TERM eVal = esock_encode_bool(descP->useReg);
 
     return esock_make_ok2(env, eVal);
 }
@@ -19818,21 +19905,22 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         MON_INIT(&descP->closerMon);
 
         sprintf(buf, "esock.cfg[%d]", sock);
-        descP->rBufSz           = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
-        descP->rNum             = ESOCK_RECV_BUFFER_COUNT_DEFAULT;
-        descP->rNumCnt          = 0;
-        descP->rCtrlSz          = ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT;
-        descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
-        descP->iow              = FALSE;
-        descP->dbg              = ESOCK_DEBUG_DEFAULT; // Overwritten by caller
-        descP->meta.env         = esock_alloc_env("alloc_descriptor - "
-                                                  "meta-env");
-        descP->meta.ref         = esock_atom_undefined;
+        descP->rBufSz         = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
+        descP->rNum           = ESOCK_RECV_BUFFER_COUNT_DEFAULT;
+        descP->rNumCnt        = 0;
+        descP->rCtrlSz        = ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT;
+        descP->wCtrlSz        = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
+        descP->iow            = FALSE;
+        descP->dbg            = ESOCK_DEBUG_DEFAULT; // Overwritten by caller
+        descP->useReg         = ESOCK_USE_SOCKET_REGISTRY; // Overwritten by caller
+        descP->meta.env       = esock_alloc_env("alloc_descriptor - "
+                                                "meta-env");
+        descP->meta.ref       = esock_atom_undefined;
 
-        descP->sock             = sock;
-        descP->event            = event;
-        descP->origFD           = INVALID_SOCKET;
-        descP->closeOnClose     = TRUE;
+        descP->sock           = sock;
+        descP->event          = event;
+        descP->origFD         = INVALID_SOCKET;
+        descP->closeOnClose   = TRUE;
 
         enif_set_pid_undefined(&descP->ctrlPid);
         MON_INIT(&descP->ctrlMon);
@@ -20343,6 +20431,8 @@ BOOLEAN_T ecommand2command(ErlNifEnv*    env,
         *command = ESOCK_CMD_DEBUG;
     } else if (COMPARE(ecmd, atom_socket_debug) == 0) {
         *command = ESOCK_CMD_SOCKET_DEBUG;
+    } else if (COMPARE(ecmd, atom_use_registry) == 0) {
+        *command = ESOCK_CMD_USE_SOCKET_REGISTRY;
     } else {
         SGDBG( ("SOCKET", "ecommand2command -> unknown command %T\r\n", ecmd) );
         return FALSE;
@@ -22013,7 +22103,12 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                      &data.regPid))
         return 1; // Failure - no registry pid
 
-    data.dbg =
+    data.useReg =
+        esock_extract_bool_from_map(env, load_info,
+                                    atom_use_registry,
+                                    ESOCK_USE_SOCKET_REGISTRY);
+
+    data.iow =
         esock_extract_bool_from_map(env, load_info,
                                     atom_iow,
                                     ESOCK_NIF_IOW_DEFAULT);

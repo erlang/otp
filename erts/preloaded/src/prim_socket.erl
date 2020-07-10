@@ -27,7 +27,7 @@
 -export(
    [encode_path/1, encode_sockaddr/1,
     info/0, info/1,
-    debug/1, socket_debug/1,
+    debug/1, socket_debug/1, use_registry/1,
     supports/0, supports/1, supports/2,
     open/2, open/4,
     bind/2, bind/3,
@@ -144,6 +144,7 @@
 -define(ESOCK_OPT_OTP_SNDCTRLBUF,      1007).
 -define(ESOCK_OPT_OTP_FD,              1008).
 -define(ESOCK_OPT_OTP_META,            1009).
+-define(ESOCK_OPT_OTP_USE_REGISTRY,    1010).
 %%
 -define(ESOCK_OPT_OTP_DOMAIN,          1999). % INTERNAL
 %%-define(ESOCK_OPT_OTP_TYPE,            1998). % INTERNAL
@@ -409,6 +410,11 @@ debug(D) ->
 
 socket_debug(D) ->
     nif_command(#{command => ?FUNCTION_NAME, data => D}).
+
+
+use_registry(D) ->
+    nif_command(#{command => ?FUNCTION_NAME, data => D}).
+
 
 %% ----------------------------------
 
@@ -758,6 +764,7 @@ enc_sockopt_type(otp = Level, Opt) ->
         sndctrlbuf ->   {buf,           L, ?ESOCK_OPT_OTP_SNDCTRLBUF};
         fd ->           {undefined,     L, ?ESOCK_OPT_OTP_FD};
         meta ->         {term,          L, ?ESOCK_OPT_OTP_META};
+        use_registry -> {boolean,       L, ?ESOCK_OPT_OTP_USE_REGISTRY};
         domain ->       {undefined,     L, ?ESOCK_OPT_OTP_DOMAIN};
         _ ->
             not_supported(Level, Opt)

@@ -27,7 +27,7 @@
          number_of/0,
          which_sockets/0, which_sockets/1,
 
-         debug/1, socket_debug/1,
+         debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
          supports/0, supports/1, supports/2,
          is_supported/1, is_supported/2, is_supported/3
@@ -362,6 +362,7 @@
 %% Do we really need a sndbuf?
 
 -type otp_socket_option() :: debug |
+                             use_registry |
                              iow |
                              controlling_process |
                              rcvbuf | % sndbuf |
@@ -797,6 +798,12 @@ debug(D) when is_boolean(D) ->
 %%
 socket_debug(D) when is_boolean(D) ->
     prim_socket:socket_debug(D).
+
+
+-spec use_registry(D :: boolean()) -> ok.
+%%
+use_registry(D) when is_boolean(D) ->
+    prim_socket:use_registry(D).
 
 
 %% ===========================================================================
