@@ -198,8 +198,10 @@ read(File, Verify) ->
 read(File, Order, Check) when is_function(Order), is_function(Check) ->
     ?vdebug("read -> entry with~n"
 	"   File: ~p", [File]),
-    Fd = open_file(File),
-    read_fd(File, Order, Check, Fd, 1, []).
+    Fd    = open_file(File),
+    Lines = read_fd(File, Order, Check, Fd, 1, []),
+    file:close(Fd),
+    Lines.
 
 read_fd(File, Order, Check, Fd, StartLine, Res) ->
     case do_read(Fd, "", StartLine) of
