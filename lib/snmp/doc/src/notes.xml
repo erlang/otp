@@ -103,6 +103,23 @@
 
 </section>
 
+  <section><title>SNMP 5.5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A file descriptor leak has been plugged. When calling the
+	    reconfigure function of a mib, it opened the config
+	    file(s) but never closed them on successful read.</p>
+          <p>
+	    Own Id: OTP-16760 Aux Id: ERIERL-511 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SNMP 5.5</title>
 
     <section><title>Improvements and New Features</title>

@@ -155,6 +155,21 @@
 
 </section>
 
+<section><title>Compiler 7.5.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause the compiler to crash on
+	    code that constructed binaries.</p>
+          <p>
+	    Own Id: OTP-16747 Aux Id: ERL-1290 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.5.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -4358,4 +4373,3 @@
     </section>
   </section>
 </chapter>
-
