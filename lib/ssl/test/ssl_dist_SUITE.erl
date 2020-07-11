@@ -400,7 +400,7 @@ use_interface() ->
     [{doc, "Test inet_dist_use_interface"}].
 use_interface(Config) when is_list(Config) ->
     %% Force the node to listen only on the loopback interface.
-    IpString = "'{127,0,0,1}'",
+    IpString = localhost_ipstr(inet_ver()),
     Options = "-kernel inet_dist_use_interface " ++ IpString,
 
     %% Start a node, and get the port number it's listening on.
@@ -421,7 +421,8 @@ use_interface(Config) when is_list(Config) ->
 				{ok, Port} =:= (catch inet:port(P))]
 		    end),
 	%% And check that it's actually listening on localhost.
-	[{ok,{{127,0,0,1},Port}}] = Sockets
+        IP = localhost_ip(inet_ver()),
+        [{ok,{IP,Port}}] = Sockets
     catch 
 	_:Reason ->
 	    stop_ssl_node(NH1),
@@ -935,3 +936,21 @@ select({rdnSequence, NameParts}, {NodeDir, _}) ->
 
 fresh_crl(_DistributionPoint, CRL) ->
     CRL.
+
+localhost_ip(InetVer) ->
+    {ok, Addr} = inet:getaddr(net_adm:localhost(), InetVer),
+    Addr.
+
+localhost_ipstr(InetVer) ->
+    {ok, Addr} = inet:getaddr(net_adm:localhost(), InetVer),
+    case InetVer of
+        inet ->
+            lists:flatten(io_lib:format("'{~p,~p,~p,~p}'",
+                                        erlang:tuple_to_list(Addr)));
+        inet6 ->
+            lists:flatten(io_lib:format("'{~p,~p,~p,~p,~p,~p,~p,~p}'",
+                                        erlang:tuple_to_list(Addr)))
+    end.
+
+inet_ver() ->
+    inet.
