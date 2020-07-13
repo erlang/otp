@@ -1076,7 +1076,7 @@ start_ftpd(Config0) ->
                 ftp__close(ftp__open(Config,[{verbose,true}]))
             of
                 Config1 when is_list(Config1) ->
-                    ct:log("Usuable ftp server ~p started on ~p:~p",[AbsName,Host,Port]),
+                    ct:log("Usable ftp server ~p started on ~p:~p",[AbsName,Host,Port]),
                     Config
             catch
                 Class:Exception ->
