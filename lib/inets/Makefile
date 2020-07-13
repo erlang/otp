@@ -37,6 +37,6 @@ SPECIAL_TARGETS =
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
 
-DIA_PLT_APPS=runtime_tools ftp mnesia ssl tftp
+DIA_PLT_APPS=runtime_tools mnesia ssl
 
 include $(ERL_TOP)/make/app_targets.mk
