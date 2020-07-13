@@ -1317,7 +1317,7 @@ handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}, client = From,
             = State) when Trpt==tcp;Trpt==ssl ->
     ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State]),
     gen_server:reply(From, {ok, Data}),
-    {noreply, State#state{client = undefined, data = <<>>}};
+    {noreply, State#state{client = undefined, caller = undefined, data = <<>>}};
 
 handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}} = State0) when Trpt==tcp;Trpt==ssl ->
     ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
