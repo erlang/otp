@@ -162,7 +162,8 @@ ftp_sup_tests() ->
                   Helper = spawn(fun() ->
                       case os:cmd("ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'") of
                           [] ->
-                              case open_port({spawn,Cmd},[exit_status]) of
+                              % OpenSSL system_default_sect CipherString may reject the SHA1 signed testing certificates
+                              case open_port({spawn,Cmd},[{env,[{"OPENSSL_CONF","/dev/null"}]},exit_status]) of
                                   Port when is_port(Port) ->
                                       timer:sleep(500),        % give it a chance to actually open the listening socket
                                       Parent ! {ok,Port},
