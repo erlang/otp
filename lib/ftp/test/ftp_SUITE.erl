@@ -491,7 +491,7 @@ send_bin(Config0) ->
     {error, enotbinary} = ftp:send_bin(Pid, "some string", id2ftp(File,Config)),
     ok = ftp:send_bin(Pid, BinContents, id2ftp(File,Config)),
     chk_file(File, BinContents, Config),
-    {error, efnamena} = ftp:send_bin(Pid, BinContents, "/nothere"),
+    {error, efnamena} = ftp:send_bin(Pid, BinContents, "/nothere/nohere"),
     ok.
 
 %%-------------------------------------------------------------------------
