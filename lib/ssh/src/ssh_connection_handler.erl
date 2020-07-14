@@ -823,9 +823,10 @@ handle_event(_, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {s
     case ServiceName of
 	"ssh-userauth" ->
 	    Ssh0 = #ssh{session_id=SessionId} = D0#data.ssh_params,
-	    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0),
-	    send_bytes(Reply, D0),
-	    {next_state, {userauth,server}, D0#data{ssh_params = Ssh}};
+            {ok, {Reply, Ssh1}} = ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0),
+            D1 = D0#data{ssh_params = Ssh1},
+            send_bytes(Reply, D1),
+            {next_state, {userauth, server}, D1};
 
 	_ ->
             {Shutdown, D} =  
@@ -865,12 +866,14 @@ handle_event(_,
 		    %% Yepp! we support this method
 		    case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
 			{authorized, User, {Reply, Ssh}} ->
-			    send_bytes(Reply, D0),
-			    D0#data.starter ! ssh_connected,
-			    connected_fun(User, Method, D0),
-			    {next_state, {connected,server},
-			     D0#data{auth_user = User, 
-				    ssh_params = Ssh#ssh{authenticated = true}}};
+                            D1 = D0#data{ssh_params = Ssh},
+                            send_bytes(Reply, D1),
+                            D1#data.starter ! ssh_connected,
+                            D2 = connected_fun(User, Method, D1),
+                            Ssh2 = D2#data.ssh_params, % ssh can be updated inside connectedfun
+                            {next_state, {connected,server},
+                             D2#data{auth_user = User,
+                                     ssh_params = Ssh2#ssh{authenticated = true}}};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D0),
 			    send_bytes(Reply, D0),
@@ -968,11 +971,14 @@ handle_event(_, #ssh_msg_userauth_info_request{} = Msg, {userauth_keyboard_inter
 handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D) ->
     case ssh_auth:handle_userauth_info_response(Msg, D#data.ssh_params) of
 	{authorized, User, {Reply, Ssh}} ->
-	    send_bytes(Reply, D),
-	    D#data.starter ! ssh_connected,
-	    connected_fun(User, "keyboard-interactive", D),
-	    {next_state, {connected,server}, D#data{auth_user = User,
-						    ssh_params = Ssh#ssh{authenticated = true}}};
+            D1 = D#data{ssh_params = Ssh},
+            send_bytes(Reply, D1),
+            D1#data.starter ! ssh_connected,
+            D2 = connected_fun(User, "keyboard-interactive", D1),
+            Ssh2 = D2#data.ssh_params, % ssh can be updated inside connectedfun
+            {next_state, {connected,server},
+             D2#data{auth_user = User,
+                     ssh_params = Ssh2#ssh{authenticated = true}}};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 	    retry_fun(User, Reason, D),
 	    send_bytes(Reply, D),
@@ -985,11 +991,14 @@ handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_inte
 
 handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive_extra, server}, D) ->
     {authorized, User, {Reply, Ssh}} = ssh_auth:handle_userauth_info_response({extra,Msg}, D#data.ssh_params),
-    send_bytes(Reply, D),
-    D#data.starter ! ssh_connected,
-    connected_fun(User, "keyboard-interactive", D),
-    {next_state, {connected,server}, D#data{auth_user = User,
-					    ssh_params = Ssh#ssh{authenticated = true}}};
+    D1 = D#data{ssh_params = Ssh},
+    send_bytes(Reply, D1),
+    D1#data.starter ! ssh_connected,
+    D2 = connected_fun(User, "keyboard-interactive", D1),
+    Ssh2 = D2#data.ssh_params, % ssh can be updated inside connectedfun
+    {next_state, {connected,server},
+     D2#data{auth_user = User,
+             ssh_params = Ssh2#ssh{authenticated = true}}};
 
 handle_event(_, #ssh_msg_userauth_failure{}, {userauth_keyboard_interactive, client},
 	     #data{ssh_params = Ssh0} = D0) ->
@@ -2064,6 +2073,7 @@ conn_info(client_version, #data{ssh_params=S}) -> {S#ssh.c_vsn, S#ssh.c_version}
 conn_info(server_version, #data{ssh_params=S}) -> {S#ssh.s_vsn, S#ssh.s_version};
 conn_info(peer,           #data{ssh_params=S}) -> S#ssh.peer;
 conn_info(user,                             D) -> D#data.auth_user;
+conn_info(user_state,                       D) -> (D#data.ssh_params)#ssh.user_state;
 conn_info(sockname,       #data{ssh_params=S}) -> S#ssh.local;
 conn_info(options,        #data{ssh_params=#ssh{opts=Opts}})    -> lists:sort(
                                                                      maps:to_list(
@@ -2224,8 +2234,23 @@ get_repl(X, Acc) ->
 %%%----------------------------------------------------------------
 -define(CALL_FUN(Key,D), catch (?GET_OPT(Key, (D#data.ssh_params)#ssh.opts)) ).
 
-%%disconnect_fun({disconnect,Msg}, D) -> ?CALL_FUN(disconnectfun,D)(Msg);
-disconnect_fun(Reason, D)           -> ?CALL_FUN(disconnectfun,D)(Reason).
+disconnect_fun(Reason, D = #data{ssh_params = Ssh}) ->
+    #ssh{user_state = UserState} = Ssh,
+    case ?CALL_FUN(disconnectfun, D) of
+        undefined ->
+            %% D is returned without changes
+            D;
+
+        Fun1 when is_function(Fun1, 1) ->
+            %% D is returned without changes
+            Fun1(Reason),
+            D;
+
+        Fun2 when is_function(Fun2, 2) ->
+            %% Disconnectfun takes extra param user state, and updates it
+            UserState1 = Fun2(Reason, UserState),
+            D#data{ssh_params = Ssh#ssh{user_state = UserState1}}
+    end.
 
 unexpected_fun(UnexpectedMessage, #data{ssh_params = #ssh{peer = {_,Peer} }} = D) ->
     ?CALL_FUN(unexpectedfun,D)(UnexpectedMessage, Peer).
@@ -2237,15 +2262,30 @@ debug_fun(#ssh_msg_debug{always_display = Display,
     ?CALL_FUN(ssh_msg_debug_fun,D)(self(), Display, DbgMsg, Lang).
 
 
-connected_fun(User, Method, #data{ssh_params = #ssh{peer = {_,Peer}}} = D) ->
-    ?CALL_FUN(connectfun,D)(User, Peer, Method).
+connected_fun(User, Method, D = #data{ssh_params = Ssh}) ->
+    #ssh{peer = {_, Peer}, opts = Opts} = Ssh,
+    case ?GET_OPT(connectfun, Opts) of
+        undefined ->
+            %% D is returned without changes
+            D;
 
+        Fun3 when is_function(Fun3, 3) ->
+            %% D is returned without changes
+            Fun3(User, Peer, Method),
+            D;
+
+        Fun4 when is_function(Fun4, 4) ->
+            %% Connectfun takes an extra param: user state, and updates it
+            UserState0 = Ssh#ssh.user_state,
+            UserState1 = Fun4(User, Peer, Method, UserState0),
+            D#data{ssh_params = Ssh#ssh{user_state = UserState1}}
+    end.
 
 retry_fun(_, undefined, _) ->
     ok;
 retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
-						peer = {_,Peer}
-					       }}) ->
+                                                peer = {_,Peer},
+                                                user_state = UserState0} = Ssh} = D0) ->
     {Tag,Info} =
 	case Reason of
 	    {error, Error} ->
@@ -2256,15 +2296,24 @@ retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
     Fun = ?GET_OPT(Tag, Opts),
     try erlang:fun_info(Fun, arity)
     of
-	{arity, 2} -> %% Backwards compatible
-	    catch Fun(User, Info);
-	{arity, 3} ->
-	    catch Fun(User, Peer, Info);
-	_ ->
-	    ok
-    catch
-	_:_ ->
-	    ok
+        {arity, 2} -> %% Backwards compatible
+            catch Fun(User, Info),
+            D0;
+        {arity, 3} ->
+            catch Fun(User, Peer, Info),
+            D0;
+        {arity, 4} ->
+            try
+                %% The userstate is updated if no exception happened
+                UserState1 = Fun(User, Peer, Info, UserState0),
+                Ssh1 = Ssh#ssh{user_state = UserState1},
+                D0#data{ssh_params = Ssh1}
+            catch _:_ ->
+                D0 % on exception, the user_state is not updated
+            end;
+        _ ->
+            D0
+    catch _:_ -> D0
     end.
 
 %%%----------------------------------------------------------------

@@ -381,6 +381,7 @@ default(server) ->
                            check_pos_integer(I1) andalso
                                check_pos_integer(I2) andalso
                                I1 < I2;
+                      (Fun0) when is_function(Fun0, 0) -> true;
                       (_) ->
                            false
                    end,
@@ -431,23 +432,27 @@ default(server) ->
 
       failfun =>
           #{default => fun(_,_,_) -> void end,
-            chk => fun(V) -> check_function3(V) orelse
-                                 check_function2(V) % Backwards compatibility
+            chk => fun(V) -> check_function4(V) % failfun called with user state
+                             orelse check_function3(V) % Regular failfun
+                             orelse check_function2(V) % Backwards compatibility
                    end,
             class => user_option
            },
 
       connectfun =>
           #{default => fun(_,_,_) -> void end,
-            chk => fun check_function3/1,
+            chk => fun(V) -> check_function3(V) % Backwards compatibility
+                             orelse check_function4(V) % User-app ssh state
+                   end,
             class => user_option
            },
 
 %%%%% Undocumented
       infofun =>
           #{default => fun(_,_,_) -> void end,
-            chk => fun(V) -> check_function3(V) orelse
-                                 check_function2(V) % Backwards compatibility
+            chk => fun(V) -> check_function4(V) % infofun called with user state
+                             orelse check_function3(V) % Regular failfun
+                             orelse check_function2(V) % Backwards compatibility
                    end,
             class => undoc_user_option
            }
@@ -509,6 +514,7 @@ default(client) ->
             chk => fun({Min,I,Max}) ->
                            lists:all(fun check_pos_integer/1,
                                      [Min,I,Max]);
+                      (Fun0) when is_function(Fun0, 0) -> true;
                       (_) -> false
                    end,
             class => user_option
@@ -628,7 +634,9 @@ default(common) ->
 
        disconnectfun =>
            #{default => fun(_) -> void end,
-             chk => fun check_function1/1,
+             chk => fun(F) -> check_function1(F) % regular disconnectfun
+                              orelse check_function2(F) % also carries userstate
+                    end,
              class => user_option
             },
 

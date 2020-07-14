@@ -391,7 +391,10 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group1-sha1' ;
 
 key_exchange_first_msg(Kex, Ssh0=#ssh{opts=Opts}) when Kex == 'diffie-hellman-group-exchange-sha1' ;
 						       Kex == 'diffie-hellman-group-exchange-sha256' ->
-    {Min,NBits0,Max} = ?GET_OPT(dh_gex_limits, Opts),
+    {Min, NBits0, Max} = case ?GET_OPT(dh_gex_limits, Opts) of
+                             {_, _, _} = Triple -> Triple;
+                             F when is_function(F, 0) -> F()
+                         end,
     DhBits = dh_bits(Ssh0#ssh.algorithms),
     NBits1 = 
         %% NIST Special Publication 800-57 Part 1 Revision 4: Recommendation for Key Management
@@ -555,7 +558,14 @@ handle_kex_dh_gex_request(_, _) ->
                 "Key exchange failed, bad values in ssh_msg_kex_dh_gex_request").
 
 adjust_gex_min_max(Min0, Max0, Opts) ->
-    {Min1, Max1} = ?GET_OPT(dh_gex_limits, Opts),
+    DHGL = case ?GET_OPT(dh_gex_limits, Opts) of % allow it to be a fun()
+               F when is_function(F) -> F();
+               Other -> Other
+           end,
+    {Min1, Max1} = case DHGL of
+                       {M1, N1, _} -> {M1, N1}; % compatible with new 3 tuple
+                       {M2, N2} -> {M2, N2}
+                   end,
     Min2 = max(Min0, Min1),
     Max2 = min(Max0, Max1),
     if

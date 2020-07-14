@@ -471,7 +471,7 @@ check_password(User, Password, Opts, Ssh) ->
 	    {Checker(User, Password), Ssh};
 
 	Checker when is_function(Checker,4) ->
-	    #ssh{pwdfun_user_state = PrivateState,
+	    #ssh{user_state = PrivateState,
 		 peer = {_,PeerAddr={_,_}}
 		} = Ssh,
 	    case Checker(User, Password, PeerAddr, PrivateState) of
@@ -480,9 +480,9 @@ check_password(User, Password, Opts, Ssh) ->
 		false ->
 		    {false,Ssh};
 		{true,NewState} ->
-		    {true, Ssh#ssh{pwdfun_user_state=NewState}};
+		    {true, Ssh#ssh{user_state=NewState}};
 		{false,NewState} ->
-		    {false, Ssh#ssh{pwdfun_user_state=NewState}};
+		    {false, Ssh#ssh{user_state=NewState}};
 		disconnect ->
 		    ?DISCONNECT(?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,
                                 "")

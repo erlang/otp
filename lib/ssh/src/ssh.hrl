@@ -383,9 +383,13 @@
       | {parallel_login, boolean()}
       | {minimal_remote_max_packet_size, pos_integer()}.
 
+-type connectfun() ::
+    fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)
+    | fun((User::string(), PeerAddress::inet:ip_address(), Method::string(), _State) -> _).
+-type failfun() ::
+    fun((User :: string(), PeerAddress :: inet:ip_address(), Reason :: term()) -> _).
 -type callbacks_daemon_options() ::
-        {failfun, fun((User::string(), PeerAddress::inet:ip_address(), Reason::term()) -> _)}
-      | {connectfun, fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)} .
+    {failfun, failfun()} | {connectfun, connectfun()}.
 
 -type opaque_daemon_options()  ::
         {infofun, fun()}
@@ -472,8 +476,12 @@
 	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
 	  userauth_preference,
 	  available_host_keys,
-	  pwdfun_user_state,
-	  authenticated = false
+
+          %% User state stores private unstructured data for the user
+          %% Can be viewed and updated by callbacks, like pwdfun/4, connectfun/4
+          user_state = #{},
+
+          authenticated = false
 	 }).
 
 -record(alg,
