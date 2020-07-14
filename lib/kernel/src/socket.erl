@@ -933,10 +933,12 @@ open(FD) ->
 -spec open(FD, Opts) -> {ok, Socket} | {error, Reason} when
       FD       :: integer(),
       Opts     ::
-        #{domain => domain(),
-          type => type(),
-          protocol => protocol(),
-          dup => boolean()},
+        #{domain       => domain(),
+          type         => type(),
+          protocol     => protocol(),
+          dup          => boolean(),
+	  debug        => boolean(),
+	  use_registry => boolean()},
       Socket   :: socket(),
       Reason   :: errcode();
 
@@ -971,7 +973,10 @@ open(Domain, Type, Protocol) ->
       Domain   :: domain(),
       Type     :: type(),
       Protocol :: default | protocol(),
-      Opts     :: map(),
+      Opts     ::
+        #{netns        => string(),
+	  debug        => boolean(),
+	  use_registry => boolean()},
       Socket   :: socket(),
       Reason   :: errcode().
 
