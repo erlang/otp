@@ -826,7 +826,10 @@ handle_event(_, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {s
             {ok, {Reply, Ssh1}} = ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0),
             D1 = D0#data{ssh_params = Ssh1},
             send_bytes(Reply, D1),
-            {next_state, {userauth, server}, D1};
+
+            D2 = maybe_send_banner(D1),
+
+            {next_state, {userauth,server}, D2};
 
 	_ ->
             {Shutdown, D} =  
@@ -2546,3 +2549,22 @@ state_callback_result({stop_and_reply, Reason,  Replies, _NewData}) ->
     {stop_and_reply, Reason,  Replies, "#data{}"};
 state_callback_result(R) ->
     R.
+
+-spec maybe_send_banner(#data{}) -> #data{}.
+maybe_send_banner(D = #data{}) ->
+    %% Banner can be a binary or a function/0 returning a binary
+    Opts = (D#data.ssh_params)#ssh.opts,
+    BannerText = case maps:get(bannerfun, Opts, <<>>) of
+                     undefined -> <<>>;
+                     BannerFun when is_function(BannerFun, 0) ->
+                         BannerFun();
+                     B when is_binary(B) -> B
+                 end,
+    case BannerText of
+        <<>> ->
+            D;
+        _ ->
+            Banner = #ssh_msg_userauth_banner{message = BannerText,
+                                              language = <<>>},
+            send_msg(Banner, D)
+    end.

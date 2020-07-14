@@ -447,6 +447,14 @@ default(server) ->
             class => user_option
            },
 
+      bannerfun =>
+          #{default => <<>>,
+            chk => fun(V) ->
+                        is_function(V, 0) orelse is_binary(V)
+                   end,
+            class => user_option
+           },
+
 %%%%% Undocumented
       infofun =>
           #{default => fun(_,_,_) -> void end,
