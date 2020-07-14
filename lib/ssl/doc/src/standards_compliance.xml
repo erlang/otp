@@ -133,7 +133,7 @@
       <item>Key Exchange: ECDHE</item>
       <item>Groups: all standard groups supported for the Diffie-Hellman key exchange</item>
       <item>Ciphers: all cipher suites are supported</item>
-      <item>Signature Algorithms: All algorithms form RFC 8456</item>
+      <item>Signature Algorithms: All algorithms form RFC 8446</item>
       <item>Certificates: RSA and ECDSA keys</item>
     </list>
     <p>Other notable features:</p>
@@ -304,7 +304,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>ssl-@OTP-16547@</em></cell>
+	<cell align="left" valign="middle"><em>23.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -393,8 +393,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">cookie (RFC8446) </cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -443,7 +443,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>ssl-@OTP-16547@</em></cell>
+	<cell align="left" valign="middle"><em>23.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -532,8 +532,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">cookie (RFC8446) </cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -639,7 +639,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -651,8 +651,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">cookie (RFC8446)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -685,14 +685,14 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em>Client</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23.1</em></cell>
       </row>
 
       <row>
@@ -1233,7 +1233,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>ssl-@OTP-16547@</em></cell>
+	<cell align="left" valign="middle"><em>23.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1300,7 +1300,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">max_fragment_length (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>ssl-@OTP-16547@</em></cell>
+	<cell align="left" valign="middle"><em>23.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -2040,8 +2040,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">Cookie</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>

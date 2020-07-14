@@ -133,6 +133,7 @@
           certfile                   => {<<>>,      [versions]},
           ciphers                    => {[],        [versions]},
           client_renegotiation       => {undefined, [versions]},
+          cookie                     => {true,      [versions]},
           crl_cache                  => {{ssl_crl_cache, {internal, []}}, [versions]},
           crl_check                  => {false,     [versions]},
           customize_hostname_check   => {[],        [versions]},

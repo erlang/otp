@@ -764,8 +764,12 @@ encode_extensions([#pre_shared_key_client_hello{
                               ?UINT16(Len), Identities/binary, Binders/binary>>);
 encode_extensions([#pre_shared_key_server_hello{selected_identity = Identity} | Rest], Acc) ->
     encode_extensions(Rest, <<?UINT16(?PRE_SHARED_KEY_EXT),
-                              ?UINT16(2), ?UINT16(Identity), Acc/binary>>).
-
+                              ?UINT16(2), ?UINT16(Identity), Acc/binary>>);
+encode_extensions([#cookie{cookie = Cookie} | Rest], Acc) ->
+    CookieLen = byte_size(Cookie),
+    Len = CookieLen + 2,
+    encode_extensions(Rest, <<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
+				    Cookie/binary, Acc/binary>>).
 
 encode_client_protocol_negotiation(undefined, _) ->
     undefined;
@@ -1634,7 +1638,9 @@ extension_value(#pre_shared_key_client_hello{offered_psks = PSKs}) ->
 extension_value(#pre_shared_key_server_hello{selected_identity = SelectedIdentity}) ->
     SelectedIdentity;
 extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
-    Modes.
+    Modes;
+extension_value(#cookie{cookie = Cookie}) ->
+    Cookie.
 
 
 %%--------------------------------------------------------------------
@@ -2751,6 +2757,13 @@ decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
                                #pre_shared_key_server_hello{
                                   selected_identity = Identity}});
 
+decode_extensions(<<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
+                    Cookie:CookieLen/binary, Rest/binary>>,
+                  Version, MessageType, Acc)
+  when Len == CookieLen + 2 ->
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{cookie => #cookie{cookie = Cookie}});
+
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
 decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
@@ -3407,7 +3420,7 @@ empty_extensions({3,4}, client_hello) ->
       pre_shared_key => undefined,
       psk_key_exchange_modes => undefined,
       %% early_data => undefined,
-      %% cookie => undefined,
+      cookie => undefined,
       client_hello_versions => undefined,
       %% cert_authorities => undefined,
       %% post_handshake_auth => undefined,
@@ -3432,7 +3445,8 @@ empty_extensions({3,4}, server_hello) ->
 empty_extensions({3,4}, hello_retry_request) ->
     #{server_hello_selected_version => undefined,
       key_share => undefined,
-      pre_shared_key => undefined
+      pre_shared_key => undefined, %% TODO remove!
+      cookie => undefined
      };
 empty_extensions(_, server_hello) ->
     #{renegotiation_info => undefined,
