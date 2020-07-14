@@ -82,7 +82,8 @@
                         public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
                         premaster_secret     :: binary() | secret_printout() | 'undefined',
                         server_psk_identity         :: binary() | 'undefined',  % server psk identity hint
-                        ticket_seed
+                        cookie_iv_shard         :: {binary(), binary()} %% IV, Shard
+                                                 | 'undefined'
                        }).
 
 -record(connection_env, { 

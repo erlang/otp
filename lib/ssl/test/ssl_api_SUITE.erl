@@ -148,7 +148,8 @@ tls13_group() ->
      client_options_negative_dependency_role,
      server_options_negative_version_gap,
      server_options_negative_dependency_role,
-     invalid_options_tls13
+     invalid_options_tls13,
+     cookie
     ].
 
 init_per_suite(Config0) ->
@@ -1669,6 +1670,8 @@ invalid_options(Config) when is_list(Config) ->
           %% anti_replay is a server only option but tested with client
           %% for simplicity
           {options,dependency,{anti_replay,{versions,['tlsv1.3']}}}},
+         {[{cookie, false}],
+          {options,dependency,{cookie,{versions,['tlsv1.3']}}}},
          {[{supported_groups, []}],
           {options,dependency,{supported_groups,{versions,['tlsv1.3']}}}},
          {[{use_ticket, [<<1,2,3,4>>]}],
@@ -1994,6 +1997,11 @@ invalid_options_tls13(Config) when is_list(Config) ->
           server
          },
 
+         {{cookie, false},
+          {option , server_only, cookie},
+          client
+         },
+
          {{padding_check, false},
           {options, dependency,
            {padding_check,{versions,[tlsv1]}}},
@@ -2062,6 +2070,11 @@ invalid_options_tls13(Config) when is_list(Config) ->
           end,
     [Fun(Option, ErrorMsg, Type) || {Option, ErrorMsg, Type} <- TestOpts].
 
+cookie() ->
+    [{doc, "Test cookie extension in TLS 1.3"}].
+cookie(Config) when is_list(Config) ->
+    cookie_extension(Config, true),
+    cookie_extension(Config, false).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -2390,6 +2403,32 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
     ServerMsg = ClientMsg = {ok, {Version, Expected}},
 
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+cookie_extension(Config, Cookie) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    Data = "123456789012345",  %% 15 bytes
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Trigger a HelloRetryRequest
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{options, [{supported_groups, [x448,
+                                                                       secp256r1,
+                                                                       secp384r1]},
+                                                   {cookie, Cookie}|ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{options, ClientOpts}]),
+
+    ok = ssl_test_lib:send(Client, Data),
+    Data = ssl_test_lib:check_active_receive(Server, Data),
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).

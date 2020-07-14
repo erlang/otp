@@ -444,7 +444,8 @@
                                 {client_renegotiation, client_renegotiation()}|
                                 {signature_algs, server_signature_algs()} |
                                 {session_tickets, server_session_tickets()} |
-                                {anti_replay, anti_replay()}.
+                                {anti_replay, anti_replay()} |
+                                {cookie, cookie()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()].
 -type server_cafile()            :: file:filename().
@@ -463,6 +464,7 @@
 -type honor_cipher_order()       :: boolean().
 -type honor_ecc_order()          :: boolean().
 -type client_renegotiation()     :: boolean().
+-type cookie()                   :: boolean().
 %% -------------------------------------------------------------------------------------------------------
 -type prf_random() :: client_random | server_random. % exported
 -type protocol_extensions()  :: #{renegotiation_info => binary(),
@@ -1708,6 +1710,14 @@ handle_option(fallback = Option, Value0, OptionsMap, #{role := Role}) ->
     assert_role(client_only, Role, Option, Value0),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
+handle_option(cookie = Option, unbound, OptionsMap, #{role := Role}) ->
+    Value = default_option_role(server, true, Role),
+    OptionsMap#{Option => Value};
+handle_option(cookie = Option, Value0, #{versions := Versions} = OptionsMap, #{role := Role}) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    assert_role(server_only, Role, Option, Value0),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(honor_cipher_order = Option, unbound, OptionsMap, #{role := Role}) ->
     Value = default_option_role(server, false, Role),
     OptionsMap#{Option => Value};
@@ -2295,6 +2305,8 @@ validate_option(honor_ecc_order, Value) when is_boolean(Value) ->
 validate_option(padding_check, Value) when is_boolean(Value) ->
     Value;
 validate_option(fallback, Value) when is_boolean(Value) ->
+    Value;
+validate_option(cookie, Value) when is_boolean(Value)  ->
     Value;
 validate_option(crl_check, Value) when is_boolean(Value)  ->
     Value;
