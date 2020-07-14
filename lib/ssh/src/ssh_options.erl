@@ -412,6 +412,15 @@ default(server) ->
             class => user_option
            },
 
+      max_auth_tries =>
+          #{default => 3,
+            chk => fun(X) -> (is_integer(X) andalso X >= 1)
+                             orelse is_function(X, 0)
+                             orelse X =:= 'infinity'
+                   end,
+            class => user_option
+           },
+
       max_channels =>
           #{default => infinity,
             chk => fun check_pos_integer/1,

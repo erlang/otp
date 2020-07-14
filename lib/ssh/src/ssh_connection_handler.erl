@@ -526,13 +526,18 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
 	    S0#ssh{s_vsn = Vsn,
 		   s_version = Version,
 		   userauth_methods = string:tokens(AuthMethods, ","),
-		   kb_tries_left = 3,
+		   kb_tries_left = get_max_auth_tries(Opts),
 		   peer = {undefined, PeerAddr},
                    local = LocalName
 		  }
     end.
 
-
+get_max_auth_tries(Opts) ->
+    case ?GET_OPT(max_auth_tries, Opts) of
+        infinity -> infinity;
+        N when erlang:is_integer(N) -> N;
+        F when erlang:is_function(F, 0) -> F() % call func F
+    end.
 
 %%====================================================================
 %% gen_statem callbacks
@@ -877,7 +882,13 @@ handle_event(_,
                             {next_state, {connected,server},
                              D2#data{auth_user = User,
                                      ssh_params = Ssh2#ssh{authenticated = true}}};
-			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
+			{auth_tries_exceeded, {User, Reason}, Ssh = #ssh{}} ->
+                            {Shutdown, D} = ?send_disconnect(
+                                ?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,
+                                "Auth tries exceeded", StateName,
+                                D0#data{ssh_params = Ssh}),
+                            {stop, Shutdown, D};
+                        {not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D0),
 			    send_bytes(Reply, D0),
 			    {next_state, {userauth_keyboard_interactive,server}, D0#data{ssh_params = Ssh}};

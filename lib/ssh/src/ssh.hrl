@@ -405,7 +405,7 @@
 -record(ssh,
 	{
 	  role :: client | role(),
-	  peer :: undefined | 
+	  peer :: undefined |
                   {inet:hostname(),ip_port()},         %% string version of peer address 
 
           local,        %% Local sockname. Need this AFTER a socket is closed by i.e. a crash
@@ -442,7 +442,7 @@
           decrypt_cipher,       %% cipher. could be different from the algorithm
 	  decrypt_keys,         %% decrypt keys
 	  decrypt_block_size = 8,
-	  decrypt_ctx,          %% Decryption context   
+	  decrypt_ctx,          %% Decryption context
 
 	  compress = none,
 	  compress_ctx,
@@ -465,7 +465,7 @@
 	  keyex_key,
 	  keyex_info,
 	  random_length_padding = ?MAX_RND_PADDING_LEN, % From RFC 4253 section 6.
-	  
+
 	  %% User auth
 	  user,
 	  service,
@@ -473,7 +473,7 @@
 	  userauth_methods,                 %  list( string() )  eg ["keyboard-interactive", "password"]
 	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
           userauth_pubkeys,
-	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
+	  kb_tries_left = 0 :: non_neg_integer(), % num tries left for "keyboard-interactive"
 	  userauth_preference,
 	  available_host_keys,
 

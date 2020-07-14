@@ -220,17 +220,22 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  method = "password",
 						  data = <<?FALSE, ?UINT32(Sz), BinPwd:Sz/binary>>}, _, 
 			#ssh{opts = Opts,
+			     kb_tries_left = KbTriesLeft,
 			     userauth_supported_methods = Methods} = Ssh) ->
-    Password = unicode:characters_to_list(BinPwd),
-    case check_password(User, Password, Opts, Ssh) of
-	{true,Ssh1} ->
-	    {authorized, User,
-	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh1)};
-	{false,Ssh1}  ->
-	    {not_authorized, {User, {error,"Bad user or password"}}, 
-	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
-		     authentications = Methods,
-		     partial_success = false}, Ssh1)}
+    case KbTriesLeft of
+        %% number always < atom, so extra 'infinity' case here.
+        %% Must have 1 try at least remaining.
+        N when N =/= infinity andalso N < 1 ->
+            auth_remote_failed(KbTriesLeft, User, "password", Ssh);
+        _Else ->
+            Password = unicode:characters_to_list(BinPwd),
+            case check_password(User, Password, Opts, Ssh) of
+                {true, Ssh1} ->
+                    {authorized, User,
+                     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh1)};
+                {false, Ssh1} ->
+                    auth_remote_failed(reduce_tries_count(KbTriesLeft), User, "password", Ssh1)
+            end
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
@@ -274,7 +279,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						 }, 
 			_SessionId, 
 			#ssh{opts = Opts,
-			     userauth_supported_methods = Methods} = Ssh) ->
+                             kb_tries_left = KbTriesLeft} = Ssh) ->
 
     case pre_verify_sig(User, KeyBlob, Opts) of
 	true ->
@@ -283,10 +288,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 	       #ssh_msg_userauth_pk_ok{algorithm_name = binary_to_list(BAlg),
 				       key_blob = KeyBlob}, Ssh)};
 	false ->
-	    {not_authorized, {User, undefined}, 
-	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
-					 authentications = Methods,
-					 partial_success = false}, Ssh)}
+            auth_remote_failed(reduce_tries_count(KbTriesLeft), User, "password", Ssh)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
@@ -298,7 +300,8 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 							   SigWLen/binary>>
 						 }, 
 			SessionId, 
-			#ssh{userauth_supported_methods = Methods} = Ssh) ->
+			#ssh{userauth_supported_methods = Methods,
+                            kb_tries_left = KbTriesLeft} = Ssh) ->
     
     case verify_sig(SessionId, User, "ssh-connection", 
 		    BAlg, KeyBlob, SigWLen, Ssh) of
@@ -307,10 +310,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 	     ssh_transport:ssh_packet(
 	       #ssh_msg_userauth_success{}, Ssh)};
 	false ->
-	    {not_authorized, {User, undefined}, 
-	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
-					 authentications = Methods,
-					 partial_success = false}, Ssh)}
+            auth_remote_failed(reduce_tries_count(KbTriesLeft), User, "password", Ssh)
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
@@ -321,12 +321,8 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 				kb_tries_left = KbTriesLeft,
 				userauth_supported_methods = Methods} = Ssh) ->
     case KbTriesLeft of
-	N when N<1 ->
-	    {not_authorized, {User, {authmethod, "keyboard-interactive"}}, 
-	     ssh_transport:ssh_packet(
-	       #ssh_msg_userauth_failure{authentications = Methods,
-					 partial_success = false}, Ssh)};
-
+	N when N =/= infinity andalso N < 1 ->
+            auth_remote_failed(KbTriesLeft, User, "keyboard-interactive", Ssh);
 	_ ->
 	    %% RFC4256
 	    %% The data field contains:
@@ -435,7 +431,7 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 					 authentications = Methods,
 					 partial_success = false}, 
-				      Ssh1#ssh{kb_tries_left = max(KbTriesLeft-1, 0)}
+				      Ssh1#ssh{kb_tries_left = reduce_tries_count(KbTriesLeft)}
 				     )}
     end;
 
@@ -452,6 +448,9 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+reduce_tries_count(infinity) -> infinity;
+reduce_tries_count(N) -> max(N - 1, 0).
+
 method_preference(SigKeyAlgs) ->
     %% PubKeyAlgs: List of user (client) public key algorithms to try to use.
     %% All of the acceptable algorithms is the default values.
@@ -608,3 +607,20 @@ write_if_nonempty(_, "") -> ok;
 write_if_nonempty(_, <<>>) -> ok;
 write_if_nonempty(IoCb, Text) -> IoCb:format("~s~n",[Text]).
 
+%% @doc Create auth tries exceeded error to close the connection, or create
+%% auth failed error, to retry the password attempt (if tries are remaining).
+%% If called after authentication attempt, NewTries comes with new reduced
+%% value and we decide here whether to return {not_authorized...} or {auth_tries_exceeded...}
+auth_remote_failed(Tries, User, Method, Ssh)
+    when Tries =/= infinity andalso Tries < 1 ->
+    {auth_tries_exceeded, {User, {authmethod, Method}}, Ssh};
+
+auth_remote_failed(NewTries, User, _Method,
+                   Ssh = #ssh{userauth_supported_methods = Methods}) ->
+    {not_authorized, {User, {error, "Bad user or password"}},
+     ssh_transport:ssh_packet(
+         #ssh_msg_userauth_failure{
+             authentications = Methods,
+             partial_success = false
+         }, Ssh#ssh{kb_tries_left = NewTries}
+     )}.
