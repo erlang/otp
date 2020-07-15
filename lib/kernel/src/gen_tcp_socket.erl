@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@
 -export([handle_event/4]).
 
 -include("inet_int.hrl").
+
+-define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 %% -------------------------------------------------------------------------
 
@@ -88,6 +90,7 @@ connect(Address, Port, Opts, Timeout) ->
 %% Helpers -------
 
 connect_lookup(Address, Port, Opts, Timer) ->
+    %% ?DBG({Address, Port, Opts, Timer}),
     {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
     EinvalOpts =:= [] orelse exit(badarg),
     {Mod, Opts_2} = inet:tcp_module(Opts_1, Address),
@@ -107,10 +110,18 @@ connect_lookup(Address, Port, Opts, Timer) ->
             port = BindPort,
             opts = ConnectOpts}} ->
             %%
+            %% ?DBG({Domain, BindIP}),
             BindAddr =
-                #{family => Domain,
-                  addr => BindIP,
-                  port => BindPort},
+                case Domain of
+                    local ->
+                        {local, Path} = BindIP,
+                        #{family => Domain,
+                          path   => Path};
+                    _ ->
+                        #{family => Domain,
+                          addr   => BindIP,
+                          port   => BindPort}
+                end,
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, Fd, Timer, BindAddr)
     catch
@@ -119,6 +130,7 @@ connect_lookup(Address, Port, Opts, Timer) ->
     end.
 
 connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
+    %% ?DBG({Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr}),
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2.
     %% The {debug, Bool} option is passed in Opts since it is
@@ -126,8 +138,12 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
     %%
     ExtraOpts =
         if
-            Fd =:= -1 -> [];
-            is_list(Fd) -> Fd
+            Fd =:= -1      -> [];
+            is_integer(Fd) -> [{fd, Fd}];
+            %% This is an **ugly** hack.
+            %% inet:connect_options/2 has the bad taste to use this
+            %% for [{netns,NS}] if that option is used...
+            is_list(Fd)    -> Fd
         end,
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
@@ -173,6 +189,7 @@ connect_loop([Addr | Addrs], Server, _Error, Timer) ->
 %% -------------------------------------------------------------------------
 
 listen(Port, Opts) ->
+    %% ?DBG({Port, Opts}),
     {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
     EinvalOpts =:= [] orelse exit(badarg),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
@@ -191,10 +208,18 @@ listen(Port, Opts) ->
                     backlog = Backlog}} ->
                     %%
                     Domain = domain(Mod),
+                    %% ?DBG({Domain, BindIP}),
                     BindAddr =
-                        #{family => Domain,
-                          addr => BindIP,
-                          port => BindPort},
+                        case Domain of
+                            local ->
+                                {local, Path} = BindIP,
+                                #{family => Domain,
+                                  path   => Path};
+                            _ ->
+                                #{family => Domain,
+                                  addr   => BindIP,
+                                  port   => BindPort}
+                        end,
                     listen_open(
                       Domain, ListenOpts, StartOpts, Fd, Backlog, BindAddr)
             end;
@@ -205,10 +230,15 @@ listen(Port, Opts) ->
 %% Helpers -------
 
 listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
+    %% ?DBG({Domain, ListenOpts, Opts, Fd, Backlog, BindAddr}),
     ExtraOpts =
         if
-            Fd =:= -1 -> [];
-            is_list(Fd) -> Fd
+            Fd =:= -1      -> [];
+            is_integer(Fd) -> [{fd, Fd}];
+            %% This is an **ugly** hack.
+            %% inet:connect_options/2 has the bad taste to use this
+            %% for [{netns,NS}] if that option is used...
+            is_list(Fd)    -> Fd
         end,
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
@@ -307,8 +337,7 @@ send_result(Server, Meta, Result) ->
             %% Since send data may have been lost, and there is no room
             %% in this API to inform the caller, we at least close
             %% the socket in the write direction
-%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                   Result}),
+%%%    ?DBG(Result),
             case Reason of
                 econnreset ->
                     case maps:get(show_econnreset, Meta) of
@@ -335,8 +364,7 @@ send_result(Server, Meta, Result) ->
 %%%    %% Since send data may have been lost, and there is no room
 %%%    %% in this API to inform the caller, we at least close
 %%%    %% the socket in the write direction
-%%%%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%%%%                    Error}),
+%%%%%%    ?DBG(Error),
 %%%    case Error of
 %%%        {error, econnreset} ->
 %%%            case maps:get(show_econnreset, Meta) of
@@ -463,14 +491,12 @@ socket_send(Socket, Opts, Timeout) ->
 socket_recv_peek(Socket, Length) ->
     Options = [peek],
     Result = socket:recv(Socket, Length, Options, nowait),
-%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                    {Socket, Length, Options, Result}}),
+%%%    ?DBG({Socket, Length, Options, Result}),
     Result.
 -compile({inline, [socket_recv/2]}).
 socket_recv(Socket, Length) ->
     Result = socket:recv(Socket, Length, nowait),
-%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                    {Socket, Length, Result}}),
+%%%    ?DBG({Socket, Length, Result}),
     Result.
 
 -compile({inline, [socket_close/1]}).
@@ -509,7 +535,9 @@ address(SockAddr) ->
             {IP, Port};
         #{family := inet6, addr := IP, port := Port} ->
             {IP, Port};
-        #{family := local, path := Path} ->
+        #{family := local, path := Path} when is_list(Path) ->
+            {local, prim_socket:encode_path(Path)};
+        #{family := local, path := Path} when is_binary(Path) ->
             {local, Path}
     end.
 
@@ -534,13 +562,17 @@ chain(Fs, Fail, Values, Ret) ->
 -compile({inline, [domain/1]}).
 domain(Mod) ->
     case Mod of
-        inet_tcp -> inet;
-        inet6_tcp -> inet6
+        inet_tcp  -> inet;
+        inet6_tcp -> inet6;
+        local_tcp -> local
     end.
 
 %% -------------------------------------------------------------------------
 
 sockaddrs([], _TP, _Domain) -> [];
+sockaddrs([{local, Path} | IPs], TP, Domain) when (Domain =:= local) ->
+    [#{family => Domain, path => Path}
+     | sockaddrs(IPs, TP, Domain)];
 sockaddrs([IP | IPs], TP, Domain) ->
     [#{family => Domain, addr => IP, port => TP}
      | sockaddrs(IPs, TP, Domain)].
@@ -711,7 +743,8 @@ ignore_opt() ->
 socket_opt() ->
     #{%% Level: otp
       buffer => {otp, rcvbuf},
-      debug => {otp, debug},
+      debug  => {otp, debug},
+      fd     => {otp, fd},
       %%
       %% Level: socket
       bind_to_device => {socket, bindtodevice},
@@ -865,9 +898,10 @@ init({open, Domain, ExtraOpts, Owner}) ->
     process_flag(trap_exit, true),
     OwnerMon = monitor(process, Owner),
     Extra = maps:from_list(ExtraOpts),
-    case socket:open(Domain, stream, tcp, Extra) of
+    Proto = if (Domain =:= local) -> default; true -> tcp end,
+    case socket:open(Domain, stream, Proto, Extra) of
         {ok, Socket} ->
-            D = server_opts(),
+            D  = server_opts(),
             ok = socket:setopt(Socket, otp, iow, true),
             ok = socket:setopt(Socket, otp, meta, meta(D)),
             P =
@@ -1607,8 +1641,7 @@ handle_recv_error(P, D, ActionsR, Reason, Data) ->
     handle_recv_error(P, D_1, ActionsR_1, Reason).
 %%
 handle_recv_error(P, D, ActionsR, Reason) ->
-%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                    Reason}),
+%%%    ?DBG(Reason),
     {D_1, ActionsR_1} =
         cleanup_recv_reply(P, D#{buffer := <<>>}, ActionsR, Reason),
     case Reason of
@@ -1660,8 +1693,7 @@ cleanup_recv_reply(
         #{active := _} ->
             ModuleSocket = module_socket(P),
             Owner = P#params.owner,
-%%%            erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                            {ModuleSocket, Reason}}),
+%%%            ?DBG({ModuleSocket, Reason}),
             case Reason of
                 timeout ->
                     Owner ! {tcp_error, ModuleSocket, Reason},

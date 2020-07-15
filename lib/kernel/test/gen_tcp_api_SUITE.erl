@@ -149,15 +149,42 @@ end_per_suite(Config0) ->
 
     Config1.
 
-init_per_group(t_local, Config) ->
+init_per_group(t_local = _GroupName, Config) ->
+    %% A specific inet-backend can be enabled by the environment
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keysearch(inet_backend, 1, Env) of
+                {value, {inet_backend, socket}} ->
+                    try socket:is_supported(local) of
+                        true ->
+                            Config;
+                        false ->
+                            {skip, "AF_LOCAL not supported"}
+                    catch
+                        _:_:_ ->
+                            {skip, "AF_LOCAL not supported"}
+                    end;
+                _ ->
+                    gen_tcp_is_local_supported(Config)
+            end;
+        _ ->
+            gen_tcp_is_local_supported(Config)
+    end;
+init_per_group(_GroupName, Config) ->
+    Config.
+
+%% The inet-backend = socket could also be enabled by the test suite
+%% config (either via ts config or explicitly by the test suite).
+%% But that the currently not the case, so...
+gen_tcp_is_local_supported(Config) ->
+    %% This thing does not (currently) work for when inet_backend is socket
     case gen_tcp:connect({local,<<"/">>}, 0, []) of
 	{error,eafnosupport} ->
 	    {skip, "AF_LOCAL not supported"};
 	{error,_} ->
 	    Config
-    end;
-init_per_group(_GroupName, Config) ->
-    Config.
+    end.
+    
 
 end_per_group(t_local, _Config) ->
     delete_local_filenames();
@@ -307,32 +334,43 @@ t_shutdown_async(Config) when is_list(Config) ->
 %%% gen_tcp:fdopen/2
 
 t_fdopen(Config) when is_list(Config) ->
-    Question = "Aaaa... Long time ago in a small town in Germany,",
+    Question  = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
 		 ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
     Question1 = iolist_to_binary(Question2),
-    Answer = "there was a shoemaker, Schumacher was his name.",
-    {ok, L} = gen_tcp:listen(0, [{active, false}]),
-    {ok, Port} = inet:port(L),
+    Answer    = "there was a shoemaker, Schumacher was his name.",
+    {ok, L}      = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port}   = inet:port(L),
     {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    {ok, A} = gen_tcp:accept(L),
-    {ok, FD} = prim_inet:getfd(A),
-    {ok, Server} = gen_tcp:fdopen(FD, []),
-    ok = gen_tcp:send(Client, Question),
-    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ok = gen_tcp:send(Client, Question1),
-    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ok = gen_tcp:send(Client, Question2),
-    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ok = gen_tcp:send(Server, Answer),
-    {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),
-    ok = gen_tcp:close(Client),
-    {error,closed} = gen_tcp:recv(A, 1, 2000),
-    ok = gen_tcp:close(Server),
-    ok = gen_tcp:close(A),
-    ok = gen_tcp:close(L),
+    {A, FD} = case gen_tcp:accept(L) of
+                  {ok, ASock} when is_port(ASock) ->
+                      {ok, FileDesc} = prim_inet:getfd(ASock),
+                      {ASock, FileDesc};
+                  {ok, ASock} -> % socket
+                      {ok, [{fd, FileDesc}]} =
+                          gen_tcp_socket:getopts(ASock, [fd]),
+                      {ASock, FileDesc}
+              end,
+    ?P("fdopen -> accepted: "
+       "~n   A:  ~p"
+       "~n   FD: ~p", [A, FD]),
+    {ok, Server}    = gen_tcp:fdopen(FD, []),
+    ok              = gen_tcp:send(Client, Question),
+    {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
+    ok              = gen_tcp:send(Client, Question1),
+    {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
+    ok              = gen_tcp:send(Client, Question2),
+    {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
+    ok              = gen_tcp:send(Server, Answer),
+    {ok, Answer}    = gen_tcp:recv(Client, length(Answer), 2000),
+    ok              = gen_tcp:close(Client),
+    {error, closed} = gen_tcp:recv(A, 1, 2000),
+    ok              = gen_tcp:close(Server),
+    ok              = gen_tcp:close(A),
+    ok              = gen_tcp:close(L),
     ok.
+
 
 t_fdconnect(Config) when is_list(Config) ->
     ?TC_TRY(t_fdconnect, fun() -> do_t_fdconnect(Config) end).
@@ -366,8 +404,9 @@ do_t_fdconnect(Config) ->
     ?P("try create file descriptor (fd)"),
     FD = gen_tcp_api_SUITE:getsockfd(),
     ?P("try connect to using file descriptor (~w)", [FD]),
-    Client = case gen_tcp:connect(localhost, Port, [{fd,FD},{port,20002},
-                                                    {active,false}]) of
+    Client = case gen_tcp:connect(localhost, Port, [{fd,     FD},
+                                                    {port,   20002},
+                                                    {active, false}]) of
                  {ok, CSock} ->
                      CSock;
                  {error, eaddrnotavail = CReason} ->
@@ -430,14 +469,16 @@ t_implicit_inet6(Host, Addr) ->
 	    implicit_inet6(S1, Loopback),
 	    ok = gen_tcp:close(S1),
 	    %%
-	    Localaddr = ok(get_localaddr()),
-	    S2 = case gen_tcp:listen(0, [{ip, Localaddr}]) of
+	    LocalAddr = ok(get_localaddr()),
+	    S2 = case gen_tcp:listen(0, [{ip, LocalAddr}]) of
                      {ok, LSock2} ->
                          LSock2;
                      {error, Reason2} ->
+                         ?P("Listen failed (ip):"
+                            "~n   Reason2: ~p", [Reason2]),
                          ?SKIPT(listen_failed_str(Reason2))
                  end,
-	    implicit_inet6(S2, Localaddr),
+	    implicit_inet6(S2, LocalAddr),
 	    ok = gen_tcp:close(S2),
 	    %%
 	    ?P("try ~s ~p", [Host, Addr]),
@@ -445,6 +486,8 @@ t_implicit_inet6(Host, Addr) ->
                      {ok, LSock3} ->
                          LSock3;
                      {error, Reason3} ->
+                         ?P("Listen failed (ifaddr):"
+                            "~n   Reason3: ~p", [Reason3]),
                          ?SKIPT(listen_failed_str(Reason3))
                  end,
 	    implicit_inet6(S3, Addr),
@@ -479,33 +522,55 @@ implicit_inet6(S, Addr) ->
     ok = gen_tcp:close(S1).
 
 
-
 t_local_basic(_Config) ->
     SFile = local_filename(server),
-    SAddr = {local,bin_filename(SFile)},
+    SAddr = {local, bin_filename(SFile)},
     CFile = local_filename(client),
     CAddr = {local,bin_filename(CFile)},
     _ = file:delete(SFile),
     _ = file:delete(CFile),
     %%
+    ?P("try create listen socket"),
     L =
 	ok(
 	  gen_tcp:listen(0, [{ifaddr,{local,SFile}},{active,false}])),
+    ?P("try connect"),
     C =
 	ok(
 	  gen_tcp:connect(
 	    {local,SFile}, 0, [{ifaddr,{local,CFile}},{active,false}])),
+    ?P("try accept connection"),
     S = ok(gen_tcp:accept(L)),
-    SAddr = ok(inet:sockname(L)),
-    {error,enotconn} = inet:peername(L),
+    ?P("try get sockname for listen socket"),
+    %% SAddr = ok(inet:sockname(L)),
+    case inet:sockname(L) of
+        {ok, SAddr} ->
+            ok;
+        {ok, SAddr2} ->
+            ?P("Invalid sockname: "
+               "~n   Expected: ~p"
+               "~n   Actual:   ~p", [SAddr, SAddr2]),
+            exit({sockename, SAddr, SAddr2});
+        {error, Reason} ->
+            exit({sockname, Reason})
+    end,
+    ?P("try get peername for listen socket"),
+    {error, enotconn} = inet:peername(L),
+    ?P("try handshake"),
     local_handshake(S, SAddr, C, CAddr),
+    ?P("try close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("try close accept socket"),
     ok = gen_tcp:close(S),
+    ?P("try close connect socket"),
     ok = gen_tcp:close(C),
     %%
+    ?P("try 'local' files"),
     ok = file:delete(SFile),
     ok = file:delete(CFile),
+    ?P("done"),
     ok.
+
 
 t_local_unbound(_Config) ->
     SFile = local_filename(server),
