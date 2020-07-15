@@ -67,6 +67,7 @@
         (#{port => 0, addr => any,
            flowinfo => 0, scope_id => 0})).
 
+
 %% ===========================================================================
 %%
 %% Constants common to prim_socket_nif.c - has to be "identical"
@@ -347,6 +348,7 @@
        ) band (bnot 16#FFFF)
       ) =:= 0)).
 
+
 %% ===========================================================================
 %% API for 'erl_init'
 %%
@@ -370,15 +372,38 @@ on_load(Extra) when is_map(Extra) ->
           atom_to_list(?MODULE),
           case DebugFilename of
               false ->
-                  Extra#{registry => Pid};
+                  case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
+                      "true" ->
+                          Extra#{registry     => Pid,
+                                 use_registry => true};
+                      "false" ->
+                          Extra#{registry     => Pid,
+                                 use_registry => false};
+                      _ ->
+                          Extra#{registry => Pid}
+                  end;
               _ ->
-                  Extra
-                      #{registry => Pid,
-                        debug => true,
-                        socket_debug => true,
-                        debug_filename =>
-                            encode_path(DebugFilename)}
+                  case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
+                      "true" ->
+                          Extra#{registry       => Pid,
+                                 use_registry   => true,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)};
+                      "false" ->
+                          Extra#{registry       => Pid,
+                                 use_registry   => false,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)};
+                      _ ->
+                          Extra#{registry       => Pid,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)}
+                  end
           end).
+
 
 %% ===========================================================================
 %% API for 'socket'
@@ -393,6 +418,7 @@ encode_path(Path) ->
 
 encode_sockaddr(SockAddr) ->
     enc_sockaddr(SockAddr).
+
 
 %% ----------------------------------
 
@@ -1301,6 +1327,7 @@ invalid(What, Info) ->
 
 err(Reason) ->
     erlang:error(Reason).
+
 
 %% ===========================================================================
 %% NIF functions

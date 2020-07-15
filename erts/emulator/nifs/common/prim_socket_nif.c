@@ -19911,7 +19911,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->rCtrlSz        = ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT;
         descP->wCtrlSz        = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
         descP->iow            = FALSE;
-        descP->dbg            = ESOCK_DEBUG_DEFAULT; // Overwritten by caller
+        descP->dbg            = ESOCK_DEBUG_DEFAULT;       // Overwritten by caller
         descP->useReg         = ESOCK_USE_SOCKET_REGISTRY; // Overwritten by caller
         descP->meta.env       = esock_alloc_env("alloc_descriptor - "
                                                 "meta-env");
