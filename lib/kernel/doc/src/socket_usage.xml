@@ -123,12 +123,19 @@
     dynamically, it (the socket registry) could become a bottleneck.
     For such systems, there are a couple of
     ways to control the use of the socket registry. </p>
+
     <p>Firstly, its possible to effect the global default value when
-    building OTP from source with the two configure options:
-    <code>--enable-esock-socket-registry (default) | --disable-esock-socket-registry</code></p>
-    <p>Second, its possible to alter the global default value in runtime
+    building OTP from source with the two configure options:</p>
+    <code type="none">--enable-esock-socket-registry (default) | --disable-esock-socket-registry</code>
+
+    <p>Second, its possible to effect the global default value by
+    setting the environment variable <c>ESOCK_USE_SOCKET_REGISTRY</c>
+    (boolean) before starting the erlang. </p>
+
+    <p>Third, its possible to alter the global default value in runtime
     by calling the function
     <seemfa marker="socket#use_registry/1"><c>use_registry/1</c></seemfa>.</p>
+
     <p>And finally, its possible to override the global default when creating
     a socket (with <seemfa marker="socket#open/2"><c>open/2</c></seemfa> and
     <seemfa marker="socket#open/4"><c>open/4</c></seemfa>) by providing
