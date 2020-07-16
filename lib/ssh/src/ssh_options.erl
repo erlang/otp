@@ -479,6 +479,17 @@ default(server) ->
             class => user_option
            },
 
+      alive_params =>
+          #{default => {0, infinity},
+            chk => fun({AliveCount, AliveIntervalSeconds}) ->
+                        is_integer(AliveCount) andalso (
+                            is_integer(AliveIntervalSeconds)
+                            orelse AliveIntervalSeconds == infinity);
+                      (F) -> is_function(F, 0)
+                   end,
+            class => user_option
+           },
+
 %%%%% Undocumented
       infofun =>
           #{default => fun(_,_,_) -> void end,

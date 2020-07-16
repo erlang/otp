@@ -88,6 +88,12 @@
 -define(call_disconnectfun_and_log_cond(LogMsg, DetailedText, StateName, D),
         call_disconnectfun_and_log_cond(LogMsg, DetailedText, ?MODULE, ?LINE, StateName, D)).
 
+-define(KEEP_ALIVE_REQUEST,
+    {ssh_msg_global_request,"keepalive@example.com", true,<<>>}).
+-define(KEEP_ALIVE_RESPONSE, {ssh_msg_request_failure}).
+-define(CHECK_ALIVE_TIMEOUT_MIN, 5000).
+-define(CHECK_ALIVE_TIMEOUT_MAX, 30000).
+
 %%====================================================================
 %% Start / stop
 %%====================================================================
@@ -410,10 +416,15 @@ init_connection_handler(Role, Socket, Opts) ->
     case init([Role, Socket, Opts]) of
         {ok, StartState, D} ->
             process_flag(trap_exit, true),
+            Actions = [
+                % first setup for the timeout
+                {{timeout, check_alive_timeout}, ?CHECK_ALIVE_TIMEOUT_MIN, none}
+            ],
             gen_statem:enter_loop(?MODULE,
                                   [], %%[{debug,[trace,log,statistics,debug]} ], %% []
                                   StartState,
-                                  D);
+                                  D,
+                                  Actions);
 
         {stop, Error} ->
             D = try
@@ -495,6 +506,18 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                     {ok,Local} -> Local;
                     _ -> undefined
                 end,
+
+    {AliveCount, AliveInterval} =
+    case ?GET_OPT(alive_params, Opts) of
+        undefined      -> {0, infinity};
+        F when is_function(F) -> F();
+        {X, Y} -> {X, Y}
+    end,
+    S1 = S0#ssh{
+        alive_interval = AliveInterval,
+        alive_count    = AliveCount
+    },
+
     case Role of
 	client ->
 	    PeerName = case ?GET_INTERNAL_OPT(host, Opts) of
@@ -505,8 +528,8 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                            PeerName0 when is_list(PeerName0) ->
                                PeerName0
                        end,
-            S1 =
-                S0#ssh{c_vsn = Vsn,
+            S2 =
+            S1#ssh{c_vsn = Vsn,
                        c_version = Version,
                        opts = ?PUT_INTERNAL_OPT({io_cb, case ?GET_OPT(user_interaction, Opts) of
                                                             true ->  ssh_io;
@@ -517,13 +540,13 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                        peer = {PeerName, PeerAddr},
                        local = LocalName
                       },
-            S1#ssh{userauth_pubkeys = [K || K <- ?GET_OPT(pref_public_key_algs, Opts),
-                                            is_usable_user_pubkey(K, S1)
+            S2#ssh{userauth_pubkeys = [K || K <- ?GET_OPT(pref_public_key_algs, Opts),
+                                       is_usable_user_pubkey(K, S2)
                                       ]
                   };
 
 	server ->
-	    S0#ssh{s_vsn = Vsn,
+	    S1#ssh{s_vsn = Vsn,
 		   s_version = Version,
 		   userauth_methods = string:tokens(AuthMethods, ","),
 		   kb_tries_left = get_max_auth_tries(Opts),
@@ -594,7 +617,6 @@ renegotiation(_) -> false.
 callback_mode() ->
     [handle_event_function,
      state_enter].
-
 
 handle_event(_, _Event, {init_error,Error}=StateName, D) ->
     case Error of
@@ -807,7 +829,7 @@ handle_event(_, #ssh_msg_ext_info{}=Msg, {ext_info,Role,init}, D0) ->
 
 handle_event(_, #ssh_msg_ext_info{}=Msg, {ext_info,Role,renegotiate}, D0) ->
     D = handle_ssh_msg_ext_info(Msg, D0),
-    {next_state, {connected,Role}, D};
+    {next_state, {connected,Role}, start_alive(D)};
 
 handle_event(_, #ssh_msg_newkeys{}=Msg, {ext_info,_Role,renegotiate}, D) ->
     {ok, Ssh} = ssh_transport:handle_new_keys(Msg, D#data.ssh_params),
@@ -820,7 +842,7 @@ handle_event(internal, Msg, {ext_info,Role,init}, D) when is_tuple(Msg) ->
 
 handle_event(internal, Msg, {ext_info,Role,_ReNegFlag}, D) when is_tuple(Msg) ->
     %% If something else arrives, goto next state and handle the event in that one
-    {next_state, {connected,Role}, D, [postpone]};
+    {next_state, {connected,Role}, start_alive(D), [postpone]};
 
 %%% ######## {service_request, client|server} ####
 
@@ -880,8 +902,8 @@ handle_event(_,
                             D2 = connected_fun(User, Method, D1),
                             Ssh2 = D2#data.ssh_params, % ssh can be updated inside connectedfun
                             {next_state, {connected,server},
-                             D2#data{auth_user = User,
-                                     ssh_params = Ssh2#ssh{authenticated = true}}};
+                             start_alive(D2#data{auth_user = User,
+                                                 ssh_params = Ssh2#ssh{authenticated = true}})};
 			{auth_tries_exceeded, {User, Reason}, Ssh = #ssh{}} ->
                             {Shutdown, D} = ?send_disconnect(
                                 ?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,
@@ -991,8 +1013,8 @@ handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_inte
             D2 = connected_fun(User, "keyboard-interactive", D1),
             Ssh2 = D2#data.ssh_params, % ssh can be updated inside connectedfun
             {next_state, {connected,server},
-             D2#data{auth_user = User,
-                     ssh_params = Ssh2#ssh{authenticated = true}}};
+             start_alive(D2#data{auth_user = User,
+                                 ssh_params = Ssh2#ssh{authenticated = true}})};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 	    D1 = retry_fun(User, Reason, D#data{ssh_params = Ssh}),
 	    send_bytes(Reply, D1),
@@ -1011,8 +1033,8 @@ handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_inte
     D2 = connected_fun(User, "keyboard-interactive", D1),
     Ssh2 = D2#data.ssh_params, % ssh can be updated inside connectedfun
     {next_state, {connected,server},
-     D2#data{auth_user = User,
-             ssh_params = Ssh2#ssh{authenticated = true}}};
+     start_alive(D2#data{auth_user = User,
+                         ssh_params = Ssh2#ssh{authenticated = true}})};
 
 handle_event(_, #ssh_msg_userauth_failure{}, {userauth_keyboard_interactive, client},
 	     #data{ssh_params = Ssh0} = D0) ->
@@ -1067,6 +1089,14 @@ handle_event(_, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
 
 handle_event(_, #ssh_msg_ignore{}, _, _) ->
     keep_state_and_data;
+
+handle_event(_, ?KEEP_ALIVE_REQUEST, _, D) ->
+    D1 = send_msg(?KEEP_ALIVE_RESPONSE, D),
+    {keep_state, D1};
+
+handle_event(_, {conn_msg, ?KEEP_ALIVE_RESPONSE}, _, D = #data{ssh_params = Ssh})
+  when Ssh#ssh.awaiting_keepalive_response ->
+    {keep_state, D#data{ssh_params = Ssh#ssh{awaiting_keepalive_response = false}}};
 
 handle_event(_, #ssh_msg_unimplemented{}, _, _) ->
     keep_state_and_data;
@@ -1387,8 +1417,9 @@ handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
     end;
 
 
-handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
-								 transport_protocol = Proto}) ->
+handle_event(info, {Proto, Sock, NewData}, StateName, D00 = #data{socket = Sock,
+                                                                  transport_protocol = Proto}) ->
+    D0 = reset_alive(D00),
     try ssh_transport:handle_packet_part(
 	  D0#data.decrypted_data_buffer,
 	  <<(D0#data.encrypted_data_buffer)/binary, NewData/binary>>,
@@ -1609,7 +1640,16 @@ handle_event(enter, _OldState, State, D) ->
 
 handle_event(_Type, _Msg, {ext_info,Role,_ReNegFlag}, D) ->
     %% If something else arrives, goto next state and handle the event in that one
-    {next_state, {connected,Role}, D, [postpone]};
+    {next_state, {connected,Role}, start_alive(D), [postpone]};
+
+handle_event({timeout, check_alive_timeout}, _, StateName, D = #data{ssh_params=Ssh}) ->
+    {TriggerFlag, Actions} = get_next_alive_timeout(Ssh),
+    case TriggerFlag of
+        true -> % timeout occured
+            triggered_alive(StateName, D, Ssh, Actions);
+        false -> % no timeout, check later
+            {keep_state, D, Actions}
+    end;
 
 handle_event(Type, Ev, StateName, D0) ->
     Details =
@@ -1622,7 +1662,6 @@ handle_event(Type, Ev, StateName, D0) ->
     {Shutdown, D} =  
         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D0),
     {stop, Shutdown, D}.
-
 
 %%--------------------------------------------------------------------
 -spec terminate(any(),
@@ -2593,3 +2632,70 @@ maybe_send_banner(D = #data{}) ->
                                               language = <<>>},
             send_msg(Banner, D)
     end.
+
+%% @doc Reset the last_alive timer on #data{ssh_params=#ssh{}} record
+%% @private
+reset_alive(D = #data{ssh_params = Ssh}) ->
+    D#data{ssh_params = reset_alive_ssh_params(Ssh)}.
+
+%% @doc Update #data.ssh_params last_alive on an incoming SSH message
+%% @private
+reset_alive_ssh_params(SSH = #ssh{alive_interval = AliveInterval})
+  when is_integer(AliveInterval) ->
+    Now = erlang:monotonic_time(milli_seconds),
+    SSH#ssh{alive_sent_probes = 0,
+            last_alive_at     = Now};
+
+reset_alive_ssh_params(SSH) ->
+    SSH.
+
+%% @doc Returns a pair of {TriggerFlag, Actions} where trigger flag indicates that
+%% the timeout has been triggered already and it is time to disconnect, and
+%% Actions may contain a new timeout action to check for the timeout again.
+get_next_alive_timeout(#ssh{alive_interval = AliveIntervalSec,
+                            alive_started = true,
+                            last_alive_at  = LastAlive})
+    when erlang:is_integer(AliveIntervalSec) ->
+
+    AliveMsec = AliveIntervalSec * 1000,
+    TimeToNextAlive = AliveMsec - (erlang:monotonic_time(milli_seconds) - LastAlive),
+    case TimeToNextAlive of
+        Trigger when Trigger =< 0 ->
+            %% Already it is time to disconnect, or to ping
+            {true, [{{timeout, check_alive_timeout}, ?CHECK_ALIVE_TIMEOUT_MIN, none}]};
+        TooBig when TooBig > ?CHECK_ALIVE_TIMEOUT_MAX ->
+            %% Timeout's too far in the future, check at longer intervals
+            {false, [{{timeout, check_alive_timeout}, ?CHECK_ALIVE_TIMEOUT_MAX, none}]};
+        TooSmall when TooSmall < ?CHECK_ALIVE_TIMEOUT_MIN ->
+            %% Timeout's too soon, don't trigger faster than min check interval
+            {false, [{{timeout, check_alive_timeout}, ?CHECK_ALIVE_TIMEOUT_MIN, none}]};
+        WithinLimits ->
+            %% Check as soon as the timeout should trigger + approx latency
+            %% of Erlang process scheduling, to hit the timeout
+            {false, [{{timeout, check_alive_timeout}, WithinLimits + 100, none}]}
+    end;
+get_next_alive_timeout(_) ->
+    {false, []}.
+
+triggered_alive(StateName, D = #data{},
+                #ssh{alive_count       = Count,
+                     alive_sent_probes = SentProbesCount}, _Actions)
+    when SentProbesCount >= Count ->
+    %% Max probes count reached (equal to `alive_count`), we disconnect
+    %% TODO: If logfun is implemented and defined, log the timeout
+    Details = "Alive timeout triggered",
+    {Shutdown, D1} = ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D),
+    {stop, Shutdown, D1};
+
+triggered_alive(StateName, Data, _Ssh = #ssh{alive_sent_probes = SentProbes}, Actions) ->
+    %% TODO: If logfun is implemented and defined, log the new probe
+    Data1 = send_msg(?KEEP_ALIVE_REQUEST, Data),
+    Ssh = Data1#data.ssh_params,
+    Now = erlang:monotonic_time(milli_seconds),
+    Ssh1 = Ssh#ssh{alive_sent_probes = SentProbes + 1,
+                   awaiting_keepalive_response = true,
+                   last_alive_at = Now},
+    {keep_state, Data1#data{ssh_params = Ssh1}, Actions}.
+
+start_alive(D = #data{ssh_params = Ssh}) ->
+    D#data{ssh_params = Ssh#ssh{alive_started = true}}.

@@ -483,6 +483,13 @@
           %% Can be viewed and updated by callbacks, like pwdfun/4, connectfun/4
           user_state = #{},
 
+          alive_interval = infinity :: non_neg_integer(),
+          alive_count = 0 :: non_neg_integer(),
+          alive_started = false :: boolean(),
+          last_alive_at = 0 :: non_neg_integer(),
+          awaiting_keepalive_response = false :: boolean(),
+          alive_sent_probes = 0 :: non_neg_integer(),
+
           authenticated = false
 	 }).
 
