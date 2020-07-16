@@ -798,6 +798,10 @@ void erts_sys_main_thread(void);
 
 extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
+
+/* Platform-specific scheduler initialization, e.g. signal stack swapping. */
+extern void erts_sys_scheduler_init(void);
+
 extern void erl_sys_init(void);
 extern void erl_sys_late_init(void);
 extern void erl_sys_args(int *argc, char **argv);

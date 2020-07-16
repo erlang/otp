@@ -58,7 +58,6 @@
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
-#include "hipe_signal.h"	/* for hipe_signal_init() */
 #endif
 
 #ifdef HAVE_SYS_RESOURCE_H
@@ -1266,10 +1265,6 @@ early_init(int *argc, char **argv) /*
     
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_late_init();
-#endif
-
-#if defined(HIPE)
-    hipe_signal_init();	/* must be done very early */
 #endif
 
     erl_sys_args(argc, argv);

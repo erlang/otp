@@ -3214,6 +3214,9 @@ thr_create_prepare_child(void *vtcdp)
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
+void erts_sys_scheduler_init(void) {
+    /* Nothing needed on Windows. */
+}
 
 void
 erts_sys_pre_init(void)

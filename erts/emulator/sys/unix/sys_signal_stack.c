@@ -1,6 +1,5 @@
 /*
  * %CopyrightBegin%
-
  *
  * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  *
@@ -18,36 +17,40 @@
  *
  * %CopyrightEnd%
  */
+
 /*
- * hipe_x86_signal.c
+ * Erlang code compiled to x86 native code uses RSP as its stack pointer. This
+ * improves performance in several ways:
  *
- * Erlang code compiled to x86 native code uses the x86 %esp as its
- * stack pointer. This improves performance in several ways:
  * - It permits the use of the x86 call and ret instructions, which
  *   reduces code volume and improves branch prediction.
  * - It avoids stealing a gp register to act as a stack pointer.
  *
- * Unix signal handlers are by default delivered onto the current
- * stack, i.e. %esp. This is a problem since our native-code stacks
- * are small and may not have room for the Unix signal handler.
+ * Unix signal handlers are by default delivered onto the current stack, i.e.
+ * RSP. This is a problem since our native-code stacks are small and may not
+ * have room for the Unix signal handler.
  *
- * There is a way to redirect signal handlers to an "alternate" signal
- * stack by using the SA_ONSTACK flag with the sigaction() library call.
- * Unfortunately, this has to be specified explicitly for each signal,
- * and it is difficult to enforce given the presence of libraries.
+ * There is a way to redirect signal handlers to an "alternate" signal stack by
+ * using the SA_ONSTACK flag with the sigaction() library call. Unfortunately,
+ * this has to be specified explicitly for each signal, and it is difficult to
+ * enforce given the presence of libraries.
  *
- * Our solution is to override the C library's signal handler setup
- * procedure with our own which enforces the SA_ONSTACK flag.
+ * Our solution is to override the C library's signal handler setup procedure
+ * with our own which enforces the SA_ONSTACK flag.
  */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "sys.h"
 #include "erl_alloc.h"
-#include "hipe_signal.h"
+
+#if (defined(BEAMASM) || defined(HIPE))
 
 #if defined(__GLIBC__) && __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
 /*
@@ -73,15 +76,15 @@
  * signal interface is used, i.e. there are no calls to simulated
  * old BSD or SysV interfaces.
  * glibc's internal calls to __sigaction() appear to be mostly safe.
- * hipe_signal_init() fixes some unsafe ones, e.g. the SIGPROF handler.
+ * sys_init_signal_stack() fixes some unsafe ones, e.g. the SIGPROF handler.
  */
 #ifndef __USE_GNU
-#define __USE_GNU		/* to un-hide RTLD_NEXT */
+#    define __USE_GNU /* to un-hide RTLD_NEXT */
 #endif
 #define NEXT_SIGACTION "__sigaction"
 #define LIBC_SIGACTION __sigaction
 #define OVERRIDE_SIGACTION
-#endif	/* glibc >= 2.3 */
+#endif /* glibc >= 2.3 */
 
 /* Is there no standard identifier for Darwin/MacOSX ? */
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
@@ -157,12 +160,15 @@
 #undef OVERRIDE_SIGACTION
 #endif /* __NetBSD__ */
 
-#if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
+#if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) ||  \
+          defined(__FreeBSD__) || defined(__sun__))
 /*
  * Unknown libc -- assume musl, which does not allow safe signals
  */
-#error "HiPE does not work without a libc that can guarantee that sigaltstack works"
-#endif	/* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ || __sun__) */
+#error "HiPE/beamasm require a libc that can guarantee that sigaltstack works"
+#endif /* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ ||        \
+            * __sun__)                                                         \
+            */
 
 #if defined(NEXT_SIGACTION)
 /*
@@ -170,134 +176,154 @@
  * to be used by our wrappers.
  */
 #include <dlfcn.h>
-static int (*next_sigaction)(int, const struct sigaction*, struct sigaction*);
-static void do_init(void)
-{
+
+static int (*next_sigaction)(int, const struct sigaction *, struct sigaction *);
+
+static void do_init(void) {
     next_sigaction = dlsym(RTLD_NEXT, NEXT_SIGACTION);
-    if (next_sigaction != 0)
-	return;
+
+    if (next_sigaction != 0) {
+        return;
+    }
+
     perror("dlsym");
     abort();
 }
-#define INIT()	do { if (!next_sigaction) do_init(); } while (0)
-#else	/* !defined(NEXT_SIGACTION) */
-#define INIT()	do { } while (0)
-#endif	/* !defined(NEXT_SIGACTION) */
+
+#define INIT()                                                         \
+            do {                                                               \
+                if (!next_sigaction)                                           \
+                    do_init();                                                 \
+            } while (0)
+#else /* !defined(NEXT_SIGACTION) */
+#define INIT()                                                         \
+            do {                                                               \
+            } while (0)
+#endif /* !defined(NEXT_SIGACTION) */
 
 #if defined(NEXT_SIGACTION)
 /*
  * This is our wrapper for sigaction(). sigaction() can be called before
- * hipe_signal_init() has been executed, especially when threads support
+ * sys_init_signal_stack() has been executed, especially when threads support
  * has been linked with the executable. Therefore, we must initialise
  * next_sigaction() dynamically, the first time it's needed.
  */
-static int my_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
-{
+static int my_sigaction(int signum,
+                        const struct sigaction *act,
+                        struct sigaction *oldact) {
     struct sigaction newact;
 
     INIT();
 
-    if (act &&
-	act->sa_handler != SIG_DFL &&
-	act->sa_handler != SIG_IGN &&
-	!(act->sa_flags & SA_ONSTACK)) {
-	newact = *act;
-	newact.sa_flags |= SA_ONSTACK;
-	act = &newact;
+    if (act && act->sa_handler != SIG_DFL && act->sa_handler != SIG_IGN &&
+        !(act->sa_flags & SA_ONSTACK)) {
+        newact = *act;
+        newact.sa_flags |= SA_ONSTACK;
+        act = &newact;
     }
     return next_sigaction(signum, act, oldact);
 }
 #endif
 
 #if defined(LIBC_SIGACTION)
+
 /*
  * This overrides the C library's core sigaction() procedure, catching
  * all its internal calls.
  */
-extern int LIBC_SIGACTION(int, const struct sigaction*, struct sigaction*);
-int LIBC_SIGACTION(int signum, const struct sigaction *act, struct sigaction *oldact)
-{
+extern int LIBC_SIGACTION(int, const struct sigaction *, struct sigaction *);
+
+int LIBC_SIGACTION(int signum,
+                   const struct sigaction *act,
+                   struct sigaction *oldact) {
     return my_sigaction(signum, act, oldact);
 }
+
 #endif
 
 #if defined(OVERRIDE_SIGACTION)
+
 /*
  * This catches the application's own sigaction() calls.
  */
-int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
-{
+int sigaction(int signum,
+              const struct sigaction *act,
+              struct sigaction *oldact) {
     return my_sigaction(signum, act, oldact);
 }
+
 #endif
 
 /*
  * Set alternate signal stack for the invoking thread.
  */
-static void hipe_sigaltstack(void *ss_sp)
-{
+static void sys_sigaltstack(void *ss_sp) {
     stack_t ss;
 
     ss.ss_sp = ss_sp;
     ss.ss_flags = 0;
     ss.ss_size = SIGSTKSZ;
+
     if (sigaltstack(&ss, NULL) < 0) {
-	perror("sigaltstack");
-	abort();
+        ERTS_INTERNAL_ERROR("Failed to set alternate signal stack");
     }
 }
 
 /*
  * Set up alternate signal stack for an Erlang process scheduler thread.
  */
-void hipe_thread_signal_init(void)
-{
-    /* Stack don't really need to be cache aligned.
-       We use it to suppress false leak report from valgrind */
-    hipe_sigaltstack(erts_alloc_permanent_cache_aligned(ERTS_ALC_T_HIPE_LL, SIGSTKSZ));
-}
-
-/*
- * Set up alternate signal stack for the main thread,
- * unless this is a multithreaded runtime system.
- */
-static void hipe_sigaltstack_init(void)
-{
+void sys_thread_init_signal_stack(void) {
+    /* This will never be freed. */
+    char *stack = malloc(SIGSTKSZ);
+    sys_sigaltstack(stack);
 }
 
 /*
  * 1. Set up alternate signal stack for the main thread.
  * 2. Add SA_ONSTACK to existing user-defined signal handlers.
  */
-void hipe_signal_init(void)
-{
+void sys_init_signal_stack(void) {
     struct sigaction sa;
     int i;
 
     INIT();
 
-    hipe_sigaltstack_init();
+    sys_thread_init_signal_stack();
 
     for (i = 1; i < _NSIG; ++i) {
-	if (sigaction(i, NULL, &sa)) {
-	    /* This will fail with EINVAL on Solaris if 'i' is one of the
-	       thread library's private signals. We DO catch the initial
-	       setup of these signals, so things MAY be OK anyway. */
-	    continue;
-	}
-	if (sa.sa_handler == SIG_DFL ||
-	    sa.sa_handler == SIG_IGN ||
-	    (sa.sa_flags & SA_ONSTACK))
-	    continue;
-	sa.sa_flags |= SA_ONSTACK;
-	if (sigaction(i, &sa, NULL)) {
+        if (sigaction(i, NULL, &sa)) {
+            /* This will fail with EINVAL on Solaris if 'i' is one of the
+               thread library's private signals. We DO catch the initial
+               setup of these signals, so things MAY be OK anyway. */
+            continue;
+        }
+
+        if (sa.sa_handler == SIG_DFL || sa.sa_handler == SIG_IGN ||
+            (sa.sa_flags & SA_ONSTACK)) {
+            continue;
+        }
+
+        sa.sa_flags |= SA_ONSTACK;
+
+        if (sigaction(i, &sa, NULL)) {
 #ifdef SIGCANCEL
-	    /* Solaris 9 x86 refuses to let us modify SIGCANCEL. */
-	    if (i == SIGCANCEL)
-		continue;
+            /* Solaris 9 x86 refuses to let us modify SIGCANCEL. */
+            if (i == SIGCANCEL)
+                continue;
 #endif
-	    perror("sigaction");
-	    abort();
-	}
+            ERTS_INTERNAL_ERROR("Failed to use alternate signal stack");
+        }
     }
 }
+
+#else
+
+void sys_init_signal_stack(void) {
+    /* Not required for this configuration. */
+}
+
+void sys_thread_init_signal_stack(void) {
+    /* Not required for this configuration. */
+}
+
+#endif

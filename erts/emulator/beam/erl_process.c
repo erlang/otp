@@ -94,7 +94,6 @@
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_init_process() */
-#include "hipe_signal.h"	/* for hipe_thread_signal_init() */
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -8437,6 +8436,10 @@ sched_thread_func(void *vesdp)
     Uint no = esdp->no;
     erts_tse_t *tse;
 
+    /* Perform platform-specific scheduler initialization, e.g. setting up an
+     * alternate signal stack. Must be done before anything else. */
+    erts_sys_scheduler_init();
+
     erts_port_task_pre_alloc_init_thread();
     erts_sched_init_time_sup(esdp);
 
@@ -8482,9 +8485,6 @@ sched_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
-#ifdef HIPE
-    hipe_thread_signal_init();
-#endif
     erts_thread_init_float();
 
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
@@ -8512,6 +8512,11 @@ sched_dirty_cpu_thread_func(void *vesdp)
     ErtsThrPrgrCallbacks callbacks;
     ErtsSchedulerData *esdp = vesdp;
     Uint no = esdp->dirty_no;
+
+    /* Perform platform-specific scheduler tweaks, e.g. setting up an alternate
+     * signal stack. Must be done before anything else. */
+    erts_sys_scheduler_init();
+
     ASSERT(no != 0);
     ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(no-1)->event = erts_tse_fetch();
     erts_tse_return(ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(no-1)->event);
@@ -8540,9 +8545,6 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
-#ifdef HIPE
-    hipe_thread_signal_init();
-#endif
     erts_thread_init_float();
 
     erts_dirty_process_main(esdp);
@@ -8559,6 +8561,11 @@ sched_dirty_io_thread_func(void *vesdp)
     ErtsThrPrgrCallbacks callbacks;
     ErtsSchedulerData *esdp = vesdp;
     Uint no = esdp->dirty_no;
+
+    /* Perform platform-specific scheduler initialization, e.g. setting up an
+     * alternate signal stack. Must be done before anything else. */
+    erts_sys_scheduler_init();
+
     ASSERT(no != 0);
     ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(no-1)->event = erts_tse_fetch();
     erts_tse_return(ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(no-1)->event);
@@ -8587,9 +8594,6 @@ sched_dirty_io_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
-#ifdef HIPE
-    hipe_thread_signal_init();
-#endif
     erts_thread_init_float();
 
     erts_dirty_process_main(esdp);
