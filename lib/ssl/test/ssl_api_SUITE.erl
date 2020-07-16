@@ -116,7 +116,7 @@ gen_api_tests() ->
 handshake_paus_tests() ->
     [
      handshake_continue, 
-     handshake_continue_timeout, 
+     handshake_continue_timeout,
      hello_client_cancel,
      hello_server_cancel,
      handshake_continue_tls13_client
