@@ -834,6 +834,27 @@ do_terminate(Child, SupName) when is_pid(Child#child.pid) ->
             ok;
         {error, normal} when not (?is_permanent(Child)) ->
             ok;
+        {error, noproc}
+          when (not (?is_permanent(Child))) andalso
+               (element(1,Child#child.mfargs) == ssh_server_channel
+                orelse
+                element(1,Child#child.mfargs) == ssh_connection_handler) ->
+            %% FIXME: Remove when OTP23?. Now to see what other issues we have.
+            ok;
+        {error,{shutdown,"Connection closed"}}
+          when (not (?is_permanent(Child))) andalso
+               (element(1,Child#child.mfargs) == ssh_server_channel
+                orelse
+                element(1,Child#child.mfargs) == ssh_connection_handler) ->
+            %% FIXME: Remove when OTP23?. Now to see what other issues we have.
+            ok;
+        {error,{shutdown,dropped}}
+          when (not (?is_permanent(Child))) andalso
+               (element(1,Child#child.mfargs) == ssh_server_channel
+                orelse
+                element(1,Child#child.mfargs) == ssh_connection_handler) ->
+            %% FIXME: Remove when OTP23?. Now to see what other issues we have.
+            ok;
         {error, OtherReason} ->
             ?report_error(shutdown_error, OtherReason, Child, SupName)
     end,
@@ -938,9 +959,30 @@ terminate_dynamic_children(State) ->
                      wait_dynamic_children(Child, Pids, Sz, TRef, EStack0)
              end,
     %% Unroll stacked errors and report them
-    dict:fold(fun(Reason, Ls, _) ->
+    dict:fold(fun(noproc, _Ls, _)
+                    when element(1,Child#child.mfargs) == ssh_server_channel
+                         orelse
+                         element(1,Child#child.mfargs)==ssh_connection_handler->
+                      %% FIXME: Remove when OTP23?.
+                      %% Now to see what other issues we have.
+                      ok;
+                 ({shutdown,"Connection closed"}, _Ls, _)
+                    when element(1,Child#child.mfargs) == ssh_server_channel
+                         orelse
+                         element(1,Child#child.mfargs)==ssh_connection_handler->
+                      %% FIXME: Remove when OTP23?.
+                      %% Now to see what other issues we have.
+                      ok;
+                 ({shutdown,dropped}, _Ls, _)
+                    when element(1,Child#child.mfargs) == ssh_server_channel
+                         orelse
+                         element(1,Child#child.mfargs)==ssh_connection_handler->
+                      %% FIXME: Remove when OTP23?.
+                      %% Now to see what other issues we have.
+                      ok;
+                 (Reason, Ls, _) ->
                       ?report_error(shutdown_error, Reason,
-                                   Child#child{pid=Ls}, State#state.name)
+                                    Child#child{pid=Ls}, State#state.name)
               end, ok, EStack).
 
 monitor_dynamic_children(Child,State) ->
