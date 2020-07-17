@@ -195,6 +195,9 @@
 #if 0
 #  define ERTS_TW_HARD_DEBUG
 #endif
+#if 0
+#  define ERTS_TW_DEBUG
+#endif
 
 #if defined(ERTS_TW_HARD_DEBUG) && !defined(ERTS_TW_DEBUG)
 #  define ERTS_TW_DEBUG
@@ -480,6 +483,8 @@ find_next_timeout(ErtsSchedulerData *esdp, ErtsTimerWheel *tiw)
 
     ERTS_HARD_DBG_CHK_WHEELS(tiw, 0);
 
+    ERTS_TW_ASSERT(tiw->at_once.nto == 0);
+    ERTS_TW_ASSERT(tiw->nto == tiw->soon.nto + tiw->later.nto);
     ERTS_TW_ASSERT(tiw->yield_slot == ERTS_TW_SLOT_INACTIVE);
 
     if (tiw->nto == 0) { /* no timeouts in wheel */
