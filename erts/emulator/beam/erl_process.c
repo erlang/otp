@@ -6379,7 +6379,7 @@ check_enqueue_in_prio_queue(Process *c_p,
 {
     erts_aint32_t aprio, qbit, max_qbit;
 
-    aprio = (actual >> ERTS_PSFLGS_ACT_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK;
+    aprio = ((*newp) >> ERTS_PSFLGS_ACT_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK;
     qbit = 1 << aprio;
 
     *prq_prio_p = aprio;
@@ -6838,6 +6838,12 @@ active_sys_enqueue(Process *p, ErtsProcSysTask *sys_task,
 	enqueue = ERTS_ENQUEUE_NOT;
 	n |= enable_flags;
 
+        if (sys_task && ERTS_PSFLGS_GET_ACT_PRIO(a) > task_prio) {
+            /* elevate prio for system task... */
+            n &= ~ERTS_PSFLGS_ACT_PRIO_MASK;
+            n |= (task_prio << ERTS_PSFLGS_ACT_PRIO_OFFSET);
+        }
+
 	if (!(a & (ERTS_PSFLG_RUNNING
 		   | ERTS_PSFLG_RUNNING_SYS
 		   | ERTS_PSFLG_DIRTY_RUNNING
@@ -6931,40 +6937,12 @@ static int
 schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
 			  erts_aint32_t *fail_state_p)
 {
-    erts_aint32_t fail_state, state;
-
-    fail_state = *fail_state_p;
-
-    /* Elevate priority if needed. */
-    state = erts_atomic32_read_acqb(&p->state);
-    if (ERTS_PSFLGS_GET_ACT_PRIO(state) <= prio) {
-        if (state & fail_state) {
-            *fail_state_p = state & fail_state;
-            return 0;
-        }
+    erts_aint32_t fail_state = *fail_state_p;
+    erts_aint32_t state = erts_atomic32_read_acqb(&p->state);
+    if (state & fail_state) {
+        *fail_state_p = state & fail_state;
+        return 0;
     }
-    else {
-        erts_aint32_t n, a, e;
-
-        a = state;
-        do {
-            if (a & fail_state) {
-                *fail_state_p = a & fail_state;
-                return 0;
-            }
-            if (ERTS_PSFLGS_GET_ACT_PRIO(a) <= prio) {
-                n = a;
-                break;
-            }
-            n = e = a;
-            n &= ~ERTS_PSFLGS_ACT_PRIO_MASK;
-            n |= (prio << ERTS_PSFLGS_ACT_PRIO_OFFSET);
-            a = erts_atomic32_cmpxchg_nob(&p->state, n, e);
-        } while (a != e);
-
-        state = n;
-    }
-
     return !(active_sys_enqueue(p, st, prio, ERTS_PSFLG_SYS_TASKS,
                                 state, fail_state_p) & fail_state);
 }
@@ -9143,11 +9121,10 @@ erts_set_process_priority(Process *p, Eterm value)
 		}
 
 		max_qbit = 0;
-                ASSERT((a & ERTS_PSFLG_SYS_TASKS)
-                       ? !!p->sys_task_qs
-                       : !p->sys_task_qs);
-		if (a & ERTS_PSFLG_SYS_TASKS)
+		if (a & ERTS_PSFLG_SYS_TASKS) {
+                    ASSERT(p->sys_task_qs);
 		    max_qbit |= p->sys_task_qs->qmask;
+                }
 		if (a & ERTS_PSFLG_DELAYED_SYS) {
 		    ErtsProcSysTaskQs *qs;
 		    qs = ERTS_PROC_GET_DELAYED_GC_TASK_QS(p);
