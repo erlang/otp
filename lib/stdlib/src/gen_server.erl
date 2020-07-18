@@ -117,12 +117,19 @@
 %% Internal exports
 -export([init_it/6]).
 
+%% Type exports
+-export_type([server_name/0]).
+
 -include("logger.hrl").
 
 -define(
    STACKTRACE(),
    element(2, erlang:process_info(self(), current_stacktrace))).
 
+-type server_name() ::
+        {'local', atom()}
+      | {'global', term()}
+      | {'via', Module :: module(), Name :: term()}.
 
 -type server_ref() ::
         pid()
