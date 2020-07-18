@@ -118,7 +118,7 @@
 -export([init_it/6]).
 
 %% Type exports
--export_type([server_name/0, server_ref/0]).
+-export_type([server_name/0, server_ref/0, request_id/0]).
 
 -include("logger.hrl").
 
