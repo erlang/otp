@@ -629,12 +629,18 @@ struct ethr_ts_event_ {
 #define ETHR_TS_EV_INITED	(((unsigned) 1) << 1)
 #define ETHR_TS_EV_TMP		(((unsigned) 1) << 2)
 #define ETHR_TS_EV_MAIN_THR	(((unsigned) 1) << 3)
+#define ETHR_TS_EV_BUSY		(((unsigned) 1) << 4)
+#define ETHR_TS_EV_PEEK		(((unsigned) 1) << 5)
 
-int ethr_get_tmp_ts_event__(ethr_ts_event **tsepp);
+ethr_sint64_t ethr_no_used_tse(void);
 int ethr_free_ts_event__(ethr_ts_event *tsep);
-int ethr_make_ts_event__(ethr_ts_event **tsepp);
+int ethr_make_ts_event__(ethr_ts_event **tsepp, int tmp);
 
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHREAD_IMPL__)
+ethr_ts_event *ethr_lookup_ts_event__(int busy_dup);
+ethr_ts_event *ethr_peek_ts_event(void);
+void ethr_unpeek_ts_event(ethr_ts_event *);
+ethr_ts_event *ethr_use_ts_event(ethr_ts_event *tsep);
 ethr_ts_event *ethr_get_ts_event(void);
 void ethr_leave_ts_event(ethr_ts_event *);
 #endif
@@ -646,22 +652,16 @@ void ethr_leave_ts_event(ethr_ts_event *);
 extern pthread_key_t ethr_ts_event_key__;
 
 static ETHR_INLINE ethr_ts_event *
-ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
+ETHR_INLINE_FUNC_NAME_(ethr_lookup_ts_event__)(int busy_dup)
 {
     ethr_ts_event *tsep = pthread_getspecific(ethr_ts_event_key__);
-    if (!tsep) {
-	int res = ethr_make_ts_event__(&tsep);
+    if (!tsep || (busy_dup && (tsep->iflgs & ETHR_TS_EV_BUSY))) {
+	int res = ethr_make_ts_event__(&tsep, 0);
 	if (res != 0)
 	    ETHR_FATAL_ERROR__(res);
 	ETHR_ASSERT(tsep);
     }
     return tsep;
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
-{
-
 }
 
 #endif
@@ -673,11 +673,11 @@ ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
 extern DWORD ethr_ts_event_key__;
 
 static ETHR_INLINE ethr_ts_event *
-ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
+ETHR_INLINE_FUNC_NAME_(ethr_lookup_ts_event__)(int busy_dup)
 {
     ethr_ts_event *tsep = TlsGetValue(ethr_ts_event_key__);
-    if (!tsep) {
-	int res = ethr_get_tmp_ts_event__(&tsep);
+    if (!tsep || (busy_dup && (tsep->iflgs & ETHR_TS_EV_BUSY))) {
+	int res = ethr_make_ts_event__(&tsep, !0);
 	if (res != 0)
 	    ETHR_FATAL_ERROR__(res);
 	ETHR_ASSERT(tsep);
@@ -685,17 +685,68 @@ ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
     return tsep;
 }
 
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
+#endif
+
+#endif
+
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHREAD_IMPL__)
+
+static ETHR_INLINE ethr_ts_event *
+ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
 {
-    if (tsep->iflgs & ETHR_TS_EV_TMP) {
+    ethr_ts_event *tsep = ethr_lookup_ts_event__(!0);
+    ETHR_ASSERT(!(tsep->iflgs & ETHR_TS_EV_BUSY));
+    tsep->iflgs |= ETHR_TS_EV_BUSY;
+    return tsep;
+}
+
+static ETHR_INLINE ethr_ts_event *
+ETHR_INLINE_FUNC_NAME_(ethr_peek_ts_event)(void)
+{
+    ethr_ts_event *tsep = ethr_lookup_ts_event__(0);
+    ETHR_ASSERT(!(tsep->iflgs & ETHR_TS_EV_PEEK));
+    tsep->iflgs |= ETHR_TS_EV_PEEK;
+    return tsep;
+}
+
+static ETHR_INLINE void
+ETHR_INLINE_FUNC_NAME_(ethr_unpeek_ts_event)(ethr_ts_event *tsep)
+{
+    ETHR_ASSERT(tsep->iflgs & ETHR_TS_EV_PEEK);
+    tsep->iflgs &= ~ETHR_TS_EV_PEEK;
+    if ((tsep->iflgs & (ETHR_TS_EV_TMP|ETHR_TS_EV_BUSY)) == ETHR_TS_EV_TMP) {
 	int res = ethr_free_ts_event__(tsep);
 	if (res != 0)
 	    ETHR_FATAL_ERROR__(res);
     }
 }
 
-#endif
+static ETHR_INLINE ethr_ts_event *
+ETHR_INLINE_FUNC_NAME_(ethr_use_ts_event)(ethr_ts_event *tsep)
+{
+    ethr_ts_event *tmp_tsep = tsep;
+    if (tmp_tsep->iflgs & ETHR_TS_EV_BUSY) {
+	int res = ethr_make_ts_event__(&tmp_tsep, !0);
+	if (res != 0)
+	    ETHR_FATAL_ERROR__(res);
+	ETHR_ASSERT(tmp_tsep && tsep != tmp_tsep);
+    }
+    ETHR_ASSERT(!(tmp_tsep->iflgs & ETHR_TS_EV_BUSY));
+    tmp_tsep->iflgs |= ETHR_TS_EV_BUSY;
+    return tmp_tsep;
+}
+
+static ETHR_INLINE void
+ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
+{
+    ETHR_ASSERT(tsep->iflgs & ETHR_TS_EV_BUSY);
+    tsep->iflgs &= ~ETHR_TS_EV_BUSY;
+    if ((tsep->iflgs & (ETHR_TS_EV_TMP|ETHR_TS_EV_PEEK)) == ETHR_TS_EV_TMP) {
+	int res = ethr_free_ts_event__(tsep);
+	if (res != 0)
+	    ETHR_FATAL_ERROR__(res);
+    }
+}
 
 #endif
 

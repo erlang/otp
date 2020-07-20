@@ -280,6 +280,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	if (ERTS_THR_Q_DIRTY != erts_thr_q_clean(q)) {
 	    ErtsThrQFinDeQ_t tmp_fin_deq;
 
+            erts_tse_use(tse);
 	    erts_tse_reset(tse);
 
 	chk_fin_deq:
@@ -324,6 +325,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 		break;
 	    }
 
+            erts_tse_return(tse);
 	}
     }
 }
@@ -391,8 +393,9 @@ static erts_tse_t *async_thread_init(ErtsAsyncQ *aq)
     ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
     erts_tse_t *tse = erts_tse_fetch();
     ERTS_DECLARE_DUMMY(Uint no);
-
     ErtsThrPrgrCallbacks callbacks;
+
+    erts_tse_return(tse);
 
     callbacks.arg = (void *) tse;
     callbacks.wakeup = async_wakeup;
