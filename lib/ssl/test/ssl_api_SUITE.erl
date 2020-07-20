@@ -121,7 +121,8 @@ gen_api_tests() ->
 handshake_paus_tests() ->
     [
      handshake_continue, 
-     handshake_continue_timeout, 
+     handshake_continue_timeout,
+     handshake_continue_change_verify,
      hello_client_cancel,
      hello_server_cancel,
      handshake_continue_tls13_client
@@ -633,6 +634,34 @@ handshake_continue_timeout(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, {error,timeout}),
     ssl_test_lib:close(Server).
 
+handshake_continue_change_verify() ->
+    [{doc, "Test API function ssl:handshake_continue with updated verify option. "
+      "Use a verification that will fail to make sure verification is run"}].
+handshake_continue_change_verify(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {options, ssl_test_lib:ssl_options(
+                            [{handshake, hello},
+                             {verify, verify_peer} | ServerOpts], Config)},
+                {continue_options, proplists:delete(reuseaddr, ServerOpts)}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client_error(
+               [{node, ClientNode}, {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {options, ssl_test_lib:ssl_options(
+                            [{handshake, hello},
+                             {server_name_indication, "foobar"}
+                            | ClientOpts], Config)},
+                {continue_options, [{verify, verify_peer} | ClientOpts]}]),
+    ssl_test_lib:check_client_alert(Client,  handshake_failure).
 
 %%--------------------------------------------------------------------
 hello_client_cancel() ->
