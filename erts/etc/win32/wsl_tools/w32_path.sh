@@ -41,6 +41,15 @@ if [ -z "$1" ]; then
     exit 1;
 fi
 
+case "$1" in
+    /*)
+        rel_input=false
+        ;;
+    *)
+        rel_input=true
+        ;;
+esac
+
 if [ $UNIX = true ]; then
     # cl.exe loses //// in the beginning which make dependencies fail
     # and sometimes lowercases the path
@@ -55,16 +64,56 @@ if [ $UNIX = true ]; then
             ;;
     esac
 else
-    case "$SEPARATOR" in
-	slash)
-	    echo `wslpath -m $ABSOLUTE "$1"`;
-	    ;;
-	backslash)
-	    echo `wslpath -w $ABSOLUTE "$1"`;
-	    ;;
-	double)
-	    DOUBLE=`wslpath -w $ABSOLUTE "$1" | sed 's,\\\\,\\\\\\\\,g'`;
-	    echo $DOUBLE
-	    ;;
-    esac
+    #  wslpath have changed to always return absolute paths and
+    #  ensure the file/dir exists before translation
+
+    if [ $rel_input = true -a "$ABSOLUTE" = "" ]; then
+        case "$SEPARATOR" in
+	    slash)
+                echo $1
+                ;;
+            backslash)
+                echo "$1" | sed 's,/,\\,g'
+                ;;
+            double)
+                echo "$1" | sed 's,/,\\\\,g'
+                ;;
+        esac
+        exit 0
+    fi
+
+    # absolute input and/or absolute output
+
+    if [ -d "$1" ]; then
+        dir=$1;
+        case "$SEPARATOR" in
+	    slash)
+	        echo `wslpath -m $ABSOLUTE "$dir"`;
+	        ;;
+	    backslash)
+	        echo `wslpath -w $ABSOLUTE "$dir"`;
+	        ;;
+	    double)
+	        DOUBLE=`wslpath -w $ABSOLUTE "$dir" | sed 's,\\\\,\\\\\\\\,g'`;
+	        echo $DOUBLE
+	        ;;
+        esac
+        exit 0
+    else
+        dir=`dirname $1`
+        file=`basename $1`
+
+        case "$SEPARATOR" in
+	    slash)
+	        echo `wslpath -m $ABSOLUTE "$dir"`/$file;
+	        ;;
+	    backslash)
+	        echo `wslpath -w $ABSOLUTE "$dir"`\\$file;
+	        ;;
+	    double)
+	        DOUBLE=`wslpath -w $ABSOLUTE "$dir" | sed 's,\\\\,\\\\\\\\,g'`;
+	        echo $DOUBLE\\\\$file
+	        ;;
+        esac
+    fi
 fi

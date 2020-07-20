@@ -29,14 +29,14 @@ for x in "$@"; do
 	-I/*|-o/*)
 	    y=`echo $x | sed 's,^-[Io]\(/.*\),\1,g'`;
 	    z=`echo $x | sed 's,^-\([Io]\)\(/.*\),\1,g'`;
-	    MPATH=`wslpath -m $y`;
+	    MPATH=`w32_path.sh -m $y`;
 	    CMD="$CMD -$z$MPATH";;
 	-pa/*)
 	    y=`echo $x | sed 's,^-pa\(/.*\),\1,g'`;
-	    MPATH=`wslpath -m $y`;
+	    MPATH=`w32_path.sh -m $y`;
 	    CMD="$CMD -pa $MPATH";;
 	/*)
-	    MPATH=`wslpath -m $x`;
+	    MPATH=`w32_path.sh -m $x`;
 	    CMD="$CMD \"$MPATH\"";;
 # Needed for  +'{preproc_flags,whatever}'
 	+{preproc_flags,*})
