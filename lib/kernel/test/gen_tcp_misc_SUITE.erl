@@ -1521,50 +1521,98 @@ do_econnreset_after_async_send_passive(_Config) ->
     Payload = lists:duplicate(1024 * 1024, $.),
 
     %% First confirm everything works with option turned off.
-    ?P("test with option switched off (default)"),
+    ?P("create listen socket *** with option switched off (default)"),
     {ok, L} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
+    ?P("create connect socket"),
     Client = case gen_tcp:connect(localhost, Port,
-                                  [{active, false}, {sndbuf, 4096}]) of
+                                  [{active, false},
+                                   {sndbuf, 4096}]) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
                 ?SKIPT(connect_failed_str(Reason))
         end,
+    ?P("accept connection"),
     {ok, S} = gen_tcp:accept(L),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("[server] set linger: true:0"),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ?P("[server] send some data to client"),
     ok = gen_tcp:send(S, "Whatever"),
+    ?P("[client] send some data to server"),
     ok = gen_tcp:send(Client, Payload),
+    ?P("[client] verify (port) queue-size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
+    ?P("[server] close socket"),
     ok = gen_tcp:close(S),
+    ?P("sleep some"),
     ok = ct:sleep(20),
+    ?P("[client] attempt receive and expect error (closed): "
+       "~n   Port Info:     ~p"
+       "~n   Socket Status: ~s",
+       [try erlang:port_info(Client)
+        catch
+            _:_:_ ->
+                "-"
+        end,
+        try prim_inet:getstatus(Client) of
+            {ok, CStatus} -> ?F("~p", [CStatus]);
+            _             -> "-"
+        catch
+            _:_:_ ->
+                "-"
+        end]),
     {error, closed} = gen_tcp:recv(Client, 0),
 
     %% Now test with option switched on.
-    ?P("test with option explicitly switched on"),
+    ?P("create listen socket *** with option explicitly switched on"),
     {ok, L1} = gen_tcp:listen(0, [{active, false}, {recbuf, 4096}]),
     {ok, Port1} = inet:port(L1),
+    ?P("create connect socket"),
     Client1 = case gen_tcp:connect(localhost, Port1,
-				   [{active, false},
-				    {sndbuf, 4096},
+				   [{active,          false},
+				    {sndbuf,          4096},
 				    {show_econnreset, true}]) of
                   {ok, CSock1} ->
                       CSock1;
             {error, eaddrnotavail = Reason1} ->
                 ?SKIPT(connect_failed_str(Reason1))
         end,
+    ?P("accept connection"),
     {ok, S1} = gen_tcp:accept(L1),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L1),
+    ?P("[server] set linger: true:0"),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
+    ?P("[server] send some data to client"),
     ok = gen_tcp:send(S1, "Whatever"),
+    ?P("[client] send some data to server"),
     ok = gen_tcp:send(Client1, Payload),
+    ?P("[server] close socket"),
     ok = gen_tcp:close(S1),
+    ?P("sleep some"),
     ok = ct:sleep(20),
+    ?P("[client] attempt receive and expect error (econnreset): "
+       "~n   Port Info:     ~p"
+       "~n   Socket Status: ~s",
+       [try erlang:port_info(Client)
+        catch
+            _:_:_ ->
+                "-"
+        end,
+        try prim_inet:getstatus(Client) of
+            {ok, CStatus1} -> ?F("~p", [CStatus1]);
+            _              -> "-"
+        catch
+            _:_:_ ->
+                "-"
+        end]),
     {error, econnreset} = gen_tcp:recv(Client1, 0),
     ?P("done"),
     ok.
