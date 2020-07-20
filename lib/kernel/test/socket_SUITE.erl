@@ -228,6 +228,8 @@
 
          %% Socket Registry
          reg_s_single_open_and_close_and_count/1,
+         reg_s_optional_open_and_close_and_count/1,
+         
 
          %% *** Socket Closure ***
          sc_cpe_socket_cleanup_tcp4/1,
@@ -671,17 +673,22 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+    [{ct_hooks, [ts_install_cth]},
+     {timetrap, {minutes,1}}].
 
 all() -> 
     Groups = [{api,          "ESOCK_TEST_API",        include},
+              {reg,          undefined,               include},
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
 	      {traffic,      "ESOCK_TEST_TRAFFIC",    include},
 	      {ttest,        "ESOCK_TEST_TTEST",      exclude},
 	      {tickets,      "ESOCK_TEST_TICKETS",    include}],
     [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
+use_group(_Group, undefined, exclude) ->
+    [];
+use_group(Group, undefined, _Default) ->
+    [{group, Group}];
 use_group(Group, Env, Default) ->
 	case os:getenv(Env) of
 	    false when (Default =:= include) ->
@@ -1054,7 +1061,8 @@ api_op_with_timeout_cases() ->
 %% Socket Registry "simple" test cases
 reg_simple_cases() ->
     [
-     reg_s_single_open_and_close_and_count
+     reg_s_single_open_and_close_and_count,
+     reg_s_optional_open_and_close_and_count
     ].
 
 
@@ -1915,6 +1923,7 @@ init_per_suite(Config) ->
     Factor = analyze_and_print_host_info(),
     try socket:info() of
         #{} ->
+            socket:use_registry(false),
             case quiet_mode(Config) of
                 default ->
                     ?LOGGER:start(),
@@ -24864,6 +24873,15 @@ reg_s_single_open_and_close_and_count(_Config) when is_list(_Config) ->
 
 
 reg_s_single_open_and_close_and_count() ->
+    %% We may have some sockets already existing.
+    %% Make sure we dont count them when we test.
+    case socket:number_of() of
+        0 ->
+            socket:use_registry(true),
+            ok;
+        N ->
+            exit({unexpected_socket_registry_use, N, socket:which_sockets()})
+    end,
     SupportsIPV6 =
         case (catch has_support_ipv6()) of
             ok ->
@@ -24934,7 +24952,7 @@ reg_s_single_open_and_close_and_count() ->
             false ->
                 []
         end,
-    
+
     i("open sockets"),
     Socks =
         [fun({Domain, Type, Proto}) ->
@@ -24942,7 +24960,7 @@ reg_s_single_open_and_close_and_count() ->
                  {ok, Sock} = socket:open(Domain, Type, Proto),
                  Sock
          end(InitSockInfo) || InitSockInfo <- InitSockInfos],
-    
+
     ?SLEEP(1000),
 
 
@@ -24951,12 +24969,13 @@ reg_s_single_open_and_close_and_count() ->
     NumSocks1 = length(Socks),
     NumberOf1 = socket:number_of(),
 
-    i("verify (total) number of sockets(1): ~w, ~w", [NumSocks1, NumberOf1]),
+    i("verify (total) number of sockets(1): ~w, ~w",
+      [NumSocks1, NumberOf1]),
     case (NumSocks1 =:= NumberOf1) of
         true ->
             ok;
         false ->
-            exit({wrong_number_of_sockets1, NumSocks1, NumberOf1})
+            reg_si_fail(wrong_number_of_sockets1, {NumSocks1, NumberOf1})
     end,
 
 
@@ -24971,7 +24990,7 @@ reg_s_single_open_and_close_and_count() ->
         true ->
             ok;
         false ->
-            exit({wrong_number_of_ipv4_tcp_sockets, SiNumTCP, SrNumTCP})
+            reg_si_fail(wrong_number_of_ipv4_tcp_sockets, {SiNumTCP, SrNumTCP})
     end,
 
 
@@ -25001,7 +25020,7 @@ reg_s_single_open_and_close_and_count() ->
         true ->
             ok;
         false ->
-            exit({wrong_number_of_sctp_sockets, SiNumSCTP, SrNumSCTP})
+            reg_si_fail(wrong_number_of_sctp_sockets, {SiNumSCTP, SrNumSCTP})
     end,
 
 
@@ -25016,7 +25035,7 @@ reg_s_single_open_and_close_and_count() ->
         true ->
             ok;
         false ->
-            exit({wrong_number_of_ipv4_sockets, SiNumINET, SrNumINET})
+            reg_si_fail(wrong_number_of_ipv4_sockets, {SiNumINET, SrNumINET})
     end,
 
 
@@ -25031,7 +25050,7 @@ reg_s_single_open_and_close_and_count() ->
         true ->
             ok;
         false ->
-            exit({wrong_number_of_ipv6_sockets, SiNumINET6, SrNumINET6})
+            reg_si_fail(wrong_number_of_ipv6_sockets, {SiNumINET6, SrNumINET6})
     end,
 
 
@@ -25047,12 +25066,12 @@ reg_s_single_open_and_close_and_count() ->
         true ->
             ok;
         false ->
-            exit({wrong_number_of_local_sockets, SiNumLOCAL, SrNumLOCAL})
+            reg_si_fail(wrong_number_of_local_sockets, {SiNumLOCAL, SrNumLOCAL})
     end,
 
 
     %% **** Close *all* Sockets then verify Number Of Sockets ****
-    
+
     i("close sockets"),
     lists:foreach(fun(S) ->
                           i("close socket"),                          
@@ -25063,17 +25082,21 @@ reg_s_single_open_and_close_and_count() ->
 
     NumSocks2 = 0,
     NumberOf2 = socket:number_of(),
-    
+
     i("verify number of sockets(2): ~w, ~w", [NumSocks2, NumberOf2]),
     case (NumSocks2 =:= NumberOf2) of
         true ->
             ok;
         false ->
-            exit({wrong_number_of_sockets2, NumSocks2, NumberOf2})
+            reg_si_fail(wrong_number_of_sockets2, {NumSocks2, NumberOf2})
     end,
-    
+    socket:use_registry(false),
     ok.
 
+
+reg_si_fail(Reason, Extra) ->
+    socket:use_registry(false),
+    exit({Reason, Extra}).
 
 reg_si_num(SocksInfo, Domain)
   when ((Domain =:= inet) orelse (Domain =:= inet6) orelse (Domain =:= local)) ->
@@ -25150,6 +25173,111 @@ reg_sr_num(Domain, Type, Proto) ->
 
 reg_sr_num2(F) ->
     length(socket:which_sockets(F)).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% We create a bunch of different sockets and ensure that the registry
+%% has the correct info.
+
+reg_s_optional_open_and_close_and_count(suite) ->
+    [];
+reg_s_optional_open_and_close_and_count(doc) ->
+    [];
+reg_s_optional_open_and_close_and_count(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(reg_s_optional_open_and_close_and_count,
+           fun() ->
+                   ok = reg_s_optional_open_and_close_and_count()
+           end).
+
+
+reg_s_optional_open_and_close_and_count() ->
+    i("Make sure use of socket registry is enabled (regardless of default)"),
+    socket:use_registry(true),
+    #{use_registry := true} = socket:info(),
+
+    i("get current socket base count"),
+    Base = socket:number_of(),
+
+    i("create a socket and ensure its counted"),
+    {ok, S1} = socket:open(inet, dgram, udp),
+    Base1 = Base + 1,
+    case socket:number_of() of
+        Base1 ->
+            ok;
+        Invalid1 -> 
+            exit({wrong_number_of_sockets1, Invalid1, Base + 1})
+    end,
+    i("close the socket and ensure its not counted"),
+    ok = socket:close(S1),
+    case socket:number_of() of
+        Base ->
+            ok;
+        Invalid2 -> 
+            exit({wrong_number_of_sockets2, Invalid2, Base})
+    end,
+
+    i("create a socket with use_registry explicitly off "
+      "and ensure its not counted"),
+    {ok, S2} = socket:open(inet, dgram, udp, #{use_registry => false}),
+    case socket:number_of() of
+        Base ->
+            ok;
+        Invalid3 -> 
+            exit({wrong_number_of_sockets3, Invalid3, Base})
+    end,
+    i("close the socket and ensure its not counted"),
+    ok = socket:close(S2),
+    case socket:number_of() of
+        Base ->
+            ok;
+        Invalid4 -> 
+            exit({wrong_number_of_sockets4, Invalid4, Base})
+    end,
+
+    i("Globally disable use of registry"),
+    socket:use_registry(false),
+    #{use_registry := false} = socket:info(),
+    i("create a socket and ensure its not counted"),
+    {ok, S3} = socket:open(inet, dgram, udp),
+    case socket:number_of() of
+        Base ->
+            ok;
+        Invalid5 -> 
+            exit({wrong_number_of_sockets5, Invalid5, Base})
+    end,
+    i("close the socket and ensure its not counted"),
+    ok = socket:close(S3),
+    case socket:number_of() of
+        Base ->
+            ok;
+        Invalid6 -> 
+            exit({wrong_number_of_sockets6, Invalid6, Base})
+    end,
+
+    i("create a socket with use_registry explicitly on "
+      "and ensure its not counted"),
+    {ok, S4} = socket:open(inet, dgram, udp, #{use_registry => true}),
+    case socket:number_of() of
+        Base1 ->
+            ok;
+        Invalid7 -> 
+            exit({wrong_number_of_sockets7, Invalid7, Base + 1})
+    end,
+    i("close the socket and ensure its counted"),
+    ok = socket:close(S4),
+    case socket:number_of() of
+        Base ->
+            ok;
+        Invalid8 -> 
+            exit({wrong_number_of_sockets8, Invalid8, Base})
+    end,
+
+    socket:use_registry(false),
+    i("done"),
+    ok.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

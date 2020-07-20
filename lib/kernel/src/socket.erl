@@ -27,7 +27,7 @@
          number_of/0,
          which_sockets/0, which_sockets/1,
 
-         debug/1, socket_debug/1,
+         debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
          supports/0, supports/1, supports/2,
          is_supported/1, is_supported/2, is_supported/3
@@ -248,6 +248,7 @@
         rcvctrlbuf |
         sndctrlbuf |
         meta |
+        use_registry |
         fd.
 
 -type socket_option() ::
@@ -672,6 +673,12 @@ socket_debug(D) ->
 
 
 
+-spec use_registry(D :: boolean()) -> ok.
+%%
+use_registry(D) when is_boolean(D) ->
+    prim_socket:use_registry(D).
+
+
 %% ===========================================================================
 %%
 %% info - Get miscellaneous information about a socket.
@@ -800,11 +807,12 @@ open(FD) ->
 -spec open(FD, Opts) -> {ok, Socket} | {error, Reason} when
       FD       :: integer(),
       Opts     ::
-        #{domain => domain(),
-          type => type(),
-          protocol => protocol(),
-          dup => boolean(),
-          debug => boolean()},
+        #{domain       => domain(),
+          type         => type(),
+          protocol     => protocol(),
+          dup          => boolean(),
+	  debug        => boolean(),
+	  use_registry => boolean()},
       Socket   :: socket(),
       Reason   ::
         posix() | domain | type | protocol;
@@ -848,7 +856,10 @@ open(Domain, Type, Protocol) ->
       Domain   :: domain(),
       Type     :: type(),
       Protocol :: protocol(),
-      Opts     :: map(),
+      Opts     ::
+        #{netns        => string(),
+	  debug        => boolean(),
+	  use_registry => boolean()},
       Socket   :: socket(),
       Reason   :: posix() | protocol.
 
