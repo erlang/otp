@@ -1573,7 +1573,11 @@ run_client_error(Opts) ->
             receive
                 {ssl_error, _, {tls_alert, _}} = SslError ->
                                 Pid ! {self(), SslError}
-            end
+            end;
+        {ok, Socket, _Ext} ->
+            ContOpts = proplists:get_value(continue_options, Opts, []),
+            Result = Transport:handshake_continue(Socket, ContOpts),
+            Pid ! {self(), Result}
     end.
 
 accepters(N) ->
