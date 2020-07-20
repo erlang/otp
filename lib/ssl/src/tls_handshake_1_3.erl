@@ -2430,13 +2430,14 @@ update_binders(#client_hello{extensions =
 maybe_automatic_session_resumption(#state{
                                       ssl_options = #{versions := [Version|_],
                                                       ciphers := UserSuites,
-                                                      session_tickets := SessionTickets} = SslOpts0
+                                                      session_tickets := SessionTickets,
+                                                      server_name_indication := SNI} = SslOpts0
                                      } = State0)
   when Version >= {3,4} andalso
        SessionTickets =:= auto ->
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),
-    UseTicket = tls_client_ticket_store:find_ticket(self(), HashAlgos),
+    UseTicket = tls_client_ticket_store:find_ticket(self(), HashAlgos, SNI),
     tls_client_ticket_store:lock_tickets(self(), [UseTicket]),
     State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
     {[UseTicket], State};
