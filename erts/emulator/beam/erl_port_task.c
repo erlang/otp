@@ -1873,7 +1873,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     if (active) {
 	ErtsRunQueue *xrunq;
 
-	ASSERT(!(erts_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
+        ASSERT(!(erts_atomic32_read_nob(&pp->state)
+                 & ERTS_PORT_SFLG_INITIALIZING));
 
 	xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
 	ERTS_LC_ASSERT(runq != xrunq);
