@@ -357,10 +357,13 @@ static ErlNifFunc nif_funcs[] =
     {"nif_api_version", 0, nif_api_version},
     {"get_priv_data_ptr", 0, get_priv_data_ptr},
     {"make_new_resource", 2, make_new_resource},
-    {"get_resource", 2, get_resource}
+    {"get_resource", 2, get_resource},
 #ifdef HAVE_ENIF_MONITOR_PROCESS
-    ,{"monitor_process", 3, monitor_process}
+    {"monitor_process", 3, monitor_process},
 #endif
+    /* Keep lib_version_check last to maximize the loading "patch distance"
+       between it and lib_version */
+    {"lib_version_check", 0, lib_version}
 };
 
 #if NIF_LIB_VER != 3

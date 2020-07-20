@@ -648,6 +648,6 @@ i_load_nif() {
         SWAPOUT;
         c_p->current = NULL;
         c_p->arity = 2;
-        goto do_schedule;
+        goto context_switch3;
     }
 }
