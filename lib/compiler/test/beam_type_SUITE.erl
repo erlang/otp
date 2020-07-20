@@ -25,7 +25,7 @@
 	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
-         none_argument/1]).
+         none_argument/1,success_type_oscillation/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -51,7 +51,8 @@ groups() ->
        cover_lists_functions,
        list_append,
        bad_binary_unit,
-       none_argument
+       none_argument,
+       success_type_oscillation
       ]}].
 
 init_per_suite(Config) ->
@@ -563,6 +564,37 @@ uncompress(CompressedBinary) ->
     %% The type for CompressedBinary is none, which beam_ssa_type
     %% did not handle properly.
     zlib:uncompress(CompressedBinary).
+
+%% ERL-1289: The compiler could enter an endless loop when a return/argument
+%% type pairing was joined with another.
+%%
+%% While this always resulted in correct success types, the joined argument
+%% types could now cover more cases than they did before, making the effective
+%% return type less specific. When a function affected by this was analyzed
+%% again its success typing could become more specific again and start the
+%% process anew.
+success_type_oscillation(_Config) ->
+    Base = {a, []},
+
+    Base = sto_1(id(case_1_1)),
+    Base = sto_1(id(case_2_1)),
+    {b, [Base]} = sto_1(id(case_2_2)),
+
+    ok.
+
+sto_1(case_1_1) -> {a, []};
+sto_1(case_1_2) -> {a, []};
+sto_1(case_2_1) -> sto_1(case_1_1);
+sto_1(case_2_2) -> {b, [sto_1(case_1_1)]};
+sto_1(case_2_3) -> {b, [sto_1(case_1_1)]};
+sto_1(case_2_4) -> {b, [sto_1(case_1_2)]};
+sto_1(case_3_1) -> {b, [sto_1(case_2_1)]};
+sto_1(case_3_2) -> {b, [sto_1(case_2_2)]};
+sto_1(case_3_3) -> {b, [sto_1(case_2_3)]};
+sto_1(case_3_4) -> {b, [sto_1(case_2_4)]};
+sto_1(case_4_1) -> {b, [sto_1(case_3_1)]};
+sto_1(case_4_2) -> {b, [sto_1(case_3_2)]};
+sto_1(step_4_3) -> {b, [sto_1(case_3_3)]}.
 
 id(I) ->
     I.
