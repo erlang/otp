@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When calls to <c>is_map_key</c> were repeated, the
+	    compiler could terminate with an internal consistency
+	    failure.</p>
+          <p>
+	    Own Id: OTP-16708 Aux Id: ERL-1276 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the type inference pass that could
+	    cause the compiler to hang.</p>
+          <p>
+	    Own Id: OTP-16745 Aux Id: ERL-1289 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
