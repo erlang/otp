@@ -102,7 +102,7 @@ static void *thr_wrapper(void *vtwd)
 
     ethr_set_stacklimit__(&c, twd->stacksize);
 
-    result = (ethr_sint32_t) ethr_make_ts_event__(&tsep);
+    result = (ethr_sint32_t) ethr_make_ts_event__(&tsep, 0);
 
     if (result == 0) {
 	tsep->iflgs |= ETHR_TS_EV_ETHREAD;
@@ -335,7 +335,6 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 #endif
 
     ethr_atomic32_init(&twd.result, (ethr_sint32_t) -1);
-    twd.tse = ethr_get_ts_event();
     twd.thr_func = func;
     twd.arg = arg;
     twd.stacksize = 0;
@@ -363,6 +362,8 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     res = pthread_attr_init(&attr);
     if (res != 0)
 	return res;
+
+    twd.tse = ethr_get_ts_event();
 
     /* Error cleanup needed after this point */
 
@@ -444,6 +445,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     /* Cleanup... */
 
  error:
+    ethr_leave_ts_event(twd.tse);
     dres = pthread_attr_destroy(&attr);
     if (res == 0)
 	res = dres;
@@ -533,10 +535,33 @@ ethr_equal_tids(ethr_tid tid1, ethr_tid tid2)
     return pthread_equal((pthread_t) tid1, (pthread_t) tid2);
 }
 
-
 /*
  * Thread specific events
  */
+
+ethr_ts_event *
+ethr_lookup_ts_event__(int busy_dup)
+{
+    return ethr_lookup_ts_event____(busy_dup);
+}
+
+ethr_ts_event *
+ethr_peek_ts_event(void)
+{
+    return ethr_peek_ts_event__();
+}
+
+void
+ethr_unpeek_ts_event(ethr_ts_event *tsep)
+{
+    ethr_unpeek_ts_event__(tsep);
+}
+
+ethr_ts_event *
+ethr_use_ts_event(ethr_ts_event *tsep)
+{
+    return ethr_use_ts_event__(tsep);
+}
 
 ethr_ts_event *
 ethr_get_ts_event(void)

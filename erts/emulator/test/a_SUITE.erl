@@ -30,13 +30,14 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
-	 leaked_processes/1, long_timers/1, pollset_size/1]).
+	 leaked_processes/1, long_timers/1, pollset_size/1,
+         used_thread_specific_events/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [leaked_processes, long_timers, pollset_size].
+    [leaked_processes, long_timers, pollset_size, used_thread_specific_events].
 
 %% Start some system servers now to avoid having them
 %% reported as leaks.
@@ -94,6 +95,25 @@ pollset_size(Config) when is_list(Config) ->
     receive Go -> ok end,
     {comment, "Testcase started! This test will run in parallel with the "
      "erts testsuite and ends in the z_SUITE:pollset_size/1 testcase."}.
+
+used_thread_specific_events(Config) when is_list(Config) ->
+    Parent = self(),
+    Go = make_ref(),
+    spawn(fun () ->
+                  Name = used_thread_specific_events_holder,
+                  true = register(Name, self()),
+                  UsedTSE = erlang:system_info(ethread_used_tse),
+                  io:format("UsedTSE: ~p~n", [UsedTSE]),
+                  Parent ! Go,
+                  receive
+                      {get_used_tse, Pid} ->
+                          Pid ! {used_tse, UsedTSE}
+                  end
+          end),
+    receive Go -> ok end,
+    {comment, "Testcase started! This test will run in parallel with the "
+     "erts testsuite and ends in the z_SUITE:used_thread_specific_events/1 testcase."}.
+
 
 %%
 %% Internal functions...

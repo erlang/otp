@@ -3079,6 +3079,14 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     } else if (ERTS_IS_ATOM_STR("ethread_info", BIF_ARG_1)) {
 	BIF_RET(erts_get_ethread_info(BIF_P));
     }
+    else if (ERTS_IS_ATOM_STR("ethread_used_tse", BIF_ARG_1)) {
+        Uint64 no = (Uint64) ethr_no_used_tse();
+        Uint hsz = 0;
+        erts_bld_uint64(NULL, &hsz, no);
+        hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
+        res = erts_bld_uint64(&hp, NULL, no);
+        BIF_RET(res);
+    }
     else if (ERTS_IS_ATOM_STR("emu_args", BIF_ARG_1)) {
 	BIF_RET(erts_get_emu_args(BIF_P));
     }
