@@ -91,14 +91,17 @@ static void*
                                  &my_ussi, sizeof(my_ussi), NULL);
     else
         r = ei_connect_init(&ec, myname, cookie, 0);
+    fprintf(file, "r=%d\n", r); fflush(file);
     port = 0;
     listen = ei_listen(&ec, &port, 5);
     if (listen <= 0) {
 	fprintf(file, "listen err\n"); fflush(file);
 	exit(7);
     }
-    fprintf(file, "thread %d (%s:%s) listening on port %d\n", n, myname, destname, port);
-    if (ei_publish(&ec, port) == -1) {
+    fprintf(file, "thread %d (%s:%s) listening on port %d\n", n, myname, destname, port); fflush(file);
+    r = ei_publish(&ec, port);
+    fprintf(file, "r=%d\n", r); fflush(file);
+    if (r == -1) {
 	fprintf(file, "ei_publish port %d\n", port+n); fflush(file);
 	exit(8);
     }

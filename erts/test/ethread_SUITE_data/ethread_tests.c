@@ -217,16 +217,23 @@ create_join_thread_test(void)
  * Tests ethr_equal_tids.
  */
 
-#define ETT_THREADS 100000
+#define ETT_THREADS 1000
 
 static ethr_tid ett_tids[3];
 static ethr_mutex ett_mutex;
 static ethr_cond ett_cond;
 static int ett_terminate;
+static int ett_thread_go;
 
 static void *
 ett_thread(void *my_tid)
 {
+    ethr_mutex_lock(&ett_mutex);
+    while (!ett_thread_go) {
+	int res = ethr_cond_wait(&ett_cond, &ett_mutex);
+	ASSERT(res == 0);
+    }
+    ethr_mutex_unlock(&ett_mutex);
 
     ASSERT(!ethr_equal_tids(ethr_self(), ett_tids[0]));
     ASSERT(ethr_equal_tids(ethr_self(), *((ethr_tid *) my_tid)));
@@ -257,17 +264,35 @@ equal_tids_test(void)
     res = ethr_cond_init(&ett_cond);
     ASSERT(res == 0);
     ett_tids[0] = ethr_self();
+
+    ethr_mutex_lock(&ett_mutex);
+    ett_thread_go = 0;
+    ethr_mutex_unlock(&ett_mutex);
     
     res = ethr_thr_create(&ett_tids[1], ett_thread, (void *) &ett_tids[1], NULL);
     ASSERT(res == 0);
 
+    ethr_mutex_lock(&ett_mutex);
+    ett_thread_go = 1;
+    ethr_cond_signal(&ett_cond);
+    ethr_mutex_unlock(&ett_mutex);
+    
     ASSERT(ethr_equal_tids(ethr_self(), ett_tids[0]));
     ASSERT(!ethr_equal_tids(ethr_self(), ett_tids[1]));
 
     res = ethr_thr_join(ett_tids[1], NULL);
 
+    ethr_mutex_lock(&ett_mutex);
+    ett_thread_go = 0;
+    ethr_mutex_unlock(&ett_mutex);
+
     res = ethr_thr_create(&ett_tids[2], ett_thread, (void *) &ett_tids[2], NULL);
     ASSERT(res == 0);
+
+    ethr_mutex_lock(&ett_mutex);
+    ett_thread_go = 1;
+    ethr_cond_signal(&ett_cond);
+    ethr_mutex_unlock(&ett_mutex);
 
     ASSERT(ethr_equal_tids(ethr_self(), ett_tids[0]));
     ASSERT(!ethr_equal_tids(ethr_self(), ett_tids[1]));
@@ -294,8 +319,17 @@ equal_tids_test(void)
     ASSERT(!ethr_equal_tids(ett_tids[0], ett_tids[1]));
 
     for (i = 0; i < ETT_THREADS; i++) {
+        ethr_mutex_lock(&ett_mutex);
+        ett_thread_go = 0;
+        ethr_mutex_unlock(&ett_mutex);
+
 	res = ethr_thr_create(&ett_tids[2], ett_thread, (void*)&ett_tids[2], NULL);
 	ASSERT(res == 0);
+
+        ethr_mutex_lock(&ett_mutex);
+        ett_thread_go = 1;
+        ethr_cond_broadcast(&ett_cond);
+        ethr_mutex_unlock(&ett_mutex);
 
 	ASSERT(!ethr_equal_tids(ett_tids[0], ett_tids[2]));
 	ASSERT(!ethr_equal_tids(ett_tids[1], ett_tids[2]));

@@ -98,6 +98,7 @@ ei_threaded_accept(Config) when is_list(Config) ->
 
 ei_threaded_accept_do(Einode, SockImpl) ->
     N = 3,
+    wait_unreg_nodename(["eiacc0", "eiacc1", "eiacc2"], 10),
     start_einode(Einode, N, SockImpl),
     io:format("started eiaccnode"),
     TestServerPid = self(),
@@ -147,6 +148,27 @@ monitor_ei_process(Config) when is_list(Config) ->
          end,
     [] = flush(0, 1000),
     ok.
+
+wait_unreg_nodename([], _) ->
+    ok;
+wait_unreg_nodename(Names, 0) ->
+    ct:fail({name_not_unregistered, Names});
+wait_unreg_nodename(Names, N) ->
+    Registered = [X || {X,_} <- element(2,erl_epmd:names())],
+    case lists:foldl(fun (Name, Acc) ->
+                             case lists:member(Name, Registered) of
+                                 true -> [Name | Acc];
+                                 false -> Acc
+                             end
+                     end,
+                     [],
+                     Names) of
+        [] ->
+            ok;
+        NewNames ->
+            timer:sleep(1000),
+            waitfornode(NewNames,N-1)
+    end.
 
 waitfornode(String,0) ->
     io:format("~s never published itself.~n",[String]),
