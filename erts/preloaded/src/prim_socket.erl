@@ -27,7 +27,7 @@
 -export(
    [encode_path/1, encode_sockaddr/1,
     info/0, info/1,
-    debug/1, socket_debug/1,
+    debug/1, socket_debug/1, use_registry/1,
     supports/0, supports/1, supports/2,
     open/2, open/4,
     bind/2, bind/3,
@@ -66,6 +66,7 @@
 -define(ESOCK_SOCKADDR_IN6_DEFAULTS,
         (#{port => 0, addr => any,
            flowinfo => 0, scope_id => 0})).
+
 
 %% ===========================================================================
 %%
@@ -144,6 +145,7 @@
 -define(ESOCK_OPT_OTP_SNDCTRLBUF,      1007).
 -define(ESOCK_OPT_OTP_FD,              1008).
 -define(ESOCK_OPT_OTP_META,            1009).
+-define(ESOCK_OPT_OTP_USE_REGISTRY,    1010).
 %%
 -define(ESOCK_OPT_OTP_DOMAIN,          1999). % INTERNAL
 %%-define(ESOCK_OPT_OTP_TYPE,            1998). % INTERNAL
@@ -346,6 +348,7 @@
        ) band (bnot 16#FFFF)
       ) =:= 0)).
 
+
 %% ===========================================================================
 %% API for 'erl_init'
 %%
@@ -369,15 +372,38 @@ on_load(Extra) when is_map(Extra) ->
           atom_to_list(?MODULE),
           case DebugFilename of
               false ->
-                  Extra#{registry => Pid};
+                  case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
+                      "true" ->
+                          Extra#{registry     => Pid,
+                                 use_registry => true};
+                      "false" ->
+                          Extra#{registry     => Pid,
+                                 use_registry => false};
+                      _ ->
+                          Extra#{registry => Pid}
+                  end;
               _ ->
-                  Extra
-                      #{registry => Pid,
-                        debug => true,
-                        socket_debug => true,
-                        debug_filename =>
-                            encode_path(DebugFilename)}
+                  case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
+                      "true" ->
+                          Extra#{registry       => Pid,
+                                 use_registry   => true,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)};
+                      "false" ->
+                          Extra#{registry       => Pid,
+                                 use_registry   => false,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)};
+                      _ ->
+                          Extra#{registry       => Pid,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)}
+                  end
           end).
+
 
 %% ===========================================================================
 %% API for 'socket'
@@ -392,6 +418,7 @@ encode_path(Path) ->
 
 encode_sockaddr(SockAddr) ->
     enc_sockaddr(SockAddr).
+
 
 %% ----------------------------------
 
@@ -409,6 +436,11 @@ debug(D) ->
 
 socket_debug(D) ->
     nif_command(#{command => ?FUNCTION_NAME, data => D}).
+
+
+use_registry(D) ->
+    nif_command(#{command => ?FUNCTION_NAME, data => D}).
+
 
 %% ----------------------------------
 
@@ -758,6 +790,7 @@ enc_sockopt_type(otp = Level, Opt) ->
         sndctrlbuf ->   {buf,           L, ?ESOCK_OPT_OTP_SNDCTRLBUF};
         fd ->           {undefined,     L, ?ESOCK_OPT_OTP_FD};
         meta ->         {term,          L, ?ESOCK_OPT_OTP_META};
+        use_registry -> {boolean,       L, ?ESOCK_OPT_OTP_USE_REGISTRY};
         domain ->       {undefined,     L, ?ESOCK_OPT_OTP_DOMAIN};
         _ ->
             not_supported(Level, Opt)
@@ -1294,6 +1327,7 @@ invalid(What, Info) ->
 
 err(Reason) ->
     erlang:error(Reason).
+
 
 %% ===========================================================================
 %% NIF functions
