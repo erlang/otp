@@ -26,7 +26,8 @@
 -export([listen/3,
          connect/4, connect/5,
          inet_backend_opts/1,
-         explicit_inet_backend/0]).
+         explicit_inet_backend/0,
+         test_inet_backends/0]).
 -export([f/2,
          print/1, print/2]).
 -export([good_hosts/1,
@@ -1719,6 +1720,20 @@ explicit_inet_backend() ->
             false
     end.
 
+
+test_inet_backends() ->
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keysearch(test_inet_backends, 1, Env) of
+                {value, {test_inet_backends, true}} ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

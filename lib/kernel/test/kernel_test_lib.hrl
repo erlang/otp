@@ -40,6 +40,7 @@
         ?LIB:connect(__C__, __H__, __P__, __O__, __T__)).
 -define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
 -define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
+-define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
 
 -define(F(FORMAT, ARGS),         ?LIB:f(FORMAT, ARGS)).
 -define(P(F),                    ?LIB:print(F)).

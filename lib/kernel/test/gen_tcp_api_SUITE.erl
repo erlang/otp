@@ -57,19 +57,25 @@ suite() ->
      {timetrap,{minutes,1}}
     ].
 
-all() -> 
-    [
-     {group, inet_backend_default},
-     {group, inet_backend_inet},
-     {group, inet_backend_socket},
-     %% {group, t_accept},
-     %% {group, t_connect},
-     %% {group, t_recv},
-     %% {group, t_shutdown},
-     %% {group, t_misc},
-     %% {group, t_local},
-     {group, s_misc}
-    ].
+all() ->
+    %% This is a temporary messure to ensure that we can 
+    %% test the socket backend without effecting *all*
+    %% applications on *all* machines.
+    %% This flag is set only for *one* host.
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket},
+             {group, s_misc}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default},
+             {group, s_misc}
+            ]
+    end.
 
 groups() -> 
     [
