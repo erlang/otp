@@ -71,25 +71,21 @@ usage() ->
     io:put_chars(S),
     halt(1).
 
-opts(["--"++Opt|Args], Opts0) ->
-    Opts = opt(Opt, Opts0),
-    opts(Args, Opts);
+opts(["--asm"|Args], Opts) ->
+    opts(Args, Opts#{format:=asm});
+opts(["--dis"|Args], Opts) ->
+    opts(Args, Opts#{format:=dis});
+opts(["--legacy-asm"|Args], Opts) ->
+    opts(Args, Opts#{format:=asm,legacy:=true});
+opts(["--no-compile"|Args], Opts) ->
+    opts(Args, Opts#{format:=dis,no_compile:=true});
+opts(["--deterministic"|Args], Opts) ->
+    opts(Args, Opts#{deterministic:=[deterministic]});
+opts(["--"++Opt|_], _Opts) ->
+    io:format("Uknown option: --~ts\n\n", [Opt]),
+    usage();
 opts(Args, Opts) ->
     {Args,Opts}.
-
-opt("asm", Opts) ->
-    Opts#{format:=asm};
-opt("dis", Opts) ->
-    Opts#{format:=dis};
-opt("legacy-asm", Opts) ->
-    Opts#{format:=asm,legacy:=true};
-opt("no-compile", Opts) ->
-    Opts#{format:=dis,no_compile:=true};
-opt("deterministic", Opts) ->
-    Opts#{deterministic:=[deterministic]};
-opt(Opt, _Opts) ->
-    io:format("Uknown option: --~ts\n\n", [Opt]),
-    usage().
 
 do_compile(OutDir, Opts0) ->
     Opts1 = Opts0#{outdir=>OutDir},
