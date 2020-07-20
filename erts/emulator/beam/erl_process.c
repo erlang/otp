@@ -3000,8 +3000,10 @@ sched_set_sleeptype(ErtsSchedulerSleepInfo *ssi, erts_aint32_t sleep_type)
     erts_aint32_t nflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING|sleep_type;
     erts_aint32_t xflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING;
 
-    if (sleep_type == ERTS_SSI_FLG_TSE_SLEEPING)
+    if (sleep_type == ERTS_SSI_FLG_TSE_SLEEPING) {
+        erts_tse_use(ssi->event);
 	erts_tse_reset(ssi->event);
+    }
     else {
 	ASSERT(sleep_type == ERTS_SSI_FLG_POLL_SLEEPING);
         erts_check_io_interrupt(ssi->psi, 0);
@@ -3045,6 +3047,7 @@ thr_prgr_wait(void *vssi)
     ErtsSchedulerSleepInfo *ssi = (ErtsSchedulerSleepInfo *) vssi;
     erts_aint32_t xflgs = ERTS_SSI_FLG_SLEEPING;
 
+    erts_tse_use(ssi->event);
     erts_tse_reset(ssi->event);
 
     while (1) {
@@ -3059,6 +3062,7 @@ thr_prgr_wait(void *vssi)
 	    break;
 	xflgs = aflgs;
     }
+    erts_tse_return(ssi->event);
 }
 
 static void
@@ -3098,6 +3102,7 @@ aux_thread(void *unused)
 
     erts_port_task_pre_alloc_init_thread();
     ssi->event = erts_tse_fetch();
+    erts_tse_return(ssi->event);
 
     erts_msacc_init_thread("aux", 1, 1);
 
@@ -3176,6 +3181,7 @@ aux_thread(void *unused)
                     } while (res == EINTR);
                     ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 		}
+                erts_tse_return(ssi->event);
             }
             erts_thr_progress_finalize_wait(tpd);
 #endif
@@ -3208,6 +3214,7 @@ poll_thread(void *arg)
 
     erts_port_task_pre_alloc_init_thread();
     ssi->event = erts_tse_fetch();
+    erts_tse_return(ssi->event);
 
     erts_msacc_init_thread("poll", id, 0);
 
@@ -3488,6 +3495,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
                                 erts_get_monotonic_time(esdp);
                         } while (res == EINTR);
                     }
+                    erts_tse_return(ssi->event);
                 }
                 if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
                     erts_thr_progress_finalize_wait(erts_thr_prgr_data(esdp));
@@ -7158,6 +7166,7 @@ sched_set_suspended_sleeptype(ErtsSchedulerSleepInfo *ssi,
 			   | ERTS_SSI_FLG_SUSPENDED);
 
     ASSERT(sleep_type == ERTS_SSI_FLG_TSE_SLEEPING);
+    erts_tse_use(ssi->event);
     erts_tse_reset(ssi->event);
 
     while (1) {
@@ -7516,6 +7525,7 @@ suspend_scheduler_sleep(ErtsSchedulerData *esdp,
                 }
             }
         }
+        erts_tse_return(ssi->event);
     }
 }
 
@@ -8459,6 +8469,7 @@ sched_thread_func(void *vesdp)
     tse = erts_tse_fetch();
     erts_tse_prepare_timed(tse);
     ERTS_SCHED_SLEEP_INFO_IX(no - 1)->event = tse;
+    erts_tse_return(tse);
     callbacks.arg = (void *) esdp->ssi;
     callbacks.wakeup = thr_prgr_wakeup;
     callbacks.prepare_wait = thr_prgr_prep_wait;
@@ -8523,6 +8534,7 @@ sched_dirty_cpu_thread_func(void *vesdp)
     Uint no = esdp->dirty_no;
     ASSERT(no != 0);
     ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(no-1)->event = erts_tse_fetch();
+    erts_tse_return(ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(no-1)->event);
     callbacks.arg = (void *) esdp->ssi;
     callbacks.wakeup = thr_prgr_wakeup;
     callbacks.prepare_wait = NULL;
@@ -8569,6 +8581,7 @@ sched_dirty_io_thread_func(void *vesdp)
     Uint no = esdp->dirty_no;
     ASSERT(no != 0);
     ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(no-1)->event = erts_tse_fetch();
+    erts_tse_return(ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(no-1)->event);
     callbacks.arg = (void *) esdp->ssi;
     callbacks.wakeup = thr_prgr_wakeup;
     callbacks.prepare_wait = NULL;

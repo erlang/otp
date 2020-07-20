@@ -293,7 +293,8 @@ ethr_late_init_common__(ethr_late_init_data *lid)
     res = init_ts_event_alloc();
     if (res != 0)
 	return res;
-    res = ethr_make_ts_event__(&tsep);
+    
+    res = ethr_make_ts_event__(&tsep, 0);
     if (res == 0)
 	tsep->iflgs |= ETHR_TS_EV_ETHREAD;
     if (!lid) {
@@ -435,8 +436,9 @@ typedef union {
     char align[ETHR_CACHE_LINE_ALIGN_SIZE(sizeof(ethr_ts_event))];
 } ethr_aligned_ts_event;
 
-static ethr_spinlock_t ts_ev_alloc_lock;
+static ethr_mutex ts_ev_alloc_lock;
 static ethr_ts_event *free_ts_ev;
+static ethr_sint64_t used_events;
 
 static ethr_ts_event *ts_event_pool(int size, ethr_ts_event **endpp)
 {
@@ -465,34 +467,38 @@ static ethr_ts_event *ts_event_pool(int size, ethr_ts_event **endpp)
 
 static int init_ts_event_alloc(void)
 {
+    used_events = 0;
     free_ts_ev = ts_event_pool(ERTS_TS_EV_ALLOC_DEFAULT_POOL_SIZE,
 			       NULL);
     if (!free_ts_ev)
 	return ENOMEM;
-    return ethr_spinlock_init(&ts_ev_alloc_lock);
+    return ethr_mutex_init(&ts_ev_alloc_lock);
 }
 
 static ethr_ts_event *ts_event_alloc(void)
 {
     ethr_ts_event *ts_ev;
-    ethr_spin_lock(&ts_ev_alloc_lock);
+    ethr_mutex_lock(&ts_ev_alloc_lock);
+    ETHR_ASSERT(used_events >= 0);
     if (free_ts_ev) {
 	ts_ev = free_ts_ev;
 	free_ts_ev = ts_ev->next;
-	ethr_spin_unlock(&ts_ev_alloc_lock);
+        used_events++;
+	ethr_mutex_unlock(&ts_ev_alloc_lock);
     }
     else {
 	ethr_ts_event *ts_ev_pool_end;
-	ethr_spin_unlock(&ts_ev_alloc_lock);
+	ethr_mutex_unlock(&ts_ev_alloc_lock);
 
 	ts_ev = ts_event_pool(ERTS_TS_EV_ALLOC_POOL_SIZE, &ts_ev_pool_end);
 	if (!ts_ev)
 	    return NULL;
 
-	ethr_spin_lock(&ts_ev_alloc_lock);
+	ethr_mutex_lock(&ts_ev_alloc_lock);
 	ts_ev_pool_end->next = free_ts_ev;
 	free_ts_ev = ts_ev->next;
-	ethr_spin_unlock(&ts_ev_alloc_lock);
+        used_events++;
+	ethr_mutex_unlock(&ts_ev_alloc_lock);
     }
     return ts_ev;
 }
@@ -500,69 +506,71 @@ static ethr_ts_event *ts_event_alloc(void)
 static void ts_event_free(ethr_ts_event *ts_ev)
 {
     ETHR_ASSERT(!ts_ev->udata);
-    ethr_spin_lock(&ts_ev_alloc_lock);
+    ethr_mutex_lock(&ts_ev_alloc_lock);
+    ETHR_ASSERT(used_events > 0);
+    used_events--;
     ts_ev->next = free_ts_ev;
     free_ts_ev = ts_ev;
-    ethr_spin_unlock(&ts_ev_alloc_lock);
+    ethr_mutex_unlock(&ts_ev_alloc_lock);
 }
 
-int ethr_make_ts_event__(ethr_ts_event **tsepp)
+static void
+init_ts_event_flags(ethr_ts_event **tsepp)
 {
-    int res;
     ethr_ts_event *tsep = *tsepp;
-
-    if (!tsep) {
-	tsep = ts_event_alloc();
-	if (!tsep)
-	    return ENOMEM;
-    }
-
-    if ((tsep->iflgs & ETHR_TS_EV_INITED) == 0) {
-	res = ethr_event_init(&tsep->event);
-	if (res != 0) {
-	    ts_event_free(tsep);
-	    return res;
-	}
-    }
-
     tsep->iflgs = ETHR_TS_EV_INITED;
     tsep->udata = NULL;
     tsep->rgix = 0;
     tsep->mtix = 0;
-
-    res = ethr_set_tse__(tsep);
-    if (res != 0 && tsepp && *tsepp) {
-	ts_event_free(tsep);
-	return res;
-    }
-
-    if (tsepp)
-	*tsepp = tsep;
-
-    return 0;
 }
 
-int ethr_get_tmp_ts_event__(ethr_ts_event **tsepp)
+ethr_sint64_t
+ethr_no_used_tse(void)
+{
+    ethr_sint64_t res;
+    ethr_mutex_lock(&ts_ev_alloc_lock);
+    ETHR_ASSERT(used_events >= 0);
+    res = used_events;
+    ethr_mutex_unlock(&ts_ev_alloc_lock);
+    return res;
+}
+
+
+int ethr_make_ts_event__(ethr_ts_event **tsepp, int tmp)
 {
     int res;
-    ethr_ts_event *tsep = *tsepp;
+    ethr_ts_event *tsep;
 
-    if (!tsep) {
-	tsep = ts_event_alloc();
-	if (!tsep)
-	    return ENOMEM;
+    tsep = ts_event_alloc();
+    if (!tsep)
+        return ENOMEM;
+
+    if (*tsepp) {
+        *tsep = **tsepp;
+	ETHR_ASSERT(tsep->iflgs & ETHR_TS_EV_BUSY);
+        tsep->iflgs &= ~ETHR_TS_EV_BUSY;
+        tsep->iflgs |= ETHR_TS_EV_TMP;
     }
+    else {
+        init_ts_event_flags(&tsep);
 
-    if ((tsep->iflgs & ETHR_TS_EV_INITED) == 0) {
-	res = ethr_event_init(&tsep->event);
-	if (res != 0) {
-	    ts_event_free(tsep);
-	    return res;
-	}
+        if (tmp) {
+            tsep->iflgs |= ETHR_TS_EV_TMP;
+        }
+        else {
+            res = ethr_set_tse__(tsep);
+            if (res != 0 && tsepp && *tsepp) {
+                ts_event_free(tsep);
+                return res;
+            }
+        }
     }
-
-    tsep->iflgs = ETHR_TS_EV_INITED|ETHR_TS_EV_TMP;
-    tsep->udata = NULL;
+    
+    res = ethr_event_init(&tsep->event);
+    if (res != 0) {
+        ts_event_free(tsep);
+        return res;
+    }
 
     if (tsepp)
 	*tsepp = tsep;
@@ -572,8 +580,10 @@ int ethr_get_tmp_ts_event__(ethr_ts_event **tsepp)
 
 int ethr_free_ts_event__(ethr_ts_event *tsep)
 {
-    ts_event_free(tsep);
-    return 0;
+    int res = ethr_event_destroy(&tsep->event);
+    if (res == 0)
+        ts_event_free(tsep);
+    return res;
 }
 
 void ethr_ts_event_destructor__(void *vtsep)

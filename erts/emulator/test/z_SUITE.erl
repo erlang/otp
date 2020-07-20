@@ -34,7 +34,8 @@
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
--export([schedulers_alive/1, node_container_refc_check/1,
+-export([used_thread_specific_events/1, schedulers_alive/1,
+         node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
 	 check_io_debug/1, get_check_io_info/0,
          lc_graph/1,
@@ -46,7 +47,8 @@ suite() ->
      {timetrap, {minutes, 5}}].
 
 all() -> 
-    [schedulers_alive, node_container_refc_check,
+    [used_thread_specific_events, schedulers_alive,
+     node_container_refc_check,
      long_timers, pollset_size, check_io_debug,
      lc_graph,
      %% Make sure that the leaked_processes/1 is always
@@ -71,6 +73,36 @@ end_per_testcase(_Name, Config) ->
 %%%
 %%% The test cases -------------------------------------------------------------
 %%%
+
+used_thread_specific_events(Config) when is_list(Config) ->
+    Pid = whereis(used_thread_specific_events_holder),
+    Mon = monitor(process, Pid),
+    Pid ! {get_used_tse, self()},
+    UsedTSE = erlang:system_info(ethread_used_tse),
+    receive
+        {used_tse, InitialUsedTSE} ->
+            io:format("InitialUsedTSE=~p UsedTSE=~p~n", [InitialUsedTSE, UsedTSE]),
+            case os:type() of
+                {win32,_} ->
+                    %% The windows poll implementation creates threads on demand
+                    %% which in turn will get thread specific events allocated.
+                    %% We don't know how many such threads are created, so we
+                    %% just have to guess and test that the amount of events is
+                    %% not huge.
+                    Extra = 100, %% Value take out of the blue...
+                    if UsedTSE =< InitialUsedTSE+Extra -> ok;
+                       true -> ct:fail("An unexpected large amount of thread specific events used!")
+                    end;
+                _ ->
+                    if UsedTSE =< InitialUsedTSE -> ok;
+                       true -> ct:fail("An increased amount of thread specific events used!")
+                    end
+            end,
+            exit(Pid, kill),
+            receive {'DOWN', Mon, process, Pid, _} -> ok end;
+        {'DOWN', Mon, process, Pid, Reason} ->
+            ct:fail({used_thread_specific_events_holder, Reason})
+    end.
 
 %% Tests that all schedulers are actually used
 schedulers_alive(Config) when is_list(Config) ->
