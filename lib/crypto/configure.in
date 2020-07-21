@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2018. All Rights Reserved.
+dnl Copyright Ericsson AB 2018-2020. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -176,6 +176,15 @@ AS_HELP_STRING([--disable-dynamic-ssl-lib],
     no) enable_dynamic_ssl=no ;;
     *)  enable_dynamic_ssl=yes ;;
   esac ], enable_dynamic_ssl=yes)
+
+AC_ARG_ENABLE(evp-dh,
+AS_HELP_STRING([--disable-evp-dh],
+	       [intentionally undocumented workaround]),
+[ case "$enableval" in
+    no)   DISABLE_EVP_DH=1;;
+    *)    DISABLE_EVP_DH=0;;
+  esac ], DISABLE_EVP_DH=0)
+
 
 #----------------------------------------------------------------------
 # We actually might do the SSL tests twice due to late discovery of 
@@ -778,6 +787,7 @@ AC_SUBST(SSL_LINK_WITH_KERBEROS)
 AC_SUBST(STATIC_KERBEROS_LIBS)
 AC_SUBST(SSL_LINK_WITH_ZLIB)
 AC_SUBST(STATIC_ZLIB_LIBS)
+AC_SUBST(DISABLE_EVP_DH)
 
 AC_OUTPUT(c_src/$host/Makefile:c_src/Makefile.in)
 

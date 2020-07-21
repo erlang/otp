@@ -36,7 +36,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     int pub_len, prv_len;
     ERL_NIF_TERM ret_pub, ret_prv, ret;
     const BIGNUM *pub_key_gen, *priv_key_gen;
-#ifdef HAS_EVP_PKEY_CTX
+#if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_DH)
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *dhkey = NULL, *params = NULL;
 #endif
@@ -100,7 +100,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             goto bad_arg;
     }
 
-#ifdef HAS_EVP_PKEY_CTX
+#if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_DH)
     if ((params = EVP_PKEY_new()) == NULL)
         goto err;
 
@@ -178,7 +178,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (dh_params)
         DH_free(dh_params);
 
-#ifdef HAS_EVP_PKEY_CTX
+#if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_DH)
     if (ctx)
         EVP_PKEY_CTX_free(ctx);
     if (dhkey)
