@@ -119,7 +119,7 @@ own_alert_txt(#alert{level = Level, description = Description, where = #{line :=
 
 alert_format(Alert) ->
     Txt = alert_txt(Alert),
-    {" ~s\n ", [Txt]}.
+    {" ~s\n", [Txt]}.
 
 alert_txt(#alert{level = Level, description = Description, role = Role}) ->
     "received " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
