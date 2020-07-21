@@ -185,21 +185,41 @@ next_record(_, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []
 next_record(_, State) ->
     {no_record, State}.
 
-
+flow_ctrl(#state{user_data_buffer = {_,Size,_},
+                 socket_options = #socket_options{active = false,
+                                                  packet = Packet},
+                 bytes_to_read = undefined} = State)  when ((Packet =/= 0) orelse (Packet =/= raw))
+                                                           andalso Size =/= 0 ->
+    %% We need more data to complete the packet.
+    activate_socket(State);
+flow_ctrl(#state{user_data_buffer = {_,Size,_},
+                 socket_options = #socket_options{active = false,
+                                                  packet = Packet},
+                 bytes_to_read = BytesToRead} = State)  when ((Packet =/= 0) orelse (Packet =/= raw)) ->
+    case (Size >= BytesToRead andalso Size =/= 0) of
+        true -> %% There is enough data bufferd
+            {no_record, State};
+        false -> %% We need more data to complete the packet of <BytesToRead> size
+            activate_socket(State)
+    end;
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
                  bytes_to_read = undefined} = State)  when Size =/= 0 ->
+    %% Passive mode wait for new recv request
     {no_record, State};
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
                  bytes_to_read = 0} = State)  when Size =/= 0 ->
-    {no_record, State};
+    %% Passive mode no available bytes, get some
+    activate_socket(State);
 flow_ctrl(#state{user_data_buffer = {_,Size,_}, 
                  socket_options = #socket_options{active = false},
                  bytes_to_read = BytesToRead} = State) when (Size >= BytesToRead) andalso
                                                             (BytesToRead > 0) ->
+    %% There is enough data bufferd
     {no_record, State};
 flow_ctrl(State) ->
+    %% Active mode
     activate_socket(State).
 
 
