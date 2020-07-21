@@ -184,7 +184,7 @@ ethr_rwmutex_set_reader_group(int ix)
 
     tse = ethr_get_ts_event();
 
-    if ((tse->iflgs & ETHR_TS_EV_ETHREAD) == 0) {
+    if ((tse->iflgs & (ETHR_TS_EV_ETHREAD|ETHR_TS_EV_TMP)) == 0) {
 	ethr_leave_ts_event(tse);
 	return EINVAL;
     }
@@ -419,6 +419,8 @@ event_wait(struct ethr_mutex_base_ *mtxb,
     int need_try_complete_runlock = 0;
     int transfer_read_lock = 0;
 
+    ETHR_ASSERT(tse->iflgs & ETHR_TS_EV_BUSY);
+    
     /* Need to enqueue and wait... */
 
     tse->uflgs = type;
@@ -683,7 +685,7 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
 		ethr_rwmutex *rwmtx = (ethr_rwmutex *) mtxb;
 		scnt--;
 		if (!tse)
-		    tse = ethr_get_ts_event();
+		    tse = ethr_peek_ts_event();
 		res = rwmutex_try_complete_runlock(rwmtx, act,
 						   tse, 0, 0,
 						   1);
@@ -702,10 +704,12 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
 		scnt = 0;
 
 		if (!tse)
-		    tse = ethr_get_ts_event();
+		    tse = ethr_peek_ts_event();
 		if (update_spincount(mtxb, tse, &start_scnt, &scnt)) {
-		    event_wait(mtxb, tse, scnt, ETHR_RWMTX_W_WAIT_FLG__,
+                    ethr_ts_event *tmp_tse = ethr_use_ts_event(tse);
+		    event_wait(mtxb, tmp_tse, scnt, ETHR_RWMTX_W_WAIT_FLG__,
 			       is_rwmtx, is_freq_read);
+                    ethr_leave_ts_event(tmp_tse);
 		    goto done;
 		}
 	    }
@@ -727,7 +731,7 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
 
  done:
     if (tse)
-	ethr_leave_ts_event(tse);
+	ethr_unpeek_ts_event(tse);
 }
 
 static int
@@ -1236,6 +1240,7 @@ ethr_cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
 	    }
 	    ETHR_ASSERT(act == ETHR_RWMTX_W_WAIT_FLG__);
 	}
+        ETHR_ASSERT(tse->iflgs & ETHR_TS_EV_BUSY);
 	ethr_event_swait(&tse->event, scnt);
 	/* swait result: 0 || EINTR */
 	woken = 1;
@@ -1976,7 +1981,7 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
 
     tse_tmp = tse;
     if (!tse_tmp)
-	tse_tmp = ethr_get_ts_event();
+	tse_tmp = ethr_peek_ts_event();
 
     if ((act & ETHR_RWMTX_WAIT_FLGS__) && (act & ~ETHR_RWMTX_WAIT_FLGS__) == 0)
 	goto check_waiters;
@@ -1996,7 +2001,7 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
     }
 
     if (!tse)
-	ethr_leave_ts_event(tse_tmp);
+	ethr_unpeek_ts_event(tse_tmp);
 
     if (check_before_try) {
 	res = check_readers_array(rwmtx, six, length);
@@ -2135,7 +2140,7 @@ rwmutex_normal_rlock_wait(ethr_rwmutex *rwmtx, ethr_sint32_t initial)
 {
     ethr_sint32_t act = initial, exp;
     int scnt, start_scnt;
-    ethr_ts_event *tse = NULL;
+    ethr_ts_event *tse = ethr_get_ts_event();
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
 
     start_scnt = scnt = initial_spincount(&rwmtx->mtxb);
@@ -2154,7 +2159,6 @@ rwmutex_normal_rlock_wait(ethr_rwmutex *rwmtx, ethr_sint32_t initial)
 
 	while (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_W_WAIT_FLG__)) {
 	    if (scnt <= 0) {
-		tse = ethr_get_ts_event();
 		if (update_spincount(&rwmtx->mtxb, tse, &start_scnt, &scnt)) {
 		    event_wait(&rwmtx->mtxb, tse, scnt,
 			       ETHR_RWMTX_R_WAIT_FLG__, 1, 0);
@@ -2183,8 +2187,7 @@ rwmutex_normal_rlock_wait(ethr_rwmutex *rwmtx, ethr_sint32_t initial)
     }
 
  done:
-    if (tse)
-	ethr_leave_ts_event(tse);
+    ethr_leave_ts_event(tse);
 }
 
 static void
@@ -2283,8 +2286,10 @@ rwmutex_freqread_rlock_wait(ethr_rwmutex *rwmtx,
 	while (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_W_WAIT_FLG__)) {
 	    if (scnt <= 0) {
 		if (update_spincount(&rwmtx->mtxb, tse, &start_scnt, &scnt)) {
-		    event_wait(&rwmtx->mtxb, tse, scnt,
+                    ethr_ts_event *tmp_tse = ethr_use_ts_event(tse);
+		    event_wait(&rwmtx->mtxb, tmp_tse, scnt,
 			       ETHR_RWMTX_R_WAIT_FLG__, 1, 1);
+                    ethr_leave_ts_event(tmp_tse);
 		    return; /* Got it */
 		}
 	    }
@@ -2799,9 +2804,9 @@ ethr_rwmutex_tryrlock(ethr_rwmutex *rwmtx)
 
     case ETHR_RWMUTEX_TYPE_FREQUENT_READ:
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ: {
-	ethr_ts_event *tse = ethr_get_ts_event();
+	ethr_ts_event *tse = ethr_peek_ts_event();
 	res = rwmutex_freqread_rlock(rwmtx, tse, 1);
-	ethr_leave_ts_event(tse);
+	ethr_unpeek_ts_event(tse);
 	break;
     }
     }
@@ -2859,9 +2864,9 @@ ethr_rwmutex_rlock(ethr_rwmutex *rwmtx)
 
     case ETHR_RWMUTEX_TYPE_FREQUENT_READ:
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ: {
-	ethr_ts_event *tse = ethr_get_ts_event();
+	ethr_ts_event *tse = ethr_peek_ts_event();
 	rwmutex_freqread_rlock(rwmtx, tse, 0);
-	ethr_leave_ts_event(tse);
+	ethr_unpeek_ts_event(tse);
 	break;
     }
     }
@@ -2901,7 +2906,7 @@ ethr_rwmutex_runlock(ethr_rwmutex *rwmtx)
 
     case ETHR_RWMUTEX_TYPE_FREQUENT_READ:
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ: {
-	ethr_ts_event *tse = ethr_get_ts_event();
+	ethr_ts_event *tse = ethr_peek_ts_event();
 
 	act = rwmutex_freqread_rdrs_dec_read_relb(rwmtx, tse);
 
@@ -2915,7 +2920,7 @@ ethr_rwmutex_runlock(ethr_rwmutex *rwmtx)
 		rwmutex_freqread_rdrs_dec_chk_wakeup(rwmtx, tse, act);
 	}
 
-	ethr_leave_ts_event(tse);
+	ethr_unpeek_ts_event(tse);
 	break;
     }
     }
