@@ -1345,6 +1345,8 @@ thr_progress_block(ErtsThrPrgrData *tpd, int wait)
 	    bc = erts_atomic32_read_acqb(&intrnl->misc.data.block_count);
 	}
     }
+
+    /* tse event returned in erts_thr_progress_unblock() */
     return bc;
 
 }
