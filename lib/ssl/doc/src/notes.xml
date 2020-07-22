@@ -776,6 +776,24 @@
 
 </section>
 
+<section><title>SSL 9.2.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Data deliver with ssl:recv/2,3 could fail for when using
+	    packet mode. This has been fixed by correcting the flow
+	    control handling of passive sockets when packet mode is
+	    used.</p>
+          <p>
+	    Own Id: OTP-16764</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2.3.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
