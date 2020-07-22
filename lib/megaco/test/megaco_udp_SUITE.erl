@@ -844,60 +844,134 @@ block_unblock_client_commands(TO, ServerPort, ServerHost) ->
 	       end},
 
      #{id   => 8,
+       desc => "Pre-Block info",
+       cmd  => fun(#{socket := Socket} = State) -> 
+                       p("Socket Info: "
+                         "~n      Port Info: ~p", [erlang:port_info(Socket)]),
+		       {ok, State}
+	       end},
+
+     #{id   => 9,
        desc => "Block",
        cmd  => fun(State) -> 
 		       client_block(State) 
 	       end},
 
-     #{id   => 9,
+     #{id   => 10,
+       desc => "Post-Block info",
+       cmd  => fun(#{socket := Socket} = State) ->
+                       Active =
+                           case inet:getopts(Socket, [active]) of
+                               {ok, [{active, Act}]} ->
+                                   Act;
+                               _ ->
+                                   undefined
+                           end,
+                       p("Socket Info: "
+                         "~n      Active:    ~p"
+                         "~n      Port Info: ~p",
+                         [Active, erlang:port_info(Socket)]),
+		       {ok, State}
+	       end},
+
+     #{id   => 11,
        desc => "Notify blocked",
        cmd  => fun(State) -> 
 		       client_notify_blocked(State) 
 	       end},
 
-     #{id   => 10,
+     #{id   => 12,
        desc => "Await nothing before unblocking",
-       cmd  => fun(State) -> 
-		       client_await_nothing(State, TO)
+       cmd  => fun(#{socket := Socket} = State) -> 
+                       Fail =
+                           fun(_) ->
+                                   Active =
+                                       case inet:getopts(Socket, [active]) of
+                                           {ok, [{active, Act}]} ->
+                                               Act;
+                                           _ ->
+                                               undefined
+                                       end,
+                                   p("Socket Info: "
+                                     "~n      Active:    ~p"
+                                     "~n      Port Info: ~p",
+                                     [Active, erlang:port_info(Socket)]),
+                                   ok
+                           end,
+		       client_await_nothing(State, Fail, TO)
 	       end},
 
-     #{id   => 11,
+     #{id   => 13,
+       desc => "Pre-Unblock info",
+       cmd  => fun(#{socket := Socket} = State) ->
+                       Active =
+                           case inet:getopts(Socket, [active]) of
+                               {ok, [{active, Act}]} ->
+                                   Act;
+                               _ ->
+                                   undefined
+                           end,
+                       p("Socket Info: "
+                         "~n      Active:    ~p"
+                         "~n      Port Info: ~p",
+                         [Active, erlang:port_info(Socket)]),
+		       {ok, State}
+	       end},
+
+     #{id   => 14,
        desc => "Unblock",
        cmd  => fun(State) -> 
 		       client_unblock(State) 
 	       end},
 
-     #{id   => 8,
+     #{id   => 15,
+       desc => "Post-Unblock info",
+       cmd  => fun(#{socket := Socket} = State) ->
+                       Active =
+                           case inet:getopts(Socket, [active]) of
+                               {ok, [{active, Act}]} ->
+                                   Act;
+                               _ ->
+                                   undefined
+                           end,
+                       p("Socket Info: "
+                         "~n      Active:    ~p"
+                         "~n      Port Info: ~p",
+                         [Active, erlang:port_info(Socket)]),
+		       {ok, State}
+	       end},
+
+     #{id   => 16,
        desc => "Await message (hejsan)",
        cmd  => fun(State) -> 
 		       client_await_message(State, "hejsan", TO)
 	       end},
 
-     #{id   => 9,
+     #{id   => 17,
        desc => "Send reply (hoppsan) to message",
        cmd  => fun(State) -> 
 		       client_send_message(State, "hoppsan") 
 	       end},
 
-     #{id   => 10,
+     #{id   => 18,
        desc => "Await nothing before closing",
        cmd  => fun(State) -> 
 		       client_await_nothing(State, TO)
 	       end},
 
-     #{id   => 11,
+     #{id   => 19,
        desc => "Close",
        cmd  => fun(State) -> 
 		       client_close(State) 
 	       end},
 
-     #{id   => 12,
+     #{id   => 20,
        desc => "Await nothing before stopping transport",
        cmd  => fun(State) -> 
 		       client_await_nothing(State, TO)
 	       end},
 
-     #{id   => 13,
+     #{id   => 21,
        desc => "Stop transport",
        cmd  => fun(State) -> 
 		       client_stop_transport(State) 
@@ -1098,7 +1172,8 @@ client_open(#{transport_ref := Ref} = State, Options)
     Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
     try megaco_udp:open(Ref, Opts) of
 	{ok, Socket, ControlPid} ->
-	    {ok, State#{handle      => {socket, Socket}, 
+	    {ok, State#{handle      => {socket, Socket},
+                        socket      => Socket,
 			control_pid => ControlPid}};
 	{error, {could_not_open_udp_port, eaddrinuse}} ->
 	    {skip, {client, eaddrinuse}};
@@ -1121,11 +1196,15 @@ client_notify_blocked(#{parent := Parent} = State) ->
     Parent ! {blocked, self()},
     {ok, State}.
 
-client_await_nothing(State, Timeout) 
-  when is_map(State) ->
+client_await_nothing(State, Timeout) ->
+    client_await_nothing(State, fun(_) -> ok end, Timeout).
+
+client_await_nothing(State, Fail, Timeout)
+  when is_map(State) andalso is_function(Fail, 1) ->
     receive 
 	Any ->
 	    p("received unexpected event: ~p", [Any]),
+            (catch Fail(Any)),
 	    {error, {unexpected_event, Any}}
     after Timeout ->
 	    {ok, State}
