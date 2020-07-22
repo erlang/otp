@@ -602,12 +602,18 @@ do_handle_info({Proto, Socket, Data},
     {noreply, State};
 
 %% The Server may close the connection to indicate that the
-%% whole body is now sent instead of sending an length
-%% indicator.
-do_handle_info({tcp_closed, _}, State = #state{mfa = {_, whole_body, Args}}) ->
-    handle_response(State#state{body = hd(Args)}); 
-do_handle_info({ssl_closed, _}, State = #state{mfa = {_, whole_body, Args}}) ->
-    handle_response(State#state{body = hd(Args)}); 
+%% whole body is now sent instead of sending a lengh
+%% indicator. In this case the lengh indicator will be
+%% -1.
+do_handle_info({Info, _}, State = #state{mfa = {_, whole_body, Args}})
+  when Info =:= tcp_closed orelse
+       Info =:= ssl_closed ->
+    case lists:last(Args) of
+        Length when Length =< 0 ->
+            handle_response(State#state{body = hd(Args)});
+        _Else ->
+            {stop, {shutdown, server_closed}, State}
+    end;
 
 %%% Server closes idle pipeline
 do_handle_info({tcp_closed, _}, State = #state{request = undefined}) ->
