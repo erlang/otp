@@ -52,6 +52,7 @@
 	 get_engine_boots/0, get_engine_time/0,
 	 set_engine_boots/1, set_engine_time/1,
 	 table_next/2, check_status/3]).
+-export([which_trap_transport/1, which_req_transport/1, which_transport/2]).
 -export([add_context/1, delete_context/1]).
 -export([check_agent/2, check_context/1, order_agent/2]).
 
@@ -193,46 +194,142 @@ check_context(Context) ->
 check_agent(Entry, undefined) ->
     check_agent(Entry, {snmp_target_mib:default_domain(), undefined});
 check_agent({intAgentTransportDomain, Domain}, {_, Port}) ->
+    ?vtrace("check_agent(intAgentTransportDomain) -> entry with"
+            "~n      Domain: ~p"
+            "~n   when"
+            "~n      Port:   ~p", [Domain, Port]),
     {snmp_conf:check_domain(Domain), {Domain, Port}};
 check_agent({intAgentUDPPort, Port}, {Domain, _}) ->
+    ?vtrace("check_agent(intAgentUDPPort) -> entry with"
+            "~n      Port:   ~p"
+            "~n   when"
+            "~n      Domain: ~p", [Port, Domain]),
     ok = snmp_conf:check_port(Port),
     {ok, {Domain, Port}};
 check_agent({intAgentIpAddress, _}, {_, undefined}) ->
     error({missing_mandatory, intAgentUDPPort});
 check_agent({intAgentIpAddress = Tag, Ip} = Entry, {Domain, Port} = State) ->
+    ?vtrace("check_agent(intAgentIpAddress) -> entry with"
+            "~n      Ip:     ~p"
+            "~n   when"
+            "~n      Domain: ~p"
+            "~n      Port:   ~p", [Ip, Domain, Port]),
     {case snmp_conf:check_ip(Domain, Ip) of
 	 ok ->
 	     [Entry,
-	      {intAgentTransports, [{Domain, {Ip, Port}}]}];
+	      {intAgentTransports, [{Domain, {Ip, Port}, all, []}]}];
 	 {ok, FixedIp} ->
+             ?vtrace("check_agent(intAgentIpAddress) -> Fixed IP:"
+                     "~n      ~p", [FixedIp]),
 	     [{Tag, FixedIp},
-	      {intAgentTransports, [{Domain, {FixedIp, Port}}]}]
+	      {intAgentTransports, [{Domain, {FixedIp, Port}, all, []}]}]
      end, State};
 check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State)
   when is_list(Transports) ->
+    ?vtrace("check_agent(intAgentTransports) -> entry when"
+            "~n      Port: ~p", [Port]),
+    CheckAddress =
+        fun(D, A, undefined) ->
+                snmp_conf:check_address(D, A);
+           (D, A, P) ->
+                snmp_conf:check_address(D, A, P)
+        end,
     CheckedTransports =
 	[case Transport of
 	     {Domain, Address} ->
-		 case
-		     case Port of
-			 undefined ->
-			     snmp_conf:check_address(Domain, Address);
-			 _ ->
-			     snmp_conf:check_address(Domain, Address, Port)
-		     end
-		 of
-		     ok ->
-			 Transport;
-		     {ok, FixedAddress} ->
-			 {Domain, FixedAddress}
-		 end;
+                 ?vtrace("check_agent(intAgentTransports) -> check transport: "
+                         "~n      Domain:  ~p"
+                         "~n      Address: ~p", [Domain, Address]),
+                 CheckedAddress =
+                     case CheckAddress(Domain, Address, Port) of
+                         ok ->
+                             Address;
+                         {ok, Address2} ->
+                             Address2
+                     end,
+                 ?vtrace("check_agent(intAgentTransports) -> checked address: "
+                         "~n      ~p", [CheckedAddress]),
+                 {Domain, CheckedAddress, all, []};
+
+	     {Domain, Address, Kind} ->
+                 ?vtrace("check_agent(intAgentTransports) -> check transport: "
+                         "~n      Domain:  ~p"
+                         "~n      Address: ~p"
+                         "~n      Kind:    ~p", [Domain, Address, Kind]),
+                 ok = snmp_conf:check_transport_kind(Kind),
+                 ?vtrace("check_agent(intAgentTransports) -> checked kind"),
+                 case snmp_conf:check_transport_address(Domain, Address) of
+                     true ->
+                         ?vtrace("check_agent(intAgentTransports) -> "
+                                 "checked transport address"),
+                         {Domain, Address, Kind, []};
+                     false ->
+                         ?vinfo("check_agent(intAgentTransports) -> "
+                                "invalid transport address: "
+                                "~n      ~p", [Address]),
+                         error({bad_transport_addr, Address})
+                 end;
+
+             {Domain, Address, Kind, Opts} ->
+                 ?vtrace("check_agent(intAgentTransports) -> check transport: "
+                         "~n      Domain:  ~p"
+                         "~n      Address: ~p"
+                         "~n      Kind:    ~p"
+                         "~n      Opts:    ~p", [Domain, Address, Kind, Opts]),
+                 ok = snmp_conf:check_transport_kind(Kind),
+                 ?vtrace("check_agent(intAgentTransports) -> checked kind"),
+                 CheckedOpts = 
+                     case snmp_conf:check_transport_opts(Opts) of
+                         ok ->
+                             Opts;
+                         {ok, Opts2} ->
+                             Opts2
+                     end,
+                 ?vtrace("check_agent(intAgentTransports) -> checked opts: "
+                         "~n      ~p", [CheckedOpts]),
+                 case snmp_conf:check_transport_address(Domain, Address) of
+                     true ->
+                         ?vtrace("check_agent(intAgentTransports) -> "
+                                 "checked transport address"),
+                         {Domain, Address, Kind, CheckedOpts};
+                     false ->
+                         ?vinfo("check_agent(intAgentTransports) -> "
+                                "invalid transport address: "
+                                "~n      ~p", [Address]),
+                         error({bad_transport_addr, Address})
+                 end;
 	     _ ->
-		 error({bad_transport, Transport})
+                 ?vinfo("check_agent(intAgentTransports) -> invalid transport:"
+                        "~n      ~p", [Transport]),
+                 error({bad_transport, Transport})
 	 end
 	 || Transport <- Transports],
+    validate_transports(CheckedTransports),
+    ?vtrace("check_agent(intAgentTransports) -> checked transports"),
     {{ok, {Tag, CheckedTransports}}, State};
 check_agent(Entry, State) ->
+    ?vtrace("check_agent -> entry when"
+            "~n      Entry: ~p", [Entry]),
     {check_agent(Entry), State}.
+
+%% Basically this is intended to check that there are no
+%% inconsistencies (between transports). Such as specifying
+%% both an old style transport (Kind = all) and transports
+%% with specified Kind:s (rep_responser or trap_sender).
+validate_transports(Transports) ->
+    validate_transports(Transports, false).
+
+validate_transports([] = _Transports, _All) ->
+    ok;
+validate_transports([{_Domain, _Addr, all, _Opts} | Transports], _All) ->
+    validate_transports(Transports, true);
+validate_transports([{_Domain, _Addr, Kind, _Opts} | _Transports], true)
+  when (Kind =/= all) ->
+    error({bad_transport_kind, Kind});
+validate_transports([{_Domain, _Addr, _Kind, _Opts} | Transports], All) ->
+    validate_transports(Transports, All).
+
+
 
 %% This one is kept for backwards compatibility
 check_agent({intAgentMaxPacketSize, Value}) -> 
@@ -268,7 +365,7 @@ init_vars(Vars) ->
 
 init_var({Var, Val}) ->
     ?vtrace("init var: "
-	    "~n   set ~w to ~w",[Var, Val]),
+	    "~n   set ~w to ~w", [Var, Val]),
     snmp_generic:variable_set(db(Var), Val).    
 
 init_tabs(Contexts) ->
@@ -432,6 +529,41 @@ intAgentTransports(Op) ->
     snmp_generic:variable_func(Op, db(intAgentTransports)).
 
 
+which_trap_transport(Domain) when (Domain =:= snmpUDPDomain) ->
+    case which_transport(Domain, all) of
+        {value, _} = VALUE ->
+            VALUE;
+        false ->
+            which_transport(transportDomainUdpIpv4, all)
+    end;
+which_trap_transport(Domain) ->
+    case which_transport(Domain, trap_sender) of
+        {value, _} = VALUE ->
+            VALUE;
+        false ->
+            which_transport(Domain, all)
+    end.
+
+which_req_transport(Domain) ->
+    which_transport(Domain, req_responder).
+
+which_transport(Domain, Kind) ->
+    {value, Transports} = intAgentTransports(get),
+    which_transport(Domain, Kind, Transports).
+
+which_transport(_Domain, _Kind, []) ->
+    false;
+which_transport(Domain, Kind,
+                [{Domain, _Addr, _Kind, _Opts} = Transport|_Transports])
+  when (Kind =:= all) ->
+    {value, Transport};
+which_transport(Domain, Kind,
+                [{Domain, _Addr, Kind, _Opts} = Transport|_Transports]) ->
+    {value, Transport};
+which_transport(Domain, Kind, [_Transport|Transports]) ->
+    which_transport(Domain, Kind, Transports).
+
+    
 
 snmpEngineID(print) ->
     VarAndValue = [{snmpEngineID, snmpEngineID(get)}],

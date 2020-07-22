@@ -920,13 +920,16 @@ send_v1_trap(
     do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime).
 
 do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
+    ?vtrace("try get transports"),
     {value, Transports} = snmp_framework_mib:intAgentTransports(get),
-    {_Domain, {AgentIp, _AgentPort}} =
+    ?vtrace("transports: "
+            "~n      ~p", [Transports]),
+    {_Domain, {AgentIp, _AgentPort}, _Kind, _Opts} =
 	case lists:keyfind(snmpUDPDomain, 1, Transports) of
 	    false ->
 		case lists:keyfind(transportDomainUdpIpv4, 1, Transports) of
 		    false ->
-			?vtrace(
+			?vlog(
 			   "snmpa_trap: cannot send v1 trap "
 			   "without IPv4 domain: ~p",
 			   [Transports]),
@@ -935,9 +938,15 @@ do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
 			   "without IPv4 domain: ~p",
 			   [Transports]);
 		    DomainAddr ->
+                        ?vtrace("found ~w transport:"
+                                "~n      ~p",
+                                [transportDomainUdpIpv4, DomainAddr]),
 			DomainAddr
 		end;
 	    DomainAddr ->
+                ?vtrace("found ~w transport:"
+                        "~n      ~p",
+                        [snmpUDPDomain, DomainAddr]),
 		DomainAddr
 	end,
     TrapPdu = make_v1_trap_pdu(Enter, Spec, NVbs, SysUpTime, AgentIp),

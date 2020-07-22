@@ -36,27 +36,86 @@
 -include("snmp_debug.hrl").
 -include("snmp_verbosity.hrl").
 
+
+%% Regarding Trap/Notification transport(s),
+%% it should be possible to specify either:
+%% 1) A fixed set of transport(s) used for sending.
+%%    For instance, one for IPv4 and one for IPv6.
+%% 2) A pool of fixed transports used for sending.
+%%    The transports are cycled through when sending traps.
+%% 3) A single one-shot ephemeral port.
+%%    That is, a port is created, used once, and then closed.
+%% 4) A pool of ephemeral ports, used for "a time"
+%%    (a configurable number of sends, a set number of bytes
+%%     or time based) thar is cycled through.
+
+%% Should we have a single list of all transports, and
+%% some way to indicate the kind of transport?
+%% A new field, kind = req_responder | trap_sender, in the transport record?
+%% Or two separate lists in the state?
+
+%% Also, the trap/notification transport, has different needs.
+%% It should not be allowed to configure both an 'all' transport
+%% and one or more specialized transports (req_responder and/or trap_sender).
+%% We will send more data then we will receive.
+%% Therefor, we should be able to specify; 
+%% bind_to, no_reuse_address, recbuf and sndbuf individually:
+%% {intAgentTransports,
+%%  [{transportDomainUdpIpv4, {141,213,11,24},   trap, Opts},
+%%   {transportDomainUdpIpv6, {0,0,0,0,0,0,0,1}, trap, Opts}]}.
+%% Opts is basically socket options for this transport, *but*
+%% may also contain the tuple, {ephemeral, EphmOpts}.
+%% Ephm sockets are created on the fly, used for the specified
+%% time (number of sends, number of bytes sent, used time, ...).
+%% Also, always give the option to provide a port range:
+%%    port() :: pos_integer() | range() || [range()]
+
 -record(state,
 	{parent,
 	 note_store,
 	 master_agent,
-	 transports = [],
-%%	 usock,
-%%	 usock_opts,
+	 transports  = [],
 	 mpd_state,
 	 log,
 	 reqs  = [],
 	 debug = false,
 	 limit = infinity,
-%%	 rcnt  = [],
 	 filter}).
-%%	 domain = snmpUDPDomain}).
 
+-type transport_kind() :: req_responder | trap_sender.
+-type port_info() :: pos_integer() | system | {pos_integer(), pos_integer()}.
+%% How would 'ephemeral' effect this?
+%% What kind of usage would we have for emphemeral ports?
+%%    once (send and maybe receive reply (inform)) |
+%%    {sends, pos_integer()} (number of sends) |
+%%    {data,  pos_integer()} (number of bytes sent) |
+%%    {alive_time, pos_integer()} (once used for the first time, alive time)
+%% You can't combine a ephemeral info with a fixed port (pos_integer())
+%% The port_info() is used when creating a port, even an ephemeral port.
+%% But it must either be 'system' or a range in that (ephemeral) case.
+%% Also, ephemeral transports are only allowed if kind = trap_sender
+-type ephemeral() :: none |
+                     once |
+                     {sends,      pos_integer()} |
+                     {data,       pos_integer()} |
+                     {alive_time, pos_integer()}.
+
+%% Note that since informs require confirmation,
+%% an ephemeral socket cannot immediately when
+%% it has been "used up".
+%% We need to keep it for some time in case a
+%% resend is needed!.
 -record(transport,
 	{socket,
-	 domain = snmpUDPDomain,
-	 opts = [],
-	 req_refs = []}).
+         kind      = all :: all | transport_kind(),
+	 domain    = snmpUDPDomain,
+         port_no   :: pos_integer(),
+         port_info :: port_info(),
+         ephm      = none :: ephemeral(),
+         ephm_info = undefined, % Only used if ephm =/= none and once
+	 opts      = [],
+	 req_refs  = [] % Not used for trap/notification transports
+        }).
 
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
@@ -160,11 +219,11 @@ init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 
 do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     process_flag(trap_exit, true),
-    process_flag(priority, Prio),
+    process_flag(priority,  Prio),
 
     %% -- Verbosity --
-    put(sname,nif),
-    put(verbosity,get_verbosity(Opts)),
+    put(sname,     nif),
+    put(verbosity, get_verbosity(Opts)),
     ?vlog("starting",[]),
 
     %% -- Versions --
@@ -182,22 +241,47 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
     Log = create_log(),
     ?vdebug("Log: ~w",[Log]),
 
-    DomainAddresses = get_transports(),
-    ?vdebug("DomainAddresses: ~w",[DomainAddresses]),
+    RawTransports = get_transports(),
+    ?vdebug("Raw Transports: "
+            "~n   ~p", [RawTransports]),
     try
 	[begin
-	     SocketOpts = socket_opts(Domain, Address, Opts),
-	     Socket = socket_open(Domain, SocketOpts),
+             %% Any socket option not explicitly configured for the transport
+             %% will be taken from the "global" socket options (which serve as
+             %% default values).
+	     {Ephm, PortInfo, SocketOpts} = socket_opts(Domain, Address,
+                                                        RawSocketOpts, Opts),
+             ?vtrace("socket opts processed:"
+                     "~n      Ephm:        ~p"
+                     "~n      Port Info:   ~p"
+                     "~n      Socket Opts: ~p", [Ephm, PortInfo, SocketOpts]),
+	     {Socket, IpPort}             = socket_open(Domain, PortInfo,
+                                                        SocketOpts),
+             ?vtrace("socket opened:"
+                     "~n      Socket:  ~p"
+                     "~n      Port No: ~p", [Socket, IpPort]),
+             %% Should we really do this here?
+             %% If Kind =:= trap_sender, we only need to receive after 
+             %% we have sent an inform!
 	     active_once(Socket),
 	     #transport{
-		      socket = Socket,
-		      domain = Domain,
-		      opts   = SocketOpts}
-	 end || {Domain, Address} <- DomainAddresses]
+                socket    = Socket,
+                kind      = Kind,
+                domain    = Domain,
+                %% We may not have explicitly specified the port ('system'
+                %% or a range), so it could have been "generated".
+                %% Also, shall we push this into the transport (handled by the
+                %% FRAMEWORK MIB)? Would not work for ephemeral sockets.
+                port_no   = IpPort,
+                port_info = PortInfo,
+                ephm      = Ephm,
+                opts      = SocketOpts}
+             %% We need to fix this also
+	 end || {Domain, Address, Kind, RawSocketOpts} <- RawTransports]
     of
 	[] ->
-	    ?vinfo("No transports configured: ~p", [DomainAddresses]),
-	    {error, {no_transports,DomainAddresses}};
+	    ?vinfo("No transports configured: ~p", [RawTransports]),
+	    {error, {no_transports, RawTransports}};
 	Transports ->
 	    MpdState = snmpa_mpd:init(Vsns),
 	    init_counters(),
@@ -291,45 +375,142 @@ format_address(Address) ->
     iolist_to_binary(snmp_conf:mk_addr_string(Address)).
 
 
-socket_open(snmpUDPDomain = Domain, [IpPort | Opts]) ->
+socket_open(snmpUDPDomain = Domain, IpPort, Opts) ->
     case init:get_argument(snmp_fd) of
 	{ok, [[FdStr]]} ->
 	    Fd = list_to_integer(FdStr),
-	    ?vdebug("socket_open(~p, [~p | ~p]) Fd: ~p",
-		    [Domain, IpPort, Opts, Fd]),
+	    ?vdebug("socket_open(~p, ~p): "
+                    "~n   Port: ~p"
+                    "~n   Opts: ~p", [Domain, Fd, IpPort, Opts]),
 	    gen_udp_open(0, [{fd, Fd} | Opts]);
 	error ->
 	    case init:get_argument(snmpa_fd) of
 		{ok, [[FdStr]]} ->
 		    Fd = list_to_integer(FdStr),
-		    ?vdebug("socket_open(~p, [~p | ~p]) Fd: ~p",
-			    [Domain, IpPort, Opts, Fd]),
+		    ?vdebug("socket_open(~p, ~p): "
+                            "~n   Port: ~p"
+                            "~n   Opts: ~p", [Domain, Fd, IpPort, Opts]),
 		    gen_udp_open(0, [{fd, Fd} | Opts]);
 		error ->
-		    ?vdebug("socket_open(~p, [~p | ~p])",
-			    [Domain, IpPort, Opts]),
+		    ?vdebug("socket_open(~p): "
+                            "~n   Port: ~p"
+                            "~n   Opts: ~p", [Domain, IpPort, Opts]),
 		    gen_udp_open(IpPort, Opts)
 	    end
     end;
-socket_open(Domain, [IpPort | Opts])
-  when Domain =:= transportDomainUdpIpv4;
-       Domain =:= transportDomainUdpIpv6 ->
-    ?vdebug("socket_open(~p, [~p | ~p])", [Domain, IpPort, Opts]),
-    gen_udp_open(IpPort, Opts);
-socket_open(Domain, Opts) ->
+socket_open(Domain, PortInfo, Opts)
+  when (Domain =:= transportDomainUdpIpv4) orelse
+       (Domain =:= transportDomainUdpIpv6) ->
+    ?vdebug("socket_open(~p) -> entry with"
+            "~n   PortInfo: ~p"
+            "~n   Opts:     ~p", [Domain, PortInfo, Opts]),
+    gen_udp_open(PortInfo, Opts);
+socket_open(Domain, PortInfo, Opts) ->
+    ?vinfo("socket_open(~p) -> entry when invalid with"
+           "~n   PortInfo: ~p"
+           "~n   Opts:     ~p", [Domain, PortInfo, Opts]),
     throw({socket_open, Domain, Opts}).
 
-gen_udp_open(IpPort, Opts) ->
+
+%% Make the system choose!
+gen_udp_open(system, Opts) ->
+    ?vtrace("gen_udp_open(system) -> entry"),
+    case gen_udp:open(0, Opts) of
+	{ok, Socket} ->
+            case inet:port(Socket) of
+                {ok, PortNo} ->
+                    ?vtrace("gen_udp_open(system) -> created: "
+                            "~n      ~p (~w)", [Socket, PortNo]),
+                    {Socket, PortNo};
+                {error, PReason} ->
+                    (catch gen_udp:close(Socket)),
+                    throw({udp_open, {port, PReason}})
+            end;
+	{error, OReason} ->
+            throw({udp_open, {open, OReason}})
+    end;
+gen_udp_open(IpPort, Opts) when (IpPort =:= 0) ->
+    ?vtrace("gen_udp_open(0) -> entry"),
     case gen_udp:open(IpPort, Opts) of
 	{ok, Socket} ->
-	    Socket;
+            case inet:port(Socket) of
+                {ok, PortNo} ->
+                    ?vtrace("gen_udp_open(0) -> created: "
+                            "~n      ~p (~w)", [Socket, PortNo]),
+                    {Socket, PortNo};
+                {error, PReason} ->
+                    (catch gen_udp:close(Socket)),
+                    throw({udp_open, {port, PReason}})
+            end;
 	{error, Reason} ->
-	    throw({udp_open, IpPort, Reason})
+	    throw({udp_open, {open, IpPort, Reason}})
+    end;
+gen_udp_open(IpPort, Opts) when is_integer(IpPort) ->
+    ?vtrace("gen_udp_open(~w) -> entry", [IpPort]),
+    case gen_udp:open(IpPort, Opts) of
+	{ok, Socket} ->
+            ?vtrace("gen_udp_open(~w) -> created: "
+                    "~n      ~p", [Socket]),
+	    {Socket, IpPort};
+	{error, Reason} ->
+	    throw({udp_open, {open, IpPort, Reason}})
+    end;
+gen_udp_open({Min, Max}, Opts) ->
+    ?vtrace("gen_udp_open(~w,~w) -> entry", [Min, Max]),
+    gen_udp_range_open(Min, Max, Opts);
+gen_udp_open(Ranges, Opts) when is_list(Ranges) ->
+    gen_udp_ranges_open(Ranges, Opts).
+
+gen_udp_range_open(Min, Max, _Opts) when (Min > Max) ->
+    ?vinfo("gen_udp_range_open -> entry when no available ports"),
+    throw({udp_open, no_available_ports});
+gen_udp_range_open(Min, Max, Opts) ->
+    ?vtrace("gen_udp_range_open -> entry with"
+            "~n      Min: ~w"
+            "~n      Max: ~w", [Min, Max]),
+    case gen_udp:open(Min, Opts) of
+        {ok, Socket} ->
+            ?vtrace("gen_udp_range_open(~w,~w) -> created: "
+                    "~n      ~p", [Min, Max, Socket]),
+            {Socket, Min};
+        {error, eaddrinuse} ->
+            ?vtrace("gen_udp_range_open(~w,~w) -> eaddrinuse"),
+            gen_udp_range_open(Min+1, Max, Opts);
+        {error, Reason} ->
+            throw({udp_open, {open, Reason}})
+    end.
+
+gen_udp_ranges_open([], _Opts) ->
+    ?vinfo("gen_udp_ranges_open -> entry when no available ports"),
+    throw({udp_open, no_available_ports});
+gen_udp_ranges_open([PortNo|Ranges], Opts) when is_integer(PortNo) andalso
+                                                (PortNo > 0) ->
+    ?vtrace("gen_udp_ranges_open(~w) -> entry", [PortNo]),
+    try gen_udp_open(PortNo, Opts) of
+        {_Sock, PortNo} = SUCCESS when is_integer(PortNo) ->
+            SUCCESS
+    catch
+        throw:{udp_open, _} ->
+            gen_udp_ranges_open(Ranges, Opts)
+    end;
+gen_udp_ranges_open([{Min, Max}|Ranges], Opts) ->
+    ?vtrace("gen_udp_ranges_open(~w,~w) -> entry", [Min, Max]),
+    try gen_udp_range_open(Min, Max, Opts) of
+        {_Sock, PortNo} = SUCCESS when is_integer(PortNo) ->
+            SUCCESS
+    catch
+        throw:{udp_open, _} ->
+            gen_udp_ranges_open(Ranges, Opts)
     end.
 
 
+%% Are we ever expected to receive on the ntransports?
+%% If not, we can set active = false, and therefor
+%% all incoming messages will arrive on the transports.
 
-loop(#state{transports = Transports, limit = Limit, parent = Parent} = S) ->
+loop(#state{transports = Transports,
+            limit      = Limit,
+            parent     = Parent} = S) ->
     ?vdebug("loop(~p)", [S]),
     receive
 	{udp, Socket, IpAddr, IpPort, Packet} = Msg when is_port(Socket) ->
@@ -363,12 +544,11 @@ loop(#state{transports = Transports, limit = Limit, parent = Parent} = S) ->
 	    case
 		case
 		    (Limit =/= infinity) andalso
-		    select_transport_from_req_ref(ReqRef, Transports)
+		    select_transport(ReqRef, Transports)
 		of
 		    false ->
-			select_transport_from_domain(
-			  address_to_domain(To),
-			  Transports);
+			select_transport(address_to_domain(To), Type,
+                                         Transports);
 		    T ->
 			T
 		end
@@ -463,7 +643,7 @@ loop(#state{transports = Transports, limit = Limit, parent = Parent} = S) ->
 		    loop(update_req_counter_outgoing(S, false, ReqRef));
 		true ->
 		    case
-			select_transport_from_req_ref(ReqRef, Transports)
+			select_transport(ReqRef, Transports)
 		    of
 			false ->
 			    error_msg(
@@ -519,27 +699,31 @@ loop(#state{transports = Transports, limit = Limit, parent = Parent} = S) ->
 		  "~n   ~p", [Parent, Reason]),
 	    exit(Reason);
 
+        %% We should not do this.
+        %% Future versions of sockets will/may not be linkable (port)
 	{'EXIT', Socket, Reason} when is_port(Socket) ->
 	    case lists:keyfind(Socket, #transport.socket, Transports) of
 		#transport{
-		  socket   = Socket,
-		  domain   = Domain,
-		  opts     = SocketOpts,
-		  req_refs = ReqRefs} = Transport ->
-		    try socket_open(Domain, SocketOpts) of
-			NewSocket ->
+                   socket    = Socket,
+                   domain    = Domain,
+                   port_info = PortInfo,
+                   opts      = SocketOpts,
+                   req_refs  = ReqRefs} = Transport ->
+		    try socket_open(Domain, PortInfo, SocketOpts) of
+			{NewSocket, PortNo} ->
 			    error_msg(
 			      "Socket ~p exited for reason"
 			      "~n     ~p"
-			      "~n     Re-opened (~p)",
-			      [Socket, Reason, NewSocket]),
+			      "~n     Re-opened (~p, ~w)",
+			      [Socket, Reason, NewSocket, PortNo]),
 			    (length(ReqRefs) < Limit) andalso
 				active_once(NewSocket),
 			    S#state{
 			      transports =
 				  lists:keyreplace(
 				    Socket, #transport.socket, Transports,
-				    Transport#transport{socket = NewSocket})}
+				    Transport#transport{socket  = NewSocket,
+                                                        port_no = PortNo})}
 		    catch
 			ReopenReason ->
 			    error_msg(
@@ -615,7 +799,7 @@ update_req_counter_outgoing(
   ReqRef) ->
     LengthReqRefs = length(ReqRefs),
     ?vtrace("update_req_counter_outgoing() -> entry with~n"
-	    "   Limit:          ~w~n"
+	    "   Limit:           ~w~n"
 	    "   ReqRef:          ~w~n"
 	    "   length(ReqRefs): ~w", [Limit, ReqRef, LengthReqRefs]),
     NewReqRefs = lists:delete(ReqRef, ReqRefs),
@@ -654,7 +838,9 @@ maybe_handle_recv(
 	end
     of
 	false ->
-	    %% Drop the received packet 
+	    %% Drop the received packet
+            %% What if this is an expected (inform) reply
+            %% on an ephemeral socket?
 	    inc(netIfMsgInDrops),
 	    active_once(Socket),
 	    S;
@@ -909,12 +1095,25 @@ handle_reply_pdu(
 
 
 
-maybe_handle_send_pdu(
-  #state{filter = FilterMod, transports = Transports} = S,
-  Vsn, Pdu, MsgData, TDomAddrSecs, From) ->
+%% maybe_handle_send_pdu(#state{transports  = T,
+%%                              ntransports = []} = S,
+%%                       Vsn, Pdu, MsgData, TDomAddrSecs, From) ->
+%%     maybe_handle_send_pdu2(S, T,
+%%                            Vsn, Pdu, MsgData, TDomAddrSecs, From);
+%% maybe_handle_send_pdu(#state{ntransports = T} = S,
+%%                       Vsn, Pdu, MsgData, TDomAddrSecs, From) ->
+%%     maybe_handle_send_pdu2(S, T,
+%%                            Vsn, Pdu, MsgData, TDomAddrSecs, From).
 
+%% maybe_handle_send_pdu2(#state{filter = FilterMod} = S,
+%%                        Transports,
+%%                        Vsn, Pdu, MsgData, TDomAddrSecs, From) ->
+maybe_handle_send_pdu(#state{filter     = FilterMod,
+                             transports = Transports} = S,
+                       Vsn, Pdu, MsgData, TDomAddrSecs, From) ->
+    
     ?vtrace("maybe_handle_send_pdu -> entry with~n"
-	    "   FilterMod: ~p~n"
+	    "   FilterMod:    ~p~n"
 	    "   TDomAddrSecs: ~p", [FilterMod, TDomAddrSecs]),
 
     DomAddrSecs = snmpa_mpd:process_taddrs(TDomAddrSecs),
@@ -1022,7 +1221,7 @@ handle_send_discovery(
 
     case (catch snmpa_mpd:generate_discovery_msg(NS, Pdu, MsgData, To)) of
 	{ok, {Domain, Address, Packet}} ->
-	    case select_transport_from_domain(Domain, Transports) of
+	    case select_transport(Domain, Type, Transports) of
 		false ->
 		    error_msg(
 		      "Can not find transport to: ~s",
@@ -1066,16 +1265,32 @@ do_handle_send_pdu(S, Type, Pdu, Addresses) ->
 	      [Sz, Reason, Pdu])
     end.
 
-do_handle_send_pdu1(S, Type, Addresses) ->
-    lists:foreach(
-      fun ({Domain, Address, Pkg}) when is_binary(Pkg) ->
-	      do_handle_send_pdu2(S, Type, Domain, Address,
-                                  Pkg, Pkg, "");
-	  ({Domain, Address, {Pkg, LogPkg}}) when is_binary(Pkg) ->
-	      do_handle_send_pdu2(S, Type, Domain, Address,
-                                  Pkg, LogPkg, " encrypted")
-      end,
-      Addresses).
+%% do_handle_send_pdu1(S, Type, Addresses) ->
+%%     lists:foreach(
+%%       fun ({Domain, Address, Pkg}) when is_binary(Pkg) ->
+%% 	      do_handle_send_pdu2(S, Type, Domain, Address,
+%%                                   Pkg, Pkg, "");
+%% 	  ({Domain, Address, {Pkg, LogPkg}}) when is_binary(Pkg) ->
+%% 	      do_handle_send_pdu2(S, Type, Domain, Address,
+%%                                   Pkg, LogPkg, " encrypted")
+%%       end,
+%%       Addresses).
+
+%% Because of the ephemeral sockets used by some transports,
+%% the list of transports may be update for each send...
+do_handle_send_pdu1(S, _Type, []) ->
+    S;
+do_handle_send_pdu1(S, Type, [{Domain, Address, Pkg}|Addresses])
+  when is_binary(Pkg) ->
+    NewS = do_handle_send_pdu2(S, Type, Domain, Address,
+                               Pkg, Pkg, ""),
+    do_handle_send_pdu1(NewS, Type, Addresses);
+do_handle_send_pdu1(S, Type, [{Domain, Address, {Pkg, LogPkg}}|Addresses])
+  when is_binary(Pkg) ->
+    NewS = do_handle_send_pdu2(S, Type, Domain, Address,
+                               Pkg, LogPkg, " encrypted"),
+    do_handle_send_pdu1(NewS, Type, Addresses).
+
 
 do_handle_send_pdu2(#state{transports = Transports} = S,
                     Type, Domain, Address, Pkg, LogPkg, EncrStr) ->
@@ -1083,15 +1298,198 @@ do_handle_send_pdu2(#state{transports = Transports} = S,
             "~n   size: ~p"
             "~n   to:   ~p", [Domain, EncrStr, sz(Pkg), Address]),
     To = {Domain, Address},
-    case select_transport_from_domain(Domain, Transports) of
+    case select_transport(Domain, Type, Transports) of
 	false ->
-	    error_msg("Can not find transport: "
+	    error_msg("Transport not found: "
                       "~n   size: ~p"
                       "~n   to:   ~s",
-                      [sz(Pkg), format_address(To)]);
-	Transport ->
-	    maybe_udp_send_w_log(S, Transport, To, Pkg, LogPkg, Type)
+                      [sz(Pkg), format_address(To)]),
+            S;
+	#transport{ephm = none} = Transport ->
+            ?vtrace("do_handle_send_pdu2 -> transport(ephm = none) selected: "
+                    "~n      ~p", [Transport]),
+	    maybe_udp_send_w_log(S, Transport, To, Pkg, LogPkg, Type),
+            S;
+	#transport{} = Transport ->
+            ?vtrace("do_handle_send_pdu2 -> transport selected: "
+                    "~n      ~p", [Transport]),
+	    case maybe_udp_send_w_log(S, Transport, To, Pkg, LogPkg, Type) of
+                {ok, Sz} -> % we actually sent something
+                   maybe_update_ephm_transport(S, Transport, Type, Sz);
+                _ -> % Non-fatal error -> Nothing sent
+                    S
+            end
     end.
+
+
+%% For inform:
+%% This will have a reply, so we cannot close it directly!
+%% Also, we will resend (a couple of times), if we don't
+%% get a reply in time.
+%% So, how do we handle this transport in this case?
+%% Shall we create a list of used sockets? Tagged with a key
+%% so we can reuse the correct socket for a resend?
+
+%%
+%% Or shall we used the same socket for all the sends for this
+%% trap/inform? That is, we send the trap/inform to a number of
+%% targets (the Addresses list), and *that* is considered *one*
+%% use?
+%% That would mean that we would potentially need to wait for
+%% replies from a large number of targets?
+%% But it may be better in the long term, because we will not
+%% use of so many sockets.
+%%
+
+maybe_update_ephm_transport(S, #transport{ephm = once} = _Transport,
+                            'inform-request' = _Type, _Sz) ->
+    S; % Figure out the above first!
+
+%% Before we close the current socket, create the new.
+%% This is done in case we fail to create a new socket
+%% (if we first close the current and then fail to create
+%%  the new, we are stuck).
+%% If we fail to create the new socket, we keep the current.
+%% Better then nothing!
+maybe_update_ephm_transport(S, #transport{socket    = OldSocket,
+                                          ephm      = once,
+                                          port_info = PortInfo,
+                                          opts      = Opts} = Transport,
+                            _Type, _Sz) ->
+    try
+        begin
+            {Socket, PortNo} = gen_udp_open(PortInfo, Opts),
+            (catch gen_udp:close(OldSocket)),
+            T2 = Transport#transport{socket  = Socket,
+                                     port_no = PortNo},
+            TS  = S#state.transports,
+            TS2 = lists:keyreplace(OldSocket, #transport.socket, TS, T2),
+            S#state{transports = TS2}
+        end
+    catch
+        _:_:_ ->
+            %% We need to identify which transport!
+            error_msg("Failed creating new ephemeral socket for transport"),
+            S
+    end;
+
+%% Note that we do not currently handle inform:s, as that adds a whole
+%% set of issues. See above for more info.
+maybe_update_ephm_transport(S, #transport{socket    = Socket,
+                                          ephm      = {sends, MaxSends},
+                                          ephm_info = NumSends,
+                                          port_info = _PortInfo,
+                                          opts      = _Opts} = Transport,
+                            _Type, _Sz) when (MaxSends > NumSends) ->
+    T2  = Transport#transport{ephm_info = NumSends + 1},
+    TS  = S#state.transports,
+    TS2 = lists:keyreplace(Socket, #transport.socket, TS, T2),
+    S#state{transports = TS2};
+maybe_update_ephm_transport(S, #transport{socket    = OldSocket,
+                                          ephm      = {sends, _MaxSends},
+                                          ephm_info = _NumSends,
+                                          port_info = PortInfo,
+                                          opts      = Opts} = Transport,
+                            _Type, _Sz) ->
+    try
+        begin
+            {Socket, PortNo} = gen_udp_open(PortInfo, Opts),
+            (catch gen_udp:close(OldSocket)),
+            T2 = Transport#transport{socket    = Socket,
+                                     ephm_info = 0,
+                                     port_no   = PortNo},
+            TS  = S#state.transports,
+            TS2 = lists:keyreplace(OldSocket, #transport.socket, TS, T2),
+            S#state{transports = TS2}
+        end
+    catch
+        _:_:_ ->
+            %% We need to identify which transport!
+            error_msg("Failed creating new ephemeral socket for transport"),
+            S
+    end;
+
+%% Note that we do not currently handle inform:s, as that adds a whole
+%% set of issues. See above for more info.
+maybe_update_ephm_transport(S, #transport{socket    = Socket,
+                                          ephm      = {data, MaxData},
+                                          ephm_info = AccSent,
+                                          port_info = _PortInfo,
+                                          opts      = _Opts} = Transport,
+                            _Type, Sz) when (MaxData > (AccSent + Sz)) ->
+    T2 = Transport#transport{ephm_info = AccSent + Sz},
+    TS  = S#state.transports,
+    TS2 = lists:keyreplace(Socket, #transport.socket, TS, T2),
+    S#state{transports = TS2};
+maybe_update_ephm_transport(S, #transport{socket    = OldSocket,
+                                          ephm      = {data, _MaxData},
+                                          ephm_info = _AccSent,
+                                          port_info = PortInfo,
+                                          opts      = Opts} = Transport,
+                            _Type, _Sz) ->
+    try
+        begin
+            {Socket, PortNo} = gen_udp_open(PortInfo, Opts),
+            (catch gen_udp:close(OldSocket)),
+            T2 = Transport#transport{socket    = Socket,
+                                     ephm_info = 0,
+                                     port_no   = PortNo},
+            TS  = S#state.transports,
+            TS2 = lists:keyreplace(OldSocket, #transport.socket, TS, T2),
+            S#state{transports = TS2}
+        end
+    catch
+        _:_:_ ->
+            %% We need to identify which transport!
+            error_msg("Failed creating new ephemeral socket for transport"),
+            S
+    end;
+
+%% Note that we do not currently handle inform:s, as that adds a whole
+%% set of issues. See above for more info.
+maybe_update_ephm_transport(S, #transport{socket    = Socket,
+                                          ephm      = {alive_time, AliveTime},
+                                          ephm_info = undefined} = Transport,
+                            _Type, _Sz) ->
+    AliveEnd = erlang:monotonic_time(micro_seconds) + AliveTime,
+    T2 = Transport#transport{ephm_info = AliveEnd},
+    TS  = S#state.transports,
+    TS2 = lists:keyreplace(Socket, #transport.socket, TS, T2),
+    S#state{transports = TS2};
+maybe_update_ephm_transport(S, #transport{socket    = OldSocket,
+                                          ephm      = {alive_time, _AliveTime},
+                                          ephm_info = AliveEnd,
+                                          port_info = PortInfo,
+                                          opts      = Opts} = Transport,
+                            _Type, _Sz) ->
+    TS = erlang:monotonic_time(micro_seconds),
+    if
+        (TS > AliveEnd) ->
+            try
+                begin
+                    {Socket, PortNo} = gen_udp_open(PortInfo, Opts),
+                    (catch gen_udp:close(OldSocket)),
+                    T2 = Transport#transport{socket    = Socket,
+                                             %% This will be set when the transport
+                                             %% is first used
+                                             ephm_info = undefined,
+                                             port_no   = PortNo},
+                    TS  = S#state.transports,
+                    TS2 = lists:keyreplace(OldSocket, #transport.socket, TS, T2),
+                    S#state{transports = TS2}
+                end
+            catch
+                _:_:_ ->
+                    %% We need to identify which transport!
+                    error_msg("Failed creating new ephemeral socket for transport"),
+                    S
+            end;
+        true ->
+            S
+    end;
+
+maybe_update_ephm_transport(S, _Transport, _Type, _Sz) ->
+    S.
 
 
 %% This function is used when logging has already been done!
@@ -1156,6 +1554,31 @@ maybe_udp_send_w_log(
 	    udp_send(Socket, To, Pkg)
     end.
 
+%% udp_send(Socket, To, B) ->
+%%     {IpAddr, IpPort} =
+%% 	case To of
+%% 	    {Domain, Addr} when is_atom(Domain) ->
+%% 		Addr;
+%% 	    {_, P} = Addr when is_integer(P) ->
+%% 		Addr
+%% 	end,
+%%     try gen_udp:send(Socket, IpAddr, IpPort, B) of
+%% 	{error, emsgsize} ->
+%% 	    %% From this message we cannot recover, so exit sending loop
+%% 	    throw({emsgsize, sz(B)});
+%% 	{error, ErrorReason} ->
+%% 	    error_msg("[error] cannot send message "
+%% 		      "(destination: ~p:~p, size: ~p, reason: ~p)",
+%% 		      [IpAddr, IpPort, sz(B), ErrorReason]);
+%% 	ok ->
+%% 	    ok
+%%     catch
+%% 	error:ExitReason:StackTrace ->
+%% 	    error_msg("[exit] cannot send message "
+%% 		      "(destination: ~p:~p, size: ~p, reason: ~p, at: ~p)",
+%% 		      [IpAddr, IpPort, sz(B), ExitReason, StackTrace])
+%%     end.
+
 udp_send(Socket, To, B) ->
     {IpAddr, IpPort} =
 	case To of
@@ -1171,9 +1594,10 @@ udp_send(Socket, To, B) ->
 	{error, ErrorReason} ->
 	    error_msg("[error] cannot send message "
 		      "(destination: ~p:~p, size: ~p, reason: ~p)",
-		      [IpAddr, IpPort, sz(B), ErrorReason]);
+		      [IpAddr, IpPort, sz(B), ErrorReason]),
+            ok;
 	ok ->
-	    ok
+	    {ok, size(B)}
     catch
 	error:ExitReason:StackTrace ->
 	    error_msg("[exit] cannot send message "
@@ -1229,30 +1653,102 @@ active_once(Sock) ->
     inet:setopts(Sock, [{active, once}]).
 
 
-select_transport_from_req_ref(_, []) ->
+select_transport(_, []) ->
     false;
-select_transport_from_req_ref(
-  ReqRef,
-  [#transport{req_refs = ReqRefs} = Transport | Transports]) ->
+select_transport(ReqRef,
+                 [#transport{req_refs = ReqRefs} = Transport | Transports]) ->
     case lists:member(ReqRef, ReqRefs) of
 	true ->
 	    Transport;
 	false ->
-	    select_transport_from_req_ref(ReqRef, Transports)
+	    select_transport(ReqRef, Transports)
     end.
 
-select_transport_from_domain(Domain, Transports) when is_atom(Domain) ->
-    Pos = #transport.domain,
-    case lists:keyfind(Domain, Pos, Transports) of
-	#transport{domain = Domain} = Transport ->
-	    Transport;
-	false when Domain == snmpUDPDomain ->
-	    lists:keyfind(transportDomainUdpIpv4, Pos, Transports);
-	false when Domain == transportDomainUdpIpv4 ->
-	    lists:keyfind(snmpUDPDomain, Pos, Transports);
-	false ->
-	    false
+select_transport(snmpUDPDomain = Domain, Type, Transports) ->
+    ?vtrace("select_transport -> entry with"
+            "~n      Domain:     ~p"
+            "~n      Type:       ~p"
+            "~n      Transports: ~p",
+            [Domain, Type, Transports]),
+    case select_transport2(Domain, Type, Transports) of
+	#transport{} = Transport ->
+            ?vtrace("select_transport -> selected: "
+                    "~n      ~p",
+                    [Transport]),
+ 	    Transport;
+ 	false ->
+ 	    select_transport2(transportDomainUdpIpv4, Type, Transports)
+    end;
+select_transport(Domain, Type, Transports)
+  when is_atom(Domain) ->
+    ?vtrace("select_transport -> entry with"
+            "~n      Domain:     ~p"
+            "~n      Type:       ~p"
+            "~n      Transports: ~p",
+            [Domain, Type, Transports]),
+    case select_transport2(Domain, Type, Transports) of
+ 	#transport{} = Transport ->
+            ?vtrace("select_transport -> selected: "
+                    "~n      ~p",
+                    [Transport]),
+ 	    Transport;
+ 	false when Domain =:= transportDomainUdpIpv4 ->
+            ?vdebug("select_transport -> (~p) not found: "
+                    "~n      try ~p", [Domain, snmpUDPDomain]),
+	    select_transport2(snmpUDPDomain, Type, Transports);
+ 	false ->
+ 	    false
     end.
+
+
+%% Two kinds of (pdu) type that we (the agent) will ever attempt to send:
+%%   req-responder: 'get-response'
+%%   trap-sender:   'inform-request'   |
+%%                  'snmpv2-trap'      |
+%%                  report             |
+%%                  trap (which is a 'fake' type (#trappdu{}))
+select_transport2(_Domain, _Type,
+                  []) ->
+    false;
+select_transport2(snmpUDPDomain = Domain, _Type,
+                  [#transport{domain = Domain} = Transport|_Transports]) ->
+    Transport;
+select_transport2(snmpUDPDomain = Domain, Type,
+                  [_|Transports]) ->
+    select_transport2(Domain, Type, Transports);
+select_transport2(Domain, Type,
+                  [#transport{domain = Domain,
+                              kind   = Kind} = Transport|_Transports])
+  when ((Type =:= 'inform-request') orelse
+        (Type =:= 'snmpv2-trap') orelse
+        (Type =:= report) orelse
+        (Type =:= trap) orelse 
+        (Type =:= trappdu)) andalso 
+       ((Kind =:= all) orelse (Kind =:= trap_sender)) ->
+    Transport;
+select_transport2(Domain, Type,
+                  [#transport{domain = Domain,
+                              kind   = Kind} = Transport|_Transports])
+  when (Type =:= 'get-response') andalso 
+       ((Kind =:= all) orelse (Kind =:= req_responder)) ->
+    Transport;
+select_transport2(Domain, Type, [_|Transports]) ->
+    select_transport2(Domain, Type, Transports).
+
+
+
+%% select_transport_from_domain(Domain, Transports) when is_atom(Domain) ->
+%%     Pos = #transport.domain,
+%%     case lists:keyfind(Domain, Pos, Transports) of
+%% 	#transport{domain = Domain} = Transport ->
+%% 	    Transport;
+%% 	false when Domain == snmpUDPDomain ->
+%% 	    lists:keyfind(transportDomainUdpIpv4, Pos, Transports);
+%% 	false when Domain == transportDomainUdpIpv4 ->
+%% 	    lists:keyfind(snmpUDPDomain, Pos, Transports);
+%% 	false ->
+%% 	    false
+%%     end.
 
 address_to_domain({Domain, _Addr}) when is_atom(Domain) ->
     Domain;
@@ -1446,47 +1942,52 @@ get_counters([Counter|Counters], Acc) ->
 
 %% ----------------------------------------------------------------
 
-socket_opts(Domain, {IpAddr, IpPort}, Opts) ->
-    [IpPort, % Picked off at socket open, separate argument
-     binary
-     |   case snmp_conf:tdomain_to_family(Domain) of
-	     inet6 = Family ->
-		 [Family, {ipv6_v6only, true}];
-	     Family ->
-		 [Family]
-	 end ++
-	 case get_bind_to_ip_address(Opts) of
-	     true ->
-		 [{ip, IpAddr}];
-	     _ ->
-		 []
-	 end ++
-	 case get_no_reuse_address(Opts) of
-	     false ->
-		 [{reuseaddr, true}];
-	     _ ->
-		 []
-	 end ++
-	 case get_recbuf(Opts) of
-	     use_default ->
-		 [];
-	     Sz ->
-		 [{recbuf, Sz}]
-	 end ++
-	 case get_sndbuf(Opts) of
-	     use_default ->
-		 [];
-	     Sz ->
+%% This extracts the socket options from what is specified for
+%% the transport, or if not, from the "global" socket options.
+socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
+    Opts =
+        [binary |
+         case snmp_conf:tdomain_to_family(Domain) of
+             inet6 = Family ->
+                 [Family, {ipv6_v6only, true}];
+             Family ->
+                 [Family]
+         end ++
+         case get_bind_to_ip_address(SocketOpts, DefaultOpts) of
+             true ->
+                 [{ip, IpAddr}];
+             _ ->
+                 []
+         end ++
+         case get_no_reuse_address(SocketOpts, DefaultOpts) of
+             false ->
+                 [{reuseaddr, true}];
+             _ ->
+                 []
+         end ++
+         case get_recbuf(SocketOpts, DefaultOpts) of
+             use_default ->
+                 [];
+             Sz ->
+                 [{recbuf, Sz}]
+         end ++
+         case get_sndbuf(SocketOpts, DefaultOpts) of
+             use_default ->
+                 [];
+             Sz ->
 		 [{sndbuf, Sz}]
-	 end] ++
-        case get_extra_sock_opts(Opts) of
+	 end
+        ] ++
+        case get_extra_sock_opts(SocketOpts, DefaultOpts) of
             ESO when is_list(ESO) ->
                 ESO;
             BadESO ->
                 error_msg("Invalid 'extra socket options' (=> ignored):"
                           "~n   ~p", [BadESO]),
                 []
-        end.
+        end,
+    Ephm = get_ephemeral(SocketOpts),
+    {Ephm, PortInfo, Opts}.
 
 
 %% ----------------------------------------------------------------
@@ -1528,25 +2029,39 @@ get_filter_opts(O) ->
 get_filter_module(O) ->
     snmp_misc:get_option(module, O, ?DEFAULT_FILTER_MODULE).
 
-get_recbuf(Opts) -> 
-    snmp_misc:get_option(recbuf, Opts, use_default).
+get_recbuf(Opts, DefaultOpts) -> 
+    get_socket_opt(recbuf, Opts, DefaultOpts, use_default).
 
-get_sndbuf(Opts) -> 
-    snmp_misc:get_option(sndbuf, Opts, use_default).
+get_sndbuf(Opts, DefaultOpts) -> 
+    get_socket_opt(sndbuf, Opts, DefaultOpts, use_default).
 
-get_no_reuse_address(Opts) -> 
-    snmp_misc:get_option(no_reuse, Opts, false).
+get_bind_to_ip_address(Opts, DefaultOpts) ->
+    get_socket_opt(bind_to, Opts, DefaultOpts, false).
 
-get_bind_to_ip_address(Opts) ->
-    snmp_misc:get_option(bind_to, Opts, false).
+get_no_reuse_address(Opts, DefaultOpts) -> 
+    get_socket_opt(no_reuse, Opts, DefaultOpts, false).
 
-get_extra_sock_opts(Opts) ->
-    snmp_misc:get_option(extra_sock_opts, Opts, []).
+get_extra_sock_opts(Opts, DefaultOpts) ->
+    get_socket_opt(extra_sock_opts, Opts, DefaultOpts, []).
+
+%% This is not realy a socket option, but rather socket 'meta'
+%% information. Its still put together with the actual socket
+%% options.
+get_ephemeral(SocketOpts) ->
+    snmp_misc:get_option(ephemeral, SocketOpts, none).
+
+get_socket_opt(Opt, Opts, DefaultOpts, DefaultVal) ->
+    snmp_misc:get_option(Opt, Opts,
+                         snmp_misc:get_option(Opt, DefaultOpts, DefaultVal)).
+    
 
 
 %% ----------------------------------------------------------------
 
-error_msg(F,A) -> 
+error_msg(F) ->
+    error_msg(F, []).
+
+error_msg(F, A) -> 
     ?snmpa_error("NET-IF server: " ++ F, A).
 
 info_msg(F,A) ->
@@ -1647,4 +2162,4 @@ get_port_info(Id) ->
 	BufSz.
 
 
-%% ----------------------------------------------------------------
+%% ---------------------------------------------------------------

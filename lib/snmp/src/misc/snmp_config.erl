@@ -47,7 +47,7 @@
 	 write_agent_snmp_usm_conf/5, 
 	 write_agent_snmp_vacm_conf/3, 
 
-	 write_manager_snmp_files/8,
+	 write_manager_snmp_files/5, write_manager_snmp_files/8,
 	 write_manager_snmp_conf/4, write_manager_snmp_conf/5,
 	 write_manager_snmp_users_conf/2,
 	 write_manager_snmp_agents_conf/2, 
@@ -1617,9 +1617,31 @@ write_agent_snmp_files(
 %% 
 
 write_agent_snmp_files(
+  Dir, Vsns, TransportDomain, ManagerAddr, AgentPreTransports, SysName,
+  NotifType, SecType, Passwd, EngineID, MMS) when is_list(AgentPreTransports) ->
+    F = fun({Addr, Kind}) when is_tuple(Addr) andalso
+                               is_atom(Kind) ->
+                {TransportDomain, Addr, Kind, []};
+           ({Addr, Kind, Opts}) when is_tuple(Addr) andalso
+                                     is_atom(Kind) andalso
+                                     is_list(Opts) ->
+                {TransportDomain, Addr, Kind, Opts}
+        end,
+    AgentTransports = lists:map(F, AgentPreTransports),
+    write_agent_snmp_conf(Dir, AgentTransports, EngineID, MMS),
+    write_agent_snmp_context_conf(Dir),
+    write_agent_snmp_community_conf(Dir),
+    write_agent_snmp_standard_conf(Dir, SysName),
+    write_agent_snmp_target_addr_conf(Dir, TransportDomain, ManagerAddr, Vsns),
+    write_agent_snmp_target_params_conf(Dir, Vsns),
+    write_agent_snmp_notify_conf(Dir, NotifType),
+    write_agent_snmp_usm_conf(Dir, Vsns, EngineID, SecType, Passwd),
+    write_agent_snmp_vacm_conf(Dir, Vsns, SecType),
+    ok;
+write_agent_snmp_files(
   Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName,
-  NotifType, SecType, Passwd, EngineID, MMS) ->
-    write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS),
+  NotifType, SecType, Passwd, EngineID, MMS) when is_tuple(AgentAddr) ->
+    write_agent_snmp_conf(Dir, [{Domain, AgentAddr}], EngineID, MMS),
     write_agent_snmp_context_conf(Dir),
     write_agent_snmp_community_conf(Dir),
     write_agent_snmp_standard_conf(Dir, SysName),
@@ -2105,6 +2127,10 @@ update_agent_vacm_config(Dir, Conf) ->
 %% ----- Manager config files generator functions -----
 %% 
 
+write_manager_snmp_files(Dir, IP, Port, MMS, EngineID) ->
+    write_manager_snmp_files(Dir, IP, Port, MMS, EngineID, 
+                             [], [], []).
+
 write_manager_snmp_files(Dir, IP, Port, MMS, EngineID, 
 			 Users, Agents, Usms) ->
     write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID),
@@ -2130,7 +2156,7 @@ write_manager_snmp_conf(Dir, Transports, MMS, EngineID) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     Conf =
-	[{transports, Transports},
+	[{transports,       Transports},
 	 {engine_id,        EngineID},
 	 {max_message_size, MMS}],
     write_manager_config(Dir, Hdr, Conf).
