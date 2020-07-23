@@ -2505,7 +2505,7 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    case ARITYVAL_SUBTAG:
 		break;
 	    case REF_SUBTAG:
-		if (is_ordinary_ref_thing(fhp - 1))
+		if (!is_magic_ref_thing(fhp - 1))
 		    goto the_default;
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:
@@ -3139,7 +3139,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	      tari = thing_arityval(val);
 	      switch (thing_subtag(val)) {
 	      case REF_SUBTAG:
-		  if (is_ordinary_ref_thing(hp))
+		  if (!is_magic_ref_thing(hp))
 		      break;
 	      case REFC_BINARY_SUBTAG:
 	      case FUN_SUBTAG:

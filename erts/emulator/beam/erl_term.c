@@ -132,7 +132,7 @@ ET_DEFINE_CHECKED(struct erl_node_*,internal_pid_node,Eterm,is_internal_pid);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_port_node,Eterm,is_internal_port);
 ET_DEFINE_CHECKED(Eterm*,internal_ref_val,Wterm,is_internal_ref);
 ET_DEFINE_CHECKED(Uint32*,internal_magic_ref_numbers,Wterm,is_internal_magic_ref);
-ET_DEFINE_CHECKED(Uint32*,internal_ordinary_ref_numbers,Wterm,is_internal_ordinary_ref);
+ET_DEFINE_CHECKED(Uint32*,internal_non_magic_ref_numbers,Wterm,is_internal_non_magic_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_ref_node,Eterm,is_internal_ref);
 ET_DEFINE_CHECKED(Eterm*,external_val,Wterm,is_external);
 ET_DEFINE_CHECKED(Uint,external_data_words,Wterm,is_external);

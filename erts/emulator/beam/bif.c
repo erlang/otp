@@ -4341,16 +4341,29 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         if (n != ERTS_REF_NUMBERS) goto bad;
         sid = erts_get_ref_numbers_thr_id(refn);
         if (sid > erts_no_schedulers) goto bad;
-        mb = erts_magic_ref_lookup_bin(refn);
-        if (mb) {
-            hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
-            res = erts_mk_magic_ref(&hp, &BIF_P->off_heap,
-                                    (Binary *) mb);
-        }
-        else {
+        if (erts_is_ordinary_ref_numbers(refn)) {
+        make_ordinary_internal_ref:
             hp = HAlloc(BIF_P, ERTS_REF_THING_SIZE);
             write_ref_thing(hp, refn[0], refn[1], refn[2]);
             res = make_internal_ref(hp);
+        }
+        else {
+            /* Check if it is a pid reference... */
+            Eterm pid = erts_pid_ref_lookup(refn);
+            if (is_internal_pid(pid)) {
+                hp = HAlloc(BIF_P, ERTS_PID_REF_THING_SIZE);
+                write_pid_ref_thing(hp, refn[0], refn[1], refn[2], pid);
+                res = make_internal_ref(hp);
+            }
+            else {
+                /* Check if it is a magic reference... */
+                mb = erts_magic_ref_lookup_bin(refn);
+                if (!mb)
+                    goto make_ordinary_internal_ref;
+                hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
+                res = erts_mk_magic_ref(&hp, &BIF_P->off_heap,
+                                        (Binary *) mb);
+            }
         }
     }
     else {

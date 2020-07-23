@@ -648,7 +648,7 @@ typedef struct {
 
 typedef struct {
     ErtsMonitorData md;
-    ErtsORefThing oref_thing;
+    Eterm ref_heap[ERTS_MAX_INTERNAL_REF_SIZE];
 } ErtsMonitorDataHeap;
 
 typedef struct ErtsMonitorDataExtended__ ErtsMonitorDataExtended;

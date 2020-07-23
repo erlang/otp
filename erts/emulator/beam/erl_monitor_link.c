@@ -104,6 +104,7 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                    || is_small(key1)
                    || is_external_pid(key1)
                    || is_internal_ordinary_ref(key1)
+                   || is_internal_pid_ref(key1)
                    || is_external_ref(key1));
 
     ERTS_ML_ASSERT(is_internal_pid(key2)
@@ -112,6 +113,7 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                    || is_small(key2)
                    || is_external_pid(key2)
                    || is_internal_ordinary_ref(key2)
+                   || is_internal_pid_ref(key2)
                    || is_external_ref(key2));
 
     if (is_immed(key1)) {
@@ -154,19 +156,21 @@ ml_cmp_keys(Eterm key1, Eterm key2)
         w1 = boxed_val(key1);
         hdr1 = *w1;
 
-        if ((hdr1 & _TAG_HEADER_MASK) == _TAG_HEADER_REF) {
+        if (is_ref_thing_header(hdr1)) {
             Eterm *w2;
+
+            ERTS_ML_ASSERT(is_ordinary_ref_thing(w1) || is_pid_ref_thing(w1));
 
             if (!is_internal_ref(key2))
                 return is_immed(key2) ? 1 : -1;
 
             w2 = internal_ref_val(key2);
 
-            ERTS_ML_ASSERT(w1[0] == ERTS_REF_THING_HEADER);
-            ERTS_ML_ASSERT(w2[0] == ERTS_REF_THING_HEADER);
+            ERTS_ML_ASSERT(is_ordinary_ref_thing(w2) || is_pid_ref_thing(w2));
 
-            return sys_memcmp((void *) &w1[1], (void *) &w2[1],
-                              (ERTS_REF_THING_SIZE - 1)*sizeof(Eterm));
+            return sys_memcmp((void *) internal_non_magic_ref_thing_numbers(w1),
+                              (void *) internal_non_magic_ref_thing_numbers(w2),
+                              ERTS_REF_NUMBERS*sizeof(Uint32));
         }
 
         ERTS_ML_ASSERT(is_external(key1));
@@ -794,22 +798,24 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
     case ERTS_MON_TYPE_PORT:
         if (is_nil(name)) {
             ErtsMonitorDataHeap *mdhp;
-            ErtsORefThing *ortp;
+            Eterm *ref_thing;
 
         case ERTS_MON_TYPE_TIME_OFFSET:
 
             ERTS_ML_ASSERT(is_nil(name));
             ERTS_ML_ASSERT(is_immed(orgn) && is_immed(trgt));
-            ERTS_ML_ASSERT(is_internal_ordinary_ref(ref));
+            ERTS_ML_ASSERT(is_internal_ordinary_ref(ref)
+                           || is_internal_pid_ref(ref));
         
             mdhp = erts_alloc(ERTS_ALC_T_MONITOR, sizeof(ErtsMonitorDataHeap));
             mdp = &mdhp->md;
             ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdhp));
 
-            ortp = (ErtsORefThing *) (char *) internal_ref_val(ref);
-            mdhp->oref_thing = *ortp;
-            mdp->ref = make_internal_ref(&mdhp->oref_thing.header);
-
+            ref_thing = internal_ref_val(ref);
+            sys_memcpy((void *) &mdhp->ref_heap[0],
+                       (void *) ref_thing,
+                       sizeof(Eterm)*(1 + thing_arityval(*ref_thing)));
+            mdp->ref = make_internal_ref(&mdhp->ref_heap[0]);
             mdp->origin.other.item = trgt;
             mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
             mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);

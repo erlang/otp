@@ -115,7 +115,7 @@ struct ErtsPortTask_ {
 	    ErtsPortTask *next;
 	    ErtsPortTaskHandle *handle;
 	    int flags;
-	    Uint32 ref[ERTS_MAX_REF_NUMBERS];
+	    Uint32 ref[ERTS_REF_NUMBERS];
 	    ErtsPortTaskTypeData td;
 	} alive;
 	ErtsThrPrgrLaterOp release;
