@@ -135,7 +135,6 @@ gen.select_tuple_arity(Src, Fail, Size, Rest) {
 gen.split_values(Src, TypeFail, Fail, Size, Rest) {
     BeamOp* op1;
     BeamOp* op2;
-    BeamOp* label;
     BeamOp* is_integer;
     int i;
 
@@ -146,17 +145,16 @@ gen.split_values(Src, TypeFail, Fail, Size, Rest) {
     is_integer->a[0] = TypeFail;
     is_integer->a[1] = Src;
 
-    $NewBeamOp(S, label);
-    $BeamOpNameArity(label, label, 1);
-    label->a[0].type = TAG_u;
-    label->a[0].val = beam_load_new_label(S);
-
     $NewBeamOp(S, op1);
     $BeamOpNameArity(op1, select_val, 3);
     $BeamOpArity(op1, 3 + Size.val);
     op1->a[0] = Src;
-    op1->a[1].type = TAG_f;
-    op1->a[1].val = label->a[0].val;
+    /* We use [] instead of a failure label to indicate a fallthrough
+     * to next instruction if none of the values match. That way, we
+     * don't have to create a new label dynamically, which would be
+     * tricky in BeamAsm. */
+    op1->a[1].type = TAG_n;
+    op1->a[1].val = 0;
     op1->a[2].type = TAG_u;
     op1->a[2].val = 0;
 
@@ -192,25 +190,21 @@ gen.split_values(Src, TypeFail, Fail, Size, Rest) {
 
     if (TypeFail.val == Fail.val) {
         /*
-        * select_val L1 S ... (small numbers)
-        * label L1
-        * is_integer Fail S
-        * select_val Fail S ... (bignums)
-        */
-        op1->next = label;
-        label->next = is_integer;
+         * select_val Src [] S ... (small numbers)
+         * is_integer Fail S
+         * select_val Src Fail S ... (bignums)
+         */
+        op1->next = is_integer;
         is_integer->next = op2;
     } else {
         /*
-        * is_integer TypeFail S
-        * select_val L1 S ... (small numbers)
-        * label L1
-        * select_val Fail S ... (bignums)
-        */
+         * is_integer TypeFail S
+         * select_val Src [] S ... (small numbers)
+         * select_val Src Fail S ... (bignums)
+         */
         is_integer->next = op1;
-        op1->next = label;
-        label->next = op2;
-        op1 = is_integer;
+        op1->next = op2;
+	op1 = is_integer;
     }
     op2->next = NULL;
 
@@ -375,55 +369,6 @@ gen.select_literals(Src, Fail, Size, Rest) {
     return op;
 }
 
-//
-// Replace a select_val instruction with a constant controlling expression
-// with a jump instruction.
-//
-gen.const_select_val(Src, Fail, Size, Rest) {
-    BeamOp* op;
-    int i;
-
-    ASSERT(Size.type == TAG_u);
-
-    $NewBeamOp(S, op);
-    $BeamOpNameArity(op, jump, 1);
-    op->next = NULL;
-
-    /* Search for a literal matching the controlling expression. */
-    switch (Src.type) {
-    case TAG_q:
-        {
-            Eterm expr = beamfile_get_literal(&S->beam, Src.val);
-            for (i = 0; i < Size.val; i += 2) {
-                if (Rest[i].type == TAG_q) {
-                    Eterm term = beamfile_get_literal(&S->beam, Rest[i].val);
-                    if (eq(term, expr)) {
-                        ASSERT(Rest[i+1].type == TAG_f);
-                        op->a[0] = Rest[i+1];
-                        return op;
-                    }
-                }
-            }
-        }
-        break;
-    case TAG_i:
-    case TAG_a:
-        for (i = 0; i < Size.val; i += 2) {
-            if (Rest[i].val == Src.val && Rest[i].type == Src.type) {
-                ASSERT(Rest[i+1].type == TAG_f);
-                op->a[0] = Rest[i+1];
-                return op;
-            }
-        }
-        break;
-    }
-
-    /* No match. Use the failure label. */
-
-    op->a[0] = Fail;
-    return op;
-}
-
 gen.new_small_map_lit(Dst, Live, Size, Rest) {
     unsigned size = Size.val;
     Uint lit;
@@ -503,5 +448,46 @@ gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
     }
 
     op->next = NULL;
+    return op;
+}
+
+gen.combine_conses(Len, Dst, Hd) {
+    BeamOp* cons;
+    BeamOp* tail;
+
+    $NewBeamOp(S, cons);
+    $NewBeamOp(S, tail);
+
+    $BeamOpNameArity(cons, append_cons, 2);
+    cons->a[0] = Len;
+    cons->a[1] = Hd;
+    cons->next = tail;
+
+    $BeamOpNameArity(tail, store_cons, 2);
+    tail->a[0].type = TAG_u;
+    tail->a[0].val = Len.val + 1;
+    tail->a[1] = Dst;
+
+    return cons;
+}
+
+gen.is_eq_exact_literal(Fail, R, C) {
+    BeamOp* op;
+    Eterm literal;
+    Uint tag_test;
+
+    ASSERT(C.type == TAG_q);
+    literal = beamfile_get_literal(&S->beam, C.val);
+    ASSERT(is_boxed(literal) || is_list(literal));
+    tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_is_eq_exact_literal, 4);
+    op->a[0] = Fail;
+    op->a[1] = R;
+    op->a[2] = C;
+    op->a[3].type = TAG_u;
+    op->a[3].val = tag_test;
+
     return op;
 }

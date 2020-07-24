@@ -107,7 +107,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.mov(message_ptr, imm(0));
         a.mov(ARG1, c_p);
         a.mov(ARG2, FCALLS);
-        a.sub(ARG3, ARG3);
+        mov_imm(ARG3, 0);
         a.lea(ARG4, message_ptr);
         a.lea(ARG5, get_out);
         runtime_call<5>(erts_proc_sig_receive_helper);
@@ -125,13 +125,11 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         /* Need to spill message_ptr to ARG1 as check_is_distributed uses it */
         a.mov(ARG1, message_ptr);
         a.test(ARG1, ARG1);
-        a.jne(check_is_distributed);
+        a.short_().jne(check_is_distributed);
 
-        a.cmp(get_out, 0);
-
-        /* We either ran out of reductions or received an exit signal; schedule
-         * ourselves out. */
-        a.jne(schedule_out);
+        /* Did we receive a signal or run out of reds? */
+        a.cmp(get_out, imm(0));
+        a.short_().jne(schedule_out);
 
         /* The queue is empty and we're not yielding or exiting, so we'll jump
          * to our wait/timeout instruction.
@@ -145,6 +143,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
     a.bind(schedule_out);
     {
+        /* We either ran out of reductions or received an exit signal; schedule
+         * ourselves out. The yield address (`c_p->i`) was set on ingress. */
         a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), imm(~F_DELAY_GC));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
@@ -158,7 +158,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     {
         a.cmp(x86::qword_ptr(ARG1, offsetof(ErtsSignal, common.tag)),
               imm(THE_NON_VALUE));
-        a.jne(done);
+        a.short_().jne(done);
 
         a.sub(FCALLS, imm(10));
 
@@ -202,7 +202,7 @@ static Sint remove_message(Process *c_p,
                            Sint FCALLS,
                            Eterm *HTOP,
                            Eterm *E,
-                           UWord active_code_ix) {
+                           Uint32 active_code_ix) {
     ErtsMessage *msgp;
 
     ERTS_CHK_MBUF_SZ(c_p);
@@ -320,7 +320,7 @@ void BeamModuleAssembler::emit_remove_message() {
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, FCALLS);
-    a.mov(ARG5, active_code_ix);
+    a.mov(ARG5d, active_code_ix);
     runtime_call<5>(remove_message);
     a.mov(FCALLS, RET);
 
@@ -444,8 +444,8 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
 
     ERTS_CT_ASSERT(RET_next < RET_wait && RET_wait < RET_badarg);
     a.cmp(RET, RET_wait);
-    a.je(wait);
-    a.jl(next);
+    a.short_().je(wait);
+    a.short_().jl(next);
 
     emit_handle_error(currLabel, (ErtsCodeMFA *)nullptr);
 

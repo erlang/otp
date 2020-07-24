@@ -19,6 +19,12 @@
 #
 
 #
+# Types that should never be used in specific operations.
+#
+
+FORBIDDEN_TYPES=hQ
+
+#
 # The instructions that follows are only known by the loader and the emulator.
 # They can be changed without recompiling old Beam files.
 #
@@ -60,7 +66,16 @@ put_tuple u==0 d => too_old_compiler
 #
 
 %cold
+# An unaligned label. The address of an unaligned label must never be saved
+# on the stack or used in a context where it can be confused with an Erlang term.
+
 label L
+
+# An label aligned to a word (8 byte) boundary. Must be used for addresses
+# that may be stored on the stack or that otherwise need to be properly tagged
+# as a continuation pointer.
+aligned_label L
+
 i_func_info I a a I
 int_code_end
 
@@ -114,33 +129,34 @@ test_heap I t?
 allocate_heap S u==0 R => allocate S R
 allocate_heap_zero S u==0 R => allocate_zero S R
 
-# Selecting values
+# Selecting values.
 
-select_val S=aiq Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
+# The size of the dispatch code for a jump table is about 40
+# bytes. Therefore we shouldn't use a jump table if there are too few
+# values.
 
-select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
+select_val S Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) => \
+  jump_tab(S, Fail, Size, Rest)
+is_integer Fail=f S | select_val S=s Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) => \
   jump_tab(S, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
-  jump_tab(S, Fail, Size, Rest)
-
-is_integer TypeFail=f S | select_val S=s Fail=f Size=u Rest=* | \
+is_integer TypeFail=f S | select_val S=s Fail=fn Size=u Rest=* | \
 	   mixed_types(Size, Rest) => \
   split_values(S, TypeFail, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | mixed_types(Size, Rest) => \
+select_val S Fail=fn Size=u Rest=* | mixed_types(Size, Rest) => \
   split_values(S, Fail, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
+is_integer Fail=f S | select_val S=d Fail=fn Size=u Rest=* | \
   fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
 
-is_atom Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
+is_atom Fail=f S | select_val S=d Fail=fn Size=u Rest=* | \
   fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | floats_or_bignums(Size, Rest) => \
+select_val S Fail=fn Size=u Rest=* | floats_or_bignums(Size, Rest) => \
   select_literals(S, Fail, Size, Rest)
 
-select_val S=d Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
+select_val S Fail=fn Size=u Rest=* | fixed_size_values(Size, Rest) => \
   select_val(S, Fail, Size, Rest)
 
 is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
@@ -149,18 +165,37 @@ is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
   select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val_bins S f? V
+i_select_val_bins s fn I *
 
-i_select_val_lins S f? V
+i_select_val_lins s fn I *
 
-i_select_tuple_arity S f? V
+i_select_tuple_arity S f? I *
 
-i_jump_on_val S f? W V
+i_jump_on_val s fn I I *
 
-get_list S S S
+is_number f? s
 
-get_hd S S
-get_tl S S
+jump f
+
+
+#
+# List matching instructions. The combination of test for a nonempty list followed
+# by get_{list/hd/tl} are common, so we will optimize that.
+#
+is_nonempty_list Fail nqia => jump Fail
+is_nonempty_list Fail Src | get_list Src Hd Tl => is_nonempty_list_get_list Fail Src Hd Tl
+is_nonempty_list Fail Src | get_hd Src Hd => is_nonempty_list_get_hd Fail Src Hd
+is_nonempty_list Fail Src | get_tl Src Tl => is_nonempty_list_get_tl Fail Src Tl
+
+is_nonempty_list f? S
+
+get_list S d d
+get_hd S d
+get_tl S d
+
+is_nonempty_list_get_list f S d d
+is_nonempty_list_get_hd f S d
+is_nonempty_list_get_tl f S d
 
 # Old-style catch.
 catch y f
@@ -178,39 +213,82 @@ try_case_end s
 
 set_tuple_element s S P
 
-# Get tuple element
+#
+# Get tuple element. Since this instruction is frequently used, we will try
+# to only fetch the pointer to the tuple once for a sequence of BEAM instructions
+# that fetch multiple elements from the same tuple.
+#
 
-i_get_tuple_element S P S
+current_tuple/1
+current_tuple/2
 
-is_number f? S
+is_tuple Fail=f Src | test_arity Fail Src Arity => \
+   i_is_tuple_of_arity Fail Src Arity | current_tuple Src
 
-is_number Fail=f i =>
-is_number Fail=f na => jump Fail
-is_number Fail Literal=q => move Literal x | is_number Fail x
+test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src
 
-jump f
+is_tuple NotTupleFail Tuple | is_tagged_tuple WrongRecordFail Tuple Arity Atom => \
+   i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Tuple Arity Atom | current_tuple Tuple
+
+is_tagged_tuple Fail Tuple Arity Atom => \
+   i_is_tagged_tuple Fail Tuple Arity Atom | current_tuple Tuple
+
+is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
+
+i_is_tuple_of_arity f? s A
+i_test_arity f? s A
+
+i_is_tagged_tuple f? s A a
+i_is_tagged_tuple_ff f? f? s A a
+
+i_is_tuple f? s
+
+# Generate instruction sequence for fetching the tuple element and remember
+# that we have a current tuple pointer.
+
+get_tuple_element Tuple Pos Dst => \
+  load_tuple_ptr Tuple | i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
+current_tuple Tuple | get_tuple_element Tuple Pos Dst => \
+  i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
+
+# Drop the current_tuple instruction if the tuple is overwritten.
+i_get_tuple_element Tuple Pos Tuple | current_tuple Tuple => i_get_tuple_element Tuple Pos Tuple
+
+# This is a current_tuple instruction instruction not followed by get_tuple_element.
+# Invalidate the current tuple pointer.
+
+current_tuple Tuple =>
+
+load_tuple_ptr s
+
+# If both positions and destinations are in consecutive memory, fetch and store
+# two words at once.
+i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple | \
+   get_tuple_element Tuple Pos2 Dst2 | consecutive_words(Pos1, Dst1, Pos2, Dst2) => \
+      get_two_tuple_elements Tuple Pos1 Dst1 | current_tuple Tuple Dst2
+
+# Drop the current_tuple instruction if the tuple is overwritten.
+current_tuple Tuple Tuple =>
+current_tuple Tuple Dst => current_tuple Tuple
+
+# The first operand will only be used in the debug-compiled runtime
+# system to verify that the register holding the tuple pointer agrees
+# with the source tuple operand.
+i_get_tuple_element s P S
+get_two_tuple_elements s P S
 
 #
 # Expection rasing instructions. Infrequently executed.
 #
 
 %cold
-case_end NotInX=cy => move NotInX x | case_end x
-badmatch NotInX=cy => move NotInX x | badmatch x
+case_end s
 
-case_end x
-
-badmatch x
+badmatch s
 
 if_end
 
-# Operands for raise/2 are almost always in x(2) and x(1).
-# Optimize for that case.
-raise x==2 x==1 => i_raise
-raise Trace=y Value=y => move Trace x=2 | move Value x=1 | i_raise
-raise Trace Value => move Trace x | move Value x=1 | move x x=2 | i_raise
-
-i_raise
+raise s s
 
 # Workaround the limitation that generators must always return at least one instruction.
 delete_me/0
@@ -225,27 +303,40 @@ system_limit_body
 %hot
 
 #
+# Optimize moves of consecutive memory addresses.
+#
+
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S1, D1, S2, D2) => move_two_words S1 D1
+move_two_words s d
+
+#
 # Move instructions.
 #
 
-swap S S
-move s S
+swap d d
+move s d
 
-# Receive operations.
+
+#
+# Receive operations. We conservatively align all labels before any
+# of the receive instructions.
+#
+
+label L | loop_rec Fail Reg => aligned_label L | loop_rec Fail Reg
+label L | wait_timeout Fail Src => aligned_label L | wait_timeout Fail Src
+label L | wait Fail => aligned_label L | wait Fail
+label L | timeout => aligned_label L | timeout
 
 loop_rec Fail x==0 | smp_mark_target_label(Fail) => i_loop_rec Fail
 
-label L | wait_timeout Fail Src | smp_already_locked(L) => \
-    label L | wait_timeout_locked Src Fail
+aligned_label L | wait_timeout Fail Src | smp_already_locked(L) => \
+    aligned_label L | wait_timeout_locked Src Fail
 wait_timeout Fail Src => wait_timeout_unlocked Src Fail
 
-# wait_timeout_unlocked Src=aiq Fail => literal_timeout(Fail, Src)
-# wait_timeout_locked Src=aiq Fail => literal_timeout_locked(Fail, Src)
-
-label L | wait Fail | smp_already_locked(L) => label L | wait_locked Fail
+aligned_label L | wait Fail | smp_already_locked(L) => aligned_label L | wait_locked Fail
 wait Fail => wait_unlocked Fail
 
-label L | timeout | smp_already_locked(L) => label L | timeout_locked
+aligned_label L | timeout | smp_already_locked(L) => aligned_label L | timeout_locked
 
 remove_message
 timeout
@@ -266,15 +357,13 @@ send
 #
 
 is_eq_exact Lbl S S =>
-is_eq_exact Lbl C1=c C2=c => move C1 x | is_eq_exact Lbl x C2
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
 
 is_eq_exact Lbl R=xy n => is_nil Lbl R
 is_eq_exact Lbl R=xy C=ia => i_is_eq_exact_immed Lbl R C
-is_eq_exact Lbl R=xy C=q => i_is_eq_exact_literal Lbl R C
+is_eq_exact Lbl R=xy C=q => is_eq_exact_literal(Lbl, R, C)
 
 is_ne_exact Lbl S S => jump Lbl
-is_ne_exact Lbl C1=c C2=c => move C1 x | is_ne_exact Lbl x C2
 is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
 
 is_ne_exact Lbl R=xy C=ian => i_is_ne_exact_immed Lbl R C
@@ -282,13 +371,13 @@ is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
 
 i_is_eq_exact_immed f? s c
 
-i_is_eq_exact_literal f? s c
+i_is_eq_exact_literal/4
+i_is_eq_exact_literal f? s c I
 
 i_is_ne_exact_immed f? s c
 
 i_is_ne_exact_literal f? s c
 
-is_eq_exact Lbl Y=y X=x => is_eq_exact Lbl X Y
 is_eq_exact f? s s
 
 is_ne_exact f? s s
@@ -324,13 +413,20 @@ i_put_tuple Dst Arity Puts=* | put S => \
 
 i_put_tuple Dst Arity Puts=* => put_tuple2 Dst Arity Puts
 
-put_tuple2 S V
+put_tuple2 S A *
 
 #
 # Putting lists.
 #
 
-put_list s s S
+store_cons/2
+put_list Hd Tl Dst => put_cons Hd Tl | store_cons u=1 Dst
+store_cons Len Dst | put_list Hd Dst Dst | distinct(Dst, Hd) => combine_conses(Len, Dst, Hd)
+store_cons Len Dst | put_list Hd Dst OtherDst => store_cons Len Dst | append_cons u Hd | store_cons u=1 OtherDst
+
+put_cons s s
+append_cons I s
+store_cons I d
 
 #
 # Some more only used by the emulator
@@ -348,102 +444,35 @@ return_trace
 %hot
 
 #
-# Instruction transformations & folded instructions.
+# Type tests. Note that the operands for most type tests are `s` to
+# ensure that literal operands will work. The BEAM compiler starting
+# from OTP 22 will never emit type tests with literal operands even if
+# all optimizations are turned off, but loading unoptimized code from
+# older releases and code generated by alternative code generators.
 #
 
-#
-# is_tagged_tuple Fail=f Src=rxy Arity Atom=a
-#
-
-is_tagged_tuple Fail Literal=q Arity Atom => \
-    move Literal x | is_tagged_tuple Fail x Arity Atom
-is_tagged_tuple Fail=f c Arity Atom  => jump Fail
-
-is_tagged_tuple f? S A a
-
-# Test tuple & arity (head)
-
-is_tuple Fail Literal=q => move Literal x | is_tuple Fail x
-is_tuple Fail=f c => jump Fail
-is_tuple Fail=f S=xy | test_arity Fail=f S=xy Arity => is_tuple_of_arity Fail S Arity
-
-is_tuple_of_arity f? S A
-
-is_tuple f? S
-
-test_arity Fail Literal=q Arity => move Literal x | test_arity Fail x Arity
-test_arity Fail=f c Arity => jump Fail
-
-test_arity f? S A
-
-is_tuple NotTupleFail Tuple=xy | is_tagged_tuple WrongRecordFail Tuple Arity Atom => \
-   is_tagged_tuple_ff NotTupleFail WrongRecordFail Tuple Arity Atom
-
-is_tagged_tuple_ff f? f? S A a
-
-get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
-
-is_integer Fail=f i =>
-is_integer Fail=f an => jump Fail
-is_integer Fail Literal=q => move Literal x | is_integer Fail x
-
-is_integer f? S
-
-is_list Fail=f n =>
-is_list Fail Literal=q => move Literal x | is_list Fail x
-is_list Fail=f c => jump Fail
-is_list f? S
-
-is_nonempty_list Fail n => jump Fail
-is_nonempty_list f? S
-
-is_atom f? S
-
-is_atom Fail=f a =>
-is_atom Fail=f niq => jump Fail
-
-is_float f? S
-
-is_float Fail=f nai => jump Fail
-is_float Fail Literal=q => move Literal x | is_float Fail x
+is_integer f? s
+is_list f? s
+is_atom f? s
+is_float f? s
 
 is_nil Fail=f n =>
 is_nil Fail=f qia => jump Fail
-
 is_nil f? S
-
-is_binary Fail Literal=q => move Literal x | is_binary Fail x
-is_binary Fail=f c => jump Fail
-is_binary f? S
 
 # XXX Deprecated.
 is_bitstr Fail Term => is_bitstring Fail Term
 
-is_bitstring Fail Literal=q => move Literal x | is_bitstring Fail x
-is_bitstring Fail=f c => jump Fail
-is_bitstring f? S
+is_binary f? s
+is_bitstring f? s
 
-is_reference Fail=f cq => jump Fail
-is_reference f? S
+is_reference f? s
+is_pid f? s
+is_port f? s
 
-is_pid Fail=f cq => jump Fail
-is_pid f? S
+is_boolean f? s
 
-is_port Fail=f cq => jump Fail
-is_port f? S
-
-is_boolean Fail=f a==am_true =>
-is_boolean Fail=f a==am_false =>
-is_boolean Fail=f ac => jump Fail
-
-is_boolean f? S
-
-is_function2 Fail=f Fun Arity => is_function2(Fail, Fun, Arity)
-
-%cold
-cold_is_function2 f? x x
-%hot
-hot_is_function2 f? S t
+is_function2 f? s s
 
 #################################################################
 # External function and bif calls.
@@ -667,6 +696,10 @@ bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=n Dst => \
     jump Fail
 bif1 Fail=f Bif=u$bif:erlang:hd/1 Src Dst => \
     is_nonempty_list Fail Src | get_hd Src Dst
+bif1 Fail Bif=u$bif:erlang:hd/1 Src Dst => \
+    bif_hd Fail Src Dst
+
+bif_hd j? s d
 
 bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=n Dst => \
     jump Fail
@@ -675,19 +708,35 @@ bif1 Fail=f Bif=u$bif:erlang:tl/1 Src Dst => \
 
 bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
 
+bif2 Fail u$bif:erlang:element/2 S1=ixy S2 Dst => bif_element Fail S1 S2 Dst
+
+bif_element j? s s d
+
+bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
+bif2 Fail Bif S1 S2 Dst | never_fails(Bif) => nofail_bif2 S1 S2 Bif Dst
+
 bif1 Fail Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
 bif2 Fail Bif S1 S2 Dst => i_bif2 S1 S2 Fail Bif Dst
+
+nofail_bif2 S1=d S2=ian Bif Dst | is_eq_exact_bif(Bif) => bif_is_eq_exact_immed S1 S2 Dst
+nofail_bif2 S1=d S2=ian Bif Dst | is_ne_exact_bif(Bif) => bif_is_ne_exact_immed S1 S2 Dst
 
 i_get_hash c I d
 i_get s d
 
-self S
+self d
 
-node S
+node d
+
+nofail_bif1 s b d
+nofail_bif2 s s b d
 
 i_bif1 s j? b d
 i_bif2 s s j? b d
 i_bif3 s s s j? b d
+
+bif_is_eq_exact_immed S c d
+bif_is_ne_exact_immed S c d
 
 #
 # Internal calls.
@@ -751,20 +800,20 @@ int_func_start Func_Label Func_Line M F A | \
 int_func_start Func_Label Func_Line M F A | \
   func_prologue Entry_Label Entry_Line | \
   is_mfa_bif(M, F, A) => \
-    label Func_Label | \
+    aligned_label Func_Label | \
     func_line Func_Line | \
     i_func_info Func_Label M F A | \
-      label Entry_Label | \
+      aligned_label Entry_Label | \
       line Entry_Line | \
       i_breakpoint_trampoline | \
       call_bif_mfa M F A
 
 int_func_start Func_Label Func_Line M F A | \
   func_prologue Entry_Label Entry_Line => \
-    label Func_Label | \
+    aligned_label Func_Label | \
     func_line Func_Line | \
     i_func_info Func_Label M F A | \
-      label Entry_Label | \
+      aligned_label Entry_Label | \
       line Entry_Line | \
       i_breakpoint_trampoline | \
       i_test_yield
@@ -791,18 +840,13 @@ bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
 i_bs_start_match2 S f t t d
 
-bs_save2 Y=y Index => move Y x | bs_save2 x Index
 bs_save2 Reg Index => bs_save(Reg, Index)
 i_bs_save2 x t
 
-bs_restore2 Y=y Index => move Y x | bs_restore2 x Index
 bs_restore2 Reg Index => bs_restore(Reg, Index)
-i_bs_restore2 x t
+i_bs_restore2 S t
 
-bs_context_to_binary Y=y | line L | badmatch Y => \
-    move Y x | bs_context_to_binary x | line L | badmatch x
-bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
-bs_context_to_binary x
+bs_context_to_binary S
 %warm
 
 # ================================================================
@@ -904,12 +948,14 @@ i_bs_start_match3 S t j d
 bs_get_utf8 Fail=f Ms=xy u u Dst=d => i_bs_get_utf8 Ms Fail Dst
 i_bs_get_utf8 S f? d
 
-bs_skip_utf8 Fail=f Ms=xy u u => i_bs_get_utf8 Ms Fail x
+bs_skip_utf8 Fail=f Ms=xy u u => i_bs_skip_utf8 Ms Fail
+i_bs_skip_utf8 S f?
 
 bs_get_utf16 Fail=f Ms=xy u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
-bs_skip_utf16 Fail=f Ms=xy u Flags=u => i_bs_get_utf16 Ms Fail Flags x
+bs_skip_utf16 Fail=f Ms=xy u Flags=u => i_bs_skip_utf16 Ms Fail Flags
 
 i_bs_get_utf16 S f? t d
+i_bs_skip_utf16 S f? t
 
 bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
@@ -971,14 +1017,14 @@ bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 bs_add j? s s t? x
 
 bs_append Fail Size Extra Live Unit Bin Flags Dst => \
-  move Bin x | i_bs_append Fail Extra Live Unit Size Dst
+  i_bs_append Fail Extra Live Unit Size Bin Dst
 
 bs_private_append Fail Size Unit Bin Flags Dst => \
   i_bs_private_append Fail Unit Size Bin Dst
 
 bs_init_writable
 
-i_bs_append j? I t? t s S
+i_bs_append j? I t? t s s S
 i_bs_private_append j? t s S x
 
 #
@@ -1003,20 +1049,13 @@ bs_put_utf8 Fail u Src => i_bs_put_utf8 Fail Src
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
 
-i_bs_utf8_size S x
-i_bs_utf16_size S x
+i_bs_utf8_size s x
+i_bs_utf16_size s x
 
-i_bs_put_utf8 j? S
-bs_put_utf16 j? t S
+i_bs_put_utf8 j? s
+bs_put_utf16 j? t s
 
-i_bs_validate_unicode j? S
-
-# Handle unoptimized code.
-i_bs_utf8_size Src=c Dst => move Src x | i_bs_utf8_size x Dst
-i_bs_utf16_size Src=c Dst => move Src x | i_bs_utf16_size x Dst
-i_bs_put_utf8 Fail Src=c => move Src x | i_bs_put_utf8 Fail x
-bs_put_utf16 Fail Flags Src=c => move Src x | bs_put_utf16 Fail Flags x
-i_bs_validate_unicode Fail Src=c => move Src x | i_bs_validate_unicode Fail x
+i_bs_validate_unicode j? s
 
 #
 # Storing floats into binaries.
@@ -1061,15 +1100,13 @@ fmul p FR1 FR2 FR3 => i_fmul FR1 FR2 FR3
 fdiv p FR1 FR2 FR3 => i_fdiv FR1 FR2 FR3
 fnegate p FR1 FR2 => i_fnegate FR1 FR2
 
-fconv Arg=iqan Dst=l => move Arg x | fconv x Dst
-
 fmove Arg=l Dst=d => fstore Arg Dst
 fmove Arg=dq Dst=l => fload Arg Dst
 
 fstore l d
 fload Sq l
 
-fconv S l
+fconv s l
 
 i_fadd l l l
 i_fsub l l l
@@ -1112,10 +1149,9 @@ put_map_assoc Fail=f Map Dst Live Size Rest=* => \
 	      is_map Fail Map | i_put_map_assoc Map Dst Live Size Rest
 
 ensure_map Lit=q | literal_is_map(Lit) =>
-ensure_map Src=cqy => move Src x | ensure_map x
 
 %cold
-ensure_map x
+ensure_map s
 %hot
 
 #
@@ -1141,15 +1177,12 @@ sorted_put_map_exact Fail Src Dst Live Size Rest=* => \
 new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
   new_small_map_lit(Dst, Live, Size, Rest)
 
-new_map d t V
-i_new_small_map_lit d t q V
-update_map_assoc s d t V
-update_map_exact s j? d t V
+new_map d t I *
+i_new_small_map_lit d t q I *
+update_map_assoc s d t I *
+update_map_exact s j? d t I *
 
-is_map Fail Lit=q | literal_is_map(Lit) =>
-is_map Fail cq => jump Fail
-
-is_map f? S
+is_map f? s
 
 ## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
 
@@ -1163,7 +1196,7 @@ get_map_elements Fail Src Size=u==2 Rest=* => \
 get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
    get_map_elements(Fail, Src, Size, Rest)
 
-i_get_map_elements f? s V
+i_get_map_elements f? s I *
 
 i_get_map_element_hash Fail Src=c Key Hash Dst => \
     move Src x | i_get_map_element_hash Fail x Key Hash Dst
@@ -1312,11 +1345,9 @@ bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 #
 
 gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst => \
-   i_length_setup Live Src | i_length Fail Live Dst
+   i_length_setup Fail Live Src | i_length Fail Live Dst
 
-i_length_setup Live Src=c => move Src x | i_length_setup Live x
-
-i_length_setup t S
+i_length_setup j? t s
 i_length j? t d
 
 #

@@ -18,6 +18,11 @@
  * %CopyrightEnd%
  */
 
+/*
+ * See the comment in instr_common.cpp for some notes on how
+ * to minimize code size.
+ */
+
 #include "beam_asm.hpp"
 
 extern "C"
@@ -26,23 +31,39 @@ extern "C"
 }
 
 void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args,
-                                             Label entry,
                                              const ErtsCodeMFA *mfa) {
     comment("handle_error");
     for (unsigned i = 0; i < args.size(); i++)
         mov_arg(ArgVal(ArgVal::x, i), args[i]);
-    emit_handle_error(entry, mfa);
+    emit_handle_error(mfa);
+}
+
+void BeamModuleAssembler::emit_is_small(Label fail, x86::Gp Reg) {
+    ASSERT(ARG1 != Reg);
+
+    comment("is_small(X)");
+    a.mov(ARG1d, Reg.r32());
+    a.and_(ARG1d, imm(_TAG_IMMED1_MASK));
+    a.cmp(ARG1d, imm(_TAG_IMMED1_SMALL));
+    a.short_().jne(fail);
 }
 
 void BeamModuleAssembler::emit_is_both_small(Label fail, x86::Gp A, x86::Gp B) {
     ASSERT(ARG1 != A && ARG1 != B);
 
     comment("is_both_small(X, Y)");
-    a.mov(ARG1, A);
-    a.and_(ARG1, B);
-    a.and_(ARG1, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG1, imm(_TAG_IMMED1_SMALL));
-    a.jne(fail);
+    if (A != RET && B != RET) {
+        a.mov(RETd, A.r32());
+        a.and_(RETd, B.r32());
+        a.and_(RETb, imm(_TAG_IMMED1_MASK));
+        a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+    } else {
+        a.mov(ARG1d, A.r32());
+        a.and_(ARG1d, B.r32());
+        a.and_(ARG1d, imm(_TAG_IMMED1_MASK));
+        a.cmp(ARG1d, imm(_TAG_IMMED1_SMALL));
+    }
+    a.short_().jne(fail);
 }
 
 void BeamGlobalAssembler::emit_increment_body_shared() {
@@ -56,39 +77,38 @@ void BeamGlobalAssembler::emit_increment_body_shared() {
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
-    a.je(error);
+    emit_test_the_non_value(RET);
+    a.short_().je(error);
 
     a.ret();
 
     a.bind(error);
     {
         mov_imm(ARG4, 0);
-        emit_handle_error();
+        emit_handle_error_shared_prologue();
     }
 }
 
 void BeamModuleAssembler::emit_i_increment(const ArgVal &Src,
                                            const ArgVal &Val,
                                            const ArgVal &Dst) {
-    Label entry = a.newLabel(), mixed = a.newLabel(), next = a.newLabel();
-
-    a.bind(entry);
+    Label mixed = a.newLabel(), next = a.newLabel();
 
     /* Place the values in ARG2 and ARG3 to prepare for the mixed call. Note
      * that ARG3 is untagged at this point */
     mov_arg(ARG2, Src);
     mov_imm(ARG3, Val.getValue() << _TAG_IMMED1_SIZE);
-    a.mov(ARG4, ARG2);
-    a.and_(ARG4, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG4, imm(_TAG_IMMED1_SMALL));
-    a.jne(mixed);
+    a.mov(RETd, ARG2d);
+    a.and_(RETb, imm(_TAG_IMMED1_MASK));
+    a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+    a.short_().jne(mixed);
+
     a.mov(RET, ARG2);
     a.add(RET, ARG3);
-    a.jno(next);
+    a.short_().jno(next);
 
     a.bind(mixed);
-    fragment_call(ga->get_increment_body_shared());
+    safe_fragment_call(ga->get_increment_body_shared());
 
     /* all went well, store result in dst */
     a.bind(next);
@@ -111,8 +131,8 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
-    a.je(error);
+    emit_test_the_non_value(RET);
+    a.short_().je(error);
 
     a.ret();
 
@@ -125,8 +145,22 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
         a.mov(getXRef(1), ARG2);
 
         a.mov(ARG4, imm(&bif_mfa));
-        emit_handle_error();
+        emit_handle_error_shared_prologue();
     }
+}
+
+void BeamGlobalAssembler::emit_plus_guard_shared() {
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    /* ARG2 and ARG3 were set by the caller */
+    runtime_call<3>(erts_mixed_plus);
+
+    emit_leave_runtime();
+
+    /* Set ZF if the addition failed. */
+    emit_test_the_non_value(RET);
+    a.ret();
 }
 
 void BeamModuleAssembler::emit_i_plus(const ArgVal &LHS,
@@ -146,26 +180,17 @@ void BeamModuleAssembler::emit_i_plus(const ArgVal &LHS,
     a.mov(ARG4, ARG3);
     a.and_(ARG4, imm(~_TAG_IMMED1_MASK));
     a.add(RET, ARG4);
-    a.jno(next);
+    a.short_().jno(next);
 
-    /* Call mixed addition
-     *
-     * FIXME: Make this part global including the test for TNV. */
+    /* Call mixed addition. */
     a.bind(mixed);
-
-    if (Fail.getValue() != 0) {
-        emit_enter_runtime();
-
-        a.mov(ARG1, c_p);
-        /* ARG2 and ARG3 set above */
-        runtime_call<3>(erts_mixed_plus);
-
-        emit_leave_runtime();
-
-        a.cmp(RET, imm(THE_NON_VALUE));
-        a.je(labels[Fail.getValue()]);
-    } else {
-        fragment_call(ga->get_plus_body_shared());
+    {
+        if (Fail.getValue() != 0) {
+            safe_fragment_call(ga->get_plus_guard_shared());
+            a.je(labels[Fail.getValue()]);
+        } else {
+            safe_fragment_call(ga->get_plus_body_shared());
+        }
     }
 
     a.bind(next);
@@ -188,8 +213,8 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
-    a.je(error);
+    emit_test_the_non_value(RET);
+    a.short_().je(error);
 
     a.ret();
 
@@ -202,8 +227,22 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
         a.mov(getXRef(1), ARG2);
 
         a.mov(ARG4, imm(&bif_mfa));
-        emit_handle_error();
+        emit_handle_error_shared_prologue();
     }
+}
+
+void BeamGlobalAssembler::emit_minus_guard_shared() {
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    /* ARG2 and ARG3 were set by the caller */
+    runtime_call<3>(erts_mixed_minus);
+
+    emit_leave_runtime();
+
+    /* Set ZF if the addition failed. */
+    emit_test_the_non_value(RET);
+    a.ret();
 }
 
 void BeamModuleAssembler::emit_i_minus(const ArgVal &LHS,
@@ -214,34 +253,34 @@ void BeamModuleAssembler::emit_i_minus(const ArgVal &LHS,
 
     a.bind(entry);
 
-    comment("is_both_small(X, Y)");
     mov_arg(ARG2, LHS); /* Used by erts_mixed_plus in this slot */
     mov_arg(ARG3, RHS); /* Used by erts_mixed_plus in this slot */
-    emit_is_both_small(mixed, ARG2, ARG3);
+
+    if (RHS.isImmed() && is_small(RHS.getValue())) {
+        a.mov(RETd, ARG2d);
+    } else if (LHS.isImmed() && is_small(LHS.getValue())) {
+        a.mov(RETd, ARG3d);
+    } else {
+        a.mov(RETd, ARG2d);
+        a.and_(RETd, ARG3d);
+    }
+    a.and_(RETb, imm(_TAG_IMMED1_MASK));
+    a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+    a.short_().jne(mixed);
 
     comment("sub with overflow check");
     a.mov(RET, ARG2);
     a.mov(ARG4, ARG3);
     a.and_(ARG4, imm(~_TAG_IMMED1_MASK));
     a.sub(RET, ARG4);
-    a.jno(next);
+    a.short_().jno(next);
 
     a.bind(mixed);
-    {
-        if (Fail.getValue() != 0) {
-            emit_enter_runtime();
-
-            a.mov(ARG1, c_p);
-            /* ARG2 and ARG3 set above */
-            runtime_call<3>(erts_mixed_minus);
-
-            emit_leave_runtime();
-
-            a.cmp(RET, imm(THE_NON_VALUE));
-            a.je(labels[Fail.getValue()]);
-        } else {
-            fragment_call(ga->get_minus_body_shared());
-        }
+    if (Fail.getValue() != 0) {
+        safe_fragment_call(ga->get_minus_guard_shared());
+        a.je(labels[Fail.getValue()]);
+    } else {
+        safe_fragment_call(ga->get_minus_body_shared());
     }
 
     a.bind(next);
@@ -261,10 +300,10 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
     a.je(exit);
 
     /* Are both smalls? */
-    a.mov(ARG5, ARG1);
-    a.and_(ARG5, ARG4);
-    a.and_(ARG5, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG5, imm(_TAG_IMMED1_SMALL));
+    a.mov(ARG2d, ARG1d);
+    a.and_(ARG2d, ARG4d);
+    a.and_(ARG2d, imm(_TAG_IMMED1_MASK));
+    a.cmp(ARG2d, imm(_TAG_IMMED1_SMALL));
     a.jne(generic);
 
     a.mov(ARG5, ARG4);
@@ -337,10 +376,10 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     a.je(div_zero);
 
     /* Are both smalls? */
-    a.mov(ARG6, ARG1);
-    a.and_(ARG6, ARG4);
-    a.and_(ARG6, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG6, imm(_TAG_IMMED1_SMALL));
+    a.mov(ARG2d, ARG1d);
+    a.and_(ARG2d, ARG4d);
+    a.and_(ARG2d, imm(_TAG_IMMED1_MASK));
+    a.cmp(ARG2d, imm(_TAG_IMMED1_SMALL));
     a.jne(generic_div);
 
     a.mov(ARG6, ARG4);
@@ -365,7 +404,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
      * generic handler in that case. */
     a.sar(ARG6, imm(SMALL_BITS - 1));
     a.cmp(ARG6, imm(1));
-    a.jge(generic_div);
+    a.short_().jge(generic_div);
 
     /* Realign the stack and return. */
     a.ret();
@@ -394,7 +433,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
         a.mov(x86::rax, TMP_MEM4q);
         a.mov(x86::rdx, TMP_MEM5q);
 
-        a.je(generic_error);
+        a.short_().je(generic_error);
         a.ret();
     }
 
@@ -409,7 +448,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
         a.mov(getXRef(1), ARG4);
 
         a.mov(ARG4, ARG5);
-        a.jmp(error);
+        a.short_().jmp(error);
     }
 
     a.bind(generic_error);
@@ -427,7 +466,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     }
 
     a.bind(error);
-    emit_handle_error();
+    emit_handle_error_shared_prologue();
 }
 
 void BeamModuleAssembler::emit_div_rem(const ArgVal &Fail,
@@ -444,7 +483,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgVal &Fail,
         a.je(labels[Fail.getValue()]);
     } else {
         a.mov(ARG5, imm(error_mfa));
-        fragment_call(ga->get_int_div_rem_body_shared());
+        safe_fragment_call(ga->get_int_div_rem_body_shared());
     }
 }
 
@@ -502,10 +541,7 @@ void BeamModuleAssembler::emit_i_m_div(const ArgVal &Fail,
                                        const ArgVal &Dst) {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_Div, 2};
 
-    Label next = a.newLabel(), entry = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label next = a.newLabel();
 
     mov_arg(ARG2, LHS);
     mov_arg(ARG3, RHS);
@@ -518,13 +554,13 @@ void BeamModuleAssembler::emit_i_m_div(const ArgVal &Fail,
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
+    emit_test_the_non_value(RET);
 
     if (Fail.getValue() != 0) {
         a.je(labels[Fail.getValue()]);
     } else {
-        a.jne(next);
-        emit_bif_arg_error({LHS, RHS}, entry, &bif_mfa);
+        a.short_().jne(next);
+        emit_bif_arg_error({LHS, RHS}, &bif_mfa);
     }
 
     a.bind(next);
@@ -538,26 +574,25 @@ void BeamModuleAssembler::emit_i_m_div(const ArgVal &Fail,
  *
  * Result is returned in RET, error is indicated by ZF. */
 void BeamGlobalAssembler::emit_times_guard_shared() {
-    Label generic = a.newLabel(), exit = a.newLabel();
+    Label generic = a.newLabel();
 
     /* Are both smalls? */
-    a.mov(ARG2, ARG1);
-    a.and_(ARG2, ARG4);
-    a.and_(ARG2, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG2, imm(_TAG_IMMED1_SMALL));
-    a.jne(generic);
+    a.mov(ARG2d, ARG1d);
+    a.and_(ARG2d, ARG4d);
+    a.and_(ARG2d, imm(_TAG_IMMED1_MASK));
+    a.cmp(ARG2d, imm(_TAG_IMMED1_SMALL));
+    a.short_().jne(generic);
 
     a.mov(RET, ARG1);
     a.mov(ARG2, ARG4);
     a.and_(RET, imm(~_TAG_IMMED1_MASK));
     a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
     a.imul(RET, ARG2); /* Clobbers RDX */
-    a.jo(generic);
+    a.short_().jo(generic);
 
     a.or_(RET, imm(_TAG_IMMED1_SMALL)); /* Always sets ZF to false */
 
-    /* Realign the stack and return. */
-    a.jmp(exit);
+    a.ret();
 
     a.bind(generic);
     {
@@ -570,13 +605,10 @@ void BeamGlobalAssembler::emit_times_guard_shared() {
 
         emit_leave_runtime();
 
-        a.cmp(RET, imm(THE_NON_VALUE)); /* Sets ZF for use in caller */
+        emit_test_the_non_value(RET); /* Sets ZF for use in caller */
 
-        /* Fall through */
+        a.ret();
     }
-
-    a.bind(exit);
-    a.ret();
 }
 
 /* ARG1 = LHS, ARG4 (!) = RHS
@@ -591,9 +623,9 @@ void BeamGlobalAssembler::emit_times_body_shared() {
     Label generic = a.newLabel(), error = a.newLabel();
 
     /* Are both smalls? */
-    a.mov(ARG2, ARG1);
-    a.and_(ARG2, ARG4);
-    a.and_(ARG2, imm(_TAG_IMMED1_MASK));
+    a.mov(ARG2d, ARG1d);
+    a.and_(ARG2d, ARG4d);
+    a.and_(ARG2d, imm(_TAG_IMMED1_MASK));
     a.cmp(ARG2, imm(_TAG_IMMED1_SMALL));
     a.jne(generic);
 
@@ -602,7 +634,7 @@ void BeamGlobalAssembler::emit_times_body_shared() {
     a.and_(RET, imm(~_TAG_IMMED1_MASK));
     a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
     a.imul(RET, ARG2); /* Clobbers RDX */
-    a.jo(generic);
+    a.short_().jo(generic);
 
     a.or_(RET, imm(_TAG_IMMED1_SMALL));
 
@@ -624,8 +656,8 @@ void BeamGlobalAssembler::emit_times_body_shared() {
 
         emit_leave_runtime();
 
-        a.cmp(RET, imm(THE_NON_VALUE));
-        a.je(error);
+        emit_test_the_non_value(RET);
+        a.short_().je(error);
 
         a.ret();
     }
@@ -639,7 +671,7 @@ void BeamGlobalAssembler::emit_times_body_shared() {
         a.mov(getXRef(1), ARG2);
 
         a.mov(ARG4, imm(&bif_mfa));
-        emit_handle_error();
+        emit_handle_error_shared_prologue();
     }
 }
 
@@ -656,7 +688,7 @@ void BeamModuleAssembler::emit_i_times(const ArgVal &Fail,
         safe_fragment_call(ga->get_times_guard_shared());
         a.je(labels[Fail.getValue()]);
     } else {
-        fragment_call(ga->get_times_body_shared());
+        safe_fragment_call(ga->get_times_body_shared());
     }
 
     mov_arg(Dst, RET);
@@ -676,7 +708,7 @@ void BeamGlobalAssembler::emit_bitwise_fallback_guard(T(*func_ptr)) {
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
+    emit_test_the_non_value(RET);
     a.ret();
 }
 
@@ -701,8 +733,8 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
-    a.je(error);
+    emit_test_the_non_value(RET);
+    a.short_().je(error);
 
     a.ret();
 
@@ -715,7 +747,7 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
         a.mov(getXRef(1), ARG2);
 
         a.mov(ARG4, imm(mfa));
-        emit_handle_error();
+        emit_handle_error_shared_prologue();
     }
 }
 
@@ -737,11 +769,15 @@ void BeamModuleAssembler::emit_i_band(const ArgVal &LHS,
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
 
-    emit_is_both_small(generic, RET, ARG2);
+    if (RHS.isImmed() && is_small(RHS.getValue())) {
+        emit_is_small(generic, ARG2);
+    } else {
+        emit_is_both_small(generic, RET, ARG2);
+    }
 
     /* TAG & TAG = TAG, so we don't need to tag it again. */
     a.and_(RET, ARG2);
-    a.jmp(next);
+    a.short_().jmp(next);
 
     a.bind(generic);
     {
@@ -749,7 +785,7 @@ void BeamModuleAssembler::emit_i_band(const ArgVal &LHS,
             safe_fragment_call(ga->get_i_band_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            fragment_call(ga->get_i_band_body_shared());
+            safe_fragment_call(ga->get_i_band_body_shared());
         }
     }
 
@@ -781,11 +817,15 @@ void BeamModuleAssembler::emit_i_bor(const ArgVal &Fail,
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
 
-    emit_is_both_small(generic, RET, ARG2);
+    if (RHS.isImmed() && is_small(RHS.getValue())) {
+        emit_is_small(generic, ARG2);
+    } else {
+        emit_is_both_small(generic, RET, ARG2);
+    }
 
     /* TAG | TAG = TAG, so we don't need to tag it again. */
     a.or_(RET, ARG2);
-    a.jmp(next);
+    a.short_().jmp(next);
 
     a.bind(generic);
     {
@@ -793,7 +833,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgVal &Fail,
             safe_fragment_call(ga->get_i_bor_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            fragment_call(ga->get_i_bor_body_shared());
+            safe_fragment_call(ga->get_i_bor_body_shared());
         }
     }
 
@@ -825,12 +865,16 @@ void BeamModuleAssembler::emit_i_bxor(const ArgVal &Fail,
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
 
-    emit_is_both_small(generic, RET, ARG2);
+    if (RHS.isImmed() && is_small(RHS.getValue())) {
+        emit_is_small(generic, ARG2);
+    } else {
+        emit_is_both_small(generic, RET, ARG2);
+    }
 
     /* TAG ^ TAG = 0, so we need to tag it again. */
     a.xor_(RET, ARG2);
     a.or_(RET, imm(_TAG_IMMED1_SMALL));
-    a.jmp(next);
+    a.short_().jmp(next);
 
     a.bind(generic);
     {
@@ -838,7 +882,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgVal &Fail,
             safe_fragment_call(ga->get_i_bxor_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            fragment_call(ga->get_i_bxor_body_shared());
+            safe_fragment_call(ga->get_i_bxor_body_shared());
         }
     }
 
@@ -850,6 +894,9 @@ void BeamModuleAssembler::emit_i_bxor(const ArgVal &Fail,
  *
  * Result is returned in RET. Error is indicated by ZF. */
 void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
+    /* Undo the speculative inversion in module code */
+    a.xor_(RET, imm(~_TAG_IMMED1_MASK));
+
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
@@ -858,7 +905,7 @@ void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
+    emit_test_the_non_value(RET);
     a.ret();
 }
 
@@ -869,6 +916,9 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bnot, 1};
 
     Label error = a.newLabel();
+
+    /* Undo the speculative inversion in module code */
+    a.xor_(RET, imm(~_TAG_IMMED1_MASK));
 
     emit_enter_runtime();
 
@@ -881,8 +931,8 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
-    a.je(error);
+    emit_test_the_non_value(RET);
+    a.short_().je(error);
 
     a.ret();
 
@@ -893,34 +943,32 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
         a.mov(getXRef(0), ARG1);
 
         a.mov(ARG4, imm(&bif_mfa));
-        emit_handle_error();
+        emit_handle_error_shared_prologue();
     }
 }
 
 void BeamModuleAssembler::emit_i_bnot(const ArgVal &Fail,
                                       const ArgVal &Src,
                                       const ArgVal &Dst) {
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label next = a.newLabel();
 
     mov_arg(RET, Src);
 
-    a.mov(ARG2, RET);
-    a.and_(ARG2, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG2, imm(_TAG_IMMED1_SMALL));
-    a.jne(generic);
-
     /* Invert everything except the tag so we don't have to tag it again. */
     a.xor_(RET, imm(~_TAG_IMMED1_MASK));
-    a.jmp(next);
 
-    a.bind(generic);
-    {
-        if (Fail.getValue() != 0) {
-            safe_fragment_call(ga->get_i_bnot_guard_shared());
-            a.je(labels[Fail.getValue()]);
-        } else {
-            fragment_call(ga->get_i_bnot_body_shared());
-        }
+    /* Fall through to the generic path if the result is not a small, where the
+     * above operation will be reverted. */
+    a.mov(ARG1d, RETd);
+    a.and_(ARG1d, imm(_TAG_IMMED1_MASK));
+    a.cmp(ARG1d, imm(_TAG_IMMED1_SMALL));
+    a.short_().je(next);
+
+    if (Fail.getValue() != 0) {
+        safe_fragment_call(ga->get_i_bnot_guard_shared());
+        a.je(labels[Fail.getValue()]);
+    } else {
+        safe_fragment_call(ga->get_i_bnot_body_shared());
     }
 
     a.bind(next);
@@ -954,10 +1002,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgVal &LHS,
         Sint shift = signed_val(RHS.getValue());
 
         if (shift >= 0 && shift < SMALL_BITS - 1) {
-            a.mov(ARG1, ARG2);
-            a.and_(ARG1, imm(_TAG_IMMED1_MASK));
-            a.cmp(ARG1, imm(_TAG_IMMED1_SMALL));
-            a.jne(generic);
+            emit_is_small(generic, ARG2);
 
             a.mov(RET, ARG2);
 
@@ -967,7 +1012,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgVal &LHS,
             a.sar(RET, imm(shift));
             a.or_(RET, imm(_TAG_IMMED1_SMALL));
 
-            a.jmp(next);
+            a.short_().jmp(next);
         } else {
             /* Constant shift is negative or too big to fit the `sar`
              * instruction, fall back to the generic path. */
@@ -982,7 +1027,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgVal &LHS,
             safe_fragment_call(ga->get_i_bsr_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            fragment_call(ga->get_i_bsr_body_shared());
+            safe_fragment_call(ga->get_i_bsr_body_shared());
         }
     }
 
@@ -1005,63 +1050,129 @@ void BeamGlobalAssembler::emit_i_bsl_body_shared() {
     emit_bitwise_fallback_body(erts_bsl, &bif_mfa);
 }
 
+static int count_leading_zeroes(UWord value) {
+    const int word_bits = sizeof(value) * CHAR_BIT;
+
+    if (value == 0) {
+        return word_bits;
+    }
+
+    UWord mask = UWORD_CONSTANT(1) << (word_bits - 1);
+    int count = 0;
+
+    while ((value & mask) == 0) {
+        mask >>= 1;
+        count++;
+    }
+
+    return count;
+}
+
 void BeamModuleAssembler::emit_i_bsl(const ArgVal &LHS,
                                      const ArgVal &RHS,
                                      const ArgVal &Fail,
                                      const ArgVal &Dst) {
+    bool inline_shift = hasCpuFeature(x86::Features::kLZCNT);
     Label generic = a.newLabel(), next = a.newLabel();
 
     mov_arg(ARG2, LHS);
+    mov_arg(RET, RHS);
 
-    if (RHS.isImmed() && is_small(RHS.getValue())) {
-        Sint shift = signed_val(RHS.getValue());
+    if (LHS.isImmed() && RHS.isImmed()) {
+        /* The compiler should've optimized this away, so we'll fall back to the
+         * generic path to simplify the inline implementation. */
+        inline_shift = false;
+    } else if (LHS.isLiteral() || RHS.isLiteral()) {
+        /* At least one argument is not a small. */
+        inline_shift = false;
+    } else if (LHS.isImmed() && !is_small(LHS.getValue())) {
+        /* Invalid constant. */
+        inline_shift = false;
+    } else if (RHS.isImmed() &&
+               (!is_small(RHS.getValue()) || signed_val(RHS.getValue()) < 0 ||
+                signed_val(RHS.getValue()) >= SMALL_BITS - 1)) {
+        /* Constant shift is invalid or always produces a bignum. */
+        inline_shift = false;
+    }
 
-        if (shift >= 0 && shift < SMALL_BITS - 1) {
+    if (inline_shift) {
+        Operand shiftLimit, shiftCount;
+
+        ASSERT(!(LHS.isImmed() && RHS.isImmed()));
+
+        if (LHS.isMem()) {
             a.mov(ARG1, ARG2);
             a.mov(ARG3, ARG2);
 
-            /* If LHS is negative we need to invert the bit-scan below, looking
-             * for the "most significant zero" instead.
-             *
-             * We leave the tag alone so we can test it below, as well as avoid
-             * the special case for zero in `bsr`. */
+            /* If LHS is negative we need to invert the leading-zero count
+             * below. We leave the tag alone so we can test it later on. */
             a.xor_(ARG3, imm(~_TAG_IMMED1_MASK));
             a.cmovns(ARG1, ARG3);
 
-            /* Get the 0-based offset of the most significant bit in LHS so we
-             * can test whether it will overflow before shifting, as `sal`
-             * doesn't set the overflow flag on shifts greater than 1. */
-            a.bsr(ARG4, ARG1);
+            /* Get number of leading zeroes in LHS so we can test whether it
+             * will overflow before shifting, as `sal` doesn't set the overflow
+             * flag on shifts greater than 1. */
+            a.lzcnt(ARG3, ARG1);
 
-            a.and_(ARG1, imm(_TAG_IMMED1_MASK));
-            a.cmp(ARG1, imm(_TAG_IMMED1_SMALL));
-            a.jne(generic);
+            a.and_(ARG1d, imm(_TAG_IMMED1_MASK));
+            a.cmp(ARG1d, imm(_TAG_IMMED1_SMALL));
+            a.short_().jne(generic);
 
-            /* Fall back to the generic path if we're going to shift out the
-             * most significant bit. */
-            a.cmp(ARG4, imm((sizeof(Sint) * CHAR_BIT - 1) - shift));
-            a.jge(generic);
-
-            a.and_(ARG2, imm(~_TAG_IMMED1_MASK));
-            a.sal(ARG2, imm(shift));
-
-            a.lea(RET, x86::qword_ptr(ARG2, _TAG_IMMED1_SMALL));
-            a.jmp(next);
+            shiftLimit = ARG3;
         } else {
-            /* Constant shift is negative or obviously out of bounds, fall back
-             * to the generic path. */
+            UWord value = LHS.getValue();
+
+            if (signed_val(value) < 0) {
+                value ^= ~(UWord)_TAG_IMMED1_MASK;
+            }
+
+            shiftLimit = imm(count_leading_zeroes(value));
         }
+
+        if (RHS.isMem()) {
+            /* Move RHS to the counter register, as it's the only one that can
+             * be used for variable shifts. */
+            a.mov(x86::rcx, RET);
+
+            /* Negate the tag bits and then rotate them out, forcing the
+             * comparison below to fail for non-smalls. */
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.xor_(x86::rcx, imm(_TAG_IMMED1_SMALL));
+            a.ror(x86::rcx, imm(_TAG_IMMED1_SIZE));
+
+            /* Fall back to generic path when the shift magnitude is negative or
+             * greater than the leading zero count.
+             *
+             * The raw emit form is used since `shiftLimit` may be a register
+             * or immediate, and the `cmp` helper doesn't accept untyped
+             * `Operand`s. */
+            a.emit(x86::Inst::kIdCmp, x86::rcx, shiftLimit);
+            a.short_().jae(generic);
+
+            shiftCount = x86::cl;
+        } else {
+            ASSERT(!shiftLimit.isImm());
+
+            shiftCount = imm(signed_val(RHS.getValue()));
+
+            a.emit(x86::Inst::kIdCmp, shiftLimit, shiftCount);
+            a.short_().jbe(generic);
+        }
+
+        a.and_(ARG2, imm(~_TAG_IMMED1_MASK));
+        a.emit(x86::Inst::kIdSal, ARG2, shiftCount);
+
+        a.lea(RET, x86::qword_ptr(ARG2, _TAG_IMMED1_SMALL));
+        a.short_().jmp(next);
     }
 
     a.bind(generic);
     {
-        mov_arg(RET, RHS);
-
         if (Fail.getValue() != 0) {
             safe_fragment_call(ga->get_i_bsl_guard_shared());
             a.je(labels[Fail.getValue()]);
         } else {
-            fragment_call(ga->get_i_bsl_body_shared());
+            safe_fragment_call(ga->get_i_bsl_body_shared());
         }
     }
 

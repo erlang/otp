@@ -207,10 +207,12 @@ Eterm* erts_set_hole_marker(Eterm* ptr, Uint sz);
 typedef struct op_entry {
    char* name;			/* Name of instruction. */
    Uint32 mask[3];		/* Signature mask. */
+#ifndef BEAMASM
    unsigned involves_r;		/* Needs special attention when matching. */
    int sz;			/* Number of loaded words. */
    int adjust;                  /* Adjustment for start of instruction. */
    char* pack;			/* Instructions for packing engine. */
+#endif
    char* sign;			/* Signature string. */
 } OpEntry;
 

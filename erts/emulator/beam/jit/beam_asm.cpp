@@ -130,6 +130,18 @@ void beamasm_init() {
     ERTS_DECL_AM(erts_beamasm);
     mod_name = AM_erts_beamasm;
 
+    /*
+     * Ensure that commonly used fields in the PCB can be accessed with
+     * short instructions. Before removing any of these assertions, please
+     * consider the effect it will have on code size and/or performance.
+     */
+
+    ERTS_CT_ASSERT(offsetof(Process, htop) < 128);
+    ERTS_CT_ASSERT(offsetof(Process, stop) < 128);
+    ERTS_CT_ASSERT(offsetof(Process, fcalls) < 128);
+    ERTS_CT_ASSERT(offsetof(Process, freason) < 128);
+    ERTS_CT_ASSERT(offsetof(Process, fvalue) < 128);
+
     cpuinfo = CpuInfo::host();
 
     bga = new BeamGlobalAssembler();
@@ -142,13 +154,13 @@ void beamasm_init() {
         func_label = label++;
         entry_label = label++;
 
-        bma->emit(op_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, func_label)});
         bma->emit(op_i_func_info_IaaI,
                   {ArgVal(ArgVal::i, func_label),
                    ArgVal(ArgVal::i, am_erts_internal),
                    ArgVal(ArgVal::i, op.name),
                    ArgVal(ArgVal::i, 0)});
-        bma->emit(op_label_L, {ArgVal(ArgVal::i, entry_label)});
+        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, entry_label)});
         bma->emit(op.operand, {});
 
         op.operand = entry_label;
@@ -162,15 +174,15 @@ void beamasm_init() {
         apply_label = label++;
         normal_exit_label = label++;
 
-        bma->emit(op_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, func_label)});
         bma->emit(op_i_func_info_IaaI,
                   {ArgVal(ArgVal::i, func_label),
                    ArgVal(ArgVal::i, am_erts_internal),
                    ArgVal(ArgVal::i, am_apply),
                    ArgVal(ArgVal::i, 3)});
-        bma->emit(op_label_L, {ArgVal(ArgVal::i, apply_label)});
+        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, apply_label)});
         bma->emit(op_i_apply, {});
-        bma->emit(op_label_L, {ArgVal(ArgVal::i, normal_exit_label)});
+        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, normal_exit_label)});
         bma->emit(op_normal_exit, {});
 
         /* * */
@@ -178,13 +190,14 @@ void beamasm_init() {
         func_label = label++;
         call_error_handler_label = label++;
 
-        bma->emit(op_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, func_label)});
         bma->emit(op_i_func_info_IaaI,
                   {ArgVal(ArgVal::i, func_label),
                    ArgVal(ArgVal::i, am_erts_internal),
                    ArgVal(ArgVal::i, am_call_error_handler),
                    ArgVal(ArgVal::i, 0)});
-        bma->emit(op_label_L, {ArgVal(ArgVal::i, call_error_handler_label)});
+        bma->emit(op_aligned_label_L,
+                  {ArgVal(ArgVal::i, call_error_handler_label)});
 
         size_t error_handler_start = bma->getOffset();
         bma->emit(op_call_error_handler, {});
@@ -307,9 +320,9 @@ void BeamGlobalAssembler::emit_process_main() {
     a.mov(start_time_i, imm(0));
     a.mov(start_time, imm(0));
 
-    a.sub(c_p, c_p);
-    a.sub(FCALLS, FCALLS);
-    a.sub(ARG3, ARG3); /* Set reds_used for erts_schedule call */
+    mov_imm(c_p, 0);
+    mov_imm(FCALLS, 0);
+    mov_imm(ARG3, 0); /* Set reds_used for erts_schedule call */
 
     a.jmp(schedule_next);
 
@@ -359,7 +372,7 @@ void BeamGlobalAssembler::emit_process_main() {
 #endif
 
         a.test(ARG1d, imm(ERTS_PSFLG_EXITING));
-        a.je(not_exiting);
+        a.short_().je(not_exiting);
         {
             comment("Process exiting");
 
@@ -399,7 +412,7 @@ void BeamGlobalAssembler::emit_process_main() {
         /* ARG3 contains reds_used at this point */
 
         a.cmp(start_time, imm(0));
-        a.je(schedule);
+        a.short_().je(schedule);
         {
             a.mov(ARG1, c_p);
             a.mov(ARG2, start_time);
@@ -435,7 +448,7 @@ void BeamGlobalAssembler::emit_process_main() {
         a.mov(ARG1, imm((UWord)&erts_system_monitor_long_schedule));
         a.cmp(x86::qword_ptr(ARG1), imm(0));
         a.mov(start_time, imm(0));
-        a.je(skip_long_schedule);
+        a.short_().je(skip_long_schedule);
         {
             /* Enable long schedule test */
             runtime_call<0>(erts_timestamp_millis);
@@ -470,7 +483,7 @@ void BeamGlobalAssembler::emit_process_main() {
         a.mov(ARG2, imm(ERTS_SAVE_CALLS_CODE_IX));
         a.test(RET, RET);
         a.cmovne(ARG1, ARG2);
-        a.mov(active_code_ix, ARG1);
+        a.mov(active_code_ix, ARG1d);
 
         /* Start executing the Erlang process. Note that reductions have
          * already been set up above. */
@@ -696,13 +709,13 @@ extern "C"
                                unsigned buff_len) {
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
 
-        ba.emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 1)});
         ba.emit(op_i_func_info_IaaI,
                 {ArgVal(ArgVal::i, 1),
                  ArgVal(ArgVal::i, info->mfa.module),
                  ArgVal(ArgVal::i, info->mfa.function),
                  ArgVal(ArgVal::i, info->mfa.arity)});
-        ba.emit(op_label_L, {ArgVal(ArgVal::i, 2)});
+        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 2)});
         ba.emit(op_i_breakpoint_trampoline, {});
         ba.emit(op_call_nif_WWW,
                 {ArgVal(ArgVal::i, (BeamInstr)normal_fptr),
@@ -718,13 +731,13 @@ extern "C"
                                unsigned buff_len) {
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
 
-        ba.emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 1)});
         ba.emit(op_i_func_info_IaaI,
                 {ArgVal(ArgVal::i, 1),
                  ArgVal(ArgVal::i, info->mfa.module),
                  ArgVal(ArgVal::i, info->mfa.function),
                  ArgVal(ArgVal::i, info->mfa.arity)});
-        ba.emit(op_label_L, {ArgVal(ArgVal::i, 2)});
+        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 2)});
         ba.emit(op_i_breakpoint_trampoline, {});
         ba.emit(op_call_bif_W, {ArgVal(ArgVal::i, (BeamInstr)bif)});
 

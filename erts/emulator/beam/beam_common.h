@@ -274,7 +274,7 @@ Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
 Eterm get_map_element(Eterm map, Eterm key);
 Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
 int raw_raise(Eterm stacktrace, Eterm exc_class, Eterm value, Process *c_p);
-struct StackTrace *get_trace_from_exc(Eterm exc);
+void erts_sanitize_freason(Process* c_p, Eterm exc);
 Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
 void copy_out_registers(Process *c_p, Eterm *reg);
 void copy_in_registers(Process *c_p, Eterm *reg);

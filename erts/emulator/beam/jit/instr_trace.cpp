@@ -171,7 +171,7 @@ void BeamModuleAssembler::emit_return_trace() {
 void BeamModuleAssembler::emit_i_return_time_trace() {
     /* Pass prev_info if present (is a CP), otherwise null. */
     a.mov(ARG2, getYRef(0));
-    a.sub(ARG3, ARG3);
+    mov_imm(ARG3, 0);
 
     a.test(ARG2, imm(_CPMASK));
     a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
@@ -231,10 +231,7 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {
-    Label error = a.newLabel(), entry = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label error = a.newLabel();
 
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
@@ -253,5 +250,5 @@ void BeamModuleAssembler::emit_i_hibernate() {
     abs_jmp(ga->get_do_schedule());
 
     a.bind(error);
-    emit_handle_error(entry, &BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
+    emit_handle_error(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
 }

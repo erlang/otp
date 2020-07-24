@@ -370,6 +370,8 @@ static int load_code(LoaderState* stp)
     BeamCodeReader *op_reader;
     BeamOp *tmp_op;
 
+    int num_specific;
+
     beam_load_prepare_emit(stp);
 
     op_reader = beamfile_get_code(&stp->beam, &stp->op_allocator);
@@ -439,14 +441,25 @@ static int load_code(LoaderState* stp)
 
         /* From the collected generic instruction, find the specific
          * instruction. */
-        {
+	tmp_op = stp->genop;
+	num_specific = gen_opc[tmp_op->op].num_specific;
+	if (num_specific == 1) {
+	    /*
+	     * There is only one possible specific instruction. Note that
+	     * the operands for the instruction will be verified later.
+	     */
+	    stp->specific_op = gen_opc[tmp_op->op].specific;
+	} else {
+	    /*
+	     * Use bit masks to quickly find the most specific of the
+	     * the possible specific instructions associated with this
+	     * specific instruction.
+	     */
             Uint32 mask[3] = {0, 0, 0};
 
-            int num_specific, specific, arity, arg, i;
+            int specific, arity, arg, i;
 
-            tmp_op = stp->genop;
             arity = gen_opc[tmp_op->op].arity;
-
             if (arity > 6) {
                 BeamLoadError0(stp, "no specific operation found (arity > 6)");
             }
@@ -458,13 +471,15 @@ static int load_code(LoaderState* stp)
             }
 
             specific = gen_opc[tmp_op->op].specific;
-            num_specific = gen_opc[tmp_op->op].num_specific;
 
             for (i = 0; i < num_specific; i++) {
                 if (((opc[specific].mask[0] & mask[0]) == mask[0]) &&
                     ((opc[specific].mask[1] & mask[1]) == mask[1]) &&
                     ((opc[specific].mask[2] & mask[2]) == mask[2])) {
-
+#ifdef BEAMASM
+		    /* Go ahead and match. */
+		    break;
+#else
                     if (!opc[specific].involves_r) {
                         /* No complications - match */
                         break;
@@ -503,6 +518,7 @@ static int load_code(LoaderState* stp)
                         /* Match */
                         break;
                     }
+#endif
                 }
                 specific++;
             }

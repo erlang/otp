@@ -117,20 +117,6 @@ static void init_label(Label *lp) {
     sys_memset(lp, 0, sizeof(*lp));
 }
 
-int beam_load_new_label(LoaderState *stp) {
-    int index = stp->beam.code.label_count;
-
-    stp->labels = erts_realloc(ERTS_ALC_T_PREPARED_CODE,
-                               (void *)stp->labels,
-                               (index + 1) * sizeof(Label));
-
-    init_label(&stp->labels[index]);
-
-    stp->beam.code.label_count = index + 1;
-
-    return index;
-}
-
 void beam_load_prepared_free(Binary *magic) {
     beam_load_prepared_dtor(magic);
     erts_bin_release(magic);
@@ -345,7 +331,6 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 't': /* Small untagged integer (16 bits) -- can be packed. */
         case 'I': /* Untagged integer (32 bits) -- can be packed.  */
-        case 'V': /* Vararg length, the same way as 'I' */
         case 'W': /* Untagged integer or pointer (machine word). */
 #ifdef DEBUG
             switch (*sign) {
@@ -389,7 +374,8 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
 
             break;
         case 'L': /* Define label */
-            ASSERT(stp->specific_op == op_label_L);
+            ASSERT(stp->specific_op == op_label_L ||
+                   stp->specific_op == op_aligned_label_L);
             BeamLoadVerifyTag(stp, tag, TAG_u);
             stp->last_label = curr->val;
             if (stp->last_label < 0 ||
@@ -427,10 +413,6 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         case 'P': /* Byte offset into tuple */
             BeamLoadVerifyTag(stp, tag, TAG_u);
             curr->val = (BeamInstr)((curr->val + 1) * sizeof(Eterm));
-            break;
-        case 'Q': /* Byte offset into stack */
-            BeamLoadError0(stp,
-                           "argument tag 'Q' should not be used in BEAMASM");
             break;
         case 'l': /* Floating point register. */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
@@ -626,8 +608,8 @@ int beam_load_finish_emit(LoaderState *stp) {
 
         BeamCodeLineTab *const line_tab =
                 (BeamCodeLineTab *)beamasm_get_rodata(stp->ba, "line");
-        const BeamInstr **const line_items =
-                (const BeamInstr **)&line_tab->func_tab[ftab_size + 1];
+        const void **const line_items =
+                (const void **)&line_tab->func_tab[ftab_size + 1];
 
         code_hdr->line_table = line_tab;
 
@@ -636,9 +618,9 @@ int beam_load_finish_emit(LoaderState *stp) {
         }
         line_tab->func_tab[i] = line_items + num_instrs;
         for (i = 0; i < num_instrs; i++) {
-            line_items[i] = (BeamInstr *)&module_base[stp->line_instr[i].pos];
+            line_items[i] = (void *)&module_base[stp->line_instr[i].pos];
         }
-        line_items[i] = (BeamInstr *)&module_base[module_size];
+        line_items[i] = (void *)&module_base[module_size];
 
         line_tab->fname_ptr = (Eterm *)&line_items[i + 1];
         if (stp->beam.lines.name_count) {

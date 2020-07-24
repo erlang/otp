@@ -114,7 +114,7 @@ void BeamGlobalAssembler::emit_handle_error() {
 void BeamGlobalAssembler::emit_garbage_collect() {
     /* Convert ARG3 to words needed and move it to the correct argument slot */
     a.sub(ARG3, HTOP);
-    a.shr(ARG3, 3);
+    a.shr(ARG3, imm(3));
     a.mov(ARG2, ARG3);
 
     /* Save our return address in c_p->i so we can tell where we crashed if we
@@ -195,6 +195,27 @@ void BeamModuleAssembler::emit_call_error_handler() {
     }
 }
 
+/*
+ * Get the error address implicitly by calling the shared fragment and using
+ * the return address as the error address.
+ */
+void BeamModuleAssembler::emit_handle_error() {
+    emit_handle_error(nullptr);
+}
+
+void BeamModuleAssembler::emit_handle_error(const ErtsCodeMFA *exp) {
+    mov_imm(ARG4, (Uint)exp);
+    safe_fragment_call(ga->get_handle_error_shared_prologue());
+
+    /*
+     * It is important that error address is not equal to a line
+     * instruction that may follow this BEAM instruction. To avoid
+     * that, BeamModuleAssembler::emit() will emit a nop instruction
+     * if necessary.
+     */
+    last_error_offset = getOffset() & -8;
+}
+
 void BeamModuleAssembler::emit_handle_error(Label I, const ErtsCodeMFA *exp) {
     a.lea(ARG2, x86::qword_ptr(I));
     mov_imm(ARG4, (Uint)exp);
@@ -216,6 +237,22 @@ void BeamGlobalAssembler::emit_error_action_code() {
     a.jmp(labels[handle_error_shared]);
 }
 
+void BeamGlobalAssembler::emit_handle_error_shared_prologue() {
+    /*
+     * We must align the return address to make it a proper tagged CP.
+     * This is safe because we will never actually return to the
+     * return address.
+     */
+    a.pop(ARG2);
+    a.and_(ARG2, imm(-8));
+
+#ifdef NATIVE_ERLANG_STACK
+    a.push(ARG2);
+#endif
+
+    a.jmp(labels[handle_error_shared]);
+}
+
 void BeamGlobalAssembler::emit_handle_error_shared() {
     Label crash = a.newLabel();
 
@@ -224,8 +261,8 @@ void BeamGlobalAssembler::emit_handle_error_shared() {
     /* The error address must be a valid CP or NULL. The check is done here
      * rather than in handle_error since the compiler is free to assume that any
      * BeamInstr* is properly aligned. */
-    a.test(ARG2, imm(_CPMASK));
-    a.jne(crash);
+    a.test(ARG2d, imm(_CPMASK));
+    a.short_().jne(crash);
 
     /* ARG2 and ARG4 must be set prior to jumping here! */
     a.mov(ARG1, c_p);
@@ -240,7 +277,7 @@ void BeamGlobalAssembler::emit_handle_error_shared() {
     a.jmp(RET);
 
     a.bind(crash);
-    a.hlt();
+    a.ud2();
 }
 
 void BeamModuleAssembler::emit_proc_lc_unrequire(void) {

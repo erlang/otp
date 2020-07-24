@@ -1005,15 +1005,21 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
 
-    /* All fields in the PCB that differs between different heap
-     * architectures, have been moved to the end of this struct to
-     * make sure that as few offsets as possible differ. Different
-     * offsets between memory architectures in this struct, means that
-     * native code have to use functions instead of constants.
+    /* Place fields that are frequently used from loaded BEAMASM
+     * instructions near the beginning of this struct so that a
+     * shorter instruction can be used to access them.
      */
 
     Eterm* htop;		/* Heap top */
     Eterm* stop;		/* Stack top */
+    Sint fcalls;		/* Number of reductions left to execute.
+				 * Only valid for the current process.
+				 */
+    Uint freason;		/* Reason for detected failure */
+    Eterm fvalue;		/* Exit & Throw value (failure reason) */
+
+    /* End of frequently used fields by BEAMASM code. */
+
     Eterm* heap;		/* Heap start */
     Eterm* hend;		/* Heap end */
     Eterm* abandoned_heap;
@@ -1044,17 +1050,11 @@ struct process {
 
     BeamInstr* i;		/* Program counter for threaded code. */
     Sint catches;		/* Number of catches on stack */
-    Sint fcalls;		/* 
-				 * Number of reductions left to execute.
-				 * Only valid for the current process.
-				 */
     Uint32 rcount;		/* suspend count */
     int  schedule_count;	/* Times left to reschedule a low prio process */
     Uint reds;			/* No of reductions for this process  */
     Uint32 flags;		/* Trap exit, etc */
     Eterm group_leader;		/* Pid in charge (can be boxed) */
-    Eterm fvalue;		/* Exit & Throw value (failure reason) */
-    Uint freason;		/* Reason for detected failure */
     Eterm ftrace;		/* Latest exception stack trace dump */
 
     Process *next;		/* Pointer to next process in run queue */

@@ -1014,6 +1014,7 @@ JIT_OBJS = \
 	$(OBJDIR)/instr_bif.o \
 	$(OBJDIR)/instr_common.o \
 	$(OBJDIR)/instr_float.o \
+	$(OBJDIR)/instr_guard_bifs.o \
 	$(OBJDIR)/instr_map.o \
 	$(OBJDIR)/instr_msg.o \
 	$(OBJDIR)/instr_select.o \

@@ -209,7 +209,7 @@ extern Eterm exception_tag[NUMBER_EXC_TAGS];
 struct StackTrace {
     Eterm header;	/* bignum header - must be first in struct */
     Eterm freason; /* original exception reason is saved in the struct */
-    BeamInstr* pc;
+    void* pc;
     ErtsCodeMFA* current;
     int depth;	/* number of saved pointers in trace[] */
     BeamInstr *trace[1];  /* varying size - must be last in struct */

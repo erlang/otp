@@ -37,3 +37,84 @@ pred.needs_nif_padding() {
      * stub, so we'll pad to that size at the end of every function. */
     return S->may_load_nif;
 }
+
+pred.never_fails(Bif) {
+    static Eterm nofail_bifs[] =
+	{am_Neqeq,
+	 am_Le,
+	 am_Neq,
+	 am_Eq,
+	 am_Le,
+	 am_Eqeq,
+	 am_Gt,
+	 am_Ge,
+	 am_is_atom,
+	 am_is_boolean,
+	 am_is_binary,
+	 am_is_bitstring,
+	 am_is_float,
+	 am_is_integer,
+	 am_is_list,
+	 am_is_map,
+	 am_is_number,
+	 am_is_pid,
+	 am_is_port,
+	 am_is_reference,
+	 am_is_tuple,
+	};
+
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+	int i;
+
+	if (entry->module != am_erlang) {
+	    return 0;
+	}
+
+	if (entry->function == am_is_function) {
+	    /* Note that is_function/2 may fail. */
+	    return entry->arity == 1;
+	}
+
+	for (i = 0; i < sizeof(nofail_bifs) / sizeof(nofail_bifs[0]); i++) {
+	    if (entry->function == nofail_bifs[i]) {
+		return 1;
+	    }
+	}
+    }
+    return 0;
+}
+
+pred.is_eq_exact_bif(Bif) {
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+
+	return entry->module == am_erlang && entry->function == am_Eq && entry->arity == 2;
+    }
+    return 0;
+}
+
+pred.is_ne_exact_bif(Bif) {
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+
+	return entry->module == am_erlang && entry->function == am_Neq && entry->arity == 2;
+    }
+    return 0;
+}
+
+pred.consecutive_words(S1, D1, S2, D2) {
+    if (D1.type == S2.type && D1.val == S2.val) {
+	/* The moves must be performed sequentially. */
+	return 0;
+    }
+
+    return S1.type == S2.type && S1.val + 1 == S2.val &&
+	D1.type == D2.type && D1.val + 1 == D2.val;
+}

@@ -64,10 +64,7 @@ static int handle_fconv(Eterm src, double *dst) {
 }
 
 void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
-    Label next = a.newLabel(), entry = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label next = a.newLabel();
 
     mov_arg(ARG1, Src);
     a.lea(ARG2, getArgRef(Dst));
@@ -79,38 +76,33 @@ void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
     emit_leave_runtime();
 
     a.test(RET, RET);
-    a.je(next);
+    a.short_().je(next);
 
-    emit_error(entry, EXC_BADARITH);
+    emit_error(EXC_BADARITH);
 
     a.bind(next);
 }
 
-void BeamModuleAssembler::emit_check_float(Label entry,
-                                           Label next,
-                                           x86::Xmm value) {
+void BeamModuleAssembler::emit_check_float(Label next, x86::Xmm value) {
     a.movsd(x86::xmm2, value);
     a.movsd(x86::xmm1, x86::qword_ptr(floatMax));
     a.andpd(x86::xmm2, x86::xmmword_ptr(floatSignMask));
     a.ucomisd(x86::xmm1, x86::xmm2);
-    a.jnb(next);
+    a.short_().jnb(next);
 
-    emit_error(entry, EXC_BADARITH);
+    emit_error(EXC_BADARITH);
 }
 
 void BeamModuleAssembler::emit_i_fadd(const ArgVal &LHS,
                                       const ArgVal &RHS,
                                       const ArgVal &Dst) {
-    Label next = a.newLabel(), entry = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label next = a.newLabel();
 
     a.movsd(x86::xmm0, getArgRef(LHS));
     a.movsd(x86::xmm1, getArgRef(RHS));
     a.addpd(x86::xmm0, x86::xmm1);
 
-    emit_check_float(entry, next, x86::xmm0);
+    emit_check_float(next, x86::xmm0);
 
     a.bind(next);
     a.movsd(getArgRef(Dst), x86::xmm0);
@@ -119,16 +111,13 @@ void BeamModuleAssembler::emit_i_fadd(const ArgVal &LHS,
 void BeamModuleAssembler::emit_i_fsub(const ArgVal &LHS,
                                       const ArgVal &RHS,
                                       const ArgVal &Dst) {
-    Label next = a.newLabel(), entry = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label next = a.newLabel();
 
     a.movsd(x86::xmm0, getArgRef(LHS));
     a.movsd(x86::xmm1, getArgRef(RHS));
     a.subpd(x86::xmm0, x86::xmm1);
 
-    emit_check_float(entry, next, x86::xmm0);
+    emit_check_float(next, x86::xmm0);
 
     a.bind(next);
     a.movsd(getArgRef(Dst), x86::xmm0);
@@ -137,16 +126,13 @@ void BeamModuleAssembler::emit_i_fsub(const ArgVal &LHS,
 void BeamModuleAssembler::emit_i_fmul(const ArgVal &LHS,
                                       const ArgVal &RHS,
                                       const ArgVal &Dst) {
-    Label next = a.newLabel(), entry = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label next = a.newLabel();
 
     a.movsd(x86::xmm0, getArgRef(LHS));
     a.movsd(x86::xmm1, getArgRef(RHS));
     a.mulpd(x86::xmm0, x86::xmm1);
 
-    emit_check_float(entry, next, x86::xmm0);
+    emit_check_float(next, x86::xmm0);
 
     a.bind(next);
     a.movsd(getArgRef(Dst), x86::xmm0);
@@ -155,33 +141,27 @@ void BeamModuleAssembler::emit_i_fmul(const ArgVal &LHS,
 void BeamModuleAssembler::emit_i_fdiv(const ArgVal &LHS,
                                       const ArgVal &RHS,
                                       const ArgVal &Dst) {
-    Label next = a.newLabel(), entry = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label next = a.newLabel();
 
     a.movsd(x86::xmm0, getArgRef(LHS));
     a.movsd(x86::xmm1, getArgRef(RHS));
     a.divpd(x86::xmm0, x86::xmm1);
 
-    emit_check_float(entry, next, x86::xmm0);
+    emit_check_float(next, x86::xmm0);
 
     a.bind(next);
     a.movsd(getArgRef(Dst), x86::xmm0);
 }
 
 void BeamModuleAssembler::emit_i_fnegate(const ArgVal &Src, const ArgVal &Dst) {
-    Label next = a.newLabel(), entry = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label next = a.newLabel();
 
     /* xmm0 = 0.0 */
     a.psubd(x86::xmm0, x86::xmm0);
     a.movsd(x86::xmm1, getArgRef(Src));
     a.subpd(x86::xmm0, x86::xmm1);
 
-    emit_check_float(entry, next, x86::xmm0);
+    emit_check_float(next, x86::xmm0);
 
     a.bind(next);
     a.movsd(getArgRef(Dst), x86::xmm0);

@@ -163,14 +163,10 @@ protected:
     const x86::Gp FCALLS = x86::r14;
     const x86::Gp HTOP = x86::r15;
 
+    /* Note that active_code_ix is a 32-bit memory location. */
     const x86::Mem active_code_ix = getSchedulerRegRef(
-            offsetof(ErtsSchedulerRegisters, aux_regs.d.active_code_ix));
-
-    /* Argument vector for guard BIFs, using the internal X registers after the
-     * end of the array. */
-    static const int GUARD_BIF_ARGV_LENGTH = 3;
-    const x86::Mem guard_bif_argv = getXRef(MAX_REG);
-    static_assert(ERTS_X_REGS_ALLOCATED - MAX_REG >= GUARD_BIF_ARGV_LENGTH);
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.active_code_ix),
+            sizeof(Uint32));
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
     const x86::Mem erts_msacc_cache = getSchedulerRegRef(
@@ -210,6 +206,7 @@ protected:
 
     const x86::Gp RET = x86::rax;
     const x86::Gp RETd = x86::eax;
+    const x86::Gp RETb = x86::al;
 
     const x86::Mem TMP_MEM1q = getSchedulerRegRef(
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[0]));
@@ -237,6 +234,8 @@ protected:
     const x86::Mem TMP_MEM5d = getSchedulerRegRef(
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[4]),
             sizeof(Uint32));
+
+    enum Distance { dShort, dLong };
 
 public:
     static bool hasCpuFeature(uint32_t featureId);
@@ -428,6 +427,14 @@ protected:
 #else
         return x86::qword_ptr(E, (index + CP_SIZE) * sizeof(Eterm));
 #endif
+    }
+
+    constexpr x86::Mem getCARRef(x86::Gp Src) const {
+        return x86::qword_ptr(Src, -TAG_PRIMARY_LIST);
+    }
+
+    constexpr x86::Mem getCDRRef(x86::Gp Src) const {
+        return x86::qword_ptr(Src, -TAG_PRIMARY_LIST + sizeof(Eterm));
     }
 
     void load_x_reg_array(x86::Gp reg) {
@@ -624,11 +631,12 @@ protected:
             pushed = 4;
         }
 
+#endif
+
         a.call(imm(func));
 
+#ifdef WIN32
         a.add(x86::rsp, imm(pushed * sizeof(UWord)));
-#else
-        a.call(imm(func));
 #endif
     }
 
@@ -666,10 +674,10 @@ protected:
     void emit_update_code_index() {
         a.mov(ARG2, imm(&the_active_code_index));
         a.mov(ARG2d, x86::dword_ptr(ARG2));
-        a.mov(ARG1, active_code_ix);
-        a.cmp(ARG1, imm(ERTS_SAVE_CALLS_CODE_IX));
+        a.mov(ARG1d, active_code_ix);
+        a.cmp(ARG1d, imm(ERTS_SAVE_CALLS_CODE_IX));
         a.cmovne(ARG1, ARG2);
-        a.mov(active_code_ix, ARG1);
+        a.mov(active_code_ix, ARG1d);
     }
 
     /* Discards a continuation pointer, including the frame pointer if
@@ -729,7 +737,8 @@ protected:
     enum Update : int {
         eStack = (1 << 0),
         eHeap = (1 << 1),
-        eReductions = (1 << 2)
+        eReductions = (1 << 2),
+        eCodeIndex = (1 << 3)
     };
 
     template<int Spec = 0>
@@ -744,16 +753,41 @@ protected:
             a.mov(E_saved, E);
         }
 #endif
-        if ((Spec & Update::eStack)) {
-            a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
-        }
 
-        if (Spec & Update::eHeap) {
-            a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
-        }
+        if ((Spec & (Update::eHeap | Update::eStack)) ==
+            (Update::eHeap | Update::eStack)) {
+            /* To update both heap and stack we use sse instructions like gcc
+               -O3 does. Basically it is this function run through gcc -O3:
 
-        if (Spec & Update::eReductions) {
-            a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+               struct a { long a; long b; long c; };
+
+               void test(long a, long b, long c, struct a *s) {
+                 s->a = a;
+                 s->b = b;
+                 s->c = c;
+               }
+            */
+            ERTS_CT_ASSERT(offsetof(Process, stop) - offsetof(Process, htop) ==
+                           8);
+            a.movq(x86::xmm0, HTOP);
+            a.movq(x86::xmm1, E);
+            if (Spec & Update::eReductions) {
+                a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+            }
+            a.punpcklqdq(x86::xmm0, x86::xmm1);
+            a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)), x86::xmm0);
+        } else {
+            if ((Spec & Update::eStack)) {
+                a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
+            }
+
+            if (Spec & Update::eHeap) {
+                a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
+            }
+
+            if (Spec & Update::eReductions) {
+                a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+            }
         }
 
 #ifdef NATIVE_ERLANG_STACK
@@ -778,7 +812,7 @@ protected:
         emit_assert_runtime_stack();
 
         ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
-                                Update::eHeap)) == Spec);
+                                Update::eHeap | Update::eCodeIndex)) == Spec);
 
 #ifdef NATIVE_ERLANG_STACK
         if (!(Spec & Update::eStack)) {
@@ -797,14 +831,29 @@ protected:
             a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
         }
 
+        if (Spec & Update::eCodeIndex) {
+            emit_update_code_index();
+        }
+
 #if !defined(NATIVE_ERLANG_STACK)
         a.leave();
 #endif
     }
 
-    void emit_is_boxed(Label Fail, x86::Gp Src) {
-        a.test(Src, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
-        a.jne(Fail);
+    void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        /* Use the shortest possible instruction depending on the source
+         * register. */
+        if (Src == x86::rax || Src == x86::rdi || Src == x86::rsi ||
+            Src == x86::rcx || Src == x86::rdx) {
+            a.test(Src.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+        } else {
+            a.test(Src.r32(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+        }
+        if (dist == dShort) {
+            a.short_().jne(Fail);
+        } else {
+            a.jne(Fail);
+        }
     }
 
     x86::Gp emit_ptr_val(x86::Gp Dst, x86::Gp Src) {
@@ -830,6 +879,14 @@ protected:
     constexpr x86::Mem emit_boxed_val(x86::Gp Src, int32_t bytes = 0) const {
         ASSERT(bytes % sizeof(Eterm) == 0);
         return x86::Mem(Src, bytes - TAG_PRIMARY_BOXED, sizeof(FieldType));
+    }
+
+    void emit_test_the_non_value(x86::Gp Reg) {
+        if (THE_NON_VALUE == 0) {
+            a.test(Reg.r32(), Reg.r32());
+        } else {
+            a.cmp(Reg, imm(THE_NON_VALUE));
+        }
     }
 
 public:
@@ -895,6 +952,9 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(arith_compare_shared)                                                    \
     _(arith_eq_shared)                                                         \
     _(bif_nif_epilogue)                                                        \
+    _(bif_element_shared)                                                      \
+    _(bs_add_shared)                                                           \
+    _(bs_size_check_shared)                                                    \
     _(bs_fixed_integer_shared)                                                 \
     _(bs_get_tail_shared)                                                      \
     _(call_bif_shared)                                                         \
@@ -912,7 +972,10 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(generic_bp_global)                                                       \
     _(generic_bp_local)                                                        \
     _(debug_bp)                                                                \
+    _(handle_error_shared_prologue)                                            \
     _(handle_error_shared)                                                     \
+    _(handle_element_error)                                                    \
+    _(handle_hd_error)                                                         \
     _(i_band_body_shared)                                                      \
     _(i_band_guard_shared)                                                     \
     _(i_bif_body_shared)                                                       \
@@ -929,15 +992,20 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(i_bxor_guard_shared)                                                     \
     _(i_func_info_shared)                                                      \
     _(i_load_nif_shared)                                                       \
+    _(i_length_guard_shared)                                                   \
+    _(i_length_body_shared)                                                    \
     _(i_loop_rec_shared)                                                       \
     _(i_new_small_map_lit_shared)                                              \
+    _(i_select_val_bins_shared)                                                \
     _(i_test_yield_shared)                                                     \
     _(increment_body_shared)                                                   \
     _(int_div_rem_body_shared)                                                 \
     _(int_div_rem_guard_shared)                                                \
     _(minus_body_shared)                                                       \
+    _(minus_guard_shared)                                                      \
     _(new_map_shared)                                                          \
     _(plus_body_shared)                                                        \
+    _(plus_guard_shared)                                                       \
     _(process_main)                                                            \
     _(times_body_shared)                                                       \
     _(times_guard_shared)                                                      \
@@ -973,6 +1041,8 @@ class BeamGlobalAssembler : public BeamAssembler {
 
     template<typename T>
     void emit_bitwise_fallback_guard(T(*func_ptr));
+
+    x86::Mem emit_i_length_common(Label fail, int state_size);
 
     void emit_handle_error();
 
@@ -1058,6 +1128,9 @@ class BeamModuleAssembler : public BeamAssembler {
 
     Eterm mod;
 
+    /* Save the last PC for an error. */
+    size_t last_error_offset = 0;
+
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
@@ -1118,28 +1191,17 @@ private:
     x86::Gp emit_apply_fun(void);
 
     void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
-    void emit_is_integer(Label Fail, Label next, Label BigFail, x86::Gp Src);
 
     void emit_div_rem(const ArgVal &Fail,
                       const ArgVal &LHS,
                       const ArgVal &RHS,
                       const ErtsCodeMFA *error_mfa);
 
-    void emit_arith_compare(x86::Inst::Id succJmpOp,
-                            x86::Inst::Id failJmpOp,
-                            Label fail,
-                            Label eq,
-                            Label succ,
-                            const ArgVal &LHS,
-                            const ArgVal &RHS);
-
     void emit_setup_guard_bif(const std::vector<ArgVal> &args,
                               const ArgVal &bif);
 
-    void emit_bif_arg_error(std::vector<ArgVal> args,
-                            Label entry,
-                            const ErtsCodeMFA *mfa);
-    void emit_error(Label entry, int code);
+    void emit_bif_arg_error(std::vector<ArgVal> args, const ErtsCodeMFA *mfa);
+    void emit_error(int code);
 
     x86::Mem emit_bs_get_integer_prologue(Label next,
                                           Label fail,
@@ -1152,25 +1214,43 @@ private:
                                const x86::Gp &out,
                                unsigned max_size = 0);
 
+    void emit_bs_get_utf8(const ArgVal &Ctx, const ArgVal &Fail);
+    void emit_bs_get_utf16(const ArgVal &Ctx,
+                           const ArgVal &Fail,
+                           const ArgVal &Flags);
+
+    void emit_handle_error();
+    void emit_handle_error(const ErtsCodeMFA *exp);
     void emit_handle_error(Label I, const ErtsCodeMFA *exp);
     void emit_validate(const ArgVal &arity);
     void emit_bs_skip_bits(const ArgVal &Fail, const ArgVal &Ctx);
 
     void emit_linear_search(x86::Gp val,
-                            Label fail,
+                            const ArgVal &Fail,
                             const std::vector<ArgVal> &args);
 
-    void emit_check_float(Label entry, Label next, x86::Xmm value);
+    void emit_check_float(Label next, x86::Xmm value);
 
+    void emit_is_small(Label fail, x86::Gp Reg);
     void emit_is_both_small(Label fail, x86::Gp A, x86::Gp B);
 
     void emit_validate_unicode(Label next, Label fail, x86::Gp value);
+
+    void emit_bif_is_eq_ne_exact_immed(const ArgVal &Src,
+                                       const ArgVal &Immed,
+                                       const ArgVal &Dst,
+                                       Eterm fail_value,
+                                       Eterm succ_value);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);
 
     void emit_nyi(const char *msg);
     void emit_nyi(void);
+
+#ifdef DEBUG
+    void emit_tuple_assertion(const ArgVal &Src, x86::Gp tuple_reg);
+#endif
 
 #include "beamasm_protos.h"
 
@@ -1181,7 +1261,7 @@ private:
         Label lbl = a.newLabel();
 
         a.bind(lbl);
-        a.mov(to, imm(LLONG_MAX));
+        a.long_().mov(to, imm(LLONG_MAX));
 
         patches.push_back({lbl, MOV_IMM64_PAYLOAD_OFFSET, offset});
     }

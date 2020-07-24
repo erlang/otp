@@ -772,9 +772,22 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
                 ptr += 1;
             } else {
                 if (cp != prev) {
+		    void *adjusted_cp;
+
                     /* Record non-duplicates only */
                     prev = cp;
-                    s->trace[s->depth++] = cp - 1;
+#ifdef BEAMASM
+		    /*
+		     * Some instructions (e.g. call) are shorter than one word,
+		     * so we will need to subtract one byte from the pointer
+		     * to avoid ending up before the start of the instruction.
+		     */
+		    adjusted_cp = ((char *) cp) - 1;
+#else
+		    /* Subtract one word from the pointer. */
+		    adjusted_cp = cp - 1;
+#endif
+                    s->trace[s->depth++] = adjusted_cp;
                     depth--;
                 }
                 ptr++;
@@ -798,7 +811,7 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
  * they point at the beginning of the call instruction or inside the
  * call instruction. Since its impractical to point at the beginning,
  * we'll do the simplest thing and decrement the continuation pointers
- * by one.
+ * by one word in threaded interpreter and by one byte in BEAMASM.
  *
  * Here is an example of what can go wrong. Without the adjustment
  * of continuation pointers, the call at line 42 below would seem to
@@ -915,12 +928,22 @@ erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
  * Getting the relevant fields from the term pointed to by ftrace
  */
 
-struct StackTrace *get_trace_from_exc(Eterm exc) {
+static struct StackTrace *get_trace_from_exc(Eterm exc) {
     if (exc == NIL) {
 	return NULL;
     } else {
 	ASSERT(is_list(exc));
 	return (struct StackTrace *) big_val(CDR(list_val(exc)));
+    }
+}
+
+void erts_sanitize_freason(Process* c_p, Eterm exc) {
+    struct StackTrace *s = get_trace_from_exc(exc);
+
+    if (s == NULL) {
+        c_p->freason = EXC_ERROR;
+    } else {
+        c_p->freason = PRIMARY_EXCEPTION(s->freason);
     }
 }
 

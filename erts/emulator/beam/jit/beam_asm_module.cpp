@@ -309,6 +309,18 @@ bool BeamModuleAssembler::emit(unsigned specific_op,
         break;
     }
 
+    if (getOffset() == last_error_offset) {
+        /*
+         * The previous PC where an exception may occur is equal to the
+         * current offset, which is also the offset of the next
+         * instruction. If the next instruction happens to be a
+         * line instruction, the location for the exception will
+         * be that line instruction, which is probably wrong.
+         * To avoid that, bump the instruction offset.
+         */
+        a.nop();
+    }
+
 #ifdef BEAMASM_DUMP_SIZES
     {
         std::lock_guard<std::mutex> lock(size_lock);
@@ -372,9 +384,13 @@ void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
 }
 
 void BeamModuleAssembler::emit_label(const ArgVal &Label) {
-    a.align(kAlignCode, 8);
     currLabel = labels[Label.getValue()];
     a.bind(currLabel);
+}
+
+void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label) {
+    a.align(kAlignCode, 8);
+    emit_label(Label);
 }
 
 void BeamModuleAssembler::emit_on_load() {
@@ -390,9 +406,11 @@ void BeamModuleAssembler::emit_int_code_end() {
 }
 
 void BeamModuleAssembler::emit_line(const ArgVal &) {
-    /* Since we use `BeamInstr*` for all code pointers including line
-     * numbers, we need to ensure that they're properly aligned. */
-    a.align(kAlignCode, sizeof(BeamInstr));
+    /*
+     * There is no need to align the line instruction. In the loaded
+     * code, the type of the pointer will be void* and that pointer
+     * will only be used in comparisons.
+     */
 }
 
 void BeamModuleAssembler::emit_func_line(const ArgVal &Loc) {
@@ -519,58 +537,60 @@ BeamInstr *BeamModuleAssembler::getOnLoad() {
 unsigned BeamModuleAssembler::patchCatches() {
     unsigned catch_no = BEAM_CATCHES_NIL;
 
-    for (auto c : catches) {
+    for (const auto &c : catches) {
         const auto &patch = c.patch;
         BeamInstr *handler;
 
         handler = reinterpret_cast<BeamInstr *>(getCode(c.handler));
         catch_no = beam_catches_cons(handler, catch_no, nullptr);
 
-        /* We patch the movabs instruction with the correct literal */
+        /* Patch the `mov` instruction with the catch tag */
         char *pp = reinterpret_cast<char *>(getCode(patch.where));
-        Eterm *where = (Eterm *)(pp + patch.ptr_offs);
-        ASSERT(LLONG_MAX == *where);
-        *where = make_catch(catch_no);
+        unsigned *where = (unsigned *)(pp + patch.ptr_offs);
+        ASSERT(0x7fffffff == *where);
+        Eterm catch_term = make_catch(catch_no);
+
+        /* With the current tag scheme, more than 33 million
+         * catches can exist at once. */
+        ERTS_ASSERT(catch_term >> 31 == 0);
+        *where = (unsigned)catch_term;
     }
 
     return catch_no;
 }
 
 void BeamModuleAssembler::patchImport(unsigned index, BeamInstr I) {
-    for (auto l : imports[index].patches) {
-        /* We patch the movabs instruction with the correct literal */
-        char *pp = reinterpret_cast<char *>(getCode(l.where));
-        Eterm *where = (Eterm *)(pp + l.ptr_offs);
+    for (const auto &patch : imports[index].patches) {
+        char *pp = reinterpret_cast<char *>(getCode(patch.where));
+        Eterm *where = (Eterm *)(pp + patch.ptr_offs);
         ASSERT(LLONG_MAX == *where);
-        *where = I + l.val_offs;
+        *where = I + patch.val_offs;
     }
 }
 
 void BeamModuleAssembler::patchLambda(unsigned index, BeamInstr I) {
-    for (auto l : lambdas[index].patches) {
-        /* We patch the movabs instruction with the correct literal */
-        char *pp = reinterpret_cast<char *>(getCode(l.where));
-        Eterm *where = (Eterm *)(pp + l.ptr_offs);
+    for (const auto &patch : lambdas[index].patches) {
+        char *pp = reinterpret_cast<char *>(getCode(patch.where));
+        Eterm *where = (Eterm *)(pp + patch.ptr_offs);
         ASSERT(LLONG_MAX == *where);
-        *where = I + l.val_offs;
+        *where = I + patch.val_offs;
     }
 }
 
 void BeamModuleAssembler::patchLiteral(unsigned index, Eterm lit) {
-    for (auto l : literals[index].patches) {
-        /* We patch the movabs instruction with the correct literal */
-        char *pp = reinterpret_cast<char *>(getCode(l.where));
-        Eterm *where = (Eterm *)(pp + l.ptr_offs);
+    for (const auto &patch : literals[index].patches) {
+        char *pp = reinterpret_cast<char *>(getCode(patch.where));
+        Eterm *where = (Eterm *)(pp + patch.ptr_offs);
         ASSERT(LLONG_MAX == *where);
-        *where = lit + l.val_offs;
+        *where = lit + patch.val_offs;
     }
 }
 
 void BeamModuleAssembler::patchStrings(byte *strtab) {
-    for (const auto &s : strings) {
-        char *pp = reinterpret_cast<char *>(getCode(s.where));
+    for (const auto &patch : strings) {
+        char *pp = reinterpret_cast<char *>(getCode(patch.where));
         byte **where = (byte **)(pp + 2);
         ASSERT(LLONG_MAX == (Eterm)*where);
-        *where = strtab + s.val_offs;
+        *where = strtab + patch.val_offs;
     }
 }

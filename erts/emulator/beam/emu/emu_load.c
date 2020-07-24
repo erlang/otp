@@ -334,8 +334,8 @@ int beam_load_finish_emit(LoaderState *stp) {
         BeamCodeLineTab* const line_tab = (BeamCodeLineTab *) (codev+stp->ci);
         const unsigned int ftab_size = stp->beam.code.function_count;
         const unsigned int num_instrs = stp->current_li;
-        const BeamInstr** const line_items =
-            (const BeamInstr**) &line_tab->func_tab[ftab_size + 1];
+        const void** const line_items =
+            (const void**) &line_tab->func_tab[ftab_size + 1];
         const void *locp_base;
 
         code_hdr->line_table = line_tab;

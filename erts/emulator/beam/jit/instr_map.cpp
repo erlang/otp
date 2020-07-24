@@ -29,24 +29,21 @@ extern "C"
 }
 
 void BeamModuleAssembler::emit_ensure_map(const ArgVal &map) {
-    Label entry = a.newLabel(), next = a.newLabel(), badmap = a.newLabel();
-
-    a.align(kAlignCode, 8);
-    a.bind(entry);
+    Label next = a.newLabel(), badmap = a.newLabel();
 
     mov_arg(ARG1, map);
-    emit_is_boxed(badmap, ARG1);
+    emit_is_boxed(badmap, ARG1, dShort);
     /* We use ARG1 in the badmap branch, so use ARG2 below */
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG1);
     a.mov(ARG2, emit_boxed_val(boxed_ptr));
-    a.and_(ARG2, _TAG_HEADER_MASK);
-    a.cmp(ARG2, _TAG_HEADER_MAP);
-    a.je(next);
+    a.and_(ARG2d, imm(_TAG_HEADER_MASK));
+    a.cmp(ARG2d, imm(_TAG_HEADER_MAP));
+    a.short_().je(next);
 
     a.bind(badmap);
     {
         a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), ARG1);
-        emit_error(entry, BADMAP);
+        emit_error(BADMAP);
     }
 
     a.bind(next);
@@ -66,8 +63,11 @@ void BeamGlobalAssembler::emit_new_map_shared() {
 
 void BeamModuleAssembler::emit_new_map(const ArgVal &Dst,
                                        const ArgVal &Live,
+                                       const ArgVal &Size,
                                        const std::vector<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
+
+    ASSERT(Size.getValue() == args.size());
 
     mov_imm(ARG3, Live.getValue());
     mov_imm(ARG4, args.size());
@@ -93,8 +93,11 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(
         const ArgVal &Dst,
         const ArgVal &Live,
         const ArgVal &Keys,
+        const ArgVal &Size,
         const std::vector<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
+
+    ASSERT(Size.getValue() == args.size());
 
     ASSERT(Keys.isLiteral());
     mov_arg(ARG3, Keys);
@@ -119,9 +122,16 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
+    emit_test_the_non_value(RET);
     a.je(labels[Fail.getValue()]);
-    mov_arg(Dst, RET);
+
+    /*
+     * Don't store the result if the destination is the scratch X register.
+     * (This instruction was originally a has_map_fields instruction.)
+     */
+    if (!(Dst.getType() == ArgVal::x && Dst.getValue() == SCRATCH_X_REG)) {
+        mov_arg(Dst, RET);
+    }
 }
 
 static Uint i_get_map_elements(Eterm map,
@@ -192,8 +202,11 @@ static Uint i_get_map_elements(Eterm map,
 void BeamModuleAssembler::emit_i_get_map_elements(
         const ArgVal &Fail,
         const ArgVal &Src,
+        const ArgVal &Size,
         const std::vector<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, 0);
+
+    ASSERT(Size.getValue() == args.size());
 
     mov_arg(ARG1, Src);
     a.mov(ARG3, E);
@@ -226,10 +239,16 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
 
     emit_leave_runtime();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
+    emit_test_the_non_value(RET);
     a.je(labels[Fail.getValue()]);
 
-    mov_arg(Dst, RET);
+    /*
+     * Don't store the result if the destination is the scratch X register.
+     * (This instruction was originally a has_map_fields instruction.)
+     */
+    if (!(Dst.getType() == ArgVal::x && Dst.getValue() == SCRATCH_X_REG)) {
+        mov_arg(Dst, RET);
+    }
 }
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector. */
@@ -249,8 +268,11 @@ void BeamModuleAssembler::emit_update_map_assoc(
         const ArgVal &Src,
         const ArgVal &Dst,
         const ArgVal &Live,
+        const ArgVal &Size,
         const std::vector<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
+
+    ASSERT(Size.getValue() == args.size());
 
     mov_arg(getXRef(Live.getValue()), Src);
 
@@ -274,7 +296,7 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
+    emit_test_the_non_value(RET);
     a.ret();
 }
 
@@ -292,14 +314,14 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    a.cmp(RET, imm(THE_NON_VALUE));
-    a.je(error);
+    emit_test_the_non_value(RET);
+    a.short_().je(error);
 
     a.ret();
 
     a.bind(error);
     {
-        a.sub(ARG4, ARG4);
+        mov_imm(ARG4, 0);
         emit_handle_error();
     }
 }
@@ -309,8 +331,11 @@ void BeamModuleAssembler::emit_update_map_exact(
         const ArgVal &Fail,
         const ArgVal &Dst,
         const ArgVal &Live,
+        const ArgVal &Size,
         const std::vector<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
+
+    ASSERT(Size.getValue() == args.size());
 
     /* We _KNOW_ Src is a map */
     mov_arg(getXRef(Live.getValue()), Src);

@@ -110,7 +110,7 @@ struct BeamCodeLineTab_ {
         Uint16* p2;
         Uint32* p4;
     } loc_tab;
-    const BeamInstr** func_tab[1];
+    const void** func_tab[1];
 };
 
 /* Total code size in bytes */

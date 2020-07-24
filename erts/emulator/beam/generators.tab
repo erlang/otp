@@ -358,64 +358,6 @@ gen.make_fun2(idx) {
     return op;
 }
 
-gen.is_function2(Fail, Fun, Arity) {
-    BeamOp* op;
-    int literal_arity =  Arity.type == TAG_i;
-    int fun_is_reg = Fun.type == TAG_x || Fun.type == TAG_y;
-
-    $NewBeamOp(S, op);
-
-    if (fun_is_reg &&literal_arity) {
-        /*
-         * Most common case. Fun in a register and arity
-         * is an integer literal.
-         */
-        if (Arity.val > MAX_ARG) {
-            /* Arity is negative or too big. */
-            $BeamOpNameArity(op, jump, 1);
-            op->a[0] = Fail;
-            return op;
-        } else {
-            $BeamOpNameArity(op, hot_is_function2, 3);
-            op->a[0] = Fail;
-            op->a[1] = Fun;
-            op->a[2].type = TAG_u;
-            op->a[2].val = Arity.val;
-            return op;
-        }
-    } else {
-        /*
-         * Handle extremely uncommon cases by a slower sequence.
-         */
-        BeamOp* move_fun;
-        BeamOp* move_arity;
-
-        $NewBeamOp(S, move_fun);
-        $NewBeamOp(S, move_arity);
-
-        move_fun->next = move_arity;
-        move_arity->next = op;
-
-        $BeamOpNameArity(move_fun, move, 2);
-        move_fun->a[0] = Fun;
-        move_fun->a[1].type = TAG_x;
-        move_fun->a[1].val = 1022;
-
-        $BeamOpNameArity(move_arity, move, 2);
-        move_arity->a[0] = Arity;
-        move_arity->a[1].type = TAG_x;
-        move_arity->a[1].val = 1023;
-
-        $BeamOpNameArity(op, cold_is_function2, 3);
-        op->a[0] = Fail;
-        op->a[1].type = TAG_x;
-        op->a[1].val = 1022;
-        op->a[2].type = TAG_x;
-        op->a[2].val = 1023;
-        return move_fun;
-    }
-}
-
 gen.tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5) {
     BeamOp* op;
     int arity = Arity.val;      /* Arity of tuple, not the instruction */

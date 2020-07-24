@@ -28,11 +28,11 @@ pred.compiled_with_otp_20_or_higher() {
 }
 
 // Test whether a jump table can be used.
-pred.use_jump_tab(Size, Rest) {
+pred.use_jump_tab(Size, Rest, MinSize) {
     Sint min, max;
     Sint i;
 
-    if (Size.val < 2 || Size.val % 2 != 0) {
+    if (Size.val < 2 * MinSize || Size.val % 2 != 0) {
         return 0;
     }
 

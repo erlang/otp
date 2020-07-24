@@ -19,6 +19,12 @@
 #
 
 #
+# Types that should never be used in specific operations.
+#
+
+FORBIDDEN_TYPES=h
+
+#
 # The instructions that follows are only known by the loader and the emulator.
 # They can be changed without recompiling old Beam files.
 #
@@ -153,14 +159,14 @@ init2 y y
 init3 y y y
 
 
-# Selecting values
+# Selecting values.
 
 select_val S=aiq Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
+select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest, 2) => \
   jump_tab(S, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
+is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest, 2) => \
   jump_tab(S, Fail, Size, Rest)
 
 is_integer TypeFail=f S | select_val S=s Fail=f Size=u Rest=* | \
@@ -188,19 +194,19 @@ is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
   select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val_bins xy f? I
+i_select_val_bins xy f? I *
 
-i_select_val_lins xy f? I
+i_select_val_lins xy f? I *
 
 i_select_val2 xy f? c c
 
-i_select_tuple_arity xy f? I
+i_select_tuple_arity xy f? I *
 
 i_select_tuple_arity2 xy f? A A
 
-i_jump_on_val_zero xy f? I
+i_jump_on_val_zero xy f? I *
 
-i_jump_on_val xy f? I W
+i_jump_on_val xy f? I W *
 
 get_list xy xy xy
 
@@ -552,7 +558,7 @@ i_put_tuple Dst Arity Puts=* | put S => \
 
 i_put_tuple Dst Arity Puts=* => put_tuple2 Dst Arity Puts
 
-put_tuple2 xy I
+put_tuple2 xy I *
 
 #
 # Putting lists.
@@ -1540,10 +1546,10 @@ sorted_put_map_exact Fail Src Dst Live Size Rest=* => \
 new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
    new_small_map_lit(Dst, Live, Size, Rest)
 
-new_map d t I
-i_new_small_map_lit d t q
-update_map_assoc xyc d t I
-update_map_exact xy j? d t I
+new_map d t I *
+i_new_small_map_lit d t q *
+update_map_assoc xyc d t I *
+update_map_exact xy j? d t I *
 
 is_map Fail Lit=q | literal_is_map(Lit) =>
 is_map Fail cq => jump Fail
@@ -1561,7 +1567,7 @@ get_map_elements Fail Src Size=u==2 Rest=* => \
 get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
    get_map_elements(Fail, Src, Size, Rest)
 
-i_get_map_elements f? s I
+i_get_map_elements f? s I *
 
 i_get_map_element_hash Fail Src=c Key Hash Dst => \
     move Src x | i_get_map_element_hash Fail x Key Hash Dst

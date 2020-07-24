@@ -65,7 +65,10 @@ void beam_load_finalize_code(LoaderState *stp,
                              struct erl_module_instance* inst_p);
 
 void beam_load_new_genop(LoaderState* stp);
+
+#ifndef BEAMASM
 int beam_load_new_label(LoaderState* stp);
+#endif
 
 #define BeamLoadError0(Stp, Fmt) \
     do { \

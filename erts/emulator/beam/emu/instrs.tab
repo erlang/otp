@@ -1120,16 +1120,10 @@ try_case_end(Src) {
 i_raise() {
     Eterm raise_trace = x(2);
     Eterm raise_value = x(1);
-    struct StackTrace *s;
 
     c_p->fvalue = raise_value;
     c_p->ftrace = raise_trace;
-    s = get_trace_from_exc(raise_trace);
-    if (s == NULL) {
-        c_p->freason = EXC_ERROR;
-    } else {
-        c_p->freason = PRIMARY_EXCEPTION(s->freason);
-    }
+    erts_sanitize_freason(c_p, raise_trace);
     goto find_func_info;
     //| -no_next
 }
