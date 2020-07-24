@@ -25,7 +25,7 @@ limitations under the License.
 [stdlib, compiler]
 
 * assert.hrl is Copyright (C) 2004-1016 Richard Carlsson, Mickaël Rémond
-* array.erl is Copyright (C) 2006-2016 Richard Carlsson and Ericsson AB
+* array.erl is Copyright (C) 2006-2020 Richard Carlsson and Ericsson AB
 * gb_trees.erl is Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
 * gb_sets.erl is Copyright (C) 1999-2001 Richard Carlsson, Sven-Olof Nyström
 * proplists.erl is Copyright (C) 2000-2003 Richard Carlsson
@@ -228,7 +228,7 @@ terms specified in this license.
 ---------------------------------------------------------------------------
 [dialyzer]
 
-%% Copyright 1997-2016 Tobias Lindahl, Stavros Aronis, Kostis Sagonas,
+%% Copyright 1997-2020 Tobias Lindahl, Stavros Aronis, Kostis Sagonas,
 %% Richard Carlsson, et al.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -246,7 +246,7 @@ terms specified in this license.
 ---------------------------------------------------------------------------
 [hipe]
 
-%% Copyright 1997-2016 Erik Stenman (Johansson), Kostis Sagonas,
+%% Copyright 1997-2020 Erik Stenman (Johansson), Kostis Sagonas,
 %% Richard Carlsson, Tobias Lindahl, Per Gustafsson, et al.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -264,7 +264,7 @@ terms specified in this license.
 ---------------------------------------------------------------------------
 [edoc, syntax_tools]
 
-%% Copyright 1997-2016 Richard Carlsson <carlsson.richard@gmail.com>
+%% Copyright 1997-2020 Richard Carlsson <carlsson.richard@gmail.com>
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License"); you may
 %% not use this file except in compliance with the License. You may obtain
@@ -289,7 +289,7 @@ terms specified in this license.
 ---------------------------------------------------------------------------
 [eunit]
 
-%% Copyright 2004-2016 Richard Carlsson <carlsson.richard@gmail.com>,
+%% Copyright 2004-2020 Richard Carlsson <carlsson.richard@gmail.com>,
 %% Mickaël Rémond <mickael.remond@process-one.net>
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License"); you may

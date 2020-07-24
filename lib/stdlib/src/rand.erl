@@ -19,7 +19,7 @@
 %%
 %% =====================================================================
 %% Multiple PRNG module for Erlang/OTP
-%% Copyright (c) 2015-2016 Kenji Rikitake
+%% Copyright (c) 2015-2020 Kenji Rikitake
 %%
 %% exrop (xoroshiro116+) added, statistical distribution
 %% improvements and uniform_real added by the Erlang/OTP team 2017

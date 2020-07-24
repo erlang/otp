@@ -10,7 +10,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% Copyright (C) 2004-2016 Richard Carlsson, Mickaël Rémond
+%% Copyright (C) 2004-2020 Richard Carlsson, Mickaël Rémond
 
 -ifndef(ASSERT_HRL).
 -define(ASSERT_HRL, true).

@@ -10,7 +10,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% Copyright (c) 2001-2016 Richard Carlsson. Parts written by Ericsson
+%% Copyright (c) 2001-2020 Richard Carlsson. Parts written by Ericsson
 %% are Copyright (c) Ericsson AB 2001-2020. All Rights Reserved.
 %%
 

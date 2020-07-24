@@ -10,7 +10,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% Copyright (C) 2006-2016 Richard Carlsson and Ericsson AB
+%% Copyright (C) 2006-2020 Richard Carlsson and Ericsson AB
 %%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @author Dan Gudmundsson <dgud@erix.ericsson.se>
