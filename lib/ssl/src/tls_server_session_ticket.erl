@@ -308,8 +308,8 @@ stateful_psk_ticket_id(Key) ->
 %%% Stateless ticket 
 %%%===================================================================
 generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce, 
-                                             ticket_age_add = TicketAgeAdd,
-                                             ticket_lifetime = Lifetime} 
+                                              ticket_age_add = TicketAgeAdd,
+                                              ticket_lifetime = Lifetime} 
                          = Ticket, Prf, MasterSecret, 
                          #state{stateless = #{seed := {IV, Shard}}}) ->
     PSK = tls_v1:pre_shared_key(MasterSecret, Nonce, Prf),
@@ -337,10 +337,8 @@ stateless_use([#psk_identity{identity = Encrypted,
               #state{stateless = #{seed := {IV, Shard},
                                    window := Window}} = State) ->
     case ssl_cipher:decrypt_ticket(Encrypted, Shard, IV) of
-        #stateless_ticket{hash = Prf,
-                          pre_shared_key = PSK} = Ticket ->
-            case stateless_usable_ticket(Ticket, ObfAge, Binder,
-                                         HandshakeHist, Window) of
+        #stateless_ticket{hash = Prf, pre_shared_key = PSK} = Ticket ->
+            case stateless_usable_ticket(Ticket, ObfAge, Binder, HandshakeHist, Window) of
                 true ->
                     stateless_anti_replay(Index, PSK, Binder, State);
                 false ->
@@ -358,9 +356,8 @@ stateless_usable_ticket(#stateless_ticket{hash = Prf,
                                           lifetime = Lifetime,
                                           timestamp = Timestamp,
                                           pre_shared_key = PSK}, ObfAge, 
-                       Binder, HandshakeHist, Window) ->
-    case stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, 
-                                 Timestamp, Window) of
+                        Binder, HandshakeHist, Window) ->
+    case stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, Timestamp, Window) of
         true ->
            validate_binder(Binder, HandshakeHist, PSK, Prf, stateless); 
         false ->
@@ -378,12 +375,10 @@ stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, Timestamp, Window) ->
         
 in_window(_, undefined) ->
     true;
-in_window(Age, {Window, _, _}) ->
+in_window(Age, Window) ->
     Age =< Window.
 
-stateless_anti_replay(Index, PSK, Binder, 
-                      #state{stateless = #{bloom_filter := BloomFilter0} 
-                             = Stateless} = State) ->
+stateless_anti_replay(Index, PSK, Binder, #state{stateless = #{bloom_filter := BloomFilter0} = Stateless} = State) ->
     case tls_bloom_filter:contains(BloomFilter0, Binder) of
         true ->
             %%possible_replay
@@ -394,4 +389,4 @@ stateless_anti_replay(Index, PSK, Binder,
              State#state{stateless = Stateless#{bloom_filter => BloomFilter}}}
     end;
 stateless_anti_replay(Index, PSK, _, State) ->
-     {{ok, {Index, PSK}}, State}.
+    {{ok, {Index, PSK}}, State}.
