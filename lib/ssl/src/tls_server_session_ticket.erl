@@ -91,7 +91,7 @@ handle_call({new_session_ticket, Prf, MasterSecret}, _From,
             #state{nonce = Nonce, 
                    stateless = #{}} = State) -> 
     BaseSessionTicket = new_session_ticket_base(State),
-    SessionTicket = generate_statless_ticket(BaseSessionTicket, Prf, 
+    SessionTicket = generate_stateless_ticket(BaseSessionTicket, Prf, 
                                              MasterSecret, State),
     {reply, SessionTicket, State#state{nonce = Nonce+1}};
 handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From, 
@@ -307,7 +307,7 @@ stateful_psk_ticket_id(Key) ->
 %%%===================================================================
 %%% Stateless ticket 
 %%%===================================================================
-generate_statless_ticket(#new_session_ticket{ticket_nonce = Nonce, 
+generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce, 
                                              ticket_age_add = TicketAgeAdd,
                                              ticket_lifetime = Lifetime} 
                          = Ticket, Prf, MasterSecret, 
@@ -339,8 +339,8 @@ stateless_use([#psk_identity{identity = Encrypted,
     case ssl_cipher:decrypt_ticket(Encrypted, Shard, IV) of
         #stateless_ticket{hash = Prf,
                           pre_shared_key = PSK} = Ticket ->
-            case statless_usable_ticket(Ticket, ObfAge, Binder,
-                                        HandshakeHist, Window) of
+            case stateless_usable_ticket(Ticket, ObfAge, Binder,
+                                         HandshakeHist, Window) of
                 true ->
                     stateless_anti_replay(Index, PSK, Binder, State);
                 false ->
@@ -353,11 +353,11 @@ stateless_use([#psk_identity{identity = Encrypted,
             stateless_use(Ids, Binders, Prf, HandshakeHist, Index+1, State)
     end.
 
-statless_usable_ticket(#stateless_ticket{hash = Prf,
-                                         ticket_age_add = TicketAgeAdd,
-                                         lifetime = Lifetime,
-                                         timestamp = Timestamp,
-                                         pre_shared_key = PSK}, ObfAge, 
+stateless_usable_ticket(#stateless_ticket{hash = Prf,
+                                          ticket_age_add = TicketAgeAdd,
+                                          lifetime = Lifetime,
+                                          timestamp = Timestamp,
+                                          pre_shared_key = PSK}, ObfAge, 
                        Binder, HandshakeHist, Window) ->
     case stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, 
                                  Timestamp, Window) of
