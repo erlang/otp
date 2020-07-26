@@ -27,7 +27,7 @@
 -export(
    [encode_path/1, encode_sockaddr/1,
     info/0, info/1,
-    debug/1, socket_debug/1,
+    debug/1, socket_debug/1, use_registry/1,
     supports/0, supports/1, supports/2,
     open/2, open/4,
     bind/2, bind/3,
@@ -57,6 +57,7 @@
 -define(ESOCK_SOCKADDR_IN6_DEFAULTS,
         (#{port => 0, addr => any,
            flowinfo => 0, scope_id => 0})).
+
 
 %% ===========================================================================
 %%
@@ -133,6 +134,7 @@
 -define(ESOCK_OPT_OTP_SNDCTRLBUF,      1007).
 -define(ESOCK_OPT_OTP_FD,              1008).
 -define(ESOCK_OPT_OTP_META,            1009).
+-define(ESOCK_OPT_OTP_USE_REGISTRY,    1010).
 %%
 -define(ESOCK_OPT_OTP_DOMAIN,          1999). % INTERNAL
 %%-define(ESOCK_OPT_OTP_TYPE,            1998). % INTERNAL
@@ -309,6 +311,34 @@
 
 
 %% ===========================================================================
+%%
+%% Guard macros
+%%
+
+%% Check that there are 1:s just in the lowest 8 bits of all 4 elements
+-define(
+   IS_IPV4_ADDR(A),
+   (is_tuple(A) andalso tuple_size(A) =:= 4
+    andalso
+      ((element(1, (A)) bor element(2, (A))
+            bor element(3, (A)) bor element(4, (A))
+       ) band (bnot 16#FF)
+      ) =:= 0)).
+
+%% Check that there are 1:s just in the lowest 16 bits of all 8 elements
+-define(
+   IS_IPV6_ADDR(A),
+   (is_tuple(A) andalso tuple_size(A) =:= 8
+    andalso
+      ((element(1, (A)) bor element(2, (A))
+           bor element(3, (A)) bor element(4, (A))
+           bor element(5, (A)) bor element(6, (A))
+           bor element(7, (A)) bor element(8, (A))
+       ) band (bnot 16#FFFF)
+      ) =:= 0)).
+
+
+%% ===========================================================================
 %% API for 'erl_init'
 %%
 
@@ -331,14 +361,36 @@ on_load(Extra) when is_map(Extra) ->
           atom_to_list(?MODULE),
           case DebugFilename of
               false ->
-                  Extra#{registry => Pid};
+                  case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
+                      "true" ->
+                          Extra#{registry     => Pid,
+                                 use_registry => true};
+                      "false" ->
+                          Extra#{registry     => Pid,
+                                 use_registry => false};
+                      _ ->
+                          Extra#{registry => Pid}
+                  end;
               _ ->
-                  Extra
-                      #{registry => Pid,
-                        debug => true,
-                        socket_debug => true,
-                        debug_filename =>
-                            encode_path(DebugFilename)}
+                  case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
+                      "true" ->
+                          Extra#{registry       => Pid,
+                                 use_registry   => true,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)};
+                      "false" ->
+                          Extra#{registry       => Pid,
+                                 use_registry   => false,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)};
+                      _ ->
+                          Extra#{registry       => Pid,
+                                 debug          => true,
+                                 socket_debug   => true,
+                                 debug_filename => encode_path(DebugFilename)}
+                  end
           end),
     ProtocolsTable =
         try nif_supports(protocols) of
@@ -363,6 +415,7 @@ flatten_protocols(Protocols, [Alias | Aliases], Name, Num) ->
 flatten_protocols(Protocols, [], Name, Num) ->
     [{Name, Num} | flatten_protocols(Protocols)].
 
+
 %% ===========================================================================
 %% API for 'socket'
 %%
@@ -384,6 +437,7 @@ encode_path(Path) ->
 encode_sockaddr(SockAddr) ->
     enc_sockaddr(SockAddr).
 
+
 %% ----------------------------------
 
 info() ->
@@ -400,6 +454,11 @@ debug(D) ->
 
 socket_debug(D) ->
     nif_command(#{command => ?FUNCTION_NAME, data => D}).
+
+
+use_registry(D) ->
+    nif_command(#{command => ?FUNCTION_NAME, data => D}).
+
 
 %% ----------------------------------
 
@@ -700,6 +759,7 @@ enc_sockopt(otp = Level, Opt) ->
         sndctrlbuf ->           {L, ?ESOCK_OPT_OTP_SNDCTRLBUF};
         fd ->                   {L, ?ESOCK_OPT_OTP_FD};
         meta ->                 {L, ?ESOCK_OPT_OTP_META};
+        use_registry ->         {L, ?ESOCK_OPT_OTP_USE_REGISTRY};
         domain ->               {L, ?ESOCK_OPT_OTP_DOMAIN};
         _ ->
             invalid(socket_option, {Level, Opt})
@@ -953,6 +1013,7 @@ enc_shutdown_how(How) ->
 
 invalid(What, Info) ->
     erlang:error({invalid, {What, Info}}).
+
 
 %% ===========================================================================
 %% NIF functions

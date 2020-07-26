@@ -31,6 +31,51 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 11.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>erlang:load_nif/2</c> that could cause it
+	    to throw <c>badarg</c> exception if a concurrent code
+	    change operation was in progress. Bug existed since OTP
+	    23.0.</p>
+          <p>
+	    Own Id: OTP-16704 Aux Id: ERL-1273, PR-16704 </p>
+        </item>
+        <item>
+          <p>
+	    Minor fix of debug compiled VM.</p>
+          <p>
+	    Own Id: OTP-16717</p>
+        </item>
+        <item>
+          <p>
+	    An unintentional reuse of an already used emulator
+	    internal event object could cause a wakeup signal to a
+	    thread to be lost. In worst case this could cause the
+	    runtime system to hang. This hang was however quite rare.</p>
+          <p>
+	    Own Id: OTP-16766 Aux Id: ERL-1304 </p>
+        </item>
+        <item>
+          <p>
+	    NIF threads and driver threads on non-Linux systems
+	    leaked internal resources when terminating. On Windows
+	    these resources were one event per thread. On most other
+	    systems one mutex and one condition variable per thread.
+	    On these other systems that also lacked
+	    <c>pthread_cond_timedwait()</c> also a pipe with its file
+	    descriptors was leaked.</p>
+          <p>
+	    Own Id: OTP-16772 Aux Id: ERL-1304 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -672,6 +717,36 @@
 	    set before Erlang can be started.</p>
           <p>
 	    Own Id: OTP-16635 Aux Id: ERL-476 PR-2390 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.7.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An unintentional reuse of an already used emulator
+	    internal event object could cause a wakeup signal to a
+	    thread to be lost. In worst case this could cause the
+	    runtime system to hang. This hang was however quite rare.</p>
+          <p>
+	    Own Id: OTP-16766 Aux Id: ERL-1304 </p>
+        </item>
+        <item>
+          <p>
+	    NIF threads and driver threads on non-Linux systems
+	    leaked internal resources when terminating. On Windows
+	    these resources were one event per thread. On most other
+	    systems one mutex and one condition variable per thread.
+	    On these other systems that also lacked
+	    <c>pthread_cond_timedwait()</c> also a pipe with its file
+	    descriptors was leaked.</p>
+          <p>
+	    Own Id: OTP-16772 Aux Id: ERL-1304 </p>
         </item>
       </list>
     </section>
@@ -2473,6 +2548,36 @@
 	    -remsh bar </c></p>
           <p>
 	    Own Id: OTP-15794 Aux Id: PR-2219 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.3.5.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An unintentional reuse of an already used emulator
+	    internal event object could cause a wakeup signal to a
+	    thread to be lost. In worst case this could cause the
+	    runtime system to hang. This hang was however quite rare.</p>
+          <p>
+	    Own Id: OTP-16766 Aux Id: ERL-1304 </p>
+        </item>
+        <item>
+          <p>
+	    NIF threads and driver threads on non-Linux systems
+	    leaked internal resources when terminating. On Windows
+	    these resources were one event per thread. On most other
+	    systems one mutex and one condition variable per thread.
+	    On these other systems that also lacked
+	    <c>pthread_cond_timedwait()</c> also a pipe with its file
+	    descriptors was leaked.</p>
+          <p>
+	    Own Id: OTP-16772 Aux Id: ERL-1304 </p>
         </item>
       </list>
     </section>

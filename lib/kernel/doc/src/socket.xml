@@ -848,6 +848,16 @@
 	    <p>Enable or disable debug during the open call.
 	    <br/>Defaults to <c>false</c>. </p>
 	  </item>
+
+	  <tag><c><![CDATA[use_registry: boolean()]]></c></tag>
+	  <item>
+	    <p>Enable or disable use of the socket registry for this socket.
+	    This overrides the global value.
+	    <br/>Defaults to the global value, see
+	    <seemfa marker="#use_registry/1"><c>use_registry/1</c></seemfa>.
+	    </p>
+	  </item>
+
 	</taglist>
 
 	<note>
@@ -875,9 +885,31 @@
 	it <em>must</em> be <c>default</c>. </p>
 
 	<p>The <c>Opts</c> argument is intended for "other" options.
-	Currently the only supported option(s) are <c>netns</c>, which
-	is only supported on the linux platform and <c>debug</c> (controls debug
-	printouts during the open call).</p>
+	The supported option(s) are described below:</p>
+
+	<taglist>
+	  <tag><c><![CDATA[netns: string()]]></c></tag>
+	  <item>
+	    <p>Used to set the network namespace during the open call.
+	    Only supported on the Linux platform. </p>
+	  </item>
+
+	  <tag><c><![CDATA[debug: boolean()]]></c></tag>
+	  <item>
+	    <p>Enable or disable debug during the open call.
+	    <br/>Defaults to <c>false</c>. </p>
+	  </item>
+
+	  <tag><c><![CDATA[use_registry: boolean()]]></c></tag>
+	  <item>
+	    <p>Enable or disable use of the socket registry for this socket.
+	    This overrides the global value.
+	    <br/>Defaults to the global value, see
+	    <seemfa marker="#use_registry/1"><c>use_registry/1</c></seemfa>.
+	    </p>
+	  </item>
+
+	</taglist>
 
 	<note>
 	  <p>It may not be possible to specify the default protocol (except
@@ -1512,6 +1544,21 @@
 	    </p>
 	  </item>
 	</taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="use_registry" arity="1" since="OTP @OTP-16763@"/>
+      <fsummary>Globally change the use of the socket registry.</fsummary>
+      <desc>
+	<p>Globally change if the socket registry is to be used or not.
+	Note that its still possible to override this explicitly when
+	creating an individual sockets,
+	see
+	<seemfa marker="socket#open/2"><c>open/2</c></seemfa>
+	or
+	<seemfa marker="socket#open/4"><c>open/4</c></seemfa>
+	for more info (use the Extra argument). </p>
       </desc>
     </func>
 

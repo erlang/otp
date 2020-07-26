@@ -2704,6 +2704,16 @@ handle_verify_option(verify_none, #{fail_if_no_peer_cert := true}) ->
     throw({error, {options, incompatible,
                    {verify, verify_none},
                    {fail_if_no_peer_cert, true}}});
+%% The option 'verify' is simulated by the configured 'verify_fun' that is mostly
+%% hidden from the end user. When 'verify' is set to verify_none, the option
+%% 'verify_fun' is also set to a default verify-none-verify_fun when processing
+%% the configuration. If 'verify' is later changed from verify_none to verify_peer,
+%% the 'verify_fun' must also be changed to undefined. When 'verify_fun' is set to
+%% undefined, public_key's default verify_fun will be used that performs a full
+%% verification.
+handle_verify_option(verify_peer, #{verify := verify_none} = OptionsMap) ->
+    OptionsMap#{verify => verify_peer,
+                verify_fun => undefined};
 handle_verify_option(verify_peer, OptionsMap) ->
     OptionsMap#{verify => verify_peer};
 handle_verify_option(Value, _) ->

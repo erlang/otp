@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2018</year><year>2019</year>
+      <year>2018</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
 
   <section>
     <title>Introduction</title>
-    <p>The socket interface (module) is basically an "thin" layer on top of
+    <p>The socket interface (module) is basically a "thin" layer on top of
     the OS socket interface. It is assumed that, unless you have special needs,
     gen_[tcp|udp|sctp] should be sufficent (when they become available). </p>
     <p>Note that just because we have a documented and described option,
@@ -112,6 +112,40 @@
   </section>
 
   <section>
+    <title>Socket Registry</title>
+    <p>The <em>socket registry</em> is how we keep track of sockets.
+    There are two functions that can be used for interaction:
+    <seemfa marker="socket#number_of/0"><c>socket:number_of/0</c></seemfa>
+    and
+    <seemfa marker="socket#which_sockets/1"><c>socket:which_sockets/1</c></seemfa>.
+    </p>
+    <p>In systems which create and delete <em>many</em> sockets
+    dynamically, it (the socket registry) could become a bottleneck.
+    For such systems, there are a couple of
+    ways to control the use of the socket registry. </p>
+
+    <p>Firstly, its possible to effect the global default value when
+    building OTP from source with the two configure options:</p>
+    <code type="none">--enable-esock-socket-registry (default) | --disable-esock-socket-registry</code>
+
+    <p>Second, its possible to effect the global default value by
+    setting the environment variable <c>ESOCK_USE_SOCKET_REGISTRY</c>
+    (boolean) before starting the erlang. </p>
+
+    <p>Third, its possible to alter the global default value in runtime
+    by calling the function
+    <seemfa marker="socket#use_registry/1"><c>use_registry/1</c></seemfa>.</p>
+
+    <p>And finally, its possible to override the global default when creating
+    a socket (with <seemfa marker="socket#open/2"><c>open/2</c></seemfa> and
+    <seemfa marker="socket#open/4"><c>open/4</c></seemfa>) by providing
+    the attribute <c>use_registry</c> (boolean) in the their <c>Opts</c>
+    argument (which effects <em>that</em> specific
+    socket).</p>
+
+  </section>
+
+  <section>
     <marker id="socket_options"></marker>
     <title>Socket Options</title>
 
@@ -180,6 +214,15 @@
 	<cell>no</cell>
 	<cell>yes</cell>
 	<cell>none</cell>
+      </row>
+      <row>
+	<cell>use_registry</cell>
+	<cell>boolean()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>the value is set when the socket is created, by a call to
+	<seemfa marker="socket#open/2"><c>open/2</c></seemfa> or
+	<seemfa marker="socket#open/4"><c>open/4</c></seemfa>.</cell>
       </row>
       <tcaption>option levels</tcaption>
     </table>

@@ -182,6 +182,36 @@
 
 </section>
 
+<section><title>SSL 9.6.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Data deliver with ssl:recv/2,3 could fail for when using
+	    packet mode. This has been fixed by correcting the flow
+	    control handling of passive sockets when packet mode is
+	    used.</p>
+          <p>
+	    Own Id: OTP-16764</p>
+        </item>
+        <item>
+          <p>
+	    Fix the internal handling of options 'verify' and
+	    'verify_fun'.</p>
+          <p>
+	    This change fixes a vulnerability when setting the ssl
+	    option 'verify' to verify_peer in a continued handshake
+	    won't take any effect resulting in the acceptance of
+	    expired peer certificates.</p>
+          <p>
+	    Own Id: OTP-16767 Aux Id: ERIERL-512 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.6.2.1</title>
 
     <section><title>Improvements and New Features</title>
@@ -740,6 +770,24 @@
 	    Add support for PSK CCM ciphers from RFC 6655</p>
           <p>
 	    Own Id: OTP-15626</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.2.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Data deliver with ssl:recv/2,3 could fail for when using
+	    packet mode. This has been fixed by correcting the flow
+	    control handling of passive sockets when packet mode is
+	    used.</p>
+          <p>
+	    Own Id: OTP-16764</p>
         </item>
       </list>
     </section>

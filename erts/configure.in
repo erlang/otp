@@ -1458,6 +1458,27 @@ AC_CHECK_FUNC([gethostname],
 	      [])
 
 
+dnl *** ESOCK_USE_SOCKET_REGISTRY ***
+dnl At this time we *enable* use of the socket regstry by default
+dnl since we want to be able to have as much debug info as possible.
+
+AC_ARG_ENABLE(esock_use_socket_registry,
+AS_HELP_STRING([--enable-esock-socket-registry], [enable use of the socket registry by default (default)])
+AS_HELP_STRING([--disable-esock-socket-registry], [disable use of the socket registry by default]))
+
+if test "x$enable_esock_socket_registry" = "xyes"; then
+    AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [1], [Use socket registry by default])
+else
+    if test "x$disable_esock_socket_registry" = "xyes"; then
+        AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [0], [Don't use socket registry by default])
+    else
+        # TEMPORARY default (enabled)
+        AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [1], [Use socket registry by default])
+    fi
+fi
+
+
+
 dnl
 dnl This test kindly borrowed from Tcl
 dnl

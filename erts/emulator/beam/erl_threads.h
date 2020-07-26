@@ -494,6 +494,7 @@ ERTS_GLB_INLINE void erts_tsd_key_delete(erts_tsd_key_t key);
 ERTS_GLB_INLINE void erts_tsd_set(erts_tsd_key_t key, void *value);
 ERTS_GLB_INLINE void * erts_tsd_get(erts_tsd_key_t key);
 ERTS_GLB_INLINE erts_tse_t *erts_tse_fetch(void);
+ERTS_GLB_INLINE void erts_tse_use(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_tse_return(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_tse_prepare_timed(erts_tse_t *ep);
 ERTS_GLB_INLINE void erts_tse_set(erts_tse_t *ep);
@@ -2401,6 +2402,23 @@ ERTS_GLB_INLINE erts_tse_t *erts_tse_fetch(void)
     return (erts_tse_t *) ethr_get_ts_event();
 }
 
+ERTS_GLB_INLINE void erts_tse_use(erts_tse_t *ep)
+{
+    /*
+     * When enabling use on event from emulator
+     * it *must* not already be in use...
+     */
+#ifdef DEBUG
+    erts_tse_t *tmp_ep;
+    ASSERT(!(ep->iflgs & ETHR_TS_EV_BUSY));
+    tmp_ep =
+#else
+    (void)
+#endif
+        ethr_use_ts_event(ep);
+    ASSERT(ep == tmp_ep);
+}
+
 ERTS_GLB_INLINE void erts_tse_return(erts_tse_t *ep)
 {
     ethr_leave_ts_event(ep);
@@ -2408,7 +2426,9 @@ ERTS_GLB_INLINE void erts_tse_return(erts_tse_t *ep)
 
 ERTS_GLB_INLINE void erts_tse_prepare_timed(erts_tse_t *ep)
 {
-    int res = ethr_event_prepare_timed(&((ethr_ts_event *) ep)->event);
+    int res;
+    ETHR_ASSERT(ep->iflgs & ETHR_TS_EV_BUSY);
+    res = ethr_event_prepare_timed(&((ethr_ts_event *) ep)->event);
     if (res != 0)
 	erts_thr_fatal_error(res, "prepare timed");
 }
@@ -2420,6 +2440,7 @@ ERTS_GLB_INLINE void erts_tse_set(erts_tse_t *ep)
 
 ERTS_GLB_INLINE void erts_tse_reset(erts_tse_t *ep)
 {
+    ETHR_ASSERT(ep->iflgs & ETHR_TS_EV_BUSY);
     ethr_event_reset(&((ethr_ts_event *) ep)->event);
 }
 
@@ -2427,6 +2448,7 @@ ERTS_GLB_INLINE int erts_tse_wait(erts_tse_t *ep)
 {
     int res;
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
+    ETHR_ASSERT(ep->iflgs & ETHR_TS_EV_BUSY);
     res = ethr_event_wait(&((ethr_ts_event *) ep)->event);
     ERTS_MSACC_POP_STATE();
     return res;
@@ -2436,6 +2458,7 @@ ERTS_GLB_INLINE int erts_tse_swait(erts_tse_t *ep, int spincount)
 {
     int res;
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
+    ETHR_ASSERT(ep->iflgs & ETHR_TS_EV_BUSY);
     res = ethr_event_swait(&((ethr_ts_event *) ep)->event, spincount);
     ERTS_MSACC_POP_STATE();
     return res;
@@ -2445,6 +2468,7 @@ ERTS_GLB_INLINE int erts_tse_twait(erts_tse_t *ep, Sint64 tmo)
 {
     int res;
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
+    ETHR_ASSERT(ep->iflgs & ETHR_TS_EV_BUSY);
     res = ethr_event_twait(&((ethr_ts_event *) ep)->event,
                            (ethr_sint64_t) tmo);
     ERTS_MSACC_POP_STATE();
@@ -2455,6 +2479,7 @@ ERTS_GLB_INLINE int erts_tse_stwait(erts_tse_t *ep, int spincount, Sint64 tmo)
 {
     int res;
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
+    ETHR_ASSERT(ep->iflgs & ETHR_TS_EV_BUSY);
     res = ethr_event_stwait(&((ethr_ts_event *) ep)->event,
                             spincount,
                             (ethr_sint64_t) tmo);

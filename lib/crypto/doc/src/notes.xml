@@ -118,6 +118,22 @@
 
 </section>
 
+<section><title>Crypto 4.6.5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implemented a workaround to allow fallback from using the
+	    EVP API for Diffie-Hellman key generation</p>
+          <p>
+	    Own Id: OTP-16771 Aux Id: ERIERL-509 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.6.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
