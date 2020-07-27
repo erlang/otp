@@ -58,10 +58,26 @@
 	<tag></tag>
 	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
       </taglist>
-      <p>The caller can now make another
-      call to the recv function and now expect data.</p>
-      <p>Note that all other users are <em>locked out</em> until the
-      'current user' has called the function (recv in this case).</p>
+      <p>
+	The caller can now make new call
+	to the recv function and expect data.
+      </p>
+      <p>
+	Note that all other users are <em>locked out</em> until the
+	'current user' has called the function (recv in this case).
+      </p>
+      <p>
+	Instead of <c>Timeout = nowait</c> it is equivalent to	create a
+	<seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>)
+	with
+	<seemfa marker="erts:erlang#make_ref/0"><c>make_ref()</c></seemfa>
+	and give as <c>Timeout</c>.
+	This will then be the <c>SelectHandle</c> in the 'select' message,
+	which enables a compiler optimization for receiving
+	a message containing a newly created <c>reference()</c>
+	(ignore the part of the message queue that had arrived
+	before the the <c>reference()</c> was created).
+      </p>
       <p>Another message the user must be prepared for (when making asynchronous
       calls) is the <c>abort</c> message:</p>
       <taglist>
@@ -124,7 +140,10 @@
     <datatype>
       <name name="select_handle"/>
       <desc>
-	<p>A term that uniquely identifies the (select) operation.</p>
+	<p>
+	  A <c>reference()</c> that uniquely identifies
+	  the (select) operation.
+	</p>
       </desc>
     </datatype>
     <datatype>
@@ -153,6 +172,29 @@
     </datatype>
     <datatype>
       <name name="sockaddr_un"/>
+      <desc>
+	<p>
+	  The <c>path</c> element will always be a <c>binary</c> when
+	  returned from this module.  When supplied to an API function
+	  in this module it may be a <c>string()</c>, which will be
+	  encoded into a binary according to the
+	  <seemfa marker="file#native_name_encoding/0">
+	    native file name encoding
+	  </seemfa>
+	  on the platform.
+	</p>
+	<p>
+	  A terminating zero character will be appended before
+	  the address path is given to the OS, and the terminating
+	  zero will be stripped before giving the address path
+	  to the caller.
+	</p>
+	<p>
+	  Linux's non-portable abstract socket address extension is handled
+	  by not doing any terminating zero processing in either direction,
+	  if the first byte of the address is zero.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="sockaddr_ll"/>
@@ -477,7 +519,7 @@
   <funcs>
     <func>
       <name name="accept" arity="1" since="OTP 22.0"/>
-      <name name="accept" arity="2" clause_i="2" since="OTP 22.0"/>
+      <name name="accept" arity="2" clause_i="3" since="OTP 22.0"/>
       <fsummary>Accept a connection on a socket.</fsummary>
       <desc>
         <p>Accept a connection on a socket.</p>
@@ -489,7 +531,10 @@
     </func>
 
     <func>
-      <name name="accept" arity="2" clause_i="1" anchor="accept_async" since="OTP 22.1"/>
+      <name name="accept" arity="2" clause_i="1" anchor="accept_async"
+	    since="OTP 22.1"/>
+      <name name="accept" arity="2" clause_i="2" anchor="accept_async"
+	    since="OTP @master@"/>
       <fsummary>Accept a connection on a socket.</fsummary>
       <desc>
         <p>Accept a connection on a socket.</p>
@@ -514,6 +559,18 @@
 	  ) when a client connects.
 	  A subsequent call to <c>accept/1,2</c>
 	  will then return the socket.
+	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
 	</p>
       </desc>
     </func>
@@ -564,16 +621,23 @@
 
     <func>
       <name name="connect" arity="2" since="OTP 22.0"/>
-      <name name="connect" arity="3" clause_i="2" since="OTP 22.0"/>
+      <name name="connect" arity="3" clause_i="3" since="OTP 22.0"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
-        <p>This function connects the socket to the address
-	specied by the <c>SockAddr</c> argument.</p>
+        <p>
+	  This function connects the socket to the address
+	  specified by the <c>SockAddr</c> argument,
+	  and returns when the connection has been established
+	  or when the <c><anno>Timeout</anno></c> has expired.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="connect" arity="3" clause_i="1" anchor="connect_async" since="OTP 22.1"/>
+      <name name="connect" arity="3" clause_i="1" anchor="connect_async"
+	    since="OTP 22.1"/>
+      <name name="connect" arity="3" clause_i="2" anchor="connect_async"
+	    since="OTP @master@"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
         <p>
@@ -584,20 +648,59 @@
  	<p>
 	  In the case when its not possible to immediately establish a
 	  connection, the function will return
-	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  <seetype marker="#select_info"><c>{select, SelectInfo}</c></seetype>.
 	  The caller will then receive a select message,
 	  <c>{'$socket', Socket, select, SelectHandle}</c> (
 	  with
 	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
 	  from
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
+	  <seetype marker="#select_info"><c>SelectInfo</c></seetype>
 	  ) when the connection is completed. 
-	  A subsequent call to <c>connect/2,3</c>
+	  A subsequent call to
+	  <seemfa marker="#connect/1"><c>connect/1</c></seemfa>
 	  will then finalize the connection.
 	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="1" since="OTP @master@"/>
+      <fsummary>Finalize a connection initiation on a socket.</fsummary>
+      <desc>
+        <p>
+	  This function finalizes a connection initiation on a socket,
+	  after calling
+	  <seemfa marker="#connect/3">
+	    <c>connect(_, _, nowait | select_handle())</c>
+	  </seemfa>
+	  that returned
+	  <seetype marker="#select_info">
+	    <c>{select, SelectInfo}</c>
+	  </seetype>
+	  and after receiving the select message
+	  <c>{'$socket', Socket, select, SelectHandle}</c>,
+	  and returns whether the connection was succesful or not.
+	</p>
+	<p>
+	  Instead of calling this function, for backwards compatibility,
+	  it is allowed to call
+	  <seemfa marker="#connect/2"><c>connect/2,3</c></seemfa>,
+	  but that incurs more overhead since the connect address
+	  and timeout are processed in vain.
+	</p>
+      </desc>
     </func>
 
     <func>
@@ -694,6 +797,7 @@
       <name name="getopt_native" arity="3" clause_i="1" since="OTP 22.0"/>
       <name name="getopt_native" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="getopt_native" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="getopt_native" arity="3" clause_i="4" since="OTP 24.0"/>
       <fsummary>Get a "native" socket option.</fsummary>
       <desc>
         <p>
@@ -717,9 +821,13 @@
 	<p>
 	  How to decode the option value has to be specified
 	  either with <c><anno>ValueType</anno></c>,
-	  or by specifying the <c><anno>ValueSize</anno></c>
+	  by specifying the <c><anno>ValueSize</anno></c>
 	  for a <c>binary()</c> that will contain
-	  the fetched option value.
+	  the fetched option value,
+	  or by specifying a <c>binary()</c> <c><anno>ValueSpec</anno></c>
+	  that will be copied to a buffer for the
+	  <c>getsockopt()</c> call to write the value
+	  in which will be returned as a new <c>binary()</c>.
 	</p>
 	<p>
 	  If <c><anno>ValueType</anno></c> is <c>integer</c>
@@ -762,7 +870,6 @@
     <func>
       <name name="is_supported" arity="1" since="OTP 23.0"/>
       <name name="is_supported" arity="2" since="OTP 23.0"/>
-      <name name="is_supported" arity="3" since="OTP 23.0"/>
       <fsummary>Report info about what the platform supports.</fsummary>
       <desc>
 	<p>
@@ -779,8 +886,7 @@
 	  This functions returns a <c>boolean</c> corresponding to what
 	  <seemfa marker="#supports/0"><c>supports/0-2</c></seemfa>
 	  reports for the same <c><anno>Key1</anno></c>
-	  (and <c><anno>Key2</anno></c>
-	  (and <c><anno>Key3</anno> = Opt</c>: socket option)).
+	  (and <c><anno>Key2</anno></c>).
 	</p>
       </desc>
     </func>
@@ -870,7 +976,7 @@
 
     <func>
       <name name="open" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="open" arity="3" clause_i="1" since="OTP 23.1"/>
+      <name name="open" arity="3" clause_i="1" since="OTP 24.0"/>
       <name name="open" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="open" arity="4" since="OTP 22.0"/>
       <fsummary>Create an endpoint for communication.</fsummary>
@@ -932,8 +1038,8 @@
       <name name="recv" arity="1" since="OTP 22.0"/>
       <name name="recv" arity="2" since="OTP 22.0"/>
       <name name="recv" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recv" arity="4" clause_i="2" since="OTP 22.0"/>
+      <name name="recv" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="recv" arity="4" clause_i="3" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -944,8 +1050,12 @@
     </func>
 
     <func>
-      <name name="recv" arity="3" clause_i="2" anchor="recv_async" since="OTP 22.1"/>
+      <name name="recv" arity="3" clause_i="2" anchor="recv_async"
+	    since="OTP 22.1"/>
+      <name name="recv" arity="3" clause_i="3" anchor="recv_async"
+	    since="OTP @master@"/>
       <name name="recv" arity="4" clause_i="1" since="OTP 22.1"/>
+      <name name="recv" arity="4" clause_i="2" since="OTP @master@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -971,6 +1081,18 @@
 	  will then return the data.
 	</p>
 	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
+	<p>
 	  Note that if a length (<c>> 0</c>) is specified,
 	  and only part of that amount of data is available,
 	  the function will return
@@ -987,10 +1109,10 @@
     <func>
       <name name="recvfrom" arity="1" since="OTP 22.0"/>
       <name name="recvfrom" arity="2" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="5" since="OTP 22.0"/>
-      <name name="recvfrom" arity="4" clause_i="2" since="OTP 22.0"/>
+      <name name="recvfrom" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="recvfrom" arity="3" clause_i="7" since="OTP 22.0"/>
+      <name name="recvfrom" arity="4" clause_i="3" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1010,9 +1132,14 @@
     </func>
 
     <func>
-      <name name="recvfrom" arity="3" clause_i="1" anchor="recvfrom_async" since="OTP 22.1"/>
+      <name name="recvfrom" arity="3" clause_i="1" anchor="recvfrom_async"
+	    since="OTP 22.1"/>
+      <name name="recvfrom" arity="3" clause_i="2" anchor="recvfrom_async"
+	    since="OTP @master@"/>
       <name name="recvfrom" arity="3" clause_i="4" since="OTP 22.1"/>
+      <name name="recvfrom" arity="3" clause_i="5" since="OTP @master@"/>
       <name name="recvfrom" arity="4" clause_i="1" since="OTP 22.1"/>
+      <name name="recvfrom" arity="4" clause_i="2" since="OTP @master@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1028,7 +1155,6 @@
 	(recv) 'peek' flag. When this flag is provided, the message is *not*
 	"consumed" from the underlying buffers, so another recvfrom call
 	is needed, possibly with a then adjusted buffer size.</p>
-
 	<p>
 	  In the case when there is no data waiting,
 	  the function will return
@@ -1044,16 +1170,28 @@
 	  ) when data has arrived.
 	  A subsequent call to <c>recvfrom/1-4</c> will then return the data.
 	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="recvmsg" arity="1" since="OTP 22.0"/>
       <name name="recvmsg" arity="2" clause_i="1" since="OTP 22.0"/>
-      <name name="recvmsg" arity="2" clause_i="3" since="OTP 22.0"/>
-      <name name="recvmsg" arity="3" clause_i="2" since="OTP 22.0"/>
+      <name name="recvmsg" arity="2" clause_i="4" since="OTP 22.0"/>
       <name name="recvmsg" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recvmsg" arity="5" clause_i="2" since="OTP 22.0"/>
+      <name name="recvmsg" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="recvmsg" arity="5" clause_i="3" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1084,9 +1222,14 @@
     </func>
 
     <func>
-      <name name="recvmsg" arity="2" clause_i="2" anchor="recvmsg_async" since="OTP 22.1"/>
+      <name name="recvmsg" arity="2" clause_i="2" anchor="recvmsg_async"
+	    since="OTP 22.1"/>
+      <name name="recvmsg" arity="2" clause_i="3" anchor="recvmsg_async"
+	    since="OTP @master@"/>
       <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.1"/>
+      <name name="recvmsg" arity="3" clause_i="2" since="OTP @master@"/>
       <name name="recvmsg" arity="5" clause_i="1" since="OTP 22.1"/>
+      <name name="recvmsg" arity="5" clause_i="2" since="OTP @master@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1129,14 +1272,26 @@
 	  ) when data has arrived.
 	  A subsequent call to <c>recvmsg/1-3,5</c> will then return the data.
 	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="send" arity="2" since="OTP 22.0"/>
       <name name="send" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="send" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="send" arity="4" clause_i="2" since="OTP 22.0"/>
+      <name name="send" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="send" arity="4" clause_i="3" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
@@ -1144,8 +1299,12 @@
     </func>
 
     <func>
-      <name name="send" arity="3" clause_i="2" anchor="send_async" since="OTP 22.1"/>
+      <name name="send" arity="3" clause_i="2" anchor="send_async"
+	    since="OTP 22.1"/>
+      <name name="send" arity="3" clause_i="3" anchor="send_async"
+	    since="OTP @maint@"/>
       <name name="send" arity="4" clause_i="1" since="OTP 22.1"/>
+      <name name="send" arity="4" clause_i="2" since="OTP @maint@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
@@ -1165,6 +1324,18 @@
 	  A subsequent call to <c>send/2-4</c> will then send the data.
 	</p>
 	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
+	<p>
 	  Note that if not all the data was sent, the function will return
 	  <seetype marker="#select_info">
 	    <c>{ok, {<anno>RestData</anno>, <anno>SelectInfo</anno>}</c>
@@ -1179,8 +1350,8 @@
     <func>
       <name name="sendmsg" arity="2" since="OTP 22.0"/>
       <name name="sendmsg" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="sendmsg" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="sendmsg" arity="4" clause_i="2" since="OTP 22.0"/>
+      <name name="sendmsg" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="sendmsg" arity="4" clause_i="3" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
 	<p>Send a message on a socket. The destination, if needed
@@ -1201,8 +1372,12 @@
     </func>
 
     <func>
-      <name name="sendmsg" arity="3" clause_i="2" anchor="sendmsg_async" since="OTP 22.1"/>
+      <name name="sendmsg" arity="3" clause_i="2" anchor="sendmsg_async"
+	    since="OTP 22.1"/>
+      <name name="sendmsg" arity="3" clause_i="3" anchor="sendmsg_async"
+	    since="OTP @master@"/>
       <name name="sendmsg" arity="4" clause_i="1" since="OTP 22.1"/>
+      <name name="sendmsg" arity="4" clause_i="2" since="OTP @master@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
 	<p>Send a message on a socket. The destination, if needed
@@ -1234,14 +1409,26 @@
 	  ) when there is room for more data
 	  A subsequent call to <c>sendmsg/2-4</c> will then send the data.
 	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="sendto" arity="3" since="OTP 22.0"/>
       <name name="sendto" arity="4" clause_i="1" since="OTP 22.0"/>
-      <name name="sendto" arity="4" clause_i="3" since="OTP 22.0"/>
-      <name name="sendto" arity="5" clause_i="2" since="OTP 22.0"/>
+      <name name="sendto" arity="4" clause_i="4" since="OTP 22.0"/>
+      <name name="sendto" arity="5" clause_i="3" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a socket, to the specified destination.</p>
@@ -1249,8 +1436,12 @@
     </func>
 
     <func>
-      <name name="sendto" arity="4" clause_i="2" anchor="sendto_async" since="OTP 22.1"/>
+      <name name="sendto" arity="4" clause_i="2" anchor="sendto_async"
+	    since="OTP 22.1"/>
+      <name name="sendto" arity="4" clause_i="3" anchor="sendto_async"
+	    since="OTP @master@"/>
       <name name="sendto" arity="5" clause_i="1" since="OTP 22.1"/>
+      <name name="sendto" arity="5" clause_i="2" since="OTP @master@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a socket, to the specified destination.</p>
@@ -1269,6 +1460,18 @@
 	  </seetype>
 	  ) when there is room for more data
 	  A subsequent call to <c>sendto/3-5</c> will then send the data.
+	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
 	</p>
       </desc>
     </func>
@@ -1451,11 +1654,11 @@
 	  <item>
  	    <p>
 	      Returns a list of
-	      <c>{<anno>Key1</anno>, Supports}</c> tuples
-	      for every <c><anno>Key1</anno></c> described below
-	      with <c>Supports</c> containing the result of
-	      <c>supports(<anno>Key1</anno>, <anno>Key2</anno>)</c>,
-	      and a <c>boolean()</c> for each of these keys:
+	      <c>{<anno>Key1</anno>, supports(Key1)}</c> tuples
+	      for every <c><anno>Key1</anno></c> described in
+	      <seemfa marker="#supports/1">supports/1</seemfa> and
+	      <c>{<anno>Key1</anno>, boolean()}</c> tuples
+	      for each of the following keys:
 	    </p>
 	    <taglist>
 	      <tag><c>sctp</c></tag>
@@ -1471,6 +1674,7 @@
 		Network Namespaces support (Linux, <c>setns(2)</c>)
 	      </item>
 	    </taglist>
+	    <p></p>
 	  </item>
 	  <tag><c>supports(send_flags = <anno>Key1</anno>)</c></tag>
 	  <item>
@@ -1515,13 +1719,13 @@
 	  <item>
 	    <p>
 	      Returns a list of
-	      <c>{<anno>Key2</anno>, Supports}</c> tuples
-	      for every <c><anno>Key2</anno></c> in
-	      <seetype marker="#sockopt_level">
-		<c>sockopt_level()</c>
+	      <c>{SocketOption, boolean()}</c> tuples
+	      for every <c>SocketOption</c> in
+	      <seetype marker="#socket_option">
+		<c>socket_option()</c>
 	      </seetype>
-	      with <c>Supports</c> containing the result of
-	      <c>supports(options, <anno>Key2</anno>)</c>.
+	      with the <c>boolean()</c> indicating if
+	      the socket option is supported on this platform.
  	    </p>
 	  </item>
 	  <tag>
@@ -1536,7 +1740,11 @@
 		<c>sockopt_level()</c>
 	      </seetype>
 	      returns a list of <c>{Opt, boolean()}</c> tuples
-	      for all known socket options <c>Opt</c> on that level,
+	      for all known
+	      <seetype marker="#socket_option">
+		socket options <c>Opt</c>
+		on that <c>Level =:= <anno>Key2</anno></c>,
+	      </seetype>
 	      and the <c>boolean()</c> indicating if the socket option
 	      is supported on this platform.
 	      See <seemfa marker="#setopt/3">setopt/3</seemfa>

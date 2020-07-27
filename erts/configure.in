@@ -2242,6 +2242,8 @@ AC_CHECK_FUNCS([openpty])
 
 AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h netpacket/packet.h sys/un.h)
 AC_CHECK_FUNCS([getifaddrs])
+AC_CHECK_MEMBERS([struct sockaddr_un.sun_path], [], [],
+		 [[#include <sys/un.h>]])
 
 dnl Checks for variables in6addr_any and in6addr_loopback,
 dnl

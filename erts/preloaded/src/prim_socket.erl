@@ -25,23 +25,28 @@
 -export([on_load/0, on_load/1]).
 
 -export(
-   [encode_path/1, encode_sockaddr/1,
+   [
     info/0, info/1,
     debug/1, socket_debug/1, use_registry/1,
     supports/0, supports/1, supports/2,
+    is_supported/1, is_supported/2,
     open/2, open/4,
     bind/2, bind/3,
-    connect/1, connect/2,
+    connect/1, connect/3,
     listen/2,
     accept/2,
     send/4, sendto/5, sendmsg/4,
     recv/4, recvfrom/4, recvmsg/5,
     close/1, finalize_close/1,
     shutdown/2,
-    setopt/4, setopt_native/4, getopt/3, getopt_native/4,
+    setopt/3, setopt_native/3,
+    getopt/2, getopt_native/3,
     sockname/1, peername/1,
     cancel/3
    ]).
+
+-export([encode_path/1, encode_sockaddr/1, p_get/1]).
+
 
 %% Also in socket
 -define(REGISTRY, socket_registry).
@@ -58,69 +63,10 @@
         (#{port => 0, addr => any,
            flowinfo => 0, scope_id => 0})).
 
-
 %% ===========================================================================
 %%
 %% Constants common to prim_socket_nif.c - has to be "identical"
 %%
-
-%% Send flags
--define(ESOCK_SEND_FLAG_CONFIRM,      (1 bsl 0)).
--define(ESOCK_SEND_FLAG_DONTROUTE,    (1 bsl 1)).
--define(ESOCK_SEND_FLAG_EOR,          (1 bsl 2)).
--define(ESOCK_SEND_FLAG_MORE,         (1 bsl 3)).
--define(ESOCK_SEND_FLAG_NOSIGNAL,     (1 bsl 4)).
--define(ESOCK_SEND_FLAG_OOB,          (1 bsl 5)).
-
-%% Recv flags
--define(ESOCK_RECV_FLAG_CMSG_CLOEXEC, (1 bsl 0)).
--define(ESOCK_RECV_FLAG_ERRQUEUE,     (1 bsl 1)).
--define(ESOCK_RECV_FLAG_OOB,          (1 bsl 2)).
--define(ESOCK_RECV_FLAG_PEEK,         (1 bsl 3)).
--define(ESOCK_RECV_FLAG_TRUNC,        (1 bsl 4)).
-
-
-%% shutdown/2
--define(ESOCK_SHUTDOWN_HOW_READ,       0).
--define(ESOCK_SHUTDOWN_HOW_WRITE,      1).
--define(ESOCK_SHUTDOWN_HOW_READ_WRITE, 2).
-
-
-
-%% ----------------------------------
-%% Address domain / protcol family
-
--define(ESOCK_DOMAIN_LOCAL, 1).
--define(ESOCK_DOMAIN_UNIX,  ?ESOCK_DOMAIN_LOCAL).
--define(ESOCK_DOMAIN_INET,  2).
--define(ESOCK_DOMAIN_INET6, 3).
-
-%% ----------------------------------
-%% Protocol type
-
--define(ESOCK_TYPE_STREAM,    101).
--define(ESOCK_TYPE_DGRAM,     102).
--define(ESOCK_TYPE_RAW,       103).
-%% -define(ESOCK_TYPE_RDM,       104).
--define(ESOCK_TYPE_SEQPACKET, 105).
-
-%% ----------------------------------
-%% Option encodings
-
--define(ESOCK_OPT_NATIVE_VALUE, 250).
--define(ESOCK_OPT_NATIVE_OPT,   251).
--define(ESOCK_OPT_NATIVE_LEVEL, 252).
-
-%% ----------------------------------
-%% Option level
-
--define(ESOCK_OPT_LEVEL_OTP,            301).
--define(ESOCK_OPT_LEVEL_SOCKET,         302).
--define(ESOCK_OPT_LEVEL_IP,             303).
--define(ESOCK_OPT_LEVEL_IPV6,           304).
--define(ESOCK_OPT_LEVEL_TCP,            305).
--define(ESOCK_OPT_LEVEL_UDP,            306).
--define(ESOCK_OPT_LEVEL_SCTP,           307).
 
 %% ----------------------------------
 %% *** OTP (socket) options
@@ -141,201 +87,6 @@
 %%-define(ESOCK_OPT_OTP_PROTOCOL,        1997). % INTERNAL
 %%-define(ESOCK_OPT_OTP_DTP,             1996). % INTERNAL
 
-%% ----------------------------------
-%% *** SOCKET (socket) options
-
--define(ESOCK_OPT_SOCK_ACCEPTCONN,     2001).
--define(ESOCK_OPT_SOCK_ACCEPTFILTER,   2002). % FreeBSD
--define(ESOCK_OPT_SOCK_BINDTODEVICE,   2003).
--define(ESOCK_OPT_SOCK_BROADCAST,      2004).
--define(ESOCK_OPT_SOCK_BUSY_POLL,      2005).
--define(ESOCK_OPT_SOCK_DEBUG,          2006).
--define(ESOCK_OPT_SOCK_DOMAIN,         2007).
--define(ESOCK_OPT_SOCK_DONTROUTE,      2008).
--define(ESOCK_OPT_SOCK_ERROR,          2009).
--define(ESOCK_OPT_SOCK_KEEPALIVE,      2010).
--define(ESOCK_OPT_SOCK_LINGER,         2011).
--define(ESOCK_OPT_SOCK_MARK,           2012).
--define(ESOCK_OPT_SOCK_OOBINLINE,      2013).
--define(ESOCK_OPT_SOCK_PASSCRED,       2014).
--define(ESOCK_OPT_SOCK_PEEK_OFF,       2015).
--define(ESOCK_OPT_SOCK_PEERCRED,       2016).
--define(ESOCK_OPT_SOCK_PRIORITY,       2017).
--define(ESOCK_OPT_SOCK_PROTOCOL,       2018).
--define(ESOCK_OPT_SOCK_RCVBUF,         2019).
--define(ESOCK_OPT_SOCK_RCVBUFFORCE,    2020).
--define(ESOCK_OPT_SOCK_RCVLOWAT,       2021).
--define(ESOCK_OPT_SOCK_RCVTIMEO,       2022).
--define(ESOCK_OPT_SOCK_REUSEADDR,      2023).
--define(ESOCK_OPT_SOCK_REUSEPORT,      2024).
--define(ESOCK_OPT_SOCK_RXQ_OVFL,       2025).
--define(ESOCK_OPT_SOCK_SETFIB,         2026). % FreeBSD
--define(ESOCK_OPT_SOCK_SNDBUF,         2027).
--define(ESOCK_OPT_SOCK_SNDBUFFORCE,    2028).
--define(ESOCK_OPT_SOCK_SNDLOWAT,       2029).
--define(ESOCK_OPT_SOCK_SNDTIMEO,       2030).
--define(ESOCK_OPT_SOCK_TIMESTAMP,      2031).
--define(ESOCK_OPT_SOCK_TYPE,           2032).
-
-%% ----------------------------------
-%% *** IP (socket) options
-
--define(ESOCK_OPT_IP_ADD_MEMBERSHIP,        3001).
--define(ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP, 3002).
--define(ESOCK_OPT_IP_BLOCK_SOURCE,          3003).
--define(ESOCK_OPT_IP_DONTFRAG,              3004). % FreeBSD
--define(ESOCK_OPT_IP_DROP_MEMBERSHIP,       3005).
--define(ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP,3006).
--define(ESOCK_OPT_IP_FREEBIND,              3007).
--define(ESOCK_OPT_IP_HDRINCL,               3008).
--define(ESOCK_OPT_IP_MINTTL,                3009).
--define(ESOCK_OPT_IP_MSFILTER,              3010).
--define(ESOCK_OPT_IP_MTU,                   3011).
--define(ESOCK_OPT_IP_MTU_DISCOVER,          3012).
--define(ESOCK_OPT_IP_MULTICAST_ALL,         3013).
--define(ESOCK_OPT_IP_MULTICAST_IF,          3014).
--define(ESOCK_OPT_IP_MULTICAST_LOOP,        3015).
--define(ESOCK_OPT_IP_MULTICAST_TTL,         3016).
--define(ESOCK_OPT_IP_NODEFRAG,              3017).
--define(ESOCK_OPT_IP_OPTIONS,               3018). % FreeBSD
--define(ESOCK_OPT_IP_PKTINFO,               3019).
--define(ESOCK_OPT_IP_RECVDSTADDR,           3020). % FreeBSD
--define(ESOCK_OPT_IP_RECVERR,               3021).
--define(ESOCK_OPT_IP_RECVIF,                3022).
--define(ESOCK_OPT_IP_RECVOPTS,              3023).
--define(ESOCK_OPT_IP_RECVORIGDSTADDR,       3024).
--define(ESOCK_OPT_IP_RECVTOS,               3025).
--define(ESOCK_OPT_IP_RECVTTL,               3026).
--define(ESOCK_OPT_IP_RETOPTS,               3027).
--define(ESOCK_OPT_IP_ROUTER_ALERT,          3028).
--define(ESOCK_OPT_IP_SENDSRCADDR,           3029). % FreeBSD
--define(ESOCK_OPT_IP_TOS,                   3030).
--define(ESOCK_OPT_IP_TRANSPARENT,           3031).
--define(ESOCK_OPT_IP_TTL,                   3032).
--define(ESOCK_OPT_IP_UNBLOCK_SOURCE,        3033).
-
-%% ----------------------------------
-%% *** IPv6 (socket) options
-
--define(ESOCK_OPT_IPV6_ADDRFORM,          4001).
--define(ESOCK_OPT_IPV6_ADD_MEMBERSHIP,    4002).
--define(ESOCK_OPT_IPV6_AUTHHDR,           4003). % Obsolete?
--define(ESOCK_OPT_IPV6_AUTH_LEVEL,        4004). % FreeBSD
--define(ESOCK_OPT_IPV6_CHECKSUM,          4005). % FreeBSD
--define(ESOCK_OPT_IPV6_DROP_MEMBERSHIP,   4006).
--define(ESOCK_OPT_IPV6_DSTOPTS,           4007).
--define(ESOCK_OPT_IPV6_ESP_NETWORK_LEVEL, 4008). % FreeBSD
--define(ESOCK_OPT_IPV6_ESP_TRANS_LEVEL,   4009). % FreeBSD
--define(ESOCK_OPT_IPV6_FAITH,             4010). % FreeBSD
--define(ESOCK_OPT_IPV6_FLOWINFO,          4011).
--define(ESOCK_OPT_IPV6_HOPLIMIT,          4012).
--define(ESOCK_OPT_IPV6_HOPOPTS,           4013).
--define(ESOCK_OPT_IPV6_IPCOMP_LEVEL,      4014). % FreeBSD
--define(ESOCK_OPT_IPV6_JOIN_GROUP,        4015). % FreeBSD
--define(ESOCK_OPT_IPV6_LEAVE_GROUP,       4016). % FreeBSD
--define(ESOCK_OPT_IPV6_MTU,               4017).
--define(ESOCK_OPT_IPV6_MTU_DISCOVER,      4018).
--define(ESOCK_OPT_IPV6_MULTICAST_HOPS,    4019).
--define(ESOCK_OPT_IPV6_MULTICAST_IF,      4020).
--define(ESOCK_OPT_IPV6_MULTICAST_LOOP,    4021).
--define(ESOCK_OPT_IPV6_PORTRANGE,         4022). % FreeBSD
--define(ESOCK_OPT_IPV6_PKTOPTIONS,        4023). % FreeBSD
--define(ESOCK_OPT_IPV6_RECVERR,           4024).
--define(ESOCK_OPT_IPV6_RECVHOPLIMIT,      4025).
--define(ESOCK_OPT_IPV6_RECVPKTINFO,       4026). % On FreeBSD: PKTINFO
--define(ESOCK_OPT_IPV6_RECVTCLASS,        4027).
--define(ESOCK_OPT_IPV6_ROUTER_ALERT,      4028).
--define(ESOCK_OPT_IPV6_RTHDR,             4029).
--define(ESOCK_OPT_IPV6_TCLASS,            4030). % FreeBSD
--define(ESOCK_OPT_IPV6_UNICAST_HOPS,      4031).
--define(ESOCK_OPT_IPV6_USE_MIN_MTU,       4032). % FreeBSD
--define(ESOCK_OPT_IPV6_V6ONLY,            4033).
-
-%% ----------------------------------
-%% *** TCP (socket) options
-
--define(ESOCK_OPT_TCP_CONGESTION,     5001).
--define(ESOCK_OPT_TCP_CORK,           5002).
--define(ESOCK_OPT_TCP_INFO,           5003).
--define(ESOCK_OPT_TCP_KEEPCNT,        5004).
--define(ESOCK_OPT_TCP_KEEPIDLE,       5005).
--define(ESOCK_OPT_TCP_KEEPINTVL,      5006).
--define(ESOCK_OPT_TCP_MAXSEG,         5007).
--define(ESOCK_OPT_TCP_MD5SIG,         5008).
--define(ESOCK_OPT_TCP_NODELAY,        5009).
--define(ESOCK_OPT_TCP_NOOPT,          5010).
--define(ESOCK_OPT_TCP_NOPUSH,         5011).
--define(ESOCK_OPT_TCP_SYNCNT,         5012).
--define(ESOCK_OPT_TCP_USER_TIMEOUT,   5013).
-
-%% ----------------------------------
-%% *** UDP (socket) options
-
--define(ESOCK_OPT_UDP_CORK,           6001).
-
-%% ----------------------------------
-%% *** SCTP (socket) options
-
--define(ESOCK_OPT_SCTP_ADAPTION_LAYER,         7001).
--define(ESOCK_OPT_SCTP_ASSOCINFO,              7002).
--define(ESOCK_OPT_SCTP_AUTH_ACTIVE_KEY,        7003).
--define(ESOCK_OPT_SCTP_AUTH_ASCONF,            7004).
--define(ESOCK_OPT_SCTP_AUTH_CHUNK,             7005).
--define(ESOCK_OPT_SCTP_AUTH_KEY,               7006).
--define(ESOCK_OPT_SCTP_AUTH_DELETE_KEY,        7007).
--define(ESOCK_OPT_SCTP_AUTOCLOSE,              7008).
--define(ESOCK_OPT_SCTP_CONTEXT,                7009).
--define(ESOCK_OPT_SCTP_DEFAULT_SEND_PARAMS,    7010).
--define(ESOCK_OPT_SCTP_DELAYED_ACK_TIME,       7011).
--define(ESOCK_OPT_SCTP_DISABLE_FRAGMENTS,      7012).
--define(ESOCK_OPT_SCTP_HMAC_IDENT,             7013).
--define(ESOCK_OPT_SCTP_EVENTS,                 7014).
--define(ESOCK_OPT_SCTP_EXPLICIT_EOR,           7015).
--define(ESOCK_OPT_SCTP_FRAGMENT_INTERLEAVE,    7016).
--define(ESOCK_OPT_SCTP_GET_PEER_ADDR_INFO,     7017).
--define(ESOCK_OPT_SCTP_INITMSG,                7018).
--define(ESOCK_OPT_SCTP_I_WANT_MAPPED_V4_ADDR,  7019).
--define(ESOCK_OPT_SCTP_LOCAL_AUTH_CHUNKS,      7020).
--define(ESOCK_OPT_SCTP_MAXSEG,                 7021).
--define(ESOCK_OPT_SCTP_MAXBURST,               7022).
--define(ESOCK_OPT_SCTP_NODELAY,                7023).
--define(ESOCK_OPT_SCTP_PARTIAL_DELIVERY_POINT, 7024).
--define(ESOCK_OPT_SCTP_PEER_ADDR_PARAMS,       7025).
--define(ESOCK_OPT_SCTP_PEER_AUTH_CHUNKS,       7026).
--define(ESOCK_OPT_SCTP_PRIMARY_ADDR,           7027).
--define(ESOCK_OPT_SCTP_RESET_STREAMS,          7028).
--define(ESOCK_OPT_SCTP_RTOINFO,                7029).
--define(ESOCK_OPT_SCTP_SET_PEER_PRIMARY_ADDR,  7030).
--define(ESOCK_OPT_SCTP_STATUS,                 7031).
--define(ESOCK_OPT_SCTP_USE_EXT_RECVINFO,       7032).
-
-
-%% ===========================================================================
-%%
-%% Guard macros
-%%
-
-%% Check that there are 1:s just in the lowest 8 bits of all 4 elements
--define(
-   IS_IPV4_ADDR(A),
-   (is_tuple(A) andalso tuple_size(A) =:= 4
-    andalso
-      ((element(1, (A)) bor element(2, (A))
-            bor element(3, (A)) bor element(4, (A))
-       ) band (bnot 16#FF)
-      ) =:= 0)).
-
-%% Check that there are 1:s just in the lowest 16 bits of all 8 elements
--define(
-   IS_IPV6_ADDR(A),
-   (is_tuple(A) andalso tuple_size(A) =:= 8
-    andalso
-      ((element(1, (A)) bor element(2, (A))
-           bor element(3, (A)) bor element(4, (A))
-           bor element(5, (A)) bor element(6, (A))
-           bor element(7, (A)) bor element(8, (A))
-       ) band (bnot 16#FFFF)
-      ) =:= 0)).
 
 
 %% ===========================================================================
@@ -349,6 +100,7 @@ on_load(Extra) when is_map(Extra) ->
     %% This is spawned as a system process to prevent init:restart/0 from
     %% killing it.
     Pid = erts_internal:spawn_system_process(?REGISTRY, start, []),
+    %%
     DebugFilename =
         case os:get_env_var("ESOCK_DEBUG_FILENAME") of
             "*" ->
@@ -356,54 +108,67 @@ on_load(Extra) when is_map(Extra) ->
             F ->
                 F
         end,
-    ok  =
-        erlang:load_nif(
-          atom_to_list(?MODULE),
+    UseRegistry =
+        case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
+            "true" ->
+                true;
+            "false" ->
+                false;
+            _ ->
+                undefined
+        end,
+    %%
+    Extra_1 =
+        case UseRegistry of
+            undefined ->
+                Extra#{registry => Pid};
+            _ ->
+                Extra
+                    #{registry => Pid,
+                      use_registry => UseRegistry}
+        end,
+    Extra_2 =
           case DebugFilename of
               false ->
-                  case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
-                      "true" ->
-                          Extra#{registry     => Pid,
-                                 use_registry => true};
-                      "false" ->
-                          Extra#{registry     => Pid,
-                                 use_registry => false};
-                      _ ->
-                          Extra#{registry => Pid}
-                  end;
+                  Extra_1;
               _ ->
-                  case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
-                      "true" ->
-                          Extra#{registry       => Pid,
-                                 use_registry   => true,
-                                 debug          => true,
-                                 socket_debug   => true,
-                                 debug_filename => encode_path(DebugFilename)};
-                      "false" ->
-                          Extra#{registry       => Pid,
-                                 use_registry   => false,
-                                 debug          => true,
-                                 socket_debug   => true,
-                                 debug_filename => encode_path(DebugFilename)};
-                      _ ->
-                          Extra#{registry       => Pid,
-                                 debug          => true,
-                                 socket_debug   => true,
-                                 debug_filename => encode_path(DebugFilename)}
-                  end
-          end),
-    ProtocolsTable =
-        try nif_supports(protocols) of
-            Protocols ->
-                maps:merge(
-                  maps:from_list(flatten_protocols(Protocols)),
-                  maps:from_list(
-                    [{Num, Name} || {[Name | _], Num} <- Protocols]))
-        catch
-            error : notsup ->
-                #{}
-        end,
-    persistent_term:put({?MODULE, protocols}, ProtocolsTable).
+                  Extra_1
+                      #{debug => true,
+                        socket_debug => true,
+                        debug_filename => encode_path(DebugFilename)}
+          end,
+    ok = erlang:load_nif(atom_to_list(?MODULE), Extra_2),
+    %%
+    put_supports_table(
+      protocols,
+      fun (Protocols) ->
+              maps:merge(
+                maps:from_list(flatten_protocols(Protocols)),
+                maps:from_list(
+                  [{Num, Name} || {[Name | _], Num} <- Protocols]))
+      end),
+    put_supports_table(
+      options,
+      fun (Options) ->
+              maps:from_list(options_table(Options))
+      end),
+    put_supports_table(
+      send_flags,
+      fun (Flags) -> maps:from_list(Flags) end),
+    put_supports_table(
+      recv_flags,
+      fun (Flags) -> maps:from_list(Flags) end).
+
+put_supports_table(Tag, Fun) ->
+    p_put(
+      Tag,
+      try nif_supports(Tag) of
+          Data ->
+              Fun(Data)
+      catch
+          error : notsup ->
+              #{}
+      end).
 
 flatten_protocols([{[Name | Aliases], Num} | Protocols]) ->
     flatten_protocols(Protocols, Aliases, Name, Num);
@@ -415,6 +180,20 @@ flatten_protocols(Protocols, [Alias | Aliases], Name, Num) ->
 flatten_protocols(Protocols, [], Name, Num) ->
     [{Name, Num} | flatten_protocols(Protocols)].
 
+options_table([]) ->
+    [];
+options_table([{Level, LevelNum, LevelOpts} | Options]) ->
+    options_table(Options, Level, LevelNum, LevelOpts).
+%%
+options_table(Options, Level, LevelNum, []) ->
+    [{Level, LevelNum} | options_table(Options)];
+options_table(Options, Level, LevelNum, [LevelOpt | LevelOpts]) ->
+    [case LevelOpt of
+         {Opt, OptNum} ->
+             {{Level,Opt}, {LevelNum,OptNum}};
+         Opt when is_atom(Opt) ->
+             {{Level,Opt}, undefined}
+     end | options_table(Options, Level, LevelNum, LevelOpts)].
 
 %% ===========================================================================
 %% API for 'socket'
@@ -423,6 +202,8 @@ flatten_protocols(Protocols, [], Name, Num) ->
 %% File names has to be encoded according to
 %% the native file encoding
 %%
+encode_path(Path) when is_binary(Path) ->
+    Path;
 encode_path(Path) ->
     %% These are all BIFs - will not cause code loading
     case unicode:characters_to_binary(Path, file:native_name_encoding()) of
@@ -437,14 +218,19 @@ encode_path(Path) ->
 encode_sockaddr(SockAddr) ->
     enc_sockaddr(SockAddr).
 
-
 %% ----------------------------------
 
 info() ->
     nif_info().
 
 info(SockRef) ->
-    nif_info(SockRef).
+    #{protocol := NumProtocol} = Info = nif_info(SockRef),
+    case p_get(protocols) of
+        #{NumProtocol := Protocol} ->
+            Info#{protocol := Protocol};
+        #{} ->
+            Info
+    end.
 
 %% ----------------------------------
 
@@ -459,7 +245,6 @@ socket_debug(D) ->
 use_registry(D) ->
     nif_command(#{command => ?FUNCTION_NAME, data => D}).
 
-
 %% ----------------------------------
 
 supports() ->
@@ -471,55 +256,126 @@ supports(protocols) ->
               [{Name, true} | Acc];
           (Num, _Name, Acc) when is_integer(Num) ->
               Acc
-      end, [], persistent_term:get({?MODULE, protocols}));
+      end, [], p_get(protocols));
+supports(options) ->
+    maps:fold(
+      fun ({_Level,_Opt} = Option, Value, Acc) ->
+              [{Option, is_supported_option(Option, Value)} | Acc];
+          (Level, _Value, Acc) when is_atom(Level) ->
+              Acc
+      end, [], p_get(options));
+supports(send_flags) ->
+    maps:fold(
+      fun (Name, Num, Acc) ->
+              [{Name, Num =/= 0} | Acc]
+      end, [], p_get(send_flags));
+supports(recv_flags) ->
+    maps:fold(
+      fun (Name, Num, Acc) ->
+              [{Name, Num =/= 0} | Acc]
+      end, [], p_get(recv_flags));
 supports(Key) ->
     nif_supports(Key).
 
-supports(options = Key, Level) ->
-    case Level of
-        socket ->
-            nif_supports(Key, ?ESOCK_OPT_LEVEL_SOCKET);
-        ip ->
-            nif_supports(Key, ?ESOCK_OPT_LEVEL_IP);
-        ipv6 ->
-            nif_supports(Key, ?ESOCK_OPT_LEVEL_IPV6);
-        tcp ->
-            nif_supports(Key, ?ESOCK_OPT_LEVEL_TCP);
-        udp ->
-            nif_supports(Key, ?ESOCK_OPT_LEVEL_UDP);
-        sctp ->
-            nif_supports(Key, ?ESOCK_OPT_LEVEL_SCTP);
-        _ ->
-            []
-    end;
+supports(options, Level) when is_atom(Level) ->
+    maps:fold(
+      fun ({L, Opt} = Option, Value, Acc) ->
+              if
+                  L =:= Level ->
+                      [{Opt, is_supported_option(Option, Value)} | Acc];
+                  true ->
+                      Acc
+              end;
+          (L, _Value, Acc) when is_atom(L) ->
+              Acc
+      end, [], p_get(options));
+supports(options, _Level) ->
+    [];
 supports(_Key1, _Key2) ->
     [].
+
+is_supported_option({socket, peek_off}, _Value) ->
+    %% Due to the behaviour of peek when peek_off is used,
+    %% this option is reported as not supported.
+    %% Can cause an infinite loop when calling recv with
+    %% the peek flag (the second of two calls).
+    %% So, until we have added extra code to know when
+    %% peek-off is used, we do not claim to support this!
+    %%
+    false;
+is_supported_option(_Option, {_NumLevel,_NumOpt}) ->
+    true;
+is_supported_option(_Option, undefined) ->
+    false.
+
+is_supported(Key1) ->
+    get_is_supported(Key1, nif_supports()).
+
+is_supported(protocols = Tab, Name) when is_atom(Name) ->
+    p_get_is_supported(Tab, Name, fun (_) -> true end);
+is_supported(protocols, _Name) ->
+    false;
+is_supported(options = Tab, {_Level,_Opt} = Option) ->
+    p_get_is_supported(
+      Tab, Option,
+      fun (Value) ->
+              is_supported_option(Option, Value)
+      end);
+is_supported(options, _Option) ->
+    false;
+is_supported(send_flags = Tab, Flag) ->
+    p_get_is_supported(Tab, Flag, fun (Value) -> Value =/= 0 end);
+is_supported(recv_flags = Tab, Flag) ->
+    p_get_is_supported(Tab, Flag, fun (Value) -> Value =/= 0 end);
+is_supported(Key1, Key2) ->
+    get_is_supported(Key2, nif_supports(Key1)).
+
+
+p_get_is_supported(Tab, Key, Fun) ->
+    case p_get(Tab) of
+        #{Key := Val} ->
+            Fun(Val);
+        #{} ->
+            false
+    end.
+
+get_is_supported(Key, Supported) ->
+    case lists:keyfind(Key, 1, Supported) of
+        false ->
+            false;
+        {_, Value} when is_boolean(Value) ->
+            Value
+    end.
 
 %% ----------------------------------
 
 open(FD, Opts) when is_map(Opts) ->
-    EOpts =
-        maps:map(
-          fun (Key, Val) ->
-                  case Key of
-                      protocol ->
-                          enc_protocol(Val);
-                      _ ->
-                          Val
-                  end
-          end, Opts),
-    nif_open(FD, EOpts).
+    case Opts of
+        #{protocol := Protocol} ->
+            case enc_protocol(Protocol) of
+                undefined ->
+                    {error, protocol};
+                NumProtocol ->
+                    nif_open(FD, Opts#{protocol := NumProtocol})
+            end;
+        #{} ->
+            nif_open(FD, Opts)
+    end.
 
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
-    EProtocol = enc_protocol(Protocol),
-    EOpts =
-        case Opts of
-            #{netns := Path} when is_list(Path) ->
-                Opts#{netns := encode_path(Path)};
-            _ ->
-                Opts
-        end,
-    nif_open(Domain, Type, EProtocol, EOpts).
+    case enc_protocol(Protocol) of
+        undefined ->
+            {error, protcol};
+        NumProtocol ->
+            EOpts =
+                case Opts of
+                    #{netns := Path} when is_list(Path) ->
+                        Opts#{netns := encode_path(Path)};
+                    _ ->
+                        Opts
+                end,
+            nif_open(Domain, Type, NumProtocol, EOpts)
+    end.
 
 %% ----------------------------------
 
@@ -532,8 +388,8 @@ bind(SockRef, Addrs, Action) when is_list(Addrs) ->
 
 %% ----------------------------------
 
-connect(SockRef, SockAddr) ->
-    nif_connect(SockRef, enc_sockaddr(SockAddr)).
+connect(SockRef, ConnectRef, SockAddr) ->
+    nif_connect(SockRef, ConnectRef, enc_sockaddr(SockAddr)).
 
 connect(SockRef) ->
     nif_connect(SockRef).
@@ -551,24 +407,45 @@ accept(ListenSockRef, AccRef) ->
 %% ----------------------------------
 
 send(SockRef, SendRef, Data, Flags) ->
-    EFlags = enc_send_flags(Flags),
-    nif_send(SockRef, SendRef, Data, EFlags).
+    case enc_send_flags(Flags) of
+        EFlags when is_integer(EFlags) ->
+            nif_send(SockRef, SendRef, Data, EFlags);
+        Reason ->
+            {error, Reason}
+    end.
 
 sendto(SockRef, SendRef, Data, To, Flags) ->
     ETo = enc_sockaddr(To),
-    EFlags = enc_send_flags(Flags),
-    nif_sendto(SockRef, SendRef, Data, ETo, EFlags).
+    case enc_send_flags(Flags) of
+        EFlags when is_integer(EFlags) ->
+            nif_sendto(SockRef, SendRef, Data, ETo, EFlags);
+        Reason ->
+            {error, Reason}
+    end.
 
 sendmsg(SockRef, SendRef, MsgHdr, Flags) ->
     EMsgHdr = enc_msghdr(MsgHdr),
-    EFlags = enc_send_flags(Flags),
-    nif_sendmsg(SockRef, SendRef, EMsgHdr, EFlags).
+    case enc_send_flags(Flags) of
+        EFlags when is_integer(EFlags) ->
+            nif_sendmsg(SockRef, SendRef, EMsgHdr, EFlags);
+        Reason ->
+            {error, Reason}
+    end.
 
 %% ----------------------------------
 
 recv(SockRef, RecvRef, Length, Flags) ->
-    EFlags = enc_recv_flags(Flags),
-    case nif_recv(SockRef, RecvRef, Length, EFlags) of
+    case enc_recv_flags(Flags) of
+        EFlags when is_integer(EFlags) ->
+            recv_result(
+              nif_recv(SockRef, RecvRef, Length, EFlags),
+              Length);
+        Reason ->
+            {error, Reason}
+    end.
+
+recv_result(Result, Length) ->
+    case Result of
         {ok, true, Bin} ->
             {ok, Bin};
         %%
@@ -587,16 +464,24 @@ recv(SockRef, RecvRef, Length, Flags) ->
                     {select, Bin}
             end;
         %%
-        Result -> Result
+        _ -> Result
     end.
 
 recvfrom(SockRef, RecvRef, Length, Flags) ->
-    EFlags = enc_recv_flags(Flags),
-    nif_recvfrom(SockRef, RecvRef, Length, EFlags).
+    case enc_recv_flags(Flags) of
+        EFlags when is_integer(EFlags) ->
+            nif_recvfrom(SockRef, RecvRef, Length, EFlags);
+        Reason ->
+            {error, Reason}
+    end.
 
 recvmsg(SockRef, RecvRef, BufSz, CtrlSz, Flags) ->
-    EFlags = enc_recv_flags(Flags),
-    nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags).
+    case enc_recv_flags(Flags) of
+        EFlags when is_integer(EFlags) ->
+            nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags);
+        Reason ->
+            {error, Reason}
+    end.
 
 %% ----------------------------------
 
@@ -609,46 +494,67 @@ finalize_close(SockRef) ->
 %% ----------------------------------
 
 shutdown(SockRef, How) ->
-    nif_shutdown(SockRef, enc_shutdown_how(How)).
+    nif_shutdown(SockRef, How).
 
 %% ----------------------------------
 
-setopt(SockRef, Level, Opt, Value) ->
-    {ELevel, EOpt} = enc_sockopt(Level, Opt),
-    nif_setopt(SockRef, ELevel, EOpt, Value, 0).
+setopt(SockRef, Option, Value) ->
+    NativeValue = 0,
+    case enc_sockopt(Option, NativeValue) of
+        undefined ->
+            {error, invalid};
+        {NumLevel,NumOpt} ->
+            nif_setopt(SockRef, NumLevel, NumOpt, Value, NativeValue)
+    end.
 
-setopt_native(SockRef, Level, Opt, Value)
-  when is_integer(Level), is_integer(Opt) ->
-    ArgEncoding = ?ESOCK_OPT_NATIVE_LEVEL,
-    nif_setopt(SockRef, Level, Opt, Value, ArgEncoding);
-setopt_native(SockRef, Level, Opt, Value)
-  when is_integer(Opt) ->
-    ELevel = enc_sockopt_level(Level),
-    ArgEncoding = ?ESOCK_OPT_NATIVE_OPT,
-    nif_setopt(SockRef, ELevel, Opt, Value, ArgEncoding);
-setopt_native(SockRef, Level, Opt, Value) ->
-    {ELevel, EOpt} = enc_sockopt(Level, Opt),
-    ArgEncoding = ?ESOCK_OPT_NATIVE_VALUE,
-    nif_setopt(SockRef, ELevel, EOpt, Value, ArgEncoding).
+setopt_native(SockRef, Option, Value) ->
+    NativeValue = 1,
+    case enc_sockopt(Option, NativeValue) of
+        undefined ->
+            {error, invalid};
+        {NumLevel,NumOpt} ->
+            nif_setopt(SockRef, NumLevel, NumOpt, Value, NativeValue)
+    end.
 
 
-getopt(SockRef, Level, Opt) ->
-    {ELevel, EOpt} = enc_sockopt(Level, Opt),
-    nif_getopt(SockRef, ELevel, EOpt, undefined, 0).
+getopt(SockRef, Option) ->
+    NativeValue = 0,
+    case enc_sockopt(Option, NativeValue) of
+        undefined ->
+            {error, invalid};
+        {NumLevel,NumOpt} ->
+            getopt_result(nif_getopt(SockRef, NumLevel, NumOpt), Option)
+    end.
 
-getopt_native(SockRef, Level, Opt, ValueSpec)
-  when is_integer(Level), is_integer(Opt) ->
-    ArgEncoding = ?ESOCK_OPT_NATIVE_LEVEL,
-    nif_getopt(SockRef, Level, Opt, ValueSpec, ArgEncoding);
-getopt_native(SockRef, Level, Opt, ValueSpec)
-  when is_integer(Opt) ->
-    ELevel = enc_sockopt_level(Level),
-    ArgEncoding = ?ESOCK_OPT_NATIVE_OPT,
-    nif_getopt(SockRef, ELevel, Opt, ValueSpec, ArgEncoding);
-getopt_native(SockRef, Level, Opt, ValueSpec) ->
-    {ELevel, EOpt} = enc_sockopt(Level, Opt),
-    ArgEncoding = ?ESOCK_OPT_NATIVE_VALUE,
-    nif_getopt(SockRef, ELevel, EOpt, ValueSpec, ArgEncoding).
+getopt_result({ok, Val} = Result, Option) ->
+    case Option of
+        {socket,protocol} ->
+            if
+                is_atom(Val) ->
+                    Result;
+                is_integer(Val) ->
+                    case p_get(protocols) of
+                        #{Val := Protocol} ->
+                            {ok, Protocol};
+                        #{} ->
+                            Result
+                    end
+            end;
+        _ ->
+            Result
+    end;
+getopt_result(Error, _Option) ->
+    Error.
+
+
+getopt_native(SockRef, Option, ValueSpec) ->
+    NativeValue = 1,
+    case enc_sockopt(Option, NativeValue) of
+        undefined ->
+            {error, invalid};
+        {NumLevel,NumOpt} ->
+            nif_getopt(SockRef, NumLevel, NumOpt, ValueSpec)
+    end.
 
 %% ----------------------------------
 
@@ -668,17 +574,20 @@ cancel(SRef, Op, Ref) ->
 %%
 
 %% These clauses should be deprecated
-enc_protocol({raw, ProtoNum}) when is_integer(ProtoNum) -> ProtoNum;
-enc_protocol(default) -> 0;
+enc_protocol({raw, ProtoNum}) when is_integer(ProtoNum) ->
+    ProtoNum;
+enc_protocol(default) ->
+    0;
 %%
 enc_protocol(Proto) when is_atom(Proto) ->
-    case persistent_term:get({?MODULE, protocols}) of
+    case p_get(protocols) of
         #{Proto := Num} ->
             Num;
         #{} ->
-            invalid(protocol, Proto)
+            undefined
     end;
-enc_protocol(Proto) when is_integer(Proto) -> Proto;
+enc_protocol(Proto) when is_integer(Proto) ->
+    Proto;
 enc_protocol(Proto) ->
     invalid(protocol, Proto).
 
@@ -705,30 +614,31 @@ enc_sockaddr(SockAddr) ->
     invalid(sockaddr, SockAddr).
 
 
-enc_send_flags([]) -> 0;
-enc_send_flags([Flag | Flags]) ->
-    case Flag of
-        confirm ->   ?ESOCK_SEND_FLAG_CONFIRM;
-        dontroute -> ?ESOCK_SEND_FLAG_DONTROUTE;
-        eor ->       ?ESOCK_SEND_FLAG_EOR;
-        more ->      ?ESOCK_SEND_FLAG_MORE;
-        nosignal ->  ?ESOCK_SEND_FLAG_NOSIGNAL;
-        oob ->       ?ESOCK_SEND_FLAG_OOB;
-        _ -> invalid(send_flag, Flag)
-    end bor enc_send_flags(Flags).
+enc_send_flags([]) ->
+    0;
+enc_send_flags(Flags) ->
+    enc_flags(Flags, p_get(send_flags), send_flag, 0).
 
+enc_recv_flags([]) ->
+    0;
+enc_recv_flags(Flags) ->
+    enc_flags(Flags, p_get(recv_flags), recv_flag, 0).
 
-enc_recv_flags([]) -> 0;
-enc_recv_flags([Flag | Flags]) ->
-    case Flag of
-        cmsg_cloexec -> ?ESOCK_RECV_FLAG_CMSG_CLOEXEC;
-        errqueue ->     ?ESOCK_RECV_FLAG_ERRQUEUE;
-        oob ->          ?ESOCK_RECV_FLAG_OOB;
-        peek ->         ?ESOCK_RECV_FLAG_PEEK;
-        trunc ->        ?ESOCK_RECV_FLAG_TRUNC;
-        _ -> invalid(recv_flag, Flag)
-    end bor enc_recv_flags(Flags).
-    
+enc_flags([], _Table, _Type, Val) ->
+    Val;
+enc_flags([Flag | Flags], Table, Type, Val) when is_atom(Flag) ->
+    case Table of
+        #{Flag := V} ->
+            enc_flags(Flags, Table, Type, Val bor V);
+        #{} ->
+            {Type, Flag}
+    end;
+enc_flags([Flag | Flags], Table, Type, Val)
+  when is_integer(Flag), 0 =< Flag ->
+    enc_flags(Flags, Table, Type, Val bor Flag);
+enc_flags(Flags, _Table, Type, _Val) ->
+    invalid(Type, Flags).
+
 
 enc_msghdr(#{ctrl := []} = M) ->
     enc_msghdr(maps:remove(ctrl, M));
@@ -745,275 +655,61 @@ enc_msghdr(M) ->
 
 %% Common to setopt and getopt
 %%
-%% Opt values not handled here will be passed to invalid/2
-%% which causes a runtime error.
-%%
-enc_sockopt(otp = Level, Opt) ->
-    L = enc_sockopt_level(Level),
+enc_sockopt({otp = L, Opt}, 0 = _NativeValue) ->
     case Opt of
-        debug ->                {L, ?ESOCK_OPT_OTP_DEBUG};
-        iow ->                  {L, ?ESOCK_OPT_OTP_IOW};
-        controlling_process ->  {L, ?ESOCK_OPT_OTP_CTRL_PROC};
-        rcvbuf ->               {L, ?ESOCK_OPT_OTP_RCVBUF};
-        rcvctrlbuf ->           {L, ?ESOCK_OPT_OTP_RCVCTRLBUF};
-        sndctrlbuf ->           {L, ?ESOCK_OPT_OTP_SNDCTRLBUF};
-        fd ->                   {L, ?ESOCK_OPT_OTP_FD};
-        meta ->                 {L, ?ESOCK_OPT_OTP_META};
-        use_registry ->         {L, ?ESOCK_OPT_OTP_USE_REGISTRY};
-        domain ->               {L, ?ESOCK_OPT_OTP_DOMAIN};
+        debug ->                {L,?ESOCK_OPT_OTP_DEBUG};
+        iow ->                  {L,?ESOCK_OPT_OTP_IOW};
+        controlling_process ->  {L,?ESOCK_OPT_OTP_CTRL_PROC};
+        rcvbuf ->               {L,?ESOCK_OPT_OTP_RCVBUF};
+        rcvctrlbuf ->           {L,?ESOCK_OPT_OTP_RCVCTRLBUF};
+        sndctrlbuf ->           {L,?ESOCK_OPT_OTP_SNDCTRLBUF};
+        fd ->                   {L,?ESOCK_OPT_OTP_FD};
+        meta ->                 {L,?ESOCK_OPT_OTP_META};
+        use_registry ->         {L,?ESOCK_OPT_OTP_USE_REGISTRY};
+        domain ->               {L,?ESOCK_OPT_OTP_DOMAIN};
         _ ->
-            invalid(socket_option, {Level, Opt})
+            undefined
     end;
-
-enc_sockopt(socket = Level, Opt) ->
-    L = enc_sockopt_level(Level),
-    case Opt of
-        acceptconn ->   {L, ?ESOCK_OPT_SOCK_ACCEPTCONN};
-        acceptfilter -> {L, ?ESOCK_OPT_SOCK_ACCEPTFILTER};
-        bindtodevice ->
-            %% Before linux 3.8, this socket option
-            %% could be set but not get.
-            %% Maximum size of buffer for name: IFNAMSIZ
-            %% So, we let the implementation decide.
-            {L, ?ESOCK_OPT_SOCK_BINDTODEVICE};
-        broadcast ->    {L, ?ESOCK_OPT_SOCK_BROADCAST};
-        busy_poll ->    {L, ?ESOCK_OPT_SOCK_BUSY_POLL};
-        debug ->        {L, ?ESOCK_OPT_SOCK_DEBUG};
-        domain ->       {L, ?ESOCK_OPT_SOCK_DOMAIN};
-        dontroute ->    {L, ?ESOCK_OPT_SOCK_DONTROUTE};
-        error ->        {L, ?ESOCK_OPT_SOCK_ERROR};
-        keepalive ->    {L, ?ESOCK_OPT_SOCK_KEEPALIVE};
-        linger ->       {L, ?ESOCK_OPT_SOCK_LINGER};
-        mark ->         {L, ?ESOCK_OPT_SOCK_MARK};
-        oobinline ->    {L, ?ESOCK_OPT_SOCK_OOBINLINE};
-        passcred ->     {L, ?ESOCK_OPT_SOCK_PASSCRED};
-        peek_off ->     {L, ?ESOCK_OPT_SOCK_PEEK_OFF};
-        peercred ->     {L, ?ESOCK_OPT_SOCK_PEERCRED};
-        priority ->     {L, ?ESOCK_OPT_SOCK_PRIORITY};
-        protocol ->     {L, ?ESOCK_OPT_SOCK_PROTOCOL};
-        rcvbuf ->       {L, ?ESOCK_OPT_SOCK_RCVBUF};
-        rcvbufforce ->  {L, ?ESOCK_OPT_SOCK_RCVBUFFORCE};
-        rcvlowat ->
-            %% May not work on Linux
-            {L, ?ESOCK_OPT_SOCK_RCVLOWAT};
-        rcvtimeo ->     {L, ?ESOCK_OPT_SOCK_RCVTIMEO};
-        reuseaddr ->    {L, ?ESOCK_OPT_SOCK_REUSEADDR};
-        reuseport ->    {L, ?ESOCK_OPT_SOCK_REUSEPORT};
-        rxq_ovfl ->     {L, ?ESOCK_OPT_SOCK_RXQ_OVFL};
-        setfib ->       {L, ?ESOCK_OPT_SOCK_SETFIB};
-        sndbuf ->       {L, ?ESOCK_OPT_SOCK_SNDBUF};
-        sndbufforce ->  {L, ?ESOCK_OPT_SOCK_SNDBUFFORCE};
-        sndlowat ->
-            %% Not changeable on Linux
-            {L, ?ESOCK_OPT_SOCK_SNDLOWAT};
-        sndtimeo ->     {L, ?ESOCK_OPT_SOCK_SNDTIMEO};
-        timestamp ->    {L, ?ESOCK_OPT_SOCK_TIMESTAMP};
-        type ->         {L, ?ESOCK_OPT_SOCK_TYPE};
-        _ ->
-            invalid(socket_option, {Level, Opt})
+enc_sockopt({NumLevel,NumOpt} = NumOption, NativeValue)
+  when is_integer(NumLevel), is_integer(NumOpt), NativeValue =/= 0 ->
+    NumOption;
+enc_sockopt({Level,NumOpt}, NativeValue)
+  when is_atom(Level), is_integer(NumOpt), NativeValue =/= 0 ->
+    case p_get(options) of
+        #{Level := NumLevel} ->
+            {NumLevel,NumOpt};
+        #{} ->
+            undefined
     end;
-
-enc_sockopt(ip = Level, Opt) ->
-    L = enc_sockopt_level(Level),
-    case Opt of
-        add_membership ->       {L, ?ESOCK_OPT_IP_ADD_MEMBERSHIP};
-        add_source_membership -> {L, ?ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP};
-        block_source ->         {L, ?ESOCK_OPT_IP_BLOCK_SOURCE};
-        dontfrag ->
-            %% FreeBSD only?
-            %% Only respected on udp and raw ip
-            %% (unless the hdrincl option has been set)
-            {L, ?ESOCK_OPT_IP_DONTFRAG};
-        drop_membership ->      {L, ?ESOCK_OPT_IP_DROP_MEMBERSHIP};
-        drop_source_membership -> {L, ?ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP};
-        freebind ->
-            %% Linux only?
-            {L, ?ESOCK_OPT_IP_FREEBIND};
-        hdrincl ->              {L, ?ESOCK_OPT_IP_HDRINCL};
-        minttl ->               {L, ?ESOCK_OPT_IP_MINTTL};
-        msfilter ->             {L, ?ESOCK_OPT_IP_MSFILTER};
-        mtu ->                  {L, ?ESOCK_OPT_IP_MTU};
-        mtu_discover ->         {L, ?ESOCK_OPT_IP_MTU_DISCOVER};
-        multicast_all ->        {L, ?ESOCK_OPT_IP_MULTICAST_ALL};
-        multicast_if ->         {L, ?ESOCK_OPT_IP_MULTICAST_ALL};
-        multicast_loop ->       {L, ?ESOCK_OPT_IP_MULTICAST_LOOP};
-        multicast_ttl ->        {L, ?ESOCK_OPT_IP_MULTICAST_TTL};
-        nodefrag ->             {L, ?ESOCK_OPT_IP_NODEFRAG};
-        options ->              {L, ?ESOCK_OPT_IP_OPTIONS};
-        pktinfo ->              {L, ?ESOCK_OPT_IP_PKTINFO};
-        recvdstaddr ->          {L, ?ESOCK_OPT_IP_RECVDSTADDR};
-        recverr ->              {L, ?ESOCK_OPT_IP_RECVERR};
-        recvif ->               {L, ?ESOCK_OPT_IP_RECVIF};
-        recvopts ->             {L, ?ESOCK_OPT_IP_RECVOPTS};
-        recvorigdstaddr ->      {L, ?ESOCK_OPT_IP_RECVORIGDSTADDR};
-        recvtos ->              {L, ?ESOCK_OPT_IP_RECVTOS};
-        recvttl ->              {L, ?ESOCK_OPT_IP_RECVTTL};
-        retopts ->              {L, ?ESOCK_OPT_IP_RETOPTS};
-        router_alert ->         {L, ?ESOCK_OPT_IP_ROUTER_ALERT};
-        sendsrcaddr ->          {L, ?ESOCK_OPT_IP_SENDSRCADDR};
-        tos ->
-            %% On FreeBSD it specifies that this option is only valid
-            %% for stream, dgram and "some" raw sockets...
-            %% No such condition on linux (in the man page)...
-            {L, ?ESOCK_OPT_IP_TOS};
-        transparent ->          {L, ?ESOCK_OPT_IP_TRANSPARENT};
-        ttl ->                  {L, ?ESOCK_OPT_IP_TTL};
-        unblock_source ->       {L, ?ESOCK_OPT_IP_UNBLOCK_SOURCE};
-        _ ->
-            invalid(socket_option, {Level, Opt})
+enc_sockopt({Level,Opt} = Option, _NativeValue)
+  when is_atom(Level), is_atom(Opt) ->
+    case p_get(options) of
+        #{Option := NumOpt} ->
+            NumOpt;
+        #{} ->
+            undefined
     end;
-
-enc_sockopt(ipv6 = Level, Opt) ->
-    L = enc_sockopt_level(Level),
-    case Opt of
-        addrform ->             {L, ?ESOCK_OPT_IPV6_ADDRFORM};
-        add_membership ->       {L, ?ESOCK_OPT_IPV6_ADD_MEMBERSHIP};
-        authhdr ->
-            %% Is this obsolete? When get, the result is enoprotoopt
-            %% and in the  header file it says 'obsolete'...
-            %% But there might be (old?) versions of linux
-            %% where it still works...
-            {L, ?ESOCK_OPT_IPV6_AUTHHDR};
-        auth_level ->           {L, ?ESOCK_OPT_IPV6_AUTH_LEVEL};
-        checksum ->             {L, ?ESOCK_OPT_IPV6_CHECKSUM};
-        drop_membership ->      {L, ?ESOCK_OPT_IPV6_DROP_MEMBERSHIP};
-        dstopts ->              {L, ?ESOCK_OPT_IPV6_DSTOPTS};
-        esp_network_level ->    {L, ?ESOCK_OPT_IPV6_ESP_NETWORK_LEVEL};
-        esp_trans_level ->      {L, ?ESOCK_OPT_IPV6_ESP_TRANS_LEVEL};
-        flowinfo ->             {L, ?ESOCK_OPT_IPV6_FLOWINFO};
-        hoplimit ->             {L, ?ESOCK_OPT_IPV6_HOPLIMIT};
-        hopopts ->              {L, ?ESOCK_OPT_IPV6_HOPOPTS};
-        ipcomp_level ->         {L, ?ESOCK_OPT_IPV6_IPCOMP_LEVEL};
-        join_group ->           {L, ?ESOCK_OPT_IPV6_JOIN_GROUP};
-        leave_group ->          {L, ?ESOCK_OPT_IPV6_LEAVE_GROUP};
-        mtu ->                  {L, ?ESOCK_OPT_IPV6_MTU};
-        mtu_discover ->         {L, ?ESOCK_OPT_IPV6_MTU_DISCOVER};
-        multicast_hops ->       {L, ?ESOCK_OPT_IPV6_MULTICAST_HOPS};
-        multicast_if ->         {L, ?ESOCK_OPT_IPV6_MULTICAST_IF};
-        multicast_loop ->       {L, ?ESOCK_OPT_IPV6_MULTICAST_LOOP};
-        portrange ->            {L, ?ESOCK_OPT_IPV6_PORTRANGE};
-        pktoptions ->           {L, ?ESOCK_OPT_IPV6_PKTOPTIONS};
-        recverr ->              {L, ?ESOCK_OPT_IPV6_RECVERR};
-        recvhoplimit ->         {L, ?ESOCK_OPT_IPV6_RECVHOPLIMIT};
-        recvpktinfo ->          {L, ?ESOCK_OPT_IPV6_RECVPKTINFO};
-        pktinfo -> % alias on FreeBSD
-            {L, ?ESOCK_OPT_IPV6_RECVPKTINFO};
-        recvtclass ->           {L, ?ESOCK_OPT_IPV6_RECVTCLASS};
-        router_alert ->         {L, ?ESOCK_OPT_IPV6_ROUTER_ALERT};
-        rthdr ->                {L, ?ESOCK_OPT_IPV6_RTHDR};
-        tclass ->               {L, ?ESOCK_OPT_IPV6_TCLASS};
-        unicast_hops ->         {L, ?ESOCK_OPT_IPV6_UNICAST_HOPS};
-        use_min_mtu ->          {L, ?ESOCK_OPT_IPV6_USE_MIN_MTU};
-        v6only ->               {L, ?ESOCK_OPT_IPV6_V6ONLY};
-        _ ->
-            invalid(socket_option, {Level, Opt})
-    end;
-
-enc_sockopt(tcp = Level, Opt) ->
-    L = enc_sockopt_level(Level),
-    case Opt of
-        congestion ->           {L, ?ESOCK_OPT_TCP_CONGESTION};
-        cork ->                 {L, ?ESOCK_OPT_TCP_CORK};
-        info ->                 {L, ?ESOCK_OPT_TCP_INFO};
-        keepcnt ->              {L, ?ESOCK_OPT_TCP_KEEPCNT};
-        keepidle ->             {L, ?ESOCK_OPT_TCP_KEEPIDLE};
-        keepintvl ->            {L, ?ESOCK_OPT_TCP_KEEPINTVL};
-        maxseg ->               {L, ?ESOCK_OPT_TCP_MAXSEG};
-        md5seg ->               {L, ?ESOCK_OPT_TCP_MD5SIG};
-        nodelay ->              {L, ?ESOCK_OPT_TCP_NODELAY};
-        noopt ->                {L, ?ESOCK_OPT_TCP_NOOPT};
-        nopush ->               {L, ?ESOCK_OPT_TCP_NOPUSH};
-        syncnt ->
-            %% Only set? 1..255
-            {L, ?ESOCK_OPT_TCP_SYNCNT};
-        user_timeout ->         {L, ?ESOCK_OPT_TCP_USER_TIMEOUT};
-        _ ->
-            invalid(socket_option, {Level, Opt})
-    end;
-
-enc_sockopt(udp = Level, Opt) ->
-    L = enc_sockopt_level(Level),
-    case Opt of
-        [] -> L;
-        %%
-        cork -> {L, ?ESOCK_OPT_UDP_CORK};
-        _ ->
-            invalid(socket_option, {Level, Opt})
-    end;
-
-enc_sockopt(sctp = Level, Opt) ->
-    L = enc_sockopt_level(Level),
-    case Opt of
-        adaption_layer ->       {L, ?ESOCK_OPT_SCTP_ADAPTION_LAYER};
-        associnfo ->            {L, ?ESOCK_OPT_SCTP_ASSOCINFO};
-        auth_active_key ->      {L, ?ESOCK_OPT_SCTP_AUTH_ACTIVE_KEY};
-        auth_asconf ->          {L, ?ESOCK_OPT_SCTP_AUTH_ASCONF};
-        auth_chunk ->           {L, ?ESOCK_OPT_SCTP_AUTH_CHUNK};
-        auth_key ->             {L, ?ESOCK_OPT_SCTP_AUTH_KEY};
-        auth_delete_key ->      {L, ?ESOCK_OPT_SCTP_AUTH_DELETE_KEY};
-        autoclose ->            {L, ?ESOCK_OPT_SCTP_AUTOCLOSE};
-        context ->              {L, ?ESOCK_OPT_SCTP_CONTEXT};
-        default_send_params ->  {L, ?ESOCK_OPT_SCTP_DEFAULT_SEND_PARAMS};
-        delayed_ack_time ->     {L, ?ESOCK_OPT_SCTP_DELAYED_ACK_TIME};
-        disable_fragments ->    {L, ?ESOCK_OPT_SCTP_DISABLE_FRAGMENTS};
-        hmac_ident ->           {L, ?ESOCK_OPT_SCTP_HMAC_IDENT};
-        events ->               {L, ?ESOCK_OPT_SCTP_EVENTS};
-        explicit_eor ->         {L, ?ESOCK_OPT_SCTP_EXPLICIT_EOR};
-        fragment_intreleave ->  {L, ?ESOCK_OPT_SCTP_FRAGMENT_INTERLEAVE};
-        get_peer_addr_info ->   {L, ?ESOCK_OPT_SCTP_GET_PEER_ADDR_INFO};
-        initmsg ->              {L, ?ESOCK_OPT_SCTP_INITMSG};
-        i_want_mapped_v4_addr -> {L, ?ESOCK_OPT_SCTP_I_WANT_MAPPED_V4_ADDR};
-        local_auth_chunks ->    {L, ?ESOCK_OPT_SCTP_LOCAL_AUTH_CHUNKS};
-        maxseg ->               {L, ?ESOCK_OPT_SCTP_MAXSEG};
-        maxburst ->             {L, ?ESOCK_OPT_SCTP_MAXBURST};
-        nodelay ->              {L, ?ESOCK_OPT_SCTP_NODELAY};
-        partial_delivery_point -> {L, ?ESOCK_OPT_SCTP_PARTIAL_DELIVERY_POINT};
-        peer_addr_params ->     {L, ?ESOCK_OPT_SCTP_PEER_ADDR_PARAMS};
-        peer_auth_chunks ->     {L, ?ESOCK_OPT_SCTP_PEER_AUTH_CHUNKS};
-        primary_addr ->         {L, ?ESOCK_OPT_SCTP_PRIMARY_ADDR};
-        reset_streams ->        {L, ?ESOCK_OPT_SCTP_RESET_STREAMS};
-        rtoinfo ->              {L, ?ESOCK_OPT_SCTP_RTOINFO};
-        set_peer_primary_addr -> {L, ?ESOCK_OPT_SCTP_SET_PEER_PRIMARY_ADDR};
-        status -> % ?ESOCK_OPT_SCTP_RTOINFO;
-            {L, ?ESOCK_OPT_SCTP_STATUS};
-        use_ext_recvinfo ->     {L, ?ESOCK_OPT_SCTP_USE_EXT_RECVINFO};
-        _ ->
-            invalid(socket_option, {Level, Opt})
-    end;
-enc_sockopt(Level, _Opt) ->
-    invalid(sockopt_level, Level).
-
-enc_sockopt_level(Level) ->
-    case Level of
-        otp ->      ?ESOCK_OPT_LEVEL_OTP;            
-        socket ->   ?ESOCK_OPT_LEVEL_SOCKET;
-        ip ->       ?ESOCK_OPT_LEVEL_IP;
-        ipv6 ->     ?ESOCK_OPT_LEVEL_IPV6;
-        tcp ->      ?ESOCK_OPT_LEVEL_TCP;
-        udp ->      ?ESOCK_OPT_LEVEL_UDP;
-        sctp ->     ?ESOCK_OPT_LEVEL_SCTP;
-        _ ->
-            invalid(sockopt_level, Level)
-    end.
-
-%% Encode the setopt value
-%%
-enc_shutdown_how(How) ->
-    case How of
-        read ->       ?ESOCK_SHUTDOWN_HOW_READ;
-        write ->      ?ESOCK_SHUTDOWN_HOW_WRITE;
-        read_write -> ?ESOCK_SHUTDOWN_HOW_READ_WRITE;
-        _ ->
-            invalid(shutdown_how, How)
-    end.
+enc_sockopt(Option, _NativeValue) ->
+    invalid(socket_option, Option).
 
 %% ===========================================================================
 %% Error functions
 %%
 
+%% A fancy badarg
+%%
 invalid(What, Info) ->
     erlang:error({invalid, {What, Info}}).
 
+%% ===========================================================================
+%% Persistent term functions
+%%
+
+p_put(Name, Value) ->
+    persistent_term:put({?MODULE, Name}, Value).
+
+p_get(Name) ->
+    persistent_term:get({?MODULE, Name}).
 
 %% ===========================================================================
 %% NIF functions
@@ -1026,7 +722,6 @@ nif_command(_Command) -> erlang:nif_error(undef).
 
 nif_supports() -> erlang:nif_error(undef).
 nif_supports(_Key) -> erlang:nif_error(undef).
-nif_supports(_Key1, _Key2) -> erlang:nif_error(undef).
 
 nif_open(_FD, _Opts) -> erlang:nif_error(undef).
 nif_open(_Domain, _Type, _Protocol, _Opts) -> erlang:nif_error(undef).
@@ -1035,7 +730,7 @@ nif_bind(_SRef, _SockAddr) -> erlang:nif_error(undef).
 nif_bind(_SRef, _SockAddrs, _Action) -> erlang:nif_error(undef).
 
 nif_connect(_SRef) -> erlang:nif_error(undef).
-nif_connect(_SRef, _SockAddr) -> erlang:nif_error(undef).
+nif_connect(_SRef, _ConnectRef, _SockAddr) -> erlang:nif_error(undef).
 
 nif_listen(_SRef, _Backlog) -> erlang:nif_error(undef).
 
@@ -1053,8 +748,9 @@ nif_close(_SRef) -> erlang:nif_error(undef).
 nif_finalize_close(_SRef) -> erlang:nif_error(undef).
 nif_shutdown(_SRef, _How) -> erlang:nif_error(undef).
 
-nif_setopt(_Ref, _Lev, _Opt, _Val, _ArgEnc) -> erlang:nif_error(undef).
-nif_getopt(_Ref, _Lev, _Opt, _ValSpec, _ArgEnc) -> erlang:nif_error(undef).
+nif_setopt(_Ref, _Lev, _Opt, _Val, _NativeVal) -> erlang:nif_error(undef).
+nif_getopt(_Ref, _Lev, _Opt) -> erlang:nif_error(undef).
+nif_getopt(_Ref, _Lev, _Opt, _ValSpec) -> erlang:nif_error(undef).
 
 nif_sockname(_Ref) -> erlang:nif_error(undef).
 nif_peername(_Ref) -> erlang:nif_error(undef).

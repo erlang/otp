@@ -68,6 +68,22 @@
 
 #include <erl_nif.h>
 
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_PATH
+# ifdef AF_LOCAL
+#  define HAS_AF_LOCAL 1
+# else
+#  ifdef AF_UNIX
+#   define AF_LOCAL AF_UNIX
+#   define HAS_AF_LOCAL 1
+#  else
+#   undef HAS_AF_LOCAL
+#  endif
+# endif
+#else
+# undef HAS_AF_LOCAL
+#endif
+/* After this we only check HAS_AF_LOCAL and use AF_LOCAL */
+
 /* The general purpose sockaddr */
 typedef union {
     /* General sockaddr */
@@ -82,7 +98,7 @@ typedef union {
 #endif
 
     /* Unix Domain Socket sockaddr */
-#if defined(HAVE_SYS_UN_H)
+#ifdef HAS_AF_LOCAL
     struct sockaddr_un  un;
 #endif
 
@@ -146,7 +162,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(close);                    \
     GLOBAL_ATOM_DEF(cmsg_cloexec);             \
     GLOBAL_ATOM_DEF(command);                  \
-    GLOBAL_ATOM_DEF(conirm);                   \
+    GLOBAL_ATOM_DEF(confirm);                  \
     GLOBAL_ATOM_DEF(congestion);               \
     GLOBAL_ATOM_DEF(connect);                  \
     GLOBAL_ATOM_DEF(context);                  \
@@ -254,10 +270,10 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(passcred);                 \
     GLOBAL_ATOM_DEF(path);                     \
     GLOBAL_ATOM_DEF(peek);                     \
-    GLOBAL_ATOM_DEF(peekcred);                 \
     GLOBAL_ATOM_DEF(peek_off);                 \
     GLOBAL_ATOM_DEF(peer_addr_params);         \
     GLOBAL_ATOM_DEF(peer_auth_chunks);         \
+    GLOBAL_ATOM_DEF(peercred);                 \
     GLOBAL_ATOM_DEF(pktinfo);                  \
     GLOBAL_ATOM_DEF(pktoptions);               \
     GLOBAL_ATOM_DEF(pkttype);                  \
