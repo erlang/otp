@@ -2261,6 +2261,7 @@ AC_CACHE_CHECK(
 		#include <sys/types.h>
 		#include <sys/socket.h>
 		#include <netinet/in.h>
+		#include <stdio.h>
 	    ]],
 	    [[printf("%d", in6addr_any.s6_addr[16]);]]
 	)],
@@ -2284,6 +2285,7 @@ AC_CACHE_CHECK(
 		#include <sys/types.h>
 		#include <sys/socket.h>
 		#include <netinet/in.h>
+		#include <stdio.h>
 	    ]],
 	    [[printf("%d", in6addr_loopback.s6_addr[16]);]]
 	)],
