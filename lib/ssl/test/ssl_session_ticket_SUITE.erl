@@ -33,6 +33,8 @@
 %% Testcases
 -export([basic/0,
          basic/1,
+         basic_anti_replay/0,
+         basic_anti_replay/1,
          hello_retry_request/0,
          hello_retry_request/1,
          multiple_tickets/0,
@@ -58,7 +60,7 @@ all() ->
 groups() ->
     [{'tlsv1.3', [], [{group, stateful}, {group, stateless}]},
      {stateful, [], session_tests()},
-     {stateless, [], session_tests()}].
+     {stateless, [], session_tests() ++ [basic_anti_replay]}].
 
 session_tests() ->
     [basic,
@@ -116,6 +118,61 @@ basic(Config) when is_list(Config) ->
     ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+
+    Server0 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+				   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Full handshake
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()}, {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
+
+    %% Wait for session ticket
+    ct:sleep(100),
+
+    ssl_test_lib:close(Client0),
+
+    %% Use ticket
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Short handshake
+                                                verify_active_session_resumption,
+                                                [true]}},
+                                         {from, self()}, {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server0, ok, Client1, ok),
+
+    process_flag(trap_exit, false),
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Client1).
+
+basic_anti_replay() ->
+    [{doc,"Test session resumption with stateless session tickets and anti_replay (erlang client - erlang server)"}].
+basic_anti_replay(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+
+    %% Configure session tickets
+    ClientOpts = [{session_tickets, auto}, {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+                  {anti_replay, '10k'},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
