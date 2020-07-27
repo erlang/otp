@@ -587,8 +587,6 @@ is_server_closing(Headers) when is_record(Headers, http_response_h) ->
 	    false
     end.
 
-format_response({{"HTTP/0.9", _, _} = StatusLine, _, Body}) ->
-    {{StatusLine, [], Body}, <<>>};
 format_response({StatusLine, Headers, Body = <<>>}) ->
     {{StatusLine, http_response:header_list(Headers), Body}, <<>>};
 

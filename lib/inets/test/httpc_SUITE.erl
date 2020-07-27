@@ -1057,14 +1057,11 @@ invalid_chunk_size(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 emulate_lower_versions(doc) ->
-    [{doc, "Perform request as 0.9 and 1.0 clients."}];
+    [{doc, "Perform request as 1.0 clients."}];
 emulate_lower_versions(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/dummy.html", Config),
 
-    {ok, Body0} =
-	httpc:request(get, {URL, []}, [{version, "HTTP/0.9"}], []),
-    inets_test_lib:check_body(Body0),
     {ok, {{"HTTP/1.0", 200, _}, [_ | _], Body1 = [_ | _]}} =
 	httpc:request(get, {URL, []}, [{version, "HTTP/1.0"}], []),
     inets_test_lib:check_body(Body1),
