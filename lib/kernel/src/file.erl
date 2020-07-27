@@ -1307,15 +1307,23 @@ sendfile(Filename, Sock)  ->
 
 %% Internal sendfile functions
 sendfile(#file_descriptor{ module = Mod } = Fd, Sock, Offset, Bytes,
-	 ChunkSize, Headers, Trailers, Opts)
-  when is_port(Sock) ->
-    case Mod:sendfile(Fd, Sock, Offset, Bytes, ChunkSize, Headers, Trailers,
-		      Opts) of
-	{error, enotsup} ->
-	    sendfile_fallback(Fd, Sock, Offset, Bytes, ChunkSize,
-			      Headers, Trailers);
-	Else ->
-	    Else
+	 ChunkSize, Headers, Trailers, Opts) ->
+    case Sock of
+        {'$inet', _, _} ->
+            sendfile_fallback(
+              Fd, Sock, Offset, Bytes, ChunkSize,
+              Headers, Trailers);
+        _ when is_port(Sock) ->
+            case Mod:sendfile(
+                   Fd, Sock, Offset, Bytes, ChunkSize,
+                   Headers, Trailers, Opts) of
+                {error, enotsup} ->
+                    sendfile_fallback(
+                      Fd, Sock, Offset, Bytes, ChunkSize,
+                      Headers, Trailers);
+                Else ->
+                    Else
+            end
     end;
 sendfile(_,_,_,_,_,_,_,_) ->
     {error, badarg}.
