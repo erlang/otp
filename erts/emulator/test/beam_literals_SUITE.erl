@@ -237,14 +237,31 @@ literal_type_tests(Config) when is_list(Config) ->
     Mod:test(),
     true = code:delete(Mod),
     code:purge(Mod),
-			       
+
     %% Test compile:form/2.  Turn off all optimizations.
-    {ok,Mod,Code2} = compile:forms(Form, [binary,report,time,
-						no_copt,no_postopt]),
+    NoOpt = [no_copt,no_bool_opt,no_share_opt,no_bsm_opt,no_fun_opt,
+             no_ssa_opt,no_recv_opt,no_postopt],
+    {ok,Mod,Code2} = compile:forms(Form, [binary,report,time|NoOpt]),
     {module,Mod} = code:load_binary(Mod, Mod, Code2),
     Mod:test(),
     true = code:delete(Mod),
     code:purge(Mod),
+
+    %% The new SSA-based compiler in OTP 22 and later will evaluate
+    %% calls to guard BIFs and tests even if all optimizations are
+    %% turned off. To ensure that BEAM can load and execute type tests
+    %% with literal operands, we will need to assemble a pre-generated
+    %% .S file. The comments in the .S file itself explains how it
+    %% was generated.
+
+    DataDir = proplists:get_value(data_dir, Config),
+    UnoptTestsFile = filename:join(DataDir, "unoptimized_literal_tests"),
+    {ok,UnoptMod,Code3} = compile:file(UnoptTestsFile, [from_asm,binary,report,time]),
+    {module,UnoptMod} = code:load_binary(UnoptMod, UnoptMod, Code3),
+    UnoptMod:test(),
+    true = code:delete(UnoptMod),
+    code:purge(UnoptMod),
+
     ok.
 
 make_test([{is_function=T,L}|Ts]) ->
