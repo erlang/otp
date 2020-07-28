@@ -2471,25 +2471,38 @@ process_user_tickets(UseTicket) ->
 process_user_tickets([], Acc, _) ->
     lists:reverse(Acc);
 process_user_tickets([H|T], Acc, N) ->
-    #{hkdf := HKDF,
-      sni := _SNI,
-      psk := PSK,
-      timestamp := Timestamp,
-      ticket := NewSessionTicket} = erlang:binary_to_term(H),
-    #new_session_ticket{
-       ticket_lifetime = _LifeTime,
-       ticket_age_add = AgeAdd,
-       ticket_nonce = Nonce,
-       ticket = Ticket,
-       extensions = _Extensions
-      } = NewSessionTicket,
-    TicketAge =  erlang:system_time(seconds) - Timestamp,
-    ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
-    Identity = #psk_identity{
-                  identity = Ticket,
-                  obfuscated_ticket_age = ObfuscatedTicketAge},
-    process_user_tickets(T, [{undefined, N, Identity, PSK, Nonce, HKDF}|Acc], N + 1).
+    case process_ticket(H, N) of
+        error ->
+            process_user_tickets(T, Acc, N + 1);
+        TicketData ->
+            process_user_tickets(T, [TicketData|Acc], N + 1)
+    end.
 
+process_ticket(Bin, N) when is_binary(Bin) ->
+    try erlang:binary_to_term(Bin, [safe]) of
+        #{hkdf := HKDF,
+          sni := _SNI,  %% TODO: Handle SNI?
+          psk := PSK,
+          timestamp := Timestamp,
+          ticket := NewSessionTicket} ->
+            #new_session_ticket{
+               ticket_lifetime = _LifeTime,
+               ticket_age_add = AgeAdd,
+               ticket_nonce = Nonce,
+               ticket = Ticket,
+               extensions = _Extensions
+              } = NewSessionTicket,
+            TicketAge =  erlang:system_time(seconds) - Timestamp,
+            ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
+            Identity = #psk_identity{
+                          identity = Ticket,
+                          obfuscated_ticket_age = ObfuscatedTicketAge},
+            {undefined, N, Identity, PSK, Nonce, HKDF};
+        _Else ->
+            error
+    catch error:badarg ->
+            error
+    end.
 
 %% The "obfuscated_ticket_age"
 %% field of each PskIdentity contains an obfuscated version of the
