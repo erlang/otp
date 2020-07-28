@@ -37,6 +37,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 }
 
 #leftnav {
+  background: #fefefe;
   position: fixed;
   float: left;
   top: 0;
