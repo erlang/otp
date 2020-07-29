@@ -33,6 +33,7 @@ armv7l-unknown-linux-gnueabihf
 i686-pc-linux-gnu
 x86_64-unknown-linux-gnu
 i386-apple-darwin[0-9]*.[0-9]*.[0-9]*
+arm-apple-darwin[0-9]*.[0-9]*.[0-9]*
 x86_64-apple-darwin[0-9]*.[0-9]*.[0-9]*
 sparc-sun-solaris[0-9]*.[0-9]*
 i386-pc-solaris[0-9]*.[0-9]*

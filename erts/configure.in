@@ -733,7 +733,7 @@ dnl First remove common_tests skip file.
 
 dnl Adjust LDFLAGS to allow 64bit linkage on DARWIN
 case $ARCH-$OPSYS in
-	amd64-darwin*)
+	amd64-darwin*|arm64-darwin*)
 		AC_MSG_NOTICE([Adjusting LDFLAGS to cope with 64bit Darwin])
 		case $LDFLAGS in
 			*-m64*)
