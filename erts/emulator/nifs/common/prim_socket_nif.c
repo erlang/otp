@@ -8589,9 +8589,11 @@ ERL_NIF_TERM esock_setopt_msfilter(ErlNifEnv*       env,
         struct ip_msfilter* msfP;
         Uint32              msfSz;
         ERL_NIF_TERM        eMultiAddr, eInterface, eFMode, eSList, elem, tail;
+        size_t              sz;
         unsigned int        slistLen, idx;
 
-        if ((! IS_MAP(env, eVal)) ||
+        if ((! enif_get_map_size(env, eVal, &sz)) ||
+            (sz != 4) ||
             (! GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) ||
             (! GET_MAP_VAL(env, eVal, atom_interface, &eInterface)) ||
             (! GET_MAP_VAL(env, eVal, atom_mode, &eFMode)) ||
@@ -8765,13 +8767,15 @@ ERL_NIF_TERM esock_setopt_in_update_membership(ErlNifEnv*       env,
                                                ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM   eMultiAddr, eInterface;
+    size_t         sz = 0;
     struct ip_mreq mreq;
 
-    // It must be a map
-    if (! IS_MAP(env, eVal)) {
+    // It must be a map with exactly 2 fields
+    if ((! enif_get_map_size(env, eVal, &sz)) ||
+        (sz != 2)) {
         SSDBG( descP,
                ("SOCKET", "esock_setopt_in_update_membership -> "
-                "value *not* a map\r\n") );
+                "value *not* a map of size 2\r\n") );
         goto invalid;
     }
 
@@ -8837,10 +8841,12 @@ ERL_NIF_TERM esock_setopt_in_update_source(ErlNifEnv*       env,
                                            ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM          eMultiAddr, eInterface, eSourceAddr;
+    size_t                sz = 0;
     struct ip_mreq_source mreq;
 
-    // It must be a map
-    if (! IS_MAP(env, eVal) ||
+    // It must be a map of size 3
+    if ((! enif_get_map_size(env, eVal, &sz)) ||
+        (sz != 3) ||
         (! GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) ||
         (! GET_MAP_VAL(env, eVal, atom_interface, &eInterface)) ||
         (! GET_MAP_VAL(env, eVal, atom_sourceaddr, &eSourceAddr)) ||
@@ -14770,7 +14776,7 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
  *
  *           atom() | integer()
  *
- * When its an atom it can have the values:
+ * When it's an atom it can have the values:
  *
  *       want | dont | do | probe
  *

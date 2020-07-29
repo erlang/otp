@@ -100,9 +100,27 @@
   <datatypes>
     <datatype>
       <name name="domain"/>
+      <desc>
+	<p>
+	  A lowercase <c>atom()</c> representing a protocol domain
+	  on the platform named <c>AF_*</c> (or <c>PF_*</c>),
+	  or an <c>integer()</c> defining a protocol domain
+	  as in the platform's header files.
+	  See the OS man page for the library call <c>socket(2)</c>.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="type"/>
+      <desc>
+	<p>
+	  A lowercase <c>atom()</c> representing a protocol type
+	  on the platform named <c>SOCK_*</c>,
+	  or an <c>integer()</c> defining a protocol type
+	  as in the platform's header files.
+	  See the OS man page for the library call <c>socket(2)</c>.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="protocol"/>
@@ -116,6 +134,9 @@
 	<p>
 	  An <c>integer()</c> means a native protocol number
 	  on the platform.  The default protocol is <c>0</c>.
+	</p>
+	<p>
+	  See the OS man page for the library call <c>socket(2)</c>.
 	</p>
 	<p>
 	  The call
@@ -259,7 +280,8 @@
       <desc>
 	<p>
 	  These are socket options for the <c>otp</c> protocol level,
-	  which is above all OS protocol levels.
+	  that is <c>{otp, Name}</c> options,
+	  above all OS protocol levels.
 	  They affect Erlang/OTP's socket implementation.
 	</p>
 	<taglist>
@@ -284,10 +306,7 @@
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)}
 	    </c>
 	    - Receive buffer size.
-	    <c>default</c> is only valid for
-	    <seemfa marker="#setopt/3"><c>setopt/3</c></seemfa>
-	    and will not be returned from
-	    <seemfa marker="#getopt/2"><c>getopt/2</c></seemfa>.
+	    The value <c>default</c> is only valid to <em>set</em>.
 	    <c>N</c> specifies the number of read attempts to do
 	    in a tight loop before assuming no more data is pending.
 	  </item>
@@ -297,6 +316,7 @@
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
 	    </c>
 	    - Buffer size for received ancillary messages.
+	    The value <c>default</c> is only valid to <em>set</em>.
 	  </item>
 	  <tag><c>sndctrlbuf</c></tag>
 	  <item>
@@ -304,16 +324,25 @@
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
 	    </c>
 	    - Buffer size for sent ancillary messages.
+	    The value <c>default</c> is only valid to <em>set</em>.
 	  </item>
 	  <tag><c>fd</c></tag>
 	  <item>
 	    <c>integer()</c>
-	    - The OS protocol levels' socket descriptor.
-	    Only valid for
-	    <seemfa marker="#getopt/2"><c>getopt/2</c></seemfa>.
+	    - Only valid to <em>get</em>.
+	    The OS protocol levels' socket descriptor.
 	    Functions <seemfa marker="#open/1"><c>open/1,2</c></seemfa>
 	    can be used to create a socket according to this module
 	    from an existing OS socket descriptor.
+	  </item>
+	  <tag><c>use_registry</c></tag>
+	  <item>
+	    <c>boolean()</c>
+	    - Only valid to <em>get</em>.
+	    The value is set when the socket is created with
+	    <seemfa marker="#open/2"><c>open/2</c></seemfa>
+	    or
+	    <seemfa marker="#open/4"><c>open/4</c></seemfa>.
 	  </item>
 	</taglist>
 	<p>
@@ -339,35 +368,52 @@
 	</p>
 	<note><p>See the OS documentation for every socket option.</p></note>
 	<p>
-	  The value type for an option is <c>boolean()</c>
-	  if the OS documentation indicates so
-	  (that it is an on/off option).
-	  Other options are <c>integer()</c> maybe in
-	  a restricted range (for example byte: <c>0..255</c>),
-	  unless noted below.
+	  An option below that has the value type <c>boolean()</c>
+	  will translate the value <c>false</c>
+	  to a C <c>int</c> with value <c>0</c>,
+	  and the value <c>true</c> to <c>!!0</c> (not (not false)).
 	</p>
 	<p>
-	  Options with special value types or other pecularities
-	  for protocol
-	  <seetype marker="#sockopt_level">level <c>socket</c></seetype>.
+	  An option with value type <c>integer()</c>
+	  will be translated to a C <c>int</c> that may have
+	  a restricted range, for example byte: <c>0..255</c>.
+	  See the OS documentation.
+	</p>
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>socket</c></em>:</seetype>
 	</p>
 	<taglist>
+	  <tag><c>{socket, acceptconn}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, acceptfilter}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{socket, bindtodevice}</c></tag>
-	  <item>
-	    <p><c>Value = string()</c></p>
-	  </item>
+	  <item><p><c>Value = string()</c></p></item>
+	  <tag><c>{socket, broadcast}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, busy_poll}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{socket, debug}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, domain}</c></tag>
 	  <item>
 	    <p>
 	      <c>Value =</c>
 	      <seetype marker="#domain"><c>domain()</c></seetype>
-	      <c>| integer()</c>
 	    </p>
+	    <p>Only valid to <em>get</em>.</p>
 	    <p>
-	      The socket's protocol domain.  Valid to get, not to set.
+	      The socket's protocol domain.
 	      Does <em>not</em> work on for instance FreeBSD.
 	    </p>
 	  </item>
+	  <tag><c>{socket, dontroute}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, error}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{socket, keepalive}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{socket, linger}</c></tag>
 	  <item>
 	    <p>
@@ -379,12 +425,18 @@
 	    <p>
 	      The value <c>abort</c>
 	      is shorthand for <c>{true, 0}</c>,
-	      is only valid to set,
-	      and will not returned from a get.
+	      and only valid to <em>set</em>.
 	    </p>
 	  </item>
+	  <tag><c>{socket, mark}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{socket, oobinline}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, passcred}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{socket, peek_off}</c></tag>
 	  <item>
+	    <p><c>Value = integer()</c></p>
 	    <p>
 	      Currently disabled due to a possible infinite loop when calling
 	      <seemfa marker="#recv/1"><c>recv/1-4</c></seemfa>
@@ -393,23 +445,36 @@
 	      in <c>Flags</c>.
 	    </p>
 	  </item>
+	  <tag><c>{socket, peercred}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{socket, priority}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, protocol}</c></tag>
 	  <item>
 	    <p>
 	      <c>Value =</c>
 	      <seetype marker="#protocol"><c>protocol()</c></seetype>
-	      <c>| integer()</c>
 	    </p>
+	    <p>Only valid to <em>get</em>.</p>
 	    <p>
-	      The socket's protocol.  Valid to get, not to set.
+	      The socket's protocol.
 	      Does <em>not</em> work on for instance Darwin.
 	    </p>
 	  </item>
+	  <tag><c>{socket, rcvbuf}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{socket, rcvbufforce}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{socket, rcvlowat}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, rcvtimeo}</c></tag>
 	  <item>
-	    <p><c>Value = #{sec := integer(), usec := integer()}</c></p>
 	    <p>
-	      This option is not normally supported;
+	      <c>Value =</c>
+	      <seetype marker="#timeval"><c>timeval()</c></seetype>
+	    </p>
+	    <p>
+	      This option is unsupported per default;
 	      OTP has to be explicitly built with the
 	      <c>--enable-esock-rcvsndtimeo</c> configure option
 	      for this to be available.
@@ -427,11 +492,26 @@
 	      function.
 	    </p>
 	  </item>
+	  <tag><c>{socket, reuseaddr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, reuseport}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, rxq_ovfl}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{socket, setfib}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{socket, sndbuf}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{socket, sndlowat}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, sndtimeo}</c></tag>
 	  <item>
-	    <p><c>Value = #{sec := integer(), usec := integer()}</c></p>
 	    <p>
-	      This option is not normally supported;
+	      <c>Value =</c>
+	      <seetype marker="#timeval"><c>timeval()</c></seetype>
+	    </p>
+	    <p>
+	      This option is unsupported per default;
 	      OTP has to be explicitly built with the
 	      <c>--enable-esock-rcvsndtimeo</c> configure option
 	      for this to be available.
@@ -449,25 +529,236 @@
 	      function. 
 	    </p>
 	  </item>
+	  <tag><c>{socket, timestamp}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+
 	  <tag><c>{socket, type}</c></tag>
 	  <item>
 	    <p>
 	      <c>Value =</c>
 	      <seetype marker="#type"><c>type()</c></seetype>
-	      <c>| integer()</c>
 	    </p>
+	    <p>Only valid to <em>get</em>.</p>
+	    <p>The socket's type.</p>
+	  </item>
+	</taglist>
+	<p></p>
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>ip</c></em>:</seetype>
+	</p>
+	<taglist>
+	  <tag><c>{ip, add_membership}</c></tag>
+	  <item>
 	    <p>
-	      The socket's type.  Valid to get, not to set.
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq"><c>ip_mreq()</c></seetype>
 	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, add_source_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq_source">
+		<c>ip_mreq_source()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, block_source}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq_source">
+		<c>ip_mreq_source()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, dontfrag}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{ip, drop_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq"><c>ip_mreq()</c></seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, drop_source_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq_source">
+		<c>ip_mreq_source()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, freebind}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, hdrincl}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, minttl}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ip, msfilter}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <c>null |</c>
+	      <seetype marker="#ip_msfilter">
+		<c>ip_msfilter()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	    <p>
+	      The value <c>null</c> passes a <c>NULL</c> pointer
+	      and size <c>0</c> to the C library call.
+	    </p>
+	  </item>
+	  <tag><c>{ip, mtu}</c></tag>
+	  <item>
+	    <p><c>Value = integer()</c></p>
+	    <p>Only valid to <em>get</em>.</p>
+	  </item>
+	  <tag><c>{ip, mtu_discover}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_pmtudisc">
+		<c>ip_pmtudisc()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ip, multicast_all}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, multicast_if}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <c>any |</c>
+	      <seetype marker="#in_addr">
+		<c>in_addr()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ip, multicast_loop}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, multicast_ttl}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ip, nodefrag}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, options}</c></tag>
+	  <item><p><i>Not yet supported.</i></p></item>
+	  <tag><c>{ip, pktinfo}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvdstaddr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recverr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvif}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvopts}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvorigdstaddr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvtos}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvttl}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, retopts}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, router_alert}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ip, sendsrcaddr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, tos}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_tos">
+		<c>ip_tos()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ip, transparent}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, ttl}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ip, unblock_source}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq_source">
+		<c>ip_mreq_source()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
 	  </item>
 	</taglist>
       </desc>
     </datatype>
     <datatype>
       <name name="timeval"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct timeval</c>.
+	  The field <c>sec</c> holds seconds,
+	  and <c>usec</c> microseconds.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip_mreq"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct ip_mreq</c>
+	  for managing multicast groups.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip_mreq_source"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct ip_mreq_source</c>
+	  for managing multicast groups.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip_msfilter"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct ip_msfilter</c>
+	  for managing multicast source filtering (RFC 3376).
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip_pmtudisc"/>
+      <desc>
+	<p>
+	  Lowercase <c>atom()</c> values corresponding to
+	  the C library constants <c>IP_PMTUDISC_*</c>.
+	  Some constant(s) may be unsupported by the platform.
+	  The <c>integer()</c> values are the native values
+	  of these constants.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="ip_tos"/>
+      <desc>
+	<p>
+	  Lowercase <c>atom()</c> values corresponding to
+	  the C library constants <c>IPTOS_*</c>.
+	  Some constant(s) may be unsupported by the platform.
+	  The <c>integer()</c> values are the native values
+	  of these constants.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="ip_pktinfo"/>
@@ -753,7 +1044,7 @@
 	</p>
 	<note>
 	  <p>
-	    Not all options are valid, or possible to get,
+	    Not all options are valid, nor possible to get,
 	    on all platforms.
 	    That is, even if "we" support an option;
 	    it does not mean that the underlying OS does.
@@ -1526,7 +1817,7 @@
 	</p>
 	<note>
 	  <p>
-	    Not all options are valid, or possible to set,
+	    Not all options are valid, nor possible to set,
 	    on all platforms.
 	    That is, even if "we" support an option;
 	    it does not mean that the underlying OS does.

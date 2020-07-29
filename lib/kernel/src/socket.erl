@@ -90,7 +90,13 @@
               otp_socket_option/0,
               socket_option/0,
 
+              %% Option values' types
               timeval/0,
+              ip_mreq/0,
+              ip_mreq_source/0,
+              ip_msfilter/0,
+              ip_pmtudisc/0,
+
               ip_tos/0,
               ip_pktinfo/0,
               ipv6_pktinfo/0,
@@ -141,11 +147,11 @@
 
 
 %% We support only a subset of all domains.
--type domain() :: local | inet | inet6.
+-type domain() :: local | inet | inet6 | integer().
 
 %% We support only a subset of all types.
 %% RDM - Reliably Delivered Messages
--type type()   :: stream | dgram | raw | rdm | seqpacket.
+-type type()   :: stream | dgram | raw | rdm | seqpacket | integer().
 
 %% We support all protocols enumerated by getprotoent(),
 %% and all of ip | ipv6 | tcp | udp | sctp that are supported
@@ -171,8 +177,27 @@
             0..65535}.
 
 
--type timeval() :: #{sec  := integer(),
-                     usec := integer()}.
+-type timeval() ::
+        #{sec  := integer(),
+          usec := integer()}.
+
+-type ip_mreq() ::
+        #{multiaddr := in_addr(),
+          address   := in_addr()}.
+
+-type ip_mreq_source() ::
+        #{multiaddr  := in_addr(),
+          interface  := in_addr(),
+          sourceaddr := in_addr()}.
+
+-type ip_msfilter() ::
+        #{multiaddr := in_addr(),
+          interface := in_addr(),
+          mode      := 'include' | 'exclude',
+          slist     := [ in_addr() ]}.
+
+-type ip_pmtudisc() ::
+        want | dont | do | probe | integer().
 
 %% If the integer value is used, its up to the caller to ensure its valid!
 -type ip_tos() :: lowdelay |
@@ -249,7 +274,8 @@
         sndctrlbuf |
         meta |
         use_registry |
-        fd.
+        fd |
+        domain.
 
 -type socket_option() ::
         {Level :: socket,
@@ -307,9 +333,9 @@
            nodefrag |
            options |
            pktinfo |
+           recvdstaddr |
            recverr |
            recvif |
-           recvdstaddr |
            recvopts |
            recvorigdstaddr |
            recvtos |

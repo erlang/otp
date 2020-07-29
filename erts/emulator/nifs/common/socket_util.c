@@ -864,7 +864,7 @@ BOOLEAN_T esock_decode_in_addr(ErlNifEnv*      env,
 
         if (COMPARE(esock_atom_loopback, eAddr) == 0) {
             UDBG( ("SUTIL",
-		   "esock_decode_in_addr -> address: lookback\r\n") );
+		   "esock_decode_in_addr -> address: loopback\r\n") );
             addr.s_addr = htonl(INADDR_LOOPBACK);
         } else if (COMPARE(esock_atom_any, eAddr) == 0) {
             UDBG( ("SUTIL",
@@ -1091,12 +1091,8 @@ BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
     ERL_NIF_TERM eSec, eUSec;
     size_t       sz;
 
-    // It must be a map
-    if (! IS_MAP(env, eTime))
-        return FALSE;
-
-    // It must have atleast two attributes
-    if (! enif_get_map_size(env, eTime, &sz) || (sz < 2))
+    // It must be a map with exactly attributes
+    if (! enif_get_map_size(env, eTime, &sz) || (sz == 2))
         return FALSE;
 
     if (! GET_MAP_VAL(env, eTime, esock_atom_sec, &eSec))
@@ -1175,7 +1171,12 @@ BOOLEAN_T esock_decode_domain(ErlNifEnv*   env,
 #endif
 
     } else {
-        return FALSE;
+        int d = 0;
+
+        if (GET_INT(env, eDomain, &d))
+            *domain = d;
+        else
+            return FALSE;
     }
 
     return TRUE;
@@ -1247,20 +1248,28 @@ BOOLEAN_T esock_decode_type(ErlNifEnv*   env,
         } else if (COMPARE(esock_atom_seqpacket, eType) == 0) {
             *type = SOCK_SEQPACKET;
 #endif
-        } else {
-            return FALSE;
-        }
+        } else
+            goto integer;
     } else if (0 < cmp) {
         if (COMPARE(esock_atom_dgram, eType) == 0) {
             *type = SOCK_DGRAM;
-        } else {
-            return FALSE;
-        }
-    } else {
+        } else
+            goto integer;
+    } else
         *type = SOCK_RAW;
-    }
 
     return TRUE;
+
+ integer:
+    {
+        int t = 0;
+
+        if (GET_INT(env, eType, &t)) {
+            *type = t;
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 
