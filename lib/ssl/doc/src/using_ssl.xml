@@ -424,12 +424,12 @@ ssl:connect("localhost", 9999,
     is set as <em>current</em>.
     </p>
 
-    <p>The Anti-Replay protection feature in statless servers executes in the following steps
+    <p>The Anti-Replay protection feature in stateless servers executes in the following steps
     when a new ClientHello is received:</p>
     <list type="bulleted">
       <item><p>Reported ticket age (obfuscated ticket age) shall be
       less than ticket lifetime.</p></item>
-      <item><p>Actual ticket age shall be less than the ticket lifetime (statless session
+      <item><p>Actual ticket age shall be less than the ticket lifetime (stateless session
       tickets contain the servers timestamp when the ticket was issued).</p></item>
       <item><p>Ticket shall be used within specified time window (freshness checks).</p></item>
       <item><p>If all above checks passed both <em>current</em> and <em>old</em> Bloom filters
