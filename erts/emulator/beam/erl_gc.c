@@ -2652,9 +2652,10 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
              * queue that might refer to the heap...
              */
             for (mp = p->sig_inq.first; mp; mp = mp->next) {
-                if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
-                    int i;
-                    for (i = 0; i < ERL_MESSAGE_REF_ARRAY_SZ; i++) {
+                if ((ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached)
+                    || ERTS_SIG_IS_HEAP_ALIAS_MSG(mp)) {
+                    int i = ERTS_SIG_IS_INTERNAL_MSG(mp) ? 0 : 1;
+                    for (; i < ERL_MESSAGE_REF_ARRAY_SZ; i++) {
                         ASSERT(is_immed(mp->m[i])
                                || erts_is_literal(mp->m[i],
                                                   ptr_val(mp->m[i])));
@@ -2680,13 +2681,16 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
         ERTS_FOREACH_SIG_PRIVQS(
             p, mp,
             {
+                /* Add signal data that may refer to heap... */
                 if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
-                    /*
-                     * Message may refer data on heap;
-                     * add it to rootset...
-                     */
                     roots[n].v = mp->m;
                     roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ;
+                    n++;
+                }
+                else if (ERTS_SIG_IS_HEAP_ALIAS_MSG(mp)) {
+                    /* Exclude message slot... */
+                    roots[n].v = &mp->m[1];
+                    roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ - 1;
                     n++;
                 }
             });
@@ -3235,7 +3239,7 @@ static ERTS_INLINE void
 offset_message(ErtsMessage *mp, Sint offs, char* area, Uint area_size)
 {
     Eterm mesg = ERL_MESSAGE_TERM(mp);
-    if (ERTS_SIG_IS_MSG_TAG(mesg)) {
+    if (ERTS_SIG_IS_MSG_TAG(mesg) || ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(mesg)) {
         if (ERTS_SIG_IS_INTERNAL_MSG_TAG(mesg)) {
             switch (primary_tag(mesg)) {
             case TAG_PRIMARY_LIST:
@@ -3249,6 +3253,10 @@ offset_message(ErtsMessage *mp, Sint offs, char* area, Uint area_size)
         mesg = ERL_MESSAGE_TOKEN(mp);
         if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
             ERL_MESSAGE_TOKEN(mp) = offset_ptr(mesg, offs);
+        }
+        mesg = ERL_MESSAGE_FROM(mp);
+        if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
+            ERL_MESSAGE_FROM(mp) = offset_ptr(mesg, offs);
         }
 
         ERTS_OFFSET_DT_UTAG(mp, area, area_size, offs);

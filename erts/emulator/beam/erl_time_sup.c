@@ -1888,9 +1888,9 @@ erts_demonitor_time_offset(ErtsMonitor *mon)
 
     erts_mtx_lock(&erts_get_time_mtx);
 
-    ASSERT(erts_monitor_is_in_table(&mdp->target));
+    ASSERT(erts_monitor_is_in_table(&mdp->u.target));
 
-    erts_monitor_list_delete(&time_offset_monitors, &mdp->target);
+    erts_monitor_list_delete(&time_offset_monitors, &mdp->u.target);
 
     ASSERT(no_time_offset_monitors > 0);
     no_time_offset_monitors--;

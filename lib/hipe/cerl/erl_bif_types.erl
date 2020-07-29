@@ -2243,7 +2243,7 @@ key_comparisons_fail(X0, KeyPos, TupleList, Opaques) ->
 
 %%------- erlang --------------------------------------------------------------
 arg_types(erlang, '!', 2) ->
-  Pid = t_sup([t_pid(), t_port(), t_atom(),
+  Pid = t_sup([t_pid(), t_reference(), t_port(), t_atom(),
 	       t_tuple([t_atom(), t_node()])]),
   [Pid, t_any()];
 arg_types(erlang, '==', 2) ->

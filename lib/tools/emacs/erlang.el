@@ -778,6 +778,7 @@ resulting regexp is surrounded by \\_< and \\_>."
 (eval-and-compile
   (defvar erlang-int-bifs
     '("abs"
+      "alias"
       "apply"
       "atom_to_binary"
       "atom_to_list"
@@ -895,6 +896,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "trunc"
       "tuple_size"
       "tuple_to_list"
+      "unalias"
       "unlink"
       "unregister"
       "whereis")

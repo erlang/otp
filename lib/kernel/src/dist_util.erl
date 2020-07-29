@@ -130,6 +130,8 @@ dflag2str(?DFLAG_NAME_ME) ->
     "NAME_ME";
 dflag2str(?DFLAG_HUGE_REFS) ->
     "HUGE_REFS";
+dflag2str(?DFLAG_ALIAS) ->
+    "ALIAS";
 dflag2str(_) ->
     "UNKNOWN".
 

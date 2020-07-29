@@ -430,6 +430,7 @@ erl_first_process_otp(char* mod_name, int argc, char** argv)
 
     so.flags = erts_default_spo_flags;
     so.opts = NIL;
+    so.monitor_oflags = (Uint16) 0;
     res = erl_spawn_system_process(&parent, am_erl_init, am_start, args, &so);
     ASSERT(is_internal_pid(res));
 
@@ -464,6 +465,7 @@ erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq, int p
     so.max_gen_gcs    = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
     so.scheduler      = 0;
     so.opts = NIL;
+    so.monitor_oflags = (Uint16) 0;
 
     res = erl_spawn_system_process(parent, mod, am_start, NIL, &so);
     ASSERT(is_internal_pid(res));
@@ -487,6 +489,7 @@ Eterm erts_internal_spawn_system_process_3(BIF_ALIST_3) {
 
     so.flags = erts_default_spo_flags;
     so.opts = NIL;
+    so.monitor_oflags = (Uint16) 0;
     res = erl_spawn_system_process(BIF_P, mod, func, args, &so);
 
     if (is_non_value(res)) {

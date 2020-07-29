@@ -8800,14 +8800,14 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         else {
             send_sig = !suspend_process(BIF_P, rp);
             if (!send_sig) {
-                erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->target);
+                erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->u.target);
                 erts_atomic_read_bor_relb(&msp->state,
                                           ERTS_MSUSPEND_STATE_FLG_ACTIVE);
             }
             erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
         }
         if (send_sig) {
-            if (erts_proc_sig_send_monitor(&mdp->target, BIF_ARG_1))
+            if (erts_proc_sig_send_monitor(&mdp->u.target, BIF_ARG_1))
                 sync = !async;
             else {
             noproc:
@@ -11506,7 +11506,7 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
      * Returns:
      * - 0 on success
      * - <0 on badopt
-     * - >0 on badarg (not prober list)
+     * - >0 on badarg (not proper list)
      */
     int result = 0;
     Eterm ap = opts_list;
@@ -11524,6 +11524,7 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
     sop->max_heap_flags = H_MAX_FLAGS;
     sop->priority       = PRIORITY_NORMAL;
     sop->max_gen_gcs    = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
+    sop->monitor_oflags = (Uint16) 0;
     sop->scheduler      = 0;
 
     /*
@@ -11654,6 +11655,16 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
                     result = -1;
                 else
                     *tag = val;
+            } else if (arg == am_monitor) {
+                Uint16 oflags = erts_monitor_opts(val);
+                if (oflags == (Uint16) ~0)
+                    result = -1;
+                else {
+                    sop->monitor_oflags = oflags;
+                    if (sop->flags & SPO_MONITOR)
+                        sop->multi_set = !0;
+                    sop->flags |= SPO_MONITOR;
+                }
 	    } else {
                 result = -1;
 	    }
@@ -11712,7 +11723,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         erts_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
         group_leader = parent->group_leader;
         parent_id = parent->common.id;
-        if (so->flags & (SPO_MONITOR | SPO_ASYNC))
+        if (so->monitor_oflags & ERTS_ML_STATE_ALIAS_MASK)
+            spawn_ref = so->mref = erts_make_pid_ref(parent);
+        else if (so->flags & (SPO_MONITOR | SPO_ASYNC))
             spawn_ref = so->mref = erts_make_ref(parent);
         else if (have_seqtrace(token))
             spawn_ref = erts_make_ref(parent);
@@ -12111,8 +12124,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
                                                        parent->common.id,
                                                        p->common.id,
                                                        NIL);
+            mdp->origin.flags |= so->monitor_oflags;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(parent), &mdp->origin);
-            erts_monitor_list_insert(&ERTS_P_LT_MONITORS(p), &mdp->target);
+            erts_monitor_list_insert(&ERTS_P_LT_MONITORS(p), &mdp->u.target);
         }
 
         ASSERT(locks & ERTS_PROC_LOCK_MSGQ);
@@ -12221,7 +12235,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
                                       p->common.id, NIL);
             code = erts_monitor_dist_insert(&mdp->origin, so->dist_entry->mld);
             ASSERT(code); (void)code;
-            erts_monitor_tree_insert(&ERTS_P_MONITORS(p), &mdp->target);
+            erts_monitor_tree_insert(&ERTS_P_MONITORS(p), &mdp->u.target);
         }
 
         if (have_seqtrace(token)) {
@@ -12798,7 +12812,7 @@ proc_exit_handle_pend_spawn_monitors(ErtsMonitor *mon, void *vctxt, Sint reds)
     
     if (!(mon->flags & ERTS_ML_FLG_SPAWN_LINK)) {
         /* Just cleanup... */
-        if (!erts_dist_pend_spawn_exit_delete(&mdp->target)) {
+        if (!erts_dist_pend_spawn_exit_delete(&mdp->u.target)) {
             mdp = NULL;
         }
         goto done;
@@ -13019,7 +13033,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             break;
         case ERTS_MON_TYPE_NODE:
             mdp = erts_monitor_to_data(mon);
-            if (!erts_monitor_dist_delete(&mdp->target))
+            if (!erts_monitor_dist_delete(&mdp->u.target))
                 mdp = NULL;
             break;
         case ERTS_MON_TYPE_NODES:
@@ -13063,11 +13077,13 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             }
             erts_proc_exit_dist_demonitor(c_p, dep, dist->connection_id,
                                           mdp->ref, watched);
-            if (!erts_monitor_dist_delete(&mdp->target))
+            if (!erts_monitor_dist_delete(&mdp->u.target))
                 mdp = NULL;
             res = 100;
             break;
         }
+        case ERTS_MON_TYPE_ALIAS:
+            break;
         default:
             ERTS_INTERNAL_ERROR("Invalid origin monitor type");
             break;

@@ -75,7 +75,11 @@
          dist_spawn_monitor/1,
          spawn_old_node/1,
          spawn_new_node/1,
-         spawn_request_reply_option/1]).
+         spawn_request_reply_option/1,
+         alias_bif/1,
+         monitor_alias/1,
+         spawn_monitor_alias/1]).
+
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -117,7 +121,8 @@ all() ->
      otp_6237,
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
-     {group, system_task}].
+     {group, system_task},
+     {group, alias}].
 
 groups() -> 
     [{t_exit_2, [],
@@ -136,7 +141,9 @@ groups() ->
       [no_priority_inversion, no_priority_inversion2,
        system_task_blast, system_task_on_suspended, system_task_failed_enqueue,
        gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled,
-       otp_16436, otp_16642]}].
+       otp_16436, otp_16642]},
+     {alias, [],
+      [alias_bif, monitor_alias, spawn_monitor_alias]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -3965,6 +3972,294 @@ otp_16642(Config) when is_list(Config) ->
     exit(Pid, kill),
     false = is_process_alive(Pid),
     ok.
+
+alias_bif(Config) when is_list(Config) ->
+    alias_bif_test(node()),
+    {ok, Node} = start_node(Config),
+    alias_bif_test(Node),
+    stop_node(Node),
+    ok.
+
+alias_bif_test(Node) ->
+    A1 = alias(),
+    {P1, M1} = spawn_monitor(Node,
+                             fun () ->
+                                     A1 ! {A1, 1},
+                                     A1 ! {A1, 2},
+                                     [{A1, continue}] = recv_msgs(1),
+                                     A1 ! {A1, 3},
+                                     A1 ! {A1, 4}
+                             end),
+    [{A1,1},{A1,2}] = recv_msgs(2),
+    unalias(A1),
+    P1 ! {A1, continue},
+    [{'DOWN', M1, _, _, _}] = recv_msgs(1),
+
+    A2 = alias([explicit_unalias]),
+    {P2, M2} = spawn_monitor(Node,
+                             fun () ->
+                                     A2 ! {A2, 1},
+                                     A2 ! {A2, 2},
+                                     [{A2, continue}] = recv_msgs(1),
+                                     A2 ! {A2, 3},
+                                     A2 ! {A2, 4}
+                             end),
+    [{A2,1},{A2,2}] = recv_msgs(2),
+    unalias(A2),
+    P2 ! {A2, continue},
+    [{'DOWN', M2, _, _, _}] = recv_msgs(1),
+    
+    A3 = alias([reply]),
+    {_P3, M3} = spawn_monitor(Node,
+                              fun () ->
+                                      A3 ! {A3, 1},
+                                      A3 ! {A3, 2},
+                                      A3 ! {A3, 3},
+                                      A3 ! {A3, 4}
+                              end),
+    [{A3,1},{'DOWN', M3, _, _, _}] = recv_msgs(2),
+    ok.
+             
+
+monitor_alias(Config) when is_list(Config) ->
+    monitor_alias_test(node()),
+    {ok, Node} = start_node(Config),
+    monitor_alias_test(Node),
+    stop_node(Node),
+    ok.
+
+monitor_alias_test(Node) ->
+    P1 = spawn(Node,
+               fun () ->
+                       [{alias, A1}] = recv_msgs(1),
+                       A1 ! {A1, 1},
+                       A1 ! {A1, 2},
+                       [{A1, continue}] = recv_msgs(1),
+                       A1 ! {A1, 3},
+                       A1 ! {A1, 4}
+               end),
+    MA1 = monitor(process, P1, [{alias, explicit_unalias}]),
+    P1 ! {alias, MA1},
+    [{MA1,1},{MA1,2}] = recv_msgs(2),
+    unalias(MA1),
+    P1 ! {MA1, continue},
+    [{'DOWN', MA1, _, _, _}] = recv_msgs(1),
+
+    P2 = spawn(Node,
+               fun () ->
+                       [{alias, A2}] = recv_msgs(1),
+                       A2 ! {A2, 1},
+                       A2 ! {A2, 2},
+                       [{A2, continue}] = recv_msgs(1),
+                       A2 ! {A2, 3},
+                       A2 ! {A2, 4}
+               end),
+    MA2 = monitor(process, P2, [{alias, demonitor}]),
+    P2 ! {alias, MA2},
+    [{MA2,1},{MA2,2}] = recv_msgs(2),
+    demonitor(MA2),
+    M2 = monitor(process, P2),
+    P2 ! {MA2, continue},
+    [{'DOWN', M2, _, _, _}] = recv_msgs(1),
+
+    P3 = spawn(Node,
+               fun () ->
+                       [{alias, A3}] = recv_msgs(1),
+                       A3 ! {A3, 1},
+                       A3 ! {A3, 2}
+               end),
+    MA3 = monitor(process, P3, [{alias, demonitor}]),
+    P3 ! {alias, MA3},
+    [{MA3,1},{MA3,2},{'DOWN', MA3, _, _, _}] = recv_msgs(3),
+    {_P3_1, M3_1} = spawn_monitor(Node,
+                                  fun () ->
+                                          MA3 ! {MA3, 3},
+                                          MA3 ! {MA3, 4}
+                                  end),
+    [{'DOWN', M3_1, _, _, _}] = recv_msgs(1),
+    
+    P4 = spawn(Node,
+               fun () ->
+                       [{alias, _A4}] = recv_msgs(1)
+               end),
+    MA4 = monitor(process, P4, [{alias, reply_demonitor}]),
+    P4 ! {alias, MA4},
+    [{'DOWN', MA4, _, _, _}] = recv_msgs(1),
+    {_P4_1, M4_1} = spawn_monitor(Node,
+                                  fun () ->
+                                          MA4 ! {MA4, 3},
+                                          MA4 ! {MA4, 4}
+                                  end),
+    [{'DOWN', M4_1, _, _, _}] = recv_msgs(1),
+
+    P5 = spawn(Node,
+               fun () ->
+                       [{alias, A5}] = recv_msgs(1),
+                       A5 ! {A5, 1},
+                       A5 ! {A5, 2}
+               end),
+    MA5 = monitor(process, P5, [{alias, reply_demonitor}]),
+    M_5 = monitor(process, P5),
+    P5 ! {alias, MA5},
+    [{MA5,1},{'DOWN', M_5, _, _, _}] = recv_msgs(2),
+
+    ok.
+    
+
+spawn_monitor_alias(Config) when is_list(Config) ->
+    %% Exit signals with immediate exit reasons are sent
+    %% in a different manner than compound exit reasons.
+    spawn_monitor_alias_test(node(), spawn_opt, normal),
+    spawn_monitor_alias_test(node(), spawn_opt, make_ref()),
+    spawn_monitor_alias_test(node(), spawn_request, normal),
+    spawn_monitor_alias_test(node(), spawn_request, make_ref()),
+    {ok, Node1} = start_node(Config),
+    spawn_monitor_alias_test(Node1, spawn_opt, normal),
+    {ok, Node2} = start_node(Config),    
+    spawn_monitor_alias_test(Node2, spawn_opt, make_ref()),
+    {ok, Node3} = start_node(Config),
+    spawn_monitor_alias_test(Node3, spawn_request, normal),
+    {ok, Node4} = start_node(Config),
+    spawn_monitor_alias_test(Node4, spawn_request, make_ref()),
+    ok.
+
+spawn_monitor_alias_test(Node, SpawnType, ExitReason) ->
+    Spawn = case SpawnType of
+                spawn_opt ->
+                    fun (F, O) ->
+                            try
+                                spawn_opt(Node, F, O)
+                            catch
+                                error:Err ->
+                                    error({spawn_opt, Err})
+                            end
+                    end;
+                spawn_request ->
+                    fun (F, O) ->
+                            try
+                                ReqId = spawn_request(Node, F, O),
+                                receive
+                                    {spawn_reply, ReqId, ok, P} ->
+                                        {P, ReqId};
+                                    {spawn_reply, ReqId, error, Error} ->
+                                        error(Error)
+                                end
+                            catch
+                                error:Err ->
+                                    error({spawn_request, Err})
+                            end
+                    end
+            end,
+
+    SpawnError = fun (OptList) ->
+                         try
+                             Spawn(fun () -> ok end, OptList),
+                             error(ignored_error)
+                         catch
+                             error:{SpawnType, badarg} when SpawnType == spawn_opt ->
+                                 ok;
+                             error:{SpawnType, badopt} when SpawnType == spawn_request ->
+                                 ok
+                         end
+                 end,
+
+    SpawnError([{monitor, {{alias, explicit_unalias}}}]),
+    SpawnError([{monitor, [{alias,alias}]}]),
+    SpawnError([{monitor, [{aliases,explicit_unalias}]}]),
+    SpawnError([{monitors, [{alias,explicit_unalias}]}]),
+    
+    {P1, MA1} = Spawn(fun () ->
+                              [{alias, A1}] = recv_msgs(1),
+                              A1 ! {A1, 1},
+                              A1 ! {A1, 2},
+                              [{A1, continue}] = recv_msgs(1),
+                              A1 ! {A1, 3},
+                              A1 ! {A1, 4},
+                              exit(ExitReason)
+                      end, [{monitor, [{alias,explicit_unalias}]}]),
+    P1 ! {alias, MA1},
+    [{MA1,1},{MA1,2}] = recv_msgs(2),
+    unalias(MA1),
+    P1 ! {MA1, continue},
+    [{'DOWN', MA1, _, _, ExitReason}] = recv_msgs(1),
+
+    {P2, MA2} = Spawn(fun () ->
+                              [{alias, A2}] = recv_msgs(1),
+                              A2 ! {A2, 1},
+                              A2 ! {A2, 2},
+                              [{A2, continue}] = recv_msgs(1),
+                              A2 ! {A2, 3},
+                              A2 ! {A2, 4},
+                              exit(ExitReason)
+                      end, [{monitor, [{alias, demonitor}]}]),
+    P2 ! {alias, MA2},
+    [{MA2,1},{MA2,2}] = recv_msgs(2),
+    demonitor(MA2),
+    M2 = monitor(process, P2),
+    P2 ! {MA2, continue},
+    [{'DOWN', M2, _, _, ExitReason}] = recv_msgs(1),
+
+    {P3, MA3} = Spawn(fun () ->
+                              [{alias, A3}] = recv_msgs(1),
+                              A3 ! {A3, 1},
+                              A3 ! {A3, 2},
+                              exit(ExitReason)
+                      end, [{monitor, [{alias, demonitor}]}]),
+    P3 ! {alias, MA3},
+    [{MA3,1},{MA3,2},{'DOWN', MA3, _, _, _}] = recv_msgs(3),
+    {_P3_1, M3_1} = spawn_monitor(Node,
+                                  fun () ->
+                                          MA3 ! {MA3, 3},
+                                          MA3 ! {MA3, 4},
+                                          exit(ExitReason)
+                                  end),
+    [{'DOWN', M3_1, _, _, ExitReason}] = recv_msgs(1),
+    
+    {P4, MA4} = Spawn(fun () ->
+                              [{alias, _A4}] = recv_msgs(1),
+                              exit(ExitReason)
+                      end, [{monitor, [{alias, reply_demonitor}]}]),
+    P4 ! {alias, MA4},
+    [{'DOWN', MA4, _, _, ExitReason}] = recv_msgs(1),
+    {_P4_1, M4_1} = spawn_monitor(Node,
+                                  fun () ->
+                                          MA4 ! {MA4, 3},
+                                          MA4 ! {MA4, 4},
+                                          exit(ExitReason)
+                                  end),
+    [{'DOWN', M4_1, _, _, ExitReason}] = recv_msgs(1),
+
+    {P5, MA5} = Spawn(fun () ->
+                              [{alias, A5}] = recv_msgs(1),
+                              A5 ! {A5, 1},
+                              A5 ! {A5, 2},
+                              exit(ExitReason)
+                      end, [{monitor, [{alias, reply_demonitor}]}]),
+    M_5 = monitor(process, P5),
+    P5 ! {alias, MA5},
+    [{MA5,1},{'DOWN', M_5, _, _, ExitReason}] = recv_msgs(2),
+
+    case Node == node() of
+        true ->
+            ok;
+        false ->
+            {P6, MA6} = Spawn(fun () ->
+                                      [{alias, A6}] = recv_msgs(1),
+                                      A6 ! {A6, 1},
+                                      A6 ! {A6, 2},
+                                      receive after infinity -> ok end
+                              end, [{monitor, [{alias, demonitor}]}]),
+            P6 ! {alias, MA6},
+            stop_node(Node),
+            [{MA6,1},{MA6,2},{'DOWN', MA6, _, _, noconnection}] = recv_msgs(3),
+            {_P6_1, M6_1} = spawn_monitor(fun () ->
+                                                  MA6 ! {MA6, 3},
+                                                  MA6 ! {MA6, 4}
+                                          end),
+            [{'DOWN', M6_1, _, _, _}] = recv_msgs(1),
+    
+            ok
+    end.
 
 %% Internal functions
 

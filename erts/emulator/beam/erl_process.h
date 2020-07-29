@@ -1399,6 +1399,7 @@ typedef struct {
     Uint min_vheap_size;	/* Minimum virtual heap size  */
     int priority;		/* Priority for process. */
     Uint16 max_gen_gcs;		/* Maximum number of gen GCs before fullsweep. */
+    Uint16 monitor_oflags;
     Uint max_heap_size;         /* Maximum heap size in words */
     Uint max_heap_flags;        /* Maximum heap flags (kill | log) */
     int scheduler;

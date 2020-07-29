@@ -770,3 +770,11 @@ bif erts_internal:abort_pending_connection/2
 #
 
 bif erts_internal:get_creation/0
+
+#
+# New in 24
+#
+
+bif erlang:alias/1
+bif erlang:unalias/1
+bif erlang:monitor/3

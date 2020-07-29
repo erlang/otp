@@ -96,6 +96,7 @@ ERTS_GLB_INLINE Binary *erts_magic_ref2bin(Eterm mref);
 ERTS_GLB_INLINE void erts_magic_ref_save_bin(Eterm ref);
 ERTS_GLB_INLINE ErtsMagicBinary *erts_magic_ref_lookup_bin(Uint32 ref[ERTS_REF_NUMBERS]);
 ERTS_GLB_INLINE Eterm erts_pid_ref_lookup(Uint32 *refn);
+ERTS_GLB_INLINE Eterm erts_get_pid_of_ref(Eterm ref);
 
 #define ERTS_REF1_MAGIC_MARKER_BIT_NO__ \
     (_REF_NUM_SIZE-1)
@@ -250,6 +251,15 @@ erts_pid_ref_lookup(Uint32 *refn)
     if (!erts_is_pid_ref_numbers(refn))
 	return THE_NON_VALUE;
     return erts_pid_ref_lookup__(refn);
+}
+
+ERTS_GLB_INLINE Eterm erts_get_pid_of_ref(Eterm ref)
+{
+    if (is_internal_pid_ref(ref))
+        return pid_ref_thing_get_pid(internal_ref_val(ref));
+    if (is_ref(ref))
+        return am_undefined;
+    return THE_NON_VALUE;
 }
 
 

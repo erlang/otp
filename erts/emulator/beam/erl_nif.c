@@ -3561,7 +3561,7 @@ int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
     rmon_refc_inc(rm);
     erts_mtx_unlock(&rm->lock);
 
-    if (!erts_proc_sig_send_monitor(&mdp->target, target_pid->pid)) {
+    if (!erts_proc_sig_send_monitor(&mdp->u.target, target_pid->pid)) {
         /* Failed to send monitor signal; cleanup... */
 #ifdef DEBUG
         ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc);

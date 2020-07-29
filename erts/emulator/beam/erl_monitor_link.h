@@ -408,7 +408,18 @@
 #  define ERTS_ML_ASSERT(E) ((void) 1)
 #endif
 
-#define ERTS_MON_TYPE_MAX               ((Uint16) 7)
+#define ERTS_ML_STATE_ALIAS_BITS        2
+#define ERTS_ML_STATE_ALIAS_SHIFT       11
+#define ERTS_ML_STATE_ALIAS_MASK        \
+    ((((Uint16) 1 << ERTS_ML_STATE_ALIAS_BITS) - 1) \
+     << ERTS_ML_STATE_ALIAS_SHIFT)
+
+#define ERTS_ML_STATE_ALIAS_NONE        (((Uint16) 0) << ERTS_ML_STATE_ALIAS_SHIFT)
+#define ERTS_ML_STATE_ALIAS_UNALIAS     (((Uint16) 1) << ERTS_ML_STATE_ALIAS_SHIFT)
+#define ERTS_ML_STATE_ALIAS_DEMONITOR   (((Uint16) 2) << ERTS_ML_STATE_ALIAS_SHIFT)
+#define ERTS_ML_STATE_ALIAS_ONCE        (((Uint16) 3) << ERTS_ML_STATE_ALIAS_SHIFT)
+
+#define ERTS_MON_TYPE_MAX               ((Uint16) 8)
 
 #define ERTS_MON_TYPE_PROC              ((Uint16) 0)
 #define ERTS_MON_TYPE_PORT              ((Uint16) 1)
@@ -417,7 +428,8 @@
 #define ERTS_MON_TYPE_RESOURCE          ((Uint16) 4)
 #define ERTS_MON_TYPE_NODE              ((Uint16) 5)
 #define ERTS_MON_TYPE_NODES             ((Uint16) 6)
-#define ERTS_MON_TYPE_SUSPEND           ERTS_MON_TYPE_MAX
+#define ERTS_MON_TYPE_SUSPEND           ((Uint16) 7)
+#define ERTS_MON_TYPE_ALIAS             ERTS_MON_TYPE_MAX
 
 #define ERTS_MON_LNK_TYPE_MAX           (ERTS_MON_TYPE_MAX + ((Uint16) 3))
 #define ERTS_LNK_TYPE_MAX               ERTS_MON_LNK_TYPE_MAX
@@ -437,6 +449,8 @@
 #define ERTS_ML_FLG_SPAWN_ABANDONED     (((Uint16) 1) << 8)
 #define ERTS_ML_FLG_SPAWN_NO_SMSG       (((Uint16) 1) << 9)
 #define ERTS_ML_FLG_SPAWN_NO_EMSG       (((Uint16) 1) << 10)
+#define ERTS_ML_FLG_ALIAS_BIT1          (((Uint16) 1) << 11)
+#define ERTS_ML_FLG_ALIAS_BIT2          (((Uint16) 1) << 12)
 
 #define ERTS_ML_FLG_DBG_VISITED         (((Uint16) 1) << 15)
 
@@ -641,7 +655,10 @@ typedef int (*ErtsMonitorFunc)(ErtsMonitor *, void *, Sint);
 
 typedef struct {
     ErtsMonitor origin;
-    ErtsMonitor target;
+    union {
+        ErtsMonitor target;
+        Eterm ref_heap[ERTS_MAX_INTERNAL_REF_SIZE];
+    } u;
     Eterm ref;
     erts_atomic32_t refc;
 } ErtsMonitorData;
@@ -1389,16 +1406,19 @@ erts_monitor_to_data(ErtsMonitor *mon)
 #ifdef ERTS_ML_DEBUG
     ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TARGET));
     ERTS_ML_ASSERT(erts_monitor_origin_offset == (size_t) mdp->origin.offset);
-    ERTS_ML_ASSERT(!!(mdp->target.flags & ERTS_ML_FLG_TARGET));
-    ERTS_ML_ASSERT(erts_monitor_target_offset == (size_t) mdp->target.offset);
+    ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_ALIAS
+                   || !!(mdp->u.target.flags & ERTS_ML_FLG_TARGET));
+    ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_ALIAS
+                   || erts_monitor_target_offset == (size_t) mdp->u.target.offset);
     if (mon->type == ERTS_MON_TYPE_NODE || mon->type == ERTS_MON_TYPE_NODES
         || mon->type == ERTS_MON_TYPE_SUSPEND) {
         ERTS_ML_ASSERT(erts_monitor_node_key_offset == (size_t) mdp->origin.key_offset);
-        ERTS_ML_ASSERT(erts_monitor_node_key_offset == (size_t) mdp->target.key_offset);
+        ERTS_ML_ASSERT(erts_monitor_node_key_offset == (size_t) mdp->u.target.key_offset);
     }
     else {
         ERTS_ML_ASSERT(erts_monitor_origin_key_offset == (size_t) mdp->origin.key_offset);
-        ERTS_ML_ASSERT(erts_monitor_target_key_offset == (size_t) mdp->target.key_offset);
+        ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_ALIAS
+                       || erts_monitor_target_key_offset == (size_t) mdp->u.target.key_offset);
     }
 #endif
 
@@ -1413,7 +1433,8 @@ erts_monitor_release(ErtsMonitor *mon)
 
     if (erts_atomic32_dec_read_mb(&mdp->refc) == 0) {
         ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
-        ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
+        ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_ALIAS
+                       || !(mdp->u.target.flags & ERTS_ML_FLG_IN_TABLE));
 
         erts_monitor_destroy__(mdp);
     }
@@ -1423,12 +1444,12 @@ ERTS_GLB_INLINE void
 erts_monitor_release_both(ErtsMonitorData *mdp)
 {
     ERTS_ML_ASSERT((mdp->origin.flags & ERTS_ML_FLGS_SAME)
-                   == (mdp->target.flags & ERTS_ML_FLGS_SAME));
+                   == (mdp->u.target.flags & ERTS_ML_FLGS_SAME));
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) >= 2);
 
     if (erts_atomic32_add_read_mb(&mdp->refc, (erts_aint32_t) -2) == 0) {
         ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
-        ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
+        ERTS_ML_ASSERT(!(mdp->u.target.flags & ERTS_ML_FLG_IN_TABLE));
 
         erts_monitor_destroy__(mdp);
     }

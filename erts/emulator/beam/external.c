@@ -5763,17 +5763,24 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     ep = iov[2].iov_base;
     ASSERT(ep[0] == SMALL_TUPLE_EXT || ep[0] == LARGE_TUPLE_EXT);
 
-    if (~dflags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)
-        && ep[0] == SMALL_TUPLE_EXT
-        && ep[1] == 4
-        && ep[2] == SMALL_INTEGER_EXT
-        && (ep[3] == DOP_MONITOR_P ||
-            ep[3] == DOP_MONITOR_P_EXIT ||
-            ep[3] == DOP_DEMONITOR_P)) {
+    if (((~dflags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME))
+         && ep[0] == SMALL_TUPLE_EXT
+         && ep[1] == 4
+         && ep[2] == SMALL_INTEGER_EXT
+         && (ep[3] == DOP_MONITOR_P ||
+             ep[3] == DOP_MONITOR_P_EXIT ||
+             ep[3] == DOP_DEMONITOR_P)
+         /* The receiver does not support process monitoring.
+            Suppress monitor control msg (see erts_dsig_send_monitor). */)
+        || (!(dflags & DFLAG_ALIAS)
+            && ep[0] == SMALL_TUPLE_EXT
+            && (ep[1] == 3 || ep[1] == 4)
+            && ep[2] == SMALL_INTEGER_EXT
+            && ((ep[3] == DOP_ALIAS_SEND) || (ep[3] == DOP_ALIAS_SEND_TT))
+        /* The receiver does not support alias, so the alias
+               is obviously not present at the receiver. */)) {
         /*
-         * Receiver does not support process monitoring.
-         * Suppress monitor control msg (see erts_dsig_send_monitor)
-         * by converting it to an empty (tick) packet.
+         * Drop packet by converting it to an empty (tick) packet...
          */
         int i;
         for (i = 1; i < ob->eiov->vsize; i++) {
