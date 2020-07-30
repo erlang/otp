@@ -825,7 +825,7 @@
       <name name="accept" arity="2" clause_i="1" anchor="accept_async"
 	    since="OTP 22.1"/>
       <name name="accept" arity="2" clause_i="2" anchor="accept_async"
-	    since="OTP @master@"/>
+	    since="OTP @OTP-16749@"/>
       <fsummary>Accept a connection on a socket.</fsummary>
       <desc>
         <p>Accept a connection on a socket.</p>
@@ -928,7 +928,7 @@
       <name name="connect" arity="3" clause_i="1" anchor="connect_async"
 	    since="OTP 22.1"/>
       <name name="connect" arity="3" clause_i="2" anchor="connect_async"
-	    since="OTP @master@"/>
+	    since="OTP @OTP-16749@"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
         <p>
@@ -967,7 +967,7 @@
     </func>
 
     <func>
-      <name name="connect" arity="1" since="OTP @master@"/>
+      <name name="connect" arity="1" since="OTP @OTP-16749@"/>
       <fsummary>Finalize a connection initiation on a socket.</fsummary>
       <desc>
         <p>
@@ -1344,9 +1344,9 @@
       <name name="recv" arity="3" clause_i="2" anchor="recv_async"
 	    since="OTP 22.1"/>
       <name name="recv" arity="3" clause_i="3" anchor="recv_async"
-	    since="OTP @master@"/>
+	    since="OTP @OTP-16749@"/>
       <name name="recv" arity="4" clause_i="1" since="OTP 22.1"/>
-      <name name="recv" arity="4" clause_i="2" since="OTP @master@"/>
+      <name name="recv" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1426,11 +1426,11 @@
       <name name="recvfrom" arity="3" clause_i="1" anchor="recvfrom_async"
 	    since="OTP 22.1"/>
       <name name="recvfrom" arity="3" clause_i="2" anchor="recvfrom_async"
-	    since="OTP @master@"/>
+	    since="OTP @OTP-16749@"/>
       <name name="recvfrom" arity="3" clause_i="4" since="OTP 22.1"/>
-      <name name="recvfrom" arity="3" clause_i="5" since="OTP @master@"/>
+      <name name="recvfrom" arity="3" clause_i="5" since="OTP @OTP-16749@"/>
       <name name="recvfrom" arity="4" clause_i="1" since="OTP 22.1"/>
-      <name name="recvfrom" arity="4" clause_i="2" since="OTP @master@"/>
+      <name name="recvfrom" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1516,11 +1516,11 @@
       <name name="recvmsg" arity="2" clause_i="2" anchor="recvmsg_async"
 	    since="OTP 22.1"/>
       <name name="recvmsg" arity="2" clause_i="3" anchor="recvmsg_async"
-	    since="OTP @master@"/>
+	    since="OTP @OTP-16749@"/>
       <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.1"/>
-      <name name="recvmsg" arity="3" clause_i="2" since="OTP @master@"/>
+      <name name="recvmsg" arity="3" clause_i="2" since="OTP @OTP-16749@"/>
       <name name="recvmsg" arity="5" clause_i="1" since="OTP 22.1"/>
-      <name name="recvmsg" arity="5" clause_i="2" since="OTP @master@"/>
+      <name name="recvmsg" arity="5" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1593,9 +1593,9 @@
       <name name="send" arity="3" clause_i="2" anchor="send_async"
 	    since="OTP 22.1"/>
       <name name="send" arity="3" clause_i="3" anchor="send_async"
-	    since="OTP @maint@"/>
+	    since="OTP @OTP-16749@"/>
       <name name="send" arity="4" clause_i="1" since="OTP 22.1"/>
-      <name name="send" arity="4" clause_i="2" since="OTP @maint@"/>
+      <name name="send" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
@@ -1666,9 +1666,9 @@
       <name name="sendmsg" arity="3" clause_i="2" anchor="sendmsg_async"
 	    since="OTP 22.1"/>
       <name name="sendmsg" arity="3" clause_i="3" anchor="sendmsg_async"
-	    since="OTP @master@"/>
+	    since="OTP @OTP-16749@"/>
       <name name="sendmsg" arity="4" clause_i="1" since="OTP 22.1"/>
-      <name name="sendmsg" arity="4" clause_i="2" since="OTP @master@"/>
+      <name name="sendmsg" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
 	<p>Send a message on a socket. The destination, if needed
@@ -1730,9 +1730,9 @@
       <name name="sendto" arity="4" clause_i="2" anchor="sendto_async"
 	    since="OTP 22.1"/>
       <name name="sendto" arity="4" clause_i="3" anchor="sendto_async"
-	    since="OTP @master@"/>
+	    since="OTP @OTP-16749@"/>
       <name name="sendto" arity="5" clause_i="1" since="OTP 22.1"/>
-      <name name="sendto" arity="5" clause_i="2" since="OTP @master@"/>
+      <name name="sendto" arity="5" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a socket, to the specified destination.</p>
@@ -2047,7 +2047,7 @@
     </func>
 
     <func>
-      <name name="use_registry" arity="1" since="OTP @OTP-16763@"/>
+      <name name="use_registry" arity="1" since="OTP 23.1"/>
       <fsummary>Globally change the use of the socket registry.</fsummary>
       <desc>
 	<p>Globally change if the socket registry is to be used or not.
