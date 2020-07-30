@@ -453,17 +453,14 @@ validate_request_line() ->
      " and protcol version."}].
 validate_request_line(Config) when is_list(Config) ->
 
-    %% HTTP/0.9 only has GET requests
-    {ok, "http://www.erlang/org"} = 
+    %% HTTP/0.9 not supported
+    {error, {bad_version, "HTTP/0.9"}} = 
 	httpd_request:validate("GET", "http://www.erlang/org", "HTTP/0.9"),
-    {error, {not_supported, 
-	     {"HEAD", "http://www.erlang/org", "HTTP/0.9"}}} =
+    {error, {bad_version, "HTTP/0.9"}} =
 	httpd_request:validate("HEAD", "http://www.erlang/org", "HTTP/0.9"),
-    {error, {not_supported, 
-	     {"TRACE", "http://www.erlang/org", "HTTP/0.9"}}} =
+    {error, {bad_version, "HTTP/0.9"}} =
 	httpd_request:validate("TRACE", "http://www.erlang/org", "HTTP/0.9"),
-    {error, {not_supported, 
-	     {"POST", "http://www.erlang/org", "HTTP/0.9"}}} =
+    {error, {bad_version, "HTTP/0.9"}} =
 	httpd_request:validate("POST", "http://www.erlang/org", "HTTP/0.9"),
 
     %% HTTP/1.* 

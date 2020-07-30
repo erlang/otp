@@ -110,28 +110,23 @@ groups() ->
      {http_not_sup, [], [{group, not_sup}]},
      {https_not_sup, [], [{group, not_sup}]},
      {https_alert, [], [tls_alert]},
-     {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
+     {http_mime_types, [], [alias_1_1, alias_1_0]},
      {limit, [],  [content_length, max_clients_1_1]},  
      {custom, [],  [customize, add_default]},  
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
 		   non_disturbing_1_1, 
-		   non_disturbing_1_0, 
-		   non_disturbing_0_9,
-                   disturbing_1_1,
-                   disturbing_1_0, 
-                   disturbing_0_9,
+		   non_disturbing_1_0,
+           disturbing_1_1,
+           disturbing_1_0,
 		   reload_config_file
 		  ]},
      {post, [], [chunked_post, chunked_chunked_encoded_post, post_204]},
-     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, basic_auth_0_9]},
-     {auth_api, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
-		    ]},
-     {auth_api_dets, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
-			 ]},
-     {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
-			   ]},
-     {security, [], [security_1_1, security_1_0]}, %% Skip 0.9 as causes timing issus in test code
+     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0]},
+     {auth_api, [], [auth_api_1_1, auth_api_1_0]},
+     {auth_api_dets, [], [auth_api_1_1, auth_api_1_0]},
+     {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0]},
+     {security, [], [security_1_1, security_1_0]},
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
      {http_1_1, [],
@@ -139,15 +134,13 @@ groups() ->
        trace, range, if_modified_since, mod_esi_chunk_timeout,
        esi_put, esi_post, esi_proagate] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
-     {http_0_9, [], http_head() ++ http_get() ++ load()},
      {http_rel_path_script_alias, [], [cgi]},
      {not_sup, [], [put_not_sup]}
     ].
 
 basic_groups ()->
     [{group, http_1_1},
-     {group, http_1_0},
-     {group, http_0_9}
+     {group, http_1_0}
     ].
 
 http_head() ->
@@ -248,13 +241,6 @@ init_per_group(http_1_1, Config) ->
     [{http_version, "HTTP/1.1"} | Config];
 init_per_group(http_1_0, Config) ->
     [{http_version, "HTTP/1.0"} | Config];
-init_per_group(http_0_9, Config) ->
-    case {os:type(), os:version()} of
-	{{win32, _}, {5,1,2600}} ->
-	    {skip, "eaddrinuse XP problem"};
-	_ ->
-	    [{http_version, "HTTP/0.9"} | Config]
-    end;
 init_per_group(auth_api, Config) -> 
     [{auth_prefix, ""} | Config];
 init_per_group(auth_api_dets, Config) -> 
@@ -469,9 +455,6 @@ basic_auth_1_1(Config) when is_list(Config) ->
 basic_auth_1_0(Config) when is_list(Config) -> 
     basic_auth([{http_version, "HTTP/1.0"} | Config]).
 
-basic_auth_0_9(Config) when is_list(Config) -> 
-    basic_auth([{http_version, "HTTP/0.9"} | Config]).
-
 basic_auth() ->
     [{doc, "Test Basic authentication with WWW-Authenticate header"}].
 
@@ -509,9 +492,6 @@ auth_api_1_1(Config) when is_list(Config) ->
 
 auth_api_1_0(Config) when is_list(Config) -> 
     auth_api([{http_version, "HTTP/1.0"} | Config]).
-
-auth_api_0_9(Config) when is_list(Config) -> 
-    auth_api([{http_version, "HTTP/0.9"} | Config]).
 
 auth_api() ->
     [{doc, "Test mod_auth API"}].
@@ -1015,12 +995,6 @@ alias_1_0() ->
 alias_1_0(Config) when is_list(Config) ->
     alias([{http_version, "HTTP/1.0"} | Config]).
 
-alias_0_9() ->
-    [{doc, "Test mod_alias"}].
-  
-alias_0_9(Config) when is_list(Config) ->
-    alias([{http_version, "HTTP/0.9"} | Config]).
-
 alias() ->
     [{doc, "Test mod_alias"}].
 
@@ -1447,9 +1421,6 @@ disturbing_1_1(Config) when is_list(Config) ->
 disturbing_1_0(Config) when is_list(Config) -> 
     disturbing([{http_version, "HTTP/1.0"} | Config]).
 
-disturbing_0_9(Config) when is_list(Config) -> 
-    disturbing([{http_version, "HTTP/0.9"} | Config]).
-
 disturbing(Config) when is_list(Config)->
     Server =  proplists:get_value(server_pid, Config),
     Version = proplists:get_value(http_version, Config),
@@ -1479,9 +1450,6 @@ non_disturbing_1_1(Config) when is_list(Config) ->
 
 non_disturbing_1_0(Config) when is_list(Config) -> 
     non_disturbing([{http_version, "HTTP/1.0"} | Config]).
-
-non_disturbing_0_9(Config) when is_list(Config) -> 
-    non_disturbing([{http_version, "HTTP/0.9"} | Config]).
 
 non_disturbing(Config) when is_list(Config)->
     Server =  proplists:get_value(server_pid, Config),

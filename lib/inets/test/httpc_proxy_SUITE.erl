@@ -377,26 +377,21 @@ http_stream(RequestId, Body) ->
 %%--------------------------------------------------------------------
 
 http_emulate_lower_versions(doc) ->
-    ["Perform requests as 0.9 and 1.0 clients."];
+    ["Perform requests as 1.0 and 1.1 clients."];
 http_emulate_lower_versions(Config) when is_list(Config) ->
     Method = get,
     URL = url("/index.html", Config),
     Request = {URL,[]},
     Opts = [],
 
-    HttpOpts1 = [{version,"HTTP/0.9"}],
-    {ok,[_|_]=B1} =
-	httpc:request(Method, Request, HttpOpts1, Opts),
-    inets_test_lib:check_body(B1),
-
-    HttpOpts2 = [{version,"HTTP/1.0"}],
+    HttpOpts1 = [{version,"HTTP/1.0"}],
     {ok,{{_,200,_},[_|_],[_|_]=B2}} =
-	httpc:request(Method, Request, HttpOpts2, Opts),
+	httpc:request(Method, Request, HttpOpts1, Opts),
     inets_test_lib:check_body(B2),
 
-    HttpOpts3 = [{version,"HTTP/1.1"}],
+    HttpOpts2 = [{version,"HTTP/1.1"}],
     {ok,{{_,200,_},[_|_],[_|_]=B3}} =
-	httpc:request(Method, Request, HttpOpts3, Opts),
+	httpc:request(Method, Request, HttpOpts2, Opts),
     inets_test_lib:check_body(B3),
 
     ok.

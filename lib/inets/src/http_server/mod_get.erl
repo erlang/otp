@@ -81,7 +81,7 @@ send_response(_Socket, _SocketType, Path, Info)->
 			       {content_length, Size}|LastModified];
 			  %% OTP-4935
 			 _ ->
-			     %% i.e http/1.0 and http/0.9
+			     %% i.e http/1.0
 			      [{content_type, MimeType},
 			       {content_length, Size}|LastModified]
 			  end,
