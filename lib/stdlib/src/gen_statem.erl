@@ -32,7 +32,8 @@
     start_monitor/3,start_monitor/4,
     stop/1,stop/3,
     cast/2,call/2,call/3,
-    send_request/2,wait_response/1,wait_response/2,check_response/2,
+    send_request/2,wait_response/1,wait_response/2,
+    receive_response/1,receive_response/2,check_response/2,
     enter_loop/4,enter_loop/5,enter_loop/6,
     reply/1,reply/2]).
 
@@ -596,6 +597,16 @@ wait_response(RequestId) ->
 wait_response(RequestId, Timeout) ->
     gen:wait_response(RequestId, Timeout).
 
+-spec receive_response(RequestId::request_id()) ->
+        {reply, Reply::term()} | {error, {term(), server_ref()}}.
+receive_response(RequestId) ->
+    gen:receive_response(RequestId, infinity).
+
+-spec receive_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
+receive_response(RequestId, Timeout) ->
+    gen:receive_response(RequestId, Timeout).
+
 -spec check_response(Msg::term(), RequestId::request_id()) ->
         {reply, Reply::term()} | 'no_reply' | {error, {term(), server_ref()}}.
 check_response(Msg, RequestId) ->
@@ -610,6 +621,9 @@ reply(Replies) when is_list(Replies) ->
 %%
 -compile({inline, [reply/2]}).
 -spec reply(From :: from(), Reply :: term()) -> ok.
+reply({To, [alias|Alias] = Tag}, Reply) when is_pid(To), is_reference(Alias) ->
+    Alias ! {Tag, Reply},
+    ok;
 reply({To,Tag}, Reply) when is_pid(To) ->
     Msg = {Tag,Reply},
     try To ! Msg of
@@ -679,8 +693,22 @@ call_dirty(ServerRef, Request, Timeout, T) ->
               Stacktrace)
     end.
 
+call_clean(ServerRef, Request, Timeout, T)
+  when (is_pid(ServerRef)
+        andalso (node(ServerRef) == node()))
+       orelse (element(2, ServerRef) == node()
+               andalso is_atom(element(1, ServerRef))
+               andalso (tuple_size(ServerRef) =:= 2)) ->
+    %% No need to use a proxy locally since we know alias will be
+    %% used as of OTP 24 which will prevent garbage responses...
+    call_dirty(ServerRef, Request, Timeout, T);
 call_clean(ServerRef, Request, Timeout, T) ->
     %% Call server through proxy process to dodge any late reply
+    %%
+    %% We still need a proxy in the distributed case since we may
+    %% communicate with a node that does not understand aliases.
+    %% This can be removed when alias support is mandatory.
+    %% Probably in OTP 26.
     Ref = make_ref(),
     Self = self(),
     Pid = spawn(

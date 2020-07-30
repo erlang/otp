@@ -582,8 +582,7 @@ abnormal1dirty(Config) ->
     ok = gen_statem:stop(Name),
     ?t:sleep(1100),
     case flush() of
-	[{Ref,delayed}] when is_reference(Ref) ->
-	    ok
+	[] -> ok
     end.
 
 %% Check that bad return values makes the stm crash. Note that we must
