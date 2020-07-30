@@ -379,6 +379,7 @@
 	  a restricted range, for example byte: <c>0..255</c>.
 	  See the OS documentation.
 	</p>
+	<!-- ## Protocol level 'socket' ###################### -->
 	<p>
 	  <em>Options for protocol level</em>
 	  <seetype marker="#sockopt_level"><em><c>socket</c></em>:</seetype>
@@ -386,14 +387,10 @@
 	<taglist>
 	  <tag><c>{socket, acceptconn}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
-	  <tag><c>{socket, acceptfilter}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{socket, bindtodevice}</c></tag>
 	  <item><p><c>Value = string()</c></p></item>
 	  <tag><c>{socket, broadcast}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
-	  <tag><c>{socket, busy_poll}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{socket, debug}</c></tag>
 	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, domain}</c></tag>
@@ -410,8 +407,6 @@
 	  </item>
 	  <tag><c>{socket, dontroute}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
-	  <tag><c>{socket, error}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{socket, keepalive}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{socket, linger}</c></tag>
@@ -428,8 +423,6 @@
 	      and only valid to <em>set</em>.
 	    </p>
 	  </item>
-	  <tag><c>{socket, mark}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{socket, oobinline}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{socket, passcred}</c></tag>
@@ -445,8 +438,6 @@
 	      in <c>Flags</c>.
 	    </p>
 	  </item>
-	  <tag><c>{socket, peercred}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{socket, priority}</c></tag>
 	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, protocol}</c></tag>
@@ -463,8 +454,6 @@
 	  </item>
 	  <tag><c>{socket, rcvbuf}</c></tag>
 	  <item><p><c>Value = integer()</c></p></item>
-	  <tag><c>{socket, rcvbufforce}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{socket, rcvlowat}</c></tag>
 	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, rcvtimeo}</c></tag>
@@ -496,10 +485,6 @@
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{socket, reuseport}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
-	  <tag><c>{socket, rxq_ovfl}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
-	  <tag><c>{socket, setfib}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{socket, sndbuf}</c></tag>
 	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, sndlowat}</c></tag>
@@ -543,6 +528,7 @@
 	  </item>
 	</taglist>
 	<p></p>
+	<!-- ## Protocol level 'ip' ########################## -->
 	<p>
 	  <em>Options for protocol level</em>
 	  <seetype marker="#sockopt_level"><em><c>ip</c></em>:</seetype>
@@ -576,8 +562,6 @@
 	    </p>
 	    <p>Only valid to <em>set</em>.</p>
 	  </item>
-	  <tag><c>{ip, dontfrag}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{ip, drop_membership}</c></tag>
 	  <item>
 	    <p>
@@ -649,8 +633,6 @@
 	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{ip, nodefrag}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
-	  <tag><c>{ip, options}</c></tag>
-	  <item><p><i>Not yet supported.</i></p></item>
 	  <tag><c>{ip, pktinfo}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ip, recvdstaddr}</c></tag>
@@ -696,6 +678,179 @@
 	    </p>
 	    <p>Only valid to <em>set</em>.</p>
 	  </item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'ipv6' ######################## -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>ipv6</c></em>:</seetype>
+	</p>
+	<taglist>
+	  <tag><c>{ipv6, addrform}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#domain">
+		<c>domain()</c>
+	      </seetype>
+	    </p>
+	    <p>
+	      As far as we know the only valid value is <c>inet</c>
+	      and it is only allowed for an IPv6 socket that is connected
+	      and bound to an IPv4-mapped IPv6 address.
+	    </p>
+	  </item>
+	  <tag><c>{ipv6, add_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_mreq"><c>ipv6_mreq()</c></seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ipv6, authhdr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, drop_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_mreq"><c>ipv6_mreq()</c></seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ipv6, dstopts}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, flowinfo}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, hoplimit}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, hopopts}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, mtu}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ipv6, mtu_discover}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_pmtudisc">
+		<c>ipv6_pmtudisc()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ipv6, multicast_hops}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_hops"><c>ipv6_hops()</c></seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ipv6, multicast_if}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ipv6, multicast_loop}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, recverr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, recvhoplimit}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, recvpktinfo}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, recvtclass}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, router_alert}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ipv6, rthdr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, tclass}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, unicast_hops}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_hops"><c>ipv6_hops()</c></seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ipv6, v6only}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'sctp' ######################## -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>sctp</c></em></seetype>.
+	  See also RFC 6458.
+	</p>
+	<taglist>
+	  <tag><c>{sctp, associnfo}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#sctp_assocparams">
+		<c>sctp_assocparams()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{sctp, autoclose}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{sctp, disable_fragments}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{sctp, events}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#sctp_event_subscribe">
+		<c>sctp_event_subscribe()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{sctp, initmsg}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#sctp_initmsg">
+		<c>sctp_initmsg()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{sctp, maxseg}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{sctp, nodelay}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{sctp, rtoinfo}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#sctp_rtoinfo">
+		<c>sctp_rtoinfo()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'tcp' ######################### -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>tcp</c>:</em></seetype>
+	</p>
+	<taglist>
+	  <tag><c>{tcp, congestion}</c></tag>
+	  <item><p><c>Value = string()</c></p></item>
+	  <tag><c>{tcp, cork}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{tcp, maxseg}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{tcp, nodelay}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'udp' ######################### -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>udp</c>:</em></seetype>
+	</p>
+	<taglist>
+	  <tag><c>{udp, cork}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
 	</taglist>
       </desc>
     </datatype>
@@ -764,7 +919,78 @@
       <name name="ip_pktinfo"/>
     </datatype>
     <datatype>
+      <name name="ipv6_mreq"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct ipv6_mreq</c>
+	  for managing multicast groups.
+	  See also RFC 2553.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ipv6_hops"/>
+      <desc>
+	<p>
+	  The value <c>default</c> is only valid to <em>set</em>
+	  and is translated to the C value <c>-1</c>,
+	  meaning the route default.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ipv6_pmtudisc"/>
+      <desc>
+	<p>
+	  Lowercase <c>atom()</c> values corresponding to
+	  the C library constants <c>IPV6_PMTUDISC_*</c>.
+	  Some constant(s) may be unsupported by the platform.
+	  The <c>integer()</c> values are the native values
+	  of these constants.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="ipv6_pktinfo"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_assocparams"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct sctp_assocparams</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="sctp_event_subscribe"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct sctp_event_subscribe</c>.
+	</p>
+	<p>
+	  Not all fields are implemented on all platforms;
+	  unimplemented fields are ignored,
+	  but implemented fields are mandatory.
+	  Note that the '_event' suffixes have been stripped
+	  from the C struct field names, for convenience.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="sctp_initmsg"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct sctp_initmsg</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="sctp_rtoinfo"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct sctp_rtoinfo</c>.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="msghdr_flag"/>

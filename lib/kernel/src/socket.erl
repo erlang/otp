@@ -96,10 +96,18 @@
               ip_mreq_source/0,
               ip_msfilter/0,
               ip_pmtudisc/0,
-
               ip_tos/0,
               ip_pktinfo/0,
+
+              ipv6_mreq/0,
+              ipv6_pmtudisc/0,
+              ipv6_hops/0,
               ipv6_pktinfo/0,
+
+              sctp_assocparams/0,
+              sctp_event_subscribe/0,
+              sctp_initmsg/0,
+              sctp_rtoinfo/0,
 
               msghdr_flag/0,
               msghdr/0,
@@ -206,18 +214,58 @@
                   mincost |
                   integer().
 
--type ip_pktinfo() :: #{
-                        ifindex  := non_neg_integer(), % Interface Index
-                        spec_dst := in_addr(),     % Local Address
-                        addr     := in_addr()      % Header Destination address
-                       }.
-
--type ipv6_pktinfo() :: #{
-                          addr    := in6_addr(),
-                          ifindex := integer()
-                         }.
+-type ip_pktinfo() ::
+        #{ifindex  := non_neg_integer(), % Interface Index
+          spec_dst := in_addr(),         % Local Address
+          addr     := in_addr()          % Header Destination address
+         }.
 
 
+-type ipv6_mreq() ::
+        #{multiaddr := in6_addr(),
+          interface := non_neg_integer()}.
+
+-type ipv6_pmtudisc() ::
+        want | dont | do | probe | integer().
+
+-type ipv6_hops() ::
+        default | 0..255.
+
+-type ipv6_pktinfo() ::
+        #{addr    := in6_addr(),
+          ifindex := integer()
+         }.
+
+-type sctp_assocparams() ::
+        #{assoc_id                := integer(),
+          asocmaxrxt              := 0..16#ffff,
+          numbe_peer_destinations := 0..16#ffff,
+          peer_rwnd               := 0..16#ffffffff,
+          local_rwnd              := 0..16#ffffffff,
+          cookie_life             := 0..16#ffffffff}.
+
+-type sctp_event_subscribe() ::
+        #{data_io          := boolean(),
+          association      := boolean(),
+          address          := boolean(),
+          send_failure     := boolean(),
+          peer_error       := boolean(),
+          shutdown         := boolean(),
+          partial_delivery := boolean(),
+          adaptation_layer => boolean(),
+          sender_dry       => boolean()}.
+
+-type sctp_initmsg() ::
+        #{num_ostreams   := 0..16#ffff,
+          max_instreams  := 0..16#ffff,
+          max_attempts   := 0..16#ffff,
+          max_init_timeo := 0..16#ffff}.
+
+-type sctp_rtoinfo() ::
+        #{assoc_id := integer(),
+          initial  := 0..16#ffffffff,
+          max      := 0..16#ffffffff,
+          min      := 0..16#ffffffff}.
 
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.

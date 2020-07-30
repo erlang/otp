@@ -3091,6 +3091,14 @@ static BOOLEAN_T decode_bool(ErlNifEnv*   env,
 // static void encode_bool(BOOLEAN_T val, ERL_NIF_TERM* eVal);
 static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
 
+#if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
+static BOOLEAN_T decode_sctp_assoc_t(ErlNifEnv*   env,
+                                     ERL_NIF_TERM eVal,
+                                     int*         val);
+static ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env,
+                                        sctp_assoc_t val);
+#endif // #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
+
 static void esock_stop_handle_current(ErlNifEnv*       env,
                                       const char*      role,
                                       ESockDescriptor* descP,
@@ -3628,7 +3636,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(counter_wrap);     \
     LOCAL_ATOM_DECL(counters);         \
     LOCAL_ATOM_DECL(ctype);            \
-    LOCAL_ATOM_DECL(data_in);          \
+    LOCAL_ATOM_DECL(data_io);          \
     LOCAL_ATOM_DECL(debug_filename);   \
     LOCAL_ATOM_DECL(del);              \
     LOCAL_ATOM_DECL(dest_unreach);     \
@@ -3652,7 +3660,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(max_attempts);     \
     LOCAL_ATOM_DECL(max_init_timeo);   \
     LOCAL_ATOM_DECL(max_instreams);    \
-    LOCAL_ATOM_DECL(max_rxt);          \
+    LOCAL_ATOM_DECL(asocmaxrxt);       \
     LOCAL_ATOM_DECL(min);              \
     LOCAL_ATOM_DECL(missing);          \
     LOCAL_ATOM_DECL(mode);             \
@@ -3670,7 +3678,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(num_dinet6);       \
     LOCAL_ATOM_DECL(num_dlocal);       \
     LOCAL_ATOM_DECL(num_outstreams);   \
-    LOCAL_ATOM_DECL(num_peer_dests);   \
+    LOCAL_ATOM_DECL(number_peer_destinations); \
     LOCAL_ATOM_DECL(num_pip);          \
     LOCAL_ATOM_DECL(num_psctp);        \
     LOCAL_ATOM_DECL(num_ptcp);         \
@@ -8589,12 +8597,9 @@ ERL_NIF_TERM esock_setopt_msfilter(ErlNifEnv*       env,
         struct ip_msfilter* msfP;
         Uint32              msfSz;
         ERL_NIF_TERM        eMultiAddr, eInterface, eFMode, eSList, elem, tail;
-        size_t              sz;
         unsigned int        slistLen, idx;
 
-        if ((! enif_get_map_size(env, eVal, &sz)) ||
-            (sz != 4) ||
-            (! GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) ||
+        if ((! GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) ||
             (! GET_MAP_VAL(env, eVal, atom_interface, &eInterface)) ||
             (! GET_MAP_VAL(env, eVal, atom_mode, &eFMode)) ||
             (! GET_MAP_VAL(env, eVal, atom_slist, &eSList)))
@@ -8767,17 +8772,7 @@ ERL_NIF_TERM esock_setopt_in_update_membership(ErlNifEnv*       env,
                                                ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM   eMultiAddr, eInterface;
-    size_t         sz = 0;
     struct ip_mreq mreq;
-
-    // It must be a map with exactly 2 fields
-    if ((! enif_get_map_size(env, eVal, &sz)) ||
-        (sz != 2)) {
-        SSDBG( descP,
-               ("SOCKET", "esock_setopt_in_update_membership -> "
-                "value *not* a map of size 2\r\n") );
-        goto invalid;
-    }
 
     if (! GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) {
         SSDBG( descP,
@@ -8841,13 +8836,9 @@ ERL_NIF_TERM esock_setopt_in_update_source(ErlNifEnv*       env,
                                            ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM          eMultiAddr, eInterface, eSourceAddr;
-    size_t                sz = 0;
     struct ip_mreq_source mreq;
 
-    // It must be a map of size 3
-    if ((! enif_get_map_size(env, eVal, &sz)) ||
-        (sz != 3) ||
-        (! GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) ||
+    if ((! GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) ||
         (! GET_MAP_VAL(env, eVal, atom_interface, &eInterface)) ||
         (! GET_MAP_VAL(env, eVal, atom_sourceaddr, &eSourceAddr)) ||
         (! esock_decode_in_addr(env,
@@ -8964,14 +8955,6 @@ ERL_NIF_TERM esock_setopt_in6_update_membership(ErlNifEnv*       env,
     ERL_NIF_TERM     eMultiAddr, eInterface;
     struct ipv6_mreq mreq;
 
-    // It must be a map
-    if (! IS_MAP(env, eVal)) {
-        SSDBG( descP,
-               ("SOCKET", "esock_setopt_in6_update_membership -> "
-                "value *not* a map\r\n") );
-        goto invalid;
-    }
-
     if (! GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) {
         SSDBG( descP,
                ("SOCKET", "esock_setopt_in6_update_membership -> "
@@ -9055,7 +9038,7 @@ ERL_NIF_TERM esock_setopt_sctp_associnfo(ErlNifEnv*       env,
     ERL_NIF_TERM            eAssocId, eMaxRxt, eNumPeerDests;
     ERL_NIF_TERM            ePeerRWND, eLocalRWND, eCookieLife;
     struct sctp_assocparams assocParams;
-    unsigned int            tmp;
+    unsigned int            ui;
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_sctp_associnfo -> entry with"
@@ -9070,10 +9053,11 @@ ERL_NIF_TERM esock_setopt_sctp_associnfo(ErlNifEnv*       env,
            ("SOCKET",
             "esock_setopt_sctp_associnfo -> extract attributes\r\n") );
 
-    if (! GET_MAP_VAL(env, eVal,  atom_assoc_id,       &eAssocId) ||
-        (! GET_MAP_VAL(env, eVal, atom_max_rxt,        &eMaxRxt)) ||
-        (! GET_MAP_VAL(env, eVal, atom_num_peer_dests, &eNumPeerDests)) ||
-        (! GET_MAP_VAL(env, eVal, atom_peer_rwnd,      &ePeerRWND)) ||
+    if ((! GET_MAP_VAL(env, eVal, atom_assoc_id,       &eAssocId))   ||
+        (! GET_MAP_VAL(env, eVal, atom_asocmaxrxt,     &eMaxRxt))    ||
+        (! GET_MAP_VAL(env, eVal, atom_number_peer_destinations,
+                       &eNumPeerDests))                              ||
+        (! GET_MAP_VAL(env, eVal, atom_peer_rwnd,      &ePeerRWND))  ||
         (! GET_MAP_VAL(env, eVal, atom_local_rwnd,     &eLocalRWND)) ||
         (! GET_MAP_VAL(env, eVal, atom_cookie_life,    &eCookieLife)))
         goto invalid;
@@ -9082,31 +9066,8 @@ ERL_NIF_TERM esock_setopt_sctp_associnfo(ErlNifEnv*       env,
            ("SOCKET",
             "esock_setopt_sctp_associnfo -> decode attributes\r\n") );
 
-    /* On some platforms the assoc id is typed as an unsigned integer (uint32)
-     * So, to avoid warnings there, we always make an explicit cast...
-     * Also, size of types matter, so adjust for that...
-     */
-
-#if (SIZEOF_INT == 4)
-    {
-        int tmpAssocId;
-        if (!GET_INT(env, eAssocId, &tmpAssocId))
-            goto invalid;
-        assocParams.sasoc_assoc_id =
-            (typeof(assocParams.sasoc_assoc_id)) tmpAssocId;
-    }
-#elif (SIZEOF_LONG == 4)
-    {
-        long tmpAssocId;
-        if (!GET_LONG(env, eAssocId, &tmpAssocId))
-            goto invalid;
-        assocParams.sasoc_assoc_id =
-            (typeof(assocParams.sasoc_assoc_id)) tmpAssocId;
-    }
-#else
-    SIZE CHECK FOR ASSOC ID FAILED
-#endif
-
+    if (! decode_sctp_assoc_t(env, eAssocId, &assocParams.sasoc_assoc_id))
+        goto invalid;
 
     /*
      * We should really make sure this is ok in erlang (to ensure that
@@ -9115,18 +9076,25 @@ ERL_NIF_TERM esock_setopt_sctp_associnfo(ErlNifEnv*       env,
      * Both sasoc_asocmaxrxt and sasoc_number_peer_destinations.
      */
 
-    if (!GET_UINT(env, eMaxRxt, &tmp))
+    if (! GET_UINT(env, eMaxRxt, &ui))
         goto invalid;
-    assocParams.sasoc_asocmaxrxt = (Uint16) tmp;
+    assocParams.sasoc_asocmaxrxt = (Uint16) ui;
 
-    if (!GET_UINT(env, eNumPeerDests, &tmp))
+    if (! GET_UINT(env, eNumPeerDests, &ui))
         goto invalid;
-    assocParams.sasoc_number_peer_destinations = (Uint16) tmp;
+    assocParams.sasoc_number_peer_destinations = (Uint16) ui;
 
-    if (! GET_UINT(env, ePeerRWND, &assocParams.sasoc_peer_rwnd) ||
-        (! GET_UINT(env, eLocalRWND, &assocParams.sasoc_local_rwnd)) ||
-        (! GET_UINT(env, eCookieLife, &assocParams.sasoc_cookie_life)))
+    if (! GET_UINT(env, ePeerRWND, &ui))
         goto invalid;
+    assocParams.sasoc_peer_rwnd = (Uint32) ui;
+
+    if (! GET_UINT(env, eLocalRWND, &ui))
+        goto invalid;
+    assocParams.sasoc_local_rwnd = (Uint32) ui;
+
+    if (! GET_UINT(env, eCookieLife, &ui))
+        goto invalid;
+    assocParams.sasoc_cookie_life = (Uint32) ui;
 
     SSDBG( descP,
            ("SOCKET",
@@ -9153,7 +9121,7 @@ ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
                                       int              opt,
                                       ERL_NIF_TERM     eVal)
 {
-    ERL_NIF_TERM                eDataIn, eAssoc, eAddr, eSndFailure;
+    ERL_NIF_TERM                eDataIo, eAssoc, eAddr, eSndFailure;
     ERL_NIF_TERM                ePeerError, eShutdown, ePartialDelivery;
     ERL_NIF_TERM                eAdaptLayer;
 #if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT)
@@ -9178,7 +9146,7 @@ ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
            ("SOCKET",
             "esock_setopt_sctp_events -> extract attributes\r\n") );
 
-    if ((! GET_MAP_VAL(env, eVal, atom_data_in,          &eDataIn)) ||
+    if ((! GET_MAP_VAL(env, eVal, atom_data_io,          &eDataIo)) ||
         (! GET_MAP_VAL(env, eVal, atom_association,      &eAssoc)) ||
         (! GET_MAP_VAL(env, eVal, atom_address,          &eAddr)) ||
         (! GET_MAP_VAL(env, eVal, atom_send_failure,     &eSndFailure)) ||
@@ -9204,7 +9172,7 @@ ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
 
     error = 0;
     events.sctp_data_io_event =
-        esock_decode_bool_val(eDataIn, &error);
+        esock_decode_bool_val(eDataIo, &error);
     events.sctp_association_event =
         esock_decode_bool_val(eAssoc, &error);
     events.sctp_address_event =
@@ -9349,28 +9317,8 @@ ERL_NIF_TERM esock_setopt_sctp_rtoinfo(ErlNifEnv*       env,
            ("SOCKET",
             "esock_setopt_sctp_rtoinfo -> decode attributes\r\n") );
 
-    /* On some platforms the assoc id is typed as an unsigned integer (uint32)
-     * So, to avoid warnings there, we always make an explicit cast...
-     * Also, size of types matter, so adjust for that...
-     */
-
-#if (SIZEOF_INT == 4)
-    {
-        int tmpAssocId;
-        if (!GET_INT(env, eAssocId, &tmpAssocId))
-            goto invalid;
-        rtoInfo.srto_assoc_id = (typeof(rtoInfo.srto_assoc_id)) tmpAssocId;
-    }
-#elif (SIZEOF_LONG == 4)
-    {
-        long tmpAssocId;
-        if (!GET_LONG(env, eAssocId, &tmpAssocId))
-            goto invalid;
-        rtoInfo.srto_assoc_id = (typeof(rtoInfo.srto_assoc_id)) tmpAssocId;
-    }
-#else
-    SIZE CHECK FOR ASSOC ID FAILED;
-#endif
+    if (! decode_sctp_assoc_t(env, eAssocId, &rtoInfo.srto_assoc_id))
+        goto invalid;
 
     if ((! GET_UINT(env, eInitial, &rtoInfo.srto_initial)) ||
         (! GET_UINT(env, eMax, &rtoInfo.srto_max)) ||
@@ -10620,21 +10568,24 @@ ERL_NIF_TERM esock_getopt_sctp_associnfo(ErlNifEnv*       env,
     res = sock_getopt(descP->sock, level, opt, &val, &valSz);
 
     if (res != 0) {
-        result = esock_make_error_errno(env, sock_errno());
+        result =  esock_make_error_errno(env, sock_errno());
     } else {
         ERL_NIF_TERM eAssocParams;
-        ERL_NIF_TERM keys[]  = {atom_assoc_id, atom_max_rxt, atom_num_peer_dests,
-                                atom_peer_rwnd, atom_local_rwnd, atom_cookie_life};
-        ERL_NIF_TERM vals[]  = {MKUI(env, val.sasoc_assoc_id),
+        ERL_NIF_TERM keys[]  = {atom_assoc_id,
+                                atom_asocmaxrxt,
+                                atom_number_peer_destinations,
+                                atom_peer_rwnd,
+                                atom_local_rwnd,
+                                atom_cookie_life};
+        ERL_NIF_TERM vals[]  = {encode_sctp_assoc_t(env, val.sasoc_assoc_id),
                                 MKUI(env, val.sasoc_asocmaxrxt),
                                 MKUI(env, val.sasoc_number_peer_destinations),
                                 MKUI(env, val.sasoc_peer_rwnd),
                                 MKUI(env, val.sasoc_local_rwnd),
                                 MKUI(env, val.sasoc_cookie_life)};
-        unsigned int numKeys = NUM(keys);
-        unsigned int numVals = NUM(vals);
+        size_t numKeys        = NUM(keys);
 
-        ESOCK_ASSERT( numKeys == numVals );
+        ESOCK_ASSERT( numKeys == NUM(vals) );
         ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &eAssocParams) );
         result = esock_make_ok2(env, eAssocParams);
     }
@@ -10724,7 +10675,7 @@ ERL_NIF_TERM esock_getopt_sctp_rtoinfo(ErlNifEnv*       env,
     } else {
         ERL_NIF_TERM eRTOInfo;
         ERL_NIF_TERM keys[]  = {atom_assoc_id, atom_initial, atom_max, atom_min};
-        ERL_NIF_TERM vals[]  = {MKUI(env, val.srto_assoc_id),
+        ERL_NIF_TERM vals[]  = {encode_sctp_assoc_t(env, val.srto_assoc_id),
                                 MKUI(env, val.srto_initial),
                                 MKUI(env, val.srto_max),
                                 MKUI(env, val.srto_min)};
@@ -15007,6 +14958,51 @@ ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
 #endif // #ifndef __WIN32__
 
 
+#ifndef __WIN32__
+#if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
+
+static
+BOOLEAN_T decode_sctp_assoc_t(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
+{
+    sctp_assoc_t assoc_id;
+    int i;
+    unsigned int ui;
+
+    /* Ensure that the assoc_id fits whether it is signed or unsigned
+     */
+    if (GET_INT(env, eVal, &i)) {
+        assoc_id = (sctp_assoc_t) i;
+        if ((int) assoc_id == i) {
+            *val = assoc_id;
+            return TRUE;
+        }
+    } else if (GET_UINT(env, eVal, &ui)) {
+        assoc_id = (sctp_assoc_t) ui;
+        if ((unsigned int) assoc_id == ui) {
+            *val = assoc_id;
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+static
+ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env, sctp_assoc_t val)
+{
+    unsigned int ui;
+
+    ui = (unsigned int) val;
+    if ((sctp_assoc_t) ui == val)
+        return MKUI(env, ui);
+    else
+        return MKI(env, val);
+}
+
+#endif // #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
+#endif // #ifdef __WIN32__
+
+
 /* *** alloc_descriptor ***
  *
  * Allocate and perform basic initialization of a socket descriptor.
@@ -15273,19 +15269,10 @@ BOOLEAN_T ecommand2command(ErlNifEnv*    env,
                            Uint16*       command,
                            ERL_NIF_TERM* edata)
 {
-    size_t       sz;
     ERL_NIF_TERM ecmd;
 
     if (!IS_MAP(env, ecommand)) {
         SGDBG( ("SOCKET", "ecommand2command -> (e)command not a map\r\n") );
-        return FALSE;
-    }
-
-    /* The map shall have exactly two attrbutes: 
-     *          'command' and 'data'
-     */
-    if (!enif_get_map_size(env, ecommand, &sz) || (sz != 2)) {
-        SGDBG( ("SOCKET", "ecommand2command -> comamnd map size invalid\r\n") );
         return FALSE;
     }
 

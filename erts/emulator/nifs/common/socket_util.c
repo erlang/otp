@@ -1089,11 +1089,6 @@ BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
                                struct timeval* timeP)
 {
     ERL_NIF_TERM eSec, eUSec;
-    size_t       sz;
-
-    // It must be a map with exactly attributes
-    if (! enif_get_map_size(env, eTime, &sz) || (sz == 2))
-        return FALSE;
 
     if (! GET_MAP_VAL(env, eTime, esock_atom_sec, &eSec))
         return FALSE;
