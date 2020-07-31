@@ -526,6 +526,29 @@
                     %% Only valid with recvmsg
                     flags := [msghdr_flag()]
                    }.
+
+-type msg_flag() ::
+        confirm | ctrunc | dontroute | dontwait |
+        eor | errqueue | more | nosignal | oob | trunc.
+-type msghdr_recv() ::
+        #{addr => sockaddr(),
+          iov  := [ binary() ],
+          ctrl :=
+              [ cmsghdr_recv() |
+                #{level := protocol(),
+                  type  := integer(),
+                  data  := binary()}],
+          flags := [ msg_flag() ]}.
+-type msghdr_send() ::
+        #{addr => sockaddr(),
+          iov  := [ binary() ],
+          ctrl =>
+              [ cmsghdr_send() |
+                #{level := protocol(),
+                  type := integer(),
+                  data := binary()} ]}.
+
+
 %% We are able to (completely) decode *some* control message headers.
 %% Even if we are able to decode both level and type, we may not be
 %% able to decode the data, in which case it will be a binary.
@@ -562,6 +585,7 @@
         #{level := ipv6,      type := tclass,      data := integer()}      |
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
+
 -type cmsghdr_send() :: 
         #{level := socket,    type := timestamp,   data := binary()}  |
         #{level := socket,    type := rights,      data := binary()}  |
@@ -1548,7 +1572,7 @@ sendto(Socket, Data, Dest, Flags, Timeout) ->
                      {ok, Remaining} |
                      {error, Reason} when
       Socket  :: socket(),
-      MsgHdr  :: msghdr(),
+      MsgHdr  :: msghdr_send(),
       Remaining :: erlang:iovec(),
       Reason  :: term().
 
@@ -1559,7 +1583,7 @@ sendmsg(Socket, MsgHdr) ->
 
 -spec sendmsg(Socket, MsgHdr, Flags) -> ok | {error, Reason} when
       Socket  :: socket(),
-      MsgHdr  :: msghdr(),
+      MsgHdr  :: msghdr_send(),
       Flags   :: [send_flag()],
       Reason  :: posix() | closed;
 
@@ -1569,7 +1593,7 @@ sendmsg(Socket, MsgHdr) ->
                      {select, SelectInfo} |
                      {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_send(),
       Remaining  :: erlang:iovec(),
       SelectInfo :: select_info(),
       Reason     :: posix() | closed;
@@ -1580,7 +1604,7 @@ sendmsg(Socket, MsgHdr) ->
                      {select, SelectInfo} |
                      {error, Reason} when
       Socket       :: socket(),
-      MsgHdr       :: msghdr(),
+      MsgHdr       :: msghdr_send(),
       Remaining    :: erlang:iovec(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
@@ -1588,7 +1612,7 @@ sendmsg(Socket, MsgHdr) ->
 
              (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_send(),
       Timeout    :: timeout(),
       Reason     :: posix() | closed | timeout.
 
@@ -1604,7 +1628,7 @@ sendmsg(Socket, MsgHdr, Timeout) ->
                      {select, SelectInfo} |
                      {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_send(),
       Flags      :: [send_flag()],
       Remaining  :: erlang:iovec(),
       SelectInfo :: select_info(),
@@ -1616,7 +1640,7 @@ sendmsg(Socket, MsgHdr, Timeout) ->
                      {select, SelectInfo} |
                      {error, Reason} when
       Socket       :: socket(),
-      MsgHdr       :: msghdr(),
+      MsgHdr       :: msghdr_send(),
       Flags        :: [send_flag()],
       Remaining    :: erlang:iovec(),
       SelectInfo   :: select_info(),
@@ -1628,7 +1652,7 @@ sendmsg(Socket, MsgHdr, Timeout) ->
                      {ok, Remaining} |
                      {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_send(),
       Flags      :: [send_flag()],
       Timeout    :: timeout(),
       Remaining  :: erlang:iovec(),
@@ -2218,7 +2242,7 @@ recvfrom_result(Result) ->
 
 -spec recvmsg(Socket) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
-      MsgHdr  :: msghdr(),
+      MsgHdr  :: msghdr_recv(),
       Reason  :: posix() | closed | invalid.
 
 recvmsg(Socket) ->
@@ -2228,7 +2252,7 @@ recvmsg(Socket) ->
 -spec recvmsg(Socket, Flags) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
       Flags   :: [recv_flag()],
-      MsgHdr  :: msghdr(),
+      MsgHdr  :: msghdr_recv(),
       Reason  :: posix() | closed | invalid;
 
              (Socket, Timeout :: nowait)
@@ -2236,7 +2260,7 @@ recvmsg(Socket) ->
                 {select, SelectInfo} |
                 {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_recv(),
       SelectInfo :: select_info(),
       Reason     :: posix() | closed | invalid;
 
@@ -2245,7 +2269,7 @@ recvmsg(Socket) ->
                 {select, SelectInfo} |
                 {error, Reason} when
       Socket       :: socket(),
-      MsgHdr       :: msghdr(),
+      MsgHdr       :: msghdr_recv(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
       Reason       :: posix() | closed | invalid;
@@ -2253,7 +2277,7 @@ recvmsg(Socket) ->
              (Socket, Timeout) -> {ok, MsgHdr} | {error, Reason} when
       Socket     :: socket(),
       Timeout    :: timeout(),
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_recv(),
       Reason     :: posix() | closed | invalid | timeout.
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
@@ -2267,7 +2291,7 @@ recvmsg(Socket, Timeout) ->
                 {error, Reason} when
       Socket     :: socket(),
       Flags      :: [recv_flag()],
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_recv(),
       SelectInfo :: select_info(),
       Reason     :: posix() | closed | invalid;
 
@@ -2277,7 +2301,7 @@ recvmsg(Socket, Timeout) ->
                 {error, Reason} when
       Socket       :: socket(),
       Flags        :: [recv_flag()],
-      MsgHdr       :: msghdr(),
+      MsgHdr       :: msghdr_recv(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
       Reason       :: posix() | closed | invalid;
@@ -2286,14 +2310,14 @@ recvmsg(Socket, Timeout) ->
       Socket  :: socket(),
       Flags   :: [recv_flag()],
       Timeout :: timeout(),
-      MsgHdr  :: msghdr(),
+      MsgHdr  :: msghdr_recv(),
       Reason  :: posix() | closed | invalid | timeout;
 
              (Socket, BufSz, CtrlSz) -> {ok, MsgHdr} | {error, Reason} when
       Socket :: socket(),
       BufSz  :: non_neg_integer(),
       CtrlSz :: non_neg_integer(),
-      MsgHdr :: msghdr(),
+      MsgHdr :: msghdr_recv(),
       Reason :: posix() | closed | invalid.
 
 recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
@@ -2311,7 +2335,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       BufSz      :: non_neg_integer(),
       CtrlSz     :: non_neg_integer(),
       Flags      :: [recv_flag()],
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_recv(),
       SelectInfo :: select_info(),
       Reason     :: posix() | closed | invalid;
 
@@ -2323,7 +2347,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       BufSz      :: non_neg_integer(),
       CtrlSz     :: non_neg_integer(),
       Flags      :: [recv_flag()],
-      MsgHdr     :: msghdr(),
+      MsgHdr     :: msghdr_recv(),
       SelectInfo :: select_info(),
       SelectHandle :: select_handle(),
       Reason     :: posix() | closed | invalid;
@@ -2336,7 +2360,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       CtrlSz  :: non_neg_integer(),
       Flags   :: [recv_flag()],
       Timeout :: timeout(),
-      MsgHdr  :: msghdr(),
+      MsgHdr  :: msghdr_recv(),
       Reason  :: posix() | closed | invalid | timeout.
 
 recvmsg(?socket(SockRef) = Socket, BufSz, CtrlSz, Flags, Timeout)

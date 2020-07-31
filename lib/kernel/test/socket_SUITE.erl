@@ -3027,8 +3027,9 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
+                                      {ok, #{addr  := _} = Addr} ->
+                                          {error, {addr, Addr}};
+                                      {ok, #{iov   := [Data]}} ->
                                           {ok, Data};
                                       {error, _} = ERROR ->
                                           ERROR

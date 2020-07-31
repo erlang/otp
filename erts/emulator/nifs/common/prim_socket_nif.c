@@ -13017,30 +13017,28 @@ void encode_msghdr(ErlNifEnv*       env,
             "\r\n", descP->sock, addr, ctrl, flags) );
 
     {
-        ERL_NIF_TERM keys[]  = {esock_atom_addr,
-                                esock_atom_iov,
+        ERL_NIF_TERM keys[]  = {esock_atom_iov,
                                 esock_atom_ctrl,
-                                esock_atom_flags};
-        ERL_NIF_TERM vals[]  = {addr, iov, ctrl, flags};
-        unsigned int numKeys = NUM(keys);
-        unsigned int numVals = NUM(vals);
-        ERL_NIF_TERM tmp;
+                                esock_atom_flags,
+                                esock_atom_addr};
+        ERL_NIF_TERM vals[]  = {iov, ctrl, flags, addr};
+        size_t       numKeys = NUM(keys);
         
-        ESOCK_ASSERT( numKeys == numVals );
+        ESOCK_ASSERT( numKeys == NUM(vals) );
         
         SSDBG( descP,
                ("SOCKET",
                 "encode_msghdr {%d} -> create msghdr map\r\n",
                 descP->sock) );
 
-        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &tmp) );
+        if (msgHdrP->msg_namelen == 0)
+            numKeys--; // No addr
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eSockAddr) );
 
         SSDBG( descP,
                ("SOCKET",
                 "encode_msghdr {%d}-> msghdr encoded\r\n",
                 descP->sock) );
-
-        *eSockAddr = tmp;
     }
 
     SSDBG( descP,
