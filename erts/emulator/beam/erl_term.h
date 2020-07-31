@@ -717,8 +717,8 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_port_node,Eterm)
 /* Old maximum number of references in the system */
 #define MAX_REFERENCE		(1 << _REF_NUM_SIZE)
 #define REF_MASK		(~(~((Uint)0) << _REF_NUM_SIZE))
-#define ERTS_MAX_REF_NUMBERS	3
-#define ERTS_REF_NUMBERS	ERTS_MAX_REF_NUMBERS
+#define ERTS_MAX_REF_NUMBERS	5
+#define ERTS_REF_NUMBERS	3
 
 #ifndef ERTS_ENDIANNESS
 # error ERTS_ENDIANNESS not defined...

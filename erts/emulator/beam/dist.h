@@ -58,6 +58,7 @@
  */
 #define DFLAG_SPAWN            (((Uint64)0x1) << 32)
 #define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
+#define DFLAG_HUGE_REFS        (((Uint64)0x4) << 32)
 
 
 /* Mandatory flags for distribution */
@@ -92,7 +93,8 @@
                             | DFLAG_EXIT_PAYLOAD              \
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_HANDSHAKE_23              \
-                            | DFLAG_SPAWN)
+                            | DFLAG_SPAWN                     \
+                            | DFLAG_HUGE_REFS)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT

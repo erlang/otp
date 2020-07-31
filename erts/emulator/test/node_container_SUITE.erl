@@ -52,7 +52,8 @@
          iter_max_procs/1,
          magic_ref/1,
          dist_entry_gc/1,
-         persistent_term/1]).
+         persistent_term/1,
+         huge_ref/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -65,7 +66,7 @@ all() ->
      node_controller_refc, ets_refc, match_spec_refc,
      timer_refc, pid_wrap, port_wrap, bad_nc,
      unique_pid, iter_max_procs,
-     magic_ref, persistent_term].
+     magic_ref, persistent_term, huge_ref].
 
 init_per_suite(Config) ->
     Config.
@@ -976,6 +977,14 @@ dist_entry_gc(Config) when is_list(Config) ->
     end,
     unlink(P),
     stop_node(Node),
+    ok.
+
+huge_ref(Config) when is_list(Config) ->
+    {ok, Node} = start_node(get_nodefirstname()),
+    HRef = mk_ref({Node, 4711}, [4711, 705676, 3456, 1000000, 3456]),
+    io:format("HRef=~p~n", [HRef]),
+    HRef = binary_to_term(term_to_binary(HRef)),
+    HRef = erpc:call(Node, fun () -> HRef end),
     ok.
 
 %%

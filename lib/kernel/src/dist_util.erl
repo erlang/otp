@@ -128,6 +128,8 @@ dflag2str(?DFLAG_SPAWN) ->
     "SPAWN";
 dflag2str(?DFLAG_NAME_ME) ->
     "NAME_ME";
+dflag2str(?DFLAG_HUGE_REFS) ->
+    "HUGE_REFS";
 dflag2str(_) ->
     "UNKNOWN".
 

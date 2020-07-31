@@ -72,9 +72,11 @@ int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
 
       /* finally the id integers */
       if (p) {
-	for (i = 0; (i<count) && (i<3); i++) {
+        for (i = 0; i < count && i < sizeof(p->n)/sizeof(p->n[0]); i++) {
 	  p->n[i] = get32be(s);
 	}
+        for (; i < sizeof(p->n)/sizeof(p->n[0]); i++)
+          p->n[i] = 0;
       }
       else s += 4 * count;
   

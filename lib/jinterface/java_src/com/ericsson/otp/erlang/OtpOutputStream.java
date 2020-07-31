@@ -807,8 +807,8 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      */
     public void write_ref(final String node, final int[] ids, final int creation) {
         int arity = ids.length;
-        if (arity > 3) {
-            arity = 3; // max 3 words in ref
+        if (arity > 5) {
+            arity = 5; // max 5 words in ref
         }
 
 	write1(OtpExternal.newerRefTag);

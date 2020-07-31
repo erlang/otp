@@ -409,12 +409,12 @@ erts_oiref_storage_cmp(ErtsOIRefStorage *oiref1,
 
 
 ERTS_GLB_INLINE Eterm
-erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS]);
+erts_proc_store_ref(Process *c_p, Uint32 *ref);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Eterm
-erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS])
+erts_proc_store_ref(Process *c_p, Uint32 *ref)
 {
     Eterm *hp = HAlloc(c_p, ERTS_REF_THING_SIZE);
     write_ref_thing(hp, ref[0], ref[1], ref[2]);

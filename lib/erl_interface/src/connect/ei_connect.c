@@ -770,6 +770,8 @@ int ei_make_ref(ei_cnode *ec, erlang_ref *ref)
     ref->n[0] = ref_count[0];
     ref->n[1] = ref_count[1];
     ref->n[2] = ref_count[2];
+    ref->n[3] = 0;
+    ref->n[4] = 0;
     
     ref_count[0]++;
     ref_count[0] &= 0x3ffff;
@@ -2260,7 +2262,8 @@ static DistFlags preferred_flags(void)
         | DFLAG_BIG_CREATION
         | DFLAG_EXPORT_PTR_TAG
         | DFLAG_BIT_BINARIES
-        | DFLAG_HANDSHAKE_23;
+        | DFLAG_HANDSHAKE_23
+        | DFLAG_HUGE_REFS;
     if (ei_internal_use_21_bitstr_expfun()) {
         flags &= ~(DFLAG_EXPORT_PTR_TAG
                    | DFLAG_BIT_BINARIES);
