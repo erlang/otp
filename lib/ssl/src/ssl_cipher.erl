@@ -1470,9 +1470,15 @@ decrypt_ticket_data(CipherFragment, Shard, IV) ->
     Size = byte_size(Shard),
     AAD = additional_data(<<"ticket">>, erlang:iolist_size(CipherFragment) - Size),
     Len = byte_size(CipherFragment) - Size - 16,
-    <<Encrypted:Len/binary,CipherTag:16/binary,OTP:Size/binary>> = CipherFragment,
-    Key = crypto:exor(OTP, Shard),
-    crypto:crypto_one_time_aead(aes_256_gcm, Key, IV, Encrypted, AAD, CipherTag, false).
+    case CipherFragment of
+        <<Encrypted:Len/binary,CipherTag:16/binary,OTP:Size/binary>> ->
+            Key = crypto:exor(OTP, Shard),
+            crypto:crypto_one_time_aead(aes_256_gcm, Key, IV,
+                                        Encrypted, AAD, CipherTag,
+                                        false);
+        _ ->
+            error
+    end.
 
 encrypt_data(ADTag, Plaintext, Shard, IV) ->
     AAD = additional_data(ADTag, erlang:iolist_size(Plaintext) + 16), %% TagLen = 16
