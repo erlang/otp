@@ -35,6 +35,18 @@
          basic/1,
          basic_anti_replay/0,
          basic_anti_replay/1,
+         basic_stateful_stateless/0,
+         basic_stateful_stateless/1,
+         basic_stateless_stateful/0,
+         basic_stateless_stateful/1,
+         basic_stateful_stateless_anti_replay/0,
+         basic_stateful_stateless_anti_replay/1,
+         basic_stateless_stateful_anti_replay/0,
+         basic_stateless_stateful_anti_replay/1,
+         basic_stateful_stateless_faulty_ticket/0,
+         basic_stateful_stateless_faulty_ticket/1,
+         basic_stateless_stateful_faulty_ticket/0,
+         basic_stateless_stateful_faulty_ticket/1,
          hello_retry_request/0,
          hello_retry_request/1,
          multiple_tickets/0,
@@ -58,15 +70,28 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.3', [], [{group, stateful}, {group, stateless}]},
+    [{'tlsv1.3', [], [{group, stateful},
+                      {group, stateless},
+                      {group, mixed}]},
      {stateful, [], session_tests()},
-     {stateless, [], session_tests() ++ [basic_anti_replay]}].
+     {stateless, [], session_tests() ++ [basic_anti_replay]},
+     {mixed, [], mixed_tests()}].
 
 session_tests() ->
     [basic,
      hello_retry_request,
      multiple_tickets,
      multiple_tickets_2hash].
+
+mixed_tests() ->
+    [
+     basic_stateful_stateless,
+     basic_stateless_stateful,
+     basic_stateful_stateless_anti_replay,
+     basic_stateless_stateful_anti_replay,
+     basic_stateful_stateless_faulty_ticket,
+     basic_stateless_stateful_faulty_ticket
+    ].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -214,6 +239,104 @@ basic_anti_replay(Config) when is_list(Config) ->
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server0),
     ssl_test_lib:close(Client1).
+
+basic_stateful_stateless() ->
+    [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
+basic_stateful_stateless(Config) when is_list(Config) ->
+    do_test_mixed(Config,
+                  [{session_tickets, auto},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateful},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateless},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}]).
+
+basic_stateless_stateful() ->
+    [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
+basic_stateless_stateful(Config) when is_list(Config) ->
+    do_test_mixed(Config,
+                  [{session_tickets, auto},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateless},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateful},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}]).
+
+basic_stateful_stateless_anti_replay() ->
+    [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
+basic_stateful_stateless_anti_replay(Config) when is_list(Config) ->
+    do_test_mixed(Config,
+                  [{session_tickets, auto},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateful},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateless},
+                   {log_level, debug},
+                   {anti_replay, '10k'},
+                   {versions, ['tlsv1.2','tlsv1.3']}]).
+
+basic_stateless_stateful_anti_replay() ->
+    [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
+basic_stateless_stateful_anti_replay(Config) when is_list(Config) ->
+    do_test_mixed(Config,
+                  [{session_tickets, auto},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateless},
+                   {log_level, debug},
+                   {anti_replay, '10k'},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateful},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}]).
+
+basic_stateful_stateless_faulty_ticket() ->
+    [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
+basic_stateful_stateless_faulty_ticket(Config) when is_list(Config) ->
+    do_test_mixed(Config,
+                  [{session_tickets, auto},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, manual},
+                   {use_ticket, [<<131,100,0,12,"faultyticket">>,
+                                 <<"faulty ticket">>]},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateless},
+                   {log_level, debug},
+                   {anti_replay, '10k'},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateful},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}]).
+
+basic_stateless_stateful_faulty_ticket() ->
+    [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
+basic_stateless_stateful_faulty_ticket(Config) when is_list(Config) ->
+    do_test_mixed(Config,
+                  [{session_tickets, auto},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, manual},
+                   {use_ticket, [<<"faulty ticket">>,
+                                 <<131,100,0,12,"faultyticket">>]},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateless},
+                   {log_level, debug},
+                   {anti_replay, '10k'},
+                   {versions, ['tlsv1.2','tlsv1.3']}],
+                  [{session_tickets, stateful},
+                   {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}]).
 
 hello_retry_request() ->
     [{doc,"Test session resumption with session tickets and hello_retry_request (erlang client - erlang server)"}].
@@ -462,3 +585,64 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+
+do_test_mixed(Config, COpts, SOpts1, SOpts2) when is_list(Config) ->
+    do_test_mixed(Config, COpts, COpts, SOpts1, SOpts2).
+%%
+do_test_mixed(Config, COpts1, COpts2, SOpts1, SOpts2) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Configure session tickets
+    ClientOpts1 = COpts1 ++ ClientOpts0,
+    ServerOpts1 = SOpts1 ++ ServerOpts0,
+
+    Server0 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+				   {options, ServerOpts1}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Full handshake
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()}, {options, ClientOpts1}]),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+
+    %% Wait for session ticket
+    ct:sleep(100),
+
+    ssl_test_lib:close(Client0),
+    ssl_test_lib:close(Server0),
+
+    ClientOpts2 = COpts2 ++ ClientOpts0,
+    ServerOpts2 = SOpts2 ++ ServerOpts0,
+
+    Server1 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+				   {options, ServerOpts2}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+
+    %% Use ticket
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port1}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Short handshake
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()}, {options, ClientOpts2}]),
+    ssl_test_lib:check_result(Server1, ok, Client1, ok),
+
+    process_flag(trap_exit, false),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1).
