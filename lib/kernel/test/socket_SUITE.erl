@@ -3031,6 +3031,8 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                           {error, {addr, Addr}};
                                       {ok, #{iov   := [Data]}} ->
                                           {ok, Data};
+                                      {ok, Msghdr} ->
+                                          {error, {msghdr, Msghdr}};
                                       {error, _} = ERROR ->
                                           ERROR
                                   end
@@ -3064,11 +3066,6 @@ api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock) of
                                       %% On some platforms, the address
-                                      %% is *not* provided (e.g. FreeBSD)
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
-                                          {ok, Data};
-                                      %% On some platforms, the address
                                       %% *is* provided (e.g. linux)
                                       {ok, #{addr  := #{family := local},
                                              iov   := [Data]}} ->
@@ -3077,6 +3074,14 @@ api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
                                                         debug, 
                                                         false),
                                           {ok, Data};
+                                      {ok, #{addr := _} = Msghdr} ->
+                                          {error, {msghdr, Msghdr}};
+                                      %% On some platforms, the address
+                                      %% is *not* provided (e.g. FreeBSD)
+                                      {ok, #{iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {ok, Msghdr} ->
+                                          {error, {msghdr, Msghdr}};
                                       {error, _} = ERROR ->
                                           socket:setopt(Sock, 
                                                         otp, 
@@ -3116,12 +3121,6 @@ api_b_sendmsg_and_recvmsg_seqpL(_Config) when is_list(_Config) ->
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock) of
                                       %% On some platforms, the address
-                                      %% is *not* provided (e.g. FreeBSD)
-                                      {ok,
-                                       #{addr  := undefined,
-                                         iov   := [Data]}} ->
-                                          {ok, Data};
-                                      %% On some platforms, the address
                                       %% *is* provided (e.g. linux)
                                       {ok,
                                        #{addr  := #{family := local},
@@ -3129,6 +3128,15 @@ api_b_sendmsg_and_recvmsg_seqpL(_Config) when is_list(_Config) ->
                                           socket:setopt(
                                             Sock, otp, debug, false),
                                           {ok, Data};
+                                      {ok, #{addr := _} = Msghdr} ->
+                                          {error, {msghdr, Msghdr}};
+                                      %% On some platforms, the address
+                                      %% is *not* provided (e.g. FreeBSD)
+                                      {ok,
+                                       #{iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {ok, Msghdr} ->
+                                          {error, {msghdr, Msghdr}};
                                       {error, _} = ERROR ->
                                           socket:setopt(
                                             Sock, otp, debug, false),
@@ -7187,11 +7195,8 @@ api_a_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock, Nowait) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
+                                      {ok, #{iov   := [Data]}} ->
                                           {ok, Data};
-                                      {ok, _} = OK ->
-                                          OK;
                                       {select, _} = SELECT ->
                                           SELECT;
 				      {error, _} = ERROR ->
@@ -7231,11 +7236,8 @@ api_a_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock, Nowait) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
+                                      {ok, #{iov   := [Data]}} ->
                                           {ok, Data};
-                                      {ok, _} = OK ->
-                                          OK;
                                       {select, _} = SELECT ->
                                           SELECT;
 				      {error, _} = ERROR ->
@@ -13606,8 +13608,7 @@ api_opt_sock_oobinline(_Config) when is_list(_Config) ->
     tc_try(api_opt_sock_ooinline,
            fun() ->
                    has_support_sock_oobinline(),
-                   has_support_send_flag_oob(),
-                   has_support_recv_flag_oob(),
+                   has_support_msg_flag(oob),
                    is_valid_oobinline_platform()
            end,
            fun() ->
@@ -15030,7 +15031,7 @@ api_opt_sock_peek_off_tcpL(_Config) when is_list(_Config) ->
            fun() ->
                    has_support_unix_domain_socket(),
                    has_support_sock_peek_off(),
-                   has_support_recv_flag_peek()
+                   has_support_msg_flag(peek)
            end,
            fun() ->
                    Set  = fun(Sock, Val) when is_integer(Val) ->
@@ -29467,9 +29468,10 @@ sc_rs_recvmsg_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
                    MsgData   = ?DATA,
                    Recv      = fun(Sock) ->
                                        case socket:recvmsg(Sock) of
-                                           {ok, #{addr  := undefined,
-                                                  iov   := [Data]}} ->
+                                           {ok, #{iov   := [Data]}} ->
                                                {ok, Data};
+                                           {ok, #{addr  := _} = Msghdr} ->
+                                               {error, {msghdr, Msghdr}};
                                            {error, _} = ERROR ->
                                                ERROR
                                        end
@@ -29506,9 +29508,10 @@ sc_rs_recvmsg_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
                    MsgData   = ?DATA,
                    Recv      = fun(Sock) ->
                                        case socket:recvmsg(Sock) of
-                                           {ok, #{addr  := undefined,
-                                                  iov   := [Data]}} ->
+                                           {ok, #{iov   := [Data]}} ->
                                                {ok, Data};
+                                           {ok, #{addr  := _} = Msghdr} ->
+                                               {error, {msghdr, Msghdr}};
                                            {error, _} = ERROR ->
                                                ERROR
                                        end
@@ -29548,15 +29551,18 @@ sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
                    Recv      = fun(Sock) ->
                                        case socket:recvmsg(Sock) of
                                            %% On some platforms, the address
-                                           %% is *not* provided (e.g. FreeBSD)
-                                           {ok, #{addr  := undefined,
-                                                  iov   := [Data]}} ->
-                                               {ok, Data};
-                                           %% On some platforms, the address
                                            %% *is* provided (e.g. linux)
                                            {ok, #{addr  := #{family := local},
                                                   iov   := [Data]}} ->
                                                {ok, Data};
+                                           {ok, #{addr := _} = Msghdr} ->
+                                               {error, {msghdr, Msghdr}};
+                                           %% On some platforms, the address
+                                           %% is *not* provided (e.g. FreeBSD)
+                                           {ok, #{iov   := [Data]}} ->
+                                               {ok, Data};
+                                           {ok, Msghdr} ->
+                                               {error, {msghdr, Msghdr}};
                                            {error, _} = ERROR ->
                                                ERROR
                                        end
@@ -29660,8 +29666,7 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
                                  proto  => tcp,
                                  recv   => fun(S) ->
                                                    case socket:recvmsg(S) of
-                                                       {ok, #{addr := _Source,
-                                                              iov  := [Data]}} ->
+                                                       {ok, #{iov  := [Data]}} ->
                                                            {ok, Data};
                                                        {error, _} = ERROR ->
                                                            ERROR
@@ -29694,8 +29699,7 @@ traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
                                  proto  => tcp,
                                  recv   => fun(S) ->
                                                    case socket:recvmsg(S) of
-                                                       {ok, #{addr := _Source,
-                                                              iov  := [Data]}} ->
+                                                       {ok, #{iov  := [Data]}} ->
                                                            {ok, Data};
                                                        {error, _} = ERROR ->
                                                            ERROR
@@ -29728,8 +29732,7 @@ traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
                                  proto  => default,
                                  recv   => fun(S) ->
                                                    case socket:recvmsg(S) of
-                                                       {ok, #{addr := _Source,
-                                                              iov  := [Data]}} ->
+                                                       {ok, #{iov  := [Data]}} ->
                                                            {ok, Data};
                                                        {error, _} = ERROR ->
                                                            ERROR
@@ -33752,15 +33755,18 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp(#{domain := local} = InitState) ->
     Recv = fun(Sock, Sz)   -> 
                    case socket:recvmsg(Sock, Sz, 0) of
                        %% On some platforms, the address
-                       %% is *not* provided (e.g. FreeBSD)
-                       {ok, #{addr  := undefined,
-                              iov   := [Data]}} ->
-                           {ok, Data};
-                       %% On some platforms, the address
                        %% *is* provided (e.g. linux)
                        {ok, #{addr  := #{family := local},
                               iov   := [Data]}} ->
                            {ok, Data};
+                       {ok, #{addr := _} = Msghdr} ->
+                           {error, {msghdr, Msghdr}};
+                       %% On some platforms, the address
+                       %% is *not* provided (e.g. FreeBSD)
+                       {ok, #{iov   := [Data]}} ->
+                           {ok, Data};
+                       {ok, Msghdr} ->
+                           {error, {msghdr, Msghdr}};
                        {error, _} = ERROR ->
                            ERROR
                    end
@@ -33770,9 +33776,10 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp(#{domain := local} = InitState) ->
 traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
     Recv = fun(Sock, Sz)   -> 
                    case socket:recvmsg(Sock, Sz, 0) of
-                       {ok, #{addr  := undefined,
-                              iov   := [Data]}} ->
+                       {ok, #{iov   := [Data]}} ->
                            {ok, Data};
+                       {ok, Msghdr} ->
+                           {error, {msghdr, Msghdr}};
                        {error, _} = ERROR ->
                            ERROR
                    end
@@ -43328,27 +43335,12 @@ is_any_options_supported(Options) ->
 
 %% --- Send flag test functions ---
 
-has_support_send_flag_oob() ->
-    has_support_send_flag(oob).
-
-has_support_send_flag(Flag) ->
-    has_support_send_or_recv_flag("Send", send_flags, Flag).
-
-has_support_recv_flag_oob() ->
-    has_support_recv_flag(oob).
-
-has_support_recv_flag_peek() ->
-    has_support_recv_flag(peek).
-
-has_support_recv_flag(Flag) ->
-    has_support_send_or_recv_flag("Recv", recv_flags, Flag).
-
-has_support_send_or_recv_flag(Pre, Key, Flag) ->
-    case socket:is_supported(Key, Flag) of
+has_support_msg_flag(Flag) ->
+    case socket:is_supported(msg_flags, Flag) of
         true ->
             ok;
         false ->
-            skip(?F("~s Flag ~w *Not* Supported", [Pre, Flag]))
+            skip(?F("Message flag ~w *Not* Supported", [Flag]))
     end.
 
 

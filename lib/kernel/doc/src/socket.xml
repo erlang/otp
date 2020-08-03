@@ -233,10 +233,22 @@
       <name name="in6_scope_id"/>
     </datatype>
     <datatype>
-      <name name="send_flag"/>
-    </datatype>
-    <datatype>
-      <name name="recv_flag"/>
+      <name name="msg_flag"/>
+      <desc>
+	<p>
+	  Flags corresponding to the message flag constants
+	  on the platform.  The flags are lowercase and
+	  the constants are uppercase with the prefix <c>MSG_</c>.
+	</p>
+	<p>
+	  Some flags are only used for sending,
+	  some only for receiving,
+	  some in received control messages,
+	  and some for several of these.
+	  Not all flags are supported on all platforms.
+	  See the platform's documentation.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="sockopt_level"/>
@@ -434,7 +446,7 @@
 	      Currently disabled due to a possible infinite loop when calling
 	      <seemfa marker="#recv/1"><c>recv/1-4</c></seemfa>
 	      with
-	      <seetype marker="#recv_flag"><c>peek</c></seetype>
+	      <seetype marker="#msg_flag"><c>peek</c></seetype>
 	      in <c>Flags</c>.
 	    </p>
 	  </item>
@@ -993,16 +1005,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="msghdr_flag"/>
-    </datatype>
-    <datatype>
       <name name="msghdr"/>
-    </datatype>
-    <datatype>
-      <name name="cmsghdr_level"/>
-    </datatype>
-    <datatype>
-      <name name="cmsghdr_type"/>
     </datatype>
     <datatype>
       <name name="cmsghdr_recv"/>
@@ -2193,31 +2196,18 @@
 	    </taglist>
 	    <p></p>
 	  </item>
-	  <tag><c>supports(send_flags = <anno>Key1</anno>)</c></tag>
+	  <tag><c>supports(msg_flags = <anno>Key1</anno>)</c></tag>
 	  <item>
 	    <p>
 	      Returns a list of 
-	      <c>{SendFlag, boolean()}</c> tuples
-	      for every <c>SendFlag</c> in
-	      <seetype marker="#send_flag">
-		<c>send_flag()</c>
+	      <c>{Flag, boolean()}</c> tuples
+	      for every <c>Flag</c> in
+	      <seetype marker="#msg_flag">
+		<c>msg_flag()</c>
 	      </seetype>
 	      with the <c>boolean()</c> indicating if the flag
 	      is supported on this platform.
  	    </p>
-	  </item>
-	  <tag><c>supports(recv_flags = <anno>Key1</anno>)</c></tag>
-	  <item>
- 	    <p>
-	      Returns a list of 
-	      <c>{RecvFlag, boolean()}</c> tuples
-	      for every <c>RecvFlag</c> in
-	      <seetype marker="#recv_flag">
-		<c>recv_flag()</c>
-	      </seetype>
-	      with the <c>boolean()</c> indicating if the flag
-	      is supported on this platform.
-	    </p>
 	  </item>
 	  <tag><c>supports(protocols = <anno>Key1</anno>)</c></tag>
 	  <item>

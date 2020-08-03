@@ -153,10 +153,7 @@ on_load(Extra) when is_map(Extra) ->
               maps:from_list(options_table(Options))
       end),
     put_supports_table(
-      send_flags,
-      fun (Flags) -> maps:from_list(Flags) end),
-    put_supports_table(
-      recv_flags,
+      msg_flags,
       fun (Flags) -> maps:from_list(Flags) end).
 
 put_supports_table(Tag, Fun) ->
@@ -186,7 +183,7 @@ options_table([{Level, LevelNum, LevelOpts} | Options]) ->
     options_table(Options, Level, LevelNum, LevelOpts).
 %%
 options_table(Options, Level, LevelNum, []) ->
-    [{Level, LevelNum} | options_table(Options)];
+    [{Level, LevelNum}, {LevelNum, Level} | options_table(Options)];
 options_table(Options, Level, LevelNum, [LevelOpt | LevelOpts]) ->
     [case LevelOpt of
          {Opt, OptNum} ->
@@ -262,18 +259,15 @@ supports(options) ->
       fun ({_Level,_Opt} = Option, Value, Acc) ->
               [{Option, is_supported_option(Option, Value)} | Acc];
           (Level, _Value, Acc) when is_atom(Level) ->
+              Acc;
+          (LevelNum, _Value, Acc) when is_integer(LevelNum) ->
               Acc
       end, [], p_get(options));
-supports(send_flags) ->
+supports(msg_flags) ->
     maps:fold(
       fun (Name, Num, Acc) ->
               [{Name, Num =/= 0} | Acc]
-      end, [], p_get(send_flags));
-supports(recv_flags) ->
-    maps:fold(
-      fun (Name, Num, Acc) ->
-              [{Name, Num =/= 0} | Acc]
-      end, [], p_get(recv_flags));
+      end, [], p_get(msg_flags));
 supports(Key) ->
     nif_supports(Key).
 
@@ -287,6 +281,8 @@ supports(options, Level) when is_atom(Level) ->
                       Acc
               end;
           (L, _Value, Acc) when is_atom(L) ->
+              Acc;
+          (N, _Value, Acc) when is_integer(N) ->
               Acc
       end, [], p_get(options));
 supports(options, _Level) ->
@@ -323,9 +319,7 @@ is_supported(options = Tab, {_Level,_Opt} = Option) ->
       end);
 is_supported(options, _Option) ->
     false;
-is_supported(send_flags = Tab, Flag) ->
-    p_get_is_supported(Tab, Flag, fun (Value) -> Value =/= 0 end);
-is_supported(recv_flags = Tab, Flag) ->
+is_supported(msg_flags = Tab, Flag) ->
     p_get_is_supported(Tab, Flag, fun (Value) -> Value =/= 0 end);
 is_supported(Key1, Key2) ->
     get_is_supported(Key2, nif_supports(Key1)).
@@ -353,10 +347,10 @@ open(FD, Opts) when is_map(Opts) ->
     case Opts of
         #{protocol := Protocol} ->
             case enc_protocol(Protocol) of
-                undefined ->
-                    {error, protocol};
-                NumProtocol ->
-                    nif_open(FD, Opts#{protocol := NumProtocol})
+                NumProtocol when is_integer(NumProtocol) ->
+                    nif_open(FD, Opts#{protocol := NumProtocol});
+                Error ->
+                    Error
             end;
         #{} ->
             nif_open(FD, Opts)
@@ -364,9 +358,7 @@ open(FD, Opts) when is_map(Opts) ->
 
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
     case enc_protocol(Protocol) of
-        undefined ->
-            {error, protcol};
-        NumProtocol ->
+        NumProtocol when is_integer(NumProtocol) ->
             EOpts =
                 case Opts of
                     #{netns := Path} when is_list(Path) ->
@@ -374,7 +366,9 @@ open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
                     _ ->
                         Opts
                 end,
-            nif_open(Domain, Type, NumProtocol, EOpts)
+            nif_open(Domain, Type, NumProtocol, EOpts);
+        Error ->
+            Error
     end.
 
 %% ----------------------------------
@@ -407,40 +401,39 @@ accept(ListenSockRef, AccRef) ->
 %% ----------------------------------
 
 send(SockRef, SendRef, Data, Flags) ->
-    case enc_send_flags(Flags) of
-        EFlags when is_integer(EFlags) ->
-            nif_send(SockRef, SendRef, Data, EFlags);
-        Reason ->
+    try enc_msg_flags(Flags) of
+        EFlags ->
+            nif_send(SockRef, SendRef, Data, EFlags)
+    catch throw : Reason ->
             {error, Reason}
     end.
 
 sendto(SockRef, SendRef, Data, To, Flags) ->
     ETo = enc_sockaddr(To),
-    case enc_send_flags(Flags) of
-        EFlags when is_integer(EFlags) ->
-            nif_sendto(SockRef, SendRef, Data, ETo, EFlags);
-        Reason ->
+    try enc_msg_flags(Flags) of
+        EFlags ->
+            nif_sendto(SockRef, SendRef, Data, ETo, EFlags)
+    catch throw : Reason ->
             {error, Reason}
     end.
 
 sendmsg(SockRef, SendRef, MsgHdr, Flags) ->
-    EMsgHdr = enc_msghdr(MsgHdr),
-    case enc_send_flags(Flags) of
-        EFlags when is_integer(EFlags) ->
-            nif_sendmsg(SockRef, SendRef, EMsgHdr, EFlags);
-        Reason ->
+    try {enc_msghdr(MsgHdr), enc_msg_flags(Flags)} of
+        {EMsgHdr, EFlags} ->
+            nif_sendmsg(SockRef, SendRef, EMsgHdr, EFlags)
+    catch throw : Reason ->
             {error, Reason}
     end.
 
 %% ----------------------------------
 
 recv(SockRef, RecvRef, Length, Flags) ->
-    case enc_recv_flags(Flags) of
-        EFlags when is_integer(EFlags) ->
+    try enc_msg_flags(Flags) of
+        EFlags ->
             recv_result(
               nif_recv(SockRef, RecvRef, Length, EFlags),
-              Length);
-        Reason ->
+              Length)
+    catch throw : Reason ->
             {error, Reason}
     end.
 
@@ -468,19 +461,39 @@ recv_result(Result, Length) ->
     end.
 
 recvfrom(SockRef, RecvRef, Length, Flags) ->
-    case enc_recv_flags(Flags) of
-        EFlags when is_integer(EFlags) ->
-            nif_recvfrom(SockRef, RecvRef, Length, EFlags);
-        Reason ->
+    try enc_msg_flags(Flags) of
+        EFlags ->
+            nif_recvfrom(SockRef, RecvRef, Length, EFlags)
+    catch throw : Reason ->
             {error, Reason}
     end.
 
 recvmsg(SockRef, RecvRef, BufSz, CtrlSz, Flags) ->
-    case enc_recv_flags(Flags) of
-        EFlags when is_integer(EFlags) ->
-            nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags);
-        Reason ->
+    try enc_msg_flags(Flags) of
+        EFlags ->
+            recvmsg_result(
+              nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags))
+    catch throw : Reason ->
             {error, Reason}
+    end.
+
+recvmsg_result(Result) ->
+    case Result of
+        {ok, #{ctrl := []}} ->
+            Result;
+        {ok, #{ctrl := Ctrl} = MsgHdr} ->
+            Options = p_get(options),
+            {ok,
+             MsgHdr#{
+               ctrl :=
+                   [case Options of
+                        #{LevelNum := Level} ->
+                            CMsg#{level := Level};
+                        #{} ->
+                            CMsg
+                    end || #{level := LevelNum} = CMsg <- Ctrl]}};
+        Other ->
+            Other
     end.
 
 %% ----------------------------------
@@ -584,7 +597,7 @@ enc_protocol(Proto) when is_atom(Proto) ->
         #{Proto := Num} ->
             Num;
         #{} ->
-            undefined
+            {error, {invalid, {protocol, Proto}}}
     end;
 enc_protocol(Proto) when is_integer(Proto) ->
     Proto;
@@ -614,43 +627,57 @@ enc_sockaddr(SockAddr) ->
     invalid(sockaddr, SockAddr).
 
 
-enc_send_flags([]) ->
+enc_msg_flags([]) ->
     0;
-enc_send_flags(Flags) ->
-    enc_flags(Flags, p_get(send_flags), send_flag, 0).
+enc_msg_flags(Flags) ->
+    enc_msg_flags(Flags, p_get(msg_flags), 0).
 
-enc_recv_flags([]) ->
-    0;
-enc_recv_flags(Flags) ->
-    enc_flags(Flags, p_get(recv_flags), recv_flag, 0).
-
-enc_flags([], _Table, _Type, Val) ->
+enc_msg_flags([], _Table, Val) ->
     Val;
-enc_flags([Flag | Flags], Table, Type, Val) when is_atom(Flag) ->
+enc_msg_flags([Flag | Flags], Table, Val) when is_atom(Flag) ->
     case Table of
         #{Flag := V} ->
-            enc_flags(Flags, Table, Type, Val bor V);
+            enc_msg_flags(Flags, Table, Val bor V);
         #{} ->
-            {Type, Flag}
+            throw({invalid, {msg_flag, Flag}})
     end;
-enc_flags([Flag | Flags], Table, Type, Val)
+enc_msg_flags([Flag | Flags], Table, Val)
   when is_integer(Flag), 0 =< Flag ->
-    enc_flags(Flags, Table, Type, Val bor Flag);
-enc_flags(Flags, _Table, Type, _Val) ->
-    invalid(Type, Flags).
+    enc_msg_flags(Flags, Table, Val bor Flag);
+enc_msg_flags(Flags, _Table, _Val) ->
+    error({invalid, {msg_flag, Flags}}).
 
 
 enc_msghdr(#{ctrl := []} = M) ->
     enc_msghdr(maps:remove(ctrl, M));
-enc_msghdr(#{iov := IOV, addr := Addr} = M) 
-  when is_list(IOV), IOV =/= [] ->
-    M#{iov => erlang:iolist_to_iovec(IOV),
-       addr => enc_sockaddr(Addr)};
 enc_msghdr(#{iov := IOV} = M) 
   when is_list(IOV), IOV =/= [] ->
-    M#{iov => erlang:iolist_to_iovec(IOV)};
+    maps:map(
+      fun (iov, Iov) ->
+              erlang:iolist_to_iovec(Iov);
+          (addr, Addr) ->
+              enc_sockaddr(Addr);
+          (ctrl, Cmsgs) ->
+              enc_cmsgs(Cmsgs, p_get(protocols));
+          (_, V) ->
+              V
+      end,
+      M);
 enc_msghdr(M) ->
-    invalid(msghdr, M).
+    error({invalid, {msghdr, M}}).
+
+enc_cmsgs([#{level := P} = Cmsg | Cmsgs], Protocols)
+  when is_atom(P) ->
+    case Protocols of
+        #{P := N} ->
+            [Cmsg#{level := N} | enc_cmsgs(Cmsgs, Protocols)];
+        #{} ->
+            throw({invalid, {protocol, P}})
+    end;
+enc_cmsgs([Cmsg | Cmsgs], Protocols) ->
+    [Cmsg | enc_cmsgs(Cmsgs, Protocols)];
+enc_cmsgs([], _Protocols) ->
+    [].
 
 
 %% Common to setopt and getopt

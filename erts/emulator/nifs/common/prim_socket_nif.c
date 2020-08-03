@@ -493,20 +493,38 @@ typedef union {
 /*----------------------------------------------------------------------------
  * Interface constants.
  *
- * This section must be "identical" to the corresponding socket.erl
+ * The set of elements should be the same as for the type
+ * msg_flag() in socket.erl.
  */
 
 static const struct msg_flag {
     int flag;
     ERL_NIF_TERM *name;
-} send_flags[] = {
+} msg_flags[] = {
+
     {
-#ifdef MSG_OOB
-        MSG_OOB,
+#ifdef MSG_CMSG_CLOEXEC
+        MSG_CMSG_CLOEXEC,
 #else
         0,
 #endif
-        &esock_atom_oob},
+        &esock_atom_cmsg_cloexec},
+
+    {
+#ifdef MSG_CONFIRM
+        MSG_CONFIRM,
+#else
+        0,
+#endif
+        &esock_atom_confirm},
+
+    {
+#ifdef MSG_CTRUNC
+        MSG_CTRUNC,
+#else
+        0,
+#endif
+        &esock_atom_ctrunc},
 
     {
 #ifdef MSG_DONTROUTE
@@ -525,20 +543,12 @@ static const struct msg_flag {
         &esock_atom_eor},
 
     {
-#ifdef MSG_CONFIRM
-        MSG_CONFIRM,
+#ifdef MSG_ERRQUEUE
+        MSG_ERRQUEUE,
 #else
         0,
 #endif
-        &esock_atom_confirm},
-
-    {
-#ifdef MSG_NOSIGNAL
-        MSG_NOSIGNAL,
-#else
-        0,
-#endif
-        &esock_atom_nosignal},
+        &esock_atom_errqueue},
 
     {
 #ifdef MSG_MORE
@@ -548,16 +558,13 @@ static const struct msg_flag {
 #endif
         &esock_atom_more},
 
-};
-
-static const struct msg_flag recv_flags[] = {
     {
-#ifdef MSG_EOR
-        MSG_EOR,
+#ifdef MSG_NOSIGNAL
+        MSG_NOSIGNAL,
 #else
         0,
 #endif
-        &esock_atom_eor},
+        &esock_atom_nosignal},
 
     {
 #ifdef MSG_OOB
@@ -581,32 +588,10 @@ static const struct msg_flag recv_flags[] = {
 #else
         0,
 #endif
-        &esock_atom_trunc},
-
-    {
-#ifdef MSG_CTRUNC
-        MSG_CTRUNC,
-#else
-        0,
-#endif
-        &esock_atom_ctrunc},
-
-    {
-#ifdef MSG_ERRQUEUE
-        MSG_ERRQUEUE,
-#else
-        0,
-#endif
-        &esock_atom_errqueue},
-
-    {
-#ifdef MSG_CMSG_CLOEXEC
-        MSG_CMSG_CLOEXEC,
-#else
-        0,
-#endif
-        &esock_atom_cmsg_cloexec},
+        &esock_atom_trunc}
 };
+
+
 
 /* level 'otp' options */
 #define ESOCK_OPT_OTP_DEBUG        1001
@@ -1141,8 +1126,7 @@ static ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
 static ERL_NIF_TERM esock_supports_0(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key);
 
-static ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
@@ -2979,12 +2963,6 @@ extern BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
                                 char*            bufP,
                                 size_t           rem,
                                 size_t*          used);
-static void encode_cmsghdr_level(ErlNifEnv*    env,
-                                 int           level,
-                                 ERL_NIF_TERM* eLevel);
-static BOOLEAN_T decode_cmsghdr_level(ErlNifEnv*   env,
-                                      ERL_NIF_TERM eLevel,
-                                      int*         level);
 static void encode_cmsghdr_type(ErlNifEnv*    env,
                                 int           level,
                                 int           type,
@@ -3664,6 +3642,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(min);              \
     LOCAL_ATOM_DECL(missing);          \
     LOCAL_ATOM_DECL(mode);             \
+    LOCAL_ATOM_DECL(msg_flags);        \
     LOCAL_ATOM_DECL(multiaddr);        \
     LOCAL_ATOM_DECL(net_unknown);      \
     LOCAL_ATOM_DECL(net_unreach);      \
@@ -3711,14 +3690,12 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(read_tries);       \
     LOCAL_ATOM_DECL(read_waits);       \
     LOCAL_ATOM_DECL(read_write);       \
-    LOCAL_ATOM_DECL(recv_flags);       \
     LOCAL_ATOM_DECL(registry);         \
     LOCAL_ATOM_DECL(reject_route);     \
     LOCAL_ATOM_DECL(remote);           \
     LOCAL_ATOM_DECL(select);           \
     LOCAL_ATOM_DECL(sender_dry);       \
     LOCAL_ATOM_DECL(send_failure);     \
-    LOCAL_ATOM_DECL(send_flags);       \
     LOCAL_ATOM_DECL(shutdown);         \
     LOCAL_ATOM_DECL(slist);            \
     LOCAL_ATOM_DECL(sndctrlbuf);       \
@@ -4423,8 +4400,7 @@ ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
  * ipv6            boolean()
  * local           boolean()
  * netns           boolean()
- * send_flags      [{SendFlag, boolean()}]
- * recv_flags      [{RecvFlag, boolean()}]
+ * msg_flags      [{MsgFlag, boolean()}]
  */
 
 static
@@ -4509,10 +4485,8 @@ ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
             "\r\n   key: %T"
             "\r\n", key) );
 
-    if (COMPARE(key, atom_send_flags) == 0)
-        result = esock_supports_send_flags(env);
-    else if (COMPARE(key, atom_recv_flags) == 0)
-        result = esock_supports_recv_flags(env);
+    if (COMPARE(key, atom_msg_flags) == 0)
+        result = esock_supports_msg_flags(env);
     else if (COMPARE(key, atom_protocols) == 0)
         result = esock_supports_protocols(env);
     else if (COMPARE(key, atom_options) == 0)
@@ -4528,14 +4502,12 @@ ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
 
 #ifndef __WIN32__
 
-static ERL_NIF_TERM esock_supports_flags(ErlNifEnv* env,
-                                         const struct msg_flag msg_flags[],
-                                         size_t num) {
+static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env) {
     size_t n;
     ERL_NIF_TERM result;
 
     result = MKEL(env);
-    for (n = 0;  n < num;  n++) {
+    for (n = 0;  n < NUM(msg_flags);  n++) {
         result =
             MKC(env,
                 MKT2(env,
@@ -4545,18 +4517,6 @@ static ERL_NIF_TERM esock_supports_flags(ErlNifEnv* env,
     }
 
     return result;
-}
-
-static
-ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env)
-{
-    return esock_supports_flags(env, send_flags, NUM(send_flags));
-}
-
-static
-ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env)
-{
-    return esock_supports_flags(env, recv_flags, NUM(recv_flags));
 }
 
 #endif // #ifndef __WIN32__
@@ -13142,11 +13102,7 @@ void encode_cmsghdrs(ErlNifEnv*       env,
                     "\r\n   dataLen: %d"
                     "\r\n", descP->sock, dataPos, dataLen) );
 
-            /* We can't give up just because its an unknown protocol,
-             * so if its a protocol we don't know, we return its integer 
-             * value and leave it to the user.
-             */
-            encode_cmsghdr_level(env, currentP->cmsg_level, &level);
+            level = MKI(env, currentP->cmsg_level);
             encode_cmsghdr_type(env,
                                 currentP->cmsg_level, currentP->cmsg_type,
                                 &type);
@@ -13331,7 +13287,7 @@ BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
                        "\r\n", descP->sock, eData) );
 
         /* Second, decode level */
-        if (! decode_cmsghdr_level(env, eLevel, &level))
+        if (! GET_INT(env, eLevel, &level))
             return FALSE;
 
         SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d}-> level:  %d\r\n",
@@ -13538,95 +13494,6 @@ BOOLEAN_T decode_cmsghdr_final(ESockDescriptor* descP,
                    "decode_cmsghdr_final {%d} -> done ok\r\n",
                    descP->sock) );
 
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
-
-/* +++ encode_cmsghdr_level +++
- *
- * Encode the level part of the cmsghdr().
- *
- */
-#ifndef __WIN32__
-static
-void encode_cmsghdr_level(ErlNifEnv*    env,
-                          int           level,
-                          ERL_NIF_TERM* eLevel)
-{
-    switch (level) {
-    case SOL_SOCKET:
-        *eLevel = esock_atom_socket;
-        break;
-
-#if defined(SOL_IP)
-    case SOL_IP:
-#else
-    case IPPROTO_IP:
-#endif
-        *eLevel = esock_atom_ip;
-        break;
-
-#if defined(HAVE_IPV6)
-#if defined(SOL_IPV6)
-    case SOL_IPV6:
-#else
-    case IPPROTO_IPV6:
-#endif
-        *eLevel = esock_atom_ipv6;
-        break;
-#endif
-
-    case IPPROTO_UDP:
-        *eLevel = esock_atom_udp;
-        break;
-
-    default:
-        *eLevel = MKI(env, level);
-        break;
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-/* +++ decode_cmsghdr_level +++
- *
- * Decode the level part of the cmsghdr().
- *
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T decode_cmsghdr_level(ErlNifEnv*   env,
-                               ERL_NIF_TERM eLevel,
-                               int*         level)
-{
-
-    if (IS_ATOM(env, eLevel)) {
-
-        if (COMPARE(eLevel, esock_atom_socket) == 0) {
-            *level = SOL_SOCKET;
-        } else if (COMPARE(eLevel, esock_atom_ip) == 0) {
-#if defined(SOL_IP)
-            *level = SOL_IP;
-#else
-            *level = IPPROTO_IP;
-#endif
-#if defined(HAVE_IPV6)
-        } else if (COMPARE(eLevel, esock_atom_ipv6) == 0) {
-#if defined(SOL_IPV6)
-            *level = SOL_IPV6;
-#else
-            *level = IPPROTO_IPV6;
-#endif
-#endif
-        } else if (COMPARE(eLevel, esock_atom_udp) == 0) {
-            *level = IPPROTO_UDP;
-        } else {
-            return FALSE;
-        }
-    } else if (! GET_INT(env, eLevel, level)) {
-        return FALSE;
-    }
     return TRUE;
 }
 #endif // #ifndef __WIN32__
@@ -14601,10 +14468,10 @@ void encode_msghdr_flags(ErlNifEnv*       env,
         size_t n;
         SocketTArray ta = TARRAY_CREATE(10); // Just to be on the safe side
 
-        for (n = 0;  n < NUM(recv_flags);  n++) {
-            int f = recv_flags[n].flag;
+        for (n = 0;  n < NUM(msg_flags);  n++) {
+            int f = msg_flags[n].flag;
             if ((f != 0) && ((msgFlags & f) == f))
-                TARRAY_ADD(ta, *(recv_flags[n].name));
+                TARRAY_ADD(ta, *(msg_flags[n].name));
         }
 
         SSDBG( descP,
