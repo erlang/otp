@@ -328,7 +328,8 @@ listen(Name) ->
     gen_listen(Name, ?DRIVER).
 
 gen_listen(Name, Driver) ->
-    case inet_tcp_dist:gen_listen(Driver, Name) of
+    {ok, Host} = inet:gethostname(),
+    case inet_tcp_dist:gen_listen(Driver, Name, Host) of
         {ok, {Socket, Address, Creation}} ->
             inet:setopts(Socket, socket_options()),
             {ok,

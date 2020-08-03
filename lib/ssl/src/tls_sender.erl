@@ -619,7 +619,15 @@ call(FsmPid, Event) ->
 
 %%-------------- Erlang distribution helpers ------------------------------
 
+%% To avoid livelock, dist_data/2 will check for more bytes coming from
+%%  distribution channel, if amount of already collected bytes greater
+%%  or equal than the limit defined below.
+-define(TLS_BUNDLE_SOFT_LIMIT, 16 * 1024 * 1024).
+
 dist_data(DHandle) ->
+    dist_data(DHandle, 0).
+
+dist_data(DHandle, CurBytes) ->
     case erlang:dist_ctrl_get_data(DHandle) of
         none ->
             erlang:dist_ctrl_get_data_notification(DHandle),
@@ -628,11 +636,14 @@ dist_data(DHandle) ->
         %% since the emulator will always deliver a Data
         %% smaller than 4 GB, and the distribution will
         %% therefore always have to use {packet,4}
-        {Len, Data} ->
+        {Len, Data} when Len + CurBytes >= ?TLS_BUNDLE_SOFT_LIMIT ->
             %% Data is of type iovec(); lets keep it
             %% as an iovec()...
+            erlang:dist_ctrl_get_data_notification(DHandle),
+            [<<Len:32>> | Data];
+        {Len, Data} ->
             Packet = [<<Len:32>> | Data],
-            case dist_data(DHandle) of
+            case dist_data(DHandle, CurBytes + Len) of
                 [] -> Packet;
                 More -> Packet ++ More
             end
