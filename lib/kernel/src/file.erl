@@ -1329,14 +1329,23 @@ sendfile(Filename, Sock)  ->
 %% Internal sendfile functions
 sendfile(#file_descriptor{ module = Mod } = Fd, Sock, Offset, Bytes,
 	 ChunkSize, Headers, Trailers, Opts)
-  when is_port(Sock) ->
-    case Mod:sendfile(Fd, Sock, Offset, Bytes, ChunkSize, Headers, Trailers,
-		      Opts) of
-	{error, enotsup} ->
-	    sendfile_fallback(Fd, Sock, Offset, Bytes, ChunkSize,
-			      Headers, Trailers);
-	Else ->
-	    Else
+  when is_integer(Offset), is_integer(Bytes) ->
+    case Sock of
+        {'$inet', _, _} ->
+            sendfile_fallback(
+              Fd, Sock, Offset, Bytes, ChunkSize,
+              Headers, Trailers);
+        _ when is_port(Sock) ->
+            case Mod:sendfile(
+                   Fd, Sock, Offset, Bytes, ChunkSize,
+                   Headers, Trailers, Opts) of
+                {error, enotsup} ->
+                    sendfile_fallback(
+                      Fd, Sock, Offset, Bytes, ChunkSize,
+                      Headers, Trailers);
+                Else ->
+                    Else
+            end
     end;
 sendfile(_,_,_,_,_,_,_,_) ->
     {error, badarg}.
@@ -1369,12 +1378,19 @@ sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize, Headers, Trailers) ->
     end.
 
 
-sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize) ->
+sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize)
+  when 0 =< Bytes ->
     {ok, CurrPos} = file:position(File, {cur, 0}),
-    {ok, _NewPos} = file:position(File, {bof, Offset}),
-    Res = sendfile_fallback_int(File, Sock, Bytes, ChunkSize, 0),
-    _ = file:position(File, {bof, CurrPos}),
-    Res.
+    case file:position(File, {bof, Offset}) of
+        {ok, _NewPos} ->
+            Res = sendfile_fallback_int(File, Sock, Bytes, ChunkSize, 0),
+            _ = file:position(File, {bof, CurrPos}),
+            Res;
+        Error ->
+            Error
+    end;
+sendfile_fallback(_, _, _, _, _) ->
+    {error, einval}.
 
 
 sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
