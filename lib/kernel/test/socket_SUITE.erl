@@ -25199,7 +25199,7 @@ reg_s_optional_open_and_close_and_count() ->
         Invalid1 -> 
             exit({wrong_number_of_sockets1, Invalid1, Base + 1})
     end,
-    i("close the socket and ensure its not counted"),
+    i("close the socket and ensure its counted (back to base)"),
     ok = socket:close(S1),
     case socket:number_of() of
         Base ->
@@ -25247,7 +25247,7 @@ reg_s_optional_open_and_close_and_count() ->
     end,
 
     i("create a socket with use_registry explicitly on "
-      "and ensure its not counted"),
+      "and ensure its counted"),
     {ok, S4} = socket:open(inet, dgram, udp, #{use_registry => true}),
     case socket:number_of() of
         Base1 ->
@@ -25255,7 +25255,7 @@ reg_s_optional_open_and_close_and_count() ->
         Invalid7 -> 
             exit({wrong_number_of_sockets7, Invalid7, Base + 1})
     end,
-    i("close the socket and ensure its counted"),
+    i("close the socket and ensure counted (back to base)"),
     ok = socket:close(S4),
     case socket:number_of() of
         Base ->
