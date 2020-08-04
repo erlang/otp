@@ -150,6 +150,9 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(gethostnative_debug_level, Config) ->
     ?TT(?MINS(2)),
     Config;
+init_per_testcase(gethostnative_soft_restart, Config) ->
+    ?TT(?MINS(2)),
+    Config;
 init_per_testcase(lookup_bad_search_option, Config) ->
     Db = inet_db,
     Key = res_lookup,
@@ -1140,11 +1143,13 @@ gethostnative_adjusted_opts3(
     Adjust = fun(X) ->
                      if
                          F > 10 ->
-                             X div 3;
+                             X div 4;
                          F > 5 ->
-                             X div 2;
+                             X div 3;
+                         F > 2 -> 
+                             (2 * X) div 3;
                          true ->
-                             (2 * X) div 3
+                             X
                      end
              end,
     Opts#gethostnative_control{lookup_count     = Adjust(Cnt),
