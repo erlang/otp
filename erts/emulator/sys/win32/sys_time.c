@@ -161,7 +161,7 @@ os_monotonic_time_qpc(void)
         temp = (ErtsMonotonicTime) pc.QuadPart;
     } while(!(temp & SKIP));
 
-    return temp & (0xFFFFFFFFFFFFFFFF-SKIP);
+    return temp & (ERTS_I64_LITERAL(0xFFFFFFFFFFFFFFFF)-SKIP);
 }
 
 static void
