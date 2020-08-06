@@ -398,22 +398,31 @@ extension(Name) when is_binary(Name) ->
 	[] ->
 	    <<>>;
 	List ->
-	    {Pos,_} = lists:last(List),
-	    <<_:Pos/binary,Part/binary>> = Name,
-	    case binary:match(Part,[<<"/">>|SList]) of
-		nomatch ->
-		    Part;
-		_ ->
-		    <<>>
+	    case lists:last(List) of
+		{0,_} ->
+		    <<>>;
+		{Pos, _} ->
+		    <<_:(Pos-1)/binary,Part/binary>> = Name,
+		    case binary:match(Part,[<<"/">>|SList]) of
+			nomatch ->
+			    <<_:Pos/binary,Result/binary>> = Name,
+			    Result;
+			_ ->
+			    <<>>
+		    end
 	    end
     end;
 
 extension(Name0) ->
     Name = flatten(Name0),
-    extension(Name, [], major_os_type()).
+    extension([$/ | Name], [], major_os_type()).
 
 extension([$.|Rest]=Result, _Result, OsType) ->
     extension(Rest, Result, OsType);
+extension([$/,$.|Rest], _Result, OsType) ->
+    extension(Rest, [], OsType);
+extension([$\\,$.|Rest], _Result, win32) ->
+    extension(Rest, [], win32);
 extension([Char|Rest], [], OsType) when is_integer(Char) ->
     extension(Rest, [], OsType);
 extension([$/|Rest], _Result, OsType) ->
@@ -634,8 +643,8 @@ rootname([$/|Rest], Root, Ext, OsType) ->
     rootname(Rest, [$/]++Ext++Root, [], OsType);
 rootname([$\\|Rest], Root, Ext, win32) ->
     rootname(Rest, [$/]++Ext++Root, [], win32);
-rootname([$.|Rest], Root, [], OsType) ->
-    rootname(Rest, Root, ".", OsType);
+rootname([$.|Rest], [$/|_]=Root, [], OsType) ->
+    rootname(Rest, [$.|Root], [], OsType);
 rootname([$.|Rest], Root, Ext, OsType) ->
     rootname(Rest, Ext++Root, ".", OsType);
 rootname([Char|Rest], Root, [], OsType) when is_integer(Char) ->
@@ -664,14 +673,18 @@ rootname(Name, Ext) when is_binary(Ext) ->
 rootname(Name0, Ext0) ->
     Name = flatten(Name0),
     Ext = flatten(Ext0),
-    rootname2(Name, Ext, []).
+    rootname2(Name, Ext, [], major_os_type()).
 
-rootname2(Ext, Ext, Result) ->
+rootname2(Ext, Ext, [$/|_]=Result, _OsType) ->
+    lists:reverse(Result, Ext);
+rootname2(Ext, Ext, [$\\|_]=Result, win32) ->
+    lists:reverse(Result, Ext);
+rootname2(Ext, Ext, Result, _OsType) ->
     lists:reverse(Result);
-rootname2([], _Ext, Result) ->
+rootname2([], _Ext, Result, _OsType) ->
     lists:reverse(Result);
-rootname2([Char|Rest], Ext, Result) when is_integer(Char) ->
-    rootname2(Rest, Ext, [Char|Result]).
+rootname2([Char|Rest], Ext, Result, OsType) when is_integer(Char) ->
+    rootname2(Rest, Ext, [Char|Result], OsType).
 
 %% Returns a list whose elements are the path components in the filename.
 %%
