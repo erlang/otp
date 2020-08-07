@@ -1019,10 +1019,13 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     dump_atoms(to, to_arg);
 
     erts_cbprintf(to, to_arg, "=end\n");
+
     if (fp) {
         fclose(fp);
+    } else {
+        close(fd);
     }
-    close(fd);
+
     erts_fprintf(stderr,"done\n");
 }
 
