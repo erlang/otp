@@ -56,7 +56,7 @@
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
          wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1,
-         otp_12242/1, delay_send_error/1]).
+         otp_12242/1, delay_send_error/1, bidirectional_traffic/1]).
 
 %% Internal exports.
 -export([sender/4,
@@ -142,8 +142,7 @@ all_cases() ->
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
      wrapping_oct,
      zombie_sockets, otp_7816, otp_8102, otp_9389,
-     otp_12242, delay_send_error
-    ].
+     otp_12242, delay_send_error, bidirectional_traffic].
 
 
 init_per_suite(Config0) ->
@@ -4985,3 +4984,68 @@ accept_failed_str(Reason) ->
 port_failed_str(Reason) ->
     ?F("Port failed: ~w", [Reason]).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+-define(ACTIVE_N, 20).
+
+%% 30-second test for gen_tcp in {active, N} mode, ensuring it does not get stuck.
+%% Verifies that erl_check_io properly handles extra EPOLLIN signals.
+bidirectional_traffic(Config) when is_list(Config) ->
+    Workers = erlang:system_info(schedulers_online) * 2,
+    Payload = crypto:strong_rand_bytes(32),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
+    %% get all sockets to know failing ends
+    {ok, Port} = inet:port(LSock),
+    Control = self(),
+    Receivers = [spawn_link(fun () -> exchange(LSock, Port, Payload, Control) end) || _ <- lists:seq(1, Workers)],
+    Result =
+        receive
+            {timeout, Socket, Total} ->
+                {fail, {timeout, Socket, Total}};
+            {error, Socket, Reason} ->
+                {fail, {error, Socket, Reason}}
+        after 30000 ->
+            %% if it does not fail in 30 seconds, it most likely works
+            ok
+        end,
+    [begin unlink(Rec), exit(Rec, kill) end || Rec <- Receivers],
+    Result.
+
+exchange(LSock, Port, Payload, Control) ->
+    %% spin up client
+    _ClntRcv = spawn(
+        fun () ->
+            {ok, Client} = gen_tcp:connect("localhost", Port, [binary, {packet, 0}, {active, ?ACTIVE_N}]),
+            send_recv_loop(Client, Payload, Control)
+        end),
+    {ok, Socket} = gen_tcp:accept(LSock),
+    %% sending process
+    send_recv_loop(Socket, Payload, Control).
+
+send_recv_loop(Socket, Payload, Control) ->
+    %% {active, N} must be set to active > 12 to trigger the issue
+    %% {active, 30} seems to trigger it quite often & reliably
+    inet:setopts(Socket, [{active, ?ACTIVE_N}]),
+    _Snd = spawn_link(
+        fun Sender() ->
+            _ = gen_tcp:send(Socket, Payload),
+            Sender()
+        end),
+    recv(Socket, 0, Control).
+
+recv(Socket, Total, Control) ->
+    receive
+        {tcp, Socket, Data} ->
+            recv(Socket, Total + byte_size(Data), Control);
+        {tcp_passive, Socket} ->
+            inet:setopts(Socket, [{active, ?ACTIVE_N}]),
+            recv(Socket, Total, Control);
+        {tcp_closed, Socket} ->
+            ok;
+        Other->
+            Control ! {error, Socket, Other}
+    after 2000 ->
+        %% no data received in 2 seconds, test failed
+        Control ! {timeout, Socket, Total}
+    end.
