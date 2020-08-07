@@ -1029,7 +1029,7 @@ Transport: TLS
       </item>
       <tag><c>http_version</c></tag>
       <item><p>The <c>HTTP</c> version of the
-       request, that is, "HTTP/0.9", "HTTP/1.0", or "HTTP/1.1".</p>
+       request, that is, "HTTP/1.0", or "HTTP/1.1".</p>
       </item>
       <tag><c>request_line</c></tag>
       <item><p>The <c>Request-Line</c> as
