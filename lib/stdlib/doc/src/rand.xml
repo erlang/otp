@@ -351,6 +351,35 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
   <funcs>
     <func>
+      <name name="bytes" arity="1" since="OTP @OTP-14646@"/>
+      <fsummary>Return a random binary.</fsummary>
+      <desc><marker id="bytes-1"/>
+      <p>
+        Returns, for a specified integer <c><anno>N</anno> >= 0</c>,
+        a <c>binary()</c> with that number of random bytes.
+        Generates as many random numbers as required using
+        the selected algorithm to compose the binary,
+        and updates the state in the process dictionary accordingly.
+      </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bytes_s" arity="2" since="OTP @OTP-14646@"/>
+      <fsummary>Return a random binary.</fsummary>
+      <desc><marker id="bytes-1"/>
+      <p>
+        Returns, for a specified integer <c><anno>N</anno> >= 0</c>
+        and a state, a <c>binary()</c> with that number of random bytes,
+        and a new state.
+        Generates as many random numbers as required using
+        the selected algorithm to compose the binary,
+        and the new state.
+      </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="export_seed" arity="0" since="OTP 18.0"/>
       <fsummary>Export the random number generation state.</fsummary>
       <desc><marker id="export_seed-0"/>

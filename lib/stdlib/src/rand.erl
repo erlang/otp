@@ -31,6 +31,7 @@
 	 export_seed/0, export_seed_s/1,
          uniform/0, uniform/1, uniform_s/1, uniform_s/2,
          uniform_real/0, uniform_real_s/1,
+         bytes/1, bytes_s/2,
          jump/0, jump/1,
          normal/0, normal/2, normal_s/1, normal_s/3
 	]).
@@ -538,6 +539,62 @@ uniform_real_s(#{bits:=Bits} = AlgHandler, Next, M0, BitNo, R0) ->
 uniform_real_s(#{max:=_} = AlgHandler, Next, M0, BitNo, R0) ->
     {V1, R1} = Next(R0),
     uniform_real_s(AlgHandler, Next, M0, BitNo, R1, ?MASK(56, V1), 56).
+
+
+%% bytes/1: given a number N,
+%% returns a random binary with N bytes
+
+-spec bytes(N :: non_neg_integer()) -> Bytes :: binary().
+bytes(N) ->
+    {Bytes, State} = bytes_s(N, seed_get()),
+    _ = seed_put(State),
+    Bytes.
+
+
+%% bytes_s/2: given a number N and a state,
+%% returns a random binary with N bytes and a new state
+
+-spec bytes_s(N :: non_neg_integer(), State :: state()) ->
+                     {Bytes :: binary(), NewState :: state()}.
+bytes_s(N, {#{bits:=Bits, next:=Next} = AlgHandler, R})
+  when is_integer(N), 0 =< N ->
+    WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
+    bytes_r(N, AlgHandler, Next, R, Bits, WeakLowBits);
+bytes_s(N, {#{max:=Mask, next:=Next} = AlgHandler, R})
+  when is_integer(N), 0 =< N, ?MASK(58) =< Mask ->
+    %% Old spec - assume 58 bits and 2 weak low bits
+    %% giving 56 bits i.e precisely 7 bytes per generated number
+    Bits = 58,
+    WeakLowBits = 2,
+    bytes_r(N, AlgHandler, Next, R, Bits, WeakLowBits).
+
+%% N:           Number of bytes to generate
+%% Bits:        Number of bits in the generated word
+%% WeakLowBits: Number of low bits in the generated word
+%%              to waste due to poor quality
+bytes_r(N, AlgHandler, Next, R, Bits, WeakLowBits) ->
+    %% We use whole bytes from each generator word,
+    %% GoodBytes: that number of bytes
+    GoodBytes = (Bits - WeakLowBits) bsr 3,
+    GoodBits = GoodBytes bsl 3,
+    %% Shift: how many bits of each generator word to waste
+    %% by shifting right - we use the bits from the big end
+    Shift = Bits - GoodBits,
+    bytes_r(N, AlgHandler, Next, R, <<>>, GoodBytes, GoodBits, Shift).
+%%
+bytes_r(N0, AlgHandler, Next, R0, Bytes0, GoodBytes, GoodBits, Shift)
+  when GoodBytes < N0 ->
+    {V, R1} = Next(R0),
+    Bytes1 = <<Bytes0/binary, (V bsr Shift):GoodBits>>,
+    N1 = N0 - GoodBytes,
+    bytes_r(N1, AlgHandler, Next, R1, Bytes1, GoodBytes, GoodBits, Shift);
+bytes_r(N, AlgHandler, Next, R0, Bytes, _GoodBytes, GoodBits, _Shift) ->
+    {V, R1} = Next(R0),
+    Bits = N bsl 3,
+    %% Use the big end bits
+    Shift = GoodBits - Bits,
+    {<<Bytes/binary, (V bsr Shift):Bits>>, {AlgHandler, R1}}.
+
 
 %% jump/1: given a state, jump/1
 %% returns a new state which is equivalent to that
