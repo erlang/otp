@@ -1241,6 +1241,12 @@ control_loop([Op|Ops], Interval, Tag, Lookupers, Seq) ->
 control_loop_1(Op, Interval, Tag, Lookupers) ->
     ?P("ctrl-loop-1: await lookuper exit"),
     receive
+        {'EXIT', _Pid, {timetrap_timeout, _, _}} ->
+            ?P("ctrl-loop-1: "
+               "timetrap timeout while ~w lookupers remaining",
+               [length(Lookupers)]),
+            exit({timetrap, {Op, Tag, length(Lookupers)}});
+
 	{'EXIT', Pid, Reason} ->
 	    case Reason of
 		Tag -> % Done
