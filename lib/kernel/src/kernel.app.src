@@ -113,7 +113,6 @@
              raw_file_io_delayed,
              raw_file_io_inflate,
              raw_file_io_list,
-             raw_file_io_raw,
 	     seq_trace,
              socket,
 	     standard_error,

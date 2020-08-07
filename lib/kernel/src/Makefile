@@ -146,7 +146,6 @@ MODULES = \
 	raw_file_io_deflate \
 	raw_file_io_delayed \
 	raw_file_io_list \
-	raw_file_io_raw \
 	wrap_log_reader
 
 HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \
