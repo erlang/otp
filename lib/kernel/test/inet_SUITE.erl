@@ -433,18 +433,21 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
     end,
     ok.
 
-host_and_addr() ->
-    [{timetrap,{minutes,5}}|required(hosts)].
 
 %% Test looking up hosts and addresses. Use 'ypcat hosts'
 %% or the local eqivalent to find all hosts.
+
+host_and_addr() ->
+    ?P("host_and_addr -> entry"),
+    [{timetrap,{minutes,5}}|required(hosts)].
+
 host_and_addr(Config) when is_list(Config) ->
     lists:foreach(fun try_host/1, get_hosts(Config)),
     ok.
 
 try_host({Ip0, Host}) ->
-    {ok,Ip} = inet:getaddr(Ip0, inet),
-    {ok,{hostent, _, _, inet, _, Ips1}} = inet:gethostbyaddr(Ip),
+    {ok, Ip}                             = inet:getaddr(Ip0, inet),
+    {ok,{hostent, _, _, inet, _, Ips1}}  = inet:gethostbyaddr(Ip),
     {ok,{hostent, _, _, inet, _, _Ips2}} = inet:gethostbyname(Host),
     true = lists:member(Ip, Ips1),
     ok.
@@ -1185,10 +1188,10 @@ gethostnative_control_1(
     {ok, Hostname} = inet:gethostname(),
     {ok, _}        = inet:gethostbyname(Hostname),
     Hosts          =
-	[Hostname|[H || {_,H} <- get_hosts(Config)]
-	 ++[H++D || H <- ["www.","www1.","www2.",""],
-		    D <- ["erlang.org","erlang.se"]]
-	 ++[H++"cslab.ericsson.net" || H <- ["morgoth.","hades.","styx."]]],
+        [Hostname|[H || {_,H} <- get_hosts(Config)]
+         ++[H++D || H <- ["www.","www1.","www2.",""],
+        	    D <- ["erlang.org","erlang.se"]]
+         ++[H++"cslab.ericsson.net" || H <- ["morgoth.","hades.","styx."]]],
     ?P("ctrl-1: Hosts: "
        "~n   ~p", [Hosts]),
     %% Spawn some processes to do parallel lookups while
@@ -1241,6 +1244,20 @@ control_loop([Op|Ops], Interval, Tag, Lookupers, Seq) ->
 control_loop_1(Op, Interval, Tag, Lookupers) ->
     ?P("ctrl-loop-1: await lookuper exit"),
     receive
+        {'EXIT', _Pid, {timetrap_timeout, _, _}} ->
+            ?P("ctrl-loop-1: "
+               "timetrap timeout while ~w lookupers remaining: "
+               "~n   Op:       ~p"
+               "~n   Interval: ~p"
+               "~n   Tag:      ~p",
+               [length(Lookupers), Op, Interval, Tag]),
+            if
+                (Op =/= undefined) ->
+                    exit({timetrap, {Op, Tag, length(Lookupers)}});
+                true ->
+                    exit({timetrap, {Tag, length(Lookupers)}})
+            end;
+
 	{'EXIT', Pid, Reason} ->
 	    case Reason of
 		Tag -> % Done
@@ -1255,6 +1272,7 @@ control_loop_1(Op, Interval, Tag, Lookupers) ->
                        "~n   ~p", [Pid, Reason]),
 		    ct:fail(?F("Unexpected exit from ~p", [Pid]))
 	    end
+
     after Interval ->
             ?P("ctrl-loop-1: "
                "timeout => (maybe) attempt control ~p when"
@@ -1268,10 +1286,10 @@ control_loop_1(Op, Interval, Tag, Lookupers) ->
     end.
 
 lookup_loop(_, _Delay, Tag, _Parent,  0, _Hosts) ->
-    ?P("lookup-loop: done with ~p", [tag]),
+    ?P("lookup-loop: done with ~p", [Tag]),
     exit(Tag);
 lookup_loop([], Delay, Tag, Parent, Cnt, Hosts) ->
-    ?P("lookup-loop: begin lookup (~p) again when ~p", [Tag, Cnt]),
+    ?P("lookup-loop: begin lookup (~p) again when count = ~p", [Tag, Cnt]),
     lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts);
 lookup_loop([H|Hs], Delay, Tag, Parent, Cnt, Hosts) ->
     ?P("lookup-loop: try lookup (~p, ~p) ~p", [Tag, Cnt, H]),
