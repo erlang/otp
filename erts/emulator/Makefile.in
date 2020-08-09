@@ -1127,7 +1127,6 @@ OS_OBJS = \
 	$(OBJDIR)/win_con.o \
 	$(OBJDIR)/dll_sys.o \
 	$(OBJDIR)/driver_tab.o \
-	$(OBJDIR)/gzio.o \
 	$(OBJDIR)/sys_float.o \
 	$(OBJDIR)/sys_time.o \
 	$(OBJDIR)/sys_interrupt.o \
@@ -1143,7 +1142,6 @@ OS_OBJS = \
 	$(OBJDIR)/sys_uds.o \
 	$(OBJDIR)/driver_tab.o \
 	$(OBJDIR)/elib_memmove.o \
-	$(OBJDIR)/gzio.o \
 	$(OBJDIR)/unix_prim_file.o \
 	$(OBJDIR)/sys_float.o \
 	$(OBJDIR)/sys_time.o \

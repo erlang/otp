@@ -25,7 +25,7 @@
 	 %% init/1, fini/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([open_modes/1, pread_pwrite/1, position/1,
-	 truncate/1, sync/1, get_file_and_size/1, compress/1,
+	 truncate/1, sync/1, get_file_and_size/1,
 	 large_file_errors/1, large_file_light/1,
 	 large_file_heavy/0, large_file_heavy/1]).
 
@@ -43,7 +43,7 @@ suite() ->
 
 all() -> 
     [open_modes, pread_pwrite, position,
-     truncate, sync, get_file_and_size, compress,
+     truncate, sync, get_file_and_size,
      large_file_errors, large_file_light, large_file_heavy].
 
 groups() -> 
@@ -343,69 +343,6 @@ get_file_and_size_test(Data, Options) ->
     {error, einval} = ?RAM_FILE_MODULE:get_size(Fd),
     ok.
 
-
-
-%% Test that compress/1 and uncompress/1 works.
-compress(Config) when is_list(Config) ->
-    Data   = proplists:get_value(data_dir, Config),
-    Real   = filename:join(Data, "realmen.html"),
-    RealGz = filename:join(Data, "realmen.html.gz"),
-    %%
-    %% Uncompress test
-    %%
-    {ok, FdReal}   = ?FILE_MODULE:open(Real, []),
-    {ok, Fd}       = ?FILE_MODULE:open([], [ram, read, write]),
-    {ok, FdRealGz} = ?FILE_MODULE:open(RealGz, []),
-    %%
-    {ok, SzGz}     = ?FILE_MODULE:copy(FdRealGz, Fd),
-    {ok, Sz}       = ?RAM_FILE_MODULE:uncompress(Fd),
-    {ok, 0}        = ?FILE_MODULE:position(Fd, bof),
-    true           = compare(FdReal, Fd),
-    %%
-    true           = (SzGz =< Sz),
-    %%
-    %% Compress and uncompress test
-    %%
-    {ok, 0}        = ?FILE_MODULE:position(FdReal, bof),
-    {ok, 0}        = ?FILE_MODULE:position(Fd, bof),
-    ok             = ?FILE_MODULE:truncate(Fd),
-    {ok, Sz}       = ?FILE_MODULE:copy(FdReal, Fd),
-    {ok, SzGz}     = ?RAM_FILE_MODULE:compress(Fd),
-    {ok, Sz}       = ?RAM_FILE_MODULE:uncompress(Fd),
-    {ok, 0}        = ?FILE_MODULE:position(Fd, bof),
-    {ok, 0}        = ?FILE_MODULE:position(FdReal, bof),
-    true           = compare(FdReal, Fd),
-    %%
-    ok             = ?FILE_MODULE:close(FdReal),
-    ok             = ?FILE_MODULE:close(Fd),
-    ok             = ?FILE_MODULE:close(FdRealGz),
-
-
-    %% Test uncompressing data that will be expanded many times.
-    Huge = iolist_to_binary(mk_42(18)),
-    HugeSize = byte_size(Huge),
-    HugeGz = zlib:gzip(Huge),
-
-    {ok,HugeFd} = ?FILE_MODULE:open([], [ram,read,write,binary]),
-    ok = ?FILE_MODULE:write(HugeFd, HugeGz),
-    {ok,HugeSize} = ?RAM_FILE_MODULE:uncompress(HugeFd),
-    {ok,0} = ?FILE_MODULE:position(HugeFd, bof),
-    {ok,Huge} = ?FILE_MODULE:read(HugeFd, HugeSize),
-
-    %% Uncompressing again should do nothing.
-    {ok,HugeSize} = ?RAM_FILE_MODULE:uncompress(HugeFd),
-    {ok,0} = ?FILE_MODULE:position(HugeFd, bof),
-    {ok,Huge} = ?FILE_MODULE:read(HugeFd, HugeSize),
-
-    ok = ?FILE_MODULE:close(HugeFd),
-
-    ok.
-
-mk_42(0) ->
-    [42];
-mk_42(N) ->
-    B = mk_42(N-1),
-    [B|B].
 
 
 %% Test error checking of large file offsets.

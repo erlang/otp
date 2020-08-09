@@ -28,7 +28,7 @@
 	 position/2, truncate/1, datasync/1, sync/1]).
 
 %% Specialized file operations
--export([get_size/1, get_file/1, compress/1, uncompress/1, advise/4]).
+-export([get_size/1, get_file/1, advise/4]).
 -export([allocate/3]).
 -export([ipread_s32bu_p32bu/3]).
 
@@ -305,16 +305,6 @@ get_file(#file_descriptor{}) ->
 get_size(#file_descriptor{module = ?MODULE, data = Port}) ->
     call_port(Port, [?RAM_FILE_SIZE]);
 get_size(#file_descriptor{}) ->
-    {error, enotsup}.
-
-compress(#file_descriptor{module = ?MODULE, data = Port}) ->
-    call_port(Port, [?RAM_FILE_COMPRESS]);
-compress(#file_descriptor{}) ->
-    {error, enotsup}.
-
-uncompress(#file_descriptor{module = ?MODULE, data = Port}) ->
-    call_port(Port, [?RAM_FILE_UNCOMPRESS]);
-uncompress(#file_descriptor{}) ->
     {error, enotsup}.
 
 advise(#file_descriptor{module = ?MODULE, data = Port}, Offset,
