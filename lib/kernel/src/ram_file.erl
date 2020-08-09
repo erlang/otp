@@ -29,7 +29,7 @@
 
 %% Specialized file operations
 -export([get_size/1, get_file/1, set_file/2, get_file_close/1]).
--export([compress/1, uncompress/1, uuencode/1, uudecode/1, advise/4]).
+-export([uuencode/1, uudecode/1, advise/4]).
 -export([allocate/3]).
 
 -export([open_mode/1]).  %% used by ftp-file
@@ -342,17 +342,6 @@ get_size(#file_descriptor{module = ?MODULE, data = Port}) ->
     call_port(Port, [?RAM_FILE_SIZE]);
 get_size(#file_descriptor{}) ->
     {error, enotsup}.
-
-compress(#file_descriptor{module = ?MODULE, data = Port}) ->
-    call_port(Port, [?RAM_FILE_COMPRESS]);
-compress(#file_descriptor{}) ->
-    {error, enotsup}.
-
-uncompress(#file_descriptor{module = ?MODULE, data = Port}) ->
-    call_port(Port, [?RAM_FILE_UNCOMPRESS]);
-uncompress(#file_descriptor{}) ->
-    {error, enotsup}.
-
 
 uuencode(#file_descriptor{module = ?MODULE, data = Port}) ->
     call_port(Port, [?RAM_FILE_UUENCODE]);
