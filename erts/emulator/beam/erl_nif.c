@@ -2706,9 +2706,10 @@ void erts_fire_nif_monitor(ErtsMonitor *tmon)
     erts_mtx_unlock(&rmp->lock);
 
     if (!active) {
-        ASSERT(!is_dying || erts_refc_read(&bin->binary.intern.refc, 0) == 0);
-        if (is_dying && mrefc == 0)
+        if (is_dying && mrefc == 0) {
+            ASSERT(erts_refc_read(&bin->binary.intern.refc, 0) == 0);
             erts_bin_free(&bin->binary);
+        }
         erts_monitor_release(tmon);
     }
     else {
