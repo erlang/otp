@@ -93,7 +93,7 @@ init([Notebook, Parent, _Config]) ->
     DrawingArea = wxScrolledWindow:new(P2, [{winid, ?DRAWAREA},
 					    {style,?wxFULL_REPAINT_ON_RESIZE}]),
     BG = wxWindow:getBackgroundColour(Apps),
-    wxWindow:setBackgroundStyle(DrawingArea, ?wxBG_STYLE_SYSTEM),
+    wxWindow:setBackgroundStyle(DrawingArea, ?wxBG_STYLE_PAINT),
     wxWindow:setVirtualSize(DrawingArea, 800, 800),
     wxSplitterWindow:setMinimumPaneSize(Splitter,50),
     wxSizer:add(Extra, DrawingArea, [{flag, ?wxEXPAND},{proportion, 1}]),

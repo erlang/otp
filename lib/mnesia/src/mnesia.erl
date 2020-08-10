@@ -788,7 +788,8 @@ do_delete_object(Tid, Ts, Tab, Val, LockKind) ->
 		      ?ets_match_delete(Store, {Oid, Val, '_'}),
 		      ?ets_insert(Store, {Oid, Val, delete_object});
 		  _ ->
-		      case ?ets_match_object(Store, {Oid, '_', write}) of
+		      case ?ets_match_object(Store, {Oid, '_', write}) ++
+                          ?ets_match_object(Store, {Oid, '_', delete}) of
 			      [] ->
 			          ?ets_match_delete(Store, {Oid, Val, '_'}),
 			          ?ets_insert(Store, {Oid, Val, delete_object});
@@ -1221,18 +1222,27 @@ add_written(Written, Tab, ObjsFun, LockKind) ->
 	    add_written_to_bag(Written, ObjsFun(), []);
         _ when LockKind == read;
                LockKind == write ->
-	    add_written_to_set(Written);
+	    add_written_to_set(Written, ObjsFun);
 	_   ->
-            _ = ObjsFun(),  % Fall back to request new lock and read from source
-	    add_written_to_set(Written)
+            %% Fall back to request new lock and read from source
+	    add_written_to_set(Written, ObjsFun())
     end.
 
-add_written_to_set(Ws) ->
+add_written_to_set(Ws, ObjsOrFun) ->
     case lists:last(Ws) of
 	{_, _, delete} -> [];
 	{_, Val, write} -> [Val];
-	{_, _, delete_object} -> []
+	{Oid, _, delete_object} ->
+            %% May be several 'delete_object' in Ws; need to check if any
+            %% deleted Val exists in source table; if not return whatever
+            %% is/is not in the source table (ie as the Val is only deleted
+            %% if matched at commit this needs to be reflected here)
+            [Val || Val <- get_objs(ObjsOrFun),
+                    not lists:member({Oid, Val, delete_object}, Ws)]
     end.
+
+get_objs(ObjsFun) when is_function(ObjsFun) -> ObjsFun();
+get_objs(Objs) when is_list(Objs)           -> Objs.
 
 add_written_to_bag([{_, Val, write} | Tail], Objs, Ack) ->
     add_written_to_bag(Tail, lists:delete(Val, Objs), [Val | Ack]);
