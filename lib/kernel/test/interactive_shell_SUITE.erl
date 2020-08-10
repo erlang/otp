@@ -24,7 +24,8 @@
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
 	 job_control_remote/1,stop_during_init/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
-         get_columns_and_rows_escript/1]).
+         get_columns_and_rows_escript/1,
+         remsh/1, remsh_longnames/1, remsh_no_epmd/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% For spawn
@@ -44,7 +45,8 @@ all() ->
     [get_columns_and_rows_escript,get_columns_and_rows,
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
-     ctrl_keys, stop_during_init].
+     ctrl_keys, stop_during_init,
+     remsh, remsh_longnames, remsh_no_epmd].
 
 groups() -> 
     [].
@@ -397,10 +399,110 @@ wordRight(Chars) ->
     [{putline,"world"++Home++"\"hello "++Chars++"\"."},
      {getline,"\"hello world\""}].
 
+%% Test that -remsh works
+remsh(Config) when is_list(Config) ->
+    case proplists:get_value(default_shell,Config) of
+        old -> {skip,"Not supported in old shell"};
+        new ->
+            NodeStr = lists:flatten(io_lib:format("~p",[node()])),
+            [_Name,Host] = string:split(atom_to_list(node()),"@"),
+            Cmds = [{kill_emulator_command,sigint},
+                    {putline,""},
+                    {putline,"node()."},
+                    {getline,NodeStr}],
+
+            %% Test that remsh works with explicit -sname
+            rtnode(Cmds ++ [{putline,"nodes()."},
+                            {getline,"['Remshtest@"++Host++"']"}], [],
+                   [], " -sname Remshtest -remsh " ++ NodeStr),
+
+            %% Test that remsh works without -sname
+            rtnode(Cmds, [], [], " -remsh " ++ NodeStr)
+
+
+    end.
+
+%% Test that -remsh works with long names
+remsh_longnames(Config) when is_list(Config) ->
+
+    case proplists:get_value(default_shell,Config) of
+        old -> {skip,"Not supported in old shell"};
+        new ->
+            %% If we cannot resolve the domain, we need to add localhost to the longname
+            Domain =
+                case inet_db:res_option(domain) of
+                    [] ->
+                        "@127.0.0.1";
+                    _ -> ""
+                end,
+            case rtstart(" -name " ++ atom_to_list(?FUNCTION_NAME)++Domain) of
+                {ok, _SRPid, _STPid, SState} ->
+                    {ok, _CRPid, CTPid, CState} =
+                        rtstart("-name undefined" ++ Domain ++
+                                    " -remsh " ++ atom_to_list(?FUNCTION_NAME)),
+                    try
+                        ok = get_and_put(
+                               CTPid,
+                               [{kill_emulator_command,sigint},
+                                {putline,""},
+                                {putline,"node()."},
+                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
+                    after
+                        rtstop(CState), %% Stop client before server
+                        rtstop(SState)
+                    end;
+                Else ->
+                    Else
+            end
+    end.
+
+%% Test that -remsh works without epmd
+remsh_no_epmd(Config) when is_list(Config) ->
+
+    case proplists:get_value(default_shell,Config) of
+        old -> {skip,"Not supported in old shell"};
+        new ->
+            EPMD_ARGS = "-start_epmd false -erl_epmd_port 12345 ",
+            case rtstart([],"ERL_EPMD_PORT=12345 ",
+                         EPMD_ARGS ++ " -sname " ++ atom_to_list(?FUNCTION_NAME)) of
+                {ok, _SRPid, _STPid, SState} ->
+                    {ok, _CRPid, CTPid, CState} =
+                        rtstart([],"ERL_EPMD_PORT=12345 ",
+                                EPMD_ARGS ++ " -remsh "++atom_to_list(?FUNCTION_NAME)),
+                    try
+                        ok = get_and_put(
+                               CTPid,
+                               [{kill_emulator_command,sigint},
+                                {putline,""},
+                                {putline,"node()."},
+                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
+                    after
+                        rtstop(CState), %% Stop client before server
+                        rtstop(SState)
+                    end;
+                Else ->
+                    Else
+            end
+    end.
 
 rtnode(C,N) ->
     rtnode(C,N,[]).
 rtnode(Commands,Nodename,ErlPrefix) ->
+    rtnode(Commands,Nodename,ErlPrefix,[]).
+rtnode(Commands,Nodename,ErlPrefix,Args) ->
+    case rtstart(Nodename,ErlPrefix,Args) of
+        {ok, _SPid, CPid, RTState} ->
+            erase(getline_skipped),
+            Res = (catch get_and_put(CPid, Commands, 1)),
+            rtstop(RTState),
+            ok = Res;
+        Skip ->
+            Skip
+    end.
+
+rtstart(Args) ->
+    rtstart([],[],Args).
+rtstart(Nodename,ErlPrefix,Args) ->
     case get_progs() of
 	{error,_Reason} ->
 	    {skip,"No runerl present"};
@@ -411,36 +513,35 @@ rtnode(Commands,Nodename,ErlPrefix) ->
 		Tempdir ->
 		    SPid =
 			start_runerl_node(RunErl,ErlPrefix++"\\\""++Erl++"\\\"",
-					  Tempdir,Nodename),
+					  Tempdir,Nodename,Args),
 		    CPid = start_toerl_server(ToErl,Tempdir),
-		    erase(getline_skipped),
-		    Res =
-			(catch get_and_put(CPid, Commands,1)),
-		    case stop_runerl_node(CPid) of
-			{error,_} ->
-			    CPid2 =
-				start_toerl_server
-				  (ToErl,Tempdir),
-			    erase(getline_skipped),
-			    ok = get_and_put
-				   (CPid2,
-				    [{putline,[7]},
-				     {sleep,
-				      timeout(short)},
-				     {putline,""},
-				     {getline," -->"},
-				     {putline,"s"},
-				     {putline,"c"},
-				     {putline,""}],1),
-			    stop_runerl_node(CPid2);
-			_ ->
-			    ok
-		    end,
-		    wait_for_runerl_server(SPid),
-		    ok = rm_rf(Tempdir),
-		    ok = Res
-	    end
+                    {ok, SPid, CPid, {CPid, SPid, ToErl, Tempdir}}
+            end
     end.
+
+rtstop({CPid, SPid, ToErl, Tempdir}) ->
+    case stop_runerl_node(CPid) of
+        {error,_} ->
+            CPid2 =
+                start_toerl_server(ToErl,Tempdir),
+            erase(getline_skipped),
+            ok = get_and_put
+                   (CPid2,
+                    [{putline,[7]},
+                     {sleep,
+                      timeout(short)},
+                     {putline,""},
+                     {getline," -->"},
+                     {putline,"s"},
+                     {putline,"c"},
+                     {putline,""}],1),
+            stop_runerl_node(CPid2);
+        _ ->
+            ok
+    end,
+    wait_for_runerl_server(SPid),
+    file:del_dir_r(Tempdir),
+    ok.
 
 timeout(long) ->
     2 * timeout(normal);
@@ -458,24 +559,6 @@ start_noshell_node(Name) ->
 stop_noshell_node(Node) ->
     test_server:stop_node(Node).
 
-
-rm_rf(Dir) ->
-    try
-	{ok,List} = file:list_dir(Dir),
-	Files = [filename:join([Dir,X]) || X <- List],
-	[case file:list_dir(Y) of
-	     {error, enotdir} ->
-		 ok = file:delete(Y);
-	     _ ->
-		 ok = rm_rf(Y)
-	 end || Y <- Files],
-	ok = file:del_dir(Dir),
-	ok
-    catch
-	_:Exception -> {error, {Exception,Dir}}
-    end.
-
-
 get_and_put(_CPid,[],_) ->
     ok;
 get_and_put(CPid, [{sleep, X}|T],N) ->
@@ -483,6 +566,13 @@ get_and_put(CPid, [{sleep, X}|T],N) ->
     receive
     after X ->
 	    get_and_put(CPid,T,N+1)
+    end;
+get_and_put(CPid, [{kill_emulator_command, Cmd}|T],N) ->
+    ?dbg({kill_emulator_command, Cmd}),
+    CPid ! {self(), {kill_emulator_command, Cmd}},
+    receive
+        {kill_emulator_command,_Res} ->
+            get_and_put(CPid,T,N)
     end;
 get_and_put(CPid, [{getline, Match}|T],N) ->
     ?dbg({getline, Match}),
@@ -662,7 +752,7 @@ create_nodename(X) ->
     end.
 
 
-start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
+start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
     XArg = case Nodename of
 	       [] ->
 		   [];
@@ -671,11 +761,13 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
 				   true -> Nodename
 				end)++
 		       " -setcookie "++atom_to_list(erlang:get_cookie())
-	   end,
+	   end ++ " " ++ Args,
     spawn(fun() -> start_runerl_command(RunErl, Tempdir, Erl++XArg) end).
 
 start_runerl_command(RunErl, Tempdir, Cmd) ->
-    os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"").
+    FullCmd = "\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"",
+    ct:pal("~s",[FullCmd]),
+    os:cmd(FullCmd).
 
 start_toerl_server(ToErl,Tempdir) ->
     Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir]),
@@ -767,8 +859,19 @@ toerl_loop(Port,Acc) ->
 	    Port ! {self(),{command, Data7++"\n"}},
 	    Pid ! {send_line, ok},
 	    toerl_loop(Port,Acc);
+        {Pid, {kill_emulator_command, Cmd}} ->
+            put(kill_emulator_command, Cmd),
+            Pid ! {kill_emulator_command, ok},
+	    toerl_loop(Port,Acc);
 	{_Pid, kill_emulator} ->
-	    Port ! {self(),{command, "init:stop().\n"}},
+            case get(kill_emulator_command) of
+                undefined ->
+                    Port ! {self(),{command, "init:stop().\n"}};
+                sigint ->
+                    Port ! {self(),{command, [3]}},
+                    timer:sleep(200),
+                    Port ! {self(),{command, "a\n"}}
+            end,
 	    Timeout1 = timeout(long),
 	    receive
 		{Port,eof} ->
@@ -818,13 +921,13 @@ get_data_within(Port, Timeout, Acc) ->
 
 get_default_shell() ->
     try
-	rtnode([{putline,""},
-		{putline, "whereis(user_drv)."},
-		{getline, "undefined"}],[]),
-	old
+        rtnode([{putline,""},
+                {putline, "whereis(user_drv)."},
+                {getline, "undefined"}],[]),
+        old
     catch _E:_R ->
-	    ?dbg({_E,_R}),
-	    new
+            ?dbg({_E,_R}),
+            new
     end.
 
 atom2list(A) ->

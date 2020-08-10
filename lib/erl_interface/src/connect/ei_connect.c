@@ -1252,6 +1252,12 @@ static int ei_connect_helper(ei_cnode* ec,
 	return ERL_ERROR;
     }
 
+    if (!ec->thisnodename[0] && epmd_says_version < EI_DIST_6) {
+        /* This is a dynamic node name. We have to use at least vsn 6
+           of the dist protocol for this to work. */
+        epmd_says_version = EI_DIST_6;
+    }
+
     err = ei_socket_ctx__(cbs, &ctx, ec->setup_context);
     if (err) {
         EI_TRACE_ERR2("ei_xconnect","-> SOCKET failed: %s (%d)",

@@ -492,8 +492,7 @@
       <item>
         <p>Starts Erlang with a remote shell connected to <c><![CDATA[Node]]></c>.</p>
         <p>If no <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c> is given
-          the node will be started using <c>-sname undefined</c>. If <c>Node</c>
-          is using long names then you should give <c>-name undefined</c>.
+          the node will be started using <c>-sname undefined</c>.
           If <c><![CDATA[Node]]></c> does not contain a hostname, one is automatically
           taken from <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c>
         </p>
