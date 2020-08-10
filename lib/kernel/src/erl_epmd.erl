@@ -95,37 +95,39 @@ port_please(Node, Host) ->
 	  Port :: non_neg_integer(),
 	  Version :: non_neg_integer().
 
-port_please(Node, HostName, Timeout) when is_atom(HostName) ->
-  port_please1(Node, atom_to_list(HostName), Timeout);
-port_please(Node, HostName, Timeout) when is_list(HostName) ->
-  port_please1(Node, HostName, Timeout);
-port_please(Node, EpmdAddr, Timeout) ->
-  get_port(Node, EpmdAddr, Timeout).
+port_please(Node, HostName, Timeout) ->
+    case listen_port_please(Node, HostName) of
+        {ok, 0} ->
+            case getepmdbyname(HostName, Timeout) of
+                {ok, EpmdAddr} ->
+                    get_port(Node, EpmdAddr, Timeout);
+                Error ->
+                    ?port_please_failure2(Error),
+                    Error
+            end;
+        {ok, Prt} ->
+            %% We don't know which dist version the other node is running
+            %% so return the low version so that we can talk to older nodes
+            {port, Prt, ?epmd_dist_low}
+    end.
 
-port_please1(Node, HostName, Timeout) ->
-  Family = case inet_db:res_option(inet6) of
-             true ->
-               inet6;
-             false ->
-               inet
-           end,
-  case inet:gethostbyname(HostName, Family, Timeout) of
-      {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
-          case get_port(Node, EpmdAddr, Timeout) of
-              noport ->
-                  case listen_port_please(Node, HostName) of
-                      {ok, 0} ->
-                          noport;
-                      {ok, Prt} ->
-                          {port, Prt, 5}
-                  end;
-               Reply ->
-                  Reply
-          end;
-      _Else ->
-          ?port_please_failure2(_Else),
-          noport
-  end.
+getepmdbyname(HostName, Timeout) when is_atom(HostName) ->
+    getepmdbyname(atom_to_list(HostName), Timeout);
+getepmdbyname(HostName, Timeout) when is_list(HostName) ->
+    Family = case inet_db:res_option(inet6) of
+                 true ->
+                     inet6;
+                 false ->
+                     inet
+             end,
+    case inet:gethostbyname(HostName, Family, Timeout) of
+        {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
+            {ok, EpmdAddr};
+        _Else ->
+            noport
+    end;
+getepmdbyname(HostName, _Timeout) ->
+    {ok, HostName}.
 
 -spec listen_port_please(Name, Host) -> {ok, Port} when
       Name :: atom(),
@@ -157,15 +159,13 @@ names() ->
       Port :: non_neg_integer(),
       Reason :: address | file:posix().
 
-names(HostName) when is_atom(HostName); is_list(HostName) ->
-  case inet:gethostbyname(HostName) of
-    {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
-      get_names(EpmdAddr);
-    Else ->
-      Else
-  end;
-names(EpmdAddr) ->
-  get_names(EpmdAddr).
+names(HostName) ->
+    case getepmdbyname(HostName, infinity) of
+        {ok,EpmdAddr} ->
+            get_names(EpmdAddr);
+        Else ->
+            Else
+    end.
 
 -spec register_node(Name, Port) -> Result when
 	  Name :: string(),
@@ -230,8 +230,15 @@ handle_call({register, Name, PortNo, Family}, _From, State) ->
 				    port_no = PortNo,
 				    name = Name},
 		    {reply, {ok, Creation}, S};
-		Error ->
-		    {reply, Error, State}
+                Error ->
+                    case init:get_argument(erl_epmd_port) of
+                        {ok, _} ->
+                            {reply, {ok, -1}, State#state{ socket = -1,
+                                                           port_no = PortNo,
+                                                           name = Name} };
+                        error ->
+                            {reply, Error, State}
+                    end
 	    end;
 	_ ->
 	    {reply, {error, already_registered}, State}
@@ -336,7 +343,7 @@ do_register_node(NodeName, TcpPort, Family) ->
                     Error
             end;
 	Error ->
-	    Error
+            Error
     end.
 
 epmd_dist_high() ->
@@ -416,9 +423,8 @@ get_port(Node, EpmdAddress, Timeout) ->
 		    ?port_please_failure2(_Error),
 		    noport
 	    end;
-	_Error -> 
-	    ?port_please_failure2(_Error),
-	    noport
+	_Error ->
+            noport
     end.
 
 
