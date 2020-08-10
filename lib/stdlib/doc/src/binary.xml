@@ -64,7 +64,7 @@
     </datatype>
     <datatype>
       <name name="part"/>
-      <desc><p>A representaion of a part (or range) in a binary. <c>Start</c> is
+      <desc><p>A representation of a part (or range) in a binary. <c>Start</c> is
         a zero-based offset into a <c>binary()</c> and <c>Length</c> is the
         length of that part. As input to functions in this module, a reverse
         part specification is allowed, constructed with a negative
