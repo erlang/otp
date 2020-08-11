@@ -103,10 +103,7 @@
       <desc>
 	<p>
 	  A lowercase <c>atom()</c> representing a protocol domain
-	  on the platform named <c>AF_*</c> (or <c>PF_*</c>),
-	  or an <c>integer()</c> defining a protocol domain
-	  as in the platform's header files.
-	  See the OS man page for the library call <c>socket(2)</c>.
+	  on the platform named <c>AF_*</c> (or <c>PF_*</c>).
 	</p>
       </desc>
     </datatype>
@@ -115,10 +112,7 @@
       <desc>
 	<p>
 	  A lowercase <c>atom()</c> representing a protocol type
-	  on the platform named <c>SOCK_*</c>,
-	  or an <c>integer()</c> defining a protocol type
-	  as in the platform's header files.
-	  See the OS man page for the library call <c>socket(2)</c>.
+	  on the platform named <c>SOCK_*</c>.
 	</p>
       </desc>
     </datatype>
@@ -129,19 +123,15 @@
 	  An <c>atom()</c> means any protocol as enumerated by the
 	  <c>C</c> library call <c>getprotoent()</c>
 	  on the platform, or at least the supported ones of
-	  <c>ip | ipv6 | tcp | udp | sctp</c>.
+	  <c>ip | ipv6 | tcp | udp | sctp</c>,
+	  and <c>default</c> which is equivalent to the
+	  integer protocol number <c>0</c>.
 	</p>
-	<p>
-	  An <c>integer()</c> means a native protocol number
-	  on the platform.  The default protocol is <c>0</c>.
-	</p>
-	<p>
-	  See the OS man page for the library call <c>socket(2)</c>.
-	</p>
+	<p>See <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa></p>
 	<p>
 	  The call
 	  <seemfa marker="#supports/2"><c>supports(protocols)</c></seemfa>
-	  returns the supported protocol atoms.
+	  returns the supported protocol atoms. (except for <c>default</c>)
 	</p>
       </desc>
     </datatype>
@@ -1443,24 +1433,44 @@
 	information for the open call:</p>
 	<taglist>
 	  <tag>
-	    <c>domain => </c><seetype marker="#domain"><c>domain()</c></seetype>
+	    <c>domain =></c>
+	    <seetype marker="#domain"><c>domain()</c></seetype>
+	    <c>| integer()</c>
 	  </tag>
 	  <item>
-	    <p>Which domain is the descriptor of. </p>
+	    <p>
+	      Which domain is the descriptor of.
+	    </p>
+	    <p>
+	      See also
+	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	    </p>
 	  </item>
 
 	  <tag>
-	    <c>type => </c><seetype marker="#type"><c>type()</c></seetype>
+	    <c>type =>
+	    </c><seetype marker="#type"><c>type()</c></seetype>
+	    <c>| integer()</c>
 	  </tag>
 	  <item>
-	    <p>Which type is the descriptor of. </p>
+	    <p>Which type is the descriptor of.</p>
+	    <p>
+	      See also
+	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	    </p>
 	  </item>
 
 	  <tag>
-	    <c>protocol => </c><seetype marker="#protocol"><c>protocol()</c></seetype>
+	    <c>protocol =>
+	    </c><seetype marker="#protocol"><c>protocol()</c></seetype>
+	    <c>| integer()</c>
 	  </tag>
 	  <item>
-	    <p>Which protocol is the descriptor of. </p>
+	    <p>Which protocol is the descriptor of.</p>
+	    <p>
+	      See also
+	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	    </p>
 	  </item>
 
 	  <tag><c>dup => boolean()</c></tag>
@@ -1503,12 +1513,21 @@
       <desc>
 	<p>Creates an endpoint (socket) for communication.</p>
 
-	<p>For some <c>types</c> there is a default protocol,
+	<p>
+	  <c><anno>Domain</anno></c> and
+	  <c><anno>Type</anno></c> may be <c>integer()</c>s,
+	  as defined in the platform's header files.
+	  The same goes for <c><anno>Protocol</anno></c>
+	  but according to the platform's <c>services(5)</c> database.
+	  See the OS man page for the library call <c>socket(2)</c>
+	</p>
+
+	<p>For some <c><anno>Type</anno></c>s there is a default protocol,
 	indicated by <c>default</c>, which it <em>may</em> be
 	possible to specify.
 	And for <c>Domain = local</c>,
 	if a protocol <em>is</em> specified,
-	it <em>must</em> be <c>default</c>. </p>
+	it <em>must</em> be <c>default</c>.</p>
 
 	<p>The <c>Opts</c> argument is intended for "other" options.
 	The supported option(s) are described below:</p>

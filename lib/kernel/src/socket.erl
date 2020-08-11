@@ -137,9 +137,10 @@
                              acc_fails     := non_neg_integer(),
                              acc_tries     := non_neg_integer(),
                              acc_waits     := non_neg_integer()}.
--type socket_info() :: #{domain        := domain(),
-                         type          := type(),
-                         protocol      := protocol(),
+
+-type socket_info() :: #{domain        := domain() | integer(),
+                         type          := type() | integer(),
+                         protocol      := protocol() | integer(),
                          ctrl          := pid(),
                          ctype         := normal | fromfd | {fromfd, integer()},
                          counters      := socket_counters(),
@@ -151,17 +152,17 @@
 
 
 %% We support only a subset of all domains.
--type domain() :: local | inet | inet6 | integer().
+-type domain() :: local | inet | inet6.
 
 %% We support only a subset of all types.
 %% RDM - Reliably Delivered Messages
--type type()   :: stream | dgram | raw | rdm | seqpacket | integer().
+-type type()   :: stream | dgram | raw | rdm | seqpacket.
 
 %% We support all protocols enumerated by getprotoent(),
 %% and all of ip | ipv6 | tcp | udp | sctp that are supported
 %% by the platform, even if not enumerated by getprotoent(),
 %% plus native protocol numbers.
--type protocol() :: atom() | integer().
+-type protocol() :: atom().
 
 -type port_number() :: 0..65535.
 
@@ -288,19 +289,19 @@
                     sockaddr_un()  |
                     sockaddr_ll().
 
-%% otp    - This option is internal to our (OTP) implementation.
+%% (otp)  - This option is internal to our (OTP) implementation.
+%% (Int)  - Raw level, sent down and used "as is".
+%%          It's up to the caller to make sure this is correct!
 %% socket - The socket layer (SOL_SOCKET).
 %% ip     - The IP layer (SOL_IP or is it IPPROTO_IP?).
 %% ipv6   - The IPv6 layer (SOL_IPV6).
 %% tcp    - The TCP (Transport Control Protocol) layer (IPPROTO_TCP).
 %% udp    - The UDP (User Datagram Protocol) layer (IPPROTO_UDP).
 %% sctp   - The SCTP (Stream Control Transmission Protocol) layer (IPPROTO_SCTP).
-%% Int    - Raw level, sent down and used "as is".
-%%          Its up to the caller to make sure this is correct!
--type sockopt_level() :: %otp |
-                         socket |
-                         ip | ipv6 | tcp | udp | sctp.% |
-                         %non_neg_integer().
+-type sockopt_level() ::
+        %% otp | % Has got own clauses in setopt/getopt
+        %% integer() % Has also got own clauses
+        socket | ip | ipv6 | tcp | udp | sctp.
 
 %% There are some options that are 'read-only'.
 %% Should those be included here or in a special list?
@@ -530,7 +531,7 @@
           %% that it is not exceeded.
           ctrl :=
               [ cmsghdr_recv() |
-                #{level := protocol(),
+                #{level := sockopt_level(),
                   type  := integer(),
                   data  := binary()}],
           flags := [ msg_flag() ]}.
@@ -543,7 +544,7 @@
           %% that it is not exceeded.
           ctrl =>
               [ cmsghdr_send() |
-                #{level := protocol(),
+                #{level := sockopt_level(),
                   type := integer(),
                   data := binary()} ]}.
 
@@ -878,9 +879,9 @@ open(FD) ->
 -spec open(FD, Opts) -> {ok, Socket} | {error, Reason} when
       FD       :: integer(),
       Opts     ::
-        #{domain       => domain(),
-          type         => type(),
-          protocol     => protocol(),
+        #{domain       => domain() | integer(),
+          type         => type() | integer(),
+          protocol     => protocol() | integer(),
           dup          => boolean(),
 	  debug        => boolean(),
 	  use_registry => boolean()},
@@ -889,8 +890,8 @@ open(FD) ->
         posix() | domain | type | protocol;
 
           (Domain, Type) -> {ok, Socket} | {error, Reason} when
-      Domain   :: domain(),
-      Type     :: type(),
+      Domain   :: domain() | integer(),
+      Type     :: type() | integer(),
       Socket   :: socket(),
       Reason   :: posix() | protocol.
 
@@ -906,15 +907,15 @@ open(Domain, Type) ->
     open(Domain, Type, 0).
 
 -spec open(Domain, Type, Opts) -> {ok, Socket} | {error, Reason} when
-      Domain   :: domain(),
-      Type     :: type(),
+      Domain   :: domain() | integer(),
+      Type     :: type() | integer(),
       Opts     :: map(),
       Socket   :: socket(),
       Reason   :: posix() | protocol;
           (Domain, Type, Protocol) -> {ok, Socket} | {error, Reason} when
-      Domain   :: domain(),
-      Type     :: type(),
-      Protocol :: protocol(),
+      Domain   :: domain() | integer(),
+      Type     :: type() | integer(),
+      Protocol :: protocol() | integer(),
       Socket   :: socket(),
       Reason   :: posix() | protocol.
 
@@ -924,9 +925,9 @@ open(Domain, Type, Protocol) ->
     open(Domain, Type, Protocol, #{}).
 
 -spec open(Domain, Type, Protocol, Opts) -> {ok, Socket} | {error, Reason} when
-      Domain   :: domain(),
-      Type     :: type(),
-      Protocol :: protocol(),
+      Domain   :: domain() | integer(),
+      Type     :: type() | integer(),
+      Protocol :: protocol() | integer(),
       Opts     ::
         #{netns        => string(),
 	  debug        => boolean(),
