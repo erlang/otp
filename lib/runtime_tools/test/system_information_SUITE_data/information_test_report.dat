@@ -9739,7 +9739,6 @@
                  {"ERL_EMULATOR_DLL",false},
                  {"ERL_FULLSWEEP_AFTER",false},
                  {"ERL_LIBS",false},
-                 {"ERL_MALLOC_LIB",false},
                  {"ERL_MAX_PORTS",false},
                  {"ERL_MAX_ETS_TABLES",false},
                  {"ERL_NO_VFORK",false},
