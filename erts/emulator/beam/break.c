@@ -563,6 +563,8 @@ dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size)
 void
 do_break(void)
 {
+    const char *helpstring = "BREAK: (a)bort (A)bort with dump (c)ontinue (p)roc info (i)nfo\n"
+        "       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n";
     int i;
 #ifdef __WIN32__
     char *mode; /* enough for storing "window" */
@@ -577,9 +579,7 @@ do_break(void)
 
     ASSERT(erts_thr_progress_is_blocking());
 
-    erts_printf("\n"
-		"BREAK: (a)bort (A)bort with dump (c)ontinue (p)roc info (i)nfo\n"
-		"       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n");
+    erts_printf("\n%s", helpstring);
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)
@@ -664,7 +664,8 @@ do_break(void)
 	case '\n':
 	    continue;
 	default:
-	    erts_printf("Eh?\n\n");
+	    erts_printf("Invalid option '%c'. Please enter one of the following:\n%s",
+                        i, helpstring);
 	}
     }
 
