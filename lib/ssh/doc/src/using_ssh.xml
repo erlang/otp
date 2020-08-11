@@ -397,7 +397,7 @@ $bash> 	</pre>
 {ok,&lt;0.92.0>}
 3> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
 {ok,0}
-4> <input>success = ssh_connection:exec(ConnectionRef, ChannelId, "1+ 2."</input>
+4> <input>success = ssh_connection:exec(ConnectionRef, ChannelId, "1+ 2.").</input>
 success
 5> <input>flush().</input>
 Shell got {ssh_cm,&lt;0.106.0>,{data,0,1,&lt;&lt;"**Error** {bad_input,\"1+ 2.\"}">>}}
