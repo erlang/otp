@@ -42,8 +42,8 @@
 #define RAM_FILE_GET           30
 #define RAM_FILE_SET           31
 #define RAM_FILE_GET_CLOSE     32  /* get_file/close */
-// #define RAM_FILE_COMPRESS      33  /* compress file */
-// #define RAM_FILE_UNCOMPRESS    34  /* uncompress file */
+#define RAM_FILE_COMPRESS      33  /* compress file */
+#define RAM_FILE_UNCOMPRESS    34  /* uncompress file */
 #define RAM_FILE_UUENCODE      35  /* uuencode file */
 #define RAM_FILE_UUDECODE      36  /* uudecode file */
 #define RAM_FILE_SIZE          37  /* get file size */
@@ -86,6 +86,8 @@
 
 #include "sys.h"
 #include "erl_driver.h"
+#include "zlib.h"
+#include "gzio.h"
 
 #ifndef NULL
 #define NULL ((void*)0)
@@ -525,6 +527,40 @@ static int ram_file_uudecode(RamFile *f)
     return error_reply(f, EINVAL);
 }
 
+
+static int ram_file_compress(RamFile *f)
+{
+    ErlDrvSSizeT size = f->end;
+    ErlDrvBinary* bin;
+
+    if ((bin = erts_gzdeflate_buffer(f->buf, size)) == NULL) {
+	return error_reply(f, EINVAL);
+    }
+    driver_free_binary(f->bin);
+    size = bin->orig_size;
+    ram_file_set(f, bin, size, size);
+    return numeric_reply(f, size);
+}
+
+/* Tricky since we dont know the expanded size !!! */
+/* First attempt is to double the size of input */
+/* loop until we don't get Z_BUF_ERROR */
+
+static int ram_file_uncompress(RamFile *f)
+{
+    ErlDrvSSizeT size = f->end;
+    ErlDrvBinary* bin;
+
+    if ((bin = erts_gzinflate_buffer(f->buf, size)) == NULL) {
+	return error_reply(f, EINVAL);
+    }
+    driver_free_binary(f->bin);
+    size = bin->orig_size;
+    ram_file_set(f, bin, size, size);
+    return numeric_reply(f, size);
+}
+
+
 static void rfile_command(ErlDrvData e, char* buf, ErlDrvSizeT count)
 {
     RamFile* f = (RamFile*)e;
@@ -664,6 +700,14 @@ static void rfile_command(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    numeric_reply(f, n); /* 0 is not used */
 	break;
 	
+    case RAM_FILE_COMPRESS:   /* inline compress the file */
+	ram_file_compress(f);
+	break;
+
+    case RAM_FILE_UNCOMPRESS: /* inline uncompress file */
+	ram_file_uncompress(f);
+	break;
+
     case RAM_FILE_UUENCODE:   /* uuencode file */
 	ram_file_uuencode(f);
 	break;

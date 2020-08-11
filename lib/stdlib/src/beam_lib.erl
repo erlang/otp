@@ -906,15 +906,19 @@ beam_filename(File) ->
     filename:rootname(File, ".beam") ++ ".beam".
 
 
-uncompress(Binary) ->
-    try
-	zlib:gunzip(Binary)
-    catch
-	_:_ -> Binary
-    end.
+uncompress(Binary0) ->
+    {ok, Fd} = ram_file:open(Binary0, [write, binary]),
+    {ok, _} = ram_file:uncompress(Fd),
+    {ok, Binary} = ram_file:get_file(Fd),
+    ok = ram_file:close(Fd),
+    Binary.
 
-compress(Binary) ->
-    zlib:gzip(Binary).
+compress(Binary0) ->
+    {ok, Fd} = ram_file:open(Binary0, [write, binary]),
+    {ok, _} = ram_file:compress(Fd),
+    {ok, Binary} = ram_file:get_file(Fd),
+    ok = ram_file:close(Fd),
+    Binary.
 
 %% -> ok | throw(Error)
 assert_directory(FileName) ->
