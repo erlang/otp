@@ -2,14 +2,13 @@
 
 set -e
 
-if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_REPO_SLUG" != "erlang/otp" ]; then
-    exit 0
-fi
+GIT_TAG="$1"
+ERL_TOP=${ERL_TOP:-$PWD}
 
-OTP_META_FILE=$ERL_TOP/${TRAVIS_TAG}.0-bundle.txt
-OTP_FILE=$ERL_TOP/${TRAVIS_TAG}.0-bundle.tar.gz
+OTP_META_FILE=$ERL_TOP/${GIT_TAG}.0-bundle.txt
+OTP_FILE=$ERL_TOP/${GIT_TAG}.0-bundle.tar.gz
 
-REPOSITORIES="otp,$TRAVIS_TAG corba,.*"
+REPOSITORIES="otp,$GIT_TAG corba,.*"
 
 mkdir bundle
 
