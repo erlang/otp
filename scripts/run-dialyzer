@@ -11,14 +11,19 @@ filter () {
     done
 }
 
-ALL_APPLICATIONS=$(ls -d -1 lib/*/ | sed 's:^lib\|/::g')
+if [ "X$ERL_TOP" != "X" -a -d $ERL_TOP/lib ]; then
+    LIB_DIR=$ERL_TOP/lib
+else
+    LIB_DIR=$(erl -noshell -eval 'io:format("~ts~n",[code:lib_dir()])' -s init stop)
+fi
+ALL_APPLICATIONS=$(ls -d -1 $LIB_DIR/*/ | sed "s:^$LIB_DIR/\\([^/\-]\+\\).*$:\1:g")
 ALL_APPLICATIONS="erts $ALL_APPLICATIONS"
 echo "All applications: $ALL_APPLICATIONS" |tr '\n' ' ' && echo ""
 
 BASE_PLT="compiler crypto erts hipe kernel stdlib syntax_tools"
 APP_PLT="asn1 edoc et ftp inets mnesia observer public_key sasl runtime_tools snmp ssl tftp wx xmerl tools"
-NO_UNMATCHED="common_test debugger edoc eunit ftp inets mnesia observer reltool ssh ssl syntax_tools tftp wx xmerl"
-WARNINGS="diameter megaco snmp"
+NO_UNMATCHED="common_test debugger edoc eunit ftp inets megaco mnesia observer reltool ssh ssl syntax_tools tftp wx xmerl"
+WARNINGS="diameter snmp"
 
 TRAVIS_SKIP=""
 if [ "X$TRAVIS" = "Xtrue" ]; then
@@ -38,11 +43,19 @@ echo "UNMATCHED = $UNMATCHED"
 echo "NO_UNMATCHED = $NO_UNMATCHED"
 echo "WARNINGS = $WARNINGS"
 
+DIALYZER=dialyzer
+
+if [ -f $ERL_TOP/bin/dialyzer ]; then
+    DIALYZER=$ERL_TOP/bin/dialyzer
+fi
+
+PLT=$(mktemp --suffix=.plt)
+
 set -x
 
-$ERL_TOP/bin/dialyzer --build_plt -Wunknown --apps $BASE_PLT $APP_PLT --statistics
-$ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps $UNMATCHED --statistics
-$ERL_TOP/bin/dialyzer -n -Wunknown --apps $NO_UNMATCHED --statistics
+$DIALYZER --build_plt --output_plt $PLT -Wunknown --apps $BASE_PLT $APP_PLT --statistics
+$DIALYZER -n --plt $PLT  -Wunknown -Wunmatched_returns --apps $UNMATCHED --statistics
+$DIALYZER -n --plt $PLT -Wunknown --apps $NO_UNMATCHED --statistics
 if [ "X$WARNINGS" != "X" ]; then
-    $ERL_TOP/bin/dialyzer -n --apps $WARNINGS --statistics || true
+    $DIALYZER -n --plt $PLT --apps $WARNINGS --statistics || true
 fi
