@@ -4079,6 +4079,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		BIF_RET(uword_to_big((UWord)mem, hp));
             }
         }
+        else if (ERTS_IS_ATOM_STR("persistent_term", BIF_ARG_1)) {
+            BIF_RET(erts_debug_persistent_term_xtra_info(BIF_P));
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);

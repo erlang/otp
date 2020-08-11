@@ -685,17 +685,46 @@ do_test_init_restart_cmd(File) ->
 %% and after each test case.
 
 chk() ->
-    {persistent_term:info(), persistent_term:get()}.
+    {xtra_info(), persistent_term:get()}.
 
-chk({Info, _Initial} = Chk) ->
-    Info = persistent_term:info(),
+chk({Info1, _Initial} = Chk) ->
+    #{count := Count, memory := Memory1, table := Table1} = Info1,
+    case xtra_info() of
+        Info1 ->
+            ok;
+        #{count := Count, memory := Memory2, table := Table2}=Info2
+          when Memory2 > Memory1,
+               Table2 > Table1 ->
+            %% Check increased memory is only table growth hysteresis
+            MemDiff = Memory2 - Memory1,
+            TabDiff = (Table2 - Table1) * erlang:system_info(wordsize),
+            {MemDiff,MemDiff} = {MemDiff, TabDiff},
+
+            case (Count / Table2) of
+                Load when Load >= 0.25 ->
+                    ok;
+                _ ->
+                    chk_fail("Hash table too large", Info1, Info2)
+            end;
+        Info2 ->
+            chk_fail("Memory diff", Info1, Info2)
+    end,
     Key = {?MODULE,?FUNCTION_NAME},
-    ok = persistent_term:put(Key, {term,Info}),
+    ok = persistent_term:put(Key, {term,Info1}),
     Term = persistent_term:get(Key),
     true = persistent_term:erase(Key),
     chk_not_stuck(Term, 1),
     [persistent_term:erase(K) || {K, _} <- pget(Chk)],
     ok.
+
+xtra_info() ->
+    maps:merge(persistent_term:info(),
+               erts_debug:get_internal_state(persistent_term)).
+
+chk_fail(Error, Info1, Info2) ->
+    io:format("Info1 = ~p\n", [Info1]),
+    io:format("Info2 = ~p\n", [Info2]),
+    ct:fail(Error).
 
 chk_not_stuck(Term, Timeout) ->
     %% Hash tables to be deleted are put onto a queue.
