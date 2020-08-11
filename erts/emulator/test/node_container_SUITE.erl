@@ -812,9 +812,19 @@ mkpidlist(N, Ps) -> mkpidlist(N-1, [spawn(fun () -> ok end)|Ps]).
 iter_max_procs(Config) when is_list(Config) ->
     NoMoreTests = make_ref(),
     erlang:send_after(10000, self(), NoMoreTests),
-    Res = chk_max_proc_line(),
-    Res = chk_max_proc_line(),
-    done = chk_max_proc_line_until(NoMoreTests, Res),
+
+    %% Disable logging to avoid "Too many processes" log which can
+    %% cause ct_logs to crash when trying to spawn "async print job".
+    #{level := LoggerLevel} = logger:get_primary_config(),
+    ok = logger:set_primary_config(level, none),
+    Res = try
+              R = chk_max_proc_line(),
+              R = chk_max_proc_line(),
+              done = chk_max_proc_line_until(NoMoreTests, R),
+              R
+          after
+              logger:set_primary_config(level, LoggerLevel)
+          end,
     Cmt = io_lib:format("max processes = ~p; "
                         "process line length = ~p",
                         [element(2, Res), element(1, Res)]),
