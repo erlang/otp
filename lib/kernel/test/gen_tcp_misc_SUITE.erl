@@ -3512,7 +3512,7 @@ recv(Socket, Total, Control) ->
             inet:setopts(Socket, [{active, ?ACTIVE_N}]),
             recv(Socket, Total, Control);
         {tcp_closed, Socket} ->
-            ok;
+            exit(terminate);
         Other->
             Control ! {error, Socket, Other}
     after 2000 ->
