@@ -202,14 +202,13 @@
           slist     := [ in_addr() ]}.
 
 -type ip_pmtudisc() ::
-        want | dont | do | probe | integer().
+        want | dont | do | probe.
 
 %% If the integer value is used, its up to the caller to ensure its valid!
 -type ip_tos() :: lowdelay |
                   throughput |
                   reliability |
-                  mincost |
-                  integer().
+                  mincost.
 
 -type ip_pktinfo() ::
         #{ifindex  := non_neg_integer(), % Interface Index
@@ -223,7 +222,7 @@
           interface := non_neg_integer()}.
 
 -type ipv6_pmtudisc() ::
-        want | dont | do | probe | integer().
+        want | dont | do | probe.
 
 -type ipv6_hops() ::
         default | 0..255.
@@ -505,48 +504,34 @@
         peek |
         trunc.
 
--type msghdr() :: #{
-                    %% *Optional* target address
-                    %% Used on an unconnected socket to specify the 
-                    %% target address for a datagram.
-                    addr  := sockaddr(),
+-type msghdr() ::
+        #{
+           %% *Optional* target address
+           %% Used on an unconnected socket to specify the
+           %% target address for a datagram.
+           addr  => sockaddr(),
                     
-                    iov   := [binary()],
+           iov   := [binary()],
 
-                    %% The maximum size of the control buffer is platform
-                    %% specific. It is the users responsibility to ensure 
-                    %% that its not exceeded.
-                    ctrl  := [cmsghdr_recv()] | [cmsghdr_send()],
+           %% The maximum size of the control buffer is platform
+           %% specific. It is the users responsibility to ensure
+           %% that its not exceeded.
+           %%
+           %% Optional for sendmsg,
+           %% recvmsg returns at least an empty list.
+           ctrl  =>
+               ([cmsghdr_recv() |
+                 #{level := sockopt_level() | integer(),
+                   type  := integer(),
+                   data  := binary()}] |
+                [cmsghdr_send() |
+                 #{level := sockopt_level() | integer(),
+                   type  := integer(),
+                   data  := binary()}]),
 
-                    %% Only valid with recvmsg
-                    flags := [msg_flag()]
-                   }.
-
--type msghdr_recv() ::
-        #{addr => sockaddr(), % Optional remote address
-          iov  := [ binary() ],
-          %%
-          %% The maximum size of the control buffer is platform
-          %% specific. It is the users responsibility to ensure
-          %% that it is not exceeded.
-          ctrl :=
-              [ cmsghdr_recv() |
-                #{level := sockopt_level(),
-                  type  := integer(),
-                  data  := binary()}],
-          flags := [ msg_flag() ]}.
--type msghdr_send() ::
-        #{addr => sockaddr(), % Optional remote address
-          iov  := [ binary() ],
-          %%
-          %% The maximum size of the control buffer is platform
-          %% specific. It is the users responsibility to ensure
-          %% that it is not exceeded.
-          ctrl =>
-              [ cmsghdr_send() |
-                #{level := sockopt_level(),
-                  type := integer(),
-                  data := binary()} ]}.
+           %% Returned by recvmsg, ignored by sendmsg
+           flags => [msg_flag()]
+         }.
 
 
 %% We are able to (completely) decode *some* control message headers.
@@ -557,77 +542,70 @@
         #{level := socket,    type := timestamp,   data := timeval()}      |
         #{level := socket,    type := rights,      data := binary()}       |
         #{level := socket,    type := credentials, data := binary()}       |
-        #{level := socket,    type := integer(),   data := binary()}       |
-        #{level := ip,        type := tos,         data := ip_tos()}       |
-        #{level := ip,        type := recvtos,     data := ip_tos()}       |
+        #{level := ip,        type := tos,
+          data := ip_tos() | integer()}                                    |
+        #{level := ip,        type := recvtos,
+          data := ip_tos() | integer()}                                    |
         #{level := ip,        type := ttl,         data := integer()}      |
         #{level := ip,        type := recvttl,     data := integer()}      |
         #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
         #{level := ip,        type := origdstaddr, data := sockaddr_in()}  |
         #{level := ip,        type := recverr,
-          data := extended_err() | binary()} |
-        #{level := ip,        type := integer(),   data := binary()}       |
+          data := extended_err() | binary()}                               |
         #{level := ipv6,      type := hoplevel,    data := integer()}      |
         #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
         #{level := ipv6,      type := recverr,
-          data := extended_err() | binary()} |
-        #{level := ipv6,      type := tclass,      data := integer()}      |
-        #{level := ipv6,      type := integer(),   data := binary()}       |
-        #{level := integer(), type := integer(),   data := binary()}.
+          data := extended_err() | binary()}                               |
+        #{level := ipv6,      type := tclass,      data := integer()}.
 
 -type cmsghdr_send() :: 
         #{level := socket,    type := timestamp,   data := binary()}  |
         #{level := socket,    type := rights,      data := binary()}  |
         #{level := socket,    type := credentials, data := binary()}  |
-        #{level := socket,    type := integer(),   data := binary()}  |
         #{level := ip,        type := tos,
-          data := ip_tos()  | binary()} |
+          data := ip_tos()  | binary()}                               |
         #{level := ip,        type := ttl,
-          data := integer() | binary()} |
-        #{level := ip,        type := integer(),   data := binary()}  |
-        #{level := ipv6,      type := tclass,      data := integer()} |
-        #{level := ipv6,      type := integer(),   data := binary()}  |
-        #{level := udp,       type := integer(),   data := binary()}  |
-        #{level := integer(), type := integer(),   data := binary()}.
+          data := integer() | binary()}                               |
+        #{level := ipv6,      type := tclass,      data := integer()}.
 
--type ee_origin() :: none | local | icmp | icmp6 | 0..16#FF.
+-type ee_origin() :: none | local | icmp | icmp6.
 -type icmp_dest_unreach() ::
         net_unreach | host_unreach | port_unreach | frag_needed |
-        net_unknown | host_unknown | 0..16#FF.
+        net_unknown | host_unknown.
 -type icmpv6_dest_unreach() ::
         noroute | adm_prohibited | not_neighbour | addr_unreach |
-        port_unreach | policy_fail | reject_route | 0..16#FF.
+        port_unreach | policy_fail | reject_route.
 -type extended_err() ::
-        #{error    := term(),
+        #{error    := posix(),
           origin   := icmp,
           type     := dest_unreach,
-          code     := icmp_dest_unreach(),
+          code     := icmp_dest_unreach() | 0..16#FF,
           info     := 0..16#FFFFFFFF,
           data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()} |
-        #{error    := term(),
+        #{error    := posix(),
           origin   := icmp,
           type     := time_exceeded | 0..16#FF,
           code     := 0..16#FF,
           info     := 0..16#FFFFFFFF,
           data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()} |
-        #{error    := term(),
+        #{error    := posix(),
           origin   := icmp6,
           type     := dest_unreach,
-          code     := icmpv6_dest_unreach(),
+          code     := icmpv6_dest_unreach() | 0..16#FF,
           info     := 0..16#FFFFFFFF,
           data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()} |
-        #{error    := term(),
+        #{error    := posix(),
           origin   := icmp6,
           type     := pkt_toobig | time_exceeded | 0..16#FF,
           code     := 0..16#FF,
           info     := 0..16#FFFFFFFF,
           data     := 0..16#FFFFFFFF,
           offender := undefined | sockaddr()} |
-        #{error    := term(),
-          origin   := ee_origin(),
+        #{error    := posix(),
+          origin   := ee_origin() | 0..16#FF,
           type     := 0..16#FF,
           code     := 0..16#FF,
           info     := 0..16#FFFFFFFF,
@@ -1561,7 +1539,7 @@ sendto(Socket, Data, Dest, Flags, Timeout) ->
                      {ok, Remaining} |
                      {error, Reason} when
       Socket  :: socket(),
-      MsgHdr  :: msghdr_send(),
+      MsgHdr  :: msghdr(),
       Remaining :: erlang:iovec(),
       Reason  :: term().
 
@@ -1572,7 +1550,7 @@ sendmsg(Socket, MsgHdr) ->
 
 -spec sendmsg(Socket, MsgHdr, Flags) -> ok | {error, Reason} when
       Socket  :: socket(),
-      MsgHdr  :: msghdr_send(),
+      MsgHdr  :: msghdr(),
       Flags   :: [msg_flag()],
       Reason  :: posix() | closed;
 
@@ -1582,7 +1560,7 @@ sendmsg(Socket, MsgHdr) ->
                      {select, SelectInfo} |
                      {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr_send(),
+      MsgHdr     :: msghdr(),
       Remaining  :: erlang:iovec(),
       SelectInfo :: select_info(),
       Reason     :: posix() | closed;
@@ -1593,7 +1571,7 @@ sendmsg(Socket, MsgHdr) ->
                      {select, SelectInfo} |
                      {error, Reason} when
       Socket       :: socket(),
-      MsgHdr       :: msghdr_send(),
+      MsgHdr       :: msghdr(),
       Remaining    :: erlang:iovec(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
@@ -1601,7 +1579,7 @@ sendmsg(Socket, MsgHdr) ->
 
              (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr_send(),
+      MsgHdr     :: msghdr(),
       Timeout    :: timeout(),
       Reason     :: posix() | closed | timeout.
 
@@ -1617,7 +1595,7 @@ sendmsg(Socket, MsgHdr, Timeout) ->
                      {select, SelectInfo} |
                      {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr_send(),
+      MsgHdr     :: msghdr(),
       Flags      :: [msg_flag()],
       Remaining  :: erlang:iovec(),
       SelectInfo :: select_info(),
@@ -1629,7 +1607,7 @@ sendmsg(Socket, MsgHdr, Timeout) ->
                      {select, SelectInfo} |
                      {error, Reason} when
       Socket       :: socket(),
-      MsgHdr       :: msghdr_send(),
+      MsgHdr       :: msghdr(),
       Flags        :: [msg_flag()],
       Remaining    :: erlang:iovec(),
       SelectInfo   :: select_info(),
@@ -1641,7 +1619,7 @@ sendmsg(Socket, MsgHdr, Timeout) ->
                      {ok, Remaining} |
                      {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr_send(),
+      MsgHdr     :: msghdr(),
       Flags      :: [msg_flag()],
       Timeout    :: timeout(),
       Remaining  :: erlang:iovec(),
@@ -2231,7 +2209,7 @@ recvfrom_result(Result) ->
 
 -spec recvmsg(Socket) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
-      MsgHdr  :: msghdr_recv(),
+      MsgHdr  :: msghdr(),
       Reason  :: posix() | closed | invalid.
 
 recvmsg(Socket) ->
@@ -2241,7 +2219,7 @@ recvmsg(Socket) ->
 -spec recvmsg(Socket, Flags) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
       Flags   :: [msg_flag()],
-      MsgHdr  :: msghdr_recv(),
+      MsgHdr  :: msghdr(),
       Reason  :: posix() | closed | invalid;
 
              (Socket, Timeout :: nowait)
@@ -2249,7 +2227,7 @@ recvmsg(Socket) ->
                 {select, SelectInfo} |
                 {error, Reason} when
       Socket     :: socket(),
-      MsgHdr     :: msghdr_recv(),
+      MsgHdr     :: msghdr(),
       SelectInfo :: select_info(),
       Reason     :: posix() | closed | invalid;
 
@@ -2258,7 +2236,7 @@ recvmsg(Socket) ->
                 {select, SelectInfo} |
                 {error, Reason} when
       Socket       :: socket(),
-      MsgHdr       :: msghdr_recv(),
+      MsgHdr       :: msghdr(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
       Reason       :: posix() | closed | invalid;
@@ -2266,7 +2244,7 @@ recvmsg(Socket) ->
              (Socket, Timeout) -> {ok, MsgHdr} | {error, Reason} when
       Socket     :: socket(),
       Timeout    :: timeout(),
-      MsgHdr     :: msghdr_recv(),
+      MsgHdr     :: msghdr(),
       Reason     :: posix() | closed | invalid | timeout.
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
@@ -2280,7 +2258,7 @@ recvmsg(Socket, Timeout) ->
                 {error, Reason} when
       Socket     :: socket(),
       Flags      :: [msg_flag()],
-      MsgHdr     :: msghdr_recv(),
+      MsgHdr     :: msghdr(),
       SelectInfo :: select_info(),
       Reason     :: posix() | closed | invalid;
 
@@ -2290,7 +2268,7 @@ recvmsg(Socket, Timeout) ->
                 {error, Reason} when
       Socket       :: socket(),
       Flags        :: [msg_flag()],
-      MsgHdr       :: msghdr_recv(),
+      MsgHdr       :: msghdr(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
       Reason       :: posix() | closed | invalid;
@@ -2299,14 +2277,14 @@ recvmsg(Socket, Timeout) ->
       Socket  :: socket(),
       Flags   :: [msg_flag()],
       Timeout :: timeout(),
-      MsgHdr  :: msghdr_recv(),
+      MsgHdr  :: msghdr(),
       Reason  :: posix() | closed | invalid | timeout;
 
              (Socket, BufSz, CtrlSz) -> {ok, MsgHdr} | {error, Reason} when
       Socket :: socket(),
       BufSz  :: non_neg_integer(),
       CtrlSz :: non_neg_integer(),
-      MsgHdr :: msghdr_recv(),
+      MsgHdr :: msghdr(),
       Reason :: posix() | closed | invalid.
 
 recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
@@ -2324,7 +2302,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       BufSz      :: non_neg_integer(),
       CtrlSz     :: non_neg_integer(),
       Flags      :: [msg_flag()],
-      MsgHdr     :: msghdr_recv(),
+      MsgHdr     :: msghdr(),
       SelectInfo :: select_info(),
       Reason     :: posix() | closed | invalid;
 
@@ -2336,7 +2314,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       BufSz      :: non_neg_integer(),
       CtrlSz     :: non_neg_integer(),
       Flags      :: [msg_flag()],
-      MsgHdr     :: msghdr_recv(),
+      MsgHdr     :: msghdr(),
       SelectInfo :: select_info(),
       SelectHandle :: select_handle(),
       Reason     :: posix() | closed | invalid;
@@ -2349,7 +2327,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       CtrlSz  :: non_neg_integer(),
       Flags   :: [msg_flag()],
       Timeout :: timeout(),
-      MsgHdr  :: msghdr_recv(),
+      MsgHdr  :: msghdr(),
       Reason  :: posix() | closed | invalid | timeout.
 
 recvmsg(?socket(SockRef) = Socket, BufSz, CtrlSz, Flags, Timeout)
