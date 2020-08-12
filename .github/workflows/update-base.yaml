@@ -21,7 +21,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: docker.pkg.github.com
           dockerfile: .github/dockerfiles/Dockerfile.debian-base
-          repository: ${{ github.actor }}/otp/debian-base
+          repository: erlang/otp/debian-base
           tags: latest
 
   build-debian-32bit:
@@ -37,7 +37,7 @@ jobs:
           registry: docker.pkg.github.com
           dockerfile: .github/dockerfiles/Dockerfile.debian-base
           build_args: "BASE=i386/debian"
-          repository: ${{ github.actor }}/otp/i386-debian-base
+          repository: erlang/otp/i386-debian-base
           tags: latest
 
   build-ubuntu-64bit:
@@ -52,5 +52,5 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: docker.pkg.github.com
           dockerfile: .github/dockerfiles/Dockerfile.ubuntu-base
-          repository: ${{ github.actor }}/otp/ubuntu-base
+          repository: erlang/otp/ubuntu-base
           tags: latest
