@@ -137,7 +137,6 @@ ET_DEFINE_CHECKED(struct erl_node_*,internal_ref_node,Eterm,is_internal_ref);
 ET_DEFINE_CHECKED(Eterm*,external_val,Wterm,is_external);
 ET_DEFINE_CHECKED(Uint,external_data_words,Wterm,is_external);
 ET_DEFINE_CHECKED(Uint,external_pid_data_words,Wterm,is_external_pid);
-ET_DEFINE_CHECKED(Uint,external_pid_data,Wterm,is_external_pid);
 ET_DEFINE_CHECKED(struct erl_node_*,external_pid_node,Wterm,is_external_pid);
 ET_DEFINE_CHECKED(Uint,external_port_data_words,Wterm,is_external_port);
 ET_DEFINE_CHECKED(Uint,external_port_data,Wterm,is_external_port);

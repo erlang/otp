@@ -11505,7 +11505,7 @@ alloc_process(ErtsRunQueue *rq, int bound, erts_aint32_t state)
 
     ASSERT(erts_proc_read_refc(p) > 0);
 
-    ASSERT(internal_pid_serial(p->common.id) <= ERTS_MAX_PID_SERIAL);
+    ASSERT(internal_pid_serial(p->common.id) <= ERTS_MAX_INTERNAL_PID_SERIAL);
     
     p->rcount = 0;
     p->heap = NULL;

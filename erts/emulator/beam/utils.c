@@ -2821,7 +2821,29 @@ tailrecur_ne:
 		    goto term_array;
 		}
 
-	    case EXTERNAL_PID_SUBTAG:
+	    case EXTERNAL_PID_SUBTAG: {
+		ExternalThing *ap;
+		ExternalThing *bp;
+                int i;
+
+		if(!is_external(b))
+		    goto not_equal;
+
+		ap = external_thing_ptr(a);
+		bp = external_thing_ptr(b);
+
+		if(ap->header != bp->header || ap->node != bp->node)
+                    goto not_equal;
+
+                ASSERT(external_data_words(a) == EXTERNAL_PID_DATA_WORDS);
+                ASSERT(external_data_words(b) == EXTERNAL_PID_DATA_WORDS);
+
+                for (i = 0; i < EXTERNAL_PID_DATA_WORDS; i++) {
+                    if (ap->data.ui[i] != bp->data.ui[i])
+                        goto not_equal;
+                }
+		goto pop_next;
+	    }
 	    case EXTERNAL_PORT_SUBTAG: {
 		ExternalThing *ap;
 		ExternalThing *bp;
@@ -2836,7 +2858,7 @@ tailrecur_ne:
 		    ASSERT(1 == external_data_words(a));
 		    ASSERT(1 == external_data_words(b));
 
-		    if (ap->data.ui[0] == bp->data.ui[0]) goto pop_next;
+                    if (ap->data.ui[0] == bp->data.ui[0]) goto pop_next;
 		}
 		break; /* not equal */
 	    }
@@ -3057,8 +3079,6 @@ not_equal:
  *   numbers < (characters) < atoms < refs < funs < ports < pids <
  *   tuples < maps < [] < conses < binaries.
  *
- * Note that characters are currently not implemented.
- *
  */
 
 /* cmp(Eterm a, Eterm b)
@@ -3182,26 +3202,52 @@ tailrecur_ne:
 	    CMP_NODES(anode, bnode);
 	    ON_CMP_GOTO((Sint)(adata - bdata));
 
-	case (_TAG_IMMED1_PID >> _TAG_PRIMARY_SIZE):
-	    if (is_internal_pid(b)) {
-		bnode = erts_this_node;
-		bdata = internal_pid_data(b);
-	    } else if (is_external_pid(b)) {
-		bnode = external_pid_node(b);
-		bdata = external_pid_data(b);
-	    } else {
-		a_tag = PID_DEF;
-		goto mixed_types;
-	    }
-	    anode = erts_this_node;
-	    adata = internal_pid_data(a);
+        case (_TAG_IMMED1_PID >> _TAG_PRIMARY_SIZE):
+            if (is_internal_pid(b)) {
+                adata = internal_pid_data(a);
+                bdata = internal_pid_data(b);
+                ON_CMP_GOTO((Sint)(adata - bdata));
+            }
+            else if (is_not_external_pid(b)) {
+                a_tag = PID_DEF;
+                goto mixed_types;
+            }
 
-	pid_common:
-	    if (adata != bdata) {
-		RETURN_NEQ(adata < bdata ? -1 : 1);
-	    }
+        pid_common:
+        {
+            Uint32 a_pid_num, a_pid_ser;
+            Uint32 b_pid_num, b_pid_ser;
+
+            if (is_internal_pid(a)) {
+                a_pid_num = internal_pid_number(a);
+                a_pid_ser = internal_pid_serial(a);
+                anode = erts_this_node;
+            }
+            else {
+                ASSERT(is_external_pid(a));
+                a_pid_num = external_pid_number(a);
+                a_pid_ser = external_pid_serial(a);
+                anode = external_pid_node(a);
+            }
+            if (is_internal_pid(b)) {
+                b_pid_num = internal_pid_number(b);
+                b_pid_ser = internal_pid_serial(b);
+                bnode = erts_this_node;
+            }
+            else {
+                ASSERT(is_external_pid(b));
+                b_pid_num = external_pid_number(b);
+                b_pid_ser = external_pid_serial(b);
+                bnode = external_pid_node(b);
+            }
+
+	    if (a_pid_ser != b_pid_ser)
+                RETURN_NEQ(a_pid_ser < b_pid_ser ? -1 : 1);
+            if (a_pid_num != b_pid_num)
+		RETURN_NEQ(a_pid_num < b_pid_num ? -1 : 1);
 	    CMP_NODES(anode, bnode);
 	    goto pop_next;
+        }
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 	    a_tag = SMALL_DEF;
 	    goto mixed_types;
@@ -3427,19 +3473,12 @@ tailrecur_ne:
 		    goto term_array;
 		}
 	    case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):
-		if (is_internal_pid(b)) {
-		    bnode = erts_this_node;
-		    bdata = internal_pid_data(b);
-		} else if (is_external_pid(b)) {
-		    bnode = external_pid_node(b);
-		    bdata = external_pid_data(b);
-		} else {
-		    a_tag = EXTERNAL_PID_DEF;
-		    goto mixed_types;
-		}
-		anode = external_pid_node(a);
-		adata = external_pid_data(a);
-		goto pid_common;
+		if (!is_pid(b)) {
+                    a_tag = EXTERNAL_PID_DEF;
+                    goto mixed_types;
+                }
+                goto pid_common;
+
 	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):
 		if (is_internal_port(b)) {
 		    bnode = erts_this_node;

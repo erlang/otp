@@ -315,6 +315,22 @@ cmp(Config) when is_list(Config) ->
     true = mk_pid({b@b, 3}, 4711, 1) > Pid,
     true = mk_pid({b@b, 2}, 4711, 1) =:= Pid,
 
+    %% Test big external pids (> OTP-24)
+    MaxPidNum = (1 bsl 15) - 1,
+    MaxPidSer = ?MAX_PIDS_PORTS bsr 15,
+    true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, MaxPidSer+1),
+    true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, (1 bsl 31)),
+    true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, (1 bsl 32)-1),
+
+    true = mk_pid({b@b, 2}, MaxPidNum, 17) < mk_pid({a@b, 1}, MaxPidNum+1, 17),
+    true = mk_pid({b@b, 2}, MaxPidNum, 17) < mk_pid({a@b, 1}, (1 bsl 31), 17),
+    true = mk_pid({b@b, 2}, MaxPidNum, 17) < mk_pid({a@b, 1}, (1 bsl 32)-1, 17),
+
+    true = mk_pid({b@b, 2}, 4711, 17) < mk_pid({b@b, 4}, 4711, 17),
+    true = mk_pid({b@b, 2}, 4711, 17) < mk_pid({b@b, (1 bsl 31)}, 4711, 17),
+    true = mk_pid({b@b, 2}, 4711, 17) < mk_pid({b@b, (1 bsl 32)-1}, 4711, 17),
+
+
     %% Test ports ---------------------------------------------------
     %%
     %% Significance (most -> least):
@@ -770,10 +786,6 @@ bad_nc(Config) when is_list(Config) ->
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(ThisNode, [4711, 4711, 4711, 4711, 4711, 4711, 4711])),
     RemNode = {x@y, 2},
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(RemNode, MaxPidNum + 1, MaxPidSer)),
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(RemNode, MaxPidNum, MaxPidSer + 1)),
     {'EXIT', {badarg, mk_port, _}}
     = (catch mk_port(RemNode, ?MAX_PIDS_PORTS + 1)),
     {'EXIT', {badarg, mk_ref, _}}
@@ -787,6 +799,12 @@ bad_nc(Config) when is_list(Config) ->
     = (catch mk_port(BadNode, 4711)),
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(BadNode, [4711, 4711, 17])),
+
+    %% OTP 24: External pids can use 32+32 bits
+    mk_pid(RemNode, MaxPidNum + 1, MaxPidSer),
+    mk_pid(RemNode, (1 bsl 32)-1, MaxPidSer),
+    mk_pid(RemNode, MaxPidNum, MaxPidSer + 1),
+    mk_pid(RemNode, MaxPidNum, (1 bsl 32)-1),
     ok.
 
 

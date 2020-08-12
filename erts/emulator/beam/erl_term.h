@@ -1008,9 +1008,12 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *  E : ErlNode pointer
  *  X : Type specific data
  *
- *  External pid and port layout:
- *    External pids and ports only have one data word (Data 0) which has
- *    the same layout as internal pids resp. internal ports.
+ *  External pid layout (OTP 24):
+ *    External pids always have two 32-bit words (num and seq).
+ *
+ *  External port layout:
+ *    External ports only have one data word (Data 0) which has
+ *    the same layout as internal ports.
  *
  *  External refs layout:
  *    External refs has the same layout for the data words as in the internal
@@ -1040,8 +1043,14 @@ typedef struct external_thing_ {
 
 #define EXTERNAL_THING_HEAD_SIZE (sizeof(ExternalThing)/sizeof(Uint) - 1)
 
-#define make_external_pid_header(DW) \
-  _make_header((DW)+EXTERNAL_THING_HEAD_SIZE-1,_TAG_HEADER_EXTERNAL_PID)
+/* external pid data is always 64 bits */
+#define EXTERNAL_PID_DATA_WORDS (8 / sizeof(Uint))
+
+#define EXTERNAL_PID_HEAP_SIZE \
+    (EXTERNAL_THING_HEAD_SIZE + EXTERNAL_PID_DATA_WORDS)
+
+#define make_external_pid_header() \
+  _make_header(EXTERNAL_PID_HEAP_SIZE-1,_TAG_HEADER_EXTERNAL_PID)
 #define is_external_pid_header(x) \
   (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_EXTERNAL_PID)
 
@@ -1112,16 +1121,12 @@ _ET_DECLARE_CHECKED(Uint,external_data_words,Wterm)
 _ET_DECLARE_CHECKED(Uint,external_pid_data_words,Wterm)
 #define external_pid_data_words(x) _ET_APPLY(external_pid_data_words,(x))
 
-#define _unchecked_external_pid_data(x) _unchecked_external_data((x))[0]
-_ET_DECLARE_CHECKED(Uint,external_pid_data,Wterm)
-#define external_pid_data(x) _ET_APPLY(external_pid_data,(x))
-
 #define _unchecked_external_pid_node(x) _unchecked_external_node((x))
 _ET_DECLARE_CHECKED(struct erl_node_*,external_pid_node,Wterm)
 #define external_pid_node(x) _ET_APPLY(external_pid_node,(x))
 
-#define external_pid_number(x) _GET_PID_NUM(external_pid_data((x)))
-#define external_pid_serial(x) _GET_PID_SER(external_pid_data((x)))
+#define external_pid_number(x) (external_thing_ptr(x)->data.ui32[0])
+#define external_pid_serial(x) (external_thing_ptr(x)->data.ui32[1])
 
 #define _unchecked_external_port_data_words(x) \
   _unchecked_external_data_words((x))
