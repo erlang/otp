@@ -825,7 +825,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           by a receiving process (<c>process</c>), by a tracer port
           (<c>port</c>), by a tracer module
           (<c>module</c>) or by creating a
-          <seemod marker="kernel:logger">logger</seemod> event.
+          <seeerl marker="kernel:logger">logger</seeerl> event.
           For a description about tracer ports see
           <seemfa marker="#trace_port/2"><c>trace_port/2</c></seemfa>
           and for a tracer modules see
