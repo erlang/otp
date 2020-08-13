@@ -24,8 +24,8 @@
 	 init_per_group/2,end_per_group/2,
 	 %% init/1, fini/1,
 	 init_per_testcase/2, end_per_testcase/2]).
--export([open_modes/1, open_old_modes/1, pread_pwrite/1, position/1,
-	 truncate/1, sync/1, get_set_file/1, compress/1, uuencode/1,
+-export([open_modes/1, pread_pwrite/1, position/1,
+	 truncate/1, sync/1, get_file_and_size/1, compress/1,
 	 large_file_errors/1, large_file_light/1,
 	 large_file_heavy/0, large_file_heavy/1]).
 
@@ -42,8 +42,8 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [open_modes, open_old_modes, pread_pwrite, position,
-     truncate, sync, get_set_file, compress, uuencode,
+    [open_modes, pread_pwrite, position,
+     truncate, sync, get_file_and_size, compress,
      large_file_errors, large_file_light, large_file_heavy].
 
 groups() -> 
@@ -62,7 +62,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(Func, Config) ->
+init_per_testcase(_Func, Config) ->
     Config.
 
 end_per_testcase(_Func, Config) ->
@@ -84,23 +84,6 @@ open_modes(Config) when is_list(Config) ->
     open_read(?FILE_MODULE, Str, [ram]),
     open_read_write(?FILE_MODULE, Bin1, [ram, binary, read, write], Bin2),
     open_read(?FILE_MODULE, Bin, [ram, binary, read]),
-    %%
-    ok.
-
-%% Test that the old style read, write and binary options
-%% works for open/2.
-open_old_modes(Config) when is_list(Config) ->
-    Str1 = "The quick brown fox ",
-    Str2 = "jumps over a lazy dog ",
-    Str  = Str1 ++ Str2,
-    Bin1 = list_to_binary(Str1),
-    Bin2 = list_to_binary(Str2),
-    Bin  = list_to_binary(Str),
-    %%
-    open_read_write(?RAM_FILE_MODULE, Str1, read_write, Str2),
-    open_read(?RAM_FILE_MODULE, Str, read),
-    open_read_write(?RAM_FILE_MODULE, Bin1, {binary, read_write}, Bin2),
-    open_read(?RAM_FILE_MODULE, Bin, {binary, read}),
     %%
     ok.
 
@@ -157,7 +140,7 @@ pread_pwrite(Config) when is_list(Config) ->
     pread_pwrite_test(?FILE_MODULE, Str, [ram, read, write]),
     pread_pwrite_test(?FILE_MODULE, Bin, [ram, binary, read, write]),
     pread_pwrite_test(?RAM_FILE_MODULE, Str, [read, write]),
-    pread_pwrite_test(?RAM_FILE_MODULE, Bin, {binary, read_write}),
+    pread_pwrite_test(?RAM_FILE_MODULE, Bin, [binary, read, write]),
     %%
     ok.
 
@@ -193,7 +176,7 @@ position(Config) when is_list(Config) ->
     position_test(?FILE_MODULE, Str, [ram, read]),
     position_test(?FILE_MODULE, Bin, [ram, binary]),
     position_test(?RAM_FILE_MODULE, Str, [read]),
-    position_test(?RAM_FILE_MODULE, Bin, {binary, read}),
+    position_test(?RAM_FILE_MODULE, Bin, [binary, read]),
     %%
     ok.
 
@@ -271,13 +254,13 @@ truncate(Config) when is_list(Config) ->
     %%
     ok = truncate_test(?FILE_MODULE, Str, [ram, read, write]),
     ok = truncate_test(?FILE_MODULE, Bin, [ram, binary, read, write]),
-    ok = truncate_test(?RAM_FILE_MODULE, Str, read_write),
+    ok = truncate_test(?RAM_FILE_MODULE, Str, [read, write]),
     ok = truncate_test(?RAM_FILE_MODULE, Bin, [binary, read, write]),
     %%
     {error, eacces} = truncate_test(?FILE_MODULE, Str, [ram]),
     {error, eacces} = truncate_test(?FILE_MODULE, Bin, [ram, binary, read]),
-    {error, eacces} = truncate_test(?RAM_FILE_MODULE, Str, read),
-    {error, eacces} = truncate_test(?RAM_FILE_MODULE, Bin, {binary, read}),
+    {error, eacces} = truncate_test(?RAM_FILE_MODULE, Str, [read]),
+    {error, eacces} = truncate_test(?RAM_FILE_MODULE, Bin, [binary, read]),
     %%
     ok.
 
@@ -311,13 +294,13 @@ sync(Config) when is_list(Config) ->
     %%
     sync_test(?FILE_MODULE, Str, [ram, read, write]),
     sync_test(?FILE_MODULE, Bin, [ram, binary, read, write]),
-    sync_test(?RAM_FILE_MODULE, Str, read_write),
+    sync_test(?RAM_FILE_MODULE, Str, [read, write]),
     sync_test(?RAM_FILE_MODULE, Bin, [binary, read, write]),
     %%
     sync_test(?FILE_MODULE, Str, [ram]),
     sync_test(?FILE_MODULE, Bin, [ram, binary, read]),
-    sync_test(?RAM_FILE_MODULE, Str, read),
-    sync_test(?RAM_FILE_MODULE, Bin, {binary, read}),
+    sync_test(?RAM_FILE_MODULE, Str, [read]),
+    sync_test(?RAM_FILE_MODULE, Bin, [binary, read]),
     %%
     ok.
 
@@ -334,44 +317,31 @@ sync_test(Module, Data, Options) ->
 
 
 
-%% Tests get_file/1, set_file/2, get_file_close/1 and get_size/1.
-get_set_file(Config) when is_list(Config) ->
+%% Tests get_file/1 and get_size/1.
+get_file_and_size(Config) when is_list(Config) ->
     %% These two strings should not be of equal length.
     Str  = "När högan nord blir snöbetäckt, ",
-    Str2 = "får alla harar byta dräkt. ",
     Bin  = list_to_binary(Str),
-    Bin2 = list_to_binary(Str2),
     %%
-    ok = get_set_file_test(Str, read_write, Str2),
-    ok = get_set_file_test(Bin, [binary, read, write], Bin2),
-    ok = get_set_file_test(Str, read, Str2),
-    ok = get_set_file_test(Bin, [binary, read], Bin2),
+    ok = get_file_and_size_test(Str, [read, write]),
+    ok = get_file_and_size_test(Bin, [binary, read, write]),
+    ok = get_file_and_size_test(Str, [read]),
+    ok = get_file_and_size_test(Bin, [binary, read]),
     %%
     ok.
 
-get_set_file_test(Data, Options, Data2) ->
-    io:format("~p:get_set_file_test(~p, ~p, ~p)~n",
-	      [?MODULE, Data, Options, Data2]),
+get_file_and_size_test(Data, Options) ->
+    io:format("~p:get_file_and_size_test(~p, ~p)~n",
+	      [?MODULE, Data, Options]),
     %%
     Size  = sizeof(Data),
-    Size2 = sizeof(Data2),
     %%
     {ok, Fd}        = ?RAM_FILE_MODULE:open(Data, Options),
     {ok, Size}      = ?RAM_FILE_MODULE:get_size(Fd),
     {ok, Data}      = ?RAM_FILE_MODULE:get_file(Fd),
-    {ok, Data}      = ?RAM_FILE_MODULE:get_file_close(Fd),
+    ok              = ?RAM_FILE_MODULE:close(Fd),
     {error, einval} = ?RAM_FILE_MODULE:get_size(Fd),
-    {ok, Fd2}       = ?RAM_FILE_MODULE:open(Data, Options),
-    case ?RAM_FILE_MODULE:set_file(Fd2, Data2) of
-	{ok, Size2} ->
-	    {ok, Size2} = ?RAM_FILE_MODULE:get_size(Fd2),
-	    {ok, Data2} = ?RAM_FILE_MODULE:get_file(Fd2),
-	    {ok, Data2} = ?RAM_FILE_MODULE:get_file_close(Fd2),
-	    ok;
-	{error, _} = Error ->
-	    {ok, Data}  = ?RAM_FILE_MODULE:get_file_close(Fd2),
-	    Error
-    end.
+    ok.
 
 
 
@@ -436,47 +406,6 @@ mk_42(0) ->
 mk_42(N) ->
     B = mk_42(N-1),
     [B|B].
-
-%% Test that uuencode/1 and uudecode/1 works.
-uuencode(Config) when is_list(Config) ->
-    Data   = proplists:get_value(data_dir, Config),
-    Real   = filename:join(Data, "realmen.html"),
-    RealUu = filename:join(Data, "realmen.html.uu"),
-    %%
-    %% Uudecode test
-    %%
-    {ok, FdReal}   = ?FILE_MODULE:open(Real, []),
-    {ok, Fd}       = ?FILE_MODULE:open([], [ram, read, write]),
-    {ok, FdRealUu} = ?FILE_MODULE:open(RealUu, []),
-    %%
-    {ok, SzUu}     = ?FILE_MODULE:copy(FdRealUu, Fd),
-    {ok, Sz}       = ?RAM_FILE_MODULE:uudecode(Fd),
-    true           = (Sz =< SzUu),
-    {ok, 0}        = ?FILE_MODULE:position(Fd, bof),
-    true           = compare(FdReal, Fd),
-    %%
-    %% Uuencode and decode test
-    %%
-    F = fun(Offs) ->
-		Size = Sz - Offs,
-		{ok, Offs}     = ?FILE_MODULE:position(FdReal, {bof,Offs}),
-		{ok, 0}        = ?FILE_MODULE:position(Fd, bof),
-		ok             = ?FILE_MODULE:truncate(Fd),
-		{ok, Size}     = ?FILE_MODULE:copy(FdReal, Fd),
-		{ok, SizeUu}   = ?RAM_FILE_MODULE:uuencode(Fd),
-		true           = (Size =< SizeUu),
-		{ok, Size}     = ?RAM_FILE_MODULE:uudecode(Fd),
-		{ok, Offs}     = ?FILE_MODULE:position(FdReal, {bof,Offs}),
-		{ok, 0}        = ?FILE_MODULE:position(Fd, bof),
-		true           = compare(FdReal, Fd)
-	end,
-    lists:foreach(F, lists:seq(0,Sz-1, 43)),
-
-    ok             = ?FILE_MODULE:close(FdReal),
-    ok             = ?FILE_MODULE:close(Fd),
-    ok             = ?FILE_MODULE:close(FdRealUu),
-    %%
-    ok.
 
 
 %% Test error checking of large file offsets.
