@@ -2031,7 +2031,7 @@ Eterm db_prog_match(Process *c_p,
     Process *tmpp;
     Process *current_scheduled;
     ErtsSchedulerData *esdp;
-    Eterm (*bif)(Process*, ...);
+    BIF_RETTYPE (*bif)(BIF_ALIST);
     Eterm bif_args[3];
     int fail_label;
 #ifdef DMC_DEBUG
@@ -2338,8 +2338,8 @@ restart:
             *esp++ = t;
             break;
 	case matchCall0:
-	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(build_proc, bif_args);
+	    bif = (BIF_RETTYPE (*)(BIF_ALIST)) *pc++;
+	    t = (*bif)(build_proc, bif_args, NULL);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -2349,8 +2349,8 @@ restart:
 	    *esp++ = t;
 	    break;
 	case matchCall1:
-	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(build_proc, esp-1);
+	    bif = (BIF_RETTYPE (*)(BIF_ALIST)) *pc++;
+	    t = (*bif)(build_proc, esp-1, NULL);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -2360,10 +2360,10 @@ restart:
 	    esp[-1] = t;
 	    break;
 	case matchCall2:
-	    bif = (Eterm (*)(Process*, ...)) *pc++;
+	    bif = (BIF_RETTYPE (*)(BIF_ALIST)) *pc++;
 	    bif_args[0] = esp[-1];
 	    bif_args[1] = esp[-2];
-	    t = (*bif)(build_proc, bif_args);
+	    t = (*bif)(build_proc, bif_args, NULL);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -2374,11 +2374,11 @@ restart:
 	    esp[-1] = t;
 	    break;
 	case matchCall3:
-	    bif = (Eterm (*)(Process*, ...)) *pc++;
+	    bif = (BIF_RETTYPE (*)(BIF_ALIST)) *pc++;
 	    bif_args[0] = esp[-1];
 	    bif_args[1] = esp[-2];
 	    bif_args[2] = esp[-3];
-	    t = (*bif)(build_proc, bif_args);
+	    t = (*bif)(build_proc, bif_args, NULL);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
