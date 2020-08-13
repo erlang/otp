@@ -408,10 +408,11 @@ flatlength([_H|T],L) ->
 flatlength([],L) ->
     L.
 
-%% split_path
+%% split_path, URI has been decoded once when validate
+%% and should only be decoded once(RFC3986, 2.4).
 
 split_path(URI) -> 
-    case uri_string:normalize(URI, [return_map]) of
+    case uri_string:parse(URI) of
        #{fragment := Fragment,
          path := Path,
          query := Query} ->
@@ -441,11 +442,12 @@ split_path([$/|Rest],SoFar) ->
 split_path([C|Rest],SoFar) ->
     split_path(Rest,[C|SoFar]).
 
-%% split_script_path
+%% split_script_path, URI has been decoded once when validate
+%% and should only be decoded once(RFC3986, 2.4).
 
 
 split_script_path(URI) -> 
-    case uri_string:normalize(URI, [return_map]) of
+    case uri_string:parse(URI) of
        #{fragment := _Fragment,
          path := _Path,
          query := _Query} ->
