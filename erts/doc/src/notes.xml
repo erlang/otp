@@ -723,6 +723,22 @@
 
 </section>
 
+<section><title>Erts 10.7.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ERTS internal I/O poll implementation could get into
+	    an inconsistent state causing input events to be ignored.</p>
+          <p>
+	    Own Id: OTP-16780 Aux Id: PR-2701 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
