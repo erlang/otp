@@ -447,6 +447,17 @@ get(Config) when is_list(Config) ->
 					{header, "Content-Type", "text/html"},
 					{header, "Date"},
 					{header, "Server"},
+					{version, Version}]),
+
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host,
+				       proplists:get_value(port, Config),
+				       transport_opts(Type, Config),
+				       proplists:get_value(node, Config),
+				       http_request("GET /.%252e/.%252e/.%252e/.%252e/.%252e/home/ ", Version, Host),
+				       [{statuscode, 404},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
 					{version, Version}]).
     
 basic_auth_1_1(Config) when is_list(Config) -> 
