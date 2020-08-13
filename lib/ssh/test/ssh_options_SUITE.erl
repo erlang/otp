@@ -45,6 +45,8 @@
 	 max_sessions_sftp_start_channel_sequential/1, 
 	 max_sessions_ssh_connect_parallel/1, 
 	 max_sessions_ssh_connect_sequential/1, 
+         max_sessions_drops_tcp_connects/1,
+         max_sessions_drops_tcp_connects/0,
 	 server_password_option/1, 
 	 server_userpassword_option/1, 
 	 server_pwdfun_option/1,
@@ -137,7 +139,8 @@ groups() ->
 			    max_sessions_ssh_connect_parallel,
 			    max_sessions_ssh_connect_sequential,
 			    max_sessions_sftp_start_channel_parallel,
-			    max_sessions_sftp_start_channel_sequential
+			    max_sessions_sftp_start_channel_sequential,
+                            max_sessions_drops_tcp_connects
 			   ]},
      {dir_options, [], [user_dir_option,
 			system_dir_option]}
@@ -1286,6 +1289,89 @@ try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
 	     end
      end.
 
+%%--------------------------------------------------------------------
+max_sessions_drops_tcp_connects() ->
+    [{timetrap,{minutes,5}}].
+
+max_sessions_drops_tcp_connects(Config) ->
+    MaxSessions = 20,
+    UseSessions = 2, % Must be =< MaxSessions
+    FloodSessions = 1000,
+    ParallelLogin = true,
+    NegTimeOut = 10*1000,
+    HelloTimeOut = 1*1000,
+
+    %% Start a test daemon
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {Pid, Host0, Port} =
+        ssh_test_lib:daemon([
+                             {system_dir, SystemDir},
+                             {user_dir, UserDir},
+                             {user_passwords, [{"carni", "meat"}]},
+                             {parallel_login, ParallelLogin},
+                             {hello_timeout, HelloTimeOut},
+                             {negotiation_timeout, NegTimeOut},
+                             {max_sessions, MaxSessions}
+                            ]),
+    Host = ssh_test_lib:mangle_connect_address(Host0),
+    ct:pal("~p Listen ~p:~p for max ~p sessions. Mangled Host = ~p",
+           [Pid,Host0,Port,MaxSessions,Host]),
+    
+    %% Log in UseSessions connections
+    SSHconnect = fun(N) ->
+                         R = ssh:connect(Host, Port, 
+                                         [{silently_accept_hosts, true},
+                                          {user_dir, proplists:get_value(priv_dir,Config)},
+                                          {user_interaction, false},
+                                          {user, "carni"},
+                                          {password, "meat"}
+                                         ]),
+                         ct:pal("~p: ssh:connect -> ~p", [N,R]),
+                         R
+                 end,
+
+    L1 = oks([SSHconnect(N) || N <- lists:seq(1,UseSessions)]),
+    case length(L1) of
+        UseSessions ->
+            %% As expected
+            %% Try gen_tcp:connect
+            [ct:pal("~p: gen_tcp:connect -> ~p", 
+                    [N, gen_tcp:connect(Host, Port, [])])
+             || N <- lists:seq(UseSessions+1, MaxSessions)
+            ],
+
+            ct:pal("Now try ~p gen_tcp:connect to be rejected", [FloodSessions]),
+            [ct:pal("~p: gen_tcp:connect -> ~p", 
+                    [N, gen_tcp:connect(Host, Port, [])])
+             || N <- lists:seq(MaxSessions+1, MaxSessions+1+FloodSessions)
+            ],
+            
+            ct:pal("try ~p ssh:connect", [MaxSessions - UseSessions]),
+            try_ssh_connect(MaxSessions - UseSessions, NegTimeOut, SSHconnect);
+
+        Len1 ->
+            {fail, Len1}
+    end.
+
+try_ssh_connect(N, NegTimeOut, F) when N>0 ->
+    case F(N) of
+        {ok,_} ->
+            try_ssh_connect(N-1, NegTimeOut, F);
+        {error,_} when N==1 ->
+            try_ssh_connect(N, NegTimeOut, F);
+        {error,_} ->
+            timer:sleep(NegTimeOut),
+            try_ssh_connect(N, NegTimeOut, F)
+    end;
+try_ssh_connect(_N, _NegTimeOut, _F) ->
+    done.
+
+
+oks(L) -> lists:filter(fun({ok,_}) -> true;
+                          (_) -> false
+                       end, L).
+    
 %%--------------------------------------------------------------------
 save_accepted_host_option(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
