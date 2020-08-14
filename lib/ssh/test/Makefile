@@ -66,7 +66,12 @@ ERL_FILES= $(MODULES:%=%.erl)
 HRL_FILES= \
 	$(ERL_TOP)/lib/ssh/test/ssh_test_lib.hrl \
 	$(ERL_TOP)/lib/ssh/src/ssh.hrl \
+	$(ERL_TOP)/lib/ssh/src/ssh_agent.hrl \
+	$(ERL_TOP)/lib/ssh/src/ssh_auth.hrl \
+	$(ERL_TOP)/lib/ssh/src/ssh_connect.hrl \
+	$(ERL_TOP)/lib/ssh/src/ssh_transport.hrl \
 	$(ERL_TOP)/lib/ssh/src/ssh_xfer.hrl
+
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
