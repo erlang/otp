@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -729,9 +729,9 @@ handle_discovery_response(
   _From,
   #pdu{request_id = ReqId} = Pdu,
   ManagerEngineId) ->
+    active_once(Socket),
     case lists:keyfind(ReqId, 1, S#state.reqs) of
 	{ReqId, Pid} ->
-	    active_once(Socket),
 	    Pid ! {snmp_discovery_response_received, Pdu, ManagerEngineId},
 	    %% XXX Strange... Reqs from this Pid should be reaped
 	    %% at process exit by clear_reqs/2 so the following
@@ -748,7 +748,6 @@ handle_discovery_response(
             case (length(DiscoReqs) =:= 2) of
                 true ->
                     [{_, Pid}, _] = DiscoReqs,
-                    active_once(Socket),
                     Pid ! {snmp_discovery_response_received, Pdu,
                            ManagerEngineId},
                     NReqs = S#state.reqs -- DiscoReqs,
