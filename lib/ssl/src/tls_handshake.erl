@@ -36,13 +36,16 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Handshake handling
--export([client_hello/9, hello/5, hello/4]).
+-export([client_hello/10, hello/5, hello/4]).
 
 %% Handshake encoding
 -export([encode_handshake/2]).
 
 %% Handshake decodeing
 -export([get_tls_handshake/4, decode_handshake/3]).
+
+%% Handshake helper
+-export([ocsp_nonce/2]).
 
 -type tls_handshake() :: #client_hello{} | ssl_handshake:ssl_handshake().
 
@@ -52,7 +55,8 @@
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
 		   ssl_options(), binary(), boolean(), der_cert(),
-                   #key_share_client_hello{} | undefined, tuple() | undefined) ->
+                   #key_share_client_hello{} | undefined, tuple() | undefined,
+                   binary() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -62,7 +66,7 @@ client_hello(_Host, _Port, ConnectionStates,
                ciphers := UserSuites,
                fallback := Fallback
               } = SslOpts,
-	     Id, Renegotiation, _OwnCert, KeyShare, TicketData) ->
+	     Id, Renegotiation, _OwnCert, KeyShare, TicketData, OcspNonce) ->
     Version = tls_record:highest_protocol_version(Versions),
 
     %% In TLS 1.3, the client indicates its version preferences in the
@@ -82,9 +86,10 @@ client_hello(_Host, _Port, ConnectionStates,
     Extensions = ssl_handshake:client_hello_extensions(Version, 
 						       AvailableCipherSuites,
 						       SslOpts, ConnectionStates, 
-                                                       Renegotiation,
-                                                       KeyShare,
-                                                       TicketData),
+                               Renegotiation,
+                               KeyShare,
+                               TicketData,
+                               OcspNonce),
     CipherSuites = ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation, Fallback),
     #client_hello{session_id = Id,
 		  client_version = LegacyVersion,
@@ -100,12 +105,9 @@ client_hello(_Host, _Port, ConnectionStates,
 				    atom(), ssl_record:connection_states(), 
 				    binary() | undefined, ssl:kex_algo()},
 	    boolean(), #session{}) ->
-		   {tls_record:tls_version(), ssl:session_id(), 
-		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
-		   {tls_record:tls_version(), {resumed | new, #session{}}, 
-		    ssl_record:connection_states(), binary() | undefined, 
-                    HelloExt::map(), {ssl:hash(), ssl:sign_algo()} | 
-                    undefined} | {atom(), atom()} | {atom(), atom(), tuple()} | #alert{}.
+          {tls_record:tls_version(), ssl:session_id(), 
+           ssl_record:connection_states(), alpn | npn, binary() | undefined, map()}|
+          {atom(), atom(), tls_record:tls_version(), map()} | #alert{}.
 %%
 %% Description: Handles a received hello message
 %%--------------------------------------------------------------------
@@ -156,7 +158,8 @@ hello(#server_hello{server_version = LegacyVersion,
                     extensions = #{server_hello_selected_version :=
                                        #server_hello_selected_version{selected_version = Version} = HelloExt}
                    },
-      #{versions := SupportedVersions} = SslOpt,
+      #{versions := SupportedVersions, 
+        ocsp_stapling := Stapling} = SslOpt,
       ConnectionStates0, Renegotiation, OldId) ->
     %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
@@ -178,7 +181,8 @@ hello(#server_hello{server_version = LegacyVersion,
                                                            ConnectionStates0, Renegotiation, IsNew);
                         SelectedVersion ->
                             %% TLS 1.3
-                            {next_state, wait_sh, SelectedVersion}
+                            {next_state, wait_sh, SelectedVersion, #{ocsp_stapling => Stapling,
+                                                                     ocsp_expect => ocsp_expect(Stapling)}}
                     end;
                 false ->
                     ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
@@ -296,6 +300,20 @@ get_tls_handshake(Version, Data, Buffer, Options) ->
     get_tls_handshake_aux(Version, list_to_binary([Buffer, Data]), Options, []).
 
 %%--------------------------------------------------------------------
+%%% Handshake helper
+%%--------------------------------------------------------------------
+
+%%--------------------------------------------------------------------
+-spec ocsp_nonce(boolean(), boolean()) -> binary() | undefined.
+%%
+%% Description: Get an OCSP nonce
+%%--------------------------------------------------------------------
+ocsp_nonce(true, true) ->
+    public_key:der_encode('Nonce', crypto:strong_rand_bytes(8));
+ocsp_nonce(_OcspNonceOpt, _OcspStaplingOpt) ->
+    undefined.
+
+%%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 handle_client_hello(Version, 
@@ -368,8 +386,8 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 						      Compression, HelloExt, Version,
 						      SslOpt, ConnectionStates0, 
                                                      Renegotiation, IsNew) of
-	{ConnectionStates, ProtoExt, Protocol} ->
-	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
+	{ConnectionStates, ProtoExt, Protocol, OcspState} ->
+	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}
     catch throw:Alert ->
 	    Alert
     end.
@@ -457,3 +475,9 @@ decode_handshake({3, 4}, Tag, Msg) ->
     tls_handshake_1_3:decode_handshake(Tag, Msg);
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
+
+
+ocsp_expect(true) ->
+    staple;
+ocsp_expect(_) ->
+    no_staple.

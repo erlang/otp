@@ -63,7 +63,10 @@
 	 pkix_crl_issuer/1,
 	 short_name_hash/1,
          pkix_test_data/1,
-         pkix_test_root_cert/2
+         pkix_test_root_cert/2,
+         pkix_ocsp_validate/5,
+         ocsp_responder_id/1,
+         ocsp_extensions/1
 	]).
 
 -export_type([public_key/0, private_key/0, pem_entry/0,
@@ -1274,6 +1277,47 @@ pkix_test_data(#{} = Chain) ->
 
 pkix_test_root_cert(Name, Opts) ->
     pubkey_cert:root_cert(Name, Opts).
+      
+%%--------------------------------------------------------------------
+-spec pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, 
+                         ResponderCerts, NonceExt) -> valid | {bad_cert, Reason}
+              when Cert::der_encoded() | #'OTPCertificate'{},
+                   IssuerCert::der_encoded() | #'OTPCertificate'{}, 
+                   OcspRespDer::der_encoded(),
+                   ResponderCerts::[der_encoded()],
+                   NonceExt::undefined | binary(),
+                   Reason::term().
+
+%% Description: Validate OCSP staple response
+%%--------------------------------------------------------------------
+pkix_ocsp_validate(DerCert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) when is_binary(DerCert) ->
+    pkix_ocsp_validate(pkix_decode_cert(DerCert, otp),  IssuerCert, OcspRespDer, ResponderCerts, NonceExt);
+pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt) when is_binary(DerIssuerCert) ->
+    pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer, ResponderCerts, NonceExt);
+pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
+    case  ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
+        {ok, Responses} ->
+            ocsp_status(Cert, IssuerCert, Responses);
+        {error, Reason} ->
+            {bad_cert, {revocation_status_undetermined, Reason}}
+    end.
+
+%%--------------------------------------------------------------------
+-spec ocsp_extensions(undefined | binary()) -> list().
+%% Description: Get OCSP stapling extensions for request
+%%--------------------------------------------------------------------
+ocsp_extensions(Nonce) ->
+    [Extn || Extn <- [pubkey_ocsp:get_nonce_extn(Nonce),
+                      pubkey_ocsp:get_acceptable_response_types_extn()],
+             erlang:is_record(Extn, 'Extension')].
+
+%%--------------------------------------------------------------------
+-spec ocsp_responder_id(#'Certificate'{}) -> binary().
+%%
+%% Description: Get the OCSP responder ID der
+%%--------------------------------------------------------------------
+ocsp_responder_id(Cert) ->
+    pubkey_ocsp:get_ocsp_responder_id(Cert).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1400,16 +1444,16 @@ path_validation([Cert | _] = Path,
     end.
 
 validate(Cert, #path_validation_state{working_issuer_name = Issuer,
-					 working_public_key = Key,
-					 working_public_key_parameters = 
-					 KeyParams, 
-					 permitted_subtrees = Permit,
-					 excluded_subtrees = Exclude,
-					 last_cert = Last,
-					 user_state = UserState0,
-					 verify_fun = VerifyFun} =
+                                      working_public_key = Key,
+                                      working_public_key_parameters = 
+                                          KeyParams, 
+                                      permitted_subtrees = Permit,
+                                      excluded_subtrees = Exclude,
+                                      last_cert = Last,
+                                      user_state = UserState0,
+                                      verify_fun = VerifyFun} =
 	     ValidationState0) ->
-
+    
     OtpCert = otp_cert(Cert),
 
     {ValidationState1, UserState1} =
@@ -1837,3 +1881,14 @@ format_details([]) ->
 format_details(Details) ->
     Details.
   
+ocsp_status(Cert, IssuerCert, Responses) ->
+    case pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses) of
+        {ok, #'SingleResponse'{certStatus = CertStatus}} ->
+            pubkey_ocsp:ocsp_status(CertStatus);
+        {error, no_matched_response = Reason} ->
+            {bad_cert, {revocation_status_undetermined, Reason}}
+    end.
+
+ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
+    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, 
+                                     ResponderCerts, Nonce).

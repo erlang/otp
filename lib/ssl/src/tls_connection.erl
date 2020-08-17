@@ -67,7 +67,7 @@
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
-	 hello/3, user_hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
+	 hello/3, user_hello/3, wait_ocsp_stapling/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
 	 connection/3]).
 %% TLS 1.3 state functions (server)
 -export([start/3,         %% common state with client
@@ -597,27 +597,32 @@ init({call, From}, {start, Timeout},
                                      socket = Socket,
                                      session_cache = Cache,
                                      session_cache_cb = CacheCb},
-            handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
+            handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                                           ocsp_stapling_state = OcspState0} = HsEnv,
             connection_env = CEnv,
 	    ssl_options = #{log_level := LogLevel,
-                            %% Use highest version in initial ClientHello.
-                            %% Versions is a descending list of supported versions.
-                            versions := [HelloVersion|_] = Versions,
-                            session_tickets := SessionTickets} = SslOpts,
-	    session = NewSession,
-	    connection_states = ConnectionStates0
-	   } = State0) ->
+                        %% Use highest version in initial ClientHello.
+                        %% Versions is a descending list of supported versions.
+                        versions := [HelloVersion|_] = Versions,
+                        session_tickets := SessionTickets,
+                        ocsp_stapling := OcspStaplingOpt,
+                        ocsp_nonce := OcspNonceOpt} = SslOpts,
+	                    session = NewSession,
+	                    connection_states = ConnectionStates0
+	    } = State0) ->
     KeyShare = maybe_generate_client_shares(SslOpts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession),
     %% Update UseTicket in case of automatic session resumption
     {UseTicket, State1} = tls_handshake_1_3:maybe_automatic_session_resumption(State0),
     TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
+    OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                        Session#session.session_id,
                                        Renegotiation,
                                        Session#session.own_certificate,
                                        KeyShare,
-                                       TicketData),
+                                       TicketData,
+                                       OcspNonce),
 
     Handshake0 = ssl_handshake:init_handshake_history(),
 
@@ -642,12 +647,14 @@ init({call, From}, {start, Timeout},
     %% ServerHello is processed.
     RequestedVersion = tls_record:hello_version(Versions),
     State = State1#state{connection_states = ConnectionStates,
-                         connection_env = CEnv#connection_env{
-                                            negotiated_version = RequestedVersion},
-                         session = Session,
-                         handshake_env = HsEnv#handshake_env{tls_handshake_history = Handshake},
-                         start_or_recv_from = From,
-                         key_share = KeyShare},
+                          connection_env = CEnv#connection_env{
+                                             negotiated_version = RequestedVersion},
+                          session = Session,
+                          handshake_env = HsEnv#handshake_env{
+                                            tls_handshake_history = Handshake,
+                                            ocsp_stapling_state = OcspState0#{ocsp_nonce => OcspNonce}},
+                          start_or_recv_from = From,
+                          key_share = KeyShare},
     next_event(hello, no_record, State, [{{timeout, handshake}, Timeout, close}]);
 
 init(Type, Event, State) ->
@@ -682,13 +689,14 @@ hello(internal, #client_hello{extensions = Extensions} = Hello,
                                          handshake_env = HsEnv#handshake_env{hello = Hello}},
      [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello,
-      #state{ssl_options = #{handshake := hello},
+      #state{ssl_options = #{
+                 handshake := hello},
              handshake_env = HsEnv,
-             start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                         handshake_env = HsEnv#handshake_env{hello = Hello}},
-     [{reply, From, {ok, Extensions}}]};     
-
+             start_or_recv_from = From} = State) ->   
+    {next_state, user_hello,
+     State#state{start_or_recv_from = undefined,
+                 handshake_env = HsEnv#handshake_env{
+                                   hello = Hello}}, [{reply, From, {ok, Extensions}}]};     
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{connection_states = ConnectionStates0,
              static_env = #static_env{
@@ -736,28 +744,33 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
             end
 
     end;
-hello(internal, #server_hello{} = Hello,      
+hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
              connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv,
 	     static_env = #static_env{role = client},
-             handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
+             handshake_env = #handshake_env{
+                                ocsp_stapling_state = OcspState0,
+                                renegotiation = {Renegotiation, _}} = HsEnv,
              session = #session{session_id = OldId},
-	     ssl_options = SslOptions} = State) ->
+	     ssl_options = SslOptions} = State) ->   
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
-	#alert{} = Alert -> %%TODO
-	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
+        #alert{} = Alert -> 
+            ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
                                             State#state{connection_env =
-                                                            CEnv#connection_env{negotiated_version = ReqVersion}});
+                                                            CEnv#connection_env{negotiated_version = ReqVersion}
+                                                       });
         %% Legacy TLS 1.2 and older
-	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
-	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State);
+        {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
+            ssl_connection:handle_session(Hello, 
+                                          Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                                          State#state{handshake_env = HsEnv#handshake_env{
+                                                                        ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
         %% TLS 1.3
-        {next_state, wait_sh, SelectedVersion} ->
+        {next_state, wait_sh, SelectedVersion, OcspState} ->
             %% Continue in TLS 1.3 'wait_sh' state
             {next_state, wait_sh,
-             State#state{
-               connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
+             State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =  maps:merge(OcspState0,OcspState)}, 
+                         connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
              [{next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
@@ -775,6 +788,15 @@ user_hello(Type, Event, State) ->
 abbreviated(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_ocsp_stapling(gen_statem:event_type(), term(), #state{}) ->
+		     gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_ocsp_stapling(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_ocsp_stapling(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %%--------------------------------------------------------------------
@@ -848,7 +870,9 @@ connection(internal, #hello_request{},
                                            port = Port,
                                            session_cache = Cache,
                                            session_cache_cb = CacheCb},
-                  handshake_env = #handshake_env{renegotiation = {Renegotiation, peer}},
+                  handshake_env = #handshake_env{
+                      renegotiation = {Renegotiation, peer},
+                      ocsp_stapling_state = OcspState},
 		  session = #session{own_certificate = Cert} = Session0,
 		  ssl_options = SslOpts, 
                   protocol_specific = #{sender := Pid},
@@ -859,7 +883,7 @@ connection(internal, #hello_request{},
             Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
                                                Session#session.session_id,
                                                Renegotiation, Cert, undefined,
-                                               undefined),
+                                               undefined, maps:get(ocsp_nonce, OcspState, undefined)),
             {State, Actions} = send_handshake(Hello, State0#state{connection_states = ConnectionStates#{current_write => Write},
                                                                   session = Session}),
             next_event(hello, no_record, State, Actions)
@@ -871,13 +895,15 @@ connection(internal, #hello_request{},
 	   #state{static_env = #static_env{role = client,
                                            host = Host,
                                            port = Port},
-                  handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
+                  handshake_env = #handshake_env{
+                      renegotiation = {Renegotiation, _},
+                      ocsp_stapling_state = OcspState},
 		  session = #session{own_certificate = Cert},
 		  ssl_options = SslOpts, 
 		  connection_states = ConnectionStates} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
                                        <<>>, Renegotiation, Cert, undefined,
-                                       undefined),
+                                       undefined, maps:get(ocsp_nonce, OcspState, undefined)),
 
     {State, Actions} = send_handshake(Hello, State0),
     next_event(hello, no_record, State, Actions);

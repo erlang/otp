@@ -376,7 +376,7 @@
 -define(NAMED_CURVE, 3).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% RFC 6066 Server name indication 
+%% RFC 6066 TLS Extensions: Extension Definitions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% section 3
@@ -400,11 +400,31 @@
           enum = undefined  %% contains the enum value 1..4
         }).
 
+%% Section 8, Certificate Status Request
+-define(STATUS_REQUEST, 5).
+-define(CERTIFICATE_STATUS_TYPE_OCSP, 1).
+-define(CERTIFICATE_STATUS, 22).
+
+%% status request record defined in RFC 6066, section 8
+-record(certificate_status_request, {
+	status_type,
+	request
+}).
+
+-record(ocsp_status_request, {
+	responder_id_list = [],
+	request_extensions = []
+}).
+
+-record(certificate_status, {
+	status_type,
+	response
+}).
+
 %% Other possible values from RFC 6066, not supported
 -define(CLIENT_CERTIFICATE_URL, 2).
 -define(TRUSTED_CA_KEYS, 3).
 -define(TRUNCATED_HMAC, 4).
--define(STATUS_REQUEST, 5).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% RFC 7250 Using Raw Public Keys in Transport Layer Security (TLS)

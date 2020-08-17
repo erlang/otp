@@ -682,7 +682,8 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                                          port = Port,
                                          transport_cb = Transport,
                                          socket = Socket},
-                handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
+                handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                                               ocsp_stapling_state = OcspState},
                 connection_env = #connection_env{negotiated_version = NegotiatedVersion},
                 ssl_options = #{ciphers := ClientCiphers,
                                 supported_groups := ClientGroups0,
@@ -719,9 +720,10 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% of the triggering HelloRetryRequest.
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
         TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
+        OcspNonce = maps:get(ocsp_nonce, OcspState, undefined),
         Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                            SessionId, Renegotiation, Cert, ClientKeyShare,
-                                           TicketData),
+                                           TicketData, OcspNonce),
         %% Echo cookie received in HelloRetryrequest
         Hello1 = maybe_add_cookie_extension(Cookie, Hello0),
 
@@ -762,7 +764,6 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         {Ref, #alert{} = Alert} ->
             Alert
     end.
-
 
 do_negotiated({start_handshake, PSK0},
               #state{connection_states = ConnectionStates0,
@@ -1340,16 +1341,17 @@ process_certificate(#certificate_1_3{
     {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
 process_certificate(#certificate_1_3{certificate_list = CertEntries},
                     #state{ssl_options = SslOptions,
-                           static_env =
-                               #static_env{
-                                  role = Role,
-                                  host = Host,
-                                  cert_db = CertDbHandle,
-                                  cert_db_ref = CertDbRef,
-                                  crl_db = CRLDbHandle}} = State0) ->
-    
+                       static_env =
+                           #static_env{
+                              role = Role,
+                              host = Host,
+                              cert_db = CertDbHandle,
+                              cert_db_ref = CertDbRef,
+                              crl_db = CRLDbHandle},
+                           handshake_env = #handshake_env{
+                                              ocsp_stapling_state = OcspState}} = State0) ->
     case validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
-                                    SslOptions, CRLDbHandle, Role, Host) of
+                                    SslOptions, CRLDbHandle, Role, Host, OcspState) of
         {ok, {PeerCert, PublicKeyInfo}} ->
             State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
             {ok, {State, wait_cv}};
@@ -1380,10 +1382,11 @@ validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                              crl_check := CrlCheck,
                              log_level := LogLevel,
                              depth := Depth,
+                             ocsp_responder_certs := OcspResponderCerts,
                              signature_algs := SignAlgs,
                              signature_algs_cert := SignAlgsCert
-                            } = SslOptions, CRLDbHandle, Role, Host) ->
-    {Certs, CertExt} = split_cert_entries(CertEntries),
+                            } = SslOptions, CRLDbHandle, Role, Host, OcspState0) ->
+    {Certs, CertExt, OcspState} = split_cert_entries(CertEntries, OcspState0),
     ServerName = ssl_handshake:server_name(ServerNameIndication, Host, Role),
     [PeerCert | ChainCerts ] = Certs,
      try
@@ -1402,7 +1405,10 @@ validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                                                                 signature_algs => filter_tls13_algs(SignAlgs),
                                                                 signature_algs_cert => filter_tls13_algs(SignAlgsCert),
                                                                 version => {3,4},
-                                                                cert_ext => CertExt
+                                                                issuer => TrustedCert,
+                                                                cert_ext => CertExt,
+                                                                ocsp_responder_certs => OcspResponderCerts,
+                                                                ocsp_state => OcspState
                                                                }, 
                                                    CertPath, LogLevel),
         Options = [{max_path_length, Depth},
@@ -1429,15 +1435,21 @@ store_peer_cert(#state{session = Session,
                 handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo}}.
 
 
-split_cert_entries(CertEntries) ->
-    split_cert_entries(CertEntries, [], #{}).
-split_cert_entries([], Chain, Ext) ->
-    {lists:reverse(Chain), Ext};
+split_cert_entries(CertEntries, OcspState) ->
+    split_cert_entries(CertEntries, OcspState, [], #{}).
+split_cert_entries([], OcspState, Chain, Ext) ->
+    {lists:reverse(Chain), Ext, OcspState};
 split_cert_entries([#certificate_entry{data = DerCert,
-                                       extensions = Extensions0} | CertEntries], Chain, Ext) ->
+                                       extensions = Extensions0} | CertEntries], OcspState0, Chain, Ext) ->
     Id = public_key:pkix_subject_id(DerCert),
-    Extensions = maps:to_list(Extensions0),
-    split_cert_entries(CertEntries, [DerCert | Chain], Ext#{Id => Extensions}).
+    Extensions = [ExtValue || {_, ExtValue} <- maps:to_list(Extensions0)],
+    OcspState = case maps:get(status_request, Extensions0, undefined) of
+                    undefined ->
+                        OcspState0;
+                    _ ->
+                        OcspState0#{ocsp_expect => stapled}
+                end,
+    split_cert_entries(CertEntries, OcspState, [DerCert | Chain], Ext#{Id => Extensions}).
 
 
 %% 4.4.1.  The Transcript Hash

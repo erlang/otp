@@ -380,7 +380,7 @@ req_cnf(Root, C) ->
      "default_bits	= ", integer_to_list(C#config.default_bits), "\n"
      "RANDFILE		= $ROOTDIR/RAND\n"
      "encrypt_key	= no\n"
-     "default_md	= sha1\n"
+     "default_md	= sha256\n"
      "#string_mask	= pkix\n"
      "x509_extensions	= ca_ext\n"
      "prompt		= no\n"
@@ -430,7 +430,7 @@ ca_cnf(
      ["crl_extensions = crl_ext\n" || C#config.v2_crls],
      "unique_subject  = no\n"
      "default_days	= 3600\n"
-     "default_md	= sha1\n"
+     "default_md	= sha256\n"
      "preserve	        = no\n"
      "policy		= policy_match\n"
      "\n"
@@ -513,7 +513,7 @@ ca_cnf(
      ["crl_extensions = crl_ext\n" || C#config.v2_crls],
      "unique_subject  = no\n"
      "default_days	= 3600\n"
-     "default_md	= sha1\n"
+     "default_md	= sha256\n"
      "preserve	        = no\n"
      "policy		= policy_match\n"
      "\n"
@@ -595,7 +595,7 @@ ca_cnf(
      ["crl_extensions = crl_ext\n" || C#config.v2_crls],
      "unique_subject  = no\n"
      "default_days	= 3600\n"
-     "default_md	= sha1\n"
+     "default_md	= sha256\n"
      "preserve	        = no\n"
      "policy		= policy_match\n"
      "\n"
