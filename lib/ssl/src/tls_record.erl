@@ -686,7 +686,7 @@ encode_fragments(_Type, _Version, _Data, CS, _CompS, _CipherS, _Seq, _CipherFrag
     exit({cs, CS}).
 %%--------------------------------------------------------------------
 
-%% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are
+%% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 ciphers are
 %% not vulnerable to this attack.
 split_iovec(Data, Version, BCA, one_n_minus_one, MaxLength)
   when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse

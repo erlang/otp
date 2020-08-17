@@ -1354,7 +1354,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <desc><p>Make <c>Deferred</c> suites become the least preferred
       suites, that is put them at the end of the cipher suite list
       <c>Suites</c> after removing them from <c>Suites</c> if
-      present. <c>Deferred</c> may be a list of cipher suits or a
+      present. <c>Deferred</c> may be a list of cipher suites or a
       list of filters in which case the filters are use on  <c>Suites</c> to
       extract the Deferred cipher list.</p> 
       </desc>
@@ -1566,7 +1566,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       returns false for any part of the cipher suite. If no filter function is supplied for some
       part the default behaviour regards it as if there was a filter function that returned true.
       
-      For examples see <seeguide marker="ssl:using_ssl#customizing-cipher-suits"> Customizing cipher suits </seeguide> 
+      For examples see <seeguide marker="ssl:using_ssl#customizing-cipher-suites"> Customizing cipher suites </seeguide> 
       
       Additionaly this function also filters the cipher suites to
       exclude cipher suites not supported by the cryptolib used by the
@@ -1717,7 +1717,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <desc><p>Make <c>Preferred</c> suites become the most preferred
       suites that is put them at the head of the cipher suite list
       <c>Suites</c> after removing them from <c>Suites</c> if
-      present. <c>Preferred</c> may be a list of cipher suits or a
+      present. <c>Preferred</c> may be a list of cipher suites or a
       list of filters in which case the filters are use on <c>Suites</c> to
       extract the preferred cipher list. </p>
       </desc>
