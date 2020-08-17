@@ -34,7 +34,24 @@
   </header>
 
 
-  <section><title>SNMP 5.5.0.1</title>
+  <section><title>SNMP 5.5.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The SNMP Agent missed to re-activate datagram reception
+	    in an odd timeout case and went deaf. This bug has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-15767 Aux Id: ERIERL-523 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.5.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
