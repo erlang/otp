@@ -418,10 +418,20 @@ verify_cert_extensions(Cert, #{cert_ext := CertExts} =  UserState) ->
     Extensions = maps:get(Id, CertExts, []),
     verify_cert_extensions(Cert, UserState, Extensions, #{}).
 
-verify_cert_extensions(_, UserState, [], _) ->
-    {valid, UserState};
-verify_cert_extensions(Cert, UserState, [ _ | Exts], Context) ->
-    %% TODO Skip unknow extensions ?
+verify_cert_extensions(Cert, UserState, [], _) ->
+    {valid, UserState#{issuer => Cert}};
+verify_cert_extensions(Cert, #{ocsp_responder_certs := ResponderCerts,
+                               ocsp_state := OscpState,
+                               issuer := Issuer} = UserState, [#certificate_status{response = OcspResponsDer} | Exts], Context) ->
+    #{ocsp_nonce := Nonce} = OscpState,
+    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer, ResponderCerts, Nonce) of
+        valid ->
+            verify_cert_extensions(Cert, UserState, Exts, Context);
+        {bad_cert, _} = Status ->
+            {fail, Status}
+    end;
+verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
+    %% Skip unknow extensions!
     verify_cert_extensions(Cert, UserState, Exts, Context).
 
 verify_sign(_, #{version := {_, Minor}}) when Minor < 3 ->

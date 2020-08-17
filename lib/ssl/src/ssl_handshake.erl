@@ -51,7 +51,7 @@
 	 finished/5,  next_protocol/1, digitally_signed/5]).
 
 %% Handle handshake messages
--export([certify/8, certificate_verify/6, verify_signature/5,
+-export([certify/9, certificate_verify/6, verify_signature/5,
 	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5,
          select_version/3, select_supported_version/2, extension_value/1
@@ -72,7 +72,7 @@
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
--export([client_hello_extensions/7,
+-export([client_hello_extensions/8,
 	 handle_client_hello_extensions/10, %% Returns server hello extensions
 	 handle_server_hello_extensions/10, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
@@ -338,7 +338,7 @@ next_protocol(SelectedProtocol) ->
 %%--------------------------------------------------------------------
 -spec certify(#certificate{}, db_handle(), certdb_ref(), ssl_options(), term(),
 	      client | server, inet:hostname() | inet:ip_address(),
-              ssl_record:ssl_version()) ->  {der_cert(), public_key_info()} | #alert{}.
+              ssl_record:ssl_version(), map()) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
@@ -350,13 +350,15 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
           crl_check := CrlCheck,
           log_level := Level,
           signature_algs := SignAlgos,
-          depth := Depth} = Opts, CRLDbHandle, Role, Host, Version) ->
-    
+          depth := Depth} = Opts, CRLDbHandle, Role, Host, Version,
+          #{cert_ext := CertExt,
+            ocsp_responder_certs := OcspResponderCerts,
+            ocsp_state := OcspState}) ->
     ServerName = server_name(ServerNameIndication, Host, Role),
-    [PeerCert | ChainCerts ] = ASN1Certs,       
+    [PeerCert | ChainCerts ] = ASN1Certs,
     try
 	{TrustedCert, CertPath}  =
-	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,  
+	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,
                                                   PartialChain),
         ValidationFunAndState = validation_fun_and_state(VerifyFun, #{role => Role,
                                                                       certdb => CertDbHandle,
@@ -368,16 +370,20 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                                                                       signature_algs_cert => undefined,
                                                                       version => Version,
                                                                       crl_check => CrlCheck,
-                                                                      crl_db => CRLDbHandle},
+                                                                      crl_db => CRLDbHandle,
+                                                                      cert_ext => CertExt,
+                                                                      issuer => TrustedCert,
+                                                                      ocsp_responder_certs => OcspResponderCerts,
+                                                                      ocsp_state => OcspState},
                                                          CertPath, Level),
         Options = [{max_path_length, Depth},
                    {verify_fun, ValidationFunAndState}],
 	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
-	    {ok, {PublicKeyInfo,_}} ->
-		{PeerCert, PublicKeyInfo};
+	    {ok, {PublicKeyInfo, _}} ->
+                {PeerCert, PublicKeyInfo};
 	    {error, Reason} ->
-		handle_path_validation_error(Reason, PeerCert, ChainCerts, Opts, Options, 
-                                             CertDbHandle, CertDbRef)
+		    handle_path_validation_error(Reason, PeerCert, ChainCerts, Opts, Options,
+                                         CertDbHandle, CertDbRef)
 	end
     catch
 	error:{_,{error, {asn1, Asn1Reason}}} ->
@@ -749,6 +755,15 @@ encode_extensions([#psk_key_exchange_modes{ke_modes = KEModes0} | Rest], Acc) ->
     ExtLen = KEModesLen + 1,
     encode_extensions(Rest, <<?UINT16(?PSK_KEY_EXCHANGE_MODES_EXT),
                               ?UINT16(ExtLen), ?BYTE(KEModesLen), KEModes/binary, Acc/binary>>);
+encode_extensions([
+    #certificate_status_request{
+        status_type = StatusRequest,
+        request = Request} | Rest], Acc) ->
+    CertStatusReq = encode_cert_status_req(StatusRequest, Request),
+    Len = byte_size(CertStatusReq),
+    encode_extensions(
+        Rest, <<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
+        CertStatusReq/binary, Acc/binary>>);
 encode_extensions([#pre_shared_key_client_hello{
                       offered_psks = #offered_psks{
                                         identities = Identities0,
@@ -771,6 +786,39 @@ encode_extensions([#cookie{cookie = Cookie} | Rest], Acc) ->
     encode_extensions(Rest, <<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
 				    Cookie/binary, Acc/binary>>).
 
+encode_cert_status_req(
+    StatusType,
+    #ocsp_status_request{
+        responder_id_list = ResponderIDList,
+        request_extensions = ReqExtns}) ->
+    ResponderIDListBin = encode_responderID_list(ResponderIDList),
+    ReqExtnsBin = encode_request_extensions(ReqExtns),
+    <<?BYTE(StatusType), ResponderIDListBin/binary, ReqExtnsBin/binary>>.
+
+encode_responderID_list([]) ->
+    <<?UINT16(0)>>;
+encode_responderID_list(List) ->
+    do_encode_responderID_list(List, <<>>).
+
+%% ResponderID is DER-encoded ASN.1 type defined in RFC6960.
+do_encode_responderID_list([], Acc) ->
+    Len = byte_size(Acc),
+    <<?UINT16(Len), Acc/binary>>;
+do_encode_responderID_list([Responder | Rest], Acc)
+  when is_binary(Responder) ->
+    Len = byte_size(Responder),
+    do_encode_responderID_list(
+        Rest, <<Acc/binary, ?UINT16(Len), Responder/binary>>).
+
+%% Extensions are DER-encoded ASN.1 type defined in RFC6960 following
+%% extension model employed in X.509 version 3 certificates(RFC5280).
+encode_request_extensions([]) ->
+    <<?UINT16(0)>>;
+encode_request_extensions(Extns) when is_list(Extns) ->
+    ExtnBin = public_key:der_encode('Extensions', Extns),
+    Len = byte_size(ExtnBin),
+    <<?UINT16(Len), ExtnBin/binary>>.
+
 encode_client_protocol_negotiation(undefined, _) ->
     undefined;
 encode_client_protocol_negotiation(_, false) ->
@@ -782,7 +830,8 @@ encode_protocols_advertised_on_server(undefined) ->
 	undefined;
 
 encode_protocols_advertised_on_server(Protocols) ->
-	#next_protocol_negotiation{extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
+	#next_protocol_negotiation{
+        extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
 
 %%====================================================================
 %% Decode handshake 
@@ -821,6 +870,14 @@ decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32
        extensions = HelloExtensions};
 decode_handshake(_Version, ?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
+%% RFC 6066, servers return a certificate response along with their certificate
+%% by sending a "CertificateStatus" message immediately after the "Certificate"
+%% message and before any "ServerKeyExchange" or "CertificateRequest" messages.
+decode_handshake(_Version, ?CERTIFICATE_STATUS, <<?BYTE(?CERTIFICATE_STATUS_TYPE_OCSP),
+                 ?UINT24(Len), ASN1OcspResponse:Len/binary>>) ->
+    #certificate_status{
+        status_type = ?CERTIFICATE_STATUS_TYPE_OCSP,
+        response = ASN1OcspResponse};
 decode_handshake(_Version, ?SERVER_KEY_EXCHANGE, Keys) ->
     #server_key_exchange{exchange_keys = Keys};
 decode_handshake({Major, Minor}, ?CERTIFICATE_REQUEST,
@@ -1104,10 +1161,11 @@ premaster_secret(EncSecret, #{algorithm := rsa} = Engine) ->
 %% Extensions handling
 %%====================================================================
 client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation, KeyShare,
-                        TicketData) ->
+                        TicketData, OcspNonce) ->
     HelloExtensions0 = add_tls12_extensions(Version, SslOpts, ConnectionStates, Renegotiation),
     HelloExtensions1 = add_common_extensions(Version, HelloExtensions0, CipherSuites, SslOpts),
-    maybe_add_tls13_extensions(Version, HelloExtensions1, SslOpts, KeyShare, TicketData).
+    HelloExtensions2 = maybe_add_certificate_status_request(Version, SslOpts, OcspNonce, HelloExtensions1),
+    maybe_add_tls13_extensions(Version, HelloExtensions2, SslOpts, KeyShare, TicketData).
 
 
 add_tls12_extensions(_Version,
@@ -1178,6 +1236,31 @@ maybe_add_tls13_extensions({3,4},
 maybe_add_tls13_extensions(_, HelloExtensions, _, _, _) ->
     HelloExtensions.
 
+maybe_add_certificate_status_request(
+    _Version, #{ocsp_stapling := false}, _OcspNonce, HelloExtensions) ->
+    HelloExtensions;
+maybe_add_certificate_status_request(
+    _Version, #{ocsp_stapling        := true,
+                ocsp_responder_certs := OcspResponderCerts},
+    OcspNonce, HelloExtensions) ->
+    OcspResponderList = get_ocsp_responder_list(OcspResponderCerts),
+    OcspRequestExtns = public_key:ocsp_extensions(OcspNonce),
+    Req = #ocsp_status_request{responder_id_list  = OcspResponderList,
+                               request_extensions = OcspRequestExtns},
+    CertStatusReqExtn = #certificate_status_request{
+        status_type = ?CERTIFICATE_STATUS_TYPE_OCSP,
+        request = Req
+    },
+    HelloExtensions#{status_request => CertStatusReqExtn}.
+
+get_ocsp_responder_list(ResponderCerts) ->
+    get_ocsp_responder_list(ResponderCerts, []).
+
+get_ocsp_responder_list([], Acc) ->
+    Acc;
+get_ocsp_responder_list([ResponderCert | T], Acc) ->
+    get_ocsp_responder_list(
+        T, [public_key:ocsp_responder_id(ResponderCert) | Acc]).
 
 %% TODO: Add support for PSK key establishment
 
@@ -1353,7 +1436,8 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                                Exts, Version,
 			       #{secure_renegotiate := SecureRenegotation,
-                                 next_protocol_selector := NextProtoSelector},
+                                 next_protocol_selector := NextProtoSelector,
+                                 ocsp_stapling := Stapling},
 			       ConnectionStates0, Renegotiation, IsNew) ->
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
                                                       maps:get(renegotiation_info, Exts, undefined), Random, 
@@ -1376,26 +1460,31 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
             ok
     end,
 
-    %% If we receive an ALPN extension then this is the protocol selected,
-    %% otherwise handle the NPN extension.
-    ALPN = maps:get(alpn, Exts, undefined),
-    case decode_alpn(ALPN) of
-        %% ServerHello contains exactly one protocol: the one selected.
-        %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
-        [Protocol] when not Renegotiation ->
-            {ConnectionStates, alpn, Protocol};
-        [_] when Renegotiation ->
-            {ConnectionStates, alpn, undefined};
-        undefined ->
-            NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
-            Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation),
-            {ConnectionStates, npn, Protocol};
-        {error, Reason} ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
-        [] ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, no_protocols_in_server_hello);
-        [_|_] ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, too_many_protocols_in_server_hello)
+    case handle_ocsp_extension(Stapling, Exts) of
+        #alert{} = Alert ->
+            Alert;
+        OcspState ->
+            %% If we receive an ALPN extension then this is the protocol selected,
+            %% otherwise handle the NPN extension.
+            ALPN = maps:get(alpn, Exts, undefined),
+            case decode_alpn(ALPN) of
+                %% ServerHello contains exactly one protocol: the one selected.
+                %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
+                [Protocol] when not Renegotiation ->
+                    {ConnectionStates, alpn, Protocol, OcspState};
+                [_] when Renegotiation ->
+                    {ConnectionStates, alpn, undefined, OcspState};
+                undefined ->
+                    NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
+                    Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation),
+                    {ConnectionStates, npn, Protocol, OcspState};
+                {error, Reason} ->
+                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
+                [] ->
+                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, no_protocols_in_server_hello);
+                [_|_] ->
+                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, too_many_protocols_in_server_hello)
+            end
     end.
 
 select_curve(Client, Server) ->
@@ -1642,7 +1731,25 @@ extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
 extension_value(#cookie{cookie = Cookie}) ->
     Cookie.
 
-
+handle_ocsp_extension(true = Stapling, Extensions) ->
+    case maps:get(status_request, Extensions, false) of
+        undefined -> %% status_request in server hello is empty
+            #{ocsp_stapling => Stapling,
+              ocsp_expect => staple};
+        false -> %% status_request is missing (not negotiated)
+            #{ocsp_stapling => Stapling,
+              ocsp_expect => no_staple};
+        _Else ->
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, status_request_not_empty)
+    end;
+handle_ocsp_extension(false = Stapling, Extensions) ->
+    case maps:get(status_request, Extensions, false) of
+        false -> %% status_request is missing (not negotiated)
+            #{ocsp_stapling => Stapling,
+              ocsp_expect => no_staple};
+        _Else -> %% unsolicited status_request
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request)
+    end.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1709,10 +1816,10 @@ validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
 		     {valid, {NewSslState, UserState}};
 		 {fail, Reason} ->
 		     apply_user_fun(Fun, OtpCert, Reason, UserState,
-				    SslState, CertPath, LogLevel);
+				            SslState, CertPath, LogLevel);
 		 {unknown, _} ->
 		     apply_user_fun(Fun, OtpCert,
-				    Extension, UserState, SslState, CertPath, LogLevel)
+				            Extension, UserState, SslState, CertPath, LogLevel)
 	     end;
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
@@ -1725,11 +1832,9 @@ validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
 				      SslState);
 	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
                                                (VerifyResult == valid_peer) -> 
-	     case crl_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
-		 valid ->                     
-                     ssl_certificate:validate(OtpCert,
-                                              VerifyResult,
-                                              SslState);
+	     case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
+		 valid ->
+                     ssl_certificate:validate(OtpCert, VerifyResult, SslState);
 		 Reason ->
 		     {fail, Reason}
 	     end;
@@ -1744,7 +1849,7 @@ apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, SslState, CertPath, LogL
     VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState),
     case Fun(OtpCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
-	    case crl_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
+	    case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
@@ -1918,11 +2023,21 @@ bad_key(#{algorithm := rsa}) ->
 bad_key(#{algorithm := ecdsa}) ->
     unacceptable_ecdsa_key.
 
-crl_check(_, #{crl_check := false}, _, _, _) ->
+cert_status_check(_, #{ocsp_state := #{ocsp_stapling := true,
+                                       ocsp_expect := stapled}}, _VerifyResult, _, _) ->
+    valid; %% OCSP staple will now be checked by ssl_certifcate:verify_cert_extensions/2 in ssl_certifcate:validate
+cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := false}} = SslState, VerifyResult, CertPath, LogLevel) ->
+    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
+cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := best_effort, %%TODO should we support
+                                             ocsp_expect := undetermined}} = SslState, 
+                  VerifyResult, CertPath, LogLevel) ->
+    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel).
+
+maybe_check_crl(_, #{crl_check := false}, _, _, _) ->
     valid;
-crl_check(_, #{crl_check := peer}, _, valid, _) -> %% Do not check CAs with this option.
+maybe_check_crl(_, #{crl_check := peer}, _, valid, _) -> %% Do not check CAs with this option.
     valid;
-crl_check(OtpCert, #{crl_check := Check, 
+maybe_check_crl(OtpCert, #{crl_check := Check, 
                      certdb := CertDbHandle,
                      certdb_ref := CertDbRef,
                      crl_db := {Callback, CRLDbHandle}}, _, CertPath, LogLevel) ->
@@ -2763,6 +2878,30 @@ decode_extensions(<<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
   when Len == CookieLen + 2 ->
     decode_extensions(Rest, Version, MessageType,
                       Acc#{cookie => #cookie{cookie = Cookie}});
+%% RFC6066, if a server returns a "CertificateStatus" message, then
+%% the server MUST have included an extension of type "status_request"
+%% with empty "extension_data" in the extended server hello.
+decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
+                    _ExtensionData:Len/binary, Rest/binary>>, Version,
+                    MessageType = server_hello, Acc)
+  when Len =:= 0 ->
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{status_request => undefined});
+%% RFC8446 4.4.2.1, In TLS1.3, the body of the "status_request" extension
+%% from the server MUST be a CertificateStatus structure as defined in
+%% RFC6066.
+decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
+                    CertStatus:Len/binary, Rest/binary>>, Version,
+                    MessageType, Acc) ->
+    case CertStatus of
+        <<?BYTE(?CERTIFICATE_STATUS_TYPE_OCSP),
+          ?UINT24(OCSPLen),
+          ASN1OCSPResponse:OCSPLen/binary>> ->
+            decode_extensions(Rest, Version, MessageType,
+                      Acc#{status_request => #certificate_status{response = ASN1OCSPResponse}});
+        _Other ->
+            decode_extensions(Rest, Version, MessageType, Acc)
+    end;
 
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
@@ -2878,6 +3017,7 @@ certs_from_list(ACList) ->
 			CertLen = byte_size(Cert),
                         <<?UINT24(CertLen), Cert/binary>>
 		    end || Cert <- ACList]).
+
 from_3bytes(Bin3) ->
     from_3bytes(Bin3, []).
 

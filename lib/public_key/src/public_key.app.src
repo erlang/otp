@@ -8,6 +8,7 @@
 		  pubkey_cert,
 		  pubkey_cert_records,
 		  pubkey_crl,
+                  pubkey_ocsp,
 		  'OTP-PUB-KEY',
 		  'PKCS-FRAME'
             ]},

@@ -76,7 +76,7 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-	    %% make rsa certs using oppenssl
+	    %% make rsa certs using openssl
 	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 				     proplists:get_value(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
