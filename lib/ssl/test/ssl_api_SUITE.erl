@@ -1249,7 +1249,7 @@ close_in_error_state(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
     ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    _ = spawn_link(?MODULE, run_error_server_close, [[self() | ServerOpts]]),
+    _ = spawn(?MODULE, run_error_server_close, [[self() | ServerOpts]]),
     receive
         {_Pid, Port} ->
             spawn_link(?MODULE, run_client_error, [[Port, ClientOpts]])
@@ -1268,7 +1268,7 @@ call_in_error_state(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
-    Pid = spawn_link(?MODULE, run_error_server, [[self() | ServerOpts]]),
+    Pid = spawn(?MODULE, run_error_server, [[self() | ServerOpts]]),
     receive
         {Pid, Port} ->
             spawn_link(?MODULE, run_client_error, [[Port, ClientOpts]])
