@@ -21,10 +21,94 @@
 %%
 -module(ssl_cert_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([no_auth/0,
+         no_auth/1,
+         auth/0,
+         auth/1,
+         client_auth_empty_cert_accepted/0,
+         client_auth_empty_cert_accepted/1,
+         client_auth_empty_cert_rejected/0,
+         client_auth_empty_cert_rejected/1,
+         client_auth_partial_chain/0,
+         client_auth_partial_chain/1,
+         client_auth_allow_partial_chain/0,
+         client_auth_allow_partial_chain/1,
+         client_auth_do_not_allow_partial_chain/0,
+         client_auth_do_not_allow_partial_chain/1,
+         client_auth_partial_chain_fun_fail/0,
+         client_auth_partial_chain_fun_fail/1,
+         client_auth_sni/0,
+         client_auth_sni/1,
+         missing_root_cert_no_auth/0,
+         missing_root_cert_no_auth/1,
+         missing_root_cert_auth/0,
+         missing_root_cert_auth/1,
+         missing_root_cert_auth_user_verify_fun_accept/0,
+         missing_root_cert_auth_user_verify_fun_accept/1,
+         missing_root_cert_auth_user_verify_fun_reject/0,
+         missing_root_cert_auth_user_verify_fun_reject/1,
+         verify_fun_always_run_client/0,
+         verify_fun_always_run_client/1,
+         verify_fun_always_run_server/0,
+         verify_fun_always_run_server/1,
+         incomplete_chain_auth/0,
+         incomplete_chain_auth/1,
+         invalid_signature_client/0,
+         invalid_signature_client/1,
+         invalid_signature_server/0,
+         invalid_signature_server/1,
+         critical_extension_auth/0,
+         critical_extension_auth/1,
+         critical_extension_client_auth/0,
+         critical_extension_client_auth/1,
+         critical_extension_no_auth/0,
+         critical_extension_no_auth/1,
+         extended_key_usage_auth/0,
+         extended_key_usage_auth/1,
+         extended_key_usage_client_auth/0,
+         extended_key_usage_client_auth/1,
+         cert_expired/0,
+         cert_expired/1,
+         no_auth_key_identifier_ext/0,
+         no_auth_key_identifier_ext/1,
+         no_auth_key_identifier_ext_keyEncipherment/0,
+         no_auth_key_identifier_ext_keyEncipherment/1,
+         unsupported_sign_algo_client_auth/0,
+         unsupported_sign_algo_client_auth/1,
+         unsupported_sign_algo_cert_client_auth/0,
+         unsupported_sign_algo_cert_client_auth/1,
+         longer_chain/0,
+         longer_chain/1,
+         key_auth_ext_sign_only/0,
+         key_auth_ext_sign_only/1,
+         hello_retry_request/0,
+         hello_retry_request/1,
+         custom_groups/0,
+         custom_groups/1,
+         hello_retry_client_auth/0,
+         hello_retry_client_auth/1,
+         hello_retry_client_auth_empty_cert_accepted/0,
+         hello_retry_client_auth_empty_cert_accepted/1,
+         hello_retry_client_auth_empty_cert_rejected/0,
+         hello_retry_client_auth_empty_cert_rejected/1,
+         basic_rsa_1024/0,
+         basic_rsa_1024/1
+         ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

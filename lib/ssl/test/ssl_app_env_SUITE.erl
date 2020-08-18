@@ -21,10 +21,29 @@
 %%
 -module(ssl_app_env_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([internal_active_1/0,
+         internal_active_1/1,
+         protocol_versions/0,
+         protocol_versions/1,
+         empty_protocol_versions/0,
+         empty_protocol_versions/1
+         ]).
+
 -define(TIMEOUT, {seconds, 5}).
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------

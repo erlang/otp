@@ -20,10 +20,85 @@
 
 -module(ssl_payload_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([server_echos_passive_small/0,
+         server_echos_passive_small/1,
+         server_echos_passive_chunk_small/0,
+         server_echos_passive_chunk_small/1,
+         server_echos_active_once_small/0,
+         server_echos_active_once_small/1,
+         server_echos_active_small/0,
+         server_echos_active_small/1,
+         client_echos_passive_small/0,
+         client_echos_passive_small/1,
+         client_echos_passive_chunk_small/0,
+         client_echos_passive_chunk_small/1,
+         client_echos_active_once_small/0,
+         client_echos_active_once_small/1,
+         client_echos_active_small/0,
+         client_echos_active_small/1,
+         server_echos_passive_big/0,
+         server_echos_passive_big/1,
+         server_echos_passive_chunk_big/0,
+         server_echos_passive_chunk_big/1,
+         server_echos_active_once_big/0,
+         server_echos_active_once_big/1,
+         server_echos_active_big/0,
+         server_echos_active_big/1,
+         client_echos_passive_big/0,
+         client_echos_passive_big/1,
+         client_echos_passive_chunk_big/0,
+         client_echos_passive_chunk_big/1,
+         client_echos_active_once_big/0,
+         client_echos_active_once_big/1,
+         client_echos_active_big/0,
+         client_echos_active_big/1,
+         server_echos_passive_huge/0,
+         server_echos_passive_huge/1,
+         server_echos_passive_chunk_huge/0,
+         server_echos_passive_chunk_huge/1,
+         server_echos_active_once_huge/0,
+         server_echos_active_once_huge/1,
+         server_echos_active_huge/0,
+         server_echos_active_huge/1,
+         client_echos_passive_huge/0,
+         client_echos_passive_huge/1,
+         client_echos_passive_chunk_huge/0,
+         client_echos_passive_chunk_huge/1,
+         client_echos_active_once_huge/0,
+         client_echos_active_once_huge/1,
+         client_echos_active_huge/0,
+         client_echos_active_huge/1,
+         client_active_once_server_close/0,
+         client_active_once_server_close/1]).
+
+%% Apply export
+-export([send/4,
+         send_close/2,
+         sender/2,
+         sender_active_once/2,
+         sender_active/2,
+         echoer/2,
+         echoer_chunk/2,
+         echoer_active_once/2,
+         echoer_active/2,
+         echo_recv/2,
+         echo_recv_chunk/3,
+         echo_active_once/2,
+         echo_active/2]).
+
 -define(TIMEOUT, {seconds, 20}).
 -define(TIMEOUT_LONG, {seconds, 80}).
 
@@ -211,7 +286,7 @@ client_echos_passive_small(Config) when is_list(Config) ->
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
 
 %%--------------------------------------------------------------------
-client_echos_passive_chunk__small() ->
+client_echos_passive_chunk_small() ->
     [{doc, "Server sends 1000 bytes in passive mode to client, that receives them in chunks, "
       "sends them back, and closes."}].
 

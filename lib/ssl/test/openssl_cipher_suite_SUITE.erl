@@ -22,10 +22,68 @@
 
 -module(openssl_cipher_suite_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
+
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([dhe_psk_des_cbc/1,
+         dhe_rsa_3des_ede_cbc/1,
+         dhe_rsa_aes_128_cbc/1,
+         dhe_rsa_aes_128_gcm/1,
+         dhe_rsa_aes_256_cbc/1,
+         dhe_rsa_aes_256_gcm/1,
+         dhe_rsa_chacha20_poly1305/1,
+         ecdhe_rsa_3des_ede_cbc/1,
+         ecdhe_rsa_rc4_128/1,
+         ecdhe_rsa_aes_128_cbc/1,
+         ecdhe_rsa_aes_128_gcm/1,
+         ecdhe_rsa_aes_256_cbc/1,
+         ecdhe_rsa_aes_256_gcm/1,
+         ecdhe_rsa_chacha20_poly1305/1,
+         ecdhe_ecdsa_rc4_128/1,
+         ecdhe_ecdsa_3des_ede_cbc/1,
+         ecdhe_ecdsa_aes_128_cbc/1,
+         ecdhe_ecdsa_aes_128_gcm/1,
+         ecdhe_ecdsa_aes_256_cbc/1,
+         ecdhe_ecdsa_aes_256_gcm/1,
+         ecdhe_ecdsa_chacha20_poly1305/1,
+         rsa_des_cbc/1,
+         rsa_3des_ede_cbc/1,
+         rsa_aes_128_cbc/1,
+         rsa_aes_256_cbc/1,
+         rsa_aes_128_gcm/1,
+         rsa_aes_256_gcm/1,
+         rsa_rc4_128/1,
+         dhe_dss_des_cbc/1,
+         dhe_dss_3des_ede_cbc/1,
+         dhe_dss_aes_128_cbc/1,
+         dhe_dss_aes_256_cbc/1,
+         dhe_dss_aes_128_gcm/1,
+         dhe_dss_aes_256_gcm/1,
+         dh_anon_rc4_128/1,
+         dh_anon_3des_ede_cbc/1,
+         dh_anon_aes_128_cbc/1,
+         dh_anon_aes_128_gcm/1,
+         dh_anon_aes_256_cbc/1,
+         dh_anon_aes_256_gcm/1,
+         ecdh_anon_3des_ede_cbc/1,
+         ecdh_anon_aes_128_cbc/1,
+         ecdh_anon_aes_256_cbc/1,
+         aes_256_gcm_sha384/1,
+         aes_128_gcm_sha256/1,
+         chacha20_poly1305_sha256/1,
+         aes_128_ccm_sha256/1,
+         aes_128_ccm_8_sha256/1
+        ]).
 
 -define(DEFAULT_TIMEOUT, {seconds, 6}).
 
@@ -62,10 +120,13 @@ groups() ->
      {'dtlsv1', [], dtls_kex()},
      {dhe_rsa, [],[dhe_rsa_3des_ede_cbc, 
                    dhe_rsa_aes_128_cbc,
+                   dhe_rsa_aes_128_gcm,
                    dhe_rsa_aes_256_cbc,
+                   dhe_rsa_aes_256_gcm,
                    dhe_rsa_chacha20_poly1305
                   ]},
      {ecdhe_rsa, [], [ecdhe_rsa_3des_ede_cbc, 
+                      ecdhe_rsa_rc4_128,
                       ecdhe_rsa_aes_128_cbc,
                       ecdhe_rsa_aes_128_gcm,
                       ecdhe_rsa_aes_256_cbc,
@@ -81,7 +142,8 @@ groups() ->
                        ecdhe_ecdsa_aes_256_gcm,
                        ecdhe_ecdsa_chacha20_poly1305
                       ]},
-     {rsa, [], [rsa_3des_ede_cbc, 
+     {rsa, [], [rsa_des_cbc,
+                rsa_3des_ede_cbc,
                 rsa_aes_128_cbc,
                 rsa_aes_256_cbc,
                 rsa_rc4_128
@@ -156,9 +218,6 @@ kex() ->
 dtls_kex() -> %% Should be all kex in the future
       dtls_rsa() ++ dss() ++ anonymous().
 
-ssl3_kex() ->
-    ssl3_rsa() ++ ssl3_dss() ++ ssl3_anonymous().
-
 rsa() ->
     [{group, dhe_rsa},
      {group, ecdhe_rsa},
@@ -172,21 +231,12 @@ dtls_rsa() ->
      %%,{group, rsa_psk}
     ].
 
-ssl3_rsa() ->
-    [{group, dhe_rsa},
-     {group, rsa}
-    ].
-
 ecdsa() ->
     [{group, ecdhe_ecdsa}].
     
 dss() ->
     [{group, dhe_dss}
      %%{group, srp_dss}
-    ].
-
-ssl3_dss() ->
-    [{group, dhe_dss}
     ].
 
 anonymous() ->
@@ -197,9 +247,6 @@ anonymous() ->
      %%{group, ecdhe_psk}
      %%{group, srp_anon}
     ].
-
-ssl3_anonymous() ->
-    [{group, dh_anon}].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -350,7 +397,6 @@ init_per_testcase(TestCase, Config) when TestCase == psk_rc4_128;
             {skip, "Missing RC4 crypto support"}
     end;
 init_per_testcase(TestCase, Config) when  TestCase == psk_aes_128_ccm_8;
-                                          TestCase == rsa_psk_aes_128_ccm_8;
                                           TestCase == psk_aes_128_ccm_8;
                                           TestCase == dhe_psk_aes_128_ccm_8;
                                           TestCase == ecdhe_psk_aes_128_ccm_8 ->
@@ -363,7 +409,6 @@ init_per_testcase(TestCase, Config) when  TestCase == psk_aes_128_ccm_8;
             {skip, "Missing AES_128_CCM crypto support"}
     end;
 init_per_testcase(TestCase, Config) when TestCase == psk_aes_256_ccm_8;
-                                         TestCase == rsa_psk_aes_256_ccm_8;
                                          TestCase == psk_aes_256_ccm_8;
                                          TestCase == dhe_psk_aes_256_ccm_8;
                                          TestCase == ecdhe_psk_aes_256_ccm_8 ->
@@ -587,20 +632,8 @@ rsa_psk_3des_ede_cbc(Config) when is_list(Config) ->
 rsa_psk_aes_128_cbc(Config) when is_list(Config) ->
     run_ciphers_test(rsa_psk, 'aes_128_cbc', Config).             
 
-rsa_psk_aes_128_ccm(Config) when is_list(Config) ->
-    run_ciphers_test(rsa_psk, 'aes_128_ccm', Config).             
-
-rsa_psk_aes_128_ccm_8(Config) when is_list(Config) ->
-    run_ciphers_test(rsa_psk, 'aes_128_ccm_8', Config).             
-
 rsa_psk_aes_256_cbc(Config) when is_list(Config) ->
     run_ciphers_test(rsa_psk, 'aes_256_cbc', Config). 
-
-rsa_psk_aes_256_ccm(Config) when is_list(Config) ->
-    run_ciphers_test(rsa_psk, 'aes_256_ccm', Config).             
-
-rsa_psk_aes_256_ccm_8(Config) when is_list(Config) ->
-    run_ciphers_test(rsa_psk, 'aes_256_ccm_8', Config).             
      
 rsa_psk_rc4_128(Config) when is_list(Config) ->
     run_ciphers_test(rsa_psk, 'rc4_128', Config).    

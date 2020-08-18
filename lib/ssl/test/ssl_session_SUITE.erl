@@ -21,14 +21,37 @@
 %%
 -module(ssl_session_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include("tls_handshake.hrl").
 -include("ssl_record.hrl").
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([reuse_session/0,
+         reuse_session/1,
+         reuse_session_expired/0,
+         reuse_session_expired/1,
+         server_does_not_want_to_reuse_session/0,
+         server_does_not_want_to_reuse_session/1,
+         no_reuses_session_server_restart_new_cert/0,
+         no_reuses_session_server_restart_new_cert/1,
+         no_reuses_session_server_restart_new_cert_file/0,
+         no_reuses_session_server_restart_new_cert_file/1,
+         session_table_stable_size_on_tcp_close/0,
+         session_table_stable_size_on_tcp_close/1
+        ]).
 
 -define(SLEEP, 500).
 -define(EXPIRE, 10).

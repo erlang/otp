@@ -21,11 +21,32 @@
 
 -module(ssl_crl_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+
+%% Test cases
+-export([crl_verify_valid/0,
+         crl_verify_valid/1,
+         crl_verify_revoked/0,
+         crl_verify_revoked/1,
+         crl_verify_no_crl/0,
+         crl_verify_no_crl/1,
+         crl_hash_dir_collision/0,
+         crl_hash_dir_collision/1,
+         crl_hash_dir_expired/0,
+         crl_hash_dir_expired/1]).
 
 -define(TIMEOUT, {seconds, 30}).
 

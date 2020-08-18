@@ -22,20 +22,45 @@
 
 -module(ssl_session_cache_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 
--define(SLEEP, 1000).
--define(TIMEOUT, {seconds, 20}).
--define(MAX_TABLE_SIZE, 5).
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([session_cleanup/0,
+         session_cleanup/1,
+         session_cache_process_list/0,
+         session_cache_process_list/1,
+         session_cache_process_mnesia/0,
+         session_cache_process_mnesia/1,
+         client_unique_session/0,
+         client_unique_session/1,
+         max_table_size/0,
+         max_table_size/1,
+         save_specific_session/0,
+         save_specific_session/1
+        ]).
+
+%% Apply export
+-export([connection_info_result/1]).
 
 -behaviour(ssl_session_cache_api).
 
 %% For the session cache tests
 -export([init/1, terminate/1, lookup/2, update/3,
 	 delete/2, foldl/3, select_session/2]).
+
+-define(SLEEP, 1000).
+-define(TIMEOUT, {seconds, 20}).
+-define(MAX_TABLE_SIZE, 5).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -496,6 +521,12 @@ session_loop(Sess) ->
 	    Pid ! {self(), Sessions},
 	    session_loop(Sess)
     end.
+%%--------------------------------------------------------------------
+%%% callback functions
+%%--------------------------------------------------------------------
+
+connection_info_result(Socket) ->
+    ssl:connection_information(Socket, [protocol, cipher_suite]).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -524,8 +555,6 @@ clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N) ->
     wait_for_server(),
     clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1).
 	
-connection_info_result(Socket) ->
-    ssl:connection_information(Socket, [protocol, cipher_suite]).
 
 check_timer(Timer) ->
     case erlang:read_timer(Timer) of

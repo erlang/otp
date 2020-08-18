@@ -22,11 +22,51 @@
 
 -module(ssl_renegotiate_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([client_renegotiate/0,
+         client_renegotiate/1,
+         server_renegotiate/0,
+         server_renegotiate/1,
+         client_secure_renegotiate/0,
+         client_secure_renegotiate/1,
+         client_secure_renegotiate_fallback/0,
+         client_secure_renegotiate_fallback/1,
+         client_renegotiate_reused_session/0,
+         client_renegotiate_reused_session/1,
+         server_renegotiate_reused_session/0,
+         server_renegotiate_reused_session/1,
+         client_no_wrap_sequence_number/0,
+         client_no_wrap_sequence_number/1,
+         server_no_wrap_sequence_number/0,
+         server_no_wrap_sequence_number/1,
+         renegotiate_dos_mitigate_active/0,
+         renegotiate_dos_mitigate_active/1,
+         renegotiate_dos_mitigate_passive/0,
+         renegotiate_dos_mitigate_passive/1,
+         renegotiate_dos_mitigate_absolute/0,
+         renegotiate_dos_mitigate_absolute/1
+        ]).
+
+%% Apply export
+-export([renegotiate/2,
+         renegotiate_reuse_session/2,
+         renegotiate_immediately/1,
+         renegotiate_rejected/1,
+         erlang_ssl_receive/2]).
 
 -define(SLEEP, 500).
 -define(RENEGOTIATION_DISABLE_TIME, 12000).
