@@ -265,23 +265,16 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
 	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
 			    {mfa, {ssl_test_lib, no_result, []}},
-		      {from, self()},  {options, ClientOpts}]),
+		      {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
     SessionInfo =
 	receive
 	    {Server, Info} ->
 		Info
 	end,
 
-    %% Make sure session is registered
-    ct:sleep(?SLEEP),
-    Monitor = erlang:monitor(process, Server),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client0),
-    receive
-	{'DOWN', Monitor, _, _, _} ->
-	    ok
-    end,
-    
+
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
 				   {from, self()},
