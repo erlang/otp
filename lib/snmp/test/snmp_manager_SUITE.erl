@@ -66,6 +66,7 @@
 	 register_agent3/1,
 
 	 info/1,
+         usm_priv_aes/1,
 	 
 	 simple_sync_get2/1, 
 	 simple_sync_get3/1, 
@@ -184,7 +185,8 @@ groups() ->
      },
      {misc_tests, [], 
       [
-       info
+       info,
+       usm_priv_aes
       ]
      },
      {user_tests, [], 
@@ -1451,6 +1453,165 @@ verify_info([{Key, SubKeys}|Keys], Info) ->
 	false ->
 	    {error, {missing_info, {Key, Info}}}
     end.
+
+
+%%======================================================================
+
+%% USM privacy fails with AES in OTP 22.2.3. Test to prevent
+%% regression in future releases.
+%%
+usm_priv_aes(suite) -> [];
+usm_priv_aes(Config) when is_list(Config) ->
+    Pre = fun() ->
+                  ConfDir = ?config(manager_conf_dir, Config),
+                  DbDir   = ?config(manager_db_dir, Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config,     [{verbosity, trace},
+                                        {dir,       ConfDir},
+                                        {db_dir,    DbDir}]}],
+
+                  io:format("[~s] try starting manager", [?FTS()]),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000), % Give it time to settle
+                  ok
+          end,
+    Case = fun(_) -> do_usm_priv_aes(Config) end,
+    Post = fun(_) ->
+                   io:format("[~s] try stop manager", [?FTS()]),
+                   ok = snmpm:stop(),
+                   ?SLEEP(1000), % Give it time to settle
+                   ok
+           end,
+    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+
+do_usm_priv_aes(Config) ->
+    io:format("[~s] starting with Config: "
+              "~n   ~p", [?FTS(), Config]),
+
+    io:format("[~s] generate AES-encrypted message", [?FTS()]),
+
+    EngineID = [128,0,0,0,6],
+    SecName  = "v3_user",
+    AuthPass = "authpass",
+    AuthKey  =
+      snmp:passwd2localized_key(sha, AuthPass, EngineID),
+    PrivPass = "privpass",
+    PrivKey  =
+      snmp:passwd2localized_key(md5, PrivPass, EngineID),
+
+    Credentials =
+      [ {auth,     usmHMACSHAAuthProtocol},
+        {auth_key, AuthKey},
+        {priv,     usmAesCfb128Protocol},
+        {priv_key, PrivKey}
+      ],
+
+    AgentConfig =
+      [ {engine_id, EngineID},
+        {address,   {192,0,2,1}},
+        {version,   v3},
+        {sec_model, usm},
+        {sec_level, authPriv},
+        {sec_name,  SecName}
+      ],
+
+    snmpm:register_user(SecName, snmpm_user_default, nil),
+    snmpm:register_usm_user(EngineID, SecName, Credentials),
+    snmpm:register_agent(SecName, "v3_agent", AgentConfig),
+
+    PduType   = 'get-request',
+    ScopedPDU =
+      { scopedPdu,
+        "",        % CtxEngineID
+        "",        % Context
+        { pdu,
+          PduType,
+          0,       % RequestID
+          noError, % ErrorStatus
+          0,       % ErrorIndex
+          [ {varbind, [1,3,6,1,2,1,1,5,0], 'OCTET STRING', [], 0}
+          ]
+        }
+      },
+
+    MsgSecurityParameters =
+      { usmSecurityParameters,
+        _MsgAuthoritativeEngineID    = EngineID,
+        _MsgAuthoritativeEngineBoots = 1,
+        _MsgAuthoritativeEngineTime  = 0,
+        _MsgUserName                 = SecName,
+        _MsgAuthenticationParameters = AuthKey,
+        _MsgPrivacyParameters        = PrivKey
+      },
+
+    {ok, MsgMaxSize} =
+      snmpm_config:get_engine_max_message_size(),
+
+    Message =
+      { message,
+        _Version = 'version-3',
+        { v3_hdr,
+          _MsgID = 1,
+          MsgMaxSize,
+          _MsgFlags = snmp_misc:mk_msg_flags(PduType, 2),
+          _MsgSecurityModel = 3,  % SEC_USM
+          MsgSecurityParameters,
+          0
+        },
+        Data = snmp_pdus:enc_scoped_pdu(ScopedPDU)
+      },
+
+    {_, CredVals} = lists:unzip(Credentials),
+
+    SecLevel = 2,
+
+    Msg =
+      snmpm_usm:generate_outgoing_msg(
+        Message,
+        EngineID,
+        SecName,
+        list_to_tuple([SecName|CredVals]),
+        SecLevel
+      ),
+
+    io:format("[~s] got AES-encrypted message, now decrypt: "
+              "~n   ~p", [?FTS(), Msg]),
+
+    {message, _Version, Hdr, NextData} =
+      snmp_pdus:dec_message_only(Msg),
+
+    { v3_hdr,
+      _MsgID,
+      _MsgMaxSize,
+      _MsgFlags,
+      _SecModel,
+      SecParams,
+      _Hdr_size
+    } = Hdr,
+
+    { ok,
+      { _MsgAuthEngineID,
+        _SecName,
+        ScopedPDUBytes,
+        _CachedSecData
+      }
+    } =
+      snmpm_usm:process_incoming_msg(
+        Msg,
+        NextData,
+        SecParams,
+        SecLevel
+      ),
+
+    Data = ScopedPDUBytes,
+
+    io:format("[~s] Message decrypted", [?FTS()]),
+    ok.
 
 
 %%======================================================================

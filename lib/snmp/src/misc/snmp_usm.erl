@@ -45,7 +45,12 @@
 
 -define(i32(Int), (Int bsr 24) band 255, (Int bsr 16) band 255, (Int bsr 8) band 255, Int band 255).
 
--define(BLOCK_CIPHER_AES, aes_cfb128).
+-define(BLOCK_CIPHER_AES(Key), case bit_size(iolist_to_binary(Key)) of
+                                   128 -> aes_128_cfb128;
+                                   192 -> aes_192_cfb128;
+                                   256 -> aes_256_cfb128
+                               end).
+
 -define(BLOCK_CIPHER_DES, des_cbc).
 
 
@@ -248,7 +253,7 @@ aes_encrypt(PrivKey, Data, SaltFun, EngineBoots, EngineTime) ->
     AesKey = PrivKey,
     Salt = SaltFun(),
     IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
-    EncData = crypto:block_encrypt(?BLOCK_CIPHER_AES, 
+    EncData = crypto:block_encrypt(?BLOCK_CIPHER_AES(AesKey), 
 				   AesKey, IV, Data),
     {ok, binary_to_list(EncData), Salt}.
 
@@ -258,7 +263,7 @@ aes_decrypt(PrivKey, MsgPrivParams, EncData, EngineBoots, EngineTime)
     Salt = MsgPrivParams,
     IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
     %% Whatabout errors here???  E.g. not a mulitple of 8!
-    Data = binary_to_list(crypto:block_decrypt(?BLOCK_CIPHER_AES, 
+    Data = binary_to_list(crypto:block_decrypt(?BLOCK_CIPHER_AES(AesKey), 
 					       AesKey, IV, EncData)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),
     {ok, Data2}.
