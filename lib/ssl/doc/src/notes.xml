@@ -3578,7 +3578,7 @@
         <item>
           <p>
 	    Add support for PSK (Pre Shared Key) and SRP (Secure
-	    Remote Password) chipher suits, thanks to Andreas
+	    Remote Password) cipher suites, thanks to Andreas
 	    Schultz.</p>
           <p>
 	    Own Id: OTP-10450 Aux Id: kunagi-269 [180] </p>

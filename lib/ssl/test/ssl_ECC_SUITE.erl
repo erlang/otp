@@ -125,7 +125,7 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 %% Test diffrent certificate chain types, note that it is the servers
-%% chain that affect what cipher suit that will be choosen
+%% chain that affect what cipher suite that will be choosen
 
 client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
      Default = ssl_test_lib:default_cert_chain_conf(),

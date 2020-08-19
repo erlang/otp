@@ -30,7 +30,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 %% Test diffrent certificate chain types, note that it is the servers
-%% chain that affect what cipher suit that will be choosen
+%% chain that affect what cipher suite that will be choosen
 
 %% ECDH_RSA 
 client_ecdh_rsa_server_ecdh_rsa(Config) when is_list(Config) ->

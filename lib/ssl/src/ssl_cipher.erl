@@ -157,10 +157,10 @@ nonce_seed(Seed, CipherState) ->
 -spec cipher(cipher_enum(), #cipher_state{}, binary(), iodata(), ssl_record:ssl_version()) ->
 		    {binary(), #cipher_state{}}. 
 %%
-%% Description: Encrypts the data and the MAC using chipher described
+%% Description: Encrypts the data and the MAC using cipher described
 %% by cipher_enum() and updating the cipher state
 %% Used for "MAC then Cipher" suites where first an HMAC of the
-%% data is calculated and the data plus the HMAC is ecncrypted.
+%% data is calculated and the data plus the HMAC is encrypted.
 %%-------------------------------------------------------------------
 cipher(?NULL, CipherState, <<>>, Fragment, _Version) ->
     {iolist_to_binary(Fragment), CipherState};

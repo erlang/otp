@@ -1122,7 +1122,7 @@ filter_cipher_suites(Suites, Filters0) ->
 %% Description: Make <Preferred> suites become the most prefered
 %%      suites that is put them at the head of the cipher suite list
 %%      and remove them from <Suites> if present. <Preferred> may be a
-%%      list of cipher suits or a list of filters in which case the
+%%      list of cipher suites or a list of filters in which case the
 %%      filters are use on Suites to extract the the preferred
 %%      cipher list.
 %% --------------------------------------------------------------------

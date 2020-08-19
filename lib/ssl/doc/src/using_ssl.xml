@@ -154,7 +154,7 @@ ok</code>
   </section>
 
   <section>
-    <title>Customizing cipher suits</title>
+    <title>Customizing cipher suites</title>
 
     <p>Fetch default cipher suite list for a TLS/DTLS version. Change default
     to all to get all possible cipher suites.</p>
