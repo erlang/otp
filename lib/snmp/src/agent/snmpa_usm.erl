@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -475,19 +475,10 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel,
 	    _ -> % 3.1.1a
 		SecData
 	end,
-    %% 3.1.4
-    ?vtrace("generate_outgoing_msg -> [3.1.4]"
-	    "~n   UserName:     ~p"
-	    "~n   AuthProtocol: ~p"
-	    "~n   PrivProtocol: ~p", 
-	    [UserName, AuthProtocol, PrivProtocol]),
-    ScopedPduBytes = Message#message.data,
-    {ScopedPduData, MsgPrivParams} =
-	encrypt(ScopedPduBytes, PrivProtocol, PrivKey, SecLevel),
+    %% 3.1.6
     SnmpEngineID = LocalEngineID, 
     ?vtrace("generate_outgoing_msg -> SnmpEngineID: ~p [3.1.6]",
 	    [SnmpEngineID]),
-    %% 3.1.6
     {MsgAuthEngineBoots, MsgAuthEngineTime} =
 	case snmp_misc:is_auth(SecLevel) of
 	    false when SecData =:= [] -> % not a response
@@ -501,6 +492,16 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel,
 		{get_local_engine_boots(SnmpEngineID),
 		 get_local_engine_time(SnmpEngineID)}
 	end,
+    %% 3.1.4
+    ?vtrace("generate_outgoing_msg -> [3.1.4]"
+	    "~n   UserName:     ~p"
+	    "~n   AuthProtocol: ~p"
+	    "~n   PrivProtocol: ~p",
+	    [UserName, AuthProtocol, PrivProtocol]),
+    ScopedPduBytes = Message#message.data,
+    {ScopedPduData, MsgPrivParams} =
+	encrypt(ScopedPduBytes, PrivProtocol, PrivKey, SecLevel,
+                MsgAuthEngineBoots, MsgAuthEngineTime),
     %% 3.1.5 - 3.1.7
     ?vtrace("generate_outgoing_msg -> [3.1.5 - 3.1.7]",[]),
     UsmSecParams =
@@ -561,12 +562,17 @@ generate_discovery_msg(Message,
 		end
 	end,
     ScopedPduBytes = Message#message.data,
+    MsgAuthEngineBoots = 0,
+    MsgAuthEngineTime = 0,
     {ScopedPduData, MsgPrivParams} =
-	encrypt(ScopedPduBytes, PrivProtocol, PrivKey, SecLevel),
+	encrypt(ScopedPduBytes, PrivProtocol, PrivKey, SecLevel,
+               MsgAuthEngineBoots, MsgAuthEngineTime),
     UsmSecParams =
 	#usmSecurityParameters{msgAuthoritativeEngineID    = SecEngineID, 
-			       msgAuthoritativeEngineBoots = 0, % Boots, 
-			       msgAuthoritativeEngineTime  = 0, % Time, 
+			       msgAuthoritativeEngineBoots = % Boots
+                                   MsgAuthEngineBoots,
+			       msgAuthoritativeEngineTime = % Time
+                                   MsgAuthEngineTime,
 			       msgUserName                 = UserName,
 			       msgPrivacyParameters        = MsgPrivParams},
     Message2 = Message#message{data = ScopedPduData},
@@ -575,14 +581,15 @@ generate_discovery_msg(Message,
 
     
 %% Ret: {ScopedPDU, MsgPrivParams} - both are already encoded as OCTET STRINGs
-encrypt(Data, PrivProtocol, PrivKey, SecLevel) ->
+encrypt(Data, PrivProtocol, PrivKey, SecLevel, EngineBoots, EngineTime) ->
     case snmp_misc:is_priv(SecLevel) of
 	false -> % 3.1.4b
 	    ?vtrace("encrypt -> 3.1.4b",[]),
 	    {Data, []};
 	true -> % 3.1.4a
 	    ?vtrace("encrypt -> 3.1.4a",[]),
-	    case (catch try_encrypt(PrivProtocol, PrivKey, Data)) of
+	    case (catch try_encrypt(PrivProtocol, PrivKey, Data,
+                                    EngineBoots, EngineTime)) of
 		{ok, ScopedPduData, MsgPrivParams} ->
 		    ?vtrace("encrypt -> encrypted - now encode tag",[]),
 		    {snmp_pdus:enc_oct_str_tag(ScopedPduData), MsgPrivParams};
@@ -597,12 +604,13 @@ encrypt(Data, PrivProtocol, PrivKey, SecLevel) ->
 	    end
     end.
 
-try_encrypt(?usmNoPrivProtocol, _PrivKey, _Data) -> % 3.1.2
+try_encrypt(
+  ?usmNoPrivProtocol, _PrivKey, _Data, _EngineBoots, _EngineTime) -> % 3.1.2
     error(unsupportedSecurityLevel);
-try_encrypt(?usmDESPrivProtocol, PrivKey, Data) ->
+try_encrypt(?usmDESPrivProtocol, PrivKey, Data, _EngineBoots, _EngineTime) ->
     des_encrypt(PrivKey, Data);
-try_encrypt(?usmAesCfb128Protocol, PrivKey, Data) ->
-    aes_encrypt(PrivKey, Data).
+try_encrypt(?usmAesCfb128Protocol, PrivKey, Data, EngineBoots, EngineTime) ->
+    aes_encrypt(PrivKey, Data, EngineBoots, EngineTime).
 
 
 authenticate_outgoing(Message, UsmSecParams, 
@@ -658,11 +666,9 @@ get_des_salt() ->
     EngineBoots = snmp_framework_mib:get_engine_boots(),
     [?i32(EngineBoots), ?i32(SaltInt)].
 
-aes_encrypt(PrivKey, Data) ->
-    EngineBoots = snmp_framework_mib:get_engine_boots(),
-    EngineTime  = snmp_framework_mib:get_engine_time(),
-    snmp_usm:aes_encrypt(PrivKey, Data, fun get_aes_salt/0, 
-			 EngineBoots, EngineTime).
+aes_encrypt(PrivKey, Data, EngineBoots, EngineTime) ->
+    snmp_usm:aes_encrypt(PrivKey, Data, fun get_aes_salt/0,
+                         EngineBoots, EngineTime).
 
 aes_decrypt(PrivKey, UsmSecParams, EncData) ->
     #usmSecurityParameters{msgPrivacyParameters        = PrivParams,
