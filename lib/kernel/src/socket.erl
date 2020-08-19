@@ -539,34 +539,48 @@
 %% able to decode the data, in which case it will be a binary.
 
 -type cmsghdr_recv() :: 
-        #{level := socket,    type := timestamp,   data := timeval()}      |
-        #{level := socket,    type := rights,      data := binary()}       |
-        #{level := socket,    type := credentials, data := binary()}       |
+        #{level := socket,    type := timestamp,
+          data := timeval() | binary()}                 |
+        #{level := socket,    type := rights,
+          data := binary()}                             |
+        #{level := socket,    type := credentials,
+          data := binary()}                             |
         #{level := ip,        type := tos,
-          data := ip_tos() | integer()}                                    |
+          data := ip_tos() | integer() | binary()}      |
         #{level := ip,        type := recvtos,
-          data := ip_tos() | integer()}                                    |
-        #{level := ip,        type := ttl,         data := integer()}      |
-        #{level := ip,        type := recvttl,     data := integer()}      |
-        #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
-        #{level := ip,        type := origdstaddr, data := sockaddr_in()}  |
+          data := ip_tos() | integer() | binary()}      |
+        #{level := ip,        type := ttl,
+          data := integer() | binary()}                 |
+        #{level := ip,        type := recvttl,
+          data := integer() | binary()}                 |
+        #{level := ip,        type := pktinfo,
+          data := ip_pktinfo() | binary()}              |
+        #{level := ip,        type := origdstaddr,
+          data := sockaddr_in() | binary()}             |
         #{level := ip,        type := recverr,
-          data := extended_err() | binary()}                               |
-        #{level := ipv6,      type := hoplevel,    data := integer()}      |
-        #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
+          data := extended_err() | binary()}            |
+        #{level := ipv6,      type := hoplimit,
+          data := integer() | binary()}                 |
+        #{level := ipv6,      type := pktinfo,
+          data := ipv6_pktinfo() | binary()}            |
         #{level := ipv6,      type := recverr,
-          data := extended_err() | binary()}                               |
-        #{level := ipv6,      type := tclass,      data := integer()}.
+          data := extended_err() | binary()}            |
+        #{level := ipv6,      type := tclass,
+          data := integer() | binary()}.
 
 -type cmsghdr_send() :: 
-        #{level := socket,    type := timestamp,   data := binary()}  |
-        #{level := socket,    type := rights,      data := binary()}  |
-        #{level := socket,    type := credentials, data := binary()}  |
+        #{level := socket,    type := timestamp,
+          data := binary()}                             |
+        #{level := socket,    type := rights,
+          data := binary()}                             |
+        #{level := socket,    type := credentials,
+          data := binary()}                             |
         #{level := ip,        type := tos,
-          data := ip_tos()  | binary()}                               |
+          data := ip_tos()  | integer() | binary()}      |
         #{level := ip,        type := ttl,
-          data := integer() | binary()}                               |
-        #{level := ipv6,      type := tclass,      data := integer()}.
+          data := integer() | binary()}                 |
+        #{level := ipv6,      type := tclass,
+          data := integer() | binary()}.
 
 -type ee_origin() :: none | local | icmp | icmp6.
 -type icmp_dest_unreach() ::

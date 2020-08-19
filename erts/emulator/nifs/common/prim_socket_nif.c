@@ -2744,24 +2744,22 @@ static struct ESockOptLevel optLevels[] =
 
 /* Tables init (sorting) ----------------------------------------------- */
 
-#define OPT_SORT(Array, Cmp)                            \
+#define ESOCK_SORT_TABLE(Array, Cmp)                            \
     qsort((Array), NUM(Array), sizeof(*(Array)), (Cmp))
 
 static void initOpts(void) {
-    OPT_SORT(optLevelSocket, cmpESockOpt);
-    OPT_SORT(optLevelIP, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevelSocket, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevelIP, cmpESockOpt);
 #ifdef HAVE_IPV6
-    OPT_SORT(optLevelIPV6, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevelIPV6, cmpESockOpt);
 #endif
 #ifdef HAVE_SCTP
-    OPT_SORT(optLevelSCTP, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevelSCTP, cmpESockOpt);
 #endif
-    OPT_SORT(optLevelTCP, cmpESockOpt);
-    OPT_SORT(optLevelUDP, cmpESockOpt);
-    OPT_SORT(optLevels, cmpESockOptLevel);
+    ESOCK_SORT_TABLE(optLevelTCP, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevelUDP, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevels, cmpESockOptLevel);
 }
-
-#undef OPT_SORT
 
 /* Option lookup in tables --------------------------------------------- */
 
@@ -2785,19 +2783,6 @@ static struct ESockOpt *lookupOpt(int level, int opt) {
 }
 
 /* --------------------------------------------------------------------- */
-
-
-
-struct ESockOptSpec
-{
-    int opt;
-    ERL_NIF_TERM (*setopt)
-    (ErlNifEnv *env, ESockDescriptor *descP,
-     int level, int opt, ERL_NIF_TERM eVal);
-    ERL_NIF_TERM (*getopt)
-    (ErlNifEnv *env, ESockDescriptor *descP,
-     int level, int opt);
-} undefinedOptSpec[1] = {{0, NULL, NULL}};
 
 
 
@@ -2951,6 +2936,13 @@ extern void encode_cmsghdrs(ErlNifEnv*       env,
                             ErlNifBinary*    cmsgBinP,
                             struct msghdr*   msgHdrP,
                             ERL_NIF_TERM*    eCMsgHdr);
+extern BOOLEAN_T encode_cmsghdr(ErlNifEnv*     env,
+                                int            level,
+                                int            type,
+                                unsigned char* dataP,
+                                size_t         dataLen,
+                                ERL_NIF_TERM*  eType,
+                                ERL_NIF_TERM*  eData);
 extern BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     eCMsgHdr,
@@ -2963,71 +2955,22 @@ extern BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
                                 char*            bufP,
                                 size_t           rem,
                                 size_t*          used);
-static void encode_cmsghdr_type(ErlNifEnv*    env,
-                                int           level,
-                                int           type,
-                                ERL_NIF_TERM* eType);
-static BOOLEAN_T decode_cmsghdr_type(ErlNifEnv*   env,
-                                     int          level,
-                                     ERL_NIF_TERM eType,
-                                     int*         type);
-static void encode_cmsghdr_data(ErlNifEnv*     env,
-                                ERL_NIF_TERM   ctrlBuf,
-                                int            level,
-                                int            type,
-                                unsigned char* dataP,
-                                size_t         dataPos,
-                                size_t         dataLen,
-                                ERL_NIF_TERM*  eCMsgHdrData);
-static void encode_cmsghdr_data_socket(ErlNifEnv*     env,
-                                       ERL_NIF_TERM   ctrlBuf,
-                                       int            type,
-                                       unsigned char* dataP,
-                                       size_t         dataPos,
-                                       size_t         dataLen,
-                                       ERL_NIF_TERM*  eCMsgHdrData);
-#if defined(HAVE_LINUX_ERRQUEUE_H)
-static void encode_cmsghdr_data_recverr(ErlNifEnv*                env,
-                                        struct sock_extended_err* sock_err,
-                                        size_t                    dataLen,
-                                        ERL_NIF_TERM*             eCMsgHdrData);
-#endif
-static void encode_cmsghdr_data_ip(ErlNifEnv*     env,
-                                   ERL_NIF_TERM   ctrlBuf,
-                                   int            type,
-                                   unsigned char* dataP,
-                                   size_t         dataPos,
-                                   size_t         dataLen,
-                                   ERL_NIF_TERM*  eCMsgHdrData);
-#if defined(HAVE_IPV6)
-static void encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
-                                     ERL_NIF_TERM   ctrlBuf,
-                                     int            type,
-                                     unsigned char* dataP,
-                                     size_t         dataPos,
-                                     size_t         dataLen,
-                                     ERL_NIF_TERM*  eCMsgHdrData);
-#endif
+extern BOOLEAN_T decode_cmsghdr_content(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              level,
+                                        ERL_NIF_TERM     eType,
+                                        ERL_NIF_TERM     eData,
+                                        char*            dataP,
+                                        size_t           dataLen,
+                                        size_t*          dataUsedP);
+static void *init_cmsghdr(struct cmsghdr* cmsgP,
+                          size_t          rem,
+                          size_t          size,
+                          size_t*         usedP);
 extern void encode_msghdr_flags(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
                                 int              msgFlags,
                                 ERL_NIF_TERM*    flags);
-static BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     char*            bufP,
-                                     size_t           rem,
-                                     int              level,
-                                     int              type,
-                                     ERL_NIF_TERM     eData,
-                                     size_t*          used);
-static BOOLEAN_T decode_cmsghdr_final(ESockDescriptor* descP,
-                                      char*            bufP,
-                                      size_t           rem,
-                                      int              level,
-                                      int              type,
-                                      char*            data,
-                                      int              sz,
-                                      size_t*          used);
 static BOOLEAN_T decode_sock_linger(ErlNifEnv*     env,
                                     ERL_NIF_TERM   eVal,
                                     struct linger* valP);
@@ -6946,7 +6889,7 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
      * is done!
      */
 
-    res = esock_recv(env, descP, sockRef, recvRef, (size_t)len, flags);
+    res = esock_recv(env, descP, sockRef, recvRef, SZT(len), flags);
 
     SSDBG( descP, ("SOCKET", "nif_recv(%T) -> done"
                    "\r\n", sockRef) );
@@ -10430,7 +10373,7 @@ ERL_NIF_TERM esock_getopt_tos(ErlNifEnv*       env,
     if (! esock_getopt_int(descP->sock, level, opt, &val)) {
         result = esock_make_error_errno(env, sock_errno());
     } else {
-        result = encode_ip_tos(env, val);
+        result = esock_make_ok2(env, encode_ip_tos(env, val));
     }
 
     return result;
@@ -10788,7 +10731,7 @@ ERL_NIF_TERM esock_getopt_bin_opt(ErlNifEnv*       env,
     ErlNifBinary val;
 
     vsz = (SOCKOPTLEN_T) binP->size;
-    if ((size_t)vsz != binP->size) {
+    if (SZT(vsz) != binP->size) {
         result = esock_make_error(env, esock_atom_invalid);
     } else {
         ESOCK_ASSERT( ALLOC_BIN(vsz, &val) );
@@ -13007,6 +12950,7 @@ void encode_msghdr(ErlNifEnv*       env,
 #endif // #ifndef __WIN32__
 
 
+
 /* +++ encode_cmsghdrs +++
  *
  * Encode a list of cmsghdr(). There can be 0 or more cmsghdr "blocks".
@@ -13092,9 +13036,10 @@ void encode_cmsghdrs(ErlNifEnv*       env,
             
         } else {
             ERL_NIF_TERM   level, type, data;
-            unsigned char* dataP   = (unsigned char*) CMSG_DATA(currentP);
+            unsigned char* dataP   = UCHARP(CMSG_DATA(currentP));
             size_t         dataPos = dataP - cmsgBinP->data;
-            size_t         dataLen = currentP->cmsg_len - (CHARP(currentP)-CHARP(dataP));
+            size_t         dataLen =
+                currentP->cmsg_len - (UCHARP(currentP)-dataP);
 
             SSDBG( descP,
                    ("SOCKET", "encode_cmsghdrs {%d} -> cmsg header data: "
@@ -13103,14 +13048,13 @@ void encode_cmsghdrs(ErlNifEnv*       env,
                     "\r\n", descP->sock, dataPos, dataLen) );
 
             level = MKI(env, currentP->cmsg_level);
-            encode_cmsghdr_type(env,
-                                currentP->cmsg_level, currentP->cmsg_type,
-                                &type);
-            encode_cmsghdr_data(env, ctrlBuf,
-                                currentP->cmsg_level,
-                                currentP->cmsg_type,
-                                dataP, dataPos, dataLen,
-                                &data);
+
+            if (! encode_cmsghdr(env,
+                                 currentP->cmsg_level,
+                                 currentP->cmsg_type,
+                                 dataP, dataLen, &type, &data)) {
+                data = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+            }
 
             SSDBG( descP,
                    ("SOCKET", "encode_cmsghdrs {%d} -> "
@@ -13152,795 +13096,198 @@ void encode_cmsghdrs(ErlNifEnv*       env,
 #endif // #ifndef __WIN32__
 
 
-/* +++ decode_cmsghdrs +++
- *
- * Decode a list of cmsghdr(). There can be 0 or more cmsghdr "blocks".
- *
- * Each element can either be a (erlang) map that needs to be decoded,
- * or a (erlang) binary that just needs to be appended to the control
- * buffer.
- *
- * Our "problem" is that we have no idea much memory we actually need.
- *
- */
+
 #ifndef __WIN32__
-extern
-BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
-                          ESockDescriptor* descP,
-                          ERL_NIF_TERM     eCMsgHdr,
-                          char*            cmsgHdrBufP,
-                          size_t           cmsgHdrBufLen,
-                          size_t*          cmsgHdrBufUsed)
-{
-    ERL_NIF_TERM elem, tail, list;
-    char*        bufP;
-    size_t       rem, used, totUsed = 0;
-    unsigned int len;
-    int          i;
+#ifdef SCM_TIMESTAMP
+static
+BOOLEAN_T esock_cmsg_encode_timeval(ErlNifEnv     *env,
+                                    unsigned char *data,
+                                    size_t         dataLen,
+                                    ERL_NIF_TERM  *eResult) {
+    struct timeval* timeP = (struct timeval *) data;
 
-    SSDBG( descP, ("SOCKET", "decode_cmsghdrs {%d} -> entry with"
-                   "\r\n   eCMsgHdr:      %T"
-                   "\r\n   cmsgHdrBufP:   0x%lX"
-                   "\r\n   cmsgHdrBufLen: %d"
-                   "\r\n", descP->sock,
-                   eCMsgHdr, cmsgHdrBufP, cmsgHdrBufLen) );
-
-    if (! GET_LIST_LEN(env, eCMsgHdr, &len))
+    if (dataLen < sizeof(*timeP))
         return FALSE;
 
-    SSDBG( descP,
-           ("SOCKET",
-            "decode_cmsghdrs {%d} -> list length: %d\r\n",
-            descP->sock, len) );
-
-    for (i = 0, list = eCMsgHdr, rem  = cmsgHdrBufLen, bufP = cmsgHdrBufP;
-         i < len; i++) {
-            
-        SSDBG( descP, ("SOCKET", "decode_cmsghdrs {%d} -> process elem %d:"
-                       "\r\n   (buffer) rem:     %u"
-                       "\r\n   (buffer) totUsed: %u"
-                       "\r\n", descP->sock, i, rem, totUsed) );
-
-        /* Extract the (current) head of the (cmsg hdr) list */
-        if (! GET_LIST_ELEM(env, list, &elem, &tail))
-            return FALSE;
-            
-        used = 0; // Just in case...
-        if (! decode_cmsghdr(env, descP, elem, bufP, rem, &used))
-            return FALSE;
-
-        bufP     = CHARP( ULONG(bufP) + used );
-        rem      = SZT( rem - used );
-        list     = tail;
-        totUsed += used;
-
-    }
-
-    *cmsgHdrBufUsed = totUsed;
-
-    SSDBG( descP, ("SOCKET", "decode_cmsghdrs {%d} -> done"
-                   "\r\n   all %u ctrl headers processed"
-                   "\r\n   totUsed = %lu\r\n",
-                   descP->sock, len, (unsigned long) totUsed) );
-
+    esock_encode_timeval(env, timeP, eResult);
     return TRUE;
 }
-#endif // #ifndef __WIN32__
+#endif
+#endif
 
-
-/* +++ decode_cmsghdr +++
- *
- * Decode one cmsghdr(). Put the "result" into the buffer and advance the
- * pointer (of the buffer) afterwards. Also update 'rem' accordingly.
- * But before the actual decode, make sure that there is enough room in 
- * the buffer for the cmsg header (sizeof(*hdr) < rem).
- *
- * The eCMsgHdr should be a map with three fields: 
- *
- *     level :: cmsghdr_level()   (socket | protocol() | integer())
- *     type  :: cmsghdr_type()    (atom() | integer())
- *                                What values are valid depend on the level
- *     data  :: cmsghdr_data()    (term() | binary())
- *                                The type of the data depends on
- *                                level and type, but can be a binary,
- *                                which means that the data is already coded.
- */
 #ifndef __WIN32__
-extern
-BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
-                         ESockDescriptor* descP,
-                         ERL_NIF_TERM     eCMsgHdr,
-                         char*            bufP,
-                         size_t           rem,
-                         size_t*          used)
-{
-    SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> entry with"
-                   "\r\n   eCMsgHdr: %T"
-                   "\r\n", descP->sock, eCMsgHdr) );
-
-    if (! IS_MAP(env, eCMsgHdr)) {
-
-        return FALSE;
-
-    } else {
-        ERL_NIF_TERM eLevel, eType, eData;
-        int          level, type;
-
-        /* First extract all three attributes (as terms) */
-
-        if (! GET_MAP_VAL(env, eCMsgHdr, esock_atom_level, &eLevel))
-            return FALSE;
-        
-        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> eLevel: %T"
-                       "\r\n", descP->sock, eLevel) );
-
-        if (! GET_MAP_VAL(env, eCMsgHdr, esock_atom_type, &eType))
-            return FALSE;
-        
-        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> eType:  %T"
-                       "\r\n", descP->sock, eType) );
-
-        if (! GET_MAP_VAL(env, eCMsgHdr, esock_atom_data, &eData))
-            return FALSE;
-
-        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> eData:  %T"
-                       "\r\n", descP->sock, eData) );
-
-        /* Second, decode level */
-        if (! GET_INT(env, eLevel, &level))
-            return FALSE;
-
-        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d}-> level:  %d\r\n",
-                       descP->sock, level) );
-
-        /* third, decode type */
-        if (! decode_cmsghdr_type(env, level, eType, &type))
-            return FALSE;
-        
-        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> type:   %d\r\n",
-                       descP->sock, type) );
-
-        /* And finally data
-         * If its a binary, we are done. Otherwise, we need to check
-         * level and type to know what kind of data to expect.
-         */
-
-        return decode_cmsghdr_data(env, descP, bufP, rem,
-                                   level, type, eData, used);
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-/* *** decode_cmsghdr_data ***
- *
- * For all combinations of level and type we accept a binary as data,
- * so we begin by testing for that. If its not a binary, then we check
- * level (ip) and type (tos or ttl), in which case the data *must* be
- * an integer and ip_tos() respectively.
- */
-#ifndef __WIN32__
+#if defined(IP_TOS) || defined(IP_RECVTOS)
 static
-BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
-                              ESockDescriptor* descP,
-                              char*            bufP,
-                              size_t           rem,
-                              int              level,
-                              int              type,
-                              ERL_NIF_TERM     eData,
-                              size_t*          used)
+BOOLEAN_T esock_cmsg_encode_ip_tos(ErlNifEnv     *env,
+                                   unsigned char *data,
+                                   size_t         dataLen,
+                                   ERL_NIF_TERM  *eResult)
 {
-    ErlNifBinary bin;
+    unsigned char tos;
 
-    SSDBG( descP, ("SOCKET", "decode_cmsghdr_data {%d} -> entry with"
-                   "\r\n   eData: %T"
-                   "\r\n", descP->sock, eData) );
-
-    if (GET_BIN(env, eData, &bin)) {
-        SSDBG( descP, ("SOCKET", "decode_cmsghdr_data {%d} -> "
-                       "do final decode with binary\r\n", descP->sock) );
-        return decode_cmsghdr_final(descP, bufP, rem, level, type,
-                                    (char*) bin.data, bin.size,
-                                    used);
-    }
-
-    /* Its *not* a binary so we need to look at what level and type 
-     * we have and treat them individually.
-     */
-
-    switch (level) {
-#if defined(SOL_IP)
-    case SOL_IP:
-#else
-    case IPPROTO_IP:
-#endif
-        switch (type) {
-#if defined(IP_TOS)
-        case IP_TOS:
-            {
-                int data;
-                if (decode_ip_tos(env, eData, &data)) {
-                    SSDBG( descP, ("SOCKET", "decode_cmsghdr_data {%d} -> "
-                                   "do final decode with tos (=%d)"
-                                   "\r\n", descP->sock, data) );
-                    return decode_cmsghdr_final(descP, bufP, rem,
-                                                level, type,
-                                                (char*) &data,
-                                                sizeof(data),
-                                                used);
-                } else {
-                    return FALSE;
-                }
-            }
-            break;
-#endif
-
-#if defined(IP_TTL)
-        case IP_TTL:
-            {
-                int data;
-                if (GET_INT(env, eData, &data)) {
-                    SSDBG( descP, ("SOCKET", "decode_cmsghdr_data {%d} -> "
-                                   "do final decode with ttl (=%d)"
-                                   "\r\n", descP->sock, data) );
-                    return decode_cmsghdr_final(descP, bufP, rem,
-                                                level, type,
-                                                (char*) &data,
-                                                sizeof(data),
-                                                used);
-                } else {
-                    return FALSE;
-                }
-            }
-            break;
-#endif
-
-        }
-        break; // case IPPROTO_IP:
-
-
-#if defined(HAVE_IPV6)
-#if defined(SOL_IPV6)
-    case SOL_IPV6:
-#else
-    case IPPROTO_IPV6:
-#endif // if defined(SOL_IPV6)
-        switch (type) {
-#if defined(IPV6_TCLASS)
-        case IPV6_TCLASS:
-	    {
-                int data;
-                if (GET_INT(env, eData, &data)) {
-                    SSDBG( descP, ("SOCKET", "decode_cmsghdr_data {%d} -> "
-                                   "do final decode with tclass (=%d)"
-                                   "\r\n", descP->sock, data) );
-                    return decode_cmsghdr_final(descP, bufP, rem,
-                                                level, type,
-                                                (char*) &data,
-                                                sizeof(data),
-                                                used);
-                } else {
-                    return FALSE;
-                }
-	    }
-	    break;
-#endif // if defined(IPV6_TCLASS)
-
-        default:
-            return FALSE;
-	    break;
-        }
-        break; // case SOL_IPV6: case IPPROTO_IPV6:
-#endif // if defined(HAVE_IPV6)
-
-    default:
+    if (dataLen < sizeof(tos))
         return FALSE;
-        break;
-    } // switch(level)
 
+    tos = *data;
+
+    *eResult = encode_ip_tos(env, tos);
     return TRUE;
 }
-#endif // #ifndef __WIN32__
 
-
-/* *** decode_cmsghdr_final ***
- *
- * This does the final create of the cmsghdr (including the data copy).
- * Note that we do a memzero of the (entire) structure before we begin
- * initiating it (len, level, type and data). This is to avoid complaints
- * from valgrind.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T decode_cmsghdr_final(ESockDescriptor* descP,
-                               char*            bufP,
-                               size_t           rem,
-                               int              level,
-                               int              type,
-                               char*            data,
-                               int              sz,
-                               size_t*          used)
+static BOOLEAN_T esock_cmsg_decode_ip_tos(ErlNifEnv *env,
+                                          ERL_NIF_TERM eData,
+                                          struct cmsghdr *cmsgP,
+                                          size_t rem,
+                                          size_t *usedP)
 {
-    int len   = CMSG_LEN(sz);   // length of *actual* data
-    int space = CMSG_SPACE(sz); // length of (actual) data + padding
+    int tos, *tosP;
 
-    SSDBG( descP, ("SOCKET", "decode_cmsghdr_final {%d} -> entry when"
-                   "\r\n   level: %d"
-                   "\r\n   type:  %d"
-                   "\r\n   sz:    %d => %d, %d, %d"
-                   "\r\n", descP->sock,
-                   level, type, sz, len, space, rem) );
-
-    if (rem >= space) {
-        struct cmsghdr* cmsgP = (struct cmsghdr*) bufP;
-
-        sys_memzero(cmsgP, space);
-
-        /* The header */
-        cmsgP->cmsg_len   = len;
-        cmsgP->cmsg_level = level;
-        cmsgP->cmsg_type  = type;
-
-        sys_memcpy(CMSG_DATA(cmsgP), data, sz);
-        *used = space;
-    } else {
-        SSDBG( descP, ("SOCKET", "decode_cmsghdr_final {%d} -> "
-                       "not enough space (needs %d, have %d)\r\n",
-                       descP->sock, space, rem) );
+    if (! decode_ip_tos(env, eData, &tos))
         return FALSE;
-    }
 
-    SSDBG( descP, ("SOCKET",
-                   "decode_cmsghdr_final {%d} -> done ok\r\n",
-                   descP->sock) );
+    if ((tosP = init_cmsghdr(cmsgP, rem, sizeof(tos), usedP)) == NULL)
+        return FALSE;
 
+    *tosP = tos;
     return TRUE;
 }
-#endif // #ifndef __WIN32__
+#endif // #ifdef IP_TOS
+#endif // #ifdef __WIN32__
 
-
-/* +++ encode_cmsghdr_type +++
- *
- * Encode the type part of the cmsghdr().
- *
- */
 #ifndef __WIN32__
+#if defined(IP_TTL) || \
+    defined(IPV6_HOPLIMIT) || \
+    defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
 static
-void encode_cmsghdr_type(ErlNifEnv*    env,
-                         int           level,
-                         int           type,
-                         ERL_NIF_TERM* eType)
-{
-    switch (level) {
-
-      /* *** SOCKET *** */
-
-    case SOL_SOCKET:
-        switch (type) {
-#if defined(SCM_TIMESTAMP)
-        case SCM_TIMESTAMP:
-            *eType = esock_atom_timestamp;
-            break;
-#endif
-
-#if defined(SCM_RIGHTS)
-        case SCM_RIGHTS:
-            *eType = esock_atom_rights;
-            break;
-#endif
-
-#if defined(SCM_CREDENTIALS)
-        case SCM_CREDENTIALS:
-            *eType = esock_atom_credentials;
-            break;
-#elif defined(SCM_CREDS)
-        case SCM_CREDS:
-            *eType = esock_atom_credentials;
-            break;
-#endif
-
-        default:
-            goto undefined;
-        }        
-        break;
-
-
-	/* *** IP *** */
-
-#if defined(SOL_IP)
-    case SOL_IP:
-#else
-    case IPPROTO_IP:
-#endif
-        switch (type) {
-#if defined(IP_TOS)
-        case IP_TOS:
-            *eType = esock_atom_tos;
-            break;
-#endif
-
-#if defined(IP_TTL)
-        case IP_TTL:
-            *eType = esock_atom_ttl;
-            break;
-#endif
-
-            /*
-             * On Solaris (among others) TTL has type RECVTTL!
-             * We could convert to TTL (that is esock_atom_ttl,
-             * but that opens up pandoras box, so leave it to
-             * the user).
-             */
-#if defined(IP_RECVTTL)
-        case IP_RECVTTL:
-            *eType = esock_atom_recvttl;
-            break;
-#endif
-
-#if defined(IP_PKTINFO)
-        case IP_PKTINFO:
-            *eType = esock_atom_pktinfo;
-            break;
-#endif
-
-#if defined(IP_ORIGDSTADDR)
-        case IP_ORIGDSTADDR:
-            *eType = esock_atom_origdstaddr;
-            break;
-#endif
-
-            /*
-             * On FreeBSD (among others) TOS has type RECVTOS!
-             * We could convert to TOS (that is esock_atom_tos,
-             * but that opens up pandoras box, so leave it to
-             * the user).
-             */
-#if defined(IP_RECVTOS)
-        case IP_RECVTOS:
-            *eType = esock_atom_recvtos;
-            break;
-#endif
-
-#if defined(IP_RECVERR)
-        case IP_RECVERR:
-            *eType = esock_atom_recverr;
-            break;
-#endif
-
-        default:
-            goto undefined;
-        }
-        break;
-
-
-	/* *** IPv6 *** */
-
-#if defined(HAVE_IPV6)
-#if defined(SOL_IPV6)
-        case SOL_IPV6:
-#else
-        case IPPROTO_IPV6:
-#endif
-	  switch (type) {
-#if defined(IPV6_PKTINFO)
-	  case IPV6_PKTINFO:
-            *eType = esock_atom_pktinfo;
-            break;
-#endif // if defined(IPV6_PKTINFO)
-
-#if defined(IPV6_HOPLIMIT)
-	  case IPV6_HOPLIMIT:
-              *eType = esock_atom_hoplimit;
-              break;
-#endif // if defined(IPV6_HOPLIMIT)
-
-              /* Don't know if both this and RECVTCLASS can come here,
-               * but hust in case... */
-#if defined(IPV6_TCLASS)
-	  case IPV6_TCLASS:
-              *eType = esock_atom_tclass;
-              break;
-#endif // if defined(IPV6_TCLASS)
-
-              /* Don't know if both this and TCLASS can come here,
-               * but hust in case... */
-#if defined(IPV6_RECVTCLASS)
-	  case IPV6_RECVTCLASS:
-              *eType = esock_atom_recvtclass;
-              break;
-#endif // if defined(IPV6_RECVTCLASS)
-
-#if defined(IPV6_RECVERR)
-        case IPV6_RECVERR:
-            *eType = esock_atom_recverr;
-            break;
-#endif
-
-	  default:
-              goto undefined;
-	  }        
-	  break;
-#endif // if defined(HAVE_IPV6)
-
-
-	  /* *** TCP *** */
-
-    case IPPROTO_TCP:
-        switch (type) {
-        default:
-            goto undefined;
-        }        
-        break;
-
-
-	/* *** UDP *** */
-
-    case IPPROTO_UDP:
-        switch (type) {
-        default:
-            goto undefined;
-        }        
-        break;
-
-#if defined(HAVE_SCTP)
-    case IPPROTO_SCTP:
-        switch (type) {
-        default:
-            goto undefined;
-        }        
-        break;
-#endif
-
-    default:
-        goto undefined;
-    }
-
-    return;
-
- undefined:
-    *eType = MKI(env, type);
-}
-#endif // #ifndef __WIN32__
-
-
-/* +++ decode_cmsghdr_type +++
- *
- * Decode the type part of the cmsghdr().
- *
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T decode_cmsghdr_type(ErlNifEnv*   env,
-                              int          level,
-                              ERL_NIF_TERM eType,
-                              int*         type)
-{
-    switch (level) {
-
-
-    case SOL_SOCKET:
-        if (IS_ATOM(env, eType)) {
-#if defined(SCM_TIMESTAMP)
-            if (COMPARE(eType, esock_atom_timestamp) == 0)
-                *type = SCM_TIMESTAMP;
-            else
-#endif
-#if defined(SCM_RIGHTS)
-            if (COMPARE(eType, esock_atom_rights) == 0)
-                *type = SCM_RIGHTS;
-            else
-#endif
-#if defined(SCM_CREDENTIALS)
-            if (COMPARE(eType, esock_atom_credentials) == 0)
-                *type = SCM_CREDENTIALS;
-            else
-#elif defined(SCM_CREDS)
-            if (COMPARE(eType, esock_atom_credentials) == 0)
-                *type = SCM_CREDS;
-            else
-#endif
-                return FALSE;
-        } else if (! GET_INT(env, eType, type)) {
-            return FALSE;
-        }
-        break;
-
-
-#if defined(SOL_IP)
-    case SOL_IP:
-#else
-    case IPPROTO_IP:
-#endif
-        if (IS_ATOM(env, eType)) {
-#if defined(IP_TOS)
-            if (COMPARE(eType, esock_atom_tos) == 0)
-                *type = IP_TOS;
-            else
-#endif
-#if defined(IP_TTL)
-            if (COMPARE(eType, esock_atom_ttl) == 0)
-                *type = IP_TTL;
-            else
-#endif
-                return FALSE;
-        } else if (! GET_INT(env, eType, type)) {
-            return FALSE;
-        }
-        break;
-
-
-#if defined(HAVE_IPV6)
-#if defined(SOL_IPV6)
-    case SOL_IPV6:
-#else
-    case IPPROTO_IPV6:
-#endif
-        if (IS_ATOM(env, eType)) {
-#if defined(IPV6_TCLASS)
-            if (COMPARE(eType, esock_atom_tclass) == 0)
-                *type = IPV6_TCLASS;
-            else
-#endif
-                return FALSE;
-        } else if (! GET_INT(env, eType, type)) {
-            return FALSE;
-        }
-        break;
-#endif
-
-
-    case IPPROTO_UDP:
-        if (! GET_INT(env, eType, type)) {
-            return FALSE;
-        }
-        break;
-
-    default:
-        return FALSE;
-    }
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
-
-/* +++ encode_cmsghdr_data +++
- *
- * Encode the data part of the cmsghdr().
- *
- */
-#ifndef __WIN32__
-static
-void encode_cmsghdr_data(ErlNifEnv*     env,
-                         ERL_NIF_TERM   ctrlBuf,
-                         int            level,
-                         int            type,
-                         unsigned char* dataP,
-                         size_t         dataPos,
-                         size_t         dataLen,
-                         ERL_NIF_TERM*  eCMsgHdrData)
-{
-    switch (level) {
-#if defined(SOL_SOCKET)
-    case SOL_SOCKET:
-        encode_cmsghdr_data_socket(env, ctrlBuf, type,
-                                   dataP, dataPos, dataLen,
-                                   eCMsgHdrData);
-        break;
-#endif
-
-#if defined(SOL_IP)
-    case SOL_IP:
-#else
-    case IPPROTO_IP:
-#endif
-        encode_cmsghdr_data_ip(env, ctrlBuf, type,
-                               dataP, dataPos, dataLen,
-                               eCMsgHdrData);
-        break;
-
-#if defined(HAVE_IPV6)
-#if defined(SOL_IPV6)
-    case SOL_IPV6:
-#else
-    case IPPROTO_IPV6:
-#endif        
-        encode_cmsghdr_data_ipv6(env, ctrlBuf, type,
-                                 dataP, dataPos, dataLen,
-                                 eCMsgHdrData);
-        break;
-#endif
-
-        /*
-          case IPPROTO_TCP:
-          xres = encode_cmsghdr_data_tcp(env, type, dataP, eCMsgHdrData);
-          break;
-        */
-
-        /*
-          case IPPROTO_UDP:
-          xres = encode_cmsghdr_data_udp(env, type, dataP, eCMsgHdrData);
-          break;
-        */
-
-        /*
-          #if defined(HAVE_SCTP)
-          case IPPROTO_SCTP:
-          xres = encode_cmsghdr_data_sctp(env, type, dataP, eCMsgHdrData);
-          break;
-          #endif
-        */
-
-    default:
-        *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
-        break;
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-/* +++ encode_cmsghdr_data_socket +++
- *
- * Encode the data part when "protocol" = socket of the cmsghdr().
- *
- */
-#ifndef __WIN32__
-static
-void encode_cmsghdr_data_socket(ErlNifEnv*     env,
-                                ERL_NIF_TERM   ctrlBuf,
-                                int            type,
-                                unsigned char* dataP,
-                                size_t         dataPos,
+BOOLEAN_T esock_cmsg_encode_int(ErlNifEnv     *env,
+                                unsigned char *data,
                                 size_t         dataLen,
-                                ERL_NIF_TERM*  eCMsgHdrData)
-{
-    switch (type) {
-#if defined(SCM_TIMESTAMP)
-    case SCM_TIMESTAMP:
-        {
-            struct timeval* timeP = (struct timeval*) dataP;
+                                ERL_NIF_TERM  *eResult) {
+    int value;
 
-            if (dataLen < sizeof(*timeP))
-                goto unknown;
-            esock_encode_timeval(env, timeP, eCMsgHdrData);
-        }
-        break;
+    if (dataLen < sizeof(value))
+        return FALSE;
+
+    value = *((int *) data);
+    *eResult = MKI(env, value);
+    return TRUE;
+}
+
+static BOOLEAN_T esock_cmsg_decode_int(ErlNifEnv *env,
+                                       ERL_NIF_TERM eData,
+                                       struct cmsghdr *cmsgP,
+                                       size_t rem,
+                                       size_t *usedP)
+{
+    int value, *valueP;
+
+    if (! GET_INT(env, eData, &value))
+        return FALSE;
+
+    if ((valueP = init_cmsghdr(cmsgP, rem, sizeof(value), usedP)) == NULL)
+        return FALSE;
+
+    *valueP = value;
+    return TRUE;
+}
+#endif
 #endif
 
-    default:
-        goto unknown;
-    }
-    return;
+#ifndef __WIN32__
+#ifdef IP_RECVTTL
+static
+BOOLEAN_T esock_cmsg_encode_uchar(ErlNifEnv     *env,
+                                  unsigned char *data,
+                                  size_t         dataLen,
+                                  ERL_NIF_TERM  *eResult) {
+    unsigned char value;
 
- unknown:
-    *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+    if (dataLen < sizeof(value))
+        return FALSE;
+
+    value = *data;
+    *eResult = MKUI(env, value);
+    return TRUE;
 }
-#endif // #ifndef __WIN32__
+#endif
+#endif
 
+#ifndef __WIN32__
+#ifdef IP_PKTINFO
+static
+BOOLEAN_T esock_cmsg_encode_in_pktinfo(ErlNifEnv     *env,
+                                       unsigned char *data,
+                                       size_t         dataLen,
+                                       ERL_NIF_TERM  *eResult) {
+    struct in_pktinfo* pktInfoP = (struct in_pktinfo*) data;
+    ERL_NIF_TERM       ifIndex;
+    ERL_NIF_TERM       specDst, addr;
 
+    if (dataLen < sizeof(*pktInfoP))
+        return FALSE;
+
+    ifIndex  = MKUI(env, pktInfoP->ipi_ifindex);
+    esock_encode_in_addr(env, &pktInfoP->ipi_spec_dst, &specDst);
+    esock_encode_in_addr(env, &pktInfoP->ipi_addr, &addr);
+
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_ifindex,
+                               esock_atom_spec_dst,
+                               esock_atom_addr};
+        ERL_NIF_TERM vals[] = {ifIndex, specDst, addr};
+        unsigned int numKeys = NUM(keys);
+        unsigned int numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eResult) );
+    }
+    return TRUE;
+}
+#endif
+#endif
+
+#ifndef __WIN32__
+#ifdef IP_ORIGDSTADDR
+static
+BOOLEAN_T esock_cmsg_encode_sockaddr(ErlNifEnv     *env,
+                                     unsigned char *data,
+                                     size_t         dataLen,
+                                     ERL_NIF_TERM  *eResult) {
+    esock_encode_sockaddr(env,
+                          (ESockAddress*) data,
+                          dataLen,
+                          eResult);
+    return TRUE;
+}
+#endif
+#endif
 
 #ifndef __WIN32__
 #if defined(HAVE_LINUX_ERRQUEUE_H)
-
-/* +++ encode_cmsghdr_data_recverr +++
+/* +++ encode_cmsg_encode_recverr +++
  *
  * Encode the extended socker error in the data part of the cmsghdr().
  *
  */
-
 static
-void encode_cmsghdr_data_recverr(ErlNifEnv                *env,
-                                 struct sock_extended_err *sock_err,
-                                 size_t                    dataLen,
-                                 ERL_NIF_TERM             *eCMsgHdrData)
+BOOLEAN_T esock_cmsg_encode_recverr(ErlNifEnv                *env,
+                                    unsigned char            *data,
+                                    size_t                    dataLen,
+                                    ERL_NIF_TERM             *eCMsgHdrData)
 {
-    struct sockaddr *offender = SO_EE_OFFENDER(sock_err);
+    struct sock_extended_err *sock_err = (struct sock_extended_err *) data;
+    struct sockaddr *offender;
     ERL_NIF_TERM
-        ee_errno = MKA(env, erl_errno_id(sock_err->ee_errno)),
-        ee_origin, ee_type, ee_code,
-        ee_info = MKI(env, sock_err->ee_info),
-        ee_data = MKI(env, sock_err->ee_data),
+        ee_errno, ee_origin, ee_type, ee_code, ee_info, ee_data,
         eSockAddr;
+
+    if (dataLen < sizeof(*sock_err))
+        return FALSE;
+
+    offender = SO_EE_OFFENDER(sock_err);
+    ee_errno = MKA(env, erl_errno_id(sock_err->ee_errno));
+    ee_info = MKI(env, sock_err->ee_info);
+    ee_data = MKI(env, sock_err->ee_data);
 
     switch (sock_err->ee_origin) {
 #if defined(SO_EE_ORIGIN_NONE)
@@ -14163,286 +13510,569 @@ void encode_cmsghdr_data_recverr(ErlNifEnv                *env,
         ESOCK_ASSERT( numKeys == numVals );
         ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eCMsgHdrData) );
     }
+    return TRUE;
 }
-
 #endif // defined(HAVE_LINUX_ERRQUEUE_H)
 #endif // #ifndef __WIN32__
 
-
-/* +++ encode_cmsghdr_data_ip +++
- *
- * Encode the data part when protocol = IP of the cmsghdr().
- *
- */
 #ifndef __WIN32__
+#ifdef IPV6_PKTINFO
 static
-void encode_cmsghdr_data_ip(ErlNifEnv*     env,
-                            ERL_NIF_TERM   ctrlBuf,
-                            int            type,
-                            unsigned char* dataP,
-                            size_t         dataPos,
-                            size_t         dataLen,
-                            ERL_NIF_TERM*  eCMsgHdrData)
-{
-    switch (type) {
+BOOLEAN_T esock_cmsg_encode_in6_pktinfo(ErlNifEnv     *env,
+                                        unsigned char *data,
+                                        size_t         dataLen,
+                                        ERL_NIF_TERM  *eResult) {
+    struct in6_pktinfo* pktInfoP = (struct in6_pktinfo*) data;
+    ERL_NIF_TERM        ifIndex, addr;
+
+    if (dataLen < sizeof(*pktInfoP))
+        return FALSE;
+    ifIndex  = MKI(env, pktInfoP->ipi6_ifindex);
+    esock_encode_in6_addr(env, &pktInfoP->ipi6_addr, &addr);
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_addr, esock_atom_ifindex};
+        ERL_NIF_TERM vals[]  = {addr, ifIndex};
+        unsigned int numKeys = NUM(keys);
+        unsigned int numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eResult) );
+    }
+    return TRUE;
+}
+#endif
+#endif
+
+
+
+#ifndef __WIN32__
+
+struct ESockCmsgSpec {
+    int type; // Message type
+
+    // Function to encode into erlang term
+    BOOLEAN_T (* encode)
+    (ErlNifEnv *env, unsigned char *data, size_t dataLen,
+     ERL_NIF_TERM *eResult);
+
+    // Function to decode from erlang term
+    BOOLEAN_T (* decode)
+    (ErlNifEnv *env, ERL_NIF_TERM eData,
+     struct cmsghdr *cmsgP, size_t rem, size_t *usedP);
+
+    ERL_NIF_TERM *nameP; // Pointer to option name atom
+};
+
+static int cmpESockCmsgSpec(const void *vpa, const void *vpb) {
+    struct ESockCmsgSpec *a, *b;
+    a = (struct ESockCmsgSpec *) vpa;
+    b = (struct ESockCmsgSpec *) vpb;
+    return COMPARE(*(a->nameP), *(b->nameP));
+}
+
+static struct ESockCmsgSpec
+    cmsgLevelSocket[] =
+    {
+#if defined(SCM_CREDENTIALS)
+        {SCM_CREDENTIALS, NULL, NULL,
+         &esock_atom_credentials},
+#elif defined(SCM_CREDS)
+        {SCM_CREDS, NULL, NULL,
+         &esock_atom_credentials},
+#endif
+
+#if defined(SCM_RIGHTS)
+        {SCM_RIGHTS, NULL, NULL,
+         &esock_atom_rights},
+#endif
+
+#if defined(SCM_TIMESTAMP)
+        {SCM_TIMESTAMP, &esock_cmsg_encode_timeval, NULL,
+         &esock_atom_timestamp},
+#endif
+    },
+
+    cmsgLevelIP[] =
+    {
 #if defined(IP_TOS)
-    case IP_TOS:
-        {
-            unsigned char tos;
-
-            if (dataLen < sizeof(tos))
-                goto unknown;
-            tos = *dataP;
-            switch (IPTOS_TOS(tos)) {
-            case IPTOS_LOWDELAY:
-                *eCMsgHdrData = esock_atom_lowdelay;
-                break;
-            case IPTOS_THROUGHPUT:
-                *eCMsgHdrData = esock_atom_throughput;
-                break;
-            case IPTOS_RELIABILITY:
-                *eCMsgHdrData = esock_atom_reliability;
-                break;
-#if defined(IPTOS_MINCOST)
-            case IPTOS_MINCOST:
-                *eCMsgHdrData = esock_atom_mincost;
-                break;
+        {IP_TOS, esock_cmsg_encode_ip_tos, esock_cmsg_decode_ip_tos,
+         &esock_atom_tos},
 #endif
-            default:
-                *eCMsgHdrData = MKUI(env, tos);
-                break;
-            }
-        }
-        break;
-#endif
-
 
 #if defined(IP_TTL)
-    case IP_TTL:
-        {
-            int ttl;
-
-            if (dataLen < sizeof(ttl))
-                goto unknown;
-            ttl = *((int*) dataP);
-            *eCMsgHdrData = MKI(env, ttl);
-        }
-        break;
+        {IP_TTL, esock_cmsg_encode_int, esock_cmsg_decode_int,
+         &esock_atom_ttl},
 #endif
 
-
-        /*
-         * On Solaris (among others) you don't get TTL when 
-         * you order TTL with RECVTTL ( = "I want to receive TTL")
-         * Instead, you receive RECVTTL...
-         * And also, its not an 'int', its an 'uint8_t' (unsigned char)...
-         * Why can't we all get along...
-         */
 #if defined(IP_RECVTTL)
-    case IP_RECVTTL:
-        {
-            unsigned int ttl;
-
-            if (dataLen < sizeof(ttl))
-                goto unknown;
-            ttl = *((unsigned char*) dataP);
-            *eCMsgHdrData = MKUI(env, ttl);
-        }
-        break;
+        {IP_RECVTTL, esock_cmsg_encode_uchar, NULL,
+         &esock_atom_recvttl},
 #endif
-
 
 #if defined(IP_PKTINFO)
-    case IP_PKTINFO:
-        {
-            struct in_pktinfo* pktInfoP = (struct in_pktinfo*) dataP;
-            ERL_NIF_TERM       ifIndex;
-            ERL_NIF_TERM       specDst, addr;
-
-            if (dataLen < sizeof(*pktInfoP))
-                goto unknown;
-            ifIndex  = MKUI(env, pktInfoP->ipi_ifindex);
-            esock_encode_in_addr(env, &pktInfoP->ipi_spec_dst, &specDst);
-            esock_encode_in_addr(env, &pktInfoP->ipi_addr, &addr);
-
-            {
-                ERL_NIF_TERM keys[] = {esock_atom_ifindex,
-                                       esock_atom_spec_dst,
-                                       esock_atom_addr};
-                ERL_NIF_TERM vals[] = {ifIndex, specDst, addr};
-                unsigned int numKeys = NUM(keys);
-                unsigned int numVals = NUM(vals);
-    
-                ESOCK_ASSERT( numKeys == numVals );
-                ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eCMsgHdrData) );
-            }
-        }
-        break;
+        {IP_PKTINFO, esock_cmsg_encode_in_pktinfo, NULL,
+         &esock_atom_pktinfo},
 #endif
-
 
 #if defined(IP_ORIGDSTADDR)
-    case IP_ORIGDSTADDR:
-        esock_encode_sockaddr(env,
-                              (ESockAddress*) dataP,
-                              dataLen,
-                              eCMsgHdrData);
-        break;
+        {IP_ORIGDSTADDR, esock_cmsg_encode_sockaddr, NULL,
+         &esock_atom_origdstaddr},
 #endif
 
-
-        /*
-         * On FreeBSD (among others) you don't get TOS when 
-         * you order TOS with RECVTOS ( = "I want to receive TOS")
-         * Instead, you receive RECVTOS...
-         */
 #if defined(IP_RECVTOS)
-    case IP_RECVTOS:
-        {
-            unsigned char tos;
-
-            if (dataLen < sizeof(tos))
-                goto unknown;
-            tos = *dataP;
-            switch (IPTOS_TOS(tos)) {
-            case IPTOS_LOWDELAY:
-                *eCMsgHdrData = esock_atom_lowdelay;
-                break;
-            case IPTOS_THROUGHPUT:
-                *eCMsgHdrData = esock_atom_throughput;
-                break;
-            case IPTOS_RELIABILITY:
-                *eCMsgHdrData = esock_atom_reliability;
-                break;
-#if defined(IPTOS_MINCOST)
-            case IPTOS_MINCOST:
-                *eCMsgHdrData = esock_atom_mincost;
-                break;
+        {IP_RECVTOS, esock_cmsg_encode_ip_tos, NULL,
+         &esock_atom_recvtos},
 #endif
-            default:
-                *eCMsgHdrData = MKUI(env, tos);
-                break;
-            }
-        }
-        break;
-#endif // if defined(IP_RECVTOS)
 
 #if defined(IP_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
-    case IP_RECVERR: {
-        struct sock_extended_err *sock_err =
-            (struct sock_extended_err*) dataP;
+        {IP_RECVERR, esock_cmsg_encode_recverr, NULL,
+         &esock_atom_recverr},
+#endif
+    };
 
-        if (dataLen < sizeof(*sock_err))
-            goto unknown;
-        encode_cmsghdr_data_recverr(env, sock_err, dataLen, eCMsgHdrData);
-        break;
-    }
-#endif // defined(IP_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
+#ifdef HAVE_IPV6
+static struct ESockCmsgSpec cmsgLevelIPv6[] =
+    {
+#if defined(IPV6_PKTINFO)
+        {IPV6_PKTINFO, esock_cmsg_encode_in6_pktinfo, NULL,
+         &esock_atom_pktinfo},
+#endif
+
+#if defined(IPV6_HOPLIMIT)
+        {IPV6_HOPLIMIT, esock_cmsg_encode_int, NULL,
+         &esock_atom_hoplimit},
+#endif
+
+#if defined(IPV6_TCLASS)
+        {IPV6_TCLASS, esock_cmsg_encode_int, esock_cmsg_decode_int,
+         &esock_atom_tclass},
+#endif
+
+#if defined(IPV6_RECVTCLASS)
+        {IPV6_RECVTCLASS, esock_cmsg_encode_int, NULL,
+         &esock_atom_recvtclass},
+#endif
+
+#if defined(IPV6_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
+        {IPV6_RECVERR, esock_cmsg_encode_recverr, NULL,
+         &esock_atom_recverr},
+#endif
+    };
+#endif // #ifdef HAVE_IPV6
+
+static void initCmsgTables(void) {
+    ESOCK_SORT_TABLE(cmsgLevelSocket, cmpESockCmsgSpec);
+    ESOCK_SORT_TABLE(cmsgLevelIP, cmpESockCmsgSpec);
+#ifdef HAVE_IPV6
+    ESOCK_SORT_TABLE(cmsgLevelIPv6, cmpESockCmsgSpec);
+#endif
+}
+
+static struct ESockCmsgSpec *lookupCmsgTable(int level, size_t *num) {
+    switch (level) {
+
+    case SOL_SOCKET:
+        *num = NUM(cmsgLevelSocket);
+        return cmsgLevelSocket;
+
+#ifdef SOL_IP
+    case SOL_IP:
+#else
+    case IPPROTO_IP:
+#endif
+        *num = NUM(cmsgLevelIP);
+        return cmsgLevelIP;
+
+#ifdef HAVE_IPV6
+#ifdef SOL_IPV6
+    case SOL_IPV6:
+#else
+    case IPPROTO_IPV6:
+#endif
+        *num = NUM(cmsgLevelIPv6);
+        return cmsgLevelIPv6;
+#endif
 
     default:
-        goto unknown;
+        return NULL;
     }
-    return;
-
- unknown:
-    *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
 }
-#endif // #ifndef __WIN32__
+
+static struct ESockCmsgSpec *lookupCmsgSpec(struct ESockCmsgSpec *table,
+                                            size_t num,
+                                            ERL_NIF_TERM eType) {
+    struct ESockCmsgSpec key;
+
+    sys_memzero(CHARP(&key), sizeof(key));
+    key.nameP = &eType;
+    return bsearch(&key, table, num, sizeof(*table), cmpESockCmsgSpec);
+}
+
+#endif // #ifdef __WIN32__
 
 
 
-/* +++ encode_cmsghdr_data_ipv6 +++
+#ifndef __WIN32__
+extern
+BOOLEAN_T encode_cmsghdr(ErlNifEnv*     env,
+                         int            level,
+                         int            type,
+                         unsigned char* dataP,
+                         size_t         dataLen,
+                         ERL_NIF_TERM*  eType,
+                         ERL_NIF_TERM*  eData) {
+    const struct ESockCmsgSpec *cmsgTable;
+    size_t num;
+
+    if ((cmsgTable = lookupCmsgTable(level, &num)) != NULL) {
+        size_t n;
+
+        /* Linear search for type number in level table
+         */
+        for (n = 0;  n < num;  n++) {
+            if (cmsgTable[n].type == type) {
+                /* Found the type number in the level table;
+                 * return the symbolic type (atom)
+                 * and try to encode the data
+                 */
+
+                *eType = *cmsgTable[n].nameP;
+
+                if (cmsgTable[n].encode != NULL)
+                    return cmsgTable[n].encode(env, dataP, dataLen, eData);
+                else
+                    return FALSE;
+            }
+        }
+    }
+    /* No level table, or unknown type number in the table;
+     * just return the type number as an erlang integer
+     */
+
+
+    *eType = MKI(env, type);
+    return FALSE;
+}
+#endif
+
+
+#ifndef __WIN32__
+extern
+BOOLEAN_T decode_cmsghdr_content(ErlNifEnv*   env,
+                                 ESockDescriptor* descP,
+                                 int          level,
+                                 ERL_NIF_TERM eType,
+                                 ERL_NIF_TERM eData,
+                                 char*        bufP,
+                                 size_t       rem,
+                                 size_t*      usedP)
+{
+    int type;
+    ErlNifBinary bin;
+    void *p;
+    struct cmsghdr *cmsgP = (struct cmsghdr *) bufP;
+    struct ESockCmsgSpec *cmsgSpecP = NULL;
+
+    SSDBG( descP,
+           ("SOCKET",
+            "decode_cmsghdr_content {%d} -> entry  \r\n"
+            "   eType: %T\r\n"
+            "   eData: %T\r\n",
+            descP->sock, eType, eData) );
+
+    if (GET_INT(env, eType, &type)) {
+        /* We have an integer type; then we must have binary data
+         */
+        if (! GET_BIN(env, eData, &bin))
+            goto try_integer; // Or an integer
+    } else {
+        struct ESockCmsgSpec *cmsgTable;
+        size_t num = 0;
+
+        /* Try to look up the symbolic (atom) type
+         */
+        if (((cmsgTable = lookupCmsgTable(level, &num)) == NULL) ||
+            ((cmsgSpecP = lookupCmsgSpec(cmsgTable, num, eType)) == NULL)) {
+            /* We found no table for this level,
+             * or we found no symbolic type in the level table
+             */
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "decode_cmsghdr_content {%d} -> FALSE:\r\n"
+                    "   cmsgTable:  %p\r\n"
+                    "   cmsgSpecP:  %p\r\n",
+                    descP->sock, cmsgTable, cmsgSpecP) );
+            return FALSE;
+        }
+
+        type = cmsgSpecP->type;
+
+        if (! GET_BIN(env, eData, &bin)) {
+            /* The data was not binary; see if we have a decode function
+             */
+            if ((cmsgSpecP->decode == NULL) ||
+                (! cmsgSpecP->decode(env, eData, cmsgP, rem, usedP))) {
+                /* No decode function or decode function failed
+                 */
+                goto try_integer;
+            }
+            /* Successful decode
+             */
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "decode_cmsghdr_content {%d} -> TRUE:\r\n"
+                    "   level:   %d\r\n"
+                    "   type:    %d\r\n",
+                    "   *usedP:  %lu\r\n",
+                    descP->sock, level, type, (unsigned long) *usedP) );
+
+            cmsgP->cmsg_level = level;
+            cmsgP->cmsg_type = type;
+            return TRUE;
+        }
+    }
+
+    /* We got binary data, and a native level and type;
+       try to create a header for the data
+    */
+
+    p = init_cmsghdr(cmsgP, rem, bin.size, usedP);
+    if (p == NULL) {
+        /* No room for the data
+         */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "decode_cmsghdr_content {%d} -> FALSE:\r\n"
+                "   rem:      %lu\r\n"
+                "   bin.size: %lu\r\n",
+                descP->sock, (unsigned long) rem, (unsigned long) bin.size) );
+        return FALSE;
+    }
+
+    SSDBG( descP,
+           ("SOCKET",
+            "decode_cmsghdr_content {%d} -> TRUE:\r\n"
+            "   level:   %d\r\n"
+            "   type:    %d\r\n"
+            "   *usedP:  %lu\r\n",
+            descP->sock, level, type, (unsigned long) *usedP) );
+
+    /* Copy the binary data
+     */
+
+    cmsgP->cmsg_level = level;
+    cmsgP->cmsg_type = type;
+    sys_memcpy(p, bin.data, bin.size);
+    return TRUE;
+
+  try_integer:
+    if (esock_cmsg_decode_int(env, eData, cmsgP, rem, usedP)) {
+        SSDBG( descP,
+               ("SOCKET",
+                "decode_cmsghdr_content {%d} -> TRUE:\r\n"
+                "   level:   %d\r\n"
+                "   type:    %d\r\n"
+                "   *usedP:  %lu\r\n",
+                descP->sock, level, type, (unsigned long) *usedP) );
+
+        cmsgP->cmsg_level = level;
+        cmsgP->cmsg_type = type;
+        return TRUE;
+    }
+
+    /* Could not interpret eData
+     */
+    SSDBG( descP,
+           ("SOCKET",
+            "decode_cmsghdr_content {%d} -> FALSE:\r\n"
+            "   type:               %d\r\n"
+            "   rem:                %lu\r\n"
+            "   cmsgSpecP->decode:  %p\r\n",
+            descP->sock, type, (unsigned long) rem,
+            cmsgSpecP == NULL ? NULL : cmsgSpecP->decode) );
+    return FALSE;
+}
+#endif
+
+/* Clear the CMSG space and init the ->cmsg_len member,
+ * return the position for the data, and the total used space
+ */
+#ifndef __WIN32__
+static void *init_cmsghdr(struct cmsghdr *cmsgP,
+                          size_t rem,  // Remaining space
+                          size_t size, // Size of data
+                          size_t *usedP)
+{
+    size_t space = CMSG_SPACE(size);
+
+    if (rem < space)
+        return NULL; // Not enough space
+
+    sys_memzero(cmsgP, space);
+    cmsgP->cmsg_len = CMSG_LEN(size);
+
+    *usedP = space;
+    return CMSG_DATA(cmsgP);
+}
+#endif
+
+
+/* +++ decode_cmsghdrs +++
  *
- * Encode the data part when protocol = IPv6 of the cmsghdr().
+ * Decode a list of cmsghdr(). There can be 0 or more cmsghdr "blocks".
+ *
+ * Each element can either be a (erlang) map that needs to be decoded,
+ * or a (erlang) binary that just needs to be appended to the control
+ * buffer.
+ *
+ * Our "problem" is that we have no idea much memory we actually need.
  *
  */
 #ifndef __WIN32__
-#if defined(HAVE_IPV6)
-static
-void encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
-                              ERL_NIF_TERM   ctrlBuf,
-                              int            type,
-                              unsigned char* dataP,
-                              size_t         dataPos,
-                              size_t         dataLen,
-                              ERL_NIF_TERM*  eCMsgHdrData)
+extern
+BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     eCMsgHdr,
+                          char*            cmsgHdrBufP,
+                          size_t           cmsgHdrBufLen,
+                          size_t*          cmsgHdrBufUsed)
 {
-    switch (type) {
-#if defined(IPV6_PKTINFO)
-    case IPV6_PKTINFO:
-        {
-            struct in6_pktinfo* pktInfoP = (struct in6_pktinfo*) dataP;
-            ERL_NIF_TERM        ifIndex, addr;
+    ERL_NIF_TERM elem, tail, list;
+    char*        bufP;
+    size_t       rem, used, totUsed = 0;
+    unsigned int len;
+    int          i;
 
-            if (dataLen < sizeof(*pktInfoP))
-                goto unknown;
-            ifIndex  = MKI(env, pktInfoP->ipi6_ifindex);
-            esock_encode_in6_addr(env, &pktInfoP->ipi6_addr, &addr);
-            {
-                ERL_NIF_TERM keys[]  = {esock_atom_addr, esock_atom_ifindex};
-                ERL_NIF_TERM vals[]  = {addr, ifIndex};
-                unsigned int numKeys = NUM(keys);
-                unsigned int numVals = NUM(vals);
-    
-                ESOCK_ASSERT( numKeys == numVals );
-                ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eCMsgHdrData) );
-            }
-        }
-        break;
-#endif
+    SSDBG( descP, ("SOCKET", "decode_cmsghdrs {%d} -> entry with"
+                   "\r\n   eCMsgHdr:      %T"
+                   "\r\n   cmsgHdrBufP:   0x%lX"
+                   "\r\n   cmsgHdrBufLen: %d"
+                   "\r\n", descP->sock,
+                   eCMsgHdr, cmsgHdrBufP, cmsgHdrBufLen) );
 
+    if (! GET_LIST_LEN(env, eCMsgHdr, &len))
+        return FALSE;
 
-#if defined(IPV6_HOPLIMIT)
-    case IPV6_HOPLIMIT:
-        {
-            int* hoplimitP = (int*) dataP;
+    SSDBG( descP,
+           ("SOCKET",
+            "decode_cmsghdrs {%d} -> list length: %d\r\n",
+            descP->sock, len) );
 
-            if (dataLen < sizeof(*hoplimitP))
-                goto unknown;
-            *eCMsgHdrData = MKI(env, *hoplimitP);
-        }
-        break;
-#endif // if defined(IPV6_HOPLIMIT)
+    for (i = 0, list = eCMsgHdr, rem  = cmsgHdrBufLen, bufP = cmsgHdrBufP;
+         i < len; i++) {
+            
+        SSDBG( descP, ("SOCKET", "decode_cmsghdrs {%d} -> process elem %d:"
+                       "\r\n   (buffer) rem:     %u"
+                       "\r\n   (buffer) totUsed: %u"
+                       "\r\n", descP->sock, i, rem, totUsed) );
 
-#if defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
-#if defined(IPV6_RECVTCLASS)
-    case IPV6_RECVTCLASS:
-#endif
-#if defined(IPV6_TCLASS)
-    case IPV6_TCLASS:
-#endif
-        {
-            int* tclassP = (int*) dataP;
+        /* Extract the (current) head of the (cmsg hdr) list */
+        if (! GET_LIST_ELEM(env, list, &elem, &tail))
+            return FALSE;
+            
+        used = 0; // Just in case...
+        if (! decode_cmsghdr(env, descP, elem, bufP, rem, &used))
+            return FALSE;
 
-            if (dataLen < sizeof(*tclassP))
-                goto unknown;
-            *eCMsgHdrData = MKI(env, *tclassP);
-        }
-        break;
-#endif // if defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
+        bufP     = CHARP( ULONG(bufP) + used );
+        rem      = SZT( rem - used );
+        list     = tail;
+        totUsed += used;
 
-#if defined(IPV6_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
-    case IPV6_RECVERR: {
-        struct sock_extended_err *sock_err =
-            (struct sock_extended_err*) dataP;
-
-        if (dataLen < sizeof(*sock_err))
-            goto unknown;
-        encode_cmsghdr_data_recverr(env, sock_err, dataLen, eCMsgHdrData);
-        break;
     }
-#endif // defined(IPV6_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
 
-    default:
-        goto unknown;
-    }
-    return;
+    *cmsgHdrBufUsed = totUsed;
 
- unknown:
-        *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+    SSDBG( descP, ("SOCKET", "decode_cmsghdrs {%d} -> done"
+                   "\r\n   all %u ctrl headers processed"
+                   "\r\n   totUsed = %lu\r\n",
+                   descP->sock, len, (unsigned long) totUsed) );
+
+    return TRUE;
 }
-#endif // #if defined(HAVE_IPV6)
 #endif // #ifndef __WIN32__
+
+
+/* +++ decode_cmsghdr +++
+ *
+ * Decode one cmsghdr(). Put the "result" into the buffer and advance the
+ * pointer (of the buffer) afterwards. Also update 'rem' accordingly.
+ * But before the actual decode, make sure that there is enough room in 
+ * the buffer for the cmsg header (sizeof(*hdr) < rem).
+ *
+ * The eCMsgHdr should be a map with three fields: 
+ *
+ *     level :: cmsghdr_level()   (socket | protocol() | integer())
+ *     type  :: cmsghdr_type()    (atom() | integer())
+ *                                What values are valid depend on the level
+ *     data  :: cmsghdr_data()    (term() | binary())
+ *                                The type of the data depends on
+ *                                level and type, but can be a binary,
+ *                                which means that the data is already coded.
+ */
+#ifndef __WIN32__
+extern
+BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         ERL_NIF_TERM     eCMsgHdr,
+                         char*            bufP,
+                         size_t           rem,
+                         size_t*          used)
+{
+    SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> entry with"
+                   "\r\n   eCMsgHdr: %T"
+                   "\r\n", descP->sock, eCMsgHdr) );
+
+    if (! IS_MAP(env, eCMsgHdr)) {
+
+        return FALSE;
+
+    } else {
+        ERL_NIF_TERM eLevel, eType, eData;
+        int          level;
+
+        /* First extract all three attributes (as terms) */
+
+        if (! GET_MAP_VAL(env, eCMsgHdr, esock_atom_level, &eLevel))
+            return FALSE;
+        
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> eLevel: %T"
+                       "\r\n", descP->sock, eLevel) );
+
+        if (! GET_MAP_VAL(env, eCMsgHdr, esock_atom_type, &eType))
+            return FALSE;
+        
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> eType:  %T"
+                       "\r\n", descP->sock, eType) );
+
+        if (! GET_MAP_VAL(env, eCMsgHdr, esock_atom_data, &eData))
+            return FALSE;
+
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d} -> eData:  %T"
+                       "\r\n", descP->sock, eData) );
+
+        /* Second, decode level */
+        if (! GET_INT(env, eLevel, &level))
+            return FALSE;
+
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d}-> level:  %d\r\n",
+                       descP->sock, level) );
+
+        if (! decode_cmsghdr_content(env, descP, level, eType, eData,
+                                     bufP, rem, used))
+            return FALSE;
+
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d}-> used:  %lu\r\n",
+                       descP->sock, (unsigned long) *used) );
+
+        return TRUE;
+    }
+}
+#endif // #ifndef __WIN32__
+
 
 
 /* +++ encode_msghdr_flags +++
@@ -14796,25 +14426,25 @@ ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
 
     switch (IPTOS_TOS(val)) {
     case IPTOS_LOWDELAY:
-        result = esock_make_ok2(env, esock_atom_lowdelay);
+        result = esock_atom_lowdelay;
         break;
 
     case IPTOS_THROUGHPUT:
-        result = esock_make_ok2(env, esock_atom_throughput);
+        result = esock_atom_throughput;
         break;
 
     case IPTOS_RELIABILITY:
-        result = esock_make_ok2(env, esock_atom_reliability);
+        result = esock_atom_reliability;
         break;
 
 #if defined(IPTOS_MINCOST)
     case IPTOS_MINCOST:
-        result = esock_make_ok2(env, esock_atom_mincost);
+        result = esock_atom_mincost;
         break;
 #endif
 
     default:
-        result = esock_make_ok2(env, MKI(env, val));
+        result = MKI(env, val);
         break;
     }
 
@@ -16938,6 +16568,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.numProtoSCTP   = 0;
 
     initOpts();
+    initCmsgTables();
 
 #endif // #ifndef __WIN32__
 
