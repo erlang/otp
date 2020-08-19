@@ -34,7 +34,23 @@
   </header>
 
 
-  <section><title>SNMP 5.5.0.2</title>
+  <section><title>SNMP 5.5.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    For agent fix PrivParams for SNMPv3 USM with AES privacy,
+	    as earlier fixed for the manager in OTP_16541.</p>
+          <p>
+	    Own Id: OTP-15130 Aux Id: ERIERL-524, OTP-16541 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.5.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
