@@ -611,10 +611,10 @@ enc_sockaddr(#{family := inet6} = SockAddr) ->
     maps:merge(?ESOCK_SOCKADDR_IN6_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := local, path := Path} = SockAddr) ->
   if
-      is_list(Path), 0 < length(Path), length(Path) =< 255 ->
+      is_list(Path), 0 =< length(Path), length(Path) =< 255 ->
           BinPath = encode_path(Path),
           enc_sockaddr(SockAddr#{path => BinPath});
-      is_binary(Path), 0 < byte_size(Path), byte_size(Path) =< 255 ->
+      is_binary(Path), 0 =< byte_size(Path), byte_size(Path) =< 255 ->
           SockAddr;
       true ->
           invalid(sockaddr, SockAddr)
