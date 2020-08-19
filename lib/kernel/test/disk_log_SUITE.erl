@@ -89,7 +89,7 @@
 	 dist_terminate/1, dist_accessible/1, dist_deadlock/1,
          dist_open2/1, other_groups/1,
 
-         otp_6278/1, otp_10131/1]).
+         otp_6278/1, otp_10131/1, otp_16768/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
 	 measure/0, init_m/1, xx/0, head_exit/0, slow_header/1]).
@@ -121,7 +121,7 @@
 	[halt_int, wrap_int, halt_ext, wrap_ext, read_mode, head,
 	 notif, new_idx_vsn, reopen, block, unblock, open, close,
 	 error, chunk, truncate, many_users, info, change_size,
-	 change_attribute, distribution, otp_6278, otp_10131]).
+	 change_attribute, distribution, otp_6278, otp_10131, otp_16768]).
 
 %% These test cases should be skipped if the VxWorks card is 
 %% configured without NFS cache.
@@ -147,7 +147,7 @@ all() ->
      {group, open}, {group, close}, {group, error}, chunk,
      truncate, many_users, {group, info},
      {group, change_size}, change_attribute,
-     {group, distribution}, otp_6278, otp_10131].
+     {group, distribution}, otp_6278, otp_10131, otp_16768].
 
 groups() -> 
     [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
@@ -4705,6 +4705,41 @@ otp_10131(Conf) when is_list(Conf) ->
     HeadFunc2 = info(Log, head, undef),
     ok = disk_log:close(Log),
     ok.
+
+%% OTP-16768. Bad number of items with truncate/1. ERL-1312, ERL-1313.
+otp_16768(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = otp_16768,
+    File = filename:join(Dir, Log),
+    Header = <<"123456789\n">>,
+    head_count(Log, File, Header, external, 25),
+    head_count(Log, File, none, external, 20),
+    head_count(Log, File, Header, internal, 30),
+    head_count(Log, File, none, internal, 20),
+    ok.
+
+head_count(Log, File, Header, Format, Expected) ->
+    del(File, 10),
+    Content = <<"1234567890123456789\n">>,
+    HeaderSize = case Header of
+                     none -> 0;
+                     _ -> byte_size(Header)
+                 end,
+    %% 5 files for the external format, more for the internal format
+    MaxSizePerFile = HeaderSize + (5 * byte_size(Content)) - 1,
+    {ok, Log} = disk_log:open([{file, File},
+                               {name, Log},
+                               {format, Format},
+                               {head, Header},
+                               {size, {MaxSizePerFile, 999}},
+                               {type, wrap}
+                              ]),
+    ok = disk_log:truncate(Log),
+    lists:foreach(fun(_I) -> disk_log:blog(Log, Content) end,
+                  lists:seq(1, 20)),
+    DiskLogInfo = disk_log:info(Log),
+    Expected = proplists:get_value(no_items, DiskLogInfo),
+    ok = disk_log:close(Log).
 
 mark(FileName, What) ->
     {ok,Fd} = file:open(FileName, [raw, binary, read, write]),
