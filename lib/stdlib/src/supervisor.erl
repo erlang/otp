@@ -1605,8 +1605,8 @@ format_status(_, [_PDict, State]) ->
 dyn_size(#state{dynamics = {_Kind,Db}}) ->
     map_size(Db).
 
-dyn_erase(Pid,#state{dynamics={_Kind,Db}}=State) ->
-    State#state{dynamics={maps,maps:remove(Pid,Db)}}.
+dyn_erase(Pid,#state{dynamics={Kind,Db}}=State) ->
+    State#state{dynamics={Kind,maps:remove(Pid,Db)}}.
 
 dyn_store(Pid,Args,#state{dynamics={Kind,Db}}=State) ->
     case Kind of

@@ -63,6 +63,7 @@
 	  one_for_one_escalation/1, one_for_all/1,
 	  one_for_all_escalation/1, one_for_all_other_child_fails_restart/1,
 	  simple_one_for_one/1, simple_one_for_one_escalation/1,
+          simple_one_for_one_corruption/1,
 	  rest_for_one/1, rest_for_one_escalation/1,
 	  rest_for_one_other_child_fails_restart/1,
 	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1]).
@@ -139,7 +140,8 @@ groups() ->
        one_for_all_other_child_fails_restart]},
      {restart_simple_one_for_one, [],
       [simple_one_for_one, simple_one_for_one_shutdown,
-       simple_one_for_one_extra, simple_one_for_one_escalation]},
+       simple_one_for_one_extra, simple_one_for_one_escalation,
+       simple_one_for_one_corruption]},
      {restart_rest_for_one, [],
       [rest_for_one, rest_for_one_escalation,
        rest_for_one_other_child_fails_restart]}].
@@ -1276,6 +1278,62 @@ simple_one_for_one_extra(Config) when is_list(Config) ->
     [{Id4, Pid4, _, _}|_] = supervisor:which_children(sup_test),
     terminate(SupPid, Pid4, Id4, abnormal),
     check_exit([SupPid]).
+
+%%-------------------------------------------------------------------------
+%% Test for subtle corruption of internal state for a
+%% simple_one_for_one supervisor. Thanks to Zeyu Zhang (@zzydxm) and
+%% Maxim Fedorov for noticing this bug. (OTP-16804)
+simple_one_for_one_corruption(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+
+    logger:add_handler(?MODULE, ?MODULE, #{test_case_pid => self()}),
+
+    try
+        Child = #{id => child, start => {supervisor_1, start_child, []},
+                  restart => temporary, shutdown => 1000,
+                  type => worker, modules => []},
+        {ok, SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+        {ok, CPid1} = supervisor:start_child(sup_test, []),
+
+        terminate(SupPid, CPid1, child1, abnormal),
+
+        %% The first time a child of simple_one_for_one supervisor
+        %% with restart strategy `temporary` dies, the internal state
+        %% for the supervisor will become inconsistent (the `dynamics`
+        %% field would change from `{mapsets,Map}` to
+        %% `{maps,Map}`). That inconsistency will make the supervisor
+        %% retain the start arguments even for temporary processes.
+        %%
+        %% To test that the bug is fixed, start a new child process
+        %% with a large term in its argument list.
+
+        N = 50000,
+        BigData = binary_to_list(<<0:N/unit:8>>),
+        {ok, CPid2, BigData} = supervisor:start_child(sup_test, [BigData]),
+
+        %% Since the child is temporary, the supervisor should not keep
+        %% the argument list for the child and the supervisor's heap
+        %% size should shrink after a GC.
+
+        true = erlang:garbage_collect(SupPid),
+        {total_heap_size, HeapSize} = process_info(SupPid, total_heap_size),
+        if
+            HeapSize > 2*N ->
+                %% The start arguments for the child have been kept.
+                ct:fail({excessive_heap_size,HeapSize});
+            true ->
+                ok
+        end,
+
+        terminate(SupPid, CPid2, child2, abnormal),
+
+        exit(SupPid, kill)
+    after
+        logger:remove_handler(?MODULE)
+    end,
+
+    ok.
+
 
 %%-------------------------------------------------------------------------
 %% Test restart escalation on a simple_one_for_one supervisor.
