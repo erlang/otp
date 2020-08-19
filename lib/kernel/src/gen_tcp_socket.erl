@@ -111,17 +111,7 @@ connect_lookup(Address, Port, Opts, Timer) ->
             opts = ConnectOpts}} ->
             %%
             %% ?DBG({Domain, BindIP}),
-            BindAddr =
-                case Domain of
-                    local ->
-                        {local, Path} = BindIP,
-                        #{family => Domain,
-                          path   => Path};
-                    _ ->
-                        #{family => Domain,
-                          addr   => BindIP,
-                          port   => BindPort}
-                end,
+            BindAddr = bind_addr(Domain, BindIP, BindPort),
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, Fd, Timer, BindAddr)
     catch
@@ -159,7 +149,7 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
             ErrRef = make_ref(),
             try
                 ok(ErrRef, call(Server, {setopts, SocketOpts ++ Setopts})),
-                ok(ErrRef, call(Server, {bind, BindAddr})),
+                ok(ErrRef, call_bind(Server, BindAddr)),
                 DefaultError = {error, einval},
                 Socket =  
                     val(ErrRef,
@@ -186,6 +176,28 @@ connect_loop([Addr | Addrs], Server, _Error, Timer) ->
             connect_loop(Addrs, Server, Result, Timer)
     end.
 
+bind_addr(Domain, BindIP, BindPort) ->
+    case Domain of
+        local ->
+            case BindIP of
+                any ->
+                    undefined;
+                {local, Path} ->
+                    #{family => Domain,
+                      path   => Path}
+            end;
+        _ when Domain =:= inet;
+               Domain =:= inet6 ->
+            #{family => Domain,
+              addr   => BindIP,
+              port   => BindPort}
+    end.
+
+call_bind(_Server, undefined) ->
+    ok;
+call_bind(Server, BindAddr) ->
+    call(Server, {bind, BindAddr}).
+
 %% -------------------------------------------------------------------------
 
 listen(Port, Opts) ->
@@ -209,17 +221,7 @@ listen(Port, Opts) ->
                     %%
                     Domain = domain(Mod),
                     %% ?DBG({Domain, BindIP}),
-                    BindAddr =
-                        case Domain of
-                            local ->
-                                {local, Path} = BindIP,
-                                #{family => Domain,
-                                  path   => Path};
-                            _ ->
-                                #{family => Domain,
-                                  addr   => BindIP,
-                                  port   => BindPort}
-                        end,
+                    BindAddr = bind_addr(Domain, BindIP, BindPort),
                     listen_open(
                       Domain, ListenOpts, StartOpts, Fd, Backlog, BindAddr)
             end;
@@ -258,7 +260,7 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
                      Server,
                      {setopts,
                       [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts})),
-                ok(ErrRef, call(Server, {bind, BindAddr})),
+                ok(ErrRef, call_bind(Server, BindAddr)),
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?module_socket(Server, Socket)}
             catch
