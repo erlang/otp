@@ -247,10 +247,10 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           each application individually, except it is more efficient.
           The given <c><anno>Config</anno></c> is validated before the
           configuration is set.</p>
-        <p><c>set_env/2</c> uses the standard <c>gen_server</c> time-out
-          value (5000 ms). Option <c>timeout</c> can be specified
-          if another time-out value is useful, for example, in situations
-          where the application controller is heavily loaded.</p>
+        <p><c>set_env/2</c> uses the default <c>timeout</c> of <c>infinity</c>.
+          Option <c>timeout</c> can be specified if another time-out value
+          is useful, for example, in situations where the application controller
+          is heavily loaded.</p>
         <p>Option <c>persistent</c> can be set to <c>true</c>
           to guarantee that parameters set with <c>set_env/2</c>
           are not overridden by those defined in the application resource
@@ -312,10 +312,10 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <desc>
         <p>Sets the value of configuration parameter <c><anno>Par</anno></c> for
           <c><anno>Application</anno></c>.</p>
-        <p><c>set_env/4</c> uses the standard <c>gen_server</c> time-out
-          value (5000 ms). Option <c>timeout</c> can be specified
-          if another time-out value is useful, for example, in situations
-          where the application controller is heavily loaded.</p>
+        <p><c>set_env/4</c> uses the default <c>timeout</c> of <c>infinity</c>.
+          Option <c>timeout</c> can be specified if another time-out value
+          is useful, for example, in situations where the application controller
+          is heavily loaded.</p>
         <p>If <c>set_env/4</c> is called before the application is loaded,
           the application environment values specified in file <c>Application.app</c>
           override the ones previously set. This is also true for application
@@ -476,10 +476,10 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <desc>
         <p>Removes the configuration parameter <c><anno>Par</anno></c> and its value
           for <c><anno>Application</anno></c>.</p>
-        <p><c>unset_env/2</c> uses the standard <c>gen_server</c>
-          time-out value (5000 ms). Option <c>timeout</c> can be
-          specified if another time-out value is useful, for example, in
-          situations where the application controller is heavily loaded.</p>
+        <p><c>unset_env/2</c> uses the default <c>timeout</c> of <c>infinity</c>.
+          Option <c>timeout</c> can be specified if another time-out value
+          is useful, for example, in situations where the application controller
+          is heavily loaded.</p>
         <p><c>unset_env/3</c> also allows the persistent option to be passed
           (see <seemfa marker="#set_env/4"><c>set_env/4</c></seemfa>).</p>
 	<warning>

@@ -463,7 +463,7 @@ permit_application(ApplName, Flag) ->
 set_env(Config, Opts) ->
     case check_conf_data(Config) of
 	ok ->
-	    Timeout = proplists:get_value(timeout, Opts, 5000),
+	    Timeout = proplists:get_value(timeout, Opts, infinity),
 	    gen_server:call(?AC, {set_env, Config, Opts}, Timeout);
 
 	{error, _} = Error ->
@@ -471,15 +471,15 @@ set_env(Config, Opts) ->
     end.
 
 set_env(AppName, Key, Val) ->
-    gen_server:call(?AC, {set_env, AppName, Key, Val, []}).
+    gen_server:call(?AC, {set_env, AppName, Key, Val, []}, infinity).
 set_env(AppName, Key, Val, Opts) ->
-    Timeout = proplists:get_value(timeout, Opts, 5000),
+    Timeout = proplists:get_value(timeout, Opts, infinity),
     gen_server:call(?AC, {set_env, AppName, Key, Val, Opts}, Timeout).
 
 unset_env(AppName, Key) ->
-    gen_server:call(?AC, {unset_env, AppName, Key, []}).
+    gen_server:call(?AC, {unset_env, AppName, Key, []}, infinity).
 unset_env(AppName, Key, Opts) ->
-    Timeout = proplists:get_value(timeout, Opts, 5000),
+    Timeout = proplists:get_value(timeout, Opts, infinity),
     gen_server:call(?AC, {unset_env, AppName, Key, Opts}, Timeout).
 
 %%%-----------------------------------------------------------------
