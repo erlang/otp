@@ -669,6 +669,16 @@
     </datatype>
 
     <datatype>
+      <name name="hello_timeout_daemon_option"/>
+      <desc>
+	<p>Maximum time in milliseconds for the first part of the ssh session setup, the hello message exchange.
+	Defaults to 30000 ms (30 seconds). If the client fails to send the first message within this time,
+	the connection is closed.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="negotiation_timeout_daemon_option"/>
       <desc>
 	<p>Maximum time in milliseconds for the authentication negotiation.

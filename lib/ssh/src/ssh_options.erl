@@ -482,6 +482,12 @@ default(server) ->
             class => user_option
            },
 
+      hello_timeout =>
+          #{default => 30*1000,
+            chk => fun check_timeout/1,
+            class => user_option
+           },
+
       max_sessions =>
           #{default => infinity,
             chk => fun(V) -> check_pos_integer(V) end,
