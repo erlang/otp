@@ -133,7 +133,7 @@
         These links must point to types documented in a &lt;datatypes&gt; section.
         Example:</p>
         <pre><![CDATA[
-<seetype marker="stdlib:string#oldapi">string::grapheme_cluster()</seetype>
+<seetype marker="stdlib:string#grapheme_cluster">string::grapheme_cluster()</seetype>
 ]]></pre>
         results in: <seetype marker="stdlib:string#grapheme_cluster">string::grapheme_cluster()</seetype>.
       </item>
