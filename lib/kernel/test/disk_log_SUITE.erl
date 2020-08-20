@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@
 	 dist_terminate/1, dist_accessible/1, dist_deadlock/1,
          dist_open2/1, other_groups/1,
 
-         otp_6278/1, otp_10131/1, otp_16768/1]).
+         otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
 	 measure/0, init_m/1, xx/0, head_exit/0, slow_header/1]).
@@ -121,7 +121,8 @@
 	[halt_int, wrap_int, halt_ext, wrap_ext, read_mode, head,
 	 notif, new_idx_vsn, reopen, block, unblock, open, close,
 	 error, chunk, truncate, many_users, info, change_size,
-	 change_attribute, distribution, otp_6278, otp_10131, otp_16768]).
+	 change_attribute, distribution, otp_6278, otp_10131, otp_16768,
+         otp_16809]).
 
 %% These test cases should be skipped if the VxWorks card is 
 %% configured without NFS cache.
@@ -147,7 +148,7 @@ all() ->
      {group, open}, {group, close}, {group, error}, chunk,
      truncate, many_users, {group, info},
      {group, change_size}, change_attribute,
-     {group, distribution}, otp_6278, otp_10131, otp_16768].
+     {group, distribution}, otp_6278, otp_10131, otp_16768, otp_16809].
 
 groups() -> 
     [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
@@ -4739,6 +4740,36 @@ head_count(Log, File, Header, Format, Expected) ->
                   lists:seq(1, 20)),
     DiskLogInfo = disk_log:info(Log),
     Expected = proplists:get_value(no_items, DiskLogInfo),
+    ok = disk_log:close(Log).
+
+otp_16809(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = otp_16809,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+    {ok, Log} = disk_log:open([{name,Log},{file,File}]),
+    none = info(Log, head, undef),
+    ok = disk_log:change_header(Log, {head, none}),
+    none = info(Log, head, undef),
+    ok = disk_log:change_header(Log, {head, some_header}),
+    %% Notice: the head argument as a binary:
+    true = term_to_binary(some_header) =:= info(Log, head, undef),
+    HeadFunc = {?MODULE, head_fun, [{ok,a_header}]},
+    ok = disk_log:change_header(Log, {head_func, HeadFunc}),
+    HeadFunc = info(Log, head, undef),
+    ok = disk_log:close(Log),
+
+    {ok, Log} = disk_log:open([{name,Log},
+                               {file,File},
+                               {format,external}]),
+    none = info(Log, head, undef),
+    ok = disk_log:change_header(Log, {head, none}),
+    none = info(Log, head, undef),
+    ok = disk_log:change_header(Log, {head, "some header"}),
+    %% Notice: the head argument as a binary:
+    <<"some header">> = info(Log, head, undef),
+    HeadFunc2 = {?MODULE, head_fun, [{ok,"a header"}]},
+    ok = disk_log:change_header(Log, {head_func, HeadFunc2}),
+    HeadFunc2 = info(Log, head, undef),
     ok = disk_log:close(Log).
 
 mark(FileName, What) ->
