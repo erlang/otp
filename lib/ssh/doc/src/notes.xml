@@ -30,6 +30,39 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.9.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a bug that could crash the cli server if a too large
+	    cli-window was requested from the client.</p>
+          <p>
+	    Own Id: OTP-16791 Aux Id: ERIERL-520 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new timeout is defined for daemons:
+	    <c>hello_timeout</c>.</p>
+          <p>
+	    It closes an incoming TCP-connection if no valid 1st
+	    message is received from the client within the timeout
+	    limit.</p>
+          <p>
+	    Own Id: OTP-16803</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
