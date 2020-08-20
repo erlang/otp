@@ -669,8 +669,8 @@ handle_event(_, _Event, {init_error,Error}=StateName, D) ->
 
 %%% ######## {hello, client|server} ####
 %% The very first event that is sent when the we are set as controlling process of Socket
-handle_event(_, socket_control, {hello,_}=StateName, D) ->
-    VsnMsg = ssh_transport:hello_version_msg(string_version(D#data.ssh_params)),
+handle_event(_, socket_control, {hello,_}=StateName, #data{ssh_params = Ssh0} = D) ->
+    VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh0)),
     send_bytes(VsnMsg, D),
     case inet:getopts(Socket=D#data.socket, [recbuf]) of
 	{ok, [{recbuf,Size}]} ->
@@ -681,7 +681,8 @@ handle_event(_, socket_control, {hello,_}=StateName, D) ->
 				  % be max ?MAX_PROTO_VERSION bytes:
 				  {recbuf, ?MAX_PROTO_VERSION},
 				  {nodelay,true}]),
-	    {keep_state, D#data{inet_initial_recbuf_size=Size}};
+            Time = ?GET_OPT(hello_timeout, Ssh0#ssh.opts, infinity),
+	    {keep_state, D#data{inet_initial_recbuf_size=Size}, [{state_timeout,Time,no_hello_received}] };
 
 	Other ->
             ?call_disconnectfun_and_log_cond("Option return", 
@@ -730,6 +731,10 @@ handle_event(_, {version_exchange,Version}, {hello,Role}, D0) ->
 	    {stop, Shutdown, D}
     end;
 
+handle_event(_, no_hello_received, {hello,_Role}=StateName, D0) ->
+    {Shutdown, D} =
+        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, "No HELLO recieved", StateName, D0),
+    {stop, Shutdown, D};
 		  
 %%% ######## {kexinit, client|server, init|renegotiate} ####
 
