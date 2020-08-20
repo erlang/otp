@@ -20,8 +20,12 @@
 
 -module(code_SUITE).
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1, 
-         versions/1,new_binary_types/1, call_purged_fun_code_gone/1,
-	 call_purged_fun_code_reload/1, call_purged_fun_code_there/1,
+         versions/1,new_binary_types/1,
+         bad_beam_file/1,
+         literal_leak/1,
+         call_purged_fun_code_gone/1,
+         call_purged_fun_code_reload/1,
+         call_purged_fun_code_there/1,
          multi_proc_purge/1, t_check_old_code/1,
          external_fun/1,get_chunk/1,module_md5/1,
          constant_pools/1,constant_refc_binaries/1,
@@ -35,8 +39,10 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [versions, new_binary_types, call_purged_fun_code_gone,
+all() ->
+    [versions, new_binary_types,
+     bad_beam_file, literal_leak,
+     call_purged_fun_code_gone,
      call_purged_fun_code_reload, call_purged_fun_code_there,
      multi_proc_purge, t_check_old_code, external_fun, get_chunk,
      module_md5,
@@ -130,6 +136,81 @@ new_binary_types(Config) when is_list(Config) ->
                                          make_unaligned_sub_binary(<<1,2>>)),
     {'EXIT',{badarg,_}} = (catch erlang:load_module(my_code_test,
                                                     bit_sized_binary(Bin))),
+    ok.
+
+%% Ensure that the loader doesn't crash or leak memory when attempting
+%% to load bad BEAM files. We depend on valgrind to notice leaks.
+bad_beam_file(_Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    BadBeam1 = bad_beam_file_1(Mod),
+    {error,badfile} = code:load_binary(Mod, atom_to_list(Mod), BadBeam1),
+
+    BadBeam2 = bad_beam_file_2(Mod),
+    {error,badfile} = code:load_binary(Mod, atom_to_list(Mod), BadBeam2),
+
+    ok.
+
+%% Build a BEAM file with an invalid instruction in the code chunk.
+bad_beam_file_1(Mod) ->
+    Exp = [{term,0}],
+    Attr = [],
+    Fs = [{function,term,0,3,
+           [{label,1},
+            {line,[]},
+            {func_info,{atom,Mod},{atom,term},0},
+            {label,2},
+            {move,nil,nil},                     %Illegal destination.
+            return]}],
+    Asm = {Mod,Exp,Attr,Fs,3},
+
+    %% Bypass beam_validator.
+    {ok,BadBeam} = beam_asm:module(Asm, [], [], []),
+    BadBeam.
+
+%% Build a BEAM file with an invalid attributes chunk.
+bad_beam_file_2(Mod) ->
+    Asm = {Mod,[],[],[],1},
+    {ok,BadBeam0} = beam_asm:module(Asm, [], [], []),
+    {ok, Mod, Chunks0} = beam_lib:all_chunks(BadBeam0),
+    Chunks1 = lists:keydelete("Attr", 1, Chunks0),
+    Chunks = [{"Attr",<<"bad_attribute_chunk">>} | Chunks1],
+    {ok,BadBeam} = beam_lib:build_module(Chunks),
+    BadBeam.
+
+%% Ensure that literal areas don't leak when erlang:prepare_loading/2
+%% is not followed by erlang:finish_loading/1.
+literal_leak(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    HugeLiteral = binary_to_list(<<0:(1024*1024)/unit:8>>),
+    Exp = [{term,0}],
+    Attr = [],
+    Fs = [{function,term,0,3,
+           [{label,1},
+            {line,[]},
+            {func_info,{atom,Mod},{atom,term},0},
+            {label,2},
+            {move,{literal,HugeLiteral},{x,0}},
+            return]}],
+    Asm = {Mod,Exp,Attr,Fs,3},
+    {ok,Beam} = beam_asm:module(Asm, [], [], []),
+
+    %% valgrind cannot help us find leak of literals because literal
+    %% areas are allocated using mmap().
+    %%
+    %% Instead we will prepare for loading a BEAM file with a 16Mb
+    %% literal N times so that the reserved literal memory range will
+    %% overflow.
+    %%
+    %% Setting N to 64 is sufficient for overflowing a 1 GB literal
+    %% area (which is the size at the time of writing). Just to be
+    %% sure, we will go a little bit higher...
+
+    N = 128,
+    _ = [begin
+             _ = erlang:prepare_loading(Mod, Beam),
+             _ = erlang:garbage_collect()
+         end || _ <- lists:seq(1, N)],
     ok.
 
 call_purged_fun_code_gone(Config) when is_list(Config) ->
@@ -638,7 +719,7 @@ make_literal_module(Mod, Term) ->
             {label,2},
             {move,{literal,Term},{x,0}},
             return]}],
-    Asm = {Mod,Exp,Attr,Fs,2},
+    Asm = {Mod,Exp,Attr,Fs,3},
     {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
     code:load_binary(Mod, atom_to_list(Mod), Beam).
 
