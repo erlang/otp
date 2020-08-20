@@ -311,6 +311,7 @@
       | authentication_daemon_options()
       | diffie_hellman_group_exchange_daemon_option()
       | negotiation_timeout_daemon_option()
+      | hello_timeout_daemon_option()
       | hardening_daemon_options()
       | callbacks_daemon_options()
       | send_ext_info_daemon_option()
@@ -372,6 +373,7 @@
 -type ssh_moduli_file() :: {ssh_moduli_file,string()}.
 
 -type negotiation_timeout_daemon_option() :: {negotiation_timeout, timeout()} .
+-type hello_timeout_daemon_option() :: {hello_timeout, timeout()} .
 
 -type hardening_daemon_options() ::
         {max_sessions, pos_integer()}
