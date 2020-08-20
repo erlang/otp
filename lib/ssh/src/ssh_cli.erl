@@ -390,14 +390,29 @@ delete_chars(N, {Buf, BufTail, Col}, Tty) -> % N < 0
 %%% if current window is wider than previous)
 window_change(Tty, OldTty, Buf)
   when OldTty#ssh_pty.width == Tty#ssh_pty.width ->
+     %% No line width change
     {[], Buf};
 window_change(Tty, OldTty, {Buf, BufTail, Col}) ->
-    M1 = move_cursor(Col, 0, OldTty),
-    N = erlang:max(Tty#ssh_pty.width - OldTty#ssh_pty.width, 0) * 2,
-    S = lists:reverse(Buf, [BufTail | lists:duplicate(N, $ )]),
-    M2 = move_cursor(length(Buf) + length(BufTail) + N, Col, Tty),
-    {[M1, S | M2], {Buf, BufTail, Col}}.
-    
+    case OldTty#ssh_pty.width - Tty#ssh_pty.width of
+        0 ->
+            %% No line width change
+            {[], {Buf,BufTail,Col}};
+
+        DeltaW0 when DeltaW0 < 0,
+                     BufTail == [] ->
+            % Line width is decreased, cursor is at end of input
+            {[], {Buf,BufTail,Col}};
+
+        DeltaW0 when DeltaW0 < 0,
+                     BufTail =/= [] ->
+            % Line width is decreased, cursor is not at end of input
+            {[], {Buf,BufTail,Col}};
+
+        DeltaW0 when DeltaW0 > 0 ->
+            % Line width is increased
+            {[], {Buf,BufTail,Col}}
+        end.
+
 %% move around in buffer, respecting pad characters
 step_over(0, Buf, [?PAD | BufTail], Col) ->
     {[?PAD | Buf], BufTail, Col+1};
