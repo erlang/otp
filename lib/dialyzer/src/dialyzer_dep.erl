@@ -208,8 +208,12 @@ traverse(Tree, Out, State, CurrentFun) ->
       Val = cerl:map_pair_val(Tree),
       {List, State1} = traverse_list([Key,Val], Out, State, CurrentFun),
       {merge_outs(List), State1};
-    values ->      
-      traverse_list(cerl:values_es(Tree), Out, State, CurrentFun);
+    values ->
+      OldNumRvals = state__num_rvals(State),
+      State1 = state__store_num_rvals(1, State),
+      {List, State2} = traverse_list(cerl:values_es(Tree), Out, State1, CurrentFun),
+      State3 = state__store_num_rvals(OldNumRvals, State2),
+      {List, State3};
     var ->
       case map__lookup(cerl_trees:get_label(Tree), Out) of
 	none -> {output(none), State};
