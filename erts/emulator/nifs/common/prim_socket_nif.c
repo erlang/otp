@@ -2924,38 +2924,38 @@ static ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
 static int esock_close_socket(ErlNifEnv*       env,
                               ESockDescriptor* descP);
 
-extern void encode_msghdr(ErlNifEnv*       env,
+static void encode_msghdr(ErlNifEnv*       env,
                           ESockDescriptor* descP,
                           int              read,
                           struct msghdr*   msgHdrP,
                           ErlNifBinary*    dataBufP,
                           ErlNifBinary*    ctrlBufP,
                           ERL_NIF_TERM*    eSockAddr);
-extern void encode_cmsghdrs(ErlNifEnv*       env,
+static void encode_cmsghdrs(ErlNifEnv*       env,
                             ESockDescriptor* descP,
                             ErlNifBinary*    cmsgBinP,
                             struct msghdr*   msgHdrP,
                             ERL_NIF_TERM*    eCMsgHdr);
-extern BOOLEAN_T encode_cmsghdr(ErlNifEnv*     env,
+static BOOLEAN_T encode_cmsghdr(ErlNifEnv*     env,
                                 int            level,
                                 int            type,
                                 unsigned char* dataP,
                                 size_t         dataLen,
                                 ERL_NIF_TERM*  eType,
                                 ERL_NIF_TERM*  eData);
-extern BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
+static BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     eCMsgHdr,
                                  char*            cmsgHdrBufP,
                                  size_t           cmsgHdrBufLen,
                                  size_t*          cmsgHdrBufUsed);
-extern BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
+static BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
                                 ERL_NIF_TERM     eCMsgHdr,
                                 char*            bufP,
                                 size_t           rem,
                                 size_t*          used);
-extern BOOLEAN_T decode_cmsghdr_content(ErlNifEnv*       env,
+static BOOLEAN_T decode_cmsghdr_content(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
                                         int              level,
                                         ERL_NIF_TERM     eType,
@@ -2967,7 +2967,7 @@ static void *init_cmsghdr(struct cmsghdr* cmsgP,
                           size_t          rem,
                           size_t          size,
                           size_t*         usedP);
-extern void encode_msghdr_flags(ErlNifEnv*       env,
+static void encode_msghdr_flags(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
                                 int              msgFlags,
                                 ERL_NIF_TERM*    flags);
@@ -12862,7 +12862,7 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
  *     flags                 - msghdr_flags()
  */
 #ifndef __WIN32__
-extern
+static
 void encode_msghdr(ErlNifEnv*       env,
                    ESockDescriptor* descP,
                    int              read,
@@ -12971,7 +12971,7 @@ void encode_msghdr(ErlNifEnv*       env,
  * add. Once we are done adding hdr's to it, we convert the tarray to a list.
  */
 #ifndef __WIN32__
-extern
+static
 void encode_cmsghdrs(ErlNifEnv*       env,
                      ESockDescriptor* descP,
                      ErlNifBinary*    cmsgBinP,
@@ -13713,7 +13713,7 @@ static struct ESockCmsgSpec *lookupCmsgSpec(struct ESockCmsgSpec *table,
 
 
 #ifndef __WIN32__
-extern
+static
 BOOLEAN_T encode_cmsghdr(ErlNifEnv*     env,
                          int            level,
                          int            type,
@@ -13757,7 +13757,7 @@ BOOLEAN_T encode_cmsghdr(ErlNifEnv*     env,
 
 
 #ifndef __WIN32__
-extern
+static
 BOOLEAN_T decode_cmsghdr_content(ErlNifEnv*   env,
                                  ESockDescriptor* descP,
                                  int          level,
@@ -13932,7 +13932,7 @@ static void *init_cmsghdr(struct cmsghdr *cmsgP,
  *
  */
 #ifndef __WIN32__
-extern
+static
 BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
                           ESockDescriptor* descP,
                           ERL_NIF_TERM     eCMsgHdr,
@@ -14014,7 +14014,7 @@ BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
  *                                which means that the data is already coded.
  */
 #ifndef __WIN32__
-extern
+static
 BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
                          ESockDescriptor* descP,
                          ERL_NIF_TERM     eCMsgHdr,
@@ -14081,7 +14081,7 @@ BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
  *
  */
 #ifndef __WIN32__
-extern
+static
 void encode_msghdr_flags(ErlNifEnv*       env,
                          ESockDescriptor* descP,
                          int              msgFlags,
