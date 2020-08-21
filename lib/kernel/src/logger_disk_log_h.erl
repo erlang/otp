@@ -224,7 +224,7 @@ open_disk_log(Name, File, Type, MaxNoBytes, MaxNoFiles) ->
 
 close_disk_log(Name, _) ->
     _ = ?disk_log_sync(Name),
-    _ = disk_log:lclose(Name),
+    _ = disk_log:close(Name),
     ok.
 
 disk_log_write(Name, sync, Bin) ->
