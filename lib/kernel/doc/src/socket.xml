@@ -33,13 +33,13 @@
   <modulesummary>Socket interface.</modulesummary>
   <description>
     <p>This module provides an API for network socket.
-    Functions are provided to create, delete and manupilate the sockets
-    aswell as sending and reciving data on them. </p>
+    Functions are provided to create, delete and manipulate the sockets
+    as well as sending and receiving data on them. </p>
     <p>The intent is that it shall be as "close as possible" to the OS
     level socket interface. The only significant addition is that some of
     the functions,
     e.g. <seemfa marker="#recv/3"><c>recv/3</c></seemfa>, 
-    has a timeout argument. </p>
+    have a timeout argument. </p>
     <note>
       <p>Some functions allow for an <i>asynchronous</i> call.
       This is achieved by setting the <c>Timeout</c> argument to
