@@ -958,7 +958,7 @@
               written first on the log file. If the log is a wrap
               log, the item <c><anno>Head</anno></c> is written first in each new file.
               <c><anno>Head</anno></c> is to be a term if the format is
-              <c>internal</c>, otherwise a sequence of bytes.
+              <c>internal</c>, otherwise an <c>iodata()</c>.
               Defaults to <c>none</c>, which means that
               no header is written first on the file.
               </p>
@@ -970,7 +970,7 @@
               The call <c>M:F(A)</c> is assumed to return <c>{ok, Head}</c>.
               The item <c>Head</c> is written first in each file.
               <c>Head</c> is to be a term if the format is
-              <c>internal</c>, otherwise a sequence of bytes.
+              <c>internal</c>, otherwise an <c>iodata()</c>.
               </p>
           </item>
 	  <tag><c>{mode, <anno>Mode</anno>}</c></tag>
@@ -1125,7 +1125,10 @@
           The header argument is used only once. Next time a wrap log file
           is opened, the header given to <c>open/1</c> is used.
           </p>
-        <p><c>truncate/1,2</c> are used for internally
+        <p><c>truncate/1</c> is used for both internally and externally
+          formatted logs.
+          </p>
+        <p><c>truncate/2</c> is used for internally
           formatted logs, and <c>btruncate/2</c> for externally formatted
           logs.
           </p>
