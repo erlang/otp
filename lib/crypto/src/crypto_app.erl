@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,16 +17,22 @@
 %%
 %% %CopyrightEnd%
 %%
-{application, crypto,
-   [{description, "CRYPTO"},
-    {vsn, "%VSN%"},
-    {modules, [crypto,
-	       crypto_app]},
-	       crypto_ec_curves]},
-    {registered, []},
-    {mod, {crypto_app, []}},
-    {applications, [kernel, stdlib]},
-    {env, [{fips_mode, false}, {rand_cache_size, 896}]},
-    {runtime_dependencies, ["erts-9.0","stdlib-3.4","kernel-5.3"]}]}.
 
+-module(crypto_app).
 
+-behaviour(application).
+-export([start/2, stop/1]).
+
+-behaviour(supervisor).
+-export([init/1]).
+
+start(_Type, _Args) ->
+    % Build curves cache if needed
+    _ = crypto:supports(curves),
+    supervisor:start_link(?MODULE, ok).
+
+stop(_) ->
+    ok.
+
+init(ok) ->
+    {ok, {#{}, []}}.

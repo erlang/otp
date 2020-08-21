@@ -37,6 +37,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/crypto-$(VSN)
 
 MODULES= \
 	crypto \
+	crypto_app \
 	crypto_ec_curves
 
 HRL_FILES=

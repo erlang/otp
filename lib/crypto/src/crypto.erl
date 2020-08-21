@@ -646,13 +646,7 @@ version() -> ?CRYPTO_VSN.
 
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
-    case application:start(crypto) of
-        ok ->
-            _ = supports(curves), % Build curves cache if needed
-            ok;
-        Error ->
-            Error
-    end.
+    application:start(crypto).
 
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
