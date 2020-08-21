@@ -2253,25 +2253,25 @@ send_message({ssl, Socket}, Message) ->
     ssl:send(Socket, Message).
 
 activate_ctrl_connection(#state{csock = CSock, ctrl_data = {<<>>, _, _}} = State) ->
-    activate_connection(CSock),
+    _ = activate_connection(CSock),
     State;
 activate_ctrl_connection(#state{csock = CSock} = State0) ->
-    activate_connection(CSock),
+    _ = activate_connection(CSock),
     %% We have already received at least part of the next control message,
     %% that has been saved in ctrl_data, process this first.
     {noreply, State} = handle_info({socket_type(CSock), unwrap_socket(CSock), <<>>}, State0),
     State.
 
 activate_data_connection(#state{dsock = DSock} = State) ->
-    activate_connection(DSock),
+    _ = activate_connection(DSock),
     State.
 
 activate_connection(Socket) ->
     case socket_type(Socket) of
         tcp ->
-            activate_connection(inet, tcp_closed, Socket);
+            _ = activate_connection(inet, tcp_closed, Socket);
         ssl ->
-            activate_connection(ssl, ssl_closed, Socket)
+            _ = activate_connection(ssl, ssl_closed, Socket)
     end.
 
 activate_connection(API, CloseTag, Socket0) ->
