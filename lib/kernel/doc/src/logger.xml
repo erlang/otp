@@ -245,6 +245,12 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       </desc>
     </datatype>
     <datatype>
+      <name name="msg_fun_return"/>
+      <desc>
+        <p></p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="olp_config"/>
       <desc>
 	<p></p>
