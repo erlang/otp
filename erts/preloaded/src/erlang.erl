@@ -248,20 +248,10 @@
       type |
       uniq.
 
--type seq_trace_info() ::
-      'send' |
-      'receive' |
-      'print' |
-      'timestamp' |
-      'monotonic_timestamp' |
-      'strict_monotonic_timestamp' |
-      'label' |
-      'serial'.
-
 -type seq_trace_info_returns() ::
-      { seq_trace_info(), non_neg_integer() |
-                          boolean() |
-			  { non_neg_integer(), non_neg_integer() } } |
+      { 'send' | 'receive' | 'print' | 'timestamp' | 'monotonic_timestamp' | 'strict_monotonic_timestamp', boolean() } |
+      { 'label', term() } |
+      { 'serial', { non_neg_integer(), non_neg_integer() } } |
       [].
 
 -type system_profile_option() ::
@@ -2436,7 +2426,7 @@ send(_Dest,_Msg,_Options) ->
                     (timestamp) -> {timestamp, boolean()};
                     (monotonic_timestamp) -> {timestamp, boolean()};
                     (strict_monotonic_timestamp) -> {strict_monotonic_timestamp, boolean()};
-                    (label) -> [] | {label, non_neg_integer()};
+                    (label) -> [] | {label, term()};
                     (serial) -> [] | {serial, {non_neg_integer(), non_neg_integer()}}.
 seq_trace_info(_What) ->
     erlang:nif_error(undefined).
