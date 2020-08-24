@@ -21,10 +21,29 @@
 
 -module(openssl_sni_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([erlang_server_openssl_client_sni_match/1,
+         erlang_server_openssl_client_sni_match_fun/1,
+         erlang_server_openssl_client_sni_no_match/1,
+         erlang_server_openssl_client_sni_no_match_fun/1,
+         erlang_server_openssl_client_sni_no_header/1,
+         erlang_server_openssl_client_sni_no_header_fun/1
+        ]).
+
+%% Apply exports
+-export([send_and_hostname/1
+        ]).
 
 -define(OPENSSL_QUIT, "Q\n").
 -define(OPENSSL_RENEGOTIATE, "R\n").
@@ -203,7 +222,9 @@ erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHo
     ssl_test_lib:check_result(Server, ExpectedSNIHostname),
     ssl_test_lib:close_port(ClientPort),
     ssl_test_lib:close(Server).
-
+%%--------------------------------------------------------------------
+%% Callback functions  ------------------------------------------------
+%%--------------------------------------------------------------------
 send_and_hostname(SSLSocket) ->
     ssl:send(SSLSocket, "OK"),
     case ssl:connection_information(SSLSocket, [sni_hostname]) of
@@ -212,7 +233,9 @@ send_and_hostname(SSLSocket) ->
 	{ok, [{sni_hostname, Hostname}]} ->
 	    Hostname
     end.
-
+%%--------------------------------------------------------------------
+%% Internal functions  -----------------------------------------------
+%%--------------------------------------------------------------------
 openssl_client_args(Version, Hostname, Port) ->
     ssl_test_lib:maybe_force_ipv4(["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port), 
                                    ssl_test_lib:version_flag(Version)]).

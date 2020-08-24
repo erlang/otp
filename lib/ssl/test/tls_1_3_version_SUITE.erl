@@ -22,11 +22,37 @@
 
 -module(tls_1_3_version_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         end_per_suite/1,
+         end_per_group/2
+        ]).
+
+%% Test cases
+-export([tls13_client_tls12_server/0,
+         tls13_client_tls12_server/1,
+         tls13_client_with_ext_tls12_server/0,
+         tls13_client_with_ext_tls12_server/1,
+         tls12_client_tls13_server/0,
+         tls12_client_tls13_server/1,
+         tls_client_tls10_server/0,
+         tls_client_tls10_server/1,
+         tls_client_tls11_server/0,
+         tls_client_tls11_server/1,
+         tls_client_tls12_server/0,
+         tls_client_tls12_server/1,
+         tls10_client_tls_server/0,
+         tls10_client_tls_server/1,
+         tls11_client_tls_server/0,
+         tls11_client_tls_server/1,
+         tls12_client_tls_server/0,
+         tls12_client_tls_server/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

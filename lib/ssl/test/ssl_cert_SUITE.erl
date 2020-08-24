@@ -21,10 +21,94 @@
 %%
 -module(ssl_cert_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([no_auth/0,
+         no_auth/1,
+         auth/0,
+         auth/1,
+         client_auth_empty_cert_accepted/0,
+         client_auth_empty_cert_accepted/1,
+         client_auth_empty_cert_rejected/0,
+         client_auth_empty_cert_rejected/1,
+         client_auth_partial_chain/0,
+         client_auth_partial_chain/1,
+         client_auth_allow_partial_chain/0,
+         client_auth_allow_partial_chain/1,
+         client_auth_do_not_allow_partial_chain/0,
+         client_auth_do_not_allow_partial_chain/1,
+         client_auth_partial_chain_fun_fail/0,
+         client_auth_partial_chain_fun_fail/1,
+         client_auth_sni/0,
+         client_auth_sni/1,
+         missing_root_cert_no_auth/0,
+         missing_root_cert_no_auth/1,
+         missing_root_cert_auth/0,
+         missing_root_cert_auth/1,
+         missing_root_cert_auth_user_verify_fun_accept/0,
+         missing_root_cert_auth_user_verify_fun_accept/1,
+         missing_root_cert_auth_user_verify_fun_reject/0,
+         missing_root_cert_auth_user_verify_fun_reject/1,
+         verify_fun_always_run_client/0,
+         verify_fun_always_run_client/1,
+         verify_fun_always_run_server/0,
+         verify_fun_always_run_server/1,
+         incomplete_chain_auth/0,
+         incomplete_chain_auth/1,
+         invalid_signature_client/0,
+         invalid_signature_client/1,
+         invalid_signature_server/0,
+         invalid_signature_server/1,
+         critical_extension_auth/0,
+         critical_extension_auth/1,
+         critical_extension_client_auth/0,
+         critical_extension_client_auth/1,
+         critical_extension_no_auth/0,
+         critical_extension_no_auth/1,
+         extended_key_usage_auth/0,
+         extended_key_usage_auth/1,
+         extended_key_usage_client_auth/0,
+         extended_key_usage_client_auth/1,
+         cert_expired/0,
+         cert_expired/1,
+         no_auth_key_identifier_ext/0,
+         no_auth_key_identifier_ext/1,
+         no_auth_key_identifier_ext_keyEncipherment/0,
+         no_auth_key_identifier_ext_keyEncipherment/1,
+         unsupported_sign_algo_client_auth/0,
+         unsupported_sign_algo_client_auth/1,
+         unsupported_sign_algo_cert_client_auth/0,
+         unsupported_sign_algo_cert_client_auth/1,
+         longer_chain/0,
+         longer_chain/1,
+         key_auth_ext_sign_only/0,
+         key_auth_ext_sign_only/1,
+         hello_retry_request/0,
+         hello_retry_request/1,
+         custom_groups/0,
+         custom_groups/1,
+         hello_retry_client_auth/0,
+         hello_retry_client_auth/1,
+         hello_retry_client_auth_empty_cert_accepted/0,
+         hello_retry_client_auth_empty_cert_accepted/1,
+         hello_retry_client_auth_empty_cert_rejected/0,
+         hello_retry_client_auth_empty_cert_rejected/1,
+         basic_rsa_1024/0,
+         basic_rsa_1024/1
+         ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -311,10 +395,11 @@ missing_root_cert_auth() ->
 missing_root_cert_auth(Config) when is_list(Config) ->
     ServerOpts =  proplists:delete(cacertfile, ssl_test_lib:ssl_options(server_cert_opts, Config)),
     {ClientNode, ServerNode, _} = ssl_test_lib:run_where(Config),
+    Version = proplists:get_value(version, Config),
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
-					      {options, [{verify, verify_peer}
-							 | ServerOpts]}]),
+					      {options, no_reuse(n_version(Version)) ++ [{verify, verify_peer}
+                                                                             | ServerOpts]}]),
 
     ssl_test_lib:check_result(Server, {error, {options, {cacertfile, ""}}}),
     
@@ -418,11 +503,12 @@ verify_fun_always_run_client(Config) when is_list(Config) ->
     ClientOpts =  ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_cert_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = proplists:get_value(version, Config),
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
 					      {mfa, {ssl_test_lib,
 						     no_result, []}},
-					      {options, ServerOpts}]),
+					      {options, no_reuse(n_version(Version)) ++ ServerOpts}]),
     Port  = ssl_test_lib:inet_port(Server),
 
     %% If user verify fun is called correctly we fail the connection.
@@ -472,14 +558,15 @@ verify_fun_always_run_server(Config) when is_list(Config) ->
 			    {valid, UserState}
 		    end, [0]},
 
+    Version = proplists:get_value(version, Config),
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
 					      {mfa, {ssl_test_lib,
 						     no_result, []}},
 					      {options,
-					       [{verify, verify_peer},
-						{verify_fun, FunAndState} |
-						ServerOpts]}]),
+                                               no_reuse(n_version(Version)) ++ [{verify, verify_peer},
+                                                                                {verify_fun, FunAndState} |
+                                                                                ServerOpts]}]),
     Port  = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
@@ -520,12 +607,12 @@ critical_extension_auth(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),              
  
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    Version = proplists:get_value(version, Config),
     Server = ssl_test_lib:start_server_error(
                [{node, ServerNode}, {port, 0},
                 {from, self()},
                 {mfa, {ssl_test_lib,  no_result, []}},
-                {options, [{verify, verify_none} | ServerOpts]}]),
+                {options, no_reuse(n_version(Version)) ++ [{verify, verify_none} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client_error(
                [{node, ClientNode}, {port, Port},
@@ -552,12 +639,12 @@ critical_extension_client_auth(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),              
     
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    Version = proplists:get_value(version, Config),
     Server = ssl_test_lib:start_server_error(
                [{node, ServerNode}, {port, 0},
                 {from, self()},
                 {mfa, {ssl_test_lib, no_result, []}},
-                {options, [{verify, verify_peer} | ServerOpts]}]),
+                {options, no_reuse(n_version(Version)) ++ [{verify, verify_peer} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client_error(
                [{node, ClientNode}, {port, Port},
@@ -606,11 +693,11 @@ extended_key_usage_auth(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),                                                     
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    Version = proplists:get_value(version, Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			   {options, [{verify, verify_none} | ServerOpts]}]),
+			   {options, no_reuse(n_version(Version)) ++ [{verify, verify_none} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -641,11 +728,11 @@ extended_key_usage_client_auth(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),        
    
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    Version = proplists:get_value(version, Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                        {options, [{verify, verify_peer} | ServerOpts]}]),
+                                        {options, no_reuse(n_version(Version)) ++ [{verify, verify_peer} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -678,10 +765,10 @@ cert_expired(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),                                                     
     
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    Version = proplists:get_value(version, Config),
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
-					      {options, ServerOpts}]),
+					      {options, no_reuse(n_version(Version)) ++ ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
 					      {host, Hostname},
@@ -910,24 +997,12 @@ basic_rsa_1024(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
-two_digits_str(N) when N < 10 ->
-    lists:flatten(io_lib:format("0~p", [N]));
-two_digits_str(N) ->
-    lists:flatten(io_lib:format("~p", [N])).
-
-delete_authority_key_extension([], Acc) ->
-    lists:reverse(Acc);
-delete_authority_key_extension([#'Extension'{extnID = ?'id-ce-authorityKeyIdentifier'} | Rest],
- 			       Acc) ->
-    delete_authority_key_extension(Rest, Acc);
-delete_authority_key_extension([Head | Rest], Acc) ->
-    delete_authority_key_extension(Rest, [Head | Acc]).
-
-n_version(Version) when Version == 'tlsv1.2';
-                        Version == 'tlsv1.1';
-                        Version == 'tlsv1';
-                        Version == 'sslv3'
-                        ->
+n_version(Version) when
+      Version == 'tlsv1.3';
+      Version == 'tlsv1.2';
+      Version == 'tlsv1.1';
+      Version == 'tlsv1';
+      Version == 'sslv3' ->
     tls_record:protocol_version(Version);
 n_version(Version) when Version == 'dtlsv1.2';
                         Version == 'dtlsv1' ->
@@ -939,3 +1014,8 @@ rsa_alg(rsa_pss_pss_1_3) ->
     rsa_pss_pss;
 rsa_alg(Atom) ->
     Atom.
+
+no_reuse({3, N}) when N >= 4 ->
+    [];
+no_reuse(_) ->
+    [{reuse_sessions, false}].

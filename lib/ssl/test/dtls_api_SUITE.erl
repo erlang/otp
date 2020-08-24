@@ -21,9 +21,28 @@
 %%
 -module(dtls_api_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
 
+%% Testcases
+-export([dtls_listen_owner_dies/0,
+         dtls_listen_owner_dies/1,
+         dtls_listen_close/0,
+         dtls_listen_close/1,
+         dtls_listen_reopen/0,
+         dtls_listen_reopen/1
+        ]).
+
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
 all() ->
     [
      {group, 'dtlsv1.2'},

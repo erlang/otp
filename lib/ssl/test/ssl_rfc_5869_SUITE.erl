@@ -21,10 +21,32 @@
 %%
 -module(ssl_rfc_5869_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
+
+%% Common test
+-export([all/0,
+         init_per_suite/1,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([sha_256_basic/0,
+         sha_256_basic/1,
+         sha_256_long/0,
+         sha_256_long/1,
+         sha_256_no_salt/0,
+         sha_256_no_salt/1,
+         sha_basic/0,
+         sha_basic/1,
+         sha_long/0,
+         sha_long/1,
+         sha_no_salt/0,
+         sha_no_salt/1,
+         sha_default_salt/0,
+         sha_default_salt/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

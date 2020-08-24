@@ -21,13 +21,73 @@
 %%
 -module(tls_api_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         end_per_suite/1,
+         end_per_group/2
+        ]).
+
+%% Test cases
+-export([tls_upgrade/0,
+         tls_upgrade/1,
+         tls_upgrade_with_timeout/0,
+         tls_upgrade_with_timeout/1,
+         tls_downgrade/0,
+         tls_downgrade/1,
+         tls_shutdown/0,
+         tls_shutdown/1,
+         tls_shutdown_write/0,
+         tls_shutdown_write/1,
+         tls_shutdown_both/0,
+         tls_shutdown_both/1,
+         tls_shutdown_error/0,
+         tls_shutdown_error/1,
+         tls_client_closes_socket/0,
+         tls_client_closes_socket/1,
+         tls_closed_in_active_once/0,
+         tls_closed_in_active_once/1,
+         tls_tcp_msg/0,
+         tls_tcp_msg/1,
+         tls_tcp_msg_big/0,
+         tls_tcp_msg_big/1,
+         tls_dont_crash_on_handshake_garbage/0,
+         tls_dont_crash_on_handshake_garbage/1,
+         tls_tcp_error_propagation_in_active_mode/0,
+         tls_tcp_error_propagation_in_active_mode/1,
+         peername/0,
+         peername/1,
+         sockname/0,
+         sockname/1,
+         tls_server_handshake_timeout/0,
+         tls_server_handshake_timeout/1,
+         transport_close/0,
+         transport_close/1,
+         emulated_options/0,
+         emulated_options/1,
+         accept_pool/0,
+         accept_pool/1,
+         reuseaddr/0,
+         reuseaddr/1
+        ]).
+
+%% Apply export
+-export([upgrade_result/1,
+         tls_downgrade_result/2,
+         tls_shutdown_result/2,
+         tls_shutdown_write_result/2,
+         tls_shutdown_both_result/2,
+         tls_socket_options_result/5,
+         receive_msg/1
+        ]).
 
 -define(TIMEOUT, {seconds, 10}).
 -define(SLEEP, 500).
@@ -475,13 +535,13 @@ peername(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, peername_result, []}},
+			   {mfa, {ssl, peername, []}},
 			   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
-					{mfa, {?MODULE, peername_result, []}},
+					{mfa, {ssl, peername, []}},
 					{options, [{port, 0} | ClientOpts]}]),
     
     ClientPort = ssl_test_lib:inet_port(Client),
@@ -507,13 +567,13 @@ sockname(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, sockname_result, []}},
+			   {mfa, {ssl, sockname, []}},
 			   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
                                         {from, self()}, 
-                                        {mfa, {?MODULE, sockname_result, []}},
+                                        {mfa, {ssl, sockname, []}},
                                         {options, [{port, 0} | ClientOpts]}]),
                                        
     ClientPort = ssl_test_lib:inet_port(Client),
@@ -804,12 +864,6 @@ receive_msg(_) ->
 	   Msg
     end.
  
-sockname_result(S) ->
-    ssl:sockname(S).
-
-peername_result(S) ->
-    ssl:peername(S).
-
 tls_socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     %% Test get/set emulated opts
     {ok, DefaultValues} = ssl:getopts(Socket, Options), 

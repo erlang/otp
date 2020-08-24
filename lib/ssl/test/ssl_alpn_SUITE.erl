@@ -21,9 +21,45 @@
 %%
 -module(ssl_alpn_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
 -include_lib("common_test/include/ct.hrl").
+
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([empty_protocols_are_not_allowed/1,
+         protocols_must_be_a_binary_list/1,
+         empty_client/1,
+         empty_server/1,
+         empty_client_empty_server/1,
+         no_matching_protocol/1,
+         client_alpn_and_server_alpn/1,
+         client_alpn_and_server_no_support/1,
+         client_no_support_and_server_alpn/1,
+         client_renegotiate/1,
+         session_reused/1,
+         client_alpn_npn_and_server_alpn_npn/1,
+         client_alpn_and_server_alpn_npn/1,
+         client_alpn_npn_and_server_alpn/1
+        ]).
+
+%% Apply export
+
+-export([assert_alpn/2,
+         assert_alpn_and_renegotiate_and_send_data/3,
+         ssl_send_and_assert_alpn/3,
+         ssl_receive_and_assert_alpn/3,
+         ssl_send/2,
+         ssl_receive/2,
+         connection_info_result/1
+        ]).
 
 -define(SLEEP, 500).
 
@@ -254,49 +290,8 @@ session_reused(Config) when  is_list(Config)->
     ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
-%% Internal functions ------------------------------------------------
+%% callback functions ------------------------------------------------
 %%--------------------------------------------------------------------
-
-run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedAlert) ->
-    ClientOpts = ClientExtraOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ServerExtraOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
-                    {from, self()},
-                    {mfa, {?MODULE, placeholder, []}},
-                    {options, ServerOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
-                                           {host, Hostname},
-                                           {from, self()},
-                                           {mfa, {?MODULE, placeholder, []}},
-                                           {options, ClientOpts}]),
-    ssl_test_lib:check_client_alert(Server, Client, ExpectedAlert).
-
-run_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
-    Data = "hello world",
-
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ClientOpts = ClientExtraOpts ++ ClientOpts0,
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ServerOpts = ServerExtraOpts ++  ServerOpts0,
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                    {from, self()},
-                    {mfa, {?MODULE, ssl_receive_and_assert_alpn, [ExpectedProtocol, Data]}},
-                    {options, ServerOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-               {host, Hostname},
-               {from, self()},
-               {mfa, {?MODULE, ssl_send_and_assert_alpn, [ExpectedProtocol, Data]}},
-               {options, ClientOpts}]),
-
-    ssl_test_lib:check_result(Server, ok, Client, ok).
 
 assert_alpn(Socket, Protocol) ->
     ct:log("Negotiated Protocol ~p, Expecting: ~p ~n",
@@ -349,3 +344,48 @@ ssl_receive(Socket, Data, Buffer) ->
 
 connection_info_result(Socket) ->
     ssl:connection_information(Socket).
+
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
+
+run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedAlert) ->
+    ClientOpts = ClientExtraOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ServerExtraOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+                    {from, self()},
+                    {mfa, {?MODULE, placeholder, []}},
+                    {options, ServerOpts}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                           {host, Hostname},
+                                           {from, self()},
+                                           {mfa, {?MODULE, placeholder, []}},
+                                           {options, ClientOpts}]),
+    ssl_test_lib:check_client_alert(Server, Client, ExpectedAlert).
+
+run_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
+    Data = "hello world",
+
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ClientExtraOpts ++ ClientOpts0,
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = ServerExtraOpts ++  ServerOpts0,
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                    {from, self()},
+                    {mfa, {?MODULE, ssl_receive_and_assert_alpn, [ExpectedProtocol, Data]}},
+                    {options, ServerOpts}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+               {host, Hostname},
+               {from, self()},
+               {mfa, {?MODULE, ssl_send_and_assert_alpn, [ExpectedProtocol, Data]}},
+               {options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok).

@@ -21,11 +21,19 @@
 %%
 -module(ssl_engine_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         init_per_suite/1,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_testcase/2
+        ]).
+%% Test cases
+-export([private_key/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

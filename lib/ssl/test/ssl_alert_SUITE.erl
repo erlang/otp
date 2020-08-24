@@ -20,13 +20,25 @@
 
 -module(ssl_alert_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -include_lib("ssl/src/ssl_alert.hrl").
+
+%% Common test
+-export([all/0,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([alerts/0,
+         alerts/1,
+         alert_details/0,
+         alert_details/1,
+         alert_details_not_too_big/0,
+         alert_details_not_too_big/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

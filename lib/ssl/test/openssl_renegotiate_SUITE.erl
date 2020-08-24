@@ -21,10 +21,33 @@
 
 -module(openssl_renegotiate_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
+
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([erlang_client_openssl_server_renegotiate/0,
+         erlang_client_openssl_server_renegotiate/1,
+         erlang_client_openssl_server_renegotiate_after_client_data/0,
+         erlang_client_openssl_server_renegotiate_after_client_data/1,
+         erlang_client_openssl_server_nowrap_seqnum/0,
+         erlang_client_openssl_server_nowrap_seqnum/1,
+         erlang_server_openssl_client_nowrap_seqnum/0,
+         erlang_server_openssl_client_nowrap_seqnum/1
+        ]).
+
+%% Apply export
+-export([delayed_send/2,
+         send_wait_send/2
+         ]).
 
 -define(SLEEP, 1000).
 -define(OPENSSL_RENEGOTIATE, "R\n").
@@ -245,7 +268,7 @@ erlang_server_openssl_client_nowrap_seqnum(Config) when is_list(Config) ->
     ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
-%% Internal functions ------------------------------------------------
+%% Callbacks
 %%--------------------------------------------------------------------
 delayed_send(Socket, [ErlData, OpenSslData]) ->
     ct:sleep(?SLEEP),

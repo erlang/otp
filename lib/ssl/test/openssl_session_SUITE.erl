@@ -21,10 +21,23 @@
 
 -module(openssl_session_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([reuse_session_erlang_server/0,
+         reuse_session_erlang_server/1,
+         reuse_session_erlang_client/0,
+         reuse_session_erlang_client/1
+         ]).
 
 -define(SLEEP, 1000).
 -define(EXPIRE, 10).

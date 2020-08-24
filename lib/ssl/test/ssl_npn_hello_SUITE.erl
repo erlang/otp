@@ -22,14 +22,28 @@
 
 -module(ssl_npn_hello_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("ssl/src/tls_record.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("common_test/include/ct.hrl").
+
+
+%% Callback functions
+-export([all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([encode_and_decode_npn_client_hello_test/1,
+         encode_and_decode_npn_server_hello_test/1,
+         encode_and_decode_client_hello_test/1,
+         encode_and_decode_server_hello_test/1,
+         create_server_hello_with_advertised_protocols_test/1,
+         create_server_hello_with_no_advertised_protocols_test/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

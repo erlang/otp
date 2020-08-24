@@ -22,12 +22,59 @@
 
 -module(ssl_basic_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
 
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([app/0,
+         app/1,
+         appup/0,
+         appup/1,
+         version_option/0,
+         version_option/1,
+         connect_twice/0,
+         connect_twice/1,
+         connect_dist/0,
+         connect_dist/1,
+         defaults/1,
+         fallback/0,
+         fallback/1,
+         cipher_format/0,
+         cipher_format/1,
+         tls_versions_option/0,
+         tls_versions_option/1,
+         eccs/0,
+         eccs/1,
+         cipher_suites/0,
+         cipher_suites/1,
+         old_cipher_suites/0,
+         old_cipher_suites/1,
+         cipher_suites_mix/0,
+         cipher_suites_mix/1,
+         unordered_protocol_versions_server/0,
+         unordered_protocol_versions_server/1,
+         unordered_protocol_versions_client/0,
+         unordered_protocol_versions_client/1
+        ]).
+
+%% Apply export
+-export([send_recv_result/1,
+         tcp_send_recv_result/1,
+         result_ok/1,
+         protocol_info_result/1,
+         version_info_result/1,
+         connect_dist_s/1,
+         connect_dist_c/1,
+         dummy/1
+        ]).
 
 -define(TIMEOUT, 20000).
 -define(EXPIRE, 10).
@@ -451,7 +498,7 @@ tls_versions_option(Config) when is_list(Config) ->
 
 
 %%--------------------------------------------------------------------
-%% Internal functions ------------------------------------------------
+%% callback functions ------------------------------------------------
 %%--------------------------------------------------------------------
 send_recv_result(Socket) ->
     ssl:send(Socket, "Hello world"),
@@ -488,7 +535,9 @@ dummy(_Socket) ->
     %% Should not happen as the ssl connection will not be established
     %% due to fatal handshake failiure
     exit(kill).
-
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
 version_option_test(Config, Version) ->
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
