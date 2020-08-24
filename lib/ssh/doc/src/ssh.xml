@@ -201,7 +201,10 @@
       <name name="fingerprint"/>
       <desc>
 	<taglist>
-          <tag><c>silently_accept_hosts</c></tag>
+          <tag>
+	    <marker id="hardening_client_options--silently_accept_hosts"/>
+	    <c>silently_accept_hosts</c>
+	  </tag>
 	  <item>
             <p>This option guides the <c>connect</c> function on how to act when the connected server presents a Host 
             Key that the client has not seen before. The default is to ask the user with a question on stdio of whether to
@@ -212,7 +215,8 @@
 	    <seetype marker="#key_cb_common_option">key_cb</seetype>
 	    for the general way to handle keys.
 	    </p>
-            <p>The option can be given in three different forms as seen above:</p>
+            <p>The option can be given in three different forms as seen <seetype marker="ssh#accept_hosts">above</seetype>:
+	    </p>
 	    <list>
 	      <item>The value is a <c>boolean()</c>.
 	      The value <c>true</c> will make the client accept any unknown Host Key without any user interaction.
@@ -692,7 +696,10 @@
       <name name="hardening_daemon_options"/>
       <desc>
 	<taglist>
-	  <tag><c>max_sessions</c></tag>
+	  <tag>
+	    <marker id="hardening_daemon_options--max_sessions"/>
+	    <c>max_sessions</c>
+	  </tag>
 	  <item>
 	    <p>The maximum number of simultaneous sessions that are accepted at any time
 	    for this daemon. This includes sessions that are being authorized.
@@ -711,8 +718,11 @@
 	    <p>By default, this option is not set. This means that the number is not limited.
 	    </p>
 	  </item>
-
-	  <tag><c>max_channels</c></tag>
+	  
+	  <tag>
+	    <marker id="hardening_daemon_options--max_channels"/>
+	    <c>max_channels</c>
+	  </tag>
 	  <item>
 	    <p>The maximum number of channels with active remote subsystem that are accepted for
 	    each connection to this daemon</p>
@@ -720,7 +730,10 @@
 	    </p>
 	  </item>
 
-	  <tag><c>parallel_login</c></tag>
+	  <tag>
+	    <marker id="hardening_daemon_options--parallel_login"/>
+	    <c>parallel_login</c>
+	  </tag>
 	  <item>
 	    <p>If set to false (the default value), only one login is handled at a time.
 	    If set to true, an unlimited number of login attempts are allowed simultaneously.
@@ -737,7 +750,10 @@
 	    </warning>
 	  </item>
 
-	  <tag><c>minimal_remote_max_packet_size</c></tag>
+	  <tag>
+	    <marker id="hardening_daemon_options--minimal_remote_max_packet_size"/>
+	    <c>minimal_remote_max_packet_size</c>
+	  </tag>
 	  <item>
 	    <p>The least maximum packet size that the daemon will accept in channel open requests from the client.
 	    The default value is 0.

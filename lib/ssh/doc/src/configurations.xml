@@ -38,6 +38,10 @@
     details of what each of the options does. It will however describe and define different ways by which they
     could be entered.
     </p>
+    <p>Options for hardening are described in the <seeguide marker="hardening">Hardening SSH</seeguide> chapter.
+    How the options for algorithm configuration interact are described in the
+    <seeguide marker="configure_algos">Configuring algorithms in SSH</seeguide> chapter.
+    </p>
   </section>
 
   <section>
