@@ -546,6 +546,30 @@ i_make_fun(FunP, NumFree) {
     HEAVY_SWAPIN;
 }
 
+i_make_fun3(FunP, Dst, NumFree) {
+    ErlFunThing* funp;
+    int i, num_free = $NumFree;
+    //| -no_next
+    SWAPOUT;
+    funp = new_fun_thing(c_p, (ErlFunEntry *) $FunP, num_free);
+    SWAPIN;
+    I = $NEXT_INSTRUCTION;
+    for (i = 0; i < num_free; i++) {
+	Eterm term = *I++;
+        switch (loader_tag(term)) {
+        case LOADER_X_REG:
+            term = x(loader_x_reg_index(term));
+            break;
+        case LOADER_Y_REG:
+            term = y(loader_y_reg_index(term));
+            break;
+        }
+	funp->env[i] = term;
+    }
+    $Dst = make_fun(funp);
+    Goto(*I);
+}
+
 move_trim(Src, Dst, Words) {
     $Dst = $Src;
     $i_trim($Words);

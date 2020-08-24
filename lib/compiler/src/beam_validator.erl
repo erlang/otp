@@ -189,6 +189,8 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          numy=none :: none | undecided | index(),
          %% Available heap size.
          h=0,
+         %% Available heap size for funs (aka lambdas).
+         hl=0,
          %%Available heap size for floats.
          hf=0,
          %% Floating point state.
@@ -304,7 +306,7 @@ init_function_args(X, Vst) ->
     init_function_args(X - 1, create_term(any, argument, [], {x,X}, Vst)).
 
 kill_heap_allocation(St) ->
-    St#st{h=0,hf=0}.
+    St#st{h=0,hl=0,hf=0}.
 
 validate_branches(MFA, Vst) ->
     #vst{ branched=Targets0, labels=Labels0 } = Vst,
@@ -654,6 +656,17 @@ vi({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
     verify_y_init(Vst),
     Type = #t_fun{arity=Arity},
     create_term(Type, make_fun, [], {x,0}, Vst);
+vi({make_fun3,{f,Lbl},_,_,Dst,{list,Env}}, #vst{ft=Ft}=Vst0) ->
+    _ = [assert_term(E, Vst0) || E <- Env],
+    NumFree = length(Env),
+    #{ arity := Arity0 } = map_get(Lbl, Ft),
+    Arity = Arity0 - NumFree,
+
+    true = Arity >= 0,                          %Assertion.
+
+    Vst = eat_heap_fun(Vst0),
+    Type = #t_fun{arity=Arity},
+    create_term(Type, make_fun, [], Dst, Vst);
 vi(return, Vst) ->
     assert_durable_term({x,0}, Vst),
     verify_return(Vst);
@@ -1742,6 +1755,9 @@ heap_alloc_1(HeapWords, St) when is_integer(HeapWords) ->
 heap_alloc_2([{words,HeapWords}|T], St0) ->
     St = St0#st{h=HeapWords},
     heap_alloc_2(T, St);
+heap_alloc_2([{funs,Funs}|T], St0) ->
+    St = St0#st{hl=Funs},
+    heap_alloc_2(T, St);
 heap_alloc_2([{floats,Floats}|T], St0) ->
     St = St0#st{hf=Floats},
     heap_alloc_2(T, St);
@@ -2821,6 +2837,14 @@ eat_heap(N, #vst{current=#st{h=Heap0}=St}=Vst) ->
 	    error({heap_overflow,{left,Heap0},{wanted,N}});
 	Heap ->
 	    Vst#vst{current=St#st{h=Heap}}
+    end.
+
+eat_heap_fun(#vst{current=#st{hl=HeapFuns0}=St}=Vst) ->
+    case HeapFuns0-1 of
+	Neg when Neg < 0 ->
+	    error({heap_overflow,{left,{HeapFuns0,funs}},{wanted,{1,funs}}});
+	HeapFuns ->
+	    Vst#vst{current=St#st{hl=HeapFuns}}
     end.
 
 eat_heap_float(#vst{current=#st{hf=HeapFloats0}=St}=Vst) ->

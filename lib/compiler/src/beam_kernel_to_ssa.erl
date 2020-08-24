@@ -41,7 +41,8 @@
              break=0 :: label(),    %Break label
              recv=0 :: label(),     %Receive label
              ultimate_failure=0 :: label(), %Label for ultimate match failure.
-             labels=#{} :: #{atom() => label()}
+             labels=#{} :: #{atom() => label()},
+             no_make_fun3=false :: boolean()
             }).
 
 %% Internal records.
@@ -54,21 +55,22 @@
 
 -spec module(#k_mdef{}, [compile:option()]) -> {'ok',#b_module{}}.
 
-module(#k_mdef{name=Mod,exports=Es,attributes=Attr,body=Forms}, _Opts) ->
-    Body = functions(Forms, Mod),
+module(#k_mdef{name=Mod,exports=Es,attributes=Attr,body=Forms}, Opts) ->
+    NoMakeFun3 = proplists:get_bool(no_make_fun3, Opts),
+    Body = functions(Forms, Mod, NoMakeFun3),
     Module = #b_module{name=Mod,exports=Es,attributes=Attr,body=Body},
     {ok,Module}.
 
-functions(Forms, Mod) ->
-    [function(F, Mod) || F <- Forms].
+functions(Forms, Mod, NoMakeFun3) ->
+    [function(F, Mod, NoMakeFun3) || F <- Forms].
 
 function(#k_fdef{anno=Anno0,func=Name,arity=Arity,
-                 vars=As0,body=Kb}, Mod) ->
+                 vars=As0,body=Kb}, Mod, NoMakeFun3) ->
     try
         #k_match{} = Kb,                   %Assertion.
 
         %% Generate the SSA form immediate format.
-        St0 = #cg{},
+        St0 = #cg{no_make_fun3=NoMakeFun3},
         {As,St1} = new_ssa_vars(As0, St0),
         {Asm,St} = cg_fun(Kb, St1),
         Anno1 = line_anno(Anno0),
@@ -769,18 +771,23 @@ internal_cg(recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
             Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
             {[Set|Succ],St}
     end;
-internal_cg(Op, As, [#k_var{name=Dst0}], St0) when is_atom(Op) ->
+internal_cg(Op0, As, [#k_var{name=Dst0}], St0) when is_atom(Op0) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
     Args = ssa_args(As, St),
+    Op = fix_op(Op0, St),
     Set = #b_set{op=Op,dst=Dst,args=Args},
     {[Set],St};
-internal_cg(Op, As, [], St0) when is_atom(Op) ->
+internal_cg(Op0, As, [], St0) when is_atom(Op0) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     Args = ssa_args(As, St),
+    Op = fix_op(Op0, St),
     Set = #b_set{op=Op,dst=Dst,args=Args},
     {[Set],St}.
+
+fix_op(make_fun, #cg{no_make_fun3=true}) -> old_make_fun;
+fix_op(Op, _) -> Op.
 
 bif_cg(Bif, As0, [#k_var{name=Dst0}], Le, St0) ->
     {Dst,St1} = new_ssa_var(Dst0, St0),

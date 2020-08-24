@@ -113,7 +113,7 @@
                    'is_nonempty_list' | 'is_tagged_tuple' |
                    'kill_try_tag' |
                    'landingpad' |
-                   'make_fun' | 'new_try_tag' |
+                   'make_fun' | 'new_try_tag' | 'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
                    'timeout' |
@@ -177,7 +177,7 @@ clobbers_xregs(#b_set{op=Op}) ->
         build_stacktrace -> true;
         call -> true;
         landingpad -> true;
-        make_fun -> true;
+        old_make_fun -> true;
         peek_message -> true;
         raw_raise -> true;
         timeout -> true;

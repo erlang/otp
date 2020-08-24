@@ -266,8 +266,9 @@ sig_is([#b_set{op=call,
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
     sig_is(Is, Ts, Ds, Ls, Fdb, Sub, State);
-sig_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
-       Ts0, Ds0, Ls, Fdb, Sub0, State0) ->
+sig_is([#b_set{op=MakeFun,args=Args0,dst=Dst}=I0|Is],
+       Ts0, Ds0, Ls, Fdb, Sub0, State0) when MakeFun =:= make_fun;
+                                             MakeFun =:= old_make_fun ->
     Args = simplify_args(Args0, Ts0, Sub0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
 
@@ -294,9 +295,10 @@ sig_local_call(I0, Callee, Args, Ts, Fdb, State) ->
 %% While it's impossible to tell which arguments a fun will be called with
 %% (someone could steal it through tracing and call it), we do know its free
 %% variables and can update their types as if this were a local call.
-sig_make_fun(#b_set{op=make_fun,
+sig_make_fun(#b_set{op=MakeFun,
                     args=[#b_local{}=Callee | FreeVars]}=I0,
-             Ts, Fdb, State) ->
+             Ts, Fdb, State) when MakeFun =:= make_fun;
+                                  MakeFun =:= old_make_fun ->
     ArgCount = Callee#b_local.arity - length(FreeVars),
 
     FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
@@ -500,8 +502,9 @@ opt_is([#b_set{op=call,
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
     opt_is(Is, Ts, Ds, Ls, Fdb, Sub, Meta, [I | Acc]);
-opt_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
-       Ts0, Ds0, Ls, Fdb0, Sub0, Meta, Acc) ->
+opt_is([#b_set{op=MakeFun,args=Args0,dst=Dst}=I0|Is],
+       Ts0, Ds0, Ls, Fdb0, Sub0, Meta, Acc) when MakeFun =:= make_fun;
+                                                 MakeFun =:= old_make_fun ->
     Args = simplify_args(Args0, Ts0, Sub0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
 
@@ -541,10 +544,11 @@ opt_local_call(I0, Callee, Args, Dst, Ts, Fdb, Meta) ->
     end.
 
 %% See sig_make_fun/4
-opt_make_fun(#b_set{op=make_fun,
+opt_make_fun(#b_set{op=MakeFun,
                     dst=Dst,
                     args=[#b_local{}=Callee | FreeVars]}=I0,
-             Ts, Fdb, Meta) ->
+             Ts, Fdb, Meta) when MakeFun =:= make_fun;
+                                 MakeFun =:= old_make_fun ->
     ArgCount = Callee#b_local.arity - length(FreeVars),
     FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
     ArgTypes = duplicate(ArgCount, any) ++ FVTypes,
@@ -1696,7 +1700,9 @@ type(is_nonempty_list, [_], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
-type(make_fun, [#b_local{arity=TotalArity} | Env], Anno, _Ts, _Ds) ->
+type(MakeFun, [#b_local{arity=TotalArity} | Env], Anno, _Ts, _Ds)
+  when MakeFun =:= make_fun;
+       MakeFun =:= old_make_fun ->
     RetType = case Anno of
                   #{ result_type := Type } -> Type;
                   #{} -> any

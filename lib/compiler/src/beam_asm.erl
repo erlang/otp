@@ -387,6 +387,10 @@ make_op({test,Cond,Fail,Live,[Op|Ops],Dst}, Dict) when is_list(Ops) ->
 make_op({make_fun2,{f,Lbl},_Index,_OldUniq,NumFree}, Dict0) ->
     {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
     make_op({make_fun2,Fun}, Dict);
+make_op({make_fun3,{f,Lbl},_Index,_OldUniq,Dst,{list,Env}}, Dict0) ->
+    NumFree = length(Env),
+    {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
+    make_op({make_fun3,Fun,Dst,{list,Env}}, Dict);
 make_op({kill,Y}, Dict) ->
     make_op({init,Y}, Dict);
 make_op({Name,Arg1}, Dict) ->
@@ -502,6 +506,9 @@ encode_alloc_list_1([{words,Words}|T], Dict, Acc0) ->
     encode_alloc_list_1(T, Dict, Acc);
 encode_alloc_list_1([{floats,Floats}|T], Dict, Acc0) ->
     Acc = [Acc0,encode(?tag_u, 1),encode(?tag_u, Floats)],
+    encode_alloc_list_1(T, Dict, Acc);
+encode_alloc_list_1([{funs,Funs}|T], Dict, Acc0) ->
+    Acc = [Acc0,encode(?tag_u, 2),encode(?tag_u, Funs)],
     encode_alloc_list_1(T, Dict, Acc);
 encode_alloc_list_1([], Dict, Acc) ->
     {iolist_to_binary(Acc),Dict}.

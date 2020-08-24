@@ -768,10 +768,12 @@ i_call_fun_last t t
 # final destination directly.
 
 make_fun2 OldIndex=u => make_fun2(OldIndex)
+make_fun3 OldIndex=u Dst=d NumFree=u Env=* => make_fun3(OldIndex, Dst, NumFree, Env)
 
 %cold
 
 i_make_fun F t
+i_make_fun3 F S t *
 
 # Psuedo-instruction for signalling lambda load errors. Never actually runs.
 i_lambda_error t

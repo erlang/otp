@@ -72,6 +72,8 @@ update_work_list([{call,_,{f,L}}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([{make_fun2,{f,L},_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
+update_work_list([{make_fun3,{f,L},_,_,_,_}|Is], Sets) ->
+    update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([_|Is], Sets) ->
     update_work_list(Is, Sets);
 update_work_list([], Sets) -> Sets.
