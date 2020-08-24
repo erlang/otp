@@ -39,4 +39,5 @@
   <xi:include href="terminology.xml"/>
   <xi:include href="configurations.xml"/>
   <xi:include href="configure_algos.xml"/>
+  <xi:include href="hardening.xml"/>
 </part>
