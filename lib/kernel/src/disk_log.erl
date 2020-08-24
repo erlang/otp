@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -339,7 +339,7 @@ format_error(Error) ->
                    | {node, Node :: node()}
                    | {distributed, Dist :: local | [node()]}
                    | {head, Head :: none
-                                  | {head, term()}
+                                  | {head, binary()}
                                   | (MFA :: {atom(), atom(), list()})}
                    | {no_written_items, NoWrittenItems ::non_neg_integer()}
                    | {full, Full :: boolean}
@@ -1610,7 +1610,11 @@ do_info(L, Cnt) ->
 	 end,
     HeadL = case Mode of
 		read_write ->
-		    [{head, Head}];
+		    [{head, case Head of
+                                {ok, H} -> H;
+                                none -> Head;
+                                {_M, _F, _A} -> Head
+                            end}];
 		read_only ->
 		    []
 	    end,
