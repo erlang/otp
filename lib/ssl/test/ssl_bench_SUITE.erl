@@ -18,11 +18,49 @@
 %% %CopyrightEnd%
 %%
 -module(ssl_bench_SUITE).
--compile(export_all).
+
 -include_lib("common_test/include/ct_event.hrl").
+
+%% Callback functions
+-export([suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
 
 -define(remote_host, "NETMARKS_REMOTE_HOST").
 
+%% Test cases
+-export([setup_sequential/1,
+         setup_sequential_noreuse/1,
+         setup_sequential_13/1,
+         setup_concurrent/1,
+         setup_concurrent_noreuse/1,
+         setup_concurrent_13/1,
+         payload/1,
+         payload_13/1
+        ]).
+
+%% spawn/apply export
+-export([server_init/6,
+         client_init/6,
+         setup_connection/3,
+         setup_server_init/5,
+         payload/3
+        ]).
+
+%% Manual test
+-export([ssl/0,
+         test/2
+        ]).
+
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> [{group, setup}, {group, payload}].
@@ -57,6 +95,10 @@ init_per_testcase(_Func, Conf) ->
 
 end_per_testcase(_Func, _Conf) ->
     ok.
+
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
 
 
 -define(COUNT, 400).
@@ -148,6 +190,9 @@ payload_13(Config) ->
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Payload 1.3"}]}),
     ok.
+%%--------------------------------------------------------------------
+%% ------------------------------------------------
+%%--------------------------------------------------------------------
 
 ssl() ->
     test(ssl, ?COUNT).
@@ -386,10 +431,4 @@ ssl_opts(Role, TCOpts, Certs) ->
 
 cert_data() ->
     ssl_test_lib:make_cert_chains_der(ecdhe_ecdsa, []).
-
-bypass_pem_cache_supported() ->
-    %% This function is currently critical to support cache bypass
-    %% and did not exist in prior versions.
-    catch ssl_pkix_db:module_info(), % ensure module is loaded
-    erlang:function_exported(ssl_pkix_db, extract_trusted_certs, 1).
 

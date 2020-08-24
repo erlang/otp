@@ -21,10 +21,55 @@
 %%
 -module(openssl_server_cert_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+
+%% Test cases
+-export([no_auth/0,
+         no_auth/1,
+         auth/0,
+         auth/1,
+         client_auth_empty_cert_accepted/0,
+         client_auth_empty_cert_accepted/1,
+         client_auth_empty_cert_rejected/0,
+         client_auth_empty_cert_rejected/1,
+         client_auth_partial_chain/0,
+         client_auth_partial_chain/1,
+         client_auth_allow_partial_chain/0,
+         client_auth_allow_partial_chain/1,
+         client_auth_do_not_allow_partial_chain/0,
+         client_auth_do_not_allow_partial_chain/1,
+         client_auth_partial_chain_fun_fail/0,
+         client_auth_partial_chain_fun_fail/1,
+         missing_root_cert_no_auth/0,
+         missing_root_cert_no_auth/1,
+         unsupported_sign_algo_client_auth/0,
+         unsupported_sign_algo_client_auth/1,
+         unsupported_sign_algo_cert_client_auth/0,
+         unsupported_sign_algo_cert_client_auth/1,
+         hello_retry_request/0,
+         hello_retry_request/1,
+         custom_groups/0,
+         custom_groups/1,
+         hello_retry_client_auth/0,
+         hello_retry_client_auth/1,
+         hello_retry_client_auth_empty_cert_accepted/0,
+         hello_retry_client_auth_empty_cert_accepted/1,
+         hello_retry_client_auth_empty_cert_rejected/0,
+         hello_retry_client_auth_empty_cert_rejected/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

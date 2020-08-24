@@ -22,8 +22,6 @@
 
 -module(ssl_handshake_SUITE).
 
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").
@@ -31,6 +29,30 @@
 -include("ssl_record.hrl").
 -include("tls_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([decode_hello_handshake/1,
+         decode_single_hello_extension_correctly/1,
+         decode_supported_elliptic_curves_hello_extension_correctly/1,
+         decode_unknown_hello_extension_correctly/1,
+         encode_single_hello_sni_extension_correctly/1,
+         decode_single_hello_sni_extension_correctly/1,
+         decode_empty_server_sni_correctly/1,
+         select_proper_tls_1_2_rsa_default_hashsign/1,
+         ignore_hassign_extension_pre_tls_1_2/1,
+         unorded_chain/1,
+         signature_algorithms/1,
+         encode_decode_srp/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

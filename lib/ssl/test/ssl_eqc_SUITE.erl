@@ -20,7 +20,21 @@
 
 -module(ssl_eqc_SUITE).
 
--compile(export_all).
+
+%% Common test
+-export([all/0,
+         init_per_suite/1,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([tls_handshake_encoding/1,
+         tls_cipher_suite_names/1,
+         tls_cipher_openssl_suite_names/1
+         ]).
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -36,12 +50,6 @@ all() ->
 init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
 end_per_suite(Config) ->
-    Config.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_,Config) ->
     Config.
 
 init_per_testcase(_, Config0) ->

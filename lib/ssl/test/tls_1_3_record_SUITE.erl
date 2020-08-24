@@ -20,15 +20,32 @@
 
 -module(tls_1_3_record_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/tls_record.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+
+%% Callback functions
+-export([all/0,
+         init_per_suite/1,
+         end_per_suite/1]).
+
+%% Testcases
+-export([encode_decode/0,
+         encode_decode/1,
+         finished_verify_data/0,
+          finished_verify_data/1,
+         '1_RTT_handshake'/0,
+         '1_RTT_handshake'/1,
+         '0_RTT_handshake'/0,
+         '0_RTT_handshake'/1
+        ]).
+
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
 
 all() ->
     [encode_decode,

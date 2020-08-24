@@ -24,9 +24,171 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
--compile(nowarn_export_all).
+-export([clean_start/0,
+         clean_env/0,
+         init_per_group/2,
+         init_per_group_openssl/2,
+         end_per_group/2,
+         ct_log_supported_protocol_versions/1,
+         ssl_options/2,
+         run_where/1,
+         run_where/2,
+         inet_port/1,
+         default_tls_version/1,
+         check_sane_openssl_renegotiate/2,
+         check_openssl_npn_support/1,
+         start_server/1,
+         start_server/2,
+         start_client/1,
+         start_client/2,
+         start_server/3,
+         start_client/3,
+         start_client/4,
+         start_upgrade_server/1,
+         start_upgrade_server_error/1,
+         start_upgrade_client/1,
+         start_client_error/1,
+         start_server_error/1,
+         start_server_transport_abuse_socket/1,
+         start_server_transport_control/1,
+         start_server_with_raw_key/3,
+         start_openssl_client/2,
+         run_server/1,
+         run_server/3,
+         run_server_error/1,
+         ecc_test/6,
+         ecc_test_error/5,
+         transport_accept_abuse/1,
+         transport_switch_control/1,
+         init_openssl_server/3,
+         init_openssl_client/1,
+         run_client_init/1,
+         run_upgrade_server/1,
+         run_upgrade_client/1,
+         run_upgrade_server_error/1,
+         run_client_error/1,
+         send_recv_result_active/3,
+         wait_for_result/2,
+         wait_for_result/4,
+         wait_for_openssl_server/2,
+         send_recv_result/1,
+         send_recv_result_active/1,
+         send_recv_result_active/2,
+         send_recv_result_active_once/1,
+         active_recv/2,
+         active_recv_loop/3,
+         active_once_recv/2,
+         recv_disregard/2,
+         active_disregard/2,
+         active_once_disregard/2,
+         send/2,
+         close/1,
+         close/2,
+         check_active_receive/2,
+         check_client_alert/2,
+         check_client_alert/3,
+         check_server_alert/2,
+         check_server_alert/3,
+         check_tickets/1,
+         check_ecc/3,
+         check_key_exchange_send_active/2,
+         verify_active_session_resumption/2,
+         verify_active_session_resumption/3,
+         verify_active_session_resumption/4,
+         check_sane_openssl_version/1,
+         check_ok/1,
+         check_result/4,
+         check_result/2,
+         gen_check_result/4,
+         basic_alert/4,
+         session_id/1,
+         update_keys/2,
+         sanity_check/2,
+         oscp_responder/6,
+         supported_eccs/1,
+         no_result/1,
+         receive_tickets/1,
+         set_protocol_versions/1,
+         user_lookup/3,
+         digest/0,
+         accepters/1,
+         client_msg/2,
+         server_msg/2,
+         hardcode_rsa_key/1,
+         bigger_buffers/0,
+         stop/2
+        ]).
+
+-export([basic_test/3,
+         erlang_ssl_receive_and_assert_negotiated_protocol/3,
+         cipher_result/2,
+         assert_mfl/2,
+         trigger_renegotiate/4,
+         trigger_renegotiate/2,
+         session_info_result/1,
+         reuse_session/3,
+         test_ciphers/3,
+         test_cipher/2
+        ]).
+
+-export([tls_version/1,
+         is_protocol_version/1,
+         is_dtls_version/1,
+         protocol_version/1,
+         protocol_version/2,
+         protocol_options/2,
+         public_key/1,
+         state/1,
+         new_config/2,
+         node_to_hostip/2
+       ]).
+
+-export([make_rsa_cert/1,
+         make_dsa_cert/1,
+         make_ecdsa_cert/1,
+         make_ecdh_rsa_cert/1,
+         make_rsa_cert_chains/3,
+         make_dsa_cert_chains/3,
+         make_ecc_cert_chains/3,
+         make_cert_chains_der/2,
+         make_cert_chains_pem/4,
+         make_ec_cert_chains/4,
+         make_ec_cert_chains/5,
+         make_rsa_1024_cert/1,
+         make_rsa_pss_pem/4,
+         gen_conf/4,
+         make_mix_cert/1,
+         default_cert_chain_conf/0,
+         cert_options/1,
+         rsa_non_signed_suites/1,
+         ecdh_dh_anonymous_suites/1,
+         ecdsa_suites/1,
+         der_to_pem/2,
+         pem_to_der/1
+        ]).
+
+-export([maybe_force_ipv4/1,
+         openssl_sane_dtls/0,
+         kill_openssl/0,
+         openssl_allows_server_renegotiate/1,
+         openssl_dtls_maxfraglen_support/0,
+         openssl_maxfraglen_support/0,
+         is_sane_oppenssl_pss/1,
+         consume_port_exit/1,
+         is_sane_oppenssl_client/0,
+         openssl_sane_dtls_session_reuse/0,
+         sufficient_crypto_support/1,
+         openssl_sane_dtls_alpn/0,
+         openssl_ecdsa_suites/0,
+         openssl_dsa_suites/0,
+         enough_openssl_crl_support/1,
+         openssl_ocsp_support/0,
+         openssl_allows_client_renegotiate/1,
+         version_flag/1,
+         portable_cmd/2,
+         portable_open_port/2,
+         close_port/1
+        ]).
 
 -record(sslsocket, { fd = nil, pid = nil}).
 -define(SLEEP, 1000).
@@ -53,10 +215,6 @@ start_server(openssl_ocsp_revoked, Options, Config) ->
 start_server(Type, _Args, _Config) ->
     {error, unsupported_server_type, Type}.
 
-generate_test_data() ->
-    "TEST_DATA_" ++
-        lists:flatmap(fun(I) -> <<A:4,B:4>> = <<I>>, [65+A,65+B] end,
-                      binary:bin_to_list(crypto:strong_rand_bytes(32))).
 
 %% Test
 send_recv_result_active(Peer1, Peer2, Data) ->
@@ -65,16 +223,6 @@ send_recv_result_active(Peer1, Peer2, Data) ->
     ok = send(Peer2, Data),
     Data = check_active_receive(Peer1, Data).
 
-%% Certs
-init_ecdsa_certs(Config) ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
-    CertChainConf = ssl_test_lib:gen_conf(ecdsa, ecdsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts}
-        = public_key:pkix_test_data(CertChainConf),
-    [{tls_config, #{server_config => ServerOpts,
-                    client_config => ClientOpts}} |
-     proplists:delete(tls_config, Config)].
 
 %% Options
 get_server_opts(Config) ->
@@ -86,7 +234,7 @@ get_server_opts(Config) ->
 get_server_opts(openssl, Config) ->
     DSOpts = proplists:get_value(server_ecdsa_opts, Config),
     SOpts = proplists:get_value(server_opts, Config, DSOpts),
-    ssl_test_lib:ssl_options(SOpts, Config);
+    ssl_options(SOpts, Config);
 get_server_opts(openssl_ocsp, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Cert = filename:join(PrivDir, "a.server/cert.pem"),
@@ -96,7 +244,7 @@ get_server_opts(openssl_ocsp, Config) ->
              {cacertfile, CACerts},
              {certfile, Cert},
              {keyfile, Key}],
-    ssl_test_lib:ssl_options(SOpts, Config);
+    ssl_options(SOpts, Config);
 get_server_opts(openssl_ocsp_revoked, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Cert = filename:join(PrivDir, "revoked/cert.pem"),
@@ -106,13 +254,13 @@ get_server_opts(openssl_ocsp_revoked, Config) ->
              {cacertfile, CACerts},
              {certfile, Cert},
              {keyfile, Key}],
-    ssl_test_lib:ssl_options(SOpts, Config).
+    ssl_options(SOpts, Config).
 
 
 get_client_opts(Config) ->
     DCOpts = proplists:get_value(client_ecdsa_opts, Config),
     COpts = proplists:get_value(client_opts, Config, DCOpts),
-    ssl_test_lib:ssl_options(COpts, Config).
+    ssl_options(COpts, Config).
 
 %% Default callback functions
 init_per_group(GroupName, Config) ->
@@ -199,8 +347,8 @@ normalize_loopback(Address, _) ->
 
 
 start_server(Args0, Config) ->
-    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
-    ServerOpts = ssl_test_lib:get_server_opts(Config),
+    {_, ServerNode, _} = run_where(Config),
+    ServerOpts = get_server_opts(Config),
     Node = proplists:get_value(node, Args0, ServerNode),
     Port = proplists:get_value(port, Args0, 0),
     Args = [{from, self()},
@@ -467,8 +615,8 @@ remove_close_msg(ReconnectTimes) ->
 
 
 start_openssl_server(Mode, Args0, Config) ->
-    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
-    ServerOpts = ssl_test_lib:get_server_opts(Mode, Config),
+    {_, ServerNode, _} = run_where(Config),
+    ServerOpts = get_server_opts(Mode, Config),
     Node = proplists:get_value(node, Args0, ServerNode),
     Port = proplists:get_value(port, Args0, 0),
     ResponderPort = proplists:get_value(responder_port, Config, 0),
@@ -503,14 +651,14 @@ init_openssl_server(openssl, _, Options) ->
                 undefined ->
                     ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                      ciphers(Ciphers, Version), 
-                     ssl_test_lib:version_flag(Version)] ++ AlpnArgs ++ NpnArgs ++ CertArgs ++ Debug;
+                     version_flag(Version)] ++ AlpnArgs ++ NpnArgs ++ CertArgs ++ Debug;
                 Group ->
                        ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                         ciphers(Ciphers, Version), "-groups", Group,
-                        ssl_test_lib:version_flag(Version)] ++ AlpnArgs ++ NpnArgs ++ CertArgs ++ Debug
+                        version_flag(Version)] ++ AlpnArgs ++ NpnArgs ++ CertArgs ++ Debug
             end,
     Args = maybe_force_ipv4(Args0),
-    SslPort = ssl_test_lib:portable_open_port(Exe, Args),
+    SslPort = portable_open_port(Exe, Args),
     wait_for_openssl_server(Port, proplists:get_value(protocol, Options, tls)),
     Pid ! {started, SslPort},
     Pid ! {self(), {port, Port}},
@@ -534,10 +682,10 @@ init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orel
             "-status_verbose",
             "-status_url",
             "http://127.0.0.1:" ++ erlang:integer_to_list(ResponderPort),
-            ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
+            version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
             ++ openssl_dtls_opt(GroupName),
 
-    SslPort = ssl_test_lib:portable_open_port(Exe, Args),
+    SslPort = portable_open_port(Exe, Args),
     wait_for_openssl_server(Port, proplists:get_value(protocol, Options, tls)),
     Pid ! {started, Port},
     Pid ! {self(), {port, Port}},
@@ -546,7 +694,7 @@ init_openssl_server(Mode, ResponderPort, Options) when Mode == openssl_ocsp orel
 oscp_responder(Port, Index, CACerts, Cert, Key, Starter) ->
     Args = ["ocsp", "-index", Index, "-CA", CACerts, "-rsigner", Cert,
             "-rkey", Key, "-port",  erlang:integer_to_list(Port)],
-    Responder = ssl_test_lib:portable_open_port("openssl", Args),
+    Responder = portable_open_port("openssl", Args),
     wait_for_openssl_server(Port, tls),
 
     openssl_server_loop(Starter, Responder, []).
@@ -556,19 +704,6 @@ openssl_dtls_opt('dtlsv1.2') ->
     ["-dtls"];
 openssl_dtls_opt(_Other) ->
     [].
-
-openssl_server_started(Port) ->
-    openssl_server_started(Port, []).
-%%
-openssl_server_started(Port, Data0) ->
-    receive
-        {Port, {data, Data}} ->
-            ct:log("~p:~p~n Openssl~n ~s~n",[?MODULE,?LINE, Data]),
-            verify_openssl_server_started(Port, Data0 ++ Data)
-    after
-        5000 ->
-            false
-    end.
 
 openssl_server_loop(Pid, SslPort, Args) ->
     receive
@@ -612,8 +747,8 @@ openssl_server_loop(Pid, SslPort, Args) ->
     end.
 
 start_openssl_client(Args0, Config) ->
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-    ClientOpts = ssl_test_lib:get_client_opts(Config),    
+    {ClientNode, _, Hostname} = run_where(Config),
+    ClientOpts = get_client_opts(Config),
     DefaultVersions = default_tls_version(ClientOpts),
     [Version | _] = proplists:get_value(versions, ClientOpts, DefaultVersions),
     Node = proplists:get_value(node, Args0, ClientNode),
@@ -639,13 +774,6 @@ init_openssl_client(Options) ->
     SslPort = start_client(openssl, Port, Options, [{version, Version}]),
     openssl_client_loop(Pid, SslPort, []).
 
-verify_openssl_server_started(Port, Data) ->
-    case re:run(Data, ".*CIPHER is.*") of
-        nomatch ->
-            openssl_server_started(Port, Data);
-        {match, _} ->
-            {true, Data}
-    end.
 
 openssl_client_loop(Pid, SslPort, Args) ->
     Pid ! {connected, SslPort},
@@ -694,8 +822,8 @@ openssl_client_loop_core(Pid, SslPort, Args) ->
     end.
 
 start_client(Args0, Config) ->
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    ClientOpts = ssl_test_lib:get_client_opts(Config),
+    {_, ServerNode, Hostname} = run_where(Config),
+    ClientOpts = get_client_opts(Config),
     ClientOpts1 = proplists:get_value(options, Args0, []),
     Node = proplists:get_value(node, Args0, ServerNode),
     Args1 = proplists:delete(options, Args0),
@@ -1721,7 +1849,7 @@ basic_alert(ClientOpts, ServerOpts, Config, Alert) ->
     run_basic_alert(SType, CType, ClientOpts, ServerOpts, Config, Alert).
 
 run_basic_alert(erlang, erlang, ClientOpts, ServerOpts, Config, Alert) ->
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {ClientNode, ServerNode, Hostname} = run_where(Config),
     
     Server = start_server_error([{node, ServerNode}, {port, 0},
                                  {from, self()},
@@ -1738,9 +1866,9 @@ run_basic_alert(erlang, erlang, ClientOpts, ServerOpts, Config, Alert) ->
 
     check_server_alert(Server, Client, Alert);
 run_basic_alert(openssl = SType, erlang, ClientOpts, ServerOpts, Config, Alert) ->
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    {ClientNode, _, Hostname} = run_where(Config),
     {_Server, Port} = start_server(SType, ClientOpts, ServerOpts, Config),
-    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
+    wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
     Client = start_client_error([{node, ClientNode}, {port, Port},
                                  {host, Hostname},
                                  {from, self()},
@@ -1749,7 +1877,7 @@ run_basic_alert(openssl = SType, erlang, ClientOpts, ServerOpts, Config, Alert) 
     
     check_client_alert(Client, Alert);
 run_basic_alert(erlang, openssl = CType, ClientOpts, ServerOpts, Config, Alert) ->
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {_, ServerNode, Hostname} = run_where(Config),
     Server = start_server_error([{node, ServerNode}, {port, 0},
                                  {host, Hostname},
                                  {from, self()},
@@ -1773,7 +1901,7 @@ ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     check_server_alert(Server, Client, insufficient_security).
 
 start_client(openssl, Port, ClientOpts, Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
+    Version = protocol_version(Config),
     Exe = "openssl",
     Ciphers = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
     Groups0 = proplists:get_value(groups, ClientOpts),
@@ -1793,7 +1921,7 @@ start_client(openssl, Port, ClientOpts, Config) ->
                       "-verify", "2",
                       "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port), cipher_flag(Version),
                       ciphers(Ciphers, Version),
-                      ssl_test_lib:version_flag(Version)] 
+                      version_flag(Version)]
                          ++ CertArgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
                          ++ Debug;
                  Group ->
@@ -1801,19 +1929,19 @@ start_client(openssl, Port, ClientOpts, Config) ->
                       "-verify", "2",
                       "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port), cipher_flag(Version),
                       ciphers(Ciphers, Version), "-groups", Group,
-                      ssl_test_lib:version_flag(Version)]
+                      version_flag(Version)]
                          ++ CertArgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
                          ++ Debug
                  end,
     Args = maybe_force_ipv4(Args0),
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
+    OpenSslPort = portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort;
 
 start_client(erlang, Port, ClientOpts, Config) ->
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    {ClientNode, _, Hostname} = run_where(Config),
     KeyEx = proplists:get_value(check_keyex, Config, false),
-    ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+    start_client([{node, ClientNode}, {port, Port},
 			       {host, Hostname},
 			       {from, self()},
 			       {mfa, {ssl_test_lib, check_key_exchange_send_active, [KeyEx]}},
@@ -1833,7 +1961,7 @@ maybe_force_ipv4(Args0) ->
     end.
 
 start_client_ecc(erlang, Port, ClientOpts, Expect, ECCOpts, Config) ->
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    {ClientNode, _, Hostname} = run_where(Config),
     ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                {host, Hostname},
                                {from, self()},
@@ -1843,7 +1971,7 @@ start_client_ecc(erlang, Port, ClientOpts, Expect, ECCOpts, Config) ->
                                 [{verify, verify_peer} | ClientOpts]}]).
 
 start_client_ecc_error(erlang, Port, ClientOpts, ECCOpts, Config) ->
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    {ClientNode, _, Hostname} = run_where(Config),
     ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
                                      {host, Hostname},
                                      {from, self()},
@@ -1867,17 +1995,17 @@ start_server(openssl, ClientOpts, ServerOpts, Config) ->
                 undefined ->
                     ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                      ciphers(Ciphers, Version),
-                     ssl_test_lib:version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ SessionArgs ++ Debug;
+                     version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ SessionArgs ++ Debug;
                 Group ->
                        ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                         ciphers(Ciphers, Version), "-groups", Group, 
-                        ssl_test_lib:version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ SessionArgs ++ Debug
+                        version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ SessionArgs ++ Debug
             end,
     OpenSslPort = portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
 start_server(erlang, _, ServerOpts, Config) ->
-    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    {_, ServerNode, _} = run_where(Config),
     KeyEx = proplists:get_value(check_keyex, Config, false),
     Versions = protocol_versions(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
@@ -1938,7 +2066,7 @@ openssl_debug_options() ->
 
 
 start_server_with_raw_key(erlang, ServerOpts, Config) ->
-    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    {_, ServerNode, _} = run_where(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
                            {from, self()},
                            {mfa, {ssl_test_lib,
@@ -2085,41 +2213,6 @@ send_selected_port(Pid, 0, Socket) ->
 send_selected_port(_,_,_) ->
     ok.
 
-rsa_suites(CounterPart) ->
-    ECC = is_sane_ecc(CounterPart),
-    FIPS = is_fips(CounterPart),
-    CryptoSupport = crypto:supports(),
-    Ciphers = proplists:get_value(ciphers, CryptoSupport),
-    lists:filter(fun({rsa, des_cbc, sha}) when FIPS == true ->
-			 false;
-		    ({dhe_rsa, des_cbc, sha}) when FIPS == true ->
-			 false;
-		    ({rsa, Cipher, _}) ->
-			 lists:member(cipher_atom(Cipher), Ciphers);
-		    ({dhe_rsa, Cipher, _}) ->
-			 lists:member(cipher_atom(Cipher), Ciphers);
-		    ({ecdhe_rsa, Cipher, _}) when ECC == true ->
-			 lists:member(cipher_atom(Cipher), Ciphers);
-                    ({ecdhe_rsa, Cipher, _,_}) when ECC == true ->
-			 lists:member(cipher_atom(Cipher), Ciphers);
-		    ({rsa, Cipher, _, _}) ->
-			 lists:member(cipher_atom(Cipher), Ciphers);
-		    ({dhe_rsa, Cipher, _,_}) ->
-			 lists:member(cipher_atom(Cipher), Ciphers);
-                    (_) ->
-			 false
-		 end,
-                 common_ciphers(CounterPart)).
-
-common_ciphers(crypto) ->
-    ssl:cipher_suites();
-common_ciphers(openssl) ->
-    OpenSslSuites =
-        string:tokens(string:strip(portable_cmd("openssl", ["ciphers"]), right, $\n), ":"),
-    [ssl_cipher_format:suite_bin_to_map(S)
-     || S <- ssl_cipher:suites(tls_record:highest_protocol_version([])),
-        lists:member(ssl_cipher_format:suite_map_to_openssl_str(ssl_cipher_format:suite_bin_to_map(S)), OpenSslSuites)
-    ].
 
 available_suites(Version) ->
     [ssl_cipher_format:suite_bin_to_map(Suite) || 
@@ -2134,34 +2227,13 @@ rsa_non_signed_suites(Version) ->
 		 end,
 		 available_suites(Version)).
 
-dsa_suites(Version) ->
-     lists:filter(fun({dhe_dss, _, _}) ->
-			 true;
-		    (_) ->
-			 false
-		 end,
-		 available_suites(Version)).
-
 ecdsa_suites(Version) ->
      lists:filter(fun({ecdhe_ecdsa, _, _}) ->
-			 true;
-		    (_) ->
-			 false
-		 end,
-		 available_suites(Version)).
-
-ecdh_rsa_suites(Version) ->
-     lists:filter(fun({ecdh_rsa, _, _}) ->
-			 true;
-		    (_) ->
-			 false
-		 end,
-		 available_suites(Version)).
-
-openssl_rsa_suites() ->
-    Ciphers = ssl:cipher_suites(openssl),
-    lists:filter(fun(Str) -> string_regex_filter(Str, "RSA")
-		 end, Ciphers) -- openssl_ecdh_rsa_suites().
+                        true;
+                   (_) ->
+                        false
+                end,
+                available_suites(Version)).
 
 openssl_dsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
@@ -2173,10 +2245,6 @@ openssl_ecdsa_suites() ->
     lists:filter(fun(Str) -> string_regex_filter(Str, "ECDHE-ECDSA")
 		 end, Ciphers).
 
-openssl_ecdh_rsa_suites() ->
-    Ciphers = ssl:cipher_suites(openssl),
-    lists:filter(fun(Str) -> string_regex_filter(Str, "ECDH-RSA")
-		 end, Ciphers).
 
 openssl_filter(FilterStr) ->
     Ciphers = string:tokens(portable_cmd("openssl", ["ciphers"]), ":"),
@@ -2204,79 +2272,6 @@ ecdh_dh_anonymous_suites(Version) ->
                                   (_) -> 
                                        false 
                                end}]).
-psk_suites({3,_} = Version) ->
-    ssl:filter_cipher_suites([ssl_cipher_format:suite_bin_to_map(S) || S <- ssl_cipher:psk_suites(Version)], []);
-psk_suites(Version) ->
-    ssl:filter_cipher_suites(psk_suites(dtls_v1:corresponding_tls_version(Version)), 
-                             [{cipher, 
-                               fun(rc4_128) -> 
-                                       false;
-                                  (_) -> 
-                                       true 
-                               end}]).
-
-psk_anon_suites({3,_} = Version) ->
-    ssl:filter_cipher_suites([ssl_cipher_format:suite_bin_to_map(S) || S <- ssl_cipher:psk_suites_anon(Version)], 
-                             [{key_exchange, 
-                               fun(psk) -> 
-                                       true;
-                                  (dhe_psk) -> 
-                                       true;
-                                  (ecdhe_psk) -> 
-                                       true;
-                                  (_) -> 
-                                       false 
-                               end}]);
-
-psk_anon_suites(Version) ->
-    ssl:filter_cipher_suites(psk_anon_suites(dtls_v1:corresponding_tls_version(Version)), 
-                             [{cipher, 
-                               fun(rc4_128) -> 
-                                       false;
-                                  (_) -> 
-                                       true 
-                               end}]).
-
-
-srp_suites() ->
-    ssl:filter_cipher_suites([ssl_cipher_format:suite_bin_to_map(S) || S <- ssl_cipher:srp_suites()],
-                             [{key_exchange, 
-                               fun(srp_rsa) -> 
-                                       true;
-                                  (_) -> 
-                                       false 
-                               end}]).
-srp_anon_suites() ->
-    ssl:filter_cipher_suites([ssl_cipher_format:suite_bin_to_map(S) || S <-  ssl_cipher:srp_suites_anon()],
-                             []).
-srp_dss_suites() ->
-    ssl:filter_cipher_suites([ssl_cipher_format:suite_bin_to_map(S) || S <- ssl_cipher:srp_suites()], 
-                             [{key_exchange, 
-                               fun(srp_dss) -> 
-                                       true;
-                                  (_) -> 
-                                       false 
-                               end}]).
-chacha_suites(Version) ->
-    [ssl_cipher_format:suite_bin_to_map(S) || S <- ssl_cipher:filter_suites(ssl_cipher:chacha_suites(Version))].
-
-
-rc4_suites(Version) ->
-     ssl:filter_cipher_suites([ssl_cipher_format:suite_bin_to_map(S) || S <-ssl_cipher:rc4_suites(Version)], []).
-
-des_suites(Version) ->
-     ssl:filter_cipher_suites([ssl_cipher_format:suite_bin_to_map(S) || S <-ssl_cipher:des_suites(Version)], []).
-
-tuple_to_map({Kex, Cipher, Mac}) ->
-    #{key_exchange => Kex,
-      cipher => Cipher,
-      mac => Mac,
-      prf => default_prf};
-tuple_to_map({Kex, Cipher, Mac, Prf}) ->
-    #{key_exchange => Kex,
-      cipher => Cipher,
-      mac => Mac,
-      prf => Prf}.
 
 pem_to_der(File) ->
     {ok, PemBin} = file:read_file(File),
@@ -2350,9 +2345,9 @@ is_dtls_version(_) ->
 
 openssl_tls_version_support(Version, Config0) ->    
     %% Check if version is supported
-    Config = ssl_test_lib:make_rsa_cert(Config0),
+    Config = make_rsa_cert(Config0),
     ServerOpts = proplists:get_value(server_rsa_opts, Config),
-    Port = ssl_test_lib:inet_port(node()),
+    Port = inet_port(node()),
     CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
@@ -2361,7 +2356,7 @@ openssl_tls_version_support(Version, Config0) ->
             integer_to_list(Port), "-CAfile", CaCertFile,
             "-cert", CertFile,"-key", KeyFile],
     Args = maybe_force_ipv4(Args0),
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
+    OpensslPort = portable_open_port(Exe, Args),
 
     try wait_for_openssl_server(Port, tls) of
         ok ->
@@ -2588,46 +2583,6 @@ active_recv_loop(Pid, SslPort, Data) ->
             active_recv_loop(Pid, SslPort, Data)
     end.
 
-re_active_recv(Pid, SslPort, Data) ->
-    re_active_recv(Pid, SslPort, Data, []).
-%%
-re_active_recv(Pid, SslPort, Data, Acc0) ->
-    receive
-        {SslPort, {data, Bytes0}} ->
-            ct:log("RAW DATA = ~p~n", [Bytes0]),
-            Acc = Acc0 ++ Bytes0,
-            case find_match(Acc, Data) of
-                true ->
-                    ct:log("(~p) [openssl server] Received: ~p~n   (forward to PID=~p)~n",
-                           [self(), Data, Pid]),
-                    Pid ! {self(), Data};
-                false ->
-                    re_active_recv(Pid, SslPort, Data, Acc)
-            end
-    after
-        1000 ->
-            %% Sometimes expected data arrives in the first message that
-            %% is received when server started. We must re-test the buffer.
-            case find_match(Acc0, Data) of
-                true ->
-                    ct:log("(~p) [openssl server] Received: ~p~n   (forward to PID=~p)~n",
-                           [self(), Data, Pid]),
-                    Pid ! {self(), Data};
-                false ->
-                    ct:log("(~p) [openssl server] Expected data have not received: ~p~n   (forward BAD_DATA to PID=~p)~n   RAW BUFFER = ~p~n",
-                           [self(), Data, Pid, Acc0]),
-                    Pid ! {self(), "BAD DATA"}
-            end
-    end.
-
-find_match(Acc, RegExp) ->
-    case re:run(Acc, RegExp, [{capture, first}]) of
-        {match, _} ->
-            true;
-        nomatch ->
-            false
-    end.
-
 active_recv(Socket, N) ->
     active_recv(Socket, N, []).
 
@@ -2701,36 +2656,6 @@ is_ipv6_supported() ->
             true
     end.
 
-is_sane_ecc(openssl) ->
-    case portable_cmd("openssl", ["version"]) of
-	"OpenSSL 1.0.0a" ++ _ -> % Known bug in openssl
-	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
-	    false;
-	"OpenSSL 1.0.0" ++ _ ->  % Known bug in openssl
-	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
-	    false;
-	"OpenSSL 1.0.1l" ++ _ ->  
-	    %% Breaks signature verification 
-	    false;
-	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
-	    false;
-	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC
-	    false;
-	_ ->
-	    true
-    end;
-is_sane_ecc(crypto) ->
-    [{_,_, Bin}]  = crypto:info_lib(), 
-    case binary_to_list(Bin) of
-	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
-	    false;
-	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC
-	    false;
-	_ ->
-	    true
-    end;
-is_sane_ecc(_) ->
-    sufficient_crypto_support(cipher_ec).
 
 is_sane_oppenssl_client() ->
     [{_,_, Bin}]  = crypto:info_lib(), 
@@ -2775,49 +2700,6 @@ is_fips(crypto) ->
 is_fips(_) ->
     false.
 
-cipher_restriction(Config0) ->
-    Version = protocol_version(Config0, tuple),
-    case is_sane_ecc(openssl) of
-	false ->
-	    Opts = proplists:get_value(server_opts, Config0),
-	    Config1 = proplists:delete(server_opts, Config0),
-	    VerOpts = proplists:get_value(server_verification_opts, Config1),
-	    Config = proplists:delete(server_verification_opts, Config1),
-	    Restricted0 = ssl:cipher_suites() -- ecdsa_suites(Version),
-            Restricted  = Restricted0 -- ecdh_rsa_suites(Version),
-	    [{server_opts, [{ciphers, Restricted} | Opts]}, {server_verification_opts, [{ciphers, Restricted} | VerOpts] } | Config];
-	true ->
-	    Config0
-    end.
-
-openssl_dsa_support() ->
-    case portable_cmd("openssl", ["version"]) of
-        "LibreSSL 2.6.1" ++ _ ->
-            true;
-        "LibreSSL 2.6.2" ++ _ ->
-            true;
-        "LibreSSL 2.6" ++ _ ->
-            false;
-        "LibreSSL 2.4" ++ _ ->
-            true;
-        "LibreSSL 2.3" ++ _ ->
-            true;
-        "LibreSSL 2.2" ++ _ ->
-            true;
-        "LibreSSL 2.1" ++ _ ->
-            true;
-        "LibreSSL 2.0" ++ _ ->
-            true;
-        "LibreSSL"  ++ _ ->
-            false;
-        "OpenSSL 1.1" ++ _Rest ->
-            false;
-        "OpenSSL 1.0.1" ++ Rest ->
-            hd(Rest) >= $s;
-        _ ->
-            true
-    end.
-
 %% Acctual support is tested elsewhere, this is to exclude some LibreSSL and OpenSSL versions
 openssl_sane_dtls() -> 
     case portable_cmd("openssl", ["version"]) of
@@ -2838,25 +2720,6 @@ openssl_sane_dtls() ->
         _ ->
             false
         end.
-openssl_sane_client_cert() -> 
-    case portable_cmd("openssl", ["version"]) of
-        "LibreSSL 2.5.2" ++ _ ->
-            true;
-        "LibreSSL 2.4" ++ _ ->
-            false;
-        "LibreSSL 2.3" ++ _ ->
-            false; 
-         "LibreSSL 2.1" ++ _ ->
-            false; 
-         "LibreSSL 2.0" ++ _ ->
-            false; 
-        "OpenSSL 1.0.1s-freebsd" ->
-            false;
-        "OpenSSL 1.0.0" ++ _ ->
-            false; 
-        _ ->
-            true
-    end.
 
 check_sane_openssl_version(Version) ->
     case supports_ssl_tls_version(Version) of 
@@ -2950,23 +2813,6 @@ openssl_allows_server_renegotiate(Config) ->
              Config
      end.
 
-workaround_openssl_s_clinent() ->
-    %% http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=683159
-    %% https://bugs.archlinux.org/task/33919
-    %% Bug seems to manifests it self if TLS version is not
-    %% explicitly specified 
-    case portable_cmd("openssl", ["version"]) of 
-	"OpenSSL 1.0.1c" ++ _ ->
-	    ["-no_tls1_2"];
-	"OpenSSL 1.0.1d" ++ _ ->
-	    ["-no_tls1_2"];
-	"OpenSSL 1.0.1e" ++ _ ->
-	    ["-no_tls1_2"];
-	"OpenSSL 1.0.1f" ++ _ ->
-	    ["-no_tls1_2"];
-	_  ->
-	    []
-    end.
 
 enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
 enough_openssl_crl_support(_) -> true.
@@ -3005,25 +2851,6 @@ version_flag('dtlsv1.2') ->
     "-dtls1_2";
 version_flag('dtlsv1') ->
     "-dtls1".
-
-filter_suites([Cipher | _] = Ciphers, AtomVersion) when is_list(Cipher)->
-    filter_suites([ssl_cipher_format:suite_openssl_str_to_map(S) || S <- Ciphers], 
-                  AtomVersion);
-filter_suites([Cipher | _] = Ciphers, AtomVersion) when is_binary(Cipher)->
-    filter_suites([ssl_cipher_format:suite_bin_to_map(S) || S <- Ciphers], 
-                  AtomVersion);
-filter_suites(Ciphers0, AtomVersion) ->
-    Version = tls_version(AtomVersion),
-    Supported0 = ssl_cipher:suites(Version)
-	++ ssl_cipher:anonymous_suites(Version)
-	++ ssl_cipher:psk_suites(Version)
-        ++ ssl_cipher:psk_suites_anon(Version)
-	++ ssl_cipher:srp_suites(Version) 
-        ++ ssl_cipher:srp_suites_anon(Version) 
-	++ ssl_cipher:rc4_suites(Version),
-    Supported1 = ssl_cipher:filter_suites(Supported0),
-    Supported2 = [ssl_cipher_format:suite_bin_to_map(S) || S <- Supported1],
-    [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported2)].
 
 -define(OPENSSL_QUIT, "Q\n").
 close_port(Port) ->
@@ -3116,7 +2943,7 @@ supports_ssl_tls_version(Version) when Version == sslv2;
                     Args = ["s_client", VersionFlag],
                     [{trap_exit, Trap}] = process_info(self(), [trap_exit]),
                     process_flag(trap_exit, true),
-                    Port = ssl_test_lib:portable_open_port(Exe, Args),
+                    Port = portable_open_port(Exe, Args),
                     Bool = do_supports_ssl_tls_version(Port, ""),
                     consume_port_exit(Port),
                     process_flag(trap_exit, Trap),
@@ -3129,7 +2956,7 @@ supports_ssl_tls_version(Version) ->
     VersionFlag = version_flag(Version),
     Exe = "openssl",
     Args = ["s_client", VersionFlag],
-    Port = ssl_test_lib:portable_open_port(Exe, Args),
+    Port = portable_open_port(Exe, Args),
     do_supports_ssl_tls_version(Port, "").
 
 do_supports_ssl_tls_version(Port, Acc) ->
@@ -3250,14 +3077,7 @@ is_psk_anon_suite({ecdhe_psk, _,_,_}) ->
 is_psk_anon_suite(_) ->
     false.
 
-cipher_atom(aes_256_cbc) ->
-    aes_cbc256;
-cipher_atom(aes_128_cbc) ->
-    aes_cbc128;
-cipher_atom('3des_ede_cbc') ->
-    des_ede3;
-cipher_atom(Atom) ->
-    Atom.
+
 tls_version('dtlsv1' = Atom) ->
     dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
 tls_version('dtlsv1.2' = Atom) ->
@@ -3405,17 +3225,7 @@ hardcode_dsa_key(3) ->
        y =  48598545580251057979126570873881530215432219542526130654707948736559463436274835406081281466091739849794036308281564299754438126857606949027748889019480936572605967021944405048011118039171039273602705998112739400664375208228641666852589396502386172780433510070337359132965412405544709871654840859752776060358,
        x = 1457508827177594730669011716588605181448418352823}.
 
-tcp_delivery_workaround(Server, ServerMsg, Client, ClientMsg) ->
-    receive
-	{Server, ServerMsg} ->
-	    client_msg(Client, ClientMsg);
-	{Client, ClientMsg} ->
-	    server_msg(Server, ServerMsg);
-	{Client, {error,closed}} ->
-	    server_msg(Server, ServerMsg);
-	{Server, {error,closed}} ->
-	    client_msg(Client, ClientMsg)
-    end.
+
 client_msg(Client, ClientMsg) ->
     receive
 	{Client, ClientMsg} ->
@@ -3448,23 +3258,23 @@ session_id(Socket) ->
     ID.
     
 reuse_session(ClientOpts, ServerOpts, Config) ->
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {ClientNode, ServerNode, Hostname} = run_where(Config),
     
     Server0 =
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+	start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, no_result, []}},
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
-    Port0 = ssl_test_lib:inet_port(Server0),
+    Port0 = inet_port(Server0),
     
-    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+    Client0 = start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
                                          {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
     Server0 ! listen,
     
-    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+    Client1 = start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
                                          {from, self()},  {options, ClientOpts}]),    
@@ -3484,7 +3294,7 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
     Server0 ! listen,
     
     Client2 =
-        ssl_test_lib:start_client([{node, ClientNode},
+        start_client([{node, ClientNode},
                                    {port, Port0}, {host, Hostname},
                                    {mfa, {ssl_test_lib, session_id, []}},
                                    {from, self()},  {options, [{reuse_sessions, false}
@@ -3496,20 +3306,20 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
             ok
     end,
     
-    ssl_test_lib:close(Server0),
-    ssl_test_lib:close(Client0),
-    ssl_test_lib:close(Client1),
-    ssl_test_lib:close(Client2),
+    close(Server0),
+    close(Client0),
+    close(Client1),
+    close(Client2),
     
     Server1 =
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+	start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, no_result, []}},
 				   {tcp_options, [{active, false}]},
 				   {options, [{reuse_sessions, false} |ServerOpts]}]),
-    Port1 = ssl_test_lib:inet_port(Server1),
+    Port1 = inet_port(Server1),
     
-    Client3 = ssl_test_lib:start_client([{node, ClientNode},
+    Client3 = start_client([{node, ClientNode},
                                          {port, Port1}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
                                          {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
@@ -3521,7 +3331,7 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
     Server1 ! listen,
     
     Client4 =
-        ssl_test_lib:start_client([{node, ClientNode},
+        start_client([{node, ClientNode},
                                    {port, Port1}, {host, Hostname},
                                    {mfa, {ssl_test_lib, session_id, []}},
                                    {from, self()},  {options, ClientOpts}]),   
@@ -3533,9 +3343,9 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
             ok
     end,
     
-    ssl_test_lib:close(Server1),
-    ssl_test_lib:close(Client3),
-    ssl_test_lib:close(Client4).
+    close(Server1),
+    close(Client3),
+    close(Client4).
 
 user_lookup(psk, _Identity, UserState) ->
     {ok, UserState};
@@ -3640,17 +3450,6 @@ openssl_sane_dtls_session_reuse() ->
             openssl_sane_dtls()
     end.
 
--define(BIG_BUF, 10000000).
-%% Workaround data delivery issues on solaris | openbsd  when kernel buffers are small
-bigger_buffers() ->
-    case os:type() of
-        {unix,sunos} ->
-            [{recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
-        {unix,openbsd} ->
-            [{recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
-        _ ->
-            []
-    end.
 set_protocol_versions(Version) when Version == 'tlsv1';
                                     Version == 'tlsv1.1';
                                     Version == 'tlsv1.2';
@@ -3664,12 +3463,6 @@ set_protocol_versions(_, undefined) ->
     ok;
 set_protocol_versions(AppVar, Value) ->
     application:set_env(ssl, AppVar, Value).
-
-openssl_sigalgs(rsa_pss_pss, Config) ->
-    [{openssl_sigalgs,  "rsa_pss_rsae_sha256:rsa_pss_pss_sha256"} | 
-     proplists:delete(openssl_sigalgs, Config)];
-openssl_sigalgs(_, Config) ->
-    proplists:delete(openssl_sigalgs, Config).
 
 pss_params(sha256) ->
     #'RSASSA-PSS-params'{
@@ -3751,3 +3544,14 @@ assert_mfl(Socket, MFL) ->
     ct:log("Connection MFL ~p, Expecting: ~p ~n", [InfoMFL, MFL]),
     {ok, [{max_fragment_length, ConnMFL}]} = InfoMFL,
     ConnMFL = MFL.
+-define(BIG_BUF, 10000000).
+%% Workaround data delivery issues on solaris | openbsd  when kernel buffers are small
+bigger_buffers() ->
+    case os:type() of
+        {unix,sunos} ->
+            [{recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
+        {unix,openbsd} ->
+            [{recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
+        _ ->
+            []
+    end.

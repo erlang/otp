@@ -22,11 +22,39 @@
 
 -module(ssl_ECC_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+
+%% Common test
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([ecc_default_order/1,
+         ecc_default_order_custom_curves/1,
+         ecc_client_order/1,
+         ecc_client_order_custom_curves/1,
+         ecc_unknown_curve/1,
+         client_ecdh_rsa_server_ecdhe_ecdsa_server_custom/1,
+         client_ecdh_rsa_server_ecdhe_rsa_server_custom/1,
+         client_ecdhe_rsa_server_ecdhe_ecdsa_server_custom/1,
+         client_ecdhe_rsa_server_ecdhe_rsa_server_custom/1,
+         client_ecdhe_rsa_server_ecdh_rsa_server_custom/1,
+         client_ecdhe_ecdsa_server_ecdhe_ecdsa_server_custom/1,
+         client_ecdhe_ecdsa_server_ecdhe_rsa_server_custom/1,
+         client_ecdhe_ecdsa_server_ecdhe_ecdsa_client_custom/1,
+         client_ecdhe_rsa_server_ecdhe_ecdsa_client_custom/1,
+         client_ecdsa_server_ecdsa_with_raw_key/1,
+         mix_sign/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

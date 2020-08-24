@@ -20,11 +20,50 @@
 
 -module(ssl_socket_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([getstat/0,
+         getstat/1,
+         socket_options/0,
+         socket_options/1,
+         invalid_inet_get_option/0,
+         invalid_inet_get_option/1,
+         invalid_inet_get_option_not_list/0,
+         invalid_inet_get_option_not_list/1,
+         invalid_inet_get_option_improper_list/0,
+         invalid_inet_get_option_improper_list/1,
+         invalid_inet_set_option/0,
+         invalid_inet_set_option/1,
+         invalid_inet_set_option_not_list/0,
+         invalid_inet_set_option_not_list/1,
+         invalid_inet_set_option_improper_list/0,
+         invalid_inet_set_option_improper_list/1,
+         raw_inet_option/0,
+         raw_inet_option/1
+        ]).
+
+%% Apply export
+-export([socket_options_result/5,
+         get_invalid_inet_option/1,
+         get_invalid_inet_option_not_list/1,
+         get_invalid_inet_option_improper_list/1,
+         set_invalid_inet_option/1,
+         set_invalid_inet_option_not_list/1,
+         set_invalid_inet_option_improper_list/1
+        ]).
+
 -define(TIMEOUT, {seconds, 5}).
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
@@ -388,7 +427,7 @@ invalid_inet_set_option_improper_list(Config) when is_list(Config) ->
 
 
 %%--------------------------------------------------------------------
-%% Internal functions ------------------------------------------------
+%% Callback functions ------------------------------------------------
 %%--------------------------------------------------------------------
 socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     %% Test get/set emulated opts
