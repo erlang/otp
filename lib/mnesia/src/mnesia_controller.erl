@@ -1581,6 +1581,14 @@ initial_safe_loads() ->
 
 last_consistent_replica(Tab, Downs) ->
     Cs = val({Tab, cstruct}),
+    case ?catch_val({Tab, cstruct}) of
+        #cstruct{} = Cs ->
+            last_consistent_replica(Cs, Tab, Downs);
+        _ ->
+            false
+    end.
+
+last_consistent_replica(Cs, Tab, Downs) ->
     Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
     Ram = Cs#cstruct.ram_copies,
     Disc = Cs#cstruct.disc_copies,
