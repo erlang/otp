@@ -3015,8 +3015,8 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
 	etp->header = make_external_pid_header();
 	etp->next = factory->off_heap->first;
         etp->node = erts_find_or_insert_node(sysname, cre, make_boxed(&etp->header));
-	etp->data.ui32[0] = num;
-        etp->data.ui32[1] = ser;
+        etp->data.pid.num = num;
+        etp->data.pid.ser = ser;
 
 	factory->off_heap->first = (struct erl_off_heap_header*) etp;
 	*objp = make_external_pid(etp);

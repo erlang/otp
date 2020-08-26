@@ -1021,14 +1021,6 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *
  */
 
-/* XXX:PaN - this structure is not perfect for halfword heap, it takes
-   a lot of memory due to padding, and the array will not begin at the end of the
-   structure, as otherwise expected. Be sure to access data.ui32 array and not try
-   to do pointer manipulation on an Eterm * to reach the actual data...
-
-   XXX:Sverk - Problem made worse by "one off-heap list" when 'next' pointer
-     must align with 'next' in ProcBin, erl_fun_thing and erl_off_heap_header.
-*/
 typedef struct external_thing_ {
     /*                                 ----+                        */
     Eterm                   header;     /* |                        */
@@ -1036,12 +1028,16 @@ typedef struct external_thing_ {
     struct erl_off_heap_header* next;   /* |                        */
     /*                                 ----+                        */
     union {
+        struct {
+            Uint32 num;
+            Uint32 ser;
+        } pid;
 	Uint32              ui32[1];
 	Uint                ui[1];
     } data;
 } ExternalThing;
 
-#define EXTERNAL_THING_HEAD_SIZE (sizeof(ExternalThing)/sizeof(Uint) - 1)
+#define EXTERNAL_THING_HEAD_SIZE (offsetof(ExternalThing,data))
 
 /* external pid data is always 64 bits */
 #define EXTERNAL_PID_DATA_WORDS (8 / sizeof(Uint))
@@ -1125,8 +1121,8 @@ _ET_DECLARE_CHECKED(Uint,external_pid_data_words,Wterm)
 _ET_DECLARE_CHECKED(struct erl_node_*,external_pid_node,Wterm)
 #define external_pid_node(x) _ET_APPLY(external_pid_node,(x))
 
-#define external_pid_number(x) (external_thing_ptr(x)->data.ui32[0])
-#define external_pid_serial(x) (external_thing_ptr(x)->data.ui32[1])
+#define external_pid_number(x) (external_thing_ptr(x)->data.pid.num)
+#define external_pid_serial(x) (external_thing_ptr(x)->data.pid.ser)
 
 #define _unchecked_external_port_data_words(x) \
   _unchecked_external_data_words((x))
