@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2006-2019. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -50,61 +50,61 @@
 	 flex_pretty_finish/1,
 	 flex_pretty_test_msgs/1,
 
-	 flex_compact_init/1, 
-	 flex_compact_finish/1, 
+	 flex_compact_init/1,
+	 flex_compact_finish/1,
 	 flex_compact_test_msgs/1,
 
-	 flex_compact_dm_timers1/1, 
-	 flex_compact_dm_timers2/1, 
-	 flex_compact_dm_timers3/1, 
-	 flex_compact_dm_timers4/1, 
-	 flex_compact_dm_timers5/1, 
-	 flex_compact_dm_timers6/1, 
-	 flex_compact_dm_timers7/1, 
-	 flex_compact_dm_timers8/1, 
+	 flex_compact_dm_timers1/1,
+	 flex_compact_dm_timers2/1,
+	 flex_compact_dm_timers3/1,
+	 flex_compact_dm_timers4/1,
+	 flex_compact_dm_timers5/1,
+	 flex_compact_dm_timers6/1,
+	 flex_compact_dm_timers7/1,
+	 flex_compact_dm_timers8/1,
 
 	 bin_test_msgs/1,
 
-	 ber_test_msgs/1, 
+	 ber_test_msgs/1,
 
 	 per_test_msgs/1,
 
 	 erl_dist_m_test_msgs/1,
 
-	 compact_otp4011_msg1/1, 
+	 compact_otp4011_msg1/1,
 	 compact_otp4011_msg2/1,
 	 compact_otp4011_msg3/1,
-	 compact_otp4013_msg1/1, 
-	 compact_otp4085_msg1/1, 
-	 compact_otp4085_msg2/1, 
-	 compact_otp4280_msg1/1, 
-	 compact_otp4299_msg1/1, 
-	 compact_otp4359_msg1/1, 
-	 compact_otp4920_msg0/1, 
-	 compact_otp4920_msg1/1, 
-	 compact_otp4920_msg2/1, 
-	 compact_otp4920_msg3/1, 
-	 compact_otp4920_msg4/1, 
-	 compact_otp4920_msg5/1, 
-	 compact_otp4920_msg6/1, 
-	 compact_otp4920_msg7/1, 
-	 compact_otp4920_msg8/1, 
-	 compact_otp4920_msg9/1, 
-	 compact_otp4920_msg10/1, 
-	 compact_otp4920_msg11/1, 
-	 compact_otp4920_msg12/1, 
-	 compact_otp4920_msg20/1, 
-	 compact_otp4920_msg21/1, 
-	 compact_otp4920_msg22/1, 
-	 compact_otp4920_msg23/1, 
-	 compact_otp4920_msg24/1, 
-	 compact_otp4920_msg25/1, 
-	 compact_otp5186_msg01/1, 
-	 compact_otp5186_msg02/1, 
-	 compact_otp5186_msg03/1, 
-	 compact_otp5186_msg04/1, 
-	 compact_otp5186_msg05/1, 
-	 compact_otp5186_msg06/1, 
+	 compact_otp4013_msg1/1,
+	 compact_otp4085_msg1/1,
+	 compact_otp4085_msg2/1,
+	 compact_otp4280_msg1/1,
+	 compact_otp4299_msg1/1,
+	 compact_otp4359_msg1/1,
+	 compact_otp4920_msg0/1,
+	 compact_otp4920_msg1/1,
+	 compact_otp4920_msg2/1,
+	 compact_otp4920_msg3/1,
+	 compact_otp4920_msg4/1,
+	 compact_otp4920_msg5/1,
+	 compact_otp4920_msg6/1,
+	 compact_otp4920_msg7/1,
+	 compact_otp4920_msg8/1,
+	 compact_otp4920_msg9/1,
+	 compact_otp4920_msg10/1,
+	 compact_otp4920_msg11/1,
+	 compact_otp4920_msg12/1,
+	 compact_otp4920_msg20/1,
+	 compact_otp4920_msg21/1,
+	 compact_otp4920_msg22/1,
+	 compact_otp4920_msg23/1,
+	 compact_otp4920_msg24/1,
+	 compact_otp4920_msg25/1,
+	 compact_otp5186_msg01/1,
+	 compact_otp5186_msg02/1,
+	 compact_otp5186_msg03/1,
+	 compact_otp5186_msg04/1,
+	 compact_otp5186_msg05/1,
+	 compact_otp5186_msg06/1,
 	 compact_otp5793_msg01/1,
 	 compact_otp5836_msg01/1,
          compact_otp5993_msg01/1,
@@ -113,8 +113,32 @@
          compact_otp6017_msg01/1,
          compact_otp6017_msg02/1,
          compact_otp6017_msg03/1,
-	 
-	 flex_compact_otp4299_msg1/1, 
+         compact_otp16818_msg01/1,
+         compact_otp16818_msg02/1,
+         compact_otp16818_msg03/1,
+         compact_otp16818_msg04/1,
+         compact_otp16818_msg05/1,
+         compact_otp16818_msg06/1,
+         compact_otp16818_msg11/1,
+         compact_otp16818_msg12/1,
+         compact_otp16818_msg13/1,
+         compact_otp16818_msg14/1,
+         compact_otp16818_msg15/1,
+         compact_otp16818_msg16/1,
+         compact_otp16818_msg21/1,
+         compact_otp16818_msg22/1,
+         compact_otp16818_msg23/1,
+         compact_otp16818_msg24/1,
+         compact_otp16818_msg25/1,
+         compact_otp16818_msg26/1,
+         compact_otp16818_msg31/1,
+         compact_otp16818_msg32/1,
+         compact_otp16818_msg33/1,
+         compact_otp16818_msg34/1,
+         compact_otp16818_msg35/1,
+         compact_otp16818_msg36/1,
+
+	 flex_compact_otp4299_msg1/1,
          flex_compact_otp7431_msg01/1,
          flex_compact_otp7431_msg02/1,
          flex_compact_otp7431_msg03/1,
@@ -122,32 +146,32 @@
          flex_compact_otp7431_msg05/1,
          flex_compact_otp7431_msg06/1,
          flex_compact_otp7431_msg07/1,
-	 
-	 pretty_otp4632_msg1/1, 
-	 pretty_otp4632_msg2/1, 
-	 pretty_otp4632_msg3/1, 
-	 pretty_otp4632_msg4/1, 
-	 pretty_otp4710_msg1/1, 
-	 pretty_otp4710_msg2/1, 
-	 pretty_otp4945_msg1/1, 
-	 pretty_otp4945_msg2/1, 
-	 pretty_otp4945_msg3/1, 
-	 pretty_otp4945_msg4/1, 
-	 pretty_otp4945_msg5/1, 
-	 pretty_otp4945_msg6/1, 
-	 pretty_otp4949_msg1/1, 
-	 pretty_otp4949_msg2/1, 
-	 pretty_otp4949_msg3/1, 
-	 pretty_otp5042_msg1/1, 
-	 pretty_otp5068_msg1/1, 
-	 pretty_otp5085_msg1/1, 
-	 pretty_otp5085_msg2/1, 
-	 pretty_otp5085_msg3/1, 
-	 pretty_otp5085_msg4/1, 
-	 pretty_otp5085_msg5/1, 
-	 pretty_otp5085_msg6/1, 
-	 pretty_otp5085_msg7/1, 
-	 pretty_otp5085_msg8/1, 
+
+	 pretty_otp4632_msg1/1,
+	 pretty_otp4632_msg2/1,
+	 pretty_otp4632_msg3/1,
+	 pretty_otp4632_msg4/1,
+	 pretty_otp4710_msg1/1,
+	 pretty_otp4710_msg2/1,
+	 pretty_otp4945_msg1/1,
+	 pretty_otp4945_msg2/1,
+	 pretty_otp4945_msg3/1,
+	 pretty_otp4945_msg4/1,
+	 pretty_otp4945_msg5/1,
+	 pretty_otp4945_msg6/1,
+	 pretty_otp4949_msg1/1,
+	 pretty_otp4949_msg2/1,
+	 pretty_otp4949_msg3/1,
+	 pretty_otp5042_msg1/1,
+	 pretty_otp5068_msg1/1,
+	 pretty_otp5085_msg1/1,
+	 pretty_otp5085_msg2/1,
+	 pretty_otp5085_msg3/1,
+	 pretty_otp5085_msg4/1,
+	 pretty_otp5085_msg5/1,
+	 pretty_otp5085_msg6/1,
+	 pretty_otp5085_msg7/1,
+	 pretty_otp5085_msg8/1,
          pretty_otp5600_msg1/1,
          pretty_otp5600_msg2/1,
          pretty_otp5601_msg1/1,
@@ -155,30 +179,30 @@
 	 pretty_otp5803_msg01/1,
 	 pretty_otp5803_msg02/1,
 	 pretty_otp5805_msg01/1,
-	 pretty_otp5836_msg01/1, 
-	 pretty_otp5882_msg01/1, 
-	 pretty_otp6490_msg01/1, 
-	 pretty_otp6490_msg02/1, 
-	 pretty_otp6490_msg03/1, 
-	 pretty_otp6490_msg04/1, 
-	 pretty_otp6490_msg05/1, 
-	 pretty_otp6490_msg06/1, 
+	 pretty_otp5836_msg01/1,
+	 pretty_otp5882_msg01/1,
+	 pretty_otp6490_msg01/1,
+	 pretty_otp6490_msg02/1,
+	 pretty_otp6490_msg03/1,
+	 pretty_otp6490_msg04/1,
+	 pretty_otp6490_msg05/1,
+	 pretty_otp6490_msg06/1,
          pretty_otp7671_msg01/1,
          pretty_otp7671_msg02/1,
          pretty_otp7671_msg03/1,
          pretty_otp7671_msg04/1,
          pretty_otp7671_msg05/1,
          pretty_otp8114_msg01/1,
-	 
-	 flex_pretty_otp5042_msg1/1, 
-	 flex_pretty_otp5085_msg1/1, 
-	 flex_pretty_otp5085_msg2/1, 
-	 flex_pretty_otp5085_msg3/1, 
-	 flex_pretty_otp5085_msg4/1, 
-	 flex_pretty_otp5085_msg5/1, 
-	 flex_pretty_otp5085_msg6/1, 
-	 flex_pretty_otp5085_msg7/1, 
-	 flex_pretty_otp5085_msg8/1, 
+
+	 flex_pretty_otp5042_msg1/1,
+	 flex_pretty_otp5085_msg1/1,
+	 flex_pretty_otp5085_msg2/1,
+	 flex_pretty_otp5085_msg3/1,
+	 flex_pretty_otp5085_msg4/1,
+	 flex_pretty_otp5085_msg5/1,
+	 flex_pretty_otp5085_msg6/1,
+	 flex_pretty_otp5085_msg7/1,
+	 flex_pretty_otp5085_msg8/1,
          flex_pretty_otp5600_msg1/1,
          flex_pretty_otp5600_msg2/1,
          flex_pretty_otp5601_msg1/1,
@@ -194,7 +218,8 @@
          flex_pretty_otp7431_msg05/1,
          flex_pretty_otp7431_msg06/1,
          flex_pretty_otp7431_msg07/1
-        ]).  
+
+       ]).
 
 -export([display_text_messages/0, generate_text_messages/0]).
 
@@ -230,18 +255,18 @@
 %% Common Test interface functions
 %%======================================================================
 
-suite() -> 
+suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
-all() -> 
+all() ->
     [
-     {group, text}, 
-     {group, binary}, 
+     {group, text},
+     {group, binary},
      {group, erl_dist},
      {group, tickets}
     ].
 
-groups() -> 
+groups() ->
     [
      {text,                 [], text_cases()},
      {binary,               [], binary_cases()},
@@ -250,7 +275,7 @@ groups() ->
      {compact,              [], compact_cases()},
      {flex_pretty,          [], flex_pretty_cases()},
      {flex_compact,         [], flex_compact_cases()},
-     {bin,                  [], bin_cases()}, 
+     {bin,                  [], bin_cases()},
      {ber,                  [], ber_cases()},
      {per,                  [], per_cases()},
      {erl_dist_m,           [], erl_dist_m_cases()},
@@ -263,16 +288,16 @@ groups() ->
 
 text_cases() ->
     [
-     {group, pretty}, 
+     {group, pretty},
      {group, flex_pretty},
-     {group, compact}, 
+     {group, compact},
      {group, flex_compact}
     ].
 
 binary_cases() ->
     [
-     {group, bin}, 
-     {group, ber}, 
+     {group, bin},
+     {group, ber},
      {group, per}
     ].
 
@@ -316,15 +341,15 @@ erl_dist_m_cases() ->
      erl_dist_m_test_msgs
     ].
 
-flex_compact_cases() -> 
+flex_compact_cases() ->
     [
-     flex_compact_test_msgs, 
+     flex_compact_test_msgs,
      flex_compact_dm_timers1,
-     flex_compact_dm_timers2, 
+     flex_compact_dm_timers2,
      flex_compact_dm_timers3,
-     flex_compact_dm_timers4, 
+     flex_compact_dm_timers4,
      flex_compact_dm_timers5,
-     flex_compact_dm_timers6, 
+     flex_compact_dm_timers6,
      flex_compact_dm_timers7,
      flex_compact_dm_timers8
     ].
@@ -332,7 +357,7 @@ flex_compact_cases() ->
 tickets_cases() ->
     [
      {group, compact_tickets},
-     {group, flex_compact_tickets}, 
+     {group, flex_compact_tickets},
      {group, pretty_tickets},
      {group, flex_pretty_tickets}
     ].
@@ -380,18 +405,43 @@ compact_tickets_cases() ->
      compact_otp5993_msg03,
      compact_otp6017_msg01,
      compact_otp6017_msg02,
-     compact_otp6017_msg03
+     compact_otp6017_msg03,
+
+     compact_otp16818_msg01,
+     compact_otp16818_msg02,
+     compact_otp16818_msg03,
+     compact_otp16818_msg04,
+     compact_otp16818_msg05,
+     compact_otp16818_msg06,
+     compact_otp16818_msg11,
+     compact_otp16818_msg12,
+     compact_otp16818_msg13,
+     compact_otp16818_msg14,
+     compact_otp16818_msg15,
+     compact_otp16818_msg16,
+     compact_otp16818_msg21,
+     compact_otp16818_msg22,
+     compact_otp16818_msg23,
+     compact_otp16818_msg24,
+     compact_otp16818_msg25,
+     compact_otp16818_msg26,
+     compact_otp16818_msg31,
+     compact_otp16818_msg32,
+     compact_otp16818_msg33,
+     compact_otp16818_msg34,
+     compact_otp16818_msg35,
+     compact_otp16818_msg36
     ].
 
-flex_compact_tickets_cases() -> 
+flex_compact_tickets_cases() ->
     [
-     flex_compact_otp4299_msg1, 
+     flex_compact_otp4299_msg1,
      flex_compact_otp7431_msg01,
-     flex_compact_otp7431_msg02, 
+     flex_compact_otp7431_msg02,
      flex_compact_otp7431_msg03,
-     flex_compact_otp7431_msg04, 
+     flex_compact_otp7431_msg04,
      flex_compact_otp7431_msg05,
-     flex_compact_otp7431_msg06, 
+     flex_compact_otp7431_msg06,
      flex_compact_otp7431_msg07
     ].
 
@@ -447,29 +497,29 @@ pretty_tickets_cases() ->
 
 flex_pretty_tickets_cases() ->
     [
-     flex_pretty_otp5042_msg1, 
+     flex_pretty_otp5042_msg1,
      flex_pretty_otp5085_msg1,
-     flex_pretty_otp5085_msg2, 
+     flex_pretty_otp5085_msg2,
      flex_pretty_otp5085_msg3,
-     flex_pretty_otp5085_msg4, 
+     flex_pretty_otp5085_msg4,
      flex_pretty_otp5085_msg5,
-     flex_pretty_otp5085_msg6, 
+     flex_pretty_otp5085_msg6,
      flex_pretty_otp5085_msg7,
-     flex_pretty_otp5085_msg8, 
+     flex_pretty_otp5085_msg8,
      flex_pretty_otp5600_msg1,
-     flex_pretty_otp5600_msg2, 
+     flex_pretty_otp5600_msg2,
      flex_pretty_otp5601_msg1,
-     flex_pretty_otp5793_msg01, 
+     flex_pretty_otp5793_msg01,
      flex_pretty_otp5803_msg01,
-     flex_pretty_otp5803_msg02, 
+     flex_pretty_otp5803_msg02,
      flex_pretty_otp5805_msg01,
-     flex_pretty_otp5836_msg01, 
+     flex_pretty_otp5836_msg01,
      flex_pretty_otp7431_msg01,
-     flex_pretty_otp7431_msg02, 
+     flex_pretty_otp7431_msg02,
      flex_pretty_otp7431_msg03,
-     flex_pretty_otp7431_msg04, 
+     flex_pretty_otp7431_msg04,
      flex_pretty_otp7431_msg05,
-     flex_pretty_otp7431_msg06, 
+     flex_pretty_otp7431_msg06,
      flex_pretty_otp7431_msg07
     ].
 
@@ -527,29 +577,29 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(flex_pretty_tickets = Group, Config) -> 
+init_per_group(flex_pretty_tickets = Group, Config) ->
     ?ANNOUNCE_GROUP_INIT(Group),
     flex_pretty_init(Config);
-init_per_group(flex_compact_tickets = Group, Config) -> 
+init_per_group(flex_compact_tickets = Group, Config) ->
     ?ANNOUNCE_GROUP_INIT(Group),
     flex_compact_init(Config);
-init_per_group(flex_compact = Group, Config) -> 
+init_per_group(flex_compact = Group, Config) ->
     ?ANNOUNCE_GROUP_INIT(Group),
     flex_compact_init(Config);
-init_per_group(flex_pretty = Group, Config) -> 
+init_per_group(flex_pretty = Group, Config) ->
     ?ANNOUNCE_GROUP_INIT(Group),
     flex_pretty_init(Config);
 init_per_group(Group, Config) ->
     ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
-end_per_group(flex_pretty_tickets = _Group, Config) -> 
+end_per_group(flex_pretty_tickets = _Group, Config) ->
     flex_pretty_finish(Config);
-end_per_group(flex_compact_tickets = _Group, Config) -> 
+end_per_group(flex_compact_tickets = _Group, Config) ->
     flex_compact_finish(Config);
-end_per_group(flex_compact = _Group, Config) -> 
+end_per_group(flex_compact = _Group, Config) ->
     flex_compact_finish(Config);
-end_per_group(flex_pretty = _Group, Config) -> 
+end_per_group(flex_pretty = _Group, Config) ->
     flex_pretty_finish(Config);
 end_per_group(_Group, Config) ->
     Config.
@@ -574,15 +624,15 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 display_text_messages() ->
-    Msgs = 
-	msgs7(text)  ++ 
+    Msgs =
+	msgs7(text)  ++
 	msgs8(text),
     megaco_codec_test_lib:display_text_messages(?VERSION, ?EC, Msgs).
 
 
 generate_text_messages() ->
-    Msgs = 
-	msgs7(text)  ++ 
+    Msgs =
+	msgs7(text)  ++
 	msgs8(text),
     megaco_codec_test_lib:generate_text_messages(?V3, ?VERSION, ?EC, Msgs).
 
@@ -593,20 +643,20 @@ pretty_test_msgs(suite) ->
     [];
 pretty_test_msgs(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    Msgs = 
-   	msgs1a(text) ++ 
-   	msgs1b(text) ++ 
-   	msgs3525(text) ++ 
-   	msgs5(text) ++ 
-   	msgs6(text) ++ 
-	msgs7(text) ++ 
-	msgs8(text),
+    Msgs =
+        msgs1a(text) ++
+        msgs1b(text) ++
+        msgs3525(text) ++
+        msgs5(text) ++
+        msgs6(text) ++
+        msgs7(text) ++
+        msgs8(text),
     %% Msgs = msgs1a(text),
     %% Msgs = msgs1b(text),
     %% Msgs = msgs35525(text),
     %% Msgs = msgs5(text),
     %% Msgs = msgs6(text),
-    %% Msgs = msgs7(text), 
+    %% Msgs = msgs7(text),
     DynamicDecode = false,
     test_msgs(megaco_pretty_text_encoder, DynamicDecode, ?EC, Msgs).
 
@@ -619,18 +669,18 @@ flex_pretty_init(Config) ->
 flex_pretty_finish(Config) ->
     flex_finish(Config).
 
-    
+
 flex_pretty_test_msgs(suite) ->
     [];
 flex_pretty_test_msgs(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    Msgs = 
-	msgs1a(text) ++ 
-	msgs1b(text) ++ 
-	msgs3525(text) ++ 
-	msgs5(text) ++ 
-	msgs6(text) ++ 
-	msgs7(text) ++ 
+    Msgs =
+	msgs1a(text) ++
+	msgs1b(text) ++
+	msgs3525(text) ++
+	msgs5(text) ++
+	msgs6(text) ++
+	msgs7(text) ++
 	msgs8(text),
     Conf = flex_scanner_conf(Config),
     DynamicDecode = false,
@@ -643,13 +693,13 @@ compact_test_msgs(suite) ->
     [];
 compact_test_msgs(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    Msgs = 
-	msgs1a(text) ++ 
-	msgs1b(text) ++ 
-	msgs3525(text) ++ 
-	msgs5(text) ++ 
- 	msgs6(text) ++ 
-	msgs7(text) ++ 
+    Msgs =
+	msgs1a(text) ++
+	msgs1b(text) ++
+	msgs3525(text) ++
+	msgs5(text) ++
+        msgs6(text) ++
+	msgs7(text) ++
 	msgs8(text),
     %% Msgs = msgs7(text),
     DynamicDecode = false,
@@ -663,21 +713,21 @@ flex_compact_init(Config) ->
 
 flex_compact_finish(Config) ->
     flex_finish(Config).
-    
+
 
 flex_compact_test_msgs(suite) ->
     [];
 flex_compact_test_msgs(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    Msgs = 
-	msgs1a(text) ++ 
-	msgs1b(text) ++ 
-	msgs3525(text) ++ 
-	msgs5(text) ++ 
-	msgs6(text) ++ 
-	msgs7(text) ++ 
+    Msgs =
+	msgs1a(text) ++
+	msgs1b(text) ++
+	msgs3525(text) ++
+	msgs5(text) ++
+	msgs6(text) ++
+	msgs7(text) ++
 	msgs8(text),
-    Conf = flex_scanner_conf(Config), 
+    Conf = flex_scanner_conf(Config),
     DynamicDecode = true,
     test_msgs(megaco_compact_text_encoder, DynamicDecode, [?EC_V3,Conf], Msgs).
 
@@ -688,8 +738,8 @@ flex_compact_dm_timers1(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     M = build_dm_timers_message("1", "2", "3"),
     B = list_to_binary(M),
-    Conf = flex_scanner_conf(Config), 
-    case decode_message(megaco_compact_text_encoder, false, 
+    Conf = flex_scanner_conf(Config),
+    case decode_message(megaco_compact_text_encoder, false,
 			[?EC_V3,Conf], B) of
 	{ok, M1} when is_record(M1,'MegacoMessage') ->
 	    t("flex_compact_dm_timers1 -> "
@@ -707,8 +757,8 @@ flex_compact_dm_timers2(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     M = build_dm_timers_message("02", "03", "04"),
     B = list_to_binary(M),
-    Conf = flex_scanner_conf(Config), 
-    case decode_message(megaco_compact_text_encoder, false, 
+    Conf = flex_scanner_conf(Config),
+    case decode_message(megaco_compact_text_encoder, false,
 			[?EC_V3,Conf], B) of
 	{ok, M1} when is_record(M1,'MegacoMessage') ->
 	    t("flex_compact_dm_timers2 -> "
@@ -726,8 +776,8 @@ flex_compact_dm_timers3(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     M = build_dm_timers_message("1", "02", "31"),
     B = list_to_binary(M),
-    Conf = flex_scanner_conf(Config), 
-    case decode_message(megaco_compact_text_encoder, false, 
+    Conf = flex_scanner_conf(Config),
+    case decode_message(megaco_compact_text_encoder, false,
 			[?EC_V3,Conf], B) of
 	{ok, M1} when is_record(M1,'MegacoMessage') ->
 	    t("flex_compact_dm_timers3 -> "
@@ -745,8 +795,8 @@ flex_compact_dm_timers4(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     M = build_dm_timers_message("10", "21", "99"),
     B = list_to_binary(M),
-    Conf = flex_scanner_conf(Config), 
-    case decode_message(megaco_compact_text_encoder, false, 
+    Conf = flex_scanner_conf(Config),
+    case decode_message(megaco_compact_text_encoder, false,
 			[?EC_V3,Conf], B) of
 	{ok, M1} when is_record(M1,'MegacoMessage') ->
 	    t("flex_compact_dm_timers4 -> "
@@ -764,8 +814,8 @@ flex_compact_dm_timers5(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     M = build_dm_timers_message("99", "23", "11"),
     B = list_to_binary(M),
-    Conf = flex_scanner_conf(Config), 
-    case decode_message(megaco_compact_text_encoder, false, 
+    Conf = flex_scanner_conf(Config),
+    case decode_message(megaco_compact_text_encoder, false,
 			[?EC_V3,Conf], B) of
 	{ok, M1} when is_record(M1,'MegacoMessage') ->
 	    t("flex_compact_dm_timers5 -> "
@@ -783,8 +833,8 @@ flex_compact_dm_timers6(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     M = build_dm_timers_message("77", "09", "1"),
     B = list_to_binary(M),
-    Conf = flex_scanner_conf(Config), 
-    case decode_message(megaco_compact_text_encoder, false, 
+    Conf = flex_scanner_conf(Config),
+    case decode_message(megaco_compact_text_encoder, false,
 			[?EC_V3,Conf], B) of
 	{ok, M1} when is_record(M1,'MegacoMessage') ->
 	    t("flex_compact_dm_timers6 -> "
@@ -802,8 +852,8 @@ flex_compact_dm_timers7(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     M = build_dm_timers_message("77", "09", "1", "99"),
     B = list_to_binary(M),
-    Conf = flex_scanner_conf(Config), 
-    case decode_message(megaco_compact_text_encoder, false, 
+    Conf = flex_scanner_conf(Config),
+    case decode_message(megaco_compact_text_encoder, false,
 			[?EC_V3,Conf], B) of
 	{ok, M1} when is_record(M1,'MegacoMessage') ->
 	    t("flex_compact_dm_timers7 -> "
@@ -821,8 +871,8 @@ flex_compact_dm_timers8(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     M = build_dm_timers_message("01", "09", "01", "02"),
     B = list_to_binary(M),
-    Conf = flex_scanner_conf(Config), 
-    case decode_message(megaco_compact_text_encoder, false, 
+    Conf = flex_scanner_conf(Config),
+    case decode_message(megaco_compact_text_encoder, false,
 			[?EC_V3,Conf], B) of
 	{ok, M1} when is_record(M1,'MegacoMessage') ->
 	    t("flex_compact_dm_timers8 -> "
@@ -863,7 +913,7 @@ get_dm_timers({transactions, T}) when is_list(T) ->
 get_dm_timers(Other) ->
     {error, {invalid_transactions, Other}}.
 
-get_dm_timers1([{transactionRequest,T}|Ts]) 
+get_dm_timers1([{transactionRequest,T}|Ts])
   when is_record(T,'TransactionRequest') ->
     case get_dm_timers2(T) of
 	{ok, Timers} ->
@@ -939,45 +989,45 @@ bin_test_msgs(suite) ->
     [];
 bin_test_msgs(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    Msgs = 
-	msgs1a(binary) ++ 
-	msgs5(binary) ++ 
-	msgs6(binary) ++ 
-	msgs7(binary) ++ 
+    Msgs =
+	msgs1a(binary) ++
+	msgs5(binary) ++
+	msgs6(binary) ++
+	msgs7(binary) ++
 	msgs8(binary),
-    %% Msgs = msgs6(binary), 
+    %% Msgs = msgs6(binary),
     DynamicDecode = false,
     test_msgs(megaco_binary_encoder, DynamicDecode, ?EC, Msgs).
 
-   
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 ber_test_msgs(suite) ->
     [];
 ber_test_msgs(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    Msgs = 
-	msgs1a(binary) ++ 
-	msgs5(binary) ++ 
-	msgs6(binary) ++ 
-	msgs7(binary) ++ 
+    Msgs =
+	msgs1a(binary) ++
+	msgs5(binary) ++
+	msgs6(binary) ++
+	msgs7(binary) ++
 	msgs8(binary),
     %% Msgs = msgs7(binary),
     DynamicDecode = false,
     test_msgs(megaco_ber_encoder, DynamicDecode, ?EC, Msgs).
 
-   
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 per_test_msgs(suite) ->
     [];
 per_test_msgs(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    Msgs = 
-	msgs1a(binary) ++ 
-	msgs5(binary) ++ 
-	msgs6(binary) ++ 
-	msgs7(binary) ++ 
+    Msgs =
+	msgs1a(binary) ++
+	msgs5(binary) ++
+	msgs6(binary) ++
+	msgs7(binary) ++
 	msgs8(binary),
     DynamicDecode = false,
     test_msgs(megaco_per_encoder, DynamicDecode, ?EC, Msgs).
@@ -989,16 +1039,16 @@ erl_dist_m_test_msgs(suite) ->
     [];
 erl_dist_m_test_msgs(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    Msgs = 
-	msgs1a(erlang) ++ 
-	msgs1b(erlang) ++ 
-	msgs3525(erlang) ++ 
-	msgs5(erlang) ++ 
-	msgs6(erlang) ++ 
-	msgs7(erlang) ++ 
+    Msgs =
+	msgs1a(erlang) ++
+	msgs1b(erlang) ++
+	msgs3525(erlang) ++
+	msgs5(erlang) ++
+	msgs6(erlang) ++
+	msgs7(erlang) ++
 	msgs8(erlang),
     DynamicDecode = false,
-    Conf = [megaco_compressed], 
+    Conf = [megaco_compressed],
     test_msgs(megaco_erl_dist_encoder, DynamicDecode, Conf, Msgs).
 
 
@@ -1041,7 +1091,7 @@ compact_otp4011_msg2(Config) when is_list(Config) ->
 
 %% --------------------------------------------------------------
 %% Observe that this decode SHALL fail
-%% 
+%%
 
 compact_otp4011_msg3(suite) ->
     [];
@@ -1068,7 +1118,7 @@ compact_otp4011(Msg, Conf) ->
 		     {error, {unexpected_decode_result, Crap}}
 	     end,
     megaco_codec_test_lib:expect_decode(Msg, Decode, Check).
-		     
+
 compact_otp4011_chk1(R1) ->
     case lists:keysearch(reason, 1, R1) of
 	{value, {reason, R2}} ->
@@ -1076,13 +1126,13 @@ compact_otp4011_chk1(R1) ->
 	false ->
 	    {error, {unexpected_result, R1}}
     end.
-	    
-compact_otp4011_chk2({0, ParserMod, {ParserFunc, [A, B]}}) 
+
+compact_otp4011_chk2({0, ParserMod, {ParserFunc, [A, B]}})
   when (ParserMod  =:= megaco_text_parser_v3) andalso
        (ParserFunc =:= do_merge_control_streamParms) andalso
        is_list(A) andalso
        is_record(B, 'LocalControlDescriptor') ->
-    SM = B#'LocalControlDescriptor'.streamMode, 
+    SM = B#'LocalControlDescriptor'.streamMode,
     case lists:keysearch(mode, 1, A) of
 	{value, {mode, _Mode}} when SM /= asn1_NOVALUE ->
 	    ok;
@@ -1114,7 +1164,7 @@ compact_otp4013_msg1(Config) when is_list(Config) ->
 compact_otp4013(Msg) ->
     compact_otp4013(Msg, ?EC).
 
-compact_otp4013(Msg, Conf) ->    
+compact_otp4013(Msg, Conf) ->
     Codec  = megaco_compact_text_encoder,
     Decode = fun(B) -> decode_message(Codec, false, Conf, B) end,
     Check  = fun(Reason) when is_list(Reason) ->
@@ -1143,8 +1193,8 @@ compact_otp4013_chk1(Reason) ->
 
 
 %% --------------------------------------------------------------
-%% 
-%% 
+%%
+%%
 compact_otp4085_msg1(suite) ->
     [];
 compact_otp4085_msg1(Config) when is_list(Config) ->
@@ -1173,9 +1223,9 @@ compact_otp4085_1(Msg, Conf) ->
 
 compact_otp4085_1_chk1(Reason) ->
     case lists:keysearch(reason, 1, Reason) of
-	{value, {reason, {Line, Module, Crap}}} when is_integer(Line) and 
+	{value, {reason, {Line, Module, Crap}}} when is_integer(Line) and
 						     is_atom(Module) ->
-	    Crap2 = 
+	    Crap2 =
 		case (catch lists:flatten(Crap)) of
 		    L when is_list(L) ->
 			L;
@@ -1187,7 +1237,7 @@ compact_otp4085_1_chk1(Reason) ->
 	      "~n   Module: ~p"
 	      "~n   Crap2:  ~p", [Line, Module, Crap2]),
 	    ok;
-	{value, BadReason} -> 
+	{value, BadReason} ->
 	    e("compact_otp4085_1_chk1 -> error: "
 	      "~n   BadReason:   ~p", [BadReason]),
 	    {error, {unexpected_reason, Reason}};
@@ -1228,8 +1278,8 @@ compact_otp4085_2(Msg, Conf) ->
 
 %% This message lack the ending parentesis (}).
 compact_otp4085_erroneous_msg() ->
-    M = "!/" 
-	?VERSION_STR 
+    M = "!/"
+	?VERSION_STR
 	" ML T=11223342{C=${A=${M{O{MO=SR,RV=OFF,RG=OFF},L{v=0,"
 	"c=ATM NSAP $ ,"
 	"a=eecid:$ ,"
@@ -1238,8 +1288,8 @@ compact_otp4085_erroneous_msg() ->
     M.
 
 %% --------------------------------------------------------------
-%% 
-%% 
+%%
+%%
 compact_otp4280_msg1(suite) ->
     [];
 compact_otp4280_msg1(Config) when is_list(Config) ->
@@ -1265,7 +1315,7 @@ compact_otp4280(Msg, Conf) ->
 		     {error, {unexpected_decode_result, Crap}}
 	     end,
     megaco_codec_test_lib:expect_decode_only(Msg, Decode, Check).
-    
+
 compact_otp4280_msg() ->
     M = "!/"
 	?VERSION_STR
@@ -1278,7 +1328,7 @@ compact_otp4280_msg() ->
 
 %% --------------------------------------------------------------
 %% This ticket is about comments in a message
-%% 
+%%
 compact_otp4299_msg1(suite) ->
     [];
 compact_otp4299_msg1(Config) when is_list(Config) ->
@@ -1323,7 +1373,7 @@ compact_otp4299_msg() ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 
 compact_otp4359_msg1(suite) ->
     [];
@@ -1332,8 +1382,8 @@ compact_otp4359_msg1(Config) when is_list(Config) ->
     %% put(dbg,true),
     d("compact_otp4359_msg1 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
-    Msg = compact_otp4359_msg(), 
-    ok = compact_otp4359(Msg), 
+    Msg = compact_otp4359_msg(),
+    ok = compact_otp4359(Msg),
     %% erase(severity),
     %% erase(dbg),
     ok.
@@ -1354,7 +1404,7 @@ compact_otp4359(Msg, Conf) ->
 		     {error, {unexpected_decode_result, Crap}}
 	     end,
     megaco_codec_test_lib:expect_decode_only(Msg, Decode, Check).
-    
+
 compact_otp4359_chk(#'MegacoMessage'{mess = Mess}) ->
     case Mess#'Message'.messageBody of
 	{transactions, Trans} ->
@@ -1375,7 +1425,7 @@ compact_otp4359_chk(#'MegacoMessage'{mess = Mess}) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 compact_otp4920_msg0(suite) ->
     [];
 compact_otp4920_msg0(Config) when is_list(Config) ->
@@ -1610,7 +1660,7 @@ compact_otp4920_msg25(Config) when is_list(Config) ->
     %% erase(dbg),
     ok.
 
-    
+
 compact_otp4920(Msg, ExpectedReason) ->
     compact_otp4920(Msg, ?EC, ExpectedReason).
 
@@ -1631,7 +1681,7 @@ compact_otp4920_chk(Reason, ExpectedReason) ->
 		ExpectedReason ->
 		    ok;
 		_ ->
-		    {error, {unexpected_decode_reason, 
+		    {error, {unexpected_decode_reason,
 			     {ActualReason, ExpectedReason}}}
 	    end;
 	{value, {reason, {_Mod, ActualReason}}} ->
@@ -1639,7 +1689,7 @@ compact_otp4920_chk(Reason, ExpectedReason) ->
 		ExpectedReason ->
 		    ok;
 		_ ->
-		    {error, {unexpected_decode_reason, 
+		    {error, {unexpected_decode_reason,
 			     {ActualReason, ExpectedReason}}}
 	    end;
 	{value, UnknownReason} ->
@@ -1732,7 +1782,7 @@ compact_otp4920_msg25() ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 
 compact_otp5186_msg01(suite) ->
     [];
@@ -1811,7 +1861,7 @@ compact_otp5186_msg06(Config) when is_list(Config) ->
     ok.
 
 %% --
-						   
+
 compact_otp5186_msg01() ->
     "!/" ?VERSION_STR " <mg5>\nP=67111298{C=2699{AV=mg5_ipeph/0x0f0001{}}}".
 
@@ -1959,7 +2009,7 @@ compact_otp5793_msg01(Config) when is_list(Config) ->
     ok = ticket_compact_encode_decode_ok(pretty_otp5793_msg1()),
     %% erase(severity),
     %% erase(dbg),
-    ok.    
+    ok.
 
 
 %% --------------------------------------------------------------
@@ -1983,8 +2033,8 @@ compact_otp5836_msg1() ->
      {'Message',
       ?VERSION,
       {deviceName,"bs_sbg_4/34"},
-      {transactions, 
-       [{transactionReply, 
+      {transactions,
+       [{transactionReply,
 	 {'TransactionReply',
 	  12,
 	  asn1_NOVALUE,
@@ -2172,6 +2222,338 @@ compact_otp6017_msg(CID) when is_integer(CID) ->
         "{SC=root{SV{MT=RS,RE=901}}}}".
 
 
+
+%% --------------------------------------------------------------
+%%
+compact_otp16818_msg01(suite) ->
+    [];
+compact_otp16818_msg01(Config) when is_list(Config) ->
+    d("compact_otp16818_msg01 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg01() ),
+    ok.
+
+compact_otp16818_msg01() ->
+    compact_otp16818_msg("a").
+
+
+%% --
+
+compact_otp16818_msg02(suite) ->
+    [];
+compact_otp16818_msg02(Config) when is_list(Config) ->
+    d("compact_otp16818_msg02 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg02() ),
+    ok.
+
+compact_otp16818_msg02() ->
+    compact_otp16818_msg("b").
+
+
+%% --
+
+compact_otp16818_msg03(suite) ->
+    [];
+compact_otp16818_msg03(Config) when is_list(Config) ->
+    d("compact_otp16818_msg03 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg03() ),
+    ok.
+
+compact_otp16818_msg03() ->
+    compact_otp16818_msg("c").
+
+
+%% --
+
+compact_otp16818_msg04(suite) ->
+    [];
+compact_otp16818_msg04(Config) when is_list(Config) ->
+    d("compact_otp16818_msg04 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg04() ),
+    ok.
+
+compact_otp16818_msg04() ->
+    compact_otp16818_msg("d").
+
+
+%% --
+
+compact_otp16818_msg05(suite) ->
+    [];
+compact_otp16818_msg05(Config) when is_list(Config) ->
+    d("compact_otp16818_msg05 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg05() ),
+    ok.
+
+compact_otp16818_msg05() ->
+    compact_otp16818_msg("e").
+
+
+%% --
+
+compact_otp16818_msg06(suite) ->
+    [];
+compact_otp16818_msg06(Config) when is_list(Config) ->
+    d("compact_otp16818_msg06 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg06() ),
+    ok.
+
+compact_otp16818_msg06() ->
+    compact_otp16818_msg("f").
+
+
+%% --
+
+compact_otp16818_msg11(suite) ->
+    [];
+compact_otp16818_msg11(Config) when is_list(Config) ->
+    d("compact_otp16818_msg11 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg11() ),
+    ok.
+
+compact_otp16818_msg11() ->
+    compact_otp16818_msg("000a").
+
+
+%% --
+
+compact_otp16818_msg12(suite) ->
+    [];
+compact_otp16818_msg12(Config) when is_list(Config) ->
+    d("compact_otp16818_msg12 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg12() ),
+    ok.
+
+compact_otp16818_msg12() ->
+    compact_otp16818_msg("000b").
+
+
+%% --
+
+compact_otp16818_msg13(suite) ->
+    [];
+compact_otp16818_msg13(Config) when is_list(Config) ->
+    d("compact_otp16818_msg13 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg13() ),
+    ok.
+
+compact_otp16818_msg13() ->
+    compact_otp16818_msg("000c").
+
+
+%% --
+
+compact_otp16818_msg14(suite) ->
+    [];
+compact_otp16818_msg14(Config) when is_list(Config) ->
+    d("compact_otp16818_msg14 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg14() ),
+    ok.
+
+compact_otp16818_msg14() ->
+    compact_otp16818_msg("000d").
+
+
+%% --
+
+compact_otp16818_msg15(suite) ->
+    [];
+compact_otp16818_msg15(Config) when is_list(Config) ->
+    d("compact_otp16818_msg15 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg15() ),
+    ok.
+
+compact_otp16818_msg15() ->
+    compact_otp16818_msg("000e").
+
+
+%% --
+
+compact_otp16818_msg16(suite) ->
+    [];
+compact_otp16818_msg16(Config) when is_list(Config) ->
+    d("compact_otp16818_msg16 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg16() ),
+    ok.
+
+compact_otp16818_msg16() ->
+    compact_otp16818_msg("000f").
+
+
+%% --
+
+compact_otp16818_msg21(suite) ->
+    [];
+compact_otp16818_msg21(Config) when is_list(Config) ->
+    d("compact_otp16818_msg21 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg21() ),
+    ok.
+
+compact_otp16818_msg21() ->
+    compact_otp16818_msg("0a12").
+
+
+%% --
+
+compact_otp16818_msg22(suite) ->
+    [];
+compact_otp16818_msg22(Config) when is_list(Config) ->
+    d("compact_otp16818_msg22 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg22() ),
+    ok.
+
+compact_otp16818_msg22() ->
+    compact_otp16818_msg("0b12").
+
+
+%% --
+
+compact_otp16818_msg23(suite) ->
+    [];
+compact_otp16818_msg23(Config) when is_list(Config) ->
+    d("compact_otp16818_msg23 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg23() ),
+    ok.
+
+compact_otp16818_msg23() ->
+    compact_otp16818_msg("0c12").
+
+
+%% --
+
+compact_otp16818_msg24(suite) ->
+    [];
+compact_otp16818_msg24(Config) when is_list(Config) ->
+    d("compact_otp16818_msg24 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg24() ),
+    ok.
+
+compact_otp16818_msg24() ->
+    compact_otp16818_msg("0d12").
+
+
+%% --
+
+compact_otp16818_msg25(suite) ->
+    [];
+compact_otp16818_msg25(Config) when is_list(Config) ->
+    d("compact_otp16818_msg25 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg25() ),
+    ok.
+
+compact_otp16818_msg25() ->
+    compact_otp16818_msg("0e12").
+
+
+%% --
+
+compact_otp16818_msg26(suite) ->
+    [];
+compact_otp16818_msg26(Config) when is_list(Config) ->
+    d("compact_otp16818_msg26 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg26() ),
+    ok.
+
+compact_otp16818_msg26() ->
+    compact_otp16818_msg("0f12").
+
+
+%% --
+
+compact_otp16818_msg31(suite) ->
+    [];
+compact_otp16818_msg31(Config) when is_list(Config) ->
+    d("compact_otp16818_msg31 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg31() ),
+    ok.
+
+compact_otp16818_msg31() ->
+    compact_otp16818_msg("a123").
+
+
+%% --
+
+compact_otp16818_msg32(suite) ->
+    [];
+compact_otp16818_msg32(Config) when is_list(Config) ->
+    d("compact_otp16818_msg32 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg32() ),
+    ok.
+
+compact_otp16818_msg32() ->
+    compact_otp16818_msg("b123").
+
+
+%% --
+
+compact_otp16818_msg33(suite) ->
+    [];
+compact_otp16818_msg33(Config) when is_list(Config) ->
+    d("compact_otp16818_msg33 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg33() ),
+    ok.
+
+compact_otp16818_msg33() ->
+    compact_otp16818_msg("c123").
+
+
+%% --
+
+compact_otp16818_msg34(suite) ->
+    [];
+compact_otp16818_msg34(Config) when is_list(Config) ->
+    d("compact_otp16818_msg34 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg34() ),
+    ok.
+
+compact_otp16818_msg34() ->
+    compact_otp16818_msg("d123").
+
+
+%% --
+
+compact_otp16818_msg35(suite) ->
+    [];
+compact_otp16818_msg35(Config) when is_list(Config) ->
+    d("compact_otp16818_msg35 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg35() ),
+    ok.
+
+compact_otp16818_msg35() ->
+    compact_otp16818_msg("e123").
+
+
+%% --
+
+compact_otp16818_msg36(suite) ->
+    [];
+compact_otp16818_msg36(Config) when is_list(Config) ->
+    d("compact_otp16818_msg36 -> entry", []),
+    ok = compact_otp16818( compact_otp16818_msg36() ),
+    ok.
+
+compact_otp16818_msg36() ->
+    compact_otp16818_msg("f123").
+
+
+%% -----
+
+compact_otp16818( Msg ) ->
+    Bin = erlang:list_to_binary(Msg),
+    try megaco_compact_text_encoder:decode_message([], dynamic, Bin) of
+        {ok, _} ->
+            ok;
+        {error, _} = ERROR ->
+            ERROR
+     catch
+        C:E:S ->
+            {error, {C, E, S}}
+    end.
+
+compact_otp16818_msg(X) when is_list(X) ->
+    "!/3 [2409:8050:5005:1243:1011::" ++ X ++
+        "] T=2523{C=-{SC=ROOT{SV{MT=RS,RE=901,PF=ETSI_BGF/2,V=3}}}}".
+
+
 %% ==============================================================
 %%
 %% F l e x   C o m p a c t   T e s t c a s e s
@@ -2190,7 +2572,6 @@ flex_compact_otp4299_msg1(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
-
 
 flex_compact_otp7431_msg01(suite) ->
     [];
@@ -2394,8 +2775,8 @@ pretty_otp4632_msg4(Config) when is_list(Config) ->
     %% put(dbg,true),
     d("pretty_otp4632_msg4 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
-    Check = fun(B2, B1) -> pretty_otp4632_msg4_chk(B1, B2) end, 
-    ok = ticket_pretty_decode_encode_only(pretty_otp4632_msg4(), Check), 
+    Check = fun(B2, B1) -> pretty_otp4632_msg4_chk(B1, B2) end,
+    ok = ticket_pretty_decode_encode_only(pretty_otp4632_msg4(), Check),
     %% erase(severity),
     %% erase(dbg),
     ok.
@@ -2412,13 +2793,13 @@ pretty_otp4632_msg4_chk(B1, B2) when is_binary(B1) and is_binary(B2) ->
     %% 		 "S1: ~s~n"
     %% 		 "S2: ~s~n", [S1, S2]),
     pretty_otp4632_msg4_chk(S1, S2);
- 
+
 pretty_otp4632_msg4_chk([], []) ->
-    messages_not_eq; 
+    messages_not_eq;
 pretty_otp4632_msg4_chk([], Rest2) ->
-    {messages_not_eq2, Rest2}; 
+    {messages_not_eq2, Rest2};
 pretty_otp4632_msg4_chk(Rest1, []) ->
-    {messages_not_eq1, Rest1}; 
+    {messages_not_eq1, Rest1};
 pretty_otp4632_msg4_chk([$R,$e,$a,$s,$o,$n,$ ,$=,$ ,$",$9,$0,$1,$"|_Rest1],
 			[$R,$e,$a,$s,$o,$n,$ ,$=,$ ,$9,$0,$1|_Rest2]) ->
     ok;
@@ -2427,7 +2808,7 @@ pretty_otp4632_msg4_chk([_H1|Rest1], [_H2|Rest2]) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp4710_msg1(suite) ->
     [];
 pretty_otp4710_msg1(Config) when is_list(Config) ->
@@ -2451,8 +2832,8 @@ pretty_otp4710_msg2(Config) when is_list(Config) ->
     %% put(dbg,true),
     d("pretty_otp4710_msg2 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
-    Check = fun(B1, B2) -> pretty_otp4710_msg2_chk(B1, B2) end, 
-    ok = ticket_pretty_decode_encode_only(pretty_otp4710_msg2(), Check), 
+    Check = fun(B1, B2) -> pretty_otp4710_msg2_chk(B1, B2) end,
+    ok = ticket_pretty_decode_encode_only(pretty_otp4710_msg2(), Check),
     %% erase(severity),
     %% erase(dbg),
     ok.
@@ -2461,8 +2842,8 @@ pretty_otp4710_msg2() ->
     "Authentication = 0xEFCDAB89:0x12345678:0x1234567889ABCDEF76543210\nMEGACO/" ?VERSION_STR " [124.124.124.222]\nTransaction = 9998 {\n\tContext = - {\n\t\tServiceChange = root {\n\t\t\tServices {\n\t\t\t\tMethod = Restart,\n\t\t\t\tServiceChangeAddress = 55555,\n\t\t\t\tProfile = resgw/1,\n\t\t\t\tReason = \"901 mg col boot\"\n\t\t\t}\n\t\t}\n\t}\n}".
 
 pretty_otp4710_msg2_chk(B1, B2) when is_binary(B1) and is_binary(B2) ->
-    S1 = binary_to_list(B1), 
-    S2 = binary_to_list(B2), 
+    S1 = binary_to_list(B1),
+    S2 = binary_to_list(B2),
     pretty_otp4710_msg2_chk(S1, S2);
 
 pretty_otp4710_msg2_chk(Msg, Msg) ->
@@ -2489,7 +2870,7 @@ pretty_otp4710_msg2_chk_ah([C|R], Acc) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp4945_msg1(suite) ->
     [];
 pretty_otp4945_msg1(Config) when is_list(Config) ->
@@ -2509,15 +2890,15 @@ pretty_otp4945_msg1() ->
       ServiceChange = ROOT {
          Services {
             Method = Restart,
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/1
          }
       }
-   } 
+   }
 }".
-    
+
 pretty_otp4945_msg1_chk(R) when is_list(R) ->
-    ExpMissing = [serviceChangeReason], 
+    ExpMissing = [serviceChangeReason],
     Check = fun(Reason) ->
 		    pretty_otp4945_chk(Reason, ExpMissing)
 	    end,
@@ -2543,20 +2924,20 @@ pretty_otp4945_msg2() ->
       ServiceChange = ROOT {
          Services {
             Reason = 901,
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/1
          }
       }
-   } 
+   }
 }".
 
 pretty_otp4945_msg2_chk(R) when is_list(R) ->
-    ExpMissing = [serviceChangeMethod], 
+    ExpMissing = [serviceChangeMethod],
     Check = fun(Reason) ->
 		    pretty_otp4945_chk(Reason, ExpMissing)
 	    end,
     ticket_check_decode_only_error_reason(R, Check).
-    
+
 
 pretty_otp4945_msg3(suite) ->
     [];
@@ -2576,21 +2957,21 @@ pretty_otp4945_msg3() ->
    Context = - {
       ServiceChange = ROOT {
          Services {
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/1
          }
       }
-   } 
+   }
 }".
 
 pretty_otp4945_msg3_chk(R) when is_list(R) ->
-    ExpMissing = [serviceChangeReason, serviceChangeMethod], 
+    ExpMissing = [serviceChangeReason, serviceChangeMethod],
     Check = fun(Reason) ->
 		    pretty_otp4945_chk(Reason, ExpMissing)
 	    end,
     ticket_check_decode_only_error_reason(R, Check).
 
-    
+
 pretty_otp4945_msg4(suite) ->
     [];
 pretty_otp4945_msg4(Config) when is_list(Config) ->
@@ -2610,13 +2991,13 @@ pretty_otp4945_msg4() ->
          Services {
             Method = Restart,
             Reason = 901,
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/1
          }
       }
-   } 
+   }
 }".
-    
+
 
 pretty_otp4945_msg5(suite) ->
     [];
@@ -2639,13 +3020,13 @@ pretty_otp4945_msg5() ->
             Method = Restart,
             Reason = 901,
             Profile = ResGW/1,
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/2
          }
       }
-   } 
+   }
 }".
-    
+
 pretty_otp4945_msg5_chk(R) when is_list(R) ->
     Check = fun({at_most_once_serviceChangeParm, {profile, _, _}}) ->
 		    ok;
@@ -2675,12 +3056,12 @@ pretty_otp4945_msg6() ->
          Services {
             Method = Restart,
                Reason = 901,
-               ServiceChangeAddress = 55555, 
-               MgcIdToTry = kalle, 
+               ServiceChangeAddress = 55555,
+               MgcIdToTry = kalle,
                Profile = ResGW/1
             }
          }
-   } 
+   }
 }".
 
 pretty_otp4945_msg6_chk(R) when is_list(R) ->
@@ -2690,9 +3071,9 @@ pretty_otp4945_msg6_chk(R) when is_list(R) ->
 		    {error, {unexpected_reason, Reason}}
 	    end,
     ticket_check_decode_only_error_reason(R, Check).
-   
 
-pretty_otp4945_chk({missing_required_serviceChangeParm, Missing}, 
+
+pretty_otp4945_chk({missing_required_serviceChangeParm, Missing},
 		    ExpMissing) when is_list(Missing) ->
     case ExpMissing -- Missing of
 	[] ->
@@ -2705,7 +3086,7 @@ pretty_otp4945_chk(Reason, _ExpMissing) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp4949_msg1(suite) ->
     [];
 pretty_otp4949_msg1(Config) when is_list(Config) ->
@@ -2723,13 +3104,13 @@ pretty_otp4949_msg1() ->
    Context = - {
       ServiceChange = ROOT {
          Services {
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/1
          }
       }
-   } 
+   }
 }".
-    
+
 
 pretty_otp4949_msg2(suite) ->
     [];
@@ -2750,13 +3131,13 @@ pretty_otp4949_msg2() ->
       ServiceChange = ROOT {
          Services {
             Profile = ResGW/1,
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/2
          }
       }
-   } 
+   }
 }".
-    
+
 pretty_otp4949_msg2_chk(R) when is_list(R) ->
     Check = fun({at_most_once_servChgReplyParm, {profile, _, _}}) ->
 		    ok;
@@ -2784,12 +3165,12 @@ pretty_otp4949_msg3() ->
    Context = - {
       ServiceChange = ROOT {
          Services {
-            ServiceChangeAddress = 55555, 
-            MgcIdToTry = kalle, 
+            ServiceChangeAddress = 55555,
+            MgcIdToTry = kalle,
             Profile = ResGW/1
          }
       }
-   } 
+   }
 }".
 
 pretty_otp4949_msg3_chk(R) when is_list(R) ->
@@ -2799,10 +3180,10 @@ pretty_otp4949_msg3_chk(R) when is_list(R) ->
 		    {error, {unexpected_reason, Reason}}
 	    end,
     ticket_check_decode_only_error_reason(R, Check).
-    
+
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5042_msg1(suite) ->
     [];
 pretty_otp5042_msg1(Config) when is_list(Config) ->
@@ -2817,17 +3198,17 @@ pretty_otp5042_msg1(Config) when is_list(Config) ->
 
 pretty_otp5042_msg1() ->
 "MEGACO/" ?VERSION_STR " <CATAPULT>:2944
-Transaction = 102 { 
-Context =  5 { Notify =  MUX/1 { ObservedEvents = 1 { 
+Transaction = 102 {
+Context =  5 { Notify =  MUX/1 { ObservedEvents = 1 {
 h245bh/h245msgin { Stream =  1
 , h245enc =
 0270020600088175000653401004100403E802E00180018001780680000034301160000700088175010101007A0100020001800001320000C0000219D005027F0070500100040100021080000319D005027F00504001008000041C001250000700088175010000400280010003000880000518AA027F400006850130008011020100000001030002000300040005000006
- }  } 
+ }  }
  }  }  }".
-  
+
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5068_msg1(suite) ->
     [];
 pretty_otp5068_msg1(Config) when is_list(Config) ->
@@ -2883,11 +3264,11 @@ pretty_otp5068_msg1() ->
   }
  }
 }.
-  
+
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5085_msg1(suite) ->
     [];
 pretty_otp5085_msg1(Config) when is_list(Config) ->
@@ -2912,7 +3293,7 @@ pretty_otp5085_msg1() ->
 	  230,
 	  asn1_NOVALUE,
 	  {actionReplies,
-	   [{'ActionReply', 
+	   [{'ActionReply',
 	     400,
 	     {'ErrorDescriptor',504,asn1_NOVALUE},
 	     asn1_NOVALUE,
@@ -2952,7 +3333,7 @@ pretty_otp5085_msg2() ->
 	  230,
 	  asn1_NOVALUE,
 	  {actionReplies,
-	   [{'ActionReply', 
+	   [{'ActionReply',
 	     400,
 	     asn1_NOVALUE,
 	     asn1_NOVALUE,
@@ -2992,7 +3373,7 @@ pretty_otp5085_msg3() ->
 	  230,
 	  asn1_NOVALUE,
 	  {actionReplies,
-	   [{'ActionReply', 
+	   [{'ActionReply',
 	     400,
 	     asn1_NOVALUE,
 	     #'ContextRequest'{priority = 3},
@@ -3032,11 +3413,11 @@ pretty_otp5085_msg4() ->
 	  230,
 	  asn1_NOVALUE,
 	  {actionReplies,
-	   [{'ActionReply', 
+	   [{'ActionReply',
 	     400,
 	     asn1_NOVALUE,
 	     asn1_NOVALUE,
-	     [{addReply,    cre_AmmsReply([#megaco_term_id{id = ?A4444}])}, 
+	     [{addReply,    cre_AmmsReply([#megaco_term_id{id = ?A4444}])},
 	      {notifyReply, cre_NotifyRep([#megaco_term_id{id = ?A5555}])}]
 	    }
 	   ]
@@ -3073,11 +3454,11 @@ pretty_otp5085_msg5() ->
 	  230,
 	  asn1_NOVALUE,
 	  {actionReplies,
-	   [{'ActionReply', 
+	   [{'ActionReply',
 	     400,
 	     asn1_NOVALUE,
 	     #'ContextRequest'{priority = 5},
-	     [{addReply,    cre_AmmsReply([#megaco_term_id{id = ?A4444}])}, 
+	     [{addReply,    cre_AmmsReply([#megaco_term_id{id = ?A4444}])},
 	      {notifyReply, cre_NotifyRep([#megaco_term_id{id = ?A5555}])}]
 	    }
 	   ]
@@ -3114,11 +3495,11 @@ pretty_otp5085_msg6() ->
 	  230,
 	  asn1_NOVALUE,
 	  {actionReplies,
-	   [{'ActionReply', 
+	   [{'ActionReply',
 	     400,
 	     {'ErrorDescriptor',504,asn1_NOVALUE},
 	     #'ContextRequest'{priority = 6},
-	     [{addReply,    cre_AmmsReply([#megaco_term_id{id = ?A4444}])}, 
+	     [{addReply,    cre_AmmsReply([#megaco_term_id{id = ?A4444}])},
 	      {notifyReply, cre_NotifyRep([#megaco_term_id{id = ?A5555}])}]
 	    }
 	   ]
@@ -3155,7 +3536,7 @@ pretty_otp5085_msg7() ->
 	  230,
 	  asn1_NOVALUE,
 	  {actionReplies,
-	   [{'ActionReply', 
+	   [{'ActionReply',
 	     400,
 	     {'ErrorDescriptor',504,asn1_NOVALUE},
 	     #'ContextRequest'{priority = 7},
@@ -3199,12 +3580,12 @@ pretty_otp5085_msg8() ->
 	  230,
 	  asn1_NOVALUE,
 	  {actionReplies,
-	   [{'ActionReply', 
+	   [{'ActionReply',
 	     400,
 	     {'ErrorDescriptor',504,asn1_NOVALUE},
-	     #'ContextRequest'{priority = 8, 
+	     #'ContextRequest'{priority = 8,
 			       emergency = true,
-			       topologyReq = 
+			       topologyReq =
 			       [#'TopologyRequest'{terminationFrom = From1,
 						   terminationTo   = To1,
 						   topologyDirection = bothway},
@@ -3227,7 +3608,7 @@ pretty_otp5085_msg8() ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5600_msg1(suite) ->
     [];
 pretty_otp5600_msg1(Config) when is_list(Config) ->
@@ -3239,17 +3620,17 @@ pretty_otp5600_msg1(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
- 
+
 pretty_otp5600_msg1() ->
     SRE = #'SecondRequestedEvent'{ pkgdName = "al/on",
                                    evParList = [] },
-     
+
     SED = #'SecondEventsDescriptor'{ requestID = 2,
                                      eventList = [ SRE ] },
-     
+
     SIG = { signal, #'Signal'{ signalName = "cg/dt",
                                sigParList = [] } },
-     
+
     RA = #'RequestedActions'{ secondEvent = SED,
                               signalsDescriptor = [ SIG ] },
 
@@ -3288,35 +3669,35 @@ pretty_otp5600_msg2(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
- 
+
 pretty_otp5600_msg2() ->
     SIG = { signal, #'Signal'{ signalName = "cg/dt",
                                sigParList = [] } },
 
     SRA = #'SecondRequestedActions'{ signalsDescriptor = [ SIG ] },
-    
+
     SRE = #'SecondRequestedEvent'{ pkgdName    = "al/on",
                                    eventAction = SRA,
                                    evParList   = [] },
-    
+
     SED = #'SecondEventsDescriptor'{ requestID = 2,
 				     eventList = [ SRE ] },
-    
+
     RA = #'RequestedActions'{ secondEvent = SED },
-    
+
     RE = #'RequestedEvent'{ pkgdName = "al/of",
 			    eventAction = RA,
 			    evParList = [] },
-    
+
     EV = #'EventsDescriptor'{ requestID = 1, eventList = [ RE ] },
-    
+
     TermID = {megaco_term_id, true, [[$*]] },
-    
+
     AMMR = #'AmmRequest'{ terminationID = [ TermID ],
 			  descriptors = [ { eventsDescriptor, EV } ] },
-    
+
     CR = #'CommandRequest'{command = {modReq, AMMR}},
-    
+
     AR = #'ActionRequest'{contextId = ?megaco_null_context_id,
                           commandRequests = [CR]},
     ARs = [AR],
@@ -3329,7 +3710,7 @@ pretty_otp5600_msg2() ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5601_msg1(suite) ->
     [];
 pretty_otp5601_msg1(Config) when is_list(Config) ->
@@ -3382,7 +3763,7 @@ pretty_otp5601_msg1() ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5793_msg01(suite) ->
     [];
 pretty_otp5793_msg01(Config) when is_list(Config) ->
@@ -3443,7 +3824,7 @@ pretty_otp5793_msg1() ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5803_msg01(suite) ->
     [];
 pretty_otp5803_msg01(Config) when is_list(Config) ->
@@ -3548,7 +3929,7 @@ pretty_otp5803_msg2() ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5805_msg01(suite) ->
     [];
 pretty_otp5805_msg01(Config) when is_list(Config) ->
@@ -3573,7 +3954,7 @@ Transaction=1{
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5836_msg01(suite) ->
     [];
 pretty_otp5836_msg01(Config) when is_list(Config) ->
@@ -3588,7 +3969,7 @@ pretty_otp5836_msg01(Config) when is_list(Config) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp5882_msg01(suite) ->
     [];
 pretty_otp5882_msg01(Config) when is_list(Config) ->
@@ -3601,7 +3982,7 @@ pretty_otp5882_msg01(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
-    
+
 pretty_otp5882_msg01_chk({message_encode_failed, {error, {Reason, _}}, _}) ->
     case Reason of
 	{invalid_LocalControlDescriptor, empty} ->
@@ -3612,7 +3993,7 @@ pretty_otp5882_msg01_chk({message_encode_failed, {error, {Reason, _}}, _}) ->
 pretty_otp5882_msg01_chk(Reason) ->
     {error, {unexpected_reason, Reason}}.
 
-    
+
 pretty_otp5882_msg01() ->
     LCD = #'LocalControlDescriptor'{}, % Create illegal LCD
     Parms      = cre_StreamParms(LCD),
@@ -3630,11 +4011,11 @@ pretty_otp5882_msg01() ->
     Mid        = ?MG1_MID,
     Mess       = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 pretty_otp6490_msg01(suite) ->
     [];
 pretty_otp6490_msg01(Config) when is_list(Config) ->
@@ -3731,7 +4112,7 @@ pretty_otp6490_msg02() ->
     PkgdName = ?MSG_LIB:cre_PkgdName("foo", "a"),
     EvName   = ?MSG_LIB:cre_EventName(PkgdName),
     EvSpec   = ?MSG_LIB:cre_EventSpec(EvName, [EvPar]),
-    EvSpecs  = [EvSpec], 
+    EvSpecs  = [EvSpec],
     EBD      = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
 
@@ -3742,7 +4123,7 @@ pretty_otp6490_msg03() ->
     PkgdName = ?MSG_LIB:cre_PkgdName("foo", "a"),
     EvName   = ?MSG_LIB:cre_EventName(PkgdName),
     EvSpec   = ?MSG_LIB:cre_EventSpec(EvName, [EvPar1,EvPar2,EvPar3]),
-    EvSpecs  = [EvSpec], 
+    EvSpecs  = [EvSpec],
     EBD      = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
 
@@ -3757,7 +4138,7 @@ pretty_otp6490_msg04() ->
     PkgdName2 = ?MSG_LIB:cre_PkgdName("bar", "b"),
     EvName2   = ?MSG_LIB:cre_EventName(PkgdName2),
     EvSpec2   = ?MSG_LIB:cre_EventSpec(EvName2, [EvPar4]),
-    EvSpecs   = [EvSpec1,EvSpec2], 
+    EvSpecs   = [EvSpec1,EvSpec2],
     EBD       = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
 
@@ -3766,7 +4147,7 @@ pretty_otp6490_msg05() ->
     PkgdName = ?MSG_LIB:cre_PkgdName("foo", root),
     EvName   = ?MSG_LIB:cre_EventName(PkgdName),
     EvSpec   = ?MSG_LIB:cre_EventSpec(EvName, [EvPar]),
-    EvSpecs  = [EvSpec], 
+    EvSpecs  = [EvSpec],
     EBD      = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
 
@@ -3775,7 +4156,7 @@ pretty_otp6490_msg06() ->
     PkgdName = ?MSG_LIB:cre_PkgdName(root, root),
     EvName   = ?MSG_LIB:cre_EventName(PkgdName),
     EvSpec   = ?MSG_LIB:cre_EventSpec(EvName, [EvPar]),
-    EvSpecs  = [EvSpec], 
+    EvSpecs  = [EvSpec],
     EBD      = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
 
@@ -3858,7 +4239,7 @@ pretty_otp7671(Msg, Conf, ExpectedEncode, ExpectedDecode, Check) ->
             ExpectedEncode, ExpectedDecode, Check).
 
 otp7671(Msg, Codec, Conf, ExpectedEncode, ExpectedDecode) ->
-    Check = fun(M1, M2) -> 
+    Check = fun(M1, M2) ->
 		    exit({unexpected_decode_result, M1, M2})
 	    end,
     otp7671(Msg, Codec, Conf, ExpectedEncode, ExpectedDecode, Check).
@@ -3935,9 +4316,9 @@ pretty_otp7671_msg05() ->
 		    asn1_NOVALUE}}}]}},
 	      asn1_NOVALUE,asn1_NOVALUE}]}]}}]}}}.
 
-cmp_otp7671_msg05(#'MegacoMessage'{authHeader = asn1_NOVALUE, 
-				   mess       = M1}, 
-		  #'MegacoMessage'{authHeader = asn1_NOVALUE, 
+cmp_otp7671_msg05(#'MegacoMessage'{authHeader = asn1_NOVALUE,
+				   mess       = M1},
+		  #'MegacoMessage'{authHeader = asn1_NOVALUE,
 				   mess       = M2}) ->
     #'Message'{messageBody = Body1} = M1,
     #'Message'{messageBody = Body2} = M2,
@@ -3953,11 +4334,11 @@ cmp_otp7671_msg05(#'MegacoMessage'{authHeader = asn1_NOVALUE,
     [#'CommandRequest'{command = Cmd2}] = CR2,
     {modReq, #'AmmRequest'{descriptors = Descs1}} = Cmd1,
     {modReq, #'AmmRequest'{descriptors = Descs2}} = Cmd2,
-    [{digitMapDescriptor, 
-      #'DigitMapDescriptor'{digitMapName = Name, 
+    [{digitMapDescriptor,
+      #'DigitMapDescriptor'{digitMapName = Name,
 			    digitMapValue = Value1}}] = Descs1,
-    [{digitMapDescriptor, 
-      #'DigitMapDescriptor'{digitMapName = Name, 
+    [{digitMapDescriptor,
+      #'DigitMapDescriptor'{digitMapName = Name,
 			    digitMapValue = Value2}}] = Descs2,
     #'DigitMapValue'{startTimer    = asn1_NOVALUE,
 		     shortTimer    = asn1_NOVALUE,
@@ -3966,7 +4347,7 @@ cmp_otp7671_msg05(#'MegacoMessage'{authHeader = asn1_NOVALUE,
 		     durationTimer = asn1_NOVALUE} = Value1,
     asn1_NOVALUE = Value2,
     ok.
-    
+
 
 %% --------------------------------------------------------------
 %%
@@ -3990,12 +4371,12 @@ pretty_otp8114_msg01() ->
 otp8114(InitialMessage, Codec, Conf) ->
     Decode = fun(M) -> Codec:decode_message(Conf, M) end,
     Encode = fun(B) -> Codec:encode_message(Conf, B) end,
-    InitialData = InitialMessage, 
-    Instructions = 
+    InitialData = InitialMessage,
+    Instructions =
 	[
 	 %% List to binary
 	 megaco_codec_test_lib:expect_instruction(
-	   "Convert (initial) message to a binary", 
+	   "Convert (initial) message to a binary",
 	   fun(Msg) when is_list(Msg) ->
 		   %% io:format("~s~n", [Msg]),
 		   {ok, list_to_binary(Msg)};
@@ -4007,7 +4388,7 @@ otp8114(InitialMessage, Codec, Conf) ->
 	      (Bad, _Msg) ->
 		   {error, {failed_to_binary, Bad}}
 	   end),
-	 
+
 	 %% Initial decode
 	 megaco_codec_test_lib:expect_instruction(
 	   "Decode (initial) message",
@@ -4037,7 +4418,7 @@ otp8114(InitialMessage, Codec, Conf) ->
 	      (Bad, _) ->
 		   {error, {encode_failed, Bad}}
 	   end),
-	 
+
 	 %% Decode
 	 megaco_codec_test_lib:expect_instruction(
 	   "(final) Decode message",
@@ -4075,7 +4456,7 @@ flex_pretty_otp5042_msg1(Config) when is_list(Config) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 flex_pretty_otp5085_msg1(suite) ->
     [];
 flex_pretty_otp5085_msg1(Config) when is_list(Config) ->
@@ -4182,7 +4563,7 @@ flex_pretty_otp5085_msg8(Config) when is_list(Config) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 flex_pretty_otp5600_msg1(suite) ->
     [];
 flex_pretty_otp5600_msg1(Config) when is_list(Config) ->
@@ -4211,7 +4592,7 @@ flex_pretty_otp5600_msg2(Config) when is_list(Config) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 flex_pretty_otp5601_msg1(suite) ->
     [];
 flex_pretty_otp5601_msg1(Config) when is_list(Config) ->
@@ -4227,7 +4608,7 @@ flex_pretty_otp5601_msg1(Config) when is_list(Config) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 flex_pretty_otp5793_msg01(suite) ->
     [];
 flex_pretty_otp5793_msg01(Config) when is_list(Config) ->
@@ -4243,7 +4624,7 @@ flex_pretty_otp5793_msg01(Config) when is_list(Config) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 flex_pretty_otp5803_msg01(suite) ->
     [];
 flex_pretty_otp5803_msg01(Config) when is_list(Config) ->
@@ -4272,7 +4653,7 @@ flex_pretty_otp5803_msg02(Config) when is_list(Config) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 flex_pretty_otp5805_msg01(suite) ->
     [];
 flex_pretty_otp5805_msg01(Config) when is_list(Config) ->
@@ -4288,7 +4669,7 @@ flex_pretty_otp5805_msg01(Config) when is_list(Config) ->
 
 
 %% --------------------------------------------------------------
-%% 
+%%
 flex_pretty_otp5836_msg01(suite) ->
     [];
 flex_pretty_otp5836_msg01(Config) when is_list(Config) ->
@@ -4368,11 +4749,11 @@ flex_pretty_otp7431(Expected, Msg, Conf) ->
 
 otp7431(Expected, Codec, Msg0, Conf0) ->
     Bin0 = list_to_binary(Msg0),
-    Conf = [?EC_V3|Conf0], 
+    Conf = [?EC_V3|Conf0],
     case decode_message(Codec, false, Conf, Bin0) of
 	{ok, _Msg1} when Expected =:= ok ->
  	    io:format(" decoded", []);
-	{error, {bad_property_parm, Reason}} when (Expected =:= error) andalso 
+	{error, {bad_property_parm, Reason}} when (Expected =:= error) andalso
 						  is_list(Reason) ->
 	    io:format("expected result: ~s", [Reason]),
 	    ok;
@@ -4389,20 +4770,20 @@ flex_pretty_otp7431_msg1() ->
 	       Add = A4445 {
 		       Media {
 			 Stream = 1 {
-				    Local { 
-				      v=0 
-				      o=- 2890844526 2890842807 IN IP4 124.124.124.222 
-				      s=- 
-				      t= 0 0 
-				      c=IN IP4 124.124.124.222 
-				      m=audio 2222 RTP/AVP 4 
-				      a=ptime:30 
-				      a=recvonly 
+				    Local {
+				      v=0
+				      o=- 2890844526 2890842807 IN IP4 124.124.124.222
+				      s=-
+				      t= 0 0
+				      c=IN IP4 124.124.124.222
+				      m=audio 2222 RTP/AVP 4
+				      a=ptime:30
+				      a=recvonly
 				     } ; RTP profile for G.723.1 is 4
 				   }
 			}
 		      }
-	      } 
+	      }
        }".
 
 flex_pretty_otp7431_msg2() ->
@@ -4412,19 +4793,19 @@ flex_pretty_otp7431_msg2() ->
 	       Add = A4445 {
 		       Media {
 			 Stream = 1 {
-				    Local { 
-				      v=0 
-				      o=- 2890844526 2890842807 IN IP4 124.124.124.222 
-				      s=- 
-				      t= 0 0 
-				      c=IN IP4 124.124.124.222 
-				      m=audio 2222 RTP/AVP 4 
-				      a=ptime:30 
+				    Local {
+				      v=0
+				      o=- 2890844526 2890842807 IN IP4 124.124.124.222
+				      s=-
+				      t= 0 0
+				      c=IN IP4 124.124.124.222
+				      m=audio 2222 RTP/AVP 4
+				      a=ptime:30
 				      a=             }
 				   }
 			}
 		      }
-	      } 
+	      }
        }".
 
 flex_pretty_otp7431_msg3() ->
@@ -4434,19 +4815,19 @@ flex_pretty_otp7431_msg3() ->
 	       Add = A4445 {
 		       Media {
 			 Stream = 1 {
-				    Local { 
-				      v=0 
-				      o=- 2890844526 2890842807 IN IP4 124.124.124.222 
-				      s=- 
-				      t= 0 0 
-				      c=IN IP4 124.124.124.222 
-				      m=audio 2222 RTP/AVP 4 
-				      a=ptime:30 
+				    Local {
+				      v=0
+				      o=- 2890844526 2890842807 IN IP4 124.124.124.222
+				      s=-
+				      t= 0 0
+				      c=IN IP4 124.124.124.222
+				      m=audio 2222 RTP/AVP 4
+				      a=ptime:30
 				      a             }
 				   }
 			}
 		      }
-	      } 
+	      }
        }".
 
 flex_pretty_otp7431_msg4() ->
@@ -4456,19 +4837,19 @@ flex_pretty_otp7431_msg4() ->
 	       Add = A4445 {
 		       Media {
 			 Stream = 1 {
-				    Local { 
-				      v=0 
-				      o=- 2890844526 2890842807 IN IP4 124.124.124.222 
-				      s=- 
-				      t= 0 0 
-				      c=IN IP4 124.124.124.222 
-				      m=audio 2222 RTP/AVP 4 
-				      a=ptime:30 
+				    Local {
+				      v=0
+				      o=- 2890844526 2890842807 IN IP4 124.124.124.222
+				      s=-
+				      t= 0 0
+				      c=IN IP4 124.124.124.222
+				      m=audio 2222 RTP/AVP 4
+				      a=ptime:30
 				      a}
 				   }
 			}
 		      }
-	      } 
+	      }
        }".
 
 flex_pretty_otp7431_msg5() ->
@@ -4478,12 +4859,12 @@ flex_pretty_otp7431_msg5() ->
 	       Add = A4445 {
 		       Media {
 			 Stream = 1 {
-				    Local { 
+				    Local {
 				      v=            }
 				   }
 			}
 		      }
-	      } 
+	      }
        }".
 
 flex_pretty_otp7431_msg6() ->
@@ -4493,12 +4874,12 @@ flex_pretty_otp7431_msg6() ->
 	       Add = A4445 {
 		       Media {
 			 Stream = 1 {
-				    Local { 
+				    Local {
 				      v            }
 				   }
 			}
 		      }
-	      } 
+	      }
        }".
 
 flex_pretty_otp7431_msg7() ->
@@ -4508,12 +4889,12 @@ flex_pretty_otp7431_msg7() ->
 	       Add = A4445 {
 		       Media {
 			 Stream = 1 {
-				    Local { 
+				    Local {
 				      v}
 				   }
 			}
 		      }
-	      } 
+	      }
        }".
 
 
@@ -4523,92 +4904,92 @@ msgs() ->
     [M || {_, M, _, _} <- msgs(text)].
 
 msgs(Encoding) ->
-    msgs1a(Encoding) ++ 
-	msgs1b(Encoding) ++ 
-	msgs3525(Encoding) ++ 
-	msgs5(Encoding) ++ 
-	msgs6(Encoding) ++ 
-	msgs7(Encoding) ++ 
+    msgs1a(Encoding) ++
+	msgs1b(Encoding) ++
+	msgs3525(Encoding) ++
+	msgs5(Encoding) ++
+	msgs6(Encoding) ++
+	msgs7(Encoding) ++
 	msgs8(Encoding).
 
 msgs1a(_) ->
-    Plain = 
+    Plain =
 	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver, 
-							  EC, M) 
+		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver,
+							  EC, M)
 	end,
     [
-     {msg01a, msg1a(),  Plain, [{dbg,false}]}, 
+     {msg01a, msg1a(),  Plain, [{dbg,false}]},
      {msg01b, msg1b(),  Plain, [{dbg,false}]},
-     {msg02,  msg2(),   Plain, [{dbg,false}]},  
-     {msg03,  msg3(),   Plain, [{dbg,false}]},  
-     {msg04,  msg4(),   Plain, [{dbg,false}]},  
-     {msg05,  msg5(),   Plain, [{dbg,false}]}, 
-     {msg06a, msg6a(),  Plain, [{dbg,false}]}, 
-     {msg06b, msg6b(),  Plain, [{dbg,false}]}, 
-     {msg07,  msg7(),   Plain, [{dbg,false}]}, 
-     {msg08a, msg8a(),  Plain, [{dbg,false}]}, 
-     {msg08b, msg8b(),  Plain, [{dbg,false}]}, 
-     {msg09,  msg9(),   Plain, [{dbg,false}]}, 
-     {msg10,  msg10(),  Plain, [{dbg,false}]}, 
-     {msg11,  msg11(),  Plain, [{dbg,false}]}, 
-     {msg12,  msg12(),  Plain, [{dbg,false}]}, 
-     {msg13,  msg13(),  Plain, [{dbg,false}]}, 
-     {msg14,  msg14(),  Plain, [{dbg,false}]}, 
-     {msg15,  msg15(),  Plain, [{dbg,false}]}, 
-     {msg16,  msg16(),  Plain, [{dbg,false}]}, 
-     {msg17,  msg17(),  Plain, [{dbg,false}]}, 
-     {msg18,  msg18(),  Plain, [{dbg,false}]}, 
-     {msg19,  msg19(),  Plain, [{dbg,false}]}, 
-     {msg20,  msg20(),  Plain, [{dbg,false}]}, 
+     {msg02,  msg2(),   Plain, [{dbg,false}]},
+     {msg03,  msg3(),   Plain, [{dbg,false}]},
+     {msg04,  msg4(),   Plain, [{dbg,false}]},
+     {msg05,  msg5(),   Plain, [{dbg,false}]},
+     {msg06a, msg6a(),  Plain, [{dbg,false}]},
+     {msg06b, msg6b(),  Plain, [{dbg,false}]},
+     {msg07,  msg7(),   Plain, [{dbg,false}]},
+     {msg08a, msg8a(),  Plain, [{dbg,false}]},
+     {msg08b, msg8b(),  Plain, [{dbg,false}]},
+     {msg09,  msg9(),   Plain, [{dbg,false}]},
+     {msg10,  msg10(),  Plain, [{dbg,false}]},
+     {msg11,  msg11(),  Plain, [{dbg,false}]},
+     {msg12,  msg12(),  Plain, [{dbg,false}]},
+     {msg13,  msg13(),  Plain, [{dbg,false}]},
+     {msg14,  msg14(),  Plain, [{dbg,false}]},
+     {msg15,  msg15(),  Plain, [{dbg,false}]},
+     {msg16,  msg16(),  Plain, [{dbg,false}]},
+     {msg17,  msg17(),  Plain, [{dbg,false}]},
+     {msg18,  msg18(),  Plain, [{dbg,false}]},
+     {msg19,  msg19(),  Plain, [{dbg,false}]},
+     {msg20,  msg20(),  Plain, [{dbg,false}]},
      {msg21,  msg21(),  Plain, [{dbg,false}]},
-     {msg22a, msg22a(), Plain, [{dbg,false}]}, 
-     {msg22b, msg22b(), Plain, [{dbg,false}]}, 
-     {msg22c, msg22c(), Plain, [{dbg,false}]}, 
-     {msg22d, msg22d(), Plain, [{dbg,false}]}, 
-     {msg22e, msg22e(), Plain, [{dbg,false}]}, 
-     {msg22f, msg22f(), Plain, [{dbg,false}]}, 
-     {msg23a, msg23a(), Plain, [{dbg,false}]}, 
-     {msg23b, msg23b(), Plain, [{dbg,false}]}, 
-     {msg23c, msg23c(), Plain, [{dbg,false}]}, 
-     {msg23d, msg23d(), Plain, [{dbg,false}]}, 
-     {msg24,  msg24(),  Plain, [{dbg,false}]}, 
-     {msg25,  msg25(),  Plain, [{dbg,false}]}, 
-     {msg30a, msg30a(), Plain, [{dbg,false}]}, 
-     {msg30b, msg30b(), Plain, [{dbg,false}]}, 
-     {msg30c, msg30c(), Plain, [{dbg,false}]}, 
+     {msg22a, msg22a(), Plain, [{dbg,false}]},
+     {msg22b, msg22b(), Plain, [{dbg,false}]},
+     {msg22c, msg22c(), Plain, [{dbg,false}]},
+     {msg22d, msg22d(), Plain, [{dbg,false}]},
+     {msg22e, msg22e(), Plain, [{dbg,false}]},
+     {msg22f, msg22f(), Plain, [{dbg,false}]},
+     {msg23a, msg23a(), Plain, [{dbg,false}]},
+     {msg23b, msg23b(), Plain, [{dbg,false}]},
+     {msg23c, msg23c(), Plain, [{dbg,false}]},
+     {msg23d, msg23d(), Plain, [{dbg,false}]},
+     {msg24,  msg24(),  Plain, [{dbg,false}]},
+     {msg25,  msg25(),  Plain, [{dbg,false}]},
+     {msg30a, msg30a(), Plain, [{dbg,false}]},
+     {msg30b, msg30b(), Plain, [{dbg,false}]},
+     {msg30c, msg30c(), Plain, [{dbg,false}]},
      {msg30d, msg30d(), Plain, [{dbg,false}]}
     ].
 
 
 msgs1b(_) ->
-    TransFirst = 
+    TransFirst =
 	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:trans_first_encode_decode(Codec, DD, 
-								Ver, EC, M) 
+		megaco_codec_test_lib:trans_first_encode_decode(Codec, DD,
+								Ver, EC, M)
 	end,
-    ActionsFirst = 
+    ActionsFirst =
 	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:actions_first_encode_decode(Codec, DD, 
-								  Ver, EC, M) 
+		megaco_codec_test_lib:actions_first_encode_decode(Codec, DD,
+								  Ver, EC, M)
 	end,
-    ActionFirst = 
+    ActionFirst =
 	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:action_first_encode_decode(Codec, DD, 
-								 Ver, EC, M) 
+		megaco_codec_test_lib:action_first_encode_decode(Codec, DD,
+								 Ver, EC, M)
 	end,
     [
-     {msg01a_tf,  msg1a(),  TransFirst,   [{dbg,false}]}, 
-     {msg02_tf,   msg2(),   TransFirst,   [{dbg,false}]}, 
-     {msg10_tf,   msg10(),  TransFirst,   [{dbg,false}]}, 
-     {msg11_tf,   msg11(),  TransFirst,   [{dbg,false}]}, 
-     {msg23d_tf,  msg23d(), TransFirst,   [{dbg,false}]}, 
-     {msg30b_tf,  msg30b(), TransFirst,   [{dbg,false}]}, 
-     {msg30c_tf,  msg30c(), TransFirst,   [{dbg,false}]}, 
-     {msg01a_asf, msg1a(),  ActionsFirst, [{dbg,false}]}, 
-     {msg02_asf,  msg2(),   ActionsFirst, [{dbg,false}]}, 
-     {msg10_asf,  msg10(),  ActionsFirst, [{dbg,false}]}, 
-     {msg23d_asf, msg23d(), ActionsFirst, [{dbg,false}]}, 
+     {msg01a_tf,  msg1a(),  TransFirst,   [{dbg,false}]},
+     {msg02_tf,   msg2(),   TransFirst,   [{dbg,false}]},
+     {msg10_tf,   msg10(),  TransFirst,   [{dbg,false}]},
+     {msg11_tf,   msg11(),  TransFirst,   [{dbg,false}]},
+     {msg23d_tf,  msg23d(), TransFirst,   [{dbg,false}]},
+     {msg30b_tf,  msg30b(), TransFirst,   [{dbg,false}]},
+     {msg30c_tf,  msg30c(), TransFirst,   [{dbg,false}]},
+     {msg01a_asf, msg1a(),  ActionsFirst, [{dbg,false}]},
+     {msg02_asf,  msg2(),   ActionsFirst, [{dbg,false}]},
+     {msg10_asf,  msg10(),  ActionsFirst, [{dbg,false}]},
+     {msg23d_asf, msg23d(), ActionsFirst, [{dbg,false}]},
      {msg01a_af,  msg1a(),  ActionFirst,  [{dbg,false}]},
      {msg02_af,   msg2(),   ActionFirst,  [{dbg,false}]},
      {msg10_af,   msg10(),  ActionFirst,  [{dbg,false}]},
@@ -4617,10 +4998,10 @@ msgs1b(_) ->
 
 
 msgs3525(_) ->
-    Plain = 
+    Plain =
 	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver, 
-							  EC, M) 
+		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver,
+							  EC, M)
 	end,
     [{msgs3_name(Name), rfc3525_decode(M), Plain, [{dbg, false}]} ||
 	{Name, M} <- rfc3525_msgs()].
@@ -4640,10 +5021,10 @@ rfc3525_decode(M) when is_binary(M) ->
 
 
 msgs5(_) ->
-    Plain = 
+    Plain =
 	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver, 
-							  EC, M) 
+		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver,
+							  EC, M)
 	end,
     [
      {msg51a, msg51a(), Plain, [{dbg, false}]},
@@ -4666,19 +5047,19 @@ msgs5(_) ->
      {msg58a, msg58a(), Plain, [{dbg, false}]},
      {msg58b, msg58b(), Plain, [{dbg, false}]}
     ].
-    
-   
-msgs6(Encoding) ->
-    Plain = 
-	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver, 
-							  EC, M)
-	end,    
 
-    PlainEDFail = 
+
+msgs6(Encoding) ->
+    Plain =
 	fun(Codec, DD, Ver, EC, M) ->
-		Res = 
-		    megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver, 
+		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver,
+							  EC, M)
+	end,
+
+    PlainEDFail =
+	fun(Codec, DD, Ver, EC, M) ->
+		Res =
+		    megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver,
 							      EC, M),
 		case Res of
 		    {error, {message_encode_failed, Reason, _M}} ->
@@ -4692,11 +5073,11 @@ msgs6(Encoding) ->
 			Res
 		end
 	end,
-    
-    PlainDE = 
+
+    PlainDE =
 	fun(Codec, _DD, Ver, EC, B) ->
-		Res = 
-		    megaco_codec_test_lib:decode_message(Codec, false, Ver, 
+		Res =
+		    megaco_codec_test_lib:decode_message(Codec, false, Ver,
 							 EC, B),
 		case Res of
 		    {ok, M} ->
@@ -4716,7 +5097,7 @@ msgs6(Encoding) ->
 		end
 	end,
 
-    Msgs = 
+    Msgs =
 	[
 	 {msg61a, msg61a(), Plain,       [{dbg,false}],[text,binary,erlang]},
 	 {msg61b, msg61b(), Plain,       [{dbg,false}],[text,binary,erlang]},
@@ -4725,16 +5106,16 @@ msgs6(Encoding) ->
 	 {msg62b, msg62b(), PlainDE,     [{dbg,false}],[text]}
 	],
     [{N,M,F,C}||{N,M,F,C,E} <- Msgs,lists:member(Encoding,E)].
-   
+
 
 msgs7(Encoding) ->
-    Plain = 
+    Plain =
 	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver, 
+		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver,
 							  EC, M)
-	end,    
+	end,
 
-    Msgs = 
+    Msgs =
 	[
   	 {msg71a,   msg71a(),   Plain, [{dbg,false}],[text,binary,erlang]},
   	 {msg71b01, msg71b01(), Plain, [{dbg,false}],[text,binary,erlang]},
@@ -4819,16 +5200,16 @@ msgs7(Encoding) ->
   	 {msg79a01, msg79a01(), Plain, [{dbg,false}],[text,binary,erlang]}
 	],
     [{N,M,F,C}||{N,M,F,C,E} <- Msgs,lists:member(Encoding,E)].
-    
-    
-msgs8(Encoding) ->
-    Plain = 
-	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver, 
-							  EC, M)
-	end,    
 
-    Msgs = 
+
+msgs8(Encoding) ->
+    Plain =
+	fun(Codec, DD, Ver, EC, M) ->
+		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver,
+							  EC, M)
+	end,
+
+    Msgs =
 	[
    	 {msg80a01, msg80a01(), Plain, [{dbg,false}],[text,binary,erlang]},
     	 {msg80a02, msg80a02(), Plain, [{dbg,false}],[text,binary,erlang]},
@@ -4844,9 +5225,9 @@ msgs8(Encoding) ->
     	 {msg81b03, msg81b03(), Plain, [{dbg,false}],[text,binary,erlang]}
 	],
     [{N,M,F,C}||{N,M,F,C,E} <- Msgs,lists:member(Encoding,E)].
-    
-    
-    
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 msg_actions([], Actions) ->
@@ -4860,7 +5241,7 @@ megaco_trans_req([], Transactions) ->
 megaco_trans_req([{TransId, ActionInfo}|TransInfo], Transactions) ->
     Actions = msg_actions(ActionInfo, []),
     TR      = ?MSG_LIB:cre_TransactionRequest(TransId, Actions),
-    Trans   = ?MSG_LIB:cre_Transaction(TR), 
+    Trans   = ?MSG_LIB:cre_Transaction(TR),
     megaco_trans_req(TransInfo, [Trans|Transactions]).
 
 megaco_message(Version, Mid, Body) ->
@@ -4875,7 +5256,7 @@ msg_request(Mid, TransId, ContextId, CmdReq) ->
     Action  = ?MSG_LIB:cre_ActionRequest(ContextId, CmdReq),
     Actions = [Action],
     TR      = ?MSG_LIB:cre_TransactionRequest(TransId, Actions),
-    Trans   = ?MSG_LIB:cre_Transaction(TR), 
+    Trans   = ?MSG_LIB:cre_Transaction(TR),
     Mess    = ?MSG_LIB:cre_Message(?VERSION, Mid, [Trans]),
     cre_MegacoMessage(Mess).
 
@@ -4883,19 +5264,19 @@ msg_request(Auth, Mid, TransId, ContextId, CmdReq) ->
     Action  = ?MSG_LIB:cre_ActionRequest(ContextId, CmdReq),
     Actions = [Action],
     TR      = ?MSG_LIB:cre_TransactionRequest(TransId, Actions),
-    Trans   = ?MSG_LIB:cre_Transaction(TR), 
+    Trans   = ?MSG_LIB:cre_Transaction(TR),
     Mess    = ?MSG_LIB:cre_Message(?VERSION, Mid, [Trans]),
     cre_MegacoMessage(Auth, Mess).
 
 msg_reply(Mid, TransId, Actions) ->
     TR    = cre_TransRep(TransId, Actions),
-    Trans = ?MSG_LIB:cre_Transaction(TR), 
+    Trans = ?MSG_LIB:cre_Transaction(TR),
     Mess  = ?MSG_LIB:cre_Message(?VERSION, Mid, [Trans]),
     cre_MegacoMessage(Mess).
 
 msg_reply(Mid, TransId, ContextId, CmdReply) ->
     Action  = cre_ActRep(ContextId, CmdReply),
-    Actions = [Action], 
+    Actions = [Action],
     msg_reply(Mid, TransId, Actions).
 
 msg_ack(Mid, [Range|_] = Ranges) when is_tuple(Range) ->
@@ -4921,7 +5302,7 @@ make_tra(Ranges) ->
 
 msg1(Mid, Tid) ->
     Gain  = cre_PropParm("tdmc/gain", "2"),
-    Ec    = cre_PropParm("tdmc/ec", "g165"), 
+    Ec    = cre_PropParm("tdmc/ec", "g165"),
     LCD   = cre_LocalControlDesc(sendRecv,[Gain, Ec]),
     V     = cre_PropParm("v", "0"),
     %% C    = cre_PropParm("c", "IN IP4 $ "),
@@ -4961,7 +5342,7 @@ msg2(Mid) ->
     msg2(Mid, ?A4444).
 msg2(Mid, Tid) ->
     Gain  = cre_PropParm("tdmc/gain", "2"),
-    Ec    = cre_PropParm("tdmc/ec", "g165"), 
+    Ec    = cre_PropParm("tdmc/ec", "g165"),
     LCD   = cre_LocalControlDesc(sendRecv,[Gain, Ec]),
     V     = cre_PropParm("v", "0"),
     %% C    = cre_PropParm("c", "IN IP4 $ "),
@@ -5198,7 +5579,7 @@ msg13(Mid) ->
 msg14() ->
     msg14(?MGC_MID).
 msg14(Mid) ->
-    Signal  = cre_Sig("cg/rt"), 
+    Signal  = cre_Sig("cg/rt"),
     AmmReq1 = cre_AmmReq([#megaco_term_id{id = ?A4444}],
 			[{signalsDescriptor, [{signal, Signal}]}]),
     CmdReq1 = cre_CmdReq({modReq, AmmReq1}),
@@ -5363,11 +5744,11 @@ msg22(Mid, N) ->
     Audits     = [{mediaDescriptor, Media},
 		  {packagesDescriptor, [PackagesItem, PackagesItem2]},
 		  {statisticsDescriptor, Statistics}],
-    Reply      = {auditResult, 
+    Reply      = {auditResult,
 		  cre_AuditRes(#megaco_term_id{id = ?A5556},Audits)},
-    msg_reply(Mid, 50007, ?megaco_null_context_id, 
+    msg_reply(Mid, 50007, ?megaco_null_context_id,
 	      lists:duplicate(N,{auditValueReply, Reply})).
-%%     msg_reply(Mid, 50007, ?megaco_null_context_id, 
+%%     msg_reply(Mid, 50007, ?megaco_null_context_id,
 %% 	      lists.duplicate([{auditValueReply, Reply}]).
 
 
@@ -5468,7 +5849,7 @@ msg25(Mid) ->
     Stats2 = [Stat21, Stat22, Stat23, Stat24, Stat25, Stat26, Stat27],
     Reply2 = cre_AmmsReply([#megaco_term_id{id = ?A5556}],
                           [{statisticsDescriptor, Stats2}]),
-    msg_reply(Mid, 50009, 5000, 
+    msg_reply(Mid, 50009, 5000,
 	      [{subtractReply, Reply1}, {subtractReply, Reply2}]).
 
 
@@ -5479,7 +5860,7 @@ msg30b() ->
     msg_ack(?MG2_MID, [{9,13}]).
 
 msg30c() ->
-    msg_ack(?MG2_MID, 
+    msg_ack(?MG2_MID,
 	    [{9,13},   {15,15},  {33,40},  {50,60},  {70,80},  {85,90},
 	     {101,105},{109,119},{121,130},{140,160},{170,175},{180,189},
 	     {201,205},{209,219},{221,230},{240,260},{270,275},{280,289},
@@ -5491,7 +5872,7 @@ msg30c() ->
 %% Don't think this will be used by the megaco stack, but since it
 %% seem's to be a valid construction...
 msg30d() ->
-    msg_ack(?MG2_MID, 
+    msg_ack(?MG2_MID,
 	    [[{9,13},   {15,15},  {33,40},  {50,60},  {70,80},  {85,90}],
 	     [{101,105},{109,119},{121,130},{140,160},{170,175},{180,189}],
 	     [{201,205},{209,219},{221,230},{240,260},{270,275},{280,289}],
@@ -5501,7 +5882,7 @@ msg30d() ->
 	    ]).
 
 
-    
+
 msg40() ->
     msg40(?MG1_MID_NO_PORT, "901 mg col boot").
 msg40(Mid, Reason) when is_list(Reason) ->
@@ -5519,14 +5900,14 @@ msg50(Mid, APT) ->
     Req    = cre_AuditReq(#megaco_term_id{id = ?A5556},AD),
     CmdReq = cre_CmdReq({auditValueRequest, Req}),
     msg_request(Mid, 50007, ?megaco_null_context_id, [CmdReq]).
-    
+
 %% IndAudMediaDescriptor:
 msg51(Mid, IATSDorStream) ->
     IAMD   = cre_IndAudMediaDesc(IATSDorStream),
     IAP    = cre_IndAudParam(IAMD),
     APT    = [IAP],
     msg50(Mid, APT).
-    
+
 msg51a() ->
     msg51a(?MG2_MID).
 msg51a(Mid) ->
@@ -5558,7 +5939,7 @@ msg51d(Mid) ->
 msg51e() ->
     msg51e(?MG2_MID).
 msg51e(Mid) ->
-    IALCD = cre_IndAudLocalControlDesc('NULL', asn1_NOVALUE, 
+    IALCD = cre_IndAudLocalControlDesc('NULL', asn1_NOVALUE,
 				       asn1_NOVALUE, asn1_NOVALUE),
     IASP = cre_IndAudStreamParms(IALCD),
     msg51(Mid, IASP).
@@ -5566,7 +5947,7 @@ msg51e(Mid) ->
 msg51f() ->
     msg51f(?MG2_MID).
 msg51f(Mid) ->
-    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, 'NULL', 
+    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, 'NULL',
 				       asn1_NOVALUE, asn1_NOVALUE),
     IASP = cre_IndAudStreamParms(IALCD),
     msg51(Mid, IASP).
@@ -5574,7 +5955,7 @@ msg51f(Mid) ->
 msg51g() ->
     msg51g(?MG2_MID).
 msg51g(Mid) ->
-    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, asn1_NOVALUE, 
+    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, asn1_NOVALUE,
 				       'NULL', asn1_NOVALUE),
     IASP  = cre_IndAudStreamParms(IALCD),
     msg51(Mid, IASP).
@@ -5584,7 +5965,7 @@ msg51h() ->
 msg51h(Mid) ->
     Name  = "nt/jit",
     IAPP  = cre_IndAudPropertyParm(Name),
-    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, asn1_NOVALUE, 
+    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, asn1_NOVALUE,
 				       asn1_NOVALUE, [IAPP]),
     IASP  = cre_IndAudStreamParms(IALCD),
     SID   = 123,
@@ -5599,7 +5980,7 @@ msg51i(Mid) ->
     Name2 = "tdmc/ec",
     IAPP  = cre_IndAudPropertyParm(Name),
     IAPP2 = cre_IndAudPropertyParm(Name2),
-    IALCD = cre_IndAudLocalControlDesc('NULL', 'NULL', 'NULL', 
+    IALCD = cre_IndAudLocalControlDesc('NULL', 'NULL', 'NULL',
 				       [IAPP, IAPP2]),
     IASP  = cre_IndAudStreamParms(IALCD),
     SID   = 123,
@@ -5635,7 +6016,7 @@ msg54(Mid, Sig) ->
     IAP  = cre_IndAudParam(IASD),
     APT  = [IAP],
     msg50(Mid, APT).
-    
+
 msg54a() ->
     msg54a(?MG2_MID).
 msg54a(Mid) ->
@@ -5677,7 +6058,7 @@ msg56(Mid) ->
     IASD = cre_IndAudStatsDesc(SN),
     IAP  = cre_IndAudParam(IASD),
     APT  = [IAP],
-    msg50(Mid, APT).    
+    msg50(Mid, APT).
 
 %% IndAudPackagesDescriptor:
 msg57() ->
@@ -5688,30 +6069,30 @@ msg57(Mid) ->
     IAPD = cre_IndAudPkgsDesc(PN, PV),
     IAP  = cre_IndAudParam(IAPD),
     APT  = [IAP],
-    msg50(Mid, APT).    
-    
+    msg50(Mid, APT).
+
 %% Sum it up:
 msg58_iaMediaDesc_iap(IATSD) ->
     IAMD  = cre_IndAudMediaDesc(IATSD),
     cre_IndAudParam(IAMD).
-    
+
 msg58_iaMediaDesc_iap_a() ->
     PP    = cre_IndAudPropertyParm("tdmc/gain"),
     PPs   = [PP],
     IATSD = cre_IndAudTermStateDesc(PPs),
     msg58_iaMediaDesc_iap(IATSD).
-    
+
 msg58_iaMediaDesc_iap_b() ->
     IATSD = cre_IndAudTermStateDesc([], 'NULL', asn1_NOVALUE),
     msg58_iaMediaDesc_iap(IATSD).
-    
+
 msg58_iaEvsDesc_iap() ->
     RequestID = 1235,
     PkgdName  = "tonedet/std",
     IAED = cre_IndAudEvsDesc(RequestID, PkgdName),
     cre_IndAudParam(IAED).
 
-msg58_iaEvBufDesc_iap() ->    
+msg58_iaEvBufDesc_iap() ->
     EN    = "tonedet/std",
     SID   = 1,
     IAEBD = cre_IndAudEvBufDesc(EN, SID),
@@ -5725,7 +6106,7 @@ msg58_iaSigsDesc_iap_a() ->
     SN  = "tonegen/pt",
     Sig = cre_IndAudSig(SN),
     msg58_iaSigsDesc_iap(Sig).
-   
+
 msg58_iaSigsDesc_iap_b() ->
     SN  = "ct/ct",
     Sig = cre_IndAudSig(SN),
@@ -5737,7 +6118,7 @@ msg58_iaDigMapDesc_iap() ->
     DMN   = "dialplan00",
     IADMD = cre_IndAudDigitMapDesc(DMN),
     cre_IndAudParam(IADMD).
-    
+
 msg58_iaStatsDesc_iap() ->
     SN   = "nt/dur",
     IASD = cre_IndAudStatsDesc(SN),
@@ -5776,7 +6157,7 @@ msg58b(Mid) ->
     msg50(Mid, APT).
 
 
-%% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+%% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %% Tests some of the changes in the v2 corr 1 (EmergencyOff and ModemDesc)
 
 %% Emergency On/Off (optional) tests
@@ -5791,7 +6172,7 @@ msg61(EM) ->
     ActReq = ?MSG_LIB:cre_ActionRequest(1, CtxReq, [CmdReq]),
     Acts   = [ActReq],
     TR     = ?MSG_LIB:cre_TransactionRequest(9898, Acts),
-    Trans  = ?MSG_LIB:cre_Transaction(TR), 
+    Trans  = ?MSG_LIB:cre_Transaction(TR),
     Mess   = ?MSG_LIB:cre_Message(?VERSION, ?MG1_MID, [Trans]),
     cre_MegacoMessage(Mess).
 
@@ -5817,12 +6198,12 @@ msg62a() ->
     ActReq  = ?MSG_LIB:cre_ActionRequest(2, [CmdReq]),
     Acts    = [ActReq],
     TR      = ?MSG_LIB:cre_TransactionRequest(9898, Acts),
-    Trans   = ?MSG_LIB:cre_Transaction(TR), 
+    Trans   = ?MSG_LIB:cre_Transaction(TR),
     Mess    = ?MSG_LIB:cre_Message(?VERSION, ?MG1_MID, [Trans]),
     cre_MegacoMessage(Mess).
 
 msg62b() ->
-    MP = 
+    MP =
 "MEGACO/" ?VERSION_STR " [124.124.124.222]:55555
 Transaction = 9898 {
         Context = 2 {
@@ -5833,7 +6214,7 @@ Transaction = 9898 {
                 }
         }
 }",
-%     MC = 
+%     MC =
 % "!/" ?VERSION_STR " [124.124.124.222]:55555\nT=9898{C=2{A=11111111/00000000/00000000{MD[V18]{tdmc/gain=2}}}}",
     list_to_binary(MP).
 
@@ -5855,31 +6236,31 @@ msg71(CR, CAAR) ->
     ActReq = ?MSG_LIB:cre_ActionRequest(1, CR, CAAR, [CR1, CR2]),
     Acts   = [ActReq],
     TR     = ?MSG_LIB:cre_TransactionRequest(9898, Acts),
-    Trans  = ?MSG_LIB:cre_Transaction(TR), 
+    Trans  = ?MSG_LIB:cre_Transaction(TR),
     Mess   = ?MSG_LIB:cre_Message(?VERSION, ?MG1_MID, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 msg71a() ->
     CR   = cre_CtxReq(),
     CAAR = cre_CtxAttrAuditReq(),
     msg71(CR, CAAR).
 
-msg71b(CR) ->    
+msg71b(CR) ->
     CAAR = asn1_NOVALUE,
     msg71(CR, CAAR).
 
 msg71b01() ->
     CR = cre_CtxReq(15),
     msg71b(CR).
-    
+
 msg71b02() ->
     CR = cre_CtxReq(true),
     msg71b(CR).
-    
+
 msg71b03() ->
     CR = cre_CtxReq(false),
     msg71b(CR).
-    
+
 msg71b04() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -5892,15 +6273,15 @@ msg71b04() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(Top),
     msg71b(CR).
-    
+
 msg71b05() ->
     CR = cre_CtxReq(15, true),
     msg71b(CR).
-    
+
 msg71b06() ->
     CR = cre_CtxReq(15, false),
     msg71b(CR).
-    
+
 msg71b07() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -5913,7 +6294,7 @@ msg71b07() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(15, Top),
     msg71b(CR).
-    
+
 msg71b08() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -5926,7 +6307,7 @@ msg71b08() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(15, true, Top),
     msg71b(CR).
-    
+
 msg71b09() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -5939,7 +6320,7 @@ msg71b09() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(15, false, Top),
     msg71b(CR).
-    
+
 msg71b10() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -5952,7 +6333,7 @@ msg71b10() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(15, false, Top),
     msg71b(CR).
-    
+
 msg71b11() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -5965,7 +6346,7 @@ msg71b11() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(15, false, Top),
     msg71b(CR).
-    
+
 msg71b12() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -5978,7 +6359,7 @@ msg71b12() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(15, true, Top, true),
     msg71b(CR).
-    
+
 msg71b13() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -5991,7 +6372,7 @@ msg71b13() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(15, true, Top, false),
     msg71b(CR).
-    
+
 msg71b14() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6006,7 +6387,7 @@ msg71b14() ->
     Props = [PP],
     CR    = cre_CtxReq(15, true, Top, Props),
     msg71b(CR).
-    
+
 msg71b15() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6021,7 +6402,7 @@ msg71b15() ->
     Props = [PP],
     CR    = cre_CtxReq(15, true, Top, Props),
     msg71b(CR).
-    
+
 msg71b16() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6032,11 +6413,11 @@ msg71b16() ->
     Dir2  = bothway,
     Top2  = cre_TopologyRequest(From2, To2, Dir2),
     Top   = [Top1, Top2],
-    PP    = cre_PropParm("tdmc/gain", ["2","10"], range, true), 
+    PP    = cre_PropParm("tdmc/gain", ["2","10"], range, true),
     Props = [PP],
     CR    = cre_CtxReq(15, true, Top, Props),
     msg71b(CR).
-    
+
 msg71b17() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6051,7 +6432,7 @@ msg71b17() ->
     Props = [PP],
     CR    = cre_CtxReq(15, true, Top, Props),
     msg71b(CR).
-    
+
 msg71b18() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6062,11 +6443,11 @@ msg71b18() ->
     Dir2  = isolate,
     Top2  = cre_TopologyRequest(From2, To2, Dir2),
     Top   = [Top1, Top2],
-    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false), 
+    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false),
     Props = [PP],
     CR    = cre_CtxReq(15, true, Top, true, Props),
     msg71b(CR).
-    
+
 msg71b19() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6079,7 +6460,7 @@ msg71b19() ->
     Top   = [Top1, Top2],
     CR    = cre_CtxReq(15, true, Top, false),
     msg71b(CR).
-    
+
 msg71b20() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6090,11 +6471,11 @@ msg71b20() ->
     Dir2  = isolate,
     Top2  = cre_TopologyRequest(From2, To2, Dir2),
     Top   = [Top1, Top2],
-    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false), 
+    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false),
     Props = [PP],
     CR    = cre_CtxReq(15, true, Top, false, Props),
     msg71b(CR).
-    
+
 msg71b21() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6110,7 +6491,7 @@ msg71b21() ->
     CIDs  = [CID1, CID2],
     CR    = cre_CtxReq(15, true, Top, false, CIDs),
     msg71b(CR).
-    
+
 msg71b22() ->
     From1 = #megaco_term_id{id = ["11111111", "00000000", "00000000"]},
     To1   = #megaco_term_id{id = ["11111111", "00000000", "00001111"]},
@@ -6121,18 +6502,18 @@ msg71b22() ->
     Dir2  = isolate,
     Top2  = cre_TopologyRequest(From2, To2, Dir2),
     Top   = [Top1, Top2],
-    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false), 
+    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false),
     Props = [PP],
     CID1  = cre_CtxID(10191),
     CID2  = cre_CtxID(10192),
     CIDs  = [CID1, CID2],
     CR    = cre_CtxReq(15, true, Top, false, Props, CIDs),
     msg71b(CR).
-    
+
 msg71c(CAAR) ->
     CR = asn1_NOVALUE,
     msg71(CR, CAAR).
-    
+
 msg71c01() ->
     CAAR = cre_CtxAttrAuditReq('NULL', 'NULL', 'NULL'),
     msg71c(CAAR).
@@ -6198,7 +6579,7 @@ msg71c11() ->
     CPA   = [IAPP1, IAPP2],
     SPrio = 10,
     SEm   = true,
-    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA, 
+    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA,
 				SPrio, SEm, asn1_NOVALUE, asn1_NOVALUE),
     msg71c(CAAR).
 
@@ -6213,7 +6594,7 @@ msg71c12() ->
     SPrio = 10,
     SEm   = true,
     SIeps = false,
-    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA, 
+    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA,
 					SPrio, SEm, SIeps),
     msg71c(CAAR).
 
@@ -6229,7 +6610,7 @@ msg71c13() ->
     SEm   = false,
     SIeps = true,
     SLog  = cre_SelectLogic(andAUDITSelect),
-    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA, 
+    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA,
 				SPrio, SEm, SIeps, SLog),
     msg71c(CAAR).
 
@@ -6245,7 +6626,7 @@ msg71c14() ->
     SEm   = true,
     SIeps = true,
     SLog  = cre_SelectLogic(orAUDITSelect),
-    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA, 
+    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA,
 					SPrio, SEm, SIeps, SLog),
     msg71c(CAAR).
 
@@ -6259,7 +6640,7 @@ msg71c15() ->
     CPA   = [IAPP1, IAPP2],
     SPrio = 10,
     SLog  = cre_SelectLogic(orAUDITSelect),
-    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA, 
+    CAAR  = cre_CtxAttrAuditReq(Top, Em, Prio, Ieps, CPA,
 				SPrio, SLog),
     msg71c(CAAR).
 
@@ -6290,7 +6671,7 @@ msg71d02() ->
     IAPP2 = cre_IndAudPropertyParm("nt/jit"),
     CPA   = [IAPP1, IAPP2],
     CAAR = cre_CtxAttrAuditReq(CAAR_Top, Em, Prio, Ieps, CPA),
-   
+
     msg71(CR, CAAR).
 
 msg71d03() ->
@@ -6315,7 +6696,7 @@ msg71d03() ->
     IAPP2 = cre_IndAudPropertyParm("nt/jit"),
     CPA   = [IAPP1, IAPP2],
     CAAR = cre_CtxAttrAuditReq(CAAR_Top, Em, Prio, Ieps, CPA),
-   
+
     msg71(CR, CAAR).
 
 msg71d04() ->
@@ -6335,7 +6716,7 @@ msg71d04() ->
     CIDs  = [CID1, CID2],
     CR    = cre_CtxReq(15, true, Top, false, Props, CIDs),
 
-    CAAR_Top = 'NULL', 
+    CAAR_Top = 'NULL',
     Em   = 'NULL',
     Prio = 'NULL',
     Ieps = 'NULL',
@@ -6346,7 +6727,7 @@ msg71d04() ->
     SEm   = true,
     SIeps = true,
     SLog  = cre_SelectLogic(orAUDITSelect),
-    CAAR  = cre_CtxAttrAuditReq(CAAR_Top, Em, Prio, Ieps, CPA, 
+    CAAR  = cre_CtxAttrAuditReq(CAAR_Top, Em, Prio, Ieps, CPA,
 				SPrio, SEm, SIeps, SLog),
     msg71(CR, CAAR).
 
@@ -6484,7 +6865,7 @@ msg72c03() ->
     Dir2  = isolate,
     Top2  = cre_TopologyRequest(From2, To2, Dir2),
     Top   = [Top1, Top2],
-    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false), 
+    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false),
     Props = [PP],
     CR    = cre_CtxReq(15, true, Top, true, Props),
     msg72c(CR).
@@ -6499,7 +6880,7 @@ msg72c04() ->
     Dir2  = isolate,
     Top2  = cre_TopologyRequest(From2, To2, Dir2),
     Top   = [Top1, Top2],
-    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false), 
+    PP    = cre_PropParm("tdmc/gain", ["2","4","8"], sublist, false),
     Props = [PP],
     CR    = cre_CtxReq(15, true, Top, false, Props),
     msg72c(CR).
@@ -6533,7 +6914,7 @@ msg73a() ->
     Mid      = ?MG1_MID,
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 
 %% StatisticsDescriptor in IndAudStreamParms
 msg73b1() ->
@@ -6556,19 +6937,19 @@ msg73b2(IAMD) ->
     Mid      = ?MG1_MID,
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 msg73b01() ->
     IASP = msg73b1(),
     IAMD = cre_IndAudMediaDesc(IASP),
     msg73b2(IAMD).
-    
+
 msg73b02() ->
     IASP = msg73b1(),
     SID  = cre_StreamID(303),
     IASD = cre_IndAudStreamDesc(SID, IASP),
     IAMD = cre_IndAudMediaDesc([IASD]),
     msg73b2(IAMD).
-    
+
 %% StatisticsDescriptor in StreamParms
 msg73c1() ->
     StatDesc = msg73(),
@@ -6626,7 +7007,7 @@ msg74a4(Sig) ->
     SR      = cre_SigReq(Sig),
     SD      = cre_SigsDesc([SR]),
     AD      = cre_AmmDesc(SD),
-    TermIDs = [#megaco_term_id{id = ?A4444}], 
+    TermIDs = [#megaco_term_id{id = ?A4444}],
     AR      = cre_AmmReq(TermIDs, [AD]),
     Cmd     = cre_Cmd(modReq, AR),
     cre_CmdReq(Cmd).
@@ -6643,7 +7024,7 @@ msg74a01() ->
     Mid      = ?MG1_MID,
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 msg74a02() ->
     Sig      = msg74a1(both),
     CR       = msg74a4(Sig),
@@ -6656,7 +7037,7 @@ msg74a02() ->
     Mid      = ?MG1_MID,
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 msg74a03() ->
     RID      = cre_ReqID(7433),
     Sig      = msg74a2(external, RID),
@@ -6670,7 +7051,7 @@ msg74a03() ->
     Mid      = ?MG1_MID,
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 msg74a04() ->
     RID      = cre_ReqID(7434),
     Sig      = msg74a2(both, RID),
@@ -6684,7 +7065,7 @@ msg74a04() ->
     Mid      = ?MG1_MID,
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 msg74a05() ->
     RID      = cre_ReqID(7435),
     Sig      = msg74a3(both, RID),
@@ -6698,7 +7079,7 @@ msg74a05() ->
     Mid      = ?MG1_MID,
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
+
 msg74a06() ->
     RID      = cre_ReqID(7436),
     Sig      = msg74a3(internal, RID),
@@ -6712,8 +7093,8 @@ msg74a06() ->
     Mid      = ?MG1_MID,
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
-    
-    
+
+
 
 %% New ServiceChangeParm (serviceChangeIncompleteFlag); msg75
 msg75a(IncFlag) ->
@@ -6722,7 +7103,7 @@ msg75a(IncFlag) ->
     Reason   = "901 mg col boot",
     Profile  = cre_SvcChProf("resgw",1),
     Parm     = cre_SvcChParm(Method, Address, [Reason], Profile, IncFlag),
-    TermIDs  = [?megaco_root_termination_id], 
+    TermIDs  = [?megaco_root_termination_id],
     Req      = cre_SvcChReq(TermIDs, Parm),
     Cmd      = cre_Cmd(serviceChangeReq, Req),
     CR       = cre_CmdReq(Cmd),
@@ -6764,22 +7145,22 @@ msg76a01() ->
     Name2 = "tdmc/ec",
     IAPP2 = cre_IndAudPropertyParm(Name2),
     SMS   = cre_StreamMode(recvOnly),
-    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, 'NULL', 'NULL', 
+    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, 'NULL', 'NULL',
 				       [IAPP1, IAPP2], SMS),
     msg76a(IALCD).
-    
+
 msg76a02() ->
     Name1 = "tdmc/gain",
-    PP1   = cre_PropParm("tdmc/gain", "2"), 
+    PP1   = cre_PropParm("tdmc/gain", "2"),
     IAPP1 = cre_IndAudPropertyParm(Name1, PP1),
     Name2 = "tdmc/gain",
-    PP2   = cre_PropParm("tdmc/gain", "3"), 
+    PP2   = cre_PropParm("tdmc/gain", "3"),
     IAPP2 = cre_IndAudPropertyParm(Name2, PP2),
     SMS   = cre_StreamMode(recvOnly),
-    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, 'NULL', 'NULL', 
+    IALCD = cre_IndAudLocalControlDesc(asn1_NOVALUE, 'NULL', 'NULL',
 				       [IAPP1, IAPP2], SMS),
     msg76a(IALCD).
-    
+
 %% IndAudTerminationStateDescription + ServiceState
 msg76b(IATSD) ->
     IAMD = cre_IndAudMediaDesc(IATSD),
@@ -6802,9 +7183,9 @@ msg77a01() ->
     SN  = "tonegen/pt",
     Sig = cre_IndAudSig(SN, 7701),
     msg54(?MG2_MID, Sig).
-		   
 
-msg78a(Events) ->   
+
+msg78a(Events) ->
     EventsDesc = cre_EvsDesc(2223, Events),
     Signal     = cre_Sig("cg/rt"),
     Name       = "dialplan00",
@@ -6817,7 +7198,7 @@ msg78a(Events) ->
 			    {digitMapDescriptor, DigMapDesc}]),
     CmdReq     = cre_CmdReq({modReq, AmmReq}),
     msg_request(?MG2_MID, 10001, ?megaco_null_context_id, [CmdReq]).
-    
+
 msg78a01() ->
     Name1  = "al/on",
     Strict = cre_EvParm("strict", ["state"]),
@@ -6828,9 +7209,9 @@ msg78a01() ->
     KA2    = true,
     EDM2   = cre_EvDM("dialplan00"),
     NB2    = cre_NotifBehav(notifyImmediate, 'NULL'),
-    RED2   = asn1_NOVALUE, 
+    RED2   = asn1_NOVALUE,
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB2, RED2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, SID2, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -6844,9 +7225,9 @@ msg78a02() ->
     KA2    = true,
     EDM2   = cre_EvDM("dialplan00"),
     NB2    = cre_NotifBehav(neverNotify, 'NULL'),
-    RED2   = asn1_NOVALUE, 
+    RED2   = asn1_NOVALUE,
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB2, RED2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, SID2, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -6861,9 +7242,9 @@ msg78a03() ->
     EDM2   = cre_EvDM("dialplan00"),
     RED2   = cre_RegEmbedDesc(),
     NB2    = cre_NotifBehav(notifyRegulated, RED2),
-    REvD2  = asn1_NOVALUE, 
+    REvD2  = asn1_NOVALUE,
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB2, REvD2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, SID2, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -6879,9 +7260,9 @@ msg78a04() ->
     SED2   = cre_SecEvsDesc(7814, [SRE2]),
     RED2   = cre_RegEmbedDesc(SED2),
     NB2    = cre_NotifBehav(notifyRegulated, RED2),
-    REvD2  = asn1_NOVALUE, 
+    REvD2  = asn1_NOVALUE,
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB2, REvD2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, 7824, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -6897,9 +7278,9 @@ msg78a05() ->
     SD2    = cre_SigsDesc(),
     RED2   = cre_RegEmbedDesc(SD2),
     NB2    = cre_NotifBehav(notifyRegulated, RED2),
-    REvD2  = asn1_NOVALUE, 
+    REvD2  = asn1_NOVALUE,
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB2, REvD2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, SID2, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -6913,15 +7294,15 @@ msg78a06() ->
     EDM2   = cre_EvDM("dialplan00"),
     SRE2   = cre_SecReqEv("al/on"),
     SED2   = cre_SecEvsDesc(7816, [SRE2]),
-    Sig2   = cre_Sig("cg/rt", external, asn1_NOVALUE), 
-    SR2    = cre_SigReq(Sig2), 
+    Sig2   = cre_Sig("cg/rt", external, asn1_NOVALUE),
+    SR2    = cre_SigReq(Sig2),
     SRs2   = [SR2],
     SD2    = cre_SigsDesc(SRs2),
     RED2   = cre_RegEmbedDesc(SED2, SD2),
     NB2    = cre_NotifBehav(notifyRegulated, RED2),
-    REvD2  = asn1_NOVALUE, 
+    REvD2  = asn1_NOVALUE,
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB2, REvD2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, 7826, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -6935,15 +7316,15 @@ msg78a07() ->
     EDM2   = cre_EvDM("dialplan00"),
     SRE2   = cre_SecReqEv("al/on"),
     SED2   = cre_SecEvsDesc(7817, [SRE2]),
-    Sig2   = cre_Sig("cg/rt", external, asn1_NOVALUE), 
-    SR2    = cre_SigReq(Sig2), 
+    Sig2   = cre_Sig("cg/rt", external, asn1_NOVALUE),
+    SR2    = cre_SigReq(Sig2),
     SRs2   = [SR2],
     SD2    = cre_SigsDesc(SRs2),
     RED2   = cre_RegEmbedDesc(SED2, SD2),
     NB2    = cre_NotifBehav(notifyRegulated, RED2),
-    REvD2  = 'NULL', 
+    REvD2  = 'NULL',
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB2, REvD2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, 7827, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -6957,8 +7338,8 @@ msg78a08() ->
     KA2    = true,
     EDM2   = cre_EvDM("dialplan00"),
 
-    Sig21  = cre_Sig("al/ri", both, asn1_NOVALUE), 
-    SR21   = cre_SigReq(Sig21), 
+    Sig21  = cre_Sig("al/ri", both, asn1_NOVALUE),
+    SR21   = cre_SigReq(Sig21),
     SRs21  = [SR21],
     SD21   = cre_SigsDesc(SRs21),
     RED21  = cre_RegEmbedDesc(SD21),
@@ -6966,17 +7347,17 @@ msg78a08() ->
     SRA2   = cre_SecReqActs(KA2, EDM2, asn1_NOVALUE, NB21, 'NULL'),
     SRE2   = cre_SecReqEv("al/of", 7816, SRA2),
     SED2   = cre_SecEvsDesc(7826, [SRE2]),
-    
-    Sig22  = cre_Sig("cg/rt", external, asn1_NOVALUE), 
-    SR22   = cre_SigReq(Sig22), 
+
+    Sig22  = cre_Sig("cg/rt", external, asn1_NOVALUE),
+    SR22   = cre_SigReq(Sig22),
     SRs22  = [SR22],
     SD22   = cre_SigsDesc(SRs22),
     RED22  = cre_RegEmbedDesc(SED2, SD22),
     NB22   = cre_NotifBehav(notifyRegulated, RED22),
-    REvD2  = 'NULL', 
+    REvD2  = 'NULL',
 
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB22, REvD2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, 7836, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -6999,9 +7380,9 @@ msg78a09() ->
     Dir21  = cre_SigDir(both),
     RID21  = cre_ReqID(7829),
 
-    Sig21  = cre_Sig("cg/rt", SID21, ST21, Dur21, NC21, KA21, SPL21, Dir21, 
+    Sig21  = cre_Sig("cg/rt", SID21, ST21, Dur21, NC21, KA21, SPL21, Dir21,
 		     RID21, 7839),
-    SR21   = cre_SigReq(Sig21), 
+    SR21   = cre_SigReq(Sig21),
     SRs21  = [SR21],
     SD21   = cre_SigsDesc(SRs21),
     RED21  = cre_RegEmbedDesc(SD21),
@@ -7010,7 +7391,7 @@ msg78a09() ->
     SRA2   = cre_SecReqActs(KA2, EDM2, asn1_NOVALUE, NB21, 'NULL'),
     SRE2   = cre_SecReqEv("al/of", 7849, SRA2),
     SED2   = cre_SecEvsDesc(7859, [SRE2]),
-    
+
     SID22  = cre_StreamID(7869),
     ST22   = cre_SigType(brief),
     Dur22  = 17809,
@@ -7020,18 +7401,18 @@ msg78a09() ->
     Dir22  = cre_SigDir(external),
     RID22  = cre_ReqID(7879),
 
-    Sig22  = cre_Sig("cg/rt", SID22, ST22, Dur22, NC22, KA22, SPL22, Dir22, 
+    Sig22  = cre_Sig("cg/rt", SID22, ST22, Dur22, NC22, KA22, SPL22, Dir22,
 		     RID22, 7889),
-    SR22   = cre_SigReq(Sig22), 
+    SR22   = cre_SigReq(Sig22),
     SRs22  = [SR22],
     SD22   = cre_SigsDesc(SRs22),
     RED22  = cre_RegEmbedDesc(SED2, SD22),
 
     NB22   = cre_NotifBehav(notifyRegulated, RED22),
-    REvD2  = 'NULL', 
+    REvD2  = 'NULL',
 
     RA2    = cre_ReqActs(KA2, EDM2, asn1_NOVALUE, asn1_NOVALUE, NB22, REvD2),
-    EPL2   = EPL1, 
+    EPL2   = EPL1,
     RE2    = cre_ReqEv(Name2, 7899, RA2, EPL2),
     msg78a([RE1, RE2]).
 
@@ -7039,7 +7420,7 @@ msg78a09() ->
 msg79a01() ->
     TID1 = #megaco_term_id{id = ?A4444},
     TID2 = #megaco_term_id{id = ?A4445},
-    TID3 = #megaco_term_id{id = ?A5555}, 
+    TID3 = #megaco_term_id{id = ?A5555},
     TIDs = cre_TermIDList([TID1, TID2, TID3]),
     ErC  = cre_ErrCode(?megaco_not_ready),
     ErD  = cre_ErrDesc(ErC),
@@ -7069,7 +7450,7 @@ msg80() ->
 			    {serviceChangeResParms, Parm}),
     CmdRep  = cre_CmdRep(serviceChangeReply, Reply),
     cre_ActRep(80, [CmdRep]).
-    
+
 msg80a(Mid, SN) ->
     TransId  = 8000,
     ActRep   = msg80(),
@@ -7106,7 +7487,7 @@ msg80b03() ->
 
 msg81a(Mid, SN) ->
     TransId  = 8101,
-    SegReply = cre_SegRep(TransId, SN), 
+    SegReply = cre_SegRep(TransId, SN),
     Trans    = cre_Trans(SegReply),
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
@@ -7122,7 +7503,7 @@ msg81a03() ->
 
 msg81b(Mid, SN) ->
     TransId  = 8102,
-    SegReply = cre_SegRep(TransId, SN, 'NULL'), 
+    SegReply = cre_SegRep(TransId, SN, 'NULL'),
     Trans    = cre_Trans(SegReply),
     Mess     = cre_Msg(Mid, [Trans]),
     cre_MegacoMessage(Mess).
@@ -7136,8 +7517,8 @@ msg81b02() ->
 msg81b03() ->
     msg81b(?MG3_MID, 65535).
 
-    
-%% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+%% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %% Pretty RFC 3525 messages:
 
 %% Added Reason
@@ -7148,11 +7529,11 @@ rfc3525_msg1() ->
          Services {
             Method = Restart,
             Reason = 901,
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/1
          }
       }
-   } 
+   }
 }".
 
 rfc3525_msg2() ->
@@ -7160,11 +7541,11 @@ rfc3525_msg2() ->
    Context = - {
       ServiceChange = ROOT {
          Services {
-            ServiceChangeAddress = 55555, 
+            ServiceChangeAddress = 55555,
             Profile = ResGW/1
-         } 
-      } 
-   } 
+         }
+      }
+   }
 }".
 
 
@@ -7173,7 +7554,7 @@ rfc3525_msg3() ->
 "MEGACO/" ?VERSION_STR " [123.123.123.4]:55555 Transaction = 9999 {
    Context = - {
       Modify = A4444 {
-         Media { 
+         Media {
             Stream = 1 {
                LocalControl {
                   Mode = SendReceive,
@@ -7205,15 +7586,15 @@ rfc3525_msg6() ->
             19990729T22000000:al/of{init=false}
          }
       }
-   } 
+   }
 }".
- 
+
 
 rfc3525_msg7() ->
 "MEGACO/" ?VERSION_STR " [123.123.123.4]:55555 Reply = 10000 {
    Context = - {
       Notify = A4444
-   } 
+   }
 }".
 
 rfc3525_msg8() ->
@@ -7221,11 +7602,11 @@ rfc3525_msg8() ->
    Context = - {
       Modify = A4444 {
          Events = 2223 {
-            al/on {strict=state}, 
+            al/on {strict=state},
             dd/ce {DigitMap=Dialplan0}
 	 },
          Signals {cg/dt},
-         DigitMap = Dialplan0 { 
+         DigitMap = Dialplan0 {
             (0| 00|[1-7]xxx|8xxxxxxx|fxxxxxxx|exx|91xxxxxxxxxx|9011x.)
          }
       }
@@ -7250,7 +7631,7 @@ rfc3525_msg10() ->
             }
          }
       }
-   } 
+   }
 }".
 
 
@@ -7273,13 +7654,13 @@ rfc3525_msg12() ->
                   Mode = ReceiveOnly,
                   nt/jit=40 ; in ms
                },
-               Local { 
+               Local {
                   v=0 c=IN IP4 $ m=audio $ RTP/AVP 4 a=ptime:30 v=0 c=IN IP4 $ m=audio $ RTP/AVP 0
                }
             }
          }
       }
-   } 
+   }
 }".
 
 %% Added ?
@@ -7290,28 +7671,28 @@ rfc3525_msg13() ->
       Add = A4445 {
          Media {
             Stream = 1 {
-               Local { 
-v=0 
-o=- 2890844526 2890842807 IN IP4 124.124.124.222 
-s=- 
-t= 0 0 
-c=IN IP4 124.124.124.222 
-m=audio 2222 RTP/AVP 4 
-a=ptime:30 
-a=recvonly 
+               Local {
+v=0
+o=- 2890844526 2890842807 IN IP4 124.124.124.222
+s=-
+t= 0 0
+c=IN IP4 124.124.124.222
+m=audio 2222 RTP/AVP 4
+a=ptime:30
+a=recvonly
                } ; RTP profile for G.723.1 is 4
             }
          }
       }
-   } 
+   }
 }".
 
-%% 
+%%
 %% Added ?
 rfc3525_msg14() ->
 "MEGACO/" ?VERSION_STR " [123.123.123.4]:55555 Transaction = 50003 {
    Context = $ {
-      Add = A5555 { 
+      Add = A5555 {
          Media {
             Stream = 1 {
                LocalControl {
@@ -7331,16 +7712,16 @@ rfc3525_msg14() ->
                   Mode = SendReceive,
                   nt/jit=40 ; in ms
                },
-               Local { 
+               Local {
                   v=0 c=IN IP4 $ m=audio $ RTP/AVP 4 a=ptime:30
                },
-               Remote { 
+               Remote {
                   v=0 c=IN IP4 124.124.124.222 m=audio 2222 RTP/AVP 4 a=ptime:30
                } ; RTP profile for G.723.1 is 4
             }
          }
       }
-   } 
+   }
 }".
 
 %% Added ?
@@ -7351,10 +7732,10 @@ rfc3525_msg15() ->
       Add = A5556 {
          Media {
             Stream = 1 {
-               Local { 
-                  v=0 o=- 7736844526 7736842807 IN IP4 125.125.125.111 s=- t= 0 0 c=IN IP4 125.125.125.111 m=audio 1111 RTP/AVP 4 
+               Local {
+                  v=0 o=- 7736844526 7736842807 IN IP4 125.125.125.111 s=- t= 0 0 c=IN IP4 125.125.125.111 m=audio 1111 RTP/AVP 4
                } ; RTP profile for G723.1 is 4
-            } 
+            }
          }
       }
    }
@@ -7370,10 +7751,10 @@ rfc3525_msg16a() ->
       Modify = A4445 {
          Media {
             Stream = 1 {
-               Remote { 
+               Remote {
                   v=0 o=- 7736844526 7736842807 IN IP4 125.125.125.111 s=- t= 0 0 c=IN IP4 125.125.125.111 m=audio 1111 RTP/AVP 4
 	       } ; RTP profile for G723.1 is 4
-            } 
+            }
          }
       }
    }
@@ -7382,7 +7763,7 @@ rfc3525_msg16a() ->
 rfc3525_msg16b() ->
 "MEGACO/" ?VERSION_STR " [124.124.124.222]:55555 Reply = 10005 {
    Context = 2000 {
-      Modify = A4444, 
+      Modify = A4444,
       Modify = A4445
    }
 }".
@@ -7439,7 +7820,7 @@ rfc3525_msg18a() ->
          }
       },
       Modify = A4444 {
-         Signals 
+         Signals
       }
    }
 }".
@@ -7447,7 +7828,7 @@ rfc3525_msg18a() ->
 rfc3525_msg18b() ->
 "MEGACO/" ?VERSION_STR " [124.124.124.222]:55555 Reply = 10006 {
    Context = 2000 {
-      Modify = A4445, 
+      Modify = A4445,
       Modify = A4444
    }
 }".
@@ -7466,22 +7847,22 @@ rfc3525_msg19() ->
 %% Added ?
 rfc3525_msg20() ->
 "MEGACO/" ?VERSION_STR " [125.125.125.111]:55555 Reply = 50007 {
-   Context = - { 
+   Context = - {
       AuditValue = A5556 {
          Media {
-            TerminationState { 
+            TerminationState {
                ServiceStates = InService,
-               Buffer = OFF 
+               Buffer = OFF
             },
             Stream = 1 {
-               LocalControl { 
+               LocalControl {
                   Mode = SendReceive,
-                  nt/jit=40 
+                  nt/jit=40
                },
-               Local { 
+               Local {
                   v=0 o=- 7736844526 7736842807 IN IP4 125.125.125.111 s=- t= 0 0 c=IN IP4 125.125.125.111 m=audio 1111 RTP/AVP  4 a=ptime:30
                },
-               Remote { 
+               Remote {
                   v=0 o=- 2890844526 2890842807 IN IP4 124.124.124.222 s=- t= 0 0 c=IN IP4 124.124.124.222 m=audio 2222 RTP/AVP  4 a=ptime:30
                }
             }
@@ -7490,7 +7871,7 @@ rfc3525_msg20() ->
          Signals,
          DigitMap,
          Packages {nt-1, rtp-1},
-         Statistics { 
+         Statistics {
             rtp/ps=1200,  ; packets sent
             nt/os=62300, ; octets sent
             rtp/pr=700, ; packets received
@@ -7498,7 +7879,7 @@ rfc3525_msg20() ->
             rtp/pl=0.2,  ; % packet loss
             rtp/jit=20,
             rtp/delay=40 ; avg latency
-         } 
+         }
       }
    }
 }".
@@ -7657,14 +8038,14 @@ ticket_compact_encode_decode_ok(Msg) ->
     ticket_compact_encode_decode_ok(Msg, []).
 
 ticket_compact_encode_decode_ok(Msg, Conf) ->
-    Codec  = megaco_compact_text_encoder, 
+    Codec  = megaco_compact_text_encoder,
     ticket_encode_decode_ok(Msg, Codec, Conf).
 
 ticket_pretty_encode_decode_ok(Msg) ->
     ticket_pretty_encode_decode_ok(Msg, []).
 
 ticket_pretty_encode_decode_ok(Msg, Conf) ->
-    Codec  = megaco_pretty_text_encoder, 
+    Codec  = megaco_pretty_text_encoder,
     ticket_encode_decode_ok(Msg, Codec, Conf).
 
 ticket_encode_decode_ok(Msg, Codec, Conf0) ->
@@ -7674,26 +8055,26 @@ ticket_encode_decode_ok(Msg, Codec, Conf0) ->
     Check  = fun(M1, M2) -> chk_MegacoMessage(M1, M2) end,
     megaco_codec_test_lib:expect_encode_decode(Msg, Encode, Decode, Check).
 
-%% -- 
+%% --
 
 %% ticket_compact_encode_error(Msg) ->
 %%     ticket_compact_encode_error(Msg, []).
 
 %% ticket_compact_encode_error(Msg, Conf) ->
-%%     Codec  = megaco_compact_text_encoder, 
+%%     Codec  = megaco_compact_text_encoder,
 %%     ticket_encode_error(Msg, Codec, Conf).
 
 %% ticket_pretty_encode_error(Msg) ->
 %%     ticket_pretty_encode_error(Msg, []).
 
 ticket_pretty_encode_error(Msg, Conf) when is_list(Conf) ->
-    Codec = megaco_pretty_text_encoder, 
+    Codec = megaco_pretty_text_encoder,
     ticket_encode_error(Msg, Codec, Conf);
 ticket_pretty_encode_error(Msg, Check) when is_function(Check) ->
     ticket_pretty_encode_error(Msg, [], Check).
 
 ticket_pretty_encode_error(Msg, Conf, Check) when is_function(Check) ->
-    Codec = megaco_pretty_text_encoder, 
+    Codec = megaco_pretty_text_encoder,
     ticket_encode_error(Msg, Codec, Conf, Check).
 
 ticket_encode_error(Msg, Codec, Conf) when is_list(Conf) ->
@@ -7711,14 +8092,14 @@ ticket_compact_decode_encode_ok(Msg) ->
     ticket_compact_decode_encode_ok(Msg, []).
 
 ticket_compact_decode_encode_ok(Msg, Conf) ->
-    Codec  = megaco_compact_text_encoder, 
+    Codec  = megaco_compact_text_encoder,
     ticket_decode_encode_ok(Msg, Codec, Conf).
 
 ticket_pretty_decode_encode_ok(Msg) ->
     ticket_pretty_decode_encode_ok(Msg, []).
 
 ticket_pretty_decode_encode_ok(Msg, Conf) ->
-    Codec  = megaco_pretty_text_encoder, 
+    Codec  = megaco_pretty_text_encoder,
     ticket_decode_encode_ok(Msg, Codec, Conf).
 
 ticket_decode_encode_ok(Msg, Codec, Conf0) ->
@@ -7728,59 +8109,59 @@ ticket_decode_encode_ok(Msg, Codec, Conf0) ->
     Check  = fun(M1, M2) -> chk_MegacoMessage(M1, M2) end,
     megaco_codec_test_lib:expect_decode_encode(Msg, Decode, Encode, Check).
 
-%% -- 
+%% --
 
 ticket_pretty_decode_encode_only(Msg, Check) ->
     ticket_pretty_decode_encode_only(Msg, Check, []).
 
 ticket_pretty_decode_encode_only(Msg, Check, Conf) ->
-    Codec  = megaco_pretty_text_encoder, 
+    Codec  = megaco_pretty_text_encoder,
     ticket_decode_encode_only(Msg, Codec, Check, Conf).
 
 ticket_decode_encode_only(Msg, Codec, Check, Conf0) ->
     Conf   = [?EC_V3|Conf0],
     Decode = fun(B) -> decode_message(Codec, false, Conf, B) end,
     Encode = fun(M) -> encode_message(Codec, Conf, M) end,
-    megaco_codec_test_lib:expect_decode_encode_only(Msg, Decode, Encode, 
+    megaco_codec_test_lib:expect_decode_encode_only(Msg, Decode, Encode,
 						    Check).
 
-%% -- 
+%% --
 
 ticket_pretty_encode_decode_only(Msg) ->
     ticket_pretty_encode_decode_only(Msg, []).
 
 ticket_pretty_encode_decode_only(Msg, Conf) when is_list(Conf) ->
-    Codec = megaco_pretty_text_encoder, 
+    Codec = megaco_pretty_text_encoder,
     ticket_encode_decode_only(Msg, Codec, Conf);
 ticket_pretty_encode_decode_only(Msg, Check) when is_function(Check) ->
     ticket_pretty_encode_decode_only(Msg, Check, []).
 
 ticket_pretty_encode_decode_only(Msg, Check, Conf) ->
-    Codec = megaco_pretty_text_encoder, 
+    Codec = megaco_pretty_text_encoder,
     ticket_encode_decode_only(Msg, Codec, Check, Conf).
 
 ticket_encode_decode_only(Msg, Codec, Conf) ->
-    Check = fun(_) -> ok end, 
+    Check = fun(_) -> ok end,
     ticket_encode_decode_only(Msg, Codec, Check, Conf).
 
 ticket_encode_decode_only(Msg, Codec, Check, Conf0) ->
     Conf   = [?EC_V3|Conf0],
     Encode = fun(M) -> encode_message(Codec, Conf, M) end,
     Decode = fun(B) -> decode_message(Codec, false, Conf, B) end,
-    megaco_codec_test_lib:expect_encode_decode_only(Msg, Encode, Decode, 
+    megaco_codec_test_lib:expect_encode_decode_only(Msg, Encode, Decode,
 						    Check).
 
-%% -- 
+%% --
 
 ticket_pretty_decode_only(Msg) ->
     ticket_pretty_decode_only(Msg, []).
 
 ticket_pretty_decode_only(Msg, Conf) ->
-    Codec = megaco_pretty_text_encoder, 
+    Codec = megaco_pretty_text_encoder,
     ticket_decode_only(Msg, Codec, Conf).
 
 ticket_decode_only(Msg, Codec, Conf) ->
-    Check = fun(_) -> ok end, 
+    Check = fun(_) -> ok end,
     ticket_decode_only(Msg, Codec, Check, Conf).
 
 ticket_decode_only(Msg, Codec, Check, Conf0) ->
@@ -7788,7 +8169,7 @@ ticket_decode_only(Msg, Codec, Check, Conf0) ->
     Decode = fun(B) -> decode_message(Codec, false, Conf, B) end,
     megaco_codec_test_lib:expect_decode_only(Msg, Decode, Check).
 
-ticket_check_decode_only_error_reason(R, Check) 
+ticket_check_decode_only_error_reason(R, Check)
   when is_list(R) and is_function(Check) ->
     case lists:keysearch(reason, 1, R) of
 	{value, {reason, Reason}} ->
@@ -7798,32 +8179,32 @@ ticket_check_decode_only_error_reason(R, Check)
     end.
 
 
-%% -- 
+%% --
 
 ticket_compact_decode_error(Msg) ->
     ticket_compact_decode_error(Msg, []).
 
 ticket_compact_decode_error(Msg, Conf) ->
-    Codec = megaco_compact_text_encoder, 
+    Codec = megaco_compact_text_encoder,
     ticket_decode_error(Msg, Codec, Conf).
 
 ticket_pretty_decode_error(Msg) ->
     ticket_pretty_decode_error(Msg, []).
 
 ticket_pretty_decode_error(Msg, Conf) when is_list(Conf) ->
-    Codec = megaco_pretty_text_encoder, 
+    Codec = megaco_pretty_text_encoder,
     ticket_decode_error(Msg, Codec, Conf);
 ticket_pretty_decode_error(Msg, Check) when is_function(Check) ->
     ticket_pretty_decode_error(Msg, [], Check).
 
 ticket_pretty_decode_error(Msg, Conf, Check) ->
-    Codec = megaco_pretty_text_encoder, 
+    Codec = megaco_pretty_text_encoder,
     ticket_decode_error(Msg, Codec, Conf, Check).
 
 ticket_decode_error(Msg, Codec, Conf) ->
-    Check = fun(X) -> 
+    Check = fun(X) ->
 		    d("decode error reason: ~n~p~n", [X]),
-		    ok 
+		    ok
 	    end, % Only called when decode failes
     ticket_decode_error(Msg, Codec, Conf, Check).
 
@@ -7832,7 +8213,7 @@ ticket_decode_error(Msg, Codec, Conf0, Check) ->
     Decode = fun(B) -> decode_message(Codec, false, Conf, B) end,
     megaco_codec_test_lib:expect_decode(Msg, Decode, Check).
 
-%% -- 
+%% --
 
 %% ticket_expect_exec(Instructions, Msg) ->
 %%     megaco_codec_test_lib:expect_exec(Instructions, Msg).
@@ -7850,7 +8231,7 @@ ticket_decode_error(Msg, Codec, Conf0, Check) ->
 %%     decode_message(megaco_compact_text_encoder, DynamicDecode, Conf, Bin).
 
 decode_message(Codec, DynamicDecode, Conf, Bin) ->
-    megaco_codec_test_lib:decode_message(Codec, DynamicDecode, ?VERSION, 
+    megaco_codec_test_lib:decode_message(Codec, DynamicDecode, ?VERSION,
 					 Conf, Bin).
 
 %% pretty_encode_message(Conf, Msg) ->
@@ -7863,7 +8244,7 @@ encode_message(Codec, Conf, Msg) ->
     megaco_codec_test_lib:encode_message(Codec, ?VERSION, Conf, Msg).
 
 test_msgs(Codec, DynamicDecode, Conf, Msgs) ->
-    megaco_codec_test_lib:test_msgs(Codec, DynamicDecode, ?VERSION, Conf, 
+    megaco_codec_test_lib:test_msgs(Codec, DynamicDecode, ?VERSION, Conf,
 				    fun chk_MegacoMessage/2, Msgs).
 
 
@@ -7886,8 +8267,8 @@ cre_MegacoMessage(V, Mid, Body) ->
     cre_MegacoMessage(Mess).
 
 cre_AuthHeader() ->
-    SecParmIdx = [239, 205, 171, 137], 
-    SeqNum     = [18, 52, 86, 120], 
+    SecParmIdx = [239, 205, 171, 137],
+    SeqNum     = [18, 52, 86, 120],
     AD         = [18, 52, 86, 120, 137, 171, 205, 239, 118, 84, 50, 16],
     cre_AuthHeader(SecParmIdx, SeqNum, AD).
 
@@ -7926,7 +8307,7 @@ cre_SegRep(TransId, SN, SC) ->
 
 cre_TransAck(First, Last) ->
     ?MSG_LIB:cre_TransactionAck(First, Last).
-    
+
 cre_ActReq(CtxId, CmdReqs) ->
     ?MSG_LIB:cre_ActionRequest(CtxId, CmdReqs).
 
@@ -8027,7 +8408,7 @@ cre_IndAudTermStateDesc(PP, EBC, SS) ->
 cre_IndAudTermStateDesc(PP, EBC, SS, SSS) ->
     ?MSG_LIB:cre_IndAudTerminationStateDescriptor(PP, EBC, SS, SSS).
 
-cre_IndAudEvsDesc(RID, PN) 
+cre_IndAudEvsDesc(RID, PN)
   when is_integer(RID) ->
     ?MSG_LIB:cre_IndAudEventsDescriptor(RID, PN).
 
@@ -8074,7 +8455,7 @@ cre_StatsParm(Name, Val) ->
     ?MSG_LIB:cre_StatisticsParameter(Name, [Val]).
 
 
-% Event related 
+% Event related
 cre_EvParm(Name, Val) ->
     ?MSG_LIB:cre_EventParameter(Name, Val).
 
@@ -8103,7 +8484,7 @@ cre_SvcChParm(M, A, R, P) ->
     ?MSG_LIB:cre_ServiceChangeParm(M, A, P, R).
 
 cre_SvcChParm(M, A, R, P, IF) ->
-    ?MSG_LIB:cre_ServiceChangeParm(M, A, asn1_NOVALUE, P, R, asn1_NOVALUE, 
+    ?MSG_LIB:cre_ServiceChangeParm(M, A, asn1_NOVALUE, P, R, asn1_NOVALUE,
 			  asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE, IF).
 
 cre_SvcChResParm(A, P) ->
@@ -8277,8 +8658,8 @@ cre_SecReqEv(N) ->
 cre_SecReqEv(N, EPL) ->
     ?MSG_LIB:cre_SecondRequestedEvent(N, EPL).
 
-cre_SecReqEv(N, SID, EA) when is_list(N) and 
-			      is_integer(SID) and 
+cre_SecReqEv(N, SID, EA) when is_list(N) and
+			      is_integer(SID) and
 			      is_record(EA, 'SecondRequestedActions') ->
     cre_SecReqEv(N, SID, EA, []);
 cre_SecReqEv(A, B, C) ->
@@ -8307,7 +8688,7 @@ cre_Sig(Name, Dir, RID) ->
     cre_Sig(Name, [], Dir, RID).
 
 cre_Sig(Name, SPL, Dir, RID) ->
-    cre_Sig(Name, asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE, 
+    cre_Sig(Name, asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE,
 	    asn1_NOVALUE, SPL, Dir, RID).
 
 cre_Sig(Name, SID, ST, Dur, NC, KA, SPL, Dir, RID) ->
@@ -8325,7 +8706,7 @@ cre_NotifBehav(Tag, Val) ->
 cre_NotifCompl(NC) ->
     ?MSG_LIB:cre_NotifyCompletion(NC).
 
-cre_SigType(ST) -> 
+cre_SigType(ST) ->
    ?MSG_LIB:cre_SignalType(ST).
 
 
@@ -8433,6 +8814,5 @@ p(_,_,_,_) ->
 
 p(F, A) ->
     io:format("*** [~s] ***"
-	      "~n   " ++ F ++ "~n", 
+	      "~n   " ++ F ++ "~n",
 	      [?FTS() | A]).
-
