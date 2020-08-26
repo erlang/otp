@@ -30,7 +30,7 @@ extern "C"
 
 /* Global configuration variables (under the `+J` prefix) */
 #ifdef HAVE_LINUX_PERF_SUPPORT
-int erts_jit_perf_support_enabled;
+int erts_jit_perf_support;
 #endif
 
 /*
@@ -60,7 +60,7 @@ static BeamGlobalAssembler *bga;
 static BeamModuleAssembler *bma;
 static CpuInfo cpuinfo;
 
-static void beam_asm_init_gdb_jit_info(void);
+static void beamasm_init_gdb_jit_info(void);
 
 /*
  * Enter all BIFs into the export table.
@@ -129,6 +129,9 @@ void beamasm_init() {
     Eterm mod_name;
     ERTS_DECL_AM(erts_beamasm);
     mod_name = AM_erts_beamasm;
+
+    beamasm_init_perf();
+    beamasm_init_gdb_jit_info();
 
     /*
      * Ensure that commonly used fields in the PCB can be accessed with
@@ -210,8 +213,6 @@ void beamasm_init() {
         beam_normal_exit = bma->getCode(normal_exit_label);
         call_error_handler_template = bma->getCode(call_error_handler_label);
     }
-
-    beam_asm_init_gdb_jit_info();
 
     for (auto op : operands) {
         if (op.target) {
@@ -570,7 +571,7 @@ extern "C"
                                                     NULL};
 } /* extern "C" */
 
-static void beam_asm_init_gdb_jit_info(void) {
+static void beamasm_init_gdb_jit_info(void) {
     Sint symfile_size = sizeof(uint64_t) * 2;
     uint64_t *symfile = (uint64_t *)malloc(symfile_size);
     jit_code_entry *entry;
@@ -655,29 +656,6 @@ void BeamAssembler::update_gdb_jit_info(std::string modulename,
     __jit_debug_descriptor.first_entry = entry;
     __jit_debug_descriptor.relevant_entry = entry;
     __jit_debug_register_code();
-}
-
-void BeamAssembler::update_perf_info(std::string modulename,
-                                     std::vector<AsmRange> &ranges) {
-#ifdef HAVE_LINUX_PERF_SUPPORT
-    FILE *file;
-    char buff[128];
-
-    if (erts_jit_perf_support_enabled) {
-        snprintf(buff, sizeof(buff), "/tmp/perf-%i.map", getpid());
-        file = fopen(buff, "a");
-        if (file != nullptr) {
-            for (auto r : ranges) {
-                char *start = (char *)r.start, *stop = (char *)r.stop;
-                ptrdiff_t size = stop - start;
-
-                fprintf(file, "%p %tx $%s\n", start, size, r.name.c_str());
-            }
-        }
-
-        fclose(file);
-    }
-#endif
 }
 
 extern "C"

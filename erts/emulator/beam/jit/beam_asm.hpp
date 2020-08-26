@@ -935,8 +935,6 @@ public:
 
     void update_gdb_jit_info(std::string modulename,
                              std::vector<AsmRange> &functions);
-    void update_perf_info(std::string modulename,
-                          std::vector<AsmRange> &functions);
 
     void embed(void *data, uint32_t size) {
         a.embed((char *)data, size);
@@ -1360,3 +1358,6 @@ private:
         }
     }
 };
+
+void beamasm_update_perf_info(std::string modulename,
+                              std::vector<BeamAssembler::AsmRange> &ranges);

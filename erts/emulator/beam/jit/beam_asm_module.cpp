@@ -473,7 +473,6 @@ void *BeamModuleAssembler::codegen() {
 
         for (unsigned i = 0; i < functions.size(); i++) {
             BeamInstr *start = getCode(functions[i]);
-            BeamInstr *stop;
             ErtsCodeInfo *ci = (ErtsCodeInfo *)start;
             int n = erts_snprintf(buff,
                                   1024,
@@ -481,15 +480,24 @@ void *BeamModuleAssembler::codegen() {
                                   ci->mfa.module,
                                   ci->mfa.function,
                                   ci->mfa.arity);
+            std::string name = std::string(buff, n);
+            BeamInstr *stop = erts_codeinfo_to_code(ci) +
+                              BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord);
+
+            /* We use a different symbol for CodeInfo and the Prologue
+               in order for the perf disassembly to be better. */
+            ranges.push_back({.start = start,
+                              .stop = stop,
+                              .name = name + "-CodeInfoPrologue"});
+
+            /* The actual code */
+            start = stop;
             if (i + 1 < functions.size())
                 stop = getCode(functions[i + 1]);
             else {
                 stop = getCode(labels.size());
             }
-
-            ranges.push_back({.start = start,
-                              .stop = stop,
-                              .name = std::string(buff, n)});
+            ranges.push_back({.start = start, .stop = stop, .name = name});
         }
 
         /* Push info about the footer */
@@ -499,7 +507,7 @@ void *BeamModuleAssembler::codegen() {
                  .name = name + "::codeFooter"});
 
         update_gdb_jit_info(name, ranges);
-        update_perf_info(name, ranges);
+        beamasm_update_perf_info(name, ranges);
         erts_free(ERTS_ALC_T_TMP, buff);
     }
 #endif

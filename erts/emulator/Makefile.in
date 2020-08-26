@@ -1009,6 +1009,7 @@ JIT_OBJS = \
 	$(OBJDIR)/beam_asm.o \
 	$(OBJDIR)/beam_asm_global.o \
 	$(OBJDIR)/beam_asm_module.o \
+	$(OBJDIR)/beam_asm_perf.o \
 	$(OBJDIR)/instr_arith.o \
 	$(OBJDIR)/instr_bs.o \
 	$(OBJDIR)/instr_bif.o \

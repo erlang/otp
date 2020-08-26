@@ -29,10 +29,13 @@
 
 /* Global configuration variables */
 #    ifdef HAVE_LINUX_PERF_SUPPORT
-extern int erts_jit_perf_support_enabled;
+#        define BEAMASM_PERF_DUMP (1 << 0)
+#        define BEAMASM_PERF_MAP (1 << 1)
+extern int erts_jit_perf_support;
 #    endif
 
 void beamasm_init(void);
+void beamasm_init_perf(void);
 void *beamasm_new_assembler(Eterm mod, int num_labels, int num_functions);
 void *beamasm_codegen(void *ba,
                       BeamCodeHeader *in_hdr,

@@ -1648,9 +1648,13 @@ erl_start(int argc, char **argv)
 
 #ifdef HAVE_LINUX_PERF_SUPPORT
                     if (sys_strcmp(arg, "true") == 0) {
-                        erts_jit_perf_support_enabled = 1;
+                        erts_jit_perf_support = BEAMASM_PERF_DUMP|BEAMASM_PERF_MAP;
                     } else if (sys_strcmp(arg, "false") == 0) {
-                        erts_jit_perf_support_enabled = 0;
+                        erts_jit_perf_support = 0;
+                    } else if (sys_strcmp(arg, "dump") == 0) {
+                        erts_jit_perf_support = BEAMASM_PERF_DUMP;
+                    } else if (sys_strcmp(arg, "map") == 0) {
+                        erts_jit_perf_support = BEAMASM_PERF_MAP;
                     } else {
                         erts_fprintf(stderr, "bad +JPperf support flag %s\n", arg);
                         erts_usage();
@@ -1670,7 +1674,7 @@ erl_start(int argc, char **argv)
 #else
         erts_fprintf(stderr,
                      "JIT is not supported on this system (option %s)\n",
-                     arg);
+                     argv[i]);
         erts_usage();
 #endif
         break;

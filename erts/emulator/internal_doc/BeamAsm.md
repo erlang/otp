@@ -233,9 +233,13 @@ that perf provides functionality similar to that of [eprof](https://erlang.org/d
 
 You can run perf on BeamAsm like this:
 
-    perf record --call-graph lbr erl +JPperf true
+    perf record erl +JPperf true
 
 and then look at the results using `perf report` as you normally would with perf.
+
+If you want to get some context to you calls you cann use the [lbr](https://lwn.net/Articles/680985/)
+call-graph option to `perf record`. Using `lbr` is not perfect (for instance you
+do not get any syscalls in the context), but it work well enough.
 For example, you can run perf to analyze dialyzer building a PLT like this:
 
      ERL_FLAGS="+JPperf true +S 1" perf record --call-graph lbr \
@@ -308,6 +312,49 @@ You can view a larger version [here](seefile/figures/perf-beamasm-merged.svg).
 There are many different transformations that you can do to make the graph show
 you what you want.
 
+### Annotate perf functions
+
+If you want to be able to use the `perf annotate` functionality (and in extention
+the annotate functionality in the `perf report` gui) you need to use a monotonic
+clock when calling `perf record`, i.e. `perf record -k mono`. So for a dialyzer
+run you would do this:
+
+    ERL_FLAGS="+JPperf true +S 1" perf record -k mono --call-graph lbr \
+      dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
+      syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
+      sasl runtime_tools snmp ssl tftp wx xmerl tools
+
+In order to use the `perf.data` produced by this record you need to first call
+`perf inject --jit` like this:
+
+    perf inject --jit -i perf.data -o perf.jitted.data
+
+and then you can view an annotated function like this:
+
+    perf annotate -M intel -i perf.jitted.data erl_types:t_has_var/1
+
+or by pressing `a` in the `perf report` ui. Then you get something like this:
+
+![Linux Perf FlameGraph: dialyzer PLT build](figures/beamasm-perf-annotate.png)
+
+> *WARNING*: Calling `perf inject --jit` will create a lot of files in `/tmp/`
+> and in `~/.debug`. So make sure to cleanup in those directories from time to
+> time or you may run out of inodes.
+
+### perf tips and tricks
+
+You can do a lot of neat things with `perf`. Below is a list of some of the options
+we have found useful:
+
+* `perf report --no-children`
+    Do not include the accumulation of all children in a call.
+* `perf report  --call-graph callee`
+    Show the callee rather than the caller when expanding a function call.
+* `perf archive`
+    Create an archive with all the artifacts needed to inspect the data
+    on another host. In early version of perf this command does not work,
+    instead you can use [this bash script](https://github.com/torvalds/linux/blob/master/tools/perf/perf-archive.sh).
+
 ## FAQ
 
 ### How do I know that I'm running a JIT enabled Erlang?
@@ -368,12 +415,3 @@ Yes, though not easily.
 
 Using `perf --call-graph lbr` works for Erlang, but it does not give a
 perfect record as the buffer has a limited size.
-
-One approach to improve this would be to instruct perf to know
-what Erlang is and how to crawl its stack. This would entail modifying
-the Linux kernel and/or libunwind. A second, probably better approach,
-would be to make Erlang processes emit a frame-pointer on its stack
-so that `perf --call-graph fp` would work. However, this means that
-each call frame will need 2 words of memory, and for Erlang processes
-this can be quite detrimental to performance because of the heavy use
-of recursion.

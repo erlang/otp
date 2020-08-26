@@ -288,6 +288,7 @@ JAVADOC-GENERATED
 /erts/doc/src/*.fo
 /erts/doc/xml/*.xml
 /erts/doc/xml/figures/*.png
+/erts/doc/xml/figures/*.svg
 /erts/doc/chunks/*.chunk
 /erts/doc/man[0-9]/*.[0-9]
 /erts/doc/CONF_INFO
