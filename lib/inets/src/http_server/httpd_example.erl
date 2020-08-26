@@ -22,7 +22,8 @@
 
 -export([print/3, 
          get/3, 
-         put/3, 
+         put/3,
+         patch/3,
          post/3, 
          yahoo/3, 
          test1/3, 
@@ -84,6 +85,16 @@ do_put(Env,{Input,_Body}) ->
     default(Env,Input);
 do_put(Env,Input) ->
     default(Env,Input).
+
+%% ------------------------------------------------------
+patch(SessionID, Env, Input) ->
+    mod_esi:deliver(SessionID, do_patch(Env, Input)).
+
+do_patch(Env,{Input,_Body}) ->
+    default(Env,Input);
+do_patch(Env,Input) ->
+    default(Env,Input).
+
 %% ------------------------------------------------------
 get_bin(SessionID, Env, Input) ->
     Header = header(),

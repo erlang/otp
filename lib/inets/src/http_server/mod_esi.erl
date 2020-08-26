@@ -186,8 +186,9 @@ erl(#mod{method = Method} = ModData, ESIBody, Modules)
 	    {proceed, [{status,{400, none, BadRequest}} | ModData#mod.data]}
     end;
 
-erl(#mod{method = "PUT", entity_body = Body} = ModData,
-    ESIBody, Modules) ->
+erl(#mod{method = Method, entity_body = Body} = ModData,
+    ESIBody, Modules) when Method =:= "PUT" orelse
+                           Method =:= "PATCH" ->
     case httpd_util:split(ESIBody,":|%3A|/",2) of
 	{ok, [ModuleName, FuncAndInput]} ->                
 	    case httpd_util:split(FuncAndInput,"[\?/]",2) of
@@ -217,15 +218,7 @@ erl(#mod{method = "POST", entity_body = Body} = ModData, ESIBody, Modules) ->
 			     Function, Body, []);
 	{ok, BadRequest} ->
 	    {proceed,[{status, {400, none, BadRequest}} | ModData#mod.data]}
-    end;
-
-erl(#mod{request_uri  = ReqUri, 
-	 method       = "PATCH",
-         http_version = Version, 
-	 data         = Data}, _ESIBody, _Modules) ->
-    {proceed, [{status,{501,{"PATCH", ReqUri, Version},
-			?NICE("Erl mechanism doesn't support method PATCH")}}|
-	       Data]}.
+    end.
 
 generate_webpage(ModData, ESIBody, [all], Module, FunctionName,
 		 Input, ScriptElements) ->
