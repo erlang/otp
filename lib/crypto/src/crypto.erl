@@ -646,13 +646,7 @@ version() -> ?CRYPTO_VSN.
 
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
-    case application:start(crypto) of
-        ok ->
-            _ = supports(curves), % Build curves cache if needed
-            ok;
-        Error ->
-            Error
-    end.
+    application:start(crypto).
 
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
@@ -708,7 +702,7 @@ supports(hashs)       -> hash_algorithms();
 supports(public_keys) -> pubkey_algorithms();
 supports(ciphers)     -> cipher_algorithms();
 supports(macs)        -> mac_algorithms();
-supports(curves)      -> cached_curve_algorithms();
+supports(curves)      -> curve_algorithms();
 supports(rsa_opts)    -> rsa_opts_algorithms().
 
 
@@ -724,47 +718,7 @@ info_fips() -> ?nif_stub.
 -spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
                                               Result :: boolean().
 enable_fips_mode(Enable) ->
-    OldState = info_fips(),
-    Result = enable_fips_mode_nif(Enable),
-    case info_fips() of
-        OldState ->
-            %% No state change, so no need to touch the curve's cache
-            Result;
-        NewState ->
-            %% State change (not_enabled -> enabled  or  enabled -> not_enabled)
-            NewCurves =
-                case application:get_env(?MODULE, var_name(NewState)) of
-                    {ok,Cs} when is_list(Cs) ->
-                        %% We have been in this state before, and saved the
-                        %% list for that state.
-                        Cs;
-                    _ ->
-                        %% We have not been in this state before. Rebuild and save.
-                        %% But first maintain the local enable_fips_mode_nif cache:
-                        case application:get_env(?MODULE, var_name(OldState)) of
-                            undefined ->
-                                %% Make the next state change fast:
-                                OldCs = application:get_env(?MODULE,?CURVES), 
-                                application:set_env(?MODULE, var_name(OldState), OldCs);
-                            _ ->
-                                ok
-                        end,
-                        %% Now rebuild the list by hard work:
-                        application:unset_env(?MODULE, ?CURVES), % This will force a re-build
-                        %% Re-build curves cache. Not strictly needed here.
-                        Cs = supports(curves),
-                        %% We came here because var(NewState) wasn't set, so make the
-                        %% next state change fast:
-                        application:set_env(?MODULE, var_name(NewState), Cs),
-                        Cs
-                end,
-            application:set_env(?MODULE, ?CURVES, NewCurves), % So the call to supports(curves) will be fast
-            Result
-    end.
-
-var_name(enabled) -> '$curves-fips-enabled$';
-var_name(not_enabled) -> '$curves-fips-not_enabled$'.
-
+    enable_fips_mode_nif(Enable).
 
 enable_fips_mode_nif(_) -> ?nif_stub.
 
@@ -2836,26 +2790,6 @@ exor(Data1, Data2, _Size, MaxByts, Acc) ->
     exor(Rest1, Rest2, erlang:byte_size(Rest1), MaxByts, [Result | Acc]).
 
 do_exor(_A, _B) -> ?nif_stub.
-
-cached_curve_algorithms() ->
-    case application:get_env(?MODULE, ?CURVES) of
-        undefined ->
-            Cs = remove_unavailable_curves(curve_algorithms()),
-            application:set_env(?MODULE, ?CURVES, Cs),
-            Cs;
-        {ok,Cs} ->
-            Cs
-    end.
-
-remove_unavailable_curves(Cs) ->
-    [C || C <- Cs,
-          lists:member(C,[ed25519,ed448,x25519,x448])
-              orelse try
-                         crypto:generate_key(ecdh,C)
-                     of _-> true
-                     catch _:_-> false
-                     end
-    ].
 
 hash_algorithms() -> ?nif_stub.
 pubkey_algorithms() -> ?nif_stub.

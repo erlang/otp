@@ -18,6 +18,7 @@
  * %CopyrightEnd%
  */
 
+#include "common.h"
 #include "algorithms.h"
 #include "cipher.h"
 #include "mac.h"
@@ -27,9 +28,424 @@ static ERL_NIF_TERM algo_hash[14];   /* increase when extending the list */
 static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
 static unsigned int algo_curve_cnt, algo_curve_fips_cnt;
-static ERL_NIF_TERM algo_curve[89]; /* increase when extending the list */
+static ERL_NIF_TERM algo_curve[2][89]; /* increase when extending the list */
 static unsigned int algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
 static ERL_NIF_TERM algo_rsa_opts[11]; /* increase when extending the list */
+
+
+/* Check if the curve in nid is supported by the
+   current cryptolib and current FIPS state.
+*/
+int valid_curve(int nid);
+int valid_curve(int nid) {
+
+#if defined(HAVE_DH) && defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_DH)
+    int ret = 0;
+    EVP_PKEY_CTX *pctx = NULL, *kctx = NULL;
+    EVP_PKEY *pkey = NULL, *params = NULL;
+    
+    if (NULL == (pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL)))
+        goto out;
+    
+    if (1 != EVP_PKEY_paramgen_init(pctx))
+        goto out;
+
+    if (1 != EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, nid))
+        goto out;
+
+    if (!EVP_PKEY_paramgen(pctx, &params))
+        goto out;
+
+    if (NULL == (kctx = EVP_PKEY_CTX_new(params, NULL)))
+        goto out;
+
+    if(1 != EVP_PKEY_keygen_init(kctx))
+        goto out;
+    if (1 != EVP_PKEY_keygen(kctx, &pkey))
+        goto out;
+    ret = 1;
+ out:
+    if (pkey) EVP_PKEY_free(pkey);
+    if (kctx) EVP_PKEY_CTX_free(kctx);
+    if (params) EVP_PKEY_free(params);
+    if (pctx) EVP_PKEY_CTX_free(pctx);
+
+    return ret;
+
+#elif defined(HAVE_DH)
+    EC_KEY *key;
+
+    if (NULL == (key = EC_KEY_new_by_curve_name(nid))) {
+        return 0;
+    }
+    if(1 != EC_KEY_generate_key(key)) {
+        EC_KEY_free(key);
+        return 0;
+    }
+    EC_KEY_free(key);
+    return 1;
+    
+#else /* ! defined(HAVE_DH) */
+    return 0;
+    
+#endif
+}
+
+int init_curves(ErlNifEnv* env, int fips);
+int init_curves(ErlNifEnv* env, int fips) {
+    int cnt = 0;
+
+#if defined(HAVE_EC)  
+
+#ifdef NID_secp160k1
+    if (valid_curve(NID_secp160k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp160k1"); 
+#else
+#endif
+#ifdef NID_secp160r1
+    if (valid_curve(NID_secp160r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp160r1"); 
+#else
+#endif
+#ifdef NID_secp160r2
+    if (valid_curve(NID_secp160r2)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp160r2"); 
+#else
+#endif
+#ifdef NID_secp192k1
+    if (valid_curve(NID_secp192k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp192k1"); 
+#else
+#endif
+#ifdef NID_secp224k1
+    if (valid_curve(NID_secp224k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp224k1"); 
+#else
+#endif
+#ifdef NID_secp224r1
+    if (valid_curve(NID_secp224r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp224r1"); 
+#else
+#endif
+#ifdef NID_secp256k1
+    if (valid_curve(NID_secp256k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp256k1"); 
+#else
+#endif
+#ifdef NID_secp384r1
+    if (valid_curve(NID_secp384r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp384r1"); 
+#else
+#endif
+#ifdef NID_secp521r1
+    if (valid_curve(NID_secp521r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp521r1"); 
+#else
+#endif
+#ifdef NID_X9_62_prime192v1
+    if (valid_curve(NID_X9_62_prime192v1)) {
+        algo_curve[fips][cnt++] = enif_make_atom(env,"secp192r1");
+        algo_curve[fips][cnt++] = enif_make_atom(env,"prime192v1");
+    }
+#else
+#endif
+#ifdef NID_X9_62_prime192v2
+    if (valid_curve(NID_X9_62_prime192v2)) algo_curve[fips][cnt++] = enif_make_atom(env,"prime192v2");
+#else
+#endif
+#ifdef NID_X9_62_prime192v3
+    if (valid_curve(NID_X9_62_prime192v3)) algo_curve[fips][cnt++] = enif_make_atom(env,"prime192v3");
+#else
+#endif
+#ifdef NID_X9_62_prime239v1
+    if (valid_curve(NID_X9_62_prime239v1)) algo_curve[fips][cnt++] = enif_make_atom(env,"prime239v1");
+#else
+#endif
+#ifdef NID_X9_62_prime239v2
+    if (valid_curve(NID_X9_62_prime239v2)) algo_curve[fips][cnt++] = enif_make_atom(env,"prime239v2");
+#else
+#endif
+#ifdef NID_X9_62_prime239v3
+    if (valid_curve(NID_X9_62_prime239v3)) algo_curve[fips][cnt++] = enif_make_atom(env,"prime239v3");
+#else
+#endif
+#ifdef NID_X9_62_prime256v1
+    if (valid_curve(NID_X9_62_prime256v1)) {
+        algo_curve[fips][cnt++] = enif_make_atom(env,"secp256r1");
+        algo_curve[fips][cnt++] = enif_make_atom(env,"prime256v1");
+    }
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls7
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls7)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls7");
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls9
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls9)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls9");
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls12
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls12)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls12");
+#else
+#endif
+#ifdef NID_brainpoolP160r1
+    if (valid_curve(NID_brainpoolP160r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP160r1");
+#else
+#endif
+#ifdef NID_brainpoolP160t1
+    if (valid_curve(NID_brainpoolP160t1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP160t1");
+#else
+#endif
+#ifdef NID_brainpoolP192r1
+    if (valid_curve(NID_brainpoolP192r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP192r1");
+#else
+#endif
+#ifdef NID_brainpoolP192t1
+    if (valid_curve(NID_brainpoolP192t1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP192t1");
+#else
+#endif
+#ifdef NID_brainpoolP224r1
+    if (valid_curve(NID_brainpoolP224r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP224r1");
+#else
+#endif
+#ifdef NID_brainpoolP224t1
+    if (valid_curve(NID_brainpoolP224t1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP224t1");
+#else
+#endif
+#ifdef NID_brainpoolP256r1
+    if (valid_curve(NID_brainpoolP256r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP256r1");
+#else
+#endif
+#ifdef NID_brainpoolP256t1
+    if (valid_curve(NID_brainpoolP256t1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP256t1");
+#else
+#endif
+#ifdef NID_brainpoolP320r1
+    if (valid_curve(NID_brainpoolP320r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP320r1");
+#else
+#endif
+#ifdef NID_brainpoolP320t1
+    if (valid_curve(NID_brainpoolP320t1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP320t1");
+#else
+#endif
+#ifdef NID_brainpoolP384r1
+    if (valid_curve(NID_brainpoolP384r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP384r1");
+#else
+#endif
+#ifdef NID_brainpoolP384t1
+    if (valid_curve(NID_brainpoolP384t1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP384t1");
+#else
+#endif
+#ifdef NID_brainpoolP512r1
+    if (valid_curve(NID_brainpoolP512r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP512r1");
+#else
+#endif
+#ifdef NID_brainpoolP512t1
+    if (valid_curve(NID_brainpoolP512t1)) algo_curve[fips][cnt++] = enif_make_atom(env,"brainpoolP512t1");
+#else
+#endif
+    //#if !defined(OPENSSL_NO_EC2M)        
+#ifdef NID_sect163k1
+    if (valid_curve(NID_sect163k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect163k1"); 
+#else
+#endif
+#ifdef NID_sect163r1
+    if (valid_curve(NID_sect163r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect163r1"); 
+#else
+#endif
+#ifdef NID_sect163r2
+    if (valid_curve(NID_sect163r2)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect163r2"); 
+#else
+#endif
+#ifdef NID_sect193r1
+    if (valid_curve(NID_sect193r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect193r1"); 
+#else
+#endif
+#ifdef NID_sect193r2
+    if (valid_curve(NID_sect193r2)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect193r2"); 
+#else
+#endif
+#ifdef NID_sect233k1
+    if (valid_curve(NID_sect233k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect233k1"); 
+#else
+#endif
+#ifdef NID_sect233r1
+    if (valid_curve(NID_sect233r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect233r1"); 
+#else
+#endif
+#ifdef NID_sect239k1
+    if (valid_curve(NID_sect239k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect239k1"); 
+#else
+#endif
+#ifdef NID_sect283k1
+    if (valid_curve(NID_sect283k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect283k1"); 
+#else
+#endif
+#ifdef NID_sect283r1
+    if (valid_curve(NID_sect283r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect283r1"); 
+#else
+#endif
+#ifdef NID_sect409k1
+    if (valid_curve(NID_sect409k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect409k1"); 
+#else
+#endif
+#ifdef NID_sect409r1
+    if (valid_curve(NID_sect409r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect409r1"); 
+#else
+#endif
+#ifdef NID_sect571k1
+    if (valid_curve(NID_sect571k1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect571k1"); 
+#else
+#endif
+#ifdef NID_sect571r1
+    if (valid_curve(NID_sect571r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect571r1"); 
+#else
+#endif
+#ifdef NID_X9_62_c2pnb163v1
+    if (valid_curve(NID_X9_62_c2pnb163v1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2pnb163v1");
+#else
+#endif
+#ifdef NID_X9_62_c2pnb163v2
+    if (valid_curve(NID_X9_62_c2pnb163v2)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2pnb163v2");
+#else
+#endif
+#ifdef NID_X9_62_c2pnb163v3
+    if (valid_curve(NID_X9_62_c2pnb163v3)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2pnb163v3");
+#else
+#endif
+#ifdef NID_X9_62_c2pnb176v1
+    if (valid_curve(NID_X9_62_c2pnb176v1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2pnb176v1");
+#else
+#endif
+#ifdef NID_X9_62_c2tnb191v1
+    if (valid_curve(NID_X9_62_c2tnb191v1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2tnb191v1");
+#else
+#endif
+#ifdef NID_X9_62_c2tnb191v2
+    if (valid_curve(NID_X9_62_c2tnb191v2)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2tnb191v2");
+#else
+#endif
+#ifdef NID_X9_62_c2tnb191v3
+    if (valid_curve(NID_X9_62_c2tnb191v3)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2tnb191v3");
+#else
+#endif
+#ifdef NID_X9_62_c2pnb208w1
+    if (valid_curve(NID_X9_62_c2pnb208w1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2pnb208w1");
+#else
+#endif
+#ifdef NID_X9_62_c2tnb239v1
+    if (valid_curve(NID_X9_62_c2tnb239v1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2tnb239v1");
+#else
+#endif
+#ifdef NID_X9_62_c2tnb239v2
+    if (valid_curve(NID_X9_62_c2tnb239v2)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2tnb239v2");
+#else
+#endif
+#ifdef NID_X9_62_c2tnb239v3
+    if (valid_curve(NID_X9_62_c2tnb239v3)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2tnb239v3");
+#else
+#endif
+#ifdef NID_X9_62_c2pnb272w1
+    if (valid_curve(NID_X9_62_c2pnb272w1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2pnb272w1");
+#else
+#endif
+#ifdef NID_X9_62_c2pnb304w1
+    if (valid_curve(NID_X9_62_c2pnb304w1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2pnb304w1");
+#else
+#endif
+#ifdef NID_X9_62_c2tnb359v1
+    if (valid_curve(NID_X9_62_c2tnb359v1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2tnb359v1");
+#else
+#endif
+#ifdef NID_X9_62_c2pnb368w1
+    if (valid_curve(NID_X9_62_c2pnb368w1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2pnb368w1");
+#else
+#endif
+#ifdef NID_X9_62_c2tnb431r1
+    if (valid_curve(NID_X9_62_c2tnb431r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"c2tnb431r1");
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls3
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls3)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls3");
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls5
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls5)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls5");
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls10
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls10)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls10");
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls11
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls11)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls11");
+#else
+#endif
+    // Non-validated algorithms follow
+#ifdef NID_secp112r1
+    if (valid_curve(NID_secp112r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp112r1"); 
+#else
+#endif
+#ifdef NID_secp112r2
+    if (valid_curve(NID_secp112r2)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp112r2"); 
+#else
+#endif
+#ifdef NID_secp128r1
+    if (valid_curve(NID_secp128r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp128r1"); 
+#else
+#endif
+#ifdef NID_secp128r2
+    if (valid_curve(NID_secp128r2)) algo_curve[fips][cnt++] = enif_make_atom(env,"secp128r2"); 
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls6
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls6)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls6");
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls8
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls8)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls8");
+#else
+#endif
+    //#if !defined(OPENSSL_NO_EC2M)
+#ifdef NID_sect113r1
+    if (valid_curve(NID_sect113r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect113r1"); 
+#else
+#endif
+#ifdef NID_sect113r2
+    if (valid_curve(NID_sect113r2)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect113r2"); 
+#else
+#endif
+#ifdef NID_sect131r1
+    if (valid_curve(NID_sect131r1)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect131r1"); 
+#else
+#endif
+#ifdef NID_sect131r2
+    if (valid_curve(NID_sect131r2)) algo_curve[fips][cnt++] = enif_make_atom(env,"sect131r2"); 
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls1
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls1)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls1");
+#else
+#endif
+#ifdef NID_wap_wsg_idm_ecid_wtls4
+    if (valid_curve(NID_wap_wsg_idm_ecid_wtls4)) algo_curve[fips][cnt++] = enif_make_atom(env,"wtls4");
+#else
+#endif
+#ifdef NID_ipsec3
+    if (valid_curve(NID_ipsec3)) algo_curve[fips][cnt++] = enif_make_atom(env,"ipsec3");
+#else
+#endif
+#ifdef NID_ipsec4
+    if (valid_curve(NID_ipsec4)) algo_curve[fips][cnt++] = enif_make_atom(env,"ipsec4");
+#else
+#endif
+
+    if (!fips) {
+#ifdef HAVE_EDDSA
+        algo_curve[fips][cnt++] = enif_make_atom(env,"ed25519");
+        algo_curve[fips][cnt++] = enif_make_atom(env,"ed448");
+#endif
+#ifdef HAVE_EDDH
+        algo_curve[fips][cnt++] = enif_make_atom(env,"x25519");
+        algo_curve[fips][cnt++] = enif_make_atom(env,"x448");
+#endif
+    }
+
+#endif
+    return cnt;
+}
+
 
 void init_algorithms_types(ErlNifEnv* env)
 {
@@ -104,109 +520,29 @@ void init_algorithms_types(ErlNifEnv* env)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
     // Validated algorithms first
-    algo_curve_cnt = 0;
+    algo_curve_cnt = algo_curve_fips_cnt = 0;
 #if defined(HAVE_EC)
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160r2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp192r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp192k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp224k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp224r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp256k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp256r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp384r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp521r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v3");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v3");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime256v1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls7");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls9");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls12");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP160r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP160t1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP192r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP192t1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP224r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP224t1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP256r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP256t1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP320r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP320t1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP384r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP384t1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP512r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP512t1");
-#if !defined(OPENSSL_NO_EC2M)
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163r2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect193r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect193r2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect233k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect233r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect239k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect283k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect283r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect409k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect409r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect571k1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect571r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v3");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb176v1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v3");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb208w1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v3");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb272w1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb304w1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb359v1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb368w1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb431r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls3");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls5");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls10");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls11");
+#ifdef FIPS_SUPPORT
+    if (FIPS_mode()) {
+        // enabled
+        algo_curve_fips_cnt = init_curves(env, 1);
+        FIPS_mode_set(0); // disable
+        algo_curve_cnt = init_curves(env, 0);
+        FIPS_mode_set(1); // re-enable
+    } else {
+        // disabled
+        algo_curve_cnt = init_curves(env, 0);
+        FIPS_mode_set(1); // enable
+        algo_curve_fips_cnt = init_curves(env, 1);
+        FIPS_mode_set(0); // re-disable
+    }
+#else
+    // No fips support
+    algo_curve_cnt = algo_curve_fips_cnt = init_curves(env, 0);
 #endif
-#endif
-    // Non-validated algorithms follow
-    algo_curve_fips_cnt = algo_curve_cnt;
-#if defined(HAVE_EC)
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp112r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp112r2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp128r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp128r2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls6");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls8");
-#if !defined(OPENSSL_NO_EC2M)
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect113r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect113r2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect131r1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect131r2");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls1");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls4");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ipsec3");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ipsec4");
-#endif
-#endif
-    //--
-#ifdef HAVE_EDDSA
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed25519");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed448");
-#endif
-#ifdef HAVE_EDDH
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x25519");
-    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x448");
-#endif
+
+    
+#endif /* defined(HAVE_EC) */
 
     // Validated algorithms first
     algo_rsa_opts_cnt = 0;
@@ -235,11 +571,10 @@ void init_algorithms_types(ErlNifEnv* env)
     algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_no_padding");
     algo_rsa_opts_fips_cnt = algo_rsa_opts_cnt;
 
-
     // Check that the max number of algos is updated
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
-    ASSERT(algo_curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_curve_cnt+algo_curve_fips_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_rsa_opts_cnt <= sizeof(algo_rsa_opts)/sizeof(ERL_NIF_TERM));
 }
 
@@ -280,13 +615,15 @@ ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    unsigned int cnt  =
 #ifdef FIPS_SUPPORT
-        FIPS_mode() ? algo_curve_fips_cnt :
+    if (FIPS_mode()) { 
+        return enif_make_list_from_array(env, algo_curve[1], algo_curve_fips_cnt);
+    } else {
+        return enif_make_list_from_array(env, algo_curve[0], algo_curve_cnt);
+    }
+#else
+    return enif_make_list_from_array(env, algo_curve[0], algo_curve_cnt);
 #endif
-        algo_curve_cnt;
-
-    return enif_make_list_from_array(env, algo_curve, cnt);
 }
 
 
