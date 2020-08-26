@@ -1154,7 +1154,12 @@ test_if(Config) ->
 	  {if_7c,
 	   <<"-if(begin true end).\n"		%Not a guard expression.
 	     "-endif.\n">>,
-	   {errors,[{1,epp,{bad,'if'}}],[]}}
+	   {errors,[{1,epp,{bad,'if'}}],[]}},
+
+	  {if_8c,
+	   <<"-if(?foo).\n"                     %Undefined symbol.
+	     "-endif.\n">>,
+	   {errors,[{1,epp,{undefined,foo,none}}],[]}}
 
 	 ],
     [] = compile(Config, Cs),
@@ -1730,6 +1735,12 @@ eval_tests(Config, Fun, Tests) ->
                 Return = Fun(Config, P),
                 case message_compare(E, Return) of
                     true ->
+                        case E of
+                            {errors, Errors} ->
+                                call_format_error(Errors);
+                            _ ->
+                                ok
+                        end,
                         BadL;
                     false ->
                         io:format("~nTest ~p failed. Expected~n  ~p~n"
@@ -1738,7 +1749,6 @@ eval_tests(Config, Fun, Tests) ->
                 end
         end,
     lists:foldl(F, [], Tests).
-
 
 check_test(Config, Test) ->
     Filename = "epp_test.erl",
@@ -1763,6 +1773,9 @@ compile_test(Config, Test0) ->
     Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,PrivDir}],
     case compile_file(File, Opts) of
         {ok, Ws} -> warnings(File, Ws);
+        {errors, Errors}=Else ->
+            call_format_error(Errors),
+            Else;
         Else -> Else
     end.
 
