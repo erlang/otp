@@ -137,7 +137,7 @@ groups() ->
      {http_1_1, [],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put, esi_post, esi_proagate] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_patch, esi_post, esi_proagate] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_0_9, [], http_head() ++ http_get() ++ load()},
      {http_rel_path_script_alias, [], [cgi]},
@@ -886,6 +886,15 @@ esi_put() ->
 esi_put(Config) when is_list(Config) ->
     ok = http_status("PUT /cgi-bin/erl/httpd_example/put/123342234123 ",
 		     Config, [{statuscode, 200}]).
+
+%%-------------------------------------------------------------------------
+esi_patch() ->
+    [{doc, "Test mod_esi PATCH"}].
+
+esi_patch(Config) when is_list(Config) ->
+    ok = http_status("PATCH /cgi-bin/erl/httpd_example/patch/1234567890 ",
+		     Config, [{statuscode, 200}]).
+
 %%-------------------------------------------------------------------------
 esi_post() ->
     [{doc, "Test mod_esi POST"}].
