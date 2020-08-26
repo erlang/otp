@@ -600,6 +600,7 @@ public:
         Constructor, optionally passing a bitmap (otherwise use SetBitmap()
         later).
     */
+    wxBitmapDataObject(const wxBitmap& bitmap);
     wxBitmapDataObject(const wxBitmap& bitmap = wxNullBitmap);
 
     /**

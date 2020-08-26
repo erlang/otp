@@ -24,6 +24,11 @@ public:
         and @e maxSize to 0.
     */
     wxFontData();
+  
+    /**
+        Copy Constructor.
+    */
+    wxFontData(const wxFontData& data);
 
     /**
         Enables or disables "effects" under Windows or generic only. This

@@ -77,7 +77,7 @@ public:
         Initializes the object and calls Create() with all the parameters.
     */
     wxColourPickerCtrl(wxWindow* parent, wxWindowID id,
-                       const wxColour& colour = *wxBLACK,
+                       const wxColour& col = *wxBLACK,
                        const wxPoint& pos = wxDefaultPosition,
                        const wxSize& size = wxDefaultSize,
                        long style = wxCLRP_DEFAULT_STYLE,
@@ -108,7 +108,7 @@ public:
                 creation failed.
     */
     bool Create(wxWindow* parent, wxWindowID id,
-                const wxColour& colour = *wxBLACK,
+                const wxColour& col = *wxBLACK,
                 const wxPoint& pos = wxDefaultPosition,
                 const wxSize& size = wxDefaultSize,
                 long style = wxCLRP_DEFAULT_STYLE,

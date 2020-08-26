@@ -567,10 +567,10 @@ public:
         @param weight
             Font weight, sometimes also referred to as font boldness.
             One of the ::wxFontWeight enumeration values.
-        @param underline
+        @param underlined
             The value can be @true or @false.
             At present this has an effect on Windows and Motif 2.x only.
-        @param faceName
+        @param face
             An optional string specifying the face name to be used.
             If it is an empty string, a default face name will be chosen based on the family.
         @param encoding
@@ -583,8 +583,8 @@ public:
     */
     wxFont(int pointSize, wxFontFamily family, wxFontStyle style,
            wxFontWeight weight,
-           bool underline = false,
-           const wxString& faceName = wxEmptyString,
+           bool underlined = false,
+           const wxString& face = wxEmptyString,
            wxFontEncoding encoding = wxFONTENCODING_DEFAULT);
 
     /**

@@ -82,8 +82,8 @@ public:
                  matching the dimensions of the image list.
                  This does not apply when adding icons.
     */
-    int Add(const wxBitmap& bitmap,
-            const wxBitmap& mask = wxNullBitmap);
+    int Add(const wxBitmap& bitmap, const wxBitmap& mask);
+    int Add(const wxBitmap& bitmap);
 
     /**
         Adds a new image or images using a bitmap and mask colour.
@@ -219,8 +219,8 @@ public:
         @remarks The original bitmap or icon is not affected by the Replace()
                  operation, and can be deleted afterwards.
     */
-    bool Replace(int index, const wxBitmap& bitmap,
-                 const wxBitmap& mask = wxNullBitmap);
+    bool Replace(int index, const wxBitmap& bitmap, const wxBitmap& mask);
+    bool Replace(int index, const wxBitmap& bitmap);
 
     /**
         Replaces the existing image with the new image.

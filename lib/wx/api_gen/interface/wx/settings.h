@@ -36,7 +36,7 @@ enum wxSystemFont
         Note that with modern GUIs nothing guarantees that the same font is used
         for all GUI elements, so some controls might use a different font by default.
     */
-    wxSYS_DEFAULT_GUI_FONT
+    wxSYS_DEFAULT_GUI_FONT = wxSYS_DEVICE_DEFAULT_FONT + 3
 };
 
 
@@ -152,7 +152,7 @@ enum wxSystemColour
 */
 enum wxSystemMetric
 {
-    wxSYS_MOUSE_BUTTONS,      //!< Number of buttons on mouse, or zero if no mouse was installed.
+    wxSYS_MOUSE_BUTTONS = 1,  //!< Number of buttons on mouse, or zero if no mouse was installed.
     wxSYS_BORDER_X,           //!< Width of single border.
     wxSYS_BORDER_Y,           //!< Height of single border.
     wxSYS_CURSOR_X,           //!< Width of cursor.

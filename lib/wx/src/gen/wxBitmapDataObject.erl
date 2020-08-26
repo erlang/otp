@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,37 +56,36 @@ new() ->
 	Bitmap::wxBitmap:wxBitmap().
 new(Options)
  when is_list(Options) ->
-  MOpts = fun({bitmap, #wx_ref{type=BitmapT,ref=BitmapRef}}, Acc) ->   ?CLASS(BitmapT,wxBitmap),[<<1:32/?UI,BitmapRef:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxBitmapDataObject_new_1_0,
-  <<BinOpt/binary>>);
-new(#wx_ref{type=BitmapT,ref=BitmapRef}) ->
+  MOpts = fun({bitmap, #wx_ref{type=BitmapT}} = Arg) ->   ?CLASS(BitmapT,wxBitmap),Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Opts,?get_env(),?wxBitmapDataObject_new_1_0),
+  wxe_util:rec(?wxBitmapDataObject_new_1_0);
+new(#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(BitmapT,wxBitmap),
-  wxe_util:construct(?wxBitmapDataObject_new_1_1,
-  <<BitmapRef:32/?UI>>).
+  wxe_util:queue_cmd(Bitmap,?get_env(),?wxBitmapDataObject_new_1_1),
+  wxe_util:rec(?wxBitmapDataObject_new_1_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectgetbitmap">external documentation</a>.
 -spec getBitmap(This) -> wxBitmap:wxBitmap() when
 	This::wxBitmapDataObject().
-getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getBitmap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmapDataObject),
-  wxe_util:call(?wxBitmapDataObject_GetBitmap,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxBitmapDataObject_GetBitmap),
+  wxe_util:rec(?wxBitmapDataObject_GetBitmap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectsetbitmap">external documentation</a>.
 -spec setBitmap(This, Bitmap) -> 'ok' when
 	This::wxBitmapDataObject(), Bitmap::wxBitmap:wxBitmap().
-setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
+setBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxBitmapDataObject),
   ?CLASS(BitmapT,wxBitmap),
-  wxe_util:cast(?wxBitmapDataObject_SetBitmap,
-  <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
+  wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxBitmapDataObject_SetBitmap).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxBitmapDataObject()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmapDataObject),
-  wxe_util:destroy(?wxBitmapDataObject_destroy,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?wxBitmapDataObject_destroy),
   ok.
  %% From wxDataObject

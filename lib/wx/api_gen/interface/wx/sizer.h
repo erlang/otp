@@ -958,6 +958,7 @@ public:
        Show or hide all items managed by the sizer.
     */
     virtual void ShowItems(bool show);
+    void Show(bool show);
 
 };
 

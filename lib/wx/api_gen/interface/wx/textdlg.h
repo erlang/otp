@@ -55,7 +55,7 @@ public:
     */
     wxPasswordEntryDialog(wxWindow* parent, const wxString& message,
                           const wxString& caption = wxGetPasswordFromUserPromptStr,
-                          const wxString& defaultValue = wxEmptyString,
+                          const wxString& value = wxEmptyString,
                           long style = wxTextEntryDialogStyle,
                           const wxPoint& pos = wxDefaultPosition);
 };

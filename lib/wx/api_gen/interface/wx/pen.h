@@ -234,22 +234,6 @@ public:
     wxPen(const wxColour& colour, int width = 1, wxPenStyle style = wxPENSTYLE_SOLID);
 
     /**
-        Constructs a stippled pen from a stipple bitmap and a width.
-
-        @param width
-            Pen width. Under Windows, the pen width cannot be greater than 1 if
-            the style is @c wxPENSTYLE_DOT, @c wxPENSTYLE_LONG_DASH, @c wxPENSTYLE_SHORT_DASH,
-            @c wxPENSTYLE_DOT_DASH, or @c wxPENSTYLE_USER_DASH.
-        @param stipple
-            A stipple bitmap.
-
-        @onlyfor{wxmsw,wxosx}
-
-        @see SetWidth(), SetStipple()
-    */
-    wxPen(const wxBitmap& stipple, int width);
-
-    /**
         Copy constructor, uses @ref overview_refcount.
 
         @param pen

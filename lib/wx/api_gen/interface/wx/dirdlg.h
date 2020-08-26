@@ -89,7 +89,7 @@ public:
 
         @param parent
             Parent window.
-        @param message
+        @param title
             Message to show on the dialog.
         @param defaultPath
             The default path, or the empty string.
@@ -97,17 +97,17 @@ public:
             The dialog style. See wxDirDialog
         @param pos
             Dialog position. Ignored under Windows.
-        @param size
+        @param sz
             Dialog size. Ignored under Windows.
         @param name
             The dialog name, not used.
     */
     wxDirDialog(wxWindow* parent,
-                const wxString& message = wxDirSelectorPromptStr,
+                const wxString& title = wxDirSelectorPromptStr,
                 const wxString& defaultPath = wxEmptyString,
                 long style = wxDD_DEFAULT_STYLE,
                 const wxPoint& pos = wxDefaultPosition,
-                const wxSize& size = wxDefaultSize,
+                const wxSize& sz = wxDefaultSize,
                 const wxString& name = wxDirDialogNameStr);
 
     /**

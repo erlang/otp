@@ -66,7 +66,7 @@ public:
                    const wxPoint& pos = wxDefaultPosition,
                    const wxSize& size = wxDefaultSize,
                    long style = 0,
-                   const wxValidator& val = wxDefaultValidator,
+                   const wxValidator& validator = wxDefaultValidator,
                    const wxString& name = wxCheckBoxNameStr);
 
     /**
@@ -83,7 +83,7 @@ public:
                 const wxPoint& pos = wxDefaultPosition,
                 const wxSize& size = wxDefaultSize,
                 long style = 0,
-                const wxValidator& val = wxDefaultValidator,
+                const wxValidator& validator = wxDefaultValidator,
                 const wxString& name = wxCheckBoxNameStr);
 
     /**

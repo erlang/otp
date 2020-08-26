@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,16 +51,16 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledirpickerevent.html#wxfiledirpickereventgetpath">external documentation</a>.
 -spec getPath(This) -> unicode:charlist() when
 	This::wxFileDirPickerEvent().
-getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDirPickerEvent),
-  wxe_util:call(?wxFileDirPickerEvent_GetPath,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxFileDirPickerEvent_GetPath),
+  wxe_util:rec(?wxFileDirPickerEvent_GetPath).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

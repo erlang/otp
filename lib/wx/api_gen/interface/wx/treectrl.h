@@ -218,7 +218,7 @@ public:
         image is used for both selected and unselected items.
     */
     virtual wxTreeItemId AddRoot(const wxString& text, int image = -1,
-                                 int selImage = -1,
+                                 int selectedImage = -1,
                                  wxTreeItemData* data = NULL);
 
     /**
@@ -233,7 +233,7 @@ public:
     wxTreeItemId AppendItem(const wxTreeItemId& parent,
                             const wxString& text,
                             int image = -1,
-                            int selImage = -1,
+                            int selectedImage = -1,
                             wxTreeItemData* data = NULL);
 
     /**
@@ -736,7 +736,7 @@ public:
                             size_t pos,
                             const wxString& text,
                             int image = -1,
-                            int selImage = -1,
+                            int selectedImage = -1,
                             wxTreeItemData* data = NULL);
 
     /**
@@ -767,6 +767,7 @@ public:
         Returns @true if the item is visible on the screen.
     */
     virtual bool IsVisible(const wxTreeItemId& item) const;
+
 
     /**
         Returns @true if the item has children.
@@ -801,7 +802,7 @@ public:
     wxTreeItemId PrependItem(const wxTreeItemId& parent,
                              const wxString& text,
                              int image = -1,
-                             int selImage = -1,
+                             int selectedImage = -1,
                              wxTreeItemData* data = NULL);
 
     /**
@@ -920,7 +921,7 @@ public:
         usage and loading time.
     */
     virtual void SetItemHasChildren(const wxTreeItemId& item,
-                                    bool hasChildren = true);
+                                    bool has = true);
 
     /**
         Sets the specified item's image. See GetItemImage() for the description
@@ -1022,8 +1023,13 @@ public:
         @since 2.9.1
     */
     virtual void SelectChildren(const wxTreeItemId& parent);
-};
 
+  /**
+     Returns @true if the item is valid.
+  */
+  static bool IsTreeItemIdOk(const wxTreeItemId& item) const;
+
+};
 
 
 /**

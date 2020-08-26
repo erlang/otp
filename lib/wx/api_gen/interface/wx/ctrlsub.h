@@ -79,13 +79,13 @@ public:
 
         @param string
             String to find.
-        @param caseSensitive
+        @param bCase
             Whether search is case sensitive (default is not).
 
         @return The zero-based position of the item, or wxNOT_FOUND if the
                 string was not found.
     */
-    virtual int FindString(const wxString& string, bool caseSensitive = false) const;
+    virtual int FindString(const wxString& string, bool bCase = false) const;
 
     //@}
 
@@ -225,21 +225,6 @@ public:
                 control is sorted (e.g. has @c wxLB_SORT or @c wxCB_SORT
                 style).
     */
-    int Append(const wxString& item, void* clientData);
-
-    /**
-        Appends item into the control.
-
-        @param item
-            String to add.
-        @param clientData
-            Pointer to client data to associate with the new item.
-
-        @return The return value is the index of the newly inserted item.
-                Note that this may be different from the last one if the
-                control is sorted (e.g. has @c wxLB_SORT or @c wxCB_SORT
-                style).
-    */
     int Append(const wxString& item, wxClientData* clientData);
 
     /**
@@ -253,15 +238,6 @@ public:
     */
     int Append(const wxArrayString& items);
 
-    /**
-        Appends several items at once into the control.
-
-        This is the same as the overload taking wxArrayString, except that it
-        works with the standard vector container.
-
-        @since 3.1.0
-     */
-    int Append(const std::vector<wxString>& items);
 
     /**
         Appends several items at once into the control.
@@ -275,68 +251,9 @@ public:
             Array of client data pointers of the same size as @a items to
             associate with the new items.
     */
-    int Append(const wxArrayString& items, void **clientData);
+   int Append(const wxArrayString& items, wxClientData **clientsData);
 
-    /**
-        Appends several items at once into the control.
 
-        Notice that calling this method is usually much faster than appending
-        them one by one if you need to add a lot of items.
-
-        @param items
-            Array of strings to insert.
-        @param clientData
-            Array of client data pointers of the same size as @a items to
-            associate with the new items.
-    */
-    int Append(const wxArrayString& items, wxClientData **clientData);
-
-    /**
-        Appends several items at once into the control.
-
-        Notice that calling this method is usually much faster than appending
-        them one by one if you need to add a lot of items.
-
-        @param n
-            Number of items in the @a items array.
-        @param items
-            Array of strings of size @a n.
-    */
-    int Append(unsigned int n, const wxString* items);
-
-    /**
-        Appends several items at once into the control.
-
-        Notice that calling this method is usually much faster than appending
-        them one by one if you need to add a lot of items.
-
-        @param n
-            Number of items in the @a items array.
-        @param items
-            Array of strings of size @a n.
-        @param clientData
-            Array of client data pointers of size @a n to associate with the
-            new items.
-    */
-    int Append(unsigned int n, const wxString* items,
-               void** clientData);
-
-    /**
-        Appends several items at once into the control.
-
-        Notice that calling this method is usually much faster than appending
-        them one by one if you need to add a lot of items.
-
-        @param n
-            Number of items in the @a items array.
-        @param items
-            Array of strings of size @a n.
-        @param clientData
-            Array of client data pointers of size @a n to associate with the
-            new items.
-    */
-    int Append(unsigned int n, const wxString* items,
-                wxClientData** clientData);
     //@}
 
     /**
@@ -503,21 +420,6 @@ public:
         @return The return value is the index of the newly inserted item.
                 If the insertion failed for some reason, -1 is returned.
     */
-    int Insert(const wxString& item, unsigned int pos, void* clientData);
-
-    /**
-        Inserts item into the control.
-
-        @param item
-            String to add.
-        @param pos
-            Position to insert item before, zero based.
-        @param clientData
-            Pointer to client data to associate with the new item.
-
-        @return The return value is the index of the newly inserted item.
-                If the insertion failed for some reason, -1 is returned.
-    */
     int Insert(const wxString& item, unsigned int pos,
                wxClientData* clientData);
 
@@ -536,15 +438,6 @@ public:
     */
     int Insert(const wxArrayString& items, unsigned int pos);
 
-    /**
-        Inserts several items at once into the control.
-
-        This is the same as the overload taking wxArrayString, except that it
-        works with the standard vector container.
-
-        @since 3.1.0
-     */
-    int Insert(const std::vector<wxString>& items);
 
     /**
         Inserts several items at once into the control.
@@ -563,88 +456,8 @@ public:
                 If the insertion failed for some reason, -1 is returned.
     */
     int Insert(const wxArrayString& items, unsigned int pos,
-                void **clientData);
+               wxClientData **clientsData);
 
-    /**
-        Inserts several items at once into the control.
-
-        Notice that calling this method is usually much faster than inserting
-        them one by one if you need to insert a lot of items.
-
-        @param items
-            Array of strings to insert.
-        @param pos
-            Position to insert the items before, zero based.
-        @param clientData
-            Array of client data pointers of the same size as @a items to
-            associate with the new items.
-        @return The return value is the index of the last inserted item.
-                If the insertion failed for some reason, -1 is returned.
-    */
-    int Insert(const wxArrayString& items, unsigned int pos,
-                wxClientData **clientData);
-
-    /**
-        Inserts several items at once into the control.
-
-        Notice that calling this method is usually much faster than inserting
-        them one by one if you need to insert a lot of items.
-
-        @param n
-            Number of items in the @a items array.
-        @param items
-            Array of strings of size @a n.
-        @param pos
-            Position to insert the items before, zero based.
-        @return The return value is the index of the last inserted item.
-                If the insertion failed for some reason, -1 is returned.
-    */
-    int Insert(unsigned int n, const wxString* items,
-                unsigned int pos);
-
-    /**
-        Inserts several items at once into the control.
-
-        Notice that calling this method is usually much faster than inserting
-        them one by one if you need to insert a lot of items.
-
-        @param n
-            Number of items in the @a items array.
-        @param items
-            Array of strings of size @a n.
-        @param pos
-            Position to insert the new items before, zero based.
-        @param clientData
-            Array of client data pointers of size @a n to associate with the
-            new items.
-        @return The return value is the index of the last inserted item.
-                If the insertion failed for some reason, -1 is returned.
-    */
-    int Insert(unsigned int n, const wxString* items,
-                unsigned int pos,
-                void** clientData);
-
-    /**
-        Inserts several items at once into the control.
-
-        Notice that calling this method is usually much faster than inserting
-        them one by one if you need to insert a lot of items.
-
-        @param n
-            Number of items in the @a items array.
-        @param items
-            Array of strings of size @a n.
-        @param pos
-            Position to insert the new items before, zero based.
-        @param clientData
-            Array of client data pointers of size @a n to associate with the
-            new items.
-        @return The return value is the index of the last inserted item.
-                If the insertion failed for some reason, -1 is returned.
-    */
-    int Insert(unsigned int n, const wxString* items,
-                unsigned int pos,
-                wxClientData** clientData);
     //@}
 
     //@{

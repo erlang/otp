@@ -107,6 +107,12 @@ public:
     */
     static int GetFromWindow(const wxWindow* win);
 
+
+    /**  Returns true if the object was initialized successfully
+     */
+   bool IsOk();
+
+
     /**
         Returns the bounding rectangle of the display whose index was passed to
         the constructor.

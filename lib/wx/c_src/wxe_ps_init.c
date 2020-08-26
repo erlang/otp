@@ -19,7 +19,7 @@
  */
 
 #include <stdio.h>
-#include "wxe_driver.h"
+#include <erl_nif.h>
 
 /* Platform specific initialisation stuff */ 
 #ifdef _MACOSX
@@ -73,7 +73,7 @@ void * wxe_ps_init2() {
 
    if( !is_packaged_app() ) {
       // Undocumented function (but no documented way of doing this exists)
-      int res = erl_drv_getenv("WX_APP_TITLE", app_title_buf, &app_len);
+      int res = enif_getenv("WX_APP_TITLE", app_title_buf, &app_len);
       if (res == 0) {
           app_title = app_title_buf;
       } else {
@@ -83,16 +83,21 @@ void * wxe_ps_init2() {
       	 CPSSetProcessName(&psn, app_title?app_title:"Erlang");
       }
       // Enable setting custom application icon for Mac OS X
-      res = erl_drv_getenv("WX_APP_ICON", app_icon_buf, &app_icon_len);
+      res = enif_getenv("WX_APP_ICON", app_icon_buf, &app_icon_len);
       NSMutableString *file = [[NSMutableString alloc] init];
-      if (res >= 0) {
+      if (res == 0) {
           [file appendFormat:@"%s", app_icon_buf];
       } else {
-          [file appendFormat:@"%s/%s", erl_wx_privdir, "erlang-logo128.png"];
+          res = enif_getenv("WX_PRIV_DIR", app_icon_buf, &app_icon_len);
+          if(res == 0) {
+              [file appendFormat:@"%s/%s", app_icon_buf, "erlang-logo128.png"];
+          }
       }
-      // Load and set icon
-      NSImage *icon = [[NSImage alloc] initWithContentsOfFile: file];
-      [NSApp setApplicationIconImage: icon];
+      if(res == 0) {
+          // Load and set icon
+          NSImage *icon = [[NSImage alloc] initWithContentsOfFile: file];
+          [NSApp setApplicationIconImage: icon];
+      }
    };
 
    return pool;

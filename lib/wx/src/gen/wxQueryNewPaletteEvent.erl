@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,19 +47,18 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventsetpaletterealized">external documentation</a>.
 -spec setPaletteRealized(This, Realized) -> 'ok' when
 	This::wxQueryNewPaletteEvent(), Realized::boolean().
-setPaletteRealized(#wx_ref{type=ThisT,ref=ThisRef},Realized)
+setPaletteRealized(#wx_ref{type=ThisT}=This,Realized)
  when is_boolean(Realized) ->
   ?CLASS(ThisT,wxQueryNewPaletteEvent),
-  wxe_util:cast(?wxQueryNewPaletteEvent_SetPaletteRealized,
-  <<ThisRef:32/?UI,(wxe_util:from_bool(Realized)):32/?UI>>).
+  wxe_util:queue_cmd(This,Realized,?get_env(),?wxQueryNewPaletteEvent_SetPaletteRealized).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventgetpaletterealized">external documentation</a>.
 -spec getPaletteRealized(This) -> boolean() when
 	This::wxQueryNewPaletteEvent().
-getPaletteRealized(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPaletteRealized(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxQueryNewPaletteEvent),
-  wxe_util:call(?wxQueryNewPaletteEvent_GetPaletteRealized,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxQueryNewPaletteEvent_GetPaletteRealized),
+  wxe_util:rec(?wxQueryNewPaletteEvent_GetPaletteRealized).
 
  %% From wxEvent
 %% @hidden

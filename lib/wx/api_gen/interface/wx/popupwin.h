@@ -94,7 +94,7 @@ public:
     /**
         Constructor.
     */
-    wxPopupTransientWindow(wxWindow *parent, int flags = wxBORDER_NONE);
+    wxPopupTransientWindow(wxWindow *parent, int style = wxBORDER_NONE);
 
     /**
         Popup the window (this will show it too).

@@ -480,7 +480,7 @@ enum wxBorder
 #define wxICON_AUTH_NEEDED      0x00080000
 
 #define wxICON_MASK \
-    (wxICON_EXCLAMATION|wxICON_HAND|wxICON_QUESTION|wxICON_INFORMATION|wxICON_NONE)
+    (wxICON_EXCLAMATION|wxICON_HAND|wxICON_QUESTION|wxICON_INFORMATION|wxICON_NONE|wxICON_AUTH_NEEDED)
 
 
 /*  symbolic constant used by all Find()-like functions returning positive */
@@ -937,13 +937,7 @@ enum wxKeyCode
       * to get the state of the actual 'Control' key.
       */
     WXK_CONTROL,
-    /** Under macOS, where the 'Command' key is mapped to 'Control'
-      * to improve compatibility with other systems, WXK_RAW_CONTROL may
-      * be used to obtain the state of the actual 'Control' key
-      * ('WXK_CONTROL' would obtain the status of the 'Command' key).
-      * Under Windows/Linux/Others, this is equivalent to WXK_CONTROL
-      */
-    WXK_RAW_CONTROL,
+
     WXK_MENU,
     WXK_PAUSE,
     WXK_CAPITAL,
@@ -1040,6 +1034,13 @@ enum wxKeyCode
       * this is the Control key, with the new semantic of WXK_CONTROL, WXK_COMMAND is not needed anymore
       */
     WXK_COMMAND,
+    /** Under macOS, where the 'Command' key is mapped to 'Control'
+      * to improve compatibility with other systems, WXK_RAW_CONTROL may
+      * be used to obtain the state of the actual 'Control' key
+      * ('WXK_CONTROL' would obtain the status of the 'Command' key).
+      * Under Windows/Linux/Others, this is equivalent to WXK_CONTROL
+      */
+    WXK_RAW_CONTROL,
 
     /** Hardware-specific buttons */
     WXK_SPECIAL1 = 193,
@@ -1112,123 +1113,127 @@ enum wxKeyModifier
 */
 enum wxPaperSize
 {
-    wxPAPER_10X11,              ///<  10 x 11 in
+    wxPAPER_NONE,               ///<  Use specific dimensions
+    wxPAPER_LETTER,             ///<  Letter, 8 1/2 by 11 inches
+    wxPAPER_LEGAL,              ///<  Legal, 8 1/2 by 14 inches
+    wxPAPER_A4,                 ///<  A4 Sheet, 210 by 297 millimeters
+    wxPAPER_CSHEET,             ///<  C Sheet, 17 by 22 inches
+    wxPAPER_DSHEET,             ///<  D Sheet, 22 by 34 inches
+    wxPAPER_ESHEET,             ///<  E Sheet, 34 by 44 inches
+    wxPAPER_LETTERSMALL,        ///<  Letter Small, 8 1/2 by 11 inches
+    wxPAPER_TABLOID,            ///<  Tabloid, 11 by 17 inches
+    wxPAPER_LEDGER,             ///<  Ledger, 17 by 11 inches
+    wxPAPER_STATEMENT,          ///<  Statement, 5 1/2 by 8 1/2 inches
+    wxPAPER_EXECUTIVE,          ///<  Executive, 7 1/4 by 10 1/2 inches
+    wxPAPER_A3,                 ///<  A3 sheet, 297 by 420 millimeters
+    wxPAPER_A4SMALL,            ///<  A4 small sheet, 210 by 297 millimeters
+    wxPAPER_A5,                 ///<  A5 sheet, 148 by 210 millimeters
+    wxPAPER_B4,                 ///<  B4 sheet, 250 by 354 millimeters
+    wxPAPER_B5,                 ///<  B5 sheet, 182-by-257-millimeter paper
+    wxPAPER_FOLIO,              ///<  Folio, 8-1/2-by-13-inch paper
+    wxPAPER_QUARTO,             ///<  Quarto, 215-by-275-millimeter paper
     wxPAPER_10X14,              ///<  10-by-14-inch sheet
     wxPAPER_11X17,              ///<  11-by-17-inch sheet
-    wxPAPER_12X11,              ///< 12 x 11 in
-    wxPAPER_15X11,              ///<  15 x 11 in
-    wxPAPER_9X11,               ///<  9 x 11 in
-    wxPAPER_A2,                 ///<  A2 420 x 594 mm
-    wxPAPER_A3,                 ///<  A3 sheet, 297 by 420 millimeters
-    wxPAPER_A3_EXTRA,           ///<  A3 Extra 322 x 445 mm
-    wxPAPER_A3_EXTRA_TRANSVERSE, ///<  A3 Extra Transverse 322 x 445 mm
-    wxPAPER_A3_ROTATED,         ///< A3 Rotated 420 x 297 mm
-    wxPAPER_A3_TRANSVERSE,      ///<  A3 Transverse 297 x 420 mm
-    wxPAPER_A4,                 ///<  A4 Sheet, 210 by 297 millimeters
-    wxPAPER_A4SMALL,            ///<  A4 small sheet, 210 by 297 millimeters
-    wxPAPER_A4_EXTRA,           ///<  A4 Extra 9.27 x 12.69 in
-    wxPAPER_A4_PLUS,            ///<  A4 Plus 210 x 330 mm
-    wxPAPER_A4_ROTATED,         ///< A4 Rotated 297 x 210 mm
-    wxPAPER_A4_TRANSVERSE,      ///<  A4 Transverse 210 x 297 mm
-    wxPAPER_A5,                 ///<  A5 sheet, 148 by 210 millimeters
-    wxPAPER_A5_EXTRA,           ///<  A5 Extra 174 x 235 mm
-    wxPAPER_A5_ROTATED,         ///< A5 Rotated 210 x 148 mm
-    wxPAPER_A5_TRANSVERSE,      ///<  A5 Transverse 148 x 210 mm
-    wxPAPER_A6,                 ///< A6 105 x 148 mm
-    wxPAPER_A6_ROTATED,         ///< A6 Rotated 148 x 105 mm
-    wxPAPER_A_PLUS,             ///<  SuperA/SuperA/A4 227 x 356 mm
-    wxPAPER_B4,                 ///<  B4 sheet, 250 by 354 millimeters
-    wxPAPER_B4_JIS_ROTATED,     ///< B4 (JIS) Rotated 364 x 257 mm
-    wxPAPER_B5,                 ///<  B5 sheet, 182-by-257-millimeter paper
-    wxPAPER_B5_EXTRA,           ///<  B5 (ISO) Extra 201 x 276 mm
-    wxPAPER_B5_JIS_ROTATED,     ///< B5 (JIS) Rotated 257 x 182 mm
-    wxPAPER_B5_TRANSVERSE,      ///<  B5 (JIS) Transverse 182 x 257 mm
-    wxPAPER_B6_JIS,             ///< B6 (JIS) 128 x 182 mm
-    wxPAPER_B6_JIS_ROTATED,     ///< B6 (JIS) Rotated 182 x 128 mm
-    wxPAPER_B_PLUS,             ///<  SuperB/SuperB/A3 305 x 487 mm
-    wxPAPER_CSHEET,             ///<  C Sheet, 17 by 22 inches
-    wxPAPER_DBL_JAPANESE_POSTCARD, ///< Japanese Double Postcard 200 x 148 mm
-    wxPAPER_DBL_JAPANESE_POSTCARD_ROTATED, ///< Double Japanese Postcard Rotated 148 x 200 mm
-    wxPAPER_DSHEET,             ///<  D Sheet, 22 by 34 inches
+    wxPAPER_NOTE,               ///<  Note, 8 1/2 by 11 inches
+    wxPAPER_ENV_9,              ///<  #9 Envelope, 3 7/8 by 8 7/8 inches
     wxPAPER_ENV_10,             ///<  #10 Envelope, 4 1/8 by 9 1/2 inches
     wxPAPER_ENV_11,             ///<  #11 Envelope, 4 1/2 by 10 3/8 inches
     wxPAPER_ENV_12,             ///<  #12 Envelope, 4 3/4 by 11 inches
     wxPAPER_ENV_14,             ///<  #14 Envelope, 5 by 11 1/2 inches
-    wxPAPER_ENV_9,              ///<  #9 Envelope, 3 7/8 by 8 7/8 inches
+    wxPAPER_ENV_DL,             ///<  DL Envelope, 110 by 220 millimeters
+    wxPAPER_ENV_C5,             ///<  C5 Envelope, 162 by 229 millimeters
+    wxPAPER_ENV_C3,             ///<  C3 Envelope, 324 by 458 millimeters
+    wxPAPER_ENV_C4,             ///<  C4 Envelope, 229 by 324 millimeters
+    wxPAPER_ENV_C6,             ///<  C6 Envelope, 114 by 162 millimeters
+    wxPAPER_ENV_C65,            ///<  C65 Envelope, 114 by 229 millimeters
     wxPAPER_ENV_B4,             ///<  B4 Envelope, 250 by 353 millimeters
     wxPAPER_ENV_B5,             ///<  B5 Envelope, 176 by 250 millimeters
     wxPAPER_ENV_B6,             ///<  B6 Envelope, 176 by 125 millimeters
-    wxPAPER_ENV_C3,             ///<  C3 Envelope, 324 by 458 millimeters
-    wxPAPER_ENV_C4,             ///<  C4 Envelope, 229 by 324 millimeters
-    wxPAPER_ENV_C5,             ///<  C5 Envelope, 162 by 229 millimeters
-    wxPAPER_ENV_C6,             ///<  C6 Envelope, 114 by 162 millimeters
-    wxPAPER_ENV_C65,            ///<  C65 Envelope, 114 by 229 millimeters
-    wxPAPER_ENV_DL,             ///<  DL Envelope, 110 by 220 millimeters
-    wxPAPER_ENV_INVITE,         ///<  Envelope Invite 220 x 220 mm
     wxPAPER_ENV_ITALY,          ///<  Italy Envelope, 110 by 230 millimeters
     wxPAPER_ENV_MONARCH,        ///<  Monarch Envelope, 3 7/8 by 7 1/2 inches
     wxPAPER_ENV_PERSONAL,       ///<  6 3/4 Envelope, 3 5/8 by 6 1/2 inches
-    wxPAPER_ESHEET,             ///<  E Sheet, 34 by 44 inches
-    wxPAPER_EXECUTIVE,          ///<  Executive, 7 1/4 by 10 1/2 inches
-    wxPAPER_FANFOLD_LGL_GERMAN, ///<  German Legal Fanfold, 8 1/2 by 13 inches
-    wxPAPER_FANFOLD_STD_GERMAN, ///<  German Std Fanfold, 8 1/2 by 12 inches
     wxPAPER_FANFOLD_US,         ///<  US Std Fanfold, 14 7/8 by 11 inches
-    wxPAPER_FOLIO,              ///<  Folio, 8-1/2-by-13-inch paper
+    wxPAPER_FANFOLD_STD_GERMAN, ///<  German Std Fanfold, 8 1/2 by 12 inches
+    wxPAPER_FANFOLD_LGL_GERMAN, ///<  German Legal Fanfold, 8 1/2 by 13 inches
+
     wxPAPER_ISO_B4,             ///<  B4 (ISO) 250 x 353 mm
     wxPAPER_JAPANESE_POSTCARD,  ///<  Japanese Postcard 100 x 148 mm
-    wxPAPER_JAPANESE_POSTCARD_ROTATED, ///< Japanese Postcard Rotated 148 x 100 mm
-    wxPAPER_JENV_CHOU3,         ///< Japanese Envelope Chou #3
-    wxPAPER_JENV_CHOU3_ROTATED, ///< Japanese Envelope Chou #3 Rotated
-    wxPAPER_JENV_CHOU4,         ///< Japanese Envelope Chou #4
-    wxPAPER_JENV_CHOU4_ROTATED, ///< Japanese Envelope Chou #4 Rotated
+    wxPAPER_9X11,               ///<  9 x 11 in
+    wxPAPER_10X11,              ///<  10 x 11 in
+    wxPAPER_15X11,              ///<  15 x 11 in
+    wxPAPER_ENV_INVITE,         ///<  Envelope Invite 220 x 220 mm
+    wxPAPER_LETTER_EXTRA,       ///<  Letter Extra 9.5 x 12 in
+    wxPAPER_LEGAL_EXTRA,        ///<  Legal Extra 9.5 x 15 in
+    wxPAPER_TABLOID_EXTRA,       ///<  Tabloid Extra 11.69 x 18 in
+    wxPAPER_A4_EXTRA,           ///<  A4 Extra 9.27 x 12.69 in
+    wxPAPER_LETTER_TRANSVERSE,  ///<  Letter Transverse 8.5 x 11 in
+    wxPAPER_A4_TRANSVERSE,      ///<  A4 Transverse 210 x 297 mm
+    wxPAPER_LETTER_EXTRA_TRANSVERSE, ///<  Letter Extra Transverse 9.5 x 12 in
+    wxPAPER_A_PLUS,             ///<  SuperA/SuperA/A4 227 x 356 mm
+    wxPAPER_B_PLUS,             ///<  SuperB/SuperB/A3 305 x 487 mm
+    wxPAPER_LETTER_PLUS,        ///<  Letter Plus 8.5 x 12.69 in
+    wxPAPER_A4_PLUS,            ///<  A4 Plus 210 x 330 mm
+    wxPAPER_A5_TRANSVERSE,      ///<  A5 Transverse 148 x 210 mm
+    wxPAPER_B5_TRANSVERSE,      ///<  B5 (JIS) Transverse 182 x 257 mm
+    wxPAPER_A3_EXTRA,           ///<  A3 Extra 322 x 445 mm
+    wxPAPER_A5_EXTRA,           ///<  A5 Extra 174 x 235 mm
+    wxPAPER_B5_EXTRA,           ///<  B5 (ISO) Extra 201 x 276 mm
+    wxPAPER_A2,                 ///<  A2 420 x 594 mm
+    wxPAPER_A3_TRANSVERSE,      ///<  A3 Transverse 297 x 420 mm
+    wxPAPER_A3_EXTRA_TRANSVERSE, ///<  A3 Extra Transverse 322 x 445 mm
+
+    wxPAPER_DBL_JAPANESE_POSTCARD, ///< Japanese Double Postcard 200 x 148 mm
+    wxPAPER_A6,                 ///< A6 105 x 148 mm
     wxPAPER_JENV_KAKU2,         ///< Japanese Envelope Kaku #2
-    wxPAPER_JENV_KAKU2_ROTATED, ///< Japanese Envelope Kaku #2 Rotated
     wxPAPER_JENV_KAKU3,         ///< Japanese Envelope Kaku #3
+    wxPAPER_JENV_CHOU3,         ///< Japanese Envelope Chou #3
+    wxPAPER_JENV_CHOU4,         ///< Japanese Envelope Chou #4
+    wxPAPER_LETTER_ROTATED,     ///< Letter Rotated 11 x 8 1/2 in
+    wxPAPER_A3_ROTATED,         ///< A3 Rotated 420 x 297 mm
+    wxPAPER_A4_ROTATED,         ///< A4 Rotated 297 x 210 mm
+    wxPAPER_A5_ROTATED,         ///< A5 Rotated 210 x 148 mm
+    wxPAPER_B4_JIS_ROTATED,     ///< B4 (JIS) Rotated 364 x 257 mm
+    wxPAPER_B5_JIS_ROTATED,     ///< B5 (JIS) Rotated 257 x 182 mm
+    wxPAPER_JAPANESE_POSTCARD_ROTATED, ///< Japanese Postcard Rotated 148 x 100 mm
+    wxPAPER_DBL_JAPANESE_POSTCARD_ROTATED, ///< Double Japanese Postcard Rotated 148 x 200 mm
+    wxPAPER_A6_ROTATED,         ///< A6 Rotated 148 x 105 mm
+    wxPAPER_JENV_KAKU2_ROTATED, ///< Japanese Envelope Kaku #2 Rotated
     wxPAPER_JENV_KAKU3_ROTATED, ///< Japanese Envelope Kaku #3 Rotated
+    wxPAPER_JENV_CHOU3_ROTATED, ///< Japanese Envelope Chou #3 Rotated
+    wxPAPER_JENV_CHOU4_ROTATED, ///< Japanese Envelope Chou #4 Rotated
+    wxPAPER_B6_JIS,             ///< B6 (JIS) 128 x 182 mm
+    wxPAPER_B6_JIS_ROTATED,     ///< B6 (JIS) Rotated 182 x 128 mm
+    wxPAPER_12X11,              ///< 12 x 11 in
     wxPAPER_JENV_YOU4,          ///< Japanese Envelope You #4
     wxPAPER_JENV_YOU4_ROTATED,  ///< Japanese Envelope You #4 Rotated
-    wxPAPER_LEDGER,             ///<  Ledger, 17 by 11 inches
-    wxPAPER_LEGAL,              ///<  Legal, 8 1/2 by 14 inches
-    wxPAPER_LEGAL_EXTRA,        ///<  Legal Extra 9.5 x 15 in
-    wxPAPER_LETTER,             ///<  Letter, 8 1/2 by 11 inches
-    wxPAPER_LETTERSMALL,        ///<  Letter Small, 8 1/2 by 11 inches
-    wxPAPER_LETTER_EXTRA,       ///<  Letter Extra 9.5 x 12 in
-    wxPAPER_LETTER_EXTRA_TRANSVERSE, ///<  Letter Extra Transverse 9.5 x 12 in
-    wxPAPER_LETTER_PLUS,        ///<  Letter Plus 8.5 x 12.69 in
-    wxPAPER_LETTER_ROTATED,     ///< Letter Rotated 11 x 8 1/2 in
-    wxPAPER_LETTER_TRANSVERSE,  ///<  Letter Transverse 8.5 x 11 in
-    wxPAPER_NONE,               ///<  Use specific dimensions
-    wxPAPER_NOTE,               ///<  Note, 8 1/2 by 11 inches
     wxPAPER_P16K,               ///< PRC 16K 146 x 215 mm
-    wxPAPER_P16K_ROTATED,       ///< PRC 16K Rotated
     wxPAPER_P32K,               ///< PRC 32K 97 x 151 mm
     wxPAPER_P32KBIG,            ///< PRC 32K(Big) 97 x 151 mm
-    wxPAPER_P32KBIG_ROTATED,    ///< PRC 32K(Big) Rotated
-    wxPAPER_P32K_ROTATED,       ///< PRC 32K Rotated
     wxPAPER_PENV_1,             ///< PRC Envelope #1 102 x 165 mm
-    wxPAPER_PENV_10,            ///< PRC Envelope #10 324 x 458 mm
-    wxPAPER_PENV_10_ROTATED,    ///< PRC Envelope #10 Rotated 458 x 324 m
-    wxPAPER_PENV_1_ROTATED,     ///< PRC Envelope #1 Rotated 165 x 102 mm
     wxPAPER_PENV_2,             ///< PRC Envelope #2 102 x 176 mm
-    wxPAPER_PENV_2_ROTATED,     ///< PRC Envelope #2 Rotated 176 x 102 mm
     wxPAPER_PENV_3,             ///< PRC Envelope #3 125 x 176 mm
-    wxPAPER_PENV_3_ROTATED,     ///< PRC Envelope #3 Rotated 176 x 125 mm
     wxPAPER_PENV_4,             ///< PRC Envelope #4 110 x 208 mm
-    wxPAPER_PENV_4_ROTATED,     ///< PRC Envelope #4 Rotated 208 x 110 mm
     wxPAPER_PENV_5,             ///< PRC Envelope #5 110 x 220 mm
-    wxPAPER_PENV_5_ROTATED,     ///< PRC Envelope #5 Rotated 220 x 110 mm
     wxPAPER_PENV_6,             ///< PRC Envelope #6 120 x 230 mm
-    wxPAPER_PENV_6_ROTATED,     ///< PRC Envelope #6 Rotated 230 x 120 mm
     wxPAPER_PENV_7,             ///< PRC Envelope #7 160 x 230 mm
-    wxPAPER_PENV_7_ROTATED,     ///< PRC Envelope #7 Rotated 230 x 160 mm
     wxPAPER_PENV_8,             ///< PRC Envelope #8 120 x 309 mm
-    wxPAPER_PENV_8_ROTATED,     ///< PRC Envelope #8 Rotated 309 x 120 mm
     wxPAPER_PENV_9,             ///< PRC Envelope #9 229 x 324 mm
+    wxPAPER_PENV_10,            ///< PRC Envelope #10 324 x 458 mm
+    wxPAPER_P16K_ROTATED,       ///< PRC 16K Rotated
+    wxPAPER_P32K_ROTATED,       ///< PRC 32K Rotated
+    wxPAPER_P32KBIG_ROTATED,    ///< PRC 32K(Big) Rotated
+    wxPAPER_PENV_1_ROTATED,     ///< PRC Envelope #1 Rotated 165 x 102 mm
+    wxPAPER_PENV_2_ROTATED,     ///< PRC Envelope #2 Rotated 176 x 102 mm
+    wxPAPER_PENV_3_ROTATED,     ///< PRC Envelope #3 Rotated 176 x 125 mm
+    wxPAPER_PENV_4_ROTATED,     ///< PRC Envelope #4 Rotated 208 x 110 mm
+    wxPAPER_PENV_5_ROTATED,     ///< PRC Envelope #5 Rotated 220 x 110 mm
+    wxPAPER_PENV_6_ROTATED,     ///< PRC Envelope #6 Rotated 230 x 120 mm
+    wxPAPER_PENV_7_ROTATED,     ///< PRC Envelope #7 Rotated 230 x 160 mm
+    wxPAPER_PENV_8_ROTATED,     ///< PRC Envelope #8 Rotated 309 x 120 mm
     wxPAPER_PENV_9_ROTATED,     ///< PRC Envelope #9 Rotated 324 x 229 mm
-    wxPAPER_QUARTO,             ///<  Quarto, 215-by-275-millimeter paper
-    wxPAPER_STATEMENT,          ///<  Statement, 5 1/2 by 8 1/2 inches
-    wxPAPER_TABLOID,            ///<  Tabloid, 11 by 17 inches
-    wxPAPER_TABLOID_EXTRA       ///<  Tabloid Extra 11.69 x 18 in
+    wxPAPER_PENV_10_ROTATED,    ///< PRC Envelope #10 Rotated 458 x 324 m
+    wxPAPER_A0,                 ///<  A0 Sheet 841 x 1189 mm
+    wxPAPER_A1                  ///<  A1 Sheet 594 x 841 mm
 };
 
 /**
@@ -1237,7 +1242,7 @@ enum wxPaperSize
 
 enum wxPrintOrientation
 {
-   wxPORTRAIT,
+   wxPORTRAIT = 1,
    wxLANDSCAPE
 };
 
@@ -1294,6 +1299,75 @@ enum wxUpdateUI
     wxUPDATE_UI_FROMIDLE  /**<  Invoked from On(Internal)Idle */
 };
 
+
+/* Old obsolete values copied from defs.h */
+/* don't use any elements of this enum in the new code */
+enum wxDeprecatedGUIConstants
+{
+    /*  Text font families */
+    wxDEFAULT    = 70,
+    wxDECORATIVE,
+    wxROMAN,
+    wxSCRIPT,
+    wxSWISS,
+    wxMODERN,
+    wxTELETYPE,  /* @@@@ */
+
+    /*  Proportional or Fixed width fonts (not yet used) */
+    wxVARIABLE   = 80,
+    wxFIXED,
+
+    wxNORMAL     = 90,
+    wxLIGHT,
+    wxBOLD,
+    /*  Also wxNORMAL for normal (non-italic text) */
+    wxITALIC,
+    wxSLANT,
+
+    /*  Pen styles */
+    wxSOLID      =   100,
+    wxDOT,
+    wxLONG_DASH,
+    wxSHORT_DASH,
+    wxDOT_DASH,
+    wxUSER_DASH,
+
+    wxTRANSPARENT,
+
+    /*  Brush & Pen Stippling. Note that a stippled pen cannot be dashed!! */
+    /*  Note also that stippling a Pen IS meaningful, because a Line is */
+    wxSTIPPLE_MASK_OPAQUE, /* mask is used for blitting monochrome using text fore and back ground colors */
+    wxSTIPPLE_MASK,        /* mask is used for masking areas in the stipple bitmap (TO DO) */
+    /*  drawn with a Pen, and without any Brush -- and it can be stippled. */
+    wxSTIPPLE =          110,
+
+    wxBDIAGONAL_HATCH = wxBRUSHSTYLE_BDIAGONAL_HATCH,
+    wxCROSSDIAG_HATCH = wxBRUSHSTYLE_CROSSDIAG_HATCH,
+    wxFDIAGONAL_HATCH = wxBRUSHSTYLE_CROSSDIAG_HATCH + 1,
+    wxCROSS_HATCH = wxBRUSHSTYLE_CROSSDIAG_HATCH + 2,
+    wxHORIZONTAL_HATCH = wxBRUSHSTYLE_CROSSDIAG_HATCH + 3,
+    wxVERTICAL_HATCH = wxBRUSHSTYLE_CROSSDIAG_HATCH + 4,
+    wxFIRST_HATCH = wxBDIAGONAL_HATCH,
+    wxLAST_HATCH = wxVERTICAL_HATCH,
+};
+
+#define wxCENTER_FRAME          0x0000
+#define wxCENTRE_ON_SCREEN      0x0002
+#define wxCENTER_ON_SCREEN      wxCENTRE_ON_SCREEN
+
+#define wxID_TREECTRL           7000
+#define wxFRAME_SHAPED          0x0010
+
+#define wxLC_USER_TEXT       wxLC_VIRTUAL
+#define wxScrolledWindowStyle (wxHSCROLL | wxVSCROLL)
+#define wxWS_EX_VALIDATE_RECURSIVELY 0
+#define wxTOPLEVEL_EX_DIALOG 0x00000008
+#define wxBROWSER_NEW_WINDOW  0x01
+
+#define wxMAJOR_VERSION      3
+#define wxMINOR_VERSION      1
+#define wxRELEASE_NUMBER     4
+#define wxSUBRELEASE_NUMBER  0
 
 // ----------------------------------------------------------------------------
 // constants

@@ -25,35 +25,35 @@ enum
     wxTB_LEFT        = wxTB_VERTICAL,
 
     /** "flat" buttons (Win32/GTK only) */
-    wxTB_FLAT,
+    wxTB_FLAT        = 0x0020,
 
     /** dockable toolbar (GTK only) */
-    wxTB_DOCKABLE,
+    wxTB_DOCKABLE    = 0x0040,
 
     /** don't show the icons (they're shown by default) */
-    wxTB_NOICONS,
+    wxTB_NOICONS     = 0x0080,
 
     /** show the text (not shown by default) */
-    wxTB_TEXT,
+    wxTB_TEXT        = 0x0100,
 
     /** don't show the divider between toolbar and the window (Win32 only) */
-    wxTB_NODIVIDER,
+    wxTB_NODIVIDER   = 0x0200,
 
     /** no automatic alignment (Win32 only, useless) */
-    wxTB_NOALIGN,
+    wxTB_NOALIGN     = 0x0400,
 
     /** show the text and the icons alongside, not vertically stacked (Win32/GTK) */
-    wxTB_HORZ_LAYOUT,
+    wxTB_HORZ_LAYOUT = 0x0800,
     wxTB_HORZ_TEXT   = wxTB_HORZ_LAYOUT | wxTB_TEXT,
 
     /** don't show the toolbar short help tooltips */
-    wxTB_NO_TOOLTIPS,
+    wxTB_NO_TOOLTIPS = 0x1000,
 
     /** lay out toolbar at the bottom of the window */
-    wxTB_BOTTOM,
+    wxTB_BOTTOM      = 0x2000,
 
     /** lay out toolbar at the right edge of the window */
-    wxTB_RIGHT,
+    wxTB_RIGHT        = 0x4000,
 
     /** flags that are closest to the native look*/
     wxTB_DEFAULT_STYLE = wxTB_HORIZONTAL
@@ -323,7 +323,7 @@ public:
                                     const wxBitmap& bmpDisabled = wxNullBitmap,
                                     const wxString& shortHelp = wxEmptyString,
                                     const wxString& longHelp = wxEmptyString,
-                                    wxObject* clientData = NULL);
+                                    wxObject* data = NULL);
 
     /**
         Adds any control to the toolbar, typically e.g.\ a wxComboBox.
@@ -359,7 +359,7 @@ public:
                                     const wxBitmap& bmpDisabled = wxNullBitmap,
                                     const wxString& shortHelp = wxEmptyString,
                                     const wxString& longHelp = wxEmptyString,
-                                    wxObject* clientData = NULL);
+                                    wxObject* data = NULL);
 
     /**
         Adds a separator for spacing groups of tools.
@@ -463,12 +463,12 @@ public:
             whenever another button in the group is checked. ::wxITEM_DROPDOWN
             specifies that a drop-down menu button will appear next to the
             tool button (only GTK+ and MSW). Call SetDropdownMenu() afterwards.
-        @param shortHelpString
+        @param shortHelp
             This string is used for the tools tooltip.
-        @param longHelpString
+        @param longHelp
             This string is shown in the statusbar (if any) of the parent frame
             when the mouse pointer is inside the tool.
-        @param clientData
+        @param data
             An optional pointer to client data which can be retrieved later
             using GetToolClientData().
 
@@ -482,9 +482,9 @@ public:
                                const wxBitmap& bitmap,
                                const wxBitmap& bmpDisabled,
                                wxItemKind kind = wxITEM_NORMAL,
-                               const wxString& shortHelpString = wxEmptyString,
-                               const wxString& longHelpString = wxEmptyString,
-                               wxObject* clientData = NULL);
+                               const wxString& shortHelp = wxEmptyString,
+                               const wxString& longHelp = wxEmptyString,
+                               wxObject* data = NULL);
     //@}
 
     /**

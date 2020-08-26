@@ -8,12 +8,12 @@
 /**
     Default width of the choice dialog.
 */
-#define wxCHOICE_WIDTH 150
+#define wxCHOICE_WIDTH 200
 
 /**
     Default height of the choice dialog.
 */
-#define wxCHOICE_HEIGHT 200
+#define wxCHOICE_HEIGHT 150
 
 /**
     Default style of the choice dialog.

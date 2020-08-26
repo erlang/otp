@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,19 +53,18 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinevent.html#wxspineventgetposition">external documentation</a>.
 -spec getPosition(This) -> integer() when
 	This::wxSpinEvent().
-getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinEvent),
-  wxe_util:call(?wxSpinEvent_GetPosition,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSpinEvent_GetPosition),
+  wxe_util:rec(?wxSpinEvent_GetPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinevent.html#wxspineventsetposition">external documentation</a>.
 -spec setPosition(This, Pos) -> 'ok' when
 	This::wxSpinEvent(), Pos::integer().
-setPosition(#wx_ref{type=ThisT,ref=ThisRef},Pos)
+setPosition(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxSpinEvent),
-  wxe_util:cast(?wxSpinEvent_SetPosition,
-  <<ThisRef:32/?UI,Pos:32/?UI>>).
+  wxe_util:queue_cmd(This,Pos,?get_env(),?wxSpinEvent_SetPosition).
 
  %% From wxNotifyEvent
 %% @hidden
@@ -76,9 +75,9 @@ isAllowed(This) -> wxNotifyEvent:isAllowed(This).
 allow(This) -> wxNotifyEvent:allow(This).
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

@@ -124,7 +124,7 @@ public:
     /**
         A synonym for CentreOnScreen().
     */
-    void CenterOnScreen(int direction = wxBOTH);
+    void CenterOnScreen(int dir = wxBOTH);
 
     /**
         Centres the window on screen.
@@ -135,7 +135,7 @@ public:
 
         @see wxWindow::CentreOnParent()
     */
-    void CentreOnScreen(int direction = wxBOTH);
+    void CentreOnScreen(int dir = wxBOTH);
 
     /**
         Enables or disables the Close button (most often in the right upper

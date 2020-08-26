@@ -610,7 +610,7 @@ white_box_check_event_handlers() ->
     {_,_,Server,_} = wx:get_env(),
     {status, _, _, [Env, _, _, _, Data]} = sys:get_status(Server),
     [_H, _data, {data, [{_, Record}]}] = Data,
-    {state, _Port1, _Port2, Users, [], CBs, _Next} = Record,
+    {state, _Port1, Users, [], CBs, _Next} = Record,
     {[{Pid, Evs} ||
 	 {Pid, {user, Evs}} <- gb_trees:to_list(Users),
 	 Evs =/= []], %% Ignore empty

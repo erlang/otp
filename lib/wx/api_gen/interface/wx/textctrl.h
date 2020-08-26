@@ -1556,7 +1556,7 @@ public:
         @return
             @true if the operation was successful, @false otherwise.
     */
-    bool SaveFile(const wxString& filename = wxEmptyString,
+    bool SaveFile(const wxString& file = wxEmptyString,
                   int fileType = wxTEXT_TYPE_ANY);
 
     /**

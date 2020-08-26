@@ -65,7 +65,7 @@ public:
         all the parameters.
     */
     wxFontPickerCtrl(wxWindow* parent, wxWindowID id,
-                     const wxFont& font = wxNullFont,
+                     const wxFont& initial = wxNullFont,
                      const wxPoint& pos = wxDefaultPosition,
                      const wxSize& size = wxDefaultSize,
                      long style = wxFNTP_DEFAULT_STYLE,
@@ -79,7 +79,7 @@ public:
             Parent window, must not be non-@NULL.
         @param id
             The identifier for the control.
-        @param font
+        @param initial
             The initial font shown in the control.
             If ::wxNullFont is given, the default font is used.
         @param pos
@@ -97,7 +97,7 @@ public:
                  creation failed.
     */
     bool Create(wxWindow* parent, wxWindowID id,
-                const wxFont& font = wxNullFont,
+                const wxFont& initial = wxNullFont,
                 const wxPoint& pos = wxDefaultPosition,
                 const wxSize& size = wxDefaultSize,
                 long style = wxFNTP_DEFAULT_STYLE,

@@ -491,7 +491,7 @@ public:
     */
     void DrawPolygon(int n, const wxPoint points[], wxCoord xoffset = 0,
                      wxCoord yoffset = 0,
-                     wxPolygonFillMode fill_style = wxODDEVEN_RULE);
+                     wxPolygonFillMode fillStyle = wxODDEVEN_RULE);
     /**
         This method draws a filled polygon using a list of wxPoints, adding the
         optional offset coordinate. The first and last points are automatically
@@ -793,17 +793,17 @@ public:
         @param height If non-@NULL, filled in with the height of the clipping
             region if the function returns true or the device context height
             otherwise.
-        @return @true if there is a clipping region or @false if there is no
-            active clipping region (note that this return value is available
-            only since wxWidgets 3.1.2, this function didn't return anything in
-            the previous versions).
+        // @return @true if there is a clipping region or @false if there is no
+        //     active clipping region (note that this return value is available
+        //     only since wxWidgets 3.1.2, this function didn't return anything in
+        //     the previous versions).
     */
-    bool GetClippingBox(wxCoord *x, wxCoord *y, wxCoord *width, wxCoord *height) const;
+  void GetClippingBox(wxCoord *x, wxCoord *y, wxCoord *width, wxCoord *height) const;
 
     /**
         @overload
     */
-    bool GetClippingBox(wxRect& rect) const;
+  void GetClippingBox(wxRect& rect) const;
 
     /**
         Sets the clipping region for this device context to the intersection of
@@ -976,7 +976,7 @@ public:
     void GetTextExtent(const wxString& string, wxCoord* w, wxCoord* h,
                        wxCoord* descent = NULL,
                        wxCoord* externalLeading = NULL,
-                       const wxFont* font = NULL) const;
+                       const wxFont* theFont = NULL) const;
 
     /**
         @overload
@@ -1173,21 +1173,15 @@ public:
         position and axis directions are taken into account when transforming
         them to physical (pixel) coordinates.
 
-        @param xdest
-            Destination device context x position.
-        @param ydest
-            Destination device context y position.
-        @param width
-            Width of source area to be copied.
-        @param height
-            Height of source area to be copied.
+        @param dest
+            Destination device context position.
+        @param size
+            Size of source area to be copied.
         @param source
             Source device context.
-        @param xsrc
-            Source device context x position.
-        @param ysrc
-            Source device context y position.
-        @param logicalFunc
+        @param src
+            Source device context position.
+        @param rop
             Logical function to use, see SetLogicalFunction().
         @param useMask
             If @true, Blit does a transparent blit using the mask that is
@@ -1216,12 +1210,8 @@ public:
             enabled. You can also influence whether MaskBlt or the explicit
             mask blitting code above is used, by using wxSystemOptions and
             setting the @c no-maskblt option to 1.
-        @param xsrcMask
-            Source x position on the mask. If both xsrcMask and ysrcMask are
-            @c -1, xsrc and ysrc will be assumed for the mask source position.
-            Currently only implemented on Windows.
-        @param ysrcMask
-            Source y position on the mask. If both xsrcMask and ysrcMask are
+        @param srcPtMask
+            Source of position on the mask. If both xsrcMask and ysrcMask are
             @c -1, xsrc and ysrc will be assumed for the mask source position.
             Currently only implemented on Windows.
 
@@ -1229,10 +1219,10 @@ public:
 
         @see StretchBlit(), wxMemoryDC, wxBitmap, wxMask
     */
-    bool Blit(wxCoord xdest, wxCoord ydest, wxCoord width,
-              wxCoord height, wxDC* source, wxCoord xsrc, wxCoord ysrc,
-              wxRasterOperationMode logicalFunc = wxCOPY, bool useMask = false,
-              wxCoord xsrcMask = wxDefaultCoord, wxCoord ysrcMask = wxDefaultCoord);
+    bool Blit(const wxPoint& dest, const wxSize& size,
+              wxDC* source, const wxPoint& src,
+              wxRasterOperationMode rop = wxCOPY, bool useMask = false,
+              const wxPoint& srcPtMask = wxDefaultPosition);
 
     /**
         Copy from a source DC to this DC possibly changing the scale.
@@ -1434,7 +1424,7 @@ public:
         @note This method shouldn't be used with wxPaintDC as accessing the DC
         while drawing can result in unexpected results, notably in wxGTK.
     */
-    bool GetPixel(wxCoord x, wxCoord y, wxColour* colour) const;
+    bool GetPixel(wxPoint pos, wxColour* colour) const;
 
     /**
         Returns the resolution of the device in pixels per inch.

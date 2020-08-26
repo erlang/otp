@@ -840,8 +840,8 @@ public:
 
         @see Size()
     */
-    wxImage& Resize(const wxSize& size, const wxPoint& pos, int red = -1,
-                    int green = -1, int blue = -1);
+    wxImage& Resize(const wxSize& size, const wxPoint& pos, int r = -1,
+                    int g = -1, int b = -1);
 
     /**
         Rotates the image about the given point, by @a angle radians.
@@ -855,7 +855,7 @@ public:
     */
     wxImage Rotate(double angle, const wxPoint& rotationCentre,
                    bool interpolating = true,
-                   wxPoint* offsetAfterRotation = NULL) const;
+                   wxPoint* offset_after_rotation = NULL) const;
 
     /**
         Returns a copy of the image rotated 90 degrees in the direction
@@ -935,8 +935,8 @@ public:
 
         @see Resize()
     */
-    wxImage Size(const wxSize& size, const wxPoint& pos, int red = -1,
-                 int green = -1, int blue = -1) const;
+    wxImage Size(const wxSize& size, const wxPoint& pos, int r = -1,
+                 int g = -1, int b = -1) const;
 
     //@}
 
@@ -1680,7 +1680,7 @@ public:
 
         The area of the mask is determined by the current mask colour.
     */
-    void SetMask(bool hasMask = true);
+    void SetMask(bool mask = true);
 
     /**
         Sets the mask colour for this image (and tells the image to use the mask).

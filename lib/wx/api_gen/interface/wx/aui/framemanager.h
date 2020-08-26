@@ -21,6 +21,13 @@ enum wxAuiManagerDock
 };
 
 
+enum wxAuiInsertLevel {
+      wxAUI_INSERT_PANE = 0,
+      wxAUI_INSERT_ROW  = 1,
+      wxAUI_INSERT_DOCK = 2
+};
+
+
 /**
     wxAuiManager behaviour and visual effects style flags.
 */
@@ -1036,6 +1043,24 @@ public:
     wxRect rect;
 
     bool IsValid() const;
+
+
+  // DGUD: Api to get data out of paneinfo
+    wxString GetName();
+    wxString GetCaption();
+    wxIcon GetIcon();
+
+    wxWindow* GetWindow();
+    wxFrame* GetFrame();
+
+    int GetDirection();
+    int GetLayer();
+    int GetRow();
+    int GetPosition();
+
+    wxPoint GetFloatingPosition();
+    wxSize GetFloatingSize();
+
 };
 
 

@@ -22,31 +22,25 @@
 #define	_WXE_CALLBACK_IMPL_H
 
 void pre_callback();
-void handle_event_callback(ErlDrvPort port, ErlDrvTermData process);
+void handle_event_callback(wxe_me_ref *mr, ErlNifPid process);
 
-#if wxCHECK_VERSION(2,9,0)
-    #define wxeIntPtr wxIntPtr
-#else
-    // This is bad but how it was in wx-2.8
-    #define wxeIntPtr long
-#endif
+#define wxeIntPtr wxIntPtr
 
-/* Fun Callback id */ 
+/* Fun Callback id */
 class wxeEvtListener : public wxEvtHandler
 {
 public:
-   wxeEvtListener(ErlDrvTermData caller, int req, char *req_type,
-		  int funcb, int skip_ev, wxeErlTerm * userData,
-		  ErlDrvTermData Thisport);
+   wxeEvtListener(ErlNifPid caller, int req, ERL_NIF_TERM req_type,
+		  int funcb, int skip_ev, wxeErlTerm * userData, wxe_me_ref *mr);
    ~wxeEvtListener();
    void forward(wxEvent& event);
-   ErlDrvTermData port;
-   ErlDrvTermData listener;
+   ErlNifPid    listener;
    int          fun_id;
    int          obj;
-   char         class_name[40];
+   ERL_NIF_TERM class_name;
    int          skip;
    wxeErlTerm * user_data;
+   wxe_me_ref * me_ref;
 };
 
 class wxEPrintout : public wxPrintout
@@ -55,12 +49,11 @@ class wxEPrintout : public wxPrintout
  wxEPrintout(wxString Title, int onPrintP, int onPrepareP,
 	     int onBeginP, int onEndP,
 	     int onBeginD, int onEndD,
-	     int hasP, int getPageI, ErlDrvTermData Port) :
+	     int hasP, int getPageI) :
     wxPrintout(Title),
 	onPrintPage(onPrintP), onPreparePrinting(onPrepareP),
 	onBeginPrinting(onBeginP), onEndPrinting(onEndP),
-	onBeginDocument(onBeginD), onEndDocument(onEndD), hasPage(hasP), getPageInfo(getPageI),
-	port(Port)
+	onBeginDocument(onBeginD), onEndDocument(onEndD), hasPage(hasP), getPageInfo(getPageI)
 	{ } ;
 
     ~wxEPrintout();
@@ -85,14 +78,14 @@ class wxEPrintout : public wxPrintout
     int hasPage;
     int getPageInfo;
 
-    ErlDrvTermData port;
+    wxe_me_ref * me_ref;
 };
 
-void clear_cb(ErlDrvTermData port, int callback);
+void clear_cb(wxe_me_ref *, int callback);
 
 // Implementation of wxListCtrlCompare
 struct callbackInfo {
-    ErlDrvTermData port;
+    wxe_me_ref * me_ref;
     int callbackID;
 };
 

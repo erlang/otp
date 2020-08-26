@@ -270,7 +270,7 @@ public:
         @see InsertPage()
     */
     virtual bool AddPage(wxWindow* page, const wxString& text,
-                         bool select = false, int imageId = NO_IMAGE);
+                         bool bSelect = false, int imageId = wxBookCtrlBase::NO_IMAGE);
 
     /**
         Deletes all pages.
@@ -312,8 +312,8 @@ public:
     virtual bool InsertPage(size_t index,
                             wxWindow* page,
                             const wxString& text,
-                            bool select = false,
-                            int imageId = NO_IMAGE) = 0;
+                            bool bSelect = false,
+                            int imageId = wxBookCtrlBase::NO_IMAGE) = 0;
 
     /**
         Deletes the specified page, without deleting the associated window.

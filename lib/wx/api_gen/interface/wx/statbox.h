@@ -117,12 +117,12 @@ public:
 
         @since 3.1.1
      */
-    wxStaticBox(wxWindow* parent, wxWindowID id,
-                wxWindow* label,
-                const wxPoint& pos = wxDefaultPosition,
-                const wxSize& size = wxDefaultSize,
-                long style = 0,
-                const wxString& name = wxStaticBoxNameStr);
+    // wxStaticBox(wxWindow* parent, wxWindowID id,
+    //             wxWindow* label,
+    //             const wxPoint& pos = wxDefaultPosition,
+    //             const wxSize& size = wxDefaultSize,
+    //             long style = 0,
+    //             const wxString& name = wxStaticBoxNameStr);
 
     /**
         Destructor, destroying the group box.
@@ -152,12 +152,12 @@ public:
 
         @since 3.1.1
      */
-    bool Create(wxWindow* parent, wxWindowID id,
-                wxWindow* label,
-                const wxPoint& pos = wxDefaultPosition,
-                const wxSize& size = wxDefaultSize,
-                long style = 0,
-                const wxString& name = wxStaticBoxNameStr);
+    // bool Create(wxWindow* parent, wxWindowID id,
+    //             wxWindow* label,
+    //             const wxPoint& pos = wxDefaultPosition,
+    //             const wxSize& size = wxDefaultSize,
+    //             long style = 0,
+    //             const wxString& name = wxStaticBoxNameStr);
 
     /**
         Enables or disables the box without affecting its label window, if any.

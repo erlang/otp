@@ -50,7 +50,8 @@ public:
     /**
         Initializes the bundle with the icon(s) found in the file.
     */
-    wxIconBundle(const wxString& file, wxBitmapType type = wxBITMAP_TYPE_ANY);
+    wxIconBundle(const wxString& file);
+    wxIconBundle(const wxString& file, wxBitmapType type);
 
     /**
         Initializes the bundle with the icon(s) found in the stream.
@@ -96,7 +97,8 @@ public:
         collection already contains icons with the same width and height, they
         are replaced by the new ones.
     */
-    void AddIcon(const wxString& file, wxBitmapType type = wxBITMAP_TYPE_ANY);
+    void AddIcon(const wxString& file);
+    void AddIcon(const wxString& file, wxBitmapType type);
 
     /**
         Adds all the icons contained in the stream to the bundle; if the
@@ -149,13 +151,13 @@ public:
 
         The @a flags parameter is available only since wxWidgets 2.9.4.
     */
-    wxIcon GetIcon(const wxSize& size, int flags = FALLBACK_SYSTEM) const;
+    wxIcon GetIcon(const wxSize& size, int flags = wxIconBundle::FALLBACK_SYSTEM) const;
 
     /**
         Same as @code GetIcon( wxSize( size, size ) ) @endcode.
     */
     wxIcon GetIcon(wxCoord size = wxDefaultCoord,
-                   int flags = FALLBACK_SYSTEM) const;
+                   int flags = wxIconBundle::FALLBACK_SYSTEM) const;
 
     /**
         Returns the icon with exactly the given size or ::wxNullIcon if this

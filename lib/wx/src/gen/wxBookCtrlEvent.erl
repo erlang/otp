@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,21 +18,21 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html">wxNotebookEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlevent.html">wxBookCtrlEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>command_notebook_page_changed</em>, <em>command_notebook_page_changing</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxNotebook(). #wxNotebook{}} event record type.
+%% See also the message variant {@link wxEvtHandler:wxBookCtrl(). #wxBookCtrl{}} event record type.
 %%
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxNotifyEvent}
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
 %% </p>
-%% @type wxNotebookEvent().  An object reference, The representation is internal
+%% @type wxBookCtrlEvent().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
 
--module(wxNotebookEvent).
+-module(wxBookCtrlEvent).
 -include("wxe.hrl").
 -export([getOldSelection/1,getSelection/1,setOldSelection/2,setSelection/2]).
 
@@ -42,47 +42,45 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1,veto/1]).
 
--export_type([wxNotebookEvent/0]).
+-export_type([wxBookCtrlEvent/0]).
 %% @hidden
 parent_class(wxNotifyEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxNotebookEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventgetoldselection">external documentation</a>.
+-type wxBookCtrlEvent() :: wx:wx_object().
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlevent.html#wxbookctrleventgetoldselection">external documentation</a>.
 -spec getOldSelection(This) -> integer() when
-	This::wxNotebookEvent().
-getOldSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
-  ?CLASS(ThisT,wxNotebookEvent),
-  wxe_util:call(?wxNotebookEvent_GetOldSelection,
-  <<ThisRef:32/?UI>>).
+	This::wxBookCtrlEvent().
+getOldSelection(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxBookCtrlEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxBookCtrlEvent_GetOldSelection),
+  wxe_util:rec(?wxBookCtrlEvent_GetOldSelection).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventgetselection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlevent.html#wxbookctrleventgetselection">external documentation</a>.
 -spec getSelection(This) -> integer() when
-	This::wxNotebookEvent().
-getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
-  ?CLASS(ThisT,wxNotebookEvent),
-  wxe_util:call(?wxNotebookEvent_GetSelection,
-  <<ThisRef:32/?UI>>).
+	This::wxBookCtrlEvent().
+getSelection(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxBookCtrlEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxBookCtrlEvent_GetSelection),
+  wxe_util:rec(?wxBookCtrlEvent_GetSelection).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventsetoldselection">external documentation</a>.
--spec setOldSelection(This, NOldSel) -> 'ok' when
-	This::wxNotebookEvent(), NOldSel::integer().
-setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},NOldSel)
- when is_integer(NOldSel) ->
-  ?CLASS(ThisT,wxNotebookEvent),
-  wxe_util:cast(?wxNotebookEvent_SetOldSelection,
-  <<ThisRef:32/?UI,NOldSel:32/?UI>>).
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlevent.html#wxbookctrleventsetoldselection">external documentation</a>.
+-spec setOldSelection(This, Page) -> 'ok' when
+	This::wxBookCtrlEvent(), Page::integer().
+setOldSelection(#wx_ref{type=ThisT}=This,Page)
+ when is_integer(Page) ->
+  ?CLASS(ThisT,wxBookCtrlEvent),
+  wxe_util:queue_cmd(This,Page,?get_env(),?wxBookCtrlEvent_SetOldSelection).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventsetselection">external documentation</a>.
--spec setSelection(This, NSel) -> 'ok' when
-	This::wxNotebookEvent(), NSel::integer().
-setSelection(#wx_ref{type=ThisT,ref=ThisRef},NSel)
- when is_integer(NSel) ->
-  ?CLASS(ThisT,wxNotebookEvent),
-  wxe_util:cast(?wxNotebookEvent_SetSelection,
-  <<ThisRef:32/?UI,NSel:32/?UI>>).
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlevent.html#wxbookctrleventsetselection">external documentation</a>.
+-spec setSelection(This, Page) -> 'ok' when
+	This::wxBookCtrlEvent(), Page::integer().
+setSelection(#wx_ref{type=ThisT}=This,Page)
+ when is_integer(Page) ->
+  ?CLASS(ThisT,wxBookCtrlEvent),
+  wxe_util:queue_cmd(This,Page,?get_env(),?wxBookCtrlEvent_SetSelection).
 
  %% From wxNotifyEvent
 %% @hidden
@@ -93,9 +91,9 @@ isAllowed(This) -> wxNotifyEvent:isAllowed(This).
 allow(This) -> wxNotifyEvent:allow(This).
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

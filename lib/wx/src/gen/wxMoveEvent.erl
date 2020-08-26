@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 
 -module(wxMoveEvent).
 -include("wxe.hrl").
--export([getPosition/1]).
+-export([getPosition/1,getRect/1]).
 
 %% inherited exports
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
@@ -47,10 +47,18 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmoveevent.html#wxmoveeventgetposition">external documentation</a>.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxMoveEvent().
-getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMoveEvent),
-  wxe_util:call(?wxMoveEvent_GetPosition,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxMoveEvent_GetPosition),
+  wxe_util:rec(?wxMoveEvent_GetPosition).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmoveevent.html#wxmoveeventgetrect">external documentation</a>.
+-spec getRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
+	This::wxMoveEvent().
+getRect(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxMoveEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxMoveEvent_GetRect),
+  wxe_util:rec(?wxMoveEvent_GetRect).
 
  %% From wxEvent
 %% @hidden

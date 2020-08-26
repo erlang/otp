@@ -1217,6 +1217,8 @@ public:
         /// Return the combined effective attribute for the cell.
         Any,
 
+        Default,
+
         /// Return the attribute explicitly set for this cell.
         Cell,
 
@@ -1226,7 +1228,6 @@ public:
         /// Return the attribute set for this cells column.
         Col,
 
-        Default,
         Merged
     };
 
@@ -3501,19 +3502,6 @@ public:
         or @c wxALIGN_BOTTOM.
     */
     void SetCellAlignment(int row, int col, int horiz, int vert);
-    /**
-        Sets the horizontal and vertical alignment for grid cell text at the
-        specified location.
-
-        Horizontal alignment should be one of @c wxALIGN_LEFT,
-        @c wxALIGN_CENTRE or @c wxALIGN_RIGHT.
-
-        Vertical alignment should be one of @c wxALIGN_TOP, @c wxALIGN_CENTRE
-        or @c wxALIGN_BOTTOM.
-
-        @deprecated Please use SetCellAlignment(row, col, horiz, vert) instead.
-    */
-    void SetCellAlignment(int align, int row, int col);
 
     /**
         Set the background colour for the given cell or all cells by default.
@@ -3529,18 +3517,6 @@ public:
         Sets the text colour for the given cell.
     */
     void SetCellTextColour(int row, int col, const wxColour& colour);
-    /**
-        Sets the text colour for the given cell.
-
-        @deprecated Please use SetCellTextColour(row, col, colour)
-    */
-    void SetCellTextColour(const wxColour& val, int row, int col);
-    /**
-        Sets the text colour for all cells by default.
-
-        @deprecated Please use SetDefaultCellTextColour(colour) instead.
-    */
-    void SetCellTextColour(const wxColour& colour);
 
     /**
         Sets the default horizontal and vertical alignment for grid cell text.
@@ -3891,24 +3867,6 @@ public:
         more information.
     */
     void SetCellValue(const wxGridCellCoords& coords, const wxString& s);
-    /**
-        @deprecated Please use SetCellValue(int,int,const wxString&) or
-                    SetCellValue(const wxGridCellCoords&,const wxString&)
-                    instead.
-
-        Sets the string value for the cell at the specified location.
-
-        For simple applications where a grid object automatically uses a
-        default grid table of string values you use this function together with
-        GetCellValue() to access cell values. For more complex applications
-        where you have derived your own grid table class that contains various
-        data types (e.g. numeric, boolean or user-defined custom types) then
-        you only use this function for those cells that contain string values.
-
-        See wxGridTableBase::CanSetValueAs() and the @ref overview_grid for
-        more information.
-    */
-    void SetCellValue(const wxString& val, int row, int col);
 
     /**
         Sets the specified column to display boolean values.

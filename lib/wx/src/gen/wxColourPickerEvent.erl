@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,16 +51,16 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourpickerevent.html#wxcolourpickereventgetcolour">external documentation</a>.
 -spec getColour(This) -> wx:wx_colour4() when
 	This::wxColourPickerEvent().
-getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxColourPickerEvent),
-  wxe_util:call(?wxColourPickerEvent_GetColour,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxColourPickerEvent_GetColour),
+  wxe_util:rec(?wxColourPickerEvent_GetColour).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

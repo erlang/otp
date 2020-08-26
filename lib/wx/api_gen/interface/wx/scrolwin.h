@@ -192,7 +192,7 @@ public:
                  Call SetScrollbars() to specify how big the virtual window
                  size should be.
     */
-    wxScrolled(wxWindow* parent, wxWindowID id = -1,
+    wxScrolled(wxWindow* parent, wxWindowID winid = -1,
                const wxPoint& pos = wxDefaultPosition,
                const wxSize& size = wxDefaultSize,
                long style = wxHSCROLL | wxVSCROLL,

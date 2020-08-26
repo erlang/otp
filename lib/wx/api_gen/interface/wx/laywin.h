@@ -198,7 +198,7 @@ public:
         @param name
             Window name.
     */
-    wxSashLayoutWindow(wxWindow* parent, wxWindowID id,
+    wxSashLayoutWindow(wxWindow* parent, wxWindowID id = wxID_ANY,
                        const wxPoint& pos = wxDefaultPosition,
                        const wxSize& size = wxDefaultSize,
                        long style = wxCLIP_CHILDREN | wxSW_3D,

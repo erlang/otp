@@ -3025,11 +3025,11 @@ public:
             (Optional)  The search flags.  This should be a bit list containing
              one or more of the @link wxStyledTextCtrl::wxSTC_FIND_WHOLEWORD
             wxSTC_FIND_* @endlink constants.
-        @param findEnd
-            (Optional)  This parameter can optionally be used to receive the
-            end position (starting from zero) of the found text.  This is
-            primarily needed when searching using regular expressions.
-            This parameter is available since wxWidgets 3.1.1.
+        //@param findEnd
+        //    (Optional)  This parameter can optionally be used to receive the
+        //    end position (starting from zero) of the found text.  This is
+        //    primarily needed when searching using regular expressions.
+        //    This parameter is available since wxWidgets 3.1.1.
         @return
             The position (starting from zero) in the document at which the text
             was found or wxSTC_INVALID_POSITION if the search fails.
@@ -3038,7 +3038,8 @@ public:
             than maxPos.
     */
     int FindText(int minPos, int maxPos, const wxString& text, int flags=0,
-                 int* findEnd=NULL);
+                 // int* findEnd=NULL
+                 );
 
     /**
         Sets the position that starts the target which is used for updating the
@@ -4272,7 +4273,7 @@ public:
     /**
         Set the current styling position to start.
     */
-    void StartStyling(int start);
+    void StartStyling(int start, int unused = 0);
 
     /**
         Change style from current styling position for length characters to a style
@@ -5153,9 +5154,8 @@ public:
 
     /**
         Find the position of a matching brace or wxSTC_INVALID_POSITION if no match.
-        The maxReStyle must be 0 for now. It may be defined in a future release.
     */
-    int BraceMatch(int pos, int maxReStyle=0);
+    int BraceMatch(int pos);
 
     //@}
 

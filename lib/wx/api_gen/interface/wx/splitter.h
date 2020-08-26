@@ -136,7 +136,7 @@ public:
         See wxSplitterWindow() for details.
     */
     bool Create(wxWindow* parent, wxWindowID id = wxID_ANY,
-                const wxPoint& point = wxDefaultPosition,
+                const wxPoint& pos = wxDefaultPosition,
                 const wxSize& size = wxDefaultSize, long style = wxSP_3D,
                 const wxString& name = "splitter");
 

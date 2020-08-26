@@ -241,6 +241,7 @@ dnl
 if test "x$GCC" = xyes -a X"$host_os" != X"win32" ; then
    CXXNOOPT="-O1"
    LM_TRY_ENABLE_CFLAG([-fno-move-loop-invariants], [CXXNOOPT])
+   LM_TRY_ENABLE_CFLAG([-fno-var-tracking-assignments], [CXXNOOPT])
 fi
 
 dnl
@@ -331,7 +332,7 @@ elif test  X"$MIXED_VC" = X"no"; then
     esac
 
     AM_OPTIONS_WXCONFIG
-    reqwx=2.8.4
+    reqwx=3.0.2
     # Try to find debug libs first 
     # wxelibs=core,base,gl,aui,adv
 
@@ -459,8 +460,7 @@ else
 	if test -f $dir/include/wx/wx.h; then
 	    WXINCLUDE_MSVC=$dir/include/msvc
 	    WXINCLUDE_PLAIN=$dir/include
-	    WXINCLUDE_CONTRIB=$dir/contrib/include
-	    WX_CFLAGS="-EHsc -D_UNICODE -DUNICODE -I$WXINCLUDE_MSVC -I$WXINCLUDE_PLAIN -I$WXINCLUDE_CONTRIB -D__WXMSW__"
+	    WX_CFLAGS="-EHsc -D_UNICODE -DUNICODE -I$WXINCLUDE_MSVC -I$WXINCLUDE_PLAIN -D__WXMSW__"
 	    WX_CXXFLAGS="-TP $WX_CFLAGS"
 	    WX_LIBDIR=$dir/lib/vc_lib
 	    WX_LIBDIR64=$dir/lib/vc_x64_lib
@@ -509,7 +509,7 @@ if test "$WXERL_CAN_BUILD_DRIVER" != "false"; then
 AC_SUBST(WX_HAVE_STATIC_LIBS)
 AC_SUBST(RC_FILE_TYPE)
 
-AC_MSG_CHECKING(for wxwidgets 2.8 compatibility )
+AC_MSG_CHECKING(for wxwidgets 3.0 compatibility )
 AC_LANG_PUSH(C++)
 saved_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
@@ -521,20 +521,20 @@ AC_COMPILE_IFELSE(
   #endif
   #include "wx/wx.h"
   ]], [[
-  #if wxMAJOR_VERSION > 2 && WXWIN_COMPATIBILITY_2_8 == 1
+  #if wxMAJOR_VERSION > 2 && (wxMINOR_VERSION == 0 || WXWIN_COMPATIBILITY_3_0 == 1)
   ;
   #else
   #error barf
   #endif
   ]])],
-  HAVE_COMPAT28_SUPPORT=yes, HAVE_COMPAT28_SUPPORT=no)
+  HAVE_COMPAT30_SUPPORT=yes, HAVE_COMPAT30_SUPPORT=no)
 
 CXXFLAGS=$saved_CXXFLAGS
 AC_LANG_POP(C++)
-AC_MSG_RESULT($HAVE_COMPAT28_SUPPORT)
+AC_MSG_RESULT($HAVE_COMPAT30_SUPPORT)
 
-if test X"$HAVE_COMPAT28_SUPPORT" != X"yes" ; then
-   echo "wxWidgets was not compiled with --enable-compat28, wx will NOT be useable" >> ./CONF_INFO
+if test X"$HAVE_COMPAT30_SUPPORT" != X"yes" ; then
+   echo "wxWidgets was not compiled with --enable-compat30, wx will NOT be useable" >> ./CONF_INFO
    WXERL_CAN_BUILD_DRIVER=false
 fi
 
@@ -648,15 +648,9 @@ fi
 AC_LINK_IFELSE([AC_LANG_SOURCE([
 		#ifdef WIN32
 		# include <windows.h>
-	        # include <gl/gl.h>
-	        #elif defined(HAVE_GL_GL_H)
-	        # include <GL/gl.h>
-                #elif defined(HAVE_OPENGL_GL_H)
-		# include <OpenGL/gl.h>
-		#endif 
+		#endif
                 #include "wx/wx.h"
 		#include "wx/stc/stc.h"
-		#include "wx/glcanvas.h"
 		])
 
 		class MyApp : public wxApp
@@ -666,8 +660,6 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
 			   // it isn't in too old wxWidgets versions
 		   	   wxString test = wxString::FromUTF8((const char *)"foo");
 		   	   wxStyledTextCtrl * foo = new wxStyledTextCtrl();
-		   	   wxGLCanvas * bar = new wxGLCanvas((wxWindow *) NULL, -1, 
-			   	      wxDefaultPosition,wxDefaultSize,0);
 			   return true;
                   };
 		};

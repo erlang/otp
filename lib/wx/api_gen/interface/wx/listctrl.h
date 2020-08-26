@@ -1814,7 +1814,7 @@ public:
         Constructor.
     */
     wxListItem();
-
+    wxListItem(const wxListItem& item);
     /**
         Resets the item state to the default.
     */

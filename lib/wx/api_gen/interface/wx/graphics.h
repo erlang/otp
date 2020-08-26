@@ -234,6 +234,8 @@ public:
     */
     wxGraphicsRenderer* GetRenderer() const;
 
+    virtual ~wxGraphicsObject();
+
     /**
         @return @false if this object is valid, otherwise returns @true.
     */
@@ -518,6 +520,8 @@ public:
     */
     static wxGraphicsContext* Create();
 
+    virtual ~wxGraphicsContext();
+
     /** @}
     */
 
@@ -647,13 +651,14 @@ public:
 
         The version taking wxGraphicsGradientStops is new in wxWidgets 2.9.1.
 
-        The @a matrix parameter was added in wxWidgets 3.1.3
+        // The @a matrix parameter was added in wxWidgets 3.1.3
     */
     wxGraphicsBrush
     CreateLinearGradientBrush(wxDouble x1, wxDouble y1,
                               wxDouble x2, wxDouble y2,
-                              const wxColour& c1, const wxColour& c2,
-                              const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix) const;
+                              const wxColour& c1, const wxColour& c2
+                              // , const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix
+                              ) const;
 
     /**
         @overload
@@ -661,8 +666,9 @@ public:
     wxGraphicsBrush
     CreateLinearGradientBrush(wxDouble x1, wxDouble y1,
                               wxDouble x2, wxDouble y2,
-                              const wxGraphicsGradientStops& stops,
-                              const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix) const;
+                              const wxGraphicsGradientStops& stops
+                              //, const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix
+                              ) const;
 
     /**
         Creates a native brush with a radial gradient.
@@ -675,15 +681,16 @@ public:
 
         The version taking wxGraphicsGradientStops is new in wxWidgets 2.9.1.
 
-        The ability to apply a transformation matrix to the gradient was added in 3.1.3
+        // The ability to apply a transformation matrix to the gradient was added in 3.1.3
     */
     virtual wxGraphicsBrush
     CreateRadialGradientBrush(wxDouble startX, wxDouble startY,
                               wxDouble endX, wxDouble endY,
                               wxDouble radius,
                               const wxColour& oColor,
-                              const wxColour& cColor,
-                              const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix) const;
+                              const wxColour& cColor
+                              // , const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix
+                              ) const;
 
     /**
         @overload
@@ -692,8 +699,9 @@ public:
     CreateRadialGradientBrush(wxDouble startX, wxDouble startY,
                               wxDouble endX, wxDouble endY,
                               wxDouble radius,
-                              const wxGraphicsGradientStops& stops,
-                              const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix) = 0;
+                              const wxGraphicsGradientStops& stops
+                              // , const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix
+                              ) = 0;
 
     /**
         Sets the brush for filling paths.
@@ -744,16 +752,18 @@ public:
         Draws the bitmap. In case of a mono bitmap, this is treated as a mask
         and the current brushed is used for filling.
     */
-    virtual void DrawBitmap(const wxGraphicsBitmap& bmp,
-                            wxDouble x, wxDouble y,
-                            wxDouble w, wxDouble h ) = 0;
-
-    /**
-        @overload
-    */
     virtual void DrawBitmap(const wxBitmap& bmp,
                             wxDouble x, wxDouble y,
                             wxDouble w, wxDouble h) = 0;
+
+    // /**
+    //     @overload
+    // */
+
+    // virtual void DrawBitmap(const wxGraphicsBitmap& bmp,
+    //                         wxDouble x, wxDouble y,
+    //                         wxDouble w, wxDouble h ) = 0;
+
 
     /**
         Draws an ellipse.
@@ -1236,7 +1246,7 @@ public:
         Add a new stop.
     */
     //@{
-    void Add(const wxGraphicsGradientStop& stop);
+  //    void Add(const wxGraphicsGradientStop& stop);
     void Add(wxColour col, float pos);
     //@}
 
@@ -1484,8 +1494,9 @@ public:
                                                       wxDouble y1,
                                                       wxDouble x2,
                                                       wxDouble y2,
-                                                      const wxGraphicsGradientStops& stops,
-                                                      const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix) = 0;
+                                                      const wxGraphicsGradientStops& stops
+                                                      // , const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix
+                                                      ) = 0;
 
     /**
         Creates a native affine transformation matrix from the passed in
@@ -1519,8 +1530,9 @@ public:
     virtual wxGraphicsBrush CreateRadialGradientBrush(wxDouble startX, wxDouble startY,
                                                       wxDouble endX, wxDouble endY,
                                                       wxDouble radius,
-                                                      const wxGraphicsGradientStops& stops,
-                                                      const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix) = 0;
+                                                      const wxGraphicsGradientStops& stops
+                                                      // , const wxGraphicsMatrix& matrix = wxNullGraphicsMatrix
+                                                      ) = 0;
 
     /**
         Extracts a sub-bitmap from an existing bitmap.

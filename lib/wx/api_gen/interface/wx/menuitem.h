@@ -55,7 +55,7 @@ public:
         Menu items can be standard, or "stock menu items", or custom.
         For the standard menu items (such as commands to open a file, exit the
         program and so on, see @ref page_stockitems for the full list) it is enough
-        to specify just the stock ID and leave @a text and @a helpString empty.
+        to specify just the stock ID and leave @a text and @a help string empty.
         Some platforms (currently wxGTK only, and see the remark in SetBitmap()
         documentation) will also show standard bitmaps for stock menu items.
 
@@ -64,7 +64,7 @@ public:
         standard accelerators) familiar to the user.
 
         For the custom (non-stock) menu items, @a text must be specified and while
-        @a helpString may be left empty, it's recommended to pass the item
+        @a help string may be left empty, it's recommended to pass the item
         description (which is automatically shown by the library in the status bar
         when the menu item is selected) in this parameter.
 
@@ -96,7 +96,7 @@ public:
         @param text
             Text for the menu item, as shown on the menu.
             See SetItemLabel() for more info.
-        @param helpString
+        @param help
             Optional help string that will be shown on the status bar.
         @param kind
             May be @c wxITEM_SEPARATOR, @c wxITEM_NORMAL, @c wxITEM_CHECK or
@@ -106,7 +106,7 @@ public:
     */
     wxMenuItem(wxMenu* parentMenu = NULL, int id = wxID_SEPARATOR,
                const wxString& text = wxEmptyString,
-               const wxString& helpString = wxEmptyString,
+               const wxString& help = wxEmptyString,
                wxItemKind kind = wxITEM_NORMAL,
                wxMenu* subMenu = NULL);
 
@@ -165,7 +165,7 @@ public:
 
         @onlyfor{wxmsw}
     */
-    virtual const wxBitmap& GetBitmap(bool checked = true) const;
+    virtual const wxBitmap& GetBitmap() const;
 
     /**
         Returns the bitmap to be used for disabled items.
@@ -367,7 +367,7 @@ public:
 
         @onlyfor{wxmsw,wxosx,wxgtk}
     */
-    virtual void SetBitmap(const wxBitmap& bmp, bool checked = true);
+    virtual void SetBitmap(const wxBitmap& bmp);
 
     /**
         Sets the checked/unchecked bitmaps for the menu item.

@@ -33,21 +33,6 @@
 
 -record(state, {win, demo, example, selector, log, code}).
 
-%% For wx-2.9 usage
--ifndef(wxSTC_ERLANG_COMMENT_FUNCTION).
--define(wxSTC_ERLANG_COMMENT_FUNCTION, 14).
--define(wxSTC_ERLANG_COMMENT_MODULE, 15).
--define(wxSTC_ERLANG_COMMENT_DOC, 16).
--define(wxSTC_ERLANG_COMMENT_DOC_MACRO, 17).
--define(wxSTC_ERLANG_ATOM_QUOTED, 18).
--define(wxSTC_ERLANG_MACRO_QUOTED, 19).
--define(wxSTC_ERLANG_RECORD_QUOTED, 20).
--define(wxSTC_ERLANG_NODE_NAME_QUOTED, 21).
--define(wxSTC_ERLANG_BIFS, 22).
--define(wxSTC_ERLANG_MODULES, 23).
--define(wxSTC_ERLANG_MODULES_ATT, 24).
--endif.
-
 start() ->
     start([]).
 
@@ -347,7 +332,6 @@ code_area(Parent) ->
 	       {?wxSTC_ERLANG_CHARACTER,{236,155,172}},
 	       {?wxSTC_ERLANG_MACRO,    {40,144,170}},
 	       {?wxSTC_ERLANG_RECORD,   {40,100,20}},
-	       {?wxSTC_ERLANG_SEPARATOR,{0,0,0}},
 	       {?wxSTC_ERLANG_NODE_NAME,{0,0,0}},
 	       %% Optional 2.9 stuff
 	       {?wxSTC_ERLANG_COMMENT_FUNCTION, {160,53,35}},

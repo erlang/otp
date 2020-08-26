@@ -62,14 +62,14 @@ public:
             Number of choices with which to initialize the radiobox.
         @param choices
             An array of choices with which to initialize the radiobox.
-        @param majorDimension
+        @param majorDim
             Specifies the maximum number of rows (if style contains
             @c wxRA_SPECIFY_ROWS) or columns (if style contains
             @c wxRA_SPECIFY_COLS) for a two-dimensional radiobox. The default
             value of 0 means to use the number of items, i.e. @a n.
         @param style
             Window style. See wxRadioBox.
-        @param validator
+        @param val
             Window validator.
         @param name
             Window name.
@@ -86,9 +86,9 @@ public:
                const wxSize& size = wxDefaultSize,
                int n = 0,
                const wxString choices[] = NULL,
-               int majorDimension = 0,
+               int majorDim = 0,
                long style = wxRA_SPECIFY_COLS,
-               const wxValidator& validator = wxDefaultValidator,
+               const wxValidator& val = wxDefaultValidator,
                const wxString& name = wxRadioBoxNameStr);
 
     /**
@@ -108,7 +108,7 @@ public:
             is chosen.
         @param choices
             An array of choices with which to initialize the radiobox.
-        @param majorDimension
+        @param majorDim
             Specifies the maximum number of rows (if style contains
             @c wxRA_SPECIFY_ROWS) or columns (if style contains
             @c wxRA_SPECIFY_COLS) for a two-dimensional radiobox. The default
@@ -116,7 +116,7 @@ public:
             elements in @a choices.
         @param style
             Window style. See wxRadioBox.
-        @param validator
+        @param val
             Window validator.
         @param name
             Window name.
@@ -132,9 +132,9 @@ public:
                const wxPoint& pos,
                const wxSize& size,
                const wxArrayString& choices,
-               int majorDimension = 0,
+               int majorDim = 0,
                long style = wxRA_SPECIFY_COLS,
-               const wxValidator& validator = wxDefaultValidator,
+               const wxValidator& val = wxDefaultValidator,
                const wxString& name = wxRadioBoxNameStr);
 
     /**
@@ -148,28 +148,26 @@ public:
     */
     bool Create(wxWindow* parent, wxWindowID id,
                 const wxString& label,
-                const wxPoint& pos = wxDefaultPosition,
-                const wxSize& size = wxDefaultSize,
-                int n = 0,
-                const wxString choices[] = NULL,
-                int majorDimension = 0,
-                long style = wxRA_SPECIFY_COLS,
-                const wxValidator& validator = wxDefaultValidator,
-                const wxString& name = wxRadioBoxNameStr);
-
-    /**
-        Creates the radiobox for two-step construction. See wxRadioBox()
-        for further details.
-    */
-    bool Create(wxWindow* parent, wxWindowID id,
-                const wxString& label,
                 const wxPoint& pos,
                 const wxSize& size,
                 const wxArrayString& choices,
-                int majorDimension = 0,
+                int majorDim = 0,
                 long style = wxRA_SPECIFY_COLS,
-                const wxValidator& validator = wxDefaultValidator,
+                const wxValidator& val = wxDefaultValidator,
                 const wxString& name = wxRadioBoxNameStr);
+
+
+    /**
+        Enables or disables the radiobox.
+
+        @param enable
+            @true to enable, @false to disable.
+
+        @see wxWindow::Enable()
+
+    */
+    virtual bool Enable(bool enable = true);
+
 
     /**
         Enables or disables an individual button in the radiobox.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@
   close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
   dragAcceptFiles/2,enable/1,enable/2,findWindow/2,fit/1,fitInside/1,
-  freeze/1,fromDIP/2,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
+  freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
   getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
   getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,getCursor/1,
   getDPI/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,
@@ -53,25 +53,25 @@
   hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
   isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,
   isShownOnScreen/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,
-  makeModal/1,makeModal/2,move/2,move/3,move/4,moveAfterInTabOrder/2,
-  moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
-  popEventHandler/1,popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,
-  raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
-  removeChild/2,reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,
-  scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
-  setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
-  setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
-  setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
-  setFont/2,setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
+  move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
+  navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,
+  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
+  refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
+  reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,
+  scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,
+  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
+  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
+  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
+  setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
   setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,setOwnForegroundColour/2,
   setPalette/2,setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,
   setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
   setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,
   setThemeEnabled/2,setToolTip/2,setTransparent/2,setVirtualSize/2,
-  setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
-  setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
-  show/1,show/2,thaw/1,toDIP/2,transferDataFromWindow/1,transferDataToWindow/1,
-  update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
+  setVirtualSize/3,setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,
+  shouldInheritColours/1,show/1,show/2,thaw/1,transferDataFromWindow/1,
+  transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
+  validate/1,warpPointer/3]).
 
 -export_type([wxSashWindow/0]).
 %% @hidden
@@ -83,8 +83,8 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowwxsashwindow">external documentation</a>.
 -spec new() -> wxSashWindow().
 new() ->
-  wxe_util:construct(?wxSashWindow_new_0,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxSashWindow_new_0),
+  wxe_util:rec(?wxSashWindow_new_0).
 
 %% @equiv new(Parent, [])
 -spec new(Parent) -> wxSashWindow() when
@@ -101,117 +101,108 @@ new(Parent)
 		 | {'pos', {X::integer(), Y::integer()}}
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}.
-new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
+new(#wx_ref{type=ParentT}=Parent, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
-  MOpts = fun({id, Id}, Acc) -> [<<1:32/?UI,Id:32/?UI>>|Acc];
-          ({pos, {PosX,PosY}}, Acc) -> [<<2:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
-          ({size, {SizeW,SizeH}}, Acc) -> [<<3:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
-          ({style, Style}, Acc) -> [<<4:32/?UI,Style:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxSashWindow_new_2,
-  <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({id, _id} = Arg) -> Arg;
+          ({pos, {_posX,_posY}} = Arg) -> Arg;
+          ({size, {_sizeW,_sizeH}} = Arg) -> Arg;
+          ({style, _style} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Parent, Opts,?get_env(),?wxSashWindow_new_2),
+  wxe_util:rec(?wxSashWindow_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetsashvisible">external documentation</a>.
 %%<br /> Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
 -spec getSashVisible(This, Edge) -> boolean() when
 	This::wxSashWindow(), Edge::wx:wx_enum().
-getSashVisible(#wx_ref{type=ThisT,ref=ThisRef},Edge)
+getSashVisible(#wx_ref{type=ThisT}=This,Edge)
  when is_integer(Edge) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:call(?wxSashWindow_GetSashVisible,
-  <<ThisRef:32/?UI,Edge:32/?UI>>).
+  wxe_util:queue_cmd(This,Edge,?get_env(),?wxSashWindow_GetSashVisible),
+  wxe_util:rec(?wxSashWindow_GetSashVisible).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetmaximumsizex">external documentation</a>.
 -spec getMaximumSizeX(This) -> integer() when
 	This::wxSashWindow().
-getMaximumSizeX(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getMaximumSizeX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:call(?wxSashWindow_GetMaximumSizeX,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSashWindow_GetMaximumSizeX),
+  wxe_util:rec(?wxSashWindow_GetMaximumSizeX).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetmaximumsizey">external documentation</a>.
 -spec getMaximumSizeY(This) -> integer() when
 	This::wxSashWindow().
-getMaximumSizeY(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getMaximumSizeY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:call(?wxSashWindow_GetMaximumSizeY,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSashWindow_GetMaximumSizeY),
+  wxe_util:rec(?wxSashWindow_GetMaximumSizeY).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetminimumsizex">external documentation</a>.
 -spec getMinimumSizeX(This) -> integer() when
 	This::wxSashWindow().
-getMinimumSizeX(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getMinimumSizeX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:call(?wxSashWindow_GetMinimumSizeX,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSashWindow_GetMinimumSizeX),
+  wxe_util:rec(?wxSashWindow_GetMinimumSizeX).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetminimumsizey">external documentation</a>.
 -spec getMinimumSizeY(This) -> integer() when
 	This::wxSashWindow().
-getMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getMinimumSizeY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:call(?wxSashWindow_GetMinimumSizeY,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSashWindow_GetMinimumSizeY),
+  wxe_util:rec(?wxSashWindow_GetMinimumSizeY).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetmaximumsizex">external documentation</a>.
--spec setMaximumSizeX(This, Max) -> 'ok' when
-	This::wxSashWindow(), Max::integer().
-setMaximumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Max)
- when is_integer(Max) ->
+-spec setMaximumSizeX(This, Min) -> 'ok' when
+	This::wxSashWindow(), Min::integer().
+setMaximumSizeX(#wx_ref{type=ThisT}=This,Min)
+ when is_integer(Min) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:cast(?wxSashWindow_SetMaximumSizeX,
-  <<ThisRef:32/?UI,Max:32/?UI>>).
+  wxe_util:queue_cmd(This,Min,?get_env(),?wxSashWindow_SetMaximumSizeX).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetmaximumsizey">external documentation</a>.
--spec setMaximumSizeY(This, Max) -> 'ok' when
-	This::wxSashWindow(), Max::integer().
-setMaximumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Max)
- when is_integer(Max) ->
+-spec setMaximumSizeY(This, Min) -> 'ok' when
+	This::wxSashWindow(), Min::integer().
+setMaximumSizeY(#wx_ref{type=ThisT}=This,Min)
+ when is_integer(Min) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:cast(?wxSashWindow_SetMaximumSizeY,
-  <<ThisRef:32/?UI,Max:32/?UI>>).
+  wxe_util:queue_cmd(This,Min,?get_env(),?wxSashWindow_SetMaximumSizeY).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetminimumsizex">external documentation</a>.
 -spec setMinimumSizeX(This, Min) -> 'ok' when
 	This::wxSashWindow(), Min::integer().
-setMinimumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Min)
+setMinimumSizeX(#wx_ref{type=ThisT}=This,Min)
  when is_integer(Min) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:cast(?wxSashWindow_SetMinimumSizeX,
-  <<ThisRef:32/?UI,Min:32/?UI>>).
+  wxe_util:queue_cmd(This,Min,?get_env(),?wxSashWindow_SetMinimumSizeX).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetminimumsizey">external documentation</a>.
 -spec setMinimumSizeY(This, Min) -> 'ok' when
 	This::wxSashWindow(), Min::integer().
-setMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Min)
+setMinimumSizeY(#wx_ref{type=ThisT}=This,Min)
  when is_integer(Min) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:cast(?wxSashWindow_SetMinimumSizeY,
-  <<ThisRef:32/?UI,Min:32/?UI>>).
+  wxe_util:queue_cmd(This,Min,?get_env(),?wxSashWindow_SetMinimumSizeY).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetsashvisible">external documentation</a>.
 %%<br /> Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
--spec setSashVisible(This, Edge, Sash) -> 'ok' when
-	This::wxSashWindow(), Edge::wx:wx_enum(), Sash::boolean().
-setSashVisible(#wx_ref{type=ThisT,ref=ThisRef},Edge,Sash)
- when is_integer(Edge),is_boolean(Sash) ->
+-spec setSashVisible(This, Edge, Visible) -> 'ok' when
+	This::wxSashWindow(), Edge::wx:wx_enum(), Visible::boolean().
+setSashVisible(#wx_ref{type=ThisT}=This,Edge,Visible)
+ when is_integer(Edge),is_boolean(Visible) ->
   ?CLASS(ThisT,wxSashWindow),
-  wxe_util:cast(?wxSashWindow_SetSashVisible,
-  <<ThisRef:32/?UI,Edge:32/?UI,(wxe_util:from_bool(Sash)):32/?UI>>).
+  wxe_util:queue_cmd(This,Edge,Visible,?get_env(),?wxSashWindow_SetSashVisible).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxSashWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSashWindow),
-  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxWindow
-%% @hidden
-toDIP(This,Sz) -> wxWindow:toDIP(This,Sz).
-%% @hidden
-fromDIP(This,Sz) -> wxWindow:fromDIP(This,Sz).
 %% @hidden
 getDPI(This) -> wxWindow:getDPI(This).
 %% @hidden
@@ -253,19 +244,13 @@ setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
 %% @hidden
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
 %% @hidden
-setVirtualSizeHints(This,MinW,MinH, Options) -> wxWindow:setVirtualSizeHints(This,MinW,MinH, Options).
-%% @hidden
-setVirtualSizeHints(This,MinW,MinH) -> wxWindow:setVirtualSizeHints(This,MinW,MinH).
-%% @hidden
-setVirtualSizeHints(This,MinSize) -> wxWindow:setVirtualSizeHints(This,MinSize).
-%% @hidden
-setVirtualSize(This,X,Y) -> wxWindow:setVirtualSize(This,X,Y).
+setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
 %% @hidden
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
 %% @hidden
-setToolTip(This,Tip) -> wxWindow:setToolTip(This,Tip).
+setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
 %% @hidden
-setThemeEnabled(This,EnableTheme) -> wxWindow:setThemeEnabled(This,EnableTheme).
+setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
 %% @hidden
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
 %% @hidden
@@ -289,13 +274,13 @@ setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
 %% @hidden
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
 %% @hidden
-setScrollPos(This,Orient,Pos, Options) -> wxWindow:setScrollPos(This,Orient,Pos, Options).
+setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
 %% @hidden
-setScrollPos(This,Orient,Pos) -> wxWindow:setScrollPos(This,Orient,Pos).
+setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
 %% @hidden
-setScrollbar(This,Orient,Pos,ThumbVisible,Range, Options) -> wxWindow:setScrollbar(This,Orient,Pos,ThumbVisible,Range, Options).
+setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
 %% @hidden
-setScrollbar(This,Orient,Pos,ThumbVisible,Range) -> wxWindow:setScrollbar(This,Orient,Pos,ThumbVisible,Range).
+setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
 %% @hidden
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
 %% @hidden
@@ -305,7 +290,7 @@ setLabel(This,Label) -> wxWindow:setLabel(This,Label).
 %% @hidden
 setId(This,Winid) -> wxWindow:setId(This,Winid).
 %% @hidden
-setHelpText(This,Text) -> wxWindow:setHelpText(This,Text).
+setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
 %% @hidden
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
 %% @hidden
@@ -317,7 +302,7 @@ setFocus(This) -> wxWindow:setFocus(This).
 %% @hidden
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
 %% @hidden
-setDropTarget(This,DropTarget) -> wxWindow:setDropTarget(This,DropTarget).
+setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
 %% @hidden
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
 %% @hidden
@@ -325,9 +310,9 @@ setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
 %% @hidden
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
 %% @hidden
-setMinSize(This,MinSize) -> wxWindow:setMinSize(This,MinSize).
+setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
 %% @hidden
-setMaxSize(This,MaxSize) -> wxWindow:setMaxSize(This,MaxSize).
+setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
 %% @hidden
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
 %% @hidden
@@ -403,10 +388,6 @@ move(This,X,Y) -> wxWindow:move(This,X,Y).
 %% @hidden
 move(This,Pt) -> wxWindow:move(This,Pt).
 %% @hidden
-makeModal(This, Options) -> wxWindow:makeModal(This, Options).
-%% @hidden
-makeModal(This) -> wxWindow:makeModal(This).
-%% @hidden
 lower(This) -> wxWindow:lower(This).
 %% @hidden
 lineUp(This) -> wxWindow:lineUp(This).
@@ -463,11 +444,11 @@ getSizer(This) -> wxWindow:getSizer(This).
 %% @hidden
 getSize(This) -> wxWindow:getSize(This).
 %% @hidden
-getScrollThumb(This,Orient) -> wxWindow:getScrollThumb(This,Orient).
+getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
 %% @hidden
-getScrollRange(This,Orient) -> wxWindow:getScrollRange(This,Orient).
+getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
 %% @hidden
-getScrollPos(This,Orient) -> wxWindow:getScrollPos(This,Orient).
+getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
 %% @hidden
 getScreenRect(This) -> wxWindow:getScreenRect(This).
 %% @hidden
@@ -533,7 +514,7 @@ fitInside(This) -> wxWindow:fitInside(This).
 %% @hidden
 fit(This) -> wxWindow:fit(This).
 %% @hidden
-findWindow(This,Winid) -> wxWindow:findWindow(This,Winid).
+findWindow(This,Id) -> wxWindow:findWindow(This,Id).
 %% @hidden
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
@@ -559,21 +540,21 @@ clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
 %% @hidden
 clearBackground(This) -> wxWindow:clearBackground(This).
 %% @hidden
-centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
-%% @hidden
-centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
-centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
-centre(This) -> wxWindow:centre(This).
-%% @hidden
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
+%% @hidden
+centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
 %% @hidden
 centerOnParent(This) -> wxWindow:centerOnParent(This).
 %% @hidden
+centreOnParent(This) -> wxWindow:centreOnParent(This).
+%% @hidden
 center(This, Options) -> wxWindow:center(This, Options).
 %% @hidden
+centre(This, Options) -> wxWindow:centre(This, Options).
+%% @hidden
 center(This) -> wxWindow:center(This).
+%% @hidden
+centre(This) -> wxWindow:centre(This).
 %% @hidden
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden

@@ -54,6 +54,8 @@
 class wxColourDialog : public wxDialog
 {
 public:
+    wxColourDialog();
+
     /**
         Constructor. Pass a parent window, and optionally a pointer to a block
         of colour data, which will be copied to the colour dialog's colour
@@ -66,7 +68,7 @@ public:
 
         @see wxColourData
     */
-    wxColourDialog(wxWindow* parent, const wxColourData* data = NULL);
+    wxColourDialog(wxWindow* parent, wxColourData* data = NULL);
 
     /**
         Destructor.
@@ -76,7 +78,7 @@ public:
     /**
         Same as wxColourDialog().
     */
-    bool Create(wxWindow* parent, const wxColourData* data = NULL);
+    bool Create(wxWindow* parent, wxColourData* data = NULL);
 
     /**
         Returns the colour data associated with the colour dialog.

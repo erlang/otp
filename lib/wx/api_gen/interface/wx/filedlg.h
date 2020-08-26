@@ -178,7 +178,7 @@ public:
             The default directory, or the empty string.
         @param defaultFile
             The default filename, or the empty string.
-        @param wildcard
+        @param wildCard
             A wildcard, such as "*.*" or "BMP files (*.bmp)|*.bmp|GIF files (*.gif)|*.gif".
             Note that the native Motif dialog has some limitations with respect to
             wildcards; see the Remarks section above.
@@ -186,7 +186,7 @@ public:
             A dialog style. See @c wxFD_* styles for more info.
         @param pos
             Dialog position. Not implemented.
-        @param size
+        @param sz
             Dialog size. Not implemented.
         @param name
             Dialog name. Not implemented.
@@ -195,10 +195,10 @@ public:
                  const wxString& message = wxFileSelectorPromptStr,
                  const wxString& defaultDir = wxEmptyString,
                  const wxString& defaultFile = wxEmptyString,
-                 const wxString& wildcard = wxFileSelectorDefaultWildcardStr,
+                 const wxString& wildCard = wxFileSelectorDefaultWildcardStr,
                  long style = wxFD_DEFAULT_STYLE,
                  const wxPoint& pos = wxDefaultPosition,
-                 const wxSize& size = wxDefaultSize,
+                 const wxSize& sz = wxDefaultSize,
                  const wxString& name = wxFileDialogNameStr);
 
     /**

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,13 +34,13 @@
 
 -module(wxCalendarEvent).
 -include("wxe.hrl").
--export([getWeekDay/1]).
+-export([getDate/1,getWeekDay/1]).
 
 %% inherited exports
--export([getClientData/1,getDate/1,getExtraLong/1,getId/1,getInt/1,getSelection/1,
-  getSkipped/1,getString/1,getTimestamp/1,isChecked/1,isCommandEvent/1,
-  isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
-  shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
+-export([getClientData/1,getExtraLong/1,getId/1,getInt/1,getSelection/1,getSkipped/1,
+  getString/1,getTimestamp/1,isChecked/1,isCommandEvent/1,isSelection/1,
+  parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
+  skip/1,skip/2,stopPropagation/1]).
 
 -export_type([wxCalendarEvent/0]).
 %% @hidden
@@ -54,19 +54,25 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %%<br /> Res = ?wxDateTime_Sun | ?wxDateTime_Mon | ?wxDateTime_Tue | ?wxDateTime_Wed | ?wxDateTime_Thu | ?wxDateTime_Fri | ?wxDateTime_Sat | ?wxDateTime_Inv_WeekDay
 -spec getWeekDay(This) -> wx:wx_enum() when
 	This::wxCalendarEvent().
-getWeekDay(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getWeekDay(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarEvent),
-  wxe_util:call(?wxCalendarEvent_GetWeekDay,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxCalendarEvent_GetWeekDay),
+  wxe_util:rec(?wxCalendarEvent_GetWeekDay).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarevent.html#wxcalendareventgetdate">external documentation</a>.
+-spec getDate(This) -> wx:wx_datetime() when
+	This::wxCalendarEvent().
+getDate(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxCalendarEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxCalendarEvent_GetDate),
+  wxe_util:rec(?wxCalendarEvent_GetDate).
 
  %% From wxDateEvent
-%% @hidden
-getDate(This) -> wxDateEvent:getDate(This).
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

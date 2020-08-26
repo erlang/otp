@@ -19,13 +19,13 @@ enum wxAcceleratorEntryFlags
     wxACCEL_CTRL,
 
     /** hold Shift key down */
-    wxACCEL_SHIFT,
+    wxACCEL_SHIFT = 0x0004,
 
     /** corresponds to real Ctrl key on macOS, identic to @c wxACCEL_CTRL on other platforms */
-    wxACCEL_RAW_CTRL,
+    wxACCEL_RAW_CTRL = 0x0008,
 
     /** deprecated, identic to @c wxACCEL_CTRL on all platforms. */
-    wxACCEL_CMD
+    wxACCEL_CMD  = wxACCEL_CTRL
 };
 
 

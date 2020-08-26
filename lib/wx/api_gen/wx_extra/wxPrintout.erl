@@ -35,70 +35,37 @@ new(Title, OnPrintPage) ->
 %%          {getPageInfo,       GetPageInfo::function()}
 %% @doc Creates a wxPrintout object with a callback fun and optionally other callback funs.<br />
 %%   <pre>OnPrintPage(This,Page) -> boolean() </pre>
-%%   <pre>OnPreparePrinting(This) -> term()   </pre>
-%%   <pre>OnBeginPrinting(This) -> term()   </pre>
-%%   <pre>OnEndPrinting(This) -> term()   </pre>
+%%   <pre>OnPreparePrinting(This) -> ok  </pre>
+%%   <pre>OnBeginPrinting(This) -> ok   </pre>
+%%   <pre>OnEndPrinting(This) -> ok  </pre>
 %%   <pre>OnBeginDocument(This,StartPage,EndPage) -> boolean()  </pre>
-%%   <pre>OnEndDocument(This) -> term()  </pre>
+%%   <pre>OnEndDocument(This) -> ok  </pre>
 %%   <pre>HasPage(This,Page)} -> boolean()   </pre>
 %%   <pre>GetPageInfo(This) -> {MinPage::integer(), MaxPage::integer(),
 %%                              PageFrom::integer(), PageTo::integer()}  </pre>
 %%  The <b>This</b> argument is the wxPrintout object reference to this object
-%%  <br /> NOTE: The callbacks may not call other processes. 
+%%  <br /> NOTE: The callbacks may not call other processes.
 new(Title, OnPrintPage, Opts) when is_list(Title), is_function(OnPrintPage), is_list(Opts) ->
-    OnPrint = fun([This,Page]) -> 
-		      Bool = OnPrintPage(This,Page), 
-		      <<(wxe_util:from_bool(Bool)):32/?UI>>
-	      end,
-    OnPrintPageId = wxe_util:get_cbId(OnPrint),
+    OnPrintPageId = wxe_util:get_cbId(OnPrintPage),
     MOpts = fun({onPreparePrinting, F},Acc) when is_function(F) ->
-		    Fun = fun([This]) -> 
-				  F(This), 
-				  <<>> 
-			  end,
-		    [<<1:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
-	       ({onBeginPrinting, F},Acc) when is_function(F) -> 
-		    Fun = fun([This]) -> 
-				  F(This), 
-				  <<>>
-			  end,
-		    [<<2:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
-	       ({onEndPrinting, F},Acc) when is_function(F) -> 
-		    Fun = fun([This]) -> 
-				  F(This), 
-				  <<>> 
-			  end,
-		    [<<3:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
-	       ({onBeginDocument, F},Acc) when is_function(F) -> 
-		    Fun = fun([This,S,E]) -> 
-				  BegD = F(This,S,E), 
-				  <<(wxe_util:from_bool(BegD)):32/?UI>>
-			  end,
-		    [<<4:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
-	       ({onEndDocument, F},Acc) when is_function(F) -> 
-		    Fun = fun([This]) -> 
-				  F(This), 
-				  <<>> 
-			  end,
-		    [<<5:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
-	       ({hasPage, F},Acc) when is_function(F) -> 
-		    Fun = fun([This,Page]) -> 
-				  HasP = F(This,Page),
-				  <<(wxe_util:from_bool(HasP)):32/?UI>>
-			  end,
-		    [<<6:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
-	       ({getPageInfo, F},Acc) when is_function(F) -> 
-		    Fun = fun([This]) ->
-				  {Min,Max,PF,PT} = F(This),
-				  <<Min:32/?UI,Max:32/?UI,PF:32/?UI,PT:32/?UI>>
-			  end,
-		    [<<7:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc]
+		    [{onPreparePrinting, wxe_util:get_cbId(F)}|Acc];
+	       ({onBeginPrinting, F},Acc) when is_function(F) ->
+		    [{onBeginPrinting, wxe_util:get_cbId(F)}|Acc];
+	       ({onEndPrinting, F},Acc) when is_function(F) ->
+		    [{onEndPrinting, wxe_util:get_cbId(F)}|Acc];
+	       ({onBeginDocument, F},Acc) when is_function(F) ->
+		    [{onBeginDocument, wxe_util:get_cbId(F)}|Acc];
+	       ({onEndDocument, F},Acc) when is_function(F) ->
+		    [{onEndDocument, wxe_util:get_cbId(F)}|Acc];
+	       ({hasPage, F},Acc) when is_function(F) ->
+		    [{hasPage, wxe_util:get_cbId(F)}|Acc];
+	       ({getPageInfo, F},Acc) when is_function(F) ->
+		    [{getPageInfo,wxe_util:get_cbId(F)}|Acc]
 	    end,
-    BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Opts)),
-    Title_UC = unicode:characters_to_binary([Title,0]),
-    wxe_util:call(~s, << (byte_size(Title_UC)):32/?UI,Title_UC/binary,
-			  0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8,
-			  OnPrintPageId:32/?UI,
-			  BinOpt/binary>>).
+    OptsMod = lists:foldl(MOpts, [], Opts),
+    Title_UC = unicode:characters_to_binary(Title),
+    Op = ~s,
+    wxe_util:queue_cmd(Title_UC, OnPrintPageId, OptsMod, ?get_env(), Op),
+    wxe_util:rec(Op).
 
 wxPrintout>>

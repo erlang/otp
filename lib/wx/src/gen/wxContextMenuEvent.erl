@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,25 +51,24 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html#wxcontextmenueventgetposition">external documentation</a>.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxContextMenuEvent().
-getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxContextMenuEvent),
-  wxe_util:call(?wxContextMenuEvent_GetPosition,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxContextMenuEvent_GetPosition),
+  wxe_util:rec(?wxContextMenuEvent_GetPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html#wxcontextmenueventsetposition">external documentation</a>.
--spec setPosition(This, Pos) -> 'ok' when
-	This::wxContextMenuEvent(), Pos::{X::integer(), Y::integer()}.
-setPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
- when is_integer(PosX),is_integer(PosY) ->
+-spec setPosition(This, Point) -> 'ok' when
+	This::wxContextMenuEvent(), Point::{X::integer(), Y::integer()}.
+setPosition(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
+ when is_integer(PointX),is_integer(PointY) ->
   ?CLASS(ThisT,wxContextMenuEvent),
-  wxe_util:cast(?wxContextMenuEvent_SetPosition,
-  <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
+  wxe_util:queue_cmd(This,Point,?get_env(),?wxContextMenuEvent_SetPosition).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

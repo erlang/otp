@@ -130,7 +130,7 @@ public:
 
         @see Create()
     */
-    wxStatusBar(wxWindow* parent, wxWindowID id = wxID_ANY,
+    wxStatusBar(wxWindow* parent, wxWindowID winid = wxID_ANY,
                 long style = wxSTB_DEFAULT_STYLE,
                 const wxString& name = wxStatusBarNameStr);
 
@@ -143,7 +143,7 @@ public:
         Creates the window, for two-step construction.
         See wxStatusBar() for details.
     */
-    bool Create(wxWindow* parent, wxWindowID id = wxID_ANY,
+    bool Create(wxWindow* parent, wxWindowID winid = wxID_ANY,
                 long style = wxSTB_DEFAULT_STYLE,
                 const wxString& name = wxStatusBarNameStr);
 
@@ -196,7 +196,7 @@ public:
 
         @see SetStatusText()
     */
-    virtual wxString GetStatusText(int i = 0) const;
+    virtual wxString GetStatusText(int number = 0) const;
 
     /**
         Returns the width of the @a n-th field.
@@ -223,7 +223,7 @@ public:
 
         @see PushStatusText()
     */
-    void PopStatusText(int field = 0);
+    void PopStatusText(int number = 0);
 
     /**
         Saves the current field text in a per-field stack, and sets the field
@@ -231,7 +231,7 @@ public:
 
         @see PopStatusText()
     */
-    void PushStatusText(const wxString& string, int field = 0);
+    void PushStatusText(const wxString& string, int number = 0);
 
     /**
         Sets the number of fields, and optionally the field widths.
@@ -295,7 +295,7 @@ public:
 
         @see GetStatusText(), wxFrame::SetStatusText
     */
-    virtual void SetStatusText(const wxString& text, int i = 0);
+    virtual void SetStatusText(const wxString& text, int number = 0);
 
     /**
         Sets the widths of the fields in the status line. There are two types of

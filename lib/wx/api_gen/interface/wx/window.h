@@ -1679,7 +1679,7 @@ public:
 
         @see Move(), @ref overview_windowsizing
     */
-    void SetSize(const wxRect& rect);
+    void SetSize(const wxRect& rect, int sizeFlags = wxSIZE_AUTO);
 
     /**
         @overload
@@ -2148,13 +2148,13 @@ public:
                        int* w, int* h,
                        int* descent = NULL,
                        int* externalLeading = NULL,
-                       const wxFont* font = NULL) const;
+                       const wxFont* theFont = NULL) const;
 
     /**
         Gets the dimensions of the string as it would be drawn on the
         window with the currently selected font.
     */
-    wxSize GetTextExtent(const wxString& string) const;
+    // wxSize GetTextExtent(const wxString& string) const;
 
     /**
         Returns the region specifying which parts of the window have been damaged.

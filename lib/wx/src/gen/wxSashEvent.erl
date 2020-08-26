@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,33 +52,33 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %%<br /> Res = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
 -spec getEdge(This) -> wx:wx_enum() when
 	This::wxSashEvent().
-getEdge(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getEdge(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashEvent),
-  wxe_util:call(?wxSashEvent_GetEdge,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSashEvent_GetEdge),
+  wxe_util:rec(?wxSashEvent_GetEdge).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashevent.html#wxsasheventgetdragrect">external documentation</a>.
 -spec getDragRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
 	This::wxSashEvent().
-getDragRect(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getDragRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashEvent),
-  wxe_util:call(?wxSashEvent_GetDragRect,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSashEvent_GetDragRect),
+  wxe_util:rec(?wxSashEvent_GetDragRect).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashevent.html#wxsasheventgetdragstatus">external documentation</a>.
 %%<br /> Res = ?wxSASH_STATUS_OK | ?wxSASH_STATUS_OUT_OF_RANGE
 -spec getDragStatus(This) -> wx:wx_enum() when
 	This::wxSashEvent().
-getDragStatus(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getDragStatus(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashEvent),
-  wxe_util:call(?wxSashEvent_GetDragStatus,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSashEvent_GetDragStatus),
+  wxe_util:rec(?wxSashEvent_GetDragStatus).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

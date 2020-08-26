@@ -217,7 +217,7 @@ public:
         See wxSlider() for further details.
     */
     bool Create(wxWindow* parent, wxWindowID id, int value, int minValue,
-                int maxValue, const wxPoint& point = wxDefaultPosition,
+                int maxValue, const wxPoint& pos = wxDefaultPosition,
                 const wxSize& size = wxDefaultSize, long style = wxSL_HORIZONTAL,
                 const wxValidator& validator = wxDefaultValidator,
                 const wxString& name = wxSliderNameStr);

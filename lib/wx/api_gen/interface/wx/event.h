@@ -1713,20 +1713,20 @@ public:
         Returns @true if the event was a down event from the specified button
         (or any button).
 
-        @param button
+        @param but
             Can be @c wxJOY_BUTTONn where @c n is 1, 2, 3 or 4; or @c wxJOY_BUTTON_ANY to
             indicate any button down event.
     */
-    bool ButtonDown(int button = wxJOY_BUTTON_ANY) const;
+    bool ButtonDown(int but = wxJOY_BUTTON_ANY) const;
 
     /**
         Returns @true if the specified button (or any button) was in a down state.
 
-        @param button
+        @param but
             Can be @c wxJOY_BUTTONn where @c n is 1, 2, 3 or 4; or @c wxJOY_BUTTON_ANY to
             indicate any button down event.
     */
-    bool ButtonIsDown(int button = wxJOY_BUTTON_ANY) const;
+    bool ButtonIsDown(int but = wxJOY_BUTTON_ANY) const;
 
     /**
         Returns @true if the event was an up event from the specified button
@@ -1736,7 +1736,7 @@ public:
             Can be @c wxJOY_BUTTONn where @c n is 1, 2, 3 or 4; or @c wxJOY_BUTTON_ANY to
             indicate any button down event.
     */
-    bool ButtonUp(int button = wxJOY_BUTTON_ANY) const;
+    bool ButtonUp(int but = wxJOY_BUTTON_ANY) const;
 
     /**
         Returns the identifier of the button changing state.

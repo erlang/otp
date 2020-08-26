@@ -511,7 +511,7 @@ public:
             driver defaults will be used.
     */
     wxGLContext(wxGLCanvas* win,
-                const wxGLContext* other = NULL,
+                wxGLContext* other = NULL,
                 const wxGLContextAttrs* ctxAttrs = NULL);
 
     /**

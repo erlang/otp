@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@
   close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
   dragAcceptFiles/2,enable/1,enable/2,findWindow/2,fit/1,fitInside/1,
-  freeze/1,fromDIP/2,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
+  freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
   getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
   getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,getCursor/1,
   getDPI/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,
@@ -54,14 +54,14 @@
   hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
   isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isPickerCtrlGrowable/1,
   isRetained/1,isShown/1,isShownOnScreen/1,isTextCtrlGrowable/1,isTopLevel/1,
-  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,move/2,
-  move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,
-  navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,popEventHandler/2,
-  popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
-  setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
-  setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
+  layout/1,lineDown/1,lineUp/1,lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,
+  moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
+  popEventHandler/1,popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,
+  raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
+  removeChild/2,reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,
+  scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
+  setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
+  setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
   setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
   setFont/2,setForegroundColour/2,setHelpText/2,setId/2,setInternalMargin/2,
   setLabel/2,setMaxSize/2,setMinSize/2,setName/2,setOwnBackgroundColour/2,
@@ -71,11 +71,10 @@
   setSize/6,setSizeHints/2,setSizeHints/3,setSizeHints/4,setSizer/2,
   setSizer/3,setSizerAndFit/2,setSizerAndFit/3,setTextCtrlGrowable/1,
   setTextCtrlGrowable/2,setTextCtrlProportion/2,setThemeEnabled/2,
-  setToolTip/2,setTransparent/2,setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,
-  setVirtualSizeHints/3,setVirtualSizeHints/4,setWindowStyle/2,setWindowStyleFlag/2,
-  setWindowVariant/2,shouldInheritColours/1,show/1,show/2,thaw/1,toDIP/2,
-  transferDataFromWindow/1,transferDataToWindow/1,update/1,updateWindowUI/1,
-  updateWindowUI/2,validate/1,warpPointer/3]).
+  setToolTip/2,setTransparent/2,setVirtualSize/2,setVirtualSize/3,setWindowStyle/2,
+  setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,show/1,
+  show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
+  updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
 -export_type([wxColourPickerCtrl/0]).
 %% @hidden
@@ -89,8 +88,8 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourpickerctrl.html#wxcolourpickerctrlwxcolourpickerctrl">external documentation</a>.
 -spec new() -> wxColourPickerCtrl().
 new() ->
-  wxe_util:construct(?wxColourPickerCtrl_new_0,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxColourPickerCtrl_new_0),
+  wxe_util:rec(?wxColourPickerCtrl_new_0).
 
 %% @equiv new(Parent,Id, [])
 -spec new(Parent, Id) -> wxColourPickerCtrl() when
@@ -108,18 +107,18 @@ new(Parent,Id)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}
 		 | {'validator', wx:wx_object()}.
-new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
+new(#wx_ref{type=ParentT}=Parent,Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
-  MOpts = fun({col, Col}, Acc) -> [<<1:32/?UI,(wxe_util:colour_bin(Col)):16/binary,0:32>>|Acc];
-          ({pos, {PosX,PosY}}, Acc) -> [<<2:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
-          ({size, {SizeW,SizeH}}, Acc) -> [<<3:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
-          ({style, Style}, Acc) -> [<<4:32/?UI,Style:32/?UI>>|Acc];
-          ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->   ?CLASS(ValidatorT,wx),[<<5:32/?UI,ValidatorRef:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxColourPickerCtrl_new_3,
-  <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
+  MOpts = fun({col, Col}) -> {col,wxe_util:color(Col)};
+          ({pos, {_posX,_posY}} = Arg) -> Arg;
+          ({size, {_sizeW,_sizeH}} = Arg) -> Arg;
+          ({style, _style} = Arg) -> Arg;
+          ({validator, #wx_ref{type=ValidatorT}} = Arg) ->   ?CLASS(ValidatorT,wx),Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Parent,Id, Opts,?get_env(),?wxColourPickerCtrl_new_3),
+  wxe_util:rec(?wxColourPickerCtrl_new_3).
 
 %% @equiv create(This,Parent,Id, [])
 -spec create(This, Parent, Id) -> boolean() when
@@ -137,54 +136,52 @@ create(This,Parent,Id)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}
 		 | {'validator', wx:wx_object()}.
-create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
+create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
   ?CLASS(ParentT,wxWindow),
-  MOpts = fun({col, Col}, Acc) -> [<<1:32/?UI,(wxe_util:colour_bin(Col)):16/binary,0:32>>|Acc];
-          ({pos, {PosX,PosY}}, Acc) -> [<<2:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
-          ({size, {SizeW,SizeH}}, Acc) -> [<<3:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
-          ({style, Style}, Acc) -> [<<4:32/?UI,Style:32/?UI>>|Acc];
-          ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->   ?CLASS(ValidatorT,wx),[<<5:32/?UI,ValidatorRef:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:call(?wxColourPickerCtrl_Create,
-  <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({col, Col}) -> {col,wxe_util:color(Col)};
+          ({pos, {_posX,_posY}} = Arg) -> Arg;
+          ({size, {_sizeW,_sizeH}} = Arg) -> Arg;
+          ({style, _style} = Arg) -> Arg;
+          ({validator, #wx_ref{type=ValidatorT}} = Arg) ->   ?CLASS(ValidatorT,wx),Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This,Parent,Id, Opts,?get_env(),?wxColourPickerCtrl_Create),
+  wxe_util:rec(?wxColourPickerCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourpickerctrl.html#wxcolourpickerctrlgetcolour">external documentation</a>.
 -spec getColour(This) -> wx:wx_colour4() when
 	This::wxColourPickerCtrl().
-getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
-  wxe_util:call(?wxColourPickerCtrl_GetColour,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxColourPickerCtrl_GetColour),
+  wxe_util:rec(?wxColourPickerCtrl_GetColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourpickerctrl.html#wxcolourpickerctrlsetcolour">external documentation</a>.
 %% <br /> Also:<br />
 %% setColour(This, Col) -> 'ok' when<br />
 %% 	This::wxColourPickerCtrl(), Col::wx:wx_colour().<br />
 %% 
--spec setColour(This, Text) -> boolean() when
-	This::wxColourPickerCtrl(), Text::unicode:chardata();
+-spec setColour(This, Colname) -> 'ok' when
+	This::wxColourPickerCtrl(), Colname::unicode:chardata();
       (This, Col) -> 'ok' when
 	This::wxColourPickerCtrl(), Col::wx:wx_colour().
-setColour(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when ?is_chardata(Text) ->
+setColour(#wx_ref{type=ThisT}=This,Colname)
+ when ?is_chardata(Colname) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
-  Text_UC = unicode:characters_to_binary([Text,0]),
-  wxe_util:call(?wxColourPickerCtrl_SetColour_1_0,
-  <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>);
-setColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
+  Colname_UC = unicode:characters_to_binary(Colname),
+  wxe_util:queue_cmd(This,Colname_UC,?get_env(),?wxColourPickerCtrl_SetColour_1_0);
+setColour(#wx_ref{type=ThisT}=This,Col)
  when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
   ?CLASS(ThisT,wxColourPickerCtrl),
-  wxe_util:cast(?wxColourPickerCtrl_SetColour_1_1,
-  <<ThisRef:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
+  wxe_util:queue_cmd(This,wxe_util:color(Col),?get_env(),?wxColourPickerCtrl_SetColour_1_1).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxColourPickerCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourPickerCtrl),
-  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxPickerBase
 %% @hidden
@@ -214,17 +211,13 @@ setTextCtrlProportion(This,Prop) -> wxPickerBase:setTextCtrlProportion(This,Prop
 %% @hidden
 getInternalMargin(This) -> wxPickerBase:getInternalMargin(This).
 %% @hidden
-setInternalMargin(This,Newmargin) -> wxPickerBase:setInternalMargin(This,Newmargin).
+setInternalMargin(This,Margin) -> wxPickerBase:setInternalMargin(This,Margin).
  %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
-%% @hidden
-toDIP(This,Sz) -> wxWindow:toDIP(This,Sz).
-%% @hidden
-fromDIP(This,Sz) -> wxWindow:fromDIP(This,Sz).
 %% @hidden
 getDPI(This) -> wxWindow:getDPI(This).
 %% @hidden
@@ -266,19 +259,13 @@ setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
 %% @hidden
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
 %% @hidden
-setVirtualSizeHints(This,MinW,MinH, Options) -> wxWindow:setVirtualSizeHints(This,MinW,MinH, Options).
-%% @hidden
-setVirtualSizeHints(This,MinW,MinH) -> wxWindow:setVirtualSizeHints(This,MinW,MinH).
-%% @hidden
-setVirtualSizeHints(This,MinSize) -> wxWindow:setVirtualSizeHints(This,MinSize).
-%% @hidden
-setVirtualSize(This,X,Y) -> wxWindow:setVirtualSize(This,X,Y).
+setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
 %% @hidden
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
 %% @hidden
-setToolTip(This,Tip) -> wxWindow:setToolTip(This,Tip).
+setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
 %% @hidden
-setThemeEnabled(This,EnableTheme) -> wxWindow:setThemeEnabled(This,EnableTheme).
+setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
 %% @hidden
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
 %% @hidden
@@ -302,13 +289,13 @@ setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
 %% @hidden
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
 %% @hidden
-setScrollPos(This,Orient,Pos, Options) -> wxWindow:setScrollPos(This,Orient,Pos, Options).
+setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
 %% @hidden
-setScrollPos(This,Orient,Pos) -> wxWindow:setScrollPos(This,Orient,Pos).
+setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
 %% @hidden
-setScrollbar(This,Orient,Pos,ThumbVisible,Range, Options) -> wxWindow:setScrollbar(This,Orient,Pos,ThumbVisible,Range, Options).
+setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
 %% @hidden
-setScrollbar(This,Orient,Pos,ThumbVisible,Range) -> wxWindow:setScrollbar(This,Orient,Pos,ThumbVisible,Range).
+setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
 %% @hidden
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
 %% @hidden
@@ -316,7 +303,7 @@ setName(This,Name) -> wxWindow:setName(This,Name).
 %% @hidden
 setId(This,Winid) -> wxWindow:setId(This,Winid).
 %% @hidden
-setHelpText(This,Text) -> wxWindow:setHelpText(This,Text).
+setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
 %% @hidden
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
 %% @hidden
@@ -328,7 +315,7 @@ setFocus(This) -> wxWindow:setFocus(This).
 %% @hidden
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
 %% @hidden
-setDropTarget(This,DropTarget) -> wxWindow:setDropTarget(This,DropTarget).
+setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
 %% @hidden
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
 %% @hidden
@@ -336,9 +323,9 @@ setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
 %% @hidden
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
 %% @hidden
-setMinSize(This,MinSize) -> wxWindow:setMinSize(This,MinSize).
+setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
 %% @hidden
-setMaxSize(This,MaxSize) -> wxWindow:setMaxSize(This,MaxSize).
+setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
 %% @hidden
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
 %% @hidden
@@ -414,10 +401,6 @@ move(This,X,Y) -> wxWindow:move(This,X,Y).
 %% @hidden
 move(This,Pt) -> wxWindow:move(This,Pt).
 %% @hidden
-makeModal(This, Options) -> wxWindow:makeModal(This, Options).
-%% @hidden
-makeModal(This) -> wxWindow:makeModal(This).
-%% @hidden
 lower(This) -> wxWindow:lower(This).
 %% @hidden
 lineUp(This) -> wxWindow:lineUp(This).
@@ -474,11 +457,11 @@ getSizer(This) -> wxWindow:getSizer(This).
 %% @hidden
 getSize(This) -> wxWindow:getSize(This).
 %% @hidden
-getScrollThumb(This,Orient) -> wxWindow:getScrollThumb(This,Orient).
+getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
 %% @hidden
-getScrollRange(This,Orient) -> wxWindow:getScrollRange(This,Orient).
+getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
 %% @hidden
-getScrollPos(This,Orient) -> wxWindow:getScrollPos(This,Orient).
+getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
 %% @hidden
 getScreenRect(This) -> wxWindow:getScreenRect(This).
 %% @hidden
@@ -542,7 +525,7 @@ fitInside(This) -> wxWindow:fitInside(This).
 %% @hidden
 fit(This) -> wxWindow:fit(This).
 %% @hidden
-findWindow(This,Winid) -> wxWindow:findWindow(This,Winid).
+findWindow(This,Id) -> wxWindow:findWindow(This,Id).
 %% @hidden
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
@@ -568,21 +551,21 @@ clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
 %% @hidden
 clearBackground(This) -> wxWindow:clearBackground(This).
 %% @hidden
-centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
-%% @hidden
-centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
-centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
-centre(This) -> wxWindow:centre(This).
-%% @hidden
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
+%% @hidden
+centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
 %% @hidden
 centerOnParent(This) -> wxWindow:centerOnParent(This).
 %% @hidden
+centreOnParent(This) -> wxWindow:centreOnParent(This).
+%% @hidden
 center(This, Options) -> wxWindow:center(This, Options).
 %% @hidden
+centre(This, Options) -> wxWindow:centre(This, Options).
+%% @hidden
 center(This) -> wxWindow:center(This).
+%% @hidden
+centre(This) -> wxWindow:centre(This).
 %% @hidden
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden

@@ -37,7 +37,8 @@ public:
         @param style
             If wxMB_DOCKABLE the menu bar can be detached (wxGTK only).
     */
-    wxMenuBar(long style = 0);
+    wxMenuBar();
+    wxMenuBar(long style);
 
     /**
         Construct a menu bar from arrays of menus and titles.
@@ -518,7 +519,7 @@ public:
         @param style
             If set to wxMENU_TEAROFF, the menu will be detachable (wxGTK and wxQT only).
     */
-    wxMenu(long style);
+    wxMenu(long style = 0);
 
     /**
         Constructs a wxMenu object with a title.
@@ -553,7 +554,7 @@ public:
         @param item
             The string to appear on the menu item.
             See wxMenuItem::SetItemLabel() for more details.
-        @param helpString
+        @param help
             An optional help string associated with the item.
             By default, the handler for the @c wxEVT_MENU_HIGHLIGHT event displays
             this string in the status line.
@@ -577,8 +578,8 @@ public:
              AppendSubMenu(), Insert(), SetLabel(), GetHelpString(),
              SetHelpString(), wxMenuItem
     */
-    wxMenuItem* Append(int id, const wxString& item = wxEmptyString,
-                       const wxString& helpString = wxEmptyString,
+    wxMenuItem* Append(int id, const wxString& item,
+                       const wxString& help = wxEmptyString,
                        wxItemKind kind = wxITEM_NORMAL);
 
     /**
@@ -592,7 +593,7 @@ public:
             The string to appear on the menu item.
         @param subMenu
             Pull-right submenu.
-        @param helpString
+        @param help
             An optional help string associated with the item.
             By default, the handler for the @c wxEVT_MENU_HIGHLIGHT event displays
             this string in the status line.
@@ -602,7 +603,7 @@ public:
              SetHelpString(), wxMenuItem
     */
     wxMenuItem* Append(int id, const wxString& item, wxMenu* subMenu,
-                       const wxString& helpString = wxEmptyString);
+                       const wxString& help = wxEmptyString);
 
     /**
         Adds a menu item object.
@@ -870,8 +871,8 @@ public:
         @see Append(), Prepend()
     */
     wxMenuItem* Insert(size_t pos, int id,
-                       const wxString& item = wxEmptyString,
-                       const wxString& helpString = wxEmptyString,
+                       const wxString& text = wxEmptyString,
+                       const wxString& help = wxEmptyString,
                        wxItemKind kind = wxITEM_NORMAL);
 
     /**
@@ -890,7 +891,7 @@ public:
         @see Insert(), AppendCheckItem()
     */
     wxMenuItem* InsertCheckItem(size_t pos, int id, const wxString& item,
-                                const wxString& helpString = wxEmptyString);
+                                const wxString& help = wxEmptyString);
 
     /**
         Inserts a radio item at the given position.
@@ -898,7 +899,7 @@ public:
         @see Insert(), AppendRadioItem()
     */
     wxMenuItem* InsertRadioItem(size_t pos, int id, const wxString& item,
-                                const wxString& helpString = wxEmptyString);
+                                const wxString& help = wxEmptyString);
 
     /**
         Inserts a separator at the given position.
@@ -945,8 +946,8 @@ public:
 
         @see Append(), Insert()
     */
-    wxMenuItem* Prepend(int id, const wxString& item = wxEmptyString,
-                        const wxString& helpString = wxEmptyString,
+    wxMenuItem* Prepend(int id, const wxString& text = wxEmptyString,
+                        const wxString& help = wxEmptyString,
                         wxItemKind kind = wxITEM_NORMAL);
 
     /**
@@ -963,7 +964,7 @@ public:
         @see Prepend(), AppendCheckItem()
     */
     wxMenuItem* PrependCheckItem(int id, const wxString& item,
-                                 const wxString& helpString = wxEmptyString);
+                                 const wxString& help = wxEmptyString);
 
     /**
         Inserts a radio item at position 0.
@@ -971,7 +972,7 @@ public:
         @see Prepend(), AppendRadioItem()
     */
     wxMenuItem* PrependRadioItem(int id, const wxString& item,
-                                 const wxString& helpString = wxEmptyString);
+                                 const wxString& help = wxEmptyString);
 
     /**
         Inserts a separator at position 0.

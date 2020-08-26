@@ -92,7 +92,7 @@ public:
         Initializes the object and calls Create() with all the parameters.
     */
     wxDatePickerCtrl(wxWindow* parent, wxWindowID id,
-                     const wxDateTime& dt = wxDefaultDateTime,
+                     const wxDateTime& date = wxDefaultDateTime,
                      const wxPoint& pos = wxDefaultPosition,
                      const wxSize& size = wxDefaultSize,
                      long style = wxDP_DEFAULT | wxDP_SHOWCENTURY,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 
 -module(wxShowEvent).
 -include("wxe.hrl").
--export([getShow/1,setShow/2]).
+-export([isShown/1,setShow/2]).
 
 %% inherited exports
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
@@ -47,19 +47,18 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxshowevent.html#wxshoweventsetshow">external documentation</a>.
 -spec setShow(This, Show) -> 'ok' when
 	This::wxShowEvent(), Show::boolean().
-setShow(#wx_ref{type=ThisT,ref=ThisRef},Show)
+setShow(#wx_ref{type=ThisT}=This,Show)
  when is_boolean(Show) ->
   ?CLASS(ThisT,wxShowEvent),
-  wxe_util:cast(?wxShowEvent_SetShow,
-  <<ThisRef:32/?UI,(wxe_util:from_bool(Show)):32/?UI>>).
+  wxe_util:queue_cmd(This,Show,?get_env(),?wxShowEvent_SetShow).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxshowevent.html#wxshoweventgetshow">external documentation</a>.
--spec getShow(This) -> boolean() when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxshowevent.html#wxshoweventisshown">external documentation</a>.
+-spec isShown(This) -> boolean() when
 	This::wxShowEvent().
-getShow(#wx_ref{type=ThisT,ref=ThisRef}) ->
+isShown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxShowEvent),
-  wxe_util:call(?wxShowEvent_GetShow,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxShowEvent_IsShown),
+  wxe_util:rec(?wxShowEvent_IsShown).
 
  %% From wxEvent
 %% @hidden

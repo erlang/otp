@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,10 +47,10 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmousecapturechangedevent.html#wxmousecapturechangedeventgetcapturedwindow">external documentation</a>.
 -spec getCapturedWindow(This) -> wxWindow:wxWindow() when
 	This::wxMouseCaptureChangedEvent().
-getCapturedWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getCapturedWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMouseCaptureChangedEvent),
-  wxe_util:call(?wxMouseCaptureChangedEvent_GetCapturedWindow,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxMouseCaptureChangedEvent_GetCapturedWindow),
+  wxe_util:rec(?wxMouseCaptureChangedEvent_GetCapturedWindow).
 
  %% From wxEvent
 %% @hidden
