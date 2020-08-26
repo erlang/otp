@@ -175,7 +175,7 @@ init([]) ->
 
     OS = os:type(),
     PortMode = case OS of
-		   {unix, darwin} -> false;
+		   {unix, darwin} -> true;
 		   {unix, freebsd} -> false;
 		   {unix, dragonfly} -> false;
 		   % Linux supports this.
@@ -726,22 +726,6 @@ reply(Pending, MemUsage, SysMemUsage) ->
 
 %% get_memory_usage(OS) -> {Alloc, Total}
 
-%% Darwin:
-%% Uses vm_stat command.
-get_memory_usage({unix,darwin}) ->
-    Str1 = os:cmd("/usr/bin/vm_stat"),
-    PageSize = 4096,
-
-    {[Free],        Str2} = fread_value("Pages free:~d.", Str1),
-    {[Active],      Str3} = fread_value("Pages active:~d.", Str2),
-    {[Inactive],    Str4} = fread_value("Pages inactive:~d.", Str3),
-    {[Speculative], Str5} = fread_value("Pages speculative:~d.", Str4),
-    {[Wired],       _} = fread_value("Pages wired down:~d.", Str5),
-
-    NMemUsed  = (Wired + Active + Inactive) * PageSize,
-    NMemTotal = NMemUsed + (Free + Speculative) * PageSize,
-    {NMemUsed,NMemTotal};
-
 %% FreeBSD: Look in /usr/include/sys/vmmeter.h for the format of struct
 %% vmmeter
 get_memory_usage({unix,OSname}) when OSname == freebsd; OSname == dragonfly ->
@@ -761,16 +745,6 @@ get_memory_usage({win32,_OSname}) ->
 	io_lib:fread("~d~d~d~d~d~d~d", Result),
     {TotPhys-AvailPhys, TotPhys}.
 
-fread_value(Format, Str0) ->
-    case io_lib:fread(Format, skip_to_eol(Str0)) of
-    	{error, {fread, input}} -> {[0], Str0};
-	{ok, Value, Str1} -> {Value, Str1}
-    end.
-
-skip_to_eol([]) -> [];
-skip_to_eol([$\n | T]) -> T;
-skip_to_eol([_ | T]) -> skip_to_eol(T).
-
 freebsd_sysctl(Def) ->
     list_to_integer(os:cmd("/sbin/sysctl -n " ++ Def) -- "\n").
 
@@ -788,9 +762,6 @@ get_ext_memory_usage(OS, {Alloc, Total}) ->
 	    [{total_memory, Total}, {free_memory, Total-Alloc},
 	     {system_total_memory, Total}];
 	{unix, dragonfly} ->
-	    [{total_memory, Total}, {free_memory, Total-Alloc},
-	     {system_total_memory, Total}];
-	{unix, darwin} ->
 	    [{total_memory, Total}, {free_memory, Total-Alloc},
 	     {system_total_memory, Total}];
 	_ -> % OSs using a port
