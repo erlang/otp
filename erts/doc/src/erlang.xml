@@ -10272,16 +10272,29 @@ hello
       <name name="throw" arity="1" since=""/>
       <fsummary>Throw an exception.</fsummary>
       <desc>
-        <p>A non-local return from a function. If evaluated within a
-          <c>catch</c>, <c>catch</c> returns value <c><anno>Any</anno></c>.
-          Example:</p>
+        <p>Used to raise exceptions and to do non-local returns from functions.</p>
+        <p>If evaluated within a
+          <seeguide marker="system/reference_manual:expressions#catch">
+	catch expression</seeguide>, the catch expression returns value <c><anno>Any</anno></c>.
+          Example:
         <pre>
 > <input>catch throw({hello, there}).</input>
-{hello,there}</pre>
-        <p>Failure: <c>nocatch</c> if not evaluated within a catch.</p>
+        {hello,there}</pre>
+        </p>
+         <p>If evaluated within a
+          <c>try</c>-block of a <seeguide marker="system/reference_manual:expressions#try">try expression</seeguide>, the value <c><anno>Any</anno></c> can be caught within the catch block.
+          Example:
+        <code>
+try
+    throw({my_exception, "Something happened"})
+catch
+    {my_exception, Desc} ->
+        io:format(standard_error, "Error: ~s~n", [Desc])
+end</code>
+       </p>
+       <p>Failure: <c>nocatch</c> if not caught by an exception handler.</p>
       </desc>
     </func>
-
     <func>
       <name name="time" arity="0" since=""/>
       <fsummary>Current time.</fsummary>
