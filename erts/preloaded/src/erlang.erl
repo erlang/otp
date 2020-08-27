@@ -2622,7 +2622,7 @@ term_to_iovec(_Term, _Options) ->
 
 %% Shadowed by erl_bif_types: erlang:tl/1
 -spec tl(List) -> term() when
-      List :: [term(), ...].
+      List :: nonempty_maybe_improper_list().
 tl(_List) ->
     erlang:nif_error(undefined).
 

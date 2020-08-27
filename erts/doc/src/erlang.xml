@@ -10407,6 +10407,15 @@ timestamp() ->
         <pre>
 > <input>tl([geesties, guilies, beasties]).</input>
 [guilies, beasties]</pre>
+        <pre>
+> <input>tl([geesties]).</input>
+[]</pre>
+        <pre>
+> <input>tl([geesties, guilies, beasties | improper_end]).</input>
+[guilies, beasties | improper_end]</pre>
+        <pre>
+> <input>tl([geesties | improper_end]).</input>
+improper_end</pre>
         <p>Allowed in guard tests.</p>
         <p>Failure: <c>badarg</c> if <c><anno>List</anno></c>
           is the empty list <c>[]</c>.</p>
