@@ -3316,13 +3316,13 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
 				   {from, self()},
 				   {mfa, {ssl_test_lib, no_result, []}},
 				   {tcp_options, [{active, false}]},
-				   {options, [{reuse_sessions, false} |ServerOpts]}]),
+				   {options, [{reuse_sessions, false} | ServerOpts]}]),
     Port1 = inet_port(Server1),
     
     Client3 = start_client([{node, ClientNode},
-                                         {port, Port1}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+                            {port, Port1}, {host, Hostname},
+                            {mfa, {ssl_test_lib, session_id, []}},
+                            {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
     SID1 = receive
                {Client3, Id3} ->
                    Id3
@@ -3332,10 +3332,10 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
     
     Client4 =
         start_client([{node, ClientNode},
-                                   {port, Port1}, {host, Hostname},
-                                   {mfa, {ssl_test_lib, session_id, []}},
-                                   {from, self()},  {options, ClientOpts}]),   
-   
+                      {port, Port1}, {host, Hostname},
+                      {mfa, {ssl_test_lib, session_id, []}},
+                      {from, self()},  {options, ClientOpts}]),
+
     receive
         {Client4, SID1} ->
             ct:fail(session_reused_when_session_reuse_disabled_by_server);

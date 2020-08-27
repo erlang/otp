@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 %%
 
--module(ssl_dist_connection_sup).
+-module(dtls_server_sup).
 
 -behaviour(supervisor).
 
@@ -43,47 +43,33 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->    
-  
-    TLSConnetionManager = tls_connection_manager_child_spec(),
-    %% Handles emulated options so that they inherited by the accept
-    %% socket, even when setopts is performed on the listen socket
-    ListenOptionsTracker = listen_options_tracker_child_spec(), 
+init([]) ->
+    DTLSListeners = dtls_listeners_spec(),
+    %% Add SessionTracker if we add DTLS-1.3
     Pre_1_3SessionTracker = ssl_server_session_child_spec(),
-
-    {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
-				    ListenOptionsTracker,
+    
+    {ok, {{one_for_all, 10, 3600}, [DTLSListeners,
                                     Pre_1_3SessionTracker
 				   ]}}.
 
-    
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-
-tls_connection_manager_child_spec() ->
-    Name = dist_tls_connection,  
-    StartFunc = {tls_connection_sup, start_link_dist, []},
+dtls_listeners_spec() ->
+    Name = dtls_listener,  
+    StartFunc = {dtls_listener_sup, start_link, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [tls_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-listen_options_tracker_child_spec() ->
-    Name = dist_tls_socket,  
-    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [tls_socket],
+    Modules = [],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 ssl_server_session_child_spec() ->
-    Name = dist_ssl_server_session_cache_sup,
-    StartFunc = {ssl_server_session_cache_sup, start_link_dist, []},
-    Restart = permanent,
+    Name = dtls_server_session_cache_sup,  
+    StartFunc = {dtls_server_session_cache_sup, start_link, []},
+    Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_server_session_cache_sup],
+    Modules = [dtls_server_session_cache_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

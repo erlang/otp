@@ -174,7 +174,7 @@ handle_client_hello(Version,
                       signature_algs := SupportedHashSigns,
                       eccs := SupportedECCs,
                       honor_ecc_order := ECCOrder} = SslOpts,
-		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, 
+		    {SessIdTracker, Session0, ConnectionStates0, Cert, _},
                     Renegotiation) ->
     case dtls_record:is_acceptable_version(Version, Versions) of
 	true ->
@@ -187,8 +187,8 @@ handle_client_hello(Version,
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
                                                AvailableHashSigns, Compressions,
-					       Port, Session0#session{ecc = ECCCurve}, TLSVersion,
-					       SslOpts, Cache, CacheCb, Cert),
+					       SessIdTracker, Session0#session{ecc = ECCCurve}, TLSVersion,
+					       SslOpts, Cert),
 	    case CipherSuite of
 		no_suite ->
 		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);

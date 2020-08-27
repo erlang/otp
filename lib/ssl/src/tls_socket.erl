@@ -49,6 +49,7 @@
          start_link/3, 
          terminate/2, 
          inherit_tracker/3, 
+         session_id_tracker/1,
 	 emulated_socket_options/2, 
          get_emulated_opts/1, 
 	 set_emulated_opts/2, 
@@ -80,8 +81,12 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
             LifeTime = get_ticket_lifetime(),
             TicketStoreSize = get_ticket_store_size(),
+            %% TLS-1.3 session handling
             {ok, SessionHandler} = session_tickets_tracker(LifeTime, TicketStoreSize, SslOpts),
-            Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler}],
+            %% PRE TLS-1.3 session handling
+            {ok, SessionIdHandle} = session_id_tracker(SslOpts),
+            Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler},
+                         {session_id_tracker, SessionIdHandle}],
             Socket = #sslsocket{pid = {ListenSocket, Config#config{trackers = Trackers}}},
             check_active_n(EmOpts, Socket),
 	    {ok, Socket};
@@ -267,6 +272,15 @@ session_tickets_tracker(Lifetime, TicketStoreSize, #{erl_dist := true,
                                                      session_tickets := Mode}) ->
     tls_server_session_ticket_sup:start_child_dist([Mode, Lifetime, TicketStoreSize]).
 
+session_id_tracker(#{versions := [{3,4}]}) ->
+    {ok, not_relevant};
+%% Regardless of the option reuse_sessions we need the session_id_tracker
+%% to generate session ids, but no sessions will be stored unless
+%% reuse_sessions = true.
+session_id_tracker(#{erl_dist := false}) ->
+    ssl_server_session_cache_sup:start_child(ssl_server_session_cache_sup:session_opts());
+session_id_tracker(#{erl_dist := true}) ->
+    ssl_server_session_cache_sup:start_child_dist(ssl_server_session_cache_sup:session_opts()).
 
 get_emulated_opts(TrackerPid) -> 
     call(TrackerPid, get_emulated_opts).

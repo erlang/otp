@@ -385,37 +385,44 @@ session_table_stable_size_on_tcp_close(Config) when is_list(Config)->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
-    [_, _,_, _, Prop] = StatusInfo,
-    State = ssl_test_lib:state(Prop),
-    ServerCache = element(3, State),
-
-    N = ets:info(ServerCache, size),
-
-    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
-                                              {from, self()},
-                                              {options,  [{reuseaddr, true} | ServerOpts]}]),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options,  [{reuseaddr, true} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
+
+    Sup = whereis(ssl_server_session_cache_sup),
+
+    %% Will only be one process, that is one server, in our test senario
+    [{_, SessionCachePid, worker,[ssl_server_session_cache]}] = supervisor:which_children(Sup),
+
+
+    {SessionCacheCb, SessionCacheDb} = session_cachce_info(SessionCachePid),
+
+    N = SessionCacheCb:size(SessionCacheDb),
+
     faulty_client(Hostname, Port),
-    check_table_did_not_grow(ServerCache, N).
+    check_table_did_not_grow(SessionCachePid, N).
 
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-check_table_did_not_grow(ServerCache, N) ->
-    ct:sleep(500),
-    check_table_did_not_grow(ServerCache, N, 10).
+session_cachce_info(SessionCache) ->
+    State = sys:get_state(SessionCache),
+    ServerCacheDb = element(4, State),
+    ServerCacheCb = element(2, State),
+    {ServerCacheCb, ServerCacheDb}.
 
-check_table_did_not_grow(_, _, 0) ->
-    ct:fail(table_grew);
-check_table_did_not_grow(ServerCache, N, Tries) ->
-    case ets:info(ServerCache, size) of
+
+check_table_did_not_grow(SessionCachePid, N) ->
+    {SessionCacheCb, SessionCacheDb} = session_cachce_info(SessionCachePid),
+    ct:pal("Run ~p ~p", [SessionCacheCb, SessionCacheDb]),
+    case catch SessionCacheCb:size(SessionCacheDb) of
         N ->
             ok;
-        _ ->
-            ct:sleep(500),
-            check_table_did_not_grow(ServerCache, N, Tries -1)
+        Size ->
+            ct:fail({table_grew, [{expected, N}, {got, Size}]})
     end.
 
 faulty_client(Host, Port) ->
