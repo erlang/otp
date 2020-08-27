@@ -511,6 +511,13 @@ endif
 	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 ifneq ($(TARGET), win32)
 	$(INSTALL_SCRIPT) erl.src "$(RELEASE_PATH)/erts-$(VSN)/bin"
+# On Android, the shell is found in /system/bin/sh instead of /bin/sh
+	case "$(TARGET)" in \
+		*-android*) \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			"$(RELEASE_PATH)/erts-$(VSN)/bin/erl.src" \
+		;; \
+	esac
 endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
@@ -531,6 +538,15 @@ ifneq ($(INSTALL_SRC),)
 endif
 ifneq ($(INSTALL_EMBEDDED_DATA),)
 	$(INSTALL_SCRIPT) $(INSTALL_EMBEDDED_DATA) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+# On Android, the shell is found in /system/bin/sh instead of /bin/sh
+	case "$(TARGET)" in \
+		*-android*) \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			"$(RELEASE_PATH)/erts-$(VSN)/bin/start_erl.src"; \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			"$(RELEASE_PATH)/erts-$(VSN)/bin/start.src"; \
+		;; \
+	esac
 endif
 ifneq ($(INSTALL_LIBS),)
 	$(INSTALL_DATA) $(INSTALL_LIBS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
