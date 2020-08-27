@@ -5925,8 +5925,14 @@ true</pre>
         <p>Returns an integer by rounding <c><anno>Number</anno></c>,
           for example:</p>
         <pre>
+<input>round(42.1).</input>
+42</pre>
+        <pre>
 <input>round(5.5).</input>
 6</pre>
+        <pre>
+<input>round(-5.5).</input>
+-6</pre>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
