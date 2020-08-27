@@ -733,7 +733,7 @@
         <item>
 	    <p> Memory information in
 	    <c>memsup:get_system_memory_data/0</c> now has additional
-	    entries in its property list for linux.</p>
+	    entries in its property list for Linux.</p>
           <p>
 	    Own Id: OTP-7409 Aux Id: seq10984 </p>
         </item>
@@ -780,8 +780,8 @@
       <list type="bulleted">
         <item>
           <p>
-	    Extended memsup memory probing on linux to use a port
-	    program to probe memory usage. This is faster then the
+	    Extended memsup memory probing on Linux to use a port
+	    program to probe memory usage. This is faster than the
 	    previous implementation.</p>
           <p>
 	    Own Id: OTP-6860 Aux Id: seq10616 </p>
