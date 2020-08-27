@@ -67,22 +67,25 @@
   </datatypes>
   <funcs>
     <func>
-        <name name="ensure_all_started" arity="1" since="OTP R16B02"/>
-        <name name="ensure_all_started" arity="2" since="OTP R16B02"/>
-        <fsummary>Load and start an application and its dependencies, recursively.</fsummary>
-        <desc>
-          <p>Equivalent to calling
-	  <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
-          repeatedly on all dependencies that are not yet started for an application.</p>
-          <p>Returns <c>{ok, AppNames}</c> for a successful start or for an already started
-          application (which is, however, omitted from the <c>AppNames</c> list).</p>
-	  <p>The function reports <c>{error, {AppName,Reason}}</c> for errors, where
-	  <c>Reason</c> is any possible reason returned by
-	  <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
-	  when starting a specific dependency.</p>
-	  <p>If an error occurs, the applications started by the function are stopped
-	  to bring the set of running applications back to its initial state.</p>
-        </desc>
+      <name name="ensure_all_started" arity="1" since="OTP R16B02"/>
+      <name name="ensure_all_started" arity="2" since="OTP R16B02"/>
+      <fsummary>Load and start an application and its dependencies, recursively.</fsummary>
+      <desc>
+        <p>Equivalent to calling
+        <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
+            repeatedly on all dependencies that are not yet started for an
+            application that is not yet started.</p>
+        <p>Returns <c>{ok, AppNames}</c>, where <c>AppNames</c> is a list of the application names
+            that was actually started by this call.
+            The list might be empty, or not contain all dependencies if the application
+            or some of its dependencies are already started.</p>
+        <p>The function reports <c>{error, {AppName,Reason}}</c> for errors, where
+        <c>Reason</c> is any possible reason returned by
+        <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
+            when starting a specific dependency.</p>
+        <p>If an error occurs, the applications started by the function are stopped
+            to bring the set of running applications back to its initial state.</p>
+      </desc>
     </func>
     <func>
       <name name="ensure_started" arity="1" since="OTP R16B01"/>
