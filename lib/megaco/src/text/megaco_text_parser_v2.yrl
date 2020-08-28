@@ -1418,7 +1418,7 @@ safeToken2           -> 'EmergencyToken'        : '$1' .
 safeToken2           -> 'EmergencyOffToken'     : '$1' .
 safeToken2           -> 'ErrorToken'            : '$1' .
 %% v2-safeToken2           -> 'EventBufferToken'      : '$1' .
-%% v2-safeToken2           -> 'EventsToken'           : '$1' .
+safeToken2           -> 'EventsToken'           : '$1' .
 safeToken2           -> 'FailoverToken'         : '$1' .
 safeToken2           -> 'ForcedToken'           : '$1' .
 safeToken2           -> 'GracefulToken'         : '$1' .
