@@ -39,7 +39,7 @@
       <item><seeerl marker="disksup">disksup</seeerl>
        Disk supervision(Unix, Windows)</item>
       <item><seeerl marker="memsup">memsup</seeerl>
-       Memory supervision (Unix, Windows, VxWorks)</item>
+       Memory supervision (Unix, Windows)</item>
       <item><seeerl marker="os_sup">os_sup</seeerl>
        Interface to OS system messages (Solaris, Windows)</item>
     </list>

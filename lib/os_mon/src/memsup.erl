@@ -32,7 +32,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2]).
 
 %% Other exports
 -export([format_status/2]).
@@ -175,7 +175,7 @@ init([]) ->
 
     OS = os:type(),
     PortMode = case OS of
-		   {unix, darwin} -> false;
+		   {unix, darwin} -> true;
 		   {unix, freebsd} -> false;
 		   {unix, dragonfly} -> false;
 		   % Linux supports this.
@@ -510,152 +510,6 @@ terminate(_Reason, State) ->
     clear_alarms(),
     ok.
 
-%% os_mon-2.0.1
-%% For live downgrade to/upgrade from os_mon-1.8[.1] and -2.0
-code_change(Vsn, PrevState, "1.8") ->
-    case Vsn of
-
-	%% Downgrade from this version
-	{down, _Vsn} ->
-
-	    %% Kill the helper process, if there is one,
-	    %% and flush messages from it
-	    case PrevState#state.pid of
-		Pid when is_pid(Pid) ->
-		    unlink(Pid), % to prevent 'EXIT' message
-		    exit(Pid, cancel);
-		undefined -> ignore
-	    end,
-	    flush(collected_sys),
-	    flush(collected_ext_sys),
-
-	    %% Cancel timers, flush timeout messages
-	    %% and send dummy replies to any pending clients
-	    case PrevState#state.wd_timer of
-		undefined ->
-		    ignore;
-		TimerRef1 ->
-                    ok = erlang:cancel_timer(TimerRef1, [{async,true}]),
-		    SysOnly = PrevState#state.sys_only,
-		    MemUsage = dummy_reply(get_memory_data, SysOnly),
-		    SysMemUsage1 = dummy_reply(get_system_memory_data),
-		    reply(PrevState#state.pending,MemUsage,SysMemUsage1)
-	    end,
-	    case PrevState#state.ext_wd_timer of
-		undefined ->
-		    ignore;
-		TimerRef2 ->
-                    ok = erlang:cancel_timer(TimerRef2, [{async,true}]),
-		    SysMemUsage2 = dummy_reply(get_system_memory_data),
-		    reply(PrevState#state.pending, undef, SysMemUsage2)
-	    end,
-	    flush(reg_collection_timeout),
-	    flush(ext_collection_timeout),
-
-	    %% Downgrade to old state record
-	    State = {state,
-		     PrevState#state.timeout,
-		     PrevState#state.mem_usage,
-		     PrevState#state.worst_mem_user,
-		     PrevState#state.sys_mem_watermark,
-		     PrevState#state.proc_mem_watermark,
-		     not PrevState#state.sys_only, % collect_procmem
-		     undefined, % wd_timer
-		     [],        % pending
-		     undefined, % ext_wd_timer
-		     [],        % ext_pending
-		     PrevState#state.helper_timeout},
-	    {ok, State};
-
-	%% Upgrade to this version
-	_Vsn ->
-
-	    %% Old state record
-	    {state,
-	     Timeout, MemUsage, WorstMemUser,
-	     SysMemWatermark, ProcMemWatermark, CollProc,
-	     WDTimer, Pending, ExtWDTimer, ExtPending,
-	     HelperTimeout} = PrevState,
-	    SysOnly = not CollProc,
-
-	    %% Flush memsup_helper messages
-	    flush(collected_sys),
-	    flush(collected_proc),
-	    flush(collected_ext_sys),
-		     
-	    %% Cancel timers, flush timeout messages
-	    %% and send dummy replies to any pending clients
-	    case WDTimer of
-		undefined ->
-		    ignore;
-		TimerRef1 ->
-                    ok = erlang:cancel_timer(TimerRef1, [{async,true}]),
-		    MemUsage = dummy_reply(get_memory_data, SysOnly),
-		    Pending2 = lists:map(fun(From) -> {reg,From} end,
-					 Pending),
-		    reply(Pending2, MemUsage, undef)
-	    end,
-	    case ExtWDTimer of
-		undefined ->
-		    ignore;
-		TimerRef2 ->
-                    ok = erlang:cancel_timer(TimerRef2, [{async,true}]),
-		    SysMemUsage = dummy_reply(get_system_memory_data),
-		    ExtPending2 = lists:map(fun(From) -> {ext,From} end,
-					    ExtPending),
-		    reply(ExtPending2, undef, SysMemUsage)
-	    end,
-	    flush(reg_collection_timeout),
-	    flush(ext_collection_timeout),
-
-	    OS = os:type(),
-	    PortMode = case OS of
-			   {unix, darwin} -> false;
-			   {unix, freebsd} -> false;
-			   {unix, dragonfly} -> false;
-			   {unix, linux} -> false;
-			   {unix, openbsd} -> true;
-			   {unix, netbsd} -> true;
-			   {unix, sunos} -> true;
-			   {win32, _OSname} -> false
-		       end,
-	    Pid = if
-		      PortMode -> spawn_link(fun() -> port_init() end);
-		      not PortMode -> undefined
-		  end,
-
-	    %% Upgrade to this state record
-	    State = #state{os = OS,
-			   port_mode = PortMode,
-			   mem_usage = MemUsage,
-			   worst_mem_user = WorstMemUser,
-			   sys_only  = SysOnly,
-			   timeout         = Timeout,
-			   helper_timeout  = HelperTimeout,
-			   sys_mem_watermark = SysMemWatermark,
-			   proc_mem_watermark = ProcMemWatermark,
-			   pid                = Pid,
-			   wd_timer           = undefined,
-			   ext_wd_timer       = undefined,
-			   pending            = [],
-			   ext_pending        = []},
-	    {ok, State}
-    end;
-code_change(_Vsn, State, "2.0") ->
-
-    %% Restart the port process (it must use new memsup code)
-    Pid = case State#state.port_mode of
-	      true ->
-		  State#state.pid ! close,
-		  spawn_link(fun() -> port_init() end);
-	      false ->
-		  State#state.pid
-	  end,
-    {ok, State#state{pid=Pid}};
-	  
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
 %%----------------------------------------------------------------------
 %% Other exports
 %%----------------------------------------------------------------------
@@ -726,22 +580,6 @@ reply(Pending, MemUsage, SysMemUsage) ->
 
 %% get_memory_usage(OS) -> {Alloc, Total}
 
-%% Darwin:
-%% Uses vm_stat command.
-get_memory_usage({unix,darwin}) ->
-    Str1 = os:cmd("/usr/bin/vm_stat"),
-    PageSize = 4096,
-
-    {[Free],        Str2} = fread_value("Pages free:~d.", Str1),
-    {[Active],      Str3} = fread_value("Pages active:~d.", Str2),
-    {[Inactive],    Str4} = fread_value("Pages inactive:~d.", Str3),
-    {[Speculative], Str5} = fread_value("Pages speculative:~d.", Str4),
-    {[Wired],       _} = fread_value("Pages wired down:~d.", Str5),
-
-    NMemUsed  = (Wired + Active + Inactive) * PageSize,
-    NMemTotal = NMemUsed + (Free + Speculative) * PageSize,
-    {NMemUsed,NMemTotal};
-
 %% FreeBSD: Look in /usr/include/sys/vmmeter.h for the format of struct
 %% vmmeter
 get_memory_usage({unix,OSname}) when OSname == freebsd; OSname == dragonfly ->
@@ -761,16 +599,6 @@ get_memory_usage({win32,_OSname}) ->
 	io_lib:fread("~d~d~d~d~d~d~d", Result),
     {TotPhys-AvailPhys, TotPhys}.
 
-fread_value(Format, Str0) ->
-    case io_lib:fread(Format, skip_to_eol(Str0)) of
-    	{error, {fread, input}} -> {[0], Str0};
-	{ok, Value, Str1} -> {Value, Str1}
-    end.
-
-skip_to_eol([]) -> [];
-skip_to_eol([$\n | T]) -> T;
-skip_to_eol([_ | T]) -> skip_to_eol(T).
-
 freebsd_sysctl(Def) ->
     list_to_integer(os:cmd("/sbin/sysctl -n " ++ Def) -- "\n").
 
@@ -788,9 +616,6 @@ get_ext_memory_usage(OS, {Alloc, Total}) ->
 	    [{total_memory, Total}, {free_memory, Total-Alloc},
 	     {system_total_memory, Total}];
 	{unix, dragonfly} ->
-	    [{total_memory, Total}, {free_memory, Total-Alloc},
-	     {system_total_memory, Total}];
-	{unix, darwin} ->
 	    [{total_memory, Total}, {free_memory, Total-Alloc},
 	     {system_total_memory, Total}];
 	_ -> % OSs using a port

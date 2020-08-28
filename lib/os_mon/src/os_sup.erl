@@ -28,7 +28,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2]).
 
 -record(state, {port, mfa, config, path, conf}).
 
@@ -158,69 +158,6 @@ terminate(_Reason, #state{port=Port} = State) ->
 	false ->
 	    ok
     end.
-
-%% os_mon-2.0
-%% For live downgrade to/upgrade from os_mon-1.8[.1]
-code_change(Vsn, PrevState, "1.8") ->
-    case Vsn of
-
-	%% Downgrade from this version
-	{down, _Vsn} ->
-
-	    %% Find out the error tag used
-	    {DefM, DefF, _} = param_default(os_sup_mfa),
-	    Tag = case PrevState#state.mfa of
-
-		      %% Default callback function is used, then use
-		      %% the corresponding tag
-		      {DefM, DefF, [Tag0]} ->
-			  Tag0;
-
-		      %% Default callback function is *not* used
-		      %% (before the downgrade, that is)
-		      %% -- check the configuration parameter
-		      _ ->
-			  case application:get_env(os_mon,
-						   os_sup_errortag) of
-			      {ok, Tag1} ->
-				  Tag1;
-
-			      %% (actually, if it has no value,
-			      %%  the process should terminate
-			      %%  according to 1.8.1 version, but that
-			      %%  seems too harsh here)
-			      _ ->
-				  std_error
-			  end
-		  end,
-		      
-	    %% Downgrade to old state record
-	    State = {state, PrevState#state.port, Tag},
-	    {ok, State};
-
-	%% Upgrade to this version
-	_Vsn ->
-
-	    {state, Port, Tag} = PrevState,
-
-	    {DefM, DefF, _} = param_default(os_sup_mfa),
-	    MFA  = {DefM, DefF, [Tag]},
-
-	    %% We can safely assume the following configuration
-	    %% parameters are defined, otherwise os_sup would never had
-	    %% started in the first place.
-	    %% (We can *not* safely assume they haven't been changed,
-	    %%  but that's a weakness inherited from the 1.8.1 version)
-	    Path = application:get_env(os_mon, os_sup_own),
-	    Conf = application:get_env(os_mon, os_sup_syslogconf),
-
-	    %% Upgrade to this state record
-	    State = #state{port=Port, mfa=MFA, config=true,
-			   path=Path, conf=Conf},
-	    {ok, State}
-    end;
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
 %%----------------------------------------------------------------------
 %% Internal functions

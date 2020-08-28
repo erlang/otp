@@ -34,7 +34,7 @@
     <p><c>memsup</c> is a process which supervises the memory usage for
       the system and for individual processes. It is part of the OS_Mon
       application, see <seeapp marker="os_mon_app">os_mon(6)</seeapp>.
-      Available for Unix, Windows and VxWorks.</p>
+      Available for Unix and Windows.</p>
     <p>Periodically performs a memory check:</p>
     <list type="bulleted">
       <item>
@@ -62,8 +62,8 @@
       <seemfa marker="#get_system_memory_data/0">get_system_memory_data()</seemfa>.
       The result is highly dependent on the underlying operating
       system and the interface is targeted primarily for systems
-      without virtual memory (e.g. VxWorks). The output on other
-      systems is however still valid, although sparse.</p>
+      without virtual memory. However, the output on other
+      systems is still valid, although sparse.</p>
     <p>A call to <c>get_system_memory_data/0</c> is more costly
       than a call to <c>get_memory_data/0</c> as data is collected
       synchronously when this function is called.</p>
@@ -102,7 +102,8 @@
       <item>
         <p>A timeout, in seconds, for how long the <c>memsup</c>
           process should wait for a result from a memory check. If
-          the timeout expires, a warning message <c>"OS_MON (memsup) timeout"</c> is issued via <c>error_logger</c> and any
+          the timeout expires, a warning message <c>"OS_MON (memsup) timeout"</c>
+	  is issued via <c>error_logger</c> and any
           pending, synchronous client calls will return a dummy value.
           Normally, this situation should not occur. There have been
           cases on Linux, however, where the pseudo file from which
@@ -178,13 +179,6 @@
           <item>The amount of memory available to the whole operating
            system. This may well be equal to <c>total_memory</c> but
            not necessarily.</item>
-          <tag><c>largest_free</c></tag>
-          <item>The size of the largest contiguous free memory block
-           available to the Erlang emulator.</item>
-          <tag><c>number_of_free</c></tag>
-          <item>The number of free blocks available to the Erlang runtime
-           system. This gives a fair indication of how fragmented
-           the memory is.</item>
           <tag><c>buffered_memory</c></tag>
           <item>
                 The amount of memory the system uses for temporary storing raw disk blocks.
@@ -205,13 +199,11 @@
 
         </taglist>
         <p>All memory sizes are presented as number of <em>bytes</em>.</p>
-        <p>The <c>largest_free</c> and <c>number_of_free</c> tags are
-          currently only returned on a VxWorks system.</p>
         <p>Returns the empty list [] if <c>memsup</c> is not available,
           or if the memory check times out.</p>
 	<note><p>
-	On linux the memory available to the emulator is <c>cached_memory</c> and <c>buffered_memory</c> in addition to 
-	<c>free_memory</c>.</p>
+	  On Linux the memory available to the emulator is <c>cached_memory</c> and
+	  <c>buffered_memory</c> in addition to <c>free_memory</c>.</p>
 	</note>
       </desc>
     </func>

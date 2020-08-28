@@ -29,7 +29,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2]).
 
 %% Other exports
 -export([format_status/2, parse_df/2]).
@@ -169,30 +169,6 @@ terminate(_Reason, State) ->
 	    port_close(Port)
     end,
     ok.
-
-%% os_mon-2.0.1
-%% For live downgrade to/upgrade from os_mon-1.8[.1]
-code_change(Vsn, PrevState, "1.8") ->
-    case Vsn of
-
-	%% Downgrade from this version
-	{down, _Vsn} ->
-	    State = case PrevState#state.port of
-			not_used -> PrevState#state{port=noport};
-			_ -> PrevState
-		    end,
-	    {ok, State};
-
-	%% Upgrade to this version
-	_Vsn ->
-	    State = case PrevState#state.port of
-			noport -> PrevState#state{port=not_used};
-			_ -> PrevState
-		    end,
-	    {ok, State}
-    end;
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
 %%----------------------------------------------------------------------
 %% Other exports

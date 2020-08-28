@@ -114,6 +114,13 @@
 #include <sys/sysinfo.h>
 #endif
 
+#if defined(__APPLE__)
+#include <mach/mach.h>
+static mach_port_t mach_host_port;
+static vm_size_t mach_page_size;
+static uint64_t total_memory_size;
+#endif
+
 /* commands */
 #include "memsup.h"
 
@@ -394,6 +401,48 @@ get_extended_mem_sgi(memory_ext *me) {
 }
 #endif
 
+#if defined(__APPLE__)
+static void
+init_apple(void) {
+    kern_return_t kr;
+    mach_msg_type_number_t count;
+    host_basic_info_data_t hinfo;
+
+    mach_host_port = mach_host_self();
+
+    count = HOST_BASIC_INFO_COUNT;
+    kr = host_info(mach_host_port, HOST_BASIC_INFO, (host_info_t) &hinfo, &count);
+    if (kr != KERN_SUCCESS) {
+        abort();
+    }
+    total_memory_size = hinfo.max_mem;
+
+    kr = host_page_size(mach_host_port, &mach_page_size);
+    if (kr != KERN_SUCCESS) {
+        abort();
+    }
+}
+
+static void
+get_extended_mem_apple(memory_ext *me) {
+    kern_return_t kr;
+    host_basic_info_data_t hinfo;
+    mach_msg_type_number_t count;
+    vm_statistics_data_t vm_stat;
+
+    count = HOST_VM_INFO_COUNT;
+    kr = host_statistics(mach_host_port, HOST_VM_INFO, (host_info_t)&vm_stat, &count);
+    if (kr != KERN_SUCCESS) {
+        return;
+    }
+
+    me->free = vm_stat.free_count * mach_page_size;
+    me->total = total_memory_size;
+    me->pagesize = 1;
+    me->flag = F_MEM_TOTAL | F_MEM_FREE;
+}
+#endif
+
 static void
 get_extended_mem(memory_ext *me) {
 /* android */
@@ -417,6 +466,9 @@ get_extended_mem(memory_ext *me) {
 /* Does this exist on others than Solaris2? */
 #if defined(_SC_AVPHYS_PAGES)
     if (get_extended_mem_sysconf(me)) return;
+
+#elif defined(__APPLE__)
+    get_extended_mem_apple(me);
 
 /* We fake the rest */
 /* SunOS4 (for example) */
@@ -470,6 +522,15 @@ fail:
     } else {
 	print_error("%s", strerror(errno));
 	exit(1); 
+    }
+#elif defined(__APPLE__)
+    {
+        memory_ext me;
+        me.free = 0;
+        get_extended_mem_apple(&me);
+        *used = me.total - me.free;
+        *tot = total_memory_size;
+        *pagesize = 1;
     }
 #else  /* SunOS4 */
     *used = (1<<27);	       	/* Fake! 128 MB used */
@@ -567,7 +628,12 @@ message_loop(int erlin_fd)
 int
 MAIN(int argc, char **argv)
 {
+#ifdef __APPLE__
+    init_apple();
+#endif
+
   program_name = argv[0];
+
   message_loop(ERLIN_FD);
   return 0;
 }

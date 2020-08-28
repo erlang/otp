@@ -83,7 +83,7 @@
           of Unix tools like <c>df</c>. The returned disk data and alarms
           can be different when using this option.</p>
         <p>The parameter is ignored on platforms that are known to not be
-          posix compatible (Windows and SunOS).</p>
+          POSIX compatible (Windows and SunOS).</p>
       </item>
     </taglist>
     <p>See <seefile marker="kernel:config">config(4)</seefile> for
