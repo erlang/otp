@@ -112,7 +112,8 @@ decode_pem_entries([<<>>], Entries) ->
    lists:reverse(Entries);
 decode_pem_entries([<<>> | Lines], Entries) ->
     decode_pem_entries(Lines, Entries);
-decode_pem_entries([Start| Lines], Entries) ->
+decode_pem_entries([StartLine | Lines], Entries) ->
+    Start = string:trim(StartLine),
     case pem_end(Start) of
 	undefined ->
 	    decode_pem_entries(Lines, Entries);
