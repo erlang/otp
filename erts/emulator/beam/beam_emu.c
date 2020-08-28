@@ -48,6 +48,15 @@
 
 /* #define HARDDEBUG 1 */
 
+/* The x86 and AMD64 optimization guides recommend that branch targets are
+ * paragraph aligned (16 bytes). Neither GCC nor Clang align the addresses of
+ * first class labels as used by the OpCase construction when the jump table is
+ * enabled. Aligning the OpCase labels looks like a worthwhile optimization, but
+ * despite the recommendation in the optimization guides, forcing alignment
+ * leads to a ~5% slowdown of the emulator. Therefore alignment of OpCase labels
+ * are not attempted.
+ */
+
 #if defined(NO_JUMP_TABLE)
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
