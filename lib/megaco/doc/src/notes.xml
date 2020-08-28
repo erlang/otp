@@ -77,6 +77,22 @@
 
 </section>
 
+  <section><title>Megaco 3.18.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The v2 and v3 parsers could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16818 Aux Id: ERIERL-526 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>Megaco 3.18.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
