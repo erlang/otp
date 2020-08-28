@@ -1106,6 +1106,8 @@ scan_if([{'(',_}|_]=Toks, If, From, St) ->
 	    Error = case Error0 of
 			{_,erl_parse,_} ->
 			    {error,Error0};
+                        {error,ErrL,What} ->
+                            {error,{ErrL,epp,What}};
 			_ ->
 			    {error,{loc(If),epp,Error0}}
 		    end,
