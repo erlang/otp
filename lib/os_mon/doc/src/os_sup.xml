@@ -45,14 +45,14 @@
   <section>
     <title>Solaris Operation</title>
     <p>The Solaris (SunOS 5.x) messages are retrieved from
-      the syslog-daemon, <c>syslogd</c>.</p>
+      the syslog daemon, <c>syslogd</c>.</p>
     <p>Enabling the service includes actions which require root
       privileges, such as change of ownership and file privileges of an
       executable binary file, and creating a modified copy of
       the configuration file for <c>syslogd</c>. When <c>os_sup</c> is
       terminated, the service must be disabled, meaning the original
       configuration must be restored. Enabling/disabling can be done
-      either outside or inside <c>os_sup</c>, see
+      either outside or inside <c>os_sup</c>. See
       <seeerl marker="#config">Configuration</seeerl> below.</p>
     <warning>
       <p>This process cannot run in multiple instances on the same
@@ -69,7 +69,7 @@
     <p>The <c>nteventlog</c> module is used to implement <c>os_sup</c>.
       See <seeerl marker="nteventlog">nteventlog(3)</seeerl>. Note
       that the start functions of <c>nteventlog</c> does not need to be
-      used, in this case the process is started automatically as part of
+      used, as in this case the process is started automatically as part of
       the OS_Mon supervision tree.</p>
     <p>OS messages are formatted as a tuple
       <c>{Time, Category, Facility, Severity, Message}</c>:</p>
