@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -53,8 +53,8 @@
     converts filenames back and forth to the native filename encoding
     (usually UTF-8, but UTF-16 on Windows).</p>
 
-    <p>The default mode depends on the operating system. Windows and
-    MacOS X enforce consistent filename encoding and therefore the
+    <p>The default mode depends on the operating system. Windows, MacOS X
+    and Android enforce consistent filename encoding and therefore the
     VM uses <c>utf8</c> mode.</p>
 
     <p>On operating systems with transparent naming (for example, all Unix

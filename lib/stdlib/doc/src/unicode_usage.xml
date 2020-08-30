@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1999</year>
-      <year>2017</year>
+      <year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -728,9 +728,9 @@ Eshell V5.10.1  (abort with ^G)
     <taglist>
       <tag>Mandatory Unicode file naming</tag>
       <item>
-        <p>Windows and, for most common uses, MacOS X enforce Unicode support
-          for filenames. All files created in the file system have names that
-          can consistently be interpreted. In MacOS X, all filenames are
+        <p>Windows, Android and, for most cases, MacOS X enforce Unicode support
+          for filenames. All files created in the file system have names that can
+          consistently be interpreted. In MacOS X and Android, all filenames are
           retrieved in UTF-8 encoding. In Windows, each system call handling
           filenames has a special Unicode-aware variant, giving much the same
           effect. There are no filenames on these systems that are not Unicode
@@ -802,8 +802,8 @@ Eshell V5.10.1  (abort with ^G)
     <p>Unicode filename translation is turned on with switch <c>+fnu</c>. On
       Linux, a VM started without explicitly stating the filename translation
       mode defaults to <c>latin1</c> as the native filename encoding. On
-      Windows and MacOS X, the default behavior is that of Unicode filename
-      translation. Therefore
+      Windows, MacOS X and Android, the default behavior is that of Unicode
+      filename translation. Therefore
       <seemfa marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seemfa>
       by default returns <c>utf8</c> on those systems (Windows does not use
       UTF-8 on the file system level, but this can safely be ignored by the
