@@ -294,7 +294,7 @@ send_return_value({304,Info,Path}, FileInfo)->
     MimeType = httpd_util:lookup_mime_default(Info#mod.config_db,Suffix,
 					      "text/plain"),
     LastModified =
-	case (catch httpd_util:rfc1123_date(FileInfo#file_info.mtime)) of
+	case (catch calendar:rfc1123_date(FileInfo#file_info.mtime)) of
 	    Date when is_list(Date) ->
 		[{last_modified, Date}];
 	    _ -> %% This will rarly happen, but could happen

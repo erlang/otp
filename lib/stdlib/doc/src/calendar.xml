@@ -285,6 +285,20 @@
     </func>
 
     <func>
+      <name since="">month_abbr(NthMonth) -> Month</name>
+      <fsummary>Converts the month as an integer (1-12) to an abbreviated string.</fsummary>
+      <type>
+        <v>NthMonth = 1-12</v>
+        <v>Month = string()</v>
+      </type>
+      <desc>
+        <p><c>month_abbr/1</c> converts the month <c>NthMonth</c> as an
+          integer (1-12) to an abbreviated string, that is: </p>
+        <p>1 = "Jan", 2 = "Feb", ..., 12 = "Dec".</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="now_to_datetime" arity="1" since=""/>
       <fsummary>Convert now to date and time.</fsummary>
       <desc>
@@ -313,6 +327,22 @@
           converted from the return value from
           <seemfa marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seemfa>.
         </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="rfc1123_date" arity="0" since=""/>
+      <name name="rfc1123_date" arity="1" since=""/>
+      <fsummary>Returns the current date in RFC 1123 format.</fsummary>
+      <desc>
+        <p><c>rfc1123_date/0</c> returns the current date in RFC 1123
+          format. <c>rfc1123_date/1</c> converts the date in the Erlang format
+          to the RFC 1123 date format.</p>
+      <pre>
+1> <input>calendar:rfc1123_date().</input>
+"Mon, 31 Aug 2020 16:12:16 GMT"
+2> <input>calendar:rfc1123_date({{2020,8,31},{16,12,49}}).</input>
+"Mon, 31 Aug 2020 14:12:49 GMT"</pre>
       </desc>
     </func>
 
@@ -489,6 +519,22 @@
       <type variable="Day"/>
       <desc>
         <p>This function checks if a date is a valid.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">weekday_abbr(NthDayOfWeek) -> DayOfWeek</name>
+      <fsummary>Converts the day of the week 
+      (integer [1-7]) to an abbreviated string.</fsummary>
+      <type>
+        <v>NthDayOfWeek = 1-7</v>
+        <v>DayOfWeek = string()</v>
+      </type>
+      <desc>
+        <p><c>weekday_abbr/1</c> converts the day of the week
+          (<c>NthDayOfWeek</c>) from an integer (1-7) to an abbreviated
+          string, that is:</p>
+        <p>1 = "Mon", 2 = "Tue", ..., 7 = "Sat".</p>
       </desc>
     </func>
   </funcs>

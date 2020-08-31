@@ -52,7 +52,10 @@
 	 universal_time/0,
 	 universal_time_to_local_time/1,
 	 valid_date/1,
-	 valid_date/3]).
+	 valid_date/3,
+     rfc1123_date/0,
+	 rfc1123_date/1,
+     weekday_abbr/1, month_abbr/1]).
 
 -deprecated([{local_time_to_universal_time,1,
               "use calendar:local_time_to_universal_time_dst/1 instead"}]).
@@ -664,6 +667,56 @@ df(Year, _) ->
 	true -> 1;
 	false  -> 0
     end.
+
+%% rfc1123_date
+-spec rfc1123_date() -> string().
+rfc1123_date() ->
+    {{YYYY,MM,DD},{Hour,Min,Sec}} = universal_time(),
+    DayNumber = day_of_the_week({YYYY,MM,DD}),
+    lists:flatten(
+      io_lib:format("~s, ~2.2.0w ~3.s ~4.4.0w ~2.2.0w:~2.2.0w:~2.2.0w GMT",
+		    [weekday_abbr(DayNumber),DD,month_abbr(MM),YYYY,Hour,Min,Sec])).
+
+-spec rfc1123_date(undefined | datetime()) -> string().
+rfc1123_date(undefined) ->
+    undefined;
+rfc1123_date(LocalTime) ->
+    {{YYYY,MM,DD},{Hour,Min,Sec}} = 
+	case local_time_to_universal_time_dst(LocalTime) of
+	    [Gmt]   -> Gmt;
+	    [_,Gmt] -> Gmt;
+        % Should not happen, but handle the empty list to prevent an error.
+        [] -> LocalTime
+	end,
+    DayNumber = day_of_the_week({YYYY,MM,DD}),
+    lists:flatten(
+      io_lib:format("~s, ~2.2.0w ~3.s ~4.4.0w ~2.2.0w:~2.2.0w:~2.2.0w GMT",
+		    [weekday_abbr(DayNumber),DD,month_abbr(MM),YYYY,Hour,Min,Sec])).
+
+%% weekday
+-spec weekday_abbr(daynum()) -> string().
+weekday_abbr(1) -> "Mon";
+weekday_abbr(2) -> "Tue";
+weekday_abbr(3) -> "Wed";
+weekday_abbr(4) -> "Thu";
+weekday_abbr(5) -> "Fri";
+weekday_abbr(6) -> "Sat";
+weekday_abbr(7) -> "Sun".
+
+%% month
+-spec month_abbr(month()) -> string().
+month_abbr(1) -> "Jan";
+month_abbr(2) -> "Feb";
+month_abbr(3) -> "Mar";
+month_abbr(4) -> "Apr";
+month_abbr(5) -> "May";
+month_abbr(6) -> "Jun";
+month_abbr(7) -> "Jul";
+month_abbr(8) -> "Aug";
+month_abbr(9) -> "Sep";
+month_abbr(10) -> "Oct";
+month_abbr(11) -> "Nov";
+month_abbr(12) -> "Dec".
 
 check(_Arg, _Options, Secs) when Secs >= - ?SECONDS_FROM_0_TO_1970,
                                  Secs < ?SECONDS_FROM_0_TO_10000 ->

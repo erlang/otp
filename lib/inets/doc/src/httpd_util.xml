@@ -68,11 +68,11 @@
           in <c>kernel/include/file.hrl</c>.</p>
       </desc>
     </func>
-    
+
     <func>
       <name since="">day(NthDayOfWeek) -> DayOfWeek</name>
       <fsummary>Converts the day of the week 
-      (integer [1-7]) to an abbreviated string.</fsummary>
+      (integer [1-7]) to an abbreviated string (deprecated).</fsummary>
       <type>
         <v>NthDayOfWeek = 1-7</v>
         <v>DayOfWeek = string()</v>
@@ -82,6 +82,10 @@
           (<c>NthDayOfWeek</c>) from an integer (1-7) to an abbreviated
           string, that is:</p>
         <p>1 = "Mon", 2 = "Tue", ..., 7 = "Sat".</p>
+        <warning>
+          <p>This function is deprecated. Use <seemfa marker="stdlib:calendar#weekday_abbr/1">
+          <c>calendar#weekday_abbr/1</c></seemfa> instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -232,7 +236,7 @@
 
     <func>
       <name since="">month(NthMonth) -> Month</name>
-      <fsummary>Converts the month as an integer (1-12) to an abbreviated string.</fsummary>
+      <fsummary>Converts the month as an integer (1-12) to an abbreviated string (deprecated).</fsummary>
       <type>
         <v>NthMonth = 1-12</v>
         <v>Month = string()</v>
@@ -241,6 +245,10 @@
         <p><c>month/1</c> converts the month <c>NthMonth</c> as an
           integer (1-12) to an abbreviated string, that is: </p>
         <p>1 = "Jan", 2 = "Feb", ..., 12 = "Dec".</p>
+        <warning>
+          <p>This function is deprecated. Use <seemfa marker="stdlib:calendar#month_abbr/1">
+          <c>calendar#month_abbr/1</c></seemfa> instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -277,15 +285,20 @@
     <func>
       <name since="">rfc1123_date() -> RFC1123Date</name>
       <name since="">rfc1123_date(Date) -> RFC1123Date</name>
-      <fsummary>Returns the current date in RFC 1123 format.</fsummary>
+      <fsummary>Returns the current date in RFC 1123 format (deprecated).</fsummary>
       <type>
         <v> Date = calendar:datetime()</v>
         <v>RFC1123Date = string()</v>
       </type>
       <desc>
         <p><c>rfc1123_date/0</c> returns the current date in RFC 1123
-          format. <c>rfc_date/1</c> converts the date in the Erlang format
+          format. <c>rfc1123_date/1</c> converts the date in the Erlang format
           to the RFC 1123 date format.</p>
+        <warning>
+          <p>These two functions are deprecated. Use <seemfa marker="stdlib:calendar#rfc1123_date/0">
+          <c>calendar#rfc1123_date/0</c></seemfa> or <seemfa marker="stdlib:calendar#rfc1123_date/1">
+          <c>calendar#rfc1123_date/1</c></seemfa> instead.</p>
+        </warning>
       </desc>
     </func>
 

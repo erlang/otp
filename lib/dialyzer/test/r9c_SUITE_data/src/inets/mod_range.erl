@@ -108,7 +108,7 @@ send_multi_range_response(Path,Info,RangeList)->
 	    ?DEBUG("send_multi_range_response -> FileDescriptor: ~p",[FileDescriptor]),
 	    Suffix = httpd_util:suffix(Path),
 	    PartMimeType = httpd_util:lookup_mime_default(Info#mod.config_db,Suffix,"text/plain"),
-	    Date = httpd_util:rfc1123_date(),
+	    Date = calendar:rfc1123_date(),
 	    {FileInfo,LastModified}=get_modification_date(Path),
 	    case valid_ranges(RangeList,Path,FileInfo) of
 		{ValidRanges,true}->
@@ -173,7 +173,7 @@ send_range_response(Path,Info,Start,Stop,FileInfo,LastModified)->
 	    ?DEBUG("send_range_response -> FileDescriptor: ~p",[FileDescriptor]),
 	    Suffix = httpd_util:suffix(Path),
 	    MimeType = httpd_util:lookup_mime_default(Info#mod.config_db,Suffix,"text/plain"),
-	    Date = httpd_util:rfc1123_date(),
+	    Date = calendar:rfc1123_date(),
 	    Size = get_range_size(Start,Stop,FileInfo),
 	    case valid_range(Start,Stop,FileInfo) of
 		{true,StartByte,EndByte,TotByte}->
@@ -303,7 +303,7 @@ valid_range(Start,End,FileInfo)->
 get_modification_date(Path)->
     case file:read_file_info(Path) of
 	{ok, FileInfo0} ->
-	    {FileInfo0, httpd_util:rfc1123_date(FileInfo0#file_info.mtime)};
+	    {FileInfo0, calendar:rfc1123_date(FileInfo0#file_info.mtime)};
 	_ ->
 	    {#file_info{},""}
     end.

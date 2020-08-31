@@ -320,7 +320,7 @@ valid_range(_Start,_End,_FileInfo)->
 get_modification_date(Path)->
     case file:read_file_info(Path) of
 	{ok, FileInfo0} ->
-	    case (catch httpd_util:rfc1123_date(FileInfo0#file_info.mtime)) of
+	    case (catch calendar:rfc1123_date(FileInfo0#file_info.mtime)) of
 		Date when is_list(Date) ->
 		    {FileInfo0, [{last_modified, Date}]};
 		_ ->

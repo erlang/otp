@@ -77,7 +77,7 @@ custom_date() ->
     {{YYYY,MM,DD},{Hour,Min,Sec}} = LocalTime,
     Date =
 	io_lib:format("~.2.0w/~.3s/~.4w:~.2.0w:~.2.0w:~.2.0w ~c~.2.0w~.2.0w",
-		      [DD,httpd_util:month(MM),YYYY,Hour,Min,Sec,sign(Minutes),
+		      [DD,calendar:month_abbr(MM),YYYY,Hour,Min,Sec,sign(Minutes),
 		       abs(Minutes) div 60,abs(Minutes) rem 60]),
     lists:flatten(Date).
 

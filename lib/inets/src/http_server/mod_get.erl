@@ -119,7 +119,7 @@ send_body(SocketType,Socket,FileDescriptor) ->
 get_modification_date(Path)->
     {ok, FileInfo0} = file:read_file_info(Path), 
     LastModified = 
-	case catch httpd_util:rfc1123_date(FileInfo0#file_info.mtime) of
+	case catch calendar:rfc1123_date(FileInfo0#file_info.mtime) of
 	    Date when is_list(Date) -> [{last_modified, Date}];
 	    _ -> []
 	end,

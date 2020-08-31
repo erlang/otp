@@ -584,7 +584,7 @@ get_new_size(Size,Response)->
 create_header(Info,StatusCode)->
     Cache=case httpd_util:lookup(Info#mod.config_db,script_nocache,false) of
 	      true->
-		  Date=httpd_util:rfc1123_date(),
+		  Date=calendar:rfc1123_date(),
 		  "Cache-Control:no-cache\r\nPragma:no-cache\r\nExpires:"++ Date ++ "\r\n";
 	      false ->
 		  []

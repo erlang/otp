@@ -30,6 +30,10 @@ http_uri:encode/1 since=23 remove=25
 http_uri:decode/1 since=23 remove=25
 http_uri:scheme_defaults/0 since=23 remove=25
 httpd:parse_query/1 since=23
+httpd_util:day/1 since=23 remove=25
+httpd_util:month/1 since=23 remove=25
+httpd_util:rfc1123_date/0 since=23 remove=25
+httpd_util:rfc1123_date/1 since=23 remove=25
 pg2:_/_ since=23 remove=24
 filename:safe_relative_path/1 since=23 remove=25
 

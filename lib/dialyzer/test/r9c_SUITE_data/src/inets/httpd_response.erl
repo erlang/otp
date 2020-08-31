@@ -317,7 +317,7 @@ transform({content_type,undefined})->
     ["Content-Type:text/plain\r\n"];
 
 transform({date,undefined})->
-    ["Date:",httpd_util:rfc1123_date(),"\r\n"];
+    ["Date:",calendar:rfc1123_date(),"\r\n"];
 
 transform({date,RFCDate})->
     ["Date:",RFCDate,"\r\n"];

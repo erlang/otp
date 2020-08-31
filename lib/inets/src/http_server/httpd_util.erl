@@ -21,8 +21,8 @@
 -module(httpd_util).
 -export([ip_address/2, lookup/2, lookup/3, multi_lookup/2,
 	 lookup_mime/2, lookup_mime/3, lookup_mime_default/2,
-	 lookup_mime_default/3, reason_phrase/1, message/3, rfc1123_date/0,
-	 rfc1123_date/1, day/1, month/1,
+	 lookup_mime_default/3, reason_phrase/1, message/3,
+     rfc1123_date/0, rfc1123_date/1, day/1, month/1,
 	 flatlength/1, split_path/1, split_script_path/1, 
 	 suffix/1, split/3, uniq/1,
 	 make_name/2,make_name/3,make_name/4,strip/1,
@@ -38,6 +38,11 @@
 -export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
 -include_lib("inets/include/httpd.hrl").
+
+-deprecated([{day, 1, "use calendar:weekday_abbr/1 instead"}]).
+-deprecated([{month, 1, "use calendar:month_abbr/1 instead"}]).
+-deprecated([{rfc1123_date, 0, "use calendar:rfc1123_date/0 instead"},
+             {rfc1123_date, 1, "use calendar:rfc1123_date/1 instead"}]).
 
 ip_address({_,_,_,_} = Address, _IpFamily) ->
     {ok, Address};
@@ -306,30 +311,20 @@ convert_netscapecookie_date(Date)->
 	    {error,bad_date}
     end.
 
-
-%% rfc1123_date
-
+%% ===== depracated from OTP-23 =====
 rfc1123_date() ->
-    {{YYYY,MM,DD},{Hour,Min,Sec}} = calendar:universal_time(),
-    DayNumber = calendar:day_of_the_week({YYYY,MM,DD}),
-    lists:flatten(
-      io_lib:format("~s, ~2.2.0w ~3.s ~4.4.0w ~2.2.0w:~2.2.0w:~2.2.0w GMT",
-		    [day(DayNumber),DD,month(MM),YYYY,Hour,Min,Sec])).
+    calendar:rfc1123_date().
 
-rfc1123_date(undefined) ->
-    undefined;
-rfc1123_date(LocalTime) ->
-    {{YYYY,MM,DD},{Hour,Min,Sec}} = 
-	case calendar:local_time_to_universal_time_dst(LocalTime) of
-	    [Gmt]   -> Gmt;
-	    [_,Gmt] -> Gmt;
-        % Should not happen, but handle the empty list to prevent an error.
-        [] -> LocalTime
-	end,
-    DayNumber = calendar:day_of_the_week({YYYY,MM,DD}),
-    lists:flatten(
-      io_lib:format("~s, ~2.2.0w ~3.s ~4.4.0w ~2.2.0w:~2.2.0w:~2.2.0w GMT",
-		    [day(DayNumber),DD,month(MM),YYYY,Hour,Min,Sec])).
+rfc1123_date(Time) ->
+    calendar:rfc1123_date(Time).
+
+day(NumOfWeekday) ->
+    calendar:weekday_abbr(NumOfWeekday).
+
+month(NumOfMonth) ->
+    calendar:month_abbr(NumOfMonth).
+%% ==================================
+
 
 custom_date() ->
     LocalTime     = calendar:local_time(),
@@ -338,7 +333,7 @@ custom_date() ->
     {{YYYY,MM,DD},{Hour,Min,Sec}} = LocalTime,
     Date = 
 	io_lib:format("~.2.0w/~.3s/~.4w:~.2.0w:~.2.0w:~.2.0w ~c~.2.0w~.2.0w",
-		      [DD,httpd_util:month(MM),YYYY,Hour,Min,Sec,
+		      [DD,calendar:month_abbr(MM),YYYY,Hour,Min,Sec,
 		       sign(Minutes), abs(Minutes) div 60,
 		       abs(Minutes) rem 60]),  
     lists:flatten(Date).
@@ -361,31 +356,6 @@ uniq([First,First|Rest]) ->
 uniq([First|Rest]) ->
     [First|uniq(Rest)].
 
-
-%% day
-
-day(1) -> "Mon";
-day(2) -> "Tue";
-day(3) -> "Wed";
-day(4) -> "Thu";
-day(5) -> "Fri";
-day(6) -> "Sat"; 
-day(7) -> "Sun".
-
-%% month
-
-month(1) -> "Jan";
-month(2) -> "Feb";
-month(3) -> "Mar";
-month(4) -> "Apr";
-month(5) -> "May";
-month(6) -> "Jun";
-month(7) -> "Jul";
-month(8) -> "Aug";
-month(9) -> "Sep";
-month(10) -> "Oct";
-month(11) -> "Nov";
-month(12) -> "Dec".
 
 %% decode_hex
 

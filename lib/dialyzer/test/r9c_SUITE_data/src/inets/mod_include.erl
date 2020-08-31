@@ -240,22 +240,22 @@ date_local() ->
   {{Year,Month,Day},{Hour,Minute,Second}}=calendar:local_time(),
   %% Time format hard-wired to: "%a %b %e %T %Y" according to strftime(3)
   io_lib:format("~s ~s ~2w ~2.2.0w:~2.2.0w:~2.2.0w ~w",
-		[httpd_util:day(calendar:day_of_the_week(Year,Month,Day)),
-		 httpd_util:month(Month),Day,Hour,Minute,Second,Year]).
+		[calendar:weekday_abbr(calendar:day_of_the_week(Year,Month,Day)),
+		 calendar:month_abbr(Month),Day,Hour,Minute,Second,Year]).
 
 date_gmt() ->
   {{Year,Month,Day},{Hour,Minute,Second}}=calendar:universal_time(),
   %% Time format hard-wired to: "%a %b %e %T %Z %Y" according to strftime(3)
   io_lib:format("~s ~s ~2w ~2.2.0w:~2.2.0w:~2.2.0w GMT ~w",
-		[httpd_util:day(calendar:day_of_the_week(Year,Month,Day)),
-		 httpd_util:month(Month),Day,Hour,Minute,Second,Year]).
+		[calendar:weekday_abbr(calendar:day_of_the_week(Year,Month,Day)),
+		 calendar:month_abbr(Month),Day,Hour,Minute,Second,Year]).
 
 last_modified(Data,ConfigDB,RequestURI) ->
   {ok,FileInfo}=file:read_file_info(mod_alias:path(Data,ConfigDB,RequestURI)),
   {{Year,Month,Day},{Hour,Minute,Second}}=FileInfo#file_info.mtime,
   io_lib:format("~s ~s ~2w ~2.2.0w:~2.2.0w:~2.2.0w ~w",
-		[httpd_util:day(calendar:day_of_the_week(Year,Month,Day)),
-		 httpd_util:month(Month),Day,Hour,Minute,Second,Year]).
+		[calendar:weekday_abbr(calendar:day_of_the_week(Year,Month,Day)),
+		 calendar:month_abbr(Month),Day,Hour,Minute,Second,Year]).
 
 %%
 %% fsize directive
@@ -318,9 +318,9 @@ flastmod(Info,Context,ErrorLog,R,File) ->
 	    {{Yr,Mon,Day},{Hour,Minute,Second}}=FileInfo#file_info.mtime,
 	    Result=
 		io_lib:format("~s ~s ~2w ~w:~w:~w ~w",
-			      [httpd_util:day(
+			      [calendar:weekday_abbr(
 				 calendar:day_of_the_week(Yr,Mon, Day)),
-			       httpd_util:month(Mon),Day,Hour,Minute,Second, Yr]),
+			       calendar:month_abbr(Mon),Day,Hour,Minute,Second, Yr]),
 	    {ok,Context,ErrorLog,Result,R};
 	{error,Reason} ->
 	    {ok,Context,[{internal_info,?NICE("Can't open "++File)}|ErrorLog],
@@ -521,7 +521,7 @@ send_in1(Info, Data,Head,FileInfo) ->
 			"\r\nEtag:" ++
 			httpd_util:create_etag(FileInfo,Size) ++"\r\n" ++
 			"Last-Modified: " ++
-			httpd_util:rfc1123_date(FileInfo#file_info.mtime)  ++
+			calendar:rfc1123_date(FileInfo#file_info.mtime)  ++
 			"\r\n\r\n";
 		_->
 		    %% i.e http/1.0 and http/0.9
@@ -529,7 +529,7 @@ send_in1(Info, Data,Head,FileInfo) ->
 			"Content-Length: " ++
 			integer_to_list(Size) ++
 			"\r\nLast-Modified: " ++
-			httpd_util:rfc1123_date(FileInfo#file_info.mtime)  ++
+			calendar:rfc1123_date(FileInfo#file_info.mtime)  ++
 			"\r\n\r\n"
 	    end,
     httpd_socket:deliver(Info#mod.socket_type,Info#mod.socket,

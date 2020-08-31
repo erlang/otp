@@ -219,7 +219,7 @@ control_response_header(Info,Mod,Func,Response)->
 		true ->
 		    case httpd_util:split(Response,"\r\n\r\n|\n\n",2) of
 			{ok,[Head,Body]}->
-			    Date=httpd_util:rfc1123_date(),
+			    Date=calendar:rfc1123_date(),
 			    Cache="Cache-Control:no-cache\r\nPragma:no-cache\r\nExpires:"++ Date ++ "\r\n",
 			    {proceed,[{response,{StatusCode,[Head,"\r\n",Cache,"\r\n",Body]}}|Rest]};
 			_->

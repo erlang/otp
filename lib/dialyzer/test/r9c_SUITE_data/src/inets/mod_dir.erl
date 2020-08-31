@@ -65,7 +65,7 @@ do_dir(Info) ->
 		{ok, Dir} ->
 		    Head=[{content_type,"text/html"},
 			  {content_length,integer_to_list(httpd_util:flatlength(Dir))},
-			   {date,httpd_util:rfc1123_date(FileInfo#file_info.mtime)},
+			   {date,calendar:rfc1123_date(FileInfo#file_info.mtime)},
 			  {code,200}],
 		    {proceed,[{response,{response,Head,Dir}},
 			      {mime_type,"text/html"}|Info#mod.data]};
@@ -122,7 +122,7 @@ format(Path,RequestURI) ->
   {{Year,Month,Day},{Hour,Minute,Second}}=FileInfo#file_info.mtime,
   io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> <A HREF=\"~s\">Parent directory</A>       ~2.2.0w-~s-~w ~2.2.0w:~2.2.0w        -\n",
 		[icon(back),"DIR",RequestURI,Day,
-		 httpd_util:month(Month),Year,Hour,Minute]).
+		 calendar:month_abbr(Month),Year,Hour,Minute]).
 
 %% body
 
@@ -140,12 +140,12 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 	EntryLength > 21 ->
 	  io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> <A HREF=\"~s\">~-21.s..</A>~2.2.0w-~s-~w ~2.2.0w:~2.2.0w        -\n",
 			[icon(folder),"DIR",RequestURI++"/"++Entry++"/",Entry,
-			 Day,httpd_util:month(Month),Year,Hour,Minute]);
+			 Day,calendar:month_abbr(Month),Year,Hour,Minute]);
 	true ->
 	  io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> <A HREF=\"~s\">~s</A>~*.*c~2.2.0w-~s-~w ~2.2.0w:~2.2.0w        -\n",
 			[icon(folder),"DIR",RequestURI++"/"++Entry++"/",Entry,
 			 23-EntryLength,23-EntryLength,$ ,Day,
-			 httpd_util:month(Month),Year,Hour,Minute])
+			 calendar:month_abbr(Month),Year,Hour,Minute])
       end;
     {ok,FileInfo} ->
       {{Year,Month,Day},{Hour,Minute,Second}}=FileInfo#file_info.mtime,
@@ -156,13 +156,13 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 	EntryLength > 21 ->
 	  io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> <A HREF=\"~s\">~-21.s..</A>~2.2.0w-~s-~w ~2.2.0w:~2.2.0w~8wk  ~s\n",
 			[icon(Suffix,MimeType),Suffix,RequestURI++"/"++Entry,
-			 Entry,Day,httpd_util:month(Month),Year,Hour,Minute,
+			 Entry,Day,calendar:month_abbr(Month),Year,Hour,Minute,
 			 trunc(FileInfo#file_info.size/1024+1),MimeType]);
 	true ->
 	  io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> <A HREF=\"~s\">~s</A>~*.*c~2.2.0w-~s-~w ~2.2.0w:~2.2.0w~8wk  ~s\n",
 			[icon(Suffix,MimeType),Suffix,RequestURI++"/"++Entry,
 			 Entry,23-EntryLength,23-EntryLength,$ ,Day,
-			 httpd_util:month(Month),Year,Hour,Minute,
+			 calendar:month_abbr(Month),Year,Hour,Minute,
 			 trunc(FileInfo#file_info.size/1024+1),MimeType])
       end;
     {error,Reason} ->

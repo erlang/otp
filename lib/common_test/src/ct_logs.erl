@@ -1767,30 +1767,9 @@ current_time() ->
     format_time(calendar:local_time()).
 
 format_time({{Y, Mon, D}, {H, Min, S}}) ->
-    Weekday = weekday(calendar:day_of_the_week(Y, Mon, D)),
+    Weekday = calendar:weekday_abbr(calendar:day_of_the_week(Y, Mon, D)),
     lists:flatten(io_lib:format("~s ~s ~2.2.0w ~w ~2.2.0w:~2.2.0w:~2.2.0w",
-				[Weekday, month(Mon), D, Y, H, Min, S])).
-
-weekday(1) -> "Mon";
-weekday(2) -> "Tue";
-weekday(3) -> "Wed";
-weekday(4) -> "Thu";
-weekday(5) -> "Fri";
-weekday(6) -> "Sat";
-weekday(7) -> "Sun".
-
-month(1) -> "Jan";
-month(2) -> "Feb";
-month(3) -> "Mar";
-month(4) -> "Apr";
-month(5) -> "May";
-month(6) -> "Jun";
-month(7) -> "Jul";
-month(8) -> "Aug";
-month(9) -> "Sep";
-month(10) -> "Oct";
-month(11) -> "Nov";
-month(12) -> "Dec".
+				[Weekday, calendar:month_abbr(Mon), D, Y, H, Min, S])).
 
 year() ->
     {Y, _, _} = date(),

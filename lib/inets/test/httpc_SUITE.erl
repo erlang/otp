@@ -1103,11 +1103,11 @@ headers(Config) when is_list(Config) ->
 	calendar:datetime_to_gregorian_seconds(
 	  FileInfo#file_info.mtime),
 
-    Mod = httpd_util:rfc1123_date(
+    Mod = calendar:rfc1123_date(
 	    calendar:gregorian_seconds_to_datetime(
 	      CreatedSec-1)),
 
-    Date = httpd_util:rfc1123_date({date(), time()}),
+    Date = calendar:rfc1123_date({date(), time()}),
 
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(get, {URL, [{"If-Modified-Since",
@@ -1116,7 +1116,7 @@ headers(Config) when is_list(Config) ->
 				  {"Date", Date}
 				 ]}, [], []),
 
-    Mod1 =  httpd_util:rfc1123_date(
+    Mod1 =  calendar:rfc1123_date(
 	      calendar:gregorian_seconds_to_datetime(
 		CreatedSec+1)),
 
@@ -2659,7 +2659,7 @@ handle_uri(_,"/missing_CR.html",_,_,_,_) ->
 handle_uri(_,"/multipart_chunks.html",_,_,Socket,_) ->
     Head = "HTTP/1.1 200 ok\r\n" ++
 	"Transfer-Encoding:chunked\r\n" ++
-	"Date: " ++ httpd_util:rfc1123_date() ++ "\r\n"
+	"Date: " ++ calendar:rfc1123_date() ++ "\r\n"
 	"Connection: Keep-Alive\r\n" ++
 	"Content-Type: multipart/x-mixed-replace; boundary=chunk_boundary\r\n" ++
 	"\r\n",

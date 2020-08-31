@@ -317,5 +317,5 @@ send_return_value({304,Info,Path},FileInfo)->
     Header = [{code,304},
 	      {etag,httpd_util:create_etag(FileInfo)},
 	      {content_length,0},
-	      {last_modified,httpd_util:rfc1123_date(FileInfo#file_info.mtime)}],
+	      {last_modified,calendar:rfc1123_date(FileInfo#file_info.mtime)}],
     {response,{response,Header,nobody}}.

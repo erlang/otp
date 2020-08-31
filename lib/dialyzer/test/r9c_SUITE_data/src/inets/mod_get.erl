@@ -66,7 +66,7 @@ send_response(Socket,SocketType,Path,Info,FileInfo,LastModified)->
 	    MimeType = httpd_util:lookup_mime_default(Info#mod.config_db,
 						      Suffix,"text/plain"),
 	    %FileInfo=file:read_file_info(Path),
-	    Date = httpd_util:rfc1123_date(),
+	    Date = calendar:rfc1123_date(),
 	    Size = integer_to_list(FileInfo#file_info.size),
 	    Header=case Info#mod.http_version of
 		       "HTTP/1.1" ->
@@ -145,7 +145,7 @@ open_error(StatusCode,Info,Path,Reason) ->
 get_modification_date(Path)->
     case file:read_file_info(Path) of
 	{ok, FileInfo0} ->
-	    {FileInfo0, httpd_util:rfc1123_date(FileInfo0#file_info.mtime)};
+	    {FileInfo0, calendar:rfc1123_date(FileInfo0#file_info.mtime)};
 	_ ->
 	    {#file_info{},""}
     end.

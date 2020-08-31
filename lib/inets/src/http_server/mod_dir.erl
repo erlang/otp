@@ -61,7 +61,7 @@ do_dir(Info) ->
 		     Info#mod.config_db) of
 		{ok, Dir} ->
 		    LastModified =
-			case (catch httpd_util:rfc1123_date(
+			case (catch calendar:rfc1123_date(
 				      FileInfo#file_info.mtime)) of
 			    Date when is_list(Date) ->
 				[{"date", Date}];
@@ -125,7 +125,7 @@ format(Path,RequestURI) ->
 		  " <A HREF=\"~s\">Parent directory</A>      "
 		  " ~2.2.0w-~s-~w ~2.2.0w:~2.2.0w        -\n",
 		  [icon(back),"DIR",RequestURI,Day,
-		   httpd_util:month(Month),Year,Hour,Minute]).
+		   calendar:month_abbr(Month),Year,Hour,Minute]).
 
 %% body
 
@@ -149,7 +149,7 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 				  "        -\n", [icon(folder),"DIR",
 						  RequestURI++"/"++Entry++"/",
 						  Entry,
-						  Day, httpd_util:month(Month),
+						  Day, calendar:month_abbr(Month),
 						  Year,Hour,Minute]);
 		true ->
 		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
@@ -158,7 +158,7 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 				  [icon(folder),"DIR",RequestURI ++ "/" ++
 				   Entry ++ "/",Entry,
 				   23-EntryLength,23-EntryLength,$ ,Day,
-				   httpd_util:month(Month),Year,Hour,Minute])
+				   calendar:month_abbr(Month),Year,Hour,Minute])
 	    end;
 	{ok,FileInfo} ->
 	    {{Year, Month, Day},{Hour, Minute,_Second}} =
@@ -173,7 +173,7 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 				  "w-~s-~w ~2.2.0w:~2.2.0w~8wk  ~s\n",
 				  [icon(Suffix, MimeType), Suffix, RequestURI 
 				   ++"/"++Entry, Entry,Day,
-				   httpd_util:month(Month),Year,Hour,Minute,
+				   calendar:month_abbr(Month),Year,Hour,Minute,
 				   trunc(FileInfo#file_info.size/1024+1),
 				   MimeType]);
 		true ->
@@ -183,7 +183,7 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 				  [icon(Suffix, MimeType), Suffix, RequestURI
 				   ++ "/" ++ Entry, Entry, 23-EntryLength,
 				   23-EntryLength, $ ,Day,
-				   httpd_util:month(Month),Year,Hour,Minute,
+				   calendar:month_abbr(Month),Year,Hour,Minute,
 				   trunc(FileInfo#file_info.size/1024+1),
 				   MimeType])
 	    end;

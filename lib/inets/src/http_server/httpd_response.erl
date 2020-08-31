@@ -295,7 +295,7 @@ get_connection(_,_) ->
 cache_headers(#mod{config_db = Db}, NoCacheType) ->
     case httpd_util:lookup(Db, NoCacheType, false) of
 	true ->
-	    Date = httpd_util:rfc1123_date(),
+	    Date = calendar:rfc1123_date(),
 	    [{"cache-control", "no-cache"},
 	     {"pragma", "no-cache"},
 	     {"expires", Date}];
@@ -304,7 +304,7 @@ cache_headers(#mod{config_db = Db}, NoCacheType) ->
     end.
 
 create_header(ConfigDb, KeyValueTupleHeaders) ->
-    Date        = httpd_util:rfc1123_date(), 
+    Date        = calendar:rfc1123_date(), 
     ContentType = "text/html", 
     Server      = server(ConfigDb),
     CustomizeCB = httpd_util:lookup(ConfigDb, customize, httpd_custom),

@@ -152,7 +152,7 @@ if_test(Type, Port, Host, Node, DocRoot)->
     CreatedSec = 
 	calendar:datetime_to_gregorian_seconds(FileInfo#file_info.mtime),
     
-    Mod = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    Mod = calendar:rfc1123_date(calendar:gregorian_seconds_to_datetime(
 				    CreatedSec-1)),
     
     %% Test that we get the data when the file is modified
@@ -161,7 +161,7 @@ if_test(Type, Port, Host, Node, DocRoot)->
 					   "\r\nIf-Modified-Since:" ++
 					   Mod ++ "\r\n\r\n",
     				       [{statuscode, 200}]),
-    Mod1 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    Mod1 = calendar:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				     CreatedSec+100)),
     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
     				       "GET / HTTP/1.1\r\nHost:"
@@ -176,7 +176,7 @@ if_test(Type, Port, Host, Node, DocRoot)->
 					   "AAA[...]AAAA" ++ "\r\n\r\n",
 				       [{statuscode, 400}]),
     
-    Mod2 =  httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    Mod2 =  calendar:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				      CreatedSec+1)),
     %% Control that the If-Unmodified-Header lmits the response
     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
@@ -185,7 +185,7 @@ if_test(Type, Port, Host, Node, DocRoot)->
 					   "\r\nIf-Unmodified-Since:" ++ Mod2 
 				       ++ "\r\n\r\n",
 				       [{statuscode, 200}]),
-    Mod3 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    Mod3 = calendar:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				     CreatedSec-1)),
     
      ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
