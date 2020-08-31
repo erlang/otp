@@ -732,7 +732,7 @@
         <p>The virtual machine works with filenames as if they are encoded
           using UTF-8 (or some other system-specific Unicode encoding). This is
           the default on operating systems that enforce Unicode encoding, that
-          is, Windows and MacOS X.</p>
+          is, Windows MacOS X and Android.</p>
         <p>The <c>+fnu</c> switch can be followed by <c>w</c>, <c>i</c>, or
           <c>e</c> to control how wrongly encoded filenames are to be
           reported:</p>
@@ -768,8 +768,8 @@
         <p>Selection between <c>+fnl</c> and <c>+fnu</c> is done based
           on the current locale settings in the OS. This means that if you
           have set your terminal for UTF-8 encoding, the filesystem is
-          expected to use the same encoding for filenames. This is
-          default on all operating systems, except MacOS X and Windows.</p>
+          expected to use the same encoding for filenames. This is the default
+          on all operating systems, except Android, MacOS X and Windows.</p>
         <p>The <c>+fna</c> switch can be followed by <c>w</c>, <c>i</c>, or
           <c>e</c>. This has effect if the locale settings cause the behavior
           of <c>+fnu</c> to be selected; see the description of <c>+fnu</c>

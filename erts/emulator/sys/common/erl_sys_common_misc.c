@@ -1,8 +1,8 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2006-2018. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2006-2020. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -49,9 +49,9 @@
 
 static int filename_encoding = ERL_FILENAME_UNKNOWN;
 static int filename_warning = ERL_FILENAME_WARNING_WARNING;
-#if defined(__WIN32__) || defined(__DARWIN__)
-/* Default unicode on windows and MacOS X */
-static int user_filename_encoding = ERL_FILENAME_UTF8; 
+#if defined(__WIN32__) || defined(__DARWIN__) || defined(__ANDROID__)
+/* Default to Unicode on Windows, MacOS X and Android */
+static int user_filename_encoding = ERL_FILENAME_UTF8;
 #else
 static int user_filename_encoding = ERL_FILENAME_UNKNOWN;
 #endif
