@@ -1292,15 +1292,12 @@ f.txt:  {person, "kalle", 25}.
       <desc>
         <p>Combines <c>position/2</c> and <c>read/2</c> in one
           operation, which is more efficient than calling them one at a
-          time. If <c><anno>IoDevice</anno></c> is opened in <c>raw</c> mode,
-          some restrictions apply:</p>
-	  <list type="bulleted">
-	    <item><c><anno>Location</anno></c> is only allowed to be an
-            integer.</item>
-	    <item>The current position of the file is undefined after the
-	    operation.</item>
-	  </list>
-	  <p>As the position is specified as a byte-offset, take special caution
+          time.</p>
+	<p><c><anno>Location</anno></c> is only allowed to be an
+          integer for <c>raw</c> and <c>ram</c> modes.</p>
+	<p>The current position of the file after the operation
+	  is undefined for <c>raw</c> mode and unchanged for <c>ram</c> mode.</p>
+	<p>As the position is specified as a byte-offset, take special caution
 	  when working with files where <c>encoding</c> is set to something else
 	  than <c>latin1</c>, as not every byte position is a valid character
 	  boundary on such a file.</p>
@@ -1327,14 +1324,12 @@ f.txt:  {person, "kalle", 25}.
       <desc>
         <p>Combines <c>position/2</c> and <c>write/2</c> in one
           operation, which is more efficient than calling them one at a
-          time. If <c><anno>IoDevice</anno></c> has been opened in <c>raw</c> mode,
-          some restrictions apply:</p>
-	  <list type="bulleted">
-	    <item><c><anno>Location</anno></c> is only allowed to be an
-            integer.</item>
-	    <item>The current position of the file is undefined after the
-	    operation.</item>
-	  </list>
+          time.
+	</p>
+	<p><c><anno>Location</anno></c> is only allowed to be an
+          integer for <c>raw</c> and <c>ram</c> modes.</p>
+	<p>The current position of the file after the operation
+	  is undefined for <c>raw</c> mode and unchanged for <c>ram</c> mode.</p>
 	<p>When positioning in a file with other <c>encoding</c> than <c>latin1</c>,
 	caution must be taken to set the position on a correct character boundary.
 	For details, see <seemfa marker="#position/2"><c>position/2</c></seemfa>.</p>
