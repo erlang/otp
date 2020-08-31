@@ -526,10 +526,12 @@ open(Item, ModeList) when is_list(ModeList) ->
                 Error ->
                     Error
             end;
-        {true, _Either} ->
+        {true, false} ->
             raw_file_io:open(file_name(Item), ModeList);
         {false, true} ->
-            ram_file:open(Item, ModeList)
+            ram_file:open(Item, ModeList);
+        {true, true} ->
+            erlang:error(badarg, [Item, ModeList])
     end;
 
 %% Old obsolete mode specification in atom or 2-tuple format
