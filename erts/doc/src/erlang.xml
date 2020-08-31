@@ -723,7 +723,13 @@ hello
         <p>Returns a list of integers corresponding to the bytes of
           <c><anno>Bitstring</anno></c>. If the number of bits in the binary
           is not divisible by 8, the last element of the list is a bitstring
-          containing the remaining 1-7 bits.</p>
+        containing the remaining 1-7 bits. Examples:</p>
+                <pre>
+> <input>bitstring_to_list(&lt;&lt;433:16&gt;&gt;).</input>
+[1,177]</pre>
+                <pre>
+> <input>bitstring_to_list(&lt;&lt;433:16,3:3&gt;&gt;).</input>
+[1,177,&lt;&lt;3:3&gt;&gt;]</pre>
       </desc>
     </func>
 
