@@ -413,11 +413,17 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <name name="atom_to_list" arity="1" since=""/>
       <fsummary>Text representation of an atom.</fsummary>
       <desc>
-        <p>Returns a string corresponding to the text
+        <p>Returns a list of unicode code points corresponding to the text
           representation of <c><anno>Atom</anno></c>, for example:</p>
         <pre>
 > <input>atom_to_list('Erlang').</input>
 "Erlang"</pre>
+        <pre>
+> <input>atom_to_list('你好').</input>
+[20320,22909]</pre>
+      <p>See <seeerl
+      marker="stdlib:unicode"><c>unicode(3)</c></seeerl> for how to
+      convert the resulting list to different formats.</p>
       </desc>
     </func>
 
