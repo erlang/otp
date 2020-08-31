@@ -489,10 +489,27 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
             encoded atoms</seeguide>
             in section "External Term Format" in the User's Guide.</p>
         </note>
+        <note>
+          <p>The number of characters that are permitted in an atom
+          name is limited. The default limits can be found in the
+          <seeguide marker="system/efficiency_guide:advanced">
+          efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
+        <note>
+          <p>There is configurable limit on how many atoms that can
+          exist and atoms are not garbage collected. Therefore, it is
+          recommended to consider if
+          <c>binary_to_existing_atom/2</c> is a better option
+          than <c>binary_to_atom/2</c>. The default limits can
+          be found in <seeguide
+          marker="system/efficiency_guide:advanced">efficiency guide
+          (section Advanced)</seeguide>.</p>
+        </note>
         <p>Examples:</p>
         <pre>
 > <input>binary_to_atom(&lt;&lt;"Erlang"&gt;&gt;, latin1).</input>
-'Erlang'
+'Erlang'</pre>
+        <pre>
 > <input>binary_to_atom(&lt;&lt;1024/utf8&gt;&gt;, utf8).</input>
 'Ѐ'</pre>
       </desc>
@@ -2731,7 +2748,23 @@ false</code>
           above 255. For more information on Unicode support in atoms, see
           <seeguide marker="erl_ext_dist#utf8_atoms">note on UTF-8
           encoded atoms</seeguide>
-          in section "External Term Format" in the User's Guide.</p>
+        in section "External Term Format" in the User's Guide.</p>
+        <note>
+          <p>The number of characters that are permitted in an atom
+          name is limited. The default limits can be found in the
+          <seeguide marker="system/efficiency_guide:advanced">
+          efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
+        <note>
+          <p>There is configurable limit on how many atoms that can
+          exist and atoms are not garbage collected. Therefore, it is
+          recommended to consider if
+          <c>binary_to_existing_atom/2</c> is a better option
+          than <c>list_to_atom/1</c>. The default limits can
+          be found in <seeguide
+          marker="system/efficiency_guide:advanced">efficiency guide
+          (section Advanced)</seeguide>.</p>
+        </note>
         <p>Example:</p>
         <pre>
 > <input>list_to_atom("Erlang").</input>
