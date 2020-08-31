@@ -11,7 +11,7 @@
 ## support for building Erlang/OTP here.
 ##
 
-name: Build, verify and possibly release Erlang/OTP
+name: Build and check Erlang/OTP
 
 on:
   push:
@@ -85,7 +85,7 @@ jobs:
         name: Run html link check
         run: docker run -v $PWD/scripts:/scripts otp "/scripts/otp_html_check /otp doc/index.html"
       - if: matrix.type == 'documentation'
-        name: Run html link check
+        name: Render shell docs
         run: docker run otp "erlc lib/stdlib/test/shell_docs_SUITE.erl && ct_run -noshell -no_auto_compile -suite shell_docs_SUITE -case render"
 
         ## Run dialyzer
