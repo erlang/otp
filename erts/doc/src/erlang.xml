@@ -11676,12 +11676,18 @@ improper_end</pre>
 
     <func>
       <name name="trunc" arity="1" since=""/>
-      <fsummary>Return an integer by truncating a number.</fsummary>
+      <fsummary>Truncates the decimals of  a number.</fsummary>
       <desc>
-        <p>Returns an integer by truncating <c><anno>Number</anno></c>,
+        <p>Truncates the decimals of <c><anno>Number</anno></c>,
           for example:</p>
         <pre>
-> <input>trunc(5.5).</input>
+> <input>trunc(5.7).</input>
+5</pre>
+        <pre>
+> <input>trunc(-5.7).</input>
+-5</pre>
+        <pre>
+> <input>trunc(5).</input>
 5</pre>
         <p>Allowed in guard tests.</p>
       </desc>
