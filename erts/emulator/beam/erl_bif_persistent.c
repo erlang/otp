@@ -1481,3 +1481,17 @@ erts_debug_foreach_persistent_term_off_heap(void (*func)(ErlOffHeap *, void *),
     accessed_literal_areas = NULL;
 }
 
+Eterm erts_debug_persistent_term_xtra_info(Process* c_p)
+{
+    HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    Uint hsz = MAP_SZ(1);
+    Eterm *hp;
+    Eterm buckets, res;
+
+    (void) erts_bld_uint(NULL, &hsz, hash_table->allocated);
+    hp = HAlloc(c_p, hsz);
+    buckets = erts_bld_uint(&hp, NULL, hash_table->allocated);
+    res = MAP1(hp, am_table, buckets);
+    BIF_RET(res);
+}
+

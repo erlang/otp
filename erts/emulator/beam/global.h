@@ -1313,6 +1313,7 @@ void erts_debug_foreach_persistent_term_off_heap(void (*func)(ErlOffHeap *, void
                                                  void *arg);
 int erts_debug_have_accessed_literal_area(ErtsLiteralArea *lap);
 void erts_debug_save_accessed_literal_area(ErtsLiteralArea *lap);
+Eterm erts_debug_persistent_term_xtra_info(Process* c_p);
 
 /* external.c */
 void erts_init_external(void);
