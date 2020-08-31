@@ -4185,8 +4185,8 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
       etp->header = make_external_pid_header();
       etp->next = MSO(BIF_P).first;
       etp->node = enp;
-      etp->data.ui32[0] = b;
-      etp->data.ui32[1] = c;
+      etp->data.pid.num = b;
+      etp->data.pid.ser = c;
 
       MSO(BIF_P).first = (struct erl_off_heap_header*) etp;
       BIF_RET(make_external_pid(etp));
