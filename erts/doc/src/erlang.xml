@@ -752,7 +752,7 @@ hello
           emulator, the reduction counter is normally incremented by
           one for each function and BIF call. A context switch is
           forced when the counter reaches the maximum number of
-          reductions for a process (2000 reductions in Erlang/OTP R12B).</p>
+          reductions for a process (4000 reductions in Erlang/OTP 24).</p>
         <warning>
           <p>This BIF can be removed in a future version of the Beam
             machine without prior warning. It is unlikely to be
