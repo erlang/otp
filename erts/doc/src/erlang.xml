@@ -556,6 +556,10 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <pre>
 > <input>binary_to_float(&lt;&lt;"2.2017764e+0">>).</input>
 2.2017764</pre>
+        <p>The float string format is the same as the format for
+        <seeguide marker="system/reference_manual:data_types">Erlang
+        float literals</seeguide> except for that underscores are not
+        permitted.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
           representation of a float.</p>
       </desc>
@@ -2847,6 +2851,10 @@ false</code>
         <pre>
 > <input>list_to_float("2.2017764e+0").</input>
 2.2017764</pre>
+        <p>The float string format is the same as the format for
+        <seeguide marker="system/reference_manual:data_types">Erlang
+        float literals</seeguide> except for that underscores are not
+        permitted.</p>
         <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of a float.</p>
       </desc>
