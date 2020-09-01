@@ -2229,6 +2229,7 @@ sublist_2_e(Config) when is_list(Config) ->
 sublist_3(Config) when is_list(Config) ->
     [] = lists:sublist([], 1, 0),
     [] = lists:sublist([], 1, 1),
+    [] = lists:sublist([], 2, 0),
     [] = lists:sublist([a], 1, 0),
     [a] = lists:sublist([a], 1, 1),
     [a] = lists:sublist([a], 1, 2),
@@ -2242,6 +2243,7 @@ sublist_3(Config) when is_list(Config) ->
     [] = lists:sublist([a], 2, 1),
     [] = lists:sublist([a], 2, 2),
     [] = lists:sublist([a], 2, 79),
+    [] = lists:sublist([a], 3, 1),
     [] = lists:sublist([a,b|c], 1, 0),
     [] = lists:sublist([a,b|c], 2, 0),
     [a] = lists:sublist([a,b|c], 1, 1),
