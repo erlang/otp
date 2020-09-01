@@ -10321,14 +10321,13 @@ hello
         <p>If evaluated within a
           <seeguide marker="system/reference_manual:expressions#catch">
 	catch expression</seeguide>, the catch expression returns value <c><anno>Any</anno></c>.
-          Example:
+          Example:</p>
         <pre>
 > <input>catch throw({hello, there}).</input>
         {hello,there}</pre>
-        </p>
          <p>If evaluated within a
           <c>try</c>-block of a <seeguide marker="system/reference_manual:expressions#try">try expression</seeguide>, the value <c><anno>Any</anno></c> can be caught within the catch block.
-          Example:
+          Example:</p>
         <code>
 try
     throw({my_exception, "Something happened"})
@@ -10336,7 +10335,6 @@ catch
     {my_exception, Desc} ->
         io:format(standard_error, "Error: ~s~n", [Desc])
 end</code>
-       </p>
        <p>Failure: <c>nocatch</c> if not caught by an exception handler.</p>
       </desc>
     </func>
