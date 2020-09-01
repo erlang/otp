@@ -530,9 +530,28 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <name name="binary_to_existing_atom" arity="2" since=""/>
       <fsummary>Convert from text representation to an atom.</fsummary>
       <desc>
-        <p>As
-          <seemfa marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
-          but the atom must exist.</p>
+        <p>As <seemfa
+        marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
+        but the atom must exist.</p>
+
+        <p>The Erlang system has a <seeguide
+        marker="system/efficiency_guide:advanced">configurable
+        limit</seeguide> for the total number of atoms that can exist,
+        and atoms are not garbage collected. Therefore, it is not safe
+        to create many atoms from binaries that come from an untrusted
+        source (for example, a file fetched from the Internet), for
+        example, using <seemfa
+        marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>. This
+        function is thus the appropriate option when the input binary
+        comes from an untrusted source.</p>
+
+        <p>An atom exists in an Erlang system when included in a
+        loaded Erlang module or when created programmatically (for
+        example, by <c>binary_to_atom/2</c>). See the next note for an
+        example of when an atom exists in the source code for an
+        Erlang module but not in the compiled version of the same
+        module.</p>
+
         <p>Failure: <c>badarg</c> if the atom does not exist.</p>
 	<note>
 	  <p>Note that the compiler may optimize away atoms. For
@@ -544,6 +563,12 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 	  to <c>binary_to_existing_atom(&lt;&lt;"some_atom"&gt;&gt;, utf8)</c>
 	  will fail.</p>
 	</note>
+        <note>
+          <p>The number of characters that are permitted in an atom
+          name is limited. The default limits can be found in the
+          <seeguide marker="system/efficiency_guide:advanced">
+          efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
       </desc>
     </func>
 
