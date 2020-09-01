@@ -1372,7 +1372,12 @@ end</code>
           protocols.</p>
         <p>Returns <c>true</c> if disconnection succeeds,
           otherwise <c>false</c>. If the local node is not alive,
-          <c>ignored</c> is returned.</p>
+        <c>ignored</c> is returned.</p>
+        <note>
+          <p>This function returns before <seemfa
+          marker="#monitor_node/2"> <c>nodedown</c> messages</seemfa>
+          have been delivered.</p>
+        </note>
       </desc>
     </func>
 
