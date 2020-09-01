@@ -5526,7 +5526,7 @@ badfile(Config) when is_list(Config) ->
     {error, badfile} = ets:file2tab(File),
     {error, badfile} = ets:tabfile_info(File),
     file:delete(File),
-    {[],[]} = disk_log:accessible_logs(),
+    [] = disk_log:all(),
     ok.
 
 get_all_terms(Log, File) ->
