@@ -2008,6 +2008,15 @@ t_nested_pattern_expressions(Config) when is_list(Config) ->
     F1 = F0(wat),
     F2 = F1(watzor),
     {yep,ok} = F2(M0),
+
+    %% Test matching of nested maps. There used to be an unsafe optimization in beam_peep.
+    #{ <<"result">> := #{<<"foo">> := <<"6">> } } =
+        nested_map(),
+
+    InnerMap = #{a => id({a,value})},
+    OuterMap = #{inner_map => InnerMap},
+    #{inner_map := #{a := {a,value}}} = OuterMap,
+
     ok.
 
 map_nested_pattern_funs(M) ->
@@ -2026,6 +2035,10 @@ map_nested_pattern_funs(M) ->
 		    end
 	    end
     end.
+
+nested_map() ->
+    #{ <<"result">> := #{<<"foo">> := <<"6">> } } =
+        #{ <<"result">> => #{<<"foo">> => <<"6">> } }.
 
 t_guard_update_variables(Config) when is_list(Config) ->
     error  = map_guard_update_variables(n,#{},#{}),

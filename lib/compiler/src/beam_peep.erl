@@ -184,7 +184,8 @@ prune_redundant_values([], _) -> [].
 
 simplify_get_map_elements(Fail, Src, {list,[Key,Dst]},
                           [{get_map_elements,Fail,Src,{list,List1}}|Acc]) ->
-    case are_keys_literals([Key]) andalso are_keys_literals(List1) of
+    case are_keys_literals([Key]) andalso are_keys_literals(List1) andalso
+        not is_source_overwritten(Src, List1) of
         true ->
             case member(Key, List1) of
                 true ->
@@ -217,3 +218,6 @@ simplify_has_map_fields(_, _, _) -> error.
 are_keys_literals([{x,_}|_]) -> false;
 are_keys_literals([{y,_}|_]) -> false;
 are_keys_literals([_|_]) -> true.
+
+is_source_overwritten(Src, [_Key,Src]) -> true;
+is_source_overwritten(_, _) -> false.
