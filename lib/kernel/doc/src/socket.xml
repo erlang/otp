@@ -414,14 +414,12 @@
 	  <tag><c>{socket, linger}</c></tag>
 	  <item>
 	    <p>
-	      <c>
-		Value = abort |
-		{OnOff&nbsp;::&nbsp;boolean(),&nbsp;Linger&nbsp;::&nbsp;integer()}
-	      </c>
+	      <c>Value = abort |</c>
+	      <seetype marker="#linger"><c>linger()</c></seetype>
 	    </p>
 	    <p>
 	      The value <c>abort</c>
-	      is shorthand for <c>{true, 0}</c>,
+	      is shorthand for <c>#{onoff => true, linger => 0}</c>,
 	      and only valid to <em>set</em>.
 	    </p>
 	  </item>
@@ -669,6 +667,7 @@
 	      <seetype marker="#ip_tos">
 		<c>ip_tos()</c>
 	      </seetype>
+	    <c> | integer()</c>
 	    </p>
 	    <p>
 	      An <c>integer()</c> value is  according
@@ -746,6 +745,7 @@
 	      <seetype marker="#ipv6_pmtudisc">
 		<c>ipv6_pmtudisc()</c>
 	      </seetype>
+	      <c>| integer()</c>
 	    </p>
 	    <p>
 	      An <c>integer()</c> value is  according
@@ -867,6 +867,17 @@
 	  <tag><c>{udp, cork}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	</taglist>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="linger"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct linger</c>
+	  for managing the
+	  <seetype marker="#socket_option">socket option</seetype>
+	  <c>{socket, linger}</c>.
+	</p>
       </desc>
     </datatype>
     <datatype>

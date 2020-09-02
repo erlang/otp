@@ -2971,9 +2971,6 @@ static void encode_msghdr_flags(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
                                 int              msgFlags,
                                 ERL_NIF_TERM*    flags);
-static BOOLEAN_T decode_sock_linger(ErlNifEnv*     env,
-                                    ERL_NIF_TERM   eVal,
-                                    struct linger* valP);
 #if defined(IP_TOS)
 static BOOLEAN_T decode_ip_tos(ErlNifEnv*   env,
                                ERL_NIF_TERM eVal,
@@ -3612,6 +3609,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(num_tstreams);     \
     LOCAL_ATOM_DECL(num_writers);      \
     LOCAL_ATOM_DECL(offender);         \
+    LOCAL_ATOM_DECL(onoff);            \
     LOCAL_ATOM_DECL(options);          \
     LOCAL_ATOM_DECL(origin);           \
     LOCAL_ATOM_DECL(otp);              \
@@ -8459,18 +8457,33 @@ ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
                                  int              opt,
                                  ERL_NIF_TERM     eVal)
 {
-    ERL_NIF_TERM  result;
+    ERL_NIF_TERM  eOnOff, eLinger;
+    BOOLEAN_T onOff;
     struct linger val;
 
-    if (decode_sock_linger(env, eVal, &val)) {
-        result =
-            esock_setopt_level_opt(env, descP, level, opt,
-                                   &val, sizeof(val));
-    } else {
-        result = esock_make_error(env, esock_atom_invalid);
+    sys_memzero(&val, sizeof(val));
+
+    if ((! GET_MAP_VAL(env, eVal, atom_onoff, &eOnOff)) ||
+        (! GET_MAP_VAL(env, eVal, esock_atom_linger, &eLinger))) {
+
+        if (COMPARE(eVal, esock_atom_abort) == 0) {
+            val.l_onoff = 1;
+            val.l_linger = 0;
+            return esock_setopt_level_opt(env, descP, level, opt,
+                                          &val, sizeof(val));
+        } else
+            return esock_make_error(env, esock_atom_invalid);
     }
 
-    return result;
+    if ((! esock_decode_bool(eOnOff, &onOff)) ||
+        (! GET_INT(env, eLinger, &val.l_linger)) ||
+        (val.l_linger < 0)) {
+        return esock_make_error(env, esock_atom_invalid);
+    }
+    val.l_onoff = onOff ? 1 : 0;
+
+    return esock_setopt_level_opt(env, descP, level, opt,
+                                  &val, sizeof(val));
 }
 #endif
 #endif // #ifndef __WIN32__
@@ -10220,9 +10233,16 @@ ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
     if (res != 0) {
         result = esock_make_error_errno(env, sock_errno());
     } else {
-        ERL_NIF_TERM lOnOff = ((val.l_onoff) ? atom_true : atom_false);
-        ERL_NIF_TERM lSecs  = MKI(env, val.l_linger);
-        ERL_NIF_TERM linger = MKT2(env, lOnOff, lSecs);
+        ERL_NIF_TERM
+            lOnOff = ((val.l_onoff != 0) ? atom_true : atom_false),
+            lSecs  = MKI(env, val.l_linger),
+            keys[] = {atom_onoff, esock_atom_linger},
+            vals[] = {lOnOff, lSecs},
+            linger;
+        size_t numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &linger) );
 
         result = esock_make_ok2(env, linger);
     }
@@ -14111,50 +14131,6 @@ void encode_msghdr_flags(ErlNifEnv*       env,
 
         TARRAY_TOLIST(ta, env, flags);
     }
-}
-#endif // #ifndef __WIN32__
-
-
-/* +++ decode the linger value +++
- * The (socket) linger option is provided as a two tuple:
- *
- *       abort | {OnOff :: boolean(), Time :: integer()}
- *
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T decode_sock_linger(ErlNifEnv* env, ERL_NIF_TERM eVal, struct linger* valP)
-{
-    const ERL_NIF_TERM* lt; // The array of the elements of the tuple
-    int                 sz; // The size of the tuple - should be 2
-    BOOLEAN_T           onOff;
-    int                 secs;
-
-    if (!GET_TUPLE(env, eVal, &sz, &lt)) {
-        if (COMPARE(eVal, esock_atom_abort) == 0) {
-            valP->l_onoff = 1;
-            valP->l_linger = 0;
-            return TRUE;
-        } else {
-            return FALSE;
-        }
-    }
-    if (sz != 2)
-        return FALSE;
-
-    /* So fas so good - now check the two elements of the tuple. */
-
-    if (! esock_decode_bool(lt[0], &onOff))
-        return FALSE;
-
-    if ((! GET_INT(env, lt[1], &secs)) ||
-        (secs < 0))
-        return FALSE;
-
-    valP->l_onoff  = (onOff) ? 1 : 0;
-    valP->l_linger = secs;
-
-    return TRUE;
 }
 #endif // #ifndef __WIN32__
 

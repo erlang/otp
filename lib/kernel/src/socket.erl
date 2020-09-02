@@ -90,6 +90,7 @@
               socket_option/0,
 
               %% Option values' types
+              linger/0,
               timeval/0,
               ip_mreq/0,
               ip_mreq_source/0,
@@ -181,6 +182,9 @@
             0..65535,
             0..65535}.
 
+-type linger() ::
+        #{onoff  := boolean(),
+          linger := non_neg_integer()}.
 
 -type timeval() ::
         #{sec  := integer(),
