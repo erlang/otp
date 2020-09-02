@@ -3296,8 +3296,27 @@ false</code>
       <fsummary>Return the largest of two terms.</fsummary>
       <desc>
         <p>Returns the largest of <c><anno>Term1</anno></c> and
-          <c><anno>Term2</anno></c>.
-          If the terms are equal, <c><anno>Term1</anno></c> is returned.</p>
+        <c><anno>Term2</anno></c>. If the terms compare equal with
+        the <c>==</c> operator, <c><anno>Term1</anno></c> is
+        returned.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of the
+          <c>==</c> operator and how terms are ordered.</p>
+        <p>Examples:</p>
+        <pre>
+> <input>max(1, 2).</input>
+2</pre>
+          <pre>
+> <input>max(1.0, 1).</input>
+1.0</pre>
+          <pre>
+> <input>max(1, 1.0).</input>
+1</pre>
+          <pre>
+> <input>max("abc", "b").</input>
+"b"</pre>
       </desc>
     </func>
 
@@ -3538,8 +3557,27 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Return the smallest of two terms.</fsummary>
       <desc>
         <p>Returns the smallest of <c><anno>Term1</anno></c> and
-          <c><anno>Term2</anno></c>.
-          If the terms are equal, <c><anno>Term1</anno></c> is returned.</p>
+          <c><anno>Term2</anno></c>. If the terms compare equal with
+        the <c>==</c> operator, <c><anno>Term1</anno></c> is
+        returned.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of the
+          <c>==</c> operator and how terms are ordered.</p>
+        <p>Examples:</p>
+        <pre>
+> <input>min(1, 2).</input>
+1</pre>
+          <pre>
+> <input>min(1.0, 1).</input>
+1.0</pre>
+          <pre>
+> <input>min(1, 1.0).</input>
+1</pre>
+          <pre>
+> <input>min("abc", "b").</input>
+"abc"</pre>
       </desc>
     </func>
 
