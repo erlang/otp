@@ -631,6 +631,8 @@ socket_setopt(Socket, {Tag, Value}) ->
         #{} -> {error, einval}
     end.
 
+socket_setopt_value(linger, {OnOff, Linger}) ->
+    #{onoff => OnOff, linger => Linger};
 socket_setopt_value(_Tag, Value) -> Value.
 
 socket_getopt(Socket, {raw, Level, Key, ValueSpec}) ->
@@ -644,6 +646,8 @@ socket_getopt(Socket, Tag) when is_atom(Tag) ->
         #{} -> {error, einval}
     end.
 
+socket_getopt_value(linger, {ok, #{onoff := OnOff, linger := Linger}}) ->
+    {ok, {OnOff, Linger}};
 socket_getopt_value(_Tag, {ok, _Value} = Ok) -> Ok;
 socket_getopt_value(_Tag, {error, _} = Error) -> Error.
 
