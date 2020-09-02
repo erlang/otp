@@ -1837,7 +1837,9 @@ true</pre>
 > <input>float_to_binary(7.12, [{decimals, 4}]).</input>
 &lt;&lt;"7.1200">>
 > <input>float_to_binary(7.12, [{decimals, 4}, compact]).</input>
-&lt;&lt;"7.12">></pre>
+&lt;&lt;"7.12">>
+> <input>float_to_binary(7.12, [{scientific, 3}]).</input>
+&lt;&lt;"7.120e+00">></pre>
       </desc>
     </func>
 
@@ -1882,7 +1884,9 @@ true</pre>
 > <input>float_to_list(7.12, [{decimals, 4}]).</input>
 "7.1200"
 > <input>float_to_list(7.12, [{decimals, 4}, compact]).</input>
-"7.12"</pre>
+"7.12"
+> <input>float_to_list(7.12, [{scientific, 3}]).</input>
+"7.120e+00"</pre>
       </desc>
     </func>
 
