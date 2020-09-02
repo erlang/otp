@@ -217,8 +217,13 @@
         256, that is, an atom cache can contain 2048 entries.
       </p>
       <p>
-        After flag fields for atom cache references, another half byte flag
-        field is located with the following format:
+        Another half byte flag field is located along with flag fields for
+        atom cache references. When <c>NumberOfAtomCacheRefs</c> is even,
+        this half byte is the least significant half byte of the byte that
+        follows the atom cache references. When <c>NumberOfAtomCacheRefs</c>
+        is odd, this half byte is the most significant half byte of the last
+        byte of the atom cache references (on the wire, it will appear before
+        the last cache reference). It has the following format:
       </p>
       <table align="left">
         <row>
