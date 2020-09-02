@@ -83,6 +83,14 @@ obsolete(http_uri, scheme_defaults, 0) ->
     {deprecated, "use uri_string functions instead", "OTP 25"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
+obsolete(httpd_util, day, 1) ->
+    {deprecated, "use calendar:weekday_abbr/1 instead", "OTP 25"};
+obsolete(httpd_util, month, 1) ->
+    {deprecated, "use calendar:month_abbr/1 instead", "OTP 25"};
+obsolete(httpd_util, rfc1123_date, 0) ->
+    {deprecated, "use calendar:rfc1123_date/0 instead", "OTP 25"};
+obsolete(httpd_util, rfc1123_date, 1) ->
+    {deprecated, "use calendar:rfc1123_date/1 instead", "OTP 25"};
 obsolete(megaco, format_versions, 1) ->
     {deprecated, "use megaco:print_version_info/0,1 instead.", "OTP 24"};
 obsolete(net, broadcast, 3) ->
