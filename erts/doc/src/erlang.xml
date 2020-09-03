@@ -1650,9 +1650,13 @@ b</pre>
       </fsummary>
       <desc>
         <p>Returns the value <c><anno>Val</anno></c> associated with
-          <c><anno>Key</anno></c> and deletes it from the process dictionary.
-          Returns <c>undefined</c> if no value is associated with
-          <c><anno>Key</anno></c>. Example:</p>
+        <c><anno>Key</anno></c> and deletes it from the process
+        dictionary.  Returns <c>undefined</c> if no value is
+        associated with <c><anno>Key</anno></c>. The average time
+        complexity for the current implementation of this function is
+        O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+        where <c>N</c> is the number of items in the process
+        dictionary. Example:</p>
         <pre>
 > <input>put(key1, {merry, lambs, are, playing}),</input>
 <input>X = erase(key1),</input>
@@ -2187,7 +2191,10 @@ true</pre>
       <fsummary>Return the process dictionary.</fsummary>
       <desc>
         <p>Returns the process dictionary as a list of
-          <c>{<anno>Key</anno>, <anno>Val</anno>}</c> tuples, for example:</p>
+        <c>{<anno>Key</anno>, <anno>Val</anno>}</c> tuples.
+        This function does not guarantee anything about the order between
+        the items in the returned list.
+        Example:</p>
         <pre>
 > <input>put(key1, merry),</input>
 <input>put(key2, lambs),</input>
@@ -2203,7 +2210,11 @@ true</pre>
       <desc>
         <p>Returns the value <c><anno>Val</anno></c> associated with
           <c><anno>Key</anno></c> in the process dictionary, or <c>undefined</c>
-          if <c><anno>Key</anno></c> does not exist. Example:</p>
+          if <c><anno>Key</anno></c> does not exist. The expected time
+          complexity for the current implementation of this function is
+          O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+          where <c>N</c> is the number of items in the process
+          dictionary. Example:</p>
         <pre>
 > <input>put(key1, merry),</input>
 <input>put(key2, lambs),</input>
@@ -2227,8 +2238,10 @@ true</pre>
       <fsummary>Return a list of all keys from the process dictionary.
       </fsummary>
       <desc>
-        <p>Returns a list of all keys present in the process dictionary,
-          for example:</p>
+        <p>Returns a list of all keys present in the process dictionary.
+        This function does not guarantee anything about the order between
+        the keys in the returned list.
+        Example:</p>
         <pre>
 > <input>put(dog, {animal,1}),</input>
 <input>put(cow, {animal,2}),</input>
@@ -2243,7 +2256,10 @@ true</pre>
       <fsummary>Return a list of keys from the process dictionary.</fsummary>
       <desc>
         <p>Returns a list of keys that are associated with the value
-          <c><anno>Val</anno></c> in the process dictionary, for example:</p>
+        <c><anno>Val</anno></c> in the process dictionary.
+        This function does not guarantee anything about the order between
+        the keys in the returned list.
+        Example:</p>
         <pre>
 > <input>put(mary, {1, 2}),</input>
 <input>put(had, {1, 2}),</input>
@@ -5899,7 +5915,11 @@ RealSystem = system + MissedSystem</code>
           associated with the value <c><anno>Val</anno></c>, and returns
           <c>undefined</c>. If <c><anno>Key</anno></c> exists, the old
           value is deleted and replaced by <c><anno>Val</anno></c>, and
-          the function returns the old value. Example:</p>
+          the function returns the old value. The average time
+          complexity for the current implementation of this function is
+          O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+          where <c>N</c> is the number of items in the process
+          dictionary. Example:</p>
         <pre>
 > <input>X = put(name, walrus), Y = put(name, carpenter),</input>
 <input>Z = get(name),</input>
