@@ -393,7 +393,6 @@ bif ets:match_spec_run_r/3
 bif os:get_env_var/1
 bif os:set_env_var/2
 bif os:unset_env_var/1
-bif os:list_env_vars/0
 bif os:getpid/0
 bif os:timestamp/0
 bif os:system_time/0
@@ -773,3 +772,4 @@ bif erts_internal:get_creation/0
 bif erts_internal:prepare_loading/2
 bif erts_internal:beamfile_chunk/2
 bif erts_internal:beamfile_module_md5/1
+bif os:env/0

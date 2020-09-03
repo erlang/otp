@@ -77,7 +77,7 @@ static void os_getenv_foreach(Process *process, Eterm *result, Eterm key, Eterm 
     (*result) = CONS(hp, kvp_term, (*result));
 }
 
-BIF_RETTYPE os_list_env_vars_0(BIF_ALIST_0)
+BIF_RETTYPE os_env_0(BIF_ALIST_0)
 {
     const erts_osenv_t *global_env;
     Eterm result = NIL;

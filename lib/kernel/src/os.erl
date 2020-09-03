@@ -31,7 +31,7 @@
 
 %%% BIFs
 
--export([get_env_var/1, getpid/0, list_env_vars/0, perf_counter/0,
+-export([get_env_var/1, getpid/0, env/0, perf_counter/0,
          perf_counter/1, set_env_var/2, set_signal/2, system_time/0,
          system_time/1, timestamp/0, unset_env_var/1]).
 
@@ -46,8 +46,8 @@
 
 -type env_var_name_value() :: nonempty_string().
 
--spec list_env_vars() -> [{env_var_name(), env_var_value()}].
-list_env_vars() ->
+-spec env() -> [{env_var_name(), env_var_value()}].
+env() ->
     erlang:nif_error(undef).
 
 -spec get_env_var(VarName) -> Value | false when
@@ -115,7 +115,7 @@ set_signal(_Signal, _Option) ->
 
 -spec getenv() -> [env_var_name_value()].
 getenv() ->
-    [lists:flatten([Key, $=, Value]) || {Key, Value} <- os:list_env_vars() ].
+    [lists:flatten([Key, $=, Value]) || {Key, Value} <- os:env() ].
 
 -spec getenv(VarName) -> Value | false when
       VarName :: env_var_name(),

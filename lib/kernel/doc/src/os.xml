@@ -173,6 +173,21 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
     </func>
 
     <func>
+      <name name="env" arity="0" since="OTP @OTP-16793@"/>
+      <fsummary>List all environment variables.</fsummary>
+      <desc>
+        <p>Returns a list of all environment variables.
+          Each environment variable is expressed as a tuple
+	  <c>{VarName,Value}</c>, where <c>VarName</c> is the name of
+	  the variable and <c>Value</c> its value.</p>
+	<p>If Unicode filename encoding is in effect (see the
+          <seecom marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	  page</seecom>), the strings can contain characters with
+	  codepoints &gt; 255.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="find_executable" arity="1" since=""/>
       <name name="find_executable" arity="2" since=""/>
       <fsummary>Absolute filename of a program.</fsummary>
@@ -201,6 +216,8 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           <seecom marker="erts:erl#file_name_encoding"><c>erl</c> manual
 	  page</seecom>), the strings can contain characters with
 	  codepoints &gt; 255.</p>
+	<p>Consider using <seemfa marker="#env/0"><c>env/0</c></seemfa>
+	  for a nicer 2-tuple format.</p>
       </desc>
     </func>
 
