@@ -163,7 +163,7 @@ terminate(_Reason, #state{io = IoPid}) ->
 %%--------------------------------------------------------------------
 
 input_loop(Fd, Pid) ->
-    case io:get_line(Fd, '>') of
+    case io:get_line(Fd, '') of
 	eof ->
 	    Pid ! {input, self(), eof},
 	    ok; 
