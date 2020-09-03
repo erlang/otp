@@ -1521,7 +1521,7 @@ make_appl_i({application, Name, Opts}) when is_atom(Name), is_list(Opts) ->
     MaxT = get_opt(maxT, Opts, infinity),
     IncApps = get_opt(included_applications, Opts, []),
     {#appl_data{name = Name, regs = Regs, mod = Mod, phases = Phases,
-		mods = Mods, inc_apps = IncApps, maxP = MaxP, maxT = MaxT},
+		mods = Mods, maxP = MaxP, maxT = MaxT},
      Env, IncApps, Descr, Id, Vsn, Apps};
 make_appl_i({application, Name, Opts}) when is_list(Opts) ->
     throw({error,{invalid_name,Name}});
