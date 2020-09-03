@@ -3083,8 +3083,7 @@ maybe_invalidate_session(_, _, _, _, _) ->
 
 invalidate_session(client, Host, Port, Session) ->
     ssl_manager:invalidate_session(Host, Port, Session);
-invalidate_session(server, _, Port, Session) ->
-    %%ssl_manager:invalidate_session(Port, Session).
+invalidate_session(server, _, _, _) ->
     ok.
 
 handle_sni_extension(undefined, State) ->

@@ -29,7 +29,7 @@
 -export([start_link/1, start_link_dist/1,
 	 connection_init/3, cache_pem_file/2,
 	 lookup_trusted_cert/4,
-	 new_session_id/1, clean_cert_db/2,
+	 clean_cert_db/2,
 	 register_session/2, register_session/4, invalidate_session/2,
 	 insert_crls/2, insert_crls/3, delete_crls/1, delete_crls/2, 
 	 invalidate_session/3, name/1]).
@@ -48,15 +48,12 @@
 
 -record(state, {
 	  session_cache_client    :: db_handle(),
-	  session_cache_server    :: db_handle(),
 	  session_cache_cb        :: atom(),
 	  session_lifetime        :: integer(),
 	  certificate_db          :: db_handle(),
 	  session_validation_timer :: reference(),
 	  session_cache_client_max   :: integer(),
-	  session_cache_server_max   :: integer(),
-	  session_server_invalidator :: undefined | pid(),
-	  session_client_invalidator :: undefined | pid()
+          session_client_invalidator :: undefined | pid()
 	 }).
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
@@ -149,14 +146,6 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
     ssl_pkix_db:lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer).
 
 %%--------------------------------------------------------------------
--spec new_session_id(integer()) -> ssl:session_id().
-%%
-%% Description: Creates a session id for the server.
-%%--------------------------------------------------------------------
-new_session_id(Port) ->
-    call({new_session_id, Port}).
-
-%%--------------------------------------------------------------------
 -spec clean_cert_db(reference(), binary()) -> ok.
 %%
 %% Description: Send clean request of cert db to ssl_manager process should
@@ -236,23 +225,17 @@ init([ManagerName, PemCacheName, Opts]) ->
     ClientSessionCache = 
 	CacheCb:init([{role, client} | 
 		      proplists:get_value(session_cb_init_args, Opts, [])]),
-    ServerSessionCache = 
-	CacheCb:init([{role, server} | 
-		      proplists:get_value(session_cb_init_args, Opts, [])]),
+
     Timer = erlang:send_after(SessionLifeTime * 1000 + 5000, 
 			      self(), validate_sessions),
     {ok, #state{certificate_db = CertDb,
 		session_cache_client = ClientSessionCache,
-		session_cache_server = ServerSessionCache,
 		session_cache_cb = CacheCb,
 		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer,
 		session_cache_client_max = 
 		    max_session_cache_size(session_cache_client_max),
-		session_cache_server_max = 
-		    max_session_cache_size(session_cache_server_max),
-		session_client_invalidator = undefined,
-		session_server_invalidator = undefined
+		session_client_invalidator = undefined
 	       }}.
 
 %%--------------------------------------------------------------------
@@ -299,12 +282,6 @@ handle_call({{delete_crls, CRLsOrPath}, _}, _From,
 	    #state{certificate_db = Db} = State) ->
     ssl_pkix_db:remove_crls(Db, CRLsOrPath),
     {reply, ok, State};
-
-handle_call({{new_session_id, Port}, _},
-	    _, #state{session_cache_cb = CacheCb,
-		      session_cache_server = Cache} = State) ->
-    Id = new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb),
-    {reply, Id, State};
 handle_call({{register_session, Host, Port, Session},_}, _, State0) ->
     State = client_register_session(Host, Port, Session, State0), 
     {reply, ok, State}.
@@ -324,23 +301,11 @@ handle_cast({register_session, Host, Port, Session, unique}, State0) ->
 handle_cast({register_session, Host, Port, Session, true}, State0) ->
     State = client_register_session(Host, Port, Session, State0), 
     {noreply, State};
-
-handle_cast({register_session, Port, Session}, State0) ->    
-    State = server_register_session(Port, Session, State0), 		       
-    {noreply, State};
-
 handle_cast({invalidate_session, Host, Port,
 	     #session{session_id = ID} = Session},
 	    #state{session_cache_client = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     invalidate_session(Cache, CacheCb, {{Host, Port}, ID}, Session, State);
-
-handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
-	    #state{session_cache_server = Cache,
-		   session_cache_cb = CacheCb} = State) ->
-    invalidate_session(Cache, CacheCb, {Port, ID}, Session, State);
-
-
 handle_cast({insert_crls, Path, CRLs},   
 	    #state{certificate_db = Db} = State) ->
     ssl_pkix_db:add_crls(Db, Path, CRLs),
@@ -361,18 +326,14 @@ handle_cast({delete_crls, CRLsOrPath},
 %%-------------------------------------------------------------------
 handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
 				      session_cache_client = ClientCache,
-				      session_cache_server = ServerCache,
 				      session_lifetime = LifeTime,
-				      session_client_invalidator = Client,
-				      session_server_invalidator = Server				      
+				      session_client_invalidator = Client
 				     } = State) ->
     Timer = erlang:send_after(?SESSION_VALIDATION_INTERVAL, 
 			      self(), validate_sessions),
     CPid = start_session_validator(ClientCache, CacheCb, LifeTime, Client),
-    SPid = start_session_validator(ServerCache, CacheCb, LifeTime, Server),
     {noreply, State#state{session_validation_timer = Timer, 
-			  session_client_invalidator = CPid,
-			  session_server_invalidator = SPid}};
+			  session_client_invalidator = CPid}};
 
 handle_info({clean_cert_db, Ref, File},
 	    #state{certificate_db = [CertDb, {RefDb, FileMapDb} | _]} = State) ->
@@ -384,12 +345,8 @@ handle_info({clean_cert_db, Ref, File},
 	    clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File)
     end,
     {noreply, State};
-
 handle_info({'EXIT', Pid, _}, #state{session_client_invalidator = Pid} = State) ->
     {noreply, State#state{session_client_invalidator = undefined}};
-handle_info({'EXIT', Pid, _}, #state{session_server_invalidator = Pid} = State) ->
-    {noreply, State#state{session_server_invalidator = undefined}};
-
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -403,13 +360,11 @@ handle_info(_Info, State) ->
 %%--------------------------------------------------------------------
 terminate(_Reason, #state{certificate_db = Db,
 			  session_cache_client = ClientSessionCache,
-			  session_cache_server = ServerSessionCache,
 			  session_cache_cb = CacheCb,
 			  session_validation_timer = Timer}) ->
     erlang:cancel_timer(Timer),
     ssl_pkix_db:remove(Db),
     catch CacheCb:terminate(ClientSessionCache),
-    catch CacheCb:terminate(ServerSessionCache),
     ok.
 
 %%--------------------------------------------------------------------
@@ -480,31 +435,6 @@ invalidate_session(Cache, CacheCb, Key, _Session, State) ->
 	    {noreply, State}
     end.
 
-%% If we cannot generate a not allready in use session ID in
-%% ?GEN_UNIQUE_ID_MAX_TRIES we make the new session uncacheable The
-%% value of ?GEN_UNIQUE_ID_MAX_TRIES is stolen from open SSL which
-%% states : "If we cannot find a session id in
-%% ?GEN_UNIQUE_ID_MAX_TRIES either the RAND code is broken or someone
-%% is trying to open roughly very close to 2^128 (or 2^256) SSL
-%% sessions to our server"
-new_id(_, 0, _, _) ->
-    <<>>;
-new_id(Port, Tries, Cache, CacheCb) ->
-    Id = ssl_cipher:random_bytes(?NUM_OF_SESSION_ID_BYTES),
-    case CacheCb:lookup(Cache, {Port, Id}) of
-	undefined ->
-	    Now = erlang:monotonic_time(),
-	    %% New sessions cannot be set to resumable
-	    %% until handshake is compleate and the
-	    %% other session values are set.
-	    CacheCb:update(Cache, {Port, Id}, #session{session_id = Id,
-						       is_resumable = new,
-						       time_stamp = Now}),
-	    Id;
-	_ ->
-	    new_id(Port, Tries - 1, Cache, CacheCb)
-    end.
-
 clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File) ->
     case ssl_pkix_db:ref_count(Ref, RefDb, 0) of
 	0 ->	  
@@ -542,16 +472,6 @@ client_register_session(Host, Port, Session, #state{session_cache_client = Cache
                                NewSession#session.session_id}, 
                               NewSession, Max, Pid0, Cache, CacheCb),
     State#state{session_client_invalidator = Pid}.
-
-server_register_session(Port, Session, #state{session_cache_server_max = Max,
-					      session_cache_server = Cache,
-					      session_cache_cb = CacheCb,
-					      session_server_invalidator = Pid0} = State) ->
-    TimeStamp =  erlang:monotonic_time(),
-    NewSession = Session#session{time_stamp = TimeStamp},
-    Pid = do_register_session({Port, NewSession#session.session_id}, 
-			      NewSession, Max, Pid0, Cache, CacheCb),
-    State#state{session_server_invalidator = Pid}.
 
 do_register_session(Key, Session, Max, Pid, Cache, CacheCb) ->
     try CacheCb:size(Cache) of
@@ -614,8 +534,8 @@ add_trusted_certs(Pid, Trustedcerts, Db) ->
 
 session_cache(client, #state{session_cache_client = Cache}) ->
     Cache;
-session_cache(server, #state{session_cache_server = Cache}) ->
-    Cache.
+session_cache(server, _) ->
+    no_longer_defined.
 
 crl_db_info([_,_,_,Local], {internal, Info}) ->
     {Local, Info};
