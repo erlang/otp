@@ -934,8 +934,9 @@ fun_info_mfa(_Fun) ->
     erlang:nif_error(undefined).
 
 %% fun_to_list/1
--spec erlang:fun_to_list(Fun) -> string() when
-      Fun :: function().
+-spec erlang:fun_to_list(Fun) -> String when
+      Fun :: function(),
+      String :: string().
 fun_to_list(_Fun) ->
     erlang:nif_error(undefined).
 
