@@ -1102,7 +1102,9 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
       <desc>
         <p>Returns the current date as <c>{Year, Month, Day}</c>.</p>
         <p>The time zone and Daylight Saving Time correction depend on
-          the underlying OS. Example:</p>
+          the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>date().</input>
 {1995,2,19}</pre>
@@ -3164,8 +3166,10 @@ false</code>
         <pre>
 > <input>erlang:localtime().</input>
 {{1996,11,6},{14,45,17}}</pre>
-        <p>The time zone and Daylight Saving Time correction depend
-          on the underlying OS.</p>
+        <p>The time zone and Daylight Saving Time correction depend on
+        the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>.</p>
       </desc>
     </func>
 
@@ -10491,7 +10495,9 @@ end</code>
       <desc>
         <p>Returns the current time as <c>{Hour, Minute, Second}</c>.</p>
         <p>The time zone and Daylight Saving Time correction depend on
-          the underlying OS. Example:</p>
+        the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>time().</input>
 {9,42,44}</pre>
@@ -12014,7 +12020,9 @@ improper_end</pre>
           <c>{{Year, Month, Day}, {Hour, Minute, Second}}</c> if
           supported by the underlying OS.
           Otherwise <c>erlang:universaltime()</c> is equivalent to
-          <c>erlang:localtime()</c>. Example:</p>
+          <c>erlang:localtime()</c>. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>erlang:universaltime().</input>
 {{1996,11,6},{14,18,43}}</pre>
