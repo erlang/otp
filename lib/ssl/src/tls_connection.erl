@@ -701,50 +701,57 @@ hello(internal, #server_hello{extensions = Extensions} = Hello,
                  handshake_env = HsEnv#handshake_env{
                                    hello = Hello}}, [{reply, From, {ok, Extensions}}]};     
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
-      #state{connection_states = ConnectionStates0,
-             static_env = #static_env{
-                             trackers = Trackers},
-             handshake_env = #handshake_env{kex_algorithm = KeyExAlg,
-                                            renegotiation = {Renegotiation, _},
-                                            negotiated_protocol = CurrentProtocol} = HsEnv,
-             connection_env = CEnv,
-             session = #session{own_certificate = Cert} = Session0,
-	     ssl_options = SslOpts} = State) ->
+      #state{ssl_options = SslOpts0} = State0) ->
 
-    case choose_tls_version(SslOpts, Hello) of
+    case choose_tls_version(SslOpts0, Hello) of
         'tls_v1.3' ->
             %% Continue in TLS 1.3 'start' state
-            {next_state, start, State, [{next_event, internal, Hello}]};
+            {next_state, start, State0, [{next_event, internal, Hello}]};
         'tls_v1.2' ->
-            SessionTracker = proplists:get_value(session_id_tracker, Trackers),
-            case tls_handshake:hello(Hello,
-                                     SslOpts,
-                                     {SessionTracker, Session0,
-                                      ConnectionStates0, Cert, KeyExAlg},
-                                     Renegotiation) of
-                #alert{} = Alert ->
-                    ssl_connection:handle_own_alert(Alert, ClientVersion, hello,
-                                                    State#state{connection_env = CEnv#connection_env{negotiated_version
-                                                                                                     = ClientVersion}});
-                {Version, {Type, Session},
-                 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
-                    Protocol = case Protocol0 of
-                                   undefined -> CurrentProtocol;
-                                   _ -> Protocol0
-                               end,
-                    gen_handshake(?FUNCTION_NAME,
-                                  internal,
-                                  {common_client_hello, Type, ServerHelloExt},
-                                  State#state{connection_states  = ConnectionStates,
-                                              connection_env = CEnv#connection_env{negotiated_version = Version},
-                                              handshake_env = HsEnv#handshake_env{
-                                                                hashsign_algorithm = HashSign,
-                                                                client_hello_version = ClientVersion,
-                                                                negotiated_protocol = Protocol},
-                                              session = Session
-                                             })
+            case ssl_connection:handle_sni_extension(State0, Hello) of
+                #state{connection_states = ConnectionStates0,
+                       static_env = #static_env{trackers = Trackers},
+                       handshake_env = #handshake_env{kex_algorithm = KeyExAlg,
+                                                      renegotiation = {Renegotiation, _},
+                                                      negotiated_protocol = CurrentProtocol} = HsEnv,
+                       connection_env = #connection_env{
+                                           negotiated_version = _NegotiatedVersion
+                                          } = CEnv,
+                       %%connection_env = CEnv,
+                       session = #session{own_certificate = Cert} = Session0,
+                       ssl_options = SslOpts} = State ->
+                    SessionTracker =
+                        proplists:get_value(session_id_tracker, Trackers),
+                    case tls_handshake:hello(Hello,
+                                             SslOpts,
+                                             {SessionTracker, Session0,
+                                              ConnectionStates0, Cert, KeyExAlg},
+                                             Renegotiation) of
+                        #alert{} = Alert ->
+                            ssl_connection:handle_own_alert(Alert, ClientVersion, hello,
+                                                            State#state{connection_env = CEnv#connection_env{negotiated_version
+                                                                                                             = ClientVersion}});
+                        {Version, {Type, Session},
+                         ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
+                            Protocol = case Protocol0 of
+                                           undefined -> CurrentProtocol;
+                                           _ -> Protocol0
+                                       end,
+                            gen_handshake(?FUNCTION_NAME,
+                                          internal,
+                                          {common_client_hello, Type, ServerHelloExt},
+                                          State#state{connection_states  = ConnectionStates,
+                                                      connection_env = CEnv#connection_env{negotiated_version = Version},
+                                                      handshake_env = HsEnv#handshake_env{
+                                                                        hashsign_algorithm = HashSign,
+                                                                        client_hello_version = ClientVersion,
+                                                                        negotiated_protocol = Protocol},
+                                                      session = Session
+                                                     })
+                    end;
+                Alert ->
+                    Alert
             end
-
     end;
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,

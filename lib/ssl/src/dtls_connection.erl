@@ -506,6 +506,7 @@ hello(internal, #client_hello{cookie = <<>>,
              handshake_env = HsEnv,
              connection_env = CEnv,
              protocol_specific = #{current_cookie_secret := Secret}} = State0) ->
+    State1 = ssl_connection:handle_sni_extension(State0, Hello),
     {ok, {IP, Port}} = dtls_socket:peername(Transport, Socket),
     Cookie = dtls_handshake:cookie(Secret, IP, Port, Hello),
     %% FROM RFC 6347 regarding HelloVerifyRequest message:
@@ -515,8 +516,8 @@ hello(internal, #client_hello{cookie = <<>>,
     %% version 1.0 regardless of the version of TLS that is expected to be
     %% negotiated.
     VerifyRequest = dtls_handshake:hello_verify_request(Cookie, ?HELLO_VERIFY_REQUEST_VERSION),
-    State1 = prepare_flight(State0#state{connection_env = CEnv#connection_env{negotiated_version = Version}}),
-    {State, Actions} = send_handshake(VerifyRequest, State1),
+    State2 = prepare_flight(State1#state{connection_env = CEnv#connection_env{negotiated_version = Version}}),
+    {State, Actions} = send_handshake(VerifyRequest, State2),
     next_event(?FUNCTION_NAME, no_record, 
                State#state{handshake_env = HsEnv#handshake_env{
                                              tls_handshake_history = 
@@ -550,7 +551,8 @@ hello(internal, #hello_verify_request{cookie = Cookie}, #state{static_env = #sta
 hello(internal, #client_hello{extensions = Extensions} = Hello, 
       #state{ssl_options = #{handshake := hello},
              handshake_env = HsEnv,
-             start_or_recv_from = From} = State) ->
+             start_or_recv_from = From} = State0) ->
+    State = ssl_connection:handle_sni_extension(State0, Hello),
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
                                          handshake_env = HsEnv#handshake_env{hello = Hello}},
      [{reply, From, {ok, Extensions}}]};
@@ -569,17 +571,18 @@ hello(internal, #client_hello{cookie = Cookie} = Hello, #state{static_env = #sta
                                                                protocol_specific = #{current_cookie_secret := Secret,
                                                                                      previous_cookie_secret := PSecret}
                                                               } = State0) ->
+    State = ssl_connection:handle_sni_extension(State0, Hello),
     {ok, {IP, Port}} = dtls_socket:peername(Transport, Socket),
     case dtls_handshake:cookie(Secret, IP, Port, Hello) of
 	Cookie ->
-	    handle_client_hello(Hello, State0);
+	    handle_client_hello(Hello, State);
 	_ ->
             case dtls_handshake:cookie(PSecret, IP, Port, Hello) of
                	Cookie -> 
-                    handle_client_hello(Hello, State0);
+                    handle_client_hello(Hello, State);
                 _ ->
                     %% Handle bad cookie as new cookie request RFC 6347 4.1.2
-                    hello(internal, Hello#client_hello{cookie = <<>>}, State0) 
+                    hello(internal, Hello#client_hello{cookie = <<>>}, State)
             end
     end;
 hello(internal, #server_hello{} = Hello,

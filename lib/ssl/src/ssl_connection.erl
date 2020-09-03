@@ -60,7 +60,8 @@
 -export([read_application_data/2, internal_renegotiation/2]).
 
 %% Help functions for tls|dtls_connection.erl
--export([handle_session/7, ssl_config/3,
+-export([handle_session/7, handle_sni_extension/2,
+         handle_sni_extension_tls13/2, ssl_config/3,
 	 prepare_connection/2, hibernate_after/3]).
 
 %% General gen_statem state functions with extra callback argument 
@@ -1392,22 +1393,14 @@ handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName,
   when StateName =/= connection ->
     keep_state_and_data;
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
-		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0},
-                           connection_env = #connection_env{negotiated_version = Version}} = State0,
-		    Connection) ->
-   
-    PossibleSNI = Connection:select_sni_extension(Handshake),
-    %% This function handles client SNI hello extension when Handshake is
-    %% a client_hello, which needs to be determined by the connection callback.
-    %% In other cases this is a noop
-    case handle_sni_extension(PossibleSNI, State0) of
-        #state{handshake_env = HsEnv} = State ->
-            Hist = ssl_handshake:update_handshake_history(Hist0, Raw),
-            {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}},
-             [{next_event, internal, Handshake}]};
-        #alert{} = Alert ->
-            handle_own_alert(Alert, Version, StateName, State0)
-    end;
+		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
+                           connection_env = #connection_env{negotiated_version = _Version}} = State0,
+		    _Connection) ->
+    Hist = ssl_handshake:update_handshake_history(Hist0, Raw),
+    {next_state, StateName,
+     State0#state{handshake_env =
+                      HsEnv#handshake_env{tls_handshake_history = Hist}},
+     [{next_event, internal, Handshake}]};
 handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName, State, Connection) -> 
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _, _) ->
@@ -3086,18 +3079,72 @@ invalidate_session(client, Host, Port, Session) ->
 invalidate_session(server, _, _, _) ->
     ok.
 
-handle_sni_extension(undefined, State) ->
-    State;
-handle_sni_extension(#sni{hostname = Hostname}, State) ->
+%% Handle SNI extension in TLS 1.3
+handle_sni_extension_tls13(undefined, State) ->
+    {ok, State};
+handle_sni_extension_tls13(#sni{hostname = Hostname}, State0) ->
+    case check_hostname(State0, Hostname) of
+        valid ->
+            #state{handshake_env = HsEnv0} = State =
+                handle_sni_hostname(Hostname, State0),
+            HsEnv = HsEnv0#handshake_env{sni_guided_cert_selection = true},
+            {ok, State#state{handshake_env = HsEnv}};
+        unrecognized_name ->
+            {ok, handle_sni_hostname(Hostname, State0)};
+        #alert{} = Alert ->
+            {error, Alert}
+    end.
+
+check_hostname(#state{ssl_options = SslOptions}, Hostname) ->
     case is_sni_value(Hostname) of
         true ->
-          handle_sni_extension(Hostname, State);
+            case is_hostname_recognized(SslOptions, Hostname) of
+                true ->
+                    valid;
+                false ->
+                    %% We should send an alert but for interoperability reasons we
+                    %% allow the connection to be established.
+                    %% ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME)
+                    unrecognized_name
+            end;
+        false ->
+            ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME,
+                       {sni_included_trailing_dot, Hostname})
+    end.
+
+is_hostname_recognized(#{sni_fun := undefined,
+                         sni_hosts := SNIHosts}, Hostname) ->
+    proplists:is_defined(Hostname, SNIHosts);
+is_hostname_recognized(_, _) ->
+    true.
+
+%% Handle SNI extension in pre-TLS 1.3 and DTLS
+handle_sni_extension(#state{static_env =
+                                #static_env{protocol_cb = Connection}} = State0,
+                     Hello) ->
+    PossibleSNI = Connection:select_sni_extension(Hello),
+    case do_handle_sni_extension(PossibleSNI, State0) of
+        #state{} = State1 ->
+            State1;
+        #alert{} = Alert0 ->
+            ssl_connection:handle_own_alert(Alert0, undefined, hello,
+                                            State0)
+    end.
+
+do_handle_sni_extension(undefined, State) ->
+    State;
+do_handle_sni_extension(#sni{hostname = Hostname}, State) ->
+    case is_sni_value(Hostname) of
+        true ->
+            handle_sni_hostname(Hostname, State);
         false ->
             ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME, {sni_included_trailing_dot, Hostname})
-    end;
-handle_sni_extension(Hostname, #state{static_env = #static_env{role = Role} = InitStatEnv0,
-                                                                   handshake_env = HsEnv,
-                                                                   connection_env = CEnv} = State0) ->
+    end.
+
+handle_sni_hostname(Hostname,
+                    #state{static_env = #static_env{role = Role} = InitStatEnv0,
+                           handshake_env = HsEnv,
+                           connection_env = CEnv} = State0) ->
     NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
     case NewOptions of
 	undefined ->

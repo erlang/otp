@@ -178,8 +178,14 @@ encrypted_extensions(#state{handshake_env = HandshakeEnv}) ->
              MaxFragEnum ->
                  E1#{max_frag_enum => MaxFragEnum}
          end,
+    E = case HandshakeEnv#handshake_env.sni_guided_cert_selection of
+             false ->
+                 E2;
+             true ->
+                 E2#{sni => #sni{hostname = ""}}
+        end,
     #encrypted_extensions{
-       extensions = E2
+       extensions = E
       }.
 
 
@@ -576,14 +582,12 @@ build_content(Context, THash) ->
 do_start(#client_hello{cipher_suites = ClientCiphers,
                        session_id = SessionId,
                        extensions = Extensions} = _Hello,
-         #state{connection_states = ConnectionStates0,
-                ssl_options = #{ciphers := ServerCiphers,
+         #state{ssl_options = #{ciphers := ServerCiphers,
                                 signature_algs := ServerSignAlgs,
                                 supported_groups := ServerGroups0,
                                 alpn_preferred_protocols := ALPNPreferredProtocols,
-                                honor_cipher_order := HonorCipherOrder},
-                session = #session{own_certificate = Cert}} = State0) ->
-
+                                honor_cipher_order := HonorCipherOrder}} = State0) ->
+    SNI = maps:get(sni, Extensions, undefined),
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     ClientGroups = get_supported_groups(ClientGroups0),
     ServerGroups = get_supported_groups(ServerGroups0),
@@ -607,7 +611,11 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     {Ref,Maybe} = maybe(),
 
     try
-        Maybe(validate_cookie(Cookie, State0)),
+        #state{connection_states = ConnectionStates0,
+               session = #session{own_certificate = Cert}} = State1 =
+            Maybe(ssl_connection:handle_sni_extension_tls13(SNI, State0)),
+
+        Maybe(validate_cookie(Cookie, State1)),
 
         %% Handle ALPN extension if ALPN is configured
         ALPNProtocol = Maybe(handle_alpn(ALPNPreferredProtocols, ClientALPN)),
@@ -636,24 +644,24 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
 
-        State1 = case maps:get(max_frag_enum, Extensions, undefined) of
+        State2 = case maps:get(max_frag_enum, Extensions, undefined) of
                       MaxFragEnum when is_record(MaxFragEnum, max_frag_enum) ->
                          ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
-                         HsEnv1 = (State0#state.handshake_env)#handshake_env{max_frag_enum = MaxFragEnum},
-                         State0#state{handshake_env = HsEnv1,
+                         HsEnv1 = (State1#state.handshake_env)#handshake_env{max_frag_enum = MaxFragEnum},
+                         State1#state{handshake_env = HsEnv1,
                                       connection_states = ConnectionStates1};
                      _ ->
-                         State0
+                         State1
                  end,
 
-        State2 = update_start_state(State1,
-                                    #{cipher => Cipher,
-                                      key_share => KeyShare,
-                                      session_id => SessionId,
-                                      group => Group,
-                                      sign_alg => SelectedSignAlg,
-                                      peer_public_key => ClientPubKey,
-                                      alpn => ALPNProtocol}),
+        State = update_start_state(State2,
+                                   #{cipher => Cipher,
+                                     key_share => KeyShare,
+                                     session_id => SessionId,
+                                     group => Group,
+                                     sign_alg => SelectedSignAlg,
+                                     peer_public_key => ClientPubKey,
+                                     alpn => ALPNProtocol}),
 
         %% 4.1.4.  Hello Retry Request
         %%
@@ -661,12 +669,12 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% message if it is able to find an acceptable set of parameters but the
         %% ClientHello does not contain sufficient information to proceed with
         %% the handshake.
-        case Maybe(send_hello_retry_request(State2, ClientPubKey, KeyShare, SessionId)) of
+        case Maybe(send_hello_retry_request(State, ClientPubKey, KeyShare, SessionId)) of
             {_, start} = NextStateTuple ->
                 NextStateTuple;
             {_, negotiated} = NextStateTuple ->
                 %% Exclude any incompatible PSKs.
-                PSK = Maybe(handle_pre_shared_key(State2, OfferedPSKs, Cipher)),
+                PSK = Maybe(handle_pre_shared_key(State, OfferedPSKs, Cipher)),
                 Maybe(session_resumption(NextStateTuple, PSK))
         end
     catch

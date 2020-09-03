@@ -706,6 +706,11 @@ encode_extensions([#signature_algorithms_cert{
     Len = ListLen + 2,
     encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT),
 				 ?UINT16(Len), ?UINT16(ListLen), SignSchemeList/binary, Acc/binary>>);
+encode_extensions([#sni{hostname = ""} | Rest], Acc) ->
+    HostnameBin = <<>>,
+    encode_extensions(Rest, <<?UINT16(?SNI_EXT), ?UINT16(0),
+                              HostnameBin/binary,
+                              Acc/binary>>);
 encode_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
     HostLen = length(Hostname),
     HostnameBin = list_to_binary(Hostname),

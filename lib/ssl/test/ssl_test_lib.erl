@@ -25,6 +25,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([clean_start/0,
+         clean_start/1,
          clean_env/0,
          init_per_group/2,
          init_per_group_openssl/2,
@@ -3055,11 +3056,28 @@ clean_env() ->
     application:unset_env(ssl, bypass_pem_cache),
     application:unset_env(ssl, alert_timeout),
     application:unset_env(ssl, internal_active_n).
+%%
+clean_env(keep_version) ->
+    application:unset_env(ssl, session_lifetime),
+    application:unset_env(ssl, session_cb),
+    application:unset_env(ssl, session_cb_init_args),
+    application:unset_env(ssl, session_cache_client_max),
+    application:unset_env(ssl, session_cache_server_max),
+    application:unset_env(ssl, ssl_pem_cache_clean),
+    application:unset_env(ssl, bypass_pem_cache),
+    application:unset_env(ssl, alert_timeout),
+    application:unset_env(ssl, internal_active_n).
 
 clean_start() ->
     ssl:stop(),
     application:load(ssl),
     clean_env(),
+    ssl:start().
+%%
+clean_start(keep_version) ->
+    ssl:stop(),
+    application:load(ssl),
+    clean_env(keep_version),
     ssl:start().
 
 is_psk_anon_suite({psk, _,_}) ->
