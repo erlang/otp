@@ -57,6 +57,7 @@
 -deprecated([{now,0,
               "see the \"Time and Time Correction in Erlang\" "
               "chapter of the ERTS User's Guide for more information"}]).
+-deprecated([{phash,2, "use erlang:phash2/2 instead"}]).
 -removed([{hash,2,"use erlang:phash2/2 instead"}]).
 -removed([{get_stacktrace,0,
            "use the new try/catch syntax for retrieving the "

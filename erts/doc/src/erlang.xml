@@ -4456,6 +4456,13 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Portable hash function.</fsummary>
       <type_desc variable="Range">Range = 1..2^32, Hash = 1..Range</type_desc>
       <desc>
+        <warning>
+          <p>This function is deprecated as <seemfa
+          marker="erlang#phash2/2"><c>erlang:phash2/2</c></seemfa>
+          should be used for new code. Note that
+          <c>erlang:phash(X,N)</c> is not necessary equal to
+          <c>erlang:phash2(X,N)</c></p>
+        </warning>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
           ERTS version (the BIF was introduced in ERTS 4.9.1.1).

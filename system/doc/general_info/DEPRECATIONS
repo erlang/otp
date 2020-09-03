@@ -77,6 +77,8 @@ snmpm:async_get_bulk/6 since=23 remove=25
 snmpm:async_get_bulk/7 since=23 remove=25
 snmpm:async_get_bulk/8 since=23 remove=25
 
+erlang:phash/2 since=23
+
 #
 # Added in OTP 22.
 #
