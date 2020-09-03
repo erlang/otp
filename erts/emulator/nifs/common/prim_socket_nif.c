@@ -13283,7 +13283,8 @@ BOOLEAN_T esock_cmsg_encode_sockaddr(ErlNifEnv     *env,
 #endif
 
 #ifndef __WIN32__
-#if defined(HAVE_LINUX_ERRQUEUE_H)
+#ifdef HAVE_LINUX_ERRQUEUE_H
+#if defined(IP_RECVERR) || defined(IPV6_RECVERR)
 /* +++ encode_cmsg_encode_recverr +++
  *
  * Encode the extended socker error in the data part of the cmsghdr().
@@ -13532,7 +13533,8 @@ BOOLEAN_T esock_cmsg_encode_recverr(ErlNifEnv                *env,
     }
     return TRUE;
 }
-#endif // defined(HAVE_LINUX_ERRQUEUE_H)
+#endif // #if defined(IP_RECVERR) || defined(IPV6_RECVERR)
+#endif // #ifdef HAVE_LINUX_ERRQUEUE_H
 #endif // #ifndef __WIN32__
 
 #ifndef __WIN32__
@@ -13644,8 +13646,14 @@ static struct ESockCmsgSpec
          &esock_atom_recvtos},
 #endif
 
-#if defined(IP_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
-        {IP_RECVERR, esock_cmsg_encode_recverr, NULL,
+#if defined(IP_RECVERR)
+        {IP_RECVERR,
+#if defined(HAVE_LINUX_ERRQUEUE_H)
+         esock_cmsg_encode_recverr,
+#else
+         NULL,
+#endif
+         NULL,
          &esock_atom_recverr},
 #endif
     };
@@ -13673,8 +13681,14 @@ static struct ESockCmsgSpec cmsgLevelIPv6[] =
          &esock_atom_recvtclass},
 #endif
 
-#if defined(IPV6_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
-        {IPV6_RECVERR, esock_cmsg_encode_recverr, NULL,
+#if defined(IPV6_RECVERR)
+        {IPV6_RECVERR,
+#if defined(HAVE_LINUX_ERRQUEUE_H)
+         esock_cmsg_encode_recverr,
+#else
+         NULL,
+#endif
+         NULL,
          &esock_atom_recverr},
 #endif
     };
