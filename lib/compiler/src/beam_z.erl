@@ -37,7 +37,8 @@ module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
 function({function,Name,Arity,CLabel,Is0}, NoGetHdTl) ->
     try
 	Is1 = undo_renames(Is0),
-        Is = maybe_eliminate_get_hd_tl(Is1, NoGetHdTl),
+        Is2 = maybe_eliminate_get_hd_tl(Is1, NoGetHdTl),
+        Is = remove_redundant_lines(Is2),
 	{function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
@@ -161,3 +162,23 @@ maybe_eliminate_get_hd_tl(Is, true) ->
            (I) -> I
         end, Is);
 maybe_eliminate_get_hd_tl(Is, false) -> Is.
+
+%% Remove all `line` instructions having the same location as the
+%% previous `line` instruction. It turns out that such redundant
+%% `line` instructions are quite common. Removing them decreases the
+%% size of the BEAM files, but not size of the loaded code since the
+%% loader already removes such redundant `line` instructions.
+
+remove_redundant_lines(Is) ->
+    remove_redundant_lines_1(Is, none).
+
+remove_redundant_lines_1([{line,Loc}=I|Is], PrevLoc) ->
+    if
+        Loc =:= PrevLoc ->
+            remove_redundant_lines_1(Is, Loc);
+        true ->
+            [I|remove_redundant_lines_1(Is, Loc)]
+    end;
+remove_redundant_lines_1([I|Is], PrevLoc) ->
+    [I|remove_redundant_lines_1(Is, PrevLoc)];
+remove_redundant_lines_1([], _) -> [].
