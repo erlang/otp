@@ -286,7 +286,7 @@
 	 get_test_engine/0]).
 -export([rand_plugin_aes_jump_2pow20/1]).
 
--deprecated({rand_uniform, 2, "use rand:rand_uniform/1 instead"}).
+-deprecated({rand_uniform, 2, "use rand:uniform/1 instead"}).
 
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
