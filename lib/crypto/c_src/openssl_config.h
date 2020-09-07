@@ -109,6 +109,14 @@
 #ifndef HAS_LIBRESSL
 # if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #  define HAS_EVP_PKEY_CTX
+#  if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,0,2) \
+    && (! DISABLE_EVP_DH)
+     /* Diffie-Hellman EVP is slow on antique crypto libs
+      * DISABLE_EVP_DH is 0 or 1 from the configure script
+      */
+#    undef  DISABLE_EVP_DH
+#    define DISABLE_EVP_DH 1
+#  endif
 #  define HAVE_EVP_CIPHER_CTX_COPY
 # endif
 
