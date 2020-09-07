@@ -1330,19 +1330,6 @@ one_shell_op(IO, TimeOut) ->
 
     IO ! {input, self(), "2*3*7.\r\n"},
     receive
-	Echo0 -> ct:log("Echo: ~p ~n", [Echo0])
-    after TimeOut -> ct:fail("Timeout waiting for echo")
-    end,
-
-    receive
-	?NEWLINE -> ct:log("NEWLINE received", [])
-    after TimeOut -> 
-	    receive Any1 -> ct:log("Bad NEWLINE: ~p",[Any1])
-	    after 0 -> ct:fail("Timeout waiting for NEWLINE")
-	    end
-    end,
-
-    receive
 	Result0 -> ct:log("Result: ~p~n", [Result0])
     after TimeOut ->  ct:fail("Timeout waiting for result")
     end.
@@ -1407,7 +1394,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    ct:log("Connections up: ~p",[Connections]),
 	    [_|_] = Connections,
 
-	    %% Now try one more than alowed:
+	    %% N w try one more than alowed:
 	    ct:pal("Info Report expected here (if not disabled) ...",[]),
 	    try Connect(Host,Port)
 	    of

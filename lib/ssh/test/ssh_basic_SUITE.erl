@@ -1613,7 +1613,7 @@ new_do_shell_prompt(IO, N, type, Str, More) ->
     ct:log("Matched prompt ~p to trigger sending of next line to server",[N]),
     IO ! {input, self(), Str++"\r\n"},
     ct:log("Promt '~p> ', Sent ~ts",[N,Str++"\r\n"]),
-    new_do_shell(IO, N, [{expect_echo,Str}|More]); % expect echo of the sent line
+    new_do_shell(IO, N, More);
 new_do_shell_prompt(IO, N, Op, Str, More) ->
     ct:log("Matched prompt ~p",[N]),
     new_do_shell(IO, N, [{Op,Str}|More]).

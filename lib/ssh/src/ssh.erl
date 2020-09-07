@@ -506,7 +506,9 @@ shell(Socket) when is_port(Socket) ->
 shell(ConnectionRef) when is_pid(ConnectionRef) ->
     case ssh_connection:session_channel(ConnectionRef, infinity) of
 	{ok,ChannelId}  ->
-	    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+	    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId,
+                                                [{pty_opts, [{echo,0}]}
+                                                ]),
             success = ssh_connection:send_environment_vars(ConnectionRef, ChannelId,
                                                            ["LANG", "LC_ALL"]),
 	    Args = [{channel_cb, ssh_shell},
