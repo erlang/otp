@@ -295,27 +295,22 @@ void BeamGlobalAssembler::emit_process_main() {
     a.mov(getSchedulerRegRef(
                   offsetof(ErtsSchedulerRegisters, runtime_stack_start)),
           x86::rsp);
-#endif
-
-#if !defined(NATIVE_ERLANG_STACK)
-#    ifdef HARD_DEBUG
+#elif !defined(NATIVE_ERLANG_STACK)
     /* Save the initial SP of the thread so that we can verify that it
      * doesn't grow. */
+#    ifdef HARD_DEBUG
     a.mov(getInitialSPRef(), x86::rsp);
 #    endif
 
-    /*
-     * Manually do an `emit_enter_runtime` to match the
-     * `emit_leave_runtime` below.  We avoid `emit_enter_runtime`
-     * because it may do additional assertions that may currently
-     * fail.
+    /* Manually do an `emit_enter_runtime` to match the `emit_leave_runtime`
+     * below. We avoid `emit_enter_runtime` because it may do additional
+     * assertions that may currently fail.
      *
      * IMPORTANT: We must ensure that this sequence leaves the stack
-     * aligned on a 16-byte boundary.
-     */
-    a.push(x86::rbp);
-    a.mov(x86::rbp, x86::rsp);
-    a.sub(x86::rsp, imm(8)); /* Align */
+     * aligned on a 16-byte boundary. */
+    a.mov(getRuntimeStackRef(), x86::rsp);
+    a.sub(x86::rsp, imm(15));
+    a.and_(x86::rsp, imm(-16));
 #endif
 
     a.mov(start_time_i, imm(0));
@@ -478,13 +473,12 @@ void BeamGlobalAssembler::emit_process_main() {
         runtime_call<2>(erts_psd_get);
 
         /* Read the active code index, overriding it with
-         * ERTS_SAVE_CALLS_CODE_IX when save_calls is enabled. */
-        a.mov(ARG1, imm(&the_active_code_index));
-        a.mov(ARG1d, x86::dword_ptr(ARG1));
-        a.mov(ARG2, imm(ERTS_SAVE_CALLS_CODE_IX));
+         * ERTS_SAVE_CALLS_CODE_IX when save_calls is enabled (RET != 0). */
         a.test(RET, RET);
-        a.cmovne(ARG1, ARG2);
-        a.mov(active_code_ix, ARG1d);
+        a.mov(ARG1, imm(&the_active_code_index));
+        a.mov(ARG2, imm(ERTS_SAVE_CALLS_CODE_IX));
+        a.mov(active_code_ix.r32(), x86::dword_ptr(ARG1));
+        a.cmovnz(active_code_ix, ARG2);
 
         /* Start executing the Erlang process. Note that reductions have
          * already been set up above. */

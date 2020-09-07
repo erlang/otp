@@ -421,7 +421,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         }
 #endif
         /* Check if we need to call save_calls */
-        a.cmp(active_code_ix, ERTS_SAVE_CALLS_CODE_IX);
+        a.cmp(active_code_ix, imm(ERTS_SAVE_CALLS_CODE_IX));
         a.je(call_save_calls);
         a.bind(call_bif);
 
@@ -592,9 +592,11 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         a.pop(getCPRef());
 #endif
 
-        a.mov(ARG1d, active_code_ix);
         a.mov(ARG2, ARG4);
-        a.jmp(x86::qword_ptr(ARG2, ARG1, 3, offsetof(Export, addressv)));
+        a.jmp(x86::qword_ptr(ARG2,
+                             active_code_ix,
+                             3,
+                             offsetof(Export, addressv)));
     }
 
     a.bind(yield);

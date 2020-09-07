@@ -331,7 +331,10 @@ void BeamModuleAssembler::emit_i_call_only(const ArgVal &CallDest) {
     a.jmp(labels[CallDest.getValue()]);
 }
 
-/* Handles save_calls. Export entry is in ARG2. */
+/* Handles save_calls. Export entry is in ARG2.
+ *
+ * When the active code index is ERTS_SAVE_CALLS_CODE_IX, all remote calls will
+ * land here. */
 void BeamGlobalAssembler::emit_dispatch_save_calls() {
     a.mov(TMP_MEM1q, ARG2);
 
@@ -352,12 +355,10 @@ void BeamGlobalAssembler::emit_dispatch_save_calls() {
 }
 
 x86::Mem BeamModuleAssembler::emit_setup_export(const ArgVal &Exp) {
-    a.mov(ARG1d, active_code_ix);
-
     /* Load export pointer / addressv */
     make_move_patch(ARG2, imports[Exp.getValue()].patches);
 
-    return x86::qword_ptr(ARG2, ARG1, 3, offsetof(Export, addressv));
+    return x86::qword_ptr(ARG2, active_code_ix, 3, offsetof(Export, addressv));
 }
 
 void BeamModuleAssembler::emit_i_call_ext(const ArgVal &Exp) {

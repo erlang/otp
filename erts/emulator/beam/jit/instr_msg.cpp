@@ -113,14 +113,15 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         runtime_call<5>(erts_proc_sig_receive_helper);
 
         /* erts_proc_sig_receive_helper merely inspects FCALLS, so we don't
-         * need to update it here. */
-        emit_leave_runtime<Update::eStack | Update::eHeap>();
+         * need to update it here.
+         *
+         * Also note that another process may have loaded new code and sent us
+         * a message to notify us about it, so we must update the active code
+         * index. */
+        emit_leave_runtime<Update::eStack | Update::eHeap |
+                           Update::eCodeIndex>();
 
         a.sub(FCALLS, RET);
-
-        /* Another process may have loaded new code and sent us a message to
-         * notify us about it, so we must update the active code index. */
-        emit_update_code_index();
 
         /* Need to spill message_ptr to ARG1 as check_is_distributed uses it */
         a.mov(ARG1, message_ptr);
@@ -320,7 +321,7 @@ void BeamModuleAssembler::emit_remove_message() {
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, FCALLS);
-    a.mov(ARG5d, active_code_ix);
+    a.mov(ARG5, active_code_ix);
     runtime_call<5>(remove_message);
     a.mov(FCALLS, RET);
 

@@ -47,6 +47,7 @@ liveness of values and the physical registers are statically allocated to keep
 the necessary process state. At the moment this is the static register allocation:
 
     rbx: ErtsSchedulerRegisters struct (contains x/float registers and some metadata)
+    rbp: Active code index
     r12: Optional Save slot for the Erlang stack pointer when executing C code
     r13: Current running process
     r14: Remaining reductions

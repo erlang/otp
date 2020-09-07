@@ -155,6 +155,7 @@ protected:
      * this in the same slot as `registers` as that can be trivially recomputed
      * from the top of the runtime stack. */
     const x86::Gp E_saved = x86::r12;
+
 #else
     const x86::Gp E = x86::r12;
 #endif
@@ -163,10 +164,12 @@ protected:
     const x86::Gp FCALLS = x86::r14;
     const x86::Gp HTOP = x86::r15;
 
-    /* Note that active_code_ix is a 32-bit memory location. */
-    const x86::Mem active_code_ix = getSchedulerRegRef(
-            offsetof(ErtsSchedulerRegisters, aux_regs.d.active_code_ix),
-            sizeof(Uint32));
+    /* Local copy of the active code index.
+     *
+     * This is set to ERTS_SAVE_CALLS_CODE_IX when save_calls is active, which
+     * routes us to a common handler routine that calls save_calls before
+     * jumping to the actual code. */
+    const x86::Gp active_code_ix = x86::rbp;
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
     const x86::Mem erts_msacc_cache = getSchedulerRegRef(
@@ -371,13 +374,13 @@ protected:
         ASSERT(0 && "Fault instruction encode");
     }
 
-#ifdef NATIVE_ERLANG_STACK
     constexpr x86::Mem getRuntimeStackRef() const {
         int base = offsetof(ErtsSchedulerRegisters, aux_regs.d.runtime_stack);
 
         return getSchedulerRegRef(base);
     }
-#else
+
+#if !defined(NATIVE_ERLANG_STACK)
 #    ifdef HARD_DEBUG
     constexpr x86::Mem getInitialSPRef() const {
         int base = offsetof(ErtsSchedulerRegisters, aux_regs.d.initial_sp);
@@ -667,19 +670,6 @@ protected:
         }
     }
 
-    /* Updates the local copy of the active code index, retaining save_calls if
-     * active.
-     *
-     * Clobbers ARG1 and ARG2. */
-    void emit_update_code_index() {
-        a.mov(ARG2, imm(&the_active_code_index));
-        a.mov(ARG2d, x86::dword_ptr(ARG2));
-        a.mov(ARG1d, active_code_ix);
-        a.cmp(ARG1d, imm(ERTS_SAVE_CALLS_CODE_IX));
-        a.cmovne(ARG1, ARG2);
-        a.mov(active_code_ix, ARG1d);
-    }
-
     /* Discards a continuation pointer, including the frame pointer if
      * applicable. */
     void emit_discard_cp() {
@@ -793,15 +783,11 @@ protected:
 #ifdef NATIVE_ERLANG_STACK
         a.lea(E, getRuntimeStackRef());
 #else
-        /* Do an `enter` sequence. Note that the actual `enter`
-         * instruction is slower than using these two
-         * instructions. */
-        a.push(x86::rbp);
-        a.mov(x86::rbp, x86::rsp);
+        /* Keeping track of stack alignment across shared fragments would be
+         * too much of a maintenance burden, so we stash and align the stack
+         * pointer at runtime instead. */
+        a.mov(getRuntimeStackRef(), x86::rsp);
 
-        /* Make sure that the stack is 16-byte aligned. We don't want
-         * to keep track of stack usage in shared fragments, so we will
-         * emit code to align the stack at runtime. */
         a.sub(x86::rsp, imm(15));
         a.and_(x86::rsp, imm(-16));
 #endif
@@ -832,11 +818,18 @@ protected:
         }
 
         if (Spec & Update::eCodeIndex) {
-            emit_update_code_index();
+            /* Updates the local copy of the active code index, retaining
+             * save_calls if active. */
+            a.mov(ARG1, imm(&the_active_code_index));
+            a.mov(ARG1d, x86::dword_ptr(ARG1));
+
+            a.cmp(active_code_ix, imm(ERTS_SAVE_CALLS_CODE_IX));
+            a.cmovne(active_code_ix, ARG1);
         }
 
 #if !defined(NATIVE_ERLANG_STACK)
-        a.leave();
+        /* Restore the unaligned stack pointer we saved on enter. */
+        a.mov(x86::rsp, getRuntimeStackRef());
 #endif
     }
 
