@@ -507,6 +507,8 @@ shell(ConnectionRef) when is_pid(ConnectionRef) ->
     case ssh_connection:session_channel(ConnectionRef, infinity) of
 	{ok,ChannelId}  ->
 	    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+            success = ssh_connection:send_environment_vars(ConnectionRef, ChannelId,
+                                                           ["LANG", "LC_ALL"]),
 	    Args = [{channel_cb, ssh_shell},
 		    {init_args,[ConnectionRef, ChannelId]},
 		    {cm, ConnectionRef}, {channel_id, ChannelId}],
