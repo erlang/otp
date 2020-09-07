@@ -38,6 +38,8 @@
     pg/0, pg/1,
     errors/0, errors/1,
     leave_exit_race/0, leave_exit_race/1,
+    dyn_distribution/0, dyn_distribution/1,
+    process_owner_check/0, process_owner_check/1,
     overlay_missing/0, overlay_missing/1,
     single/0, single/1,
     two/1,
@@ -92,13 +94,13 @@ end_per_testcase(TestCase, _Config) ->
     ok.
 
 all() ->
-    [{group, basic}, {group, cluster}, {group, performance}].
+    [dyn_distribution, {group, basic}, {group, cluster}, {group, performance}].
 
 groups() ->
     [
         {basic, [parallel], [errors, pg, leave_exit_race, single, overlay_missing]},
         {performance, [sequential], [thundering_herd]},
-        {cluster, [parallel], [two, initial, netsplit, trisplit, foursplit,
+        {cluster, [parallel], [process_owner_check, two, initial, netsplit, trisplit, foursplit,
             exchange, nolocal, double, scope_restart, missing_scope_join,
             disconnected_start, forced_sync, group_leave]}
     ].
@@ -170,6 +172,42 @@ single(Config) when is_list(Config) ->
     sync(?FUNCTION_NAME),
     ?assertEqual([self()], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     ?assertEqual(ok, pg:leave(?FUNCTION_NAME, ?FUNCTION_NAME, self())),
+    ok.
+
+dyn_distribution() ->
+    [{doc, "Tests that local node when distribution is started dynamically is not treated as remote node"}].
+
+dyn_distribution(Config) when is_list(Config) ->
+    %% When distribution is started or stopped dynamically,
+    %%  there is a nodeup/nodedown message delivered to pg
+    %% It is possible but non-trivial to simulate this
+    %%  behaviour with starting slave nodes being not
+    %%  distributed, and calling net_kernel:start/1, however
+    %%  the effect is still the same as simply sending nodeup,
+    %%  which is also documented.
+    ?FUNCTION_NAME ! {nodeup, node()},
+    %%
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, self())),
+    ?assertEqual([self()], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    ok.
+
+process_owner_check() ->
+    [{doc, "Tests that process owner is local node"}].
+
+process_owner_check(Config) when is_list(Config) ->
+    {TwoPeer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    %% spawn remote process
+    LocalPid = erlang:spawn(forever()),
+    RemotePid = erlang:spawn(TwoPeer, forever()),
+    %% check they can't be joined locally
+    ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid)),
+    ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid])),
+    ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [LocalPid, RemotePid])),
+    %% check that non-pid also triggers error
+    ?assertException(error, function_clause, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, undefined)),
+    ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [undefined])),
+    %% stop the peer
+    stop_node(TwoPeer, Socket),
     ok.
 
 overlay_missing() ->

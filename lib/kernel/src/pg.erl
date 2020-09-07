@@ -342,6 +342,8 @@ handle_info({nodedown, _Node}, State) ->
     {noreply, State};
 
 %% nodeup: discover if remote node participates in the overlay network
+handle_info({nodeup, Node}, State) when Node =:= node() ->
+    {noreply, State};
 handle_info({nodeup, Node}, #state{scope = Scope} = State) ->
     {Scope, Node} ! {discover, self()},
     {noreply, State};
