@@ -108,6 +108,15 @@ local_setup:
 		$(ERL_TOP)/bin/start_sasl.script \
 		$(ERL_TOP)/bin/start_clean.script \
 		$(ERL_TOP)/bin/no_dot_erlang.script
+# On Android, the shell is found in /system/bin/sh instead of /bin/sh
+	@case "$(TARGET)" in \
+		*-android*) \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			$(ERL_TOP)/bin/erl; \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			$(ERL_TOP)/bin/cerl; \
+		;; \
+	esac
 
 # ----------------------------------------------------------------------
 # These are "convenience targets", provided as shortcuts for developers
