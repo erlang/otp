@@ -309,6 +309,26 @@ int wxCALLBACK wxEListCtrlCompare(wxeIntPtr item1, wxeIntPtr item2, wxeIntPtr ca
 }
 
 
+/* *****************************************************************/
+// TaskBarIcon with callbacks for VIRTUAL_TABLES
+
+wxMenu* EwxTaskBarIcon::CreatePopupMenu() {
+  if(createPopupMenu) {
+    INVOKE_CALLBACK(port, createPopupMenu, "wxTaskBarIcon");
+    char * bp = ((WxeApp *) wxTheApp)->cb_buff;
+    wxeMemEnv * memenv =  ((WxeApp *) wxTheApp)->getMemEnv(port);
+    if(bp) {
+      wxMenu * result = (wxMenu *)((WxeApp *) wxTheApp)->getPtr(bp, memenv);
+      driver_free(((WxeApp *) wxTheApp)->cb_buff);
+      ((WxeApp *) wxTheApp)->cb_buff = NULL;
+      return result;
+    }
+  }
+  return NULL;
+}
+
+
+
 // tools
 
 void clear_cb(ErlDrvTermData port, int callback)
