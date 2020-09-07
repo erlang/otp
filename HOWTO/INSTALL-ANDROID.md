@@ -45,7 +45,8 @@ Use the following instead when compiling a 32-bit version.
 
 ### Compile Erlang/OTP ###
 
-    $ # make noboot [-j4] # noboot doesn't work, is it a recent regression?
+    $ make noboot [-j4]
+      or
     $ make [-j4]
 
 
@@ -77,19 +78,6 @@ from other local applications due to Android sandbox security model.
 To properly integrate into an Android application, the installation would have
 to target /data/data/[your/app/package/name]/files/[erlang/dir/once/unpacked]
 as shown in https://github.com/JeromeDeBretagne/erlanglauncher as an example.
-
-TODO: Propose a permanent fix for the following issue.
-Adapt the installation specifically for Android, by replacing manually /bin/sh
-into /system/bin/sh in the various Erlang/OTP release scripts, such as:
-   - bin/erl
-   - bin/start
-   - bin/start_erl
-   - erts-X.Y.Z/bin/erl
-   - erts-X.Y.Z/bin/erl.src
-   - erts-X.Y.Z/bin/start
-   - erts-X.Y.Z/bin/start_erl.src
-   - erts-X.Y.Z/bin/start.src
-   - etc.
 
 WARNING: adb has issues with symlinks (and java.util.zip too). There is only
 one symlink for epmd in recent Erlang/OTP releases (20 to master-based 23) so
