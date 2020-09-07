@@ -1241,10 +1241,6 @@ handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTE
 
 handle_event(cast, {reply_request,Resp,ChannelId}, StateName, D) when ?CONNECTED(StateName) ->
     case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
-	#channel{remote_id = RemoteId} ->
-	    Msg = ssh_connection:channel_success_msg(RemoteId),
-	    update_inet_buffers(D#data.socket),
-	    {keep_state, send_msg(Msg,D)};
         #channel{remote_id = RemoteId} when Resp== success ; Resp==failure ->
             Msg = 
                 case Resp of
@@ -1257,10 +1253,10 @@ handle_event(cast, {reply_request,Resp,ChannelId}, StateName, D) when ?CONNECTED
         #channel{} ->
             Details = io_lib:format("Unhandled reply in state ~p:~n~p", [StateName,Resp]),
             ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D);
- 
- 	undefined ->
- 	    keep_state_and_data
-     end;
+
+	undefined ->
+	    keep_state_and_data
+    end;
 
 handle_event(cast, {request,ChannelPid, ChannelId, Type, Data}, StateName, D) when ?CONNECTED(StateName) ->
     {keep_state,  handle_request(ChannelPid, ChannelId, Type, Data, false, none, D)};

@@ -41,6 +41,12 @@
 	  cm,
 	  channel,
 	  pty,
+          encoding,
+          deduced_encoding, % OpenSSH sometimes lies about its encodeing. This variable
+                            % is for the process of guessing the peer encoding, taylord
+                            % after the behaviour of openssh.  If it says latin1 it is so.
+                            % It there arrives characters encoded in latin1 it is so. Otherwise
+                            % assume utf8 until otherwise is proved.
 	  group,
 	  buf,
 	  shell,
@@ -70,8 +76,9 @@ init([Shell]) ->
 %%--------------------------------------------------------------------
 handle_ssh_msg({ssh_cm, _ConnectionHandler,
 		{data, _ChannelId, _Type, Data}}, 
-	       #state{group = Group} = State) ->
-    List = binary_to_list(Data),
+	       #state{group = Group} = State0) ->
+    {Enc, State} = guess_encoding(Data, State0),
+    List = unicode:characters_to_list(Data, Enc),
     to_group(List, Group),
     {ok, State};
 
@@ -93,10 +100,69 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,
     {ok, State};
 
 handle_ssh_msg({ssh_cm, ConnectionHandler,
-	    {env, ChannelId, WantReply, _Var, _Value}}, State) ->
+	    {env, ChannelId, WantReply, Var, Value}}, State = #state{encoding=Enc0}) ->
+    %% It is not as simple as it sounds to set environment variables
+    %% in the server.
+    %% The (OS) env vars should be per per Channel; otherwise anyone
+    %% could affect anyone other's variables.
+    %% Therefore this clause always return a failure.
     ssh_connection:reply_request(ConnectionHandler,
 				 WantReply, failure, ChannelId),
-    {ok, State};
+
+    %% https://pubs.opengroup.org/onlinepubs/7908799/xbd/envvar.html
+    %% LANG
+    %%     This variable determines the locale category for native language,
+    %%     local customs and coded character set in the absence of the LC_ALL
+    %%     and other LC_* (LC_COLLATE, LC_CTYPE, LC_MESSAGES, LC_MONETARY,
+    %%     LC_NUMERIC, LC_TIME) environment variables. This can be used by
+    %%     applications to determine the language to use for error messages
+    %%     and instructions, collating sequences, date formats, and so forth. 
+    %% LC_ALL
+    %%     This variable determines the values for all locale categories. The
+    %%     value of the LC_ALL environment variable has precedence over any of
+    %%     the other environment variables starting with LC_ (LC_COLLATE,
+    %%     LC_CTYPE, LC_MESSAGES, LC_MONETARY, LC_NUMERIC, LC_TIME) and the
+    %%     LANG environment variable.
+    %% ...
+    %%
+    %%  The values of locale categories are determined by a precedence order;
+    %%  the first condition met below determines the value:
+    %%
+    %%   1. If the LC_ALL environment variable is defined and is not null,
+    %%      the value of LC_ALL is used.
+    %%
+    %%   2. If the LC_* environment variable ( LC_COLLATE, LC_CTYPE, LC_MESSAGES,
+    %%      LC_MONETARY, LC_NUMERIC, LC_TIME) is defined and is not null, the
+    %%      value of the environment variable is used to initialise the category
+    %%      that corresponds to the environment variable.
+    %%
+    %%   3. If the LANG environment variable is defined and is not null, the value
+    %%      of the LANG environment variable is used.
+    %%
+    %%   4. If the LANG environment variable is not set or is set to the empty string,
+    %%      the implementation-dependent default locale is used. 
+
+    Enc =
+        %% Rule 1 and 3 above says that LC_ALL has precedence over LANG. Since they
+        %% arrives in different messages and in an undefined order, it is resolved
+        %% like this:
+        case Var of
+            <<"LANG">> when Enc0==undefined ->
+                %% No previous LC_ALL
+                case claim_encoding(Value) of
+                    {ok,Enc1} -> Enc1;
+                    _ -> Enc0
+                end;
+            <<"LC_ALL">> ->
+                %% Maybe or maybe not a LANG has been handled, LC_ALL doesn't care
+                case claim_encoding(Value) of
+                    {ok,Enc1} -> Enc1;
+                    _ -> Enc0
+                end;
+            _ ->
+                Enc0
+        end,
+    {ok, State#state{encoding=Enc}};
 
 handle_ssh_msg({ssh_cm, ConnectionHandler,
 	    {window_change, ChannelId, Width, Height, PixWidth, PixHeight}},
@@ -114,15 +180,21 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, #sta
     ssh_connection:exit_status(ConnectionHandler, ChannelId, ?EXEC_ERROR_STATUS),
     ssh_connection:send_eof(ConnectionHandler, ChannelId),
     {stop, ChannelId, State#state{channel = ChannelId, cm = ConnectionHandler}};
-handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, State) ->
+handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, State0) ->
+    State = case State0#state.encoding of
+                undefined -> State0#state{encoding = utf8};
+                _-> State0
+            end,
     NewState = start_shell(ConnectionHandler, State),
     ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
     {ok, NewState#state{channel = ChannelId,
 			cm = ConnectionHandler}};
 
-handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd}}, S0) ->
+handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd0}}, S0) ->
+    {Enc,S1} = guess_encoding(Cmd0, S0),
+    Cmd = unicode:characters_to_list(Cmd0, Enc),
     case
-        case S0#state.exec of
+        case S1#state.exec of
             disabled ->
                 {"Prohibited.", ?EXEC_ERROR_STATUS, 1};
 
@@ -130,7 +202,7 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd}}, 
                 %% Exec called and a Fun or MFA is defined to use.  The F returns the
                 %% value to return.
                 %% The standard I/O is directed from/to the channel ChannelId.
-                exec_direct(ConnectionHandler, ChannelId, Cmd, F, WantReply, S0);
+                exec_direct(ConnectionHandler, ChannelId, Cmd, F, WantReply, S1);
 
             undefined when S0#state.shell == ?DEFAULT_SHELL ; 
                            S0#state.shell == disabled ->
@@ -138,7 +210,7 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd}}, 
                 %% To be exact, eval the term as an Erlang term (but not using the
                 %% ?DEFAULT_SHELL directly). This disables banner, prompts and such.
                 %% The standard I/O is directed from/to the channel ChannelId.
-                exec_in_erlang_default_shell(ConnectionHandler, ChannelId, Cmd, WantReply, S0);
+                exec_in_erlang_default_shell(ConnectionHandler, ChannelId, Cmd, WantReply, S1);
 
             undefined ->
                 %% Exec called, but the a shell other than the default shell is defined.
@@ -150,17 +222,18 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd}}, 
                 %% Exec called and a Fun or MFA is defined to use.  The F communicates via
                 %% standard io:write/read.
                 %% Kept for compatibility.
-                S1 = start_exec_shell(ConnectionHandler, Cmd, S0),
+                S2 = start_exec_shell(ConnectionHandler, Cmd, S1),
                 ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
-                {ok, S1}
+                {ok, S2}
         end
     of
         {Reply, Status, Type} ->
-            write_chars(ConnectionHandler, ChannelId, Type, Reply),
+            write_chars(ConnectionHandler, ChannelId, Type,
+                        unicode:characters_to_binary(Reply, utf8, out_enc(S1))),
             ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
             ssh_connection:exit_status(ConnectionHandler, ChannelId, Status),
             ssh_connection:send_eof(ConnectionHandler, ChannelId),
-            {stop, ChannelId, S0#state{channel = ChannelId, cm = ConnectionHandler}};
+            {stop, ChannelId, S1#state{channel = ChannelId, cm = ConnectionHandler}};
             
         {ok, S} ->
             {ok, S#state{channel = ChannelId,
@@ -225,9 +298,10 @@ handle_msg({Group, tty_geometry}, #state{group = Group,
     {ok,State};
     
 handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
-				 cm = ConnectionHandler,
-				 channel = ChannelId} = State) ->
-    {Chars, NewBuf} = io_request(Req, Buf, Pty, Group),
+                                cm = ConnectionHandler,
+                                channel = ChannelId} = State) ->
+    {Chars0, NewBuf} = io_request(Req, Buf, Pty, Group),
+    Chars = unicode:characters_to_binary(Chars0, utf8, out_enc(State)),
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{buf = NewBuf}};
 
@@ -258,6 +332,61 @@ terminate(_Reason, _State) ->
 
 %%--------------------------------------------------------------------
 %%% Internal functions
+%%--------------------------------------------------------------------
+
+claim_encoding(<<"/", _/binary>>) ->
+    %% If the locale value begins with a slash, it is interpreted
+    %% as the pathname of a file that was created in the output format
+    %% used by the localedef utility; see OUTPUT FILES under localedef.
+    %% Referencing such a pathname will result in that locale being used
+    %% for the indicated category.
+    undefined;
+
+claim_encoding(EnvValue) ->
+    %% If the locale value has the form:
+    %%      language[_territory][.codeset]
+    %% it refers to an implementation-provided locale, where settings of
+    %% language, territory and codeset are implementation-dependent. 
+    try string:tokens(binary_to_list(EnvValue), ".")
+    of
+        [_,"UTF-8"] -> {ok,utf8};
+        [_,"ISO-8859-1"] -> {ok,latin1};  % There are -1 ... -16  called latin1..latin16
+        _ -> undefined
+    catch
+        _:_ -> undefined
+    end.
+
+
+guess_encoding(Data0, #state{encoding = PeerEnc0,
+                             deduced_encoding = TestEnc0} = State) ->
+    Enc =
+        case {PeerEnc0,TestEnc0} of
+            {latin1,_} -> latin1;
+            {_,latin1} -> latin1;
+            _ -> case unicode:characters_to_binary(Data0, utf8, utf8) of
+                     Data0 -> utf8;
+                     _ -> latin1
+                 end
+        end,
+    case TestEnc0 of
+        Enc ->
+            {Enc, State};
+        latin1 ->
+            {Enc, State};
+        utf8 when Enc==latin1 ->
+            {Enc, State#state{deduced_encoding=latin1}};
+        undefined ->
+            {Enc, State#state{deduced_encoding=Enc}}
+    end.
+
+
+out_enc(#state{encoding = PeerEnc,
+               deduced_encoding = DeducedEnc}) ->
+    case DeducedEnc of
+        undefined -> PeerEnc;
+        _ -> DeducedEnc
+    end.
+
 %%--------------------------------------------------------------------
 
 to_group([], _Group) ->
@@ -694,7 +823,7 @@ ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2).
 
 ssh_dbg_format(cli, {call,{?MODULE,handle_ssh_msg,
                            [{ssh_cm, _ConnectionHandler, Request},
-                            #state{channel=Ch}]}}) when is_tuple(Request) ->
+                            S = #state{channel=Ch}]}}) when is_tuple(Request) ->
     [io_lib:format("CLI conn ~p chan ~p, req ~p", 
                    [self(),Ch,element(1,Request)]),
      case Request of
@@ -722,6 +851,14 @@ ssh_dbg_format(cli, {call,{?MODULE,handle_ssh_msg,
                      {data, us, ssh_dbg:shrink_bin(Data)},
                      {hex, h, Data}
                     ]);
+
+         {shell, ChannelId, WantReply} ->
+             fmt_kv([{channel_id,ChannelId},
+                     {want_reply,WantReply},
+                     {encoding, S#state.encoding},
+                     {pty, S#state.pty}
+                    ]);
+
          _ ->
              io_lib:format("~nunder construction:~nRequest = ~p",[Request])
      end];
@@ -775,3 +912,4 @@ fmt_kv1({K,h,V}) -> io_lib:format("~n~p: ~s",[K, [$\n|ssh_dbg:hex_dump(V)]]).
 type(0) -> "0 (normal data)";
 type(1) -> "1 (extended data, i.e. errors)";
 type(T) -> T.
+
