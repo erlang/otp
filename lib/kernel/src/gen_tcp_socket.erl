@@ -111,17 +111,7 @@ connect_lookup(Address, Port, Opts, Timer) ->
             opts = ConnectOpts}} ->
             %%
             %% ?DBG({Domain, BindIP}),
-            BindAddr =
-                case Domain of
-                    local ->
-                        {local, Path} = BindIP,
-                        #{family => Domain,
-                          path   => Path};
-                    _ ->
-                        #{family => Domain,
-                          addr   => BindIP,
-                          port   => BindPort}
-                end,
+            BindAddr = bind_addr(Domain, BindIP, BindPort),
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, Fd, Timer, BindAddr)
     catch
@@ -159,7 +149,7 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
             ErrRef = make_ref(),
             try
                 ok(ErrRef, call(Server, {setopts, SocketOpts ++ Setopts})),
-                ok(ErrRef, call(Server, {bind, BindAddr})),
+                ok(ErrRef, call_bind(Server, BindAddr)),
                 DefaultError = {error, einval},
                 Socket =  
                     val(ErrRef,
@@ -186,6 +176,28 @@ connect_loop([Addr | Addrs], Server, _Error, Timer) ->
             connect_loop(Addrs, Server, Result, Timer)
     end.
 
+bind_addr(Domain, BindIP, BindPort) ->
+    case Domain of
+        local ->
+            case BindIP of
+                any ->
+                    undefined;
+                {local, Path} ->
+                    #{family => Domain,
+                      path   => Path}
+            end;
+        _ when Domain =:= inet;
+               Domain =:= inet6 ->
+            #{family => Domain,
+              addr   => BindIP,
+              port   => BindPort}
+    end.
+
+call_bind(_Server, undefined) ->
+    ok;
+call_bind(Server, BindAddr) ->
+    call(Server, {bind, BindAddr}).
+
 %% -------------------------------------------------------------------------
 
 listen(Port, Opts) ->
@@ -209,17 +221,7 @@ listen(Port, Opts) ->
                     %%
                     Domain = domain(Mod),
                     %% ?DBG({Domain, BindIP}),
-                    BindAddr =
-                        case Domain of
-                            local ->
-                                {local, Path} = BindIP,
-                                #{family => Domain,
-                                  path   => Path};
-                            _ ->
-                                #{family => Domain,
-                                  addr   => BindIP,
-                                  port   => BindPort}
-                        end,
+                    BindAddr = bind_addr(Domain, BindIP, BindPort),
                     listen_open(
                       Domain, ListenOpts, StartOpts, Fd, Backlog, BindAddr)
             end;
@@ -258,7 +260,7 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
                      Server,
                      {setopts,
                       [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts})),
-                ok(ErrRef, call(Server, {bind, BindAddr})),
+                ok(ErrRef, call_bind(Server, BindAddr)),
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?module_socket(Server, Socket)}
             catch
@@ -303,7 +305,7 @@ accept(?module_socket(ListenServer, ListenSocket), Timeout) ->
 %% -------------------------------------------------------------------------
 
 send(?module_socket(Server, Socket), Data) ->
-    case socket:getopt(Socket, otp, meta) of
+    case socket:getopt(Socket, {otp,meta}) of
         {ok,
          #{packet := Packet,
            send_timeout := SendTimeout} = Meta} ->
@@ -619,43 +621,44 @@ conv_setopt(Other) -> Other.
 %% Socket options
 
 socket_setopt(Socket, {raw, Level, Key, Value}) ->
-    socket:setopt(Socket, Level, Key, Value);
+    socket:setopt_native(Socket, {Level,Key}, Value);
 socket_setopt(Socket, {raw, {Level, Key, Value}}) ->
-    socket:setopt(Socket, Level, Key, Value);
+    socket:setopt_native(Socket, {Level,Key}, Value);
 socket_setopt(Socket, {Tag, Value}) ->
     case socket_opt() of
-        #{Tag := {Level, Key}} ->
-            socket:setopt(
-              Socket, Level, Key,
-              socket_setopt_value(Tag, Value));
+        #{Tag := Opt} ->
+            socket:setopt(Socket, Opt, socket_setopt_value(Tag, Value));
         #{} -> {error, einval}
     end.
 
+socket_setopt_value(linger, {OnOff, Linger}) ->
+    #{onoff => OnOff, linger => Linger};
 socket_setopt_value(_Tag, Value) -> Value.
 
-socket_getopt(Socket, {raw, Level, Key, _Placeholder}) ->
-    socket:getopt(Socket, Level, Key);
-socket_getopt(Socket, {raw, {Level, Key, _Placeholder}}) ->
-    socket:getopt(Socket, Level, Key);
+socket_getopt(Socket, {raw, Level, Key, ValueSpec}) ->
+    socket:getopt_native(Socket, {Level,Key}, ValueSpec);
+socket_getopt(Socket, {raw, {Level, Key, ValueSpec}}) ->
+    socket:getopt_native(Socket, {Level,Key}, ValueSpec);
 socket_getopt(Socket, Tag) when is_atom(Tag) ->
     case socket_opt() of
-        #{Tag := {Level, Key}} ->
-            socket_getopt_value(
-              Tag, socket:getopt(Socket, Level, Key));
+        #{Tag := Opt} ->
+            socket_getopt_value(Tag, socket:getopt(Socket, Opt));
         #{} -> {error, einval}
     end.
 
+socket_getopt_value(linger, {ok, #{onoff := OnOff, linger := Linger}}) ->
+    {ok, {OnOff, Linger}};
 socket_getopt_value(_Tag, {ok, _Value} = Ok) -> Ok;
 socket_getopt_value(_Tag, {error, _} = Error) -> Error.
 
 socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
     case socket_opt() of
-        #{Tag := {Level, Key}} ->
-	    case socket:is_supported(Level, Key) of
+        #{Tag := Opt} ->
+	    case socket:is_supported(options, Opt) of
 		true ->
-		    case socket:getopt(Socket, Level, Key) of
+		    case socket:getopt(Socket, Opt) of
 			{ok, Value} ->
-			    socket:setopt(TargetSocket, Level, Key, Value);
+			    socket:setopt(TargetSocket, Opt, Value);
 			{error, _Reason} = Error ->
 			    Error
 		    end;
@@ -901,9 +904,9 @@ init({open, Domain, ExtraOpts, Owner}) ->
     Proto = if (Domain =:= local) -> default; true -> tcp end,
     case socket:open(Domain, stream, Proto, Extra) of
         {ok, Socket} ->
-            D  = server_opts(),
-            ok = socket:setopt(Socket, otp, iow, true),
-            ok = socket:setopt(Socket, otp, meta, meta(D)),
+            D = server_opts(),
+            ok = socket:setopt(Socket, {otp,iow}, true),
+            ok = socket:setopt(Socket, {otp,meta}, meta(D)),
             P =
                 #params{
                    socket = Socket,
@@ -1090,7 +1093,7 @@ handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
 %% Call: setopts/1
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
     {Result, D_1} = state_setopts(P, D, State, Opts),
-    ok = socket:setopt(P#params.socket, otp, meta, meta(D_1)),
+    ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
     Reply = {reply, From, Result},
     case State of
         'connected' ->
@@ -1361,8 +1364,8 @@ handle_connect(
 handle_accept(P, D, From, ListenSocket, Timeout) ->
     case socket:accept(ListenSocket, nowait) of
         {ok, Socket} ->
-            ok = socket:setopt(Socket, otp, iow, true),
-            ok = socket:setopt(Socket, otp, meta, meta(D)),
+            ok = socket:setopt(Socket, {otp,iow}, true),
+            ok = socket:setopt(Socket, {otp,meta}, meta(D)),
             [ok = socket_copy_opt(ListenSocket, Opt, Socket)
              || Opt <- socket_inherit_opts()],
             handle_connected(

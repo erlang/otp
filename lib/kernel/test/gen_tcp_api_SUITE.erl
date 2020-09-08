@@ -212,86 +212,15 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(t_local = _GroupName, Config) ->
-    %% A specific inet-backend can be enabled by the environment
-    case lists:keysearch(socket_create_opts, 1, Config) of
-        {value, {socket_create_opts, []}} ->
-            %% Default
-            %% Currently, default is inet, so unless the user has set
-            %% the environment variable ERL_FLAGS to use socket, we
-            %% use inet.
-            case application:get_all_env(kernel) of
-                Env when is_list(Env) ->
-                    case lists:keysearch(inet_backend, 1, Env) of
-                        {value, {inet_backend, socket}} ->
-                            try is_local_socket_supported() of
-                                true ->
-                                    Config;
-                                false ->
-                                    {skip, "AF_LOCAL not supported"}
-                            catch
-                                _:_:_ ->
-                                    {skip, "AF_LOCAL not supported"}
-                            end;
-                        _ ->
-                            try is_local_inet_supported() of
-                                true ->
-                                    Config;
-                                false ->
-                                    {skip, "AF_LOCAL not supported"}
-                            catch
-                                _:_:_ ->
-                                    {skip, "AF_LOCAL not supported"}
-                            end
-                    end;
-                _ ->
-                    try is_local_inet_supported() of
-                        true ->
-                            Config;
-                        false ->
-                            {skip, "AF_LOCAL not supported"}
-                    catch
-                        _:_:_ ->
-                            {skip, "AF_LOCAL not supported"}
-                    end
-            end;
-
-         {value, {socket_create_opts, [{inet_backend, inet}]}} ->
-            try is_local_inet_supported() of
-                true ->
-                    Config;
-                false ->
-                    {skip, "AF_LOCAL not supported"}
-            catch
-                _:_:_ ->
-                    {skip, "AF_LOCAL not supported"}
-            end;
-
-         {value, {socket_create_opts, [{inet_backend, socket}]}} ->
-            try is_local_socket_supported() of
-                true ->
-                    Config;
-                false ->
-                    {skip, "AF_LOCAL not supported"}
-            catch
-                _:_:_ ->
-                    {skip, "AF_LOCAL not supported"}
-            end
+    case gen_tcp:connect({local,<<"/">>}, 0, []) of
+	{error, eafnosupport} ->
+            {skip, "AF_LOCAL not supported"};
+	{error,_} ->
+	    Config
     end;
 init_per_group(_GroupName, Config) ->
     Config.
 
-
-is_local_socket_supported() ->
-    socket:is_supported(local).
-
-is_local_inet_supported() ->
-    case gen_tcp:connect({local,<<"/">>}, 0, []) of
-	{error, eafnosupport} ->
-	    false;
-	{error,_} ->
-	    true
-    end.
-    
 end_per_group(t_local, _Config) ->
     delete_local_filenames();
 end_per_group(_, _Config) ->
