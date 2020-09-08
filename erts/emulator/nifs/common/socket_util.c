@@ -319,8 +319,8 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
                                          &sockAddrP->in6, addrLen);
 #endif
 
-#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
-    case AF_UNIX:
+#ifdef HAS_AF_LOCAL
+    case AF_LOCAL:
         return esock_decode_sockaddr_un(env, eSockAddr,
                                         &sockAddrP->un, addrLen);
 #endif
@@ -376,8 +376,8 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
         break;
 #endif
 
-#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
-    case AF_UNIX:
+#ifdef HAS_AF_LOCAL
+    case AF_LOCAL:
         esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen,
                                  eSockAddr);
         break;
@@ -663,7 +663,7 @@ void esock_encode_sockaddr_in6(ErlNifEnv*           env,
  * is no need for any elaborate error handling here.
  */
 
-#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
+#ifdef HAS_AF_LOCAL
 extern
 BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
                                    ERL_NIF_TERM        eSockAddr,
@@ -700,7 +700,7 @@ BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
 
 
     sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_un));
-    sockAddrP->sun_family = AF_UNIX;
+    sockAddrP->sun_family = AF_LOCAL;
 
     sys_memcpy(sockAddrP->sun_path, bin.data, bin.size);
     len = offsetof(struct sockaddr_un, sun_path) + bin.size;
@@ -727,7 +727,7 @@ BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
  *
  */
 
-#if defined(HAVE_SYS_UN_H)
+#ifdef HAS_AF_LOCAL
 extern
 void esock_encode_sockaddr_un(ErlNifEnv*          env,
                               struct sockaddr_un* sockAddrP,
@@ -746,6 +746,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
              */
             *eSockAddr = esock_atom_bad_data;
         } else {
+            unsigned char *path;
 
             m = esock_strnlen(sockAddrP->sun_path, n);
 #ifdef __linux__
@@ -761,7 +762,9 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
 #endif
 
             /* And finally build the 'path' attribute */
-            ePath      = MKSL(env, sockAddrP->sun_path, m);
+            path = enif_make_new_binary(env, m, &ePath);
+            ESOCK_ASSERT( path != NULL );
+            sys_memcpy(path, sockAddrP->sun_path, m);
 
             /* And the socket address */
             make_sockaddr_un(env, ePath, eSockAddr);
@@ -861,7 +864,7 @@ BOOLEAN_T esock_decode_in_addr(ErlNifEnv*      env,
 
         if (COMPARE(esock_atom_loopback, eAddr) == 0) {
             UDBG( ("SUTIL",
-		   "esock_decode_in_addr -> address: lookback\r\n") );
+		   "esock_decode_in_addr -> address: loopback\r\n") );
             addr.s_addr = htonl(INADDR_LOOPBACK);
         } else if (COMPARE(esock_atom_any, eAddr) == 0) {
             UDBG( ("SUTIL",
@@ -1086,15 +1089,6 @@ BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
                                struct timeval* timeP)
 {
     ERL_NIF_TERM eSec, eUSec;
-    size_t       sz;
-
-    // It must be a map
-    if (! IS_MAP(env, eTime))
-        return FALSE;
-
-    // It must have atleast two attributes
-    if (! enif_get_map_size(env, eTime, &sz) || (sz < 2))
-        return FALSE;
 
     if (! GET_MAP_VAL(env, eTime, esock_atom_sec, &eSec))
         return FALSE;
@@ -1150,7 +1144,7 @@ BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
  * 
  *    inet  => AF_INET
  *    inet6 => AF_INET6
- *    local => AF_UNIX
+ *    local => AF_LOCAL
  *
  */
 extern
@@ -1166,13 +1160,18 @@ BOOLEAN_T esock_decode_domain(ErlNifEnv*   env,
         *domain = AF_INET6;
 #endif
 
-#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
+#ifdef HAS_AF_LOCAL
     } else if (COMPARE(esock_atom_local, eDomain) == 0) {
-        *domain = AF_UNIX;
+        *domain = AF_LOCAL;
 #endif
 
     } else {
-        return FALSE;
+        int d = 0;
+
+        if (GET_INT(env, eDomain, &d))
+            *domain = d;
+        else
+            return FALSE;
     }
 
     return TRUE;
@@ -1186,7 +1185,7 @@ BOOLEAN_T esock_decode_domain(ErlNifEnv*   env,
  * 
  *    AF_INET  => inet
  *    AF_INET6 => inet6
- *    AF_UNIX  => local
+ *    AF_LOCAL  => local
  *
  */
 extern
@@ -1205,8 +1204,8 @@ void esock_encode_domain(ErlNifEnv*    env,
         break;
 #endif
 
-#if defined(HAVE_SYS_UN_H) && defined(AF_UNIX)
-    case AF_UNIX:
+#ifdef HAS_AF_LOCAL
+    case AF_LOCAL:
         *eDomain = esock_atom_local;
         break;
 #endif
@@ -1244,20 +1243,28 @@ BOOLEAN_T esock_decode_type(ErlNifEnv*   env,
         } else if (COMPARE(esock_atom_seqpacket, eType) == 0) {
             *type = SOCK_SEQPACKET;
 #endif
-        } else {
-            return FALSE;
-        }
+        } else
+            goto integer;
     } else if (0 < cmp) {
         if (COMPARE(esock_atom_dgram, eType) == 0) {
             *type = SOCK_DGRAM;
-        } else {
-            return FALSE;
-        }
-    } else {
+        } else
+            goto integer;
+    } else
         *type = SOCK_RAW;
-    }
 
     return TRUE;
+
+ integer:
+    {
+        int t = 0;
+
+        if (GET_INT(env, eType, &t)) {
+            *type = t;
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 
@@ -1296,107 +1303,15 @@ void esock_encode_type(ErlNifEnv*    env,
         break;
 #endif
 
+#ifdef SOCK_RDM
+    case SOCK_RDM:
+        *eType = esock_atom_rdm;
+        break;
+#endif
+
     default:
         *eType = MKI(env, type);
     }
-}
-
-
-
-/* +++ esock_encode_protocol +++
- *
- * Encode the native protocol to the Erlang form, that is: 
- * 
- *    SOL_IP | IPPROTO_IP => ip
- *    SOL_IPV6            => ipv6
- *    SOL_TCP             => tcp
- *    SOL_UDP             => udp
- *    SOL_SCTP            => sctp
- *
- */
-extern
-void esock_encode_protocol(ErlNifEnv*    env,
-                           int           proto,
-                           ERL_NIF_TERM* eProto)
-{
-    switch (proto) {
-#if defined(SOL_IP)
-    case SOL_IP:
-#else
-    case IPPROTO_IP:
-#endif
-        *eProto = esock_atom_ip;
-        break;
-
-#if defined(SOL_IPV6)
-    case SOL_IPV6:
-        *eProto = esock_atom_ipv6;
-        break;
-#endif
-
-    case IPPROTO_TCP:
-        *eProto = esock_atom_tcp;
-        break;
-
-    case IPPROTO_UDP:
-        *eProto = esock_atom_udp;
-        break;
-
-#if defined(HAVE_SCTP)
-    case IPPROTO_SCTP:
-        *eProto = esock_atom_sctp;
-        break;
-#endif
-
-    default:
-        *eProto = MKI(env, proto);
-        break;
-    }
-}
-
-
-
-/* +++ esock_decode_protocol +++
- *
- * Decode the Erlang form of the 'protocol' type, that is: 
- * 
- *    ip   => SOL_IP | IPPROTO_IP
- *    ipv6 => SOL_IPV6
- *    tcp  => SOL_TCP
- *    udp  => SOL_UDP
- *    sctp => SOL_SCTP
- *
- */
-extern
-BOOLEAN_T esock_decode_protocol(ErlNifEnv*   env,
-                                ERL_NIF_TERM eProto,
-                                int*         proto)
-{
-    if (COMPARE(esock_atom_ip, eProto) == 0) {
-#if defined(SOL_IP)
-        *proto = SOL_IP;
-#else
-        *proto = IPPROTO_IP;
-#endif
-    } else if (COMPARE(esock_atom_ipv6, eProto) == 0) {
-#if defined(SOL_IPV6)
-        *proto = SOL_IPV6;
-#else
-        *proto = IPPROTO_IPV6;
-#endif
-    } else if (COMPARE(esock_atom_tcp, eProto) == 0) {
-        *proto = IPPROTO_TCP;
-    } else if (COMPARE(esock_atom_udp, eProto) == 0) {
-        *proto = IPPROTO_UDP;
-#if defined(HAVE_SCTP)
-    } else if (COMPARE(esock_atom_sctp, eProto) == 0) {
-        *proto = IPPROTO_SCTP;
-#endif
-    } else {
-        return FALSE;
-    }
-
-    return TRUE;
 }
 
 

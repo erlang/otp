@@ -1821,7 +1821,14 @@ AC_CHECK_HEADERS(sched.h setns.h)
 AC_CHECK_FUNCS([setns])
 
 dnl Check for linux/errqueue
-AC_CHECK_HEADERS(linux/errqueue.h)
+AC_CHECK_HEADERS([linux/types.h linux/errqueue.h], [], [],
+[[#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_LINUX_TYPES_H
+# include <linux/types.h>
+#endif
+]])
 
 HAVE_VALGRIND=no
 AC_CHECK_HEADER(valgrind/valgrind.h, HAVE_VALGRIND=yes)
@@ -2242,6 +2249,8 @@ AC_CHECK_FUNCS([openpty])
 
 AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h netpacket/packet.h sys/un.h)
 AC_CHECK_FUNCS([getifaddrs])
+AC_CHECK_MEMBERS([struct sockaddr_un.sun_path], [], [],
+		 [[#include <sys/un.h>]])
 
 dnl Checks for variables in6addr_any and in6addr_loopback,
 dnl

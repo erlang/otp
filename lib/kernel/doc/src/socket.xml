@@ -58,10 +58,26 @@
 	<tag></tag>
 	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
       </taglist>
-      <p>The caller can now make another
-      call to the recv function and now expect data.</p>
-      <p>Note that all other users are <em>locked out</em> until the
-      'current user' has called the function (recv in this case).</p>
+      <p>
+	The caller can now make new call
+	to the recv function and expect data.
+      </p>
+      <p>
+	Note that all other users are <em>locked out</em> until the
+	'current user' has called the function (recv in this case).
+      </p>
+      <p>
+	Instead of <c>Timeout = nowait</c> it is equivalent to	create a
+	<seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>)
+	with
+	<seemfa marker="erts:erlang#make_ref/0"><c>make_ref()</c></seemfa>
+	and give as <c>Timeout</c>.
+	This will then be the <c>SelectHandle</c> in the 'select' message,
+	which enables a compiler optimization for receiving
+	a message containing a newly created <c>reference()</c>
+	(ignore the part of the message queue that had arrived
+	before the the <c>reference()</c> was created).
+      </p>
       <p>Another message the user must be prepared for (when making asynchronous
       calls) is the <c>abort</c> message:</p>
       <taglist>
@@ -84,9 +100,21 @@
   <datatypes>
     <datatype>
       <name name="domain"/>
+      <desc>
+	<p>
+	  A lowercase <c>atom()</c> representing a protocol domain
+	  on the platform named <c>AF_*</c> (or <c>PF_*</c>).
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="type"/>
+      <desc>
+	<p>
+	  A lowercase <c>atom()</c> representing a protocol type
+	  on the platform named <c>SOCK_*</c>.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="protocol"/>
@@ -95,16 +123,15 @@
 	  An <c>atom()</c> means any protocol as enumerated by the
 	  <c>C</c> library call <c>getprotoent()</c>
 	  on the platform, or at least the supported ones of
-	  <c>ip | ipv6 | tcp | udp | sctp</c>.
+	  <c>ip | ipv6 | tcp | udp | sctp</c>,
+	  and <c>default</c> which is equivalent to the
+	  integer protocol number <c>0</c>.
 	</p>
-	<p>
-	  An <c>integer()</c> means a native protocol number
-	  on the platform.  The default protocol is <c>0</c>.
-	</p>
+	<p>See <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa></p>
 	<p>
 	  The call
 	  <seemfa marker="#supports/2"><c>supports(protocols)</c></seemfa>
-	  returns the supported protocol atoms.
+	  returns the supported protocol atoms. (except for <c>default</c>)
 	</p>
       </desc>
     </datatype>
@@ -124,7 +151,10 @@
     <datatype>
       <name name="select_handle"/>
       <desc>
-	<p>A term that uniquely identifies the (select) operation.</p>
+	<p>
+	  A <c>reference()</c> that uniquely identifies
+	  the (select) operation.
+	</p>
       </desc>
     </datatype>
     <datatype>
@@ -153,6 +183,29 @@
     </datatype>
     <datatype>
       <name name="sockaddr_un"/>
+      <desc>
+	<p>
+	  The <c>path</c> element will always be a <c>binary</c> when
+	  returned from this module.  When supplied to an API function
+	  in this module it may be a <c>string()</c>, which will be
+	  encoded into a binary according to the
+	  <seemfa marker="file#native_name_encoding/0">
+	    native file name encoding
+	  </seemfa>
+	  on the platform.
+	</p>
+	<p>
+	  A terminating zero character will be appended before
+	  the address path is given to the OS, and the terminating
+	  zero will be stripped before giving the address path
+	  to the caller.
+	</p>
+	<p>
+	  Linux's non-portable abstract socket address extension is handled
+	  by not doing any terminating zero processing in either direction,
+	  if the first byte of the address is zero.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="sockaddr_ll"/>
@@ -170,10 +223,22 @@
       <name name="in6_scope_id"/>
     </datatype>
     <datatype>
-      <name name="send_flag"/>
-    </datatype>
-    <datatype>
-      <name name="recv_flag"/>
+      <name name="msg_flag"/>
+      <desc>
+	<p>
+	  Flags corresponding to the message flag constants
+	  on the platform.  The flags are lowercase and
+	  the constants are uppercase with the prefix <c>MSG_</c>.
+	</p>
+	<p>
+	  Some flags are only used for sending,
+	  some only for receiving,
+	  some in received control messages,
+	  and some for several of these.
+	  Not all flags are supported on all platforms.
+	  See the platform's documentation.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="sockopt_level"/>
@@ -217,7 +282,8 @@
       <desc>
 	<p>
 	  These are socket options for the <c>otp</c> protocol level,
-	  which is above all OS protocol levels.
+	  that is <c>{otp, Name}</c> options,
+	  above all OS protocol levels.
 	  They affect Erlang/OTP's socket implementation.
 	</p>
 	<taglist>
@@ -242,10 +308,7 @@
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)}
 	    </c>
 	    - Receive buffer size.
-	    <c>default</c> is only valid for
-	    <seemfa marker="#setopt/3"><c>setopt/3</c></seemfa>
-	    and will not be returned from
-	    <seemfa marker="#getopt/2"><c>getopt/2</c></seemfa>.
+	    The value <c>default</c> is only valid to <em>set</em>.
 	    <c>N</c> specifies the number of read attempts to do
 	    in a tight loop before assuming no more data is pending.
 	  </item>
@@ -255,6 +318,7 @@
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
 	    </c>
 	    - Buffer size for received ancillary messages.
+	    The value <c>default</c> is only valid to <em>set</em>.
 	  </item>
 	  <tag><c>sndctrlbuf</c></tag>
 	  <item>
@@ -262,16 +326,25 @@
 	      BufSize&nbsp;::&nbsp;(default&nbsp;|&nbsp;integer()>0)
 	    </c>
 	    - Buffer size for sent ancillary messages.
+	    The value <c>default</c> is only valid to <em>set</em>.
 	  </item>
 	  <tag><c>fd</c></tag>
 	  <item>
 	    <c>integer()</c>
-	    - The OS protocol levels' socket descriptor.
-	    Only valid for
-	    <seemfa marker="#getopt/2"><c>getopt/2</c></seemfa>.
+	    - Only valid to <em>get</em>.
+	    The OS protocol levels' socket descriptor.
 	    Functions <seemfa marker="#open/1"><c>open/1,2</c></seemfa>
 	    can be used to create a socket according to this module
 	    from an existing OS socket descriptor.
+	  </item>
+	  <tag><c>use_registry</c></tag>
+	  <item>
+	    <c>boolean()</c>
+	    - Only valid to <em>get</em>.
+	    The value is set when the socket is created with
+	    <seemfa marker="#open/2"><c>open/2</c></seemfa>
+	    or
+	    <seemfa marker="#open/4"><c>open/4</c></seemfa>.
 	  </item>
 	</taglist>
 	<p>
@@ -297,77 +370,100 @@
 	</p>
 	<note><p>See the OS documentation for every socket option.</p></note>
 	<p>
-	  The value type for an option is <c>boolean()</c>
-	  if the OS documentation indicates so
-	  (that it is an on/off option).
-	  Other options are <c>integer()</c> maybe in
-	  a restricted range (for example byte: <c>0..255</c>),
-	  unless noted below.
+	  An option below that has the value type <c>boolean()</c>
+	  will translate the value <c>false</c>
+	  to a C <c>int</c> with value <c>0</c>,
+	  and the value <c>true</c> to <c>!!0</c> (not (not false)).
 	</p>
 	<p>
-	  Options with special value types or other pecularities
-	  for protocol
-	  <seetype marker="#sockopt_level">level <c>socket</c></seetype>.
+	  An option with value type <c>integer()</c>
+	  will be translated to a C <c>int</c> that may have
+	  a restricted range, for example byte: <c>0..255</c>.
+	  See the OS documentation.
+	</p>
+	<!-- ## Protocol level 'socket' ###################### -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>socket</c></em>:</seetype>
 	</p>
 	<taglist>
+	  <tag><c>{socket, acceptconn}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{socket, bindtodevice}</c></tag>
-	  <item>
-	    <p><c>Value = string()</c></p>
-	  </item>
+	  <item><p><c>Value = string()</c></p></item>
+	  <tag><c>{socket, broadcast}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, debug}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, domain}</c></tag>
 	  <item>
 	    <p>
 	      <c>Value =</c>
 	      <seetype marker="#domain"><c>domain()</c></seetype>
-	      <c>| integer()</c>
 	    </p>
+	    <p>Only valid to <em>get</em>.</p>
 	    <p>
-	      The socket's protocol domain.  Valid to get, not to set.
+	      The socket's protocol domain.
 	      Does <em>not</em> work on for instance FreeBSD.
 	    </p>
 	  </item>
+	  <tag><c>{socket, dontroute}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, keepalive}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{socket, linger}</c></tag>
 	  <item>
 	    <p>
-	      <c>
-		Value = abort |
-		{OnOff&nbsp;::&nbsp;boolean(),&nbsp;Linger&nbsp;::&nbsp;integer()}
-	      </c>
+	      <c>Value = abort |</c>
+	      <seetype marker="#linger"><c>linger()</c></seetype>
 	    </p>
 	    <p>
 	      The value <c>abort</c>
-	      is shorthand for <c>{true, 0}</c>,
-	      is only valid to set,
-	      and will not returned from a get.
+	      is shorthand for <c>#{onoff => true, linger => 0}</c>,
+	      and only valid to <em>set</em>.
 	    </p>
 	  </item>
+	  <tag><c>{socket, oobinline}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, passcred}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{socket, peek_off}</c></tag>
 	  <item>
+	    <p><c>Value = integer()</c></p>
 	    <p>
 	      Currently disabled due to a possible infinite loop when calling
 	      <seemfa marker="#recv/1"><c>recv/1-4</c></seemfa>
 	      with
-	      <seetype marker="#recv_flag"><c>peek</c></seetype>
+	      <seetype marker="#msg_flag"><c>peek</c></seetype>
 	      in <c>Flags</c>.
 	    </p>
 	  </item>
+	  <tag><c>{socket, priority}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, protocol}</c></tag>
 	  <item>
 	    <p>
 	      <c>Value =</c>
 	      <seetype marker="#protocol"><c>protocol()</c></seetype>
-	      <c>| integer()</c>
 	    </p>
+	    <p>Only valid to <em>get</em>.</p>
 	    <p>
-	      The socket's protocol.  Valid to get, not to set.
+	      The socket's protocol.
 	      Does <em>not</em> work on for instance Darwin.
 	    </p>
 	  </item>
+	  <tag><c>{socket, rcvbuf}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{socket, rcvlowat}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, rcvtimeo}</c></tag>
 	  <item>
-	    <p><c>Value = #{sec := integer(), usec := integer()}</c></p>
 	    <p>
-	      This option is not normally supported;
+	      <c>Value =</c>
+	      <seetype marker="#timeval"><c>timeval()</c></seetype>
+	    </p>
+	    <p>
+	      This option is unsupported per default;
 	      OTP has to be explicitly built with the
 	      <c>--enable-esock-rcvsndtimeo</c> configure option
 	      for this to be available.
@@ -385,11 +481,22 @@
 	      function.
 	    </p>
 	  </item>
+	  <tag><c>{socket, reuseaddr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, reuseport}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{socket, sndbuf}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{socket, sndlowat}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
 	  <tag><c>{socket, sndtimeo}</c></tag>
 	  <item>
-	    <p><c>Value = #{sec := integer(), usec := integer()}</c></p>
 	    <p>
-	      This option is not normally supported;
+	      <c>Value =</c>
+	      <seetype marker="#timeval"><c>timeval()</c></seetype>
+	    </p>
+	    <p>
+	      This option is unsupported per default;
 	      OTP has to be explicitly built with the
 	      <c>--enable-esock-rcvsndtimeo</c> configure option
 	      for this to be available.
@@ -407,49 +514,575 @@
 	      function. 
 	    </p>
 	  </item>
+	  <tag><c>{socket, timestamp}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+
 	  <tag><c>{socket, type}</c></tag>
 	  <item>
 	    <p>
 	      <c>Value =</c>
 	      <seetype marker="#type"><c>type()</c></seetype>
+	    </p>
+	    <p>Only valid to <em>get</em>.</p>
+	    <p>The socket's type.</p>
+	  </item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'ip' ########################## -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>ip</c></em>:</seetype>
+	</p>
+	<taglist>
+	  <tag><c>{ip, add_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq"><c>ip_mreq()</c></seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, add_source_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq_source">
+		<c>ip_mreq_source()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, block_source}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq_source">
+		<c>ip_mreq_source()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, drop_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq"><c>ip_mreq()</c></seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, drop_source_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq_source">
+		<c>ip_mreq_source()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ip, freebind}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, hdrincl}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, minttl}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ip, msfilter}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <c>null |</c>
+	      <seetype marker="#ip_msfilter">
+		<c>ip_msfilter()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	    <p>
+	      The value <c>null</c> passes a <c>NULL</c> pointer
+	      and size <c>0</c> to the C library call.
+	    </p>
+	  </item>
+	  <tag><c>{ip, mtu}</c></tag>
+	  <item>
+	    <p><c>Value = integer()</c></p>
+	    <p>Only valid to <em>get</em>.</p>
+	  </item>
+	  <tag><c>{ip, mtu_discover}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_pmtudisc">
+		<c>ip_pmtudisc()</c>
+	      </seetype>
 	      <c>| integer()</c>
 	    </p>
 	    <p>
-	      The socket's type.  Valid to get, not to set.
+	      An <c>integer()</c> value is  according
+	      to the platform's header files.
 	    </p>
 	  </item>
+	  <tag><c>{ip, multicast_all}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, multicast_if}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <c>any |</c>
+	      <seetype marker="#in_addr">
+		<c>in_addr()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ip, multicast_loop}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, multicast_ttl}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ip, nodefrag}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, pktinfo}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvdstaddr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recverr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvif}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvopts}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvorigdstaddr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvtos}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, recvttl}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, retopts}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, router_alert}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ip, sendsrcaddr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, tos}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_tos">
+		<c>ip_tos()</c>
+	      </seetype>
+	    <c> | integer()</c>
+	    </p>
+	    <p>
+	      An <c>integer()</c> value is  according
+	      to the platform's header files.
+	    </p>
+	  </item>
+	  <tag><c>{ip, transparent}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ip, ttl}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ip, unblock_source}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ip_mreq_source">
+		<c>ip_mreq_source()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'ipv6' ######################## -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>ipv6</c></em>:</seetype>
+	</p>
+	<taglist>
+	  <tag><c>{ipv6, addrform}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#domain">
+		<c>domain()</c>
+	      </seetype>
+	    </p>
+	    <p>
+	      As far as we know the only valid value is <c>inet</c>
+	      and it is only allowed for an IPv6 socket that is connected
+	      and bound to an IPv4-mapped IPv6 address.
+	    </p>
+	  </item>
+	  <tag><c>{ipv6, add_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_mreq"><c>ipv6_mreq()</c></seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ipv6, authhdr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, drop_membership}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_mreq"><c>ipv6_mreq()</c></seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{ipv6, dstopts}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, flowinfo}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, hoplimit}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, hopopts}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, mtu}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ipv6, mtu_discover}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_pmtudisc">
+		<c>ipv6_pmtudisc()</c>
+	      </seetype>
+	      <c>| integer()</c>
+	    </p>
+	    <p>
+	      An <c>integer()</c> value is  according
+	      to the platform's header files.
+	    </p>
+	  </item>
+	  <tag><c>{ipv6, multicast_hops}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_hops"><c>ipv6_hops()</c></seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ipv6, multicast_if}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ipv6, multicast_loop}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, recverr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, recvhoplimit}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, recvpktinfo}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, recvtclass}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, router_alert}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{ipv6, rthdr}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, tclass}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{ipv6, unicast_hops}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#ipv6_hops"><c>ipv6_hops()</c></seetype>
+	    </p>
+	  </item>
+	  <tag><c>{ipv6, v6only}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'sctp' ######################## -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>sctp</c></em></seetype>.
+	  See also RFC 6458.
+	</p>
+	<taglist>
+	  <tag><c>{sctp, associnfo}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#sctp_assocparams">
+		<c>sctp_assocparams()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{sctp, autoclose}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{sctp, disable_fragments}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{sctp, events}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#sctp_event_subscribe">
+		<c>sctp_event_subscribe()</c>
+	      </seetype>
+	    </p>
+	    <p>Only valid to <em>set</em>.</p>
+	  </item>
+	  <tag><c>{sctp, initmsg}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#sctp_initmsg">
+		<c>sctp_initmsg()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	  <tag><c>{sctp, maxseg}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{sctp, nodelay}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{sctp, rtoinfo}</c></tag>
+	  <item>
+	    <p>
+	      <c>Value =</c>
+	      <seetype marker="#sctp_rtoinfo">
+		<c>sctp_rtoinfo()</c>
+	      </seetype>
+	    </p>
+	  </item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'tcp' ######################### -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>tcp</c>:</em></seetype>
+	</p>
+	<taglist>
+	  <tag><c>{tcp, congestion}</c></tag>
+	  <item><p><c>Value = string()</c></p></item>
+	  <tag><c>{tcp, cork}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	  <tag><c>{tcp, maxseg}</c></tag>
+	  <item><p><c>Value = integer()</c></p></item>
+	  <tag><c>{tcp, nodelay}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
+	</taglist>
+	<p></p>
+	<!-- ## Protocol level 'udp' ######################### -->
+	<p>
+	  <em>Options for protocol level</em>
+	  <seetype marker="#sockopt_level"><em><c>udp</c>:</em></seetype>
+	</p>
+	<taglist>
+	  <tag><c>{udp, cork}</c></tag>
+	  <item><p><c>Value = boolean()</c></p></item>
 	</taglist>
       </desc>
     </datatype>
     <datatype>
+      <name name="linger"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct linger</c>
+	  for managing the
+	  <seetype marker="#socket_option">socket option</seetype>
+	  <c>{socket, linger}</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="timeval"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct timeval</c>.
+	  The field <c>sec</c> holds seconds,
+	  and <c>usec</c> microseconds.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip_mreq"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct ip_mreq</c>
+	  for managing multicast groups.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip_mreq_source"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct ip_mreq_source</c>
+	  for managing multicast groups.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip_msfilter"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct ip_msfilter</c>
+	  for managing multicast source filtering (RFC 3376).
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip_pmtudisc"/>
+      <desc>
+	<p>
+	  Lowercase <c>atom()</c> values corresponding to
+	  the C library constants <c>IP_PMTUDISC_*</c>.
+	  Some constant(s) may be unsupported by the platform.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="ip_tos"/>
+      <desc>
+	<p>
+	  Lowercase <c>atom()</c> values corresponding to
+	  the C library constants <c>IPTOS_*</c>.
+	  Some constant(s) may be unsupported by the platform.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="ip_pktinfo"/>
     </datatype>
     <datatype>
+      <name name="ipv6_mreq"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct ipv6_mreq</c>
+	  for managing multicast groups.
+	  See also RFC 2553.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ipv6_hops"/>
+      <desc>
+	<p>
+	  The value <c>default</c> is only valid to <em>set</em>
+	  and is translated to the C value <c>-1</c>,
+	  meaning the route default.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ipv6_pmtudisc"/>
+      <desc>
+	<p>
+	  Lowercase <c>atom()</c> values corresponding to
+	  the C library constants <c>IPV6_PMTUDISC_*</c>.
+	  Some constant(s) may be unsupported by the platform.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="ipv6_pktinfo"/>
     </datatype>
     <datatype>
-      <name name="msghdr_flag"/>
+      <name name="sctp_assocparams"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct sctp_assocparams</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="sctp_event_subscribe"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct sctp_event_subscribe</c>.
+	</p>
+	<p>
+	  Not all fields are implemented on all platforms;
+	  unimplemented fields are ignored,
+	  but implemented fields are mandatory.
+	  Note that the '_event' suffixes have been stripped
+	  from the C struct field names, for convenience.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="sctp_initmsg"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct sctp_initmsg</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="sctp_rtoinfo"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct sctp_rtoinfo</c>.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="msghdr"/>
-    </datatype>
-    <datatype>
-      <name name="cmsghdr_level"/>
-    </datatype>
-    <datatype>
-      <name name="cmsghdr_type"/>
+      <desc>
+	<p>
+	  Corresponds to the C <c>struct msghdr</c>,
+	  see your platform  documentation for
+	  <c>sendmsg(2)</c> and <c>recvmsg(2)</c>.
+	</p>
+	<taglist>
+	  <tag><c>addr</c></tag>
+	  <item>
+	    Optional peer address, used on non-connected sockets.
+	  </item>
+	  <tag><c>iov</c></tag>
+	  <item>
+	    Mandatory data as a list of binaries.
+	  </item>
+	  <tag><c>ctrl</c></tag>
+	  <item>
+	    Control messages (CMSG).  Optional for
+	    <seemfa marker="#sendmsg/2"><c>sendmsg/2,3,4</c></seemfa>.
+	    At least an empty list is returned by
+	    <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,5</c></seemfa>.
+	  </item>
+	  <tag><c>iov</c></tag>
+	  <item>
+	    Message flags.  Ignored by
+	    <seemfa marker="#sendmsg/2"><c>sendmsg/2,3,4</c></seemfa>.
+	    Returned by
+	    <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,5</c></seemfa>.
+	  </item>
+	</taglist>
+	<p>
+	  A control message can be specified with
+	  symbolic or native integer <c>level</c>,
+	  integer <c>type</c> and binary <c>data</c>.
+	  The application is responsible for figuring out
+	  the correct integer values and data for
+	  the runtime platform.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="cmsghdr_recv"/>
+      <desc>
+	<p>
+	  Control messages (ancillary messages) generated by
+	  <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,5</c></seemfa>.
+	</p>
+	<p>
+	  Control messages <c>data</c> fields with symbolic values
+	  (<c>atom()</c>s) also may have <c>integer()</c> or even
+	  <c>binary()</c> values, that match the platform's
+	  header files.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="cmsghdr_send"/>
+      <desc>
+	<p>
+	  Control messages (ancillary messages) accepted by
+	  <seemfa marker="#sendmsg/2"><c>sendmsg/2,3,4</c></seemfa>.
+	</p>
+	<p>
+	  Control messages <c>data</c> fields with symbolic values
+	  (<c>atom()</c>s) also may have <c>integer()</c> or even
+	  <c>binary()</c> values, that match the platform's
+	  header files.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="icmp_dest_unreach"/>
@@ -477,7 +1110,7 @@
   <funcs>
     <func>
       <name name="accept" arity="1" since="OTP 22.0"/>
-      <name name="accept" arity="2" clause_i="2" since="OTP 22.0"/>
+      <name name="accept" arity="2" clause_i="3" since="OTP 22.0"/>
       <fsummary>Accept a connection on a socket.</fsummary>
       <desc>
         <p>Accept a connection on a socket.</p>
@@ -489,7 +1122,10 @@
     </func>
 
     <func>
-      <name name="accept" arity="2" clause_i="1" anchor="accept_async" since="OTP 22.1"/>
+      <name name="accept" arity="2" clause_i="1" anchor="accept_async"
+	    since="OTP 22.1"/>
+      <name name="accept" arity="2" clause_i="2" anchor="accept_async"
+	    since="OTP @OTP-16749@"/>
       <fsummary>Accept a connection on a socket.</fsummary>
       <desc>
         <p>Accept a connection on a socket.</p>
@@ -514,6 +1150,18 @@
 	  ) when a client connects.
 	  A subsequent call to <c>accept/1,2</c>
 	  will then return the socket.
+	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
 	</p>
       </desc>
     </func>
@@ -564,16 +1212,23 @@
 
     <func>
       <name name="connect" arity="2" since="OTP 22.0"/>
-      <name name="connect" arity="3" clause_i="2" since="OTP 22.0"/>
+      <name name="connect" arity="3" clause_i="3" since="OTP 22.0"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
-        <p>This function connects the socket to the address
-	specied by the <c>SockAddr</c> argument.</p>
+        <p>
+	  This function connects the socket to the address
+	  specified by the <c>SockAddr</c> argument,
+	  and returns when the connection has been established
+	  or when the <c><anno>Timeout</anno></c> has expired.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="connect" arity="3" clause_i="1" anchor="connect_async" since="OTP 22.1"/>
+      <name name="connect" arity="3" clause_i="1" anchor="connect_async"
+	    since="OTP 22.1"/>
+      <name name="connect" arity="3" clause_i="2" anchor="connect_async"
+	    since="OTP @OTP-16749@"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
         <p>
@@ -584,20 +1239,59 @@
  	<p>
 	  In the case when its not possible to immediately establish a
 	  connection, the function will return
-	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>.
+	  <seetype marker="#select_info"><c>{select, SelectInfo}</c></seetype>.
 	  The caller will then receive a select message,
 	  <c>{'$socket', Socket, select, SelectHandle}</c> (
 	  with
 	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
 	  from
-	  <seetype marker="#select_info">
-	    <c><anno>SelectInfo</anno></c>
-	  </seetype>
+	  <seetype marker="#select_info"><c>SelectInfo</c></seetype>
 	  ) when the connection is completed. 
-	  A subsequent call to <c>connect/2,3</c>
+	  A subsequent call to
+	  <seemfa marker="#connect/1"><c>connect/1</c></seemfa>
 	  will then finalize the connection.
 	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="1" since="OTP @OTP-16749@"/>
+      <fsummary>Finalize a connection initiation on a socket.</fsummary>
+      <desc>
+        <p>
+	  This function finalizes a connection initiation on a socket,
+	  after calling
+	  <seemfa marker="#connect/3">
+	    <c>connect(_, _, nowait | select_handle())</c>
+	  </seemfa>
+	  that returned
+	  <seetype marker="#select_info">
+	    <c>{select, SelectInfo}</c>
+	  </seetype>
+	  and after receiving the select message
+	  <c>{'$socket', Socket, select, SelectHandle}</c>,
+	  and returns whether the connection was succesful or not.
+	</p>
+	<p>
+	  Instead of calling this function, for backwards compatibility,
+	  it is allowed to call
+	  <seemfa marker="#connect/2"><c>connect/2,3</c></seemfa>,
+	  but that incurs more overhead since the connect address
+	  and timeout are processed in vain.
+	</p>
+      </desc>
     </func>
 
     <func>
@@ -650,7 +1344,7 @@
 	</p>
 	<note>
 	  <p>
-	    Not all options are valid, or possible to get,
+	    Not all options are valid, nor possible to get,
 	    on all platforms.
 	    That is, even if "we" support an option;
 	    it does not mean that the underlying OS does.
@@ -694,6 +1388,7 @@
       <name name="getopt_native" arity="3" clause_i="1" since="OTP 22.0"/>
       <name name="getopt_native" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="getopt_native" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="getopt_native" arity="3" clause_i="4" since="OTP 24.0"/>
       <fsummary>Get a "native" socket option.</fsummary>
       <desc>
         <p>
@@ -717,9 +1412,13 @@
 	<p>
 	  How to decode the option value has to be specified
 	  either with <c><anno>ValueType</anno></c>,
-	  or by specifying the <c><anno>ValueSize</anno></c>
+	  by specifying the <c><anno>ValueSize</anno></c>
 	  for a <c>binary()</c> that will contain
-	  the fetched option value.
+	  the fetched option value,
+	  or by specifying a <c>binary()</c> <c><anno>ValueSpec</anno></c>
+	  that will be copied to a buffer for the
+	  <c>getsockopt()</c> call to write the value
+	  in which will be returned as a new <c>binary()</c>.
 	</p>
 	<p>
 	  If <c><anno>ValueType</anno></c> is <c>integer</c>
@@ -762,7 +1461,6 @@
     <func>
       <name name="is_supported" arity="1" since="OTP 23.0"/>
       <name name="is_supported" arity="2" since="OTP 23.0"/>
-      <name name="is_supported" arity="3" since="OTP 23.0"/>
       <fsummary>Report info about what the platform supports.</fsummary>
       <desc>
 	<p>
@@ -779,8 +1477,7 @@
 	  This functions returns a <c>boolean</c> corresponding to what
 	  <seemfa marker="#supports/0"><c>supports/0-2</c></seemfa>
 	  reports for the same <c><anno>Key1</anno></c>
-	  (and <c><anno>Key2</anno></c>
-	  (and <c><anno>Key3</anno> = Opt</c>: socket option)).
+	  (and <c><anno>Key2</anno></c>).
 	</p>
       </desc>
     </func>
@@ -817,24 +1514,44 @@
 	information for the open call:</p>
 	<taglist>
 	  <tag>
-	    <c>domain => </c><seetype marker="#domain"><c>domain()</c></seetype>
+	    <c>domain =></c>
+	    <seetype marker="#domain"><c>domain()</c></seetype>
+	    <c>| integer()</c>
 	  </tag>
 	  <item>
-	    <p>Which domain is the descriptor of. </p>
+	    <p>
+	      Which domain is the descriptor of.
+	    </p>
+	    <p>
+	      See also
+	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	    </p>
 	  </item>
 
 	  <tag>
-	    <c>type => </c><seetype marker="#type"><c>type()</c></seetype>
+	    <c>type =>
+	    </c><seetype marker="#type"><c>type()</c></seetype>
+	    <c>| integer()</c>
 	  </tag>
 	  <item>
-	    <p>Which type is the descriptor of. </p>
+	    <p>Which type is the descriptor of.</p>
+	    <p>
+	      See also
+	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	    </p>
 	  </item>
 
 	  <tag>
-	    <c>protocol => </c><seetype marker="#protocol"><c>protocol()</c></seetype>
+	    <c>protocol =>
+	    </c><seetype marker="#protocol"><c>protocol()</c></seetype>
+	    <c>| integer()</c>
 	  </tag>
 	  <item>
-	    <p>Which protocol is the descriptor of. </p>
+	    <p>Which protocol is the descriptor of.</p>
+	    <p>
+	      See also
+	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	    </p>
 	  </item>
 
 	  <tag><c>dup => boolean()</c></tag>
@@ -870,19 +1587,28 @@
 
     <func>
       <name name="open" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="open" arity="3" clause_i="1" since="OTP 23.1"/>
+      <name name="open" arity="3" clause_i="1" since="OTP 24.0"/>
       <name name="open" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="open" arity="4" since="OTP 22.0"/>
       <fsummary>Create an endpoint for communication.</fsummary>
       <desc>
 	<p>Creates an endpoint (socket) for communication.</p>
 
-	<p>For some <c>types</c> there is a default protocol,
+	<p>
+	  <c><anno>Domain</anno></c> and
+	  <c><anno>Type</anno></c> may be <c>integer()</c>s,
+	  as defined in the platform's header files.
+	  The same goes for <c><anno>Protocol</anno></c>
+	  but according to the platform's <c>services(5)</c> database.
+	  See the OS man page for the library call <c>socket(2)</c>
+	</p>
+
+	<p>For some <c><anno>Type</anno></c>s there is a default protocol,
 	indicated by <c>default</c>, which it <em>may</em> be
 	possible to specify.
 	And for <c>Domain = local</c>,
 	if a protocol <em>is</em> specified,
-	it <em>must</em> be <c>default</c>. </p>
+	it <em>must</em> be <c>default</c>.</p>
 
 	<p>The <c>Opts</c> argument is intended for "other" options.
 	The supported option(s) are described below:</p>
@@ -932,8 +1658,8 @@
       <name name="recv" arity="1" since="OTP 22.0"/>
       <name name="recv" arity="2" since="OTP 22.0"/>
       <name name="recv" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recv" arity="4" clause_i="2" since="OTP 22.0"/>
+      <name name="recv" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="recv" arity="4" clause_i="3" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -944,8 +1670,12 @@
     </func>
 
     <func>
-      <name name="recv" arity="3" clause_i="2" anchor="recv_async" since="OTP 22.1"/>
+      <name name="recv" arity="3" clause_i="2" anchor="recv_async"
+	    since="OTP 22.1"/>
+      <name name="recv" arity="3" clause_i="3" anchor="recv_async"
+	    since="OTP @OTP-16749@"/>
       <name name="recv" arity="4" clause_i="1" since="OTP 22.1"/>
+      <name name="recv" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -971,6 +1701,18 @@
 	  will then return the data.
 	</p>
 	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
+	<p>
 	  Note that if a length (<c>> 0</c>) is specified,
 	  and only part of that amount of data is available,
 	  the function will return
@@ -987,10 +1729,10 @@
     <func>
       <name name="recvfrom" arity="1" since="OTP 22.0"/>
       <name name="recvfrom" arity="2" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="5" since="OTP 22.0"/>
-      <name name="recvfrom" arity="4" clause_i="2" since="OTP 22.0"/>
+      <name name="recvfrom" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="recvfrom" arity="3" clause_i="7" since="OTP 22.0"/>
+      <name name="recvfrom" arity="4" clause_i="3" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1010,9 +1752,14 @@
     </func>
 
     <func>
-      <name name="recvfrom" arity="3" clause_i="1" anchor="recvfrom_async" since="OTP 22.1"/>
+      <name name="recvfrom" arity="3" clause_i="1" anchor="recvfrom_async"
+	    since="OTP 22.1"/>
+      <name name="recvfrom" arity="3" clause_i="2" anchor="recvfrom_async"
+	    since="OTP @OTP-16749@"/>
       <name name="recvfrom" arity="3" clause_i="4" since="OTP 22.1"/>
+      <name name="recvfrom" arity="3" clause_i="5" since="OTP @OTP-16749@"/>
       <name name="recvfrom" arity="4" clause_i="1" since="OTP 22.1"/>
+      <name name="recvfrom" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1028,7 +1775,6 @@
 	(recv) 'peek' flag. When this flag is provided, the message is *not*
 	"consumed" from the underlying buffers, so another recvfrom call
 	is needed, possibly with a then adjusted buffer size.</p>
-
 	<p>
 	  In the case when there is no data waiting,
 	  the function will return
@@ -1044,16 +1790,28 @@
 	  ) when data has arrived.
 	  A subsequent call to <c>recvfrom/1-4</c> will then return the data.
 	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="recvmsg" arity="1" since="OTP 22.0"/>
       <name name="recvmsg" arity="2" clause_i="1" since="OTP 22.0"/>
-      <name name="recvmsg" arity="2" clause_i="3" since="OTP 22.0"/>
-      <name name="recvmsg" arity="3" clause_i="2" since="OTP 22.0"/>
+      <name name="recvmsg" arity="2" clause_i="4" since="OTP 22.0"/>
       <name name="recvmsg" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recvmsg" arity="5" clause_i="2" since="OTP 22.0"/>
+      <name name="recvmsg" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="recvmsg" arity="5" clause_i="3" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1084,9 +1842,14 @@
     </func>
 
     <func>
-      <name name="recvmsg" arity="2" clause_i="2" anchor="recvmsg_async" since="OTP 22.1"/>
+      <name name="recvmsg" arity="2" clause_i="2" anchor="recvmsg_async"
+	    since="OTP 22.1"/>
+      <name name="recvmsg" arity="2" clause_i="3" anchor="recvmsg_async"
+	    since="OTP @OTP-16749@"/>
       <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.1"/>
+      <name name="recvmsg" arity="3" clause_i="2" since="OTP @OTP-16749@"/>
       <name name="recvmsg" arity="5" clause_i="1" since="OTP 22.1"/>
+      <name name="recvmsg" arity="5" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -1129,14 +1892,26 @@
 	  ) when data has arrived.
 	  A subsequent call to <c>recvmsg/1-3,5</c> will then return the data.
 	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="send" arity="2" since="OTP 22.0"/>
       <name name="send" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="send" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="send" arity="4" clause_i="2" since="OTP 22.0"/>
+      <name name="send" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="send" arity="4" clause_i="3" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
@@ -1144,8 +1919,12 @@
     </func>
 
     <func>
-      <name name="send" arity="3" clause_i="2" anchor="send_async" since="OTP 22.1"/>
+      <name name="send" arity="3" clause_i="2" anchor="send_async"
+	    since="OTP 22.1"/>
+      <name name="send" arity="3" clause_i="3" anchor="send_async"
+	    since="OTP @OTP-16749@"/>
       <name name="send" arity="4" clause_i="1" since="OTP 22.1"/>
+      <name name="send" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
@@ -1165,6 +1944,18 @@
 	  A subsequent call to <c>send/2-4</c> will then send the data.
 	</p>
 	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
+	<p>
 	  Note that if not all the data was sent, the function will return
 	  <seetype marker="#select_info">
 	    <c>{ok, {<anno>RestData</anno>, <anno>SelectInfo</anno>}</c>
@@ -1179,8 +1970,8 @@
     <func>
       <name name="sendmsg" arity="2" since="OTP 22.0"/>
       <name name="sendmsg" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="sendmsg" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="sendmsg" arity="4" clause_i="2" since="OTP 22.0"/>
+      <name name="sendmsg" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="sendmsg" arity="4" clause_i="3" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
 	<p>Send a message on a socket. The destination, if needed
@@ -1201,8 +1992,12 @@
     </func>
 
     <func>
-      <name name="sendmsg" arity="3" clause_i="2" anchor="sendmsg_async" since="OTP 22.1"/>
+      <name name="sendmsg" arity="3" clause_i="2" anchor="sendmsg_async"
+	    since="OTP 22.1"/>
+      <name name="sendmsg" arity="3" clause_i="3" anchor="sendmsg_async"
+	    since="OTP @OTP-16749@"/>
       <name name="sendmsg" arity="4" clause_i="1" since="OTP 22.1"/>
+      <name name="sendmsg" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
 	<p>Send a message on a socket. The destination, if needed
@@ -1234,14 +2029,26 @@
 	  ) when there is room for more data
 	  A subsequent call to <c>sendmsg/2-4</c> will then send the data.
 	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="sendto" arity="3" since="OTP 22.0"/>
       <name name="sendto" arity="4" clause_i="1" since="OTP 22.0"/>
-      <name name="sendto" arity="4" clause_i="3" since="OTP 22.0"/>
-      <name name="sendto" arity="5" clause_i="2" since="OTP 22.0"/>
+      <name name="sendto" arity="4" clause_i="4" since="OTP 22.0"/>
+      <name name="sendto" arity="5" clause_i="3" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a socket, to the specified destination.</p>
@@ -1249,8 +2056,12 @@
     </func>
 
     <func>
-      <name name="sendto" arity="4" clause_i="2" anchor="sendto_async" since="OTP 22.1"/>
+      <name name="sendto" arity="4" clause_i="2" anchor="sendto_async"
+	    since="OTP 22.1"/>
+      <name name="sendto" arity="4" clause_i="3" anchor="sendto_async"
+	    since="OTP @OTP-16749@"/>
       <name name="sendto" arity="5" clause_i="1" since="OTP 22.1"/>
+      <name name="sendto" arity="5" clause_i="2" since="OTP @OTP-16749@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a socket, to the specified destination.</p>
@@ -1269,6 +2080,18 @@
 	  </seetype>
 	  ) when there is room for more data
 	  A subsequent call to <c>sendto/3-5</c> will then send the data.
+	</p>
+	<p>
+	  If the timeout argument is a <c>SelectHandle</c>,
+	  this term will be in a returned <c><anno>SelectInfo</anno></c>
+	  and the corresponding select message.
+	  It is supposed to be a
+	  <seetype marker="socket#select_handle">
+	    <c>select_handle()</c>
+	  </seetype>
+	  unique to this call.
+	  If the timeout argument is <c>nowait</c>
+	  a new <c>SelectHandle</c> is generated.
 	</p>
       </desc>
     </func>
@@ -1323,7 +2146,7 @@
 	</p>
 	<note>
 	  <p>
-	    Not all options are valid, or possible to set,
+	    Not all options are valid, nor possible to set,
 	    on all platforms.
 	    That is, even if "we" support an option;
 	    it does not mean that the underlying OS does.
@@ -1451,11 +2274,11 @@
 	  <item>
  	    <p>
 	      Returns a list of
-	      <c>{<anno>Key1</anno>, Supports}</c> tuples
-	      for every <c><anno>Key1</anno></c> described below
-	      with <c>Supports</c> containing the result of
-	      <c>supports(<anno>Key1</anno>, <anno>Key2</anno>)</c>,
-	      and a <c>boolean()</c> for each of these keys:
+	      <c>{<anno>Key1</anno>, supports(Key1)}</c> tuples
+	      for every <c><anno>Key1</anno></c> described in
+	      <seemfa marker="#supports/1">supports/1</seemfa> and
+	      <c>{<anno>Key1</anno>, boolean()}</c> tuples
+	      for each of the following keys:
 	    </p>
 	    <taglist>
 	      <tag><c>sctp</c></tag>
@@ -1471,32 +2294,20 @@
 		Network Namespaces support (Linux, <c>setns(2)</c>)
 	      </item>
 	    </taglist>
+	    <p></p>
 	  </item>
-	  <tag><c>supports(send_flags = <anno>Key1</anno>)</c></tag>
+	  <tag><c>supports(msg_flags = <anno>Key1</anno>)</c></tag>
 	  <item>
 	    <p>
 	      Returns a list of 
-	      <c>{SendFlag, boolean()}</c> tuples
-	      for every <c>SendFlag</c> in
-	      <seetype marker="#send_flag">
-		<c>send_flag()</c>
+	      <c>{Flag, boolean()}</c> tuples
+	      for every <c>Flag</c> in
+	      <seetype marker="#msg_flag">
+		<c>msg_flag()</c>
 	      </seetype>
 	      with the <c>boolean()</c> indicating if the flag
 	      is supported on this platform.
  	    </p>
-	  </item>
-	  <tag><c>supports(recv_flags = <anno>Key1</anno>)</c></tag>
-	  <item>
- 	    <p>
-	      Returns a list of 
-	      <c>{RecvFlag, boolean()}</c> tuples
-	      for every <c>RecvFlag</c> in
-	      <seetype marker="#recv_flag">
-		<c>recv_flag()</c>
-	      </seetype>
-	      with the <c>boolean()</c> indicating if the flag
-	      is supported on this platform.
-	    </p>
 	  </item>
 	  <tag><c>supports(protocols = <anno>Key1</anno>)</c></tag>
 	  <item>
@@ -1515,13 +2326,13 @@
 	  <item>
 	    <p>
 	      Returns a list of
-	      <c>{<anno>Key2</anno>, Supports}</c> tuples
-	      for every <c><anno>Key2</anno></c> in
-	      <seetype marker="#sockopt_level">
-		<c>sockopt_level()</c>
+	      <c>{SocketOption, boolean()}</c> tuples
+	      for every <c>SocketOption</c> in
+	      <seetype marker="#socket_option">
+		<c>socket_option()</c>
 	      </seetype>
-	      with <c>Supports</c> containing the result of
-	      <c>supports(options, <anno>Key2</anno>)</c>.
+	      with the <c>boolean()</c> indicating if
+	      the socket option is supported on this platform.
  	    </p>
 	  </item>
 	  <tag>
@@ -1536,7 +2347,11 @@
 		<c>sockopt_level()</c>
 	      </seetype>
 	      returns a list of <c>{Opt, boolean()}</c> tuples
-	      for all known socket options <c>Opt</c> on that level,
+	      for all known
+	      <seetype marker="#socket_option">
+		socket options <c>Opt</c>
+		on that <c>Level =:= <anno>Key2</anno></c>,
+	      </seetype>
 	      and the <c>boolean()</c> indicating if the socket option
 	      is supported on this platform.
 	      See <seemfa marker="#setopt/3">setopt/3</seemfa>
@@ -1548,7 +2363,7 @@
     </func>
 
     <func>
-      <name name="use_registry" arity="1" since="OTP @OTP-16763@"/>
+      <name name="use_registry" arity="1" since="OTP 23.1"/>
       <fsummary>Globally change the use of the socket registry.</fsummary>
       <desc>
 	<p>Globally change if the socket registry is to be used or not.

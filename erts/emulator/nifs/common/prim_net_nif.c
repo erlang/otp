@@ -388,8 +388,6 @@ static ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
                                          int        family);
 static ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
                                        int        socktype);
-static ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
-                                        int        proto);
 
 static void make_address_info(ErlNifEnv*    env,
                               ERL_NIF_TERM  fam,
@@ -2044,7 +2042,7 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
 
     fam   = encode_address_info_family(env, addrInfoP->ai_family);
     type  = encode_address_info_type(env,   addrInfoP->ai_socktype);
-    proto = encode_address_info_proto(env,  addrInfoP->ai_protocol);
+    proto = MKI(env, addrInfoP->ai_protocol);
     esock_encode_sockaddr(env,
                           (ESockAddress*) addrInfoP->ai_addr,
                           addrInfoP->ai_addrlen,
@@ -2085,23 +2083,6 @@ ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
 
     esock_encode_type(env, socktype, &etype);
     return etype;
-}
-
-
-
-/* Convert an "native" protocol to an erlang protocol.
- * Note that this is not currently exhaustive, but only supports
- * tcp and udp. Other values will be returned as is, that is
- * in the form of an integer.
- */
-static
-ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
-                                       int        proto)
-{
-    ERL_NIF_TERM eproto;
-
-    esock_encode_protocol(env, proto, &eproto);
-    return eproto;
 }
 
 

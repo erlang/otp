@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -191,7 +191,27 @@ getaddrinfo(Host, Service)
   when (is_list(Host) orelse (Host =:= undefined)) andalso
        (is_list(Service) orelse (Service =:= undefined)) andalso
        (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
-    nif_getaddrinfo(Host, Service, undefined).
+    Result = nif_getaddrinfo(Host, Service, undefined),
+    case Result of
+        {ok, []} ->
+            Result;
+        {ok, Addrs} ->
+            Protocols = prim_socket:p_get(protocols),
+            {ok,
+             [case Addr of
+                  #{protocol := Num} ->
+                      case Protocols of
+                          #{Num := Protocol} ->
+                              Addr#{protocol := Protocol};
+                          #{} ->
+                              Addr
+                      end;
+                  #{} ->
+                      Addr
+              end || Addr <- Addrs]};
+        Error ->
+            Error
+    end.
 
 
 

@@ -38,6 +38,7 @@
 #define SZT(I)   ((size_t) (I))
 #define VOIDP(P) ((void*) (P))
 #define CHARP(P) ((char*) (P))
+#define UCHARP(P) ((unsigned char*) (P))
 
 #define ESOCK_ABORT(E)  esock_abort(E, __func__, __FILE__, __LINE__)
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
@@ -98,7 +99,7 @@ void esock_encode_sockaddr_in6(ErlNifEnv*           env,
                                ERL_NIF_TERM*        eSockAddr);
 #endif
 
-#ifdef HAVE_SYS_UN_H
+#ifdef HAS_AF_LOCAL
 extern
 BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
                                    ERL_NIF_TERM        eSockAddr,
@@ -163,15 +164,6 @@ extern
 void esock_encode_type(ErlNifEnv*    env,
                        int           type,
                        ERL_NIF_TERM* eType);
-
-extern
-BOOLEAN_T esock_decode_protocol(ErlNifEnv*   env,
-                                ERL_NIF_TERM eProtocol,
-                                int*         protocol);
-extern
-void esock_encode_protocol(ErlNifEnv*    env,
-                           int           type,
-                           ERL_NIF_TERM* eProtocol);
 
 extern
 void esock_encode_packet_protocol(ErlNifEnv*     env,
