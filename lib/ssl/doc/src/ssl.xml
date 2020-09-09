@@ -804,8 +804,9 @@ fun(srp, Username :: binary(), UserState :: term()) ->
     <datatype>
       <name name="client_reuse_session"/>
       <desc>
-	<p>Reuses a specific session earlier saved with the option
-	<c>{reuse_sessions, save} since OTP-21.3 </c>
+	<p>Reuses a specific session. The session should be refered by its session id if it is
+	earlier saved with the option <c>{reuse_sessions, save} since OTP-21.3 or
+	explicitly specified by its session id and associated data since OTP-22.3.</c>
       </p>
       </desc>
     </datatype>

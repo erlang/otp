@@ -45,6 +45,8 @@
          reuse_session_expired/1,
          server_does_not_want_to_reuse_session/0,
          server_does_not_want_to_reuse_session/1,
+         explicit_session_reuse/0,
+         explicit_session_reuse/1,
          no_reuses_session_server_restart_new_cert/0,
          no_reuses_session_server_restart_new_cert/1,
          no_reuses_session_server_restart_new_cert_file/0,
@@ -81,6 +83,7 @@ session_tests() ->
     [reuse_session,
      reuse_session_expired,
      server_does_not_want_to_reuse_session,
+     explicit_session_reuse,
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file].
 
@@ -268,6 +271,46 @@ server_does_not_want_to_reuse_session(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client1).
 
+%%--------------------------------------------------------------------
+explicit_session_reuse() ->
+    [{doc,"Test {reuse_session, {ID, Data}}} option for explicit reuse of sessions not"
+     " saved in the clients automated session reuse"}].
+explicit_session_reuse(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {Client0, Client0Sock} =
+	ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()}, {options, [{reuse_sessions, false} | ClientOpts]},
+                                   return_socket
+                                  ]),
+
+    {ok, [{session_id, ID}, {session_data, SessData}]} = ssl:connection_information(Client0Sock, [session_id, session_data]),
+
+    ssl_test_lib:close(Client0),
+
+    Server ! listen,
+
+    {_, Client1Sock} =
+	ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {from, self()}, {options, [{reuse_session, {ID, SessData}} | ClientOpts]},
+                                   return_socket]),
+
+    {ok, [{session_id, ID}]} = ssl:connection_information(Client1Sock, [session_id]).
+
+
+%%--------------------------------------------------------------------
 no_reuses_session_server_restart_new_cert() ->
     [{doc,"Check that a session is not reused if the server is restarted with a new cert."}].
 no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
@@ -433,18 +476,6 @@ faulty_client(Host, Port) ->
     gen_tcp:send(Sock, CHBin),
     ct:sleep(100),
     gen_tcp:close(Sock).
-
-
-server(LOpts, Port) ->
-    {ok, LSock} = ssl:listen(Port, LOpts),
-    Pid = spawn_link(?MODULE, accept_loop, [LSock]),
-    ssl:controlling_process(LSock, Pid),
-    Pid.
-
-accept_loop(Sock) ->
-    {ok, CSock} = ssl:transport_accept(Sock),
-    _ = ssl:handshake(CSock),
-    accept_loop(Sock).
 
 
 encode_client_hello(CH, Random) ->

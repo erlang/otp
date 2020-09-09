@@ -405,7 +405,7 @@
                                 %% {ocsp_nonce, ocsp_nonce()}.
 
 -type client_verify_type()       :: verify_type().
--type client_reuse_session()     :: session_id().
+-type client_reuse_session()     :: session_id() | {session_id(), SessionData::binary()}.
 -type client_reuse_sessions()    :: boolean() | save.
 -type client_cacerts()           :: [public_key:der_encoded()].
 -type client_cafile()            :: file:filename().
@@ -2202,6 +2202,9 @@ validate_option(reuse_session, undefined) ->
 validate_option(reuse_session, Value) when is_function(Value) ->
     Value;
 validate_option(reuse_session, Value) when is_binary(Value) ->
+    Value;
+validate_option(reuse_session, {Id, Data} = Value) when is_binary(Id) andalso
+                                                        is_binary(Data) ->
     Value;
 validate_option(reuse_sessions, Value) when is_boolean(Value) ->
     Value;
