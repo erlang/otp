@@ -617,18 +617,47 @@ void BeamModuleAssembler::emit_i_make_fun(const ArgVal &Fun,
     a.mov(getXRef(0), RET);
 }
 
+void BeamModuleAssembler::emit_get_list(const x86::Gp src,
+                                        const ArgVal &Hd,
+                                        const ArgVal &Tl) {
+    x86::Gp boxed_ptr = emit_ptr_val(src, src);
+
+    switch (ArgVal::register_relation(Hd, Tl)) {
+    case ArgVal::Relation::consecutive: {
+        comment("(moving head and tail together)");
+        x86::Mem dst_ptr = getArgRef(Hd, 16);
+        x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
+        a.movups(x86::xmm0, src_ptr);
+        a.movups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        if (! hasCpuFeature(x86::Features::kAVX)) {
+            goto fallback;
+        }
+
+        comment("(moving and swapping head and tail together)");
+        x86::Mem dst_ptr = getArgRef(Tl, 16);
+        x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
+        a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+        a.vmovups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::none:
+        fallback:
+        a.mov(ARG2, getCARRef(boxed_ptr));
+        a.mov(ARG3, getCDRRef(boxed_ptr));
+        mov_arg(Hd, ARG2);
+        mov_arg(Tl, ARG3);
+        break;
+    }
+}
+
 void BeamModuleAssembler::emit_get_list(const ArgVal &Src,
                                         const ArgVal &Hd,
                                         const ArgVal &Tl) {
     mov_arg(ARG1, Src);
-
-    x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-
-    a.mov(ARG2, getCARRef(boxed_ptr));
-    a.mov(ARG3, getCDRRef(boxed_ptr));
-
-    mov_arg(Hd, ARG2);
-    mov_arg(Tl, ARG3);
+    emit_get_list(ARG1, Hd, Tl);
 }
 
 void BeamModuleAssembler::emit_get_hd(const ArgVal &Src, const ArgVal &Hd) {
@@ -658,14 +687,7 @@ void BeamModuleAssembler::emit_is_nonempty_list_get_list(const ArgVal &Fail,
     mov_arg(RET, Src);
     a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
     a.jne(labels[Fail.getValue()]);
-
-    x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-
-    a.mov(ARG2, getCARRef(boxed_ptr));
-    a.mov(ARG3, getCDRRef(boxed_ptr));
-
-    mov_arg(Hd, ARG2);
-    mov_arg(Tl, ARG3);
+    emit_get_list(RET, Hd, Tl);
 }
 
 void BeamModuleAssembler::emit_is_nonempty_list_get_hd(const ArgVal &Fail,

@@ -1205,6 +1205,10 @@ private:
 
     void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
 
+    void emit_get_list(const x86::Gp boxed_ptr,
+                       const ArgVal &Hd,
+                       const ArgVal &Tl);
+
     void emit_div_rem(const ArgVal &Fail,
                       const ArgVal &LHS,
                       const ArgVal &RHS,
