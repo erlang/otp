@@ -169,7 +169,7 @@ reason_phrase(_) -> "Internal Server Error".
 %% message
 
 message(301,URL,_) ->
-    "The document has moved <A HREF=\""++ html_encode(uri_string:normalize(URL)) ++"\">here</A>.";
+    "The document has moved <A HREF=\""++ html_encode(URL) ++"\">here</A>.";
 message(304, _URL,_) ->
     "The document has not been changed.";
 message(400, none, _) ->
@@ -186,11 +186,11 @@ browser doesn't understand how to supply
 the credentials required.";
 message(403,RequestURI,_) ->
     "You don't have permission to access " ++ 
-	html_encode(uri_string:normalize(RequestURI)) ++ 
+	html_encode(RequestURI) ++
 	" on this server.";
 message(404,RequestURI,_) ->
     "The requested URL " ++ 
-	html_encode(uri_string:normalize(RequestURI)) ++ 
+	html_encode(RequestURI) ++
 	" was not found on this server.";
 message(408, Timeout, _) ->
     Timeout;
@@ -205,7 +205,7 @@ message(500,_,ConfigDB) ->
     "The server encountered an internal error or "
 	"misconfiguration and was unable to complete "
 	"your request.<P>Please contact the server administrator "
-	++ html_encode(ServerAdmin) ++ 
+	++ html_encode(ServerAdmin) ++
 	", and inform them of the time the error occurred "
 	"and anything you might have done that may have caused the error.";
 
@@ -214,12 +214,12 @@ message(501,{Method, RequestURI, HTTPVersion}, _ConfigDB) ->
 	is_atom(Method) ->
 	    atom_to_list(Method) ++
 		" to " ++ 
-		html_encode(uri_string:normalize(RequestURI)) ++ 
+		html_encode(RequestURI) ++
 		" (" ++ HTTPVersion ++ ") not supported.";
 	is_list(Method) ->
 	    Method ++
 		" to " ++ 
-		html_encode(RequestURI) ++ 
+		html_encode(RequestURI) ++
 		" (" ++ HTTPVersion ++ ") not supported."
     end;
 
