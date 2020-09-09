@@ -189,13 +189,57 @@ get_ancestors() ->
 %%%# Tracing
 %%%#
 
-ssh_dbg_trace_points() -> [terminate].
+ssh_dbg_trace_points() -> [terminate, shell].
 
+ssh_dbg_flags(shell) -> [c];
 ssh_dbg_flags(terminate) -> [c].
 
+ssh_dbg_on(shell) -> dbg:tp(?MODULE,handle_ssh_msg,2,x);
 ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 2, x).
 
+ssh_dbg_off(shell) -> dbg:ctpg(?MODULE,handle_ssh_msg,2);
 ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2).
+
+
+ssh_dbg_format(shell, {call,{?MODULE,handle_ssh_msg,
+                           [{ssh_cm, _ConnectionHandler, Request},
+                            #state{channel=Ch}]}}) when is_tuple(Request) ->
+    [io_lib:format("SHELL conn ~p chan ~p, req ~p", 
+                   [self(),Ch,element(1,Request)]),
+     case Request of
+         {window_change, ChannelId, Width, Height, PixWidth, PixHeight} ->
+             fmt_kv([{channel_id,ChannelId}, 
+                     {width,Width}, {height,Height},
+                     {pix_width,PixWidth}, {pixel_hight,PixHeight}]);
+
+         {env, ChannelId, WantReply, Var, Value} ->
+             fmt_kv([{channel_id,ChannelId}, {want_reply,WantReply}, {Var,Value}]);
+
+         {exec, ChannelId, WantReply, Cmd} ->
+             fmt_kv([{channel_id,ChannelId}, {want_reply,WantReply}, {command,Cmd}]);
+
+         {pty, ChannelId, WantReply,
+          {TermName, Width, Height, PixWidth, PixHeight, Modes}} ->
+             fmt_kv([{channel_id,ChannelId}, {want_reply,WantReply}, 
+                     {term,TermName},
+                     {width,Width}, {height,Height}, {pix_width,PixWidth}, {pixel_hight,PixHeight},
+                     {pty_opts, Modes}]);
+
+         {data, ChannelId, Type, Data} -> 
+             fmt_kv([{channel_id,ChannelId},
+                     {type, case Type of
+                                0 -> "0 (normal data)";
+                                1 -> "1 (extended data, i.e. errors)";
+                                _ -> Type
+                            end},
+                     {data, ssh_dbg:shrink_bin(Data)},
+                     {hex, h, Data}
+                    ]);
+         _ ->
+             io_lib:format("~nunder construction:~nRequest = ~p",[Request])
+     end];
+ssh_dbg_format(shell, {call,{?MODULE,handle_ssh_msg,_}}) -> skip;
+ssh_dbg_format(shell, {return_from,{?MODULE,handle_ssh_msg,2},_Result}) -> skip;
 
 ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
     ["Shell Terminating:\n",
@@ -205,3 +249,10 @@ ssh_dbg_format(terminate, {return_from, {?MODULE,terminate,2}, _Ret}) ->
     skip.
 
 ?wr_record(state).
+
+fmt_kv(KVs) -> lists:map(fun fmt_kv1/1, KVs).
+
+fmt_kv1({K,V})   -> io_lib:format("~n~p: ~p",[K,V]);
+fmt_kv1({K,s,V}) -> io_lib:format("~n~p: ~s",[K,V]);
+fmt_kv1({K,h,V}) -> io_lib:format("~n~p: ~s",[K, [$\n|ssh_dbg:hex_dump(V)]]).
+    
