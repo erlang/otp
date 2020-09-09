@@ -185,41 +185,44 @@ next_record(_, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []
 next_record(_, State) ->
     {no_record, State}.
 
-flow_ctrl(#state{user_data_buffer = {_,Size,_},
-                 socket_options = #socket_options{active = false,
-                                                  packet = Packet},
-                 bytes_to_read = undefined} = State)  when ((Packet =/= 0) orelse (Packet =/= raw))
-                                                           andalso Size =/= 0 ->
-    %% We need more data to complete the packet.
-    activate_socket(State);
-flow_ctrl(#state{user_data_buffer = {_,Size,_},
-                 socket_options = #socket_options{active = false,
-                                                  packet = Packet},
-                 bytes_to_read = BytesToRead} = State)  when ((Packet =/= 0) orelse (Packet =/= raw)) ->
-    case (Size >= BytesToRead andalso Size =/= 0) of
-        true -> %% There is enough data bufferd
-            {no_record, State};
-        false -> %% We need more data to complete the packet of <BytesToRead> size
-            activate_socket(State)
-    end;
+%%% bytes_to_read equals the integer Length arg of ssl:recv
+%%% the actual value is only relevant for packet = raw | 0
+%%% bytes_to_read = undefined means no recv call is ongoing
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
                  bytes_to_read = undefined} = State)  when Size =/= 0 ->
-    %% Passive mode wait for new recv request
+    %% Passive mode wait for new recv request or socket activation
+    %% that is preserv some tcp back pressure by waiting to activate
+    %% socket
     {no_record, State};
+%%%%%%%%%% A packet mode is set and socket is passive %%%%%%%%%%
+flow_ctrl(#state{socket_options = #socket_options{active = false,
+                                                  packet = Packet}} = State) 
+  when ((Packet =/= 0) andalso (Packet =/= raw)) ->
+    %% We need more data to complete the packet.
+    activate_socket(State);
+%%%%%%%%% No packet mode set and socket is passive %%%%%%%%%%%%
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
-                 bytes_to_read = 0} = State)  when Size =/= 0 ->
-    %% Passive mode no available bytes, get some
+                 bytes_to_read = 0} = State)  when Size == 0 ->
+    %% Passive mode no available bytes, get some 
     activate_socket(State);
+flow_ctrl(#state{user_data_buffer = {_,Size,_},
+                 socket_options = #socket_options{active = false},
+                 bytes_to_read = 0} = State)  when Size =/= 0 ->           
+    %% There is data in the buffer to deliver
+    {no_record, State};
 flow_ctrl(#state{user_data_buffer = {_,Size,_}, 
                  socket_options = #socket_options{active = false},
-                 bytes_to_read = BytesToRead} = State) when (Size >= BytesToRead) andalso
-                                                            (BytesToRead > 0) ->
-    %% There is enough data bufferd
-    {no_record, State};
+                 bytes_to_read = BytesToRead} = State) when (BytesToRead > 0) ->
+    case (Size >= BytesToRead) of
+        true -> %% There is enough data bufferd
+            {no_record, State};
+        false -> %% We need more data to complete the delivery of <BytesToRead> size
+            activate_socket(State)
+    end;
+%%%%%%%%%%% Active mode or more data needed %%%%%%%%%%
 flow_ctrl(State) ->
-    %% Active mode
     activate_socket(State).
 
 
