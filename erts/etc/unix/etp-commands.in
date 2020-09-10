@@ -1197,6 +1197,49 @@ document etp-export-get
 %---------------------------------------------------------
 end
 
+define etp-module-get
+  # Args: Eterm
+
+  set $etp_ix = ((Eterm)$arg0 >> 6)
+  set $etp_h = $etp_ix
+
+  #hash_get_slot
+  set $etp_t = &module_tables[the_active_code_index.counter].htable
+  set $etp_h ^= $etp_h >> $etp_t->shift
+  if $etp_arch64
+    set $etp_h = (11400714819323198485UL * $etp_h) >> $etp_t->shift
+  else
+    set $etp_h = (2654435769UL * $etp_h) >> $etp_t->shift
+  end
+
+  set $etp_p = (Module*) $etp_t->bucket[$etp_h]
+  while $etp_p
+    if $etp_p->module == $etp_ix
+      loop_break
+    end
+    set $etp_p = (Module*) $etp_p->slot.bucket.next
+  end
+  if $etp_p
+    print $etp_p
+  else
+    printf "Can't find module entry\n"
+  end
+end
+
+document etp-module-get
+%---------------------------------------------------------
+% etp-module-get module
+%
+% Lookup and print pointer to Module entry.
+% Example:
+% (gdb) etp-string-to-atom "erlang"
+% $1 = 13323
+% (gdb) etp-module-get 13323
+% $2 = (Module *) 0x7f53caf1f358
+%---------------------------------------------------------
+end
+
+
 define etp-cp-func-info-1
 # Args: Eterm cp
 #
