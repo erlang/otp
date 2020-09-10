@@ -1154,6 +1154,49 @@ document etp-mfa
 %---------------------------------------------------------------------------
 end
 
+define etp-export-get
+  # Args: Eterm Eterm Uint
+
+  set $etp_h = (((Eterm)$arg0 >> 6) * ((Eterm)$arg1 >> 6)) ^ (Uint)$arg2
+
+  #hash_get_slot
+  set $etp_t = &export_tables[the_active_code_index.counter].htable
+  set $etp_h ^= $etp_h >> $etp_t->shift
+  if $etp_arch64
+    set $etp_h = (11400714819323198485UL * $etp_h) >> $etp_t->shift
+  else
+    set $etp_h = (2654435769UL * $etp_h) >> $etp_t->shift
+  end
+
+  set $etp_p = (struct export_entry*) $etp_t->bucket[$etp_h]
+  while $etp_p
+    if $etp_p->ep->info.mfa.module == $arg0 && $etp_p->ep->info.mfa.function == $arg1 && $etp_p->ep->info.mfa.arity == $arg2
+      loop_break
+    end
+    set $etp_p = (struct export_entry*) $etp_p->slot.bucket.next
+  end
+  if $etp_p
+    print $etp_p->ep
+  else
+    printf "Can't find export entry\n"
+  end
+end
+
+document etp-export-get
+%---------------------------------------------------------
+% etp-export-get module function arity
+%
+% Lookup and print pointer to Export entry.
+% Example:
+% (gdb) etp-string-to-atom "erlang"
+% $1 = 13323
+% (gdb) etp-string-to-atom "self"
+% $2 = 47115
+% (gdb) etp-export-get 13323 47115 0
+% $3 = (Export *) 0x7f53caf1f358
+%---------------------------------------------------------
+end
+
 define etp-cp-func-info-1
 # Args: Eterm cp
 #
