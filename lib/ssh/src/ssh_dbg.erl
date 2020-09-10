@@ -417,7 +417,7 @@ try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
 
 
 write_txt(WriteFun, TS, PID, Txt) when is_list(Txt) ->
-    WriteFun("~n~s ~p ~s~n", 
+    WriteFun("~n~s ~p ~ts~n", 
              [lists:flatten(TS),
               PID,
               lists:flatten(Txt)],
