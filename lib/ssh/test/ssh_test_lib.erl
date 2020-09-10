@@ -361,7 +361,7 @@ io_request({put_chars, unicode, Chars}, TestCase, _, _, Buff) when is_binary(Cha
     reply(TestCase, Chars),
     {ok, ok, Buff};
 io_request({put_chars, unicode, io_lib, format, [Fmt,Args]}, TestCase, _, _, Buff) ->
-    reply(TestCase, io_lib:format(Fmt,Args)),
+    reply(TestCase,  unicode:characters_to_binary(io_lib:format(Fmt,Args))),
     {ok, ok, Buff};
 io_request({put_chars, Enc, Chars}, TestCase, _, _, Buff) ->
     reply(TestCase, unicode:characters_to_binary(Chars,Enc,latin1)),

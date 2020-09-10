@@ -92,7 +92,7 @@ handle_ssh_msg({ssh_cm, _, {data, _ChannelId, 0, Data}}, State) ->
     %% TODO: When unicode support is ready
     %% should we call this function or perhaps a new
     %% function.
-    io:put_chars(Data),
+    io:format("~ts", [Data]),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, 
@@ -101,7 +101,7 @@ handle_ssh_msg({ssh_cm, _,
     %% TODO: When unicode support is ready
     %% should we call this function or perhaps a new
     %% function.
-    io:put_chars(Data),
+    io:format("~ts", [Data]),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, {eof, _ChannelId}}, State) ->
@@ -144,9 +144,18 @@ handle_msg({input, IoPid, eof}, #state{io = IoPid, channel = ChannelId,
     ssh_connection:send_eof(ConnectionManager, ChannelId),
     {ok, State};
 
-handle_msg({input, IoPid, Line}, #state{io = IoPid,
+handle_msg({input, IoPid, Line0}, #state{io = IoPid,
 					channel = ChannelId,
 					cm = ConnectionManager} = State) ->
+    %% Not nice, but it make it work somehow
+    Line = case encoding(Line0) of
+               utf8 ->
+                   Line0;
+               unicode ->
+                   unicode:characters_to_binary(Line0);
+               latin1 ->
+                   unicode:characters_to_binary(Line0,latin1,utf8)
+           end,
     ssh_connection:send(ConnectionManager, ChannelId, Line),
     {ok, State}.
     
@@ -161,7 +170,17 @@ terminate(_Reason, #state{io = IoPid}) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+encoding(Bin) ->
+    case unicode:characters_to_binary(Bin,utf8,utf8) of
+	Bin ->
+	    utf8;
+        Bin2 when is_binary(Bin2) ->
+            unicode;
+	_ ->
+	    latin1
+    end.
 
+%%--------------------------------------------------------------------
 input_loop(Fd, Pid) ->
     case io:get_line(Fd, '') of
 	eof ->
