@@ -36,6 +36,8 @@
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
+-export([empty_buf/0, io_request/4]).
+
 %% state
 -record(state, {
 	  cm,

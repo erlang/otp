@@ -482,6 +482,18 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 		    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
                                                              exchanged_hash = H,
                                                              session_id = sid(Ssh, H)})};
+                scanned ->
+                    ?DISCONNECT(?SSH_DISCONNECT_BY_APPLICATION,
+                                io_lib:format("Host key fetched",[])
+                               );
+                {error, rejected_by_user} ->
+                    ?DISCONNECT(?SSH_DISCONNECT_AUTH_CANCELLED_BY_USER,
+                                io_lib:format("User interaction not allowed",[])
+                               );
+                {error, bad_public_key} ->
+                    ?DISCONNECT(?SSH_DISCONNECT_BAD_PUBLIC_KEY,
+                                io_lib:format("Bad public key", [])
+                               );
 		Error ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                                 io_lib:format("Kexdh init failed. Verify host key: ~p",[Error])
@@ -643,6 +655,18 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 			    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
                                                                      exchanged_hash = H,
                                                                      session_id = sid(Ssh, H)})};
+                        scanned ->
+                            ?DISCONNECT(?SSH_DISCONNECT_BY_APPLICATION,
+                                        io_lib:format("Host key fetched",[])
+                                       );
+                        {error, rejected_by_user} ->
+                            ?DISCONNECT(?SSH_DISCONNECT_AUTH_CANCELLED_BY_USER,
+                                        io_lib:format("User interaction not allowed",[])
+                                       );
+                        {error, bad_public_key} ->
+                            ?DISCONNECT(?SSH_DISCONNECT_BAD_PUBLIC_KEY,
+                                        io_lib:format("Bad public key", [])
+                                       );
                         Error ->
                             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                                         io_lib:format("Kexdh gex reply failed. Verify host key: ~p",[Error])
@@ -717,6 +741,18 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 		    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
                                                              exchanged_hash = H,
                                                              session_id = sid(Ssh, H)})};
+                scanned ->
+                    ?DISCONNECT(?SSH_DISCONNECT_BY_APPLICATION,
+                                io_lib:format("Host key fetched",[])
+                               );
+                {error, rejected_by_user} ->
+                    ?DISCONNECT(?SSH_DISCONNECT_AUTH_CANCELLED_BY_USER,
+                                io_lib:format("User interaction not allowed",[])
+                               );
+                {error, bad_public_key} ->
+                    ?DISCONNECT(?SSH_DISCONNECT_BAD_PUBLIC_KEY,
+                                io_lib:format("Bad public key", [])
+                               );
 		Error ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                                 io_lib:format("ECDH reply failed. Verify host key: ~p",[Error])
@@ -803,6 +839,9 @@ get_host_key(SignAlg, Opts) ->
 	Result ->
             exit({error, {Result, unsupported_key_type}})
     end.
+
+default(is_host_key) ->
+    fun(_, _, _, _) -> true end.
 
 call_KeyCb(F, Args, Opts) ->
     {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
@@ -900,6 +939,11 @@ known_host_key(#ssh{opts = Opts, peer = {PeerName0, {_, PeerPort}}} = Ssh,
     case call_KeyCb(is_host_key, [Public, PeerName, Alg], Opts) of
 	true ->
 	    ok;
+        %% This is special case when the connection is attempted only to
+        %% fetch host keys and then store them. So no questions to user
+        %% no checking silently_accept_hosts option, no presenting a fingerprint
+        scanning ->
+            call_KeyCb(add_host_key, [PeerName, Public], Opts);
 	false ->
             DoAdd = ?GET_OPT(save_accepted_host, Opts),
 	    case accepted_host(Ssh, PeerName, Public, Opts) of
@@ -911,7 +955,9 @@ known_host_key(#ssh{opts = Opts, peer = {PeerName0, {_, PeerPort}}} = Ssh,
 		    {error, rejected_by_user};
                 {error,E} ->
                     {error,E}
-	    end
+	    end;
+        {error, Error} ->
+                {error, Error}
     end.
 	    
 %%   Each of the algorithm strings MUST be a comma-separated list of

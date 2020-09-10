@@ -542,7 +542,7 @@ default(client) ->
 
       user_interaction =>
           #{default => true,
-            chk => fun erlang:is_boolean/1,
+            chk => fun check_user_interaction/1,
             class => user_option
            },
 
@@ -599,6 +599,17 @@ default(client) ->
       quiet_mode =>
           #{default => false,
             chk => fun erlang:is_boolean/1,
+            class => user_option
+           },
+
+      alive_params =>
+          #{default => {0, infinity},
+            chk => fun({AliveCount, AliveIntervalSeconds}) ->
+                        is_integer(AliveCount) andalso (
+                            is_integer(AliveIntervalSeconds)
+                            orelse AliveIntervalSeconds == infinity);
+                      (F) -> is_function(F, 0)
+                   end,
             class => user_option
            },
 
@@ -953,6 +964,9 @@ check_silently_accept_hosts({false,S}) when is_atom(S) -> valid_hash(S);
 check_silently_accept_hosts({S,F}) when is_function(F,2) -> valid_hash(S);
 check_silently_accept_hosts(_) -> false.
 
+check_user_interaction(B) when is_boolean(B) -> true;
+check_user_interaction(M) when is_atom(M) -> true;
+check_user_interaction(_) -> false.
 
 valid_hash(S) -> valid_hash(S, proplists:get_value(hashs,crypto:supports())).
 

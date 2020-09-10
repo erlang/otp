@@ -26,6 +26,7 @@
 -export([decode/2, encode/2,
 	 dh_gex_group/4, 
 	 dh_gex_group_sizes/0,
+         key_type/1,
 pad/2,         new_openssh_encode/1, new_openssh_decode/1  % For test and experiments
 	]).
 

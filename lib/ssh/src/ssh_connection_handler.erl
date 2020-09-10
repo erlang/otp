@@ -58,7 +58,8 @@
 	 adjust_window/3, close/2,
 	 disconnect/4,
 	 get_print_info/1,
-         set_sock_opts/2, get_sock_opts/2
+         set_sock_opts/2, get_sock_opts/2,
+         attach/1, attach/2, detach/1, detach/2
 	]).
 
 -type connection_ref() :: ssh:connection_ref().
@@ -137,8 +138,12 @@ stop(ConnectionHandler)->
 start_connection(client = Role, Socket, Options, Timeout) ->
     try
 	{ok, Pid} = sshc_sup:start_child([Role, Socket, Options]),
+        %% Since now we need to take care of the newborn
+        OldTrap = process_flag(trap_exit, true),
 	ok = socket_control(Socket, Pid, Options),
-	handshake(Pid, erlang:monitor(process,Pid), Timeout)
+	Ret = handshake(Pid, erlang:monitor(process,Pid), Timeout),
+        process_flag(trap_exit, OldTrap),
+        Ret
     catch
 	exit:{noproc, _} ->
 	    {error, ssh_not_started};
@@ -400,7 +405,9 @@ alg(ConnectionHandler) ->
 	  last_size_rekey           = 0         :: non_neg_integer(),
 	  event_queue               = []        :: list(),
 	  inet_initial_recbuf_size              :: pos_integer()
-						 | undefined
+						 | undefined,
+          users                                 :: list(pid())
+                                                 | []
 	 }).
 
 %%====================================================================
@@ -463,7 +470,8 @@ init([Role,Socket,Opts]) ->
                        transport_protocol = Protocol,
                        transport_cb = Callback,
                        transport_close_tag = CloseTag,
-                       ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts)
+                       ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts),
+                       users = []
               },
             D = case Role of
                     client ->
@@ -517,18 +525,28 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                            PeerName0 when is_list(PeerName0) ->
                                PeerName0
                        end,
+            %% Let's use this as a negotiation timeout, because apparently
+            %% there is none at the moment (OTP22)
+            {_, AliveInterval} = case ?GET_OPT(alive_params, Opts) of
+                undefined      -> {0, infinity};
+                F when is_function(F) -> F();
+                {X, Y} -> {X, Y}
+            end,
+            io:format("AliveInterval ~p~n", [AliveInterval]),
             S1 =
             S0#ssh{c_vsn = Vsn,
                        c_version = Version,
                        opts = ?PUT_INTERNAL_OPT({io_cb, case ?GET_OPT(user_interaction, Opts) of
                                                             true ->  ssh_io;
-                                                            false -> ssh_no_io
+                                                            false -> ssh_no_io;
+                                                            M -> M %% user-supplied module
                                                         end},
                                                 Opts),
                        userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
                        peer = {PeerName, PeerAddr},
                        local = LocalName,
-                       alive_interval = infinity,
+                       alive_interval = AliveInterval,
+                       alive_started = true,
                        alive_count = 0
                       },
             S1#ssh{userauth_pubkeys = [K || K <- ?GET_OPT(pref_public_key_algs, Opts),
@@ -653,6 +671,7 @@ handle_event(_, socket_control, {hello,_}=StateName, #data{ssh_params = Ssh0} = 
 				  {nodelay,true}]),
             Time = ?GET_OPT(hello_timeout, Ssh0#ssh.opts, infinity),
 	    {keep_state, D#data{inet_initial_recbuf_size=Size}, [{state_timeout,Time,no_hello_received}] };
+	    %{keep_state, reset_alive(D#data{inet_initial_recbuf_size=Size})};
 
 	Other ->
             ?call_disconnectfun_and_log_cond("Option return", 
@@ -667,7 +686,10 @@ handle_event(_, {info_line,Line}, {hello,Role}=StateName, D) ->
 	    %% The server may send info lines to the client before the version_exchange
 	    %% RFC4253/4.2
 	    inet:setopts(D#data.socket, [{active, once}]),
-	    keep_state_and_data;
+	    %keep_state_and_data;
+            %% If we've got something back in time - stop the timer, the peer is alive
+            SshParams = (D#data.ssh_params)#ssh{alive_started = false},
+            {keep_state, D#data{ssh_params = SshParams}};
 	server ->
 	    %% But the client may NOT send them to the server. Openssh answers with cleartext,
 	    %% and so do we
@@ -690,7 +712,9 @@ handle_event(_, {version_exchange,Version}, {hello,Role}, D0) ->
 					 {recbuf, D0#data.inet_initial_recbuf_size}]),
 	    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh1),
 	    send_bytes(SshPacket, D0),
-	    {next_state, {kexinit,Role,init}, D0#data{ssh_params = Ssh,
+            %% If we've got something back in time - stop the timer, the peer is alive
+            SshParams = Ssh#ssh{alive_started = false},
+	    {next_state, {kexinit,Role,init}, D0#data{ssh_params = SshParams,
 						     key_exchange_init_msg = KeyInitMsg}};
 	not_supported ->
             {Shutdown, D} =  
@@ -1407,6 +1431,13 @@ handle_event({call,From}, {close, ChannelId}, StateName, D0)
 	    {keep_state_and_data, [{reply,From,ok}]}
     end;
 
+handle_event({call, From}, {attach, Pid}, _StateName, D0) ->
+    D = add_user(Pid, D0),
+    {keep_state, D, [{reply, From, ok}]};
+
+handle_event({call, From}, {detach, Pid}, _StateName, D0) ->
+    D = del_user(Pid, D0),
+    {keep_state, D, [{reply, From, ok}]};
 
 %%===== Reception of encrypted bytes, decryption and framing
 handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
@@ -1777,6 +1808,17 @@ code_change(_OldVsn, StateName, State, _Extra) ->
     {ok, StateName, State}.
 
 
+attach(ConnectionHandler) ->
+    attach(ConnectionHandler, self()).
+
+attach(ConnectionHandler, Pid) ->
+    call(ConnectionHandler, {attach, Pid}).
+
+detach(ConnectionHandler) ->
+    detach(ConnectionHandler, self()).
+
+detach(ConnectionHandler, Pid) ->
+    call(ConnectionHandler, {detach, Pid}).
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -2082,7 +2124,11 @@ check_data_rekeying_dbg(SentSinceRekey, MaxSent) ->
 send_disconnect(Code, DetailedText, Module, Line, StateName, D) ->
     send_disconnect(Code, default_text(Code), DetailedText, Module, Line, StateName, D).
 
-send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
+send_disconnect(Code0, Reason, DetailedText, Module, Line, StateName, D0) ->
+    Code = if Code0 > ?SSH_DISCONNECT_LAST_RFC ->
+                ?SSH_DISCONNECT_CONNECTION_LOST;
+        true -> Code0
+    end,
     Msg = #ssh_msg_disconnect{code = Code,
                               description = Reason},
     D = send_msg(Msg, D0),
@@ -2118,8 +2164,10 @@ default_text(?SSH_DISCONNECT_BY_APPLICATION) -> "By application";
 default_text(?SSH_DISCONNECT_TOO_MANY_CONNECTIONS) -> "Too many connections";
 default_text(?SSH_DISCONNECT_AUTH_CANCELLED_BY_USER) -> "Auth cancelled by user";
 default_text(?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE) -> "Unable to connect using the available authentication methods";
-default_text(?SSH_DISCONNECT_ILLEGAL_USER_NAME) -> "Illegal user name".
+default_text(?SSH_DISCONNECT_ILLEGAL_USER_NAME) -> "Illegal user name";
 
+%% More specific errors
+default_text(?SSH_DISCONNECT_BAD_PUBLIC_KEY) -> "Bad public key".
 %%%----------------------------------------------------------------
 counterpart_versions(NumVsn, StrVsn, #ssh{role = server} = Ssh) ->
     Ssh#ssh{c_vsn = NumVsn , c_version = StrVsn};
@@ -2431,7 +2479,10 @@ handshake(Pid, Ref, Timeout) ->
 	{'DOWN', _, process, Pid, {shutdown, Reason}} ->
 	    {error, Reason};
 	{'DOWN', _, process, Pid, Reason} ->
-	    {error, Reason}
+	    {error, Reason};
+        {'EXIT', _, Reason} ->
+            exit(Pid, shutdown),
+            {error, Reason}
     after Timeout ->
 	    stop(Pid),
 	    {error, timeout}
@@ -2701,3 +2752,58 @@ triggered_alive(StateName, Data, _Ssh = #ssh{alive_sent_probes = SentProbes}, Ac
 
 start_alive(D = #data{ssh_params = Ssh}) ->
     D#data{ssh_params = Ssh#ssh{alive_started = true}}.
+
+add_user(User, D) ->
+    Users = D#data.users,
+    case lists:keymember(User, 1, Users) of
+        false ->
+            Ref = erlang:monitor(process, User),
+            case Users of
+                [Owner] ->
+                    %D0 = stop_connection_timer(State),
+                    %% keep owner as the first user, so that we can
+                    %% send channel open requests to him.
+                    D#data{users = [Owner, {User, Ref}]};
+                [Owner | Rest] ->
+                    %% keep owner as the first user, so that we can
+                    %% send channel open requests to him.
+                    D#data{users = [Owner, {User, Ref} | Rest]};
+                [] ->
+                    D#data{users = [{User, Ref}]}
+            end;
+        true ->
+            D
+    end.
+
+%% Remove user
+del_user(User, D) ->
+    del_user(User, D, default).
+
+-spec del_user(pid(), #data{}, default|channel_removed) -> #data{}.
+del_user(User, D, Type) ->
+    #data{users = Users, ssh_params = SSH} = D,
+    case lists:keysearch(User, 1, Users) of
+        false ->
+            D;
+        {value, {User, Ref}} ->
+            erlang:demonitor(Ref, [flush]),
+            %State1 = del_binds_by_user(User, State),
+            D2 = D#data{users = lists:keydelete(User, 1, Users)},
+            %% exit if no more users and we are unregistered
+            case D2#data.users of
+                [] ->
+                    case process_info(self(), registered_name) of
+                        [] ->
+                            %legacyssh_transport:disconnect(SSH, 0),
+                            close_transport(D2),
+                            D2;
+                        {registered_name,_Name} ->
+                            D2
+                    end;
+                %[_Owner] ->
+                %    start_connection_timer(State2, Type);
+                _ ->
+                    D2
+            end
+    end.
+

@@ -238,6 +238,11 @@
 -define(SSH_DISCONNECT_AUTH_CANCELLED_BY_USER,  13).
 -define(SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,  14).
 -define(SSH_DISCONNECT_ILLEGAL_USER_NAME,  15).
+-define(SSH_DISCONNECT_LAST_RFC, 15). %% This is NOT to be used as a real cause
+
+%% more fine-grained errors for passwd/key exchange etc
+%% NB! These are NOT from RFC
+-define(SSH_DISCONNECT_BAD_PUBLIC_KEY,  16).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
