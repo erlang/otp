@@ -859,10 +859,33 @@ void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src1,
 }
 
 void BeamModuleAssembler::emit_swap(const ArgVal &R1, const ArgVal &R2) {
-    mov_arg(ARG1, R1);
-    mov_arg(ARG2, R2);
-    mov_arg(R2, ARG1);
-    mov_arg(R1, ARG2);
+    if (! hasCpuFeature(x86::Features::kAVX)) {
+        goto fallback;
+    }
+
+    switch (ArgVal::register_relation(R1, R2)) {
+    case ArgVal::Relation::consecutive: {
+        x86::Mem ptr = getArgRef(R1, 16);
+        comment("(swapping using AVX)");
+        a.vpermilpd(x86::xmm0, ptr, 1); /* Load and swap */
+        a.vmovups(ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        x86::Mem ptr = getArgRef(R2, 16);
+        comment("(swapping using AVX)");
+        a.vpermilpd(x86::xmm0, ptr, 1); /* Load and swap */
+        a.vmovups(ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::none:
+        fallback:
+        mov_arg(ARG1, R1);
+        mov_arg(ARG2, R2);
+        mov_arg(R2, ARG1);
+        mov_arg(R1, ARG2);
+        break;
+    }
 }
 
 void BeamModuleAssembler::emit_node(const ArgVal &Dst) {
