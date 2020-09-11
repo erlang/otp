@@ -1511,66 +1511,13 @@ basic_test(Config) ->
     ok = ssh:close(CM),
     ssh:stop_daemon(Pid).
 
-do_shell(IO, Shell) ->
-    receive
-	ErlPrompt0 ->
-	    ct:log("Erlang prompt: ~p~n", [ErlPrompt0])
-    end,
-    IO ! {input, self(), "1+1.\r\n"},
-     receive
-	Echo0 ->
-	     ct:log("Echo: ~p ~n", [Echo0])
-    after 
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-    receive
-	?NEWLINE ->
-	    ok
-    after 
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-    receive
-	Result0 = <<"2">> ->
-	    ct:log("Result: ~p~n", [Result0])
-    after 
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-    receive
-	?NEWLINE ->
-	    ok
-    after 
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-    receive
-	ErlPrompt1 ->
-	    ct:log("Erlang prompt: ~p~n", [ErlPrompt1])
-    after 
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-    exit(Shell, kill).
-    %%Does not seem to work in the testserver!
-    %% 	IO ! {input, self(), "q().\r\n"},
-    %% receive
-    %%  	?NEWLINE ->
-    %%  	    ok
-    %% end,
-    %% receive
-    %%  	Echo1 ->
-    %% 	    ct:log("Echo: ~p ~n", [Echo1])
-    %% end,
-    %% receive
-    %% 	?NEWLINE ->
-    %%  	    ok
-    %% end,
-    %% receive
-    %%  	Result1 ->
-    %%  	    ct:log("Result: ~p~n", [Result1])
-    %%      end,
-    %% receive
-    %% 	{'EXIT', Shell, killed} ->
-    %% 	    ok
-    %% end.
-
+do_shell(IO, _Shell) ->
+    new_do_shell(IO, [new_prompt,
+                      {type,"1+1."},
+                      {expect,"2"},
+                      new_prompt,
+                      {type,"exit()."}
+                     ]).
 
 %%--------------------------------------------------------------------
 wait_for_erlang_first_line(Config) ->
