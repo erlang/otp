@@ -877,24 +877,40 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
 
     comment("Move tuple data");
     for (unsigned i = 0; i < size; i++) {
-        ArgVal::TYPE type = args[i].getType();
-        bool consecutive = i + 1 < size && type == args[i + 1].getType() &&
-                           (type == ArgVal::x || type == ArgVal::y) &&
-                           args[i].getValue() + 1 == args[i + 1].getValue();
         x86::Mem dst_ptr = x86::qword_ptr(HTOP, (i + 1) * sizeof(Eterm));
 
-        if (!consecutive) {
+        if (i + 1 == size) {
             mov_arg(dst_ptr, args[i]);
         } else {
-            x86::Mem src_ptr = getArgRef(args[i]);
+            switch (ArgVal::register_relation(args[i], args[i+1])) {
+            case ArgVal::consecutive: {
+                x86::Mem src_ptr = getArgRef(args[i], 16);
 
-            comment("(moving two data items at once)");
-            dst_ptr.setSize(16);
-            src_ptr.setSize(16);
-            a.movups(x86::xmm0, src_ptr);
-            a.movups(dst_ptr, x86::xmm0);
+                comment("(moving two elements at once)");
+                dst_ptr.setSize(16);
+                a.movups(x86::xmm0, src_ptr);
+                a.movups(dst_ptr, x86::xmm0);
+                i++;
+                break;
+            }
+            case ArgVal::reverse_consecutive: {
+                if (! hasCpuFeature(x86::Features::kAVX)) {
+                    mov_arg(dst_ptr, args[i]);
+                } else {
+                    x86::Mem src_ptr = getArgRef(args[i+1], 16);
 
-            i++;
+                    comment("(moving and swapping two elements at once)");
+                    dst_ptr.setSize(16);
+                    a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+                    a.vmovups(dst_ptr, x86::xmm0);
+                    i++;
+                }
+                break;
+            }
+            case ArgVal::none:
+                mov_arg(dst_ptr, args[i]);
+                break;
+            }
         }
     }
 
