@@ -120,6 +120,27 @@ public:
     ArgVal operator*(T val) const {
         return ArgVal(gen_op.type, val * gen_op.val);
     }
+
+    enum Relation {
+        none,
+        consecutive,
+        reverse_consecutive
+    };
+
+    static Relation register_relation(const ArgVal &arg1, const ArgVal &arg2) {
+        TYPE type = arg1.getType();
+        bool same_reg_types = type == arg2.getType() &&
+            (type == TYPE::x || type == TYPE::y);
+        if (!same_reg_types) {
+            return none;
+        } else if (arg1.getValue() + 1 == arg2.getValue()) {
+            return consecutive;
+        } else if (arg1.getValue() == arg2.getValue() + 1) {
+            return reverse_consecutive;
+        } else {
+            return none;
+        }
+    };
 };
 
 using namespace asmjit;
