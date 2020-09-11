@@ -306,16 +306,28 @@ system_limit_body
 # Optimize moves of consecutive memory addresses.
 #
 
-move S1=d D1=d | move S2=d D2=d | consecutive_words(S1, D1, S2, D2) => move_two_words S1 D1
-move_two_words s d
+move Src=c Dst => i_move Src Dst
+
+move Src SrcDst | move SrcDst Dst => i_move Src SrcDst | move SrcDst Dst
+
+# Try to move two words at once. Always arrange the source operands in
+# consecutive order; the destination operands may be in consecutive or
+# reverse consecutive order.
+
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S1, D1, S2, D2) => move_two_words S1 D1 S2 D2
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S1, D2, S2, D1) => move_two_words S1 D1 S2 D2
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S2, D1, S1, D2) => move_two_words S2 D2 S1 D1
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S2, D2, S1, D1) => move_two_words S2 D2 S1 D1
+
+move Src Dst => i_move Src Dst
 
 #
 # Move instructions.
 #
 
 swap d d
-move s d
-
+i_move s d
+move_two_words s d s d
 
 #
 # Receive operations. We conservatively align all labels before any

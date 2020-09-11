@@ -816,20 +816,46 @@ void BeamModuleAssembler::emit_i_trim(const ArgVal &Words) {
     }
 }
 
-void BeamModuleAssembler::emit_move(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_move(const ArgVal &Src, const ArgVal &Dst) {
     mov_arg(Dst, Src);
 }
 
-/* Move two words at consecutive addresses to consecutive destinations. */
-void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src,
-                                              const ArgVal &Dst) {
-    x86::Mem dst_ptr = getArgRef(Dst);
-    x86::Mem src_ptr = getArgRef(Src);
+/* Move two words at consecutive addresses to consecutive or reverse
+ * consecutive destinations. */
+void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src1,
+                                              const ArgVal &Dst1,
+                                              const ArgVal &Src2,
+                                              const ArgVal &Dst2) {
+    x86::Mem src_ptr = getArgRef(Src1, 16);
 
-    dst_ptr.setSize(16);
-    src_ptr.setSize(16);
-    a.movups(x86::xmm0, src_ptr);
-    a.movups(dst_ptr, x86::xmm0);
+    ASSERT(ArgVal::register_relation(Src1, Src2) == ArgVal::Relation::consecutive);
+
+    switch (ArgVal::register_relation(Dst1, Dst2)) {
+    case ArgVal::Relation::consecutive: {
+        x86::Mem dst_ptr = getArgRef(Dst1, 16);
+        a.movups(x86::xmm0, src_ptr);
+        a.movups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        x86::Mem dst_ptr = getArgRef(Dst2, 16);
+        comment("(moving and swapping)");
+        if (hasCpuFeature(x86::Features::kAVX)) {
+            a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+            a.vmovups(dst_ptr, x86::xmm0);
+        } else {
+            mov_arg(ARG1, Src1);
+            mov_arg(ARG2, Src2);
+            mov_arg(Dst1, ARG1);
+            mov_arg(Dst2, ARG2);
+        }
+        break;
+    }
+    case ArgVal::Relation::none:
+        ASSERT(0);
+        break;
+    }
+
 }
 
 void BeamModuleAssembler::emit_swap(const ArgVal &R1, const ArgVal &R2) {

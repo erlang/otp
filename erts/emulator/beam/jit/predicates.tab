@@ -110,11 +110,6 @@ pred.is_ne_exact_bif(Bif) {
 }
 
 pred.consecutive_words(S1, D1, S2, D2) {
-    if (D1.type == S2.type && D1.val == S2.val) {
-	/* The moves must be performed sequentially. */
-	return 0;
-    }
-
     return S1.type == S2.type && S1.val + 1 == S2.val &&
 	D1.type == D2.type && D1.val + 1 == D2.val;
 }
