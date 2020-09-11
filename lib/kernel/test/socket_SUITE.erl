@@ -14668,7 +14668,7 @@ api_opt_sock_passcred_tcp(InitState) ->
                            case Recv(Sock) of
                                {ok, {[#{level := socket,
                                         type  := passcred,
-                                        data  := Cred}], ?BASIC_REP}} ->
+                                        value := Cred}], ?BASIC_REP}} ->
                                    %% socket:setopt(Sock, otp, debug, false),
                                    ?SEV_IPRINT("received reply *with* "
                                                "expected passcred: "
@@ -14680,7 +14680,7 @@ api_opt_sock_passcred_tcp(InitState) ->
                                             BadCMsgHdrs}};
                                {ok, {[#{level := socket,
                                         type  := passcred,
-                                        data  := _Cred}], BadData}} ->
+                                        value := _Cred}], BadData}} ->
                                    %% socket:setopt(Sock, otp, debug, false),
                                    {error, {unexpected_reply_data,
                                             BadData}};
@@ -17152,22 +17152,13 @@ api_opt_sock_timestamp_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := socket,
                                              type  := timestamp,
-                                             data  := TS}], ?BASIC_REQ}} ->
+                                             value := TS}], ?BASIC_REQ}} ->
                                    ?SEV_IPRINT("received req *with* "
                                                "expected timestamp: "
                                                "~n   ~p", [TS]),
                                    ok;
-                               {ok, {Src, [#{level := Level,
-                                             type  := Type,
-                                             data  := Data} = CMsgHdr], ?BASIC_REQ}} ->
-                                   ?SEV_EPRINT("Unexpected control message header:"
-                                               "~n   Level: ~p"
-                                               "~n   Type:  ~p"
-                                               "~n   Data:  ~p",
-                                               [Level, Type, Data]),
-                                   {error, {unexpected_cmsghdr, CMsgHdr}};
                                {ok, {Src, CMsgHdrs, ?BASIC_REQ}} ->
-                                   ?SEV_EPRINT("Unexpected control message header(s):"
+                                   ?SEV_EPRINT("Unexpected control message(s):"
                                                "~n   CMsgHdrs: ~p",
                                                [CMsgHdrs]),
                                    {error, {unexpected_cmsghdrs, CMsgHdrs}};
@@ -17206,8 +17197,8 @@ api_opt_sock_timestamp_udp(InitState) ->
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := socket,
-                                             type   := timestamp,
-                                             data   := TS}], ?BASIC_REQ}} ->
+                                             type  := timestamp,
+                                             value := TS}], ?BASIC_REQ}} ->
                                    ?SEV_IPRINT("received req *with* "
                                                "expected timestamp: "
                                                "~n   ~p", [TS]),
@@ -17798,22 +17789,12 @@ api_opt_sock_timestamp_tcp(InitState) ->
            cmd  => fun(#{sock := Sock, recv := Recv, get := Get}) ->
                            case Recv(Sock) of
                                {ok, {[#{level := socket,
-                                        type   := timestamp,
-                                        data   := TS}], ?BASIC_REP}} ->
+                                        type  := timestamp,
+                                        value := TS}], ?BASIC_REP}} ->
                                    ?SEV_IPRINT("received reply *with* "
                                                "expected timestamp: "
                                                "~n   ~p", [TS]),
                                    ok;
-                               {ok, {[#{level := socket,
-                                        type  := timestamp,
-                                        data  := UTS}], BadData}} ->
-                                   ?SEV_EPRINT("received reply *with* "
-                                               "unexpected timestamp:"
-                                               "~n   ~p"
-                                               "Current timestamp value:"
-                                               "~n   ~p",
-                                               [UTS, Get(Sock)]),
-                                   {error, {unexpected_reply_data, BadData}};
                                {ok, {BadCMsgHdrs, ?BASIC_REP}} ->
                                    ?SEV_EPRINT("received reply *with* "
                                                "unexpected cmsg headers:"
@@ -18725,7 +18706,7 @@ api_opt_ip_pktinfo_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
                                              type  := pktinfo,
-                                             data  := #{addr     := Addr,
+                                             value := #{addr     := Addr,
                                                         ifindex  := IfIdx,
                                                         spec_dst := SpecDst}}],
                                      ?BASIC_REQ}} ->
@@ -19493,7 +19474,7 @@ api_opt_ip_recvorigdstaddr_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
                                              type  := origdstaddr,
-                                             data  := Addr}], ?BASIC_REQ}} ->
+                                             value := Addr}], ?BASIC_REQ}} ->
                                    ?SEV_IPRINT("got origdstaddr "
                                                "control message header: "
                                                "~n   ~p", [Addr]),
@@ -19821,7 +19802,7 @@ api_opt_ip_recvtos_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
                                              type  := TOS,
-                                             data  := 0}], ?BASIC_REQ}}  
+                                             value := 0}], ?BASIC_REQ}}
                                  when ((TOS =:= tos) orelse (TOS =:= recvtos)) ->
                                    ?SEV_IPRINT("got default TOS (~w) "
                                                "control message header", [TOS]),
@@ -19867,7 +19848,7 @@ api_opt_ip_recvtos_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
                                              type  := TOS,
-                                             data  := mincost = TOSData}],
+                                             value := mincost = TOSData}],
                                      ?BASIC_REQ}} 
                                  when ((TOS =:= tos) orelse (TOS =:= recvtos)) ->
                                    ?SEV_IPRINT("got expected TOS (~w) = ~w "
@@ -20146,7 +20127,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                                    ok;
                                {ok, {Src, [#{level := ip,
                                              type  := TTLType,
-                                             data  := TTL}], ?BASIC_REQ}}
+                                             value := TTL}], ?BASIC_REQ}}
                                when ((TTLType =:= recvttl) andalso
                                      (TTL =:= 255)) ->
                                    %% This is the behaviopur on Solaris (11)
@@ -20203,7 +20184,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
                                              type  := TTLType,
-                                             data  := TTL}], ?BASIC_REQ}}
+                                             value := TTL}], ?BASIC_REQ}}
                                when ((TTLType =:= ttl) orelse 
                                      (TTLType =:= recvttl)) ->
                                    ?SEV_IPRINT("Got (default) TTL (~w): ~p",
@@ -20220,7 +20201,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                                                [Src, BadSrc,
                                                 [#{level => ip,
 						   type  => ttl,
-						   data  => "something"}],
+						   value => "something"}],
 						BadCHdrs,
                                                 ?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
@@ -20232,7 +20213,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                                                "~n   Unexp Data:    ~p",
                                                [Src, [#{level => ip,
 							type  => ttl,
-							data  => "something"}],
+							value => "something"}],
 						?BASIC_REQ, UnexpData]),
                                    {error, {unexpected_data, UnexpData}};
                                {error, _} = ERROR ->
@@ -20251,7 +20232,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
                                              type  := TTLType,
-                                             data  := 100 = TTL}], ?BASIC_REQ}}
+                                             value := 100 = TTL}], ?BASIC_REQ}}
                                when ((TTLType =:= ttl) orelse
                                      (TTLType =:= recvttl)) ->
                                    ?SEV_IPRINT("Got TTL (~w): ~p",
@@ -20259,7 +20240,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                                    ok;
                                {ok, {Src, [#{level := ip,
                                              type  := TTLType,
-                                             data  := BadTTL}], ?BASIC_REQ}}
+                                             value := BadTTL}], ?BASIC_REQ}}
                                when ((TTLType =:= ttl) orelse
                                      (TTLType =:= recvttl)) ->
                                    ?SEV_EPRINT("Unexpected TTL: "
@@ -20278,7 +20259,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                                                [Src, BadSrc,
                                                 [#{level => ip,
 						   type  => ttl,
-						   data  => 100}], BadCHdrs,
+						   value => 100}], BadCHdrs,
                                                 ?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
                                {ok, UnexpData} ->
@@ -20289,7 +20270,7 @@ api_opt_ip_recvttl_udp(InitState) ->
                                                "~n   Unexp Data:    ~p",
                                                [Src, [#{level => ip,
 							type  => ttl,
-							data  => 100}],
+							value => 100}],
 						?BASIC_REQ, UnexpData]),
                                    {error, {unexpected_data, UnexpData}};
                                {error, _} = ERROR ->
@@ -20800,7 +20781,7 @@ api_opt_recverr_udp(InitState) ->
                                       iov   := [<<"ping">>],
                                       ctrl  := [#{level := Level,
                                                   type  := recverr,
-                                                  data  := 
+                                                  value :=
                                                       #{code     := port_unreach,
                                                         data     := 0,
                                                         error    := econnrefused,
@@ -20817,9 +20798,8 @@ api_opt_recverr_udp(InitState) ->
 						 addr   := _Addr},
                                       flags := [errqueue],
                                       iov   := [<<"ping">>],
-                                      ctrl  := [#{level := Level,
-                                                  type  := recverr,
-                                                  data  := _Data}]} = _MsgHdr} ->
+                                      value := [#{level := Level,
+                                                  type  := recverr}]} = _MsgHdr} ->
                                    ?SEV_IPRINT("expected error queue"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -21402,7 +21382,7 @@ api_opt_ipv6_recvpktinfo_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ipv6,
                                              type  := pktinfo,
-                                             data  := #{addr    := Addr,
+                                             value := #{addr    := Addr,
                                                         ifindex := IfIdx}}],
                                      ?BASIC_REQ}} ->
                                    ?SEV_IPRINT("Got (default) Pkt Info: "
@@ -21421,7 +21401,7 @@ api_opt_ipv6_recvpktinfo_udp(InitState) ->
                                                [Src, BadSrc,
                                                 #{level => ipv6,
                                                   type  => pktinfo,
-                                                  data  => "something"} , BadCHdrs,
+                                                  value => "something"} , BadCHdrs,
                                                 ?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
                                {ok, UnexpData} ->
@@ -21660,7 +21640,7 @@ api_opt_ipv6_flowinfo_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ipv6,
                                              type  := flowinfo,
-                                             data  := FlowID}], ?BASIC_REQ}} ->
+                                             value := FlowID}], ?BASIC_REQ}} ->
                                    ?SEV_IPRINT("Got flow info: "
 					       "~n   Flow ID: ~p", [FlowID]),
                                    ok;
@@ -21675,7 +21655,7 @@ api_opt_ipv6_flowinfo_udp(InitState) ->
                                                [Src, BadSrc,
                                                 #{level => ipv6,
 						  type  => flowinfo,
-						  data  => "something"},
+						  value => "something"},
 						BadCHdrs,
 						?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
@@ -21947,7 +21927,7 @@ api_opt_ipv6_hoplimit_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ipv6,
                                              type  := hoplimit,
-                                             data  := HL}], ?BASIC_REQ}}
+                                             value := HL}], ?BASIC_REQ}}
                                  when is_integer(HL) ->
                                    ?SEV_IPRINT("Got hop limit: "
 					       "~n   Hop Limit: ~p", [HL]),
@@ -21963,7 +21943,7 @@ api_opt_ipv6_hoplimit_udp(InitState) ->
                                                [Src, BadSrc,
                                                 #{level => ipv6,
 						  type  => hoplimit,
-						  data  => "something"},
+						  value => "something"},
 						BadCHdrs,
 						?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
@@ -21975,7 +21955,7 @@ api_opt_ipv6_hoplimit_udp(InitState) ->
                                                "~n   Unexp Data:    ~p",
                                                [Src, #{level => ipv6,
 						       type  => hoplimit,
-						       data  => "something"},
+						       value => "something"},
 						?BASIC_REQ, UnexpData]),
                                    {error, {unexpected_data, UnexpData}};
                                {error, _} = ERROR ->
@@ -22245,7 +22225,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ipv6,
                                              type  := tclass,
-                                             data  := TClass}], ?BASIC_REQ}}
+                                             value := TClass}], ?BASIC_REQ}}
 			       when is_integer(TClass) ->
                                    ?SEV_IPRINT("Got tclass: "
 					       "~n   TClass: ~p", [TClass]),
@@ -22261,7 +22241,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
                                                [Src, BadSrc,
                                                 #{level => ipv6,
 						  type  => tclass,
-						  data  => "something"},
+						  value => "something"},
 						BadCHdrs,
 						?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
@@ -22273,7 +22253,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
                                                "~n   Unexp Data:    ~p",
                                                [Src, #{level => ipv6,
 						       type  => tclass,
-						       data  => "something"},
+						       value => "something"},
 						?BASIC_REQ, UnexpData]),
                                    {error, {unexpected_data, UnexpData}};
                                {error, _} = ERROR ->
@@ -22292,14 +22272,14 @@ api_opt_ipv6_tclass_udp(InitState) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ipv6,
                                              type  := tclass,
-                                             data  := 1 = TClass}], ?BASIC_REQ}}
+                                             value := 1 = TClass}], ?BASIC_REQ}}
 			       when is_integer(TClass) ->
                                    ?SEV_IPRINT("Got (expected) tclass: "
 					       "~n   TClass: ~p", [TClass]),
                                    ok;
                                {ok, {_Src, [#{level := ipv6,
 					      type  := tclass,
-					      data  := TClass}], ?BASIC_REQ}}
+					      value := TClass}], ?BASIC_REQ}}
 			       when is_integer(TClass) ->
                                    ?SEV_EPRINT("Unexpected tclass: "
                                                "~n   Expect TClass: ~p"
@@ -22317,7 +22297,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
                                                [Src, BadSrc,
                                                 #{level => ipv6,
 						  type  => tclass,
-						  data  => "something"},
+						  value => "something"},
 						BadCHdrs,
 						?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
@@ -22329,7 +22309,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
                                                "~n   Unexp Data:    ~p",
                                                [Src, #{level => ipv6,
 						       type  => tclass,
-						       data  => "something"},
+						       value => "something"},
 						?BASIC_REQ, UnexpData]),
                                    {error, {unexpected_data, UnexpData}};
                                {error, _} = ERROR ->

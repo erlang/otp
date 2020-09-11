@@ -3650,7 +3650,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(txstatus);         \
     LOCAL_ATOM_DECL(txtime);           \
     LOCAL_ATOM_DECL(use_registry);     \
-    LOCAL_ATOM_DECL(value_type);       \
+    LOCAL_ATOM_DECL(value);            \
     LOCAL_ATOM_DECL(want);             \
     LOCAL_ATOM_DECL(write);            \
     LOCAL_ATOM_DECL(write_byte);       \
@@ -13049,11 +13049,20 @@ void encode_cmsghdrs(ErlNifEnv*       env,
             break;
             
         } else {
-            ERL_NIF_TERM   level, type, data;
             unsigned char* dataP   = UCHARP(CMSG_DATA(currentP));
             size_t         dataPos = dataP - cmsgBinP->data;
             size_t         dataLen =
                 currentP->cmsg_len - (UCHARP(currentP)-dataP);
+            ERL_NIF_TERM
+                cmsgHdr,
+                keys[]  =
+                {esock_atom_level,
+                 esock_atom_type,
+                 esock_atom_data,
+                 atom_value},
+                vals[NUM(keys)];
+            size_t numKeys = NUM(keys);
+            BOOLEAN_T have_value;
 
             SSDBG( descP,
                    ("SOCKET", "encode_cmsghdrs {%d} -> cmsg header data: "
@@ -13061,41 +13070,34 @@ void encode_cmsghdrs(ErlNifEnv*       env,
                     "\r\n   dataLen: %d"
                     "\r\n", descP->sock, dataPos, dataLen) );
 
-            level = MKI(env, currentP->cmsg_level);
-
-            if (! encode_cmsghdr(env,
-                                 currentP->cmsg_level,
-                                 currentP->cmsg_type,
-                                 dataP, dataLen, &type, &data)) {
-                data = MKSBIN(env, ctrlBuf, dataPos, dataLen);
-            }
+            vals[0] = MKI(env, currentP->cmsg_level);
+            vals[2] = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+            have_value =
+                encode_cmsghdr(env,
+                               currentP->cmsg_level,
+                               currentP->cmsg_type,
+                               dataP, dataLen, &vals[1], &vals[3]);
 
             SSDBG( descP,
                    ("SOCKET", "encode_cmsghdrs {%d} -> "
-                    "\r\n   level: %T"
-                    "\r\n   type:  %T"
-                    "\r\n   data:  %T"
-                    "\r\n", descP->sock, level, type, data) );
+                    "\r\n   %T: %T"
+                    "\r\n   %T: %T"
+                    "\r\n   %T: %T"
+                    "\r\n", descP->sock,
+                    keys[0], vals[0], keys[1], vals[1], keys[2], vals[2]) );
+            if (have_value)
+                SSDBG( descP,
+                       ("SOCKET", "encode_cmsghdrs {%d} -> "
+                        "\r\n   %T: %T"
+                        "\r\n", descP->sock, keys[3], vals[3]) );
 
-            /* And finally create the 'cmsghdr' map -
-             * and if successfull add it to the tarray.
-             */
-            {
-                ERL_NIF_TERM keys[]  = {esock_atom_level,
-                                        esock_atom_type,
-                                        esock_atom_data};
-                ERL_NIF_TERM vals[]  = {level, type, data};
-                unsigned int numKeys = NUM(keys);
-                unsigned int numVals = NUM(vals);
-                ERL_NIF_TERM cmsgHdr;
+            /* Guard agains cut-and-paste errors */
+            ESOCK_ASSERT( numKeys == NUM(vals) );
+            ESOCK_ASSERT( MKMA(env, keys, vals,
+                               numKeys - (have_value ? 0 : 1), &cmsgHdr) );
 
-                /* Guard agains cut-and-paste errors */
-                ESOCK_ASSERT( numKeys == numVals );
-                ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &cmsgHdr) );
-
-                /* And finally add it to the list... */
-                TARRAY_ADD(cmsghdrs, cmsgHdr);
-            }
+            /* And finally add it to the list... */
+            TARRAY_ADD(cmsghdrs, cmsgHdr);
         }
     }
 
