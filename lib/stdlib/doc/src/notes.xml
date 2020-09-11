@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When a temporary child of a <c>simple_one_for_one
+	    supervisor</c> died, the internal state of the supervisor
+	    would be corrupted in a way that would cause the
+	    supervisor to retain the start arguments for subsequent
+	    children started by the supervisor, causing unnecessary
+	    growth of the supervisor's heap. There state corruption
+	    could potentially cause other problems as well.</p>
+          <p>
+	    Own Id: OTP-16804</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
