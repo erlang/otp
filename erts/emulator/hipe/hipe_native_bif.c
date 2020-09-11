@@ -266,7 +266,7 @@ static struct StackTrace *get_trace_from_exc(Eterm exc)
     if (exc == NIL)
 	return NULL;
     else
-	return (struct StackTrace *) big_val(CDR(list_val(exc)));
+	return (struct StackTrace *) big_val(cell_tail(list_val(exc)));
 }
 
 /*

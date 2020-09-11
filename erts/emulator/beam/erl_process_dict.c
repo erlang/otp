@@ -73,8 +73,11 @@
      erts_realloc(ERTS_ALC_T_PROC_DICT, (P), (NSz))
 
 
-#define TCAR(Term) CAR(list_val(Term))
-#define TCDR(Term) CDR(list_val(Term))
+#define TCAR(Term) cell_head(list_val(Term))
+#define TCAR_ptr(Term) cell_head_ptr(list_val(Term))
+
+#define TCDR(Term) cell_tail(list_val(Term))
+#define TCDR_ptr(Term) cell_tail_ptr(list_val(Term))
 
 /* Array access macro */ 
 #define ARRAY_GET(PDict, Index) (ASSERT((Index) < (PDict)->arraySize), \
@@ -404,7 +407,7 @@ static void pd_hash_erase(Process *p, Eterm id, Eterm *ret)
 	/* Find cons cell for identical value */
 	Eterm* prev = &p->dictionary->data[hval];
 
-	for (tmp = *prev; tmp != NIL; prev = &TCDR(tmp), tmp = *prev) {
+	for (tmp = *prev; tmp != NIL; prev = TCDR_ptr(tmp), tmp = *prev) {
 	    if (EQ(tuple_val(TCAR(tmp))[1], id)) {
 		*prev = TCDR(tmp);
 		*ret = tuple_val(TCAR(tmp))[2];
@@ -674,7 +677,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
         Eterm* prev_cdr = bucket;
 
         needed += 2;
-	for (tmp = old; tmp != NIL; prev_cdr = &TCDR(tmp), tmp = *prev_cdr) {
+	for (tmp = old; tmp != NIL; prev_cdr = TCDR_ptr(tmp), tmp = *prev_cdr) {
             tp = tuple_val(TCAR(tmp));
             if (EQ(tp[1], id)) {
                 old_val = tp[2];

@@ -292,7 +292,7 @@ erts_list_length(Eterm list)
 
     while(is_list(list)) {
 	i++;
-	list = CDR(list_val(list));
+	list = cell_tail(list_val(list));
     }
     if (is_not_nil(list)) {
 	return -1;
@@ -958,15 +958,15 @@ tail_recur:
 		*/
 		hash = hash*FUNNY_NUMBER2 + unsigned_val(*list);
 
-		if (is_not_list(CDR(list))) {
+		if (is_not_list(cell_tail(list))) {
 		    WSTACK_PUSH(stack, MAKE_HASH_CDR_POST_OP);
-		    term = CDR(list);
+		    term = cell_tail(list);
 		    goto tail_recur;
 		}
-		list = list_val(CDR(list));
+		list = list_val(cell_tail(list));
 	    }
-	    WSTACK_PUSH2(stack, CDR(list), MAKE_HASH_CDR_PRE_OP);
-	    term = CAR(list);
+	    WSTACK_PUSH2(stack, cell_tail(list), MAKE_HASH_CDR_PRE_OP);
+	    term = cell_head(list);
 	    goto tail_recur;
 	}
     case MAKE_HASH_CDR_POST_OP:
@@ -1496,7 +1496,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 		} else {
 		    ctx.c++;
 		}
-		term = CDR(ctx.ptr);
+		term = cell_tail(ctx.ptr);
 		if (is_not_list(term))
 		    break;
 		ctx.ptr = list_val(term);
@@ -1505,9 +1505,9 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 	    if (ctx.c > 0)
 		UINT32_HASH(ctx.sh, HCONST_4);
 	    if (is_list(term)) {
-		tmp = CDR(ctx.ptr);
+		tmp = cell_tail(ctx.ptr);
                 ESTACK_PUSH(s, tmp);
-		term = CAR(ctx.ptr);
+		term = cell_head(ctx.ptr);
 	    }
 	}
 	break;
@@ -1599,8 +1599,8 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                     if (is_list(*ctx.ptr)) {
                         Eterm* cons = list_val(*ctx.ptr);
                         ESTACK_PUSH(s, HASH_MAP_PAIR);
-                        ESTACK_PUSH(s, CDR(cons));
-                        ESTACK_PUSH(s, CAR(cons));
+                        ESTACK_PUSH(s, cell_tail(cons));
+                        ESTACK_PUSH(s, cell_head(cons));
                     }
                     else {
                         ASSERT(is_boxed(*ctx.ptr));
@@ -2046,7 +2046,7 @@ make_internal_hash(Eterm term, Uint32 salt)
 		} else {
 		    c++;
 		}
-		term = CDR(ptr);
+		term = cell_tail(ptr);
 		if (is_not_list(term))
 		    break;
 		ptr = list_val(term);
@@ -2055,13 +2055,13 @@ make_internal_hash(Eterm term, Uint32 salt)
                 UINT32_HASH_2(sh, (Uint32)c, HCONST_22);
 
 	    if (is_list(term)) {
-		tmp = CDR(ptr);
+		tmp = cell_tail(ptr);
                 CONST_HASH(HCONST_17);  /* Hash CAR in cons cell */
                 ESTACK_PUSH(s, tmp);
                 if (is_not_list(tmp)) {
                     ESTACK_PUSH(s, HASH_CDR);
                 }
-		term = CAR(ptr);
+		term = cell_head(ptr);
 	    }
 	}
 	break;
@@ -2135,8 +2135,8 @@ make_internal_hash(Eterm term, Uint32 salt)
                 while (i) {
                     if (is_list(*ptr)) {
                         Eterm* cons = list_val(*ptr);
-                        ESTACK_PUSH(s, CDR(cons));
-                        ESTACK_PUSH(s, CAR(cons));
+                        ESTACK_PUSH(s, cell_tail(cons));
+                        ESTACK_PUSH(s, cell_head(cons));
                     }
                     else {
                         ASSERT(is_boxed(*ptr));
@@ -2721,16 +2721,16 @@ tailrecur_ne:
 	    Eterm* aval = list_val(a);
 	    Eterm* bval = list_val(b);
 	    while (1) {
-		Eterm atmp = CAR(aval);
-		Eterm btmp = CAR(bval);
+		Eterm atmp = cell_head(aval);
+		Eterm btmp = cell_head(bval);
 		if (!is_same(atmp,btmp)) {
-		    WSTACK_PUSH2(stack,(UWord) CDR(bval),(UWord) CDR(aval));
+		    WSTACK_PUSH2(stack,(UWord) cell_tail(bval),(UWord) cell_tail(aval));
 		    a = atmp;
 		    b = btmp;
 		    goto tailrecur_ne;
 		}
-		atmp = CDR(aval);
-		btmp = CDR(bval);
+		atmp = cell_tail(aval);
+		btmp = cell_tail(bval);
 		if (is_same(atmp,btmp)) {
 		    goto pop_next;
 		}
@@ -3270,16 +3270,16 @@ tailrecur_ne:
 	aa = list_val(a);
 	bb = list_val(b);
 	while (1) {
-	    Eterm atmp = CAR(aa);
-	    Eterm btmp = CAR(bb);
+	    Eterm atmp = cell_head(aa);
+	    Eterm btmp = cell_head(bb);
 	    if (!is_same(atmp,btmp)) {
-		WSTACK_PUSH2(stack,(UWord) CDR(bb),(UWord) CDR(aa));
+		WSTACK_PUSH2(stack,(UWord) cell_tail(bb),(UWord) cell_tail(aa));
 		a = atmp;
 		b = btmp;
 		goto tailrecur_ne;
 	    }
-	    atmp = CDR(aa);
-	    btmp = CDR(bb);
+	    atmp = cell_tail(aa);
+	    btmp = cell_tail(bb);
 	    if (is_same(atmp,btmp)) {
 		goto pop_next;
 	    }
@@ -3395,8 +3395,8 @@ tailrecur_ne:
                     sp->cmp_res = 0;
                     ASSERT(sp->ap && sp->bp);
 
-                    a = CAR(sp->ap);
-                    b = CAR(sp->bp);
+                    a = cell_head(sp->ap);
+                    b = cell_head(sp->bp);
                     sp->was_exact = exact;
                     exact = 1;
                     WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_ARE_KEYS_EQUAL));
@@ -3778,12 +3778,12 @@ pop_next:
                 if (j) {
                     /* Key diff found, enter phase 2 */
                     if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
-                        sp->min_key = CAR(sp->ap);
+                        sp->min_key = cell_head(sp->ap);
                         sp->cmp_res = -1;
                         sp->ap = hashmap_iterator_next(&stack);
                     }
                     else {
-                        sp->min_key = CAR(sp->bp);
+                        sp->min_key = cell_head(sp->bp);
                         sp->cmp_res = 1;
                         sp->bp = hashmap_iterator_next(&b_stack);
                     }
@@ -3794,7 +3794,7 @@ pop_next:
                 /* No key diff found so far, compare values if min key */
 
                 if (sp->cmp_res) {
-                    a = CAR(sp->ap);
+                    a = cell_head(sp->ap);
                     b = sp->min_key;
                     exact = 1;
                     WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_IS_MIN_KEY));
@@ -3802,8 +3802,8 @@ pop_next:
                     goto bodyrecur;
                 }
                 /* no min key-value found yet */
-                a = CDR(sp->ap);
-                b = CDR(sp->bp);
+                a = cell_tail(sp->ap);
+                b = cell_tail(sp->bp);
                 exact = sp->was_exact;
                 WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_CMP_VALUES));
                 sp->wstack_rollback = WSTACK_COUNT(stack);
@@ -3812,8 +3812,8 @@ pop_next:
             case HASHMAP_PHASE1_IS_MIN_KEY:
                 sp = PSTACK_TOP(hmap_stack);
                 if (j < 0) {
-                    a = CDR(sp->ap);
-                    b = CDR(sp->bp);
+                    a = cell_tail(sp->ap);
+                    b = cell_tail(sp->bp);
                     exact = sp->was_exact;
                     WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_CMP_VALUES));
                     sp->wstack_rollback = WSTACK_COUNT(stack);
@@ -3825,7 +3825,7 @@ pop_next:
                 sp = PSTACK_TOP(hmap_stack);
                 if (j) {
                     sp->cmp_res = j;
-                    sp->min_key = CAR(sp->ap);
+                    sp->min_key = cell_head(sp->ap);
                 }
             case_HASHMAP_PHASE1_LOOP:
                 sp->ap = hashmap_iterator_next(&stack);
@@ -3838,8 +3838,8 @@ pop_next:
                     (void) PSTACK_POP(hmap_stack);
                     ON_CMP_GOTO(j);
                 }
-                a = CAR(sp->ap);
-                b = CAR(sp->bp);
+                a = cell_head(sp->ap);
+                b = cell_head(sp->bp);
                 exact = 1;
                 WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE1_ARE_KEYS_EQUAL));
                 sp->wstack_rollback = WSTACK_COUNT(stack);
@@ -3847,8 +3847,8 @@ pop_next:
 
             case_HASHMAP_PHASE2_LOOP:
                 if (sp->ap && sp->bp) {
-                    a = CAR(sp->ap);
-                    b = CAR(sp->bp);
+                    a = cell_head(sp->ap);
+                    b = cell_head(sp->bp);
                     ASSERT(exact);
                     WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_ARE_KEYS_EQUAL));
                     sp->wstack_rollback = WSTACK_COUNT(stack);
@@ -3869,14 +3869,14 @@ pop_next:
                 if (sp->ap || sp->bp) {
                     if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
                         ASSERT(sp->ap);
-                        a = CAR(sp->ap);
+                        a = cell_head(sp->ap);
                         b = sp->min_key;
                         ASSERT(exact);
                         WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_IS_MIN_KEY_A));
                     }
                     else { /* hash_cmp > 0 */
                         ASSERT(sp->bp);
-                        a = CAR(sp->bp);
+                        a = cell_head(sp->bp);
                         b = sp->min_key;
                         ASSERT(exact);
                         WSTACK_PUSH(stack, OP_WORD(HASHMAP_PHASE2_IS_MIN_KEY_B));
@@ -3893,7 +3893,7 @@ pop_next:
             case HASHMAP_PHASE2_IS_MIN_KEY_A:
                 sp = PSTACK_TOP(hmap_stack);
                 if (j < 0) {
-                    sp->min_key = CAR(sp->ap);
+                    sp->min_key = cell_head(sp->ap);
                     sp->cmp_res = -1;
                 }
                 sp->ap = hashmap_iterator_next(&stack);
@@ -3902,7 +3902,7 @@ pop_next:
             case HASHMAP_PHASE2_IS_MIN_KEY_B:
                 sp = PSTACK_TOP(hmap_stack);
                 if (j < 0) {
-                    sp->min_key = CAR(sp->bp);
+                    sp->min_key = cell_head(sp->bp);
                     sp->cmp_res = 1;
                 }
                 sp->bp = hashmap_iterator_next(&b_stack);
@@ -4068,11 +4068,11 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
             break;
         }
 
-	if (is_not_small(CAR(listptr))) {
+	if (is_not_small(cell_head(listptr))) {
 	    res = -1;
             break;
 	}
-	val = signed_val(CAR(listptr));
+	val = signed_val(cell_head(listptr));
 	if (0 <= val && val < 0x80) {
 	    buf[sz] = val;
 	    sz++;
@@ -4099,7 +4099,7 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
             res = -1;
             break;
 	}
-	list = CDR(listptr);
+	list = cell_tail(listptr);
     }
 
     if (written)
@@ -4124,10 +4124,10 @@ erts_unicode_list_to_buf_len(Eterm list)
     while (1) {
 	Sint val;
 
-	if (is_not_small(CAR(listptr))) {
+	if (is_not_small(cell_head(listptr))) {
 	    return -1;
 	}
-	val = signed_val(CAR(listptr));
+	val = signed_val(cell_head(listptr));
 	if (0 <= val && val < 0x80) {
 	    sz++;
 	} else if (val < 0x800) {
@@ -4142,7 +4142,7 @@ erts_unicode_list_to_buf_len(Eterm list)
 	} else {
 	    return -1;
 	}
-	list = CDR(listptr);
+	list = cell_tail(listptr);
 	if (is_nil(list)) {
 	    return sz;
 	}
@@ -4373,7 +4373,7 @@ do {									\
 		    if (yield_support && --yield_count <= 0)
 			goto L_yield;
 		    objp = list_val(obj);
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		    if (is_byte(obj)) {
 			if (len == 0) {
 			    goto L_overflow;
@@ -4383,7 +4383,7 @@ do {									\
 		    } else if (is_binary(obj)) {
 			IOLIST_TO_BUF_BCOPY(objp);
 		    } else if (is_list(obj)) {
-			ESTACK_PUSH(s, CDR(objp));
+			ESTACK_PUSH(s, cell_tail(objp));
 			continue; /* Head loop */
 		    } else if (is_not_nil(obj)) {
 			goto L_type_error;
@@ -4393,7 +4393,7 @@ do {									\
 
 	    L_tail:
 
-		obj = CDR(objp);
+		obj = cell_tail(objp);
 
 		if (is_list(obj)) {
 		    continue; /* Tail loop */
@@ -4605,7 +4605,7 @@ iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj, ErlDrvSi
 			goto L_yield;
 		    objp = list_val(obj);
 		    /* Head */
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		    if (is_byte(obj)) {
 			size++;
 			if (size == 0) {
@@ -4614,7 +4614,7 @@ iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj, ErlDrvSi
 		    } else if (is_binary(obj) && binary_bitsize(obj) == 0) {
 			SAFE_ADD(size, binary_size(obj));
 		    } else if (is_list(obj)) {
-			ESTACK_PUSH(s, CDR(objp));
+			ESTACK_PUSH(s, cell_tail(objp));
 			continue; /* Head loop */
 		    } else if (is_not_nil(obj)) {
 			goto L_type_error;
@@ -4622,7 +4622,7 @@ iolist_size(const int yield_support, ErtsIOListState *state, Eterm obj, ErlDrvSi
 		    break;
 		}
 		/* Tail */
-		obj = CDR(objp);
+		obj = cell_tail(objp);
 		if (is_list(obj))
 		    continue; /* Tail loop */
 		else if (is_binary(obj) && binary_bitsize(obj) == 0) {
@@ -4705,12 +4705,12 @@ is_string(Eterm list)
 
     while(is_list(list)) {
 	Eterm* consp = list_val(list);
-	Eterm hd = CAR(consp);
+	Eterm hd = cell_head(consp);
 
 	if (!is_byte(hd))
 	    return 0;
 	len++;
-	list = CDR(consp);
+	list = cell_tail(consp);
     }
     if (is_nil(list))
 	return len;

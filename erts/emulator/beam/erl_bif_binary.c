@@ -1009,8 +1009,8 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     if (is_list(argument)) {
 	t = argument;
 	while (is_list(t)) {
-	    b = CAR(list_val(t));
-	    t = CDR(list_val(t));
+	    b = cell_head(list_val(t));
+	    t = cell_tail(list_val(t));
 	    if (!is_binary(b)) {
 		goto badarg;
 	    }
@@ -1030,7 +1030,7 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	if (words > 1) {
 	    comp_term = argument;
 	} else {
-	    comp_term = CAR(list_val(argument));
+	    comp_term = cell_head(list_val(argument));
 	}
     } else if (is_binary(argument)) {
 	if (binary_bitsize(argument) != 0) {
@@ -1075,8 +1075,8 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	    byte *bytes;
 	    Uint bitoffs, bitsize;
 	    byte *temp_alloc = NULL;
-	    b = CAR(list_val(t));
-	    t = CDR(list_val(t));
+	    b = cell_head(list_val(t));
+	    t = cell_tail(list_val(t));
 	    ERTS_GET_BINARY_BYTES(b, bytes, bitoffs, bitsize);
 	    if (bitoffs != 0) {
 		bytes = erts_get_aligned_binary_bytes(b, &temp_alloc);
@@ -1278,7 +1278,7 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 	return 0;
     } else if (is_list(l)) {
 	while(is_list(l)) {
-	    Eterm t = CAR(list_val(l));
+	    Eterm t = cell_head(list_val(l));
 	    Uint orig_size;
 	    if (!is_tuple(t)) {
 		goto badarg;
@@ -1319,7 +1319,7 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 		orig_size < (*endp)) {
 		goto badarg;
 	    }
-	    l = CDR(list_val(l));
+	    l = cell_tail(list_val(l));
 	}
 	return 0;
     } else {
@@ -1340,22 +1340,22 @@ static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uin
 	return 0;
     } else if (is_list(l)) {
 	while(is_list(l)) {
-	    Eterm t = CAR(list_val(l));
+	    Eterm t = cell_head(list_val(l));
 	    Uint orig_size;
 	    if (is_atom(t)) {
 		if (t == am_global) {
 		    *optp |= BF_FLAG_GLOBAL;
-		    l = CDR(list_val(l));
+		    l = cell_tail(list_val(l));
 		    continue;
 		}
 		if (t == am_trim) {
 		    *optp |= BF_FLAG_SPLIT_TRIM;
-		    l = CDR(list_val(l));
+		    l = cell_tail(list_val(l));
 		    continue;
 		}
 		if (t == am_trim_all) {
 		    *optp |= BF_FLAG_SPLIT_TRIM_ALL;
-		    l = CDR(list_val(l));
+		    l = cell_tail(list_val(l));
 		    continue;
 		}
 	    }
@@ -1398,7 +1398,7 @@ static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uin
 		orig_size < (*endp)) {
 		goto badarg;
 	    }
-	    l = CDR(list_val(l));
+	    l = cell_tail(list_val(l));
 	}
 	return 0;
     } else {
@@ -2162,12 +2162,12 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 
     /* First just count the number of binaries */
     while (is_list(l)) {
-	b = CAR(list_val(l));
+	b = cell_head(list_val(l));
 	if (!is_binary(b)) {
 	    goto badarg;
 	}
 	++n;
-	l = CDR(list_val(l));
+	l = cell_tail(list_val(l));
     }
     if (l != NIL || n == 0) {
 	goto badarg;
@@ -2186,7 +2186,7 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 	ProcBin* pb;
 
 	cd[i].type = CL_TYPE_EMPTY;
-	b = CAR(list_val(l));
+	b = cell_head(list_val(l));
 	ERTS_GET_REAL_BIN(b, real_bin, offset, bitoffs, bitsize);
 	if (bitsize != 0) {
 	    erts_bin_free(mb);
@@ -2209,7 +2209,7 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 	    cd[i].type = (cd[i].temp_alloc != NULL) ? CL_TYPE_ALIGNED : CL_TYPE_HEAP_NOALLOC;
 	}
 	++i;
-	l = CDR(list_val(l));
+	l = cell_tail(list_val(l));
     }
     cd[i].type = CL_TYPE_EMPTY;
 #if defined(DEBUG) || defined(VALGRIND)

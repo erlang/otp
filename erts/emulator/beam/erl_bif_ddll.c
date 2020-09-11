@@ -196,8 +196,8 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
     int build_this_load_error = 0;
     int encoding;
 
-    for(l = options; is_list(l); l =  CDR(list_val(l))) {
-	Eterm opt = CAR(list_val(l));
+        for(l = options; is_list(l); l =  cell_tail(list_val(l))) {
+	Eterm opt = cell_head(list_val(l));
 	Eterm *tp;
 	if (is_not_tuple(opt)) {
 	    goto error;
@@ -210,8 +210,8 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
 	case am_driver_options:
 	    {
 		Eterm ll;
-		for(ll = tp[2]; is_list(ll); ll = CDR(list_val(ll))) {
-		    Eterm dopt = CAR(list_val(ll));
+		for(ll = tp[2]; is_list(ll); ll = cell_tail(list_val(ll))) {
+		    Eterm dopt = cell_head(list_val(ll));
 		    if (dopt == am_kill_ports) {
 			flags |= ERL_DE_FL_KILL_PORTS;
 		    } else {
@@ -501,8 +501,8 @@ Eterm erl_ddll_try_unload_2(BIF_ALIST_2)
 
     erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
-    for(l = options; is_list(l); l =  CDR(list_val(l))) {
-	Eterm opt = CAR(list_val(l));
+    for(l = options; is_list(l); l =  cell_tail(list_val(l))) {
+	Eterm opt = cell_head(list_val(l));
 	Eterm *tp;
 	if (is_not_tuple(opt)) {
 	    if (opt == am_kill_ports) {

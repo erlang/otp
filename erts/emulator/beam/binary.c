@@ -950,8 +950,8 @@ BIF_RETTYPE erts_list_to_binary_bif(Process *c_p, Eterm arg, Export *bif)
 	ERTS_BIF_PREP_ERROR(ret, c_p, BADARG);
     else {
 	/* check for [binary()] case */
-	Eterm h = CAR(list_val(arg));
-	Eterm t = CDR(list_val(arg));
+	Eterm h = cell_head(list_val(arg));
+	Eterm t = cell_tail(list_val(arg));
 	if (is_binary(h)
 	    && is_nil(t)
 	    && !(HEADER_SUB_BIN == *(binary_val(h))
@@ -1073,8 +1073,8 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 	ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
     else {
 	/* check for [bitstring()] case */
-	Eterm h = CAR(list_val(BIF_ARG_1));
-	Eterm t = CDR(list_val(BIF_ARG_1));
+	Eterm h = cell_head(list_val(BIF_ARG_1));
+	Eterm t = cell_tail(list_val(BIF_ARG_1));
 	if (is_binary(h) && is_nil(t)) {
 	    ERTS_BIF_PREP_RET(ret, h);
 	}
@@ -1328,7 +1328,7 @@ list_to_bitstr_buf(int yield_support, ErtsIOList2BufState *state)
 		    if (yield_support && --yield_count <= 0)
 			goto L_yield;
 		    objp = list_val(obj);
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		    if (is_byte(obj)) {
 			ASSERT(len > 0);
 			if (offset == 0) {
@@ -1345,7 +1345,7 @@ list_to_bitstr_buf(int yield_support, ErtsIOList2BufState *state)
 		    } else if (is_binary(obj)) {
 			LIST_TO_BITSTR_BUF_BCOPY(objp);
 		    } else if (is_list(obj)) {
-			ESTACK_PUSH(s, CDR(objp));
+			ESTACK_PUSH(s, cell_tail(objp));
 			continue; /* Head loop */
 		    } else {
 			ASSERT(is_nil(obj));
@@ -1355,7 +1355,7 @@ list_to_bitstr_buf(int yield_support, ErtsIOList2BufState *state)
 
 	    L_tail:
 
-		obj = CDR(objp);
+		obj = cell_tail(objp);
 		if (is_list(obj)) {
 		    continue; /* Tail loop */
 		} else if (is_binary(obj)) {
@@ -1580,7 +1580,7 @@ bitstr_list_len(ErtsIOListState *state)
 			goto L_yield;
 		    objp = list_val(obj);
 		    /* Head */
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		    if (is_byte(obj)) {
 			len++;
 			if (len == 0) {
@@ -1590,7 +1590,7 @@ bitstr_list_len(ErtsIOListState *state)
 			SAFE_ADD(len, binary_size(obj));
 			SAFE_ADD_BITSIZE(offs, obj);
 		    } else if (is_list(obj)) {
-			ESTACK_PUSH(s, CDR(objp));
+			ESTACK_PUSH(s, cell_tail(objp));
 			continue; /* Head loop */
 		    } else if (is_not_nil(obj)) {
 			goto L_type_error;
@@ -1598,7 +1598,7 @@ bitstr_list_len(ErtsIOListState *state)
 		    break;
 		}
 		/* Tail */
-		obj = CDR(objp);
+		obj = cell_tail(objp);
 		if (is_list(obj))
 		    continue; /* Tail loop */
 		else if (is_binary(obj)) {

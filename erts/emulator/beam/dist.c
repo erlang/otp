@@ -5320,7 +5320,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         list = alist;
         while (is_list(list)) {
             Eterm *cp = list_val(list);
-            list = CDR(cp);
+            list = cell_tail(cp);
             nargs++;
         }
         if (!is_nil(list))
@@ -5334,8 +5334,8 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     
     while (is_list(list)) {
         Eterm *cp = list_val(list);
-        Eterm car = CAR(cp);
-        list = CDR(cp);
+        Eterm car = cell_head(cp);
+        list = cell_tail(cp);
         nopts++;
         switch (car) {
         case am_link:
@@ -5430,8 +5430,8 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             
             while (is_list(list)) {
                 Eterm *cp = list_val(list);
-                Eterm car = CAR(cp);
-                list = CDR(cp);
+                Eterm car = cell_head(cp);
+                list = cell_tail(cp);
                 if (is_tuple_arity(car, 2)) {
                     Eterm *tp = tuple_val(car);
                     if (am_reply_tag == tp[1]
@@ -5441,7 +5441,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                         if (rm_cnt == rm_opts) {
                             ASSERT(prev_cp);
                             ASSERT(list == reusable_tail);
-                            CDR(prev_cp) = list;
+                            set_cell_tail(prev_cp, list);
                             break; /* last option to skip */
                         }
                         continue;
@@ -5450,10 +5450,10 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
 #ifdef DEBUG
                 rebuild_opts--;
 #endif
-                CAR(hp) = car;
+                set_cell_head(hp, car);
                 prev_cp = hp;
                 hp -= 2;
-                CDR(prev_cp) = make_list(hp);
+                set_cell_tail(prev_cp, make_list(hp));
             }
             ASSERT(hp == hp_start - 2);
             ASSERT(rebuild_opts == 0);
@@ -5661,7 +5661,7 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
       arg_list = CONS(buf, BIF_ARG_1, NIL);
 
     while (is_list(arg_list)) {
-      switch(CAR(list_val(arg_list))) {
+      switch(cell_head(list_val(arg_list))) {
       case am_visible:   visible = 1;                                 break;
       case am_hidden:    hidden = 1;                                  break;
       case am_known:     visible = hidden = not_connected = this = 1; break;
@@ -5669,7 +5669,7 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
       case am_connected: visible = hidden = 1;                        break;
       default:           goto error;                                  break;
       }
-      arg_list = CDR(list_val(arg_list));
+      arg_list = cell_tail(list_val(arg_list));
     }
 
     if (is_not_nil(arg_list)) {
@@ -5764,8 +5764,8 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
     Eterm l;
     int async_connect = 1;
 
-    for (l = Options; l != NIL && is_list(l); l = CDR(list_val(l))) {
-	Eterm t = CAR(list_val(l));
+    for (l = Options; l != NIL && is_list(l); l = cell_tail(list_val(l))) {
+	Eterm t = cell_head(list_val(l));
 	if (t == am_allow_passive_connect) {
 	    /*
 	     * Handle this horrible feature by falling back on old synchronous
@@ -6017,8 +6017,8 @@ erts_monitor_nodes(Process *c_p, Eterm on, Eterm olist)
 
 	while (is_list(opts_list)) {
 	    Eterm *cp = list_val(opts_list);
-	    Eterm opt = CAR(cp);
-	    opts_list = CDR(cp);
+	    Eterm opt = cell_head(cp);
+	    opts_list = cell_tail(cp);
 	    if (opt == am_nodedown_reason)
 		opts |= ERTS_NODES_MON_OPT_DOWN_REASON;
 	    else if (is_tuple(opt)) {

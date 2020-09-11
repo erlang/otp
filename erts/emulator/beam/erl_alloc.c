@@ -2197,7 +2197,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	}
 	    
 	while (is_list(wanted_list)) {
-	    switch (CAR(list_val(wanted_list))) {
+	    switch (cell_head(list_val(wanted_list))) {
 	    case am_total:
 		if (!want.total) {
 		    want.total = 1;
@@ -2265,7 +2265,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		UnUseTmpHeapNoproc(2);
 		return am_badarg;
 	    }
-	    wanted_list = CDR(list_val(wanted_list));
+	    wanted_list = cell_tail(list_val(wanted_list));
 	}
 	UnUseTmpHeapNoproc(2);
 	if (is_not_nil(wanted_list))
@@ -3299,7 +3299,7 @@ erts_request_alloc_info(struct process *c_p,
     while (is_list(alist)) {
 	int saved = 0;
 	Eterm* consp = list_val(alist);
-	Eterm alloc = CAR(consp);
+	Eterm alloc = cell_head(consp);
 
 	for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++)
 	    if (erts_is_atom_str(erts_alc_a2ad[ai], alloc, 0))
@@ -3331,7 +3331,7 @@ erts_request_alloc_info(struct process *c_p,
 	if (!saved)
 	    return 0;
 
-	alist = CDR(consp);
+	alist = cell_tail(consp);
     }
 
     if (is_not_nil(alist))

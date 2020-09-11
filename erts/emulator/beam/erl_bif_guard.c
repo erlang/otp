@@ -283,7 +283,7 @@ Eterm erts_trapping_length_1(Process* p, Eterm* args)
     list = args[0];
     i = unsigned_val(args[1]);
     while (is_list(list) && max_iter != 0) {
-	list = CDR(list_val(list));
+	list = cell_tail(list_val(list));
 	i++, max_iter--;
     }
 

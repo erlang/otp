@@ -387,20 +387,20 @@ return() {
 get_list(Src, Hd, Tl) {
     Eterm* tmp_ptr = list_val($Src);
     Eterm hd, tl;
-    hd = CAR(tmp_ptr);
-    tl = CDR(tmp_ptr);
+    hd = cell_head(tmp_ptr);
+    tl = cell_tail(tmp_ptr);
     $Hd = hd;
     $Tl = tl;
 }
 
 get_hd(Src, Hd) {
     Eterm* tmp_ptr = list_val($Src);
-    $Hd = CAR(tmp_ptr);
+    $Hd = cell_head(tmp_ptr);
 }
 
 get_tl(Src, Tl) {
     Eterm* tmp_ptr = list_val($Src);
-    $Tl = CDR(tmp_ptr);
+    $Tl = cell_tail(tmp_ptr);
 }
 
 i_get(Src, Dst) {

@@ -163,9 +163,9 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     }
     
     is_global = 0;
-    for(l = flaglist; is_list(l); l = CDR(list_val(l))) {
-	if (is_tuple(CAR(list_val(l)))) {
-            meta_tracer = erts_term_to_tracer(am_meta, CAR(list_val(l)));
+    for(l = flaglist; is_list(l); l = cell_tail(list_val(l))) {
+	if (is_tuple(cell_head(list_val(l)))) {
+            meta_tracer = erts_term_to_tracer(am_meta, cell_head(list_val(l)));
             if (meta_tracer == THE_NON_VALUE) {
                 meta_tracer = erts_tracer_nil;
                 goto error;
@@ -173,7 +173,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	    flags.breakpoint = 1;
 	    flags.meta       = 1;
 	} else {
-	    switch (CAR(list_val(l))) {
+	    switch (cell_head(list_val(l))) {
 	    case am_local:
 		if (is_global) {
 		    goto error;
@@ -457,7 +457,7 @@ erts_trace_flags(Eterm List,
     
     while (is_list(list)) {
 	Uint bit;
-	Eterm item = CAR(list_val(list));
+	Eterm item = cell_head(list_val(list));
 	if (is_atom(item) && (bit = erts_trace_flag2bit(item))) {
 	    mask |= bit;
 #ifdef HAVE_ERTS_NOW_CPU
@@ -469,7 +469,7 @@ erts_trace_flags(Eterm List,
             if (tracer == THE_NON_VALUE)
                 goto error;
 	} else goto error;
-	list = CDR(list_val(list));
+	list = cell_tail(list_val(list));
     }
     if (is_not_nil(list)) goto error;
     
@@ -2090,8 +2090,8 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	for (long_gc = 0, long_schedule = 0, large_heap = 0, 
 		 busy_port = 0, busy_dist_port = 0;
 	     is_list(list);
-	     list = CDR(list_val(list))) {
-	    Eterm t = CAR(list_val(list));
+	     list = cell_tail(list_val(list))) {
+	    Eterm t = cell_head(list_val(list));
 	    if (is_tuple(t)) {
 		Eterm *tp = tuple_val(t);
 		if (arityval(tp[0]) != 2) goto error;
@@ -2233,9 +2233,9 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 	for (ts = ERTS_TRACE_FLG_NOW_TIMESTAMP, scheduler = 0,
 		 runnable_ports = 0, runnable_procs = 0, exclusive = 0;
 	    is_list(list);
-	    list = CDR(list_val(list))) {
+	    list = cell_tail(list_val(list))) {
 	    
-	    Eterm t = CAR(list_val(list));
+	    Eterm t = cell_head(list_val(list));
 	    if (t == am_runnable_procs) {
 	   	 runnable_procs = !0;
 	    } else if (t == am_runnable_ports) {

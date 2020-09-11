@@ -91,7 +91,7 @@ static BIF_RETTYPE lists_append_alloc(Process *p, ErtsAppendContext *context) {
 #endif
 
     while (cells_left != 0 && is_list(lookahead)) {
-        lookahead = CDR(list_val(lookahead));
+        lookahead = cell_tail(list_val(lookahead));
         cells_left--;
     }
 
@@ -113,10 +113,10 @@ static BIF_RETTYPE lists_append_alloc(Process *p, ErtsAppendContext *context) {
         ASSERT(context->iterator != lookahead);
 
         *context->result_cdr = make_list(alloc_top);
-        context->result_cdr = &CDR(alloc_top);
-        CAR(alloc_top) = CAR(cell);
+        context->result_cdr = cell_tail_ptr(alloc_top);
+        set_cell_head(alloc_top, cell_head(cell));
 
-        context->iterator = CDR(cell);
+        context->iterator = cell_tail(cell);
         alloc_top += 2;
     }
 
@@ -165,10 +165,10 @@ static BIF_RETTYPE lists_append_onheap(Process *p, ErtsAppendContext *context) {
         Eterm *cell = list_val(context->iterator);
 
         *context->result_cdr = make_list(alloc_top);
-        context->result_cdr = &CDR(alloc_top);
-        CAR(alloc_top) = CAR(cell);
+        context->result_cdr = cell_tail_ptr(alloc_top);
+        set_cell_head(alloc_top, cell_head(cell));
 
-        context->iterator = CDR(cell);
+        context->iterator = cell_tail(cell);
         alloc_top += 2;
     }
 
@@ -548,7 +548,7 @@ static int subtract_get_length(Process *p, Eterm *iterator_p, Uint *count_p) {
 #endif
 
     for (count = 0; count < budget && is_list(iterator); count++) {
-        iterator = CDR(list_val(iterator));
+        iterator = cell_tail(list_val(iterator));
     }
 
     if (!is_list(iterator) && !is_nil(iterator)) {
@@ -583,8 +583,8 @@ static int subtract_enter_naive_lhs(Process *p, ErtsSubtractContext *context) {
 
         ASSERT(i < SUBTRACT_LHS_THRESHOLD);
 
-        context->u.lhs_elements[i++] = CAR(cell);
-        iterator = CDR(cell);
+        context->u.lhs_elements[i++] = cell_head(cell);
+        iterator = cell_tail(cell);
     }
 
     ASSERT(i == context->lhs_remaining);
@@ -606,8 +606,8 @@ static int subtract_naive_lhs(Process *p, ErtsSubtractContext *context) {
 
         cell = list_val(context->iterator);
 
-        value = CAR(cell);
-        next = CDR(cell);
+        value = cell_head(cell);
+        next = cell_tail(cell);
 
         for (found_at = 0; found_at < context->lhs_remaining; found_at++) {
             if (EQ(value, context->u.lhs_elements[found_at])) {
@@ -674,8 +674,8 @@ static int subtract_enter_naive_rhs(Process *p, ErtsSubtractContext *context) {
 
         ASSERT(i < SUBTRACT_RHS_THRESHOLD);
 
-        context->u.rhs_elements[i++] = CAR(cell);
-        iterator = CDR(cell);
+        context->u.rhs_elements[i++] = cell_head(cell);
+        iterator = cell_tail(cell);
     }
 
     ASSERT(i == context->rhs_remaining);
@@ -700,8 +700,8 @@ static int subtract_naive_rhs(Process *p, ErtsSubtractContext *context) {
         int found_at;
 
         cell = list_val(context->iterator);
-        value = CAR(cell);
-        next = CDR(cell);
+        value = cell_head(cell);
+        next = cell_tail(cell);
 
         for (found_at = context->rhs_remaining - 1; found_at >= 0; found_at--) {
             if (EQ(value, context->u.rhs_elements[found_at])) {
@@ -716,9 +716,9 @@ static int subtract_naive_rhs(Process *p, ErtsSubtractContext *context) {
             Eterm *hp = HAllocX(p, 2, context->lhs_remaining * 2);
 
             *context->result_cdr = make_list(hp);
-            context->result_cdr = &CDR(hp);
+            context->result_cdr = cell_tail_ptr(hp);
 
-            CAR(hp) = value;
+            set_cell_head(hp, value);
         } else if (found_at >= 0) {
             Eterm swap;
 
@@ -790,8 +790,8 @@ static int subtract_set_build(Process *p, ErtsSubtractContext *context) {
         Eterm value, next;
 
         cell = list_val(context->iterator);
-        value = CAR(cell);
-        next = CDR(cell);
+        value = cell_head(cell);
+        next = cell_tail(cell);
 
         new_node = context->u.rhs_set.alloc;
         new_node->key = value;
@@ -846,8 +846,8 @@ static int subtract_set_finish(Process *p, ErtsSubtractContext *context) {
         Eterm value, next;
 
         cell = list_val(context->iterator);
-        value = CAR(cell);
-        next = CDR(cell);
+        value = cell_head(cell);
+        next = cell_tail(cell);
 
         ASSERT(context->rhs_remaining > 0);
 
@@ -857,9 +857,9 @@ static int subtract_set_finish(Process *p, ErtsSubtractContext *context) {
             Eterm *hp = HAllocX(p, 2, context->lhs_remaining * 2);
 
             *context->result_cdr = make_list(hp);
-            context->result_cdr = &CDR(hp);
+            context->result_cdr = cell_tail_ptr(hp);
 
-            CAR(hp) = value;
+            set_cell_head(hp, value);
         } else {
             if (context->rhs_remaining-- == 1) {
                 *context->result_cdr = next;
@@ -1067,11 +1067,11 @@ BIF_RETTYPE lists_member_2(BIF_ALIST_2)
 	    BUMP_ALL_REDS(BIF_P);
 	    BIF_TRAP2(&bif_trap_export[BIF_lists_member_2], BIF_P, term, list);
 	}
-	item = CAR(list_val(list));
+	item = cell_head(list_val(list));
 	if ((item == term) || (non_immed_key && eq(item, term))) {
 	    BIF_RET2(am_true, reds_left - max_iter/16);
 	}
-	list = CDR(list_val(list));
+	list = cell_tail(list_val(list));
     }
     if (is_not_nil(list))  {
         BUMP_REDS(BIF_P, reds_left - max_iter/16);
@@ -1098,7 +1098,7 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
     lookahead = list;
 
     while (cells_left != 0 && is_list(lookahead)) {
-        lookahead = CDR(list_val(lookahead));
+        lookahead = cell_tail(list_val(lookahead));
         cells_left--;
     }
 
@@ -1114,8 +1114,8 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
     while (alloc_top < alloc_end) {
         Eterm *pair = list_val(list);
 
-        tail = CONS(alloc_top, CAR(pair), tail);
-        list = CDR(pair);
+        tail = CONS(alloc_top, cell_head(pair), tail);
+        list = cell_tail(pair);
 
         ASSERT(is_list(list) || is_nil(list));
 
@@ -1156,8 +1156,8 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
     while (alloc_top < alloc_end && is_list(list)) {
         Eterm *pair = list_val(list);
 
-        tail = CONS(alloc_top, CAR(pair), tail);
-        list = CDR(pair);
+        tail = CONS(alloc_top, cell_head(pair), tail);
+        list = cell_tail(pair);
 
         alloc_top += 2;
     }
@@ -1256,8 +1256,8 @@ keyfind(Export *Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 		BUMP_ALL_REDS(p);
 		BIF_TRAP3(Bif, p, Key, Pos, List);
 	    }
-	    term = CAR(list_val(List));
-	    List = CDR(list_val(List));
+	    term = cell_head(list_val(List));
+	    List = cell_tail(list_val(List));
 	    if (is_tuple(term)) {
 		Eterm *tuple_ptr = tuple_val(term);
 		if (pos <= arityval(*tuple_ptr)) {
@@ -1281,8 +1281,8 @@ keyfind(Export *Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 		BUMP_ALL_REDS(p);
 		BIF_TRAP3(Bif, p, Key, Pos, List);
 	    }
-	    term = CAR(list_val(List));
-	    List = CDR(list_val(List));
+	    term = cell_head(list_val(List));
+	    List = cell_tail(list_val(List));
 	    if (is_tuple(term)) {
 		Eterm *tuple_ptr = tuple_val(term);
 		if (pos <= arityval(*tuple_ptr)) {
@@ -1299,8 +1299,8 @@ keyfind(Export *Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 		BUMP_ALL_REDS(p);
 		BIF_TRAP3(Bif, p, Key, Pos, List);
 	    }
-	    term = CAR(list_val(List));
-	    List = CDR(list_val(List));
+	    term = cell_head(list_val(List));
+	    List = cell_tail(list_val(List));
 	    if (is_tuple(term)) {
 		Eterm *tuple_ptr = tuple_val(term);
 		if (pos <= arityval(*tuple_ptr)) {

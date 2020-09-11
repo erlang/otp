@@ -38,8 +38,8 @@
 #include "erl_monitor_link.h"
 
 #define ERTS_TRACER(P)          ((P)->common.tracer)
-#define ERTS_TRACER_MODULE(T) 	(CAR(list_val(T)))
-#define ERTS_TRACER_STATE(T) 	(CDR(list_val(T)))
+#define ERTS_TRACER_MODULE(T) 	(cell_head(list_val(T)))
+#define ERTS_TRACER_STATE(T) 	(cell_tail(list_val(T)))
 #define ERTS_TRACE_FLAGS(P)	((P)->common.trace_flags)
 
 #define ERTS_P_LINKS(P)		((P)->common.u.alive.links)

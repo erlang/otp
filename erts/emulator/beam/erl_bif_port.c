@@ -174,14 +174,14 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 	Eterm l = BIF_ARG_3;
 	while (is_list(l)) {
 	    Eterm* cons = list_val(l);
-	    Eterm car = CAR(cons);
+	    Eterm car = cell_head(cons);
 	    if (car == am_force)
 		flags |= ERTS_PORT_SIG_FLG_FORCE;
 	    else if (car == am_nosuspend)
 		flags |= ERTS_PORT_SIG_FLG_NOSUSPEND;
 	    else
 		BIF_RET(am_badarg);
-	    l = CDR(cons);
+	    l = cell_tail(cons);
 	}
 	if (!is_nil(l))
 	    BIF_RET(am_badarg);
@@ -1068,12 +1068,12 @@ static int merge_global_environment(erts_osenv_t *env, Eterm key_value_pairs) {
 
         cell = list_val(key_value_pairs);
 
-        if(!is_tuple_arity(CAR(cell), 2)) {
+        if(!is_tuple_arity(cell_head(cell), 2)) {
             return -1;
         }
 
-        tuple = tuple_val(CAR(cell));
-        key_value_pairs = CDR(cell);
+        tuple = tuple_val(cell_head(cell));
+        key_value_pairs = cell_tail(cell);
 
         if(is_nil(tuple[2]) || tuple[2] == am_false) {
             if(erts_osenv_unset_term(env, tuple[1]) < 0) {
@@ -1112,7 +1112,7 @@ static char **convert_args(Eterm l)
     pp = erts_alloc(ERTS_ALC_T_TMP, (n + 2) * sizeof(char **));
     pp[i++] = erts_default_arg0;
     while (is_list(l)) {
-	str = CAR(list_val(l));
+	str = cell_head(list_val(l));
 	if ((b = erts_convert_filename_to_native(str,NULL,0,ERTS_ALC_T_TMP,1,1,NULL)) == NULL) {
 	    int j;
 	    for (j = 1; j < i; ++j)
@@ -1121,7 +1121,7 @@ static char **convert_args(Eterm l)
 	    return NULL;
 	}	    
 	pp[i++] = b;
-	l = CDR(list_val(l));
+	l = cell_tail(list_val(l));
     }
     pp[i] = NULL;
     return pp;
@@ -1449,8 +1449,8 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     options = BIF_ARG_3;
     while (!is_nil(options)) {
         Eterm* cons = list_val(options);
-        if (is_tuple(CAR(cons))) {
-            Eterm* tpl = tuple_val(CAR(cons));
+        if (is_tuple(cell_head(cons))) {
+            Eterm* tpl = tuple_val(cell_head(cons));
             Uint val;
             if (tpl[0] == make_arityval(2) &&
 		term_to_Uint(tpl[2],&val) && val <= UINT_MAX) {
@@ -1472,7 +1472,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
         BIF_ERROR(BIF_P, BADARG);
 
     next_option:       
-        options = CDR(cons);
+        options = cell_tail(cons);
     }
 
 

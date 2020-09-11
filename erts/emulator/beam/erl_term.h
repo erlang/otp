@@ -230,11 +230,32 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
-#define CONS(hp, car, cdr) \
-        (CAR(hp)=(car), CDR(hp)=(cdr), make_list(hp))
+// CAR(x) return list cell head element
+ERTS_INLINE Eterm cell_head(const Eterm *x) { return x[0]; }
 
-#define CAR(x)  ((x)[0])
-#define CDR(x)  ((x)[1])
+// CAR(x) as lvalue
+// Return pointer to the first element in a list cell (head)
+ERTS_INLINE Eterm* cell_head_ptr(Eterm *x) { return x; }
+
+// Set value of the list cell head
+ERTS_INLINE void set_cell_head(Eterm *x, Eterm val) { x[0] = val; }
+
+// CDR(x) return list cell tail element
+ERTS_INLINE Eterm cell_tail(const Eterm *x) { return x[1]; }
+
+// CDR(x) as lvalue
+// Return pointer to second element in a list cell, usable for assignments/as a pointer
+ERTS_INLINE Eterm* cell_tail_ptr(Eterm *x) { return &x[1]; }
+
+// Set value of the list cell tail
+ERTS_INLINE void set_cell_tail(Eterm *x, Eterm val) { x[1] = val; }
+
+// Create a list cell on heap hp with head and tail components. The hp is not incremented.
+ERTS_INLINE Eterm CONS(Eterm *hp, Eterm head, Eterm tail) {
+    set_cell_head(hp, head);
+    set_cell_tail(hp, tail);
+    return make_list(hp);
+}
 
 /* generic tagged pointer (boxed or list) access methods */
 #define _unchecked_ptr_val(x)	((Eterm*) ((x) & ~((Uint) TAG_PTR_MASK__)))

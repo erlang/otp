@@ -313,8 +313,8 @@ Uint size_shared(Eterm obj)
 	    if (!COUNT_OFF_HEAP && erts_is_literal(obj,ptr)) {
 		goto pop_next;
 	    }
-	    head = CAR(ptr);
-	    tail = CDR(ptr);
+	    head = cell_head(ptr);
+	    tail = cell_tail(ptr);
 	    /* if it's visited, don't count it */
 	    if (primary_tag(tail) == TAG_PRIMARY_HEADER ||
 		primary_tag(head) == TAG_PRIMARY_HEADER) {
@@ -326,13 +326,13 @@ Uint size_shared(Eterm obj)
 		ptr[1] = (tail - TAG_PRIMARY_LIST) | TAG_PRIMARY_HEADER;
 		break;
 	    case TAG_PRIMARY_IMMED1:
-		CAR(ptr) = (head - primary_tag(head)) | TAG_PRIMARY_HEADER;
-		CDR(ptr) = (tail - TAG_PRIMARY_IMMED1) | primary_tag(head);
+		set_cell_head(ptr, (head - primary_tag(head)) | TAG_PRIMARY_HEADER);
+		set_cell_tail(ptr, (tail - TAG_PRIMARY_IMMED1) | primary_tag(head));
 		break;
 	    case TAG_PRIMARY_BOXED:
 		BITSTORE_PUT(b, primary_tag(head));
-		CAR(ptr) = (head - primary_tag(head)) | TAG_PRIMARY_HEADER;
-		CDR(ptr) = (tail - TAG_PRIMARY_BOXED) | TAG_PRIMARY_HEADER;
+		set_cell_head(ptr, (head - primary_tag(head)) | TAG_PRIMARY_HEADER);
+		set_cell_tail(ptr, (tail - TAG_PRIMARY_BOXED) | TAG_PRIMARY_HEADER);
 		break;
 	    }
 	    /* and count it */
@@ -477,21 +477,21 @@ cleanup:
 	    if (!COUNT_OFF_HEAP && erts_is_literal(obj,ptr)) {
 		goto cleanup_next;
 	    }
-	    head = CAR(ptr);
-	    tail = CDR(ptr);
+	    head = cell_head(ptr);
+	    tail = cell_tail(ptr);
 	    /* if not already clean, clean it up */
 	    if (primary_tag(tail) == TAG_PRIMARY_HEADER) {
 		if (primary_tag(head) == TAG_PRIMARY_HEADER) {
 		    Eterm saved;
                     BITSTORE_FETCH(b, saved);
-		    CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) | saved;
-		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) | TAG_PRIMARY_BOXED;
+		    set_cell_head(ptr, head = (head - TAG_PRIMARY_HEADER) | saved);
+		    set_cell_tail(ptr, tail = (tail - TAG_PRIMARY_HEADER) | TAG_PRIMARY_BOXED);
 		} else {
-		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) | TAG_PRIMARY_LIST;
+		    set_cell_tail(ptr, tail = (tail - TAG_PRIMARY_HEADER) | TAG_PRIMARY_LIST);
 		}
 	    } else if (primary_tag(head) == TAG_PRIMARY_HEADER) {
-		CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) | primary_tag(tail);
-		CDR(ptr) = tail = (tail - primary_tag(tail)) | TAG_PRIMARY_IMMED1;
+		set_cell_head(ptr, head = (head - TAG_PRIMARY_HEADER) | primary_tag(tail));
+		set_cell_tail(ptr, tail = (tail - primary_tag(tail)) | TAG_PRIMARY_IMMED1);
 	    } else {
 		goto cleanup_next;
 	    }
@@ -684,18 +684,18 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
             }
 	    for (;;) {
 		tp = tailp;
-		elem = CAR(objp);
+		elem = cell_head(objp);
 		if (IS_CONST(elem)) {
 		    hbot -= 2;
-		    CAR(hbot) = elem;
-		    tailp = &CDR(hbot);
+		    set_cell_head(hbot, elem);
+		    tailp = cell_tail_ptr(hbot);
 		} else {
-		    CAR(htop) = elem;
-		    tailp = &CDR(htop);
+		    set_cell_head(htop, elem);
+		    tailp = cell_tail_ptr(htop);
 		    htop += 2;
 		}
 		*tp = make_list(tailp - 1);
-		obj = CDR(objp);
+		obj = cell_tail(objp);
 
 		if (!is_list(obj)) {
 		    break;
@@ -1133,8 +1133,8 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                     info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
-	    head = CAR(ptr);
-	    tail = CDR(ptr);
+	    head = cell_head(ptr);
+	    tail = cell_tail(ptr);
 	    /* if it's visited, don't count it;
 	       if not already shared, make it shared and store it in the table */
 	    if (primary_tag(tail) == TAG_PRIMARY_HEADER ||
@@ -1143,8 +1143,8 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 		    e = SHTABLE_NEXT(t);
 		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabling L %p\n", mypid, ptr));
 		    SHTABLE_PUSH(t, head, tail, ptr);
-		    CAR(ptr) = (e << _TAG_PRIMARY_SIZE) | LIST_SHARED_UNPROCESSED;
-		    CDR(ptr) = THE_NON_VALUE;
+		    set_cell_head(ptr, (e << _TAG_PRIMARY_SIZE) | LIST_SHARED_UNPROCESSED);
+		    set_cell_tail(ptr, THE_NON_VALUE);
 		}
 		goto pop_next;
 	    }
@@ -1152,18 +1152,18 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    switch (primary_tag(tail)) {
 	    case TAG_PRIMARY_LIST:
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/L %p\n", mypid, ptr));
-		CDR(ptr) = (tail - TAG_PRIMARY_LIST) | TAG_PRIMARY_HEADER;
+		set_cell_tail(ptr, (tail - TAG_PRIMARY_LIST) | TAG_PRIMARY_HEADER);
 		break;
 	    case TAG_PRIMARY_IMMED1:
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/I %p\n", mypid, ptr));
-		CAR(ptr) = (head - primary_tag(head)) | TAG_PRIMARY_HEADER;
-		CDR(ptr) = (tail - TAG_PRIMARY_IMMED1) | primary_tag(head);
+		set_cell_head(ptr, (head - primary_tag(head)) | TAG_PRIMARY_HEADER);
+		set_cell_tail(ptr, (tail - TAG_PRIMARY_IMMED1) | primary_tag(head));
 		break;
 	    case TAG_PRIMARY_BOXED:
 		BITSTORE_PUT(b, primary_tag(head));
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/B %p\n", mypid, ptr));
-		CAR(ptr) = (head - primary_tag(head)) | TAG_PRIMARY_HEADER;
-		CDR(ptr) = (tail - TAG_PRIMARY_BOXED) | TAG_PRIMARY_HEADER;
+		set_cell_head(ptr, (head - primary_tag(head)) | TAG_PRIMARY_HEADER);
+		set_cell_tail(ptr, (tail - TAG_PRIMARY_BOXED) | TAG_PRIMARY_HEADER);
 		break;
 	    }
 	    /* and count it */
@@ -1430,8 +1430,8 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                 }
 		goto cleanup_next;
 	    }
-	    head = CAR(ptr);
-	    tail = CDR(ptr);
+	    head = cell_head(ptr);
+	    tail = cell_tail(ptr);
 	    /* if it is shared */
 	    if (tail == THE_NON_VALUE) {
 		e = head >> _TAG_PRIMARY_SIZE;
@@ -1443,7 +1443,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 		/* else, let's process it now,
 		   copy it and keep the forwarding pointer */
 		else {
-		    CAR(ptr) = (head - primary_tag(head)) + LIST_SHARED_PROCESSED;
+		    set_cell_head(ptr, (head - primary_tag(head)) + LIST_SHARED_PROCESSED);
 		    head = SHTABLE_X(t, e);
 		    tail = SHTABLE_Y(t, e);
 		    ptr = &(SHTABLE_X(t, e));
@@ -1457,29 +1457,29 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 		    Eterm saved;
                     BITSTORE_FETCH(b, saved);
 		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/B %p\n", mypid, ptr));
-		    CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) + saved;
-		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_BOXED;
+		    set_cell_head(ptr, head = (head - TAG_PRIMARY_HEADER) + saved);
+		    set_cell_tail(ptr, tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_BOXED);
 		} else {
 		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/L %p\n", mypid, ptr));
-		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_LIST;
+		    set_cell_tail(ptr, tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_LIST);
 		}
 	    } else if (primary_tag(head) == TAG_PRIMARY_HEADER) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/I %p\n", mypid, ptr));
-		CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) | primary_tag(tail);
-		CDR(ptr) = tail = (tail - primary_tag(tail)) | TAG_PRIMARY_IMMED1;
+		set_cell_head(ptr, head = (head - TAG_PRIMARY_HEADER) | primary_tag(tail));
+		set_cell_tail(ptr, tail = (tail - primary_tag(tail)) | TAG_PRIMARY_IMMED1);
 	    } else {
 		ASSERT(0 && "cannot come here");
 		goto cleanup_next;
 	    }
 	    /* and its children too */
 	    if (IS_CONST(head)) {
-		CAR(hp) = head;
+		set_cell_head(hp, head);
 	    } else {
 		EQUEUE_PUT_UNCHECKED(s, head);
-		CAR(hp) = HEAP_ELEM_TO_BE_FILLED;
+		set_cell_head(hp, HEAP_ELEM_TO_BE_FILLED);
 	    }
 	    *resp = make_list(hp);
-	    resp = &(CDR(hp));
+	    resp = cell_tail_ptr(hp);
 	    hp += 2;
 	    obj = tail;
 	    break;
@@ -1839,8 +1839,8 @@ all_clean:
 	/* entry was a list */
 	if (SHTABLE_Y(t, e) != THE_NON_VALUE) {
 	    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] untabling L %p\n", mypid, ptr));
-	    CAR(ptr) = SHTABLE_X(t, e);
-	    CDR(ptr) = SHTABLE_Y(t, e);
+	    set_cell_head(ptr, SHTABLE_X(t, e));
+	    set_cell_tail(ptr, SHTABLE_Y(t, e));
 	}
 	/* entry was boxed */
 	else {

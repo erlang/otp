@@ -2893,19 +2893,19 @@ LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
        goto error;
 
      /* if first char is a '-' then it is a negative integer */
-     if (CAR(list_val(lst)) == make_small('-')) {
+     if (cell_head(list_val(lst)) == make_small('-')) {
           neg = 1;
           skip = 1;
-          lst = CDR(list_val(lst));
+          lst = cell_tail(list_val(lst));
           if (is_not_list(lst)) {
               tail = lst;
               error_res = LTI_NO_INTEGER;
               goto error;
           }
-     } else if (CAR(list_val(lst)) == make_small('+')) {
+     } else if (cell_head(list_val(lst)) == make_small('+')) {
          /* ignore plus */
          skip = 1;
-         lst = CDR(list_val(lst));
+         lst = cell_tail(list_val(lst));
          if (is_not_list(lst)) {
              tail = lst;
              error_res = LTI_NO_INTEGER;
@@ -2917,17 +2917,17 @@ LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
 
      while(1) {
          byte ch;
-         if (is_not_small(CAR(list_val(lst)))) {
+         if (is_not_small(cell_head(list_val(lst)))) {
              break;
          }
-         ch = unsigned_val(CAR(list_val(lst)));
+         ch = unsigned_val(cell_head(list_val(lst)));
          if (c2int_is_invalid_char(ch, base)) {
              break;
          }
          ui = ui * base;
          ui = ui + c2int_digit_from_base(ch);
          n++;
-         lst = CDR(list_val(lst));
+         lst = cell_tail(list_val(lst));
          if (is_nil(lst)) {
              break;
          }
@@ -2965,7 +2965,7 @@ LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
 
          lst = orig_list;
          if (skip)
-             lst = CDR(list_val(lst));
+             lst = cell_tail(list_val(lst));
 
          /* load first digits (at least one digit) */
          if ((i = (n % digits_per_Sint)) == 0)
@@ -2974,8 +2974,8 @@ LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
          m = 0;
          while(i--) {
              m *= base;
-             m += c2int_digit_from_base(unsigned_val(CAR(list_val(lst))));
-             lst = CDR(list_val(lst));
+             m += c2int_digit_from_base(unsigned_val(cell_head(list_val(lst))));
+             lst = cell_tail(list_val(lst));
          }
          res = small_to_big(m, hp);  /* load first digits */
 
@@ -2985,8 +2985,8 @@ LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
              m = 0;
              while(i--) {
                  m *= base;
-                 m += c2int_digit_from_base(unsigned_val(CAR(list_val(lst))));
-                 lst = CDR(list_val(lst));
+                 m += c2int_digit_from_base(unsigned_val(cell_head(list_val(lst))));
+                 lst = cell_tail(list_val(lst));
              }
              if (is_small(res))
                  res = small_to_big(signed_val(res), hp);

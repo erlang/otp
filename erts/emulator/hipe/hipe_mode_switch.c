@@ -580,8 +580,8 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  arity = 0;
 	  while (is_list(args)) {
 	      if (arity < 255) {
-		  reg[arity++] = CAR(list_val(args));
-		  args = CDR(list_val(args));
+		  reg[arity++] = cell_head(list_val(args));
+		  args = cell_tail(list_val(args));
 	      } else
 		  goto do_apply_fail;
 	  }
@@ -724,7 +724,7 @@ Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s)
 	hp += 5;
 	next = CONS(hp, mfa, NIL);
 	*next_p = next;
-	next_p = &CDR(list_val(next));
+	next_p = cell_tail_ptr(list_val(next));
 	hp += 2;
     }
     HRelease(p, hp_end, hp);

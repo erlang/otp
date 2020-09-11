@@ -2166,7 +2166,7 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
             static const char *no_logger = "(no logger present)";
         /* no_error_logger: */
             erts_fprintf(stderr, "%s %T: %T\n",
-                         no_logger, tag, CAR(list_val(tp[3])));
+                         no_logger, tag, cell_head(list_val(tp[3])));
             break;
         unexpected_error_msg:
             erts_fprintf(stderr,

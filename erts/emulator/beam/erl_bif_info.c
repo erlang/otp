@@ -1126,7 +1126,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 
         while (is_list(list)) {
             Eterm *consp = list_val(list);
-            Eterm arg = CAR(consp);
+            Eterm arg = cell_head(consp);
             int ix = pi_arg2ix(arg);
             if (ix < 0)
                 goto badarg;
@@ -1142,7 +1142,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
             reserve_size += 3; /* 2-tuple */
             reserve_size += 2; /* cons */
 
-            list = CDR(consp);
+            list = cell_tail(consp);
         }
 
         if (is_not_nil(list))
@@ -5455,16 +5455,16 @@ BIF_RETTYPE erts_debug_lcnt_control_2(BIF_ALIST_2)
             Eterm *cell = list_val(categories);
             erts_lock_flags_t category;
 
-            category = lcnt_atom_to_lock_category(CAR(cell));
+            category = lcnt_atom_to_lock_category(cell_head(cell));
 
             if(!category) {
                 Eterm *hp = HAlloc(BIF_P, 4);
 
-                BIF_RET(TUPLE3(hp, am_error, am_badarg, CAR(cell)));
+                BIF_RET(TUPLE3(hp, am_error, am_badarg, cell_head(cell)));
             }
 
             category_mask |= category;
-            categories = CDR(cell);
+            categories = cell_tail(cell);
         }
 
         erts_lcnt_set_category_mask(category_mask);

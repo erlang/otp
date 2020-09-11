@@ -1498,7 +1498,7 @@ int enif_get_string(ErlNifEnv *env, ERL_NIF_TERM list, char* buf, unsigned len,
 	    buf[n-1] = '\0'; /* truncate */
 	    return -len;
 	}
-	list = CDR(listptr);
+	list = cell_tail(listptr);
     }
     buf[n] = '\0';
     return n + 1;
@@ -1735,8 +1735,8 @@ int enif_get_list_cell(ErlNifEnv* env, Eterm term, Eterm* head, Eterm* tail)
     Eterm* val;
     if (is_not_list(term)) return 0;
     val = list_val(term);
-    *head = CAR(val);
-    *tail = CDR(val);
+    *head = cell_head(val);
+    *tail = cell_tail(val);
     return 1;
 }
 
@@ -1910,8 +1910,8 @@ ERL_NIF_TERM enif_make_list_cell(ErlNifEnv* env, Eterm car, Eterm cdr)
 
     ASSERT_IN_ENV(env, car, 0, "head of list cell");
     ASSERT_IN_ENV(env, cdr, 0, "tail of list cell");
-    CAR(hp) = car;
-    CDR(hp) = cdr;
+    set_cell_head(hp, car);
+    set_cell_tail(hp, cdr);
     return ret;
 }
 
@@ -2003,8 +2003,8 @@ int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list
 	}
 	hp = alloc_heap(env, 2);
 	listptr = list_val(term);
-	ret = CONS(hp, CAR(listptr), ret);
-	term = CDR(listptr);
+	ret = CONS(hp, cell_head(listptr), ret);
+	term = cell_tail(listptr);
     }
     *list = ret;
     return 1;
@@ -3519,8 +3519,8 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
     else {
         ASSERT(is_hashmap(iter->map));
         if (iter->idx > 0 && iter->idx <= iter->size) {
-            *key   = CAR(iter->u.hash.kv);
-            *value = CDR(iter->u.hash.kv);
+            *key   = cell_head(iter->u.hash.kv);
+            *value = cell_tail(iter->u.hash.kv);
             return 1;
         }
     }
@@ -3701,7 +3701,7 @@ static int examine_iovec_term(Eterm list, UWord max_length, iovec_slice_t *resul
         Eterm *cell;
 
         cell = list_val(lookahead);
-        binary = CAR(cell);
+        binary = cell_head(cell);
 
         if (!is_binary(binary)) {
             return 0;
@@ -3740,7 +3740,7 @@ static int examine_iovec_term(Eterm list, UWord max_length, iovec_slice_t *resul
         }
 
         result->sublist_length += 1;
-        lookahead = CDR(cell);
+        lookahead = cell_tail(cell);
 
         if (result->sublist_length >= max_length) {
             break;
@@ -3845,7 +3845,7 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
         Eterm *cell;
 
         cell = list_val(sublist_iterator);
-        marshal_iovec_binary(CAR(cell), &copy_buffer, &copy_offset, &raw_data);
+        marshal_iovec_binary(cell_head(cell), &copy_buffer, &copy_offset, &raw_data);
 
         while (raw_data.size > 0) {
             UWord chunk_len = MIN(raw_data.size, MAX_SYSIOVEC_IOVLEN);
@@ -3864,7 +3864,7 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
             iovec_idx += 1;
         }
 
-        sublist_iterator = CDR(cell);
+        sublist_iterator = cell_tail(cell);
     }
 
     ASSERT(iovec_idx == iovec->iovcnt);

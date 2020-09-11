@@ -242,8 +242,8 @@ parse_options(Eterm listp, /* in */
 	copt = 0;
 	eopt = 0;
 	fl = 0;
-	for (;is_list(listp); listp = CDR(list_val(listp))) {
-	    item = CAR(list_val(listp));
+	for (;is_list(listp); listp = cell_tail(list_val(listp))) {
+	    item = cell_head(list_val(listp));
 	    if (is_tuple(item)) {
 		Eterm *tp = tuple_val(item);
 		if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
@@ -1014,9 +1014,9 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 	}
     default:
 	if (is_list(capture_spec[CAPSPEC_VALUES])) {
-	    for(l=capture_spec[CAPSPEC_VALUES];is_list(l);l = CDR(list_val(l))) {
+	    for(l=capture_spec[CAPSPEC_VALUES];is_list(l);l = cell_tail(list_val(l))) {
 		int x;
-		Eterm val = CAR(list_val(l));
+		Eterm val = cell_head(list_val(l));
 		ASSERT(ri->num_spec >= 0);
 		++(ri->num_spec);
 		if(ri->num_spec > sallocated) {

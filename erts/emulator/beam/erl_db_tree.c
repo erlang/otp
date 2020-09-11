@@ -1148,9 +1148,9 @@ static BIF_RETTYPE ets_select_reverse(BIF_ALIST_3)
 	    hp = HAlloc(p, 64);
 	    hend = hp + 64;
 	}
-	result = CONS(hp, CAR(pair), result);
+	result = CONS(hp, cell_head(pair), result);
 	hp += 2;
-	list = CDR(pair);
+	list = cell_tail(pair);
     }
     if (is_not_nil(list))  {
 	goto error;
@@ -2687,7 +2687,7 @@ static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
     mpi->key_boundness = MS_KEY_IMPOSSIBLE;
     mpi->mp = NULL;
 
-    for (lst = pattern; is_list(lst); lst = CDR(list_val(lst)))
+    for (lst = pattern; is_list(lst); lst = cell_tail(list_val(lst)))
 	++num_heads;
 
     if (lst != NIL) {/* proper list... */
@@ -2702,13 +2702,13 @@ static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
     bodies = buff + (num_heads * 2);
 
     i = 0;
-    for(lst = pattern; is_list(lst); lst = CDR(list_val(lst))) {
+    for(lst = pattern; is_list(lst); lst = cell_tail(list_val(lst))) {
         Eterm match;
         Eterm guard;
         Eterm body;
         Eterm key;
 
-	ttpl = CAR(list_val(lst));
+	ttpl = cell_head(list_val(lst));
 	if (!is_tuple(ttpl)) {
 	    if (buff != sbuff) { 
 		erts_free(ERTS_ALC_T_DB_TMP, buff);
@@ -2733,8 +2733,8 @@ static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
             return DB_ERROR_BADPARAM;
         }
 
-	if (!is_list(body) || CDR(list_val(body)) != NIL ||
-	    CAR(list_val(body)) != am_DollarUnderscore) {
+	if (!is_list(body) || cell_tail(list_val(body)) != NIL ||
+	    cell_head(list_val(body)) != am_DollarUnderscore) {
 	}
 	++i;
 

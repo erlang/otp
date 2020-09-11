@@ -136,7 +136,7 @@ static Eterm do_chksum(ChksumFun sumfun, Process *p, Eterm ioterm, int left,
 	if(is_list(ioterm)) {
 L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	    objp = list_val(ioterm);
-	    obj = CAR(objp);
+	    obj = cell_head(objp);
 	    for(;;) { /* loop over one flat list of bytes and binaries
 		         until sublist or list end is encountered */
 		if (is_byte(obj)) {
@@ -158,12 +158,12 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			}  
 			bytes[bsize++] = (unsigned char) unsigned_val(obj);
 			--left;
-			ioterm = CDR(objp);
+			ioterm = cell_tail(objp);
 			if (!is_list(ioterm)) {
 			    break;
 			}
 			objp = list_val(ioterm);
-			obj = CAR(objp);
+			obj = cell_head(objp);
 			if (!is_byte(obj))
 			    break;
 			if (!left) {
@@ -173,16 +173,16 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 		    (*sumfun)(sum, bytes, bsize);
 		    *res += bsize;
 		} else if (is_nil(obj)) {
-		    ioterm = CDR(objp);
+		    ioterm = cell_tail(objp);
 		    if (!is_list(ioterm)) {
 			break;
 		    }
 		    objp = list_val(ioterm);
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		} else if (is_list(obj)) {
 		    /* push rest of list for later processing, start 
 		       again with sublist */
-		    ESTACK_PUSH(stack,CDR(objp));
+		    ESTACK_PUSH(stack,cell_tail(objp));
 		    ioterm = obj;
 		    goto L_Again;
 		} else if (is_binary(obj)) {
@@ -202,17 +202,17 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 		    if (rest_term != NIL) {
 			Eterm *hp;
 			hp = HAlloc(p, 2);
-			obj = CDR(objp);
+			obj = cell_tail(objp);
 			ioterm = CONS(hp, rest_term, obj);
 			left = 0;
 			break;
 		    }
-		    ioterm = CDR(objp);
+		    ioterm = cell_tail(objp);
 		    if (is_list(ioterm)) {
 			/* objp and obj need to be updated if 
 			   loop is to continue */
 			objp = list_val(ioterm);
-			obj = CAR(objp);
+			obj = cell_head(objp);
 		    }
 		} else {
 		    *err = 1;

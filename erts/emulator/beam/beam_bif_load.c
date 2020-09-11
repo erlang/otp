@@ -309,7 +309,7 @@ finish_loading_1(BIF_ALIST_1)
 
     for (i = 0; i < n; i++) {
 	Eterm* cons = list_val(BIF_ARG_1);
-	Eterm term = CAR(cons);
+	Eterm term = cell_head(cons);
 
 	if (!is_internal_magic_ref(term)) {
 	    goto badarg;
@@ -319,7 +319,7 @@ finish_loading_1(BIF_ALIST_1)
 	if (p[i].module == NIL) {
 	    goto badarg;
 	}
-	BIF_ARG_1 = CDR(cons);
+	BIF_ARG_1 = cell_tail(cons);
     }
 
     /*
@@ -1165,7 +1165,7 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
     if (rp->ftrace != NIL) {
 	struct StackTrace *s;
 	ASSERT(is_list(rp->ftrace));
-	s = (struct StackTrace *) big_val(CDR(list_val(rp->ftrace)));
+	s = (struct StackTrace *) big_val(cell_tail(list_val(rp->ftrace)));
 	if ((s->pc && ErtsInArea(s->pc, mod_start, mod_size)) ||
 	    (s->current && ErtsInArea(s->current, mod_start, mod_size))) {
 	    rp->freason = EXC_NULL;

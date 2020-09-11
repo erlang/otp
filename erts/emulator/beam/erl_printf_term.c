@@ -123,7 +123,7 @@ is_printable_string(Eterm list) {
 
     while(is_list(list)) {
 	Eterm* consp = list_val(list);
-	Eterm hd = CAR(consp);
+	Eterm hd = cell_head(consp);
 
 	if (!is_byte(hd))
 	    return 0;
@@ -132,7 +132,7 @@ is_printable_string(Eterm list) {
 	if (IS_CNTRL(c) && !IS_SPACE(c))
 	   return 0;
 	len++;
-	list = CDR(consp);
+	list = cell_tail(consp);
     }
     if (is_nil(list))
 	return len;
@@ -308,8 +308,8 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 		    Eterm* cons = list_val(obj);
 		    Eterm tl;
 		    
-		    obj = CAR(cons);
-		    tl = CDR(cons);
+		    obj = cell_head(cons);
+		    tl = cell_tail(cons);
 		    if (is_not_nil(tl)) {
 			if (is_list(tl)) {
 			    WSTACK_PUSH3(s, tl, PRT_ONE_CONS, PRT_COMMA);

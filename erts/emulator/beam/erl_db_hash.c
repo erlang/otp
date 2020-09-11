@@ -1907,13 +1907,13 @@ static int select_chunk_on_loop_ended(traverse_context_t* ctx_base,
                 Eterm tmp = ctx->match_list;
                 rest = ctx->match_list;
                 while (got-- > ctx->chunk_size + 1) {
-                    tmp = CDR(list_val(tmp));
+                    tmp = cell_tail(list_val(tmp));
                     ++rest_size;
                 }
                 ++rest_size;
-                ctx->match_list = CDR(list_val(tmp));
-                CDR(list_val(tmp)) = NIL; /* Destructive, the list has never
-                                             been in 'user space' */
+                ctx->match_list = cell_tail(list_val(tmp));
+                set_cell_tail(list_val(tmp), NIL); /* Destructive, the list has never
+                                                      been in 'user space' */
             }
             if (rest != NIL || slot_ix >= 0) { /* Need more calls */
                 Eterm tid = ctx->base.tid;
@@ -2061,9 +2061,9 @@ int select_chunk_continue_on_loop_ended(traverse_context_t* ctx_base,
                been in user space */
             hp = HAlloc(ctx->base.p, (got - ctx->chunk_size) * 2);
             while (got-- > ctx->chunk_size) {
-                rest = CONS(hp, CAR(list_val(ctx->match_list)), rest);
+                rest = CONS(hp, cell_head(list_val(ctx->match_list)), rest);
                 hp += 2;
-                ctx->match_list = CDR(list_val(ctx->match_list));
+                ctx->match_list = cell_tail(list_val(ctx->match_list));
                 ++rest_size;
             }
         }
@@ -2847,7 +2847,7 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
     mpi->something_can_match = 0;
     mpi->mp = NULL;
 
-    for (lst = pattern; is_list(lst); lst = CDR(list_val(lst)))
+    for (lst = pattern; is_list(lst); lst = cell_tail(list_val(lst)))
 	++num_heads;
 
     if (lst != NIL) {/* proper list... */
@@ -2865,12 +2865,12 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
     bodies = buff + (num_heads * 2);
 
     i = 0;
-    for(lst = pattern; is_list(lst); lst = CDR(list_val(lst))) {
+    for(lst = pattern; is_list(lst); lst = cell_tail(list_val(lst))) {
         Eterm match;
         Eterm guard;
         Eterm body;
 
-	ttpl = CAR(list_val(lst));
+	ttpl = cell_head(list_val(lst));
 	if (!is_tuple(ttpl)) {
 	    if (buff != sbuff) { 
 		erts_free(ERTS_ALC_T_DB_TMP, buff);
@@ -2895,8 +2895,8 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
             return DB_ERROR_BADPARAM;
         }
 
-	if (!is_list(body) || CDR(list_val(body)) != NIL ||
-	    CAR(list_val(body)) != am_DollarUnderscore) {
+	if (!is_list(body) || cell_tail(list_val(body)) != NIL ||
+	    cell_head(list_val(body)) != am_DollarUnderscore) {
 	}
 	++i;
 	if (!(mpi->key_given)) {

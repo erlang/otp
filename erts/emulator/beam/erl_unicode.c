@@ -388,7 +388,7 @@ static Sint utf8_need(Eterm ioterm, int latin1, Uint *costp)
 	if(is_list(ioterm)) {
 L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	    objp = list_val(ioterm);
-	    obj = CAR(objp);
+	    obj = cell_head(objp);
 	    for(;;) { /* loop over one flat list of bytes and binaries
 		         until sublist or list end is encountered */
 		if (is_small(obj)) { /* Always small */
@@ -405,26 +405,26 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			/* everything else will give badarg later 
 			   in the process, so we dont check */
 			++cost;
-			ioterm = CDR(objp);
+			ioterm = cell_tail(objp);
 			if (!is_list(ioterm)) {
 			    break;
 			}
 			objp = list_val(ioterm);
-			obj = CAR(objp);
+			obj = cell_head(objp);
 			if (!is_small(obj))
 			    break;
 		    }
 		} else if (is_nil(obj)) {
-		    ioterm = CDR(objp);
+		    ioterm = cell_tail(objp);
 		    if (!is_list(ioterm)) {
 			break;
 		    }
 		    objp = list_val(ioterm);
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		} else if (is_list(obj)) {
 		    /* push rest of list for later processing, start 
 		       again with sublist */
-		    ESTACK_PUSH(stack,CDR(objp));
+		    ESTACK_PUSH(stack,cell_tail(objp));
 		    ioterm = obj;
 		    goto L_Again;
 		} else if (is_binary(obj)) {
@@ -448,12 +448,12 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			++cost;
 		    }
 		    need += x;
-		    ioterm = CDR(objp);
+		    ioterm = cell_tail(objp);
 		    if (is_list(ioterm)) {
 			/* objp and obj need to be updated if 
 			   loop is to continue */
 			objp = list_val(ioterm);
-			obj = CAR(objp);
+			obj = cell_head(objp);
 		    }
                 } else if (is_big(obj)) {
                     /*
@@ -654,7 +654,7 @@ static Eterm do_build_utf8(Process *p, Eterm ioterm, Sint *left, int latin1,
 	if(is_list(ioterm)) {
 L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	    objp = list_val(ioterm);
-	    obj = CAR(objp);
+	    obj = cell_head(objp);
 	    for(;;) { /* loop over one flat list of bytes and binaries
 		         until sublist or list end is encountered */
 		if (is_small(obj)) { /* Always small in unicode*/
@@ -704,26 +704,26 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			}
 			++(*characters);
 			--(*left);
-			ioterm = CDR(objp);
+			ioterm = cell_tail(objp);
 			if (!is_list(ioterm) || !(*left)) {
 			    break;
 			}
 			objp = list_val(ioterm);
-			obj = CAR(objp);
+			obj = cell_head(objp);
 			if (!is_small(obj))
 			    break;
 		    }
 		} else if (is_nil(obj)) {
-		    ioterm = CDR(objp);
+		    ioterm = cell_tail(objp);
 		    if (!is_list(ioterm)) {
 			break;
 		    }
 		    objp = list_val(ioterm);
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		} else if (is_list(obj)) {
 		    /* push rest of list for later processing, start 
 		       again with sublist */
-		    ESTACK_PUSH(stack,CDR(objp));
+		    ESTACK_PUSH(stack,cell_tail(objp));
 		    ioterm = obj;
 		    goto L_Again;
 		} else if (is_binary(obj)) {
@@ -733,7 +733,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 		    if ((*err) != 0) {
 			Eterm *hp;
 			hp = HAlloc(p, 2);
-			obj = CDR(objp);
+			obj = cell_tail(objp);
 			ioterm = CONS(hp, rest_term, obj);
 			/* (*left) = 0; */
 			goto done;
@@ -741,17 +741,17 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 		    if (rest_term != NIL) {
 			Eterm *hp;
 			hp = HAlloc(p, 2);
-			obj = CDR(objp);
+			obj = cell_tail(objp);
 			ioterm = CONS(hp, rest_term, obj);
 			(*left) = 0;
 			break;
 		    }
-		    ioterm = CDR(objp);
+		    ioterm = cell_tail(objp);
 		    if (is_list(ioterm)) {
 			/* objp and obj need to be updated if 
 			   loop is to continue */
 			objp = list_val(ioterm);
-			obj = CAR(objp);
+			obj = cell_head(objp);
 		    }
 		} else {
 		    *err = 1;
@@ -983,9 +983,9 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
     } else {
 	BIF_TRAP2(c_to_b_int_trap_exportp, BIF_P, BIF_ARG_1, BIF_ARG_2);
     }	
-    if (is_list(BIF_ARG_1) && is_binary(CAR(list_val(BIF_ARG_1))) && 
-	is_nil(CDR(list_val(BIF_ARG_1)))) {
-	subject = CAR(list_val(BIF_ARG_1));
+    if (is_list(BIF_ARG_1) && is_binary(cell_head(list_val(BIF_ARG_1))) &&
+	is_nil(cell_tail(list_val(BIF_ARG_1)))) {
+	subject = cell_head(list_val(BIF_ARG_1));
     } else {
 	subject = BIF_ARG_1;
     }
@@ -1022,8 +1022,8 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
 	Eterm bin;
 	if (is_binary(subject)) {
 	    bin = subject;
-	} else if(is_list(subject) && is_binary(CAR(list_val(subject)))) {
-	    bin = CAR(list_val(subject));
+	} else if(is_list(subject) && is_binary(cell_head(list_val(subject)))) {
+	    bin = cell_head(list_val(subject));
 	} else {
 	    bin = NIL;
 	}
@@ -2333,7 +2333,7 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
 	if(is_list(ioterm)) {
 L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	    objp = list_val(ioterm);
-	    obj = CAR(objp);
+	    obj = cell_head(objp);
 	    for(;;) { /* loop over one flat list of bytes and binaries
 		         until sublist or list end is encountered */
 		if (is_small(obj)) { /* Always small */
@@ -2387,26 +2387,26 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			    
 			/* everything else will give badarg later 
 			   in the process, so we dont check */
-			ioterm = CDR(objp);
+			ioterm = cell_tail(objp);
 			if (!is_list(ioterm)) {
 			    break;
 			}
 			objp = list_val(ioterm);
-			obj = CAR(objp);
+			obj = cell_head(objp);
 			if (!is_small(obj))
 			    break;
 		    }
 		} else if (is_nil(obj)) {
-		    ioterm = CDR(objp);
+		    ioterm = cell_tail(objp);
 		    if (!is_list(ioterm)) {
 			break;
 		    }
 		    objp = list_val(ioterm);
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		} else if (is_list(obj)) {
 		    /* push rest of list for later processing, start 
 		       again with sublist */
-		    ESTACK_PUSH(stack,CDR(objp));
+		    ESTACK_PUSH(stack,cell_tail(objp));
 		    ioterm = obj;
 		    goto L_Again;
 		} else {
@@ -2497,7 +2497,7 @@ void erts_native_filename_put(Eterm ioterm, int encoding, byte *p)
 	if(is_list(ioterm)) {
 L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	    objp = list_val(ioterm);
-	    obj = CAR(objp);
+	    obj = cell_head(objp);
 	    for(;;) { /* loop over one flat list of bytes and binaries
 		         until sublist or list end is encountered */
 		if (is_small(obj)) { /* Always small */
@@ -2549,26 +2549,26 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			    
 			/* everything else will give badarg later 
 			   in the process, so we dont check */
-			ioterm = CDR(objp);
+			ioterm = cell_tail(objp);
 			if (!is_list(ioterm)) {
 			    break;
 			}
 			objp = list_val(ioterm);
-			obj = CAR(objp);
+			obj = cell_head(objp);
 			if (!is_small(obj))
 			    break;
 		    }
 		} else if (is_nil(obj)) {
-		    ioterm = CDR(objp);
+		    ioterm = cell_tail(objp);
 		    if (!is_list(ioterm)) {
 			break;
 		    }
 		    objp = list_val(ioterm);
-		    obj = CAR(objp);
+		    obj = cell_head(objp);
 		} else if (is_list(obj)) {
 		    /* push rest of list for later processing, start 
 		       again with sublist */
-		    ESTACK_PUSH(stack,CDR(objp));
+		    ESTACK_PUSH(stack,cell_tail(objp));
 		    ioterm = obj;
 		    goto L_Again;
 		} else {

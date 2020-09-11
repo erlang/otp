@@ -8702,7 +8702,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
 
 	while (is_list(arg)) {
 	    Eterm *lp = list_val(arg);
-	    arg = CAR(lp);
+	    arg = cell_head(lp);
 	    switch (arg) {
 	    case am_unless_suspending:
 		unless_suspending = 1;
@@ -8722,7 +8722,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
                 BIF_RET(am_badarg);
 	    }
             }
-	    arg = CDR(lp);
+	    arg = cell_tail(lp);
         }
 	if (is_not_nil(arg))
             BIF_RET(am_badarg);
@@ -11527,8 +11527,8 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
      * Walk through the option list.
      */
     while (is_list(ap)) {
-	Eterm arg = CAR(list_val(ap));
-	ap = CDR(list_val(ap));
+	Eterm arg = cell_head(list_val(ap));
+	ap = cell_tail(list_val(ap));
 	if (arg == am_link) {
             if (sop->flags & SPO_LINK)
                 sop->multi_set = !0;

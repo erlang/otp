@@ -1381,7 +1381,7 @@ erts_set_cpu_topology(Process *c_p, Eterm term)
 
 	while (is_list(list)) {
 	    Eterm *lp = list_val(list);
-	    Eterm cpu = CAR(lp);
+	    Eterm cpu = cell_head(lp);
 	    Eterm* tp;
 	    Sint id;
 		
@@ -1431,7 +1431,7 @@ erts_set_cpu_topology(Process *c_p, Eterm term)
 		goto error;
 	    cpudata[ix].logical = (int) id;
 
-	    list = CDR(lp);
+	    list = cell_tail(lp);
 	    ix++;
 	}
 

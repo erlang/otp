@@ -3969,8 +3969,8 @@ code_get_chunk_2(BIF_ALIST_2)
 	    goto error;
 	}
 	chunkp = list_val(Chunk);
-	num = CAR(chunkp);
-	Chunk = CDR(chunkp);
+	num = cell_head(chunkp);
+	Chunk = cell_tail(chunkp);
 	if (!is_byte(num)) {
 	    goto error;
 	}
@@ -4179,7 +4179,7 @@ patch(Eterm Addresses, Uint fe)
   while (!is_nil(Addresses)) {
     listp = list_val(Addresses);
 
-    tuple = CAR(listp);
+    tuple = cell_head(listp);
     if (is_not_tuple(tuple)) {
       return 0; /* Signal error */
     }
@@ -4200,7 +4200,7 @@ patch(Eterm Addresses, Uint fe)
     
     hipe_patch_address((Uint *)AddressToPatch, patchtype, fe);
 
-    Addresses = CDR(listp);
+    Addresses = cell_tail(listp);
 
 
   }
@@ -4226,8 +4226,8 @@ patch_funentries(Eterm Patchlist)
     Uint native_address;
      
     listp = list_val(Patchlist);
-    tuple = CAR(listp);
-    Patchlist = CDR(listp);
+    tuple = cell_head(listp);
+    Patchlist = cell_tail(listp);
 
     if (is_not_tuple(tuple)) {
       return 0; /* Signal error */
@@ -4450,8 +4450,8 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
 	    break;
 	}
 	listp = list_val(Funcs);
-	tuple = CAR(listp);
-	Funcs = CDR(listp);
+	tuple = cell_head(listp);
+	Funcs = cell_tail(listp);
 
 	/* Error checking */
 	if (is_not_tuple(tuple)) {

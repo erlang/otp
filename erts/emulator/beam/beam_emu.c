@@ -1717,7 +1717,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 	    depth--;
 	}
 	s->pc = NULL;
-	args = make_arglist(c_p, reg, bif_mfa->arity); /* Overwrite CAR(c_p->ftrace) */
+	args = make_arglist(c_p, reg, bif_mfa->arity); /* Overwrite cell_head(c_p->ftrace) */
     } else {
 
     non_bif_stacktrace:
@@ -1732,7 +1732,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 	    int a;
 	    ASSERT(s->current);
 	    a = s->current->arity;
-	    args = make_arglist(c_p, reg, a); /* Overwrite CAR(c_p->ftrace) */
+	    args = make_arglist(c_p, reg, a); /* Overwrite cell_head(c_p->ftrace) */
 	    s->pc = NULL; /* Ignore pc */
 	} else {
 	    s->pc = pc;
@@ -1765,7 +1765,7 @@ static struct StackTrace *get_trace_from_exc(Eterm exc) {
 	return NULL;
     } else {
 	ASSERT(is_list(exc));
-	return (struct StackTrace *) big_val(CDR(list_val(exc)));
+	return (struct StackTrace *) big_val(cell_tail(list_val(exc)));
     }
 }
 
@@ -1774,7 +1774,7 @@ static Eterm get_args_from_exc(Eterm exc) {
 	return NIL;
     } else {
 	ASSERT(is_list(exc));
-	return CAR(list_val(exc));
+	return cell_head(list_val(exc));
     }
 }
 
@@ -1783,7 +1783,7 @@ static int is_raised_exc(Eterm exc) {
         return 0;
     } else {
         ASSERT(is_list(exc));
-        return bignum_header_is_neg(*big_val(CDR(list_val(exc))));
+        return bignum_header_is_neg(*big_val(cell_tail(list_val(exc))));
     }
 }
 
@@ -1801,7 +1801,7 @@ static Eterm *get_freason_ptr_from_exc(Eterm exc) {
 	return &dummy_freason;
     } else {
 	ASSERT(is_list(exc));
-        s = (struct StackTrace *) big_val(CDR(list_val(exc)));
+        s = (struct StackTrace *) big_val(cell_tail(list_val(exc)));
         return &s->freason;
     }
 }
@@ -2117,16 +2117,16 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 	a = args;
 	if (is_list(a)) {
 	    Eterm *consp = list_val(a);
-	    m = CAR(consp);
-	    a = CDR(consp);
+	    m = cell_head(consp);
+	    a = cell_tail(consp);
 	    if (is_list(a)) {
 		consp = list_val(a);
-		f = CAR(consp);
-		a = CDR(consp);
+		f = cell_head(consp);
+		a = cell_tail(consp);
 		if (is_list(a)) {
 		    consp = list_val(a);
-		    a = CAR(consp);
-		    if (is_nil(CDR(consp))) {
+		    a = cell_head(consp);
+		    if (is_nil(cell_tail(consp))) {
 			/* erlang:apply/3 */
 			module = m;
 			function = f;
@@ -2149,8 +2149,8 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
     arity = 0;
     while (is_list(tmp)) {
 	if (arity < (MAX_REG - 1)) {
-	    reg[arity++] = CAR(list_val(tmp));
-	    tmp = CDR(list_val(tmp));
+	    reg[arity++] = cell_head(list_val(tmp));
+	    tmp = cell_tail(list_val(tmp));
 	} else {
 	    p->freason = SYSTEM_LIMIT;
 	    goto error2;
@@ -2253,7 +2253,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     tmp = args;
     while (is_list(tmp)) {
 	if (arity < MAX_REG) {
-	    tmp = CDR(list_val(tmp));
+	    tmp = cell_tail(list_val(tmp));
 	    arity++;
 	} else {
 	    c_p->freason = SYSTEM_LIMIT;
@@ -2499,8 +2499,8 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
     arity = 0;
     while (is_list(tmp)) {
 	if (arity < MAX_REG-1) {
-	    reg[arity++] = CAR(list_val(tmp));
-	    tmp = CDR(list_val(tmp));
+	    reg[arity++] = cell_head(list_val(tmp));
+	    tmp = cell_tail(list_val(tmp));
 	} else {
 	    p->freason = SYSTEM_LIMIT;
 	    return NULL;

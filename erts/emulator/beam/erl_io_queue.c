@@ -476,7 +476,7 @@ erts_ioq_iolist_to_vec(Eterm obj,	  /* io-list */
 	if (is_list(obj)) {
 	L_iter_list:
 	    objp = list_val(obj);
-	    obj = CAR(objp);
+	    obj = cell_head(objp);
 	    if (is_byte(obj)) {
 		if (len == 0)
 		    goto L_overflow;
@@ -484,15 +484,15 @@ erts_ioq_iolist_to_vec(Eterm obj,	  /* io-list */
 		csize++;
 		len--;
 	    } else if (is_binary(obj)) {
-		ESTACK_PUSH(s, CDR(objp));
+		ESTACK_PUSH(s, cell_tail(objp));
 		goto handle_binary;
 	    } else if (is_list(obj)) {
-		ESTACK_PUSH(s, CDR(objp));
+		ESTACK_PUSH(s, cell_tail(objp));
 		goto L_iter_list;    /* on head */
 	    } else if (!is_nil(obj)) {
 		goto L_type_error;
 	    }
-	    obj = CDR(objp);
+	    obj = cell_tail(objp);
 	    if (is_list(obj))
 		goto L_iter_list; /* on tail */
 	    else if (is_binary(obj)) {
@@ -679,7 +679,7 @@ erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
 	if (is_list(obj)) {
 	L_iter_list:
 	    objp = list_val(obj);
-	    obj = CAR(objp);
+	    obj = cell_head(objp);
 
 	    if (is_byte(obj)) {
 		c_size++;
@@ -700,14 +700,14 @@ erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
                 IO_LIST_VEC_COUNT(obj);
 	    }
 	    else if (is_list(obj)) {
-		ESTACK_PUSH(s, CDR(objp));
+		ESTACK_PUSH(s, cell_tail(objp));
 		goto L_iter_list;   /* on head */
 	    }
 	    else if (!is_nil(obj)) {
 		goto L_type_error;
 	    }
 
-	    obj = CDR(objp);
+	    obj = cell_tail(objp);
 	    if (is_list(obj))
 		goto L_iter_list;   /* on tail */
 	    else if (is_binary(obj)) {  /* binary tail is OK */
@@ -841,7 +841,7 @@ static void iol2v_enqueue_result(iol2v_state_t *state, Eterm term) {
 
     if(prev_tail != NIL) {
         Eterm *prev_cell = list_val(prev_tail);
-        CDR(prev_cell) = state->result_tail;
+        set_cell_tail(prev_cell, state->result_tail);
     } else {
         state->result_head = state->result_tail;
     }
@@ -908,7 +908,7 @@ static int iol2v_append_byte_seq(iol2v_state_t *state, Eterm seq_start, Eterm *s
     while (is_list(lookahead)) {
         Eterm *cell = list_val(lookahead);
 
-        if (!is_small(CAR(cell))) {
+        if (!is_small(cell_head(cell))) {
             break;
         }
 
@@ -916,7 +916,7 @@ static int iol2v_append_byte_seq(iol2v_state_t *state, Eterm seq_start, Eterm *s
             break;
         }
 
-        lookahead = CDR(cell);
+        lookahead = cell_tail(cell);
         seq_length += 1;
     }
 
@@ -938,9 +938,9 @@ static int iol2v_append_byte_seq(iol2v_state_t *state, Eterm seq_start, Eterm *s
         Uint byte;
 
         cell = list_val(iterator);
-        iterator = CDR(cell);
+        iterator = cell_tail(cell);
 
-        byte = unsigned_val(CAR(cell));
+        byte = unsigned_val(cell_head(cell));
         observed_bits |= byte;
 
         ASSERT(acc_data < &(state->acc)->orig_bytes[state->acc_size]);
@@ -1111,14 +1111,14 @@ static BIF_RETTYPE iol2v_continue(iol2v_state_t *state) {
             Eterm head;
 
             cell = list_val(iterator);
-            head = CAR(cell);
+            head = cell_head(cell);
 
             if (is_binary(head)) {
                 if (!iol2v_append_binary(state, head)) {
                     goto l_badarg;
                 }
 
-                iterator = CDR(cell);
+                iterator = cell_tail(cell);
             } else if (is_small(head)) {
                 Eterm seq_end;
 
@@ -1128,7 +1128,7 @@ static BIF_RETTYPE iol2v_continue(iol2v_state_t *state) {
 
                 iterator = seq_end;
             } else if (is_list(head) || is_nil(head)) {
-                Eterm tail = CDR(cell);
+                Eterm tail = cell_tail(cell);
 
                 if (!is_nil(tail)) {
                     ESTACK_PUSH(s, tail);
