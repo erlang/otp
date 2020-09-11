@@ -789,18 +789,39 @@ void BeamModuleAssembler::emit_i_get_tuple_element(const ArgVal &Src,
  * the boxed pointer in ARG2. */
 void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgVal &Src,
                                                       const ArgVal &Element,
-                                                      const ArgVal &Dst) {
+                                                      const ArgVal &Dst1,
+                                                      const ArgVal &Dst2) {
 #ifdef DEBUG
     emit_tuple_assertion(Src, ARG2);
 #endif
 
-    x86::Mem dst_ptr = getArgRef(Dst);
-    x86::Mem element_ptr = emit_boxed_val(ARG2, Element.getValue());
+    x86::Mem element_ptr = emit_boxed_val(ARG2, Element.getValue(), 2*sizeof(Eterm));
 
-    dst_ptr.setSize(16);
-    element_ptr.setSize(16);
-    a.movups(x86::xmm0, element_ptr);
-    a.movups(dst_ptr, x86::xmm0);
+    switch (ArgVal::register_relation(Dst1, Dst2)) {
+    case ArgVal::Relation::consecutive: {
+        x86::Mem dst_ptr = getArgRef(Dst1, 16);
+        a.movups(x86::xmm0, element_ptr);
+        a.movups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        if (! hasCpuFeature(x86::Features::kAVX)) {
+            goto fallback;
+        } else {
+            x86::Mem dst_ptr = getArgRef(Dst2, 16);
+            a.vpermilpd(x86::xmm0, element_ptr, 1); /* Load and swap */
+            a.vmovups(dst_ptr, x86::xmm0);
+            break;
+        }
+    }
+    case ArgVal::Relation::none:
+        fallback:
+        a.mov(ARG1, emit_boxed_val(ARG2, Element.getValue()));
+        a.mov(ARG3, emit_boxed_val(ARG2, (Element+sizeof(Eterm)).getValue()));
+        mov_arg(Dst1, ARG1);
+        mov_arg(Dst2, ARG3);
+        break;
+    }
 }
 
 void BeamModuleAssembler::emit_init(const ArgVal &Y) {
