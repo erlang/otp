@@ -53,7 +53,8 @@
 	  certificate_db          :: db_handle(),
 	  session_validation_timer :: reference(),
 	  session_cache_client_max   :: integer(),
-          session_client_invalidator :: undefined | pid()
+          session_client_invalidator :: undefined | pid(),
+          options                    :: list()      
 	 }).
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
@@ -235,7 +236,8 @@ init([ManagerName, PemCacheName, Opts]) ->
 		session_validation_timer = Timer,
 		session_cache_client_max = 
 		    max_session_cache_size(session_cache_client_max),
-		session_client_invalidator = undefined
+		session_client_invalidator = undefined,
+                options = Opts
 	       }}.
 
 %%--------------------------------------------------------------------
@@ -445,45 +447,50 @@ clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File) ->
 	    ok
     end.
 
-client_register_unique_session(Host, Port, Session, #state{session_cache_client = Cache,
+client_register_unique_session(Host, Port, Session, #state{session_cache_client = Cache0,
                                                            session_cache_cb = CacheCb,
                                                            session_cache_client_max = Max,
-                                                           session_client_invalidator = Pid0} = State) ->
+                                                           options = Options} = State) ->
     TimeStamp = erlang:monotonic_time(),
     NewSession = Session#session{time_stamp = TimeStamp},
     
-    case CacheCb:select_session(Cache, {Host, Port}) of
+    case CacheCb:select_session(Cache0, {Host, Port}) of
 	no_session ->
-	    Pid = do_register_session({{Host, Port}, 
-				     NewSession#session.session_id}, 
-				      NewSession, Max, Pid0, Cache, CacheCb),
-	    State#state{session_client_invalidator = Pid};
+	    Cache = do_register_session({{Host, Port}, 
+                                         NewSession#session.session_id}, 
+                                        NewSession, Max, Cache0, CacheCb, Options),
+	    State#state{session_cache_client = Cache};
 	Sessions ->
 	    register_unique_session(Sessions, NewSession, {Host, Port}, State)
     end.
 
-client_register_session(Host, Port, Session, #state{session_cache_client = Cache,
+client_register_session(Host, Port, Session, #state{session_cache_client = Cache0,
                                                     session_cache_cb = CacheCb,
                                                     session_cache_client_max = Max,
-                                                    session_client_invalidator = Pid0} = State) ->
+                                                    options = Options} = State) ->
     TimeStamp = erlang:monotonic_time(),
     NewSession = Session#session{time_stamp = TimeStamp},
-    Pid = do_register_session({{Host, Port}, 
-                               NewSession#session.session_id}, 
-                              NewSession, Max, Pid0, Cache, CacheCb),
-    State#state{session_client_invalidator = Pid}.
+    Cache = do_register_session({{Host, Port}, 
+                                 NewSession#session.session_id}, 
+                                NewSession, Max, Cache0, CacheCb, Options),
+    State#state{session_cache_client = Cache}.
 
-do_register_session(Key, Session, Max, Pid, Cache, CacheCb) ->
-    try CacheCb:size(Cache) of
-	Size when Size >= Max ->
-	    invalidate_session_cache(Pid, CacheCb, Cache);
-	_ ->	
-	    CacheCb:update(Cache, Key, Session),
-	    Pid
+do_register_session(Key, Session, Max, Cache0, CacheCb, Options) ->
+    try 
+        case CacheCb:size(Cache0) of
+            Max ->
+                {_, Cache} = CacheCb:take_oldest(Cache0),
+                CacheCb:update(Cache, Key, Session),
+                Cache;
+            _ ->	
+                CacheCb:update(Cache0, Key, Session),
+                Cache0
+        end
     catch 
-	error:undef ->
-	    CacheCb:update(Cache, Key, Session),
-            Pid		
+	_:_ ->
+            Args = proplists:get_value(session_cb_init_args, Options, []),
+            CacheCb:terminate(Cache0),
+	    CacheCb:init(Args)
     end.
 
 
@@ -491,17 +498,17 @@ do_register_session(Key, Session, Max, Pid, Cache, CacheCb) ->
 %% for itself creating big delays at connection time. 
 register_unique_session(Sessions, Session, PartialKey, 
 			#state{session_cache_client_max = Max,
-			       session_cache_client = Cache,
+			       session_cache_client = Cache0,
 			       session_cache_cb = CacheCb,
-			       session_client_invalidator = Pid0} = State) ->
+                               options = Options} = State) ->
     case exists_equivalent(Session , Sessions) of
 	true ->
 	    State;
 	false ->
-	    Pid = do_register_session({PartialKey, 
-				       Session#session.session_id}, 
-				      Session, Max, Pid0, Cache, CacheCb),
-	    State#state{session_client_invalidator = Pid}
+	    Cache = do_register_session({PartialKey, 
+                                         Session#session.session_id}, 
+                                        Session, Max, Cache0, CacheCb, Options),
+	    State#state{session_cache_client = Cache}
     end.
 
 exists_equivalent(_, []) ->
@@ -541,13 +548,6 @@ crl_db_info([_,_,_,Local], {internal, Info}) ->
     {Local, Info};
 crl_db_info(_, UserCRLDb) ->
     UserCRLDb.
-
-%% Only start a session invalidator if there is not
-%% one already active
-invalidate_session_cache(undefined, CacheCb, Cache) ->
-    start_session_validator(Cache, CacheCb, {invalidate_before, erlang:monotonic_time()}, undefined);
-invalidate_session_cache(Pid, _CacheCb, _Cache) ->
-    Pid.
 
 load_mitigation() ->
     MSec = rand:uniform(?LOAD_MITIGATION),
