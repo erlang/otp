@@ -1033,7 +1033,9 @@ void BeamModuleAssembler::emit_set_tuple_element(const ArgVal &Element,
 
 void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail,
                                                 const ArgVal &Src) {
-    a.test(getArgRef(Src), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
+    x86::Mem list_ptr = getArgRef(Src, 1);
+
+    a.test(list_ptr, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
     a.jne(labels[Fail.getValue()]);
 }
 
