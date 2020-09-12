@@ -814,7 +814,7 @@ report_warnings(Ws0) ->
                            ({F,Eds}) -> format_message(F, Eds) end,
                   Ws0),
     Ws = ordsets:from_list(Ws1),
-    lists:foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws).
+    lists:foreach(fun({_,Str}) -> io:put_chars(standard_error, Str) end, Ws).
 
 format_message(F, [{Line,Mod,E}|Es]) ->
     M = {{F,Line},io_lib:format("~ts:~w: Warning: ~ts\n", [F,Line,Mod:format_error(E)])},
@@ -897,7 +897,7 @@ encoding() ->
 
 put_chars(String) ->
     try
-        io:put_chars(String)
+        io:put_chars(standard_error, String)
     catch
         _:_ ->
             erlang:display(lists:flatten(String))
