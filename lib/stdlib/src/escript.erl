@@ -900,8 +900,13 @@ put_chars(String) ->
         io:put_chars(standard_error, String)
     catch
         _:_ ->
-            erlang:display(lists:flatten(String))
+            display_err(lists:flatten(String))
     end.
+
+display_err(String) ->
+    Port = open_port({fd,2,2}, [out,binary]),
+    Port ! {self(), {command, list_to_binary(String)}},
+    port_close(Port).
 
 a0() ->
     anno(0).
