@@ -917,8 +917,33 @@ void BeamModuleAssembler::emit_node(const ArgVal &Dst) {
 }
 
 void BeamModuleAssembler::emit_put_cons(const ArgVal &Hd, const ArgVal &Tl) {
-    mov_arg(x86::qword_ptr(HTOP, 0), Hd);
-    mov_arg(x86::qword_ptr(HTOP, 1 * sizeof(Eterm)), Tl);
+    switch (ArgVal::register_relation(Hd, Tl)) {
+    case ArgVal::Relation::consecutive: {
+        x86::Mem src_ptr = getArgRef(Hd, 16);
+        x86::Mem dst_ptr = x86::xmmword_ptr(HTOP, 0);
+        comment("(put head and tail together)");
+        a.movups(x86::xmm0, src_ptr);
+        a.movups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        if (! hasCpuFeature(x86::Features::kAVX)) {
+            goto fallback;
+        }
+
+        x86::Mem src_ptr = getArgRef(Tl, 16);
+        x86::Mem dst_ptr = x86::xmmword_ptr(HTOP, 0);
+        comment("(putting and swapping head and tail together)");
+        a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+        a.vmovups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::none:
+        fallback:
+        mov_arg(x86::qword_ptr(HTOP, 0), Hd);
+        mov_arg(x86::qword_ptr(HTOP, 1 * sizeof(Eterm)), Tl);
+        break;
+    }
     a.lea(ARG2, x86::qword_ptr(HTOP, TAG_PRIMARY_LIST));
 }
 
