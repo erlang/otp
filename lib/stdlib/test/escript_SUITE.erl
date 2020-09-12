@@ -956,9 +956,9 @@ bad_io_server(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     run(Dir, "bad_io_server",
-        [<<"\"escript: exception error: an error occurred when evaluating"
-           " an arithmetic expression\\n  in operator  '/'/2\\n     "
-           "called as '\\x{400}' / 0\\n\"\r\nExitCode:127">>]),
+        [<<"escript: exception error: an error occurred when evaluating"
+           " an arithmetic expression\n  in operator  '/'/2\n     "
+           "called as '\\x{400}' / 0\nExitCode:127">>]),
     ok.
 
 run(Dir, Cmd0, Expected0) ->
@@ -982,7 +982,7 @@ do_run(Dir, Cmd, Expected0) ->
 
     Env = [{"PATH",Dir++":"++os:getenv("PATH")},
            {"ERL_FLAGS",false},{"ERL_AFLAGS",false}],
-    Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env}]),
+    Port = open_port({spawn,Cmd}, [stderr_to_stdout,exit_status,eof,in,{env,Env}]),
     Res = get_data(Port, []),
     receive
 	{Port,{exit_status,ExitCode}} ->
