@@ -774,18 +774,11 @@ enable_fips_mode_nif(_) -> ?nif_stub.
 %%%
 %%%================================================================
 
-%%% Candidate for a NIF
+equal_const_time(X1, X2) when is_binary(X1) andalso is_binary(X2) ->
+    do_equal_const_time(X1, X2);
 
 equal_const_time(X1, X2) ->
     equal_const_time(X1, X2, true).
-
-
-equal_const_time(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
-    equal_const_time(R1, R2, Truth and (B1 == B2));
-equal_const_time(<<_,R1/binary>>, <<>>, Truth) ->
-    equal_const_time(R1, <<>>, Truth and false);
-equal_const_time(<<>>, <<>>, Truth) ->
-    Truth;
 
 equal_const_time([H1|T1], [H2|T2], Truth) ->
     equal_const_time(T1, T2, Truth and (H1 == H2));
@@ -796,6 +789,8 @@ equal_const_time([], [], Truth) ->
 
 equal_const_time(_, _, _) ->
     false.
+
+do_equal_const_time(_X1, _X2) -> ?nif_stub.
 
 %%%================================================================
 %%%

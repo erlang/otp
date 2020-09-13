@@ -67,6 +67,8 @@
          compute/1,
          compute_bug/0,
          compute_bug/1,
+         equal_const_time/0,
+         equal_const_time/1,
          exor/0,
          exor/1,
          generate/0,
@@ -218,6 +220,7 @@ all() ->
      {group, non_fips},
      cipher_padding,
      mod_pow,
+     equal_const_time,
      exor,
      rand_uniform,
      rand_threads,
@@ -1227,6 +1230,24 @@ mod_pow() ->
     [{doc, "mod_pow testing (A ^ M % P with bignums)"}].
 mod_pow(Config) when is_list(Config) ->
     mod_pow_aux_test(2, 5, 10, 8).
+%%--------------------------------------------------------------------
+equal_const_time() ->
+    [{doc, "Test equal_const_time"}].
+equal_const_time(Config) when is_list(Config) ->
+    true  = crypto:equal_const_time(<<"">>, <<"">>),
+    true  = crypto:equal_const_time(<<"good">>, <<"good">>),
+    
+    false  = crypto:equal_const_time(<<"good">>, <<"good1">>),
+    false = crypto:equal_const_time(<<"good">>, <<"bad">>),
+    false = crypto:equal_const_time(<<"eh?">>, <<"abcdefg">>),
+
+    true  = crypto:equal_const_time("", ""),
+    true  = crypto:equal_const_time("good", "good"),
+
+    false = crypto:equal_const_time("good", "bad"),
+    false = crypto:equal_const_time("good", "bad1"),
+    false = crypto:equal_const_time("eh?", "abcdefg"),
+    ok.
 %%--------------------------------------------------------------------
 exor() ->
     [{doc, "Test the exor function"}].

@@ -98,6 +98,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/pkey$(TYPEMARKER).o \
 	$(OBJDIR)/rand$(TYPEMARKER).o \
 	$(OBJDIR)/rsa$(TYPEMARKER).o \
+	$(OBJDIR)/str$(TYPEMARKER).o \
 	$(OBJDIR)/srp$(TYPEMARKER).o
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
 NIF_MAKEFILE = $(PRIVDIR)/Makefile

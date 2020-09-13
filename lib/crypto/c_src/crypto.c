@@ -49,6 +49,7 @@
 #include "rand.h"
 #include "rsa.h"
 #include "srp.h"
+#include "str.h"
 
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
@@ -89,6 +90,7 @@ static ErlNifFunc nif_funcs[] = {
     {"strong_rand_range_nif", 1, strong_rand_range_nif, 0},
     {"rand_uniform_nif", 2, rand_uniform_nif, 0},
     {"mod_exp_nif", 4, mod_exp_nif, 0},
+    {"do_equal_const_time", 2, do_equal_const_time, 0},
     {"do_exor", 2, do_exor, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
