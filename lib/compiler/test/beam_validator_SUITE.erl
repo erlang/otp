@@ -38,7 +38,8 @@
          infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
          branch_to_try_handler/1,call_without_stack/1,
          receive_marker/1,safe_instructions/1,
-         missing_return_type/1,will_bif_succeed/1]).
+         missing_return_type/1,will_bif_succeed/1,
+         bs_saved_position_units/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -71,7 +72,8 @@ groups() ->
        infer_on_eq,infer_dead_value,infer_on_ne,
        branch_to_try_handler,call_without_stack,
        receive_marker,safe_instructions,
-       missing_return_type,will_bif_succeed]}].
+       missing_return_type,will_bif_succeed,
+       bs_saved_position_units]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -807,6 +809,84 @@ missing_return_type(Config) when is_list(Config) ->
 mrt_1(Bool) ->
     true = is_boolean(Bool),
     Bool.
+
+%% ERL-1340: the unit of previously saved match positions wasn't updated.
+bs_saved_position_units(Config) when is_list(Config) ->
+    M = {bs_saved_position_units,
+         [{no_errors,1},{some_errors,1}],
+         [],
+         [{function,ctx_test_8,1,2,
+              [{label,1},
+               {func_info,{atom,bs_saved_position_units},{atom,ctx_test_8},1},
+               {label,2},
+               {'%',
+                   {var_info,
+                       {x,0},
+                       [{type,{t_bs_context,8,0,0}},accepts_match_context]}},
+               {move,nil,{x,0}},
+               return]},
+          {function,no_errors,1,4,
+              [{label,3},
+               {func_info,{atom,bs_saved_position_units},{atom,no_errors},1},
+               {label,4},
+               {'%',{var_info,{x,0},[accepts_match_context]}},
+               {test,bs_start_match3,{f,3},1,[{x,0}],{x,1}},
+               {bs_get_position,{x,1},{x,0},2},
+               {test,bs_test_unit,{f,5},[{x,1},8]},
+               {bs_set_position,{x,1},{x,0}},
+               {test,bs_get_binary2,
+                   {f,5},
+                   2,
+                   [{x,1},{atom,all},1,{field_flags,[unsigned,big]}],
+                   {x,2}},
+               {bs_set_position,{x,1},{x,0}},
+               {bs_get_tail,{x,1},{x,0},3},
+               {test,is_eq_exact,{f,5},[{x,2},{x,0}]},
+               {move,{x,1},{x,0}},
+               %% Context unit should be 8 here.
+               {call_only,1,{f,2}},
+               {label,5},
+               {bs_get_tail,{x,1},{x,0},2},
+               {jump,{f,3}}]},
+          {function,some_errors,1,7,
+              [{label,6},
+               {func_info,{atom,bs_saved_position_units},{atom,some_errors},1},
+               {label,7},
+               {'%',{var_info,{x,0},[accepts_match_context]}},
+               {test,bs_start_match3,{f,6},1,[{x,0}],{x,1}},
+               {bs_get_position,{x,1},{x,0},2},
+               {test,bs_get_binary2,
+                   {f,8},
+                   2,
+                   [{x,1},{atom,all},4,{field_flags,[unsigned,big]}],
+                   {x,2}},
+               {bs_set_position,{x,1},{x,0}},
+               {test,bs_test_unit,{f,9},[{x,1},3]},
+               {bs_set_position,{x,1},{x,0}},
+               {bs_get_tail,{x,1},{x,0},3},
+               {test,is_eq_exact,{f,8},[{x,2},{x,0}]},
+               {move,{x,1},{x,0}},
+               %% Context unit should be 12 here, failing validation.
+               {call_only,1,{f,2}},
+               {label,8},
+               {bs_get_tail,{x,1},{x,0},2},
+               {jump,{f,6}},
+               {label,9},
+               %% Context unit should be 4 here.
+               {move,nil,{x,0}},
+               return]}],
+         10},
+
+    Errors = beam_val(M),
+
+    [{{bs_saved_position_units,some_errors,1},
+      {{call_only,1,{f,2}},
+       14,
+       {bad_arg_type,{x,0},
+                     {t_bs_context,12,0,0},
+                     {t_bs_context,8,0,0}}}}] = Errors,
+
+    ok.
 
 %%%-------------------------------------------------------------------------
 

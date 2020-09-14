@@ -47,7 +47,8 @@
          matching_meets_apply/1,bs_start_match2_defs/1,
          exceptions_after_match_failure/1,
          bad_phi_paths/1,many_clauses/1,
-         combine_empty_segments/1,hangs_forever/1]).
+         combine_empty_segments/1,hangs_forever/1,
+         bs_saved_position_units/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -85,7 +86,8 @@ groups() ->
        matches_on_parameter,big_positions,
        matching_meets_apply,bs_start_match2_defs,
        exceptions_after_match_failure,bad_phi_paths,
-       many_clauses,combine_empty_segments,hangs_forever]}].
+       many_clauses,combine_empty_segments,hangs_forever,
+       bs_saved_position_units]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2376,6 +2378,18 @@ hangs_forever_1(V0) ->
     case hangs_forever_1(V0) of
         <<A:1>> -> A
     end.
+
+
+%% ERL-1340: the unit of previously saved match positions wasn't updated.
+bs_saved_position_units(Config) when is_list(Config) ->
+    [<<0,1,2,3,4>>, <<5,6,7,8,9>>] = bspu_1(id(<<0,1,2,3,4,5,6,7,8,9>>)),
+    [] = bspu_1(id(<<>>)),
+
+    ok.
+
+bspu_1(<<Bin/binary>> = Bin) ->
+    [Chunk || <<Chunk:5/binary>> <= Bin].
+
 
 id(I) -> I.
 
