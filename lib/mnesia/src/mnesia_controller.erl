@@ -1580,7 +1580,6 @@ initial_safe_loads() ->
     end.
 
 last_consistent_replica(Tab, Downs) ->
-    Cs = val({Tab, cstruct}),
     case ?catch_val({Tab, cstruct}) of
         #cstruct{} = Cs ->
             last_consistent_replica(Cs, Tab, Downs);
