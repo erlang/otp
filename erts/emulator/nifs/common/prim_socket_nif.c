@@ -7409,17 +7409,18 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
 {
     int          sres;
 
+    if (! IS_OPEN(descP))
+        /* A bit of cheeting; maybe not closed yet - do we need a queue? */
+        return esock_make_error(env, atom_closed);
+
     /* Store the PID of the caller,
      * since we need to inform it when we
      * (that is, the stop callback function)
      * completes.
      */
-
     ESOCK_ASSERT( enif_self(env, &descP->closerPid) != NULL );
 
-    if (! IS_OPEN(descP))
-        /* A bit of cheeting; maybe not closed yet - do we need a queue? */
-        return esock_make_error(env, atom_closed);
+    descP->closing  = TRUE;
 
     /* If the caller is not the owner; monitor the caller,
      * since we should complete this operation even if the caller dies
@@ -7433,15 +7434,10 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
                            &descP->closerMon) == 0 );
     }
 
-    /* Create closeRef */
-    descP->closeEnv = esock_alloc_env("esock_close_do - close-env");
-    descP->closeRef = MKREF(descP->closeEnv);
-    descP->closing  = TRUE;
-
     /* Call or schedule call to esock_stop() */
     sres = esock_do_stop(env, descP);
 
-    if (sres & ERL_NIF_SELECT_STOP_CALLED) {
+    if ((sres & ERL_NIF_SELECT_STOP_CALLED) != 0) {
 
         /* Prep done - inform the caller it can finalize (close) directly */
         SSDBG( descP,
@@ -7452,7 +7448,8 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
         return esock_atom_ok;
     }
 
-    // if (sres & ERL_NIF_SELECT_STOP_SCHEDULED)
+    /* This is the other possible case */
+    ESOCK_ASSERT( (sres & ERL_NIF_SELECT_STOP_SCHEDULED) != 0 );
 
     /* The stop callback function has been *scheduled* which means that we
      * have to wait for it to complete. */
@@ -7460,8 +7457,11 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
            ("SOCKET", "esock_close {%d} -> stop was scheduled\r\n",
             descP->sock) );
 
-    return esock_make_ok2(env, CP_TERM(env, descP->closeRef));
+    /* Create closeRef for the close msg */
+    descP->closeEnv = esock_alloc_env("esock_close_do - close-env");
+    descP->closeRef = MKREF(descP->closeEnv);
 
+    return esock_make_ok2(env, CP_TERM(env, descP->closeRef));
 }
 #endif // #ifndef __WIN32__
 
@@ -7683,14 +7683,19 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
     /* This process is the closer - go ahead and close the socket */
 
     /* Stop monitoring the closer */
-
     enif_set_pid_undefined(&descP->closerPid);
-    DEMONP("esock_finalize_close -> closer", env, descP, &descP->closerMon);
+    /* Since we are called by the closer, demonitoring it must succeed */
+    if (descP->closerMon.isActive) {
+        ESOCK_ASSERT( DEMONP("esock_finalize_close -> closer",
+                             env, descP, &descP->closerMon) == 0 );
+    }
 
     /* Stop monitoring the owner */
-
     enif_set_pid_undefined(&descP->ctrlPid);
     DEMONP("esock_finalize_close -> ctrl", env, descP, &descP->ctrlMon);
+    /* Not impossible to get a esock_down() call from a
+     * just triggered owner monitor down
+     */
 
     /* This nif is executed in a dirty scheduler just so that
      * it can "hang" (whith minumum effect on the VM) while the
@@ -15970,8 +15975,8 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
         err = esock_close_socket(env, descP);
 
         if (err != 0)
-            esock_warning_msg("Failed closing socket for terminating "
-                              "controlling process: "
+            esock_warning_msg("Failed closing socket without "
+                              "closer process: "
                               "\r\n   Controlling Process: %T"
                               "\r\n   Descriptor:          %d"
                               "\r\n   Errno:               %d (%T)"
@@ -15981,30 +15986,19 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
                               MKA(env, erl_errno_id(err)));
     } else {
 
-        /* We have a closer process, so this is nif_close */
+        /* We have a closer process, so this is in or after nif_close */
 
-        if (is_direct_call) {
+        if (! is_direct_call) {
 
-            /* We do not send a message to the closer process since it will
-             * be informed with the return value from nif_close,
-             * but we need to free the environment here as
-             * the message send in the else branch below does
+            /* This is after nif_close
+             * - send message to trigger nif_finalize_close
              */
 
-            esock_free_env("esock_stop - close-env", descP->closeEnv);
-
-        } else {
-
             esock_send_close_msg(env, descP, &descP->closerPid);
+            /* Message send frees closeEnv */
+            descP->closeEnv = NULL;
+            descP->closeRef = esock_atom_undefined;
         }
-
-        /* Setting closeEnv = NULL is used as a marker for
-         * esock_down() that this callback (esock_stop())
-         * has been executed and will not close the socket
-         */
-
-        descP->closeEnv = NULL;
-        descP->closeRef = esock_atom_undefined;
     }
 
     /* +++++++ Clear the meta option +++++++ */
@@ -16136,7 +16130,7 @@ void esock_down(ErlNifEnv*           env,
     if (COMPARE_PIDS(&descP->closerPid, pid) == 0) {
 
         /* The closer process went down
-         * - it will not be able to call nif_finalize_close
+         * - it will not call nif_finalize_close
          */
 
         if (MON_EQ(&descP->closerMon, mon)) {
@@ -16147,8 +16141,10 @@ void esock_down(ErlNifEnv*           env,
                     "esock_down {%d} -> closer process exit\r\n",
                     descP->sock) );
 
-        } else if (MON_EQ(&descP->ctrlMon, mon)) {
+        } else {
+            ESOCK_ASSERT( MON_EQ(&descP->ctrlMon, mon) );
             MON_INIT(&descP->ctrlMon);
+            enif_set_pid_undefined(&descP->ctrlPid);
 
             SSDBG( descP,
                    ("SOCKET",
@@ -16158,19 +16154,14 @@ void esock_down(ErlNifEnv*           env,
 
         enif_set_pid_undefined(&descP->closerPid);
 
-        if (descP->closeEnv != NULL) {
+        /* Since the closer went down there was a closer,
+         * and esock_close must have run or scheduled esock_stop
+         */
 
-            /* esock_stop has not been called yet
-             * - clear the closer so esock_stop will close the socket */
-            esock_free_env("esock_down - close-env", descP->closeEnv);
-            descP->closeEnv = NULL;
-            descP->closeRef = esock_atom_undefined;
-
-        } else {
+        if (descP->closeEnv == NULL) {
             int err;
 
-            /* esock_stop has sent its message to the closer,
-             * but the closer died before calling nif_finalize_close
+            /* Since there is no closeEnv esock_stop has run
              * - we have to do an unclean (non blocking) socket close here
              */
 
@@ -16186,11 +16177,19 @@ void esock_down(ErlNifEnv*           env,
                                   pid, descP->sock,
                                   err,
                                   MKA(env, erl_errno_id(err)));
+        } else {
+            /* Since there is a closeEnv esock_stop has not run
+             * - it must close the socket and the close msg is not needed
+             */
+            esock_free_env("esock_down - close-env", descP->closeEnv);
+            descP->closeEnv = NULL;
+            descP->closeRef = esock_atom_undefined;
         }
+
     } else if (MON_EQ(&descP->ctrlMon, mon)) {
         MON_INIT(&descP->ctrlMon);
-
         /* The owner went down */
+        enif_set_pid_undefined(&descP->ctrlPid);
 
         SSDBG( descP,
                ("SOCKET",
