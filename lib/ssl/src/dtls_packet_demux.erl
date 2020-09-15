@@ -59,7 +59,8 @@
 	 dtls_processes = kv_new(),
 	 accepters  = queue:new(),
 	 first,
-         close
+         close,
+         session_id_tracker
 	}).
 
 %%%===================================================================
@@ -119,6 +120,8 @@ init([Port0, {TransportModule, _,_,_,_} = TransportInfo, EmOpts, InetOptions, DT
                       Port0
                end,
         
+        {ok, SessionIdHandle} = session_id_tracker(DTLSOptions),
+
 	{ok, #state{active_n = InternalActiveN,
                     port = Port,
 		    first = true,
@@ -126,7 +129,8 @@ init([Port0, {TransportModule, _,_,_,_} = TransportInfo, EmOpts, InetOptions, DT
 		    dtls_options = DTLSOptions,
 		    emulated_options = EmOpts,
 		    listener = Socket,
-                    close = false}}
+                    close = false,
+                    session_id_tracker = SessionIdHandle}}
     catch _:_ ->
 	    {stop, {shutdown, {error, closed}}}
     end.
@@ -287,9 +291,10 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
 						     dtls_options = DTLSOpts,
 						     port = Port,
 						     listener = Socket,
+                                                     session_id_tracker = Tracker,
 						     emulated_options = EmOpts} = State) ->
     ConnArgs = [server, "localhost", Port, {self(), {Client, Socket}},
-		{DTLSOpts, EmOpts, dtls_listener}, User, dtls_socket:default_cb_info()],
+		{DTLSOpts, EmOpts, [{session_id_tracker, Tracker}]}, User, dtls_socket:default_cb_info()],
     case dtls_connection_sup:start_child(ConnArgs) of
 	{ok, Pid} ->
 	    erlang:monitor(process, Pid),
@@ -366,3 +371,8 @@ emulated_opts_list( Opts, [mode | Rest], Acc) ->
 emulated_opts_list(Opts, [active | Rest], Acc) ->
     emulated_opts_list(Opts, Rest, [{active, Opts#socket_options.active} | Acc]).
 
+%% Regardless of the option reuse_sessions we need the session_id_tracker
+%% to generate session ids, but no sessions will be stored unless
+%% reuse_sessions = true.
+session_id_tracker(_) ->
+    dtls_server_session_cache_sup:start_child(ssl_server_session_cache_sup:session_opts()).

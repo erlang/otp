@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
-%%
+%% 
+%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
+%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,63 +14,50 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 
 %%
-
--module(dtls_sup).
+%%----------------------------------------------------------------------
+%% Purpose: Supervisor for a listen options tracker
+%%----------------------------------------------------------------------
+-module(dtls_server_session_cache_sup).
 
 -behaviour(supervisor).
 
+-include("ssl_internal.hrl").
+
 %% API
 -export([start_link/0]).
+-export([start_child/1]).
 
 %% Supervisor callback
 -export([init/1]).
 
+-define(DEFAULT_MAX_SESSION_CACHE, 1000).
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-
--spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-			
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_child(Args) ->
+    supervisor:start_child(?MODULE, [self() | Args]).
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-
-init([]) ->    
-    DTLSConnectionManager = dtls_connection_manager_child_spec(),
-    DTLSServers = dtls_server_spec(),
-    
-    {ok, {{one_for_one, 10, 3600}, [DTLSConnectionManager, 
-				    DTLSServers
-				   ]}}.
-
-    
-%%--------------------------------------------------------------------
-%%% Internal functions
-%%--------------------------------------------------------------------
-dtls_server_spec() ->
-    Name = dtls_servers,
-    StartFunc = {dtls_server_sup, start_link, []},
-    Restart = permanent,
+init(_O) ->
+    RestartStrategy = simple_one_for_one,
+    MaxR = 0,
+    MaxT = 3600,
+   
+    Name = undefined, % As simple_one_for_one is used.
+    StartFunc = {ssl_server_session_cache, start_link, []},
+    Restart = temporary, % E.g. should not be restarted
     Shutdown = 4000,
-    Modules = [dtls_server_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-dtls_connection_manager_child_spec() ->
-    Name = dtls_connection,
-    StartFunc = {dtls_connection_sup, start_link, []},
-    Restart = permanent,
-
-    Shutdown = 4000,
-    Modules = [dtls_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    Modules = [ssl_server_session_cache],
+    Type = worker,
+    
+    ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
+    {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.

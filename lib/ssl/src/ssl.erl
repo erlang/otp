@@ -787,9 +787,11 @@ handshake(Socket, SslOptions, Timeout) when is_port(Socket),
 	{ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
 	    ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
 	    {ok, Port} = tls_socket:port(Transport, Socket),
+            {ok, SessionIdHandle} = tls_socket:session_id_tracker(SslOpts),
 	    ssl_connection:handshake(ConnetionCb, Port, Socket,
                                      {SslOpts, 
-                                      tls_socket:emulated_socket_options(EmOpts, #socket_options{}), undefined},
+                                      tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
+                                      [{session_id_tracker, SessionIdHandle}]},
                                      self(), CbInfo, Timeout)
     catch
 	Error = {error, _Reason} -> Error

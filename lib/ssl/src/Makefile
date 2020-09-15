@@ -50,6 +50,8 @@ MODULES= \
 	dtls_listener_sup \
 	dtls_packet_demux \
 	dtls_record \
+	dtls_server_sup\
+	dtls_server_session_cache_sup\
 	dtls_sup \
 	dtls_socket \
 	dtls_v1 \
@@ -79,6 +81,9 @@ MODULES= \
 	ssl_pem_cache \
 	ssl_pkix_db \
 	ssl_record \
+	ssl_server_session_cache \
+	ssl_server_session_cache_db \
+	ssl_server_session_cache_sup \
 	ssl_session \
 	ssl_session_cache \
 	ssl_srp_primes \
@@ -151,11 +156,11 @@ endif
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-EXTRA_ERLC_FLAGS = +warn_unused_vars
+EXTRA_ERLC_FLAGS = +warn_unused_vars -Werror
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 	-pz $(EBIN) \
 	-pz $(ERL_TOP)/lib/public_key/ebin \
-	$(EXTRA_ERLC_FLAGS) -DVSN=\"$(VSN)\"
+	$(EXTRA_ERLC_FLAGS) -DVSN=\"$(VSN)\" 
 
 # ----------------------------------------------------
 # Targets

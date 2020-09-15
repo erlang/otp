@@ -210,9 +210,8 @@ hello(#server_hello{server_version = Version,
 
 %%--------------------------------------------------------------------
 -spec hello(#client_hello{}, ssl_options(),
-	    ssl_record:connection_states() | {inet:port_number(), #session{}, db_handle(),
-				    atom(), ssl_record:connection_states(), 
-				    binary() | undefined, ssl:kex_algo()},
+	    {pid(), #session{}, ssl_record:connection_states(),
+             binary() | undefined, ssl:kex_algo()},
 	    boolean()) ->
 		   {tls_record:tls_version(), ssl:session_id(), 
 		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
@@ -326,7 +325,7 @@ handle_client_hello(Version,
                       signature_algs := SupportedHashSigns,
                       eccs := SupportedECCs,
                       honor_ecc_order := ECCOrder} = SslOpts,
-		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, 
+		    {SessIdTracker, Session0, ConnectionStates0, Cert, _},
                     Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
@@ -339,8 +338,8 @@ handle_client_hello(Version,
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
                                                AvailableHashSigns, Compressions,
-					       Port, Session0#session{ecc = ECCCurve}, 
-                                               Version, SslOpts, Cache, CacheCb, Cert),
+					       SessIdTracker, Session0#session{ecc = ECCCurve},
+                                               Version, SslOpts, Cert),
 	    case CipherSuite of 
 		no_suite ->
                     ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_ciphers);

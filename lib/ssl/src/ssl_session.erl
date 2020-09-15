@@ -30,7 +30,7 @@
 -include("ssl_api.hrl").
 
 %% Internal application API
--export([is_new/2, client_select_session/4, server_select_session/7, valid_session/2]).
+-export([is_new/2, client_select_session/4, server_select_session/5, valid_session/2]).
 
 -type seconds()   :: integer(). 
 
@@ -69,28 +69,22 @@ client_select_session({_, _, #{versions := Versions,
     end.  
 
 %%--------------------------------------------------------------------
--spec server_select_session(ssl_record:ssl_version(), inet:port_number(), binary(), map(), 
-                            binary(),db_handle(), atom())  -> {binary(), #session{} | undefined}. 
+-spec server_select_session(ssl_record:ssl_version(), pid(), binary(), map(),
+                            binary())  -> {binary(), #session{} | undefined}.
 %%
 %% Description: Should be called by the server side to get an id
 %%              for the client hello message.
 %%--------------------------------------------------------------------
-server_select_session({_, Minor}, Port, <<>>, _SslOpts, _Cert, _, _) when Minor >= 4 ->
-    {ssl_manager:new_session_id(Port), undefined};
-server_select_session(_, Port, <<>>, _SslOpts, _Cert, _, _) ->
-    {ssl_manager:new_session_id(Port), undefined};
-server_select_session(_, Port, SuggestedId, Options, Cert, Cache, CacheCb) ->
-    LifeTime = case application:get_env(ssl, session_lifetime) of
-		   {ok, Time} when is_integer(Time) -> Time;
-		   _ -> ?'24H_in_sec'
-	       end,
-    case is_resumable(SuggestedId, Port, Options,
-		      Cache, CacheCb, LifeTime, Cert)
+server_select_session(_, SessIdTracker, <<>>, _SslOpts, _Cert) ->
+    {ssl_server_session_cache:new_session_id(SessIdTracker), undefined};
+server_select_session(_, SessIdTracker, SuggestedId, Options, Cert) ->
+    case is_resumable(SuggestedId, SessIdTracker, Options, Cert)
     of
 	{true, Resumed} ->
 	    {SuggestedId, Resumed};
 	{false, undefined} ->
-	    {ssl_manager:new_session_id(Port), undefined}
+            Id = ssl_server_session_cache:new_session_id(SessIdTracker),
+            {Id, undefined}
     end.
 
 -spec valid_session(#session{}, seconds() | {invalidate_before, integer()}) -> boolean().
@@ -144,11 +138,10 @@ select_session(Sessions, #{ciphers := Ciphers}, OwnCert) ->
 	[Session | _] -> Session
     end.
 
-is_resumable(_, _, #{reuse_sessions := false}, _, _, _, _) ->
+is_resumable(_, _, #{reuse_sessions := false}, _) ->
     {false, undefined};
-is_resumable(SuggestedSessionId, Port, #{reuse_session := ReuseFun} = Options, Cache,
-	     CacheCb, SecondLifeTime, OwnCert) ->
-    case CacheCb:lookup(Cache, {Port, SuggestedSessionId}) of
+is_resumable(SuggestedSessionId, SessIdTracker, #{reuse_session := ReuseFun} = Options, OwnCert) ->
+    case ssl_server_session_cache:reuse_session(SessIdTracker, SuggestedSessionId) of
 	#session{cipher_suite = CipherSuite,
 		 own_certificate = SessionOwnCert,
 		 compression_method = Compression,
@@ -156,7 +149,6 @@ is_resumable(SuggestedSessionId, Port, #{reuse_session := ReuseFun} = Options, C
 		 peer_certificate = PeerCert} = Session ->
 	    case resumable(IsResumable)
 		andalso (OwnCert == SessionOwnCert)
-		andalso valid_session(Session, SecondLifeTime)
 		andalso reusable_options(Options, Session)
 		andalso ReuseFun(SuggestedSessionId, PeerCert,
 				 Compression, CipherSuite)
@@ -164,7 +156,7 @@ is_resumable(SuggestedSessionId, Port, #{reuse_session := ReuseFun} = Options, C
 		true  -> {true, Session};
 		false -> {false, undefined}
 	    end;
-	undefined ->
+	not_reusable ->
  	    {false, undefined}
     end.
 
