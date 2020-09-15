@@ -3085,15 +3085,18 @@ handle_sni_extension_tls13(undefined, State) ->
 handle_sni_extension_tls13(#sni{hostname = Hostname}, State0) ->
     case check_hostname(State0, Hostname) of
         valid ->
-            #state{handshake_env = HsEnv0} = State =
-                handle_sni_hostname(Hostname, State0),
-            HsEnv = HsEnv0#handshake_env{sni_guided_cert_selection = true},
-            {ok, State#state{handshake_env = HsEnv}};
+            State1 = handle_sni_hostname(Hostname, State0),
+            State = set_sni_guided_cert_selection(State1, true),
+            {ok, State};
         unrecognized_name ->
             {ok, handle_sni_hostname(Hostname, State0)};
         #alert{} = Alert ->
             {error, Alert}
     end.
+
+set_sni_guided_cert_selection(#state{handshake_env = HsEnv0} = State, Bool) ->
+    HsEnv = HsEnv0#handshake_env{sni_guided_cert_selection = Bool},
+    State#state{handshake_env = HsEnv}.
 
 check_hostname(#state{ssl_options = SslOptions}, Hostname) ->
     case is_sni_value(Hostname) of
@@ -3133,10 +3136,20 @@ handle_sni_extension(#state{static_env =
 
 do_handle_sni_extension(undefined, State) ->
     State;
-do_handle_sni_extension(#sni{hostname = Hostname}, State) ->
+do_handle_sni_extension(#sni{hostname = Hostname},
+                        #state{ssl_options = SslOptions} = State0) ->
     case is_sni_value(Hostname) of
         true ->
-            handle_sni_hostname(Hostname, State);
+            case is_hostname_recognized(SslOptions, Hostname) of
+                true ->
+                    State1 = handle_sni_hostname(Hostname, State0),
+                    set_sni_guided_cert_selection(State1, true);
+                false ->
+                    %% We should send an alert but for interoperability reasons we
+                    %% allow the connection to be established.
+                    %% ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME)
+                    handle_sni_hostname(Hostname, State0)
+            end;
         false ->
             ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME, {sni_included_trailing_dot, Hostname})
     end.

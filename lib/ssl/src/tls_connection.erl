@@ -711,13 +711,12 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
             case ssl_connection:handle_sni_extension(State0, Hello) of
                 #state{connection_states = ConnectionStates0,
                        static_env = #static_env{trackers = Trackers},
-                       handshake_env = #handshake_env{kex_algorithm = KeyExAlg,
-                                                      renegotiation = {Renegotiation, _},
-                                                      negotiated_protocol = CurrentProtocol} = HsEnv,
-                       connection_env = #connection_env{
-                                           negotiated_version = _NegotiatedVersion
-                                          } = CEnv,
-                       %%connection_env = CEnv,
+                       handshake_env = #handshake_env{
+                                          kex_algorithm = KeyExAlg,
+                                          renegotiation = {Renegotiation, _},
+                                          negotiated_protocol = CurrentProtocol,
+                                          sni_guided_cert_selection = SNICertSelection} = HsEnv,
+                       connection_env = CEnv,
                        session = #session{own_certificate = Cert} = Session0,
                        ssl_options = SslOpts} = State ->
                     SessionTracker =
@@ -732,11 +731,18 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                                                             State#state{connection_env = CEnv#connection_env{negotiated_version
                                                                                                              = ClientVersion}});
                         {Version, {Type, Session},
-                         ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
+                         ConnectionStates, Protocol0, ServerHelloExt0, HashSign} ->
                             Protocol = case Protocol0 of
                                            undefined -> CurrentProtocol;
                                            _ -> Protocol0
                                        end,
+                            ServerHelloExt =
+                                case SNICertSelection of
+                                    true ->
+                                        ServerHelloExt0#{sni => #sni{hostname = ""}};
+                                    false ->
+                                        ServerHelloExt0
+                                end,
                             gen_handshake(?FUNCTION_NAME,
                                           internal,
                                           {common_client_hello, Type, ServerHelloExt},
