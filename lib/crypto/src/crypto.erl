@@ -774,7 +774,7 @@ enable_fips_mode_nif(_) -> ?nif_stub.
 %%%
 %%%================================================================
 
-equal_const_time(X1, X2) when is_binary(X1) andalso is_binary(X2) ->
+equal_const_time(X1, X2) when is_binary(X1), is_binary(X2) ->
     do_equal_const_time(X1, X2);
 
 equal_const_time(X1, X2) ->
@@ -3058,5 +3058,4 @@ check_otp_test_engine(LibDir) ->
                     {error, notexist}
             end
     end.
-
 
