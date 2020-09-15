@@ -48,7 +48,7 @@
          exceptions_after_match_failure/1,
          bad_phi_paths/1,many_clauses/1,
          combine_empty_segments/1,hangs_forever/1,
-         bs_saved_position_units/1]).
+         bs_saved_position_units/1,empty_get_binary/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -87,7 +87,7 @@ groups() ->
        matching_meets_apply,bs_start_match2_defs,
        exceptions_after_match_failure,bad_phi_paths,
        many_clauses,combine_empty_segments,hangs_forever,
-       bs_saved_position_units]}].
+       bs_saved_position_units,empty_get_binary]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2390,6 +2390,21 @@ bs_saved_position_units(Config) when is_list(Config) ->
 bspu_1(<<Bin/binary>> = Bin) ->
     [Chunk || <<Chunk:5/binary>> <= Bin].
 
+
+empty_get_binary(Config) when is_list(Config) ->
+    {<<>>, <<1,2,3,4:4>>} = egb_1(<<1,2,3,4:4>>),
+    {<<>>, <<1,2,3>>} = egb_1(<<1,2,3>>),
+    {<<>>, <<>>} = egb_1(<<>>),
+
+    ok.
+
+egb_1(Bytes) ->
+    {Term, Bytes} = begin
+                        <<V2@V0:0/binary-unit:8,V2@Buf1/bitstring>> = Bytes,
+                        V2@Conv2 = binary:copy(V2@V0),
+                        {V2@Conv2, V2@Buf1}
+                    end,
+    {Term, Bytes}.
 
 id(I) -> I.
 
