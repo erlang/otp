@@ -856,15 +856,16 @@ vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,{atom,all},Unit,_],Dst}, Vst) ->
     Type = #t_bitstring{size_unit=Unit},
     validate_bs_get_all(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,{integer,Sz},Unit,_],Dst}, Vst) ->
-    NumBits = Sz * Unit,
-    Type = #t_bitstring{size_unit=NumBits},
-    validate_bs_get(Op, Fail, Ctx, Live, NumBits, Type, Dst, Vst);
+    Stride = Unit * max(1, Sz),
+    Type = #t_bitstring{size_unit=Stride},
+    validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,Unit,_],Dst}, Vst) ->
     Type = #t_bitstring{size_unit=Unit},
     validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,
     [Ctx,{integer,Sz},Unit,{field_flags,Flags}],Dst},Vst) ->
-    NumBits = Sz * Unit,
+    NumBits = Unit * Sz,
+    Stride = max(1, NumBits),
     Type = case member(unsigned, Flags) of
                true when 0 =< NumBits, NumBits =< 64 ->
                    beam_types:make_integer(0, (1 bsl NumBits)-1);
@@ -872,11 +873,12 @@ vi({test,bs_get_integer2=Op,{f,Fail},Live,
                    %% Signed integer, way too large, or negative size.
                    #t_integer{}
            end,
-    validate_bs_get(Op, Fail, Ctx, Live, NumBits, Type, Dst, Vst);
+    validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_Sz,Unit,_Flags],Dst},Vst) ->
     validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,{integer,Sz},Unit,_],Dst},Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, Sz * Unit, #t_float{}, Dst, Vst);
+    Stride = Unit * max(1, Sz),
+    validate_bs_get(Op, Fail, Ctx, Live, Stride, #t_float{}, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
     validate_bs_get(Op, Fail, Ctx, Live, 32, #t_float{}, Dst, Vst);
 vi({test,bs_get_utf8=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
