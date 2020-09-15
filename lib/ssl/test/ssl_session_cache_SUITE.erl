@@ -56,7 +56,7 @@
 
 %% For the session cache tests
 -export([init/1, terminate/1, lookup/2, update/3,
-	 delete/2, foldl/3, select_session/2]).
+         size/1, delete/2, foldl/3, select_session/2]).
 
 -define(SLEEP, 1000).
 -define(TIMEOUT, {seconds, 20}).
@@ -258,15 +258,12 @@ session_cleanup(Config) when is_list(Config) ->
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),
-    ServerCache = element(3, State),
-    SessionTimer = element(7, State),
+    SessionTimer = element(6, State),
 
     Id = proplists:get_value(session_id, SessionInfo),
     CSession = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
-    SSession = ssl_session_cache:lookup(ServerCache, {Port, Id}),
 
     true = CSession =/= undefined,
-    true = SSession =/= undefined,
 
     %% Make sure session has expired and been cleaned up
     check_timer(SessionTimer),
@@ -274,7 +271,6 @@ session_cleanup(Config) when is_list(Config) ->
     ct:sleep(?SLEEP),  %% Make sure clean has had time to run
     
     undefined = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
-    undefined = ssl_session_cache:lookup(ServerCache, {Port, Id}),
 
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server),
@@ -381,13 +377,10 @@ max_table_size(Config) when is_list(Config) ->
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),	
-    ServerCache = element(3, State),
-    N = ssl_session_cache:size(ServerCache),
     M = ssl_session_cache:size(ClientCache),
-    ct:pal("~p",[{N, M}]),			
+    ct:pal("~p",[M]),
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient),
-    true = N =< ?MAX_TABLE_SIZE,
     true = M =< ?MAX_TABLE_SIZE.
 
 %%--------------------------------------------------------------------
@@ -401,7 +394,7 @@ init(Opts) ->
 	mnesia ->
 	    mnesia:start(),
 	    Name = atom_to_list(proplists:get_value(role, Opts)),
-	    TabName = list_to_atom(Name ++ "sess_cache"),
+	    TabName = list_to_atom(Name ++ "sess_cache" ++ erlang:pid_to_list(self())),
 	    {atomic,ok} = mnesia:create_table(TabName, []),
 	    TabName
     end.
@@ -418,6 +411,16 @@ terminate(Cache) ->
 	    catch {atomic,ok} =
 		mnesia:delete_table(Cache)
     end.
+
+size(Cache) ->
+    case session_cb() of
+	list ->
+            Cache ! {self(), size},
+            receive {Cache, Res} -> Res end;
+        mnesia ->
+            mnesia:table_info(Cache, size)
+    end.
+
 
 lookup(Cache, Key) ->
     case session_cb() of
@@ -455,7 +458,7 @@ delete(Cache, Key) ->
 	mnesia ->
 	    {atomic, ok} =
 		mnesia:transaction(fun() ->
-					   mnesia:delete(Cache, Key)
+					   mnesia:delete(Cache, Key, write)
 				   end)
     end.
 
@@ -468,22 +471,26 @@ foldl(Fun, Acc, Cache) ->
 	    Foldl = fun() ->
 			    mnesia:foldl(Fun, Acc, Cache)
 		    end,
-	    {atomic, Res} = mnesia:transaction(Foldl),
-	    Res
+	    case mnesia:transaction(Foldl) of
+                {atomic, {_,Key, Value}} ->
+                    {Key, Value};
+                Error ->
+                    Error
+            end
     end.
 
 select_session(Cache, PartialKey) ->
     case session_cb() of
 	list ->
-	    Cache ! {self(),select_session, PartialKey},
+            Cache ! {self(),select_session, PartialKey},
 	    receive
-		{Cache, Res} ->
+		{_Cache, Res} ->
 		    Res
 	    end;
 	mnesia ->
 	    Sel = fun() ->
 			  mnesia:select(Cache,
-					[{{Cache,{PartialKey,'_'}, '$1'},
+					[{{Cache, {PartialKey,'_'}, '$1'},
 					  [],['$1']}])
 		  end,
 	    {atomic, Res} = mnesia:transaction(Sel),
@@ -494,6 +501,9 @@ session_loop(Sess) ->
     receive
 	terminate ->
 	    ok;
+        {Pid, size} ->
+            Pid ! {self(), length(Sess)},
+            session_loop(Sess);
 	{Pid, lookup, Key} ->
 	    case lists:keysearch(Key,1,Sess) of
 		{value, {Key,Value}} ->
@@ -520,7 +530,7 @@ session_loop(Sess) ->
 	    Sessions = lists:foldl(Sel, [], Sess),
 	    Pid ! {self(), Sessions},
 	    session_loop(Sess)
-    end.
+     end.
 %%--------------------------------------------------------------------
 %%% callback functions
 %%--------------------------------------------------------------------

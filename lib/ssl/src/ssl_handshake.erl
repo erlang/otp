@@ -68,7 +68,7 @@
 
 %% Cipher suites handling
 -export([available_suites/2, available_signature_algs/2,  available_signature_algs/4, 
-         cipher_suites/3, prf/6, select_session/11, supported_ecc/1,
+         cipher_suites/3, prf/6, select_session/9, supported_ecc/1,
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
@@ -1039,13 +1039,11 @@ cipher_suites(Suites, true) ->
 prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
-select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, Port, #session{ecc = ECCCurve0} = 
+select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, #session{ecc = ECCCurve0} =
 		   Session, Version,
-	       #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = SslOpts,
-	       Cache, CacheCb, Cert) ->
-    {SessionId, Resumed} = ssl_session:server_select_session(Version, Port, SuggestedSessionId,
-                                                             SslOpts, Cert,
-                                                             Cache, CacheCb),
+	       #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = SslOpts,Cert) ->
+    {SessionId, Resumed} = ssl_session:server_select_session(Version, SessIdTracker, SuggestedSessionId,
+                                                             SslOpts, Cert),
     case Resumed of
         undefined ->
 	    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),

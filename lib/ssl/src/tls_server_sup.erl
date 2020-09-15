@@ -45,10 +45,12 @@ start_link() ->
 
 init([]) ->    
     ListenTracker = listen_options_tracker_child_spec(),
-    SessionTracker = tls_server_session_child_spec(), 
+    SessionTracker = tls_server_session_child_spec(),
+    Pre_1_3SessionTracker = ssl_server_session_child_spec(),
     
     {ok, {{one_for_all, 10, 3600}, [ListenTracker, 
-				    SessionTracker
+				    SessionTracker,
+                                    Pre_1_3SessionTracker
 				   ]}}.
 
 
@@ -73,5 +75,14 @@ tls_server_session_child_spec() ->
     Restart = permanent, 
     Shutdown = 4000,
     Modules = [tls_server_session_ticket_sup],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+ssl_server_session_child_spec() ->
+    Name = ssl_server_session_cache_sup,
+    StartFunc = {ssl_server_session_cache_sup, start_link, []},
+    Restart = permanent,
+    Shutdown = 4000,
+    Modules = [ssl_server_session_cache_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

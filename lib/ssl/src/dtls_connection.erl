@@ -797,7 +797,7 @@ format_status(Type, Data) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 initial_state(Role, Host, Port, Socket,
-              {#{client_renegotiation := ClientRenegotiation} = SSLOptions, SocketOptions, _}, User,
+              {#{client_renegotiation := ClientRenegotiation} = SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{beast_mitigation := BeastMitigation} = SSLOptions,
     ConnectionStates = dtls_record:init_connection_states(Role, BeastMitigation),
@@ -826,7 +826,8 @@ initial_state(Role, Host, Port, Socket,
                      host = Host,
                      port = Port,
                      socket = Socket,
-                     session_cache_cb = SessionCacheCb
+                     session_cache_cb = SessionCacheCb,
+                     trackers = Trackers
                     },
 
     #state{static_env = InitStatEnv,
@@ -840,7 +841,7 @@ initial_state(Role, Host, Port, Socket,
 	   %% We do not want to save the password in the state so that
 	   %% could be written in the clear into error logs.
 	   ssl_options = SSLOptions#{password => undefined},
-	   session = #session{is_resumable = new},
+	   session = #session{is_resumable = false},
 	   connection_states = ConnectionStates,
 	   protocol_buffers = #protocol_buffers{},
 	   user_data_buffer = {[],0,[]},
@@ -900,17 +901,15 @@ dtls_version(_,_, State) ->
 
 handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
 		    #state{connection_states = ConnectionStates0,
-                           static_env = #static_env{port = Port,
-                                                     session_cache = Cache,
-                                                    session_cache_cb = CacheCb},
+                           static_env = #static_env{trackers = Trackers},
                            handshake_env = #handshake_env{kex_algorithm = KeyExAlg,
                                                           renegotiation = {Renegotiation, _},
                                                           negotiated_protocol = CurrentProtocol} = HsEnv,
                            connection_env = CEnv,
 			   session = #session{own_certificate = Cert} = Session0,
 			   ssl_options = SslOpts} = State0) ->
-    
-    case dtls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
+    SessionTracker = proplists:get_value(session_id_tracker, Trackers),
+    case dtls_handshake:hello(Hello, SslOpts, {SessionTracker, Session0,
 					       ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, ClientVersion, hello, State0);

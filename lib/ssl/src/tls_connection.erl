@@ -703,9 +703,7 @@ hello(internal, #server_hello{extensions = Extensions} = Hello,
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{connection_states = ConnectionStates0,
              static_env = #static_env{
-                             port = Port,
-                             session_cache = Cache,
-                             session_cache_cb = CacheCb},
+                             trackers = Trackers},
              handshake_env = #handshake_env{kex_algorithm = KeyExAlg,
                                             renegotiation = {Renegotiation, _},
                                             negotiated_protocol = CurrentProtocol} = HsEnv,
@@ -718,9 +716,10 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
             %% Continue in TLS 1.3 'start' state
             {next_state, start, State, [{next_event, internal, Hello}]};
         'tls_v1.2' ->
+            SessionTracker = proplists:get_value(session_id_tracker, Trackers),
             case tls_handshake:hello(Hello,
                                      SslOpts,
-                                     {Port, Session0, Cache, CacheCb,
+                                     {SessionTracker, Session0,
                                       ConnectionStates0, Cert, KeyExAlg},
                                      Renegotiation) of
                 #alert{} = Alert ->
@@ -766,8 +765,9 @@ hello(internal, #server_hello{} = Hello,
         {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
             ssl_connection:handle_session(Hello, 
                                           Version, NewId, ConnectionStates, ProtoExt, Protocol,
-                                          State#state{handshake_env = HsEnv#handshake_env{
-                                                                        ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
+                                          State#state{
+                                            handshake_env = HsEnv#handshake_env{
+                                                              ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
         %% TLS 1.3
         {next_state, wait_sh, SelectedVersion, OcspState} ->
             %% Continue in TLS 1.3 'wait_sh' state
@@ -1157,7 +1157,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        connection_env = #connection_env{user_application = {UserMonitor, User}},
        socket_options = SocketOptions,
        ssl_options = SSLOptions,
-       session = #session{is_resumable = new},
+       session = #session{is_resumable = false},
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
        user_data_buffer = {[],0,[]},

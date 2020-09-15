@@ -53,7 +53,8 @@ listen(Port, #config{transport_info = TransportInfo,
     
     Result = case dtls_listener_sup:lookup_listner(Port) of
                  undefined ->
-                     Result0 = {ok, Listner0} = dtls_listener_sup:start_child([Port, TransportInfo, emulated_socket_options(EmOpts0, #socket_options{}), 
+                     Result0 = {ok, Listner0} =
+                         dtls_listener_sup:start_child([Port, TransportInfo, emulated_socket_options(EmOpts0, #socket_options{}),
                                                                           Options ++ internal_inet_values(), SslOpts]),
                      dtls_listener_sup:register_listner({self(), Listner0}, Port),
                      Result0;

@@ -99,7 +99,7 @@ connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 %%--------------------------------------------------------------------
 -spec handshake(tls_connection | dtls_connection,
 		 inet:port_number(), port(),
-		 {ssl_options(), #socket_options{}, undefined | pid()},
+		 {ssl_options(), #socket_options{}, list()},
 		 pid(), tuple(), timeout()) ->
 			{ok, #sslsocket{}} | {error, reason()}.
 %%
@@ -1264,7 +1264,8 @@ cipher(internal, #finished{},
 cipher(internal, #finished{verify_data = Data} = Finished,
        #state{static_env = #static_env{role = Role,
                                        host = Host,
-                                       port = Port},
+                                       port = Port,
+                                       trackers = Trackers},
               handshake_env = #handshake_env{tls_handshake_history = Hist,
                                              expecting_finished = true} = HsEnv,
               connection_env = #connection_env{negotiated_version = Version},
@@ -1277,7 +1278,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 					 get_current_prf(ConnectionStates0, read),
 					 MasterSecret, Hist) of
         verified ->
-	    Session = handle_session(Role, SslOpts, Host, Port, Session0),
+	    Session = handle_session(Role, SslOpts, Host, Port, Trackers, Session0),
 	    cipher_role(Role, Data, Session, 
 			State#state{handshake_env = HsEnv#handshake_env{expecting_finished = false}}, Connection);
         #alert{} = Alert ->
@@ -2763,19 +2764,16 @@ session_handle_params(#server_ecdh_params{curve = ECCurve}, Session) ->
 session_handle_params(_, Session) ->
     Session.
 
-handle_session(Role = server, #{reuse_sessions := true} = SslOpts,
-               Host, Port, Session0) ->
-    register_session(Role, host_id(Role, Host, SslOpts), Port, Session0, true);
+handle_session(server, #{reuse_sessions := true}, 
+               _Host, _Port, Trackers, #session{is_resumable = false} = Session) ->
+    Tracker = proplists:get_value(session_id_tracker, Trackers),
+    server_register_session(Tracker, Session#session{is_resumable = true});
 handle_session(Role = client, #{verify := verify_peer,
                                 reuse_sessions := Reuse} = SslOpts,
-               Host, Port, Session0) when Reuse =/= false ->
-    register_session(Role, host_id(Role, Host, SslOpts), Port, Session0, reg_type(Reuse));
-handle_session(server, _, Host, Port, Session) ->
-    %% Remove "session of type new" entry from session DB 
-    ssl_manager:invalidate_session(Host, Port, Session),
-    Session;
-handle_session(client, _,_,_, Session) ->
-    %% In client case there is no entry yet, so nothing to remove
+               Host, Port, _, #session{is_resumable = false} = Session) when Reuse =/= false ->
+    client_register_session(host_id(Role, Host, SslOpts), Port, Session#session{is_resumable = true}, 
+                            reg_type(Reuse));
+handle_session(_,_,_,_,_, Session) ->
     Session.
 
 reg_type(save) ->
@@ -2783,16 +2781,12 @@ reg_type(save) ->
 reg_type(true) ->
     unique.
 
-register_session(client, Host, Port, #session{is_resumable = new} = Session0, Save) ->
-    Session = Session0#session{is_resumable = true},
+client_register_session(Host, Port, Session, Save) ->
     ssl_manager:register_session(Host, Port, Session, Save),
-    Session;
-register_session(server, _, Port, #session{is_resumable = new} = Session0, _) ->
-    Session = Session0#session{is_resumable = true},
-    ssl_manager:register_session(Port, Session),
-    Session;
-register_session(_, _, _, Session, _) ->
-    Session. %% Already registered
+    Session.
+server_register_session(Tracker, Session) ->
+    ssl_server_session_cache:register_session(Tracker, Session),
+    Session.
 
 host_id(client, _Host, #{server_name_indication := Hostname}) when is_list(Hostname) ->
     Hostname;
@@ -3089,8 +3083,8 @@ maybe_invalidate_session(_, _, _, _, _) ->
 
 invalidate_session(client, Host, Port, Session) ->
     ssl_manager:invalidate_session(Host, Port, Session);
-invalidate_session(server, _, Port, Session) ->
-    ssl_manager:invalidate_session(Port, Session).
+invalidate_session(server, _, _, _) ->
+    ok.
 
 handle_sni_extension(undefined, State) ->
     State;

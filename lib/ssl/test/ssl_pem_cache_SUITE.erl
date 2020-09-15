@@ -136,7 +136,7 @@ clear_pem_cache(Config) when is_list(Config) ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    [_,{FilRefDb, _} |_] = element(6, State),
+    [_,{FilRefDb, _} |_] = element(5, State),
     {Server, Client} = basic_verify_test_no_close(Config),
     CountReferencedFiles = fun({_, -1}, Acc) ->
 				   Acc;
@@ -191,7 +191,7 @@ get_pem_cache() ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    case element(6, State) of
+    case element(5, State) of
 	[_CertDb, _FileRefDb, PemCache| _] ->
 	    PemCache;
 	_ ->
@@ -202,7 +202,7 @@ get_fileref_db() ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    case element(6, State) of
+    case element(5, State) of
 	[_CertDb, {FileRefDb,_} | _] ->
 	    FileRefDb;
 	_ ->
