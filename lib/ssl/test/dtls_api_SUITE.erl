@@ -37,7 +37,19 @@
          dtls_listen_close/0,
          dtls_listen_close/1,
          dtls_listen_reopen/0,
-         dtls_listen_reopen/1
+         dtls_listen_reopen/1,
+         dtls_listen_two_sockets_1/0,
+         dtls_listen_two_sockets_1/1,
+         dtls_listen_two_sockets_2/0,
+         dtls_listen_two_sockets_2/1,
+         dtls_listen_two_sockets_3/0,
+         dtls_listen_two_sockets_3/1,
+         dtls_listen_two_sockets_4/0,
+         dtls_listen_two_sockets_4/1,
+         dtls_listen_two_sockets_5/0,
+         dtls_listen_two_sockets_5/1,
+         dtls_listen_two_sockets_6/0,
+         dtls_listen_two_sockets_6/1
         ]).
 
 %%--------------------------------------------------------------------
@@ -59,7 +71,13 @@ api_tests() ->
     [
      dtls_listen_owner_dies,
      dtls_listen_close,
-     dtls_listen_reopen
+     dtls_listen_reopen,
+     dtls_listen_two_sockets_1,
+     dtls_listen_two_sockets_2,
+     dtls_listen_two_sockets_3,
+     dtls_listen_two_sockets_4,
+     dtls_listen_two_sockets_5,
+     dtls_listen_two_sockets_6
     ].
 
 init_per_suite(Config0) ->
@@ -84,6 +102,19 @@ init_per_group(GroupName, Config) ->
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 
+init_per_testcase(Testcase, Config)
+  when Testcase =:= dtls_listen_two_sockets_1 orelse
+       Testcase =:= dtls_listen_two_sockets_5 orelse
+       Testcase =:= dtls_listen_two_sockets_6 ->
+    case ssl:listen(0, [{protocol, dtls}, {ip, {127,0,0,2}}]) of
+        {ok, S} ->
+            ssl:close(S),
+            ssl_test_lib:ct_log_supported_protocol_versions(Config),
+            ct:timetrap({seconds, 10}),
+            Config;
+        {error, _} ->
+            {skip, "127.0.0.x address not available"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
@@ -188,6 +219,83 @@ dtls_listen_reopen(Config) when is_list(Config) ->
         {ssl, Client2, "from server 2"} ->
             ssl:close(Client2)
     end.
+
+dtls_listen_two_sockets_1() ->
+    [{doc, "Test with two DTLS dockets: 127.0.0.2:Port, 127.0.0.3:Port"}].
+dtls_listen_two_sockets_1(_Config) when is_list(_Config) ->
+    {ok, S1} = ssl:listen(0, [{protocol, dtls}, {ip, {127,0,0,2}}]),
+    {ok, {_, Port}} = ssl:sockname(S1),
+    {ok, S2} = ssl:listen(Port, [{protocol, dtls}, {ip, {127,0,0,3}}]),
+    ssl:close(S1),
+    ssl:close(S2),
+    ok.
+
+dtls_listen_two_sockets_2() ->
+    [{doc, "Test with two DTLS dockets: <all_interfaces>:Port, <all_interfaces>:Port"}].
+dtls_listen_two_sockets_2(_Config) when is_list(_Config) ->
+    {ok, S1} = ssl:listen(0, [{protocol, dtls}]),
+    {ok, {_, Port}} = ssl:sockname(S1),
+    {error, already_listening} =
+        ssl:listen(Port, [{protocol, dtls}]),
+    ssl:close(S1),
+    ok.
+
+dtls_listen_two_sockets_3() ->
+    [{doc, "Test with two DTLS dockets: <all_interfaces>:Port, <all_interfaces>:Port"}].
+dtls_listen_two_sockets_3(_Config) when is_list(_Config) ->
+    {ok, S1} = ssl:listen(0, [{protocol, dtls}]),
+    {ok, {_, Port}} = ssl:sockname(S1),
+    {error, already_listening} =
+        ssl:listen(Port, [{protocol, dtls}]),
+    ssl:close(S1),
+    {ok, S2} = ssl:listen(Port, [{protocol, dtls}]),
+    ssl:close(S2),
+    ok.
+
+dtls_listen_two_sockets_4() ->
+  [{doc, "Test with two DTLS dockets: process1 - <all_interfaces>:Port, process2 - <all_interfaces>:Port"}].
+dtls_listen_two_sockets_4(_Config) when is_list(_Config) ->
+    Test = self(),
+    Pid = spawn(fun() ->
+                  {ok, S1} = ssl:listen(0, [{protocol, dtls}]),
+                  {ok, {_, Port0}} = ssl:sockname(S1),
+                  Test ! {self(), Port0}
+                end),
+    Port =
+        receive
+            {Pid, Port1} ->
+                Port1
+        end,
+    {ok, S2} =
+        ssl:listen(Port, [{protocol, dtls}]),
+    ssl:close(S2),
+    ok.
+
+dtls_listen_two_sockets_5() ->
+    [{doc, "Test with two DTLS dockets: <all_interfaces>:Port, 127.0.0.3:Port"}].
+dtls_listen_two_sockets_5(_Config) when is_list(_Config) ->
+    {ok, S1} = ssl:listen(0, [{protocol, dtls}]),
+    {ok, {_, Port}} = ssl:sockname(S1),
+    {error, already_listening} =
+        ssl:listen(Port, [{protocol, dtls}, {ip, {127,0,0,3}}]),
+    ssl:close(S1),
+    {ok, S2} =
+        ssl:listen(Port, [{protocol, dtls}, {ip, {127,0,0,3}}]),
+    {error, already_listening} =
+        ssl:listen(Port, [{protocol, dtls}]),
+    ssl:close(S2),
+    ok.
+
+dtls_listen_two_sockets_6() ->
+    [{doc, "Test with two DTLS dockets: 127.0.0.3:Port, 0.0.0.0:Port"}].
+dtls_listen_two_sockets_6(_Config) when is_list(_Config) ->
+    {ok, S1} = ssl:listen(0, [{protocol, dtls}, {ip, {127,0,0,3}}]),
+    {ok, {_, Port}} = ssl:sockname(S1),
+    {error, already_listening} =
+        ssl:listen(Port, [{protocol, dtls}, {ip, {0,0,0,0}}]),
+    ssl:close(S1),
+    ok.
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------

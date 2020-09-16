@@ -238,6 +238,7 @@ pre_1_3() ->
      default_reject_anonymous,
      connection_information_with_srp
     ].
+
 gen_api_tests() ->
     [
      peercert,
@@ -2279,7 +2280,6 @@ cookie() ->
 cookie(Config) when is_list(Config) ->
     cookie_extension(Config, true),
     cookie_extension(Config, false).
-
 
 %%% Checker functions
 connection_information_result(Socket) ->
