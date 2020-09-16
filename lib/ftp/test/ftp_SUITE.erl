@@ -55,6 +55,10 @@ all() ->
      {group, ftpes_active},
      {group, ftps_passive},
      {group, ftps_active},
+     {group, ftpes_passive_reuse},
+     {group, ftpes_active_reuse},
+     {group, ftps_passive_reuse},
+     {group, ftps_active_reuse},
      {group, ftp_sup},
      app,
      appup,
@@ -71,6 +75,10 @@ groups() ->
      {ftpes_active, [], ftp_tests_smoke()},
      {ftps_passive, [], ftp_tests_smoke()},
      {ftps_active, [], ftp_tests_smoke()},
+     {ftpes_passive_reuse, [], ftp_tests_smoke()},
+     {ftpes_active_reuse, [], ftp_tests_smoke()},
+     {ftps_passive_reuse, [], ftp_tests_smoke()},
+     {ftps_active_reuse, [], ftp_tests_smoke()},
      {ftp_sup, [], ftp_sup_tests()}
     ].
 
@@ -265,13 +273,21 @@ end_per_suite(_Config) ->
 init_per_group(Group, Config) when Group == ftpes_passive;
                                    Group == ftpes_active;
                                    Group == ftps_passive;
-                                   Group == ftps_active ->
+                                   Group == ftps_active;
+                                   Group == ftpes_passive_reuse;
+                                   Group == ftpes_active_reuse;
+                                   Group == ftps_passive_reuse;
+                                   Group == ftps_active_reuse ->
     catch crypto:stop(),
     try crypto:start() of
         ok when Group == ftpes_passive; Group == ftpes_active ->
             start_ftpd([{ftpd_ssl,true}|Config]);
         ok when Group == ftps_passive; Group == ftps_active ->
-            start_ftpd([{ftpd_ssl,true},{ftpd_ssl_implicit,true}|Config])
+            start_ftpd([{ftpd_ssl,true},{ftpd_ssl_implicit,true}|Config]);
+        ok when Group == ftpes_passive_reuse; Group == ftpes_active_reuse ->
+            start_ftpd([{ftpd_ssl,true},{ftpd_ssl_reuse,true}|Config]);
+        ok when Group == ftps_passive_reuse; Group == ftps_active_reuse ->
+            start_ftpd([{ftpd_ssl,true},{ftpd_ssl_reuse,true},{ftpd_ssl_implicit,true}|Config])
     catch
         _:_ ->
             {skip, "Crypto did not start"}
@@ -321,8 +337,11 @@ init_per_testcase(Case, Config0) ->
 init_per_testcase2(Case, Config0) ->
     Group = proplists:get_value(name, proplists:get_value(tc_group_properties,Config0)),
 
-    TLS = [{tls,vsftpd_tls()}],
+    TLSB = vsftpd_tls(),
+    TLS = [{tls,TLSB}],
     SSL = [{tls_sec_method,ftps}|TLS],
+    TLSReuse = [{tls_ctrl_session_reuse,true}|TLS],
+    SSLReuse = [{tls_sec_method,ftps}|TLSReuse],
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
     CaseOpts = case Case of
@@ -333,14 +352,18 @@ init_per_testcase2(Case, Config0) ->
     ExtraOpts = [{verbose,true} | CaseOpts],
     Config =
         case Group of
-            ftp_active    -> ftp__open(Config0,       ACTIVE  ++ ExtraOpts);
-            ftpes_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ ExtraOpts);
-            ftps_active   -> ftp__open(Config0, SSL++ ACTIVE  ++ ExtraOpts);
-            ftp_passive   -> ftp__open(Config0,      PASSIVE  ++ ExtraOpts);
-            ftpes_passive -> ftp__open(Config0, TLS++PASSIVE  ++ ExtraOpts);
-            ftps_passive  -> ftp__open(Config0, SSL++PASSIVE  ++ ExtraOpts);
-            ftp_sup       -> ftp_start_service(Config0, ACTIVE  ++ ExtraOpts);
-            undefined     -> Config0
+            ftp_active          -> ftp__open(Config0,              ACTIVE ++ ExtraOpts);
+            ftpes_active        -> ftp__open(Config0, TLS      ++  ACTIVE ++ ExtraOpts);
+            ftps_active         -> ftp__open(Config0, SSL      ++  ACTIVE ++ ExtraOpts);
+            ftp_passive         -> ftp__open(Config0,             PASSIVE ++ ExtraOpts);
+            ftpes_passive       -> ftp__open(Config0, TLS      ++ PASSIVE ++ ExtraOpts);
+            ftps_passive        -> ftp__open(Config0, SSL      ++ PASSIVE ++ ExtraOpts);
+            ftpes_passive_reuse -> ftp__open(Config0, TLSReuse ++ PASSIVE ++ ExtraOpts);
+            ftpes_active_reuse  -> ftp__open(Config0, TLSReuse ++  ACTIVE ++ ExtraOpts);
+            ftps_passive_reuse  -> ftp__open(Config0, SSLReuse ++ PASSIVE ++ ExtraOpts);
+            ftps_active_reuse   -> ftp__open(Config0, SSLReuse ++  ACTIVE ++ ExtraOpts);
+            ftp_sup             -> ftp_start_service(Config0,      ACTIVE ++ ExtraOpts);
+            undefined           -> Config0
         end,
     case Case of
         user           -> Config;
@@ -405,9 +428,7 @@ vsftpd_tls() ->
     [
         {ciphers,Suites},
         %% vsftpd =< 3.0.3 gets upset with anything later than tlsv1.2
-        {versions,['tlsv1.2']},
-        % not safe for ftp ctrl channels as reuse is for data channels
-        {reuse_sessions,not proplists:get_value(ftpd_ssl_reuse,Config,false)}
+        {versions,['tlsv1.2']}
     ].
 
 %%--------------------------------------------------------------------

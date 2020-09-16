@@ -107,6 +107,7 @@
           sockopts_data_active = [],
           progress = ignore, % ignore | pid()
           dtimeout = ?DATA_ACCEPT_TIMEOUT, % non_neg_integer() | infinity
+          tls_ctrl_session_reuse = false, % boolean()
           tls_upgrading_data_connection = false,
           ftp_extension = ?FTP_EXT_DEFAULT
          }).
@@ -1006,6 +1007,7 @@ handle_call({_, {open, ip_comm, Options}}, From, State) ->
         Host ->
             TLSSecMethod = key_search(tls_sec_method, Opts, undefined),
             TLSOpts  = key_search(tls,      Opts, undefined),
+            TLSReuse = key_search(tls_ctrl_session_reuse, Opts, false),
             Mode     = key_search(mode,     Opts, ?DEFAULT_MODE),
             Port0    = key_search(port,     Opts, 0),
             Port     = if Port0 == 0, TLSSecMethod == ftps -> ?FTPS_PORT; Port0 == 0 -> ?FTP_PORT; true -> Port0 end,
@@ -1031,9 +1033,11 @@ handle_call({_, {open, ip_comm, Options}}, From, State) ->
             case setup_ctrl_connection(Host, Port, Timeout, State2) of
                 {ok, State3, WaitTimeout} when is_list(TLSOpts), TLSSecMethod == ftps ->
                     handle_ctrl_result({tls_upgrade, TLSSecMethod},
-                                       State3#state{tls_options = TLSOpts, timeout = WaitTimeout });
+                                       State3#state{tls_options = TLSOpts,
+						    tls_ctrl_session_reuse = TLSReuse,
+						    timeout = WaitTimeout });
                 {ok, State3, WaitTimeout} when is_list(TLSOpts) ->
-                    {noreply, State3#state{tls_options = TLSOpts}, WaitTimeout};
+                    {noreply, State3#state{tls_options = TLSOpts, tls_ctrl_session_reuse = TLSReuse }, WaitTimeout};
                 {ok, State3, WaitTimeout} ->
                     {noreply, State3, WaitTimeout};
                 {error, _Reason} ->
@@ -2152,14 +2156,21 @@ connect2(Host, Port, IpFam, SockOpts, Timeout) ->
             Error
     end.
 
+accept_data_connection_tls_options(#state{ csock = {ssl,Socket}, tls_options = TO0, tls_ctrl_session_reuse = true }) ->
+	TO = lists:keydelete(reuse_sessions, 1, TO0),
+	{ok, [{session_id,SSLSessionId},{session_data,SSLSessionData}]} = ssl:connection_information(Socket, [session_id, session_data]),
+	lists:keystore(reuse_session, 1, TO, {reuse_session,{SSLSessionId,SSLSessionData}});
+accept_data_connection_tls_options(#state{ tls_options = TO }) ->
+	TO.
 
 accept_data_connection(#state{mode     = active,
                               dtimeout = DTimeout,
-                              tls_options = TLSOptions,
+                              tls_options = TLSOptions0,
                               dsock    = {lsock, LSock}} = State0) ->
     case gen_tcp:accept(LSock, DTimeout) of
-        {ok, Socket} when  is_list(TLSOptions) ->
+        {ok, Socket} when is_list(TLSOptions0) ->
             gen_tcp:close(LSock),
+            TLSOptions = accept_data_connection_tls_options(State0),
             ?DBG('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
             case ssl:connect(Socket, TLSOptions, DTimeout) of
                 {ok, TLSSocket} ->
@@ -2177,7 +2188,8 @@ accept_data_connection(#state{mode     = active,
 accept_data_connection(#state{mode = passive,
                               dtimeout = DTimeout,
                               dsock = {tcp,Socket},
-                              tls_options = TLSOptions} = State) when is_list(TLSOptions) ->
+                              tls_options = TLSOptions0} = State) when is_list(TLSOptions0) ->
+    TLSOptions = accept_data_connection_tls_options(State),
     ?DBG('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State]),
     case ssl:connect(Socket, TLSOptions, DTimeout) of
         {ok, TLSSocket} ->
@@ -2494,6 +2506,10 @@ open_options(Options) ->
            (ftps) -> true;
            (_) -> false
         end,
+    ValidateTLSCtrlSessionReuse =
+        fun(Reuse) when is_boolean(Reuse) -> true;
+           (_) -> false
+        end,
     ValidateTimeout =
         fun(Timeout) when is_integer(Timeout) andalso (Timeout >= 0) -> true;
            (_) -> false
@@ -2524,6 +2540,7 @@ open_options(Options) ->
          {ipfamily, ValidateIpFamily, false, inet},
          {tls,      ValidateTLS,      false, undefined},
          {tls_sec_method, ValidateTLSSecMethod, false, ftpes},
+         {tls_ctrl_session_reuse, ValidateTLSCtrlSessionReuse, false, false},
          {timeout,  ValidateTimeout,  false, ?CONNECTION_TIMEOUT},
          {dtimeout, ValidateDTimeout, false, ?DATA_ACCEPT_TIMEOUT},
          {progress, ValidateProgress, false, ?PROGRESS_DEFAULT},
