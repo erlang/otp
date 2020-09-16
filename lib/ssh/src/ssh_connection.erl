@@ -63,6 +63,8 @@
 	 request_failure_msg/0, 
 	 request_success_msg/1,
 
+         send_environment_vars/3,
+
 	 encode_ip/1
         ]).
 
@@ -1539,3 +1541,15 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 	    {[{channel_data, ChannelPid, Reply}], Connection}
     end.
 
+%%%----------------------------------------------------------------
+send_environment_vars(ConnectionHandler, Channel, VarNames) ->
+    lists:foldl(
+      fun(Var, success) ->
+              case os:getenv(Var) of
+                  false ->
+                      success;
+                  Value ->
+                      setenv(ConnectionHandler, Channel, false,
+                             Var, Value, infinity)
+              end
+      end, success, VarNames).
