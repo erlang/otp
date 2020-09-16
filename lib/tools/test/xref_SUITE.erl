@@ -48,7 +48,8 @@
          fun_mfa/1, fun_mfa_r14/1,
          fun_mfa_vars/1, qlc/1]).
 
--export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
+-export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1,
+         behaviour_info_t/1, fake_behaviour_info_t/1]).
 
 -export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1,
          otp_14464/1, otp_14344/1]).
@@ -83,7 +84,7 @@ groups() ->
        fun_mfa_r14, fun_mfa_vars, qlc]},
      {analyses, [],
 
-      [analyze, basic, md, q, variables, unused_locals]},
+      [analyze, basic, md, q, variables, unused_locals, behaviour_info_t, fake_behaviour_info_t]},
      {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708,
                  otp_14464, otp_14344]}].
 
@@ -2825,3 +2826,24 @@ add_erts_code_path(KernelPath) ->
                     [KernelPath]
             end
     end.
+
+behaviour_info_t(Config) ->
+    bi_t(_Module = bi,
+         _IsExportNotUsed = false,
+         Config).
+
+fake_behaviour_info_t(Config) ->
+    bi_t(_Module = no_bi,
+         _IsExportNotUsed = true,
+         Config).
+
+bi_t(Module, IsExportNotUsed, Conf) ->
+    LibTestDir = fname(?copydir, "lib_test"),
+    XRefServer = s,
+    {ok, Module} = compile:file(fname(LibTestDir, Module),
+                                [debug_info, {outdir, LibTestDir}]),
+    {ok, _} = start(XRefServer),
+    {ok, Module} = xref:add_module(XRefServer, fname(LibTestDir, Module)),
+    {ok, MFAs} = xref:analyze(XRefServer, exports_not_used),
+    true = lists:member({Module, behaviour_info, 1}, MFAs) =:= IsExportNotUsed,
+    _ = xref:stop(XRefServer).
