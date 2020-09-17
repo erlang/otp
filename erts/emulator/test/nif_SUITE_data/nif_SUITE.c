@@ -2123,6 +2123,19 @@ static ERL_NIF_TERM make_map_put_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 {
     ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
     int ret = enif_make_map_put(env, argv[0], argv[1], argv[2], &map_out);
+
+    /* build same map in dynamic env */
+    ErlNifEnv* dynenv = enif_alloc_env();
+    ERL_NIF_TERM map_out2 = enif_make_atom(env, "undefined");
+    int ret2 = enif_make_map_put(dynenv,
+                                 enif_make_copy(dynenv, argv[0]),
+                                 enif_make_copy(dynenv, argv[1]),
+                                 enif_make_copy(dynenv, argv[2]),
+                                 &map_out2);
+    if (ret != ret2 || !enif_is_identical(map_out, map_out2))
+        map_out = enif_make_string(env, "dynenv failure", ERL_NIF_LATIN1);
+    enif_free_env(dynenv);
+
     return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
 }
 static ERL_NIF_TERM get_map_value_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -2136,12 +2149,37 @@ static ERL_NIF_TERM make_map_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 {
     ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
     int ret = enif_make_map_update(env, argv[0], argv[1], argv[2], &map_out);
+
+    /* build same map in dynamic env */
+    ErlNifEnv* dynenv = enif_alloc_env();
+    ERL_NIF_TERM map_out2 = enif_make_atom(env, "undefined");
+    int ret2 = enif_make_map_update(dynenv,
+                                    enif_make_copy(dynenv, argv[0]),
+                                    enif_make_copy(dynenv, argv[1]),
+                                    enif_make_copy(dynenv, argv[2]),
+                                    &map_out2);
+    if (ret != ret2 || !enif_is_identical(map_out, map_out2))
+        map_out = enif_make_string(env, "dynenv failure", ERL_NIF_LATIN1);
+    enif_free_env(dynenv);
+
     return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
 }
 static ERL_NIF_TERM make_map_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM map_out = enif_make_atom(env, "undefined");
     int ret = enif_make_map_remove(env, argv[0], argv[1], &map_out);
+
+    /* build same map in dynamic env */
+    ErlNifEnv* dynenv = enif_alloc_env();
+    ERL_NIF_TERM map_out2 = enif_make_atom(env, "undefined");
+    int ret2 = enif_make_map_remove(dynenv,
+                                    enif_make_copy(dynenv, argv[0]),
+                                    enif_make_copy(dynenv, argv[1]),
+                                    &map_out2);
+    if (ret != ret2 || !enif_is_identical(map_out, map_out2))
+        map_out = enif_make_string(env, "dynenv failure", ERL_NIF_LATIN1);
+    enif_free_env(dynenv);
+
     return enif_make_tuple2(env, enif_make_int(env,ret), map_out);
 }
 

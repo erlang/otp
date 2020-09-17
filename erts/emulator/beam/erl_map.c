@@ -2061,10 +2061,7 @@ Eterm erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 	hp  = HAlloc(p, size);
 	res = erts_hashmap_insert_up(hp, key, value, &upsz, &stack);
     }
-
     DESTROY_ESTACK(stack);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
-    ERTS_HOLE_CHECK(p);
 
     return res;
 }
@@ -2602,8 +2599,6 @@ unroll:
     HRelease(p, hp_end, hp);
 not_found:
     DESTROY_ESTACK(stack);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
-    ERTS_HOLE_CHECK(p);
     UnUseTmpHeapNoproc(2);
     return res;
 }

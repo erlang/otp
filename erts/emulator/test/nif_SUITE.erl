@@ -1293,6 +1293,21 @@ maps(Config) when is_list(Config) ->
                  end,
                  {1,#{}}),
 
+    M5 = lists:foldl(fun(N, MapIn) ->
+                             {1, #{N := value}=MapOut} = make_map_put_nif(MapIn, N, value),
+                             MapOut
+                     end,
+                     #{},
+                     lists:seq(1,40)),
+    M6 = lists:foldl(fun(N, MapIn) ->
+                             {1, MapOut} = make_map_remove_nif(MapIn, N),
+                             ok = maps:get(N, MapOut, ok),
+                             MapOut
+                     end,
+                     M5,
+                     lists:seq(1,40)),
+    true = (M6 =:= #{}),
+
     has_duplicate_keys = maps_from_list_nif([{1,1},{1,1}]),
 
     verify_tmpmem(TmpMem),
