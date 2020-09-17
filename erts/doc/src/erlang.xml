@@ -2546,8 +2546,17 @@ os_prompt%</pre>
       <fsummary>Check whether the local node is alive.</fsummary>
       <desc>
         <p>Returns <c>true</c> if the local node is alive (that is, if
-          the node can be part of a distributed system), otherwise
-          <c>false</c>.</p>
+        the node can be part of a distributed system), otherwise
+        <c>false</c>. A node is alive if it is started with:</p>
+        <list type="ordered">
+          <item><seecom marker="erl#name"><c>"erl -name LONGNAME"</c></seecom> or,</item>
+          <item><seecom marker="erl#sname"><c>"erl -sname SHORTNAME"</c></seecom>.</item>
+        </list>
+        <p>A node
+        can also be alive if it has got a name from a call to <seemfa
+        marker="kernel:net_kernel#start/1"><c>net_kernel:start/1</c></seemfa>
+        and has not been stopped by a call to <seemfa
+        marker="kernel:net_kernel#stop/0"><c>net_kernel:stop/0</c></seemfa>.</p>
       </desc>
     </func>
 

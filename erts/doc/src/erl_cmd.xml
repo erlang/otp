@@ -555,7 +555,7 @@
           <c><![CDATA[Time]]></c> milliseconds have elapsed, all processes still
           existing are killed. Defaults to <c><![CDATA[infinity]]></c>.</p>
       </item>
-      <tag><c><![CDATA[-sname Name]]></c></tag>
+      <tag><marker id="sname"/><c><![CDATA[-sname Name]]></c></tag>
       <item>
         <p>Makes the Erlang runtime system into a distributed node, similar to
           <seecom marker="#name"><c><![CDATA[-name]]></c></seecom>, but the host
