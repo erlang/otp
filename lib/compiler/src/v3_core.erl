@@ -669,25 +669,7 @@ expr({'try',L,Es0,Cs0,Ecs,[]}, St0) ->
      [],St5};
 expr({'try',L,Es0,[],[],As0}, St0) ->
     %% 'try ... after ... end'
-    {Es1,St1} = exprs(Es0, St0),
-    {As1,St2} = exprs(As0, St1),
-    {Name,St3} = new_fun_name("after", St2),
-    {V,St4} = new_var(St3),		% (must not exist in As1)
-    LA = lineno_anno(L, St4),
-    Lanno = #a{anno=LA},
-    Fc = function_clause([], LA),
-    Fun = #ifun{anno=Lanno,id=[],vars=[],
-		clauses=[#iclause{anno=Lanno,pats=[],
-				  guard=[#c_literal{val=true}],
-				  body=As1}],
-		fc=Fc},
-    App = #iapply{anno=#a{anno=[compiler_generated|LA]},
-		  op=#c_var{anno=LA,name={Name,0}},args=[]},
-    {Evs,Hs,St5} = try_after([App], St4),
-    Try = #itry{anno=Lanno,args=Es1,vars=[V],body=[App,V],evars=Evs,handler=Hs},
-    Letrec = #iletrec{anno=Lanno,defs=[{{Name,0},Fun}],
-		      body=[Try]},
-    {Letrec,[],St5};
+    try_after(L, Es0, As0, St0);
 expr({'try',L,Es,Cs,Ecs,As}, St0) ->
     %% 'try ... [of ...] [catch ...] after ... end'
     expr({'try',L,[{'try',L,Es,Cs,Ecs,[]}],[],[],As}, St0);
@@ -993,18 +975,74 @@ try_exception(Ecs0, St0) ->
     Hs = [#icase{anno=#a{anno=LA},args=[c_tuple(Evs)],clauses=Ecs2,fc=Ec}],
     {Evs,Hs,St2}.
 
-try_after(As, St0) ->
+try_after(Line, Es0, As0, St0) ->
+    %% 'try ... after ... end'
+    As1 = ta_sanitize_as(As0, Line),
+
+    {Es, St1} = exprs(Es0, St0),
+    {As, St2} = exprs(As1, St1),
+    {V, St3} = new_var(St2),                    % (must not exist in As1)
+    LineAnno = lineno_anno(Line, St3),
+
+    case is_iexprs_small(As, 20) of
+        true -> try_after_small(LineAnno, Es, As, V, St3);
+        false -> try_after_large(LineAnno, Es, As, V, St3)
+    end.
+
+%% 'after' blocks don't have a result, so we match the last expression with '_'
+%% to suppress false "unmatched return" warnings in tools that look at core
+%% Erlang, such as `dialyzer`.
+ta_sanitize_as([Expr], Line) ->
+    [{match, Line, {var,[],'_'}, Expr}];
+ta_sanitize_as([Expr | Exprs], Line) ->
+    [Expr | ta_sanitize_as(Exprs, Line)].
+
+try_after_large(LA, Es, As, V, St0) ->
+    %% Large 'after' block; break it out into a wrapper function to reduce
+    %% code size.
+    Lanno = #a{anno=LA},
+    {Name, St1} = new_fun_name("after", St0),
+    Fc = function_clause([], LA),
+    Fun = #ifun{anno=Lanno,id=[],vars=[],
+                clauses=[#iclause{anno=Lanno,pats=[],
+                                  guard=[#c_literal{val=true}],
+                                  body=As}],
+                fc=Fc},
+    App = #iapply{anno=#a{anno=[compiler_generated|LA]},
+                  op=#c_var{anno=LA,name={Name,0}},
+                  args=[]},
+    {Evs, Hs, St} = after_block([App], St1),
+    Try = #itry{anno=Lanno,
+                args=Es,
+                vars=[V],
+                body=[App,V],
+                evars=Evs,
+                handler=Hs},
+    Letrec = #iletrec{anno=Lanno,defs=[{{Name,0},Fun}],
+                      body=[Try]},
+    {Letrec, [], St}.
+
+try_after_small(LA, Es, As, V, St0)  ->
+    %% Small 'after' block; inline it.
+    Lanno = #a{anno=LA},
+    {Evs, Hs, St1} = after_block(As, St0),
+    Try = #itry{anno=Lanno,args=Es,vars=[V],
+                body=(As ++ [V]),
+                evars=Evs,handler=Hs},
+    {Try, [], St1}.
+
+after_block(As, St0) ->
     %% See above.
-    {Evs,St1} = new_vars(3, St0),	 % Tag, Value, Info
+    {Evs, St1} = new_vars(3, St0),              % Tag, Value, Info
     [_,Value,Info] = Evs,
-    B = As ++ [#iprimop{anno=#a{},       % Must have an #a{}
-			name=#c_literal{val=raise},
-			args=[Info,Value]}],
+    B = As ++ [#iprimop{anno=#a{},              % Must have an #a{}
+                        name=#c_literal{val=raise},
+                        args=[Info,Value]}],
     Ec = #iclause{anno=#a{anno=[compiler_generated]},
-		  pats=[c_tuple(Evs)],guard=[#c_literal{val=true}],
-		  body=B},
+                  pats=[c_tuple(Evs)],guard=[#c_literal{val=true}],
+                  body=B},
     Hs = [#icase{anno=#a{},args=[c_tuple(Evs)],clauses=[],fc=Ec}],
-    {Evs,Hs,St1}.
+    {Evs, Hs, St1}.
 
 try_build_stacktrace([#iclause{pats=Ps0,body=B0}=C0|Cs], RawStk) ->
     [#c_tuple{es=[Class,Exc,Stk]}=Tup] = Ps0,
@@ -1024,6 +1062,48 @@ try_build_stacktrace([#iclause{pats=Ps0,body=B0}=C0|Cs], RawStk) ->
             [C|try_build_stacktrace(Cs, RawStk)]
     end;
 try_build_stacktrace([], _) -> [].
+
+%% is_iexprs_small([Exprs], Threshold) -> boolean().
+%%  Determines whether a list of expressions is "smaller" than the given
+%%  threshold. This is largely analogous to cerl_trees:size/1 but operates on
+%%  our internal #iexprs{} and bails out as soon as the threshold is exceeded.
+is_iexprs_small(Exprs, Threshold) ->
+    0 < is_iexprs_small_1(Exprs, Threshold).
+
+is_iexprs_small_1(_, 0) ->
+    0;
+is_iexprs_small_1([], Threshold) ->
+    Threshold;
+is_iexprs_small_1([Expr | Exprs], Threshold0) ->
+    Threshold = is_iexprs_small_2(Expr, Threshold0 - 1),
+    is_iexprs_small_1(Exprs, Threshold).
+
+is_iexprs_small_2(#iclause{guard=Guards,body=Body}, Threshold0) ->
+    Threshold = is_iexprs_small_1(Guards, Threshold0),
+    is_iexprs_small_1(Body, Threshold);
+is_iexprs_small_2(#itry{body=Body,handler=Handler}, Threshold0) ->
+    Threshold = is_iexprs_small_1(Body, Threshold0),
+    is_iexprs_small_1(Handler, Threshold);
+is_iexprs_small_2(#imatch{guard=Guards}, Threshold) ->
+    is_iexprs_small_1(Guards, Threshold);
+is_iexprs_small_2(#icase{clauses=Clauses}, Threshold) ->
+    is_iexprs_small_1(Clauses, Threshold);
+is_iexprs_small_2(#ifun{clauses=Clauses}, Threshold) ->
+    is_iexprs_small_1(Clauses, Threshold);
+is_iexprs_small_2(#ireceive1{clauses=Clauses}, Threshold) ->
+    is_iexprs_small_1(Clauses, Threshold);
+is_iexprs_small_2(#ireceive2{clauses=Clauses}, Threshold) ->
+    is_iexprs_small_1(Clauses, Threshold);
+is_iexprs_small_2(#icatch{body=Body}, Threshold) ->
+    is_iexprs_small_1(Body, Threshold);
+is_iexprs_small_2(#iletrec{body=Body}, Threshold) ->
+    is_iexprs_small_1(Body, Threshold);
+is_iexprs_small_2(#iprotect{body=Body}, Threshold) ->
+    is_iexprs_small_1(Body, Threshold);
+is_iexprs_small_2(#iset{arg=Arg}, Threshold) ->
+    is_iexprs_small_2(Arg, Threshold);
+is_iexprs_small_2(_, Threshold) ->
+    Threshold.
 
 %% expr_bin([ArgExpr], St) -> {[Arg],[PreExpr],St}.
 %%  Flatten the arguments of a bin. Do this straight left to right!

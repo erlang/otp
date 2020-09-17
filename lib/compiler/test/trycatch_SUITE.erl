@@ -205,55 +205,125 @@ try_of_1(X) ->
              {caught,{Class,Reason}}
     end.
 
-
-
 try_after(Conf) when is_list(Conf) ->
+    try_after_1(fun try_after_basic/2),
+    try_after_1(fun try_after_catch/2),
+    try_after_1(fun try_after_complex/2),
+    try_after_1(fun try_after_fun/2),
+    try_after_1(fun try_after_letrec/2),
+    try_after_1(fun try_after_protect/2),
+    try_after_1(fun try_after_receive/2),
+    try_after_1(fun try_after_receive_timeout/2),
+    try_after_1(fun try_after_try/2),
+    ok.
+
+try_after_1(TestFun) ->
     {{ok,[some,value],undefined},finalized} =
-	try_after_1({value,{ok,[some,value]}},finalized),
+        TestFun({value,{ok,[some,value]}},finalized),
     {{error,badarith,undefined},finalized} =
-	try_after_1({'div',{1,0}},finalized),
+        TestFun({'div',{1,0}},finalized),
     {{error,badarith,undefined},finalized} =
-	try_after_1({'add',{1,a}},finalized),
+        TestFun({'add',{1,a}},finalized),
     {{error,badarg,undefined},finalized} =
-	try_after_1({'abs',a},finalized),
+        TestFun({'abs',a},finalized),
     {{error,[the,{reason}],undefined},finalized} =
-	try_after_1({error,[the,{reason}]},finalized),
+        TestFun({error,[the,{reason}]},finalized),
     {{throw,{thrown,[reason]},undefined},finalized} =
-	try_after_1({throw,{thrown,[reason]}},finalized),
+        TestFun({throw,{thrown,[reason]}},finalized),
     {{exit,{exited,{reason}},undefined},finalized} =
-	try_after_1({exit,{exited,{reason}}},finalized),
+        TestFun({exit,{exited,{reason}}},finalized),
     {{error,function_clause,undefined},finalized} =
-	try_after_1(function_clause,finalized),
+        TestFun(function_clause,finalized),
     ok =
-	try try_after_1({'add',{1,1}}, finalized)
+        try
+            TestFun({'add',{1,1}}, finalized)
         catch
             error:{try_clause,2} -> ok
-	end,
+        end,
     finalized = erase(try_after),
     ok =
-        try try foo({exit,[reaso,{n}]})
-            after put(try_after, finalized)
+        try
+            try
+                foo({exit,[reaso,{n}]})
+            after
+                put(try_after, finalized)
             end
         catch
             exit:[reaso,{n}] -> ok
         end,
     ok.
 
-try_after_1(X, Y) ->
+-define(TRY_AFTER_TESTCASE(Block),
     erase(try_after),
     Try =
         try foo(X) of
-	    {ok,Value} -> {ok,Value,get(try_after)}
+            {ok,Value} -> {ok,Value,get(try_after)}
         catch
-	    Reason -> {throw,Reason,get(try_after)};
-	    error:Reason -> {error,Reason,get(try_after)};
-	    exit:Reason ->  {exit,Reason,get(try_after)}
+            Reason -> {throw,Reason,get(try_after)};
+            error:Reason -> {error,Reason,get(try_after)};
+            exit:Reason ->  {exit,Reason,get(try_after)}
         after
-	    put(try_after, Y)
+            Block,
+            put(try_after, Y)
         end,
-    {Try,erase(try_after)}.
+    {Try,erase(try_after)}).
 
+try_after_basic(X, Y) ->
+    ?TRY_AFTER_TESTCASE(ok).
 
+try_after_catch(X, Y) ->
+    ?TRY_AFTER_TESTCASE((catch put(try_after, Y))).
+
+try_after_complex(X, Y) ->
+    %% Large 'after' block, going above the threshold for wrapper functions.
+    ?TRY_AFTER_TESTCASE(case get(try_after) of
+                            unreachable_0 -> dummy:unreachable_0();
+                            unreachable_1 -> dummy:unreachable_1();
+                            unreachable_2 -> dummy:unreachable_2();
+                            unreachable_3 -> dummy:unreachable_3();
+                            unreachable_4 -> dummy:unreachable_4();
+                            unreachable_5 -> dummy:unreachable_5();
+                            unreachable_6 -> dummy:unreachable_6();
+                            unreachable_7 -> dummy:unreachable_7();
+                            unreachable_8 -> dummy:unreachable_8();
+                            unreachable_9 -> dummy:unreachable_9();
+                            _ -> put(try_after, Y)
+                        end).
+
+try_after_fun(X, Y) ->
+    ?TRY_AFTER_TESTCASE((fun() -> ok end)()).
+
+try_after_letrec(X, Y) ->
+    List = lists:duplicate(100, ok),
+    ?TRY_AFTER_TESTCASE([L || L <- List]).
+
+try_after_protect(X, Y) ->
+    ?TRY_AFTER_TESTCASE(case get(try_after) of
+                            N when element(52, N) < 32 -> ok;
+                            _ -> ok
+                        end).
+
+try_after_receive(X, Y) ->
+    Ref = make_ref(),
+    self() ! Ref,
+    ?TRY_AFTER_TESTCASE(receive
+                            Ref -> Ref
+                        end).
+
+try_after_receive_timeout(X, Y) ->
+    Ref = make_ref(),
+    self() ! Ref,
+    ?TRY_AFTER_TESTCASE(receive
+                            Ref -> Ref
+                        after 1000 -> ok
+                        end).
+
+try_after_try(X, Y) ->
+    ?TRY_AFTER_TESTCASE(try
+                            put(try_after, Y)
+                        catch
+                            _ -> ok
+                        end).
 
 -ifdef(begone).
 
