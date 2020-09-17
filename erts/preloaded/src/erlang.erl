@@ -3335,6 +3335,8 @@ spawn_request_abandon(_ReqId) ->
 
 -spec erlang:yield() -> 'true'.
 yield() ->
+    % This is not an infinite loop because erlang:yield() is
+    % translated to an instruction by the loader
     erlang:yield().
 
 -spec nodes() -> Nodes when

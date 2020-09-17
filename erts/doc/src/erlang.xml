@@ -12155,16 +12155,22 @@ true</pre>
       <name name="yield" arity="0" since=""/>
       <fsummary>Let other processes get a chance to execute.</fsummary>
       <desc>
-        <p>Voluntarily lets other processes (if any) get a chance to
-          execute. Using this function is similar to
-          <c>receive after 1 -> true end</c>, except that <c>yield()</c>
-          is faster.</p>
+        <p>Tries to give other processes with the same or
+        higher priority (if any) a chance to execute before
+        returning. There is no guarantee that any other process runs
+        between the invocation and return of <c>erlang:yield/0</c>.</p>
+
+        <p>See the documentation for <seeguide
+        marker="system/reference_manual:expressions#receive"><c>receive-after</c>
+        expressions</seeguide> for how to make the current process
+        sleep for a specific number of milliseconds.</p>
         <warning>
-          <p>There is seldom or never any need to use this BIF
-            as other processes have a chance to run in another scheduler
-            thread anyway.
+          <p>There is seldom or never any need to use this BIF.
             Using this BIF without a thorough grasp of how the scheduler
-            works can cause performance degradation.</p>
+            works can cause performance degradation. The current implementation
+            of this function puts the current process last in the current
+            scheduler's queue for processes of the same priority as the
+            current process.</p>
         </warning>
       </desc>
     </func>
