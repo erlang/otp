@@ -2432,8 +2432,9 @@ otp_14344(Conf) when is_list(Conf) ->
     MFile1 = fname(Dir, "a"),
     Beam1 = fname(Dir, "a.beam"),
     Test1 = <<"-module(a).
-               -on_load(doit/0).
-               doit() -> ok.
+               -on_load(init/0).
+               init() -> do_init().
+               do_init() -> ok.
               ">>,
     ok = file:write_file(File1, Test1),
     {ok, a} = compile:file(File1, [debug_info,{outdir,Dir}]),
@@ -2441,7 +2442,7 @@ otp_14344(Conf) when is_list(Conf) ->
     {ok, _} = xref:start(s),
     {ok, a} = xref:add_module(s, MFile1),
 
-    {ok, [{a,doit,0}]} = xref:q(s, "OL"),
+    {ok, [{a,init,0}]} = xref:q(s, "OL"),
     {ok, []} = xref:analyze(s, locals_not_used),
 
     xref:stop(s),
