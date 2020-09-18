@@ -5,6 +5,8 @@ sudo: false
 os:
   - linux
 
+dist: xenial
+
 addons:
   apt:
     packages:
@@ -12,34 +14,53 @@ addons:
       - libncurses-dev
       - build-essential
       - libssl-dev
-      - libwxgtk2.8-dev
-      - libgl1-mesa-dev
+      - libwxgtk3.0-dev
       - libglu1-mesa-dev
-      - libpng3
       - default-jdk
       - g++
       - xsltproc
+      - libxml2-utils
 
 matrix:
   include:
-    - env: Linux32
-      os: linux
-      services:
-        - docker
+    # Doc build second as it also takes a long time to run
+    - env: Linux64Docbuild
       script:
-        - ./scripts/build-docker-otp 32 sh -c "scripts/build-otp && ./otp_build tests && scripts/run-smoke-tests && bin/dialyzer --build_plt --apps erts kernel stdlib"
-    - env: Linux64Dialyzer
-      os: linux
-      script:
-        - ./scripts/build-otp
-        - ./scripts/run-dialyzer
-    - env: Linux64SmokeTest
-      os: linux
+        - ./scripts/build-otp docs
+      deploy:
+        provider: pages
+        repo: erlang/cd
+        target-branch: master
+        skip-cleanup: true
+        keep-history: false
+        verbose: true
+        github-token: $ERLANG_CD_GITHUB_TOKEN
+        on:
+          # We only deploy on pushes to branches
+          all_branches: true
+          tags: false
+          condition: $TRAVIS_PULL_REQUEST = "false"
+          repo: erlang/otp
+    - env: Linux-ppc64le-SmokeTest
+      os: linux-ppc64le
       script:
         - ./scripts/build-otp
         - ./otp_build tests
-        - make release_docs
         - ./scripts/run-smoke-tests
+      addons:
+        apt:
+          update: true
+          packages:
+            - autoconf
+            - libncurses-dev
+            - build-essential
+            - libssl-dev
+            - libwxgtk3.0-dev
+            - libglu1-mesa-dev
+            - default-jdk
+            - g++
+            - xsltproc
+            - libxml2-utils
 
 before_script:
   - set -e

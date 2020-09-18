@@ -1,0 +1,191 @@
+##
+## This workflow handles testing of pull requests and pushes.
+## It also publishes some packages to any new Erlang/OTP release
+##
+## To speed this up it would be nice if one could share docker
+## images inbetween different jobs, but at the moment this is
+## not possible so we need to rebuild all of Erlang/OTP multiple
+## times.
+##
+## Also once the windows runner supports WSL we should implement
+## support for building Erlang/OTP here.
+##
+
+name: Build and check Erlang/OTP
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  pack:
+    name: Pack the Erlang/OTP tar.gz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Commit autoconf files
+        ## We first commit the autoconf generate so that they
+        ## are kept in the pre-built achive
+        run: |
+          ./otp_build autoconf
+          find . -name aclocal.m4 | xargs git add -f
+          find . -name configure | xargs git add -f
+          find . -name config.h.in | xargs git add -f
+          find . -name config.guess | xargs git add -f
+          find . -name config.sub | xargs git add -f
+          find . -name install-sh | xargs git add -f
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
+          git commit --no-verify -m 'Add generated configure files'
+      - name: Archive git repository
+        run: git archive --prefix otp/ -o otp_src.tar.gz HEAD
+      - name: Upload source tar archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: otp_git_archive
+          path: otp_src.tar.gz
+
+  build:
+    name: Build Erlang/OTP
+    runs-on: ubuntu-latest
+    needs: pack
+
+    strategy:
+      matrix:
+        type: [64-bit,32-bit,cross-compile,documentation]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download source archive
+        uses: actions/download-artifact@v2
+        with:
+          name: otp_git_archive
+      ## We need to login to the package registry in order to pull
+      ## the base debian image.
+      - name: Docker login
+        run: docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+      - name: Build ${{ matrix.type }} image
+        run: |
+          docker build -t otp --build-arg ARCHIVE=otp_src.tar.gz \
+          -f .github/dockerfiles/Dockerfile.${{ matrix.type }} .
+
+        ## Smoke build tests
+      - if: matrix.type == '32-bit' || matrix.type == '64-bit' || matrix.type == 'cross-compile'
+        name: Run smoke test
+        run: |
+          docker run -v $PWD/scripts:/scripts otp "cd /tests && /scripts/run-smoke-tests"
+
+        ## Documentation checks
+      - if: matrix.type == 'documentation'
+        name: Run xmllimt
+        run: docker run otp "make xmllint"
+      - if: matrix.type == 'documentation'
+        name: Run html link check
+        run: docker run -v $PWD/scripts:/scripts otp "/scripts/otp_html_check /otp doc/index.html"
+      - if: matrix.type == 'documentation'
+        name: Release docs to publish
+        run: |
+          docker run -v $PWD/:/github otp "make release_docs DOC_TARGETS='man html pdf' RELEASE_ROOT=/github/docs"
+          sudo chown -R `whoami` docs
+          cd docs
+          tar czf ../otp_doc_man.tar.gz man
+          rm -rf man
+          tar czf ../otp_doc_html.tar.gz *
+      - if: matrix.type == 'documentation'
+        name: Upload html documentation archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: otp_doc_html
+          path: otp_doc_html.tar.gz
+      - if: matrix.type == 'documentation'
+        name: Upload man documentation archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: otp_doc_man
+          path: otp_doc_man.tar.gz
+
+        ## Run dialyzer
+      - if: matrix.type == '64-bit'
+        name: Run dialyzer
+        run: docker run -v $PWD/scripts:/scripts otp "/scripts/run-dialyzer"
+
+        ## Build pre-built tar archives
+      - if: matrix.type == '32-bit'
+        name: Build pre-built tar archives
+        run: |
+          docker run -v $PWD:/github otp \
+          "scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
+      - if: matrix.type == '32-bit'
+        name: Upload pre-built tar archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: otp_prebuilt
+          path: otp_src.tar.gz
+
+  ## If this is a tag that has been pushed we do some release work
+  release:
+    name: Release Erlang/OTP
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') && github.repository == 'erlang/otp'
+    steps:
+      ## This step outputs the tag name and whether the tag is a release or patch
+      ## (all releases have only two version identifiers, while patches have three
+      ##  or more)
+      - name: Get Tag Name
+        id: tag
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VSN=${TAG#OTP-}
+          IS_RELEASE=`$(echo $TAG | grep -E '^OTP-[0-9]+\.[0-9]+$' > /dev/null) \
+            && echo "true" || echo "false"`
+          echo "::set-output name=tag::${TAG}"
+          echo "::set-output name=vsn::${VSN}"
+          echo "::set-output name=release::${IS_RELEASE}"
+      
+      - uses: actions/checkout@v2
+
+      ## Publish the pre-built archive and docs
+      - name: Download source archive
+        uses: actions/download-artifact@v2
+        with:
+          name: otp_prebuilt
+      - name: Download html docs
+        uses: actions/download-artifact@v2
+        with:
+          name: otp_doc_html
+      - name: Download man docs
+        uses: actions/download-artifact@v2
+        with:
+          name: otp_doc_man
+
+      ## We add the correct version name into the file names
+      ## and create the MD5 file for all assets
+      - name: Create pre-build and doc archives
+        run: |
+          mkdir artifacts
+          tar -xzf otp_src.tar.gz
+          mv otp otp_src_${{ steps.tag.outputs.vsn }}
+          tar -czf artifacts/otp_src_${{ steps.tag.outputs.vsn }}.tar.gz otp_src_${{ steps.tag.outputs.vsn }}
+          mv otp_doc_man.tar.gz artifacts/otp_doc_man_${{ steps.tag.outputs.vsn }}.tar.gz
+          mv otp_doc_html.tar.gz artifacts/otp_doc_html_${{ steps.tag.outputs.vsn }}.tar.gz
+
+      - name: Build OTP Bundle
+        if: steps.tag.outputs.release == 'true'
+        run: |
+          scripts/bundle-otp ${{ steps.tag.outputs.tag }}
+
+      ## Create md5sum
+      - name: Create pre-build and doc archives
+        run: (cd artifacts && md5sum {*.tar.gz,*.txt} > MD5.txt)
+
+      - name: Upload pre-built and doc tar archives
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
