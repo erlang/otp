@@ -3649,8 +3649,8 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(true);             \
     LOCAL_ATOM_DECL(txstatus);         \
     LOCAL_ATOM_DECL(txtime);           \
-    LOCAL_ATOM_DECL(value_type);       \
     LOCAL_ATOM_DECL(use_registry);     \
+    LOCAL_ATOM_DECL(value_type);       \
     LOCAL_ATOM_DECL(want);             \
     LOCAL_ATOM_DECL(write);            \
     LOCAL_ATOM_DECL(write_byte);       \
@@ -4234,20 +4234,9 @@ ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
     BOOLEAN_T useReg = FALSE;
 
     /* The data *should* be a boolean() */
-
-    if (COMPARE(ecdata, esock_atom_true) == 0) {
-        useReg = TRUE;
-    } else if (COMPARE(ecdata, esock_atom_false) == 0) {
-        useReg = FALSE;
-    } else {
-
-        SGDBG( ("SOCKET",
-                "esock_command_use_socket_registry -> "
-                "invalid debug value: %T\r\n",
-                ecdata) );
-
-        return esock_make_error(env, esock_atom_einval);
-    }
+    if (! esock_decode_bool(ecdata, &useReg))
+        return enif_raise_exception(env,
+                                    MKT2(env, esock_atom_invalid, ecdata));
 
     MLOCK(data.cntMtx);
     data.useReg = useReg;
@@ -4620,13 +4609,18 @@ ERL_NIF_TERM esock_supports_options(ErlNifEnv* env)
  *                                        this on all platforms, and in
  *                                        *those* cases this *must* be
  *                                        provided.
+ *               [O] use_registry - boolean() - Shall we use the socket
+ *                                        registry for this socket.
  * Arguments (4):
  * Domain   - The domain, for example 'inet'
  * Type     - Type of socket, for example 'stream'
  * Protocol - The protocol, for example 'tcp'
  * Extra    - A map with "obscure" options.
- *            Currently the only allowed option is netns (network namespace).
- *            This is *only* allowed on linux!
+ *            Currently the only allowed option are:
+ *               netns        - string()  - Network namespace.  *Only*
+ *                                          allowed on linux!
+ *               use_registry - boolean() - Shall we use the socket
+ *                                          registry for this socket.
  *
  */
 static
@@ -5072,7 +5066,7 @@ static
 BOOLEAN_T esock_open_is_debug(ErlNifEnv* env, ERL_NIF_TERM eextra,
                               BOOLEAN_T dflt)
 {
-    return esock_get_bool_from_map(env, eextra, MKA(env, "debug"), dflt);
+    return esock_get_bool_from_map(env, eextra, esock_atom_debug, dflt);
 }
 #endif // #ifndef __WIN32__
 
@@ -15875,6 +15869,17 @@ void esock_dtor(ErlNifEnv* env, void* obj)
   SGDBG( ("SOCKET", "dtor -> try free acceptors request queue\r\n") );
   free_request_queue(&descP->acceptorsQ);
 
+  esock_free_env("dtor close-env", descP->closeEnv);
+  descP->closeEnv = NULL;
+
+  esock_free_env("dtor meta-env", descP->meta.env);
+  descP->meta.env = NULL;
+
+  if (! IS_CLOSED(descP)) {
+      SGDBG( ("SOCKET", "dtor -> had to close socket\r\n") );
+      (void) esock_close_socket(env, descP);
+  }
+
   SGDBG( ("SOCKET", "dtor -> set state and pattern\r\n") );
   descP->readState |= ESOCK_STATE_DTOR;
   descP->writeState |= ESOCK_STATE_DTOR;
@@ -16002,8 +16007,8 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
 
     /* +++++++ Clear the meta option +++++++ */
 
-    esock_free_env("esock_stop - meta-env", descP->meta.env);
-    descP->meta.env = NULL;
+    enif_clear_env(descP->meta.env);
+    descP->meta.ref = esock_atom_undefined;
 
     SSDBG( descP,
            ("SOCKET",
