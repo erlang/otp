@@ -6072,6 +6072,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
      */
     if (enif_self(env, &descP->ctrlPid) == NULL) {
         sock_close(sock);
+        descP->sock = INVALID_SOCKET;
         return esock_make_error(env, atom_exself);
     }
 
@@ -6080,6 +6081,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
              &descP->ctrlPid,
              &descP->ctrlMon) != 0) {
         sock_close(sock);
+        descP->sock = INVALID_SOCKET;
         return esock_make_error(env, atom_exmonitor);
     }
 
@@ -21430,6 +21432,17 @@ void esock_dtor(ErlNifEnv* env, void* obj)
   SGDBG( ("SOCKET", "dtor -> try free acceptors request queue\r\n") );
   free_request_queue(&descP->acceptorsQ);
 
+  esock_free_env("dtor close-env", descP->closeEnv);
+  descP->closeEnv = NULL;
+
+  esock_free_env("dtor meta-env", descP->meta.env);
+  descP->meta.env = NULL;
+
+  if (! IS_CLOSED(descP)) {
+      SGDBG( ("SOCKET", "dtor -> had to close socket\r\n") );
+      (void) esock_close_socket(env, descP);
+  }
+
   SGDBG( ("SOCKET", "dtor -> set state and pattern\r\n") );
   descP->readState |= ESOCK_STATE_DTOR;
   descP->writeState |= ESOCK_STATE_DTOR;
@@ -21567,8 +21580,8 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
 
     /* +++++++ Clear the meta option +++++++ */
 
-    esock_free_env("esock_stop - meta-env", descP->meta.env);
-    descP->meta.env = NULL;
+    enif_clear_env(descP->meta.env);
+    descP->meta.ref = esock_atom_undefined;
 
     SSDBG( descP,
            ("SOCKET",
