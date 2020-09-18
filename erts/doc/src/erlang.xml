@@ -1667,15 +1667,20 @@ b</pre>
 
     <func>
       <name name="error" arity="1" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise exception of class error.</fsummary>
       <desc>
-        <p>Stops the execution of the calling process with the reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. The exit reason is
-          <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
-          is a list of the functions most recently called (the current
-          function first). As evaluating this function causes
-          the process to terminate, it has no return value. Example:</p>
+        <p>Raises exception of class <c>error</c> with the reason
+        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
+        is any term. The exit reason is <c>{<anno>Reason</anno>,
+        Where}</c>, where <c>Where</c> is a list of the functions most
+        recently called (the current function first). As evaluating
+        this function causes an exception to be thrown, it has no
+        return value. The intent of the exception class <c>error</c> is to
+        signal that an unexpected error has happened (for example, a
+        function is called with a parameter that has an incorrect
+        type). See the guide about <seeguide
+        marker="system/reference_manual:errors">errors and error
+        handling</seeguide> for additional information. Example:</p>
         <pre>
 > <input>catch error(foobar).</input>
 {'EXIT',{foobar,[{shell,apply_fun,3,
@@ -1693,8 +1698,8 @@ b</pre>
       <name name="error" arity="2" since=""/>
       <fsummary>Stop execution with a specified reason.</fsummary>
       <desc>
-        <p>Stops the execution of the calling process with the reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
+        <p>Raises exception of class <c>error</c> with the reason
+        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
           is any term. The exit reason is
           <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
           is a list of the functions most recently called (the current
@@ -1702,19 +1707,49 @@ b</pre>
           list of arguments for the current function; in Beam it is used
           to provide the arguments for the current function in
           the term <c>Where</c>. As evaluating this function causes
-          the process to terminate, it has no return value.</p>
+          an exception to be thrown, it has no return value.
+          The intent of the exception class <c>error</c> is to
+          signal that an unexpected error has happened (for example, a
+          function is called with a parameter that has an incorrect
+          type). See the guide about <seeguide
+          marker="system/reference_manual:errors">errors and error
+          handling</seeguide> for additional information. Example:</p>
+          <p><c>test.erl</c>:</p>
+<pre>
+-module(test).
+-export([example_fun/2]).
+
+example_fun(A1, A2) ->
+    erlang:error(my_error, [A1, A2]).
+</pre>
+<p>Erlang shell:</p>
+<pre>
+<input>6> c(test).</input>
+{ok,test}
+<input>7> test:example_fun(arg1,"this is the second argument").</input>
+** exception error: my_error
+     in function  test:example_fun/2
+         called as test:example_fun(arg1,"this is the second argument")
+ </pre>
       </desc>
     </func>
 
     <func>
       <name name="exit" arity="1" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise exception of class <c>exit</c> with a specified reason.</fsummary>
       <desc>
-        <p>Stops the execution of the calling process with exit reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. As
-          evaluating this function causes the process to terminate, it
-          has no return value. Example:</p>
+        <p>Raises exception of class <c>exit</c> with exit reason
+        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
+        is any term. As evaluating this function causes an exception
+        to be thrown, it has no return value. This function should be
+        used when the intent is to stop the current process. This
+        function differ from <c>erlang:error/1</c> and
+        <c>erlang:error/2</c> by causing an exception of a different
+        class and by having an exit reason that does
+        not include the list of functions from the call stack. See the
+        guide about <seeguide
+        marker="system/reference_manual:errors">errors and error
+        handling</seeguide> for additional information. Example:</p>
         <pre>
 > <input>exit(foobar).</input>
 ** exception exit: foobar
