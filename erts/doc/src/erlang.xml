@@ -7329,10 +7329,9 @@ lists:map(
 	    anchor="statistics_run_queue" since=""/>
       <fsummary>Information about the run-queues.</fsummary>
       <desc>
-        <p>Returns the total length of all normal run-queues. That is, the number
-          of processes and ports that are ready to run on all available
-          normal run-queues. Dirty run queues are not part of the
-	  result. The information is gathered atomically. That
+	<p>Returns the total length of all normal and dirty CPU
+          run queues. That is, queued work that is expected
+	  to be CPU bound. The information is gathered atomically. That
           is, the result is a consistent snapshot of the state, but
           this operation is much more expensive compared to
           <seeerl marker="#statistics_total_run_queue_lengths">
