@@ -22,8 +22,17 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
-         version/0, bytes_to_integer/1]).
+-export([
+    start/0,
+    stop/0,
+    info_lib/0,
+    info_fips/0,
+    supports/0,
+    enable_fips_mode/1,
+    version/0,
+    bytes_to_integer/1
+]).
+
 -export([equal_const_time/2]).
 -export([cipher_info/1, hash_info/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
@@ -47,533 +56,572 @@
 %%%----------------------------------------------------------------
 %% Removed functions.
 %%
--removed([{rand_bytes,1,"use crypto:strong_rand_bytes/1 instead"}]).
+-removed([{rand_bytes, 1, "use crypto:strong_rand_bytes/1 instead"}]).
 
--removed([{md4,1,"use crypto:hash/2 instead"}]).
--removed([{md5,1,"use crypto:hash/2 instead"}]).
--removed([{sha,1,"use crypto:hash/2 instead"}]).
+-removed([{md4, 1, "use crypto:hash/2 instead"}]).
+-removed([{md5, 1, "use crypto:hash/2 instead"}]).
+-removed([{sha, 1, "use crypto:hash/2 instead"}]).
 
--removed([{md4_init,0,"use crypto:hash_init/1 instead"}]).
--removed([{md5_init,0,"use crypto:hash_init/1 instead"}]).
--removed([{sha_init,0,"use crypto:hash_init/1 instead"}]).
+-removed([{md4_init, 0, "use crypto:hash_init/1 instead"}]).
+-removed([{md5_init, 0, "use crypto:hash_init/1 instead"}]).
+-removed([{sha_init, 0, "use crypto:hash_init/1 instead"}]).
 
--removed([{md4_update,2,"use crypto:hash_update/2 instead"}]).
--removed([{md5_update,2,"use crypto:hash_update/2 instead"}]).
--removed([{sha_update,2,"use crypto:hash_update/2 instead"}]).
+-removed([{md4_update, 2, "use crypto:hash_update/2 instead"}]).
+-removed([{md5_update, 2, "use crypto:hash_update/2 instead"}]).
+-removed([{sha_update, 2, "use crypto:hash_update/2 instead"}]).
 
--removed([{md4_final,1,"use crypto:hash_final/1 instead"}]).
--removed([{md5_final,1,"use crypto:hash_final/1 instead"}]).
--removed([{sha_final,1,"use crypto:hash_final/1 instead"}]).
+-removed([{md4_final, 1, "use crypto:hash_final/1 instead"}]).
+-removed([{md5_final, 1, "use crypto:hash_final/1 instead"}]).
+-removed([{sha_final, 1, "use crypto:hash_final/1 instead"}]).
 
--removed([{md5_mac,2,"use crypto:hmac/3 instead"}]).
--removed([{md5_mac_96,2,"use crypto:hmac/4 instead"}]).
+-removed([{md5_mac, 2, "use crypto:hmac/3 instead"}]).
+-removed([{md5_mac_96, 2, "use crypto:hmac/4 instead"}]).
 
--removed([{sha_mac,2,"use crypto:hmac/3 instead"}]).
--removed([{sha_mac,3,"use crypto:hmac/4 instead"}]).
--removed([{sha_mac_96,2,"use crypto:hmac/4 instead"}]).
+-removed([{sha_mac, 2, "use crypto:hmac/3 instead"}]).
+-removed([{sha_mac, 3, "use crypto:hmac/4 instead"}]).
+-removed([{sha_mac_96, 2, "use crypto:hmac/4 instead"}]).
 
--removed([{rsa_sign,'_',"use crypto:sign/4 instead"}]).
--removed([{rsa_verify,'_',"use crypto:verify/5 instead"}]).
+-removed([{rsa_sign, '_', "use crypto:sign/4 instead"}]).
+-removed([{rsa_verify, '_', "use crypto:verify/5 instead"}]).
 
--removed([{dss_sign,'_',"use crypto:sign/4 instead"}]).
--removed([{dss_verify,'_',"use crypto:verify/5 instead"}]).
+-removed([{dss_sign, '_', "use crypto:sign/4 instead"}]).
+-removed([{dss_verify, '_', "use crypto:verify/5 instead"}]).
 
--removed([{mod_exp,3,"use crypto:mod_pow/3 instead"}]).
+-removed([{mod_exp, 3, "use crypto:mod_pow/3 instead"}]).
 
--removed([{dh_compute_key,3,"use crypto:compute_key/4 instead"}]).
--removed([{dh_generate_key,1,"use crypto:generate_key/2 instead"}]).
--removed([{dh_generate_key,2,"use crypto:generate_key/3 instead"}]).
+-removed([{dh_compute_key, 3, "use crypto:compute_key/4 instead"}]).
+-removed([{dh_generate_key, 1, "use crypto:generate_key/2 instead"}]).
+-removed([{dh_generate_key, 2, "use crypto:generate_key/3 instead"}]).
 
 %% DES
 
--removed([{des_cfb_ivec,2,"use crypto:next_iv/3 instead"}]).
--removed([{des_cbc_ivec,2,"use crypto:next_iv/2 instead"}]).
+-removed([{des_cfb_ivec, 2, "use crypto:next_iv/3 instead"}]).
+-removed([{des_cbc_ivec, 2, "use crypto:next_iv/2 instead"}]).
 
--removed([{des_ecb_encrypt,2,"use crypto:block_encrypt/3 instead"}]).
--removed([{des_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
--removed([{des_ede3_cbc_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
--removed([{des_cfb_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{des_ecb_encrypt, 2, "use crypto:block_encrypt/3 instead"}]).
+-removed([{des_cbc_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
+-removed([{des_ede3_cbc_encrypt, 5, "use crypto:block_encrypt/4 instead"}]).
+-removed([{des_cfb_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
 
--removed([{des_ecb_decrypt,2,"use crypto:block_decrypt/3 instead"}]).
--removed([{des_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
--removed([{des_cfb_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{des_ecb_decrypt, 2, "use crypto:block_decrypt/3 instead"}]).
+-removed([{des_cbc_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
+-removed([{des_cfb_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
 
 %% Triple-DES
 
--removed([{des3_cbc_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
--removed([{des3_cfb_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
+-removed([{des3_cbc_encrypt, 5, "use crypto:block_encrypt/4 instead"}]).
+-removed([{des3_cfb_encrypt, 5, "use crypto:block_encrypt/4 instead"}]).
 
--removed([{des3_cbc_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
--removed([{des3_cfb_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
--removed([{des3_ede3_cbc_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
+-removed([{des3_cbc_decrypt, 5, "use crypto:block_decrypt/4 instead"}]).
+-removed([{des3_cfb_decrypt, 5, "use crypto:block_decrypt/4 instead"}]).
+-removed([{des3_ede3_cbc_decrypt, 5, "use crypto:block_decrypt/4 instead"}]).
 
 %% Blowfish
 
--removed([{blowfish_ecb_encrypt,2,"use crypto:block_encrypt/3 instead"}]).
--removed([{blowfish_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
--removed([{blowfish_cfb64_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
--removed([{blowfish_ofb64_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{blowfish_ecb_encrypt, 2, "use crypto:block_encrypt/3 instead"}]).
+-removed([{blowfish_cbc_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
+-removed([{blowfish_cfb64_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
+-removed([{blowfish_ofb64_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
 
--removed([{blowfish_ecb_decrypt,2,"use crypto:block_decrypt/3 instead"}]).
--removed([{blowfish_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
--removed([{blowfish_cfb64_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
--removed([{blowfish_ofb64_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{blowfish_ecb_decrypt, 2, "use crypto:block_decrypt/3 instead"}]).
+-removed([{blowfish_cbc_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
+-removed([{blowfish_cfb64_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
+-removed([{blowfish_ofb64_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
 
 %% AES
 
--removed([{aes_cfb_128_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
--removed([{aes_cbc_128_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
--removed([{aes_cbc_256_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{aes_cfb_128_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
+-removed([{aes_cbc_128_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
+-removed([{aes_cbc_256_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
 
--removed([{aes_cfb_128_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
--removed([{aes_cbc_128_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
--removed([{aes_cbc_256_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{aes_cfb_128_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
+-removed([{aes_cbc_128_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
+-removed([{aes_cbc_256_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
 
--removed([{aes_ctr_stream_init,2,"use crypto:stream_init/3 instead"}]).
--removed([{aes_ctr_stream_encrypt,2,"use crypto:stream_encrypt/2 instead"}]).
--removed([{aes_ctr_encrypt,3,"use crypto:stream_encrypt/2 instead"}]).
--removed([{aes_ctr_stream_decrypt,2,"use crypto:stream_decrypt/2 instead"}]).
--removed([{aes_ctr_decrypt,3,"use crypto:stream_decrypt/2 instead"}]).
+-removed([{aes_ctr_stream_init, 2, "use crypto:stream_init/3 instead"}]).
+-removed([{aes_ctr_stream_encrypt, 2, "use crypto:stream_encrypt/2 instead"}]).
+-removed([{aes_ctr_encrypt, 3, "use crypto:stream_encrypt/2 instead"}]).
+-removed([{aes_ctr_stream_decrypt, 2, "use crypto:stream_decrypt/2 instead"}]).
+-removed([{aes_ctr_decrypt, 3, "use crypto:stream_decrypt/2 instead"}]).
 
--removed([{aes_cbc_ivec,2,"use crypto:next_iv/2 instead"}]).
+-removed([{aes_cbc_ivec, 2, "use crypto:next_iv/2 instead"}]).
 
 %% RC2
 
--removed([{rc2_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
--removed([{rc2_40_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{rc2_cbc_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
+-removed([{rc2_40_cbc_encrypt, 3, "use crypto:block_encrypt/4 instead"}]).
 
--removed([{rc2_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
--removed([{rc2_40_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{rc2_cbc_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
+-removed([{rc2_40_cbc_decrypt, 3, "use crypto:block_decrypt/4 instead"}]).
 
 %% RC4
 
--removed([{rc4_set_key,2,"use crypto:stream_init/2 instead"}]).
--removed([{rc4_encrypt,2,"use crypto:stream_encrypt/2 instead"}]).
--removed([{rc4_encrypt_with_state,2,"use crypto:stream_encrypt/2 instead"}]).
+-removed([{rc4_set_key, 2, "use crypto:stream_init/2 instead"}]).
+-removed([{rc4_encrypt, 2, "use crypto:stream_encrypt/2 instead"}]).
+-removed([{rc4_encrypt_with_state, 2, "use crypto:stream_encrypt/2 instead"}]).
 
 %% Other
 
--removed([{info,0,"use crypto:module_info/0 instead"}]).
+-removed([{info, 0, "use crypto:module_info/0 instead"}]).
 
--removed([{strong_rand_mpint,3,"only needed by other removed functions"}]).
--removed([{erlint,1,"only needed by other removed functions"}]).
--removed([{mpint,1,"only needed by other removed functions"}]).
+-removed([{strong_rand_mpint, 3, "only needed by other removed functions"}]).
+-removed([{erlint, 1, "only needed by other removed functions"}]).
+-removed([{mpint, 1, "only needed by other removed functions"}]).
 
 %%%----------------------------------------------------------------
 %% Old interface. Now implemented with the New interface.
 %% Remove in OTP-24.0 See OTP-16232
 
--deprecated([{next_iv, '_',
-              "see the 'New and Old API' chapter of the CRYPTO User's guide"}]).
+-deprecated([{next_iv, '_', "see the 'New and Old API' chapter of the CRYPTO User's guide"}]).
+
 -export([next_iv/2, next_iv/3]).
 
--deprecated([{hmac, 3, "use crypto:mac/4 instead"},
-             {hmac, 4, "use crypto:macN/5 instead"},
-             {hmac_init, 2, "use crypto:mac_init/3 instead"},
-             {hmac_update, 2, "use crypto:mac_update/2 instead"},
-             {hmac_final, 1, "use crypto:mac_final/1 instead"},
-             {hmac_final_n, 2, "use crypto:mac_finalN/2 instead"}]).
+-deprecated([
+    {hmac, 3, "use crypto:mac/4 instead"},
+    {hmac, 4, "use crypto:macN/5 instead"},
+    {hmac_init, 2, "use crypto:mac_init/3 instead"},
+    {hmac_update, 2, "use crypto:mac_update/2 instead"},
+    {hmac_final, 1, "use crypto:mac_final/1 instead"},
+    {hmac_final_n, 2, "use crypto:mac_finalN/2 instead"}
+]).
 
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 
--deprecated([{cmac, 3, "use crypto:mac/4 instead"},
-             {cmac, 4, "use crypto:macN/5 instead"}]).
+-deprecated([
+    {cmac, 3, "use crypto:mac/4 instead"},
+    {cmac, 4, "use crypto:macN/5 instead"}
+]).
+
 -export([cmac/3, cmac/4]).
 
 -deprecated([{poly1305, 2, "use crypto:mac/3 instead"}]).
+
 -export([poly1305/2]).
 
--deprecated([{stream_init, '_',
-              "use crypto:crypto_init/3 + crypto:crypto_update/2 + "
-              "crypto:crypto_final/1 or crypto:crypto_one_time/4 instead"},
-             {stream_encrypt, 2, "use crypto:crypto_update/2 instead"},
-             {stream_decrypt, 2, "use crypto:crypto_update/2 instead"},
-             {block_encrypt, 3,
-              "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
-              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
-             {block_encrypt, 4, 
-              "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
-              "or crypto:crypto_(dyn_iv)?_init + "
-              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"},
-             {block_decrypt, 3,
-              "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
-              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
-             {block_decrypt, 4,
-              "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
-              "or crypto:crypto_(dyn_iv)?_init + "
-              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"}
-            ]).
--export([stream_init/2, stream_init/3,
-         stream_encrypt/2,
-         stream_decrypt/2,
-         block_encrypt/3, block_encrypt/4,
-         block_decrypt/3, block_decrypt/4
-        ]).
--deprecated_type([{retired_cbc_cipher_aliases, 0, "Use aes_*_cbc or des_ede3_cbc"},
-                  {retired_cfb_cipher_aliases, 0, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"},
-                  {retired_ctr_cipher_aliases, 0, "Use aes_*_ctr"},
-                  {retired_ecb_cipher_aliases, 0, "Use aes_*_ecb"}
-                 ]).
+-deprecated([
+    {stream_init, '_',
+        "use crypto:crypto_init/3 + crypto:crypto_update/2 + "
+        "crypto:crypto_final/1 or crypto:crypto_one_time/4 instead"},
+    {stream_encrypt, 2, "use crypto:crypto_update/2 instead"},
+    {stream_decrypt, 2, "use crypto:crypto_update/2 instead"},
+    {block_encrypt, 3,
+        "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
+        "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
+    {block_encrypt, 4,
+        "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+        "or crypto:crypto_(dyn_iv)?_init + "
+        "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"},
+    {block_decrypt, 3,
+        "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
+        "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
+    {block_decrypt, 4,
+        "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+        "or crypto:crypto_(dyn_iv)?_init + "
+        "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"}
+]).
+
+-export([
+    stream_init/2, stream_init/3,
+    stream_encrypt/2,
+    stream_decrypt/2,
+    block_encrypt/3, block_encrypt/4,
+    block_decrypt/3, block_decrypt/4
+]).
+
+-deprecated_type([
+    {retired_cbc_cipher_aliases, 0, "Use aes_*_cbc or des_ede3_cbc"},
+    {retired_cfb_cipher_aliases, 0, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"},
+    {retired_ctr_cipher_aliases, 0, "Use aes_*_ctr"},
+    {retired_ecb_cipher_aliases, 0, "Use aes_*_ecb"}
+]).
 
 %%%----------------------------------------------------------------
 %% New interface
--export([crypto_init/4, crypto_init/3,
-         crypto_update/2,
+-export([
+    crypto_init/4, crypto_init/3,
+    crypto_update/2,
 
-         crypto_one_time/4, crypto_one_time/5,
-         crypto_one_time_aead/6, crypto_one_time_aead/7,
+    crypto_one_time/4, crypto_one_time/5,
+    crypto_one_time_aead/6, crypto_one_time_aead/7,
 
-         crypto_dyn_iv_init/3,
-         crypto_dyn_iv_update/3,
-         crypto_final/1,
-         crypto_get_data/1,
+    crypto_dyn_iv_init/3,
+    crypto_dyn_iv_update/3,
+    crypto_final/1,
+    crypto_get_data/1,
 
-         supports/1,
-         mac/3, mac/4, macN/4, macN/5,
-         mac_init/2, mac_init/3, mac_update/2, mac_final/1, mac_finalN/2
-        ]).
+    supports/1,
+    mac/3, mac/4,
+    macN/4, macN/5,
+    mac_init/2, mac_init/3,
+    mac_update/2,
+    mac_final/1,
+    mac_finalN/2
+]).
 
 %%%----------------------------------------------------------------
 %% Engine
 -export([
-         engine_get_all_methods/0,
-         engine_load/3,
-         engine_load/4,
-         engine_unload/1,
-         engine_by_id/1,
-         engine_list/0,
-         engine_ctrl_cmd_string/3,
-         engine_ctrl_cmd_string/4,
-         engine_add/1,
-         engine_remove/1,
-         engine_get_id/1,
-         engine_get_name/1,
-         ensure_engine_loaded/2,
-         ensure_engine_loaded/3,
-         ensure_engine_unloaded/1,
-         ensure_engine_unloaded/2
-        ]).
+    engine_get_all_methods/0,
+    engine_load/3,
+    engine_load/4,
+    engine_unload/1,
+    engine_by_id/1,
+    engine_list/0,
+    engine_ctrl_cmd_string/3,
+    engine_ctrl_cmd_string/4,
+    engine_add/1,
+    engine_remove/1,
+    engine_get_id/1,
+    engine_get_name/1,
+    ensure_engine_loaded/2,
+    ensure_engine_loaded/3,
+    ensure_engine_unloaded/1,
+    ensure_engine_unloaded/2
+]).
 
--export_type([ %% A minimum exported: only what public_key needs.
-               dh_private/0,
-               dh_public/0,
-               dss_digest_type/0,
-               ec_named_curve/0,
-               ecdsa_digest_type/0,
-               pk_encrypt_decrypt_opts/0,
-               pk_sign_verify_opts/0,
-               rsa_digest_type/0,
-               sha1/0,
-               sha2/0
-             ]).
+%% A minimum exported: only what public_key needs.
+-export_type([
+    dh_private/0,
+    dh_public/0,
+    dss_digest_type/0,
+    ec_named_curve/0,
+    ecdsa_digest_type/0,
+    pk_encrypt_decrypt_opts/0,
+    pk_sign_verify_opts/0,
+    rsa_digest_type/0,
+    sha1/0,
+    sha2/0
+]).
 
--export_type([engine_ref/0,
-              key_id/0,
-              password/0
-             ]).
+-export_type([
+    engine_ref/0,
+    key_id/0,
+    password/0
+]).
 
 %%% Opaque types must be exported :(
 -export_type([
-              stream_state/0,
-              hmac_state/0,
-              hash_state/0,
-              crypto_state/0,
-              mac_state/0
-             ]).
+    stream_state/0,
+    hmac_state/0,
+    hash_state/0,
+    crypto_state/0,
+    mac_state/0
+]).
 
 %% Private. For tests.
--export([packed_openssl_version/4, engine_methods_convert_to_bitmask/2,
-	 get_test_engine/0]).
+-export([
+    packed_openssl_version/4,
+    engine_methods_convert_to_bitmask/2,
+    get_test_engine/0
+]).
+
 -export([rand_plugin_aes_jump_2pow20/1]).
 
 -deprecated({rand_uniform, 2, "use rand:uniform/1 instead"}).
 
 %% This should correspond to the similar macro in crypto.c
--define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
+
+%%  Current value is: erlang:system_info(context_reductions) * 10
+-define(MAX_BYTES_TO_NIF, 20000).
 
 %% Used by strong_rand_float/0
--define(HALF_DBL_EPSILON, 1.1102230246251565e-16). % math:pow(2, -53)
 
+% math:pow(2, -53)
+-define(HALF_DBL_EPSILON, 1.1102230246251565e-16).
 
 %%% ===== BEGIN NEW TYPING ====
 
 %%% Basic
--type key_integer() :: integer() | binary(). % Always binary() when used as return value
+
+% Always binary() when used as return value
+-type key_integer() :: integer() | binary().
 
 %%% Keys
--type rsa_public() :: [key_integer()] . % [E, N]
--type rsa_private() :: [key_integer()] . % [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
--type rsa_params() :: {ModulusSizeInBits::integer(), PublicExponent::key_integer()} .
 
--type dss_public() :: [key_integer()] . % [P, Q, G, Y]
--type dss_private() :: [key_integer()] . % [P, Q, G, X]
+% [E, N]
+-type rsa_public() :: [key_integer()].
+% [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
+-type rsa_private() :: [key_integer()].
+-type rsa_params() :: {ModulusSizeInBits :: integer(), PublicExponent :: key_integer()}.
 
--type ecdsa_public()  :: key_integer() .
--type ecdsa_private() :: key_integer() .
--type ecdsa_params()  :: ec_named_curve() | ec_explicit_curve() .
+% [P, Q, G, Y]
+-type dss_public() :: [key_integer()].
+% [P, Q, G, X]
+-type dss_private() :: [key_integer()].
 
--type eddsa_public()  :: key_integer() .
--type eddsa_private() :: key_integer() .
--type eddsa_params()  :: edwards_curve_ed() .
+-type ecdsa_public() :: key_integer().
+-type ecdsa_private() :: key_integer().
+-type ecdsa_params() :: ec_named_curve() | ec_explicit_curve().
 
--type srp_public() :: key_integer() .
--type srp_private() :: key_integer() .
--type srp_gen_params()  :: {user,srp_user_gen_params()}  | {host,srp_host_gen_params()}.
--type srp_comp_params() :: {user,srp_user_comp_params()} | {host,srp_host_comp_params()}.
--type srp_user_gen_params() :: list(binary() | atom() | list()) .
--type srp_host_gen_params() :: list(binary() | atom() | list()) .
--type srp_user_comp_params() :: list(binary() | atom()) .
--type srp_host_comp_params() :: list(binary() | atom()) .
+-type eddsa_public() :: key_integer().
+-type eddsa_private() :: key_integer().
+-type eddsa_params() :: edwards_curve_ed().
 
--type dh_public() :: key_integer() .
--type dh_private() :: key_integer() .
--type dh_params() :: [key_integer()] . % [P, G] | [P, G, PrivateKeyBitLength]
+-type srp_public() :: key_integer().
+-type srp_private() :: key_integer().
+-type srp_gen_params() :: {user, srp_user_gen_params()} | {host, srp_host_gen_params()}.
+-type srp_comp_params() :: {user, srp_user_comp_params()} | {host, srp_host_comp_params()}.
+-type srp_user_gen_params() :: list(binary() | atom() | list()).
+-type srp_host_gen_params() :: list(binary() | atom() | list()).
+-type srp_user_comp_params() :: list(binary() | atom()).
+-type srp_host_comp_params() :: list(binary() | atom()).
 
--type ecdh_public()  :: key_integer() .
--type ecdh_private() :: key_integer() .
--type ecdh_params()  :: ec_named_curve() | edwards_curve_dh() | ec_explicit_curve() .
+-type dh_public() :: key_integer().
+-type dh_private() :: key_integer().
+% [P, G] | [P, G, PrivateKeyBitLength]
+-type dh_params() :: [key_integer()].
 
+-type ecdh_public() :: key_integer().
+-type ecdh_private() :: key_integer().
+-type ecdh_params() :: ec_named_curve() | edwards_curve_dh() | ec_explicit_curve().
 
 %%% Curves
 
--type ec_explicit_curve() :: {Field :: ec_field(),
-                              Curve :: ec_curve(),
-                              BasePoint :: binary(),
-                              Order :: binary(),
-                              CoFactor :: none | % FIXME: Really?
-                                          binary()
-                             } .
+-type ec_explicit_curve() ::
+    {Field :: ec_field(), Curve :: ec_curve(), BasePoint :: binary(), Order :: binary(),
+        % FIXME: Really?
+        CoFactor ::
+            none |
+            binary()}.
 
--type ec_curve() :: {A :: binary(),
-                     B :: binary(),
-                     Seed :: none | binary()
-                    } .
+-type ec_curve() :: {A :: binary(), B :: binary(), Seed :: none | binary()}.
 
--type ec_field() ::  ec_prime_field() | ec_characteristic_two_field() .
+-type ec_field() :: ec_prime_field() | ec_characteristic_two_field().
 
--type ec_prime_field()              :: {prime_field, Prime :: integer()} .
--type ec_characteristic_two_field() :: {characteristic_two_field, M :: integer(), Basis :: ec_basis()} .
+-type ec_prime_field() :: {prime_field, Prime :: integer()}.
+-type ec_characteristic_two_field() ::
+    {characteristic_two_field, M :: integer(), Basis :: ec_basis()}.
 
--type ec_basis() :: {tpbasis, K :: non_neg_integer()}
-                  | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()}
-                  |  onbasis .
+-type ec_basis() ::
+    {tpbasis, K :: non_neg_integer()} |
+    {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} |
+    onbasis.
 
--type ec_named_curve() :: brainpoolP160r1
-                        | brainpoolP160t1
-                        | brainpoolP192r1
-                        | brainpoolP192t1
-                        | brainpoolP224r1
-                        | brainpoolP224t1
-                        | brainpoolP256r1
-                        | brainpoolP256t1
-                        | brainpoolP320r1
-                        | brainpoolP320t1
-                        | brainpoolP384r1
-                        | brainpoolP384t1
-                        | brainpoolP512r1
-                        | brainpoolP512t1
-                        | c2pnb163v1
-                        | c2pnb163v2
-                        | c2pnb163v3
-                        | c2pnb176v1
-                        | c2pnb208w1
-                        | c2pnb272w1
-                        | c2pnb304w1
-                        | c2pnb368w1
-                        | c2tnb191v1
-                        | c2tnb191v2
-                        | c2tnb191v3
-                        | c2tnb239v1
-                        | c2tnb239v2
-                        | c2tnb239v3
-                        | c2tnb359v1
-                        | c2tnb431r1
-                        | ipsec3
-                        | ipsec4
-                        | prime192v1
-                        | prime192v2
-                        | prime192v3
-                        | prime239v1
-                        | prime239v2
-                        | prime239v3
-                        | prime256v1
-                        | secp112r1
-                        | secp112r2
-                        | secp128r1
-                        | secp128r2
-                        | secp160k1
-                        | secp160r1
-                        | secp160r2
-                        | secp192k1
-                        | secp192r1
-                        | secp224k1
-                        | secp224r1
-                        | secp256k1
-                        | secp256r1
-                        | secp384r1
-                        | secp521r1
-                        | sect113r1
-                        | sect113r2
-                        | sect131r1
-                        | sect131r2
-                        | sect163k1
-                        | sect163r1
-                        | sect163r2
-                        | sect193r1
-                        | sect193r2
-                        | sect233k1
-                        | sect233r1
-                        | sect239k1
-                        | sect283k1
-                        | sect283r1
-                        | sect409k1
-                        | sect409r1
-                        | sect571k1
-                        | sect571r1
-                        | wtls1
-                        | wtls10
-                        | wtls11
-                        | wtls12
-                        | wtls3
-                        | wtls4
-                        | wtls5
-                        | wtls6
-                        | wtls7
-                        | wtls8
-                        | wtls9
-                          .
+-type ec_named_curve() ::
+    brainpoolP160r1 |
+    brainpoolP160t1 |
+    brainpoolP192r1 |
+    brainpoolP192t1 |
+    brainpoolP224r1 |
+    brainpoolP224t1 |
+    brainpoolP256r1 |
+    brainpoolP256t1 |
+    brainpoolP320r1 |
+    brainpoolP320t1 |
+    brainpoolP384r1 |
+    brainpoolP384t1 |
+    brainpoolP512r1 |
+    brainpoolP512t1 |
+    c2pnb163v1 |
+    c2pnb163v2 |
+    c2pnb163v3 |
+    c2pnb176v1 |
+    c2pnb208w1 |
+    c2pnb272w1 |
+    c2pnb304w1 |
+    c2pnb368w1 |
+    c2tnb191v1 |
+    c2tnb191v2 |
+    c2tnb191v3 |
+    c2tnb239v1 |
+    c2tnb239v2 |
+    c2tnb239v3 |
+    c2tnb359v1 |
+    c2tnb431r1 |
+    ipsec3 |
+    ipsec4 |
+    prime192v1 |
+    prime192v2 |
+    prime192v3 |
+    prime239v1 |
+    prime239v2 |
+    prime239v3 |
+    prime256v1 |
+    secp112r1 |
+    secp112r2 |
+    secp128r1 |
+    secp128r2 |
+    secp160k1 |
+    secp160r1 |
+    secp160r2 |
+    secp192k1 |
+    secp192r1 |
+    secp224k1 |
+    secp224r1 |
+    secp256k1 |
+    secp256r1 |
+    secp384r1 |
+    secp521r1 |
+    sect113r1 |
+    sect113r2 |
+    sect131r1 |
+    sect131r2 |
+    sect163k1 |
+    sect163r1 |
+    sect163r2 |
+    sect193r1 |
+    sect193r2 |
+    sect233k1 |
+    sect233r1 |
+    sect239k1 |
+    sect283k1 |
+    sect283r1 |
+    sect409k1 |
+    sect409r1 |
+    sect571k1 |
+    sect571r1 |
+    wtls1 |
+    wtls10 |
+    wtls11 |
+    wtls12 |
+    wtls3 |
+    wtls4 |
+    wtls5 |
+    wtls6 |
+    wtls7 |
+    wtls8 |
+    wtls9.
 
--type edwards_curve_dh() :: x25519 | x448 .
+-type edwards_curve_dh() :: x25519 | x448.
 
--type edwards_curve_ed() :: ed25519 | ed448 .
+-type edwards_curve_ed() :: ed25519 | ed448.
 
 %%%----------------------------------------------------------------
 %%% New cipher schema
 %%%
--type cipher() :: cipher_no_iv()
-                | cipher_iv()
-                | cipher_aead() .
+-type cipher() ::
+    cipher_no_iv() |
+    cipher_iv() |
+    cipher_aead().
 
--type cipher_no_iv() :: aes_128_ecb
-                      | aes_192_ecb
-                      | aes_256_ecb
+-type cipher_no_iv() ::
+    aes_128_ecb |
+    aes_192_ecb |
+    aes_256_ecb |
+    blowfish_ecb |
+    des_ecb |
+    rc4.
 
-                      | blowfish_ecb
-                      | des_ecb
-                      | rc4 .
+-type cipher_iv() ::
+    aes_128_cbc |
+    aes_192_cbc |
+    aes_256_cbc |
+    aes_128_cfb128 |
+    aes_192_cfb128 |
+    aes_256_cfb128 |
+    aes_128_cfb8 |
+    aes_192_cfb8 |
+    aes_256_cfb8 |
+    aes_128_ctr |
+    aes_192_ctr |
+    aes_256_ctr |
+    aes_ige256 |
+    blowfish_cbc |
+    blowfish_cfb64 |
+    blowfish_ofb64 |
+    chacha20 |
+    des_ede3_cbc |
+    des_ede3_cfb |
+    des_cbc |
+    des_cfb |
+    rc2_cbc.
 
--type cipher_iv() :: aes_128_cbc
-                   | aes_192_cbc
-                   | aes_256_cbc
-
-                   | aes_128_cfb128
-                   | aes_192_cfb128
-                   | aes_256_cfb128
-
-                   | aes_128_cfb8
-                   | aes_192_cfb8
-                   | aes_256_cfb8
-
-                   | aes_128_ctr
-                   | aes_192_ctr
-                   | aes_256_ctr
-
-                   | aes_ige256
-
-                   | blowfish_cbc
-                   | blowfish_cfb64
-                   | blowfish_ofb64
-                   | chacha20
-                   | des_ede3_cbc
-                   | des_ede3_cfb
-
-                   | des_cbc
-                   | des_cfb
-                   | rc2_cbc .
-
-
--type cipher_aead() :: aes_128_ccm
-                     | aes_192_ccm
-                     | aes_256_ccm
-
-                     | aes_128_gcm
-                     | aes_192_gcm
-                     | aes_256_gcm
-
-                     | chacha20_poly1305 .
-
+-type cipher_aead() ::
+    aes_128_ccm |
+    aes_192_ccm |
+    aes_256_ccm |
+    aes_128_gcm |
+    aes_192_gcm |
+    aes_256_gcm |
+    chacha20_poly1305.
 
 %%%----------------------------------------------------------------
 %%% Old cipher scheme
 %%%
 %%%
--type block_cipher_without_iv() :: ecb_cipher() .
+-type block_cipher_without_iv() :: ecb_cipher().
 
--type block_cipher_with_iv() :: cbc_cipher()
-                              | cfb_cipher()
-                              | blowfish_ofb64
-                              | aes_ige256 .
+-type block_cipher_with_iv() ::
+    cbc_cipher() |
+    cfb_cipher() |
+    blowfish_ofb64 |
+    aes_ige256.
 
--type stream_cipher() :: ctr_cipher()
-                       | chacha20
-                       | rc4 .
-
-
-%%%----
--type cbc_cipher()  :: aes_128_cbc
-                     | aes_192_cbc
-                     | aes_256_cbc
-                     | blowfish_cbc
-                     | des_cbc
-                     | des_ede3_cbc
-                     | rc2_cbc
-                     | retired_cbc_cipher_aliases() .
-
--type retired_cbc_cipher_aliases() :: aes_cbc      % aes_*_cbc
-                                    | aes_cbc128   % aes_128_cbc
-                                    | aes_cbc256   % aes_256_cbc
-                                    | des3_cbc     % des_ede3_cbc
-                                    | des_ede3 .   % des_ede3_cbc
+-type stream_cipher() ::
+    ctr_cipher() |
+    chacha20 |
+    rc4.
 
 %%%----
--type cfb_cipher() :: aes_128_cfb128
-                    | aes_192_cfb128
-                    | aes_256_cfb128
-                    | aes_128_cfb8
-                    | aes_192_cfb8
-                    | aes_256_cfb8
-                    | blowfish_cfb64
-                    | des_cfb
-                    | des_ede3_cfb
-                    | retired_cfb_cipher_aliases() .
+-type cbc_cipher() ::
+    aes_128_cbc |
+    aes_192_cbc |
+    aes_256_cbc |
+    blowfish_cbc |
+    des_cbc |
+    des_ede3_cbc |
+    rc2_cbc |
+    retired_cbc_cipher_aliases().
 
--type retired_cfb_cipher_aliases() :: aes_cfb8      % aes_*_cfb8
-                                    | aes_cfb128    % aes_*_cfb128
-                                    | des3_cbf      % des_ede3_cfb, cfb misspelled
-                                    | des3_cfb      % des_ede3_cfb
-                                    | des_ede3_cbf .% cfb misspelled
-
-
-%%%----
--type ctr_cipher() :: aes_128_ctr
-                    | aes_192_ctr
-                    | aes_256_ctr
-                    | retired_ctr_cipher_aliases() .
-
--type retired_ctr_cipher_aliases() :: aes_ctr .  % aes_*_ctr
+% aes_*_cbc
+-type retired_cbc_cipher_aliases() ::
+    aes_cbc |
+    % aes_128_cbc
+    aes_cbc128 |
+    % aes_256_cbc
+    aes_cbc256 |
+    % des_ede3_cbc
+    des3_cbc |
+    % des_ede3_cbc
+    des_ede3.
 
 %%%----
--type ecb_cipher() :: aes_128_ecb
-                    | aes_192_ecb
-                    | aes_256_ecb
-                    | blowfish_ecb
-                    | retired_ecb_cipher_aliases() .
+-type cfb_cipher() ::
+    aes_128_cfb128 |
+    aes_192_cfb128 |
+    aes_256_cfb128 |
+    aes_128_cfb8 |
+    aes_192_cfb8 |
+    aes_256_cfb8 |
+    blowfish_cfb64 |
+    des_cfb |
+    des_ede3_cfb |
+    retired_cfb_cipher_aliases().
 
--type retired_ecb_cipher_aliases() :: aes_ecb .
+% aes_*_cfb8
+-type retired_cfb_cipher_aliases() ::
+    aes_cfb8 |
+    % aes_*_cfb128
+    aes_cfb128 |
+    % des_ede3_cfb, cfb misspelled
+    des3_cbf |
+    % des_ede3_cfb
+    des3_cfb |
+    % cfb misspelled
+    des_ede3_cbf.
 
 %%%----
--type aead_cipher() :: aes_gcm | aes_ccm | chacha20_poly1305 .
+-type ctr_cipher() ::
+    aes_128_ctr |
+    aes_192_ctr |
+    aes_256_ctr |
+    retired_ctr_cipher_aliases().
 
+% aes_*_ctr
+-type retired_ctr_cipher_aliases() :: aes_ctr.
+
+%%%----
+-type ecb_cipher() ::
+    aes_128_ecb |
+    aes_192_ecb |
+    aes_256_ecb |
+    blowfish_ecb |
+    retired_ecb_cipher_aliases().
+
+-type retired_ecb_cipher_aliases() :: aes_ecb.
+
+%%%----
+-type aead_cipher() :: aes_gcm | aes_ccm | chacha20_poly1305.
 
 %%%----- end old cipher schema ------------------------------------
 %%%----------------------------------------------------------------
@@ -582,16 +630,16 @@
 -type des3_key() :: [key()].
 
 %%%
--type rsa_digest_type()   :: sha1() | sha2() | md5 | ripemd160 .
--type dss_digest_type()   :: sha1() | sha2() .
--type ecdsa_digest_type() :: sha1() | sha2() .
+-type rsa_digest_type() :: sha1() | sha2() | md5 | ripemd160.
+-type dss_digest_type() :: sha1() | sha2().
+-type ecdsa_digest_type() :: sha1() | sha2().
 
--type sha1() :: sha .
--type sha2() :: sha224 | sha256 | sha384 | sha512 .
--type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
--type blake2() :: blake2b | blake2s .
+-type sha1() :: sha.
+-type sha2() :: sha224 | sha256 | sha384 | sha512.
+-type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512.
+-type blake2() :: blake2b | blake2s.
 
--type compatibility_only_hash() :: md5 | md4 .
+-type compatibility_only_hash() :: md5 | md4.
 
 -type crypto_integer() :: binary() | integer().
 
@@ -605,30 +653,36 @@
 %%   error:{badarg,Reason::term()}
 %%   error:{notsup,Reason::term()}
 %%   error:{error,Reason::term()}
--type descriptive_error() :: any() .
-
+-type descriptive_error() :: any().
 
 %%--------------------------------------------------------------------
 %%
 %% Make the new descriptive_error() look like the old run_time_error()
 %%
 -define(COMPAT(CALL),
-        try begin CALL end
-        catch
-            error:{error, {_File,_Line}, _Reason} ->
-                error(badarg);
-            error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
-                error(E)
-        end).
+    try
+        begin
+            CALL
+        end
+    catch
+        error:{error, {_File, _Line}, _Reason} ->
+            error(badarg);
+        error:{E, {_File, _Line}, _Reason} when E == notsup; E == badarg ->
+            error(E)
+    end
+).
 
 %%--------------------------------------------------------------------
 -compile(no_native).
--on_load(on_load/0).
--define(CRYPTO_NIF_VSN,302).
 
--define(nif_stub,nif_stub_error(?LINE)).
+-on_load(on_load/0).
+
+-define(CRYPTO_NIF_VSN, 302).
+
+-define(nif_stub, nif_stub_error(?LINE)).
+
 nif_stub_error(Line) ->
-    erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
+    erlang:nif_error({nif_not_loaded, module, ?MODULE, line, Line}).
 
 %%--------------------------------------------------------------------
 %%% API
@@ -642,87 +696,96 @@ nif_stub_error(Line) ->
 -ifndef(CRYPTO_VSN).
 -define(CRYPTO_VSN, "??").
 -endif.
+
 version() -> ?CRYPTO_VSN.
 
--spec start() -> ok | {error, Reason::term()}.
+-spec start() -> ok | {error, Reason :: term()}.
 start() ->
     case application:start(crypto) of
         ok ->
-            _ = supports(curves), % Build curves cache if needed
+            % Build curves cache if needed
+            _ = supports(curves),
             ok;
         Error ->
             Error
     end.
 
--spec stop() -> ok | {error, Reason::term()}.
+-spec stop() -> ok | {error, Reason :: term()}.
 stop() ->
     application:stop(crypto).
 
--spec supports() -> [Support]
-                        when Support :: {hashs,   Hashs}
-                                      | {ciphers, Ciphers}
-                                      | {public_keys, PKs}
-                                      | {macs,    Macs}
-                                      | {curves,  Curves}
-                                      | {rsa_opts, RSAopts},
-                             Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
-                             Ciphers :: [cipher()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
-                             Macs :: [hmac | cmac | poly1305],
-                             Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
-                             RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
+-spec supports() -> [Support] when
+    Support ::
+        {hashs, Hashs} |
+        {ciphers, Ciphers} |
+        {public_keys, PKs} |
+        {macs, Macs} |
+        {curves, Curves} |
+        {rsa_opts, RSAopts},
+    Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
+    Ciphers :: [cipher()],
+    PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
+    Macs :: [hmac | cmac | poly1305],
+    Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
+    RSAopts :: [rsa_sign_verify_opt() | rsa_opt()].
 supports() ->
-     [{hashs,       supports(hashs)},
-      {ciphers,     prepend_old_aliases(supports(ciphers))}
-      | [{T,supports(T)} || T <- [public_keys,
-                                  macs,
-                                  curves,
-                                  rsa_opts]
+    [
+        {hashs, supports(hashs)},
+        {ciphers, prepend_old_aliases(supports(ciphers))}
+        | [
+            {T, supports(T)}
+            || T <- [
+                   public_keys,
+                   macs,
+                   curves,
+                   rsa_opts
+               ]
         ]
-     ].
+    ].
 
-
--spec supports(Type) -> Support
-                        when Type :: hashs
-			           | ciphers
-                                   | public_keys
-                                   | macs
-                                   | curves
-                                   | rsa_opts,
-			     Support :: Hashs
-                                      | Ciphers
-                                      | PKs
-                                      | Macs
-                                      | Curves
-                                      | RSAopts,
-                             Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
-                             Ciphers :: [cipher()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
-                             Macs :: [hmac | cmac | poly1305],
-                             Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
-                             RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
+-spec supports(Type) -> Support when
+    Type ::
+        hashs |
+        ciphers |
+        public_keys |
+        macs |
+        curves |
+        rsa_opts,
+    Support ::
+        Hashs |
+        Ciphers |
+        PKs |
+        Macs |
+        Curves |
+        RSAopts,
+    Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
+    Ciphers :: [cipher()],
+    PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
+    Macs :: [hmac | cmac | poly1305],
+    Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
+    RSAopts :: [rsa_sign_verify_opt() | rsa_opt()].
 
 -define(CURVES, '$curves$').
 
-supports(hashs)       -> hash_algorithms();
+supports(hashs) -> hash_algorithms();
 supports(public_keys) -> pubkey_algorithms();
-supports(ciphers)     -> cipher_algorithms();
-supports(macs)        -> mac_algorithms();
-supports(curves)      -> cached_curve_algorithms();
-supports(rsa_opts)    -> rsa_opts_algorithms().
+supports(ciphers) -> cipher_algorithms();
+supports(macs) -> mac_algorithms();
+supports(curves) -> cached_curve_algorithms();
+supports(rsa_opts) -> rsa_opts_algorithms().
 
-
--spec info_lib() -> [{Name,VerNum,VerStr}] when Name :: binary(),
-                                                VerNum :: integer(),
-                                                VerStr :: binary() .
+-spec info_lib() -> [{Name, VerNum, VerStr}] when
+    Name :: binary(),
+    VerNum :: integer(),
+    VerStr :: binary().
 info_lib() -> ?nif_stub.
 
 -spec info_fips() -> not_supported | not_enabled | enabled.
-
 info_fips() -> ?nif_stub.
 
--spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
-                                              Result :: boolean().
+-spec enable_fips_mode(Enable) -> Result when
+    Enable :: boolean(),
+    Result :: boolean().
 enable_fips_mode(Enable) ->
     OldState = info_fips(),
     Result = enable_fips_mode_nif(Enable),
@@ -734,7 +797,7 @@ enable_fips_mode(Enable) ->
             %% State change (not_enabled -> enabled  or  enabled -> not_enabled)
             NewCurves =
                 case application:get_env(?MODULE, var_name(NewState)) of
-                    {ok,Cs} when is_list(Cs) ->
+                    {ok, Cs} when is_list(Cs) ->
                         %% We have been in this state before, and saved the
                         %% list for that state.
                         Cs;
@@ -744,13 +807,14 @@ enable_fips_mode(Enable) ->
                         case application:get_env(?MODULE, var_name(OldState)) of
                             undefined ->
                                 %% Make the next state change fast:
-                                OldCs = application:get_env(?MODULE,?CURVES), 
+                                OldCs = application:get_env(?MODULE, ?CURVES),
                                 application:set_env(?MODULE, var_name(OldState), OldCs);
                             _ ->
                                 ok
                         end,
                         %% Now rebuild the list by hard work:
-                        application:unset_env(?MODULE, ?CURVES), % This will force a re-build
+                        application:unset_env(?MODULE, ?CURVES),
+                        % This will force a re-build
                         %% Re-build curves cache. Not strictly needed here.
                         Cs = supports(curves),
                         %% We came here because var(NewState) wasn't set, so make the
@@ -758,13 +822,13 @@ enable_fips_mode(Enable) ->
                         application:set_env(?MODULE, var_name(NewState), Cs),
                         Cs
                 end,
-            application:set_env(?MODULE, ?CURVES, NewCurves), % So the call to supports(curves) will be fast
+            % So the call to supports(curves) will be fast
+            application:set_env(?MODULE, ?CURVES, NewCurves),
             Result
     end.
 
 var_name(enabled) -> '$curves-fips-enabled$';
 var_name(not_enabled) -> '$curves-fips-not_enabled$'.
-
 
 enable_fips_mode_nif(_) -> ?nif_stub.
 
@@ -779,21 +843,18 @@ enable_fips_mode_nif(_) -> ?nif_stub.
 equal_const_time(X1, X2) ->
     equal_const_time(X1, X2, true).
 
-
-equal_const_time(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
+equal_const_time(<<B1, R1/binary>>, <<B2, R2/binary>>, Truth) ->
     equal_const_time(R1, R2, Truth and (B1 == B2));
-equal_const_time(<<_,R1/binary>>, <<>>, Truth) ->
+equal_const_time(<<_, R1/binary>>, <<>>, Truth) ->
     equal_const_time(R1, <<>>, Truth and false);
 equal_const_time(<<>>, <<>>, Truth) ->
     Truth;
-
-equal_const_time([H1|T1], [H2|T2], Truth) ->
+equal_const_time([H1 | T1], [H2 | T2], Truth) ->
     equal_const_time(T1, T2, Truth and (H1 == H2));
-equal_const_time([_|T1], [], Truth) ->
+equal_const_time([_ | T1], [], Truth) ->
     equal_const_time(T1, [], Truth and false);
 equal_const_time([], [], Truth) ->
     Truth;
-
 equal_const_time(_, _, _) ->
     false.
 
@@ -803,20 +864,23 @@ equal_const_time(_, _, _) ->
 %%%
 %%%================================================================
 
--type hash_algorithm() :: sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() .
+-type hash_algorithm() ::
+    sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash().
 
--spec hash_info(Type) -> Result | run_time_error()
-                             when Type :: hash_algorithm(),
-                                  Result :: #{size := integer(),
-                                              block_size := integer(),
-                                              type := integer()
-                                             } .
+-spec hash_info(Type) -> Result | run_time_error() when
+    Type :: hash_algorithm(),
+    Result :: #{
+        size := integer(),
+        block_size := integer(),
+        type := integer()
+    }.
 hash_info(Type) ->
     notsup_to_error(hash_info_nif(Type)).
 
--spec hash(Type, Data) -> Digest when Type :: hash_algorithm(),
-                                      Data :: iodata(),
-                                      Digest :: binary().
+-spec hash(Type, Data) -> Digest when
+    Type :: hash_algorithm(),
+    Data :: iodata(),
+    Digest :: binary().
 hash(Type, Data) ->
     Data1 = iolist_to_binary(Data),
     MaxBytes = max_bytes(),
@@ -824,21 +888,24 @@ hash(Type, Data) ->
 
 -opaque hash_state() :: reference().
 
--spec hash_init(Type) -> State when Type :: hash_algorithm(),
-                                    State :: hash_state().
+-spec hash_init(Type) -> State when
+    Type :: hash_algorithm(),
+    State :: hash_state().
 hash_init(Type) ->
     notsup_to_error(hash_init_nif(Type)).
 
--spec hash_update(State, Data) -> NewState when State :: hash_state(),
-                                                NewState :: hash_state(),
-                                                Data :: iodata() .
+-spec hash_update(State, Data) -> NewState when
+    State :: hash_state(),
+    NewState :: hash_state(),
+    Data :: iodata().
 hash_update(Context, Data) ->
     Data1 = iolist_to_binary(Data),
     MaxBytes = max_bytes(),
     hash_update(Context, Data1, erlang:byte_size(Data1), MaxBytes).
 
--spec hash_final(State) -> Digest when  State :: hash_state(),
-                                        Digest :: binary().
+-spec hash_final(State) -> Digest when
+    State :: hash_state(),
+    Digest :: binary().
 hash_final(Context) ->
     notsup_to_error(hash_final_nif(Context)).
 
@@ -848,102 +915,96 @@ hash_final(Context) ->
 %%%
 %%%================================================================
 
--type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
+-type hmac_hash_algorithm() :: sha1() | sha2() | sha3() | compatibility_only_hash().
 
--type cmac_cipher_algorithm() :: aes_128_cbc | aes_192_cbc | aes_256_cbc | blowfish_cbc
-                               | des_cbc | des_ede3_cbc | rc2_cbc
-                               | aes_128_cfb128 | aes_192_cfb128 | aes_256_cfb128
-                               | aes_128_cfb8 | aes_192_cfb8 | aes_256_cfb8
-                                 .
+-type cmac_cipher_algorithm() ::
+    aes_128_cbc |
+    aes_192_cbc |
+    aes_256_cbc |
+    blowfish_cbc |
+    des_cbc |
+    des_ede3_cbc |
+    rc2_cbc |
+    aes_128_cfb128 |
+    aes_192_cfb128 |
+    aes_256_cfb128 |
+    aes_128_cfb8 |
+    aes_192_cfb8 |
+    aes_256_cfb8.
 
 %%%----------------------------------------------------------------
 %%% Calculate MAC for the whole text at once
 
--spec mac(Type :: poly1305, Key, Data) -> Mac | descriptive_error()
-                     when Key :: iodata(),
-                          Data :: iodata(),
-                          Mac :: binary().
-
+-spec mac(Type :: poly1305, Key, Data) -> Mac | descriptive_error() when
+    Key :: iodata(),
+    Data :: iodata(),
+    Mac :: binary().
 mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
-
--spec mac(Type, SubType, Key, Data) -> Mac | descriptive_error()
-                     when Type :: hmac | cmac | poly1305,
-                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
-                          Key :: iodata(),
-                          Data :: iodata(),
-                          Mac :: binary().
-
+-spec mac(Type, SubType, Key, Data) -> Mac | descriptive_error() when
+    Type :: hmac | cmac | poly1305,
+    SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+    Key :: iodata(),
+    Data :: iodata(),
+    Mac :: binary().
 mac(Type, SubType, Key, Data) -> mac_nif(Type, SubType, Key, Data).
 
-
-
--spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac | descriptive_error()
-                     when Key :: iodata(),
-                          Data :: iodata(),
-                          Mac :: binary(),
-                          MacLength :: pos_integer().
-
+-spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac | descriptive_error() when
+    Key :: iodata(),
+    Data :: iodata(),
+    Mac :: binary(),
+    MacLength :: pos_integer().
 macN(Type, Key, Data, MacLength) ->
     macN(Type, undefined, Key, Data, MacLength).
 
-
--spec macN(Type, SubType, Key, Data, MacLength) -> Mac | descriptive_error()
-                     when Type :: hmac | cmac | poly1305,
-                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
-                          Key :: iodata(),
-                          Data :: iodata(),
-                          Mac :: binary(),
-                          MacLength :: pos_integer().
-
+-spec macN(Type, SubType, Key, Data, MacLength) -> Mac | descriptive_error() when
+    Type :: hmac | cmac | poly1305,
+    SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+    Key :: iodata(),
+    Data :: iodata(),
+    Mac :: binary(),
+    MacLength :: pos_integer().
 macN(Type, SubType, Key, Data, MacLength) ->
-    erlang:binary_part(mac(Type,SubType,Key,Data), 0, MacLength).
-
+    erlang:binary_part(mac(Type, SubType, Key, Data), 0, MacLength).
 
 %%%----------------------------------------------------------------
 %%% Calculate the MAC by uppdating by pieces of the text
 
--opaque mac_state() :: reference() .
+-opaque mac_state() :: reference().
 
--spec mac_init(Type :: poly1305, Key) -> State | descriptive_error()
-                          when Key :: iodata(),
-                               State :: mac_state() .
+-spec mac_init(Type :: poly1305, Key) -> State | descriptive_error() when
+    Key :: iodata(),
+    State :: mac_state().
 mac_init(poly1305, Key) ->
     mac_init_nif(poly1305, undefined, Key).
 
-
--spec mac_init(Type, SubType, Key) -> State | descriptive_error()
-                          when Type :: hmac | cmac | poly1305,
-                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
-                               Key :: iodata(),
-                               State :: mac_state() .
+-spec mac_init(Type, SubType, Key) -> State | descriptive_error() when
+    Type :: hmac | cmac | poly1305,
+    SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+    Key :: iodata(),
+    State :: mac_state().
 mac_init(Type, SubType, Key) ->
     mac_init_nif(Type, SubType, Key).
 
-
--spec mac_update(State0, Data) -> State | descriptive_error()
-                     when Data :: iodata(),
-                          State0 :: mac_state(),
-                          State :: mac_state().
+-spec mac_update(State0, Data) -> State | descriptive_error() when
+    Data :: iodata(),
+    State0 :: mac_state(),
+    State :: mac_state().
 mac_update(Ref, Data) ->
     mac_update_nif(Ref, Data).
 
-
-
--spec mac_final(State) -> Mac | descriptive_error()
-                              when State :: mac_state(),
-                                   Mac :: binary().
+-spec mac_final(State) -> Mac | descriptive_error() when
+    State :: mac_state(),
+    Mac :: binary().
 mac_final(Ref) ->
     mac_final_nif(Ref).
 
-
--spec mac_finalN(State, MacLength) -> Mac | descriptive_error()
-                              when State :: mac_state(),
-                                   MacLength :: pos_integer(),
-                                   Mac :: binary().
+-spec mac_finalN(State, MacLength) -> Mac | descriptive_error() when
+    State :: mac_state(),
+    MacLength :: pos_integer(),
+    Mac :: binary().
 mac_finalN(Ref, MacLength) ->
     erlang:binary_part(mac_final(Ref), 0, MacLength).
-
 
 %%%----------------------------------------------------------------
 %%% NIFs for the functions above
@@ -951,7 +1012,9 @@ mac_finalN(Ref, MacLength) ->
 mac_nif(_Type, _SubType, _Key, _Data) -> ?nif_stub.
 
 mac_init_nif(_Type, _SubType, _Key) -> ?nif_stub.
+
 mac_update_nif(_Ref, _Data) -> ?nif_stub.
+
 mac_final_nif(_Ref) -> ?nif_stub.
 
 %%%================================================================
@@ -969,82 +1032,83 @@ mac_final_nif(_Ref) -> ?nif_stub.
 
 %%%---- hmac/3,4
 
--spec hmac(Type, Key, Data) ->
-                  Mac when Type :: hmac_hash_algorithm(),
-                           Key :: iodata(),
-                           Data :: iodata(),
-                           Mac :: binary() .
+-spec hmac(Type, Key, Data) -> Mac when
+    Type :: hmac_hash_algorithm(),
+    Key :: iodata(),
+    Data :: iodata(),
+    Mac :: binary().
 hmac(Type, Key, Data) ->
     ?COMPAT(mac(hmac, Type, Key, Data)).
 
--spec hmac(Type, Key, Data, MacLength) ->
-                  Mac when Type :: hmac_hash_algorithm(),
-                           Key :: iodata(),
-                           Data :: iodata(),
-                           MacLength :: integer(),
-                           Mac :: binary() .
-
+-spec hmac(Type, Key, Data, MacLength) -> Mac when
+    Type :: hmac_hash_algorithm(),
+    Key :: iodata(),
+    Data :: iodata(),
+    MacLength :: integer(),
+    Mac :: binary().
 hmac(Type, Key, Data, MacLength) ->
     ?COMPAT(macN(hmac, Type, Key, Data, MacLength)).
 
 %%%---- hmac_init, hamc_update, hmac_final
 
--opaque hmac_state() :: mac_state(). % Was: binary().
+% Was: binary().
+-opaque hmac_state() :: mac_state().
 
--spec hmac_init(Type, Key) ->
-                       State when Type :: hmac_hash_algorithm(),
-                                  Key :: iodata(),
-                                  State :: hmac_state() .
+-spec hmac_init(Type, Key) -> State when
+    Type :: hmac_hash_algorithm(),
+    Key :: iodata(),
+    State :: hmac_state().
 hmac_init(Type, Key) ->
     ?COMPAT(mac_init(hmac, Type, Key)).
 
 %%%---- hmac_update
 
--spec hmac_update(State, Data) -> NewState when Data :: iodata(),
-                                                State :: hmac_state(),
-                                                NewState :: hmac_state().
+-spec hmac_update(State, Data) -> NewState when
+    Data :: iodata(),
+    State :: hmac_state(),
+    NewState :: hmac_state().
 hmac_update(State, Data) ->
     ?COMPAT(mac_update(State, Data)).
 
 %%%---- hmac_final
 
--spec hmac_final(State) -> Mac when State :: hmac_state(),
-                                    Mac :: binary().
+-spec hmac_final(State) -> Mac when
+    State :: hmac_state(),
+    Mac :: binary().
 hmac_final(Context) ->
     ?COMPAT(mac_final(Context)).
 
--spec hmac_final_n(State, HashLen) -> Mac when State :: hmac_state(),
-                                               HashLen :: integer(),
-                                               Mac :: binary().
+-spec hmac_final_n(State, HashLen) -> Mac when
+    State :: hmac_state(),
+    HashLen :: integer(),
+    Mac :: binary().
 hmac_final_n(Context, HashLen) ->
     ?COMPAT(mac_finalN(Context, HashLen)).
 
 %%%---- CMAC
 
--define(CMAC_CIPHER_ALGORITHM, cbc_cipher() | cfb_cipher() | blowfish_cbc | des_ede3 | rc2_cbc ).
+-define(CMAC_CIPHER_ALGORITHM, cbc_cipher() | cfb_cipher() | blowfish_cbc | des_ede3 | rc2_cbc).
 
--spec cmac(Type, Key, Data) ->
-                  Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
-                           Key :: iodata(),
-                           Data :: iodata(),
-                           Mac :: binary().
+-spec cmac(Type, Key, Data) -> Mac when
+    Type :: ?CMAC_CIPHER_ALGORITHM,
+    Key :: iodata(),
+    Data :: iodata(),
+    Mac :: binary().
 cmac(Type, Key, Data) ->
     ?COMPAT(mac(cmac, alias(Type), Key, Data)).
 
--spec cmac(Type, Key, Data, MacLength) ->
-                  Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
-                           Key :: iodata(),
-                           Data :: iodata(),
-                           MacLength :: integer(),
-                           Mac :: binary().
-
+-spec cmac(Type, Key, Data, MacLength) -> Mac when
+    Type :: ?CMAC_CIPHER_ALGORITHM,
+    Key :: iodata(),
+    Data :: iodata(),
+    MacLength :: integer(),
+    Mac :: binary().
 cmac(Type, Key, Data, MacLength) ->
     ?COMPAT(macN(cmac, alias(Type), Key, Data, MacLength)).
 
 %%%---- POLY1305
 
--spec poly1305(iodata(), iodata()) -> Mac when Mac ::  binary().
-
+-spec poly1305(iodata(), iodata()) -> Mac when Mac :: binary().
 poly1305(Key, Data) ->
     ?COMPAT(mac(poly1305, Key, Data)).
 
@@ -1052,42 +1116,41 @@ poly1305(Key, Data) ->
 %%%----------------------------------------------------------------
 %%% Ciphers
 
-
 %%%---- Cipher info
--spec cipher_info(Type) -> Result | run_time_error()
-                               when Type :: cipher(),
-                                    Result :: #{key_length := integer(),
-                                                iv_length := integer(),
-                                                block_size := integer(),
-                                                mode := CipherModes,
-                                                type := undefined | integer()
-                                               },
-                                    CipherModes :: undefined
-                                                 | cbc_mode
-                                                 | ccm_mode
-                                                 | cfb_mode
-                                                 | ctr_mode
-                                                 | ecb_mode
-                                                 | gcm_mode
-                                                 | ige_mode
-                                                 | ocb_mode
-                                                 | ofb_mode
-                                                 | wrap_mode
-                                                 | xts_mode
-                                                   .
-
+-spec cipher_info(Type) -> Result | run_time_error() when
+    Type :: cipher(),
+    Result :: #{
+        key_length := integer(),
+        iv_length := integer(),
+        block_size := integer(),
+        mode := CipherModes,
+        type := undefined | integer()
+    },
+    CipherModes ::
+        undefined |
+        cbc_mode |
+        ccm_mode |
+        cfb_mode |
+        ctr_mode |
+        ecb_mode |
+        gcm_mode |
+        ige_mode |
+        ocb_mode |
+        ofb_mode |
+        wrap_mode |
+        xts_mode.
 %% %% These ciphers are not available via the EVP interface on older cryptolibs.
 cipher_info(aes_ctr) ->
-    #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
+    #{block_size => 1, iv_length => 16, key_length => 32, mode => ctr_mode, type => undefined};
 cipher_info(aes_128_ctr) ->
-    #{block_size => 1,iv_length => 16,key_length => 16,mode => ctr_mode,type => undefined};
+    #{block_size => 1, iv_length => 16, key_length => 16, mode => ctr_mode, type => undefined};
 cipher_info(aes_192_ctr) ->
-    #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
+    #{block_size => 1, iv_length => 16, key_length => 24, mode => ctr_mode, type => undefined};
 cipher_info(aes_256_ctr) ->
-    #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
+    #{block_size => 1, iv_length => 16, key_length => 32, mode => ctr_mode, type => undefined};
 %% %% This cipher is handled specialy.
 cipher_info(aes_ige256) ->
-    #{block_size => 16,iv_length => 32,key_length => 16,mode => ige_mode,type => undefined};
+    #{block_size => 16, iv_length => 32, key_length => 16, mode => ige_mode, type => undefined};
 %% %% These ciphers belong to the "old" interface:
 %% cipher_info(aes_cbc) ->
 %%     #{block_size => 16,iv_length => 16,key_length => 24,mode => cbc_mode,type => 423};
@@ -1120,157 +1183,181 @@ cipher_info(Type) ->
 
 %%%---- Block ciphers
 %%%----------------------------------------------------------------
--spec block_encrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) ->
-                           binary() | run_time_error();
-                   (Type::aead_cipher(),  Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata()}) ->
-                           {binary(), binary()} | run_time_error();
-                   (aes_gcm | aes_ccm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
-                           {binary(), binary()} | run_time_error().
-
-
+-spec block_encrypt
+    (
+        Type :: block_cipher_with_iv(),
+        Key :: key() | des3_key(),
+        Ivec :: binary(),
+        PlainText :: iodata()
+    ) -> binary() | run_time_error();
+    (
+        Type :: aead_cipher(),
+        Key :: iodata(),
+        Ivec :: binary(),
+        {AAD :: binary(), PlainText :: iodata()}
+    ) -> {binary(), binary()} | run_time_error();
+    (
+        aes_gcm | aes_ccm,
+        Key :: iodata(),
+        Ivec :: binary(),
+        {AAD :: binary(), PlainText :: iodata(), TagLength :: 1..16}
+    ) -> {binary(), binary()} | run_time_error().
 block_encrypt(aes_ige256, Key, Ivec, PlainText) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, PlainText, true));
-
 block_encrypt(Type, Key0, Ivec, Data) ->
     Key = iolist_to_binary(Key0),
     ?COMPAT(
-       case Data of
-           {AAD, PlainText} ->
-               crypto_one_time_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, true);
-           {AAD, PlainText, TagLength} ->
-               crypto_one_time_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, TagLength, true);
-           PlainText ->
-               block_crypt(alias(Type,Key), Key, Ivec, PlainText, true)
-       end).
+        case Data of
+            {AAD, PlainText} ->
+                crypto_one_time_aead(alias(Type, Key), Key, Ivec, PlainText, AAD, true);
+            {AAD, PlainText, TagLength} ->
+                crypto_one_time_aead(alias(Type, Key), Key, Ivec, PlainText, AAD, TagLength, true);
+            PlainText ->
+                block_crypt(alias(Type, Key), Key, Ivec, PlainText, true)
+        end
+    ).
 
--spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) ->
-                           binary() | run_time_error().
-
+-spec block_encrypt(Type :: block_cipher_without_iv(), Key :: key(), PlainText :: iodata()) ->
+    binary() | run_time_error().
 block_encrypt(Type, Key0, PlainText) ->
     Key = iolist_to_binary(Key0),
-    ?COMPAT(block_crypt(alias(Type,Key), Key, undefined, PlainText, true)).
-
+    ?COMPAT(block_crypt(alias(Type, Key), Key, undefined, PlainText, true)).
 
 %%%----------------------------------------------------------------
 %%%----------------------------------------------------------------
--spec block_decrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) ->
-                           binary() | run_time_error();
-		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
-		    {AAD::binary(), Data::iodata(), Tag::binary()}) ->
-                           binary() | error | run_time_error() .
-
+-spec block_decrypt
+    (
+        Type :: block_cipher_with_iv(),
+        Key :: key() | des3_key(),
+        Ivec :: binary(),
+        Data :: iodata()
+    ) -> binary() | run_time_error();
+    (
+        Type :: aead_cipher(),
+        Key :: iodata(),
+        Ivec :: binary(),
+        {AAD :: binary(), Data :: iodata(), Tag :: binary()}
+    ) -> binary() | error | run_time_error().
 block_decrypt(aes_ige256, Key, Ivec, Data) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
-
 block_decrypt(Type, Key0, Ivec, Data) ->
     Key = iolist_to_binary(Key0),
     ?COMPAT(
-       case Data of
-           {AAD, CryptoText, Tag} ->
-               crypto_one_time_aead(alias(Type,Key), Key, Ivec, CryptoText, AAD, Tag, false);
-           CryptoText ->
-               block_crypt(alias(Type,Key), Key, Ivec, CryptoText, false)
-       end).
+        case Data of
+            {AAD, CryptoText, Tag} ->
+                crypto_one_time_aead(alias(Type, Key), Key, Ivec, CryptoText, AAD, Tag, false);
+            CryptoText ->
+                block_crypt(alias(Type, Key), Key, Ivec, CryptoText, false)
+        end
+    ).
 
-
--spec block_decrypt(Type::block_cipher_without_iv(), Key::key(), Data::iodata()) ->
-                           binary() | run_time_error().
-
+-spec block_decrypt(Type :: block_cipher_without_iv(), Key :: key(), Data :: iodata()) ->
+    binary() | run_time_error().
 block_decrypt(Type, Key0, CryptoText) ->
     Key = iolist_to_binary(Key0),
-    ?COMPAT(block_crypt(alias(Type,Key), Key, undefined, CryptoText, false)).
-
-
+    ?COMPAT(block_crypt(alias(Type, Key), Key, undefined, CryptoText, false)).
 
 block_crypt(Cipher, Key, IV, Data, EncryptFlag) ->
-    Ctx = case IV of
-              undefined -> crypto_init(Cipher, Key, EncryptFlag);
-              _ -> crypto_init(Cipher, Key, IV, EncryptFlag)
-          end,
+    Ctx =
+        case IV of
+            undefined -> crypto_init(Cipher, Key, EncryptFlag);
+            _ -> crypto_init(Cipher, Key, IV, EncryptFlag)
+        end,
     crypto_update(Ctx, Data).
 
 %%%-------- Stream ciphers API
 
--opaque stream_state() :: {stream_cipher(),
-                           crypto_state() | {crypto_state(),flg_undefined}
-                          }.
+-opaque stream_state() :: {stream_cipher(), crypto_state() | {crypto_state(), flg_undefined}}.
 
 %%%---- stream_init
--spec stream_init(Type, Key, IVec) -> State | run_time_error()
-                                          when Type :: stream_cipher(),
-                                               Key :: iodata(),
-                                               IVec ::binary(),
-                                               State :: stream_state() .
+-spec stream_init(Type, Key, IVec) -> State | run_time_error() when
+    Type :: stream_cipher(),
+    Key :: iodata(),
+    IVec :: binary(),
+    State :: stream_state().
 stream_init(Type, Key0, IVec) when is_binary(IVec) ->
     Key = iolist_to_binary(Key0),
-    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
-                                     Key, iolist_to_binary(IVec),
-                                     get_crypto_opts([{encrypt,undefined}]))
-                 ),
-    {Type, {Ref,flg_undefined}}.
+    Ref = ?COMPAT(
+        ng_crypto_init_nif(
+            alias(Type, Key),
+            Key,
+            iolist_to_binary(IVec),
+            get_crypto_opts([{encrypt, undefined}])
+        )
+    ),
+    {Type, {Ref, flg_undefined}}.
 
-
--spec stream_init(Type, Key) -> State | run_time_error()
-                                    when Type :: rc4,
-                                         Key :: iodata(),
-                                         State :: stream_state() .
+-spec stream_init(Type, Key) -> State | run_time_error() when
+    Type :: rc4,
+    Key :: iodata(),
+    State :: stream_state().
 stream_init(rc4 = Type, Key0) ->
     Key = iolist_to_binary(Key0),
-    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
-                                     Key, <<>>,
-                                     get_crypto_opts([{encrypt,undefined}]))
-                 ),
-    {Type, {Ref,flg_undefined}}.
+    Ref = ?COMPAT(
+        ng_crypto_init_nif(
+            alias(Type, Key),
+            Key,
+            <<>>,
+            get_crypto_opts([{encrypt, undefined}])
+        )
+    ),
+    {Type, {Ref, flg_undefined}}.
 
 %%%---- stream_encrypt
--spec stream_encrypt(State, PlainText) -> {NewState, CipherText} | run_time_error()
-                                              when State :: stream_state(),
-                                                   PlainText :: iodata(),
-                                                   NewState :: stream_state(),
-                                                   CipherText :: iodata() .
+-spec stream_encrypt(State, PlainText) -> {NewState, CipherText} | run_time_error() when
+    State :: stream_state(),
+    PlainText :: iodata(),
+    NewState :: stream_state(),
+    CipherText :: iodata().
 stream_encrypt(State, Data) ->
     crypto_stream_emulate(State, Data, true).
 
 %%%---- stream_decrypt
--spec stream_decrypt(State, CipherText) -> {NewState, PlainText} | run_time_error()
-                                              when State :: stream_state(),
-                                                   CipherText :: iodata(),
-                                                   NewState :: stream_state(),
-                                                   PlainText :: iodata() .
+-spec stream_decrypt(State, CipherText) -> {NewState, PlainText} | run_time_error() when
+    State :: stream_state(),
+    CipherText :: iodata(),
+    NewState :: stream_state(),
+    PlainText :: iodata().
 stream_decrypt(State, Data) ->
     crypto_stream_emulate(State, Data, false).
 
 %%%-------- helpers
-crypto_stream_emulate({Cipher,{Ref0,flg_undefined}}, Data, EncryptFlag) when is_reference(Ref0) ->
+crypto_stream_emulate({Cipher, {Ref0, flg_undefined}}, Data, EncryptFlag) when is_reference(Ref0) ->
     ?COMPAT(begin
-                Ref = ng_crypto_init_nif(Ref0, <<>>, <<>>,
-                                     get_crypto_opts([{encrypt,EncryptFlag}])),
-                {{Cipher,Ref}, crypto_update(Ref, Data)}
-            end);
-
-crypto_stream_emulate({Cipher,Ref}, Data, _) when is_reference(Ref) ->
-    ?COMPAT({{Cipher,Ref}, crypto_update(Ref, Data)}).
+        Ref = ng_crypto_init_nif(
+            Ref0,
+            <<>>,
+            <<>>,
+            get_crypto_opts([{encrypt, EncryptFlag}])
+        ),
+        {{Cipher, Ref}, crypto_update(Ref, Data)}
+    end);
+crypto_stream_emulate({Cipher, Ref}, Data, _) when is_reference(Ref) ->
+    ?COMPAT({{Cipher, Ref}, crypto_update(Ref, Data)}).
 
 %%%----------------------------------------------------------------
--spec next_iv(Type:: cbc_cipher(), Data) -> NextIVec when % Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,
-                                           Data :: iodata(),
-                                           NextIVec :: binary().
+
+% Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,
+-spec next_iv(Type :: cbc_cipher(), Data) -> NextIVec when
+    Data :: iodata(),
+    NextIVec :: binary().
 next_iv(Type, Data) when is_binary(Data) ->
-    IVecSize = case Type of
-                   des_cbc  -> 8;
-                   des3_cbc -> 8;
-                   aes_cbc  -> 16;
-                   aes_ige  -> 32
-               end,
+    IVecSize =
+        case Type of
+            des_cbc -> 8;
+            des3_cbc -> 8;
+            aes_cbc -> 16;
+            aes_ige -> 32
+        end,
     {_, IVec} = split_binary(Data, size(Data) - IVecSize),
     IVec;
 next_iv(Type, Data) when is_list(Data) ->
     next_iv(Type, list_to_binary(Data)).
 
--spec next_iv(des_cfb, Data, IVec) -> NextIVec when Data :: iodata(),
-                                                    IVec :: binary(),
-                                                    NextIVec :: binary().
-
+-spec next_iv(des_cfb, Data, IVec) -> NextIVec when
+    Data :: iodata(),
+    IVec :: binary(),
+    NextIVec :: binary().
 next_iv(des_cfb, Data, IVec) ->
     IVecAndData = list_to_binary([IVec, Data]),
     {_, NewIVec} = split_binary(IVecAndData, byte_size(IVecAndData) - 8),
@@ -1284,88 +1371,98 @@ next_iv(Type, Data, _Ivec) ->
 %%%
 %%%================================================================
 
--opaque crypto_state() :: reference() .
+-opaque crypto_state() :: reference().
 
--type crypto_opts() :: boolean() 
-                     | [ crypto_opt() ] .
--type crypto_opt() :: {encrypt,boolean()} 
-                    | {padding, padding()} .
+-type crypto_opts() ::
+    boolean() |
+    [crypto_opt()].
+
+-type crypto_opt() ::
+    {encrypt, boolean()} |
+    {padding, padding()}.
+
 -type padding() :: cryptolib_padding() | otp_padding().
--type cryptolib_padding() :: none | pkcs_padding .
--type otp_padding() :: zero | random .
-
+-type cryptolib_padding() :: none | pkcs_padding.
+-type otp_padding() :: zero | random.
 
 %%%----------------------------------------------------------------
 %%%
 %%% Create and initialize a new state for encryption or decryption
 %%%
 
--spec crypto_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
-                                                   when Cipher :: cipher_no_iv(),
-                                                        Key :: iodata(),
-                                                        FlagOrOptions :: crypto_opts() | boolean(),
-                                                        State :: crypto_state() .
+-spec crypto_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error() when
+    Cipher :: cipher_no_iv(),
+    Key :: iodata(),
+    FlagOrOptions :: crypto_opts() | boolean(),
+    State :: crypto_state().
 crypto_init(Cipher, Key, FlagOrOptions) ->
-    ng_crypto_init_nif(Cipher,
-                       iolist_to_binary(Key),
-                       <<>>,
-                       get_crypto_opts(FlagOrOptions)).
+    ng_crypto_init_nif(
+        Cipher,
+        iolist_to_binary(Key),
+        <<>>,
+        get_crypto_opts(FlagOrOptions)
+    ).
 
-
--spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State | descriptive_error()
-                                                       when Cipher :: cipher_iv(),
-                                                            Key :: iodata(),
-                                                            IV :: iodata(),
-                                                            FlagOrOptions :: crypto_opts(),
-                                                            State :: crypto_state() .
+-spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State | descriptive_error() when
+    Cipher :: cipher_iv(),
+    Key :: iodata(),
+    IV :: iodata(),
+    FlagOrOptions :: crypto_opts(),
+    State :: crypto_state().
 crypto_init(Cipher, Key, IV, FlagOrOptions) ->
-    ng_crypto_init_nif(Cipher,
-                       iolist_to_binary(Key),
-                       iolist_to_binary(IV),
-                       get_crypto_opts(FlagOrOptions)).
+    ng_crypto_init_nif(
+        Cipher,
+        iolist_to_binary(Key),
+        iolist_to_binary(IV),
+        get_crypto_opts(FlagOrOptions)
+    ).
 
 %%%----------------------------------------------------------------
 get_crypto_opts(Options) when is_list(Options) ->
-    lists:foldl(fun chk_opt/2,
-                #{encrypt => true,
-                  padding => undefined
-                 },
-                Options);
+    lists:foldl(
+        fun chk_opt/2,
+        #{
+            encrypt => true,
+            padding => undefined
+        },
+        Options
+    );
 get_crypto_opts(Flag) when is_boolean(Flag) ->
-    #{encrypt => Flag,
-      padding => undefined
-     };
+    #{
+        encrypt => Flag,
+        padding => undefined
+    };
 get_crypto_opts(X) ->
-    error({badarg,{bad_option,X}}).
+    error({badarg, {bad_option, X}}).
 
-
-chk_opt({Tag,Val}, A) ->
-    case ok_opt(Tag,Val) of
+chk_opt({Tag, Val}, A) ->
+    case ok_opt(Tag, Val) of
         true ->
             A#{Tag => Val};
         false ->
-            error({badarg,{bad_option,{Tag,Val}}})
+            error({badarg, {bad_option, {Tag, Val}}})
     end;
 chk_opt(X, _) ->
-    error({badarg,{bad_option,X}}). 
-
+    error({badarg, {bad_option, X}}).
 
 ok_opt(encrypt, V) -> lists:member(V, [true, false, undefined]);
 ok_opt(padding, V) -> lists:member(V, [none, pkcs_padding, zero, random, undefined]);
 ok_opt(_, _) -> false.
 
 %%%----------------------------------------------------------------
--spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
-                                                          when Cipher :: cipher_iv(),
-                                                               Key :: iodata(),
-                                                               FlagOrOptions :: crypto_opts() | boolean(),
-                                                               State :: crypto_state() .
+-spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error() when
+    Cipher :: cipher_iv(),
+    Key :: iodata(),
+    FlagOrOptions :: crypto_opts() | boolean(),
+    State :: crypto_state().
 crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
     %% The IV is supposed to be supplied by calling crypto_update/3
-    ng_crypto_init_nif(Cipher,
-                       iolist_to_binary(Key),
-                       undefined,
-                       get_crypto_opts(FlagOrOptions)).
+    ng_crypto_init_nif(
+        Cipher,
+        iolist_to_binary(Key),
+        undefined,
+        get_crypto_opts(FlagOrOptions)
+    ).
 
 %%%----------------------------------------------------------------
 %%%
@@ -1374,19 +1471,19 @@ crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
 %%% blocksize.
 %%%
 
--spec crypto_update(State, Data) -> Result | descriptive_error()
-                            when State :: crypto_state(),
-                                 Data :: iodata(),
-                                 Result :: binary() .
+-spec crypto_update(State, Data) -> Result | descriptive_error() when
+    State :: crypto_state(),
+    Data :: iodata(),
+    Result :: binary().
 crypto_update(State, Data) ->
     ng_crypto_update_nif(State, iolist_to_binary(Data)).
 
 %%%----------------------------------------------------------------
--spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error()
-                                                   when State :: crypto_state(),
-                                                        Data :: iodata(),
-                                                        IV :: iodata(),
-                                                        Result :: binary() .
+-spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error() when
+    State :: crypto_state(),
+    Data :: iodata(),
+    IV :: iodata(),
+    Result :: binary().
 crypto_dyn_iv_update(State, Data, IV) ->
     ng_crypto_update_nif(State, iolist_to_binary(Data), iolist_to_binary(IV)).
 
@@ -1396,9 +1493,9 @@ crypto_dyn_iv_update(State, Data, IV) ->
 %%% to crypto_uptate was not an integer number of blocks, the rest
 %%% is returned from this function.
 
--spec crypto_final(State) -> FinalResult | descriptive_error()
-                            when State :: crypto_state(),
-                                 FinalResult :: binary() .
+-spec crypto_final(State) -> FinalResult | descriptive_error() when
+    State :: crypto_state(),
+    FinalResult :: binary().
 crypto_final(State) ->
     ng_crypto_final_nif(State).
 
@@ -1406,9 +1503,9 @@ crypto_final(State) ->
 %%%
 %%% Get result of padding etc
 
--spec crypto_get_data(State) -> Result
-                            when State :: crypto_state(),
-                                 Result :: map() .
+-spec crypto_get_data(State) -> Result when
+    State :: crypto_state(),
+    Result :: map().
 crypto_get_data(State) ->
     ng_crypto_get_data_nif(State).
 
@@ -1418,83 +1515,81 @@ crypto_get_data(State) ->
 %%% The size must be an integer multiple of the crypto's blocksize.
 %%%
 
--spec crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
-                             Result | descriptive_error()
-                                 when Cipher :: cipher_no_iv(),
-                                      Key :: iodata(),
-                                      Data :: iodata(),
-                                      FlagOrOptions :: crypto_opts() | boolean(),
-                                      Result :: binary() .
-
+-spec crypto_one_time(Cipher, Key, Data, FlagOrOptions) -> Result | descriptive_error() when
+    Cipher :: cipher_no_iv(),
+    Key :: iodata(),
+    Data :: iodata(),
+    FlagOrOptions :: crypto_opts() | boolean(),
+    Result :: binary().
 crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
-    ng_crypto_one_time_nif(Cipher,
-                           iolist_to_binary(Key),
-                           <<>>,
-                           iolist_to_binary(Data),
-                           get_crypto_opts(FlagOrOptions)).
+    ng_crypto_one_time_nif(
+        Cipher,
+        iolist_to_binary(Key),
+        <<>>,
+        iolist_to_binary(Data),
+        get_crypto_opts(FlagOrOptions)
+    ).
 
-
--spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
-                             Result | descriptive_error()
-                                 when Cipher :: cipher_iv(),
-                                      Key :: iodata(),
-                                      IV :: iodata(),
-                                      Data :: iodata(),
-                                      FlagOrOptions :: crypto_opts() | boolean(),
-                                      Result :: binary() .
-
+-spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) -> Result | descriptive_error() when
+    Cipher :: cipher_iv(),
+    Key :: iodata(),
+    IV :: iodata(),
+    Data :: iodata(),
+    FlagOrOptions :: crypto_opts() | boolean(),
+    Result :: binary().
 crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
-    ng_crypto_one_time_nif(Cipher,
-                           iolist_to_binary(Key),
-                           iolist_to_binary(IV),
-                           iolist_to_binary(Data),
-                           get_crypto_opts(FlagOrOptions)).
+    ng_crypto_one_time_nif(
+        Cipher,
+        iolist_to_binary(Key),
+        iolist_to_binary(IV),
+        iolist_to_binary(Data),
+        get_crypto_opts(FlagOrOptions)
+    ).
 
 %%%----------------------------------------------------------------
--spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
-                             Result | descriptive_error()
-                                 when Cipher :: cipher_aead(),
-                                      Key :: iodata(),
-                                      IV :: iodata(),
-                                      InText :: iodata(),
-                                      AAD :: iodata(),
-                                      Result :: EncryptResult,
-                                      EncryptResult :: {OutCryptoText, OutTag},
-                                      OutCryptoText :: binary(),
-                                      OutTag :: binary().
-
+-spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag :: true) ->
+    Result | descriptive_error()
+when
+    Cipher :: cipher_aead(),
+    Key :: iodata(),
+    IV :: iodata(),
+    InText :: iodata(),
+    AAD :: iodata(),
+    Result :: EncryptResult,
+    EncryptResult :: {OutCryptoText, OutTag},
+    OutCryptoText :: binary(),
+    OutTag :: binary().
 crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
     crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, aead_tag_len(Cipher), true).
 
-
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
-                             Result | descriptive_error()
-                                 when Cipher :: cipher_aead(),
-                                      Key :: iodata(),
-                                      IV :: iodata(),
-                                      InText :: iodata(),
-                                      AAD :: iodata(),
-                                      TagOrTagLength :: EncryptTagLength | DecryptTag,
-                                      EncryptTagLength :: non_neg_integer(), % or pos_integer() 1..
-                                      DecryptTag :: iodata(),
-                                      EncFlag :: boolean(),
-                                      Result :: EncryptResult | DecryptResult,
-                                      EncryptResult :: {OutCryptoText, OutTag},
-                                      DecryptResult :: OutPlainText | error,
-                                      OutCryptoText :: binary(),
-                                      OutTag :: binary(),
-                                      OutPlainText :: binary().
-
+    Result | descriptive_error()
+when
+    Cipher :: cipher_aead(),
+    Key :: iodata(),
+    IV :: iodata(),
+    InText :: iodata(),
+    AAD :: iodata(),
+    TagOrTagLength :: EncryptTagLength | DecryptTag,
+    % or pos_integer() 1..
+    EncryptTagLength :: non_neg_integer(),
+    DecryptTag :: iodata(),
+    EncFlag :: boolean(),
+    Result :: EncryptResult | DecryptResult,
+    EncryptResult :: {OutCryptoText, OutTag},
+    DecryptResult :: OutPlainText | error,
+    OutCryptoText :: binary(),
+    OutTag :: binary(),
+    OutPlainText :: binary().
 crypto_one_time_aead(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg) ->
     aead_cipher(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg).
 
-
 aead_tag_len(chacha20_poly1305) -> 16;
-aead_tag_len(aes_ccm    ) -> 12;
+aead_tag_len(aes_ccm) -> 12;
 aead_tag_len(aes_128_ccm) -> 12;
 aead_tag_len(aes_192_ccm) -> 12;
 aead_tag_len(aes_256_ccm) -> 12;
-aead_tag_len(aes_gcm    ) -> 16;
+aead_tag_len(aes_gcm) -> 16;
 aead_tag_len(aes_128_gcm) -> 16;
 aead_tag_len(aes_192_gcm) -> 16;
 aead_tag_len(aes_256_gcm) -> 16;
@@ -1503,22 +1598,26 @@ aead_tag_len(_) -> error({badarg, "Not an AEAD cipher"}).
 %%%----------------------------------------------------------------
 %%% NIFs
 
-ng_crypto_init_nif(Cipher, Key, IVec, #{encrypt := EncryptFlag,
-                                        padding := Padding}) ->
+ng_crypto_init_nif(Cipher, Key, IVec, #{
+    encrypt := EncryptFlag,
+    padding := Padding
+}) ->
     ng_crypto_init_nif(Cipher, Key, IVec, EncryptFlag, Padding).
-    
+
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlag, _Padding) -> ?nif_stub.
 
-
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
+
 ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
 ng_crypto_final_nif(_State) -> ?nif_stub.
 
 ng_crypto_get_data_nif(_State) -> ?nif_stub.
 
-ng_crypto_one_time_nif(Cipher, Key, IVec, Data,  #{encrypt := EncryptFlag,
-                                                   padding := Padding}) ->
+ng_crypto_one_time_nif(Cipher, Key, IVec, Data, #{
+    encrypt := EncryptFlag,
+    padding := Padding
+}) ->
     ng_crypto_one_time_nif(Cipher, Key, IVec, Data, EncryptFlag, Padding).
 
 ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlag, _Padding) -> ?nif_stub.
@@ -1527,79 +1626,92 @@ ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlag, _Padding) -> ?
 %%% Cipher aliases
 %%%
 -define(if_also(Cipher, Ciphers, AliasCiphers),
-        case lists:member(Cipher, Ciphers) of
-            true ->
-                AliasCiphers;
-            false ->
-                Ciphers
-        end).
-
+    case lists:member(Cipher, Ciphers) of
+        true ->
+            AliasCiphers;
+        false ->
+            Ciphers
+    end
+).
 
 prepend_old_aliases(L0) ->
-    L1 = ?if_also(des_ede3_cbc, L0,
-                  [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb | L0]),
-    L2 = ?if_also(aes_128_cbc, L1,
-                 [aes_cbc, aes_cbc128, aes_cbc256 | L1]),
-    L3 = ?if_also(aes_128_ctr, L2,
-                  [aes_ctr | L2]),
-    L4 = ?if_also(aes_128_ccm, L3,
-                  [aes_ccm | L3]),
-    L5 = ?if_also(aes_128_gcm, L4,
-                  [aes_gcm | L4]),
-    L6 = ?if_also(aes_128_cfb8, L5,
-                  [aes_cfb8 | L5]),
-    L7 = ?if_also(aes_128_cfb128, L6,
-                  [aes_cfb128 | L6]),
-    L8 = ?if_also(aes_128_ecb, L7,
-                  [aes_ecb | L7]),
+    L1 = ?if_also(
+        des_ede3_cbc,
+        L0,
+        [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb | L0]
+    ),
+    L2 = ?if_also(
+        aes_128_cbc,
+        L1,
+        [aes_cbc, aes_cbc128, aes_cbc256 | L1]
+    ),
+    L3 = ?if_also(
+        aes_128_ctr,
+        L2,
+        [aes_ctr | L2]
+    ),
+    L4 = ?if_also(
+        aes_128_ccm,
+        L3,
+        [aes_ccm | L3]
+    ),
+    L5 = ?if_also(
+        aes_128_gcm,
+        L4,
+        [aes_gcm | L4]
+    ),
+    L6 = ?if_also(
+        aes_128_cfb8,
+        L5,
+        [aes_cfb8 | L5]
+    ),
+    L7 = ?if_also(
+        aes_128_cfb128,
+        L6,
+        [aes_cfb128 | L6]
+    ),
+    L8 = ?if_also(
+        aes_128_ecb,
+        L7,
+        [aes_ecb | L7]
+    ),
     L8.
 
-
-
 %%%---- des_ede3_cbc
-alias(des3_cbc)     -> des_ede3_cbc;
-alias(des_ede3)     -> des_ede3_cbc;
+alias(des3_cbc) -> des_ede3_cbc;
+alias(des_ede3) -> des_ede3_cbc;
 %%%---- des_ede3_cfb
 alias(des_ede3_cbf) -> des_ede3_cfb;
-alias(des3_cbf)     -> des_ede3_cfb;
-alias(des3_cfb)     -> des_ede3_cfb;
+alias(des3_cbf) -> des_ede3_cfb;
+alias(des3_cfb) -> des_ede3_cfb;
 %%%---- aes_*_cbc
-alias(aes_cbc128)   -> aes_128_cbc;
-alias(aes_cbc256)   -> aes_256_cbc;
-
+alias(aes_cbc128) -> aes_128_cbc;
+alias(aes_cbc256) -> aes_256_cbc;
 alias(Alg) -> Alg.
-
 
 alias(Ciph, Key) -> alias2(alias(Ciph), Key).
 
-alias2(aes_cbc, Key) when size(Key)==16  -> aes_128_cbc;
-alias2(aes_cbc, Key) when size(Key)==24  -> aes_192_cbc;
-alias2(aes_cbc, Key) when size(Key)==32  -> aes_256_cbc;
-
-alias2(aes_cfb8, Key) when size(Key)==16  -> aes_128_cfb8;
-alias2(aes_cfb8, Key) when size(Key)==24  -> aes_192_cfb8;
-alias2(aes_cfb8, Key) when size(Key)==32  -> aes_256_cfb8;
-
-alias2(aes_cfb128, Key) when size(Key)==16  -> aes_128_cfb128;
-alias2(aes_cfb128, Key) when size(Key)==24  -> aes_192_cfb128;
-alias2(aes_cfb128, Key) when size(Key)==32  -> aes_256_cfb128;
-
-alias2(aes_ctr, Key) when size(Key)==16  -> aes_128_ctr;
-alias2(aes_ctr, Key) when size(Key)==24  -> aes_192_ctr;
-alias2(aes_ctr, Key) when size(Key)==32  -> aes_256_ctr;
-
-alias2(aes_ecb, Key) when size(Key)==16  -> aes_128_ecb;
-alias2(aes_ecb, Key) when size(Key)==24  -> aes_192_ecb;
-alias2(aes_ecb, Key) when size(Key)==32  -> aes_256_ecb;
-
-alias2(aes_gcm, Key) when size(Key)==16  -> aes_128_gcm;
-alias2(aes_gcm, Key) when size(Key)==24  -> aes_192_gcm;
-alias2(aes_gcm, Key) when size(Key)==32  -> aes_256_gcm;
-
-alias2(aes_ccm, Key) when size(Key)==16  -> aes_128_ccm;
-alias2(aes_ccm, Key) when size(Key)==24  -> aes_192_ccm;
-alias2(aes_ccm, Key) when size(Key)==32  -> aes_256_ccm;
-
+alias2(aes_cbc, Key) when size(Key) == 16 -> aes_128_cbc;
+alias2(aes_cbc, Key) when size(Key) == 24 -> aes_192_cbc;
+alias2(aes_cbc, Key) when size(Key) == 32 -> aes_256_cbc;
+alias2(aes_cfb8, Key) when size(Key) == 16 -> aes_128_cfb8;
+alias2(aes_cfb8, Key) when size(Key) == 24 -> aes_192_cfb8;
+alias2(aes_cfb8, Key) when size(Key) == 32 -> aes_256_cfb8;
+alias2(aes_cfb128, Key) when size(Key) == 16 -> aes_128_cfb128;
+alias2(aes_cfb128, Key) when size(Key) == 24 -> aes_192_cfb128;
+alias2(aes_cfb128, Key) when size(Key) == 32 -> aes_256_cfb128;
+alias2(aes_ctr, Key) when size(Key) == 16 -> aes_128_ctr;
+alias2(aes_ctr, Key) when size(Key) == 24 -> aes_192_ctr;
+alias2(aes_ctr, Key) when size(Key) == 32 -> aes_256_ctr;
+alias2(aes_ecb, Key) when size(Key) == 16 -> aes_128_ecb;
+alias2(aes_ecb, Key) when size(Key) == 24 -> aes_192_ecb;
+alias2(aes_ecb, Key) when size(Key) == 32 -> aes_256_ecb;
+alias2(aes_gcm, Key) when size(Key) == 16 -> aes_128_gcm;
+alias2(aes_gcm, Key) when size(Key) == 24 -> aes_192_gcm;
+alias2(aes_gcm, Key) when size(Key) == 32 -> aes_256_gcm;
+alias2(aes_ccm, Key) when size(Key) == 16 -> aes_128_ccm;
+alias2(aes_ccm, Key) when size(Key) == 24 -> aes_192_ccm;
+alias2(aes_ccm, Key) when size(Key) == 32 -> aes_256_ccm;
 alias2(Alg, _) -> Alg.
 
 %%%================================================================
@@ -1608,16 +1720,16 @@ alias2(Alg, _) -> Alg.
 %%%
 %%%================================================================
 -type rand_cache_seed() ::
-        nonempty_improper_list(non_neg_integer(), binary()).
+    nonempty_improper_list(non_neg_integer(), binary()).
 
--spec strong_rand_bytes(N::non_neg_integer()) -> binary().
+-spec strong_rand_bytes(N :: non_neg_integer()) -> binary().
 strong_rand_bytes(Bytes) ->
     case strong_rand_bytes_nif(Bytes) of
         false -> erlang:error(low_entropy);
         Bin -> Bin
     end.
-strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
+strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 -spec rand_seed() -> rand:state().
 rand_seed() ->
@@ -1627,52 +1739,53 @@ rand_seed() ->
 rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
--spec rand_seed_alg(Alg :: atom()) ->
-                           {rand:alg_handler(),
-                            atom() | rand_cache_seed()}.
+-spec rand_seed_alg(Alg :: atom()) -> {rand:alg_handler(), atom() | rand_cache_seed()}.
 rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
 -spec rand_seed_alg(Alg :: atom(), Seed :: term()) ->
-                           {rand:alg_handler(),
-                            atom() | rand_cache_seed()}.
+    {rand:alg_handler(), atom() | rand_cache_seed()}.
 rand_seed_alg(Alg, Seed) ->
     rand:seed(rand_seed_alg_s(Alg, Seed)).
 
 -define(CRYPTO_CACHE_BITS, 56).
 -define(CRYPTO_AES_BITS, 58).
 
--spec rand_seed_alg_s(Alg :: atom()) ->
-                             {rand:alg_handler(),
-                              atom() | rand_cache_seed()}.
+-spec rand_seed_alg_s(Alg :: atom()) -> {rand:alg_handler(), atom() | rand_cache_seed()}.
 rand_seed_alg_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
     State;
 rand_seed_alg_s({Alg, AlgState}) when is_atom(Alg) ->
-    {mk_alg_handler(Alg),AlgState};
- rand_seed_alg_s(Alg) when is_atom(Alg) ->
-    {mk_alg_handler(Alg),mk_alg_state(Alg)}.
+    {mk_alg_handler(Alg), AlgState};
+rand_seed_alg_s(Alg) when is_atom(Alg) ->
+    {mk_alg_handler(Alg), mk_alg_state(Alg)}.
+
 %%
 -spec rand_seed_alg_s(Alg :: atom(), Seed :: term()) ->
-                             {rand:alg_handler(),
-                              atom() | rand_cache_seed()}.
+    {rand:alg_handler(), atom() | rand_cache_seed()}.
 rand_seed_alg_s(Alg, Seed) when is_atom(Alg) ->
-    {mk_alg_handler(Alg),mk_alg_state({Alg,Seed})}.
+    {mk_alg_handler(Alg), mk_alg_state({Alg, Seed})}.
 
 mk_alg_handler(?MODULE = Alg) ->
-    #{ type => Alg,
-       bits => 64,
-       next => fun ?MODULE:rand_plugin_next/1,
-       uniform => fun ?MODULE:rand_plugin_uniform/1,
-       uniform_n => fun ?MODULE:rand_plugin_uniform/2};
+    #{
+        type => Alg,
+        bits => 64,
+        next => fun ?MODULE:rand_plugin_next/1,
+        uniform => fun ?MODULE:rand_plugin_uniform/1,
+        uniform_n => fun ?MODULE:rand_plugin_uniform/2
+    };
 mk_alg_handler(crypto_cache = Alg) ->
-    #{ type => Alg,
-       bits => ?CRYPTO_CACHE_BITS,
-       next => fun ?MODULE:rand_cache_plugin_next/1};
+    #{
+        type => Alg,
+        bits => ?CRYPTO_CACHE_BITS,
+        next => fun ?MODULE:rand_cache_plugin_next/1
+    };
 mk_alg_handler(crypto_aes = Alg) ->
-    #{ type => Alg,
-       bits => ?CRYPTO_AES_BITS,
-       next => fun ?MODULE:rand_plugin_aes_next/1,
-       jump => fun ?MODULE:rand_plugin_aes_jump/1}.
+    #{
+        type => Alg,
+        bits => ?CRYPTO_AES_BITS,
+        next => fun ?MODULE:rand_plugin_aes_next/1,
+        jump => fun ?MODULE:rand_plugin_aes_jump/1
+    }.
 
 mk_alg_state(?MODULE) ->
     no_seed;
@@ -1680,15 +1793,15 @@ mk_alg_state(crypto_cache) ->
     CacheBits = ?CRYPTO_CACHE_BITS,
     BytesPerWord = (CacheBits + 7) div 8,
     GenBytes =
-        ((rand_cache_size() + (2*BytesPerWord - 1)) div BytesPerWord)
-        * BytesPerWord,
+        ((rand_cache_size() + (2 * BytesPerWord - 1)) div BytesPerWord) *
+            BytesPerWord,
     {CacheBits, GenBytes, <<>>};
-mk_alg_state({crypto_aes,Seed}) ->
+mk_alg_state({crypto_aes, Seed}) ->
     %% 16 byte words (128 bit crypto blocks)
     GenWords = (rand_cache_size() + 31) div 16,
     Key = crypto:hash(sha256, Seed),
-    {F,Count} = longcount_seed(Seed),
-    {Key,GenWords,F,Count}.
+    {F, Count} = longcount_seed(Seed),
+    {Key, GenWords, F, Count}.
 
 rand_cache_size() ->
     DefaultCacheSize = 1024,
@@ -1710,14 +1823,13 @@ rand_plugin_uniform(State) ->
 rand_plugin_uniform(Max, State) ->
     {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
 
-
 rand_cache_plugin_next({CacheBits, GenBytes, <<>>}) ->
     rand_cache_plugin_next(
-      {CacheBits, GenBytes, strong_rand_bytes(GenBytes)});
+        {CacheBits, GenBytes, strong_rand_bytes(GenBytes)}
+    );
 rand_cache_plugin_next({CacheBits, GenBytes, Cache}) ->
     <<I:CacheBits, NewCache/binary>> = Cache,
     {I, {CacheBits, GenBytes, NewCache}}.
-
 
 %% Encrypt 128 bit counter values and use the 58 lowest
 %% encrypted bits as random numbers.
@@ -1727,46 +1839,50 @@ rand_cache_plugin_next({CacheBits, GenBytes, Cache}) ->
 %% at the time and cache them.
 %%
 -dialyzer({no_improper_lists, rand_plugin_aes_next/1}).
-rand_plugin_aes_next([V|Cache]) ->
-    {V,Cache};
-rand_plugin_aes_next({Key,GenWords,F,Count}) ->
+
+rand_plugin_aes_next([V | Cache]) ->
+    {V, Cache};
+rand_plugin_aes_next({Key, GenWords, F, Count}) ->
     rand_plugin_aes_next(Key, GenWords, F, Count);
-rand_plugin_aes_next({Key,GenWords,F,_JumpBase,Count}) ->
+rand_plugin_aes_next({Key, GenWords, F, _JumpBase, Count}) ->
     rand_plugin_aes_next(Key, GenWords, F, Count).
+
 %%
 rand_plugin_aes_next(Key, GenWords, F, Count) ->
-    {Cleartext,NewCount} = aes_cleartext(<<>>, F, Count, GenWords),
+    {Cleartext, NewCount} = aes_cleartext(<<>>, F, Count, GenWords),
     Encrypted = block_encrypt(aes_ecb, Key, Cleartext),
-    [V|Cache] = aes_cache(Encrypted, {Key,GenWords,F,Count,NewCount}),
-    {V,Cache}.
+    [V | Cache] = aes_cache(Encrypted, {Key, GenWords, F, Count, NewCount}),
+    {V, Cache}.
 
 %% A jump advances the counter 2^512 steps; the jump function
 %% is applied to the jump base and then the number of used
 %% numbers from the cache has to be wasted for the jump to be correct
 %%
 rand_plugin_aes_jump({#{type := crypto_aes} = Alg, Cache}) ->
-    {Alg,rand_plugin_aes_jump(fun longcount_jump/1, 0, Cache)}.
+    {Alg, rand_plugin_aes_jump(fun longcount_jump/1, 0, Cache)}.
+
 %% Count cached words and subtract their number from jump
 -dialyzer({no_improper_lists, rand_plugin_aes_jump/3}).
-rand_plugin_aes_jump(Jump, J, [_|Cache]) ->
+
+rand_plugin_aes_jump(Jump, J, [_ | Cache]) ->
     rand_plugin_aes_jump(Jump, J + 1, Cache);
-rand_plugin_aes_jump(Jump, J, {Key,GenWords,F,JumpBase, _Count}) ->
+rand_plugin_aes_jump(Jump, J, {Key, GenWords, F, JumpBase, _Count}) ->
     rand_plugin_aes_jump(Jump, GenWords - J, Key, GenWords, F, JumpBase);
-rand_plugin_aes_jump(Jump, 0, {Key,GenWords,F,JumpBase}) ->
+rand_plugin_aes_jump(Jump, 0, {Key, GenWords, F, JumpBase}) ->
     rand_plugin_aes_jump(Jump, 0, Key, GenWords, F, JumpBase).
+
 %%
 rand_plugin_aes_jump(Jump, Skip, Key, GenWords, F, JumpBase) ->
     Count = longcount_next_count(Skip, Jump(JumpBase)),
-    {Key,GenWords,F,Count}.
+    {Key, GenWords, F, Count}.
 
 rand_plugin_aes_jump_2pow20(Cache) ->
     rand_plugin_aes_jump(fun longcount_jump_2pow20/1, 0, Cache).
 
-
 longcount_seed(Seed) ->
     <<X:64, _:6, F:12, S2:58, S1:58, S0:58>> =
-        crypto:hash(sha256, [Seed,<<"Xoroshiro928">>]),
-    {F,rand:exro928_seed([S0,S1,S2|rand:seed58(13, X)])}.
+        crypto:hash(sha256, [Seed, <<"Xoroshiro928">>]),
+    {F, rand:exro928_seed([S0, S1, S2 | rand:seed58(13, X)])}.
 
 longcount_next_count(0, Count) ->
     Count;
@@ -1782,25 +1898,28 @@ longcount_jump(Count) ->
 longcount_jump_2pow20(Count) ->
     rand:exro928_jump_2pow20(Count).
 
-
 %% Build binary with counter values to cache
 aes_cleartext(Cleartext, _F, Count, 0) ->
-    {Cleartext,Count};
+    {Cleartext, Count};
 aes_cleartext(Cleartext, F, Count, GenWords) ->
-    {{S0,S1}, NewCount} = longcount_next(Count),
+    {{S0, S1}, NewCount} = longcount_next(Count),
     aes_cleartext(
-      <<Cleartext/binary, F:12, S1:58, S0:58>>,
-      F, NewCount, GenWords - 1).
+        <<Cleartext/binary, F:12, S1:58, S0:58>>,
+        F,
+        NewCount,
+        GenWords - 1
+    ).
 
 %% Parse and cache encrypted counter values aka random numbers
 -dialyzer({no_improper_lists, aes_cache/2}).
+
 aes_cache(<<>>, Cache) ->
     Cache;
 aes_cache(
-  <<_:(128 - ?CRYPTO_AES_BITS), V:?CRYPTO_AES_BITS, Encrypted/binary>>,
-  Cache) ->
-    [V|aes_cache(Encrypted, Cache)].
-
+    <<_:(128 - ?CRYPTO_AES_BITS), V:?CRYPTO_AES_BITS, Encrypted/binary>>,
+    Cache
+) ->
+    [V | aes_cache(Encrypted, Cache)].
 
 strong_rand_range(Range) when is_integer(Range), Range > 0 ->
     BinRange = int_to_bin(Range),
@@ -1812,29 +1931,30 @@ strong_rand_range(BinRange) when is_binary(BinRange) ->
         <<BinResult/binary>> ->
             BinResult
     end.
+
 strong_rand_range_nif(_BinRange) -> ?nif_stub.
 
 strong_rand_float() ->
     WholeRange = strong_rand_range(1 bsl 53),
     ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
 
--spec rand_uniform(crypto_integer(), crypto_integer()) ->
-			  crypto_integer().
+-spec rand_uniform(crypto_integer(), crypto_integer()) -> crypto_integer().
 rand_uniform(From, To) when is_binary(From), is_binary(To) ->
-    case rand_uniform_nif(From,To) of
-	<<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
-	    <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
-	Whatever ->
-	    Whatever
+    case rand_uniform_nif(From, To) of
+        <<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
+            <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
+        Whatever ->
+            Whatever
     end;
-rand_uniform(From,To) when is_integer(From),is_integer(To) ->
-    if From < 0 ->
-	    rand_uniform_pos(0, To - From) + From;
-       true ->
-	    rand_uniform_pos(From, To)
+rand_uniform(From, To) when is_integer(From), is_integer(To) ->
+    if
+        From < 0 ->
+            rand_uniform_pos(0, To - From) + From;
+        true ->
+            rand_uniform_pos(From, To)
     end.
 
-rand_uniform_pos(From,To) when From < To ->
+rand_uniform_pos(From, To) when From < To ->
     BinFrom = mpint(From),
     BinTo = mpint(To),
     case rand_uniform(BinFrom, BinTo) of
@@ -1843,11 +1963,10 @@ rand_uniform_pos(From,To) when From < To ->
         Other ->
             Other
     end;
-rand_uniform_pos(_,_) ->
+rand_uniform_pos(_, _) ->
     error(badarg).
 
-rand_uniform_nif(_From,_To) -> ?nif_stub.
-
+rand_uniform_nif(_From, _To) -> ?nif_stub.
 
 -spec rand_seed(binary()) -> ok.
 rand_seed(Seed) when is_binary(Seed) ->
@@ -1860,62 +1979,63 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 %%% Sign/verify
 %%%
 %%%================================================================
--type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa .
+-type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa.
 
--type pk_sign_verify_opts() :: [ rsa_sign_verify_opt() ] .
+-type pk_sign_verify_opts() :: [rsa_sign_verify_opt()].
 
--type rsa_sign_verify_opt() :: {rsa_padding, rsa_sign_verify_padding()}
-                             | {rsa_pss_saltlen, integer()}
-                             | {rsa_mgf1_md, sha2()}.
+-type rsa_sign_verify_opt() ::
+    {rsa_padding, rsa_sign_verify_padding()} |
+    {rsa_pss_saltlen, integer()} |
+    {rsa_mgf1_md, sha2()}.
 
--type rsa_sign_verify_padding() :: rsa_pkcs1_padding | rsa_pkcs1_pss_padding
-                                 | rsa_x931_padding | rsa_no_padding
-                                   .
-
+-type rsa_sign_verify_padding() ::
+    rsa_pkcs1_padding |
+    rsa_pkcs1_pss_padding |
+    rsa_x931_padding |
+    rsa_no_padding.
 
 %%%----------------------------------------------------------------
 %%% Sign
 
--spec sign(Algorithm, DigestType, Msg, Key)
-          -> Signature
-                 when Algorithm :: pk_sign_verify_algs(),
-                      DigestType :: rsa_digest_type()
-                                  | dss_digest_type()
-                                  | ecdsa_digest_type(),
-                      Msg :: iodata() | {digest,iodata()},
-                      Key :: rsa_private()
-                           | dss_private()
-                           | [ecdsa_private() | ecdsa_params()]
-                           | [eddsa_private() | eddsa_params()]
-                           | engine_key_ref(),
-                      Signature :: binary() .
-
+-spec sign(Algorithm, DigestType, Msg, Key) -> Signature when
+    Algorithm :: pk_sign_verify_algs(),
+    DigestType ::
+        rsa_digest_type() |
+        dss_digest_type() |
+        ecdsa_digest_type(),
+    Msg :: iodata() | {digest, iodata()},
+    Key ::
+        rsa_private() |
+        dss_private() |
+        [ecdsa_private() | ecdsa_params()] |
+        [eddsa_private() | eddsa_params()] |
+        engine_key_ref(),
+    Signature :: binary().
 sign(Algorithm, Type, Data, Key) ->
     sign(Algorithm, Type, Data, Key, []).
 
-
--spec sign(Algorithm, DigestType, Msg, Key, Options)
-          -> Signature
-                 when Algorithm :: pk_sign_verify_algs(),
-                      DigestType :: rsa_digest_type()
-                                  | dss_digest_type()
-                                  | ecdsa_digest_type()
-                                  | none,
-                      Msg :: iodata() | {digest,iodata()},
-                      Key :: rsa_private()
-                           | dss_private()
-                           | [ecdsa_private() | ecdsa_params()]
-                           | [eddsa_private() | eddsa_params()]
-                           | engine_key_ref(),
-                      Options :: pk_sign_verify_opts(),
-                      Signature :: binary() .
-
+-spec sign(Algorithm, DigestType, Msg, Key, Options) -> Signature when
+    Algorithm :: pk_sign_verify_algs(),
+    DigestType ::
+        rsa_digest_type() |
+        dss_digest_type() |
+        ecdsa_digest_type() |
+        none,
+    Msg :: iodata() | {digest, iodata()},
+    Key ::
+        rsa_private() |
+        dss_private() |
+        [ecdsa_private() | ecdsa_params()] |
+        [eddsa_private() | eddsa_params()] |
+        engine_key_ref(),
+    Options :: pk_sign_verify_opts(),
+    Signature :: binary().
 sign(Algorithm0, Type0, Data, Key, Options) ->
     {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
     case pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
-	error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Signature -> Signature
+        error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
+        notsup -> erlang:error(notsup);
+        Signature -> Signature
     end.
 
 pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
@@ -1923,46 +2043,46 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 %%%----------------------------------------------------------------
 %%% Verify
 
--spec verify(Algorithm, DigestType, Msg, Signature, Key)
-            -> Result
-                   when Algorithm :: pk_sign_verify_algs(),
-                        DigestType :: rsa_digest_type()
-                                    | dss_digest_type()
-                                    | ecdsa_digest_type()
-                                    | none,
-                        Msg :: iodata() | {digest,iodata()},
-                        Signature :: binary(),
-                        Key :: rsa_public()
-                             | dss_public()
-                             | [ecdsa_public() | ecdsa_params()]
-                             | [eddsa_public() | eddsa_params()]
-                             | engine_key_ref(),
-                        Result :: boolean().
-
+-spec verify(Algorithm, DigestType, Msg, Signature, Key) -> Result when
+    Algorithm :: pk_sign_verify_algs(),
+    DigestType ::
+        rsa_digest_type() |
+        dss_digest_type() |
+        ecdsa_digest_type() |
+        none,
+    Msg :: iodata() | {digest, iodata()},
+    Signature :: binary(),
+    Key ::
+        rsa_public() |
+        dss_public() |
+        [ecdsa_public() | ecdsa_params()] |
+        [eddsa_public() | eddsa_params()] |
+        engine_key_ref(),
+    Result :: boolean().
 verify(Algorithm, Type, Data, Signature, Key) ->
     verify(Algorithm, Type, Data, Signature, Key, []).
 
--spec verify(Algorithm, DigestType, Msg, Signature, Key, Options)
-            -> Result
-                   when Algorithm :: pk_sign_verify_algs(),
-                        DigestType :: rsa_digest_type()
-                                    | dss_digest_type()
-                                    | ecdsa_digest_type(),
-                        Msg :: iodata() | {digest,iodata()},
-                        Signature :: binary(),
-                        Key :: rsa_public()
-                             | dss_public()
-                             | [ecdsa_public() | ecdsa_params()]
-                             | [eddsa_public() | eddsa_params()]
-                             | engine_key_ref(),
-                        Options :: pk_sign_verify_opts(),
-                        Result :: boolean().
-
+-spec verify(Algorithm, DigestType, Msg, Signature, Key, Options) -> Result when
+    Algorithm :: pk_sign_verify_algs(),
+    DigestType ::
+        rsa_digest_type() |
+        dss_digest_type() |
+        ecdsa_digest_type(),
+    Msg :: iodata() | {digest, iodata()},
+    Signature :: binary(),
+    Key ::
+        rsa_public() |
+        dss_public() |
+        [ecdsa_public() | ecdsa_params()] |
+        [eddsa_public() | eddsa_params()] |
+        engine_key_ref(),
+    Options :: pk_sign_verify_opts(),
+    Result :: boolean().
 verify(Algorithm0, Type0, Data, Signature, Key, Options) ->
     {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
     case pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
-	notsup -> erlang:error(notsup);
-	Boolean -> Boolean
+        notsup -> erlang:error(notsup);
+        Boolean -> Boolean
     end.
 
 pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
@@ -1979,66 +2099,69 @@ sign_verify_compatibility(Algorithm0, Type0, _Digest) ->
 %%%
 %%% Only rsa works so far (although ecdsa | dss should do it)
 %%%================================================================
--type pk_encrypt_decrypt_algs() :: rsa .
+-type pk_encrypt_decrypt_algs() :: rsa.
 
--type pk_encrypt_decrypt_opts() ::  [rsa_opt()] | rsa_compat_opts().
+-type pk_encrypt_decrypt_opts() :: [rsa_opt()] | rsa_compat_opts().
 
--type rsa_compat_opts() :: [{rsa_pad, rsa_padding()}]
-                         | rsa_padding() .
+-type rsa_compat_opts() ::
+    [{rsa_pad, rsa_padding()}] |
+    rsa_padding().
 
--type rsa_padding() :: rsa_pkcs1_padding
-                     | rsa_pkcs1_oaep_padding
-                     | rsa_sslv23_padding
-                     | rsa_x931_padding
-                     | rsa_no_padding.
+-type rsa_padding() ::
+    rsa_pkcs1_padding |
+    rsa_pkcs1_oaep_padding |
+    rsa_sslv23_padding |
+    rsa_x931_padding |
+    rsa_no_padding.
 
--type rsa_opt() :: {rsa_padding, rsa_padding()}
-                 | {signature_md, atom()}
-                 | {rsa_mgf1_md, sha}
-                 | {rsa_oaep_label, binary()}
-                 | {rsa_oaep_md, sha} .
+-type rsa_opt() ::
+    {rsa_padding, rsa_padding()} |
+    {signature_md, atom()} |
+    {rsa_mgf1_md, sha} |
+    {rsa_oaep_label, binary()} |
+    {rsa_oaep_md, sha}.
 
 %%%---- Encrypt with public key
 
--spec public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
-                            CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
-                                            PlainText :: binary(),
-                                            PublicKey :: rsa_public() | engine_key_ref(),
-                                            Options :: pk_encrypt_decrypt_opts(),
-                                            CipherText :: binary().
+-spec public_encrypt(Algorithm, PlainText, PublicKey, Options) -> CipherText when
+    Algorithm :: pk_encrypt_decrypt_algs(),
+    PlainText :: binary(),
+    PublicKey :: rsa_public() | engine_key_ref(),
+    Options :: pk_encrypt_decrypt_opts(),
+    CipherText :: binary().
 public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
     pkey_crypt(Algorithm, PlainText, PublicKey, Options, false, true).
 
 %%%---- Decrypt with private key
 
--spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
-                             PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
-                                            CipherText :: binary(),
-                                            PrivateKey :: rsa_private() | engine_key_ref(),
-                                            Options :: pk_encrypt_decrypt_opts(),
-                                            PlainText :: binary() .
+-spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) -> PlainText when
+    Algorithm :: pk_encrypt_decrypt_algs(),
+    CipherText :: binary(),
+    PrivateKey :: rsa_private() | engine_key_ref(),
+    Options :: pk_encrypt_decrypt_opts(),
+    PlainText :: binary().
 private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
-    pkey_crypt(Algorithm, CipherText,  PrivateKey, Options, true, false).
+    pkey_crypt(Algorithm, CipherText, PrivateKey, Options, true, false).
 
 %%%---- Encrypt with private key
 
--spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
-                            CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
-                                            PlainText :: binary(),
-                                            PrivateKey :: rsa_private() | engine_key_ref(),
-                                            Options :: pk_encrypt_decrypt_opts(),
-                                            CipherText :: binary().
+-spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) -> CipherText when
+    Algorithm :: pk_encrypt_decrypt_algs(),
+    PlainText :: binary(),
+    PrivateKey :: rsa_private() | engine_key_ref(),
+    Options :: pk_encrypt_decrypt_opts(),
+    CipherText :: binary().
 private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
-    pkey_crypt(Algorithm, PlainText,  PrivateKey, Options, true, true).
+    pkey_crypt(Algorithm, PlainText, PrivateKey, Options, true, true).
 
 %%%---- Decrypt with public key
 
--spec public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
-                             PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
-                                            CipherText :: binary(),
-                                            PublicKey :: rsa_public() | engine_key_ref(),
-                                            Options :: pk_encrypt_decrypt_opts(),
-                                            PlainText :: binary() .
+-spec public_decrypt(Algorithm, CipherText, PublicKey, Options) -> PlainText when
+    Algorithm :: pk_encrypt_decrypt_algs(),
+    CipherText :: binary(),
+    PublicKey :: rsa_public() | engine_key_ref(),
+    Options :: pk_encrypt_decrypt_opts(),
+    PlainText :: binary().
 public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
     pkey_crypt(Algorithm, CipherText, PublicKey, Options, false, false).
 
@@ -2047,13 +2170,12 @@ public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
 %% Backwards compatible (rsa_pad -> rsa_padding is handled by the pkey_crypt_nif):
 pkey_crypt(rsa, Text, Key, Padding, PubPriv, EncDec) when is_atom(Padding) ->
     pkey_crypt(rsa, Text, Key, [{rsa_padding, Padding}], PubPriv, EncDec);
-
 pkey_crypt(Alg, Text, Key, Options, PubPriv, EncDec) ->
-    case pkey_crypt_nif(Alg, Text, format_pkey(Alg,Key), Options, PubPriv, EncDec) of
-	error when EncDec==true  -> erlang:error(encrypt_failed, [Alg, Text, Key, Options]);
-	error when EncDec==false -> erlang:error(decrypt_failed, [Alg, Text, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Out -> Out
+    case pkey_crypt_nif(Alg, Text, format_pkey(Alg, Key), Options, PubPriv, EncDec) of
+        error when EncDec == true -> erlang:error(encrypt_failed, [Alg, Text, Key, Options]);
+        error when EncDec == false -> erlang:error(decrypt_failed, [Alg, Text, Key, Options]);
+        notsup -> erlang:error(notsup);
+        Out -> Out
     end.
 
 pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_stub.
@@ -2064,141 +2186,159 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 %%%
 %%%================================================================
 
--spec generate_key(Type, Params)
-                 -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
-                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
-                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params()
-                                       .
+-spec generate_key(Type, Params) -> {PublicKey, PrivKeyOut} when
+    Type :: dh | ecdh | eddh | eddsa | rsa | srp,
+    PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
+    PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(), srp_private()},
+    Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params().
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
--spec generate_key(Type, Params, PrivKeyIn)
-                 -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
-                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
-                             PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_comp_params()
-                                       .
-
+-spec generate_key(Type, Params, PrivKeyIn) -> {PublicKey, PrivKeyOut} when
+    Type :: dh | ecdh | eddh | eddsa | rsa | srp,
+    PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
+    PrivKeyIn ::
+        undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(), srp_private()},
+    PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(), srp_private()},
+    Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_comp_params().
 generate_key(dh, DHParameters0, PrivateKey) ->
     {DHParameters, Len} =
         case DHParameters0 of
-            [P,G,L] -> {[P,G], L};
-            [P,G] -> {[P,G], 0}
+            [P, G, L] -> {[P, G], L};
+            [P, G] -> {[P, G], 0}
         end,
-    dh_generate_key_nif(ensure_int_as_bin(PrivateKey),
-			map_ensure_int_as_bin(DHParameters),
-                        0, Len);
-
-generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
-  when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
-    Private = case PrivArg of
-		  undefined -> strong_rand_bytes(32);
-		  _ -> ensure_int_as_bin(PrivArg)
-	      end,
+    dh_generate_key_nif(
+        ensure_int_as_bin(PrivateKey),
+        map_ensure_int_as_bin(DHParameters),
+        0,
+        Len
+    );
+generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg) when
+    is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version)
+->
+    Private =
+        case PrivArg of
+            undefined -> strong_rand_bytes(32);
+            _ -> ensure_int_as_bin(PrivArg)
+        end,
     host_srp_gen_key(Private, Verifier, Generator, Prime, Version);
-
-generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
-  when is_binary(Generator), is_binary(Prime), is_atom(Version) ->
-    Private = case PrivateArg of
-		  undefined -> strong_rand_bytes(32);
-		  _ -> PrivateArg
-	      end,
+generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg) when
+    is_binary(Generator), is_binary(Prime), is_atom(Version)
+->
+    Private =
+        case PrivateArg of
+            undefined -> strong_rand_bytes(32);
+            _ -> PrivateArg
+        end,
     user_srp_gen_key(Private, Generator, Prime);
-
 generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
     case rsa_generate_key_nif(ModulusSize, ensure_int_as_bin(PublicExponent)) of
         error ->
-            erlang:error(computation_failed,
-                         [rsa,{ModulusSize,PublicExponent}]);
+            erlang:error(
+                computation_failed,
+                [rsa, {ModulusSize, PublicExponent}]
+            );
         Private ->
             {lists:sublist(Private, 2), Private}
     end;
-
-generate_key(eddh, Curve, PrivKey) when Curve == x448 ;
-                                        Curve == x25519 ->
+generate_key(eddh, Curve, PrivKey) when Curve == x448; Curve == x25519 ->
     evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
-generate_key(ecdh, Curve, PrivKey) when Curve == x448 ;
-                                        Curve == x25519 ->
+generate_key(ecdh, Curve, PrivKey) when Curve == x448; Curve == x25519 ->
     %% This was here before the eddh was added as an own Type
     evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
 generate_key(ecdh, Curve, PrivKey) ->
     ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey));
-
-generate_key(eddsa, Curve, PrivKey) when Curve == ed448 ;
-                                         Curve == ed25519 ->
+generate_key(eddsa, Curve, PrivKey) when Curve == ed448; Curve == ed25519 ->
     evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)).
 
 evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
 
-
--spec compute_key(Type, OthersPublicKey, MyPrivateKey, Params)
-                 -> SharedSecret
-                        when Type :: dh | ecdh | eddh |  srp,
-                             SharedSecret :: binary(),
-                             OthersPublicKey :: dh_public() | ecdh_public() | srp_public(),
-                             MyPrivateKey :: dh_private() | ecdh_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | srp_comp_params()
-                                       .
-
+-spec compute_key(Type, OthersPublicKey, MyPrivateKey, Params) -> SharedSecret when
+    Type :: dh | ecdh | eddh | srp,
+    SharedSecret :: binary(),
+    OthersPublicKey :: dh_public() | ecdh_public() | srp_public(),
+    MyPrivateKey :: dh_private() | ecdh_private() | {srp_public(), srp_private()},
+    Params :: dh_params() | ecdh_params() | srp_comp_params().
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
-    case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
-			    ensure_int_as_bin(MyPrivateKey),
-			    map_ensure_int_as_bin(DHParameters)) of
-	error -> erlang:error(computation_failed,
-			      [dh,OthersPublicKey,MyPrivateKey,DHParameters]);
-	Ret -> Ret
+    case
+        dh_compute_key_nif(
+            ensure_int_as_bin(OthersPublicKey),
+            ensure_int_as_bin(MyPrivateKey),
+            map_ensure_int_as_bin(DHParameters)
+        )
+    of
+        error ->
+            erlang:error(
+                computation_failed,
+                [dh, OthersPublicKey, MyPrivateKey, DHParameters]
+            );
+        Ret ->
+            Ret
     end;
-
-compute_key(srp, HostPublic, {UserPublic, UserPrivate},
-	    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}) when
-      is_binary(Prime),
-      is_binary(Generator),
-      is_atom(Version) ->
+compute_key(
+    srp,
+    HostPublic,
+    {UserPublic, UserPrivate},
+    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}
+) when is_binary(Prime), is_binary(Generator), is_atom(Version) ->
     HostPubBin = ensure_int_as_bin(HostPublic),
     Multiplier = srp_multiplier(Version, Generator, Prime),
-    Scrambler = case ScramblerArg of
-		    [] -> srp_scrambler(Version, ensure_int_as_bin(UserPublic),
-					HostPubBin, Prime);
-		    [S] -> S
-		end,
+    Scrambler =
+        case ScramblerArg of
+            [] ->
+                srp_scrambler(
+                    Version,
+                    ensure_int_as_bin(UserPublic),
+                    HostPubBin,
+                    Prime
+                );
+            [S] ->
+                S
+        end,
     notsup_to_error(
-    srp_user_secret_nif(ensure_int_as_bin(UserPrivate), Scrambler, HostPubBin,
-                          Multiplier, Generator, DerivedKey, Prime));
-
-compute_key(srp, UserPublic, {HostPublic, HostPrivate},
-	    {host,[Verifier, Prime, Version | ScramblerArg]}) when
-      is_binary(Verifier),
-      is_binary(Prime),
-      is_atom(Version) ->
+        srp_user_secret_nif(
+            ensure_int_as_bin(UserPrivate),
+            Scrambler,
+            HostPubBin,
+            Multiplier,
+            Generator,
+            DerivedKey,
+            Prime
+        )
+    );
+compute_key(
+    srp,
+    UserPublic,
+    {HostPublic, HostPrivate},
+    {host, [Verifier, Prime, Version | ScramblerArg]}
+) when is_binary(Verifier), is_binary(Prime), is_atom(Version) ->
     UserPubBin = ensure_int_as_bin(UserPublic),
-    Scrambler = case ScramblerArg of
-		    [] -> srp_scrambler(Version, UserPubBin, ensure_int_as_bin(HostPublic), Prime);
-		    [S] -> S
-		end,
+    Scrambler =
+        case ScramblerArg of
+            [] -> srp_scrambler(Version, UserPubBin, ensure_int_as_bin(HostPublic), Prime);
+            [S] -> S
+        end,
     notsup_to_error(
-    srp_host_secret_nif(Verifier, ensure_int_as_bin(HostPrivate), Scrambler,
-                          UserPubBin, Prime));
-
-compute_key(ecdh, Others, My, Curve) when Curve == x448 ;
-                                          Curve == x25519 ->
+        srp_host_secret_nif(
+            Verifier,
+            ensure_int_as_bin(HostPrivate),
+            Scrambler,
+            UserPubBin,
+            Prime
+        )
+    );
+compute_key(ecdh, Others, My, Curve) when Curve == x448; Curve == x25519 ->
     evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My));
-
-compute_key(eddh, Others, My, Curve) when Curve == x448 ;
-                                          Curve == x25519 ->
+compute_key(eddh, Others, My, Curve) when Curve == x448; Curve == x25519 ->
     evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My));
-
 compute_key(ecdh, Others, My, Curve) ->
-    ecdh_compute_key_nif(ensure_int_as_bin(Others),
-			 nif_curve_params(Curve),
-			 ensure_int_as_bin(My)).
-
+    ecdh_compute_key_nif(
+        ensure_int_as_bin(Others),
+        nif_curve_params(Curve),
+        ensure_int_as_bin(My)
+    ).
 
 evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
-
 
 %%%================================================================
 %%%
@@ -2209,13 +2349,11 @@ evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
 %%%================================================================
 
 -spec exor(iodata(), iodata()) -> binary().
-
 exor(Bin1, Bin2) ->
     Data1 = iolist_to_binary(Bin1),
     Data2 = iolist_to_binary(Bin2),
     MaxBytes = max_bytes(),
     exor(Data1, Data2, erlang:byte_size(Data1), MaxBytes, []).
-
 
 %%%================================================================
 %%%
@@ -2223,14 +2361,22 @@ exor(Bin1, Bin2) ->
 %%%
 %%%================================================================
 
--spec mod_pow(N, P, M) -> Result when N :: binary() | integer(),
-                                      P :: binary() | integer(),
-                                      M :: binary() | integer(),
-                                      Result :: binary() | error .
+-spec mod_pow(N, P, M) -> Result when
+    N :: binary() | integer(),
+    P :: binary() | integer(),
+    M :: binary() | integer(),
+    Result :: binary() | error.
 mod_pow(Base, Exponent, Prime) ->
-    case mod_exp_nif(ensure_int_as_bin(Base), ensure_int_as_bin(Exponent), ensure_int_as_bin(Prime), 0) of
-	<<0>> -> error;
-	R -> R
+    case
+        mod_exp_nif(
+            ensure_int_as_bin(Base),
+            ensure_int_as_bin(Exponent),
+            ensure_int_as_bin(Prime),
+            0
+        )
+    of
+        <<0>> -> error;
+        R -> R
     end.
 
 %%%======================================================================
@@ -2240,14 +2386,15 @@ mod_pow(Base, Exponent, Prime) ->
 %%%======================================================================
 
 %%%---- Refering to keys stored in an engine:
--type key_id()   :: string() | binary() .
--type password() :: string() | binary() .
+-type key_id() :: string() | binary().
+-type password() :: string() | binary().
 
--type engine_key_ref() :: #{engine :=   engine_ref(),
-                            key_id :=   key_id(),
-                            password => password(),
-                            term() => term()
-                           }.
+-type engine_key_ref() :: #{
+    engine := engine_ref(),
+    key_id := key_id(),
+    password => password(),
+    term() => term()
+}.
 
 %%%---- Commands:
 -type engine_cmnd() :: {unicode:chardata(), unicode:chardata()}.
@@ -2255,41 +2402,47 @@ mod_pow(Base, Exponent, Prime) ->
 %%----------------------------------------------------------------------
 %% Function: engine_get_all_methods/0
 %%----------------------------------------------------------------------
--type engine_method_type() :: engine_method_rsa | engine_method_dsa | engine_method_dh |
-                              engine_method_rand | engine_method_ecdh | engine_method_ecdsa |
-                              engine_method_ciphers | engine_method_digests | engine_method_store |
-                              engine_method_pkey_meths | engine_method_pkey_asn1_meths |
-                              engine_method_ec.
+-type engine_method_type() ::
+    engine_method_rsa |
+    engine_method_dsa |
+    engine_method_dh |
+    engine_method_rand |
+    engine_method_ecdh |
+    engine_method_ecdsa |
+    engine_method_ciphers |
+    engine_method_digests |
+    engine_method_store |
+    engine_method_pkey_meths |
+    engine_method_pkey_asn1_meths |
+    engine_method_ec.
 
 -type engine_ref() :: term().
 
 -spec engine_get_all_methods() -> Result when Result :: [engine_method_type()].
 engine_get_all_methods() ->
-     notsup_to_error(engine_get_all_methods_nif()).
+    notsup_to_error(engine_get_all_methods_nif()).
 
 %%----------------------------------------------------------------------
 %% Function: engine_load/3
 %%----------------------------------------------------------------------
--spec engine_load(EngineId, PreCmds, PostCmds) ->
-                         Result when EngineId::unicode:chardata(),
-                                     PreCmds::[engine_cmnd()],
-                                     PostCmds::[engine_cmnd()],
-                                     Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
-engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds),
-                                              is_list(PostCmds) ->
+-spec engine_load(EngineId, PreCmds, PostCmds) -> Result when
+    EngineId :: unicode:chardata(),
+    PreCmds :: [engine_cmnd()],
+    PostCmds :: [engine_cmnd()],
+    Result :: {ok, Engine :: engine_ref()} | {error, Reason :: term()}.
+engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds), is_list(PostCmds) ->
     engine_load(EngineId, PreCmds, PostCmds, engine_get_all_methods()).
 
 %%----------------------------------------------------------------------
 %% Function: engine_load/4
 %%----------------------------------------------------------------------
--spec engine_load(EngineId, PreCmds, PostCmds, EngineMethods) ->
-                         Result when EngineId::unicode:chardata(),
-                                     PreCmds::[engine_cmnd()],
-                                     PostCmds::[engine_cmnd()],
-                                     EngineMethods::[engine_method_type()],
-                                     Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
-engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
-                                                             is_list(PostCmds) ->
+-spec engine_load(EngineId, PreCmds, PostCmds, EngineMethods) -> Result when
+    EngineId :: unicode:chardata(),
+    PreCmds :: [engine_cmnd()],
+    PostCmds :: [engine_cmnd()],
+    EngineMethods :: [engine_method_type()],
+    Result :: {ok, Engine :: engine_ref()} | {error, Reason :: term()}.
+engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds), is_list(PostCmds) ->
     try
         ok = notsup_to_error(engine_load_dynamic_nif()),
         case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId))) of
@@ -2323,89 +2476,102 @@ engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
 engine_load_2(Engine, PostCmds, EngineMethods) ->
     try
         ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PostCmds), 0)),
-        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- EngineMethods],
+        [
+            ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method)))
+            || Method <- EngineMethods
+        ],
         ok
     catch
-       throw:Error ->
-          %% The engine registration failed, release the functional reference
-          ok = engine_finish_nif(Engine),
-          throw(Error)
+        throw:Error ->
+            %% The engine registration failed, release the functional reference
+            ok = engine_finish_nif(Engine),
+            throw(Error)
     end.
 
 %%----------------------------------------------------------------------
 %% Function: engine_unload/1
 %%----------------------------------------------------------------------
--spec engine_unload(Engine) -> Result when Engine :: engine_ref(),
-                                           Result :: ok | {error, Reason::term()}.
+-spec engine_unload(Engine) -> Result when
+    Engine :: engine_ref(),
+    Result :: ok | {error, Reason :: term()}.
 engine_unload(Engine) ->
     engine_unload(Engine, engine_get_all_methods()).
 
--spec engine_unload(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
-                                                          EngineMethods :: [engine_method_type()],
-                                                          Result :: ok | {error, Reason::term()}.
+-spec engine_unload(Engine, EngineMethods) -> Result when
+    Engine :: engine_ref(),
+    EngineMethods :: [engine_method_type()],
+    Result :: ok | {error, Reason :: term()}.
 engine_unload(Engine, EngineMethods) ->
     try
-        [ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- EngineMethods],
+        [
+            ok = engine_nif_wrapper(
+                engine_unregister_nif(Engine, engine_method_atom_to_int(Method))
+            )
+            || Method <- EngineMethods
+        ],
         %% Release the functional reference from engine_init_nif
         ok = engine_nif_wrapper(engine_finish_nif(Engine)),
         %% Release the structural reference from engine_by_id_nif
         ok = engine_nif_wrapper(engine_free_nif(Engine))
     catch
-       throw:Error ->
-          Error
+        throw:Error ->
+            Error
     end.
 
 %%----------------------------------------------------------------------
 %% Function: engine_by_id/1
 %%----------------------------------------------------------------------
--spec engine_by_id(EngineId) -> Result when EngineId :: unicode:chardata(),
-                                            Result :: {ok, Engine::engine_ref()} | {error, Reason::term()} .
+-spec engine_by_id(EngineId) -> Result when
+    EngineId :: unicode:chardata(),
+    Result :: {ok, Engine :: engine_ref()} | {error, Reason :: term()}.
 engine_by_id(EngineId) ->
     try
         notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId)))
     catch
-       throw:Error ->
-          Error
+        throw:Error ->
+            Error
     end.
 
 %%----------------------------------------------------------------------
 %% Function: engine_add/1
 %%----------------------------------------------------------------------
--spec engine_add(Engine) -> Result when Engine :: engine_ref(),
-                                        Result ::  ok | {error, Reason::term()} .
+-spec engine_add(Engine) -> Result when
+    Engine :: engine_ref(),
+    Result :: ok | {error, Reason :: term()}.
 engine_add(Engine) ->
     notsup_to_error(engine_add_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_remove/1
 %%----------------------------------------------------------------------
--spec engine_remove(Engine) -> Result when Engine :: engine_ref(),
-                                           Result ::  ok | {error, Reason::term()} .
+-spec engine_remove(Engine) -> Result when
+    Engine :: engine_ref(),
+    Result :: ok | {error, Reason :: term()}.
 engine_remove(Engine) ->
     notsup_to_error(engine_remove_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_get_id/1
 %%----------------------------------------------------------------------
--spec engine_get_id(Engine) -> EngineId when Engine :: engine_ref(),
-                                             EngineId :: unicode:chardata().
+-spec engine_get_id(Engine) -> EngineId when
+    Engine :: engine_ref(),
+    EngineId :: unicode:chardata().
 engine_get_id(Engine) ->
     notsup_to_error(engine_get_id_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_get_name/1
 %%----------------------------------------------------------------------
--spec engine_get_name(Engine) -> EngineName when Engine :: engine_ref(),
-                                                 EngineName :: unicode:chardata().
+-spec engine_get_name(Engine) -> EngineName when
+    Engine :: engine_ref(),
+    EngineName :: unicode:chardata().
 engine_get_name(Engine) ->
     notsup_to_error(engine_get_name_nif(Engine)).
 
 %%----------------------------------------------------------------------
 %% Function: engine_list/0
 %%----------------------------------------------------------------------
--spec engine_list() -> Result when Result :: [EngineId::unicode:chardata()].
+-spec engine_list() -> Result when Result :: [EngineId :: unicode:chardata()].
 engine_list() ->
     case notsup_to_error(engine_get_first_nif()) of
         {ok, <<>>} ->
@@ -2428,34 +2594,38 @@ engine_list(Engine0, IdList) ->
                 <<>> ->
                     engine_list(Engine1, IdList);
                 EngineId ->
-                    engine_list(Engine1, [EngineId |IdList])
+                    engine_list(Engine1, [EngineId | IdList])
             end
     end.
 
 %%----------------------------------------------------------------------
 %% Function: engine_ctrl_cmd_string/3
 %%----------------------------------------------------------------------
--spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
-                                    Result when Engine::term(),
-                                                CmdName::unicode:chardata(),
-                                                CmdArg::unicode:chardata(),
-                                                Result :: ok | {error, Reason::term()}.
+-spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg) -> Result when
+    Engine :: term(),
+    CmdName :: unicode:chardata(),
+    CmdArg :: unicode:chardata(),
+    Result :: ok | {error, Reason :: term()}.
 engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
     engine_ctrl_cmd_string(Engine, CmdName, CmdArg, false).
 
 %%----------------------------------------------------------------------
 %% Function: engine_ctrl_cmd_string/4
 %%----------------------------------------------------------------------
--spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
-                                    Result when Engine::term(),
-                                                CmdName::unicode:chardata(),
-                                                CmdArg::unicode:chardata(),
-                                                Optional::boolean(),
-                                                Result :: ok | {error, Reason::term()}.
+-spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) -> Result when
+    Engine :: term(),
+    CmdName :: unicode:chardata(),
+    CmdArg :: unicode:chardata(),
+    Optional :: boolean(),
+    Result :: ok | {error, Reason :: term()}.
 engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
-    case engine_ctrl_cmd_strings_nif(Engine,
-                                     ensure_bin_cmds([{CmdName, CmdArg}]),
-                                     bool_to_int(Optional)) of
+    case
+        engine_ctrl_cmd_strings_nif(
+            Engine,
+            ensure_bin_cmds([{CmdName, CmdArg}]),
+            bool_to_int(Optional)
+        )
+    of
         ok ->
             ok;
         notsup ->
@@ -2468,10 +2638,10 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 %% Function: ensure_engine_loaded/2
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
--spec ensure_engine_loaded(EngineId, LibPath) ->
-                                  Result when EngineId :: unicode:chardata(),
-                                              LibPath :: unicode:chardata(),
-                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
+-spec ensure_engine_loaded(EngineId, LibPath) -> Result when
+    EngineId :: unicode:chardata(),
+    LibPath :: unicode:chardata(),
+    Result :: {ok, Engine :: engine_ref()} | {error, Reason :: term()}.
 ensure_engine_loaded(EngineId, LibPath) ->
     ensure_engine_loaded(EngineId, LibPath, engine_get_all_methods()).
 
@@ -2479,11 +2649,11 @@ ensure_engine_loaded(EngineId, LibPath) ->
 %% Function: ensure_engine_loaded/3
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
--spec ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
-                                  Result when EngineId :: unicode:chardata(),
-                                              LibPath :: unicode:chardata(),
-                                              EngineMethods :: [engine_method_type()],
-                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
+-spec ensure_engine_loaded(EngineId, LibPath, EngineMethods) -> Result when
+    EngineId :: unicode:chardata(),
+    LibPath :: unicode:chardata(),
+    EngineMethods :: [engine_method_type()],
+    Result :: {ok, Engine :: engine_ref()} | {error, Reason :: term()}.
 ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
     try
         List = crypto:engine_list(),
@@ -2494,9 +2664,11 @@ ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
                 ok = notsup_to_error(engine_load_dynamic_nif()),
                 case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(<<"dynamic">>))) of
                     {ok, Engine} ->
-                        PreCommands = [{<<"SO_PATH">>, ensure_bin_chardata(LibPath)},
-                                       {<<"ID">>, ensure_bin_chardata(EngineId)},
-                                       <<"LOAD">>],
+                        PreCommands = [
+                            {<<"SO_PATH">>, ensure_bin_chardata(LibPath)},
+                            {<<"ID">>, ensure_bin_chardata(EngineId)},
+                            <<"LOAD">>
+                        ],
                         ensure_engine_loaded_1(Engine, PreCommands, EngineMethods);
                     {error, Error1} ->
                         {error, Error1}
@@ -2523,30 +2695,34 @@ ensure_engine_loaded_1(Engine, PreCmds, Methods) ->
 
 ensure_engine_loaded_2(Engine, Methods) ->
     try
-        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- Methods],
+        [
+            ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method)))
+            || Method <- Methods
+        ],
         ok
     catch
-       throw:Error ->
-          %% The engine registration failed, release the functional reference
-          ok = engine_finish_nif(Engine),
-          throw(Error)
+        throw:Error ->
+            %% The engine registration failed, release the functional reference
+            ok = engine_finish_nif(Engine),
+            throw(Error)
     end.
+
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/1
 %%----------------------------------------------------------------------
--spec ensure_engine_unloaded(Engine) -> Result when Engine :: engine_ref(),
-                                                    Result :: ok | {error, Reason::term()}.
+-spec ensure_engine_unloaded(Engine) -> Result when
+    Engine :: engine_ref(),
+    Result :: ok | {error, Reason :: term()}.
 ensure_engine_unloaded(Engine) ->
     ensure_engine_unloaded(Engine, engine_get_all_methods()).
 
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/2
 %%----------------------------------------------------------------------
--spec ensure_engine_unloaded(Engine, EngineMethods) ->
-                                    Result when Engine :: engine_ref(),
-                                                EngineMethods :: [engine_method_type()],
-                                                Result :: ok | {error, Reason::term()}.
+-spec ensure_engine_unloaded(Engine, EngineMethods) -> Result when
+    Engine :: engine_ref(),
+    EngineMethods :: [engine_method_type()],
+    Result :: ok | {error, Reason :: term()}.
 ensure_engine_unloaded(Engine, EngineMethods) ->
     case engine_remove(Engine) of
         ok ->
@@ -2561,64 +2737,85 @@ ensure_engine_unloaded(Engine, EngineMethods) ->
 on_load() ->
     LibBaseName = "crypto",
     PrivDir = code:priv_dir(crypto),
-    LibName = case erlang:system_info(build_type) of
-		  opt ->
-		      LibBaseName;
-		  Type ->
-		      LibTypeName = LibBaseName ++ "."  ++ atom_to_list(Type),
-		      case (filelib:wildcard(
-			      filename:join(
-				[PrivDir,
-				 "lib",
-				 LibTypeName ++ "*"])) /= []) orelse
-			  (filelib:wildcard(
-			     filename:join(
-			       [PrivDir,
-				"lib",
-				erlang:system_info(system_architecture),
-				LibTypeName ++ "*"])) /= []) of
-			  true -> LibTypeName;
-			  false -> LibBaseName
-		      end
-	      end,
+    LibName =
+        case erlang:system_info(build_type) of
+            opt ->
+                LibBaseName;
+            Type ->
+                LibTypeName = LibBaseName ++ "." ++ atom_to_list(Type),
+                case
+                    (filelib:wildcard(
+                        filename:join(
+                            [
+                                PrivDir,
+                                "lib",
+                                LibTypeName ++ "*"
+                            ]
+                        )
+                    ) /= []) orelse
+                        (filelib:wildcard(
+                            filename:join(
+                                [
+                                    PrivDir,
+                                    "lib",
+                                    erlang:system_info(system_architecture),
+                                    LibTypeName ++ "*"
+                                ]
+                            )
+                        ) /= [])
+                of
+                    true -> LibTypeName;
+                    false -> LibBaseName
+                end
+        end,
     Lib = filename:join([PrivDir, "lib", LibName]),
-    LibBin   = path2bin(Lib),
+    LibBin = path2bin(Lib),
     FipsMode = application:get_env(crypto, fips_mode, false) == true,
-    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,LibBin,FipsMode}) of
-		 ok -> ok;
-		 {error, {load_failed, _}}=Error1 ->
-		     ArchLibDir =
-			 filename:join([PrivDir, "lib",
-					erlang:system_info(system_architecture)]),
-		     Candidate =
-			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ]),erl_prim_loader),
-		     case Candidate of
-			 [] -> Error1;
-			 _ ->
-			     ArchLib = filename:join([ArchLibDir, LibName]),
-                             ArchBin = path2bin(ArchLib),
-			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,ArchBin,FipsMode})
-		     end;
-		 Error1 -> Error1
-	     end,
+    Status =
+        case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN, LibBin, FipsMode}) of
+            ok ->
+                ok;
+            {error, {load_failed, _}} = Error1 ->
+                ArchLibDir =
+                    filename:join([
+                        PrivDir,
+                        "lib",
+                        erlang:system_info(system_architecture)
+                    ]),
+                Candidate =
+                    filelib:wildcard(filename:join([ArchLibDir, LibName ++ "*"]), erl_prim_loader),
+                case Candidate of
+                    [] ->
+                        Error1;
+                    _ ->
+                        ArchLib = filename:join([ArchLibDir, LibName]),
+                        ArchBin = path2bin(ArchLib),
+                        erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN, ArchBin, FipsMode})
+                end;
+            Error1 ->
+                Error1
+        end,
     case Status of
-	ok -> ok;
-	{error, {E, Str}} ->
+        ok ->
+            ok;
+        {error, {E, Str}} ->
             Fmt = "Unable to load crypto library. Failed with error:~n\"~p, ~s\"~n~s",
-            Extra = case E of
-                        load_failed ->
-                            "OpenSSL might not be installed on this system.\n";
-                        _ -> ""
-                    end,
-	    error_logger:error_msg(Fmt, [E,Str,Extra]),
-	    Status
+            Extra =
+                case E of
+                    load_failed ->
+                        "OpenSSL might not be installed on this system.\n";
+                    _ ->
+                        ""
+                end,
+            error_logger:error_msg(Fmt, [E, Str, Extra]),
+            Status
     end.
 
 path2bin(Path) when is_list(Path) ->
     Encoding = file:native_name_encoding(),
-    case unicode:characters_to_binary(Path,Encoding,Encoding) of
-	Bin when is_binary(Bin) ->
-	    Bin
+    case unicode:characters_to_binary(Path, Encoding, Encoding) of
+        Bin when is_binary(Bin) ->
+            Bin
     end.
 
 %%%================================================================
@@ -2644,7 +2841,7 @@ hash(Hash, Data, Size, Max) ->
     State1 = hash_update(State0, Data, Size, Max),
     hash_final(State1).
 
-hash_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
+hash_update(State, Data, Size, MaxBytes) when Size =< MaxBytes ->
     notsup_to_error(hash_update_nif(State, Data));
 hash_update(State0, Data, _, MaxBytes) ->
     <<Increment:MaxBytes/binary, Rest/binary>> = Data,
@@ -2652,9 +2849,13 @@ hash_update(State0, Data, _, MaxBytes) ->
     hash_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
 
 hash_info_nif(_Hash) -> ?nif_stub.
+
 hash_nif(_Hash, _Data) -> ?nif_stub.
+
 hash_init_nif(_Hash) -> ?nif_stub.
+
 hash_update_nif(_State, _Data) -> ?nif_stub.
+
 hash_final_nif(_State) -> ?nif_stub.
 
 %% CIPHERS --------------------------------------------------------------------
@@ -2681,25 +2882,25 @@ user_srp_gen_key(Private, Generator, Prime) ->
     %% Ensure the SRP algorithm is disabled in FIPS mode
     case info_fips() of
         enabled -> erlang:error(notsup);
-        _       -> ok
+        _ -> ok
     end,
     case mod_pow(Generator, Private, Prime) of
-	error ->
-	    error;
-	Public ->
-	    {Public, Private}
+        error ->
+            error;
+        Public ->
+            {Public, Private}
     end.
 
 host_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
- Multiplier = srp_multiplier(Version, Generator, Prime),
-   case srp_value_B_nif(Multiplier, Verifier, Generator, Private, Prime) of
-   error ->
-       error;
-   notsup ->
-       erlang:error(notsup);
-   Public ->
-       {Public, Private}
-   end.
+    Multiplier = srp_multiplier(Version, Generator, Prime),
+    case srp_value_B_nif(Multiplier, Verifier, Generator, Private, Prime) of
+        error ->
+            error;
+        notsup ->
+            erlang:error(notsup);
+        Public ->
+            {Public, Private}
+    end.
 
 srp_multiplier('6a', Generator, Prime) ->
     %% k = SHA1(N | PAD(g)) from http://srp.stanford.edu/design.html
@@ -2712,7 +2913,7 @@ srp_multiplier('6', _, _) ->
 srp_multiplier('3', _, _) ->
     <<1/integer>>.
 
-srp_scrambler(Version, UserPublic, HostPublic, Prime) when Version == '6'; Version == '6a'->
+srp_scrambler(Version, UserPublic, HostPublic, Prime) when Version == '6'; Version == '6a' ->
     %% SHA1(PAD(A) | PAD(B)) from http://srp.stanford.edu/design.html
     PadLength = erlang:byte_size(Prime),
     C0 = hash_init(sha),
@@ -2731,7 +2932,7 @@ srp_pad_length(Width, Length) ->
 srp_pad_to(Width, Binary) ->
     case srp_pad_length(Width, size(Binary)) of
         0 -> Binary;
-        N -> << 0:(N*8), Binary/binary>>
+        N -> <<0:(N * 8), Binary/binary>>
     end.
 
 srp_host_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
@@ -2739,7 +2940,6 @@ srp_host_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
 srp_user_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
 
 srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
-
 
 %% Public Keys  --------------------------------------------------------------------
 %% RSA Rivest-Shamir-Adleman functions
@@ -2762,29 +2962,30 @@ ec_key_generate(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
--spec ec_curves() -> [EllipticCurve] when EllipticCurve :: ec_named_curve()
-                                                         | edwards_curve_dh()
-                                                         | edwards_curve_ed() .
-
+-spec ec_curves() -> [EllipticCurve] when
+    EllipticCurve ::
+        ec_named_curve() |
+        edwards_curve_dh() |
+        edwards_curve_ed().
 ec_curves() ->
     crypto_ec_curves:curves().
 
--spec ec_curve(CurveName) -> ExplicitCurve when CurveName :: ec_named_curve(),
-                                                ExplicitCurve :: ec_explicit_curve() .
+-spec ec_curve(CurveName) -> ExplicitCurve when
+    CurveName :: ec_named_curve(),
+    ExplicitCurve :: ec_explicit_curve().
 ec_curve(X) ->
     crypto_ec_curves:curve(X).
 
-
--spec privkey_to_pubkey(Type, EnginePrivateKeyRef) -> PublicKey when Type :: rsa | dss,
-                                                                     EnginePrivateKeyRef :: engine_key_ref(),
-                                                                     PublicKey ::  rsa_public() | dss_public() .
+-spec privkey_to_pubkey(Type, EnginePrivateKeyRef) -> PublicKey when
+    Type :: rsa | dss,
+    EnginePrivateKeyRef :: engine_key_ref(),
+    PublicKey :: rsa_public() | dss_public().
 privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
-    try privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))
-    of
-        [_|_]=L -> map_ensure_bin_as_int(L);
+    try privkey_to_pubkey_nif(Alg, format_pkey(Alg, EngineMap)) of
+        [_ | _] = L -> map_ensure_bin_as_int(L);
         X -> X
     catch
-        error:badarg when Alg==ecdsa ->
+        error:badarg when Alg == ecdsa ->
             {error, notsup};
         error:badarg ->
             {error, not_found};
@@ -2793,7 +2994,6 @@ privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
     end.
 
 privkey_to_pubkey_nif(_Alg, _EngineMap) -> ?nif_stub.
-
 
 %%
 %% EC
@@ -2808,30 +3008,26 @@ term_to_nif_curve({A, B, Seed}) ->
     {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
 
 nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {term_to_nif_prime(PrimeField),
-     term_to_nif_curve(Curve),
-     ensure_int_as_bin(BasePoint),
-     ensure_int_as_bin(Order),
-     ensure_int_as_bin(CoFactor)};
+    {term_to_nif_prime(PrimeField), term_to_nif_curve(Curve), ensure_int_as_bin(BasePoint),
+        ensure_int_as_bin(Order), ensure_int_as_bin(CoFactor)};
 nif_curve_params(Curve) when is_atom(Curve) ->
     %% named curve
     case Curve of
-        x448 -> {evp,Curve};
-        x25519 -> {evp,Curve};
+        x448 -> {evp, Curve};
+        x25519 -> {evp, Curve};
         _ -> crypto_ec_curves:curve(Curve)
     end.
 
-
 %% MISC --------------------------------------------------------------------
 
-exor(Data1, Data2, Size, MaxByts, [])  when Size =< MaxByts ->
+exor(Data1, Data2, Size, MaxByts, []) when Size =< MaxByts ->
     do_exor(Data1, Data2);
 exor(Data1, Data2, Size, MaxByts, Acc) when Size =< MaxByts ->
     Result = do_exor(Data1, Data2),
     list_to_binary(lists:reverse([Result | Acc]));
 exor(Data1, Data2, _Size, MaxByts, Acc) ->
-     <<Increment1:MaxByts/binary, Rest1/binary>> = Data1,
-     <<Increment2:MaxByts/binary, Rest2/binary>> = Data2,
+    <<Increment1:MaxByts/binary, Rest1/binary>> = Data1,
+    <<Increment2:MaxByts/binary, Rest2/binary>> = Data2,
     Result = do_exor(Increment1, Increment2),
     exor(Rest1, Rest2, erlang:byte_size(Rest1), MaxByts, [Result | Acc]).
 
@@ -2843,42 +3039,48 @@ cached_curve_algorithms() ->
             Cs = remove_unavailable_curves(curve_algorithms()),
             application:set_env(?MODULE, ?CURVES, Cs),
             Cs;
-        {ok,Cs} ->
+        {ok, Cs} ->
             Cs
     end.
 
 remove_unavailable_curves(Cs) ->
-    [C || C <- Cs,
-          lists:member(C,[ed25519,ed448,x25519,x448])
-              orelse try
-                         crypto:generate_key(ecdh,C)
-                     of _-> true
-                     catch _:_-> false
-                     end
+    [
+        C
+        || C <- Cs,
+           lists:member(C, [ed25519, ed448, x25519, x448]) orelse
+               try crypto:generate_key(ecdh, C) of
+                   _ -> true
+               catch
+                   _:_ -> false
+               end
     ].
 
 hash_algorithms() -> ?nif_stub.
-pubkey_algorithms() -> ?nif_stub.
-cipher_algorithms() -> ?nif_stub.
-mac_algorithms() -> ?nif_stub.
-curve_algorithms() -> ?nif_stub.
-rsa_opts_algorithms() -> ?nif_stub.
 
+pubkey_algorithms() -> ?nif_stub.
+
+cipher_algorithms() -> ?nif_stub.
+
+mac_algorithms() -> ?nif_stub.
+
+curve_algorithms() -> ?nif_stub.
+
+rsa_opts_algorithms() -> ?nif_stub.
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).
 
-int_to_bin_pos(0,Ds=[_|_]) ->
+int_to_bin_pos(0, Ds = [_ | _]) ->
     list_to_binary(Ds);
-int_to_bin_pos(X,Ds) ->
-    int_to_bin_pos(X bsr 8, [(X band 255)|Ds]).
+int_to_bin_pos(X, Ds) ->
+    int_to_bin_pos(X bsr 8, [(X band 255) | Ds]).
 
-int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
+int_to_bin_neg(-1, Ds = [MSB | _]) when MSB >= 16#80 ->
     list_to_binary(Ds);
-int_to_bin_neg(X,Ds) ->
-    int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
+int_to_bin_neg(X, Ds) ->
+    int_to_bin_neg(X bsr 8, [(X band 255) | Ds]).
 
--spec bytes_to_integer(binary()) -> integer() .
+-spec bytes_to_integer(binary()) -> integer().
 bytes_to_integer(Bin) ->
     bin_to_int(Bin).
 
@@ -2889,7 +3091,7 @@ bin_to_int(Bin) when is_binary(Bin) ->
 bin_to_int(undefined) ->
     undefined.
 
-map_ensure_int_as_bin([H|_]=List) when is_integer(H) ->
+map_ensure_int_as_bin([H | _] = List) when is_integer(H) ->
     lists:map(fun(E) -> int_to_bin(E) end, List);
 map_ensure_int_as_bin(List) ->
     List.
@@ -2907,10 +3109,14 @@ ensure_bin_as_int(Bin) when is_binary(Bin) ->
 ensure_bin_as_int(E) ->
     E.
 
-format_pkey(_Alg, #{engine:=_, key_id:=T}=M) when is_binary(T) -> format_pwd(M);
-format_pkey(_Alg, #{engine:=_, key_id:=T}=M) when is_list(T) -> format_pwd(M#{key_id:=list_to_binary(T)});
-format_pkey(_Alg, #{engine:=_           }=M) -> error({bad_key_id, M});
-format_pkey(_Alg, #{}=M) -> error({bad_engine_map, M});
+format_pkey(_Alg, #{engine := _, key_id := T} = M) when is_binary(T) ->
+    format_pwd(M);
+format_pkey(_Alg, #{engine := _, key_id := T} = M) when is_list(T) ->
+    format_pwd(M#{key_id := list_to_binary(T)});
+format_pkey(_Alg, #{engine := _} = M) ->
+    error({bad_key_id, M});
+format_pkey(_Alg, #{} = M) ->
+    error({bad_engine_map, M});
 %%%
 format_pkey(rsa, Key) ->
     map_ensure_int_as_bin(Key);
@@ -2921,7 +3127,7 @@ format_pkey(dss, Key) ->
 format_pkey(_, Key) ->
     Key.
 
-format_pwd(#{password := Pwd}=M) when is_list(Pwd) -> M#{password := list_to_binary(Pwd)};
+format_pwd(#{password := Pwd} = M) when is_list(Pwd) -> M#{password := list_to_binary(Pwd)};
 format_pwd(M) -> M.
 
 %%--------------------------------------------------------------------
@@ -2932,8 +3138,7 @@ format_pwd(M) -> M.
 mpint(X) when X < 0 -> mpint_neg(X);
 mpint(X) -> mpint_pos(X).
 
--define(UINT32(X),   X:32/unsigned-big-integer).
-
+-define(UINT32(X), X:32 / unsigned - big - integer).
 
 mpint_neg(X) ->
     Bin = int_to_bin_neg(X, []),
@@ -2942,24 +3147,25 @@ mpint_neg(X) ->
 
 mpint_pos(X) ->
     Bin = int_to_bin_pos(X, []),
-    <<MSB,_/binary>> = Bin,
+    <<MSB, _/binary>> = Bin,
     Sz = byte_size(Bin),
-    if MSB band 16#80 == 16#80 ->
-	    <<?UINT32((Sz+1)), 0, Bin/binary>>;
-       true ->
-	    <<?UINT32(Sz), Bin/binary>>
+    if
+        MSB band 16#80 == 16#80 ->
+            <<?UINT32((Sz + 1)), 0, Bin/binary>>;
+        true ->
+            <<?UINT32(Sz), Bin/binary>>
     end.
 
 %% int from integer in a binary with 32bit length
-erlint(<<MPIntSize:32/integer,MPIntValue/binary>>) ->
-    Bits= MPIntSize * 8,
+erlint(<<MPIntSize:32/integer, MPIntValue/binary>>) ->
+    Bits = MPIntSize * 8,
     <<Integer:Bits/integer>> = MPIntValue,
     Integer.
 
 %%
 %% mod_exp - utility for rsa generation and SRP
 %%
-mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
+mod_exp_nif(_Base, _Exp, _Mod, _bin_hdr) -> ?nif_stub.
 
 %%%----------------------------------------------------------------
 %% 9470495 == V(0,9,8,zh).
@@ -2969,25 +3175,39 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 packed_openssl_version(MAJ, MIN, FIX, P0) ->
     %% crypto.c
     P1 = atom_to_list(P0),
-    P = lists:sum([C-$a||C<-P1]),
-    ((((((((MAJ bsl 8) bor MIN) bsl 8 ) bor FIX) bsl 8) bor (P+1)) bsl 4) bor 16#f).
+    P = lists:sum([C - $a || C <- P1]),
+    ((((((((MAJ bsl 8) bor MIN) bsl 8) bor FIX) bsl 8) bor (P + 1)) bsl 4) bor 16#f).
 
 %%--------------------------------------------------------------------
 %% Engine nifs
 engine_by_id_nif(_EngineId) -> ?nif_stub.
+
 engine_init_nif(_Engine) -> ?nif_stub.
+
 engine_finish_nif(_Engine) -> ?nif_stub.
+
 engine_free_nif(_Engine) -> ?nif_stub.
+
 engine_load_dynamic_nif() -> ?nif_stub.
+
 engine_ctrl_cmd_strings_nif(_Engine, _Cmds, _Optional) -> ?nif_stub.
-engine_add_nif(_Engine)  -> ?nif_stub.
-engine_remove_nif(_Engine)  -> ?nif_stub.
+
+engine_add_nif(_Engine) -> ?nif_stub.
+
+engine_remove_nif(_Engine) -> ?nif_stub.
+
 engine_register_nif(_Engine, _EngineMethod) -> ?nif_stub.
+
 engine_unregister_nif(_Engine, _EngineMethod) -> ?nif_stub.
+
 engine_get_first_nif() -> ?nif_stub.
+
 engine_get_next_nif(_Engine) -> ?nif_stub.
+
 engine_get_id_nif(_Engine) -> ?nif_stub.
+
 engine_get_name_nif(_Engine) -> ?nif_stub.
+
 engine_get_all_methods_nif() -> ?nif_stub.
 
 %%--------------------------------------------------------------------
@@ -3009,7 +3229,7 @@ ensure_bin_cmds(CMDs) ->
 
 ensure_bin_cmds([], Acc) ->
     lists:reverse(Acc);
-ensure_bin_cmds([{Key, Value} |CMDs], Acc) ->
+ensure_bin_cmds([{Key, Value} | CMDs], Acc) ->
     ensure_bin_cmds(CMDs, [{ensure_bin_chardata(Key), ensure_bin_chardata(Value)} | Acc]);
 ensure_bin_cmds([Key | CMDs], Acc) ->
     ensure_bin_cmds(CMDs, [{ensure_bin_chardata(Key), <<"">>} | Acc]).
@@ -3020,7 +3240,7 @@ engine_methods_convert_to_bitmask(engine_method_all, _BitMask) ->
     16#FFFF;
 engine_methods_convert_to_bitmask(engine_method_none, _BitMask) ->
     16#0000;
-engine_methods_convert_to_bitmask([M |Ms], BitMask) ->
+engine_methods_convert_to_bitmask([M | Ms], BitMask) ->
     engine_methods_convert_to_bitmask(Ms, BitMask bor engine_method_atom_to_int(M)).
 
 bool_to_int(true) -> 1;
@@ -3038,24 +3258,24 @@ engine_method_atom_to_int(engine_method_store) -> 16#0100;
 engine_method_atom_to_int(engine_method_pkey_meths) -> 16#0200;
 engine_method_atom_to_int(engine_method_pkey_asn1_meths) -> 16#0400;
 engine_method_atom_to_int(engine_method_ec) -> 16#0800;
-engine_method_atom_to_int(X) ->
-    erlang:error(badarg, [X]).
+engine_method_atom_to_int(X) -> erlang:error(badarg, [X]).
 
 get_test_engine() ->
     Type = erlang:system_info(system_architecture),
     LibDir = filename:join([code:priv_dir(crypto), "lib"]),
     ArchDir = filename:join([LibDir, Type]),
     case filelib:is_dir(ArchDir) of
-	true  -> check_otp_test_engine(ArchDir);
-	false -> check_otp_test_engine(LibDir)
+        true -> check_otp_test_engine(ArchDir);
+        false -> check_otp_test_engine(LibDir)
     end.
 
 check_otp_test_engine(LibDir) ->
     case filelib:wildcard("otp_test_engine*", LibDir) of
         [] ->
             {error, notexist};
-        [LibName|_] ->                          % In case of Valgrind there could be more than one
-            LibPath = filename:join(LibDir,LibName),
+        % In case of Valgrind there could be more than one
+        [LibName | _] ->
+            LibPath = filename:join(LibDir, LibName),
             case filelib:is_file(LibPath) of
                 true ->
                     {ok, unicode:characters_to_binary(LibPath)};
@@ -3063,5 +3283,3 @@ check_otp_test_engine(LibDir) ->
                     {error, notexist}
             end
     end.
-
-

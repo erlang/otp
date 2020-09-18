@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2000-2018. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -25,27 +25,42 @@
 %% External exports
 -export([start/1, start/2, stop/1]).
 
--export([m/1, d/1,
-	 add_release/2, add_release/3,
-	 add_application/2, add_application/3, 
-	 add_module/2, add_module/3,
-	 add_directory/2, add_directory/3,
-	 replace_module/3, replace_module/4,
-	 replace_application/3, replace_application/4,
-	 remove_module/2, remove_application/2, remove_release/2,
-	 get_library_path/1, set_library_path/2, set_library_path/3,
-	 q/2, q/3, info/1, info/2, info/3, 
-	 update/1, update/2, 
-	 forget/1, forget/2, variables/1, variables/2,
-	 analyze/2, analyze/3, analyse/2, analyse/3,
-	 get_default/1, get_default/2, 
-	 set_default/2, set_default/3]).
+-export([
+    m/1,
+    d/1,
+    add_release/2, add_release/3,
+    add_application/2, add_application/3,
+    add_module/2, add_module/3,
+    add_directory/2, add_directory/3,
+    replace_module/3, replace_module/4,
+    replace_application/3, replace_application/4,
+    remove_module/2,
+    remove_application/2,
+    remove_release/2,
+    get_library_path/1,
+    set_library_path/2, set_library_path/3,
+    q/2, q/3,
+    info/1, info/2, info/3,
+    update/1, update/2,
+    forget/1, forget/2,
+    variables/1, variables/2,
+    analyze/2, analyze/3,
+    analyse/2, analyse/3,
+    get_default/1, get_default/2,
+    set_default/2, set_default/3
+]).
 
 -export([format_error/1]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
-	 terminate/2, code_change/3]).
+-export([
+    init/1,
+    handle_call/3,
+    handle_cast/2,
+    handle_info/2,
+    terminate/2,
+    code_change/3
+]).
 
 -import(lists, [keydelete/3, keysearch/3]).
 
@@ -55,11 +70,11 @@
 %%% API
 %%%----------------------------------------------------------------------
 
-%% add_release(Servername, Directory) -> 
+%% add_release(Servername, Directory) ->
 %%         {ok, ReleaseName} | Error
 %% add_release(Servername, Directory, Options) ->
 %%         {ok, ReleaseName} | Error
-%% add_application(Servername, Directory) -> 
+%% add_application(Servername, Directory) ->
 %%         {ok, AppName} | Error
 %% add_application(Servername, Directory, Options) ->
 %%         {ok, AppName} | Error
@@ -112,53 +127,54 @@
 %% need to call xref_base:delete/1.
 m(Module) when is_atom(Module) ->
     case xref_utils:find_beam(Module) of
-	{ok, File} ->
-	    Fun = fun(S) -> 
-                          xref_base:add_module(S, File, {builtins,true})
-                  end,
-	    case catch do_functions_analysis(Fun) of
-		{error, _, {no_debug_info, _}} ->
-		    catch do_modules_analysis(Fun);
-		Result ->
-		    Result
-	    end;
-	Error -> Error
+        {ok, File} ->
+            Fun = fun(S) ->
+                xref_base:add_module(S, File, {builtins, true})
+            end,
+            case catch do_functions_analysis(Fun) of
+                {error, _, {no_debug_info, _}} ->
+                    catch do_modules_analysis(Fun);
+                Result ->
+                    Result
+            end;
+        Error ->
+            Error
     end;
 m(File) ->
     case xref_utils:split_filename(File, ".beam") of
-	false ->
-	    {error, xref_base, {invalid_filename, File}};
-	{Dir, BaseName} ->
-	    BeamFile = filename:join(Dir, BaseName),
-	    Fun = fun(S) -> 
-                          xref_base:add_module(S, BeamFile, {builtins, true})
-                  end,
-	    case catch do_functions_analysis(Fun) of
-		{error, _, {no_debug_info, _}} ->
-		    catch do_modules_analysis(Fun);
-		Result ->
-		    Result
-	    end
+        false ->
+            {error, xref_base, {invalid_filename, File}};
+        {Dir, BaseName} ->
+            BeamFile = filename:join(Dir, BaseName),
+            Fun = fun(S) ->
+                xref_base:add_module(S, BeamFile, {builtins, true})
+            end,
+            case catch do_functions_analysis(Fun) of
+                {error, _, {no_debug_info, _}} ->
+                    catch do_modules_analysis(Fun);
+                Result ->
+                    Result
+            end
     end.
 
 %% -> [Faulty] | Error; Faulty = {undefined, Calls} | {unused, Funs}
 d(Directory) ->
     Fun = fun(S) ->
-                  xref_base:add_directory(S, Directory, {builtins, true})
-          end,
+        xref_base:add_directory(S, Directory, {builtins, true})
+    end,
     Fun1 = fun(S) ->
-		   case Fun(S) of
-		       {ok, [], _S} -> 
-			   no_modules;
-		       Reply -> 
-			   Reply
-		   end
-	   end,
+        case Fun(S) of
+            {ok, [], _S} ->
+                no_modules;
+            Reply ->
+                Reply
+        end
+    end,
     case catch do_functions_analysis(Fun1) of
-	no_modules ->
-	    catch do_modules_analysis(Fun);
-	Result -> 
-	    Result
+        no_modules ->
+            catch do_modules_analysis(Fun);
+        Result ->
+            Result
     end.
 
 start(Name) when is_atom(Name) ->
@@ -175,15 +191,18 @@ start(Name, Opt) ->
 
 split_args(Opts) ->
     case keysearch(xref_mode, 1, Opts) of
-	{value, Mode} ->
-	    {[Mode], keydelete(xref_mode, 1, Opts)};
-	false ->
-	    {[], Opts}
+        {value, Mode} ->
+            {[Mode], keydelete(xref_mode, 1, Opts)};
+        false ->
+            {[], Opts}
     end.
 
 stop(Name) ->
-    try gen_server:call(Name, stop, infinity)
-    after catch unregister(Name) % ensure the name is gone
+    try
+        gen_server:call(Name, stop, infinity)
+    after
+        % ensure the name is gone
+        catch unregister(Name)
     end.
 
 add_release(Name, Dir) ->
@@ -315,10 +334,10 @@ format_error(E) ->
 %%----------------------------------------------------------------------
 init(Args) ->
     case xref_base:new(Args) of
-	{ok, S} ->
-	    {ok, S};
-	{error, _Module, Reason} ->
-	    {stop, Reason}
+        {ok, S} ->
+            {ok, S};
+        {error, _Module, Reason} ->
+            {stop, Reason}
     end.
 
 %%----------------------------------------------------------------------
@@ -334,125 +353,125 @@ handle_call(stop, _From, State) ->
     {stop, normal, stopped, State};
 handle_call({add_release, Dir}, _From, State) ->
     case xref_base:add_release(State, Dir) of
-	{ok, ReleaseName, NewState} ->
-	    {reply, {ok, ReleaseName}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, ReleaseName, NewState} ->
+            {reply, {ok, ReleaseName}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({add_release, Dir, Options}, _From, State) ->
     case xref_base:add_release(State, Dir, Options) of
-	{ok, ReleaseName, NewState} ->
-	    {reply, {ok, ReleaseName}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, ReleaseName, NewState} ->
+            {reply, {ok, ReleaseName}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({add_application, Dir}, _From, State) ->
     case xref_base:add_application(State, Dir) of
-	{ok, AppName, NewState} ->
-	    {reply, {ok, AppName}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, AppName, NewState} ->
+            {reply, {ok, AppName}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({add_application, Dir, Options}, _From, State) ->
     case xref_base:add_application(State, Dir, Options) of
-	{ok, AppName, NewState} ->
-	    {reply, {ok, AppName}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, AppName, NewState} ->
+            {reply, {ok, AppName}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({add_module, File}, _From, State) ->
     case xref_base:add_module(State, File) of
-	{ok, Module, NewState} ->
-	    {reply, {ok, Module}, NewState};
-	Error ->
-	    {reply, Error,  State}
+        {ok, Module, NewState} ->
+            {reply, {ok, Module}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({add_module, File, Options}, _From, State) ->
     case xref_base:add_module(State, File, Options) of
-	{ok, Module, NewState} ->
-	    {reply, {ok, Module}, NewState};
-	Error ->
-	    {reply, Error,  State}
+        {ok, Module, NewState} ->
+            {reply, {ok, Module}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({replace_application, Appl, Dir}, _From, State) ->
     case xref_base:replace_application(State, Appl, Dir) of
-	{ok, AppName, NewState} ->
-	    {reply, {ok, AppName}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, AppName, NewState} ->
+            {reply, {ok, AppName}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({replace_application, Appl, Dir, Opts}, _From, State) ->
     case xref_base:replace_application(State, Appl, Dir, Opts) of
-	{ok, AppName, NewState} ->
-	    {reply, {ok, AppName}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, AppName, NewState} ->
+            {reply, {ok, AppName}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({remove_module, Mod}, _From, State) ->
     case xref_base:remove_module(State, Mod) of
-	{ok, NewState} ->
-	    {reply, ok, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({remove_application, Appl}, _From, State) ->
     case xref_base:remove_application(State, Appl) of
-	{ok, NewState} ->
-	    {reply, ok, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({remove_release, Rel}, _From, State) ->
     case xref_base:remove_release(State, Rel) of
-	{ok, NewState} ->
-	    {reply, ok, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({add_directory, Dir}, _From, State) ->
     case xref_base:add_directory(State, Dir) of
-	{ok, Modules, NewState} ->
-	    {reply, {ok, Modules}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, Modules, NewState} ->
+            {reply, {ok, Modules}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({add_directory, Dir, Options}, _From, State) ->
     case xref_base:add_directory(State, Dir, Options) of
-	{ok, Modules, NewState} ->
-	    {reply, {ok, Modules}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, Modules, NewState} ->
+            {reply, {ok, Modules}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call(get_library_path, _From, State) ->
     Path = xref_base:get_library_path(State),
     {reply, Path, State};
 handle_call({set_library_path, Path}, _From, State) ->
     case xref_base:set_library_path(State, Path) of
-	{ok, NewState} ->
-	    {reply, ok, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({set_library_path, Path, Options}, _From, State) ->
     case xref_base:set_library_path(State, Path, Options) of
-	{ok, NewState} ->
-	    {reply, ok, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({replace_module, Module, File}, _From, State) ->
     case xref_base:replace_module(State, Module, File) of
-	{ok, Module, NewState} ->
-	    {reply, {ok, Module}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, Module, NewState} ->
+            {reply, {ok, Module}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({replace_module, Module, File, Options}, _From, State) ->
     case xref_base:replace_module(State, Module, File, Options) of
-	{ok, Module, NewState} ->
-	    {reply, {ok, Module}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, Module, NewState} ->
+            {reply, {ok, Module}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call(info, _From, State) ->
     {reply, xref_base:info(State), State};
@@ -462,27 +481,27 @@ handle_call({info, What, Qual}, _From, State) ->
     {reply, xref_base:info(State, What, Qual), State};
 handle_call(update, _From, State) ->
     case xref_base:update(State) of
-	{ok, NewState, Modules} ->
-	    {reply, {ok, Modules}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState, Modules} ->
+            {reply, {ok, Modules}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({update, Options}, _From, State) ->
     case xref_base:update(State, Options) of
-	{ok, NewState, Modules} ->
-	    {reply, {ok, Modules}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState, Modules} ->
+            {reply, {ok, Modules}, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call(forget, _From, State) ->
     {ok, NewState} = xref_base:forget(State),
     {reply, ok, NewState};
 handle_call({forget, Variable}, _From, State) ->
     case xref_base:forget(State, Variable) of
-	{ok, NewState} ->
-	    {reply, ok, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call(variables, _From, State) ->
     %% The reason the ok-Error pattern is broken for variables, q and
@@ -513,23 +532,23 @@ handle_call({get_default, Option}, _From, State) ->
     {reply, Reply, State};
 handle_call({set_default, OptionValues}, _From, State) ->
     case xref_base:set_default(State, OptionValues) of
-	{ok, NewState} ->
-	    {reply, ok, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({set_default, Option, Value}, _From, State) ->
     case xref_base:set_default(State, Option, Value) of
-	{ok, OldValue, NewState} ->
-	    {reply, {ok, OldValue}, NewState};
-	Error ->
-	    {reply, Error, State}
+        {ok, OldValue, NewState} ->
+            {reply, {ok, OldValue}, NewState};
+        Error ->
+            {reply, Error, State}
     end.
 
 %%----------------------------------------------------------------------
-%% Func: handle_cast/2 
-%% Returns: {noreply, State} | 
-%% {noreply, State, Timeout} | 
+%% Func: handle_cast/2
+%% Returns: {noreply, State} |
+%% {noreply, State, Timeout} |
 %% {stop, Reason, State} (terminate/2 is called)
 %%----------------------------------------------------------------------
 handle_cast(_Msg, State) -> {noreply, State}.
@@ -566,45 +585,55 @@ code_change(_OldVsn, State, _Extra) ->
 do_functions_analysis(FFun) ->
     {ok, State} = xref_base:new(),
     {ok, State1} = xref_base:set_library_path(State, code_path),
-    {ok, State2} = xref_base:set_default(State1, 
-					 [{verbose,false},{warnings,false}]),
-    State3 = case FFun(State2) of
-		 {ok, _, S} -> S;
-		 Error2 -> throw(Error2)
-	     end,
+    {ok, State2} = xref_base:set_default(
+        State1,
+        [{verbose, false}, {warnings, false}]
+    ),
+    State3 =
+        case FFun(State2) of
+            {ok, _, S} -> S;
+            Error2 -> throw(Error2)
+        end,
     {Undef, State4} = do_analysis(State3, undefined_function_calls),
     {Unused, State5} = do_analysis(State4, locals_not_used),
     {Deprecated, _} = do_analysis(State5, deprecated_function_calls),
-    [{deprecated,to_external(Deprecated)},
-     {undefined,to_external(Undef)}, 
-     {unused,to_external(Unused)}].
+    [
+        {deprecated, to_external(Deprecated)},
+        {undefined, to_external(Undef)},
+        {unused, to_external(Unused)}
+    ].
 
 do_modules_analysis(FFun) ->
     {ok, State} = xref_base:new({xref_mode, modules}),
     {ok, State1} = xref_base:set_library_path(State, code_path),
-    {ok, State2} = xref_base:set_default(State1, 
-					 [{verbose,false},{warnings,false}]),
-    State3 = case FFun(State2) of
-		 {ok, _, S} -> S;
-		 Error2 -> throw(Error2)
-	     end,
+    {ok, State2} = xref_base:set_default(
+        State1,
+        [{verbose, false}, {warnings, false}]
+    ),
+    State3 =
+        case FFun(State2) of
+            {ok, _, S} -> S;
+            Error2 -> throw(Error2)
+        end,
     {Undef, State4} = do_analysis(State3, undefined_functions),
     {Deprecated, _} = do_analysis(State4, deprecated_functions),
-    [{deprecated,to_external(Deprecated)},
-     {undefined,to_external(Undef)}].
+    [
+        {deprecated, to_external(Deprecated)},
+        {undefined, to_external(Undef)}
+    ].
 
 do_analysis(State, Analysis) ->
     case xref_base:analyze(State, Analysis) of
-	{{ok, Reply}, NewState} ->
-	    {Reply, NewState};
-	{Error, _} ->
-	    throw(Error)
+        {{ok, Reply}, NewState} ->
+            {Reply, NewState};
+        {Error, _} ->
+            throw(Error)
     end.
 
-unsetify(Reply={ok, X}) ->
+unsetify(Reply = {ok, X}) ->
     case is_sofs_set(X) of
-	true -> {ok, to_external(X)};
-	false -> Reply
+        true -> {ok, to_external(X)};
+        false -> Reply
     end;
 unsetify(Reply) ->
     Reply.
