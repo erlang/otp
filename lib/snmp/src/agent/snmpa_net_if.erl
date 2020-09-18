@@ -101,10 +101,10 @@
                      {alive_time, pos_integer()}.
 
 %% Note that since informs require confirmation,
-%% an ephemeral socket cannot immediately when
-%% it has been "used up".
-%% We need to keep it for some time in case a
-%% resend is needed!.
+%% an ephemeral socket cannot be removed immediately
+%% when it has been "used up".
+%% We need to keep it for some time to receive responces
+%% and in case a resend is needed!.
 -record(transport,
 	{socket,
          kind      = all :: all | transport_kind(),
@@ -2096,9 +2096,11 @@ get_info(#state{transports = Transports, reqs = Reqs}) ->
     Counters = get_counters(),
     [{reqs,           Reqs},
      {counters,       Counters},
-     {process_memory, ProcSize}
-     | [{port_info, get_port_info(Socket)}
-	|| #transport{socket = Socket} <- Transports]].
+     {process_memory, ProcSize},
+     {transport_info, [{PortNo, Kind, get_port_info(Socket)} ||
+                          #transport{socket  = Socket,
+                                     port_no = PortNo,
+                                     kind    = Kind} <- Transports]}].
 
 proc_mem(P) when is_pid(P) ->
     case (catch erlang:process_info(P, memory)) of
