@@ -976,16 +976,29 @@ run_with_opts(Dir, Opts, Cmd0, Expected) ->
 	  end,
     do_run(Dir, Cmd, Expected).
 
-do_run(Dir, Cmd, Expected0) ->
+do_run(Dir, Cmd, Expected) ->
+    case tempnam("escript_stderr") of
+	{ok, StdErrFile} ->
+	    do_run(Dir, Cmd, Expected, StdErrFile);
+	{error, Reason} ->
+	    io:format("Failed to create temp file: ~p\n", [Reason]),
+	    ct:fail(failed)
+    end.
+
+do_run(Dir, Cmd0, Expected0, StdErrFile) ->
+    Cmd = Cmd0 ++ " 2> " ++ StdErrFile,
     io:format("Run: ~p\n", [Cmd]),
     Expected = iolist_to_binary(expected_output(Expected0, Dir)),
 
     Env = [{"PATH",Dir++":"++os:getenv("PATH")},
            {"ERL_FLAGS",false},{"ERL_AFLAGS",false}],
-    Port = open_port({spawn,Cmd}, [stderr_to_stdout,exit_status,eof,in,{env,Env}]),
-    Res = get_data(Port, []),
+    Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env}]),
+    StdOut = get_data(Port, []),
     receive
 	{Port,{exit_status,ExitCode}} ->
+	    {ok, StdErr} = file:read_file(StdErrFile),
+	    file:delete(StdErrFile),
+	    Res = [StdErr, StdOut],
 	    Actual = iolist_to_binary([Res,"ExitCode:"++integer_to_list(ExitCode)]),
 	    case matches(Expected, Actual) of
 		true ->
@@ -1016,6 +1029,29 @@ delete_first(X, L) -> delete_first(X, L, []).
 delete_first(_X, [], _Acc) -> false;
 delete_first(X, [X | Tail], Acc) -> lists:reverse(Acc, Tail);
 delete_first(X, [Y | Tail], Acc) -> delete_first(X, Tail, [Y | Acc]).
+
+tempnam(Prefix) ->
+    Dir = os:getenv("TMPDIR", "/tmp"),
+    Pid = os:getpid(),
+    %% Using rand's functional API requires knowing the set of available
+    %% algorithms, and which one is default.  Unfortunately both properties
+    %% tend to change between OTP releases.
+    Algorithm = exsss,
+    RandState = rand:seed_s(Algorithm, os:timestamp()),
+    tempnam(filename:join(Dir, Prefix ++ "_" ++ Pid ++ "_"), RandState, _Retries = 10).
+
+tempnam(_Prefix, _RandState, _Retries = 0) -> {error, ebusy};
+tempnam(Prefix, RandState0, Retries) ->
+    {RandNr, RandState} = rand:uniform_s(1 bsl 32, RandState0),
+    File = Prefix ++ integer_to_list(RandNr),
+    case file:open(File, [write, exclusive, raw]) of
+	{ok, IoDev} ->
+	    ok = file:close(IoDev),
+	    ok = file:delete(File),
+	    {ok, File};
+	{error, _Reason} ->
+	    tempnam(Prefix, RandState, Retries - 1)
+    end.
 
 get_data(Port, SoFar) ->
     receive
