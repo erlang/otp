@@ -365,13 +365,14 @@ code_change(_, State, _) ->
 %%%--------------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
-do_handle_call(#request{address = Addr} = Request, _, 
+do_handle_call(#request{address = Addr} = Request, From,
             #state{status  = Status,
                    session = #session{type = pipeline} = Session,
                    timers  = Timers,
                    options = #options{proxy = Proxy} = _Options, 
                    profile_name = ProfileName} = State0)
   when Status =/= undefined ->
+    ok = gen_server:reply(From, ok),
     Address = handle_proxy(Addr, Proxy),
     case httpc_request:send(Address, Session, Request) of
         ok ->
@@ -409,18 +410,18 @@ do_handle_call(#request{address = Addr} = Request, _,
                     NewSession = 
                         Session#session{queue_length = 1,
                                         client_close = ClientClose},
-                    httpc_manager:insert_session(NewSession, ProfileName),
+                    insert_session(NewSession, ProfileName),
                     NewTimers = Timers#timers{queue_timer = undefined}, 
-		    State = init_wait_for_response_state(Request, State1#state{session = NewSession,
-								      timers = NewTimers}),
-                    {reply, ok, State}
+                    State = init_wait_for_response_state(Request, State1#state{session = NewSession,
+									       timers = NewTimers}),
+                    {noreply, State}
             end;
         {error, Reason} ->
             NewPipeline = queue:in(Request, State0#state.pipeline),
             {stop, {shutdown, {pipeline_failed, Reason}}, State0#state{pipeline = NewPipeline}}
     end;
 
-do_handle_call(#request{address = Addr} = Request, _, 
+do_handle_call(#request{address = Addr} = Request, From,
             #state{status  = Status,
                    session = #session{type = keep_alive} = Session,
                    timers  = Timers,
@@ -432,12 +433,11 @@ do_handle_call(#request{address = Addr} = Request, _,
 
     case State0#state.request of
 	#request{} -> %% Old request not yet finished
-	    %% Make sure to use the new value of timers in state
 	    NewKeepAlive = queue:in(Request, State0#state.keep_alive),
 	    NewSession   =
 		Session#session{queue_length =
-				    %% Queue + current
-				    queue:len(NewKeepAlive) + 1,
+				%% Queue + current
+				queue:len(NewKeepAlive) + 1,
 				client_close = ClientClose},
 	    insert_session(NewSession, ProfileName),
 	    {reply, ok, State0#state{keep_alive = NewKeepAlive,
@@ -449,6 +449,7 @@ do_handle_call(#request{address = Addr} = Request, _,
 			 timeout_queue),
 	    NewTimers = Timers#timers{queue_timer = undefined},
 	    State1 = State0#state{timers = NewTimers},
+	    ok = gen_server:reply(From, ok),
 	    Address = handle_proxy(Addr, Proxy),
 	    case httpc_request:send(Address, Session, Request) of
 		ok ->
@@ -460,7 +461,7 @@ do_handle_call(#request{address = Addr} = Request, _,
 					client_close = ClientClose},
 		    insert_session(NewSession, ProfileName),
 		    State = init_wait_for_response_state(Request, State2#state{session = NewSession}),
-		    {reply, ok, State};
+		    {noreply, State};
 		{error, Reason} ->
 		    {stop, {shutdown, {keepalive_failed, Reason}}, State1}
 	    end
