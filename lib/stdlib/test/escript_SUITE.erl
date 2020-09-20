@@ -986,15 +986,36 @@ do_run(Dir, Cmd, Expected0) ->
     Res = get_data(Port, []),
     receive
 	{Port,{exit_status,ExitCode}} ->
-	    case iolist_to_binary([Res,"ExitCode:"++integer_to_list(ExitCode)]) of
-		Expected ->
+	    Actual = iolist_to_binary([Res,"ExitCode:"++integer_to_list(ExitCode)]),
+	    case matches(Expected, Actual) of
+		true ->
 		    ok;
-		Actual ->
+		false ->
 		    io:format("Expected: ~p\n", [Expected]),
 		    io:format("Actual:   ~p\n", [Actual]),
 		    ct:fail(failed)
 	    end
     end.
+
+%% Check if Expected and Actual contain the same lines.
+%% The lines may occur in different order.
+matches(Expected, Actual) ->
+    ExpectedLines = string:split(Expected, "\n", all),
+    ActualLines = string:split(Actual, "\n", all),
+    matches_1(ExpectedLines, ActualLines).
+
+matches_1([], []) -> true;
+matches_1([Line | Expected], Actual0) ->
+    case delete_first(Line, Actual0) of
+	false -> false;
+	Actual -> matches_1(Expected, Actual)
+    end.
+
+delete_first(X, L) -> delete_first(X, L, []).
+
+delete_first(_X, [], _Acc) -> false;
+delete_first(X, [X | Tail], Acc) -> lists:reverse(Acc, Tail);
+delete_first(X, [Y | Tail], Acc) -> delete_first(X, Tail, [Y | Acc]).
 
 get_data(Port, SoFar) ->
     receive
