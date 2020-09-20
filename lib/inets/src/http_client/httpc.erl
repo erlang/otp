@@ -176,6 +176,9 @@ request(Method,
        (Method =:= delete) orelse 
        (Method =:= trace) andalso 
        (is_atom(Profile) orelse is_pid(Profile)) ->
+    do_request(Method, {Url, Headers, [], []}, HTTPOptions, Options, Profile).
+
+do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
     case normalize_and_parse_url(Url) of
 	{error, Reason, _} ->
 	    {error, Reason};
@@ -184,19 +187,9 @@ request(Method,
 		{error, Reason} ->
 		    {error, Reason};
 		_ ->
-		    handle_request(Method, Url, ParsedUrl, Headers, [], [], 
+		    handle_request(Method, Url, ParsedUrl, Headers, ContentType, Body,
 				   HTTPOptions, Options, Profile)
 	    end
-    end.
-
-do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
-    case normalize_and_parse_url(Url) of
-	{error, Reason, _} ->
-	    {error, Reason};
-	ParsedUrl ->
-	    handle_request(Method, Url, 
-			   ParsedUrl, Headers, ContentType, Body, 
-			   HTTPOptions, Options, Profile)
     end.
 
 %%--------------------------------------------------------------------------
