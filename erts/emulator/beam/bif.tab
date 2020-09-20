@@ -769,3 +769,4 @@ bif erts_internal:abort_pending_connection/2
 #
 
 bif erts_internal:get_creation/0
+bif binary:secure_compare/2
