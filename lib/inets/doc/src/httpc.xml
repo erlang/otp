@@ -113,18 +113,30 @@
     <taglist>
       <tag><c>body()</c></tag>
       <item><p>= <c>string() | binary()</c></p>
-      <p>| <c>{fun(accumulator())</c></p>
-      <p><c> -> body_processing_result(), accumulator()}</c></p>
-      <p>| <c>{chunkify, fun(accumulator())</c></p>
-      <p><c> -> body_processing_result(), accumulator()}</c></p>
+            <p>| <c>body_callback()</c></p>
+            <p>| <c>{chunkify, body_callback()}</c></p>
       </item>
     </taglist>
-    <p><c>body_processing_result() = eof | {ok, iolist(), accumulator()}</c></p>
+    <p><c>body_callback() = {fun(accumulator()) -> body_processing_result() | eof, accumulator()}</c></p>
+    <p><c>body_processing_result() = {ok, iolist(), accumulator()}</c></p>
     <p><c>accumulator() = term()</c></p>
-    <p><c>filename() = string()</c></p>
- <p>For more information about HTTP, see
- <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p> 
-</section>
+    <note>
+      <p>
+        <c>body_callback()</c> is useful to handle dynamic and/or streaming
+        content which can alternatively be supplied using <c>{chunkify, ...}</c>
+        to provide automatic handling of
+        <url href="https://tools.ietf.org/html/rfc2616#section-3.6.1">chunked transfer-encoding</url>
+        where the application will handle the encoding and additionally add
+        the HTTP header <c>transfer-encoding: chunked</c> to the response.
+      </p>
+      <p>
+        The <c>iolist()</c> in <c>body_processing_result()</c> returns the next part
+        of your body and the stream is ended with <c>eof</c>.
+      </p>
+    </note>
+    <p>For more information about HTTP, see
+    <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>
+  </section>
   
   <section>
     <title>SSL DATA TYPES</title>
@@ -309,6 +321,7 @@
                       {receiver,                receiver()} |
 	              {ipv6_host_with_brackets, boolean()}</v>
         <v>stream_to() = none | self | {self, once} | filename()</v>
+        <v>filename() = string()</v>
         <v>socket_opts() = [socket_opt()]</v>
         <v>receiver() = pid() | function()/1 | {Module, Function, Args}</v>
         <v>Module = atom()</v>
