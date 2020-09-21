@@ -1292,12 +1292,19 @@ static int match_traverse(Process* p, DbTableHash* tb,
     for(;;) {
         if (*current_ptr != NULL) {
             if ((*current_ptr)->hvalue != INVALID_HASH) {
-                match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
-                                            &(*current_ptr)->dbterm, hpp, 2);
+                DbTerm* obj = &(*current_ptr)->dbterm;
+                if (tb->common.compress)
+                    obj = db_alloc_tmp_uncompressed(&tb->common, obj);
+
+                match_res = db_match_dbterm_uncompressed(&tb->common, p, mpi.mp, 0,
+                                                         obj, hpp, 2);
                 saved_current = *current_ptr;
                 if (on_match_res(context_ptr, slot_ix, &current_ptr, match_res)) {
                     ++got;
                 }
+                if (tb->common.compress)
+                    db_free_tmp_uncompressed(obj);
+
                 --iterations_left;
                 if (*current_ptr != saved_current) {
                     /* Don't advance to next, the callback did it already */
@@ -1428,12 +1435,18 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
     for(;;) {
         if (*current_ptr != NULL) {
             if ((*current_ptr)->hvalue != INVALID_HASH) {
-                match_res = db_match_dbterm(&tb->common, p, *mpp, all_objects,
-                                            &(*current_ptr)->dbterm, hpp, 2);
+                DbTerm* obj = &(*current_ptr)->dbterm;
+                if (tb->common.compress)
+                    obj = db_alloc_tmp_uncompressed(&tb->common, obj);
+                match_res = db_match_dbterm_uncompressed(&tb->common, p, *mpp, all_objects,
+                                            obj, hpp, 2);
                 saved_current = *current_ptr;
                 if (on_match_res(context_ptr, slot_ix, &current_ptr, match_res)) {
                     ++got;
                 }
+                if (tb->common.compress)
+                    db_free_tmp_uncompressed(obj);
+
                 --iterations_left;
                 if (*current_ptr != saved_current) {
                     /* Don't advance to next, the callback did it already */

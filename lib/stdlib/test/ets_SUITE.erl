@@ -1151,7 +1151,11 @@ t_select_delete(Config) when is_list(Config) ->
 %% Tests the ets:select_replace/2 BIF
 t_select_replace(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    Tables = fill_sets_int(10000) ++ fill_sets_int(10000, [{write_concurrency,true}]),
+    repeat_for_opts(fun do_select_replace/1),
+    verify_etsmem(EtsMem).
+
+do_select_replace(Opts) ->
+    Tables = fill_sets_intup(10000, Opts),
 
     TestFun = fun (Table, TableType) when TableType =:= bag ->
                       % Operation not supported; bag implementation
@@ -1160,80 +1164,80 @@ t_select_replace(Config) when is_list(Config) ->
 
                   (Table, TableType) ->
                       % Invalid replacement doesn't keep the key
-                      MatchSpec1 = [{{'$1', '$2'},
+                      MatchSpec1 = [{{{'$1','$3'}, '$2'},
                                      [{'=:=', {'band', '$1', 2#11}, 2#11},
                                       {'=/=', {'hd', '$2'}, $x}],
-                                     [{{'$2', '$1'}}]}],
+                                     [{{{{'$2','$3'}}, '$1'}}]}],
                       {'EXIT',{badarg,_}} = (catch ets:select_replace(Table, MatchSpec1)),
 
                       % Invalid replacement doesn't keep the key (even though it would be the same value)
-                      MatchSpec2 = [{{'$1', '$2'},
+                      MatchSpec2 = [{{{'$1','$3'}, '$2'},
                                      [{'=:=', {'band', '$1', 2#11}, 2#11}],
-                                     [{{{'+', '$1', 0}, '$2'}}]},
-                                    {{'$1', '$2'},
+                                     [{{{{{'+', '$1', 0},'$3'}}, '$2'}}]},
+                                    {{{'$1','$3'}, '$2'},
                                      [{'=/=', {'band', '$1', 2#11}, 2#11}],
-                                     [{{{'-', '$1', 0}, '$2'}}]}],
+                                     [{{{{{'-', '$1', 0},'$3'}}, '$2'}}]}],
                       {'EXIT',{badarg,_}} = (catch ets:select_replace(Table, MatchSpec2)),
 
                       % Invalid replacement changes key to float equivalent
-                      MatchSpec3 = [{{'$1', '$2'},
+                      MatchSpec3 = [{{{'$1','$3'}, '$2'},
                                      [{'=:=', {'band', '$1', 2#11}, 2#11},
                                       {'=/=', {'hd', '$2'}, $x}],
-                                     [{{{'*', '$1', 1.0}, '$2'}}]}],
+                                     [{{{{{'*', '$1', 1.0},'$3'}}, '$2'}}]}],
                       {'EXIT',{badarg,_}} = (catch ets:select_replace(Table, MatchSpec3)),
 
                       % Replacements are differently-sized tuples
-                      MatchSpec4_A = [{{'$1','$2'},
+                      MatchSpec4_A = [{{{'$1','$3'},'$2'},
                                        [{'<', {'rem', '$1', 5}, 2}],
-                                       [{{'$1', [$x | '$2'], stuff}}]}],
-                      MatchSpec4_B = [{{'$1','$2','_'},
+                                       [{{{{'$1','$3'}}, [$x | '$2'], stuff}}]}],
+                      MatchSpec4_B = [{{{'$1','$3'},'$2','_'},
                                        [],
-                                       [{{'$1','$2'}}]}],
+                                       [{{{{'$1','$3'}},'$2'}}]}],
                       4000 = ets:select_replace(Table, MatchSpec4_A),
                       4000 = ets:select_replace(Table, MatchSpec4_B),
 
                       % Replacement is the same tuple
-                      MatchSpec5 = [{{'$1', '$2'},
+                      MatchSpec5 = [{{{'$1','$3'}, '$2'},
                                      [{'>', {'rem', '$1', 5}, 3}],
                                      ['$_']}],
                       2000 = ets:select_replace(Table, MatchSpec5),
 
                       % Replacement reconstructs an equal tuple
-                      MatchSpec6 = [{{'$1', '$2'},
+                      MatchSpec6 = [{{{'$1','$3'}, '$2'},
                                      [{'>', {'rem', '$1', 5}, 3}],
-                                     [{{'$1', '$2'}}]}],
+                                     [{{{{'$1','$3'}}, '$2'}}]}],
                       2000 = ets:select_replace(Table, MatchSpec6),
 
                       % Replacement uses {element,KeyPos,T} for key
                       2000 = ets:select_replace(Table,
-                                                [{{'$1', '$2'},
+                                                [{{{'$1','$3'}, '$2'},
                                                   [{'>', {'rem', '$1', 5}, 3}],
                                                   [{{{element, 1, '$_'}, '$2'}}]}]),
 
                       % Replacement uses wrong {element,KeyPos,T} for key
                       {'EXIT',{badarg,_}} = (catch ets:select_replace(Table,
-                                                                     [{{'$1', '$2'},
+                                                                     [{{{'$1','$3'}, '$2'},
                                                                        [],
                                                                        [{{{element, 2, '$_'}, '$2'}}]}])),
 
                       check(Table,
-                            fun ({N, [$x, C | _]}) when ((N rem 5) < 2) -> (C >= $0) andalso (C =< $9);
-                                ({N, [C | _]}) when is_float(N) -> (C >= $0) andalso (C =< $9);
-                                ({N, [C | _]}) when ((N rem 5) > 3) -> (C >= $0) andalso (C =< $9);
+                            fun ({{N,_}, [$x, C | _]}) when ((N rem 5) < 2) -> (C >= $0) andalso (C =< $9);
+                                ({{N,_}, [C | _]}) when is_float(N) -> (C >= $0) andalso (C =< $9);
+                                ({{N,_}, [C | _]}) when ((N rem 5) > 3) -> (C >= $0) andalso (C =< $9);
                                 ({_, [C | _]}) -> (C >= $0) andalso (C =< $9)
                             end,
                             10000),
 
                       % Replace unbound range (>)
-                      MatchSpec7 = [{{'$1', '$2'},
+                      MatchSpec7 = [{{{'$1','$3'}, '$2'},
                                      [{'>', '$1', 7000}],
-                                     [{{'$1', {{gt_range, '$2'}}}}]}],
+                                     [{{{{'$1','$3'}}, {{gt_range, '$2'}}}}]}],
                       3000 = ets:select_replace(Table, MatchSpec7),
 
                       % Replace unbound range (<)
-                      MatchSpec8 = [{{'$1', '$2'},
+                      MatchSpec8 = [{{{'$1','$3'}, '$2'},
                                      [{'<', '$1', 3000}],
-                                     [{{'$1', {{le_range, '$2'}}}}]}],
+                                     [{{{{'$1','$3'}}, {{le_range, '$2'}}}}]}],
                       case TableType of
                           ordered_set ->   2999 = ets:select_replace(Table, MatchSpec8);
                           set ->           2999 = ets:select_replace(Table, MatchSpec8);
@@ -1241,10 +1245,10 @@ t_select_replace(Config) when is_list(Config) ->
                       end,
 
                       % Replace bound range
-                      MatchSpec9 = [{{'$1', '$2'},
+                      MatchSpec9 = [{{{'$1','$3'}, '$2'},
                                      [{'>=', '$1', 3001},
                                       {'<', '$1', 7000}],
-                                     [{{'$1', {{range, '$2'}}}}]}],
+                                     [{{{{'$1','$3'}}, {{range, '$2'}}}}]}],
                       case TableType of
                           ordered_set ->   3999 = ets:select_replace(Table, MatchSpec9);
                           set ->           3999 = ets:select_replace(Table, MatchSpec9);
@@ -1252,12 +1256,12 @@ t_select_replace(Config) when is_list(Config) ->
                       end,
 
                       % Replace particular keys
-                      MatchSpec10 = [{{'$1', '$2'},
+                      MatchSpec10 = [{{{'$1','$3'}, '$2'},
                                      [{'==', '$1', 3000}],
-                                     [{{'$1', {{specific1, '$2'}}}}]},
-                                    {{'$1', '$2'},
+                                     [{{{{'$1','$3'}}, {{specific1, '$2'}}}}]},
+                                    {{{'$1','$3'}, '$2'},
                                      [{'==', '$1', 7000}],
-                                     [{{'$1', {{specific2, '$2'}}}}]}],
+                                     [{{{{'$1','$3'}}, {{specific2, '$2'}}}}]}],
                       case TableType of
                           ordered_set ->   2 = ets:select_replace(Table, MatchSpec10);
                           set ->           2 = ets:select_replace(Table, MatchSpec10);
@@ -1265,11 +1269,11 @@ t_select_replace(Config) when is_list(Config) ->
                       end,
 
                       check(Table,
-                            fun ({N, {gt_range, _}}) -> N > 7000;
-                                ({N, {le_range, _}}) -> N < 3000;
-                                ({N, {range, _}}) -> (N >= 3001) andalso (N < 7000);
-                                ({N, {specific1, _}}) -> N == 3000;
-                                ({N, {specific2, _}}) -> N == 7000
+                            fun ({{N,_}, {gt_range, _}}) -> N > 7000;
+                                ({{N,_}, {le_range, _}}) -> N < 3000;
+                                ({{N,_}, {range, _}}) -> (N >= 3001) andalso (N < 7000);
+                                ({{N,_}, {specific1, _}}) -> N == 3000;
+                                ({{N,_}, {specific2, _}}) -> N == 7000
                             end,
                             10000),
 
@@ -1309,7 +1313,7 @@ t_select_replace(Config) when is_list(Config) ->
                       ]
               end,
 
-    T2 = ets:new(x, []),
+    T2 = ets:new(x, Opts),
     [lists:foreach(fun({A, B}) ->
                            %% just check that matchspec is accepted
                            0 = ets:select_replace(T2, [{{A, '$2', '$3'}, [], [{{B, '$3', '$2'}}]}])
@@ -1370,8 +1374,7 @@ t_select_replace(Config) when is_list(Config) ->
 
 
     ets:delete(T2),
-
-    verify_etsmem(EtsMem).
+    ok.
 
 %% Test that partly bound keys gives faster matches.
 partly_bound(Config) when is_list(Config) ->
@@ -4759,6 +4762,7 @@ make_table(Name, Options, Elements) ->
     T = ets_new(Name, Options),
     lists:foreach(fun(E) -> ets:insert(T, E) end, Elements),
     T.
+
 filltabint(Tab,0) ->
     Tab;
 filltabint(Tab,N) ->
@@ -4785,6 +4789,22 @@ xfilltabint(Tab,N) ->
 	    filltabint(Tab,N)
     end.
 
+filltabintup(Tab,0) ->
+    Tab;
+filltabintup(Tab,N) ->
+    ets:insert(Tab,{{N,integer_to_list(N)},integer_to_list(N)}),
+    filltabintup(Tab,N-1).
+
+filltabintup2(Tab,0) ->
+    Tab;
+filltabintup2(Tab,N) ->
+    ets:insert(Tab,{{N + N rem 2,integer_to_list(N)},integer_to_list(N)}),
+    filltabintup2(Tab,N-1).
+filltabintup3(Tab,0) ->
+    Tab;
+filltabintup3(Tab,N) ->
+    ets:insert(Tab,{{N + N rem 2,integer_to_list(N + N rem 2)},integer_to_list(N + N rem 2)}),
+    filltabintup3(Tab,N-1).
 
 filltabstr(Tab,N) ->
     filltabstr(Tab,0,N).
@@ -4828,6 +4848,19 @@ fill_sets_int(N,Opts) ->
     filltabint2(Tab3,N),
     Tab4 = ets_new(xxx, [duplicate_bag|Opts]),
     filltabint3(Tab4,N),
+    [Tab1,Tab2,Tab3,Tab4].
+
+fill_sets_intup(N) ->
+    fill_sets_int(N,[]).
+fill_sets_intup(N,Opts) ->
+    Tab1 = ets_new(xxx, [ordered_set|Opts]),
+    filltabintup(Tab1,N),
+    Tab2 = ets_new(xxx, [set|Opts]),
+    filltabintup(Tab2,N),
+    Tab3 = ets_new(xxx, [bag|Opts]),
+    filltabintup2(Tab3,N),
+    Tab4 = ets_new(xxx, [duplicate_bag|Opts]),
+    filltabintup3(Tab4,N),
     [Tab1,Tab2,Tab3,Tab4].
 
 check_fun(_Tab,_Fun,'$end_of_table') ->
@@ -5658,7 +5691,8 @@ smp_select_delete(Config) when is_list(Config) ->
 
 smp_select_replace(Config) when is_list(Config) ->
     repeat_for_opts(fun smp_select_replace_do/1,
-                    [[set,ordered_set,duplicate_bag]]).
+                    [[set,ordered_set,duplicate_bag],
+                     compressed]).
 
 smp_select_replace_do(Opts) ->
     T = ets_new(smp_select_replace,
