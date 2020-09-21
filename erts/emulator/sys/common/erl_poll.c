@@ -1350,11 +1350,7 @@ poll_control(ErtsPollSet *ps, int fd, ErtsPollOp op,
 	    goto done;
 	}
 #endif
-	if ((fd == ps->wake_fds[0] || fd == ps->wake_fds[1])
-#if ERTS_POLL_USE_KERNEL_POLL
-            && !ps->oneshot
-#endif
-            ) {
+	if (fd == ps->wake_fds[0] || fd == ps->wake_fds[1]) {
 	    new_events = ERTS_POLL_EV_NVAL;
 	    goto done;
 	}
@@ -1418,7 +1414,7 @@ ERTS_POLL_EXPORT(erts_poll_control)(ErtsPollSet *ps,
 
     ERTS_POLLSET_UNLOCK(ps);
 
-    if (*do_wake && ERTS_POLL_USE_WAKEUP(ps))
+    if (*do_wake)
 	wake_poller(ps, 0);
 
     return res;
@@ -1437,7 +1433,9 @@ ERTS_POLL_EXPORT(save_result)(ErtsPollSet *ps, ErtsPollResFd pr[], int max_res, 
     int res = n;
     int wake_fd = ps->wake_fds[0];
 
-    for (i = 0; i < n; i++) {
+    if (ERTS_POLL_USE_WAKEUP(ps) || ERTS_POLL_DEBUG_PRINT || ERTS_POLL_USE_TIMERFD) {
+
+        for (i = 0; i < n; i++) {
             int fd = ERTS_POLL_RES_GET_FD(&pr[i]);
 #if ERTS_POLL_DEBUG_PRINT
             ErtsPollEvents evts = ERTS_POLL_RES_GET_EVTS(pr+i);
@@ -1459,13 +1457,8 @@ ERTS_POLL_EXPORT(save_result)(ErtsPollSet *ps, ErtsPollResFd pr[], int max_res, 
                     );
 #endif
 
-            if (fd == wake_fd) {
+            if (ERTS_POLL_USE_WAKEUP(ps) && fd == wake_fd) {
                 cleanup_wakeup_pipe(ps);
-                if (ps->oneshot) {
-                    /* Re-arm wakeup fd... */
-                    int do_wake = 0;
-                    (void) poll_control(ps, fd, ERTS_POLL_OP_MOD, ERTS_POLL_EV_IN, &do_wake);
-                }
                 ERTS_POLL_RES_SET_FD(&pr[i], ERTS_SYS_FD_INVALID);
                 ERTS_POLL_RES_SET_EVTS(&pr[i], ERTS_POLL_EV_NONE);
                 res--;
@@ -1484,6 +1477,7 @@ ERTS_POLL_EXPORT(save_result)(ErtsPollSet *ps, ErtsPollResFd pr[], int max_res, 
                 enqueue_update_request(ps, fd);
             }
 #endif
+        }
     }
 
     if (res == 0)
@@ -1961,7 +1955,8 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet *ps,
         ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_CHECK_IO);
     }
 
-    woke_up(ps);
+    if (ERTS_POLL_USE_WAKEUP(ps))
+        woke_up(ps);
 
     if (res < 0) {
 #if ERTS_POLL_USE_SELECT
@@ -2012,10 +2007,12 @@ void
 ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet *ps, int set)
 {
     DEBUG_PRINT_WAIT("poll_interrupt(%d)", ps, set);
-    if (!set)
-        reset_wakeup_state(ps);
-    else
-        wake_poller(ps, 1);
+    if (ERTS_POLL_USE_WAKEUP(ps)) {
+        if (!set)
+            reset_wakeup_state(ps);
+        else
+            wake_poller(ps, 1);
+    }
 }
 
 int
