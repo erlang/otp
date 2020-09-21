@@ -468,16 +468,24 @@ gen_udp_range_open(Min, Max, Opts) ->
     ?vtrace("gen_udp_range_open -> entry with"
             "~n      Min: ~w"
             "~n      Max: ~w", [Min, Max]),
-    case gen_udp:open(Min, Opts) of
+    try gen_udp:open(Min, Opts) of
         {ok, Socket} ->
             ?vtrace("gen_udp_range_open(~w,~w) -> created: "
                     "~n      ~p", [Min, Max, Socket]),
             {Socket, Min};
         {error, eaddrinuse} ->
-            ?vtrace("gen_udp_range_open(~w,~w) -> eaddrinuse"),
+            ?vdebug("gen_udp_range_open(~w,~w) -> eaddrinuse"),
             gen_udp_range_open(Min+1, Max, Opts);
         {error, Reason} ->
+            ?vdebug("gen_udp_range_open(~w,~w) -> ~w", [Reason]),
             throw({udp_open, {open, Reason}})
+    catch
+        C:E:S ->
+            ?vinfo("gen_udp_range_open(~w,~w) -> failed open socket: "
+                   "~n      C: ~p"
+                   "~n      E: ~p"
+                   "~n      S: ~p", [Min, Max, C, E, S]),
+            erlang:raise(C, E, S)
     end.
 
 gen_udp_ranges_open([], _Opts) ->
@@ -1945,6 +1953,13 @@ get_counters([Counter|Counters], Acc) ->
 %% This extracts the socket options from what is specified for
 %% the transport, or if not, from the "global" socket options.
 socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
+    ?vtrace("socket_opts -> entry with"
+            "~n      Domain:      ~p"
+            "~n      IpAddr:      ~p"
+            "~n      PortInfo:    ~p"
+            "~n      SpocketOpts: ~p"
+            "~n      DefaultOpts: ~p",
+            [Domain, IpAddr, PortInfo, SocketOpts, DefaultOpts]),
     Opts =
         [binary |
          case snmp_conf:tdomain_to_family(Domain) of
