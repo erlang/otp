@@ -1764,33 +1764,82 @@ example_fun(A1, A2) ->
       <desc>
         <p>Sends an exit signal with exit reason <c><anno>Reason</anno></c> to
           the process or port identified by <c><anno>Pid</anno></c>.</p>
-        <p>The following behavior applies if <c><anno>Reason</anno></c>
-          is any term, except <c>normal</c> or <c>kill</c>:</p>
+        <p>The following behavior applies if
+        <c><anno>Reason</anno></c> is any term, except <c>normal</c>
+        or <c>kill</c>, and <c>P</c> is the process or port identified
+        by <c><anno>Pid</anno></c>:</p>
         <list type="bulleted">
-          <item><p>If <c><anno>Pid</anno></c> is not trapping exits,
-            <c><anno>Pid</anno></c>
-            itself exits with exit reason <c><anno>Reason</anno></c>.</p>
+          <item><p>If <c>P</c> is not <seemfa marker="#process_flag/2">trapping exits</seemfa>,
+            <c>P</c> exits with exit reason <c><anno>Reason</anno></c>.</p>
           </item>
-          <item><p>If <c><anno>Pid</anno></c> is trapping exits, the exit
-            signal is transformed into a message
-            <c>{'EXIT', From, <anno>Reason</anno>}</c>
-            and delivered to the message queue of <c><anno>Pid</anno></c>.</p>
-          </item>
-          <item><p><c>From</c> is the process identifier of the process
-            that sent the exit signal. See also
-            <seemfa marker="#process_flag/2">
-            <c>process_flag/2</c></seemfa>.</p>
+          <item><p>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit
+          signal is transformed into a message <c>{'EXIT', From,
+          <anno>Reason</anno>}</c>, where <c>From</c> is the process
+          identifier of the process that sent the exit signal, and
+          delivered to the message queue of <c>P</c>.</p>
           </item>
         </list>
-        <p>If <c><anno>Reason</anno></c> is the atom <c>normal</c>,
-          <c><anno>Pid</anno></c>
-          does not exit. If it is trapping exits, the exit signal is
-          transformed into a message <c>{'EXIT', From, normal}</c>
-          and delivered to its message queue.</p>
-        <p>If <c><anno>Reason</anno></c> is the atom <c>kill</c>,
-          that is, if <c>exit(<anno>Pid</anno>, kill)</c> is called,
-          an untrappable exit signal is sent to <c><anno>Pid</anno></c>,
-          which unconditionally exits with exit reason <c>killed</c>.</p>
+        <p>The following behavior applies if
+        <c><anno>Reason</anno></c> is the term <c>normal</c> and
+        <c><anno>Pid</anno></c> is the identifier of a process
+        <c>P</c> which is not the same as the process that invoked
+        <c>erlang:exit(Pid, normal)</c> (the behavior when a process
+        sends a signal with the <c>normal</c> reason to itself is
+        described in the warning):</p>
+        <list type="bulleted">
+          <item>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit signal is
+          transformed into a message <c>{'EXIT', From, normal}</c>,
+          where <c>From</c> is the process identifier of the process
+          that sent the exit signal, and delivered to <c>P</c>'s
+          message queue.</item>
+          <item>The message has no effect if <c>P</c> is not trapping
+          exits.</item>
+        </list>
+        <p>If <c><anno>Reason</anno></c> is the atom <c>kill</c>, that
+        is, if <c>exit(<anno>Pid</anno>, kill)</c> is called, an
+        untrappable exit signal is sent to the process that
+        is identified by <c><anno>Pid</anno></c>, which
+        unconditionally exits with exit reason <c>killed</c>.  The
+        exit reason is changed from <c>kill</c> to <c>killed</c> so
+        that the <c>kill</c> signal will not cascade to all linked
+        processes.
+        </p>
+        <note>
+          <p>The functions <seemfa marker="#exit/1"><c>erlang:exit/1</c></seemfa> and
+          <c>erlang:exit/2</c> are named similarly but provide very
+          different functionalities. The <c>erlang:exit/1</c> function
+          should be used when the intent is to stop the current
+          process while <c>erlang:exit/2</c> should be used when the
+          intent is to send an exit signal to another process. Note
+          also that <c>erlang:exit/1</c> throws an exception that can
+          be caught while <c>erlang:exit/2</c> does not cause any
+          exception to be thrown.</p>
+        </note>
+        <warning>
+          <p>The only scenario that has not been covered by the
+          description above is when a process <c>P</c> sends an exit
+          signal with reason <c>normal</c> to itself, that is
+          <c>erlang:exit(self(), normal)</c>. The behavior in this
+          scenario is as follows:</p>
+          <list type="bulleted">
+            <item>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit signal is
+            transformed into a message <c>{'EXIT', From, normal}</c>,
+            where <c>From</c> is <c>P</c>'s process identifier, and
+            delivered to <c>P</c>'s message queue.</item>
+            <item><c>P</c> exits with reason <c>normal</c> if <c>P</c>
+            is not trapping exits.</item>
+          </list>
+          <p>
+            Note that the behavior described above is different from
+            when a process sends an exit signal with reason
+            <c>normal</c> to another process. This is arguably strange
+            but this behavior is kept for backward compatibility
+            reasons.
+          </p>
+        </warning>
       </desc>
     </func>
 
