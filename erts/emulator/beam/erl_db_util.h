@@ -359,6 +359,7 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
 			ErlOffHeap* off_heap);
 int db_eq_comp(DbTableCommon* tb, Eterm a, DbTerm* b);
 DbTerm* db_alloc_tmp_uncompressed(DbTableCommon* tb, DbTerm* org);
+void db_free_tmp_uncompressed(DbTerm* obj);
 
 ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap);
@@ -523,6 +524,8 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 DMCErrInfo *err_info);
 /* Returns newly allocated MatchProg binary with refc == 0*/
 
+Eterm db_match_dbterm_uncompressed(DbTableCommon* tb, Process* c_p, Binary* bprog,
+                                   DbTerm* obj, Eterm** hpp, Uint extra);
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 		      DbTerm* obj, Eterm** hpp, Uint extra);
 
