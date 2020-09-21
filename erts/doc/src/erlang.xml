@@ -4067,7 +4067,7 @@ RealSystem = system + MissedSystem</code>
         <p>Returns the node where <c><anno>Arg</anno></c> originates.
           <c><anno>Arg</anno></c> can
           be a process identifier, a reference, or a port.
-          If the local node is not
+          If <c><anno>Arg</anno></c> originates from the local node and the local node is not
           alive, <c>nonode@nohost</c> is returned.</p>
         <p>Allowed in guard tests.</p>
       </desc>
