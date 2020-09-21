@@ -2262,7 +2262,6 @@ sys_msg_dispatcher_func(void *unused)
 
 	/* Fetch current trace message queue ... */
 	if (!sys_message_queue) {
-            wait = 1;
 	    erts_mtx_unlock(&smq_mtx);
 	    end_wait = 1;
 	    erts_thr_progress_active(tpd, 0);
@@ -2270,23 +2269,8 @@ sys_msg_dispatcher_func(void *unused)
 	    erts_mtx_lock(&smq_mtx);
 	}
 
-	while (!sys_message_queue) {
-            if (wait)
-                erts_cnd_wait(&smq_cnd, &smq_mtx);
-            if (sys_message_queue)
-                break;
-            wait = 1;
-	    erts_mtx_unlock(&smq_mtx);
-            /*
-             * Ensure thread progress continue. We might have
-             * been the last thread to go to sleep. In that case
-             * erts_thr_progress_finalize_wait() will take care
-             * of it...
-             */
-	    erts_thr_progress_finalize_wait(tpd);
-	    erts_thr_progress_prepare_wait(tpd);
-	    erts_mtx_lock(&smq_mtx);
-        }
+	while (!sys_message_queue)
+	    erts_cnd_wait(&smq_cnd, &smq_mtx);
 
 	local_sys_message_queue = sys_message_queue;
 	sys_message_queue = NULL;
