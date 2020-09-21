@@ -356,11 +356,15 @@ set_default_exec_alloc_opts(struct au_init *ip)
     ip->init.util.rmbcmt	= 0;
     ip->init.util.acul		= 0;
 
-#if HAVE_ERTS_MSEG
+#  if HAVE_ERTS_MSEG
     ip->init.util.mseg_alloc    = &erts_alcu_exec_mseg_alloc;
     ip->init.util.mseg_realloc  = &erts_alcu_exec_mseg_realloc;
     ip->init.util.mseg_dealloc  = &erts_alcu_exec_mseg_dealloc;
-#endif
+
+#    if defined(ERTS_JIT_RESERVED_CODE_SIZE)
+    ip->init.util.mseg_mmapper  = &erts_exec_mmapper;
+#    endif
+# endif /* HAVE_ERTS_MSEG */
 
 }
 #endif /* ERTS_ALC_A_EXEC */
@@ -2787,6 +2791,10 @@ erts_allocator_info(fmtfn_t to, void *arg)
         erts_print(to, arg, "=allocator:erts_mmap.literal_mmap\n");
         erts_mmap_info(&erts_literal_mmapper, &to, arg, NULL, NULL, &emis);
 #endif
+#if defined(ERTS_ALC_A_EXEC)
+        erts_print(to, arg, "=allocator:erts_mmap.exec_mmap\n");
+        erts_mmap_info(&erts_exec_mmapper, &to, arg, NULL, NULL, &emis);
+#endif
     }
 #endif
 
@@ -2932,6 +2940,9 @@ erts_allocator_options(void *proc)
 #if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     terms[length++] = ERTS_MAKE_AM("literal_mmap");
 #endif
+#if defined(ERTS_ALC_A_EXEC)
+    terms[length++] = ERTS_MAKE_AM("exec_mmap");
+#endif
     features = length ? erts_bld_list(hpp, szp, length, terms) : NIL;
 
 #if defined(__GLIBC__)
@@ -3020,6 +3031,9 @@ reply_alloc_info(void *vair)
     struct erts_mmap_info_struct mmap_info_dflt;
 # if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     struct erts_mmap_info_struct mmap_info_literal;
+# endif
+# if defined(ERTS_ALC_A_EXEC)
+    struct erts_mmap_info_struct mmap_info_exec;
 # endif
 #endif
     int i;
@@ -3147,6 +3161,17 @@ reply_alloc_info(void *vair)
                     ainfo = erts_bld_tuple3(hpp, szp,
                                             alloc_atom,
                                             erts_bld_atom(hpp,szp,"literal_mmap"),
+                                            ainfo);
+#  endif
+#  if defined(ERTS_ALC_A_EXEC)
+                    ai_list = erts_bld_cons(hpp, szp,
+                                            ainfo, ai_list);
+                    ainfo = (air->only_sz ? NIL :
+                             erts_mmap_info(&erts_exec_mmapper, NULL, NULL,
+                                            hpp, szp, &mmap_info_exec));
+                    ainfo = erts_bld_tuple3(hpp, szp,
+                                            alloc_atom,
+                                            erts_bld_atom(hpp,szp,"exec_mmap"),
                                             ainfo);
 #  endif
 #else  /* !HAVE_ERTS_MMAP */

@@ -1411,6 +1411,26 @@ erts_mseg_init(ErtsMsegInit_t *init)
     erts_mmap_init(&erts_literal_mmapper, &init->literal_mmap);
 #endif
 
+#if defined(ERTS_ALC_A_EXEC)
+    {
+        ErtsMMapInit exec_mmap = ERTS_MMAP_INIT_DEFAULT_INITER;
+
+#   if defined(ERTS_JIT_RESERVED_CODE_SIZE)
+        /* Allocate native code close to the emulator to reduce the amount of
+         * indirect calls and jumps. The most straightforward way to do this
+         * while remaining compatible with ASLR is to allocate our code within
+         * an array in `.bss`, as the SystemV ABI guarantees that all sections
+         * are at most 2GB apart in the "small" and "medium" code models. */
+        static char exec_bss[ERTS_JIT_RESERVED_CODE_SIZE << 20];
+
+        exec_mmap.predefined_area.start = exec_bss;
+        exec_mmap.predefined_area.end = &exec_bss[sizeof(exec_bss)];
+#   endif
+
+        erts_mmap_init(&erts_exec_mmapper, &exec_mmap);
+    }
+#endif
+
     if (!IS_2POW(GET_PAGE_SIZE))
 	erts_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected page_size %beu\n", GET_PAGE_SIZE);
 

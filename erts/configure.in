@@ -2997,6 +2997,29 @@ EOF
    fi
 fi
 
+AC_ARG_WITH(jit-reserved-code-size,
+AS_HELP_STRING([--with-jit-reserved-code-size=SIZE],
+               [reserved size for jitted code in MiB (default is 512)]))
+
+case "$with_jit_reserved_code_size" in
+    '')
+      case "$ARCH-$OPSYS" in
+        amd64-linux|amd64-darwin*|amd64-freebsd|amd64-sol2)
+          with_jit_reserved_code_size=512;;
+        *)
+          with_jit_reserved_code_size=0;;
+      esac
+      ;;
+    *)
+      ;;
+esac
+
+if test "X$with_jit_reserved_code_size" != "X0"; then
+  AC_DEFINE_UNQUOTED(ERTS_JIT_RESERVED_CODE_SIZE,
+                    $with_jit_reserved_code_size,
+                    [Reserved size for jitted code (in megabytes)])
+fi
+
 if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
   if test -z "$M4"; then
     enable_hipe=no

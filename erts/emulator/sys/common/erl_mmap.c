@@ -380,6 +380,9 @@ char* erts_literals_start;
 UWord erts_literals_size;
 #endif
 
+#if defined(ERTS_ALC_A_EXEC)
+ErtsMemMapper erts_exec_mmapper;
+#endif
 
 #define ERTS_MMAP_SIZE_SC_SA_INC(SZ) 						\
     do {									\

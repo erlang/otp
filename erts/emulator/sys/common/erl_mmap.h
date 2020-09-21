@@ -163,6 +163,10 @@ extern ErtsMemMapper erts_literal_mmapper;
 # endif /* ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION */
 #endif /* ERTS_WANT_MEM_MAPPERS */
 
+#if defined(ERTS_ALC_A_EXEC)
+extern ErtsMemMapper erts_exec_mmapper;
+#endif
+
 /*#define HARD_DEBUG_MSEG*/
 #ifdef HARD_DEBUG_MSEG
 #  define HARD_DBG_INSERT_MSEG hard_dbg_insert_mseg

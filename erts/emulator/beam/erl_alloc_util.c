@@ -1084,7 +1084,13 @@ erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 void*
 erts_alcu_exec_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
-    void* res = erts_alcu_mseg_alloc(allctr, size_p, flags);
+    void* res;
+
+#if defined(ERTS_JIT_RESERVED_CODE_SIZE)
+    res = erts_alcu_mmapper_mseg_alloc(allctr, size_p, flags);
+#else
+    res = erts_alcu_mseg_alloc(allctr, size_p, flags);
+#endif
 
     if (res) {
         int r = mprotect(res, *size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
@@ -1106,7 +1112,13 @@ erts_alcu_exec_mseg_realloc(Allctr_t *allctr, void *seg,
         int r = mprotect(seg, old_size, PROT_READ | PROT_WRITE);
         ASSERT(r == 0); (void)r;
     }
+
+#if defined(ERTS_JIT_RESERVED_CODE_SIZE)
+    res = erts_alcu_mmapper_mseg_realloc(allctr, seg, old_size, new_size_p);
+#else
     res = erts_alcu_mseg_realloc(allctr, seg, old_size, new_size_p);
+#endif
+
     if (res) {
         int r = mprotect(res, *new_size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
         ASSERT(r == 0); (void)r;
@@ -1119,7 +1131,12 @@ erts_alcu_exec_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 {
     int r = mprotect(seg, size, PROT_READ | PROT_WRITE);
     ASSERT(r == 0); (void)r;
+
+#if defined(ERTS_JIT_RESERVED_CODE_SIZE)
+    erts_alcu_mmapper_mseg_dealloc(allctr, seg, size, flags);
+#else
     erts_alcu_mseg_dealloc(allctr, seg, size, flags);
+#endif
 }
 #endif /* ERTS_ALC_A_EXEC */
 
