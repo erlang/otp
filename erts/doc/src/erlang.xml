@@ -7329,11 +7329,13 @@ true</pre>
         </taglist>
         <p>More <c><anno>Option</anno></c>s can be added in the future.</p>
         <p>The absolute point in time, the timer is set to expire on,
-          must be in the interval
-          <c>[</c><seeerl marker="#system_info_start_time">
-          <c>erlang:system_info(start_time)</c></seeerl><c>,
-          </c><seeerl marker="#system_info_end_time">
-          <c>erlang:system_info(end_time)</c></seeerl><c>]</c>.
+        must be in the interval <c>[ </c><seemfa
+        marker="#convert_time_unit/3">erlang:convert_time_unit</seemfa><c>(</c><seeerl
+        marker="#system_info_start_time">erlang:system_info</seeerl><c>(start_time),
+        native, millisecond), </c><seemfa
+        marker="#convert_time_unit/3">erlang:convert_time_unit</seemfa><c>(</c><seeerl
+        marker="#system_info_end_time">erlang:system_info</seeerl><c>(end_time),
+        native, millisecond) ]</c>.
           If a relative time is specified, the <c><anno>Time</anno></c>
           value is not allowed to be negative.</p>
         <p>If <c><anno>Dest</anno></c> is a <c>pid()</c>, it must
