@@ -5334,34 +5334,27 @@ void db_free_tmp_uncompressed(DbTerm* obj)
 }
 
 Eterm db_match_dbterm_uncompressed(DbTableCommon* tb, Process* c_p, Binary* bprog,
-                                   DbTerm* obj, Eterm** hpp, Uint extra)
+                                   DbTerm* obj, enum erts_pam_run_flags flags)
 {
-    enum erts_pam_run_flags flags;
+
     Uint32 dummy;
     Eterm res;
 
-    flags = (hpp ?
-             ERTS_PAM_COPY_RESULT | ERTS_PAM_CONTIGUOUS_TUPLE :
-             ERTS_PAM_TMP_RESULT  | ERTS_PAM_CONTIGUOUS_TUPLE);
-
     res = db_prog_match(c_p, c_p,
                         bprog, make_tuple(obj->tpl), NULL, 0,
-			flags, &dummy);
+			flags|ERTS_PAM_CONTIGUOUS_TUPLE, &dummy);
 
-    if (is_value(res) && hpp!=NULL) {
-	*hpp = HAlloc(c_p, extra);
-    }
     return res;
 }
 
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
-                      DbTerm* obj, Eterm** hpp, Uint extra)
+                      DbTerm* obj, enum erts_pam_run_flags flags)
 {
     Eterm res;
     if (tb->compress) {
         obj = db_alloc_tmp_uncompressed(tb, obj);
     }
-    res = db_match_dbterm_uncompressed(tb, c_p, bprog, obj, hpp, extra);
+    res = db_match_dbterm_uncompressed(tb, c_p, bprog, obj, flags);
     if (tb->compress) {
         db_free_tmp_uncompressed(obj);
     }

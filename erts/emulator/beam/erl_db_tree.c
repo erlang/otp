@@ -3838,7 +3838,6 @@ static int doit_select(DbTableCommon *tb, TreeDbTerm *this,
 {
     struct select_context *sc = (struct select_context *) ptr;
     Eterm ret;
-    Eterm* hp;
 
     sc->lastobj = this->dbterm.tpl;
     
@@ -3851,8 +3850,9 @@ static int doit_select(DbTableCommon *tb, TreeDbTerm *this,
 			   GETKEY_WITH_POS(sc->keypos, this->dbterm.tpl)) > 0))) {
 	return 0;
     }
-    ret = db_match_dbterm(tb, sc->p,sc->mp, &this->dbterm, &hp, 2);
+    ret = db_match_dbterm(tb, sc->p, sc->mp, &this->dbterm, ERTS_PAM_COPY_RESULT);
     if (is_value(ret)) {
+        Eterm *hp = HAlloc(sc->p, 2);
 	sc->accum = CONS(hp, ret, sc->accum);
     }
     if (--(sc->max) <= 0) {
@@ -3876,7 +3876,7 @@ static int doit_select_count(DbTableCommon *tb, TreeDbTerm *this,
 			  GETKEY_WITH_POS(sc->keypos, this->dbterm.tpl)) > 0)) {
 	return 0;
     }
-    ret = db_match_dbterm(tb, sc->p, sc->mp, &this->dbterm, NULL, 0);
+    ret = db_match_dbterm(tb, sc->p, sc->mp, &this->dbterm, ERTS_PAM_TMP_RESULT);
     if (ret == am_true) {
 	++(sc->got);
     }
@@ -3892,7 +3892,6 @@ static int doit_select_chunk(DbTableCommon *tb, TreeDbTerm *this,
 {
     struct select_context *sc = (struct select_context *) ptr;
     Eterm ret;
-    Eterm* hp;
 
     sc->lastobj = this->dbterm.tpl;
     
@@ -3906,8 +3905,9 @@ static int doit_select_chunk(DbTableCommon *tb, TreeDbTerm *this,
 	return 0;
     }
 
-    ret = db_match_dbterm(tb, sc->p, sc->mp, &this->dbterm, &hp, 2);
+    ret = db_match_dbterm(tb, sc->p, sc->mp, &this->dbterm, ERTS_PAM_COPY_RESULT);
     if (is_value(ret)) {
+        Eterm *hp = HAlloc(sc->p, 2);
 	++(sc->got);
 	sc->accum = CONS(hp, ret, sc->accum);
     }
@@ -3935,7 +3935,7 @@ static int doit_select_delete(DbTableCommon *tb, TreeDbTerm *this,
 	cmp_partly_bound(sc->end_condition, 
 			 GETKEY_WITH_POS(sc->keypos, this->dbterm.tpl)) > 0)
 	return 0;
-    ret = db_match_dbterm(tb, sc->p, sc->mp, &this->dbterm, NULL, 0);
+    ret = db_match_dbterm(tb, sc->p, sc->mp, &this->dbterm, ERTS_PAM_TMP_RESULT);
     if (ret == am_true) {
 	key = GETKEY(sc->tb, this->dbterm.tpl);
 	linkout_tree(sc->tb, sc->common.root, key, sc->stack);
@@ -3967,7 +3967,7 @@ static int doit_select_replace(DbTableCommon *tb, TreeDbTerm **this,
     obj = &(*this)->dbterm;
     if (tb->compress)
         obj = db_alloc_tmp_uncompressed(tb, obj);
-    ret = db_match_dbterm_uncompressed(tb, sc->p, sc->mp, obj, NULL, 0);
+    ret = db_match_dbterm_uncompressed(tb, sc->p, sc->mp, obj, ERTS_PAM_TMP_RESULT);
 
     if (is_value(ret)) {
         TreeDbTerm* new;
