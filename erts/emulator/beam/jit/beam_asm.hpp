@@ -406,29 +406,29 @@ protected:
         return x86::Mem(registers, offset - x_reg_offset, size);
     }
 
-    constexpr x86::Mem getFRef(int index) const {
+    constexpr x86::Mem getFRef(int index, size_t size = sizeof(UWord)) const {
         int base = offsetof(ErtsSchedulerRegisters, f_reg_array.d);
         int offset = index * sizeof(FloatDef);
 
         ASSERT(index >= 0 && index <= 1023);
-        return getSchedulerRegRef(base + offset);
+        return getSchedulerRegRef(base + offset, size);
     }
 
-    constexpr x86::Mem getXRef(int index) const {
+    constexpr x86::Mem getXRef(int index, size_t size = sizeof(UWord)) const {
         int base = offsetof(ErtsSchedulerRegisters, x_reg_array.d);
         int offset = index * sizeof(Eterm);
 
         ASSERT(index >= 0 && index < ERTS_X_REGS_ALLOCATED);
-        return getSchedulerRegRef(base + offset);
+        return getSchedulerRegRef(base + offset, size);
     }
 
-    constexpr x86::Mem getYRef(int index) const {
+    constexpr x86::Mem getYRef(int index, size_t size = sizeof(UWord)) const {
         ASSERT(index >= 0 && index <= 1023);
 
 #ifdef NATIVE_ERLANG_STACK
-        return x86::qword_ptr(E, index * sizeof(Eterm));
+        return x86::Mem(E, index * sizeof(Eterm), size);
 #else
-        return x86::qword_ptr(E, (index + CP_SIZE) * sizeof(Eterm));
+        return x86::Mem(E, (index + CP_SIZE) * sizeof(Eterm), size);
 #endif
     }
 
@@ -656,14 +656,15 @@ protected:
         a.jmp(ARG6);
     }
 
-    constexpr x86::Mem getArgRef(const ArgVal &val) const {
+    constexpr x86::Mem getArgRef(const ArgVal &val,
+                                 size_t size = sizeof(UWord)) const {
         switch (val.getType()) {
         case ArgVal::TYPE::l:
-            return getFRef(val.getValue());
+            return getFRef(val.getValue(), size);
         case ArgVal::TYPE::x:
-            return getXRef(val.getValue());
+            return getXRef(val.getValue(), size);
         case ArgVal::TYPE::y:
-            return getYRef(val.getValue());
+            return getYRef(val.getValue(), size);
         default:
             ERTS_ASSERT(!"NYI");
             return x86::Mem();
