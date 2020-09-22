@@ -2818,7 +2818,27 @@ false</code>
           node.</p>
         <p>Returns <c>true</c> if the process exists and is alive, that
           is, is not exiting and has not exited. Otherwise returns
-          <c>false</c>.</p>
+        <c>false</c>.</p>
+        <p>If process <c>P1</c> calls <c>is_process_alive(P2Pid)</c>
+        it is guaranteed that all signals, sent from <c>P1</c> to
+        <c>P2</c> (<c>P2</c> is the process with identifier
+        <c>P2Pid</c>) before the call, will be delivered to <c>P2</c>
+        before the aliveness of <c>P2</c> is checked. This guarantee
+        means that one can use <c>is_process_alive/1</c> to let a
+        process <c>P1</c> wait until a process <c>P2</c>, which has
+        got an exit signal with reason <c>kill</c> from P1, is
+        killed. Example:
+        </p>
+<pre>
+exit(P2Pid, kill),
+% P2 might not be killed
+is_process_alive(P2Pid),
+% P2 is not alive (the call above always return false)
+</pre>
+       <p>See the documentation about <seeguide
+       marker="erts:communication">communication in Erlang</seeguide>
+       and <seemfa marker="#exit/2">erlang:exit/2</seemfa> for more
+       information about signals and exit singnals.</p>
       </desc>
     </func>
 
