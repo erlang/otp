@@ -3003,7 +3003,7 @@ AS_HELP_STRING([--with-jit-reserved-code-size=SIZE],
 
 if test "X$with_jit_reserved_code_size" = "X"; then
   case "$OPSYS" in
-    win32)
+    win32|darwin)
       with_jit_reserved_code_size=0;;
     *)
       with_jit_reserved_code_size=512;;
