@@ -370,7 +370,7 @@ static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
 }
 
 /* Used by select_replace on analyze_pattern */
-typedef int (*extra_match_validator_t)(int keypos, Eterm match, Eterm guard, Eterm body);
+typedef int ExtraMatchValidatorF(int keypos, Eterm match, Eterm guard, Eterm body);
 
 /*
 ** Forward decl's (static functions)
@@ -387,7 +387,7 @@ static void grow(DbTableHash* tb, int nitems);
 static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 			   Uint sz, DbTableHash*);
 static int analyze_pattern(DbTableHash *tb, Eterm pattern,
-                           extra_match_validator_t extra_validator, /* Optional callback */
+                           ExtraMatchValidatorF*, /* Optional callback */
                            struct mp_info *mpi);
 
 /*
@@ -1234,6 +1234,12 @@ struct traverse_context_t_
     int (*on_trap)(traverse_context_t* ctx, Sint slot_ix, Sint got, Binary** mpp,
                    Eterm* ret);
 
+    ExtraMatchValidatorF* on_match_validation;
+
+    erts_rwmtx_t* (*on_lock_hash)(DbTableHash*, HashValue);
+    void (*on_unlock_hash)(erts_rwmtx_t*);
+    Sint (*on_next_slot)(DbTableHash* tb, Uint ix, erts_rwmtx_t** lck_ptr);
+
     Process* p;
     DbTableHash* tb;
     Eterm tid;
@@ -1248,11 +1254,8 @@ struct traverse_context_t_
  */
 static int match_traverse(traverse_context_t* ctx,
                           Eterm pattern,
-                          extra_match_validator_t extra_match_validator, /* Optional */
                           Sint chunk_size,      /* If 0, no chunking */
                           Sint iterations_left, /* Nr. of iterations left */
-                          int lock_for_write,   /* Set to 1 if we're going to delete or
-                                                   modify existing terms */
                           Eterm* ret)
 {
     DbTableHash* tb = ctx->tb;
@@ -1267,14 +1270,8 @@ static int match_traverse(traverse_context_t* ctx,
     Sint got = 0;                  /* Matched terms counter */
     erts_rwmtx_t* lck;         /* Slot lock */
     int ret_value;
-    erts_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
-        = (lock_for_write ? WLOCK_HASH : RLOCK_HASH);
-    void (*unlock_hash_function)(erts_rwmtx_t*)
-        = (lock_for_write ? WUNLOCK_HASH : RUNLOCK_HASH);
-    Sint (*next_slot_function)(DbTableHash*, Uint, erts_rwmtx_t**)
-        = (lock_for_write ? next_slot_w : next_slot);
 
-    if ((ret_value = analyze_pattern(tb, pattern, extra_match_validator, &mpi))
+    if ((ret_value = analyze_pattern(tb, pattern, ctx->on_match_validation, &mpi))
             != DB_ERROR_NONE)
     {
         *ret = NIL;
@@ -1294,13 +1291,13 @@ static int match_traverse(traverse_context_t* ctx,
         /* Run this code if pattern is variable or GETKEY(pattern)  */
         /* is a variable                                            */
         slot_ix = 0;
-        lck = lock_hash_function(tb,slot_ix);
+        lck = ctx->on_lock_hash(tb, slot_ix);
         for (;;) {
             ASSERT(slot_ix < NACTIVE(tb));
             if (*(current_ptr = &BUCKET(tb,slot_ix)) != NULL) {
                 break;
             }
-            slot_ix = next_slot_function(tb,slot_ix,&lck);
+            slot_ix = ctx->on_next_slot(tb,slot_ix,&lck);
             if (slot_ix == 0) {
                 ret_value = ctx->on_loop_ended(ctx, slot_ix, got, iterations_left,
                                                &mpi.mp, ret);
@@ -1310,7 +1307,7 @@ static int match_traverse(traverse_context_t* ctx,
     } else {
         /* We have at least one */
         slot_ix = mpi.lists[current_list_pos].ix;
-        lck = lock_hash_function(tb, slot_ix);
+        lck = ctx->on_lock_hash(tb, slot_ix);
         current_ptr = mpi.lists[current_list_pos].bucket;
         ASSERT(*current_ptr == BUCKET(tb,slot_ix));
         ++current_list_pos;
@@ -1343,29 +1340,29 @@ static int match_traverse(traverse_context_t* ctx,
             current_ptr = &((*current_ptr)->next);
         }
         else if (mpi.key_given) {  /* Key is bound */
-            unlock_hash_function(lck);
+            ctx->on_unlock_hash(lck);
             if (current_list_pos == mpi.num_lists) {
                 ret_value = ctx->on_loop_ended(ctx, -1, got, iterations_left, &mpi.mp, ret);
                 goto done;
             } else {
                 slot_ix = mpi.lists[current_list_pos].ix;
-                lck = lock_hash_function(tb, slot_ix);
+                lck = ctx->on_lock_hash(tb, slot_ix);
                 current_ptr = mpi.lists[current_list_pos].bucket;
                 ASSERT(mpi.lists[current_list_pos].bucket == &BUCKET(tb,slot_ix));
                 ++current_list_pos;
             }
         }
         else { /* Key is variable */
-            if ((slot_ix = next_slot_function(tb,slot_ix,&lck)) == 0) {
+            if ((slot_ix = ctx->on_next_slot(tb,slot_ix,&lck)) == 0) {
                 slot_ix = -1;
                 break;
             }
             if (chunk_size && got >= chunk_size) {
-                unlock_hash_function(lck);
+                ctx->on_unlock_hash(lck);
                 break;
             }
             if (iterations_left <= 0) {
-                unlock_hash_function(lck);
+                ctx->on_unlock_hash(lck);
                 ret_value = ctx->on_trap(ctx, slot_ix, got, &mpi.mp, ret);
                 goto done;
             }
@@ -1399,8 +1396,6 @@ static int match_traverse_continue(traverse_context_t* ctx,
                                    Sint slot_ix,         /* Slot index to resume traversal from */
                                    Sint got,             /* Matched terms counter */
                                    Binary** mpp,         /* Existing match program */
-                                   int lock_for_write,   /* Set to 1 if we're going to delete or
-                                                            modify existing terms */
                                    Eterm* ret)
 {
     DbTableHash* tb = ctx->tb;
@@ -1411,12 +1406,6 @@ static int match_traverse_continue(traverse_context_t* ctx,
     Eterm match_res;
     erts_rwmtx_t* lck;
     int ret_value;
-    erts_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
-        = (lock_for_write ? WLOCK_HASH : RLOCK_HASH);
-    void (*unlock_hash_function)(erts_rwmtx_t*)
-        = (lock_for_write ? WUNLOCK_HASH : RUNLOCK_HASH);
-    Sint (*next_slot_function)(DbTableHash* tb, Uint ix, erts_rwmtx_t** lck_ptr)
-        = (lock_for_write ? next_slot_w : next_slot);
 
     if (got < 0) {
         *ret = NIL;
@@ -1431,9 +1420,9 @@ static int match_traverse_continue(traverse_context_t* ctx,
         goto done;
     }
 
-    lck = lock_hash_function(tb, slot_ix);
+    lck = ctx->on_lock_hash(tb, slot_ix);
     if (slot_ix >= NACTIVE(tb)) { /* Is this possible? */
-        unlock_hash_function(lck);
+        ctx->on_unlock_hash(lck);
         *ret = NIL;
         ret_value = DB_ERROR_BADPARAM;
         goto done;
@@ -1467,16 +1456,16 @@ static int match_traverse_continue(traverse_context_t* ctx,
             current_ptr = &((*current_ptr)->next);
         }
         else {
-            if ((slot_ix=next_slot_function(tb,slot_ix,&lck)) == 0) {
+            if ((slot_ix=ctx->on_next_slot(tb,slot_ix,&lck)) == 0) {
                 slot_ix = -1;
                 break;
             }
             if (chunk_size && got >= chunk_size) {
-                unlock_hash_function(lck);
+                ctx->on_unlock_hash(lck);
                 break;
             }
             if (iterations_left <= 0) {
-                unlock_hash_function(lck);
+                ctx->on_unlock_hash(lck);
                 ret_value = ctx->on_trap(ctx, slot_ix, got, mpp, ret);
                 goto done;
             }
@@ -1752,6 +1741,10 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid,
     ctx.base.on_match_res         = select_chunk_on_match_res;
     ctx.base.on_loop_ended        = select_chunk_on_loop_ended;
     ctx.base.on_trap              = select_chunk_on_trap;
+    ctx.base.on_match_validation  = NULL;
+    ctx.base.on_lock_hash   = RLOCK_HASH;
+    ctx.base.on_unlock_hash = RUNLOCK_HASH;
+    ctx.base.on_next_slot   = next_slot;
     ctx.base.p = p;
     ctx.base.tb = &tbl->hash;
     ctx.base.tid = tid;
@@ -1763,10 +1756,9 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid,
 
     return match_traverse(
             &ctx.base,
-            pattern, NULL,
+            pattern,
             ctx.chunk_size,
             MAX_SELECT_CHUNK_ITERATIONS,
-            0,
             ret);
 }
 
@@ -1882,6 +1874,9 @@ static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
     ctx.base.on_match_res  = select_chunk_on_match_res;
     ctx.base.on_loop_ended = select_chunk_continue_on_loop_ended;
     ctx.base.on_trap       = select_chunk_on_trap;
+    ctx.base.on_lock_hash   = RLOCK_HASH;
+    ctx.base.on_unlock_hash = RUNLOCK_HASH;
+    ctx.base.on_next_slot   = next_slot;
     ctx.base.p = p;
     ctx.base.tb = &tbl->hash;
     ctx.base.tid = tid;
@@ -1893,7 +1888,7 @@ static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
 
     return match_traverse_continue(
         &ctx.base, ctx.chunk_size,
-        iterations_left, slot_ix, got, &mp, 0,
+        iterations_left, slot_ix, got, &mp,
         ret);
 
 badparam:
@@ -1958,6 +1953,10 @@ static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid,
     ctx.on_match_res         = select_count_on_match_res;
     ctx.on_loop_ended        = select_count_on_loop_ended;
     ctx.on_trap              = select_count_on_trap;
+    ctx.on_match_validation  = NULL;
+    ctx.on_lock_hash   = RLOCK_HASH;
+    ctx.on_unlock_hash = RUNLOCK_HASH;
+    ctx.on_next_slot   = next_slot;
     ctx.p = p;
     ctx.tb = &tbl->hash;
     ctx.tid = tid;
@@ -1967,8 +1966,8 @@ static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid,
 
     return match_traverse(
             &ctx,
-            pattern, NULL,
-            chunk_size, iterations_left, 0,
+            pattern,
+            chunk_size, iterations_left,
             ret);
 }
 
@@ -1997,6 +1996,9 @@ static int db_select_count_continue_hash(Process* p, DbTable* tbl,
     ctx.on_match_res  = select_count_on_match_res;
     ctx.on_loop_ended = select_count_on_loop_ended;
     ctx.on_trap       = select_count_on_trap;
+    ctx.on_lock_hash   = RLOCK_HASH;
+    ctx.on_unlock_hash = RUNLOCK_HASH;
+    ctx.on_next_slot   = next_slot;
     ctx.p = p;
     ctx.tb = &tbl->hash;
     ctx.tid = tid;
@@ -2007,7 +2009,7 @@ static int db_select_count_continue_hash(Process* p, DbTable* tbl,
     return match_traverse_continue(
             &ctx, chunk_size,
             MAX_SELECT_COUNT_ITERATIONS,
-            slot_ix, got, &mp, 0,
+            slot_ix, got, &mp,
             ret);
 }
 
@@ -2106,6 +2108,10 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
     ctx.base.on_match_res         = select_delete_on_match_res;
     ctx.base.on_loop_ended        = select_delete_on_loop_ended;
     ctx.base.on_trap              = select_delete_on_trap;
+    ctx.base.on_match_validation       = NULL;
+    ctx.base.on_lock_hash   = WLOCK_HASH;
+    ctx.base.on_unlock_hash = WUNLOCK_HASH;
+    ctx.base.on_next_slot   = next_slot_w;
     ctx.base.p = p;
     ctx.base.tb = &tbl->hash;
     ctx.base.tid = tid;
@@ -2118,9 +2124,9 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
 
     return match_traverse(
             &ctx.base,
-            pattern, NULL,
+            pattern,
             chunk_size,
-            MAX_SELECT_DELETE_ITERATIONS, 1,
+            MAX_SELECT_DELETE_ITERATIONS,
             ret);
 }
 
@@ -2148,6 +2154,10 @@ static int db_select_delete_continue_hash(Process* p, DbTable* tbl,
     ctx.base.on_match_res  = select_delete_on_match_res;
     ctx.base.on_loop_ended = select_delete_on_loop_ended;
     ctx.base.on_trap       = select_delete_on_trap;
+    ctx.base.on_lock_hash   = WLOCK_HASH;
+    ctx.base.on_unlock_hash = WUNLOCK_HASH;
+    ctx.base.on_next_slot   = next_slot_w;
+
     ctx.base.p = p;
     ctx.base.tb = &tbl->hash;
     ctx.base.tid = tid;
@@ -2161,7 +2171,7 @@ static int db_select_delete_continue_hash(Process* p, DbTable* tbl,
     return match_traverse_continue(
             &ctx.base, chunk_size,
             MAX_SELECT_DELETE_ITERATIONS,
-            slot_ix, got, &mp, 1,
+            slot_ix, got, &mp,
             ret);
 }
 
@@ -2250,6 +2260,10 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid,
     ctx.on_match_res         = select_replace_on_match_res;
     ctx.on_loop_ended        = select_replace_on_loop_ended;
     ctx.on_trap              = select_replace_on_trap;
+    ctx.on_match_validation  = db_match_keeps_key,
+    ctx.on_lock_hash   = WLOCK_HASH;
+    ctx.on_unlock_hash = WUNLOCK_HASH;
+    ctx.on_next_slot   = next_slot_w;
     ctx.p = p;
     ctx.tb = &tbl->hash;
     ctx.tid = tid;
@@ -2259,9 +2273,9 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid,
 
     return match_traverse(
             &ctx,
-            pattern, db_match_keeps_key,
+            pattern,
             chunk_size,
-            MAX_SELECT_REPLACE_ITERATIONS, 1,
+            MAX_SELECT_REPLACE_ITERATIONS,
             ret);
 }
 
@@ -2291,6 +2305,9 @@ static int db_select_replace_continue_hash(Process* p, DbTable* tbl,
     ctx.on_match_res  = select_replace_on_match_res;
     ctx.on_loop_ended = select_replace_on_loop_ended;
     ctx.on_trap       = select_replace_on_trap;
+    ctx.on_lock_hash   = WLOCK_HASH;
+    ctx.on_unlock_hash = WUNLOCK_HASH;
+    ctx.on_next_slot   = next_slot_w;
     ctx.p = p;
     ctx.tb = &tbl->hash;
     ctx.tid = tid;
@@ -2301,7 +2318,7 @@ static int db_select_replace_continue_hash(Process* p, DbTable* tbl,
     return match_traverse_continue(
             &ctx, chunk_size,
             MAX_SELECT_REPLACE_ITERATIONS,
-            slot_ix, got, &mp, 1,
+            slot_ix, got, &mp,
             ret);
 }
 
@@ -2525,7 +2542,7 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 ** slots should be searched. Also compiles the match program
 */
 static int analyze_pattern(DbTableHash *tb, Eterm pattern, 
-                           extra_match_validator_t extra_validator, /* Optional callback */
+                           ExtraMatchValidatorF* extra_validator, /* Optional callback */
                            struct mp_info *mpi)
 {
     Eterm *ptpl;
