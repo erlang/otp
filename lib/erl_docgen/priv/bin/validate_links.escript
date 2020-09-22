@@ -290,14 +290,19 @@ parse_link({SelfApp,Filename},Mod2App,Link) ->
 read_link(_Line, {_App,"index",_}, _Cache) ->
     #{type => "index", markers => [] };
 read_link(Line, {App,Mod,_}, Cache) ->
-    case maps:find({App,Mod}, Cache) of
-        {ok, Info } ->
-            Info;
-        error ->
-            %% fail(Line, "Could not find: ~p~p~n~p~n",
-            %%   [App,Mod,lists:sort(maps:keys(Cache))]),
-            fail(Line, "Could not find: ~s:~s~n",[App,Mod]),
-            halt(1)
+    case filename:extension(Mod) of
+        Ext when Ext =:= ".svg"; Ext =:= ".png" ->
+            #{type => "fileref", markers => [] };
+        _ ->
+            case maps:find({App,Mod}, Cache) of
+                {ok, Info } ->
+                    Info;
+                error ->
+                    %% fail(Line, "Could not find: ~p~p~n~p~n",
+                    %%   [App,Mod,lists:sort(maps:keys(Cache))]),
+                    fail(Line, "Could not find: ~s:~s~n",[App,Mod]),
+                    halt(1)
+            end
     end.
 
 validate_type(_Line, "seeerl",#{ type := "erlref" }) ->

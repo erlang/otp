@@ -28,6 +28,7 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
+#include "beam_file.h"
 #include "big.h"
 #include "bif.h"
 #include "erl_binary.h"
@@ -54,12 +55,14 @@
 #include "erl_io_queue.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
+#include "atom.h"
 #ifdef HIPE
 #  include "hipe_mode_switch.h"
 #endif
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_unicode.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
@@ -88,7 +91,7 @@ erts_heap_alloc(Process* p, Uint need, Uint xtra)
     if (p->space_verified && p->space_verified_from!=NULL
 	&& HEAP_TOP(p) >= p->space_verified_from
 	&& HEAP_TOP(p) + need <= p->space_verified_from + p->space_verified
-	&& HEAP_LIMIT(p) - HEAP_TOP(p) >= need) {
+	&& HeapWordsLeft(p) >= need) {
 
 	Uint consumed = need + (HEAP_TOP(p) - p->space_verified_from);
 	ASSERT(consumed <= p->space_verified);
@@ -5018,28 +5021,6 @@ Uint64 erts_timestamp_millis(void)
 #endif
 }
 
-void *
-erts_calc_stacklimit(char *prev_c, UWord stacksize)
-{
-    /*
-     * We *don't* want this function inlined, i.e., it is
-     * risky to call this function from another function
-     * in utils.c
-     */
-
-    UWord pagesize = erts_sys_get_page_size();
-    char c;
-    char *start;
-    if (&c > prev_c) {
-        start = (char *) ((((UWord) prev_c) / pagesize) * pagesize);
-        return (void *) (start + stacksize);
-    }
-    else {
-        start = (char *) (((((UWord) prev_c) - 1) / pagesize + 1) * pagesize);
-        return (void *) (start - stacksize);
-    }
-}
-
 /*
  * erts_check_below_limit() and
  * erts_check_above_limit() are put
@@ -5065,6 +5046,10 @@ erts_ptr_id(void *ptr)
     return ptr;
 }
 
+const void *erts_get_stacklimit() {
+    return ethr_get_stacklimit();
+}
+
 int erts_check_if_stack_grows_downwards(char *ptr)
 {
     char c;
@@ -5072,4 +5057,49 @@ int erts_check_if_stack_grows_downwards(char *ptr)
         return 1;
     else
         return 0;
+}
+
+
+/*
+ * Build a single {M,F,A,Loction} item to be part of
+ * a stack trace.
+ */
+Eterm*
+erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
+{
+    Eterm loc = NIL;
+
+    if (fi->loc != LINE_INVALID_LOCATION) {
+	Eterm tuple;
+	int line = LOC_LINE(fi->loc);
+	int file = LOC_FILE(fi->loc);
+	Eterm file_term = NIL;
+
+	if (file == 0) {
+	    Atom* ap = atom_tab(atom_val(fi->mfa->module));
+	    file_term = buf_to_intlist(&hp, ".erl", 4, NIL);
+	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, file_term);
+	} else {
+            file_term = erts_atom_to_string(&hp, (fi->fname_ptr)[file-1]);
+	}
+
+	tuple = TUPLE2(hp, am_line, make_small(line));
+	hp += 3;
+	loc = CONS(hp, tuple, loc);
+	hp += 2;
+	tuple = TUPLE2(hp, am_file, file_term);
+	hp += 3;
+	loc = CONS(hp, tuple, loc);
+	hp += 2;
+    }
+
+    if (is_list(args) || is_nil(args)) {
+	*mfa_p = TUPLE4(hp, fi->mfa->module, fi->mfa->function,
+                        args, loc);
+    } else {
+	Eterm arity = make_small(fi->mfa->arity);
+	*mfa_p = TUPLE4(hp, fi->mfa->module, fi->mfa->function,
+                        arity, loc);
+    }
+    return hp + 5;
 }

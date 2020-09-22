@@ -35,7 +35,7 @@
 #include "bif.h"
 #include "big.h"
 #include "external.h"
-#include "beam_load.h"
+#include "beam_code.h"
 #include "beam_bp.h"
 #include "erl_binary.h"
 #include "erl_thr_progress.h"
@@ -51,11 +51,13 @@
 void dbg_bt(Process* p, Eterm* sp);
 void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 
+#ifndef BEAMASM
 static int print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr);
 static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif);
 static BeamInstr* f_to_addr(BeamInstr* base, int op, BeamInstr* ap);
 static BeamInstr* f_to_addr_packed(BeamInstr* base, int op, Sint32* ap);
 static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes);
+#endif
 
 BIF_RETTYPE
 erts_debug_same_2(BIF_ALIST_2)
@@ -157,7 +159,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(&bif_trap_export[BIF_erts_debug_breakpoint_2],
+	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_breakpoint_2),
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
     erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
@@ -240,6 +242,7 @@ erts_debug_instructions_0(BIF_ALIST_0)
 BIF_RETTYPE
 erts_debug_disassemble_1(BIF_ALIST_1)
 {
+#ifndef BEAMASM
     Process* p = BIF_P;
     Eterm addr = BIF_ARG_1;
     erts_dsprintf_buf_t *dsbufp;
@@ -257,7 +260,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 
     if (term_to_UWord(addr, &uaddr)) {
 	code_ptr = (BeamInstr *) uaddr;
-	if ((cmfa = find_function_from_pc(code_ptr)) == NULL) {
+	if ((cmfa = erts_find_function_from_pc(code_ptr)) == NULL) {
 	    BIF_RET(am_false);
 	}
     } else if (is_tuple(addr)) {
@@ -350,11 +353,15 @@ erts_debug_disassemble_1(BIF_ALIST_1)
                  make_small(cmfa->arity));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
+#else
+    BIF_RET(am_false);
+#endif
 }
 
 BIF_RETTYPE
 erts_debug_interpreter_size_0(BIF_ALIST_0)
 {
+#ifndef BEAMASM
     int i;
     BeamInstr low, high;
 
@@ -366,6 +373,9 @@ erts_debug_interpreter_size_0(BIF_ALIST_0)
         }
     }
     return erts_make_integer(high - low, BIF_P);
+#else
+    return make_small(0);
+#endif
 }
 
 void
@@ -375,7 +385,7 @@ dbg_bt(Process* p, Eterm* sp)
 
     while (sp < stack) {
 	if (is_CP(*sp)) {
-	    ErtsCodeMFA* cmfa = find_function_from_pc(cp_val(*sp));
+	    ErtsCodeMFA* cmfa = erts_find_function_from_pc(cp_val(*sp));
 	    if (cmfa)
 		erts_fprintf(stderr,
 			     HEXF ": %T:%T/%bpu\n",
@@ -389,7 +399,7 @@ dbg_bt(Process* p, Eterm* sp)
 void
 dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
 {
-    ErtsCodeMFA* cmfa = find_function_from_pc(addr);
+    ErtsCodeMFA* cmfa = erts_find_function_from_pc(addr);
 
     if (cmfa == NULL) {
 	erts_fprintf(stderr, "???\n");
@@ -406,6 +416,7 @@ dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
     }
 }
 
+#ifndef BEAMASM
 static int
 print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 {
@@ -580,10 +591,10 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'I':
         case 'W':
 	    switch (op) {
-	    case op_i_make_fun_Wt:
-                if (*sign == 'W') {
+	    case op_i_make_fun_Ft:
+                if (*sign == 'F') {
                     ErlFunEntry* fe = (ErlFunEntry *) *ap;
-                    ErtsCodeMFA* cmfa = find_function_from_pc(fe->address);
+                    ErtsCodeMFA* cmfa = erts_find_function_from_pc(fe->address);
 		    erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
                                cmfa->function, cmfa->arity);
                 } else {
@@ -623,7 +634,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             default:
                 {
                     BeamInstr* target = f_to_addr(addr, op, ap);
-                    ErtsCodeMFA* cmfa = find_function_from_pc(target);
+                    ErtsCodeMFA* cmfa = erts_find_function_from_pc(target);
                     if (!cmfa || erts_codemfa_to_code(cmfa) != target) {
                         erts_print(to, to_arg, "f(" HEXF ")", target);
                     } else {
@@ -781,18 +792,18 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	break;
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
-	{
-	    int n = unpacked[-1];
+       {
+           int n = unpacked[-1];
             Sint32* jump_tab = (Sint32 *) ap;
 
             size += (n+1) / 2;
             while (n-- > 0) {
                 BeamInstr* target = f_to_addr_packed(addr, op, jump_tab);
-		erts_print(to, to_arg, "f(" HEXF ") ", target);
+               erts_print(to, to_arg, "f(" HEXF ") ", target);
                 jump_tab++;
-	    }
-	}
-	break;
+           }
+       }
+       break;
     case op_put_tuple2_xI:
     case op_put_tuple2_yI:
     case op_new_map_dtI:
@@ -908,6 +919,7 @@ static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes)
         erts_print(to, to_arg, "%02X", str[i]);
     }
 }
+#endif
 
 /*
  * Dirty BIF testing.
@@ -947,6 +959,7 @@ erts_debug_dirty_io_2(BIF_ALIST_2)
 BIF_RETTYPE
 erts_debug_dirty_3(BIF_ALIST_3)
 {
+    ErtsCodeMFA *mfa = &BIF_TRAP_EXPORT(BIF_erts_debug_dirty_3)->info.mfa;
     Eterm argv[2];
     switch (BIF_ARG_1) {
     case am_normal:
@@ -957,6 +970,7 @@ erts_debug_dirty_3(BIF_ALIST_3)
 	return erts_schedule_bif(BIF_P,
 				 argv,
 				 BIF_I,
+				 mfa,
 				 erts_debug_dirty_cpu_2,
 				 ERTS_SCHED_DIRTY_CPU,
 				 am_erts_debug,
@@ -968,6 +982,7 @@ erts_debug_dirty_3(BIF_ALIST_3)
 	return erts_schedule_bif(BIF_P,
 				 argv,
 				 BIF_I,
+				 mfa,
 				 erts_debug_dirty_io_2,
 				 ERTS_SCHED_DIRTY_IO,
 				 am_erts_debug,
@@ -1089,6 +1104,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 		ret = erts_schedule_bif(c_p,
 					argv,
 					I,
+					&BIF_TRAP_EXPORT(BIF_erts_debug_dirty_io_2)->info.mfa,
 					erts_debug_dirty_io_2,
 					ERTS_SCHED_DIRTY_IO,
 					am_erts_debug,
@@ -1101,6 +1117,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 		ret = erts_schedule_bif(c_p,
 					argv,
 					I,
+					&BIF_TRAP_EXPORT(BIF_erts_debug_dirty_cpu_2)->info.mfa,
 					erts_debug_dirty_cpu_2,
 					ERTS_SCHED_DIRTY_CPU,
 					am_erts_debug,
@@ -1114,6 +1131,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 		ret = erts_schedule_bif(c_p,
 					argv,
 					I,
+					&BIF_TRAP_EXPORT(BIF_erts_debug_dirty_3)->info.mfa,
 					erts_debug_dirty_3,
 					ERTS_SCHED_NORMAL,
 					am_erts_debug,
@@ -1259,7 +1277,7 @@ ms_wait(Process *c_p, Eterm etimeout, int busy)
 }
 
 
-#  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
+#  define ERTS_STACK_LIMIT ((char *) erts_get_stacklimit())
 
 /*
  * The below functions is for testing of the stack

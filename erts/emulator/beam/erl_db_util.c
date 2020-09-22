@@ -1581,7 +1581,7 @@ Binary *db_match_compile(Eterm *matchexpr,
     Binary *bp = NULL;
     unsigned clause_start;
 
-    context.stack_limit = (char *) ethr_get_stacklimit();
+    context.stack_limit = (char *) erts_get_stacklimit();
     context.freason = BADARG;
 
     DMC_INIT_STACK(stack);
@@ -2650,7 +2650,7 @@ restart:
             t = c_p->stop[0];
             if (is_not_CP(t)) {
                 *esp++ = am_undefined;
-            } else if (!(cp = find_function_from_pc(cp_val(t)))) {
+            } else if (!(cp = erts_find_function_from_pc(cp_val(t)))) {
  		*esp++ = am_undefined;
  	    } else {
 		ehp = HAllocX(build_proc, 4, HEAP_XTRA);

@@ -169,7 +169,7 @@ void hipe_mode_switch_init(void)
     hipe_beam_pc_resume[0] = BeamOpCodeAddr(op_hipe_trap_resume);
 
     hipe_beam_catch_throw =
-	make_catch(beam_catches_cons(hipe_beam_pc_throw, BEAM_CATCHES_NIL));
+	make_catch(beam_catches_cons(hipe_beam_pc_throw, BEAM_CATCHES_NIL, NULL));
 
     hipe_mfa_info_table_init();
 }
@@ -526,7 +526,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      ERTS_REQ_PROC_MAIN_LOCK(p);
 	      ASSERT(!(p->flags & F_HIPE_MODE));
 	      p->sig_qs.flags &= ~FS_HIPE_RECV_LOCKED;
-	      reg = p->scheduler_data->x_reg_array;
+	      reg = p->scheduler_data->registers->x_reg_array;
 	  }
 	  {
 	      Eterm *argp;

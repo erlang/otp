@@ -1,0 +1,264 @@
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Ericsson AB 2020-2020. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * %CopyrightEnd%
+ */
+#include <algorithm>
+#include "beam_asm.hpp"
+
+using namespace asmjit;
+
+void BeamModuleAssembler::emit_linear_search(x86::Gp comparand,
+                                             const ArgVal &Fail,
+                                             const std::vector<ArgVal> &args) {
+    int count = args.size() / 2;
+
+    for (int i = 0; i < count; i++) {
+        const ArgVal &value = args[i];
+        const ArgVal &label = args[i + count];
+
+        cmp_arg(comparand, value, ARG1);
+        a.je(labels[label.getValue()]);
+    }
+
+    if (Fail.getType() == ArgVal::f) {
+        a.jmp(labels[Fail.getValue()]);
+    } else {
+        /* NIL means fallthrough to the next instruction. */
+        ASSERT(Fail.getType() == ArgVal::i && Fail.getValue() == NIL);
+    }
+}
+
+void BeamModuleAssembler::emit_i_select_tuple_arity(
+        const ArgVal &Src,
+        const ArgVal &Fail,
+        const ArgVal &Size,
+        const std::vector<ArgVal> &args) {
+    mov_arg(ARG2, Src);
+    emit_is_boxed(labels[Fail.getValue()], ARG2);
+    x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
+    ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+    a.mov(ARG2d, emit_boxed_val<Uint32>(boxed_ptr));
+    ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+    a.test(ARG2.r8(), imm(_TAG_HEADER_MASK));
+    a.jne(labels[Fail.getValue()]);
+
+    ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+
+    int count = args.size() / 2;
+    for (int i = 0; i < count; i++) {
+        const ArgVal &value = args[i];
+        const ArgVal &label = args[i + count];
+
+        a.cmp(ARG2d, imm(value.getValue()));
+        a.je(labels[label.getValue()]);
+    }
+
+    a.jne(labels[Fail.getValue()]);
+}
+
+void BeamModuleAssembler::emit_i_select_val_lins(
+        const ArgVal &Src,
+        const ArgVal &Fail,
+        const ArgVal &Size,
+        const std::vector<ArgVal> &args) {
+    ASSERT(Size.getValue() == args.size());
+    mov_arg(ARG2, Src);
+    emit_linear_search(ARG2, Fail, args);
+}
+
+/*
+ * ARG1 is the value to find.
+ * ARG2 is the number of entries in the table.
+ * ARG3 is the pointer to the beginning of the table of values.
+ * The table of labels immediately follows the table of values.
+ *
+ * If the value was found, the pointer to the label corresponding to
+ * the found value is returned in RET and ZF is cleared. ZF is set if
+ * not found.
+ */
+void BeamGlobalAssembler::emit_i_select_val_bins_shared() {
+    Label test_interval = a.newLabel(), new_midpoint = a.newLabel(),
+          not_high = a.newLabel(), found = a.newLabel();
+    x86::Gp value = ARG1;
+    x86::Gp label_base = ARG2;
+    x86::Gp value_base = ARG3;
+    x86::Gp low = ARG4;
+    x86::Gp high = ARG5;
+
+    a.lea(label_base, x86::ptr(ARG3, ARG2, 3));
+    a.mov(low, value_base);
+    a.mov(high, label_base);
+    a.short_().jmp(test_interval);
+
+    /* Calculate the new midpoint. */
+    a.bind(new_midpoint);
+    {
+        a.shr(RETd, imm(1));
+        a.and_(RETd, imm(-8));
+        a.add(RET, low);
+        a.cmp(x86::qword_ptr(RET), value);
+        a.short_().jbe(not_high);
+        a.mov(high, RET);
+    }
+
+    /* Continue to compare values if low < high. */
+    a.bind(test_interval);
+    {
+        a.mov(RET, high);
+        a.sub(RET, low);
+        a.jg(new_midpoint);
+
+        /* high <= low. Not found. Set ZF and return. */
+        a.xor_(RETd, RETd);
+        a.ret();
+    }
+
+    a.bind(not_high);
+    {
+        a.short_().jnb(found);
+        a.lea(low, x86::qword_ptr(RET, sizeof(Eterm)));
+        a.jmp(test_interval);
+    }
+
+    a.bind(found);
+    {
+        a.sub(RET, value_base);
+        a.lea(RET, x86::qword_ptr(label_base, RET));
+        a.test(RET, RET); /* Clear ZF. */
+        a.ret();
+    }
+}
+
+void BeamModuleAssembler::emit_i_select_val_bins(
+        const ArgVal &Src,
+        const ArgVal &Fail,
+        const ArgVal &Size,
+        const std::vector<ArgVal> &args) {
+    ASSERT(Size.getValue() == args.size());
+    int count = args.size() / 2;
+
+    /*
+     * Find out whether all labels are equal.
+     *
+     * It turns out equal labels are suprisingly common, especially in
+     * automatically generated code. In the Erlang/OTP code base,
+     * there were 100 i_select_val_bins instructions with equal
+     * labels; the majority were in modules generated by yecc. The
+     * select_val instruction with the largest number of equal labels
+     * had 399 equal labels (in unicode_util).
+     */
+    bool all_same = true;
+    auto single_label = args[count].getValue();
+    for (int i = 0; i < count; i++) {
+        const ArgVal &label = args[i + count];
+        if (label.getValue() != single_label) {
+            all_same = false;
+            break;
+        }
+    }
+
+    /*
+     * Embed the table. If all labels are equal, we'll only need to embed
+     * the values.
+     */
+
+    Label data;
+    if (all_same) {
+        comment("(%ld equal labels)", count);
+        std::vector<ArgVal> only_values(args.begin(), args.begin() + count);
+        data = embed_vararg_rodata(only_values, 0);
+    } else {
+        data = embed_vararg_rodata(args, 0);
+    }
+
+    mov_imm(ARG2, count);
+    a.lea(ARG3, x86::qword_ptr(data));
+    mov_arg(ARG1, Src);
+    safe_fragment_call(ga->get_i_select_val_bins_shared());
+
+    Label fail;
+    if (Fail.getType() == ArgVal::f) {
+        a.je(labels[Fail.getValue()]);
+    } else {
+        /* NIL means fallthrough to the next instruction. */
+        ASSERT(Fail.getType() == ArgVal::i && Fail.getValue() == NIL);
+        fail = a.newLabel();
+        a.short_().je(fail);
+    }
+
+    if (all_same) {
+        a.jmp(labels[single_label]);
+    } else {
+        a.jmp(x86::qword_ptr(RET));
+    }
+
+    if (Fail.getType() == ArgVal::i) {
+        a.bind(fail);
+    }
+}
+
+void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
+                                             const ArgVal &Fail,
+                                             const ArgVal &Base,
+                                             const ArgVal &Size,
+                                             const std::vector<ArgVal> &args) {
+    Label data = embed_vararg_rodata(args, 0);
+    Label fail;
+
+    ASSERT(Size.getValue() == args.size());
+
+    mov_arg(ARG1, Src);
+
+    a.mov(RETd, ARG1d);
+    a.and_(RETb, imm(_TAG_IMMED1_MASK));
+    a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+
+    if (Fail.getType() == ArgVal::f) {
+        a.jne(labels[Fail.getValue()]);
+    } else {
+        /* NIL means fallthrough to the next instruction. */
+        ASSERT(Fail.getType() == ArgVal::i && Fail.getValue() == NIL);
+        fail = a.newLabel();
+        a.short_().jne(fail);
+    }
+
+    a.sar(ARG1, imm(_TAG_IMMED1_SIZE));
+
+    if (Base.getValue() != 0) {
+        if (Support::isInt32((Sint)Base.getValue())) {
+            a.sub(ARG1, imm(Base.getValue()));
+        } else {
+            a.mov(ARG2, imm(Base.getValue()));
+            a.sub(ARG1, ARG2);
+        }
+    }
+
+    a.cmp(ARG1, imm(args.size()));
+    if (Fail.getType() == ArgVal::f) {
+        a.jae(labels[Fail.getValue()]);
+    } else {
+        a.short_().jae(fail);
+    }
+
+    a.lea(RET, x86::qword_ptr(data));
+    a.jmp(x86::qword_ptr(RET, ARG1, 3));
+
+    if (Fail.getType() == ArgVal::i) {
+        a.bind(fail);
+    }
+}

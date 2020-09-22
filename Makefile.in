@@ -529,6 +529,13 @@ preloaded:
 	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true	
 
+compdb:
+	(cd erts/emulator && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) compdb)
+	sed -i -e '1s/^/[\n/' -e '$$s/,$$/\n]/' $(ERL_TOP)/compile_commands.json
+
+clang_format:
+	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) clang_format)
+
 dep depend:
 	$(make_verbose)
 	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) $(MAKE) generate)

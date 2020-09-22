@@ -842,7 +842,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
     OK = [erlang, os, prim_file, erl_prim_loader, init, ets,
 	  code_server, lists, lists_sort, unicode, binary, filename,
 	  gb_sets, gb_trees, hipe_unified_loader, hipe_bifs,
-	  erts_code_purger,
+	  erts_code_purger, erts_internal, code,
 	  prim_zip, zlib],
     ErrCnt1 =
 	case lists:member(M, OK) or erlang:is_builtin(M,F,A) of

@@ -63,7 +63,7 @@
         if (ERTS_PROC_IS_EXITING((p))) {                            \
             sys_strcpy(Name, "<exiting>");                              \
         } else {                                                    \
-            BeamInstr *_fptr = find_function_from_pc((p)->i);       \
+            BeamInstr *_fptr = erts_find_function_from_pc((p)->i);       \
             if (_fptr) {                                            \
                 lttng_mfa_to_str(_fptr[0],_fptr[1],_fptr[2], Name); \
             } else {                                                \

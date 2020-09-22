@@ -1954,7 +1954,7 @@ dsize_t big_bytes(Eterm x)
 ** xsz is the number of bytes in xp
 ** *r is untouched if number fits in small
 */
-Eterm bytes_to_big(byte *xp, dsize_t xsz, int xsgn, Eterm *r)
+Eterm bytes_to_big(const byte *xp, dsize_t xsz, int xsgn, Eterm *r)
 {
     ErtsDigit* rwp = BIG_V(r);
     dsize_t rsz = 0;
@@ -2384,11 +2384,55 @@ Eterm big_times(Eterm x, Eterm y, Eterm *r)
     return big_norm(r, rsz, sign);
 }
 
+/*
+** Fused div_rem for bignums
+*/
+int big_div_rem(Eterm lhs, Eterm rhs,
+                Eterm *q_hp, Eterm *q,
+                Eterm *r_hp, Eterm *r)
+{
+    Eterm *lhs_val = big_val(lhs);
+    Eterm *rhs_val = big_val(rhs);
 
-/* 
+    int div_sign = BIG_SIGN(lhs_val) != BIG_SIGN(rhs_val);
+    int rem_sign = BIG_SIGN(lhs_val);
+
+    dsize_t lhs_size = BIG_SIZE(lhs_val);
+    dsize_t rhs_size = BIG_SIZE(rhs_val);
+
+    dsize_t quotient_size, remainder_size;
+    Eterm quotient, remainder;
+
+    if (rhs_size == 1) {
+        quotient_size = D_div(BIG_V(lhs_val), lhs_size, BIG_DIGIT(rhs_val, 0),
+                              BIG_V(q_hp), BIG_V(r_hp));
+        remainder_size = 1;
+    } else {
+        quotient_size = I_div(BIG_V(lhs_val), lhs_size,
+                              BIG_V(rhs_val), rhs_size,
+                              BIG_V(q_hp), BIG_V(r_hp),
+                              &remainder_size);
+    }
+
+    quotient = big_norm(q_hp, quotient_size, div_sign);
+    if (quotient == NIL) {
+        return 0;
+    }
+
+    remainder = big_norm(r_hp, remainder_size, rem_sign);
+    if (remainder == NIL) {
+        return 0;
+    }
+
+    *q = quotient;
+    *r = remainder;
+
+    return 1;
+}
+
+/*
 ** Divide bignums
 */
-
 Eterm big_div(Eterm x, Eterm y, Eterm *q)
 {
     Eterm* xp = big_val(x);

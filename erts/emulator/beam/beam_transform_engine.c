@@ -34,14 +34,14 @@ erts_transform_engine(LoaderState* st)
     Uint op;
     int ap;			/* Current argument. */
     const Uint* restart; /* Where to restart if current match fails. */
-    GenOpArg var[TE_MAX_VARS];	/* Buffer for variables. */
-    GenOpArg* rest_args = NULL;
+    BeamOpArg var[TE_MAX_VARS];	/* Buffer for variables. */
+    BeamOpArg* rest_args = NULL;
     int num_rest_args = 0;
     int i;			/* General index. */
     Uint mask;
-    GenOp* instr;
-    GenOp* first = st->genop;
-    GenOp* keep = NULL;
+    BeamOp* instr;
+    BeamOp* first = st->genop;
+    BeamOp* keep = NULL;
     const Uint* pc;
     static Uint restart_fail[1] = {TOP_fail};
 
@@ -165,12 +165,19 @@ erts_transform_engine(LoaderState* st)
 		 */
 
 		i = instr->a[ap].val;
-		ASSERT(i < st->num_imports);
-		if (i >= st->num_imports || st->import[i].bif == NULL)
-		    goto restart;
-                if (bif_number != -1) {
-                    Export *bif = st->import[i].bif;
-                    if (bif->bif_number != bif_number) {
+		ASSERT(i < st->beam.imports.count);
+                if (i >= st->beam.imports.count) {
+                    goto restart;
+                } else {
+                    BifEntry *entry = st->bif_imports[i];
+
+                    if (!entry) {
+                        /* Not a BIF */
+                        goto restart;
+                    }
+
+                    if (bif_number >= 0 && entry != &bif_table[bif_number]) {
+                        /* Specific BIF not a match. */
                         goto restart;
                     }
                 }
@@ -181,36 +188,41 @@ erts_transform_engine(LoaderState* st)
 	case TOP_is_not_bif:
 	    {
 		pc++;
+		i = instr->a[ap].val;
 
 		/*
 		 * In debug build, the type must be 'u'.
 		 */
-
 		ASSERT(instr->a[ap].type == TAG_u);
 		if (instr->a[ap].type != TAG_u) {
 		    goto restart;
-		}
-		i = instr->a[ap].val;
+		} else if (i < st->beam.imports.count) {
+                    BeamFile_ImportEntry *import;
 
-		/*
-		 * erlang:apply/2,3 are strange. They exist as (dummy) BIFs
-		 * so that they are included in the export table before
-		 * the erlang module is loaded. They also exist in the erlang
-		 * module as functions. When used in code, a special Beam
-		 * instruction is used.
-		 *
-		 * Below we specially recognize erlang:apply/2,3 as special.
-		 * This is necessary because after setting a trace pattern on
-		 * them, you cannot no longer see from the export entry that
-		 * they are special.
-		 */
-		if (i < st->num_imports) {
-		    if (st->import[i].bif != NULL ||
-			(st->import[i].module == am_erlang &&
-			 st->import[i].function == am_apply &&
-			 (st->import[i].arity == 2 || st->import[i].arity == 3))) {
-			goto restart;
-		    }
+                    if (st->bif_imports[i]) {
+                        goto restart;
+                    }
+
+                    /* erlang:apply/2,3 are strange. They exist as (dummy) BIFs
+                     * so that they are included in the export table before
+                     * the erlang module is loaded. They also exist in the
+                     * erlang module as functions. When used in code, a special
+                     * Beam instruction is used.
+                     *
+                     * Below we recognize erlang:apply/2,3 as special. This is
+                     * necessary because after setting a trace pattern on
+                     * them, you can no longer see from the export entry that
+                     * they are special. */
+                    import = &st->beam.imports.entries[i];
+
+                    if (import->module == am_erlang) {
+                        if (import->function == am_apply) {
+                            if (import->arity == 2 || import->arity == 3) {
+                                goto restart;
+                            }
+                        }
+                    }
+
 		}
 	    }
 	    break;
@@ -228,12 +240,26 @@ erts_transform_engine(LoaderState* st)
 		    goto restart;
 		}
 		i = instr->a[ap].val;
-		ASSERT(i < st->num_imports);
-		if (i >= st->num_imports || st->import[i].module != mod ||
-		    st->import[i].function != func ||
-		    (arity < MAX_ARG && st->import[i].arity != arity)) {
-		    goto restart;
-		}
+                ASSERT(i < st->beam.imports.count);
+                {
+                    BeamFile_ImportEntry *import;
+
+                    if (i >= st->beam.imports.count) {
+                        goto restart;
+                    }
+
+                    import = &st->beam.imports.entries[i];
+
+                    if (import->module != mod) {
+                        goto restart;
+                    }
+                    if (import->function != func) {
+                        goto restart;
+                    }
+                    if (import->arity != arity) {
+                        goto restart;
+                    }
+                }
 	    }
 	    break;
 #endif
@@ -322,8 +348,8 @@ erts_transform_engine(LoaderState* st)
 #if defined(TOP_call_end)
 	case TOP_call_end:
 	    {
-		GenOp** lastp;
-		GenOp* new_instr;
+		BeamOp** lastp;
+		BeamOp* new_instr;
 
 		i = *pc++;
                 new_instr = erts_beam_execute_transform((unsigned) i, st, var, rest_args);
@@ -345,18 +371,18 @@ erts_transform_engine(LoaderState* st)
 	case TOP_end:
             st->genop = instr;
 	    while (first != keep) {
-		GenOp* next = first->next;
-		FREE_GENOP(st, first);
+		BeamOp* next = first->next;
+		beamopallocator_free_op(&st->op_allocator, first);
 		first = next;
 	    }
+
 	    return TE_OK;
-	case TOP_new_instr:
 	    /*
 	     * Note that the instructions are generated in reverse order.
 	     */
+	case TOP_new_instr:
             {
-                GenOp* new_instr;
-                NEW_GENOP(st, new_instr);
+                BeamOp* new_instr = beamopallocator_new_op(&st->op_allocator);
                 new_instr->next = instr;
                 instr = new_instr;
                 instr->op = op = *pc++;
@@ -386,9 +412,12 @@ erts_transform_engine(LoaderState* st)
 #if defined(TOP_store_rest_args)
 	case TOP_store_rest_args:
 	    {
-		GENOP_ARITY(instr, instr->arity+num_rest_args);
-		sys_memcpy(instr->a, instr->def_args, ap*sizeof(GenOpArg));
-		sys_memcpy(instr->a+ap, rest_args, num_rest_args*sizeof(GenOpArg));
+		ASSERT(instr->a == instr->def_args);
+		instr->arity = instr->arity + num_rest_args;
+		instr->a = erts_alloc(ERTS_ALC_T_LOADER_TMP,
+		                      instr->arity * sizeof(BeamOpArg));
+		sys_memcpy(instr->a, instr->def_args, ap*sizeof(BeamOpArg));
+		sys_memcpy(instr->a+ap, rest_args, num_rest_args*sizeof(BeamOpArg));
 		ap += num_rest_args;
 	    }
 	    break;

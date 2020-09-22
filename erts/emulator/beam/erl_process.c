@@ -52,6 +52,7 @@
 #include "erl_check_io.h"
 #include "erl_poll.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_common.h"
 
 #define ERTS_CHECK_TIME_REDS CONTEXT_REDS
 #define ERTS_DELAYED_WAKEUP_INFINITY (~(Uint64) 0)
@@ -93,7 +94,6 @@
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_init_process() */
-#include "hipe_signal.h"	/* for hipe_thread_signal_init() */
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -133,10 +133,6 @@ runq_got_work_to_execute(ErtsRunQueue *rq)
 }
 
 const Process erts_invalid_process = {{ERTS_INVALID_PID}};
-
-extern BeamInstr beam_apply[];
-extern BeamInstr beam_exit[];
-extern BeamInstr beam_continue_exit[];
 
 int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = SPO_ON_HEAP_MSGQ;
 int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
@@ -3982,7 +3978,7 @@ check_immigration_need(ErtsRunQueue *c_rq, ErtsMigrationPath *mp, int prio)
     else
 	len = RUNQ_READ_LEN(&c_rq->procs.prio_info[prio].len);
 
-    if (len < mp->prio[prio].limit.this) {
+    if (len < mp->prio[prio].limit.here) {
 	if (prio == ERTS_PORT_PRIO_LEVEL)
 	    len = RUNQ_READ_LEN(&f_rq->ports.info.len);
 	else
@@ -4629,7 +4625,7 @@ init_migration_paths(void)
 	mps->mpath[qix].flags = 0;
 	mps->mpath[qix].misc_evac_runq = NULL;
 	for (pix = 0; pix < ERTS_NO_PRIO_LEVELS; pix++) {
-	    mps->mpath[qix].prio[pix].limit.this = -1;
+	    mps->mpath[qix].prio[pix].limit.here = -1;
 	    mps->mpath[qix].prio[pix].limit.other = -1;
 	    mps->mpath[qix].prio[pix].runq = NULL;
 	    mps->mpath[qix].prio[pix].flags = 0;
@@ -5184,7 +5180,7 @@ erts_fprintf(stderr, "--------------------------------\n");
 		  | ERTS_CHK_RUNQ_FLG_IMMIGRATE(flags, pix))) {
 		ASSERT(run_queue_info[qix].prio[pix].immigrate_from < 0);
 		ASSERT(run_queue_info[qix].prio[pix].emigrate_to < 0);
-		mp->prio[pix].limit.this = -1;
+		mp->prio[pix].limit.here = -1;
 		mp->prio[pix].limit.other = -1;
 		mp->prio[pix].runq = NULL;
 		mp->prio[pix].flags = 0;
@@ -5195,7 +5191,7 @@ erts_fprintf(stderr, "--------------------------------\n");
 		ASSERT(run_queue_info[qix].prio[pix].emigrate_to >= 0);
 
 		mqix = run_queue_info[qix].prio[pix].emigrate_to;
-		mp->prio[pix].limit.this
+		mp->prio[pix].limit.here
 		    = run_queue_info[qix].prio[pix].migration_limit;
 		mp->prio[pix].limit.other
 		    = run_queue_info[mqix].prio[pix].migration_limit;
@@ -5208,7 +5204,7 @@ erts_fprintf(stderr, "--------------------------------\n");
 		ASSERT(run_queue_info[qix].prio[pix].immigrate_from >= 0);
 
 		mqix = run_queue_info[qix].prio[pix].immigrate_from;
-		mp->prio[pix].limit.this
+		mp->prio[pix].limit.here
 		    = run_queue_info[qix].prio[pix].migration_limit;
 		mp->prio[pix].limit.other
 		    = run_queue_info[mqix].prio[pix].migration_limit;
@@ -5229,7 +5225,7 @@ erts_fprintf(stderr, "--------------------------------\n");
 	nmp->misc_evac_runq = omp->misc_evac_runq;
 
 	for (pix = 0; pix < ERTS_NO_PRIO_LEVELS; pix++) {
-	    nmp->prio[pix].limit.this = omp->prio[pix].limit.this;
+	    nmp->prio[pix].limit.here = omp->prio[pix].limit.here;
 	    nmp->prio[pix].limit.other = omp->prio[pix].limit.other;
 	    nmp->prio[pix].runq = omp->prio[pix].runq;
 	    nmp->prio[pix].flags = omp->prio[pix].flags;
@@ -5304,7 +5300,7 @@ change_no_used_runqs(int used)
 	nmp->misc_evac_runq = NULL;
 
 	for (pix = 0; pix < ERTS_NO_PRIO_LEVELS; pix++) {
-	    nmp->prio[pix].limit.this = -1;
+	    nmp->prio[pix].limit.here = -1;
 	    nmp->prio[pix].limit.other = -1;
 	    nmp->prio[pix].runq = NULL;
 	    nmp->prio[pix].flags = 0;
@@ -5319,7 +5315,7 @@ change_no_used_runqs(int used)
 		      | ERTS_RUNQ_FLGS_EVACUATE_QMASK);
 	nmp->misc_evac_runq = to_rq;
 	for (pix = 0; pix < ERTS_NO_PRIO_LEVELS; pix++) {
-	    nmp->prio[pix].limit.this = -1;
+	    nmp->prio[pix].limit.here = -1;
 	    nmp->prio[pix].limit.other = -1;
 	    nmp->prio[pix].runq = to_rq;
 	    nmp->prio[pix].flags = 0;
@@ -5780,6 +5776,30 @@ init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp, char *dawwp)
 }
 
 static void
+init_scheduler_registers(ErtsSchedulerData* esdp) {
+    ErtsSchedulerRegisters *registers = NULL;
+    int allocate_regs = 1;
+
+#ifdef BEAMASM
+    /* Normal schedulers allocate registers themselves for performance
+     * reasons. See `ErtsSchedulerRegisters` for details. */
+    if (esdp->type == ERTS_SCHED_NORMAL) {
+        allocate_regs = 0;
+    }
+#endif
+
+    if (allocate_regs) {
+        registers =
+            erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
+                                               sizeof(ErtsSchedulerRegisters));
+
+        erts_bits_init_state(&registers->aux_regs.d.erl_bits_state);
+    }
+
+    esdp->registers = registers;
+}
+
+static void
 init_scheduler_data(ErtsSchedulerData* esdp, int num,
 		    ErtsSchedulerSleepInfo* ssi,
 		    ErtsRunQueue* runq,
@@ -5788,16 +5808,9 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
                     Uint64 time_stamp)
 {
     esdp->timer_wheel = NULL;
-    erts_bits_init_state(&esdp->erl_bits_state);
     esdp->match_pseudo_process = NULL;
     esdp->free_process = NULL;
-    esdp->x_reg_array =
-	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
-					   ERTS_X_REGS_ALLOCATED *
-					   sizeof(Eterm));
-    esdp->f_reg_array =
-	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
-					   MAX_REG * sizeof(FloatDef));
+
     esdp->run_queue = runq;
     if (ERTS_RUNQ_IX_IS_DIRTY(runq->ix)) {
 	esdp->no = 0;
@@ -5822,6 +5835,9 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
 	esdp->dirty_no = 0;
         runq->scheduler = esdp;
     }
+
+    init_scheduler_registers(esdp);
+
     esdp->dirty_shadow_process = shadow_proc;
     if (shadow_proc) {
 	erts_init_empty_process(shadow_proc);
@@ -6502,10 +6518,17 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
     int enqueue; /* < 0 -> use proxy */
     ErtsRunQueue* runq;
 
+#ifndef BEAMASM
     ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC
                       |ERTS_PSFLG_DIRTY_CPU_PROC))
            || (BeamIsOpCode(*p->i, op_call_nif_WWW)
                || BeamIsOpCode(*p->i, op_call_bif_W)));
+#else
+    ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC
+                      |ERTS_PSFLG_DIRTY_CPU_PROC))
+           || (*p->i == op_call_nif_WWW
+               || *p->i == op_call_bif_W));
+#endif
 
     a = state;
 
@@ -8435,6 +8458,10 @@ sched_thread_func(void *vesdp)
     Uint no = esdp->no;
     erts_tse_t *tse;
 
+    /* Perform platform-specific scheduler initialization, e.g. setting up an
+     * alternate signal stack. Must be done before anything else. */
+    erts_sys_scheduler_init();
+
     erts_port_task_pre_alloc_init_thread();
     erts_sched_init_time_sup(esdp);
 
@@ -8480,9 +8507,6 @@ sched_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
-#ifdef HIPE
-    hipe_thread_signal_init();
-#endif
     erts_thread_init_float();
 
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
@@ -8495,7 +8519,7 @@ sched_thread_func(void *vesdp)
     erts_alcu_sched_spec_data_init(esdp);
     erts_ets_sched_spec_data_init(esdp);
 
-    process_main(esdp->x_reg_array, esdp->f_reg_array);
+    process_main(esdp);
 
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
@@ -8510,6 +8534,11 @@ sched_dirty_cpu_thread_func(void *vesdp)
     ErtsThrPrgrCallbacks callbacks;
     ErtsSchedulerData *esdp = vesdp;
     Uint no = esdp->dirty_no;
+
+    /* Perform platform-specific scheduler tweaks, e.g. setting up an alternate
+     * signal stack. Must be done before anything else. */
+    erts_sys_scheduler_init();
+
     ASSERT(no != 0);
     ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(no-1)->event = erts_tse_fetch();
     erts_tse_return(ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(no-1)->event);
@@ -8538,9 +8567,6 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
-#ifdef HIPE
-    hipe_thread_signal_init();
-#endif
     erts_thread_init_float();
 
     erts_dirty_process_main(esdp);
@@ -8557,6 +8583,11 @@ sched_dirty_io_thread_func(void *vesdp)
     ErtsThrPrgrCallbacks callbacks;
     ErtsSchedulerData *esdp = vesdp;
     Uint no = esdp->dirty_no;
+
+    /* Perform platform-specific scheduler initialization, e.g. setting up an
+     * alternate signal stack. Must be done before anything else. */
+    erts_sys_scheduler_init();
+
     ASSERT(no != 0);
     ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(no-1)->event = erts_tse_fetch();
     erts_tse_return(ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(no-1)->event);
@@ -8585,9 +8616,6 @@ sched_dirty_io_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
-#ifdef HIPE
-    hipe_thread_signal_init();
-#endif
     erts_thread_init_float();
 
     erts_dirty_process_main(esdp);
@@ -9261,6 +9289,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     int is_normal_sched;
 
     ERTS_MSACC_DECLARE_CACHE();
+
+    ASSERT(calls >= 0);
 
 #ifdef USE_VM_PROBES
     if (p != NULL && DTRACE_ENABLED(process_unscheduled)) {
@@ -11779,7 +11809,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #else
     arg_size = size_object_litopt(args, &litarea);
 #endif
-    heap_need = arg_size + 1;   /* Reserve place for continuation pointer */
+
+    /* Reserve place for continuation pointer, redzone, etc */
+    heap_need = arg_size + S_RESERVED;
 
     p->flags = flags;
     p->sig_qs.flags = qs_flags;
@@ -11843,8 +11875,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->current = &p->u.initial;
 
-    p->i = (BeamInstr *) beam_apply;
-    p->stop[0] = make_cp(beam_apply + 1);
+    p->i = BeamCodeApply();
+    p->stop[0] = make_cp(BeamCodeNormalExit());
 
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
@@ -12538,7 +12570,10 @@ delete_process(Process* p)
     scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
 
     if (scb) {
+#ifndef BEAMASM
 	p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
+#endif
+
         erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
     }
 
@@ -13965,15 +14000,16 @@ erts_program_counter_info(fmtfn_t to, void *to_arg, Process *p)
 static void
 print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
-    ErtsCodeMFA *cmfa = find_function_from_pc(x);
+    ErtsCodeMFA *cmfa = erts_find_function_from_pc(x);
     if (cmfa == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_apply+1) {
+        } else if (x == BeamCodeNormalExit()) {
             erts_print(to, to_arg, "<terminate process normally>");
-	} else if (x == 0) {
+        }
+	else if (x == 0) {
             erts_print(to, to_arg, "invalid");
         } else {
             erts_print(to, to_arg, "unknown function");
@@ -14251,7 +14287,7 @@ static void print_current_process_info(fmtfn_t to, void *to_arg,
  *
  * A BIF that calls this should make sure to schedule out to never come back:
  *    erts_halt(code);
- *    ERTS_BIF_YIELD1(&bif_trap_export[BIF_erlang_halt_1], BIF_P, NIL);
+ *    ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_erlang_halt_1), BIF_P, NIL);
  */
 void erts_halt(int code)
 {

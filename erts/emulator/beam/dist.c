@@ -177,7 +177,7 @@ int erts_dist_buf_busy_limit;
 
 int erts_dflags_test_remove_hopefull_flags;
 
-Export spawn_request_yield_export;
+Export *spawn_request_yield_export;
 
 /* distribution trap functions */
 Export* dmonitor_node_trap = NULL;
@@ -4136,7 +4136,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
             erts_de_runlock(dep);
             if (obufsize)
                 erts_atomic_add_nob(&dep->qsize, (erts_aint_t) -obufsize);
-            ERTS_BIF_YIELD1(&bif_trap_export[BIF_dist_ctrl_get_data_1],
+            ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_dist_ctrl_get_data_1),
                             BIF_P, BIF_ARG_1);
         }
 
@@ -4837,7 +4837,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
      erts_proc_inc_refc(BIF_P);
      erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
      ERTS_BIF_PREP_YIELD3(ret,
-                          &bif_trap_export[BIF_erts_internal_create_dist_channel_3],
+                          BIF_TRAP_EXPORT(BIF_erts_internal_create_dist_channel_3),
                           BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
      goto done;
 
@@ -5240,7 +5240,7 @@ static BIF_RETTYPE spawn_request_yield_3(BIF_ALIST_3)
 
     case ERTS_DSIG_SEND_CONTINUE: {
         BUMP_ALL_REDS(BIF_P);
-        BIF_TRAP3(&spawn_request_yield_export, BIF_P,
+        BIF_TRAP3(spawn_request_yield_export, BIF_P,
                   BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
@@ -5546,7 +5546,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             erts_set_gc_state(BIF_P, 0);
             ctx_term = erts_dsend_export_trap_context(BIF_P, &ctx);
             BUMP_ALL_REDS(BIF_P);
-            ERTS_BIF_PREP_TRAP3(ret_val, &spawn_request_yield_export,
+            ERTS_BIF_PREP_TRAP3(ret_val, spawn_request_yield_export,
                                 BIF_P, ctx_term, ok_result, tag);
             break;
         }

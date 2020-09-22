@@ -101,6 +101,13 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [dirty-schedulers-TEST]"
 #endif
 				     " [async-threads:%d]"
+#ifdef BEAMASM
+#ifdef NATIVE_ERLANG_STACK
+				     " [jit]"
+#else
+				     " [jit:no-native-stack]"
+#endif
+#endif
 #ifdef HIPE
 				     " [hipe]"
 #endif	
@@ -1249,9 +1256,9 @@ exited:
 
 yield:
     if (pi2)
-        ERTS_BIF_PREP_YIELD2(ret, &bif_trap_export[BIF_process_info_2], c_p, pid, opt);
+        ERTS_BIF_PREP_YIELD2(ret, BIF_TRAP_EXPORT(BIF_process_info_2), c_p, pid, opt);
     else
-        ERTS_BIF_PREP_YIELD1(ret, &bif_trap_export[BIF_process_info_1], c_p, pid);
+        ERTS_BIF_PREP_YIELD1(ret, BIF_TRAP_EXPORT(BIF_process_info_1), c_p, pid);
     goto done;
 
 send_signal: {
@@ -2440,7 +2447,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 		       ? am_blocked
 		       : am_blocked_normal));
 	}
-    } else if (BIF_ARG_1 == am_build_type) {
+    } else if (BIF_ARG_1 == am_build_type || BIF_ARG_1 == am_emu_type) {
 #if defined(DEBUG)
 	ERTS_DECL_AM(debug);
 	BIF_RET(AM_debug);
@@ -2471,7 +2478,14 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #else
 	BIF_RET(am_opt);
 #endif
-	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_emu_flavor) {
+#if defined(BEAMASM)
+	ERTS_DECL_AM(jit);
+	BIF_RET(AM_jit);
+#else
+        ERTS_DECL_AM(emu);
+	BIF_RET(AM_emu);
+#endif
     } else if (BIF_ARG_1 == am_time_offset) {
 	switch (erts_time_offset_state()) {
 	case ERTS_TIME_OFFSET_PRELIMINARY: {
@@ -4666,7 +4680,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    if (!flag && BIF_ARG_2 != am_false) {
 		erts_atomic_set_nob(&hipe_test_reschedule_flag, 1);
 		erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-		ERTS_BIF_YIELD2(&bif_trap_export[BIF_erts_debug_set_internal_state_2],
+		ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_set_internal_state_2),
 				BIF_P, BIF_ARG_1, BIF_ARG_2);
 	    }
 	    erts_atomic_set_nob(&hipe_test_reschedule_flag, !flag);
@@ -4840,7 +4854,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             switch(BIF_ARG_2) {
             case am_true:
                 if (!erts_try_seize_code_write_permission(BIF_P)) {
-                    ERTS_BIF_YIELD2(&bif_trap_export[BIF_erts_debug_set_internal_state_2],
+                    ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_set_internal_state_2),
                                     BIF_P, BIF_ARG_1, BIF_ARG_2);
                 }
                 BIF_RET(am_true);
@@ -5095,6 +5109,344 @@ BIF_RETTYPE erts_internal_gather_carrier_info_1(BIF_ALIST_1)
 {
     return gather_histograms_helper(BIF_P, BIF_ARG_1,
                                     erts_alcu_gather_carrier_info);
+}
+
+
+/* Builds a list of all functions in the given module:
+ *     [{Name, Arity},...] */
+static Eterm
+functions_in_module(Process* p, BeamCodeHeader* code_hdr)
+{
+    int i;
+    Uint num_functions;
+    Uint need;
+    Eterm* hp;
+    Eterm* hp_end;
+    Eterm result = NIL;
+
+    num_functions = code_hdr->num_functions;
+    need = 5*num_functions;
+    hp = HAlloc(p, need);
+    hp_end = hp + need;
+    for (i = num_functions-1; i >= 0 ; i--) {
+        ErtsCodeInfo* ci = code_hdr->functions[i];
+        Eterm tuple;
+
+        /*
+         * If the function name is [], this entry is a stub for
+         * a BIF that should be ignored.
+         */
+        ASSERT(is_atom(ci->mfa.function) || is_nil(ci->mfa.function));
+        if (is_atom(ci->mfa.function)) {
+            tuple = TUPLE2(hp, ci->mfa.function, make_small(ci->mfa.arity));
+            hp += 3;
+
+            result = CONS(hp, tuple, result);
+            hp += 2;
+        }
+    }
+    HRelease(p, hp_end, hp);
+    return result;
+}
+
+/* Builds a list of all NIFs in the given module:
+ *     [{Name, Arity},...] */
+static Eterm
+nifs_in_module(Process* p, Eterm module)
+{
+    Eterm nif_list, *hp;
+    Module *mod;
+
+    mod = erts_get_module(module, erts_active_code_ix());
+    nif_list = NIL;
+
+    if (mod->curr.nif != NULL) {
+        int func_count, func_ix;
+        ErlNifFunc *funcs;
+
+        func_count = erts_nif_get_funcs(mod->curr.nif, &funcs);
+        hp = HAlloc(p, func_count * 5);
+
+        for (func_ix = func_count - 1; func_ix >= 0; func_ix--) {
+            Eterm name, arity, pair;
+            ErlNifFunc *func;
+
+            func = &funcs[func_ix];
+
+            name = am_atom_put(func->name, sys_strlen(func->name));
+            arity = make_small(func->arity);
+
+            pair = TUPLE2(hp, name, arity);
+            hp += 3;
+
+            nif_list = CONS(hp, pair, nif_list);
+            hp += 2;
+        }
+    }
+
+    return nif_list;
+}
+
+/* Returns 'true' if mod has any native compiled functions, otherwise 'false' */
+static Eterm
+has_native(BeamCodeHeader *code_hdr)
+{
+    Eterm result = am_false;
+#ifdef HIPE
+    if (erts_is_module_native(code_hdr)) {
+        result = am_true;
+    }
+#endif
+    return result;
+}
+
+/* Builds a list of all functions including native addresses.
+ *     [{Name,Arity,NativeAddress},...] */
+static Eterm
+native_addresses(Process* p, BeamCodeHeader* code_hdr)
+{
+    Eterm result = NIL;
+#ifdef HIPE
+    int i;
+    Eterm* hp;
+    Uint num_functions;
+    Uint need;
+    Eterm* hp_end;
+
+    num_functions = code_hdr->num_functions;
+    need = (6+BIG_UINT_HEAP_SIZE)*num_functions;
+    hp = HAlloc(p, need);
+    hp_end = hp + need;
+    for (i = num_functions-1; i >= 0 ; i--) {
+        ErtsCodeInfo *ci = code_hdr->functions[i];
+        Eterm tuple;
+
+        ASSERT(is_atom(ci->mfa.function)
+               || is_nil(ci->mfa.function)); /* [] if BIF stub */
+        if (ci->u.ncallee != NULL) {
+            Eterm addr;
+            ASSERT(is_atom(ci->mfa.function));
+            addr = erts_bld_uint(&hp, NULL, (Uint)ci->u.ncallee);
+            tuple = erts_bld_tuple(&hp, NULL, 3, ci->mfa.function,
+                                   make_small(ci->mfa.arity), addr);
+            result = erts_bld_cons(&hp, NULL, tuple, result);
+        }
+    }
+    HRelease(p, hp_end, hp);
+#endif
+    return result;
+}
+
+/* Builds a list of all exported functions in the given module:
+ *     [{Name, Arity},...] */
+static Eterm
+exported_from_module(Process* p, ErtsCodeIndex code_ix, Eterm mod)
+{
+    int i, num_exps;
+    Eterm* hp = NULL;
+    Eterm* hend = NULL;
+    Eterm result = NIL;
+
+    num_exps = export_list_size(code_ix);
+    for (i = 0; i < num_exps; i++) {
+        Export* ep = export_list(i,code_ix);
+        
+        if (ep->info.mfa.module == mod) {
+            Eterm tuple;
+
+            if (ep->addressv[code_ix] == ep->trampoline.raw &&
+                BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
+                /* There is a call to the function, but it does not exist. */ 
+                continue;
+            }
+
+            if (hp == hend) {
+                int need = 10 * 5;
+                hp = HAlloc(p, need);
+                hend = hp + need;
+            }
+
+            tuple = TUPLE2(hp, ep->info.mfa.function,
+                           make_small(ep->info.mfa.arity));
+            hp += 3;
+
+            result = CONS(hp, tuple, result);
+            hp += 2;
+        }
+    }
+
+    HRelease(p, hend,hp);
+    return result;
+}
+
+/* Returns a list of all attributes for the module. */
+static Eterm
+attributes_for_module(Process* p, BeamCodeHeader* code_hdr)
+{
+    const byte* ext;
+    Eterm result = NIL;
+
+    ext = code_hdr->attr_ptr;
+    if (ext != NULL) {
+        ErtsHeapFactory factory;
+
+        erts_factory_proc_prealloc_init(&factory, p,
+                                        code_hdr->attr_size_on_heap);
+
+        result = erts_decode_ext(&factory, &ext, 0);
+
+        if (is_value(result)) {
+            erts_factory_close(&factory);
+        }
+    }
+    return result;
+}
+
+/* Returns a list containing compilation information. */
+static Eterm
+compilation_info_for_module(Process* p, BeamCodeHeader* code_hdr)
+{
+    const byte* ext;
+    Eterm result = NIL;
+
+    ext = code_hdr->compile_ptr;
+    if (ext != NULL) {
+        ErtsHeapFactory factory;
+
+        erts_factory_proc_prealloc_init(&factory, p,
+                                        code_hdr->compile_size_on_heap);
+
+        result = erts_decode_ext(&factory, &ext, 0);
+
+        if (is_value(result)) {
+            erts_factory_close(&factory);
+        }
+    }
+
+    return result;
+}
+
+/* Returns the MD5 checksum for a module */
+static Eterm
+md5_of_module(Process* p, BeamCodeHeader* code_hdr)
+{
+    return new_binary(p, code_hdr->md5_ptr, MD5_SIZE);
+}
+
+static Eterm
+get_module_info(Process* p, ErtsCodeIndex code_ix, BeamCodeHeader* code_hdr,
+                Eterm module, Eterm what)
+{
+    if (what == am_module) {
+        return module;
+    } else if (what == am_md5) {
+        return md5_of_module(p, code_hdr);
+    } else if (what == am_exports) {
+        return exported_from_module(p, code_ix, module);
+    } else if (what == am_functions) {
+        return functions_in_module(p, code_hdr);
+    } else if (what == am_nifs) {
+        return nifs_in_module(p, module);
+    } else if (what == am_attributes) {
+        return attributes_for_module(p, code_hdr);
+    } else if (what == am_compile) {
+        return compilation_info_for_module(p, code_hdr);
+    } else if (what == am_native_addresses) {
+        return native_addresses(p, code_hdr);
+    } else if (what == am_native) {
+        return has_native(code_hdr);
+    }
+
+    return THE_NON_VALUE;
+}
+
+static Eterm
+module_info_0(Process* p, Eterm module)
+{
+    Module* modp;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    BeamCodeHeader* code_hdr;
+    Eterm *hp;
+    Eterm list = NIL;
+    Eterm tup;
+
+    if (is_not_atom(module)) {
+	return THE_NON_VALUE;
+    }
+
+    modp = erts_get_module(module, code_ix);
+    if (modp == NULL) {
+	return THE_NON_VALUE;
+    }
+
+    code_hdr = modp->curr.code_hdr;
+    if (code_hdr == NULL) {
+        return THE_NON_VALUE;
+    }
+
+#define BUILD_INFO(What) \
+    tup = get_module_info(p, code_ix, code_hdr, module, What); \
+    hp = HAlloc(p, 5); \
+    tup = TUPLE2(hp, What, tup); \
+    hp += 3; \
+    list = CONS(hp, tup, list)
+
+    BUILD_INFO(am_md5);
+#ifdef HIPE
+    BUILD_INFO(am_native);
+#endif
+    BUILD_INFO(am_compile);
+    BUILD_INFO(am_attributes);
+    BUILD_INFO(am_exports);
+    BUILD_INFO(am_module);
+#undef BUILD_INFO
+    return list;
+}
+
+static Eterm
+module_info_1(Process* p, Eterm module, Eterm what)
+{
+    Module* modp;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    BeamCodeHeader* code_hdr;
+
+    if (is_not_atom(module)) {
+        return THE_NON_VALUE;
+    }
+
+    modp = erts_get_module(module, code_ix);
+    if (modp == NULL) {
+        return THE_NON_VALUE;
+    }
+
+    code_hdr = modp->curr.code_hdr;
+    if (code_hdr == NULL) {
+        return THE_NON_VALUE;
+    }
+
+    return get_module_info(p, code_ix, code_hdr, module, what);
+}
+
+BIF_RETTYPE get_module_info_1(BIF_ALIST_1)
+{
+    Eterm ret = module_info_0(BIF_P, BIF_ARG_1);
+
+    if (is_non_value(ret)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    BIF_RET(ret);
+}
+
+BIF_RETTYPE get_module_info_2(BIF_ALIST_2)
+{
+    Eterm ret = module_info_1(BIF_P, BIF_ARG_1, BIF_ARG_2);
+
+    if (is_non_value(ret)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    BIF_RET(ret);
 }
 
 #ifdef ERTS_ENABLE_LOCK_COUNT

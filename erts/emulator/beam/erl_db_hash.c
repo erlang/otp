@@ -1995,7 +1995,7 @@ static int select_chunk_on_trap(traverse_context_t* ctx_base,
                 make_small(got),
                 make_small(ctx->base.safety));
     }
-    ERTS_BIF_PREP_TRAP1(*ret, &ets_select_continue_exp, ctx->base.p,
+    ERTS_BIF_PREP_TRAP1(*ret, ets_select_continue_exp, ctx->base.p,
                         continuation);
     return DB_ERROR_NONE;
 }
@@ -2206,7 +2206,7 @@ static int select_count_on_trap(traverse_context_t* ctx,
                                 Binary** mpp, Eterm* ret)
 {
     return on_simple_trap(
-            &ets_select_count_continue_exp, ctx,
+            ets_select_count_continue_exp, ctx,
             slot_ix, got, mpp, ret);
 }
 
@@ -2390,7 +2390,7 @@ static int select_delete_on_trap(traverse_context_t* ctx_base,
     free_term_list(ctx->base.tb, ctx->free_us);
     ctx->free_us = NULL;
     return on_simple_trap(
-            &ets_select_delete_continue_exp, &ctx->base,
+            ets_select_delete_continue_exp, &ctx->base,
             slot_ix, got, mpp, ret);
 }
 
@@ -2527,7 +2527,7 @@ static int select_replace_on_trap(traverse_context_t* ctx,
                                   Binary** mpp, Eterm* ret)
 {
     return on_simple_trap(
-            &ets_select_replace_continue_exp, ctx,
+            ets_select_replace_continue_exp, ctx,
             slot_ix, got, mpp, ret);
 }
 

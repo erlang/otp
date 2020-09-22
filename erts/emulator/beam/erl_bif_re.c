@@ -40,7 +40,7 @@
 
 static const unsigned char *default_table;
 static Uint max_loop_limit;
-static Export re_exec_trap_export;
+static Export *re_exec_trap_export;
 static Export *grun_trap_exportp = NULL;
 static Export *urun_trap_exportp = NULL;
 static Export *ucompile_trap_exportp = NULL;
@@ -66,7 +66,7 @@ static void erts_erts_pcre_stack_free(void *ptr) {
 
 #define ERTS_PCRE_STACK_MARGIN (10*1024)
 
-#  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
+#  define ERTS_STACK_LIMIT ((char *) erts_get_stacklimit())
 
 static int
 stack_guard_downwards(void)
@@ -1356,7 +1356,7 @@ handle_iolist:
             ERTS_VBUMP_ALL_REDS(p);
             hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
             magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
-            BIF_TRAP3(&re_exec_trap_export, 
+            BIF_TRAP3(re_exec_trap_export,
                       p,
                       arg1,
                       arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
@@ -1472,7 +1472,7 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
     if (rc == PCRE_ERROR_LOOP_LIMIT) {
 	/* Trap */
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP3(&re_exec_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+	BIF_TRAP3(re_exec_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
     res = build_exec_return(BIF_P, rc, restartp, BIF_ARG_1);
  

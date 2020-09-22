@@ -52,10 +52,12 @@
 #include "erl_check_io.h"
 #include "erl_osenv.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_load.h"
+
+#include "jit/beam_asm.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
-#include "hipe_signal.h"	/* for hipe_signal_init() */
 #endif
 
 #ifdef HAVE_SYS_RESOURCE_H
@@ -97,6 +99,11 @@ const int etp_hipe = 1;
 #else
 const int etp_hipe = 0;
 #endif
+#ifdef BEAMASM
+const int etp_beamasm = 1;
+#else
+const int etp_beamasm = 0;
+#endif
 #ifdef DEBUG
 const int etp_debug_compiled = 1;
 #else
@@ -136,7 +143,7 @@ Eterm erts_init_process_id = ERTS_INVALID_PID;
  * inherit previous values.
  */
 
-extern void erl_crash_dump_v(char *, int, char *, va_list);
+extern void erl_crash_dump_v(char *, int, const char *, va_list);
 #ifdef __WIN32__
 extern void ConNormalExit(void);
 extern void ConWaitForExit(void);
@@ -200,6 +207,10 @@ int erts_modified_timing_level;
 int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
 
 int erts_no_line_info = 0;	/* -L: Don't load line information */
+
+#ifdef BEAMASM
+int erts_asm_dump = 0;		/* -asmdump: Dump assembly code */
+#endif
 
 /*
  * Other global variables.
@@ -288,7 +299,7 @@ set_default_time_adj(int *time_correction_p, ErtsTimeWarpMode *time_warp_mode_p)
  * that don't go to the error logger go through here.
  */
 
-void erl_error(char *fmt, va_list args)
+void erl_error(const char *fmt, va_list args)
 {
     erts_vfprintf(stderr, fmt, args);
 }
@@ -337,6 +348,9 @@ erl_init(int ncpu,
     init_module_table();
     init_register_table();
     init_message();
+#ifdef BEAMASM
+    beamasm_init();
+#endif
     erts_bif_info_init();
     erts_ddll_init();
     init_emulator();
@@ -585,6 +599,9 @@ void erts_usage(void)
     erts_fprintf(stderr, "               in the async-thread pool, valid range is [%d-%d]\n",
 		 ERTS_ASYNC_THREAD_MIN_STACK_SIZE,
 		 ERTS_ASYNC_THREAD_MAX_STACK_SIZE);
+#ifdef BEAMASM
+    erts_fprintf(stderr, "-asmdump       dump generated assembly code for each module loaded\n");
+#endif
     erts_fprintf(stderr, "-A number      set number of threads in async thread pool,\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n",
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
@@ -1255,10 +1272,6 @@ early_init(int *argc, char **argv) /*
     erts_lcnt_late_init();
 #endif
 
-#if defined(HIPE)
-    hipe_signal_init();	/* must be done very early */
-#endif
-
     erl_sys_args(argc, argv);
 
     /* Creates threads on Windows that depend on the arguments, so has to be after erl_sys_args */
@@ -1619,6 +1632,52 @@ erl_start(int argc, char **argv)
 	    /* define name of module for initial function */
 	    init = get_arg(argv[i]+2, argv[i+1], &i);
 	    break;
+
+	case 'J':
+#ifdef BEAMASM
+        {
+            char *sub_param = argv[i]+2;
+
+            switch (sub_param[0])
+            {
+            case 'P':
+                sub_param++;
+
+                if (has_prefix("perf", sub_param)) {
+                    arg = get_arg(sub_param+4, argv[i + 1], &i);
+
+#ifdef HAVE_LINUX_PERF_SUPPORT
+                    if (sys_strcmp(arg, "true") == 0) {
+                        erts_jit_perf_support = BEAMASM_PERF_DUMP|BEAMASM_PERF_MAP;
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        erts_jit_perf_support = 0;
+                    } else if (sys_strcmp(arg, "dump") == 0) {
+                        erts_jit_perf_support = BEAMASM_PERF_DUMP;
+                    } else if (sys_strcmp(arg, "map") == 0) {
+                        erts_jit_perf_support = BEAMASM_PERF_MAP;
+                    } else {
+                        erts_fprintf(stderr, "bad +JPperf support flag %s\n", arg);
+                        erts_usage();
+                    }
+#else
+                erts_fprintf(stderr, "+JPperf is not supported on this platform\n");
+                erts_usage();
+#endif
+                }
+                break;
+            default:
+                erts_fprintf(stderr, "invalid JIT option %s\n", arg);
+                erts_usage();
+                break;
+            }
+        }
+#else
+        erts_fprintf(stderr,
+                     "JIT is not supported on this system (option %s)\n",
+                     argv[i]);
+        erts_usage();
+#endif
+        break;
 
 	case 'B':
 	  if (argv[i][2] == 'i')          /* +Bi */
@@ -2068,6 +2127,12 @@ erl_start(int argc, char **argv)
 	    break;
 
 	case 'a':
+#ifdef BEAMASM
+	    if (strcmp(argv[i]+2, "smdump") == 0) {
+		erts_asm_dump = 1;
+		break;
+	    }
+#endif
 	    /* suggested stack size (Kilo Words) for threads in thread pool */
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    erts_async_thread_suggested_stack_size = atoi(arg);
@@ -2378,7 +2443,7 @@ erl_start(int argc, char **argv)
 
 
 
-__decl_noreturn void erts_thr_fatal_error(int err, char *what)
+__decl_noreturn void erts_thr_fatal_error(int err, const char *what)
 {
     char *errstr = err ? strerror(err) : NULL;
     erts_fprintf(stderr,
@@ -2437,7 +2502,7 @@ system_cleanup(int flush_async)
 static int erts_exit_code;
 
 static __decl_noreturn void __noreturn
-erts_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
+erts_exit_vv(int n, int flush_async, const char *fmt, va_list args1, va_list args2)
 {
     system_cleanup(flush_async);
 
@@ -2474,7 +2539,7 @@ __decl_noreturn void __noreturn erts_exit_epilogue(void)
 }
 
 /* Exit without flushing async threads */
-__decl_noreturn void __noreturn erts_exit(int n, char *fmt, ...)
+__decl_noreturn void __noreturn erts_exit(int n, const char *fmt, ...)
 {
     va_list args1, args2;
     va_start(args1, fmt);

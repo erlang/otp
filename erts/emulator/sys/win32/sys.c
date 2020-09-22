@@ -39,8 +39,8 @@
 void erts_sys_init_float(void);
 
 void erl_start(int, char**);
-void erts_exit(int n, char*, ...);
-void erl_error(char*, va_list);
+void erts_exit(int n, const char*, ...);
+void erl_error(const char*, va_list);
 
 /*
  * Microsoft-specific function to map a WIN32 error code to a Posix errno.
@@ -3214,6 +3214,9 @@ thr_create_prepare_child(void *vtcdp)
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
+void erts_sys_scheduler_init(void) {
+    /* Nothing needed on Windows. */
+}
 
 void
 erts_sys_pre_init(void)
@@ -3242,7 +3245,9 @@ erts_sys_pre_init(void)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_init();
 #endif
-
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_init();
+#endif
 
     erts_init_sys_time_sup();
 

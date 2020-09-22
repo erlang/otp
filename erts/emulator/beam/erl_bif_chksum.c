@@ -38,7 +38,7 @@ typedef void (*ChksumFun)(void *sum_in_out, unsigned char *buf,
 /* Hidden trap target */
 static BIF_RETTYPE md5_2(BIF_ALIST_2);
 
-static Export chksum_md5_2_exp;
+static Export *chksum_md5_2_exp;
 
 void erts_init_bif_chksum(void)
 {
@@ -327,7 +327,7 @@ crc32_1(BIF_ALIST_1)
     res_sum = erts_make_integer(chksum,BIF_P);
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(&bif_trap_export[BIF_crc32_2], BIF_P, res_sum, rest);
+	BIF_TRAP2(BIF_TRAP_EXPORT(BIF_crc32_2), BIF_P, res_sum, rest);
     }
     BIF_RET(res_sum);
 }
@@ -354,7 +354,7 @@ crc32_2(BIF_ALIST_2)
     res_sum = erts_make_integer(chksum,BIF_P);
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(&bif_trap_export[BIF_crc32_2], BIF_P, res_sum, rest);
+	BIF_TRAP2(BIF_TRAP_EXPORT(BIF_crc32_2), BIF_P, res_sum, rest);
     }
     BIF_RET(res_sum);
 }
@@ -407,7 +407,7 @@ adler32_1(BIF_ALIST_1)
     res_sum = erts_make_integer(chksum,BIF_P);
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(&bif_trap_export[BIF_adler32_2], BIF_P, res_sum, rest);
+	BIF_TRAP2(BIF_TRAP_EXPORT(BIF_adler32_2), BIF_P, res_sum, rest);
     }
     BIF_RET(res_sum);
 }
@@ -434,7 +434,7 @@ adler32_2(BIF_ALIST_2)
     res_sum = erts_make_integer(chksum,BIF_P);
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(&bif_trap_export[BIF_adler32_2], BIF_P, res_sum, rest);
+	BIF_TRAP2(BIF_TRAP_EXPORT(BIF_adler32_2), BIF_P, res_sum, rest);
     }
     BIF_RET(res_sum);
 }
@@ -494,7 +494,7 @@ md5_1(BIF_ALIST_1)
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
 	 bin = new_binary(BIF_P, (byte *) &context, sizeof(MD5_CTX));
-	 BIF_TRAP2(&chksum_md5_2_exp, BIF_P, bin, rest);
+	 BIF_TRAP2(chksum_md5_2_exp, BIF_P, bin, rest);
     }
     BUMP_REDS(BIF_P,res);
     bin = new_binary(BIF_P, (byte *)NULL, 16);
@@ -526,7 +526,7 @@ md5_2(BIF_ALIST_2)
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
 	bin = new_binary(BIF_P, (byte *) &context, sizeof(MD5_CTX));
-	BIF_TRAP2(&chksum_md5_2_exp, BIF_P, bin, rest);
+	BIF_TRAP2(chksum_md5_2_exp, BIF_P, bin, rest);
     }
     BUMP_REDS(BIF_P,res);
     bin = new_binary(BIF_P, (byte *)NULL, 16);
@@ -575,7 +575,7 @@ md5_update_2(BIF_ALIST_2)
     bin = new_binary(BIF_P, (byte *) &context, sizeof(MD5_CTX));
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(&bif_trap_export[BIF_md5_update_2], BIF_P, bin, rest);
+	BIF_TRAP2(BIF_TRAP_EXPORT(BIF_md5_update_2), BIF_P, bin, rest);
     }
     BUMP_REDS(BIF_P,res);
     BIF_RET(bin);

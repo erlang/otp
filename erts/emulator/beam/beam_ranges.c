@@ -25,7 +25,7 @@
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
-#include "beam_load.h"
+#include "beam_code.h"
 #include "erl_unicode.h"
 
 typedef struct {
@@ -45,7 +45,7 @@ Uint erts_dump_num_lit_areas;
 #define RANGE_END(R) ((BeamInstr*)erts_atomic_read_nob(&(R)->end))
 
 static Range* find_range(BeamInstr* pc);
-static void lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
+static void lookup_loc(FunctionInfo* fi, const void* pc,
 		       BeamCodeHeader*, int idx);
 
 /*
@@ -277,6 +277,31 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
     }
 }
 
+/*
+ * Force setting of the current function in a FunctionInfo
+ * structure. No source code location will be associated with
+ * the function.
+ */
+void
+erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa)
+{
+    fi->mfa = mfa;
+    fi->needed = 5;
+    fi->loc = LINE_INVALID_LOCATION;
+}
+
+/*
+ * Returns a pointer to {module, function, arity}, or NULL if not found.
+ */
+ErtsCodeMFA*
+erts_find_function_from_pc(BeamInstr* pc)
+{
+    FunctionInfo fi;
+
+    erts_lookup_function_info(&fi, pc, 0);
+    return fi.mfa;
+}
+
 static Range*
 find_range(BeamInstr* pc)
 {
@@ -301,13 +326,13 @@ find_range(BeamInstr* pc)
 }
 
 static void
-lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
+lookup_loc(FunctionInfo* fi, const void* pc,
            BeamCodeHeader* code_hdr, int idx)
 {
     BeamCodeLineTab* lt = code_hdr->line_table;
-    const BeamInstr** low;
-    const BeamInstr** high;
-    const BeamInstr** mid;
+    const void** low;
+    const void** high;
+    const void** mid;
 
     if (lt == NULL) {
 	return;

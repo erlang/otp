@@ -267,7 +267,7 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
 #define __builtin_expect(X, Y) (X)
 #endif
 
-#if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1)
+#if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1) && !defined __cplusplus
 #  define ETHR_CHOOSE_EXPR __builtin_choose_expr
 #else
 #  define ETHR_CHOOSE_EXPR(B, E1, E2) ((B) ? (E1) : (E2))
@@ -498,6 +498,10 @@ typedef struct {
 #  define ETHR_NEED_RWSPINLOCK_PROTOTYPES__
 #endif
 
+#if defined(__WIN32__)
+int ethr_win_get_errno__(void);
+#endif
+
 int ethr_init(ethr_init_data *);
 int ethr_late_init(ethr_late_init_data *);
 int ethr_install_exit_handler(void (*funcp)(void));
@@ -654,7 +658,7 @@ extern pthread_key_t ethr_ts_event_key__;
 static ETHR_INLINE ethr_ts_event *
 ETHR_INLINE_FUNC_NAME_(ethr_lookup_ts_event__)(int busy_dup)
 {
-    ethr_ts_event *tsep = pthread_getspecific(ethr_ts_event_key__);
+    ethr_ts_event *tsep = (ethr_ts_event*)pthread_getspecific(ethr_ts_event_key__);
     if (!tsep || (busy_dup && (tsep->iflgs & ETHR_TS_EV_BUSY))) {
 	int res = ethr_make_ts_event__(&tsep, 0);
 	if (res != 0)
@@ -675,7 +679,7 @@ extern DWORD ethr_ts_event_key__;
 static ETHR_INLINE ethr_ts_event *
 ETHR_INLINE_FUNC_NAME_(ethr_lookup_ts_event__)(int busy_dup)
 {
-    ethr_ts_event *tsep = TlsGetValue(ethr_ts_event_key__);
+    ethr_ts_event *tsep = (ethr_ts_event *) TlsGetValue(ethr_ts_event_key__);
     if (!tsep || (busy_dup && (tsep->iflgs & ETHR_TS_EV_BUSY))) {
 	int res = ethr_make_ts_event__(&tsep, !0);
 	if (res != 0)

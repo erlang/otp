@@ -186,7 +186,7 @@ static char *plusz_val_switches[] = {
 #define sleep(seconds) Sleep(seconds*1000)
 #endif
 
-#define SMP_SUFFIX	  ".smp"
+#define DEFAULT_SUFFIX	  "smp"
 
 void usage(const char *switchname);
 static void usage_format(char *format, ...);
@@ -245,8 +245,8 @@ static int verbose = 0;		/* If non-zero, print some extra information. */
 static int start_detached = 0;	/* If non-zero, the emulator should be
 				 * started detached (in the background).
 				 */
-static int start_smp_emu = 1;   /* Start the smp emulator. */
-static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
+static const char* emu_type = NULL; /* Type of emulator (lcnt, valgrind, etc) */
+static const char* emu_flavor = DEFAULT_SUFFIX; /* Flavor of emulator (smp, jit or emu) */
 
 #ifdef __WIN32__
 static char *start_emulator_program = NULL; /* For detached mode -
@@ -381,9 +381,10 @@ add_extra_suffixes(char *prog)
        p = write_str(p, ".");
        p = write_str(p, emu_type);
    }
-   if (start_smp_emu) {
-       p = write_str(p, SMP_SUFFIX);
-   }
+
+   p = write_str(p, ".");
+   p = write_str(p, emu_flavor);
+
 #ifdef __WIN32__
    if (dll) {
        p = write_str(p, DLL_EXT);
@@ -521,6 +522,12 @@ int main(int argc, char **argv)
                     usage(argv[i]);
                 }
                 emu_type = argv[i+1];
+                i++;
+	    } else if (strcmp(argv[i], "-emu_flavor") == 0) {
+		if (i + 1 >= argc) {
+                    usage(argv[i]);
+                }
+                emu_flavor = argv[i+1];
                 i++;
 	    }
 	}
@@ -850,6 +857,15 @@ int main(int argc, char **argv)
                       }
                       usage(argv[i]);
                       break;
+                  case 'J':
+                      if (i + 1 >= argc) {
+                          usage(argv[i]);
+                      }
+                      argv[i][0] = '-';
+                      add_Eargs(argv[i]);
+                      add_Eargs(argv[i+1]);
+                      i++;
+                      break;
 		  case 'S':
 		      if (argv[i][2] == 'P') {
 			  if (argv[i][3] != '\0')
@@ -1160,7 +1176,35 @@ int main(int argc, char **argv)
 	execv(emu, Eargsp);
     }
     if (errno == ENOENT) {
-        error("The emulator \'%s\' does not exist.", emu);
+        if (strcmp(emu_flavor,DEFAULT_SUFFIX) || emu_type) {
+            /* The executable did not exist and a flavor/type flags was given.
+             * We collect the possible combinations and print that in the error
+             * in order to help the user.
+             */
+            char buff[255], *currbuff = buff;
+            DIR *dp = opendir(bindir);
+            if (dp) {
+                struct dirent *ep;
+                while ((ep = readdir(dp)) != NULL) {
+                    if (strncmp("beam",ep->d_name,4) == 0) {
+                        char *type = strstr(ep->d_name,".") + 1;
+                        char *flavor = strstr(type,".");
+                        currbuff += sprintf(currbuff,"\n  ");
+                        if (flavor == NULL) {
+                            flavor = type;
+                        } else {
+                            currbuff += sprintf(currbuff,"-emu_type %s ", strndup(type,flavor - type));
+                            flavor++;
+                        }
+                        currbuff += sprintf(currbuff,"-emu_flavor %s", flavor);
+                    }
+                }
+                closedir(dp);
+            }
+            error("Invalid emulator type or flavor. Available combinations are: %s\n",buff);
+        } else {
+            error("The emulator \'%s\' does not exist.");
+        }
     } else {
         error("Error %d executing \'%s\'.", errno, emu);
     }
@@ -1179,8 +1223,9 @@ usage_aux(void)
 	  "[-start_erl [datafile]] "
 #endif
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
+          "[-emu_type TYPE] [-emu_flavor FLAVOR] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
-	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
+	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+J[Pperf] JIT_OPTION] [+K BOOLEAN] "
 	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
 	  "[+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s SCHEDULER_OPTION] "

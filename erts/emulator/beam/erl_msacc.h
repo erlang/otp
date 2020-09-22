@@ -167,12 +167,13 @@ extern erts_tsd_key_t ERTS_WRITE_UNLIKELY(erts_msacc_key);
 extern int ERTS_WRITE_UNLIKELY(erts_msacc_enabled);
 #endif
 
-#define ERTS_MSACC_TSD_GET() erts_tsd_get(erts_msacc_key)
+#define ERTS_MSACC_TSD_GET() ((ErtsMsAcc *)erts_tsd_get(erts_msacc_key))
 #define ERTS_MSACC_TSD_SET(tsd) erts_tsd_set(erts_msacc_key,tsd)
 
 void erts_msacc_early_init(void);
 void erts_msacc_init(void);
 void erts_msacc_init_thread(char *type, int id, int liberty);
+void erts_msacc_update_cache(ErtsMsAcc **cache);
 
 /* The defines below are used to instrument the vm code
  * with different state changes. There are two variants

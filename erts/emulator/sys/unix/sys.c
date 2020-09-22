@@ -248,7 +248,6 @@ thr_create_prepare_child(void *vtcdp)
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
-
 void
 erts_sys_pre_init(void)
 {
@@ -257,12 +256,14 @@ erts_sys_pre_init(void)
     erts_printf_add_cr_to_stdout = 1;
     erts_printf_add_cr_to_stderr = 1;
 
-
     eid.thread_create_child_func = thr_create_prepare_child;
     /* Before creation in parent */
     eid.thread_create_prepare_func = thr_create_prepare;
     /* After creation in parent */
     eid.thread_create_parent_func = thr_create_cleanup,
+
+    /* Must be done really early. */
+    sys_init_signal_stack();
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_pre_thr_init();
@@ -316,6 +317,10 @@ erts_sys_pre_init(void)
     crashdump_companion_cube_fd = open("/dev/null", O_RDONLY);
 
     /* don't lose it, there will be cake */
+}
+
+void erts_sys_scheduler_init(void) {
+    sys_thread_init_signal_stack();
 }
 
 void

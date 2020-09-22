@@ -2521,29 +2521,52 @@ consume_timeslice_test(Config) when is_list(Config) ->
               end),
     erlang:yield(),
 
-    erlang:trace_pattern(DummyMFA, [], [local]),
+    erlang:trace_pattern(DummyMFA, [{'_', [], [{return_trace}]}], [local]),
     1 = erlang:trace(P, true, [call, running, procs, {tracer, self()}]),
 
     P ! Go,
 
     %% receive Go -> ok end,
     {trace, P, in, _} = next_tmsg(P),
-    
+
     %% consume_timeslice_nif(100),
     %% dummy_call(111)
-    {trace, P, out, _} = next_tmsg(P),
-    {trace, P, in, _} = next_tmsg(P),
-    {trace, P, call, {?MODULE,dummy_call,[111]}} = next_tmsg(P),
+    %%
+    %% Note that we may be scheduled out immediately before or immediately
+    %% "after" dummy_call(111) depending on when the emulator tests reductions.
+    %%
+    %% In either case, we should be rescheduled before the function returns.
+    Dummy_111 = {?MODULE,dummy_call,[111]},
+    case next_tmsg(P) of
+        {trace, P, out, _} ->
+            %% See dummy_call(111) above
+            {trace, P, in, _} = next_tmsg(P),
+            {trace, P, call, Dummy_111} = next_tmsg(P);
+        {trace, P, call, Dummy_111} ->
+            {trace, P, out, _} = next_tmsg(P),
+            {trace, P, in, _} = next_tmsg(P)
+    end,
+    {trace, P, return_from, DummyMFA, ok} = next_tmsg(P),
 
     %% consume_timeslice_nif(90),
     %% dummy_call(222)
-    {trace, P, call, {?MODULE,dummy_call,[222]}} = next_tmsg(P),
+    Dummy_222 = {?MODULE,dummy_call,[222]},
+    {trace, P, call, Dummy_222} = next_tmsg(P),
+    {trace, P, return_from, DummyMFA, ok} = next_tmsg(P),
 
     %% consume_timeslice_nif(10),
     %% dummy_call(333)
-    {trace, P, out, _} = next_tmsg(P),
-    {trace, P, in, _} = next_tmsg(P),
-    {trace, P, call, {?MODULE,dummy_call,[333]}} = next_tmsg(P),
+    Dummy_333 = {?MODULE,dummy_call,[333]},
+    case next_tmsg(P) of
+        {trace, P, out, _} ->
+            %% See dummy_call(111) above
+            {trace, P, in, _} = next_tmsg(P),
+            {trace, P, call, Dummy_333} = next_tmsg(P);
+        {trace, P, call, Dummy_333} ->
+            {trace, P, out, _} = next_tmsg(P),
+            {trace, P, in, _} = next_tmsg(P)
+    end,
+    {trace, P, return_from, DummyMFA, ok} = next_tmsg(P),
 
     %% 25,25,25,25, 25
     {trace, P, out, {?MODULE,consume_timeslice_nif,2}} = next_tmsg(P),
@@ -2551,9 +2574,17 @@ consume_timeslice_test(Config) when is_list(Config) ->
 
     %% consume_timeslice(1,true)
     %% dummy_call(444)
-    {trace, P, out, DummyMFA} = next_tmsg(P),
-    {trace, P, in, DummyMFA} = next_tmsg(P),
-    {trace, P, call, {?MODULE,dummy_call,[444]}} = next_tmsg(P),
+    Dummy_444 = {?MODULE,dummy_call,[444]},
+    case next_tmsg(P) of
+        {trace, P, out, DummyMFA} ->
+            %% See dummy_call(111) above
+            {trace, P, in, DummyMFA} = next_tmsg(P),
+            {trace, P, call, Dummy_444} = next_tmsg(P);
+        {trace, P, call, Dummy_444} ->
+            {trace, P, out, DummyMFA} = next_tmsg(P),
+            {trace, P, in, DummyMFA} = next_tmsg(P)
+    end,
+    {trace, P, return_from, DummyMFA, ok} = next_tmsg(P),
 
     %% exit(Done)
     {trace, P, exit, Done} = next_tmsg(P),

@@ -452,7 +452,7 @@ typedef struct {
     ErtsRunQueue *misc_evac_runq;
     struct {
 	struct {
-	    int this;
+	    int here;
 	    int other;
 	} limit;
 	ErtsRunQueue *runq;
@@ -618,21 +618,74 @@ typedef enum {
     ERTS_DIRTY_IO_SCHEDULER
 } ErtsDirtySchedulerType;
 
+typedef struct ErtsSchedulerRegisters_ {
+    union {
+        struct aux_regs__ {
+#ifdef BEAMASM
+            /* On normal schedulers we allocate this structure on the "C stack"
+             * to allow stack switching without needing to read memory or
+             * occupy a register; we simply compute the stack address from the
+             * register pointer.
+             *
+             * This is placed first because the stack grows downwards.
+             *
+             * In special builds that don't execute native code on the Erlang
+             * stack (e.g. `valgrind`), this will instead hold the original
+             * thread stack pointer when executing code that requires a certain
+             * stack alignment. */
+            UWord runtime_stack[1];
+
+#ifdef ERTS_MSACC_EXTENDED_STATES
+            ErtsMsAcc *erts_msacc_cache;
+#endif
+
+            /* Temporary memory used by beamasm for allocations within
+             * instructions */
+            UWord TMP_MEM[5];
+#endif
+
+            /* erl_bits.c state */
+            struct erl_bits_state erl_bits_state;
+        } d;
+        char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(struct aux_regs__))];
+    } aux_regs;
+
+    union {
+        Eterm d[ERTS_X_REGS_ALLOCATED];
+        char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(Eterm[ERTS_X_REGS_ALLOCATED]))];
+    } x_reg_array;
+
+    union {
+        FloatDef d[MAX_REG];
+        char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(FloatDef[MAX_REG]))];
+    } f_reg_array;
+
+#ifdef BEAMASM
+    /* Seldom-used scheduler-specific data. */
+    UWord start_time_i;
+    UWord start_time;
+
+#if !defined(NATIVE_ERLANG_STACK) && defined(HARD_DEBUG)
+    /* Holds the initial thread stack pointer. Used to ensure that everything
+     * that is pushed to the stack is also popped. */
+    UWord *initial_sp;
+#elif defined(NATIVE_ERLANG_STACK) && defined(DEBUG)
+    /* Raw pointers to the start and end of the stack. Used to test bounds
+     * without clobbering any registers. */
+    UWord *runtime_stack_start;
+    UWord *runtime_stack_end;
+#endif
+
+#endif
+} ErtsSchedulerRegisters;
 
 struct ErtsSchedulerData_ {
-    /*
-     * Keep X registers first (so we get as many low
-     * numbered registers as possible in the same cache
-     * line).
-     */
-    Eterm* x_reg_array;		/* X registers */
-    FloatDef* f_reg_array;	/* Floating point registers. */
+    ErtsSchedulerRegisters *registers;
 
     ErtsTimerWheel *timer_wheel;
     ErtsNextTimeoutRef next_tmo_ref;
     ErtsHLTimerService *timer_service;
     ethr_tid tid;		/* Thread id */
-    struct erl_bits_state erl_bits_state; /* erl_bits.c state */
     void *match_pseudo_process; /* erl_db_util.c:db_prog_match() */
     Process *free_process;
     ErtsThrPrgrData thr_progress_data;
@@ -900,9 +953,19 @@ typedef struct ErtsProcSysTask_ ErtsProcSysTask;
 typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 
 /* Defines to ease the change of memory architecture */
+
 #  define HEAP_START(p)     (p)->heap
 #  define HEAP_TOP(p)       (p)->htop
-#  define HEAP_LIMIT(p)     (p)->stop
+
+/* The redzone is reserved for Erlang code and runtime functions may not use it
+ * on its own, but it's okay for them to run when the redzone is used.
+ *
+ * Therefore, we set the heap limit to HTOP or the start of the redzone,
+ * whichever is higher. */
+#  define HEAP_LIMIT(p)                                                        \
+    (ASSERT((p)->htop <= (p)->stop),                                           \
+     MAX((p)->htop, (p)->stop - S_REDZONE))
+
 #  define HEAP_END(p)       (p)->hend
 #  define HEAP_SIZE(p)      (p)->heap_sz
 #  define STACK_START(p)    (p)->hend
@@ -938,15 +1001,21 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
 
-    /* All fields in the PCB that differs between different heap
-     * architectures, have been moved to the end of this struct to
-     * make sure that as few offsets as possible differ. Different
-     * offsets between memory architectures in this struct, means that
-     * native code have to use functions instead of constants.
+    /* Place fields that are frequently used from loaded BEAMASM
+     * instructions near the beginning of this struct so that a
+     * shorter instruction can be used to access them.
      */
 
     Eterm* htop;		/* Heap top */
     Eterm* stop;		/* Stack top */
+    Sint fcalls;		/* Number of reductions left to execute.
+				 * Only valid for the current process.
+				 */
+    Uint freason;		/* Reason for detected failure */
+    Eterm fvalue;		/* Exit & Throw value (failure reason) */
+
+    /* End of frequently used fields by BEAMASM code. */
+
     Eterm* heap;		/* Heap start */
     Eterm* hend;		/* Heap end */
     Eterm* abandoned_heap;
@@ -977,17 +1046,11 @@ struct process {
 
     BeamInstr* i;		/* Program counter for threaded code. */
     Sint catches;		/* Number of catches on stack */
-    Sint fcalls;		/* 
-				 * Number of reductions left to execute.
-				 * Only valid for the current process.
-				 */
     Uint32 rcount;		/* suspend count */
     int  schedule_count;	/* Times left to reschedule a low prio process */
     Uint reds;			/* No of reductions for this process  */
     Uint32 flags;		/* Trap exit, etc */
     Eterm group_leader;		/* Pid in charge (can be boxed) */
-    Eterm fvalue;		/* Exit & Throw value (failure reason) */
-    Uint freason;		/* Reason for detected failure */
     Eterm ftrace;		/* Latest exception stack trace dump */
 
     Process *next;		/* Pointer to next process in run queue */
@@ -1420,7 +1483,7 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
     ErlHeapFragment* hf = MBUF(p);
     Uint sz;
 
-    ASSERT(hf!=NULL && (hp - hf->mem < hf->alloc_size));
+    ASSERT(hf != NULL && (hp - hf->mem <= hf->alloc_size));
 
     sz = hp - hf->mem;
     p->mbuf_sz -= hf->used_size - sz;
@@ -2067,7 +2130,7 @@ void *erts_psd_set_init(Process *p, int ix, void *data);
 ERTS_GLB_INLINE void *
 erts_psd_get(Process *p, int ix);
 ERTS_GLB_INLINE void *
-erts_psd_set(Process *p, int ix, void *new);
+erts_psd_set(Process *p, int ix, void *data);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -2152,7 +2215,7 @@ erts_psd_set(Process *p, int ix, void *data)
     ((ErtsProcSysTaskQs *) erts_psd_set((P), ERTS_PSD_DELAYED_GC_TASK_QS, (void *) (PBT)))
 
 #define ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(P) \
-    erts_psd_get((P), ERTS_PSD_NFUNC_TRAP_WRAPPER)
+    ((ErtsNativeFunc*)erts_psd_get((P), ERTS_PSD_NFUNC_TRAP_WRAPPER))
 #define ERTS_PROC_SET_NFUNC_TRAP_WRAPPER(P, NTE) \
     erts_psd_set((P), ERTS_PSD_NFUNC_TRAP_WRAPPER, (void *) (NTE))
 
@@ -2278,7 +2341,7 @@ erts_check_emigration_need(ErtsRunQueue *c_rq, int prio)
 	    /* No migration if other is non-empty */
 	    if (!(ERTS_RUNQ_FLGS_GET(rq) & ERTS_RUNQ_FLG_NONEMPTY)
 		&& erts_get_sched_util(rq, 0, 1) < mp->prio[prio].limit.other
-		&& erts_get_sched_util(c_rq, 0, 1) > mp->prio[prio].limit.this) {
+		&& erts_get_sched_util(c_rq, 0, 1) > mp->prio[prio].limit.here) {
 		return rq;
 	    }
 	}
@@ -2291,7 +2354,7 @@ erts_check_emigration_need(ErtsRunQueue *c_rq, int prio)
 	    else
 		len = RUNQ_READ_LEN(&c_rq->procs.prio_info[prio].len);
 
-	    if (len > mp->prio[prio].limit.this) {
+	    if (len > mp->prio[prio].limit.here) {
 		ErtsRunQueue *n_rq = mp->prio[prio].runq;
 		if (n_rq) {
 		    if (prio == ERTS_PORT_PRIO_LEVEL)

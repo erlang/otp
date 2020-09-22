@@ -183,6 +183,8 @@ while test -n "$1" ; do
 	-l*)
 	    y=`echo $x | sed 's,^-l\(.*\),\1,g'`;
 	    LINKCMD="$LINKCMD $x";;
+        -std=c++*)
+            CMD="$CMD /std:c++17 /Zc:__cplusplus";;
 	/*.c)
 	    SOURCES="$SOURCES $x";;
 	*.c)
@@ -192,9 +194,13 @@ while test -n "$1" ; do
 	*.cc)
 	    SOURCES="$SOURCES $x";;
 	/*.cpp)
-	    SOURCES="$SOURCES $x";;
+	    SOURCES="$SOURCES $x"
+            CMD="$CMD /EHsc"
+            ;;
 	*.cpp)
-	    SOURCES="$SOURCES $x";;
+	    SOURCES="$SOURCES $x"
+            CMD="$CMD /EHsc"
+            ;;
 	/*.o)
 	    LINKCMD="$LINKCMD $x";;
 	*.o)

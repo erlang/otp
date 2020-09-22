@@ -267,7 +267,7 @@ scheduling(Config) when is_list(Config) ->
     %% setup load processes
     %% (single, no internal calls)
 
-    erlang:trace_pattern({?MODULE,loaded,1}, true, [call_time]),
+    erlang:trace_pattern({?MODULE,loaded,2}, true, [call_time]),
 
     Pids     = [setup() || _ <- lists:seq(1, F*Np)],
     {_Ls,T1} = execute(Pids, {?MODULE,loaded,[M]}),
@@ -275,7 +275,7 @@ scheduling(Config) when is_list(Config) ->
 
     %% logic dictates that each process will get ~ 1/F of the schedulers time
 
-    {call_time, CT} = erlang:trace_info({?MODULE,loaded,1}, call_time),
+    {call_time, CT} = erlang:trace_info({?MODULE,loaded,2}, call_time),
 
     lists:foreach(fun (Pid) ->
                           ok = case check_process_time(lists:keysearch(Pid, 1, CT), M, F, T1) of
@@ -468,14 +468,17 @@ called_function(Config) when is_list(Config) ->
 
     1 = erlang:trace_pattern({?MODULE,a_called_function,'_'}, true, [call_time]),
     {L, T2} = execute(Pid, {?MODULE, a_function, [M]}),
-    ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M+M, 0, 0}], T1 + M*?SINGLE_CALL_US_TIME),
+    ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M+M, 0, 0}],
+                          T1 + M*?SINGLE_CALL_US_TIME),
     ok = check_trace_info({?MODULE, a_called_function, 1}, [{Pid, M, 0, 0}], T2),
 
 
     1 = erlang:trace_pattern({?MODULE,dec,'_'}, true, [call_time]),
     {L, T3} = execute(Pid, {?MODULE, a_function, [M]}),
-    ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M+M+M, 0, 0}], T1 + (M+M)*?SINGLE_CALL_US_TIME),
-    ok = check_trace_info({?MODULE, a_called_function, 1}, [{Pid, M+M, 0, 0}], T2 + M*?SINGLE_CALL_US_TIME ),
+    ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M+M+M, 0, 0}],
+                          T1 + (M+M)*?SINGLE_CALL_US_TIME),
+    ok = check_trace_info({?MODULE, a_called_function, 1}, [{Pid, M+M, 0, 0}],
+                          T2 + M*?SINGLE_CALL_US_TIME ),
     ok = check_trace_info({?MODULE, dec, 1}, [{Pid, M, 0, 0}], T3),
 
     Pid ! quit,
@@ -672,8 +675,9 @@ dec(N) ->
     loaded(10000),
     N - 1.
 
-loaded(N) when N > 1 -> loaded(N - 1);
-loaded(_) -> 5.
+loaded(N) -> loaded(N, 1.0).
+loaded(N, M) when N > 1 -> loaded(N - 1, M * 1.0001);
+loaded(_, M) -> M.
 
 
 %% Tail recursive seq, result list is reversed

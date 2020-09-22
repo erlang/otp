@@ -11,16 +11,16 @@ filter () {
     done
 }
 
+EXCLUDED_APPLICATIONS="hipe"
 if [ "X$ERL_TOP" != "X" -a -d $ERL_TOP/lib ]; then
     LIB_DIR=$ERL_TOP/lib
 else
     LIB_DIR=$(erl -noshell -eval 'io:format("~ts~n",[code:lib_dir()])' -s init stop)
 fi
 ALL_APPLICATIONS=$(ls -d -1 $LIB_DIR/*/ | sed "s:^$LIB_DIR/\\([^/\-]\+\\).*$:\1:g")
-ALL_APPLICATIONS="erts $ALL_APPLICATIONS"
 echo "All applications: $ALL_APPLICATIONS" |tr '\n' ' ' && echo ""
 
-BASE_PLT="compiler crypto erts hipe kernel stdlib syntax_tools"
+BASE_PLT="compiler crypto erts kernel stdlib syntax_tools"
 APP_PLT="asn1 edoc et ftp inets mnesia observer public_key sasl runtime_tools snmp ssl tftp wx xmerl tools"
 NO_UNMATCHED="common_test debugger edoc eunit ftp inets megaco mnesia observer reltool ssh ssl syntax_tools tftp wx xmerl"
 WARNINGS="diameter snmp"
@@ -29,6 +29,9 @@ TRAVIS_SKIP=""
 if [ "X$TRAVIS" = "Xtrue" ]; then
    TRAVIS_SKIP="common_test eldap erl_docgen odbc eunit reltool os_mon diameter megaco snmp"
 fi
+
+filter "$ALL_APPLICATIONS" "$EXCLUDED_APPLICATIONS"
+ALL_APPLICATIONS=$FILTER_RESULT
 
 filter "$ALL_APPLICATIONS" "$NO_UNMATCHED $WARNINGS $TRAVIS_SKIP"
 UNMATCHED=$FILTER_RESULT

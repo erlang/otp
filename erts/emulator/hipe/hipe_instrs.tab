@@ -75,8 +75,8 @@ hipe_trap.post() {
 #ifdef DEBUG
     pid = c_p->common.id; /* may have switched process... */
 #endif
-    reg = erts_proc_sched_data(c_p)->x_reg_array;
-    freg = erts_proc_sched_data(c_p)->f_reg_array;
+    reg = erts_proc_sched_data(c_p)->registers->x_reg_array;
+    freg = erts_proc_sched_data(c_p)->registers->f_reg_array;
     ERL_BITS_RELOAD_STATEP(c_p);
     /* XXX: this abuse of def_arg_reg[] is horrid! */
     neg_o_reds = -c_p->def_arg_reg[4];

@@ -22,6 +22,7 @@
 #define __MODULE_H__
 
 #include "index.h"
+#include "beam_code.h"
 
 #ifdef HIPE
 #include "hipe_module.h"
@@ -34,7 +35,10 @@ struct erl_module_instance {
     struct erl_module_nif* nif;
     int num_breakpoints;
     int num_traced_exports;
-#ifdef HIPE
+
+#if defined(BEAMASM)
+    void *native_module;
+#elif defined(HIPE)
     HipeModule *hipe_code;
 #endif
 };

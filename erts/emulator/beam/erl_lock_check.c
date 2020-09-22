@@ -167,6 +167,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"os_monotonic_time",			NULL			},
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },
+    {	"perf", 				NULL			},
     {	"erts_mmap",				NULL			}
 };
 
@@ -195,7 +196,7 @@ struct lc_locked_lock_t_ {
     lc_locked_lock_t *prev;
     UWord extra;
     Sint16 id;
-    char *file;
+    const char *file;
     unsigned int line;
     erts_lock_flags_t flags;
     erts_lock_options_t taken_options;
@@ -407,7 +408,7 @@ make_my_locked_locks(void)
 static ERTS_INLINE lc_locked_lock_t *
 new_locked_lock(lc_thread_t* thr,
                 erts_lc_lock_t *lck, erts_lock_options_t options,
-		char *file, unsigned int line)
+		const char *file, unsigned int line)
 {
     lc_locked_lock_t *ll = lc_alloc(thr);
     ll->next = NULL;
@@ -427,7 +428,7 @@ new_locked_lock(lc_thread_t* thr,
 
 static void
 raw_print_lock(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags,
-	       char* file, unsigned int line, char *suffix)
+	       const char* file, unsigned int line, char *suffix)
 {
     char *lname = (1 <= id && id < ERTS_LOCK_ORDER_SIZE
 		   ? erts_lock_order[id].name
@@ -683,7 +684,7 @@ erts_lc_is_emu_thr(void)
 }
 
 int
-erts_lc_assert_failed(char *file, int line, char *assertion)
+erts_lc_assert_failed(const char *file, int line, const char *assertion)
 {
     erts_fprintf(stderr, "%s:%d: Lock check assertion \"%s\" failed!\n",
 		 file, line, assertion);
@@ -706,7 +707,7 @@ void erts_lc_fail(char *fmt, ...)
 
 
 Sint16
-erts_lc_get_lock_order_id(char *name)
+erts_lc_get_lock_order_id(const char *name)
 {
     int i;
 
@@ -1047,7 +1048,7 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 }
 
 void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t options,
-			   char *file, unsigned int line)
+			   const char *file, unsigned int line)
 {
     lc_thread_t *thr;
     lc_locked_lock_t *ll;
@@ -1101,7 +1102,7 @@ void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t 
 }
 
 void erts_lc_require_lock_flg(erts_lc_lock_t *lck, erts_lock_options_t options,
-			      char *file, unsigned int line)
+			      const char *file, unsigned int line)
 {
     lc_thread_t *thr = make_my_locked_locks();
     lc_locked_lock_t *ll = thr->locked.first;
@@ -1176,7 +1177,7 @@ void erts_lc_unrequire_lock_flg(erts_lc_lock_t *lck, erts_lock_options_t options
 }
 
 void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
-			char *file, unsigned int line)
+			const char *file, unsigned int line)
 {
     lc_thread_t *thr;
     lc_locked_lock_t *new_ll;
@@ -1293,13 +1294,13 @@ erts_lc_trylock_force_busy(erts_lc_lock_t *lck)
 }
 
 void
-erts_lc_trylock_x(int locked, erts_lc_lock_t *lck, char *file, unsigned int line)
+erts_lc_trylock_x(int locked, erts_lc_lock_t *lck, const char *file, unsigned int line)
 {
     erts_lc_trylock_flg_x(locked, lck, 0, file, line);
 }
 
 void
-erts_lc_lock_x(erts_lc_lock_t *lck, char *file, unsigned int line)
+erts_lc_lock_x(erts_lc_lock_t *lck, const char *file, unsigned int line)
 {
     erts_lc_lock_flg_x(lck, 0, file, line);
 }
@@ -1315,7 +1316,7 @@ void erts_lc_might_unlock(erts_lc_lock_t *lck)
     erts_lc_might_unlock_flg(lck, 0);
 }
 
-void erts_lc_require_lock(erts_lc_lock_t *lck, char *file, unsigned int line)
+void erts_lc_require_lock(erts_lc_lock_t *lck, const char *file, unsigned int line)
 {
     erts_lc_require_lock_flg(lck, 0, file, line);
 }
@@ -1326,7 +1327,7 @@ void erts_lc_unrequire_lock(erts_lc_lock_t *lck)
 }
 
 void
-erts_lc_init_lock(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags)
+erts_lc_init_lock(erts_lc_lock_t *lck, const char *name, erts_lock_flags_t flags)
 {
     lck->id = erts_lc_get_lock_order_id(name);
     lck->extra = (UWord) &lck->extra;
@@ -1337,7 +1338,7 @@ erts_lc_init_lock(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags)
 }
 
 void
-erts_lc_init_lock_x(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags, Eterm extra)
+erts_lc_init_lock_x(erts_lc_lock_t *lck, const char *name, erts_lock_flags_t flags, Eterm extra)
 {
     lck->id = erts_lc_get_lock_order_id(name);
     lck->extra = extra;

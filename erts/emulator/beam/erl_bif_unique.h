@@ -416,7 +416,7 @@ erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS]);
 ERTS_GLB_INLINE Eterm
 erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS])
 {
-    Eterm *hp = HAlloc(c_p, ERTS_REF_THING_SIZE);
+    Eterm *hp = HAlloc(c_p, (Sint)ERTS_REF_THING_SIZE);
     write_ref_thing(hp, ref[0], ref[1], ref[2]);
     return make_internal_ref(hp);
 }

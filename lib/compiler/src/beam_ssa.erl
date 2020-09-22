@@ -100,7 +100,7 @@
 
 %% Note: By default, dialyzer will collapse this type to atom().
 %% To avoid the collapsing, change the value of SET_LIMIT to 50 in the
-%% file erl_types.erl in the hipe application.
+%% file erl_types.erl in the dialyzer application.
 
 -type prim_op() :: 'bs_add' | 'bs_extract' | 'bs_get_tail' |
                    'bs_init' | 'bs_init_writable' |

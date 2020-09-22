@@ -116,8 +116,22 @@
       Bin :: binary(),
       Chunk :: string().
 
-get_chunk(_, _) ->
-    erlang:nif_error(undef).
+get_chunk(<<"FOR1", _/bits>>=Beam, Chunk) ->
+    get_chunk_1(Beam, Chunk);
+get_chunk(Beam, Chunk) ->
+    %% Corrupt header or compressed module, decompress it before passing it to
+    %% the loader and let the BIF signal any errors.
+    get_chunk_1(try_decompress(Beam), Chunk).
+
+get_chunk_1(Beam, Chunk) ->
+    try
+        erts_internal:beamfile_chunk(Beam, Chunk)
+    catch
+        error:Reason ->
+            {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
+                (catch erlang:error(new_stacktrace, [Beam, Chunk])),
+            erlang:raise(error, Reason, [{Mod,get_chunk,L,Loc}|Rest])
+    end.
 
 -spec is_module_native(Module) -> true | false | undefined when
       Module :: module().
@@ -135,8 +149,29 @@ make_stub_module(_, _, _) ->
 
 -spec module_md5(binary()) -> binary() | undefined.
 
-module_md5(_) ->
-    erlang:nif_error(undef).
+module_md5(<<"FOR1", _/bits>>=Beam) ->
+    module_md5_1(Beam);
+module_md5(Beam) ->
+    %% Corrupt header or compressed module, decompress it before passing it to
+    %% the loader and let the BIF signal any errors.
+    module_md5_1(try_decompress(Beam)).
+
+module_md5_1(Beam) ->
+    try
+        erts_internal:beamfile_module_md5(Beam)
+    catch
+        error:Reason ->
+            {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
+                (catch erlang:error(new_stacktrace, [Beam])),
+            erlang:raise(error, Reason, [{Mod,module_md5,L,Loc}|Rest])
+    end.
+
+try_decompress(Bin0) ->
+    try zlib:gunzip(Bin0) of
+        Decompressed -> Decompressed
+    catch
+        _:_ -> Bin0
+    end.
 
 %%% End of BIFs
 

@@ -98,7 +98,6 @@ do_compile(OutDir, Opts0) ->
             "asn1",
             "stdlib",
 	    "kernel",
-            "hipe",
 	    "reltool",
 	    "runtime_tools",
 	    "xmerl",

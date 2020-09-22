@@ -3511,8 +3511,8 @@ constraints_to_dot(Cs0, Name, State) ->
   NofCs = length(Cs0),
   Cs = lists:zip(lists:seq(1, NofCs), Cs0),
   {Graph, Opts, _N} = constraints_to_nodes(Cs, NofCs + 1, 1, [], [], State),
-  hipe_dot:translate_list(Graph, "/tmp/cs.dot", "foo", Opts),
-  %% "-T ps" works for Latin-1. hipe_dot cannot handle UTF-8 either.
+  dialyzer_dot:translate_list(Graph, "/tmp/cs.dot", "foo", Opts),
+  %% "-T ps" works for Latin-1. dialyzer_dot cannot handle UTF-8 either.
   Res = os:cmd("dot -o /tmp/"++ Name ++ ".ps -T ps /tmp/cs.dot"),
   io:format("Res: ~ts~n", [Res]),
   ok.

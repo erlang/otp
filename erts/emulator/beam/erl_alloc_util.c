@@ -1088,6 +1088,9 @@ erts_alcu_exec_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 
     if (res) {
         int r = mprotect(res, *size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
+        if (r != 0) {
+            erts_exit(ERTS_DUMP_EXIT, "Failed to allocate dynamic executable memory.");
+        }
         ASSERT(r == 0); (void)r;
     }
     return res;

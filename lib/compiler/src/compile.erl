@@ -1695,10 +1695,12 @@ native_compile_1(Code, St) ->
 	       {hipe,X} -> [X];
 	       _ -> []
 	   end,
-    try hipe:compile(St#compile.module,
-		     St#compile.core_code,
-		     Code,
-		     Opts) of
+    try
+        dialyzer_whining_inhibitor(hipe, compile,
+                                   [St#compile.module,
+                                    St#compile.core_code,
+                                    Code,
+                                    Opts]) of
 	{ok,{_Type,Bin}=T} when is_binary(Bin) ->
 	    {ok,embed_native_code(Code, T),St};
 	{error,R} ->
@@ -1725,6 +1727,15 @@ native_compile_1(Code, St) ->
 		    erlang:raise(Class, R, Stack)
 	    end
     end.
+
+%% We have an optional runtime dependency on HiPE, but there's no way to
+%% suppress warnings for calls to unknown functions when -Wunknown is on, so
+%% we'll run all HiPE calls through here to suppress warnings when HiPE hasn't
+%% been compiled. :(
+dialyzer_whining_inhibitor(M, F, A) ->
+  apply(id(M), id(F), id(A)).
+
+id(I) -> I.
 
 embed_native_code(Code, {Architecture,NativeCode}) ->
     {ok, _, Chunks0} = beam_lib:all_chunks(Code),

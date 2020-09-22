@@ -582,10 +582,11 @@ system_limit_32() ->
     ok.
 
 badarg(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-1))>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-(1 bsl 70)))>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1 bsl 100))>>),
-    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1 bsl 100)))>>),
+    <<3:2>> = <<1:(id(1)),1:(id(1))>>,
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1)),0:(id(-1))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1)),0:(id(-(1 bsl 70)))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1))>>),
+    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1)))>>),
     ok.
 
 copy_writable_binary(Config) when is_list(Config) ->
@@ -743,7 +744,6 @@ bs_add(Config) when is_list(Config) ->
     %% Find smallest positive bignum.
     SmallestBig = smallest_big(),
     io:format("~p\n", [SmallestBig]),
-    Expected = SmallestBig + N,
     DoTest = fun() ->
 		     exit(Mod:bs_add(SmallestBig, -SmallestBig))
 	     end,
@@ -751,7 +751,14 @@ bs_add(Config) when is_list(Config) ->
     receive
 	{'DOWN',Mref,process,Pid,Res} -> ok
     end,
-    Expected = Res,
+
+    case erlang:system_info(wordsize) of
+        8 ->
+            %% bignum-sized binaries must system_limit on 64-bit platforms
+            {system_limit, _} = Res;
+        4 ->
+            Res = SmallestBig + N
+    end,
 
     %% Clean up.
     ok = file:delete(AsmFile),

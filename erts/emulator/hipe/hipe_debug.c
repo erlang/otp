@@ -38,6 +38,7 @@
 #include "hipe_mode_switch.h"
 #include "hipe_debug.h"
 #include "erl_map.h"
+#include "beam_common.h"
 
 static const char dashes[2*sizeof(long)+5] = {
     [0 ... 2*sizeof(long)+3] = '-'
@@ -51,18 +52,16 @@ static const char stars[2*sizeof(long)+5] = {
     [0 ... 2*sizeof(long)+3] = '*'
 };
 
-extern Uint beam_apply[];
-
 static void print_beam_pc(BeamInstr *pc)
 {
     if (pc == hipe_beam_pc_return) {
 	printf("return-to-native");
     } else if (pc == hipe_beam_pc_throw) {
 	printf("throw-to-native");
-    } else if (pc == &beam_apply[1]) {
+    } else if (pc == BeamCodeNormalExit()) {
 	printf("normal-process-exit");
     } else {
-	ErtsCodeMFA *cmfa = find_function_from_pc(pc);
+	ErtsCodeMFA *cmfa = erts_find_function_from_pc(pc);
 	if (cmfa) {
 	    fflush(stdout);
 	    erts_printf("%T:%T/%bpu + 0x%bpx",

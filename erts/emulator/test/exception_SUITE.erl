@@ -273,11 +273,23 @@ top_of_stacktrace(Conf) when is_list(Conf) ->
     {'EXIT', {badarith, [{erlang, 'bxor', [1, ok], _} | _]}} = (catch my_bxor(1, ok)),
     {'EXIT', {badarith, [{erlang, 'bnot', [ok], _} | _]}} = (catch my_bnot(ok)),
 
-    %% Tuples
+    %% element/2
     {'EXIT', {badarg, [{erlang, element, [1, ok], _} | _]}} = (catch my_element(1, ok)),
     {'EXIT', {badarg, [{erlang, element, [ok, {}], _} | _]}} = (catch my_element(ok, {})),
     {'EXIT', {badarg, [{erlang, element, [1, {}], _} | _]}} = (catch my_element(1, {})),
+    {'EXIT', {badarg, [{erlang, element, [0, {a}], _} | _]}} = (catch my_element(0, {a})),
+    {'EXIT', {badarg, [{erlang, element, [-1, {z}], _} | _]}} = (catch my_element(-1, {z})),
     {'EXIT', {badarg, [{erlang, element, [1, {}], _} | _]}} = (catch element(1, erlang:make_tuple(0, ok))),
+
+    %% tuple_size/1
+    {'EXIT', {badarg, [{erlang, tuple_size, [ok], _} | _]}} = (catch my_tuple_size(ok)),
+    {'EXIT', {badarg, [{erlang, tuple_size, [[a,b,c]], _} | _]}} = (catch my_tuple_size([a,b,c])),
+
+    %% Lists
+    {'EXIT', {badarg, [{erlang, hd, [[]], _} | _]}} = (catch my_hd([])),
+    {'EXIT', {badarg, [{erlang, hd, [42], _} | _]}} = (catch my_hd(42)),
+    {'EXIT', {badarg, [{erlang, tl, [[]], _} | _]}} = (catch my_tl([])),
+    {'EXIT', {badarg, [{erlang, tl, [a], _} | _]}} = (catch my_tl(a)),
 
     %% System limits
     Maxbig = maxbig(),
@@ -456,7 +468,12 @@ my_bnot(A) -> bnot A.
 
 my_element(A, B) -> element(A, B).
 
+my_tuple_size(A) -> tuple_size(A).
+
 my_abs(X) -> abs(X).
+
+my_hd(L) -> hd(L).
+my_tl(L) -> tl(L).
 
 gunilla(Config) when is_list(Config) ->
     {throw,kalle} = gunilla_1(),
@@ -750,6 +767,15 @@ line_numbers(Config) when is_list(Config) ->
              [{?MODULE,update_map,1,[{file,"map.erl"},{line,4}]}|_]}} =
         (catch update_map(#{})),
 
+    {'EXIT',{badarg,
+             [{erlang,hd,[x],[]},
+              {?MODULE,test_hd,1,[{file,"list_bifs.erl"},{line,101}]}|_]}} =
+        (catch test_hd(x)),
+    {'EXIT',{badarg,
+             [{erlang,tl,[y],[]},
+              {?MODULE,test_tl,1,[{file,"list_bifs.erl"},{line,102}]}|_]}} =
+        (catch test_tl(y)),
+
     ok.
 
 id(I) -> I.
@@ -867,3 +893,8 @@ increment2(Arg) ->                              %Line 46
 update_map(M0) ->                               %Line 2
     M = M0#{new => value},                      %Line 3
     M#{a := b}.                                 %Line 4
+
+-file("list_bifs.erl", 100).
+test_hd(X) -> foo(), hd(X).                     %Line 101
+test_tl(X) -> foo(), tl(X).                     %Line 102
+foo() -> id(100).

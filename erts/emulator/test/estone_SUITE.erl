@@ -106,7 +106,10 @@ pgo() ->
     %% We run all benchmarks except the port_io as we don't want to
     %% have to build a custom port.
     Micros = ?MODULE:micros() -- [micro(port_io)],
-    ?MODULE:macro(Micros,[]).
+    L = ?MODULE:macro(Micros,[]),
+    {Total, Stones} = sum_micros(L, 0, 0),
+    pp("UNKNOWN",Total,Stones,L),
+    {comment,"UNKNOWN" ++ " MHz, " ++ integer_to_list(Stones) ++ " ESTONES"}.
 
 %%
 %% Calculate CPU speed
@@ -253,8 +256,8 @@ micro(alloc) ->
 
 micro(bif_dispatch) ->
     #micro{function = bif_dispatch,
-	   weight = 5,
-	   loops = 1623,
+	   weight = 8,
+	   loops = 5623,
 	   str = "Bif dispatch"};
 
 micro(binary_h) ->
@@ -722,56 +725,41 @@ alloc(I) ->
     alloc(I-1).
 
 %% Time to call bif's
-%% Lot's of element stuff which reflects the record code which
-%% is becoming more and more common
+%% This benchmark was updated in OTP-24. I've tried to keep the
+%% number of stones is creates the same, but that is impossible
+%% to achieve across all platforms.
 bif_dispatch(0) ->
     0;
 bif_dispatch(I) ->
+    put(mon,erlang:monitor(process,self())),
     disp(),    disp(),    disp(),    disp(),    disp(),    disp(),
     disp(),    disp(),    disp(),    disp(),    disp(),    disp(),
     bif_dispatch(I-1).
 
 disp() ->
-    Tup = {a},
-    L = [x],
-    self(),self(),self(),self(),self(),self(),self(),self(),self(),
-    make_ref(),
-    atom_to_list(''),
-    _X = list_to_atom([]),
-    tuple_to_list({}),
-    _X2 = list_to_tuple([]),
-    element(1, Tup),
-    element(1, Tup),
-    _Elem = element(1, Tup),element(1, Tup),element(1, Tup),element(1, Tup),
-    element(1, Tup),element(1, Tup),element(1, Tup),element(1, Tup),
-    element(1, Tup),element(1, Tup),element(1, Tup),element(1, Tup),
-    element(1, Tup),element(1, Tup),element(1, Tup),element(1, Tup),
-    setelement(1, Tup,k),
-    setelement(1, Tup,k),
-    setelement(1, Tup,k),setelement(1, Tup,k),setelement(1, Tup,k),
-    setelement(1, Tup,k),setelement(1, Tup,k),setelement(1, Tup,k),
-    setelement(1, Tup,k),
-    setelement(1, Tup,k),
-    setelement(1, Tup,k),
-    setelement(1, Tup,k),
-    _Y = setelement(1, Tup,k),
-    _Date = date(), time(),
-    put(a, 1),
-    get(a),
-    erase(a),
-    hd(L),
-    tl(L),
-    _Len = length(L),length(L),length(L),length(L),
-    node(),node(),node(),node(),node(),node(),node(),node(),
-    S=self(),
-    node(S),node(S),node(S),
-    size(Tup),
-    _W = whereis(code_server),whereis(code_server),
-    whereis(code_server),whereis(code_server),
-    whereis(code_server),whereis(code_server),
-    _W2 = whereis(code_server).
-    
-    
+    erts_debug:flat_size(true),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true),
+    demonitor(get(mon)),
+    erts_debug:flat_size(true),
+    demonitor(get(mon)),
+    erts_debug:size_shared(true).
+
 %% Generic server like behaviour
 generic(I) ->
     register(funky, spawn(?MODULE, gserv, [funky, ?MODULE, [], []])),
