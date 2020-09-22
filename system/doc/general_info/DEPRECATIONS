@@ -28,6 +28,7 @@ httpd_util:suffix/1 since=24 remove=26
 disk_log:accessible_logs/0 since=24 remove=26
 disk_log:lclose/1 since=24 remove=26
 disk_log:lclose/2 since=24 remove=26
+erlang:phash/2 since=24
 
 #
 # Added in OTP 23.
@@ -76,8 +77,6 @@ snmpm:async_get_bulk/5 since=23 remove=25
 snmpm:async_get_bulk/6 since=23 remove=25
 snmpm:async_get_bulk/7 since=23 remove=25
 snmpm:async_get_bulk/8 since=23 remove=25
-
-erlang:phash/2 since=23
 
 #
 # Added in OTP 22.
