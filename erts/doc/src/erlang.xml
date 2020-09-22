@@ -4077,8 +4077,11 @@ RealSystem = system + MissedSystem</code>
       <name name="nodes" arity="0" since=""/>
       <fsummary>All visible nodes in the system.</fsummary>
       <desc>
-        <p>Returns a list of all visible nodes in the system, except
-          the local node. Same as <c>nodes(visible)</c>.</p>
+        <p>Returns a list of all nodes connected to this node through
+        normal connections (that is, <seeguide
+        marker="system/reference_manual:distributed#hidden-nodes">hidden
+        nodes</seeguide> are not listed). Same as <seeerl
+        marker="#nodes_visible">nodes(visible)</seeerl>.</p>
       </desc>
     </func>
 
@@ -4091,7 +4094,7 @@ RealSystem = system + MissedSystem</code>
           of nodes satisfying the disjunction(s) of the list elements.</p>
         <p><c><anno>NodeType</anno></c>s:</p>
         <taglist>
-          <tag><c>visible</c></tag>
+          <tag><marker id="nodes_visible"/><c>visible</c></tag>
           <item>
             <p>Nodes connected to this node through normal connections.</p>
           </item>
