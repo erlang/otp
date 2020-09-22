@@ -2206,7 +2206,7 @@ sys_msg_dispatcher_func(void *unused)
     callbacks.wait = sys_msg_dispatcher_wait;
     callbacks.finalize_wait = sys_msg_dispatcher_fin_wait;
 
-    tpd = erts_thr_progress_register_managed_thread(NULL, &callbacks, 0);
+    tpd = erts_thr_progress_register_managed_thread(NULL, &callbacks, 0, 0);
 
     while (1) {
 	int end_wait = 0;

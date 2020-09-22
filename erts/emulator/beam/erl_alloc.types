@@ -353,6 +353,7 @@ type	NIF_SEL_D_STATE	FIXED_SIZE	SYSTEM		enif_select_data_state
 type	POLLSET		LONG_LIVED	SYSTEM		pollset
 type	POLLSET_UPDREQ	SHORT_LIVED	SYSTEM		pollset_update_req
 type	POLL_FDS	LONG_LIVED	SYSTEM		poll_fds
+type	BLOCK_PTHR_DATA	LONG_LIVED	SYSTEM		block_poll_thread_data
 type	FD_STATUS	LONG_LIVED	SYSTEM		fd_status
 type	SELECT_FDS	LONG_LIVED	SYSTEM		select_fds
 
