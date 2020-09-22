@@ -12007,6 +12007,9 @@ improper_end</pre>
         <pre>
 > <input>trunc(5).</input>
 5</pre>
+        <pre>
+> <input>trunc(36028797018963970.0).</input>
+36028797018963968</pre>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
