@@ -193,7 +193,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
         emit_is_boxed(error, ARG2, dShort);
 
         (void)emit_ptr_val(ARG2, ARG2);
-        a.mov(RETd, emit_boxed_val<Uint32>(ARG2));
+        a.mov(RETd, emit_boxed_val(ARG2, 0, sizeof(Uint32)));
         ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
         a.cmp(RETd, imm(make_arityval((Uint)pos)));
         a.short_().jb(error);

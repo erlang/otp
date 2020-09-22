@@ -939,7 +939,7 @@ void BeamModuleAssembler::emit_is_binary(Label fail,
     emit_is_boxed(fail, src);
 
     x86::Gp boxed_ptr = emit_ptr_val(src, src);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.cmp(RETb, imm(_TAG_HEADER_SUB_BIN));
@@ -963,7 +963,7 @@ void BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
     {
         /* emit_is_binary has already removed the literal tag from Src, if
          * applicable. */
-        a.cmp(emit_boxed_val<byte>(ARG1, offsetof(ErlSubBin, bitsize)), imm(0));
+        a.cmp(emit_boxed_val(ARG1, offsetof(ErlSubBin, bitsize), sizeof(byte)), imm(0));
         a.jne(labels[Fail.getValue()]);
     }
 
@@ -1000,7 +1000,7 @@ void BeamModuleAssembler::emit_is_function(const ArgVal &Fail,
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.cmp(RET, imm(HEADER_FUN));
     a.short_().je(next);
     ERTS_CT_ASSERT(HEADER_EXPORT < 256);
@@ -1046,7 +1046,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
     emit_is_boxed(labels[Fail.getValue()], ARG1);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.cmp(RETd, imm(HEADER_FUN));
     a.short_().je(fun);
     ERTS_CT_ASSERT(HEADER_EXPORT < 256);
@@ -1085,7 +1085,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,
     emit_is_boxed(fail, RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
     a.and_(RETb, imm(_TAG_HEADER_MASK - _BIG_SIGN_BIT));
     a.cmp(RETb, imm(_TAG_HEADER_POS_BIG));
@@ -1112,7 +1112,7 @@ void BeamModuleAssembler::emit_is_map(const ArgVal &Fail, const ArgVal &Src) {
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.cmp(RETb, imm(_TAG_HEADER_MAP));
     a.jne(labels[Fail.getValue()]);
@@ -1165,7 +1165,7 @@ void BeamModuleAssembler::emit_is_pid(const ArgVal &Fail, const ArgVal &Src) {
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.and_(RETb, _TAG_HEADER_MASK);
     a.cmp(RETb, _TAG_HEADER_EXTERNAL_PID);
     a.jne(labels[Fail.getValue()]);
@@ -1185,7 +1185,7 @@ void BeamModuleAssembler::emit_is_port(const ArgVal &Fail, const ArgVal &Src) {
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.cmp(RETb, imm(_TAG_HEADER_EXTERNAL_PORT));
     a.jne(labels[Fail.getValue()]);
@@ -1201,7 +1201,7 @@ void BeamModuleAssembler::emit_is_reference(const ArgVal &Fail,
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.cmp(RETb, imm(_TAG_HEADER_REF));
     a.short_().je(next);
@@ -1222,7 +1222,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgVal &Fail,
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-    a.cmp(emit_boxed_val<Uint32>(boxed_ptr), imm(Arity.getValue()));
+    a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)), imm(Arity.getValue()));
     a.jne(labels[Fail.getValue()]);
 
     a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), imm(Tag.getValue()));
@@ -1261,7 +1261,7 @@ void BeamModuleAssembler::emit_i_is_tuple(const ArgVal &Fail,
 
     (void)emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
-    a.test(emit_boxed_val<char>(ARG2), imm(_TAG_HEADER_MASK));
+    a.test(emit_boxed_val(ARG2, 0, sizeof(byte)), imm(_TAG_HEADER_MASK));
 
     a.jne(labels[Fail.getValue()]);
 }
@@ -1276,7 +1276,7 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgVal &Fail,
 
     (void)emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-    a.cmp(emit_boxed_val<Uint32>(ARG2), imm(Arity.getValue()));
+    a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.getValue()));
     a.jne(labels[Fail.getValue()]);
 }
 
@@ -1288,7 +1288,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgVal &Fail,
 
     (void)emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-    a.cmp(emit_boxed_val<Uint32>(ARG2), imm(Arity.getValue()));
+    a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.getValue()));
     a.jne(labels[Fail.getValue()]);
 }
 

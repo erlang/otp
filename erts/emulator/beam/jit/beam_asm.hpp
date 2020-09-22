@@ -868,10 +868,10 @@ protected:
 #endif
     }
 
-    template<typename FieldType = UWord>
-    constexpr x86::Mem emit_boxed_val(x86::Gp Src, int32_t bytes = 0) const {
+    constexpr x86::Mem emit_boxed_val(x86::Gp Src, int32_t bytes = 0,
+                                      size_t size = sizeof(UWord)) const {
         ASSERT(bytes % sizeof(Eterm) == 0);
-        return x86::Mem(Src, bytes - TAG_PRIMARY_BOXED, sizeof(FieldType));
+        return x86::Mem(Src, bytes - TAG_PRIMARY_BOXED, size);
     }
 
     void emit_test_the_non_value(x86::Gp Reg) {
