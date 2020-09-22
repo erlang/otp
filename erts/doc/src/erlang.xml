@@ -4615,7 +4615,17 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Text representation of a pid.</fsummary>
       <desc>
         <p>Returns a string corresponding to the text
-          representation of <c><anno>Pid</anno></c>.</p>
+        representation of <c><anno>Pid</anno></c>. Example:</p>
+         <pre>
+> <input>erlang:pid_to_list(self()).</input>
+"&lt;0.85.0>"</pre>
+<note>
+  <p>The <seeguide marker="erl_dist_protocol">creation</seeguide> for
+  the node is not included in the list representation of
+  <c><anno>Pid</anno></c>. This means that processes in different
+  incarnations of a node with a specific name can get the same list
+  representation.</p>
+</note>
       </desc>
     </func>
 
