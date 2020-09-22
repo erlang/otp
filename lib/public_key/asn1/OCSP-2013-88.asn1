@@ -133,7 +133,8 @@ Nonce ::= OCTET STRING
 
 -- Object Identifiers
 
-id-kp-OCSPSigning            OBJECT IDENTIFIER ::= { id-kp 9 }
+-- Already defined in PKIX1Implicit88
+--id-kp-OCSPSigning            OBJECT IDENTIFIER ::= { id-kp 9 }
 id-pkix-ocsp                 OBJECT IDENTIFIER ::= { id-ad-ocsp }
 id-pkix-ocsp-basic           OBJECT IDENTIFIER ::= { id-pkix-ocsp 1 }
 id-pkix-ocsp-nonce           OBJECT IDENTIFIER ::= { id-pkix-ocsp 2 }
