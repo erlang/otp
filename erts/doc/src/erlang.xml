@@ -6061,18 +6061,18 @@ RealSystem = system + MissedSystem</code>
 
     <func>
       <name name="raise" arity="3" since=""/>
-      <fsummary>Stop execution with an exception of specified class, reason,
+      <fsummary>Raises exception of specified class, reason,
         and call stack backtrace.</fsummary>
       <type name="raise_stacktrace"/>
       <desc>
-        <p>Stops the execution of the calling process with an
-          exception of the specified class, reason, and call stack backtrace
+        <p>Raises exception of the specified class, reason, and call stack backtrace
           (<em>stacktrace</em>).</p>
         <p><c><anno>Class</anno></c> is <c>error</c>, <c>exit</c>, or
-          <c>throw</c>. So, if it were not for the stacktrace,
+        <c>throw</c>. So, if it were not for the stacktrace,
           <c>erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
           <anno>Stacktrace</anno>)</c> is equivalent to
-          <c>erlang:<anno>Class</anno>(<anno>Reason</anno>)</c>.</p>
+          <c>erlang:<anno>Class</anno>(<anno>Reason</anno>)</c> (given that <c><anno>Class</anno></c>
+        is a valid class).</p>
         <p><c><anno>Reason</anno></c> can be any term.</p>
         <p><c><anno>Stacktrace</anno></c> is a list as provided in a try-catch
 	  clause.</p>
@@ -6102,6 +6102,10 @@ end</pre>
           <c>error(erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
           <anno>Stacktrace</anno>))</c>
           and hope to distinguish exceptions later.</p>
+        <p>See the reference manual about <seeguide
+        marker="system/reference_manual:errors">errors and error
+        handling</seeguide> for more information about exception
+        classes and how to catch exceptions.</p>
       </desc>
     </func>
 

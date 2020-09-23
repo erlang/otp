@@ -1654,7 +1654,7 @@ put(_Key, _Val) ->
     erlang:nif_error(undefined).
 
 %% raise/3
--spec erlang:raise(Class, Reason, Stacktrace) -> no_return() when
+-spec erlang:raise(Class, Reason, Stacktrace) -> badarg when
       Class :: error | exit | throw,
       Reason :: term(),
       Stacktrace :: raise_stacktrace().
