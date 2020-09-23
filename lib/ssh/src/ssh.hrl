@@ -356,6 +356,7 @@
         ssh_file:system_dir_daemon_option()
       | {auth_method_kb_interactive_data, prompt_texts() }
       | {user_passwords, [{UserName::string(),Pwd::string()}]}
+      | {pk_check_user, boolean()}  
       | {password, string()}
       | {pwdfun, pwdfun_2() | pwdfun_4()} .
 
@@ -369,9 +370,9 @@
 -type kb_int_fun_4() :: fun((Peer::ip_port(), User::string(), Service::string(), State::any()) -> kb_int_tuple()).
 -type kb_int_tuple() :: {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}.
 
--type pwdfun_2() :: fun((User::string(), Password::string()) -> boolean()) .
+-type pwdfun_2() :: fun((User::string(), Password::string()|pubkey) -> boolean()) .
 -type pwdfun_4() :: fun((User::string(),
-                         Password::string(),
+                         Password::string()|pubkey,
                          PeerAddress::ip_port(),
                          State::any()) ->
                                boolean() | disconnect | {boolean(),NewState::any()}

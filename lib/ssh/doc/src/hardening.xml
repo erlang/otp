@@ -144,6 +144,43 @@
   </section>
 
   <section>
+    <title>Verifying the remote client in a daemon (server)</title>
+    <taglist>
+      <tag>Password checking</tag>
+      <item>
+	<p>The default password checking is with the list in the
+	<seeerl marker="ssh#option-user_passwords">user_passwords</seeerl> option in the SSH daemon.
+	It could be replaced with a <seeerl marker="ssh#option-pwdfun">pwdfun</seeerl> plugin. The
+	arity four variant (<seetype marker="ssh#pwdfun_4"><c>pwdfun_4()</c></seetype>)
+	can also be used for introducing delays after failed password checking attempts. Here is a simple
+	example of such a pwdfun:
+	</p>
+	<code>
+fun(User, Password, _PeerAddress, State) ->
+        case lists:member({User,Password}, my_user_pwds()) of
+            true ->
+                {true, undefined}; % Reset delay time
+            false when State == undefined ->
+                timer:sleep(1000),
+                {false, 2000}; % Next delay is 2000 ms
+            false when is_integer(State) ->
+                timer:sleep(State),
+                {false, 2*State} % Double the delay for each failure
+        end
+end.
+</code>
+	<p>If a public key is used for logging in, there is normally no checking of the user name. It
+	could be enabled by setting the option 
+	<seeerl marker="ssh#option-pk_check_user"><c>pk_check_user</c></seeerl>
+	to <c>true</c>.
+	In that case the pwdfun will get the atom <c>pubkey</c> in the password argument.
+	</p>
+      </item>
+
+    </taglist>
+  </section>
+
+  <section>
     <title>Hardening in the cryptographic area</title>
     <section>
       <title>Algorithm selection</title>
