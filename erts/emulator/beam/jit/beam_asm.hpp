@@ -432,12 +432,12 @@ protected:
 #endif
     }
 
-    constexpr x86::Mem getCARRef(x86::Gp Src) const {
-        return x86::qword_ptr(Src, -TAG_PRIMARY_LIST);
+    constexpr x86::Mem getCARRef(x86::Gp Src, size_t size = sizeof(UWord)) const {
+        return x86::Mem(Src, -TAG_PRIMARY_LIST, size);
     }
 
-    constexpr x86::Mem getCDRRef(x86::Gp Src) const {
-        return x86::qword_ptr(Src, -TAG_PRIMARY_LIST + sizeof(Eterm));
+    constexpr x86::Mem getCDRRef(x86::Gp Src, size_t size = sizeof(UWord)) const {
+        return x86::Mem(Src, -TAG_PRIMARY_LIST + sizeof(Eterm), size);
     }
 
     void load_x_reg_array(x86::Gp reg) {
