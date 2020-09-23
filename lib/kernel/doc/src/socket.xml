@@ -1156,7 +1156,7 @@
     </func>
 
     <func>
-      <name name="use_registry" arity="1" since="OTP @OTP-16763@"/>
+      <name name="use_registry" arity="1" since="OTP 23.1"/>
       <fsummary>Globally change the use of the socket registry.</fsummary>
       <desc>
 	<p>Globally change if the socket registry is to be used or not.
