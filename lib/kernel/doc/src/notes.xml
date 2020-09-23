@@ -31,6 +31,116 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A fallback has been implemented for file:sendfile when
+	    using inet_backend socket</p>
+          <p>
+	    Own Id: OTP-15187 Aux Id: ERL-1293 </p>
+        </item>
+        <item>
+          <p>
+	    Make default TCP distribution honour option
+	    <c>backlog</c> in <c>inet_dist_listen_options</c>.</p>
+          <p>
+	    Own Id: OTP-16694 Aux Id: PR-2625 </p>
+        </item>
+        <item>
+          <p>
+	    Raw option handling for the experimental
+	    <c>gen_tcp_socket</c> backend was broken so that all raw
+	    options were ignored by for example
+	    <c>gen_tcp:listen/2</c>, a bug that now has been fixed.
+	    Reported by Jan Uhlig.</p>
+          <p>
+	    Own Id: OTP-16743 Aux Id: ERL-1287 </p>
+        </item>
+        <item>
+          <p>
+	    Accept fails with inet-backend socket.</p>
+          <p>
+	    Own Id: OTP-16748 Aux Id: ERL-1284 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed various minor errors in the socket backend of
+	    gen_tcp.</p>
+          <p>
+	    Own Id: OTP-16754</p>
+        </item>
+        <item>
+          <p>
+	    Correct <c>disk_log:truncate/1</c> to count the header.
+	    Also correct the documentation to state that
+	    <c>disk_log:truncate/1</c> can be used with external disk
+	    logs.</p>
+          <p>
+	    Own Id: OTP-16768 Aux Id: ERL-1312 </p>
+        </item>
+        <item>
+          <p>
+	    Fix erl_epmd:port_please/2,3 type specs to include all
+	    possible error values.</p>
+          <p>
+	    Own Id: OTP-16783</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>erl -erl_epmd_port</c> to work properly. Before
+	    this fix it did not work at all.</p>
+          <p>
+	    Own Id: OTP-16785</p>
+        </item>
+        <item>
+          <p>
+	    Fix typespec for internal function
+	    <c>erlang:seq_trace_info/1</c> to allow <c>term()</c> as
+	    returned label. This in turn fixes so that calls to
+	    <c>seq_trace:get_token/1</c> can be correctly analyzer by
+	    dialyzer.</p>
+          <p>
+	    Own Id: OTP-16823 Aux Id: PR-2722 </p>
+        </item>
+        <item>
+          <p>
+	    Fix erroneous double registration of processes in
+	    <c>pg</c> when distribution is dynamically started.</p>
+          <p>
+	    Own Id: OTP-16832 Aux Id: PR-2738 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make (use of) the socket registry optional (still enabled
+	    by default). Its now possible to build OTP with the
+	    socket registry turned off, turn it off by setting an
+	    environment variable and controlling in runtime (via
+	    function calls and arguments when creating sockets).</p>
+          <p>
+	    Own Id: OTP-16763</p>
+        </item>
+        <item>
+          <p>
+	    <c>erl -remsh nodename</c> no longer requires the
+	    hostname to be given when used together with dynamic
+	    nodenames.</p>
+          <p>
+	    Own Id: OTP-16784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

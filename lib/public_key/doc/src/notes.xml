@@ -35,6 +35,50 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed an insignificant whitespace issue when decoding PEM
+	    file.</p>
+          <p>
+	    Own Id: OTP-16801 Aux Id: ERL-1309 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Experimental OCSP client support.</p>
+          <p>
+	    Own Id: OTP-16448</p>
+        </item>
+        <item>
+          <p>
+	    Use user returned path validation error for selfsigned
+	    cert. It allows users of the ssl application to customize
+	    the generated TLS alert, within the range of defined
+	    alerts.</p>
+          <p>
+	    Own Id: OTP-16592</p>
+        </item>
+        <item>
+          <p>
+	    add API function to retrieve the subject-ID of an X509
+	    certificate</p>
+          <p>
+	    Own Id: OTP-16705</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.8</title>
 
     <section><title>Improvements and New Features</title>

@@ -33,6 +33,21 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compiler warning.</p>
+          <p>
+	    Own Id: OTP-16674</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.5</title>
 
     <section><title>Improvements and New Features</title>

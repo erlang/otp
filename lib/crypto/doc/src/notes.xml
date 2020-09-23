@@ -31,6 +31,54 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix type spec bug in crypto for crypto_init and
+	    crypto:one_time</p>
+          <p>
+	    Own Id: OTP-16658 Aux Id: OTP-15884, ERL-1257 </p>
+        </item>
+        <item>
+          <p>
+	    The deprecation message for crypto:rand_uniform/2
+	    indicated a non-existent function. The correct one
+	    (rand:uniform/1) is now suggested.</p>
+          <p>
+	    Own Id: OTP-16846 Aux Id: PR-2741 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implemented a workaround to allow fallback from using the
+	    EVP API for Diffie-Hellman key generation</p>
+          <p>
+	    Own Id: OTP-16771 Aux Id: ERIERL-509 </p>
+        </item>
+        <item>
+          <p>
+	    The internal Diffie-Hellman high level API for key
+	    generation was slow in old and by OpenSSL now unsupported
+	    cryptolib versions (1.0.1 and earlier).</p>
+          <p>
+	    If such a cryptolib is used anyhow, the low-level API is
+	    used internally in the crypto application.</p>
+          <p>
+	    Own Id: OTP-16774</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

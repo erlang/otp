@@ -31,7 +31,29 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.0</title>
+  <section><title>Erl_Docgen 1.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Repaired lost function "since" versions in the right
+	    margin of the module reference HTML documentation.</p>
+          <p>
+	    Own Id: OTP-16661 Aux Id: ERL-1259 </p>
+        </item>
+        <item>
+	    <p>Remove erlang compilation warnings and trailing
+	    whitespaces.</p>
+          <p>
+	    Own Id: OTP-16675</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.0</title>
 
     <section><title>Improvements and New Features</title>
       <list>

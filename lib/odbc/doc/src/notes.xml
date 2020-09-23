@@ -32,7 +32,24 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.13</title>
+  <section><title>ODBC 2.13.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changes in order to build on the Haiku operating system.</p>
+          <p>
+	    Thanks to Calvin Buckley</p>
+          <p>
+	    Own Id: OTP-16707 Aux Id: PR-2638 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

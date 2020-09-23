@@ -37,7 +37,23 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.19.2</title>
+  <section><title>Megaco 3.19.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The expected number of warnings when (yecc) generating v2
+	    and v3 (text) parser's was incorrect.</p>
+          <p>
+	    Own Id: OTP-16836</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

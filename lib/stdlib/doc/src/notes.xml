@@ -31,6 +31,66 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The functions <c>digraph:in_edges/2</c> and
+	    <c>digraph:out_edges/2</c> would return false edges if
+	    called for a vertex that had a '_' atom in its name
+	    term.</p>
+          <p>
+	    Own Id: OTP-16655</p>
+        </item>
+        <item>
+	    <p><c>filelib:wildcard("not-a-directory/..")</c> should
+	    return an empty list. On Windows it returned
+	    <c>"not-a-directory/.."</c>.</p>
+          <p>
+	    Own Id: OTP-16700</p>
+        </item>
+        <item>
+          <p>
+	    Fix the typespec of shell_docs:render to use the correct
+	    type for an MFA.</p>
+          <p>
+	    Own Id: OTP-16739</p>
+        </item>
+        <item>
+          <p>
+	    Fix uri_string:recompose/1 when host is present but input
+	    path is not absolute.</p>
+          <p>
+	    This change prevents the recompose operation to change
+	    the top level domain of the host when the path does not
+	    start with a slash.</p>
+          <p>
+	    Own Id: OTP-16751 Aux Id: ERL-1283 </p>
+        </item>
+        <item>
+	    <p>The <c>epp</c> module would return a badly formed
+	    error term when an '<c>if</c>' preprocessor directive
+	    referenced an undefined symbol. <c>epp:format_error/1</c>
+	    would crash when called with the bad error term.</p>
+          <p>
+	    Own Id: OTP-16816 Aux Id: ERL-1310 </p>
+        </item>
+        <item>
+          <p>
+	    <c>lists:sublist(List, Start, Len)</c> failed with an
+	    exception if <c>Start &gt; length(List) + 1</c> even
+	    though it is explicitly documented that "It is not an
+	    error for <c>Start+Len</c> to exceed the length of the
+	    list".</p>
+          <p>
+	    Own Id: OTP-16830 Aux Id: ERL-1334, PR-2718 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.13.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

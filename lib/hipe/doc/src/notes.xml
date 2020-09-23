@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a warning issued when building the <c>hipe</c>
+	    application.</p>
+          <p>
+	    Own Id: OTP-16737</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 4.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
