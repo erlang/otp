@@ -27,6 +27,120 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a passive socket is created, ssl:recv/2,3 is never
+	    called and then the peer closes the socket the
+	    controlling process will no longer receive an active
+	    close message.</p>
+          <p>
+	    Own Id: OTP-16697 Aux Id: ERIERL-496 </p>
+        </item>
+        <item>
+          <p>
+	    Data deliver with ssl:recv/2,3 could fail for when using
+	    packet mode. This has been fixed by correcting the flow
+	    control handling of passive sockets when packet mode is
+	    used.</p>
+          <p>
+	    Own Id: OTP-16764</p>
+        </item>
+        <item>
+          <p>
+	    This change fixes a potential man-in-the-middle
+	    vulnerability when the ssl client is configured to
+	    automatically handle session tickets ({session_tickets,
+	    auto}).</p>
+          <p>
+	    Own Id: OTP-16765</p>
+        </item>
+        <item>
+          <p>
+	    Fix the internal handling of options 'verify' and
+	    'verify_fun'.</p>
+          <p>
+	    This change fixes a vulnerability when setting the ssl
+	    option 'verify' to verify_peer in a continued handshake
+	    won't take any effect resulting in the acceptance of
+	    expired peer certificates.</p>
+          <p>
+	    Own Id: OTP-16767 Aux Id: ERIERL-512 </p>
+        </item>
+        <item>
+          <p>
+	    This change fixes the handling of stateless session
+	    tickets when anti-replay is enabled.</p>
+          <p>
+	    Own Id: OTP-16776 Aux Id: ERL-1316 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a crash due to the faulty handling of stateful
+	    session tickets received by servers expecting stateless
+	    session tickets.</p>
+          <p>
+	    This change also improves the handling of faulty/invalid
+	    tickets.</p>
+          <p>
+	    Own Id: OTP-16777 Aux Id: ERL-1317 </p>
+        </item>
+        <item>
+          <p>
+	    Correct flow ctrl checks from OTP-16764 to work as
+	    intended. Probably will not have a noticeable affect but
+	    will make connections more well behaved under some
+	    circumstances.</p>
+          <p>
+	    Own Id: OTP-16837 Aux Id: ERL-1319, OTP-16764 </p>
+        </item>
+        <item>
+          <p>
+	    Distribution over TLS could exhibit livelock-like
+	    behaviour when there is a constant stream of distribution
+	    messages. Distribution data is now chunked every 16 Mb to
+	    avoid that.</p>
+          <p>
+	    Own Id: OTP-16851 Aux Id: PR-2703 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implement the cookie extension for TLS 1.3.</p>
+          <p>
+	    Own Id: OTP-15855</p>
+        </item>
+        <item>
+          <p>
+	    Experimental OCSP client support.</p>
+          <p>
+	    Own Id: OTP-16448</p>
+        </item>
+        <item>
+          <p>
+	    TLS 1.0 -TLS-1.2 sessions tables now have a absolute max
+	    value instead of using a shrinking mechanism when
+	    reaching the limit. To avoid out of memory problems under
+	    heavy load situations. Note that this change infers that
+	    implementations of ssl_session_cache_api needs to
+	    implement the size function (introduce in OTP 19) for
+	    session reuse to be optimally utilized.</p>
+          <p>
+	    Own Id: OTP-16802 Aux Id: ERIERL-516 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

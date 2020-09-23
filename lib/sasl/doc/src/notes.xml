@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>release_handler</c> more resilient against
+	    exiting processes during upgrade.</p>
+          <p>
+	    Own Id: OTP-16744 Aux Id: ERL-1247, PR-2666 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 4.0</title>
 
     <section><title>Improvements and New Features</title>

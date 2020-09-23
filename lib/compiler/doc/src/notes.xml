@@ -32,6 +32,41 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>If the update of a map with the '<c>Map#{Key :=
+	    Value}</c>' syntax failed, the line number in the stack
+	    backtrace could be incorrect.</p>
+          <p>
+	    Own Id: OTP-16701 Aux Id: ERL-1271 </p>
+        </item>
+        <item>
+	    <p>Fixed a performance bug that slowed down compilation
+	    of modules with deeply nested terms.</p>
+          <p>
+	    Own Id: OTP-16755 Aux Id: ERL-1297 </p>
+        </item>
+        <item>
+	    <p>The compiler could in rare circumstances do an an
+	    unsafe optimization that would result in a matching of a
+	    nested map pattern would fail to match.</p>
+          <p>
+	    Own Id: OTP-16820</p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the validator that caused it to reject
+	    valid code.</p>
+          <p>
+	    Own Id: OTP-16838 Aux Id: ERL-1340 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

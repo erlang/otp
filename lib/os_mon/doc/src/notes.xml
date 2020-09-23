@@ -31,6 +31,34 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>memsup</c> now returns the correct amount of system
+	    memory on macOS.</p>
+          <p>
+	    Own Id: OTP-16798 Aux Id: ERL-1327 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix memsup:get_os_wordsize/0 to return the current size
+	    on aarch64.</p>
+          <p>
+	    Own Id: OTP-16742</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

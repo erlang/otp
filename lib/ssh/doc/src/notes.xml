@@ -30,6 +30,79 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug when a message to ssh-agent was divided into
+	    separate packets.</p>
+          <p>
+	    Own Id: OTP-16761 Aux Id: PR-2679 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug that could crash the cli server if a too large
+	    cli-window was requested from the client.</p>
+          <p>
+	    Own Id: OTP-16791 Aux Id: ERIERL-520 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Increased test coverage.</p>
+          <p>
+	    Own Id: OTP-14106</p>
+        </item>
+        <item>
+          <p>
+	    A chapter about <seeguide
+	    marker="ssh:hardening">hardening the OTP SSH</seeguide>
+	    is added to the User's Guide.</p>
+          <p>
+	    Own Id: OTP-16411</p>
+        </item>
+        <item>
+          <p>
+	    The internal Diffie-Hellman high level API for key
+	    generation was slow in old and by OpenSSL now unsupported
+	    cryptolib versions (1.0.1 and earlier).</p>
+          <p>
+	    If such a cryptolib is used anyhow, the low-level API is
+	    used internally in the crypto application.</p>
+          <p>
+	    Own Id: OTP-16774</p>
+        </item>
+        <item>
+          <p>
+	    A new timeout is defined for daemons: <seetype
+	    marker="ssh:ssh#hello_timeout_daemon_option">hello_timeout</seetype>.</p>
+          <p>
+	    The timeout is supposed to be used as a simple <seeguide
+	    marker="ssh:hardening#resilience-to-dos-attacks">DoS
+	    attack protection</seeguide>. It closes an incoming
+	    TCP-connection if no valid first SSH message is received
+	    from the client within the timeout limit after the TCP
+	    initial connection setup.</p>
+          <p>
+	    The initial value is 30s by compatibility reasons, but
+	    could be lowered if needed, for example in the code or in
+	    a <seeguide marker="ssh:configurations">config
+	    file</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16803</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

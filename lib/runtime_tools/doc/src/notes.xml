@@ -32,6 +32,26 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a crash in <c>appmon_info</c> triggered by trying
+	    to read port info from a port that was in the process of
+	    terminating.</p>
+          <p>
+	    <c>appmon_info</c> is used by <c>observer</c> to get
+	    information from the observed node.</p>
+          <p>
+	    Own Id: OTP-16787 Aux Id: PR-2673 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.15</title>
 
     <section><title>Improvements and New Features</title>

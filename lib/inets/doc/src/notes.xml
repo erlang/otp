@@ -33,7 +33,78 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.2</title>
+  <section><title>Inets 7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Clarify the handling of percent encoded characters in
+	    http client.</p>
+          <p>
+	    Own Id: OTP-16650 Aux Id: ERL-1215, PR-2629 </p>
+        </item>
+        <item>
+          <p>
+	    fix crash for undefined port in uri.</p>
+          <p>
+	    Own Id: OTP-16663 Aux Id: ERL-1241 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid timing issue when setting active once on a socket
+	    that is being closed by the peer.</p>
+          <p>
+	    Own Id: OTP-16735 Aux Id: OTP-16697, ERIERL-496 </p>
+        </item>
+        <item>
+          <p>
+	    Handle message body of response with 1XX status code as
+	    next http message.</p>
+          <p>
+	    Own Id: OTP-16746 Aux Id: ERL-1268 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a crash in http server when setopts is called on a
+	    socket closed by the peer.</p>
+          <p>
+	    Own Id: OTP-16775 Aux Id: ERIERL-519 </p>
+        </item>
+        <item>
+          <p>
+	    A vulnerability in the httpd module (inets application)
+	    regarding directory traversal that was introduced in OTP
+	    22.3.1 and corrected in OTP 22.3.4.6. It was also
+	    introduced in OTP 23.0 and corrected in OTP 23.1 The
+	    vulnerability is registered as CVE-2020-25623</p>
+          <p>
+	    The vulnerability is only exposed if the http server
+	    (httpd) in the inets application is used. The
+	    vulnerability makes it possible to read arbitrary files
+	    which the Erlang system has read access to with for
+	    example a specially prepared http request.</p>
+          <p>
+	    Own Id: OTP-16790 Aux Id: ERIERL-522 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support of PATCH method in mod_esi.</p>
+          <p>
+	    Own Id: OTP-16591 Aux Id: ERIERL-484 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstance, dialyzer wold crash when
+	    analyzing a list comprehension.</p>
+          <p>
+	    Own Id: OTP-16813 Aux Id: ERL-1307 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.2</title>
 
     <section><title>Improvements and New Features</title>

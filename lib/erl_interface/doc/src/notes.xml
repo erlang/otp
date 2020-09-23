@@ -31,6 +31,68 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix erl_interface on windows to be compiled with correct
+	    flags to make internal primitives reentrant.</p>
+          <p>
+	    Own Id: OTP-16740</p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>ei_get_type</c> to set <c>*size</c> to zero for
+	    floats, pids, port and refs according to documentation.</p>
+          <p>
+	    Own Id: OTP-16753 Aux Id: ERL-1288, PR-2678 </p>
+        </item>
+        <item>
+          <p>
+	    Fix ei_connect when using a dynamic node name to force
+	    usage of distribution version 6.</p>
+          <p>
+	    This bug caused <c>erl_call -R -address</c> to not work
+	    properly.</p>
+          <p>
+	    Own Id: OTP-16786</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changes in order to build on the Haiku operating system.</p>
+          <p>
+	    Thanks to Calvin Buckley</p>
+          <p>
+	    Own Id: OTP-16707 Aux Id: PR-2638 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    The <c>ei</c> API for decoding/encoding terms is not
+	    fully 64-bit compatible since terms that have a
+	    representation on the external term format larger than 2
+	    GB cannot be handled.</p>
+          <p>
+	    Own Id: OTP-16607 Aux Id: OTP-16608 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 4.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

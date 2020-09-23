@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the Xref analysis <c>locals_not_used</c> to find
+	    functions called exclusively from <c>on_load</c>
+	    functions.</p>
+          <p>
+	    Own Id: OTP-16854 Aux Id: PR-2750 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.4</title>
 
     <section><title>Improvements and New Features</title>

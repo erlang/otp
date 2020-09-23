@@ -34,7 +34,46 @@
   </header>
 
 
-  <section><title>SNMP 5.6</title>
+  <section><title>SNMP 5.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    For agent fix PrivParams for SNMPv3 USM with AES privacy,
+	    as earlier fixed for the manager in OTP_16541.</p>
+          <p>
+	    Own Id: OTP-15130 Aux Id: ERIERL-524, OTP-16541 </p>
+        </item>
+        <item>
+          <p>
+	    The SNMP Agent missed to re-activate datagram reception
+	    in an odd timeout case and went deaf. This bug has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-15767 Aux Id: ERIERL-523 </p>
+        </item>
+        <item>
+          <p>
+	    Use of deprecated functions in example 2 has been removed
+	    (no more compiler warnings).</p>
+          <p>
+	    Own Id: OTP-16716</p>
+        </item>
+        <item>
+          <p>
+	    A file descriptor leak has been plugged. When calling the
+	    reconfigure function of a mib, it opened the config
+	    file(s) but never closed them on successful read.</p>
+          <p>
+	    Own Id: OTP-16760 Aux Id: ERIERL-511 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
