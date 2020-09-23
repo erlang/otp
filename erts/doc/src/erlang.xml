@@ -1376,7 +1376,7 @@ end</code>
           otherwise <c>false</c>. If the local node is not alive,
         <c>ignored</c> is returned.</p>
         <note>
-          <p>This function returns before <seemfa
+          <p>This function may return before <seemfa
           marker="#monitor_node/2"> <c>nodedown</c> messages</seemfa>
           have been delivered.</p>
         </note>
@@ -1794,7 +1794,7 @@ example_fun(A1, A2) ->
           where <c>From</c> is the process identifier of the process
           that sent the exit signal, and delivered to <c>P</c>'s
           message queue.</item>
-          <item>The message has no effect if <c>P</c> is not trapping
+          <item>The signal has no effect if <c>P</c> is not trapping
           exits.</item>
         </list>
         <p>If <c><anno>Reason</anno></c> is the atom <c>kill</c>, that
@@ -2975,9 +2975,9 @@ is_process_alive(P2Pid),
           <p>There is configurable limit on how many atoms that can
           exist and atoms are not garbage collected. Therefore, it is
           recommended to consider if
-          <c>binary_to_existing_atom/2</c> is a better option
+          <seemfa marker="#list_to_existing_atom/1"><c>list_to_existing_atom/1</c></seemfa> is a better option
           than <c>list_to_atom/1</c>. The default limits can
-          be found in <seeguide
+          be found in the <seeguide
           marker="system/efficiency_guide:advanced">efficiency guide
           (section Advanced)</seeguide>.</p>
         </note>
@@ -10627,7 +10627,7 @@ hello
       <name name="throw" arity="1" since=""/>
       <fsummary>Throw an exception.</fsummary>
       <desc>
-        <p>Used to raise exceptions and to do non-local returns from functions.</p>
+        <p>Raises exception of class <c>throw</c>. Intended to be used to do non-local returns from functions.</p>
         <p>If evaluated within a
           <seeguide marker="system/reference_manual:expressions#catch">
 	catch expression</seeguide>, the catch expression returns value <c><anno>Any</anno></c>.
@@ -10642,10 +10642,13 @@ hello
 try
     throw({my_exception, "Something happened"})
 catch
-    {my_exception, Desc} ->
+    throw:{my_exception, Desc} ->
         io:format(standard_error, "Error: ~s~n", [Desc])
 end</code>
        <p>Failure: <c>nocatch</c> if not caught by an exception handler.</p>
+       <p>See the guide about <seeguide
+       marker="system/reference_manual:errors">errors and error
+       handling</seeguide> for additional information.</p>
       </desc>
     </func>
     <func>
