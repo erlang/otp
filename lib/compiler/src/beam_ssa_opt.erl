@@ -2252,7 +2252,8 @@ do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) ->
 
     %% Calculate dominators.
     Blocks0 = maps:from_list(Linear),
-    {Dom,Numbering} = beam_ssa:dominators(Blocks0),
+    Preds = beam_ssa:predecessors(Blocks0),
+    {Dom, Numbering} = beam_ssa:dominators(Blocks0, Preds),
 
     %% It is not safe to move get_tuple_element instructions to blocks
     %% that begin with certain instructions. It is also unsafe to move
@@ -2268,7 +2269,7 @@ do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) ->
     %% important precaution to avoid that lists:mapfoldl/3 keeps all previous
     %% versions of the accumulator alive until the end of the input list.
     Ps = partition_deflocs(DefLocs0, Defs, Blocks0),
-    DefLocs1 = filter_deflocs(Ps, Blocks0),
+    DefLocs1 = filter_deflocs(Ps, Preds, Blocks0),
     DefLocs = sort(DefLocs1),
 
     %% Now move all suitable get_tuple_element instructions to their
@@ -2330,13 +2331,13 @@ partition_dl_1([], _, Acc) ->
 partition_dl_1([_|_]=DLs, [], Acc) ->
     {reverse(Acc),DLs}.
 
-filter_deflocs([{Tuple,DefLoc0}|DLs], Blocks) ->
+filter_deflocs([{Tuple,DefLoc0}|DLs], Preds, Blocks) ->
     %% Input is a list of sinks of get_tuple_element instructions in
     %% execution order from the same tuple in the same clause.
     [{_,{_,First}}|_] = DefLoc0,
     Paths = find_paths_to_check(DefLoc0, First),
     WillGC0 = ordsets:from_list([FromTo || {{_,_}=FromTo,_} <- Paths]),
-    WillGC1 = [{{From,To},will_gc(From, To, Blocks, true)} ||
+    WillGC1 = [{{From,To},will_gc(From, To, Preds, Blocks, true)} ||
                   {From,To} <- WillGC0],
     WillGC = maps:from_list(WillGC1),
 
@@ -2348,17 +2349,17 @@ filter_deflocs([{Tuple,DefLoc0}|DLs], Blocks) ->
                   end, Paths),
 
     %% Avoid potentially harmful sinks.
-    DefLocGC = filter_gc_deflocs(DefLocGC0, Tuple, First, Blocks),
+    DefLocGC = filter_gc_deflocs(DefLocGC0, Tuple, First, Preds, Blocks),
 
     %% Construct the complete list of sink operations.
     DefLoc1 = DefLocGC ++ DefLocNoGC,
     [DL || {_,{_,{From,To}}=DL} <- DefLoc1, From =/= To] ++
-        filter_deflocs(DLs, Blocks);
-filter_deflocs([], _) -> [].
+        filter_deflocs(DLs, Preds, Blocks);
+filter_deflocs([], _, _) -> [].
 
 %% Use an heuristic to avoid harmful sinking in lists:mapfold/3 and
 %% similar functions.
-filter_gc_deflocs(DefLocGC, Tuple, First, Blocks) ->
+filter_gc_deflocs(DefLocGC, Tuple, First, Preds, Blocks) ->
     case DefLocGC of
         [] ->
             [];
@@ -2374,7 +2375,7 @@ filter_gc_deflocs(DefLocGC, Tuple, First, Blocks) ->
                     %% probably a win to sink this instruction.
                     DefLocGC;
                 false ->
-                    case will_gc(From, To, Blocks, false) of
+                    case will_gc(From, To, Preds, Blocks, false) of
                         false ->
                             %% There is no risk for recursive calls,
                             %% so it should be safe to
@@ -2404,16 +2405,17 @@ find_paths_to_check([{_,{_,To}}=Move|T], First) ->
     [{{First,To},Move}|find_paths_to_check(T, First)];
 find_paths_to_check([], _First) -> [].
 
-will_gc(From, To, Blocks, All) ->
-    will_gc(beam_ssa:rpo([From], Blocks), To, Blocks, All, #{From => false}).
+will_gc(From, To, Preds, Blocks, All) ->
+    Between = beam_ssa:between(From, To, Preds, Blocks),
+    will_gc_1(Between, To, Blocks, All, #{From => false}).
 
-will_gc([To|_], To, _Blocks, _All, WillGC) ->
+will_gc_1([To|_], To, _Blocks, _All, WillGC) ->
     map_get(To, WillGC);
-will_gc([L|Ls], To, Blocks, All, WillGC0) ->
+will_gc_1([L|Ls], To, Blocks, All, WillGC0) ->
     #b_blk{is=Is} = Blk = map_get(L, Blocks),
     GC = map_get(L, WillGC0) orelse will_gc_is(Is, All),
     WillGC = gc_update_successors(Blk, GC, WillGC0),
-    will_gc(Ls, To, Blocks, All, WillGC).
+    will_gc_1(Ls, To, Blocks, All, WillGC).
 
 will_gc_is([#b_set{op=call,args=Args}|Is], false) ->
     case Args of

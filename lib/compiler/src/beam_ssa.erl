@@ -21,9 +21,10 @@
 
 -module(beam_ssa).
 -export([add_anno/3,get_anno/2,get_anno/3,
+         between/4,
          clobbers_xregs/1,def/2,def_unused/3,
          definitions/1,
-         dominators/1,common_dominators/3,
+         dominators/1,dominators/2,common_dominators/3,
          flatmapfold_instrs_rpo/4,
          fold_po/3,fold_po/4,fold_rpo/3,fold_rpo/4,
          fold_instrs_rpo/4,
@@ -95,6 +96,7 @@
 -type numbering_map() :: #{label():=non_neg_integer()}.
 -type usage_map() :: #{b_var():=[{label(),b_set() | terminator()}]}.
 -type definition_map() :: #{b_var():=b_set()}.
+-type predecessor_map() :: #{label():=[label()]}.
 -type rename_map() :: #{b_var():=value()}.
 -type rename_proplist() :: [{b_var(),value()}].
 
@@ -237,10 +239,9 @@ is_loop_header(#b_set{op=Op}) ->
         _ -> false
     end.
 
--spec predecessors(Blocks) -> #{BlockNumber:=[Predecessor]} when
+-spec predecessors(Blocks) -> Result when
       Blocks :: block_map(),
-      BlockNumber :: label(),
-      Predecessor :: label().
+      Result :: predecessor_map().
 
 predecessors(Blocks) ->
     P0 = [{S,L} || {L,Blk} <- maps:to_list(Blocks),
@@ -378,6 +379,13 @@ def_unused(Ls, Unused, Blocks) ->
       Result :: {dominator_map(), numbering_map()}.
 dominators(Blocks) ->
     Preds = predecessors(Blocks),
+    dominators(Blocks, Preds).
+
+-spec dominators(Blocks, Preds) -> Result when
+      Blocks :: block_map(),
+      Preds :: predecessor_map(),
+      Result :: {dominator_map(), numbering_map()}.
+dominators(Blocks, Preds) ->
     Top0 = rpo(Blocks),
     Df = maps:from_list(number(Top0, 0)),
     [{0,[]}|Top] = [{L,map_get(L, Preds)} || L <- Top0],
@@ -539,6 +547,31 @@ rpo(From, Blocks) ->
     Seen = cerl_sets:new(),
     {Ls,_} = rpo_1(From, Blocks, Seen, []),
     Ls.
+
+%% between(From, To, Preds, Blocks) -> RPO
+%%  Returns all the blocks between `From` and `To` in reverse post-order. This
+%%  is most efficient when `From` dominates `To`, as it won't visit any
+%%  unnecessary blocks in that case.
+
+-spec between(From, To, Preds, Blocks) -> Labels when
+      From :: label(),
+      To :: label(),
+      Preds :: predecessor_map(),
+      Blocks :: block_map(),
+      Labels :: [label()].
+
+between(From, To, Preds, Blocks) ->
+    %% Gather the predecessors of `To` and then walk forward from `From`,
+    %% skipping the blocks that don't precede `To`.
+    %%
+    %% As an optimization we initialize the predecessor set with `From` to stop
+    %% gathering once seen since we're only interested in the blocks inbetween.
+    %% Uninteresting blocks can still be added if `From` doesn't dominate `To`,
+    %% but that has no effect on the final result.
+    Filter = between_make_filter([To], Preds, cerl_sets:from_list([From])),
+    {Paths, _} = between_rpo([From], Blocks, Filter, []),
+
+    Paths.
 
 -spec rename_vars(Rename, [label()], block_map()) -> block_map() when
       Rename :: rename_map() | rename_proplist().
@@ -827,6 +860,35 @@ trim_phis_1([#b_set{op=phi,args=Args0}=I|Is], Seen) ->
     Args = [P || {_,L}=P <- Args0, cerl_sets:is_element(L, Seen)],
     [I#b_set{args=Args}|trim_phis_1(Is, Seen)];
 trim_phis_1(Is, _Seen) -> Is.
+
+between_make_filter([L | Ls], Preds, Acc0) ->
+    case cerl_sets:is_element(L, Acc0) of
+        true ->
+            between_make_filter(Ls, Preds, Acc0);
+        false ->
+            Next = map_get(L, Preds),
+            Acc1 = cerl_sets:add_element(L, Acc0),
+
+            Acc = between_make_filter(Next, Preds, Acc1),
+            between_make_filter(Ls, Preds, Acc)
+    end;
+between_make_filter([], _Preds, Acc) ->
+    Acc.
+
+between_rpo([L | Ls], Blocks, Filter0, Acc0) ->
+    case cerl_sets:is_element(L, Filter0) of
+        true ->
+            Block = map_get(L, Blocks),
+            Filter1 = cerl_sets:del_element(L, Filter0),
+
+            Successors = successors(Block),
+            {Acc, Filter} = between_rpo(Successors, Blocks, Filter1, Acc0),
+            between_rpo(Ls, Blocks, Filter, [L | Acc]);
+        false ->
+            between_rpo(Ls, Blocks, Filter0, Acc0)
+    end;
+between_rpo([], _, Filter, Acc) ->
+    {Acc, Filter}.
 
 rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
     case cerl_sets:is_element(L, Seen0) of
