@@ -498,7 +498,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <note>
           <p>There is configurable limit on how many atoms that can
           exist and atoms are not garbage collected. Therefore, it is
-          recommended to consider if
+          recommended to consider whether
           <c>binary_to_existing_atom/2</c> is a better option
           than <c>binary_to_atom/2</c>. The default limits can
           be found in <seeguide
@@ -777,7 +777,7 @@ hello
           emulator, the reduction counter is normally incremented by
           one for each function and BIF call. A context switch is
           forced when the counter reaches the maximum number of
-          reductions for a process (4000 reductions in Erlang/OTP 24).</p>
+          reductions for a process (4000 reductions in Erlang/OTP 19.2 and later).</p>
         <warning>
           <p>This BIF can be removed in a future version of the Beam
             machine without prior warning. It is unlikely to be
@@ -1707,7 +1707,7 @@ b</pre>
           list of arguments for the current function; in Beam it is used
           to provide the arguments for the current function in
           the term <c>Where</c>. As evaluating this function causes
-          an exception to be thrown, it has no return value.
+          an exception to be raised, it has no return value.
           The intent of the exception class <c>error</c> is to
           signal that an unexpected error has happened (for example, a
           function is called with a parameter that has an incorrect
@@ -1741,7 +1741,7 @@ example_fun(A1, A2) ->
         <p>Raises exception of class <c>exit</c> with exit reason
         <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
         is any term. As evaluating this function causes an exception
-        to be thrown, it has no return value. This function should be
+        to be raised, it has no return value. This function should be
         used when the intent is to stop the current process. This
         function differ from <c>erlang:error/1</c> and
         <c>erlang:error/2</c> by causing an exception of a different
@@ -1813,9 +1813,9 @@ example_fun(A1, A2) ->
           should be used when the intent is to stop the current
           process while <c>erlang:exit/2</c> should be used when the
           intent is to send an exit signal to another process. Note
-          also that <c>erlang:exit/1</c> throws an exception that can
+          also that <c>erlang:exit/1</c> raises an exception that can
           be caught while <c>erlang:exit/2</c> does not cause any
-          exception to be thrown.</p>
+          exception to be raised.</p>
         </note>
         <warning>
           <p>The only scenario that has not been covered by the
@@ -2276,8 +2276,7 @@ true</pre>
       <desc>
         <p>Returns the process dictionary as a list of
         <c>{<anno>Key</anno>, <anno>Val</anno>}</c> tuples.
-        This function does not guarantee anything about the order between
-        the items in the returned list.
+        The items in the returned list can be in any order.
         Example:</p>
         <pre>
 > <input>put(key1, merry),</input>
@@ -2323,8 +2322,7 @@ true</pre>
       </fsummary>
       <desc>
         <p>Returns a list of all keys present in the process dictionary.
-        This function does not guarantee anything about the order between
-        the keys in the returned list.
+        The items in the returned list can be in any order.
         Example:</p>
         <pre>
 > <input>put(dog, {animal,1}),</input>
@@ -2341,8 +2339,7 @@ true</pre>
       <desc>
         <p>Returns a list of keys that are associated with the value
         <c><anno>Val</anno></c> in the process dictionary.
-        This function does not guarantee anything about the order between
-        the keys in the returned list.
+        The items in the returned list can be in any order.
         Example:</p>
         <pre>
 > <input>put(mary, {1, 2}),</input>
