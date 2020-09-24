@@ -18,6 +18,10 @@
  * %CopyrightEnd%
  */
 
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "erl_driver.h"
 
 #define THR_MSG_BLAST_NO_PROCS 10
