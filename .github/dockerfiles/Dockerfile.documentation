@@ -8,12 +8,14 @@ ENV MAKEFLAGS=$MAKEFLAGS \
 
 ARG ARCHIVE=./otp.tar.gz
 COPY $ARCHIVE /buildroot/otp.tar.gz
-RUN cd /buildroot && tar xzf ./otp.tar.gz
+RUN cd /buildroot && tar -xzf ./otp.tar.gz
 
 WORKDIR /buildroot/otp/
 
 ## We don't build pdf in order to save some time
 ENV RELEASE_ROOT=/otp DOC_TARGETS="html man chunks"
+
+RUN ./configure --prefix=/otp && make && make release
 
 RUN ./configure && make && make release
 
