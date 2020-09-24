@@ -221,6 +221,7 @@ AC_TRY_COMPILE([],[
 #endif
     __label__ lbl1;
     __label__ lbl2;
+    extern int magic(void);
     int x = magic();
     static void *jtab[2];
 
@@ -266,6 +267,7 @@ if test "$ac_cv_prog_emu_cc" != no; then
 #endif
     	__label__ lbl1;
     	__label__ lbl2;
+	extern int magic(void);
     	int x = magic();
     	static void *jtab[2];
 
