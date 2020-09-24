@@ -42,7 +42,7 @@ terminate(Cache) ->
     ets:delete(Cache).
 
 %%--------------------------------------------------------------------
-%% Description: Looks up a cach entry. Should be callable from any
+%% Description: Looks up a cache entry. Should be callable from any
 %% process.
 %%--------------------------------------------------------------------
 lookup(Cache, Key) ->
@@ -64,7 +64,7 @@ update(Cache, Key, Session) ->
     ets:insert(Cache, {Key, Session}).
 
 %%--------------------------------------------------------------------
-%% Description: Delets a cache entry.
+%% Description: Deletes a cache entry.
 %% Will only be called from the ssl_manager process.
 %%--------------------------------------------------------------------
 delete(Cache, Key) ->
