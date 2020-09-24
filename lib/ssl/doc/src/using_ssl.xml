@@ -233,6 +233,182 @@ ssl:connect("localhost", 9999,
     
   </section>
 
+
+  <section>
+    <title>Session Reuse pre TLS 1.3</title>
+    <p>Clients can request to reuse a session established
+    by a previous full handshake between that client and server by
+    sending the id of the session in the initial handshake
+    message. The server may or may not agree to reuse it. If agreed
+    the server will send back the id and if not it will send a new
+    id. The ssl application has several options for handling session
+    reuse.</p>
+
+    <p>On the client side the ssl application will save session data
+    to try to automate session reuse on behalf of the client processes
+    on the Erlang node. Note that only verified sessions will be
+    saved for security reasons, that is session resumption relies on
+    the certificate validation to have been run in the original
+    handshake. To minimize memory consumption only unique sessions
+    will be saved unless the special <c>save</c> value is specified
+    for the following option <c> {reuse_sessions, boolean() |
+    save}</c> in which case a full handhake will be performed and that
+    specific session will have been saved before the handshake
+    returns. The session id and even an opaque binary containing the
+    session data can be retrieved using
+    <c>ssl:connection_information/1</c> function. A saved session
+    (guaranteed by the save option) can be explicitly reused using
+    <c>{reuse_session, SessionId}</c>. Also it is possible for the
+    client to reuse a session that is not saved by the ssl application
+    using <c>{reuse_session, {SessionId, SessionData}}</c>.</p>
+
+    <note><p>When using explicit session reuse, it is up to the client
+    to make sure that the session being reused is for the correct
+    server and has been verified.</p></note>
+
+    <p>Here follows a client side example,
+    divide into several steps for readability.
+    </p>
+
+    <p>Step 1 - Automated Session Reuse</p>
+
+    <code type="erl">
+1> ssl:start().
+ok
+
+2&gt; {ok, C1} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+					      {versions, ['tlsv1.2']},
+					      {cacertfile, "cacerts.pem"}]).
+{ok,{sslsocket,{gen_tcp,#Port&lt;0.7&gt;,tls_connection,undefined}, ...}}
+
+3&gt; ssl:connection_information(C1, [session_id]).
+{ok,[{session_id,&lt;&lt;95,32,43,22,35,63,249,22,26,36,106,
+                   152,49,52,124,56,130,192,137,161,
+                   146,145,164,232,...&gt;&gt;}]}
+
+%% Reuse session if possible, note that if C2 is really fast the session
+%% data might not be available for reuse.
+4&gt; {ok, C2} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+					      {versions, ['tlsv1.2']},
+					      {cacertfile, "cacerts.pem"},
+					      {reuse_sessions, true}]).
+{ok,{sslsocket,{gen_tcp,#Port&lt;0.8&gt;,tls_connection,undefined}, ...]}}
+
+%% C2 got same session ID as client one, session was automatically reused.
+5&gt; ssl:connection_information(C2, [session_id]).
+{ok,[{session_id,&lt;&lt;95,32,43,22,35,63,249,22,26,36,106,
+                   152,49,52,124,56,130,192,137,161,
+                   146,145,164,232,...&gt;&gt;}]}
+
+</code>
+
+<p>Step 2- Using <c>save</c> Option </p>
+
+<code type="erl">
+%% We want save this particular session for reuse although it has the same basis as C1
+6&gt; {ok, C3} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+					      {versions, ['tlsv1.2']},
+					      {cacertfile, "cacerts.pem"},
+					      {reuse_sessions, save}]).
+{ok,{sslsocket,{gen_tcp,#Port&lt;0.9&gt;,tls_connection,undefined}, ...]}}
+
+%% A full handshake is performed and we get a new session ID
+7&gt; {ok, [{session_id, ID}]} = ssl:connection_information(C3, [session_id]).
+{ok,[{session_id,&lt;&lt;91,84,27,151,183,39,84,90,143,141,
+                   121,190,66,192,10,1,27,192,33,95,78,
+                   8,34,180,...&gt;&gt;}]}
+
+%% Use automatic session reuse
+8&gt; {ok, C4} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+					      {versions, ['tlsv1.2']},
+					      {cacertfile, "cacerts.pem"},
+					      {reuse_sessions, true}]).
+{ok,{sslsocket,{gen_tcp,#Port&lt;0.10&gt;,tls_connection,
+                        undefined}, ...]}}
+
+%% The "saved" one happened to be selected, but this is not a guarantee
+9&gt; ssl:connection_information(C4, [session_id]).
+{ok,[{session_id,&lt;&lt;91,84,27,151,183,39,84,90,143,141,
+                   121,190,66,192,10,1,27,192,33,95,78,
+                   8,34,180,...&gt;&gt;}]}
+
+%% Make sure to reuse the "saved" session
+10&gt; {ok, C5} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+					       {versions, ['tlsv1.2']},
+					       {cacertfile, "cacerts.pem"},
+					       {reuse_session, ID}]).
+{ok,{sslsocket,{gen_tcp,#Port&lt;0.11&gt;,tls_connection,
+                        undefined}, ...]}}
+
+11&gt; ssl:connection_information(C5, [session_id]).
+{ok,[{session_id,&lt;&lt;91,84,27,151,183,39,84,90,143,141,
+                   121,190,66,192,10,1,27,192,33,95,78,
+                   8,34,180,...&gt;&gt;}]}
+</code>
+
+<p>Step 3 - Explicit Session Reuse </p>
+
+<code type="erl">
+%% Preform a full handshake and the session will not be saved for reuse
+12&gt; {ok, C9} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+				               {versions, ['tlsv1.2']},
+		                               {cacertfile, "cacerts.pem"},
+					       {reuse_sessions, false},
+					       {server_name_indication, disable}]).
+{ok,{sslsocket,{gen_tcp,#Port&lt;0.14&gt;,tls_connection, ...}}
+
+%% Fetch session ID and data for C9 connection
+12&gt; {ok, [{session_id, ID1}, {session_data, SessData}]} =
+	ssl:connection_information(C9, [session_id, session_data]).
+{ok,[{session_id,&lt;&lt;9,233,4,54,170,88,170,180,17,96,202,
+                   85,85,99,119,47,9,68,195,50,120,52,
+                   130,239,...&gt;&gt;},
+     {session_data,&lt;&lt;131,104,13,100,0,7,115,101,115,115,105,
+                     111,110,109,0,0,0,32,9,233,4,54,170,...&gt;&gt;}]}
+
+%% Explicitly reuse the session from C9
+13&gt; {ok, C10} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+						{versions, ['tlsv1.2']},
+						{cacertfile, "cacerts.pem"},
+						{reuse_session, {ID1, SessData}}]).
+{ok,{sslsocket,{gen_tcp,#Port&lt;0.15&gt;,tls_connection,
+                        undefined}, ...}}
+
+14&gt; ssl:connection_information(C10, [session_id]).
+{ok,[{session_id,&lt;&lt;9,233,4,54,170,88,170,180,17,96,202,
+                   85,85,99,119,47,9,68,195,50,120,52,
+                   130,239,...&gt;&gt;}]}
+
+</code>
+
+<p>Step 4 - Not Possible to Reuse Explicit Session by ID Only</p>
+
+<code type="erl">
+%% Try to reuse the session from C9 using only the id
+15&gt; {ok, E} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+				              {versions, ['tlsv1.2']},
+				              {cacertfile, "cacerts.pem"},
+					      {reuse_session, ID1}]).
+{ok,{sslsocket,{gen_tcp,#Port&lt;0.18&gt;,tls_connection,
+                        undefined}, ...}}
+
+%% This will fail (as it is not saved for reuse)
+%% and a full handshake will be performed, we get a new id.
+16&gt;  ssl:connection_information(E, [session_id]).
+{ok,[{session_id,&lt;&lt;87,46,43,126,175,68,160,153,37,29,
+                   196,240,65,160,254,88,65,224,18,63,
+                   18,17,174,39,...&gt;&gt;}]}
+</code>
+
+    <p>On the server side the the <c>{reuse_sessions, boolean()}</c> option
+      determines if the server will save session data and allow session
+      reuse or not. This can be further customized by the option
+      <c>{reuse_session, fun()}</c> that may introduce a local policy for
+      session reuse.
+    </p>
+
+  </section>
+
   <section>
     <title>Session Tickets and Session Resumption in TLS 1.3</title>
 

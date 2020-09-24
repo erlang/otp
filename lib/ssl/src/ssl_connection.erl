@@ -1695,7 +1695,7 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
                        session = #session{session_id = SessionId,
                                           cipher_suite = CipherSuite,
                                           srp_username = SrpUsername,
-                                          ecc = ECCCurve},
+                                          ecc = ECCCurve} = Session,
                        connection_states = #{current_write := CurrentWrite},
 		       connection_env = #connection_env{negotiated_version =  {_,_} = Version}, 
 		       ssl_options = Opts}) ->
@@ -1718,6 +1718,7 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
               end,
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
+     {session_data, term_to_binary(Session)},
      {session_resumption, Resumption},
      {selected_cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname},
@@ -2808,8 +2809,16 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
                                                                session_cache = Cache,
                                                                session_cache_cb = CacheCb},
                                       connection_env = #connection_env{negotiated_version = Version},
-                                      connection_states = ConnectionStates0} = State) ->
-    Session = CacheCb:lookup(Cache, {{Host, Port}, SessId}),
+                                      connection_states = ConnectionStates0,
+                                      ssl_options = Opts} = State) ->
+
+    Session = case maps:get(reuse_session, Opts, undefined) of
+        {SessId,SessionData} when is_binary(SessId), is_binary(SessionData) ->
+             binary_to_term(SessionData, [safe]);
+        _Else ->
+             CacheCb:lookup(Cache, {{Host, Port}, SessId})
+    end,
+
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, client) of
 	{_, ConnectionStates} ->

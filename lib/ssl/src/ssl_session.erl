@@ -100,7 +100,15 @@ valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-
+do_client_select_session({_, _, #{reuse_session := {SessionId, SessionData}}}, _, _, NewSession) when is_binary(SessionId) andalso
+                                                                                                      is_binary(SessionData) ->
+    try binary_to_term(SessionData, [safe]) of
+        Session ->
+            Session
+    catch
+        _:_ ->
+            NewSession#session{session_id = <<>>}
+    end;
 do_client_select_session({Host, Port, #{reuse_session := SessionId}}, Cache, CacheCb, NewSession) when is_binary(SessionId)->
     case CacheCb:lookup(Cache, {{Host, Port}, SessionId}) of
         undefined ->
