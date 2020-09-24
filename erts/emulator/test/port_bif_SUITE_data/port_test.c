@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #ifndef __WIN32__
 #include <unistd.h>
@@ -32,7 +33,7 @@
     exit(1); \
 }
 
-#define MAIN(argc, argv) main(argc, argv)
+#define MAIN(argc, argv) int main(argc, argv)
 
 extern int errno;
 
