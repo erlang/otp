@@ -1927,8 +1927,9 @@ fi
 
 if test "x$ac_compiler_gnu" = "xyes"; then
 AC_MSG_CHECKING([if we should add -fno-tree-copyrename to CFLAGS for computed gotos to work properly])
+## tree-copyrename was broken in gcc 4.3 and then removed in gcc 6
 AC_TRY_COMPILE([],[
-		#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+		#if (__GNUC__ > 4 && __GNUC__ < 6)  || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
 			;
 			#else
 			#error old and ok
