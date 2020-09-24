@@ -39,6 +39,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 static int
 fail(const char *file, int line, const char *function, const char *assertion);
