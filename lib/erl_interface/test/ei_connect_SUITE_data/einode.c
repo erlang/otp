@@ -21,6 +21,7 @@
 /* to test multiple threads in ei */
 
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 #ifdef __WIN32__
@@ -30,11 +31,10 @@
 #else
 #include <pthread.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 #include "ei.h"
-
-#define MAIN main
 
 /*
    A small einode.
@@ -95,7 +95,7 @@ static void*
     return 0;
 }
 
-MAIN(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     int i, n, no_threads;
 #ifdef __WIN32__
