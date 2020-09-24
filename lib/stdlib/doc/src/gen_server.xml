@@ -99,6 +99,14 @@ gen_server:abcast     -----> Module:handle_cast/2
       in place of the time-out or hibernation value, which will immediately
       invoke the <c>handle_continue/2</c> callback.</p>
 
+    <p>If the <c>gen_server</c> process terminates, e.g.
+      as a result of a function in the callback module returning
+      <c>{stop,Reason,NewState}</c>, an exit signal with this <c>Reason</c>
+      is sent to linked processes and ports. See
+      <seeguide marker="system/reference_manual:processes#errors">
+      Processes</seeguide> in the Reference Manual for details
+      regarding error handling using exit signals.</p>
+
   </description>
 
   <funcs>
@@ -546,7 +554,10 @@ gen_server:abcast     -----> Module:handle_cast/2
           the function returns <c>{error,Reason}</c>. If
           <c>Module:init/1</c> returns <c>{stop,Reason}</c> or
           <c>ignore</c>, the process is terminated and the function
-          returns <c>{error,Reason}</c> or <c>ignore</c>, respectively.</p>
+          returns <c>{error,Reason}</c> or <c>ignore</c>, respectively.
+	  An exit signal with the same <c>Reason</c> (or <c>normal</c> if
+	  <c>Module:init/1</c> returns <c>ignore</c>) is sent to linked
+	  processes and ports.</p>
       </desc>
     </func>
 
@@ -609,6 +620,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
           error report to be issued using
           <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
+          An exit signal with the same reason is sent to linked processes
+	  and ports.
           The default <c>Reason</c> is <c>normal</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for the server to
@@ -973,7 +986,11 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>proc_lib:hibernate/3</c></seemfa>).</p>
         <p>If the initialization fails, the function is to return
           <c>{stop,Reason}</c>, where <c>Reason</c> is any term, or
-          <c>ignore</c>.</p>
+          <c>ignore</c>. An exit signal with this <c>Reason</c> (or with reason
+          <c>normal</c> if <c>ignore</c> is returned) is sent to linked
+          processes and ports, notably to the process starting the gen_server
+          when <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>
+          is used.</p>
       </desc>
     </func>
 
@@ -1028,6 +1045,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           process is assumed to terminate because of an error and
           an error report is issued using
           <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.</p>
+        <p>When the gen_server process exits, an exit signal with the same
+          reason is sent to linked processes and ports.</p>
       </desc>
     </func>
   </funcs>
