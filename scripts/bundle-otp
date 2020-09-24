@@ -5,10 +5,14 @@ set -e
 GIT_TAG="$1"
 ERL_TOP=${ERL_TOP:-$PWD}
 
-OTP_META_FILE=$ERL_TOP/${GIT_TAG}.0-bundle.txt
-OTP_FILE=$ERL_TOP/${GIT_TAG}.0-bundle.tar.gz
+OTP_META_FILE=$ERL_TOP/artifacts/${GIT_TAG}.0-bundle.txt
+OTP_FILE=$ERL_TOP/artifacts/${GIT_TAG}.0-bundle.tar.gz
 
 REPOSITORIES="otp,$GIT_TAG corba,.*"
+
+if [ ! -d $ERL_TOP/artifacts ]; then
+    mkdir $ERL_TOP/artifacts
+fi
 
 mkdir bundle
 
