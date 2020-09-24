@@ -1620,13 +1620,18 @@ write_agent_snmp_files(
 write_agent_snmp_files(
   Dir, Vsns, TransportDomain, ManagerAddr, AgentPreTransports, SysName,
   NotifType, SecType, Passwd, EngineID, MMS) when is_list(AgentPreTransports) ->
-    F = fun({Addr, Kind}) when is_tuple(Addr) andalso
-                               is_atom(Kind) ->
+    F = fun(#{addr := Addr, kind := Kind, opts := Opts})
+              when is_tuple(Addr) andalso
+                   is_atom(Kind) andalso
+                   is_list(Opts) ->
+                {TransportDomain, Addr, Kind, Opts};
+           (#{addr := Addr, kind := Kind})
+              when is_tuple(Addr) andalso
+                   is_atom(Kind) ->
                 {TransportDomain, Addr, Kind, []};
-           ({Addr, Kind, Opts}) when is_tuple(Addr) andalso
-                                     is_atom(Kind) andalso
-                                     is_list(Opts) ->
-                {TransportDomain, Addr, Kind, Opts}
+           (#{addr := Addr})
+              when is_tuple(Addr) ->
+                {TransportDomain, Addr}
         end,
     AgentTransports = lists:map(F, AgentPreTransports),
     write_agent_snmp_conf(Dir, AgentTransports, EngineID, MMS),
