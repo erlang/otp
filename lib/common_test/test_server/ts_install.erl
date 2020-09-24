@@ -410,14 +410,14 @@ bind_type() ->
     end.
 
 jit() ->
-    case erlang:system_info(emu_flavor) of
+    case atom_to_list(erlang:system_info(emu_flavor)) of
         "jit" ++ _ -> "/JIT";
 	_ -> ""
     end.
 
 debug() ->
     case erlang:system_info(emu_type) of
-	"debug" -> "/Debug";
+	debug -> "/Debug";
         _ -> ""
     end.
 
