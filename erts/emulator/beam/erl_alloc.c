@@ -228,7 +228,7 @@ set_default_sl_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_GOODFIT;
     ip->init.util.name_prefix	= "sl_";
     ip->init.util.alloc_no	= ERTS_ALC_A_SHORT_LIVED;
-    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
+    ip->init.util.cp            = ERTS_ALC_A_SHORT_LIVED;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -248,7 +248,7 @@ set_default_std_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.util.name_prefix	= "std_";
     ip->init.util.alloc_no	= ERTS_ALC_A_STANDARD;
-    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
+    ip->init.util.cp            = ERTS_ALC_A_STANDARD;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -271,7 +271,7 @@ set_default_ll_alloc_opts(struct au_init *ip)
     ip->init.util.sbct		= ~((UWord) 0);
     ip->init.util.name_prefix	= "ll_";
     ip->init.util.alloc_no	= ERTS_ALC_A_LONG_LIVED;
-    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
+    ip->init.util.cp            = ERTS_ALC_A_LONG_LIVED;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 2*1024*1024; /* Main carrier size */
 #else
@@ -395,7 +395,7 @@ set_default_eheap_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_GOODFIT;
     ip->init.util.name_prefix	= "eheap_";
     ip->init.util.alloc_no	= ERTS_ALC_A_EHEAP;
-    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
+    ip->init.util.cp            = ERTS_ALC_A_EHEAP;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 512*1024; /* Main carrier size */
 #else
@@ -415,7 +415,7 @@ set_default_binary_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.util.name_prefix	= "binary_";
     ip->init.util.alloc_no	= ERTS_ALC_A_BINARY;
-    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
+    ip->init.util.cp            = ERTS_ALC_A_BINARY;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -435,7 +435,7 @@ set_default_ets_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.util.name_prefix	= "ets_";
     ip->init.util.alloc_no	= ERTS_ALC_A_ETS;
-    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
+    ip->init.util.cp            = ERTS_ALC_A_ETS;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -454,7 +454,7 @@ set_default_driver_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.util.name_prefix	= "driver_";
     ip->init.util.alloc_no	= ERTS_ALC_A_DRIVER;
-    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
+    ip->init.util.cp            = ERTS_ALC_A_DRIVER;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -477,7 +477,7 @@ set_default_fix_alloc_opts(struct au_init *ip,
     ip->init.util.name_prefix	= "fix_";
     ip->init.util.fix_type_size	= fix_type_sizes;
     ip->init.util.alloc_no	= ERTS_ALC_A_FIXED_SIZE;
-    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
+    ip->init.util.cp            = ERTS_ALC_A_FIXED_SIZE;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
