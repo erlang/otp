@@ -47,7 +47,8 @@
 	 write_agent_snmp_usm_conf/5, 
 	 write_agent_snmp_vacm_conf/3, 
 
-	 write_manager_snmp_files/5, write_manager_snmp_files/8,
+	 write_manager_snmp_files/4, write_manager_snmp_files/5,
+         write_manager_snmp_files/7, write_manager_snmp_files/8,
 	 write_manager_snmp_conf/4, write_manager_snmp_conf/5,
 	 write_manager_snmp_users_conf/2,
 	 write_manager_snmp_agents_conf/2, 
@@ -2127,9 +2128,21 @@ update_agent_vacm_config(Dir, Conf) ->
 %% ----- Manager config files generator functions -----
 %% 
 
+write_manager_snmp_files(Dir, Transports, MMS, EngineID) ->
+    write_manager_snmp_files(Dir, Transports, MMS, EngineID, 
+                             [], [], []).
+
 write_manager_snmp_files(Dir, IP, Port, MMS, EngineID) ->
     write_manager_snmp_files(Dir, IP, Port, MMS, EngineID, 
                              [], [], []).
+
+write_manager_snmp_files(Dir, Transports, MMS, EngineID, 
+			 Users, Agents, Usms) ->
+    write_manager_snmp_conf(Dir, Transports, MMS, EngineID),
+    write_manager_snmp_users_conf(Dir, Users),
+    write_manager_snmp_agents_conf(Dir, Agents),
+    write_manager_snmp_usm_conf(Dir, Usms),  
+    ok.
 
 write_manager_snmp_files(Dir, IP, Port, MMS, EngineID, 
 			 Users, Agents, Usms) ->
