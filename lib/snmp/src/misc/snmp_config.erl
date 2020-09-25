@@ -1617,6 +1617,50 @@ write_agent_snmp_files(
 %% ----- Agent config files generator functions -----
 %% 
 
+%% This function has no documentation, so for "possible" users
+%% (other then our test suite), we have this spec...
+
+-type agent_pre_transport() :: #{addr := tuple(),
+                                 kind := req_responder | trap_sender,
+                                 opts := list()} |
+                               #{addr := tuple(),
+                                 kind := req_responder | trap_sender} |
+                               #{addr := tuple()}.
+
+-spec write_agent_snmp_files(Dir, Vsns,
+                             TransportDomain, ManagerAddr, AgentPreTransports,
+                             SysName,
+                             NotifyType, SecType, Passwd, EngineID, MMS) ->
+          ok when
+      Dir                :: file:filename(),
+      Vsns               :: [snmp:version()],
+      TransportDomain    :: snmp:tdomain(),
+      ManagerAddr        :: {inet:ip_address(), inet:port_number()},
+      AgentPreTransports :: [agent_pre_transport()],
+      SysName            :: string(),
+      NotifyType         :: trap | inform,
+      SecType            :: none | minimum | {semi, des | aes},
+      Passwd             :: list(),
+      EngineID           :: snmp:engine_id(),
+      MMS                :: snmp:mms();
+
+                            (Dir, Vsns,
+                             TransportDomain, ManagerAddr, AgentAddr,
+                             SysName,
+                             NotifyType, SecType, Passwd, EngineID, MMS) ->
+          ok when
+      Dir                :: file:filename(),
+      Vsns               :: [snmp:version()],
+      TransportDomain    :: snmp:tdomain(),
+      ManagerAddr        :: {inet:ip_address(), inet:port_number()},
+      AgentAddr          :: {inet:ip_address(), inet:port_number()},
+      SysName            :: string(),
+      NotifyType         :: trap | inform,
+      SecType            :: none | minimum | {semi, des | aes},
+      Passwd             :: list(),
+      EngineID           :: snmp:engine_id(),
+      MMS                :: snmp:mms().
+
 write_agent_snmp_files(
   Dir, Vsns, TransportDomain, ManagerAddr, AgentPreTransports, SysName,
   NotifType, SecType, Passwd, EngineID, MMS) when is_list(AgentPreTransports) ->
