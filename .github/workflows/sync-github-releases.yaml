@@ -23,6 +23,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   sync-releases:
+    needs: pre-ci
     if: github.repository == 'erlang/otp'
     runs-on: ubuntu-latest
     steps:
