@@ -1052,7 +1052,7 @@ static unsigned int next_array_size(unsigned int need)
 	1342177280UL,
 	2684354560UL
     };
-    int hi = sizeof(tab) / sizeof(Uint) - 1;
+    int hi = sizeof(tab) / sizeof(tab[0]) - 1;
     int lo = 1;
     int cur = 4;
 
