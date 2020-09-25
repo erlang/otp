@@ -52,7 +52,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(
     emit_is_boxed(labels[Fail.getValue()], ARG2);
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-    a.mov(ARG2d, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(ARG2d, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
     a.test(ARG2.r8(), imm(_TAG_HEADER_MASK));
     a.jne(labels[Fail.getValue()]);

@@ -724,7 +724,7 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgVal &Src,
     }
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG2);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
     a.and_(RETb, imm(_HEADER_SUBTAG_MASK));
     a.cmp(RETb, imm(BIN_MATCHSTATE_SUBTAG));

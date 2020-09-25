@@ -120,6 +120,27 @@ public:
     ArgVal operator*(T val) const {
         return ArgVal(gen_op.type, val * gen_op.val);
     }
+
+    enum Relation {
+        none,
+        consecutive,
+        reverse_consecutive
+    };
+
+    static Relation register_relation(const ArgVal &arg1, const ArgVal &arg2) {
+        TYPE type = arg1.getType();
+        bool same_reg_types = type == arg2.getType() &&
+            (type == TYPE::x || type == TYPE::y);
+        if (!same_reg_types) {
+            return none;
+        } else if (arg1.getValue() + 1 == arg2.getValue()) {
+            return consecutive;
+        } else if (arg1.getValue() == arg2.getValue() + 1) {
+            return reverse_consecutive;
+        } else {
+            return none;
+        }
+    };
 };
 
 using namespace asmjit;
@@ -406,38 +427,38 @@ protected:
         return x86::Mem(registers, offset - x_reg_offset, size);
     }
 
-    constexpr x86::Mem getFRef(int index) const {
+    constexpr x86::Mem getFRef(int index, size_t size = sizeof(UWord)) const {
         int base = offsetof(ErtsSchedulerRegisters, f_reg_array.d);
         int offset = index * sizeof(FloatDef);
 
         ASSERT(index >= 0 && index <= 1023);
-        return getSchedulerRegRef(base + offset);
+        return getSchedulerRegRef(base + offset, size);
     }
 
-    constexpr x86::Mem getXRef(int index) const {
+    constexpr x86::Mem getXRef(int index, size_t size = sizeof(UWord)) const {
         int base = offsetof(ErtsSchedulerRegisters, x_reg_array.d);
         int offset = index * sizeof(Eterm);
 
         ASSERT(index >= 0 && index < ERTS_X_REGS_ALLOCATED);
-        return getSchedulerRegRef(base + offset);
+        return getSchedulerRegRef(base + offset, size);
     }
 
-    constexpr x86::Mem getYRef(int index) const {
+    constexpr x86::Mem getYRef(int index, size_t size = sizeof(UWord)) const {
         ASSERT(index >= 0 && index <= 1023);
 
 #ifdef NATIVE_ERLANG_STACK
-        return x86::qword_ptr(E, index * sizeof(Eterm));
+        return x86::Mem(E, index * sizeof(Eterm), size);
 #else
-        return x86::qword_ptr(E, (index + CP_SIZE) * sizeof(Eterm));
+        return x86::Mem(E, (index + CP_SIZE) * sizeof(Eterm), size);
 #endif
     }
 
-    constexpr x86::Mem getCARRef(x86::Gp Src) const {
-        return x86::qword_ptr(Src, -TAG_PRIMARY_LIST);
+    constexpr x86::Mem getCARRef(x86::Gp Src, size_t size = sizeof(UWord)) const {
+        return x86::Mem(Src, -TAG_PRIMARY_LIST, size);
     }
 
-    constexpr x86::Mem getCDRRef(x86::Gp Src) const {
-        return x86::qword_ptr(Src, -TAG_PRIMARY_LIST + sizeof(Eterm));
+    constexpr x86::Mem getCDRRef(x86::Gp Src, size_t size = sizeof(UWord)) const {
+        return x86::Mem(Src, -TAG_PRIMARY_LIST + sizeof(Eterm), size);
     }
 
     void load_x_reg_array(x86::Gp reg) {
@@ -656,14 +677,15 @@ protected:
         a.jmp(ARG6);
     }
 
-    constexpr x86::Mem getArgRef(const ArgVal &val) const {
+    constexpr x86::Mem getArgRef(const ArgVal &val,
+                                 size_t size = sizeof(UWord)) const {
         switch (val.getType()) {
         case ArgVal::TYPE::l:
-            return getFRef(val.getValue());
+            return getFRef(val.getValue(), size);
         case ArgVal::TYPE::x:
-            return getXRef(val.getValue());
+            return getXRef(val.getValue(), size);
         case ArgVal::TYPE::y:
-            return getYRef(val.getValue());
+            return getYRef(val.getValue(), size);
         default:
             ERTS_ASSERT(!"NYI");
             return x86::Mem();
@@ -868,10 +890,10 @@ protected:
 #endif
     }
 
-    template<typename FieldType = UWord>
-    constexpr x86::Mem emit_boxed_val(x86::Gp Src, int32_t bytes = 0) const {
+    constexpr x86::Mem emit_boxed_val(x86::Gp Src, int32_t bytes = 0,
+                                      size_t size = sizeof(UWord)) const {
         ASSERT(bytes % sizeof(Eterm) == 0);
-        return x86::Mem(Src, bytes - TAG_PRIMARY_BOXED, sizeof(FieldType));
+        return x86::Mem(Src, bytes - TAG_PRIMARY_BOXED, size);
     }
 
     void emit_test_the_non_value(x86::Gp Reg) {
@@ -1182,6 +1204,10 @@ private:
     x86::Gp emit_apply_fun(void);
 
     void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
+
+    void emit_get_list(const x86::Gp boxed_ptr,
+                       const ArgVal &Hd,
+                       const ArgVal &Tl);
 
     void emit_div_rem(const ArgVal &Fail,
                       const ArgVal &LHS,

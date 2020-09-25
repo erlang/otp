@@ -617,18 +617,47 @@ void BeamModuleAssembler::emit_i_make_fun(const ArgVal &Fun,
     a.mov(getXRef(0), RET);
 }
 
+void BeamModuleAssembler::emit_get_list(const x86::Gp src,
+                                        const ArgVal &Hd,
+                                        const ArgVal &Tl) {
+    x86::Gp boxed_ptr = emit_ptr_val(src, src);
+
+    switch (ArgVal::register_relation(Hd, Tl)) {
+    case ArgVal::Relation::consecutive: {
+        comment("(moving head and tail together)");
+        x86::Mem dst_ptr = getArgRef(Hd, 16);
+        x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
+        a.movups(x86::xmm0, src_ptr);
+        a.movups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        if (! hasCpuFeature(x86::Features::kAVX)) {
+            goto fallback;
+        }
+
+        comment("(moving and swapping head and tail together)");
+        x86::Mem dst_ptr = getArgRef(Tl, 16);
+        x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
+        a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+        a.vmovups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::none:
+        fallback:
+        a.mov(ARG2, getCARRef(boxed_ptr));
+        a.mov(ARG3, getCDRRef(boxed_ptr));
+        mov_arg(Hd, ARG2);
+        mov_arg(Tl, ARG3);
+        break;
+    }
+}
+
 void BeamModuleAssembler::emit_get_list(const ArgVal &Src,
                                         const ArgVal &Hd,
                                         const ArgVal &Tl) {
     mov_arg(ARG1, Src);
-
-    x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-
-    a.mov(ARG2, getCARRef(boxed_ptr));
-    a.mov(ARG3, getCDRRef(boxed_ptr));
-
-    mov_arg(Hd, ARG2);
-    mov_arg(Tl, ARG3);
+    emit_get_list(ARG1, Hd, Tl);
 }
 
 void BeamModuleAssembler::emit_get_hd(const ArgVal &Src, const ArgVal &Hd) {
@@ -658,14 +687,7 @@ void BeamModuleAssembler::emit_is_nonempty_list_get_list(const ArgVal &Fail,
     mov_arg(RET, Src);
     a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
     a.jne(labels[Fail.getValue()]);
-
-    x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-
-    a.mov(ARG2, getCARRef(boxed_ptr));
-    a.mov(ARG3, getCDRRef(boxed_ptr));
-
-    mov_arg(Hd, ARG2);
-    mov_arg(Tl, ARG3);
+    emit_get_list(RET, Hd, Tl);
 }
 
 void BeamModuleAssembler::emit_is_nonempty_list_get_hd(const ArgVal &Fail,
@@ -767,18 +789,39 @@ void BeamModuleAssembler::emit_i_get_tuple_element(const ArgVal &Src,
  * the boxed pointer in ARG2. */
 void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgVal &Src,
                                                       const ArgVal &Element,
-                                                      const ArgVal &Dst) {
+                                                      const ArgVal &Dst1,
+                                                      const ArgVal &Dst2) {
 #ifdef DEBUG
     emit_tuple_assertion(Src, ARG2);
 #endif
 
-    x86::Mem dst_ptr = getArgRef(Dst);
-    x86::Mem element_ptr = emit_boxed_val(ARG2, Element.getValue());
+    x86::Mem element_ptr = emit_boxed_val(ARG2, Element.getValue(), 2*sizeof(Eterm));
 
-    dst_ptr.setSize(16);
-    element_ptr.setSize(16);
-    a.movups(x86::xmm0, element_ptr);
-    a.movups(dst_ptr, x86::xmm0);
+    switch (ArgVal::register_relation(Dst1, Dst2)) {
+    case ArgVal::Relation::consecutive: {
+        x86::Mem dst_ptr = getArgRef(Dst1, 16);
+        a.movups(x86::xmm0, element_ptr);
+        a.movups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        if (! hasCpuFeature(x86::Features::kAVX)) {
+            goto fallback;
+        } else {
+            x86::Mem dst_ptr = getArgRef(Dst2, 16);
+            a.vpermilpd(x86::xmm0, element_ptr, 1); /* Load and swap */
+            a.vmovups(dst_ptr, x86::xmm0);
+            break;
+        }
+    }
+    case ArgVal::Relation::none:
+        fallback:
+        a.mov(ARG1, emit_boxed_val(ARG2, Element.getValue()));
+        a.mov(ARG3, emit_boxed_val(ARG2, (Element+sizeof(Eterm)).getValue()));
+        mov_arg(Dst1, ARG1);
+        mov_arg(Dst2, ARG3);
+        break;
+    }
 }
 
 void BeamModuleAssembler::emit_init(const ArgVal &Y) {
@@ -794,27 +837,76 @@ void BeamModuleAssembler::emit_i_trim(const ArgVal &Words) {
     }
 }
 
-void BeamModuleAssembler::emit_move(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_move(const ArgVal &Src, const ArgVal &Dst) {
     mov_arg(Dst, Src);
 }
 
-/* Move two words at consecutive addresses to consecutive destinations. */
-void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src,
-                                              const ArgVal &Dst) {
-    x86::Mem dst_ptr = getArgRef(Dst);
-    x86::Mem src_ptr = getArgRef(Src);
+/* Move two words at consecutive addresses to consecutive or reverse
+ * consecutive destinations. */
+void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src1,
+                                              const ArgVal &Dst1,
+                                              const ArgVal &Src2,
+                                              const ArgVal &Dst2) {
+    x86::Mem src_ptr = getArgRef(Src1, 16);
 
-    dst_ptr.setSize(16);
-    src_ptr.setSize(16);
-    a.movups(x86::xmm0, src_ptr);
-    a.movups(dst_ptr, x86::xmm0);
+    ASSERT(ArgVal::register_relation(Src1, Src2) == ArgVal::Relation::consecutive);
+
+    switch (ArgVal::register_relation(Dst1, Dst2)) {
+    case ArgVal::Relation::consecutive: {
+        x86::Mem dst_ptr = getArgRef(Dst1, 16);
+        a.movups(x86::xmm0, src_ptr);
+        a.movups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        x86::Mem dst_ptr = getArgRef(Dst2, 16);
+        comment("(moving and swapping)");
+        if (hasCpuFeature(x86::Features::kAVX)) {
+            a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+            a.vmovups(dst_ptr, x86::xmm0);
+        } else {
+            mov_arg(ARG1, Src1);
+            mov_arg(ARG2, Src2);
+            mov_arg(Dst1, ARG1);
+            mov_arg(Dst2, ARG2);
+        }
+        break;
+    }
+    case ArgVal::Relation::none:
+        ASSERT(0);
+        break;
+    }
+
 }
 
 void BeamModuleAssembler::emit_swap(const ArgVal &R1, const ArgVal &R2) {
-    mov_arg(ARG1, R1);
-    mov_arg(ARG2, R2);
-    mov_arg(R2, ARG1);
-    mov_arg(R1, ARG2);
+    if (! hasCpuFeature(x86::Features::kAVX)) {
+        goto fallback;
+    }
+
+    switch (ArgVal::register_relation(R1, R2)) {
+    case ArgVal::Relation::consecutive: {
+        x86::Mem ptr = getArgRef(R1, 16);
+        comment("(swapping using AVX)");
+        a.vpermilpd(x86::xmm0, ptr, 1); /* Load and swap */
+        a.vmovups(ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        x86::Mem ptr = getArgRef(R2, 16);
+        comment("(swapping using AVX)");
+        a.vpermilpd(x86::xmm0, ptr, 1); /* Load and swap */
+        a.vmovups(ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::none:
+        fallback:
+        mov_arg(ARG1, R1);
+        mov_arg(ARG2, R2);
+        mov_arg(R2, ARG1);
+        mov_arg(R1, ARG2);
+        break;
+    }
 }
 
 void BeamModuleAssembler::emit_node(const ArgVal &Dst) {
@@ -825,8 +917,33 @@ void BeamModuleAssembler::emit_node(const ArgVal &Dst) {
 }
 
 void BeamModuleAssembler::emit_put_cons(const ArgVal &Hd, const ArgVal &Tl) {
-    mov_arg(x86::qword_ptr(HTOP, 0), Hd);
-    mov_arg(x86::qword_ptr(HTOP, 1 * sizeof(Eterm)), Tl);
+    switch (ArgVal::register_relation(Hd, Tl)) {
+    case ArgVal::Relation::consecutive: {
+        x86::Mem src_ptr = getArgRef(Hd, 16);
+        x86::Mem dst_ptr = x86::xmmword_ptr(HTOP, 0);
+        comment("(put head and tail together)");
+        a.movups(x86::xmm0, src_ptr);
+        a.movups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::reverse_consecutive: {
+        if (! hasCpuFeature(x86::Features::kAVX)) {
+            goto fallback;
+        }
+
+        x86::Mem src_ptr = getArgRef(Tl, 16);
+        x86::Mem dst_ptr = x86::xmmword_ptr(HTOP, 0);
+        comment("(putting and swapping head and tail together)");
+        a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+        a.vmovups(dst_ptr, x86::xmm0);
+        break;
+    }
+    case ArgVal::Relation::none:
+        fallback:
+        mov_arg(x86::qword_ptr(HTOP, 0), Hd);
+        mov_arg(x86::qword_ptr(HTOP, 1 * sizeof(Eterm)), Tl);
+        break;
+    }
     a.lea(ARG2, x86::qword_ptr(HTOP, TAG_PRIMARY_LIST));
 }
 
@@ -855,24 +972,40 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
 
     comment("Move tuple data");
     for (unsigned i = 0; i < size; i++) {
-        ArgVal::TYPE type = args[i].getType();
-        bool consecutive = i + 1 < size && type == args[i + 1].getType() &&
-                           (type == ArgVal::x || type == ArgVal::y) &&
-                           args[i].getValue() + 1 == args[i + 1].getValue();
         x86::Mem dst_ptr = x86::qword_ptr(HTOP, (i + 1) * sizeof(Eterm));
 
-        if (!consecutive) {
+        if (i + 1 == size) {
             mov_arg(dst_ptr, args[i]);
         } else {
-            x86::Mem src_ptr = getArgRef(args[i]);
+            switch (ArgVal::register_relation(args[i], args[i+1])) {
+            case ArgVal::consecutive: {
+                x86::Mem src_ptr = getArgRef(args[i], 16);
 
-            comment("(moving two data items at once)");
-            dst_ptr.setSize(16);
-            src_ptr.setSize(16);
-            a.movups(x86::xmm0, src_ptr);
-            a.movups(dst_ptr, x86::xmm0);
+                comment("(moving two elements at once)");
+                dst_ptr.setSize(16);
+                a.movups(x86::xmm0, src_ptr);
+                a.movups(dst_ptr, x86::xmm0);
+                i++;
+                break;
+            }
+            case ArgVal::reverse_consecutive: {
+                if (! hasCpuFeature(x86::Features::kAVX)) {
+                    mov_arg(dst_ptr, args[i]);
+                } else {
+                    x86::Mem src_ptr = getArgRef(args[i+1], 16);
 
-            i++;
+                    comment("(moving and swapping two elements at once)");
+                    dst_ptr.setSize(16);
+                    a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+                    a.vmovups(dst_ptr, x86::xmm0);
+                    i++;
+                }
+                break;
+            }
+            case ArgVal::none:
+                mov_arg(dst_ptr, args[i]);
+                break;
+            }
         }
     }
 
@@ -900,7 +1033,9 @@ void BeamModuleAssembler::emit_set_tuple_element(const ArgVal &Element,
 
 void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail,
                                                 const ArgVal &Src) {
-    a.test(getArgRef(Src), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
+    x86::Mem list_ptr = getArgRef(Src, 1);
+
+    a.test(list_ptr, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
     a.jne(labels[Fail.getValue()]);
 }
 
@@ -939,7 +1074,7 @@ void BeamModuleAssembler::emit_is_binary(Label fail,
     emit_is_boxed(fail, src);
 
     x86::Gp boxed_ptr = emit_ptr_val(src, src);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.cmp(RETb, imm(_TAG_HEADER_SUB_BIN));
@@ -963,7 +1098,7 @@ void BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
     {
         /* emit_is_binary has already removed the literal tag from Src, if
          * applicable. */
-        a.cmp(emit_boxed_val<byte>(ARG1, offsetof(ErlSubBin, bitsize)), imm(0));
+        a.cmp(emit_boxed_val(ARG1, offsetof(ErlSubBin, bitsize), sizeof(byte)), imm(0));
         a.jne(labels[Fail.getValue()]);
     }
 
@@ -1000,7 +1135,7 @@ void BeamModuleAssembler::emit_is_function(const ArgVal &Fail,
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.cmp(RET, imm(HEADER_FUN));
     a.short_().je(next);
     ERTS_CT_ASSERT(HEADER_EXPORT < 256);
@@ -1046,7 +1181,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
     emit_is_boxed(labels[Fail.getValue()], ARG1);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.cmp(RETd, imm(HEADER_FUN));
     a.short_().je(fun);
     ERTS_CT_ASSERT(HEADER_EXPORT < 256);
@@ -1085,7 +1220,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,
     emit_is_boxed(fail, RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
     a.and_(RETb, imm(_TAG_HEADER_MASK - _BIG_SIGN_BIT));
     a.cmp(RETb, imm(_TAG_HEADER_POS_BIG));
@@ -1112,7 +1247,7 @@ void BeamModuleAssembler::emit_is_map(const ArgVal &Fail, const ArgVal &Src) {
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.cmp(RETb, imm(_TAG_HEADER_MAP));
     a.jne(labels[Fail.getValue()]);
@@ -1165,7 +1300,7 @@ void BeamModuleAssembler::emit_is_pid(const ArgVal &Fail, const ArgVal &Src) {
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.and_(RETb, _TAG_HEADER_MASK);
     a.cmp(RETb, _TAG_HEADER_EXTERNAL_PID);
     a.jne(labels[Fail.getValue()]);
@@ -1185,7 +1320,7 @@ void BeamModuleAssembler::emit_is_port(const ArgVal &Fail, const ArgVal &Src) {
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.cmp(RETb, imm(_TAG_HEADER_EXTERNAL_PORT));
     a.jne(labels[Fail.getValue()]);
@@ -1201,7 +1336,7 @@ void BeamModuleAssembler::emit_is_reference(const ArgVal &Fail,
     emit_is_boxed(labels[Fail.getValue()], RET);
 
     x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-    a.mov(RETd, emit_boxed_val<Uint32>(boxed_ptr));
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.cmp(RETb, imm(_TAG_HEADER_REF));
     a.short_().je(next);
@@ -1222,7 +1357,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgVal &Fail,
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-    a.cmp(emit_boxed_val<Uint32>(boxed_ptr), imm(Arity.getValue()));
+    a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)), imm(Arity.getValue()));
     a.jne(labels[Fail.getValue()]);
 
     a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), imm(Tag.getValue()));
@@ -1261,7 +1396,7 @@ void BeamModuleAssembler::emit_i_is_tuple(const ArgVal &Fail,
 
     (void)emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
-    a.test(emit_boxed_val<char>(ARG2), imm(_TAG_HEADER_MASK));
+    a.test(emit_boxed_val(ARG2, 0, sizeof(byte)), imm(_TAG_HEADER_MASK));
 
     a.jne(labels[Fail.getValue()]);
 }
@@ -1276,7 +1411,7 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgVal &Fail,
 
     (void)emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-    a.cmp(emit_boxed_val<Uint32>(ARG2), imm(Arity.getValue()));
+    a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.getValue()));
     a.jne(labels[Fail.getValue()]);
 }
 
@@ -1288,7 +1423,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgVal &Fail,
 
     (void)emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-    a.cmp(emit_boxed_val<Uint32>(ARG2), imm(Arity.getValue()));
+    a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.getValue()));
     a.jne(labels[Fail.getValue()]);
 }
 

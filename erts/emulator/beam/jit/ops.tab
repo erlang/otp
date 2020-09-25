@@ -265,7 +265,10 @@ load_tuple_ptr s
 # two words at once.
 i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple | \
    get_tuple_element Tuple Pos2 Dst2 | consecutive_words(Pos1, Dst1, Pos2, Dst2) => \
-      get_two_tuple_elements Tuple Pos1 Dst1 | current_tuple Tuple Dst2
+      get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
+i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple | \
+   get_tuple_element Tuple Pos2 Dst2 | consecutive_words(Pos1, Dst2, Pos2, Dst1) => \
+      get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
 
 # Drop the current_tuple instruction if the tuple is overwritten.
 current_tuple Tuple Tuple =>
@@ -275,7 +278,7 @@ current_tuple Tuple Dst => current_tuple Tuple
 # system to verify that the register holding the tuple pointer agrees
 # with the source tuple operand.
 i_get_tuple_element s P S
-get_two_tuple_elements s P S
+get_two_tuple_elements s P S S
 
 #
 # Expection rasing instructions. Infrequently executed.
@@ -306,16 +309,28 @@ system_limit_body
 # Optimize moves of consecutive memory addresses.
 #
 
-move S1=d D1=d | move S2=d D2=d | consecutive_words(S1, D1, S2, D2) => move_two_words S1 D1
-move_two_words s d
+move Src=c Dst => i_move Src Dst
+
+move Src SrcDst | move SrcDst Dst => i_move Src SrcDst | move SrcDst Dst
+
+# Try to move two words at once. Always arrange the source operands in
+# consecutive order; the destination operands may be in consecutive or
+# reverse consecutive order.
+
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S1, D1, S2, D2) => move_two_words S1 D1 S2 D2
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S1, D2, S2, D1) => move_two_words S1 D1 S2 D2
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S2, D1, S1, D2) => move_two_words S2 D2 S1 D1
+move S1=d D1=d | move S2=d D2=d | consecutive_words(S2, D2, S1, D1) => move_two_words S2 D2 S1 D1
+
+move Src Dst => i_move Src Dst
 
 #
 # Move instructions.
 #
 
 swap d d
-move s d
-
+i_move s d
+move_two_words s d s d
 
 #
 # Receive operations. We conservatively align all labels before any
