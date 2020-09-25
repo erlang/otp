@@ -35,7 +35,7 @@
 
 -deprecated({flatlength, 1, "use erlang:iolist_size/1 instead"}).
 -deprecated({hexlist_to_integer, 1, "use erlang:list_to_integer/2 with base 16 instead"}).
--deprecated({integer_to_hexlist, 1, "use erlang:integer_to_hexlist/2 with base 16 instead"}).
+-deprecated({integer_to_hexlist, 1, "use erlang:integer_to_list/2 with base 16 instead"}).
 -deprecated({strip, 1, "use string:trim/1 instead"}).
 -deprecated({suffix, 1, "use filename:extension/1 and string:trim/2 instead"}).
 
