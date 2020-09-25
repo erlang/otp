@@ -366,13 +366,25 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_CLOSE),  ?UINT32(Recipient)>>) ->
        recipient_channel = Recipient
       };
 decode(<<?BYTE(?SSH_MSG_CHANNEL_REQUEST), ?UINT32(Recipient),
-	 ?DEC_BIN(RequestType,__0), ?BYTE(Bool), Data/binary>>) ->
-    #ssh_msg_channel_request{
-       recipient_channel = Recipient,
-       request_type = ?unicode_list(RequestType),
-       want_reply = erl_boolean(Bool),
-       data  = Data
-      };
+	 ?DEC_BIN(RequestType,__0), ?BYTE(Bool), Data/binary>>=Bytes) ->
+    try
+        #ssh_msg_channel_request{
+           recipient_channel = Recipient,
+           request_type = ?unicode_list(RequestType),
+           want_reply = erl_boolean(Bool),
+           data  = Data
+          }
+    catch _:_ ->
+            %% Faulty, RFC4254 says:
+            %% "If the request is not recognized or is not
+            %% supported for the channel, SSH_MSG_CHANNEL_FAILURE is returned."
+            %% So we provoke such a message to be sent
+            #ssh_msg_channel_request{
+               recipient_channel = Recipient,
+               request_type = faulty_msg,
+               data = Bytes
+              }
+    end;
 decode(<<?BYTE(?SSH_MSG_CHANNEL_SUCCESS),  ?UINT32(Recipient)>>) ->
     #ssh_msg_channel_success{
        recipient_channel = Recipient
