@@ -1356,6 +1356,9 @@ bs_append Fail Size Extra Live Unit Bin Flags Dst => \
 bs_private_append Fail Size Unit Bin Flags Dst => \
   i_bs_private_append Fail Unit Size Bin Dst
 
+i_bs_private_append Fail Unit Size Bin Dst=y => \
+  i_bs_private_append Fail Unit Size Bin x | move x Dst
+
 bs_init_writable
 
 i_bs_append j? I t? t s xy
