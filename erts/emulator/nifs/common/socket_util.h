@@ -212,8 +212,6 @@ BOOLEAN_T esock_extract_int_from_map(ErlNifEnv*   env,
 extern
 BOOLEAN_T esock_decode_bool(ERL_NIF_TERM eVal, BOOLEAN_T* val);
 extern
-BOOLEAN_T esock_decode_bool_val(ERL_NIF_TERM eVal, int *error);
-extern
 ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val);
 
 extern

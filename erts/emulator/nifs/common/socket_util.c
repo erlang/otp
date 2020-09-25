@@ -1660,24 +1660,6 @@ BOOLEAN_T esock_decode_bool(ERL_NIF_TERM eVal, BOOLEAN_T* val)
 }
 
 
-/* *** esock_decode_bool_val ***
- *
- * Decode a boolean value.
- *
- */
-extern
-BOOLEAN_T esock_decode_bool_val(ERL_NIF_TERM eVal, int *error)
-{
-    if (COMPARE(esock_atom_true, eVal) == 0)
-        return FALSE;
-    else if (COMPARE(esock_atom_false, eVal) == 0)
-        return TRUE;
-
-    *error = EINVAL;
-    return FALSE;
-}
-
-
 /* *** esock_encode_bool ***
  *
  * Encode a boolean value.

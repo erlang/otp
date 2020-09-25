@@ -1446,6 +1446,10 @@ static ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
                                              int              level,
                                              int              opt,
                                              ERL_NIF_TERM     eVal);
+static int esock_setopt_sctp_event(ErlNifEnv   *env,
+                                   ERL_NIF_TERM eVal,
+                                   ERL_NIF_TERM eKey,
+                                   BOOLEAN_T   *failure);
 #endif
 #if defined(SCTP_INITMSG)
 static ERL_NIF_TERM esock_setopt_sctp_initmsg(ErlNifEnv*       env,
@@ -9108,22 +9112,13 @@ ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
                                       int              opt,
                                       ERL_NIF_TERM     eVal)
 {
-    ERL_NIF_TERM                eDataIo, eAssoc, eAddr, eSndFailure;
-    ERL_NIF_TERM                ePeerError, eShutdown, ePartialDelivery;
-    ERL_NIF_TERM                eAdaptLayer;
-#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT)
-    ERL_NIF_TERM                eAuth;
-#endif
-#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
-    ERL_NIF_TERM                eSndDry;
-#endif
-    struct sctp_event_subscribe events;
-    int                         error;
+    struct    sctp_event_subscribe events;
+    BOOLEAN_T error;
 
     SSDBG( descP,
-           ("SOCKET", "esock_setopt_sctp_events -> entry with"
+           ("SOCKET", "esock_setopt_sctp_events {%d} -> entry with"
             "\r\n   eVal: %T"
-            "\r\n", eVal) );
+            "\r\n", descP->sock, eVal) );
 
     // It must be a map
     if (! IS_MAP(env, eVal))
@@ -9131,70 +9126,80 @@ ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET",
-            "esock_setopt_sctp_events -> extract attributes\r\n") );
+            "esock_setopt_sctp_events {%d} -> decode attributes\r\n",
+            descP->sock) );
 
-    if ((! GET_MAP_VAL(env, eVal, atom_data_io,          &eDataIo)) ||
-        (! GET_MAP_VAL(env, eVal, atom_association,      &eAssoc)) ||
-        (! GET_MAP_VAL(env, eVal, atom_address,          &eAddr)) ||
-        (! GET_MAP_VAL(env, eVal, atom_send_failure,     &eSndFailure)) ||
-        (! GET_MAP_VAL(env, eVal, atom_peer_error,       &ePeerError)) ||
-        (! GET_MAP_VAL(env, eVal, atom_shutdown,         &eShutdown)) ||
-        (! GET_MAP_VAL(env, eVal, atom_partial_delivery, &ePartialDelivery)) ||
-        (! GET_MAP_VAL(env, eVal, atom_adaptation_layer, &eAdaptLayer)))
-        goto invalid;
+    error = FALSE;
 
-#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT)
-    if (! GET_MAP_VAL(env, eVal, atom_authentication, &eAuth))
-        goto invalid;
-#endif
-
-#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
-    if (! GET_MAP_VAL(env, eVal, atom_sender_dry, &eSndDry))
-        goto invalid;
-#endif
-
-    SSDBG( descP,
-           ("SOCKET",
-            "esock_setopt_sctp_events -> decode attributes\r\n") );
-
-    error = 0;
     events.sctp_data_io_event =
-        esock_decode_bool_val(eDataIo, &error);
+        esock_setopt_sctp_event(env, eVal, atom_data_io, &error);
     events.sctp_association_event =
-        esock_decode_bool_val(eAssoc, &error);
+        esock_setopt_sctp_event(env, eVal, atom_association, &error);
     events.sctp_address_event =
-        esock_decode_bool_val(eAddr, &error);
+        esock_setopt_sctp_event(env, eVal, atom_address, &error);
     events.sctp_send_failure_event =
-        esock_decode_bool_val(eSndFailure, &error);
+        esock_setopt_sctp_event(env, eVal, atom_send_failure, &error);
     events.sctp_peer_error_event =
-        esock_decode_bool_val(ePeerError, &error);
+        esock_setopt_sctp_event(env, eVal, atom_peer_error, &error);
     events.sctp_shutdown_event =
-        esock_decode_bool_val(eShutdown, &error);
+        esock_setopt_sctp_event(env, eVal, atom_shutdown, &error);
     events.sctp_partial_delivery_event =
-        esock_decode_bool_val(ePartialDelivery, &error);
+        esock_setopt_sctp_event(env, eVal, atom_partial_delivery, &error);
     events.sctp_adaptation_layer_event =
-        esock_decode_bool_val(eAdaptLayer, &error);
+        esock_setopt_sctp_event(env, eVal, atom_adaptation_layer, &error);
 
 #if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT)
-    events.sctp_authentication_event = esock_decode_bool_val(eAuth, &error);
+    events.sctp_authentication_event =
+        esock_setopt_sctp_event(env, eVal, atom_authentication, &error);
 #endif
 
 #if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
-    events.sctp_sender_dry_event = esock_decode_bool_val(eSndDry, &error);
+    events.sctp_sender_dry_event =
+        esock_setopt_sctp_event(env, eVal, atom_sender_dry, &error);
 #endif
 
-    if (error != 0)
+    if (error) {
         goto invalid;
+    } else {
+        ERL_NIF_TERM result;
 
-    SSDBG( descP,
-           ("SOCKET",
-            "esock_setopt_sctp_events -> set events option\r\n") );
+        result = esock_setopt_level_opt(env, descP, level, opt,
+                                        &events, sizeof(events));
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_setopt_sctp_events {%d} -> set events -> %T\r\n",
+                descP->sock, result) );
 
-    return esock_setopt_level_opt(env, descP, level, opt,
-                                  &events, sizeof(events));
+        return result;
+    }
 
  invalid:
-    return esock_make_error(env, esock_atom_invalid);}
+    SSDBG( descP,
+           ("SOCKET",
+            "esock_setopt_sctp_events {%d} -> invalid\r\n",
+            descP->sock) );
+
+    return esock_make_error(env, esock_atom_invalid);
+}
+
+/* Return the value to make use of automatic type casting.
+ * Set *error if something goes wrong.
+ */
+static int esock_setopt_sctp_event(ErlNifEnv   *env,
+                                   ERL_NIF_TERM eVal,
+                                   ERL_NIF_TERM eKey,
+                                   BOOLEAN_T   *error)
+{
+    ERL_NIF_TERM eBool;
+    BOOLEAN_T    bool;
+
+    if (GET_MAP_VAL(env, eVal, eKey, &eBool))
+        if (esock_decode_bool(eBool, &bool))
+            return (int) bool;
+
+    *error = TRUE;
+    return 0;
+}
 #endif
 #endif // #ifndef __WIN32__
 
