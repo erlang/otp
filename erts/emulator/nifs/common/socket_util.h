@@ -217,6 +217,11 @@ extern
 ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val);
 
 extern
+BOOLEAN_T esock_decode_level(ErlNifEnv* env, ERL_NIF_TERM eVal, int *val);
+extern
+ERL_NIF_TERM esock_encode_level(ErlNifEnv* env, int level);
+
+extern
 size_t esock_strnlen(const char *s, size_t maxlen);
 extern
 void esock_abort(const char* expr,

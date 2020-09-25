@@ -2702,8 +2702,6 @@ struct ESockOptLevel
 {
     int level; // Level number
 
-    ERL_NIF_TERM *nameP; // Pointer to level name atom
-
     size_t num; // Number of options
 
     struct ESockOpt *opts; // Options table
@@ -2720,34 +2718,34 @@ static int cmpESockOptLevel(const void *vpa, const void *vpb) {
 #define NUM(Array) (sizeof(Array) / sizeof(*(Array)))
 
 
-#define OPT_LEVEL(Level, Name, Opts) {(Level), &(Name), NUM(Opts), (Opts)}
+#define OPT_LEVEL(Level, Opts) {(Level), NUM(Opts), (Opts)}
 
 /* Table --------------------------------------------------------------- */
 
 static struct ESockOptLevel optLevels[] =
     {
-        OPT_LEVEL(SOL_SOCKET, esock_atom_socket, optLevelSocket),
+        OPT_LEVEL(SOL_SOCKET, optLevelSocket),
 
 #ifdef SOL_IP
-        OPT_LEVEL(SOL_IP, esock_atom_ip, optLevelIP),
+        OPT_LEVEL(SOL_IP, optLevelIP),
 #else
-        OPT_LEVEL(IPPROTO_IP, esock_atom_ip, optLevelIP),
+        OPT_LEVEL(IPPROTO_IP, optLevelIP),
 #endif
 
 #ifdef HAVE_IPV6
 #ifdef SOL_IPV6
-        OPT_LEVEL(SOL_IPV6, esock_atom_ipv6, optLevelIPV6),
+        OPT_LEVEL(SOL_IPV6, optLevelIPV6),
 #else
-        OPT_LEVEL(IPPROTO_IPV6, esock_atom_ipv6, optLevelIPV6),
+        OPT_LEVEL(IPPROTO_IPV6, optLevelIPV6),
 #endif
 #endif // #ifdef HAVE_IPV6
 
 #ifdef HAVE_SCTP
-        OPT_LEVEL(IPPROTO_SCTP, esock_atom_sctp, optLevelSCTP),
+        OPT_LEVEL(IPPROTO_SCTP, optLevelSCTP),
 #endif // #ifdef HAVE_SCTP
 
-        OPT_LEVEL(IPPROTO_UDP, esock_atom_udp, optLevelUDP),
-        OPT_LEVEL(IPPROTO_TCP, esock_atom_tcp, optLevelTCP)
+        OPT_LEVEL(IPPROTO_UDP, optLevelUDP),
+        OPT_LEVEL(IPPROTO_TCP, optLevelTCP)
     };
 
 #undef OPT_LEVEL
@@ -4484,8 +4482,34 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 
     protocols = MKEL(env);
 
+#if defined(HAVE_GETPROTOENT) && \
+    defined(HAVE_SETPROTOENT) && \
+    defined(HAVE_ENDPROTOENT)
+
+    MLOCK(data.protocolsMtx);
+    stayopen = TRUE;
+    setprotoent(stayopen);
+    while ((pe = getprotoent()) != NULL) {
+        ERL_NIF_TERM names;
+        char **aliases;
+
+        names = MKEL(env);
+        for (aliases = pe->p_aliases;  *aliases != NULL;  aliases++)
+            names = MKC(env, MKA(env, *aliases), names);
+        names = MKC(env, MKA(env, pe->p_name), names);
+
+        protocols =
+            MKC(env, MKT2(env, names, MKI(env, pe->p_proto)), protocols);
+    }
+    endprotoent();
+    MUNLOCK(data.protocolsMtx);
+
+#endif
+
     /* Defaults for known protocols in case getprotoent()
-     * does not work or does not exist
+     * does not work or does not exist.  Prepended to the list
+     * so a subsequent maps:from_list/2 will take the default
+     * only when there is nothing from getprotoent().
      */
 
     protocols =
@@ -4533,29 +4557,6 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
             protocols);
 #endif
 
-#if defined(HAVE_GETPROTOENT) && \
-    defined(HAVE_SETPROTOENT) && \
-    defined(HAVE_ENDPROTOENT)
-
-    MLOCK(data.protocolsMtx);
-    stayopen = TRUE;
-    setprotoent(stayopen);
-    while ((pe = getprotoent()) != NULL) {
-        ERL_NIF_TERM names;
-        char **aliases;
-
-        names = MKEL(env);
-        for (aliases = pe->p_aliases;  *aliases != NULL;  aliases++)
-            names = MKC(env, MKA(env, *aliases), names);
-        names = MKC(env, MKA(env, pe->p_name), names);
-
-        protocols =
-            MKC(env, MKT2(env, names, MKI(env, pe->p_proto)), protocols);
-    }
-    endprotoent();
-    MUNLOCK(data.protocolsMtx);
-
-#endif
     return protocols;
 }
 #endif // #ifndef __WIN32__
@@ -4594,7 +4595,8 @@ ERL_NIF_TERM esock_supports_options(ErlNifEnv* env)
         }
         levels =
             MKC(env,
-                MKT3(env, *levelP->nameP, MKI(env, levelP->level), options),
+                MKT2(env,
+                     esock_encode_level(env, levelP->level), options),
                 levels);
     }
 
@@ -7936,7 +7938,7 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
     }
     eVal       = argv[3];
 
-    if (GET_INT(env, argv[1], &level)) {
+    if (esock_decode_level(env, argv[1], &level)) {
         if (nativeValue == 0)
             return esock_setopt(env, descP, level, opt, eVal);
         else
@@ -9596,7 +9598,7 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
-    if (GET_INT(env, argv[1], &level)) {
+    if (esock_decode_level(env, argv[1], &level)) {
         if (argc == 4) {
             ERL_NIF_TERM valueSpec = argv[3];
             return esock_getopt_native(env, descP, level, opt, valueSpec);
@@ -13147,7 +13149,7 @@ void encode_cmsgs(ErlNifEnv*       env,
                     "\r\n   dataLen: %d"
                     "\r\n", descP->sock, dataPos, dataLen) );
 
-            vals[0] = MKI(env, currentP->cmsg_level);
+            vals[0] = esock_encode_level(env, currentP->cmsg_level);
             vals[2] = MKSBIN(env, ctrlBuf, dataPos, dataLen);
             have_value =
                 encode_cmsg(env,
@@ -14231,7 +14233,7 @@ BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
                    "\r\n", descP->sock, eType) );
 
     // Decode Level
-    if (! GET_INT(env, eLevel, &level))
+    if (! esock_decode_level(env, eLevel, &level))
         return FALSE;
     SSDBG( descP, ("SOCKET", "decode_cmsghdr {%d}-> level:  %d\r\n",
                    descP->sock, level) );

@@ -85,7 +85,7 @@
 
               msg_flag/0,
 
-              sockopt_level/0,
+              level/0,
               otp_socket_option/0,
               socket_option/0,
 
@@ -161,8 +161,7 @@
 
 %% We support all protocols enumerated by getprotoent(),
 %% and all of ip | ipv6 | tcp | udp | sctp that are supported
-%% by the platform, even if not enumerated by getprotoent(),
-%% plus native protocol numbers.
+%% by the platform, even if not enumerated by getprotoent()
 -type protocol() :: atom().
 
 -type port_number() :: 0..65535.
@@ -297,19 +296,15 @@
         #{family := integer(), addr := binary()} |
         binary().
 
-%% (otp)  - This option is internal to our (OTP) implementation.
-%% (Int)  - Raw level, sent down and used "as is".
-%%          It's up to the caller to make sure this is correct!
-%% socket - The socket layer (SOL_SOCKET).
-%% ip     - The IP layer (SOL_IP or is it IPPROTO_IP?).
-%% ipv6   - The IPv6 layer (SOL_IPV6).
-%% tcp    - The TCP (Transport Control Protocol) layer (IPPROTO_TCP).
-%% udp    - The UDP (User Datagram Protocol) layer (IPPROTO_UDP).
-%% sctp   - The SCTP (Stream Control Transmission Protocol) layer (IPPROTO_SCTP).
--type sockopt_level() ::
+%% (otp)      - This option is internal to our (OTP) implementation.
+%% socket     - The socket layer (SOL_SOCKET).
+%% (Int)      - Raw level, sent down and used "as is".
+%% protocol() - Protocol number; ip | ipv6 | tcp | udp | sctp | ...
+-type level() ::
         %% otp | % Has got own clauses in setopt/getopt
         %% integer() % Has also got own clauses
-        socket | ip | ipv6 | tcp | udp | sctp.
+        socket | %% Handled explicitly
+        protocol().
 
 %% There are some options that are 'read-only'.
 %% Should those be included here or in a special list?
@@ -531,7 +526,7 @@
            %%
            ctrl  =>
                ([cmsg_send() |
-                 #{level := sockopt_level() | integer(),
+                 #{level := level() | integer(),
                    type  := integer(),
                    data  := binary()}])
          }.
@@ -552,7 +547,7 @@
            %%
            ctrl :=
                ([cmsg_recv() |
-                 #{level := sockopt_level() | integer(),
+                 #{level := level() | integer(),
                    type  := integer(),
                    data  := binary()}]),
 
@@ -905,7 +900,7 @@ open(FD) ->
       Opts     ::
         #{domain       => domain() | integer(),
           type         => type() | integer(),
-          protocol     => protocol() | integer(),
+          protocol     => default | protocol() | integer(),
           dup          => boolean(),
 	  debug        => boolean(),
 	  use_registry => boolean()},
@@ -939,7 +934,7 @@ open(Domain, Type) ->
           (Domain, Type, Protocol) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain() | integer(),
       Type     :: type() | integer(),
-      Protocol :: protocol() | integer(),
+      Protocol :: default | protocol() | integer(),
       Socket   :: socket(),
       Reason   :: posix() | protocol.
 
@@ -951,7 +946,7 @@ open(Domain, Type, Protocol) ->
 -spec open(Domain, Type, Protocol, Opts) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain() | integer(),
       Type     :: type() | integer(),
-      Protocol :: protocol() | integer(),
+      Protocol :: default | protocol() | integer(),
       Opts     ::
         #{netns        => string(),
 	  debug        => boolean(),
@@ -2539,9 +2534,9 @@ setopt(Socket, Level, Opt, Value) ->
 -spec setopt_native(socket(),
                     SocketOption ::
                       socket_option() |
-                      {Level :: sockopt_level()
-                              | (NativeLevel :: non_neg_integer()),
-                       NativeOpt :: non_neg_integer()},
+                      {Level :: level()
+                              | (NativeLevel :: integer()),
+                       NativeOpt :: integer()},
                     Value :: native_value()) ->
                            ok | {error, posix() | invalid | closed}.
 
@@ -2591,36 +2586,36 @@ getopt(Socket, Level, Opt) ->
 -spec getopt_native(socket(),
                     SocketOption ::
                       socket_option() |
-                      {Level :: sockopt_level()
-                              | (NativeLevel :: non_neg_integer()),
-                       NativeOpt :: non_neg_integer()},
+                      {Level :: level()
+                              | (NativeLevel :: integer()),
+                       NativeOpt :: integer()},
                     ValueType :: integer) ->
                            {ok, Value :: integer()} |
                            {error, posix() | invalid | closed};
                    (socket(),
                     SocketOption ::
                       socket_option() |
-                      {Level :: sockopt_level()
-                              | (NativeLevel :: non_neg_integer()),
-                       NativeOpt :: non_neg_integer()},
+                      {Level :: level()
+                              | (NativeLevel :: integer()),
+                       NativeOpt :: integer()},
                     ValueType :: boolean) ->
                            {ok, Value :: boolean()} |
                            {error, posix() | invalid | closed};
                    (socket(),
                     SocketOption ::
                       socket_option() |
-                      {Level :: sockopt_level()
-                              | (NativeLevel :: non_neg_integer()),
-                       NativeOpt :: non_neg_integer()},
+                      {Level :: level()
+                              | (NativeLevel :: integer()),
+                       NativeOpt :: integer()},
                     ValueSize :: non_neg_integer()) ->
                            {ok, Value :: binary()} |
                            {error, posix() | invalid | closed};
                    (socket(),
                     SocketOption ::
                       socket_option() |
-                      {Level :: sockopt_level()
-                              | (NativeLevel :: non_neg_integer()),
-                       NativeOpt :: non_neg_integer()},
+                      {Level :: level()
+                              | (NativeLevel :: integer()),
+                       NativeOpt :: integer()},
                     ValueSpec :: binary()) ->
                            {ok, Value :: binary()} |
                            {error, posix() | invalid | closed}.

@@ -139,58 +139,75 @@ on_load(Extra) when is_map(Extra) ->
           end,
     ok = erlang:load_nif(atom_to_list(?MODULE), Extra_2),
     %%
-    put_supports_table(
-      protocols,
-      fun (Protocols) ->
-              maps:merge(
-                maps:from_list(flatten_protocols(Protocols)),
-                maps:from_list(
-                  [{Num, Name} || {[Name | _], Num} <- Protocols]))
-      end),
-    put_supports_table(
-      options,
-      fun (Options) ->
-              maps:from_list(options_table(Options))
-      end),
-    put_supports_table(
-      msg_flags,
-      fun (Flags) -> maps:from_list(Flags) end).
+    PT =
+        put_supports_table(
+          protocols, fun (Protocols) -> protocols_table(Protocols) end),
+    _ = put_supports_table(
+          options, fun (Options) -> options_table(Options, PT) end),
+    _ = put_supports_table(msg_flags, fun (Flags) -> Flags end),
+    ok.
 
-put_supports_table(Tag, Fun) ->
-    p_put(
-      Tag,
-      try nif_supports(Tag) of
-          Data ->
-              Fun(Data)
-      catch
-          error : notsup ->
-              #{}
-      end).
+put_supports_table(Tag, MkTable) ->
+    Table =
+        try nif_supports(Tag) of
+            Data ->
+                maps:from_list(MkTable(Data))
+        catch
+            error : notsup ->
+                #{}
+        end,
+    p_put(Tag, Table),
+    Table.
 
-flatten_protocols([{[Name | Aliases], Num} | Protocols]) ->
-    flatten_protocols(Protocols, Aliases, Name, Num);
-flatten_protocols([]) ->
+%% ->
+%% [{Num, [Name, ...]}
+%%  {Name, Num} for all names]
+protocols_table([{Names, Num} | Protocols]) ->
+    [{Num, Names} | protocols_table(Protocols, Names, Num)];
+protocols_table([]) ->
     [].
-
-flatten_protocols(Protocols, [Alias | Aliases], Name, Num) ->
-    [{Alias, Num} | flatten_protocols(Protocols, Aliases, Name, Num)];
-flatten_protocols(Protocols, [], Name, Num) ->
-    [{Name, Num} | flatten_protocols(Protocols)].
-
-options_table([]) ->
-    [];
-options_table([{Level, LevelNum, LevelOpts} | Options]) ->
-    options_table(Options, Level, LevelNum, LevelOpts).
 %%
-options_table(Options, Level, LevelNum, []) ->
-    [{Level, LevelNum}, {LevelNum, Level} | options_table(Options)];
-options_table(Options, Level, LevelNum, [LevelOpt | LevelOpts]) ->
-    [case LevelOpt of
-         {Opt, OptNum} ->
-             {{Level,Opt}, {LevelNum,OptNum}};
-         Opt when is_atom(Opt) ->
-             {{Level,Opt}, undefined}
-     end | options_table(Options, Level, LevelNum, LevelOpts)].
+protocols_table(Protocols, [Name | Names], Num) ->
+    [{Name, Num} | protocols_table(Protocols, Names, Num)];
+protocols_table(Protocols, [], _Num) ->
+    protocols_table(Protocols).
+
+%% ->
+%% [{{socket,Opt}, {socket,OptNum}} |
+%%  {{Level, Opt}, {LevelNum, OptNum}} for all Levels (protocol aliases)]
+options_table([], _PT) ->
+    [];
+options_table([{socket, LevelOpts} | Options], PT) ->
+    options_table(Options, PT, socket, LevelOpts, [socket]);
+options_table([{LevelNum, LevelOpts} | Options], PT) ->
+    Levels = maps:get(LevelNum, PT),
+    options_table(Options, PT, LevelNum, LevelOpts, Levels).
+%%
+options_table(Options, PT, _Level, [], _Levels) ->
+    options_table(Options, PT);
+options_table(Options, PT, Level, [LevelOpt | LevelOpts], Levels) ->
+    LevelOptNum =
+        case LevelOpt of
+            {Opt, OptNum} ->
+                {Level,OptNum};
+            Opt when is_atom(Opt) ->
+                undefined
+        end,
+    options_table(
+      Options, PT, Level, LevelOpts, Levels,
+      Opt, LevelOptNum, Levels).
+%%
+options_table(
+  Options, PT, Level, LevelOpts, Levels,
+  _Opt, _LevelOptNum, []) ->
+    options_table(Options, PT, Level, LevelOpts, Levels);
+options_table(
+  Options, PT, Level, LevelOpts, Levels,
+  Opt, LevelOptNum, [L | Ls]) ->
+    [{{L,Opt}, LevelOptNum} |
+     options_table(
+       Options, PT, Level, LevelOpts, Levels,
+       Opt, LevelOptNum, Ls)].
 
 %% ===========================================================================
 %% API for 'socket'
@@ -223,7 +240,7 @@ info() ->
 info(SockRef) ->
     #{protocol := NumProtocol} = Info = nif_info(SockRef),
     case p_get(protocols) of
-        #{NumProtocol := Protocol} ->
+        #{NumProtocol := [Protocol | _]} ->
             Info#{protocol := Protocol};
         #{} ->
             Info
@@ -251,17 +268,13 @@ supports(protocols) ->
     maps:fold(
       fun (Name, _Num, Acc) when is_atom(Name) ->
               [{Name, true} | Acc];
-          (Num, _Name, Acc) when is_integer(Num) ->
+          (Num, _Names, Acc) when is_integer(Num) ->
               Acc
       end, [], p_get(protocols));
 supports(options) ->
     maps:fold(
       fun ({_Level,_Opt} = Option, Value, Acc) ->
-              [{Option, is_supported_option(Option, Value)} | Acc];
-          (Level, _Value, Acc) when is_atom(Level) ->
-              Acc;
-          (LevelNum, _Value, Acc) when is_integer(LevelNum) ->
-              Acc
+              [{Option, is_supported_option(Option, Value)} | Acc]
       end, [], p_get(options));
 supports(msg_flags) ->
     maps:fold(
@@ -279,11 +292,7 @@ supports(options, Level) when is_atom(Level) ->
                       [{Opt, is_supported_option(Option, Value)} | Acc];
                   true ->
                       Acc
-              end;
-          (L, _Value, Acc) when is_atom(L) ->
-              Acc;
-          (N, _Value, Acc) when is_integer(N) ->
-              Acc
+              end
       end, [], p_get(options));
 supports(options, _Level) ->
     [];
@@ -482,16 +491,17 @@ recvmsg_result(Result) ->
         {ok, #{ctrl := []}} ->
             Result;
         {ok, #{ctrl := Ctrl} = MsgHdr} ->
-            Options = p_get(options),
+            Protocols = p_get(protocols),
             {ok,
              MsgHdr#{
                ctrl :=
-                   [case Options of
-                        #{LevelNum := Level} ->
-                            CMsg#{level := Level};
+                   [case Protocols of
+                        #{Level := [L | _]}
+                          when is_integer(Level) ->
+                            CMsg#{level := L};
                         #{} ->
                             CMsg
-                    end || #{level := LevelNum} = CMsg <- Ctrl]}};
+                    end || #{level := Level} = CMsg <- Ctrl]}};
         Other ->
             Other
     end.
@@ -547,7 +557,7 @@ getopt_result({ok, Val} = Result, Option) ->
                     Result;
                 is_integer(Val) ->
                     case p_get(protocols) of
-                        #{Val := Protocol} ->
+                        #{Val := [Protocol | _]} ->
                             {ok, Protocol};
                         #{} ->
                             Result
@@ -669,6 +679,8 @@ enc_msghdr(M) ->
 enc_cmsgs([#{level := P} = Cmsg | Cmsgs], Protocols)
   when is_atom(P) ->
     case Protocols of
+        #{} when P =:= socket ->
+            [Cmsg | enc_cmsgs(Cmsgs, Protocols)];
         #{P := N} ->
             [Cmsg#{level := N} | enc_cmsgs(Cmsgs, Protocols)];
         #{} ->
@@ -682,31 +694,40 @@ enc_cmsgs([], _Protocols) ->
 
 %% Common to setopt and getopt
 %%
-enc_sockopt({otp = L, Opt}, 0 = _NativeValue) ->
-    case Opt of
-        debug ->                {L,?ESOCK_OPT_OTP_DEBUG};
-        iow ->                  {L,?ESOCK_OPT_OTP_IOW};
-        controlling_process ->  {L,?ESOCK_OPT_OTP_CTRL_PROC};
-        rcvbuf ->               {L,?ESOCK_OPT_OTP_RCVBUF};
-        rcvctrlbuf ->           {L,?ESOCK_OPT_OTP_RCVCTRLBUF};
-        sndctrlbuf ->           {L,?ESOCK_OPT_OTP_SNDCTRLBUF};
-        fd ->                   {L,?ESOCK_OPT_OTP_FD};
-        meta ->                 {L,?ESOCK_OPT_OTP_META};
-        use_registry ->         {L,?ESOCK_OPT_OTP_USE_REGISTRY};
-        domain ->               {L,?ESOCK_OPT_OTP_DOMAIN};
-        _ ->
-            undefined
+enc_sockopt({otp = Level, Opt}, 0 = _NativeValue) ->
+    case
+        case Opt of
+            debug               -> ?ESOCK_OPT_OTP_DEBUG;
+            iow                 -> ?ESOCK_OPT_OTP_IOW;
+            controlling_process -> ?ESOCK_OPT_OTP_CTRL_PROC;
+            rcvbuf              -> ?ESOCK_OPT_OTP_RCVBUF;
+            rcvctrlbuf          -> ?ESOCK_OPT_OTP_RCVCTRLBUF;
+            sndctrlbuf          -> ?ESOCK_OPT_OTP_SNDCTRLBUF;
+            fd                  -> ?ESOCK_OPT_OTP_FD;
+            meta                -> ?ESOCK_OPT_OTP_META;
+            use_registry        -> ?ESOCK_OPT_OTP_USE_REGISTRY;
+            domain              -> ?ESOCK_OPT_OTP_DOMAIN;
+            _                   -> undefined
+        end
+    of
+        undefined       -> undefined;
+        NumOpt          -> {Level, NumOpt}
     end;
 enc_sockopt({NumLevel,NumOpt} = NumOption, NativeValue)
   when is_integer(NumLevel), is_integer(NumOpt), NativeValue =/= 0 ->
     NumOption;
 enc_sockopt({Level,NumOpt}, NativeValue)
   when is_atom(Level), is_integer(NumOpt), NativeValue =/= 0 ->
-    case p_get(options) of
-        #{Level := NumLevel} ->
-            {NumLevel,NumOpt};
-        #{} ->
-            undefined
+    if
+        Level =:= socket ->
+            {socket,NumOpt};
+        true ->
+            case p_get(protocols) of
+                #{Level := NumLevel} ->
+                    {NumLevel,NumOpt};
+                #{} ->
+                    undefined
+            end
     end;
 enc_sockopt({Level,Opt} = Option, _NativeValue)
   when is_atom(Level), is_atom(Opt) ->

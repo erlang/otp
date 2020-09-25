@@ -1693,6 +1693,37 @@ ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val)
 }
 
 
+/* *** esock_decode_level ***
+ *
+ * Decode option or cmsg level - 'socket' or protocol number.
+ *
+ */
+extern
+BOOLEAN_T esock_decode_level(ErlNifEnv* env, ERL_NIF_TERM eVal, int *val)
+{
+    if (COMPARE(esock_atom_socket, eVal) == 0)
+        *val = SOL_SOCKET;
+    else if (! GET_INT(env, eVal, val))
+        return FALSE;
+
+    return TRUE;
+}
+
+/* *** esock_encode_level ***
+ *
+ * Encode option or cmsg level - SOL_SOCKET or protocol number.
+ *
+ */
+extern
+ERL_NIF_TERM esock_encode_level(ErlNifEnv* env, int level)
+{
+    if (level == SOL_SOCKET)
+        return esock_atom_socket;
+    else
+        return MKI(env, level);
+}
+
+
 /* Create an ok two (2) tuple in the form:
  *
  *         {ok, Any}
