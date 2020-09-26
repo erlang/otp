@@ -18,6 +18,7 @@
  * %CopyrightEnd%
  */
 
+#include <stdlib.h>
 #include "ei_runner.h"
 #include <string.h>
 

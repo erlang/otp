@@ -3,6 +3,12 @@
 #endif
 
 #include <stdio.h>
+#include <string.h>
+
+#ifdef HAVE_UNISTD_H
+#   include <unistd.h>
+#endif
+
 #include "erl_driver.h"
 
 typedef struct _erl_drv_data {
