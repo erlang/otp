@@ -4605,6 +4605,7 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
 static void patch_call_nif_early(ErlNifEntry* entry,
                                  struct erl_module_instance* this_mi)
 {
+    const BeamInstr call_nif_early = BeamOpCodeAddr(op_call_nif_early);
     int i;
 
     ERTS_LC_ASSERT(erts_has_code_write_permission());
@@ -4627,13 +4628,13 @@ static void patch_call_nif_early(ErlNifEntry* entry,
              * Code write permission protects against racing breakpoint writes.
              */
             GenericBp* g = ci->u.gen_bp;
-            g->orig_instr = BeamOpCodeAddr(op_call_nif_early);
+            g->orig_instr = BeamSetCodeAddr(g->orig_instr, call_nif_early);
             if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
                 continue;
         }
         else
             ASSERT(!BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint));
-        code_ptr[0] = BeamOpCodeAddr(op_call_nif_early);
+        code_ptr[0] = BeamSetCodeAddr(code_ptr[0], call_nif_early);
     }
 }
 
@@ -4712,12 +4713,12 @@ static void load_nif_2nd_finisher(void* vlib)
                  * Function traced, patch the original instruction word
                  */
                 GenericBp* g = ci->u.gen_bp;
-                ASSERT(g->orig_instr == BeamOpCodeAddr(op_call_nif_early));
+                ASSERT(BeamIsOpCode(g->orig_instr, op_call_nif_early));
                 g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
                 if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
                     continue;
             }
-            ASSERT(code_ptr[0] == BeamOpCodeAddr(op_call_nif_early));
+            ASSERT(BeamIsOpCode(code_ptr[0], op_call_nif_early));
             code_ptr[0] = BeamOpCodeAddr(op_call_nif_WWW);
         }
     }
