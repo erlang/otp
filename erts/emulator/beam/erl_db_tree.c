@@ -4161,6 +4161,7 @@ static int doit_select_replace(DbTableCommon *tb, TreeDbTerm **this,
                                int forward)
 {
     struct select_replace_context *sc = (struct select_replace_context *) ptr;
+    DbTerm* obj;
     Eterm ret;
 
     sc->lastobj = (*this)->dbterm.tpl;
@@ -4171,7 +4172,10 @@ static int doit_select_replace(DbTableCommon *tb, TreeDbTerm **this,
 			  GETKEY_WITH_POS(sc->keypos, (*this)->dbterm.tpl)) > 0)) {
 	return 0;
     }
-    ret = db_match_dbterm(tb, sc->p, sc->mp, &(*this)->dbterm, NULL, 0);
+    obj = &(*this)->dbterm;
+    if (tb->compress)
+        obj = db_alloc_tmp_uncompressed(tb, obj);
+    ret = db_match_dbterm_uncompressed(tb, sc->p, sc->mp, obj, NULL, 0);
 
     if (is_value(ret)) {
         TreeDbTerm* new;
@@ -4190,6 +4194,8 @@ static int doit_select_replace(DbTableCommon *tb, TreeDbTerm **this,
         free_term((DbTable*)tb, old);
         ++(sc->replaced);
     }
+    if (tb->compress)
+        db_free_tmp_uncompressed(obj);
     if (--(sc->max) <= 0) {
 	return 0;
     }
