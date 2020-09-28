@@ -50,7 +50,7 @@
               var_name/0,var_base/0,literal_value/0,
               op/0,anno/0,block_map/0,dominator_map/0,
               rename_map/0,rename_proplist/0,usage_map/0,
-              definition_map/0]).
+              definition_map/0,predecessor_map/0]).
 
 -include("beam_ssa.hrl").
 

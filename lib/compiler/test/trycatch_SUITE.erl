@@ -1526,6 +1526,7 @@ expr_export_5() ->
 
 coverage(_Config) ->
     {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),
+    ok = coverage_ssa_throw(),
     ok.
 
 %% Cover some code in beam_trim.
@@ -1543,5 +1544,77 @@ coverage_1() ->
             true
     end.
 
+%% Cover some code in beam_ssa_throw.
+coverage_ssa_throw() ->
+    cst_trivial(),
+    cst_raw(),
+    cst_stacktrace(),
+    cst_types(),
+
+    ok.
+
+cst_trivial() ->
+    %% never inspects stacktrace
+    try
+        cst_trivial_1()
+    catch
+        _C:_R:_S ->
+            ok
+    end.
+
+cst_trivial_1() -> throw(id(gurka)).
+
+cst_types() ->
+    %% type tests
+    try
+        cst_types_1()
+    catch
+        throw:Val when is_atom(Val);
+                       is_bitstring(Val);
+                       is_binary(Val);
+                       is_float(Val);
+                       is_integer(Val);
+                       is_list(Val);
+                       is_map(Val);
+                       is_number(Val);
+                       is_tuple(Val) ->
+            ok;
+        throw:[_|_]=Cons when hd(Cons) =/= gurka;
+                              tl(Cons) =/= gaffel ->
+            %% is_nonempty_list, get_hd, get_tl
+            ok;
+        throw:Tuple when tuple_size(Tuple) < 5 ->
+            %% tuple_size
+            ok
+    end.
+
+cst_types_1() -> throw(id(gurka)).
+
+cst_stacktrace() ->
+    %% build_stacktrace
+    try
+        cst_stacktrace_1()
+    catch
+        throw:gurka ->
+            ok;
+        _C:_R:Stack ->
+            id(Stack),
+            ok
+    end.
+
+cst_stacktrace_1() -> throw(id(gurka)).
+
+cst_raw() ->
+    %% raw_raise
+    try
+        cst_raw_1()
+    catch
+        throw:gurka ->
+            ok;
+        _C:_R:Stack ->
+            erlang:raise(error, dummy, Stack)
+    end.
+
+cst_raw_1() -> throw(id(gurka)).
 
 id(I) -> I.

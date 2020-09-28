@@ -931,16 +931,11 @@ simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
     end;
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=0}]}, _Ts) ->
     #b_literal{val=true};
-simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, _Ts) ->
+simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, Ts) ->
     case Rem of
         #b_remote{mod=#b_literal{val=Mod},
                   name=#b_literal{val=Name}} ->
-            case erl_bifs:is_pure(Mod, Name, length(Args)) of
-                true ->
-                    simplify_remote_call(Mod, Name, Args, I);
-                false ->
-                    I
-            end;
+            simplify_remote_call(Mod, Name, Args, Ts, I);
         #b_remote{} ->
             I
     end;
@@ -1154,13 +1149,17 @@ phi_all_same_1([], _Arg) ->
 phi_all_same_1(_Phis, _Arg) ->
     false.
 
-%% Simplify a remote call to a pure BIF.
-simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _I) ->
+simplify_remote_call(erlang, throw, [Term], Ts, I) ->
+    %% Annotate `throw` instructions with the type of their thrown term,
+    %% helping `beam_ssa_throw` optimize non-local returns.
+    Type = normalized_type(Term, Ts),
+    beam_ssa:add_anno(thrown_type, Type, I);
+simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _Ts, _I) ->
     Tl;
 simplify_remote_call(erlang, setelement,
                      [#b_literal{val=Pos},
                       #b_literal{val=Tuple},
-                      #b_var{}=Value], I)
+                      #b_var{}=Value], _Ts, I)
   when is_integer(Pos), 1 =< Pos, Pos =< tuple_size(Tuple) ->
     %% Position is a literal integer and the shape of the
     %% tuple is known.
@@ -1168,7 +1167,16 @@ simplify_remote_call(erlang, setelement,
     {Bef,[_|Aft]} = split(Pos - 1, Els0),
     Els = Bef ++ [Value|Aft],
     I#b_set{op=put_tuple,args=Els};
-simplify_remote_call(Mod, Name, Args0, I) ->
+simplify_remote_call(Mod, Name, Args, _Ts, I) ->
+    case erl_bifs:is_pure(Mod, Name, length(Args)) of
+        true ->
+            simplify_pure_call(Mod, Name, Args, I);
+        false ->
+            I
+    end.
+
+%% Simplify a remote call to a pure BIF.
+simplify_pure_call(Mod, Name, Args0, I) ->
     case make_literal_list(Args0) of
         none ->
             I;
