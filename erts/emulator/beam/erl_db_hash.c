@@ -1598,12 +1598,18 @@ static int match_traverse(traverse_context_t* ctx,
     for(;;) {
         if (*current_ptr != NULL) {
             if (!is_pseudo_deleted(*current_ptr)) {
-                match_res = db_match_dbterm(&tb->common, ctx->p, mpi.mp,
-                                            &(*current_ptr)->dbterm, hpp, 2);
+                DbTerm* obj = &(*current_ptr)->dbterm;
+                if (tb->common.compress)
+                    obj = db_alloc_tmp_uncompressed(&tb->common, obj);
+                match_res = db_match_dbterm_uncompressed(&tb->common, ctx->p, mpi.mp,
+                                                         obj, hpp, 2);
                 saved_current = *current_ptr;
                 if (ctx->on_match_res(ctx, slot_ix, &current_ptr, match_res)) {
                     ++got;
                 }
+                if (tb->common.compress)
+                    db_free_tmp_uncompressed(obj);
+
                 --iterations_left;
                 if (*current_ptr != saved_current) {
                     /* Don't advance to next, the callback did it already */
@@ -1717,12 +1723,18 @@ static int match_traverse_continue(traverse_context_t* ctx,
     for(;;) {
         if (*current_ptr != NULL) {
             if (!is_pseudo_deleted(*current_ptr)) {
-                match_res = db_match_dbterm(&tb->common, ctx->p, *mpp,
-                                            &(*current_ptr)->dbterm, hpp, 2);
+                DbTerm* obj = &(*current_ptr)->dbterm;
+                if (tb->common.compress)
+                    obj = db_alloc_tmp_uncompressed(&tb->common, obj);
+                match_res = db_match_dbterm_uncompressed(&tb->common, ctx->p, *mpp,
+                                                         obj, hpp, 2);
                 saved_current = *current_ptr;
                 if (ctx->on_match_res(ctx, slot_ix, &current_ptr, match_res)) {
                     ++got;
                 }
+                if (tb->common.compress)
+                    db_free_tmp_uncompressed(obj);
+
                 --iterations_left;
                 if (*current_ptr != saved_current) {
                     /* Don't advance to next, the callback did it already */
