@@ -646,6 +646,67 @@ define etp-atom-1
 end
 
 
+define etp-string-to-atom
+# Args: (char*) null-terminated
+#
+# Non-reentrant
+
+  set $etp_i = 0
+  set $etp_h = ((UWord)0)
+  while (($arg0)[$etp_i]) != 0
+    set $etp_c = (unsigned char)(($arg0)[$etp_i])
+
+    if $etp_c & 0x80
+      printf "Non ASCII atoms not implemented\n"
+      loop_break
+    end
+
+    set $etp_h = ($etp_h << 4) + $etp_c
+    set $etp_g = $etp_h & 0xf0000000
+    if $etp_g != 0
+      set $etp_h ^= ($etp_g >> 24)
+      set $etp_h ^= $etp_g
+    end
+    set $etp_i++
+  end
+
+  # hash_get_slot
+  set $etp_h ^= $etp_h >> erts_atom_table.htable.shift
+  if $etp_arch64
+    set $etp_h = (11400714819323198485UL * $etp_h) >> erts_atom_table.htable.shift
+  else
+    set $etp_h = (2654435769UL * $etp_h) >> erts_atom_table.htable.shift
+  end
+  set $etp_p = (Atom*)erts_atom_table.htable.bucket[$etp_h]
+
+  # search hash bucket list
+  while $etp_p
+    set $etp_i = 0
+    while $etp_i < $etp_p->len && ($arg0)[$etp_i]
+      if $etp_p->name[$etp_i] != ($arg0)[$etp_i]
+	loop_break
+      end
+      set $etp_i++
+    end
+    if $etp_i == $etp_p->len && ($arg0)[$etp_i] == 0
+      loop_break
+    end
+    set $etp_p = (Atom*)$etp_p->slot.bucket.next
+  end
+  if $etp_p
+    print ($etp_p->slot.index << 6) | (2 << 2) | 3
+  else
+    printf "Can't find atom\n"
+  end
+end
+
+document etp-string-to-atom
+%----------------------------------------
+% etp-string-to-atom (char*)
+%
+% Ex: etp-string-to-atom "erlang"
+%----------------------------------------
+end
 
 define etp-char-1
 # Args: int char, int quote_char
@@ -1092,6 +1153,92 @@ document etp-mfa
 % process_tab[i]->current and process_tab[i]->initial.
 %---------------------------------------------------------------------------
 end
+
+define etp-export-get
+  # Args: Eterm Eterm Uint
+
+  set $etp_h = (((Eterm)$arg0 >> 6) * ((Eterm)$arg1 >> 6)) ^ (Uint)$arg2
+
+  #hash_get_slot
+  set $etp_t = &export_tables[the_active_code_index.counter].htable
+  set $etp_h ^= $etp_h >> $etp_t->shift
+  if $etp_arch64
+    set $etp_h = (11400714819323198485UL * $etp_h) >> $etp_t->shift
+  else
+    set $etp_h = (2654435769UL * $etp_h) >> $etp_t->shift
+  end
+
+  set $etp_p = (struct export_entry*) $etp_t->bucket[$etp_h]
+  while $etp_p
+    if $etp_p->ep->info.mfa.module == $arg0 && $etp_p->ep->info.mfa.function == $arg1 && $etp_p->ep->info.mfa.arity == $arg2
+      loop_break
+    end
+    set $etp_p = (struct export_entry*) $etp_p->slot.bucket.next
+  end
+  if $etp_p
+    print $etp_p->ep
+  else
+    printf "Can't find export entry\n"
+  end
+end
+
+document etp-export-get
+%---------------------------------------------------------
+% etp-export-get module function arity
+%
+% Lookup and print pointer to Export entry.
+% Example:
+% (gdb) etp-string-to-atom "erlang"
+% $1 = 13323
+% (gdb) etp-string-to-atom "self"
+% $2 = 47115
+% (gdb) etp-export-get 13323 47115 0
+% $3 = (Export *) 0x7f53caf1f358
+%---------------------------------------------------------
+end
+
+define etp-module-get
+  # Args: Eterm
+
+  set $etp_ix = ((Eterm)$arg0 >> 6)
+  set $etp_h = $etp_ix
+
+  #hash_get_slot
+  set $etp_t = &module_tables[the_active_code_index.counter].htable
+  set $etp_h ^= $etp_h >> $etp_t->shift
+  if $etp_arch64
+    set $etp_h = (11400714819323198485UL * $etp_h) >> $etp_t->shift
+  else
+    set $etp_h = (2654435769UL * $etp_h) >> $etp_t->shift
+  end
+
+  set $etp_p = (Module*) $etp_t->bucket[$etp_h]
+  while $etp_p
+    if $etp_p->module == $etp_ix
+      loop_break
+    end
+    set $etp_p = (Module*) $etp_p->slot.bucket.next
+  end
+  if $etp_p
+    print $etp_p
+  else
+    printf "Can't find module entry\n"
+  end
+end
+
+document etp-module-get
+%---------------------------------------------------------
+% etp-module-get module
+%
+% Lookup and print pointer to Module entry.
+% Example:
+% (gdb) etp-string-to-atom "erlang"
+% $1 = 13323
+% (gdb) etp-module-get 13323
+% $2 = (Module *) 0x7f53caf1f358
+%---------------------------------------------------------
+end
+
 
 define etp-cp-func-info-1
 # Args: Eterm cp
