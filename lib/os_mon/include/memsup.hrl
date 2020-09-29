@@ -39,6 +39,8 @@
 -define( MEM_SHARED , 8 ).
 -define( SWAP_TOTAL , 9 ).
 -define( SWAP_FREE , 10 ).
+-define( MEM_CACHED_X , 11 ).
+-define( MEM_AVAIL , 12 ).
 
 -endif.
 
