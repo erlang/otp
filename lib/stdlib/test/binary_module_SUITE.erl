@@ -27,6 +27,8 @@
 
 -export([random_number/1, make_unaligned/1]).
 
+-export([secure_compare/1, secure_compare_time/1]).
+
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
@@ -37,7 +39,8 @@ all() ->
     [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
-     longest_common_trap, check_no_invalid_read_bug].
+     longest_common_trap, check_no_invalid_read_bug, 
+     secure_compare, secure_compare_time].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
@@ -1373,3 +1376,38 @@ check_no_invalid_read_bug(I) ->
     binary:encode_unsigned(N+N),
     binary:encode_unsigned(N+N, little),
     check_no_invalid_read_bug(I+1).
+
+secure_compare(Config) when is_list(Config) ->
+    true  = binary:secure_compare(<<"">>, <<"">>),
+    true  = binary:secure_compare(<<"good">>, <<"good">>),
+
+    false = binary:secure_compare(<<"good">>, <<"bad">>),
+    false = binary:secure_compare(<<"eh?">>, <<"Hello Joe">>),
+    false = binary:secure_compare(<<"one">>, <<"two">>),
+    false = binary:secure_compare(<<"two">>, <<"one">>),
+    ok.
+
+secure_compare_time(Config) when is_list(Config) -> 
+    A = <<"A">>,
+    B = <<"B">>,
+    
+    %% 9.9 Megabyte base binary
+    Base = binary:copy(<<"X">>, 9999999),
+
+    %% 10 Megabyte arg1 and arg2 with a one byte difference at the start of each. 
+    Arg1 = <<A/binary, Base/binary>>,
+    Arg2 = <<B/binary, Base/binary>>,
+
+    T1 =  erlang:convert_time_unit(erlang:monotonic_time(), native, microsecond),
+
+    binary:secure_compare(Arg1, Arg2),   
+    
+    T2 =  erlang:convert_time_unit(erlang:monotonic_time(), native, microsecond),
+
+    %% Given a 10 megabyte binary we can say with a fair amount of certainty 
+    %% that to perform the secure_compare/2 operation will always take over 
+    %% 1ms, anything equal to or less means we returned early per the differnce
+    %% on the first byte of each argument and ergo we can say :
+    %% "Houston, we have a problem". 
+    false = (T2 - T1) =< 1000,
+    ok.
