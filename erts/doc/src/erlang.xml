@@ -2123,43 +2123,88 @@ true</pre>
       <name name="fun_to_list" arity="1" since=""/>
       <fsummary>Text representation of a fun.</fsummary>
       <desc>
-        <warning>
-          <p>This function is <em>not</em> guaranteed to work as described here
-          when <c><anno>Fun</anno></c> was created while executing
-          uncompiled code (uncompiled escripts, the Erlang shell, and
-          other code executed by the <seeerl
-          marker="stdlib:erl_eval"><c>erl_eval</c> module</seeerl>).</p>
-        </warning>
-                <p>Returns <c><anno>String</anno></c> that represents the code
+        <p>Returns <c><anno>String</anno></c> that represents the code
         that created <c><anno>Fun</anno></c>.</p>
-        <warning>
-        <p>Generally, one can not use this function to check if two
-        funs are equal as this function does not take the fun's
-        environment into account. See <seemfa
+
+
+        <p><c><anno>String</anno></c> has the following form, if
+        <c><anno>Fun</anno></c> was created by a <seeguide
+        marker="system/reference_manual:expressions#fun-expressions">fun
+        expression</seeguide> of the form <c>fun
+        ModuleName:FuncName/Arity</c>:</p>
+
+        <p><c>"fun ModuleName:FuncName/Arity"</c></p>
+
+        <p>The form of <c><anno>String</anno></c> when
+        <c><anno>Fun</anno></c> is created from other types of <seeguide
+        marker="system/reference_manual:expressions#fun-expressions">fun
+        expressions</seeguide> differs depending on if the fun
+        expression was executed while executing compiled code or if
+        the fun expression was executed while executing uncompiled
+        code (uncompiled escripts, the Erlang shell, and other code
+        executed by the erl_eval module):</p>
+
+        <taglist>
+          <tag>compiled code</tag>
+          <item><p><c>"#Fun&lt;M.I.U>"</c>, where M, I and U
+          correspond to the values named <c>module</c>, <c>index</c>
+          and <c>uniq</c> in the result of <seemfa
+          marker="#fun_info/1"><c>erlang:fun_info(Fun)</c></seemfa>.</p></item>
+          <tag>uncompiled code</tag>
+
+          <item>All funs created from fun expressions in uncompiled
+          code with the same arity are mapped to the same list by
+          <c>fun_to_list/1</c>.</item>
+        </taglist>
+
+
+        <note>
+        <p>Generally, one can not use <c>fun_to_list/1</c> to check if
+        two funs are equal as <c>fun_to_list/1</c> does not take the
+        fun's environment into account. See <seemfa
         marker="#fun_info/1"><c>erlang:fun_info/1</c></seemfa> for how
         to get the environment of a fun.</p>
-        </warning>
+        </note>
         <note>
-          <p><c><anno>String</anno></c> has the following form, if
-          <c><anno>Fun</anno></c> was created by an expression of the
-          form <c>fun ModuleName:FuncName/Arity</c>:</p>
-
-          <p><c>"fun ModuleName:FuncName/Arity"</c>,</p>
-
-          <p>and <c><anno>String</anno></c> has the following form, if
-          <c><anno>Fun</anno></c> was created by a <seeguide
-          marker="system/reference_manual:expressions#fun-expressions">fun
-          expression</seeguide>:</p>
-
-          <p><c>"#Fun&lt;M.I.U>"</c>, where M, I and U correspond to
-          the values named <c>module</c>, <c>index</c> and <c>uniq</c>
-          in the result of <seemfa
-          marker="#fun_info/1"><c>erlang:fun_info(Fun)</c></seemfa>.</p>
-
           <p>The output of <c>fun_to_list/1</c> can differ between
-          Erlang implementations and can change in future
+          Erlang implementations and may change in future
           versions.</p>
         </note>
+        <p>Examples:</p>
+        <code>
+-module(test).
+-export([add/1, add2/0, fun_tuple/0]).
+add(A) -> fun(B) -> A + B end.
+add2() -> fun add/1.
+fun_tuple() -> {fun() -> 1 end, fun() -> 1 end}.
+        </code>
+<pre>
+> <input>{fun test:add/1, test:add2()}.</input>
+{fun test:add/1,#Fun&lt;test.1.107738983>}
+</pre>
+<p>
+  Explanation: <c>fun test:add/1</c> is upgradable but <c>test:add2()</c> is not upgradable.
+</p>
+<pre>
+> <input>{test:add(1), test:add(42)}.</input>
+{#Fun&lt;test.0.107738983>,#Fun&lt;test.0.107738983>}
+</pre>
+<p>Explanation: <c>test:add(1)</c> and <c>test:add(42)</c> has the
+same string representation as the environment is not taken into
+account.</p>
+<pre>
+><input>test:fun_tuple().</input>
+{#Fun&lt;test.2.107738983>,#Fun&lt;test.3.107738983>}
+</pre>
+<p>Explanation: The string representations differ because the funs
+come from different fun experssions.</p>
+<pre>
+> <input>{fun() -> 1 end, fun() -> 1 end}.</input> > <input></input>
+{#Fun&lt;erl_eval.45.97283095>,#Fun&lt;erl_eval.45.97283095>}
+</pre>
+<p>Explanation: All funs created from fun expressions of this form in
+uncompiled code with the same arity are mapped to the same list by
+<c>fun_to_list/1</c>.</p>
       </desc>
     </func>
 
