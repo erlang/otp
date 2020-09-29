@@ -313,11 +313,18 @@ extension(Config) when is_list(Config) ->
     ".erl" = filename:extension("A:/usr.bar/foo.nisse.erl"),
     "" = filename:extension("A:/usr.bar/foo"),
     "" = filename:extension("A:/usr/foo"),
+    "" = filename:extension(".gitignore"),
+    "" = filename:extension("A:/usr/.gitignore"),
+    ".ignore" = filename:extension("A:/usr/..ignore"),
+    ".ignore" = filename:extension("A:/usr/.git.ignore"),
     case os:type() of
         {win32, _} ->
             "" = filename:extension("A:\\usr\\foo"),
             ".erl" = filename:extension("A:/usr.bar/foo.nisse.erl"),
             "" = filename:extension("A:/usr.bar/foo"),
+            "" = filename:extension("A:\\usr\\.gitignore"),
+            ".ignore" = filename:extension("A:\\usr\\..ignore"),
+            ".ignore" = filename:extension("A:\\usr\\.git.ignore"),
             ok;
         _ -> ok
     end.
@@ -441,8 +448,14 @@ pathtype(Config) when is_list(Config) ->
 rootname(Config) when is_list(Config) ->
     "/jam.src/kalle" = filename:rootname("/jam.src/kalle"),
     "/jam.src/foo" = filename:rootname("/jam.src/foo.erl"),
+    "/jam.src/.gitignore" = filename:rootname("/jam.src/.gitignore"),
+    "/jam.src/.git" = filename:rootname("/jam.src/.git.ignore"),
+    "/jam.src/." = filename:rootname("/jam.src/..gitignore"),
     "/jam.src/foo" = filename:rootname(["/ja",'m.sr',"c/foo.erl"]),
     "/jam.src/foo" = filename:rootname("/jam.src/foo.erl", ".erl"),
+    "/jam.src/.gitignore" = filename:rootname("/jam.src/.gitignore", ".gitignore"),
+    "/jam.src/.git" = filename:rootname("/jam.src/.git.ignore", ".ignore"),
+    "/jam.src/." = filename:rootname("/jam.src/..gitignore", ".gitignore"),
     "/jam.src/foo.jam" = filename:rootname("/jam.src/foo.jam", ".erl"),
     "/jam.src/foo.jam" = filename:rootname(["/jam.sr",'c/foo.j',"am"],".erl"),
     "/jam.src/foo.jam" = filename:rootname(["/jam.sr",'c/foo.j'|am],".erl"),
@@ -693,11 +706,18 @@ extension_bin(Config) when is_list(Config) ->
     <<".erl">> = filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
     <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
     <<"">> = filename:extension(<<"A:/usr/foo">>),
+    <<"">> = filename:extension(<<".gitignore">>),
+    <<"">> = filename:extension(<<"A:/usr/.gitignore">>),
+    <<".ignore">> = filename:extension(<<"A:/usr/..ignore">>),
+    <<".ignore">> = filename:extension(<<"A:/usr/.git.ignore">>),
     case os:type() of
         {win32, _} ->
             <<"">> = filename:extension(<<"A:\\usr\\foo">>),
             <<".erl">> = filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
             <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
+            <<"">> = filename:extension(<<"A:/usr/.gitignore">>),
+            <<".ignore">> = filename:extension(<<"A:/usr/..ignore">>),
+            <<".ignore">> = filename:extension(<<"A:/usr/.git.ignore">>),
             ok;
         _ -> ok
     end.
