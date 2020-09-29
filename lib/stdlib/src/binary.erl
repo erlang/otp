@@ -37,6 +37,11 @@
          matches/3, part/2, part/3, referenced_byte_size/1,
          split/2, split/3, secure_compare/2]).
 
+
+-spec secure_compare(Bin1, Bin2) -> boolean() when 
+      Bin1 :: binary(),
+      Bin2 :: binary().
+
 secure_compare(_, _) ->
     erlang:nif_error(undef).
 
