@@ -99,6 +99,9 @@
 
   <datatypes>
     <datatype>
+      <name name="invalid"/>
+    </datatype>
+    <datatype>
       <name name="domain"/>
       <desc>
 	<p>
@@ -1231,11 +1234,26 @@
       <fsummary>Bind a name to a socket.</fsummary>
       <desc>
         <p>Bind a name to a socket.</p>
-        <p>When a socket is created
-	(with <seemfa marker="#open/2"><c>open</c></seemfa>),
-	it has no address assigned to it. <c>bind</c> assigns the
-	address specified by the <c>Addr</c> argument.</p>
-	<p>The rules used for name binding vary between domains.</p>
+        <p>
+	  When a socket is created
+	  (with <seemfa marker="#open/2"><c>open</c></seemfa>),
+	  it has no address assigned to it. <c>bind</c> assigns the
+	  address specified by the <c>Addr</c> argument.
+	</p>
+	<p>
+	  The rules used for name binding vary between domains.
+	</p>
+	<p>
+	  If you bind a socket to an address in for example
+	  the 'inet' or 'inet6' address families,
+	  with an ephemeral port number (0),
+	  and want to know which port that was chosen,
+	  you can find out using something like:
+	  <c>{ok, #{port := Port}} =</c>
+	  <seemfa marker ="#sockname/1">
+	    <c>socket:sockname(<anno>Socket</anno>)</c>
+	  </seemfa>
+	</p>
       </desc>
     </func>
 
@@ -1244,10 +1262,11 @@
       <fsummary>Cancel an asynchronous request.</fsummary>
       <desc>
 	<p>Cancel an asynchronous request.</p>
-
-	<p>Call this function in order to cancel a previous
-	asynchronous call to, e.g.
-	<seemfa marker="#recv/3"><c>recv/3</c></seemfa>. </p>
+	<p>
+	  Call this function in order to cancel a previous
+	  asynchronous call to, e.g.
+	  <seemfa marker="#recv/3"><c>recv/3</c></seemfa>.
+	</p>
       </desc>
     </func>
 
@@ -1430,7 +1449,8 @@
 	</v>
 	<v>
 	  Reason = <seetype marker="inet#posix">inet:posix()</seetype>
-	  | invalid | closed
+	  | <seetype marker="#invalid"><c>invalid()</c></seetype>
+	  | closed
 	</v>
       </type>
       <desc>
@@ -2229,7 +2249,8 @@
 	</v>
 	<v>
 	  Reason = <seetype marker="inet#posix">inet:posix()</seetype>
-	  | invalid | closed
+	  | <seetype marker="#invalid"><c>invalid()</c></seetype>
+	  | closed
 	</v>
       </type>
       <desc>

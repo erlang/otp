@@ -215,12 +215,6 @@
  * =================================================================== */
 
 
-#ifdef HAVE_SOCKLEN_T
-#  define SOCKLEN_T socklen_t
-#else
-#  define SOCKLEN_T size_t
-#endif
-
 /* Debug stuff... */
 #define NET_NIF_DEBUG_DEFAULT FALSE
 
@@ -783,13 +777,12 @@ ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
     switch (res) {
     case 0:
         {
-            ERL_NIF_TERM keys[] = {atom_host,      atom_service};
-            ERL_NIF_TERM vals[] = {MKS(env, host), MKS(env, serv)};
+            ERL_NIF_TERM keys[]  = {atom_host,      atom_service};
+            ERL_NIF_TERM vals[]  = {MKS(env, host), MKS(env, serv)};
+            size_t       numKeys = NUM(keys);
             ERL_NIF_TERM info;
-            unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-            unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
 
-            ESOCK_ASSERT( numKeys == numVals );
+            ESOCK_ASSERT( numKeys == NUM(vals) );
             ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
 
             result = esock_make_ok2(env, info);
@@ -1462,8 +1455,8 @@ void make_ifaddrs(ErlNifEnv*    env,
      */
     ERL_NIF_TERM keys[6]; // There are only (at most) siz (6) fields...
     ERL_NIF_TERM vals[6];
-    unsigned int len = sizeof(keys) / sizeof(ERL_NIF_TERM); // Just in case...
-    unsigned int idx = 0;
+    size_t       len = NUM(keys); // Just in case...
+    size_t       idx = 0;
 
     /* *** Name *** */
     NDBG( ("NET", "make_ifaddrs -> name: %T\r\n", ename) );
@@ -2095,15 +2088,14 @@ void make_address_info(ErlNifEnv*    env,
                        ERL_NIF_TERM  addr,
                        ERL_NIF_TERM* ai)
 {
-    ERL_NIF_TERM keys[] = {esock_atom_family,
-                           esock_atom_type,
-                           esock_atom_protocol,
-                           esock_atom_addr};
-    ERL_NIF_TERM vals[] = {fam, sockType, proto, addr};
-    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM keys[]  = {esock_atom_family,
+                            esock_atom_type,
+                            esock_atom_protocol,
+                            esock_atom_addr};
+    ERL_NIF_TERM vals[]  = {fam, sockType, proto, addr};
+    size_t       numKeys = NUM(keys);
     
-    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( numKeys == NUM(vals) );
     ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, ai) );
 }
 #endif // if !defined(__WIN32__)

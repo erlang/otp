@@ -158,9 +158,9 @@ gethostname() ->
       Reason   :: term().
 
 getnameinfo(SockAddr, Flags) ->
-    try
-        ESockAddr = prim_socket:encode_sockaddr(SockAddr),
-        nif_getnameinfo(ESockAddr, Flags)
+    try prim_socket:enc_sockaddr(SockAddr) of
+        ESockAddr ->
+            nif_getnameinfo(ESockAddr, Flags)
     catch
         throw : ERROR ->
             ERROR

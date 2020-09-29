@@ -54,7 +54,7 @@ start(ServerPort) ->
     ?LIB:iprint("bind"),
     LocalSA = #{family => Domain,
                 addr   => {147,214,93,147}},
-    {ok, _} = socket:bind(S, LocalSA),
+    ok = socket:bind(S, LocalSA),
     ?LIB:iprint("connect (to ~w)", [ServerPort]),
     ServerSA = LocalSA#{port => ServerPort},
     ok      = socket:connect(S, ServerSA),

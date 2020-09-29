@@ -2475,7 +2475,7 @@ api_b_open_and_close(InitState) ->
                       ({#{domain := ExpDomain}, {ok, Domain}}) ->
                            {error, {unexpected_domain, ExpDomain, Domain}};
                       %% Some platforms do not support this option
-                      ({S, {error, invalid} = ERROR}) ->
+                      ({S, {error, {invalid, _}} = ERROR}) ->
                            case
                                socket:is_supported(options, socket, domain)
                            of
@@ -2526,7 +2526,7 @@ api_b_open_and_close(InitState) ->
 					    ExpProtocol, Protocol}}
 			   end;
                       %% Some platforms do not support this option
-                      ({State, {error, invalid} = ERROR}) ->
+                      ({State, {error, {invalid, _}} = ERROR}) ->
 			   case socket:is_supported(options, socket, protocol) of
 			       true ->
                                    ERROR;
@@ -2815,7 +2815,8 @@ api_b_send_and_recv_udp(InitState) ->
          #{desc => "bind src socket",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("src bound (to ~p)", [Port]),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -2840,7 +2841,8 @@ api_b_send_and_recv_udp(InitState) ->
          #{desc => "bind dst socket",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("src bound (to ~p)", [Port]),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -3195,14 +3197,16 @@ api_b_send_and_recv_conn(InitState) ->
                          lsock  := LSock,
                          lsa    := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
-                                   ok; % We do not care about the port for local
+                               ok ->
+                                   %% We do not care about the port for local
+                                   ok;
                                {error, _} = ERROR ->
                                    ERROR
                            end;
                       (#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
@@ -3355,7 +3359,7 @@ api_b_send_and_recv_conn(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -3632,7 +3636,7 @@ api_b_send_and_recv_sctp(_InitState) ->
 %%          #{desc => "bind src",
 %%            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
 %%                            case socket:bind(Sock, LSA) of
-%%                                {ok, _Port} ->
+%%                                ok ->
 %%                                    ?SEV_IPRINT("src bound"),
 %%                                    ok;
 %%                                {error, Reason} = ERROR ->
@@ -3657,7 +3661,7 @@ api_b_send_and_recv_sctp(_InitState) ->
 %%          #{desc => "bind dst",
 %%            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
 %%                            case socket:bind(Sock, LSA) of
-%%                                {ok, _Port} ->
+%%                                ok ->
 %%                                    ?SEV_IPRINT("src bound"),
 %%                                    ok;
 %%                                {error, Reason} = ERROR ->
@@ -3757,7 +3761,8 @@ api_b_send_and_recv_sctp(_InitState) ->
 %%          #{desc => "bind to local address",
 %%            cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
 %%                            case socket:bind(LSock, LSA) of
-%%                                {ok, Port} ->
+%%                                ok ->
+%%                                    Port = sock_port(LSock),
 %%                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
 %%                                    {ok, State#{lport => Port}};
 %%                                {error, _} = ERROR ->
@@ -3894,7 +3899,7 @@ api_b_send_and_recv_sctp(_InitState) ->
 %%          #{desc => "bind to local address",
 %%            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
 %%                            case socket:bind(Sock, LSA) of
-%%                                {ok, _Port} ->
+%%                                ok ->
 %%                                    ok;
 %%                                {error, _} = ERROR ->
 %%                                    ERROR
@@ -4659,7 +4664,8 @@ api_ffd_open_and_open_and_send_udp2(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, lsa := LSA} = State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{port => Port}};
                                {error, _} = ERROR ->
@@ -4817,7 +4823,7 @@ api_ffd_open_and_open_and_send_udp2(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -5380,7 +5386,8 @@ api_ffd_open_connect_and_open_and_send_tcp2(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
@@ -5567,7 +5574,7 @@ api_ffd_open_connect_and_open_and_send_tcp2(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -6075,7 +6082,8 @@ api_a_connect_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -6207,7 +6215,7 @@ api_a_connect_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -6708,7 +6716,8 @@ api_a_send_and_recv_udp(InitState) ->
          #{desc => "bind socket (to local address)",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    {ok, State#{port => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -6854,7 +6863,7 @@ api_a_send_and_recv_udp(InitState) ->
          #{desc => "bind socket (to local address)",
            cmd  => fun(#{sock := Sock, lsa := LSA}) ->
                           case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -7289,7 +7298,8 @@ api_a_send_and_recv_tcp(Config, InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -7499,7 +7509,7 @@ api_a_send_and_recv_tcp(Config, InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -7942,7 +7952,8 @@ api_a_recv_cancel_udp(InitState) ->
          #{desc => "bind socket (to local address)",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    {ok, State#{port => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -8220,7 +8231,8 @@ api_a_accept_cancel_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -8534,7 +8546,8 @@ api_a_recv_cancel_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -8689,7 +8702,7 @@ api_a_recv_cancel_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -9029,7 +9042,8 @@ api_a_mrecv_cancel_udp(InitState) ->
          #{desc => "bind socket (to local address)",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    {ok, State#{port => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -9485,7 +9499,8 @@ api_a_maccept_cancel_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -9980,7 +9995,8 @@ api_a_mrecv_cancel_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -10204,7 +10220,7 @@ api_a_mrecv_cancel_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -10538,8 +10554,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, iow) of
                                {ok, IOW} when is_boolean(IOW) ->
                                    {ok, State#{iow => IOW}};
-                               {ok, InvalidIOW} ->
-                                   {error, {invalid, InvalidIOW}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10565,8 +10581,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, iow) of
                                {ok, IOW} ->
                                    ok;
-                               {ok, InvalidIOW} ->
-                                   {error, {invalid, InvalidIOW}};
+                               {ok, _} = OK->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10581,8 +10597,8 @@ api_opt_simple_otp_options() ->
                                {ok, {N, RcvBuf} = V} when is_integer(N) andalso 
                                                           is_integer(RcvBuf) ->
                                    {ok, State#{rcvbuf => V}};
-                               {ok, InvalidRcvBuf} ->
-                                   {error, {invalid, InvalidRcvBuf}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10620,8 +10636,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, rcvbuf) of
                                {ok, RcvBuf} ->
                                    ok;
-                               {ok, InvalidRcvBuf} ->
-                                   {error, {invalid, InvalidRcvBuf}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10633,8 +10649,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, rcvctrlbuf) of
                                {ok, RcvCtrlBuf} when is_integer(RcvCtrlBuf) ->
                                    {ok, State#{rcvctrlbuf => RcvCtrlBuf}};
-                               {ok, InvalidRcvCtrlBuf} ->
-                                   {error, {invalid, InvalidRcvCtrlBuf}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10654,8 +10670,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, rcvctrlbuf) of
                                {ok, RcvCtrlBuf} ->
                                    ok;
-                               {ok, InvalidRcvCtrlBuf} ->
-                                   {error, {invalid, InvalidRcvCtrlBuf}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10666,8 +10682,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, rcvctrlbuf) of
                                {ok, RcvCtrlBuf} when is_integer(RcvCtrlBuf) ->
                                    {ok, State#{rcvctrlbuf => RcvCtrlBuf}};
-                               {ok, InvalidRcvCtrlBuf} ->
-                                   {error, {invalid, InvalidRcvCtrlBuf}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10687,8 +10703,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, rcvctrlbuf) of
                                {ok, RcvCtrlBuf} ->
                                    ok;
-                               {ok, InvalidRcvCtrlBuf} ->
-                                   {error, {invalid, InvalidRcvCtrlBuf}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10701,8 +10717,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, sndctrlbuf) of
                                {ok, SndCtrlBuf} when is_integer(SndCtrlBuf) ->
                                    {ok, State#{sndctrlbuf => SndCtrlBuf}};
-                               {ok, InvalidSndCtrlBuf} ->
-                                   {error, {invalid, InvalidSndCtrlBuf}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10722,8 +10738,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, sndctrlbuf) of
                                {ok, SndCtrlBuf} ->
                                    ok;
-                               {ok, InvalidSndCtrlBuf} ->
-                                   {error, {invalid, InvalidSndCtrlBuf}};
+                               {ok, _} = OK->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10736,8 +10752,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, controlling_process) of
                                {ok, Self} ->
                                    ok;
-                               {ok, InvalidPid} ->
-                                   {error, {invalid, InvalidPid}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10751,8 +10767,8 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, controlling_process) of
                                {ok, Dummy} ->
                                    ok;
-                               {ok, InvalidPid} ->
-                                   {error, {invalid, InvalidPid}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -10818,8 +10834,8 @@ api_opt_simple_otp_meta_option() ->
                           case Get(Sock) of
                               {ok, undefined} ->
                                   ok;
-                              {ok, Invalid} ->
-                                  {error, {invalid, Invalid}};
+                              {ok, _} = OK ->
+                                  {error, OK};
                               {error, _} = ERROR ->
                                   ERROR
                           end
@@ -10841,8 +10857,8 @@ api_opt_simple_otp_meta_option() ->
                           case Get(Sock) of
                               {ok, Value} ->
                                   ok;
-                              {ok, Invalid} ->
-                                  {error, {invalid, Invalid}};
+                              {ok, _} = OK ->
+                                  {error, OK};
                               {error, _} = ERROR ->
                                   ERROR
                           end
@@ -10869,8 +10885,8 @@ api_opt_simple_otp_meta_option() ->
                           case Get(Sock) of
                               {ok, Value} ->
                                   ok;
-                              {ok, Invalid} ->
-                                  {error, {invalid, Invalid}};
+                              {ok, _} = OK->
+                                  {error, OK};
                               {error, _} = ERROR ->
                                   ERROR
                           end
@@ -10913,8 +10929,8 @@ api_opt_simple_otp_meta_option() ->
                           case Get(Sock) of
                               {ok, Value} ->
                                   ok;
-                              {ok, Invalid} ->
-                                  {error, {invalid, Invalid}};
+                              {ok, _} = OK->
+                                  {error, OK};
                               {error, _} = ERROR ->
                                   ERROR
                           end
@@ -10926,7 +10942,7 @@ api_opt_simple_otp_meta_option() ->
                           case Set(Sock, Value) of
                               ok ->
                                   {error, only_owner_may_set};
-                              {error, not_owner} ->
+                              {error, {invalid, not_owner}} ->
                                   ok;
                               {error, _} = ERROR ->
                                   ERROR
@@ -11007,7 +11023,8 @@ api_opt_simple_otp_rcvbuf_option() ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -11252,7 +11269,7 @@ api_opt_simple_otp_rcvbuf_option() ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -11666,8 +11683,8 @@ api_opt_simple_otp_controlling_process() ->
                            case Get(Sock, controlling_process) of
                                {ok, Tester} ->
                                    ok;
-                               {ok, InvalidPid} ->
-                                   {error, {invalid, InvalidPid}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -11675,7 +11692,7 @@ api_opt_simple_otp_controlling_process() ->
          #{desc => "attempt invalid controlling-process transfer (to self)",
            cmd  => fun(#{sock := Sock} = _State) ->
                            case Set(Sock, controlling_process, self()) of
-                               {error, not_owner} ->
+                               {error, {invalid, not_owner}} ->
                                    ok;
                                ok ->
                                    {error, unexpected_success};
@@ -11698,8 +11715,8 @@ api_opt_simple_otp_controlling_process() ->
                            case Get(Sock, controlling_process) of
                                {ok, Self} ->
                                    ok;
-                               {ok, InvalidPid} ->
-                                   {error, {invalid, InvalidPid}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -11711,7 +11728,7 @@ api_opt_simple_otp_controlling_process() ->
          #{desc => "attempt invalid controlling-process transfer (to self)",
            cmd  => fun(#{sock := Sock} = _State) ->
                            case Set(Sock, controlling_process, self()) of
-                               {error, not_owner} ->
+                               {error, {invalid, not_owner}} ->
                                    ok;
                                ok ->
                                    {error, unexpected_success};
@@ -11762,8 +11779,8 @@ api_opt_simple_otp_controlling_process() ->
                            case Get(Sock, controlling_process) of
                                {ok, Self} ->
                                    ok;
-                               {ok, InvalidPid} ->
-                                   {error, {invalid, InvalidPid}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -11786,8 +11803,8 @@ api_opt_simple_otp_controlling_process() ->
                            case Get(Sock, controlling_process) of
                                {ok, Client} ->
                                    ok;
-                               {ok, InvalidPid} ->
-                                   {error, {invalid, InvalidPid}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -11795,7 +11812,7 @@ api_opt_simple_otp_controlling_process() ->
          #{desc => "attempt invalid controlling-process transfer (to self)",
            cmd  => fun(#{sock := Sock} = _State) ->
                            case Set(Sock, controlling_process, self()) of
-                               {error, not_owner} ->
+                               {error, {invalid, not_owner}} ->
                                    ok;
                                ok ->
                                    {error, unexpected_success};
@@ -11819,8 +11836,8 @@ api_opt_simple_otp_controlling_process() ->
                            case Get(Sock, controlling_process) of
                                {ok, Self} ->
                                    ok;
-                               {ok, InvalidPid} ->
-                                   {error, {invalid, InvalidPid}};
+                               {ok, _} = OK ->
+                                   {error, OK};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -11963,7 +11980,7 @@ api_opt_sock_acceptconn_udp() ->
          #{desc => "bind socket to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -12111,7 +12128,8 @@ api_opt_sock_acceptconn_tcp() ->
          #{desc => "bind listen socket to local address",
            cmd  => fun(#{lsock := Sock, local_sa := LSA} = State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    {ok, State#{server_sa => LSA#{port => Port}}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -12203,7 +12221,7 @@ api_opt_sock_acceptconn_tcp() ->
          #{desc => "bind connecting socket to local address",
            cmd  => fun(#{csockc := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -12547,7 +12565,7 @@ api_opt_sock_bindtodevice() ->
          #{desc => "Bind UDP socket 2 to local address",
            cmd  => fun(#{usock2 := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("Expected Success"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -12577,7 +12595,7 @@ api_opt_sock_bindtodevice() ->
          #{desc => "Bind TCP socket 2 to local address",
            cmd  => fun(#{tsock2 := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("Expected Success"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -12750,7 +12768,8 @@ api_opt_sock_broadcast() ->
                            ?SEV_IPRINT("Try bind (socket 1) to: "
                                        "~n   ~p", [BSA]),
                            case socket:bind(Sock, BSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("Expected Success (bound): ~p",
                                                [Port]),
                                    {ok, State#{sa1 => BSA#{port => Port}}};
@@ -12796,7 +12815,8 @@ api_opt_sock_broadcast() ->
                            ?SEV_IPRINT("Try bind (socket 1) to: "
                                        "~n   ~p", [BSA]),
                            case socket:bind(Sock, BSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("Expected Success (bound): ~p",
                                                [Port]),
                                    {ok, State#{sa2 => BSA#{port => Port}}};
@@ -12880,7 +12900,8 @@ api_opt_sock_broadcast() ->
                            ?SEV_IPRINT("Try bind (socket 2) to: "
                                        "~n   ~p", [LSA]),
                            case socket:bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("Expected Success (bound): ~p",
                                                [Port]),
                                    {ok, State#{sa3 => LSA#{port => Port}}};
@@ -13693,14 +13714,15 @@ do_api_opt_sock_oobinline(InitState) ->
                          lsock  := LSock,
                          lsa    := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
                            end;
                       (#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
@@ -13939,7 +13961,7 @@ do_api_opt_sock_oobinline(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -14311,14 +14333,15 @@ api_opt_sock_passcred_tcp(InitState) ->
                          lsock  := LSock,
                          lsa    := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
                            end;
                       (#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
@@ -14535,7 +14558,7 @@ api_opt_sock_passcred_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -15093,8 +15116,9 @@ api_opt_sock_peek_off(InitState) ->
            cmd  => fun(#{lsock := LSock,
                          lsa   := LSA} = _State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, _Port} ->
-                                   ok; % We do not care about the port for local
+                               ok ->
+                                   %% We do not care about the port for local
+                                   ok;
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -15424,7 +15448,7 @@ api_opt_sock_peek_off(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -15802,7 +15826,7 @@ api_opt_sock_peercred_tcp(_InitState) ->
     %%                      lsock  := LSock,
     %%                      lsa    := LSA} = _State) ->
     %%                        case socket:bind(LSock, LSA) of
-    %%                            {ok, _Port} ->
+    %%                            ok ->
     %%                                ok;
     %%                            {error, _} = ERROR ->
     %%                                ERROR
@@ -16252,7 +16276,7 @@ api_opt_sock_peercred_tcp(_InitState) ->
 %%                    ?FAIL({open, OReason})
 %%            end,
 %%     case socket:bind(Sock, LSA) of
-%%         {ok, _} ->
+%%         ok ->
 %%             ok;
 %%         {error, BReason} ->
 %%             (catch socket:close(Sock)),
@@ -16361,7 +16385,7 @@ api_opt_sock_priority(InitState) ->
          #{desc => "bind",
            cmd  => fun(#{sock := Sock, lsa := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -16526,7 +16550,7 @@ api_opt_sock_buf(InitState) ->
          #{desc => "bind",
            cmd  => fun(#{sock := Sock, lsa := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -16684,7 +16708,7 @@ api_opt_sock_timeo(InitState) ->
          #{desc => "bind",
            cmd  => fun(#{sock := Sock, lsa := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -16856,7 +16880,7 @@ api_opt_sock_lowat(InitState) ->
          #{desc => "bind",
            cmd  => fun(#{sock := Sock, lsa := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -17018,7 +17042,7 @@ api_opt_sock_timestamp_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -17059,7 +17083,7 @@ api_opt_sock_timestamp_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -17422,14 +17446,15 @@ api_opt_sock_timestamp_tcp(InitState) ->
                          lsock  := LSock,
                          lsa    := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
                            end;
                       (#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
@@ -17646,7 +17671,7 @@ api_opt_sock_timestamp_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -18206,7 +18231,8 @@ api_opt_ip_add_drop_membership() ->
          #{desc => "bind recv socket to multicast address",
            cmd  => fun(#{sock := Sock, msa := MSA} = State) ->
                            case sock_bind(Sock, MSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("bound to:"
                                                "~n   ~p", [Port]),
                                    {ok, State#{msa => MSA#{port => Port}}};
@@ -18552,7 +18578,7 @@ api_opt_ip_pktinfo_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -18577,7 +18603,7 @@ api_opt_ip_pktinfo_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -18943,7 +18969,7 @@ api_opt_ip_recvopts_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -18968,7 +18994,7 @@ api_opt_ip_recvopts_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -19358,7 +19384,7 @@ api_opt_ip_recvorigdstaddr_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -19383,7 +19409,7 @@ api_opt_ip_recvorigdstaddr_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -19622,7 +19648,7 @@ api_opt_ip_recvtos_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -19647,7 +19673,7 @@ api_opt_ip_recvtos_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -20000,7 +20026,7 @@ api_opt_ip_recvttl_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -20025,7 +20051,7 @@ api_opt_ip_recvttl_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -20360,7 +20386,7 @@ api_opt_ip_tos_udp(InitState) ->
          #{desc => "bind",
            cmd  => fun(#{sock := Sock, lsa := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("socket bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -20653,7 +20679,7 @@ api_opt_recverr_udp(InitState) ->
          #{desc => "bind (to loopback)",
            cmd  => fun(#{sock := Sock} = _State) ->
                            case socket:bind(Sock, loopback) of
-                               {ok, _} ->
+                               ok ->
                                    ?SEV_IPRINT("bound"),
                                    ok;
                                {error, _} = ERROR ->
@@ -21029,7 +21055,7 @@ api_opt_ip_mopts_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -21054,7 +21080,7 @@ api_opt_ip_mopts_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -21267,7 +21293,7 @@ api_opt_ipv6_recvpktinfo_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -21292,7 +21318,7 @@ api_opt_ipv6_recvpktinfo_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -21525,7 +21551,7 @@ api_opt_ipv6_flowinfo_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -21550,7 +21576,7 @@ api_opt_ipv6_flowinfo_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -21793,7 +21819,7 @@ api_opt_ipv6_hoplimit_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -21818,7 +21844,7 @@ api_opt_ipv6_hoplimit_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -22091,7 +22117,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -22116,7 +22142,7 @@ api_opt_ipv6_tclass_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -22503,7 +22529,7 @@ api_opt_ipv6_mopts_udp(InitState) ->
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -22528,7 +22554,7 @@ api_opt_ipv6_mopts_udp(InitState) ->
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -22724,7 +22750,8 @@ api_opt_tcp_congestion_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    ok;
                                {error, _} = ERROR ->
@@ -22902,7 +22929,8 @@ api_opt_tcp_cork_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    ok;
                                {error, _} = ERROR ->
@@ -23023,7 +23051,8 @@ api_opt_tcp_maxseg_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    ok;
                                {error, _} = ERROR ->
@@ -23149,7 +23178,8 @@ api_opt_tcp_nodelay_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    ok;
                                {error, _} = ERROR ->
@@ -23266,7 +23296,8 @@ api_opt_udp_cork_udp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    ok;
                                {error, _} = ERROR ->
@@ -23458,7 +23489,8 @@ api_to_connect_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -23824,7 +23856,7 @@ api_to_connect_tcp_await_timeout(To, ServerSA, Domain, ConLimit) ->
                                   ?FAIL({open, OReason})
                           end,
                       case socket:bind(S, LSA) of
-                          {ok, _} ->
+                          ok ->
                               S;
                           {error, BReason} ->
                               ?FAIL({bind, BReason})
@@ -23942,7 +23974,7 @@ api_to_accept_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = _State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, _} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -24066,7 +24098,7 @@ api_to_maccept_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, lsa := LSA} = _State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, _} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -24587,7 +24619,8 @@ api_to_receive_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -24706,7 +24739,7 @@ api_to_receive_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -24922,7 +24955,7 @@ api_to_receive_udp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -25871,7 +25904,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            ?SEV_IPRINT("bind to LSA: "
                                        "~n   ~p", [LSA]),
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
@@ -25879,7 +25912,8 @@ sc_lc_receive_response_tcp(InitState) ->
                       (#{lsock := LSock,
                          lsa   := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
@@ -26119,7 +26153,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            ?SEV_IPRINT("bind to LSA: "
                                        "~n   ~p", [LSA]),
                            case sock_bind(Sock, LSA) of
-                               {ok, _} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -26560,7 +26594,7 @@ sc_lc_receive_response_udp(InitState) ->
          #{desc => "bind socket",
            cmd  => fun(#{sock := Sock, local_sa := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ?SEV_IPRINT("src bound"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -27154,7 +27188,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -27631,7 +27665,7 @@ sc_rc_receive_response_tcp(InitState) ->
                          lsock  := LSock,
                          lsa    := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
@@ -27639,7 +27673,8 @@ sc_rc_receive_response_tcp(InitState) ->
                       (#{lsock    := LSock,
                          local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -28363,7 +28398,7 @@ sc_rc_tcp_client_bind(Sock, Domain) ->
     i("sc_rc_tcp_client_bind -> entry"),
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
-        {ok, _} ->
+        ok ->
             case socket:sockname(Sock) of
                 {ok, #{family := local, path := Path}} ->
                     Path;
@@ -28680,14 +28715,15 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                          lsock    := LSock,
                          local_sa := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
                            end;
                       (#{lsock := LSock, local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
@@ -29289,7 +29325,7 @@ sc_rs_tcp_client_bind(Sock, Domain) ->
     i("sc_rs_tcp_client_bind -> entry"),
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
-        {ok, _} ->
+        ok ->
             case socket:sockname(Sock) of
                 {ok, #{family := local, path := Path}} ->
                     Path;
@@ -29765,7 +29801,7 @@ traffic_send_and_recv_tcp(InitState) ->
                          lsock    := LSock,
                          local_sa := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
@@ -29773,7 +29809,8 @@ traffic_send_and_recv_tcp(InitState) ->
                       (#{lsock    := LSock,
                          local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -30147,7 +30184,7 @@ traffic_send_and_recv_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -30985,7 +31022,7 @@ traffic_send_and_recv_udp(InitState) ->
                          sock     := Sock,
                          local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
@@ -30993,7 +31030,8 @@ traffic_send_and_recv_udp(InitState) ->
                       (#{sock     := LSock,
                          local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -31303,7 +31341,7 @@ traffic_send_and_recv_udp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -31877,7 +31915,7 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                          lsock    := LSock,
                          local_sa := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
@@ -31885,7 +31923,8 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                       (#{lsock    := LSock,
                          local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -32776,7 +32815,7 @@ traffic_snr_tcp_client_bind(Sock, Domain) ->
     i("traffic_snr_tcp_client_bind -> entry"),
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
-        {ok, _} ->
+        ok ->
             case socket:sockname(Sock) of
                 {ok, #{family := local, path := Path}} ->
                     Path;
@@ -33856,14 +33895,15 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                          lsock  := LSock,
                          lsa    := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
                            end;
                       (#{lsock := LSock, local_sa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
@@ -34601,7 +34641,7 @@ tpp_tcp_client_sock_open(Domain, Proto, BufInit) ->
 tpp_tcp_client_sock_bind(Sock, Domain) ->
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
-        {ok, _} ->
+        ok ->
             case socket:sockname(Sock) of
                 {ok, #{family := local, path := Path}} ->
                     Path;
@@ -34819,14 +34859,15 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
            cmd  => fun(#{domain := local,
                          sock := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
-                               {ok, _} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
                            end;
                       (#{sock := Sock, local_sa := LSA} = State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(Sock),
                                    {ok, State#{port => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -35563,7 +35604,7 @@ tpp_udp_sock_open(Domain, Proto, BufInit) ->
 tpp_udp_sock_bind(Sock, Domain) ->
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
-        {ok, _} ->
+        ok ->
             ok;
         {error, Reason} ->
             exit({bind, Reason})
@@ -42319,14 +42360,15 @@ otp16359_maccept_tcp(InitState) ->
                          lsock  := LSock,
                          lsa    := LSA} = _State) ->
                            case socket:bind(LSock, LSA) of
-                               {ok, _} ->
+                               ok ->
                                    ok; % We do not care about the port for local
                                {error, _} = ERROR ->
                                    ERROR
                            end;
                       (#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
-                               {ok, Port} ->
+                               ok ->
+                                   Port = sock_port(LSock),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -42510,7 +42552,7 @@ otp16359_maccept_tcp(InitState) ->
          #{desc => "bind to local address",
            cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -42961,7 +43003,7 @@ sock_open(Domain, Type, Proto) ->
 
 sock_bind(Sock, LSA) ->
     try socket:bind(Sock, LSA) of
-        {ok, _} = OK ->
+        ok = OK ->
             OK;
         {error, eaddrnotavail = Reason} ->
             ?SEV_IPRINT("Address not available"),
@@ -44648,6 +44690,12 @@ nowait(Config) ->
             make_ref();
         false ->
             nowait
+    end.
+
+sock_port(S) ->
+    case socket:sockname(S) of
+        {ok, #{port := Port}} -> Port;
+        {ok, #{}}             -> undefined
     end.
 
 l2a(S) when is_list(S) ->

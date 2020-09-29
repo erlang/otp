@@ -23,6 +23,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
@@ -35,27 +39,11 @@
 #include "socket_util.h"
 #include "socket_dbg.h"
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #if defined(HAVE_SCTP_H)
 #include <netinet/sctp.h>
 #ifndef     HAVE_SCTP
 #    define HAVE_SCTP
 #endif
-#endif
-
-#ifdef HAVE_SOCKLEN_T
-#  define SOCKLEN_T socklen_t
-#else
-#  define SOCKLEN_T size_t
-#endif
-
-#ifdef __WIN32__
-#define SOCKOPTLEN_T int
-#else
-#define SOCKOPTLEN_T SOCKLEN_T
 #endif
 
 /* We don't have a "debug flag" to check here, so we 
@@ -86,12 +74,12 @@ static void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
 
 static void esock_encode_sockaddr_unknown(ErlNifEnv*       env,
                                           struct sockaddr* sa,
-                                          unsigned int     len,
+                                          SOCKLEN_T        len,
                                           ERL_NIF_TERM*    eSockAddr);
 
 static void esock_encode_sockaddr_broken(ErlNifEnv*       env,
                                          struct sockaddr* sa,
-                                         unsigned int     len,
+                                         socklen_t        len,
                                          ERL_NIF_TERM*    eSockAddr);
 
 static void make_sockaddr_in(ErlNifEnv*    env,
@@ -288,7 +276,7 @@ extern
 BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
                                 ERL_NIF_TERM  eSockAddr,
                                 ESockAddress* sockAddrP,
-                                unsigned int* addrLen)
+                                SOCKLEN_T*    addrLen)
 {
     ERL_NIF_TERM efam;
     int          fam;
@@ -348,7 +336,7 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
 extern
 void esock_encode_sockaddr(ErlNifEnv*    env,
                            ESockAddress* sockAddrP,
-                           unsigned int  addrLen,
+                           SOCKLEN_T     addrLen,
                            ERL_NIF_TERM* eSockAddr)
 {
     // Sanity check
@@ -414,7 +402,7 @@ extern
 BOOLEAN_T esock_decode_sockaddr_in(ErlNifEnv*          env,
                                    ERL_NIF_TERM        eSockAddr,
                                    struct sockaddr_in* sockAddrP,
-                                   unsigned int*       addrLen)
+                                   SOCKLEN_T*          addrLen)
 {
     ERL_NIF_TERM eport, eaddr;
     int          port;
@@ -477,7 +465,7 @@ BOOLEAN_T esock_decode_sockaddr_in(ErlNifEnv*          env,
 extern
 void esock_encode_sockaddr_in(ErlNifEnv*          env,
                               struct sockaddr_in* sockAddrP,
-                              unsigned int        addrLen,
+                              SOCKLEN_T           addrLen,
                               ERL_NIF_TERM*       eSockAddr)
 {
     ERL_NIF_TERM ePort, eAddr;
@@ -529,7 +517,7 @@ extern
 BOOLEAN_T esock_decode_sockaddr_in6(ErlNifEnv*           env,
                                     ERL_NIF_TERM         eSockAddr,
                                     struct sockaddr_in6* sockAddrP,
-                                    unsigned int*        addrLen)
+                                    SOCKLEN_T*           addrLen)
 {
     ERL_NIF_TERM eport, eaddr, eflowInfo, escopeId;
     int          port;
@@ -616,9 +604,9 @@ BOOLEAN_T esock_decode_sockaddr_in6(ErlNifEnv*           env,
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
 extern
-void esock_encode_sockaddr_in6(ErlNifEnv*           env,
+void esock_encode_sockaddr_in6(ErlNifEnv*            env,
                                 struct sockaddr_in6* sockAddrP,
-                                unsigned int         addrLen,
+                                SOCKLEN_T            addrLen,
                                 ERL_NIF_TERM*        eSockAddr)
 {
     ERL_NIF_TERM ePort, eAddr, eFlowInfo, eScopeId;
@@ -668,11 +656,11 @@ extern
 BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
                                    ERL_NIF_TERM        eSockAddr,
                                    struct sockaddr_un* sockAddrP,
-                                   unsigned int*       addrLen)
+                                   SOCKLEN_T*          addrLen)
 {
     ErlNifBinary bin;
     ERL_NIF_TERM epath;
-    unsigned int len;
+    SOCKLEN_T    len;
 
     /* *** Extract (e) path (a binary) from map *** */
     if (! GET_MAP_VAL(env, eSockAddr, esock_atom_path, &epath))
@@ -703,7 +691,7 @@ BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
     sockAddrP->sun_family = AF_LOCAL;
 
     sys_memcpy(sockAddrP->sun_path, bin.data, bin.size);
-    len = offsetof(struct sockaddr_un, sun_path) + bin.size;
+    len = (sockAddrP->sun_path - (char *)sockAddrP) + bin.size;
 
 #ifndef NO_SA_LEN
     sockAddrP->sun_len = len;
@@ -718,7 +706,7 @@ BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
 
 /* +++ esock_encode_sockaddr_un +++
  *
- * Encode a Unix Domain socket address - sockaddr_un. In erlang its 
+ * Encode a Unix Domain socket address - sockaddr_un. In erlang it is
  * represented as a map, which has a specific set of attributes
  * (beside the mandatory family attribute, which is "inherited" from
  * the "sockaddr" type):
@@ -731,15 +719,15 @@ BOOLEAN_T esock_decode_sockaddr_un(ErlNifEnv*          env,
 extern
 void esock_encode_sockaddr_un(ErlNifEnv*          env,
                               struct sockaddr_un* sockAddrP,
-                              unsigned int        addrLen,
+                              SOCKLEN_T           addrLen,
                               ERL_NIF_TERM*       eSockAddr)
 {
     ERL_NIF_TERM ePath;
     size_t       n, m;
 
-    if (addrLen >= offsetof(struct sockaddr_un, sun_path)) {
-        
-        n = addrLen - offsetof(struct sockaddr_un, sun_path);
+    n = sockAddrP->sun_path - (char *)sockAddrP; // offsetof
+    if (addrLen >= n) {
+        n = addrLen - n; // sun_path length
         if (255 < n) {
             /* It would be dangerous to create a binary
              * based on a presumably bad addrLen
@@ -797,7 +785,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
 extern
 void esock_encode_sockaddr_ll(ErlNifEnv*          env,
                               struct sockaddr_ll* sockAddrP,
-                              unsigned int        addrLen,
+                              SOCKLEN_T           addrLen,
                               ERL_NIF_TERM*       eSockAddr)
 {
     ERL_NIF_TERM eProto, eIfIdx, eHaType, ePktType, eAddr;
@@ -928,9 +916,9 @@ void esock_encode_in_addr(ErlNifEnv*      env,
                           struct in_addr* addrP,
                           ERL_NIF_TERM*   eAddr)
 {
-    unsigned int   i;
+    size_t         i;
     ERL_NIF_TERM   at[4];
-    unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
+    size_t         atLen = NUM(at);
     unsigned char* a     = (unsigned char*) addrP;
     ERL_NIF_TERM   addr;
     
@@ -972,45 +960,40 @@ BOOLEAN_T esock_decode_in6_addr(ErlNifEnv*       env,
 
     if (IS_ATOM(env, eAddr)) {
         /* This is either 'any' or 'loopback' */
-        const struct in6_addr* addr;
 
         if (COMPARE(esock_atom_loopback, eAddr) == 0) {
-            addr = &in6addr_loopback;
+            *inAddrP = in6addr_loopback;
         } else if (COMPARE(esock_atom_any, eAddr) == 0) {
-            addr = &in6addr_any;
+            *inAddrP = in6addr_any;
         } else {
             return FALSE;
         }
         
-        *inAddrP = *addr;
-        
     } else {
-        /* This is a 8-tuple */
+        /* This is an 8-tuple */
         
-        const ERL_NIF_TERM* addrt;
-        int                 addrtSz;
-        int                 ai, v;
-        unsigned char       addr[16];
-        unsigned char*      a = addr;
-        unsigned int        addrLen = sizeof(addr) / sizeof(unsigned char);
-        
-        if (! GET_TUPLE(env, eAddr, &addrtSz, &addrt))
-            return FALSE;
-        
-        if (addrtSz != 8)
-            return FALSE;
-        
-        for (ai = 0; ai < 8; ai++) {
-            if (! GET_INT(env, addrt[ai], &v))
-                return FALSE;
-            if (v < 0 || 65535 < v)
-                return FALSE;
-            put_int16(v, a);
-            a += 2;
-        }
-        
-        sys_memcpy(inAddrP, &addr, addrLen);
+        const ERL_NIF_TERM* tuple;
+        int                 arity;
+        size_t              n;
+        struct in6_addr     sa;
 
+        if (! GET_TUPLE(env, eAddr, &arity, &tuple))
+            return FALSE;
+        n = arity << 1;
+
+        if (n != sizeof(sa.s6_addr))
+            return FALSE;
+
+        for (n = 0;  n < arity;  n++) {
+            int v;
+
+            if (! GET_INT(env, tuple[n], &v) ||
+                v < 0 || 65535 < v)
+                return FALSE;
+
+            put_int16(v, sa.s6_addr + (n << 1));
+        }
+        *inAddrP = sa;
     }
 
     return TRUE;
@@ -1036,10 +1019,10 @@ void esock_encode_in6_addr(ErlNifEnv*       env,
                            struct in6_addr* addrP,
                            ERL_NIF_TERM*    eAddr)
 {
-    unsigned int   i;
+    size_t         i;
     ERL_NIF_TERM   at[8];
-    unsigned int   atLen = sizeof(at) / sizeof(ERL_NIF_TERM);
-    unsigned char* a     = (unsigned char*) addrP;
+    size_t         atLen = NUM(at);
+    unsigned char* a     = UCHARP(addrP->s6_addr);
     
     /* The address */
     for (i = 0; i < atLen; i++) {
@@ -1065,13 +1048,11 @@ void esock_encode_timeval(ErlNifEnv*      env,
                            struct timeval* timeP,
                            ERL_NIF_TERM*   eTime)
 {
-    ERL_NIF_TERM keys[] = {esock_atom_sec, esock_atom_usec};
-    ERL_NIF_TERM vals[] = {MKL(env, timeP->tv_sec), MKL(env, timeP->tv_usec)};
-    
-    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
-    
-    ESOCK_ASSERT( numKeys == numVals );
+    ERL_NIF_TERM keys[]  = {esock_atom_sec, esock_atom_usec};
+    ERL_NIF_TERM vals[]  = {MKL(env, timeP->tv_sec), MKL(env, timeP->tv_usec)};
+    size_t       numKeys = NUM(keys);
+
+    ESOCK_ASSERT( numKeys == NUM(vals) );
     ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eTime) );
 }
 
@@ -1488,7 +1469,7 @@ void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
 static
 void esock_encode_sockaddr_unknown(ErlNifEnv*       env,
                                    struct sockaddr* addr,
-                                   unsigned int     len,
+                                   SOCKLEN_T        len,
                                    ERL_NIF_TERM*    eSockAddr)
 {
     size_t size;
@@ -1501,10 +1482,9 @@ void esock_encode_sockaddr_unknown(ErlNifEnv*       env,
     {
         ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_addr};
         ERL_NIF_TERM vals[] = {eFamily, eData};
-        size_t numKeys = sizeof(keys) / sizeof(*keys);
-        size_t numVals = sizeof(vals) / sizeof(*vals);
+        size_t numKeys = NUM(keys);
 
-        ESOCK_ASSERT( numKeys == numVals );
+        ESOCK_ASSERT( numKeys == NUM(vals) );
         ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eSockAddr) );
     }
 }
@@ -1514,7 +1494,7 @@ void esock_encode_sockaddr_unknown(ErlNifEnv*       env,
  */
 static void esock_encode_sockaddr_broken(ErlNifEnv*       env,
                                          struct sockaddr* addr,
-                                         unsigned int     len,
+                                         SOCKLEN_T        len,
                                          ERL_NIF_TERM*    eSockAddr) {
     *eSockAddr = esock_make_new_binary(env, addr, len);
 }
@@ -1780,16 +1760,41 @@ ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err)
 
 
 
-/* Raise an exception {invalid, {What, Info}}
+/* Create an error two (2) tuple in the form:
+ *
+ *          {error, {invalid, {What, Info}}}
  */
 extern
-ERL_NIF_TERM esock_raise_invalid(ErlNifEnv* env,
-                                 ERL_NIF_TERM what, ERL_NIF_TERM info)
+ERL_NIF_TERM esock_make_error_invalid(ErlNifEnv* env, ERL_NIF_TERM what)
 {
-    return enif_raise_exception(env,
-                                MKT2(env,
-                                     esock_atom_invalid,
-                                     MKT2(env, what, info)));
+    return MKT2(env,
+                esock_atom_error,
+                MKT2(env, esock_atom_invalid, what));
+}
+
+
+
+/* Create an 'invalid' two (2) tuple in the form:
+ *
+ *          {invalid, Reason}
+ *
+ * The second element (Reason) is already in the form of an
+ * ERL_NIF_TERM so all we have to do is create the tuple.
+ */
+extern
+ERL_NIF_TERM esock_make_invalid(ErlNifEnv* env, ERL_NIF_TERM reason)
+{
+    return MKT2(env, esock_atom_invalid, reason);
+}
+
+
+
+/* Raise an exception {invalid, What}
+ */
+extern
+ERL_NIF_TERM esock_raise_invalid(ErlNifEnv* env, ERL_NIF_TERM what)
+{
+    return enif_raise_exception(env, MKT2(env, esock_atom_invalid, what));
 }
 
 
@@ -1990,12 +1995,11 @@ void make_sockaddr_in(ErlNifEnv*    env,
                            ERL_NIF_TERM  addr,
                            ERL_NIF_TERM* sa)
 {
-    ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_port, esock_atom_addr};
-    ERL_NIF_TERM vals[] = {esock_atom_inet, port, addr};
-    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM keys[]  = {esock_atom_family, esock_atom_port, esock_atom_addr};
+    ERL_NIF_TERM vals[]  = {esock_atom_inet, port, addr};
+    size_t       numKeys = NUM(keys);
     
-    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( numKeys == NUM(vals) );
     ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, sa) );
 }
 
@@ -2009,20 +2013,19 @@ void make_sockaddr_in6(ErlNifEnv*    env,
                        ERL_NIF_TERM  scopeId,
                        ERL_NIF_TERM* sa)
 {
-    ERL_NIF_TERM keys[] = {esock_atom_family,
-                           esock_atom_port,
-                           esock_atom_addr,
-                           esock_atom_flowinfo,
-                           esock_atom_scope_id};
-    ERL_NIF_TERM vals[] = {esock_atom_inet6,
-                           port,
-                           addr,
-                           flowInfo,
-                           scopeId};
-    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM keys[]  = {esock_atom_family,
+                            esock_atom_port,
+                            esock_atom_addr,
+                            esock_atom_flowinfo,
+                            esock_atom_scope_id};
+    ERL_NIF_TERM vals[]  = {esock_atom_inet6,
+                            port,
+                            addr,
+                            flowInfo,
+                            scopeId};
+    size_t       numKeys = NUM(keys);
     
-    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( numKeys == NUM(vals) );
     ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, sa) );
 }
 
@@ -2033,12 +2036,11 @@ void make_sockaddr_un(ErlNifEnv*    env,
                       ERL_NIF_TERM  path,
                       ERL_NIF_TERM* sa)
 {
-    ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_path};
-    ERL_NIF_TERM vals[] = {esock_atom_local,  path};
-    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM keys[]  = {esock_atom_family, esock_atom_path};
+    ERL_NIF_TERM vals[]  = {esock_atom_local,  path};
+    size_t       numKeys = NUM(keys);
     
-    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( numKeys == NUM(vals) );
     ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, sa) );
 }
 
@@ -2054,22 +2056,21 @@ void make_sockaddr_ll(ErlNifEnv*    env,
                       ERL_NIF_TERM  addr,
                       ERL_NIF_TERM* sa)
 {
-    ERL_NIF_TERM keys[] = {esock_atom_family,
-                           esock_atom_protocol,
-                           esock_atom_ifindex,
-                           esock_atom_hatype,
-                           esock_atom_pkttype,
-                           esock_atom_addr};
-    ERL_NIF_TERM vals[] = {esock_atom_packet,
-                           proto,
-                           ifindex,
-                           hatype,
-                           pkttype,
-                           addr};
-    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM keys[]  = {esock_atom_family,
+                            esock_atom_protocol,
+                            esock_atom_ifindex,
+                            esock_atom_hatype,
+                            esock_atom_pkttype,
+                            esock_atom_addr};
+    ERL_NIF_TERM vals[]  = {esock_atom_packet,
+                            proto,
+                            ifindex,
+                            hatype,
+                            pkttype,
+                            addr};
+    size_t       numKeys = NUM(keys);
     
-    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( numKeys == NUM(vals) );
     ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, sa) );
 }
 #endif

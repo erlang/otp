@@ -126,6 +126,22 @@ typedef int BOOLEAN_T;
 
 #define B2S(__B__) ((__B__) ? "true" : "false")
 
+#define NUM(Array) (sizeof(Array) / sizeof(*(Array)))
+
+
+#ifdef HAVE_SOCKLEN_T
+#  define SOCKLEN_T socklen_t
+#else
+#  define SOCKLEN_T size_t
+#endif
+
+#ifdef __WIN32__
+#define SOCKOPTLEN_T int
+#else
+#define SOCKOPTLEN_T SOCKLEN_T
+#endif
+
+
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * "Global" atoms (esock_atom_...)
  *
