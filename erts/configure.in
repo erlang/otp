@@ -985,8 +985,7 @@ case $host_os in
 		LDFLAGS=-Wl,-export-dynamic
 		AC_TRY_LINK(,,[DEXPORT=-Wl,-export-dynamic], [
 			LDFLAGS=-Wl,-Bexport
-			AC_TRY_LINK(,,[DEXPORT=-Wl,-Bexport],
-				AC_MSG_RESULT(none))])
+			AC_TRY_LINK(,,[DEXPORT=-Wl,-Bexport],)])
 		LDFLAGS="$save_ldflags"
 	;;
 esac
