@@ -826,23 +826,24 @@ check_transport_kind(BadKind) ->
 
 %% ---------
 
-%% Vad skall vi acceptera? These are our own, but shall we also 
-%% allow plain socket options to pass?
-%%    {bind_to,   bind_to()}  |
-%%    {sndbuf,    sndbuf()}   |
-%%    {recbuf,    recbuf()}   |
-%%    {no_reuse,  no_reuse()} |
-%%    {ephemeral, ephemeral()} |
-%%    {extra,     list()}
+%% The options we accept are the same as for net-if!
+%%    {bind_to,         bind_to()}  |
+%%    {sndbuf,          sndbuf()}   |
+%%    {recbuf,          recbuf()}   |
+%%    {no_reuse,        no_reuse()} |
+%%    {extra_sock_opts, list()}
 %% bind_to()  :: boolean()
 %% sndbuf()   :: pos_integer()
 %% rcvbuf()   :: pos_integer()
 %% no_reuse() :: boolean()
+%% <EPHEMERAL-FOR-FUTUR-USE>
+%%    {ephemeral, ephemeral()} |
 %% ephemeral() :: none |
 %%                once |
 %%                {data, pos_integer()}  |
 %%                {sends, pos_integer()} |
 %%                {alive_time, pos_integer()}
+%% </EPHEMERAL-FOR-FUTUR-USE>
 
 check_transport_opts(Opts) when is_list(Opts) ->
     check_transport_opts(Opts, [], []);
@@ -863,30 +864,34 @@ check_transport_opts([{recbuf, BufSz} = Opt|Opts], Extra, Acc)
 check_transport_opts([{no_reuse, NoReuse} = Opt|Opts], Extra, Acc)
   when is_boolean(NoReuse) ->
     check_transport_opts(Opts, Extra, [Opt|Acc]);
-check_transport_opts([{ephemeral, Ephm} = Opt|Opts], Extra, Acc) ->
-    check_transport_opt_ophm(Ephm),
-    check_transport_opts(Opts, Extra, [Opt|Acc]);
+%% <EPHEMERAL-FOR-FUTUR-USE>
+%% check_transport_opts([{ephemeral, Ephm} = Opt|Opts], Extra, Acc) ->
+%%     check_transport_opt_ophm(Ephm),
+%%     check_transport_opts(Opts, Extra, [Opt|Acc]);
+%% </EPHEMERAL-FOR-FUTUR-USE>
 check_transport_opts([{extra_sock_opts, Extra1} = Opt|Opts], Extra2, Acc)
   when is_list(Extra1) andalso (Extra2 =:= []) ->
     check_transport_opts(Opts, Extra1, [Opt|Acc]);
 check_transport_opts([H|_], _Extra, _Acc) ->
     error({bad_transport_opts, H}).
 
-check_transport_opt_ophm(none) ->
-    ok;
-check_transport_opt_ophm(once) ->
-    ok;
-check_transport_opt_ophm({data, DataSz})
-  when is_integer(DataSz) andalso (DataSz > 0) ->
-    ok;
-check_transport_opt_ophm({sends, Sends})
-  when is_integer(Sends) andalso (Sends > 0) ->
-    ok;
-check_transport_opt_ophm({alive_time, T})
-  when is_integer(T) andalso (T > 0) ->
-    ok;
-check_transport_opt_ophm(BadEphm) ->
-    error({bad_transport_opts, {ephemeral, BadEphm}}).
+%% <EPHEMERAL-FOR-FUTUR-USE>
+%% check_transport_opt_ophm(none) ->
+%%     ok;
+%% check_transport_opt_ophm(once) ->
+%%     ok;
+%% check_transport_opt_ophm({data, DataSz})
+%%   when is_integer(DataSz) andalso (DataSz > 0) ->
+%%     ok;
+%% check_transport_opt_ophm({sends, Sends})
+%%   when is_integer(Sends) andalso (Sends > 0) ->
+%%     ok;
+%% check_transport_opt_ophm({alive_time, T})
+%%   when is_integer(T) andalso (T > 0) ->
+%%     ok;
+%% check_transport_opt_ophm(BadEphm) ->
+%%     error({bad_transport_opts, {ephemeral, BadEphm}}).
+%% </EPHEMERAL-FOR-FUTUR-USE>
 
 
 %% ---------

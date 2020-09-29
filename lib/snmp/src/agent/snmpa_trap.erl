@@ -920,9 +920,9 @@ send_v1_trap(
     do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime).
 
 do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
-    ?vtrace("try get transports"),
+    ?vtrace("do_send_v1_trap -> try get transports"),
     {value, Transports} = snmp_framework_mib:intAgentTransports(get),
-    ?vtrace("transports: "
+    ?vtrace("do_send_v1_trap -> transports: "
             "~n      ~p", [Transports]),
     {_Domain, {AgentIp, _AgentPort}, _Kind, _Opts} =
 	case lists:keyfind(snmpUDPDomain, 1, Transports) of
@@ -930,7 +930,7 @@ do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
 		case lists:keyfind(transportDomainUdpIpv4, 1, Transports) of
 		    false ->
 			?vlog(
-			   "snmpa_trap: cannot send v1 trap "
+			   "do_send_v1_trap -> cannot send v1 trap "
 			   "without IPv4 domain: ~p",
 			   [Transports]),
 			user_err(
@@ -938,13 +938,13 @@ do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
 			   "without IPv4 domain: ~p",
 			   [Transports]);
 		    DomainAddr ->
-                        ?vtrace("found ~w transport:"
+                        ?vtrace("do_send_v1_trap -> found ~w transport:"
                                 "~n      ~p",
                                 [transportDomainUdpIpv4, DomainAddr]),
 			DomainAddr
 		end;
 	    DomainAddr ->
-                ?vtrace("found ~w transport:"
+                ?vtrace("do_send_v1_trap -> found ~w transport:"
                         "~n      ~p",
                         [snmpUDPDomain, DomainAddr]),
 		DomainAddr
@@ -953,7 +953,7 @@ do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
     AddrCommunities = mk_addr_communities(V1Res),
     lists:foreach(
       fun ({Community, Addrs}) ->
-	      ?vtrace("send v1 trap to ~p",[Addrs]),
+	      ?vtrace("do_send_v1_trap -> send v1 trap to ~p",[Addrs]),
 	      NetIf ! {send_pdu, 'version-1', TrapPdu,
 		       {community, Community}, Addrs, ExtraInfo}
       end, AddrCommunities).
