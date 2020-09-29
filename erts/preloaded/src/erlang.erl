@@ -935,9 +935,8 @@ fun_info_mfa(_Fun) ->
     erlang:nif_error(undefined).
 
 %% fun_to_list/1
--spec erlang:fun_to_list(Fun) -> String when
-      Fun :: function(),
-      String :: string().
+-spec erlang:fun_to_list(Fun) -> String :: string() when
+      Fun :: function().
 fun_to_list(_Fun) ->
     erlang:nif_error(undefined).
 
@@ -1654,8 +1653,8 @@ put(_Key, _Val) ->
     erlang:nif_error(undefined).
 
 %% raise/3
--spec erlang:raise(Class, Reason, Stacktrace) -> badarg when
-      Class :: error | exit | throw,
+-spec erlang:raise(Class, Reason, Stacktrace) -> 'badarg' when
+      Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
       Stacktrace :: raise_stacktrace().
 raise(_Class, _Reason, _Stacktrace) ->
