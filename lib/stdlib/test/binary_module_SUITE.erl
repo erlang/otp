@@ -1385,6 +1385,9 @@ secure_compare(Config) when is_list(Config) ->
     false = binary:secure_compare(<<"eh?">>, <<"Hello Joe">>),
     false = binary:secure_compare(<<"one">>, <<"two">>),
     false = binary:secure_compare(<<"two">>, <<"one">>),
+    false = binary:secure_compare(<<"xtest">>, <<"xtestx">>),
+    false = binary:secure_compare(<<"xtestxx">>, <<"xtestx">>),
+    false = binary:secure_compare(<<"xtestxx">>, <<"xtestxxx">>),
     ok.
 
 secure_compare_time(Config) when is_list(Config) -> 
