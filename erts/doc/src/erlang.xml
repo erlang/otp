@@ -1667,11 +1667,11 @@ b</pre>
 
     <func>
       <name name="error" arity="1" since=""/>
-      <fsummary>Raise exception of class error.</fsummary>
+      <fsummary>Raise an exception of class error.</fsummary>
       <desc>
-        <p>Raises exception of class <c>error</c> with the reason
+        <p>Raises an exception of class <c>error</c> with the reason
         <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-        is any term. The exit reason is <c>{<anno>Reason</anno>,
+        is any term. The error reason is <c>{<anno>Reason</anno>,
         Where}</c>, where <c>Where</c> is a list of the functions most
         recently called (the current function first). As evaluating
         this function causes an exception to be thrown, it has no
@@ -1696,11 +1696,11 @@ b</pre>
 
     <func>
       <name name="error" arity="2" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise an exception of class <c>error</c></fsummary>
       <desc>
-        <p>Raises exception of class <c>error</c> with the reason
+        <p>Raises an exception of class <c>error</c> with the reason
         <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. The exit reason is
+          is any term. The error reason is
           <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
           is a list of the functions most recently called (the current
           function first). <c><anno>Args</anno></c> is expected to be the
@@ -1715,13 +1715,13 @@ b</pre>
           marker="system/reference_manual:errors">errors and error
           handling</seeguide> for additional information. Example:</p>
           <p><c>test.erl</c>:</p>
-<pre>
+<code>
 -module(test).
 -export([example_fun/2]).
 
 example_fun(A1, A2) ->
     erlang:error(my_error, [A1, A2]).
-</pre>
+</code>
 <p>Erlang shell:</p>
 <pre>
 <input>6> c(test).</input>
@@ -1736,25 +1736,43 @@ example_fun(A1, A2) ->
 
     <func>
       <name name="exit" arity="1" since=""/>
-      <fsummary>Raise exception of class <c>exit</c> with a specified reason.</fsummary>
+      <fsummary>Raise an exception of class <c>exit</c> with a specified reason.</fsummary>
       <desc>
-        <p>Raises exception of class <c>exit</c> with exit reason
+        <p>Raises an exception of class <c>exit</c> with exit reason
         <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
         is any term. As evaluating this function causes an exception
         to be raised, it has no return value. This function should be
         used when the intent is to stop the current process. This
-        function differ from <c>erlang:error/1</c> and
-        <c>erlang:error/2</c> by causing an exception of a different
-        class and by having an exit reason that does
-        not include the list of functions from the call stack. See the
-        guide about <seeguide
+        function differ from <seemfa
+        marker="#error/1"><c>erlang:error/1</c></seemfa> and <seemfa
+        marker="#error/1"><c>erlang:error/2</c></seemfa> by causing an
+        exception of a different class and by having a reason that
+        does not include the list of functions from the call
+        stack.</p>
+        <p>See the guide about <seeguide
         marker="system/reference_manual:errors">errors and error
-        handling</seeguide> for additional information. Example:</p>
+        handling</seeguide> for additional information.</p>
+        <p>
+          Example:
+        </p>
         <pre>
 > <input>exit(foobar).</input>
 ** exception exit: foobar
 > <input>catch exit(foobar).</input>
 {'EXIT',foobar}</pre>
+        <note>
+          <p>If a process calls <c>exit(kill)</c> and does not catch
+          the exception, it will terminate with exit reason
+          <c>kill</c> and also emit exit signals with exit reason
+          <c>kill</c> (not <c>killed</c>) to all linked
+          processes. Such exit signals with exit reason <c>kill</c> can be
+          trapped by the linked processes. Note that this means that
+          signals with exit reason <c>kill</c> behave differently
+          depending on how they are sent because the signal will be
+          untrappable if a process sends such a signal to another
+          process with <seemfa
+          marker="#exit/2"><c>erlang:exit/2</c></seemfa>.</p>
+        </note>
       </desc>
     </func>
 
@@ -1799,23 +1817,24 @@ example_fun(A1, A2) ->
         </list>
         <p>If <c><anno>Reason</anno></c> is the atom <c>kill</c>, that
         is, if <c>exit(<anno>Pid</anno>, kill)</c> is called, an
-        untrappable exit signal is sent to the process that
-        is identified by <c><anno>Pid</anno></c>, which
-        unconditionally exits with exit reason <c>killed</c>.  The
-        exit reason is changed from <c>kill</c> to <c>killed</c> so
-        that the <c>kill</c> signal will not cascade to all linked
-        processes.
+        untrappable exit signal is sent to the process that is
+        identified by <c><anno>Pid</anno></c>, which unconditionally
+        exits with exit reason <c>killed</c>. The exit reason is
+        changed from <c>kill</c> to <c>killed</c> to hint to linked
+        processes that the killed process got killed by
+        a call to <c>exit(Pid, kill)</c>.
         </p>
         <note>
-          <p>The functions <seemfa marker="#exit/1"><c>erlang:exit/1</c></seemfa> and
-          <c>erlang:exit/2</c> are named similarly but provide very
-          different functionalities. The <c>erlang:exit/1</c> function
-          should be used when the intent is to stop the current
-          process while <c>erlang:exit/2</c> should be used when the
-          intent is to send an exit signal to another process. Note
-          also that <c>erlang:exit/1</c> raises an exception that can
-          be caught while <c>erlang:exit/2</c> does not cause any
-          exception to be raised.</p>
+          <p>The functions <seemfa
+          marker="#exit/1"><c>erlang:exit/1</c></seemfa> and <seemfa
+          marker="#exit/2"><c>erlang:exit/2</c></seemfa> are named
+          similarly but provide very different functionalities. The
+          <c>erlang:exit/1</c> function should be used when the intent
+          is to stop the current process while <c>erlang:exit/2</c>
+          should be used when the intent is to send an exit signal to
+          another process. Note also that <c>erlang:exit/1</c> raises
+          an exception that can be caught while <c>erlang:exit/2</c>
+          does not cause any exception to be raised.</p>
         </note>
         <warning>
           <p>The only scenario that has not been covered by the
@@ -6103,11 +6122,11 @@ RealSystem = system + MissedSystem</code>
 
     <func>
       <name name="raise" arity="3" since=""/>
-      <fsummary>Raises exception of specified class, reason,
+      <fsummary>Raises an exception of specified class, reason,
         and call stack backtrace.</fsummary>
       <type name="raise_stacktrace"/>
       <desc>
-        <p>Raises exception of the specified class, reason, and call stack backtrace
+        <p>Raises an exception of the specified class, reason, and call stack backtrace
           (<em>stacktrace</em>).</p>
         <p><c><anno>Class</anno></c> is <c>error</c>, <c>exit</c>, or
         <c>throw</c>. So, if it were not for the stacktrace,
@@ -10669,7 +10688,7 @@ hello
       <name name="throw" arity="1" since=""/>
       <fsummary>Throw an exception.</fsummary>
       <desc>
-        <p>Raises exception of class <c>throw</c>. Intended to be used to do non-local returns from functions.</p>
+        <p>Raises an exception of class <c>throw</c>. Intended to be used to do non-local returns from functions.</p>
         <p>If evaluated within a
           <seeguide marker="system/reference_manual:expressions#catch">
 	catch expression</seeguide>, the catch expression returns value <c><anno>Any</anno></c>.
