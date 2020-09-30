@@ -2484,11 +2484,11 @@ static BIF_RETTYPE binary_secure_compare(Process *p, Eterm bin1, Eterm bin2)
         if (i <= (size1 - 1) && i <= (size2 - 1))
             acc |= bytes1[i] ^ bytes2[i];
 
-        if ((i > (size1 - 1) && i <= (size2 - 1)))
-            acc |= bytes1[size1 - i] ^ bytes2[i];
-
         if ((i <= (size1 - 1) && i > (size2 - 1)))
             acc |= bytes1[i] ^ bytes2[size2 - 1];
+        
+        if ((i > (size1 - 1) && i <= (size2 - 1)))
+            acc |= bytes1[size1 - 1] ^ bytes2[i];
     }
 
     if (acc == 0)
