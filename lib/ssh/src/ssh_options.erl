@@ -446,6 +446,12 @@ default(server) ->
             class => user_option
            },
 
+      pk_check_user =>
+          #{default => false,
+            chk => fun(V) -> erlang:is_boolean(V) end,
+            class => user_option
+           },
+
       password =>
           #{default => undefined,
             chk => fun(V) -> check_string(V) end,

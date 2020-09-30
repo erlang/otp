@@ -565,6 +565,26 @@
 	    </p>
           </item>
 
+	  <tag><marker id="option-pk_check_user"/><c>pk_check_user</c></tag>
+	  <item>
+            <p>Enables checking of the
+	    <seetype marker="#authentication_client_options">client's user name</seetype>
+	    in the server when doing public key authentication. It is disabled by default.
+	    </p>
+	    <p>The term "user" is used differently in OpenSSH and SSH in Erlang/OTP:
+	    see more in the <seeguide marker="terminology#the-term--user-">User's Guide</seeguide>.
+	    </p>
+	    <p>If the option is enabled, and no
+	    <seeerl marker="#option-pwdfun"><c>pwdfun</c></seeerl>
+	    is present, the user name must present in the
+	    <seeerl marker="#option-user_passwords">user_passwords</seeerl>
+	    for the check to succeed but the value of the password is not checked.
+	    </p>
+	    <p>In case of a <seeerl marker="#option-pwdfun"><c>pwdfun</c></seeerl>
+	    checking the user, the atom <c>pubkey</c> is put in the password argument.
+	    </p>
+          </item>
+
           <tag><marker id="option-password"/><c>password</c></tag>
           <item>
             <p>Provides a global password that authenticates any user.</p>
@@ -587,7 +607,6 @@
 	    the <c>State</c> variable could be used. This state is per connection only. The first time the pwdfun
 	    is called for a connection, the <c>State</c> variable has the value <c>undefined</c>.
 	    </p>
-	    
 	    <p>The fun should return:
 	    </p>
 	    <list type="bulleted">
@@ -598,9 +617,12 @@
 	      <item><c>{true,  NewState:any()}</c> if the user and password is valid</item>
 	      <item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
 	    </list>
-
 	    <p>A third usage is to block login attempts from a missbehaving peer. The <c>State</c> described above 
 	    can be used for this. The return value <c>disconnect</c> is useful for this.</p>
+	    <p>In case of the <seeerl marker="#option-pk_check_user"><c>pk_check_user</c></seeerl> is set,
+	    the atom <c>pubkey</c> is put in the password argument when validating a public key login. The
+	    pwdfun is then responsible to check that the user name is valid.
+	    </p>
 	  </item>
 
 	  <tag><c>pwdfun</c> with
@@ -613,6 +635,10 @@
 	      <item><c>true</c> if the user and password is valid</item>
 	      <item><c>false</c> if the user or password is invalid</item> 
 	    </list>
+	    <p>In case of the <seeerl marker="#option-pk_check_user"><c>pk_check_user</c></seeerl> is set,
+	    the atom <c>pubkey</c> is put in the password argument when validating a public key login. The
+	    pwdfun is then responsible to check that the user name is valid.
+	    </p>
 	    <p>This variant is kept for compatibility.</p>
 	  </item>
 	</taglist>

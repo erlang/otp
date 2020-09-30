@@ -232,10 +232,9 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
 						  method = "password",
 						  data = <<?FALSE, ?UINT32(Sz), BinPwd:Sz/binary>>}, _, 
-			#ssh{opts = Opts,
-			     userauth_supported_methods = Methods} = Ssh) ->
+			#ssh{userauth_supported_methods = Methods} = Ssh) ->
     Password = unicode:characters_to_list(BinPwd),
-    case check_password(User, Password, Opts, Ssh) of
+    case check_password(User, Password, Ssh) of
 	{true,Ssh1} ->
 	    {authorized, User,
 	     {#ssh_msg_userauth_success{}, Ssh1}
@@ -287,10 +286,16 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 							 >>
 						 }, 
 			_SessionId, 
-			#ssh{opts = Opts,
-			     userauth_supported_methods = Methods} = Ssh) ->
+			#ssh{userauth_supported_methods = Methods} = Ssh0) ->
+    Ssh =
+        case check_user(User, Ssh0) of
+            {true,Ssh01} -> Ssh01#ssh{user=User};
+            {false,Ssh01} -> Ssh01#ssh{user=false}
+        end,
 
-    case pre_verify_sig(User, KeyBlob, Opts) of
+    case
+        pre_verify_sig(User, KeyBlob, Ssh)
+    of
 	true ->
 	    {not_authorized, {User, undefined},
              {#ssh_msg_userauth_pk_ok{algorithm_name = binary_to_list(BAlg),
@@ -312,10 +317,15 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 							   SigWLen/binary>>
 						 }, 
 			SessionId, 
-			#ssh{userauth_supported_methods = Methods} = Ssh) ->
+			#ssh{user = PreVerifyUser,
+                             userauth_supported_methods = Methods} = Ssh0) ->
     
-    case verify_sig(SessionId, User, "ssh-connection", 
-		    BAlg, KeyBlob, SigWLen, Ssh) of
+    {UserOk,Ssh} = check_user(User, Ssh0),
+    case
+        ((PreVerifyUser == User) orelse (PreVerifyUser == undefined)) andalso
+        UserOk andalso
+        verify_sig(SessionId, User, "ssh-connection", BAlg, KeyBlob, SigWLen, Ssh)
+    of
 	true ->
 	    {authorized, User, 
              {#ssh_msg_userauth_success{}, Ssh}
@@ -429,7 +439,7 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 	orelse 
 	proplists:get_value(one_empty, ?GET_OPT(tstflg,Opts), false),
 
-    case check_password(User, unicode:characters_to_list(Password), Opts, Ssh) of
+    case check_password(User, unicode:characters_to_list(Password), Ssh) of
 	{true,Ssh1} when SendOneEmpty==true ->
 	    {authorized_but_one_more, User,
              {#ssh_msg_userauth_info_request{name = "",
@@ -473,8 +483,23 @@ method_preference(SigKeyAlgs) ->
                    ],
     PubKeyDefs ++ NonPKmethods.
 
-check_password(User, Password, Opts, Ssh) ->
+check_user(User, Ssh) ->
+    case ?GET_OPT(pk_check_user, Ssh#ssh.opts) of
+        true ->
+            check_password(User, pubkey, Ssh);
+        _ ->
+            {true, Ssh} % i.e, skip the test
+    end.
+
+check_password(User, Password, #ssh{opts=Opts} = Ssh) ->
     case ?GET_OPT(pwdfun, Opts) of
+        undefined when Password==pubkey ->
+            %% Just check the User name
+            case lists:keysearch(User, 1, ?GET_OPT(user_passwords,Opts)) of
+                {value, {User, _}} -> {true, Ssh};
+                false -> {false, Ssh}
+            end;
+
 	undefined ->
 	    Static = get_password_option(Opts, User),
 	    {crypto:equal_const_time(Password,Static), Ssh};
@@ -508,7 +533,7 @@ get_password_option(Opts, User) ->
 	false -> ?GET_OPT(password, Opts)
     end.
 	    
-pre_verify_sig(User, KeyBlob, Opts) ->
+pre_verify_sig(User, KeyBlob,  #ssh{opts=Opts}) ->
     try
 	Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
         ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts)
@@ -517,7 +542,7 @@ pre_verify_sig(User, KeyBlob, Opts) ->
 	    false
     end.
 
-verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts = Opts} = Ssh) ->
+verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts=Opts} = Ssh) ->
     try
         Alg = binary_to_list(AlgBin),
         Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
