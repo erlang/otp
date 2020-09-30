@@ -222,7 +222,7 @@ setup(#state{frame = Frame} = State) ->
 			   nodes = Nodes
 			  },
     %% Create resources which we don't want to duplicate
-    SysFont = wxSystemSettings:getFont(?wxSYS_SYSTEM_FIXED_FONT),
+    SysFont = wxSystemSettings:getFont(?wxSYS_OEM_FIXED_FONT),
     %% OemFont = wxSystemSettings:getFont(?wxSYS_OEM_FIXED_FONT),
     %% io:format("Sz sys ~p(~p) oem ~p(~p)~n",
     %% 	      [wxFont:getPointSize(SysFont), wxFont:isFixedWidth(SysFont),
@@ -240,7 +240,7 @@ setup(#state{frame = Frame} = State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%Callbacks
-handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changed, nSel=Next}},
+handle_event(#wx{event=#wxBookCtrl{type=command_notebook_page_changed, nSel=Next}},
 	     #state{active_tab=Previous, node=Node, panels=Panels, status_bar=SB} = State) ->
     {_, Obj, _} = lists:nth(Next+1, Panels),
     case wx_object:get_pid(Obj) of
