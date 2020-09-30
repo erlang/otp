@@ -777,14 +777,23 @@ vi({try_case,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
             Vst3 = set_receive_marker(none, Vst2),
 
             %% Class:Error:Stacktrace
-            Vst4 = create_term(#t_atom{}, try_case, [], {x,0}, Vst3),
+            ClassType = #t_atom{elements=[error,exit,throw]},
+            Vst4 = create_term(ClassType, try_case, [], {x,0}, Vst3),
             Vst = create_term(any, try_case, [], {x,1}, Vst4),
             create_term(any, try_case, [], {x,2}, Vst);
         Type ->
             error({wrong_tag_type,Type})
     end;
-vi(build_stacktrace=I, Vst) ->
-    validate_body_call(I, 1, Vst);
+vi(build_stacktrace, Vst0) ->
+    assert_float_checked(Vst0),
+    verify_y_init(Vst0),
+    verify_live(1, Vst0),
+
+    Vst = prune_x_regs(1, Vst0),
+    Reg = {x,0},
+
+    assert_durable_term(Reg, Vst),
+    create_term(#t_list{}, build_stacktrace, [], Reg, Vst);
 
 %%
 %% Map instructions.
@@ -980,10 +989,8 @@ vi(if_end, Vst) ->
 vi({try_case_end,Src}, Vst) ->
     assert_durable_term(Src, Vst),
     branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
-vi(raw_raise=I, Vst) ->
-    branch(?EXCEPTION_LABEL, Vst,
-           fun(FailVst) -> validate_body_call(I, 3, FailVst) end,
-           fun kill_state/1);
+vi(raw_raise=I, Vst0) ->
+    validate_body_call(I, 3, Vst0);
 
 %%
 %% Binary construction
@@ -2960,6 +2967,8 @@ will_call_succeed({extfunc,M,F,A}, Vst) ->
     beam_call_types:will_succeed(M, F, get_call_args(A, Vst));
 will_call_succeed(bs_init_writable, _Vst) ->
     yes;
+will_call_succeed(raw_raise, _Vst) ->
+    no;
 will_call_succeed(_Call, _Vst) ->
     maybe.
 

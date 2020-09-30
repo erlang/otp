@@ -1671,6 +1671,18 @@ type(call, [#b_literal{val=Fun} | Args], _Anno, _Ts, _Ds) ->
             %% arguments is wrong.
             none
     end;
+type(extract, [V, #b_literal{val=Idx}], _Anno, _Ts, Ds) ->
+    case map_get(V, Ds) of
+        #b_set{op=landingpad} when Idx =:= 0 ->
+            %% Class
+            #t_atom{elements=[error,exit,throw]};
+        #b_set{op=landingpad} when Idx =:= 1 ->
+            %% Reason
+            any;
+        #b_set{op=landingpad} when Idx =:= 2 ->
+            %% Stack trace
+            any
+    end;
 type(get_hd, [Src], _Anno, Ts, _Ds) ->
     SrcType = #t_cons{} = normalized_type(Src, Ts), %Assertion.
     {RetType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
