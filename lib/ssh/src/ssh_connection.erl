@@ -859,20 +859,23 @@ handle_msg(#ssh_msg_channel_request{request_type = "env"},
     %% The client SHOULD ignore env requests. 
     {[], Connection};
 
-handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
-				    request_type = _Other,
-				    want_reply = WantReply},
+handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId},
 	   #connection{channel_cache = Cache} = Connection, _) ->
-    if WantReply == true ->
-		case ssh_client_channel:cache_lookup(Cache, ChannelId) of
-		    #channel{remote_id = RemoteId}  -> 
-			FailMsg = channel_failure_msg(RemoteId),
-			{[{connection_reply, FailMsg}], Connection};
-		    undefined -> %% Chanel has been closed
-			{[], Connection}
-		end;
-       true ->
-	    {[], Connection}
+    %% Not a valid request_type. All valid types are handling the
+    %% parameter checking in their own clauses above.
+    %% 
+    %% The special ReqType faulty_msg signals that something went
+    %% wrong found during decoding.
+    %%
+    %% RFC4254 says:
+    %% "If the request is not recognized or is not
+    %% supported for the channel, SSH_MSG_CHANNEL_FAILURE is returned."
+    case ssh_client_channel:cache_lookup(Cache, ChannelId) of
+        #channel{remote_id = RemoteId}  -> 
+            FailMsg = channel_failure_msg(RemoteId),
+            {[{connection_reply, FailMsg}], Connection};
+        undefined -> %% Chanel has been closed
+            {[], Connection}
     end;
 
 handle_msg(#ssh_msg_global_request{name = <<"tcpip-forward">>,
