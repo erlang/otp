@@ -2481,7 +2481,7 @@ static BIF_RETTYPE binary_secure_compare(Process *p, Eterm bin1, Eterm bin2)
     max_size = size1 > size2 ? size1 : size2;
 
     for (i=0; i < max_size; i++) {
-        if (i <= (size1 - 1) && i <= (size2 - 1)) { 
+        if (i < size1 && i < size2) {
             acc |= bytes1[i] ^ bytes2[i];
         } else {
             acc |= 'a' ^ 'b';
