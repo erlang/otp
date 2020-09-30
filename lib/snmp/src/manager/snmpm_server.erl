@@ -3520,6 +3520,7 @@ nis_stop(_) ->
     ok.
 
 
+-dialyzer({nowarn_function, nis_info/1}).
 nis_info(NIS) when is_pid(NIS) ->
     NIS ! {?MODULE, self(), info},
     receive

@@ -851,7 +851,7 @@ check_transport_opts(BadOpts) ->
     error({bad_transport_opts, BadOpts}).
 
 check_transport_opts([], Extra, Acc) ->
-    {ok, lists:reverse(Acc) ++ Extra};
+    lists:reverse(Acc) ++ Extra;
 check_transport_opts([{bind_to, BindTo} = Opt|Opts], Extra, Acc)
   when is_boolean(BindTo) ->
     check_transport_opts(Opts, Extra, [Opt|Acc]);

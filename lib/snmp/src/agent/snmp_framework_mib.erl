@@ -278,13 +278,7 @@ check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State)
                          "~n      Opts:    ~p", [Domain, Address, Kind, Opts]),
                  ok = snmp_conf:check_transport_kind(Kind),
                  ?vtrace("check_agent(intAgentTransports) -> checked kind"),
-                 CheckedOpts = 
-                     case snmp_conf:check_transport_opts(Opts) of
-                         ok ->
-                             Opts;
-                         {ok, Opts2} ->
-                             Opts2
-                     end,
+                 CheckedOpts = snmp_conf:check_transport_opts(Opts),
                  ?vtrace("check_agent(intAgentTransports) -> checked opts: "
                          "~n      ~p", [CheckedOpts]),
                  case snmp_conf:check_transport_address(Domain, Address) of
