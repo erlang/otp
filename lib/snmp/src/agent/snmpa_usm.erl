@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 %%
+%% USM: RFC 3414
 %% AES: RFC 3826
 %% 
 
@@ -502,8 +503,8 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel,
     {ScopedPduData, MsgPrivParams} =
 	encrypt(ScopedPduBytes, PrivProtocol, PrivKey, SecLevel,
                 MsgAuthEngineBoots, MsgAuthEngineTime),
-    %% 3.1.5 - 3.1.7
-    ?vtrace("generate_outgoing_msg -> [3.1.5 - 3.1.7]",[]),
+    %% 3.1.5, 3.1.7
+    ?vtrace("generate_outgoing_msg -> [3.1.5, 3.1.7]",[]),
     UsmSecParams =
 	#usmSecurityParameters{msgAuthoritativeEngineID    = SecEngineID,
 			       msgAuthoritativeEngineBoots = MsgAuthEngineBoots,
