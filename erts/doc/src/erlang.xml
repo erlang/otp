@@ -1995,7 +1995,13 @@ true</pre>
 > <input>float_to_list(7.12, [{decimals, 4}, compact]).</input>
 "7.12"
 > <input>float_to_list(7.12, [{scientific, 3}]).</input>
-"7.120e+00"</pre>
+"7.120e+00"
+> <input>float_to_list(0.1+0.2)</input></pre>
+<p>In the last example, <c>float_to_list(0.1+0.2)</c> evaluates to
+<c>"3.00000000000000044409e-01"</c>. The reason for this is that
+<seeguide marker="system/reference_manual:data_types#float_represenation_problem"><c>0.1</c> and
+<c>0.2</c> cannot be represented exactly as float
+values</seeguide>.</p>
       </desc>
     </func>
 
@@ -6347,6 +6353,14 @@ true</pre>
         <pre>
 <input>round(-5.5).</input>
 -6</pre>
+        <pre>
+<input>round(36028797018963969.0).</input>
+36028797018963968</pre>
+      <p>In the last example, <c>round(36028797018963969.0)</c>
+      evaluates to <c>36028797018963968</c>. The reason for this is
+      that <seeguide
+      marker="system/reference_manual:data_types#float_represenation_problem"><c>36028797018963969.0</c>
+      cannot be represented exactly as a float value</seeguide>.</p>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
@@ -12109,8 +12123,12 @@ improper_end</pre>
 > <input>trunc(5).</input>
 5</pre>
         <pre>
-> <input>trunc(36028797018963970.0).</input>
+> <input>trunc(36028797018963969.0).</input>
 36028797018963968</pre>
+<p>In the last example, <c>trunc(36028797018963969.0)</c> evaluates to
+<c>36028797018963968</c>. The reason for this is that <seeguide
+marker="system/reference_manual:data_types#float_represenation_problem"><c>36028797018963969.0</c>
+cannot be represented exactly as a float value</seeguide>.</p>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
