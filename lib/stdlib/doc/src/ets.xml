@@ -349,7 +349,8 @@ true
         table.</fsummary>
       <desc>
         <p>Deletes all objects with key <c><anno>Key</anno></c> from table
-          <c><anno>Table</anno></c>.</p>
+        <c><anno>Table</anno></c>. This function succeeds even if
+	no objects with key <c><anno>Key</anno></c> exist.</p>
       </desc>
     </func>
 
