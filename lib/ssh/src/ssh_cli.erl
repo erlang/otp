@@ -231,10 +231,19 @@ handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{buf = NewBuf}};
 
-handle_msg({'EXIT', Group, _Reason}, #state{group = Group,
+handle_msg({'EXIT', Group, Reason}, #state{group = Group,
 					    cm = ConnectionHandler,
 					    channel = ChannelId} = State) ->
     ssh_connection:send_eof(ConnectionHandler, ChannelId),
+    ExitStatus = case Reason of
+                     normal ->
+                         0;
+                     {exit_status, V} when is_integer(V) ->
+                         V;
+                     _ ->
+                         ?EXEC_ERROR_STATUS
+                 end,
+    ssh_connection:exit_status(ConnectionHandler, ChannelId, ExitStatus),
     {stop, ChannelId, State};
 
 handle_msg(_, State) ->
@@ -620,11 +629,10 @@ exec_in_self_group(ConnectionHandler, ChannelId, WantReply, State, Fun) ->
                                end
                           of
                               {ok,Str} ->
-                                  write_chars(ConnectionHandler, ChannelId, t2str(Str)),
-                                  ssh_connection:exit_status(ConnectionHandler, ChannelId, 0);
+                                  write_chars(ConnectionHandler, ChannelId, t2str(Str));
                               {error, Str} ->
                                   write_chars(ConnectionHandler, ChannelId, 1, "**Error** "++t2str(Str)),
-                                  ssh_connection:exit_status(ConnectionHandler, ChannelId, ?EXEC_ERROR_STATUS)
+                                  exit({exit_status, ?EXEC_ERROR_STATUS})
                           end
                   end)
         end,
