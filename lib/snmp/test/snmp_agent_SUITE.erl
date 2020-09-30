@@ -7670,8 +7670,15 @@ otp16649_init(N, AgentPreTransports, Config) ->
     IpFamily          = inet,
     Host              = snmp_test_lib:hostname(), 
     Ip                = ?LOCALHOST(),
-    {ok, AgentIP}     = snmp_misc:ip(AgentHost),
-    {ok, ManagerIP0}  = snmp_misc:ip(ManagerHost),
+    %% We should really "extract" the address from the hostnames,
+    %% but because on some OSes (Ubuntu) adds 12.7.0.1.1 to its hosts file,
+    %% this does not work. We want a "proper" address.
+    %% Also, since both nodes (agent and manager) are both started locally,
+    %% we can use 'Ip' for both!
+    %% {ok, AgentIP}     = snmp_misc:ip(AgentHost),
+    %% {ok, ManagerIP0}  = snmp_misc:ip(ManagerHost),
+    AgentIP           = Ip,
+    ManagerIP0        = Ip,
     ManagerIP         = tuple_to_list(ManagerIP0),
     ?IPRINT("otp16649_init -> "
             "~n      Host:       ~p"
