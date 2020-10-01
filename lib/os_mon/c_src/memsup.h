@@ -43,5 +43,7 @@
 /*IG*/ #define MEM_SHARED 8
 /*IG*/ #define SWAP_TOTAL 9
 /*IG*/ #define SWAP_FREE 10
+/*IG*/ #define MEM_CACHED_X 11
+/*IG*/ #define MEM_AVAIL 12
 
 #endif
