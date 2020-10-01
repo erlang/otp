@@ -240,7 +240,7 @@ void process_main(ErtsSchedulerData *esdp) {
     pmain(esdp);
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 static Process *erts_debug_schedule(ErtsSchedulerData *esdp,
                                     Process *c_p,
                                     int calls) {
@@ -426,7 +426,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
         mov_imm(ARG1, 0);
         a.mov(ARG2, c_p);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
         runtime_call<3>(erts_debug_schedule);
 #else
         runtime_call<3>(erts_schedule);
