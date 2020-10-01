@@ -1996,10 +1996,12 @@ true</pre>
 "7.12"
 > <input>float_to_list(7.12, [{scientific, 3}]).</input>
 "7.120e+00"
-> <input>float_to_list(0.1+0.2)</input></pre>
+> <input>float_to_list(0.1+0.2)</input>
+"3.00000000000000044409e-01"
+</pre>
 <p>In the last example, <c>float_to_list(0.1+0.2)</c> evaluates to
 <c>"3.00000000000000044409e-01"</c>. The reason for this is that
-<seeguide marker="system/reference_manual:data_types#float_represenation_problem"><c>0.1</c> and
+<seeguide marker="system/reference_manual:data_types#float_representation_problem"><c>0.1</c> and
 <c>0.2</c> cannot be represented exactly as float
 values</seeguide>.</p>
       </desc>
@@ -6359,7 +6361,7 @@ true</pre>
       <p>In the last example, <c>round(36028797018963969.0)</c>
       evaluates to <c>36028797018963968</c>. The reason for this is
       that <seeguide
-      marker="system/reference_manual:data_types#float_represenation_problem"><c>36028797018963969.0</c>
+      marker="system/reference_manual:data_types#float_representation_problem"><c>36028797018963969.0</c>
       cannot be represented exactly as a float value</seeguide>.</p>
         <p>Allowed in guard tests.</p>
       </desc>
@@ -12127,7 +12129,7 @@ improper_end</pre>
 36028797018963968</pre>
 <p>In the last example, <c>trunc(36028797018963969.0)</c> evaluates to
 <c>36028797018963968</c>. The reason for this is that <seeguide
-marker="system/reference_manual:data_types#float_represenation_problem"><c>36028797018963969.0</c>
+marker="system/reference_manual:data_types#float_representation_problem"><c>36028797018963969.0</c>
 cannot be represented exactly as a float value</seeguide>.</p>
         <p>Allowed in guard tests.</p>
       </desc>
