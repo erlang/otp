@@ -1447,7 +1447,7 @@ static ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
                                              int              opt,
                                              ERL_NIF_TERM     eVal);
 static int esock_setopt_sctp_event(ErlNifEnv   *env,
-                                   ERL_NIF_TERM eVal,
+                                   ERL_NIF_TERM eMap,
                                    ERL_NIF_TERM eKey,
                                    BOOLEAN_T   *failure);
 #endif
@@ -3031,9 +3031,9 @@ static BOOLEAN_T decode_bool(ErlNifEnv*   env,
 static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
 
 #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
-static BOOLEAN_T decode_sctp_assoc_t(ErlNifEnv*   env,
-                                     ERL_NIF_TERM eVal,
-                                     int*         val);
+static BOOLEAN_T decode_sctp_assoc_t(ErlNifEnv*    env,
+                                     ERL_NIF_TERM  eVal,
+                                     sctp_assoc_t* val);
 static ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env,
                                         sctp_assoc_t val);
 #endif // #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
@@ -9186,16 +9186,16 @@ ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
  * Set *error if something goes wrong.
  */
 static int esock_setopt_sctp_event(ErlNifEnv   *env,
-                                   ERL_NIF_TERM eVal,
+                                   ERL_NIF_TERM eMap,
                                    ERL_NIF_TERM eKey,
                                    BOOLEAN_T   *error)
 {
-    ERL_NIF_TERM eBool;
-    BOOLEAN_T    bool;
+    ERL_NIF_TERM eVal;
+    BOOLEAN_T    val;
 
-    if (GET_MAP_VAL(env, eVal, eKey, &eBool))
-        if (esock_decode_bool(eBool, &bool))
-            return (int) bool;
+    if (GET_MAP_VAL(env, eMap, eKey, &eVal))
+        if (esock_decode_bool(eVal, &val))
+            return (int) val;
 
     *error = TRUE;
     return 0;
@@ -14619,7 +14619,9 @@ ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
 #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
 
 static
-BOOLEAN_T decode_sctp_assoc_t(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
+BOOLEAN_T decode_sctp_assoc_t(ErlNifEnv* env,
+                              ERL_NIF_TERM eVal,
+                              sctp_assoc_t* val)
 {
     sctp_assoc_t assoc_id;
     int i;
