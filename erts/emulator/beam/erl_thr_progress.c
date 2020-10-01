@@ -558,7 +558,8 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
 ErtsThrPrgrData *
 erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 					  ErtsThrPrgrCallbacks *callbacks,
-					  int pref_wakeup)
+					  int pref_wakeup,
+                                          int deep_sleeper)
 {
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(NULL);
     int is_blocking = 0, managed;
@@ -593,6 +594,7 @@ erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
     tpd->is_managed = 1;
     tpd->is_blocking = is_blocking;
     tpd->is_temporary = 0;
+    tpd->is_deep_sleeper = deep_sleeper;
 #ifdef ERTS_ENABLE_LOCK_CHECK
     tpd->is_delaying = 1;
 #endif
@@ -877,7 +879,10 @@ erts_thr_progress_prepare_wait(ErtsThrPrgrData *tpd)
 	== ERTS_THR_PRGR_LFLG_NO_LEADER 
 	&& got_sched_wakeups()) {
 	/* Someone need to make progress */
-	wakeup_managed(tpd->id);
+        if (tpd->is_deep_sleeper)
+            wakeup_managed(1);
+        else
+            wakeup_managed(tpd->id);
     }
 }
 
@@ -1061,11 +1066,13 @@ request_wakeup_managed(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
 
     /*
      * Only managed threads that aren't in waiting state
-     * are allowed to call this function.
+     * and aren't deep sleepers are allowed to call this
+     * function.
      */
 
     ASSERT(tpd->is_managed);
     ASSERT(tpd->confirmed != ERTS_THR_PRGR_VAL_WAITING);
+    ASSERT(!tpd->is_deep_sleeper);
 
     if (has_reached_wakeup(value)) {
 	wakeup_managed(tpd->id);
