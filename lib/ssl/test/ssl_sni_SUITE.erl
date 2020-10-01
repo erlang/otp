@@ -131,7 +131,7 @@ end_per_suite(_) ->
 
 init_per_testcase(customize_hostname_check, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ssl_test_lib:clean_start(),
+    ssl_test_lib:clean_start(keep_version),
     ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(_TestCase, Config) ->
