@@ -571,7 +571,9 @@ groups() ->
      {otp4394,                       [], [otp_4394]},
      {otp7157,                       [], [otp_7157]},
      {otp16092,                      [], otp16092_cases()},
-     {otp16649,                      [], otp16649_cases()}
+     {otp16649,                      [], otp16649_cases()},
+     {otp16649_ipv4,                 [], otp16649_gen_cases()},
+     {otp16649_ipv6,                 [], otp16649_gen_cases()}
     ].
 
 
@@ -733,6 +735,23 @@ init_per_group(mib_storage_dets = GroupName, Config) ->
     init_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(mib_storage_ets = GroupName, Config) -> 
     init_mib_storage_ets(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(otp16649_ipv4 = GroupName, Config) -> 
+    Config2 = [{ip,       ?LOCALHOST(inet)},
+               {ipfamily, inet},
+               {tdomain,  transportDomainUdpIpv4} |
+               lists:keydelete(ip, 1, Config)],
+    snmp_test_lib:init_group_top_dir(GroupName, Config2);
+init_per_group(otp16649_ipv6 = GroupName, Config) -> 
+    case ?HAS_SUPPORT_IPV6() of
+        true ->
+            Config2 = [{ip,       ?LOCALHOST(inet6)},
+                       {ipfamily, inet6},
+                       {tdomain,  transportDomainUdpIpv6} |
+                       lists:keydelete(ip, 1, Config)],
+            snmp_test_lib:init_group_top_dir(GroupName, Config2);
+        false ->
+            {skip, "Host does not support IPv6"}
+    end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
@@ -7178,6 +7197,12 @@ tickets2_cases() ->
 
 otp16649_cases() ->
     [
+     {group, otp16649_ipv4},
+     {group, otp16649_ipv6}
+    ].
+
+otp16649_gen_cases() ->
+    [
      otp16649_1,
      otp16649_2,
      otp16649_3,
@@ -7186,7 +7211,7 @@ otp16649_cases() ->
      otp16649_6,
      otp16649_7
     ].
-   
+
 
 otp8395({init, Config}) when is_list(Config) ->
     ?DBG("otp8395(init) -> entry with"
@@ -7667,9 +7692,8 @@ otp16649_init(N, AgentPreTransports, Config) ->
             "~n      ManagerHost: ~p",
             [AgentHost, ManagerHost]),
 
-    IpFamily          = inet,
     Host              = snmp_test_lib:hostname(), 
-    Ip                = ?LOCALHOST(),
+    Ip                = ?config(ip, Config),
     %% We should really "extract" the address from the hostnames,
     %% but because on some OSes (Ubuntu) adds 12.7.0.1.1 to its hosts file,
     %% this does not work. We want a "proper" address.
@@ -7695,7 +7719,7 @@ otp16649_init(N, AgentPreTransports, Config) ->
 
     AgentConfDir        = ?config(agent_conf_dir, Config),
     Vsns                = [v1,v2],
-    TransportDomain     = transportDomainUdpIpv4,
+    TransportDomain     = ?config(tdomain, Config),
     F = fun({PortInfo, Kind}) ->
                 #{addr => {AgentIP, PortInfo}, kind => Kind};
            ({PortInfo, Kind, Opts}) ->
@@ -7710,14 +7734,12 @@ otp16649_init(N, AgentPreTransports, Config) ->
                  "test"),
 
     ?IPRINT("start agent"),
-    Config2 = start_agent([{host,          Host}, 
-			   {ip,            Ip}, 
-			   {ipfamily,      IpFamily},
-			   {agent_node,    AgentNode}, 
-			   {agent_host,    AgentHost}, 
-			   {agent_ip,      AgentIP}, 
+    Config2 = start_agent([{host,          Host},
+			   {agent_node,    AgentNode},
+			   {agent_host,    AgentHost},
+			   {agent_ip,      AgentIP},
 			   {manager_node,  ManagerNode},
-			   {manager_host,  ManagerHost}, 
+			   {manager_host,  ManagerHost},
 			   {manager_ip,    ManagerIP}|Config]),
 
 
