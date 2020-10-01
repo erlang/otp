@@ -3248,18 +3248,7 @@ typedef union {
     char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsAlcCPoolData_t))];
 } ErtsAlcCrrPool_t;
 
-#if ERTS_ALC_A_INVALID != 0
-#  error "Carrier pool implementation assumes ERTS_ALC_A_INVALID == 0"
-#endif
-#if ERTS_ALC_A_MIN <= ERTS_ALC_A_INVALID
-#  error "Carrier pool implementation assumes ERTS_ALC_A_MIN > ERTS_ALC_A_INVALID"
-#endif
-
-/* The pools are only allowed to be manipulated by managed threads except in
- * the alloc_SUITE:cpool test, where only test_carrier_pool is used. */
-
-static ErtsAlcCrrPool_t firstfit_carrier_pool;
-static ErtsAlcCrrPool_t test_carrier_pool;
+static ErtsAlcCrrPool_t firstfit_carrier_pools[ERTS_ALC_NO_CPOOLS] erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 
 #define ERTS_ALC_CPOOL_MAX_BACKOFF (1 << 8)
 
@@ -4637,6 +4626,7 @@ static struct {
     Eterm acul;
     Eterm acnl;
     Eterm acfml;
+    Eterm cp;
 
 #if HAVE_ERTS_MSEG
     Eterm mmc;
@@ -4685,11 +4675,16 @@ static struct {
     Eterm mseg_dealloc;
     Eterm mseg_realloc;
 #endif
+
+    Eterm At_sign;
+    
 #ifdef DEBUG
     Eterm end_of_atoms;
 #endif
 } am;
 
+static char *allocator_char_str[ERTS_ALC_A_MAX + 1];
+static Eterm allocator_char_atom[ERTS_ALC_A_MAX + 1];
 static Eterm alloc_type_atoms[ERTS_ALC_N_MAX + 1];
 static Eterm alloc_num_atoms[ERTS_ALC_A_MAX + 1];
 
@@ -4741,6 +4736,7 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(acul);
         AM_INIT(acnl);
         AM_INIT(acfml);
+        AM_INIT(cp);
 
 #if HAVE_ERTS_MSEG
 	AM_INIT(mmc);
@@ -4789,11 +4785,19 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(mseg_realloc);
 #endif
 
+        am.At_sign = am_atom_put("@", 1);
+        
 #ifdef DEBUG
 	for (atom = (Eterm *) &am; atom < &am.end_of_atoms; atom++) {
 	    ASSERT(*atom != THE_NON_VALUE);
 	}
 #endif
+
+        for (ix = ERTS_ALC_A_MIN; ix <= ERTS_ALC_A_MAX; ix++) {
+            char *cp_str = allocator_char_str[ix];
+            Eterm cp_atom = am_atom_put(cp_str, sys_strlen(cp_str));
+            allocator_char_atom[ix] = cp_atom;
+        }
 
         for (ix = ERTS_ALC_N_MIN; ix <= ERTS_ALC_N_MAX; ix++) {
             const char *name = ERTS_ALC_N2TD(ix);
@@ -5490,6 +5494,8 @@ info_options(Allctr_t *allctr,
 {
     Eterm res = THE_NON_VALUE;
     UWord acul, acnl, acfml;
+    char *cp_str;
+    Eterm cp_atom;
 
     if (!allctr) {
 	if (print_to_p)
@@ -5504,6 +5510,19 @@ info_options(Allctr_t *allctr,
     acul = allctr->cpool.util_limit;
     acnl = allctr->cpool.in_pool_limit;
     acfml = allctr->cpool.fblk_min_limit;
+    ASSERT(allctr->cpool.carrier_pool <= ERTS_ALC_A_MAX);
+    if (allctr->cpool.carrier_pool < ERTS_ALC_A_MIN) {
+        cp_str = "undefined";
+        cp_atom = am_undefined;
+    }
+    else if (allctr->cpool.carrier_pool == ERTS_ALC_COMMON_CPOOL_IX) {
+        cp_str = "@";
+        cp_atom = am.At_sign;
+    }
+    else {
+        cp_str = allocator_char_str[allctr->cpool.carrier_pool];
+        cp_atom = allocator_char_atom[allctr->cpool.carrier_pool];
+    }
 
     if (print_to_p) {
 	char topt[21]; /* Enough for any 64-bit integer */
@@ -5511,6 +5530,10 @@ info_options(Allctr_t *allctr,
 	    erts_snprintf(&topt[0], sizeof(topt), "%d", allctr->t);
 	else
 	    erts_snprintf(&topt[0], sizeof(topt), "false");
+        /*
+         * Do not use '%T' in the format string here. You'll
+         * likely get into lock order violations...
+         */
 	erts_print(*print_to_p,
 		   print_to_arg,
 		   "option e: true\n"
@@ -5532,7 +5555,10 @@ info_options(Allctr_t *allctr,
 		   "option lmbcs: %beu\n"
 		   "option smbcs: %beu\n"
 		   "option mbcgs: %beu\n"
-		   "option acul: %bpu\n",
+		   "option acul: %bpu\n"
+		   "option acnl: %bpu\n"
+		   "option acfml: %bpu\n"
+		   "option cp: %s\n",
 		   topt,
 		   allctr->ramv ? "true" : "false",
 		   allctr->atags ? "true" : "false",
@@ -5551,13 +5577,17 @@ info_options(Allctr_t *allctr,
 		   allctr->largest_mbc_size,
 		   allctr->smallest_mbc_size,
 		   allctr->mbc_growth_stages,
-		   acul);
+		   acul,
+                   acnl,
+                   acfml,
+                   cp_str);
     }
 
     res = (*allctr->info_options)(allctr, "option ", print_to_p, print_to_arg,
 				  hpp, szp);
 
     if (hpp || szp) {
+        add_2tup(hpp, szp, &res, am.cp, cp_atom);
         add_2tup(hpp, szp, &res,
                  am.acfml,
                  bld_uint(hpp, szp, acfml));
@@ -6817,7 +6847,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 
     erts_atomic_init_nob(&allctr->cpool.stat.carriers_size, 0);
     erts_atomic_init_nob(&allctr->cpool.stat.no_carriers, 0);
-    if (!init->ts && init->acul && init->acnl) {
+    if (!init->ts && init->acul && init->acnl && init->cp >= 0) {
         ASSERT(allctr->add_mbc);
         ASSERT(allctr->remove_mbc);
         ASSERT(allctr->largest_fblk_in_mbc);
@@ -6827,9 +6857,10 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
         allctr->cpool.util_limit = init->acul;
         allctr->cpool.in_pool_limit = init->acnl;
         allctr->cpool.fblk_min_limit = init->acfml;
+        allctr->cpool.carrier_pool = init->cp;
 
         if (allctr->alloc_strat == ERTS_ALC_S_FIRSTFIT) {
-            allctr->cpool.sentinel = &firstfit_carrier_pool.sentinel;
+            allctr->cpool.sentinel = &firstfit_carrier_pools[init->cp].sentinel;
         }
         else if (allctr->alloc_no != ERTS_ALC_A_TEST) {
             ERTS_INTERNAL_ERROR("Impossible carrier migration config.");
@@ -6839,12 +6870,13 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
         allctr->cpool.util_limit = 0;
         allctr->cpool.in_pool_limit = 0;
         allctr->cpool.fblk_min_limit = 0;
+        allctr->cpool.carrier_pool = -1;
     }
 
     /* The invasive tests don't really care whether the pool is enabled or not,
      * so we need to set this unconditionally for this allocator type. */
     if (allctr->alloc_no == ERTS_ALC_A_TEST) {
-        allctr->cpool.sentinel = &test_carrier_pool.sentinel;
+        allctr->cpool.sentinel = &firstfit_carrier_pools[ERTS_ALC_TEST_CPOOL_IX].sentinel;
     }
 
     allctr->sbc_threshold = adjust_sbct(allctr, init->sbct);
@@ -7009,13 +7041,15 @@ erts_alcu_stop(Allctr_t *allctr)
 void
 erts_alcu_init(AlcUInit_t *init)
 {
+    int i;
     ErtsAlcCPoolData_t *sentinel;
 
-    sentinel = &firstfit_carrier_pool.sentinel;
-    erts_atomic_init_nob(&sentinel->next, (erts_aint_t) sentinel);
-    erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
-
-    sentinel = &test_carrier_pool.sentinel;
+    for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
+        sentinel = &firstfit_carrier_pools[i].sentinel;
+        erts_atomic_init_nob(&sentinel->next, (erts_aint_t) sentinel);
+        erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
+    }
+    sentinel = &firstfit_carrier_pools[ERTS_ALC_A_INVALID].sentinel;
     erts_atomic_init_nob(&sentinel->next, (erts_aint_t) sentinel);
     erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
 
@@ -7035,6 +7069,30 @@ erts_alcu_init(AlcUInit_t *init)
     carrier_alignment = sizeof(Unit_t);
 #endif
 
+#ifdef DEBUG
+    for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++)
+        allocator_char_str[i] = NULL;
+#endif
+    allocator_char_str[ERTS_ALC_A_SYSTEM] = "Y";
+    allocator_char_str[ERTS_ALC_A_TEMPORARY] = "T";
+    allocator_char_str[ERTS_ALC_A_SHORT_LIVED] = "S";
+    allocator_char_str[ERTS_ALC_A_STANDARD] = "D";
+    allocator_char_str[ERTS_ALC_A_LONG_LIVED] = "L";
+    allocator_char_str[ERTS_ALC_A_EHEAP] = "H";
+    allocator_char_str[ERTS_ALC_A_ETS] = "E";
+    allocator_char_str[ERTS_ALC_A_FIXED_SIZE] = "F";
+    allocator_char_str[ERTS_ALC_A_LITERAL] = "I";
+#ifdef ERTS_ALC_A_EXEC
+    allocator_char_str[ERTS_ALC_A_EXEC] = "X";
+#endif
+    allocator_char_str[ERTS_ALC_A_BINARY] = "B";
+    allocator_char_str[ERTS_ALC_A_DRIVER] = "R";
+    allocator_char_str[ERTS_ALC_A_TEST] = "Z";
+#ifdef DEBUG
+    for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++)
+        ASSERT(allocator_char_str[i]);
+#endif
+    
     erts_mtx_init(&init_atoms_mtx, "alcu_init_atoms", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
 
