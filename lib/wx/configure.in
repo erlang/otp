@@ -335,9 +335,15 @@ elif test  X"$MIXED_VC" = X"no"; then
     # Try to find debug libs first 
     # wxelibs=core,base,gl,aui,adv
 
-    AC_MSG_CHECKING(for debug build of wxWidgets)
-
     AM_PATH_WXCONFIG($reqwx, wxWinWithGLDBG=1, wxWinWithGLDBG=0, [stc,xrc,html,adv,xml,core,base,gl,aui], [--unicode --debug=yes])
+
+    AC_MSG_CHECKING(for debug build of wxWidgets)
+    if test "$wxWinWithGLDBG" = 1; then
+      AC_MSG_RESULT(yes);
+    else
+      AC_MSG_RESULT(no);
+    fi
+
     DEBUG_WX_CFLAGS=$WX_CFLAGS
     DEBUG_WX_CXXFLAGS=$WX_CXXFLAGS
     DEBUG_WX_LIBS=$WX_LIBS
@@ -347,8 +353,14 @@ elif test  X"$MIXED_VC" = X"no"; then
     AC_SUBST(DEBUG_WX_LIBS)
     AC_SUBST(DEBUG_WX_LIBS_STATIC)
     
-    AC_MSG_CHECKING(for standard build of wxWidgets)
     AM_PATH_WXCONFIG($reqwx, wxWinWithGL=1, wxWinWithGL=0, [stc,xrc,html,adv,xml,core,base,gl,aui], [--unicode --debug=no])
+
+    AC_MSG_CHECKING(for standard build of wxWidgets)
+    if test "$wxWinWithGL" = 1; then
+      AC_MSG_RESULT(yes);
+    else
+      AC_MSG_RESULT(no);
+    fi
 
     if test "x$WX_LIBS_STATIC" = "x"; then
        WX_HAVE_STATIC_LIBS=false

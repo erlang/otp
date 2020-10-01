@@ -1348,7 +1348,6 @@ error
 ])
 
 if test "$Z_LIB" != ""; then
-  AC_MSG_CHECKING(for zlib inflateGetDictionary presence)
   AC_SEARCH_LIBS(inflateGetDictionary, [z],
                  AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
                            [Define if your zlib version defines inflateGetDictionary.]))
