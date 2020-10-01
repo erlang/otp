@@ -68,6 +68,7 @@ typedef struct {
 
     int leader; /* Needs to be first in the managed threads part */
     int active;
+    int is_deep_sleeper;
     ErtsThrPrgrVal confirmed;
     ErtsThrPrgrLeaderState leader_state;
 } ErtsThrPrgrData;
@@ -124,7 +125,7 @@ extern ErtsThrPrgr erts_thr_prgr__;
 void erts_thr_progress_pre_init(void);
 void erts_thr_progress_init(int no_schedulers, int managed, int unmanaged);
 ErtsThrPrgrData *erts_thr_progress_register_managed_thread(
-    ErtsSchedulerData *esdp, ErtsThrPrgrCallbacks *, int);
+    ErtsSchedulerData *esdp, ErtsThrPrgrCallbacks *, int, int);
 void erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *);
 void erts_thr_progress_active(ErtsThrPrgrData *, int on);
 void erts_thr_progress_wakeup(ErtsThrPrgrData *,

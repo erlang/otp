@@ -131,6 +131,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"pollwaiter",				"address"		},
     {   "break_waiter_lock",                    NULL                    },
 #endif /* __WIN32__ */
+    {	"block_poll_thread",    		"index"			},
     {	"alcu_init_atoms",			NULL			},
     {	"mseg_init_atoms",			NULL			},
     {	"mmap_init_atoms",			NULL			},
