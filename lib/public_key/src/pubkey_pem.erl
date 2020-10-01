@@ -57,7 +57,8 @@
 %% Description: Decodes a PEM binary.
 %%--------------------------------------------------------------------		    
 decode(Bin) ->
-    decode_pem_entries(split_bin(Bin), []).
+    decode_pem_entries(
+        binary:split(Bin, [<<"\r\n">>, <<"\r">>, <<"\n">>], [global]), []).
 
 %%--------------------------------------------------------------------
 -spec encode([public_key:pem_entry()]) -> iolist().
@@ -113,7 +114,7 @@ decode_pem_entries([<<>>], Entries) ->
 decode_pem_entries([<<>> | Lines], Entries) ->
     decode_pem_entries(Lines, Entries);
 decode_pem_entries([StartLine | Lines], Entries) ->
-    Start = string:trim(StartLine),
+    Start = strip_tail_whitespace(StartLine),
     case pem_end(Start) of
 	undefined ->
 	    decode_pem_entries(Lines, Entries);
@@ -121,6 +122,20 @@ decode_pem_entries([StartLine | Lines], Entries) ->
 	    {Entry, RestLines} = join_entry(Lines, []),
 	    decode_pem_entries(RestLines, [decode_pem_entry(Start, Entry) | Entries])
     end.
+
+strip_tail_whitespace(Bin) when is_binary(Bin) ->
+    strip_tail_whitespace(lists:reverse(binary:bin_to_list(Bin)));
+strip_tail_whitespace([Char|Rest])
+  when Char == $ ;
+       Char == $\t;
+       Char == $\v;
+       Char == $\f;
+       Char == $\r;
+       Char == $\n ->
+    strip_tail_whitespace(Rest);
+strip_tail_whitespace(List) ->
+    binary:list_to_bin(
+        lists:reverse(List)).
 
 decode_pem_entry(Start, [<<"Proc-Type: 4,ENCRYPTED", _/binary>>, Line | Lines]) ->
     Type = asn1_type(Start),
@@ -152,21 +167,6 @@ encode_encrypted_private_keyinfo(EncData, EncryptParmams) ->
     public_key:der_encode('EncryptedPrivateKeyInfo',   
 			  #'EncryptedPrivateKeyInfo'{encryptionAlgorithm = AlgorithmInfo,
 						     encryptedData = EncData}).
-split_bin(Bin) ->
-    split_bin(0, Bin).
-
-split_bin(N, Bin) ->
-    case Bin of
-	<<Line:N/binary, "\r\n", Rest/binary>> ->
-	    [Line | split_bin(0, Rest)];
-	<<Line:N/binary, "\n", Rest/binary>> ->
-	    [Line | split_bin(0, Rest)];
-	<<Line:N/binary>> ->
-	    [Line];
-	_ ->
-	    split_bin(N+1, Bin)
-    end.
-
 b64encode_and_split(Bin) ->
     split_lines(base64:encode(Bin)).
 
