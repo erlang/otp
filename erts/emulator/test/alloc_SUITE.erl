@@ -32,7 +32,8 @@
 	 erts_mmap/1,
 	 cpool/1,
          set_dyn_param/1,
-	 migration/1]).
+	 migration/1,
+         cpool_opt/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +44,8 @@ suite() ->
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
      set_dyn_param,
-     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration].
+     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration,
+     cpool_opt].
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     [{testcase, Case},{debug,false}|Config].
@@ -73,6 +75,51 @@ migration(Cfg) ->
     drv_case(Cfg, concurrent, "+MZe true +MRe false"),
     drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas ageffcbf"),
     drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas chaosff").
+
+cpool_opt(Config) when is_list(Config) ->
+    OldEnv = clear_env(),
+    try
+        {ok, NodeA} = start_node(Config, "+Mue true +Mut true +Muacul de +Mucp @", []),
+        {cp, '@'} = get_cp_opt(NodeA, binary_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, std_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, ets_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, fix_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, eheap_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, ll_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, driver_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, sl_alloc),
+        stop_node(NodeA),
+        {ok, NodeB} = start_node(Config, "+Mue true +Mut true +Muacul de +Mucp :", []),
+        {cp, 'B'} = get_cp_opt(NodeB, binary_alloc),
+        {cp, 'D'} = get_cp_opt(NodeB, std_alloc),
+        {cp, 'E'} = get_cp_opt(NodeB, ets_alloc),
+        {cp, 'F'} = get_cp_opt(NodeB, fix_alloc),
+        {cp, 'H'} = get_cp_opt(NodeB, eheap_alloc),
+        {cp, 'L'} = get_cp_opt(NodeB, ll_alloc),
+        {cp, 'R'} = get_cp_opt(NodeB, driver_alloc),
+        {cp, 'S'} = get_cp_opt(NodeB, sl_alloc),
+        stop_node(NodeB),
+        {ok, NodeC} = start_node(Config, "+Mue true +Mut true +Muacul de +Mucp : +MEcp H", []),
+        {cp, 'B'} = get_cp_opt(NodeC, binary_alloc),
+        {cp, 'D'} = get_cp_opt(NodeC, std_alloc),
+        {cp, 'H'} = get_cp_opt(NodeC, ets_alloc),
+        {cp, 'F'} = get_cp_opt(NodeC, fix_alloc),
+        {cp, 'H'} = get_cp_opt(NodeC, eheap_alloc),
+        {cp, 'L'} = get_cp_opt(NodeC, ll_alloc),
+        {cp, 'R'} = get_cp_opt(NodeC, driver_alloc),
+        {cp, 'S'} = get_cp_opt(NodeC, sl_alloc),
+        stop_node(NodeC)
+    after
+        restore_env(OldEnv)
+    end,
+    ok.
+
+get_cp_opt(Node, Alloc) ->
+    AInfo = rpc:call(Node, erlang, system_info, [{allocator,Alloc}]),
+    {instance, 1, IList} = lists:keyfind(1, 2, AInfo),
+    {options, OList} = lists:keyfind(options, 1, IList),
+    lists:keyfind(cp, 1, OList).
+    
 
 erts_mmap(Config) when is_list(Config) ->
     case {os:type(), mmsc_flags()} of
@@ -478,4 +525,40 @@ free_memory() ->
 	error : undef ->
 	    ct:fail({"os_mon not built"})
     end.
+
+clear_env() ->
+    ErlRelFlagsName =
+        "ERL_OTP"
+        ++ erlang:system_info(otp_release)
+        ++ "_FLAGS",
+    ErlFlags = os:getenv("ERL_FLAGS"),
+    os:unsetenv("ERL_FLAGS"),
+    ErlAFlags = os:getenv("ERL_AFLAGS"),
+    os:unsetenv("ERL_AFLAGS"),
+    ErlZFlags = os:getenv("ERL_ZFLAGS"),
+    os:unsetenv("ERL_ZFLAGS"),
+    ErlRelFlags = os:getenv(ErlRelFlagsName),
+    os:unsetenv(ErlRelFlagsName),
+    {ErlFlags, ErlAFlags, ErlZFlags, ErlRelFlags}.
+
+restore_env({ErlFlags, ErlAFlags, ErlZFlags, ErlRelFlags}) ->
+    if ErlFlags == false -> ok;
+       true -> os:putenv("ERL_FLAGS", ErlFlags)
+    end,
+    if ErlAFlags == false -> ok;
+       true -> os:putenv("ERL_AFLAGS", ErlAFlags)
+    end,
+    if ErlZFlags == false -> ok;
+       true -> os:putenv("ERL_ZFLAGS", ErlZFlags)
+    end,
+    if ErlRelFlags == false -> ok;
+       true ->
+            ErlRelFlagsName =
+                "ERL_OTP"
+                ++ erlang:system_info(otp_release)
+                ++ "_FLAGS",
+            os:putenv(ErlRelFlagsName, ErlRelFlags)
+    end,
+    ok.
+
 
