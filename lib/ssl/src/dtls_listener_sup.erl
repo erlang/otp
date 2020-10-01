@@ -30,8 +30,8 @@
 %% API
 -export([start_link/0]).
 -export([start_child/1,
-         lookup_listner/1,
-         register_listner/2]).
+         lookup_listener/2,
+         register_listener/3]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -44,32 +44,34 @@ start_link() ->
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
-    
-lookup_listner(0) ->
-    undefined;
-lookup_listner(Port) ->
-    try ets:lookup(dtls_listener_sup, Port) of 
-        [{Port, {Owner, Handler}}] ->
+
+lookup_listener(IP, Port) ->
+    try ets:lookup(dtls_listener_sup, {IP, Port}) of
+        [] ->
+            undefined;
+        [{{IP, Port}, {Owner, Handler}}] ->
             case erlang:is_process_alive(Handler) of 
                 true ->
-                    case (Owner =/= undefined) andalso erlang:is_process_alive(Owner) of
+                    case (Owner =/= undefined) andalso
+                        erlang:is_process_alive(Owner) of
                         true ->
+                            %% Trying to bind port that is already bound
                             {error, already_listening};
                         false ->
+                            %% Re-open same listen socket when the handler
+                            %% is dead.
                             {ok, Handler}
                     end;
                 false ->
-                    ets:delete(dtls_listener_sup, Port),
+                    ets:delete(dtls_listener_sup, {IP, Port}),
                     undefined
-            end;
-        [] ->
-            undefined
+            end
     catch _:_ ->
             undefined
     end.
 
-register_listner(OwnerAndListner, Port) -> 
-    ets:insert(dtls_listener_sup, {Port, OwnerAndListner}).
+register_listener(OwnerAndListner, IP, Port) ->
+    ets:insert(dtls_listener_sup, {{IP, Port}, OwnerAndListner}).
 
 %%%=========================================================================
 %%%  Supervisor callback
