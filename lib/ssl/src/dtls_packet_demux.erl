@@ -102,38 +102,19 @@ getstat(PacketSocket, Opts) ->
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Port0, {TransportModule, _,_,_,_} = TransportInfo, EmOpts, InetOptions, DTLSOptions]) ->
-    try 
-	{ok, Socket} = TransportModule:open(Port0, InetOptions),
-        InternalActiveN =  case application:get_env(ssl, internal_active_n) of
-                               {ok, N} when is_integer(N) ->
-                                   N;
-                               _  ->
-                                   ?INTERNAL_ACTIVE_N
-                           end,
+init([Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
+    InternalActiveN = get_internal_active_n(),
+    {ok, SessionIdHandle} = session_id_tracker(DTLSOptions),
+    {ok, #state{active_n = InternalActiveN,
+                port = Port0,
+                first = true,
+                transport = TransportInfo,
+                dtls_options = DTLSOptions,
+                emulated_options = EmOpts,
+                listener = Socket,
+                close = false,
+                session_id_tracker = SessionIdHandle}}.
 
-        Port = case Port0 of
-                   0 ->
-                      {ok, P} = inet:port(Socket),
-                       P;
-                   _ ->
-                      Port0
-               end,
-        
-        {ok, SessionIdHandle} = session_id_tracker(DTLSOptions),
-
-	{ok, #state{active_n = InternalActiveN,
-                    port = Port,
-		    first = true,
-                    transport = TransportInfo,
-		    dtls_options = DTLSOptions,
-		    emulated_options = EmOpts,
-		    listener = Socket,
-                    close = false,
-                    session_id_tracker = SessionIdHandle}}
-    catch _:_ ->
-	    {stop, {shutdown, {error, closed}}}
-    end.
 handle_call({accept, _}, _, #state{close = true} = State) ->
     {reply, {error, closed}, State};
 
@@ -375,4 +356,14 @@ emulated_opts_list(Opts, [active | Rest], Acc) ->
 %% to generate session ids, but no sessions will be stored unless
 %% reuse_sessions = true.
 session_id_tracker(_) ->
-    dtls_server_session_cache_sup:start_child(ssl_server_session_cache_sup:session_opts()).
+    dtls_server_session_cache_sup:start_child(
+      ssl_server_session_cache_sup:session_opts()).
+
+get_internal_active_n() ->
+    case application:get_env(ssl, internal_active_n) of
+        {ok, N} when is_integer(N) ->
+            N;
+        _  ->
+            ?INTERNAL_ACTIVE_N
+    end.
+

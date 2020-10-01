@@ -46,33 +46,26 @@
 send(Transport, {{IP,Port},Socket}, Data) ->
     Transport:send(Socket, IP, Port, Data).
 
-listen(Port, #config{transport_info = TransportInfo,
-                           ssl = SslOpts, 
-                           emulated = EmOpts0,
-                           inet_user = Options} = Config) ->
-    
-    Result = case dtls_listener_sup:lookup_listner(Port) of
-                 undefined ->
-                     Result0 = {ok, Listner0} =
-                         dtls_listener_sup:start_child([Port, TransportInfo, emulated_socket_options(EmOpts0, #socket_options{}),
-                                                                          Options ++ internal_inet_values(), SslOpts]),
-                     dtls_listener_sup:register_listner({self(), Listner0}, Port),
-                     Result0;
-                 {ok, Listner0} = Result0 ->
-                     dtls_packet_demux:new_owner(Listner0),
-                     dtls_packet_demux:set_all_opts(Listner0, {Options, emulated_socket_options(EmOpts0, #socket_options{}), SslOpts}),
-                     dtls_listener_sup:register_listner({self(), Listner0}, Port),
-                     Result0;
-                 Result0 ->
-                     Result0
-             end,
-    case Result of
-        {ok, Listner} ->
-            Socket = #sslsocket{pid = {dtls, Config#config{dtls_handler = {Listner, Port}}}},
-            check_active_n(EmOpts0, Socket),
-	    {ok, Socket};
-        Err ->
-            Err
+listen(Port, #config{inet_ssl = SockOpts,
+                     ssl = SslOpts,
+                     emulated = EmOpts,
+                     inet_user = Options} = Config) ->
+    IP = proplists:get_value(ip, SockOpts, {0,0,0,0}),
+    case dtls_listener_sup:lookup_listener(IP, Port) of
+        undefined ->
+            start_new_listener(IP, Port, Config);
+        {ok, Listener} ->
+            dtls_packet_demux:new_owner(Listener),
+            dtls_packet_demux:set_all_opts(
+              Listener, {Options,
+                          emulated_socket_options(EmOpts,
+                                                  #socket_options{}),
+                          SslOpts}),
+            dtls_listener_sup:register_listener({self(), Listener},
+                                                IP, Port),
+            {ok, create_dtls_socket(Config, Listener, Port)};
+        Error ->
+            Error
     end.
 
 accept(dtls, #config{transport_info = {Transport,_,_,_,_},
@@ -100,8 +93,11 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo
 	    Error
     end.
 
-close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port}}}}) ->
-    dtls_listener_sup:register_listner({undefined, Pid}, Port),
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port0},
+                                      inet_ssl = SockOpts}}}) ->
+    IP = proplists:get_value(ip, SockOpts, {0,0,0,0}),
+    Port = get_real_port(Pid, Port0),
+    dtls_listener_sup:register_listener({undefined, Pid}, IP, Port),
     dtls_packet_demux:close(Pid).   
 
 close(_, dtls) ->
@@ -270,3 +266,59 @@ validate_inet_option(active, Value)
     throw({error, {options, {active,Value}}});
 validate_inet_option(_, _) ->
     ok.
+
+get_real_port(Listener, Port0) when is_pid(Listener) andalso
+                                    is_integer(Port0) ->
+    case Port0 of
+        0 ->
+            {ok, {_, NewPort}} = dtls_packet_demux:sockname(Listener),
+            NewPort;
+        _ ->
+            Port0
+    end.
+
+start_new_listener(IP, Port0,
+                   #config{transport_info = {TransportModule, _,_,_,_},
+                           inet_user = Options} = Config) ->
+    InetOptions = Options ++ internal_inet_values(),
+    case TransportModule:open(Port0, InetOptions) of
+        {ok, Socket} ->
+            Port = case Port0 of
+                       0 ->
+                           {ok, P} = inet:port(Socket),
+                           P;
+                       _ ->
+                           Port0
+                   end,
+            start_dtls_packet_demux(Config, IP, Port, Socket);
+        {error, eaddrinuse} ->
+            {error, already_listening};
+        Error ->
+            Error
+    end.
+
+start_dtls_packet_demux(#config{
+                           transport_info =
+                               {TransportModule, _,_,_,_} = TransportInfo,
+                           emulated = EmOpts0,
+                           ssl = SslOpts} = Config, IP, Port, Socket) ->
+    EmOpts = emulated_socket_options(EmOpts0, #socket_options{}),
+    case dtls_listener_sup:start_child([Port, TransportInfo, EmOpts,
+                                        SslOpts, Socket]) of
+        {ok, Multiplexer} ->
+            ok = TransportModule:controlling_process(Socket, Multiplexer),
+            dtls_listener_sup:register_listener({self(), Multiplexer},
+                                                IP, Port),
+            DTLSSocket = create_dtls_socket(Config, Multiplexer, Port),
+	    {ok, DTLSSocket};
+        Error ->
+            Error
+    end.
+
+create_dtls_socket(#config{emulated = EmOpts} = Config,
+                   Listener, Port) ->
+    Socket = #sslsocket{
+                pid = {dtls, Config#config{dtls_handler = {Listener, Port}}}},
+    check_active_n(EmOpts, Socket),
+    Socket.
+
