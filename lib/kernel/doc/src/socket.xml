@@ -123,15 +123,13 @@
 	  An <c>atom()</c> means any protocol as enumerated by the
 	  <c>C</c> library call <c>getprotoent()</c>
 	  on the platform, or at least the supported ones of
-	  <c>ip | ipv6 | tcp | udp | sctp</c>,
-	  and <c>default</c> which is equivalent to the
-	  integer protocol number <c>0</c>.
+	  <c>ip | ipv6 | tcp | udp | sctp</c>.
 	</p>
 	<p>See <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa></p>
 	<p>
 	  The call
 	  <seemfa marker="#supports/2"><c>supports(protocols)</c></seemfa>
-	  returns the supported protocol atoms. (except for <c>default</c>)
+	  returns the supported protocol atoms.
 	</p>
       </desc>
     </datatype>
@@ -211,6 +209,9 @@
       <name name="sockaddr_ll"/>
     </datatype>
     <datatype>
+      <name name="sockaddr_recv"/>
+    </datatype>
+    <datatype>
       <name name="packet_type"/>
     </datatype>
     <datatype>
@@ -241,11 +242,12 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="sockopt_level"/>
+      <name name="level"/>
       <desc>
 	<p>
-	  The OS protocol levels for socket options
-	  with the following names in OS header files:
+	  The OS protocol levels for, for example,
+	  socket options and control messages,
+	  with the following names in the OS header files:
 	</p>
 	<taglist>
 	  <tag><c>socket</c></tag>
@@ -275,6 +277,20 @@
 	    <c>IPPROTO_SCTP</c> with options named <c>SCTP_</c>*.
 	  </item>
 	</taglist>
+	<p>
+	  There are many other possible protocols, but the ones
+	  above are those for which this socket library
+	  implements socket options and/or control messages.
+	</p>
+	<p>
+	  All protocols known to the OS are enumerated
+	  when the Erlang VM is started.
+	  See the OS man page for protocols(5).
+	  The protocol level 'socket' is always implemented
+	  as <c>SOL_SOCKET</c> and all the others mentioned
+	  in the list above are valid,
+	  if supported by the platform, enumerated or not.
+	</p>
       </desc>
     </datatype>
     <datatype>
@@ -360,13 +376,13 @@
 	  Socket option on the form
 	  <c>{Level, Opt}</c> where the OS protocol
 	  <c>Level</c> =
-	  <seetype marker="#sockopt_level"><c>sockopt_level()</c></seetype>
+	  <seetype marker="#level"><c>level()</c></seetype>
 	  and <c>Opt</c> is a socket option on that protocol level.
 	</p>
 	<p>
 	  The OS name for an options is, except where otherwise noted,
 	  the <c>Opt</c> atom, in capitals, with prefix according to
-	  <seetype marker="#sockopt_level"><c>sockopt_level()</c></seetype>.
+	  <seetype marker="#level"><c>level()</c></seetype>.
 	</p>
 	<note><p>See the OS documentation for every socket option.</p></note>
 	<p>
@@ -384,7 +400,7 @@
 	<!-- ## Protocol level 'socket' ###################### -->
 	<p>
 	  <em>Options for protocol level</em>
-	  <seetype marker="#sockopt_level"><em><c>socket</c></em>:</seetype>
+	  <seetype marker="#level"><em><c>socket</c></em>:</seetype>
 	</p>
 	<taglist>
 	  <tag><c>{socket, acceptconn}</c></tag>
@@ -531,7 +547,7 @@
 	<!-- ## Protocol level 'ip' ########################## -->
 	<p>
 	  <em>Options for protocol level</em>
-	  <seetype marker="#sockopt_level"><em><c>ip</c></em>:</seetype>
+	  <seetype marker="#level"><em><c>ip</c></em>:</seetype>
 	</p>
 	<taglist>
 	  <tag><c>{ip, add_membership}</c></tag>
@@ -693,7 +709,7 @@
 	<!-- ## Protocol level 'ipv6' ######################## -->
 	<p>
 	  <em>Options for protocol level</em>
-	  <seetype marker="#sockopt_level"><em><c>ipv6</c></em>:</seetype>
+	  <seetype marker="#level"><em><c>ipv6</c></em>:</seetype>
 	</p>
 	<taglist>
 	  <tag><c>{ipv6, addrform}</c></tag>
@@ -791,7 +807,7 @@
 	<!-- ## Protocol level 'sctp' ######################## -->
 	<p>
 	  <em>Options for protocol level</em>
-	  <seetype marker="#sockopt_level"><em><c>sctp</c></em></seetype>.
+	  <seetype marker="#level"><em><c>sctp</c></em></seetype>.
 	  See also RFC 6458.
 	</p>
 	<taglist>
@@ -845,7 +861,7 @@
 	<!-- ## Protocol level 'tcp' ######################### -->
 	<p>
 	  <em>Options for protocol level</em>
-	  <seetype marker="#sockopt_level"><em><c>tcp</c>:</em></seetype>
+	  <seetype marker="#level"><em><c>tcp</c>:</em></seetype>
 	</p>
 	<taglist>
 	  <tag><c>{tcp, congestion}</c></tag>
@@ -861,7 +877,7 @@
 	<!-- ## Protocol level 'udp' ######################### -->
 	<p>
 	  <em>Options for protocol level</em>
-	  <seetype marker="#sockopt_level"><em><c>udp</c>:</em></seetype>
+	  <seetype marker="#level"><em><c>udp</c>:</em></seetype>
 	</p>
 	<taglist>
 	  <tag><c>{udp, cork}</c></tag>
@@ -1013,74 +1029,118 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="msghdr"/>
+      <name name="msg"/>
+    </datatype>
+    <datatype>
+      <name name="msg_send"/>
       <desc>
 	<p>
-	  Corresponds to the C <c>struct msghdr</c>,
-	  see your platform  documentation for
-	  <c>sendmsg(2)</c> and <c>recvmsg(2)</c>.
+	  Message sent by
+	  <seemfa marker="#sendmsg/2"><c>sendmsg/2,3,4</c></seemfa>.
+	</p>
+	<p>
+	  Corresponds to a C <c>struct msghdr</c>,
+	  see your platform documentation for <c>sendmsg(2)</c>.
 	</p>
 	<taglist>
 	  <tag><c>addr</c></tag>
 	  <item>
-	    Optional peer address, used on non-connected sockets.
+	    Optional peer address, used on unconnected sockets.
+	    Corresponds to <c>msg_name</c> and <c>msg_namelen</c>
+	    fields of a <c>struct msghdr</c>.
+	    If not used they are set to <c>NULL</c>, <c>0</c>.
 	  </item>
 	  <tag><c>iov</c></tag>
 	  <item>
 	    Mandatory data as a list of binaries.
+	    The <c>msg_iov</c> and <c>msg_iovlen</c>
+	    fields of a <c>struct msghdr</c>.
 	  </item>
 	  <tag><c>ctrl</c></tag>
 	  <item>
-	    Control messages (CMSG).  Optional for
-	    <seemfa marker="#sendmsg/2"><c>sendmsg/2,3,4</c></seemfa>.
-	    At least an empty list is returned by
-	    <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,5</c></seemfa>.
-	  </item>
-	  <tag><c>iov</c></tag>
-	  <item>
-	    Message flags.  Ignored by
-	    <seemfa marker="#sendmsg/2"><c>sendmsg/2,3,4</c></seemfa>.
-	    Returned by
-	    <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,5</c></seemfa>.
+	    Optional list of control messages (CMSG).
+	    Corresponds to the <c>msg_control</c> and <c>msg_controllen</c>
+	    fields of a <c>struct msghdr</c>.
+	    If not used they are set to <c>NULL</c>, <c>0</c>.
 	  </item>
 	</taglist>
 	<p>
-	  A control message can be specified with
-	  symbolic or native integer <c>level</c>,
-	  integer <c>type</c> and binary <c>data</c>.
-	  The application is responsible for figuring out
-	  the correct integer values and data for
-	  the runtime platform.
+	  The <c>msg_flags</c> field of the <c>struct msghdr</c>
+	  is set to <c>0</c>.
 	</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="cmsghdr_recv"/>
+      <name name="msg_recv"/>
       <desc>
 	<p>
-	  Control messages (ancillary messages) generated by
+	  Message returned by
 	  <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,5</c></seemfa>.
 	</p>
 	<p>
-	  Control messages <c>data</c> fields with symbolic values
-	  (<c>atom()</c>s) also may have <c>integer()</c> or even
-	  <c>binary()</c> values, that match the platform's
-	  header files.
+	  Corresponds to a C <c>struct msghdr</c>,
+	  see your platform documentation for <c>recvmsg(2)</c>.
 	</p>
+	<taglist>
+	  <tag><c>addr</c></tag>
+	  <item>
+	    Optional peer address, used on unconnected sockets.
+	    Corresponds to <c>msg_name</c> and <c>msg_namelen</c>
+	    fields of a <c>struct msghdr</c>.
+	    If <c>NULL</c> the map key is not present.
+	  </item>
+	  <tag><c>iov</c></tag>
+	  <item>
+	    Data as a list of binaries.
+	    The <c>msg_iov</c> and <c>msg_iovlen</c>
+	    fields of a <c>struct msghdr</c>.
+	  </item>
+	  <tag><c>ctrl</c></tag>
+	  <item>
+	    A possibly empty list of control messages (CMSG).
+	    Corresponds to the <c>msg_control</c> and <c>msg_controllen</c>
+	    fields of a <c>struct msghdr</c>.
+	  </item>
+	  <tag><c>flags</c></tag>
+	  <item>
+	    Message flags.
+	    Corresponds to the <c>msg_flags</c>
+	    field of a <c>struct msghdr</c>.
+	  </item>
+	</taglist>
       </desc>
     </datatype>
     <datatype>
-      <name name="cmsghdr_send"/>
+      <name name="native_value"/>
+    </datatype>
+    <datatype>
+      <name name="cmsg_send"/>
       <desc>
 	<p>
 	  Control messages (ancillary messages) accepted by
 	  <seemfa marker="#sendmsg/2"><c>sendmsg/2,3,4</c></seemfa>.
 	</p>
 	<p>
-	  Control messages <c>data</c> fields with symbolic values
-	  (<c>atom()</c>s) also may have <c>integer()</c> or even
-	  <c>binary()</c> values, that match the platform's
-	  header files.
+	  A control message may for some message types have a
+	  <c>value</c> field with a symbolic value,
+	  or a <c>data</c> field with a native value,
+	  that has to be binary compatible what is defined
+	  in the platform's header files.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="cmsg_recv"/>
+      <desc>
+	<p>
+	  Control messages (ancillary messages) returned by
+	  <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,5</c></seemfa>.
+	</p>
+	<p>
+	  A control message has got a <c>data</c> field with
+	  a native (<c>binary</c>) value for the message data,
+	  and may also have a decoded <c>value</c> field
+	  if this socket library succesfully decoded the data.
 	</p>
       </desc>
     </datatype>
@@ -1402,8 +1462,8 @@
 	    <c>socket_option()</c>
 	  </seetype>
 	  tuple, with a known 
-	  <seetype marker="#sockopt_level">
-	    <c><anno>Level</anno> = sockopt_level()</c>
+	  <seetype marker="#level">
+	    <c><anno>Level</anno> = level()</c>
 	  </seetype>
 	  and an integer <c><anno>NativeOpt</anno></c>,
 	  or with both an integer <c><anno>NativeLevel</anno></c>
@@ -1514,59 +1574,53 @@
 	information for the open call:</p>
 	<taglist>
 	  <tag>
-	    <c>domain =></c>
-	    <seetype marker="#domain"><c>domain()</c></seetype>
-	    <c>| integer()</c>
+	    <c>domain</c>
 	  </tag>
 	  <item>
 	    <p>
-	      Which domain is the descriptor of.
-	    </p>
-	    <p>
-	      See also
-	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	      Which protocol domain is the descriptor of.
+	      See also <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
 	    </p>
 	  </item>
 
 	  <tag>
-	    <c>type =>
-	    </c><seetype marker="#type"><c>type()</c></seetype>
-	    <c>| integer()</c>
+	    <c>type</c>
 	  </tag>
 	  <item>
-	    <p>Which type is the descriptor of.</p>
+	    <p>Which protocol type type is the descriptor of.</p>
 	    <p>
-	      See also
-	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	      See also <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
 	    </p>
 	  </item>
 
 	  <tag>
-	    <c>protocol =>
-	    </c><seetype marker="#protocol"><c>protocol()</c></seetype>
-	    <c>| integer()</c>
+	    <c>protocol</c>
 	  </tag>
 	  <item>
-	    <p>Which protocol is the descriptor of.</p>
 	    <p>
-	      See also
-	      <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
+	      Which protocol is the descriptor of.
+	      The atom <c>default</c> is equivalent to the integer
+	      protocol number <c>0</c> which means the default
+	      protocol for a given domain and type.
+	    </p>
+	    <p>
+	      See also <seemfa marker="#open/3"><c>open/2,3,4</c></seemfa>.
 	    </p>
 	  </item>
 
-	  <tag><c>dup => boolean()</c></tag>
+	  <tag><c>dup</c></tag>
 	  <item>
 	    <p>Shall the provided descriptor be duplicated (dup) or not.
 	    <br/>Defaults to <c>true</c>. </p>
 	  </item>
 
-	  <tag><c>debug => boolean()</c></tag>
+	  <tag><c>debug</c></tag>
 	  <item>
 	    <p>Enable or disable debug during the open call.
 	    <br/>Defaults to <c>false</c>. </p>
 	  </item>
 
-	  <tag><c><![CDATA[use_registry: boolean()]]></c></tag>
+	  <tag><c>use_registry></c></tag>
 	  <item>
 	    <p>Enable or disable use of the socket registry for this socket.
 	    This overrides the global value.
@@ -2213,8 +2267,8 @@
 	    <c>socket_option()</c>
 	  </seetype>
 	  tuple, with a known 
-	  <seetype marker="#sockopt_level">
-	    <c><anno>Level</anno> = sockopt_level()</c>
+	  <seetype marker="#level">
+	    <c><anno>Level</anno> = level()</c>
 	  </seetype>
 	  and an integer <c><anno>NativeOpt</anno></c>,
 	  or with both an integer <c><anno>NativeLevel</anno></c>
@@ -2343,8 +2397,8 @@
 	  <item>
 	    <p>
 	      For a <c><anno>Key2</anno></c> in
-	      <seetype marker="#sockopt_level">
-		<c>sockopt_level()</c>
+	      <seetype marker="#level">
+		<c>level()</c>
 	      </seetype>
 	      returns a list of <c>{Opt, boolean()}</c> tuples
 	      for all known
