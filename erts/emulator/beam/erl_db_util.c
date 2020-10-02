@@ -931,8 +931,6 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace);
 
 static Eterm seq_trace_fake(Process *p, Eterm arg1);
 
-static void db_free_tmp_uncompressed(DbTerm* obj);
-
 
 /*
 ** Interface routines.
@@ -5327,16 +5325,12 @@ void db_free_tmp_uncompressed(DbTerm* obj)
     erts_free(ERTS_ALC_T_TMP, obj);
 }
 
-Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
-                      DbTerm* obj, Eterm** hpp, Uint extra)
+Eterm db_match_dbterm_uncompressed(DbTableCommon* tb, Process* c_p, Binary* bprog,
+                                   DbTerm* obj, Eterm** hpp, Uint extra)
 {
     enum erts_pam_run_flags flags;
     Uint32 dummy;
     Eterm res;
-
-    if (tb->compress) {
-	obj = db_alloc_tmp_uncompressed(tb, obj);
-    }
 
     flags = (hpp ?
              ERTS_PAM_COPY_RESULT | ERTS_PAM_CONTIGUOUS_TUPLE :
@@ -5349,9 +5343,19 @@ Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
     if (is_value(res) && hpp!=NULL) {
 	*hpp = HAlloc(c_p, extra);
     }
+    return res;
+}
 
+Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
+                      DbTerm* obj, Eterm** hpp, Uint extra)
+{
+    Eterm res;
     if (tb->compress) {
-	db_free_tmp_uncompressed(obj);
+        obj = db_alloc_tmp_uncompressed(tb, obj);
+    }
+    res = db_match_dbterm_uncompressed(tb, c_p, bprog, obj, hpp, extra);
+    if (tb->compress) {
+        db_free_tmp_uncompressed(obj);
     }
     return res;
 }
