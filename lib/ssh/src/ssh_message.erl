@@ -566,8 +566,12 @@ bin_foldr(Fun, Acc, Bin) ->
 
 bin_foldl(_, Acc, <<>>) -> Acc;
 bin_foldl(Fun, Acc0, Bin0) ->
-    {Bin,Acc} = Fun(Bin0,Acc0),
-    bin_foldl(Fun, Acc, Bin).
+    case Fun(Bin0,Acc0) of
+        {Bin0,Acc0} ->
+            Acc0;
+        {Bin,Acc} ->
+            bin_foldl(Fun, Acc, Bin)
+    end.
 
 %%%----------------------------------------------------------------
 decode_keyboard_interactive_prompts(<<>>, Acc) ->
