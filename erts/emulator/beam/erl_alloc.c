@@ -228,6 +228,7 @@ set_default_sl_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_GOODFIT;
     ip->init.util.name_prefix	= "sl_";
     ip->init.util.alloc_no	= ERTS_ALC_A_SHORT_LIVED;
+    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -247,6 +248,7 @@ set_default_std_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.util.name_prefix	= "std_";
     ip->init.util.alloc_no	= ERTS_ALC_A_STANDARD;
+    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -269,6 +271,7 @@ set_default_ll_alloc_opts(struct au_init *ip)
     ip->init.util.sbct		= ~((UWord) 0);
     ip->init.util.name_prefix	= "ll_";
     ip->init.util.alloc_no	= ERTS_ALC_A_LONG_LIVED;
+    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 2*1024*1024; /* Main carrier size */
 #else
@@ -392,6 +395,7 @@ set_default_eheap_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_GOODFIT;
     ip->init.util.name_prefix	= "eheap_";
     ip->init.util.alloc_no	= ERTS_ALC_A_EHEAP;
+    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 512*1024; /* Main carrier size */
 #else
@@ -411,6 +415,7 @@ set_default_binary_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.util.name_prefix	= "binary_";
     ip->init.util.alloc_no	= ERTS_ALC_A_BINARY;
+    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -430,6 +435,7 @@ set_default_ets_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.util.name_prefix	= "ets_";
     ip->init.util.alloc_no	= ERTS_ALC_A_ETS;
+    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -448,6 +454,7 @@ set_default_driver_alloc_opts(struct au_init *ip)
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.util.name_prefix	= "driver_";
     ip->init.util.alloc_no	= ERTS_ALC_A_DRIVER;
+    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -470,6 +477,7 @@ set_default_fix_alloc_opts(struct au_init *ip,
     ip->init.util.name_prefix	= "fix_";
     ip->init.util.fix_type_size	= fix_type_sizes;
     ip->init.util.alloc_no	= ERTS_ALC_A_FIXED_SIZE;
+    ip->init.util.cp            = ERTS_ALC_COMMON_CPOOL_IX;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -490,6 +498,7 @@ set_default_test_alloc_opts(struct au_init *ip)
     ip->init.aoff.blk_order     = FF_BF;
     ip->init.util.name_prefix	= "test_";
     ip->init.util.alloc_no	= ERTS_ALC_A_TEST;
+    ip->init.util.cp            = ERTS_ALC_A_TEST;
     ip->init.util.mmbcs 	= 0; /* Main carrier size */
     ip->init.util.ts 		= ERTS_ALC_MTA_TEST;
     ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
@@ -1422,6 +1431,39 @@ handle_au_arg(struct au_init *auip,
 	else
 	    goto bad_switch;
 	break;
+    case 'c': {
+        if (has_prefix("cp", sub_param)) {
+            char *param, *param_end, *value;
+            int cp;
+            if (!auip->carrier_migration_allowed && !u_switch)
+                goto bad_switch;
+            param = argv[*ip]+1;
+            param_end = sub_param + 2;
+            value = get_value(param_end, argv, ip);
+            if (value[0] == '\0' || value[1] != '\0')
+                bad_value(param, param_end, value);
+            switch (value[0]) {
+            case 'B': cp = ERTS_ALC_A_BINARY; break;
+            case 'D': cp = ERTS_ALC_A_STANDARD; break;
+            case 'E': cp = ERTS_ALC_A_ETS; break;
+            case 'F': cp = ERTS_ALC_A_FIXED_SIZE; break;
+            case 'H': cp = ERTS_ALC_A_EHEAP; break;
+            case 'L': cp = ERTS_ALC_A_LONG_LIVED; break;
+            case 'R': cp = ERTS_ALC_A_DRIVER; break;
+            case 'S': cp = ERTS_ALC_A_SHORT_LIVED; break;
+            case '@': cp = ERTS_ALC_COMMON_CPOOL_IX; break;
+            case ':': cp = auip->init.util.alloc_no; break;
+            default:  cp = -1;
+                bad_value(param, param_end, value);
+                break;
+            }
+            if (auip->carrier_migration_allowed)
+                auip->init.util.cp = cp;
+        }
+        else
+            goto bad_switch;
+        break;
+    }
     case 'e': {
 	int e = get_bool_value(sub_param + 1, argv, ip);
         if (!auip->disable_allowed && !e) {

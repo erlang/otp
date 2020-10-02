@@ -464,9 +464,9 @@
       <p>If <c>u</c> is used as subsystem identifier (that is,
         <c><![CDATA[<S> = u]]></c>), all allocators based on
         <c>alloc_util</c> are effected. If <c>B</c>, <c>D</c>, <c>E</c>,
-        <c>F</c>, <c>H</c>, <c>L</c>, <c>R</c>, <c>S</c>, or <c>T</c> is used
-        as subsystem identifier, only the specific allocator identifier is
-        effected.</p>
+        <c>F</c>, <c>H</c>, <c>I</c>, <c>L</c>, <c>R</c>, <c>S</c>, <c>T</c>,
+	<c>X</c> is used as subsystem identifier, only the specific allocator
+	identifier is effected.</p>
 
       <taglist>
         <tag><marker id="M_acul"/><c><![CDATA[+M<S>acul <utilization>|de]]></c>
@@ -571,6 +571,57 @@
           <p>The default is <c>true</c> for <c>binary_alloc</c> and
             <c>driver_alloc</c>, and <c>false</c> for the other allocator
             types.</p>
+        </item>
+        <tag><marker id="M_cp"/><c><![CDATA[+M<S>cg B|D|E|F|H||L|R|S|@|:]]></c></tag>
+        <item>
+          <p>
+	    Set carrier pool to use for the allocator. Memory carriers will
+	    only migrate between allocator instances that use the same carrier
+	    pool. The following carrier pool names exist:
+	  </p>
+	  <taglist>
+	    <tag><c>B</c></tag>
+	    <item>Carrier pool associated with <c>binary_alloc</c>.</item>
+	    <tag><c>D</c></tag>
+	    <item>Carrier pool associated with <c>std_alloc</c>.</item>
+	    <tag><c>E</c></tag>
+	    <item>Carrier pool associated with <c>ets_alloc</c>.</item>
+	    <tag><c>F</c></tag>
+	    <item>Carrier pool associated with <c>fix_alloc</c>.</item>
+	    <tag><c>H</c></tag>
+	    <item>Carrier pool associated with <c>eheap_alloc</c>.</item>
+	    <tag><c>L</c></tag>
+	    <item>Carrier pool associated with <c>ll_alloc</c>.</item>
+	    <tag><c>R</c></tag>
+	    <item>Carrier pool associated with <c>driver_alloc</c>.</item>
+	    <tag><c>S</c></tag>
+	    <item>Carrier pool associated with <c>sl_alloc</c>.</item>
+	    <tag><c>@</c></tag>
+	    <item>Carrier pool associated with the system as a whole.</item>
+	  </taglist>
+	  <p>
+	    Besides passing carrier pool name as value to the parameter,
+	    you can also pass <c>:</c>. By passing <c>:</c> instead of carrier
+	    pool name, the allocator will use the carrier pool associated
+	    with itself. By passing the command line argument "<c>+Mucg :</c>",
+	    all allocators that have an associated carrier pool will use the
+	    carrier pool associated with themselves.
+	  </p>
+	  <p>
+	    The association between carrier pool and allocator is very loose.
+	    The associations are more or less only there to get names for the
+	    amount of carrier pools needed and names of carrier pools that
+	    can be easily identified by the <c>:</c> value.
+	  </p>
+	  <p>
+	    This flag is only valid for allocators that have an associated
+	    carrier pool. Besides that, there are no restrictions on carrier
+	    pools to use for an allocator.
+	  </p>
+	  <p>
+	    Currently the <c>@</c> carrier pool is used by default, but
+	    this will most likely change.
+	  </p>
         </item>
         <tag><marker id="M_e"/><c><![CDATA[+M<S>e true|false]]></c></tag>
         <item>
