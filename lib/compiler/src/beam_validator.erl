@@ -1502,9 +1502,13 @@ validate_bs_skip_1(Fail, Ctx, Stride, Live, Vst) ->
            end).
 
 advance_bs_context(Ctx, Stride, Vst0) ->
-    %% slots/valid must remain untouched to support +r21.
+    %% slots/valid must remain untouched to support +r21, and the prior unit
+    %% must be retained if we _KNOW_ we won't advance.
     CtxType0 = get_raw_type(Ctx, Vst0),
-    CtxType = CtxType0#t_bs_context{ tail_unit=max(1, Stride) },
+    CtxType = case Stride of
+                  0 -> CtxType0;
+                  N -> CtxType0#t_bs_context{ tail_unit=N }
+              end,
 
     Vst = update_type(fun join/2, CtxType, Ctx, Vst0),
 

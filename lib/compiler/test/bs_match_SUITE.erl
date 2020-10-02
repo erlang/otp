@@ -2396,6 +2396,9 @@ empty_get_binary(Config) when is_list(Config) ->
     {<<>>, <<1,2,3>>} = egb_1(<<1,2,3>>),
     {<<>>, <<>>} = egb_1(<<>>),
 
+    <<0,1,0,2,0,3>> = egb_2(id(<<1,2,3>>)),
+    <<>> = egb_2(id(<<>>)),
+
     ok.
 
 egb_1(Bytes) ->
@@ -2405,6 +2408,11 @@ egb_1(Bytes) ->
                         {V2@Conv2, V2@Buf1}
                     end,
     {Term, Bytes}.
+
+egb_2(Bin) ->
+    <<
+      <<K,N>> || <<K:0,N>> <= Bin
+    >>.
 
 id(I) -> I.
 
