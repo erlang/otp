@@ -8,11 +8,12 @@ ENV MAKEFLAGS=$MAKEFLAGS \
 
 ARG ARCHIVE=./otp.tar.gz
 COPY $ARCHIVE /buildroot/otp.tar.gz
-RUN cd /buildroot && tar xzf ./otp.tar.gz
+RUN cd /buildroot && tar -xzf ./otp.tar.gz
 
 WORKDIR /buildroot/otp/
 
-RUN ./configure --prefix=/otp && make && make install
+RUN ./configure --prefix=/otp && make && make install && \
+        make install-docs DOC_TARGETS=chunks
 
 RUN TESTSUITE_ROOT=/tests ./otp_build tests
 

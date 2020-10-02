@@ -15,13 +15,16 @@ ARG ARCHIVE=./otp.tar.gz
 COPY $ARCHIVE /buildroot/otp.tar.gz
 RUN cd /buildroot && tar xzf ./otp.tar.gz
 
-WORKDIR /buildroot/otp
+WORKDIR /buildroot/otp/
 
 ## Build the bootstrap system
 RUN ./configure && make && make install
 
-## Prepare for a new build
-RUN cd .. && rm -rf otp && tar xzf ./otp.tar.gz
+## Build pre-build tar ball
+RUN scripts/build-otp-tar -o /buildroot/otp_clean_src.tar.gz /buildroot/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz
+
+## Prepare for a new build using pre-built tar ball
+RUN cd .. && rm -rf otp && tar -xzf ./otp_src.tar.gz
 
 ENV HOST=$HOST_TRIP \
         CC=$HOST_TRIP-gcc \
