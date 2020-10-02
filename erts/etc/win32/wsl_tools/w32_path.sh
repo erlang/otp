@@ -100,8 +100,8 @@ else
         esac
         exit 0
     else
-        dir=`dirname $1`
-        file=`basename $1`
+        dir=`dirname "$1"`
+        file=`basename "$1"`
 
         case "$SEPARATOR" in
 	    slash)
