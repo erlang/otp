@@ -1655,7 +1655,7 @@ erts_create_pollset_thread(int id, ErtsThrPrgrData *tpd) {
 }
 
 void
-erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time)
+erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only_thread)
 {
     int pollres_len;
     int poll_ret, i;
@@ -1669,6 +1669,9 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time)
 
     pollres_len = psi->pollres_len;
 
+    if (poll_only_thread)
+        erts_thr_progress_active(psi->tpd, 0);
+
 #if ERTS_POLL_USE_FALLBACK
     if (psi->ps == get_fallback_pollset()) {
 
@@ -1679,6 +1682,9 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time)
     {
         poll_ret = erts_poll_wait(psi->ps, psi->pollres, &pollres_len, psi->tpd, timeout_time);
     }
+
+    if (poll_only_thread)
+        erts_thr_progress_active(psi->tpd, 1);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0); /* No locks should be locked */
