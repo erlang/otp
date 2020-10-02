@@ -125,7 +125,7 @@
          aes_128_ccm_8_sha256/1
         ]).
 
--define(TIMEOUT, {seconds, 5}).
+-define(TIMEOUT, {seconds, 10}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
