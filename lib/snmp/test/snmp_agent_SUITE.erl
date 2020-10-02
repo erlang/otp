@@ -7622,8 +7622,14 @@ otp16649(N, Config) ->
     ReqTarget  = TargetBase ++ "req",
     TrapTarget = TargetBase ++ "trap",
 
-    ?line ok = otp16649_mgr_reg_agent(ManagerNode, ReqTarget, AgentReqPortNo),
-    ?line ok = otp16649_mgr_reg_agent(ManagerNode, TrapTarget, AgentTrapPortNo),
+    ?line ok = otp16649_mgr_reg_agent(ManagerNode,
+                                      ?config(ipfamily, Config),
+                                      ?config(tdomain, Config),
+                                      ReqTarget, AgentReqPortNo),
+    ?line ok = otp16649_mgr_reg_agent(ManagerNode,
+                                      ?config(ipfamily, Config),
+                                      ?config(tdomain, Config),
+                                      TrapTarget, AgentTrapPortNo),
 
     ?IPRINT("(mgr) simple (sync) get request"),
     Oids     = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
@@ -7646,17 +7652,49 @@ otp16649(N, Config) ->
     MibDir = ?config(mib_dir, Config),
     ?line ok = otp16649_agent_load_mib(AgentNode, MibDir, "TestTrap"),
 
-    ?IPRINT("(agent) send trap"),
+    ?IPRINT("(agent) send trap (testTrap2)"),
     ?line ok = otp16649_agent_send_trap(AgentNode, testTrap2),
 
+    TDomain = ?config(tdomain, Config),
+
     receive
-        {handle_trap, From, TrapTarget,
-         {?system, 6, 1, _, Vbs}} when is_pid(From) andalso
-                                        is_list(Vbs) ->
-            ?IPRINT("received expected handle trap callback message"),
+        {handle_trap, From_v1, TrapTarget,
+         {?system, 6, 1, _, Vbs_v1}}
+        when is_pid(From_v1) andalso
+             is_list(Vbs_v1) andalso
+             (TDomain =:= transportDomainUdpIpv4) ->
+            ?IPRINT("received expected (v1) handle trap callback message: "
+                    "~n      ~p", [Vbs_v1]),
             ok
 
-    after 10000 ->
+    after 5000 ->
+            case TDomain of
+                transportDomainUdpIpv4 ->
+                    ?IPRINT("TIMEOUT"),
+                    ?line exit(timeout);
+                transportDomainUdpIpv6 ->
+                    ?IPRINT("expected timeout - "
+                            "v1 trap's can only be sent on IPv4 domains"),
+                    ok
+            end
+    end,
+
+
+    ?IPRINT("load TestTrapv2..."), 
+    ?line ok = otp16649_agent_load_mib(AgentNode, MibDir, "TestTrapv2"),
+
+    ?IPRINT("(agent) send trap (testTrapv22)"),
+    ?line ok = otp16649_agent_send_trap(AgentNode, testTrapv22),
+
+    receive
+        {handle_trap, From_v2, TrapTarget,
+         {noError, 0, Vbs_v2}} when is_pid(From_v2) andalso
+                                    is_list(Vbs_v2) ->
+            ?IPRINT("received expected (v2) handle trap callback message: "
+                    "~n      ~p", [Vbs_v2]),
+            ok
+
+    after 5000 ->
             ?IPRINT("TIMEOUT"),
             ?line exit(timeout)
     end,
@@ -7915,12 +7953,19 @@ otp16649_mgr_reg_user(Node) ->
     rpc:call(Node, snmpm, register_user,
              [otp16649, snmp_otp16649_user, self()]).
 
-otp16649_mgr_reg_agent(Node, Target, PortNo) ->
-    Localhost  = snmp_test_lib:localhost(),
+otp16649_mgr_reg_agent(Node, IPFam, TDomain, Target, PortNo) ->
+    ?IPRINT("otp16649_mgr_reg_agent -> entry with"
+            "~n      Node:    ~p"
+            "~n      IPFam:   ~p"
+            "~n      TDomain: ~p"
+            "~n      Target:  ~p"
+            "~n      PortNo:  ~p",
+            [Node, IPFam, TDomain, Target, PortNo]),
+    Localhost  = ?LOCALHOST(IPFam),
     Config     = [{address,   Localhost},
                   {port,      PortNo},
                   {version,   v1},
-                  {tdomain,   transportDomainUdpIpv4},
+                  {tdomain,   TDomain},
                   {engine_id, "agentEngine"}],
     rpc:call(Node, snmpm, register_agent,
               [otp16649, Target, Config]).
@@ -7934,7 +7979,7 @@ otp16649_agent_load_mib(Node, MibDir, Mib) ->
     MibPath = join(MibDir, Mib),
     rpc:call(Node, snmpa, load_mib, [snmp_master_agent, MibPath]).
 
-otp16649_agent_send_trap(Node, testTrap2 = Trap) ->
+otp16649_agent_send_trap(Node, Trap) ->
     rpc:call(Node, snmpa, send_trap,
              [snmp_master_agent, Trap, "standard trap"]).
 
