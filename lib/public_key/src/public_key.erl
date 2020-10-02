@@ -961,7 +961,7 @@ pkix_normalize_name(Issuer) ->
 
 %%-------------------------------------------------------------------- 
 -spec pkix_path_validation(Cert::binary()| #'OTPCertificate'{} | atom(),
-			   CertChain :: [binary()] ,
+			   CertChain :: [binary() | #'OTPCertificate'{}] ,
 			   Options :: [{atom(),term()}]) ->
 				  {ok, {PublicKeyInfo :: term(), 
 					PolicyTree :: term()}} |

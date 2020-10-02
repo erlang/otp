@@ -60,7 +60,7 @@ client_hello(Host, Port, ConnectionStates, SslOpts,
 
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), term(), ssl_record:connection_states(),
-		   ssl_options(), binary(),boolean(), der_cert(), binary() | undefined) ->
+		   ssl_options(), binary(),boolean(), [der_cert()], binary() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.

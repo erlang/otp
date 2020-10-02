@@ -234,7 +234,7 @@ client_auth_sni(Config) when is_list(Config) ->
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts0, Config, handshake_failure),
     %% Also test that user verify_fun is run.
     %% If user verify fun is not used the ALERT will be unknown_ca
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, handshake_failure).
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
 
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->

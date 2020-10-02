@@ -1392,57 +1392,31 @@ update_encryption_state(client, State) ->
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                            #{server_name_indication := ServerNameIndication,
                              partial_chain := PartialChain,
-                             verify_fun := VerifyFun,
-                             customize_hostname_check := CustomizeHostnameCheck,
-                             crl_check := CrlCheck,
-                             log_level := LogLevel,
-                             depth := Depth,
-                             ocsp_responder_certs := OcspResponderCerts,
-                             signature_algs := SignAlgs,
-                             signature_algs_cert := SignAlgsCert
+                             ocsp_responder_certs := OcspResponderCerts
                             } = SslOptions, CRLDbHandle, Role, Host, OcspState0) ->
     {Certs, CertExt, OcspState} = split_cert_entries(CertEntries, OcspState0),
     ServerName = ssl_handshake:server_name(ServerNameIndication, Host, Role),
-    [PeerCert | ChainCerts ] = Certs,
+    [PeerCert | _ChainCerts ] = Certs,
      try
-        {TrustedCert, CertPath}  =
-            ssl_certificate:trusted_cert_and_path(Certs, CertDbHandle, CertDbRef,
+         PathsAndAnchors =
+            ssl_certificate:trusted_cert_and_paths(Certs, CertDbHandle, CertDbRef,
                                                   PartialChain),
-        ValidationFunAndState =
-            ssl_handshake:validation_fun_and_state(VerifyFun, #{role => Role,
-                                                                certdb => CertDbHandle,
-                                                                certdb_ref => CertDbRef,
-                                                                server_name => ServerName,
-                                                                customize_hostname_check =>
-                                                                    CustomizeHostnameCheck,
-                                                                crl_check => CrlCheck,
-                                                                crl_db => CRLDbHandle,
-                                                                signature_algs => filter_tls13_algs(SignAlgs),
-                                                                signature_algs_cert => filter_tls13_algs(SignAlgsCert),
-                                                                version => {3,4},
-                                                                issuer => TrustedCert,
-                                                                cert_ext => CertExt,
-                                                                ocsp_responder_certs => OcspResponderCerts,
-                                                                ocsp_state => OcspState
-                                                               }, 
-                                                   CertPath, LogLevel),
-        Options = [{max_path_length, Depth},
-                   {verify_fun, ValidationFunAndState}],
-        case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
-            {ok, {PublicKeyInfo,_}} ->
-                {ok, {PeerCert, PublicKeyInfo}};
-            {error, Reason} ->
-                {ok, ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
-                                                                SslOptions, Options,
-                                                                CertDbHandle, CertDbRef)}
-        end
-    catch
-        error:{badmatch,{error, {asn1, Asn1Reason}}} ->
-            %% ASN-1 decode of certificate somehow failed
-            {error, ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason})};
-        error:OtherReason ->
-            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})}
-    end.
+         case path_validate(PathsAndAnchors, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                            {3, 4}, SslOptions, #{cert_ext => CertExt,
+                                                  ocsp_state => OcspState,
+                                                  ocsp_responder_certs => OcspResponderCerts}) of
+             {ok, {PublicKeyInfo,_}} ->
+                 {ok, {PeerCert, PublicKeyInfo}};
+             {error, Reason} ->
+                 {ok, ssl_handshake:path_validation_alert(Reason)}
+         end
+     catch
+         error:{badmatch,{error, {asn1, Asn1Reason}}} ->
+             %% ASN-1 decode of certificate somehow failed
+             {error, ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason})};
+         error:OtherReason ->
+             {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})}
+     end.
 
 store_peer_cert(#state{session = Session,
                        handshake_env = HsEnv} = State, PeerCert, PublicKeyInfo) ->
@@ -2570,3 +2544,53 @@ process_ticket(Bin, N) when is_binary(Bin) ->
 %% (see Section 4.6.1), modulo 2^32.
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
     (TicketAge + AgeAdd) rem round(math:pow(2,32)).
+
+path_validate([{TrustedCert, Path}], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+              Version, SslOptions, CertExt) ->
+    path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, 
+                    CRLDbHandle, Version, SslOptions, CertExt);
+path_validate([{TrustedCert, Path} | Rest], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+              Version, SslOptions, CertExt) ->
+    case path_validation(TrustedCert, Path, ServerName, 
+                         Role, CertDbHandle, CertDbRef, CRLDbHandle, 
+                         Version, SslOptions, CertExt) of
+        {ok, _} = Result ->
+            Result;
+        {error, _} ->
+            path_validate(Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                          Version, SslOptions, CertExt)
+    end.
+
+path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle, Version,
+                #{verify_fun := VerifyFun,
+                  customize_hostname_check := CustomizeHostnameCheck,
+                  crl_check := CrlCheck,
+                  log_level := LogLevel,
+                  signature_algs := SignAlgos,
+                  signature_algs_cert := SignAlgosCert,
+                  depth := Depth}, 
+                #{cert_ext := CertExt,
+                  ocsp_responder_certs := OcspResponderCerts,
+                  ocsp_state := OcspState}) ->
+    ValidationFunAndState = 
+        ssl_handshake:validation_fun_and_state(VerifyFun, #{role => Role,
+                                                            certdb => CertDbHandle,
+                                                            certdb_ref => CertDbRef,
+                                                            server_name => ServerName,
+                                                            customize_hostname_check =>
+                                                                CustomizeHostnameCheck,
+                                                            crl_check => CrlCheck,
+                                                            crl_db => CRLDbHandle,
+                                                            signature_algs => filter_tls13_algs(SignAlgos),
+                                                            signature_algs_cert => 
+                                                                filter_tls13_algs(SignAlgosCert),
+                                                            version => Version,
+                                                            issuer => TrustedCert,
+                                                            cert_ext => CertExt,
+                                                            ocsp_responder_certs => OcspResponderCerts,
+                                                            ocsp_state => OcspState
+                                                           }, 
+                                               Path, LogLevel),
+    Options = [{max_path_length, Depth},
+               {verify_fun, ValidationFunAndState}],
+    public_key:pkix_path_validation(TrustedCert, Path, Options).
