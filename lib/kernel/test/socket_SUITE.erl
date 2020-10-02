@@ -43462,6 +43462,9 @@ has_support_sctp() ->
     case os:type() of
         {win32, _} ->
             skip("Not supported");
+        {unix, netbsd} ->
+            %% XXX We will have to investigate this later...
+            skip("Not supported");
         _ ->
             case socket:is_supported(sctp) of
                 true ->
