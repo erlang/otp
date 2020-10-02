@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.5.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The configuration parameter
+	    <c>memsup_improved_system_memory_data</c> has been
+	    introduced. It can be used to modify the result returned
+	    by <c>memsup:get_system_memory_data()</c>. For more
+	    information see the <c>memsup</c> documentation.</p>
+          <p>
+	    Note that the configuration parameter is intended to be
+	    removed in OTP 24 and the modified result is intended to
+	    be used as of OTP 24.</p>
+          <p>
+	    Own Id: OTP-16906 Aux Id: ERIERL-532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
