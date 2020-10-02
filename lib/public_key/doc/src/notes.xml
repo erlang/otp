@@ -35,6 +35,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the issue that pem_decode will crash with an invalid
+	    input.</p>
+          <p>
+	    Own Id: OTP-16902 Aux Id: ERIERL-534 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
