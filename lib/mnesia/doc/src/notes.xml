@@ -114,6 +114,22 @@
 
 </section>
 
+  <section><title>Mnesia 4.16.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed crash during startup, which could happen if a table
+	    was deleted on another node.</p>
+          <p>
+	    Own Id: OTP-16815 Aux Id: ERIERL-500 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Mnesia 4.16.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
