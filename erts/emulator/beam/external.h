@@ -129,6 +129,7 @@ typedef struct {
     Sint heap_size;
     Uint32 connection_id;
     Uint32 flags;
+    struct ErtsMonLnkDist__ *mld;   /* copied from DistEntry.mld */
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
 
