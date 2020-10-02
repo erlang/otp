@@ -63,6 +63,8 @@
 	 request_failure_msg/0, 
 	 request_success_msg/1,
 
+         send_environment_vars/3,
+
 	 encode_ip/1
         ]).
 
@@ -322,7 +324,7 @@ adjust_window(ConnectionHandler, Channel, Bytes) ->
     ssh_connection_handler:adjust_window(ConnectionHandler, Channel, Bytes).
 
 %%--------------------------------------------------------------------
--spec setenv(ConnectionRef, ChannelId, Var, Value, Timeout) -> result() when
+-spec setenv(ConnectionRef, ChannelId, Var, Value, Timeout) -> success when
       ConnectionRef :: ssh:connection_ref(),
       ChannelId :: ssh:channel_id(),
       Var :: string(),
@@ -332,12 +334,18 @@ adjust_window(ConnectionHandler, Channel, Bytes) ->
 %%
 %% Description: Environment variables may be passed to the shell/command to be
 %% started later.
-%%--------------------------------------------------------------------
 setenv(ConnectionHandler, ChannelId, Var, Value, TimeOut) ->
-    ssh_connection_handler:request(ConnectionHandler, ChannelId,
-	    "env", true, [?string(Var), ?string(Value)], TimeOut).
+    setenv(ConnectionHandler, ChannelId, true, Var, Value, TimeOut).
 
-
+setenv(ConnectionHandler, ChannelId, WantReply, Var, Value, TimeOut) ->
+    case ssh_connection_handler:request(ConnectionHandler, ChannelId,
+                                        "env", WantReply,
+                                        [?string(Var), ?string(Value)], TimeOut) of
+        ok when WantReply == false ->
+            success;
+        Reply ->
+            Reply
+    end.
 %%--------------------------------------------------------------------
 -spec close(ConnectionRef, ChannelId) -> ok when
       ConnectionRef :: ssh:connection_ref(),
@@ -1533,3 +1541,15 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 	    {[{channel_data, ChannelPid, Reply}], Connection}
     end.
 
+%%%----------------------------------------------------------------
+send_environment_vars(ConnectionHandler, Channel, VarNames) ->
+    lists:foldl(
+      fun(Var, success) ->
+              case os:getenv(Var) of
+                  false ->
+                      success;
+                  Value ->
+                      setenv(ConnectionHandler, Channel, false,
+                             Var, Value, infinity)
+              end
+      end, success, VarNames).

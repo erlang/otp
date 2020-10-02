@@ -338,6 +338,7 @@ loop_io_server(TestCase, Buff0) ->
              %%ct:log("io_server ~p:~p ~p got ~p",[?MODULE,?LINE,self(),_REQ]),
 	     {ok, Reply, Buff} = io_request(Request, TestCase, From,
 					    ReplyAs, Buff0),
+             %%ct:log("io_server ~p:~p ~p going to reply ~p",[?MODULE,?LINE,self(),Reply]),
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
 	 {'EXIT',_, _} = _Exit ->
@@ -347,6 +348,12 @@ loop_io_server(TestCase, Buff0) ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
+io_request(getopts,_TestCase, _, _, Buff) ->
+    {ok, [], Buff};
+io_request({get_geometry,columns},_TestCase, _, _, Buff) ->
+    {ok, 80, Buff};
+io_request({get_geometry,rows},_TestCase, _, _, Buff) ->
+    {ok, 24, Buff};
 io_request({put_chars, Chars}, TestCase, _, _, Buff) ->
     reply(TestCase, Chars),
     {ok, ok, Buff};
@@ -354,7 +361,7 @@ io_request({put_chars, unicode, Chars}, TestCase, _, _, Buff) when is_binary(Cha
     reply(TestCase, Chars),
     {ok, ok, Buff};
 io_request({put_chars, unicode, io_lib, format, [Fmt,Args]}, TestCase, _, _, Buff) ->
-    reply(TestCase, io_lib:format(Fmt,Args)),
+    reply(TestCase,  unicode:characters_to_binary(io_lib:format(Fmt,Args))),
     {ok, ok, Buff};
 io_request({put_chars, Enc, Chars}, TestCase, _, _, Buff) ->
     reply(TestCase, unicode:characters_to_binary(Chars,Enc,latin1)),
@@ -369,6 +376,7 @@ io_request({get_line, _Enc, _Prompt} = Request, _, From, ReplyAs, [] = Buff) ->
 
 io_request({get_line, _Enc,_}, _, _, _, [Line | Buff]) ->
     {ok, Line, Buff}.
+
 
 io_reply(_, _, []) ->
     ok;
