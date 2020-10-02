@@ -67,8 +67,12 @@ int erts_check_io_max_files(void);
  * not return unless erts_check_io_interrupt(pt, 1) is called by another thread.
  *
  * @param pt the poll thread structure to use.
+ * @param timeout_time timeout
+ * @param poll_only_thread non zero when poll is the only thing the
+ *                         calling thread does
  */
-void erts_check_io(struct erts_poll_thread *pt, ErtsMonotonicTime timeout_time);
+void erts_check_io(struct erts_poll_thread *pt, ErtsMonotonicTime timeout_time,
+                   int poll_only_thread);
 /**
  * Initialize the check io framework. This function will parse the arguments
  * and delete any entries that it is interested in.
