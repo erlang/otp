@@ -129,7 +129,8 @@
          session_info_result/1,
          reuse_session/3,
          test_ciphers/3,
-         test_cipher/2
+         test_cipher/2,
+         openssl_ciphers/0
         ]).
 
 -export([tls_version/1,
@@ -314,6 +315,10 @@ openssl_ocsp_support() ->
         _ ->
             false
     end.
+
+openssl_ciphers() ->
+    Str = portable_cmd("openssl", ["ciphers"]),
+    string:split(string:strip(Str, right, $\n), ":", all).
 
 %%====================================================================
 %% Internal functions
@@ -641,7 +646,7 @@ init_openssl_server(openssl, _, Options) ->
     Pid = proplists:get_value(from, Options),
      
     Exe = "openssl",
-    Ciphers = proplists:get_value(ciphers, Options, ssl:cipher_suites(default,Version)),
+    Ciphers = proplists:get_value(ciphers, Options, default_ciphers(Version)),
     Groups0 = proplists:get_value(groups, Options),
     CertArgs = openssl_cert_options(Options, server), 
     AlpnArgs = openssl_alpn_options(proplists:get_value(alpn, Options, undefined)),
@@ -3573,3 +3578,15 @@ bigger_buffers() ->
         _ ->
             []
     end.
+
+default_ciphers(Version) ->
+    OpenSSLCiphers = openssl_ciphers(),
+    Ciphers = 
+        case portable_cmd("openssl", ["version"]) of
+            "OpenSSL 0.9" ++ _ ->
+                ssl:cipher_suites(all,Version);
+            _ ->
+                ssl:cipher_suites(default, Version)
+        end, 
+    [Cipher || Cipher <- Ciphers, lists:member(ssl:suite_to_openssl_str(Cipher), OpenSSLCiphers)].
+                           

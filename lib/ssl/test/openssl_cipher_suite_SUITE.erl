@@ -920,7 +920,7 @@ test_ciphers(Kex, Cipher, Version) ->
                                             (_) -> false
                                          end}]),
     ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
-    OpenSSLCiphers = openssl_ciphers(),
+    OpenSSLCiphers = ssl_test_lib:openssl_ciphers(),
     ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
                          ct:log("Cipher ~p~n", [C]),
@@ -928,6 +928,3 @@ test_ciphers(Kex, Cipher, Version) ->
                  end, Ciphers).
 
 
-openssl_ciphers() ->
-    Str = os:cmd("openssl ciphers"),
-    string:split(string:strip(Str, right, $\n), ":", all).
