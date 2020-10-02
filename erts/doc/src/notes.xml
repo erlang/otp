@@ -884,6 +884,84 @@
 
 </section>
 
+<section><title>Erts 10.7.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    inet:setopts([{active,once}]) wakes up IO polling thread
+	    unnecessarily, leading to lock contention and visibly
+	    higher CPU utilization.</p>
+          <p>
+	    Own Id: OTP-16847 Aux Id: ERL-1301 </p>
+        </item>
+        <item>
+          <p>
+	    The documentation of <c>statistics(run_queue)</c>
+	    erroneously stated that it returns the total length of
+	    all normal run queues when it is the total length of all
+	    normal and dirty CPU run queues that is returned. The
+	    documentation has been updated to reflect the actual
+	    behavior.</p>
+          <p>
+	    Own Id: OTP-16866 Aux Id: ERL-1355 </p>
+        </item>
+        <item>
+          <p>
+	    Two bugs in the ERTS internal thread wakeup functionality
+	    have been fixed. These bugs mainly hit when all threads
+	    in the system tried to go to sleep. When the bugs were
+	    triggered, certain operations were delayed until a thread
+	    woke up due to some other reason. Most important
+	    operations effected were code loading, persistent term
+	    updates, and memory deallocation.</p>
+          <p>
+	    Own Id: OTP-16870</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ets:select_replace/2</c> on
+	    <c>compressed</c> tables that could produce faulty
+	    results or VM crash. Bug exists since OTP 20.</p>
+          <p>
+	    Own Id: OTP-16874 Aux Id: ERL-1356, PR-2763 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    As of OTP 22, the allocator specific memory carrier pools
+	    were replaced by a node global carrier pool. This
+	    unfortunately caused substantial memory fragmentation in
+	    some cases due to long lived data being spread into
+	    carriers used by allocators mainly handling short lived
+	    data.</p>
+          <p>
+	    A new command line argument <c>+M&lt;S&gt;cp</c> has been
+	    introduced with which one can enable the old behavior as
+	    well as configuring other behaviors for the carrier
+	    pools. In order to configure the old behavior, with
+	    allocator specific carrier pools for all allocators, pass
+	    <c>+Mucp :</c> (including the colon character) as a
+	    command line argument to <c>erl</c> when starting the
+	    Erlang system.</p>
+          <p>
+	    The default configuration for carrier pools will be
+	    changed to <c>+Mucp :</c> some time in the future, but
+	    not in this patch.</p>
+          <p>
+	    Own Id: OTP-16856</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
