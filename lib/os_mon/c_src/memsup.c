@@ -189,14 +189,18 @@ static void print_error(const char *,...);
 #define F_MEM_SHARED  (1 << 4)
 #define F_SWAP_TOTAL  (1 << 5)
 #define F_SWAP_FREE   (1 << 6)
+#define F_MEM_AVAIL   (1 << 7)
+#define F_MEM_CACHED_X (1 << 8)
 
 typedef struct {
     unsigned int flag;
     unsigned long pagesize;
     unsigned long total;
     unsigned long free;
+    unsigned long available;
     unsigned long buffered;
     unsigned long cached;
+    unsigned long cached_x;
     unsigned long shared;
     unsigned long total_swap;
     unsigned long free_swap;
@@ -303,10 +307,15 @@ get_mem_procfs(memory_ext *me){
     
     bp = strstr(buffer, "Buffers:");    
     if (bp != NULL && sscanf(bp, "Buffers: %lu kB\n", &(me->buffered))) me->flag |= F_MEM_BUFFERS;
-    
+
     bp = strstr(buffer, "Cached:");    
     if (bp != NULL && sscanf(bp, "Cached: %lu kB\n", &(me->cached)))   me->flag |= F_MEM_CACHED;
     
+    bp = strstr(buffer, "SReclaimable:");    
+    if (bp != NULL && sscanf(bp, "SReclaimable: %lu kB\n", &me->cached_x)) me->flag |= F_MEM_CACHED_X;
+
+    bp = strstr(buffer, "MemAvailable:");    
+    if (bp != NULL && sscanf(bp, "MemAvailable: %lu kB\n", &me->available)) me->flag |= F_MEM_AVAIL;
 
     /* Swap */
     
@@ -500,7 +509,9 @@ extended_show_mem(void){
     /* extensions */
     if (me.flag & F_MEM_BUFFERS){ send_tag(MEM_BUFFERS);      send(me.buffered, ps);   }
     if (me.flag & F_MEM_CACHED) { send_tag(MEM_CACHED);       send(me.cached, ps);     }
+    if (me.flag & F_MEM_CACHED_X){ send_tag(MEM_CACHED_X);    send(me.cached_x, ps);     }
     if (me.flag & F_MEM_SHARED) { send_tag(MEM_SHARED);       send(me.shared, ps);     }
+    if (me.flag & F_MEM_AVAIL)  { send_tag(MEM_AVAIL);        send(me.available, ps);     }
     
     /* swap */
     if (me.flag & F_SWAP_TOTAL) { send_tag(SWAP_TOTAL);       send(me.total_swap, ps); }

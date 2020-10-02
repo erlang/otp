@@ -120,6 +120,25 @@
           systems with many concurrent processes, as each process memory
           check makes a traversal of the entire list of processes.</p>
       </item>
+      <tag><marker id="memsup_improved_system_memory_data"/><c>memsup_improved_system_memory_data = bool()</c></tag>
+      <item>
+	<p>Determines the behaviour of the
+	<seealso marker="#get_system_memory_data/0"><c>get_system_memory_data()</c></seealso>
+	function. When this configuration parameter is <c>false</c>,
+	<c>get_system_memory_data()</c> behaves as it has done
+	up until the point of the introduction of the configuration
+	parameter. When set to <c>true</c> new tagged tuples are
+	allowed in the result. Such new tuples may be introduced at
+	any time without prior notice. The classification of
+	<c>cached_memory</c> on Linux systems will also change so that
+	more memory is classified as <c>cached_memory</c>.
+	</p>
+	<note><p>This configuration parameter defaults <c>false</c> and will
+	do so up until OTP 23. As of OTP 24 this configuration parameter
+	will be removed and <c>get_system_memory_data()</c> will begin
+	behaving as it does now when the configuration parameter has
+	been set to <c>true</c>.</p></note>
+      </item>
     </taglist>
     <p>See <seealso marker="kernel:config">config(4)</seealso> for
       information about how to change the value of configuration
@@ -204,6 +223,10 @@
           </item>
 
         </taglist>
+
+	<p>Note that the order of the tuples in the resulting list is undefined
+	and may change at any time.</p>
+	
         <p>All memory sizes are presented as number of <em>bytes</em>.</p>
         <p>The <c>largest_free</c> and <c>number_of_free</c> tags are
           currently only returned on a VxWorks system.</p>
@@ -211,8 +234,52 @@
           or if the memory check times out.</p>
 	<note><p>
 	On linux the memory available to the emulator is <c>cached_memory</c> and <c>buffered_memory</c> in addition to 
-	<c>free_memory</c>.</p>
-	</note>
+	<c>free_memory</c>.</p></note>
+
+	<p>The above describes how it works if the configuration parameter
+	<seealso marker="#memsup_improved_system_memory_data"><c>memsup_improved_system_memory_data</c></seealso> has been set to <c>false</c> which currently also is the default
+	behavior. If the configuration parameter is set to <c>true</c> the
+	behavior is slightly changed:</p>
+	<list>
+	  <item>
+	    <p>
+	      New tagged tuples may be added in the resulting
+	      list at any time.
+	    </p>
+	  </item>
+	  <item>
+	    <p>
+	      On Linux systems the following changes will be made:
+	    </p>
+	    <list>
+	      <item>
+		<p>
+		  A new tuple with the tag <c>available_memory</c> will be
+		  added to the result when this value is provided by the
+		  kernel. The <c>available_memory</c> value informs about
+		  the amount memory that is available for use if there is
+		  an increased memory need. This value is not based on a
+		  calculation of the other provided values and should give
+		  a better value of the amount of memory that actually is
+		  available than calculating a value based on the other
+		  values reported.
+		</p>
+	      </item>
+	      <item>
+		<p>The classification of <c>cached_memory</c> is changed.
+		Also memory marked as reclaimable in the kernel slab
+		allocator will be added to the value presented as
+		<c>cached_memory</c>.
+		</p>
+	      </item>
+	    </list>
+	  </item>
+	</list>
+	<note><p>As of OTP 24 <c>memsup_improved_system_memory_data</c>
+	configuration parameter will be	removed and
+	<c>get_system_memory_data()</c> will begin behaving as it does
+	now when the configuration parameter has been set to
+	<c>true</c>.</p></note>
       </desc>
     </func>
     <func>
