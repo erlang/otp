@@ -30,6 +30,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix decoder bug.</p>
+          <p>
+	    Own Id: OTP-16904</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
