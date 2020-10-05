@@ -91,13 +91,35 @@
       <pre>
 > <input>0.1+0.2.</input>
 0.30000000000000004
-> <input>36028797018963969.0.</input>
-36028797018963970.0
-      </pre>
-      <p>For more information see <url href="https://floating-point-gui.de/">
-        What Every Programmer Should Know About Floating-Point Arithmetic</url>
-        and <url href="https://0.30000000000000004.com/">0.30000000000000004.com/</url>.
+</pre>
+<p>The real numbers <c>0.1</c> and <c>0.2</c> cannot be represented
+exactly as floats.</p>
+<pre>
+> <input>{36028797018963968.0, 36028797018963968 == 36028797018963968.0,
+  36028797018963970.0, 36028797018963970 == 36028797018963970.0}.</input>
+{3.602879701896397e16, true,
+ 3.602879701896397e16, false}.
+</pre>
+      <p>
+        The value <c>36028797018963968</c> can be represented exactly
+        as a float value but Erlang's pretty printer rounds
+        <c>36028797018963968.0</c> to <c>3.602879701896397e16</c>
+        (<c>=36028797018963970.0</c>) as all values in the range
+        <c>[36028797018963966.0, 36028797018963972.0]</c> are
+        represented by <c>36028797018963968.0</c>.
       </p>
+      <p>
+        For more information about floats and issues with them see:
+      </p>
+        <list type="bulleted">
+          <item><url
+                    href="https://floating-point-gui.de/">What Every Programmer
+          Should Know About Floating-Point Arithmetic</url>,</item>
+          <item><url
+                    href="https://0.30000000000000004.com/">0.30000000000000004.com/</url>, and</item>
+          <item><url href="https://docs.python.org/3/tutorial/floatingpoint.html">Floating Point Arithmetic: Issues and
+          Limitations</url>.</item>
+        </list>
       <p>If you need to work with decimal fractions, for instance if you need to represent money,
         then you should use a library that handles that or work in cents instead of euros so
         that you do not need decimal fractions.

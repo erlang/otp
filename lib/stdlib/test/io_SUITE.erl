@@ -21,7 +21,7 @@
 
 -export([all/0, suite/0]).
 
--export([error_1/1, float_g/1, otp_5403/1, otp_5813/1, otp_6230/1, 
+-export([error_1/1, float_g/1, float_w/1, otp_5403/1, otp_5813/1, otp_6230/1, 
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
          manpage/1, otp_6708/1, otp_7084/0, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
@@ -55,7 +55,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [error_1, float_g, otp_5403, otp_5813, otp_6230,
+    [error_1, float_g, float_w, otp_5403, otp_5813, otp_6230,
      otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
@@ -164,10 +164,41 @@ float_g(Config) when is_list(Config) ->
      "-5000.00",
      "-5.00000e+4",
      "-5.00000e+5"] = float_g_1("~g", -4.9999950001, -2, 5),
+
     ok.
 
 float_g_1(Fmt, V, Min, Max) ->
     [fmt(Fmt, [V*math:pow(10, E)]) || E <- lists:seq(Min, Max)].
+
+float_w(Config) when is_list(Config) ->
+    %% All floats that are >= float(1 bsl 53) or <= -float(1 bsl 53)
+    %% should be printed with scientific notation to make it clear
+    %% that the integer part can have lost precision, for example if
+    %% the float was created from a float literal.
+    %%
+    %% All integers in the range [-2^53, 2^53] can be stored without
+    %% loss of precision in an IEEE 754 64-bit double but 2^53+1
+    %% cannot be stored in an IEEE 754 64-bit double without loss of
+    %% precision (float((1 bsl 53)+1) =:= float(1 bsl 53)).
+    %%
+    %% https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double?answertab=votes#tab-top
+    Nums = [-float((1 bsl 53) -1),
+            -float(1 bsl 53),
+            -float((1 bsl 53) + 1),
+            float((1 bsl 53) -1),
+            float(1 bsl 53),
+            float((1 bsl 53) + 1)],
+
+
+    ["-9007199254740991.0",
+     "-9.007199254740992e15",
+     "-9.007199254740992e15",
+     "9007199254740991.0",
+     "9.007199254740992e15",
+     "9.007199254740992e15"] =
+        [begin g_t(X), fmt("~w", [X]) end || X <- Nums],
+
+    ok.
 
 %% OTP-5403. ~s formats I/O lists and a single binary.
 otp_5403(Config) when is_list(Config) ->
@@ -1404,11 +1435,26 @@ gcd(A, B) -> gcd(B, A rem B).
 
 %%% End of rational numbers.
 
+%% Check that there is an exponent if and only if characters are saved
+%% when abs(list_to_float(S)) < float(1 bsl 53) and that there is an
+%% exponent when abs(list_to_float(S)) >= float(1 bsl 53).
+g_choice(S) when is_list(S) ->
+    ShouldAlwaysHaveExponent = abs(list_to_float(S)) >= float(1 bsl 53),
+    HasExponent = lists:member($e, S) orelse lists:member($E, S),
+    case ShouldAlwaysHaveExponent of
+        true ->
+            case HasExponent of
+                true -> ok;
+                false -> throw(should_have_exponent)
+            end;
+        false -> g_choice_small(S)
+    end.
+
 %% Check that there is an exponent if and only if characters are
 %% saved. Note: this assumes floating point numbers "Erlang style"
 %% (with a single zero before and after the dot, and no extra leading
 %% zero in the exponent).
-g_choice(S) when is_list(S) ->
+g_choice_small(S) when is_list(S) ->
     [MS | ES0] = string:tokens(S, "eE"),
     [IS, FS] = string:tokens(MS, "."),
     Il = length(IS),
