@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -381,9 +381,7 @@ open1(Filename, MaxBytes, MaxFiles, Opts1, Opts2) ->
         {error, Reason} ->
             {error, 
              ?NICE("Can't create " ++ Filename ++ 
-                   lists:flatten(io_lib:format(", ~p",[Reason])))};
-        _ ->
-            {error, ?NICE("Can't create "++Filename)}
+                   lists:flatten(io_lib:format(", ~p",[Reason])))}
     end.
 
 open2(Opts1, Opts2, Size) ->

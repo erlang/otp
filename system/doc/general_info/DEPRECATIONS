@@ -25,6 +25,9 @@ httpd_util:hexlist_to_integer/1 since=24 remove=26
 httpd_util:integer_to_hexlist/1 since=24 remove=26
 httpd_util:strip/1 since=24 remove=26
 httpd_util:suffix/1 since=24 remove=26
+disk_log:accessible_logs/0 since=24 remove=26
+disk_log:lclose/1 since=24 remove=26
+disk_log:lclose/2 since=24 remove=26
 
 #
 # Added in OTP 23.

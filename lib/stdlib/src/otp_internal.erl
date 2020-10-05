@@ -29,6 +29,12 @@ obsolete(auth, cookie, 1) ->
     {deprecated, "use erlang:set_cookie/2 instead"};
 obsolete(auth, is_auth, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
+obsolete(disk_log, accessible_logs, 0) ->
+    {deprecated, "use disk_log:all/0 instead"};
+obsolete(disk_log, lclose, 1) ->
+    {deprecated, "use disk_log:close/1 instead"};
+obsolete(disk_log, lclose, 2) ->
+    {deprecated, "use disk_log:close/1 instead"};
 obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
 obsolete(code, rehash, 0) ->
