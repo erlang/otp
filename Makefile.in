@@ -533,8 +533,10 @@ compdb:
 	(cd erts/emulator && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) compdb)
 	sed -i -e '1s/^/[\n/' -e '$$s/,$$/\n]/' $(ERL_TOP)/compile_commands.json
 
-clang_format:
-	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) clang_format)
+format-check:
+	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) format-check)
+format:
+	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) format)
 
 dep depend:
 	$(make_verbose)

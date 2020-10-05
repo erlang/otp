@@ -1509,7 +1509,9 @@ compdb:
 	clang -MJ $(TTF_DIR)/zlib.json $(COMPDB_CFLAGS) $(ZLIB_SRC) > /dev/null
 	cat $(TTF_DIR)/*.json > $(ERL_TOP)/compile_commands.json
 
-clang_format:
+format-check:
+	clang-format --Werror --dry-run -i beam/jit/*.cpp beam/jit/*.hpp beam/jit/*.c beam/jit/*.h
+format:
 	clang-format -i beam/jit/*.cpp beam/jit/*.hpp beam/jit/*.c beam/jit/*.h
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
