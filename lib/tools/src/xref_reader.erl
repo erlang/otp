@@ -95,6 +95,8 @@ form({function, _, module_info, 0, _Clauses}, S) ->
     S;
 form({function, _, module_info, 1, _Clauses}, S) ->
     S;
+form({function, 0 = _Line, behaviour_info, 1, _Clauses}, S) ->
+    S;
 form({function, Anno, Name, Arity, Clauses}, S) ->
     MFA0 = {S#xrefr.module, Name, Arity},
     MFA = adjust_arity(S, MFA0),
