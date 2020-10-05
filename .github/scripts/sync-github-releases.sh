@@ -31,7 +31,7 @@ _json_escape () {
 }
 
 _strip_name() {
-    echo ${1} | sed -e 's/^OTP[-_]//g'
+    echo "${1}" | sed -e 's/^OTP[-_]//g'
 }
 
 _curl_get() {
@@ -43,19 +43,19 @@ _curl_post() {
          -H "Accept: application/vnd.github.v3+json" "${@}"
 }
 
-RI=""
-ALL_TAGS=""
-CREATE_RELEASE=""
+RI=()
+ALL_TAGS=()
+CREATE_RELEASE=()
 TAG_URL="${REPO}/tags?per_page=100"
 
 ## This function is used to loop over the pagianated results from github tags
 ## It sets TAGS to be the the json from the current page of tags
 _next_page() {
-    TAGS=`curl -s -H "${HDR[@]}" ${TAG_URL}`
+    TAGS=$(curl -s "${HDR[@]}" ${TAG_URL})
     ## In the "Link:" header from github we get the link for the next page.
     ## An example link header:
     ##   link: <https://api.github.com/repositories/843890/tags?per_page=100&page=2>; rel="next", <https://api.github.com/repositories/843890/tags?per_page=100&page=4>; rel="last"
-    TAG_URL=`curl -s -I -H "${HDR[@]}" ${TAG_URL} | grep "^link:" | sed -n 's/link:.* <\([^>]\+\)>; rel="next".*/\1/p'`
+    TAG_URL=$(curl -s -I -H "${HDR[@]}" ${TAG_URL} | grep "^link:" | sed -n 's/link:.* <\([^>]\+\)>; rel="next".*/\1/p')
 }
 
 ## First we fetch all tags and releases and build a list of all resources
@@ -68,25 +68,26 @@ while [ "${TAG_URL}" != "" ]; do
     ## in order to make the bash for loop work
     for row in $(echo "${TAGS}" | jq -r '.[] | @base64'); do
         _row() {
-            echo ${row} | base64 --decode | jq -r ${1}
+            echo "${row}" | base64 --decode | jq -r "${1}"
         }
         name=$(_row '.name')
         stripped_name=$(_strip_name ${name})
 
         if echo ${stripped_name} | grep -E "${RELEASE_FILTER}" > /dev/null; then
-            ALL_TAGS="${ALL_TAGS} ${name}"
             RELEASE=$(_curl_get "${REPO}/releases/tags/${name}")
             if ! echo "${RELEASE}" | jq -er ".name" > /dev/null; then
-                CREATE_RELEASE="${CREATE_RELEASE} ${name}"
-                RI="*${stripped_name}* ${RI}"
+                ALL_TAGS=("${ALL_TAGS[@]}" "${name}")
+                CREATE_RELEASE=("${CREATE_RELEASE[@]}" "${name}")
+                RI=("*${stripped_name}*" "${RI[@]}")
                 echo "Create release ${name}"
             else
                 _asset() {
                     local filename=${1}
                     local remotename=${2:-${filename}}
                     if ! echo "${RELEASE}" | jq -er ".assets[] | select(.name == \"${filename}\")" > /dev/null; then
+                        ALL_TAGS=("${ALL_TAGS[@]}" "${name}")
                         echo "Sync ${remotename} for ${name}"
-                        RI="${remotename} ${RI}"
+                        RI=("${remotename}" "${RI[@]}")
                     fi
                 }
                 _asset "${name}.README" "${name}.README otp_src_${stripped_name}.readme"
@@ -100,20 +101,25 @@ while [ "${TAG_URL}" != "" ]; do
     done
 done
 
-RINCLUDE=""
-for i in ${RI}; do
-    RINCLUDE="--include=${i} ${RINCLUDE}"
+## Remove all duplicate tags
+readarray -t ALL_TAGS < <(printf '%s\0' "${ALL_TAGS[@]}" | sort -uz | xargs -0n1)
+
+RINCLUDE=()
+for i in "${RI[@]}"; do
+    RINCLUDE=("--include=${i}" "${RINCLUDE[@]}")
 done
 
+set -x
 ## rsync the proper files, we will use which files have been
 ## synced to determine which artifacts we should upload.
 ## There is a timelimit here so that github actions will not
 ## timeout
-! timeout ${TIME_LIMIT} rsync --archive --verbose --compress ${RINCLUDE} --exclude='*' \
-     erlang.org::erlang-download downloads
+! timeout ${TIME_LIMIT} rsync --archive --verbose --compress "${RINCLUDE[@]}" --exclude='*' \
+  erlang.org::erlang-download downloads
+set +x
 
 ## Rename all .readme files to .README
-for name in ${ALL_TAGS}; do
+for name in "${ALL_TAGS[@]}"; do
     stripped_name=$(_strip_name ${name})
     if [ -s "downloads/otp_src_${stripped_name}.readme" ]; then
         mv downloads/otp_src_${stripped_name}.readme downloads/${name}.README
@@ -122,7 +128,7 @@ done
 
 ## All tags that do not have a release we create a release for
 ## using the readme as the body text if a readme is available.
-for name in ${CREATE_RELEASE}; do
+for name in "${CREATE_RELEASE[@]}"; do
     echo "Create release for ${name}"
     stripped_name=$(_strip_name ${name})
     if [ -s "downloads/${name}.README" ]; then
@@ -147,18 +153,32 @@ for name in ${CREATE_RELEASE}; do
     $(_curl_post "${REPO}/releases" -d '{"tag_name":"'"${name}"'", "name":"OTP '"${stripped_name}\"${BODY}}")
 done
 
-## Upload all assets for tags
-for name in ${ALL_TAGS}; do
+
+UPLOADED=false
+
+## Array of all tags that do not have a pre-build
+MISSING_PREBUILD=()
+
+_upload_artifacts() {
+    local name=${1};
+    local stripped_name=""
+    local RELEASE=""
+    local UPLOAD_URL=""
     echo "Upload artifacts for ${name}"
     stripped_name=$(_strip_name ${name})
     RELEASE=$(_curl_get "${REPO}/releases/tags/${name}")
-    UPLOAD_URL=`echo "${RELEASE}" | jq -r ".upload_url" | sed 's/{.*//'`
+    UPLOAD_URL=$(echo "${RELEASE}" | jq -r ".upload_url" | sed 's/{.*//')
     _upload() {
         if [ -s downloads/${1} ]; then
             echo "Upload ${1}"
-            $(_curl_post -H "Content-Type: ${2}" \
-                         "${UPLOAD_URL}?name=${1}" \
-                         --data-binary "@downloads/${1}")
+            UPLOADED=true
+            _curl_post -H "Content-Type: ${2}" \
+                       "${UPLOAD_URL}?name=${1}" \
+                       --data-binary "@downloads/${1}"
+        else
+            if echo "${RI[@]}" | grep "${stripped_name}.tar.gz" > /dev/null; then
+                MISSING_PREBUILD=("${MISSING_PREBUILD[@]}" "${name}")
+            fi
         fi
     }
     _upload "${name}.README" "text"
@@ -167,4 +187,41 @@ for name in ${ALL_TAGS}; do
     _upload "otp_doc_man_${stripped_name}.tar.gz" "application/gzip"
     _upload "otp_win32_${stripped_name}.exe" "application/x-msdownload"
     _upload "otp_win64_${stripped_name}.exe" "application/x-msdownload"
+    }
+
+## Upload all assets for tags
+for name in "${ALL_TAGS[@]}"; do
+    _upload_artifacts ${name}
 done
+
+## If no assets were uploaded, we try to build one instead
+if ! ${UPLOADED}; then
+    name="${MISSING_PREBUILD[0]}"
+    stripped_name=$(_strip_name "${name}")
+    git clone https://github.com/erlang/otp -b "${name}" otp_src
+    (cd otp_src && ../.github/scripts/init-pre-release.sh)
+    case ${stripped_name} in
+        23.**)
+            ## The 32-bit dockerfile build the doc chunks which we want
+            ## to include in VSN >= 23.
+            docker build -t otp --build-arg ARCHIVE=otp_src/otp_src.tar.gz \
+                   -f .github/dockerfiles/Dockerfile.32-bit .
+            ;;
+        *)
+            docker build -t otp --build-arg ARCHIVE=otp_src/otp_src.tar.gz \
+                   -f .github/dockerfiles/Dockerfile.64-bit .
+            ;;
+    esac
+    docker run -v "$PWD":/github otp \
+           "/github/scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
+    .github/scripts/release-docs.sh
+    .github/scripts/create-artifacts.sh downloads "${name}"
+
+    ## Delete any artifacts that we should not upload
+    for artifact in dowloads/*; do
+        if ! echo "${RI[@]}" | grep "${artifact}" 2> /dev/null > /dev/null; then
+            rm -f "downloads/${artifact}"
+        fi
+    done
+    _upload_artifacts "${name}"
+fi
