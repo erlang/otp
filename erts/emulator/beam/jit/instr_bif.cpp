@@ -340,7 +340,7 @@ void BeamModuleAssembler::emit_i_length(const ArgVal &Fail,
     mov_arg(Dst, RET);
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 
 static Eterm debug_call_light_bif(Process *c_p,
                                   Eterm *reg,
@@ -432,7 +432,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
         a.mov(ARG4, RET);
         runtime_call<4>(debug_call_light_bif);
 #else
