@@ -1860,8 +1860,7 @@ pattern_element(Be, Vt, Old, Acc) ->
 
 pattern_element_1({bin_element,Line,E,Sz0,Ts}, Vt, Old, {Size0,Esvt,Bvt,St0}) ->
     {Pevt,Bvt1,St1} = pat_bit_expr(E, Old, Bvt, St0),
-    %% vtmerge or vtmerge_pat doesn't matter here
-    {Sz1,Szvt,Bvt2,St2} = pat_bit_size(Sz0, vtmerge(Vt, Esvt), Bvt, St1),
+    {Sz1,Szvt,Bvt2,St2} = pat_bit_size(Sz0, Vt, Bvt, St1),
     {Sz2,Bt,St3} = bit_type(Line, Sz1, Ts, St2),
     {Sz3,St4} = bit_size_check(Line, Sz2, Bt, St3),
     Sz4 = case {E,Sz3} of
