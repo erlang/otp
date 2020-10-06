@@ -874,6 +874,10 @@ kernel_passes() ->
        {iff,dssaopt,{listing,"ssaopt"}},
        {unless,no_ssa_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
 
+       {unless,no_throw_opt,{pass,beam_ssa_throw}},
+       {iff,dthrow,{listing,"throw"}},
+       {unless,no_throw_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_recv_opt,{pass,beam_ssa_recv}},
        {iff,drecv,{listing,"recv"}},
        {unless,no_recv_opt,{iff,ssalint,{pass,beam_ssa_lint}}}]},
@@ -2173,6 +2177,7 @@ pre_load() ->
 	 beam_ssa_pre_codegen,
 	 beam_ssa_recv,
 	 beam_ssa_share,
+	 beam_ssa_throw,
 	 beam_ssa_type,
 	 beam_trim,
 	 beam_types,
