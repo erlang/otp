@@ -121,16 +121,12 @@ public:
         return ArgVal(gen_op.type, val * gen_op.val);
     }
 
-    enum Relation {
-        none,
-        consecutive,
-        reverse_consecutive
-    };
+    enum Relation { none, consecutive, reverse_consecutive };
 
     static Relation register_relation(const ArgVal &arg1, const ArgVal &arg2) {
         TYPE type = arg1.getType();
-        bool same_reg_types = type == arg2.getType() &&
-            (type == TYPE::x || type == TYPE::y);
+        bool same_reg_types =
+                type == arg2.getType() && (type == TYPE::x || type == TYPE::y);
         if (!same_reg_types) {
             return none;
         } else if (arg1.getValue() + 1 == arg2.getValue()) {
@@ -453,11 +449,13 @@ protected:
 #endif
     }
 
-    constexpr x86::Mem getCARRef(x86::Gp Src, size_t size = sizeof(UWord)) const {
+    constexpr x86::Mem getCARRef(x86::Gp Src,
+                                 size_t size = sizeof(UWord)) const {
         return x86::Mem(Src, -TAG_PRIMARY_LIST, size);
     }
 
-    constexpr x86::Mem getCDRRef(x86::Gp Src, size_t size = sizeof(UWord)) const {
+    constexpr x86::Mem getCDRRef(x86::Gp Src,
+                                 size_t size = sizeof(UWord)) const {
         return x86::Mem(Src, -TAG_PRIMARY_LIST + sizeof(Eterm), size);
     }
 
@@ -890,7 +888,8 @@ protected:
 #endif
     }
 
-    constexpr x86::Mem emit_boxed_val(x86::Gp Src, int32_t bytes = 0,
+    constexpr x86::Mem emit_boxed_val(x86::Gp Src,
+                                      int32_t bytes = 0,
                                       size_t size = sizeof(UWord)) const {
         ASSERT(bytes % sizeof(Eterm) == 0);
         return x86::Mem(Src, bytes - TAG_PRIMARY_BOXED, size);

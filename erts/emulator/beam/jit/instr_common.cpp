@@ -632,7 +632,7 @@ void BeamModuleAssembler::emit_get_list(const x86::Gp src,
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
-        if (! hasCpuFeature(x86::Features::kAVX)) {
+        if (!hasCpuFeature(x86::Features::kAVX)) {
             goto fallback;
         }
 
@@ -644,7 +644,7 @@ void BeamModuleAssembler::emit_get_list(const x86::Gp src,
         break;
     }
     case ArgVal::Relation::none:
-        fallback:
+    fallback:
         a.mov(ARG2, getCARRef(boxed_ptr));
         a.mov(ARG3, getCDRRef(boxed_ptr));
         mov_arg(Hd, ARG2);
@@ -795,7 +795,8 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgVal &Src,
     emit_tuple_assertion(Src, ARG2);
 #endif
 
-    x86::Mem element_ptr = emit_boxed_val(ARG2, Element.getValue(), 2*sizeof(Eterm));
+    x86::Mem element_ptr =
+            emit_boxed_val(ARG2, Element.getValue(), 2 * sizeof(Eterm));
 
     switch (ArgVal::register_relation(Dst1, Dst2)) {
     case ArgVal::Relation::consecutive: {
@@ -805,7 +806,7 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgVal &Src,
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
-        if (! hasCpuFeature(x86::Features::kAVX)) {
+        if (!hasCpuFeature(x86::Features::kAVX)) {
             goto fallback;
         } else {
             x86::Mem dst_ptr = getArgRef(Dst2, 16);
@@ -815,9 +816,9 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgVal &Src,
         }
     }
     case ArgVal::Relation::none:
-        fallback:
+    fallback:
         a.mov(ARG1, emit_boxed_val(ARG2, Element.getValue()));
-        a.mov(ARG3, emit_boxed_val(ARG2, (Element+sizeof(Eterm)).getValue()));
+        a.mov(ARG3, emit_boxed_val(ARG2, (Element + sizeof(Eterm)).getValue()));
         mov_arg(Dst1, ARG1);
         mov_arg(Dst2, ARG3);
         break;
@@ -849,7 +850,8 @@ void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src1,
                                               const ArgVal &Dst2) {
     x86::Mem src_ptr = getArgRef(Src1, 16);
 
-    ASSERT(ArgVal::register_relation(Src1, Src2) == ArgVal::Relation::consecutive);
+    ASSERT(ArgVal::register_relation(Src1, Src2) ==
+           ArgVal::Relation::consecutive);
 
     switch (ArgVal::register_relation(Dst1, Dst2)) {
     case ArgVal::Relation::consecutive: {
@@ -876,11 +878,10 @@ void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src1,
         ASSERT(0);
         break;
     }
-
 }
 
 void BeamModuleAssembler::emit_swap(const ArgVal &R1, const ArgVal &R2) {
-    if (! hasCpuFeature(x86::Features::kAVX)) {
+    if (!hasCpuFeature(x86::Features::kAVX)) {
         goto fallback;
     }
 
@@ -900,7 +901,7 @@ void BeamModuleAssembler::emit_swap(const ArgVal &R1, const ArgVal &R2) {
         break;
     }
     case ArgVal::Relation::none:
-        fallback:
+    fallback:
         mov_arg(ARG1, R1);
         mov_arg(ARG2, R2);
         mov_arg(R2, ARG1);
@@ -927,7 +928,7 @@ void BeamModuleAssembler::emit_put_cons(const ArgVal &Hd, const ArgVal &Tl) {
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
-        if (! hasCpuFeature(x86::Features::kAVX)) {
+        if (!hasCpuFeature(x86::Features::kAVX)) {
             goto fallback;
         }
 
@@ -939,7 +940,7 @@ void BeamModuleAssembler::emit_put_cons(const ArgVal &Hd, const ArgVal &Tl) {
         break;
     }
     case ArgVal::Relation::none:
-        fallback:
+    fallback:
         mov_arg(x86::qword_ptr(HTOP, 0), Hd);
         mov_arg(x86::qword_ptr(HTOP, 1 * sizeof(Eterm)), Tl);
         break;
@@ -977,7 +978,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
         if (i + 1 == size) {
             mov_arg(dst_ptr, args[i]);
         } else {
-            switch (ArgVal::register_relation(args[i], args[i+1])) {
+            switch (ArgVal::register_relation(args[i], args[i + 1])) {
             case ArgVal::consecutive: {
                 x86::Mem src_ptr = getArgRef(args[i], 16);
 
@@ -989,10 +990,10 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
                 break;
             }
             case ArgVal::reverse_consecutive: {
-                if (! hasCpuFeature(x86::Features::kAVX)) {
+                if (!hasCpuFeature(x86::Features::kAVX)) {
                     mov_arg(dst_ptr, args[i]);
                 } else {
-                    x86::Mem src_ptr = getArgRef(args[i+1], 16);
+                    x86::Mem src_ptr = getArgRef(args[i + 1], 16);
 
                     comment("(moving and swapping two elements at once)");
                     dst_ptr.setSize(16);
@@ -1098,7 +1099,8 @@ void BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
     {
         /* emit_is_binary has already removed the literal tag from Src, if
          * applicable. */
-        a.cmp(emit_boxed_val(ARG1, offsetof(ErlSubBin, bitsize), sizeof(byte)), imm(0));
+        a.cmp(emit_boxed_val(ARG1, offsetof(ErlSubBin, bitsize), sizeof(byte)),
+              imm(0));
         a.jne(labels[Fail.getValue()]);
     }
 
