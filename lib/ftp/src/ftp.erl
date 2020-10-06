@@ -1887,6 +1887,10 @@ handle_ctrl_result({pos_compl, _}, #state{caller = #recv_chunk_closing{}=R}
     ?DBG("recv_chunk_closing pos_compl, wait more",[]),
     {noreply, State0#state{caller = R#recv_chunk_closing{pos_compl_received=true}}};
 
+handle_ctrl_result({pos_compl, _}, #state{caller = undefined, chunk = true}
+                   = State0) ->
+    %% Waiting for user to call recv_chunk
+    {noreply, State0#state{caller = #recv_chunk_closing{pos_compl_received=true}}};
 
 %%--------------------------------------------------------------------------
 %% File handling - recv_file
