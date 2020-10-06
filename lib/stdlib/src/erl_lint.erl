@@ -1603,12 +1603,12 @@ head(Ps, Vt, St0) ->
     head(Ps, Vt, Vt, St0).    % Old = Vt
 
 head([P|Ps], Vt, Old, St0) ->
-    {Pvt,Bvt1,St1} = pattern(P, Vt, Old, [], St0),
+    {Pvt,Bvt1,St1} = pattern(P, Vt, Old, St0),
     {Psvt,Bvt2,St2} = head(Ps, Vt, Old, St1),
     {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt1,Bvt2),St2};
 head([], _Vt, _Env, St) -> {[],[],St}.
 
-%% pattern(Pattern, VarTable, Old, BinVarTable, State) ->
+%% pattern(Pattern, VarTable, Old, State) ->
 %%                  {UpdVarTable,BinVarTable,State}.
 %%  Check pattern return variables. Old is the set of variables used for
 %%  deciding whether an occurrence is a binding occurrence or a use, and
@@ -1622,67 +1622,67 @@ head([], _Vt, _Env, St) -> {[],[],St}.
 %%  A = 4, fun(<<A:8,16:A>>) -> % A #1 unused
 
 pattern(P, Vt, St) ->
-    pattern(P, Vt, Vt, [], St).    % Old = Vt
+    pattern(P, Vt, Vt, St).    % Old = Vt
 
-pattern({var,_Line,'_'}, _Vt, _Old, _Bvt, St) ->
+pattern({var,_Line,'_'}, _Vt, _Old, St) ->
     {[],[],St}; %Ignore anonymous variable
-pattern({var,Line,V}, _Vt, Old, Bvt, St) ->
-    pat_var(V, Line, Old, Bvt, St);
-pattern({char,_Line,_C}, _Vt, _Old, _Bvt, St) -> {[],[],St};
-pattern({integer,_Line,_I}, _Vt, _Old, _Bvt, St) -> {[],[],St};
-pattern({float,_Line,_F}, _Vt, _Old, _Bvt, St) -> {[],[],St};
-pattern({atom,Line,A}, _Vt, _Old, _Bvt, St) ->
+pattern({var,Line,V}, _Vt, Old, St) ->
+    pat_var(V, Line, Old, [], St);
+pattern({char,_Line,_C}, _Vt, _Old, St) -> {[],[],St};
+pattern({integer,_Line,_I}, _Vt, _Old, St) -> {[],[],St};
+pattern({float,_Line,_F}, _Vt, _Old, St) -> {[],[],St};
+pattern({atom,Line,A}, _Vt, _Old, St) ->
     {[],[],keyword_warning(Line, A, St)};
-pattern({string,_Line,_S}, _Vt, _Old, _Bvt, St) -> {[],[],St};
-pattern({nil,_Line}, _Vt, _Old, _Bvt, St) -> {[],[],St};
-pattern({cons,_Line,H,T}, Vt, Old,  Bvt, St0) ->
-    {Hvt,Bvt1,St1} = pattern(H, Vt, Old, Bvt, St0),
-    {Tvt,Bvt2,St2} = pattern(T, Vt, Old, Bvt, St1),
+pattern({string,_Line,_S}, _Vt, _Old, St) -> {[],[],St};
+pattern({nil,_Line}, _Vt, _Old, St) -> {[],[],St};
+pattern({cons,_Line,H,T}, Vt, Old,  St0) ->
+    {Hvt,Bvt1,St1} = pattern(H, Vt, Old, St0),
+    {Tvt,Bvt2,St2} = pattern(T, Vt, Old, St1),
     {vtmerge_pat(Hvt, Tvt),vtmerge_pat(Bvt1,Bvt2),St2};
-pattern({tuple,_Line,Ps}, Vt, Old, Bvt, St) ->
-    pattern_list(Ps, Vt, Old, Bvt, St);
-pattern({map,_Line,Ps}, Vt, Old, Bvt, St) ->
-    pattern_map(Ps, Vt, Old, Bvt, St);
-pattern({record_index,Line,Name,Field}, _Vt, _Old, _Bvt, St) ->
+pattern({tuple,_Line,Ps}, Vt, Old, St) ->
+    pattern_list(Ps, Vt, Old, St);
+pattern({map,_Line,Ps}, Vt, Old, St) ->
+    pattern_map(Ps, Vt, Old, St);
+pattern({record_index,Line,Name,Field}, _Vt, _Old, St) ->
     {Vt1,St1} =
         check_record(Line, Name, St,
                      fun (Dfs, St1) ->
                              pattern_field(Field, Name, Dfs, St1)
                      end),
     {Vt1,[],St1};
-pattern({record,Line,Name,Pfs}, Vt, Old, Bvt, St) ->
+pattern({record,Line,Name,Pfs}, Vt, Old, St) ->
     case maps:find(Name, St#lint.records) of
         {ok,{_Line,Fields}} ->
             St1 = used_record(Name, St),
             St2 = check_multi_field_init(Pfs, Line, Fields, St1),
-            pattern_fields(Pfs, Name, Fields, Vt, Old, Bvt, St2);
+            pattern_fields(Pfs, Name, Fields, Vt, Old, St2);
         error -> {[],[],add_error(Line, {undefined_record,Name}, St)}
     end;
-pattern({bin,_,Fs}, Vt, Old, Bvt, St) ->
-    pattern_bin(Fs, Vt, Old, Bvt, St);
-pattern({op,_Line,'++',{nil,_},R}, Vt, Old, Bvt, St) ->
-    pattern(R, Vt, Old, Bvt, St);
-pattern({op,_Line,'++',{cons,Li,{char,_L2,_C},T},R}, Vt, Old, Bvt, St) ->
-    pattern({op,Li,'++',T,R}, Vt, Old, Bvt, St);    %Char unimportant here
-pattern({op,_Line,'++',{cons,Li,{integer,_L2,_I},T},R}, Vt, Old, Bvt, St) ->
-    pattern({op,Li,'++',T,R}, Vt, Old, Bvt, St);    %Weird, but compatible!
-pattern({op,_Line,'++',{string,_Li,_S},R}, Vt, Old, Bvt, St) ->
-    pattern(R, Vt, Old, Bvt, St);                   %String unimportant here
-pattern({match,_Line,Pat1,Pat2}, Vt, Old, Bvt, St0) ->
-    {Lvt,Bvt1,St1} = pattern(Pat1, Vt, Old, Bvt, St0),
-    {Rvt,Bvt2,St2} = pattern(Pat2, Vt, Old, Bvt, St1),
+pattern({bin,_,Fs}, Vt, Old, St) ->
+    pattern_bin(Fs, Vt, Old, St);
+pattern({op,_Line,'++',{nil,_},R}, Vt, Old, St) ->
+    pattern(R, Vt, Old, St);
+pattern({op,_Line,'++',{cons,Li,{char,_L2,_C},T},R}, Vt, Old, St) ->
+    pattern({op,Li,'++',T,R}, Vt, Old, St);    %Char unimportant here
+pattern({op,_Line,'++',{cons,Li,{integer,_L2,_I},T},R}, Vt, Old, St) ->
+    pattern({op,Li,'++',T,R}, Vt, Old, St);    %Weird, but compatible!
+pattern({op,_Line,'++',{string,_Li,_S},R}, Vt, Old, St) ->
+    pattern(R, Vt, Old, St);                   %String unimportant here
+pattern({match,_Line,Pat1,Pat2}, Vt, Old, St0) ->
+    {Lvt,Bvt1,St1} = pattern(Pat1, Vt, Old, St0),
+    {Rvt,Bvt2,St2} = pattern(Pat2, Vt, Old, St1),
     St3 = reject_invalid_alias(Pat1, Pat2, Vt, St2),
     {vtmerge_pat(Lvt, Rvt),vtmerge_pat(Bvt1,Bvt2),St3};
 %% Catch legal constant expressions, including unary +,-.
-pattern(Pat, _Vt, _Old, _Bvt, St) ->
+pattern(Pat, _Vt, _Old, St) ->
     case is_pattern_expr(Pat) of
         true -> {[],[],St};
         false -> {[],[],add_error(element(2, Pat), illegal_pattern, St)}
     end.
 
-pattern_list(Ps, Vt, Old, Bvt0, St) ->
+pattern_list(Ps, Vt, Old, St) ->
     foldl(fun (P, {Psvt,Bvt,St0}) ->
-                  {Pvt,Bvt1,St1} = pattern(P, Vt, Old, Bvt0, St0),
+                  {Pvt,Bvt1,St1} = pattern(P, Vt, Old, St0),
                   {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt,Bvt1),St1}
           end, {[],[],St}, Ps).
 
@@ -1823,27 +1823,27 @@ is_pattern_expr_1({op,_Line,Op,A1,A2}) ->
     erl_internal:arith_op(Op, 2) andalso all(fun is_pattern_expr/1, [A1,A2]);
 is_pattern_expr_1(_Other) -> false.
 
-pattern_map(Ps, Vt, Old, Bvt, St) ->
+pattern_map(Ps, Vt, Old, St) ->
     foldl(fun({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
                   {Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
              ({map_field_exact,_L,K,V}, {Psvt,Bvt0,St0}) ->
                   St1 = St0#lint{gexpr_context=map_key},
                   {Kvt,St2} = gexpr(K, Vt, St1),
-                  {Vvt,Bvt2,St3} = pattern(V, Vt, Old, Bvt, St2),
+                  {Vvt,Bvt2,St3} = pattern(V, Vt, Old, St2),
                   {vtmerge_pat(vtmerge_pat(Kvt, Vvt), Psvt),
                    vtmerge_pat(Bvt0, Bvt2),
                    St3}
           end, {[],[],St}, Ps).
 
-%% pattern_bin([Element], VarTable, Old, BinVarTable, State) ->
+%% pattern_bin([Element], VarTable, Old, State) ->
 %%           {UpdVarTable,UpdBinVarTable,State}.
 %%  Check a pattern group. BinVarTable are used binsize variables.
 
-pattern_bin(Es, Vt, Old, Bvt0, St0) ->
+pattern_bin(Es, Vt, Old, St0) ->
     {_Sz,Esvt,Bvt,St1} = foldl(fun (E, Acc) ->
 				       pattern_element(E, Vt, Old, Acc)
 			       end,
-			       {0,[],Bvt0,St0}, Es),
+			       {0,[],[],St0}, Es),
     {Esvt,Bvt,St1}.
 
 pattern_element({bin_element,Line,{string,_,_},Size,Ts}=Be, Vt,
@@ -2770,11 +2770,11 @@ pattern_field({atom,La,F}, Name, Fields, St) ->
     end.
 
 %% pattern_fields([PatField],RecordName,[RecDefField],
-%%                VarTable,Old,Bvt,State) ->
+%%                VarTable,Old,State) ->
 %%      {UpdVarTable,UpdBinVarTable,State}.
 
-pattern_fields(Fs, Name, Fields, Vt0, Old, Bvt, St0) ->
-    CheckFun = fun (Val, Vt, St) -> pattern(Val, Vt, Old, Bvt, St) end,
+pattern_fields(Fs, Name, Fields, Vt0, Old, St0) ->
+    CheckFun = fun (Val, Vt, St) -> pattern(Val, Vt, Old, St) end,
     {_SeenFields,Uvt,Bvt1,St1} =
         foldl(fun (Field, {Sfsa,Vta,Bvt1,Sta}) ->
                       case check_field(Field, Name, Fields,
@@ -3504,7 +3504,7 @@ handle_generator(P,E,Vt,Uvt,St0) ->
     %% Forget variables local to E immediately.
     Vt1 = vtupdate(vtold(Evt, Vt), Vt),
     {_, St2} = check_unused_vars(Evt, Vt, St1),
-    {Pvt,Binvt,St3} = pattern(P, Vt1, [], [], St2),
+    {Pvt,Binvt,St3} = pattern(P, Vt1, [], St2),
     %% Have to keep fresh variables separated from used variables somehow
     %% in order to handle for example X = foo(), [X || <<X:X>> <- bar()].
     %%                                1           2      2 1
