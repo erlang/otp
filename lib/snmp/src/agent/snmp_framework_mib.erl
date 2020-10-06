@@ -192,39 +192,77 @@ check_context(Context) ->
 %%  {Name, Value}.
 %%-----------------------------------------------------------------
 check_agent(Entry, undefined) ->
-    check_agent(Entry, {snmp_target_mib:default_domain(), undefined});
-check_agent({intAgentTransportDomain, Domain}, {_, Port}) ->
+    check_agent(Entry, #{domain => snmp_target_mib:default_domain(),
+                         port   => undefined});
+
+%% <BACKWARD-COMPAT>
+check_agent({intAgentTransportDomain, Domain},
+            #{transports := T} = State) when is_list(T) andalso (T =/= []) ->
+    ?vinfo("check_agent(intAgentTransportDomain) -> entry with"
+           "~n      Domain: ~p"
+           "~n   when"
+           "~n      State:  ~p", [Domain, State]),
+    error({transports_already_defined, T});
+check_agent({intAgentTransportDomain, Domain}, State) ->
     ?vtrace("check_agent(intAgentTransportDomain) -> entry with"
-            "~n      Domain: ~p"
-            "~n   when"
-            "~n      Port:   ~p", [Domain, Port]),
-    {snmp_conf:check_domain(Domain), {Domain, Port}};
-check_agent({intAgentUDPPort, Port}, {Domain, _}) ->
+            "~n      Domain: ~p", [Domain]),
+    {snmp_conf:check_domain(Domain), State#{domain => Domain}};
+%% </BACKWARD-COMPAT>
+
+check_agent({intAgentUDPPort, NewPort}, #{port := OldPort})
+  when is_integer(OldPort) ->
+    ?vinfo("check_agent(intAgentUDPPort) -> entry with"
+          "~n      New Port: ~p"
+          "~n   when"
+          "~n      Old Port: ~p", [NewPort, OldPort]),
+    error({port_already_defined, OldPort});
+check_agent({intAgentUDPPort, Port}, State) ->
     ?vtrace("check_agent(intAgentUDPPort) -> entry with"
-            "~n      Port:   ~p"
+            "~n      Port:  ~p"
             "~n   when"
-            "~n      Domain: ~p", [Port, Domain]),
+            "~n      State: ~p", [Port, State]),
     ok = snmp_conf:check_port(Port),
-    {ok, {Domain, Port}};
-check_agent({intAgentIpAddress, _}, {_, undefined}) ->
+    {ok, State#{port => Port}};
+
+%% <BACKWARD-COMPAT>
+check_agent({intAgentIpAddress, Ip}, #{port := undefined}) ->
+    ?vinfo("check_agent(intAgentIpAddress) -> "
+           "entry when port not defined with"
+           "~n      Ip: ~p", [Ip]),
     error({missing_mandatory, intAgentUDPPort});
-check_agent({intAgentIpAddress = Tag, Ip} = Entry, {Domain, Port} = State) ->
+check_agent({intAgentIpAddress = _Tag, Ip} = _Entry, 
+            #{transports := T} = _State) when (T =/= []) ->
+    ?vinfo("check_agent(intAgentIpAddress) -> "
+           "entry when transports already defined with"
+           "~n      Ip:         ~p"
+           "~n   when"
+           "~n      Transports: ~p", [Ip, T]),
+    error({transports_already_defined, T});
+check_agent({intAgentIpAddress = Tag, Ip} = _Entry,
+            #{domain := Domain, port := Port} = State) ->
     ?vtrace("check_agent(intAgentIpAddress) -> entry with"
             "~n      Ip:     ~p"
             "~n   when"
             "~n      Domain: ~p"
             "~n      Port:   ~p", [Ip, Domain, Port]),
-    {case snmp_conf:check_ip(Domain, Ip) of
-	 ok ->
-	     [Entry,
-	      {intAgentTransports, [{Domain, {Ip, Port}, all, []}]}];
-	 {ok, FixedIp} ->
-             ?vtrace("check_agent(intAgentIpAddress) -> Fixed IP:"
-                     "~n      ~p", [FixedIp]),
-	     [{Tag, FixedIp},
-	      {intAgentTransports, [{Domain, {FixedIp, Port}, all, []}]}]
-     end, State};
-check_agent({intAgentTransports = Tag, Transports}, {_, Port} = State)
+    FixedIp = case snmp_conf:check_ip(Domain, Ip) of
+                  ok ->
+                      Ip;
+                  {ok, FIp} ->
+                      FIp
+              end,
+    T       = [{Domain, {FixedIp, Port}, all, []}],
+    Rows    = [{Tag, FixedIp}, {intAgentTransports, T}],
+    {Rows, State#{transports => T}};
+%% </BACKWARD-COMPAT>
+
+check_agent({intAgentTransports = _Tag, _Transports},
+            #{transports := T} = _State) when (T =/= []) -> 
+    ?vinfo("check_agent(intAgentTransports) -> "
+           "entry when transports already defined with"
+           "~n      T: ~p", [T]),
+    error({transports_already_defined, T});   
+check_agent({intAgentTransports = Tag, Transports}, #{port := Port} = State)
   when is_list(Transports) ->
     ?vtrace("check_agent(intAgentTransports) -> entry when"
             "~n      Port: ~p", [Port]),
@@ -337,6 +375,7 @@ check_agent(X) ->
 
 %% Ordering function to sort intAgentTransportDomain first
 %% hence before intAgentIpAddress.  Sort other entries on the key.
+%% Note that neither of these are required!
 -dialyzer({nowarn_function, order_agent/2}).
 order_agent(EntryA, EntryB) ->
     snmp_conf:keyorder(
