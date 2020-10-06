@@ -130,8 +130,8 @@ getepmdbyname(HostName, _Timeout) ->
     {ok, HostName}.
 
 -spec listen_port_please(Name, Host) -> {ok, Port} when
-      Name :: atom(),
-      Host :: string() | inet:ip_address(),
+      Name :: atom() | string(),
+      Host :: atom() | string() | inet:ip_address(),
       Port :: non_neg_integer().
 listen_port_please(_Name, _Host) ->
     try
