@@ -24,22 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Commit autoconf files
-        ## We first commit the autoconf generate so that they
-        ## are kept in the pre-built achive
-        run: |
-          ./otp_build autoconf
-          find . -name aclocal.m4 | xargs git add -f
-          find . -name configure | xargs git add -f
-          find . -name config.h.in | xargs git add -f
-          find . -name config.guess | xargs git add -f
-          find . -name config.sub | xargs git add -f
-          find . -name install-sh | xargs git add -f
-          git config --global user.email "you@example.com"
-          git config --global user.name "Your Name"
-          git commit --no-verify -m 'Add generated configure files'
-      - name: Archive git repository
-        run: git archive --prefix otp/ -o otp_src.tar.gz HEAD
+      - name: Create initial pre-release tar 
+        run: .github/scripts/init-pre-release.sh
       - name: Upload source tar archive
         uses: actions/upload-artifact@v2
         with:
@@ -86,13 +72,7 @@ jobs:
         run: docker run -v $PWD/scripts:/scripts otp "/scripts/otp_html_check /otp doc/index.html"
       - if: matrix.type == 'documentation'
         name: Release docs to publish
-        run: |
-          docker run -v $PWD/:/github otp "make release_docs DOC_TARGETS='man html pdf' RELEASE_ROOT=/github/docs"
-          sudo chown -R `whoami` docs
-          cd docs
-          tar czf ../otp_doc_man.tar.gz man
-          rm -rf man
-          tar czf ../otp_doc_html.tar.gz *
+        run: .github/scripts/release-docs.sh
       - if: matrix.type == 'documentation'
         name: Upload html documentation archive
         uses: actions/upload-artifact@v2
@@ -138,11 +118,9 @@ jobs:
         id: tag
         run: |
           TAG=${GITHUB_REF#refs/tags/}
-          VSN=${TAG#OTP-}
           IS_RELEASE=`$(echo $TAG | grep -E '^OTP-[0-9]+\.[0-9]+$' > /dev/null) \
             && echo "true" || echo "false"`
           echo "::set-output name=tag::${TAG}"
-          echo "::set-output name=vsn::${VSN}"
           echo "::set-output name=release::${IS_RELEASE}"
       
       - uses: actions/checkout@v2
@@ -164,13 +142,7 @@ jobs:
       ## We add the correct version name into the file names
       ## and create the MD5 file for all assets
       - name: Create pre-build and doc archives
-        run: |
-          mkdir artifacts
-          tar -xzf otp_src.tar.gz
-          mv otp otp_src_${{ steps.tag.outputs.vsn }}
-          tar -czf artifacts/otp_src_${{ steps.tag.outputs.vsn }}.tar.gz otp_src_${{ steps.tag.outputs.vsn }}
-          mv otp_doc_man.tar.gz artifacts/otp_doc_man_${{ steps.tag.outputs.vsn }}.tar.gz
-          mv otp_doc_html.tar.gz artifacts/otp_doc_html_${{ steps.tag.outputs.vsn }}.tar.gz
+        run: .github/scripts/create-artifacts.sh artifacts ${{ steps.tag.outputs.tag }}
 
       - name: Build OTP Bundle
         if: steps.tag.outputs.release == 'true'

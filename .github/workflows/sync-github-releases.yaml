@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   schedule:
   ## In UTC
-  - cron: '*/30 * * * *'
+  - cron: '*/45 * * * *'
 
 ## Build base images to be used by other github workflows
 jobs:
@@ -28,7 +28,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      ## We need to login to the package registry in order to pull
+      ## the base debian image.
+      - name: Docker login
+        run: docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
       - name: Sync releases
         run: >
-          scripts/sync-github-releases.sh ${{ github.repository }}
+          .github/scripts/sync-github-releases.sh ${{ github.repository }}
           "Bearer ${{ secrets.GITHUB_TOKEN }}" "^2[123]\\..*" 25m
