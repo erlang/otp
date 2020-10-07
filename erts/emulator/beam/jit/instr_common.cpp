@@ -636,7 +636,8 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
 
     comment("Move fun environment");
     for (unsigned i = 0; i < num_free; i++) {
-        mov_arg(x86::qword_ptr(RET, offsetof(ErlFunThing,env) + i*sizeof(Eterm)),
+        mov_arg(x86::qword_ptr(RET,
+                               offsetof(ErlFunThing, env) + i * sizeof(Eterm)),
                 env[i]);
     }
 
