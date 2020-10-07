@@ -262,6 +262,7 @@ BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg);
 Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free);
+ErlFunThing* new_fun_thing(Process* p, ErlFunEntry* fe, int num_free);
 int is_function2(Eterm Term, Uint arity);
 Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
                              Uint n, BeamInstr* ptr);

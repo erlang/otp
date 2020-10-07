@@ -1290,6 +1290,10 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
             LoadAssert(sum <= (ERTS_SINT32_MAX - FLOAT_SIZE_OBJECT * number));
             sum += FLOAT_SIZE_OBJECT * number;
             break;
+        case 2:
+            LoadAssert(sum <= (ERTS_SINT32_MAX - ERL_FUN_SIZE * number));
+            sum += ERL_FUN_SIZE * number;
+            break;
         default:
             LoadError("Invalid allocation tag");
         }

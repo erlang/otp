@@ -102,6 +102,7 @@ opt_opts(Mod) ->
                      (no_stack_trimming) -> true;
                      (no_swap) -> true;
                      (no_type_opt) -> true;
+                     (no_make_fun3) -> true;
                      (_) -> false
                 end, Opts).
 

@@ -1433,17 +1433,22 @@ bc_options(Config) ->
 
          {169, big, [no_shared_fun_wrappers,
                      no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
-                     no_line_info,no_stack_trimming]},
+                     no_line_info,no_stack_trimming,
+                     no_make_fun3]},
          {169, big, [no_shared_fun_wrappers,no_put_tuple2,no_get_hd_tl,
-                     no_ssa_opt_record,no_line_info]},
+                     no_ssa_opt_record,no_line_info,
+                     no_make_fun3]},
          {169, big, [no_shared_fun_wrappers,
-                     no_put_tuple2,no_get_hd_tl, no_ssa_opt_record]},
-         {169, big, [no_shared_fun_wrappers]},
+                     no_put_tuple2,no_get_hd_tl, no_ssa_opt_record,
+                     no_make_fun3]},
+         {169, big, [no_shared_fun_wrappers,
+                     no_make_fun3]},
+         {169, big, [r23]},
 
          {170, small, [no_shared_fun_wrappers]},
 
          {169, small_maps, []},
-         {169, big, []},
+         {171, big, []},
          {170, small, []}
         ],
 

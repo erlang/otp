@@ -1404,12 +1404,12 @@ need_frame(#b_blk{is=Is,last=#b_ret{arg=Ret}}) ->
 need_frame(#b_blk{is=Is}) ->
     need_frame_1(Is, body).
 
-need_frame_1([#b_set{op=make_fun,dst=Fun}|Is], {return,Ret}=Context) ->
+need_frame_1([#b_set{op=old_make_fun,dst=Fun}|Is], {return,Ret}=Context) ->
     case need_frame_1(Is, Context) of
         true ->
             true;
         false ->
-            %% Since make_fun clobbers X registers, a stack frame is
+            %% Since old_make_fun clobbers X registers, a stack frame is
             %% needed if any of the following instructions use any
             %% other variable than the one holding the reference to
             %% the created fun.
@@ -1889,7 +1889,7 @@ used_args([]) -> [].
 
 %%%
 %%% Try to reduce the size of the stack frame, by adding an explicit
-%%% 'copy' instructions for return values from 'call' and 'make_fun' that
+%%% 'copy' instructions for return values from 'call' and 'old_make_fun' that
 %%% need to be saved in Y registers. Here is an example to show
 %%% how that's useful. First, here is the Erlang code:
 %%%
@@ -2014,7 +2014,7 @@ copy_retval_is([#b_set{op=put_tuple_elements,args=Args0}=I0], false, _Yregs,
     I = I0#b_set{args=copy_sub_args(Args0, Copy)},
     {reverse(Acc, [I|acc_copy([], Copy)]),Count};
 copy_retval_is([#b_set{op=Op}=I0], false, Yregs, Copy, Count0, Acc0)
-  when Op =:= call; Op =:= make_fun ->
+  when Op =:= call; Op =:= old_make_fun ->
     {I,Count,Acc} = place_retval_copy(I0, Yregs, Copy, Count0, Acc0),
     {reverse(Acc, [I]),Count};
 copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
@@ -2022,7 +2022,7 @@ copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
 copy_retval_is([#b_set{},#b_set{op=succeeded}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
 copy_retval_is([#b_set{op=Op,dst=#b_var{name=RetName}=Dst}=I0|Is], RC, Yregs,
-           Copy0, Count0, Acc0) when Op =:= call; Op =:= make_fun ->
+           Copy0, Count0, Acc0) when Op =:= call; Op =:= old_make_fun ->
     {I1,Count1,Acc} = place_retval_copy(I0, Yregs, Copy0, Count0, Acc0),
     case cerl_sets:is_element(Dst, Yregs) of
         true ->
@@ -2606,7 +2606,7 @@ reserve_freg([], Res) -> Res.
 %%  Reserve all remaining variables as X registers.
 %%
 %%  If a variable will need to be in a specific X register for a
-%%  'call' or 'make_fun' (and there is nothing that will kill it
+%%  'call' or 'old_make_fun' (and there is nothing that will kill it
 %%  between the definition and use), reserve the register using a
 %%  {prefer,{x,X} annotation. That annotation means that the linear
 %%  scan algorithm will place the variable in the preferred register,
@@ -2649,7 +2649,7 @@ reserve_xregs([], _, _, Res) -> Res.
 res_place_gc_instrs([#b_set{op=phi}=I|Is], Acc) ->
     res_place_gc_instrs(Is, [I|Acc]);
 res_place_gc_instrs([#b_set{op=Op}=I|Is], Acc)
-  when Op =:= call; Op =:= make_fun ->
+  when Op =:= call; Op =:= old_make_fun ->
     case Acc of
         [] ->
             res_place_gc_instrs(Is, [I|Acc]);
@@ -2668,19 +2668,26 @@ res_place_gc_instrs([#b_set{op=Op,args=Args}=I|Is], Acc0) ->
                     res_place_gc_instrs(Is, [I|Acc])
             end;
         {put,_} ->
-            case Acc0 of
-                [test_heap|Acc] ->
-                    res_place_gc_instrs(Is, [test_heap,I|Acc]);
-                Acc ->
-                    res_place_gc_instrs(Is, [test_heap,I|Acc])
-            end;
-        _ ->
+            res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
+        {put_fun,_} ->
+            res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
+        put_float ->
+            res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
+        gc ->
             res_place_gc_instrs(Is, [gc,I|Acc0])
     end;
 res_place_gc_instrs([], Acc) ->
     %% Reverse and replace 'test_heap' markers with 'gc'.
     %% (The distinction is no longer useful.)
     res_place_gc_instrs_rev(Acc, []).
+
+res_place_test_heap(I, Acc) ->
+    case Acc of
+        [test_heap|Acc] ->
+            [test_heap,I|Acc];
+        _ ->
+            [test_heap,I|Acc]
+    end.
 
 res_place_gc_instrs_rev([test_heap|Is], [gc|_]=Acc) ->
     res_place_gc_instrs_rev(Is, Acc);
@@ -2711,7 +2718,7 @@ reserve_xregs_is([#b_set{op=Op,dst=Dst,args=Args}=I|Is], Res0, Xs0, Used0) ->
         call ->
             Xs = reserve_call_args(tl(Args)),
             reserve_xregs_is(Is, Res, Xs, Used);
-        make_fun ->
+        old_make_fun ->
             Xs = reserve_call_args(tl(Args)),
             reserve_xregs_is(Is, Res, Xs, Used);
         _ ->

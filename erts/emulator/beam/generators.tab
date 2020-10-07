@@ -358,6 +358,35 @@ gen.make_fun2(idx) {
     return op;
 }
 
+gen.make_fun3(idx, Dst, NumFree, Env) {
+    BeamOp* op;
+
+    $NewBeamOp(S, op);
+
+    if (idx.val < S->beam.lambdas.count) {
+        BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[idx.val];
+	if (NumFree.val == entry->num_free) {
+	    int i;
+
+	    $BeamOpNameArity(op, i_make_fun3, 3);
+	    $BeamOpArity(op, 3 + NumFree.val);
+	    op->a[0].type = TAG_u;
+	    op->a[0].val = idx.val;
+	    op->a[1] = Dst;
+	    op->a[2].type = TAG_u;
+	    op->a[2].val = entry->num_free;
+	    for (i = 0; i < NumFree.val; i++) {
+		op->a[i+3] = Env[i];
+	    }
+	    return op;
+	}
+    }
+    $BeamOpNameArity(op, i_lambda_error, 1);
+    op->a[0].type = TAG_o;
+    op->a[0].val = 0;
+    return op;
+}
+
 gen.tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5) {
     BeamOp* op;
     int arity = Arity.val;      /* Arity of tuple, not the instruction */

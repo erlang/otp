@@ -1728,14 +1728,11 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
     return call_fun(p, arity, reg, args);
 }
 
-
-
 Eterm
 new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 {
     unsigned needed = ERL_FUN_SIZE + num_free;
     ErlFunThing* funp;
-    Eterm* hp;
     int i;
 
     if (HeapWordsLeft(p) <= needed) {
@@ -1744,10 +1741,19 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
 	PROCESS_MAIN_CHK_LOCKS(p);
     }
-    hp = p->htop;
-    p->htop = hp + needed;
-    funp = (ErlFunThing *) hp;
-    hp = funp->env;
+    funp = new_fun_thing(p, fe, num_free);
+    for (i = 0; i < num_free; i++) {
+        funp->env[i] = reg[i];
+    }
+    return make_fun(funp);
+}
+
+ErlFunThing*
+new_fun_thing(Process* p, ErlFunEntry* fe, int num_free)
+{
+    ErlFunThing* funp = (ErlFunThing*) p->htop;
+
+    p->htop += ERL_FUN_SIZE + num_free;
     erts_refc_inc(&fe->refc, 2);
     funp->thing_word = HEADER_FUN;
     funp->next = MSO(p).first;
@@ -1756,10 +1762,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     funp->num_free = num_free;
     funp->creator = p->common.id;
     funp->arity = (int)fe->address[-1] - num_free;
-    for (i = 0; i < num_free; i++) {
-	*hp++ = reg[i];
-    }
-    return make_fun(funp);
+    return funp;
 }
 
 int

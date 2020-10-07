@@ -48,8 +48,9 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
     {Asm,St} = functions(Fs, {atom,Mod}),
     {ok,{Mod,Es,Attrs,Asm,St#cg.lcount}}.
 
--record(need, {h=0 :: non_neg_integer(),
-               f=0 :: non_neg_integer()}).
+-record(need, {h=0 :: non_neg_integer(),   % heap words
+               l=0 :: non_neg_integer(),   % lambdas (funs)
+               f=0 :: non_neg_integer()}). % floats
 
 -record(cg_blk, {anno=#{} :: anno(),
                  is=[] :: [instruction()],
@@ -197,7 +198,7 @@ collect_catch_labels_1([]) -> [].
 
 need_heap(Bs0) ->
     Bs1 = need_heap_allocs(Bs0, #{}),
-    {Bs,#need{h=0,f=0}} = need_heap_blks(reverse(Bs1), #need{}, []),
+    {Bs,#need{h=0,l=0,f=0}} = need_heap_blks(reverse(Bs1), #need{}, []),
     Bs.
 
 need_heap_allocs([{L,#cg_blk{is=Is0,last=Terminator}=Blk0}|Bs], Counts0) ->
@@ -257,6 +258,8 @@ need_heap_is([#cg_set{op=Op,args=Args}=I|Is], N, Acc) ->
         {put,Words} ->
             %% Pass through adding to needed heap.
             need_heap_is(Is, add_heap_words(N, Words), [I|Acc]);
+        {put_fun,NArgs} ->
+            need_heap_is(Is, add_heap_fun(N, NArgs), [I|Acc]);
         put_float ->
             need_heap_is(Is, add_heap_float(N), [I|Acc]);
         neutral ->
@@ -294,13 +297,16 @@ need_heap_terminator([{_,#cg_blk{}}|_], _, N) ->
 need_heap_terminator([], _, H) ->
     {need_heap_need(H),#need{}}.
 
-need_heap_need(#need{h=0,f=0}) -> [];
+need_heap_need(#need{h=0,l=0,f=0}) -> [];
 need_heap_need(#need{}=N) -> [#cg_alloc{words=N}].
 
-add_heap_words(#need{h=H1,f=F1}, #need{h=H2,f=F2}) ->
-    #need{h=H1+H2,f=F1+F2};
+add_heap_words(#need{h=H1,l=L1,f=F1}, #need{h=H2,l=L2,f=F2}) ->
+    #need{h=H1+H2,l=L1+L2,f=F1+F2};
 add_heap_words(#need{h=Heap}=N, Words) when is_integer(Words) ->
     N#need{h=Heap+Words}.
+
+add_heap_fun(#need{h=Heap, l=Lambdas}=N, NArgs) ->
+    N#need{h=Heap+NArgs, l=Lambdas+1}.
 
 add_heap_float(#need{f=F}=N) ->
     N#need{f=F+1}.
@@ -324,7 +330,9 @@ add_heap_float(#need{f=F}=N) ->
 
 -spec classify_heap_need(beam_ssa:op(), [beam_ssa:value()]) ->
                                 'gc' | 'neutral' |
-                                {'put',non_neg_integer()} | 'put_float'.
+                                {'put',non_neg_integer()} |
+                                {'put_fun', non_neg_integer()} |
+                                'put_float'.
 
 classify_heap_need(put_list, _) ->
     {put,2};
@@ -332,6 +340,8 @@ classify_heap_need(put_tuple_arity, [#b_literal{val=Words}]) ->
     {put,Words+1};
 classify_heap_need(put_tuple, Elements) ->
     {put,length(Elements)+1};
+classify_heap_need(make_fun, Args) ->
+    {put_fun,length(Args)-1};
 classify_heap_need({bif,Name}, Args) ->
     case is_gc_bif(Name, Args) of
         false -> neutral;
@@ -387,10 +397,10 @@ classify_heap_need(is_nonempty_list) -> neutral;
 classify_heap_need(is_tagged_tuple) -> neutral;
 classify_heap_need(kill_try_tag) -> gc;
 classify_heap_need(landingpad) -> gc;
-classify_heap_need(make_fun) -> gc;
 classify_heap_need(match_fail) -> gc;
 classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> gc;
+classify_heap_need(old_make_fun) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
 classify_heap_need(put_tuple_elements) -> neutral;
@@ -415,7 +425,7 @@ classify_heap_need(wait_timeout) -> gc.
 %%% since the BEAM interpreter have more optimized instructions
 %%% operating on X registers than on Y registers.
 %%%
-%%% In call and 'call' and 'make_fun' instructions there is also the
+%%% In call and 'call' and 'old_make_fun' instructions there is also the
 %%% possibility that a 'move' instruction can be eliminated because
 %%% a value is already in the correct X register.
 %%%
@@ -451,7 +461,7 @@ prefer_xregs_successors([], _, Map) -> Map.
 
 prefer_xregs_is([#cg_alloc{}=I|Is], St, Copies0, Acc) ->
     Copies = case I of
-                 #cg_alloc{stack=none,words=#need{h=0,f=0}} ->
+                 #cg_alloc{stack=none,words=#need{h=0,l=0,f=0}} ->
                      Copies0;
                  #cg_alloc{} ->
                      #{}
@@ -467,7 +477,7 @@ prefer_xregs_is([#cg_set{op=copy,dst=Dst,args=[Src]}=I|Is], St, Copies0, Acc) ->
 prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St, Copies, Acc) ->
     I = prefer_xregs_call(I0, Copies, St),
     prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
-prefer_xregs_is([#cg_set{op=make_fun,dst=Dst}=I0|Is], St, Copies, Acc) ->
+prefer_xregs_is([#cg_set{op=old_make_fun,dst=Dst}=I0|Is], St, Copies, Acc) ->
     I = prefer_xregs_call(I0, Copies, St),
     prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
 prefer_xregs_is([#cg_set{op=set_tuple_element}=I|Is], St, Copies, Acc) ->
@@ -505,7 +515,7 @@ prefer_xregs_prune(#cg_set{dst=Dst}, Copies, St) ->
     maps:filter(F, Copies).
 
 %% prefer_xregs_call(Instruction, Copies, St) -> Instruction.
-%%  Given a 'call' or 'make_fun' instruction rewrite the arguments
+%%  Given a 'call' or 'old_make_fun' instruction rewrite the arguments
 %%  to use an X register instead of a Y register if a value is
 %%  is available in both.
 
@@ -1224,14 +1234,20 @@ cg_block([#cg_set{op=call}=Call|T], Context, St0) ->
     {Is0,St1} = cg_call(Call, body, none, St0),
     {Is1,St} = cg_block(T, Context, St1),
     {Is0++Is1,St};
-cg_block([#cg_set{anno=Anno,op=make_fun,dst=Dst0,args=[Local|Args0]}|T],
-         Context, St0) ->
+cg_block([#cg_set{anno=Anno,op=MakeFun,dst=Dst0,args=[Local|Args0]}|T],
+         Context, St0) when MakeFun =:= make_fun;
+                            MakeFun =:= old_make_fun ->
     #b_local{name=#b_literal{val=Func},arity=Arity} = Local,
     [Dst|Args] = beam_args([Dst0|Args0], St0),
     {FuncLbl,St1} = local_func_label(Func, Arity, St0),
-    Is0 = setup_args(Args) ++
-        [{make_fun2,{f,FuncLbl},0,0,length(Args)}|copy({x,0}, Dst)],
-
+    Is0 = case MakeFun of
+              make_fun ->
+                  [{make_fun3,{f,FuncLbl},0,0,Dst,{list,Args}}];
+              old_make_fun ->
+                  setup_args(Args) ++
+                      [{make_fun2,{f,FuncLbl},0,0,length(Args)}
+                       | copy({x,0}, Dst)]
+          end,
     Is1 = case Anno of
              #{ result_type := Type } ->
                  Info = {var_info, Dst, [{fun_type, Type}]},
@@ -1468,7 +1484,7 @@ is_killed({x,X}, [], Arity) ->
 is_killed({y,_}, [], _) ->
     false.
 
-cg_alloc(#cg_alloc{stack=none,words=#need{h=0,f=0}}, _St) ->
+cg_alloc(#cg_alloc{stack=none,words=#need{h=0,l=0,f=0}}, _St) ->
     [];
 cg_alloc(#cg_alloc{stack=none,words=Need,live=Live}, _St) ->
     [{test_heap,alloc(Need),Live}];
@@ -1490,16 +1506,16 @@ cg_alloc(#cg_alloc{stack=Stk,words=Need,live=Live,def_yregs=DefYregs},
            false -> []
        end].
 
-alloc(#need{h=Words,f=0}) ->
+alloc(#need{h=Words,l=0,f=0}) ->
     Words;
-alloc(#need{h=Words,f=Floats}) ->
-    {alloc,[{words,Words},{floats,Floats}]}.
+alloc(#need{h=Words,l=Lambdas,f=Floats}) ->
+    {alloc,[{words,Words},{floats,Floats},{funs,Lambdas}]}.
 
 is_call([#cg_set{op=call,args=[#b_var{}|Args]}|_]) ->
     {yes,1+length(Args)};
 is_call([#cg_set{op=call,args=[_|Args]}|_]) ->
     {yes,length(Args)};
-is_call([#cg_set{op=make_fun,args=[_|Args]}|_]) ->
+is_call([#cg_set{op=old_make_fun,args=[_|Args]}|_]) ->
     {yes,length(Args)};
 is_call(_) ->
     no.

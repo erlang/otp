@@ -375,6 +375,8 @@ disasm_instr(B, Bs, Atoms, Literals) ->
 	    disasm_map_inst(has_map_fields, Arity, Bs, Atoms, Literals);
 	put_tuple2 ->
 	    disasm_put_tuple2(Bs, Atoms, Literals);
+	make_fun3 ->
+	    disasm_make_fun3(Bs, Atoms, Literals);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals) of
 		{Args, RestBs} ->
@@ -422,6 +424,16 @@ disasm_put_tuple2(Bs, Atoms, Literals) ->
     {u, Len} = U,
     {List, RestBs} = decode_n_args(Len, Bs3, Atoms, Literals),
     {{put_tuple2, [X,{Z,U,List}]}, RestBs}.
+
+disasm_make_fun3(Bs, Atoms, Literals) ->
+    {Fun, Bs1} = decode_arg(Bs, Atoms, Literals),
+    {Dst, Bs2} = decode_arg(Bs1, Atoms, Literals),
+    {Z, Bs3} = decode_arg(Bs2, Atoms, Literals),
+    {U, Bs4} = decode_arg(Bs3, Atoms, Literals),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs4, Atoms, Literals),
+    {{make_fun3, [Fun,Dst,{Z,U,List}]}, RestBs}.
+
 
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
@@ -578,7 +590,7 @@ decode_alloc_list_1(N, Literals, Bs0, Acc) ->
     Res = case Type of
 	      0 -> {words,Val};
 	      1 -> {floats,Val};
-	      2 -> {literal,gb_trees:get(Val, Literals)}
+              2 -> {funs,Val}
 	  end,
     decode_alloc_list_1(N-1, Literals, Bs, [Res|Acc]).
 
@@ -667,6 +679,12 @@ resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
     {OldIndex,{F,A,_Lbl,_Index,NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun2,{M,F,A},OldIndex,OldUniq,NumFree};
+resolve_inst({make_fun3,[Fun,Dst,{{z,1},{u,_},Env0}]}, _, _, _, Lambdas, _, M) ->
+    OldIndex = resolve_arg(Fun),
+    Env1 = resolve_args(Env0),
+    {OldIndex,{F,A,_Lbl,_Index,_NumFree,OldUniq}} =
+	lists:keyfind(OldIndex, 1, Lambdas),
+    {make_fun3,{M,F,A},OldIndex,OldUniq,Dst,{list,Env1}};
 resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).

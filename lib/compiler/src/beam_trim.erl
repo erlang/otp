@@ -274,6 +274,11 @@ remap([{kill,Y}|T], Map, Acc) ->
     remap(T, Map, [{kill,Map(Y)}|Acc]);
 remap([{make_fun2,_,_,_,_}=I|T], Map, Acc) ->
     remap(T, Map, [I|Acc]);
+remap([{make_fun3,F,Index,OldUniq,Dst0,{list,Env0}}|T], Map, Acc) ->
+    Env = [Map(E) || E <- Env0],
+    Dst = Map(Dst0),
+    I = {make_fun3,F,Index,OldUniq,Dst,{list,Env}},
+    remap(T, Map, [I|Acc]);
 remap([{deallocate,N}|Is], Map, Acc) ->
     I = {deallocate,Map({frame_size,N})},
     remap(Is, Map, [I|Acc]);
@@ -408,6 +413,8 @@ frame_size([{kill,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
+frame_size([{make_fun3,_,_,_,_}|Is], Safe) ->
+    frame_size(Is, Safe);
 frame_size([{get_map_elements,{f,L},_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{deallocate,N}|_], _) ->
@@ -490,6 +497,8 @@ is_not_used(Y, [{line,_}|Is]) ->
     is_not_used(Y, Is);
 is_not_used(Y, [{make_fun2,_,_,_,_}|Is]) ->
     is_not_used(Y, Is);
+is_not_used(Y, [{make_fun3,_,_,_,Dst,{list,Env}}|Is]) ->
+    is_not_used_ss_dst(Y, Env, Dst, Is);
 is_not_used(Y, [{swap,Reg1,Reg2}|Is]) ->
     Y =/= Reg1 andalso Y =/= Reg2 andalso is_not_used(Y, Is);
 is_not_used(Y, [{test,_,_,Ss}|Is]) ->
