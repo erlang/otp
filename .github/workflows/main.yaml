@@ -86,6 +86,10 @@ jobs:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
 
+        ## Check formatting of cpp code
+      - if: matrix.type == '64-bit'
+        name: Check format
+        run: docker run -v $PWD/scripts:/scripts otp "make format-check"
         ## Run dialyzer
       - if: matrix.type == '64-bit'
         name: Run dialyzer
