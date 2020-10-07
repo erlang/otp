@@ -961,32 +961,33 @@ bad_io_server(Config) when is_list(Config) ->
            "called as '\\x{400}' / 0\nExitCode:127">>]),
     ok.
 
-run(Config, Dir, Cmd0, Expected0) ->
-    [CmdName | _] = string:split(Cmd0, " ", all),
-    Expected = iolist_to_binary(expected_output(Expected0, Dir)),
-    Cmd = case os:type() of
-	      {win32,_} -> "escript " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
-	      _ -> Cmd0
-	  end,
-    do_run(Config, CmdName, Dir, Cmd, Expected).
+run(Config, Dir, Cmd, Expected) ->
+    run_with_opts(Config, Dir, "", Cmd, Expected).
 
 run_with_opts(Config, Dir, Opts, Cmd0, Expected) ->
     [CmdName | _] = string:split(Cmd0, " ", all),
     Cmd = case os:type() of
-	      {win32,_} -> "escript " ++ Opts ++ " " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
+	      {win32,Wtype} ->
+                  %% This case is stolen from os:mk_cmd/2
+                  Command = case {os:getenv("COMSPEC"),Wtype} of
+                                {false,windows} -> "command.com /c ";
+                                {false,_} -> "cmd /c ";
+                                {Cspec,_} -> lists:concat([Cspec," /c "])
+                            end,
+                  Command ++ "escript " ++ Opts ++ " " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
 	      _ -> "escript " ++ Opts ++ " " ++ Dir ++ "/" ++ Cmd0
 	  end,
     do_run(Config, CmdName, Dir, Cmd, Expected).
 
 do_run(Config, CmdName, Dir, Cmd0, Expected0) ->
     StdErrFile = tempnam(Config, CmdName),
-    Cmd = Cmd0 ++ " 2> " ++ StdErrFile,
+    Cmd = Cmd0 ++ " 2> " ++ filename:nativename(StdErrFile),
     io:format("Run: ~p\n", [Cmd]),
     Expected = iolist_to_binary(expected_output(Expected0, Dir)),
 
     Env = [{"PATH",Dir++":"++os:getenv("PATH")},
            {"ERL_FLAGS",false},{"ERL_AFLAGS",false}],
-    Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env}]),
+    Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env},hide]),
     StdOut = get_data(Port, []),
     receive
 	{Port,{exit_status,ExitCode}} ->
