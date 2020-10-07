@@ -96,6 +96,21 @@
 %%
 %% 3: Error.
 %%   ...
+%%
+%% Attempts have been made to simplify this pass and replace it with
+%% simpler transforms in the hope of avoiding much of the work
+%% performed by bool_opt/2. Targeting boolean expressions in guards
+%% and rewriting them along the patterns shown in the examples above
+%% can achieve the same results in many cases, but does not by any
+%% means reach the level of quality achieved by bool_opt/2.
+%%
+%% An analysis of the instances where the simpler transforms fail to
+%% reach parity with bool_opt/2 indicates that the information they
+%% lack in order to improve their result would require more or less
+%% the same control flow graph analysis and simplification as
+%% bool_opt/2 already does.
+%%
+
 
 -module(beam_ssa_bool).
 -export([module/2]).
