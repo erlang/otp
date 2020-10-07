@@ -25115,15 +25115,12 @@ reg_s_single_open_and_close_and_count(_Config) when is_list(_Config) ->
 
 
 reg_s_single_open_and_close_and_count() ->
+    socket:use_registry(true),
+
     %% We may have some sockets already existing.
     %% Make sure we dont count them when we test.
-    case socket:number_of() of
-        0 ->
-            socket:use_registry(true),
-            ok;
-        N ->
-            exit({unexpected_socket_registry_use, N, socket:which_sockets()})
-    end,
+    Existing = socket:which_sockets(),
+    N = length(Existing),
     SupportsIPV6 =
         case (catch has_support_ipv6()) of
             ok ->
@@ -25208,7 +25205,7 @@ reg_s_single_open_and_close_and_count() ->
 
     %% **** Total Number Of Sockets ****
 
-    NumSocks1 = length(Socks),
+    NumSocks1 = N + length(Socks),
     NumberOf1 = socket:number_of(),
 
     i("verify (total) number of sockets(1): ~w, ~w",
@@ -25225,7 +25222,7 @@ reg_s_single_open_and_close_and_count() ->
 
     %% inet, stream, tcp
     SiNumTCP = reg_si_num(InitSockInfos, inet, stream, tcp),
-    SrNumTCP = reg_sr_num(inet, stream, tcp),
+    SrNumTCP = reg_sr_num(Existing, inet, stream, tcp),
 
     i("verify number of IPv4 TCP sockets: ~w, ~w", [SiNumTCP, SrNumTCP]),
     case (SiNumTCP =:= SrNumTCP) of
@@ -25240,7 +25237,7 @@ reg_s_single_open_and_close_and_count() ->
 
     %% inet, dgram, udp
     SiNumUDP = reg_si_num(InitSockInfos, inet, dgram, udp),
-    SrNumUDP = reg_sr_num(inet, dgram, udp),
+    SrNumUDP = reg_sr_num(Existing, inet, dgram, udp),
 
     i("verify number of IPv4 UDP sockets: ~w, ~w", [SiNumUDP, SrNumUDP]),
     case (SiNumUDP =:= SrNumUDP) of
@@ -25255,7 +25252,7 @@ reg_s_single_open_and_close_and_count() ->
 
     %% inet, seqpacket, sctp
     SiNumSCTP = reg_si_num(InitSockInfos, inet, seqpacket, sctp),
-    SrNumSCTP = reg_sr_num(inet, seqpacket, sctp),
+    SrNumSCTP = reg_sr_num(Existing, inet, seqpacket, sctp),
 
     i("verify number of IPv4 SCTP sockets: ~w, ~w", [SiNumSCTP, SrNumSCTP]),
     case (SiNumSCTP =:= SrNumSCTP) of
@@ -25270,7 +25267,7 @@ reg_s_single_open_and_close_and_count() ->
 
     %% inet
     SiNumINET = reg_si_num(InitSockInfos, inet),
-    SrNumINET = reg_sr_num(inet),
+    SrNumINET = reg_sr_num(Existing, inet),
 
     i("verify number of IPv4 sockets: ~w, ~w", [SiNumINET, SrNumINET]),
     case (SiNumINET =:= SrNumINET) of
@@ -25285,7 +25282,7 @@ reg_s_single_open_and_close_and_count() ->
 
     %% inet6
     SiNumINET6 = reg_si_num(InitSockInfos, inet6),
-    SrNumINET6 = reg_sr_num(inet6),
+    SrNumINET6 = reg_sr_num(Existing, inet6),
 
     i("verify number of IPv6 sockets: ~w, ~w", [SiNumINET6, SrNumINET6]),
     case (SiNumINET6 =:= SrNumINET6) of
@@ -25300,7 +25297,7 @@ reg_s_single_open_and_close_and_count() ->
 
     %% local
     SiNumLOCAL = reg_si_num(InitSockInfos, local),
-    SrNumLOCAL = reg_sr_num(local),
+    SrNumLOCAL = reg_sr_num(Existing, local),
 
     i("verify number of Unix Domain Sockets sockets: ~w, ~w",
       [SiNumLOCAL, SrNumLOCAL]),
@@ -25322,16 +25319,24 @@ reg_s_single_open_and_close_and_count() ->
 
     ?SLEEP(1000),
 
-    NumSocks2 = 0,
     NumberOf2 = socket:number_of(),
 
-    i("verify number of sockets(2): ~w, ~w", [NumSocks2, NumberOf2]),
-    case (NumSocks2 =:= NumberOf2) of
+    i("verify number of sockets(2): ~w, ~w", [N, NumberOf2]),
+    case (N =:= NumberOf2) of
         true ->
             ok;
         false ->
-            reg_si_fail(wrong_number_of_sockets2, {NumSocks2, NumberOf2})
+            reg_si_fail(wrong_number_of_sockets2, {N, NumberOf2})
     end,
+
+    i("verify pre-existing sockets(2)", []),
+    case socket:which_sockets() of
+        Existing ->
+            ok;
+        OtherSockets ->
+            reg_si_fail(wrong_sockets2, {Existing, OtherSockets})
+    end,
+
     socket:use_registry(false),
     ok.
 
@@ -25379,27 +25384,27 @@ reg_si_num2(F, SocksInfo) ->
     length(lists:filter(F, SocksInfo)).
 
 
-reg_sr_num(Domain)
+reg_sr_num(Existing, Domain)
   when ((Domain =:= inet) orelse (Domain =:= inet6)) ->
-    length(socket:which_sockets(Domain));
-reg_sr_num(Domain)
+    length(socket:which_sockets(Domain) -- Existing);
+reg_sr_num(Existing, Domain)
   when (Domain =:= local) ->
-    reg_sr_num(Domain, undefined, undefined);
-reg_sr_num(Type)
+    reg_sr_num(Existing, Domain, undefined, undefined);
+reg_sr_num(Existing, Type)
   when ((Type =:= stream) orelse (Type =:= dgram) orelse (Type =:= seqpacket)) ->
-    length(socket:which_sockets(Type));
-reg_sr_num(Proto)
+    length(socket:which_sockets(Type) -- Existing);
+reg_sr_num(Existing, Proto)
   when ((Proto =:= sctp) orelse (Proto =:= tcp) orelse (Proto =:= udp)) ->
-    length(socket:which_sockets(Proto)).
+    length(socket:which_sockets(Proto) -- Existing).
 
-reg_sr_num(Domain, undefined, undefined) ->
+reg_sr_num(Existing, Domain, undefined, undefined) ->
     F = fun(#{domain := D}) when (D =:= Domain) ->
                 true;
            (_X) ->
                 false
         end,
-    reg_sr_num2(F);
-reg_sr_num(Domain, Type, Proto) ->
+    reg_sr_num2(Existing, F);
+reg_sr_num(Existing, Domain, Type, Proto) ->
     F = fun(#{domain   := D,
               type     := T,
               protocol := P}) when (D =:= Domain) andalso
@@ -25411,10 +25416,10 @@ reg_sr_num(Domain, Type, Proto) ->
                 %%   "~n   ~p", [_X]),
                 false
         end,
-    reg_sr_num2(F).
+    reg_sr_num2(Existing, F).
 
-reg_sr_num2(F) ->
-    length(socket:which_sockets(F)).
+reg_sr_num2(Existing, F) ->
+    length(socket:which_sockets(F) -- Existing).
 
 
 
