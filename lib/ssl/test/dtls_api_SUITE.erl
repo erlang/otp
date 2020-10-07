@@ -108,10 +108,11 @@ init_per_testcase(Testcase, Config)
        Testcase =:= dtls_listen_two_sockets_6 ->
     case ssl:listen(0, [{protocol, dtls}, {ip, {127,0,0,2}}]) of
         {ok, S} ->
+            test_listen_on_all_interfaces(S, Config),
             ssl:close(S),
             ssl_test_lib:ct_log_supported_protocol_versions(Config),
             ct:timetrap({seconds, 10}),
-            Config;
+            maybe_skip_tc_on_windows(Testcase, Config);
         {error, _} ->
             {skip, "127.0.0.x address not available"}
     end;
@@ -300,3 +301,26 @@ dtls_listen_two_sockets_6(_Config) when is_list(_Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
+%% Helper function for init_per_testcase.
+test_listen_on_all_interfaces(S0, Config) ->
+    {ok, {_, Port}} = ssl:sockname(S0),
+    case ssl:listen(Port, [{protocol, dtls}, {ip, {0,0,0,0}}]) of
+        {ok, S1} ->
+            ssl:close(S0),
+            ssl:close(S1),
+            {skip, "Testcase is not supported on this OS."};
+        {error, _} ->
+            Config
+    end.
+
+maybe_skip_tc_on_windows(Testcase, Config)
+  when Testcase =:= dtls_listen_two_sockets_5 orelse
+       Testcase =:= dtls_listen_two_sockets_6 ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Testcase not supported in Windows"};
+        _ ->
+            Config
+    end;
+maybe_skip_tc_on_windows(_, Config) ->
+    Config.
