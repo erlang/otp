@@ -51,7 +51,8 @@
          otp_15035/1,
          otp_16439/1,
          otp_14708/1,
-         otp_16545/1]).
+         otp_16545/1,
+         otp_16865/1]).
 
 %%
 %% Define to run outside of test server
@@ -91,7 +92,7 @@ all() ->
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, try_catch, eval_expr_5, zero_width,
-     eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545].
+     eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865].
 
 groups() -> 
     [].
@@ -1743,6 +1744,12 @@ otp_16545(Config) when is_list(Config) ->
           "<<\"\":16/signed>>.",
           <<>>),
     error_check("<<\"\":problem/signed>>.", badarg),
+    ok.
+
+otp_16865(Config) when is_list(Config) ->
+    check(fun() -> << <<>> || <<34:(1/0)>> <= <<"string">> >> end,
+          "<< <<>> || <<34:(1/0)>> <= <<\"string\">> >>.",
+          <<>>),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

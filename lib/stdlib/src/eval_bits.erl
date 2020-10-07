@@ -198,20 +198,27 @@ bin_gen_field({bin_element,Line,{string,SLine,S},Size0,Options0},
               Bin0, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
         make_bit_type(Line, Size0, Options0),
-    {value, Size, _BBs} = Efun(Size1, BBs0),
-    F = fun(C, Bin, Bs, BBs) ->
-                bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
-                               {integer,SLine,C}, Bs, BBs, Mfun)
-        end,
-    bin_gen_field_string(S, Bin0, Bs0, BBs0, F);
+    case catch Efun(Size1, BBs0) of
+        {value, Size, _BBs} -> % 
+            F = fun(C, Bin, Bs, BBs) ->
+                        bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
+                                       {integer,SLine,C}, Bs, BBs, Mfun)
+                end,
+            bin_gen_field_string(S, Bin0, Bs0, BBs0, F)
+    end;
 bin_gen_field({bin_element,Line,VE,Size0,Options0}, 
               Bin, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} = 
         make_bit_type(Line, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
-    {value, Size, _BBs} = Efun(Size1, BBs0),
-    bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun).
+    case catch Efun(Size1, BBs0) of
+        {value, Size, _BBs} ->
+            bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
+                           NewV, Bs0, BBs0, Mfun);
+        _ ->
+            done
+    end.
 
 bin_gen_field_string([], Rest, Bs, BBs, _F) ->
     {match,Bs,BBs,Rest};
