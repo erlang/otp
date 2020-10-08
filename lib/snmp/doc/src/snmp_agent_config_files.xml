@@ -177,7 +177,7 @@
     any value specified by <c>intAgentUDPPort</c>.</p>
 
     <p><c>Opts</c> is the same as for the
-    <seeerl marker="snmp_config#agent_ni_opts">net-if</seeerl>
+    <seeguide marker="snmp_config#agent_ni_opts">net-if</seeguide>
     process <em>and</em>
     takes precedence (for that transport) if present.
     The point is that each transport can have its own socket options. </p>
