@@ -1199,10 +1199,10 @@ usage_aux(void)
 #endif
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
-	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
-	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
+	  "[+C MODE] [+dcg DECENTRALIZED_COUNTER_GROUPS_LIMIT] [+h HEAP_SIZE_OPTION] "
+	  "[+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
 	  "[+R COMPAT_REL] "
-	  "[+r] [+rg READER_GROUPS_LIMIT] [+s SCHEDULER_OPTION] "
+	  "[+r] [+rg READER_GROUPS_LIMIT] [+s<SUBSWITCH> SCHEDULER_OPTION] "
 	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] "
 	  "[+SP PERCENTAGE_SCHEDULERS:PERCENTAGE_SCHEDULERS_ONLINE] "
 	  "[+T LEVEL] [+V] [+v] "

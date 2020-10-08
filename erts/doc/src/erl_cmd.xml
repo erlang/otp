@@ -678,7 +678,7 @@
           produces a crash dump. On Unix systems, sending an emulator process
           a <c>SIGUSR1</c> signal also forces a crash dump.</p>
       </item>
-      <tag><marker id="+dcg"/><c><![CDATA[+rg DecentralizedCounterGroupsLimit]]></c></tag>
+      <tag><marker id="+dcg"/><c><![CDATA[+dcg DecentralizedCounterGroupsLimit]]></c></tag>
       <item>
         <p>Limits the number of decentralized counter groups used by
            decentralized counters optimized for update operations in the
@@ -864,11 +864,6 @@
           the number of schedulers configured. If both <c>+IOPt</c> and
           <c>+IOt</c> are used, <c>+IOPt</c> is ignored.
         </p>
-      </item>
-      <tag><c><![CDATA[+l]]></c></tag>
-      <item>
-        <p>Enables autoload tracing, displaying information while loading
-          code.</p>
       </item>
       <tag><c><![CDATA[+L]]></c></tag>
       <item>
