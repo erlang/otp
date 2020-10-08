@@ -601,22 +601,6 @@ void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
     a.hlt();
 }
 
-void BeamModuleAssembler::emit_i_make_fun(const ArgVal &Fun,
-                                          const ArgVal &NumFree) {
-    mov_arg(ARG4, NumFree);
-
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
-
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    make_move_patch(ARG3, lambdas[Fun.getValue()].patches);
-    runtime_call<4>(new_fun);
-
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
-
-    a.mov(getXRef(0), RET);
-}
-
 void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
                                            const ArgVal &Dst,
                                            const ArgVal &NumFree,

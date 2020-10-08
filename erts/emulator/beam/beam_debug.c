@@ -591,16 +591,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'I':
         case 'W':
 	    switch (op) {
-	    case op_i_make_fun_Ft:
-                if (*sign == 'F') {
-                    ErlFunEntry* fe = (ErlFunEntry *) *ap;
-                    ErtsCodeMFA* cmfa = erts_find_function_from_pc(fe->address);
-		    erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
-                               cmfa->function, cmfa->arity);
-                } else {
-                    erts_print(to, to_arg, "%d", *ap);
-                }
-                break;
 	    case op_i_bs_match_string_xfWW:
 	    case op_i_bs_match_string_yfWW:
                 if (ap - first_arg < 3) {

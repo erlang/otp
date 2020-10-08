@@ -1728,26 +1728,6 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
     return call_fun(p, arity, reg, args);
 }
 
-Eterm
-new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
-{
-    unsigned needed = ERL_FUN_SIZE + num_free;
-    ErlFunThing* funp;
-    int i;
-
-    if (HeapWordsLeft(p) <= needed) {
-	PROCESS_MAIN_CHK_LOCKS(p);
-	erts_garbage_collect(p, needed, reg, num_free);
-	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
-	PROCESS_MAIN_CHK_LOCKS(p);
-    }
-    funp = new_fun_thing(p, fe, num_free);
-    for (i = 0; i < num_free; i++) {
-        funp->env[i] = reg[i];
-    }
-    return make_fun(funp);
-}
-
 ErlFunThing*
 new_fun_thing(Process* p, ErlFunEntry* fe, int num_free)
 {
