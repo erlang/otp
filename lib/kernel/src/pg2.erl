@@ -155,9 +155,7 @@ get_closest_pid(Name) ->
     end.
 
 random_element(List) ->
-    X = abs(erlang:monotonic_time()
-		bxor erlang:unique_integer()),
-    lists:nth((X rem length(List)) + 1, List).
+    lists:nth(rand:uniform(length(List)), List).
 
 %%%
 %%% Callback functions from gen_server

@@ -504,18 +504,7 @@ gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
 %% gen_challenge() returns a "random" number
 %% ---------------------------------------------------------------
 gen_challenge() ->
-    A = erlang:phash2([erlang:node()]),
-    B = erlang:monotonic_time(),
-    C = erlang:unique_integer(),
-    {D,_}   = erlang:statistics(reductions),
-    {E,_}   = erlang:statistics(runtime),
-    {F,_}   = erlang:statistics(wall_clock),
-    {G,H,_} = erlang:statistics(garbage_collection),
-    %% A(8) B(16) C(16)
-    %% D(16),E(8), F(16) G(8) H(16)
-    ( ((A bsl 24) + (E bsl 16) + (G bsl 8) + F) bxor
-      (B + (C bsl 16)) bxor 
-      (D + (H bsl 16)) ) band 16#ffffffff.
+    rand:uniform(16#100000000) - 1.
 
 %%
 %% Get the cookies for a node from auth

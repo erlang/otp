@@ -375,9 +375,7 @@ check_cookie1([], Result) ->
 %% Creates a new, random cookie. 
    
 create_cookie(Name) ->
-    Seed = abs(erlang:monotonic_time()
-	       bxor erlang:unique_integer()),
-    Cookie = random_cookie(20, Seed, []),
+    Cookie = random_cookie(20, []),
     case file:open(Name, [write, raw]) of
 	{ok, File} ->
 	    R1 = file:write(File, Cookie),
@@ -399,12 +397,11 @@ create_cookie(Name) ->
 	       io_lib:format("Failed to create cookie file '~ts': ~p", [Name, Reason]))}
     end.
 
-random_cookie(0, _, Result) ->
+random_cookie(0, Result) ->
     Result;
-random_cookie(Count, X0, Result) ->
-    X = next_random(X0),
-    Letter = X*($Z-$A+1) div 16#1000000000 + $A,
-    random_cookie(Count-1, X, [Letter|Result]).
+random_cookie(Count, Result) ->
+    Letter = rand:uniform($Z-$A+1) - 1 + $A,
+    random_cookie(Count-1, [Letter|Result]).
 
 %% Returns suitable information for a new cookie.
 %%
@@ -422,11 +419,3 @@ make_info(Name) ->
 		{{1990, 1, 1}, {0, 0, 0}}
 	    end,
     #file_info{mode=8#400, atime=Midnight, mtime=Midnight, ctime=Midnight}.
-
-%% This RNG is from line 21 on page 102 in Knuth: The Art of Computer Programming,
-%% Volume II, Seminumerical Algorithms.
-%%
-%% Returns an integer in the range 0..(2^35-1).
-
-next_random(X) ->
-    (X*17059465+1) band 16#fffffffff.

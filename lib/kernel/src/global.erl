@@ -1766,9 +1766,7 @@ update_locker_known(Upd, S) ->
     S#multi{known = Known, the_boss = TheBoss}.
 
 random_element(L) ->
-    E = abs(erlang:monotonic_time()
-		bxor erlang:unique_integer()) rem length(L),
-    lists:nth(E+1, L).
+    lists:nth(rand:uniform(length(L)), L).
 
 exclude_known(Others, Known) ->
     [N || N <- Others, not lists:member(N#him.node, Known)].
