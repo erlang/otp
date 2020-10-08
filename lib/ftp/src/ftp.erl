@@ -1133,11 +1133,17 @@ handle_call({_, recv_chunk}, _From, #state{chunk = true,
                                                                        }
                                           } = State0) ->
     %% The ftp:recv_chunk call was the last event we waited for, finnish and clean up
-    ?DBG("recv_chunk_closing ftp:recv_chunk, last event",[]),
+    ?DBG("Data connection closed recv_chunk_closing ftp:recv_chunk, last event",[]),
     State = activate_ctrl_connection(State0),
     {reply, ok, State#state{caller = undefined,
                              chunk = false,
                              client = undefined}};
+handle_call({_, recv_chunk}, From, #state{chunk = true,
+                                          caller = #recv_chunk_closing{pos_compl_received = true
+                                                                      } = R
+                                         } = State0) ->
+    State = activate_data_connection(State0),
+    {reply, ok, State#state{client = From, caller = R#recv_chunk_closing{client_called_us=true}}};
 
 handle_call({_, recv_chunk}, From, #state{chunk = true,
                                           caller = #recv_chunk_closing{} = R
