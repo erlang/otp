@@ -293,7 +293,11 @@ mk_cmd({win32,Wtype}, Cmd) ->
     {Command, [], [], <<>>};
 mk_cmd(_,Cmd) ->
     %% Have to send command in like this in order to make sh commands like
-    %% cd and ulimit available
+    %% cd and ulimit available.
+    %%
+    %% We use an absolute path here because we do not want the path to be
+    %% searched in case a stale NFS handle is somewhere in the path before
+    %% the sh command.
     {"/bin/sh -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
