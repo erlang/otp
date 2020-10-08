@@ -289,7 +289,7 @@ check_agent({intAgentTransports = Tag, Transports}, #{port := Port} = State)
                          "~n      ~p", [CheckedAddress]),
                  {Domain, CheckedAddress, all, []};
 
-	     {Domain, Address, Kind} ->
+	     {Domain, Address, Kind} when is_atom(Kind) ->
                  ?vtrace("check_agent(intAgentTransports) -> check transport: "
                          "~n      Domain:  ~p"
                          "~n      Address: ~p"
@@ -301,6 +301,26 @@ check_agent({intAgentTransports = Tag, Transports}, #{port := Port} = State)
                          ?vtrace("check_agent(intAgentTransports) -> "
                                  "checked transport address"),
                          {Domain, Address, Kind, []};
+                     false ->
+                         ?vinfo("check_agent(intAgentTransports) -> "
+                                "invalid transport address: "
+                                "~n      ~p", [Address]),
+                         error({bad_transport_addr, Address})
+                 end;
+
+             {Domain, Address, Opts} when is_list(Opts) ->
+                 ?vtrace("check_agent(intAgentTransports) -> check transport: "
+                         "~n      Domain:  ~p"
+                         "~n      Address: ~p"
+                         "~n      Opts:    ~p", [Domain, Address, Opts]),
+                 CheckedOpts = snmp_conf:check_transport_opts(Opts),
+                 ?vtrace("check_agent(intAgentTransports) -> checked opts: "
+                         "~n      ~p", [CheckedOpts]),
+                 case snmp_conf:check_transport_address(Domain, Address) of
+                     true ->
+                         ?vtrace("check_agent(intAgentTransports) -> "
+                                 "checked transport address"),
+                         {Domain, Address, all, CheckedOpts};
                      false ->
                          ?vinfo("check_agent(intAgentTransports) -> "
                                 "invalid transport address: "
@@ -330,6 +350,7 @@ check_agent({intAgentTransports = Tag, Transports}, #{port := Port} = State)
                                 "~n      ~p", [Address]),
                          error({bad_transport_addr, Address})
                  end;
+
 	     _ ->
                  ?vinfo("check_agent(intAgentTransports) -> invalid transport:"
                         "~n      ~p", [Transport]),
