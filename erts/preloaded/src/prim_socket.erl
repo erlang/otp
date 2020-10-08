@@ -503,34 +503,9 @@ sendmsg(SockRef, SendRef, Msg, Flags) ->
 recv(SockRef, RecvRef, Length, Flags) ->
     try enc_msg_flags(Flags) of
         EFlags ->
-            recv_result(
-              nif_recv(SockRef, RecvRef, Length, EFlags),
-              Length)
+	    nif_recv(SockRef, RecvRef, Length, EFlags)
     catch throw : Reason ->
             {error, Reason}
-    end.
-
-recv_result(Result, Length) ->
-    case Result of
-        {ok, true, Bin} ->
-            {ok, Bin};
-        %%
-        {ok, false, Bin} ->
-            %% Depending on the number of bytes we tried to read:
-            if
-                Length =:= 0 ->
-                    %% 0 - Read everything available
-                    %% We got something, but there may be more
-                    %% - keep reading.
-                    {more, Bin};
-                true ->
-                    %% > 0 - We got a part of the message
-                    %% and we will be notified when there is more to read
-                    %% (a select message)
-                    {select, Bin}
-            end;
-        %%
-        _ -> Result
     end.
 
 recvfrom(SockRef, RecvRef, Length, Flags) ->
@@ -544,30 +519,16 @@ recvfrom(SockRef, RecvRef, Length, Flags) ->
 recvmsg(SockRef, RecvRef, BufSz, CtrlSz, Flags) ->
     try enc_msg_flags(Flags) of
         EFlags ->
-            recvmsg_result(
-              nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags))
+            case nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags) of
+		{ok, #{ctrl := []}} = Result ->
+		    Result;
+		{ok, #{ctrl := Cmsgs} = Msg} ->
+		    {ok, Msg#{ctrl := dec_cmsgs(Cmsgs, p_get(protocols))}};
+		Result ->
+		    Result
+	    end
     catch throw : Reason ->
             {error, Reason}
-    end.
-
-recvmsg_result(Result) ->
-    case Result of
-        {ok, #{ctrl := []}} ->
-            Result;
-        {ok, #{ctrl := Ctrl} = Msg} ->
-            Protocols = p_get(protocols),
-            {ok,
-             Msg#{
-               ctrl :=
-                   [case Protocols of
-                        #{Level := [L | _]}
-                          when is_integer(Level) ->
-                            CMsg#{level := L};
-                        #{} ->
-                            CMsg
-                    end || #{level := Level} = CMsg <- Ctrl]}};
-        Other ->
-            Other
     end.
 
 %% ----------------------------------
@@ -749,6 +710,7 @@ enc_path(Path) ->
             BinPath
     end.
 
+
 enc_msg_flags([]) ->
     0;
 enc_msg_flags(Flags) ->
@@ -789,20 +751,30 @@ enc_msg(#{iov := IOV} = M)
 enc_msg(M) ->
     error({invalid, {msg, M}}).
 
-enc_cmsgs([#{level := P} = Cmsg | Cmsgs], Protocols)
-  when is_atom(P) ->
-    case Protocols of
-        #{} when P =:= socket ->
-            [Cmsg | enc_cmsgs(Cmsgs, Protocols)];
-        #{P := N} ->
-            [Cmsg#{level := N} | enc_cmsgs(Cmsgs, Protocols)];
-        #{} ->
-            throw({invalid, {protocol, P}})
-    end;
-enc_cmsgs([Cmsg | Cmsgs], Protocols) ->
-    [Cmsg | enc_cmsgs(Cmsgs, Protocols)];
-enc_cmsgs([], _Protocols) ->
-    [].
+
+enc_cmsgs(Cmsgs, Protocols) ->
+    [if
+	 is_atom(Level) ->
+	     case Protocols of
+		 #{} when Level =:= socket ->
+		     Cmsg;
+		 #{Level := L} ->
+		     Cmsg#{level := L};
+		 #{} ->
+		     throw({invalid, {protocol, Level}})
+	     end;
+	 true ->
+	     Cmsg
+     end || #{level := Level} = Cmsg <- Cmsgs].
+
+
+dec_cmsgs(Cmsgs, Protocols) ->
+    [case Protocols of
+	 #{Level := [L | _]} when is_integer(Level) ->
+	     Cmsg#{level := L};
+	 #{} ->
+	     Cmsg
+     end || #{level := Level} = Cmsg <- Cmsgs].
 
 
 %% Common to setopt and getopt

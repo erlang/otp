@@ -12335,7 +12335,7 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
          * erlang term (no need for an explicit free).
          */
 
-        return esock_make_ok3(env, atom_true, MKBIN(env, bufP));
+        return esock_make_ok2(env, MKBIN(env, bufP));
 
     }
 
@@ -12353,7 +12353,7 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
             "we are done for now - read more\r\n",
             sockRef, descP->sock, (unsigned long)toRead) );
 
-    return esock_make_ok3(env, atom_false, MKBIN(env, bufP));
+    return MKT2(env, esock_atom_more, MKBIN(env, bufP));
 }
 #endif // #ifndef __WIN32__
 
@@ -12388,7 +12388,7 @@ ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
      */
     data = MKBIN(env, bufP);
 
-    return esock_make_ok3(env, atom_true, data);
+    return esock_make_ok2(env, data);
 }
 #endif // #ifndef __WIN32__
 
@@ -12642,7 +12642,7 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
            ("SOCKET", "recv_check_partial_done(%T) {%d} -> [%ld] done\r\n",
             sockRef, descP->sock, (long) read) );
 
-    return esock_make_ok3(env, atom_true, data);
+    return esock_make_ok2(env, data);
 }
 #endif // #ifndef __WIN32__
 
@@ -12661,16 +12661,13 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
                                      ERL_NIF_TERM     sockRef,
                                      ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM res, data;
+    ERL_NIF_TERM res;
     int          sres;
-
-    recv_init_current_reader(env, descP, recvRef);
-
-    data = MKBIN(env, bufP);
-    data = MKSBIN(env, data, 0, read);
 
     ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
                   &descP->readByteCnt, read);
+
+    recv_init_current_reader(env, descP, recvRef);
 
     /* SELECT for more data */
 
@@ -12683,9 +12680,12 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
                                  MKT2(env, atom_select_read,
                                       MKI(env, sres)));
     } else {
+        ERL_NIF_TERM data;
 
         descP->readState |= ESOCK_STATE_SELECTED;
-        res = esock_make_ok3(env, atom_false, data);
+	data = MKBIN(env, bufP);
+	data = MKSBIN(env, data, 0, read);
+	res = MKT2(env, atom_select, data);
     }
 
     /* This transfers "ownership" of the *allocated* binary to an

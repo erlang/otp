@@ -1700,22 +1700,6 @@ ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any)
 }
 
 
-/* Create an ok three (3) tuple in the form:
- *
- *         {ok, Val1, Val2}
- *
- * The second (Val1) and third (Val2) elements are already in
- * the form of an ERL_NIF_TERM so all we have to do is create
- * the tuple.
- */
-extern
-ERL_NIF_TERM esock_make_ok3(ErlNifEnv* env, ERL_NIF_TERM val1, ERL_NIF_TERM val2)
-{
-    return MKT3(env, esock_atom_ok, val1, val2);
-}
-
-
-
 /* Create an error two (2) tuple in the form:
  *
  *          {error, Reason}
