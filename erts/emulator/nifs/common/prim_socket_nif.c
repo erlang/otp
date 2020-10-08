@@ -1196,10 +1196,10 @@ static ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
                                                          ERL_NIF_TERM     sockRef,
                                                          ERL_NIF_TERM     opRef,
                                                          int              save_errno);
-static void esock_accept_accepting_other(ErlNifEnv*       env,
-                                         ESockDescriptor* descP,
-                                         ERL_NIF_TERM     ref,
-                                         ErlNifPid        caller);
+static ERL_NIF_TERM esock_accept_accepting_other(ErlNifEnv*       env,
+						 ESockDescriptor* descP,
+						 ERL_NIF_TERM     ref,
+						 ErlNifPid        caller);
 static ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
                                             ERL_NIF_TERM     sockRef,
@@ -5830,9 +5830,8 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
                     "esock_accept_accepting {%d} -> *not* current acceptor\r\n",
                     descP->sock) );
 
-            esock_accept_accepting_other(env, descP, accRef, caller);
-
-            return atom_select;
+            return
+	        esock_accept_accepting_other(env, descP, accRef, caller);
         }
     }
 }
@@ -6070,14 +6069,19 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
  * acceptor queue.
  */
 #ifndef __WIN32__
-void
+ERL_NIF_TERM
 esock_accept_accepting_other(ErlNifEnv*       env,
                              ESockDescriptor* descP,
                              ERL_NIF_TERM     ref,
                              ErlNifPid        caller)
 {
-    if (! acceptor_search4pid(env, descP, &caller)) // Ugh! (&caller)
+    if (! acceptor_search4pid(env, descP, &caller)) {
         acceptor_push(env, descP, caller, ref);
+	return atom_select;
+    } else {
+        /* Acceptor already in queue */
+        return esock_raise_invalid(env, atom_state);
+    }
 }
 #endif // #ifndef __WIN32__
 
