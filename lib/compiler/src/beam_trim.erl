@@ -230,8 +230,13 @@ create_map(Trim, Moves) ->
        (Any) -> Any
     end.
 
-remap([{'%',_}=I|Is], Map, Acc) ->
-    remap(Is, Map, [I|Acc]);
+remap([{'%',Comment}=I|Is], Map, Acc) ->
+    case Comment of
+        {var_info,Var,Type} ->
+            remap(Is, Map, [{'%',{var_info,Map(Var),Type}}|Acc]);
+        _ ->
+            remap(Is, Map, [I|Acc])
+    end;
 remap([{block,Bl0}|Is], Map, Acc) ->
     Bl = remap_block(Bl0, Map, []),
     remap(Is, Map, [{block,Bl}|Acc]);
@@ -413,7 +418,7 @@ frame_size([{kill,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
-frame_size([{make_fun3,_,_,_,_}|Is], Safe) ->
+frame_size([{make_fun3,_,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{get_map_elements,{f,L},_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
