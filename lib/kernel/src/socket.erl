@@ -555,7 +555,7 @@
                    data  := binary()}]),
 
            %% Received message flags
-           flags := [msg_flag()]
+           flags := [msg_flag() | integer()]
          }.
 
 
@@ -1284,7 +1284,7 @@ send(Socket, Data) ->
 -spec send(Socket, Data, Flags) -> 'ok' | {'error', Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Reason     :: {posix() | 'closed' | invalid(),
                      Remaining :: pos_integer()};
 
@@ -1340,7 +1340,7 @@ send(Socket, Data, Timeout) ->
                   {'error', Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       RestData   :: erlang:iovec(),
       SelectInfo :: select_info(),
       Reason     :: {posix() | 'closed' | invalid(),
@@ -1353,7 +1353,7 @@ send(Socket, Data, Timeout) ->
                   {'error', Reason} when
       Socket       :: socket(),
       Data         :: iodata(),
-      Flags        :: [msg_flag()],
+      Flags        :: [msg_flag() | integer()],
       RestData     :: erlang:iovec(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
@@ -1363,7 +1363,7 @@ send(Socket, Data, Timeout) ->
           (Socket, Data, Flags, Timeout) -> 'ok' | {'error', Reason} when
       Socket  :: socket(),
       Data    :: iodata(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: 'infinity',
       Reason  :: {posix() | 'closed' | invalid(),
                   RestData :: erlang:iovec()};
@@ -1371,7 +1371,7 @@ send(Socket, Data, Timeout) ->
           (Socket, Data, Flags, Timeout) -> 'ok' | {'error', Reason} when
       Socket  :: socket(),
       Data    :: iodata(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: non_neg_integer(),
       Reason  :: {posix() | 'closed' | invalid() | 'timeout',
                   RestData :: erlang:iovec()}.
@@ -1493,7 +1493,7 @@ sendto(Socket, Data, Dest) ->
       Socket :: socket(),
       Data   :: iodata(),
       Dest   :: sockaddr(),
-      Flags  :: [msg_flag()],
+      Flags  :: [msg_flag() | integer()],
       Reason :: {posix() | 'closed' | invalid(),
                      RestData :: erlang:iovec()};
 
@@ -1552,7 +1552,7 @@ sendto(Socket, Data, Dest, Timeout) ->
       Socket     :: socket(),
       Data       :: binary(),
       Dest       :: sockaddr(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       SelectInfo :: select_info(),
       Reason     :: {posix() | 'closed' | invalid(),
                      RestData :: erlang:iovec()};
@@ -1565,7 +1565,7 @@ sendto(Socket, Data, Dest, Timeout) ->
       Socket       :: socket(),
       Data         :: binary(),
       Dest         :: sockaddr(),
-      Flags        :: [msg_flag()],
+      Flags        :: [msg_flag() | integer()],
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
       Reason       :: {posix() | 'closed' | invalid(),
@@ -1576,7 +1576,7 @@ sendto(Socket, Data, Dest, Timeout) ->
       Socket     :: socket(),
       Data       :: binary(),
       Dest       :: sockaddr(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Timeout    :: 'infinity',
       Reason     :: {posix() | 'closed' | invalid(),
                      RestData :: erlang:iovec()};
@@ -1586,7 +1586,7 @@ sendto(Socket, Data, Dest, Timeout) ->
       Socket     :: socket(),
       Data       :: binary(),
       Dest       :: sockaddr(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Timeout    :: non_neg_integer(),
       Reason     :: {posix() | 'closed' | invalid() | 'timeout',
                      RestData :: erlang:iovec()}.
@@ -1645,7 +1645,7 @@ sendmsg(Socket, Msg) ->
                      {'error', Reason} when
       Socket :: socket(),
       Msg    :: msg_send(),
-      Flags  :: [msg_flag()],
+      Flags  :: [msg_flag() | integer()],
       Remaining  :: erlang:iovec(),
       Reason :: posix() | 'closed';
 
@@ -1705,7 +1705,7 @@ sendmsg(Socket, Msg, Timeout) ->
                      {'error', Reason} when
       Socket     :: socket(),
       Msg        :: msg_send(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Remaining  :: erlang:iovec(),
       SelectInfo :: select_info(),
       Reason     :: posix() | 'closed';
@@ -1717,7 +1717,7 @@ sendmsg(Socket, Msg, Timeout) ->
                      {'error', Reason} when
       Socket       :: socket(),
       Msg          :: msg_send(),
-      Flags        :: [msg_flag()],
+      Flags        :: [msg_flag() | integer()],
       Remaining    :: erlang:iovec(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
@@ -1729,7 +1729,7 @@ sendmsg(Socket, Msg, Timeout) ->
                      {'error', Reason} when
       Socket     :: socket(),
       Msg        :: msg_send(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Timeout    :: 'infinity',
       Remaining  :: erlang:iovec(),
       Reason     :: posix() | 'closed';
@@ -1740,7 +1740,7 @@ sendmsg(Socket, Msg, Timeout) ->
                      {'error', Reason} when
       Socket     :: socket(),
       Msg        :: msg_send(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Timeout    :: non_neg_integer(),
       Remaining  :: erlang:iovec(),
       Reason     :: posix() | 'closed' | 'timeout'.
@@ -1880,7 +1880,7 @@ recv(Socket, Length) ->
                   {'error', Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
-      Flags  :: [msg_flag()],
+      Flags  :: [msg_flag() | integer()],
       Data   :: binary(),
       Reason ::
         posix() | 'closed' | invalid() |
@@ -1947,7 +1947,7 @@ recv(Socket, Length, Timeout) ->
                   {'error', Reason} when
       Socket     :: socket(),
       Length     :: non_neg_integer(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Data       :: binary(),
       SelectInfo :: select_info(),
       Reason     ::
@@ -1961,7 +1961,7 @@ recv(Socket, Length, Timeout) ->
                   {'error', Reason} when
       Socket       :: socket(),
       Length       :: non_neg_integer(),
-      Flags        :: [msg_flag()],
+      Flags        :: [msg_flag() | integer()],
       Data         :: binary(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
@@ -1974,7 +1974,7 @@ recv(Socket, Length, Timeout) ->
                   {'error', Reason} when
       Socket  :: socket(),
       Length  :: non_neg_integer(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: 'infinity',
       Data    :: binary(),
       Reason  ::
@@ -1986,7 +1986,7 @@ recv(Socket, Length, Timeout) ->
                   {'error', Reason} when
       Socket  :: socket(),
       Length  :: non_neg_integer(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: non_neg_integer(),
       Data    :: binary(),
       Reason  ::
@@ -2163,7 +2163,7 @@ recvfrom(Socket, BufSz) ->
                       {'select', SelectInfo} |
                       {'error', Reason} when
       Socket     :: socket(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Source     :: sockaddr_recv(),
       Data       :: binary(),
       SelectInfo :: select_info(),
@@ -2174,7 +2174,7 @@ recvfrom(Socket, BufSz) ->
                       {'select', SelectInfo} |
                       {'error', Reason} when
       Socket       :: socket(),
-      Flags        :: [msg_flag()],
+      Flags        :: [msg_flag() | integer()],
       Source       :: sockaddr_recv(),
       Data         :: binary(),
       SelectInfo   :: select_info(),
@@ -2185,7 +2185,7 @@ recvfrom(Socket, BufSz) ->
                       {'ok', {Source, Data}} |
                       {'error', Reason} when
       Socket  :: socket(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: 'infinity',
       Source  :: sockaddr_recv(),
       Data    :: binary(),
@@ -2195,7 +2195,7 @@ recvfrom(Socket, BufSz) ->
                       {'ok', {Source, Data}} |
                       {'error', Reason} when
       Socket  :: socket(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: non_neg_integer(),
       Source  :: sockaddr_recv(),
       Data    :: binary(),
@@ -2205,7 +2205,7 @@ recvfrom(Socket, BufSz) ->
                       {'ok', {Source, Data}} | {'error', Reason} when
       Socket :: socket(),
       BufSz  :: non_neg_integer(),
-      Flags  :: [msg_flag()],
+      Flags  :: [msg_flag() | integer()],
       Source :: sockaddr_recv(),
       Data   :: binary(),
       Reason :: posix() | 'closed' | invalid();
@@ -2264,7 +2264,7 @@ recvfrom(Socket, BufSz, Timeout) ->
                       {'error', Reason} when
       Socket     :: socket(),
       BufSz      :: non_neg_integer(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Source     :: sockaddr_recv(),
       Data       :: binary(),
       SelectInfo :: select_info(),
@@ -2276,7 +2276,7 @@ recvfrom(Socket, BufSz, Timeout) ->
                       {'error', Reason} when
       Socket       :: socket(),
       BufSz        :: non_neg_integer(),
-      Flags        :: [msg_flag()],
+      Flags        :: [msg_flag() | integer()],
       Source       :: sockaddr_recv(),
       Data         :: binary(),
       SelectInfo   :: select_info(),
@@ -2288,7 +2288,7 @@ recvfrom(Socket, BufSz, Timeout) ->
                       {'error', Reason} when
       Socket  :: socket(),
       BufSz   :: non_neg_integer(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: 'infinity',
       Source  :: sockaddr_recv(),
       Data    :: binary(),
@@ -2299,7 +2299,7 @@ recvfrom(Socket, BufSz, Timeout) ->
                       {'error', Reason} when
       Socket  :: socket(),
       BufSz   :: non_neg_integer(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: non_neg_integer(),
       Source  :: sockaddr_recv(),
       Data    :: binary(),
@@ -2375,7 +2375,7 @@ recvmsg(Socket) ->
 
 -spec recvmsg(Socket, Flags) -> {'ok', Msg} | {'error', Reason} when
       Socket :: socket(),
-      Flags  :: [msg_flag()],
+      Flags  :: [msg_flag() | integer()],
       Msg    :: msg_recv(),
       Reason :: posix() | 'closed' | invalid();
 
@@ -2420,7 +2420,7 @@ recvmsg(Socket, Timeout) ->
                 {'select', SelectInfo} |
                 {'error', Reason} when
       Socket     :: socket(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Msg        :: msg_recv(),
       SelectInfo :: select_info(),
       Reason     :: posix() | 'closed' | invalid();
@@ -2430,7 +2430,7 @@ recvmsg(Socket, Timeout) ->
                 {'select', SelectInfo} |
                 {'error', Reason} when
       Socket       :: socket(),
-      Flags        :: [msg_flag()],
+      Flags        :: [msg_flag() | integer()],
       Msg          :: msg_recv(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
@@ -2438,14 +2438,14 @@ recvmsg(Socket, Timeout) ->
 
              (Socket, Flags, Timeout) -> {'ok', Msg} | {'error', Reason} when
       Socket  :: socket(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: 'infinity',
       Msg     :: msg_recv(),
       Reason  :: posix() | 'closed' | invalid();
 
              (Socket, Flags, Timeout) -> {'ok', Msg} | {'error', Reason} when
       Socket  :: socket(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: non_neg_integer(),
       Msg     :: msg_recv(),
       Reason  :: posix() | 'closed' | invalid() | 'timeout';
@@ -2471,7 +2471,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       Socket     :: socket(),
       BufSz      :: non_neg_integer(),
       CtrlSz     :: non_neg_integer(),
-      Flags      :: [msg_flag()],
+      Flags      :: [msg_flag() | integer()],
       Msg        :: msg_recv(),
       SelectInfo :: select_info(),
       Reason     :: posix() | 'closed' | invalid();
@@ -2483,7 +2483,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       Socket       :: socket(),
       BufSz        :: non_neg_integer(),
       CtrlSz       :: non_neg_integer(),
-      Flags        :: [msg_flag()],
+      Flags        :: [msg_flag() | integer()],
       Msg          :: msg_recv(),
       SelectInfo   :: select_info(),
       SelectHandle :: select_handle(),
@@ -2495,7 +2495,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       Socket  :: socket(),
       BufSz   :: non_neg_integer(),
       CtrlSz  :: non_neg_integer(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: 'infinity',
       Msg     :: msg_recv(),
       Reason  :: posix() | 'closed' | invalid();
@@ -2506,7 +2506,7 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       Socket  :: socket(),
       BufSz   :: non_neg_integer(),
       CtrlSz  :: non_neg_integer(),
-      Flags   :: [msg_flag()],
+      Flags   :: [msg_flag() | integer()],
       Timeout :: non_neg_integer(),
       Msg     :: msg_recv(),
       Reason  :: posix() | 'closed' | invalid() | 'timeout'.

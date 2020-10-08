@@ -14273,10 +14273,17 @@ void encode_msg_flags(ErlNifEnv*       env,
 
         for (n = 0;  n < NUM(msg_flags);  n++) {
             int f = msg_flags[n].flag;
-            if ((f != 0) && ((msgFlags & f) == f))
+            if ((f != 0) && ((msgFlags & f) == f)) {
+                msgFlags &= ~f;
                 TARRAY_ADD(ta, *(msg_flags[n].name));
+            }
+            if (msgFlags == 0) goto done;
         }
+        /* Append remaining flags as an integer */
+        if (msgFlags != 0)
+            TARRAY_ADD(ta, MKI(env, msgFlags));
 
+    done:
         SSDBG( descP,
                ("SOCKET", "encode_msg_flags {%d} -> flags processed when"
                 "\r\n   TArray size: %d"

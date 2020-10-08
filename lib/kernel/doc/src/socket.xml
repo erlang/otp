@@ -1109,6 +1109,8 @@
 	    Message flags.
 	    Corresponds to the <c>msg_flags</c>
 	    field of a <c>struct msghdr</c>.
+            Unknown flags, if any, are returned in one <c>integer()</c>,
+            last in the containing list.
 	  </item>
 	</taglist>
       </desc>
@@ -1808,11 +1810,17 @@
 	  For "all available" this means the first data
 	  chunk that arrives.
 	</p>
+        <p>
+          The message <c>Flags</c> may be symbolic
+          <seetype marker="#msg_flag"><c>msg_flag()</c></seetype>s and/or
+          <c>integer()</c>s, as in the platform's appropriate header files.
+          The values of all symbolic flags and integers are or:ed together.
+        </p>
 	<p>
 	  When there is a socket error this function returns
-	  <c>{error,&nbsp;<anno>Reason</anno>}</c>, or
-	  <c>{error,&nbsp;{<anno>Reason</anno>,&nbsp;<anno>Data</anno>}}</c>
-	  if some data had arrived.
+	  <c>{error,&nbsp;<anno>Reason</anno>}</c>,
+          or if some data arrived before the error;
+	  <c>{error,&nbsp;{<anno>Reason</anno>,&nbsp;<anno>Data</anno>}}</c>.
 	</p>
       </desc>
     </func>
@@ -1923,6 +1931,12 @@
 	  <seemfa marker="#recvfrom/1"><c>recvfrom/1,2,3</c></seemfa>
 	  call is needed, possibly with an adjusted buffer size.
 	</p>
+        <p>
+          The message <c>Flags</c> may be symbolic
+          <seetype marker="#msg_flag"><c>msg_flag()</c></seetype>s and/or
+          <c>integer()</c>s, as in the platform's appropriate header files.
+          The values of all symbolic flags and integers are or:ed together.
+        </p>
       </desc>
     </func>
 
@@ -2031,6 +2045,12 @@
 	  <seemfa marker="#recvmsg/1"><c>recvfrom/1,2,3,5</c></seemfa>
 	  call is needed, possibly with an adjusted buffer size.
 	</p>
+        <p>
+          The message <c>Flags</c> may be symbolic
+          <seetype marker="#msg_flag"><c>msg_flag()</c></seetype>s and/or
+          <c>integer()</c>s, as in the platform's appropriate header files.
+          The values of all symbolic flags and integers are or:ed together.
+        </p>
       </desc>
     </func>
 
@@ -2110,6 +2130,12 @@
 	  This call will not return until the data has been
 	  handed over to the platform's network layer.
 	</p>
+        <p>
+          The message <c>Flags</c> may be symbolic
+          <seetype marker="#msg_flag"><c>msg_flag()</c></seetype>s and/or
+          <c>integer()</c>s, as in the platform's appropriate header files.
+          The values of all symbolic flags and integers are or:ed together.
+        </p>
       </desc>
     </func>
 
@@ -2218,6 +2244,12 @@
 	  This call will not return until the data has been
 	  handed over to the platform's network layer.
 	</p>
+        <p>
+          The message <c>Flags</c> may be symbolic
+          <seetype marker="#msg_flag"><c>msg_flag()</c></seetype>s and/or
+          <c>integer()</c>s, as in the platform's appropriate header files.
+          The values of all symbolic flags and integers are or:ed together.
+        </p>
       </desc>
     </func>
 
@@ -2294,6 +2326,12 @@
 	  This call will not return until the data has been
 	  handed over to the platform's network layer.
 	</p>
+        <p>
+          The message <c>Flags</c> may be symbolic
+          <seetype marker="#msg_flag"><c>msg_flag()</c></seetype>s and/or
+          <c>integer()</c>s, as in the platform's appropriate header files.
+          The values of all symbolic flags and integers are or:ed together.
+        </p>
       </desc>
     </func>
 
