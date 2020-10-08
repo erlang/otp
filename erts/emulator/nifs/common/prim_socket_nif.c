@@ -9787,9 +9787,11 @@ ERL_NIF_TERM esock_getopt_otp_rcvbuf(ErlNifEnv*       env,
     }
 
     if (descP->rNum == 0) {
-        eVal = MKI(env, descP->rBufSz);
+        eVal = MKUL(env, (unsigned long) descP->rBufSz);
     } else {
-        eVal = MKT2(env, MKI(env, descP->rNum), MKI(env, descP->rBufSz));
+        eVal = MKT2(env,
+                    MKI(env, descP->rNum),
+                    MKUL(env, (unsigned long) descP->rBufSz));
     }
 
     SSDBG( descP,
@@ -9819,7 +9821,7 @@ ERL_NIF_TERM esock_getopt_otp_rcvctrlbuf(ErlNifEnv*       env,
         return esock_make_error(env, atom_closed);
     }
 
-    eVal = MKI(env, descP->rCtrlSz);
+    eVal = MKUL(env, (unsigned long) descP->rCtrlSz);
 
     SSDBG( descP,
            ("SOCKET", "esock_getopt_otp_rcvctrlbuf {%d} ->"
@@ -9848,7 +9850,7 @@ ERL_NIF_TERM esock_getopt_otp_sndctrlbuf(ErlNifEnv*       env,
         return esock_make_error(env, atom_closed);
     }
 
-    eVal = MKI(env, descP->wCtrlSz);
+    eVal = MKUL(env, (unsigned long) descP->wCtrlSz);
 
     SSDBG( descP,
            ("SOCKET", "esock_getopt_otp_sndctrlbuf {%d} ->"
