@@ -3782,46 +3782,36 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     ERL_NIF_TERM info;
+    ESockDescriptor* descP;
 
     SGDBG( ("SOCKET", "nif_info -> entry with %d args\r\n", argc) );
 
-    switch (argc) {
-    case 0:
-        info = esock_global_info(env);
-        break;
+    if (argc == 0)
+        return esock_global_info(env);
 
-    case 1:
-        {
-            ESockDescriptor* descP;
+    ESOCK_ASSERT( argc == 1 );
 
-            if (!ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
-                return enif_make_badarg(env);
-            }
-
-            MLOCK(descP->readMtx);
-            MLOCK(descP->writeMtx);
-
-            SSDBG( descP, ("SOCKET", "nif_info(%T) {%d,0x%X} -> get socket info\r\n",
-                           argv[0], descP->sock,
-                           descP->readState | descP->writeState) );
-
-            info = esock_socket_info(env, descP);
-
-            SSDBG( descP, ("SOCKET", "nif_info(%T) -> get socket info done with"
-                           "\r\n   info: %T"
-                           "\r\n", argv[0], info) );
-
-            MUNLOCK(descP->writeMtx);
-            MUNLOCK(descP->readMtx);
-        }
-        break;
-
-    default:
+    if (!ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
-    return info;
+    MLOCK(descP->readMtx);
+    MLOCK(descP->writeMtx);
 
+    SSDBG( descP, ("SOCKET", "nif_info(%T) {%d,0x%X} -> get socket info\r\n",
+		   argv[0], descP->sock,
+		   descP->readState | descP->writeState) );
+
+    info = esock_socket_info(env, descP);
+
+    SSDBG( descP, ("SOCKET", "nif_info(%T) -> get socket info done with"
+		   "\r\n   info: %T"
+		   "\r\n", argv[0], info) );
+
+    MUNLOCK(descP->writeMtx);
+    MUNLOCK(descP->readMtx);
+
+    return info;
 #endif
 }
 
@@ -4138,10 +4128,11 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
     ERL_NIF_TERM ecmd, ecdata, result;
     Uint16       cmd;
 
+    ESOCK_ASSERT( argc == 1 );
+
     SGDBG( ("SOCKET", "nif_command -> entry with %d args\r\n", argc) );
 
-    if ((argc != 1) ||
-        !IS_MAP(env,  argv[0])) {
+    if (! IS_MAP(env,  argv[0])) {
         return enif_make_badarg(env);
     }
     ecmd = argv[0];
@@ -4362,10 +4353,9 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
     if (argc == 0)
         return esock_supports_0(env);
 
-    if (argc == 1)
-        return esock_supports_1(env, argv[0]);
+    ESOCK_ASSERT( argc == 1 );
 
-    return enif_make_badarg(env);
+    return esock_supports_1(env, argv[0]);
 #endif
 }
 
@@ -4654,76 +4644,63 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
             "\r\n   argc: %d"
             "\r\n", argc) );
 
-    switch (argc) {
-    case 2:
-        /* The FD-version */
-        {
-            int          fd;
-            ERL_NIF_TERM eopts;
+    if (argc == 2) {
+        int          fd;
+	ERL_NIF_TERM eopts;
 
-            if (!GET_INT(env, argv[0], &fd) ||
-                !IS_MAP(env,  argv[1])) {
-                return enif_make_badarg(env);
-            }
-            eopts = argv[1];
+	if (!GET_INT(env, argv[0], &fd) ||
+	    !IS_MAP(env,  argv[1])) {
+	    return enif_make_badarg(env);
+	}
+	eopts = argv[1];
 
-            SGDBG( ("SOCKET", "nif_open -> "
-                    "\r\n   FD:    %d"
-                    "\r\n   eopts: %T"
-                    "\r\n", fd, eopts) );
+	SGDBG( ("SOCKET", "nif_open -> "
+		"\r\n   FD:    %d"
+		"\r\n   eopts: %T"
+		"\r\n", fd, eopts) );
 
-            MLOCK(data.cntMtx);
-            result = esock_open2(env, fd, eopts);
-            MUNLOCK(data.cntMtx);
-        }
-        break;
+	MLOCK(data.cntMtx);
+	result = esock_open2(env, fd, eopts);
+	MUNLOCK(data.cntMtx);
 
-    case 4:
-        /* The normal version */
-        {
-            ERL_NIF_TERM edomain, etype, eopts;
-            int          domain, type, proto;
+    } else {
+        ERL_NIF_TERM edomain, etype, eopts;
+	int          domain, type, proto;
 
-            /* Extract arguments and perform preliminary validation */
+	ESOCK_ASSERT( argc == 4 );
 
-            if (!GET_INT(env, argv[2], &proto) ||
-                !IS_MAP(env,  argv[3])) {
-                return enif_make_badarg(env);
-            }
-            edomain = argv[0];
-            etype = argv[1];
-            eopts  = argv[3];
+	/* Extract arguments and perform preliminary validation */
 
-            SGDBG( ("SOCKET", "nif_open -> "
-                    "\r\n   edomain: %T"
-                    "\r\n   etype:   %T"
-                    "\r\n   proto:   %T"
-                    "\r\n   eopts:   %T"
-                    "\r\n", argv[0], argv[1], argv[2], eopts) );
+	if (!GET_INT(env, argv[2], &proto) ||
+	    !IS_MAP(env,  argv[3])) {
+	    return enif_make_badarg(env);
+	}
+	edomain = argv[0];
+	etype = argv[1];
+	eopts  = argv[3];
 
-            if (! esock_decode_domain(env, edomain, &domain)) {
-                SGDBG( ("SOCKET",
-                        "nif_open -> invalid domain: %d\r\n", edomain) );
-                return esock_make_invalid(env, esock_atom_domain);
-            }
+	SGDBG( ("SOCKET", "nif_open -> "
+		"\r\n   edomain: %T"
+		"\r\n   etype:   %T"
+		"\r\n   proto:   %T"
+		"\r\n   eopts:   %T"
+		"\r\n", argv[0], argv[1], argv[2], eopts) );
 
-            if (! esock_decode_type(env, etype, &type)) {
-                SGDBG( ("SOCKET",
-                        "nif_open -> invalid type: %d\r\n", etype) );
-                return esock_make_invalid(env, esock_atom_type);
-            }
+	if (! esock_decode_domain(env, edomain, &domain)) {
+	    SGDBG( ("SOCKET",
+		    "nif_open -> invalid domain: %d\r\n", edomain) );
+	    return esock_make_invalid(env, esock_atom_domain);
+	}
 
-            MLOCK(data.cntMtx);
-            result = esock_open4(env, domain, type, proto, eopts);
-            MUNLOCK(data.cntMtx);
-        }
-        break;
+	if (! esock_decode_type(env, etype, &type)) {
+	    SGDBG( ("SOCKET",
+		    "nif_open -> invalid type: %d\r\n", etype) );
+	    return esock_make_invalid(env, esock_atom_type);
+	}
 
-    default:
-        SGDBG( ("SOCKET", "nif_open -> invalid number of arguments: %d"
-                "\r\n", argc) );
-        result = enif_make_badarg(env);
-        break;
+	MLOCK(data.cntMtx);
+	result = esock_open4(env, domain, type, proto, eopts);
+	MUNLOCK(data.cntMtx);
     }
 
     SGDBG( ("SOCKET", "nif_open -> done with result: "
@@ -5271,12 +5248,13 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
     ESockAddress     sockAddr;
     SOCKLEN_T       addrLen;
 
+    ESOCK_ASSERT( argc == 2 );
+
     SGDBG( ("SOCKET", "nif_bind -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 2) ||
-        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
     eSockAddr = argv[1];
@@ -5355,6 +5333,8 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
     ESockAddress     addr, *addrP;
     SOCKLEN_T        addrLen;
 
+    ESOCK_ASSERT( argc >= 1 );
+
     SGDBG( ("SOCKET", "nif_connect -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
@@ -5387,6 +5367,9 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
                 sockRef, descP->sock, descP->writeState,
                 connRef, eSockAddr) );
     } else {
+
+        ESOCK_ASSERT( argc == 1 );
+
         connRef = esock_atom_undefined;
         addrP = NULL;
         addrLen = 0;
@@ -5624,13 +5607,14 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
     int              backlog;
     ERL_NIF_TERM     ret;
 
+    ESOCK_ASSERT( argc == 2 );
+
     SGDBG( ("SOCKET", "nif_listen -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 2) ||
-        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP) ||
-        !GET_INT(env, argv[1], &backlog)) {
+    if ((! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) ||
+        (! GET_INT(env, argv[1], &backlog))) {
         return enif_make_badarg(env);
     }
 
@@ -5704,20 +5688,20 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
                         const ERL_NIF_TERM argv[])
 {
 #ifdef __WIN32__
-
     return enif_raise_exception(env, MKA(env, "notsup"));
-
 #else
+
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef, ref, res;
+
+    ESOCK_ASSERT( argc == 2 );
 
     SGDBG( ("SOCKET", "nif_accept -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
     sockRef = argv[0];
-    if ((argc != 2) ||
-        !ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
+    if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     ref = argv[1];
@@ -6239,13 +6223,14 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     int              flags;
     ERL_NIF_TERM     res;
 
+    ESOCK_ASSERT( argc == 4 );
+
     SGDBG( ("SOCKET", "nif_send -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 4) ||
-        !GET_BIN(env, argv[2], &sndData) ||
-        !GET_INT(env, argv[3], &flags)) {
+    if ((! GET_BIN(env, argv[2], &sndData)) ||
+        (! GET_INT(env, argv[3], &flags))) {
         SGDBG( ("SOCKET", "nif_send -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
@@ -6382,13 +6367,14 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     SOCKLEN_T        remoteAddrLen;
     ERL_NIF_TERM     res;
 
+    ESOCK_ASSERT( argc == 5 );
+
     SGDBG( ("SOCKET", "nif_sendto -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 5) ||
-        !GET_BIN(env, argv[2], &sndData) ||
-        !GET_INT(env, argv[4], &flags)) {
+    if ((! GET_BIN(env, argv[2], &sndData)) ||
+        (! GET_INT(env, argv[4], &flags))) {
         SGDBG( ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
@@ -6522,13 +6508,14 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
     ESockDescriptor* descP;
     int              flags;
 
+    ESOCK_ASSERT( argc == 4 );
+
     SGDBG( ("SOCKET", "nif_sendmsg -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 4) ||
-        !IS_MAP(env, argv[2]) ||
-        !GET_INT(env, argv[3], &flags)) {
+    if ((! IS_MAP(env, argv[2])) ||
+        (! GET_INT(env, argv[3], &flags))) {
         SGDBG( ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
@@ -6827,9 +6814,10 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     int              flags;
     ERL_NIF_TERM     res;
 
-    if ((argc != 4) ||
-        !GET_UINT64(env, argv[2], &elen) ||
-        !GET_INT(env, argv[3], &flags)) {
+    ESOCK_ASSERT( argc == 4 );
+
+    if ((! GET_UINT64(env, argv[2], &elen)) ||
+        (! GET_INT(env, argv[3], &flags))) {
         return enif_make_badarg(env);
     }
     len = (ssize_t) elen;
@@ -6990,13 +6978,14 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
     int              flags;
     ERL_NIF_TERM     res;
 
+    ESOCK_ASSERT( argc == 4 );
+
     SGDBG( ("SOCKET", "nif_recvfrom -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 4) ||
-        !GET_UINT64(env, argv[2], &elen) ||
-        !GET_INT(env, argv[3], &flags)) {
+    if ((! GET_UINT64(env, argv[2], &elen)) ||
+        (! GET_INT(env, argv[3], &flags))) {
         return enif_make_badarg(env);
     }
     len = (ssize_t) elen;
@@ -7165,14 +7154,15 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     int              flags;
     ERL_NIF_TERM     res;
 
+    ESOCK_ASSERT( argc == 5 );
+
     SGDBG( ("SOCKET", "nif_recvmsg -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 5) ||
-        !GET_UINT64(env, argv[2], &eBufSz) ||
-        !GET_UINT64(env, argv[3], &eCtrlSz) ||
-        !GET_INT(env, argv[4], &flags)) {
+    if ((! GET_UINT64(env, argv[2], &eBufSz)) ||
+        (! GET_UINT64(env, argv[3], &eCtrlSz)) ||
+        (! GET_INT(env, argv[4], &flags))) {
         return enif_make_badarg(env);
     }
     bufSz  = (ssize_t) eBufSz;
@@ -7353,10 +7343,11 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
     ESockDescriptor* descP;
     ERL_NIF_TERM res;
 
+    ESOCK_ASSERT( argc == 1 );
+
     SGDBG( ("SOCKET", "nif_close -> entry with argc: %d\r\n", argc) );
 
-    if ((argc != 1) ||
-        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -7626,8 +7617,9 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 1) ||
-        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+    ESOCK_ASSERT( argc == 1 );
+
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -7794,8 +7786,9 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
     ERL_NIF_TERM     ehow, res;
     int              how;
 
-    if ((argc != 2) ||
-        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+    ESOCK_ASSERT( argc == 2 );
+
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
     ehow = argv[1];
@@ -7877,12 +7870,13 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
     int              level, opt, nativeValue;
     ERL_NIF_TERM     eVal;
 
+    ESOCK_ASSERT( argc == 5 );
+
     SGDBG( ("SOCKET", "nif_setopt -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((! (argc == 5)) ||
-        (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) ||
+    if ((! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) ||
         (! GET_INT(env, argv[2], &opt)) ||
         (! GET_INT(env, argv[4], &nativeValue))) {
         //
@@ -9546,10 +9540,11 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     ESockDescriptor* descP;
     int              level, opt;
 
+    ESOCK_ASSERT( (argc == 3) || (argc == 4) );
+
     SGDBG( ("SOCKET", "nif_getopt -> entry with argc: %d\r\n", argc) );
 
-    if ((! (argc == 3 || argc == 4)) ||
-        (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) ||
+    if ((! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) ||
         (! GET_INT(env, argv[2], &opt))) {
         //
         SGDBG( ("SOCKET", "nif_getopt -> failed initial args check\r\n") );
@@ -10918,12 +10913,13 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
     ESockDescriptor* descP;
     ERL_NIF_TERM     res;
 
+    ESOCK_ASSERT( argc == 1 );
+
     SGDBG( ("SOCKET", "nif_sockname -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 1) ||
-        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -10995,12 +10991,13 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
     ESockDescriptor* descP;
     ERL_NIF_TERM     res;
 
+    ESOCK_ASSERT( argc == 1 );
+
     SGDBG( ("SOCKET", "nif_peername -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 1) ||
-        !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
         return enif_make_badarg(env);
     }
 
@@ -11072,13 +11069,14 @@ ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
     ESockDescriptor* descP;
     ERL_NIF_TERM     op, sockRef, opRef;
 
+    ESOCK_ASSERT( argc == 3 );
+
     SGDBG( ("SOCKET", "nif_cancel -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
     sockRef = argv[0];
-    if ((argc != 3) ||
-        !ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
+    if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     op    = argv[1];
