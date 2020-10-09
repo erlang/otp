@@ -49,8 +49,10 @@ gen(Defs) ->
     Replace = fun(C=#class{name=Name}, Dfs) ->
 		      lists:keyreplace(Name, #class.name, Dfs, C)
 	      end,
-    [gen_class(Class) || Class <- lists:foldl(Replace, Defs, Static)],
-    gen_funcnames().
+    All = lists:foldl(Replace, Defs, Static),
+    [gen_class(Class) || Class <- All],
+    gen_funcnames(),
+    gen_api_footprint(All).
 
 gen_class(Class) ->
     try
@@ -1323,6 +1325,57 @@ gen_funcnames() ->
     w("%% We define each id so we don't get huge diffs when adding new funcs/classes~n~n",[]),
     [w("-define(~s_~s, ~p).~n", [Class,Name,Id]) || {Class,Name,_,Id} <- Ns],
     close().
+
+gen_api_footprint(All) ->
+    %% To be able to diff content between old and new generators.
+    open_write("wx_28_api.dump"),
+    TF = fun TF (Type) ->
+                 try wx_gen:type_foot_print(Type) of
+                     {class, C} -> list_to_atom(C);
+                     {merged, MTs} -> [TF(MT) || {_, MT} <- MTs];
+                     T -> T
+                 catch _:R:ST ->
+                         case Type of
+                             void -> ok;
+                             {merged, _,T1,_, _,T2,_} ->
+                                 lists:sort([TF(T1),TF(T2)]);
+                             _ ->
+                                 io:format("ERROR: ~p~n  ~p~n",[R,ST]),
+                                 exit(R)
+                         end
+                 end
+         end,
+    Out = fun(T, []) -> TF(T);
+             (void, [#param{type=T}]) -> TF(T);
+             (void, Ps) -> list_to_tuple([TF(T) || #param{type=T} <- Ps]);
+             (T, Ps) -> list_to_tuple([TF(T)|[TF(Tp) || #param{type=Tp} <- Ps]])
+          end,
+    Methods = fun(CName, Parent, #method{name=N, alias=Alias, method_type=MType,where=W,type=Type0,params=Ps}) ->
+                      {Args0,Opts0} = split_optional(Ps),
+                      Type = Out(Type0, [P || P=#param{in=In} <- Ps,In =/= true]),
+                      Args = [TF(PT) || #param{type=PT} <- Args0],
+                      case W of
+                          merged_c ->
+                              ignore;
+                          erl_no_opt ->
+                              {CName, list_to_atom(erl_func_name(N,Alias)), Type, Args, [], W, Parent};
+                          _ ->
+                              Opts = lists:sort([{list_to_atom(erl_option_name(ON)), TF(OT)} ||
+                                                    #param{name=ON,type=OT} <- Opts0]),
+                              {CName, list_to_atom(erl_func_name(N,Alias)), Type, Args, Opts, W, Parent}
+                      end
+              end,
+    Class = fun(#class{name=CName0,parent=Parent,methods=Ms0,options=Opts}) ->
+                    CName = case Parent of
+                                "static" -> "wx_misc";
+                                _ -> CName0
+                            end,
+                    [Methods(list_to_atom(CName), list_to_atom(Parent), M) || Ms <- Ms0, M <-Ms]
+            end,
+    Sorted = lists:sort(lists:append([Class(C) || C <- All])),
+    [w("~0p.~n", [E]) || E <- Sorted, E /= ignore],
+    close().
+
 
 get_unique_name(ID) when is_integer(ID) ->
     Tree =  get(unique_names),
