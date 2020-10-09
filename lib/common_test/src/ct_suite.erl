@@ -8,27 +8,25 @@
               ct_config/0,
               ct_status/0,
               ct_group_props/0,
-              ct_groupdef/0,
+              ct_groups_def/0,
               ct_subgroups/0,
-              ct_groupref/0
+              ct_group_ref/0,
              ]).
 
 -type ct_testname() :: atom().
 -type ct_groupname() :: atom().
--type ct_config() :: [{atom(), term()}].
+-type ct_config() :: [{Key :: atom(), Value :: term()}].
 -type ct_status() :: ok |
             skipped |
             failed.
 -type ct_group_props() :: [
                 parallel |
                 sequence |
-                ct_shuffle() |
+                shuffle |
+                {shuffle, Seed :: {integer(), integer(), integer()}} |
                 {ct_group_repeat_type(), ct_test_repeat()}
             ] |
             default.
--type ct_shuffle() :: shuffle |
-            {shuffle, ct_shuffle_seed()}.
--type ct_shuffle_seed() :: {integer(), integer(), integer()}.
 -type ct_group_repeat_type() :: repeat |
             repeat_until_all_ok |
             repeat_until_all_fail |
@@ -36,86 +34,87 @@
             repeat_until_any_fail.
 -type ct_test_repeat() :: integer() |
             forever.
--type ct_groupdef() :: {ct_groupname(), ct_group_props(), [
+-type ct_groups_def() :: {ct_groupname(), ct_group_props(), [
                 ct_testname() |
-                ct_groupdef() |
+                ct_groups_def() |
                 {group, ct_groupname()} |
                 ct_testcase_ref()
             ]}.
--type ct_subgroups() :: {ct_groupname(), ct_group_props()} |
-            {ct_groupname(), ct_group_props(), ct_subgroups()}.
--type ct_groupref() :: {group, ct_groupname()} |
+-type ct_subgroups_def() :: {ct_groupname(), ct_group_props()} |
+            {ct_groupname(), ct_group_props(), ct_subgroups_def()}.
+-type ct_group_ref() :: {group, ct_groupname()} |
             {group, ct_groupname(), ct_group_props()} |
-            {group, ct_groupname(), ct_group_props(), ct_subgroups()}.
+            {group, ct_groupname(), ct_group_props(), ct_subgroups_def()}.
 -type ct_testcase_ref() :: {testcase, ct_testname(), ct_testcase_repeat_props()}.
 -type ct_testcase_repeat_props() :: {repeat, ct_test_repeat()} |
             {repeat_until_ok, ct_test_repeat()} |
             {repeat_until_fail, ct_test_repeat()}.
--type ct_group_info() :: {timetrap, ct_group_info_timetrap()} |
-            {require, ct_group_info_required()} |
-            {require, Name :: atom(), ct_group_info_required()} |
+-type ct_info() :: {timetrap, ct_info_timetrap()} |
+            {require, ct_info_required()} |
+            {require, Name :: atom(), ct_info_required()} |
             {userdata, UserData :: term()} |
             {silent_connections, Conns :: [atom()]} |
             {stylesheet, CSSFile :: string()} |
             {ct_hooks, CTHs :: ct_hooks()}.
--type ct_group_info_timetrap() :: MilliSec :: integer() |
+-type ct_info_timetrap() :: MilliSec :: integer() |
             {seconds, integer()} |
             {minutes, integer()} |
             {hours, integer()} |
             {Mod :: module(), Func :: atom(), Args :: list()} |
-            ct_group_info_timetrap_fun().
--type ct_group_info_timetrap_fun() :: fun().
--type ct_group_info_required() :: Key :: atom() |
-            {Key :: atom(), SubKeys :: ct_group_info_required_subkeys()} |
+            ct_info_timetrap_fun().
+-type ct_info_timetrap_fun() :: fun().
+-type ct_info_required() :: Key :: atom() |
+            {Key :: atom(), SubKeys :: ct_info_required_subkeys()} |
             {Key :: atom(), Subkey :: atom()} |
-            {Key :: atom(), Subkey :: atom(), SubKeys :: ct_group_info_required_subkeys()}.
--type ct_group_info_required_subkeys() :: SubKey :: atom() |
+            {Key :: atom(), Subkey :: atom(), SubKeys :: ct_info_required_subkeys()}.
+-type ct_info_required_subkeys() :: SubKey :: atom() |
             [SubKey :: atom()].
 -type ct_hooks() :: [
                 CTHModule :: atom() |
                 {CTHModule :: atom(), CTHInitArgs :: term()} |
                 {CTHModule :: atom(), CTHInitArgs :: term(), CTHPriority :: term()}
             ].
+-type ct_tests_def() :: ct_testname() | ct_group_ref() | ct_testcase_ref().
 
 -callback all() ->
-    [ct_testname() | ct_groupref() | ct_testcase_ref()] |
+    Tests :: [ct_tests_def()] |
     {skip, Reason :: term()}.
 
 -callback groups() ->
-    [ct_groupdef()].
+    GroupDefs :: [ct_groups_def()].
 
 -callback suite() ->
-    [ct_group_info()].
+    Info :: [ct_info()].
 
--callback init_per_suite(ct_config()) ->
+-callback init_per_suite(Config :: ct_config()) ->
     NewConfig :: ct_config() |
     {skip, Reason :: term()} |
-    {skip_and_save, Reason :: term(), ct_config()}.
+    {skip_and_save, Reason :: term(), SaveConfig :: ct_config()}.
 
--callback end_per_suite(ct_config()) ->
+-callback end_per_suite(Config :: ct_config()) ->
     term() |
-    {save_config, ct_config()}.
+    {save_config, SaveConfig :: ct_config()}.
 
--callback group(ct_groupname()) ->
-    [ct_group_info()].
+-callback group(GroupName :: ct_groupname()) ->
+    [Info :: ct_info()].
 
--callback init_per_group(ct_groupname(), ct_config()) ->
+-callback init_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
     NewConfig :: ct_config() |
     {skip, Reason :: term()}.
 
--callback end_per_group(ct_groupname(), ct_config()) ->
+-callback end_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
     term() |
-    {return_group_result, ct_status()}.
+    {return_group_result, Status :: ct_status()}.
 
--callback init_per_testcase(ct_testname(), ct_config()) ->
+-callback init_per_testcase(TestCase :: ct_testname(), Config :: ct_config()) ->
     NewConfig :: ct_config() |
     {fail, Reason :: term()} |
     {skip, Reason :: term()}.
 
--callback end_per_testcase(ct_testname(), ct_config()) ->
+-callback end_per_testcase(TestCase :: ct_testname(), Config :: ct_config()) ->
     term() |
     {fail, Reason :: term()} |
-    {save_config, ct_config()}.
+    {save_config, SaveConfig :: ct_config()}.
 
 %% only all/0 is mandatory
 -optional_callbacks([groups/0,
