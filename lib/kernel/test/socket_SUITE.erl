@@ -2721,8 +2721,8 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                                   socket:sendmsg(Sock, Msg)
                           end,
                    Recv = fun(Sock) ->
-                                  %% We have some issues on old darwing...
-                                  %% socket:setopt(Sock, otp, debug, true),
+                                  %% We have some issues on old darwin...
+                                  %% ok = socket:setopt(Sock, {otp,debug}, true),
                                   case socket:recvmsg(Sock) of
                                       {ok, #{addr  := Source,
                                              iov   := [Data]}} ->

@@ -148,28 +148,27 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
 
 extern
 void esock_encode_iov(ErlNifEnv*    env,
-                      int           read,
+                      ssize_t       read,
                       struct iovec* iov,
                       size_t        len,
                       ErlNifBinary* data,
                       ERL_NIF_TERM* eIOV)
 {
-    int          rem = read;
-    Uint16       i;
-    BOOLEAN_T    done = FALSE;
+    ssize_t      rem = read;
+    size_t       i;
     ERL_NIF_TERM a[len]; // At most this length
 
     UDBG( ("SUTIL", "esock_encode_iov -> entry with"
-           "\r\n   read:      %d"
-           "\r\n   (IOV) len: %d"
-           "\r\n", read, len) );
+           "\r\n   read:      %ld"
+           "\r\n   (IOV) len: %lu"
+           "\r\n", (long) read, (unsigned long) len) );
 
     if (len == 0) {
         *eIOV = MKEL(env);
         return;
     }
 
-    for (i = 0; (!done) && (i < len); i++) {
+    for (i = 0;  i < len;  i++) {
         UDBG( ("SUTIL", "esock_encode_iov -> process iov:"
                "\r\n   iov[%d].iov_len: %d"
                "\r\n   rem:            %d"
@@ -179,7 +178,8 @@ void esock_encode_iov(ErlNifEnv*    env,
             UDBG( ("SUTIL", "esock_encode_iov -> exact => done\r\n") );
             a[i] = MKBIN(env, &data[i]);
             rem  = 0; // Besserwisser
-            done = TRUE;
+            i++;
+            break;
         } else if (iov[i].iov_len < rem) {
             /* Filled another buffer - continue */
             UDBG( ("SUTIL", "esock_encode_iov -> filled => continue\r\n") );
@@ -192,7 +192,8 @@ void esock_encode_iov(ErlNifEnv*    env,
             tmp  = MKBIN(env, &data[i]);
             a[i] = MKSBIN(env, tmp, 0, rem);
             rem  = 0; // Besserwisser
-            done = TRUE;
+            i++;
+            break;
         }
     }
 
@@ -237,15 +238,22 @@ BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
                "\r\n   rem:            %d"
                "\r\n", i) );
 
-        if (!GET_LIST_ELEM(env, list, &elem, &tail))
-            return FALSE;
+        ESOCK_ASSERT( GET_LIST_ELEM(env, list, &elem, &tail) );
+        // We have already tested that it is a proper list
 
         if (IS_BIN(env, elem) && GET_BIN(env, elem, &bufs[i])) {
+            ssize_t z;
+
             iov[i].iov_base  = (caddr_t) bufs[i].data;
             iov[i].iov_len   = bufs[i].size;
-            sz              += bufs[i].size;
+
+            z = sz;
+            sz += bufs[i].size;
+            /* Check that + did not overflow */
+            if (sz < z)
+                return FALSE; // Too much data in iov
         } else {
-            return FALSE;
+            return FALSE; // Not a binary - not an iov
         }
 
         list = tail;

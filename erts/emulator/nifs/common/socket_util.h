@@ -58,7 +58,7 @@ BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
                            ssize_t*      totSize);
 extern
 void esock_encode_iov(ErlNifEnv*    env,
-                      int           read,
+                      ssize_t       read,
                       struct iovec* iov,
                       size_t        len,
                       ErlNifBinary* data,
