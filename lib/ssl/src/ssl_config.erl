@@ -54,7 +54,7 @@ init_manager_name(true) ->
 init_certificates(#{cacerts := CaCerts,
                     cacertfile := CACertFile,
                     certfile := CertFile,
-                    cert := Cert,
+                    cert := OwnCerts,
                     crl_cache := CRLCache
                    }, Role) ->
     {ok, Config} =
@@ -70,31 +70,31 @@ init_certificates(#{cacerts := CaCerts,
 	    _:Reason ->
 		file_error(CACertFile, {cacertfile, Reason})
 	end,
-    init_certificates(Cert, Config, CertFile, Role).
+    init_certificates(OwnCerts, Config, CertFile, Role).
 
 init_certificates(undefined, Config, <<>>, _) ->
-    {ok, Config#{own_certificate => undefined}};
+    {ok, Config#{own_certificates => undefined}};
 
 init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, client) ->
     try 
-	%% Ignoring potential proxy-certificates see: 
-	%% http://dev.globus.org/wiki/Security/ProxyFileFormat
-	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCache),
-	{ok, Config#{own_certificate => OwnCert}}
+        %% OwnCert | [OwnCert | Chain]
+	OwnCerts = ssl_certificate:file_to_certificats(CertFile, PemCache),
+	{ok, Config#{own_certificates => OwnCerts}}
     catch _Error:_Reason  ->
-	    {ok, Config#{own_certificate => undefined}}
+	    {ok, Config#{own_certificates => undefined}}
     end; 
 
 init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, server) ->
     try
-	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCache),
-	{ok, Config#{own_certificate => OwnCert}}
+        %% OwnCert | [OwnCert | Chain]
+	OwnCerts = ssl_certificate:file_to_certificats(CertFile, PemCache),
+	{ok, Config#{own_certificates => OwnCerts}}
     catch
 	_:Reason ->
 	    file_error(CertFile, {certfile, Reason})	    
     end;
-init_certificates(Cert, Config, _, _) ->
-    {ok, Config#{own_certificate => Cert}}.
+init_certificates(OwnCerts, Config, _, _) ->
+    {ok, Config#{own_certificates => OwnCerts}}.
 init_private_key(_, #{algorithm := Alg} = Key, _, _Password, _Client) when Alg == ecdsa;
                                                                            Alg == rsa;
                                                                            Alg == dss ->

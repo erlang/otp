@@ -117,8 +117,8 @@ do_client_select_session({Host, Port, #{reuse_session := SessionId}}, Cache, Cac
 	    Session
     end;
 do_client_select_session(ClientInfo, 
-                      Cache, CacheCb, #session{own_certificate = OwnCert} = NewSession) ->
-    case select_session(ClientInfo, Cache, CacheCb, OwnCert) of
+                      Cache, CacheCb, #session{own_certificates = OwnCerts} = NewSession) ->
+    case select_session(ClientInfo, Cache, CacheCb, OwnCerts) of
         no_session ->
             NewSession#session{session_id = <<>>};
         Session ->
@@ -128,18 +128,18 @@ do_client_select_session(ClientInfo,
 select_session({_, _, #{reuse_sessions := Reuse}}, _Cache, _CacheCb, _OwnCert) when Reuse =/= true ->
     %% If reuse_sessions == false | save a new session should be created
     no_session;
-select_session({HostIP, Port, SslOpts}, Cache, CacheCb, OwnCert) ->
+select_session({HostIP, Port, SslOpts}, Cache, CacheCb, OwnCerts) ->
     Sessions = CacheCb:select_session(Cache, {HostIP, Port}),
-    select_session(Sessions, SslOpts, OwnCert).
+    select_session(Sessions, SslOpts, OwnCerts).
 
 select_session([], _, _) ->
     no_session;
-select_session(Sessions, #{ciphers := Ciphers}, OwnCert) ->
+select_session(Sessions, #{ciphers := Ciphers}, OwnCerts) ->
     IsNotResumable =
 	fun(Session) ->
 		not (resumable(Session#session.is_resumable) andalso
 		     lists:member(Session#session.cipher_suite, Ciphers)
-		     andalso (OwnCert == Session#session.own_certificate))
+		     andalso (OwnCerts == Session#session.own_certificates))
  	end,
     case lists:dropwhile(IsNotResumable, Sessions) of
 	[] ->   no_session;
@@ -151,7 +151,7 @@ is_resumable(_, _, #{reuse_sessions := false}, _) ->
 is_resumable(SuggestedSessionId, SessIdTracker, #{reuse_session := ReuseFun} = Options, OwnCert) ->
     case ssl_server_session_cache:reuse_session(SessIdTracker, SuggestedSessionId) of
 	#session{cipher_suite = CipherSuite,
-		 own_certificate = SessionOwnCert,
+                 own_certificates =  [SessionOwnCert | _],
 		 compression_method = Compression,
 		 is_resumable = IsResumable,
 		 peer_certificate = PeerCert} = Session ->

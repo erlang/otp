@@ -81,6 +81,7 @@
 	]).
 
 -export([get_cert_params/1,
+         select_own_cert/1,
          server_name/3,
          validation_fun_and_state/4,
          path_validation_alert/1]).
@@ -129,26 +130,29 @@ server_hello_done() ->
 %%
 %% Description: Creates a certificate message.
 %%--------------------------------------------------------------------
-certificate(OwnCert, CertDbHandle, CertDbRef, client) ->
+certificate(undefined, _, _, client) ->
+    %% If no suitable certificate is available, the client
+    %% SHOULD send a certificate message containing no
+    %% certificates. (chapter 7.4.6. RFC 4346)
+    #certificate{asn1_certificates = []};
+certificate([OwnCert], CertDbHandle, CertDbRef, client) ->
     Chain =
 	case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
 	    {ok, _,  CertChain} ->
 		CertChain;
 	    {error, _} ->
-		%% If no suitable certificate is available, the client
-		%% SHOULD send a certificate message containing no
-		%% certificates. (chapter 7.4.6. RFC 4346)
-		[]
-	end,
+                certificate(undefined, CertDbHandle, CertDbRef, client)
+        end,
     #certificate{asn1_certificates = Chain};
-
-certificate(OwnCert, CertDbHandle, CertDbRef, server) ->
+certificate([OwnCert], CertDbHandle, CertDbRef, server) ->
     case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
 	{ok, _, Chain} ->
 	    #certificate{asn1_certificates = Chain};
 	{error, Error} ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {server_has_no_suitable_certificates, Error})
-    end.
+    end;
+certificate([_, _ |_] = Chain, _, _, _) ->
+    #certificate{asn1_certificates = Chain}.
 
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
@@ -162,7 +166,7 @@ client_certificate_verify(undefined, _, _, _, _, _) ->
     ignore;
 client_certificate_verify(_, _, _, _, undefined, _) ->
     ignore;
-client_certificate_verify(OwnCert, MasterSecret, Version,
+client_certificate_verify([OwnCert|_], MasterSecret, Version,
 			  {HashAlgo, SignAlgo},
 			  PrivateKey, {Handshake, _}) ->
     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
@@ -1619,6 +1623,11 @@ get_cert_params(Cert) ->
                 undefined
         end,
     {SignAlgo, Param, PublicKeyAlgo, RSAKeySize}.
+
+select_own_cert([OwnCert| _]) ->
+    OwnCert;
+select_own_cert(undefined) ->
+    undefined.
 
 get_signature_scheme(undefined) ->
     undefined;

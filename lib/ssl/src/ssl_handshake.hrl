@@ -40,7 +40,7 @@
 -record(session, {
 	  session_id,
 	  peer_certificate,
-	  own_certificate,
+	  own_certificates,
 	  compression_method,
 	  cipher_suite,
 	  master_secret,

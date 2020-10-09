@@ -515,14 +515,14 @@ exists_equivalent(_, []) ->
     false;
 exists_equivalent(#session{
 		     peer_certificate = PeerCert,
-		     own_certificate = OwnCert,
+		     own_certificates = [OwnCert | _],
 		     compression_method = Compress,
 		     cipher_suite = CipherSuite,
 		     srp_username = SRP,
 		     ecc = ECC} , 
 		  [#session{
 		      peer_certificate = PeerCert,
-		      own_certificate = OwnCert,
+		      own_certificates = [OwnCert | _],
 		      compression_method = Compress,
 		      cipher_suite = CipherSuite,
 		      srp_username = SRP,

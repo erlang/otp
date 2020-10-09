@@ -325,28 +325,29 @@ handle_client_hello(Version,
                       signature_algs := SupportedHashSigns,
                       eccs := SupportedECCs,
                       honor_ecc_order := ECCOrder} = SslOpts,
-		    {SessIdTracker, Session0, ConnectionStates0, Cert, _},
+		    {SessIdTracker, Session0, ConnectionStates0, OwnCerts, _},
                     Renegotiation) ->
+    OwnCert = ssl_handshake:select_own_cert(OwnCerts),
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
             ClientSignatureSchemes = maps:get(signature_algs_cert, HelloExt, undefined),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
-				   ClientHashSigns, SupportedHashSigns, Cert, Version),
+				   ClientHashSigns, SupportedHashSigns, OwnCert, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
                                                AvailableHashSigns, Compressions,
 					       SessIdTracker, Session0#session{ecc = ECCCurve},
-                                               Version, SslOpts, Cert),
+                                               Version, SslOpts, OwnCert),
 	    case CipherSuite of 
 		no_suite ->
                     ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_ciphers);
 		_ ->
 		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
 		    case ssl_handshake:select_hashsign({ClientHashSigns, ClientSignatureSchemes},
-                                                       Cert, KeyExAlg,
+                                                       OwnCert, KeyExAlg,
                                                        SupportedHashSigns,
                                                        Version) of
 			#alert{} = Alert ->
