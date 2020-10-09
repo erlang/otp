@@ -77,33 +77,45 @@
                 {CTHModule :: atom(), CTHInitArgs :: term(), CTHPriority :: term()}
             ].
 
--callback all() -> [ct_testname() | ct_groupref() | ct_testcase_ref()]
-                 | {skip, Reason::term()}.
+-callback all() ->
+    [ct_testname() | ct_groupref() | ct_testcase_ref()] |
+    {skip, Reason::term()}.
 
--callback groups() -> [ct_groupdef()].
+-callback groups() ->
+    [ct_groupdef()].
 
--callback suite() -> [ct_group_info()].
+-callback suite() ->
+    [ct_group_info()].
 
 -callback init_per_suite(ct_config()) ->
-  NewConfig::ct_config() | {skip,Reason::term()}
-    | {skip_and_save,Reason::term(),ct_config()}.
+    NewConfig::ct_config() |
+    {skip,Reason::term()} |
+    {skip_and_save,Reason::term(),ct_config()}.
 
 -callback end_per_suite(ct_config()) ->
-  term() | {save_config,ct_config()}.
+    term() |
+    {save_config,ct_config()}.
 
--callback group(ct_groupname()) -> [ct_group_info()].
+-callback group(ct_groupname()) ->
+    [ct_group_info()].
 
 -callback init_per_group(ct_groupname(), ct_config()) ->
-  NewConfig::ct_config() | {skip,Reason::term()}.
+    NewConfig::ct_config() |
+    {skip,Reason::term()}.
 
 -callback end_per_group(ct_groupname(), ct_config()) ->
-  term() | {return_group_result, ct_status()}.
+    term() |
+    {return_group_result, ct_status()}.
 
 -callback init_per_testcase(ct_testname(), ct_config()) ->
-  NewConfig::ct_config() | {fail,Reason::term()} | {skip,Reason::term()}.
+    NewConfig::ct_config() |
+    {fail,Reason::term()} |
+    {skip,Reason::term()}.
 
 -callback end_per_testcase(ct_testname(), ct_config()) ->
-  term() | {fail,Reason::term()} | {save_config,ct_config()}.
+    term() |
+    {fail,Reason::term()} |
+    {save_config,ct_config()}.
 
 %% only all/0 is mandatory
 -optional_callbacks([groups/0,
