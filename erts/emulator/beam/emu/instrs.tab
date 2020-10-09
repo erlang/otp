@@ -540,12 +540,6 @@ init3(Y1, Y2, Y3) {
     make_blank($Y3);
 }
 
-i_make_fun(FunP, NumFree) {
-    HEAVY_SWAPOUT;
-    x(0) = new_fun(c_p, reg, (ErlFunEntry *) $FunP, $NumFree);
-    HEAVY_SWAPIN;
-}
-
 i_make_fun3(FunP, Dst, NumFree) {
     ErlFunThing* funp;
     int i, num_free = $NumFree;

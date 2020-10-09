@@ -591,16 +591,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'I':
         case 'W':
 	    switch (op) {
-	    case op_i_make_fun_Ft:
-                if (*sign == 'F') {
-                    ErlFunEntry* fe = (ErlFunEntry *) *ap;
-                    ErtsCodeMFA* cmfa = erts_find_function_from_pc(fe->address);
-		    erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
-                               cmfa->function, cmfa->arity);
-                } else {
-                    erts_print(to, to_arg, "%d", *ap);
-                }
-                break;
 	    case op_i_bs_match_string_xfWW:
 	    case op_i_bs_match_string_yfWW:
                 if (ap - first_arg < 3) {
@@ -674,6 +664,13 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	    break;
 	case 'F':		/* Function definition */
+	    {
+		ErlFunEntry* fe = (ErlFunEntry *) *ap;
+		ErtsCodeMFA* cmfa = erts_find_function_from_pc(fe->address);
+		erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
+			   cmfa->function, cmfa->arity);
+		ap++;
+	    }
 	    break;
 	case 'b':
 	    print_bif_name(to, to_arg, (BifFunction) *ap);
@@ -871,6 +868,26 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 			erts_print(to, to_arg, " `%T`", (Eterm) ap[0]);
 			break;
 		    }
+		}
+		ap++, size++, n--;
+	    }
+	}
+	break;
+    case op_i_make_fun3_Fdt:
+	{
+	    int n = unpacked[-1];
+
+	    while (n > 0) {
+		switch (loader_tag(ap[0])) {
+		case LOADER_X_REG:
+		    erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
+		    break;
+		case LOADER_Y_REG:
+		    erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]) - CP_SIZE);
+		    break;
+		default:
+		    erts_print(to, to_arg, " `%T`", (Eterm) ap[0]);
+		    break;
 		}
 		ap++, size++, n--;
 	    }
