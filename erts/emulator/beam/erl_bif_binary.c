@@ -2467,8 +2467,10 @@ static BIF_RETTYPE binary_secure_compare(Process *p, Eterm bin1, Eterm bin2)
     Uint bitoffs2, bitsize2;
     Uint size1, size2, max_size;
     size_t i;
-    volatile unsigned char acc = 0;
-  
+    volatile unsigned char acc = 0; 
+    const volatile char A = 'a';
+    const volatile char B = 'b';
+
     if (is_not_binary(bin1) || is_not_binary(bin2))
         goto bad_arg;
     
@@ -2479,12 +2481,12 @@ static BIF_RETTYPE binary_secure_compare(Process *p, Eterm bin1, Eterm bin2)
     size2 = binary_size(bin2);
 
     max_size = size1 > size2 ? size1 : size2;
-
+   
     for (i=0; i < max_size; i++) {
         if (i < size1 && i < size2) {
             acc |= bytes1[i] ^ bytes2[i];
         } else {
-            acc |= 'a' ^ 'b';
+            acc |= A ^ B;
         }
     }
 
