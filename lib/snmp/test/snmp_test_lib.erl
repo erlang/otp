@@ -976,11 +976,13 @@ analyze_and_print_linux_host_info(Version) ->
     %% Check if we need to adjust the factor because of the memory
     try linux_which_meminfo() of
         AddFactor ->
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+            io:format("TS Scale Factor: ~w (~w + ~w)~n",
+                      [timetrap_scale_factor(), Factor, AddFactor]),
             {Factor + AddFactor, []}
     catch
         _:_:_ ->
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+            io:format("TS Scale Factor: ~w (~w)~n",
+                      [timetrap_scale_factor(), Factor]),
             {Factor, []}
     end.
 
@@ -1007,6 +1009,18 @@ linux_cpuinfo_motherboard() ->
 
 linux_cpuinfo_bogomips() ->
     case linux_cpuinfo_lookup("bogomips") of
+        BMips when is_list(BMips) ->
+            try lists:sum([bogomips_to_int(BM) || BM <- BMips])
+            catch
+                _:_:_ ->
+                    "-"
+            end;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_BogoMIPS() ->
+    case linux_cpuinfo_lookup("BogoMIPS") of
         BMips when is_list(BMips) ->
             try lists:sum([bogomips_to_int(BM) || BM <- BMips])
             catch
@@ -1046,9 +1060,9 @@ bogomips_to_int(BM) ->
 
 linux_cpuinfo_model() ->
     case linux_cpuinfo_lookup("model") of
-        [M] ->
+        [M|_] ->
             M;
-        _ ->
+        _X ->
             "-"
     end.
 
@@ -1062,8 +1076,8 @@ linux_cpuinfo_platform() ->
 
 linux_cpuinfo_model_name() ->
     case linux_cpuinfo_lookup("model name") of
-        [P|_] ->
-            P;
+        [M|_] ->
+            M;
         _ ->
             "-"
     end.
@@ -1113,21 +1127,34 @@ linux_which_cpuinfo(yellow_dog) ->
     {ok, CPU};
 
 linux_which_cpuinfo(wind_river) ->
-    CPU =
+    Model =
         case linux_cpuinfo_model() of
             "-" ->
-                throw(noinfo);
-            Model ->
-                case linux_cpuinfo_platform() of
+                %% Try 'model name'
+                case linux_cpuinfo_model_name() of
                     "-" ->
-                        Model;
-                    Platform ->
-                        Model ++ " (" ++ Platform ++ ")"
-                end
+                        throw(noinfo);
+                    MN ->
+                        MN
+                end;
+            M ->
+                M
+        end,
+    CPU =
+        case linux_cpuinfo_platform() of
+            "-" ->
+                Model;
+            Platform ->
+                Model ++ " (" ++ Platform ++ ")"
         end,
     case linux_cpuinfo_total_bogomips() of
         "-" ->
-            {ok, CPU};
+            case linux_cpuinfo_BogoMIPS() of
+                "-" ->
+                    {ok, CPU};
+                BMips ->
+                    {ok, {CPU, BMips}}
+            end;
         BMips ->
             {ok, {CPU, BMips}}
     end;
@@ -2157,6 +2184,20 @@ num_schedulers_to_factor() ->
 
 
 linux_info_lookup(Key, File) ->
+    %% try
+    %%     begin
+    %%         GREP   = os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File),
+    %%         io:format("linux_info_lookup() -> GREP:   ~p~n", [GREP]),
+    %%         TOKENS = string:tokens(GREP, [$:,$\n]),
+    %%         io:format("linux_info_lookup() -> TOKENS: ~p~n", [TOKENS]),
+    %%         INFO   = [string:trim(S) || S <- TOKENS],
+    %%         io:format("linux_info_lookup() -> INFO:   ~p~n", [INFO]),
+    %%         linux_info_lookup_collect(Key, INFO, [])
+    %%     end
+    %% catch
+    %%     _:_:_ ->
+    %%         "-"
+    %% end.
     try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
         Info ->
             linux_info_lookup_collect(Key, Info, [])
