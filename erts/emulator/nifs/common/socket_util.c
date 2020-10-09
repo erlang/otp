@@ -1773,6 +1773,22 @@ ERL_NIF_TERM esock_make_invalid(ErlNifEnv* env, ERL_NIF_TERM reason)
 
 
 
+/* Create an 'invalid' two (2) tuple in the form:
+ *
+ *          {invalid, {integer_range, I}}
+ *
+ * The second element (i) is already in the form of an
+ * ERL_NIF_TERM so all we have to do is create the tuple.
+ */
+extern
+ERL_NIF_TERM esock_make_invalid_integer(ErlNifEnv* env, ERL_NIF_TERM i)
+{
+    return
+        esock_make_invalid(env, MKT2(env, esock_atom_integer_range, i));
+}
+
+
+
 /* Raise an exception {invalid, What}
  */
 extern
@@ -2066,4 +2082,31 @@ ERL_NIF_TERM esock_make_new_binary(ErlNifEnv *env, void *buf, size_t size) {
 
     sys_memcpy(enif_make_new_binary(env, size, &term), buf, size);
     return term;
+}
+
+
+/* This is an expensive way to do erlang:is_integer/1.
+ *
+ * We need it when we have -spec:ed an argument to be integer(),
+ * and enif_get_int() et.al fails since it may be a bignum.
+ * Then we can not just throw a badarg, because Dialyzer assumes
+ * that such a call shall return.
+ *
+ * So, after enif_get_int() has failed;
+ * if esock_is_int() then
+ *     error return
+ * else
+ *     badarg
+ */
+extern
+BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term) {
+    double d;
+
+    /* Test that it is a number() but not a float(),
+     * then it must be an integer()
+     */
+    if (enif_is_number(env, term))
+        return (! enif_get_double(env, term, &d));
+    else
+        return FALSE;
 }

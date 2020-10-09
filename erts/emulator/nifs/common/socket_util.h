@@ -243,6 +243,8 @@ ERL_NIF_TERM esock_make_error_invalid(ErlNifEnv* env, ERL_NIF_TERM what);
 extern
 ERL_NIF_TERM esock_make_invalid(ErlNifEnv* env, ERL_NIF_TERM reason);
 extern
+ERL_NIF_TERM esock_make_invalid_integer(ErlNifEnv* env, ERL_NIF_TERM i);
+extern
 ERL_NIF_TERM esock_raise_invalid(ErlNifEnv* env, ERL_NIF_TERM what);
 
 extern
@@ -260,5 +262,7 @@ BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int l
 extern
 void esock_warning_msg(const char* format, ... );
 
+extern
+BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term);
 
 #endif // SOCKET_UTIL_H__
