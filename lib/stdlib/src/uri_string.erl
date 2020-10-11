@@ -1780,6 +1780,8 @@ make_path_absolute(<<"/",_/binary>> = Path) ->
     Path;
 make_path_absolute([$/|_] = Path) ->
     Path;
+make_path_absolute([<<"/">>|_] = Path) ->
+    Path;
 make_path_absolute(Path) when is_binary(Path) ->
     concat(<<$/>>, Path);
 make_path_absolute(Path) when is_list(Path) ->
