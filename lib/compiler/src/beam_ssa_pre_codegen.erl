@@ -944,10 +944,12 @@ sanitize_instr(is_tagged_tuple, [#b_literal{val=Tuple},
         true ->
             {value,false}
     end;
-sanitize_instr(bs_add, [_,#b_literal{val=Sz},_|_], I0) ->
-    if
-        is_integer(Sz), Sz >= 0 -> ok;
-        true -> {ok,sanitize_badarg(I0)}
+sanitize_instr(bs_add, [Arg1,Arg2,_|_], I0) ->
+    case all(fun(#b_literal{val=Size}) -> is_integer(Size) andalso Size >= 0;
+                (#b_var{}) -> true
+             end, [Arg1,Arg2]) of
+        true -> ok;
+        false -> {ok,sanitize_badarg(I0)}
     end;
 sanitize_instr(bs_init, [#b_literal{val=new},#b_literal{val=Sz}|_], I0) ->
     if
