@@ -576,12 +576,11 @@ store(Binary, GBSet) ->
     </func>
 
     <func>
-      <name name="secure_compare" arity="2" since="OTP R24"/>
-      <fsummary>Compares two binaries in constant time.</fsummary>
+      <name name="linear_compare" arity="2" since="OTP R24"/>
+      <fsummary>Compares two binaries in linear time.</fsummary>
       <desc>
-          <p>Given two binaries this function will iterate and compare each byte of both binaries in constant time 
-              in order to mitigate timing attacks. The size of the largest binary is used as the upper bounds 
-              (i.e., how many iterations will occur).</p>
+          <p>Given two binaries of equal size this function will compare each byte in linear time.
+              This function will raise a badargument error if both binaries are not of equal size.</p>
           <p>Returns true if both binaries match exactly, otherwise returns false.</p>
       </desc>
     </func>

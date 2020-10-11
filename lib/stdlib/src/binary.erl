@@ -35,14 +35,14 @@
          first/1, last/1, list_to_bin/1, longest_common_prefix/1,
          longest_common_suffix/1, match/2, match/3, matches/2,
          matches/3, part/2, part/3, referenced_byte_size/1,
-         split/2, split/3, secure_compare/2]).
+         split/2, split/3, linear_compare/2]).
 
 
--spec secure_compare(Bin1, Bin2) -> boolean() when 
+-spec linear_compare(Bin1, Bin2) -> boolean() when 
       Bin1 :: binary(),
       Bin2 :: binary().
 
-secure_compare(_, _) ->
+linear_compare(_, _) ->
     erlang:nif_error(undef).
 
 -spec at(Subject, Pos) -> byte() when

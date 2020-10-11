@@ -70,7 +70,7 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags);
 static BIF_RETTYPE
 binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
 
-static BIF_RETTYPE binary_secure_compare(Process *p, Eterm bin1, Eterm bin2);
+static BIF_RETTYPE binary_linear_compare(Process *p, Eterm bin1, Eterm bin2);
 
 void erts_init_bif_binary(void)
 {
@@ -2459,38 +2459,38 @@ static int cleanup_copy_bin_state(Binary *bp)
     return 1;
 }
 
-static BIF_RETTYPE binary_secure_compare(Process *p, Eterm bin1, Eterm bin2)
+static BIF_RETTYPE binary_linear_compare(Process *p, Eterm bin1, Eterm bin2)
 {
     byte *bytes1;
     byte *bytes2;
     Uint bitoffs1, bitsize1;
     Uint bitoffs2, bitsize2;
-    Uint size1, size2, max_size;
+    Uint size;
     size_t i;
-    volatile unsigned char acc = 0; 
-    const volatile char A = 'a';
-    const volatile char B = 'b';
+    volatile unsigned char x = 0U;
 
     if (is_not_binary(bin1) || is_not_binary(bin2))
+        goto bad_arg;
+
+    size = binary_size(bin1);
+
+    if (size != binary_size(bin2))
         goto bad_arg;
     
     ERTS_GET_BINARY_BYTES(bin1, bytes1, bitoffs1, bitsize1); 
     ERTS_GET_BINARY_BYTES(bin2, bytes2, bitoffs2, bitsize2);
+    
+    const volatile unsigned char *volatile b1 =
+        (const volatile unsigned char *volatile) bytes1;
 
-    size1 = binary_size(bin1);
-    size2 = binary_size(bin2);
+    const volatile unsigned char *volatile b2 =
+        (const volatile unsigned char *volatile) bytes2;
 
-    max_size = size1 > size2 ? size1 : size2;
-   
-    for (i=0; i < max_size; i++) {
-        if (i < size1 && i < size2) {
-            acc |= bytes1[i] ^ bytes2[i];
-        } else {
-            acc |= A ^ B;
-        }
+    for (i=0; i < size; i++) {
+        x |= b1[i] ^ b2[i];
     }
 
-    if (acc == 0)
+    if ((1 & ((x - 1) >> 8)) - 1 == 0)
         goto match;
 
     goto nomatch;
@@ -2503,9 +2503,9 @@ static BIF_RETTYPE binary_secure_compare(Process *p, Eterm bin1, Eterm bin2)
     BIF_ERROR(p,BADARG);
 }
 
-BIF_RETTYPE binary_secure_compare_2(BIF_ALIST_2)
+BIF_RETTYPE binary_linear_compare_2(BIF_ALIST_2)
 {
-    return binary_secure_compare(BIF_P, BIF_ARG_1, BIF_ARG_2);
+    return binary_linear_compare(BIF_P, BIF_ARG_1, BIF_ARG_2);
 }
 
 /*

@@ -27,7 +27,7 @@
 
 -export([random_number/1, make_unaligned/1]).
 
--export([secure_compare/1, secure_compare_time/1]).
+-export([linear_compare/1, linear_compare_time/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +40,7 @@ all() ->
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug, 
-     secure_compare, secure_compare_time].
+     linear_compare, linear_compare_time].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
@@ -1377,20 +1377,20 @@ check_no_invalid_read_bug(I) ->
     binary:encode_unsigned(N+N, little),
     check_no_invalid_read_bug(I+1).
 
-secure_compare(Config) when is_list(Config) ->
-    true  = binary:secure_compare(<<"">>, <<"">>),
-    true  = binary:secure_compare(<<"good">>, <<"good">>),
+linear_compare(Config) when is_list(Config) ->
+    true  = binary:linear_compare(<<"">>, <<"">>),
+    true  = binary:linear_compare(<<"good">>, <<"good">>),
 
-    false = binary:secure_compare(<<"good">>, <<"bad">>),
-    false = binary:secure_compare(<<"eh?">>, <<"Hello Joe">>),
-    false = binary:secure_compare(<<"one">>, <<"two">>),
-    false = binary:secure_compare(<<"two">>, <<"one">>),
-    false = binary:secure_compare(<<"xtest">>, <<"xtestx">>),
-    false = binary:secure_compare(<<"xtestxx">>, <<"xtestx">>),
-    false = binary:secure_compare(<<"xtestxx">>, <<"xtestxxx">>),
+    false = binary:linear_compare(<<"good">>, <<"bad">>),
+    false = binary:linear_compare(<<"eh?">>, <<"Hello Joe">>),
+    false = binary:linear_compare(<<"one">>, <<"two">>),
+    false = binary:linear_compare(<<"two">>, <<"one">>),
+    false = binary:linear_compare(<<"xtest">>, <<"xtestx">>),
+    false = binary:linear_compare(<<"xtestxx">>, <<"xtestx">>),
+    false = binary:linear_compare(<<"xtestxx">>, <<"xtestxxx">>),
     ok.
 
-secure_compare_time(Config) when is_list(Config) -> 
+linear_compare_time(Config) when is_list(Config) -> 
     A = <<"A">>,
     B = <<"B">>,
     
@@ -1403,12 +1403,12 @@ secure_compare_time(Config) when is_list(Config) ->
 
     T1 =  erlang:convert_time_unit(erlang:monotonic_time(), native, microsecond),
 
-    binary:secure_compare(Arg1, Arg2),   
+    binary:linear_compare(Arg1, Arg2),   
     
     T2 =  erlang:convert_time_unit(erlang:monotonic_time(), native, microsecond),
 
     %% Given a 10 megabyte binary we can say with a fair amount of certainty 
-    %% that to perform the secure_compare/2 operation will always take over 
+    %% that to perform the linear_compare/2 operation will always take over 
     %% 1ms, anything equal to or less means we returned early per the differnce
     %% on the first byte of each argument and ergo we can say :
     %% "Houston, we have a problem". 
