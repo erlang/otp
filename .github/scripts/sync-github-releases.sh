@@ -195,7 +195,7 @@ for name in "${ALL_TAGS[@]}"; do
 done
 
 ## If no assets were uploaded, we try to build one instead
-if ! ${UPLOADED}; then
+if [ ${UPLOADED} = false ] && [ ${#MISSING_PREBUILD[0]} != 0 ]; then
     name="${MISSING_PREBUILD[0]}"
     stripped_name=$(_strip_name "${name}")
     git clone https://github.com/erlang/otp -b "${name}" otp_src
