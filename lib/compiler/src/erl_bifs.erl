@@ -188,8 +188,13 @@ is_pure(_, _, _) -> false.
 %%	and does not affect the state (although the value it returns
 %%	might depend on the state).
 %%
-%%      Note: is_function/2 and is_record/3 are NOT safe: is_function(X, foo)
-%%      and is_record(X, foo, bar) will fail.
+%%      NOTES
+%%
+%%      is_function/2 is not safe: is_function(X, foo) will fail.
+%%
+%%      is_record/3 is not safe: is_record(X, foo, bar) will fail.
+%%
+%%      erlang:make_fun/3 is safe: erlang:make_fun3(foo, bar, baz) will fail.
 
 -spec is_safe(atom(), atom(), arity()) -> boolean().
 
@@ -223,7 +228,6 @@ is_safe(erlang, is_port, 1) -> true;
 is_safe(erlang, is_reference, 1) -> true;
 is_safe(erlang, is_tuple, 1) -> true;
 is_safe(erlang, make_ref, 0) -> true;
-is_safe(erlang, make_fun, 3) -> true;
 is_safe(erlang, max, 2) -> true;
 is_safe(erlang, min, 2) -> true;
 is_safe(erlang, node, 0) -> true;
