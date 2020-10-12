@@ -580,7 +580,7 @@ store(Binary, GBSet) ->
       <fsummary>Compares two binaries in linear time.</fsummary>
       <desc>
           <p>Given two binaries of equal size this function will compare each byte in linear time.
-              This function will raise a badargument error if both binaries are not of equal size.</p>
+              This function will raise a badarg error if both binaries are not of equal size.</p>
           <p>Returns true if both binaries match exactly, otherwise returns false.</p>
       </desc>
     </func>
