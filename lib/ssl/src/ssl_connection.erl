@@ -194,10 +194,10 @@ socket_control(tls_connection = Connection, Socket, [Pid|_] = Pids, Transport, T
 	{error, Reason}	->
 	    {error, Reason}
     end;
-socket_control(dtls_connection = Connection, {_, Socket}, [Pid|_] = Pids, Transport, Trackers) ->
+socket_control(dtls_connection = Connection, {PeerAddrPort, Socket}, [Pid|_] = Pids, Transport, Trackers) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, Connection:socket(Pids, Transport, Socket, Trackers)};
+	    {ok, Connection:socket(Pids, Transport, {PeerAddrPort, Socket}, Trackers)};
 	{error, Reason}	->
 	    {error, Reason}
     end.
