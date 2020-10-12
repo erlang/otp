@@ -921,6 +921,12 @@ sanitize_instr({bif,Bif}, [#b_literal{val=Lit1},#b_literal{val=Lit2}], _I) ->
         error:_ ->
             ok
     end;
+sanitize_instr(bs_match, Args, I) ->
+    %% Matching of floats are never changed to a bs_skip even when the
+    %% value is never used, because the match can always fail (for example,
+    %% if it is a NaN).
+    [#b_literal{val=float}|_] = Args,           %Assertion.
+    {ok,I#b_set{op=bs_get}};
 sanitize_instr(get_hd, [#b_literal{val=[Hd|_]}], _I) ->
     {value,Hd};
 sanitize_instr(get_tl, [#b_literal{val=[_|Tl]}], _I) ->
