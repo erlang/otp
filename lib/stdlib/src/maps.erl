@@ -24,7 +24,9 @@
          map/2, size/1, new/0,
          update_with/3, update_with/4,
          without/2, with/2,
-         iterator/1, next/1]).
+         iterator/1, next/1,
+         intersect/2, intersect_with/3,
+         merge_with/3]).
 
 %% BIFs
 -export([get/2, find/2, from_list/1,
@@ -65,6 +67,58 @@ find(_,_) -> erlang:nif_error(undef).
 
 from_list(_) -> erlang:nif_error(undef).
 
+-spec intersect(Map1,Map2) -> Map3 when
+    Map1 :: #{Key => term()},
+    Map2 :: #{term() => Value2},
+    Map3 :: #{Key => Value2}.
+
+intersect(Map1, Map2) when is_map(Map1), is_map(Map2) ->
+    intersect_with(fun intersect_combiner/3, Map1,Map2);
+intersect(Map1, Map2) ->
+    erlang:error(error_type_two_maps(Map1, Map2),
+                 [Map1,Map2]).
+
+intersect_combiner(_K, _V1, V2) ->
+    V2.
+
+-spec intersect_with(Combiner, Map1, Map2) -> Map3 when
+    Map1 :: #{Key => Value1},
+    Map2 :: #{term() => Value2},
+    Combiner :: fun((Key, Value1, Value2) -> CombineResult),
+    Map3 :: #{Key => CombineResult}.
+
+intersect_with(Combiner, Map1, Map2) when is_map(Map1),
+                                          is_map(Map2),
+                                          is_function(Combiner, 3) ->
+    case map_size(Map1) < map_size(Map2) of
+        true ->
+            Iterator = maps:iterator(Map1),
+            intersect_with_1(maps:next(Iterator),
+                             Map1,
+                             Map2,
+                             Combiner);
+        false ->
+            Iterator = maps:iterator(Map2),
+            intersect_with_1(maps:next(Iterator),
+                             Map2,
+                             Map1,
+                             fun(K, V1, V2) -> Combiner(K, V2, V1) end)
+    end;
+intersect_with(Combiner, Map1, Map2) ->
+    error(error_type_merge_intersect(Map1, Map2, Combiner),
+          [Combiner, Map1, Map2]).
+
+intersect_with_1({K, V1, Iterator}, Map1, Map2, Combiner) ->
+    case Map2 of
+        #{ K := V2 } ->
+            NewMap1 = Map1#{ K := Combiner(K, V1, V2) },
+            intersect_with_1(maps:next(Iterator), NewMap1, Map2, Combiner);
+        _ ->
+            intersect_with_1(maps:next(Iterator), maps:remove(K, Map1), Map2, Combiner)
+    end;
+intersect_with_1(none, Res, _, _) ->
+    Res.
+
 
 %% Shadowed by erl_bif_types: maps:is_key/2
 -spec is_key(Key,Map) -> boolean() when
@@ -88,6 +142,44 @@ keys(_) -> erlang:nif_error(undef).
     Map3 :: map().
 
 merge(_,_) -> erlang:nif_error(undef).
+
+-spec merge_with(Combiner, Map1, Map2) -> Map3 when
+    Map1 :: #{Key1 => Value1},
+    Map2 :: #{Key2 => Value2},
+    Combiner :: fun((Key1, Value1, Value2) -> CombineResult),
+    Map3 :: #{Key1 => CombineResult, Key1 => Value1, Key2 => Value2}.
+
+merge_with(Combiner, Map1, Map2) when is_map(Map1),
+                                 is_map(Map2),
+                                 is_function(Combiner, 3) ->
+    case map_size(Map1) > map_size(Map2) of
+        true ->
+            Iterator = maps:iterator(Map2),
+            merge_with_1(maps:next(Iterator),
+                         Map1,
+                         Map2,
+                         Combiner);
+        false ->
+            Iterator = maps:iterator(Map1),
+            merge_with_1(maps:next(Iterator),
+                         Map2,
+                         Map1,
+                         fun(K, V1, V2) -> Combiner(K, V2, V1) end)
+    end;
+merge_with(Combiner, Map1, Map2) ->
+    erlang:error(error_type_merge_intersect(Map1, Map2, Combiner),
+                 [Combiner, Map1, Map2]).
+
+merge_with_1({K, V2, Iterator}, Map1, Map2, Combiner) ->
+    case Map1 of
+        #{ K := V1 } ->
+            NewMap1 = Map1#{ K := Combiner(K, V1, V2) },
+            merge_with_1(maps:next(Iterator), NewMap1, Map2, Combiner);
+        #{ } ->
+            merge_with_1(maps:next(Iterator), maps:put(K, V2, Map1), Map2, Combiner)
+    end;
+merge_with_1(none, Result, _, _) ->
+    Result.
 
 
 %% Shadowed by erl_bif_types: maps:put/3
@@ -315,3 +407,13 @@ error_type(V) -> {badmap, V}.
 
 error_type_iter(M) when is_map(M); ?IS_ITERATOR(M) -> badarg;
 error_type_iter(V) -> {badmap, V}.
+
+error_type_two_maps(M1, M2) when is_map(M1) ->
+    {badmap, M2};
+error_type_two_maps(M1, _M2) ->
+    {badmap, M1}.
+
+error_type_merge_intersect(M1, M2, Combiner) when is_function(Combiner, 3) ->
+    error_type_two_maps(M1, M2);
+error_type_merge_intersect(_M1, _M2, _Combiner) ->
+    badarg.
