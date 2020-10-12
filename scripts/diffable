@@ -537,8 +537,10 @@ rejoin_atoms([<<"'",Tail/binary>> = Bin0,Next|Ops]) ->
             Bin = <<Bin0/binary,$\s,Next/binary>>,
             rejoin_atoms([Bin|Ops])
     end;
-rejoin_atoms(Ops) ->
-    Ops.
+rejoin_atoms([Op|Ops]) ->
+    [Op|rejoin_atoms(Ops)];
+rejoin_atoms([]) ->
+    [].
 
 find_labels(Is, Name, Arity) ->
     [_,[Entry|_]|_] = Is,
