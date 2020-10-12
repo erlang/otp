@@ -67,6 +67,8 @@
          compute/1,
          compute_bug/0,
          compute_bug/1,
+         crypto_load/1,
+         crypto_load_and_call/1,
          exor/0,
          exor/1,
          generate/0,
@@ -215,6 +217,8 @@ all() ->
     [app,
      {group, api_errors},
      appup,
+     crypto_load,
+     crypto_load_and_call,
      {group, fips},
      {group, non_fips},
      cipher_padding,
@@ -621,6 +625,26 @@ no_support() ->
 no_support(Config) when is_list(Config) ->
     Type  = ?config(type, Config),
     false = is_supported(Type).
+%%--------------------------------------------------------------------
+crypto_load(_Config) ->
+    (catch crypto:stop()),
+    code:delete(crypto),
+    code:purge(crypto),
+    crypto:start().
+%%--------------------------------------------------------------------
+crypto_load_and_call(_Config) ->
+    (catch crypto:stop()),
+    code:delete(crypto),
+    code:purge(crypto),
+    Key0 = "ablurf123BX#$;3",
+    Bin0 = erlang:md5(<<"whatever">>),
+    {Key,IVec,BlockSize}=make_crypto_key(Key0),
+    crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin0, true).
+
+make_crypto_key(String) ->
+    <<K1:8/binary,K2:8/binary>> = First = erlang:md5(String),
+    <<K3:8/binary,IVec:8/binary>> = erlang:md5([First|lists:reverse(String)]),
+    {[K1,K2,K3],IVec,8}.
 %%--------------------------------------------------------------------
 %% Test that a spawned node has initialized the cache
 -define(at_node, 
