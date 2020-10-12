@@ -1146,7 +1146,7 @@ otp_14826(_Config) ->
     backtrace_check("<<100:8/foo>>.",
                     {undefined_bittype,foo},
                     [{eval_bits,make_bit_type,3},eval_bits,
-                     eval_bits,erl_eval],
+                     eval_bits,eval_bits],
                     none, none),
     backtrace_check("B = <<\"foo\">>, <<B/binary-unit:7>>.",
                     badarg,
@@ -1750,6 +1750,10 @@ otp_16865(Config) when is_list(Config) ->
     check(fun() -> << <<>> || <<34:(1/0)>> <= <<"string">> >> end,
           "<< <<>> || <<34:(1/0)>> <= <<\"string\">> >>.",
           <<>>),
+    %% The order of evaluation is important. Follow the example set by
+    %% compiled code:
+    error_check("<< <<>> || <<>> <= <<1:(-1), (fun() -> a = b end())>> >>.",
+                {badmatch, b}),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.
