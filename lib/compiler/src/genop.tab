@@ -105,6 +105,9 @@ BEAM_FORMAT_NUMBER=0
 ##      during allocation there are Live number of live X registers.
 ##      Clear the new stack words. (By writing NIL.)
 ##      Also save the continuation pointer (CP) on the stack.
+##
+##      OTP 24: This instruction has been superseded by allocate/2 followed
+##      by init_yregs/1.
 14: allocate_zero/2
 
 ## @spec allocate_heap_zero StackNeed HeapNeed Live
@@ -113,6 +116,9 @@ BEAM_FORMAT_NUMBER=0
 ##      during allocation there are Live number of live X registers.
 ##      Clear the new stack words. (By writing NIL.)
 ##      Also save the continuation pointer (CP) on the stack.
+##
+##      OTP 24: This instruction has been superseded by allocate_heap/2
+##      followed by init_yregs/1.
 15: allocate_heap_zero/3
 
 ## @spec test_heap HeapNeed Live
@@ -122,6 +128,8 @@ BEAM_FORMAT_NUMBER=0
 
 ## @spec init N
 ## @doc  Clear the Nth stack word. (By writing NIL.)
+##
+##       OTP 24: This instruction has been superseded by init_yregs/1.
 17: init/1
 
 ## @spec deallocate N
@@ -615,3 +623,7 @@ BEAM_FORMAT_NUMBER=0
 ## @doc  Build a fun with the environment in the list EnvTerms and put it
 ##       into register Dst.
 171: make_fun3/3
+
+## @spec init_yregs ListOfYRegs
+## @doc  Initialize the Y registers in the list.
+172: init_yregs/1

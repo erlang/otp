@@ -113,9 +113,7 @@ collect_block([], Acc) ->
     {reverse(Acc),[]}.
 
 collect({allocate,N,R})      -> {set,[],[],{alloc,R,{nozero,N,0,[]}}};
-collect({allocate_zero,N,R}) -> {set,[],[],{alloc,R,{zero,N,0,[]}}};
 collect({allocate_heap,Ns,Nh,R}) -> {set,[],[],{alloc,R,{nozero,Ns,Nh,[]}}};
-collect({allocate_heap_zero,Ns,Nh,R}) -> {set,[],[],{alloc,R,{zero,Ns,Nh,[]}}};
 collect({init,D})            -> {set,[D],[],init};
 collect({test_heap,N,R})     -> {set,[],[],{alloc,R,{nozero,nostack,N,[]}}};
 collect({bif,N,{f,0},As,D})  -> {set,[D],As,{bif,N,{f,0}}};

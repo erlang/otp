@@ -402,6 +402,15 @@ vi({kill,Reg}, Vst) ->
     create_tag(initialized, kill, [], Reg, Vst);
 vi({init,Reg}, Vst) ->
     create_tag(initialized, init, [], Reg, Vst);
+vi({init_yregs,{list,Yregs}}, Vst0) ->
+    case ordsets:from_list(Yregs) of
+        [] -> error(empty_list);
+        Yregs -> ok;
+        _ -> error(not_ordset)
+    end,
+    foldl(fun(Y, Vst) ->
+                  create_tag(initialized, init, [], Y, Vst)
+          end, Vst0, Yregs);
 
 %%
 %% Matching and test instructions.

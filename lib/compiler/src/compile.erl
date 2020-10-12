@@ -269,7 +269,7 @@ expand_opt(r21, Os) ->
 expand_opt(r22, Os) ->
     expand_opt(r23, [no_shared_fun_wrappers, no_swap | expand_opt(no_bsm4, Os)]);
 expand_opt(r23, Os) ->
-    expand_opt(no_make_fun3, Os);
+    expand_opt(no_make_fun3, [no_init_yregs | Os]);
 expand_opt(no_make_fun3, Os) ->
     [no_make_fun3, no_fun_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
@@ -284,7 +284,7 @@ expand_opt(no_type_opt=O, Os) ->
 expand_opt(O, Os) -> [O|Os].
 
 expand_opt_before_21(Os) ->
-    [no_make_fun3, no_fun_opt,
+    [no_init_yregs, no_make_fun3, no_fun_opt,
      no_shared_fun_wrappers, no_swap,
      no_put_tuple2, no_get_hd_tl, no_ssa_opt_record,
      no_utf8_atoms | expand_opt(no_bsm3, Os)].

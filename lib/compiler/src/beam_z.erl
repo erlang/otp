@@ -31,14 +31,16 @@
 
 module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
     NoGetHdTl = proplists:get_bool(no_get_hd_tl, Opts),
-    Fs = [function(F, NoGetHdTl) || F <- Fs0],
+    NoInitYregs = proplists:get_bool(no_init_yregs, Opts),
+    Fs = [function(F, NoGetHdTl, NoInitYregs) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is0}, NoGetHdTl) ->
+function({function,Name,Arity,CLabel,Is0}, NoGetHdTl, NoInitYregs) ->
     try
 	Is1 = undo_renames(Is0),
         Is2 = maybe_eliminate_get_hd_tl(Is1, NoGetHdTl),
-        Is = remove_redundant_lines(Is2),
+        Is3 = maybe_eliminate_init_yregs(Is2, NoInitYregs),
+        Is = remove_redundant_lines(Is3),
 	{function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
@@ -162,6 +164,25 @@ maybe_eliminate_get_hd_tl(Is, true) ->
            (I) -> I
         end, Is);
 maybe_eliminate_get_hd_tl(Is, false) -> Is.
+
+%%%
+%%% Eliminate the init_yreg/1 instruction if requested by
+%%% the no_init_yregs option.
+%%%
+maybe_eliminate_init_yregs(Is, true) ->
+    eliminate_init_yregs(Is);
+maybe_eliminate_init_yregs(Is, false) -> Is.
+
+eliminate_init_yregs([{allocate,Ns,Live},{init_yregs,_}|Is]) ->
+    [{allocate_zero,Ns,Live}|eliminate_init_yregs(Is)];
+eliminate_init_yregs([{allocate_heap,Ns,Nh,Live},{init_yregs,_}|Is]) ->
+    [{allocate_heap_zero,Ns,Nh,Live}|eliminate_init_yregs(Is)];
+eliminate_init_yregs([{init_yregs,{list,Yregs}}|Is]) ->
+    Inits = [{init,Y} || Y <- Yregs],
+    Inits ++ eliminate_init_yregs(Is);
+eliminate_init_yregs([I|Is]) ->
+    [I|eliminate_init_yregs(Is)];
+eliminate_init_yregs([]) -> [].
 
 %% Remove all `line` instructions having the same location as the
 %% previous `line` instruction. It turns out that such redundant

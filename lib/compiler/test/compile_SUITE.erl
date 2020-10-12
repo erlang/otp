@@ -1409,7 +1409,7 @@ bc_options(Config) ->
                              no_line_info,
                              no_ssa_opt_float]},
 
-         {132, small, [no_shared_fun_wrappers,
+         {132, small, [no_init_yregs,no_shared_fun_wrappers,
                        no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
                        no_ssa_opt_float,no_line_info,no_bsm3]},
 
@@ -1425,31 +1425,24 @@ bc_options(Config) ->
          {158, small_maps, [r20]},
          {158, small_maps, [r21]},
 
+         {164, small_maps, [no_init_yregs,no_shared_fun_wrappers]},
          {164, small_maps, [r22]},
          {164, big, [r22]},
-         {164, small_maps, [no_shared_fun_wrappers]},
 
          {168, small, [r22]},
 
-         {169, big, [no_shared_fun_wrappers,
+         {169, big, [no_init_yregs,no_shared_fun_wrappers,
                      no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
                      no_line_info,no_stack_trimming,
                      no_make_fun3]},
-         {169, big, [no_shared_fun_wrappers,no_put_tuple2,no_get_hd_tl,
-                     no_ssa_opt_record,no_line_info,
-                     no_make_fun3]},
-         {169, big, [no_shared_fun_wrappers,
-                     no_put_tuple2,no_get_hd_tl, no_ssa_opt_record,
-                     no_make_fun3]},
-         {169, big, [no_shared_fun_wrappers,
-                     no_make_fun3]},
          {169, big, [r23]},
 
-         {170, small, [no_shared_fun_wrappers]},
+         {169, small_maps, [no_init_yregs]},
 
-         {169, small_maps, []},
-         {171, big, []},
-         {170, small, []}
+         {170, small, [no_shared_fun_wrappers,no_init_yregs]},
+
+         {171, big, [no_init_yregs]},
+         {172, big, []}
         ],
 
     Test = fun({Expected,Mod,Options}) ->

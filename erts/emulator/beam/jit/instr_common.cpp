@@ -214,47 +214,6 @@ void BeamModuleAssembler::emit_allocate(const ArgVal &NeedStack,
     emit_allocate_heap(NeedStack, ArgVal(ArgVal::TYPE::u, 0), Live);
 }
 
-void BeamModuleAssembler::emit_allocate_heap_zero(const ArgVal &NeedStack,
-                                                  const ArgVal &NeedHeap,
-                                                  const ArgVal &Live) {
-    ASSERT(NeedStack.getType() == ArgVal::TYPE::u);
-    ASSERT(NeedStack.getValue() <= MAX_REG);
-
-    emit_allocate_heap(NeedStack, NeedHeap, Live);
-
-    int slots = NeedStack.getValue();
-
-    if (slots == 1) {
-        a.mov(getYRef(0), imm(NIL));
-    } else {
-        /* `stosq` is more compact than `mov` after 2 slots. */
-        mov_imm(x86::rax, NIL);
-
-#ifdef NATIVE_ERLANG_STACK
-        /* `mov` is two bytes shorter than `lea`. */
-        a.mov(x86::rdi, E);
-#else
-        /* y(0) is at E+8. Must use `lea` here. */
-        a.lea(x86::rdi, getYRef(0));
-#endif
-
-        if (slots <= 4) {
-            /* Slightly more compact than `rep stosq`. */
-            for (int i = 0; i < slots; i++) {
-                a.stosq();
-            }
-        } else {
-            mov_imm(x86::rcx, slots);
-            a.rep().stosq();
-        }
-    }
-}
-
-void BeamModuleAssembler::emit_allocate_zero(const ArgVal &NeedStack,
-                                             const ArgVal &Live) {
-    emit_allocate_heap_zero(NeedStack, ArgVal(ArgVal::TYPE::u, 0), Live);
-}
-
 void BeamModuleAssembler::emit_deallocate(const ArgVal &Deallocate) {
     ASSERT(Deallocate.getType() == ArgVal::TYPE::u);
     ASSERT(Deallocate.getValue() <= 1023);
@@ -840,6 +799,85 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgVal &Src,
 
 void BeamModuleAssembler::emit_init(const ArgVal &Y) {
     mov_arg(Y, NIL);
+}
+
+void BeamModuleAssembler::emit_init_yregs(const ArgVal &Size,
+                                          const std::vector<ArgVal> &args) {
+    unsigned count = Size.getValue();
+    ASSERT(count == args.size());
+
+    if (count == 1) {
+        mov_arg(args.front(), NIL);
+        return;
+    }
+
+    /* There at least two slots. */
+    unsigned i = 0;
+    int y_ptr = -1;
+
+    mov_imm(x86::rax, NIL);
+
+    while (i < count) {
+        unsigned slots = 1;
+        unsigned first_y = args.at(i).getValue();
+
+        while (i + slots < count) {
+            ArgVal current_y = args.at(i + slots);
+            if (first_y + slots != current_y.getValue()) {
+                break;
+            }
+            slots++;
+        }
+
+        /*
+         * Now first_y is the number of the first y register to be initialized
+         * and slots is the number of y registers to be initialized.
+         */
+
+        if (slots == 1) {
+            a.mov(getYRef(first_y), x86::rax);
+        } else {
+            /*
+             * There are at least two consecutive y registers to be initialized.
+             * Use `stosq` with or without `rep`.
+             */
+            if (first_y == 0) {
+#ifdef NATIVE_ERLANG_STACK
+                /* `mov` is two bytes shorter than `lea`. */
+                a.mov(x86::rdi, E);
+#else
+                /* y(0) is at E+8. Must use `lea` here. */
+                a.lea(x86::rdi, getYRef(0));
+#endif
+                y_ptr = 0;
+            } else if (y_ptr < 0) {
+                /* Initialize rdi for the first time. */
+                y_ptr = first_y;
+                a.lea(x86::rdi, getYRef(y_ptr));
+            } else {
+                /* Update rdi using `add`. This is one byte shorter than using
+                 * `lea`. */
+                unsigned offset = (first_y - y_ptr) * sizeof(Eterm);
+                a.add(x86::rdi, imm(offset));
+                y_ptr = first_y;
+            }
+
+            if (slots <= 4) {
+                /* Slightly more compact than `rep stosq`. */
+                for (unsigned j = 0; j < slots; j++) {
+                    a.stosq();
+                }
+            } else {
+                mov_imm(x86::rcx, slots);
+                a.rep().stosq();
+            }
+
+            /* Update y_ptr to account for the incrementing done by `stosq`. */
+            y_ptr += slots;
+        }
+
+        i += slots;
+    }
 }
 
 void BeamModuleAssembler::emit_i_trim(const ArgVal &Words) {

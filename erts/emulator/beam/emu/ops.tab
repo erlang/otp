@@ -122,16 +122,24 @@ move S X0=x==0 | line Loc => line Loc | move S X0
 line n =>
 line I
 
+# For the JIT, the init_yregs/1 instruction allows generation of better code.
+# For the BEAM interpreter, though, it will probably be more efficient to
+# translate all uses of init_yregs/1 back to the instructions that the compiler
+# would emit before OTP 24.
+allocate Ns Live | init_yregs N Yregs=* => allocate(Ns, Live, N, Yregs)
+allocate_heap Ns Nh Live | init_yregs N Yregs=* => allocate_heap(Ns, Nh, Live, N, Yregs)
+init_yregs N Yregs=* => init_yregs(N, Yregs)
+
 allocate t t?
 allocate_heap t I t?
-
-# This instruction when a BIF is called tail-recursively when
-# ther is stack frame.
-deallocate Q
-
-init y
 allocate_zero t t?
 allocate_heap_zero t I t?
+
+init y
+
+# This instruction when a BIF is called tail-recursively when
+# there is a stack frame.
+deallocate Q
 
 move Src=y Dst=x | trim N Remaining => move_trim Src Dst N
 trim N Remaining => i_trim N
@@ -157,7 +165,6 @@ init Y1 | init Y2 => init2 Y1 Y2
 
 init2 y y
 init3 y y y
-
 
 # Selecting values.
 
