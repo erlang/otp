@@ -2486,7 +2486,7 @@ static BIF_RETTYPE binary_linear_compare(Process *p, Eterm bin1, Eterm bin2)
     const volatile unsigned char *volatile b2 =
         (const volatile unsigned char *volatile) bytes2;
 
-    for (i=0; i < size; i++) {
+    for (i=0U; i < size; i++) {
         x |= b1[i] ^ b2[i];
     }
 
