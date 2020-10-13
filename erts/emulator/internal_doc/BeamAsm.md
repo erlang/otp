@@ -25,7 +25,7 @@ used in BeamAsm are much simpler than the interpreter's, as most of the
 transformations for the interpreter are done only to eliminate the instruction
 dispatch overhead.
 
-Then each instruction is encoded using the C++ functions in the asm/instr_*.cpp files.
+Then each instruction is encoded using the C++ functions in the jit/instr_*.cpp files.
 Example:
 
     void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail, const ArgVal &Src) {
@@ -377,7 +377,7 @@ your system cannot build the JIT.
 Yes, you can still build the interpreter if you want to. In fact, it is what is used
 on platforms where BeamAsm does not yet work. You can either completely disable
 BeamAsm by passing `--disable-jit` to configure. Or you can build the
-interpreter using `make FLAVOR=jit` and then run it using `erl -emu_flavor jit`.
+interpreter using `make FLAVOR=emu` and then run it using `erl -emu_flavor emu`.
 
 It is possible to have both the JIT and interpreter available at the same time.
 
