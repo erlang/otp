@@ -77,7 +77,7 @@
 -type ct_hooks() :: [
                 CTHModule :: atom() |
                 {CTHModule :: atom(), CTHInitArgs :: term()} |
-                {CTHModule :: atom(), CTHInitArgs :: term(), CTHPriority :: term()}
+                {CTHModule :: atom(), CTHInitArgs :: term(), CTHPriority :: integer()}
             ].
 -type ct_tests_def() :: ct_testname() | ct_group_ref() | ct_testcase_ref().
 
