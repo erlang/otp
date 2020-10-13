@@ -2513,7 +2513,7 @@ static BIF_RETTYPE binary_linear_compare(Process *p, Eterm bin1, Eterm bin2)
         x |= b1[i] ^ b2[i];
     }
 
-    if ((1 & ((x - 1) >> 8)) - 1 == 0)
+    if (x == 0U)
         goto match;
 
     goto nomatch;
