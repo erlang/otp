@@ -25,7 +25,7 @@ used in BeamAsm are much simpler than the interpreter's, as most of the
 transformations for the interpreter are done only to eliminate the instruction
 dispatch overhead.
 
-Then each instruction is encoded using the C++ functions in the asm/instr_*.cpp files.
+Then each instruction is encoded using the C++ functions in the jit/instr_*.cpp files.
 Example:
 
     void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail, const ArgVal &Src) {
