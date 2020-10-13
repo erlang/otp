@@ -617,6 +617,10 @@ TESTCASE(test_ei_decode_encode)
         decode_encode_one(&ref_type);
     }
 
+    /* Full 64-bit pids */
+    for (i=16; i<=32; i++)
+        decode_encode_one(&pid_type);
+
     /* Unicode atoms */
     for (i=0; i<24; i++) {
 	decode_encode_one(&my_atom_type);

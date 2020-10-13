@@ -35,6 +35,8 @@ all() ->
     [test_ei_decode_encode].
 
 init_per_testcase(Case, Config) ->
+    rand:uniform(), % Make sure rand is initialized and seeded.
+    io:format("** rand seed = ~p\n", [rand:export_seed()]),
     runner:init_per_testcase(?MODULE, Case, Config).
 
 %% ---------------------------------------------------------------------------
@@ -105,6 +107,12 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 	   send_rec(P, mk_ref(OtherNode, [262143, 4294967295, 4294967295])),
 	   void
      end || Creation <- [1, 2, 3, 4, 16#adec0ded]],
+
+    %% Full 64-bit pids
+    [send_rec(P, mk_pid({gurka@sallad, 77},
+                        rand:uniform(1 bsl Bits)-1,
+                        rand:uniform(1 bsl Bits)-1))
+     || Bits <- lists:seq(16,32)],
 
     %% Unicode atoms
     [begin send_rec(P, Atom),
