@@ -2459,6 +2459,21 @@ static int cleanup_copy_bin_state(Binary *bp)
     return 1;
 }
 
+#ifdef HAVE_WEAK_SYMBOLS
+__attribute__((weak)) void
+_dummy_symbol_to_prevent_linear_compare_lto(const unsigned char *b1,
+                                           const unsigned char *b2,
+                                           const size_t         len);
+__attribute__((weak)) void
+_dummy_symbol_to_prevent_linear_compare_lto(const unsigned char *b1,
+                                           const unsigned char *b2,
+                                           const size_t         len)
+{
+    (void) b1;
+    (void) b2;
+    (void) len;
+}
+#endif
 static BIF_RETTYPE binary_linear_compare(Process *p, Eterm bin1, Eterm bin2)
 {
     byte *bytes1;
@@ -2479,12 +2494,20 @@ static BIF_RETTYPE binary_linear_compare(Process *p, Eterm bin1, Eterm bin2)
     
     ERTS_GET_BINARY_BYTES(bin1, bytes1, bitoffs1, bitsize1); 
     ERTS_GET_BINARY_BYTES(bin2, bytes2, bitoffs2, bitsize2);
-    
+
+#ifdef HAVE_WEAK_SYMBOLS
+    const unsigned char *b1 = (const unsigned char *) bytes1;
+    const unsigned char *b2 = (const unsigned char *) bytes2;
+#else
     const volatile unsigned char *volatile b1 =
         (const volatile unsigned char *volatile) bytes1;
-
     const volatile unsigned char *volatile b2 =
         (const volatile unsigned char *volatile) bytes2;
+#endif
+
+#if HAVE_WEAK_SYMBOLS
+    _dummy_symbol_to_prevent_linear_compare_lto(b1, b2, size);
+#endif
 
     for (i=0U; i < size; i++) {
         x |= b1[i] ^ b2[i];
