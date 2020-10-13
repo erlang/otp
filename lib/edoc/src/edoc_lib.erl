@@ -854,8 +854,7 @@ get_doc_env(App, Modules, Opts) ->
 	 apps = A,
 	 modules = M,
 	 app_default = AppDefault,
-	 includes = Includes
-	}.
+	 includes = Includes}.
 
 %% ---------------------------------------------------------------------
 %% Plug-in modules

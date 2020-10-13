@@ -29,8 +29,10 @@
 
 -module(edoc_extract).
 
--export([source/3, source/4, source/5, header/3, header/4, header/5,
-	 file/4, text/4]).
+-export([source/3, source/4, source/5,
+	 header/3, header/4, header/5,
+	 file/4,
+	 text/4]).
 
 -import(edoc_report, [report/3, warning/3]).
 
@@ -130,7 +132,11 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
     Entries2 = edoc_specs:add_type_data(Entries1, Opts, File, Module),
     edoc_tags:check_types(Entries2, Opts, File),
     Data = edoc_data:module(Module, Entries2, Env2, Opts),
-    {Name, Data}.
+    %% If `return_entries' is given return the EDoc internal representation of tags / code forms.
+    case proplists:is_defined(return_entries, Opts) of
+	true -> {Name, Data, Entries2};
+	false -> {Name, Data}
+    end.
 
 %% @doc Similar to {@link header/5}, but reads the syntax tree and the
 %% comments from the specified file.
@@ -194,11 +200,11 @@ header(Tree, File0, Env, _Opts) ->
     %% this the 'header' to make error reports make better sense.
     {Header, Footer, Entries} = collect(Forms, Module),
     if Header#entry.data /= {[],[],[]} ->
-	    warning(File, "documentation before module declaration is ignored by @headerfile", []);
+	   warning(File, "documentation before module declaration is ignored by @headerfile", []);
        true -> ok
     end,
     if Entries /= [] ->
-	    warning(File, "documentation before function definitions is ignored by @headerfile", []);
+	   warning(File, "documentation before function definitions is ignored by @headerfile", []);
        true -> ok
     end,
     [Entry] = get_tags([Footer#entry{name = header}], Env, File),
@@ -378,56 +384,71 @@ preprocess_forms_2(F, Fs) ->
 %% in the list.
 
 collect(Fs, Mod) ->
-    collect(Fs, [], [], [], [], [], undefined, Mod).
+    Acc = #{comments => [], callbacks => [], specs => [], types => [],
+	    records => [], functions => [], header => undefined},
+    collect(Fs, Acc, Mod).
 
-collect([F | Fs], Cs, Ss, Ts, Rs, As, Header, Mod) ->
+collect([F | Fs], Acc, Mod) ->
+    #{comments := Cs, specs := Ss, types := Ts,
+      records := Rs, header := Header} = Acc,
     case erl_syntax_lib:analyze_form(F) of
 	comment ->
-	    collect(Fs, [F | Cs], Ss, Ts, Rs, As, Header, Mod);
+	    collect(Fs, store(comments, F, Acc), Mod);
 	{function, Name} ->
 	    L = get_line(F),
 	    Export = ordsets:is_element(Name, Mod#module.exports),
 	    Args = parameters(erl_syntax:function_clauses(F)),
-	    collect(Fs, [], [], [], [],
-                    [#entry{name = Name, args = Args, line = L,
-                            export = Export,
-                            data = {comment_text(Cs),Ss,Ts,Rs}} | As],
-		    Header, Mod);
+	    Function = #entry{name = Name, args = Args, line = L,
+			      export = Export,
+			      data = {comment_text(Cs), [], Ss, Ts, Rs}},
+	    NewAcc = Acc#{comments := [], specs := [], types := [], records := []},
+	    collect(Fs, store(functions, Function, NewAcc), Mod);
 	{attribute, {module, _}} when Header =:= undefined ->
 	    L = get_line(F),
-	    collect(Fs, [], [], [], [], As,
-                    #entry{name = module, line = L,
-                           data = {comment_text(Cs),Ss,Ts,Rs}},
-		    Mod);
-        {attribute, {record, {_Name, Fields}}} ->
-            case is_typed_record(Fields) of
-                true ->
-                    collect(Fs, Cs, Ss, Ts, [F | Rs], As, Header, Mod);
-                false ->
-                    collect(Fs, Cs, Ss, Ts, Rs, As, Header, Mod)
-            end;
-        {attribute, {N, _}} ->
-            case edoc_specs:tag(N) of
-                spec ->
-                    collect(Fs, Cs, [F | Ss], Ts, Rs, As, Header, Mod);
-                type ->
-                    collect(Fs, Cs, Ss, [F | Ts], Rs, As, Header, Mod);
-                unknown ->
-                    %% Drop current seen comments.
-                    collect(Fs, [], [], [], Rs, As, Header, Mod)
-            end;
+	    NewAcc = Acc#{comments := [], specs := [], types := [], records := []},
+	    NewHeader = #entry{name = module, line = L,
+			       data = {comment_text(Cs), [], Ss, Ts, Rs}},
+	    collect(Fs, store(header, NewHeader, NewAcc), Mod);
+	{attribute, {record, {_Name, Fields}}} ->
+	    case is_typed_record(Fields) of
+		true ->
+		    collect(Fs, store(records, F, Acc), Mod);
+		false ->
+		    collect(Fs, Acc, Mod)
+	    end;
+	{attribute, {N, _}} ->
+	    case edoc_specs:tag(N) of
+		callback ->
+		    collect(Fs, store(callbacks, F, Acc), Mod);
+		spec ->
+		    collect(Fs, store(specs, F, Acc), Mod);
+		type ->
+		    collect(Fs, store(types, F, Acc), Mod);
+		unknown ->
+		    %% Drop current seen comments.
+		    NewAcc = Acc#{comments := [], specs := [], types := []},
+		    collect(Fs, NewAcc, Mod)
+	    end;
 	_ ->
 	    %% Drop current seen comments.
-	    collect(Fs, [], [], [], [], As, Header, Mod)
+	    NewAcc = Acc#{comments := [], specs := [], types := [], records := []},
+	    collect(Fs, NewAcc, Mod)
     end;
-collect([], Cs, Ss, Ts, Rs, As, Header, _Mod) ->
-    Footer = #entry{name = footer, data = {comment_text(Cs),Ss,Ts,Rs}},
+collect([], Acc, _Mod) ->
+    #{comments := Cs, callbacks := Cbs, specs := Ss, types := Ts,
+      records := Rs, functions := As, header := Header} = Acc,
+    Footer = #entry{name = footer, data = {comment_text(Cs), Cbs, Ss, Ts, Rs}},
     As1 = lists:reverse(As),
     if Header =:= undefined ->
-	    {#entry{name = module, data = {[],[],[],[]}}, Footer, As1};
+	   {#entry{name = module, data = {[],[],[],[],[]}}, Footer, As1};
        true ->
-	    {Header, Footer, As1}
+	   {Header, Footer, As1}
     end.
+
+store(header, Value, Acc) ->
+    Acc#{header := Value};
+store(Key, Value, Acc) ->
+    maps:update_with(Key, fun (Vs) -> [Value | Vs] end, Acc).
 
 is_typed_record([]) ->
     false;
@@ -574,7 +595,7 @@ get_tags(Es, Env, File, TypeDocs) ->
     How = dict:from_list(edoc_tags:tag_parsers()),
     get_tags(Es, Tags, Env, How, File, TypeDocs).
 
-get_tags([#entry{name = Name, data = {Cs,Specs,Types,Records}} = E | Es],
+get_tags([#entry{name = Name, data = {Cs,Cbs,Specs,Types,Records}} = E | Es],
          Tags, Env, How, File, TypeDocs) ->
     Where = {File, Name},
     Ts0 = scan_tags(Cs),
@@ -584,9 +605,25 @@ get_tags([#entry{name = Name, data = {Cs,Specs,Types,Records}} = E | Es],
     Ts4 = edoc_tags:parse_tags(Ts3, How, Env, Where),
     Ts = selected_specs(Specs1, Ts4),
     ETypes = [edoc_specs:type(Type, TypeDocs) || Type <- Types ++ Records],
-    [E#entry{data = Ts++ETypes} | get_tags(Es, Tags, Env, How, File, TypeDocs)];
+    Callbacks = get_callbacks(Name, Cbs, TypeDocs),
+    [E#entry{data = Ts ++ ETypes ++ Callbacks} | get_tags(Es, Tags, Env, How, File, TypeDocs)];
 get_tags([], _, _, _, _, _) ->
     [].
+
+get_callbacks(_EntryName, CbForms, TypeDocs) ->
+    [ callback(F, TypeDocs) || F <- CbForms ].
+
+callback(F, TypeDocs) ->
+    {attribute,_,callback,{NA,_}} = Attr = erl_syntax:revert(F),
+    Doc = case dict:find({callback, NA}, TypeDocs) of
+	      error -> none;
+	      {ok, D} -> D
+	  end,
+    #tag{name = callback,
+	 line = erl_syntax:get_pos(F),
+	 origin = code,
+	 data = {NA, Doc},
+	 form = Attr}.
 
 %% Scanning a list of separate comments for tags.
 

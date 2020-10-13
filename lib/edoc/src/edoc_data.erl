@@ -33,7 +33,7 @@
 
 -export([module/4, overview/4, type/2]).
 
--export([hidden_filter/2, get_all_tags/1]).
+-export([hidden_filter/2, get_all_tags/1, get_entry/2]).
 
 -include("edoc.hrl").
 
@@ -76,6 +76,9 @@
 %% <!ELEMENT callbacks (callback+)>
 %% <!ELEMENT typedecls (typedecl+)>
 %% <!ELEMENT typedecl (typedef, description?)>
+%% <!ATTLIST typedecl
+%%   label CDATA #REQUIRED
+%%   line CDATA #REQUIRED>
 %% <!ELEMENT functions (function+)>
 
 %% NEW-OPTIONS: private, hidden, todo
@@ -140,14 +143,13 @@ module_args(Vs) ->
     [{args, [{arg, [{argName, [atom_to_list(V)]}]} || V <- Vs]}].
 
 types(Tags, Env) ->
-    [{typedecl, [{label, edoc_types:to_label(Def)}],
+    [{typedecl, [{label, edoc_types:to_label(Def)}, {line, Line}],
       [edoc_types:to_xml(Def, Env)] ++ description(Doc)}
-     || #tag{name = type, data = {Def, Doc}} <- Tags].
+     || #tag{name = type, line = Line, data = {Def, Doc}} <- Tags].
 
 functions(Es, Env, Opts) ->
     [function(N, As, Export, Ts, Env, Opts)
-     || #entry{name = {_,_}=N, args = As, export = Export, data = Ts}
-	    <- Es].
+     || #entry{name = {_,_}=N, args = As, export = Export, data = Ts} <- Es].
 
 hidden_filter(Es, Opts) ->
     Private = proplists:get_bool(private, Opts),
@@ -227,6 +229,8 @@ callback({N, A}, _Env, _Opts) ->
 %%   name CDATA #REQUIRED
 %%   arity CDATA #REQUIRED
 %%   exported NMTOKEN(yes | no) #REQUIRED
+%%   private NMTOKEN(yes | no) #IMPLIED
+%%   hidden NMTOKEN(yes | no) #IMPLIED
 %%   label CDATA #IMPLIED>
 %% <!ELEMENT args (arg*)>
 %% <!ELEMENT arg (argName, description?)>
@@ -242,10 +246,9 @@ function({N, A}, [HAs | _]=As, Export, Ts, Env, Opts) when not is_list(HAs) ->
 function({N, A}, As0, Export, Ts, Env, Opts) ->
     {function, [{name, atom_to_list(N)},
 		{arity, integer_to_list(A)},
-      		{exported, case Export of
-			       true -> "yes";
-			       false -> "no"
-			   end},
+		{exported, yes_or_no(Export)},
+		{private, yes_or_no(is_private(Ts))},
+		{hidden, yes_or_no(is_hidden(Ts))},
 		{label, edoc_refs:to_label(edoc_refs:function(N, A))}],
      lists:append([get_args(lists:nth(Clause, As0), Ts, Clause, Env)
                    || Clause <- lists:seq(1, length(As0))])
@@ -267,6 +270,9 @@ get_args(As, Ts, Clause, Env) ->
            [] -> [];
            _ -> [{returns, description(Ret)}]
        end.
+
+yes_or_no(true) -> "yes";
+yes_or_no(false) -> "no".
 
 get_throws(Ts, Env) ->
     case get_tags(throws, Ts) of
@@ -396,7 +402,11 @@ sees(Tags, Env) ->
 see(Ref, [], Env) ->
     see(Ref, [edoc_refs:to_string(Ref)], Env);
 see(Ref, XML, Env) ->
-    {see, [{name, edoc_refs:to_string(Ref)}] ++ href(Ref, Env), XML}.
+    {DocgenRel, DocgenURI} = edoc_refs:get_docgen_link(Ref),
+    Attrs = [{'docgen-rel', DocgenRel},
+	     {'docgen-href', DocgenURI},
+	     {name, edoc_refs:to_string(Ref)}] ++ href(Ref, Env),
+    {see, Attrs, XML}.
 
 href(Ref, Env) ->
     [{href, edoc_refs:get_uri(Ref, Env)}]

@@ -33,7 +33,7 @@
 -define(OVERVIEW_FILE, "overview.edoc").
 -define(DEFAULT_SOURCE_SUFFIX, ".erl").
 -define(DEFAULT_FILE_SUFFIX, ".html").
--define(DEFAULT_DOCLET, edoc_doclet).
+-define(DEFAULT_DOCLET, edoc_doclet_default).
 -define(DEFAULT_LAYOUT, edoc_layout).
 -define(APP_DEFAULT, "http://www.erlang.org/edoc/doc").
 -define(CURRENT_DIR, ".").
@@ -65,4 +65,4 @@
 
 -record(entry, {name, args = [], line = 0, export, data}).
 
--record(tag, {name, line = 0, origin = comment, data}).
+-record(tag, {name, line = 0, origin = comment, data, form}).
