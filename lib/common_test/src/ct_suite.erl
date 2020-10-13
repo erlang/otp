@@ -28,7 +28,9 @@
                 shuffle |
                 {shuffle, Seed :: {integer(), integer(), integer()}} |
                 {ct_group_repeat_type(), ct_test_repeat()}
-            ] |
+            ].
+-type ct_group_props_ref() ::
+            ct_group_props() |
             default.
 -type ct_group_repeat_type() :: repeat |
             repeat_until_all_ok |
@@ -43,11 +45,11 @@
                 {group, ct_groupname()} |
                 ct_testcase_ref()
             ]}.
--type ct_subgroups_def() :: {ct_groupname(), ct_group_props()} |
-            {ct_groupname(), ct_group_props(), ct_subgroups_def()}.
+-type ct_subgroups_def() :: {ct_groupname(), ct_group_props_ref()} |
+            {ct_groupname(), ct_group_props_ref(), ct_subgroups_def()}.
 -type ct_group_ref() :: {group, ct_groupname()} |
-            {group, ct_groupname(), ct_group_props()} |
-            {group, ct_groupname(), ct_group_props(), ct_subgroups_def()}.
+            {group, ct_groupname(), ct_group_props_ref()} |
+            {group, ct_groupname(), ct_group_props_ref(), ct_subgroups_def()}.
 -type ct_testcase_ref() :: {testcase, ct_testname(), ct_testcase_repeat_props()}.
 -type ct_testcase_repeat_props() :: {repeat, ct_test_repeat()} |
             {repeat_until_ok, ct_test_repeat()} |
