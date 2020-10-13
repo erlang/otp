@@ -61,7 +61,7 @@ check_opts(Opts) ->
     is_list(CodePaths) orelse erlang:error(code_paths),
     Opts.
 
-quit(Reason, Opts) ->
+quit(Reason, _Opts) ->
     case Reason of
 	no_app ->
 	    print("No app name specified\n");

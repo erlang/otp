@@ -403,8 +403,7 @@ parse_header(Data, Line, Env, Where) when is_list(Where) ->
 -spec throw_error(line(), err()) -> no_return().
 
 throw_error(L, {read_file, File, R}) ->
-    throw_error(L, {"error reading file '~ts': ~w",
-		    [edoc_lib:filename(File), R]});
+    throw_error(L, {"error reading file '~ts': ~w", [edoc_lib:filename(File), R]});
 throw_error(L, {file_not_found, F}) ->
     throw_error(L, {"file not found: ~ts", [F]});
 throw_error(L, file_not_string) ->

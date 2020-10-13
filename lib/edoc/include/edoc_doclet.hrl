@@ -26,7 +26,6 @@
 %% Author contact: carlsson.richard@gmail.com
 %% =====================================================================
 
-
 -record(doclet_context, {dir = "",
 			 env,
 			 opts = []}).

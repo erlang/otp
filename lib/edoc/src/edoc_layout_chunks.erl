@@ -1,8 +1,7 @@
 %% @doc Convert EDoc module documentation to an EEP-48 `docs_v1' chunk.
-%% @since 0.12
 -module(edoc_layout_chunks).
 
--behaviour(edoc_layout).
+%-behaviour(edoc_layout).
 -export([module/2]).
 
 %% This breaks the convention stated in `edoc_doclet' to not rely on `edoc.hrl'
@@ -32,11 +31,13 @@
                             docs :: [docs_v1_entry()]}.
 %% The Docs v1 chunk according to EEP 48.
 
--type docs_v1_entry() :: #docs_v1_entry{kind_name_arity :: {atom(), atom(), arity()},
-                                        anno :: erl_anno:anno(),
-                                        signature :: signature(),
-                                        doc :: doc(),
-                                        metadata :: metadata()}.
+-type docs_v1_entry() :: {_KindNameArity :: {atom(), atom(), arity()},
+                          _Anno :: erl_anno:anno(),
+                          _Signature :: signature(),
+                          _Doc :: doc(),
+                          _Metadata :: metadata()}.
+%% A tuple equivalent to the `#docs_v1_entry{}' record,
+%% but with the record name field skipped.
 
 -type beam_language() :: atom().
 -type mime_type() :: binary().
@@ -46,12 +47,12 @@
 -type metadata() :: map().
 -type signature() :: [binary()].
 
--type xmerl_document_node() :: #xmlElement{}
-                             | #xmlText{}
-                             | #xmlPI{}
-                             | #xmlComment{}
-                             | #xmlDecl{}.
-%% `#xmlElement.content' as defined by `xmerl.hrl'.
+-type xmerl_doc_node() :: #xmlComment{}
+                        | #xmlElement{}
+                        | #xmlPI{}
+                        | #xmlText{}.
+%% Subtype of {@link xmerl_xpath:docNodes()}.
+%% It corresponds to `#xmlElement.content' as defined by `xmerl.hrl', sans the `#xmlDecl{}'.
 
 -type xmerl_attribute() :: #xmlAttribute{}.
 
@@ -62,7 +63,7 @@
 %%
 
 %% @doc Convert EDoc module documentation to an EEP-48 style doc chunk.
--spec module(edoc:xmerl_module(), proplists:proplist()) -> binary().
+-spec module(edoc:edoc_module(), proplists:proplist()) -> binary().
 module(Doc, Options) ->
     %% Require `entries' or fail.
     case lists:keyfind(entries, 1, Options) of
@@ -76,7 +77,7 @@ module(Doc, Options) ->
 %%' Chunk construction
 %%
 
--spec edoc_to_chunk(edoc:xmerl_module(), proplists:proplist()) -> docs_v1().
+-spec edoc_to_chunk(edoc:edoc_module(), proplists:proplist()) -> docs_v1().
 edoc_to_chunk(Doc, Opts) ->
     [Doc] = xmerl_xpath:string("//module", Doc),
     {source, File} = lists:keyfind(source, 1, Opts),
@@ -92,7 +93,7 @@ edoc_to_chunk(Doc, Opts) ->
 
 -spec doc_contents(XPath, Doc, Opts) -> doc() when
       XPath :: xpath(),
-      Doc :: edoc:xmerl_module(),
+      Doc :: edoc:edoc_module(),
       Opts :: proplists:proplist().
 doc_contents(XPath, Doc, Opts) ->
     case doc_visibility(XPath, Doc, Opts) of
@@ -101,7 +102,7 @@ doc_contents(XPath, Doc, Opts) ->
 	regular -> doc_contents_(XPath, Doc, Opts)
     end.
 
-doc_visibility(XPath, Doc, Opts) ->
+doc_visibility(_XPath, Doc, Opts) ->
     case {xpath_to_text("./@private", Doc, Opts),
 	  xpath_to_text("./@hidden", Doc, Opts)}
     of
@@ -115,7 +116,7 @@ doc_visibility(XPath, Doc, Opts) ->
 	    regular
     end.
 
-doc_contents_(XPath, Doc, Opts) ->
+doc_contents_(_XPath, Doc, Opts) ->
     Equiv = xpath_to_chunk("./equiv", Doc),
     Desc = xpath_to_chunk("./description/fullDescription", Doc),
     See = xpath_to_chunk("./see", Doc),
@@ -150,7 +151,7 @@ type(Doc, Opts) ->
     docs_v1_entry(type, Name, Arity, Anno, EntryDoc, Metadata).
 
 -spec meta_type_sig(atom(), arity(), erl_anno:anno(), [edoc:entry()]) -> Metadata when
-      Metadata :: #{signature => erl_parse:abstract_form()}.
+      Metadata :: [{signature, [erl_parse:abstract_form()]}].
 meta_type_sig(Name, Arity, Anno, Entries) ->
     Line = erl_anno:line(Anno),
     Tags = edoc_data:get_all_tags(Entries),
@@ -292,19 +293,17 @@ xpath_to_chunk(XPath, Doc) ->
 %%' Xmerl to chunk format
 %%
 
-%% TODO: shell_docs:chunk_elements() is not exported yet.
--spec xmerl_to_chunk(edoc:xmerl_module()) -> shell_docs:chunk_elements().
+-spec xmerl_to_chunk([xmerl_doc_node()]) -> shell_docs:chunk_elements().
 xmerl_to_chunk(Contents) ->
     shell_docs:normalize(format_content(Contents)).
 
--spec format_content(edoc:xmerl_module()) -> shell_docs:chunk_elements().
+-spec format_content([xmerl_doc_node()]) -> shell_docs:chunk_elements().
 format_content(Contents) ->
     lists:flatten([ format_content_(C) || C <- Contents ]).
 
--spec format_content_(xmerl_document_node()) -> shell_docs:chunk_elements().
+-spec format_content_(xmerl_doc_node()) -> shell_docs:chunk_elements().
 format_content_(#xmlPI{})      -> [];
 format_content_(#xmlComment{}) -> [];
-format_content_(#xmlDecl{})    -> [];
 
 format_content_(#xmlText{} = T) ->
     Text = T#xmlText.value,
@@ -389,7 +388,9 @@ inconsistent_docgen_attrs(Attrs) ->
     %% Only one of `docgen-rel` and `docgen-href` is found - should not happen!
     erlang:error({inconsistent_docgen_attrs, Attrs}).
 
--spec expand_docgen_rel(edoc_refs:docgen_rel()) -> string().
+%% @doc `Rel' is actually a stringified {@link edoc_refs:docgen_rel()}.
+-spec expand_docgen_rel(Rel) -> string() when
+      Rel :: string().
 expand_docgen_rel(Rel)
   when Rel =:= "seemfa"; Rel =:= "seeerl"; Rel =:= "seetype"; Rel =:= "seeapp";
        Rel =:= "seecom"; Rel =:= "seecref"; Rel =:= "seefile" ; Rel =:= "seeguide" ->

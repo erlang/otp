@@ -65,6 +65,7 @@
 	      comment/0,
 	      entry/0,
 	      entry_data/0,
+	      function_name/0,
 	      tag/0,
 	      edoc_module/0]).
 
@@ -100,7 +101,7 @@
 		    line :: integer(),
 		    origin :: comment | code,
 		    data :: term(),
-		    form :: undefined | erl_syntax:tree()}.
+		    form :: undefined | erl_parse:abstract_form()}.
 %% Generic tag information.
 %% `#tag.form' is only defined if `#tag.origin' is `code',
 %% that is the `#tag{}' represents a code fragment, not a doc comment tag.

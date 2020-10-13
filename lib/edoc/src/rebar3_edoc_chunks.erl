@@ -18,7 +18,7 @@
 %% @end
 -module(rebar3_edoc_chunks).
 
--behaviour(provider).
+%-behaviour(provider).
 -export([init/1,
          do/1,
          format_error/1]).
@@ -68,7 +68,7 @@ format_error(Reason) ->
 %%
 
 -spec process_app(rebar_state:t(), rebar_app_info:t()) -> ok.
-process_app(State, App) ->
+process_app(_State, App) ->
     EdocOpts = [{doclet, edoc_doclet_chunks},
 		{layout, edoc_layout_chunks},
 		{preprocess, true}],

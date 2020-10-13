@@ -34,7 +34,7 @@
 
 -export([run/2]).
 
--import(edoc_report, [report/2, warning/2]).
+-import(edoc_report, [report/2]).
 
 %% @headerfile "../include/edoc_doclet.hrl"
 -include("../include/edoc_doclet.hrl").
@@ -103,9 +103,6 @@ source({_M, Name, Path}, Dir, Suffix, Env, OkSet, _Private, _Hidden, ErrorFlag, 
 	io:format("stacktrace:\n~p\n", [St]),
 	{OkSet, true}
     end.
-
-default_chunk_layout() ->
-    edoc_layout_chunks.
 
 chunk_file_name(ErlName, Suffix) ->
     string:join([filename:basename(ErlName, ".erl"), Suffix], "").
