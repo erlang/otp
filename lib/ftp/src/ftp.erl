@@ -1143,7 +1143,7 @@ handle_call({_, recv_chunk}, From, #state{chunk = true,
                                                                       } = R
                                          } = State0) ->
     State = activate_data_connection(State0),
-    {reply, ok, State#state{client = From, caller = R#recv_chunk_closing{client_called_us=true}}};
+    {noreply, State#state{client = From, caller = R#recv_chunk_closing{client_called_us=true}}};
 
 handle_call({_, recv_chunk}, From, #state{chunk = true,
                                           caller = #recv_chunk_closing{} = R
@@ -1302,6 +1302,13 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
                           caller = #recv_chunk_closing{dconn_closed     =  true,
                                                        client_called_us =  Client =/= undefined}
                          }};
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
+                                  caller = #recv_chunk_closing{client_called_us = true,
+                                                               pos_compl_received = true} = R} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    %% Maybe handle unprocessed chunk message before acking final chunk
+    self() ! {Cls, Socket}, 
+    {noreply, State#state{caller = R#recv_chunk_closing{dconn_closed = true}}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin,
                                          data = Data} = State0)
