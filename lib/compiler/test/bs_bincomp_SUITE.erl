@@ -206,6 +206,11 @@ nomatch(Config) when is_list(Config) ->
     <<>> = << <<X:32>> || <<X:all/binary>> <= Bin >>,
     <<>> = << <<X:32>> || <<X:bad/binary>> <= Bin >>,
 
+    <<>> = << <<"a">> || <<_:1/float>> <= Bin>>,
+
+    NaN = <<(-1):32>>,
+    <<>> = << <<"a">> || <<_:32/float>> <= NaN >>,
+
     ok.
 
 sizes(Config) when is_list(Config) ->

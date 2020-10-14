@@ -32,7 +32,7 @@
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
 
--import(lists, [any/2,duplicate/2,foldl/3,member/2,
+-import(lists, [all/2,any/2,duplicate/2,foldl/3,member/2,
                 keyfind/3,reverse/1,split/2,zip/2]).
 
 %% The maximum number of #b_ret{} terminators a function can have before
@@ -1012,13 +1012,13 @@ will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts, _Sub) ->
 %% Remove the success branch from binary operations with invalid
 %% sizes. That will remove subsequent bs_put and bs_match instructions,
 %% which are probably not loadable.
-will_succeed_1(#b_set{op=bs_add,args=[_,#b_literal{val=Size},_]},
+will_succeed_1(#b_set{op=bs_add,args=[Arg1,Arg2,_]},
                _Src, _Ts, _Sub) ->
-    if
-        is_integer(Size), Size >= 0 ->
-            maybe;
-        true ->
-            no
+    case all(fun(#b_literal{val=Size}) -> is_integer(Size) andalso Size >= 0;
+                (#b_var{}) -> true
+             end, [Arg1,Arg2]) of
+        true -> maybe;
+        false -> no
     end;
 will_succeed_1(#b_set{op=bs_init,
                       args=[#b_literal{val=new},#b_literal{val=Size},_Unit]},

@@ -206,10 +206,17 @@ external(Config) when is_list(Config) ->
     {'EXIT',{{badarity,_},_}} = (catch (id(fun lists:sum/1))(1, 2, 3)),
     {'EXIT',{{badarity,_},_}} = (catch apply(fun lists:sum/1, [1,2,3])),
 
+    {'EXIT',{badarg,_}} = (catch bad_external_fun()),
+
     ok.
 
 call_me(I) ->
     {ok,I}.
+
+bad_external_fun() ->
+    V0 = idea,
+    fun V0:V0/V0,                               %Should fail.
+    never_reached.
 
 eep37(Config) when is_list(Config) ->
     F = fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end,

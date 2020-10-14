@@ -663,8 +663,10 @@ bad_size(_Config) ->
     {'EXIT',{badarg,_}} = (catch bad_float_size(<<"abc">>)),
     {'EXIT',{badarg,_}} = (catch bad_integer_size()),
     {'EXIT',{badarg,_}} = (catch bad_integer_size(<<"xyz">>)),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size2()),
     {'EXIT',{badarg,_}} = (catch bad_binary_size()),
     {'EXIT',{badarg,_}} = (catch bad_binary_size(<<"xyz">>)),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size2()),
     ok.
 
 bad_float_size() ->
@@ -679,8 +681,18 @@ bad_integer_size() ->
 bad_integer_size(Bin) ->
     <<Bin/binary,0:case 0 of 0 -> art end/integer>>.
 
+bad_integer_size2() ->
+    <<
+      <<(id(42))>>:[ <<>> || <<123:true>> <= <<>> ],
+      <<(id(100))>>:7>>.
+
 bad_binary_size() ->
     <<<<"abc">>:case 0 of 0 -> art end/binary>>.
 
 bad_binary_size(Bin) ->
     <<Bin/binary,<<"abc">>:case 0 of 0 -> art end/binary>>.
+
+bad_binary_size2() ->
+    <<
+      <<(id(42))>>:[ <<>> || <<123:true>> <= <<>> ]/binary,
+      <<(id(100))>>:7>>.

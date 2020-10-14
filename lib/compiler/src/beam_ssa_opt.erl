@@ -1532,7 +1532,9 @@ bsm_skip_is([I0|Is], Extracted) ->
         #b_set{op=bs_match,
                dst=Ctx,
                args=[#b_literal{val=T}=Type,PrevCtx|Args0]}
-          when T =/= string, T =/= skip ->
+          when T =/= float, T =/= string, T =/= skip ->
+            %% Note that it is never safe to skip matching
+            %% of floats, even if the size is known to be correct.
             I = case cerl_sets:is_element(Ctx, Extracted) of
                     true ->
                         I0;
