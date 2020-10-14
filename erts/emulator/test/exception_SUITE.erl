@@ -25,7 +25,7 @@
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
          change_exception_class/1,
          exception_with_heap_frag/1, backtrace_depth/1,
-         line_numbers/1]).
+         no_line_numbers/1, line_numbers/1]).
 
 -export([bad_guy/2]).
 -export([crash/1]).
@@ -50,7 +50,8 @@ all() ->
     [badmatch, pending_errors, nil_arith, top_of_stacktrace,
      stacktrace, nested_stacktrace, raise, gunilla, per,
      change_exception_class,
-     exception_with_heap_frag, backtrace_depth, line_numbers].
+     exception_with_heap_frag, backtrace_depth,
+     no_line_numbers, line_numbers].
 
 -define(try_match(E),
         catch ?MODULE:bar(),
@@ -656,6 +657,21 @@ do_backtrace_depth_2(D, Exc) ->
                     ok
             end
     end.
+
+no_line_numbers(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Src = filename:join(DataDir, atom_to_list(?FUNCTION_NAME) ++ ".erl"),
+    {ok,Mod,Code} = compile:file(Src, [no_line_info,binary,report]),
+    {module,Mod} = code:load_binary(Mod, "", Code),
+
+    %% Make sure that the correct function is returned in the stacktrace
+    %% even if the compiled code has no `line` instructions.
+    {'EXIT',{badarith,[{erlang,'*',_,_},{Mod,a,_,_}|_]}} = (catch Mod:a(aa)),
+    {'EXIT',{badarith,[{erlang,'*',_,_},{Mod,b,_,_}|_]}} = (catch Mod:b(bb)),
+    {'EXIT',{badarith,[{erlang,'*',_,_},{Mod,c,_,_}|_]}} = (catch Mod:c(cc)),
+    {'EXIT',{badarith,[{erlang,'*',_,_},{Mod,d,_,_}|_]}} = (catch Mod:d(dd)),
+    {'EXIT',{badarith,[{erlang,'*',_,_},{Mod,e,_,_}|_]}} = (catch Mod:e(ee)),
+    ok.
 
 line_numbers(Config) when is_list(Config) ->
     {'EXIT',{{case_clause,bad_tag},

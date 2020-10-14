@@ -417,6 +417,9 @@ void BeamModuleAssembler::emit_func_line(const ArgVal &Loc) {
     emit_line(Loc);
 }
 
+void BeamModuleAssembler::emit_empty_func_line() {
+}
+
 /*
  * Here follows stubs for instructions that should never be called.
  */
