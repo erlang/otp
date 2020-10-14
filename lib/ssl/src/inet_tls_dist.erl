@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@
 
 -export([childspecs/0]).
 -export([listen/2, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1]).
+	 setup/5, close/1, select/1, address/0, is_node_name/1]).
 
 %% Generalized dist API
 -export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
-	 gen_setup/6, gen_close/2, gen_select/2]).
+	 gen_setup/6, gen_close/2, gen_select/2, gen_address/1]).
 
 -export([nodelay/0]).
 
@@ -62,6 +62,14 @@ gen_select(Driver, Node) ->
         _ ->
             false
     end.
+
+%% ------------------------------------------------------------
+%% Get the address family that this distribution uses
+%% ------------------------------------------------------------
+address() ->
+    gen_address(inet_tcp).
+gen_address(Driver) ->
+    inet_tcp_dist:gen_address(Driver).
 
 %% -------------------------------------------------------------------------
 
