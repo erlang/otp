@@ -1148,7 +1148,8 @@ run_all_specs([], _, _, TotResult) ->
 				    {Ok1,Fail1,{UserSkip1,AutoSkip1}}) ->
 					{Ok1+Ok,Fail1+Fail,
 					 {UserSkip1+UserSkip,
-					  AutoSkip1+AutoSkip}}
+					  AutoSkip1+AutoSkip}};
+				(Pid, Acc) when is_pid(Pid) -> Acc
 				end, {0,0,{0,0}}, TotResult1)
 	    end
     end;
