@@ -1,13 +1,48 @@
-%% @doc Convert EDoc module documentation to an EEP-48 `docs_v1' chunk.
+%% =====================================================================
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
+%% @copyright 2019-2021 Radek Szymczyszyn
+%% @author Radek Szymczyszyn <lavrin@gmail.com>
+%% @end
+%% =====================================================================
+
+%% @doc Convert EDoc module documentation to an
+%% <a href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</a>
+%% `docs_v1' chunk.
+%%
+%% This layout is only expected to work with {@link edoc_doclet_chunks}.
+%% Section <a href="chapter.html#Using_the_EDoc_API">Using the EDoc API</a>
+%% in the EDoc User's Guide shows an example of using this module.
+%%
+%% This module breaks the convention stated in `edoc_doclet' to not rely on `edoc.hrl'
+%% in doclets and layouts. It uses `#entry{}' records directly to recover information
+%% that is not otherwise available to layouts.
+%% @see //stdlib/shell_docs
+%% @see edoc_doclet_chunks
+%% @end
 -module(edoc_layout_chunks).
 
 %-behaviour(edoc_layout).
 -export([module/2]).
 
-%% This breaks the convention stated in `edoc_doclet' to not rely on `edoc.hrl'
-%% in doclets and layouts.
-%% However, without direct `#entry{}' access it's quite unwieldy to pass spec/type
-%% info for storage in chunks.
 -include("edoc.hrl").
 
 -export_type([docs_v1/0,
@@ -239,8 +274,8 @@ args_and_signature(E = #entry{}) ->
     %% At this point `#entry.args' might be two things:
     %% - a list of arg names if no `-spec' is present,
     %% - if `-spec' is present, it's a list of clauses;
-    %%   the number of clauses is the same as the number of specs clauses;
-    %%   all clauses have the first functions' clause arg names.
+    %%   the number of clauses is the same as the number of spec clauses;
+    %%   all clauses have the first function clause arg names.
     %%
     %% See `test/eep48_SUITE_data/eep48_sigs.erl'
     %% and `test/eep48_SUITE_data/eep48_specs.erl' for examples.

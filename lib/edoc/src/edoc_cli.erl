@@ -4,6 +4,8 @@
 
 %% TODO: accept `private'/`hidden' and forward accordingly
 
+main([]) ->
+    print(usage());
 main(Args) ->
     Opts = parse_args(Args),
     print("Running with opts:\n~p\n", [Opts]),
@@ -110,12 +112,12 @@ print(Fmt, Args) ->
     io:format(Fmt, Args).
 
 usage() ->
-    "Usage: edoc.escript [options] -app App\n"
-    "       edoc.escript [options] -files Source1 ... SourceN\n"
+    "Usage: edoc [options] -app App\n"
+    "       edoc [options] -files Source...\n"
     "\n"
     "Run EDoc from the command line:\n"
     "  -app App       \truns edoc:application/2; App is the application name\n"
-    "  -files Sources \truns edoc:files/2; Files are .erl files\n"
+    "  -files Sources \truns edoc:files/2; Sources are .erl files\n"
     "\n"
     "Options:\n"
     "  -chunks        \twhen present, only doc chunks are generated\n"

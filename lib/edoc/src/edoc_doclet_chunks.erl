@@ -19,13 +19,19 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2019 Radek Szymczyszyn
+%% @copyright 2019-2021 Radek Szymczyszyn
 %% @author Radek Szymczyszyn <lavrin@gmail.com>
 %% @end
 %% =====================================================================
 
-%% @doc Doclet generating standalone EEP-48 Docs chunk files.
-%% @reference See http://erlang.org/eeps/eep-0048.html.
+%% @doc Doclet generating standalone
+%% <a href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</a>
+%% doc chunk files.
+%%
+%% Section <a href="chapter.html#Using_the_EDoc_API">Using the EDoc API</a>
+%% in the EDoc User's Guide shows an example of using this module.
+%% @see //stdlib/shell_docs
+%% @see edoc_layout_chunks
 %% @end
 
 %% Note that this is written so that it is *not* depending on edoc.hrl!
@@ -47,6 +53,14 @@
 -define(debug(Format, Args), ok).
 %-define(debug(Format, Args), io:format(Format, Args)).
 
+%% @doc Main doclet entry point.
+%%
+%% This doclet is tightly coupled with {@link edoc_layout_chunks}
+%% and should be used together with it.
+%%
+%% The only option this doclet accepts is `dir', which controls
+%% where the `chunks' subdirectory and the EEP-48 chunk files will be placed.
+
 -spec run(edoc_doclet:command(), edoc_doclet:context()) -> ok.
 run(#doclet_gen{} = Cmd, Ctxt) ->
     gen(Cmd#doclet_gen.sources,
@@ -55,7 +69,6 @@ run(#doclet_gen{} = Cmd, Ctxt) ->
 	Ctxt);
 run(#doclet_toc{} = _Cmd, _Ctxt) ->
     erlang:error(not_implemented).
-    %toc(Cmd#doclet_toc.paths, Ctxt).
 
 gen(Sources, _App, Modules, Ctxt) ->
     Dir = filename:join(Ctxt#doclet_context.dir, ?CHUNKS_DIR),
@@ -94,9 +107,7 @@ sources(Sources, Dir, Modules, Env, Options) ->
 source({_M, Name, Path}, Dir, Suffix, Env, OkSet, _Private, _Hidden, ErrorFlag, Options) ->
     File = filename:join(Path, Name),
     try
-	%% TODO: should we ever want not to have private/hidden entries in the chunk?
 	{_Module, Doc, Entries} = edoc:get_doc(File, Env, [return_entries, private, hidden | Options]),
-	%% TODO: edoc_doclet does check_name, check for private, and check for hidden here
 	Chunk = edoc:layout(Doc, [{entries, Entries}, {source, Name} | Options]),
 	WriteOptions = [{encoding, utf8}],
 	ok = write_file(Chunk, Dir, chunk_file_name(Name, Suffix), WriteOptions),

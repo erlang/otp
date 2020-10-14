@@ -35,9 +35,12 @@
       and has several features not found in Javadoc.</p>
   </description>
   <xi:include href="edoc.xml"/>
+  <xi:include href="edoc_cmd.xml"/>
   <xi:include href="edoc_doclet.xml"/>
+  <xi:include href="edoc_doclet_chunks.xml"/>
   <xi:include href="edoc_extract.xml"/>
   <xi:include href="edoc_layout.xml"/>
+  <xi:include href="edoc_layout_chunks.xml"/>
   <xi:include href="edoc_lib.xml"/>
   <xi:include href="edoc_run.xml"/>
 </application>

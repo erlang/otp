@@ -39,7 +39,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/edoc-$(VSN)
 
 
 ESCRIPT_FILES= \
-	edoc.escript
+	edoc
 
 # ----------------------------------------------------
 # FLAGS
