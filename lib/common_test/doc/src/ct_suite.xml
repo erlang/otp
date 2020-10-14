@@ -84,15 +84,7 @@
       <fsummary>Returns the list of all test case groups and test cases
 	in the module.</fsummary>
       <type>
-	<v>TestDef = TestCase | {group, GroupName} | {group, GroupName, Properties} | {group, GroupName, Properties, SubGroups}</v>
-	<v>TestCase = atom()</v>
-	<v>GroupName = atom()</v>
-	<v>Properties = [parallel | sequence | Shuffle | {RepeatType, N}] | default</v>
-	<v>SubGroups = [{GroupName, Properties} | {GroupName, Properties, SubGroups}]</v>
-	<v>Shuffle = shuffle | {shuffle, Seed}</v>
-	<v>Seed = {integer(), integer(), integer()}</v>
-	<v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
-	<v>N = integer() | forever</v>
+	<v>TestDef = <seetype marker="#ct_test_def">ct_test_def()</seetype></v>
 	<v>Reason = term()</v>
       </type>
 
@@ -130,15 +122,7 @@
       <name>Module:groups() -> [GroupDef]</name>
       <fsummary>Returns a list of test case group definitions.</fsummary>
       <type>
-        <v>GroupDef = {GroupName, Properties, GroupsAndTestCases}</v>
-        <v>GroupName = atom()</v>
-        <v>Properties = [parallel | sequence | Shuffle | {RepeatType, N}]</v>
-        <v>GroupsAndTestCases = [Group | {group, GroupName} | TestCase]</v>
-        <v>TestCase = atom()</v>
-        <v>Shuffle = shuffle | {shuffle, Seed}</v>
-        <v>Seed = {integer(), integer(), integer()}</v>
-        <v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
-        <v>N = integer() | forever</v>
+        <v>GroupDef = <seetype marker="#ct_group_def">ct_group_def()</seetype></v>
       </type>
 
       <desc>
@@ -155,29 +139,7 @@
 	<fsummary>Test suite info function (providing default data
 	  for the suite).</fsummary>
 	<type>
-	  <v>Info = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs}</v>
-	  <v>Time = TimeVal | TimeFunc</v>
-	  <v>TimeVal = MilliSec | {seconds, integer()} | {minutes, integer()} | {hours, integer()}</v>
-	  <v>TimeFunc = {Mod, Func, Args} | Fun</v>
-	  <v>MilliSec = integer()</v>
-	  <v>Mod = atom()</v>
-	  <v>Func = atom()</v>
-	  <v>Args = list()</v>
-	  <v>Fun = fun()</v>
-	  <v>Required = Key | {Key, SubKeys} | {Key, SubKey} | {Key, SubKey, SubKeys}</v>
-	  <v>Key = atom()</v>
-	  <v>SubKeys = SubKey | [SubKey]</v>
-	  <v>SubKey = atom()</v>
-	  <v>Name = atom()</v>
-	  <v>UserData = term()</v>
-	  <v>Conns = [atom()]</v>
-	  <v>CSSFile = string()</v>
-	  <v>CTHs = [CTHModule |</v>
-	  <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs} |</v>
-	  <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs, CTHPriority}]</v>
-	  <v>CTHModule = atom()</v>
-	  <v>CTHInitArgs = term()</v>
-	  <v>CTHPriority = integer()</v>
+	  <v>Info = <seetype marker="#ct_info">ct_info()</seetype></v>
 	</type>
 	<desc>
 
@@ -229,9 +191,7 @@
 	  {skip_and_save, Reason, SaveConfig}</name>
 	<fsummary>Test suite initializations.</fsummary>
 	<type>
-	  <v>Config = NewConfig = SaveConfig = [{Key, Value}]</v>
-	  <v>Key = atom()</v>
-	  <v>Value = term()</v>
+	  <v>Config = NewConfig = SaveConfig = <seetype marker="#ct_config">ct_config()</seetype></v>
 	  <v>Reason = term()</v>
 	</type>
 	<desc>
@@ -264,9 +224,7 @@
 	{save_config, SaveConfig}</name>
       <fsummary>Test suite finalization.</fsummary>
       <type>
-	<v>Config = SaveConfig = [{Key, Value}]</v>
-	<v>Key = atom()</v>
-	<v>Value = term()</v>
+	<v>Config = SaveConfig = <seetype marker="#ct_config">ct_config()</seetype></v>
       </type>
 
       <desc>
@@ -289,30 +247,8 @@
         for a test case group, that is, its test cases and
         subgroups).</fsummary>
       <type>
-	<v>GroupName = atom()</v>
-	<v>Info = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs}</v>
-	<v>Time = TimeVal | TimeFunc</v>
-	<v>TimeVal = MilliSec | {seconds, integer()} | {minutes, integer()} | {hours, integer()}</v>
-	<v>TimeFunc = {Mod, Func, Args} | Fun</v>
-	<v>MilliSec = integer()</v>
-	<v>Mod = atom()</v>
-	<v>Func = atom()</v>
-	<v>Args = list()</v>
-	<v>Fun = fun()</v>
-	<v>Required = Key | {Key, SubKeys} | {Key, SubKey} | {Key, SubKey, SubKeys}</v>
-	<v>Key = atom()</v>
-	<v>SubKeys = SubKey | [SubKey]</v>
-	<v>SubKey = atom()</v>
-	<v>Name = atom()</v>
-	<v>UserData = term()</v>
-	<v>Conns = [atom()]</v>
-	<v>CSSFile = string()</v>
-	<v>CTHs = [CTHModule |</v>
-	<v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs} |</v>
-	<v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs, CTHPriority}]</v>
-	<v>CTHModule = atom()</v>
-	<v>CTHInitArgs = term()</v>
-	<v>CTHPriority = integer()</v>
+	<v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
+	<v>Info = <seetype marker="#ct_info">ct_info()</seetype></v>
       </type>
       <desc>
 
@@ -370,10 +306,8 @@
 	  {skip, Reason}</name>
 	<fsummary>Test case group initializations.</fsummary>
 	<type>
-	  <v>GroupName = atom()</v>
-	  <v>Config = NewConfig = [{Key, Value}]</v>
-	  <v>Key = atom()</v>
-	  <v>Value = term()</v>
+	  <v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
+	  <v>Config = NewConfig = <seetype marker="#ct_config">ct_config()</seetype></v>
 	  <v>Reason = term()</v>
 	</type>
 	<desc>
@@ -408,11 +342,9 @@
 	  {return_group_result, Status}</name>
 	<fsummary>Test case group finalization.</fsummary>
 	<type>
-	  <v>GroupName = atom()</v>
-	  <v>Config = [{Key, Value}]</v>
-	  <v>Key = atom()</v>
-	  <v>Value = term()</v>
-	  <v>Status = ok | skipped | failed</v>
+	  <v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
+	  <v>Config = <seetype marker="#ct_config">ct_config()</seetype></v>
+	  <v>Status = <seetype marker="#ct_status">ct_status()</seetype></v>
 	</type>
 
 	<desc>
@@ -441,10 +373,8 @@
 	<name>Module:init_per_testcase(TestCase, Config) -> NewConfig | {fail, Reason} | {skip, Reason}</name>
 	<fsummary>Test case initializations.</fsummary>
 	<type>
-	  <v>TestCase = atom()</v>
-	  <v>Config = NewConfig = [{Key, Value}]</v>
-	  <v>Key = atom()</v>
-	  <v>Value = term()</v>
+	  <v>TestCase = <seetype marker="#ct_testname">ct_testname()</seetype></v>
+	  <v>Config = NewConfig = <seetype marker="#ct_config">ct_config()</seetype></v>
 	  <v>Reason = term()</v>
 	</type>
 	<desc>
@@ -471,10 +401,8 @@
 	<name>Module:end_per_testcase(TestCase, Config) -> term() | {fail, Reason} | {save_config, SaveConfig}</name>
 	<fsummary>Test case finalization.</fsummary>
 	<type>
-	  <v>TestCase = atom()</v>
-	  <v>Config = SaveConfig = [{Key, Value}]</v>
-	  <v>Key = atom()</v>
-	  <v>Value = term()</v>
+	  <v>TestCase = <seetype marker="#ct_testname">ct_testname()</seetype></v>
+	  <v>Config = SaveConfig = <seetype marker="#ct_config">ct_config()</seetype></v>
 	  <v>Reason = term()</v>
 	</type>
 	<desc>
@@ -577,9 +505,7 @@
 	<name>Module:Testcase(Config) -> term() | {skip, Reason} | {comment, Comment} | {save_config, SaveConfig} | {skip_and_save, Reason, SaveConfig} | exit()</name>
       <fsummary>A test case.</fsummary>
       <type>
-	<v>Config = SaveConfig = [{Key, Value}]</v>
-	<v>Key = atom()</v>
-	<v>Value = term()</v>
+	<v>Config = SaveConfig = <seetype marker="#ct_config">ct_config()</seetype></v>
 	<v>Reason = term()</v>
 	<v>Comment = string()</v>
       </type>
