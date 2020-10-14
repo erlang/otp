@@ -1336,6 +1336,7 @@ bad_size(Config) when is_list(Config) ->
     Tuple = {a,b,c},
     Binary = <<1,2,3>>,
     Atom = an_atom,
+    NaN = <<(-1):32>>,
 
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Binary>> = id(<<>>)),
@@ -1348,12 +1349,16 @@ bad_size(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Binary/float>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Atom/float>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:2.5/float>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:1/float>> = id(<<>>)),
+    {'EXIT',{{badmatch,NaN},_}} = (catch <<42.0:32/float>> = id(NaN)),
 
     %% Matched out value is ignored.
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Binary>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Atom>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:2.5>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<1:1>>},_}} = (catch <<_:1/float>> = id(<<1:1>>)),
+    {'EXIT',{{badmatch,NaN},_}} = (catch <<_:32/float>> = id(NaN)),
 
     no_match = bad_all_size(<<>>),
     no_match = bad_all_size(<<1,2,3>>),
