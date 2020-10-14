@@ -33,7 +33,7 @@
 
 -export([module/4, overview/4, type/2]).
 
--export([hidden_filter/2, get_all_tags/1, get_entry/2]).
+-export([hidden_filter/2, get_all_tags/1, get_entry/2, get_tags/2]).
 
 -include("edoc.hrl").
 
