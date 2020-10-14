@@ -65,13 +65,13 @@
             {seconds, integer()} |
             {minutes, integer()} |
             {hours, integer()} |
-            {Mod :: module(), Func :: atom(), Args :: list()} |
+            {Mod :: atom(), Func :: atom(), Args :: list()} |
             ct_info_timetrap_fun().
 -type ct_info_timetrap_fun() :: fun().
 -type ct_info_required() :: Key :: atom() |
             {Key :: atom(), SubKeys :: ct_info_required_subkeys()} |
-            {Key :: atom(), Subkey :: atom()} |
-            {Key :: atom(), Subkey :: atom(), SubKeys :: ct_info_required_subkeys()}.
+            {Key :: atom(), SubKey :: atom()} |
+            {Key :: atom(), SubKey :: atom(), SubKeys :: ct_info_required_subkeys()}.
 -type ct_info_required_subkeys() :: SubKey :: atom() |
             [SubKey :: atom()].
 -type ct_hooks() :: [
@@ -82,14 +82,14 @@
 -type ct_tests_def() :: ct_testname() | ct_group_ref() | ct_testcase_ref().
 
 -callback all() ->
-    Tests :: [ct_tests_def()] |
+    [TestDef :: ct_tests_def()] |
     {skip, Reason :: term()}.
 
 -callback groups() ->
-    GroupDefs :: [ct_groups_def()].
+    [GroupDef :: ct_groups_def()].
 
 -callback suite() ->
-    Info :: [ct_info()].
+    [Info :: ct_info()].
 
 -callback init_per_suite(Config :: ct_config()) ->
     NewConfig :: ct_config() |
