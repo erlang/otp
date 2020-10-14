@@ -7,8 +7,8 @@
               ct_groupname/0,
               ct_config/0,
               ct_status/0,
-              ct_groups_def/0,
-              ct_tests_def/0,
+              ct_group_def/0,
+              ct_test_def/0,
               ct_info/0
              ]).
 
@@ -35,9 +35,9 @@
             repeat_until_any_fail.
 -type ct_test_repeat() :: integer() |
             forever.
--type ct_groups_def() :: {ct_groupname(), ct_group_props(), [
+-type ct_group_def() :: {ct_groupname(), ct_group_props(), [
                 ct_testname() |
-                ct_groups_def() |
+                ct_group_def() |
                 {group, ct_groupname()} |
                 ct_testcase_ref()
             ]}.
@@ -46,8 +46,8 @@
 -type ct_group_ref() :: {group, ct_groupname()} |
             {group, ct_groupname(), ct_group_props_ref()} |
             {group, ct_groupname(), ct_group_props_ref(), ct_subgroups_def()}.
--type ct_testcase_ref() :: {testcase, ct_testname(), ct_testcase_repeat_props()}.
--type ct_testcase_repeat_props() :: {repeat, ct_test_repeat()} |
+-type ct_testcase_ref() :: {testcase, ct_testname(), ct_testcase_repeat_prop()}.
+-type ct_testcase_repeat_prop() :: {repeat, ct_test_repeat()} |
             {repeat_until_ok, ct_test_repeat()} |
             {repeat_until_fail, ct_test_repeat()}.
 -type ct_info() :: {timetrap, ct_info_timetrap()} |
@@ -75,14 +75,14 @@
                 {CTHModule :: atom(), CTHInitArgs :: term()} |
                 {CTHModule :: atom(), CTHInitArgs :: term(), CTHPriority :: integer()}
             ].
--type ct_tests_def() :: ct_testname() | ct_group_ref() | ct_testcase_ref().
+-type ct_test_def() :: ct_testname() | ct_group_ref() | ct_testcase_ref().
 
 -callback all() ->
-    [TestDef :: ct_tests_def()] |
+    [TestDef :: ct_test_def()] |
     {skip, Reason :: term()}.
 
 -callback groups() ->
-    [GroupDef :: ct_groups_def()].
+    [GroupDef :: ct_group_def()].
 
 -callback suite() ->
     [Info :: ct_info()].
