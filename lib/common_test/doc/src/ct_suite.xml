@@ -57,11 +57,11 @@
       <desc>The status value for a nested subgroup.</desc>
     </datatype>
     <datatype>
-      <name name="ct_groups_def" n_vars="0"/>
+      <name name="ct_group_def" n_vars="0"/>
       <desc>The test group definition.</desc>
     </datatype>
     <datatype>
-      <name name="ct_tests_def" n_vars="0"/>
+      <name name="ct_test_def" n_vars="0"/>
       <desc>The test suite definition.</desc>
     </datatype>
     <datatype>
