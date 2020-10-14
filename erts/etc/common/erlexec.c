@@ -1854,10 +1854,10 @@ done:
 #undef ENSURE
 }
 
-static char *
+static const char *
 errno_string(void)
 {
-    char *str = strerror(errno);
+    const char *str = strerror(errno);
     if (!str)
 	return "unknown error";
     return str;

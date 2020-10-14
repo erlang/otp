@@ -710,7 +710,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	errno = 0;
 	if (mlockall(MCL_CURRENT|MCL_FUTURE) != 0) {
 	    int err = errno;
-	    char *errstr = err ? strerror(err) : "unknown";
+	    const char *errstr = err ? strerror(err) : "unknown";
 	    erts_exit(1, "Failed to lock physical memory: %s (%d)\n",
 		     errstr, err);
 	}

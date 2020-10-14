@@ -1859,7 +1859,7 @@ error_string(int error)
     error_str = unknown_error;
 
     if (error > 0) {
-	char *str = strerror(error);
+	const char *str = strerror(error);
 	if (str)
 	    error_str = str;
     }
