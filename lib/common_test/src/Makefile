@@ -40,6 +40,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/common_test-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 
+BEHAVIOUR_MODULES= \
+	ct_suite
+
 MODULES= \
 	ct \
 	ct_logs \
@@ -90,7 +93,10 @@ MODULES= \
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-ERL_FILES= $(MODULES:=.erl)
+ERL_FILES= \
+	$(MODULES:=.erl) \
+	$(BEHAVIOUR_MODULES:%=%.erl)
+
 HRL_FILES = \
 	ct_util.hrl \
 	ct_netconfc.hrl
@@ -117,6 +123,8 @@ TARGET_FILES = \
 	$(GEN_ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR)) \
 	$(BEAM_FILES) \
 	$(APP_TARGET) $(APPUP_TARGET)
+
+BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 APP_FILE= common_test.app
 APP_SRC= $(APP_FILE).src
@@ -152,7 +160,7 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
-	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(BEHAVIOUR_TARGET_FILES) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(EXTERNAL_HRL_FILES) "$(RELSYSDIR)/include"
 
