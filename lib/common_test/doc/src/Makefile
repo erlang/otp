@@ -50,7 +50,8 @@ XML_REF3_FILES = ct.xml \
 	ct_property_test.xml \
 	ct_netconfc.xml \
 	ct_hooks.xml \
-        ct_testspec.xml
+        ct_testspec.xml \
+        ct_suite.xml
 XML_REF6_FILES = common_test_app.xml
 
 XML_PART_FILES = part.xml
