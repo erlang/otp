@@ -8,10 +8,6 @@
               ct_config/0,
               ct_status/0,
               ct_groups_def/0,
-              ct_group_props/0,
-              ct_testcase_ref/0,
-              ct_group_ref/0,
-              ct_subgroups_def/0,
               ct_tests_def/0,
               ct_info/0
              ]).
