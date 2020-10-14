@@ -579,8 +579,12 @@ store(Binary, GBSet) ->
       <name name="linear_compare" arity="2" since="OTP R24"/>
       <fsummary>Compares two binaries in linear time.</fsummary>
       <desc>
-          <p>Given two binaries of equal size this function will compare each byte in linear time.
-              This function will raise a badarg error if both binaries are not of equal size.</p>
+          <p>Given two binaries of equal size this function will compare each byte of both binaries 
+              in linear time. The time this function takes to complete will always be proportional to the 
+              size of the data given, regardless of the differences between the two arguments.</p>
+
+          <p>This function will raise a badarg error if both binaries are not of equal size.</p>
+          
           <p>Returns true if both binaries match exactly, otherwise returns false.</p>
       </desc>
     </func>
