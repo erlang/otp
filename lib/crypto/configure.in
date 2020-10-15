@@ -211,9 +211,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
     SSL_APP=
     CRYPTO_APP=
     SSH_APP=
-    if test "$with_ssl" = "no"; then
-	skip="User gave --without-ssl option"
-    else
+    if test "$with_ssl" != "no"; then
 	skip="Cannot search for ssl; missing cross system root (erl_xcomp_sysroot)."
     fi
     for a in ssl crypto ssh; do

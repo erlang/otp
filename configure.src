@@ -323,7 +323,9 @@ for app_dir in make $check_conf_dirs erts; do
        rm -f $app_dir/configure.result.command
        rm -f $app_dir/configure.result.stdout
        rm -f $app_dir/configure.result.stderr
-       app_dirs="$app_dirs $app_dir"
+       if ! echo "$skip_applications" | grep $(basename $app_dir) > /dev/null 2> /dev/null; then
+           app_dirs="$app_dirs $app_dir"
+       fi
     fi
 done
 
