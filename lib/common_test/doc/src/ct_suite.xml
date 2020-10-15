@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <modules since="">ct_suite</module>
+  <module since="">ct_suite</module>
   <modulesummary>-behaviour(ct_suite).
   </modulesummary>
   <description>
