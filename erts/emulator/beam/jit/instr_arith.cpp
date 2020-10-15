@@ -167,9 +167,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgVal &LHS,
                                       const ArgVal &RHS,
                                       const ArgVal &Fail,
                                       const ArgVal &Dst) {
-    Label entry = a.newLabel(), next = a.newLabel(), mixed = a.newLabel();
-
-    a.bind(entry);
+    Label next = a.newLabel(), mixed = a.newLabel();
 
     mov_arg(ARG2, LHS); /* Used by erts_mixed_plus in this slot */
     mov_arg(ARG3, RHS); /* Used by erts_mixed_plus in this slot */
@@ -249,9 +247,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgVal &LHS,
                                        const ArgVal &RHS,
                                        const ArgVal &Fail,
                                        const ArgVal &Dst) {
-    Label entry = a.newLabel(), next = a.newLabel(), mixed = a.newLabel();
-
-    a.bind(entry);
+    Label next = a.newLabel(), mixed = a.newLabel();
 
     mov_arg(ARG2, LHS); /* Used by erts_mixed_plus in this slot */
     mov_arg(ARG3, RHS); /* Used by erts_mixed_plus in this slot */
