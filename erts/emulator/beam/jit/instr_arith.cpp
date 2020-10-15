@@ -402,7 +402,6 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     a.cmp(ARG6, imm(1));
     a.short_().jge(generic_div);
 
-    /* Realign the stack and return. */
     a.ret();
 
     a.bind(generic_div);
@@ -634,7 +633,6 @@ void BeamGlobalAssembler::emit_times_body_shared() {
 
     a.or_(RET, imm(_TAG_IMMED1_SMALL));
 
-    /* Realign the stack and return. */
     a.ret();
 
     a.bind(generic);
