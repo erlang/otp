@@ -137,9 +137,8 @@ void BeamGlobalAssembler::emit_i_select_val_bins_shared() {
 
     a.bind(found);
     {
-        a.sub(RET, value_base);
         a.lea(RET, x86::qword_ptr(label_base, RET));
-        a.test(RET, RET); /* Clear ZF. */
+        a.sub(RET, value_base); /* Clears ZF. */
         a.ret();
     }
 }

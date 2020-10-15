@@ -167,9 +167,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgVal &LHS,
                                       const ArgVal &RHS,
                                       const ArgVal &Fail,
                                       const ArgVal &Dst) {
-    Label entry = a.newLabel(), next = a.newLabel(), mixed = a.newLabel();
-
-    a.bind(entry);
+    Label next = a.newLabel(), mixed = a.newLabel();
 
     mov_arg(ARG2, LHS); /* Used by erts_mixed_plus in this slot */
     mov_arg(ARG3, RHS); /* Used by erts_mixed_plus in this slot */
@@ -249,9 +247,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgVal &LHS,
                                        const ArgVal &RHS,
                                        const ArgVal &Fail,
                                        const ArgVal &Dst) {
-    Label entry = a.newLabel(), next = a.newLabel(), mixed = a.newLabel();
-
-    a.bind(entry);
+    Label next = a.newLabel(), mixed = a.newLabel();
 
     mov_arg(ARG2, LHS); /* Used by erts_mixed_plus in this slot */
     mov_arg(ARG3, RHS); /* Used by erts_mixed_plus in this slot */
@@ -406,7 +402,6 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     a.cmp(ARG6, imm(1));
     a.short_().jge(generic_div);
 
-    /* Realign the stack and return. */
     a.ret();
 
     a.bind(generic_div);
@@ -638,7 +633,6 @@ void BeamGlobalAssembler::emit_times_body_shared() {
 
     a.or_(RET, imm(_TAG_IMMED1_SMALL));
 
-    /* Realign the stack and return. */
     a.ret();
 
     a.bind(generic);
