@@ -151,10 +151,12 @@ typedef struct {
     0,			/* (bool)   tpref:  thread preferred             */\
     0,			/* (bool)   ramv:   realloc always moves         */\
     0,			/* (bool)   atags:  tagged allocations           */\
+    -1,		        /* (ix)     cp:     carrier pool                 */\
     64*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
     80,			/* (%)      rsbcmt: rel sbc move threshold       */\
+    50,			/* (%)      rmbcmt: rel mbc move threshold       */\
     128*1024,		/* (bytes)  mmbcs:  main multiblock carrier size */\
     256,		/* (amount) mmsbc:  max mseg sbcs                */\
     ~((UWord) 0),	/* (amount) mmmbc:  max mseg mbcs                */ \
