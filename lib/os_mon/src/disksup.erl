@@ -243,6 +243,8 @@ find_cmd(Cmd, Path) ->
 
 %%--Check disk space----------------------------------------------------
 
+%% We use as many absolute paths as possible below as there may be stale
+%% NFS handles in the PATH which cause these commands to hang.
 check_disk_space({win32,_}, not_used, Threshold) ->
     Result = os_mon_sysinfo:get_disk_info(),
     check_disks_win32(Result, Threshold);
