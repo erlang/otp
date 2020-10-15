@@ -276,7 +276,7 @@ start(EscriptOptions) ->
             [File|Args] ->
                 parse_and_run(File, Args, EscriptOptions);
             [] ->
-                io:format("escript: Missing filename\n", []),
+                io:format(standard_error, "escript: Missing filename\n", []),
                 my_halt(127)
         end
     catch
@@ -635,7 +635,7 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
             ok = file:close(Fd),
 	    check_source(S3, CheckOnly);
 	{error, Reason} ->
-	    io:format("escript: ~tp\n", [Reason]),
+	    io:format(standard_error, "escript: ~tp\n", [Reason]),
 	    fatal("Preprocessor error")
     end.
 
@@ -693,7 +693,7 @@ epp_parse_file(Epp, S, Forms) ->
     epp_parse_file2(Epp, S, Forms, Parsed).
 
 epp_parse_file2(Epp, S, Forms, Parsed) ->
-    %% io:format("~p\n", [Parsed]),
+    %% io:format(standard_error, "~p\n", [Parsed]),
     case Parsed of
         {ok, Form} ->
             case Form of
@@ -707,7 +707,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                             epp_parse_file(Epp, S2, [Form | Forms]);
                         true ->
                             Args = lists:flatten(io_lib:format("illegal mode attribute: ~p", [NewMode])),
-                            io:format("~ts:~w ~s\n", [S#state.file,Ln,Args]),
+                            io:format(standard_error, "~ts:~w ~s\n", [S#state.file,Ln,Args]),
                             Error = {error,{Ln,erl_parse,Args}},
                             Nerrs= S#state.n_errors + 1,
                             epp_parse_file(Epp, S2#state{n_errors = Nerrs}, [Error | Forms])
@@ -723,7 +723,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                     epp_parse_file(Epp, S, [Form | Forms])
             end;
         {error,{Ln,Mod,Args}} = Form ->
-            io:format("~ts:~w: ~ts\n",
+            io:format(standard_error, "~ts:~w: ~ts\n",
                       [S#state.file,Ln,Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
         {eof, LastLine} ->
@@ -802,10 +802,10 @@ report_errors(Errors) ->
                   Errors).
 
 list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:fwrite("~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
+    io:format(standard_error, "~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Mod,E}|Es]) ->
-    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
+    io:format(standard_error, "~ts: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.
 
@@ -814,7 +814,7 @@ report_warnings(Ws0) ->
                            ({F,Eds}) -> format_message(F, Eds) end,
                   Ws0),
     Ws = ordsets:from_list(Ws1),
-    lists:foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws).
+    lists:foreach(fun({_,Str}) -> io:put_chars(standard_error, Str) end, Ws).
 
 format_message(F, [{Line,Mod,E}|Es]) ->
     M = {{F,Line},io_lib:format("~ts:~w: Warning: ~ts\n", [F,Line,Mod:format_error(E)])},
@@ -842,7 +842,7 @@ parse_to_map([], Map) ->
 code_handler(local, [file], _, File) ->
     File;
 code_handler(Name, Args, Map, File) ->
-    %%io:format("code handler=~p~n",[{Name, Args}]),
+    %%io:format(standard_error, "code handler=~p~n",[{Name, Args}]),
     Arity = length(Args),
     case maps:find({local,Name,Arity}, Map) of
         {ok, Cs} ->
@@ -856,10 +856,10 @@ code_handler(Name, Args, Map, File) ->
         error ->
             case maps:find({remote,{Name,Arity}}, Map) of
                 {ok, Mod} ->
-                    %% io:format("Calling:~p~n",[{Mod,Name,Args}]),
+                    %% io:format(standard_error, "Calling:~p~n",[{Mod,Name,Args}]),
                     apply(Mod, Name, Args);
                 error ->
-                    io:format("Script does not export ~tw/~w\n", [Name,Arity]),
+                    io:format(standard_error, "Script does not export ~tw/~w\n", [Name,Arity]),
                     my_halt(127)
             end
     end.
@@ -897,11 +897,16 @@ encoding() ->
 
 put_chars(String) ->
     try
-        io:put_chars(String)
+        io:put_chars(standard_error, String)
     catch
         _:_ ->
-            erlang:display(lists:flatten(String))
+            display_err(lists:flatten(String))
     end.
+
+display_err(String) ->
+    Port = open_port({fd,2,2}, [out,binary]),
+    Port ! {self(), {command, list_to_binary(String)}},
+    port_close(Port).
 
 a0() ->
     anno(0).
