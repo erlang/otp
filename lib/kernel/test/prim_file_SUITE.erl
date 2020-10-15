@@ -575,14 +575,25 @@ exclusive(Config) when is_list(Config) ->
 -define(RFRR_DATA2, <<"fubar">>). % shorter than and not a prefix of DATA1
 
 read_file_rename_race(Config) when is_list(Config) ->
-    Dir = proplists:get_value(priv_dir, Config),
-    Name = filename:join(Dir, "filename"),
-    rfrr_write_file(Name, ?RFRR_DATA2),
-    Mutator = spawn_link(fun() -> rfrr_mutator(Name, ?RFRR_DATA1, ?RFRR_DATA2) end),
-    Result = rfrr_reader(Name, 1, _N = 5000),
-    unlink(Mutator),
-    exit(Mutator, kill),
-    ok = Result.
+    %% This test reportedly fails on Windows and Darwin 9.8.0.
+    Supported =
+	case os:type() of
+	    {win32, _} -> false;
+	    {unix, darwin} -> os:version() > {9,8,0};
+	    {unix, _} -> true
+	end,
+    if Supported ->
+	Dir = proplists:get_value(priv_dir, Config),
+	Name = filename:join(Dir, "filename"),
+	rfrr_write_file(Name, ?RFRR_DATA2),
+	Mutator = spawn_link(fun() -> rfrr_mutator(Name, ?RFRR_DATA1, ?RFRR_DATA2) end),
+	Result = rfrr_reader(Name, 1, _N = 5000),
+	unlink(Mutator),
+	exit(Mutator, kill),
+	ok = Result;
+       true ->
+	{skipped, "Not supported on Windows, or Darwin =< 9.8.0"}
+    end.
 
 rfrr_reader(Name, I, N) when I < N ->
     case rfrr_read_file(Name, I) of
