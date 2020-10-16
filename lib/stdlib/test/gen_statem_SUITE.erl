@@ -931,13 +931,11 @@ state_timeout(_Config) ->
 		       [{timeout,0,4},{state_timeout,0,5}]};
 		  (timeout, 4, {ok,3,Data}) ->
 		      %% Verify that timeout 0 is cancelled by
-		      %% enqueued state_timeout 0 and that
-		      %% multiple state_timeout 0 can be enqueued
+		      %% a state_timeout 0 event and that
+		      %% state_timeout 0 can be restarted
 		      {keep_state, {ok,4,Data},
 		       [{state_timeout,0,6},{timeout,0,7}]};
-		  (state_timeout, 5, {ok,4,Data}) ->
-		      {keep_state, {ok,5,Data}};
-		  (state_timeout, 6, {ok,5,{Time,From}}) ->
+		  (state_timeout, 6, {ok,4,{Time,From}}) ->
 		      {next_state, state3, 6,
 		       [{reply,From,ok},
 			{state_timeout,Time,8}]}
