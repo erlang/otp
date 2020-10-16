@@ -19,6 +19,8 @@
 %%
 -module(ssl_bench_test_lib).
 
+-behaviour(ct_suite).
+
 %% API
 -export([setup/1]).
 
