@@ -350,8 +350,8 @@
 	</type>
 
 	<desc>
-	  <p>OPTIONAL; if this function is defined, then <seeguide
-	    marker="#Module:init_per_group/2"><c>init_per_group/2</c></seeguide>
+	  <p>OPTIONAL; if this function is defined, then <seemfa
+	    marker="#Module:init_per_group/2"><c>init_per_group/2</c></seemfa>
 	    must also be defined.</p>
 
 	  <p>This function is called after the execution of a test case group
