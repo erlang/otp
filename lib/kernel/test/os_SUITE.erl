@@ -23,6 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, 
+         env/1,
          null_in_command/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
@@ -38,6 +39,7 @@ suite() ->
 all() ->
     [space_in_cwd, quoting, cmd_unicode, null_in_command,
      space_in_name, bad_command,
+     env,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, max_size_command, perf_counter_api].
@@ -69,6 +71,19 @@ init_per_testcase(_TC,Config) ->
     Config.
 
 end_per_testcase(_,_Config) ->
+    ok.
+
+env(Config) when is_list(Config) ->
+    Env0 = os:env(),
+    GetEnv0 = os:getenv(),
+    lists:foldl(fun({K,V}, [KV | T]) ->
+                        KV = K ++ "=" ++ V,
+                        V = os:getenv(K),
+                        V = os:getenv(K, default),
+                        T
+                end,
+                GetEnv0,
+                Env0),
     ok.
 
 %% Test that executing a command in a current working directory
