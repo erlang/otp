@@ -91,21 +91,17 @@ void push_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int op, wxe_m
 }
 
 void meta_command(ErlNifEnv *env, int what, wxe_me_ref *mp) {
-  if(what == WXE_DEBUG_PING && wxe_status == WXE_INITIATED) {
-    enif_mutex_lock(wxe_batch_locker_m);
-    if(wxe_needs_signal) {
-      wxe_queue->Add(env, 0, NULL, what, mp, ((wxeMemEnv *) mp->memenv)->owner);
-      enif_cond_signal(wxe_batch_locker_c);
-    }
-    wxWakeUpIdle();
-    enif_mutex_unlock(wxe_batch_locker_m);
-  } else {
-    if(wxe_status == WXE_INITIATED) {
-      ErlNifPid self;
-      enif_self(env, &self);
-      wxeMetaCommand Cmd(self, what, mp);
-      wxTheApp->AddPendingEvent(Cmd);
-    }
+  int status;
+  enif_mutex_lock(wxe_status_m);
+  status = wxe_status;
+  enif_cond_signal(wxe_status_c);
+  enif_mutex_unlock(wxe_status_m);
+
+  if(status == WXE_INITIATED) {
+    ErlNifPid self;
+    enif_self(env, &self);
+    wxeMetaCommand Cmd(self, what, mp);
+    wxTheApp->AddPendingEvent(Cmd);
   }
 }
 
@@ -137,6 +133,7 @@ bool WxeApp::OnInit()
   wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED);
 
   Connect(wxID_ANY, wxEVT_IDLE,	(wxObjectEventFunction) (wxEventFunction) &WxeApp::idle);
+  Connect(WXE_GET_CONSTS, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::init_consts);
   Connect(WXE_DELETE_ENV, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::destroyMemEnv);
   Connect(WXE_SHUTDOWN, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::shutdown);
 
@@ -156,7 +153,6 @@ bool WxeApp::OnInit()
 
   SetExitOnFrameDelete(false);
 
-  init_nonconsts(global_me, init_caller);
   enif_mutex_lock(wxe_status_m);
   wxe_status = WXE_INITIATED;
   enif_cond_signal(wxe_status_c);

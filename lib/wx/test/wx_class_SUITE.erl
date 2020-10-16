@@ -426,7 +426,7 @@ listCtrlVirtual(Config) ->
         bor wxe_util:get_const(wxVSCROLL),
 
     LC = wxListCtrl:new(Frame,
-			[{style, ?wxLC_REPORT bor ?wxLC_VIRTUAL},
+			[{style, Style},
 			 {onGetItemText, fun(_This, Item, 0) ->
 						 "Row " ++ integer_to_list(Item);
 					    (_, Item, 1) when Item rem 5 == 0 ->

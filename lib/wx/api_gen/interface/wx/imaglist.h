@@ -8,7 +8,7 @@
 /**
    Flag values for Set/GetImageList
 */
-enum
+enum wxImageListFlags
 {
     wxIMAGE_LIST_NORMAL, // Normal icons
     wxIMAGE_LIST_SMALL,  // Small icons

@@ -2729,7 +2729,7 @@ public:
 enum wxGridTableRequest
 {
     /// New rows have been inserted into the table.
-    wxGRIDTABLE_NOTIFY_ROWS_INSERTED,
+    wxGRIDTABLE_NOTIFY_ROWS_INSERTED = 2002,
     /// New rows have been append to the table.
     wxGRIDTABLE_NOTIFY_ROWS_APPENDED,
     /// Rows have been deleted from the table.

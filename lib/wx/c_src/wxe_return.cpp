@@ -38,7 +38,6 @@ void wxeReturn::reset() {
 }
 
 wxeReturn::~wxeReturn () {
-  enif_clear_env(env);
 }
 
 int wxeReturn::send(ERL_NIF_TERM msg) {

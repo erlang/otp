@@ -74,7 +74,7 @@ enum
         Note that under macOS horizontal pan events are also enabled when this
         flag is specified.
      */
-    wxTOUCH_VERTICAL_PAN_GESTURE,
+    wxTOUCH_VERTICAL_PAN_GESTURE = 1,
 
     /**
         Generate wxPanGestureEvent for horizontal pans.
@@ -82,7 +82,7 @@ enum
         Note that under macOS vertical pan events are also enabled when this
         flag is specified.
      */
-    wxTOUCH_HORIZONTAL_PAN_GESTURE,
+    wxTOUCH_HORIZONTAL_PAN_GESTURE = 2,
 
     /**
         Generate wxPanGestureEvent for any pans.
@@ -90,28 +90,28 @@ enum
         This is just a convenient combination of wxTOUCH_VERTICAL_PAN_GESTURE
         and wxTOUCH_HORIZONTAL_PAN_GESTURE.
      */
-    wxTOUCH_PAN_GESTURES,
+    wxTOUCH_PAN_GESTURES = wxTOUCH_VERTICAL_PAN_GESTURE | wxTOUCH_HORIZONTAL_PAN_GESTURE,
 
     /**
         Generate wxZoomGestureEvent.
      */
-    wxTOUCH_ZOOM_GESTURE,
+    wxTOUCH_ZOOM_GESTURE = 4,
 
     /**
         Generate wxRotateGestureEvent.
      */
-    wxTOUCH_ROTATE_GESTURE,
+    wxTOUCH_ROTATE_GESTURE = 8,
 
     /**
         Generate events for press or tap gestures such as wxTwoFingerTapEvent,
         wxLongPressEvent and wxPressAndTapEvent.
      */
-    wxTOUCH_PRESS_GESTURES,
+    wxTOUCH_PRESS_GESTURES = 16,
 
     /**
         Enable all supported gesture events.
      */
-    wxTOUCH_ALL_GESTURES
+    wxTOUCH_ALL_GESTURES = 31
 };
 
 /**

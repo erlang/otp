@@ -98,11 +98,11 @@ enum wxStockCursor
     wxCURSOR_WATCH,             ///< A watch cursor.
     wxCURSOR_BLANK,             ///< Transparent cursor.
     wxCURSOR_DEFAULT,           ///< Standard X11 cursor (only in wxGTK).
-    wxCURSOR_COPY_ARROW ,       ///< MacOS Theme Plus arrow (only in wxMac).
-    wxCURSOR_CROSS_REVERSE,     ///< Only available on wxX11.
-    wxCURSOR_DOUBLE_ARROW,      ///< Only available on wxX11.
-    wxCURSOR_BASED_ARROW_UP,    ///< Only available on wxX11.
-    wxCURSOR_BASED_ARROW_DOWN,  ///< Only available on wxX11.
+    // wxCURSOR_COPY_ARROW ,       ///< MacOS Theme Plus arrow (only in wxMac).
+    // wxCURSOR_CROSS_REVERSE,     ///< Only available on wxX11.
+    // wxCURSOR_DOUBLE_ARROW,      ///< Only available on wxX11.
+    // wxCURSOR_BASED_ARROW_UP,    ///< Only available on wxX11.
+    // wxCURSOR_BASED_ARROW_DOWN,  ///< Only available on wxX11.
     wxCURSOR_ARROWWAIT,         ///< A wait cursor with a standard arrow.
     wxCURSOR_MAX
 };

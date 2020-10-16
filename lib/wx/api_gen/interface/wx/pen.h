@@ -15,7 +15,7 @@ enum wxPenStyle
 {
     wxPENSTYLE_INVALID = -1,
 
-    wxPENSTYLE_SOLID,
+    wxPENSTYLE_SOLID = 100,
         /**< Solid style. */
 
     wxPENSTYLE_DOT,
@@ -42,7 +42,7 @@ enum wxPenStyle
     wxPENSTYLE_STIPPLE_MASK,
         /**< @todo WHAT's this? */
 
-    wxPENSTYLE_STIPPLE,
+    wxPENSTYLE_STIPPLE = 110,
         /**< Use the stipple bitmap. */
 
     wxPENSTYLE_BDIAGONAL_HATCH,
@@ -63,10 +63,10 @@ enum wxPenStyle
     wxPENSTYLE_VERTICAL_HATCH,
         /**< Vertical hatch. */
 
-    wxPENSTYLE_FIRST_HATCH,
+    wxPENSTYLE_FIRST_HATCH = 111,
         /**< First of the hatch styles (inclusive). */
 
-    wxPENSTYLE_LAST_HATCH
+    wxPENSTYLE_LAST_HATCH = 116
         /**< Last of the hatch styles (inclusive). */
 };
 

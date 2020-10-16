@@ -121,15 +121,11 @@ init([SilentStart]) ->
             erlang:error(Err)
     end,
     try
-	wx_debug_info = ets:new(wx_debug_info, [named_table]),
-	wx_non_consts = ets:new(wx_non_consts, [named_table]),
 	spawn_link(fun() -> debug_ping() end),
-	receive
-	    {wx_consts, List} ->
-		true = ets:insert(wx_non_consts, List)
-	end,
+        wxe_util:setup_consts(),
 	{ok, #state{}}
-    catch _:Error ->
+    catch _:Error:ST ->
+            io:format("Error: ~p @ ~p~n",[Error, ST]),
 	    error({error, {Error, "Could not initiate graphics"}})
     end.
 

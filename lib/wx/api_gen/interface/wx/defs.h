@@ -143,6 +143,9 @@ enum wxBorder
     wxBORDER_MASK   = 0x1f200000
 };
 
+/* This makes it easier to specify a 'normal' border for a control */
+#define wxDEFAULT_CONTROL_BORDER    wxBORDER_SUNKEN
+
 /*  ---------------------------------------------------------------------------- */
 /*  Possible SetSize flags */
 /*  ---------------------------------------------------------------------------- */
@@ -550,6 +553,8 @@ enum wxBackgroundStyle
     wxBG_STYLE_TRANSPARENT,
 };
 
+/* this style is deprecated, don't use */
+#define wxBG_STYLE_CUSTOM 0 // Non const added for backward compatibility
 
 /**
     Standard IDs.
@@ -578,7 +583,7 @@ enum wxStandardID
        It is defined as a relatively small negative number and its exact value
        is platform-dependent.
      */
-    wxID_AUTO_HIGHEST,
+    wxID_AUTO_HIGHEST = -2000,
 
     /**
         No id matches this one when compared to it.
@@ -1029,11 +1034,6 @@ enum wxKeyCode
     WXK_WINDOWS_RIGHT,
     WXK_WINDOWS_MENU ,
 
-    /** This special key code was used to represent the key used for keyboard shortcuts. Under macOS,
-      * this key maps to the 'Command' (aka logo or 'Apple') key, whereas on Linux/Windows/others
-      * this is the Control key, with the new semantic of WXK_CONTROL, WXK_COMMAND is not needed anymore
-      */
-    WXK_COMMAND,
     /** Under macOS, where the 'Command' key is mapped to 'Control'
       * to improve compatibility with other systems, WXK_RAW_CONTROL may
       * be used to obtain the state of the actual 'Control' key
@@ -1042,8 +1042,14 @@ enum wxKeyCode
       */
     WXK_RAW_CONTROL,
 
+    /** This special key code was used to represent the key used for keyboard shortcuts. Under macOS,
+      * this key maps to the 'Command' (aka logo or 'Apple') key, whereas on Linux/Windows/others
+      * this is the Control key, with the new semantic of WXK_CONTROL, WXK_COMMAND is not needed anymore
+      */
+    WXK_COMMAND = WXK_CONTROL,
+
     /** Hardware-specific buttons */
-    WXK_SPECIAL1 = 193,
+    WXK_SPECIAL1 = WXK_WINDOWS_MENU + 2,
     WXK_SPECIAL2,
     WXK_SPECIAL3,
     WXK_SPECIAL4,
@@ -1064,7 +1070,7 @@ enum wxKeyCode
     WXK_SPECIAL19,
     WXK_SPECIAL20,
 
-    WXK_BROWSER_BACK = 501,
+    WXK_BROWSER_BACK,
     WXK_BROWSER_FORWARD,
     WXK_BROWSER_REFRESH,
     WXK_BROWSER_STOP,
@@ -1368,6 +1374,7 @@ enum wxDeprecatedGUIConstants
 #define wxMINOR_VERSION      1
 #define wxRELEASE_NUMBER     4
 #define wxSUBRELEASE_NUMBER  0
+#define wxBETA_NUMBER  0
 
 // ----------------------------------------------------------------------------
 // constants

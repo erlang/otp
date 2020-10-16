@@ -32,6 +32,7 @@
 %%-compile(export_all).
 -export([gen/1]).
 -export([parents/1, get_unique_names/0, get_unique_name/1, erl_option_name/1,
+         const_name/1, enum_from/1,
 	 erl_func_name/1, erl_args_count/2, event_type_name/1, event_rec_name/1, filter_attrs/1]).
 
 
@@ -1020,6 +1021,10 @@ enum_name(Enum, Name) -> Enum ++ "_" ++ Name.
 enum_name_c(undefined, Name) -> Name;
 enum_name_c(Enum, Name) -> Enum ++ "::" ++ Name.
 
+const_name("WXK" ++ Name) -> "wxk" ++ Name;
+const_name("WX" ++ Name) -> "wx" ++ Name;
+const_name(Name) -> enum_name(Name).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 gen_enums_ints() ->
@@ -1039,7 +1044,7 @@ gen_enums_ints() ->
     w("-define(wxDefaultSize, {-1,-1}).~n", []),
     w("-define(wxDefaultPosition, {-1,-1}).~n", []),
     w("~n%% Global Variables~n", []),
-    Done = foldl(fun({Gvar,_,_Id}, Done) ->
+    Done = foldl(fun({Gvar,_}, Done) ->
                          w("-define(~s,  wxe_util:get_const(~s)).~n", [qoute_atom(Gvar), qoute_atom(Gvar)]),
                          gb_sets:add(Gvar, Done)
                  end, gb_sets:empty(), get(gvars)),
@@ -1055,17 +1060,18 @@ qoute_atom([Char|_]=Str) when Char < $a ->
 qoute_atom(Str) ->
     Str.
 
+
+enum_from({File, undefined, [$@|_]}) ->
+    io_lib:format(" From \"~s.h\"",[File]);
+enum_from({File, undefined, Name}) ->
+    io_lib:format(" From \"~s.h\": ~s",[File, Name]);
+enum_from({_File, Class,[$@|_]}) ->
+    io_lib:format(" From class ~s",[Class]);
+enum_from({_File, Class, Name}) ->
+    io_lib:format(" From class ~s::~s",[Class, Name]).
+
 build_enum_ints(#enum{from=From, vals=Vals},Done) ->
-    case From of
-	{File, undefined, [$@|_]} ->
-	    w("% From \"~s.h\"~n",[File]);
-	{File, undefined, Name} ->
-	    w("% From \"~s.h\": ~s~n",[File, Name]);
-	{_File, Class,[$@|_]} ->
-	    w("% From class ~s~n",[Class]);
-	{_File, Class, Name} ->
-	    w("% From class ~s::~s~n",[Class, Name])
-    end,
+    w("%%% ~s~n", [enum_from(From)]),
 
     Consts = get(consts),
     Ignore = fun(Name) ->
@@ -1080,7 +1086,7 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 		(#const{name=Name,val=Value,is_const=true}) when is_number(Value) ->
 		     w("-define(~s, ~p).~n", [enum_name(Name),Value]);
 		(#const{name=Name,val=Value,is_const=false}) when is_number(Value) ->
-		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),enum_name(Name)]);
+		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),const_name(Name)]);
 		(#const{name=Name,val={Str,0}}) ->
 		     {EnumClass, EnumName} = enum_split(Name),
 		     case string:tokens(Str, " |()") of

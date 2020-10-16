@@ -17,6 +17,8 @@
 // is private style and not returned by GetStyle.
 #define wxBUFFER_USES_SHARED_BUFFER 0x04
 
+#define wxALWAYS_NATIVE_DOUBLE_BUFFER 0x00  // non const in erlang api
+
 
 /**
     @class wxBufferedDC

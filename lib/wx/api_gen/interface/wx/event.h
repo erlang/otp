@@ -1290,22 +1290,22 @@ protected:
 enum wxKeyCategoryFlags
 {
     /// arrow keys, on and off numeric keypads
-    WXK_CATEGORY_ARROW,
+    WXK_CATEGORY_ARROW = 1,
 
     /// page up and page down keys, on and off numeric keypads
-    WXK_CATEGORY_PAGING,
+    WXK_CATEGORY_PAGING = 2,
 
     /// home and end keys, on and off numeric keypads
-    WXK_CATEGORY_JUMP,
+    WXK_CATEGORY_JUMP = 4,
 
     /// tab key, on and off numeric keypads
-    WXK_CATEGORY_TAB,
+    WXK_CATEGORY_TAB = 8,
 
     /// backspace and delete keys, on and off numeric keypads
-    WXK_CATEGORY_CUT,
+    WXK_CATEGORY_CUT = 16,
 
     /// union of WXK_CATEGORY_ARROW, WXK_CATEGORY_PAGING, and WXK_CATEGORY_JUMP categories
-    WXK_CATEGORY_NAVIGATION
+    WXK_CATEGORY_NAVIGATION = WXK_CATEGORY_ARROW | WXK_CATEGORY_PAGING | WXK_CATEGORY_JUMP
 };
 
 

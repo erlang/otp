@@ -62,7 +62,7 @@
 #define wxLIST_GETSUBITEMRECT_WHOLEITEM -1l
 
 /// Flags for GetNextItem (MSW only except wxLIST_NEXT_ALL)
-enum
+enum wxListNextFlags
 {
     wxLIST_NEXT_ABOVE,          // Searches for an item above the specified item
     wxLIST_NEXT_ALL,            // Searches for subsequent item by index
@@ -72,7 +72,7 @@ enum
 };
 
 /// Alignment flags for Arrange (MSW only except wxLIST_ALIGN_LEFT)
-enum
+enum wxListAlignFlags
 {
     wxLIST_ALIGN_DEFAULT,
     wxLIST_ALIGN_LEFT,
@@ -90,14 +90,14 @@ enum wxListColumnFormat
 };
 
 /// Autosize values for SetColumnWidth
-enum
+enum wxListAutoSize
 {
     wxLIST_AUTOSIZE = -1,
     wxLIST_AUTOSIZE_USEHEADER = -2      // partly supported by generic version
 };
 
 /// Flag values for GetItemRect
-enum
+enum wxListRectFlags
 {
     wxLIST_RECT_BOUNDS,
     wxLIST_RECT_ICON,
@@ -105,7 +105,7 @@ enum
 };
 
 /// Flag values for FindItem (MSW only)
-enum
+enum wxListFindFlags
 {
     wxLIST_FIND_UP,
     wxLIST_FIND_DOWN,

@@ -550,7 +550,7 @@ public:
           wxGLCanvas::IsDisplaySupported() to check for individual visual
           attributes support.
 */
-enum
+enum wxGL_FLAGS
 {
     /// Use true color (the default if no attributes at all are specified);
     /// do not use a palette.

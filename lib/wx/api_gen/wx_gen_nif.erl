@@ -1283,47 +1283,96 @@ gen_func_defs({_, #method{id=MId}}=CM, {Id, Strs}) when MId > Id ->
 
 
 build_enums() ->
-    Tree = get(consts),
     w(" /* This file is also generated */~n"),
     w("#include <wx/wx.h>~n"),
     w("#include \"../wxe_impl.h\"~n"),
     w("#include \"wxe_macros.h\"~n"),
-    w("#include \"../wxe_return.h\"~n"),
-    w("void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlNifPid caller) {~n"),
-    NotConsts = [NC || NC = #const{is_const=false} <- gb_trees:values(Tree)],
-    Size = length(NotConsts),
-    GVars = get(gvars),
-    GSize = length(GVars),
+    w("#include \"../wxe_return.h\"~n~n"),
+
+    w("typedef struct {~n"
+      "  ERL_NIF_TERM type;~n"
+      "  const char * key;~n"
+      "  ERL_NIF_TERM value;~n"
+      "} wxe_defs;~n~n",[]),
+
+    w("void WxeApp::init_consts(wxeMetaCommand& event) {~n"),
     w("  WxeApp * app = this;~n"),
-    w("  wxeReturn rt = wxeReturn(memenv, caller, false);~n"),
-    w("  ERL_NIF_TERM consts[] = {\n"),
-    [build_enum(NConst) || NConst <- lists:keysort(#const.val, NotConsts)],
-    lists:foreach(fun build_gvar/1, lists:sort(GVars)),
+    w("  ErlNifPid caller = event.caller;~n"),
+    w("  wxeMemEnv * memenv = global_me;~n"),
+    w("  wxeReturn rt = wxeReturn(memenv, caller, true);~n"),
+    w("  wxe_defs defs[] = {\n"),
+    lists:foreach(fun build_gvar/1, get(gvars)),
+    w("    { WXE_ATOM_define, \"wxDefaultCoord\", rt.make_int(-1) },~n", []),
+    w("    { WXE_ATOM_define, \"wxDefaultSize\", enif_make_tuple2(rt.env, rt.make_int(-1), rt.make_int(-1)) },~n", []),
+    w("    { WXE_ATOM_define, \"wxDefaultPosition\", enif_make_tuple2(rt.env, rt.make_int(-1), rt.make_int(-1)) },~n", []),
+    Consts = get(consts),
+    Get = fun(Name) ->
+                  case gb_trees:lookup(Name, Consts) of
+                      {value, Const} -> Const;
+                      none -> false
+                  end
+          end,
+    [build_enums(EN, E, Get) || {{enum,EN},E = #enum{as_atom=false}} <- lists:sort(get())],
+    %%[build_enum(NConst) || NConst <- lists:keysort(#const.name, Consts)],
     w("  };~n"),
-    w("  ERL_NIF_TERM msg = enif_make_tuple2(rt.env,~n"
-      "    rt.make_atom(\"wx_consts\"), "
-      " enif_make_list_from_array(rt.env, consts, ~w));~n",[Size+GSize]),
-    w("  rt.send(msg);~n"),
+    w("  int sz = sizeof(defs) / sizeof(defs[0]);~n",[]),
+    w("  std::vector <ERL_NIF_TERM> consts;~n",[]),
+    w("  /* INITIALIZING the CONSTS array in two steps make C++ compilation a lot faster */~n" ,[]),
+    w("  for( int i = 0; i <  sz; i++) {~n", []),
+    w("    consts.push_back(enif_make_tuple3(rt.env, defs[i].type, enif_make_atom(rt.env, defs[i].key), defs[i].value));~n",[]),
+    w("  }~n",[]),
+    w("  rt.send(enif_make_list_from_array(rt.env, consts.data(), consts.size()));~n",[]),
     w("}~n"),
     ok.
 
-build_enum(#const{name=Name}) ->
-    w("    enif_make_tuple2(rt.env, rt.make_atom(\"~s\"), rt.make_int(~s)),~n", [Name, Name]).
+const_name(Name) ->
+    wx_gen_erl:const_name(Name).
 
-build_gvar({Name, "wxColour", _Id}) ->
-    w("    enif_make_tuple2(rt.env, rt.make_atom(\"~s\"), rt.make(*(~s))),~n", [Name, Name]);
-build_gvar({Name, {address,Class}, _Id}) ->
-    w("    enif_make_tuple2(rt.env, rt.make_atom(\"~s\"),"
-      "rt.make_ref(app->getRef((void *)&~s,memenv), \"~s\")),~n",[Name,Name,Class]);
-build_gvar({Name, {test_if,Test}, _Id}) ->
+enum_name({define, _}, _) ->
+    "WXE_ATOM_define";
+enum_name([$@|_File], EnumDef0) ->
+    Name = const_name(EnumDef0),
+    Names = string:lexemes(Name, "_0123456789"),
+    "enif_make_atom(rt.env,\"" ++ hd(Names) ++ "\")";
+enum_name(Name, _Enum) when is_list(Name) ->
+    "enif_make_atom(rt.env,\"" ++ Name ++ "\")";
+enum_name({Class, [$@|_]}, _Enum) when is_list(Class) ->
+    %% Numbered name not defined
+    "enif_make_atom(rt.env,\"" ++ Class ++ "\")";
+enum_name({Class, EnumName}, _Enum) ->
+    case string:prefix(EnumName, Class) of
+        false -> "enif_make_atom(rt.env,\"" ++ Class ++ "_" ++ EnumName ++ "\")";
+        _ -> "enif_make_atom(rt.env,\"" ++ EnumName ++ "\")"
+    end.
+
+build_enums(_, #enum{vals=[]}, _GetConst) ->
+    ok;
+build_enums(EnumName, #enum{from=From, vals=Vals}, GetConst) ->
+    w("// ~s~n", [wx_gen_erl:enum_from(From)]),
+    [build_enum(EnumName, GetConst(N)) || {N,_} <- Vals].
+
+build_enum(_Enum, false) ->
+    ok;
+build_enum(Enum, #const{name=Name, opt=undefined}) ->
+    w("    { ~s, \"~s\", rt.make_int(~s) },~n",
+      [enum_name(Enum, Name), const_name(Name), Name]);
+build_enum(Enum, #const{name=Name, opt={test_if, Test}}) ->
     w("#if ~s~n", [Test]),
-    w("    enif_make_tuple2(rt.env, rt.make_atom(\"~s\"), rt.make_int(~s)),~n", [Name, Name]),
+    w("    { ~s, \"~s\", rt.make_int(~s) },~n",
+      [enum_name(Enum, Name), const_name(Name), Name]),
     w("#else~n", []),
-    w("    enif_make_tuple2(rt.env, rt.make_atom(\"~s\"), WXE_ATOM_undefined),~n", [Name]),
-    w("#endif~n", []);
-build_gvar({Name, Class, _Id}) ->
-    w("    enif_make_tuple2(rt.env, rt.make_atom(\"~s\"),"
-      "rt.make_ref(app->getRef((void *)~s,memenv), \"~s\")),~n",[Name,Name,Class]).
+    w("    { ~s, \"~s\", WXE_ATOM_undefined },~n",
+      [enum_name(Enum, Name), const_name(Name)]),
+    w("#endif~n", []).
+
+build_gvar({Name, "wxColour"}) ->
+    w("    { WXE_ATOM_global, \"~s\", rt.make(*(~s)) },~n", [const_name(Name), Name]);
+build_gvar({Name, {address,Class}}) ->
+    w("    { WXE_ATOM_global, \"~s\","
+      "rt.make_ref(app->getRef((void *)&~s,memenv), \"~s\") },~n",[const_name(Name),Name,Class]);
+build_gvar({Name, Class}) ->
+    w("    { WXE_ATOM_global, \"~s\","
+      "rt.make_ref(app->getRef((void *)~s,memenv), \"~s\") },~n",[const_name(Name),Name,Class]).
 
 gen_macros() ->
     w("#include <wx/caret.h>~n"),   %% Arrg wxw forgot?? some files
@@ -1598,11 +1647,6 @@ var_name("ev->" ++ Name0) ->
 	_ -> Name0
     end;
 var_name(Name) -> Name.
-
-enum_name({Class,Type}) ->
-    uppercase_all(Class ++ "_" ++ Type);
-enum_name(Type) ->
-    uppercase_all(Type).
 
 
 enum_type({Class,Type}) ->

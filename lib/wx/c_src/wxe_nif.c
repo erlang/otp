@@ -33,6 +33,9 @@ ERL_NIF_TERM WXE_ATOM_error;
 ERL_NIF_TERM WXE_ATOM_wx_ref;
 ERL_NIF_TERM WXE_ATOM__wx_invoke_cb_;
 
+ERL_NIF_TERM WXE_ATOM_define;
+ERL_NIF_TERM WXE_ATOM_global;
+
 ERL_NIF_TERM WXE_ATOM_wxWindow;
 ERL_NIF_TERM WXE_ATOM_wxSizer;
 
@@ -159,6 +162,13 @@ static ERL_NIF_TERM wxe_debug_driver(ErlNifEnv* env, int argc, const ERL_NIF_TER
 }
 
 
+static ERL_NIF_TERM wxe_get_consts(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    meta_command(env, WXE_GET_CONSTS, NULL);
+    return WXE_ATOM_ok;
+}
+
+
 // Callback
 static void wxe_destroy_env(ErlNifEnv* env, void *obj)
 {
@@ -190,7 +200,8 @@ static ErlNifFunc nif_funcs[] =
     {"init_opengl", 1, wx_init_opengl},
     {"make_env", 0, wxe_make_env},
     {"delete_env", 1, wxe_delete_env},
-    {"debug_driver", 1, wxe_debug_driver}
+    {"debug_driver", 1, wxe_debug_driver},
+    {"get_consts_impl", 0, wxe_get_consts}
 };
 
 void wxe_init_atoms(ErlNifEnv *env) {
@@ -205,6 +216,9 @@ void wxe_init_atoms(ErlNifEnv *env) {
     WXE_ATOM_reply = enif_make_atom(env, "_wxe_result_");
     WXE_ATOM_error = enif_make_atom(env, "_wxe_error_");
     WXE_ATOM__wx_invoke_cb_ = enif_make_atom(env, "_wx_invoke_cb_");
+
+    WXE_ATOM_define = enif_make_atom(env, "define");
+    WXE_ATOM_global = enif_make_atom(env, "global");
 
     WXE_ATOM_wxWindow = enif_make_atom(env, "wxWindow");
     WXE_ATOM_wxSizer = enif_make_atom(env, "wxSizer");

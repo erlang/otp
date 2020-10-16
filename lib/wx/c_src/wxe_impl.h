@@ -62,6 +62,7 @@ public:
   virtual void MacOpenFile(const wxString &filename);
 #endif
 
+  void init_consts(wxeMetaCommand& event);
   void destroyMemEnv(wxeMetaCommand& event);
   void shutdown(wxeMetaCommand& event);
 
@@ -83,7 +84,6 @@ public:
   void clearPtr(void *ptr);
   wxeRefData * getRefData(void *ptr);
   int registerPid(int index, ErlNifPid pid, wxeMemEnv *memenv);
-  void init_nonconsts(wxeMemEnv *memenv, ErlNifPid caller);
 
   // Code found in gen/wxe_derived_dest.h
   bool delete_object(void *ptr, wxeRefData *refd);

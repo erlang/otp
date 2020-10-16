@@ -47,10 +47,10 @@ enum wxBrushStyle
     wxBRUSHSTYLE_VERTICAL_HATCH,
         /**< Vertical hatch. */
 
-    wxBRUSHSTYLE_FIRST_HATCH,
+    wxBRUSHSTYLE_FIRST_HATCH = 111,
         /**< First of the hatch styles (inclusive). */
 
-    wxBRUSHSTYLE_LAST_HATCH
+    wxBRUSHSTYLE_LAST_HATCH = 116
         /**< Last of the hatch styles (inclusive). */
 };
 

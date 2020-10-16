@@ -67,6 +67,7 @@
 %%-define(WXE_SHUTDOWN, 13).  %% Not used in erlang
 -define(WXE_DEBUG_PING,  14). %% debug ping (when using debugger it's needed)
 -define(WXE_DELETE_ENV,  15).
+-define(WXE_GET_CONSTS,  16).
 
 -define(DESTROY_OBJECT,  50).
 -define(WXE_REGISTER_OBJECT,  51).  %% Used for object monitoring

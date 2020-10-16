@@ -82,7 +82,12 @@ mangle_info(E={const_skip,List}) ->
     put(const_skip, [atom_to_list(M) || M <- List]),
     E;
 mangle_info(E={not_const,List}) ->
-    put(not_const,  [atom_to_list(M) || M <- List]),
+    NonConsts = lists:map(fun(Atom) when is_atom(Atom) ->
+                                  atom_to_list(Atom);
+                             ({Atom, {test_if,C}}) ->
+                                  {atom_to_list(Atom), {test_if,C}}
+                          end, List),
+    put(not_const,  NonConsts),
     E;
 mangle_info(E={gvars,List}) ->
     A2L = fun({N,{test_if,C}}) -> {atom_to_list(N), {test_if,C}};
@@ -1319,8 +1324,9 @@ type_foot_print(#type{base={comp,_,Types}}) ->
 translate_enums(Defs) ->
     Res = [translate_enums1(Def) || Def <- Defs],
     Consts = [Enum || Enum = {{enum,_},_} <- get()],
-    translate_constants(Consts, get(not_const), get(const_skip)),
-    put(gvars, [{Gvar,Class,next_id(const)} || {Gvar,Class} <- lists:sort(get(gvars))]),
+    {NonConsts, GVars} = lists:partition(fun({_, {test_if,_}}) -> true; (_) -> false end, get(gvars)),
+    put(gvars, lists:sort(GVars)),
+    translate_constants(Consts, get(not_const), NonConsts, get(const_skip)),
     Res.
 
 translate_enums1(C=#class{name=Name, methods=Ms0, attributes=As0}) ->
@@ -1350,11 +1356,15 @@ translate_enums_type(T=#type{base={class,C}},Class) ->
     end;
 translate_enums_type(T,_Class) ->   T.
 
-translate_constants(Enums, NotConsts0, Skip0) ->
-    NotConsts = gb_sets:from_list(NotConsts0),
+translate_constants(Enums, NotConsts1, NotConsts2, Skip0) ->
     Skip = gb_sets:from_list(Skip0),
-    Consts0 = create_consts(lists:sort(Enums), Skip, NotConsts, []),
-    Consts = gb_trees:from_orddict(lists:ukeysort(1,[{N,C}|| C = #const{name=N} <- Consts0])),
+    Consts0 = create_consts(lists:sort(Enums), Skip, NotConsts1, []),
+    Consts1 = gb_trees:from_orddict(lists:ukeysort(1,[{N,C}|| C = #const{name=N} <- Consts0])),
+    Patch = fun({Name, IfDef}, Tree) ->
+                    Const = gb_trees:get(Name, Tree),
+                    gb_trees:update(Name, Const#const{is_const=false, opt=IfDef}, Tree)
+            end,
+    Consts = lists:foldl(Patch, Consts1, NotConsts2),
     put(consts, Consts).
 
 create_consts([{{enum, Name},Enum = #enum{vals=Vals}}|R], Skip, NotConsts, Acc0) ->
@@ -1373,21 +1383,39 @@ create_consts([{{enum, Name},Enum = #enum{vals=Vals}}|R], Skip, NotConsts, Acc0)
     create_consts(R, Skip, NotConsts, Acc);
 create_consts([],_,_,Acc) -> Acc.
 
+create_const(N, {define, _Where}, Skip, NotConsts, Acc) ->
+    create_const(N, "", Skip, NotConsts, Acc);
 create_const({Name, Val}, EnumName, Skip, NotConsts, Acc) ->
     case gb_sets:is_member(Name, Skip) of
 	true -> Acc;
 	false ->
-	    case gb_sets:is_member(Name, NotConsts) orelse
-		gb_sets:is_member(EnumName, NotConsts)
-	    of
-		true ->
-		    [#const{name=Name,val=next_id(const),is_const=false}|Acc];
-		false ->
-		    [#const{name=Name,val=Val,is_const=true}|Acc]
+	    case find_const(NotConsts, Name, EnumName) of
+		true  -> [#const{name=Name,val=next_id(const),is_const=false}|Acc];
+		false -> [#const{name=Name,val=Val,is_const=true}|Acc];
+                {test_if,_} = IfDef -> [#const{name=Name,val=Val,is_const=true,opt=IfDef}|Acc]
 	    end
     end.
 
-%%%%%%%%%%%%%	   
+find_const([F|R], Name1, Name20) ->
+    {Str, Opt} = case F of
+                     {S,O} -> {S,O};
+                     S when is_list(S) -> {S, true}
+                 end,
+    Name2 = case Name20 of
+                {Class, _} -> Class;
+                _ -> Name20
+            end,
+    %% io:format("Str: ~p ~p ~p~n",[Str, Name1, Name2]),
+    case string:prefix(Name1, Str) == nomatch andalso
+        string:prefix(Name2, Str) == nomatch
+    of
+        true -> find_const(R, Name1, Name2);
+        false -> Opt
+    end;
+find_const([], _, _) ->
+    false.
+
+%%%%%%%%%%%%%
 next_id(What) ->
     Next = case get(What) of
 	       undefined -> 100;
@@ -1673,7 +1701,7 @@ def_is_ok([":"|_], _Skip, _Acc) ->
 def_is_ok([N|R],Skip,Acc) ->
     case catch list_to_integer(N) of
 	{'EXIT', _} -> false;
-        Int -> def_is_ok(R,Skip,[Int|Acc])
+        _Int -> def_is_ok(R,Skip,[N|Acc])
     end.
 
 get_enum(Type0) when is_list(Type0) ->

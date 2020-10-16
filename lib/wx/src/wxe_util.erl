@@ -30,12 +30,14 @@
 	 connect_cb/2,disconnect_cb/2,
          color/1,
          get_cbId/1,
-	 get_const/1]).
+         setup_consts/0, get_const/1, get_name/2]).
 
 -export([queue_cmd/1,queue_cmd/2,queue_cmd/3,queue_cmd/4,queue_cmd/5,
          queue_cmd/6,queue_cmd/7,queue_cmd/8,queue_cmd/9,queue_cmd/10,
          queue_cmd/11,queue_cmd/12,queue_cmd/13,queue_cmd/14,queue_cmd/15,
-         make_env/0, delete_env/1, debug_ping/0, debug_driver/1, init_opengl/1
+         make_env/0, delete_env/1, get_consts/0,
+         debug_ping/0, debug_driver/1,
+         init_opengl/1
         ]).
 
 -export([priv_dir/2, opt_error_log/3, init_nif/1]).
@@ -54,11 +56,31 @@ init_nif(Silent) ->
 color({R,G,B}) -> {R,G,B,255};
 color(RGBA) -> RGBA.
 
-get_const(Id) ->
-    [{Id, Data}] = ets:lookup(wx_non_consts, Id),
-    Data.
+get_name(Where, Id) when is_atom(Where), is_integer(Id) ->
+    {_Atom2Id, EnumId2Atom} = persistent_term:get(wx_consts),
+    maps:get(Id, maps:get(Where, EnumId2Atom, undefined), undefined).
+
+get_const(Atom) when is_atom(Atom) ->
+    {Atom2Id, _EnumId2Atom} = persistent_term:get(wx_consts),
+    maps:get(Atom, Atom2Id).
+
+setup_consts() ->
+    All = get_consts(),
+    Atom2Int = [{Key,Val} || {_Enum, Key, Val} <- All],
+    EKV = [{Enum, {Key,Val}} || {Enum, Key, Val} <- All],
+    Families = sofs:to_external(sofs:relation_to_family(sofs:relation(EKV))),
+    MakeId2Enum = fun(List) -> maps:from_list([{V,Key} || {Key,V} <- List]) end,
+    FamMaps = [{Enum, MakeId2Enum(KeyList)} || {Enum,KeyList} <- Families, Enum =/= define, Enum =/= global],
+    persistent_term:put(wx_consts, {maps:from_list(Atom2Int), maps:from_list(FamMaps)}),
+    ok.
+
+get_consts() ->
+    get_consts_impl(),
+    rec(?WXE_GET_CONSTS).
 
 init_opengl(_) -> ?NIF_ERROR.
+get_consts_impl() -> ?NIF_ERROR.
+
 debug_ping() -> queue_cmd(?WXE_DEBUG_PING).
 debug_driver(_Level) -> ?NIF_ERROR.
 
