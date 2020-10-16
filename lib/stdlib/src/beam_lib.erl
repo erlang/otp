@@ -856,10 +856,8 @@ extract_atom(<<Len, B/binary>>, Encoding) ->
 	     bin :: binary(),
 	     source :: binary() | string()}).
 
-open_file(<<"FOR1",_/binary>>=Binary) ->
-    #bb{bin = Binary, source = Binary};
 open_file(Binary0) when is_binary(Binary0) ->
-    Binary = uncompress(Binary0),
+    Binary = maybe_uncompress(Binary0),
     #bb{bin = Binary, source = Binary};
 open_file(FileName) ->
     case file:open(FileName, [read, raw, binary]) of
@@ -875,7 +873,7 @@ read_all(Fd, FileName, Bins) ->
 	    read_all(Fd, FileName, [Bin | Bins]);
 	eof ->
 	    ok = file:close(Fd),
-	    #bb{bin = uncompress(reverse(Bins)), source = FileName};
+	    #bb{bin = maybe_uncompress(reverse(Bins)), source = FileName};
 	Error ->
 	    ok = file:close(Fd),
 	    file_error(FileName, Error)
@@ -905,20 +903,22 @@ beam_filename(Bin) when is_binary(Bin) ->
 beam_filename(File) ->
     filename:rootname(File, ".beam") ++ ".beam".
 
+%% Do not attempt to uncompress if we have the proper .beam format.
+%% This clause matches binaries given as input.
+maybe_uncompress(<<"FOR1",_/binary>>=Binary) ->
+    Binary;
+%% This clause matches the iolist read from files.
+maybe_uncompress([<<"FOR1",_/binary>>|_]=IOData) ->
+    iolist_to_binary(IOData);
+maybe_uncompress(IOData) ->
+    try
+	zlib:gunzip(IOData)
+    catch
+	_:_ -> iolist_to_binary(IOData)
+    end.
 
-uncompress(Binary0) ->
-    {ok, Fd} = ram_file:open(Binary0, [write, binary]),
-    {ok, _} = ram_file:uncompress(Fd),
-    {ok, Binary} = ram_file:get_file(Fd),
-    ok = ram_file:close(Fd),
-    Binary.
-
-compress(Binary0) ->
-    {ok, Fd} = ram_file:open(Binary0, [write, binary]),
-    {ok, _} = ram_file:compress(Fd),
-    {ok, Binary} = ram_file:get_file(Fd),
-    ok = ram_file:close(Fd),
-    Binary.
+compress(IOData) ->
+    zlib:gzip(IOData).
 
 %% -> ok | throw(Error)
 assert_directory(FileName) ->
