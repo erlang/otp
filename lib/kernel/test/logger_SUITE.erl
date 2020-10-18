@@ -68,7 +68,7 @@ init_per_testcase(_TestCase, Config) ->
     [{logger_config,PC}|Config].
 
 end_per_testcase(Case, Config) ->
-    try apply(?MODULE,Case,[cleanup,Config])
+    try erlang:apply(?MODULE,Case,[cleanup,Config])
     catch error:undef -> ok
     end,
     ok.
@@ -1407,4 +1407,10 @@ my_try(Fun) ->
 check_config(crash) ->
     erlang:error({badmatch,3});
 check_config(_) ->
+    ok.
+
+%% this function is also a test. When logger.hrl used non-qualified
+%%  apply/3 call, any module that was implementing apply/3 could
+%%  not use any logging macro
+apply(_Any, _Any, _Any) ->
     ok.
