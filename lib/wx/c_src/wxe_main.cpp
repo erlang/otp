@@ -118,7 +118,20 @@ void *wxe_main_loop(void *vpdl)
 {
   int result;
   int  argc = 1;
-  const wxChar temp[10] = L"Erlang";
+  wxChar temp[128] = L"Erlang";
+
+  size_t app_len = 127;
+  char app_title_buf[128];
+  int res = erl_drv_getenv("WX_APP_TITLE", app_title_buf, &app_len);
+  if (res == 0) {
+    wxString title = wxString::FromUTF8(app_title_buf);
+    int size = title.Length() < 127 ? title.Length() : 126;
+    for(int i = 0; i < size; i++) {
+      temp[i] = title[i];
+    }
+    temp[size] = 0;
+  }
+
   wxChar * argv[] = {(wxChar *)temp, NULL};
   ErlDrvPDL pdl = (ErlDrvPDL) vpdl;
 
