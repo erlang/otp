@@ -641,7 +641,7 @@ child_spec() = #{id => child_id(),       % mandatory
           specifications and child processes belonging to
           supervisor <c><anno>SupRef</anno></c>.</p>
         <p>Notice that calling this function when supervising many
-          childrens under low memory conditions can cause an
+          children under low memory conditions can cause an
           out of memory exception.</p>
         <p>For a description of <c><anno>SupRef</anno></c>, see
           <seeerl marker="#SupRef"><c>start_child/2</c></seeerl>.</p>
