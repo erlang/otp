@@ -1266,12 +1266,16 @@ static ERL_NIF_TERM read_file_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 
     if((posix_errno = efile_marshal_path(env, argv[0], &path))) {
         return posix_error_to_tuple(env, posix_errno);
-    } else if((posix_errno = efile_read_info(&path, 1, &info))) {
-        return posix_error_to_tuple(env, posix_errno);
     } else if((posix_errno = efile_open(&path, EFILE_MODE_READ, efile_resource_type, &d))) {
         return posix_error_to_tuple(env, posix_errno);
     }
 
+    /* read_file() wants to know the file size, so retrieve it now from the
+       open file handle.  In theory, efile_read_handle_info() may fail with
+       ENOTSUP, fall back to the "unknown size" logic if that happens.  */
+    if (efile_read_handle_info(d, &info) != 0) {
+        info.size = 0;
+    }
     posix_errno = read_file(d, info.size, &result);
 
     erts_atomic32_set_acqb(&d->state, EFILE_STATE_CLOSED);
