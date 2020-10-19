@@ -1225,7 +1225,6 @@ unsafe_vars_try(Config) when is_list(Config) ->
 		    {{15,29},erl_lint,{unsafe_var,'Ro',{'try',{10,19}}}},
 		    {{15,32},erl_lint,{unsafe_var,'Class',{'try',{10,19}}}},
 		    {{15,38},erl_lint,{unsafe_var,'Data',{'try',{10,19}}}},
-		    {{19,30},erl_lint,{unsafe_var,'R',{'try',{18,19}}}},
 		    {{21,38},erl_lint,{unsafe_var,'R',{'try',{18,19}}}},
 		    {{21,40},erl_lint,{unbound_var,'RR'}},
 		    {{23,27},erl_lint,{unsafe_var,'R',{'try',{18,19}}}},
@@ -4474,10 +4473,10 @@ warn_missing_spec(Config) ->
               internal_no_spec() -> ok.">>,
     run(Config, [
         {warn_missing_spec, Test, [warn_missing_spec],
-            {warnings, [{6, erl_lint, {missing_spec, {external_no_spec, 0}}}]}},
+            {warnings, [{{6,15}, erl_lint, {missing_spec, {external_no_spec, 0}}}]}},
         {warn_missing_spec_all, Test, [warn_missing_spec_all],
-            {warnings, [{6, erl_lint, {missing_spec, {external_no_spec, 0}}},
-                        {11, erl_lint, {missing_spec, {internal_no_spec, 0}}}]}}
+            {warnings, [{{6,15}, erl_lint, {missing_spec, {external_no_spec, 0}}},
+                        {{11,15}, erl_lint, {missing_spec, {internal_no_spec, 0}}}]}}
     ]).
 
 format_error(E) ->
