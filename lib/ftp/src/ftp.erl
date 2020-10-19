@@ -1097,7 +1097,6 @@ handle_call({_,{type, Type}}, From, #state{chunk = false} = State0) ->
         _ ->
             {reply, {error, etype}, State0}
     end;
-
 handle_call({_,{recv, RemoteFile, LocalFile}}, From,
             #state{chunk = false, ldir = LocalDir} = State) ->
     progress_report({remote_file, RemoteFile}, State),
@@ -1112,12 +1111,10 @@ handle_call({_,{recv, RemoteFile, LocalFile}}, From,
         {error, _What} ->
             {reply, {error, epath}, State}
     end;
-
 handle_call({_, {recv_bin, RemoteFile}}, From, #state{chunk = false} =
             State) ->
     setup_data_connection(State#state{caller = {recv_bin, RemoteFile},
                                       client = From});
-
 handle_call({_,{recv_chunk_start, RemoteFile}}, From, #state{chunk = false}
             = State) ->
     setup_data_connection(State#state{caller = {start_chunk_transfer,
@@ -1126,7 +1123,21 @@ handle_call({_,{recv_chunk_start, RemoteFile}}, From, #state{chunk = false}
 
 handle_call({_, recv_chunk}, _, #state{chunk = false} = State) ->
     {reply, {error, "ftp:recv_chunk_start/2 not called"}, State};
-
+handle_call({_, recv_chunk}, _From, #state{chunk = true,
+                                           data = Bin,
+                                           caller = #recv_chunk_closing{dconn_closed       = true,
+                                                                        pos_compl_received = true,
+                                                                        client_called_us = true
+                                                                       } 
+                                          } = State0) ->
+    case Bin of
+        <<>> ->
+            {reply, ok, State0#state{caller = undefined,
+                                     chunk = false,
+                                     client = undefined}};
+        Data ->
+            {reply, Data, State0}
+    end;
 handle_call({_, recv_chunk}, _From, #state{chunk = true,
                                            caller = #recv_chunk_closing{dconn_closed       = true,
                                                                         pos_compl_received = true
