@@ -105,7 +105,9 @@ move S X0=x==0 | line Loc | call_only Ar Func => \
      move S X0 | call_only Ar Func
 
 # The line number in int_func_start/5 can be NIL.
-func_line n =>
+func_line n => empty_func_line
+
+empty_func_line
 func_line I
 
 line n =>

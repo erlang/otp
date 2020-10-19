@@ -488,6 +488,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         }
 
         break;
+    case op_empty_func_line:
     case op_func_line_I:
         /* This is the first line instruction of a function, preceding
          * the func_info instruction. */
