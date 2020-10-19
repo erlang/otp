@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bugs causing issues when enabling the ERTS internal
+	    allocators on a system built with the undocumented and
+	    unsupported <c>SMALL_MEMORY</c> feature.</p>
+          <p>
+	    Own Id: OTP-16939</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

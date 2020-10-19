@@ -27,6 +27,33 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.6.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct flow ctrl checks from OTP-16764 to work as
+	    intended. Probably will not have a noticeable affect but
+	    will make connections more well behaved under some
+	    circumstances.</p>
+          <p>
+	    Own Id: OTP-16837 Aux Id: ERL-1319, OTP-16764 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug that causes cross-build failure.</p>
+          <p>
+	    This change excludes the ssl.d dependency file from the
+	    source tar balls.</p>
+          <p>
+	    Own Id: OTP-16921</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.6.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
