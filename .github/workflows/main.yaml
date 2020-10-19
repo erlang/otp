@@ -179,7 +179,10 @@ jobs:
 
       ## Create md5sum
       - name: Create pre-build and doc archives
-        run: (cd artifacts && md5sum {*.tar.gz,*.txt} > MD5.txt)
+        run: |
+          shopt -s nullglob
+          cd artifacts
+          md5sum {*.tar.gz,*.txt} > MD5.txt
 
       - name: Upload pre-built and doc tar archives
         uses: softprops/action-gh-release@v1
