@@ -145,6 +145,13 @@ do_normal(BeamFile, Opts) ->
 	{{AtomBin, missing_chunk}, [no_utf8_atoms]} when is_binary(AtomBin) -> ok
     end,
 
+    %% 'allow_missing_chunks' should work for named chunks too.
+    {ok, {simple, StrippedBeam}} = beam_lib:strip(BeamFile),
+    {ok, {simple, MChunks}} = beam_lib:chunks(StrippedBeam,
+                                              [attributes, locals],
+                                              [allow_missing_chunks]),
+    [{attributes, missing_chunk}, {locals, missing_chunk}] = MChunks,
+
     %% Make sure that reading the atom chunk works when the 'allow_missing_chunks'
     %% option is used.
     Some = ["Code",atoms,"ExpT","LitT"],

@@ -700,6 +700,9 @@ chunks_to_data([{Id, Name} | CNs], Chunks, File, Cs, Module, Atoms, L) ->
 chunks_to_data([], _Chunks, _File, _Cs, Module, _Atoms, L) ->
     {ok, {Module, reverse(L)}}.
 
+chunk_to_data(Id, missing_chunk, _File, _Cs, AtomTable, _Mod) ->
+    %% Missing chunk, only happens when 'allow_missing_chunks' is on.
+    {AtomTable, {Id, missing_chunk}};
 chunk_to_data(attributes=Id, Chunk, File, _Cs, AtomTable, _Mod) ->
     try
 	Term = binary_to_term(Chunk),
