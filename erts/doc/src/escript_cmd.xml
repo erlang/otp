@@ -446,5 +446,11 @@ ok
       <item>Compiles the escript using flag <c>+native</c>.
       </item>
     </taglist>
+    <note>
+      <p>The configuration of the Erlang emulator invoked by
+        <c>escript</c> can be controlled using the <seecom
+        marker="erl#environment_variables"> environment variables
+        understood by <c>erl</c></seecom>.</p>
+    </note>
   </section>
 </comref>
