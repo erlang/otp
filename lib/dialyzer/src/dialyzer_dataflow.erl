@@ -38,7 +38,7 @@
 
 -import(erl_types,
         [t_inf/2, t_inf/3, t_inf_lists/2, t_inf_lists/3,
-         t_inf_lists/3, t_is_equal/2, t_is_subtype/2, t_subtract/2,
+         t_is_equal/2, t_is_subtype/2, t_subtract/2,
          t_sup/1, t_sup/2]).
 
 -import(erl_types,
