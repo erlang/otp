@@ -432,8 +432,8 @@ handle_cast(iter_get_next, State)
     {noreply, execute_request(get_next, Oids, State)};
 
 handle_cast(iter_get_next, State) ->
-    ?PACK_SERV:error("[Iterated get-next] No Response PDU to "
-		     "start iterating from.", []),
+    ?EPRINT("[Iterated get-next] No Response PDU to "
+            "start iterating from.", []),
     {noreply, State};
 
 handle_cast({iter_get_next, N}, State) ->
@@ -445,8 +445,8 @@ handle_cast({iter_get_next, N}, State) ->
 				     State#state.packet_server),
 	    {noreply, State#state{last_received_pdu = PDU}};
 	true ->
-	    ?PACK_SERV:error("[Iterated get-next] No Response PDU to "
-				"start iterating from.", []),
+	    ?EPRINT("[Iterated get-next] No Response PDU to "
+                    "start iterating from.", []),
 	    {noreply, State}
     end;
 
@@ -540,7 +540,7 @@ report_error(#state{quiet = true, parent = Pid}, Format, Args) ->
     Reason = lists:flatten(io_lib:format(Format, Args)),
     Pid ! {oid_error, Reason};
 report_error(_, Format, Args) ->
-    ?PACK_SERV:error(Format, Args).
+    ?EPRINT(Format, Args).
 
 
 get_oid_from_varbind(#varbind{oid = Oid}) -> Oid.
