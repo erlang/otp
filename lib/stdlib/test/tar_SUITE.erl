@@ -510,6 +510,11 @@ extract_from_binary_compressed(Config) when is_list(Config) ->
     io:format("~p\n", [Files]),
     19 = length(Files),
 
+    %% Try taking contents when already uncompressed.
+    {ok,Files} = erl_tar:table({binary,zlib:gunzip(Bin)}, [compressed]),
+    io:format("~p\n", [Files]),
+    19 = length(Files),
+
     %% Trying extracting from a binary.
     ok = erl_tar:extract({binary,Bin}, [compressed,{cwd,ExtractDir}]),
     {ok,List} = file:list_dir(filename:join(ExtractDir, "ddll_SUITE_data")),
