@@ -1681,7 +1681,8 @@ update_path(#{path := Path}, empty) ->
     encode_path(Path);
 update_path(#{host := _, path := Path0}, URI) ->
     %% When host is present in a URI the path must begin with "/" or be empty.
-    Path = make_path_absolute(Path0),
+    Path1 = maybe_flatten_list(Path0),
+    Path = make_path_absolute(Path1),
     concat(URI,encode_path(Path));
 update_path(#{path := Path}, URI) ->
     concat(URI,encode_path(Path));
@@ -1784,6 +1785,11 @@ make_path_absolute(Path) when is_binary(Path) ->
     concat(<<$/>>, Path);
 make_path_absolute(Path) when is_list(Path) ->
     concat("/", Path).
+
+maybe_flatten_list(Path) when is_binary(Path) ->
+    Path;
+maybe_flatten_list(Path) ->
+    unicode:characters_to_list(Path).
 
 %%-------------------------------------------------------------------------
 %% Helper functions for resolve
