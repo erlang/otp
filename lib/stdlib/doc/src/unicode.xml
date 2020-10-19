@@ -159,7 +159,7 @@
      <name name="characters_to_binary" arity="1" since=""/>
       <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
-        <p>Same as <c>characters_to_binary(<anno>Data</anno>, unicode,
+        <p>Same as <c>characters_t9o_binary(<anno>Data</anno>, unicode,
           unicode)</c>.</p>
       </desc>
     </func>
