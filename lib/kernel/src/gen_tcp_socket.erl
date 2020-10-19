@@ -533,13 +533,11 @@ val(ErrRef, {error, Reason}) -> throw({ErrRef, Reason}).
 
 address(SockAddr) ->
     case SockAddr of
-        #{family := inet, addr := IP, port := Port} ->
+        #{family := Family, addr := IP, port := Port}
+          when Family =:= inet;
+               Family =:= inet6 ->
             {IP, Port};
-        #{family := inet6, addr := IP, port := Port} ->
-            {IP, Port};
-        #{family := local, path := Path} when is_list(Path) ->
-            {local, prim_socket:encode_path(Path)};
-        #{family := local, path := Path} when is_binary(Path) ->
+        #{family := local, path := Path} ->
             {local, Path}
     end.
 
@@ -1183,14 +1181,7 @@ handle_event(Type, Content, #accept{} = State, P_D) ->
 
 %% Call: bind/1
 handle_event({call, From}, {bind, BindAddr}, _State, {P, _D}) ->
-    Result =
-        case socket:bind(P#params.socket, BindAddr) of
-            %% XXX Should we store Port with BindAddr as sockname?
-            %%     Should bind return port?
-            %%     There is no port for domain = unix
-            {ok, _Port} -> ok;
-            {error, _} = Error -> Error
-        end,
+    Result = socket:bind(P#params.socket, BindAddr),
     {keep_state_and_data,
      [{reply, From, Result}]};
 

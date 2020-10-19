@@ -271,7 +271,7 @@ do_init(Domain, stream = Type, Proto) ->
            end,
     i("try (socket) bind"),
     case socket:bind(Sock, any) of
-        {ok, _P} ->
+        ok ->
             ok = socket:setopt(Sock, socket, timestamp, true),
             ok = socket:setopt(Sock, ip,     tos,       mincost),
             ok = socket:setopt(Sock, ip,     recvtos,   true),
@@ -288,7 +288,7 @@ do_init(Domain, dgram = Type, Proto) ->
                    throw({open, OReason})
            end,
     case socket:bind(Sock, any) of
-        {ok, _} ->
+        ok ->
             ok = socket:setopt(Sock, socket, timestamp, true),
             ok = socket:setopt(Sock, ip,     tos,       mincost),
             ok = socket:setopt(Sock, ip,     recvtos,   true),

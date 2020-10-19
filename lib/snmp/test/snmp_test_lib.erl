@@ -542,7 +542,8 @@ validate_ipv6_address(LocalAddr) ->
     LocalSA = #{family => Domain, addr => LocalAddr},
     ServerPort =
         case socket:bind(ServerSock, LocalSA) of
-            {ok, P1} ->
+            ok ->
+                {ok, #{port := P1}} = socket:sockname(ServerSock),
                 P1;
             {error, R3} ->
                 socket:close(ServerSock),
@@ -557,7 +558,7 @@ validate_ipv6_address(LocalAddr) ->
                 ?SKIP(f("(client) socket open failed: ~p", [R4]))
         end,
     case socket:bind(ClientSock, LocalSA) of
-        {ok, _} ->
+        ok ->
             ok;
         {error, R5} ->
             socket:close(ServerSock),

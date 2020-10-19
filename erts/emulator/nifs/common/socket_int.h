@@ -126,6 +126,22 @@ typedef int BOOLEAN_T;
 
 #define B2S(__B__) ((__B__) ? "true" : "false")
 
+#define NUM(Array) (sizeof(Array) / sizeof(*(Array)))
+
+
+#ifdef HAVE_SOCKLEN_T
+#  define SOCKLEN_T socklen_t
+#else
+#  define SOCKLEN_T size_t
+#endif
+
+#ifdef __WIN32__
+#define SOCKOPTLEN_T int
+#else
+#define SOCKOPTLEN_T SOCKLEN_T
+#endif
+
+
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * "Global" atoms (esock_atom_...)
  *
@@ -216,6 +232,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(info);                     \
     GLOBAL_ATOM_DEF(initmsg);                  \
     GLOBAL_ATOM_DEF(invalid);                  \
+    GLOBAL_ATOM_DEF(integer_range);            \
     GLOBAL_ATOM_DEF(iov);                      \
     GLOBAL_ATOM_DEF(ip);                       \
     GLOBAL_ATOM_DEF(ipcomp_level);             \
@@ -417,12 +434,13 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define COMPARE(A, B)        enif_compare((A), (B))
 #define COMPARE_PIDS(P1, P2) enif_compare_pids((P1), (P2))
 
-#define IS_ATOM(E,  TE) enif_is_atom((E),   (TE))
-#define IS_BIN(E,   TE) enif_is_binary((E), (TE))
-#define IS_LIST(E,  TE) enif_is_list((E),   (TE))
-#define IS_MAP(E,   TE) enif_is_map((E), (TE))
-#define IS_NUM(E,   TE) enif_is_number((E), (TE))
-#define IS_TUPLE(E, TE) enif_is_tuple((E),  (TE))
+#define IS_ATOM(E,    TE) enif_is_atom((E),   (TE))
+#define IS_BIN(E,     TE) enif_is_binary((E), (TE))
+#define IS_LIST(E,    TE) enif_is_list((E),   (TE))
+#define IS_MAP(E,     TE) enif_is_map((E), (TE))
+#define IS_NUM(E,     TE) enif_is_number((E), (TE))
+#define IS_TUPLE(E,   TE) enif_is_tuple((E),  (TE))
+#define IS_INTEGER(E, TE) esock_is_integer((E),   (TE))
 
 #define GET_ATOM_LEN(E, TE, LP) \
     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1)

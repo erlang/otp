@@ -143,7 +143,8 @@ has_support_ipv6() ->
     LocalSA = #{family => Domain, addr => LocalAddr},
     ServerPort =
         case socket:bind(ServerSock, LocalSA) of
-            {ok, P1} ->
+            ok ->
+                {ok, #{port := P1}} = socket:sockname(ServerSock),
                 P1;
             {error, R3} ->
                 socket:close(ServerSock),
@@ -158,7 +159,7 @@ has_support_ipv6() ->
                 skip(f("(client) socket open failed: ~p", [R4]))
         end,
     case socket:bind(ClientSock, LocalSA) of
-        {ok, _} ->
+        ok ->
             ok;
         {error, R5} ->
             socket:close(ServerSock),
