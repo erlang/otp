@@ -520,7 +520,7 @@
            %% destination address for a message.
            addr => sockaddr(),
                     
-           iov := [binary()],
+           iov := erlang:iovec(),
 
            %% *Optional* control message list (ancillary data).
            %% The maximum size of the control buffer is platform
@@ -541,7 +541,7 @@
            %% source address for a message.
            addr => sockaddr_recv(),
 
-           iov := [binary()],
+           iov := erlang:iovec(),
 
            %% Control messages (ancillary data).
            %% The maximum size of the control buffer is platform
@@ -1412,7 +1412,7 @@ send_common_nowait(SockRef, Data, To, Flags, SelectHandle, SendName) ->
     of
         ok ->
             ok;
-        {ok, Written} ->
+        {select, Written} ->
 	    %% We are partially done, but the user don't want to wait (here) 
             %% for completion
             <<_:Written/binary, Rest/binary>> = Data,
@@ -1435,7 +1435,7 @@ send_common_deadline(SockRef, Data, To, Flags, Deadline, SendName) ->
     of
         ok ->
             ok;
-        {ok, Written} ->
+        {select, Written} ->
 	    %% We are partially done, wait for continuation
             Timeout = timeout(Deadline),
             receive
@@ -1768,13 +1768,10 @@ sendmsg_nowait(SockRef, Msg, Flags, SelectHandle) ->
             %% We are done
             ok;
         %%
-        {ok, Written} when is_integer(Written) andalso (Written > 0) ->
-            %% We should not retry here since the protocol may not
-            %% be able to handle a message being split. Leave it to
-            %% the caller to figure out (call again with the rest).
-            %%
-            %% We need to cancel this partial write.
-            %%
+        {select, Written} ->
+            %% Since sendmsg is geared for packet oriented sockets
+            %% we do not keep sending the rest data here
+            %% but instead give up and leave it to the caller
             _ = cancel(SockRef, sendmsg, SelectHandle),
             {ok, sendmsg_rest(maps:get(iov, Msg), Written)};
         %%
@@ -1792,13 +1789,10 @@ sendmsg_deadline(SockRef, Msg, Flags, Deadline) ->
             %% We are done
             ok;
         %%
-        {ok, Written} when is_integer(Written) andalso (Written > 0) ->
-            %% We should not retry here since the protocol may not
-            %% be able to handle a message being split. Leave it to
-            %% the caller to figure out (call again with the rest).
-            %%
-            %% We need to cancel this partial write.
-            %%
+        {select, Written} ->
+            %% Since sendmsg is geared for packet oriented sockets
+            %% we do not keep sending the rest data here
+            %% but instead give up and leave it to the caller
             _ = cancel(SockRef, sendmsg, SelectHandle),
             {ok, sendmsg_rest(maps:get(iov, Msg), Written)};
         %%
@@ -1806,7 +1800,8 @@ sendmsg_deadline(SockRef, Msg, Flags, Deadline) ->
 	    Timeout = timeout(Deadline),
             receive
                 ?socket_msg(?socket(SockRef), select, SelectHandle) ->
-                    sendmsg_deadline(SockRef, Msg, Flags, Deadline);
+                    sendmsg_deadline(
+                      SockRef, Msg, Flags, Deadline);
                 ?socket_msg(_Socket, abort, {SelectHandle, Reason}) ->
                     {error, Reason}
             after Timeout ->
