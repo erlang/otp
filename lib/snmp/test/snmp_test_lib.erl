@@ -39,7 +39,7 @@
 	 replace_config/3, set_config/3, get_config/2, get_config/3]).
 -export([fail/3, skip/3]).
 -export([hours/1, minutes/1, seconds/1, sleep/1]).
--export([flush_mqueue/0, trap_exit/0, trap_exit/1]).
+-export([flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
 -export([ping/1, local_nodes/0, nodes_on/1]).
 -export([start_node/2, stop_node/1]).
 -export([is_app_running/1, 
@@ -2240,6 +2240,17 @@ sleep(MSecs) ->
 %% ----------------------------------------------------------------
 %% Process utility function
 %%
+
+mqueue() ->
+    mqueue(self()).
+mqueue(Pid) when is_pid(Pid) ->
+    Key = messages,
+    case process_info(Pid, Key) of
+        {Key, Msgs} ->
+            Msgs;
+        _ ->
+            []
+    end.
 
 flush_mqueue() ->
     io:format("~p~n", [lists:reverse(flush_mqueue([]))]).
