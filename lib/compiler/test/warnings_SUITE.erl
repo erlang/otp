@@ -782,13 +782,13 @@ latin1_fallback(Conf) when is_list(Conf) ->
 	    %% Test that the compiler fall backs to latin-1 with
 	    %% a warning if a file has no encoding and does not
 	    %% contain correct UTF-8 sequences.
-	    <<"%% Bj",246,"rn
+	    <<"\n%% Bj",246,"rn
               t(_) -> \"",246,"\";
               t(x) -> ok.
               ">>,
 	    [],
-	    {warnings,[{3,sys_core_fold,{nomatch_shadow,2,{t,1}}},
-		       {{1,25},compile,reparsing_invalid_unicode}]}}],
+	    {warnings,[{4,sys_core_fold,{nomatch_shadow,3,{t,1}}},
+		       {{2,1},compile,reparsing_invalid_unicode}]}}],
     [] = run(Conf, Ts1),
 
     Ts2 = [{latin1_fallback2,

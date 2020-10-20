@@ -1504,13 +1504,16 @@ debug_info_attribute(DataDir, Name, Opts) ->
     {ok,_,Bin} = compile:file(File, [binary | Opts]),
     {ok, {_, Attrs}} = beam_lib:chunks(Bin, [debug_info]),
 
-    [{debug_info,{debug_info_v1,erl_abstract_code,
-                  {[{attribute,{1,1},file,{_,1}},
-                    {attribute,{1,2},module,debug_info},
-                    {attribute,{2,2},compile,[debug_info]},
-                    {eof,_}], _}}}] = Attrs,
+    [{debug_info,{debug_info_v1,erl_abstract_code, {Forms, _}}}] = Attrs,
+    [{attribute,{1,1},file,{_,1}},
+     {attribute,{1,2},module,debug_info},
+     {attribute,{2,2},compile,[debug_info]},
+     {eof,_}] = forms_to_terms(Forms),
 
     ok.
+
+forms_to_terms(Forms) ->
+    [erl_parse:anno_to_term(Form) || Form <- Forms].
 
 %%%
 %%% Utilities.
