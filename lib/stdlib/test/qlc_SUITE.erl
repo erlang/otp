@@ -170,10 +170,10 @@ badarg() ->
     q(bar, cache_all, extra).
 ">>,
        [],
-{errors,[{5,?QLC,not_a_query_list_comprehension},
-	 {6,?QLC,not_a_query_list_comprehension},
-	 {8,?QLC,not_a_query_list_comprehension},
-	 {9,?QLC,not_a_query_list_comprehension}],
+{errors,[{{5,8},?QLC,not_a_query_list_comprehension},
+	 {{6,8},?QLC,not_a_query_list_comprehension},
+	 {{8,5},?QLC,not_a_query_list_comprehension},
+	 {{9,5},?QLC,not_a_query_list_comprehension}],
  []}}],
     [] = compile(Config, Ts),
     ok.
@@ -374,7 +374,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{2,27},qlc,nomatch_pattern}]}},
-        {warnings,[{2,v3_core,nomatch}]}},
+        {warnings,[{{2,21},v3_core,nomatch}]}},
 
        {nomatch2,
         <<"nomatch() ->
@@ -386,7 +386,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{3,33},qlc,nomatch_pattern}]}},
-        {warnings,[{3,v3_core,nomatch}]}},
+        {warnings,[{{3,27},v3_core,nomatch}]}},
  
        {nomatch3,
         <<"nomatch() ->
@@ -399,7 +399,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{3,52},qlc,nomatch_pattern}]}},
-        {warnings,[{3,v3_core,nomatch}]}},
+        {warnings,[{{3,37},v3_core,nomatch}]}},
 
        {nomatch4,
         <<"nomatch() ->
@@ -423,7 +423,7 @@ nomatch(Config) when is_list(Config) ->
                      end, [{\"ab\"}]).
         ">>,
         [],
-        {warnings,[{3,v3_core,nomatch}]}}
+        {warnings,[{{3,38},v3_core,nomatch}]}}
 
       ],
     [] = compile(Config, Ts),
@@ -5640,7 +5640,7 @@ join_complex(Config) when is_list(Config) ->
                                      ]),
                   qlc:e(Q).">>,
            [],
-           {warnings,[{3,qlc,too_complex_join}]}},
+           {warnings,[{{3,26},qlc,too_complex_join}]}},
 
           {two,
            <<"two() ->
@@ -5653,6 +5653,19 @@ join_complex(Config) when is_list(Config) ->
                       Z =:= W],{join,merge}),
                   qlc:e(Q).">>,
            [],
+           {warnings,[{{2,26},qlc,too_many_joins}]}},
+
+          {two_again,
+           <<"two() ->
+                  Q = qlc:q([{X,Y,Z,W} ||
+                      {X} <- [],
+                      {Y} <- [],
+                      {Z} <- [],
+                      {W} <- [],
+                      X =:= Y,
+                      Z =:= W],{join,merge}),
+                  qlc:e(Q).">>,
+           [{columns, false}],
            {warnings,[{2,qlc,too_many_joins}]}}
        ],
 
@@ -5885,7 +5898,7 @@ otp_6562(Config) when is_list(Config) ->
                qlc:info(Q).
         ">>,
         [],
-        {errors,[{2,qlc,binary_generator}],
+        {errors,[{{2,40},qlc,binary_generator}],
          []}}
        ],
     [] = compile(Config, Bits),
@@ -6158,8 +6171,7 @@ otp_7238(Config) when is_list(Config) ->
                {qlc:q([X || X={X} <- []]), [t || \"a\"=\"b\" <- []]}.">>,
         [],
         %% {warnings,[{{2,30},qlc,nomatch_pattern},
-        %%            {{2,44},v3_core,nomatch}]}},
-        {warnings,[{2,v3_core,nomatch}]}},
+        {warnings,[{{2,44},v3_core,nomatch}]}},
 
        %% Not found by qlc...
        {nomatch_2,
@@ -6173,7 +6185,7 @@ otp_7238(Config) when is_list(Config) ->
                qlc:q([t || [$a, $b] = \"ba\" <- []]).">>,
         [],
         %% {warnings,[{{2,37},qlc,nomatch_pattern}]}},
-        {warnings,[{2,v3_core,nomatch}]}},
+        {warnings,[{{2,22},v3_core,nomatch}]}},
 
        %% Not found by qlc...
        {nomatch_4,
@@ -6231,7 +6243,7 @@ otp_7238(Config) when is_list(Config) ->
                qlc:q([X || X <- [], x =:= []]).">>,
         [],
         %% {warnings,[{{2,39},qlc,nomatch_filter}]}},
-        {warnings,[{2,sys_core_fold,nomatch_guard}]}},
+        {warnings,[{{2,22},sys_core_fold,nomatch_guard}]}},
 
        {nomatch_12,
         <<"nomatch_12() ->
@@ -7061,7 +7073,9 @@ otp_12946(Config) when is_list(Config) ->
            init() ->
                ok.
            y">>,
-    {errors,[{4,erl_parse,_}],[]} = compile_file(Config, Text, []),
+    {errors,[{{4,12},erl_parse,_}],[]} = compile_file(Config, Text, []),
+    {errors,[{4,erl_parse,_}],[]} =
+        compile_file(Config, Text, [{columns, false}]),
     ok.
 
 %% Examples from qlc(3).
@@ -7991,9 +8005,7 @@ comp_compare(T, T) ->
     true;
 comp_compare(T1, T2_0) ->
     T2 = wskip(T2_0),
-    T1 =:= T2
-       %% This clause should eventually be removed. 
-       orelse ln(T1) =:= T2 orelse T1 =:= ln(T2).
+    T1 =:= T2.
 
 wskip([]) ->
     [];
@@ -8007,35 +8019,6 @@ wskip([M|L]) ->
     [M|wskip(L)];
 wskip(T) ->
     T.
-
-%% Replaces locations like {Line,Column} with Line. 
-ln({warnings,L}) ->
-    {warnings,ln0(L)};
-ln({errors,EL,WL}) ->
-    {errors,ln0(EL),ln0(WL)};
-ln(L) ->
-    ln0(L).
-
-ln0(L) ->
-    lists:sort(ln1(L)).
-
-ln1([]) ->
-    [];
-ln1([{File,Ms}|MsL]) when is_list(File) ->
-    [{File,ln0(Ms)}|ln1(MsL)];
-ln1([{{L,_C},Mod,Mess0}|Ms]) ->
-    Mess = case Mess0 of
-               {exported_var,V,{Where,{L1,_C1}}} ->
-                   {exported_var,V,{Where,L1}};
-               {unsafe_var,V,{Where,{L1,_C1}}} ->
-                   {unsafe_var,V,{Where,L1}};
-               %% There are more...
-               M ->
-                   M
-           end,
-    [{L,Mod,Mess}|ln1(Ms)];
-ln1([M|Ms]) ->
-    [M|ln1(Ms)].
 
 %% -> {FileName, Module}; {string(), atom()}
 compile_file_mod(Config) ->
