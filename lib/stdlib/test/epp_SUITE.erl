@@ -479,7 +479,7 @@ otp_6277(Config) when is_list(Config) ->
               -define(ASSERT, ?MODULE).
 
               ?ASSERT().">>,
-           [{error,{{4,16},epp,{undefined,'MODULE', none}}}]}],
+           [{error,{4,epp,{undefined,'MODULE', none}}}]}],
     [] = check(Config, Ts),
     ok.
 
@@ -510,34 +510,34 @@ otp_7702(Config) when is_list(Config) ->
 
     {file_7702,[{abstract_code,{_,Forms}}]} = AC,
     Forms2 = unopaque_forms(Forms),
-        [{attribute,_,file,_},
+        [{attribute,{1,1},file,_},
          _,
          _,
          {function,_,t,0,
           [{clause,_,[],[],
-            [{'receive',_,
+            [{'receive',{14,25},
               [_,
-               {clause,_,
-                [{var,_,'M'}],
+               {clause,{14,38},
+                [{var,{14,38},'M'}],
                 [],
                 [{_,_,_,
-                  [{tuple,_,
-                    [{atom,_,unexpected_message},
-                     {var,_,'M'},
-                     {atom,_,on_line},
-                     {integer,_,14},
-                     {atom,_,was_expecting},
-                     {string,_,"foo"}]}]}]}],
-              {integer,_,10000},
-              [{call,_,
-                {atom,_,exit},
-                [{tuple,_,
-                  [{atom,_,timeout},
-                   {atom,_,on_line},
-                   {integer,_,14},
-                   {atom,_,was_expecting},
-                   {string,_,"foo"}]}]}]}]}]},
-         {eof,_}] = Forms2,
+                  [{tuple,{14,38},
+                    [{atom,{14,38},unexpected_message},
+                     {var,{14,38},'M'},
+                     {atom,{14,38},on_line},
+                     {integer,{14,38},14},
+                     {atom,{14,38},was_expecting},
+                     {string,{14,38},"foo"}]}]}]}],
+              {integer,{14,38},10000},
+              [{call,{14,38},
+                {atom,{14,38},exit},
+                [{tuple,{14,38},
+                  [{atom,{14,38},timeout},
+                   {atom,{14,38},on_line},
+                   {integer,{14,38},14},
+                   {atom,{14,38},was_expecting},
+                   {string,{14,38},"foo"}]}]}]}]}]},
+         {eof,{14,43}}] = Forms2,
 
     file:delete(File),
     file:delete(BeamFile),
@@ -782,11 +782,11 @@ otp_8130(Config) when is_list(Config) ->
 
     Cks = [{otp_check_1,
             <<"\n-include_lib(\"epp_test.erl\").\n">>,
-            [{error,{{2,2},epp,{depth,"include_lib"}}}]},
+            [{error,{2,epp,{depth,"include_lib"}}}]},
 
            {otp_check_2,
             <<"\n-include(\"epp_test.erl\").\n">>,
-            [{error,{{2,2},epp,{depth,"include"}}}]}
+            [{error,{2,epp,{depth,"include"}}}]}
            ],
     [] = check(Config, Cks),
 
@@ -1159,7 +1159,7 @@ test_if(Config) ->
 	  {if_8c,
 	   <<"-if(?foo).\n"                     %Undefined symbol.
 	     "-endif.\n">>,
-	   {errors,[{{1,6},epp,{undefined,foo,none}}],[]}}
+	   {errors,[{{1,25},epp,{undefined,foo,none}}],[]}}
 
 	 ],
     [] = compile(Config, Cs),
@@ -1860,34 +1860,7 @@ fail() ->
     ct:fail(failed).
 
 message_compare(T, T) ->
-    true;
-message_compare(T1, T2) ->
-    ln(T1) =:= T2.
-
-%% Replaces locations like {Line,Column} with Line.
-ln({warnings,L}) ->
-    {warnings,ln0(L)};
-ln({errors,EL,WL}) ->
-    {errors,ln0(EL),ln0(WL)};
-ln(L) ->
-    ln0(L).
-
-ln0(L) ->
-    lists:keysort(1, ln1(L)).
-
-ln1([]) ->
-    [];
-ln1([{File,Ms}|MsL]) when is_list(File) ->
-    [{File,ln0(Ms)}|ln1(MsL)];
-ln1([M|Ms]) ->
-    [ln2(M)|ln1(Ms)].
-
-ln2({{L,_C},Mod,Mess}) ->
-    {L,Mod,Mess};
-ln2({error,M}) ->
-    {error,ln2(M)};
-ln2(M) ->
-    M.
+    T =:= T.
 
 %% +fnu means a peer node has to be started; slave will not do
 start_node(Name, Xargs) ->
