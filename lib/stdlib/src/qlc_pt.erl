@@ -21,7 +21,7 @@
 
 %%% Purpose: Implements the qlc Parse Transform.
 
--export([parse_transform/2, transform_from_evaluator/2, 
+-export([parse_transform/2, transform_from_evaluator/2,
          transform_expression/2]).
 
 -include_lib("stdlib/include/ms_transform.hrl").

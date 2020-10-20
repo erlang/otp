@@ -25,10 +25,13 @@
 %% N.B. if this module is to be used as a basis for transforms then
 %% all the error cases must be handled otherwise this module just crashes!
 
--export([parse_transform/2]).
+-export([parse_transform/2, parse_transform_info/0]).
 
 parse_transform(Forms, _Options) ->
     forms(Forms).
+
+parse_transform_info() ->
+    #{columns => true}.
 
 %% forms(Fs) -> lists:map(fun (F) -> form(F) end, Fs).
 

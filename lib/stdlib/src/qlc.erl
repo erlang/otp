@@ -27,7 +27,9 @@
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
--export([parse_transform/2, transform_from_evaluator/2]).
+-export([parse_transform/2,
+         parse_transform_info/0,
+         transform_from_evaluator/2]).
 
 -export([q/1, q/2]).
 
@@ -540,6 +542,11 @@ next_answers(T1, T2) ->
 
 parse_transform(Forms, Options) ->
     qlc_pt:parse_transform(Forms, Options).
+
+-spec parse_transform_info() -> #{'error_location' => 'column'}.
+
+parse_transform_info() ->
+    #{error_location => column}.
 
 %% The funcspecs qlc:q/1 and qlc:q/2 are known by erl_eval.erl and
 %% erl_lint.erl.

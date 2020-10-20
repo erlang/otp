@@ -1117,6 +1117,7 @@ foldl_transform([T|Ts], Code0, St) ->
     case code:ensure_loaded(T) =:= {module,T} andalso
         erlang:function_exported(T, parse_transform, 2) of
         true ->
+            NewCode = maybe_strip_columns(Code0, T),
             Fun = fun(Code, S) ->
                           T:parse_transform(Code, S#compile.options)
                   end,
@@ -1128,7 +1129,7 @@ foldl_transform([T|Ts], Code0, St) ->
                                   catch F(Code, S)
                           end
                   end,
-            case Run({Name, Fun}, Code0, St) of
+            case Run({Name, Fun}, NewCode, St) of
                 {error,Es,Ws} ->
                     {error,St#compile{warnings=St#compile.warnings ++ Ws,
                                       errors=St#compile.errors ++ Es}};
@@ -1148,6 +1149,27 @@ foldl_transform([T|Ts], Code0, St) ->
             {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
 foldl_transform([], Code, St) -> {ok,Code,St}.
+
+%% The columns are stripped for each parse transform called. It is
+%% possible, although unlikely, that parse transforms add columns to
+%% the abstract code.
+maybe_strip_columns(Code, T) ->
+    case erlang:function_exported(T, parse_transform_info, 0) of
+        true ->
+            Info = T:parse_transform_info(),
+            case maps:get(error_location, Info, false) of
+                column ->
+                    Code;
+                _ ->
+                    strip_columns(Code)
+            end;
+        false ->
+            strip_columns(Code)
+    end.
+
+strip_columns(Code) ->
+    F = fun(A) -> erl_anno:set_location(erl_anno:line(A), A) end,
+    [erl_parse:map_anno(F, Form) || Form <- Code].
 
 get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts].
 

@@ -1003,6 +1003,10 @@ pi() -> 3.1416.
     <p>Parse transformations are used when a programmer wants to use
       Erlang syntax but with different semantics. The original Erlang
       code is then transformed into other Erlang code.</p>
+
+    <p>See <seeerl marker="stdlib:erl_id_trans">erl_id_trans(3)</seeerl>
+      for an example and an explanation of the function
+      <c>parse_transform_info/0</c>.</p>
   </section>
 
   <section>

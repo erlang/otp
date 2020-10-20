@@ -5665,7 +5665,7 @@ join_complex(Config) when is_list(Config) ->
                       X =:= Y,
                       Z =:= W],{join,merge}),
                   qlc:e(Q).">>,
-           [{columns, false}],
+           [{error_location, line}],
            {warnings,[{2,qlc,too_many_joins}]}}
        ],
 
@@ -7075,7 +7075,7 @@ otp_12946(Config) when is_list(Config) ->
            y">>,
     {errors,[{{4,12},erl_parse,_}],[]} = compile_file(Config, Text, []),
     {errors,[{4,erl_parse,_}],[]} =
-        compile_file(Config, Text, [{columns, false}]),
+        compile_file(Config, Text, [{error_location, line}]),
     ok.
 
 %% Examples from qlc(3).
