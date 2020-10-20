@@ -489,6 +489,7 @@ core_to_attr_tuples(Core) ->
    {Key, Value} <- cerl:module_attrs(Core)].
 
 get_core_line([L | _As]) when is_integer(L) -> L;
+get_core_line([{L, _Column} | _As]) when is_integer(L) -> L;
 get_core_line([_ | As]) -> get_core_line(As);
 get_core_line([]) -> undefined.
 
@@ -659,11 +660,16 @@ src_compiler_opts() ->
 
 format_errors([{Mod, Errors}|Left]) ->
   FormatedError =
-    [io_lib:format("~ts:~w: ~ts\n", [Mod, Line, M:format_error(Desc)])
+    [io_lib:format("~ts:~w: ~ts\n", [Mod, get_line(Line), M:format_error(Desc)])
      || {Line, M, Desc} <- Errors],
   [lists:flatten(FormatedError) | format_errors(Left)];
 format_errors([]) ->
   [].
+
+get_line({Line, _Col}) ->
+  Line;
+get_line(Line) ->
+  Line.
 
 -spec format_sig(erl_types:erl_type()) -> string().
 

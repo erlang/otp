@@ -674,6 +674,7 @@ find_call_file_and_line({Module, _, _}, Tree, MFA, CodeServer) ->
   hd(cerl_trees:fold(Fun, [], Tree)).
 
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
 

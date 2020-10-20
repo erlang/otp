@@ -211,6 +211,7 @@ add_tag_warning_info(Module, {_Tag, [_B, Fun, Arity|_R]} = Warn, State) ->
   {?WARN_BEHAVIOUR, WarningInfo, Warn}.
 
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
 

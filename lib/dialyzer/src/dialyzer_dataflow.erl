@@ -3627,6 +3627,7 @@ add_work(New, {List, Rev, Set} = Work) ->
 %%% ===========================================================================
 
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
 

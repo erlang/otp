@@ -287,6 +287,8 @@ format_warning(RawWarning, FOpt) when is_atom(FOpt) ->
   format_warning(RawWarning, [{filename_opt, FOpt}]);
 format_warning({Tag, {File, Line, _MFA}, Msg}, Opts) ->
   format_warning({Tag, {File, Line}, Msg}, Opts);
+format_warning({Tag, {File, {Line, _Column}}, Msg}, Opts) ->
+  format_warning({Tag, {File, Line}, Msg}, Opts);
 format_warning({_Tag, {File, Line}, Msg}, Opts) when is_list(File),
                                                      is_integer(Line) ->
   F = case proplists:get_value(filename_opt, Opts, basename) of
