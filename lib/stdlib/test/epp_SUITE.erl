@@ -1413,7 +1413,7 @@ do_otp_8911(Config) ->
 
 %% OTP-8665. Bugfix premature end.
 otp_8665(Config) when is_list(Config) ->
-    Cs = [{otp_8562,
+    Cs = [{otp_8665,
            <<"\n-define(A, a)\n">>,
            {errors,[{{2,13},epp,premature_end}],[]}}
          ],
@@ -1423,7 +1423,7 @@ otp_8665(Config) when is_list(Config) ->
 %% OTP-10302. Unicode characters scanner/parser.
 otp_10302(Config) when is_list(Config) ->
     %% Two messages (one too many). Keeps otp_4871 happy.
-    Cs = [{otp_8562,
+    Cs = [{otp_10302,
            <<"%% coding: utf-8\n \n \x{E4}">>,
            {errors,[{{3,1},epp,cannot_parse},
                     {{3,1},file_io_server,invalid_unicode}],[]}}
@@ -1516,7 +1516,7 @@ do_otp_10820(File, C, PC) ->
 %% OTP_14285: Unicode atoms.
 otp_14285(Config) when is_list(Config) ->
     %% This is just a sample of errors.
-    Cs = [{otp_8562,
+    Cs = [{otp_14285,
            <<"-export([f/0]).
               -define('a\x{400}b', 'a\x{400}d').
               f() ->
