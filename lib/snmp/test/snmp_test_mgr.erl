@@ -702,9 +702,9 @@ echo_pdu(PDU, MiniMIB) ->
 %% Test Sequence
 %%----------------------------------------------------------------------
 echo_errors({error, Id, {ExpectedFormat, ExpectedData}, {Format, Data}})->
-    ?EPRINT("*** Unexpected Behaviour *** Id: ~w.~n"
-            "  Expected: " ++ ExpectedFormat ++ "~n"
-            "  Got:      " ++ Format ++ "~n", 
+    ?EPRINT("*** Unexpected Behaviour *** Id: ~w"
+            "~n   Expected: " ++ ExpectedFormat ++
+            "~n   Got:      " ++ Format ++ "~n", 
             [Id] ++ ExpectedData ++ Data),
     {error, Id, {ExpectedFormat, ExpectedData}, {Format, Data}};
 echo_errors(ok) -> ok;
