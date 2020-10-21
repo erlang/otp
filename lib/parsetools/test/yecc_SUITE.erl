@@ -336,10 +336,10 @@ syntax(Config) when is_list(Config) ->
     SzYeccPre = yeccpre_size(),
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
-            {error,[{_,[{5,_,["syntax error before: ","bad"]}]},
-                          {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
-                              {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   []} = compile:file(Parserfile1, [basic_validation,return]),
+            {error,[{_,[{{5,6},_,["syntax error before: ","bad"]}]},
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+             []} = compile:file(Parserfile1, [basic_validation,return]),
             L1 = 31 + SzYeccPre,
             L2 = 39 + SzYeccPre
     end(),
@@ -354,10 +354,10 @@ syntax(Config) when is_list(Config) ->
     {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
-            {error,[{_,[{5,_,{undefined,'F',1}}]},
-                          {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
-                              {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   []} = compile:file(Parserfile1, [basic_validation,return]),
+            {error,[{_,[{{5,6},_,{undefined,'F',1}}]},
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+             []} = compile:file(Parserfile1, [basic_validation,return]),
             L1 = 31 + SzYeccPre,
             L2 = 39 + SzYeccPre
     end(),
@@ -374,8 +374,8 @@ syntax(Config) when is_list(Config) ->
             t() ->
                bad().">>),
     {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
-    {error,[{_,[{9,_,{undefined_function,{bad,0}}}]}],
-           [{_,[{8,_,{unused_function,{t,0}}}]}]} 
+    {error,[{_,[{{9,16},_,{undefined_function,{bad,0}}}]}],
+           [{_,[{{8,13},_,{unused_function,{t,0}}}]}]} 
         = compile:file(Parserfile1, [basic_validation, return]),
 
     %% Terminals defined before nonterminals. (One of many checks...)
@@ -666,10 +666,10 @@ syntax(Config) when is_list(Config) ->
         yecc:file(Filename, [file_attributes | Ret]),
     Opts = [basic_validation, return],
     Erlfile = filename:join(Dir, "file.erl"),
-    {ok,[],[{_,[{10,_,_}]}]} = compile:file(Erlfile, Opts),
+    {ok,[],[{_,[{{10,17},_,_}]}]} = compile:file(Erlfile, Opts),
     {ok, _, []} = 
         yecc:file(Filename, [{file_attributes,false} | Ret]),
-    {ok,[],[{_,[{4,_,_}]}]} = compile:file(Erlfile, Opts),
+    {ok,[],[{_,[{{4,17},_,_}]}]} = compile:file(Erlfile, Opts),
 
     file:delete(Parserfile1 ++ ".erl"),
     file:delete(Parserfile2 ++ ".erl"),
@@ -1616,10 +1616,10 @@ otp_7292(Config) when is_list(Config) ->
     fun() ->
             SzYeccPre = yeccpre_size(),
             {error,
-                   [{_,[{5,_,["syntax error before: ","bad"]}]},
-                    {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
-                        {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
+                   [{_,[{{5,6},_,["syntax error before: ","bad"]}]},
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+                   [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
             L1 = 41 + SzYeccPre,
             L2 = 49 + SzYeccPre
@@ -1634,10 +1634,10 @@ otp_7292(Config) when is_list(Config) ->
     fun() ->
             SzYeccPre = yeccpre_size(YeccPre),
             {error,
-                   [{_,[{5,_,["syntax error before: ","bad"]}]},
-                    {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
-                        {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
+                   [{_,[{{5,6},_,["syntax error before: ","bad"]}]},
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+                   [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
             L1 = 40 + SzYeccPre,
             L2 = 48 + SzYeccPre

@@ -130,8 +130,8 @@ file(Config) when is_list(Config) ->
     ok = file:write_file(LeexPre, <<"syntax error.\n">>),
     PreErrors = run_test(Config, Mini, LeexPre),
     {errors,
-           [{1,_,["syntax error before: ","error"]},
-            {3,_,undefined_module}],
+           [{{1,8},_,["syntax error before: ","error"]},
+            {{3,1},_,undefined_module}],
            []} =
         extract(LeexPre, PreErrors),
     file:delete(LeexPre),
@@ -297,8 +297,8 @@ syntax(Config) when is_list(Config) ->
                                  "an error.\n">>),     % syntax error
     {ok, _, []} = leex:file(Filename, Ret1),
     {error, 
-           [{_,[{8,_,["syntax error before: ","error"]}]},
-            {_,[{6,_,{unbound_var,'DDDD'}}]}],
+           [{_,[{{8,4},_,["syntax error before: ","error"]}]},
+            {_,[{{6,6},_,{unbound_var,'DDDD'}}]}],
            []} =
         compile:file(ErlFile, [basic_validation, return]),
 
