@@ -1076,6 +1076,7 @@ maybe_add_warning(Ke, MatchAnno, St) ->
     end.
     
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _T]) when is_integer(Line) -> Line;
 get_line([_|T]) -> get_line(T);
 get_line([]) -> none.
 

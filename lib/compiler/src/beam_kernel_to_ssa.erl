@@ -1276,6 +1276,9 @@ new_label(#cg{lcount=Next}=St) ->
 
 line_anno([Line,{file,Name}]) when is_integer(Line) ->
     line_anno_1(Name, Line);
+line_anno([{Line,Column},{file,Name}]) when is_integer(Line),
+                                            is_integer(Column) ->
+    line_anno_1(Name, Line);
 line_anno([_|_]=A) ->
     {Name,Line} = find_loc(A, no_file, 0),
     line_anno_1(Name, Line);
@@ -1291,6 +1294,9 @@ line_anno_1(Name, Line) ->
     #{location=>{Name,Line}}.
 
 find_loc([Line|T], File, _) when is_integer(Line) ->
+    find_loc(T, File, Line);
+find_loc([{Line, Column}|T], File, _) when is_integer(Line),
+                                           is_integer(Column) ->
     find_loc(T, File, Line);
 find_loc([{file,File}|T], _, Line) ->
     find_loc(T, File, Line);

@@ -3389,10 +3389,10 @@ full_anno(L, #core{wanted=true}=St) ->
     lineno_anno(L, St).
 
 lineno_anno(L, St) ->
-    Line = erl_anno:line(L),
+    Location = erl_anno:location(L),
     Generated = erl_anno:generated(L),
     CompilerGenerated = [compiler_generated || Generated],
-    [Line] ++ St#core.file ++ CompilerGenerated.
+    [Location] ++ St#core.file ++ CompilerGenerated.
 
 get_lineno_anno(Ce) ->
     case get_anno(Ce) of
