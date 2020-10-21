@@ -2582,6 +2582,7 @@ int erts_net_message(Port *prt,
         so.group_leader = gl;
         so.mfa = mfa;
         so.dist_entry = dep;
+        so.mld = ede.mld;
         so.edep = edep;
         so.ede_hfrag = ede_hfrag;
         so.token = token;
@@ -2608,6 +2609,7 @@ int erts_net_message(Port *prt,
         ErtsLinkData *ldp;
         ErtsLink *lnk;
         int monitor;
+        int link_inserted;
         Eterm ref, result, flags_term, parent, token;
         Uint flags;
 
@@ -2629,6 +2631,7 @@ int erts_net_message(Port *prt,
 
         ldp = NULL;
         lnk = NULL;
+        link_inserted = 0;
         monitor = 0;
 
         ref = tuple[2];
@@ -2670,15 +2673,11 @@ int erts_net_message(Port *prt,
 
             if (flags & ERTS_DIST_SPAWN_FLAG_LINK) {
                 /* Successful spawn-link... */
-                int code;
-            
                 ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
                                        result, parent);
                 ASSERT(ldp->a.other.item == parent);
                 ASSERT(eq(ldp->b.other.item, result));
-                code = erts_link_dist_insert(&ldp->a, dep->mld);
-                ASSERT(code); (void)code;
-
+                link_inserted = erts_link_dist_insert(&ldp->a, ede.mld);
                 lnk = &ldp->b;
             }
         }
@@ -2700,9 +2699,10 @@ int erts_net_message(Port *prt,
             }
 
             if (lnk) {
-                
-                code = erts_link_dist_delete(&ldp->a);
-                ASSERT(code);
+                if (link_inserted) {
+                    code = erts_link_dist_delete(&ldp->a);
+                    ASSERT(code);
+                }
                 erts_link_release_both(ldp);
             }
 
@@ -2715,6 +2715,10 @@ int erts_net_message(Port *prt,
                                                        ref,
                                                        dep->mld);
             }
+        }
+        else if (lnk && !link_inserted) {
+            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+                                         am_noconnection, NIL);
         }
 
         break;

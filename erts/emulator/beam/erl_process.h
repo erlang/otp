@@ -1387,6 +1387,7 @@ typedef struct {
     Eterm group_leader;
     Eterm mfa;
     DistEntry *dist_entry;
+    ErtsMonLnkDist *mld;        /* copied from dist_entry->mld */
     ErtsDistExternal *edep;
     ErlHeapFragment *ede_hfrag;
     Eterm token;
