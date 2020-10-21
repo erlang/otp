@@ -130,12 +130,12 @@
         <p>OPTIONAL</p>
 
         <p>This function is called after
-          <seemfa marker="common_test#Module:groups/0"><c>groups/0</c></seemfa>.
+          <seemfa marker="ct_suite#Module:groups/0"><c>groups/0</c></seemfa>.
 	  It is used to modify the test group definitions, for
 	  instance to add or remove groups or change group properties.</p>
 
         <p><c>GroupDefs</c> is what
-          <seemfa marker="common_test#Module:groups/0"><c>groups/0</c></seemfa>
+          <seemfa marker="ct_suite#Module:groups/0"><c>groups/0</c></seemfa>
           returned, that is, a list of group definitions.</p>
 
         <p><c>NewGroupDefs</c> is the possibly modified version of this list.</p>
@@ -146,7 +146,7 @@
           in the User's Guide.</p>
 
 	<p>Notice that for CTHs that are installed by means of the
-	  <seemfa marker="common_test#Module:suite/0"><c>suite/0</c></seemfa>
+	  <seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa>
 	  function, <c>post_groups/2</c> is called before
 	  the <seemfa marker="#Module:init/2"><c>init/2</c></seemfa>
 	  hook function. However, for CTHs that are installed by means
@@ -191,19 +191,19 @@
         <p>OPTIONAL</p>
 
         <p>This function is called after
-          <seemfa marker="common_test#Module:all/0"><c>all/0</c></seemfa>.
+          <seemfa marker="ct_suite#Module:all/0"><c>all/0</c></seemfa>.
 	  It is used to modify the set of test cases and test group to
 	  be executed, for instance to add or remove test cases and
 	  groups, change group properties, or even skip all tests in
 	  the suite.</p>
 
         <p><c>Return</c> is what
-          <seemfa marker="common_test#Module:all/0"><c>all/0</c></seemfa>
+          <seemfa marker="ct_suite#Module:all/0"><c>all/0</c></seemfa>
           returned, that is, a list of test cases and groups to be
           executed, or a tuple <c>{skip,Reason}</c>.</p>
 
         <p><c>GroupDefs</c> is what
-          <seemfa marker="common_test#Module:groups/0"><c>groups/0</c></seemfa>
+          <seemfa marker="ct_suite#Module:groups/0"><c>groups/0</c></seemfa>
           or the <c>post_groups/2</c> hook returned, that is, a list
           of group definitions.</p>
 
@@ -215,7 +215,7 @@
           in the User's Guide.</p>
 
 	<p>Notice that for CTHs that are installed by means of the
-	  <seemfa marker="common_test#Module:suite/0"><c>suite/0</c></seemfa>
+	  <seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa>
 	  function, <c>post_all/2</c> is called before
 	  the <seemfa marker="#Module:init/2"><c>init/2</c></seemfa>
 	  hook function. However, for CTHs that are installed by means
@@ -253,7 +253,7 @@
         <p>OPTIONAL</p>
 
         <p>This function is called before
-          <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
           if it exists. It typically contains initialization/logging that must
           be done before <c>init_per_suite</c> is called. If
           <c>{skip,Reason}</c> or <c>{fail,Reason}</c> is returned,
@@ -270,11 +270,11 @@
 
         <p><c>Return</c> is the result of the <c>init_per_suite</c> function.
           If it is <c>{skip,Reason}</c> or <c>{fail,Reason}</c>, 
-          <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
           is never called, instead the initiation is considered to be
           skipped or failed, respectively. If a <c>NewConfig</c> list is
           returned,
-          <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
           is called with that <c>NewConfig</c> list. For more details, see
           section <seeguide marker="ct_hooks_chapter#pre">Pre Hooks</seeguide>
           in the User's Guide.</p>
@@ -304,21 +304,21 @@
         <p>OPTIONAL</p>
 
         <p>This function is called after
-          <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
           if it exists. It typically contains extra checks to ensure that all
           the correct dependencies are started correctly.</p>
 
         <p><c>Return</c> is what
-          <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
           returned, that is, <c>{fail,Reason}</c>, <c>{skip,Reason}</c>, a
           <c>Config</c> list, or a term describing how
-          <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>
           failed.</p>
 
         <p><c>NewReturn</c> is the possibly modified return value of
-          <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>.
+          <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>.
           To recover from a failure in
-          <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>,
+          <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa>,
           return <c>ConfigList</c> with the <c>tc_status</c> element removed.
           For more details, see
           <seeguide marker="ct_hooks_chapter#post"> Post Hooks</seeguide> in
@@ -352,11 +352,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called before
-          <seemfa marker="common_test#Module:init_per_group/2"><c>init_per_group</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:pre_init_per_suite/3"><c>pre_init_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:init_per_group/2"><c>init_per_group</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group</c></seemfa>
           instead.</p>
 
 	<p>If <c>Module:pre_init_per_group/4</c> is not exported, common_test
@@ -385,11 +385,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called after
-          <seemfa marker="common_test#Module:init_per_group/2"><c>init_per_group</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:post_init_per_suite/4"><c>post_init_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:init_per_group/2"><c>init_per_group</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group</c></seemfa>
           instead.</p>
 
 	<p>If <c>Module:post_init_per_group/5</c> is not exported, common_test
@@ -418,11 +418,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called before
-          <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:pre_init_per_suite/3"><c>pre_init_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa>
           instead.</p>
 
 	<p>If <c>Module:pre_init_per_testcase/4</c> is not exported, common_test
@@ -455,11 +455,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called after
-          <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:post_init_per_suite/4"><c>post_init_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa>
+          <seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa>
           instead.</p>
 
 	<p>If <c>Module:post_init_per_testcase/5</c> is not exported, common_test
@@ -487,11 +487,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called before
-          <seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:pre_end_per_suite/3"><c>pre_end_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
           instead.</p>
 
         <p>This function cannot change the result of the test case by returning skip or fail
@@ -524,11 +524,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called after
-          <seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:post_end_per_suite/4"><c>post_end_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
           instead.</p>
 
 	<p>If <c>Module:post_end_per_testcase/5</c> is not exported, common_test
@@ -557,11 +557,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called before
-          <seemfa marker="common_test#Module:end_per_group/2"><c>end_per_group</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:pre_init_per_suite/3"><c>pre_init_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:end_per_group/2"><c>end_per_group</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group</c></seemfa>
           instead.</p>
 
 	<p>If <c>Module:pre_end_per_group/4</c> is not exported, common_test
@@ -590,11 +590,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called after
-          <seemfa marker="common_test#Module:end_per_group/2"><c>end_per_group</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:post_init_per_suite/4"><c>post_init_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:end_per_group/2">end_per_group</seemfa>
+          <seemfa marker="ct_suite#Module:end_per_group/2">end_per_group</seemfa>
           instead.</p>
 
 	<p>If <c>Module:post_end_per_group/5</c> is not exported, common_test
@@ -622,11 +622,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called before
-          <seemfa marker="common_test#Module:end_per_suite/1"><c>end_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:pre_init_per_suite/3"><c>pre_init_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:end_per_suite/1"><c>end_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite</c></seemfa>
           instead.</p>
       </desc>
     </func>
@@ -649,11 +649,11 @@
         <p>OPTIONAL</p>
 
         <p>This function is called after
-          <seemfa marker="common_test#Module:end_per_suite/1"><c>end_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite</c></seemfa>
           if it exists. It behaves the same way as
           <seemfa marker="ct_hooks#Module:post_init_per_suite/4"><c>post_init_per_suite</c></seemfa>,
           but for function
-          <seemfa marker="common_test#Module:end_per_suite/1"><c>end_per_suite</c></seemfa>
+          <seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite</c></seemfa>
           instead.</p>
       </desc>
     </func>
