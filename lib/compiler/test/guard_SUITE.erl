@@ -2344,6 +2344,7 @@ beam_bool_SUITE(_Config) ->
     andalso_repeated_var(),
     erl1246(),
     erl1253(),
+    erl1384(),
     ok.
 
 before_and_inside_if() ->
@@ -2807,6 +2808,18 @@ erl1253_andalso_true_3(X, Y, Z) ->
     if
         Bool1 andalso Bool2 -> ok;
         true -> error
+    end.
+
+erl1384() ->
+    gurka = erl1384_1(id(a)),
+    gaffel = erl1384_1(id(b)),
+    ok.
+
+erl1384_1(V) ->
+    case {id(false), V =/= a} of
+        {true, true} -> not_reachable;
+        {_, false} -> gurka;
+        _ -> gaffel
     end.
 
 %%%
