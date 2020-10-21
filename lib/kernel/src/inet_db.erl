@@ -33,12 +33,10 @@
 
 %% External exports
 -export([start/0, start_link/0, stop/0, reset/0, clear_cache/0]).
--export([add_rr/1,add_rr/5,del_rr/4]).
--export([add_ns/1,add_ns/2, ins_ns/1, ins_ns/2,
-	 del_ns/2, del_ns/1, del_ns/0]).
--export([add_alt_ns/1,add_alt_ns/2, ins_alt_ns/1, ins_alt_ns/2, 
-	 del_alt_ns/2, del_alt_ns/1, del_alt_ns/0]).
--export([add_search/1,ins_search/1,del_search/1, del_search/0]).
+-export([add_rr/1, add_rr/5, del_rr/4]).
+-export([add_ns/1, add_ns/2]).
+-export([ins_alt_ns/2, del_alt_ns/2]).
+-export([add_search/1, ins_search/1]).
 -export([set_lookup/1, set_recurse/1]).
 -export([set_socks_server/1, set_socks_port/1, add_socks_methods/1,
 	 del_socks_methods/1, del_socks_methods/0,
@@ -154,41 +152,12 @@ add_ns(IP,Port) ->
     call({listop, nameservers, add, {IP,Port}}).
 
 %% insert at head of name server list
-ins_ns(IP) ->
-    ins_ns(IP, ?NAMESERVER_PORT).
-ins_ns(IP,Port) ->
-    call({listop, nameservers, ins, {IP,Port}}).
-
-%% delete this name server entry (delete all ns having this ip)
-del_ns(IP) -> 
-    del_ns(IP, ?NAMESERVER_PORT).
-del_ns(IP, Port) ->
-    call({listop, nameservers, del, {IP,Port}}).
-
-del_ns() -> 
-    call({listdel, nameservers}).
-
-%% ALTERNATIVE NAME SERVER
-%% add to the end of name server list
-add_alt_ns(IP) -> 
-    add_alt_ns(IP, ?NAMESERVER_PORT).
-add_alt_ns(IP,Port) ->
-    call({listop, alt_nameservers, add, {IP,Port}}).
-
-%% insert at head of name server list
-ins_alt_ns(IP) -> 
-    ins_alt_ns(IP, ?NAMESERVER_PORT).
 ins_alt_ns(IP,Port) ->
     call({listop, alt_nameservers, ins, {IP,Port}}).
 
 %% delete this name server entry
-del_alt_ns(IP) ->
-    del_alt_ns(IP, ?NAMESERVER_PORT).
 del_alt_ns(IP, Port) ->
     call({listop, alt_nameservers, del, {IP,Port}}).
-
-del_alt_ns() -> 
-    call({listdel, alt_nameservers}).
 
 %% add this domain to the search list
 add_search(Domain) when is_list(Domain) -> 
@@ -196,12 +165,6 @@ add_search(Domain) when is_list(Domain) ->
 
 ins_search(Domain) when is_list(Domain) ->
     call({listop, search, ins, Domain}).
-
-del_search(Domain) ->
-    call({listop, search, del, Domain}).
-
-del_search() ->
-    call({listdel, search}).
 
 %% set host name used by inet
 %% Should only be used by inet_config at startup!
@@ -638,7 +601,12 @@ lookup_cname(Domain) ->
 %% Have to do all lookups (changes to the db) in the
 %% process in order to make it possible to refresh the cache.
 lookup_rr(Domain, Class, Type) ->
-    call({lookup_rr, Domain, Class, Type}).
+    match_rr(#dns_rr{domain = tolower(Domain), class = Class,type = Type,
+		     cnt = '_', tm = '_', ttl = '_',
+		     bm = '_', func = '_', data = '_'}).
+
+match_rr(RR) ->
+    filter_rr(ets:match_object(inet_cache, RR), times()).
 
 %%
 %% hostent_by_domain (newly resolved version)
@@ -925,9 +893,6 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    ets:match_delete(Cache, RR),
 	    {reply, ok, State};
 
-	{lookup_rr, Domain, Class, Type} ->
-	    {reply, do_lookup_rr(Domain, Class, Type), State};
-
 	{listop, Opt, Op, E} ->
 	    El = [E],
 	    case res_check_option(Opt, El) of
@@ -945,9 +910,14 @@ handle_call(Request, From, #state{db=Db}=State) ->
 		    {reply,error,State}
 	    end;
 
-	{listdel, Opt} ->
- 	    ets:insert(Db, {res_optname(Opt), []}),
- 	    {reply, ok, State};
+	{listreplace, Opt, Els} ->
+	    case res_check_option(Opt, Els) of
+		true ->
+		    ets:insert(Db, {res_optname(Opt), Els}),
+		    {reply,ok,State};
+		false ->
+		    {reply,error,State}
+	    end;
 
 	{set_hostname, Name} ->
 	    case inet_parse:visible_string(Name) of
@@ -998,11 +968,10 @@ handle_call(Request, From, #state{db=Db}=State) ->
 					(_, S) ->
 					    S
 				    end, [], Opts),
-			      [del_ns,
-			       clear_search,
-			       clear_cache,
-			       {search,Search}
-			       |[Opt || {nameserver,_}=Opt <- Opts]];
+			      NSs = [{NS,?NAMESERVER_PORT} || {nameserver,NS} <- Opts],
+			      [{replace_search,Search},
+			       {replace_ns,NSs},
+			       clear_cache];
 			  _ -> error
 		      end
 	      end,
@@ -1489,6 +1458,10 @@ rc_opt_req({lookup, Ls}) ->
     try {res_set, lookup, translate_lookup(Ls)}
     catch error:_ -> undefined
     end;
+rc_opt_req({replace_ns,Ns}) ->
+    {listreplace,nameservers,Ns};
+rc_opt_req({replace_search,Search}) ->
+    {listreplace,search,Search};
 rc_opt_req({Name,Arg}) ->
     case rc_reqname(Name) of
 	undefined ->
@@ -1498,14 +1471,10 @@ rc_opt_req({Name,Arg}) ->
 	    end;
 	Req -> {Req, Arg}
     end;
-rc_opt_req(del_ns) ->
-    {listdel,nameservers};
-rc_opt_req(del_alt_ns) ->
-    {listdel,alt_nameservers};
 rc_opt_req(clear_ns) ->
-    [{listdel,nameservers},{listdel,alt_nameservers}];
+    [{listreplace,nameservers,[]},{listreplace,alt_nameservers,[]}];
 rc_opt_req(clear_search) ->
-    {listdel,search};
+    {listreplace,search,[]};
 rc_opt_req(Opt) when is_atom(Opt) ->
     case is_reqname(Opt) of
 	true -> Opt;
@@ -1565,17 +1534,6 @@ times() ->
     erlang:monotonic_time(second).
     %% erlang:convert_time_unit(erlang:monotonic_time() - erlang:system_info(start_time),
     %%     		     native, second).
-
-%% lookup and remove old entries
-
-do_lookup_rr(Domain, Class, Type) ->
-    match_rr(#dns_rr{domain = tolower(Domain), class = Class,type = Type,
-		     cnt = '_', tm = '_', ttl = '_',
-		     bm = '_', func = '_', data = '_'}).
-
-match_rr(RR) ->
-    filter_rr(ets:match_object(inet_cache, RR), times()).
-
 
 %% filter old resource records and update access count
 
