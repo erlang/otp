@@ -42,31 +42,31 @@
   <datatypes>
     <datatype>
       <name name="ct_testname" n_vars="0"/>
-      <desc>The name of the testcase function.</desc>
+      <desc><p>The name of the testcase function.</p></desc>
     </datatype>
     <datatype>
       <name name="ct_groupname" n_vars="0"/>
-      <desc>The name of the test group.</desc>
+      <desc><p>The name of the test group.</p></desc>
     </datatype>
     <datatype>
       <name name="ct_config" n_vars="0"/>
-      <desc>The configuration data that can be modified.</desc>
+      <desc><p>The configuration data that can be modified.</p></desc>
     </datatype>
     <datatype>
       <name name="ct_status" n_vars="0"/>
-      <desc>The status value for a nested subgroup.</desc>
+      <desc><p>The status value for a nested subgroup.</p></desc>
     </datatype>
     <datatype>
       <name name="ct_group_def" n_vars="0"/>
-      <desc>The test group definition.</desc>
+      <desc><p>The test group definition.</p></desc>
     </datatype>
     <datatype>
       <name name="ct_test_def" n_vars="0"/>
-      <desc>The test suite definition.</desc>
+      <desc><p>The test suite definition.</p></desc>
     </datatype>
     <datatype>
       <name name="ct_info" n_vars="0"/>
-      <desc>The test suite information.</desc>
+      <desc><p>The test suite information.</p></desc>
     </datatype>
   </datatypes>
 
