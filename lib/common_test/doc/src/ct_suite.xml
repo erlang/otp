@@ -57,16 +57,16 @@
       <desc><p>The status value for a nested subgroup.</p></desc>
     </datatype>
     <datatype>
-      <name name="ct_group_def" n_vars="0"/>
-      <desc><p>The test group definition.</p></desc>
+      <name>ct_group_def()</name>
+      <desc><p>The test group definition, as returned by <seemfa marker="#Module:groups/0"><c>Module:groups/0</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
-      <name name="ct_test_def" n_vars="0"/>
-      <desc><p>The test suite definition.</p></desc>
+      <name>ct_test_def()</name>
+      <desc><p>The test suite definition, as returned by <seemfa marker="#Module:all/0"><c>Module:all/0</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
-      <name name="ct_info" n_vars="0"/>
-      <desc><p>The test suite information.</p></desc>
+      <name>ct_info()</name>
+      <desc><p>The test suite information, as returned by <seemfa marker="#Module:suite/0"><c>Module:suite/0</c></seemfa>, <seemfa marker="#Module:group/1"><c>Module:group/1</c></seemfa> and <seemfa marker="#Module:Testcase/0"><c>Module:Testcase/0</c></seemfa>.</p></desc>
     </datatype>
   </datatypes>
 
@@ -81,11 +81,19 @@
     </fsdescription>
 
     <func>
-      <name since="">Module:all() -> [TestDef] | {skip, Reason}</name>
+      <name since="">Module:all() -> [ct_test_def()] | {skip, Reason}</name>
       <fsummary>Returns the list of all test case groups and test cases
 	in the module.</fsummary>
       <type>
-	<v>TestDef = <seetype marker="#ct_test_def">ct_test_def()</seetype></v>
+	<v><seetype marker="#ct_test_def">ct_test_def()</seetype> = TestCase | {group, GroupName} | {group, GroupName, Properties} | {group, GroupName, Properties, SubGroups}</v>
+	<v>TestCase = <seetype marker="#ct_testname">ct_testname()</seetype></v>
+	<v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
+	<v>Properties = [parallel | sequence | Shuffle | {RepeatType, N}] | default</v>
+	<v>SubGroups = [{GroupName, Properties} | {GroupName, Properties, SubGroups}]</v>
+	<v>Shuffle = shuffle | {shuffle, Seed}</v>
+	<v>Seed = {integer(), integer(), integer()}</v>
+	<v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+	<v>N = integer() | forever</v>
 	<v>Reason = term()</v>
       </type>
 
@@ -100,12 +108,12 @@
 	  indicating that the test case shall be repeated. A test case group is
 	  represented by a <c>group</c> tuple, where <c>GroupName</c>,
 	  an atom, is the name of the group (defined in
-	  <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
+	  <seemfa marker="#Module:groups/0"><c>Module:groups/0</c></seemfa>).
 	  Execution properties for groups can also be specified, both
 	  for a top-level group and for any of its subgroups.
 	  Group execution properties specified here override
 	  properties in the group definition (see
-	  <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
+	  <seemfa marker="#Module:groups/0"><c>Module:groups/0</c></seemfa>).
 	  (With value <c>default</c>, the group definition properties
 	  are used).</p>
 
@@ -121,10 +129,18 @@
     </func>
 
     <func>
-      <name since="">Module:groups() -> [GroupDef]</name>
+      <name since="">Module:groups() -> [ct_group_def()]</name>
       <fsummary>Returns a list of test case group definitions.</fsummary>
       <type>
-        <v>GroupDef = <seetype marker="#ct_group_def">ct_group_def()</seetype></v>
+        <v><seetype marker="#ct_group_def">ct_group_def()</seetype> = {GroupName, Properties, GroupsAndTestCases}</v>
+        <v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
+        <v>Properties = [parallel | sequence | Shuffle | {RepeatType, N}]</v>
+        <v>GroupsAndTestCases = [Group | {group, GroupName} | TestCase]</v>
+        <v>TestCase = <seetype marker="#ct_testname">ct_testname()</seetype></v>
+        <v>Shuffle = shuffle | {shuffle, Seed}</v>
+        <v>Seed = {integer(), integer(), integer()}</v>
+        <v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+        <v>N = integer() | forever</v>
       </type>
 
       <desc>
@@ -137,11 +153,33 @@
     </func>
 
       <func>
-	<name since="">Module:suite() -> [Info]</name>
+	<name since="">Module:suite() -> [ct_info()]</name>
 	<fsummary>Test suite info function (providing default data
 	  for the suite).</fsummary>
 	<type>
-	  <v>Info = <seetype marker="#ct_info">ct_info()</seetype></v>
+	  <v><seetype marker="#ct_info">ct_info()</seetype> = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs}</v>
+	  <v>Time = TimeVal | TimeFunc</v>
+	  <v>TimeVal = MilliSec | {seconds, integer()} | {minutes, integer()} | {hours, integer()}</v>
+	  <v>TimeFunc = {Mod, Func, Args} | Fun</v>
+	  <v>MilliSec = integer()</v>
+	  <v>Mod = atom()</v>
+	  <v>Func = atom()</v>
+	  <v>Args = list()</v>
+	  <v>Fun = fun()</v>
+	  <v>Required = Key | {Key, SubKeys} | {Key, SubKey} | {Key, SubKey, SubKeys}</v>
+	  <v>Key = atom()</v>
+	  <v>SubKeys = SubKey | [SubKey]</v>
+	  <v>SubKey = atom()</v>
+	  <v>Name = atom()</v>
+	  <v>UserData = term()</v>
+	  <v>Conns = [atom()]</v>
+	  <v>CSSFile = string()</v>
+	  <v>CTHs = [CTHModule |</v>
+	  <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs} |</v>
+	  <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs, CTHPriority}]</v>
+	  <v>CTHModule = atom()</v>
+	  <v>CTHInitArgs = term()</v>
+	  <v>CTHPriority = integer()</v>
 	</type>
 	<desc>
 
@@ -153,9 +191,9 @@
 
 	<p>Tag <c>timetrap</c> sets the maximum time that each
 	  test case is allowed to execute (including
-	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>Module:init_per_testcase/2</c></seemfa>
 	  and
-	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>).
+	  <seemfa marker="#Module:end_per_testcase/2"><c>Module:end_per_testcase/2</c></seemfa>).
 	  If the timetrap time is exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It can also be
@@ -199,7 +237,7 @@
 	<desc>
 
 	  <p>OPTIONAL; if this function is defined, then <seemfa
-	  marker="#Module:end_per_suite/1"><c>end_per_suite/1</c></seemfa>
+	  marker="#Module:end_per_suite/1"><c>Module:end_per_suite/1</c></seemfa>
 	  must also be defined.</p>
 
 	  <p>This configuration function is called as the first function in the
@@ -231,12 +269,12 @@
 
       <desc>
 	<p>OPTIONAL; if this function is defined, then <seemfa
-	  marker="#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
+	  marker="#Module:init_per_suite/1"><c>Module:init_per_suite/1</c></seemfa>
 	  must also be defined.</p>
 
 	<p>This function is called as the last test case in the
 	  suite. It is meant to be used for cleaning up after
-	  <seemfa marker="#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>.</p>
+	  <seemfa marker="#Module:init_per_suite/1"><c>Module:init_per_suite/1</c></seemfa>.</p>
 	<p>For information on <c>save_config</c>, see section
 	  <seeguide marker="dependencies_chapter#save_config">Saving
 	  Configuration Data</seeguide> in the User's Guide.</p>
@@ -244,13 +282,35 @@
     </func>
 
     <func>
-      <name since="OTP R15B">Module:group(GroupName) -> [Info]</name>
+      <name since="OTP R15B">Module:group(GroupName) -> [ct_info()]</name>
       <fsummary>Test case group information function (providing default data
         for a test case group, that is, its test cases and
         subgroups).</fsummary>
       <type>
 	<v>GroupName = <seetype marker="#ct_groupname">ct_groupname()</seetype></v>
-	<v>Info = <seetype marker="#ct_info">ct_info()</seetype></v>
+	<v><seetype marker="#ct_info">ct_info()</seetype> = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs}</v>
+	<v>Time = TimeVal | TimeFunc</v>
+	<v>TimeVal = MilliSec | {seconds, integer()} | {minutes, integer()} | {hours, integer()}</v>
+	<v>TimeFunc = {Mod, Func, Args} | Fun</v>
+	<v>MilliSec = integer()</v>
+	<v>Mod = atom()</v>
+	<v>Func = atom()</v>
+	<v>Args = list()</v>
+	<v>Fun = fun()</v>
+	<v>Required = Key | {Key, SubKeys} | {Key, SubKey} | {Key, SubKey, SubKeys}</v>
+	<v>Key = atom()</v>
+	<v>SubKeys = SubKey | [SubKey]</v>
+	<v>SubKey = atom()</v>
+	<v>Name = atom()</v>
+	<v>UserData = term()</v>
+	<v>Conns = [atom()]</v>
+	<v>CSSFile = string()</v>
+	<v>CTHs = [CTHModule |</v>
+	<v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs} |</v>
+	<v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs, CTHPriority}]</v>
+	<v>CTHModule = atom()</v>
+	<v>CTHInitArgs = term()</v>
+	<v>CTHPriority = integer()</v>
       </type>
       <desc>
 
@@ -260,15 +320,15 @@
 	  return a list of tagged tuples that specify various properties
 	  related to the execution of a test case group (that is, its test
 	  cases and subgroups). Properties set by
-	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa> override
+	  <seemfa marker="#Module:group/1"><c>Module:group/1</c></seemfa> override
 	  properties with the same key that have been set previously by
-	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa>.</p>
+	  <seemfa marker="#Module:suite/0"><c>Module:suite/0</c></seemfa>.</p>
 
 	<p>Tag <c>timetrap</c> sets the maximum time that each
 	  test case is allowed to execute (including
-	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>Module:init_per_testcase/2</c></seemfa>
 	  and
-	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>).
+	  <seemfa marker="#Module:end_per_testcase/2"><c>Module:end_per_testcase/2</c></seemfa>).
 	  If the timetrap time is
 	  exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
@@ -315,7 +375,7 @@
 	<desc>
 
 	  <p>OPTIONAL; if this function is defined, then <seemfa
-	    marker="#Module:end_per_group/2"><c>end_per_group/2</c></seemfa>
+	    marker="#Module:end_per_group/2"><c>Module:end_per_group/2</c></seemfa>
 	    must also be defined.</p>
 
 	  <p>This configuration function is called before execution of a
@@ -323,7 +383,7 @@
 	    common for all test cases and subgroups in the group, and that
 	    must only be performed once. <c>GroupName</c> is the name of the
 	    group, as specified in the group definition (see
-	    <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
+	    <seemfa marker="#Module:groups/0"><c>Module:groups/0</c></seemfa>).
 	    Parameter <c>Config</c> is the configuration data that can be
 	    modified.
 	    The return value of this function is given as <c>Config</c>
@@ -351,15 +411,15 @@
 
 	<desc>
 	  <p>OPTIONAL; if this function is defined, then <seemfa
-	    marker="#Module:init_per_group/2"><c>init_per_group/2</c></seemfa>
+	    marker="#Module:init_per_group/2"><c>Module:init_per_group/2</c></seemfa>
 	    must also be defined.</p>
 
 	  <p>This function is called after the execution of a test case group
 	    is finished. It is meant to be used for cleaning up after
-	    <seemfa marker="#Module:init_per_group/2"><c>init_per_group/2</c></seemfa>.
+	    <seemfa marker="#Module:init_per_group/2"><c>Module:init_per_group/2</c></seemfa>.
 	    A status value for a nested subgroup can be returned with
 	    <c>{return_group_result, Status}</c>. The status can be retrieved in
-	    <seemfa marker="#Module:end_per_group/2"><c>end_per_group/2</c></seemfa>
+	    <seemfa marker="#Module:end_per_group/2"><c>Module:end_per_group/2</c></seemfa>
 	    for the group on the level above. The status is also used by
 	    <c>Common Test</c> for deciding if execution of a group is to
 	    proceed if property <c>sequence</c> or <c>repeat_until_*</c>
@@ -383,7 +443,7 @@
 
 	  <p>OPTIONAL; if this function is defined,
 	    then <seemfa marker="#Module:end_per_testcase/2">
-	      <c>end_per_testcase/2</c></seemfa> must also be
+	      <c>Module:end_per_testcase/2</c></seemfa> must also be
 	    defined.</p>
 
 	  <p>This function is called before each test case. Argument
@@ -411,12 +471,12 @@
 
 	  <p>OPTIONAL; if this function is defined,
 	    then <seemfa marker="#Module:init_per_testcase/2">
-	      <c>init_per_testcase/2</c></seemfa> must also be
+	      <c>Module:init_per_testcase/2</c></seemfa> must also be
 	    defined.</p>
 
 	  <p>This function is called after each test case, and can be used
 	    to clean up after
-	    <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
+	    <seemfa marker="#Module:init_per_testcase/2"><c>Module:init_per_testcase/2</c></seemfa>
 	    and the test case. Any return value (besides <c>{fail, Reason}</c>
 	    and <c>{save_config, SaveConfig}</c>) is ignored. By returning
 	    <c>{fail, Reason}</c>, <c>TestCase</c> is marked as faulty (even
@@ -430,10 +490,32 @@
       </func>
 
     <func>
-      <name since="OTP R14B">Module:Testcase() -> [Info] </name>
+      <name since="OTP R14B">Module:Testcase() -> [ct_info()] </name>
       <fsummary>Test case information function.</fsummary>
       <type>
-	<v>Info = <seetype marker="#ct_info">ct_info()</seetype></v>
+      <v><seetype marker="#ct_info">ct_info()</seetype> = {timetrap, Time} | {require, Required} | {require, Name, Required} | {userdata, UserData} | {silent_connections, Conns} | {stylesheet, CSSFile} | {ct_hooks, CTHs}</v>
+      <v>Time = TimeVal | TimeFunc</v>
+      <v>TimeVal = MilliSec | {seconds, integer()} | {minutes, integer()} | {hours, integer()}</v>
+      <v>TimeFunc = {Mod, Func, Args} | Fun</v>
+      <v>MilliSec = integer()</v>
+      <v>Mod = atom()</v>
+      <v>Func = atom()</v>
+      <v>Args = list()</v>
+      <v>Fun = fun()</v>
+      <v>Required = Key | {Key, SubKeys} | {Key, SubKey} | {Key, SubKey, SubKeys}</v>
+      <v>Key = atom()</v>
+      <v>SubKeys = SubKey | [SubKey]</v>
+      <v>SubKey = atom()</v>
+      <v>Name = atom()</v>
+      <v>UserData = term()</v>
+      <v>Conns = [atom()]</v>
+      <v>CSSFile = string()</v>
+      <v>CTHs = [CTHModule |</v>
+      <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs} |</v>
+      <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{CTHModule, CTHInitArgs, CTHPriority}]</v>
+      <v>CTHModule = atom()</v>
+      <v>CTHInitArgs = term()</v>
+      <v>CTHPriority = integer()</v>
       </type>
 
       <desc>
@@ -444,17 +526,17 @@
 	  return a list of tagged tuples that specify various properties
 	  related to the execution of this particular test case.
 	  Properties set by
-	  <seemfa marker="#Module:Testcase/0"><c>Testcase/0</c></seemfa>
+	  <seemfa marker="#Module:Testcase/0"><c>Module:Testcase/0</c></seemfa>
 	  override properties set previously for the test case by
-	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa> or
-	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa>.</p>
+	  <seemfa marker="#Module:group/1"><c>Module:group/1</c></seemfa> or
+	  <seemfa marker="#Module:suite/0"><c>Module:suite/0</c></seemfa>.</p>
 
 	<p>Tag <c>timetrap</c> sets the maximum time that the
 	  test case is allowed to execute. If the timetrap time is
 	  exceeded, the test case fails with reason <c>timetrap_timeout</c>.
-	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>Module:init_per_testcase/2</c></seemfa>
 	  and
-	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>
+	  <seemfa marker="#Module:end_per_testcase/2"><c>Module:end_per_testcase/2</c></seemfa>
 	  are included in the timetrap time.
 	  A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It can also be
@@ -473,8 +555,8 @@
 
 	<p>If <c>timetrap</c> or <c>require</c> is not set, the
 	  default values specified by
-	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa> (or
-	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa>) are used.</p>
+	  <seemfa marker="#Module:suite/0"><c>Module:suite/0</c></seemfa> (or
+	  <seemfa marker="#Module:group/1"><c>Module:group/1</c></seemfa>) are used.</p>
 
 	<p>With <c>userdata</c>, the user can specify any test case-related
 	  information that can be read by calling
