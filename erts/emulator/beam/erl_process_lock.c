@@ -20,7 +20,7 @@
 
 
 /*
- * Description:	Impementation of Erlang process locks.
+ * Description:	Implementation of Erlang process locks.
  *
  * Author: 	Rickard Green
  */
