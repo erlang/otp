@@ -90,7 +90,7 @@ exprs(Exprs, Bs) ->
     case check_command(Exprs, Bs) of
         ok -> 
             exprs(Exprs, Bs, none, none, none);
-        {error,{_Line,_Mod,Error}} ->
+        {error,{_Location,_Mod,Error}} ->
 	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
@@ -141,7 +141,7 @@ expr(E, Bs) ->
     case check_command([E], Bs) of
         ok -> 
             expr(E, Bs, none, none, none);
-        {error,{_Line,_Mod,Error}} ->
+        {error,{_Location,_Mod,Error}} ->
 	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
@@ -1098,8 +1098,8 @@ match(Pat, Term, Bs, BBs) ->
     end.
 
 string_to_conses([], _, Tail) -> Tail;
-string_to_conses([E|Rest], Line, Tail) ->
-    {cons, Line, {integer, Line, E}, string_to_conses(Rest, Line, Tail)}.
+string_to_conses([E|Rest], Anno, Tail) ->
+    {cons, Anno, {integer, Anno, E}, string_to_conses(Rest, Anno, Tail)}.
 
 match1({atom,_,A0}, A, Bs, _BBs) ->
     case A of
@@ -1547,11 +1547,11 @@ eval_expr(Expr) ->
     end.
 
 partial_eval(Expr) ->
-    Line = line(Expr),
+    Anno = anno(Expr),
     case catch ev_expr(Expr) of
-	X when is_integer(X) -> ret_expr(Expr,{integer,Line,X});
-	X when is_float(X) -> ret_expr(Expr,{float,Line,X});
-	X when is_atom(X) -> ret_expr(Expr,{atom,Line,X});
+	X when is_integer(X) -> ret_expr(Expr,{integer,Anno,X});
+	X when is_float(X) -> ret_expr(Expr,{float,Anno,X});
+	X when is_atom(X) -> ret_expr(Expr,{atom,Anno,X});
 	_ ->
 	    Expr
     end.
@@ -1599,7 +1599,7 @@ eval_str(Str) when is_list(Str) ->
 				Other ->
 				    {error, ?result("*** eval: ~p", [Other])}
 			    end;
-			{error, {_Line, Mod, Args}} ->
+			{error, {_Location, Mod, Args}} ->
                             Msg = ?result("*** ~ts",[Mod:format_error(Args)]),
                             {error, Msg}
 		    end;
@@ -1622,4 +1622,4 @@ ret_expr(_Old, New) ->
     %%	      [line(Old), erl_pp:expr(Old), erl_pp:expr(New)]),
     New.
 
-line(Expr) -> element(2, Expr).
+anno(Expr) -> element(2, Expr).

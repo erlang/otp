@@ -34,7 +34,7 @@
 
 -export_type([source_encoding/0]).
 
--type macros() :: [atom() | {atom(), term()}].
+-type macros() :: [atom() | {atom(), term()} | {atom(), term(), 'redefine'}].
 -type epp_handle() :: pid().
 -type source_encoding() :: latin1 | utf8.
 
@@ -158,10 +158,10 @@ scan_erl_form(Epp) ->
 
 -spec parse_erl_form(Epp) ->
     {'ok', AbsForm} | {error, ErrorInfo} |
-    {'warning',WarningInfo} | {'eof',Line} when
+    {'warning',WarningInfo} | {'eof',Location} when
       Epp :: epp_handle(),
       AbsForm :: erl_parse:abstract_form(),
-      Line :: erl_anno:line(),
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       WarningInfo :: warning_info().
 
@@ -232,9 +232,11 @@ format_error(E) -> file:format_error(E).
                 {'ok', [Form]} | {error, OpenError} when
       FileName :: file:name(),
       IncludePath :: [DirectoryName :: file:name()],
-      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
+      Form :: erl_parse:abstract_form()
+            | {'error', ErrorInfo}
+            | {'eof',Location},
       PredefMacros :: macros(),
-      Line :: erl_anno:line(),
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       OpenError :: file:posix() | badarg | system_limit.
 
@@ -248,9 +250,12 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
+		  {'location',StartLocation :: erl_anno:location()} |
 		  'extra'],
-      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
-      Line :: erl_anno:line(),
+      Form :: erl_parse:abstract_form()
+            | {'error', ErrorInfo}
+            | {'eof',Location},
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       OpenError :: file:posix() | badarg | system_limit.
@@ -272,8 +277,8 @@ parse_file(Ifile, Options) ->
 -spec parse_file(Epp) -> [Form] when
       Epp :: epp_handle(),
       Form :: erl_parse:abstract_form() | {'error', ErrorInfo} |
-	      {'warning',WarningInfo} | {'eof',Line},
-      Line :: erl_anno:line(),
+	      {'warning',WarningInfo} | {'eof',Location},
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       WarningInfo :: warning_info().
 
@@ -923,8 +928,8 @@ scan_define_cont(F, #epp{macs=Ms0}=St, M, Defs, Arity, Def) ->
 	    Uses = Uses0#{M=>Val},
             scan_toks(F, St#epp{uses=Uses,macs=Ms})
     catch
-        {error, Line, Reason} ->
-            epp_reply(F, {error,{Line,epp,Reason}}),
+        {error, Location, Reason} ->
+            epp_reply(F, {error,{Location,epp,Reason}}),
             wait_req_scan(St)
     end.
 
@@ -1763,7 +1768,7 @@ get_line(Anno) ->
 %% of the abstract code would then point into different windows
 %% depending on the -file attribute. [Note that if, as is the case for
 %% yecc, code has been copied into the file, then it is possible that
-%% the copied code differ from the one referred to by the -file
+%% the copied code differs from the one referred to by the -file
 %% attribute, which means that line numbers can mismatch.] In practice
 %% however it is very rare with Erlang functions in included files, so
 %% only one window is used per module. This means that the line
@@ -1777,11 +1782,8 @@ get_line(Anno) ->
 %%
 %% It turns out to be difficult to distinguish -file attributes in the
 %% input file from the ones added by epp unless some action is taken.
-%% The (less than perfect) solution employed is to let epp assign
-%% negative line numbers to user supplied -file attributes.
-
-%% Note: it is assumed that the second element is a line or a key-list
-%% where 'line' can be found.
+%% The solution employed is to let epp label the annotation of user
+%% supplied -file attributes as 'generated'.
 
 interpret_file_attribute(Forms) ->
     interpret_file_attr(Forms, 0, []).

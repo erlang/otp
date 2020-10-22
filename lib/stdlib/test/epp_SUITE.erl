@@ -1565,11 +1565,11 @@ encoding(Config) when is_list(Config) ->
            %% ",246,"
 	  ">>,
     ok = file:write_file(ErlFile, C1),
-    {ok,[{attribute,1,file,_},
-	 {attribute,1,module,encoding},
+    {ok,[{attribute,{1,1},file,_},
+	 {attribute,{1,2},module,encoding},
 	 {error,_},
-	 {error,{2,epp,cannot_parse}},
-	 {eof,2}]} = epp_parse_file(ErlFile, []),
+	 {error,{{2,12},epp,cannot_parse}},
+	 {eof,{2,12}}]} = epp_parse_file(ErlFile, [{location, {1,1}}]),
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
 	 {eof,3}]} =

@@ -154,7 +154,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 -type lint_state() :: #lint{}.
 -type error_description() :: term().
--type error_info() :: {erl_anno:line(), module(), error_description()}.
+-type error_info() :: {erl_anno:location(), module(), error_description()}.
 
 %% format_error(Error)
 %%  Return a string describing the error.

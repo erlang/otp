@@ -160,8 +160,8 @@
       <type name="warning_info"/>
       <desc>
         <p>Returns the next Erlang form from the opened Erlang source file.
-          Tuple <c>{eof, <anno>Line</anno>}</c> is returned at the end of the
-          file. The first form corresponds to an implicit attribute
+        Tuple <c>{eof, <anno>Location</anno>}</c> is returned at the end
+	  of the file. The first form corresponds to an implicit attribute
           <c>-file(File,1).</c>, where <c>File</c> is the file name.</p>
       </desc>
     </func>
@@ -171,7 +171,7 @@
       <fsummary>Preprocess and parse an Erlang source file.</fsummary>
       <desc>
         <p>Preprocesses and parses an Erlang source file.
-          Notice that tuple <c>{eof, <anno>Line</anno>}</c> returned at the
+          Notice that tuple <c>{eof, <anno>Location</anno>}</c> returned at the
           end of the file is included as a "form".</p>
         <p>If you want to change the file name of the implicit -file()
           attributes inserted during preprocessing, you can do with

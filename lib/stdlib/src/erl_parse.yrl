@@ -986,7 +986,7 @@ Erlang code.
 
 -type type_name() :: atom().
 
--type form_info() :: {'eof', erl_anno:line()}
+-type form_info() :: {'eof', erl_anno:location()}
                    | {'error', erl_scan:error_info() | error_info()}
                    | {'warning', erl_scan:error_info() | error_info()}.
 
@@ -994,7 +994,7 @@ Erlang code.
 
 %% XXX. To be refined.
 -type error_description() :: term().
--type error_info() :: {erl_anno:line(), module(), error_description()}.
+-type error_info() :: {erl_anno:location(), module(), error_description()}.
 -type token() :: erl_scan:token().
 
 %% mkop(Op, Arg) -> {op,Anno,Op,Arg}.
@@ -1053,7 +1053,7 @@ parse_exprs(Tokens) ->
     ?ANNO_CHECK(Tokens),
     A = erl_anno:new(0),
     case parse([{atom,A,f},{'(',A},{')',A},{'->',A}|Tokens]) of
-	{ok,{function,_Lf,f,0,[{clause,_Lc,[],[],Exprs}]}} ->
+	{ok,{function,_Af,f,0,[{clause,_Ac,[],[],Exprs}]}} ->
 	    {ok,Exprs};
 	{error,_} = Err -> Err
     end.
