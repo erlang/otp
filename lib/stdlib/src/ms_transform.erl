@@ -19,7 +19,8 @@
 %%
 -module(ms_transform).
 
--export([format_error/1,transform_from_shell/3,parse_transform/2]).
+-export([format_error/1,transform_from_shell/3,
+         parse_transform/2,parse_transform_info/0]).
 
 %% Error codes.
 -define(ERROR_BASE_GUARD,0).
@@ -189,6 +190,11 @@ format_error({?ERR_BODYMULTIFIELD,RName,FName}) ->
 format_error(Else) ->
     lists:flatten(io_lib:format("Unknown error code ~tw",[Else])).
 
+-spec parse_transform_info() -> #{'error_location' => 'column'}.
+
+parse_transform_info() ->
+    #{error_location => column}.
+
 %%
 %% Called when translating in shell
 %%
@@ -204,14 +210,14 @@ transform_from_shell(Dialect, Clauses, BoundEnvironment) ->
 	{'EXIT',Reason} ->
 	    cleanup_filename(SaveFilename),
 	    exit(Reason);
-	{error,Line,R} ->
+	{error,AnnoOrUnknown,R} ->
 	    {error, [{cleanup_filename(SaveFilename),
-		      [{Line, ?MODULE, R}]}], []};
+		      [{location(AnnoOrUnknown), ?MODULE, R}]}], []};
 	Else ->
             case (catch fixup_environment(Else,BoundEnvironment)) of
-                {error,Line1,R1} ->
+                {error,AnnoOrUnknown1,R1} ->
                     {error, [{cleanup_filename(SaveFilename),
-                             [{Line1, ?MODULE, R1}]}], []}; 
+                             [{location(AnnoOrUnknown1), ?MODULE, R1}]}], []};
                 Else1 ->
 		    Ret = normalise(Else1),
                     cleanup_filename(SaveFilename),
@@ -238,9 +244,9 @@ parse_transform(Forms, _Options) ->
 	{'EXIT',Reason} ->
 	    cleanup_filename(SaveFilename),
 	    exit(Reason);
-	{error,Line,R} ->
+	{error,AnnoOrUnknown,R} ->
 	    {error, [{cleanup_filename(SaveFilename),
-		      [{Line, ?MODULE, R}]}], []};
+		      [{location(AnnoOrUnknown), ?MODULE, R}]}], []};
 	Else ->
 	    %io:format("Transformed into: ~p~n",[Else]),
 	    case get_warnings() of
@@ -254,6 +260,11 @@ parse_transform(Forms, _Options) ->
 	    end
     end.
 
+location(unknown) ->
+    none;
+location(Anno) ->
+    erl_anno:location(Anno).
+
 get_warnings() ->
     case get(warnings) of
 	undefined ->
@@ -262,8 +273,8 @@ get_warnings() ->
 	    Else
     end.
 
-add_warning(Line,R) ->
-    put(warnings,[{Line,R}| get_warnings()]).
+add_warning(Location,R) ->
+    put(warnings,[{Location,R}| get_warnings()]).
 
 setup_filename() ->
     {erase(filename),erase(records),erase(warnings)}.
@@ -839,8 +850,8 @@ th(Nonstruct,B,_OB) ->
 warn_var_clash(Anno,Name,OuterBound) ->
     case gb_sets:is_member(Name,OuterBound) of
 	true ->
-            Line = erl_anno:line(Anno),
-	    add_warning(Line,{?WARN_SHADOW_VAR,Name});
+            Location = erl_anno:location(Anno),
+	    add_warning(Location,{?WARN_SHADOW_VAR,Name});
 	_ ->
 	    ok
     end.
