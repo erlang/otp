@@ -3572,9 +3572,9 @@ assert_mfl(Socket, MFL) ->
 bigger_buffers() ->
     case os:type() of
         {unix,sunos} ->
-            [{recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
+            [{buffer, ?BIG_BUF}, {recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
         {unix,openbsd} ->
-            [{recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
+            [{buffer, ?BIG_BUF}, {recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
         _ ->
             []
     end.
