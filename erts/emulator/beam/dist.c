@@ -2036,7 +2036,7 @@ int erts_net_message(Port *prt,
         }
 
         code = erts_dsig_prepare(&ctx, dep, NULL, 0, ERTS_DSP_NO_LOCK, 1, 1, 0);
-        if (code == ERTS_DSIG_PREP_CONNECTED) {
+        if (code == ERTS_DSIG_PREP_CONNECTED && ctx.connection_id == conn_id) {
             code = erts_dsig_send_exit(&ctx, to, from, am_noproc);
             ASSERT(code == ERTS_DSIG_SEND_OK);
         }
@@ -2129,7 +2129,7 @@ int erts_net_message(Port *prt,
         }
 
         code = erts_dsig_prepare(&ctx, dep, NULL, 0, ERTS_DSP_NO_LOCK, 1, 1, 0);
-        if (code == ERTS_DSIG_PREP_CONNECTED) {
+        if (code == ERTS_DSIG_PREP_CONNECTED && ctx.connection_id == conn_id) {
             code = erts_dsig_send_m_exit(&ctx, watcher, watched, ref, am_noproc);
             ASSERT(code == ERTS_DSIG_SEND_OK);
         }
@@ -2564,7 +2564,8 @@ int erts_net_message(Port *prt,
             }
             code = erts_dsig_prepare(&ctx, dep, NULL, 0,
                                      ERTS_DSP_NO_LOCK, 1, 1, 0);
-            if (code == ERTS_DSIG_PREP_CONNECTED) {
+            if (code == ERTS_DSIG_PREP_CONNECTED
+                && ctx.connection_id == conn_id) {
                 code = erts_dsig_send_spawn_reply(&ctx,
                                                   tuple[2],
                                                   tuple[3],
@@ -2691,7 +2692,8 @@ int erts_net_message(Port *prt,
             if (monitor) {
                 code = erts_dsig_prepare(&ctx, dep, NULL, 0,
                                          ERTS_DSP_NO_LOCK, 1, 1, 0);
-                if (code == ERTS_DSIG_PREP_CONNECTED) {
+                if (code == ERTS_DSIG_PREP_CONNECTED
+                    && ctx.connection_id == conn_id) {
                     code = erts_dsig_send_demonitor(&ctx, parent,
                                                     result, ref);
                     ASSERT(code == ERTS_DSIG_SEND_OK);
