@@ -209,6 +209,10 @@ gen_event:stop             ----->  Module:terminate/2
           <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>,
           but also supervises the connection between the event handler
           and the calling process.</p>
+	<p>This call will also set up a link between the event handler and
+	  the calling process, which will <em>not</em> be removed if the
+	  handler is removed, in case another supervised handler also links
+	  to the same process.</p>
         <list type="bulleted">
           <item>If the calling process later terminates with <c>Reason</c>,
            the event manager deletes the event handler by calling
