@@ -112,9 +112,9 @@ compile_yecc(Config) when is_list(Config) ->
 
     BadFile = filename:join(SrcDir, "yecc_test_bad.yrl"),
     run(Config, Cmd, BadFile, "-W0",
-        ["rootsymbol form is not a nonterminal\$",
+        ["Nonterminals is missing\$",
+         "rootsymbol form is not a nonterminal\$",
          "undefined nonterminal: form\$",
-         "Nonterminals is missing\$",
          "_ERROR_"]),
     exists(filename:join(OutDir, "yecc_test_ok.erl")),
     ok.
@@ -357,10 +357,11 @@ make_dep_options(Config) ->
 
     %% since compiler is run on the erlang code a warning will be
     %% issued by the compiler, match that.
-    WarningRE = "/system_test/erlc_SUITE_data/src/erl_test_ok.erl:[0-9]+: "
+    WarningRE =
+         "/system_test/erlc_SUITE_data/src/erl_test_ok.erl:[0-9]+:[0-9]+: "
         "Warning: function foo/0 is unused$",
     ErrorRE = "/system_test/erlc_SUITE_data/src/erl_test_missing_header.erl:"
-        "[0-9]+: can't find include file \"missing.hrl\"$",
+        "[0-9]+:[0-9]+: can't find include file \"missing.hrl\"$",
 
     DepRE_MMD = insert_before("_OK_", WarningRE, DepRE),
     DepRETarget_MMD = insert_before("_OK_", WarningRE, DepRETarget),
