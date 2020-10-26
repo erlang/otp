@@ -37,5 +37,6 @@
   <xi:include href="introduction.xml"/>
   <xi:include href="io_protocol.xml"/>
   <xi:include href="unicode_usage.xml"/>
+  <xi:include href="uri_string_usage.xml"/>
 </part>
 
