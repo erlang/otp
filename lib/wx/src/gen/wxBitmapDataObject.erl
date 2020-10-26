@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html">wxBitmapDataObject</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxDataObject}
-%% </p>
-%% @type wxBitmapDataObject().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxBitmapDataObject).
 -include("wxe.hrl").
 -export([destroy/1,getBitmap/1,new/0,new/1,setBitmap/2]).
@@ -33,12 +25,12 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxBitmapDataObject() :: wx:wx_object().
 -export_type([wxBitmapDataObject/0]).
 %% @hidden
 parent_class(wxDataObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxBitmapDataObject() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxBitmapDataObject().
 

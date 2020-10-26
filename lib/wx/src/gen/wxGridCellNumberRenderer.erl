@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,15 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumberrenderer.html">wxGridCellNumberRenderer</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxGridCellStringRenderer}
-%% <br />{@link wxGridCellRenderer}
-%% </p>
-%% @type wxGridCellNumberRenderer().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridCellNumberRenderer).
 -include("wxe.hrl").
 -export([destroy/1,new/0]).
@@ -34,13 +25,13 @@
 %% inherited exports
 -export([draw/8,getBestSize/6,parent_class/1]).
 
+-type wxGridCellNumberRenderer() :: wx:wx_object().
 -export_type([wxGridCellNumberRenderer/0]).
 %% @hidden
 parent_class(wxGridCellStringRenderer) -> true;
 parent_class(wxGridCellRenderer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridCellNumberRenderer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumberrenderer.html#wxgridcellnumberrendererwxgridcellnumberrenderer">external documentation</a>.
 -spec new() -> wxGridCellNumberRenderer().
 new() ->

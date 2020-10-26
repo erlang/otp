@@ -18,15 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpaintdc.html">wxPaintDC</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxWindowDC}
-%% <br />{@link wxDC}
-%% </p>
-%% @type wxPaintDC().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxPaintDC).
 -include("wxe.hrl").
 -export([destroy/1,new/1]).
@@ -53,13 +44,13 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-type wxPaintDC() :: wx:wx_object().
 -export_type([wxPaintDC/0]).
 %% @hidden
 parent_class(wxWindowDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxPaintDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpaintdc.html#wxpaintdcwxpaintdc">external documentation</a>.
 -spec new(Window) -> wxPaintDC() when
 	Window::wxWindow:wxWindow().

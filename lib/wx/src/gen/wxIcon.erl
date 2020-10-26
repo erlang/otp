@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxicon.html">wxIcon</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxBitmap}
-%% </p>
-%% @type wxIcon().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxIcon).
 -include("wxe.hrl").
 -export([copyFromBitmap/2,destroy/1,new/0,new/1,new/2]).
@@ -36,12 +28,12 @@
   saveFile/3,saveFile/4,setDepth/2,setHeight/2,setMask/2,setPalette/2,
   setWidth/2]).
 
+-type wxIcon() :: wx:wx_object().
 -export_type([wxIcon/0]).
 %% @hidden
 parent_class(wxBitmap) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxIcon() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxicon.html#wxiconwxicon">external documentation</a>.
 -spec new() -> wxIcon().
 new() ->

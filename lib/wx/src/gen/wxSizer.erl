@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html">wxSizer</a>.
-%% @type wxSizer().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxSizer).
 -include("wxe.hrl").
 -export([add/2,add/3,add/4,addSpacer/2,addStretchSpacer/1,addStretchSpacer/2,
@@ -37,11 +32,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxSizer() :: wx:wx_object().
 -export_type([wxSizer/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxSizer() :: wx:wx_object().
 %% @equiv add(This,Window, [])
 -spec add(This, Window) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer().

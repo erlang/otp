@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html">wxIdleEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>idle</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxIdle(). #wxIdle{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxIdleEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxIdleEvent).
 -include("wxe.hrl").
 -export([getMode/0,moreRequested/1,requestMore/1,requestMore/2,setMode/1]).
@@ -38,12 +26,14 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxIdleEvent/0]).
+-type wxIdleEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxIdleEventType() :: 'idle'.
+-export_type([wxIdleEvent/0, wxIdle/0, wxIdleEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxIdleEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventgetmode">external documentation</a>.
 %%<br /> Res = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
 -spec getMode() -> wx:wx_enum().

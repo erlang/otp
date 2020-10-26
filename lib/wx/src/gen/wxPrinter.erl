@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html">wxPrinter</a>.
-%% @type wxPrinter().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxPrinter).
 -include("wxe.hrl").
 -export([createAbortWindow/3,destroy/1,getAbort/1,getLastError/0,getPrintDialogData/1,
@@ -31,11 +26,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxPrinter() :: wx:wx_object().
 -export_type([wxPrinter/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxPrinter() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxPrinter().
 

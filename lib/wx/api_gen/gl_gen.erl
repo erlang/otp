@@ -67,10 +67,8 @@ gen_code() ->
     GluNifs = gl_gen_erl:glu_api(GLUFuncs),
     gl_gen_erl:gl_defines(GLDefines),
     gl_gen_erl:gl_api(GLFuncs, GluNifs),
-
-    %%gl_gen_erl:gen_debug(GLFuncs,GLUFuncs),
-    %%gl_gen_c:gen(GLFuncs,GLUFuncs),
     gl_gen_nif:gen(GLFuncs,GLUFuncs),
+    gl_gen_doc:gen(GLFuncs,GLUFuncs),
     ok.
 
 init_defs(Opts0) ->
@@ -175,7 +173,7 @@ parse_file(#xmlElement{name=memberdef,attributes=Attr, content=C}, Opts, Acc) ->
 	{value, #xmlAttribute{value = "typedef"}} -> 
 	    Acc;
 	_W ->
-	    io:format("Hmm ~p~n",[_W]),
+	    %% io:format("Hmm ~p~n",[_W]),
 	    Acc
     end;
 parse_file(_Hmm,_,Acc) ->

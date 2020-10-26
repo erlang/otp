@@ -18,15 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html">wxBufferedDC</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxMemoryDC}
-%% <br />{@link wxDC}
-%% </p>
-%% @type wxBufferedDC().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxBufferedDC).
 -include("wxe.hrl").
 -export([destroy/1,init/2,init/3,init/4,new/0,new/1,new/2,new/3]).
@@ -54,13 +45,13 @@
   setPalette/2,setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,
   startDoc/2,startPage/1]).
 
+-type wxBufferedDC() :: wx:wx_object().
 -export_type([wxBufferedDC/0]).
 %% @hidden
 parent_class(wxMemoryDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxBufferedDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
 -spec new() -> wxBufferedDC().
 new() ->

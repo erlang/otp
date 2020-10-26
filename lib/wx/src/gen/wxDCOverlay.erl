@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdcoverlay.html">wxDCOverlay</a>.
-%% @type wxDCOverlay().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxDCOverlay).
 -include("wxe.hrl").
 -export([clear/1,destroy/1,new/2,new/6]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxDCOverlay() :: wx:wx_object().
 -export_type([wxDCOverlay/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxDCOverlay() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdcoverlay.html#wxdcoverlaywxdcoverlay">external documentation</a>.
 -spec new(Overlay, Dc) -> wxDCOverlay() when
 	Overlay::wxOverlay:wxOverlay(), Dc::wxDC:wxDC().

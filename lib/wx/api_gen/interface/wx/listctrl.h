@@ -1252,36 +1252,56 @@ public:
     */
     void SetWindowStyleFlag(long style);
 
+
     /**
-        Call this function to sort the items in the list control. Sorting is done
-        using the specified @a fnSortCallBack function. This function must have the
-        following prototype:
-        @code
-        int wxCALLBACK wxListCompareFunction(wxIntPtr item1, wxIntPtr item2, wxIntPtr sortData)
-        @endcode
+       Sort the items in the list control.
 
-        It is called each time when the two items must be compared and should return 0
-        if the items are equal, negative value if the first item is less than the
-        second one and positive value if the first one is greater than the second one
-        (the same convention as used by @c qsort(3)).
+       Sorts the items with supplied @a SortCallBack fun.
+       @code SortCallBack(Item1,Item2) -> integer() @endcode
 
-        The parameter @e item1 is the client data associated with the first item (@b NOT the index).
-        The parameter @e item2 is the client data associated with the second item (@b NOT the index).
-        The parameter @e data is the value passed to SortItems() itself.
+       SortCallBack receives the client data associated with two items
+       to compare (@b NOT the the index), and should return 0 if the items are equal, a negative
+       value if the first item is less than the second one and a positive
+       value if the first item is greater than the second one.
 
-        Notice that the control may only be sorted on client data associated with
-        the items, so you must use SetItemData if you want to be able to sort the
-        items in the control.
+       @remark Notice that the control may only be sorted on client data associated with
+       the items, so you must use SetItemData if you want to be able to sort the
+       items in the control.
 
-        Please see the @ref page_samples_listctrl for an example of using this function.
-
-        @beginWxPerlOnly
-        In wxPerl the comparison function must take just two parameters;
-        however, you may use a closure to achieve an effect similar to the
-        SortItems third parameter.
-        @endWxPerlOnly
+       The callback may not call other (wx) processes.
     */
-    bool SortItems(wxListCtrlCompare fnSortCallBack, wxIntPtr data);
+    bool SortItems(wxListCtrlCompare SortCallBack);
+
+    // /**
+    //     Call this function to sort the items in the list control. Sorting is done
+    //     using the specified @a fnSortCallBack function. This function must have the
+    //     following prototype:
+    //     @code
+    //     int wxCALLBACK wxListCompareFunction(wxIntPtr item1, wxIntPtr item2, wxIntPtr sortData)
+    //     @endcode
+
+    //     It is called each time when the two items must be compared and should return 0
+    //     if the items are equal, negative value if the first item is less than the
+    //     second one and positive value if the first one is greater than the second one
+    //     (the same convention as used by @c qsort(3)).
+
+    //     The parameter @e item1 is the client data associated with the first item (@b NOT the index).
+    //     The parameter @e item2 is the client data associated with the second item (@b NOT the index).
+    //     The parameter @e data is the value passed to SortItems() itself.
+
+    //     Notice that the control may only be sorted on client data associated with
+    //     the items, so you must use SetItemData if you want to be able to sort the
+    //     items in the control.
+
+    //     Please see the @ref page_samples_listctrl for an example of using this function.
+
+    //     @beginWxPerlOnly
+    //     In wxPerl the comparison function must take just two parameters;
+    //     however, you may use a closure to achieve an effect similar to the
+    //     SortItems third parameter.
+    //     @endWxPerlOnly
+    // */
+    // bool SortItems(wxListCtrlCompare fnSortCallBack, wxIntPtr data);
 
     /**
         Returns true if checkboxes are enabled for list items.

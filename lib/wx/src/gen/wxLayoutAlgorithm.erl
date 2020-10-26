@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlayoutalgorithm.html">wxLayoutAlgorithm</a>.
-%% @type wxLayoutAlgorithm().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxLayoutAlgorithm).
 -include("wxe.hrl").
 -export([destroy/1,layoutFrame/2,layoutFrame/3,layoutMDIFrame/2,layoutMDIFrame/3,
@@ -31,11 +26,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxLayoutAlgorithm() :: wx:wx_object().
 -export_type([wxLayoutAlgorithm/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxLayoutAlgorithm() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlayoutalgorithm.html#wxlayoutalgorithmwxlayoutalgorithm">external documentation</a>.
 -spec new() -> wxLayoutAlgorithm().
 new() ->

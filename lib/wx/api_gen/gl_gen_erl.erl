@@ -167,13 +167,13 @@ glu_api(Fs) ->
 
 gen_funcs(All=[F|_Fs]) when is_list(F) ->
     put(current_func,F),
-    gen_doc([get(A) || A <- All]),
+    gen_spec([get(A) || A <- All]),
     R = gen_func(get(F)),
     erase(current_func),
     R;
 gen_funcs(F) ->
     put(current_func,F),
-    gen_doc([get(F)]),
+    gen_spec([get(F)]),
     R = gen_func(get(F)),
     erase(current_func),
     R.
@@ -188,15 +188,17 @@ gen_types(Where) ->
 	    w("-type clamp() :: float().    %% 0.0..1.0~n", []),
 	    w("-type offset() :: non_neg_integer(). %% Offset in memory block~n", [])
     end,
-    w("-type matrix12() :: {float(),float(),float(),float(),~n", []),
-    w("                   float(),float(),float(),float(),~n", []),
-    w("                   float(),float(),float(),float()}.~n", []),
-    w("-type matrix16() :: {float(),float(),float(),float(),~n", []),
-    w("                   float(),float(),float(),float(),~n", []),
-    w("                   float(),float(),float(),float(),~n", []),
-    w("                   float(),float(),float(),float()}.~n", []),
-    w("-type matrix() :: matrix12() | matrix16().~n", []),
+    w("-type m12() :: {f(),f(),f(),f(),~n", []),
+    w("                   f(),f(),f(),f(),~n", []),
+    w("                   f(),f(),f(),f()}.~n", []),
+    w("-type m16() :: {f(),f(),f(),f(),~n", []),
+    w("                   f(),f(),f(),f(),~n", []),
+    w("                   f(),f(),f(),f(),~n", []),
+    w("                   f(),f(),f(),f()}.~n", []),
+    w("-type matrix() :: m12() | m16().~n", []),
     w("-type mem() :: binary() | tuple().   %% Memory block~n", []),
+    w("-type f() :: float().~n", []),
+    w("-type i() :: integer().~n", []),
     ok.
 
 gen_export(F) ->
@@ -217,38 +219,39 @@ gen_export2(#func{name=Name,alt=Alt={vector,VecPos,Vec}}) ->
     Args = lists:filter(fun(Arg) -> func_arg(Arg) =/= skip end, As1),
     Export = erl_func_name(Name) ++ "/" ++ integer_to_list(length(Args) +1),
     DocN = doc_name(Name,Alt),
-    (get({export_arg,DocN}) == undefined) andalso put({export_arg, DocN}, Export),
+    (get({doc_ref,DocN}) == undefined) andalso put({doc_ref, DocN}, Export),
     Export;
 gen_export2(#func{name=Name,params=As0, alt=Alt}) ->
     Args = lists:filter(fun(Arg) -> func_arg(Arg) =/= skip end, As0),
     Export = erl_func_name(Name) ++ "/" ++ integer_to_list(length(Args)),
     DocN = doc_name(Name,Alt),
-    (get({export_arg,DocN}) == undefined) andalso put({export_arg, DocN}, Export),
+    (get({export_doc,Name}) == undefined) andalso put({export_doc, Name}, {Export, DocN}),
+    (get({doc_ref,DocN}) == undefined) andalso put({doc_ref, DocN}, Export),
     Export.
 
-gen_doc([#func{name=Name, params=Orig, alt={vector,VecPos,Vec}}]) ->
+gen_spec([#func{name=Name, params=Orig, alt={vector,VecPos,Vec}}]) ->
     #func{type=T,params=As} = get(Vec),
     {As1,As2} = lists:split(VecPos, As),
     #arg{name=OrigName} = lists:last(Orig),
-    Args1 = case args(fun func_arg/1, ",", As1) of [] -> []; Else -> Else++"," end,
-    Args2 = args(fun func_arg/1, ",", As2),
-    w("%% @equiv ~s(~s)~n",[erl_func_name(Vec), Args1++Args2]),
-    SA1 = case doc_arg_types(As1) of [] -> []; E -> E++"," end,
-    SA2 = doc_arg_types(As2),
-    w("-spec ~s(~s~s) -> ~s when ~s :: {~s}.~n",
-      [erl_func_name(Name), SA1, erl_arg_name(OrigName),
-       doc_return_types(T,As), erl_arg_name(OrigName), SA2]);
+    SA1 = case spec_arg_types(As1) of [] -> []; E -> E++", " end,
+    SA2 = spec_arg_types(As2),
+    w("-spec ~s(~s{~s}) -> ~s.~n", [erl_func_name(Name), SA1, SA2, spec_return_types(T,As)]);
 
-gen_doc([F=#func{name=Name,type=T,params=As, alt=Alt}|_]) ->
+gen_spec([#func{name=Name,type=T,params=As}|_]) ->
     Ps = [Arg || #arg{name=Arg, in=In, where=Where} <- As,
 		 In =/= false, Where =/= c],
+    SpecAs = spec_arg_types(As),
     Args = args(fun erl_arg_name/1, ", ", Ps),
-    case Args of
-	[] ->
+    SpecAsLen = string:length(SpecAs),
+    if SpecAsLen =:= 0 ->
 	    w("-spec ~s(~s) -> ~s.~n",
-	      [erl_func_name(Name), Args, doc_return_types(T,As)]);
-	_  -> w("-spec ~s(~s) -> ~s when ~s.~n",
-		[erl_func_name(Name), Args, doc_return_types(T,As), doc_arg_types(As)])
+	      [erl_func_name(Name), Args, spec_return_types(T,As)]);
+       SpecAsLen < 80 ->
+            w("-spec ~s(~s) -> ~s.~n",
+              [erl_func_name(Name), SpecAs, spec_return_types(T,As)]);
+       true ->
+            w("-spec ~s(~s) -> ~s~n    when ~s.~n",
+              [erl_func_name(Name), Args, spec_return_types(T,As), spec_arg_types(As)])
     end.
 
 gen_func(#func{name=Name,alt={vector,VecPos,Vec}}) ->
@@ -307,12 +310,10 @@ guard(#type{single=list}, Name) ->
     "is_list(" ++ Name ++ ")";
 guard(_T=#type{single={list, _Max}}, Name) ->
     "is_list(" ++ Name ++ ")";
-%%    "[" ++ doc_arg_type3(T) ++ "]";
 guard(_T=#type{single={list,_,_}}, Name) ->
     "is_list(" ++ Name ++ ")";
 guard(_T=#type{single={tuple_list,_Sz}}, Name) ->
     "is_list(" ++ Name ++ ")".
-%%    "[{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}]".
 
 guard_type(#type{name="GLenum"}, Name) ->  "is_integer(" ++ Name ++ ")";
 guard_type(#type{name="GLclamp"++_}, Name) ->  "is_float(" ++ Name ++ ")";
@@ -333,63 +334,63 @@ func_arg(#arg{in=In,where=W,name=Name})
     erl_arg_name(Name);
 func_arg(_) -> skip.
 
-doc_arg_types(Ps0) ->
+spec_arg_types(Ps0) ->
     Ps = [P || P=#arg{in=In, where=Where} <- Ps0,In =/= false, Where =/= c],
-    args(fun(Arg) -> doc_arg_type(Arg) end, ",", Ps).
+    args(fun(Arg) -> spec_arg_type(Arg) end, ", ", Ps).
 
-doc_return_types(T, Ps0) ->
+spec_return_types(T, Ps0) ->
     Ps = [P || P=#arg{in=In, where=Where} <- Ps0,In =/= true, Where =/= c],
-    doc_return_types2(T, Ps).
+    spec_return_types2(T, Ps).
 
-doc_return_types2(void, []) ->    "'ok'";
-doc_return_types2(void, [#arg{type=T}]) ->  doc_arg_type2(T);
-doc_return_types2(T, []) ->              doc_arg_type2(T);
-doc_return_types2(void, Ps) ->
-    "{" ++ args(fun(Arg) -> doc_arg_type(Arg) end,",",Ps) ++ "}";
-doc_return_types2(T, Ps) ->
-    "{" ++ doc_arg_type2(T) ++ "," ++
-	args(fun(Arg) -> doc_arg_type(Arg) end,",",Ps) ++ "}".
+spec_return_types2(void, []) ->    "'ok'";
+spec_return_types2(void, [#arg{type=T}]) ->  spec_arg_type2(T);
+spec_return_types2(T, []) ->              spec_arg_type2(T);
+spec_return_types2(void, Ps) ->
+    "{" ++ args(fun(Arg) -> spec_arg_type(Arg) end,",",Ps) ++ "}";
+spec_return_types2(T, Ps) ->
+    "{" ++ spec_arg_type2(T) ++ "," ++
+	args(fun(Arg) -> spec_arg_type(Arg) end,",",Ps) ++ "}".
 
-doc_arg_type(#arg{name=Name,type=T}) ->
+spec_arg_type(#arg{name=Name,type=T}) ->
     try
-	erl_arg_name(Name) ++ " :: " ++ doc_arg_type2(T)
+	erl_arg_name(Name) ++ "::" ++ spec_arg_type2(T)
     catch _:Error:Stacktrace ->
 	    io:format("Error spec: ~p ~p~n~p~n",[Name, Error, Stacktrace]),
 	    exit(error)
     end.
 
-doc_arg_type2(T=#type{single=true}) ->
-    doc_arg_type3(T);
-doc_arg_type2(T=#type{single=undefined}) ->
-    doc_arg_type3(T);
-doc_arg_type2(_T=#type{single={tuple,undefined}}) ->
+spec_arg_type2(T=#type{single=true}) ->
+    spec_arg_type3(T);
+spec_arg_type2(T=#type{single=undefined}) ->
+    spec_arg_type3(T);
+spec_arg_type2(_T=#type{single={tuple,undefined}}) ->
     "tuple()";
-doc_arg_type2(#type{base=float, single={tuple,16}}) ->
+spec_arg_type2(#type{base=float, single={tuple,16}}) ->
     "matrix()";
-doc_arg_type2(#type{base=string, single=list}) ->
-    "iolist()";
-doc_arg_type2(T=#type{single={tuple,Sz}}) ->
-    "{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
-doc_arg_type2(#type{base=guard_int, single=list}) ->
+spec_arg_type2(#type{base=string, single=list}) ->
+    "[unicode:chardata()]";
+spec_arg_type2(T=#type{single={tuple,Sz}}) ->
+    "{" ++ args(fun spec_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
+spec_arg_type2(#type{base=guard_int, single=list}) ->
     "[integer()]|mem()";
-doc_arg_type2(T=#type{single=list}) ->
-    "[" ++ doc_arg_type3(T) ++ "]";
-doc_arg_type2(T=#type{single={list, _Max}}) ->
-    "[" ++ doc_arg_type3(T) ++ "]";
-doc_arg_type2(T=#type{single={list,_,_}}) ->
-    "[" ++ doc_arg_type3(T) ++ "]";
-doc_arg_type2(T=#type{single={tuple_list,Sz}}) ->
-    "[{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}]".
+spec_arg_type2(T=#type{single=list}) ->
+    "[" ++ spec_arg_type3(T) ++ "]";
+spec_arg_type2(T=#type{single={list, _Max}}) ->
+    "[" ++ spec_arg_type3(T) ++ "]";
+spec_arg_type2(T=#type{single={list,_,_}}) ->
+    "[" ++ spec_arg_type3(T) ++ "]";
+spec_arg_type2(T=#type{single={tuple_list,Sz}}) ->
+    "[{" ++ args(fun spec_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}]".
 
-doc_arg_type3(#type{name="GLenum"}) ->  "enum()";
-doc_arg_type3(#type{name="GLclamp"++_}) ->  "clamp()";
-doc_arg_type3(#type{base=int}) ->       "integer()";
-doc_arg_type3(#type{base=float}) ->     "float()";
-doc_arg_type3(#type{base=guard_int}) -> "offset()|mem()";
-doc_arg_type3(#type{base=string}) ->    "string()";
-doc_arg_type3(#type{base=bool}) ->      "0|1";
-doc_arg_type3(#type{base=binary}) ->    "binary()";
-doc_arg_type3(#type{base=memory}) ->    "mem()".
+spec_arg_type3(#type{name="GLenum"}) ->  "enum()";
+spec_arg_type3(#type{name="GLclamp"++_}) -> "clamp()";
+spec_arg_type3(#type{base=int}) ->       "i()";
+spec_arg_type3(#type{base=float}) ->     "f()";
+spec_arg_type3(#type{base=guard_int}) -> "offset()|mem()";
+spec_arg_type3(#type{base=string}) ->    "string()";
+spec_arg_type3(#type{base=bool}) ->      "0|1";
+spec_arg_type3(#type{base=binary}) ->    "binary()";
+spec_arg_type3(#type{base=memory}) ->    "mem()".
 
 %% strings
 pre_marshal([A0=#arg{name=LenName,where=c,alt={length,N}},

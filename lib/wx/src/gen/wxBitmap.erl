@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html">wxBitmap</a>.
-%% @type wxBitmap().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxBitmap).
 -include("wxe.hrl").
 -export([convertToImage/1,copyFromIcon/2,create/2,create/3,create/4,destroy/1,
@@ -33,11 +28,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxBitmap() :: wx:wx_object().
 -export_type([wxBitmap/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxBitmap() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapwxbitmap">external documentation</a>.
 -spec new() -> wxBitmap().
 new() ->

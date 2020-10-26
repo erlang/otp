@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsobject.html">wxGraphicsObject</a>.
-%% @type wxGraphicsObject().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGraphicsObject).
 -include("wxe.hrl").
 -export([destroy/1,getRenderer/1,isNull/1]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxGraphicsObject() :: wx:wx_object().
 -export_type([wxGraphicsObject/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGraphicsObject() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsobject.html#wxgraphicsobjectgetrenderer">external documentation</a>.
 -spec getRenderer(This) -> wxGraphicsRenderer:wxGraphicsRenderer() when
 	This::wxGraphicsObject().

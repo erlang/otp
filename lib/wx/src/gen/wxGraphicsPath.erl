@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicspath.html">wxGraphicsPath</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxGraphicsObject}
-%% </p>
-%% @type wxGraphicsPath().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGraphicsPath).
 -include("wxe.hrl").
 -export([addArc/6,addArc/7,addArcToPoint/6,addCircle/4,addCurveToPoint/4,addCurveToPoint/7,
@@ -37,12 +29,12 @@
 %% inherited exports
 -export([getRenderer/1,isNull/1,parent_class/1]).
 
+-type wxGraphicsPath() :: wx:wx_object().
 -export_type([wxGraphicsPath/0]).
 %% @hidden
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGraphicsPath() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicspath.html#wxgraphicspathmovetopoint">external documentation</a>.
 -spec moveToPoint(This, P) -> 'ok' when
 	This::wxGraphicsPath(), P::{X::float(), Y::float()}.

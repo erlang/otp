@@ -35,7 +35,7 @@ new() ->
 new(Options) when is_list(Options) ->
     Op = ~s,
     MOpts = fun({iconType, _iconType} = Arg) -> Arg;
-               ({createPopupMenu, Fun}) -> {createPopupMenu,  wxe_util:get_cbId(Fun)};
+               ({createPopupMenu, Fun}) when is_function(Fun) -> {createPopupMenu,  wxe_util:get_cbId(Fun)};
                (BadOpt) -> erlang:error({badoption, BadOpt}) end,
     Opts = lists:map(MOpts, Options),
     wxe_util:queue_cmd(Opts,?get_env(), Op),

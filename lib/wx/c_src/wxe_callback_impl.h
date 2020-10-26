@@ -43,44 +43,6 @@ public:
    wxe_me_ref * me_ref;
 };
 
-class wxEPrintout : public wxPrintout
-{
- public:
- wxEPrintout(wxString Title, int onPrintP, int onPrepareP,
-	     int onBeginP, int onEndP,
-	     int onBeginD, int onEndD,
-	     int hasP, int getPageI) :
-    wxPrintout(Title),
-	onPrintPage(onPrintP), onPreparePrinting(onPrepareP),
-	onBeginPrinting(onBeginP), onEndPrinting(onEndP),
-	onBeginDocument(onBeginD), onEndDocument(onEndD), hasPage(hasP), getPageInfo(getPageI)
-	{ } ;
-
-    ~wxEPrintout();
-
-    bool OnBeginDocument(int startPage, int endPage);
-    void OnEndDocument();
-    void OnBeginPrinting();
-    void OnEndPrinting();
-
-    void OnPreparePrinting();
-
-    bool HasPage(int page);
-    bool OnPrintPage(int page);
-    void GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pageTo);
-
-    int onPrintPage;
-    int onPreparePrinting;
-    int onBeginPrinting;
-    int onEndPrinting;
-    int onBeginDocument;
-    int onEndDocument;
-    int hasPage;
-    int getPageInfo;
-
-    wxe_me_ref * me_ref;
-};
-
 void clear_cb(wxe_me_ref *, int callback);
 
 // Implementation of wxListCtrlCompare

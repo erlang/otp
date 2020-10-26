@@ -18,15 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxflexgridsizer.html">wxFlexGridSizer</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxGridSizer}
-%% <br />{@link wxSizer}
-%% </p>
-%% @type wxFlexGridSizer().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxFlexGridSizer).
 -include("wxe.hrl").
 -export([addGrowableCol/2,addGrowableCol/3,addGrowableRow/2,addGrowableRow/3,
@@ -46,13 +37,13 @@
   setItemMinSize/4,setMinSize/2,setMinSize/3,setRows/2,setSizeHints/2,
   setVGap/2,setVirtualSizeHints/2,show/2,show/3,showItems/2]).
 
+-type wxFlexGridSizer() :: wx:wx_object().
 -export_type([wxFlexGridSizer/0]).
 %% @hidden
 parent_class(wxGridSizer) -> true;
 parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxFlexGridSizer() :: wx:wx_object().
 %% @equiv new(Cols, [])
 -spec new(Cols) -> wxFlexGridSizer() when
 	Cols::integer().

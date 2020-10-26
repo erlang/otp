@@ -18,20 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarevent.html">wxCalendarEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>calendar_sel_changed</em>, <em>calendar_day_changed</em>, <em>calendar_month_changed</em>, <em>calendar_year_changed</em>, <em>calendar_doubleclicked</em>, <em>calendar_weekday_clicked</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxCalendar(). #wxCalendar{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxDateEvent}
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxCalendarEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxCalendarEvent).
 -include("wxe.hrl").
 -export([getDate/1,getWeekDay/1]).
@@ -42,14 +28,16 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxCalendarEvent/0]).
+-type wxCalendarEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxCalendarEventType() :: 'calendar_sel_changed' | 'calendar_day_changed' | 'calendar_month_changed' | 'calendar_year_changed' | 'calendar_doubleclicked' | 'calendar_weekday_clicked'.
+-export_type([wxCalendarEvent/0, wxCalendar/0, wxCalendarEventType/0]).
 %% @hidden
 parent_class(wxDateEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxCalendarEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarevent.html#wxcalendareventgetweekday">external documentation</a>.
 %%<br /> Res = ?wxDateTime_Sun | ?wxDateTime_Mon | ?wxDateTime_Tue | ?wxDateTime_Wed | ?wxDateTime_Thu | ?wxDateTime_Fri | ?wxDateTime_Sat | ?wxDateTime_Inv_WeekDay
 -spec getWeekDay(This) -> wx:wx_enum() when

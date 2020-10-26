@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellrenderer.html">wxGridCellRenderer</a>.
-%% @type wxGridCellRenderer().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridCellRenderer).
 -include("wxe.hrl").
 -export([draw/8,getBestSize/6]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxGridCellRenderer() :: wx:wx_object().
 -export_type([wxGridCellRenderer/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridCellRenderer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellrenderer.html#wxgridcellrendererdraw">external documentation</a>.
 -spec draw(This, Grid, Attr, Dc, Rect, Row, Col, IsSelected) -> 'ok' when
 	This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Row::integer(), Col::integer(), IsSelected::boolean().

@@ -18,16 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbufferedpaintdc.html">wxBufferedPaintDC</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxBufferedDC}
-%% <br />{@link wxMemoryDC}
-%% <br />{@link wxDC}
-%% </p>
-%% @type wxBufferedPaintDC().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxBufferedPaintDC).
 -include("wxe.hrl").
 -export([destroy/1,new/1,new/2,new/3]).
@@ -55,6 +45,7 @@
   setPalette/2,setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,
   startDoc/2,startPage/1]).
 
+-type wxBufferedPaintDC() :: wx:wx_object().
 -export_type([wxBufferedPaintDC/0]).
 %% @hidden
 parent_class(wxBufferedDC) -> true;
@@ -62,7 +53,6 @@ parent_class(wxMemoryDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxBufferedPaintDC() :: wx:wx_object().
 %% @equiv new(Window, [])
 -spec new(Window) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow().

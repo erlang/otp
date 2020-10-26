@@ -18,20 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlevent.html">wxBookCtrlEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>command_notebook_page_changed</em>, <em>command_notebook_page_changing</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxBookCtrl(). #wxBookCtrl{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxNotifyEvent}
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxBookCtrlEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxBookCtrlEvent).
 -include("wxe.hrl").
 -export([getOldSelection/1,getSelection/1,setOldSelection/2,setSelection/2]).
@@ -42,14 +28,16 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1,veto/1]).
 
--export_type([wxBookCtrlEvent/0]).
+-type wxBookCtrlEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxBookCtrlEventType() :: 'command_notebook_page_changed' | 'command_notebook_page_changing' | 'choicebook_page_changed' | 'choicebook_page_changing' | 'treebook_page_changed' | 'treebook_page_changing' | 'toolbook_page_changed' | 'toolbook_page_changing' | 'listbook_page_changed' | 'listbook_page_changing'.
+-export_type([wxBookCtrlEvent/0, wxBookCtrl/0, wxBookCtrlEventType/0]).
 %% @hidden
 parent_class(wxNotifyEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxBookCtrlEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlevent.html#wxbookctrleventgetoldselection">external documentation</a>.
 -spec getOldSelection(This) -> integer() when
 	This::wxBookCtrlEvent().

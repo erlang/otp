@@ -18,21 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html">wxAuiNotebookEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>command_auinotebook_page_close</em>, <em>command_auinotebook_page_changed</em>, <em>command_auinotebook_page_changing</em>, <em>command_auinotebook_button</em>, <em>command_auinotebook_begin_drag</em>, <em>command_auinotebook_end_drag</em>, <em>command_auinotebook_drag_motion</em>, <em>command_auinotebook_allow_dnd</em>, <em>command_auinotebook_tab_middle_down</em>, <em>command_auinotebook_tab_middle_up</em>, <em>command_auinotebook_tab_right_down</em>, <em>command_auinotebook_tab_right_up</em>, <em>command_auinotebook_page_closed</em>, <em>command_auinotebook_drag_done</em>, <em>command_auinotebook_bg_dclick</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxAuiNotebook(). #wxAuiNotebook{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxBookCtrlEvent}
-%% <br />{@link wxNotifyEvent}
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxAuiNotebookEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxAuiNotebookEvent).
 -include("wxe.hrl").
 -export([getDragSource/1,getOldSelection/1,getSelection/1,setDragSource/2,
@@ -44,7 +29,10 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1,veto/1]).
 
--export_type([wxAuiNotebookEvent/0]).
+-type wxAuiNotebookEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxAuiNotebookEventType() :: 'command_auinotebook_page_close' | 'command_auinotebook_page_changed' | 'command_auinotebook_page_changing' | 'command_auinotebook_button' | 'command_auinotebook_begin_drag' | 'command_auinotebook_end_drag' | 'command_auinotebook_drag_motion' | 'command_auinotebook_allow_dnd' | 'command_auinotebook_tab_middle_down' | 'command_auinotebook_tab_middle_up' | 'command_auinotebook_tab_right_down' | 'command_auinotebook_tab_right_up' | 'command_auinotebook_page_closed' | 'command_auinotebook_drag_done' | 'command_auinotebook_bg_dclick'.
+-export_type([wxAuiNotebookEvent/0, wxAuiNotebook/0, wxAuiNotebookEventType/0]).
 %% @hidden
 parent_class(wxBookCtrlEvent) -> true;
 parent_class(wxNotifyEvent) -> true;
@@ -52,7 +40,6 @@ parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxAuiNotebookEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventsetselection">external documentation</a>.
 -spec setSelection(This, Page) -> 'ok' when
 	This::wxAuiNotebookEvent(), Page::integer().

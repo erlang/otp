@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html">wxAuiManagerEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>aui_pane_button</em>, <em>aui_pane_close</em>, <em>aui_pane_maximize</em>, <em>aui_pane_restore</em>, <em>aui_pane_activated</em>, <em>aui_render</em>, <em>aui_find_manager</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxAuiManager(). #wxAuiManager{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxAuiManagerEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxAuiManagerEvent).
 -include("wxe.hrl").
 -export([canVeto/1,getButton/1,getDC/1,getManager/1,getPane/1,getVeto/1,setButton/2,
@@ -39,12 +27,14 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxAuiManagerEvent/0]).
+-type wxAuiManagerEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxAuiManagerEventType() :: 'aui_pane_button' | 'aui_pane_close' | 'aui_pane_maximize' | 'aui_pane_restore' | 'aui_pane_activated' | 'aui_render' | 'aui_find_manager'.
+-export_type([wxAuiManagerEvent/0, wxAuiManager/0, wxAuiManagerEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxAuiManagerEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventsetmanager">external documentation</a>.
 -spec setManager(This, Manager) -> 'ok' when
 	This::wxAuiManagerEvent(), Manager::wxAuiManager:wxAuiManager().

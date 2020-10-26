@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html">wxClipboard</a>.
-%% @type wxClipboard().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxClipboard).
 -include("wxe.hrl").
 -export([addData/2,clear/1,close/1,destroy/1,flush/1,get/0,getData/2,isOpened/1,
@@ -31,11 +26,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxClipboard() :: wx:wx_object().
 -export_type([wxClipboard/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxClipboard() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardwxclipboard">external documentation</a>.
 -spec new() -> wxClipboard().
 new() ->

@@ -323,9 +323,10 @@ gen_method(_CName, M=#method{where=erl_alias}) ->     M;
 gen_method(CName, M=#method{where=taylormade, name=Name, id=Id}) ->
     {ok, Bin} = file:read_file(filename:join([wx_extra, CName ++".c_src"])),
     Src = binary_to_list(Bin),
-    %%    io:format("C++ Class ~p ~p~n", [CName, Name]),
+    %% io:format("C++ Class ~p ~p~n", [CName, Name]),
     Str = case gen_util:get_taylor_made(Src, Name) of
 	      nomatch ->
+                  %% io:format("C++ Class ~p ~p~n", [CName, wx_gen_erl:get_unique_name(Id)]),
 		  {match, [Str0]} = gen_util:get_taylor_made(Src, wx_gen_erl:get_unique_name(Id)),
 		  Str0;
 	      {match, [Str0]} ->

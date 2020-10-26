@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintout.html">wxPrintout</a>.
-%% @type wxPrintout().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxPrintout).
 -include("wxe.hrl").
 -export([ new/2,new/3 ,destroy/1,fitThisSizeToPage/2,fitThisSizeToPageMargins/3,
@@ -35,37 +30,30 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxPrintout() :: wx:wx_object().
 -export_type([wxPrintout/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxPrintout() :: wx:wx_object().
 
-%% @spec (Title::string(), OnPrintPage::function()) -> wxPrintout:wxPrintout()
 %% @doc @equiv new(Title, OnPrintPage, [])
+-spec new(Title::string(), OnPrintPage::function()) -> wxPrintout:wxPrintout().
 new(Title, OnPrintPage) ->
     new(Title, OnPrintPage, []).
 
-%% @spec (Title::string(), OnPrintPage::function(), [Option]) -> wxPrintout:wxPrintout()
-%% Option = {onPreparePrinting, OnPreparePrinting::function()} | 
-%%          {onBeginPrinting,   OnBeginPrinting::function()} | 
-%%          {onEndPrinting,     OnEndPrinting::function()} | 
-%%          {onBeginDocument,   OnBeginDocument::function()} | 
-%%          {onEndDocument,     OnEndDocument::function()} | 
-%%          {hasPage,           HasPage::function()} | 
-%%          {getPageInfo,       GetPageInfo::function()}
-%% @doc Creates a wxPrintout object with a callback fun and optionally other callback funs.<br />
-%%   <pre>OnPrintPage(This,Page) -> boolean() </pre>
-%%   <pre>OnPreparePrinting(This) -> ok  </pre>
-%%   <pre>OnBeginPrinting(This) -> ok   </pre>
-%%   <pre>OnEndPrinting(This) -> ok  </pre>
-%%   <pre>OnBeginDocument(This,StartPage,EndPage) -> boolean()  </pre>
-%%   <pre>OnEndDocument(This) -> ok  </pre>
-%%   <pre>HasPage(This,Page)} -> boolean()   </pre>
-%%   <pre>GetPageInfo(This) -> {MinPage::integer(), MaxPage::integer(),
-%%                              PageFrom::integer(), PageTo::integer()}  </pre>
-%%  The <b>This</b> argument is the wxPrintout object reference to this object
-%%  <br /> NOTE: The callbacks may not call other processes.
+-spec new(Title::string(), OnPrintPage, [Option]) ->
+          wxPrintout:wxPrintout() when
+      OnPrintPage :: fun((wxPrintout(), Page::integer()) -> boolean()),
+      Option ::{onPreparePrinting, fun((wxPrintout()) -> ok)} |
+               {onBeginPrinting,   fun((wxPrintout()) -> ok)} |
+               {onEndPrinting,     fun((wxPrintout()) -> ok)} |
+               {onBeginDocument,   fun((wxPrintout(), StartPage::integer(), EndPage::integer()) -> boolean())} |
+               {onEndDocument,     fun((wxPrintout()) -> ok)} |
+               {hasPage,           fun((wxPrintout(), Page::integer()) -> ok)} |
+               {getPageInfo,       fun((wxPrintout()) ->
+                                              {MinPage::integer(), MaxPage::integer(),
+                                               PageFrom::integer(), PageTo::integer()})}.
+
 new(Title, OnPrintPage, Opts) when is_list(Title), is_function(OnPrintPage), is_list(Opts) ->
     OnPrintPageId = wxe_util:get_cbId(OnPrintPage),
     MOpts = fun({onPreparePrinting, F},Acc) when is_function(F) ->

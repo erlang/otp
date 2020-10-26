@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html">wxNavigationKeyEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>navigation_key</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxNavigationKey(). #wxNavigationKey{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxNavigationKeyEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxNavigationKeyEvent).
 -include("wxe.hrl").
 -export([getCurrentFocus/1,getDirection/1,isFromTab/1,isWindowChange/1,setCurrentFocus/2,
@@ -39,12 +27,14 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxNavigationKeyEvent/0]).
+-type wxNavigationKeyEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxNavigationKeyEventType() :: 'navigation_key'.
+-export_type([wxNavigationKeyEvent/0, wxNavigationKey/0, wxNavigationKeyEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxNavigationKeyEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventgetdirection">external documentation</a>.
 -spec getDirection(This) -> boolean() when
 	This::wxNavigationKeyEvent().

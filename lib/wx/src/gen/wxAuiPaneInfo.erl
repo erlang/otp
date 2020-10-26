@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html">wxAuiPaneInfo</a>.
-%% @type wxAuiPaneInfo().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxAuiPaneInfo).
 -include("wxe.hrl").
 -export([bestSize/2,bestSize/3,bottom/1,bottomDockable/1,bottomDockable/2,caption/2,
@@ -47,11 +42,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxAuiPaneInfo() :: wx:wx_object().
 -export_type([wxAuiPaneInfo/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxAuiPaneInfo() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfowxauipaneinfo">external documentation</a>.
 -spec new() -> wxAuiPaneInfo().
 new() ->

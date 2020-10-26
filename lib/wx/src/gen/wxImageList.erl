@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html">wxImageList</a>.
-%% @type wxImageList().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxImageList).
 -include("wxe.hrl").
 -export([add/2,add/3,create/3,create/4,destroy/1,draw/5,draw/6,getBitmap/2,getIcon/2,
@@ -32,11 +27,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxImageList() :: wx:wx_object().
 -export_type([wxImageList/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxImageList() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistwximagelist">external documentation</a>.
 -spec new() -> wxImageList().
 new() ->

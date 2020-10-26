@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html">wxCursor</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxBitmap}
-%% </p>
-%% @type wxCursor().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxCursor).
 -include("wxe.hrl").
 -export([destroy/1,isOk/1,new/0,new/1,new/2,ok/1]).
@@ -35,12 +27,12 @@
   getSubBitmap/2,getWidth/1,loadFile/2,loadFile/3,parent_class/1,saveFile/3,
   saveFile/4,setDepth/2,setHeight/2,setMask/2,setPalette/2,setWidth/2]).
 
+-type wxCursor() :: wx:wx_object().
 -export_type([wxCursor/0]).
 %% @hidden
 parent_class(wxBitmap) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxCursor() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
 -spec new() -> wxCursor().
 new() ->

@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html">wxPageSetupDialogData</a>.
-%% @type wxPageSetupDialogData().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxPageSetupDialogData).
 -include("wxe.hrl").
 -export([destroy/1,enableHelp/2,enableMargins/2,enableOrientation/2,enablePaper/2,
@@ -37,11 +32,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxPageSetupDialogData() :: wx:wx_object().
 -export_type([wxPageSetupDialogData/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxPageSetupDialogData() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatawxpagesetupdialogdata">external documentation</a>.
 -spec new() -> wxPageSetupDialogData().
 new() ->

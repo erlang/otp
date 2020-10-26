@@ -20,11 +20,6 @@ CONFIGURATION:
 RUNNING:
     I use the following alias wxgen='make GL_DIR=/home/dgud/opengl'
 
-    NOTE: Opengl generation can not be done with newer opengl headers, so this must be fixed,
-          if you are not interested in opengl code generation, do:
-              'touch gl_code_generated'
-          before running 'make'
-
     I keep the opengl headers separate so I don't go backwards in version when generating the code
     from another machine.
 
@@ -32,9 +27,9 @@ RUNNING:
     I have used mesa's gl.h and the glext.h from opengl.org
     (version see GL_GLEXT_VERSION in gl.hrl)
 
-    I also get the xml documentation from opengl.org (subversion) and place it in
-    api_gen/gl_man2 (all old functions) and api_gen/gl_man4 (all the new functions).
-
+    I also get the xml documentation from https://github.com/KhronosGroup/OpenGL-Refpages
+    setup 'export GL_MAN_SRC_DIR = /home/User/src/OpenGL-Refpages'
+    otherwise the OpenGL docs will not be generated.
 
 CONTRIBUTION:
     Send me patches

@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html">wxMenuItem</a>.
-%% @type wxMenuItem().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxMenuItem).
 -include("wxe.hrl").
 -export([check/1,check/2,destroy/1,enable/1,enable/2,getBitmap/1,getHelp/1,getId/1,
@@ -34,11 +29,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxMenuItem() :: wx:wx_object().
 -export_type([wxMenuItem/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxMenuItem() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxMenuItem().
 

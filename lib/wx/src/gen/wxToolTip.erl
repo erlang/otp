@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html">wxToolTip</a>.
-%% @type wxToolTip().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxToolTip).
 -include("wxe.hrl").
 -export([destroy/1,enable/1,getTip/1,getWindow/1,new/1,setDelay/1,setTip/2]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxToolTip() :: wx:wx_object().
 -export_type([wxToolTip/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxToolTip() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipenable">external documentation</a>.
 -spec enable(Flag) -> 'ok' when
 	Flag::boolean().

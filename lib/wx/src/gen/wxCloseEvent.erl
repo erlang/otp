@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html">wxCloseEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>close_window</em>, <em>end_session</em>, <em>query_end_session</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxClose(). #wxClose{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxCloseEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxCloseEvent).
 -include("wxe.hrl").
 -export([canVeto/1,getLoggingOff/1,setCanVeto/2,setLoggingOff/2,veto/1,veto/2]).
@@ -38,12 +26,14 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxCloseEvent/0]).
+-type wxCloseEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxCloseEventType() :: 'close_window' | 'end_session' | 'query_end_session'.
+-export_type([wxCloseEvent/0, wxClose/0, wxCloseEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxCloseEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventcanveto">external documentation</a>.
 -spec canVeto(This) -> boolean() when
 	This::wxCloseEvent().

@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhelpevent.html">wxHelpEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>help</em>, <em>detailed_help</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxHelp(). #wxHelp{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxHelpEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxHelpEvent).
 -include("wxe.hrl").
 -export([getOrigin/1,getPosition/1,setOrigin/2,setPosition/2]).
@@ -38,12 +26,14 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxHelpEvent/0]).
+-type wxHelpEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxHelpEventType() :: 'help' | 'detailed_help'.
+-export_type([wxHelpEvent/0, wxHelp/0, wxHelpEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxHelpEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhelpevent.html#wxhelpeventgetorigin">external documentation</a>.
 %%<br /> Res = ?wxHelpEvent_Origin_Unknown | ?wxHelpEvent_Origin_Keyboard | ?wxHelpEvent_Origin_HelpButton
 -spec getOrigin(This) -> wx:wx_enum() when

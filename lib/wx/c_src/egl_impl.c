@@ -144,7 +144,7 @@ void * egl_lookup_func(int op)
 
 ERL_NIF_TERM egl_lookup_func_func(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    egl_word func = (egl_word) egl_lookup_func;
+    egl_uword func = (egl_uword) egl_lookup_func;
     if(sizeof(void *) == sizeof(unsigned int))
         return enif_make_uint(env, (unsigned int) func);
     else

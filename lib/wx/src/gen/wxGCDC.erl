@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgcdc.html">wxGCDC</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxDC}
-%% </p>
-%% @type wxGCDC().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGCDC).
 -include("wxe.hrl").
 -export([destroy/1,getGraphicsContext/1,new/0,new/1,setGraphicsContext/2]).
@@ -52,12 +44,12 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-type wxGCDC() :: wx:wx_object().
 -export_type([wxGCDC/0]).
 %% @hidden
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGCDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgcdc.html#wxgcdcwxgcdc">external documentation</a>.
 -spec new() -> wxGCDC().
 new() ->

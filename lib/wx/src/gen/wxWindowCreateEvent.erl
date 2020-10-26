@@ -18,19 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindowcreateevent.html">wxWindowCreateEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>create</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxWindowCreate(). #wxWindowCreate{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxWindowCreateEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxWindowCreateEvent).
 -include("wxe.hrl").
 -export([]).
@@ -41,13 +28,15 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxWindowCreateEvent/0]).
+-type wxWindowCreateEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxWindowCreateEventType() :: 'create'.
+-export_type([wxWindowCreateEvent/0, wxWindowCreate/0, wxWindowCreateEventType/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxWindowCreateEvent() :: wx:wx_object().
  %% From wxCommandEvent
 %% @hidden
 setString(This,String) -> wxCommandEvent:setString(This,String).

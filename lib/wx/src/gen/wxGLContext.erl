@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxglcontext.html">wxGLContext</a>.
-%% @type wxGLContext().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGLContext).
 -include("wxe.hrl").
 -export([destroy/1,new/1,new/2,setCurrent/2]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxGLContext() :: wx:wx_object().
 -export_type([wxGLContext/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGLContext() :: wx:wx_object().
 %% @equiv new(Win, [])
 -spec new(Win) -> wxGLContext() when
 	Win::wxGLCanvas:wxGLCanvas().

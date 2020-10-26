@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html">wxFileDataObject</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxDataObject}
-%% </p>
-%% @type wxFileDataObject().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxFileDataObject).
 -include("wxe.hrl").
 -export([addFile/2,destroy/1,getFilenames/1,new/0]).
@@ -33,12 +25,12 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxFileDataObject() :: wx:wx_object().
 -export_type([wxFileDataObject/0]).
 %% @hidden
 parent_class(wxDataObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxFileDataObject() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html#wxfiledataobjectwxfiledataobject">external documentation</a>.
 -spec new() -> wxFileDataObject().
 new() ->

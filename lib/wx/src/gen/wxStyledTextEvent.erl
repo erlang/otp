@@ -18,19 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html">wxStyledTextEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>stc_change</em>, <em>stc_styleneeded</em>, <em>stc_charadded</em>, <em>stc_savepointreached</em>, <em>stc_savepointleft</em>, <em>stc_romodifyattempt</em>, <em>stc_key</em>, <em>stc_doubleclick</em>, <em>stc_updateui</em>, <em>stc_modified</em>, <em>stc_macrorecord</em>, <em>stc_marginclick</em>, <em>stc_needshown</em>, <em>stc_painted</em>, <em>stc_userlistselection</em>, <em>stc_uridropped</em>, <em>stc_dwellstart</em>, <em>stc_dwellend</em>, <em>stc_start_drag</em>, <em>stc_drag_over</em>, <em>stc_do_drop</em>, <em>stc_zoom</em>, <em>stc_hotspot_click</em>, <em>stc_hotspot_dclick</em>, <em>stc_calltip_click</em>, <em>stc_autocomp_selection</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxStyledText(). #wxStyledText{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxStyledTextEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxStyledTextEvent).
 -include("wxe.hrl").
 -export([getAlt/1,getControl/1,getDragAllowMove/1,getDragResult/1,getDragText/1,
@@ -45,13 +32,15 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxStyledTextEvent/0]).
+-type wxStyledTextEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxStyledTextEventType() :: 'stc_autocomp_cancelled' | 'stc_autocomp_char_deleted' | 'stc_autocomp_selection' | 'stc_calltip_click' | 'stc_change' | 'stc_charadded' | 'stc_do_drop' | 'stc_doubleclick' | 'stc_drag_over' | 'stc_dwellend' | 'stc_dwellstart' | 'stc_hotspot_click' | 'stc_hotspot_dclick' | 'stc_hotspot_release_click' | 'stc_indicator_click' | 'stc_indicator_release' | 'stc_macrorecord' | 'stc_marginclick' | 'stc_modified' | 'stc_needshown' | 'stc_painted' | 'stc_romodifyattempt' | 'stc_savepointleft' | 'stc_savepointreached' | 'stc_start_drag' | 'stc_styleneeded' | 'stc_updateui' | 'stc_userlistselection' | 'stc_zoom'.
+-export_type([wxStyledTextEvent/0, wxStyledText/0, wxStyledTextEventType/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxStyledTextEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstyledtextevent.html#wxstyledtexteventgetposition">external documentation</a>.
 -spec getPosition(This) -> integer() when
 	This::wxStyledTextEvent().

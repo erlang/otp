@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgbsizeritem.html">wxGBSizerItem</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxSizerItem}
-%% </p>
-%% @type wxGBSizerItem().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGBSizerItem).
 -include("wxe.hrl").
 -export([]).
@@ -38,12 +30,12 @@
   parent_class/1,setBorder/2,setDimension/3,setFlag/2,setInitSize/3,
   setMinSize/2,setMinSize/3,setProportion/2,setRatio/2,setRatio/3,show/2]).
 
+-type wxGBSizerItem() :: wx:wx_object().
 -export_type([wxGBSizerItem/0]).
 %% @hidden
 parent_class(wxSizerItem) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGBSizerItem() :: wx:wx_object().
  %% From wxSizerItem
 %% @hidden
 show(This,Show) -> wxSizerItem:show(This,Show).

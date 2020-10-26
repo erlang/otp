@@ -573,10 +573,13 @@ public:
     /**
         Constructor.
 
-        Pass an optional title argument - the current filename would be a
-        good idea. This will appear in the printing list (at least in MSW)
+        Creates a wxPrintout object with a callback fun and optionally other callback funs.<br />
+        The @a This argument is the wxPrintout object reference to this object
+
+        Notice: The callbacks may not call other processes.
+
     */
-    wxPrintout(const wxString& title = "Printout");
+  wxPrintout(const wxString& title = "Printout", int dummy1, int dummy2);
 
     /**
         Destructor.

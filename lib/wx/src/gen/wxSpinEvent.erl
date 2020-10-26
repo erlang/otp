@@ -18,20 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinevent.html">wxSpinEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>command_spinctrl_updated</em>, <em>spin_up</em>, <em>spin_down</em>, <em>spin</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxSpin(). #wxSpin{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxNotifyEvent}
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxSpinEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxSpinEvent).
 -include("wxe.hrl").
 -export([getPosition/1,setPosition/2]).
@@ -42,14 +28,16 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1,veto/1]).
 
--export_type([wxSpinEvent/0]).
+-type wxSpinEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxSpinEventType() :: 'command_spinctrl_updated' | 'spin_up' | 'spin_down' | 'spin'.
+-export_type([wxSpinEvent/0, wxSpin/0, wxSpinEventType/0]).
 %% @hidden
 parent_class(wxNotifyEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxSpinEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinevent.html#wxspineventgetposition">external documentation</a>.
 -spec getPosition(This) -> integer() when
 	This::wxSpinEvent().

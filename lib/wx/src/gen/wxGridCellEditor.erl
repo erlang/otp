@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcelleditor.html">wxGridCellEditor</a>.
-%% @type wxGridCellEditor().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridCellEditor).
 -include("wxe.hrl").
 -export([create/4,handleReturn/2,isCreated/1,reset/1,setSize/2,show/2,show/3,
@@ -31,11 +26,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxGridCellEditor() :: wx:wx_object().
 -export_type([wxGridCellEditor/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridCellEditor() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcelleditor.html#wxgridcelleditorcreate">external documentation</a>.
 -spec create(This, Parent, Id, EvtHandler) -> 'ok' when
 	This::wxGridCellEditor(), Parent::wxWindow:wxWindow(), Id::integer(), EvtHandler::wxEvtHandler:wxEvtHandler().

@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html">wxCaret</a>.
-%% @type wxCaret().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxCaret).
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getBlinkTime/0,getPosition/1,getSize/1,
@@ -32,11 +27,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxCaret() :: wx:wx_object().
 -export_type([wxCaret/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxCaret() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretwxcaret">external documentation</a>.
 -spec new(Window, Size) -> wxCaret() when
 	Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}.

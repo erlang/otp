@@ -18,15 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloatrenderer.html">wxGridCellFloatRenderer</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxGridCellStringRenderer}
-%% <br />{@link wxGridCellRenderer}
-%% </p>
-%% @type wxGridCellFloatRenderer().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridCellFloatRenderer).
 -include("wxe.hrl").
 -export([destroy/1,getPrecision/1,getWidth/1,new/0,new/1,setParameters/2,setPrecision/2,
@@ -35,13 +26,13 @@
 %% inherited exports
 -export([draw/8,getBestSize/6,parent_class/1]).
 
+-type wxGridCellFloatRenderer() :: wx:wx_object().
 -export_type([wxGridCellFloatRenderer/0]).
 %% @hidden
 parent_class(wxGridCellStringRenderer) -> true;
 parent_class(wxGridCellRenderer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridCellFloatRenderer() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxGridCellFloatRenderer().
 

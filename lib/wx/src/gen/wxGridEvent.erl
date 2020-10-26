@@ -18,20 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html">wxGridEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>grid_cell_left_click</em>, <em>grid_cell_right_click</em>, <em>grid_cell_left_dclick</em>, <em>grid_cell_right_dclick</em>, <em>grid_label_left_click</em>, <em>grid_label_right_click</em>, <em>grid_label_left_dclick</em>, <em>grid_label_right_dclick</em>, <em>grid_row_size</em>, <em>grid_col_size</em>, <em>grid_range_select</em>, <em>grid_cell_changed</em>, <em>grid_select_cell</em>, <em>grid_editor_shown</em>, <em>grid_editor_hidden</em>, <em>grid_editor_created</em>, <em>grid_cell_begin_drag</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxGrid(). #wxGrid{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxNotifyEvent}
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxGridEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridEvent).
 -include("wxe.hrl").
 -export([altDown/1,controlDown/1,getCol/1,getPosition/1,getRow/1,metaDown/1,
@@ -43,14 +29,16 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1,veto/1]).
 
--export_type([wxGridEvent/0]).
+-type wxGridEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxGridEventType() :: 'grid_cell_left_click' | 'grid_cell_right_click' | 'grid_cell_left_dclick' | 'grid_cell_right_dclick' | 'grid_label_left_click' | 'grid_label_right_click' | 'grid_label_left_dclick' | 'grid_label_right_dclick' | 'grid_row_size' | 'grid_col_size' | 'grid_range_select' | 'grid_cell_changed' | 'grid_select_cell' | 'grid_editor_shown' | 'grid_editor_hidden' | 'grid_editor_created' | 'grid_cell_begin_drag'.
+-export_type([wxGridEvent/0, wxGrid/0, wxGridEventType/0]).
 %% @hidden
 parent_class(wxNotifyEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridevent.html#wxgrideventaltdown">external documentation</a>.
 -spec altDown(This) -> boolean() when
 	This::wxGridEvent().

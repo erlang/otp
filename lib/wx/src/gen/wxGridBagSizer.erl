@@ -18,16 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridbagsizer.html">wxGridBagSizer</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxFlexGridSizer}
-%% <br />{@link wxGridSizer}
-%% <br />{@link wxSizer}
-%% </p>
-%% @type wxGridBagSizer().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridBagSizer).
 -include("wxe.hrl").
 -export([add/2,add/3,add/4,add/5,calcMin/1,checkForIntersection/2,checkForIntersection/3,
@@ -50,6 +40,7 @@
   setRows/2,setSizeHints/2,setVGap/2,setVirtualSizeHints/2,show/2,show/3,
   showItems/2]).
 
+-type wxGridBagSizer() :: wx:wx_object().
 -export_type([wxGridBagSizer/0]).
 %% @hidden
 parent_class(wxFlexGridSizer) -> true;
@@ -57,7 +48,6 @@ parent_class(wxGridSizer) -> true;
 parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridBagSizer() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxGridBagSizer().
 

@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsystemoptions.html">wxSystemOptions</a>.
-%% @type wxSystemOptions().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxSystemOptions).
 -include("wxe.hrl").
 -export([getOption/1,getOptionInt/1,hasOption/1,isFalse/1,setOption/2]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxSystemOptions() :: wx:wx_object().
 -export_type([wxSystemOptions/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxSystemOptions() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsystemoptions.html#wxsystemoptionsgetoption">external documentation</a>.
 -spec getOption(Name) -> unicode:charlist() when
 	Name::unicode:chardata().

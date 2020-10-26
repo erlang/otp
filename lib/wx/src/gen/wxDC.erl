@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdc.html">wxDC</a>.
-%% @type wxDC().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxDC).
 -include("wxe.hrl").
 -export([blit/5,blit/6,calcBoundingBox/3,clear/1,crossHair/2,destroyClippingRegion/1,
@@ -49,11 +44,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxDC() :: wx:wx_object().
 -export_type([wxDC/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxDC() :: wx:wx_object().
 %% @equiv blit(This,Dest,Size,Source,Src, [])
 -spec blit(This, Dest, Size, Source, Src) -> boolean() when
 	This::wxDC(), Dest::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Source::wxDC(), Src::{X::integer(), Y::integer()}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauisimpletabart.html">wxAuiSimpleTabArt</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxAuiTabArt}
-%% </p>
-%% @type wxAuiSimpleTabArt().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxAuiSimpleTabArt).
 -include("wxe.hrl").
 -export([destroy/1,new/0]).
@@ -34,12 +26,12 @@
 -export([parent_class/1,setActiveColour/2,setColour/2,setFlags/2,setMeasuringFont/2,
   setNormalFont/2,setSelectedFont/2]).
 
+-type wxAuiSimpleTabArt() :: wx:wx_object().
 -export_type([wxAuiSimpleTabArt/0]).
 %% @hidden
 parent_class(wxAuiTabArt) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxAuiSimpleTabArt() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauisimpletabart.html#wxauisimpletabartwxauisimpletabart">external documentation</a>.
 -spec new() -> wxAuiSimpleTabArt().
 new() ->

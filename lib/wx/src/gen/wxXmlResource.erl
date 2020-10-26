@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxxmlresource.html">wxXmlResource</a>.
-%% @type wxXmlResource().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxXmlResource).
 -include("wxe.hrl").
 -export([ xrcctrl/3 ,attachUnknownControl/3,attachUnknownControl/4,clearHandlers/1,
@@ -35,11 +30,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxXmlResource() :: wx:wx_object().
 -export_type([wxXmlResource/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxXmlResource() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxXmlResource().
 
@@ -331,15 +326,6 @@ unload(#wx_ref{type=ThisT}=This,Filename)
   wxe_util:rec(?wxXmlResource_Unload).
 
 
-%% @doc Looks up a control with Name in a window created with XML
-%% resources. You can use it to set/get values from controls.
-%% The object is type casted to <b>Type</b>.
-%% Example: <br />
-%%  Xrc = wxXmlResource:get(), <br />
-%%  Dlg = wxDialog:new(), <br />
-%%  true = wxXmlResource:loadDialog(Xrc, Dlg, Frame, "controls_dialog"), <br />
-%%  LCtrl = xrcctrl(Dlg, "controls_listctrl", wxListCtrl), <br />
-%%  wxListCtrl:insertColumn(LCtrl, 0, "Name", [{width, 200}]), <br />
 -spec xrcctrl(Window, Name, Type) -> wx:wx_object() when
       Window::wxWindow:wxWindow(),
       Name::string(),

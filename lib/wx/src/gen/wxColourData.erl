@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html">wxColourData</a>.
-%% @type wxColourData().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxColourData).
 -include("wxe.hrl").
 -export([destroy/1,getChooseFull/1,getColour/1,getCustomColour/2,new/0,setChooseFull/2,
@@ -31,11 +26,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxColourData() :: wx:wx_object().
 -export_type([wxColourData/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxColourData() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatawxcolourdata">external documentation</a>.
 -spec new() -> wxColourData().
 new() ->

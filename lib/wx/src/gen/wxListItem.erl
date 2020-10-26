@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html">wxListItem</a>.
-%% @type wxListItem().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxListItem).
 -include("wxe.hrl").
 -export([clear/1,destroy/1,getAlign/1,getBackgroundColour/1,getColumn/1,getFont/1,
@@ -34,11 +29,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxListItem() :: wx:wx_object().
 -export_type([wxListItem/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxListItem() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemwxlistitem">external documentation</a>.
 -spec new() -> wxListItem().
 new() ->

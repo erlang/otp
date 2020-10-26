@@ -1923,7 +1923,7 @@ void wxPrintout_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
       if(!enif_get_int(env, tpl[1], &getPageInfo)) Badarg("getPageInfo");
     } else        Badarg("Options");
   };
-  wxEPrintout * Result = new wxEPrintout(title,
+  EwxPrintout * Result = new EwxPrintout(title,
 					 onPrintPage,
 					 onPreparePrinting,
 					 onBeginPrinting,onEndPrinting,

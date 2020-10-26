@@ -18,19 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html">wxContextMenuEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>context_menu</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxContextMenu(). #wxContextMenu{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxContextMenuEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxContextMenuEvent).
 -include("wxe.hrl").
 -export([getPosition/1,setPosition/2]).
@@ -41,13 +28,15 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxContextMenuEvent/0]).
+-type wxContextMenuEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxContextMenuEventType() :: 'context_menu'.
+-export_type([wxContextMenuEvent/0, wxContextMenu/0, wxContextMenuEventType/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxContextMenuEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html#wxcontextmenueventgetposition">external documentation</a>.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxContextMenuEvent().

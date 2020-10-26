@@ -18,15 +18,10 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html">wxImage</a>.
 %%
 %% All (default) image handlers are initialized.
 
 %%
-%% @type wxImage().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxImage).
 -include("wxe.hrl").
 -export(['Destroy'/1,blur/2,blurHorizontal/2,blurVertical/2,convertAlphaToMask/1,
@@ -49,11 +44,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxImage() :: wx:wx_object().
 -export_type([wxImage/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxImage() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagewximage">external documentation</a>.
 -spec new() -> wxImage().
 new() ->

@@ -411,6 +411,7 @@ JAVADOC-GENERATED
 /lib/wx/wx-*.ez
 /lib/wx/CONF_INFO
 /lib/wx/doc/src/ref_man.xml
+/lib/wx/doc/src/specs.xml
 /lib/wx/priv/wxe_driver.*
 /lib/wx/priv/erl_gl.*
 

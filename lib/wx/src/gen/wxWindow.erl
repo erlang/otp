@@ -18,46 +18,38 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html">wxWindow</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvtHandler}
-%% </p>
-%% @type wxWindow().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxWindow).
 -include("wxe.hrl").
 -export(['Destroy'/1,cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,
   center/2,centerOnParent/1,centerOnParent/2,centre/1,centre/2,centreOnParent/1,
   centreOnParent/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
-  close/1,close/2,convertDialogToPixels/2,convertPixelsToDialog/2,destroy/1,
-  destroyChildren/1,disable/1,dragAcceptFiles/2,enable/1,enable/2,findFocus/0,
-  findWindow/2,findWindowById/1,findWindowById/2,findWindowByLabel/1,
-  findWindowByLabel/2,findWindowByName/1,findWindowByName/2,fit/1,fitInside/1,
-  freeze/1,fromDIP/2,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
-  getBestSize/1,getCapture/0,getCaret/1,getCharHeight/1,getCharWidth/1,
-  getChildren/1,getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,
-  getCursor/1,getDPI/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,
-  getFont/1,getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
-  getId/1,getLabel/1,getMaxSize/1,getMinSize/1,getName/1,getParent/1,
-  getPosition/1,getRect/1,getScreenPosition/1,getScreenRect/1,getScrollPos/2,
-  getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,
-  getTextExtent/3,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,
+  close/1,close/2,convertDialogToPixels/2,convertPixelsToDialog/2,create/3,
+  create/4,destroy/1,destroyChildren/1,disable/1,dragAcceptFiles/2,enable/1,
+  enable/2,findFocus/0,findWindow/2,findWindowById/1,findWindowById/2,
+  findWindowByLabel/1,findWindowByLabel/2,findWindowByName/1,findWindowByName/2,
+  fit/1,fitInside/1,freeze/1,fromDIP/2,getAcceleratorTable/1,getBackgroundColour/1,
+  getBackgroundStyle/1,getBestSize/1,getCapture/0,getCaret/1,getCharHeight/1,
+  getCharWidth/1,getChildren/1,getClientSize/1,getContainingSizer/1,
+  getContentScaleFactor/1,getCursor/1,getDPI/1,getDPIScaleFactor/1,
+  getDropTarget/1,getExtraStyle/1,getFont/1,getForegroundColour/1,getGrandParent/1,
+  getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,getMinSize/1,
+  getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
+  getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
+  getSize/1,getSizer/1,getTextExtent/2,getTextExtent/3,getThemeEnabled/1,
+  getToolTip/1,getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,
   getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
   hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
-  isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,
-  isShownOnScreen/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,
-  move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
-  navigate/1,navigate/2,new/0,new/2,new/3,pageDown/1,pageUp/1,popEventHandler/1,
-  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
-  refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
-  reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,
-  scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,
-  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
-  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
-  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
-  setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
+  isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isFrozen/1,isRetained/1,
+  isShown/1,isShownOnScreen/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,
+  lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
+  navigate/1,navigate/2,new/0,new/2,new/3,pageDown/1,pageUp/1,popupMenu/2,
+  popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
+  setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
+  setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
+  setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
+  setFont/2,setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
   setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,setOwnForegroundColour/2,
   setPalette/2,setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,
   setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
@@ -71,12 +63,12 @@
 %% inherited exports
 -export([connect/2,connect/3,disconnect/1,disconnect/2,disconnect/3,parent_class/1]).
 
+-type wxWindow() :: wx:wx_object().
 -export_type([wxWindow/0]).
 %% @hidden
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxWindow() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowwxwindow">external documentation</a>.
 -spec new() -> wxWindow().
 new() ->
@@ -108,6 +100,32 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:queue_cmd(Parent,Id, Opts,?get_env(),?wxWindow_new_3),
   wxe_util:rec(?wxWindow_new_3).
 
+%% @equiv create(This,Parent,Id, [])
+-spec create(This, Parent, Id) -> boolean() when
+	This::wxWindow(), Parent::wxWindow(), Id::integer().
+
+create(This,Parent,Id)
+ when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
+  create(This,Parent,Id, []).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcreate">external documentation</a>.
+-spec create(This, Parent, Id, [Option]) -> boolean() when
+	This::wxWindow(), Parent::wxWindow(), Id::integer(),
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
+create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
+ when is_integer(Id),is_list(Options) ->
+  ?CLASS(ThisT,wxWindow),
+  ?CLASS(ParentT,wxWindow),
+  MOpts = fun({pos, {_posX,_posY}} = Arg) -> Arg;
+          ({size, {_sizeW,_sizeH}} = Arg) -> Arg;
+          ({style, _style} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This,Parent,Id, Opts,?get_env(),?wxWindow_Create),
+  wxe_util:rec(?wxWindow_Create).
+
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcachebestsize">external documentation</a>.
 -spec cacheBestSize(This, Size) -> 'ok' when
 	This::wxWindow(), Size::{W::integer(), H::integer()}.
@@ -123,14 +141,6 @@ captureMouse(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_CaptureMouse).
 
-%% @equiv centre(This, [])
--spec centre(This) -> 'ok' when
-	This::wxWindow().
-
-centre(This)
- when is_record(This, wx_ref) ->
-  centre(This, []).
-
 %% @equiv center(This, [])
 -spec center(This) -> 'ok' when
 	This::wxWindow().
@@ -139,34 +149,34 @@ center(This)
  when is_record(This, wx_ref) ->
   center(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcenter">external documentation</a>.
--spec centre(This, [Option]) -> 'ok' when
-	This::wxWindow(),
-	Option :: {'dir', integer()}.
+%% @equiv centre(This, [])
+-spec centre(This) -> 'ok' when
+	This::wxWindow().
 
-centre(This, Options)
- when is_record(This, wx_ref),is_list(Options) ->
-  center(This, Options).
+centre(This)
+ when is_record(This, wx_ref) ->
+  centre(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcenter">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcentre">external documentation</a>.
 -spec center(This, [Option]) -> 'ok' when
 	This::wxWindow(),
 	Option :: {'dir', integer()}.
-center(#wx_ref{type=ThisT}=This, Options)
+
+center(This, Options)
+ when is_record(This, wx_ref),is_list(Options) ->
+  centre(This, Options).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcentre">external documentation</a>.
+-spec centre(This, [Option]) -> 'ok' when
+	This::wxWindow(),
+	Option :: {'dir', integer()}.
+centre(#wx_ref{type=ThisT}=This, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxWindow),
   MOpts = fun({dir, _dir} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
   Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This, Opts,?get_env(),?wxWindow_Center).
-
-%% @equiv centreOnParent(This, [])
--spec centreOnParent(This) -> 'ok' when
-	This::wxWindow().
-
-centreOnParent(This)
- when is_record(This, wx_ref) ->
-  centreOnParent(This, []).
+  wxe_util:queue_cmd(This, Opts,?get_env(),?wxWindow_Centre).
 
 %% @equiv centerOnParent(This, [])
 -spec centerOnParent(This) -> 'ok' when
@@ -176,26 +186,34 @@ centerOnParent(This)
  when is_record(This, wx_ref) ->
   centerOnParent(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcenteronparent">external documentation</a>.
--spec centreOnParent(This, [Option]) -> 'ok' when
-	This::wxWindow(),
-	Option :: {'dir', integer()}.
+%% @equiv centreOnParent(This, [])
+-spec centreOnParent(This) -> 'ok' when
+	This::wxWindow().
 
-centreOnParent(This, Options)
- when is_record(This, wx_ref),is_list(Options) ->
-  centerOnParent(This, Options).
+centreOnParent(This)
+ when is_record(This, wx_ref) ->
+  centreOnParent(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcenteronparent">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcentreonparent">external documentation</a>.
 -spec centerOnParent(This, [Option]) -> 'ok' when
 	This::wxWindow(),
 	Option :: {'dir', integer()}.
-centerOnParent(#wx_ref{type=ThisT}=This, Options)
+
+centerOnParent(This, Options)
+ when is_record(This, wx_ref),is_list(Options) ->
+  centreOnParent(This, Options).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcentreonparent">external documentation</a>.
+-spec centreOnParent(This, [Option]) -> 'ok' when
+	This::wxWindow(),
+	Option :: {'dir', integer()}.
+centreOnParent(#wx_ref{type=ThisT}=This, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxWindow),
   MOpts = fun({dir, _dir} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
   Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This, Opts,?get_env(),?wxWindow_CenterOnParent).
+  wxe_util:queue_cmd(This, Opts,?get_env(),?wxWindow_CentreOnParent).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowclearbackground">external documentation</a>.
 -spec clearBackground(This) -> 'ok' when
@@ -527,13 +545,13 @@ getDropTarget(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetDropTarget),
   wxe_util:rec(?wxWindow_GetDropTarget).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgeteventhandler">external documentation</a>.
--spec getEventHandler(This) -> wxEvtHandler:wxEvtHandler() when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgetdpiscalefactor">external documentation</a>.
+-spec getDPIScaleFactor(This) -> number() when
 	This::wxWindow().
-getEventHandler(#wx_ref{type=ThisT}=This) ->
+getDPIScaleFactor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
-  wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetEventHandler),
-  wxe_util:rec(?wxWindow_GetEventHandler).
+  wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetDPIScaleFactor),
+  wxe_util:rec(?wxWindow_GetDPIScaleFactor).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgetextrastyle">external documentation</a>.
 -spec getExtraStyle(This) -> integer() when
@@ -730,6 +748,14 @@ getTextExtent(#wx_ref{type=ThisT}=This,String, Options)
   wxe_util:queue_cmd(This,String_UC, Opts,?get_env(),?wxWindow_GetTextExtent),
   wxe_util:rec(?wxWindow_GetTextExtent).
 
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgetthemeenabled">external documentation</a>.
+-spec getThemeEnabled(This) -> boolean() when
+	This::wxWindow().
+getThemeEnabled(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetThemeEnabled),
+  wxe_util:rec(?wxWindow_GetThemeEnabled).
+
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgettooltip">external documentation</a>.
 -spec getToolTip(This) -> wxToolTip:wxToolTip() when
 	This::wxWindow().
@@ -824,6 +850,14 @@ initDialog(#wx_ref{type=ThisT}=This) ->
 invalidateBestSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_InvalidateBestSize).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowisfrozen">external documentation</a>.
+-spec isFrozen(This) -> boolean() when
+	This::wxWindow().
+isFrozen(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:queue_cmd(This,?get_env(),?wxWindow_IsFrozen),
+  wxe_util:rec(?wxWindow_IsFrozen).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowisenabled">external documentation</a>.
 -spec isEnabled(This) -> boolean() when
@@ -1029,27 +1063,6 @@ pageUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_PageUp),
   wxe_util:rec(?wxWindow_PageUp).
-
-%% @equiv popEventHandler(This, [])
--spec popEventHandler(This) -> wxEvtHandler:wxEvtHandler() when
-	This::wxWindow().
-
-popEventHandler(This)
- when is_record(This, wx_ref) ->
-  popEventHandler(This, []).
-
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowpopeventhandler">external documentation</a>.
--spec popEventHandler(This, [Option]) -> wxEvtHandler:wxEvtHandler() when
-	This::wxWindow(),
-	Option :: {'deleteHandler', boolean()}.
-popEventHandler(#wx_ref{type=ThisT}=This, Options)
- when is_list(Options) ->
-  ?CLASS(ThisT,wxWindow),
-  MOpts = fun({deleteHandler, _deleteHandler} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This, Opts,?get_env(),?wxWindow_PopEventHandler),
-  wxe_util:rec(?wxWindow_PopEventHandler).
 
 %% @equiv popupMenu(This,Menu, [])
 -spec popupMenu(This, Menu) -> boolean() when

@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfont.html">wxFont</a>.
-%% @type wxFont().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxFont).
 -include("wxe.hrl").
 -export([destroy/1,getDefaultEncoding/0,getFaceName/1,getFamily/1,getNativeFontInfoDesc/1,
@@ -34,11 +29,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxFont() :: wx:wx_object().
 -export_type([wxFont/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxFont() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfont.html#wxfontwxfont">external documentation</a>.
 -spec new() -> wxFont().
 new() ->

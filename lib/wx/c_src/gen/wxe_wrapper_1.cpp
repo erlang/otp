@@ -184,6 +184,57 @@ void wxWindow_new_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 
 }
 
+// wxWindow::Create
+void wxWindow_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxPoint pos= wxDefaultPosition;
+  wxSize size= wxDefaultSize;
+  long style=0;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWindow *This;
+  This = (wxWindow *) memenv->getPtr(env, argv[0], "This");
+  wxWindow *parent;
+  parent = (wxWindow *) memenv->getPtr(env, argv[1], "parent");
+  int id;
+  if(!enif_get_int(env, argv[2], &id)) Badarg("id"); // wxWindowID
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[3];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "pos"))) {
+  const ERL_NIF_TERM *pos_t;
+  int pos_sz;
+  if(!enif_get_tuple(env, tpl[1], &pos_sz, &pos_t)) Badarg("pos");
+  int posX;
+  if(!enif_get_int(env, pos_t[0], &posX)) Badarg("pos");
+  int posY;
+  if(!enif_get_int(env, pos_t[1], &posY)) Badarg("pos");
+  pos = wxPoint(posX,posY);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "size"))) {
+  const ERL_NIF_TERM *size_t;
+  int size_sz;
+  if(!enif_get_tuple(env, tpl[1], &size_sz, &size_t)) Badarg("size");
+  int sizeW;
+  if(!enif_get_int(env, size_t[0], &sizeW)) Badarg("size");
+  int sizeH;
+  if(!enif_get_int(env, size_t[1], &sizeH)) Badarg("size");
+  size = wxSize(sizeW,sizeH);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "style"))) {
+  if(!enif_get_long(env, tpl[1], &style)) Badarg("style");
+    } else        Badarg("Options");
+  };
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->Create(parent,id,pos,size,style);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
 // wxWindow::CacheBestSize
 void wxWindow_CacheBestSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
@@ -216,8 +267,8 @@ void wxWindow_CaptureMouse(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 
 }
 
-// wxWindow::Center
-void wxWindow_Center(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+// wxWindow::Centre
+void wxWindow_Centre(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   int dir=wxBOTH;
   ErlNifEnv *env = Ecmd.env;
@@ -237,12 +288,12 @@ void wxWindow_Center(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
     } else        Badarg("Options");
   };
   if(!This) throw wxe_badarg("This");
-  This->Center(dir);
+  This->Centre(dir);
 
 }
 
-// wxWindow::CenterOnParent
-void wxWindow_CenterOnParent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+// wxWindow::CentreOnParent
+void wxWindow_CentreOnParent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   int dir=wxBOTH;
   ErlNifEnv *env = Ecmd.env;
@@ -262,7 +313,7 @@ void wxWindow_CenterOnParent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
     } else        Badarg("Options");
   };
   if(!This) throw wxe_badarg("This");
-  This->CenterOnParent(dir);
+  This->CentreOnParent(dir);
 
 }
 
@@ -813,20 +864,22 @@ void wxWindow_GetDropTarget(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 
 }
 
-// wxWindow::GetEventHandler
-void wxWindow_GetEventHandler(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+#if wxCHECK_VERSION(3,1,4)
+// wxWindow::GetDPIScaleFactor
+void wxWindow_GetDPIScaleFactor(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxWindow *This;
   This = (wxWindow *) memenv->getPtr(env, argv[0], "This");
   if(!This) throw wxe_badarg("This");
-  wxEvtHandler * Result = (wxEvtHandler*)This->GetEventHandler();
+  double Result = This->GetDPIScaleFactor();
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
-  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxEvtHandler"));
+  rt.send(  rt.make_double(Result));
 
 }
 
+#endif
 // wxWindow::GetExtraStyle
 void wxWindow_GetExtraStyle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
@@ -1167,6 +1220,20 @@ void wxWindow_GetTextExtent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 
 }
 
+// wxWindow::GetThemeEnabled
+void wxWindow_GetThemeEnabled(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWindow *This;
+  This = (wxWindow *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->GetThemeEnabled();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
 // wxWindow::GetToolTip
 void wxWindow_GetToolTip(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
@@ -1328,6 +1395,20 @@ void wxWindow_InvalidateBestSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   This = (wxWindow *) memenv->getPtr(env, argv[0], "This");
   if(!This) throw wxe_badarg("This");
   This->InvalidateBestSize();
+
+}
+
+// wxWindow::IsFrozen
+void wxWindow_IsFrozen(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWindow *This;
+  This = (wxWindow *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->IsFrozen();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
 
 }
 
@@ -1685,33 +1766,6 @@ void wxWindow_PageUp(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   bool Result = This->PageUp();
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
-
-}
-
-// wxWindow::PopEventHandler
-void wxWindow_PopEventHandler(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
-{
-  bool deleteHandler=false;
-  ErlNifEnv *env = Ecmd.env;
-  ERL_NIF_TERM * argv = Ecmd.args;
-  wxWindow *This;
-  This = (wxWindow *) memenv->getPtr(env, argv[0], "This");
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[1];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "deleteHandler"))) {
-  deleteHandler = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
-  if(!This) throw wxe_badarg("This");
-  wxEvtHandler * Result = (wxEvtHandler*)This->PopEventHandler(deleteHandler);
-  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
-  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxEvtHandler"));
 
 }
 
@@ -3495,8 +3549,8 @@ void wxTopLevelWindow_SetIcons(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 
 }
 
-// wxTopLevelWindow::CenterOnScreen
-void wxTopLevelWindow_CenterOnScreen(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+// wxTopLevelWindow::CentreOnScreen
+void wxTopLevelWindow_CentreOnScreen(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   int dir=wxBOTH;
   ErlNifEnv *env = Ecmd.env;
@@ -3516,7 +3570,7 @@ void wxTopLevelWindow_CenterOnScreen(WxeApp *app, wxeMemEnv *memenv, wxeCommand&
     } else        Badarg("Options");
   };
   if(!This) throw wxe_badarg("This");
-  This->CenterOnScreen(dir);
+  This->CentreOnScreen(dir);
 
 }
 

@@ -62,11 +62,14 @@ gen_code() ->
     erase(func_id),
     put(class_id, 10), %% Start from 10 using the other as special
     Defs1 = init_defs(Defs0),
-    Defs2 = parse_defs(Defs1, []),
+    Tab   = ets:new(defs, [bag, named_table]),   %% Also used to lookup functions in wx_gen_doc.
+    Docs  = ets:new(docs, [bag, named_table]),   %% Used to lookup docs in wx_gen_doc.
+    Defs2 = parse_defs(Defs1, Tab, []),
     parse_enums([File || {{include, File},_} <- get()]),
     Defs = translate_enums(Defs2),
     wx_gen_erl:gen(Defs),
     wx_gen_nif:gen(Defs),
+    wx_gen_doc:gen(Defs),
     ok.
 
 -record(hs,{alias,skip,fs,fopt,ev,acc,info}).
@@ -148,13 +151,12 @@ strip_id(ClassId) ->
     [ID|RevClass] = lists:reverse(string:lexemes(ClassId, "_")),
     {lists:flatten(lists:join($_, lists:reverse(RevClass))), ID}.
 
-parse_defs([{class,Name,Parent,Info}|Rest], Acc0) ->
+parse_defs([{class,Name,Parent,Info}|Rest], Tab, Acc0) ->
     {FileName, Type} = case Parent of
                            "static" -> {Name ++ "_8h", static};
                            _ ->        {class_filename(Name, Info), class}
                        end,
-    Tab   = ets:new(defs, [bag]),
-    Defs0 = load_members(FileName, Name, gb_trees:empty(), Tab, Type, Info),
+    Defs0 = load_members(FileName, name(Name,Info), gb_trees:empty(), Tab, Type, Info),
 
     put(current_class, Name),
     Class0 = #class{name=name(Name,Info), parent=Parent,
@@ -176,10 +178,10 @@ parse_defs([{class,Name,Parent,Info}|Rest], Acc0) ->
     erase(current_class),
     [erase(Del) ||  {Del = {loaded, _},_} <- get()],
     %% ets:delete(Tab),  keep it for debugging
-    parse_defs(Rest, [Class|Acc0]);
-parse_defs([_|Rest], Acc) ->
-    parse_defs(Rest, Acc);
-parse_defs([], Acc) -> reverse(Acc). 
+    parse_defs(Rest, Tab, [Class|Acc0]);
+parse_defs([_|Rest], Tab, Acc) ->
+    parse_defs(Rest, Tab, Acc);
+parse_defs([], _, Acc) -> reverse(Acc). 
 
 meta_info(C=#class{name=CName,methods=Ms0}) ->
     Ms = lists:append(Ms0),
@@ -200,7 +202,7 @@ parse_class(Member0,Tab,Defs0,Class = #class{name=CName},Opts) ->
 			  {_, _} ->  Member0;
 			  _ -> 	     {Member0,all}
 		      end,
-    case ets:lookup(Tab, Member) of
+    case ets:lookup(Tab, {CName,Member}) of
 	[] ->
 	    case Member of
 		[$~|_] -> ignore;
@@ -313,10 +315,19 @@ load_members(FileName, Class, Defs, Tab, Type, Opts) ->
 	    case Type of
 		class ->
 		    AM = xmerl_xpath:string("./compounddef/listofallmembers/*", Doc),
-		    foldl(fun(X,Y) -> extract_rmembers(X,Y,Opts) end, Tab, AM);
+		    foldl(fun(X,Y) -> extract_rmembers(X,Y,Class,Opts) end, Tab, AM);
 		_ ->
 		    ignore
 	    end,
+            case Type of
+                skip -> skip;  %% Imports from baseclass
+                _ ->
+                    BriefDoc = xmerl_xpath:string("./compounddef/briefdescription/*", Doc),
+                    DetailedDoc = xmerl_xpath:string("./compounddef/detaileddescription/*", Doc),
+                    D = add_doc(detailed, drop_empty(DetailedDoc),
+                                add_doc(brief, drop_empty(BriefDoc), undefined)),
+                    true = ets:insert(docs, {Class, D})
+            end,
 	    LMembers0 = xmerl_xpath:string("./compounddef/sectiondef/*", Doc),
 	    foldl(fun(E,Acc) -> extract_lmembers(E,Class,Type,Tab,Opts,Acc) end, Defs, LMembers0)
     end.
@@ -336,8 +347,9 @@ extract_lmembers(Entry=#xmlElement{name=memberdef,attributes=Attrs,content=C},Cl
 					  NAcc
 				  end,
 			    case foldl(Get, [], C) of
-				[Name] -> 
-				    true = ets:insert(Tab,{Name,Id});
+				[Name] ->
+                                    true = ets:insert(Tab,{Id, {Class,Name}}),
+				    true = ets:insert(Tab,{{Class,Name},Id});
 				[] -> 
 				    ignore
 			    end;
@@ -363,14 +375,13 @@ extract_lmembers(Entry=#xmlElement{name=memberdef,attributes=Attrs,content=C},Cl
 
     end;
 extract_lmembers(#xmlElement{name=Name},_Class,_Type,_Tab,_Opts,Acc)
-  when Name == header; Name == description ->
+  when Name == header; Name =:= description ->
     Acc;
-extract_lmembers(#xmlElement{name=Name},_Class,_Type,_Tab,_Opts,_Acc) ->
+extract_lmembers(#xmlElement{name=Name, content=_C},_Class,_Type,_Tab,_Opts,_Acc) ->
     io:format("Unhandled xml def ~p~n",[Name]),
     exit({unhandled_xml_tag, Name}).
 
-
-extract_rmembers(#xmlElement{name=member,attributes=Attrs,content=C},Tab, Opts) ->
+extract_rmembers(#xmlElement{name=member,attributes=Attrs,content=C},Tab,Class,Opts) ->
     {value,#xmlAttribute{value=Id}} = keysearch(refid, #xmlAttribute.name, Attrs),
     Get = fun(#xmlElement{name=name,content=[#xmlText{value=Name}]},Acc) ->
 		  [name(string:strip(Name),Opts)|Acc];
@@ -379,7 +390,8 @@ extract_rmembers(#xmlElement{name=member,attributes=Attrs,content=C},Tab, Opts) 
 	  end,
     case foldl(Get, [], C) of
 	[Name] ->
-	    true = ets:insert(Tab,{Name,Id});
+            true = ets:insert(Tab,{Id, {Class,Name}}),
+	    true = ets:insert(Tab,{{Class,Name},Id});
 	[] ->
 	    ignore
     end,
@@ -455,7 +467,7 @@ parse_member(Data,MType,Virtual,Opts = #hs{fopt=Fopts}) ->
 	     end, PS2),
     Alias = find_erl_alias_name(MName,PS,Fopts),
     FOpts = find_func_options(MName, PS2, Fopts),
-    %% ?DBGCF("wxDisplay", "wxDisplay", "~p ~p~n", [gb_trees:to_list(Fopts), FOpts]),
+    %% ?DBGCF("wxTopLevelWindow", "ShowFullScreen", "~p~n", [Method#method.doc]),
     Method#method{params=PS, alias=Alias, opts=FOpts}.
 
 
@@ -514,12 +526,25 @@ parse_member2(#xmlElement{name=name, content=[#xmlText{value=C}]}, Opts, M0) ->
     Func = string:strip(C),
     put(current_func, Func),
     M0#method{name=name(Func,Opts)};
-parse_member2(#xmlElement{name=param, content=C},Opts,M0) -> 
+parse_member2(#xmlElement{name=param, content=C},Opts,M0) ->
     Parse = fun(Con, Ac) -> parse_param(Con, Opts, Ac) end,
     Param0 = foldl(Parse, #param{}, drop_empty(C)),
     add_param(Param0, Opts, M0);
+parse_member2(#xmlElement{name=briefdescription, content=C},_Opts,#method{doc=Doc}=M0) ->
+    M0#method{doc=add_doc(brief, drop_empty(C), Doc)};
+parse_member2(#xmlElement{name=detaileddescription, content=C},_Opts,#method{doc=Doc}=M0) ->
+    M0#method{doc=add_doc(detailed, drop_empty(C), Doc)};
+parse_member2(#xmlElement{name=inbodydescription, content=C},_Opts,#method{doc=Doc}=M0) ->
+    M0#method{doc=add_doc(inbody, drop_empty(C), Doc)};
 parse_member2(_, _,M0) ->
     M0.
+
+add_doc(_Key, [], Doc) ->
+    Doc;
+add_doc(Key, C, undefined) ->
+    #{Key => C};
+add_doc(Key, C, Doc) when is_map(Doc) ->
+    Doc#{Key => C}.
 
 add_param(InParam, Opts, M0) ->
     Param0 = case {InParam#param.name, InParam#param.type} of
@@ -971,6 +996,7 @@ add_method2(M0=#method{name=Name,params=Ps0,type=T0},#class{name=CName,parent=Pa
 		Other -> 
 		    Other
 	    end,
+    Doc = M0#method.doc,
     M1 = M0#method{defined_in=CName,
 		   min_arity = length(Req),
 		   max_arity = length(Req) + case Opt of
@@ -983,8 +1009,10 @@ add_method2(M0=#method{name=Name,params=Ps0,type=T0},#class{name=CName,parent=Pa
 		   id = next_id(func_id),
 		   pre_hook  = get_opt(pre_hook, Name, length(Ps), Opts),
 		   post_hook = get_opt(post_hook, Name, length(Ps), Opts),
-		   doc = get_opt(doc, Name, length(Ps), Opts)
+                   %% Resets the doc, avoid large data, problematic to debug
+                   doc = get_opt(doc, Name, length(Ps), Opts)
 		  },
+    ets:insert(docs, {M1#method.id, Doc}),
     M = case non_template_name(Name, Class) of
 	    CName ->
 		M1#method{method_type=constructor,name=CName,
@@ -994,7 +1022,7 @@ add_method2(M0=#method{name=Name,params=Ps0,type=T0},#class{name=CName,parent=Pa
 			  params=[this(CName)|Ps]};
 	    _ ->
 		case M1#method.method_type of
-		    static -> M1#method{params=Ps}; 
+		    static -> M1#method{params=Ps};
 		    member -> M1#method{params=[this(CName)|Ps]}
 		end
 	end,

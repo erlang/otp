@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html">wxAuiManager</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvtHandler}
-%% </p>
-%% @type wxAuiManager().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxAuiManager).
 -include("wxe.hrl").
 -export([addPane/2,addPane/3,addPane/4,destroy/1,detachPane/2,getAllPanes/1,
@@ -38,12 +30,12 @@
 %% inherited exports
 -export([connect/2,connect/3,disconnect/1,disconnect/2,disconnect/3,parent_class/1]).
 
+-type wxAuiManager() :: wx:wx_object().
 -export_type([wxAuiManager/0]).
 %% @hidden
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxAuiManager() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxAuiManager().
 

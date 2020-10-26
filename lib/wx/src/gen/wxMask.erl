@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmask.html">wxMask</a>.
-%% @type wxMask().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxMask).
 -include("wxe.hrl").
 -export([create/2,create/3,destroy/1,new/0,new/1,new/2]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxMask() :: wx:wx_object().
 -export_type([wxMask/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxMask() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmask.html#wxmaskwxmask">external documentation</a>.
 -spec new() -> wxMask().
 new() ->

@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpasswordentrydialog.html">wxPasswordEntryDialog</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxTextEntryDialog}
-%% <br />{@link wxDialog}
-%% <br />{@link wxTopLevelWindow}
-%% <br />{@link wxWindow}
-%% <br />{@link wxEvtHandler}
-%% </p>
-%% @type wxPasswordEntryDialog().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxPasswordEntryDialog).
 -include("wxe.hrl").
 -export([destroy/1,new/2,new/3]).
@@ -46,21 +34,21 @@
   getAcceleratorTable/1,getAffirmativeId/1,getBackgroundColour/1,getBackgroundStyle/1,
   getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
   getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,getCursor/1,
-  getDPI/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,
+  getDPI/1,getDPIScaleFactor/1,getDropTarget/1,getExtraStyle/1,getFont/1,
   getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
   getIcon/1,getIcons/1,getId/1,getLabel/1,getMaxSize/1,getMinSize/1,getName/1,
   getParent/1,getPosition/1,getRect/1,getReturnCode/1,getScreenPosition/1,
   getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
-  getSize/1,getSizer/1,getTextExtent/2,getTextExtent/3,getTitle/1,getToolTip/1,
-  getUpdateRegion/1,getValue/1,getVirtualSize/1,getWindowStyleFlag/1,
-  getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
-  hide/1,iconize/1,iconize/2,inheritAttributes/1,initDialog/1,invalidateBestSize/1,
-  isActive/1,isDoubleBuffered/1,isEnabled/1,isExposed/2,isExposed/3,
-  isExposed/5,isFullScreen/1,isIconized/1,isMaximized/1,isModal/1,isRetained/1,
-  isShown/1,isShownOnScreen/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,
-  lower/1,maximize/1,maximize/2,move/2,move/3,move/4,moveAfterInTabOrder/2,
-  moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
-  popEventHandler/1,popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,
+  getSize/1,getSizer/1,getTextExtent/2,getTextExtent/3,getThemeEnabled/1,
+  getTitle/1,getToolTip/1,getUpdateRegion/1,getValue/1,getVirtualSize/1,
+  getWindowStyleFlag/1,getWindowVariant/1,hasCapture/1,hasScrollbar/2,
+  hasTransparentBackground/1,hide/1,iconize/1,iconize/2,inheritAttributes/1,
+  initDialog/1,invalidateBestSize/1,isActive/1,isDoubleBuffered/1,isEnabled/1,
+  isExposed/2,isExposed/3,isExposed/5,isFrozen/1,isFullScreen/1,isIconized/1,
+  isMaximized/1,isModal/1,isRetained/1,isShown/1,isShownOnScreen/1,isTopLevel/1,
+  layout/1,lineDown/1,lineUp/1,lower/1,maximize/1,maximize/2,move/2,move/3,
+  move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,navigate/2,
+  pageDown/1,pageUp/1,parent_class/1,popupMenu/2,popupMenu/3,popupMenu/4,
   raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
   removeChild/2,reparent/2,requestUserAttention/1,requestUserAttention/2,
   screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,
@@ -80,6 +68,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-type wxPasswordEntryDialog() :: wx:wx_object().
 -export_type([wxPasswordEntryDialog/0]).
 %% @hidden
 parent_class(wxTextEntryDialog) -> true;
@@ -89,7 +78,6 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxPasswordEntryDialog() :: wx:wx_object().
 %% @equiv new(Parent,Message, [])
 -spec new(Parent, Message) -> wxPasswordEntryDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
@@ -162,13 +150,13 @@ setTitle(This,Title) -> wxTopLevelWindow:setTitle(This,Title).
 %% @hidden
 setShape(This,Region) -> wxTopLevelWindow:setShape(This,Region).
 %% @hidden
-centerOnScreen(This, Options) -> wxTopLevelWindow:centerOnScreen(This, Options).
-%% @hidden
 centreOnScreen(This, Options) -> wxTopLevelWindow:centreOnScreen(This, Options).
 %% @hidden
-centerOnScreen(This) -> wxTopLevelWindow:centerOnScreen(This).
+centerOnScreen(This, Options) -> wxTopLevelWindow:centerOnScreen(This, Options).
 %% @hidden
 centreOnScreen(This) -> wxTopLevelWindow:centreOnScreen(This).
+%% @hidden
+centerOnScreen(This) -> wxTopLevelWindow:centerOnScreen(This).
 %% @hidden
 setIcons(This,Icons) -> wxTopLevelWindow:setIcons(This,Icons).
 %% @hidden
@@ -359,10 +347,6 @@ popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
 %% @hidden
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
 %% @hidden
-popEventHandler(This, Options) -> wxWindow:popEventHandler(This, Options).
-%% @hidden
-popEventHandler(This) -> wxWindow:popEventHandler(This).
-%% @hidden
 pageUp(This) -> wxWindow:pageUp(This).
 %% @hidden
 pageDown(This) -> wxWindow:pageDown(This).
@@ -405,6 +389,8 @@ isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
 %% @hidden
 isEnabled(This) -> wxWindow:isEnabled(This).
 %% @hidden
+isFrozen(This) -> wxWindow:isFrozen(This).
+%% @hidden
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
 %% @hidden
 initDialog(This) -> wxWindow:initDialog(This).
@@ -428,6 +414,8 @@ getVirtualSize(This) -> wxWindow:getVirtualSize(This).
 getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
 %% @hidden
 getToolTip(This) -> wxWindow:getToolTip(This).
+%% @hidden
+getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
 %% @hidden
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
 %% @hidden
@@ -475,7 +463,7 @@ getFont(This) -> wxWindow:getFont(This).
 %% @hidden
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
 %% @hidden
-getEventHandler(This) -> wxWindow:getEventHandler(This).
+getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
 %% @hidden
 getDropTarget(This) -> wxWindow:getDropTarget(This).
 %% @hidden
@@ -533,21 +521,21 @@ clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
 %% @hidden
 clearBackground(This) -> wxWindow:clearBackground(This).
 %% @hidden
-centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
-%% @hidden
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
 %% @hidden
-centerOnParent(This) -> wxWindow:centerOnParent(This).
+centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
 %% @hidden
 centreOnParent(This) -> wxWindow:centreOnParent(This).
 %% @hidden
-center(This, Options) -> wxWindow:center(This, Options).
+centerOnParent(This) -> wxWindow:centerOnParent(This).
 %% @hidden
 centre(This, Options) -> wxWindow:centre(This, Options).
 %% @hidden
-center(This) -> wxWindow:center(This).
+center(This, Options) -> wxWindow:center(This, Options).
 %% @hidden
 centre(This) -> wxWindow:centre(This).
+%% @hidden
+center(This) -> wxWindow:center(This).
 %% @hidden
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden

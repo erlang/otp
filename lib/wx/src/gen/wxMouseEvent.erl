@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html">wxMouseEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>left_down</em>, <em>left_up</em>, <em>middle_down</em>, <em>middle_up</em>, <em>right_down</em>, <em>right_up</em>, <em>motion</em>, <em>enter_window</em>, <em>leave_window</em>, <em>left_dclick</em>, <em>middle_dclick</em>, <em>right_dclick</em>, <em>mousewheel</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxMouse(). #wxMouse{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxMouseEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxMouseEvent).
 -include("wxe.hrl").
 -export([altDown/1,button/2,buttonDClick/1,buttonDClick/2,buttonDown/1,buttonDown/2,
@@ -44,12 +32,14 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxMouseEvent/0]).
+-type wxMouseEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxMouseEventType() :: 'left_down' | 'left_up' | 'middle_down' | 'middle_up' | 'right_down' | 'right_up' | 'motion' | 'enter_window' | 'leave_window' | 'left_dclick' | 'middle_dclick' | 'right_dclick' | 'mousewheel' | 'aux1_down' | 'aux1_up' | 'aux1_dclick' | 'aux2_down' | 'aux2_up' | 'aux2_dclick'.
+-export_type([wxMouseEvent/0, wxMouse/0, wxMouseEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxMouseEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventaltdown">external documentation</a>.
 -spec altDown(This) -> boolean() when
 	This::wxMouseEvent().

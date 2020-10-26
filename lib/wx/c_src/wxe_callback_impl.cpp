@@ -74,7 +74,7 @@ void wxeEvtListener::forward(wxEvent& event)
 /* *****************************************************************/
 /* Printing special */
 
-wxEPrintout::~wxEPrintout() {
+EwxPrintout::~EwxPrintout() {
   clear_cb(me_ref, onPrintPage);
   clear_cb(me_ref, onPreparePrinting);
   clear_cb(me_ref, onBeginPrinting);
@@ -87,7 +87,7 @@ wxEPrintout::~wxEPrintout() {
   ((WxeApp *)wxTheApp)->clearPtr(this);
 }
 
-bool wxEPrintout::OnBeginDocument(int startPage, int endPage)
+bool EwxPrintout::OnBeginDocument(int startPage, int endPage)
 {
   wxeMemEnv *memenv = (wxeMemEnv *) me_ref->memenv;
   if(onBeginDocument && memenv) {
@@ -107,7 +107,7 @@ bool wxEPrintout::OnBeginDocument(int startPage, int endPage)
   return wxPrintout::OnBeginDocument(startPage,endPage);
 }
 
-void wxEPrintout::OnEndDocument()
+void EwxPrintout::OnEndDocument()
 {
   wxeMemEnv *memenv = (wxeMemEnv *) me_ref->memenv;
   if(onEndDocument && memenv) {
@@ -120,7 +120,7 @@ void wxEPrintout::OnEndDocument()
   }
 }
 
-void wxEPrintout::OnBeginPrinting()
+void EwxPrintout::OnBeginPrinting()
 {
   wxeMemEnv *memenv = (wxeMemEnv *) me_ref->memenv;
   if(onBeginPrinting && memenv) {
@@ -132,7 +132,7 @@ void wxEPrintout::OnBeginPrinting()
   }
 }
 
-void wxEPrintout::OnEndPrinting()
+void EwxPrintout::OnEndPrinting()
 {
   wxeMemEnv *memenv = (wxeMemEnv *) me_ref->memenv;
   if(onEndPrinting && memenv) {
@@ -144,7 +144,7 @@ void wxEPrintout::OnEndPrinting()
   }
 }
 
-void wxEPrintout::OnPreparePrinting()
+void EwxPrintout::OnPreparePrinting()
 {
   wxeMemEnv *memenv = (wxeMemEnv *) me_ref->memenv;
   if(onPreparePrinting && memenv) {
@@ -156,7 +156,7 @@ void wxEPrintout::OnPreparePrinting()
   }
 }
 
-bool wxEPrintout::HasPage(int page)
+bool EwxPrintout::HasPage(int page)
 {
   wxeMemEnv *memenv = (wxeMemEnv *) me_ref->memenv;
   if(hasPage && memenv) {
@@ -173,7 +173,7 @@ bool wxEPrintout::HasPage(int page)
   return wxPrintout::HasPage(page);
 }
 
-bool wxEPrintout::OnPrintPage(int page)
+bool EwxPrintout::OnPrintPage(int page)
 {
   wxeMemEnv *memenv = (wxeMemEnv *) me_ref->memenv;
   if(memenv) {
@@ -190,7 +190,7 @@ bool wxEPrintout::OnPrintPage(int page)
   return FALSE;
 }
 
-void wxEPrintout::GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pageTo)
+void EwxPrintout::GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pageTo)
 {
   wxeMemEnv *memenv = (wxeMemEnv *) me_ref->memenv;
   if(getPageInfo && memenv) {

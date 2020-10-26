@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html">wxMenu</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvtHandler}
-%% </p>
-%% @type wxMenu().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxMenu).
 -include("wxe.hrl").
 -export(['Destroy'/2,append/2,append/3,append/4,append/5,appendCheckItem/3,appendCheckItem/4,
@@ -41,12 +33,12 @@
 %% inherited exports
 -export([connect/2,connect/3,disconnect/1,disconnect/2,disconnect/3,parent_class/1]).
 
+-type wxMenu() :: wx:wx_object().
 -export_type([wxMenu/0]).
 %% @hidden
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxMenu() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
 -spec new() -> wxMenu().
 new() ->

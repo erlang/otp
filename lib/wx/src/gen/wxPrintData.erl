@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdata.html">wxPrintData</a>.
-%% @type wxPrintData().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxPrintData).
 -include("wxe.hrl").
 -export([destroy/1,getBin/1,getCollate/1,getColour/1,getDuplex/1,getNoCopies/1,
@@ -33,11 +28,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxPrintData() :: wx:wx_object().
 -export_type([wxPrintData/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxPrintData() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdata.html#wxprintdatawxprintdata">external documentation</a>.
 -spec new() -> wxPrintData().
 new() ->

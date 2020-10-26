@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauidockart.html">wxAuiDockArt</a>.
-%% @type wxAuiDockArt().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxAuiDockArt).
 -include("wxe.hrl").
 -export([getColour/2,getFont/2,getMetric/2,setColour/3,setFont/3,setMetric/3]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxAuiDockArt() :: wx:wx_object().
 -export_type([wxAuiDockArt/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxAuiDockArt() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauidockart.html#wxauidockartgetcolour">external documentation</a>.
 -spec getColour(This, Id) -> wx:wx_colour4() when
 	This::wxAuiDockArt(), Id::integer().

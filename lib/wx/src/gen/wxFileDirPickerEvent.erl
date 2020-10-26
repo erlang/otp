@@ -18,19 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledirpickerevent.html">wxFileDirPickerEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>command_filepicker_changed</em>, <em>command_dirpicker_changed</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxFileDirPicker(). #wxFileDirPicker{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxFileDirPickerEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxFileDirPickerEvent).
 -include("wxe.hrl").
 -export([getPath/1]).
@@ -41,13 +28,15 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxFileDirPickerEvent/0]).
+-type wxFileDirPickerEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxFileDirPickerEventType() :: 'command_filepicker_changed' | 'command_dirpicker_changed'.
+-export_type([wxFileDirPickerEvent/0, wxFileDirPicker/0, wxFileDirPickerEventType/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxFileDirPickerEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledirpickerevent.html#wxfiledirpickereventgetpath">external documentation</a>.
 -spec getPath(This) -> unicode:charlist() when
 	This::wxFileDirPickerEvent().

@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxartprovider.html">wxArtProvider</a>.
-%% @type wxArtProvider().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxArtProvider).
 -include("wxe.hrl").
 -export([getBitmap/1,getBitmap/2,getIcon/1,getIcon/2]).
@@ -30,11 +25,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxArtProvider() :: wx:wx_object().
 -export_type([wxArtProvider/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxArtProvider() :: wx:wx_object().
 %% @equiv getBitmap(Id, [])
 -spec getBitmap(Id) -> wxBitmap:wxBitmap() when
 	Id::unicode:chardata().

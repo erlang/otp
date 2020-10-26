@@ -30,15 +30,17 @@
 -compile(inline).
 -type vertex() :: {float(), float(), float()}.
 -type enum() :: non_neg_integer().   %% See wx/include/gl.hrl or glu.hrl
--type matrix12() :: {float(),float(),float(),float(),
-                   float(),float(),float(),float(),
-                   float(),float(),float(),float()}.
--type matrix16() :: {float(),float(),float(),float(),
-                   float(),float(),float(),float(),
-                   float(),float(),float(),float(),
-                   float(),float(),float(),float()}.
--type matrix() :: matrix12() | matrix16().
+-type m12() :: {f(),f(),f(),f(),
+                   f(),f(),f(),f(),
+                   f(),f(),f(),f()}.
+-type m16() :: {f(),f(),f(),f(),
+                   f(),f(),f(),f(),
+                   f(),f(),f(),f(),
+                   f(),f(),f(),f()}.
+-type matrix() :: m12() | m16().
 -type mem() :: binary() | tuple().   %% Memory block
+-type f() :: float().
+-type i() :: integer().
 
 -export([tesselate/2,build1DMipmapLevels/9,build1DMipmaps/6,build2DMipmapLevels/10,
   build2DMipmaps/7,build3DMipmapLevels/11,build3DMipmaps/8,checkExtension/2,
@@ -65,43 +67,49 @@ tesselate(Normal, Vs) ->
   IF:queue_cmd(Normal,Vs,5009),
   rec(5009).
 
--spec build1DMipmapLevels(Target, InternalFormat, Width, Format, Type, Level, Base, Max, Data) -> integer() when Target :: enum(),InternalFormat :: integer(),Width :: integer(),Format :: enum(),Type :: enum(),Level :: integer(),Base :: integer(),Max :: integer(),Data :: binary().
+-spec build1DMipmapLevels(Target, InternalFormat, Width, Format, Type, Level, Base, Max, Data) -> i()
+    when Target::enum(), InternalFormat::i(), Width::i(), Format::enum(), Type::enum(), Level::i(), Base::i(), Max::i(), Data::binary().
 build1DMipmapLevels(Target,InternalFormat,Width,Format,Type,Level,Base,Max,Data) when is_integer(Target),is_integer(InternalFormat),is_integer(Width),is_integer(Format),is_integer(Type),is_integer(Level),is_integer(Base),is_integer(Max),is_binary(Data) ->
   IF = get_interface(),
   IF:queue_cmd(Target,InternalFormat,Width,Format,Type,Level,Base,Max,Data,5010),
   rec(5010).
 
--spec build1DMipmaps(Target, InternalFormat, Width, Format, Type, Data) -> integer() when Target :: enum(),InternalFormat :: integer(),Width :: integer(),Format :: enum(),Type :: enum(),Data :: binary().
+-spec build1DMipmaps(Target, InternalFormat, Width, Format, Type, Data) -> i()
+    when Target::enum(), InternalFormat::i(), Width::i(), Format::enum(), Type::enum(), Data::binary().
 build1DMipmaps(Target,InternalFormat,Width,Format,Type,Data) when is_integer(Target),is_integer(InternalFormat),is_integer(Width),is_integer(Format),is_integer(Type),is_binary(Data) ->
   IF = get_interface(),
   IF:queue_cmd(Target,InternalFormat,Width,Format,Type,Data,5011),
   rec(5011).
 
--spec build2DMipmapLevels(Target, InternalFormat, Width, Height, Format, Type, Level, Base, Max, Data) -> integer() when Target :: enum(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Level :: integer(),Base :: integer(),Max :: integer(),Data :: binary().
+-spec build2DMipmapLevels(Target, InternalFormat, Width, Height, Format, Type, Level, Base, Max, Data) -> i()
+    when Target::enum(), InternalFormat::i(), Width::i(), Height::i(), Format::enum(), Type::enum(), Level::i(), Base::i(), Max::i(), Data::binary().
 build2DMipmapLevels(Target,InternalFormat,Width,Height,Format,Type,Level,Base,Max,Data) when is_integer(Target),is_integer(InternalFormat),is_integer(Width),is_integer(Height),is_integer(Format),is_integer(Type),is_integer(Level),is_integer(Base),is_integer(Max),is_binary(Data) ->
   IF = get_interface(),
   IF:queue_cmd(Target,InternalFormat,Width,Height,Format,Type,Level,Base,Max,Data,5012),
   rec(5012).
 
--spec build2DMipmaps(Target, InternalFormat, Width, Height, Format, Type, Data) -> integer() when Target :: enum(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Data :: binary().
+-spec build2DMipmaps(Target, InternalFormat, Width, Height, Format, Type, Data) -> i()
+    when Target::enum(), InternalFormat::i(), Width::i(), Height::i(), Format::enum(), Type::enum(), Data::binary().
 build2DMipmaps(Target,InternalFormat,Width,Height,Format,Type,Data) when is_integer(Target),is_integer(InternalFormat),is_integer(Width),is_integer(Height),is_integer(Format),is_integer(Type),is_binary(Data) ->
   IF = get_interface(),
   IF:queue_cmd(Target,InternalFormat,Width,Height,Format,Type,Data,5013),
   rec(5013).
 
--spec build3DMipmapLevels(Target, InternalFormat, Width, Height, Depth, Format, Type, Level, Base, Max, Data) -> integer() when Target :: enum(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Format :: enum(),Type :: enum(),Level :: integer(),Base :: integer(),Max :: integer(),Data :: binary().
+-spec build3DMipmapLevels(Target, InternalFormat, Width, Height, Depth, Format, Type, Level, Base, Max, Data) -> i()
+    when Target::enum(), InternalFormat::i(), Width::i(), Height::i(), Depth::i(), Format::enum(), Type::enum(), Level::i(), Base::i(), Max::i(), Data::binary().
 build3DMipmapLevels(Target,InternalFormat,Width,Height,Depth,Format,Type,Level,Base,Max,Data) when is_integer(Target),is_integer(InternalFormat),is_integer(Width),is_integer(Height),is_integer(Depth),is_integer(Format),is_integer(Type),is_integer(Level),is_integer(Base),is_integer(Max),is_binary(Data) ->
   IF = get_interface(),
   IF:queue_cmd(Target,InternalFormat,Width,Height,Depth,Format,Type,Level,Base,Max,Data,5014),
   rec(5014).
 
--spec build3DMipmaps(Target, InternalFormat, Width, Height, Depth, Format, Type, Data) -> integer() when Target :: enum(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Format :: enum(),Type :: enum(),Data :: binary().
+-spec build3DMipmaps(Target, InternalFormat, Width, Height, Depth, Format, Type, Data) -> i()
+    when Target::enum(), InternalFormat::i(), Width::i(), Height::i(), Depth::i(), Format::enum(), Type::enum(), Data::binary().
 build3DMipmaps(Target,InternalFormat,Width,Height,Depth,Format,Type,Data) when is_integer(Target),is_integer(InternalFormat),is_integer(Width),is_integer(Height),is_integer(Depth),is_integer(Format),is_integer(Type),is_binary(Data) ->
   IF = get_interface(),
   IF:queue_cmd(Target,InternalFormat,Width,Height,Depth,Format,Type,Data,5015),
   rec(5015).
 
--spec checkExtension(ExtName, ExtString) -> 0|1 when ExtName :: string(),ExtString :: string().
+-spec checkExtension(ExtName::string(), ExtString::string()) -> 0|1.
 checkExtension(ExtName,ExtString) when is_list(ExtName),is_list(ExtString) ->
   IF = get_interface(),
   ExtNameBin = unicode:characters_to_binary([ExtName|[0]]),
@@ -109,121 +117,127 @@ checkExtension(ExtName,ExtString) when is_list(ExtName),is_list(ExtString) ->
   IF:queue_cmd(ExtNameBin,ExtStringBin,5016),
   rec(5016).
 
--spec cylinder(Quad, Base, Top, Height, Slices, Stacks) -> 'ok' when Quad :: integer(),Base :: float(),Top :: float(),Height :: float(),Slices :: integer(),Stacks :: integer().
+-spec cylinder(Quad::i(), Base::f(), Top::f(), Height::f(), Slices::i(), Stacks::i()) -> 'ok'.
 cylinder(Quad,Base,Top,Height,Slices,Stacks) when is_integer(Quad),is_float(Base),is_float(Top),is_float(Height),is_integer(Slices),is_integer(Stacks) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,Base,Top,Height,Slices,Stacks,5017),
   ok.
 
--spec deleteQuadric(Quad) -> 'ok' when Quad :: integer().
+-spec deleteQuadric(Quad::i()) -> 'ok'.
 deleteQuadric(Quad) when is_integer(Quad) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,5018),
   ok.
 
--spec disk(Quad, Inner, Outer, Slices, Loops) -> 'ok' when Quad :: integer(),Inner :: float(),Outer :: float(),Slices :: integer(),Loops :: integer().
+-spec disk(Quad::i(), Inner::f(), Outer::f(), Slices::i(), Loops::i()) -> 'ok'.
 disk(Quad,Inner,Outer,Slices,Loops) when is_integer(Quad),is_float(Inner),is_float(Outer),is_integer(Slices),is_integer(Loops) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,Inner,Outer,Slices,Loops,5019),
   ok.
 
--spec errorString(Error) -> string() when Error :: enum().
+-spec errorString(Error::enum()) -> string().
 errorString(Error) when is_integer(Error) ->
   IF = get_interface(),
   IF:queue_cmd(Error,5020),
   rec(5020).
 
--spec getString(Name) -> string() when Name :: enum().
+-spec getString(Name::enum()) -> string().
 getString(Name) when is_integer(Name) ->
   IF = get_interface(),
   IF:queue_cmd(Name,5021),
   rec(5021).
 
--spec lookAt(EyeX, EyeY, EyeZ, CenterX, CenterY, CenterZ, UpX, UpY, UpZ) -> 'ok' when EyeX :: float(),EyeY :: float(),EyeZ :: float(),CenterX :: float(),CenterY :: float(),CenterZ :: float(),UpX :: float(),UpY :: float(),UpZ :: float().
+-spec lookAt(EyeX, EyeY, EyeZ, CenterX, CenterY, CenterZ, UpX, UpY, UpZ) -> 'ok'
+    when EyeX::f(), EyeY::f(), EyeZ::f(), CenterX::f(), CenterY::f(), CenterZ::f(), UpX::f(), UpY::f(), UpZ::f().
 lookAt(EyeX,EyeY,EyeZ,CenterX,CenterY,CenterZ,UpX,UpY,UpZ) when is_float(EyeX),is_float(EyeY),is_float(EyeZ),is_float(CenterX),is_float(CenterY),is_float(CenterZ),is_float(UpX),is_float(UpY),is_float(UpZ) ->
   IF = get_interface(),
   IF:queue_cmd(EyeX,EyeY,EyeZ,CenterX,CenterY,CenterZ,UpX,UpY,UpZ,5022),
   ok.
 
--spec newQuadric() -> integer().
+-spec newQuadric() -> i().
 newQuadric()  ->
   IF = get_interface(),
   IF:queue_cmd(5023),
   rec(5023).
 
--spec ortho2D(Left, Right, Bottom, Top) -> 'ok' when Left :: float(),Right :: float(),Bottom :: float(),Top :: float().
+-spec ortho2D(Left::f(), Right::f(), Bottom::f(), Top::f()) -> 'ok'.
 ortho2D(Left,Right,Bottom,Top) when is_float(Left),is_float(Right),is_float(Bottom),is_float(Top) ->
   IF = get_interface(),
   IF:queue_cmd(Left,Right,Bottom,Top,5024),
   ok.
 
--spec partialDisk(Quad, Inner, Outer, Slices, Loops, Start, Sweep) -> 'ok' when Quad :: integer(),Inner :: float(),Outer :: float(),Slices :: integer(),Loops :: integer(),Start :: float(),Sweep :: float().
+-spec partialDisk(Quad, Inner, Outer, Slices, Loops, Start, Sweep) -> 'ok'
+    when Quad::i(), Inner::f(), Outer::f(), Slices::i(), Loops::i(), Start::f(), Sweep::f().
 partialDisk(Quad,Inner,Outer,Slices,Loops,Start,Sweep) when is_integer(Quad),is_float(Inner),is_float(Outer),is_integer(Slices),is_integer(Loops),is_float(Start),is_float(Sweep) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,Inner,Outer,Slices,Loops,Start,Sweep,5025),
   ok.
 
--spec perspective(Fovy, Aspect, ZNear, ZFar) -> 'ok' when Fovy :: float(),Aspect :: float(),ZNear :: float(),ZFar :: float().
+-spec perspective(Fovy::f(), Aspect::f(), ZNear::f(), ZFar::f()) -> 'ok'.
 perspective(Fovy,Aspect,ZNear,ZFar) when is_float(Fovy),is_float(Aspect),is_float(ZNear),is_float(ZFar) ->
   IF = get_interface(),
   IF:queue_cmd(Fovy,Aspect,ZNear,ZFar,5026),
   ok.
 
--spec pickMatrix(X, Y, DelX, DelY, Viewport) -> 'ok' when X :: float(),Y :: float(),DelX :: float(),DelY :: float(),Viewport :: {integer(),integer(),integer(),integer()}.
+-spec pickMatrix(X::f(), Y::f(), DelX::f(), DelY::f(), Viewport::{i(),i(),i(),i()}) -> 'ok'.
 pickMatrix(X,Y,DelX,DelY,Viewport) when is_float(X),is_float(Y),is_float(DelX),is_float(DelY),tuple_size(Viewport) =:= 4 ->
   IF = get_interface(),
   IF:queue_cmd(X,Y,DelX,DelY,Viewport,5027),
   ok.
 
--spec project(ObjX, ObjY, ObjZ, Model, Proj, View) -> {integer(),WinX :: float(),WinY :: float(),WinZ :: float()} when ObjX :: float(),ObjY :: float(),ObjZ :: float(),Model :: matrix(),Proj :: matrix(),View :: {integer(),integer(),integer(),integer()}.
+-spec project(ObjX, ObjY, ObjZ, Model, Proj, View) -> {i(),WinX::f(),WinY::f(),WinZ::f()}
+    when ObjX::f(), ObjY::f(), ObjZ::f(), Model::matrix(), Proj::matrix(), View::{i(),i(),i(),i()}.
 project(ObjX,ObjY,ObjZ,Model,Proj,View) when is_float(ObjX),is_float(ObjY),is_float(ObjZ),tuple_size(Model) =:= 16; tuple_size(Model) =:= 12,tuple_size(Proj) =:= 16; tuple_size(Proj) =:= 12,tuple_size(View) =:= 4 ->
   IF = get_interface(),
   IF:queue_cmd(ObjX,ObjY,ObjZ,Model,Proj,View,5028),
   rec(5028).
 
--spec quadricDrawStyle(Quad, Draw) -> 'ok' when Quad :: integer(),Draw :: enum().
+-spec quadricDrawStyle(Quad::i(), Draw::enum()) -> 'ok'.
 quadricDrawStyle(Quad,Draw) when is_integer(Quad),is_integer(Draw) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,Draw,5029),
   ok.
 
--spec quadricNormals(Quad, Normal) -> 'ok' when Quad :: integer(),Normal :: enum().
+-spec quadricNormals(Quad::i(), Normal::enum()) -> 'ok'.
 quadricNormals(Quad,Normal) when is_integer(Quad),is_integer(Normal) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,Normal,5030),
   ok.
 
--spec quadricOrientation(Quad, Orientation) -> 'ok' when Quad :: integer(),Orientation :: enum().
+-spec quadricOrientation(Quad::i(), Orientation::enum()) -> 'ok'.
 quadricOrientation(Quad,Orientation) when is_integer(Quad),is_integer(Orientation) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,Orientation,5031),
   ok.
 
--spec quadricTexture(Quad, Texture) -> 'ok' when Quad :: integer(),Texture :: 0|1.
+-spec quadricTexture(Quad::i(), Texture::0|1) -> 'ok'.
 quadricTexture(Quad,Texture) when is_integer(Quad),(0 =:= Texture) orelse (1 =:= Texture) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,Texture,5032),
   ok.
 
--spec scaleImage(Format, WIn, HIn, TypeIn, DataIn, WOut, HOut, TypeOut, DataOut) -> integer() when Format :: enum(),WIn :: integer(),HIn :: integer(),TypeIn :: enum(),DataIn :: binary(),WOut :: integer(),HOut :: integer(),TypeOut :: enum(),DataOut :: mem().
+-spec scaleImage(Format, WIn, HIn, TypeIn, DataIn, WOut, HOut, TypeOut, DataOut) -> i()
+    when Format::enum(), WIn::i(), HIn::i(), TypeIn::enum(), DataIn::binary(), WOut::i(), HOut::i(), TypeOut::enum(), DataOut::mem().
 scaleImage(Format,WIn,HIn,TypeIn,DataIn,WOut,HOut,TypeOut,DataOut) when is_integer(Format),is_integer(WIn),is_integer(HIn),is_integer(TypeIn),is_binary(DataIn),is_integer(WOut),is_integer(HOut),is_integer(TypeOut),is_tuple(DataOut) orelse is_binary(DataOut) ->
   IF = get_interface(),
   IF:queue_cmd(Format,WIn,HIn,TypeIn,DataIn,WOut,HOut,TypeOut,DataOut,5033),
   rec(5033).
 
--spec sphere(Quad, Radius, Slices, Stacks) -> 'ok' when Quad :: integer(),Radius :: float(),Slices :: integer(),Stacks :: integer().
+-spec sphere(Quad::i(), Radius::f(), Slices::i(), Stacks::i()) -> 'ok'.
 sphere(Quad,Radius,Slices,Stacks) when is_integer(Quad),is_float(Radius),is_integer(Slices),is_integer(Stacks) ->
   IF = get_interface(),
   IF:queue_cmd(Quad,Radius,Slices,Stacks,5034),
   ok.
 
--spec unProject(WinX, WinY, WinZ, Model, Proj, View) -> {integer(),ObjX :: float(),ObjY :: float(),ObjZ :: float()} when WinX :: float(),WinY :: float(),WinZ :: float(),Model :: matrix(),Proj :: matrix(),View :: {integer(),integer(),integer(),integer()}.
+-spec unProject(WinX, WinY, WinZ, Model, Proj, View) -> {i(),ObjX::f(),ObjY::f(),ObjZ::f()}
+    when WinX::f(), WinY::f(), WinZ::f(), Model::matrix(), Proj::matrix(), View::{i(),i(),i(),i()}.
 unProject(WinX,WinY,WinZ,Model,Proj,View) when is_float(WinX),is_float(WinY),is_float(WinZ),tuple_size(Model) =:= 16; tuple_size(Model) =:= 12,tuple_size(Proj) =:= 16; tuple_size(Proj) =:= 12,tuple_size(View) =:= 4 ->
   IF = get_interface(),
   IF:queue_cmd(WinX,WinY,WinZ,Model,Proj,View,5035),
   rec(5035).
 
--spec unProject4(WinX, WinY, WinZ, ClipW, Model, Proj, View, NearVal, FarVal) -> {integer(),ObjX :: float(),ObjY :: float(),ObjZ :: float(),ObjW :: float()} when WinX :: float(),WinY :: float(),WinZ :: float(),ClipW :: float(),Model :: matrix(),Proj :: matrix(),View :: {integer(),integer(),integer(),integer()},NearVal :: float(),FarVal :: float().
+-spec unProject4(WinX, WinY, WinZ, ClipW, Model, Proj, View, NearVal, FarVal) -> {i(),ObjX::f(),ObjY::f(),ObjZ::f(),ObjW::f()}
+    when WinX::f(), WinY::f(), WinZ::f(), ClipW::f(), Model::matrix(), Proj::matrix(), View::{i(),i(),i(),i()}, NearVal::f(), FarVal::f().
 unProject4(WinX,WinY,WinZ,ClipW,Model,Proj,View,NearVal,FarVal) when is_float(WinX),is_float(WinY),is_float(WinZ),is_float(ClipW),tuple_size(Model) =:= 16; tuple_size(Model) =:= 12,tuple_size(Proj) =:= 16; tuple_size(Proj) =:= 12,tuple_size(View) =:= 4,is_float(NearVal),is_float(FarVal) ->
   IF = get_interface(),
   IF:queue_cmd(WinX,WinY,WinZ,ClipW,Model,Proj,View,NearVal,FarVal,5036),

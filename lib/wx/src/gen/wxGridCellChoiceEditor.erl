@@ -18,14 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellchoiceeditor.html">wxGridCellChoiceEditor</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxGridCellEditor}
-%% </p>
-%% @type wxGridCellChoiceEditor().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridCellChoiceEditor).
 -include("wxe.hrl").
 -export([destroy/1,new/1,new/2,setParameters/2]).
@@ -34,12 +26,12 @@
 -export([handleReturn/2,isCreated/1,parent_class/1,reset/1,setSize/2,show/2,
   show/3,startingClick/1,startingKey/2]).
 
+-type wxGridCellChoiceEditor() :: wx:wx_object().
 -export_type([wxGridCellChoiceEditor/0]).
 %% @hidden
 parent_class(wxGridCellEditor) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridCellChoiceEditor() :: wx:wx_object().
 %% @equiv new(Choices, [])
 -spec new(Choices) -> wxGridCellChoiceEditor() when
 	Choices::[unicode:chardata()].

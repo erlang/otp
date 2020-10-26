@@ -21,14 +21,8 @@
 <<EXPORT:SortItems sortItems/2 SortItems:EXPORT>>
 
 <<SortItems
-%% @spec (This::wxListCtrl(), SortCallBack::function()) -> boolean()
-%% @doc Sort the items in the list control<br />
-%%   <pre>SortCallBack(Item1,Item2) -> integer()</pre>
-%%  <br /> SortCallBack receives the client data associated with two items
-%%         to compare, and should return 0 if the items are equal, a negative
-%%         value if the first item is less than the second one and a positive
-%%         value if the first item is greater than the second one.
-%%  <br /> NOTE: The callback may not call other (wx) processes.
+-spec sortItems(This::wxListCtrl(), SortCallBack) -> boolean()
+              when SortCallBack :: fun((integer(), integer()) -> integer()).
 sortItems(#wx_ref{type=ThisT}=This, SortCallBack)
   when is_function(SortCallBack, 2) ->
     ?CLASS(ThisT,wxListCtrl),

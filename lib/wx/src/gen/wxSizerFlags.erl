@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizerflags.html">wxSizerFlags</a>.
-%% @type wxSizerFlags().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxSizerFlags).
 -include("wxe.hrl").
 -export([align/2,border/1,border/2,border/3,center/1,centre/1,destroy/1,expand/1,
@@ -31,11 +26,11 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxSizerFlags() :: wx:wx_object().
 -export_type([wxSizerFlags/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxSizerFlags() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxSizerFlags().
 

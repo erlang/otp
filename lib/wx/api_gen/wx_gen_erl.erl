@@ -33,7 +33,8 @@
 -export([gen/1]).
 -export([parents/1, get_unique_names/0, get_unique_name/1, erl_option_name/1,
          const_name/1, enum_from/1,
-	 erl_func_name/1, erl_args_count/2, event_type_name/1, event_rec_name/1, filter_attrs/1]).
+	 erl_func_name/1, erl_func_name/2, erl_args_count/2,
+         event_type_name/1, event_rec_name/1, filter_attrs/1]).
 
 
 -import(lists, [foldl/3,reverse/1, filter/2]).
@@ -112,40 +113,12 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("~s~n", [binary_to_list(Bin)]),
 	    NewMs = Ms;
 	false ->
-	    w("%% @doc See external documentation: "
-	      "<a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_~s.html\">~s</a>.\n",
-	      [lowercase_all(Name), Name]),
-
 	    case C#class.doc of
 		undefined -> ignore;
 		Str -> w("%%~n%% ~s~n~n%%~n", [Str])
 	    end,
 
-	    case C#class.event of
-		false -> ignore;
-		Evs ->
-		    EvTypes = [event_type_name(Ev) || Ev <- Evs],
-		    EvStr = args(fun(Ev) -> "<em>"++Ev++"</em>" end, ", ", EvTypes),
-
-		    w("%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>~n",[]),
-		    w("%% <dd>~s</dd></dl>~n", [EvStr]),
-		    w("%% See also the message variant {@link wxEvtHandler:~s(). #~s{}} event record type.~n",
-		      [event_rec_name(Name),event_rec_name(Name)]),
-		    w("%%~n",[]),
-		    ok
-	    end,
-
 	    Parents = parents(Parent),
-	    case [P || P <- Parents, P =/= root, P =/= object] of
-		[] -> ignore;
-		Ps ->
-		    w("%% <p>This class is derived (and can use functions) from:~n", []),
-		    [w("%% <br />{@link ~s}~n", [P]) || P <- Ps],
-		    w("%% </p>~n",[])
-	    end,
-	    w("%% @type ~s().  An object reference, The representation is internal~n",[Name]),
-	    w("%% and can be changed without notice. It can't be used for comparsion~n", []),
-	    w("%% stored on disc or distributed for use on other nodes.~n~n", []),
 	    w("-module(~s).~n", [Name]),
 	    w("-include(\"wxe.hrl\").~n",[]),
 	    Exp = fun(M) -> gen_export(C,M) end,
@@ -159,7 +132,19 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("-export([~s]).~n~n", [args(fun({_M,{F,A},_Dep}) -> F ++ "/" ++ A end, ",",
 					  InExported,
 					  60)]),
-	    w("-export_type([~s/0]).~n", [Name]),
+            w("-type ~s() :: wx:wx_object().~n", [Name]),
+            case C#class.event of
+                false ->
+                    w("-export_type([~s/0]).~n", [Name]);
+                Evs ->
+                    w("-include(\"wx.hrl\").~n",[]),
+                    EvTypes = [event_type_name(Ev) || Ev <- Evs],
+                    EvStr  = args(fun(Ev) -> "'" ++ Ev ++ "'" end, " | ", EvTypes),
+                    w("-type ~sType() :: ~s.~n", [Name, EvStr]),
+                    w("-export_type([~s/0, ~s/0, ~sType/0]).~n",
+                      [Name, event_rec_name(Name), Name])
+            end,
+
 	    case lists:filter(fun({_F,Depr}) -> Depr end, ExportList) of
 		[] -> ok;
 		Depr ->
@@ -183,7 +168,6 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 
 	    w("%% @hidden~n", []),
 	    parents_check(Parents),
-	    w("-type ~s() :: wx:wx_object().~n", [Name]),
 	    Gen = fun(M) -> gen_method(Name,M) end,
 	    NewMs = lists:map(Gen,reverse(Ms)),
 	    gen_dest(C, Ms),
@@ -1166,7 +1150,7 @@ gen_event_recs() ->
     Events = [build_event_rec(C) || {_,C=#class{event=Evs}} <- lists:sort(get()), Evs =/= false],
     EventSubTypes = [Type || {_Rec, Type} <- Events],
     EventRecs = [Rec || {Rec, _Type} <- Events],
-    w("-type event() :: ~s.~n",
+    w("-type event() :: ~s.~n~n",
       [args(fun(Ev) -> Ev++"()" end, " | ", lists:sort(EventRecs))]),
 
     w("-type wxEventType() :: ~s.~n",
@@ -1176,33 +1160,23 @@ gen_event_recs() ->
 
 build_event_rec(Class=#class{name=Name, event=Evs}) ->
     % io:format("~p ~p~n", [Name, Class]),
-    EvTypes = [event_type_name(Ev) || Ev <- Evs],
-    Str  = args(fun(Ev) -> "'" ++ Ev ++ "'" end, " | ", EvTypes),
     Attr = filter_attrs(Class),
     Rec = event_rec_name(Name),
     %%GetName = fun(#param{name=N}) ->event_attr_name(N) end,
     GetType = fun(#param{name=N,type=T}) ->
 		      event_attr_name(N) ++ " :: " ++ doc_arg_type2(T)
 	      end,
-    EventType = Name ++ "Type",
+    EventType = Name ++ ":" ++ Name ++ "Type",
     case Attr =:= [] of
 	true ->
-	    %% w("%% <dl><dt>EventType:</dt> <dd>~s</dd></dl>~n",[Str]),
-	    %% w("%% Callback event: {@link ~s}~n", [Name]),
-	    w("-record(~s, {type :: ~s()}). %% Callback event: {@link ~s}~n",
-	      [Rec, EventType, Name]),
-	    w("-type ~s() :: ~s.~n", [EventType, Str]);
+	    w("-record(~s, {type :: ~s()}). %% Callback event: ~s~n",
+	      [Rec, EventType, Name]);
 	false ->
-	    %% w("%% @type ~s() = #~s{type=wxEventType(),~s}.~n",
-	    %%   [Rec,Rec,args(GetType,",",Attr)]),
-	    %% w("%% <dl><dt>EventType:</dt> <dd>~s</dd></dl>~n",[Str]),
-	    %% w("%% Callback event: {@link ~s}~n", [Name]),
-	    w("-record(~s,{type :: ~s(), %% Callback event: {@link ~s}~n\t~s}).~n",
-	      [Rec,EventType, Name, args(GetType,",\n\t",Attr)]),
-	    w("-type ~s() :: ~s.~n", [EventType, Str])
+	    w("-record(~s,{type :: ~s(), %% Callback event:  ~s~n\t~s}).~n",
+	      [Rec,EventType, Name, args(GetType,",\n\t",Attr)])
     end,
     w("-type ~s() :: #~s{}. %% Callback event: {@link ~s}~n~n", [Rec,Rec,Name]),
-    {Rec, EventType}.
+    {Name ++ ":" ++ Rec, EventType}.
 
 event_rec_name(Name0 = "wx" ++ _) ->
     "tnevE" ++ Name1 = reverse(Name0),
