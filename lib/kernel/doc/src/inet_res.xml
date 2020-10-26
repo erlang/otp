@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2018</year>
+      <year>2009</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,31 +48,41 @@
   <section>
     <title>Name Resolving</title>
     <p>UDP queries are used unless resolver option
-      <c>usevc</c> is <c>true</c>, which forces TCP queries.
-      If the query is too large for UDP, TCP is used instead.
-      For regular DNS queries, 512 bytes is the size limit.</p>
+    <c>usevc</c> is <c>true</c>, which forces TCP queries.
+    If the query is too large for UDP, TCP is used instead.
+    For regular DNS queries, 512 bytes is the size limit.</p>
+
     <p>When EDNS is enabled (resolver option
-      <c>edns</c> is set to the EDNS version (that is, <c>0</c>
-      instead of <c>false</c>), resolver option
-      <c>udp_payload_size</c> sets the limit. If a name server
-      replies with the TC bit set (truncation), indicating that
-      the answer is incomplete, the query is retried
-      to that name server using TCP. Resolver option
-      <c>udp_payload_size</c> also sets the advertised
-      size for the maximum allowed reply size, if EDNS is
-      enabled, otherwise the name server uses the limit
-      512 bytes. If the reply is larger, it gets truncated,
-      forcing a TCP requery.</p>
+    <c>edns</c> is set to the EDNS version (that is, <c>0</c>
+    instead of <c>false</c>), resolver option
+    <c>udp_payload_size</c> sets the limit. If a name server
+    replies with the TC bit set (truncation), indicating that
+    the answer is incomplete, the query is retried
+    to that name server using TCP. Resolver option
+    <c>udp_payload_size</c> also sets the advertised
+    size for the maximum allowed reply size, if EDNS is
+    enabled, otherwise the name server uses the limit
+    512 bytes. If the reply is larger, it gets truncated,
+    forcing a TCP requery.</p>
+
     <p>For UDP queries, resolver options <c>timeout</c>
-      and <c>retry</c> control retransmission.
-      Each name server in the <c>nameservers</c> list is
-      tried with a time-out of <c>timeout</c>/<c>retry</c>.
-      Then all name servers are tried again, doubling the
-      time-out, for a total of <c>retry</c> times.</p>
+    and <c>retry</c> control retransmission.
+    Each name server in the <c>nameservers</c> list is
+    tried with a time-out of <c>timeout</c>/<c>retry</c>.
+    Then all name servers are tried again, doubling the
+    time-out, for a total of <c>retry</c> times.</p>
+
+    <marker id="servfail_retry_timeout"/>
+    <p>But before all name servers are tried again, there is a
+    (user configurable) timeout, <c>servfail_retry_timeout</c>.
+    The point of this is to prevent the new query to be handled
+    by to the servfail cache (a client that is to eager will
+    actually only get what is in the servfail cache). </p>
+
     <p>For queries not using the <c>search</c> list,
-      if the query to all <c>nameservers</c> results in
-      <c>{error,nxdomain}</c> or an empty answer, the same
-      query is tried for <c>alt_nameservers</c>.</p>
+    if the query to all <c>nameservers</c> results in
+    <c>{error,nxdomain}</c> or an empty answer, the same
+    query is tried for <c>alt_nameservers</c>.</p>
   </section>
 
   <section>
