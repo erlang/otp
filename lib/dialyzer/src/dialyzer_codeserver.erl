@@ -317,10 +317,10 @@ finalize_records(#codeserver{temp_records = TmpRecords,
   true = ets:delete(TmpRecords),
   Fun = fun({Mod, Map}) ->
             MFun =
-              fun({record, _}, {FileLine, ArityFields}) ->
-                    {FileLine, lists:map(ArFun, ArityFields)};
-                 (_, {{M, FileLine, Abs, Args}, Type}) ->
-                    {{M, FileLine, erl_parse:map_anno(AFun, Abs), Args}, Type}
+              fun({record, _}, {FileLocation, ArityFields}) ->
+                    {FileLocation, lists:map(ArFun, ArityFields)};
+                 (_, {{M, FileLocation, Abs, Args}, Type}) ->
+                    {{M, FileLocation, erl_parse:map_anno(AFun, Abs), Args}, Type}
               end,
             {Mod, maps:map(MFun, Map)}
         end,

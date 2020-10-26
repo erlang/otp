@@ -77,8 +77,8 @@
 %% This is the representation of each warning as they will be returned
 %% to dialyzer's callers
 %%
--type file_line()    :: {file:filename(), non_neg_integer()}.
--type dial_warning() :: {dial_warn_tag(), file_line(), {atom(), [term()]}}.
+-type file_location() :: {file:filename(), erl_anno:location()}.
+-type dial_warning()  :: {dial_warn_tag(), file_location(), {atom(), [term()]}}.
 
 %%
 %% This is the representation of each warning before suppressions have
@@ -86,7 +86,7 @@
 %%
 -type m_or_mfa()     :: module() % warnings not associated with any function
                       | mfa().
--type warning_info() :: {file:filename(), non_neg_integer(), m_or_mfa()}.
+-type warning_info() :: {file:filename(), erl_anno:location(), m_or_mfa()}.
 -type raw_warning()  :: {dial_warn_tag(), warning_info(), {atom(), [term()]}}.
 
 %%

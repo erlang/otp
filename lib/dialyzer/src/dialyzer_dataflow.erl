@@ -554,9 +554,9 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
       true ->
         Ann = cerl:get_ann(Tree),
         File = get_file(Ann, State),
-        Line = abs(get_line(Ann)),
+        Location = get_location(Ann),
         dialyzer_races:store_race_call(Fun, ArgTypes, Args,
-                                       {File, Line}, State);
+                                       {File, Location}, State);
       false -> State
     end,
   FailedConj = any_none([RetWithoutLocal|NewArgTypes]),
@@ -3128,7 +3128,7 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
   case Force of
     true ->
       WarningInfo = {get_file(Ann, State),
-                     abs(get_line(Ann)),
+                     get_location(Ann),
                      State#state.curr_fun},
       Warn = {Tag, WarningInfo, Msg},
       ?debug("MSG ~ts\n", [dialyzer:format_warning(Warn)]),
@@ -3138,7 +3138,7 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
         true -> State;
         false ->
           WarningInfo = {get_file(Ann, State),
-                         get_line(Ann),
+                         get_location(Ann),
                          State#state.curr_fun},
           Warn = {Tag, WarningInfo, Msg},
           case Tag of
@@ -3630,6 +3630,16 @@ get_line([Line|_]) when is_integer(Line) -> Line;
 get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
+
+get_location([Line|_]) when is_integer(Line) ->
+  Line;
+get_location([{Line, Column}|_Tail]) when is_integer(Line),
+                                          is_integer(Column) ->
+  {Line, Column};
+get_location([_|Tail]) ->
+  get_location(Tail);
+get_location([]) ->
+  1.
 
 get_file([], _State) -> [];
 get_file([{file, FakeFile}|_], State) ->

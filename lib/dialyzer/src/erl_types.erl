@@ -766,7 +766,7 @@ t_opaque_from_records(RecMap) ->
 		end, RecMap),
   OpaqueTypeMap =
     maps:map(fun({opaque, Name, _Arity},
-                 {{Module, _FileLine, _Form, ArgNames}, _Type}) ->
+                 {{Module, _FileLocation, _Form, ArgNames}, _Type}) ->
                  %% Args = args_to_types(ArgNames),
                  %% List = lists:zip(ArgNames, Args),
                  %% TmpVarTab = maps:to_list(List),
@@ -4909,7 +4909,7 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
     {_, {_, _}} when element(1, Site) =:= check ->
       {_ArgTypes, L1, C1} = list_from_form(Args, S, D, L, C),
       {t_any(), L1, C1};
-    {Tag, {{Mod, _FileLine, Form, ArgNames}, Type}} ->
+    {Tag, {{Mod, _FileLocation, Form, ArgNames}, Type}} ->
       NewTypeNames = [RemType|TypeNames],
       S1 = S#from_form{tnames = NewTypeNames},
       {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
@@ -5454,9 +5454,9 @@ lookup_module_types(Module, CodeTable, Cache) ->
 
 lookup_record(Tag, Table) when is_atom(Tag) ->
   case maps:find({record, Tag}, Table) of
-    {ok, {_FileLine, [{_Arity, Fields}]}} ->
+    {ok, {_FileLocation, [{_Arity, Fields}]}} ->
       {ok, Fields};
-    {ok, {_FileLine, List}} when is_list(List) ->
+    {ok, {_FileLocation, List}} when is_list(List) ->
       %% This will have to do, since we do not know which record we
       %% are looking for.
       error;
@@ -5469,8 +5469,8 @@ lookup_record(Tag, Table) when is_atom(Tag) ->
 
 lookup_record(Tag, Arity, Table) when is_atom(Tag) ->
   case maps:find({record, Tag}, Table) of
-    {ok, {_FileLine, [{Arity, Fields}]}} -> {ok, Fields};
-    {ok, {_FileLine, OrdDict}} -> orddict:find(Arity, OrdDict);
+    {ok, {_FileLocation, [{Arity, Fields}]}} -> {ok, Fields};
+    {ok, {_FileLocation, OrdDict}} -> orddict:find(Arity, OrdDict);
     error -> error
   end.
 

@@ -285,19 +285,21 @@ format_warning(W) ->
 
 format_warning(RawWarning, FOpt) when is_atom(FOpt) ->
   format_warning(RawWarning, [{filename_opt, FOpt}]);
-format_warning({Tag, {File, Line, _MFA}, Msg}, Opts) ->
-  format_warning({Tag, {File, Line}, Msg}, Opts);
-format_warning({Tag, {File, {Line, _Column}}, Msg}, Opts) ->
-  format_warning({Tag, {File, Line}, Msg}, Opts);
-format_warning({_Tag, {File, Line}, Msg}, Opts) when is_list(File),
-                                                     is_integer(Line) ->
+format_warning({Tag, {File, Location, _MFA}, Msg}, Opts) ->
+  format_warning({Tag, {File, Location}, Msg}, Opts);
+format_warning({_Tag, {File, Location}, Msg}, Opts) when is_list(File) ->
   F = case proplists:get_value(filename_opt, Opts, basename) of
 	fullpath -> File;
 	basename -> filename:basename(File)
       end,
   Indent = proplists:get_value(indent_opt, Opts, ?INDENT_OPT),
   String = message_to_string(Msg, Indent),
-  lists:flatten(io_lib:format("~ts:~w: ~ts", [F, Line, String])).
+  lists:flatten(io_lib:format("~ts:~s: ~ts", [F, pos(Location), String])).
+
+pos({Line, Column}) when is_integer(Line), is_integer(Column) ->
+    io_lib:format("~w:~w", [Line, Column]);
+pos(Line) when is_integer(Line) ->
+    io_lib:format("~w", [Line]).
 
 %%-----------------------------------------------------------------------------
 %% Message classification and pretty-printing below. Messages appear in

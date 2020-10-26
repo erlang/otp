@@ -1,2 +1,2 @@
 
-map_anon_fun.erl:4: Function g/1 will never be called
+map_anon_fun.erl:4:1: Function g/1 will never be called

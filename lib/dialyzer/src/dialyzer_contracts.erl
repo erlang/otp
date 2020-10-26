@@ -37,7 +37,7 @@
 %% Types used in other parts of the system below
 %%-----------------------------------------------------------------------
 
--type file_contract() :: {file_line(), #contract{}, Extra :: [_]}.
+-type file_contract() :: {file_location(), #contract{}, Extra :: [_]}.
 
 -type plt_contracts() :: orddict:orddict(mfa(), #contract{}).
 
@@ -448,8 +448,8 @@ contracts_without_fun(Contracts, AllFuns0, Callgraph) ->
   [warn_spec_missing_fun(MFA, Contracts) || MFA <- ErrorContractMFAs].
 
 warn_spec_missing_fun({M, F, A} = MFA, Contracts) ->
-  {{File, Line}, _Contract, _Xtra} = maps:get(MFA, Contracts),
-  WarningInfo = {File, Line, MFA},
+  {{File, Location}, _Contract, _Xtra} = maps:get(MFA, Contracts),
+  WarningInfo = {File, Location, MFA},
   {?WARN_CONTRACT_SYNTAX, WarningInfo, {spec_missing_fun, [M, F, A]}}.
 
 %% This treats the "when" constraints. It will be extended, we hope.
@@ -478,23 +478,23 @@ insert_constraints([], Map) -> Map.
 
 -type spec_data() :: {TypeSpec :: [_], Xtra:: [_]}.
 
--spec store_tmp_contract(module(), mfa(), file_line(), spec_data(),
+-spec store_tmp_contract(module(), mfa(), file_location(), spec_data(),
                          contracts(), types()) -> contracts().
 
-store_tmp_contract(Module, MFA, FileLine, {TypeSpec, Xtra}, SpecMap,
+store_tmp_contract(Module, MFA, FileLocation, {TypeSpec, Xtra}, SpecMap,
                    RecordsDict) ->
   %% io:format("contract from form: ~tp\n", [TypeSpec]),
-  TmpContract = contract_from_form(TypeSpec, Module, MFA, RecordsDict, FileLine),
+  TmpContract = contract_from_form(TypeSpec, Module, MFA, RecordsDict, FileLocation),
   %% io:format("contract: ~tp\n", [TmpContract]),
-  maps:put(MFA, {FileLine, TmpContract, Xtra}, SpecMap).
+  maps:put(MFA, {FileLocation, TmpContract, Xtra}, SpecMap).
 
-contract_from_form(Forms, Module, MFA, RecDict, FileLine) ->
+contract_from_form(Forms, Module, MFA, RecDict, FileLocation) ->
   {CFuns, Forms1} =
-    contract_from_form(Forms, Module, MFA, RecDict, FileLine, [], []),
+    contract_from_form(Forms, Module, MFA, RecDict, FileLocation, [], []),
   #tmp_contract{contract_funs = CFuns, forms = Forms1}.
 
 contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], Module, MFA,
-                   RecDict, FileLine, TypeAcc, FormAcc) ->
+                   RecDict, FileLocation, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, RecordTable, Cache) ->
 	{NewType, NewCache} =
@@ -503,9 +503,9 @@ contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], Module, MFA,
                                  Cache)
 	  catch
 	    throw:{error, Msg} ->
-	      {File, Line} = FileLine,
-	      NewMsg = io_lib:format("~ts:~p: ~ts", [filename:basename(File),
-                                                     Line, Msg]),
+	      {File, Location} = FileLocation,
+	      NewMsg = io_lib:format("~ts:~s: ~ts", [filename:basename(File),
+                                                     pos(Location), Msg]),
 	      throw({error, NewMsg})
 	  end,
         NewTypeNoVars = erl_types:subst_all_vars_to_any(NewType),
@@ -513,11 +513,11 @@ contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], Module, MFA,
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, []} | FormAcc],
-  contract_from_form(Left, Module, MFA, RecDict, FileLine, NewTypeAcc,
+  contract_from_form(Left, Module, MFA, RecDict, FileLocation, NewTypeAcc,
                      NewFormAcc);
 contract_from_form([{type, _L1, bounded_fun,
 		     [{type, _L2, 'fun', [_, _]} = Form, Constr]}| Left],
-		   Module, MFA, RecDict, FileLine, TypeAcc, FormAcc) ->
+		   Module, MFA, RecDict, FileLocation, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, RecordTable, Cache) ->
 	{Constr1, VarTable, Cache1} =
@@ -531,10 +531,15 @@ contract_from_form([{type, _L1, bounded_fun,
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, Constr} | FormAcc],
-  contract_from_form(Left, Module, MFA, RecDict, FileLine, NewTypeAcc,
+  contract_from_form(Left, Module, MFA, RecDict, FileLocation, NewTypeAcc,
                      NewFormAcc);
-contract_from_form([], _Mod, _MFA, _RecDict, _FileLine, TypeAcc, FormAcc) ->
+contract_from_form([], _Mod, _MFA, _RecDict, _FileLocation, TypeAcc, FormAcc) ->
   {lists:reverse(TypeAcc), lists:reverse(FormAcc)}.
+
+pos({Line, Column}) when is_integer(Line), is_integer(Column) ->
+    io_lib:format("~w:~w", [Line, Column]);
+pos(Line) when is_integer(Line) ->
+    io_lib:format("~w", [Line]).
 
 process_constraints(Constrs, Module, MFA, RecDict, ExpTypes, RecordTable,
                     Cache) ->
@@ -742,7 +747,7 @@ get_invalid_contract_warnings_modules([Mod|Mods], CodeServer, Plt, Acc) ->
 get_invalid_contract_warnings_modules([], _CodeServer, _Plt, Acc) ->
   Acc.
 
-get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
+get_invalid_contract_warnings_funs([{MFA, {FileLocation, Contract, _Xtra}}|Left],
 				   Plt, RecDict, Opaques, Acc) ->
   case dialyzer_plt:lookup(Plt, MFA) of
     none ->
@@ -752,8 +757,8 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract, _Xtra}}|Left],
       Sig = erl_types:t_fun(Args, Ret),
       {M, _F, _A} = MFA,
       %% io:format("MFA ~tp~n", [MFA]),
-      {File, Line} = FileLine,
-      WarningInfo = {File, Line, MFA},
+      {File, Location} = FileLocation,
+      WarningInfo = {File, Location, MFA},
       NewAcc =
 	case check_contract(Contract, Sig, Opaques) of
 	  {error, invalid_contract} ->
