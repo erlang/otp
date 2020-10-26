@@ -44,7 +44,8 @@
 	 del_socks_methods/1, del_socks_methods/0,
 	 add_socks_noproxy/1, del_socks_noproxy/1]).
 -export([set_cache_size/1, set_cache_refresh/1]).
--export([set_timeout/1, set_retry/1, set_inet6/1, set_usevc/1]).
+-export([set_timeout/1, set_retry/1, set_servfail_retry_timeout/1,
+         set_inet6/1, set_usevc/1]).
 -export([set_edns/1, set_udp_payload_size/1]).
 -export([set_resolv_conf/1, set_hosts_file/1, get_hosts_file/0]).
 -export([tcp_module/0, set_tcp_module/1]).
@@ -221,6 +222,9 @@ set_timeout(Time) -> res_option(timeout, Time).
 
 set_retry(N) -> res_option(retry, N).
 
+set_servfail_retry_timeout(Time) when is_integer(Time) andalso (Time >= 0) ->
+    res_option(servfail_retry_timeout, Time).
+
 set_inet6(Bool) -> res_option(inet6, Bool).
 
 set_usevc(Bool) -> res_option(usevc, Bool).
@@ -313,42 +317,104 @@ valid_lookup() -> [dns, file, yp, nis, nisplus, native].
 %% Reconstruct an inetrc sturcture from inet_db
 get_rc() -> 
     get_rc([hosts, domain, nameservers, search, alt_nameservers,
-	    timeout, retry, inet6, usevc,
+	    timeout, retry, servfail_retry_timeout, inet6, usevc,
 	    edns, udp_payload_size, resolv_conf, hosts_file,
 	    socks5_server,  socks5_port, socks5_methods, socks5_noproxy,
 	    udp, sctp, tcp, host, cache_size, cache_refresh, lookup], []).
 
 get_rc([K | Ks], Ls) ->
     case K of
-	hosts      -> get_rc_hosts(Ks, Ls, inet_hosts_byaddr);
-	domain     -> get_rc(domain, res_domain, "", Ks, Ls);
-	nameservers -> get_rc_ns(db_get(res_ns),nameservers,Ks,Ls);
-	alt_nameservers -> get_rc_ns(db_get(res_alt_ns),alt_nameservers,Ks,Ls);
-	search  -> get_rc(search, res_search, [], Ks, Ls);
-	timeout -> get_rc(timeout,res_timeout,?RES_TIMEOUT, Ks,Ls);
-	retry   -> get_rc(retry, res_retry, ?RES_RETRY, Ks, Ls);
-	inet6   -> get_rc(inet6, res_inet6, false, Ks, Ls);
-	usevc   -> get_rc(usevc, res_usevc, false, Ks, Ls);
-	edns    -> get_rc(edns, res_edns, false, Ks, Ls);
-	udp_payload_size -> get_rc(udp_payload_size, res_udp_payload_size,
-				   ?DNS_UDP_PAYLOAD_SIZE, Ks, Ls);
-	resolv_conf -> get_rc(resolv_conf, res_resolv_conf, undefined, Ks, Ls);
-	hosts_file -> get_rc(hosts_file, res_hosts_file, undefined, Ks, Ls);
-	tcp     -> get_rc(tcp,  tcp_module,  ?DEFAULT_TCP_MODULE,  Ks, Ls); 
-	udp     -> get_rc(udp,  udp_module,  ?DEFAULT_UDP_MODULE,  Ks, Ls);
-	sctp	-> get_rc(sctp, sctp_module, ?DEFAULT_SCTP_MODULE, Ks, Ls);
-	lookup  -> get_rc(lookup, res_lookup, [native,file], Ks, Ls);
-	cache_size -> get_rc(cache_size, cache_size, ?CACHE_LIMIT, Ks, Ls);
-	cache_refresh ->
-	    get_rc(cache_refresh, cache_refresh_interval,?CACHE_REFRESH,Ks,Ls);
-	socks5_server -> get_rc(socks5_server, socks5_server, "", Ks, Ls);
-	socks5_port    -> get_rc(socks5_port,socks5_port,?IPPORT_SOCKS,Ks,Ls);
-	socks5_methods -> get_rc(socks5_methods,socks5_methods,[none],Ks,Ls);
-	socks5_noproxy ->
-	    case db_get(socks5_noproxy) of
-		[] -> get_rc(Ks, Ls);
-		NoProxy -> get_rc_noproxy(NoProxy, Ks, Ls)
-	    end;
+	hosts                  -> get_rc_hosts(Ks, Ls, inet_hosts_byaddr);
+	domain                 -> get_rc(domain,
+                                         res_domain,
+                                         "",
+                                         Ks, Ls);
+	nameservers            -> get_rc_ns(db_get(res_ns),
+                                            nameservers,
+                                            Ks, Ls);
+	alt_nameservers        -> get_rc_ns(db_get(res_alt_ns),
+                                            alt_nameservers,
+                                            Ks, Ls);
+	search                 -> get_rc(search,
+                                         res_search,
+                                         [],
+                                         Ks, Ls);
+	timeout                -> get_rc(timeout,
+                                         res_timeout,
+                                         ?RES_TIMEOUT,
+                                         Ks, Ls);
+	retry                  -> get_rc(retry,
+                                         res_retry,
+                                         ?RES_RETRY,
+                                         Ks, Ls);
+	servfail_retry_timeout -> get_rc(servfail_retry_timeout,
+                                         res_servfail_retry_timeout,
+                                         ?RES_SERVFAIL_RETRY_TO,
+                                         Ks, Ls);
+	inet6                  -> get_rc(inet6,
+                                         res_inet6,
+                                         false,
+                                         Ks, Ls);
+	usevc                  -> get_rc(usevc,
+                                         res_usevc,
+                                         false,
+                                         Ks, Ls);
+	edns                   -> get_rc(edns,
+                                         res_edns,
+                                         false,
+                                         Ks, Ls);
+	udp_payload_size       -> get_rc(udp_payload_size,
+                                         res_udp_payload_size,
+                                         ?DNS_UDP_PAYLOAD_SIZE,
+                                         Ks, Ls);
+	resolv_conf            -> get_rc(resolv_conf,
+                                         res_resolv_conf,
+                                         undefined,
+                                         Ks, Ls);
+	hosts_file             -> get_rc(hosts_file,
+                                         res_hosts_file,
+                                         undefined,
+                                         Ks, Ls);
+	tcp                    -> get_rc(tcp,
+                                         tcp_module,
+                                         ?DEFAULT_TCP_MODULE,
+                                         Ks, Ls); 
+	udp                    -> get_rc(udp,
+                                         udp_module,
+                                         ?DEFAULT_UDP_MODULE,
+                                         Ks, Ls);
+	sctp                   -> get_rc(sctp,
+                                         sctp_module,
+                                         ?DEFAULT_SCTP_MODULE,
+                                         Ks, Ls);
+	lookup                 -> get_rc(lookup,
+                                         res_lookup,
+                                         [native, file],
+                                         Ks, Ls);
+	cache_size             -> get_rc(cache_size,
+                                         cache_size,
+                                         ?CACHE_LIMIT,
+                                         Ks, Ls);
+	cache_refresh          -> get_rc(cache_refresh,
+                                         cache_refresh_interval,
+                                         ?CACHE_REFRESH,
+                                         Ks, Ls);
+	socks5_server          -> get_rc(socks5_server,
+                                         socks5_server,
+                                         "",
+                                         Ks, Ls);
+	socks5_port            -> get_rc(socks5_port,
+                                         socks5_port,
+                                         ?IPPORT_SOCKS,
+                                         Ks, Ls);
+	socks5_methods         -> get_rc(socks5_methods,
+                                         socks5_methods,
+                                         [none],
+                                         Ks, Ls);
+	socks5_noproxy         -> case db_get(socks5_noproxy) of
+                                      [] -> get_rc(Ks, Ls);
+                                      NoProxy -> get_rc_noproxy(NoProxy, Ks, Ls)
+                                  end;
 	_ ->
 	    get_rc(Ks, Ls)
     end;
@@ -415,6 +481,7 @@ res_optname(lookup) -> res_lookup;
 res_optname(recurse) -> res_recurse;
 res_optname(search) -> res_search;
 res_optname(retry) -> res_retry;
+res_optname(servfail_retry_timeout) -> res_servfail_retry_timeout;
 res_optname(timeout) -> res_timeout;
 res_optname(inet6) -> res_inet6;
 res_optname(usevc) -> res_usevc;
@@ -448,6 +515,7 @@ res_check_option(recurse, R) when is_boolean(R) -> true;
 res_check_option(search, SearchList) ->
     res_check_list(SearchList, fun res_check_search/1);
 res_check_option(retry, N) when is_integer(N), N > 0 -> true;
+res_check_option(servfail_retry_timeout, T) when is_integer(T), T >= 0 -> true;
 res_check_option(timeout, T) when is_integer(T), T > 0 -> true;
 res_check_option(inet6, Bool) when is_boolean(Bool) -> true;
 res_check_option(usevc, Bool) when is_boolean(Bool) -> true;
@@ -787,6 +855,7 @@ lookup_socket(Socket) when is_port(Socket) ->
 %% res_usevc      Bool            - use tcp only
 %% res_id         Integer         - NS query identifier
 %% res_retry      Integer         - Retry count for UDP query
+%% res_servfail_retry_timeout Integer - Timeout to next query after a failure
 %% res_timeout    Integer         - UDP query timeout before retry
 %% res_inet6      Bool            - address family inet6 for gethostbyname/1
 %% res_usevc      Bool            - use Virtual Circuit (TCP)
@@ -857,6 +926,7 @@ reset_db(Db) ->
        {res_usevc, false},
        {res_id, 0},
        {res_retry, ?RES_RETRY},
+       {res_servfail_retry_timeout, ?RES_SERVFAIL_RETRY_TO},
        {res_timeout, ?RES_TIMEOUT},
        {res_inet6, false},
        {res_edns, false},
@@ -1526,6 +1596,7 @@ rc_reqname(_) -> undefined.
 is_res_set(domain) -> true;
 is_res_set(lookup) -> true;
 is_res_set(timeout) -> true;
+is_res_set(servfail_retry_timeout) -> true;
 is_res_set(retry) -> true;
 is_res_set(inet6) -> true;
 is_res_set(usevc) -> true;

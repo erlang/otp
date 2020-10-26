@@ -259,7 +259,7 @@ do_nslookup(Name, Class, Type, Opts, Timeout) ->
 %%
 -record(options, { % These must be sorted!
 	  alt_nameservers,edns,inet6,nameservers,recurse,
-	  retry,timeout,udp_payload_size,usevc,
+	  retry,servfail_retry_timeout,timeout,udp_payload_size,usevc,
 	  verbose}). % this is a local option, not in inet_db
 %%
 %% Opts when is_list(Opts) -> #options{}
@@ -772,7 +772,17 @@ query_retries(_Q, _NSs, _Timer, Retry, Retry, S, Reason) ->
 query_retries(_Q, [], _Timer, _Retry, _I, S, Reason) ->
     query_retries_error(S, Reason);
 query_retries(Q, NSs, Timer, Retry, I, S_0, Reason) ->
+    servfail_retry_wait(Q, I),
     query_nss(Q, NSs, Timer, Retry, I, S_0, Reason, NSs).
+
+servfail_retry_wait(_Q, 0) ->
+    ok;
+servfail_retry_wait(#q{options = #options{servfail_retry_timeout = T}}, _)
+  when (T > 0) ->
+    receive after T -> ok end;
+servfail_retry_wait(_, _) ->
+    ok.
+
 
 %% Loop for all name servers, for each:
 %%     If EDNS is enabled, try that first,
