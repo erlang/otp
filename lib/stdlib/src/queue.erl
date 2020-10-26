@@ -27,7 +27,7 @@
 -export([get/1,get_r/1,peek/1,peek_r/1,drop/1,drop_r/1]).
 
 %% Higher level API
--export([reverse/1,join/2,split/2,filter/2]).
+-export([reverse/1,join/2,split/2,filter/2,fold/3]).
 
 %% Okasaki API from klacke
 -export([cons/2,head/1,tail/1,
@@ -401,6 +401,21 @@ filter_r(Fun, [X|R0]) ->
 	L when is_list(L) ->
 	    lists:reverse(L, R)
     end.
+
+%% Fold a function over a queue, in queue order.
+%%
+%% O(len(Q))
+-spec fold(Fun, Acc0, Q :: queue(Item)) -> Acc1 when
+      Fun :: fun((Item, AccIn) -> AccOut),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term().
+fold(Fun, Acc0, {R, F}) when is_function(Fun, 2), is_list(R), is_list(F) ->
+    Acc1 = lists:foldl(Fun, Acc0, F),
+    lists:foldr(Fun, Acc1, R);
+fold(Fun, Acc0, Q) ->
+    erlang:error(badarg, [Fun, Acc0, Q]).
 
 %%--------------------------------------------------------------------------
 %% Okasaki API inspired by an Erlang user contribution "deque.erl" 

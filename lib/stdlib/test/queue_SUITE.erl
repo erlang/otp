@@ -373,6 +373,13 @@ do_op_test(F) ->
 					    (_) -> [] end, MyQ4)),
     [33,44] = queue:to_list(queue:filter(fun(X) when X < 27 -> false;
 					    (X) -> [X] end, MyQ4)),
+    FoldQ = queue:from_list(L1),
+    FoldExp1 = lists:sum(L1),
+    FoldAct1 = queue:fold(fun(X,A) -> X+A end, 0, FoldQ),
+    FoldExp1 = FoldAct1,
+    FoldExp2 = [X*X || X <- L1],
+    FoldAct2 = queue:fold(fun(X,A) -> [X*X|A] end, [], FoldQ),
+    FoldExp2 = lists:reverse(FoldAct2),
     %%
     ok.
 

@@ -54,6 +54,7 @@
 
     <p>All operations have an amortized O(1) running time, except
       <seemfa marker="#filter/2"><c>filter/2</c></seemfa>,
+      <seemfa marker="#fold/3"><c>fold/3</c></seemfa>,
       <seemfa marker="#join/2"><c>join/2</c></seemfa>,
       <seemfa marker="#len/1"><c>len/1</c></seemfa>,
       <seemfa marker="#member/2"><c>member/2</c></seemfa>,
@@ -131,6 +132,27 @@
           as returning <c>[]</c> is semantically equivalent to
           returning <c>false</c>. But returning a list builds
           more garbage than returning an atom.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fold" arity="3" since=""/>
+      <fsummary>Fold a function over a queue.</fsummary>
+      <desc>
+        <p>Calls <c><anno>Fun</anno>(<anno>Item</anno>, <anno>AccIn</anno>)</c>
+          on successive items <c>Item</c> of <c>Queue</c>, starting
+          with <c><anno>AccIn</anno> == <anno>Acc0</anno></c>. The queue is
+          traversed in queue order, that is, from front to rear.
+          <c><anno>Fun</anno>/2</c> must return a new accumulator, which is
+          passed to the next call. The function returns the final value of
+          the accumulator. <c><anno>Acc0</anno></c> is returned if the queue is
+          empty.</p>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>queue:fold(fun(X, Sum) -> X + Sum end, 0, queue:from_list([1,2,3,4,5])).</input>
+15
+> <input>queue:fold(fun(X, Prod) -> X * Prod end, 1, queue:from_list([1,2,3,4,5])).</input>
+120</pre>
       </desc>
     </func>
 
