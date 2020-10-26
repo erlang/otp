@@ -373,7 +373,11 @@ filter_f(Fun, [X|F]) ->
     case Fun(X) of
 	true ->
 	    [X|filter_f(Fun, F)];
+	[Y] ->
+	    [Y|filter_f(Fun, F)];
 	false ->
+	    filter_f(Fun, F);
+	[] ->
 	    filter_f(Fun, F);
 	L when is_list(L) ->
 	    L++filter_f(Fun, F)
@@ -388,7 +392,11 @@ filter_r(Fun, [X|R0]) ->
     case Fun(X) of
 	true ->
 	    [X|R];
+	[Y] ->
+	    [Y|R];
 	false ->
+	    R;
+	[] ->
 	    R;
 	L when is_list(L) ->
 	    lists:reverse(L, R)
