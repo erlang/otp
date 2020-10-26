@@ -81,7 +81,7 @@
 
 -record(rule, {
           n,             % rule n in the grammar file
-          anno,
+          location,
           symbols,       % the names of symbols
           tokens,
           is_guard,      % the action is a guard (not used)
@@ -235,7 +235,7 @@ format_error({bad_symbol, String}) ->
 format_error(cannot_parse) ->
     io_lib:fwrite("cannot parse; possibly encoding mismatch", []).
 
--type error_info() :: {erl_anno:line() | 'none',
+-type error_info() :: {erl_anno:location() | 'none',
                        module(), ErrorDescriptor :: term()}.
 -type errors() :: [{file:filename(), [error_info()]}].
 -type warnings() :: [{file:filename(), [error_info()]}].
@@ -387,11 +387,14 @@ check_options([{Option, FileName0} | Options], AllOptions, L)
         Filename -> 
             check_options(Options, AllOptions, [{Option, Filename} | L])
     end;
-check_options([{Option, Boolean} | Options], AllOptions, L)
+check_options([{error_location, ELoc}=OptionValue | Options], AllOptions, L)
+          when ELoc =:= column; ELoc =:= line ->
+    check_options(Options, AllOptions, [OptionValue | L]);
+check_options([{Option, Boolean}=OptionValue | Options], AllOptions, L)
           when is_boolean(Boolean) ->
     case lists:member(Option, AllOptions) of
         true ->
-            check_options(Options, AllOptions, [{Option, Boolean} | L]);
+            check_options(Options, AllOptions, [OptionValue | L]);
         false ->
             badarg
         end;
@@ -401,10 +404,11 @@ check_options(_Options, _, _L) ->
     badarg.
 
 all_options() ->
-    [file_attributes, includefile, parserfile, report_errors,
-     report_warnings, return_errors, return_warnings, time, verbose,
-     warnings_as_errors].
+    [error_location, file_attributes, includefile, parserfile,
+     report_errors, report_warnings, return_errors, return_warnings,
+     time, verbose, warnings_as_errors].
 
+default_option(error_location) -> column;
 default_option(file_attributes) -> true;
 default_option(includefile) -> [];
 default_option(parserfile) -> [];
@@ -570,33 +574,40 @@ generate(St0) ->
     foldl(Fun, St1, Passes).
 
 parse_grammar(St) ->
-    parse_grammar(St#yecc.inport, 1, St).
+    StartLocation =
+        case lists:keyfind(error_location, 1, St#yecc.options) of
+            {error_location, column} ->
+                {1, 1};
+            _ ->
+                1
+        end,
+    parse_grammar(St#yecc.inport, StartLocation, St).
 
-parse_grammar(Inport, Line, St) ->
-    {NextLine, Grammar} = read_grammar(Inport, St, Line),
-    parse_grammar(Grammar, Inport, NextLine, St).
+parse_grammar(Inport, Location, St) ->
+    {NextLocation, Grammar} = read_grammar(Inport, St, Location),
+    parse_grammar(Grammar, Inport, NextLocation, St).
 
-parse_grammar(eof, _Inport, _NextLine, St) ->
+parse_grammar(eof, _Inport, _NextLocation, St) ->
     St;
-parse_grammar({#symbol{name = 'Header'}, Ss}, Inport, NextLine, St0) ->
+parse_grammar({#symbol{name = 'Header'}, Ss}, Inport, NextLocation, St0) ->
     St1 = St0#yecc{header = [S || {string,_,S} <- Ss]},
-    parse_grammar(Inport, NextLine, St1);
+    parse_grammar(Inport, NextLocation, St1);
 parse_grammar({#symbol{name = 'Erlang'}, [#symbol{name = code}]}, _Inport, 
-              NextLine, St) ->
-    St#yecc{erlang_code = NextLine};
-parse_grammar(Grammar, Inport, NextLine, St0) ->
+              NextLocation, St) ->
+    St#yecc{erlang_code = line_of_location(NextLocation)};
+parse_grammar(Grammar, Inport, NextLocation, St0) ->
     St = parse_grammar(Grammar, St0),
-    parse_grammar(Inport, NextLine, St).
+    parse_grammar(Inport, NextLocation, St).
 
-parse_grammar({error,ErrorLine,Error}, St) ->
-    add_error(erl_anno:new(ErrorLine), Error, St);
-parse_grammar({rule, Rule, Tokens}, St0) ->
+parse_grammar({error,ErrorLocation,Error}, St) ->
+    add_error(erl_anno:new(ErrorLocation), Error, St);
+parse_grammar({rule, Rule, Tokens, AllTokens}, St0) ->
     NmbrOfDaughters = case Rule of
                           [_, #symbol{name = '$empty'}]  -> 0;
                           _ -> length(Rule) - 1
                       end,
     {IsGuard, IsWellFormed} = check_action(Tokens),
-    {Tokens1, St} = subst_pseudo_vars(Tokens,
+    {Tokens1, St} = subst_pseudo_vars(AllTokens,
                                       NmbrOfDaughters,
                                       St0),
     RuleDef = #rule{symbols = Rule, 
@@ -628,38 +639,48 @@ parse_grammar({#symbol{anno = Anno, name = Name}, Symbols}, St) ->
         _ -> add_warning(Anno, bad_declaration, St)
     end.
 
-read_grammar(Inport, St, Line) ->
-    case yeccscan:scan(Inport, '', Line) of
-        {eof, NextLine} ->
-            {NextLine, eof};
-        {error, {ErrorLine, Mod, What}, NextLine} ->
-            {NextLine, {error, ErrorLine, {error, Mod, What}}};
+read_grammar(Inport, St, Location) ->
+    case yeccscan:scan(Inport, '', Location) of
+        {eof, NextLocation} ->
+            {NextLocation, eof};
+        {error, {ErrorLocation, Mod, What}, NextLocation} ->
+            {NextLocation, {error, ErrorLocation, {error, Mod, What}}};
         {error, terminated} ->
             throw(St);
         {error, _} ->
             File = St#yecc.infile,
             throw(add_error(File, none, cannot_parse, St));
-        {ok, Input, NextLine} ->
-            {NextLine, case yeccparser:parse(Input) of
-                           {error, {ErrorLine, Mod, Message}} ->
-                               {error, ErrorLine, {error, Mod, Message}};
-                           {ok, {rule, Rule, {erlang_code, Tokens}}} ->
-                               {rule, Rule, Tokens};
-                           {ok, {#symbol{name=P}, 
-                                 [#symbol{name=I} | OpL]}=Ss} ->
-                               A = precedence(P),
-                               if
-                                   A =/= unknown, 
-                                   is_integer(I),
-                                   OpL =/= [] ->
-                                       Ps = [{Op, I , A} || Op <- OpL],
-                                       {prec, Ps};
-                                   true -> 
-                                       Ss
-                               end;
-                           {ok, Ss} -> 
-                               Ss
-                       end}
+        {ok, AllInput, Input, NextLocation} ->
+            {NextLocation,
+             case yeccparser:parse(Input) of
+                 {error, {ErrorLocation, Mod, Message}} ->
+                     {error, ErrorLocation, {error, Mod, Message}};
+                 {ok, {rule, Rule, {erlang_code, Tokens}}} ->
+                     AllTokens0 =
+                         lists:dropwhile(fun(T) -> element(1, T) =/= ':' end,
+                                         AllInput),
+                     AllTokens = case AllTokens0 of
+                                     [] ->
+                                         Tokens;
+                                     _ -> % Remove ':' and dot.
+                                         tl(AllTokens0) -- [last(AllTokens0)]
+                                 end,
+                     {rule, Rule, Tokens, AllTokens};
+                 {ok, {#symbol{name=P},
+                       [#symbol{name=I} | OpL]}=Ss} ->
+                     A = precedence(P),
+                     if
+                         A =/= unknown,
+                         is_integer(I),
+                         OpL =/= [] ->
+                             Ps = [{Op, I , A} || Op <- OpL],
+                             {prec, Ps};
+                         true ->
+                             Ss
+                     end;
+                 {ok, Ss} ->
+                     Ss
+             end}
     end.
 
 precedence('Left') -> left;
@@ -787,7 +808,8 @@ check_rule(Rule0, {St0,Rules}) ->
             {add_error(HeadAnno, {undefined_nonterminal, Head}, St0), Rules};
         true ->
             St = check_rhs(tl(Symbols), St0),
-            Rule = Rule0#rule{anno = HeadAnno, symbols = names(Symbols)},
+            Rule = Rule0#rule{location = location(HeadAnno),
+                              symbols = names(Symbols)},
             {St, [Rule | Rules]}
     end.
 
@@ -797,7 +819,7 @@ check_rules(St0) ->
         [] ->
             add_error(no_grammar_rules, St);
         _ ->
-            Rule = #rule{anno = none,
+            Rule = #rule{location = none,
                          symbols = [?ACCEPT, St#yecc.rootsymbol],
                          tokens = []},
             Rules1 = [Rule | Rules0],
@@ -933,9 +955,9 @@ report_errors(St) ->
             foreach(fun({File,{none,Mod,E}}) -> 
                             io:fwrite(<<"~ts: ~ts\n">>,
                                       [File,Mod:format_error(E)]);
-                       ({File,{Line,Mod,E}}) -> 
-                            io:fwrite(<<"~ts:~w: ~ts\n">>,
-                                      [File,Line,Mod:format_error(E)])
+                       ({File,{Location,Mod,E}}) ->
+                            io:fwrite(<<"~ts:~s: ~ts\n">>,
+                                      [File,pos(Location),Mod:format_error(E)])
                     end, sort(St#yecc.errors));
         false -> 
             ok
@@ -954,14 +976,19 @@ report_warnings(St) ->
                             io:fwrite(<<"~ts: ~s~ts\n">>,
                                       [File,Prefix,
 				       Mod:format_error(W)]);
-                       ({File,{Line,Mod,W}}) -> 
-                            io:fwrite(<<"~ts:~w: ~s~ts\n">>,
-                                      [File,Line,Prefix,
+                       ({File,{Location,Mod,W}}) ->
+                            io:fwrite(<<"~ts:~s: ~s~ts\n">>,
+                                      [File,pos(Location),Prefix,
 				       Mod:format_error(W)])
                     end, sort(St#yecc.warnings));
         false -> 
             ok
     end.
+
+pos(Line) when is_integer(Line) ->
+    io_lib:format("~w", [Line]);
+pos({Line, Column}) when is_integer(Line), is_integer(Column) ->
+    io_lib:format("~w:~w", [Line, Column]).
 
 add_error(E, St) ->
     add_error(none, E, St).
@@ -1021,6 +1048,9 @@ add_roberts_dot([{'dot', Anno} | _], _) ->
 add_roberts_dot([Token | Tokens], _) ->
     [Token | add_roberts_dot(Tokens, element(2, Token))].
 
+-define(PSEUDO_PREFIX, "___").
+-define(PSEUDO_VAR_1, '___1').
+
 subst_pseudo_vars([], _, St) ->
     {[], St};
 subst_pseudo_vars([H0 | T0], NmbrOfDaughters, St0) ->
@@ -1032,7 +1062,9 @@ subst_pseudo_vars({atom, Anno, Atom}, NmbrOfDaughters, St0) ->
         [$$ | Rest] ->
             try list_to_integer(Rest) of
                 N when N > 0, N =< NmbrOfDaughters ->
-                    {{var, Anno, list_to_atom(append("__", Rest))}, St0};
+                    PseudoVarName = append(?PSEUDO_PREFIX, Rest),
+                    NewAnno = erl_anno:set_text(PseudoVarName, Anno),
+                    {{var, NewAnno, list_to_atom(PseudoVarName)}, St0};
                 _ ->
                     St = add_error(Anno,
                                    {undefined_pseudo_variable, Atom},
@@ -1559,13 +1591,13 @@ compute_parse_actions1([#item{rule_pointer = RulePointer,
         [] ->
             Lookahead = decode_terminals(Lookahead0, St#yecc.inv_symbol_tab),
             case rule(RulePointer, St) of
-                {[?ACCEPT | _], _RuleLine, _} ->
+                {[?ACCEPT | _], _RuleLocation, _} ->
                     [{Lookahead, accept}
                      | compute_parse_actions1(Items, N, St)];
                 %% Head is placed after the daughters when finding the
                 %% precedence. This is how giving precedence to
                 %% non-terminals takes effect.
-                {[Head | Daughters0], _RuleLine, _} ->
+                {[Head | Daughters0], _RuleLocation, _} ->
                     Daughters = delete('$empty', Daughters0),
                     [{Lookahead,
                       #reduce{rule_nmbr = RulePointer, head = Head, 
@@ -1577,7 +1609,7 @@ compute_parse_actions1([#item{rule_pointer = RulePointer,
             case is_terminal(St#yecc.symbol_tab, Symbol) of
                 true ->
                     DecSymbol = decode_symbol(Symbol, St#yecc.inv_symbol_tab),
-                    {[Head | _], _RuleLine, _} = rule(RulePointer, St),
+                    {[Head | _], _RuleLocation, _} = rule(RulePointer, St),
                     %% A bogus shift-shift conflict can be introduced
                     %% here if some terminal occurs in different rules
                     %% which have been given precedence "one level up".
@@ -1912,17 +1944,17 @@ conflict(#shift{prec = Prec1, rule_nmbr = RuleNmbr1},
     {Symbol, N, Confl, Confl};
 conflict(#reduce{rule_nmbr = RuleNmbr1}, NewAction, Cxt) ->
     #cxt{terminal = Symbol, state_n = N, yecc = St} = Cxt,
-    {R1, RuleLine1, RuleN1} = rule(RuleNmbr1, St),
+    {R1, RuleLocation1, RuleN1} = rule(RuleNmbr1, St),
     Confl = case NewAction of
                 accept -> 
                     {accept, St#yecc.rootsymbol};
                 #reduce{rule_nmbr = RuleNmbr2} -> 
-                    {R2, RuleLine2, RuleN2} = rule(RuleNmbr2, St),
-                    {reduce, R2, RuleN2, RuleLine2};
+                    {R2, RuleLocation2, RuleN2} = rule(RuleNmbr2, St),
+                    {reduce, R2, RuleN2, RuleLocation2};
                 #shift{state = NewState} ->
                     {shift, NewState, last(R1)}
             end,
-    {Symbol, N, {R1, RuleN1, RuleLine1}, Confl}.
+    {Symbol, N, {R1, RuleN1, RuleLocation1}, Confl}.
 
 format_conflict({Symbol, N, _, {one_level_up, 
                                 {L1, RuleN1, {P1, Ass1}}, 
@@ -1930,28 +1962,28 @@ format_conflict({Symbol, N, _, {one_level_up,
     S1 = io_lib:fwrite(<<"Conflicting precedences of symbols when "
                          "scanning ~ts in state ~w:\n">>, 
                        [format_symbol(Symbol), N]),
-    S2 = io_lib:fwrite(<<"   ~s ~w (rule ~w at line ~w)\n"
+    S2 = io_lib:fwrite(<<"   ~s ~w (rule ~w ~s)\n"
                           "      vs.\n">>,
-                       [format_assoc(Ass1), P1, RuleN1, L1]),
-    S3 = io_lib:fwrite(<<"   ~s ~w (rule ~w at line ~w)\n">>, 
-                       [format_assoc(Ass2), P2, RuleN2, L2]),
+                       [format_assoc(Ass1), P1, RuleN1, rule_pos(L1)]),
+    S3 = io_lib:fwrite(<<"   ~s ~w (rule ~w ~s)\n">>,
+                       [format_assoc(Ass2), P2, RuleN2, rule_pos(L2)]),
     [S1, S2, S3];
 format_conflict({Symbol, N, Reduce, Confl}) ->
     S1 = io_lib:fwrite(<<"Parse action conflict scanning symbol "
                          "~ts in state ~w:\n">>, [format_symbol(Symbol), N]),
     S2 = case Reduce of
-             {[HR | TR], RuleNmbr, RuleLine} ->
-                 io_lib:fwrite(<<"   Reduce to ~ts from ~ts (rule ~w at "
-                                 "line ~w)\n      vs.\n">>,
+             {[HR | TR], RuleNmbr, RuleLocation} ->
+                 io_lib:fwrite(<<"   Reduce to ~ts from ~ts (rule ~w "
+                                 "~s)\n      vs.\n">>,
                                [format_symbol(HR), format_symbols(TR), 
-                                RuleNmbr, RuleLine])
+                                RuleNmbr, rule_pos(RuleLocation)])
          end,
     S3 = case Confl of 
-             {reduce, [HR2|TR2], RuleNmbr2, RuleLine2} ->
+             {reduce, [HR2|TR2], RuleNmbr2, RuleLocation2} ->
                  io_lib:fwrite(<<"   reduce to ~ts from ~ts "
-                                 "(rule ~w at line ~w).">>,
+                                 "(rule ~w ~s).">>,
                                [format_symbol(HR2), format_symbols(TR2), 
-                                RuleNmbr2, RuleLine2]);
+                                RuleNmbr2, rule_pos(RuleLocation2)]);
              {shift, NewState, Sym} ->
                  io_lib:fwrite(<<"   shift to state ~w, adding right "
                                  "sisters to ~ts.">>,
@@ -1961,6 +1993,11 @@ format_conflict({Symbol, N, Reduce, Confl}) ->
                                [format_symbol(Rootsymbol)])
          end,
     [S1, S2, S3].
+
+rule_pos(Line) when is_integer(Line) ->
+    io_lib:format("at line ~w", [Line]);
+rule_pos({Line, Column}) when is_integer(Line), is_integer(Column) ->
+    io_lib:format("at location ~w:~w", [Line, Column]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Code generation:
@@ -2107,7 +2144,7 @@ find_user_code(ParseActions, St) ->
         {Action, Terminals, RuleNmbr, NmbrOfDaughters} 
             <- find_user_code2(La_actions),
         case tokens(RuleNmbr, St) of
-            [{var, _, '__1'}] -> NmbrOfDaughters =/= 1;
+            [{var, _, ?PSEUDO_VAR_1}] -> NmbrOfDaughters =/= 1;
             _ -> true
         end,
         Terminal <- Terminals].
@@ -2273,7 +2310,7 @@ output_reduce(St0, State, Terminal,
                 fwrite(St20, <<" [~s|Nss] = Ss,\n">>, [Tmp])
         end,
     St40 = case tokens(RuleNmbr, St30) of
-               [{var, _, '__1'}] when NmbrOfDaughters =:= 1 ->
+               [{var, _, ?PSEUDO_VAR_1}] when NmbrOfDaughters =:= 1 ->
                    NewStack = "Stack",
                    St30;
                _ ->
@@ -2355,14 +2392,14 @@ output_inlined(St0, FunctionName, Reduce, Infile) ->
                    St30;
                _ -> 
                    Stack = "__Stack",
-                   A = concat(flatmap(fun(I) -> [",__",I] end, 
+                   A = concat(flatmap(fun(I) -> [",",?PSEUDO_PREFIX,I] end,
                                       lists:seq(N_daughters, 1, -1))),
                    fwrite(St30, <<" ~s = __Stack0,\n">>, 
                           [append(["[", tl(A), " | __Stack]"])])
            end,
     St = St40#yecc{line = St40#yecc.line + NLines},
-    fwrite(St, <<" [begin\n  ~ts\n  end | ~s].\n\n">>,
-           [pp_tokens(Tokens, Line0, St#yecc.encoding), Stack]).
+    fwrite(St, <<" [begin\n~ts\n  end | ~s].\n\n">>,
+           [pp_tokens(Tokens), Stack]).
 
 inlined_function_name(St, State, Terminal) ->
     End = case Terminal of
@@ -2376,9 +2413,9 @@ function_name(St, Name, Suf) ->
     list_to_atom(concat([Name, '_'] ++ [quoted_atom(St, Suf)])).
 
 rule(RulePointer, St) ->
-    #rule{n = N, anno = Anno, symbols = Symbols} =
+    #rule{n = N, location = Location, symbols = Symbols} =
         maps:get(RulePointer, St#yecc.rule_pointer2rule),
-    {Symbols, Anno, N}.
+    {Symbols, Location, N}.
 
 get_rule(RuleNmbr, St) ->
     maps:get(RuleNmbr, St#yecc.rule_pointer2rule).
@@ -2571,37 +2608,19 @@ parse_file(Epp) ->
     case epp:parse_erl_form(Epp) of
         {ok, {function,_Anno,yeccpars1,7,_Clauses}} ->
             {1,4};
-        {eof,_Line} ->
+        {eof,_Location} ->
             {1,1};
         _Form ->
             parse_file(Epp)
     end.
 
-%% Keeps the line breaks of the original code.
-pp_tokens(Tokens, Line0, Enc) ->
-    concat(pp_tokens1(Tokens, Line0, Enc, [])).
+%% Keeps the line breaks and the column numbers of the original code.
+pp_tokens(Tokens) ->
+    C = first_column(Tokens),
+    Indent = lists:duplicate(C - 1, $\s),
+    Text = lists:append([erl_anno:text(anno(T)) || T <- Tokens]),
+    [Indent, Text].
     
-pp_tokens1([], _Line0, _Enc, _T0) ->
-    [];
-pp_tokens1([T | Ts], Line0, Enc, T0) ->
-    Line = location(anno(T)),
-    [pp_sep(Line, Line0, T0), pp_symbol(T, Enc)|pp_tokens1(Ts, Line, Enc, T)].
-
-pp_symbol({var,_,Var}, _Enc) -> Var;
-pp_symbol({string,_,String}, latin1) ->
-    io_lib:write_string_as_latin1(String);
-pp_symbol({string,_,String}, _Enc) -> io_lib:write_string(String);
-pp_symbol({_,_,Symbol}, latin1) -> io_lib:fwrite(<<"~p">>, [Symbol]);
-pp_symbol({_,_,Symbol}, _Enc) -> io_lib:fwrite(<<"~tp">>, [Symbol]);
-pp_symbol({Symbol, _}, _Enc) -> Symbol.
-
-pp_sep(Line, Line0, T0) when Line > Line0 -> 
-    ["\n   " | pp_sep(Line - 1, Line0, T0)];
-pp_sep(_Line, _Line0, {'.',_}) -> 
-    "";
-pp_sep(_Line, _Line0, _T0) -> 
-    " ".
-
 set_encoding(#yecc{encoding = none}, Port) ->
     ok = io:setopts(Port, [{encoding, epp:default_encoding()}]);
 set_encoding(#yecc{encoding = E}, Port) ->
@@ -2618,15 +2637,26 @@ output_file_directive(St, Filename, Line) when St#yecc.file_attrs ->
 output_file_directive(St, _Filename, _Line) ->
     St.
 
+first_column(Tokens) ->
+    case erl_anno:column(anno(hd(Tokens))) of
+        undefined ->
+            1;
+        Column ->
+            Column
+    end.
+
 first_line(Tokens) ->
-    location(anno(hd(Tokens))).
+    line(anno(hd(Tokens))).
 
 last_line(Tokens) ->
-    location(anno(lists:last(Tokens))).
+    line(anno(lists:last(Tokens))).
+
+line(Anno) ->
+    erl_anno:line(Anno).
 
 location(none) -> none;
 location(Anno) ->
-    erl_anno:line(Anno).
+    erl_anno:location(Anno).
 
 anno(Token) ->
     element(2, Token).
@@ -2682,6 +2712,11 @@ format_symbol(Symbol) ->
         _ -> 
             io_lib:fwrite(<<"~tw">>, [Symbol])
     end.
+
+line_of_location(Line) when is_integer(Line) ->
+    Line;
+line_of_location({Line, Column}) when is_integer(Line), is_integer(Column) ->
+    Line.
 
 inverse(L) ->
     sort([{A,B} || {B,A} <- L]).

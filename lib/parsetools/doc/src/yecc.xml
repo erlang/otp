@@ -128,6 +128,12 @@
           <item>
             <p>Causes warnings to be treated as errors.</p>
           </item>
+          <tag><c>{error_location, column | line}</c>.</tag>
+          <item>If the value of this flag is <c>line</c>, the location
+            of warnings and errors is a line number. If the value
+            is <c>column</c>, the location includes a line number and
+            a column number. Default is <c>column</c>.
+          </item>
         </taglist>
         <p>Any of the Boolean options can be set to <c>true</c> by 
           stating the name of the option. For example, <c>verbose</c>

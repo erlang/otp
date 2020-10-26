@@ -25,15 +25,15 @@
 
 -spec parse(Tokens :: list()) -> yecc_ret().
 parse(Tokens) ->
-    yeccpars0(Tokens, {no_func, no_line}, 0, [], []).
+    yeccpars0(Tokens, {no_func, no_location}, 0, [], []).
 
 -spec parse_and_scan({function() | {atom(), atom()}, [_]}
                      | {atom(), atom(), [_]}) -> yecc_ret().
 parse_and_scan({F, A}) ->
-    yeccpars0([], {{F, A}, no_line}, 0, [], []);
+    yeccpars0([], {{F, A}, no_location}, 0, [], []);
 parse_and_scan({M, F, A}) ->
     Arity = length(A),
-    yeccpars0([], {{fun M:F/Arity, A}, no_line}, 0, [], []).
+    yeccpars0([], {{fun M:F/Arity, A}, no_location}, 0, [], []).
 
 -spec format_error(any()) -> [char() | list()].
 format_error(Message) ->
@@ -47,9 +47,9 @@ format_error(Message) ->
 %% To be used in grammar files to throw an error message to the parser
 %% toplevel. Doesn't have to be exported!
 -compile({nowarn_unused_function, return_error/2}).
--spec return_error(integer(), any()) -> no_return().
-return_error(Line, Message) ->
-    throw({error, {Line, ?MODULE, Message}}).
+-spec return_error(erl_anno:location(), any()) -> no_return().
+return_error(Location, Message) ->
+    throw({error, {Location, ?MODULE, Message}}).
 
 -define(CODE_VERSION, "1.4").
 
@@ -64,7 +64,7 @@ yeccpars0(Tokens, Tzr, State, States, Vstack) ->
             catch _:_ -> erlang:raise(error, Error, Stacktrace)
             end;
         %% Probably thrown from return_error/2:
-        throw: {error, {_Line, ?MODULE, _M}} = Error ->
+        throw: {error, {_Location, ?MODULE, _M}} = Error ->
             Error
     end.
 
@@ -81,22 +81,22 @@ yecc_error_type(function_clause, [{?MODULE,F,ArityOrArgs,_} | _]) ->
 
 yeccpars1([Token | Tokens], Tzr, State, States, Vstack) ->
     yeccpars2(State, element(1, Token), States, Vstack, Token, Tokens, Tzr);
-yeccpars1([], {{F, A},_Line}, State, States, Vstack) ->
+yeccpars1([], {{F, A},_Location}, State, States, Vstack) ->
     case apply(F, A) of
-        {ok, Tokens, Endline} ->
-            yeccpars1(Tokens, {{F, A}, Endline}, State, States, Vstack);
-        {eof, Endline} ->
-            yeccpars1([], {no_func, Endline}, State, States, Vstack);
-        {error, Descriptor, _Endline} ->
+        {ok, Tokens, EndLocation} ->
+            yeccpars1(Tokens, {{F, A}, EndLocation}, State, States, Vstack);
+        {eof, EndLocation} ->
+            yeccpars1([], {no_func, EndLocation}, State, States, Vstack);
+        {error, Descriptor, _EndLocation} ->
             {error, Descriptor}
     end;
-yeccpars1([], {no_func, no_line}, State, States, Vstack) ->
+yeccpars1([], {no_func, no_location}, State, States, Vstack) ->
     Line = 999999,
     yeccpars2(State, '$end', States, Vstack, yecc_end(Line), [],
               {no_func, Line});
-yeccpars1([], {no_func, Endline}, State, States, Vstack) ->
-    yeccpars2(State, '$end', States, Vstack, yecc_end(Endline), [],
-              {no_func, Endline}).
+yeccpars1([], {no_func, EndLocation}, State, States, Vstack) ->
+    yeccpars2(State, '$end', States, Vstack, yecc_end(EndLocation), [],
+              {no_func, EndLocation}).
 
 %% yeccpars1/7 is called from generated code.
 %%
@@ -107,21 +107,19 @@ yeccpars1([], {no_func, Endline}, State, States, Vstack) ->
 yeccpars1(State1, State, States, Vstack, Token0, [Token | Tokens], Tzr) ->
     yeccpars2(State, element(1, Token), [State1 | States],
               [Token0 | Vstack], Token, Tokens, Tzr);
-yeccpars1(State1, State, States, Vstack, Token0, [], {{_F,_A}, _Line}=Tzr) ->
+yeccpars1(State1, State, States, Vstack, Token0, [], {{_F,_A}, _Location}=Tzr) ->
     yeccpars1([], Tzr, State, [State1 | States], [Token0 | Vstack]);
-yeccpars1(State1, State, States, Vstack, Token0, [], {no_func, no_line}) ->
-    Line = yecctoken_end_location(Token0),
+yeccpars1(State1, State, States, Vstack, Token0, [], {no_func, no_location}) ->
+    Location = yecctoken_end_location(Token0),
     yeccpars2(State, '$end', [State1 | States], [Token0 | Vstack],
-              yecc_end(Line), [], {no_func, Line});
-yeccpars1(State1, State, States, Vstack, Token0, [], {no_func, Line}) ->
+              yecc_end(Location), [], {no_func, Location});
+yeccpars1(State1, State, States, Vstack, Token0, [], {no_func, Location}) ->
     yeccpars2(State, '$end', [State1 | States], [Token0 | Vstack],
-              yecc_end(Line), [], {no_func, Line}).
+              yecc_end(Location), [], {no_func, Location}).
 
 %% For internal use only.
-yecc_end({Line,_Column}) ->
-    {'$end', Line};
-yecc_end(Line) ->
-    {'$end', Line}.
+yecc_end(Location) ->
+    {'$end', Location}.
 
 yecctoken_end_location(Token) ->
     try erl_anno:end_location(element(2, Token)) of
