@@ -373,6 +373,14 @@ do_op_test(F) ->
 					    (_) -> [] end, MyQ4)),
     [33,44] = queue:to_list(queue:filter(fun(X) when X < 27 -> false;
 					    (X) -> [X] end, MyQ4)),
+    [11,22*22,33*33] = queue:to_list(queue:filtermap(fun(X) when X < 17 -> true;
+							(X) when X > 37 -> false;
+							(X) -> {true, X*X}
+						     end, MyQ4)),
+    [22*22,33*33,44] = queue:to_list(queue:filtermap(fun(X) when X < 17 -> false;
+							(X) when X > 37 -> true;
+							(X) -> {true, X*X}
+						     end, MyQ4)),
     FoldQ = queue:from_list(L1),
     FoldExp1 = lists:sum(L1),
     FoldAct1 = queue:fold(fun(X,A) -> X+A end, 0, FoldQ),

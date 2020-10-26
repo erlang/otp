@@ -27,7 +27,7 @@
 -export([get/1,get_r/1,peek/1,peek_r/1,drop/1,drop_r/1]).
 
 %% Higher level API
--export([reverse/1,join/2,split/2,filter/2,fold/3]).
+-export([reverse/1,join/2,split/2,filter/2,filtermap/2,fold/3]).
 
 %% Okasaki API from klacke
 -export([cons/2,head/1,tail/1,
@@ -400,6 +400,42 @@ filter_r(Fun, [X|R0]) ->
 	    R;
 	L when is_list(L) ->
 	    lists:reverse(L, R)
+    end.
+
+%% Filter and map a queue, traverses in queue order.
+%%
+%% O(len(Q1))
+-spec filtermap(Fun, Q1) -> Q2 when
+      Fun :: fun((Item) -> boolean() | {'true', Value}),
+      Q1 :: queue(Item),
+      Q2 :: queue(Item | Value),
+      Item :: term(),
+      Value :: term().
+filtermap(Fun, {R0, F0}) when is_function(Fun, 1), is_list(R0), is_list(F0) ->
+    F = lists:filtermap(Fun, F0),
+    R = filtermap_r(Fun, R0),
+    if R =:= [] ->
+	    f2r(F);
+       F =:= [] ->
+	    r2f(R);
+       true ->
+	    {R,F}
+    end;
+filtermap(Fun, Q) ->
+    erlang:error(badarg, [Fun,Q]).
+
+%% Call Fun in reverse order, i.e tail to head
+filtermap_r(_, []) ->
+    [];
+filtermap_r(Fun, [X|R0]) ->
+    R = filtermap_r(Fun, R0),
+    case Fun(X) of
+	true ->
+	    [X|R];
+	{true, Y} ->
+	    [Y|R];
+	false ->
+	    R
     end.
 
 %% Fold a function over a queue, in queue order.
