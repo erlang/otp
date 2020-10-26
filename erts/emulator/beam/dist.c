@@ -2016,16 +2016,22 @@ int erts_net_message(Port *prt,
                                                  from, to);
             ASSERT(ldp->a.other.item == to);
             ASSERT(eq(ldp->b.other.item, from));
-            code = erts_link_dist_insert(&ldp->a, dep->mld);
-            ASSERT(code);
 
-            if (erts_proc_sig_send_link(NULL, to, &ldp->b))
-                break; /* done */
+            code = erts_link_dist_insert(&ldp->a, ede.mld);
+            if (erts_proc_sig_send_link(NULL, to, &ldp->b)) {
+                if (!code) {
+                    /* Race: connection already down => send link exit */
+                    erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+                                                 am_noconnection, NIL);
+                }
+                break; /* Done */
+            }
 
             /* Failed to send signal; cleanup and reply noproc... */
-
-            code = erts_link_dist_delete(&ldp->a);
-            ASSERT(code);
+            if (code) {
+                code = erts_link_dist_delete(&ldp->a);
+                ASSERT(code);
+            }
             erts_link_release_both(ldp);
         }
 
@@ -2105,8 +2111,11 @@ int erts_net_message(Port *prt,
             mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC,
                                       ref, watcher, pid, name);
 
-            code = erts_monitor_dist_insert(&mdp->origin, dep->mld);
-            ASSERT(code); (void)code;
+            if (!erts_monitor_dist_insert(&mdp->origin, ede.mld)) {
+                /* Race: connection down => do nothing */
+                erts_monitor_release_both(mdp);
+                break;
+            }
 
             if (erts_proc_sig_send_monitor(&mdp->target, pid))
                 break; /* done */
@@ -2156,16 +2165,17 @@ int erts_net_message(Port *prt,
             ;
         }
         else if (is_atom(watched)) {
-            ErtsMonLnkDist *mld = dep->mld;
             ErtsMonitor *mon;
 
-            erts_mtx_lock(&mld->mtx);
-
-            mon = erts_monitor_tree_lookup(mld->orig_name_monitors, ref);
-            if (mon)
-                erts_monitor_tree_delete(&mld->orig_name_monitors, mon);
-
-            erts_mtx_unlock(&mld->mtx);
+            erts_mtx_lock(&ede.mld->mtx);
+            if (ede.mld->alive) {
+                mon = erts_monitor_tree_lookup(ede.mld->orig_name_monitors, ref);
+                if (mon)
+                    erts_monitor_tree_delete(&ede.mld->orig_name_monitors, mon);
+            }
+            else
+                mon = NULL;
+            erts_mtx_unlock(&ede.mld->mtx);
 
             if (mon)
                 erts_proc_sig_send_demonitor(mon);
