@@ -1704,7 +1704,7 @@ b</pre>
           <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
           is a list of the functions most recently called (the current
           function first). <c><anno>Args</anno></c> is expected to be the
-          list of arguments for the current function; in Beam it is used
+          list of arguments for the current function; it is used
           to provide the arguments for the current function in
           the term <c>Where</c>. As evaluating this function causes
           an exception to be raised, it has no return value.
